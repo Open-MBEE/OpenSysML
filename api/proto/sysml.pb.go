@@ -15317,7 +15317,9 @@ type RenderNode struct {
 	// Set on an item box drawn on a connection line (a flow, succession flow or
 	// message whose ends are the connection's): "right" when the item goes toward
 	// the line's second end, "left" toward its first. Empty for every other node.
-	Arrow         string `protobuf:"bytes,16,opt,name=arrow,proto3" json:"arrow,omitempty"`
+	Arrow string `protobuf:"bytes,16,opt,name=arrow,proto3" json:"arrow,omitempty"`
+	// The state's substates run in parallel; a label writes «parallel» under the name.
+	Parallel      bool `protobuf:"varint,17,opt,name=parallel,proto3" json:"parallel,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -15462,6 +15464,13 @@ func (x *RenderNode) GetArrow() string {
 		return x.Arrow
 	}
 	return ""
+}
+
+func (x *RenderNode) GetParallel() bool {
+	if x != nil {
+		return x.Parallel
+	}
+	return false
 }
 
 // RenderPort is a feature drawn on a node's border.
@@ -18905,7 +18914,7 @@ const file_sysml_proto_rawDesc = "" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\x18\n" +
 	"\aexposes\x18\x03 \x03(\tR\aexposes\x12\x18\n" +
 	"\afilters\x18\x04 \x03(\tR\afilters\x12 \n" +
-	"\vannotations\x18\x05 \x03(\tR\vannotations\"\xe3\x03\n" +
+	"\vannotations\x18\x05 \x03(\tR\vannotations\"\xff\x03\n" +
 	"\n" +
 	"RenderNode\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
@@ -18924,7 +18933,8 @@ const file_sysml_proto_rawDesc = "" +
 	"\x05style\x18\r \x01(\v2\x12.sysml.RenderStyleR\x05style\x12 \n" +
 	"\vcompartment\x18\x0e \x01(\tR\vcompartment\x12\x1c\n" +
 	"\tinherited\x18\x0f \x01(\bR\tinherited\x12\x14\n" +
-	"\x05arrow\x18\x10 \x01(\tR\x05arrow\"\x80\x01\n" +
+	"\x05arrow\x18\x10 \x01(\tR\x05arrow\x12\x1a\n" +
+	"\bparallel\x18\x11 \x01(\bR\bparallel\"\x80\x01\n" +
 	"\n" +
 	"RenderPort\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +

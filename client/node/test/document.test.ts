@@ -58,8 +58,10 @@ test("rendered view decoder preserves wire fields and message presence", () => {
       type: "Demo::Part",
       detail: "detail",
       text: "text",
+      arrow: "left",
       standIn: true,
       inherited: true,
+      parallel: true,
       parent: "",
       ports: [{ id: "n0.0", name: "api", type: "Demo::API", direction: "inout", inherited: true }],
       origin: { file: "views.sysml", startLine: 4 },
@@ -90,6 +92,8 @@ test("rendered view decoder preserves wire fields and message presence", () => {
   assert.equal(rendered.nodes[0]?.nameSynthesized, true);
   assert.equal(rendered.nodes[0]?.ports[0]?.direction, "inout");
   assert.equal(rendered.nodes[0]?.inherited, true);
+  assert.equal(rendered.nodes[0]?.arrow, "left");
+  assert.equal(rendered.nodes[0]?.parallel, true);
   assert.equal(rendered.nodes[0]?.ports[0]?.inherited, true);
   assert.equal(rendered.nodes[0]?.origin?.startLine, 4);
   assert.equal(rendered.nodes[0]?.geometry?.collapsed, true);

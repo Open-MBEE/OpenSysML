@@ -73,6 +73,18 @@ type Adjudication struct {
 	Evidence
 }
 
+// The evidence several rows share: the sites and goldens named more than once.
+const (
+	compartmentNameSite   = "internal/ir/view/compartments.go:compartmentName"
+	goldenRenderingsTest  = "internal/ir/view/render_test.go:TestGoldenRenderings"
+	dotEdgeAttributesSite = "internal/ir/view/dot.go:dotEdgeAttributes"
+	sequenceRenderingTest = "internal/ir/view/sequence_test.go:TestSequenceRenderingDrawsLifelinesAndMessages"
+	stateGolden           = "internal/ir/view/testdata/state.dot.golden"
+	actionFormsGolden     = "internal/ir/view/testdata/action-forms.dot.golden"
+	actionGolden          = "internal/ir/view/testdata/action.dot.golden"
+	caseGolden            = "internal/ir/view/testdata/case.dot.golden"
+)
+
 var (
 	goldenForms     = []string{FormDOT, FormPlantUML, FormMermaid, FormText}
 	controlForms    = []string{FormDOT, FormMermaid, FormDrawio, FormCanvas}
@@ -85,45 +97,45 @@ var (
 	annotationForms = []string{FormDOT, FormPlantUML, FormMermaid, FormD2, FormDrawio, FormText}
 
 	keywordBox   = Evidence{"internal/ir/view/label.go:keyword", goldenForms, "internal/ir/view/label_test.go:TestLabelLines"}
-	compartments = Evidence{"internal/ir/view/compartments.go:compartmentName", goldenForms, "internal/ir/view/suppressed_compartments_test.go:TestGoldenSuppressedCompartments"}
+	compartments = Evidence{compartmentNameSite, goldenForms, "internal/ir/view/suppressed_compartments_test.go:TestGoldenSuppressedCompartments"}
 	// The headings the figures spell otherwise than by the keyword's plural, and the ends compartment.
-	headings     = Evidence{"internal/ir/view/compartments.go:compartmentName", goldenForms, "internal/ir/view/render_test.go:TestGoldenRenderings"}
-	variants     = Evidence{"internal/ir/view/compartments.go:compartmentName", goldenForms, "internal/ir/view/tree_compartments_test.go:TestTreeCompartmentVariantForms"}
-	ends         = Evidence{"internal/ir/view/view.go:declKind", goldenForms, "internal/ir/view/render_test.go:TestGoldenRenderings"}
+	headings     = Evidence{compartmentNameSite, goldenForms, goldenRenderingsTest}
+	variants     = Evidence{compartmentNameSite, goldenForms, "internal/ir/view/tree_compartments_test.go:TestTreeCompartmentVariantForms"}
+	ends         = Evidence{"internal/ir/view/view.go:declKind", goldenForms, goldenRenderingsTest}
 	ellipsis     = Evidence{"internal/ir/view/compartments.go:compartmentEntries", []string{FormDOT, FormPlantUML, FormMermaid, FormD2, FormDrawio, FormText}, "internal/ir/view/elided_rows_test.go:TestElidedCompartmentsCarryTheEllipsis"}
-	figureWords  = Evidence{"internal/ir/view/view.go:figureKeyword", goldenForms, "internal/ir/view/render_test.go:TestGoldenRenderings"}
-	extendedKind = Evidence{"internal/ir/view/view.go:extendedKind", goldenForms, "internal/ir/view/render_test.go:TestGoldenRenderings"}
+	figureWords  = Evidence{"internal/ir/view/view.go:figureKeyword", goldenForms, goldenRenderingsTest}
+	extendedKind = Evidence{"internal/ir/view/view.go:extendedKind", goldenForms, goldenRenderingsTest}
 	greyed       = Evidence{"internal/ir/view/compartments.go:compartmentEntries", []string{FormDOT, FormPlantUML, FormMermaid}, "internal/ir/view/elided_rows_test.go:TestGreyedRowsMarkFoldedEdgeEnds"}
 	controlNode  = Evidence{"internal/ir/view/dot.go:dotSymbolAttributes", controlForms, "internal/ir/view/testdata/state-pseudostates.mermaid.golden"}
-	tableEdge    = Evidence{"internal/ir/view/dot.go:dotEdgeAttributes", edgeForms, "internal/ir/view/notation_table_test.go:TestNotationTableMatchesTheWriters"}
+	tableEdge    = Evidence{dotEdgeAttributesSite, edgeForms, "internal/ir/view/notation_table_test.go:TestNotationTableMatchesTheWriters"}
 	pins         = Evidence{"internal/ir/view/dot_ports.go:placePorts", pinForms, "internal/ir/view/action_pins_test.go:TestDOTActionFramePins"}
 	boundaryPort = Evidence{"internal/ir/view/dot_ports.go:placePorts", pinForms, "internal/ir/view/testdata/interconnection-ports.dot.golden"}
-	sequence     = Evidence{"internal/ir/view/sequence.go:renderSequence", seqForms, "internal/ir/view/sequence_test.go:TestSequenceRenderingDrawsLifelinesAndMessages"}
+	sequence     = Evidence{"internal/ir/view/sequence.go:renderSequence", seqForms, sequenceRenderingTest}
 	stateActions = Evidence{"internal/ir/view/behavior.go:stateActionCompartments", goldenForms, "internal/ir/view/dot_cameo_test.go:TestDOTStateBehaviourNames"}
 	stateActNode = Evidence{"internal/ir/view/behavior.go:stateActionNodes", goldenForms, "internal/ir/view/testdata/state-forms.dot.golden"}
-	stateTransit = Evidence{"internal/ir/view/behavior.go:stateMachineNode", goldenForms, "internal/ir/view/testdata/state.dot.golden"}
-	stateActComp = Evidence{"internal/ir/view/compartments.go:compartmentName", goldenForms, "internal/ir/view/tree_state_compartments_test.go:TestGoldenTreeStateCompartments"}
+	stateTransit = Evidence{"internal/ir/view/behavior.go:stateMachineNode", goldenForms, stateGolden}
+	stateActComp = Evidence{compartmentNameSite, goldenForms, "internal/ir/view/tree_state_compartments_test.go:TestGoldenTreeStateCompartments"}
 	successions  = Evidence{"internal/ir/view/tree.go:successionText", goldenForms, "internal/ir/view/tree_state_compartments_test.go:TestGoldenTreeStateCompartments"}
 	parallelMark = Evidence{"internal/ir/view/label.go:parallel", goldenForms, "internal/ir/view/testdata/state-pseudostates.mermaid.golden"}
-	actionForms  = Evidence{"internal/ir/view/behavior_forms.go:statementNodeKind", goldenForms, "internal/ir/view/testdata/action-forms.dot.golden"}
-	compoundBody = Evidence{"internal/ir/view/behavior_forms.go:compoundCompartments", goldenForms, "internal/ir/view/testdata/action-forms.dot.golden"}
-	actionFlow   = Evidence{"internal/ir/view/behavior.go:flowNodes", goldenForms, "internal/ir/view/testdata/action.dot.golden"}
-	elseBranch   = Evidence{"internal/ir/view/behavior.go:successionLabel", edgeForms, "internal/ir/view/testdata/action-forms.dot.golden"}
+	actionForms  = Evidence{"internal/ir/view/behavior_forms.go:statementNodeKind", goldenForms, actionFormsGolden}
+	compoundBody = Evidence{"internal/ir/view/behavior_forms.go:compoundCompartments", goldenForms, actionFormsGolden}
+	actionFlow   = Evidence{"internal/ir/view/behavior.go:flowNodes", goldenForms, actionGolden}
+	elseBranch   = Evidence{"internal/ir/view/behavior.go:successionLabel", edgeForms, actionFormsGolden}
 	terminateX   = Evidence{"internal/ir/view/dot.go:dotTerminateAttributes", controlForms, "internal/ir/view/dot_fit_test.go:TestDOTSymbolsInStatedBoxes"}
-	pinArrows    = Evidence{"internal/ir/view/ports.go:pinArrow", []string{FormDOT, FormDrawio, FormCanvas}, "internal/ir/view/testdata/action.dot.golden"}
-	transition   = Evidence{"internal/ir/view/behavior.go:transitionLabel", goldenForms, "internal/ir/view/testdata/state.dot.golden"}
+	pinArrows    = Evidence{"internal/ir/view/ports.go:pinArrow", []string{FormDOT, FormDrawio, FormCanvas}, actionGolden}
+	transition   = Evidence{"internal/ir/view/behavior.go:transitionLabel", goldenForms, stateGolden}
 	endLabels    = Evidence{"internal/ir/view/tree_edges.go:drawAssociation", edgeForms, "internal/ir/view/edge_ends_test.go:TestEndNamesAreSetAtTheirEnd"}
 	multiplicity = Evidence{"internal/ir/view/tree_edges.go:usageMultiplicity", edgeForms, "internal/ir/view/tree_edges_test.go:TestTreeMultiplicityBoundsAreSpelledWithoutSourceText"}
-	edgeLabel    = Evidence{"internal/ir/view/dot.go:dotEdgeAttributes", edgeForms, "internal/ir/view/notation_test.go:TestEdgeLabelsAreShownWhenAsked"}
+	edgeLabel    = Evidence{dotEdgeAttributesSite, edgeForms, "internal/ir/view/notation_test.go:TestEdgeLabelsAreShownWhenAsked"}
 	flowLabel    = Evidence{"internal/ir/view/interconnection.go:connectorLabel", edgeForms, "internal/ir/view/testdata/interconnection.dot.golden"}
-	messageLabel = Evidence{"internal/ir/view/sequence.go:messageLabel", seqForms, "internal/ir/view/sequence_test.go:TestSequenceRenderingDrawsLifelinesAndMessages"}
+	messageLabel = Evidence{"internal/ir/view/sequence.go:messageLabel", seqForms, sequenceRenderingTest}
 	message      = Evidence{"internal/ir/view/sequence.go:messages", seqForms, "internal/ir/view/testdata/sequence.plantuml.golden"}
 	sqSuccession = Evidence{"internal/ir/view/sequence.go:successions", seqForms, "internal/ir/view/sequence_test.go:TestSequenceRenderingPlacesSuccessionsBetweenTheirMessages"}
-	sqProxy      = Evidence{"internal/ir/view/sequence.go:end", proxyForms, "internal/ir/view/sequence_test.go:TestSequenceRenderingDrawsLifelinesAndMessages"}
+	sqProxy      = Evidence{"internal/ir/view/sequence.go:end", proxyForms, sequenceRenderingTest}
 	sqPort       = Evidence{"internal/ir/view/sequence.go:end", seqPortForms, "internal/ir/view/sequence_test.go:TestSequenceRenderingReportsWhatItCannotShow"}
-	eventBox     = Evidence{"internal/ir/view/view.go:declKind", goldenForms, "internal/ir/view/sequence_test.go:TestSequenceRenderingDrawsLifelinesAndMessages"}
-	individuals  = Evidence{"internal/ir/view/compartments.go:compartmentName", goldenForms, "internal/ir/view/inherited_prefix_test.go:TestCompartmentRowsCollectIndividuals"}
-	roleNode     = Evidence{"internal/ir/view/case.go:roleNode", goldenForms, "internal/ir/view/testdata/case.dot.golden"}
+	eventBox     = Evidence{"internal/ir/view/view.go:declKind", goldenForms, sequenceRenderingTest}
+	individuals  = Evidence{compartmentNameSite, goldenForms, "internal/ir/view/inherited_prefix_test.go:TestCompartmentRowsCollectIndividuals"}
+	roleNode     = Evidence{"internal/ir/view/case.go:roleNode", goldenForms, caseGolden}
 	naryForms    = []string{FormDOT, FormPlantUML, FormMermaid, FormD2, FormDrawio, FormCanvas, FormText, FormSVG}
 	connDot      = Evidence{"internal/ir/view/interconnection.go:naryConnection", naryForms, "internal/ir/view/nary_test.go:TestNaryConnectionIsADotWithASegmentPerEnd"}
 	defDot       = Evidence{"internal/ir/view/tree_edges.go:drawAssociationDot", naryForms, "internal/ir/view/nary_test.go:TestNaryDependencyAndConnectionDefAreDots"}
@@ -141,8 +153,8 @@ var (
 	views          = map[string]Evidence{
 		"general-view":          {"internal/ir/view/general.go:renderGeneral", goldenForms, "internal/ir/view/testdata/general-definition.dot.golden"},
 		"interconnection-view":  {"internal/ir/view/interconnection.go:renderInterconnection", goldenForms, "internal/ir/view/testdata/interconnection.dot.golden"},
-		"action-flow-view":      {"internal/ir/view/behavior.go:renderActions", goldenForms, "internal/ir/view/testdata/action.dot.golden"},
-		"state-transition-view": {"internal/ir/view/behavior.go:renderStates", goldenForms, "internal/ir/view/testdata/state.dot.golden"},
+		"action-flow-view":      {"internal/ir/view/behavior.go:renderActions", goldenForms, actionGolden},
+		"state-transition-view": {"internal/ir/view/behavior.go:renderStates", goldenForms, stateGolden},
 		"sequence-view":         sequence,
 	}
 )
@@ -323,7 +335,7 @@ func buildTable() map[string]Adjudication {
 	set(drawn(CategoryNode, keywordBox), "connection", "interface", "allocation", "flow-node")
 	set(drawn(CategoryCompartment, keywordBox), "connection-name-compartment", "interface-name-compartment", "allocation-name-compartment", "flow-name-compartment")
 	set(approximate(CategoryNode, "a box headed «actor» in DOT, Mermaid and the text form; PlantUML (`actor`, plantuml.go writeCaseMixedNode) and draw.io (plainStyle umlActor) draw the stick figure",
-		Evidence{"internal/ir/view/drawio.go:plainStyle", []string{FormDOT, FormPlantUML, FormMermaid, FormDrawio, FormText}, "internal/ir/view/testdata/case.dot.golden"}), "actor")
+		Evidence{"internal/ir/view/drawio.go:plainStyle", []string{FormDOT, FormPlantUML, FormMermaid, FormDrawio, FormText}, caseGolden}), "actor")
 	set(drawn(CategoryLabel, roleNode), "subject-name", "actor-name", "stakeholder-name")
 
 	// Compartments the renderers head as the figure does.

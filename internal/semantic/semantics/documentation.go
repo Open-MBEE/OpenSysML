@@ -63,6 +63,53 @@ func (m *Model) DocumentationOf(sym *symbols.Symbol) []string {
 	return bodies
 }
 
+// TextualRepresentationOf reads Element::textualRepresentation (KerML 1.1
+// §8.3.2.3): TextualRepresentation::body of each `rep` the element owns, in
+// declaration order and exact. A blank or unreadable body is left out.
+func (m *Model) TextualRepresentationOf(sym *symbols.Symbol) []string {
+	if m == nil || sym == nil || m.sourceText == nil {
+		return nil
+	}
+	var bodies []string
+	for _, rep := range m.annotationSymbols(sym, symbols.SymbolTextualRepresentation) {
+		decl, ok := rep.Decl.(*ast.TextualRepresentation)
+		if !ok {
+			continue
+		}
+		if body := m.commentBody(rep, decl.BodySpan); body != "" {
+			bodies = append(bodies, body)
+		}
+	}
+	return bodies
+}
+
+// AnnotationBodyOf is Comment::body or TextualRepresentation::body of the
+// comment, documentation or textual representation sym declares, exact
+// (source.CommentBody) and "" for an empty one; false for any other element
+// or when the notation of its document cannot be read.
+func (m *Model) AnnotationBodyOf(sym *symbols.Symbol) (string, bool) {
+	if m == nil || sym == nil || m.sourceText == nil {
+		return "", false
+	}
+	var span source.Span
+	switch decl := sym.Decl.(type) {
+	case *ast.Comment:
+		span = decl.BodySpan
+	case *ast.Documentation:
+		span = decl.BodySpan
+	case *ast.TextualRepresentation:
+		span = decl.BodySpan
+	default:
+		return "", false
+	}
+	// A body token is at least `/**/`, so an empty read is a document the lookup lacks.
+	raw := m.sourceText(sym.DocName, span)
+	if raw == "" {
+		return "", false
+	}
+	return source.CommentBody(raw), true
+}
+
 // commentBody is Comment::body of the comment or documentation sym declares
 // (source.CommentBody), "" when the notation cannot be read.
 func (m *Model) commentBody(sym *symbols.Symbol, span source.Span) string {
@@ -81,18 +128,24 @@ func (m *Model) documentationProse(sym *symbols.Symbol, span source.Span) string
 
 // documentationSymbols lists the `doc` members sym declares, in order, each once.
 func (m *Model) documentationSymbols(sym *symbols.Symbol) []*symbols.Symbol {
+	return m.annotationSymbols(sym, symbols.SymbolDocumentation)
+}
+
+// annotationSymbols lists the members of one annotating kind sym declares, in
+// order, each once; an alias reads its target's.
+func (m *Model) annotationSymbols(sym *symbols.Symbol, kind symbols.SymbolKind) []*symbols.Symbol {
 	if target, ok := m.resolver.ResolveAliasTarget(sym); ok {
 		sym = target
 	}
 	if sym.Scope == nil {
 		return nil
 	}
-	var docs []*symbols.Symbol
+	var found []*symbols.Symbol
 	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
-		if member.Kind == symbols.SymbolDocumentation && !slices.Contains(docs, member) {
-			docs = append(docs, member)
+		if member.Kind == kind && !slices.Contains(found, member) {
+			found = append(found, member)
 		}
 		return true
 	})
-	return docs
+	return found
 }
