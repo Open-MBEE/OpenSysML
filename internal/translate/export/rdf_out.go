@@ -612,6 +612,7 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 		regions:            map[rdf.Term]region{},
 		verifiedReferences: map[rdf.Term]bool{},
 		heads:              map[rdf.Term]*declarationHead{},
+		conjugateOriginals: map[string]rdf.Term{},
 		bodies:             map[rdf.Term]region{},
 		offsets:            map[string]int{},
 	}
@@ -708,6 +709,9 @@ type encoder struct {
 	// heads records each declaration head's clauses in the order the notation
 	// spelled them, for the order its relationship elements are owned in.
 	heads map[rdf.Term]*declarationHead
+	// conjugateOriginals is the port definition each ConjugatedPortDefinition a
+	// `: ~P` typing names here is the conjugate of, by the conjugate's IRI.
+	conjugateOriginals map[string]rdf.Term
 	// membershipImports are the membership imports, whose imported membership
 	// is written once every membership is minted.
 	membershipImports []membershipImport
@@ -3250,12 +3254,27 @@ func (e *encoder) relationships(subject rdf.Term, owner string, rels []*ast.Rela
 				continue
 			}
 			if name, ok := rel.Target.(*ast.QualifiedName); ok {
-				e.headRelationship(subject, kind, e.reference(name), rel)
+				object := e.reference(name)
+				if kind == ast.RelTyping && rel.Conjugated {
+					object = e.conjugateReference(object)
+				}
+				e.headRelationship(subject, kind, object, rel)
 				continue
 			}
 			e.headRelationship(subject, kind, rdf.TypedLiteral(e.text(rel.Target), rdf.OpenSysML+dtExpression), rel)
 		}
 	}
+}
+
+// conjugateReference is the type a `: ~P` typing names: the ConjugatedPortDefinition
+// minted beside P when P is an element here (SysML v2 8.3.12.3), else P as written.
+func (e *encoder) conjugateReference(target rdf.Term) rdf.Term {
+	if !target.IsIRI() {
+		return target
+	}
+	conjugate := e.ids.minted(rdf.RelationshipIRI(target, "_conjugated"), target, "_conjugated")
+	e.conjugateOriginals[conjugate.Value] = target
+	return conjugate
 }
 
 // headRelationship states one clause of subject's declaration head as the

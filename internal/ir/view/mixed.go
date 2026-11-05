@@ -606,7 +606,7 @@ func (w *mixedWalk) referenceEdges() {
 			}
 		}
 		if sym.Kind.IsFeature() && specialLabel == "" {
-			for _, target := range w.r.model.DeclaredTypes(sym) {
+			for _, target := range w.r.drawnTypes(sym) {
 				if target.Kind.IsDefinition() {
 					add(sym, target, EdgeTyping, "", sym, nil)
 				}

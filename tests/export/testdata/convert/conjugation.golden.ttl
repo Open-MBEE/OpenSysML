@@ -300,7 +300,7 @@ elmt:Conjugation__Ground__spacePort
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:conjugatedTyping "true"^^xsd:boolean ;
-    sysml:type elmt:Conjugation__CommunicationPort ;
+    sysml:type elmt:Conjugation__CommunicationPort_conjugated ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:multiplicity expr:Conjugation__Ground__spacePort_pmultiplicity ;
     sysml:ownedRelationship elmt:Conjugation__Ground__spacePort_ft0, expr:Conjugation__Ground__spacePort_pmultiplicity_om ;
@@ -482,7 +482,7 @@ elmt:Conjugation__Link__b
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:conjugatedTyping "true"^^xsd:boolean ;
-    sysml:type elmt:Conjugation__CommunicationPort ;
+    sysml:type elmt:Conjugation__CommunicationPort_conjugated ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:multiplicity expr:Conjugation__Link__b_pmultiplicity ;
     sysml:ownedRelationship elmt:Conjugation__Link__b_ft0, expr:Conjugation__Link__b_pmultiplicity_om ;

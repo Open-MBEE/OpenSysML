@@ -230,7 +230,7 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 99782 elements matched (18470 ours-only, 31543 pilot-only, 0 of them implied); properties: 1921680 present-equal, 128354 present-different, 322317 ours-missing, 77523 pilot-missing, 2124083 absent-both, 32770 indeterminate, 516 pilot-nondeterministic.
+**Scorecard:** 935 files; 99782 elements matched (18470 ours-only, 31543 pilot-only, 0 of them implied); properties: 1921738 present-equal, 128296 present-different, 322317 ours-missing, 77523 pilot-missing, 2124083 absent-both, 32770 indeterminate, 516 pilot-nondeterministic.
 
 Re-recorded on develop's individual-definition change (#1943: an `individual def`/`individual usage` is written as `OccurrenceDefinition`/`OccurrenceUsage` with `isIndividual`): 88 more elements match (99534 → 99622), and the 32 `OccurrenceDefinition` rows of the inherited family move from ours-missing to present-different for the causes the paragraph below already lists; no row grew.
 
@@ -240,13 +240,13 @@ The pilot's export failed on 59 files (`pilotFailed`: its own export throws on a
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 7973 | 1164 | 2193 | 156169 | 11579 | 21958 | 5615 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 28124 | 6156 | 7992 | 551704 | 39321 | 88626 | 21009 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 9967 | 1896 | 2632 | 193869 | 15318 | 28561 | 7489 |
+| `examples/sysml-v2-training` | 100 | 8026 | 1130 | 2140 | 157243 | 11624 | 22016 | 5661 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 28252 | 6149 | 7864 | 554361 | 39184 | 88474 | 21083 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 10015 | 1881 | 2584 | 194981 | 15280 | 28337 | 7514 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 6405 | 1153 | 1836 | 113439 | 8838 | 19509 | 7607 |
-| `examples/spec-examples` | 511 | 7360 | 989 | 2370 | 128419 | 6190 | 23306 | 6190 |
-| `tests/testdata` | 40 | 1513 | 174 | 458 | 27541 | 1968 | 4389 | 1186 |
-| `examples` | 56 | 30652 | 6075 | 12488 | 598043 | 36600 | 106048 | 23157 |
+| `examples/spec-examples` | 511 | 7371 | 989 | 2359 | 128619 | 6184 | 23320 | 6196 |
+| `tests/testdata` | 40 | 1513 | 174 | 458 | 27545 | 1964 | 4389 | 1186 |
+| `examples` | 56 | 30660 | 6072 | 12480 | 598232 | 36586 | 106015 | 23163 |
 | `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 885 | 33 | 90 | 41 |
 | `docs/manual/examples` | 11 | 7487 | 922 | 1822 | 146433 | 8603 | 30167 | 5072 |
 
@@ -298,6 +298,17 @@ the `constant` keyword: every `isConstant` row that was different is now equal �
 (91 → 0), `PortUsage` 397 → 493 (96 → 0), `PartUsage` 1968 → 1989 (21 → 0), `ItemUsage` 345 → 368 (21 → 0),
 `Usage` 21 → 30 (9 → 0) — 1157055 → 1157295 present-equal, 28075 → 27835 present-different overall. No other
 row moved.
+
+**A conjugated typing types by the ConjugatedPortDefinition** (re-recorded when the writer began stating
+the type of `port p : ~P` as P's `ConjugatedPortDefinition`, the element its `ConjugatedPortTyping` already
+named as `type`/`conjugatedPortDefinition`, SysML v2.1 §8.3.12.3 `conjugatedPortDefinition {redefines
+type}`, where the collapsed `sysml:type` had named P itself): every `PortUsage.type` row that was different
+is now equal — 351 → 406 present-equal (55 → 0 present-different; the 87 ours-missing are ports declaring no
+typing, whose type the pilot derives, unchanged) — and the `ref`/`usage` features typed by a conjugate
+follow, `ReferenceUsage.type` 1226 → 1227 equal (6 → 5 different) and `Usage.type` 9 → 11 (5 → 3); 1921680 →
+1921738 present-equal, 128354 → 128296 present-different overall. `ConjugatedPortTyping.type`,
+`.conjugatedPortDefinition` and `.portDefinition` (61 equal each) and `PortUsage.portDefinition`/`.definition`
+did not move. No other row moved.
 
 The scorecard is mostly **ours-missing**: this repository's writer emits a subset of the metamodel's properties, and the referee now measures which, per metaclass. The full ranked scorecard with one concrete example per differing row is `build/pilot-apijson-diff/pilot-apijson-diff.txt` after a run; the baseline keeps every row's seven counts.
 

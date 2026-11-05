@@ -1063,7 +1063,7 @@ func declType(sym *symbols.Symbol) string {
 // elements a usage's declared typings resolve to.
 func (r *Renderer) declTypings(sym *symbols.Symbol) []string {
 	var names []string
-	for _, typ := range r.model.DeclaredTypes(sym) {
+	for _, typ := range r.drawnTypes(sym) {
 		if name := r.notationName(typ); name != "" {
 			names = append(names, name)
 		}

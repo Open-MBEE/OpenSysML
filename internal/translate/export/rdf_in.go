@@ -4300,7 +4300,9 @@ func (d *decoder) relationshipWords(el *element, multPart string, skip ...ast.Re
 		// itself: the notation is `port p : ~P` (SysML v2 ConjugatedPortTyping).
 		if kind == ast.RelTyping && d.boolOf(el, rdf.OpenSysML+xConjugatedTyping) {
 			for i, name := range names {
-				names[i] = "~" + name
+				if !strings.HasPrefix(name, "~") {
+					names[i] = "~" + name
+				}
 			}
 		}
 		targets[kind] = names
@@ -4395,7 +4397,7 @@ var headClauseKinds = map[string][]ast.RelationshipKind{
 // derived `target` or `general` still names the end its own way.
 var headClauseTargets = map[string][]string{
 	mFeatureTyping:        {"type", pGeneral, pTarget},
-	mConjugatedPortTyping: {pPortDefinition},
+	mConjugatedPortTyping: {pConjugatedPortDefinition, pPortDefinition},
 	mSubclassification:    {"superclassifier", pGeneral, pTarget},
 	mSpecialization:       {pGeneral, pTarget},
 	mSubsetting:           {pSubsettedFeature, pGeneral, pTarget},
@@ -4424,21 +4426,22 @@ func (d *decoder) spelledHead(el *element) []headClause {
 			}
 			continue
 		}
-		var target rdf.Term
+		// A ConjugatedPortTyping relates both its conjugate and the original
+		// it is of; the head states whichever of the two the writer stated.
+		var targets []rdf.Term
 		for _, property := range headClauseTargets[metaclass] {
 			if end, ok := d.graph.Object(owned, rdf.SysML+property); ok {
-				target = end
-				break
+				targets = append(targets, end)
 			}
 		}
-		if target.Value == "" {
+		if len(targets) == 0 {
 			continue
 		}
 		var candidates []headClause
 		for _, kind := range headClauseKinds[metaclass] {
 			for index, object := range objects[kind] {
 				clause := headClause{kind: kind, index: index}
-				if object == target && !taken[clause] {
+				if slices.Contains(targets, object) && !taken[clause] {
 					candidates = append(candidates, clause)
 					break
 				}
@@ -4588,6 +4591,17 @@ func (d *decoder) referenceName(term rdf.Term, el *element) (string, error) {
 	target, err := d.referencedElement(term.Value)
 	if err != nil {
 		return "", err
+	}
+	// A ConjugatedPortDefinition is written `~P`, P being the definition it
+	// conjugates (SysML v2 8.3.12.3); it has no spelling of its own.
+	if target.metaclass == mConjugatedPortDefinition {
+		if original := d.portDefinitions.original(d.graph, d.metaclass, rdf.Term{}, term); original.IsIRI() && original != term {
+			name, err := d.referenceName(original, el)
+			if err != nil {
+				return "", err
+			}
+			return "~" + name, nil
+		}
 	}
 	spelled := d.spelledName(target)
 	key := nameKey{member: d.writtenQName(el), target: target.qname}
