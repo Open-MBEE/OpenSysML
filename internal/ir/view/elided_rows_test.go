@@ -209,3 +209,79 @@ func dotHTMLLabelHeight(label string, base float64) float64 {
 	}
 	return height
 }
+
+// A nested port listed as a copied row under its port (`input.tick : Clock`)
+// is greyed when its typing folds to a drawn type, as a direct row is.
+func TestGreyedRowsFollowTheNestedPortCopies(t *testing.T) {
+	rendering := renderSource(t, "M::V::hub", `package M {
+	port def Clock;
+	port def Data;
+	part def Hub { port input : Data { port tick : Clock; } }
+	package V {
+		private import Views::*;
+		view hub { expose M::Hub; expose M::Clock; render asTreeDiagram; }
+	}
+}`)
+	out, err := rendering.WriteWith(FormDot, Options{Compartments: CompartmentsMost})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `<font color="gray">input.tick : Clock</font>`; !strings.Contains(string(out), want) {
+		t.Errorf("the nested port row an edge ends at is not greyed, want %s:\n%s", want, out)
+	}
+	if want := `<td align="left">input : Data<br/>`; !strings.Contains(string(out), want) {
+		t.Errorf("the port row no edge ends at is not plain, want %s:\n%s", want, out)
+	}
+}
+
+// A row is greyed only when the edge folded to its owner is drawn: a type
+// left unplaced by the Layout takes no edge, so its member's row stays plain.
+func TestUnplacedTypesLeaveTheRowPlain(t *testing.T) {
+	rendering := renderSource(t, "M::V::controllers", `package M {
+	part def Sensor;
+	part def Gauge;
+	part def Controller { part sensor : Sensor; part gauge : Gauge; }
+	package V {
+		private import Views::*;
+		private import DiagramLayout::*;
+		view controllers {
+			expose M::Controller; expose M::Sensor; expose M::Gauge;
+			metadata Layout about M::Controller { x = 10; y = 10; width = 240; height = 120; }
+			metadata Layout about M::Sensor { x = 300; y = 10; width = 120; height = 40; }
+			render asTreeDiagram;
+		}
+	}
+}`)
+	out, err := rendering.Write(FormDot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `<font color="gray">sensor</font>`; !strings.Contains(string(out), want) {
+		t.Errorf("the row of the drawn edge is not greyed, want %s:\n%s", want, out)
+	}
+	if want := `<br/>gauge</td>`; !strings.Contains(string(out), want) {
+		t.Errorf("the row whose type is unplaced is not plain, want %s:\n%s", want, out)
+	}
+}
+
+// Mermaid keeps the greyed rows in italics when a line of the label needs
+// escaping and the label is written as plain text instead of markdown.
+func TestMermaidGreysTheRowsOfEscapedLabels(t *testing.T) {
+	rendering := renderSource(t, "M::V::controllers", `package M {
+	part def Sensor;
+	part def Controller { part 'sensor#1' : Sensor; part spare : Sensor; }
+	package V {
+		private import Views::*;
+		view controllers { expose M::Controller; expose M::Sensor; render asTreeDiagram; }
+	}
+}`)
+	out, err := rendering.WriteWith(FormMermaid, Options{Compartments: CompartmentsMost})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"<i>'sensor#35;1' : Sensor</i>", "<i>spare : Sensor</i>"} {
+		if !strings.Contains(string(out), want) {
+			t.Errorf("the escaped label loses the greyed row, want %s:\n%s", want, out)
+		}
+	}
+}
