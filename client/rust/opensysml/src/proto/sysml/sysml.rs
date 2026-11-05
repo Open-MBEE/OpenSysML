@@ -3965,6 +3965,9 @@ pub struct RenderNode {
     /// the line's second end, "left" toward its first. Empty for every other node.
     #[prost(string, tag="16")]
     pub arrow: ::prost::alloc::string::String,
+    /// The state's substates run in parallel; a label writes «parallel» under the name.
+    #[prost(bool, tag="17")]
+    pub parallel: bool,
 }
 /// RenderPort is a feature drawn on a node's border.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

@@ -3114,6 +3114,8 @@ message RenderNode {
   // message whose ends are the connection's): "right" when the item goes toward
   // the line's second end, "left" toward its first. Empty for every other node.
   string arrow = 16;
+  // The state's substates run in parallel; a label writes «parallel» under the name.
+  bool parallel = 17;
 }
 
 // RenderPort is a feature drawn on a node's border.
