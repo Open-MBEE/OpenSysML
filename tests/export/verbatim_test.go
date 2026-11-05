@@ -92,7 +92,7 @@ func TestRootsSharingALineComeBack(t *testing.T) {
 	edited = editTurtle(t, turtle,
 		"elmt:A\n    a sysml:Package ;\n",
 		"elmt:A\n    a sysml:LibraryPackage ;\n")
-	want = "library package A;\npackage B; // after\n\npackage C {\n\tpart p; } package D;"
+	want = "library package A;\n/* between */ package B; // after\n\npackage C {\n\tpart p; } package D;"
 	if back := toNotation(t, edited); back != want {
 		t.Errorf("the first root was not rebuilt in place:\n--- want ---\n%s--- got ---\n%s", want, back)
 	}
@@ -103,6 +103,7 @@ func TestRootsSharingALineComeBack(t *testing.T) {
 func TestStrippedGraphPrintsCanonically(t *testing.T) {
 	back := toNotation(t, withoutTriples(t, commentedTurtle(t), "sysx:sourceText"))
 	want := `package Rover {
+    comment /* Definitions come first. */
     part def Wheel specializes Part;
     part def Hub;
     part def Vehicle {
@@ -173,7 +174,7 @@ func TestMembersAfterARemovedOneKeepTheirText(t *testing.T) {
 	turtle := idTurtle(t, `package P {
     part def A; // the first
     part def B; // the second
-    /* about C */
+    // about C
     part def C {
         part x : A; // inside
     }
@@ -185,7 +186,7 @@ func TestMembersAfterARemovedOneKeepTheirText(t *testing.T) {
 	back := toNotation(t, turtle)
 	want := `package P {
     part def A; // the first
-    /* about C */
+    // about C
     part def C {
         part x : A; // inside
     }

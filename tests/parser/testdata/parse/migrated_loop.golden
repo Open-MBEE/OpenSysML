@@ -282,7 +282,9 @@
                               (Usage kind="attribute" name="r" ref=false direction="out" composite=false derived=false ordered=false nonunique=true
                                 (Multiplicity range=true
                                   (LiteralInteger value="0")
-                                  (LiteralInfinity))))))))
+                                  (LiteralInfinity))))
+                            (Membership visibility="default"
+                              (Comment about="" locale=""))))))
                     (Membership visibility="default"
                       (Usage kind="action" name="next" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
                         (*ast.AssignmentActionNode)))
@@ -303,7 +305,9 @@
                                 (Relationship kind="typing" target=ScalarValues::Boolean
                                   (*ast.QualifiedName))
                                 (Multiplicity range=false
-                                  (LiteralInteger value="1"))))))))
+                                  (LiteralInteger value="1"))))
+                            (Membership visibility="default"
+                              (Comment about="" locale=""))))))
                     (SuccessionEdge source="next" target="test")
                     (IfActionNode
                       (OperatorExpr operator="not"

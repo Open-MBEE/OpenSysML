@@ -193,10 +193,36 @@ func (d *decoder) restatesAnotherDisagreement(t rdf.Triple, check *encoder) bool
 	if LibraryReference(d.graph, t.Subject) || LibraryReference(check.graph, t.Subject) {
 		return true
 	}
+	// A bare comment the stored graph predates is stated by the text alone.
+	if d.legacyBareComment(t.Subject, check) || d.legacyBareComment(t.Object, check) {
+		return true
+	}
 	// An implied relationship element's ends restate the owner's collapsed
 	// edge, whose disagreement already falls on the target's text.
 	el, ok := d.byIRI[t.Subject.Value]
 	return ok && el.implied && impliedRelationshipMetaclasses[el.metaclass]
+}
+
+// legacyBareComment reports whether term is an anonymous Comment, or the
+// membership owning one, that only the re-parsed text states: a bare `/* … */`
+// at a member position written before the graph recorded such comments as
+// elements, which the text carries and the graph never contradicts.
+func (d *decoder) legacyBareComment(term rdf.Term, check *encoder) bool {
+	if !term.IsIRI() || d.graph.HasProperty(term, rdf.RDFType) {
+		return false
+	}
+	for _, object := range check.graph.Objects(term, rdf.RDFType) {
+		switch rdf.LocalName(object.Value) {
+		case "Comment":
+			return !check.graph.HasProperty(term, rdf.SysML+pDeclaredName) &&
+				!check.graph.HasProperty(term, rdf.SysML+pDeclaredShortName)
+		case mOwningMembership:
+			if member, ok := check.graph.Object(term, rdf.SysML+pMemberElement); ok {
+				return d.legacyBareComment(member, check)
+			}
+		}
+	}
+	return false
 }
 
 // candidateName names the candidate notation for the grammar the roots record

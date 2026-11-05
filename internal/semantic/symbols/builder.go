@@ -20,6 +20,11 @@ func Build(root *ast.RootNamespace) *Scope {
 
 // buildMembers processes a member list into the given scope.
 func buildMembers(scope *Scope, members []ast.Node) {
+	// The comments written immediately above a declaration are anonymous Comment
+	// members of their own (KerML 1.1 §8.2.3.3.2); the declaration's symbol
+	// carries them as documentation trivia as well, as it did when the parser
+	// left them as trivia.
+	var comments []ast.Trivia
 	for _, m := range members {
 		decl, vis := unwrapMember(m)
 		if decl == nil {
@@ -27,7 +32,17 @@ func buildMembers(scope *Scope, members []ast.Node) {
 		}
 		// Trivia (doc comments) is attached to the member wrapper m, not to the
 		// unwrapped inner decl; capture it here so the Symbol can carry it.
-		buildDecl(scope, decl, vis, m.LeadingTrivia())
+		trivia := m.LeadingTrivia()
+		if c, ok := decl.(*ast.Comment); ok && c.Ident.Name == "" && c.Ident.ShortName == "" && len(c.About) == 0 {
+			comments = append(append(comments, trivia...), ast.Trivia{Kind: ast.TriviaComment, Span: c.BodySpan})
+			buildDecl(scope, decl, vis, nil)
+			continue
+		}
+		if len(comments) > 0 {
+			trivia = append(comments, trivia...)
+			comments = nil
+		}
+		buildDecl(scope, decl, vis, trivia)
 	}
 }
 

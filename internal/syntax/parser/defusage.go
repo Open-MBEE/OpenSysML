@@ -1712,9 +1712,10 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 					m := p.parseBodyMember()
 					if m != nil {
 						p.markAttached(m)
-						members = append(members, m)
+						members = p.withCommentMembers(members, m)
 					}
 				}
+				members = p.closingCommentMembers(members)
 				leave()
 				p.expect(lexer.RBrace, msgExpectedBodyClose)
 				u.Members = members
@@ -2568,7 +2569,7 @@ func (p *Parser) parseUsageBody(u *ast.Usage, kind ast.UsageKind, start int) {
 				}
 				member := p.parseActionMember()
 				p.markAttached(member)
-				members = append(members, member)
+				members = p.withCommentMembers(members, member)
 				// Only an inline statement continues the body; a succession names
 				// members of the enclosing body.
 				if !p.atKeyword("then") || !startsInlineSuccessionStatement(p.peekN(1)) {
@@ -5281,13 +5282,14 @@ func (p *Parser) parseMetadataUsage(start int) *ast.PrefixMetadata {
 			p.memberStart()
 			if m := p.parseBodyMember(); m != nil {
 				p.markAttached(m)
-				body = append(body, m)
+				body = p.withCommentMembers(body, m)
 				continue
 			}
 			expr := p.ParseExpression()
 			p.accept2(lexer.Semicolon)
 			body = append(body, expr)
 		}
+		body = p.closingCommentMembers(body)
 		leave()
 		p.expect(lexer.RBrace, "expected '}' after metadata body")
 		pm.Body = body

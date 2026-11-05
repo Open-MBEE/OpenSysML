@@ -286,13 +286,30 @@ func TestF61KeywordlessMembers(t *testing.T) {
 		}
 	})
 
-	t.Run("enum_value_trivia_stays_with_the_next_member", func(t *testing.T) {
-		pkg := parsePkg(t, "package B { enum def S { a; /* c */ b; /* d */ doc /* e */ } }")
+	t.Run("enum_value_comments_are_members_of_their_own", func(t *testing.T) {
+		// A /* */ at a member position is an anonymous Comment member (KerML 1.1
+		// §8.2.3.3.2, the `comment` keyword omitted), not trivia of the enumerated
+		// value after it; the body of a `doc` is the comment right after it.
+		src := "package B { enum def S { a; /* c */ b; /* d */ doc /* e */ } }"
+		pkg := parsePkg(t, src)
 		def := pkg.Members[0].(*ast.Membership).Member.(*ast.Definition)
-		for i, want := range []int{0, 1, 1} {
-			if got := len(def.Members[i].(*ast.Membership).LeadingTrivia()); got != want {
-				t.Errorf("member %d has %d leading trivia, want %d", i, got, want)
+		if len(def.Members) != 5 {
+			t.Fatalf("enum body has %d members, want a, /* c */, b, /* d */ and the doc", len(def.Members))
+		}
+		for i, want := range []string{"/* c */", "/* d */"} {
+			c, ok := def.Members[1+2*i].(*ast.Membership).Member.(*ast.Comment)
+			if !ok || src[c.BodySpan.Offset:c.BodySpan.End()] != want {
+				t.Errorf("member %d = %#v, want the comment %s", 1+2*i, def.Members[1+2*i], want)
 			}
+		}
+		for _, i := range []int{0, 2, 4} {
+			if got := len(def.Members[i].(*ast.Membership).LeadingTrivia()); got != 0 {
+				t.Errorf("member %d has %d leading trivia, want none", i, got)
+			}
+		}
+		d, ok := def.Members[4].(*ast.Membership).Member.(*ast.Documentation)
+		if !ok || src[d.BodySpan.Offset:d.BodySpan.End()] != "/* e */" {
+			t.Errorf("member 4 = %#v, want the doc with body /* e */", def.Members[4])
 		}
 	})
 

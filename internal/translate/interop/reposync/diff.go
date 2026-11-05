@@ -453,6 +453,15 @@ func mintable(view *subjectView) bool {
 	if view.qualifiedName == "" && export.DerivedSatellite(view.metaclass) {
 		return false
 	}
+	// An anonymous annotating element — a bare `/* … */` comment, a `doc` body —
+	// has no name an about-form annotation can address, so an id minted for it
+	// could never be written back to the notation.
+	if view.qualifiedName == "" {
+		switch view.metaclass {
+		case "Comment", "Documentation", "TextualRepresentation":
+			return false
+		}
+	}
 	// A `#Tag` prefix is a metadata usage the notation writes as a bare name,
 	// with no body to declare an id in (SysML-textual-bnf PrefixMetadataUsage),
 	// so an id minted for it would be lost on the next export, and with it the

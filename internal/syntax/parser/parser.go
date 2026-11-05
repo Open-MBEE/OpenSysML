@@ -63,6 +63,9 @@ type Parser struct {
 	// memberStarts are the offsets at which a member was parsed to begin; a
 	// comment before one of them is a Comment element the grammar admits.
 	memberStarts []int
+	// commentNext maps each regular comment's offset to the offset of the
+	// non-trivia token after it: the member it is written before, if any.
+	commentNext map[int]int
 	// commentBodies are the offsets of the comments consumed as a comment body
 	// (`comment /* */`, `doc /* */`, `rep … /* */`).
 	commentBodies []int
@@ -232,6 +235,10 @@ func (p *Parser) fill(n int) {
 			p.comments = append(p.comments, pendingComment{
 				span: sp, next: p.buf[len(p.buf)-1],
 			})
+			if p.commentNext == nil {
+				p.commentNext = make(map[int]int)
+			}
+			p.commentNext[sp.Offset] = tok.Span.Offset
 		}
 		if tok.Kind == lexer.EOF {
 			// keep EOF sticky: stop growing further with real tokens
@@ -547,12 +554,121 @@ func (p *Parser) takeTrivia() []ast.Trivia {
 	return t
 }
 
+// liftCommentMembers lifts the regular comments written at a member position
+// into members: each /* */ among trivia whose next token is the one at offset
+// `before` (the member's first token, or a body's closing brace) and that is
+// not the body of a comment notation becomes an anonymous Comment (KerML 1.1
+// §8.2.3.3.2, the `comment` keyword omitted) under a Membership spanned at the
+// comment, carrying the notes written before it as its leading trivia. The
+// trivia not lifted is returned in order.
+func (p *Parser) liftCommentMembers(trivia []ast.Trivia, before int) (members []ast.Node, rest []ast.Trivia) {
+	for _, tr := range trivia {
+		if tr.Kind != ast.TriviaComment || p.commentNext[tr.Span.Offset] != before || p.isCommentBody(tr.Span.Offset) {
+			rest = append(rest, tr)
+			continue
+		}
+		c := &ast.Comment{BodySpan: tr.Span}
+		c.NodeSpan = tr.Span
+		m := &ast.Membership{Member: c}
+		m.NodeSpan = tr.Span
+		m.SetLeadingTrivia(rest)
+		rest = nil
+		members = append(members, m)
+	}
+	return members, rest
+}
+
+// isCommentBody reports whether the comment at off was consumed as the body of
+// a comment notation (`comment /* */`, `doc /* */`, `rep /* */`).
+func (p *Parser) isCommentBody(off int) bool {
+	for i := len(p.commentBodies) - 1; i >= 0; i-- {
+		if p.commentBodies[i] == off {
+			return true
+		}
+	}
+	return false
+}
+
+// withCommentMembers appends m to members behind the Comment members lifted
+// from the comments written before it: those its parser took as its leading
+// trivia and those still pending. A member continuing the one before it (a
+// `then x;` edge, a source-less transition) opens no member position, so the
+// comments before it stay trivia (SysML.xtext DefinitionMember/AnnotatingMember).
+func (p *Parser) withCommentMembers(members []ast.Node, m ast.Node) []ast.Node {
+	if m == nil {
+		return members
+	}
+	if isAttachedMember(memberNode(m)) {
+		return append(members, m)
+	}
+	before := m.Span().Offset
+	if base, ok := m.(interface {
+		LeadingTrivia() []ast.Trivia
+		SetLeadingTrivia([]ast.Trivia)
+	}); ok {
+		lifted, rest := p.liftCommentMembers(base.LeadingTrivia(), before)
+		if len(lifted) > 0 {
+			base.SetLeadingTrivia(rest)
+			members = append(members, lifted...)
+		}
+	}
+	lifted, rest := p.liftCommentMembers(p.triv, before)
+	if len(lifted) > 0 {
+		p.triv = rest
+		members = append(members, lifted...)
+	}
+	return append(members, m)
+}
+
+// closingCommentMembers appends the Comment members lifted from the comments
+// written before a body's closing brace or the end of the file — unless a
+// trailing result expression ends there, after which the grammar admits nothing.
+func (p *Parser) closingCommentMembers(members []ast.Node) []ast.Node {
+	// The brace may be the next token or, for a body loop that closes its own
+	// brace before finishing, the last one consumed.
+	at := p.peek().Span.Offset
+	if last, ok := p.lastToken(); ok && last.Kind == lexer.RBrace &&
+		(len(members) == 0 || last.Span.Offset >= members[len(members)-1].Span().End()) {
+		at = last.Span.Offset
+	} else if !p.at(lexer.RBrace) && !p.atEOF() {
+		return members
+	}
+	if n := len(p.resultEnds); n > 0 && p.resultEnds[n-1] == at {
+		return members
+	}
+	lifted, rest := p.liftCommentMembers(p.triv, at)
+	if len(lifted) > 0 {
+		p.triv = rest
+		members = append(members, lifted...)
+	}
+	return members
+}
+
+// firstCommentAfter is the earliest regular comment lexed since offset off and
+// not yet taken as a body: among the pending trivia, else the most recent one.
+func (p *Parser) firstCommentAfter(off int) (source.Span, bool) {
+	for _, tr := range p.triv {
+		if tr.Kind == ast.TriviaComment && tr.Span.Offset >= off && !p.isCommentBody(tr.Span.Offset) {
+			return tr.Span, true
+		}
+	}
+	if p.hasPendingComment && p.pendingComment.Offset >= off {
+		return p.pendingComment, true
+	}
+	return source.Span{}, false
+}
+
 // takePendingComment returns and clears the most recent regular-comment span.
 func (p *Parser) takePendingComment() (source.Span, bool) {
 	if !p.hasPendingComment {
 		return source.Span{}, false
 	}
 	sp := p.pendingComment
+	// The body is the comment written right after the notation's head; a later
+	// one before the next token is a member of its own (KerML 1.1 §8.2.3.3.2).
+	if first, ok := p.firstCommentAfter(p.lastEnd()); ok {
+		sp = first
+	}
 	p.hasPendingComment = false
 	p.commentBodies = append(p.commentBodies, sp.Offset)
 	p.bodyEnd = sp.End()
@@ -594,26 +710,18 @@ func (p *Parser) ParseFile() *ast.RootNamespace {
 		beforeOff := p.peek().Span.Offset
 		member := p.parseMember()
 		p.markAttached(member)
-		root.Members = append(root.Members, member)
+		root.Members = p.withCommentMembers(root.Members, member)
 		// Guarantee progress: if nothing was consumed, skip a token.
 		if p.pos == before && p.peek().Span.Offset == beforeOff && !p.atEOF() {
 			p.advance()
 		}
 	}
+	root.Members = p.closingCommentMembers(root.Members)
 	root.NodeSpan = p.spanFrom(start)
 	root.UndefinedOperators = p.undefinedOps
 	root.TypedBy = p.typedByCount
 	p.reportMisplacedComments()
 	return root
-}
-
-// markAttached records where a member continuing the one before it began:
-// such a member opens no member position of its own, so a comment before it
-// is written where the grammar admits none.
-func (p *Parser) markAttached(m ast.Node) {
-	if m != nil && isAttachedMember(memberNode(m)) {
-		p.attachedStarts = append(p.attachedStarts, m.Span().Offset)
-	}
 }
 
 // reportMisplacedComments warns on each regular comment written where the
@@ -623,18 +731,27 @@ func (p *Parser) markAttached(m ast.Node) {
 // transition opens no member position of its own); or at the close of a body
 // or the file — unless a trailing result expression ends there, after which
 // the grammar admits nothing (SysML.xtext CalculationBodyPart).
+// markAttached records where a member continuing the one before it began:
+// such a member opens no member position of its own, so a comment before it
+// is written where the grammar admits none.
+func (p *Parser) markAttached(m ast.Node) {
+	if m != nil && isAttachedMember(memberNode(m)) {
+		p.attachedStarts = append(p.attachedStarts, m.Span().Offset)
+	}
+}
+
 func (p *Parser) reportMisplacedComments() {
 	starts := make(map[int]bool, len(p.memberStarts))
 	for _, off := range p.memberStarts {
 		starts[off] = true
 	}
-	attached := make(map[int]bool, len(p.attachedStarts))
-	for _, off := range p.attachedStarts {
-		attached[off] = true
-	}
 	resultEnds := make(map[int]bool, len(p.resultEnds))
 	for _, off := range p.resultEnds {
 		resultEnds[off] = true
+	}
+	attached := make(map[int]bool, len(p.attachedStarts))
+	for _, off := range p.attachedStarts {
+		attached[off] = true
 	}
 	bodies := make(map[int]bool, len(p.commentBodies))
 	for _, off := range p.commentBodies {

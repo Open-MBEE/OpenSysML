@@ -1,0 +1,37 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Comment about="" locale=""))
+  (Membership visibility="default"
+    (Package name="BareComments" library=false standard=false
+      (Membership visibility="default"
+        (Comment about="" locale=""))
+      (Membership visibility="default"
+        (Definition kind="part" abstract=false variation=false name="Vehicle"
+          (Membership visibility="default"
+            (Documentation locale=""))
+          (Membership visibility="default"
+            (Comment about="" locale=""))
+          (Membership visibility="default"
+            (Usage kind="part" name="eng" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+          (Membership visibility="default"
+            (Usage kind="part" name="wheel" ref=false direction="none" composite=false derived=false ordered=false nonunique=false))
+          (Membership visibility="default"
+            (Comment about="" locale=""))))
+      (Membership visibility="default"
+        (Definition kind="action" abstract=false variation=false name="Drive"
+          (Usage kind="action" name="start" ref=false direction="none" composite=false derived=false ordered=false nonunique=false)
+          (FinalNode)
+          (SuccessionEdge source="start" target="@done")))
+      (Membership visibility="default"
+        (Definition kind="calc" abstract=false variation=false name="Mass"
+          (Membership visibility="default"
+            (Usage kind="attribute" name="m" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Real
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Comment about="" locale=""))
+          (FeatureReference name="m")))
+      (Membership visibility="default"
+        (Comment about="" locale=""))))
+  (Membership visibility="default"
+    (Comment about="" locale="")))

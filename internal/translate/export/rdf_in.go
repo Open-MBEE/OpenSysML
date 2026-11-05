@@ -3489,8 +3489,8 @@ func (d *decoder) relationshipEndName(el *element, property string) (string, err
 }
 
 func (d *decoder) commentHead(el *element) (string, error) {
-	// The keyword is what makes this a declared element rather than lexical
-	// trivia, so it is written even when nothing identifies the comment.
+	// The canonical form keeps the keyword even for an anonymous comment: a bare
+	// `/* */` is the same element, read back as one either way.
 	words := []string{"comment"}
 	words = append(words, d.identWords(el)...)
 	about, err := d.referenceList(el, rdf.SysML+pAnnotatedElement)

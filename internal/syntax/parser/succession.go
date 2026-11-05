@@ -433,6 +433,9 @@ func (b *bodyBuilder) add(m ast.Node) {
 	if m == nil {
 		return
 	}
+	// The comments written before the member are members of their own.
+	b.members = b.p.withCommentMembers(b.members, m)
+	b.members = b.members[:len(b.members)-1]
 	// A one-name edge or a source-less transition continues the member before
 	// it: record it before its source is bound, which clears the mark it is read by.
 	b.p.markAttached(m)
@@ -567,7 +570,7 @@ func (b *bodyBuilder) finish() []ast.Node {
 		b.p.error(b.pendingAt, "`then` has no member after it to sequence to: the keyword sequences the member after it with the member before it")
 		b.pending = false
 	}
-	return b.members
+	return b.p.closingCommentMembers(b.members)
 }
 
 // synthesizeSuccession builds the edge a member-attached `then` desugars to,

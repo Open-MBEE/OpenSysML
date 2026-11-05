@@ -452,11 +452,12 @@ func (p *Parser) parseNamespaceBody(ctx bodyContext) ([]ast.Node, bool) {
 		before := p.peek().Span.Offset
 		member := p.parseMember()
 		p.markAttached(member)
-		members = append(members, member)
+		members = p.withCommentMembers(members, member)
 		if p.peek().Span.Offset == before && !p.at(lexer.RBrace) && !p.atEOF() {
 			p.advance()
 		}
 	}
+	members = p.closingCommentMembers(members)
 	p.expect(lexer.RBrace, "expected '}'")
 	return members, true
 }

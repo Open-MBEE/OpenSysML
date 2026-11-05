@@ -650,7 +650,7 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 	// A body may open with documentation, a member of the body like its features.
 	p.memberStart()
 	if p.atKeyword("doc") {
-		b.Members = append(b.Members, p.parseDocumentation(p.peek().Span.Offset))
+		b.Members = p.withCommentMembers(b.Members, p.parseDocumentation(p.peek().Span.Offset))
 	}
 
 	// Check for shorthand param syntax: {name : Type; expr} without "in" keyword
@@ -691,7 +691,7 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 		p.memberStart()
 		if !p.atKeyword("in") {
 			before := p.peek().Span.Offset
-			b.Members = append(b.Members, p.parseBodyMember())
+			b.Members = p.withCommentMembers(b.Members, p.parseBodyMember())
 			// Force progress: a member that consumed nothing would spin the loop.
 			if p.peek().Span.Offset == before && !p.at(lexer.RBrace) && !p.atEOF() {
 				p.advance()
@@ -742,8 +742,9 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 					p.memberStart()
 					pm := p.parseBodyMember()
 					p.markAttached(pm)
-					paramMembers = append(paramMembers, pm)
+					paramMembers = p.withCommentMembers(paramMembers, pm)
 				}
+				paramMembers = p.closingCommentMembers(paramMembers)
 				leave()
 				p.expect(lexer.RBrace, "expected '}'")
 			}
@@ -765,9 +766,11 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 	}
 	if !p.at(lexer.RBrace) {
 		p.memberStart()
+		b.Members = p.closingCommentMembers(b.Members)
 		b.Result = p.ParseExpression()
 		p.resultEnd()
 	}
+	b.Members = p.closingCommentMembers(b.Members)
 	p.expect(lexer.RBrace, "expected '}'")
 	b.NodeSpan = p.spanFrom(start)
 	return b

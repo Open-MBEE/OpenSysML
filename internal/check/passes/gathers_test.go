@@ -320,8 +320,10 @@ func TestGathersRegatherOfAnUnchangedAnnotatedDocumentMovesNoId(t *testing.T) {
 	// Resolving the annotated document links its annotation bodies.
 	w.analyze("annotated.sysml")
 
+	// A `//` note is trivia; a `/* */` at a member position would be a Comment
+	// element of the package, an edit that moves ids rightly.
 	w.regathered = nil
-	w.put("meta.sysml", meta("/* a note */"))
+	w.put("meta.sysml", meta("// a note\n"))
 	for _, name := range w.regathered {
 		if strings.HasPrefix(name, "\x00identity/") {
 			t.Errorf("a comment moved ids: %q", name)
