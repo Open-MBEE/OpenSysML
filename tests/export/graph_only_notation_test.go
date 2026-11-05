@@ -234,8 +234,8 @@ func TestGuardedSuccessionKeepsItsSyntax(t *testing.T) {
 	}
 }
 
-// Expression bodies as arguments, chained bodies and casts under a feature
-// chain are written in the form the grammar reads back to the same graph.
+// Expression bodies as `->` operands, chained bodies and casts under a feature
+// chain are written back in the form they were read, bodies unparenthesized.
 func TestExpressionBodiesAndChainsFromTheGraphAlone(t *testing.T) {
 	sysml := `package B {
     part def D {
@@ -251,8 +251,8 @@ func TestExpressionBodiesAndChainsFromTheGraphAlone(t *testing.T) {
 `
 	back := notationFromTheGraphAlone(t, "b.sysml", sysml)
 	wantFragments(t, back,
-		"attribute ok : Boolean = xs->forAll({ in e : Integer; e > 0 });",
-		"attribute picked = xs->select({ in e; e > 1 and e < 9 });",
+		"attribute ok : Boolean = xs->forAll { in e : Integer; e > 0 };",
+		"attribute picked = xs->select { in e; e > 1 and e < 9 };",
 		"attribute deep = xs.{ in e; e * 2 };",
 		"attribute chained = sub.xs->size();",
 		"attribute casted = (sub as D).xs;")
@@ -268,7 +268,7 @@ func TestExpressionBodiesAndChainsFromTheGraphAlone(t *testing.T) {
 `
 	back = notationFromTheGraphAlone(t, "k.kerml", kerml)
 	wantFragments(t, back,
-		"xs->forAll({ in e; e != null })",
+		"xs->forAll { in e; e != null }",
 		"feature slice redefines xs = (sub as C).xs;",
 		"notEmpty(xs) implies sub.xs->size() > 0 xor false")
 }

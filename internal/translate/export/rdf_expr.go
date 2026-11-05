@@ -235,10 +235,10 @@ func (e *encoder) expressionOperands(subject rdf.Term, owner string, node ast.No
 		return e.arguments(subject, owner, []ast.Node{n.Operand, n.Index}, true)
 
 	case *ast.InvocationExpr:
-		return e.invocation(subject, owner, n.Type, n.Operand, n.Args, n.NamedArgs)
+		return e.invocation(subject, owner, n.Type, n.Operand, n.Args, n.NamedArgs, n.BareArgument)
 
 	case *ast.ConstructorExpr:
-		return e.invocation(subject, owner, n.Type, nil, n.Args, n.NamedArgs)
+		return e.invocation(subject, owner, n.Type, nil, n.Args, n.NamedArgs, false)
 
 	case *ast.CollectExpr:
 		return e.arguments(subject, owner, []ast.Node{n.Operand, n.Body}, true)
@@ -596,7 +596,7 @@ func (e *encoder) typeArgument(subject rdf.Term, typeRef *ast.QualifiedName, ind
 // invoked, the receiver of a `->` form, and the arguments. The receiver is the
 // first argument (KerML 8.2.5.8.4: `x->f(a)` is `f(x, a)`), kept apart as
 // sysml:operand so the arrow spelling survives.
-func (e *encoder) invocation(subject rdf.Term, owner string, function *ast.QualifiedName, operand ast.Node, args []ast.Node, named []ast.NamedArg) error {
+func (e *encoder) invocation(subject rdf.Term, owner string, function *ast.QualifiedName, operand ast.Node, args []ast.Node, named []ast.NamedArg, bare bool) error {
 	if function != nil {
 		e.graph.Add(subject, e.sysml(pFunction), e.calleeReference(function))
 		e.calleeMembership(subject, function)
@@ -622,7 +622,7 @@ func (e *encoder) invocation(subject rdf.Term, owner string, function *ast.Quali
 			first = 1
 		}
 	}
-	if err := e.argumentsFrom(subject, owner, args, first, ast.IsBodyArgument(args)); err != nil {
+	if err := e.argumentsFrom(subject, owner, args, first, bare); err != nil {
 		return err
 	}
 	first += len(args)
@@ -2063,6 +2063,11 @@ func (d *decoder) invocationText(node rdf.Term, in *element) (string, error) {
 		return "", err
 	}
 	arguments := "(" + joinOperands(operands, bindConditional) + ")"
+	if hasReceiver && hasFunction && len(terms) == 1 && terms[0].private && terms[0].name == "" {
+		// `xs->forAll {…}` / `xs->reduce '+'`: the one operand written without
+		// parentheses, private like the receiver, unlike an argument list's.
+		arguments = " " + operands[0].text
+	}
 	if !hasFunction {
 		// `chain(args)`: the invoked type is the feature chain the operand reaches.
 		if !hasReceiver || d.metaclass(receiver) != mFeatureChain || constructor {
@@ -2346,10 +2351,12 @@ func (d *decoder) expressionOperandTerms(node rdf.Term) ([]expressionOperandTerm
 	return standard, true, nil
 }
 
-// expressionOperandTerm identifies an operand and its optional named binding.
+// expressionOperandTerm identifies an operand, its optional named binding, and
+// whether its ParameterMembership is private (an operand, not an argument list's).
 type expressionOperandTerm struct {
-	term rdf.Term
-	name string
+	term    rdf.Term
+	name    string
+	private bool
 }
 
 // standardExpressionOperandTerms reads operand identities through parameter memberships.
@@ -2400,7 +2407,8 @@ func (d *decoder) standardExpressionOperandTerms(node rdf.Term) ([]expressionOpe
 			}
 		}
 		name, _ := d.graph.Lexical(value, rdf.OpenSysML+xArgumentName)
-		out = append(out, expressionOperandTerm{term: value, name: name})
+		visibility, _ := d.graph.Lexical(membership, rdf.SysML+pVisibility)
+		out = append(out, expressionOperandTerm{term: value, name: name, private: visibility == "private"})
 	}
 	return out, true, nil
 }

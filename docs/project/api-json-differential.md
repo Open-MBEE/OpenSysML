@@ -230,27 +230,27 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 99784 elements matched (18960 ours-only, 31541 pilot-only, 0 of them implied); properties: 1921717 present-equal, 128353 present-different, 322320 ours-missing, 77524 pilot-missing, 2124127 absent-both, 32771 indeterminate, 516 pilot-nondeterministic.
+**Scorecard:** 935 files; 99784 elements matched (18960 ours-only, 31541 pilot-only, 0 of them implied); properties: 1924978 present-equal, 125092 present-different, 322320 ours-missing, 77524 pilot-missing, 2124127 absent-both, 32771 indeterminate, 516 pilot-nondeterministic.
 
 Re-recorded on develop's individual-definition change (#1943: an `individual def`/`individual usage` is written as `OccurrenceDefinition`/`OccurrenceUsage` with `isIndividual`): 88 more elements match (99534 → 99622), and the 32 `OccurrenceDefinition` rows of the inherited family move from ours-missing to present-different for the causes the paragraph below already lists; no row grew.
 
 Re-recorded again on develop's further defaults (#1942: an `individual def` owns its empty `Multiplicity` first and a named connector end its `[1..1]` last): 160 more elements match (99622 → 99782, the new default `Multiplicity` elements and their memberships), the seven `Multiplicity` rows of the gap table grow 3047 → 3127 for the cause they already state (no multiplicity implied base in the side table), and the `OwningMembership` pilot-missing counts fall by four; no new row.
 
-Re-recorded on the operand visibility change (an operator's operand, a `->` form's receiver and its body are owned by private `ParameterMembership`s, an argument list's arguments and a trigger's `after`/`at`/`when` argument by public ones — the pilot's `OperandEList` against KerMLExpressions.xtext `ArgumentMember`): `ParameterMembership.visibility` moves from 1296 equal / 3289 present-different to 4554 equal / 31 present-different, present-different properties 128354 → 125096; no other row moved and no element's match changed. The 31 left are the operand-less forms `(as T)`, `@T` and `istype T` of a filter: the pilot gives them an implicit self operand (`operand += SelfReferenceExpression`), owned first by a private `ParameterMembership`, and writes a cast's type as a `ReturnParameterMembership` (`TypeResultMember`); this repository writes the type argument alone, as a public `ParameterMembership` — a writer follow-up. The per-root and gap tables below are restated from the baseline, which the two previous re-records had left them behind.
+Re-recorded on the operand visibility change (an operator's operand, a `->` form's receiver and its body are owned by private `ParameterMembership`s, an argument list's arguments and a trigger's `after`/`at`/`when` argument by public ones — the pilot's `OperandEList` against KerMLExpressions.xtext `ArgumentMember`): `ParameterMembership.visibility` moves from 1296 equal / 3289 present-different to 4557 equal / 28 present-different, present-different properties 128353 → 125092; no other row moved and no element's match changed. The 28 left are the operand-less forms `(as T)`, `@T` and `istype T` of a filter: the pilot gives them an implicit self operand (`operand += SelfReferenceExpression`), owned first by a private `ParameterMembership`, and writes a cast's type as a `ReturnParameterMembership` (`TypeResultMember`); this repository writes the type argument alone, as a public `ParameterMembership` — a writer follow-up.
 
 The pilot's export failed on 59 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples, 4 test fixtures and, since pilot `2026-09`, the three `Metadata Examples/{Requirement,Risk,Verification}MetadataExample.sysml` whose enumeration-valued metadata bindings the pilot now evaluates into elements with no resource; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 59 failed files out and converted 30 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11735 (metaclass, property) rows carry a comparison; 112895 references compared through the unkeyed sentinel, 162741 of our `sysx:` annotations were left out, and 303/368 elements (ours/pilot) were dropped for ambiguous keys, 17040/32319 for having none.
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 8026 | 1130 | 2140 | 157493 | 11374 | 22016 | 5661 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 28252 | 6149 | 7864 | 555498 | 38047 | 88474 | 21083 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 10015 | 1881 | 2584 | 195350 | 14911 | 28337 | 7514 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 6405 | 1153 | 1836 | 113567 | 8710 | 19509 | 7607 |
-| `examples/spec-examples` | 511 | 7371 | 989 | 2359 | 128678 | 6125 | 23320 | 6196 |
+| `examples/sysml-v2-training` | 100 | 8026 | 1138 | 2140 | 157493 | 11374 | 22016 | 5661 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 28254 | 6251 | 7862 | 555535 | 38046 | 88477 | 21084 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 10015 | 1893 | 2584 | 195350 | 14911 | 28337 | 7514 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 6405 | 1153 | 1836 | 113569 | 8708 | 19509 | 7607 |
+| `examples/spec-examples` | 511 | 7371 | 997 | 2359 | 128679 | 6124 | 23320 | 6196 |
 | `tests/testdata` | 40 | 1513 | 174 | 458 | 27592 | 1917 | 4389 | 1186 |
-| `examples` | 56 | 30660 | 6072 | 12480 | 599268 | 35550 | 106015 | 23163 |
+| `examples` | 56 | 30660 | 6344 | 12480 | 599268 | 35550 | 106015 | 23163 |
 | `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 887 | 31 | 90 | 41 |
-| `docs/manual/examples` | 11 | 7487 | 922 | 1822 | 146605 | 8431 | 30167 | 5072 |
+| `docs/manual/examples` | 11 | 7487 | 1010 | 1822 | 146605 | 8431 | 30167 | 5072 |
 
 **Every connector end's `[1..1]`** (re-recorded when the writer began stating the implicit `[1..1]`
 of a positional end — `connect a to b`, `bind a = b`, `first s1 then s2`, `allocate a to b` — as it

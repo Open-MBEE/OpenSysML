@@ -22,6 +22,9 @@ func TestOperandParametersArePrivateAndArgumentsPublic(t *testing.T) {
     attribute tested : Boolean = p istype Q;
     attribute all : Boolean = (1..3)->forAll { in i : Positive; i > 0 };
     attribute piped : Real = 1.0->F(2.0);
+    attribute summed : Real = (1.0, 2.0)->reduce '+';
+    calc def H { in body; return : Real = 1.0; }
+    attribute applied : Real = H({ in x : Real; x });
 }
 `
 	turtle, err := convert.Convert("ops.sysml", []byte(model), convert.FormatSysML, convert.FormatTurtle)
@@ -67,6 +70,19 @@ func TestOperandParametersArePrivateAndArgumentsPublic(t *testing.T) {
 	}
 	// `1.0->F(2.0)`: the receiver is an operand, the listed argument an argument.
 	countPrivate("`->` receiver and argument", "Ops__piped_pvalue_pin", 1, 2)
+	// `xs->reduce '+'`: the bare operand is written without parentheses, private like the receiver.
+	countPrivate("`->` receiver and bare operand", "Ops__summed_pvalue_pin", 2, 2)
+	// `H({ … })`: a body inside an argument list is an argument, public.
+	countPrivate("body in an argument list", "Ops__applied_pvalue_pin", 0, 1)
+	back, err := convert.Convert("ops.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation: %v", err)
+	}
+	for _, want := range []string{"->reduce '+'", "->forAll {", "H({"} {
+		if !strings.Contains(string(back), want) {
+			t.Errorf("notation from the graph lacks %q:\n%s", want, back)
+		}
+	}
 	// The operator's operand is private, its type argument public.
 	countPrivate("istype operand and type argument", "Ops__tested_", 1, 2)
 }
