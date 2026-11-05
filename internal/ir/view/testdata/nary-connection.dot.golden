@@ -6,18 +6,26 @@ digraph "NaryViews::wheelLinks" {
   graph [fontname="Helvetica"];
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
-  subgraph "cluster_n0" {
-    label=<<font point-size="10"><i>«part def»</i></font><br/><b>Wheel</b>>;
-    color=black;
+  subgraph "cluster_frame" {
+    label=<<font point-size="10"><i>«view»</i></font> <b>NaryViews::wheelLinks</b>>;
+    labeljust=l;
+    labelloc=t;
     penwidth=0.5;
-    "n0" [shape=point, style=invis, width=0, height=0, label=""];
-    "n1" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>hub</b>>];
-    "n2" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>leftSpoke</b>>];
-    "n3" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>rightSpoke</b>>];
-    "n4" [shape=circle, fillcolor=black, width=0.2, height=0.2, fixedsize=true, label=""];
-    "n5" [shape=circle, fillcolor=black, width=0.2, height=0.2, fixedsize=true, label=""];
+    margin=8;
+    subgraph "cluster_n0" {
+      label=<<font point-size="10"><i>«part def»</i></font><br/><b>Wheel</b>>;
+      color=black;
+      penwidth=0.5;
+      "n0" [shape=point, style=invis, width=0, height=0, label=""];
+      "n1" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>hub</b>>];
+      "n2" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>leftSpoke</b>>];
+      "n3" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>rightSpoke</b>>];
+      "n4" [shape=circle, fillcolor=black, width=0.2, height=0.2, fixedsize=true, label=""];
+      "n5" [shape=circle, fillcolor=black, width=0.2, height=0.2, fixedsize=true, label=""];
+    }
+    "note:0" [shape=note, label="three spokes"];
+    { rank=min; "frame_tr" [shape=none, margin=0, label=<<font point-size="10">expose Nary::Wheel</font>>]; }
   }
-  "note:0" [shape=note, label="three spokes"];
   "n4" -> "n1" [headlabel="hub", arrowhead=none, penwidth=3];
   "n4" -> "n2" [headlabel="left", arrowhead=none, penwidth=3];
   "n4" -> "n3" [headlabel="right", arrowhead=none, penwidth=3];

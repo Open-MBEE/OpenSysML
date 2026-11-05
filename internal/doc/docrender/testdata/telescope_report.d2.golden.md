@@ -99,6 +99,8 @@ n0: "«part»\nimagingChain" {
   }
 }
 n0.n1."n1.0" -- n0.n2."n2.0": { class: connection }
+frame_name: "«view» Observatory::interconnectView" { shape: text; near: top-left }
+frame_tr: "expose imagingChain" { shape: text; near: top-right }
 ```
 
 *Observatory states, left to right*

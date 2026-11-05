@@ -20,3 +20,5 @@ n0.n4 -- n0.n3: { class: connection; target-arrowhead: { label: "right" } }
 n0.n5 -- n0.n1: { class: connection }
 n0.n5 -- n0.n2: { class: connection }
 n0.n5 -- n0.n3: { class: connection }
+frame_name: "«view» NaryViews::wheelLinks" { shape: text; near: top-left }
+frame_tr: "expose Nary::Wheel" { shape: text; near: top-right }

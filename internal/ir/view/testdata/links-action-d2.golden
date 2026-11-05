@@ -47,3 +47,5 @@ n0.n8 -> n0.n11: { class: succession; link: "https://example.test/src/action.sys
 n0.n10 -> n0.n9: { class: succession; link: "https://example.test/src/action.sysml#L50" }
 n0.n11 -> n0.n9: "[speed > 0]" { class: succession; link: "https://example.test/src/action.sysml#L48" }
 n0.n11 -> n0.n10: "else" { class: succession; link: "https://example.test/src/action.sysml#L49" }
+frame_name: "«view» FlowViews::driveView : ActionFlowView" { shape: text; near: top-left }
+frame_tr: "expose Flows::Drive" { shape: text; near: top-right }

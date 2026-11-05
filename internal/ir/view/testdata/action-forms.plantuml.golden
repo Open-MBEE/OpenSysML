@@ -1,5 +1,6 @@
 @startuml
 ' ActionFormViews::monitorView — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
+mainframe <size:10>//«view»//</size> **ActionFormViews::monitorView** : ActionFlowView\n<size:10>expose ActionForms::Monitor</size>
 <style>
 root {
   BackGroundColor white

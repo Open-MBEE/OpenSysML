@@ -14,6 +14,7 @@ package view
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -364,6 +365,12 @@ type Node struct {
 	// StandIn marks a node a migration made up that stands for no element of its
 	// source, so no diagram symbol is at it: a join it wrote several edges through.
 	StandIn bool
+	// Elided marks a node whose Layout hid compartment rows; the notation marks
+	// the box with an ellipsis at its lower left (§8.2.3.2 ellipsis-at-lower-left-corner).
+	Elided bool
+	// Greyed marks a compartment row that a folded edge or note ends at: the
+	// notation greys the element inside the textual compartment (§8.2.3.2).
+	Greyed bool
 	// Type is the declared type of a typed usage, as the notation writes it
 	// after the colon. It is empty for a definition or an untyped usage.
 	Type string
@@ -578,6 +585,9 @@ type Rendering struct {
 	// Pictures are the pictures drawn on the canvas, in the order the view
 	// states them; a later one is drawn over an earlier one it overlaps.
 	Pictures []Picture
+	// Frame is the view frame (§8.2.3.26) drawn round a graph-shaped rendering
+	// of a view; nil for a frameless rendering.
+	Frame *Frame
 	// Notices are what the rendering could not represent, reported rather than
 	// dropped: an exposed element with no place in this kind of rendering, a
 	// connection to something the view does not expose, a behavior that does not
@@ -711,6 +721,7 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 	case KindTree, KindInterconnection, KindState, KindAction, KindCase, KindMixed, KindRequirement, KindDefinition, KindPackage:
 		// The graph-shaped kinds are drawn on a canvas; a table or sequence is not.
 		out.Canvas = r.canvasOf(view, out)
+		out.Frame = r.frameOf(view)
 		r.notesOf(view, view, "", out)
 		r.picturesOf(view, out)
 	case KindTable, KindMatrix, KindSequence:
@@ -981,17 +992,54 @@ func nameText(name string) string {
 // "state", "view" — so a rendering prints no Go type name.
 func declKind(sym *symbols.Symbol) string {
 	kind := sym.Notation()
-	// `event` and `individual` are parsed as modifiers of the usage; the notation
-	// heads its box «event occurrence», «individual part» (SysML v2.1 §8.2.3.9).
-	if usage, ok := sym.Decl.(*ast.Usage); ok {
-		if usage.IsEvent && !strings.HasPrefix(kind, "event ") {
+	switch decl := sym.Decl.(type) {
+	case *ast.Usage:
+		// `event` and `individual` are parsed as modifiers of the usage; the notation
+		// heads its box «event occurrence», «individual part» (SysML v2.1 §8.2.3.9).
+		if decl.IsEvent && !strings.HasPrefix(kind, "event ") {
 			kind = "event " + kind
 		}
-		if usage.IsIndividual && !strings.HasPrefix(kind, "individual ") {
+		if decl.IsIndividual && !strings.HasPrefix(kind, "individual ") {
 			kind = "individual " + kind
 		}
+		if decl.IsEnd && !slices.Contains(strings.Fields(kind), "end") {
+			kind = "end " + kind
+		}
+		return extendedKind(decl.Prefixes, figureKeyword(kind))
+	case *ast.Definition:
+		return extendedKind(decl.Prefixes, kind)
 	}
 	return kind
+}
+
+// figureKeywords are the keywords the figures of §8.2.3 write in full where the
+// textual notation's keyword is one word: «satisfy requirement», «frame concern».
+var figureKeywords = map[string]string{"satisfy": "satisfy requirement", "verify": "verify requirement", "frame": "frame concern"}
+
+// figureKeyword writes a usage's kind as its figure heads it, keeping its modifiers.
+func figureKeyword(kind string) string {
+	prefix, keyword := splitRowPrefix(kind)
+	full, ok := figureKeywords[keyword]
+	if !ok {
+		return kind
+	}
+	return strings.TrimSpace(prefix + " " + full)
+}
+
+// extendedKind writes the user-defined keywords of a declaration's prefix metadata between
+// its modifiers and its kind, as written: `abstract #command part def` (§8.2.3.6 extended-def).
+func extendedKind(prefixes []*ast.PrefixMetadata, kind string) string {
+	var words []string
+	for _, prefix := range prefixes {
+		if prefix.Type != nil {
+			words = append(words, "#"+prefix.Type.Text())
+		}
+	}
+	if len(words) == 0 {
+		return kind
+	}
+	modifiers, keyword := splitRowPrefix(kind)
+	return strings.TrimSpace(modifiers + " " + strings.Join(words, " ") + " " + keyword)
 }
 
 // declType is the type a usage is declared with, as written ("Engine" of

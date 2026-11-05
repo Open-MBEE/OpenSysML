@@ -512,20 +512,17 @@ func (w *featureWalk) connectionEdges(connector *symbols.Symbol, within *Node) {
 		resolved = append(resolved, at)
 	}
 	notes := len(out.Notes)
-	routeOf, dot := r.routeOf, kind == EdgeConnection && nary(len(resolved))
-	if dot {
-		routeOf = r.statedRouteOf
-	}
-	route, style := routeOf(w.view, connector, out), r.edgeDress(w.view, connector, resolved[0].node.ID, resolved[1].node.ID, out)
+	style := r.edgeDress(w.view, connector, resolved[0].node.ID, resolved[1].node.ID, out)
 	noteEnd := len(out.Notes)
-	if dot {
-		w.naryConnection(connector, within, ends, resolved, route, style)
+	if kind == EdgeConnection && nary(len(resolved)) {
+		w.naryConnection(connector, within, ends, resolved, r.unsteeredRoute(w.view, connector, out), style)
 		// The connection's notes, anchored on its first two ends by edgeDress, sit at the dot.
 		for i := notes; i < len(out.Notes); i++ {
 			out.Notes[i].Anchor, out.Notes[i].EdgeFrom, out.Notes[i].EdgeTo = w.nodes[connector][len(w.nodes[connector])-1].ID, "", ""
 		}
 		return
 	}
+	route := r.routeOf(w.view, connector, out)
 	for i := 0; i < len(resolved); i++ {
 		for j := i + 1; j < len(resolved); j++ {
 			out.Edges = append(out.Edges, Edge{

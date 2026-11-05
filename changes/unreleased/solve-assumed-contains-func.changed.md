@@ -1,1 +1,0 @@
-- The solver's single-value assumption bookkeeping (`assumeOne` and `mergeAssumed` in `internal/exec/solve`) tests membership with `slices.ContainsFunc` instead of hand-written loops; no behaviour changes.

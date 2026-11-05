@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» NotationGlyphs::Diagrams::treeGlyphs"
 ---
 %% NotationGlyphs::Diagrams::treeGlyphs — tree rendering
 flowchart TD

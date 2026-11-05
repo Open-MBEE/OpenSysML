@@ -14,3 +14,5 @@ n0: "«state def»\nBoiler\nstate transition" {
 n0.n3 -> n0.n1: { class: edge }
 n0.n1 -> n0.n2: { class: edge }
 n0.n2 -> n0.n1: { class: edge }
+frame_name: "«view» TypedViews::boilerView : StateTransitionView" { shape: text; near: top-left }
+frame_tr: "expose Typed::Boiler" { shape: text; near: top-right }
