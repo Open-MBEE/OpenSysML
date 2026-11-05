@@ -3268,8 +3268,12 @@ func (e *encoder) relationships(subject rdf.Term, owner string, rels []*ast.Rela
 
 // conjugateReference is the type a `: ~P` typing names: the ConjugatedPortDefinition
 // minted beside P when P is an element here (SysML v2 8.3.12.3), else P as written.
+// A target that is that conjugate already (`~P::'~P'`) conjugates nothing further.
 func (e *encoder) conjugateReference(target rdf.Term) rdf.Term {
 	if !target.IsIRI() {
+		return target
+	}
+	if _, isConjugate := e.conjugateOriginals[target.Value]; isConjugate {
 		return target
 	}
 	conjugate := e.ids.minted(rdf.RelationshipIRI(target, "_conjugated"), target, "_conjugated")

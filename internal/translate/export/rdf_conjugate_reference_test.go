@@ -10,12 +10,14 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
-// conjugateReferenceSource names the implied conjugate `P::'~P'` three ways: a
-// conjugated typing, an ordinary typing and an alias (SysML v2 8.3.12.3).
+// conjugateReferenceSource names the implied conjugate `P::'~P'` four ways: a conjugated
+// typing, a conjugated typing by the conjugate itself, which conjugates nothing further,
+// an ordinary typing and an alias (SysML v2 8.3.12.3).
 const conjugateReferenceSource = `package Q {
     port def P;
     part def Box {
         port a : ~P;
+        port x : ~P::'~P';
         ref c : P::'~P';
         alias Conj for P::'~P';
     }
@@ -28,7 +30,7 @@ const conjugateReferenceSource = `package Q {
 func TestConjugateReferencesKeepTheirForm(t *testing.T) {
 	graph := normativeGraph(t, conjugateReferenceSource)
 	conjugate := rdf.ElementIRIForID("Q__P_conjugated")
-	for _, subject := range []string{"Q__Box__a", "Q__Box__c"} {
+	for _, subject := range []string{"Q__Box__a", "Q__Box__x", "Q__Box__c"} {
 		if got, ok := graph.Object(rdf.ElementIRIForID(subject), rdf.SysML+relationshipProperty[ast.RelTyping]); !ok || got != conjugate {
 			t.Errorf("%s sysml:type = %v, %v; want %v", subject, got, ok, conjugate)
 		}
@@ -41,7 +43,7 @@ func TestConjugateReferencesKeepTheirForm(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ToSysML: %v", err)
 	}
-	for _, want := range []string{"port a : ~P;", "ref c : P::'~P';", "alias Conj for P::'~P';"} {
+	for _, want := range []string{"port a : ~P;", "port x : ~P;", "ref c : P::'~P';", "alias Conj for P::'~P';"} {
 		if !strings.Contains(string(notation), want) {
 			t.Errorf("notation lacks %q:\n%s", want, notation)
 		}
@@ -58,7 +60,7 @@ func TestConjugateReferencesKeepTheirForm(t *testing.T) {
 		}
 		return true
 	})
-	if !typings["a"] || typings["c"] {
-		t.Errorf("conjugated typings after read-back: %v; want a only", typings)
+	if !typings["a"] || !typings["x"] || typings["c"] {
+		t.Errorf("conjugated typings after read-back: %v; want a and x only", typings)
 	}
 }
