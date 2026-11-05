@@ -34,15 +34,13 @@ var (
 )
 
 var apiJSONOwnedAbsenceTypeAliases = map[string]string{
-	"AssociationUsage":     "Association",
-	"BehaviorUsage":        "Behavior",
-	"BooleanUsage":         "BooleanExpression",
-	"ClassUsage":           "Class",
-	"IndividualDefinition": "OccurrenceDefinition",
-	"IndividualUsage":      "OccurrenceUsage",
-	"InteractionUsage":     "Interaction",
-	"PredicateUsage":       "Predicate",
-	"StructureUsage":       "Structure",
+	"AssociationUsage": "Association",
+	"BehaviorUsage":    "Behavior",
+	"BooleanUsage":     "BooleanExpression",
+	"ClassUsage":       "Class",
+	"InteractionUsage": "Interaction",
+	"PredicateUsage":   "Predicate",
+	"StructureUsage":   "Structure",
 }
 
 var apiJSONOwnedAbsenceExtensionParents = map[string]string{
