@@ -198,7 +198,8 @@ The vendored `OpenSysML Libraries` (`scripts/extension-libraries-pin.sh`, synced
 `scripts/sync-extension-libraries.sh`) are an input to gates far from `internal/workspace/libs`, and
 the full CI tier is expensive, so run them locally before the PR, every time the pin moves:
 
-1. `make extension-libraries-pin-check` — Java-free, about a minute: the sync check,
+1. `make extension-libraries-pin-check` — Java-free, about a minute: regenerates the snapshot
+   from the synced libraries, then the sync check,
    `tests/hygiene TestEngineContractCoversEveryBoundName` (a new binding in
    `internal/ir/queryplan/compiler.go` needs an `engine-contract.json` entry upstream, in the same
    library PR as the declaration), the provenance guards of both pilot-differential baselines, and

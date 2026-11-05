@@ -467,7 +467,7 @@ textmate-grammars-check: ## Check Open-MBEE/sysml-v2-textmate (the grammar repos
 textmate-grammars-publish: ## Publish the committed TextMate grammars to Open-MBEE/sysml-v2-textmate (needs GITHUB_TOKEN; the release pipeline runs this)
 	./scripts/sync-textmate-grammars.sh --publish
 
-extension-libraries-pin-check: ## After moving the extension-library pin: every Java-free gate the full tier runs over the vendored libraries
+extension-libraries-pin-check: stdlib-snapshot ## After moving the extension-library pin: every Java-free gate the full tier runs over the vendored libraries
 	./scripts/sync-extension-libraries.sh --check
 	go test -count=1 ./tests/hygiene -run 'TestEngineContract'
 	go test -C $(TOOLS_DIR) -count=1 ./referee/diff ./referee/apijson -run 'TestCommittedBaselineStatesThisRepositorysProvenance|TestProvenance'
@@ -519,6 +519,7 @@ clean: ## Remove build artifacts
 	rm -rf $(GO_COUNTER_DIR)
 	rm -f sysml sysml-lsp sysml-grpc sysml-jupyter-kernel sysml-mcp
 	rm -f cmd/*/rsrc_windows_*.syso
+	rm -f $(LIBS_DIR)/stdlib.snapshot $(LIBS_DIR)/snapshot_embedded.go
 	rm -rf $(SITE_DIR)
 	@# Only the default destination; an overridden SELF_MODEL_OUT is the caller's.
 	rm -rf build/self-model
