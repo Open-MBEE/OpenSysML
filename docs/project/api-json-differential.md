@@ -546,6 +546,19 @@ ours-missing):
    `MultiplicityRange` stub and its `OwningMembership` join the Turtle stubs and the `libraryReferences`
    table (`Parts::parts/MultiplicityRange[0]`), additively.
 
+   The present-different movement against `develop`'s record (+85166, every row in the family) by
+   property, with the verdict of the training-root classification above: `member` +19584 and
+   `membership` +19581 — pilot-right where the pilot's list carries a nested usage's implied-subsetting
+   members, a positional parameter redefinition or a library `comment` member (causes 2 and 3, recorded
+   gaps), ours-right where only the order differs (implied bases first on the pilot's side, declared generals
+   first on ours; §8.3.3.1.10 fixes neither); `feature` +12278, `featureMembership` +12221,
+   `inheritedMembership` +8655 and `inheritedFeature` +7247 — the same two verdicts plus the pilot-right
+   expression, result-feature and multiplicity rows whose implied bases structure mode does not reach (cause
+   1, a side-table gap); `usage` +2019, `directedUsage` +705, `directedFeature` +1521, `input` +448 and
+   `output` +785 — projections of the same lists, so they inherit the verdict of their `feature` row;
+   identity noise is confined to the one `localClock` duplicate. Nothing in the movement is a list ours
+   states and the spec forbids; each pilot-right row is an itemised gap, not an approximation.
+
 Not completed, and why: `Type::endFeature` (not taken up in this step; it awaits a measurement of its own) and the
 causes itemised under step 5. `Behavior::step` (0 equal / 257 different),
 `Step::parameter` and `Behavior::parameter` (21 / 530), `InstantiationExpression::instantiatedType`
