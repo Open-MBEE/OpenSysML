@@ -149,11 +149,13 @@ func (m *orderMarks) rewrite(p lower.Place, by []int64, now float64, alike func(
 			entries = append(entries, e)
 			continue
 		}
+		var left []int64
 		for _, s := range e.by {
 			if seed, ok := m.seeds[s]; ok && seed.clocked && seed.at == now && touchesPlace(seed.touched, p) {
-				kept = unionSerials(kept, []int64{s})
+				left = append(left, s)
 			}
 		}
+		kept = unionSerials(kept, left)
 	}
 	// A place written stays listed, bare: it witnesses that its node performed.
 	m.entries = append(entries, orderMark{place: p, by: kept})
@@ -213,10 +215,20 @@ func touchesPlace(touched []lower.Place, p lower.Place) bool {
 	return false
 }
 
-// unionSerials is the union of two sets of choice points: an operand itself
+// unionSerials is the union of two sorted, duplicate-free sets: an operand itself
 // where that operand is the union, else a fresh set, by one merge of the two.
 func unionSerials(a, b []int64) []int64 {
-	if len(b) == 0 {
+	i, j := 0, 0
+	for i < len(a) && j < len(b) {
+		if a[i] > b[j] {
+			break
+		}
+		if a[i] == b[j] {
+			j++
+		}
+		i++
+	}
+	if j == len(b) {
 		return a
 	}
 	if len(a) == 0 || sameSerials(a, b) {
@@ -303,9 +315,15 @@ func sameSerials(a, b []int64) bool {
 // underControl runs what follows under the choice points the serials name — a
 // guard read standing on them, a branch drawn among alternatives — until
 // releaseControl of what it returns; every write made meanwhile stands on them too.
+// A choice point already in control — an inner branch whose condition stands on
+// the one it runs under — is not added again.
 func (ctx *Context) underControl(serials []int64) int {
 	n := len(ctx.controls)
-	ctx.controls = append(ctx.controls, serials...)
+	for _, s := range serials {
+		if !slices.Contains(ctx.controls, s) {
+			ctx.controls = append(ctx.controls, s)
+		}
+	}
 	ctx.controlSet = nil
 	return n
 }
