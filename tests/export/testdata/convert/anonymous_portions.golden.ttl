@@ -178,11 +178,11 @@ elmt:AnonymousPortions__Car
     sysml:owningRelationship elmt:AnonymousPortions__Car_om ;
     sysml:owningMembership elmt:AnonymousPortions__Car_om ;
     sysml:declaredName "Car" ;
-    sysml:isIndividual "true"^^xsd:boolean ;
     sysml:multiplicity expr:AnonymousPortions__Car_pmultiplicity ;
     sysml:ownedRelationship expr:AnonymousPortions__Car_pmultiplicity_om, elmt:AnonymousPortions__Car_sp0 ;
     sysml:ownedMembership expr:AnonymousPortions__Car_pmultiplicity_om ;
     sysml:ownedMember expr:AnonymousPortions__Car_pmultiplicity ;
+    sysml:isIndividual "true"^^xsd:boolean ;
     sysml:specializes elmt:AnonymousPortions__Vehicle ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedSpecialization elmt:AnonymousPortions__Car_sp0 ;

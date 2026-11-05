@@ -73,11 +73,11 @@ elmt:IndividualDefinitions__Neil_20Armstrong
     sysml:owningRelationship elmt:IndividualDefinitions__Neil_20Armstrong_om ;
     sysml:owningMembership elmt:IndividualDefinitions__Neil_20Armstrong_om ;
     sysml:declaredName "Neil Armstrong" ;
-    sysml:isIndividual "true"^^xsd:boolean ;
     sysml:multiplicity expr:IndividualDefinitions__Neil_20Armstrong_pmultiplicity ;
     sysml:ownedRelationship expr:IndividualDefinitions__Neil_20Armstrong_pmultiplicity_om, elmt:IndividualDefinitions__Neil_20Armstrong_sc0 ;
     sysml:ownedMembership expr:IndividualDefinitions__Neil_20Armstrong_pmultiplicity_om ;
     sysml:ownedMember expr:IndividualDefinitions__Neil_20Armstrong_pmultiplicity ;
+    sysml:isIndividual "true"^^xsd:boolean ;
     sysml:specializes elmt:IndividualDefinitions__Astronaut ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedSubclassification elmt:IndividualDefinitions__Neil_20Armstrong_sc0 ;
@@ -168,11 +168,11 @@ elmt:IndividualDefinitions__Sample_2010005
     sysml:owningRelationship elmt:IndividualDefinitions__Sample_2010005_om ;
     sysml:owningMembership elmt:IndividualDefinitions__Sample_2010005_om ;
     sysml:declaredName "Sample 10005" ;
-    sysml:isIndividual "true"^^xsd:boolean ;
     sysml:multiplicity expr:IndividualDefinitions__Sample_2010005_pmultiplicity ;
     sysml:ownedRelationship expr:IndividualDefinitions__Sample_2010005_pmultiplicity_om ;
     sysml:ownedMembership expr:IndividualDefinitions__Sample_2010005_pmultiplicity_om ;
     sysml:ownedMember expr:IndividualDefinitions__Sample_2010005_pmultiplicity ;
+    sysml:isIndividual "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "\tindividual item def 'Sample 10005';\n" .
 
@@ -227,11 +227,11 @@ elmt:IndividualDefinitions__FirstLanding
     sysml:owningRelationship elmt:IndividualDefinitions__FirstLanding_om ;
     sysml:owningMembership elmt:IndividualDefinitions__FirstLanding_om ;
     sysml:declaredName "FirstLanding" ;
-    sysml:isIndividual "true"^^xsd:boolean ;
     sysml:multiplicity expr:IndividualDefinitions__FirstLanding_pmultiplicity ;
     sysml:ownedRelationship expr:IndividualDefinitions__FirstLanding_pmultiplicity_om ;
     sysml:ownedMembership expr:IndividualDefinitions__FirstLanding_pmultiplicity_om ;
     sysml:ownedMember expr:IndividualDefinitions__FirstLanding_pmultiplicity ;
+    sysml:isIndividual "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "\tindividual occurrence def FirstLanding;\n" .
 
@@ -286,11 +286,11 @@ elmt:IndividualDefinitions__PlantFlag
     sysml:owningRelationship elmt:IndividualDefinitions__PlantFlag_om ;
     sysml:owningMembership elmt:IndividualDefinitions__PlantFlag_om ;
     sysml:declaredName "PlantFlag" ;
-    sysml:isIndividual "true"^^xsd:boolean ;
     sysml:multiplicity expr:IndividualDefinitions__PlantFlag_pmultiplicity ;
     sysml:ownedRelationship expr:IndividualDefinitions__PlantFlag_pmultiplicity_om ;
     sysml:ownedMembership expr:IndividualDefinitions__PlantFlag_pmultiplicity_om ;
     sysml:ownedMember expr:IndividualDefinitions__PlantFlag_pmultiplicity ;
+    sysml:isIndividual "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "\tindividual action def PlantFlag;\n" .
 
@@ -345,12 +345,12 @@ elmt:IndividualDefinitions__Spacecraft
     sysml:owningRelationship elmt:IndividualDefinitions__Spacecraft_om ;
     sysml:owningMembership elmt:IndividualDefinitions__Spacecraft_om ;
     sysml:declaredName "Spacecraft" ;
-    sysml:isAbstract "true"^^xsd:boolean ;
-    sysml:isIndividual "true"^^xsd:boolean ;
     sysml:multiplicity expr:IndividualDefinitions__Spacecraft_pmultiplicity ;
     sysml:ownedRelationship expr:IndividualDefinitions__Spacecraft_pmultiplicity_om ;
     sysml:ownedMembership expr:IndividualDefinitions__Spacecraft_pmultiplicity_om ;
     sysml:ownedMember expr:IndividualDefinitions__Spacecraft_pmultiplicity ;
+    sysml:isAbstract "true"^^xsd:boolean ;
+    sysml:isIndividual "true"^^xsd:boolean ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "\tabstract individual part def Spacecraft;\n" .
 
@@ -405,11 +405,11 @@ elmt:IndividualDefinitions__Eagle
     sysml:owningRelationship elmt:IndividualDefinitions__Eagle_om ;
     sysml:owningMembership elmt:IndividualDefinitions__Eagle_om ;
     sysml:declaredName "Eagle" ;
-    sysml:isIndividual "true"^^xsd:boolean ;
     sysml:multiplicity expr:IndividualDefinitions__Eagle_pmultiplicity ;
     sysml:ownedRelationship expr:IndividualDefinitions__Eagle_pmultiplicity_om, elmt:IndividualDefinitions__Eagle_sp0 ;
     sysml:ownedMembership expr:IndividualDefinitions__Eagle_pmultiplicity_om ;
     sysml:ownedMember expr:IndividualDefinitions__Eagle_pmultiplicity ;
+    sysml:isIndividual "true"^^xsd:boolean ;
     sysml:specializes elmt:IndividualDefinitions__Spacecraft ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedSpecialization elmt:IndividualDefinitions__Eagle_sp0 ;

@@ -161,6 +161,8 @@ func TestIndividualOccurrenceDefinitionMultiplicity(t *testing.T) {
     part def Q { part y : P; }
     occurrence def R;
     attribute def A;
+    metadata def Tag;
+    individual #Tag part def T;
 }`
 	for _, fixture := range reflectiveFixtures(t, "individual-multiplicity.sysml", source.KindSysML, src) {
 		model := fixture.model
@@ -226,6 +228,44 @@ func TestIndividualOccurrenceDefinitionMultiplicity(t *testing.T) {
 		x := relFixtureSymbol(t, fixture, "x")
 		if member := model.MultiplicityMember(x); member == nil || !IsDefaultMultiplicity(member) {
 			t.Error("x, a usage of an individual definition, does not keep its own implicit [1..1]")
+		}
+		tagged := relFixtureSymbol(t, fixture, "T")
+		if rels := model.OwnedRelationships(tagged); len(rels) != 2 || rels[0].Implicit == nil ||
+			!IsIndividualMultiplicity(rels[0].Implicit.Member) || !isPrefixAnnotation(rels[1]) {
+			t.Errorf("T ownedRelationship = %d elements, want the Multiplicity's membership before the prefix annotation (SysML v2 §8.2.2.9.1)", len(rels))
+		}
+	}
+}
+
+// The clause reads the definition's `multiplicity`, whichever construction minted it: a
+// Multiplicity owned by an individual definition as a usage's implicit [1..1] is (the form
+// a parser post-processor states it in) subsets Base::zeroOrOne alike, any other Base::naturals.
+func TestMultiplicityBaseFollowsTheOwner(t *testing.T) {
+	src := `package IOF {
+    part def P;
+    individual part def I;
+    part a : P; part b : P;
+    connection c connect e1 ::> a to e2 ::> b;
+}`
+	for _, fixture := range reflectiveFixtures(t, "individual-owner-multiplicity.sysml", source.KindSysML, src) {
+		model := fixture.model
+		individual := relFixtureSymbol(t, fixture, "I")
+		asDefault := impliedMultiplicity(individual, individual.DeclSpan, symbols.ImpliedDefaultMultiplicity)
+		if fqn, ok := model.MultiplicityBaseFQN(asDefault); !ok || fqn != "Base::zeroOrOne" {
+			t.Errorf("MultiplicityBaseFQN(I's default-form multiplicity) = %q, %t; want Base::zeroOrOne", fqn, ok)
+		}
+		plain := relFixtureSymbol(t, fixture, "P")
+		if fqn, ok := model.MultiplicityBaseFQN(impliedMultiplicity(plain, plain.DeclSpan, symbols.ImpliedDefaultMultiplicity)); !ok || fqn != "Base::naturals" {
+			t.Errorf("MultiplicityBaseFQN(P's default-form multiplicity) = %q, %t; want Base::naturals", fqn, ok)
+		}
+		ends, ok := model.OwnedConnectorEnds(relFixtureSymbol(t, fixture, "c"))
+		if !ok || len(ends) != 2 {
+			t.Fatalf("c ends = %d, want 2", len(ends))
+		}
+		for i, end := range ends {
+			if fqn, ok := model.MultiplicityBaseFQN(impliedMultiplicity(end, end.DeclSpan, symbols.ImpliedDefaultMultiplicity)); !ok || fqn != "Base::naturals" {
+				t.Errorf("MultiplicityBaseFQN(end %d's default multiplicity) = %q, %t; want Base::naturals", i, fqn, ok)
+			}
 		}
 	}
 }

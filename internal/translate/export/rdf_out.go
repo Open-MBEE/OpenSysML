@@ -1596,6 +1596,9 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		}
 		head(rdf.SysMLTerm(metaclass))
 		e.ident(subject, n.Ident)
+		// An individual definition's Multiplicity precedes its prefix metadata and its
+		// head's clauses (SysML v2 §8.2.2.9.1 OccurrenceDefinitionPrefix).
+		e.defaultMultiplicity(subject, n, nil)
 		if err := e.declaredKeyword(subject, n, n.Keyword, definitionKeyword(n.Kind), n.Ident.Name, false); err != nil {
 			return err
 		}
@@ -1611,7 +1614,6 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if err := e.prefixes(subject, fqn, n.Prefixes, n.Members); err != nil {
 			return err
 		}
-		e.defaultMultiplicity(subject, n, nil)
 		e.relationships(subject, owner, n.Relationships)
 		if n.Kind == ast.DefPort {
 			// Every port definition owns its conjugate (SysML.xtext

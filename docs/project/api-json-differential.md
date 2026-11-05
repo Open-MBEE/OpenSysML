@@ -277,7 +277,9 @@ move: an enumerated value is a variant, and takes none.
 (re-recorded with the implied specializations of KerML 8.3.3.1.9 `checkMultiplicitySpecialization` and
 SysML 8.3.9.3 `checkOccurrenceDefinitionMultiplicitySpecialization`): an `individual` occurrence, part,
 item, action or analysis-case definition is parsed with a nameless `Multiplicity` of its own, first among
-its owned memberships, so 60 more `Multiplicity` elements match (3047 → 3107) and the definitions'
+its owned relationships, before its prefix metadata (SysML 8.2.2.9.1 `OccurrenceDefinitionPrefix`; the bare
+`individual def` production writes its `EmptyMultiplicityMember` after the body, where the pilot — and this
+writer — keeps it first), so 60 more `Multiplicity` elements match (3047 → 3107) and the definitions'
 `multiplicity` rows move from ours-missing to present-equal (`OccurrenceDefinition` 36, `PartDefinition`
 14, `ItemDefinition` 6, `ActionDefinition` 3, `AnalysisCaseDefinition` 1), their `ownedMember`,
 `ownedMembership` and `ownedRelationship` rows with them (`OccurrenceDefinition.ownedMember` 11 → 46

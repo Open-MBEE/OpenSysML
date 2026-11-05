@@ -14,10 +14,22 @@ func (m *Model) MultiplicityBaseFQN(sym *symbols.Symbol) (string, bool) {
 	if m == nil || sym == nil || sym.Kind != symbols.SymbolMultiplicity {
 		return "", false
 	}
-	if IsIndividualMultiplicity(sym) {
+	if m.ownedByIndividualDefinition(sym) {
 		return zeroOrOneFQN, true
 	}
 	return naturalsFQN, true
+}
+
+// ownedByIndividualDefinition reports whether sym is the Multiplicity of an individual
+// OccurrenceDefinition, whichever construction minted it (the clause reads `multiplicity`).
+func (m *Model) ownedByIndividualDefinition(sym *symbols.Symbol) bool {
+	if IsIndividualMultiplicity(sym) {
+		return true
+	}
+	if sym.OwnerScope == nil {
+		return false
+	}
+	return m.ImpliesIndividualMultiplicity(sym.OwnerScope.OwningElement())
 }
 
 // implicitMultiplicityBase returns the library multiplicity sym implicitly subsets

@@ -302,6 +302,13 @@ func (m *Model) OwnedRelationships(sym *symbols.Symbol) []*symbols.Symbol {
 		return m.implicitOwnedRelationships(sym)
 	}
 	var out, body []*symbols.Symbol
+	memberships := m.OwnedMemberships(sym)
+	if len(memberships) > 0 && memberships[0].Implicit != nil && IsIndividualMultiplicity(memberships[0].Implicit.Member) {
+		// `individual` and its Multiplicity precede the prefix metadata and the head's
+		// clauses (SysML v2 §8.2.2.9.1 OccurrenceDefinitionPrefix).
+		out = append(out, memberships[0])
+		memberships = memberships[1:]
+	}
 	for _, ann := range m.OwnedAnnotations(sym) {
 		if isPrefixAnnotation(ann) {
 			out = append(out, ann)
@@ -309,16 +316,11 @@ func (m *Model) OwnedRelationships(sym *symbols.Symbol) []*symbols.Symbol {
 			body = append(body, ann)
 		}
 	}
+	out = append(out, m.ImplicitRelationships(sym)...)
 	body = append(body, m.OwnedImports(sym)...)
-	body = append(body, m.OwnedMemberships(sym)...)
+	body = append(body, memberships...)
 	body = append(body, m.AnnotatingRelationships(sym)...)
 	sort.SliceStable(body, func(i, j int) bool { return body[i].DeclSpan.Offset < body[j].DeclSpan.Offset })
-	// An individual definition's Multiplicity precedes its written clauses, as the pilot parses it.
-	if len(body) > 0 && body[0].Implicit != nil && IsIndividualMultiplicity(body[0].Implicit.Member) {
-		out = append(out, body[0])
-		body = body[1:]
-	}
-	out = append(out, m.ImplicitRelationships(sym)...)
 	return append(out, body...)
 }
 
