@@ -1,5 +1,6 @@
 @startuml
 ' FilteredViews::safetyView — tree rendering
+mainframe <size:10>//«view»//</size> **FilteredViews::safetyView** : SafetyView\n<size:10>expose Systems::Radio</size>
 <style>
 root {
   BackGroundColor white
@@ -43,6 +44,6 @@ hide stereotype
 hide circle
 hide empty members
 class "<size:10>//«part def»//</size>\n**Radio**" as n0 <<part def>>
-class "<size:10>//«part def»//</size>\n**Airbag**" as n1 <<part def>>
-class "<size:10>//«part def»//</size>\n**Brake**" as n2 <<part def>>
+class "<size:10>//«<U+0023>Safety part def»//</size>\n**Airbag**" as n1 <<#Safety part def>>
+class "<size:10>//«<U+0023>Safety part def»//</size>\n**Brake**" as n2 <<#Safety part def>>
 @enduml

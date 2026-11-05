@@ -1,0 +1,74 @@
+HeadingViews::headings - tree rendering (render asTreeDiagram)
+
+enum def Mode at (10, 10)
+  enum idle
+  enum active
+part def Controller at (200, 10)
+  attribute gain
+  rendering gauge
+  calc total
+  part s1
+    port ^a
+    port ^b
+  part s2
+    port ^a
+    port ^b
+  flow
+  satisfy requirement safe
+    frame concern ^safety
+    reference usage
+  metadata usage
+    attribute text
+connection def Link at (500, 10)
+  end part source
+    port ^a
+    port ^b
+  end part target
+    port ^a
+    port ^b
+verification case def Check at (10, 300)
+  subject controller
+    attribute ^gain
+    rendering ^gauge
+    calc ^total
+    part ^s1
+      port ^a
+      port ^b
+    part ^s2
+      port ^a
+      port ^b
+    flow
+    satisfy requirement ^safe
+      frame concern ^safety
+      reference usage
+    metadata usage
+      attribute text
+  objective
+    verify requirement safe
+      frame concern ^safety
+  actor tester
+view def Dashboard at (300, 300)
+
+relationships:
+  Mode o-- idle
+  Mode o-- active
+  Controller o-- gain
+  Controller *-- s1
+  Controller *-- s2
+  s1 o-- a
+  s1 o-- b
+  s2 o-- a
+  s2 o-- b
+  metadata usage n17 o-- text
+  Link o-- source
+  Link o-- target
+  source o-- a
+  source o-- b
+  target o-- a
+  target o-- b
+  Check o-- controller
+  Check o-- tester
+  controller --:|> Controller
+  controller o-- gain
+  controller *-- s1
+  controller *-- s2

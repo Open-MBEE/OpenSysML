@@ -1,0 +1,98 @@
+---
+config:
+  fontFamily: "Helvetica, Arial, sans-serif"
+  theme: base
+  themeCSS: ".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }"
+  themeVariables:
+    fontFamily: "Helvetica, Arial, sans-serif"
+    fontSize: "14px"
+    primaryColor: "#FFFFFF"
+    secondaryColor: "#FFFFFF"
+    tertiaryColor: "#FFFFFF"
+    background: "#FFFFFF"
+    primaryBorderColor: "#181818"
+    primaryTextColor: "#000000"
+    lineColor: "#181818"
+    textColor: "#000000"
+    noteBkgColor: "#FEFFDD"
+    noteBorderColor: "#181818"
+    noteTextColor: "#000000"
+    clusterBkg: "#FFFFFF"
+    clusterBorder: "#181818"
+    edgeLabelBackground: "#FFFFFF"
+title: "«view» HeadingViews::nodes"
+---
+%% HeadingViews::nodes — tree rendering (render asTreeDiagram)
+%% not represented: satisfy requirement Headings::Controller::safe is drawn between the nodes of its ends; the view does not show both, so no edge is drawn
+flowchart TD
+  n0["`*«requirement def»*
+**Safe**`"]
+    n1("`*«frame concern»*
+**safety**`")
+  n0 --- n1
+  n2["`*«verification case def»*
+**Check**`"]
+    n3("`*«subject»*
+**controller**`")
+      n4("`*«attribute»*
+**^gain**`")
+      n5("`*«rendering»*
+**^gauge**`")
+  n3 --- n5
+      n6("`*«calc»*
+**^total**`")
+  n3 --- n6
+      n7("`*«part»*
+**^s1**`")
+        n8("`*«port»*
+**^a**`")
+  n7 --- n8
+        n9("`*«port»*
+**^b**`")
+  n7 --- n9
+      n10("`*«part»*
+**^s2**`")
+        n11("`*«port»*
+**^a**`")
+  n10 --- n11
+        n12("`*«port»*
+**^b**`")
+  n10 --- n12
+      n13("`**flow**`")
+  n3 --- n13
+      n14("`*«satisfy requirement»*
+**^safe**`")
+        n15("`*«frame concern»*
+**^safety**`")
+  n14 --- n15
+        n16("`**reference usage**`")
+  n14 --- n16
+  n3 --- n14
+      n17("`**metadata usage**`")
+        n18("`*«attribute»*
+**text**`")
+  n17 --- n18
+  n3 --- n17
+    n19("`**objective**`")
+      n20("`*«verify requirement»*
+**safe**`")
+        n21("`*«frame concern»*
+**^safety**`")
+  n20 --- n21
+  n19 --- n20
+  n2 --- n19
+    n22("`*«actor»*
+**tester**`")
+  n23["«abstract #35;command part def»<br>Launcher"]
+  n24["«#35;command requirement def»<br>Goal"]
+    n25("`*«subject»*
+**system**`")
+  n24 --- n25
+  n26["«#35;command verification case def»<br>Audit"]
+  n2 ---|"◇"| n3
+  n2 ---|"◇"| n22
+  n3 ---|"◇"| n4
+  n3 ---|"◆"| n7
+  n3 ---|"◆"| n10
+  n20 -->|"typing"| n0
+  n25 -->|"typing"| n23
