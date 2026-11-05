@@ -212,26 +212,42 @@ func (ctx *Context) PathsTo(root, target *Instance, bounds PathBounds) Paths {
 
 // holdersReaching is the set of objects below root from which some sequence of
 // held values leads to target: the objects at which a depth cutoff may hide a
-// path. The graph is walked once as Traverse walks it — into an object the
-// first time it is reached and never into one whose type is already on the
-// path — so a recursive type materializes no more here than it does there;
-// every value an object walked holds counts as a route, those the walk itself
-// does not take included, so the set can overstate what a cutoff hides.
+// path. The walk enters an object under the guard PathsTo searches with — never
+// one whose type is already on the path — and enters it again only from a path
+// whose types are not a superset of one it was entered from before, since only
+// then can a child the guard held back come free; so an alias reached beneath a
+// repeated type is still looked into from the route that allows it, and a
+// recursive type materializes no more than it does for Traverse (an object's
+// values are read once). Every value an object entered holds counts as a route,
+// the guards notwithstanding, so the set can overstate what a cutoff hides.
 func (ctx *Context) holdersReaching(root, target *Instance) map[int64]bool {
 	holders := make(map[int64][]int64)
-	seen := map[int64]bool{root.ID: true}
+	held := make(map[int64][]PathStep)
+	entered := make(map[int64][]map[*symbols.Symbol]bool)
 	typesOnPath := make(map[*symbols.Symbol]bool)
 	var walk func(cur *Instance)
 	walk = func(cur *Instance) {
 		typesOnPath[cur.Type] = true
 		defer delete(typesOnPath, cur.Type)
-		for _, step := range ctx.heldSteps(cur) {
-			if step.Library {
-				continue
+		for _, before := range entered[cur.ID] {
+			if subset(before, typesOnPath) {
+				return
 			}
-			holders[step.Object.ID] = append(holders[step.Object.ID], cur.ID)
-			if !seen[step.Object.ID] && !typesOnPath[step.Object.Type] {
-				seen[step.Object.ID] = true
+		}
+		entered[cur.ID] = append(entered[cur.ID], maps.Clone(typesOnPath))
+		steps, read := held[cur.ID]
+		if !read {
+			for _, step := range ctx.heldSteps(cur) {
+				if step.Library {
+					continue
+				}
+				steps = append(steps, step)
+				holders[step.Object.ID] = append(holders[step.Object.ID], cur.ID)
+			}
+			held[cur.ID] = steps
+		}
+		for _, step := range steps {
+			if !typesOnPath[step.Object.Type] {
 				walk(step.Object)
 			}
 		}
@@ -342,4 +358,13 @@ func (ctx *Context) heldObjects(val Value) []*Instance {
 		objects = append(objects, ctx.heldObjects(elem)...)
 	}
 	return objects
+}
+
+func subset(of, in map[*symbols.Symbol]bool) bool {
+	for sym := range of {
+		if !in[sym] {
+			return false
+		}
+	}
+	return true
 }

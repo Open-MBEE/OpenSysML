@@ -204,3 +204,41 @@ func TestPathsToIsBoundedOnARecursiveType(t *testing.T) {
 		t.Errorf("the search materialized %d objects past Traverse's %d", ctx.InstanceCount()-walked, len(reached.Reaches))
 	}
 }
+
+// A holder first met beneath a repeated type, where the guard holds its child
+// back, is looked into again from the alias that allows the child, so the
+// deeper path the alias opens counts as hidden at a cutoff.
+func TestPathsToSeesPastAnAliasUnderARepeatedType(t *testing.T) {
+	ctx, idx := contextForSource(t, `package Alias {
+	part def T;
+	part def A { part b : X; }
+	part def X { part a : A; part target : T; }
+	part root {
+		part alpha : X;
+		ref part zeta : A = alpha.a;
+	}
+}`)
+	root, err := ctx.Instantiate(lookupOne(t, idx, "Alias::root"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := root
+	for _, name := range []string{"zeta", "b", "target"} {
+		next := target
+		for _, step := range ctx.heldSteps(target) {
+			if step.Name == name {
+				next = step.Object
+			}
+		}
+		if next == target {
+			t.Fatalf("%s holds no %s", target.Type.Name, name)
+		}
+		target = next
+	}
+	if got := ctx.PathsTo(root, target, PathBounds{}); strings.Join(pathTexts(got), " ") != "zeta.b.target" || got.Truncated {
+		t.Errorf("paths = %v, truncated %v", pathTexts(got), got.Truncated)
+	}
+	if got := ctx.PathsTo(root, target, PathBounds{Depth: 2}); len(got.Steps) != 0 || !got.Truncated {
+		t.Errorf("two steps allowed: %v, truncated %v, want none and truncated", pathTexts(got), got.Truncated)
+	}
+}
