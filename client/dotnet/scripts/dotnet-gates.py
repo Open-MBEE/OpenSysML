@@ -10,10 +10,10 @@
     python3 client/dotnet/scripts/dotnet-gates.py promote-api [--check]
     python3 client/dotnet/scripts/dotnet-gates.py goldens [--check] [--dotnet DOTNET]
 
-`preflight` fails unless `dotnet`, invoked from the repository root, is exactly the
-SDK root global.json pins and a .NET 10 runtime is installed beside it: global.json's
-roll-forward would otherwise let a different SDK build, and the tests must execute
-on net10, not merely compile for it.
+`preflight` fails unless `dotnet`, invoked from the repository root, is an SDK in the
+feature band root global.json pins, at or above its patch, and a .NET 10 runtime is
+installed beside it: another band ships another compiler and analyzers, and the tests
+must execute on net10, not merely compile for it.
 
 `coverage` fails unless RESULTS_DIR holds at least one coverlet Cobertura report,
 each measuring some handwritten library code under client/dotnet/src and none of
@@ -136,8 +136,30 @@ def _dotnet(dotnet, *args):
     return result.stdout
 
 
+def sdk_band(version):
+    """Split an SDK version into its feature band and patch.
+
+    Args:
+        version (str): A release SDK version, e.g. '10.0.403'
+
+    Returns:
+        tuple[tuple[int, int, int], int]: (major, minor, feature band) and patch, e.g. ((10, 0, 4), 3)
+
+    Raises:
+        GateError: If the version is not a release SDK version
+    """
+    m = re.fullmatch(r"(\d+)\.(\d+)\.(\d)(\d\d)", version)
+    if not m:
+        raise GateError(f"{version!r} is not a release .NET SDK version (major.minor.Bpp)")
+    return (int(m[1]), int(m[2]), int(m[3])), int(m[4])
+
+
 def preflight(dotnet="dotnet", global_json=GLOBAL_JSON):
     """Check the SDK and runtime the repository root selects.
+
+    The SDK must be in the pinned feature band at or above the pinned patch, which is
+    what global.json's latestPatch roll-forward admits; a servicing patch does not change
+    the compiler or the fixed AnalysisLevel's rules, while another band may.
 
     Args:
         dotnet (str): The dotnet host to run
@@ -147,14 +169,16 @@ def preflight(dotnet="dotnet", global_json=GLOBAL_JSON):
         tuple[str, list[str]]: The SDK version and the .NET 10 runtime versions
 
     Raises:
-        GateError: If the SDK is not the pinned one or no .NET 10 runtime is installed
+        GateError: If the SDK is outside the pinned band or no .NET 10 runtime is installed
     """
     pinned = pinned_sdk(global_json)
+    pinned_band, pinned_patch = sdk_band(pinned)
     sdk = _dotnet(dotnet, "--version").strip()
-    if sdk != pinned:
+    band, patch = sdk_band(sdk)
+    if band != pinned_band or patch < pinned_patch:
         raise GateError(
             f"dotnet from the repository root is SDK {sdk!r}, but global.json pins {pinned!r}; "
-            "install that SDK."
+            f"install SDK {pinned} or a later {'.'.join(map(str, pinned_band))}xx patch."
         )
     runtimes = re.findall(
         rf"^Microsoft\.NETCore\.App ({RUNTIME_MAJOR}\.\d+\.\d+)\s",

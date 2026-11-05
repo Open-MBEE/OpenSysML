@@ -111,9 +111,27 @@ class GatesTest(unittest.TestCase):
         self.assertEqual(sdk, "10.0.402")
         self.assertEqual(runtimes, ["10.0.13"])
 
-    def test_preflight_rejects_another_sdk(self):
-        with self.assertRaisesRegex(gates.GateError, "SDK '10.0.403', but global.json pins '10.0.402'"):
-            gates.preflight(self.host("10.0.403", RUNTIMES_10), self.global_json)
+    def test_preflight_accepts_a_later_patch_in_the_pinned_band(self):
+        sdk, _ = gates.preflight(self.host("10.0.403", RUNTIMES_10), self.global_json)
+        self.assertEqual(sdk, "10.0.403")
+
+    def test_preflight_rejects_an_sdk_outside_the_pinned_band_or_below_its_patch(self):
+        for sdk in ("10.0.401", "10.0.300", "10.0.500", "10.1.402", "11.0.402"):
+            with self.subTest(sdk=sdk), self.assertRaisesRegex(
+                gates.GateError,
+                rf"SDK '{sdk}', but global.json pins '10.0.402'; install SDK 10.0.402 or a later 10.0.4xx patch",
+            ):
+                gates.preflight(self.host(sdk, RUNTIMES_10), self.global_json)
+
+    def test_preflight_rejects_a_prerelease_sdk(self):
+        with self.assertRaisesRegex(gates.GateError, "'10.0.403-rc.1' is not a release .NET SDK version"):
+            gates.preflight(self.host("10.0.403-rc.1", RUNTIMES_10), self.global_json)
+
+    def test_preflight_rejects_a_pin_that_is_not_a_release_sdk_version(self):
+        with open(self.global_json, "w", encoding="utf-8") as f:
+            json.dump({"sdk": {"version": "10.0"}}, f)
+        with self.assertRaisesRegex(gates.GateError, "'10.0' is not a release .NET SDK version"):
+            gates.preflight(self.host("10.0.402", RUNTIMES_10), self.global_json)
 
     def test_preflight_rejects_a_host_that_cannot_select_the_pinned_sdk(self):
         with self.assertRaisesRegex(gates.GateError, "exited 155"):
@@ -135,6 +153,8 @@ class GatesTest(unittest.TestCase):
 
     def test_the_real_global_json_pins_an_sdk(self):
         self.assertRegex(gates.pinned_sdk(), r"^10\.0\.\d+$")
+        with open(gates.GLOBAL_JSON, encoding="utf-8") as f:
+            self.assertEqual(json.load(f)["sdk"].get("rollForward"), "latestPatch")
 
     def test_coverage_accepts_handwritten_library_code(self):
         self.write("run/coverage.cobertura.1.xml", report(["/_/client/dotnet/src/Lib/A.cs"]))

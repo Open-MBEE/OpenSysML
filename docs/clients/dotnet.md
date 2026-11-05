@@ -9,8 +9,8 @@ source edits, data import and result comparison.
 
 The client is built from a checkout of this repository and consumed by `ProjectReference`; it is
 not published to NuGet. It targets `net10.0` only, built with the .NET SDK the repository-root
-`global.json` pins. Run `dotnet` from the repository root so that pin applies, and check it with
-`make dotnet-preflight`.
+`global.json` pins or a later patch in the same feature band. Run `dotnet` from the repository root
+so that pin applies, and check it with `make dotnet-preflight`.
 
 ```xml
 <ItemGroup>
