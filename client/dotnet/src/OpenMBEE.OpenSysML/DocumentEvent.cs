@@ -10,7 +10,7 @@ namespace OpenMBEE.OpenSysML;
 public sealed record DocumentEvent
 {
     /// <summary>Creates a trace record, copying its lists.</summary>
-    /// <param name="kind">What the record is: <c>accept</c>, <c>send</c>, <c>transition</c>, <c>entry</c>, <c>exit</c>, <c>do</c>, <c>choice</c>, <c>guard</c> or <c>terminate</c>.</param>
+    /// <param name="kind">The kind of trace record; see <see cref="Kind"/>.</param>
     /// <param name="time">The clock's instant when the record was made; null when the service reported none.</param>
     /// <param name="subject">The object whose behavior made the record; null for the run's own records.</param>
     /// <param name="machine">The behavior the record is about; empty for the run's own records.</param>
@@ -44,7 +44,7 @@ public sealed record DocumentEvent
     }
 
     /// <summary>Creates a trace record with its action-token and assignment facts, copying its lists.</summary>
-    /// <param name="kind">The kind of trace record.</param>
+    /// <param name="kind">The kind of trace record; see <see cref="Kind"/>.</param>
     /// <param name="time">The clock's instant; null when none was reported.</param>
     /// <param name="subject">The object whose behavior made the record; null for the run's own records.</param>
     /// <param name="machine">The behavior the record is about.</param>
@@ -110,7 +110,12 @@ public sealed record DocumentEvent
         Value = value;
     }
 
-    /// <summary>What the record is: <c>accept</c>, <c>send</c>, <c>transition</c>, <c>entry</c>, <c>exit</c>, <c>do</c>, <c>choice</c>, <c>guard</c> or <c>terminate</c>.</summary>
+    /// <summary>
+    /// What the record is: <c>accept</c>, <c>send</c>, <c>transition</c>, <c>entry</c>, <c>exit</c>,
+    /// <c>do</c>, <c>choice</c>, <c>guard</c> or <c>terminate</c> for state-machine records.
+    /// Action traces add <c>step</c>, <c>wait</c>, <c>assign</c>, <c>decide</c> and <c>complete</c>;
+    /// an action's <c>accept</c> is an accept node taking a message and its <c>send</c> is a message posted.
+    /// </summary>
     public string Kind { get; }
 
     /// <summary>
