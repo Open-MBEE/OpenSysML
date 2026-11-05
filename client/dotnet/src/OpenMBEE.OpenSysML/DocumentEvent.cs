@@ -10,7 +10,7 @@ namespace OpenMBEE.OpenSysML;
 public sealed record DocumentEvent
 {
     /// <summary>Creates a trace record, copying its lists.</summary>
-    /// <param name="kind">The kind of trace record; see <see cref="Kind"/>.</param>
+    /// <param name="kind">What the record is: a state machine's <c>accept</c>, <c>send</c>, <c>transition</c>, <c>entry</c>, <c>exit</c>, <c>do</c>, <c>choice</c>, <c>guard</c> or <c>terminate</c>, or an action's <c>step</c>, <c>wait</c>, <c>assign</c>, <c>decide</c> or <c>complete</c>.</param>
     /// <param name="time">The clock's instant when the record was made; null when the service reported none.</param>
     /// <param name="subject">The object whose behavior made the record; null for the run's own records.</param>
     /// <param name="machine">The behavior the record is about; empty for the run's own records.</param>
@@ -81,7 +81,6 @@ public sealed record DocumentEvent
     /// <c>do</c>, <c>choice</c>, <c>guard</c> or <c>terminate</c>; an action run adds <c>step</c> (a token arriving at a
     /// node), <c>wait</c> (a token parking at an accept node), <c>assign</c> (a feature written), <c>decide</c> (a decision
     /// node resolved) and <c>complete</c> (the action's performance completed).
-    /// An action's <c>accept</c> is an accept node taking a message and its <c>send</c> is a message posted.
     /// </summary>
     public string Kind { get; }
 
