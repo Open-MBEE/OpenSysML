@@ -5,7 +5,8 @@
 // through the part `m` the connector holds (KerML 1.1 §8.4.4.6.2, the related
 // features of each binding have the same values, so transitively the ends
 // agree), an anonymous interface's feature read on the connector object its
-// declaration materializes, an index (`readings#(index)`) read there too; an interface a connection definition owns over its own ends
+// declaration materializes, an index (`readings#(index)`) read there too; an
+// interface a connection definition owns over its own ends
 // (`interface w : W connect a.p to b.q`) is re-rooted again when the connection
 // attaches (KerML 1.1 §8.4.4.6.1, an end references the connected feature, so a
 // path through an end is a path through that feature; SysML v2 §7.15.1, an

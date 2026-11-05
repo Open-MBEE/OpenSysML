@@ -77,9 +77,8 @@ type bindingEndpoint struct {
 	// selection is the end as written (`xs#(2)`), for diagnostics.
 	index, selection ast.Node
 	scope            *symbols.Scope
-	// on holds the connector objects an expression or index is read on, one per connector the
-	// holder materialized, when it is not read on the binding's owner; reached is what a path
-	// end reaches on each of them.
+	// on holds the connector objects an end is read on, one per connector the holder
+	// materialized; reached groups each connector's path locations.
 	on      []*Instance
 	reached [][]bindingLocation
 }
