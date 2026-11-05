@@ -17,6 +17,9 @@ public sealed class Capabilities : IEquatable<Capabilities>
     /// <summary>Names the extended action-body items and source-end multiplicities carried by add_sequence.</summary>
     public const string ActionBodyStatementAuthoring = "action_body_statement_authoring";
 
+    /// <summary>Names the ExecuteAction trace request field.</summary>
+    public const string ActionTrace = "action_trace";
+
     /// <summary>
     /// Names the capability of the ApplyEdits RPC, which edits a parsed model's own source, preserving
     /// everything the edit did not touch.

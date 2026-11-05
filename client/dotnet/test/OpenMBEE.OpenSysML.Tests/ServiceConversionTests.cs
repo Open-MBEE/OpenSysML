@@ -105,7 +105,11 @@ public sealed class ServiceConversionTests(ServiceFixture services) : IClassFixt
         var turtle = await model.ToTurtleAsync(cancellationToken: Token);
         var refused = await Assert.ThrowsAsync<ServiceException>(() => model.ToTurtleAsync(new ConvertOptions { IncludeLibraryStubs = true }, Token));
 
-        Assert.Equal([("SI::second", "AttributeUsage"), ("SI", "LibraryPackage")], bare.LibraryReferences.Select(reference => (reference.QualifiedName, reference.Type)));
+        Assert.Equal(
+            [("SI::second", "AttributeUsage"), ("SI", "LibraryPackage")],
+            bare.LibraryReferences.Where(reference => reference.QualifiedName.StartsWith("SI", StringComparison.Ordinal)).Select(reference => (reference.QualifiedName, reference.Type)));
+        Assert.DoesNotContain(bare.LibraryReferences, reference => reference.QualifiedName.Length > 0 && reference.LibraryPath.Length > 0);
+        Assert.Contains(bare.LibraryReferences, reference => (reference.QualifiedName, reference.Type, reference.LibraryPath) == (string.Empty, "Documentation", "Base::Anything/Documentation[0]"));
         var bareIds = Ids(bare.Content);
         var stubbedIds = Ids(stubbed.Content);
         Assert.All(bare.LibraryReferences, reference => Assert.DoesNotContain(reference.Id, bareIds));

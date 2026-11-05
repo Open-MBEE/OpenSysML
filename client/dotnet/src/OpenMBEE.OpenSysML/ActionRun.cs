@@ -12,6 +12,8 @@ public sealed record ActionRun
     /// <param name="finalTime">The run's simulation clock when it ended, in seconds.</param>
     /// <param name="performerAttributes">The attributes the performing object holds when the run ends, keyed as <c>this.level</c>.</param>
     /// <param name="orderDependent">For each output an unresolved choice point touched, how many did.</param>
+    /// <param name="trace">The run's trace, when it was asked for.</param>
+    /// <param name="traceDropped">How many of the oldest trace records the service discarded.</param>
     /// <exception cref="ArgumentNullException">A collection is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null or repeats a name.</exception>
     public ActionRun(
@@ -19,13 +21,17 @@ public sealed record ActionRun
         IEnumerable<Diagnostic> diagnostics,
         double finalTime,
         IEnumerable<KeyValuePair<string, Value>> performerAttributes,
-        IEnumerable<KeyValuePair<string, int>> orderDependent)
+        IEnumerable<KeyValuePair<string, int>> orderDependent,
+        IEnumerable<DocumentEvent> trace,
+        int traceDropped)
     {
         Outputs = new ValueDictionary<Value>(outputs);
         Diagnostics = new ValueList<Diagnostic>(diagnostics);
         FinalTime = finalTime;
         PerformerAttributes = new ValueDictionary<Value>(performerAttributes);
         OrderDependent = new ValueDictionary<int>(orderDependent);
+        Trace = new ValueList<DocumentEvent>(trace);
+        TraceDropped = traceDropped;
     }
 
     /// <summary>The action's output parameters, by name; empty for an action producing none.</summary>
@@ -52,4 +58,13 @@ public sealed record ActionRun
     /// <see cref="Capabilities.OrderDependence"/> reports none.
     /// </summary>
     public ValueDictionary<int> OrderDependent { get; }
+
+    /// <summary>
+    /// The run's trace in the order the run made it, when <see cref="RunOptions.Trace"/> asked for it: the token steps,
+    /// waits, accepts, sends, decisions, assignments and completion of the action; empty otherwise.
+    /// </summary>
+    public ValueList<DocumentEvent> Trace { get; }
+
+    /// <summary>How many of the oldest records the service's bound on held events discarded from <see cref="Trace"/>.</summary>
+    public int TraceDropped { get; }
 }

@@ -1,11 +1,12 @@
 using System;
+using System.Collections.Generic;
 
 namespace OpenMBEE.OpenSysML;
 
 /// <summary>
 /// How <see cref="Model.ExecuteActionAsync"/>, <see cref="Model.ExecuteStateAsync"/> and their
 /// exploring counterparts run a behavior: the scheduling policy, the object performing it, the
-/// state-run trace, and the run's clock and draws, each as the <c>sysml</c> command's flag of the same
+/// run's trace, the events posted to an action's performer, and the run's clock and draws, each as the <c>sysml</c> command's flag of the same
 /// name sets it. Values outside what the service accepts (an unknown draw policy, a negative advance or
 /// clock step, a malformed schedule) are refused by the service with <see cref="StatusCode.InvalidArgument"/>.
 /// </summary>
@@ -14,7 +15,7 @@ public sealed class RunOptions
     /// <summary>The scheduling policy that explores every order (<c>sysml -schedule explore</c>), with its default budget.</summary>
     public const string Explore = "explore";
 
-    /// <summary>The service's defaults: its default schedule, outside any object, without a trace, to completion.</summary>
+    /// <summary>The service's defaults: its default schedule, outside any object, without a trace or events, to completion.</summary>
     public static RunOptions Default { get; } = new();
 
     /// <summary>
@@ -34,10 +35,21 @@ public sealed class RunOptions
     public string? PerformerSymbolId { get; init; }
 
     /// <summary>
-    /// Whether a state run returns its trace, failed or not, in <see cref="StateRun.Trace"/>; only a state
-    /// run has one, and an exploration describes no single run. Needs <see cref="Capabilities.StateTrace"/>.
+    /// Whether a run returns its trace, failed or not: a state run's in <see cref="StateRun.Trace"/>, which needs
+    /// <see cref="Capabilities.StateTrace"/>, and an action run's token steps, waits, accepts, sends, decisions,
+    /// assignments and completion in <see cref="ActionRun.Trace"/>, which needs <see cref="Capabilities.ActionTrace"/>.
+    /// An exploration describes no single run and has none.
     /// </summary>
     public bool Trace { get; init; }
+
+    /// <summary>
+    /// The signals or items an action run posts to the object <see cref="PerformerSymbolId"/> names, in order, as the
+    /// REPL's <c>%send</c> does: each is posted once every token of the run waits, and the accept waiting for it takes it
+    /// on the next step. Each names a signal or item definition, qualified or as the action's namespace sees it. Null or
+    /// empty posts none. Only a single action run takes them; a state run takes its events as an argument, and an
+    /// exploration none.
+    /// </summary>
+    public IReadOnlyList<string>? Events { get; init; }
 
     /// <summary>
     /// Simulated time, in seconds, to run for (<c>sysml -advance</c>): the behavior is started and its clock

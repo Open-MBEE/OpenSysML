@@ -4,13 +4,13 @@ using System.Collections.Generic;
 namespace OpenMBEE.OpenSysML;
 
 /// <summary>
-/// One record of a run's trace, in the order the run made it: what a state run returns when it is
-/// asked for its trace, and the row an <c>Events</c> document query answers.
+/// One record of a run's trace, in the order the run made it: what a state or action run returns when
+/// it is asked for its trace, and the row an <c>Events</c> document query answers.
 /// </summary>
 public sealed record DocumentEvent
 {
     /// <summary>Creates a trace record, copying its lists.</summary>
-    /// <param name="kind">What the record is: <c>accept</c>, <c>send</c>, <c>transition</c>, <c>entry</c>, <c>exit</c>, <c>do</c>, <c>choice</c>, <c>guard</c> or <c>terminate</c>.</param>
+    /// <param name="kind">What the record is: a state machine's <c>accept</c>, <c>send</c>, <c>transition</c>, <c>entry</c>, <c>exit</c>, <c>do</c>, <c>choice</c>, <c>guard</c> or <c>terminate</c>, or an action's <c>step</c>, <c>wait</c>, <c>assign</c>, <c>decide</c> or <c>complete</c>.</param>
     /// <param name="time">The clock's instant when the record was made; null when the service reported none.</param>
     /// <param name="subject">The object whose behavior made the record; null for the run's own records.</param>
     /// <param name="machine">The behavior the record is about; empty for the run's own records.</param>
@@ -23,6 +23,10 @@ public sealed record DocumentEvent
     /// <param name="alternatives">A choice's alternatives, in the order they were offered.</param>
     /// <param name="taken">The alternative a choice took.</param>
     /// <param name="text">The line the trace prints for the record.</param>
+    /// <param name="token">The action token a step, wait, assign, decide or action accept record is about; 0 otherwise.</param>
+    /// <param name="step">The executor step, from 1, that made an action's record; 0 otherwise.</param>
+    /// <param name="feature">The feature an assign record wrote; empty otherwise.</param>
+    /// <param name="value">The value an assign record's feature holds since; null otherwise.</param>
     /// <exception cref="ArgumentNullException">A string or a list is null.</exception>
     /// <exception cref="ArgumentException">A payload entry or an alternative is null.</exception>
     public DocumentEvent(
@@ -38,7 +42,11 @@ public sealed record DocumentEvent
         IEnumerable<string> payload,
         IEnumerable<string> alternatives,
         string taken,
-        string text)
+        string text,
+        long token,
+        int step,
+        string feature,
+        Value? value)
     {
         ArgumentNullException.ThrowIfNull(kind);
         ArgumentNullException.ThrowIfNull(machine);
@@ -48,6 +56,7 @@ public sealed record DocumentEvent
         ArgumentNullException.ThrowIfNull(signal);
         ArgumentNullException.ThrowIfNull(taken);
         ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(feature);
         Kind = kind;
         Time = time;
         Subject = subject;
@@ -61,9 +70,18 @@ public sealed record DocumentEvent
         Alternatives = new ValueList<string>(alternatives);
         Taken = taken;
         Text = text;
+        Token = token;
+        Step = step;
+        Feature = feature;
+        Value = value;
     }
 
-    /// <summary>What the record is: <c>accept</c>, <c>send</c>, <c>transition</c>, <c>entry</c>, <c>exit</c>, <c>do</c>, <c>choice</c>, <c>guard</c> or <c>terminate</c>.</summary>
+    /// <summary>
+    /// What the record is: a state machine's <c>accept</c>, <c>send</c>, <c>transition</c>, <c>entry</c>, <c>exit</c>,
+    /// <c>do</c>, <c>choice</c>, <c>guard</c> or <c>terminate</c>; an action run adds <c>step</c> (a token arriving at a
+    /// node), <c>wait</c> (a token parking at an accept node), <c>assign</c> (a feature written), <c>decide</c> (a decision
+    /// node resolved) and <c>complete</c> (the action's performance completed).
+    /// </summary>
     public string Kind { get; }
 
     /// <summary>
@@ -105,6 +123,18 @@ public sealed record DocumentEvent
 
     /// <summary>The line the trace prints for the record.</summary>
     public string Text { get; }
+
+    /// <summary>The action token a step, wait, assign, decide or action accept record is about; 0 for a record of neither, such as a state machine's.</summary>
+    public long Token { get; }
+
+    /// <summary>The executor step, from 1, that made an action's record; 0 for a record no action step made.</summary>
+    public int Step { get; }
+
+    /// <summary>The feature an assign record wrote; empty for every other kind.</summary>
+    public string Feature { get; }
+
+    /// <summary>The value an assign record's <see cref="Feature"/> holds since, as a run's outputs carry values; null for every other kind.</summary>
+    public Value? Value { get; }
 
     /// <summary>The record as the trace prints it, <see cref="Text"/>.</summary>
     /// <returns>The record's line.</returns>

@@ -23,7 +23,8 @@ public sealed record RenderedView
     /// <param name="notes">The note boxes drawn.</param>
     /// <param name="notices">What the rendering could not represent.</param>
     /// <param name="shown">The optional notation elements drawn.</param>
-    /// <exception cref="ArgumentNullException">An argument other than the canvas is null.</exception>
+    /// <param name="frame">The view frame drawn round a graph-shaped rendering; null for a frameless one.</param>
+    /// <exception cref="ArgumentNullException">An argument other than the canvas or the frame is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null.</exception>
     public RenderedView(
         string view,
@@ -36,7 +37,8 @@ public sealed record RenderedView
         ViewCanvas? canvas,
         IEnumerable<ViewNote> notes,
         IEnumerable<string> notices,
-        IEnumerable<string> shown)
+        IEnumerable<string> shown,
+        ViewFrame? frame)
     {
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(kind);
@@ -52,6 +54,7 @@ public sealed record RenderedView
         Notes = new ValueList<ViewNote>(notes);
         Notices = new ValueList<string>(notices);
         Shown = new ValueList<string>(shown);
+        Frame = frame;
     }
 
     /// <summary>The view rendered, by qualified name; empty for a rendering of exposed elements alone.</summary>
@@ -86,6 +89,9 @@ public sealed record RenderedView
 
     /// <summary>The optional notation elements the rendering draws, in the service's registry order, as <see cref="ViewNotation"/> names them.</summary>
     public ValueList<string> Shown { get; }
+
+    /// <summary>The view frame drawn round a graph-shaped rendering; null for a frameless one, such as a table.</summary>
+    public ViewFrame? Frame { get; }
 
     /// <summary>The nodes nested in no other, in order.</summary>
     public IEnumerable<ViewNode> Roots => Nodes.Where(node => node.Parent.Length == 0);

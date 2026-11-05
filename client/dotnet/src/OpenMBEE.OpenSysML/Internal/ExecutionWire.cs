@@ -18,7 +18,9 @@ internal static class ExecutionWire
             ModelWire.Diagnostics(response.Diagnostics),
             response.FinalTime,
             ValueWire.FromWire(response.PerformerAttributes, method, "performer_attributes"),
-            response.OrderDependent);
+            response.OrderDependent,
+            Trace(response.Trace, method),
+            response.TraceDropped);
 
     /// <summary>Reads one run of a state machine.</summary>
     internal static StateRun Run(Wire.ExecuteStateResponse response, string method) =>
@@ -31,7 +33,7 @@ internal static class ExecutionWire
             response.TraceDropped,
             response.OrderDependent);
 
-    /// <summary>Reads a state run's trace, in the order the run made it.</summary>
+    /// <summary>Reads a run's trace, in the order the run made it.</summary>
     internal static List<DocumentEvent> Trace(RepeatedField<Wire.DocumentEvent> trace, string method) =>
         [.. trace.Select((record, i) => DocumentWire.Event(record, method, $"trace[{i}]"))];
 

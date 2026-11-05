@@ -329,7 +329,7 @@ public sealed class ModelQueryDocsTests
             new DocumentValue.InfinityValue(),
             new DocumentValue.VerdictValue(new DocumentVerdict(null, "constraint", "t", "p", "holds", string.Empty, string.Empty, [])),
             new DocumentValue.StateValue(new DocumentState(null, "m", "s", "s", null, string.Empty, [])),
-            new DocumentValue.EventValue(new DocumentEvent("entry", null, null, string.Empty, string.Empty, string.Empty, string.Empty, null, string.Empty, [], [], string.Empty, "entry")),
+            new DocumentValue.EventValue(new DocumentEvent("entry", null, null, string.Empty, string.Empty, string.Empty, string.Empty, null, string.Empty, [], [], string.Empty, "entry", 0, 0, string.Empty, null)),
             new DocumentValue.ElementValue(null, "PartUsage"),
             new DocumentValue.ElementValue(string.Empty, string.Empty),
             new DocumentValue.ObjectValue(new DocumentObject(0, string.Empty, null)),
@@ -561,7 +561,9 @@ public sealed class ModelQueryDocsTests
         Assert.Equal([pump], view.ChildrenOf(loop));
         Assert.Equal([tank, pressure], view.ChildrenOf(pump));
         Assert.Empty(view.ChildrenOf(tank));
-        Assert.Equal((string.Empty, false), (pump.Compartment, pump.Inherited));
+        Assert.Equal((string.Empty, false, string.Empty, false), (pump.Compartment, pump.Inherited, pump.Arrow, pump.Parallel));
+        Assert.Equal(("right", false), (tank.Arrow, tank.Parallel));
+        Assert.Equal((string.Empty, true), (loop.Arrow, loop.Parallel));
         Assert.Equal(("n4", "attribute", "pressure", "Real", "n2", "attributes", true), (pressure.Id, pressure.Kind, pressure.Name, pressure.Type, pressure.Parent, pressure.Compartment, pressure.Inherited));
         Assert.Same(pump, view.Node("n2"));
         Assert.Null(view.Node("n9"));
@@ -589,6 +591,7 @@ public sealed class ModelQueryDocsTests
         Assert.Equal(new ViewNote("check pressure", string.Empty, "n2", "n3", 420, 140, 0, 0, hasSize: false, null), view.Notes[1]);
         Assert.Equal(["a picture was refused", "nothing more"], view.Notices);
         Assert.Equal(["port-symbols", "edge-labels"], view.Shown);
+        Assert.Equal(new ViewFrame("placedView", "PlantViews::PlacedView", ["expose Plant::**;"], ["@SysML::PartUsage"], ["placed by hand", "reviewed"]), view.Frame);
     }
 
     [Theory]
@@ -611,6 +614,7 @@ public sealed class ModelQueryDocsTests
         Assert.Empty(view.Notices);
         Assert.Empty(view.Shown);
         Assert.Empty(view.Columns);
+        Assert.Null(view.Frame);
     }
 
     [Theory]
@@ -642,6 +646,9 @@ public sealed class ModelQueryDocsTests
         await Assert.ThrowsAsync<InvalidRequestException>(() => model.RenderViewAsync("V", new RenderViewOptions { Compartments = (RenderViewCompartments)3 }, token));
         await Assert.ThrowsAsync<ArgumentException>(() => model.RenderViewAsync(string.Empty, cancellationToken: token));
         Assert.Throws<ArgumentException>(() => new RenderViewOptions { Show = [null!] });
+        Assert.Throws<ArgumentNullException>(() => new ViewFrame(null!, string.Empty, [], [], []));
+        Assert.Throws<ArgumentNullException>(() => new ViewFrame("v", string.Empty, null!, [], []));
+        Assert.Throws<ArgumentException>(() => new ViewFrame("v", string.Empty, [], [null!], []));
         Assert.Empty(handler.RequestsFor("RenderView"));
         string[] names = ["orphan", "late", "self", "twice", "unhoused", "nested"];
         var malformed = names

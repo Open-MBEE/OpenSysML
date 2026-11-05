@@ -161,6 +161,8 @@ public sealed class DocumentValueTests
         Assert.Throws<ArgumentNullException>(() => new DocumentValue.ElementValue("x", null!));
         Assert.Throws<ArgumentNullException>(() => new DocumentValue.NumberValue(null!));
         Assert.Throws<ArgumentNullException>(() => new DocumentObject(1, null!, null));
+        Assert.Equal("assign count := 3", Read(new Wire.DocumentValue { Event = CompleteExecutionWire.Assign }).ToString());
+        Assert.Throws<ArgumentNullException>(() => new DocumentEvent("assign", null, null, string.Empty, string.Empty, string.Empty, string.Empty, null, string.Empty, [], [], string.Empty, "t", 1, 1, null!, null));
     }
 
     private static DocumentValue Read(Wire.DocumentValue value) => DocumentWire.Value(value, Method, "t");

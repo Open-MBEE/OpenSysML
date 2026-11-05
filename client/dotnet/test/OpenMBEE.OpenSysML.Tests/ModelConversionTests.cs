@@ -79,8 +79,15 @@ public sealed class ModelConversionTests
         Assert.Equal(["warning", "hint"], conversion.Diagnostics.Select(diagnostic => diagnostic.SeverityName));
         Assert.Equal(CompleteWire.Diagnostic.Code, conversion.Diagnostics[0].Code);
         Assert.Empty(conversion.LibraryReferences);
-        Assert.Equal([new LibraryReference("0c539f7c-20a1-520d-bae0-f3f855517aea", "SI::second", "AttributeUsage"), new LibraryReference("2a413ac9-972d-5182-afd3-46cdde4e0eba", "SI", "LibraryPackage")], apiJson.LibraryReferences);
+        Assert.Equal(
+            [
+                new LibraryReference("0c539f7c-20a1-520d-bae0-f3f855517aea", "SI::second", "AttributeUsage", string.Empty),
+                new LibraryReference("2a413ac9-972d-5182-afd3-46cdde4e0eba", "SI", "LibraryPackage", string.Empty),
+                new LibraryReference("1e506913-dbf3-55da-a841-56afa1d5e151", string.Empty, "BindingConnector", "Occurrences::Occurrence/BindingConnector[0]"),
+            ],
+            apiJson.LibraryReferences);
         Assert.Equal("SI (LibraryPackage)", apiJson.LibraryReferences[1].ToString());
+        Assert.Equal("Occurrences::Occurrence/BindingConnector[0] (BindingConnector)", apiJson.LibraryReferences[2].ToString());
     }
 
     [Theory]
@@ -477,7 +484,8 @@ public sealed class ModelConversionTests
         Assert.Throws<ArgumentNullException>(() => new Conversion("c", "sysml", "sysml", [], false, null!, []));
         Assert.Throws<ArgumentNullException>(() => new Conversion("c", "sysml", "sysml", [], false, string.Empty, null!));
         Assert.Throws<ArgumentException>(() => new Conversion("c", "sysml", "sysml", [], false, string.Empty, [null!]));
-        Assert.Throws<ArgumentNullException>(() => new LibraryReference("SI::s", null!, "AttributeUsage"));
+        Assert.Throws<ArgumentNullException>(() => new LibraryReference("SI::s", null!, "AttributeUsage", string.Empty));
+        Assert.Throws<ArgumentNullException>(() => new LibraryReference("SI::s", "SI::s", "AttributeUsage", null!));
         Assert.Throws<ArgumentNullException>(() => new Migration("c", "xmi", "sysml", null!, "", [], true, "n", null));
         Assert.Throws<ArgumentException>(() => new Migration("c", "xmi", "sysml", new MigrationReport("s", "e", "m", 0, 0, 0, 0, [], ""), "", [null!], true, "n", null));
         Assert.Throws<ArgumentNullException>(() => new ConversionException("m", Connection.ConvertMethod, [], "sysml", null!, false, ""));

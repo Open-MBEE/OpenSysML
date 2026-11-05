@@ -15,7 +15,7 @@ public class ExecutionException : ModelException
     /// <param name="method">The method whose answer reported it.</param>
     /// <param name="diagnostics">The diagnostics the answer carried.</param>
     /// <param name="finalTime">The run's simulation clock when it stopped, in seconds.</param>
-    /// <param name="trace">A state run's trace up to the failure, when it was asked for.</param>
+    /// <param name="trace">The run's trace up to the failure, when it was asked for.</param>
     /// <param name="traceDropped">How many of the oldest trace records the service discarded.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentException">A diagnostic or a trace record is null.</exception>
@@ -39,7 +39,7 @@ public class ExecutionException : ModelException
     /// </summary>
     public double FinalTime { get; }
 
-    /// <summary>A state run's trace up to the failure, when <see cref="RunOptions.Trace"/> asked for it; empty otherwise.</summary>
+    /// <summary>The run's trace up to the failure, when <see cref="RunOptions.Trace"/> asked for it; empty otherwise.</summary>
     public ValueList<DocumentEvent> Trace { get; }
 
     /// <summary>How many of the oldest records the service's bound on held events discarded from <see cref="Trace"/>.</summary>
