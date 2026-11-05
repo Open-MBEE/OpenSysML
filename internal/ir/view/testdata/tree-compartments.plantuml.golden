@@ -54,7 +54,7 @@ class "<size:10>//«part def»//</size>\n**Stage**\nattributes\ngain = 15.0\nnoi
 class "<size:10>//«part»//</size>\n**housing**" as n5 <<part>> <<usage>>
 class "<size:10>//«part»//</size>\n**shield**" as n6 <<part>> <<usage>>
 class "<size:10>//«part def»//</size>\n**Housing**" as n12 <<part def>>
-class "<size:10>//«enum def»//</size>\n**Band**\nenumerations\nlow\nhigh" as n13 <<enum def>>
+class "<size:10>//«enum def»//</size>\n**Band**\nenums\nlow\nhigh" as n13 <<enum def>>
 n0 *-- n5
 n0 *-- n6
 n5 --:|> n12

@@ -86,6 +86,10 @@ var (
 
 	keywordBox   = Evidence{"internal/ir/view/label.go:keyword", goldenForms, "internal/ir/view/label_test.go:TestLabelLines"}
 	compartments = Evidence{"internal/ir/view/compartments.go:compartmentName", goldenForms, "internal/ir/view/suppressed_compartments_test.go:TestGoldenSuppressedCompartments"}
+	// The headings the figures spell otherwise than by the keyword's plural, and the ends compartment.
+	headings     = Evidence{"internal/ir/view/compartments.go:compartmentName", goldenForms, "internal/ir/view/render_test.go:TestGoldenRenderings"}
+	variants     = Evidence{"internal/ir/view/compartments.go:compartmentName", goldenForms, "internal/ir/view/tree_compartments_test.go:TestTreeCompartmentVariantForms"}
+	ends         = Evidence{"internal/ir/view/view.go:declKind", goldenForms, "internal/ir/view/render_test.go:TestGoldenRenderings"}
 	controlNode  = Evidence{"internal/ir/view/dot.go:dotSymbolAttributes", controlForms, "internal/ir/view/testdata/state-pseudostates.mermaid.golden"}
 	tableEdge    = Evidence{"internal/ir/view/dot.go:dotEdgeAttributes", edgeForms, "internal/ir/view/notation_table_test.go:TestNotationTableMatchesTheWriters"}
 	pins         = Evidence{"internal/ir/view/dot_ports.go:placePorts", pinForms, "internal/ir/view/action_pins_test.go:TestDOTActionFramePins"}
@@ -123,7 +127,6 @@ var (
 	dotLabel     = Evidence{"internal/ir/view/nary.go:naryDot", naryForms, "internal/ir/view/testdata/nary-connection.dot.golden"}
 	itemBox      = Evidence{"internal/ir/view/flow_on_connection.go:flowsOnConnections", naryForms, "internal/ir/view/nary_test.go:TestFlowsOnAConnectionAreItemBoxesOnItsLine"}
 	itemArrow    = Evidence{"internal/ir/view/flow_on_connection.go:itemBox", naryForms, "internal/ir/view/testdata/nary-flow-on-connection.dot.golden"}
-	objective    = Evidence{"internal/ir/view/case.go:objectiveNode", goldenForms, "internal/ir/view/testdata/case.dot.golden"}
 	// The view frame: DOT, draw.io and the canvas draw the frame with its corner
 	// compartments; PlantUML's mainframe, Mermaid's title and D2's corner texts approximate it.
 	viewFrame      = Evidence{"internal/ir/view/frame.go:frameOf", frameForms, "internal/ir/view/annotation_test.go:TestViewFrameCompartments"}
@@ -276,7 +279,8 @@ func buildTable() map[string]Adjudication {
 
 	// §8.2.3.6 definitions and usages.
 	set(drawn(CategoryCompartment, compartments), "compartment-stack")
-	set(undrawn(CategoryCompartment, reasonNoCompart), "features-compartment", "variants-compartment", "variant-elementusages-compartment")
+	set(undrawn(CategoryCompartment, reasonNoCompart+" (a KerML `feature` member never folds into a SysML node's compartments)"), "features-compartment")
+	set(drawn(CategoryCompartment, variants), "variants-compartment", "variant-elementusages-compartment")
 	set(undrawn(CategoryNode, "a user-defined keyword (metadata-based definition) is not written; label.go keyword writes the element's kind"), "extended-def", "extended-def-name-compartment", "extended-usage", "extended-usage-name-compartment")
 
 	set(row(CategoryNode, VerdictNotApplicable, "the textual grammar declares no event occurrence definition (`event` is a usage prefix), so nothing can be declared for the figure", Evidence{}), "event-occurrence-def")
@@ -328,18 +332,17 @@ func buildTable() map[string]Adjudication {
 		"analyses-compartment", "verifications-compartment", "use-cases-compartment", "include-use-cases-compartment",
 		"views-compartment", "viewpoints-compartment")
 	set(drawn(CategoryCompartment, Evidence{"internal/ir/view/label.go:parameterLines", goldenForms, "internal/ir/view/testdata/calc-parameters.dot.golden"}), "parameters-compartment")
-	set(approximate(CategoryCompartment, "headed `enumerations`; the figure heads it `enums`", compartments), "enums-compartment")
-	set(approximate(CategoryCompartment, "headed `calculations`; the figure heads it `calcs`", compartments), "calcs-compartment")
-	set(approximate(CategoryCompartment, "headed `renderings`; the figure heads it `rendering`", compartments), "rendering-compartment")
-	set(approximate(CategoryCompartment, "headed `subjects`; the figure heads it `subject`", compartments), "subject-compartment")
-	set(approximate(CategoryCompartment, "headed `satisfys` by compartments.go compartmentName's plural; the figure heads it `satisfies`", compartments), "satisfy-requirements-compartment", "satisfies-compartment")
-	set(approximate(CategoryCompartment, "the objective is drawn as a note anchored to the case (case.go objectiveNode), not as a compartment", objective), "objective-compartment")
+	set(drawn(CategoryCompartment, headings), "enums-compartment", "calcs-compartment", "subject-compartment", "satisfies-compartment", "flows-compartment")
+	set(drawn(CategoryCompartment, ends), "ends-compartment")
+	set(approximate(CategoryCompartment, "headed `rendering` for a rendering usage listed in a node; a view's own `render` members describe its picture and are not shown (tree.go contentKind)", headings), "rendering-compartment")
+	set(approximate(CategoryCompartment, "headed `satisfies` and listing the satisfy requirement usages as rows; the figure heads it `satisfy requirements` (its `satify` is a typo) over a text block", headings), "satisfy-requirements-compartment")
+	set(approximate(CategoryCompartment, "headed `objective` in a positioned tree, the row the objective's name and type; in a case rendering the objective is a note anchored to the case (case.go objectiveNode)", headings), "objective-compartment")
+	set(approximate(CategoryCompartment, "the included use cases list under `include use cases` (the clause's other compartment for them), not under `includes`", compartments), "includes-compartment")
+	set(undrawn(CategoryCompartment, "a verify requirement usage is a member of the case's objective and lists under its row, not in a compartment of the case"), "verifies-compartment")
 	set(drawn(CategoryCompartment, individuals), "individuals-compartment")
 	set(undrawn(CategoryCompartment, "holds a sequence view; no box form nests a diagram, and the canvas lays a sequence out as a diagram of its own"), "sequence-compartment")
-	set(undrawn(CategoryCompartment, reasonNoCompart), "directed-features-compartment",
-		"interconnection-compartment", "ends-compartment", "flows-compartment", "performed-by-compartment",
-		"result-compartment",
-		"verifies-compartment", "verification-methods-compartment", "includes-compartment", "exposes-compartment", "filters-compartment")
+	set(undrawn(CategoryCompartment, reasonNoCompart), "directed-features-compartment", "interconnection-compartment",
+		"performed-by-compartment", "result-compartment", "verification-methods-compartment", "exposes-compartment", "filters-compartment")
 
 	// §8.2.3.9 sequences.
 	set(drawn(CategoryNode, sequence), "sq-head-node", "sq-part", "sq-l-node", "lifeline")

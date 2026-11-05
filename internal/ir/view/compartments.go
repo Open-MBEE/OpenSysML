@@ -23,22 +23,30 @@ type Compartment struct {
 // chapters of the language specification introducing each kind; a kind not
 // named here follows them in the order its members were declared.
 var compartmentOrder = []string{
-	"attributes", "enumerations", "occurrences", "individuals", "items", "parts", "ports",
-	"connections", "interfaces", "allocations", "actions", "states", "state actions", "calculations",
-	"constraints", "requirements", "cases", "analyses", "verifications", "use cases",
-	"views", "viewpoints", "renderings", "metadata",
+	"attributes", "enums", "occurrences", "individuals", "items", "parts", "ports", "ends",
+	"connections", "interfaces", "flows", "allocations", "actions", "states", "state actions", "calcs",
+	"constraints", "requirements", "satisfies", "cases", "analyses", "verifications", "verifies",
+	"use cases", "include use cases", "subject", "objective", "views", "viewpoints", "rendering", "metadata",
 }
 
-// compartmentPlurals are the compartment names whose keyword does not take
-// a plain "s".
 // stateActionRoles are the kinds the `state actions` compartment gathers.
 var stateActionRoles = map[string]bool{entryActionKind: true, doActionKind: true, exitActionKind: true}
 
-var compartmentPlurals = map[string]string{
-	"calc":           "calculations",
-	"enum":           "enumerations",
-	"analysis":       "analyses",
-	"metadata":       "metadata",
+// compartmentHeadings are the compartment names the figures of SysML v2 §8.2.3
+// head otherwise than by the plain plural of the members' keyword.
+var compartmentHeadings = map[string]string{
+	"calc":     "calcs",
+	"enum":     "enums",
+	"analysis": "analyses",
+	"metadata": "metadata",
+	// A metadata usage with no keyword of its own is named by its classification.
+	"metadata usage": "metadata",
+	"render":         "rendering",
+	"rendering":      "rendering",
+	"subject":        "subject",
+	"objective":      "objective",
+	"satisfy":        "satisfies",
+	"verify":         "verifies",
 	entryActionKind:  "state actions",
 	doActionKind:     "state actions",
 	exitActionKind:   "state actions",
@@ -66,19 +74,21 @@ func individualUsage(kind string) bool {
 	return strings.HasPrefix(kind, individualPrefix) && !strings.HasSuffix(kind, " def")
 }
 
-// compartmentName is the name of the compartment a member of kind belongs to:
-// the plural of its keyword after any modifier, "part defs" for a nested
-// definition, "individuals" for an individual usage of any keyword.
+// compartmentName is the compartment a member of kind lists in, as the figures head it: the
+// heading or the keyword's plural; `end` features list under "ends", individual usages under "individuals".
 func compartmentName(kind string) string {
 	if individualUsage(kind) {
 		return "individuals"
 	}
-	_, keyword := splitRowPrefix(kind)
+	prefix, keyword := splitRowPrefix(kind)
 	if keyword == "" {
 		return ""
 	}
-	if plural, ok := compartmentPlurals[keyword]; ok {
-		return plural
+	if slices.Contains(strings.Fields(prefix), "end") {
+		return "ends"
+	}
+	if heading, ok := compartmentHeadings[keyword]; ok {
+		return heading
 	}
 	return keyword + "s"
 }

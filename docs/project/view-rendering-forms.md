@@ -1182,12 +1182,17 @@ digraph "PlantViews::placedView" {
   owner's box rather than left undrawn (`foldCompartments` in placement.go, run by every
   graphical form before it settles the unplaced nodes; `Node.Compartments` carries the rows,
   `labeller.compartmentLines` writes them). The rows are grouped by the member's keyword under
-  the plural compartment name of the graphical notation (§8.2.3 `compartment`): `attributes`,
-  `enumerations`, `occurrences`, `items`, `parts`, `ports`, `connections`, `interfaces`,
-  `allocations`, `actions`, `states`, `calculations`, `constraints`, `requirements`, `cases`,
-  `analyses`, `verifications`, `use cases`, `views`, `viewpoints`, `renderings`, `metadata`
-  (the order Part 7 of the language spec introduces the kinds), any other keyword after them in
-  first-seen order, and the rows of a compartment keep declaration order. A row is the member's
+  the compartment heading of the graphical notation (§8.2.3 `compartment`, `compartmentName`):
+  `attributes`, `enums`, `occurrences`, `items`, `parts`, `ports`, `ends`, `connections`,
+  `interfaces`, `flows`, `allocations`, `actions`, `states`, `calcs`, `constraints`,
+  `requirements`, `satisfies`, `cases`, `analyses`, `verifications`, `verifies`, `use cases`,
+  `include use cases`, `subject`, `objective`, `views`, `viewpoints`, `rendering`, `metadata`
+  (the order Part 7 of the language spec introduces the kinds), any other keyword's plural after
+  them in first-seen order, and the rows of a compartment keep declaration order. The heading is
+  the figure's where that is not the keyword's plural (`enums`, `calcs`, `rendering`, `subject`,
+  `objective`, `satisfies`, `verifies`); a connection's `end` features list under `ends` whatever
+  their kind (`declKind` keeps the `end` modifier in the node's kind), a variation's `variant x`
+  members under `variants` and its `variant part` members under `variant parts`. A row is the member's
   textual notation, as the label shows it: a modifier of its keyword (`ref`), its name, `: Type`
   when typings are shown, `= value` when the usage is bound (`gain : dB = 15.0`,
   `constraint1 : 'Signal Output'`; a value the renderer does not spell, such as an invocation,

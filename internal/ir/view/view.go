@@ -14,6 +14,7 @@ package view
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -993,6 +994,9 @@ func declKind(sym *symbols.Symbol) string {
 		}
 		if usage.IsIndividual && !strings.HasPrefix(kind, "individual ") {
 			kind = "individual " + kind
+		}
+		if usage.IsEnd && !slices.Contains(strings.Fields(kind), "end") {
+			kind = "end " + kind
 		}
 	}
 	return kind
