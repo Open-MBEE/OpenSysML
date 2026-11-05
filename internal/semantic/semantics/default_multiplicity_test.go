@@ -350,7 +350,7 @@ func TestDefaultMultiplicityMember(t *testing.T) {
 		if member == nil {
 			t.Fatal("DefaultMultiplicityMember(mass) = nil, want the Multiplicity stating its implicit [1..1]")
 		}
-		if again := model.DefaultMultiplicityMember(mass); again != member {
+		if model.DefaultMultiplicityMember(mass) != member {
 			t.Error("DefaultMultiplicityMember(mass) changed between reads")
 		}
 		if !IsDefaultMultiplicity(member) || !member.Implied() {
@@ -384,7 +384,7 @@ func TestDefaultMultiplicityMember(t *testing.T) {
 		if got := relMetaName(model, membership); got != "OwningMembership" {
 			t.Errorf("membership metaclass = %s, want OwningMembership", got)
 		}
-		if got := model.OwningMembership(member); got != membership {
+		if model.OwningMembership(member) != membership {
 			t.Error("OwningMembership(member) is not the membership mass owns it through")
 		}
 		for sym, feature := range map[*symbols.Symbol]string{membership: "memberName", member: "qualifiedName"} {
