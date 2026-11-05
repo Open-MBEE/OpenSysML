@@ -1342,10 +1342,16 @@ the reviewed requests the API cannot express.
 ## Building and testing
 
 ```bash
-make dotnet-test       # preflight, locked restore, build, format check, tests, samples
+make dotnet-test       # preflight, locked restore, build, format check, tests (schema check required), samples
 make dotnet-coverage   # the tests under coverlet: Cobertura and JUnit in bin/dotnet/coverage
 make conformance-dotnet conformance-dotnet-check   # the conformance suite; see Conformance
 ```
+
+`make dotnet-test` and `make dotnet-coverage` require the [protocol schema check](#protocol-code):
+they pass Make's `BUF` command to the tests and set `OPENSYSML_REQUIRE_BUF=1`, so missing buf
+fails instead of skipping. The default runs the pinned buf with Go; use `BUF=buf` to use an
+installed binary. The first `go run` may download buf's Go dependencies. Neither target
+regenerates or rewrites the committed C# files.
 
 `make dotnet-test` runs these commands, which also work on their own:
 
@@ -1353,7 +1359,8 @@ make conformance-dotnet conformance-dotnet-check   # the conformance suite; see 
 dotnet restore client/dotnet/OpenSysML.slnx --locked-mode
 dotnet format client/dotnet/OpenSysML.slnx --verify-no-changes --no-restore
 dotnet build client/dotnet/OpenSysML.slnx -c Release --no-restore -warnaserror
-dotnet test --solution client/dotnet/OpenSysML.slnx -c Release --no-build --filter 'Category=Unit'
+BUF='go run github.com/bufbuild/buf/cmd/buf@v1.57.2' OPENSYSML_REQUIRE_BUF=1 \
+  dotnet test --solution client/dotnet/OpenSysML.slnx -c Release --no-build
 ```
 
 `dotnet test` runs on Microsoft.Testing.Platform, which `global.json` selects; the VSTest
@@ -1503,9 +1510,10 @@ the schema with buf and compares its `sysml.proto` with the descriptor compiled 
 declaration where they part. Options are not compared, since managed mode rewrites the C#
 namespace in what only the C# plugins see. It runs `$BUF`, read as the Makefile reads it,
 else `buf` on `PATH`, and skips without either; set `OPENSYSML_REQUIRE_BUF=1` to turn that
-skip into a failure, as the Linux CI jobs, which install buf, do. The native macOS and Windows
-jobs have no buf and let it skip: the comparison does not depend on the platform. To run it
-alone with the pinned buf:
+skip into a failure. `make dotnet-test` and `make dotnet-coverage` always require it, on
+every platform, and pass their `BUF` command (the pinned `go run` by default); a missing or
+failed command is a test failure, not a skip. The comparison only builds the schema: it does
+not invoke the remote C# generators or rewrite the stubs. To run it alone with the pinned buf:
 
 ```bash
 BUF='go run github.com/bufbuild/buf/cmd/buf@v1.57.2' OPENSYSML_REQUIRE_BUF=1 \
