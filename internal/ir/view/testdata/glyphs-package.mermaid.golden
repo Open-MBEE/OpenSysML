@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» NotationGlyphs::Diagrams::packageGlyphs : GeneralView"
 ---
 %% NotationGlyphs::Diagrams::packageGlyphs — package rendering (view def GeneralView, filter @Package)
 flowchart TD

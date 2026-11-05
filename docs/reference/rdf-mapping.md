@@ -2461,7 +2461,7 @@ sysml:ControlNode
     a rdfs:Class ;
     rdfs:label "ControlNode" ;
     rdfs:subClassOf sysml:ActionUsage ;
-    sysx:abstract true .
+    sysx:abstract "true"^^xsd:boolean .
 ```
 
 - The subject is the metaclass IRI `rdf:type` names on a converted element, so

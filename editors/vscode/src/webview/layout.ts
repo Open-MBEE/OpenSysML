@@ -11,8 +11,7 @@ import {
   type RenderNode,
   type RenderPort,
   type RenderPoint,
-  type RenderResult,
-} from "../protocol";
+  type RenderResult, type RenderFrame } from "../protocol";
 import type { AutoLayout } from "./autolayout";
 import {
   GAP,
@@ -47,7 +46,43 @@ import { DEFAULT_ROUTING, type Routing } from "../style";
 
 /** How a node is drawn: the label box of an element, or the symbol of a control node. */
 export type Shape =
-  "box" | "point" | "circle" | "ring" | "diamond" | "bar" | "history";
+  "box" | "point" | "circle" | "ring" | "cross" | "diamond" | "bar" | "history";
+
+/** STATEMENT_KINDS are the action node kinds whose «keyword» compartment heads the node even unnamed (§8.2.3.17). */
+export const STATEMENT_KINDS: ReadonlySet<string> = new Set(["send action", "accept action", "assign", "loop", "if"]);
+
+/** STATEMENT_ROW_KIND is a compartment row that is a statement as written, drawn as its text alone. */
+export const STATEMENT_ROW_KIND = "statement";
+
+/** SECTION_KINDS are the body compartments of a compound node drawn as a container: a loop body, a branch, a swimlane. */
+export const SECTION_KINDS: ReadonlySet<string> = new Set(["loop body", "then body", "else body", "swimlane"]);
+
+/** nodeMark is the small figure in the top-left corner of a node's box: the send-signal pentagon, the accept flag; "" for none. */
+export function nodeMark(kind: string): "send" | "accept" | "" {
+  switch (kind) {
+    case "send action":
+      return "send";
+    case "accept action":
+      return "accept";
+    default:
+      return "";
+  }
+}
+
+/** pinArrow is the direction glyph inside a parameter pin (§8.2.3.17 pdh, pdv): into the node for an input, out for an output, both for inout. */
+export function pinArrow(direction: string | undefined, side: Side): string {
+  const across = side === "north" || side === "south";
+  switch (direction) {
+    case "inout":
+      return across ? "↕" : "↔";
+    case "in":
+      return { west: "→", east: "←", north: "↓", south: "↑" }[side];
+    case "out":
+      return { west: "←", east: "→", north: "↑", south: "↓" }[side];
+    default:
+      return "";
+  }
+}
 
 export interface PlacedNode {
   node: RenderNode;
@@ -112,6 +147,8 @@ export interface CanvasLayout {
   routing: Routing;
   /** What the layout left undrawn, worded as the renderer's notices. */
   notices: string[];
+  /** The view frame drawn round the diagram, when the rendering has one. */
+  frame?: RenderFrame;
 }
 
 /** The rendering kinds whose renderers position nodes and route edges from DiagramLayout. */
@@ -171,6 +208,8 @@ const BAR_HEIGHT = 6;
 const LOOP_REACH = 36;
 /** Between the messages of a sequence, and below its last one. */
 const MESSAGE_GAP = 40;
+/** The diameter of a proxy's filled circle on its lifeline (§8.2.3.9 sq-proxy). */
+const PROXY_SIZE = 10;
 /** How far a message to its own lifeline reaches out. */
 const SELF_MESSAGE_REACH = 28;
 
@@ -223,7 +262,6 @@ export function layoutCanvas(
   }
   if (result.kind === "sequence") {
     const layout = layoutSequence(result, roots, placed, overrides.hiddenKinds);
-    placePorts(result.edges ?? [], placed, auto);
     return coveringDrawn({ ...layout, routing });
   }
   const owners = memberEdgeOwners(result.edges ?? [], placed, overrides.hiddenKinds);
@@ -261,6 +299,7 @@ export function layoutCanvas(
       placeable: PLACEABLE_KINDS.has(result.kind),
       routing,
       notices: clippingNotice(placed),
+      frame: result.frame,
     }),
     overrides.held,
   );
@@ -319,7 +358,10 @@ function coveringHeld(layout: CanvasLayout, held: CanvasLayout | undefined): Can
 
 // layoutSequence lays lifelines out in a row, in the order rendered, and its
 // messages down them in the order the model states; nothing here reads the model's
-// geometry, since a sequence rendering carries none.
+// geometry, since a sequence rendering carries none. A lifeline's ports sit on its
+// bottom border and its proxies (the events its messages end at) are points on the
+// lifeline, labelled beside it: an event has one point, placed by the first drawn
+// edge reaching it, and every later edge at that event runs to that point.
 function layoutSequence(
   result: RenderResult,
   roots: PlacedNode[],
@@ -329,35 +371,111 @@ function layoutSequence(
   const edges = result.edges ?? [];
   // A hidden message takes no row of its own; the rows close up over it.
   const hidden = edges.map((edge) => hiddenKinds?.has(edge.kind) === true);
-  const shown = hidden.filter((h) => !h).length;
-  const bottom = MARGIN + headHeight(roots) + MESSAGE_GAP * (shown + 1);
+  const headY = MARGIN + headHeight(roots);
   let x = MARGIN;
   for (const root of roots) {
     const size = labelSize(root.lines);
     root.box = { x, y: MARGIN, width: size.width, height: size.height };
-    root.lifeline = bottom;
+    const ports = root.node.ports ?? [];
+    root.ports = ports.map((port, i) => ({ port, side: "south", offset: (i + 1) / (ports.length + 1) }));
     x += size.width + GAP;
   }
-  let row = 0;
-  const routed = edges.map((edge, index): PlacedEdge => {
-    const y = MARGIN + headHeight(roots) + MESSAGE_GAP * (hidden[index] ? row : ++row);
-    const from = placed.get(edge.from)?.box;
-    const to = placed.get(edge.to)?.box;
-    const fromX = from ? from.x + from.width / 2 : MARGIN;
-    const toX = to ? to.x + to.width / 2 : MARGIN;
+  // endX is the x an edge end is drawn at: its port's, else its lifeline's centre.
+  const endX = (id: string, portId: string | undefined): number => {
+    const entry = placed.get(id);
+    if (!entry) {
+      return MARGIN;
+    }
+    const lifeline = entry.parent ?? entry;
+    const port = portId === undefined ? undefined : lifeline.ports.find((p) => p.port.id === portId);
+    return port ? portCenter(lifeline.box, port).x : lifeline.box.x + lifeline.box.width / 2;
+  };
+  // placedProxy is the point of an event an earlier edge already placed.
+  const placedProxy = (id: string): PlacedNode | undefined => {
+    const entry = placed.get(id);
+    return entry?.parent !== undefined && entry.box.width > 0 ? entry : undefined;
+  };
+  const centre = (entry: PlacedNode): { x: number; y: number } => ({ x: entry.box.x + entry.box.width / 2, y: entry.box.y + entry.box.height / 2 });
+  // occupied reports whether an end's lifeline already has an event's point at y: no two events share a point.
+  const occupied = (id: string, y: number): boolean => {
+    const entry = placed.get(id);
+    const lifeline = entry?.parent ?? entry;
+    return lifeline?.children.some((proxy) => proxy.box.width > 0 && centre(proxy).y === y) ?? false;
+  };
+  const isProxy = (id: string): boolean => placed.get(id)?.parent !== undefined;
+  const placeProxy = (id: string, cx: number, cy: number): void => {
+    const entry = placed.get(id);
+    if (entry?.parent !== undefined && entry.box.width === 0) {
+      entry.box = { x: cx - PROXY_SIZE / 2, y: cy - PROXY_SIZE / 2, width: PROXY_SIZE, height: PROXY_SIZE };
+      entry.shape = "circle";
+      entry.lines = [entry.node.name];
+    }
+  };
+  let rows = 0;
+  const routed: PlacedEdge[] = [];
+  // openRowAt moves every point and route at or below y down a row, so a new point can take y.
+  const openRowAt = (y: number): void => {
+    for (const root of roots) {
+      for (const proxy of root.children) {
+        if (proxy.box.width > 0 && centre(proxy).y >= y) {
+          proxy.box = { ...proxy.box, y: proxy.box.y + MESSAGE_GAP };
+        }
+      }
+    }
+    for (const route of routed) {
+      route.points = route.points.map((point) => (point.y >= y ? { x: point.x, y: point.y + MESSAGE_GAP } : point));
+      route.label = midpoint(route.points);
+    }
+    rows++;
+  };
+  for (const [index, edge] of edges.entries()) {
+    const fromProxy = placedProxy(edge.from);
+    const toProxy = placedProxy(edge.to);
+    const latest = headY + MESSAGE_GAP * rows;
+    // Placed points are joined, a sender sits at or above its placed receiver, a message
+    // from a point on the latest row stays on it; else an edge opens a row, a hidden one none.
+    let y: number;
+    if (hidden[index]) {
+      y = latest;
+    } else if (fromProxy && toProxy) {
+      y = Math.max(centre(fromProxy).y, centre(toProxy).y);
+    } else if (toProxy) {
+      y = centre(toProxy).y;
+      if (isProxy(edge.from) && occupied(edge.from, y)) {
+        openRowAt(y);
+      }
+    } else if (
+      fromProxy &&
+      edge.kind !== "succession" &&
+      centre(fromProxy).y >= latest &&
+      (!isProxy(edge.to) || !occupied(edge.to, centre(fromProxy).y))
+    ) {
+      y = centre(fromProxy).y;
+    } else {
+      y = headY + MESSAGE_GAP * ++rows;
+    }
+    const from = fromProxy ? centre(fromProxy) : { x: endX(edge.from, edge.fromPort), y };
+    const to = toProxy ? centre(toProxy) : { x: endX(edge.to, edge.toPort), y };
     const points =
-      edge.from === edge.to
+      from.x === to.x && from.y === to.y
         ? [
-            { x: fromX, y },
-            { x: fromX + SELF_MESSAGE_REACH, y },
-            { x: fromX + SELF_MESSAGE_REACH, y: y + MESSAGE_GAP / 2 },
-            { x: fromX, y: y + MESSAGE_GAP / 2 },
+            from,
+            { x: from.x + SELF_MESSAGE_REACH, y: from.y },
+            { x: from.x + SELF_MESSAGE_REACH, y: from.y + MESSAGE_GAP / 2 },
+            { x: from.x, y: from.y + MESSAGE_GAP / 2 },
           ]
-        : [
-            { x: fromX, y },
-            { x: toX, y },
-          ];
-    return {
+        : [from, to];
+    // The next row opens under whatever this edge reached.
+    const low = Math.max(...points.map((point) => point.y));
+    while (!hidden[index] && headY + MESSAGE_GAP * (rows + 1) <= low) {
+      rows++;
+    }
+    // A hidden edge places no proxy: the point goes where a drawn edge first reaches it.
+    if (!hidden[index]) {
+      placeProxy(edge.from, points[0].x, points[0].y);
+      placeProxy(edge.to, points[points.length - 1].x, points[points.length - 1].y);
+    }
+    routed.push({
       edge,
       index,
       points,
@@ -365,8 +483,16 @@ function layoutSequence(
       label: midpoint(points),
       hidden: hidden[index],
       rerouted: false,
-    };
-  });
+    });
+  }
+  const bottom = headY + MESSAGE_GAP * (rows + 1);
+  for (const root of roots) {
+    root.lifeline = bottom;
+    // A proxy no drawn edge reaches sits at the foot of its lifeline.
+    for (const proxy of root.children) {
+      placeProxy(proxy.node.id, root.box.x + root.box.width / 2, bottom - PROXY_SIZE);
+    }
+  }
   return {
     roots,
     nodes: placed,
@@ -724,20 +850,51 @@ export function labelLines(
   }
   const draws = (element: string): boolean =>
     shown === undefined || shown.includes(element);
+  if (node.kind === STATEMENT_ROW_KIND) {
+    return [node.text ?? ""];
+  }
   const lines: string[] = [];
-  if ((node.name !== "" || node.arrow !== undefined) && draws("keywords")) {
+  const statement = STATEMENT_KINDS.has(node.kind);
+  const annotation = ANNOTATION_KINDS.has(node.kind);
+  const keyword =
+    (node.name !== "" || node.arrow !== undefined || statement || annotationKeyworded(node)) && draws("keywords");
+  if (keyword) {
     lines.push(`«${node.kind}»`);
   }
-  if (node.arrow === undefined || node.name !== "" || node.detail !== "" || (node.text ?? "") !== "") {
+  if (annotation && node.name === "") {
+    // Unnamed, the locale or language heads the note, else the body itself does (§8.2.3.4).
+    lines.push(...(node.detail !== "" ? node.detail : (node.text ?? "")).split("\n"));
+    if (node.detail !== "" && (node.text ?? "") !== "") {
+      lines.push(...(node.text ?? "").split("\n"));
+    }
+    return lines;
+  }
+  if (statement && node.name === "" && node.text) {
+    lines.push(node.text);
+  } else if ((node.arrow === undefined || node.name !== "" || node.detail !== "" || (node.text ?? "") !== "") && (node.name !== "" || !statement || !keyword)) {
     lines.push(...labelHead(node, draws("typings"), draws("qualifiers"), names).split("\n"));
+  }
+  if (node.parallel && draws("keywords")) {
+    lines.push("«parallel»");
   }
   if (node.detail !== "" && draws("compartments")) {
     lines.push(node.detail);
+  }
+  if (ANNOTATION_KINDS.has(node.kind) && node.name !== "" && (node.text ?? "") !== "") {
+    lines.push(...(node.text ?? "").split("\n"));
   }
   if (node.arrow !== undefined) {
     lines.push(ARROW_ROW);
   }
   return lines;
+}
+
+/** The annotation nodes of §8.2.3.4, whose body follows the head and detail even when named. */
+const ANNOTATION_KINDS: ReadonlySet<string> = new Set(["comment", "doc", "rep"]);
+
+/** Documentation and textual representations are headed by their keyword even unnamed; a comment only with a name or locale. */
+function annotationKeyworded(node: RenderNode): boolean {
+  return node.kind === "doc" || node.kind === "rep" || (node.kind === "comment" && node.detail !== "");
 }
 
 /** LabelLineClass is the part of a label a line is: its «kind», its head or a detail line. */
@@ -942,7 +1099,17 @@ export function nodeExtent(
     extent.reach(label.x, label.y);
     extent.reach(label.x + label.width, label.y + label.height);
   }
+  if (node.parent?.lifeline !== undefined) {
+    const label = proxyLabelPlacement(node);
+    extent.reach(label.x + label.width, label.y);
+  }
   return extent.box();
+}
+
+/** proxyLabelPlacement is where a proxy's name is drawn: to the right of its point, on its baseline. */
+export function proxyLabelPlacement(proxy: PlacedNode): { x: number; y: number; width: number; height: number } {
+  const size = glyphSize(proxy.lines.join(""));
+  return { x: proxy.box.x + proxy.box.width + 4, y: proxy.box.y + proxy.box.height, ...size };
 }
 
 /** edgeLabelBox is the box an edge's label is drawn in, centred over the edge's midpoint; none for an unlabelled edge. */
@@ -1667,6 +1834,8 @@ export function shapeOf(kind: string): Shape {
       return "circle";
     case "final":
       return "ring";
+    case "terminate action":
+      return "cross";
     case "fork":
     case "join":
       return "bar";
@@ -1692,6 +1861,7 @@ export function symbolSize(
       return { width: POINT_SIZE, height: POINT_SIZE };
     case "circle":
     case "ring":
+    case "cross":
     case "diamond":
     case "history":
       return { width: SYMBOL_SIZE, height: SYMBOL_SIZE };

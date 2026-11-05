@@ -1,0 +1,13 @@
+FurnaceViews::runningTree - tree rendering (view def GeneralView)
+
+state running
+  states
+    state low
+    state high
+  state actions
+    entry action ignite : Furnace::Ignite
+    exit action : Furnace::Purge
+    do action : Actions::Action
+
+not represented:
+  - 5 member(s) drawn as compartment rows of their owner

@@ -1,0 +1,131 @@
+package semantics
+
+import (
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+)
+
+// ImpliesDefaultMultiplicity reports whether sym's implicit [1..1] (SysML v2 §7.6.3,
+// ImplicitlyDeclaresOne) is stated by a Multiplicity it owns: a usage that declares
+// no multiplicity of its own, as the pilot's UsageParserPostProcessor adds one.
+func (m *Model) ImpliesDefaultMultiplicity(sym *symbols.Symbol) bool {
+	if m == nil || sym == nil || sym.Implicit != nil || sym.Chain != nil || sym.Expr != nil {
+		return false
+	}
+	if !sym.DeclaresUsage() || m.isKerMLDoc(sym) || m.bodyDeclaredBy(sym) != nil {
+		// What an expression body's scope holds, its parameters first, takes no default.
+		return false
+	}
+	if IsVariant(sym) {
+		// A variant is held by a VariantMembership, not a FeatureMembership: it is no
+		// feature of its variation (SysML v2 §7.6.7), and the default is a feature's.
+		return false
+	}
+	if m.declaresMultiplicity(sym) {
+		return false
+	}
+	return m.ImplicitlyDeclaresOne(sym)
+}
+
+// DefaultMultiplicityMember is the Multiplicity stating sym's implicit [1..1], the
+// member of the last of sym's OwnedMemberships; nil where ImpliesDefaultMultiplicity
+// is false. It is a derived element: no text, diagram or outline shows it.
+func (m *Model) DefaultMultiplicityMember(sym *symbols.Symbol) *symbols.Symbol {
+	if !m.ImpliesDefaultMultiplicity(sym) {
+		return nil
+	}
+	defer m.own(sym).LeaveDoc()
+	if cached, ok := m.defaultMultiplicities[sym]; ok {
+		return cached
+	}
+	scope := sym.Scope
+	if scope == nil {
+		// A leaf declares no scope of its own; its multiplicity still needs one to be owned through.
+		scope = symbols.NewScope(sym.OwnerScope, nil)
+		scope.SetOwner(sym)
+	}
+	member := &symbols.Symbol{
+		Kind:       symbols.SymbolMultiplicity,
+		DocName:    sym.DocName,
+		DeclSpan:   sym.DeclSpan,
+		Visibility: ast.VisibilityDefault,
+		OwnerScope: scope,
+		Decl:       &symbols.ImpliedDecl{Of: sym.Decl, Form: symbols.ImpliedDefaultMultiplicity},
+	}
+	journal(m, m.defaultMultiplicities, sym, sym.Decl)
+	m.defaultMultiplicities[sym] = member
+	return member
+}
+
+// IsDefaultMultiplicity reports whether sym is the Multiplicity a usage's implicit
+// [1..1] is stated by (DefaultMultiplicityMember).
+func IsDefaultMultiplicity(sym *symbols.Symbol) bool {
+	decl, ok := symbols.ImpliedDeclOf(sym)
+	return ok && decl.Form == symbols.ImpliedDefaultMultiplicity
+}
+
+// declaresMultiplicity reports whether sym writes a multiplicity of its own, a
+// range it cannot evaluate included: the record's bounds, or the declaration's clause.
+func (m *Model) declaresMultiplicity(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.Multiplicity != nil
+	}
+	if UsageMultiplicityOf(sym) != nil {
+		return true
+	}
+	_, declared := m.MultiplicityOf(sym)
+	return declared
+}
+
+// DeclaredMultiplicityMember is the nameless MultiplicityRange a usage's written range
+// (`[4]`) declares, owned at the clause as the conversion writes it; nil without a range.
+func (m *Model) DeclaredMultiplicityMember(sym *symbols.Symbol) *symbols.Symbol {
+	if m == nil || sym == nil || sym.Implicit != nil || sym.Chain != nil || sym.Expr != nil || !sym.DeclaresUsage() {
+		return nil
+	}
+	mult := UsageMultiplicityOf(sym)
+	if mult == nil {
+		if !sym.Recorded() || sym.Facts.Multiplicity == nil {
+			return nil
+		}
+	}
+	if cached, ok := m.declaredMultiplicities[sym]; ok {
+		return cached
+	}
+	scope := sym.Scope
+	if scope == nil {
+		scope = symbols.NewScope(sym.OwnerScope, nil)
+		scope.SetOwner(sym)
+	}
+	span := sym.DeclSpan
+	if mult != nil {
+		span = mult.Span()
+	}
+	member := &symbols.Symbol{
+		Kind:       symbols.SymbolMultiplicity,
+		DocName:    sym.DocName,
+		DeclSpan:   span,
+		Visibility: ast.VisibilityDefault,
+		OwnerScope: scope,
+		Decl:       &symbols.ImpliedDecl{Of: sym.Decl, Form: symbols.ImpliedMultiplicityRange},
+	}
+	journal(m, m.declaredMultiplicities, sym, sym.Decl)
+	m.declaredMultiplicities[sym] = member
+	return member
+}
+
+// MultiplicityMember is the Multiplicity sym states: its declared range
+// (DeclaredMultiplicityMember) or its implicit [1..1] (DefaultMultiplicityMember).
+func (m *Model) MultiplicityMember(sym *symbols.Symbol) *symbols.Symbol {
+	if member := m.DeclaredMultiplicityMember(sym); member != nil {
+		return member
+	}
+	return m.DefaultMultiplicityMember(sym)
+}
+
+// IsImpliedMultiplicity reports whether sym is a usage's declared range or default
+// Multiplicity (MultiplicityMember).
+func IsImpliedMultiplicity(sym *symbols.Symbol) bool {
+	decl, ok := symbols.ImpliedDeclOf(sym)
+	return ok && (decl.Form == symbols.ImpliedDefaultMultiplicity || decl.Form == symbols.ImpliedMultiplicityRange)
+}

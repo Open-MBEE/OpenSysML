@@ -1,9 +1,11 @@
 FoldedBehaviors::states - state rendering (view def StateTransitionView)
 
 state def Machine
+  state transition
   start
   state idle (initial)
   state running collapsed
+    state transition
 
 transitions:
   start of Machine -> idle

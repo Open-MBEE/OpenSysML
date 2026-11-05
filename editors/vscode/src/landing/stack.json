@@ -1926,7 +1926,8 @@
       "compartments",
       "edge-labels",
       "keywords",
-      "typings"
+      "typings",
+      "annotations"
     ]
   },
   "instances": [

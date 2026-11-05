@@ -459,10 +459,10 @@ type footprintBuilder struct {
 	declared          map[ast.Node]ast.Node
 	localDeclarations bool
 	footprint         Footprint
-	// expanding is the stack of usages whose bindings are being read, so a cyclic
-	// binding stops; its first entry sits in expandingRoot and allocates nothing.
-	expandingRoot *ast.Usage
-	expanding     []*ast.Usage
+	// expanded is each usage whose binding has been read, and how, so one is read
+	// once however many expressions reach it; the root entry allocates nothing.
+	expandedRoot expandedUsage
+	expanded     []expandedUsage
 	// sem answers what a feature redefines, explicitly or by position.
 	sem *semantics.Model
 }
@@ -579,10 +579,9 @@ func (b *footprintBuilder) boundValue(sym *symbols.Symbol, direct bool) {
 	if usage.Value != nil && !valueIsBinding(usage.Value, usage.ValueIsInitial, usage.ValueIsDefault) {
 		return
 	}
-	if !b.enter(usage) {
+	if !b.enter(usage, direct) {
 		return
 	}
-	defer b.leave()
 	if usage.Value == nil {
 		// A redefining feature valued by nothing of its own is bound as the one it
 		// redefines is (`attribute :>> y;` over `attribute y = x + 1`), explicitly or
@@ -610,26 +609,25 @@ func (b *footprintBuilder) semantics() *semantics.Model {
 	return b.sem
 }
 
-// enter pushes usage onto the expanding stack, false when it is already there.
-func (b *footprintBuilder) enter(usage *ast.Usage) bool {
-	if usage == b.expandingRoot || slices.Contains(b.expanding, usage) {
-		return false
-	}
-	if b.expandingRoot == nil {
-		b.expandingRoot = usage
-	} else {
-		b.expanding = append(b.expanding, usage)
-	}
-	return true
+// expandedUsage is a usage whose binding the builder has read, directly or through a chain.
+type expandedUsage struct {
+	usage  *ast.Usage
+	direct bool
 }
 
-// leave pops the usage entered last.
-func (b *footprintBuilder) leave() {
-	if n := len(b.expanding); n > 0 {
-		b.expanding = b.expanding[:n-1]
-		return
+// enter records that usage's binding is read, false when it already was: what it
+// reads is the same from every expression reaching it, and a cyclic one stops.
+func (b *footprintBuilder) enter(usage *ast.Usage, direct bool) bool {
+	key := expandedUsage{usage: usage, direct: direct}
+	if key == b.expandedRoot || slices.Contains(b.expanded, key) {
+		return false
 	}
-	b.expandingRoot = nil
+	if b.expandedRoot.usage == nil {
+		b.expandedRoot = key
+	} else {
+		b.expanded = append(b.expanded, key)
+	}
+	return true
 }
 
 // redefinitions are the features sym redefines, explicitly or as a parameter at
@@ -681,10 +679,9 @@ func (b *footprintBuilder) calcUsage(sym *symbols.Symbol, usage *ast.Usage) {
 		return
 	}
 	b.footprint.Dynamic = true
-	if !b.enter(usage) {
+	if !b.enter(usage, true) {
 		return
 	}
-	defer b.leave()
 	scope := sym.Scope
 	if scope == nil {
 		scope = b.scope
