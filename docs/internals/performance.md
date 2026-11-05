@@ -501,7 +501,7 @@ Three changes took it to under 20 ms, each measured over the same command
   15.0 MB and 123k. The expansion stays inherently iterative — most of its cost
   is the re-export closure itself — which is what the snapshot removes.
 - **The snapshot.** The library's frozen index is serialized at build time
-  into `internal/workspace/libs/snapshot/stdlib.snapshot` (3.4 MB, embedded; the `sysml`
+  into `internal/workspace/libs/stdlib.snapshot` (3.4 MB, embedded; the `sysml`
   binary grows from 16.9 to 20.5 MB) and decoded at start-up, so neither the
   parser nor the expansion runs for the library at all. The format is
   hand-rolled (`internal/syntax/pack`, `internal/syntax/ast/astcodec`,

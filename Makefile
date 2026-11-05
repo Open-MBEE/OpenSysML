@@ -480,7 +480,7 @@ extension-libraries-pin-check: ## After moving the extension-library pin: every 
 # while a tree without it (a `go install` from the module proxy) still builds
 # and loads the library files instead. The generator runs on the host whatever
 # GOOS/GOARCH the binary is being built for.
-stdlib-snapshot: ## Generate $(LIBS_DIR)/snapshot/stdlib.snapshot, the snapshot of the bundled library the binaries embed
+stdlib-snapshot: ## Generate $(LIBS_DIR)/stdlib.snapshot and the Go file embedding it, the snapshot of the bundled library the binaries carry
 	GOOS= GOARCH= go generate ./$(LIBS_DIR)
 
 ontology-table: ## Regenerate the metamodel table from the pilot SysML.ecore that scripts/pilot-pin.sh pins

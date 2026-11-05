@@ -14,7 +14,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"testing/fstest"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -46,7 +45,7 @@ func testSnapshot(tb testing.TB) []byte {
 // testSnapshotIndex is SnapshotIndex over the snapshot testSnapshot builds.
 func testSnapshotIndex(tb testing.TB) *symbols.Index {
 	tb.Helper()
-	idx, err := decodeSnapshotFor(testSnapshot(tb), DefaultSource())
+	idx, err := snapshotIndexFrom(testSnapshot(tb), DefaultSource())
 	if err != nil {
 		tb.Fatalf("decode the snapshot: %v", err)
 	}
@@ -57,13 +56,12 @@ func testSnapshotIndex(tb testing.TB) *symbols.Index {
 // that was not regenerated after the bundled library, or the snapshot format,
 // changed. A tree without one — a module-proxy checkout — has nothing to check.
 func TestEmbeddedSnapshotIsCurrent(t *testing.T) {
-	embedded, ok := embeddedSnapshot()
-	if !ok {
-		t.Skip("no snapshot generated under snapshot/; `make stdlib-snapshot` writes one")
+	if stdlibSnapshot == nil {
+		t.Skip("no snapshot embedded; `make stdlib-snapshot` generates one")
 	}
-	if want := testSnapshot(t); !bytes.Equal(want, embedded) {
-		t.Fatalf("%s is stale (%d bytes embedded, %d regenerated); run `go generate ./internal/workspace/libs`",
-			snapshotName, len(embedded), len(want))
+	if want := testSnapshot(t); !bytes.Equal(want, stdlibSnapshot) {
+		t.Fatalf("stdlib.snapshot is stale (%d bytes embedded, %d regenerated); run `go generate ./internal/workspace/libs`",
+			len(stdlibSnapshot), len(want))
 	}
 }
 
@@ -71,12 +69,12 @@ func TestEmbeddedSnapshotIsCurrent(t *testing.T) {
 // apart: a build without a snapshot is expected and only noted at debug level,
 // a snapshot that fails to decode is a build defect and warned about.
 func TestSnapshotIndexTellsAnAbsentSnapshotFromABrokenOne(t *testing.T) {
-	absent := fstest.MapFS{}
-	if _, err := snapshotIndexIn(absent, BundledSource()); !errors.Is(err, ErrNoSnapshot) {
+	var absent []byte
+	if _, err := snapshotIndexFrom(absent, BundledSource()); !errors.Is(err, ErrNoSnapshot) {
 		t.Errorf("absent snapshot: got %v, want ErrNoSnapshot", err)
 	}
-	broken := fstest.MapFS{snapshotName: &fstest.MapFile{Data: []byte("not a snapshot")}}
-	if _, err := snapshotIndexIn(broken, BundledSource()); !errors.Is(err, pack.ErrCorrupt) {
+	broken := []byte("not a snapshot")
+	if _, err := snapshotIndexFrom(broken, BundledSource()); !errors.Is(err, pack.ErrCorrupt) {
 		t.Errorf("broken snapshot: got %v, want ErrCorrupt", err)
 	}
 
@@ -85,14 +83,14 @@ func TestSnapshotIndexTellsAnAbsentSnapshotFromABrokenOne(t *testing.T) {
 	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
 	t.Cleanup(func() { slog.SetDefault(original) })
 
-	if idx := frozenLibraryIn(absent, BundledSource()); len(idx.LookupQualified("Base::Anything")) == 0 {
+	if idx := frozenLibraryFrom(absent, BundledSource()); len(idx.LookupQualified("Base::Anything")) == 0 {
 		t.Error("absent snapshot: the library files were not loaded")
 	}
 	if got := logs.String(); !strings.Contains(got, "level=DEBUG") || strings.Contains(got, "level=WARN") {
 		t.Errorf("absent snapshot: want one debug record and no warning, got %q", got)
 	}
 	logs.Reset()
-	if idx := frozenLibraryIn(broken, BundledSource()); len(idx.LookupQualified("Base::Anything")) == 0 {
+	if idx := frozenLibraryFrom(broken, BundledSource()); len(idx.LookupQualified("Base::Anything")) == 0 {
 		t.Error("broken snapshot: the library files were not loaded")
 	}
 	if got := logs.String(); !strings.Contains(got, "level=WARN") {
@@ -237,7 +235,7 @@ func TestSnapshotIndexFollowsLibraryPath(t *testing.T) {
 	writeLibraryTo(t, BundledSource(), dir)
 	t.Setenv(LibraryPathEnvVar, dir)
 	snapshot := testSnapshot(t)
-	if _, err := decodeSnapshotFor(snapshot, DefaultSource()); err != nil {
+	if _, err := snapshotIndexFrom(snapshot, DefaultSource()); err != nil {
 		t.Errorf("identical override: %v, want the snapshot", err)
 	}
 
@@ -245,7 +243,7 @@ func TestSnapshotIndexFollowsLibraryPath(t *testing.T) {
 	if err := os.WriteFile(edited, []byte("standard library package ScalarValues { datatype Edited; }\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := decodeSnapshotFor(snapshot, DefaultSource()); !errors.Is(err, ErrSnapshotStale) {
+	if _, err := snapshotIndexFrom(snapshot, DefaultSource()); !errors.Is(err, ErrSnapshotStale) {
 		t.Errorf("edited override: got %v, want ErrSnapshotStale", err)
 	}
 	idx := symbols.NewIndex()

@@ -279,14 +279,15 @@ source → lexer → parser → AST → symbol index → resolve → passes
 - **Shared base:** `libs.SharedBase()` builds one frozen `symbols.Index` of the library per
   process; every model is an overlay over it (`NewOverlay`), reading the library without copying
   it.
-- **Snapshot:** `internal/workspace/libs/snapshot/stdlib.snapshot` is that frozen index — syntax
+- **Snapshot:** `internal/workspace/libs/stdlib.snapshot` is that frozen index — syntax
   trees, scopes, symbols, wildcard-import expansion, facts — serialized at build time
   (`make stdlib-snapshot`, which is `go generate ./internal/workspace/libs` and a prerequisite of
-  every Makefile build and test target) and embedded through `embed.FS` over its directory. A
+  every Makefile build and test target) and embedded by `snapshot_embedded.go`, a generated,
+  gitignored file written beside it whose `init` hands the bytes to `stdlibSnapshot`. A
   process decodes it instead of parsing, when its recorded digest of the library files and its
   format version match the files in hand and its CRC-32C over the stream holds; otherwise (an
   edited file, a library-path override, a stale or damaged blob) it parses the files as before.
-  The snapshot is a generated artifact, gitignored rather than committed: a tree without one — a
+  Both files are generated artifacts, gitignored rather than committed: a tree without them — a
   `go install` from the module proxy — still compiles, and its binaries load the files, noted at
   debug level only; a snapshot that fails to decode is a build defect and is warned about.
   `TestEmbeddedSnapshotIsCurrent` fails when the snapshot a test build embeds lags the files.

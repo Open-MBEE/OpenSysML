@@ -2,12 +2,10 @@ package libs
 
 import (
 	"bytes"
-	"embed"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"hash/crc32"
-	"io/fs"
 	"runtime/debug"
 	"sync"
 
@@ -17,34 +15,14 @@ import (
 
 //go:generate go run -C ../../../tools ./gen/snapshot
 
-// snapshotFS holds snapshot/stdlib.snapshot when the build generated one: the
-// bundled library parsed, indexed, expanded and frozen, so that a process
-// starts by decoding it instead of repeating that work. It is derived from the
-// files under stdlib/ by `go generate ./internal/workspace/libs`, gitignored,
-// and never edited by hand; the directory is embedded rather than the file so
-// that a tree without it — a `go install` from the module proxy — still
-// compiles and loads the files instead.
-//
-//go:embed snapshot
-var snapshotFS embed.FS
-
-// snapshotName is the generated file within snapshotFS.
-const snapshotName = "snapshot/stdlib.snapshot"
-
-// embeddedSnapshot returns the generated snapshot this binary carries, or
-// false when the build had none to embed.
-func embeddedSnapshot() ([]byte, bool) {
-	return snapshotIn(snapshotFS)
-}
-
-// snapshotIn reads the generated snapshot out of fsys, if it holds one.
-func snapshotIn(fsys fs.FS) ([]byte, bool) {
-	data, err := fs.ReadFile(fsys, snapshotName)
-	if err != nil {
-		return nil, false
-	}
-	return data, true
-}
+// stdlibSnapshot is the snapshot of the bundled library this binary embeds:
+// the library parsed, indexed, expanded and frozen, so that a process starts
+// by decoding it instead of repeating that work. `make stdlib-snapshot` (`go
+// generate ./internal/workspace/libs`) derives stdlib.snapshot from the files
+// under stdlib/ and writes snapshot_embedded.go, whose init embeds it here;
+// both are gitignored. A tree without them — what `go install` compiles from
+// the module proxy — leaves it nil and loads the files instead.
+var stdlibSnapshot []byte
 
 // snapshotMagic opens every snapshot, and snapshotFormatVersion changes
 // whenever the stream layout does, so a stale blob is refused, not misread.
@@ -151,19 +129,14 @@ func SnapshotIndex() (*symbols.Index, error) {
 
 // snapshotIndexOf is SnapshotIndex over the given source.
 func snapshotIndexOf(src Source) (*symbols.Index, error) {
-	return snapshotIndexIn(snapshotFS, src)
+	return snapshotIndexFrom(stdlibSnapshot, src)
 }
 
-// snapshotIndexIn decodes the snapshot fsys holds for src's files.
-func snapshotIndexIn(fsys fs.FS, src Source) (*symbols.Index, error) {
-	data, ok := snapshotIn(fsys)
-	if !ok {
+// snapshotIndexFrom decodes data as the snapshot of src's files; nil data is
+// a build that embedded none.
+func snapshotIndexFrom(data []byte, src Source) (*symbols.Index, error) {
+	if data == nil {
 		return nil, ErrNoSnapshot
 	}
-	return decodeSnapshotFor(data, src)
-}
-
-// decodeSnapshotFor decodes data as the snapshot of src's files.
-func decodeSnapshotFor(data []byte, src Source) (*symbols.Index, error) {
 	return DecodeSnapshot(data, NewLoader(src, nil).setDigest())
 }

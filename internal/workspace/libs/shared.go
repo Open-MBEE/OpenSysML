@@ -2,7 +2,6 @@ package libs
 
 import (
 	"errors"
-	"io/fs"
 	"log/slog"
 	"sync"
 
@@ -78,12 +77,12 @@ func FrozenLibraryFrom(published Source) (*symbols.Index, Source) {
 // the module proxy) and only noted; a snapshot that fails to decode is
 // warned about, since only a build defect makes one.
 func frozenLibrary(src Source) *symbols.Index {
-	return frozenLibraryIn(snapshotFS, src)
+	return frozenLibraryFrom(stdlibSnapshot, src)
 }
 
-// frozenLibraryIn is frozenLibrary with the snapshot read from fsys.
-func frozenLibraryIn(fsys fs.FS, src Source) *symbols.Index {
-	idx, err := snapshotIndexIn(fsys, src)
+// frozenLibraryFrom is frozenLibrary over the given snapshot bytes.
+func frozenLibraryFrom(data []byte, src Source) *symbols.Index {
+	idx, err := snapshotIndexFrom(data, src)
 	if err == nil {
 		return idx
 	}

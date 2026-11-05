@@ -713,7 +713,7 @@ package OpenSysMLSurfaces {
     #Oracle part def StdlibSnapshotGate :> ConformanceOracle {
         attribute :>> goPackage = "internal/workspace/libs";
         attribute :>> reference = "the bundled library files";
-        attribute :>> baseline = "internal/workspace/libs/snapshot/stdlib.snapshot";
+        attribute :>> baseline = "internal/workspace/libs/stdlib.snapshot";
         attribute :>> gating = true;
     }
 

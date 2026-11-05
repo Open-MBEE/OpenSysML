@@ -602,7 +602,7 @@ with `NewOverlay`, sharing the immutable library base while keeping project
 writes separate.
 
 The bundled standard library's frozen index is not built at start-up but decoded
-from `internal/workspace/libs/snapshot/stdlib.snapshot`, a generated artifact embedded
+from `internal/workspace/libs/stdlib.snapshot`, a generated artifact embedded
 in the binary (`symbols.WriteSnapshot`/`ReadSnapshot` over `internal/syntax/pack` and
 `internal/syntax/ast/astcodec`). The OMG files under `internal/workspace/libs/stdlib/`
 remain the source of truth: a process falls back to parsing them whenever their
@@ -611,9 +611,10 @@ digest or the snapshot's format version differs from what the snapshot records.
 The snapshot is not committed. Every Makefile target that builds a binary or runs
 the Go suite depends on `stdlib-snapshot`, which writes it first, so a `make build`
 binary always embeds a current one and `TestEmbeddedSnapshotIsCurrent` checks it
-under `make test`. The directory is embedded (`//go:embed snapshot`), not the file,
-so a tree without it — `go install github.com/Open-MBEE/OpenSysML/cmd/sysml@latest`
-from the module proxy, or a plain `go build` — compiles too; its binaries load the
+under `make test`. The `//go:embed` directive lives in `snapshot_embedded.go`, which the
+generator writes beside the snapshot and is gitignored with it, so a tree without them —
+`go install github.com/Open-MBEE/OpenSysML/cmd/sysml@latest` from the module proxy, or a
+plain `go build` — compiles too (`stdlibSnapshot` stays nil); its binaries load the
 library files at start-up (about 50–70 ms instead of 8 ms) and say so at debug
 level only. A snapshot that fails to decode is warned about, since only a build
 defect produces one.

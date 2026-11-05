@@ -1401,7 +1401,7 @@ func TestSelfModelDocumentRenders(t *testing.T) {
 		"| sequence | true |",
 		"| geometry | false |",
 		"| differential | pilot validator | docs/project/pilot-differential-baseline.json |",
-		"| snapshotGate | the bundled library files | internal/workspace/libs/snapshot/stdlib.snapshot |",
+		"| snapshotGate | the bundled library files | internal/workspace/libs/stdlib.snapshot |",
 		"| mcp | cmd/sysml-mcp | mcp-stdio, mcp-http |",
 		"| wasm | cmd/sysml-wasm | json-rpc |",
 		"| asciidocProse | asciidoc | true |",

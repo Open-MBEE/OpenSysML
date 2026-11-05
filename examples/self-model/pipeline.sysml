@@ -340,8 +340,8 @@ package OpenSysMLPipeline {
         in item tree : SyntaxTree;
     }
 
-    // go generate writes the snapshot, which every Makefile build target runs
-    // first; the file is gitignored, never committed.
+    // go generate writes the snapshot and the Go file embedding it, which every
+    // Makefile build target runs first; both are gitignored, never committed.
     part def SnapshotGenerator :> CodeUnit {
         attribute :>> goPackage = "tools/gen/snapshot";
         attribute makeTarget : String = "stdlib-snapshot";
@@ -355,7 +355,7 @@ package OpenSysMLPipeline {
         attribute :>> goPackage = "internal/workspace/libs";
         attribute bundledFileCount : Integer = 110;
         attribute cached : Boolean = true;
-        attribute snapshotFile : String = "internal/workspace/libs/snapshot/stdlib.snapshot";
+        attribute snapshotFile : String = "internal/workspace/libs/stdlib.snapshot";
         attribute snapshotTracked : Boolean = false;
         attribute snapshotChecksummed : Boolean = true;
         attribute fallsBackToParsing : Boolean = true;
