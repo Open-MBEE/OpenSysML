@@ -547,3 +547,62 @@ func ownerInRenderingFamily(owner NestedOwner) bool {
 		[]ast.UsageKind{ast.UsageRendering, ast.UsageViewRendering},
 		[]ast.DefinitionKind{ast.DefRendering})
 }
+
+// ImpliedSubsettingFQNForMetaclass is nestedSubsettingFQN for a graph element
+// that has no declaration: the library feature a usage of metaclass nested in
+// an owner of ownerMetaclass implicitly subsets (SysML v2 §8.3.6.4, the
+// check*Specialization constraints), "" when the rules name none. owner is the
+// owning type's symbol when it has one, which the KerML step fallback consults.
+func (m *Model) ImpliedSubsettingFQNForMetaclass(metaclass, ownerMetaclass string, composite bool, portion ast.PortionKind, owner *symbols.Symbol) string {
+	u, ok := nestedUsageOfMetaclass(metaclass)
+	if !ok {
+		return ""
+	}
+	u.Composite = composite
+	u.Portion = portion
+	o, ok := nestedOwnerOfMetaclass(ownerMetaclass)
+	if !ok {
+		return ""
+	}
+	fqn, step := nestedRuleFQN(u, o)
+	if step {
+		if owner == nil {
+			return ""
+		}
+		return m.stepNestedFQN(owner, composite)
+	}
+	return fqn
+}
+
+// nestedUsageOfMetaclass is what a usage's metaclass alone says of it to the
+// implicit subsetting rules: its kind and the perform/exhibit/include and
+// require/assume forms, which are metaclasses of their own.
+func nestedUsageOfMetaclass(metaclass string) (NestedUsage, bool) {
+	switch metaclass {
+	case "PerformActionUsage":
+		return NestedUsage{Kind: ast.UsageAction, Performed: true}, true
+	case "ExhibitStateUsage":
+		return NestedUsage{Kind: ast.UsageState, Exhibited: true}, true
+	case "IncludeUseCaseUsage":
+		return NestedUsage{Kind: ast.UsageUseCase, Included: true}, true
+	case "AssertConstraintUsage":
+		return NestedUsage{Kind: ast.UsageConstraint}, true
+	case "SatisfyRequirementUsage":
+		return NestedUsage{Kind: ast.UsageSatisfy}, true
+	}
+	if kind, ok := impliedUsageKinds[metaclass]; ok {
+		return NestedUsage{Kind: kind}, true
+	}
+	return NestedUsage{}, false
+}
+
+// nestedOwnerOfMetaclass is nestedOwnerOf for an owning type known by metaclass.
+func nestedOwnerOfMetaclass(metaclass string) (NestedOwner, bool) {
+	if u, ok := nestedUsageOfMetaclass(metaclass); ok {
+		return NestedOwner{Usage: u.Kind}, true
+	}
+	if d, ok := impliedDefinitionKinds[metaclass]; ok {
+		return NestedOwner{Def: d, IsDef: true}, true
+	}
+	return NestedOwner{}, false
+}
