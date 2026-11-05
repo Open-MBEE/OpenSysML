@@ -391,3 +391,62 @@ func TestExploreQueueSharesTheRecordUpToTheLastDeparture(t *testing.T) {
 		t.Errorf("plan of the departure at choice 2 = %+v, want the record up to it taking alternative 2", got)
 	}
 }
+
+// A caller that goes away ends the exploration with its error once the runs in flight are done.
+func TestExploreWithStopsWhenTheCallerGoesAway(t *testing.T) {
+	idx, path := parseIndex(t, threeWritersModel)
+	stop, cancel := context.WithCancel(context.Background())
+	var started atomic.Int64
+	run := actionRun(t, idx, path, "race")
+	x, err := ExploreWith(stop, mustPolicy(t, "explore"), 2, newExploreWorkers(idx).fresh, func(ctx *Context) (Outcome, error) {
+		if started.Add(1) == 1 {
+			cancel()
+		}
+		return run(ctx)
+	})
+	if !errors.Is(err, context.Canceled) || x != nil {
+		t.Fatalf("exploration %v, %v; want nil and the caller's cancellation", x, err)
+	}
+}
+
+// A context fresh cannot build fails the exploration at the run that asked for it.
+func TestExploreWithFailsWhenFreshFails(t *testing.T) {
+	idx, path := parseIndex(t, threeWritersModel)
+	workers := newExploreWorkers(idx)
+	broken := errors.New("no context")
+	var built atomic.Int64
+	fresh := func(job int) (*Context, error) {
+		if built.Add(1) == 3 {
+			return nil, broken
+		}
+		return workers.fresh(job)
+	}
+	x, err := ExploreWith(context.Background(), mustPolicy(t, "explore"), exploreJobs, fresh, actionRun(t, idx, path, "race"))
+	if !errors.Is(err, broken) || x != nil {
+		t.Fatalf("exploration %v, %v; want nil and fresh's error", x, err)
+	}
+}
+
+// A run that does not reach the choice points its prefix planned is a divergence, reported
+// at the run's position in plan order whatever job it ran on.
+func TestExploreWithReportsADivergedReplayAtItsRun(t *testing.T) {
+	idx, path := parseIndex(t, threeWritersModel)
+	run := actionRun(t, idx, path, "race")
+	var runs atomic.Int64
+	diverging := func(ctx *Context) (Outcome, error) {
+		if runs.Add(1) > 1 {
+			return Outcome{ctx: ctx}, nil
+		}
+		return run(ctx)
+	}
+	for _, jobs := range []int{1, exploreJobs} {
+		runs.Store(0)
+		x, err := ExploreWith(context.Background(), mustPolicy(t, "explore"), jobs, newExploreWorkers(idx).fresh, diverging)
+		if !errors.Is(err, ErrExplorationDiverged) || x != nil {
+			t.Fatalf("%d jobs: exploration %v, %v; want nil and a divergence", jobs, x, err)
+		}
+		if !strings.Contains(err.Error(), "run 2:") {
+			t.Fatalf("%d jobs: %v; want the divergence at run 2", jobs, err)
+		}
+	}
+}
