@@ -17,9 +17,8 @@ digraph "AbstractViews::familyMixed" {
       color=black;
       penwidth=0.5;
       "n1" [shape=point, style=invis, width=0, height=0, label=""];
-      "n0" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>AbstractViews::Vehicle::mass</b>>];
+      "n0" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass</b>>];
     }
-    "n0" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>AbstractViews::Vehicle::mass</b>>];
     subgraph "cluster_n2" {
       label=<<font point-size="10"><i>«abstract part»</i></font><br/><b>vehicleFamily</b>>;
       color=black;
@@ -47,7 +46,6 @@ digraph "AbstractViews::familyMixed" {
   }
   "n4" -> "n5" [arrowhead=none, penwidth=3];
   "n8" -> "n9" [arrowhead=none, penwidth=3];
-  "n1" -> "n0" [dir=back, arrowtail=odiamond, ltail="cluster_n1"];
   "n2" -> "n1" [arrowhead=onormaldotdot, ltail="cluster_n2", lhead="cluster_n1"];
   "n6" -> "n1" [arrowhead=empty, ltail="cluster_n6", lhead="cluster_n1"];
 }
