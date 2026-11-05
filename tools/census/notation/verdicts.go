@@ -90,6 +90,8 @@ var (
 	headings     = Evidence{"internal/ir/view/compartments.go:compartmentName", goldenForms, "internal/ir/view/render_test.go:TestGoldenRenderings"}
 	variants     = Evidence{"internal/ir/view/compartments.go:compartmentName", goldenForms, "internal/ir/view/tree_compartments_test.go:TestTreeCompartmentVariantForms"}
 	ends         = Evidence{"internal/ir/view/view.go:declKind", goldenForms, "internal/ir/view/render_test.go:TestGoldenRenderings"}
+	ellipsis     = Evidence{"internal/ir/view/compartments.go:compartmentEntries", []string{FormDOT, FormPlantUML, FormMermaid, FormD2, FormDrawio, FormText}, "internal/ir/view/elided_rows_test.go:TestElidedCompartmentsCarryTheEllipsis"}
+	greyed       = Evidence{"internal/ir/view/compartments.go:compartmentEntries", []string{FormDOT, FormPlantUML, FormMermaid}, "internal/ir/view/elided_rows_test.go:TestGreyedRowsMarkFoldedEdgeEnds"}
 	controlNode  = Evidence{"internal/ir/view/dot.go:dotSymbolAttributes", controlForms, "internal/ir/view/testdata/state-pseudostates.mermaid.golden"}
 	tableEdge    = Evidence{"internal/ir/view/dot.go:dotEdgeAttributes", edgeForms, "internal/ir/view/notation_table_test.go:TestNotationTableMatchesTheWriters"}
 	pins         = Evidence{"internal/ir/view/dot_ports.go:placePorts", pinForms, "internal/ir/view/action_pins_test.go:TestDOTActionFramePins"}
@@ -256,8 +258,8 @@ func buildTable() map[string]Adjudication {
 
 	// §8.2.3.2: the general view's own productions.
 	set(undrawn(CategoryCompartment, "a nested general view inside a node's compartment is not drawn; nested nodes are drawn as a tree"), "general-compartment")
-	set(undrawn(CategoryLabel, "hidden compartment rows are dropped without the '…' mark (compartments.go hidden rows)"), "ellipsis-at-lower-left-corner")
-	set(undrawn(CategoryNode, "the greyed element inside a textual compartment is not drawn; compartment rows are plain text"), "element-inside-textual-compartment")
+	set(drawn(CategoryLabel, ellipsis), "ellipsis-at-lower-left-corner")
+	set(approximate(CategoryNode, "a row a folded edge or note ends at is greyed in DOT and PlantUML; Mermaid's markdown labels carry no colour, so the row is italic there, and D2, draw.io and the text form list it plain", greyed), "element-inside-textual-compartment")
 	set(drawn(CategoryLabel, edgeLabel), "rel-name", "relationship-name")
 
 	// §8.2.3.3 dependencies.

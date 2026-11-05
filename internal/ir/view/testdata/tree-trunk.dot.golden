@@ -17,7 +17,7 @@ digraph "MicroscopeViews::structure" {
     penwidth=0.5;
     margin=8;
     bb="0,0,1100,420";
-    "n0" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«part def»</i></font><br/><b>ScanningElectronMicroscope</b></td></tr><hr/><tr><td><font point-size="10">parts</font></td></tr><tr><td align="left">imagingParameters</td></tr></table>>, margin=0, pos="550,360!", pin=true, width=4.166666666666667, height=1.1111111111111112, fixedsize=true];
+    "n0" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«part def»</i></font><br/><b>ScanningElectronMicroscope</b></td></tr><hr/><tr><td><font point-size="10">parts</font></td></tr><tr><td align="left"><font color="gray">imagingParameters</font></td></tr></table>>, margin=0, pos="550,360!", pin=true, width=4.166666666666667, height=1.1111111111111112, fixedsize=true];
     "n7" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>ImagingParameters</b>>, margin=0, pos="110,85!", pin=true, width=2.5, height=0.9722222222222222, fixedsize=true];
     "n8" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>FocusSettings</b>>, margin=0, pos="310,85!", pin=true, width=2.2222222222222223, height=0.9722222222222222, fixedsize=true];
     "n9" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>ElectronDetector</b>>, margin=0, pos="520,85!", pin=true, width=2.7777777777777777, height=0.9722222222222222, fixedsize=true];

@@ -9,9 +9,9 @@
     "statements": 620,
     "partialStatements": 97,
     "productions": 523,
-    "drawn": 283,
-    "approximate": 35,
-    "undrawn": 33,
+    "drawn": 284,
+    "approximate": 36,
+    "undrawn": 31,
     "notApplicable": 172
   },
   "categories": {
@@ -38,9 +38,9 @@
       "title": "Elements and Relationships Graphical Notation",
       "statements": 9,
       "productions": 9,
-      "drawn": 2,
-      "approximate": 0,
-      "undrawn": 3,
+      "drawn": 3,
+      "approximate": 1,
+      "undrawn": 1,
       "notApplicable": 4
     },
     {
@@ -314,9 +314,9 @@
       "clause": "8.2.3.2",
       "name": "element-inside-textual-compartment",
       "category": "node",
-      "verdict": "undrawn",
+      "verdict": "approximate",
       "package": "E",
-      "reason": "the greyed element inside a textual compartment is not drawn; compartment rows are plain text"
+      "reason": "a row a folded edge or note ends at is greyed in DOT and PlantUML; Mermaid's markdown labels carry no colour, so the row is italic there, and D2, draw.io and the text form list it plain"
     },
     {
       "clause": "8.2.3.2",
@@ -324,14 +324,6 @@
       "category": "node",
       "verdict": "not-applicable",
       "reason": "a list of alternatives; adjudicated through the alternatives it names"
-    },
-    {
-      "clause": "8.2.3.2",
-      "name": "ellipsis-at-lower-left-corner",
-      "category": "label",
-      "verdict": "undrawn",
-      "package": "E",
-      "reason": "hidden compartment rows are dropped without the '…' mark (compartments.go hidden rows)"
     },
     {
       "clause": "8.2.3.2",

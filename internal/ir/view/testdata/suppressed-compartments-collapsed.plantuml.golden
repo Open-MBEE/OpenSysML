@@ -46,5 +46,5 @@ hide stereotype
 ' layout: n0 x=10 y=10 w=200 h=33
 hide circle
 hide empty members
-class "<size:10>//«part def»//</size>\n**Imaging**" as n0 <<part def>>
+class "<size:10>//«part def»//</size>\n**Imaging**\n…" as n0 <<part def>>
 @enduml

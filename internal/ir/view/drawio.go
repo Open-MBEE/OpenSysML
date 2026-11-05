@@ -437,8 +437,9 @@ func (w *drawioWriter) writeNode(node *Node, parent, parentFQN string) {
 	}
 	compartments := w.compartments(node)
 	header := w.headerHeight(node)
+	ellipsis := w.ellipsisHeight(node)
 	w.openObject(drawioObject{id: node.ID, label: strings.Join(w.headerLines(node), "\n"), fqn: fqn, kind: node.Kind, link: w.link(node.Origin), name: w.nodeName(node)})
-	w.attr("style", w.nodeStyle(node, header, len(compartments) > 0))
+	w.attr("style", w.nodeStyle(node, header, len(compartments) > 0 || ellipsis > 0))
 	w.b.WriteString(` vertex="1"`)
 	if collapsed(node) {
 		w.b.WriteString(` collapsed="1"`)
@@ -459,6 +460,11 @@ func (w *drawioWriter) writeNode(node *Node, parent, parentFQN string) {
 		y += height
 	}
 	w.writeMark(node)
+	if ellipsis > 0 {
+		// A stated box too short for the mark keeps it inside, at its lower left.
+		y = math.Min(y, math.Max(0, box.Height-ellipsis))
+		w.writeTextCell(node.ID+":ellipsis", node, ellipsisMark, drawioBox{Y: y, Width: box.Width, Height: ellipsis})
+	}
 	w.writePorts(node, nested)
 	if sectionKind(node.Kind) {
 		w.sections++
@@ -471,9 +477,15 @@ func (w *drawioWriter) writeNode(node *Node, parent, parentFQN string) {
 
 // writeCompartment writes one compartment as a text cell stacked in its node.
 func (w *drawioWriter) writeCompartment(id string, node *Node, compartment Compartment, box drawioBox) {
+	w.writeTextCell(id, node, strings.Join(w.compartmentLines(node, compartment), "\n"), box)
+}
+
+// writeTextCell writes a text cell stacked in its node: a compartment, or the
+// ellipsis under them.
+func (w *drawioWriter) writeTextCell(id string, node *Node, value string, box drawioBox) {
 	w.openCell()
 	w.attr("id", id)
-	w.attr("value", strings.Join(w.compartmentLines(node, compartment), "\n"))
+	w.attr("value", value)
 	w.attr("style", "text;html=0;whiteSpace=wrap;strokeColor=inherit;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;portConstraint=eastwest;"+drawioFontStyle(node.Style))
 	w.b.WriteString(` vertex="1"`)
 	w.attr("parent", node.ID)

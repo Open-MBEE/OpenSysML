@@ -1694,6 +1694,9 @@ func (l labeller) dotLabelExtent(node *Node) (width, height float64) {
 		}
 		width += dotCompartmentPadding
 	}
+	if l.elided(node) {
+		line(ellipsisMark, base, dotGlyphEm)
+	}
 	return width, height
 }
 
@@ -1761,20 +1764,32 @@ const (
 // there, no table is written and the title alone is fitted to the whole box.
 func (l labeller) dotFittedLabel(node *Node, width, height float64) (label string, clipped int) {
 	if l.compartmented(node) {
-		parts := l.fitParts(node, width-dotCompartmentPadding, height-dotCompartmentChrome)
+		parts := l.fitParts(node, width-dotCompartmentPadding, height-dotCompartmentChrome, l.elided(node))
 		if len(parts.details) == 0 && len(parts.compartments) == 0 {
-			parts = l.fitParts(node, width, height)
+			parts = l.fitTitle(node, width, height)
 			parts.details, parts.compartments = nil, nil
 			parts.clipped = l.rowCount(node)
 		}
 		return dotLabelAttribute(l.assemble(parts)), parts.clipped
 	}
-	parts := l.fitParts(node, width, height)
+	parts := l.fitTitle(node, width, height)
 	return dotLabelAttribute(l.assemble(parts)), parts.clipped
 }
 
-// fitParts is a node's label fitted to a box, by part, in dotFittedLabel's order.
-func (l labeller) fitParts(node *Node, width, height float64) labelParts {
+// fitTitle fits a label without compartments: in the padded table the ellipsis
+// sets when the mark has room there, else as plain lines in the whole box.
+func (l labeller) fitTitle(node *Node, width, height float64) labelParts {
+	if l.elided(node) {
+		if parts := l.fitParts(node, width-dotCompartmentPadding, height-dotCompartmentPadding, true); parts.elided {
+			return parts
+		}
+	}
+	return l.fitParts(node, width, height, false)
+}
+
+// fitParts is a node's label fitted to a box, by part, in dotFittedLabel's
+// order; mark asks for the ellipsis row when the box has room for it.
+func (l labeller) fitParts(node *Node, width, height float64, mark bool) labelParts {
 	base := l.sizeOf(node)
 	size, head, keyword, fits := l.fitHead(node, width, height, base)
 	var parts labelParts
@@ -1784,6 +1799,11 @@ func (l labeller) fitParts(node *Node, width, height float64) labelParts {
 		keywordSize := l.fittedKeywordSize(size, base)
 		left -= float64(len(keyword)) * dotLineHeight(keywordSize)
 		parts.keyword = l.sized(base, keywordSize, l.keywordText(dotEscapeLines(keyword)))
+	}
+	// The ellipsis keeps its padded row at the foot of the box ahead of the compartments.
+	if row := dotLineHeight(size) + dotCompartmentPadding; mark && row <= left {
+		left -= row
+		parts.elided = true
 	}
 	room := fits
 	for _, line := range l.details(node) {
@@ -1809,7 +1829,7 @@ func (l labeller) fitParts(node *Node, width, height float64) labelParts {
 				continue
 			}
 			below -= used
-			fitted.rows = append(fitted.rows, l.sized(base, size, dotEscapeLines(wrapped)))
+			fitted.rows = append(fitted.rows, dotGreyed(row, l.sized(base, size, dotEscapeLines(wrapped))))
 		}
 		if len(fitted.rows) == 0 {
 			continue
@@ -1818,6 +1838,15 @@ func (l labeller) fitParts(node *Node, width, height float64) labelParts {
 		parts.compartments = append(parts.compartments, fitted)
 	}
 	return parts
+}
+
+// dotGreyed greys a row's markup when the row is the element inside a textual
+// compartment that a folded edge or note ends at.
+func dotGreyed(row *Node, html string) string {
+	if !row.Greyed {
+		return html
+	}
+	return `<font color="gray">` + html + `</font>`
 }
 
 // fitHead fits a node's head and, when the node shows one, its keyword line
@@ -1875,6 +1904,8 @@ type labelParts struct {
 	details       []string
 	compartments  []labelCompartment
 	clipped       int
+	// elided sets the ellipsis under the compartments for the rows a Layout hid.
+	elided bool
 }
 
 // labelCompartment is one compartment of a label: its name over its rows.
@@ -1904,7 +1935,7 @@ func (l labeller) assemble(parts labelParts) string {
 	if parts.mark != "" {
 		title = l.sized(l.size(), l.keywordSize(), parts.mark) + `<br align="left"/>` + title
 	}
-	if len(parts.compartments) == 0 {
+	if len(parts.compartments) == 0 && !parts.elided {
 		if !l.skin.cameo {
 			return "<" + strings.Join(append([]string{title}, parts.details...), "<br/>") + ">"
 		}
@@ -1929,6 +1960,9 @@ func (l labeller) assemble(parts labelParts) string {
 		if len(compartment.rows) > 0 {
 			fmt.Fprintf(&b, `<tr><td align="left">%s</td></tr>`, strings.Join(compartment.rows, "<br/>"))
 		}
+	}
+	if parts.elided {
+		fmt.Fprintf(&b, `<tr><td align="left">%s</td></tr>`, ellipsisMark)
 	}
 	b.WriteString("</table>>")
 	return b.String()
@@ -2781,10 +2815,11 @@ func (l labeller) dotLabel(node *Node) string {
 	for _, compartment := range l.compartments(node) {
 		fitted := labelCompartment{name: l.sized(base, l.keywordSize(), dotEscape(compartment.Name))}
 		for _, row := range compartment.Rows {
-			fitted.rows = append(fitted.rows, dotEscape(l.rowText(row)))
+			fitted.rows = append(fitted.rows, dotGreyed(row, dotEscape(l.rowText(row))))
 		}
 		parts.compartments = append(parts.compartments, fitted)
 	}
+	parts.elided = l.elided(node)
 	return dotLabelAttribute(l.assemble(parts))
 }
 

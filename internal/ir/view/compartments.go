@@ -238,15 +238,46 @@ func (l labeller) rowCount(node *Node) int {
 	return n
 }
 
-// compartmentLines are a node's compartments as label lines: each one's name
-// then its rows.
+// ellipsisMark is the `…` the notation sets at the lower left of a node whose
+// compartments leave rows out (§8.2.3.2 ellipsis-at-lower-left-corner).
+const ellipsisMark = "…"
+
+// labelLine is one line of a node's compartments: its text, and whether the
+// notation greys it as the element inside a textual compartment an edge ends at.
+type labelLine struct {
+	Text   string
+	Greyed bool
+}
+
+// compartmentEntries are a node's compartments as label lines: each one's name
+// then its rows, and the ellipsis when the node's Layout hid rows.
+func (l labeller) compartmentEntries(node *Node) []labelLine {
+	var lines []labelLine
+	for _, compartment := range l.compartments(node) {
+		lines = append(lines, labelLine{Text: compartment.Name})
+		for _, row := range compartment.Rows {
+			for _, text := range strings.Split(l.rowText(row), "\n") {
+				lines = append(lines, labelLine{Text: text, Greyed: row.Greyed})
+			}
+		}
+	}
+	if l.elided(node) {
+		lines = append(lines, labelLine{Text: ellipsisMark})
+	}
+	return lines
+}
+
+// elided reports whether the node's box ends with the ellipsis: its Layout hid
+// rows, and the rendering shows compartments at all.
+func (l labeller) elided(node *Node) bool {
+	return node.Elided && l.shown.Has(ElementCompartments)
+}
+
+// compartmentLines are compartmentEntries as plain text.
 func (l labeller) compartmentLines(node *Node) []string {
 	var lines []string
-	for _, compartment := range l.compartments(node) {
-		lines = append(lines, compartment.Name)
-		for _, row := range compartment.Rows {
-			lines = append(lines, strings.Split(l.rowText(row), "\n")...)
-		}
+	for _, entry := range l.compartmentEntries(node) {
+		lines = append(lines, entry.Text)
 	}
 	return lines
 }

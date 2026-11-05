@@ -5,6 +5,6 @@ classes: {
   definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
 }
 # layout: n0 x=10 y=10 w=200 h=33
-n0: "«part def»\nImaging" { class: definition }
+n0: "«part def»\nImaging\n…" { class: definition }
 frame_name: "«view» CameraViews::collapsed" { shape: text; near: top-left }
 frame_tr: "expose Camera::Imaging" { shape: text; near: top-right }

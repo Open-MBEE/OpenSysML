@@ -792,8 +792,12 @@ func (w *plantumlWriter) plantumlLabel(node *Node) string {
 	for _, line := range w.labels.parameterLines(node) {
 		parts = append(parts, plantumlText(line))
 	}
-	for _, line := range w.labels.compartmentLines(node) {
-		parts = append(parts, plantumlText(line))
+	for _, entry := range w.labels.compartmentEntries(node) {
+		if entry.Greyed {
+			parts = append(parts, "<color:gray>"+plantumlText(entry.Text)+"</color>")
+			continue
+		}
+		parts = append(parts, plantumlText(entry.Text))
 	}
 	return strings.Join(parts, `\n`)
 }

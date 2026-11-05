@@ -41,12 +41,12 @@ flowchart TD
   n0["`*«part def»*
 **ScanningElectronMicroscope**
 parts
-imagingParameters
-focusSettings
-backscatteredElectronDetector
-secondaryElectronDetector
-objectiveLens
-stigmator`"]
+*imagingParameters*
+*focusSettings*
+*backscatteredElectronDetector*
+*secondaryElectronDetector*
+*objectiveLens*
+*stigmator*`"]
   n7["`*«part def»*
 **ImagingParameters**`"]
   n8["`*«part def»*

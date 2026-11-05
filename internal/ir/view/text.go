@@ -261,6 +261,7 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 			b.WriteString(strings.Repeat("  ", depth+2) + rowLine(row) + "\n")
 		}
 	}
+	elided := node.Elided && shown.Has(ElementCompartments)
 	if ports.interconnection || ports.action || ports.tree || ports.sequence {
 		for _, port := range ports.of(node) {
 			labels[port.ID] = labels[node.ID] + "." + port.Name
@@ -269,6 +270,7 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 	}
 	for _, child := range node.Children {
 		if hiddenRow(node, child) {
+			elided = elided || shown.Has(ElementCompartments)
 			continue
 		}
 		writeNodeText(b, child, depth+1, labels, names, ports, shown)
@@ -279,6 +281,9 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 		if ports.sequence {
 			labels[child.ID] = labels[node.ID] + "." + labels[child.ID]
 		}
+	}
+	if elided {
+		b.WriteString(strings.Repeat("  ", depth+1) + ellipsisMark + "\n")
 	}
 }
 

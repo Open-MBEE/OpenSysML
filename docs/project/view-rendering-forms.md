@@ -1192,7 +1192,16 @@ digraph "PlantViews::placedView" {
   the figure's where that is not the keyword's plural (`enums`, `calcs`, `rendering`, `subject`,
   `objective`, `satisfies`, `verifies`); a connection's `end` features list under `ends` whatever
   their kind (`declKind` keeps the `end` modifier in the node's kind), a variation's `variant x`
-  members under `variants` and its `variant part` members under `variant parts`. A row is the member's
+  members under `variants` and its `variant part` members under `variant parts`. A node whose
+  `Layout` hides compartments (`showParts = false`) ends with the notation's `…` (§8.2.3.2
+  `ellipsis-at-lower-left-corner`): a last label line in DOT, Mermaid, PlantUML, D2 and the text
+  form, a text cell under the compartments in draw.io (`compartmentEntries`, `Node.Elided`), and
+  nothing when the rendering shows no compartments at all. A row that an edge or note ends at —
+  the membership line a folded member's typing becomes at its owner's box, an edge or note the
+  automatic foldings move to the owner — is the notation's greyed element inside a textual
+  compartment (§8.2.3.2 `element-inside-textual-compartment`, `Node.Greyed`): DOT sets it in
+  `<font color="gray">`, PlantUML in `<color:gray>`, Mermaid, whose markdown strings carry no
+  colour, in italics; D2, draw.io and the text form list it plain. A row is the member's
   textual notation, as the label shows it: a modifier of its keyword (`ref`), its name, `: Type`
   when typings are shown, `= value` when the usage is bound (`gain : dB = 15.0`,
   `constraint1 : 'Signal Output'`; a value the renderer does not spell, such as an invocation,
