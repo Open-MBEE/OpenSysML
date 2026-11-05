@@ -136,6 +136,10 @@ const CapabilityEvaluateSubject = "evaluate_subject"
 // SymbolInfo.attributes, rather than always reporting none.
 const CapabilitySymbolAttributes = "symbol_attributes"
 
+// CapabilityValuation names the capability of populating SymbolInfo.valuation
+// and AttributeInfo.valuation, the value expression a feature declares.
+const CapabilityValuation = "valuation"
+
 // CapabilityUnsetValue names the capability of reporting a valueless feature of
 // a value type as Value.unset, rather than as the empty object it materializes.
 const CapabilityUnsetValue = "unset_value"
@@ -411,6 +415,7 @@ var capabilities = []string{
 	CapabilityRenderDocumentFileName,
 	CapabilityOrderDependence,
 	CapabilityVerdictNotes,
+	CapabilityValuation,
 }
 
 type capabilityAvailability struct {

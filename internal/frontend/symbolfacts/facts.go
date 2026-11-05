@@ -65,6 +65,7 @@ type Info struct {
 	Specializations           []*Specialization
 	Attributes                []*Attribute
 	WithheldLibraryAttributes int32
+	Valuation                 *Valuation
 }
 
 // TypeInfo describes a symbol's declared, resolved and primitive type.
@@ -94,10 +95,30 @@ type Specialization struct {
 
 // Attribute contains a symbol's attribute declaration facts.
 type Attribute struct {
-	Name  string
-	Type  string
-	Unit  string
-	Value *Value
+	Name      string
+	Type      string
+	Unit      string
+	Value     *Value
+	Valuation *Valuation
+}
+
+// Valuation is the value expression a feature declares, constant or not, as
+// semantics.ValuationOf reads it, with every referenced feature named by FQN.
+type Valuation struct {
+	Text       string
+	Kind       string
+	Metaclass  string
+	IsDefault  bool
+	IsInitial  bool
+	References []ValuationReference
+}
+
+// ValuationReference is one feature a value expression reads: the FQNs of the
+// features a chain walks, outermost first, and the one the reference denotes.
+type ValuationReference struct {
+	Text     string
+	Path     []string
+	TargetId string
 }
 
 // Value contains either a string value or an evaluated semantic constant.
@@ -133,7 +154,36 @@ func Of(sym *symbols.Symbol, sc *Context) *Info {
 	// The attributes the element has, own and inherited, with their resolved
 	// types and constant default values.
 	info.Attributes, info.WithheldLibraryAttributes = sc.attributesOf(sym)
+	info.Valuation = sc.valuationOf(sym)
+	if info.Valuation != nil && info.Valuation.Text != "" {
+		info.Metadata["value"] = info.Valuation.Text
+	}
 	return info
+}
+
+// valuationOf describes the value expression sym declares, nil for none.
+func (sc *Context) valuationOf(sym *symbols.Symbol) *Valuation {
+	facts, ok := sc.Semantics.ValuationOf(sym)
+	if !ok {
+		return nil
+	}
+	out := &Valuation{
+		Text:      facts.Text,
+		Kind:      facts.Kind,
+		Metaclass: facts.Metaclass,
+		IsDefault: facts.IsDefault,
+		IsInitial: facts.IsInitial,
+	}
+	for _, ref := range facts.References {
+		path := make([]string, 0, len(ref.Path))
+		for _, feature := range ref.Path {
+			path = append(path, sc.Index.GetFQN(feature))
+		}
+		out.References = append(out.References, ValuationReference{
+			Text: ref.Text, Path: path, TargetId: sc.Index.GetFQN(ref.Target),
+		})
+	}
+	return out
 }
 
 // Root is one document's root namespace: the index's own root symbol for

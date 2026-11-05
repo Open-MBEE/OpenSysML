@@ -965,6 +965,9 @@ func isQueryableProperty(property string) bool {
 		query.PropertyIsIndividual,
 		query.PropertyMultiplicityLower,
 		query.PropertyMultiplicityUpper,
+		query.PropertyValuation,
+		query.PropertyValuationKind,
+		query.PropertyValuationReference,
 		query.PropertyElementID:
 		return true
 	default:

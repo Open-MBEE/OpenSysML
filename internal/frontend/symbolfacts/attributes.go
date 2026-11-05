@@ -65,6 +65,7 @@ func (sc *Context) attributeInfoOf(sym *symbols.Symbol) *Attribute {
 	if unit != "" {
 		info.Unit = unit
 	}
+	info.Valuation = sc.valuationOf(sym)
 	return info
 }
 

@@ -108,3 +108,38 @@ engine.specializations
 lower and upper bounds; and `Specialization` identifies typing, redefinition,
 subsetting and other relationships. Use the [Python API reference](../../reference/python-api.md)
 for the full symbol surface.
+
+### The expression a feature is bound to
+
+`attribute_facts()` reports a value only when it is a model-level constant. A
+feature bound to another feature or to a computation has none, so
+`Symbol.valuation` reports the value expression itself (KerML's
+`Feature::valuation`): its source text, its kind, the `default`/`:=` flags and
+the features it reads, each as a path of symbol ids that `model.get` resolves.
+
+```python
+power = model.get("ParameterValues::Motor::consume::power")  # in power = powerPort.power;
+v = power.valuation
+v.text                      # "powerPort.power"
+v.kind                      # "featureChain"
+v.metaclass                 # "FeatureChainExpression"
+v.is_default, v.is_initial  # (False, False)
+ref = v.references[0]
+ref.path                    # ("ParameterValues::Motor::powerPort", "ParameterValues::PowerPort::power")
+model.get(ref.target_id)    # the AttributeUsage `power` on PowerPort
+
+model.get("ParameterValues::Motor::boost::power").valuation.kind   # "operator", for `powerPort.power * 2.0`
+model.get("ParameterValues::Motor::consume::gain").valuation.kind  # "literal", for `0.5`
+model.get("ParameterValues::Motor::powerPort").valuation           # None: no value declared
+```
+
+Kinds are `literal`, `null`, `featureReference`, `featureChain`, `operator`,
+`invocation`, `constructor`, `index`, `collect`, `select`, `metadataAccess`
+and `body`. An operator or invocation lists the references of every operand in
+source order; a literal lists none. `AttributeFacts.valuation` carries the same
+record for each attribute of an element, beside the folded `value`, and
+`Symbol.metadata["value"]` repeats the text for a quick look. The query
+API exposes the same facts as the `valueExpression`, `valueExpressionKind` and
+`valueExpressionReference` properties (see [Queries](queries.md)). The service
+reports the `valuation` capability; a service without it raises
+`MissingCapabilityError` rather than answering `None`.

@@ -164,6 +164,36 @@ type Symbol struct {
 	// WithheldLibraryAttributes counts attributes inherited from
 	// standard-library content, which Attributes leaves out.
 	WithheldLibraryAttributes int
+	// Valuation is the value expression the feature declares, nil when it
+	// declares none or the valuation capability is absent.
+	Valuation *Valuation
+}
+
+// Valuation is the value expression a feature declares (`= e`, `default e`,
+// `:= e`), described without the expression tree: Attribute.Value stays the
+// folded constant beside it.
+type Valuation struct {
+	// Text is the expression as written.
+	Text string
+	// Kind is "literal", "null", "featureReference", "featureChain",
+	// "operator", "invocation", "constructor", "index", "collect", "select",
+	// "metadataAccess" or "body".
+	Kind string
+	// Metaclass is the expression's KerML metaclass ("FeatureChainExpression").
+	Metaclass string
+	IsDefault bool
+	IsInitial bool
+	// References are the features the expression reads, in source order.
+	References []ValuationReference
+}
+
+// ValuationReference is one feature a value expression reads.
+type ValuationReference struct {
+	Text string
+	// Path lists the ids of the features a chain walks, outermost first; a
+	// plain reference has one. TargetID is the last of them.
+	Path     []string
+	TargetID string
 }
 
 // Attribute is one attribute of a symbol, with its declared value.
@@ -173,6 +203,8 @@ type Attribute struct {
 	// Value is the declared value, nil when none is declared.
 	Value Value
 	Unit  string
+	// Valuation is the value expression as declared, constant or not.
+	Valuation *Valuation
 }
 
 // TypeInfo is the static type of a usage, or the classification of a

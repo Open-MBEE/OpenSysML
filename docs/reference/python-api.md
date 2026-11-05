@@ -318,6 +318,14 @@ Static type, multiplicity and specialization facts resolved for symbols.
     options:
       heading_level: 3
 
+::: opensysml.Valuation
+    options:
+      heading_level: 3
+
+::: opensysml.ValuationReference
+    options:
+      heading_level: 3
+
 ## opensysml.capabilities
 
 Capability names and the error raised when a service omits required support.

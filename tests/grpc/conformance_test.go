@@ -50,6 +50,22 @@ type expectedAttribute struct {
 	Unit      string      `json:"unit"`
 }
 
+// expectedValuation is the value expression a GetSymbol response must describe.
+type expectedValuation struct {
+	Text       string                       `json:"text"`
+	Kind       string                       `json:"kind"`
+	Metaclass  string                       `json:"metaclass"`
+	IsDefault  bool                         `json:"is_default"`
+	IsInitial  bool                         `json:"is_initial"`
+	References []expectedValuationReference `json:"references"`
+}
+
+type expectedValuationReference struct {
+	Text     string   `json:"text"`
+	Path     []string `json:"path"`
+	TargetID string   `json:"target_id"`
+}
+
 // expectedNote is the fixture encoding of a pb.VerdictNote.
 type expectedNote struct {
 	Kind    string `json:"kind"`
@@ -170,6 +186,10 @@ type conformanceCase struct {
 	// MinWithheldLibraryAttributes requires the response to state at least this
 	// many library-inherited attributes withheld from the list.
 	MinWithheldLibraryAttributes int32 `json:"min_withheld_library_attributes,omitempty"`
+	// ExpectedValuation is the value expression the symbol must declare;
+	// NoValuation requires it to declare none.
+	ExpectedValuation *expectedValuation `json:"expected_valuation,omitempty"`
+	NoValuation       bool               `json:"no_valuation,omitempty"`
 	// ExpectedMetadata are metadata entries the symbol must carry with these
 	// values; AbsentMetadata are keys it must not carry.
 	ExpectedMetadata map[string]string `json:"expected_metadata,omitempty"`
@@ -862,6 +882,7 @@ func runGetSymbolCase(t *testing.T, srv *grpc.Service, ctx context.Context, mode
 			t.Errorf("metadata[%s] = %q, want it absent", key, got)
 		}
 	}
+	checkValuation(t, tc, resp.Symbol.GetValuation())
 	if want := tc.MinWithheldLibraryAttributes; want > 0 {
 		if got := resp.Symbol.GetWithheldLibraryAttributes(); got < want {
 			t.Errorf("withheld library attributes = %d, want at least %d", got, want)
@@ -1561,4 +1582,36 @@ func mustFloat(t *testing.T, ev expectedValue) float64 {
 		t.Fatalf("%s: %v is not a number", ev.Kind, ev.Value)
 	}
 	return f
+}
+
+// checkValuation compares the valuation a GetSymbol response carries with the
+// case's expectation, field by field, references in order.
+func checkValuation(t *testing.T, tc conformanceCase, got *pb.Valuation) {
+	t.Helper()
+	if tc.NoValuation && got != nil {
+		t.Errorf("valuation = %v, want none", got)
+	}
+	want := tc.ExpectedValuation
+	if want == nil {
+		return
+	}
+	if got == nil {
+		t.Errorf("valuation missing, want %+v", *want)
+		return
+	}
+	if got.GetText() != want.Text || got.GetKind() != want.Kind || got.GetMetaclass() != want.Metaclass ||
+		got.GetIsDefault() != want.IsDefault || got.GetIsInitial() != want.IsInitial {
+		t.Errorf("valuation = %v, want %+v", got, *want)
+	}
+	refs := got.GetReferences()
+	if len(refs) != len(want.References) {
+		t.Errorf("valuation references = %v, want %+v", refs, want.References)
+		return
+	}
+	for i, ref := range refs {
+		w := want.References[i]
+		if ref.GetText() != w.Text || ref.GetTargetId() != w.TargetID || !slices.Equal(ref.GetPath(), w.Path) {
+			t.Errorf("valuation reference %d = %v, want %+v", i, ref, w)
+		}
+	}
 }

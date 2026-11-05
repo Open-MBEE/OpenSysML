@@ -88,6 +88,8 @@ func (r *PropertyReader) Values(sym *symbols.Symbol, property string) ([]string,
 		return r.multiplicityValues(sym, property)
 	case PropertySatisfiedRequirement, PropertySatisfyingFeature:
 		return r.satisfyEnd(sym, property)
+	case PropertyValuation, PropertyValuationKind, PropertyValuationReference:
+		return r.valuationValues(sym, property)
 	case PropertyElementID:
 		if r.elementID != nil {
 			return presentValues(r.elementID(sym))
@@ -337,4 +339,29 @@ func annotationString(sym *symbols.Symbol, property string) string {
 		}
 	}
 	return ""
+}
+
+// valuationValues reads the value expression a feature declares: its notation,
+// its kind, or the qualified names of the features it reads in source order.
+func (r *PropertyReader) valuationValues(sym *symbols.Symbol, property string) ([]string, bool) {
+	if r.semantics == nil {
+		return nil, false
+	}
+	facts, ok := r.semantics.ValuationOf(sym)
+	if !ok {
+		return nil, false
+	}
+	switch property {
+	case PropertyValuation:
+		return presentValues(facts.Text)
+	case PropertyValuationKind:
+		return presentValues(facts.Kind)
+	}
+	var out []string
+	for _, ref := range facts.References {
+		if name := r.elementIdentity(ref.Target); name != "" {
+			out = append(out, name)
+		}
+	}
+	return out, len(out) > 0
 }

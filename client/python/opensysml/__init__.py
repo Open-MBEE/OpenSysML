@@ -25,6 +25,8 @@ from opensysml.instance import Instance
 from opensysml.typed import TypedObject
 from opensysml.typefacts import (
     AttributeFacts,
+    Valuation,
+    ValuationReference,
     Multiplicity,
     Specialization,
     SymbolFacts,
@@ -131,6 +133,8 @@ __all__ = [
     "Connection", "Model", "Symbol", "Diagnostic", "EnumLiteral", "Instance",
     "TypedObject", "TypeFacts", "Multiplicity", "Specialization", "SymbolFacts",
     "AttributeFacts",
+    "Valuation",
+    "ValuationReference",
     "ServerInfo",
     "UNSET", "UnsetType", "Undetermined",
     "Array", "Vector", "VectorQuantity", "MeasurementRef", "Function", "Metaobject", "SetValue",

@@ -73,6 +73,9 @@ bound predicate that is not in this table:
 | `sysml:multiplicityUpper` | `multiplicityUpper` |
 | `sysml:satisfiedRequirement` | `satisfiedRequirement` |
 | `sysml:satisfyingFeature` | `satisfyingFeature` |
+| `sysml:valueExpression` | `valueExpression` |
+| `sysml:valueExpressionKind` | `valueExpressionKind` |
+| `sysml:valueExpressionReference` | `valueExpressionReference` |
 
 Unknown properties fail the query instead of silently returning no matches, and
 the diagnostic lists the OSLC predicates of the left column, since the query

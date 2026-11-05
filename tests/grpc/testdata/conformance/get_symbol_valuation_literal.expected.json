@@ -1,0 +1,10 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "ParameterValues::Motor::consume::gain",
+	"expected_valuation": {
+		"text": "0.5",
+		"kind": "literal",
+		"metaclass": "LiteralRational",
+		"references": []
+	}
+}

@@ -105,6 +105,11 @@ CAPABILITY_EVALUATE_SUBJECT = "evaluate_subject"
 #: which is indistinguishable from an element that has no attributes.
 CAPABILITY_SYMBOL_ATTRIBUTES = "symbol_attributes"
 
+#: Populated ``SymbolInfo.valuation`` and ``AttributeInfo.valuation``, the value
+#: expression a feature declares. Without it a bound feature cannot be told
+#: from one declaring no value.
+CAPABILITY_VALUATION = "valuation"
+
 #: A valueless feature of a value type as ``Value.unset``, read as
 #: :data:`opensysml.UNSET`. Without it the empty object such a feature materializes
 #: crosses as an instance id, which is indistinguishable from an object of a

@@ -2322,6 +2322,51 @@ pub struct SymbolInfo {
     /// leaves out. Their absence is stated here rather than silent.
     #[prost(int32, tag="10")]
     pub withheld_library_attributes: i32,
+    /// The value expression the feature declares (`= e`, `default e`, `:= e`);
+    /// unset when it declares none, or without the `valuation` capability.
+    #[prost(message, optional, tag="11")]
+    pub valuation: ::core::option::Option<Valuation>,
+}
+/// Valuation is the value expression a feature declares (KerML Feature::valuation:
+/// the FeatureValue's value, isDefault and isInitial), described without the
+/// expression tree: a client that generates code or wiring reads what the
+/// feature is bound to, constant or not. AttributeInfo.value stays the folded
+/// constant beside it.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Valuation {
+    /// The expression as written in the model ("powerPort.power * 2.0").
+    #[prost(string, tag="1")]
+    pub text: ::prost::alloc::string::String,
+    /// Short kind of the expression: "literal", "null", "featureReference",
+    /// "featureChain", "operator", "invocation", "constructor", "index",
+    /// "collect", "select", "metadataAccess", "body", …
+    #[prost(string, tag="2")]
+    pub kind: ::prost::alloc::string::String,
+    /// The expression's KerML metaclass ("FeatureChainExpression").
+    #[prost(string, tag="3")]
+    pub metaclass: ::prost::alloc::string::String,
+    /// The value is a default (`default e`) or an initial value (`:= e`).
+    #[prost(bool, tag="4")]
+    pub is_default: bool,
+    #[prost(bool, tag="5")]
+    pub is_initial: bool,
+    /// The features the expression reads, in source order; empty for a literal.
+    #[prost(message, repeated, tag="6")]
+    pub references: ::prost::alloc::vec::Vec<ValuationReference>,
+}
+/// ValuationReference is one feature a value expression reads.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ValuationReference {
+    /// The reference as written ("powerPort.power").
+    #[prost(string, tag="1")]
+    pub text: ::prost::alloc::string::String,
+    /// FQNs of the features a chain walks, outermost first; one entry for a plain
+    /// reference. Every entry resolves through GetSymbol.
+    #[prost(string, repeated, tag="2")]
+    pub path: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// FQN of the feature the reference denotes: the last of `path`.
+    #[prost(string, tag="3")]
+    pub target_id: ::prost::alloc::string::String,
 }
 /// Specialization is one generalization edge an element declares.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
@@ -2389,6 +2434,10 @@ pub struct AttributeInfo {
     pub value: ::core::option::Option<Value>,
     #[prost(string, tag="4")]
     pub unit: ::prost::alloc::string::String,
+    /// The value expression the attribute declares, constant or not; unset when
+    /// it declares none, or without the `valuation` capability.
+    #[prost(message, optional, tag="5")]
+    pub valuation: ::core::option::Option<Valuation>,
 }
 /// Value represents a runtime-evaluable value
 #[derive(Clone, PartialEq, ::prost::Message)]

@@ -143,6 +143,24 @@ type JSymbolInfo struct {
 	Multiplicity              *JMultiplicityInfo `json:"multiplicity,omitempty"`
 	Specializations           []*JSpecialization `json:"specializations,omitempty"`
 	WithheldLibraryAttributes int32              `json:"withheldLibraryAttributes,omitempty"`
+	Valuation                 *JValuation        `json:"valuation,omitempty"`
+}
+
+// JValuation is the protojson-shaped value expression a feature declares.
+type JValuation struct {
+	Text       string                 `json:"text,omitempty"`
+	Kind       string                 `json:"kind,omitempty"`
+	Metaclass  string                 `json:"metaclass,omitempty"`
+	IsDefault  bool                   `json:"isDefault,omitempty"`
+	IsInitial  bool                   `json:"isInitial,omitempty"`
+	References []*JValuationReference `json:"references,omitempty"`
+}
+
+// JValuationReference is one feature a value expression reads.
+type JValuationReference struct {
+	Text     string   `json:"text,omitempty"`
+	Path     []string `json:"path,omitempty"`
+	TargetId string   `json:"targetId,omitempty"`
 }
 
 // JTypeInfo is the protojson-shaped static type message.
@@ -172,10 +190,11 @@ type JSpecialization struct {
 
 // JAttributeInfo is the protojson-shaped attribute facts message.
 type JAttributeInfo struct {
-	Name  string  `json:"name,omitempty"`
-	Type  string  `json:"type,omitempty"`
-	Value *JValue `json:"value,omitempty"`
-	Unit  string  `json:"unit,omitempty"`
+	Name      string      `json:"name,omitempty"`
+	Type      string      `json:"type,omitempty"`
+	Value     *JValue     `json:"value,omitempty"`
+	Unit      string      `json:"unit,omitempty"`
+	Valuation *JValuation `json:"valuation,omitempty"`
 }
 
 // JValue holds the constant attribute value arms the core can derive.

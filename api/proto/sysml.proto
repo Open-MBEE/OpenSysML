@@ -1892,6 +1892,41 @@ message SymbolInfo {
   // Attributes inherited from standard-library content, which `attributes`
   // leaves out. Their absence is stated here rather than silent.
   int32 withheld_library_attributes = 10;
+  // The value expression the feature declares (`= e`, `default e`, `:= e`);
+  // unset when it declares none, or without the `valuation` capability.
+  Valuation valuation = 11;
+}
+
+// Valuation is the value expression a feature declares (KerML Feature::valuation:
+// the FeatureValue's value, isDefault and isInitial), described without the
+// expression tree: a client that generates code or wiring reads what the
+// feature is bound to, constant or not. AttributeInfo.value stays the folded
+// constant beside it.
+message Valuation {
+  // The expression as written in the model ("powerPort.power * 2.0").
+  string text = 1;
+  // Short kind of the expression: "literal", "null", "featureReference",
+  // "featureChain", "operator", "invocation", "constructor", "index",
+  // "collect", "select", "metadataAccess", "body", …
+  string kind = 2;
+  // The expression's KerML metaclass ("FeatureChainExpression").
+  string metaclass = 3;
+  // The value is a default (`default e`) or an initial value (`:= e`).
+  bool is_default = 4;
+  bool is_initial = 5;
+  // The features the expression reads, in source order; empty for a literal.
+  repeated ValuationReference references = 6;
+}
+
+// ValuationReference is one feature a value expression reads.
+message ValuationReference {
+  // The reference as written ("powerPort.power").
+  string text = 1;
+  // FQNs of the features a chain walks, outermost first; one entry for a plain
+  // reference. Every entry resolves through GetSymbol.
+  repeated string path = 2;
+  // FQN of the feature the reference denotes: the last of `path`.
+  string target_id = 3;
 }
 
 // Specialization is one generalization edge an element declares.
@@ -1940,6 +1975,9 @@ message AttributeInfo {
   string type = 2;
   Value value = 3;
   string unit = 4;
+  // The value expression the attribute declares, constant or not; unset when
+  // it declares none, or without the `valuation` capability.
+  Valuation valuation = 5;
 }
 
 // Value represents a runtime-evaluable value

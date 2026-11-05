@@ -1,0 +1,16 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "ParameterValues::Motor::boost::power",
+	"expected_valuation": {
+		"text": "powerPort.power * 2.0",
+		"kind": "operator",
+		"metaclass": "OperatorExpression",
+		"references": [
+			{
+				"text": "powerPort.power",
+				"path": ["ParameterValues::Motor::powerPort", "ParameterValues::PowerPort::power"],
+				"target_id": "ParameterValues::PowerPort::power"
+			}
+		]
+	}
+}

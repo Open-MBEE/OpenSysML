@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Protocol, TYPE_CHECKING
 
 from opensysml.capabilities import (
     CAPABILITY_SYMBOL_ATTRIBUTES,
+    CAPABILITY_VALUATION,
     require,
     upgrade_remedy,
 )
@@ -13,6 +14,7 @@ from opensysml.typefacts import (
     Specialization,
     SymbolFacts,
     TypeFacts,
+    Valuation,
 )
 
 if TYPE_CHECKING:
@@ -138,6 +140,34 @@ class Symbol:
         """
         return self._pb.withheld_library_attributes
 
+    @property
+    def valuation(self) -> Optional[Valuation]:
+        """Return the value expression this feature declares, or None.
+
+        A feature bound to another feature (``in power = powerPort.power;``)
+        or to a computation (``powerPort.power * 2.0``) has no constant value,
+        so it is invisible to :meth:`attribute_facts`; this reports the
+        expression's text, kind and the features it reads, each resolvable
+        with :meth:`Model.get`.
+
+        Raises:
+            MissingCapabilityError: The service does not report ``valuation``,
+                so its answer cannot be told from a feature declaring no value.
+        """
+        if self._client is not None:
+            require(
+                self._client.server_info(),
+                CAPABILITY_VALUATION,
+                upgrade_remedy(CAPABILITY_VALUATION),
+            )
+        return self._valuation()
+
+    def _valuation(self) -> Optional[Valuation]:
+        """Return the valuation the service reported, whatever it is."""
+        if not self._pb.HasField("valuation"):
+            return None
+        return Valuation.from_pb(self._pb.valuation)
+
     def attribute_facts(self) -> List[AttributeFacts]:
         """Return every attribute this symbol has, own and inherited, with its
         resolved type, constant default value and unit. Attributes inherited from
@@ -186,6 +216,7 @@ class Symbol:
             specializations=tuple(self.specializations),
             attributes=tuple(self._attribute_facts()),
             withheld_library_attributes=self.withheld_library_attributes,
+            valuation=self._valuation(),
         )
 
     def children(self) -> List["Symbol"]:

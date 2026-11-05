@@ -13,6 +13,21 @@ import (
 // copies: nothing a Client returns aliases engine state or a protobuf message,
 // so the caller owns what it gets, in process or not.
 
+func valuationFromProto(v *pb.Valuation) *Valuation {
+	if v == nil {
+		return nil
+	}
+	out := &Valuation{Text: v.Text, Kind: v.Kind, Metaclass: v.Metaclass, IsDefault: v.IsDefault, IsInitial: v.IsInitial}
+	for _, ref := range v.References {
+		out.References = append(out.References, ValuationReference{
+			Text:     ref.Text,
+			Path:     append([]string(nil), ref.Path...),
+			TargetID: ref.TargetId,
+		})
+	}
+	return out
+}
+
 func symbolFromProto(sym *pb.SymbolInfo) *Symbol {
 	if sym == nil {
 		return nil
@@ -22,6 +37,7 @@ func symbolFromProto(sym *pb.SymbolInfo) *Symbol {
 		Name:                      sym.Name,
 		Kind:                      sym.Kind,
 		WithheldLibraryAttributes: int(sym.WithheldLibraryAttributes),
+		Valuation:                 valuationFromProto(sym.Valuation),
 	}
 	if len(sym.Metadata) > 0 {
 		out.Metadata = make(map[string]string, len(sym.Metadata))
@@ -34,10 +50,11 @@ func symbolFromProto(sym *pb.SymbolInfo) *Symbol {
 	}
 	for _, attr := range sym.Attributes {
 		out.Attributes = append(out.Attributes, Attribute{
-			Name:  attr.Name,
-			Type:  attr.Type,
-			Value: valueFromProto(attr.Value),
-			Unit:  attr.Unit,
+			Name:      attr.Name,
+			Type:      attr.Type,
+			Value:     valueFromProto(attr.Value),
+			Unit:      attr.Unit,
+			Valuation: valuationFromProto(attr.Valuation),
 		})
 	}
 	if sym.TypeInfo != nil {

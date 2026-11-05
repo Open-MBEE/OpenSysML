@@ -106,6 +106,74 @@ class Specialization:
 
 
 @dataclass(frozen=True)
+class ValuationReference:
+    """One feature a value expression reads.
+
+    ``path`` lists the FQNs of the features a chain walks, outermost first
+    (``powerPort.power`` gives ``("Motor::powerPort", "PowerPort::power")``);
+    a plain reference has one entry. ``target_id`` is the last of them, the
+    feature the reference denotes. Every entry resolves with ``Model.get``.
+    """
+
+    text: str
+    path: Tuple[str, ...] = field(default_factory=tuple)
+    target_id: str = ""
+
+    @classmethod
+    def from_pb(cls, pb_reference) -> "ValuationReference":
+        """Build from a ``ValuationReference`` protobuf message."""
+        return cls(
+            text=pb_reference.text,
+            path=tuple(pb_reference.path),
+            target_id=pb_reference.target_id,
+        )
+
+
+@dataclass(frozen=True)
+class Valuation:
+    """The value expression a feature declares (``= e``, ``default e``, ``:= e``).
+
+    This is KerML's ``Feature::valuation`` read without the expression tree:
+    the expression's source text, its kind, the FeatureValue's flags and the
+    features it refers to. :attr:`AttributeFacts.value` stays the folded
+    constant beside it, so a binding such as ``powerPort.power * 2.0`` is
+    visible here even though it has no constant value.
+    """
+
+    text: str
+    """The expression as written in the model."""
+
+    kind: str = ""
+    """``literal``, ``null``, ``featureReference``, ``featureChain``,
+    ``operator``, ``invocation``, ``constructor``, ``index``, ``collect``,
+    ``select``, ``metadataAccess`` or ``body``."""
+
+    metaclass: str = ""
+    """The expression's KerML metaclass, such as ``FeatureChainExpression``."""
+
+    is_default: bool = False
+    """The value is a default (``default e``)."""
+
+    is_initial: bool = False
+    """The value is an initial value (``:= e``)."""
+
+    references: Tuple[ValuationReference, ...] = field(default_factory=tuple)
+    """The features the expression reads, in source order; empty for a literal."""
+
+    @classmethod
+    def from_pb(cls, pb_valuation) -> "Valuation":
+        """Build from a ``Valuation`` protobuf message."""
+        return cls(
+            text=pb_valuation.text,
+            kind=pb_valuation.kind,
+            metaclass=pb_valuation.metaclass,
+            is_default=pb_valuation.is_default,
+            is_initial=pb_valuation.is_initial,
+            references=tuple(ValuationReference.from_pb(ref) for ref in pb_valuation.references),
+        )
+
+
+@dataclass(frozen=True)
 class AttributeFacts:
     """One attribute an element has, own or inherited, as the service resolves it."""
 
@@ -119,17 +187,24 @@ class AttributeFacts:
     unit: str = ""
     """Unit the default value is written in; empty when it carries none."""
 
+    valuation: Optional[Valuation] = None
+    """The value expression as declared, constant or not; None when none is declared."""
+
     @classmethod
     def from_pb(cls, pb_attribute) -> "AttributeFacts":
         """Build from an ``AttributeInfo`` protobuf message."""
         value = None
         if pb_attribute.HasField("value"):
             value = value_to_python(pb_attribute.value)
+        valuation = None
+        if pb_attribute.HasField("valuation"):
+            valuation = Valuation.from_pb(pb_attribute.valuation)
         return cls(
             name=pb_attribute.name,
             type=pb_attribute.type,
             value=value,
             unit=pb_attribute.unit,
+            valuation=valuation,
         )
 
 
@@ -147,3 +222,5 @@ class SymbolFacts:
     #: Library-inherited attributes ``attributes`` leaves out, counted rather
     #: than silently dropped.
     withheld_library_attributes: int = 0
+    #: The value expression the symbol declares, None when it declares none.
+    valuation: Optional[Valuation] = None

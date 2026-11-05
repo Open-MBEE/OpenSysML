@@ -27,6 +27,9 @@ func (s *Service) filterSymbolInfo(info *pb.SymbolInfo) *pb.SymbolInfo {
 		info.Multiplicity = nil
 		info.Specializations = nil
 	}
+	if !s.capabilities.has(CapabilityValuation) {
+		info.Valuation = nil
+	}
 	if !s.capabilities.has(CapabilitySymbolAttributes) {
 		info.Attributes = nil
 		info.WithheldLibraryAttributes = 0
@@ -34,6 +37,9 @@ func (s *Service) filterSymbolInfo(info *pb.SymbolInfo) *pb.SymbolInfo {
 	}
 	for _, attribute := range info.Attributes {
 		s.filterValueCapabilities(attribute.Value)
+		if !s.capabilities.has(CapabilityValuation) {
+			attribute.Valuation = nil
+		}
 	}
 	return info
 }

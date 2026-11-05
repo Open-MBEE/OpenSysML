@@ -143,6 +143,7 @@ facts about the declaration, each present only when it holds:
 | `type` | the first typing target as written (`Engine`) | a typed usage |
 | `multiplicity` | the declared range as written (`1`, `0..*`) | a usage declaring one |
 | `direction` | `in`, `out` or `inout` | a directed usage |
+| `value` | the value expression as written (`powerPort.power * 2.0`); `valuation` carries its kind and the features it reads | a feature declaring a value (`= e`, `default e`, `:= e`) |
 | `specializes` | the first specialization target as written | a definition specializing one |
 | `abstract` | `true` | an `abstract` definition or usage, and every variation (a variation is always abstract, SysML v2.1 §7.6.7) |
 | `variation` | `true` | a `variation` definition or usage, and every enumeration definition (SysML v2.1 §8.3: an enumeration is a variation of its values) |
@@ -913,7 +914,7 @@ HTTP/1.1 400 Bad Request
 
 $ … /Query -d '{"modelHash":"2af5…dea2","query":{"where":{"primitive":{"property":"colour","operator":"PRIMITIVE_OPERATOR_EQUAL","value":["red"]}}}}'
 HTTP/1.1 400 Bad Request
-{"code":"invalid_argument","message":"unknown query property \"colour\"; queryable properties are @id, @type, body, declaredName, declaredShortName, documentation, elementId, general, isAbstract, isIndividual, language, locale, multiplicityLower, multiplicityUpper, name, owner, qualifiedName, satisfiedRequirement, satisfyingFeature, shortName, textualRepresentation, type"}
+{"code":"invalid_argument","message":"unknown query property \"colour\"; queryable properties are @id, @type, body, declaredName, declaredShortName, documentation, elementId, general, isAbstract, isIndividual, language, locale, multiplicityLower, multiplicityUpper, name, owner, qualifiedName, satisfiedRequirement, satisfyingFeature, shortName, textualRepresentation, type, valueExpression, valueExpressionKind, valueExpressionReference"}
 
 $ … /ApplyEdits -d '{"modelHash":"997e…6134","acceptDocuments":true,"document":"nope.sysml","operations":[{"rename":{"target":"EngineUser::Car","newName":"Automobile"}}]}'
 HTTP/1.1 400 Bad Request

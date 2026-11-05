@@ -53,8 +53,9 @@ func infoToProto(info *symbolfacts.Info, idx *symbols.Index) *pb.SymbolInfo {
 			Kind: spec.Kind, Declared: spec.Declared, TargetId: spec.TargetId, TargetKind: spec.TargetKind,
 		})
 	}
+	out.Valuation = valuationToProto(info.Valuation)
 	for _, attribute := range info.Attributes {
-		a := &pb.AttributeInfo{Name: attribute.Name, Type: attribute.Type, Unit: attribute.Unit}
+		a := &pb.AttributeInfo{Name: attribute.Name, Type: attribute.Type, Unit: attribute.Unit, Valuation: valuationToProto(attribute.Valuation)}
 		if attribute.Value != nil {
 			switch {
 			case attribute.Value.String != nil:
@@ -66,6 +67,18 @@ func infoToProto(info *symbolfacts.Info, idx *symbols.Index) *pb.SymbolInfo {
 			}
 		}
 		out.Attributes = append(out.Attributes, a)
+	}
+	return out
+}
+
+// valuationToProto converts a feature's value-expression facts; nil for none.
+func valuationToProto(v *symbolfacts.Valuation) *pb.Valuation {
+	if v == nil {
+		return nil
+	}
+	out := &pb.Valuation{Text: v.Text, Kind: v.Kind, Metaclass: v.Metaclass, IsDefault: v.IsDefault, IsInitial: v.IsInitial}
+	for _, ref := range v.References {
+		out.References = append(out.References, &pb.ValuationReference{Text: ref.Text, Path: ref.Path, TargetId: ref.TargetId})
 	}
 	return out
 }

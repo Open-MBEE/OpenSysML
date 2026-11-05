@@ -59,6 +59,15 @@ const (
 	PropertySatisfiedRequirement = "satisfiedRequirement"
 	// PropertySatisfyingFeature is the feature a satisfy usage is by.
 	PropertySatisfyingFeature = "satisfyingFeature"
+	// PropertyValuation is the value expression a feature declares, as written
+	// (Feature::valuation.value); absent for a feature declaring none.
+	PropertyValuation = "valueExpression"
+	// PropertyValuationKind is the short kind of that expression: "literal",
+	// "featureReference", "featureChain", "operator", "invocation", …
+	PropertyValuationKind = "valueExpressionKind"
+	// PropertyValuationReference names the features the value expression reads,
+	// each by qualified name, a chain by the feature it ends at.
+	PropertyValuationReference = "valueExpressionReference"
 	// PropertyElementID is the elementId a conversion of the model writes for
 	// the element, reported only where the reader is given one (WithElementID).
 	PropertyElementID = "elementId"
@@ -73,6 +82,7 @@ var propertyNames = []string{
 	PropertyGeneral,
 	PropertyMultiplicityLower, PropertyMultiplicityUpper,
 	PropertySatisfiedRequirement, PropertySatisfyingFeature,
+	PropertyValuation, PropertyValuationKind, PropertyValuationReference,
 	PropertyElementID,
 }
 

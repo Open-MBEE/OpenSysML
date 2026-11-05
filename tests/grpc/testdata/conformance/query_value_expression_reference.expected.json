@@ -1,0 +1,8 @@
+{
+  "rpc": "Query",
+  "query": {
+    "select": ["valueExpression", "valueExpressionKind", "valueExpressionReference"],
+    "where": {"primitive": {"property": "valueExpressionReference", "operator": "PRIMITIVE_OPERATOR_EQUAL", "value": ["ParameterValues::PowerPort::power"]}}
+  },
+  "expected_element_ids": ["ParameterValues::Motor::consume::power", "ParameterValues::Motor::boost::power"]
+}

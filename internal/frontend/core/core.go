@@ -414,11 +414,25 @@ func symbolInfo(info *symbolfacts.Info) *JSymbolInfo {
 	}
 	for _, attribute := range info.Attributes {
 		out.Attributes = append(out.Attributes, &JAttributeInfo{
-			Name:  attribute.Name,
-			Type:  attribute.Type,
-			Unit:  attribute.Unit,
-			Value: attributeValue(attribute.Value),
+			Name:      attribute.Name,
+			Type:      attribute.Type,
+			Unit:      attribute.Unit,
+			Value:     attributeValue(attribute.Value),
+			Valuation: valuationJSON(attribute.Valuation),
 		})
+	}
+	out.Valuation = valuationJSON(info.Valuation)
+	return out
+}
+
+// valuationJSON is the JSON shape of a feature's value-expression facts; nil for none.
+func valuationJSON(v *symbolfacts.Valuation) *JValuation {
+	if v == nil {
+		return nil
+	}
+	out := &JValuation{Text: v.Text, Kind: v.Kind, Metaclass: v.Metaclass, IsDefault: v.IsDefault, IsInitial: v.IsInitial}
+	for _, ref := range v.References {
+		out.References = append(out.References, &JValuationReference{Text: ref.Text, Path: ref.Path, TargetId: ref.TargetId})
 	}
 	return out
 }

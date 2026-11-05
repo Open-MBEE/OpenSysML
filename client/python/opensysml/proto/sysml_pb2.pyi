@@ -1589,7 +1589,7 @@ class AppliedEdit(_message.Message):
     def __init__(self, operation_index: _Optional[int] = ..., target: _Optional[str] = ..., offset: _Optional[int] = ..., length: _Optional[int] = ..., old_text: _Optional[str] = ..., new_text: _Optional[str] = ..., document: _Optional[str] = ...) -> None: ...
 
 class SymbolInfo(_message.Message):
-    __slots__ = ("id", "name", "kind", "metadata", "child_ids", "attributes", "type_info", "multiplicity", "specializations", "withheld_library_attributes")
+    __slots__ = ("id", "name", "kind", "metadata", "child_ids", "attributes", "type_info", "multiplicity", "specializations", "withheld_library_attributes", "valuation")
     class MetadataEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -1607,6 +1607,7 @@ class SymbolInfo(_message.Message):
     MULTIPLICITY_FIELD_NUMBER: _ClassVar[int]
     SPECIALIZATIONS_FIELD_NUMBER: _ClassVar[int]
     WITHHELD_LIBRARY_ATTRIBUTES_FIELD_NUMBER: _ClassVar[int]
+    VALUATION_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     kind: str
@@ -1617,7 +1618,34 @@ class SymbolInfo(_message.Message):
     multiplicity: MultiplicityInfo
     specializations: _containers.RepeatedCompositeFieldContainer[Specialization]
     withheld_library_attributes: int
-    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., kind: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., child_ids: _Optional[_Iterable[str]] = ..., attributes: _Optional[_Iterable[_Union[AttributeInfo, _Mapping]]] = ..., type_info: _Optional[_Union[TypeInfo, _Mapping]] = ..., multiplicity: _Optional[_Union[MultiplicityInfo, _Mapping]] = ..., specializations: _Optional[_Iterable[_Union[Specialization, _Mapping]]] = ..., withheld_library_attributes: _Optional[int] = ...) -> None: ...
+    valuation: Valuation
+    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., kind: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., child_ids: _Optional[_Iterable[str]] = ..., attributes: _Optional[_Iterable[_Union[AttributeInfo, _Mapping]]] = ..., type_info: _Optional[_Union[TypeInfo, _Mapping]] = ..., multiplicity: _Optional[_Union[MultiplicityInfo, _Mapping]] = ..., specializations: _Optional[_Iterable[_Union[Specialization, _Mapping]]] = ..., withheld_library_attributes: _Optional[int] = ..., valuation: _Optional[_Union[Valuation, _Mapping]] = ...) -> None: ...
+
+class Valuation(_message.Message):
+    __slots__ = ("text", "kind", "metaclass", "is_default", "is_initial", "references")
+    TEXT_FIELD_NUMBER: _ClassVar[int]
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    METACLASS_FIELD_NUMBER: _ClassVar[int]
+    IS_DEFAULT_FIELD_NUMBER: _ClassVar[int]
+    IS_INITIAL_FIELD_NUMBER: _ClassVar[int]
+    REFERENCES_FIELD_NUMBER: _ClassVar[int]
+    text: str
+    kind: str
+    metaclass: str
+    is_default: bool
+    is_initial: bool
+    references: _containers.RepeatedCompositeFieldContainer[ValuationReference]
+    def __init__(self, text: _Optional[str] = ..., kind: _Optional[str] = ..., metaclass: _Optional[str] = ..., is_default: _Optional[bool] = ..., is_initial: _Optional[bool] = ..., references: _Optional[_Iterable[_Union[ValuationReference, _Mapping]]] = ...) -> None: ...
+
+class ValuationReference(_message.Message):
+    __slots__ = ("text", "path", "target_id")
+    TEXT_FIELD_NUMBER: _ClassVar[int]
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    TARGET_ID_FIELD_NUMBER: _ClassVar[int]
+    text: str
+    path: _containers.RepeatedScalarFieldContainer[str]
+    target_id: str
+    def __init__(self, text: _Optional[str] = ..., path: _Optional[_Iterable[str]] = ..., target_id: _Optional[str] = ...) -> None: ...
 
 class Specialization(_message.Message):
     __slots__ = ("kind", "declared", "target_id", "target_kind")
@@ -1658,16 +1686,18 @@ class MultiplicityInfo(_message.Message):
     def __init__(self, lower: _Optional[str] = ..., upper: _Optional[str] = ...) -> None: ...
 
 class AttributeInfo(_message.Message):
-    __slots__ = ("name", "type", "value", "unit")
+    __slots__ = ("name", "type", "value", "unit", "valuation")
     NAME_FIELD_NUMBER: _ClassVar[int]
     TYPE_FIELD_NUMBER: _ClassVar[int]
     VALUE_FIELD_NUMBER: _ClassVar[int]
     UNIT_FIELD_NUMBER: _ClassVar[int]
+    VALUATION_FIELD_NUMBER: _ClassVar[int]
     name: str
     type: str
     value: Value
     unit: str
-    def __init__(self, name: _Optional[str] = ..., type: _Optional[str] = ..., value: _Optional[_Union[Value, _Mapping]] = ..., unit: _Optional[str] = ...) -> None: ...
+    valuation: Valuation
+    def __init__(self, name: _Optional[str] = ..., type: _Optional[str] = ..., value: _Optional[_Union[Value, _Mapping]] = ..., unit: _Optional[str] = ..., valuation: _Optional[_Union[Valuation, _Mapping]] = ...) -> None: ...
 
 class Value(_message.Message):
     __slots__ = ("int_value", "real_value", "bool_value", "string_value", "instance_id", "sequence", "null", "quantity", "enum_literal", "unset", "complex", "array", "vector", "vector_quantity", "measurement_ref", "infinity", "function", "set", "tensor_quantity", "metaobject", "undetermined", "big_int_value", "rational_value")

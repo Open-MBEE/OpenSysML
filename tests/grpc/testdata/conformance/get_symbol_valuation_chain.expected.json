@@ -1,0 +1,23 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "ParameterValues::Motor::consume::power",
+	"expected_valuation": {
+		"text": "powerPort.power",
+		"kind": "featureChain",
+		"metaclass": "FeatureChainExpression",
+		"references": [
+			{
+				"text": "powerPort.power",
+				"path": [
+					"ParameterValues::Motor::powerPort",
+					"ParameterValues::PowerPort::power"
+				],
+				"target_id": "ParameterValues::PowerPort::power"
+			}
+		]
+	},
+	"expected_metadata": {
+		"direction": "in",
+		"value": "powerPort.power"
+	}
+}
