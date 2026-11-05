@@ -424,7 +424,7 @@ use after disposal, which are the standard exceptions:
 | The service no longer holds the model a call named | `ModelNotFoundException`, a `ServiceException` with `NotFound` |
 | The service could not read a file a parse named | `ModelFileNotFoundException`, a `ServiceException` with `NotFound` |
 | The service answered, reporting a failure about the model: an expression that did not evaluate, a symbol that is not there, an object that could not be built | `ModelException`, with `Method` and the answer's `Diagnostics`; `SymbolNotFoundException`, with `Name` and `Suggestions`, for a symbol; `ModelErrorsException` from `RequireNoErrors` |
-| The service answered that a run failed: no initial node, no such behavior, a performer that could not be made, a run still waiting when its advance ran out | `ExecutionException`, a `ModelException` with the run's `FinalTime` and, for a traced action or state run, its `Trace` up to the failure and `TraceDropped` |
+| The service answered that a run failed: no initial node, no such behavior, a performer that could not be made, a run still waiting when its advance ran out | `ExecutionException`, a `ModelException` with the run's `FinalTime` and, for a traced run, its `Trace` up to the failure and `TraceDropped` |
 | The service answered a check it refused before any search: the behavior, a property or the performer does not resolve | `CheckException`, a `ModelException` with the `Partial` result the answer carried, including its verdict when supplied |
 | The service answered that it could not verify, validate, calculate or sweep at all: an unknown symbol, a symbol of another kind, a subject or argument that does not read, a range no values follow from | `VerificationException`, a `ModelException` with the failure's `Reason` (`FailureReason.WrongKind` for a symbol of another kind) and the `Instances`, `Verifications` and engine `Standing` the answer carried |
 | The service answered that an analysis case could not run to its end | `AnalysisException`, a `VerificationException` with the `Partial` run: the outputs computed, the verdicts and evaluations made and the objects named before the failure |
@@ -533,7 +533,6 @@ var run = await model.ExecuteActionAsync("Test::addFive", new Dictionary<string,
 var declared = await model.ExecuteActionAsync("Test::race", options: new RunOptions { Schedule = "declared" });
 var every = await model.ExploreActionAsync("Test::race");             // every outcome, and whether that is all of them
 var traced = await model.ExecuteStateAsync("Test::Machine", options: new RunOptions { Trace = true });
-var tracedAction = await model.ExecuteActionAsync("Test::addFive", options: new RunOptions { Trace = true });
 var sent = await model.ExecuteActionAsync("Plant::Tank::fill", options: new RunOptions
 {
     PerformerSymbolId = "Plant::tank", Events = ["Plant::Refill"], Trace = true,     // posted as %send posts them
@@ -571,13 +570,11 @@ draw policy or engine, and a negative bound are the service's to refuse, with
 
 Before anything is sent, a call is held to the capabilities its options need, in the order
 the service checks them: `schedule` for a schedule and `schedule_explore` for an exploring
-one, `action_trace` or `state_trace` for the corresponding trace, `performer` for a performer, and the value capabilities of
+one, `action_trace` or `state_trace` for a trace, `performer` for a performer, and the value capabilities of
 each input; a check needs `check`, then `performer`, `engines` for an engine and
 `schedule_explore` for the `explore` engine. `final_time` and `order_dependence` only say
 whether the service fills those fields: they are read whatever it advertises, as 0 or empty
 from a service without them.
-
-Action trace records also preserve their `Token` identity, graph `Step` index, assigned `Feature`, and assigned `Value`.
 
 A trace record, and the row of a document query, is read into the `DocumentValue` family:
 an element (with no `Id` when the service names an anonymous one), an object, a string, a
@@ -1429,9 +1426,9 @@ Unit tests drive every way a private service starts and stops against
 under the binary's name, into a directory of their own with a script beside it: it reports,
 misreports or withholds an address, exits, lingers or floods its output as the script says.
 It serves nothing; the in-process fake HTTP handler answers the connection.
-Readiness and exit markers are published by renaming closed temporary files, so readers do not race a write still open on Windows; restarts replace the previous markers.
+Marker files are published atomically to prevent partial reads on Windows, including after restarts.
 
-Cancellation tests exercise caller cancellation through real transports and connection normalization. The short deadline-only test applies its budget to the target RPC, not connection negotiation, and the both-cancelled precedence test supplies already-cancelled tokens directly to transport error mapping rather than relying on timer ordering.
+The deadline-only test times the target RPC, not connection setup. Cancellation-precedence checks pass already-cancelled tokens to transport error mapping rather than relying on timer ordering.
 
 Two probes, which the solution also builds, prove what only a process of its own can show,
 and the tests run them against the real binary. [`test/OpenMBEE.OpenSysML.OrphanProbe`](test/OpenMBEE.OpenSysML.OrphanProbe/)
@@ -1489,7 +1486,7 @@ identity, over a changed manifest, and unsigned, and every one must be refused a
 without its signature being fetched: this client verifies pins alone, so no signature passes as
 verified. The real binary is published there too, under a pin of its digest, and a private
 service must start from its download, over each protocol, and a second open must fetch nothing.
-The release host uses dedicated blocking accept and connection workers with cancellation-aware pacing and TCP `NoDelay`, keeping intentional header and body trickles independent of the client's thread-pool load. Timing-sensitive header checks run the real downloader in the cache probe's separate process and measure the HTTP operation there, excluding process startup and test-runner scheduling; they retain their idle deadlines, elapsed-time bounds, redirect checks, and pooled-connection reuse checks under normal suite concurrency.
+The release fixture uses dedicated workers. Timing-sensitive header tests run the real downloader in the cache probe's separate process, preserving timeout bounds, redirect checks and connection-reuse assertions.
 
 CI runs the whole suite on Linux against the service its build job makes, then both
 conformance targets, and, in the full tier, natively on macOS and Windows against a
@@ -1524,7 +1521,7 @@ not invoke the remote C# generators or rewrite the stubs. To run it alone with t
 
 ```bash
 BUF='go run github.com/bufbuild/buf/cmd/buf@v1.57.2' OPENSYSML_REQUIRE_BUF=1 \
-  dotnet test --project client/dotnet/test/OpenMBEE.OpenSysML.Tests -c Release --filter-class 'OpenMBEE.OpenSysML.Tests.WireSchemaTests'
+  dotnet test --project client/dotnet/test/OpenMBEE.OpenSysML.Tests -c Release --filter 'FullyQualifiedName~WireSchemaTests'
 ```
 
 [`api/proto/buf.gen.csharp.yaml`](../../api/proto/buf.gen.csharp.yaml) pins the generators
