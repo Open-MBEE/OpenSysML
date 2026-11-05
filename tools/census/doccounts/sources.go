@@ -66,9 +66,9 @@ func SpecComplianceSources(root string) ([]string, error) {
 	return sources, nil
 }
 
-// readSource reads one source, which holds exactly the text the page shows at
+// ReadSpecComplianceSource reads one source, which holds exactly the text the page shows at
 // its place: it starts with a heading and ends with one newline.
-func readSource(root, source string) (string, error) {
+func ReadSpecComplianceSource(root, source string) (string, error) {
 	content, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(source))) // #nosec G304 -- a source SpecComplianceSources listed
 	if err != nil {
 		return "", err
@@ -93,7 +93,7 @@ func ReadSpecCompliance(root string) (string, error) {
 	}
 	parts := make([]string, 0, len(sources))
 	for _, source := range sources {
-		text, err := readSource(root, source)
+		text, err := ReadSpecComplianceSource(root, source)
 		if err != nil {
 			return "", err
 		}
@@ -111,7 +111,7 @@ func CountSpecComplianceRules(root string) (RuleCounts, error) {
 	}
 	counts := RuleCounts{}
 	for _, source := range sources {
-		text, err := readSource(root, source)
+		text, err := ReadSpecComplianceSource(root, source)
 		if err != nil {
 			return RuleCounts{}, err
 		}

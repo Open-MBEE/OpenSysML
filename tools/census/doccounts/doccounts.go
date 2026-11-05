@@ -456,7 +456,12 @@ type RuleRow struct {
 // status or several, a row with a marker outside a table or in a table without
 // a Status column, is an error.
 func RuleRows(content string) ([]RuleRow, error) {
-	return ruleRows(SpecCompliancePath, content)
+	return RuleRowsIn(SpecCompliancePath, content)
+}
+
+// RuleRowsIn is RuleRows over one source of the page, reporting a drift at that file.
+func RuleRowsIn(file, content string) ([]RuleRow, error) {
+	return ruleRows(file, content)
 }
 
 // ruleRows is RuleRows over one file of the map, named in its errors.
