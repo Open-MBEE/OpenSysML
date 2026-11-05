@@ -7,6 +7,8 @@ package IndividualDefinitions {
 	individual action def PlantFlag;
 	abstract individual part def Spacecraft;
 	individual def Eagle :> Spacecraft;
+	metadata def Flown;
+	individual #Flown part def Lander :> Spacecraft;
 	part def Mission {
 		part crew : Astronaut[*];
 		individual part commander : 'Neil Armstrong' :> crew;
@@ -14,5 +16,6 @@ package IndividualDefinitions {
 		individual occurrence landing : FirstLanding;
 		individual action flag : PlantFlag;
 		individual part lander : Eagle;
+		individual backup : Eagle;
 	}
 }

@@ -56,15 +56,33 @@ package NaryRules {
 
 package NaryViews {
 	private import Views::*;
+	private import DiagramLayout::*;
 	private import StandardViewDefinitions::*;
 
 	view wheelLinks {
 		expose Nary::Wheel;
 		render asInterconnectionDiagram;
+		metadata Note about Nary::Wheel::spokes { text = "three spokes"; x = 10; y = 10; }
 	}
 	view carLinks {
 		expose Nary::Car;
 		render asInterconnectionDiagram;
+		metadata Note about Nary::Car::fuelLine { text = "the line"; x = 10; y = 10; }
+		metadata Note about Nary::Car::level { text = "the reading"; x = 10; y = 40; }
+		metadata Note about Nary::Car::fuelLine, Nary::Car::level { text = "shared"; x = 10; y = 70; }
+	}
+	view definitionsRouted {
+		expose Nary::Triad;
+		expose Nary::Hub;
+		expose Nary::Spoke;
+		render asTreeDiagram;
+		metadata Route about Nary::Triad { points = (10, 10, 20, 20); }
+	}
+	view dependenciesClients {
+		expose NaryRules::Brakes;
+		expose NaryRules::Steering;
+		expose NaryRules::rules;
+		render asTreeDiagram;
 	}
 	view definitions {
 		expose Nary::Triad;
@@ -102,5 +120,10 @@ package NaryViews {
 		expose Nary::Wheel;
 		render asInterconnectionDiagram;
 		metadata DiagramLayout::Route about Nary::Wheel::spokes { points = (100, 100, 200, 100); }
+	}
+	view carLinksRouted {
+		expose Nary::Car;
+		render asInterconnectionDiagram;
+		metadata Route about Nary::Car::fuelLine { points = (150, 80, 258, 247.5, 258, 121, 206, 121); }
 	}
 }

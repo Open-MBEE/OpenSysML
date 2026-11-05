@@ -23,6 +23,7 @@ digraph "NaryViews::wheelLinks" {
       "n4" [shape=circle, fillcolor=black, width=0.2, height=0.2, fixedsize=true, label=""];
       "n5" [shape=circle, fillcolor=black, width=0.2, height=0.2, fixedsize=true, label=""];
     }
+    "note:0" [shape=note, label="three spokes"];
     { rank=min; "frame_tr" [shape=none, margin=0, label=<<font point-size="10">expose Nary::Wheel</font>>]; }
   }
   "n4" -> "n1" [headlabel="hub", arrowhead=none, penwidth=3];
@@ -31,4 +32,5 @@ digraph "NaryViews::wheelLinks" {
   "n5" -> "n1" [arrowhead=none, penwidth=3];
   "n5" -> "n2" [arrowhead=none, penwidth=3];
   "n5" -> "n3" [arrowhead=none, penwidth=3];
+  "note:0" -> "n4" [style=dashed, arrowhead=none];
 }

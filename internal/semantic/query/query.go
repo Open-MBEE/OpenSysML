@@ -28,6 +28,16 @@ const (
 	PropertyDeclaredShortName = "declaredShortName"
 	// PropertyDocumentation is the body text of each `doc` comment, in order.
 	PropertyDocumentation = "documentation"
+	// PropertyTextualRepresentation is the body text of each `rep` the element
+	// owns, in order (Element::textualRepresentation).
+	PropertyTextualRepresentation = "textualRepresentation"
+	// PropertyBody is the exact body of a `comment`, `doc` or `rep` element
+	// itself (Comment::body, TextualRepresentation::body).
+	PropertyBody = "body"
+	// PropertyLocale is Comment::locale of a `comment` or `doc` declaring one.
+	PropertyLocale = "locale"
+	// PropertyLanguage is TextualRepresentation::language of a `rep`.
+	PropertyLanguage = "language"
 	// PropertyQualifiedName is the fully qualified name property.
 	PropertyQualifiedName = "qualifiedName"
 	// PropertyOwner is the owning element's qualified name property.
@@ -58,6 +68,7 @@ const (
 var propertyNames = []string{
 	PropertyID, PropertyType, PropertyName, PropertyDeclaredName,
 	PropertyShortName, PropertyDeclaredShortName, PropertyDocumentation,
+	PropertyTextualRepresentation, PropertyBody, PropertyLocale, PropertyLanguage,
 	PropertyQualifiedName, PropertyOwner, PropertyIsAbstract, PropertyIsIndividual, PropertyElementType,
 	PropertyGeneral,
 	PropertyMultiplicityLower, PropertyMultiplicityUpper,

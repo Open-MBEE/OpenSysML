@@ -1,0 +1,2 @@
+- The draw.io form draws the `definition` edge (a usage to its definition) solid, as the §8.2.3.6 figure does, instead of dashed.
+- The notation table's reasons for the `flow`, `redefinition`, `definition` and `reference-subsetting` edges state what each form lacks against the figures (PlantUML's filled vee, draw.io's missing bar and dots) and no longer fault Graphviz's redefinition tee or PlantUML's typing dots, which match.
