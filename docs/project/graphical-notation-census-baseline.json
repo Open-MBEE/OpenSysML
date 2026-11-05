@@ -9,16 +9,16 @@
     "statements": 620,
     "partialStatements": 97,
     "productions": 523,
-    "drawn": 262,
-    "approximate": 42,
-    "undrawn": 47,
+    "drawn": 292,
+    "approximate": 34,
+    "undrawn": 25,
     "notApplicable": 172
   },
   "categories": {
-    "compartment": 144,
+    "compartment": 147,
     "edge": 59,
     "label": 24,
-    "node": 162,
+    "node": 159,
     "textual": 124,
     "view": 10
   },
@@ -38,9 +38,9 @@
       "title": "Elements and Relationships Graphical Notation",
       "statements": 9,
       "productions": 9,
-      "drawn": 2,
-      "approximate": 0,
-      "undrawn": 3,
+      "drawn": 3,
+      "approximate": 1,
+      "undrawn": 1,
       "notApplicable": 4
     },
     {
@@ -58,9 +58,9 @@
       "title": "Annotations Graphical Notation",
       "statements": 12,
       "productions": 11,
-      "drawn": 0,
-      "approximate": 1,
-      "undrawn": 6,
+      "drawn": 7,
+      "approximate": 0,
+      "undrawn": 0,
       "notApplicable": 4
     },
     {
@@ -78,9 +78,9 @@
       "title": "Definition and Usage Graphical Notation",
       "statements": 28,
       "productions": 24,
-      "drawn": 1,
+      "drawn": 7,
       "approximate": 7,
-      "undrawn": 7,
+      "undrawn": 1,
       "notApplicable": 9
     },
     {
@@ -98,8 +98,8 @@
       "title": "Enumerations Graphical Notation",
       "statements": 9,
       "productions": 6,
-      "drawn": 4,
-      "approximate": 1,
+      "drawn": 5,
+      "approximate": 0,
       "undrawn": 0,
       "notApplicable": 1
     },
@@ -158,9 +158,9 @@
       "title": "Interfaces Graphical Notation",
       "statements": 17,
       "productions": 12,
-      "drawn": 6,
+      "drawn": 7,
       "approximate": 1,
-      "undrawn": 1,
+      "undrawn": 0,
       "notApplicable": 4
     },
     {
@@ -178,9 +178,9 @@
       "title": "Flows Graphical Notation",
       "statements": 30,
       "productions": 22,
-      "drawn": 15,
+      "drawn": 16,
       "approximate": 2,
-      "undrawn": 1,
+      "undrawn": 0,
       "notApplicable": 4
     },
     {
@@ -208,8 +208,8 @@
       "title": "Calculations Graphical Notation",
       "statements": 14,
       "productions": 9,
-      "drawn": 4,
-      "approximate": 1,
+      "drawn": 5,
+      "approximate": 0,
       "undrawn": 1,
       "notApplicable": 3
     },
@@ -228,8 +228,8 @@
       "title": "Requirements Graphical Notation",
       "statements": 63,
       "productions": 57,
-      "drawn": 28,
-      "approximate": 8,
+      "drawn": 34,
+      "approximate": 2,
       "undrawn": 1,
       "notApplicable": 20
     },
@@ -259,8 +259,8 @@
       "statements": 22,
       "productions": 16,
       "drawn": 6,
-      "approximate": 0,
-      "undrawn": 4,
+      "approximate": 2,
+      "undrawn": 2,
       "notApplicable": 6
     },
     {
@@ -269,8 +269,8 @@
       "statements": 22,
       "productions": 16,
       "drawn": 9,
-      "approximate": 0,
-      "undrawn": 1,
+      "approximate": 1,
+      "undrawn": 0,
       "notApplicable": 6
     },
     {
@@ -278,9 +278,9 @@
       "title": "Views and Viewpoints Graphical Notation",
       "statements": 38,
       "productions": 34,
-      "drawn": 13,
-      "approximate": 4,
-      "undrawn": 5,
+      "drawn": 19,
+      "approximate": 1,
+      "undrawn": 2,
       "notApplicable": 12
     },
     {
@@ -314,9 +314,9 @@
       "clause": "8.2.3.2",
       "name": "element-inside-textual-compartment",
       "category": "node",
-      "verdict": "undrawn",
+      "verdict": "approximate",
       "package": "E",
-      "reason": "the greyed element inside a textual compartment is not drawn; compartment rows are plain text"
+      "reason": "a row a folded edge or note ends at is greyed in DOT and PlantUML; Mermaid's markdown labels carry no colour, so the row is italic there, and D2, draw.io and the text form list it plain"
     },
     {
       "clause": "8.2.3.2",
@@ -324,14 +324,6 @@
       "category": "node",
       "verdict": "not-applicable",
       "reason": "a list of alternatives; adjudicated through the alternatives it names"
-    },
-    {
-      "clause": "8.2.3.2",
-      "name": "ellipsis-at-lower-left-corner",
-      "category": "label",
-      "verdict": "undrawn",
-      "package": "E",
-      "reason": "hidden compartment rows are dropped without the '…' mark (compartments.go hidden rows)"
     },
     {
       "clause": "8.2.3.2",
@@ -373,58 +365,10 @@
     },
     {
       "clause": "8.2.3.4",
-      "name": "annotation-link",
-      "category": "edge",
-      "verdict": "approximate",
-      "package": "A",
-      "reason": "only the anchor of a DiagramLayout::Note or a case objective is drawn (EdgeAnchor); comments are filtered out"
-    },
-    {
-      "clause": "8.2.3.4",
       "name": "annotation-node",
       "category": "node",
       "verdict": "not-applicable",
       "reason": "a list of alternatives; adjudicated through the alternatives it names"
-    },
-    {
-      "clause": "8.2.3.4",
-      "name": "comment-node",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "A",
-      "reason": "annotations are filtered out of trees by tree.go containedKind; only DiagramLayout::Note and a case objective's documentation are drawn"
-    },
-    {
-      "clause": "8.2.3.4",
-      "name": "comment-with-keyword",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "A",
-      "reason": "annotations are filtered out of trees by tree.go containedKind; only DiagramLayout::Note and a case objective's documentation are drawn"
-    },
-    {
-      "clause": "8.2.3.4",
-      "name": "comment-without-keyword",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "A",
-      "reason": "annotations are filtered out of trees by tree.go containedKind; only DiagramLayout::Note and a case objective's documentation are drawn"
-    },
-    {
-      "clause": "8.2.3.4",
-      "name": "documentation-compartment",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "A",
-      "reason": "annotations are filtered out of trees by tree.go containedKind; only DiagramLayout::Note and a case objective's documentation are drawn"
-    },
-    {
-      "clause": "8.2.3.4",
-      "name": "documentation-node",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "A",
-      "reason": "annotations are filtered out of trees by tree.go containedKind; only DiagramLayout::Note and a case objective's documentation are drawn"
     },
     {
       "clause": "8.2.3.4",
@@ -439,14 +383,6 @@
       "category": "textual",
       "verdict": "not-applicable",
       "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
-    },
-    {
-      "clause": "8.2.3.4",
-      "name": "textual-representation-node",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "A",
-      "reason": "annotations are filtered out of trees by tree.go containedKind; only DiagramLayout::Note and a case objective's documentation are drawn"
     },
     {
       "clause": "8.2.3.5",
@@ -618,43 +554,11 @@
     },
     {
       "clause": "8.2.3.6",
-      "name": "extended-def",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "F",
-      "reason": "a user-defined keyword (metadata-based definition) is not written; label.go keyword writes the element's kind"
-    },
-    {
-      "clause": "8.2.3.6",
-      "name": "extended-def-name-compartment",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "F",
-      "reason": "a user-defined keyword (metadata-based definition) is not written; label.go keyword writes the element's kind"
-    },
-    {
-      "clause": "8.2.3.6",
-      "name": "extended-usage",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "F",
-      "reason": "a user-defined keyword (metadata-based definition) is not written; label.go keyword writes the element's kind"
-    },
-    {
-      "clause": "8.2.3.6",
-      "name": "extended-usage-name-compartment",
-      "category": "node",
-      "verdict": "undrawn",
-      "package": "F",
-      "reason": "a user-defined keyword (metadata-based definition) is not written; label.go keyword writes the element's kind"
-    },
-    {
-      "clause": "8.2.3.6",
       "name": "features-compartment",
       "category": "compartment",
       "verdict": "undrawn",
       "package": "F",
-      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all (a KerML `feature` member never folds into a SysML node's compartments)"
     },
     {
       "clause": "8.2.3.6",
@@ -740,22 +644,6 @@
     },
     {
       "clause": "8.2.3.6",
-      "name": "variant-elementusages-compartment",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "F",
-      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
-    },
-    {
-      "clause": "8.2.3.6",
-      "name": "variants-compartment",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "F",
-      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
-    },
-    {
-      "clause": "8.2.3.6",
       "name": "variants-compartment-contents",
       "category": "textual",
       "verdict": "not-applicable",
@@ -789,14 +677,6 @@
       "category": "node",
       "verdict": "not-applicable",
       "reason": "a list of alternatives; adjudicated through the alternatives it names"
-    },
-    {
-      "clause": "8.2.3.8",
-      "name": "enums-compartment",
-      "category": "compartment",
-      "verdict": "approximate",
-      "package": "F",
-      "reason": "headed `enumerations`; the figure heads it `enums`"
     },
     {
       "clause": "8.2.3.8",
@@ -1172,14 +1052,6 @@
     },
     {
       "clause": "8.2.3.14",
-      "name": "ends-compartment",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "F",
-      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
-    },
-    {
-      "clause": "8.2.3.14",
       "name": "ends-compartment-contents",
       "category": "textual",
       "verdict": "not-applicable",
@@ -1249,14 +1121,6 @@
       "category": "node",
       "verdict": "not-applicable",
       "reason": "a list of alternatives; adjudicated through the alternatives it names"
-    },
-    {
-      "clause": "8.2.3.16",
-      "name": "flows-compartment",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "F",
-      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
     },
     {
       "clause": "8.2.3.16",
@@ -1578,14 +1442,6 @@
     },
     {
       "clause": "8.2.3.19",
-      "name": "calcs-compartment",
-      "category": "compartment",
-      "verdict": "approximate",
-      "package": "F",
-      "reason": "headed `calculations`; the figure heads it `calcs`"
-    },
-    {
-      "clause": "8.2.3.19",
       "name": "calcs-compartment-contents",
       "category": "textual",
       "verdict": "not-applicable",
@@ -1661,7 +1517,7 @@
       "category": "node",
       "verdict": "approximate",
       "package": "F",
-      "reason": "a box headed «actor» in DOT, PlantUML, Mermaid and text; only draw.io draws the stick figure (drawio.go plainStyle umlActor)"
+      "reason": "a box headed «actor» in DOT, Mermaid and the text form; PlantUML (`actor`, plantuml.go writeCaseMixedNode) and draw.io (plainStyle umlActor) draw the stick figure"
     },
     {
       "clause": "8.2.3.21",
@@ -1698,22 +1554,6 @@
       "category": "node",
       "verdict": "not-applicable",
       "reason": "a list of alternatives; adjudicated through the alternatives it names"
-    },
-    {
-      "clause": "8.2.3.21",
-      "name": "frame-concern-name-compartment",
-      "category": "compartment",
-      "verdict": "approximate",
-      "package": "F",
-      "reason": "written as «frame», the figure's keyword is «frame concern»"
-    },
-    {
-      "clause": "8.2.3.21",
-      "name": "frame-concern-node",
-      "category": "node",
-      "verdict": "approximate",
-      "package": "F",
-      "reason": "written as «frame», the figure's keyword is «frame concern»"
     },
     {
       "clause": "8.2.3.21",
@@ -1780,14 +1620,6 @@
     },
     {
       "clause": "8.2.3.21",
-      "name": "satisfies-compartment",
-      "category": "compartment",
-      "verdict": "approximate",
-      "package": "F",
-      "reason": "headed `satisfys` by compartments.go compartmentName's plural; the figure heads it `satisfies`"
-    },
-    {
-      "clause": "8.2.3.21",
       "name": "satisfies-compartment-contents",
       "category": "textual",
       "verdict": "not-applicable",
@@ -1795,27 +1627,11 @@
     },
     {
       "clause": "8.2.3.21",
-      "name": "satisfy-requirement-name-compartment",
-      "category": "compartment",
-      "verdict": "approximate",
-      "package": "F",
-      "reason": "written as «satisfy», the figure's keyword is «satisfy requirement»"
-    },
-    {
-      "clause": "8.2.3.21",
-      "name": "satisfy-requirement-usage",
-      "category": "node",
-      "verdict": "approximate",
-      "package": "F",
-      "reason": "written as «satisfy», the figure's keyword is «satisfy requirement»"
-    },
-    {
-      "clause": "8.2.3.21",
       "name": "satisfy-requirements-compartment",
       "category": "compartment",
       "verdict": "approximate",
       "package": "F",
-      "reason": "headed `satisfys` by compartments.go compartmentName's plural; the figure heads it `satisfies`"
+      "reason": "headed `satisfies` and listing the satisfy requirement usages as rows; the figure heads it `satisfy requirements` (its `satify` is a typo) over a text block"
     },
     {
       "clause": "8.2.3.21",
@@ -1848,14 +1664,6 @@
     },
     {
       "clause": "8.2.3.21",
-      "name": "subject-compartment",
-      "category": "compartment",
-      "verdict": "approximate",
-      "package": "F",
-      "reason": "headed `subjects`; the figure heads it `subject`"
-    },
-    {
-      "clause": "8.2.3.21",
       "name": "subject-compartment-contents",
       "category": "textual",
       "verdict": "not-applicable",
@@ -1874,7 +1682,7 @@
       "category": "compartment",
       "verdict": "approximate",
       "package": "F",
-      "reason": "the objective is drawn as a note anchored to the case (case.go objectiveNode), not as a compartment"
+      "reason": "headed `objective` in a positioned tree, the row the objective's name and type; in a case rendering the objective is a note anchored to the case (case.go objectiveNode)"
     },
     {
       "clause": "8.2.3.22",
@@ -1946,7 +1754,7 @@
       "category": "compartment",
       "verdict": "undrawn",
       "package": "F",
-      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+      "reason": "a verify requirement usage is a member of the case's objective and lists under its row, not in a compartment of the case"
     },
     {
       "clause": "8.2.3.24",
@@ -1965,18 +1773,18 @@
     {
       "clause": "8.2.3.24",
       "name": "verify-requirement-name-compartment",
-      "category": "node",
-      "verdict": "undrawn",
+      "category": "compartment",
+      "verdict": "approximate",
       "package": "F",
-      "reason": "a verify requirement usage lives in a verification case's objective, which is drawn as a note (case.go objectiveNode)"
+      "reason": "a «verify requirement» node in a tree rendering; in a case rendering the objective that owns it is drawn as a note (case.go objectiveNode)"
     },
     {
       "clause": "8.2.3.24",
       "name": "verify-requirement-node",
       "category": "node",
-      "verdict": "undrawn",
+      "verdict": "approximate",
       "package": "F",
-      "reason": "a verify requirement usage lives in a verification case's objective, which is drawn as a note (case.go objectiveNode)"
+      "reason": "a «verify requirement» node in a tree rendering; in a case rendering the objective that owns it is drawn as a note (case.go objectiveNode)"
     },
     {
       "clause": "8.2.3.25",
@@ -1996,9 +1804,9 @@
       "clause": "8.2.3.25",
       "name": "includes-compartment",
       "category": "compartment",
-      "verdict": "undrawn",
+      "verdict": "approximate",
       "package": "F",
-      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
+      "reason": "the included use cases list under `include use cases` (the clause's other compartment for them), not under `includes`"
     },
     {
       "clause": "8.2.3.25",
@@ -2081,14 +1889,6 @@
     },
     {
       "clause": "8.2.3.26",
-      "name": "framed-view",
-      "category": "view",
-      "verdict": "approximate",
-      "package": "A",
-      "reason": "only the Cameo-style DOT frame draws it (dot.go openFrame); the default style draws no frame"
-    },
-    {
-      "clause": "8.2.3.26",
       "name": "frameless-view",
       "category": "view",
       "verdict": "not-applicable",
@@ -2100,7 +1900,7 @@
       "category": "compartment",
       "verdict": "approximate",
       "package": "F",
-      "reason": "headed `renderings`; the figure heads it `rendering`"
+      "reason": "headed `rendering` for a rendering usage listed in a node; a view's own `render` members describe its picture and are not shown (tree.go contentKind)"
     },
     {
       "clause": "8.2.3.26",
@@ -2111,50 +1911,10 @@
     },
     {
       "clause": "8.2.3.26",
-      "name": "root-view",
-      "category": "view",
-      "verdict": "approximate",
-      "package": "A",
-      "reason": "only the Cameo-style DOT frame draws it (dot.go openFrame); the default style draws no frame"
-    },
-    {
-      "clause": "8.2.3.26",
-      "name": "view-frame-info-compartment-bl",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "A",
-      "reason": "no form draws the frame's info compartments"
-    },
-    {
-      "clause": "8.2.3.26",
-      "name": "view-frame-info-compartment-br",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "A",
-      "reason": "no form draws the frame's info compartments"
-    },
-    {
-      "clause": "8.2.3.26",
-      "name": "view-frame-info-compartment-tr",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "A",
-      "reason": "no form draws the frame's info compartments"
-    },
-    {
-      "clause": "8.2.3.26",
       "name": "view-frame-info-contents",
       "category": "textual",
       "verdict": "not-applicable",
       "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
-    },
-    {
-      "clause": "8.2.3.26",
-      "name": "view-frame-name-compartment",
-      "category": "compartment",
-      "verdict": "approximate",
-      "package": "A",
-      "reason": "only the Cameo-style DOT frame draws it (dot.go openFrame); the default style draws no frame; its header reads the view's name without the «view» keyword"
     },
     {
       "clause": "8.2.3.26",

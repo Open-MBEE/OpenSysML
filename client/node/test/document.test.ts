@@ -84,6 +84,7 @@ test("rendered view decoder preserves wire fields and message presence", () => {
     notes: [{ text: "note", anchor: "n0", edgeFrom: "n0", edgeTo: "n1", x: 1, y: 2, width: 3, height: 4, hasSize: true }],
     notices: ["notice"],
     shown: ["port-symbols", "typings"],
+    frame: { name: "Demo::view", type: "ViewDef", exposes: ["expose Demo::car"] },
   });
   const rendered = renderedViewOf(response);
   assert.equal(rendered.view, "Demo::view");
@@ -103,7 +104,12 @@ test("rendered view decoder preserves wire fields and message presence", () => {
   assert.equal(rendered.notes[0]?.edgeTo, "n1");
   assert.deepEqual(rendered.notices, ["notice"]);
   assert.deepEqual(rendered.shown, ["port-symbols", "typings"]);
-  assert.equal(renderedViewOf(create(RenderViewResponseSchema, {})).canvas, undefined);
+  assert.deepEqual(rendered.frame, {
+    name: "Demo::view", type: "ViewDef", exposes: ["expose Demo::car"], filters: [], annotations: [],
+  });
+  const bare = renderedViewOf(create(RenderViewResponseSchema, {}));
+  assert.equal(bare.canvas, undefined);
+  assert.equal(bare.frame, undefined);
   const sparse = renderedViewOf(create(RenderViewResponseSchema, {
     nodes: [{}],
     edges: [{}],

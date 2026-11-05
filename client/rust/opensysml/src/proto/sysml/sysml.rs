@@ -3901,6 +3901,25 @@ pub struct RenderViewResponse {
     /// The optional notation elements drawn, in registry order.
     #[prost(string, repeated, tag="11")]
     pub shown: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The view frame round a graph-shaped rendering; unset for a frameless one.
+    #[prost(message, optional, tag="12")]
+    pub frame: ::core::option::Option<RenderFrame>,
+}
+/// RenderFrame is the view frame of SysML v2 §8.2.3.26: the name compartment's
+/// name and view definition, and the lines of the three information
+/// compartments (exposes top right, filters bottom left, annotations bottom right).
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RenderFrame {
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub r#type: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="3")]
+    pub exposes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="4")]
+    pub filters: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="5")]
+    pub annotations: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// RenderNode is one flattened node of the rendering.
 #[derive(Clone, PartialEq, ::prost::Message)]

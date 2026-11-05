@@ -1,5 +1,5 @@
 
-©∆
+€Õ
 sysml.protosysml"‡
 Verdict
 kind (	Rkind
@@ -1263,7 +1263,7 @@ model_hash (	R	modelHash
 ports (	Rports
 show (	Rshow
 depth (Rdepth"
-compartments (	Rcompartments"Ï
+compartments (	Rcompartments"ñ
 RenderViewResponse
 view (	Rview
 kind (	Rkind
@@ -1276,7 +1276,14 @@ model_hash (	R	modelHash
 notes	 (2.sysml.RenderNoteRnotes
 notices
  (	Rnotices
-shown (	Rshown"ˇ
+shown (	Rshown(
+frame (2.sysml.RenderFrameRframe"ã
+RenderFrame
+name (	Rname
+type (	Rtype
+exposes (	Rexposes
+filters (	Rfilters 
+annotations (	Rannotations"ˇ
 
 RenderNode
 id (	Rid
@@ -1568,8 +1575,8 @@ RenderView.sysml.RenderViewRequest.sysml.RenderViewResponseG
 ExportGraphs.sysml.ExportGraphsRequest.sysml.ExportGraphsResponseA
 
 ImportData.sysml.ImportDataRequest.sysml.ImportDataResponseM
-CompareResults.sysml.CompareResultsRequest.sysml.CompareResultsResponseB*Z(github.com/Open-MBEE/OpenSysML/api/protoJãÔ
-  Á
+CompareResults.sysml.CompareResultsRequest.sysml.CompareResultsResponseB*Z(github.com/Open-MBEE/OpenSysML/api/protoJÖı
+  Ù
 
   
 
@@ -12262,7 +12269,7 @@ W
 
 úÔ
 Y
-ùÛ ÇJ RenderViewResponse carries all machine-readable fields of the rendering.
+ùÛ ÑJ RenderViewResponse carries all machine-readable fields of the rendering.
 
 
 ùÛ
@@ -12383,790 +12390,807 @@ I
 
 ù
 Å
-C
-ûÖ °4 RenderNode is one flattened node of the rendering.
+Z
+ùÉK The view frame round a graph-shaped rendering; unset for a frameless one.
+
+
+ùÉ
+
+ùÉ
+
+ùÉ
+Ú
+ûâ è‚ RenderFrame is the view frame of SysML v2 ¬ß8.2.3.26: the name compartment's
+ name and view definition, and the lines of the three information
+ compartments (exposes top right, filters bottom left, annotations bottom right).
 
 
-ûÖ
+ûâ
 
-û Ü
+û ä
 
-û Ü
+û ä
 
-û Ü	
+û ä	
 
-û Ü
+û ä
 
-ûá
+ûã
 
-ûá
+ûã
 
-ûá	
+ûã	
 
-ûá
+ûã
 
-ûà
+ûå
 
-ûà
-
-ûà	
-
-ûà
-
-ûâ
-
-ûâ
-
-ûâ
-
-ûâ
-
-ûä
-
-ûä
-
-ûä	
-
-ûä
-
-ûã
-
-ûã
-
-ûã	
-
-ûã
-
-ûå
-
-ûå
-
-ûå	
-
-ûå
-
-ûç
-
-ûç
-
-ûç
-
-ûç
-
-ûé
-
-ûé
-
-ûé	
-
-ûé
-
-û	è!
-
-û	è
+ûå
 
 
-û	è
+ûå
 
-û	è
+ûå
 
-û	è 
+ûå
 
-û
-ê
+ûç
 
-û
-ê
+ûç
+
 
-û
-ê
+ûç
 
-û
-ê
+ûç
+
+ûç
+
+ûé"
+
+ûé
+
+
+ûé
+
+ûé
+
+ûé !
+C
+üí Æ4 RenderNode is one flattened node of the rendering.
+
+
+üí
+
+ü ì
+
+ü ì
+
+ü ì	
+
+ü ì
+
+üî
+
+üî
+
+üî	
+
+üî
+
+üï
+
+üï
+
+üï	
+
+üï
+
+üñ
+
+üñ
+
+üñ
+
+üñ
+
+üó
+
+üó
+
+üó	
+
+üó
+
+üò
+
+üò
+
+üò	
+
+üò
+
+üô
+
+üô
+
+üô	
+
+üô
+
+üö
+
+üö
+
+üö
+
+üö
+
+üõ
+
+üõ
+
+üõ	
+
+üõ
+
+ü	ú!
+
+ü	ú
+
+
+ü	ú
+
+ü	ú
+
+ü	ú 
+
+ü
+ù
+
+ü
+ù
+
+ü
+ù
+
+ü
+ù
 j
-ûí[ Unset when no layout annotates the node; unplaced when the layout only folds or hides it.
+üü[ Unset when no layout annotates the node; unplaced when the layout only folds or hides it.
 
 
-ûí
+üü
 
-ûí
+üü
 
-ûí
+üü
 
-ûì
+ü†
 
-ûì
+ü†
 
-ûì
+ü†
 
-ûì
+ü†
 ú
-ûñå The compartment of the parent node this node is drawn as a row of
+ü£å The compartment of the parent node this node is drawn as a row of
  ("attributes", "parts", "ports", ...); unset for a node drawn as a box.
 
 
-ûñ
+ü£
 
-ûñ	
+ü£	
 
-ûñ
+ü£
 €
-ûöÀ The owner the node is drawn or listed under has the usage through typing,
+üßÀ The owner the node is drawn or listed under has the usage through typing,
  subclassification or subsetting rather than declares it; the notation
  prefixes its name with `^`. `name` stays the bare name.
 
 
-ûö
+üß
 
-ûö
+üß
 
-ûö
+üß
 ı
-ûûÂ Set on an item box drawn on a connection line (a flow, succession flow or
+ü´Â Set on an item box drawn on a connection line (a flow, succession flow or
  message whose ends are the connection's): "right" when the item goes toward
  the line's second end, "left" toward its first. Empty for every other node.
 
 
-ûû
+ü´
 
-ûû	
+ü´	
 
-ûû
+ü´
 c
-û†T The state's substates run in parallel; a label writes ¬´parallel¬ª under the name.
+ü≠T The state's substates run in parallel; a label writes ¬´parallel¬ª under the name.
 
 
-û†
+ü≠
 
-û†
+ü≠
 
-û†
+ü≠
 B
-ü§ ´3 RenderPort is a feature drawn on a node's border.
+†± ∏3 RenderPort is a feature drawn on a node's border.
 
 
-ü§
+†±
 
-ü •
+† ≤
 
-ü •
+† ≤
 
-ü •	
+† ≤	
 
-ü •
+† ≤
 
-ü¶
+†≥
 
-ü¶
+†≥
 
-ü¶	
+†≥	
 
-ü¶
+†≥
 
-üß
+†¥
 
-üß
+†¥
 
-üß	
+†¥	
 
-üß
+†¥
 
-ü®
+†µ
 
-ü®
+†µ
 
-ü®	
+†µ	
 
-ü®
+†µ
 u
-ü™f The node's owner has the port from its type rather than declares it; drawn with a `^` before `name`.
+†∑f The node's owner has the port from its type rather than declares it; drawn with a `^` before `name`.
 
 
-ü™
+†∑
 
-ü™
+†∑
 
-ü™
+†∑
 Q
-†Æ πB RenderEdge joins two rendered nodes and may connect their ports.
+°ª ∆B RenderEdge joins two rendered nodes and may connect their ports.
 
 
-†Æ
+°ª
 
-† Ø
+° º
 
-† Ø
+° º
 
-† Ø	
+° º	
 
-† Ø
+° º
 
-†∞
+°Ω
 
-†∞
+°Ω
 
-†∞	
+°Ω	
 
-†∞
+°Ω
 
-†±
+°æ
 
-†±
+°æ
 
-†±	
+°æ	
 
-†±
+°æ
 
-†≤
+°ø
 
-†≤
+°ø
 
-†≤	
+°ø	
 
-†≤
+°ø
 
-†≥
+°¿
 
-†≥
+°¿
 
-†≥	
+°¿	
 
-†≥
+°¿
 
-†¥
+°¡
 
-†¥
+°¡
 
-†¥	
+°¡	
 
-†¥
+°¡
 
-†µ
+°¬
 
-†µ
+°¬
 
-†µ	
+°¬	
 
-†µ
+°¬
 
-†∂
+°√
 
-†∂
+°√
 
-†∂
+°√
 
-†∂
+°√
 
-†∑!
+°ƒ!
 
-†∑
+°ƒ
 
 
-†∑
+°ƒ
 
-†∑
+°ƒ
 
-†∑ 
+°ƒ 
 
-†	∏
+°	≈
 
-†	∏
+°	≈
 
-†	∏
+°	≈
 
-†	∏
+°	≈
 I
-°º ≈: RenderGeometry locates a node on the rendering's canvas.
+¢… “: RenderGeometry locates a node on the rendering's canvas.
 
 
-°º
+¢…
 
-° Ω
+¢  
 
-° Ω
+¢  
 
-° Ω	
-
-
-° Ω
-
-°æ
-
-°æ
-
-°æ	
+¢  	
 
 
-°æ
+¢  
 
-°ø
+¢À
 
-°ø
+¢À
 
-°ø	
-
-°ø
+¢À	
 
-°¿
 
-°¿
-
-°¿	
-
-°¿
+¢À
 
-°¡
+¢Ã
 
-°¡
+¢Ã
 
-°¡
+¢Ã	
 
-°¡
+¢Ã
 
-°¬
+¢Õ
 
-°¬
+¢Õ
 
-°¬
+¢Õ	
 
-°¬
+¢Õ
+
+¢Œ
+
+¢Œ
+
+¢Œ
+
+¢Œ
+
+¢œ
+
+¢œ
+
+¢œ
+
+¢œ
 _
-°ƒP The layout places nothing (it only folds or hides): x and y carry no position.
+¢—P The layout places nothing (it only folds or hides): x and y carry no position.
 
 
-°ƒ
+¢—
 
-°ƒ
+¢—
 
-°ƒ
+¢—
 A
-¢» Õ2 RenderCanvas is the rendering's drawing surface.
+£’ ⁄2 RenderCanvas is the rendering's drawing surface.
 
 
-¢»
+£’
 
-¢ …
+£ ÷
 
-¢ …
+£ ÷
 
-¢ …	
+£ ÷	
 
-¢ …
+£ ÷
 
-¢ 
+£◊
 
-¢ 
+£◊
 
-¢ 	
+£◊	
 
-¢ 
+£◊
 
-¢À
+£ÿ
 
-¢À
+£ÿ
 
-¢À	
+£ÿ	
 
-¢À
+£ÿ
 
-¢Ã
+£Ÿ
 
-¢Ã
+£Ÿ
 
-¢Ã
+£Ÿ
 
-¢Ã
+£Ÿ
 G
-£– ÿ8 RenderStyle is the optional styling of a node or edge.
+§› Â8 RenderStyle is the optional styling of a node or edge.
 
 
-£–
+§›
 
-£ —
+§ ﬁ
 
-£ —
+§ ﬁ
 
-£ —	
+§ ﬁ	
 
-£ —
+§ ﬁ
 
-£“
+§ﬂ
 
-£“
+§ﬂ
 
-£“	
+§ﬂ	
 
-£“
+§ﬂ
 
-£”
+§‡
 
-£”
+§‡
 
-£”	
+§‡	
 
-£”
+§‡
 
-£‘
+§·
 
-£‘
+§·
 
-£‘	
+§·	
 
-£‘
+§·
 
-£’
+§‚
 
-£’
+§‚
 
-£’	
+§‚	
 
-£’
+§‚
 
-£÷
+§„
 
-£÷
+§„
 
-£÷
+§„
 
-£÷
+§„
 
-£◊
+§‰
 
-£◊
+§‰
 
-£◊
+§‰
 
-£◊
+§‰
 K
-§€ ﬁ< RenderPoint is a route waypoint on the rendering's canvas.
+•Ë Î< RenderPoint is a route waypoint on the rendering's canvas.
 
 
-§€
+•Ë
 
-§ ‹
+• È
 
-§ ‹
+• È
 
-§ ‹	
-
-
-§ ‹
-
-§›
-
-§›
-
-§›	
+• È	
 
 
-§›
+• È
+
+•Í
+
+•Í
+
+•Í	
+
+
+•Í
 =
-•· ‰. RenderRow is one row of a tabular rendering.
+¶Ó Ò. RenderRow is one row of a tabular rendering.
 
 
-•·
+¶Ó
 
-• ‚
+¶ Ô
 
-• ‚
+¶ Ô
 
 
-• ‚
+¶ Ô
 
-• ‚
+¶ Ô
 
-• ‚
+¶ Ô
 
-•„
+¶
 
-•„
+¶
 
-•„
+¶
 
-•„
+¶
 J
-¶Á Ú; RenderNote is a note box drawn on the rendering's canvas.
+ßÙ ˇ; RenderNote is a note box drawn on the rendering's canvas.
 
 
-¶Á
+ßÙ
 
-¶ Ë
+ß ı
 
-¶ Ë
+ß ı
 
-¶ Ë	
+ß ı	
 
-¶ Ë
+ß ı
 
-¶È
+ßˆ
 
-¶È
+ßˆ
 
-¶È	
+ßˆ	
 
-¶È
+ßˆ
 
-¶Í
+ß˜
 
-¶Í
+ß˜
 
-¶Í	
+ß˜	
 
-¶Í
+ß˜
 
-¶Î
+ß¯
 
-¶Î
+ß¯
 
-¶Î	
+ß¯	
 
-¶Î
+ß¯
 
-¶Ï
+ß˘
 
-¶Ï
+ß˘
 
-¶Ï	
-
-
-¶Ï
-
-¶Ì
-
-¶Ì
-
-¶Ì	
+ß˘	
 
 
-¶Ì
+ß˘
 
-¶Ó
+ß˙
 
-¶Ó
+ß˙
 
-¶Ó	
-
-¶Ó
+ß˙	
 
-¶Ô
 
-¶Ô
-
-¶Ô	
-
-¶Ô
+ß˙
 
-¶
+ß˚
 
-¶
+ß˚
 
-¶
+ß˚	
 
-¶
+ß˚
 
-¶	Ò
+ß¸
 
-¶	Ò
+ß¸
 
-¶	Ò
+ß¸	
 
-¶	Ò
+ß¸
+
+ß˝
+
+ß˝
+
+ß˝
+
+ß˝
+
+ß	˛
+
+ß	˛
+
+ß	˛
+
+ß	˛
 X
-ßı ˘I ExportGraphsRequest names the behavior whose lowered graph is exported.
+®Ç ÜI ExportGraphsRequest names the behavior whose lowered graph is exported.
 
 
-ßı
+®Ç
 
-ß ˆ
+® É
 
-ß ˆ
+® É
 
-ß ˆ	
+® É	
 
-ß ˆ
+® É
 S
-ß¯D Qualified name of an action or state machine, definition or usage.
+®ÖD Qualified name of an action or state machine, definition or usage.
 
 
-ß¯
+®Ö
 
-ß¯	
+®Ö	
 
-ß¯
+®Ö
 Ê
-®˛ Ö÷ ExportGraphsResponse carries the `graphs:<version>` form: the lowered
+©ã í÷ ExportGraphsResponse carries the `graphs:<version>` form: the lowered
  ActionGraph/StateGraph IR of the subject and of every behavior it performs,
  as canonical JSON ‚Äî the same bytes an external engine is sent.
 
 
-®˛
+©ã
 G
-® Ä8 The form, as canonical JSON with one trailing newline.
+© ç8 The form, as canonical JSON with one trailing newline.
 
 
-® Ä
+© ç
 
-® Ä	
+© ç	
 
-® Ä
+© ç
 J
-®Ç; The version of the form, the `version` field of the JSON.
+©è; The version of the form, the `version` field of the JSON.
 
 
-®Ç
+©è
 
-®Ç
+©è
 
-®Ç
+©è
 :
-®Ñ+ The subject's qualified name as resolved.
+©ë+ The subject's qualified name as resolved.
 
 
-®Ñ
+©ë
 
-®Ñ	
+©ë	
 
-®Ñ
+©ë
 ï
-©â óÖ ImportDataRequest is the data `sysml -import` sets the feature values of, one
+™ñ §Ö ImportDataRequest is the data `sysml -import` sets the feature values of, one
  file per -import, applied in order as one edit each.
 
 
-©â
+™ñ
 
-© ä
+™ ó
 
-© ä
+™ ó
 
-© ä	
+™ ó	
 
-© ä
+™ ó
 k
-©ç"\ The files, in the order they are applied; each is read as its own format
+™ö"\ The files, in the order they are applied; each is read as its own format
  and mapping say.
 
 
-©ç
+™ö
 
 
-©ç
+™ö
 
-©ç
+™ö
 
-©ç !
+™ö !
 ü
-©êè What each row is made into, as -import-as: "values", the default, sets the
+™ùè What each row is made into, as -import-as: "values", the default, sets the
  features of the element the row names; nothing else is supported.
 
 
-©ê
+™ù
 
-©ê	
+™ù	
 
-©ê
+™ù
 y
-©ìj Report the values the imports would set, changing nothing; the documents
+™†j Report the values the imports would set, changing nothing; the documents
  and model hash are then unset.
 
 
-©ì
+™†
 
-©ì
+™†
 
-©ì
+™†
 ¶
-©ññ Accept every edited document in documents when the model has several;
+™£ñ Accept every edited document in documents when the model has several;
  without it, a model of several documents is refused as ApplyEdits refuses it.
 
 
-©ñ
+™£
 
-©ñ
+™£
 
-©ñ
+™£
 é
-™õ § DataImport is one data file: its name, which names the format by extension
+´® ± DataImport is one data file: its name, which names the format by extension
  and the file in what goes wrong, and its content.
 
 
-™õ
+´®
 
-™ ú
+´ ©
 
-™ ú
+´ ©
 
-™ ú	
+´ ©	
 
-™ ú
+´ ©
 
-™ù
+´™
 
-™ù
+´™
 
-™ù	
+´™	
 
-™ù
+´™
 z
-™†k Read the content as csv, tsv, json or jsonl rather than as the name's
+´≠k Read the content as csv, tsv, json or jsonl rather than as the name's
  extension says, as -import-format.
 
 
-™†
+´≠
 
-™†	
+´≠	
 
-™†
+´≠
 ô
-™£â The JSON mapping onto elements and features the content is read by, as the
+´∞â The JSON mapping onto elements and features the content is read by, as the
  file -import-map names; empty for the content's own header.
-
-
-™£
-
-™£	
-
-™£
-U
-´ß ¥F ImportDataResponse is what the imports set, and the model they made.
-
-
-´ß
-w
-´ ™"h One per import, in order; unset when the model refuses an import, with
- error set and nothing changed.
-
-
-´ ™
-
-
-´ ™
-
-´ ™
-
-´ ™ !
-V
-´¨(G The edited documents, as ApplyEdits answers them; unset on a dry run.
-
-
-´¨
-
-
-´¨
-
-´¨#
-
-´¨&'
-P
-´ÆA The edited content of a one-document model; unset on a dry run.
-
-
-´Æ
-
-´Æ	
-
-´Æ
-W
-´∞H The hash of the imported model, parsed and cached; unset on a dry run.
 
 
 ´∞
@@ -13174,842 +13198,890 @@ W
 ´∞	
 
 ´∞
+U
+¨¥ ¡F ImportDataResponse is what the imports set, and the model they made.
+
+
+¨¥
+w
+¨ ∑"h One per import, in order; unset when the model refuses an import, with
+ error set and nothing changed.
+
+
+¨ ∑
+
+
+¨ ∑
+
+¨ ∑
+
+¨ ∑ !
+V
+¨π(G The edited documents, as ApplyEdits answers them; unset on a dry run.
+
+
+¨π
+
+
+¨π
+
+¨π#
+
+¨π&'
+P
+¨ªA The edited content of a one-document model; unset on a dry run.
+
+
+¨ª
+
+¨ª	
+
+¨ª
+W
+¨ΩH The hash of the imported model, parsed and cached; unset on a dry run.
+
+
+¨Ω
+
+¨Ω	
+
+¨Ω
 ^
-´≤O Why the import was refused, "" when it was made; the model is then unchanged.
+¨øO Why the import was refused, "" when it was made; the model is then unchanged.
 
 
-´≤
+¨ø
 
-´≤	
+¨ø	
 
-´≤
+¨ø
 
-´≥&
+¨¿&
 
-´≥
+¨¿
 
 
-´≥
+¨¿
 
-´≥!
+¨¿!
 
-´≥$%
+¨¿$%
 ñ
-¨∏ ΩÜ ImportedFile is what one data file set: the values, the elements they were
+≠≈  Ü ImportedFile is what one data file set: the values, the elements they were
  set on, and each assignment as `sysml -import` lists it.
 
 
-¨∏
+≠≈
 
-¨ π
+≠ ∆
 
-¨ π
+≠ ∆
 
-¨ π	
+≠ ∆	
 
-¨ π
+≠ ∆
 
-¨∫
+≠«
 
-¨∫
+≠«
 
-¨∫
+≠«
 
-¨∫
+≠«
 
-¨ª
+≠»
 
-¨ª
+≠»
 
-¨ª
+≠»
 
-¨ª
+≠»
 
-¨º)
+≠…)
 
-¨º
+≠…
 
 
-¨º
+≠…
 
-¨º$
+≠…$
 
-¨º'(
+≠…'(
 à
-≠ƒ À¯ ImportedValue is one assignment: the qualified name of the element, the
+Æ— ÿ¯ ImportedValue is one assignment: the qualified name of the element, the
  feature set, the literal it is set to, the qualified name of the inherited
  feature redefined to set it ("" when the element declares the feature), where
  in the data it came from, and the line `sysml -import` reports it as. A
  redefinition made only to reach a nested inherited feature sets no value.
 
 
-≠ƒ
+Æ—
 
-≠ ≈
+Æ “
 
-≠ ≈
+Æ “
 
-≠ ≈	
+Æ “	
 
-≠ ≈
+Æ “
 
-≠∆
+Æ”
 
-≠∆
+Æ”
 
-≠∆	
+Æ”	
 
-≠∆
+Æ”
 
-≠«
+Æ‘
 
-≠«
+Æ‘
 
-≠«	
+Æ‘	
 
-≠«
+Æ‘
 
-≠»
+Æ’
 
-≠»
+Æ’
 
-≠»	
+Æ’	
 
-≠»
+Æ’
 
-≠…
+Æ÷
 
-≠…
+Æ÷
 
-≠…	
+Æ÷	
 
-≠…
+Æ÷
 
-≠ 
+Æ◊
 
-≠ 
+Æ◊
 
-≠ 	
+Æ◊	
 
-≠ 
+Æ◊
 ∞
-Æœ Á† CompareResultsRequest runs the configurations a tool's results sidecar indexes
+Ø‹ Ù† CompareResultsRequest runs the configurations a tool's results sidecar indexes
  ‚Äî the JSON `sysml -migration-results` writes ‚Äî against the migrated model.
 
 
-Æœ
+Ø‹
 
-Æ –
+Ø ›
 
-Æ –
+Ø ›
 
-Æ –	
+Ø ›	
 
-Æ –
+Ø ›
 .
-Æ“ The results sidecar, as JSON.
+Øﬂ The results sidecar, as JSON.
 
 
-Æ“
+Øﬂ
 
-Æ“	
+Øﬂ	
 
-Æ“
+Øﬂ
 ä
-Æ’{ The configurations compared, by qualified or simple name, as -action names
+Ø‚{ The configurations compared, by qualified or simple name, as -action names
  them; every indexed configuration when empty.
 
 
-Æ’
+Ø‚
 
 
-Æ’
+Ø‚
 
-Æ’
+Ø‚
 
-Æ’
+Ø‚
 É
-Æÿt The runs made of every configuration when positive, as -runs; else each
+ØÂt The runs made of every configuration when positive, as -runs; else each
  configuration's own numberOfRuns, or one.
 
 
-Æÿ
+ØÂ
 
-Æÿ
+ØÂ
 
-Æÿ
+ØÂ
 å
-Æ€} The seed the runs derive theirs from, as -seed; without one, runs that draw
+ØË} The seed the runs derive theirs from, as -seed; without one, runs that draw
  at random are refused unless draws fixes them.
 
 
-Æ€
+ØË
 
 
-Æ€
+ØË
 
-Æ€
+ØË
 
-Æ€
+ØË
 ä
-Æﬁ{ The draw policy replacing every configuration's durationSimulationMode when
+ØÎ{ The draw policy replacing every configuration's durationSimulationMode when
  set, as -draws: random, min, max or average.
 
 
-Æﬁ
+ØÎ
 
-Æﬁ	
+ØÎ	
 
-Æﬁ
+ØÎ
 s
-Æ·!d The clock step replacing every configuration's when set, as -clock-step;
+ØÓ!d The clock step replacing every configuration's when set, as -clock-step;
  0 is a continuous clock.
 
 
-Æ·
+ØÓ
 
 
-Æ·
+ØÓ
 
-Æ·
+ØÓ
 
-Æ· 
+ØÓ 
 À
-ÆÂ&ª The stored observables compared, each with the feature of the run that
+ØÚ&ª The stored observables compared, each with the feature of the run that
  answers it, as -observe; without any, every stored observable is read from
  the target's feature of its own name.
 
 
-ÆÂ
+ØÚ
 
 
-ÆÂ
+ØÚ
 
-ÆÂ!
+ØÚ!
 
-ÆÂ$%
+ØÚ$%
 
-ÆÊ
+ØÛ
 
-ÆÊ
+ØÛ
 
-ÆÊ	
+ØÛ	
 
-ÆÊ
+ØÛ
 ´
-ØÎ Óõ ObservablePair is a stored observable and the feature of the run that answers
+∞¯ ˚õ ObservablePair is a stored observable and the feature of the run that answers
  it; an empty feature is the target's feature of the observable's own name.
 
 
-ØÎ
+∞¯
 
-Ø Ï
+∞ ˘
 
-Ø Ï
+∞ ˘
 
-Ø Ï	
+∞ ˘	
 
-Ø Ï
+∞ ˘
 
-ØÌ
+∞˙
 
-ØÌ
+∞˙
 
-ØÌ	
+∞˙	
 
-ØÌ
+∞˙
 t
-∞Ú ˝e CompareResultsResponse is one comparison per configuration, in the order the
+±ˇ äe CompareResultsResponse is one comparison per configuration, in the order the
  sidecar indexes them.
 
 
-∞Ú
+±ˇ
 
-∞ Û6
+± Ä6
 
-∞ Û
+± Ä
 
 
-∞ Û"
+± Ä"
 
-∞ Û#1
+± Ä#1
 
-∞ Û45
+± Ä45
 K
-∞ı< The tool the sidecar records as the source of the results.
+±Ç< The tool the sidecar records as the source of the results.
 
-
-∞ı
-
-∞ı	
-
-∞ı
-O
-∞˜@ Why nothing was compared, "" when the configurations were run.
-
-
-∞˜
-
-∞˜	
-
-∞˜
-
-∞¯&
-
-∞¯
-
-
-∞¯
-
-∞¯!
-
-∞¯$%
-
-∞˘#
-
-∞˘
-
-∞˘
-
-∞˘!"
-
-∞˙
-
-∞˙
-
-∞˙	
-
-∞˙
-
-∞˚
-
-∞˚
-
-∞˚	
-
-∞˚
-
-∞¸
-
-∞¸
-
-
-∞¸
-
-∞¸
-
-∞¸
-_
-±Ä °P ConfigurationComparison is one configuration's runs beside the tool's results.
-
-
-±Ä
-
-± Å
-
-± Å
-
-± Å	
-
-± Å
-
-±Ç
 
 ±Ç
 
-±Ç	
+±Ç	
 
-±Ç
-\
-±ÑM The migrated behavior the configuration performs, "" when it performs none.
+±Ç
+O
+±Ñ@ Why nothing was compared, "" when the configurations were run.
 
 
 ±Ñ
 
-±Ñ	
+±Ñ	
 
-±Ñ
+±Ñ
+
+±Ö&
+
+±Ö
+
+
+±Ö
+
+±Ö!
+
+±Ö$%
+
+±Ü#
+
+±Ü
+
+±Ü
+
+±Ü!"
+
+±á
+
+±á
+
+±á	
+
+±á
+
+±à
+
+±à
+
+±à	
+
+±à
+
+±â
+
+±â
+
+
+±â
+
+±â
+
+±â
+_
+≤ç ÆP ConfigurationComparison is one configuration's runs beside the tool's results.
+
+
+≤ç
+
+≤ é
+
+≤ é
+
+≤ é	
+
+≤ é
+
+≤è
+
+≤è
+
+≤è	
+
+≤è
+\
+≤ëM The migrated behavior the configuration performs, "" when it performs none.
+
+
+≤ë
+
+≤ë	
+
+≤ë
 P
-±ÜA The feature of the configuration the observables are read from.
+≤ìA The feature of the configuration the observables are read from.
 
 
-±Ü
+≤ì
 
-±Ü	
+≤ì	
 
-±Ü
+≤ì
 
-±á
+≤î
 
-±á
+≤î
 
-±á	
+≤î	
 
-±á
+≤î
 ¶
-±äñ holds when runs complete and observables compare; undecided when some do not;
+≤óñ holds when runs complete and observables compare; undecided when some do not;
  fails when a run fails; unresolved when the configuration cannot run.
 
 
-±ä
+≤ó
 
-±ä	
+≤ó	
 
-±ä
+≤ó
 S
-±åD Why the configuration could not be run, when status is unresolved.
+≤ôD Why the configuration could not be run, when status is unresolved.
 
 
-±å
+≤ô
 
-±å	
+≤ô	
 
-±å
+≤ô
 G
-±é8 The runs the tool stored, and over how many snapshots.
+≤õ8 The runs the tool stored, and over how many snapshots.
 
 
-±é
+≤õ
 
-±é
+≤õ
 
-±é
+≤õ
 
-±è
+≤ú
 
-±è
+≤ú
 
-±è
+≤ú
 
-±è
+≤ú
 @
-±	ë1 The runs OpenSysML made and how many completed.
+≤	û1 The runs OpenSysML made and how many completed.
 
 
-±	ë
+≤	û
 
-±	ë
+≤	û
 
-±	ë
+≤	û
 
-±
-í
+≤
+ü
 
-±
-í
+≤
+ü
 
-±
-í
+≤
+ü
 
-±
-í
+≤
+ü
 
-±ì
+≤†
 
-±ì
+≤†
 
-±ì	
+≤†	
 
-±ì
+≤†
 Y
-±ïJ The seed the runs derived theirs from; unset when the runs drew nothing.
+≤¢J The seed the runs derived theirs from; unset when the runs drew nothing.
 
 
-±ï
+≤¢
 
 
-±ï
+≤¢
 
-±ï
+≤¢
 
-±ï
+≤¢
 
-±ñ
+≤£
 
-±ñ
+≤£
 
-±ñ	
+≤£	
 
-±ñ
+≤£
 :
-±ò+ One row per run, as RunSweep tables them.
+≤•+ One row per run, as RunSweep tables them.
 
 
-±ò
+≤•
 
 
-±ò
+≤•
 
-±ò
+≤•
 
-±ò
+≤•
 
-±ô#
+≤¶#
 
-±ô
-
-
-±ô
-
-±ô
-
-±ô "
-
-±ö1
-
-±ö
+≤¶
 
 
-±ö
+≤¶
 
-±ö +
+≤¶
 
-±ö.0
+≤¶ "
+
+≤ß1
+
+≤ß
+
+
+≤ß
+
+≤ß +
+
+≤ß.0
 q
-±ùb The errors failed runs ended in, deduplicated, and the notes on the
+≤™b The errors failed runs ended in, deduplicated, and the notes on the
  configuration and its runs.
 
 
-±ù
+≤™
 
 
-±ù
+≤™
 
-±ù
+≤™
 
-±ù
+≤™
 
-±û
+≤´
 
-±û
+≤´
 
 
-±û
+≤´
 
-±û
+≤´
 
-±û
+≤´
 F
-±†7 The comparison as `sysml -compare-results` prints it.
+≤≠7 The comparison as `sysml -compare-results` prints it.
 
 
-±†
+≤≠
 
 
-±†
+≤≠
 
-±†
+≤≠
 
-±†
+≤≠
 ≤
-≤¶ ø¢ ObservableComparison is one observable: the tool's distribution beside the
+≥≥ Ã¢ ObservableComparison is one observable: the tool's distribution beside the
  runs' with the relative difference of each statistic, or why they are not
  compared.
 
 
-≤¶
+≥≥
 
-≤ ß
+≥ ¥
 
-≤ ß
+≥ ¥
 
-≤ ß	
+≥ ¥	
 
-≤ ß
+≥ ¥
 
-≤®
+≥µ
 
-≤®
+≥µ
 
-≤®	
+≥µ	
 
-≤®
+≥µ
 A
-≤™2 The unit the runs' numbers came in, "" for none.
+≥∑2 The unit the runs' numbers came in, "" for none.
 
 
-≤™
+≥∑
 
-≤™	
+≥∑	
 
-≤™
+≥∑
 €
-≤Æ À The tool's distribution, unset when it stored no number; pooled when it
+≥ª À The tool's distribution, unset when it stored no number; pooled when it
  was pooled from summaries, so only count and mean are known; unstored
  when the tool stored no result at all to compare against.
 
 
-≤Æ
+≥ª
 
-≤Æ
+≥ª
 
-≤Æ
+≥ª
 
-≤Ø
+≥º
 
-≤Ø
+≥º
 
-≤Ø
+≥º
 
-≤Ø
+≥º
 
-≤∞
+≥Ω
 
-≤∞
+≥Ω
 
-≤∞
+≥Ω
 
-≤∞
+≥Ω
 ô
-≤≥â The distribution of the completed runs, unset when they are not compared;
+≥¿â The distribution of the completed runs, unset when they are not compared;
  produced is how many runs produced a number for the feature.
 
 
-≤≥
+≥¿
 
-≤≥
+≥¿
 
-≤≥
+≥¿
 
-≤¥
+≥¡
 
-≤¥
+≥¡
 
-≤¥
+≥¡
 
-≤¥
+≥¡
 à
-≤∑y Whether the runs were made and are reported, false when the tool stored no
+≥ƒy Whether the runs were made and are reported, false when the tool stored no
  observable of the name or no number for it.
 
 
-≤∑
+≥ƒ
 
-≤∑
+≥ƒ
 
-≤∑
+≥ƒ
 ì
-≤	∫&É The relative difference of each statistic, unset without both
+≥	«&É The relative difference of each statistic, unset without both
  distributions; a pooled tool distribution compares the mean alone.
 
 
-≤	∫
+≥	«
 
-≤	∫ 
+≥	« 
 
-≤	∫#%
+≥	«#%
 Ñ
-≤
-Ωu The per-statistic comparison of the Simulation::MonteCarlo case the
+≥
+ u The per-statistic comparison of the Simulation::MonteCarlo case the
  observable is analysed by, unset when none is.
 
 
-≤
-Ω
+≥
+ 
 
-≤
-Ω
+≥
+ 
 
-≤
-Ω
+≥
+ 
 
-≤æ
+≥À
 
-≤æ
+≥À
 
 
-≤æ
+≥À
 
-≤æ
+≥À
 
-≤æ
+≥À
 ~
-≥√ Ào ComparedDistribution is a distribution of numbers by its statistics; a pooled
+¥– ÿo ComparedDistribution is a distribution of numbers by its statistics; a pooled
  one sets count and mean alone.
 
 
-≥√
+¥–
 
-≥ ƒ
+¥ —
 
-≥ ƒ
+¥ —
 
-≥ ƒ
+¥ —
 
-≥ ƒ
+¥ —
 
-≥≈
+¥“
 
-≥≈
+¥“
 
-≥≈	
+¥“	
 
-≥≈
+¥“
 
-≥∆
+¥”
 
-≥∆
+¥”
 
-≥∆	
+¥”	
 
-≥∆
+¥”
 
-≥«
+¥‘
 
-≥«
+¥‘
 
-≥«	
+¥‘	
 
-≥«
+¥‘
 
-≥»
+¥’
 
-≥»
+¥’
 
-≥»	
+¥’	
 
-≥»
+¥’
 
-≥…
+¥÷
 
-≥…
+¥÷
 
-≥…	
+¥÷	
 
-≥…
+¥÷
 
-≥ 
+¥◊
 
-≥ 
+¥◊
 
-≥ 	
+¥◊	
 
-≥ 
+¥◊
 á
-¥œ ’x StatisticDifference is the relative difference of each statistic as a signed
+µ‹ ‚x StatisticDifference is the relative difference of each statistic as a signed
  percentage, "" where it is not compared.
 
 
-¥œ
+µ‹
 
-¥ –
+µ ›
 
-¥ –
+µ ›
 
-¥ –	
+µ ›	
 
-¥ –
+µ ›
 
-¥—
+µﬁ
 
-¥—
+µﬁ
 
-¥—	
+µﬁ	
 
-¥—
+µﬁ
 
-¥“
+µﬂ
 
-¥“
+µﬂ
 
-¥“	
+µﬂ	
 
-¥“
+µﬂ
 
-¥”
+µ‡
 
-¥”
+µ‡
 
-¥”	
+µ‡	
 
-¥”
+µ‡
 
-¥‘
+µ·
 
-¥‘
+µ·
 
-¥‘	
+µ·	
 
-¥‘
+µ·
 ß
-µŸ ›ó CaseStatistics compares the statistics a Simulation::MonteCarlo case declares
+∂Ê Íó CaseStatistics compares the statistics a Simulation::MonteCarlo case declares
  of an observable with the tool's pooled values, one row per statistic.
 
 
-µŸ
+∂Ê
 
-µ ⁄
+∂ Á
 
-µ ⁄
+∂ Á
 
-µ ⁄	
+∂ Á	
 
-µ ⁄
+∂ Á
 
-µ€"
+∂Ë"
 
-µ€
-
-
-µ€
-
-µ€
-
-µ€ !
-
-µ‹
-
-µ‹
+∂Ë
 
 
-µ‹
+∂Ë
 
-µ‹
+∂Ë
 
-µ‹
+∂Ë !
+
+∂È
+
+∂È
+
+
+∂È
+
+∂È
+
+∂È
 ¢
-∂· Áí CaseStatistic is one statistic of the case: which, where the case declares
+∑Ó Ùí CaseStatistic is one statistic of the case: which, where the case declares
  it, the tool's value, the runs' value and their relative difference.
 
 
-∂·
+∑Ó
 
-∂ ‚
+∑ Ô
 
-∂ ‚
+∑ Ô
 
-∂ ‚	
+∑ Ô	
 
-∂ ‚
+∑ Ô
 
-∂„
+∑
 
-∂„
+∑
 
-∂„	
+∑	
 
-∂„
+∑
 
-∂‰
+∑Ò
 
-∂‰
+∑Ò
 
-∂‰	
+∑Ò	
 
-∂‰
+∑Ò
 
-∂Â
+∑Ú
 
-∂Â
+∑Ú
 
-∂Â	
+∑Ú	
 
-∂Â
+∑Ú
 
-∂Ê
+∑Û
 
-∂Ê
+∑Û
 
-∂Ê	
+∑Û	
 
-∂Êbproto3“ˆ  
+∑Ûbproto3“ˆ  

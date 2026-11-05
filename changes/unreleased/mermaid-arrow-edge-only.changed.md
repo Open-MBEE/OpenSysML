@@ -1,1 +1,0 @@
-- `mermaidArrow` takes only the edge kind, which is all it reads, and lists each arrow once; Mermaid output is unchanged for every edge kind.

@@ -27,6 +27,7 @@ config:
     transitionLabelColor: "#000000"
     labelBackgroundColor: "#FFFFFF"
     specialStateColor: "#181818"
+title: "«view» NotationViews::alignmentView : StateTransitionView"
 ---
 %% NotationViews::alignmentView — state rendering (view def StateTransitionView)
 %% not represented: 2 fork/join name(s) (spread, collect); Mermaid's fork bar draws no label

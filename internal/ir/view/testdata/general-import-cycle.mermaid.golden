@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» RobustViews::importCycle : GeneralView"
 ---
 %% RobustViews::importCycle — package rendering (view def GeneralView, filter @Package)
 flowchart TD

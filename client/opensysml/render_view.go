@@ -66,6 +66,18 @@ type RenderedView struct {
 	// Shown lists the optional notation elements drawn, the view's own and
 	// those WithShow asked for.
 	Shown []string
+	// Frame is the view frame round a graph-shaped rendering; nil when frameless.
+	Frame *RenderFrame
+}
+
+// RenderFrame is the view frame of SysML v2 §8.2.3.26: the name compartment's
+// name and view definition, and the lines of its three information compartments.
+type RenderFrame struct {
+	Name        string
+	Type        string
+	Exposes     []string
+	Filters     []string
+	Annotations []string
 }
 
 // RenderNode is a view node with optional geometry and style.
@@ -253,6 +265,12 @@ func renderedViewFromProto(response *pb.RenderViewResponse) *RenderedView {
 		result.Canvas = &RenderCanvas{
 			Unit: response.Canvas.Unit, Width: response.Canvas.Width, Height: response.Canvas.Height,
 			HasSize: response.Canvas.HasSize,
+		}
+	}
+	if f := response.Frame; f != nil {
+		result.Frame = &RenderFrame{
+			Name: f.Name, Type: f.Type, Exposes: append([]string(nil), f.Exposes...),
+			Filters: append([]string(nil), f.Filters...), Annotations: append([]string(nil), f.Annotations...),
 		}
 	}
 	return result

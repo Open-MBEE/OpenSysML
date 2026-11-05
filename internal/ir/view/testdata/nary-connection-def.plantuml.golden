@@ -1,5 +1,6 @@
 @startuml
 ' NaryViews::definitions — tree rendering (render asTreeDiagram)
+mainframe <size:10>//«view»//</size> **NaryViews::definitions**\n<size:10>expose Nary::Triad</size>\n<size:10>expose Nary::Hub</size>\n<size:10>expose Nary::Spoke</size>
 <style>
 root {
   BackGroundColor white

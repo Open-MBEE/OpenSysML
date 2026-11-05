@@ -155,6 +155,10 @@ func renderViewData(model *CachedModel, data view.Data) *pb.RenderViewResponse {
 			Origin: origins.span(note.Origin),
 		})
 	}
+	if data.Frame != nil {
+		response.Frame = &pb.RenderFrame{Name: data.Frame.Name, Type: data.Frame.Type,
+			Exposes: data.Frame.Exposes, Filters: data.Frame.Filters, Annotations: data.Frame.Annotations}
+	}
 	if response.Notices == nil {
 		response.Notices = []string{}
 	}

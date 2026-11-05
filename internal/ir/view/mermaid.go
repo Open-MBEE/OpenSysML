@@ -581,6 +581,9 @@ func (r *Rendering) writeMermaidFrontmatter(b *strings.Builder, labels labeller,
 	if extra > 0 {
 		fmt.Fprintf(b, "  flowchart:\n    subGraphTitleMargin:\n      bottom: %d\n", extra*mermaidTitleLine)
 	}
+	if r.Frame != nil {
+		fmt.Fprintf(b, "title: %q\n", r.Frame.NameLine())
+	}
 	b.WriteString("---\n")
 }
 
@@ -1224,6 +1227,9 @@ func mermaidNodeShape(kind Kind, node *Node, labels labeller, options Options) s
 		}
 	}
 	switch node.Kind {
+	case commentKind, docKind, repKind:
+		// Mermaid's card is the nearest to the note's folded corner.
+		return "@{ shape: notch-rect, label: \"" + labels.mermaid(node) + "\" }"
 	case startKind, "initial":
 		return `@{ shape: f-circ, label: "" }`
 	case "final":
@@ -1303,7 +1309,14 @@ func mermaidLabel(node *Node, labels labeller, lines []string, title bool) strin
 	}
 	markdown = append(markdown, labels.details(node)...)
 	markdown = append(markdown, labels.parameterLines(node)...)
-	markdown = append(markdown, labels.compartmentLines(node)...)
+	for _, entry := range labels.compartmentEntries(node) {
+		if entry.Greyed {
+			// Mermaid's markdown strings carry no colour: a greyed row is set in italics.
+			markdown = append(markdown, "*"+entry.Text+"*")
+			continue
+		}
+		markdown = append(markdown, entry.Text)
+	}
 	return `"` + "`" + strings.Join(markdown, "\n") + "`" + `"`
 }
 

@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» ParameterCalcViews::calculations"
 ---
 %% ParameterCalcViews::calculations — tree rendering (render asTreeDiagram)
 flowchart TD

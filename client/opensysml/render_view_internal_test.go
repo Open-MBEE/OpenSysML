@@ -32,6 +32,7 @@ func TestRenderedViewFromProtoPreservesFieldsAndPresence(t *testing.T) {
 			X: 1, Y: 2, Width: 3, Height: 4, HasSize: true,
 			Origin: &pb.Span{File: "views.sysml"},
 		}},
+		Frame: &pb.RenderFrame{Name: "Demo::view", Type: "ViewDef", Exposes: []string{"expose Demo::car"}},
 	}
 
 	rendered := renderedViewFromProto(response)
@@ -60,8 +61,12 @@ func TestRenderedViewFromProtoPreservesFieldsAndPresence(t *testing.T) {
 		rendered.Notices[0] != "notice" || len(rendered.Shown) != 2 || rendered.Shown[1] != "edge-labels" {
 		t.Errorf("rendered remaining fields = %+v", rendered)
 	}
+	if f := rendered.Frame; f == nil || f.Name != "Demo::view" || f.Type != "ViewDef" ||
+		len(f.Exposes) != 1 || f.Exposes[0] != "expose Demo::car" || f.Filters != nil {
+		t.Errorf("rendered frame = %+v", rendered.Frame)
+	}
 	empty := renderedViewFromProto(&pb.RenderViewResponse{})
-	if empty.Canvas != nil || empty.Nodes != nil || empty.Edges != nil {
+	if empty.Canvas != nil || empty.Nodes != nil || empty.Edges != nil || empty.Frame != nil {
 		t.Errorf("absent optional/render collections = %+v", empty)
 	}
 }

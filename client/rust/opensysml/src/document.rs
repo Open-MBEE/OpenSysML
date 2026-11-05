@@ -547,6 +547,21 @@ pub struct RenderRow {
     pub origin: Option<RenderSpan>,
 }
 
+/// The view frame of SysML v2 §8.2.3.26 round a graph-shaped rendering.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct RenderFrame {
+    /// The view's name, in the name compartment.
+    pub name: String,
+    /// The view definition named after the name, when typed.
+    pub type_name: String,
+    /// The lines of the top-right compartment: the exposes.
+    pub exposes: Vec<String>,
+    /// The lines of the bottom-left compartment: the filters.
+    pub filters: Vec<String>,
+    /// The lines of the bottom-right compartment: the view's annotations.
+    pub annotations: Vec<String>,
+}
+
 /// A rendered note and its optional node or edge anchor.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct RenderNote {
@@ -597,6 +612,8 @@ pub struct RenderedView {
     pub notices: Vec<String>,
     /// The optional notation elements the rendering drew.
     pub shown: Vec<String>,
+    /// The view frame; `None` for a frameless rendering.
+    pub frame: Option<RenderFrame>,
     wire: wire::RenderViewResponse,
 }
 
@@ -725,6 +742,13 @@ pub(crate) fn rendered_view_of(response: wire::RenderViewResponse) -> RenderedVi
             .collect(),
         notices: response.notices,
         shown: response.shown,
+        frame: response.frame.map(|frame| RenderFrame {
+            name: frame.name,
+            type_name: frame.r#type,
+            exposes: frame.exposes,
+            filters: frame.filters,
+            annotations: frame.annotations,
+        }),
         wire,
     }
 }
@@ -814,6 +838,12 @@ mod render_view_tests {
             }],
             notices: vec!["notice".to_owned()],
             shown: vec!["port-symbols".to_owned(), "compartments".to_owned()],
+            frame: Some(wire::RenderFrame {
+                name: "Demo::view".to_owned(),
+                r#type: "ViewDef".to_owned(),
+                exposes: vec!["expose Demo::car".to_owned()],
+                ..Default::default()
+            }),
         };
 
         let rendered = rendered_view_of(response);
@@ -845,8 +875,17 @@ mod render_view_tests {
             vec!["port-symbols".to_owned(), "compartments".to_owned()]
         );
 
+        let frame = rendered.frame.as_ref().unwrap();
+        assert_eq!(
+            (frame.name.as_str(), frame.type_name.as_str()),
+            ("Demo::view", "ViewDef")
+        );
+        assert_eq!(frame.exposes, vec!["expose Demo::car".to_owned()]);
+        assert!(frame.filters.is_empty());
+
         let empty = rendered_view_of(wire::RenderViewResponse::default());
         assert!(empty.canvas.is_none());
+        assert!(empty.frame.is_none());
         assert!(empty.nodes.is_empty());
     }
 }

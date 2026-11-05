@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» FurnaceViews::burnerTree : GeneralView"
 ---
 %% FurnaceViews::burnerTree — tree rendering (view def GeneralView)
 flowchart TD

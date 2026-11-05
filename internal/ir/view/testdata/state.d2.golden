@@ -22,3 +22,5 @@ n0.n1 -> n0.n2: { class: edge }
 n0.n2 -> n0.n1: { class: edge }
 n0.n2.n3 -> n0.n2.n4: "accept Signal [temperature > 0]" { class: edge }
 n0.n2.n4 -> n0.n2.n3: { class: edge }
+frame_name: "«view» MachineViews::vehicleStates : StateTransitionView" { shape: text; near: top-left }
+frame_tr: "expose Machines::VehicleStates" { shape: text; near: top-right }

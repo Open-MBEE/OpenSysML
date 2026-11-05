@@ -329,6 +329,17 @@ class RenderNote:
 
 
 @dataclass(frozen=True)
+class RenderFrame:
+    """The view frame of SysML v2 §8.2.3.26 round a graph-shaped rendering."""
+
+    name: str
+    type: str
+    exposes: tuple
+    filters: tuple
+    annotations: tuple
+
+
+@dataclass(frozen=True)
 class Graphs:
     """The lowered graph of an action or state machine, returned by ``ExportGraphs``.
 
@@ -367,6 +378,7 @@ class RenderedView:
     notes: tuple
     notices: tuple
     shown: tuple
+    frame: Optional[RenderFrame] = None
 
 
 def _render_span(span):
@@ -426,9 +438,15 @@ def render_view_result(response):
         )
         for note in response.notes
     )
+    frame = None
+    if response.HasField("frame"):
+        frame = RenderFrame(
+            response.frame.name, response.frame.type, tuple(response.frame.exposes),
+            tuple(response.frame.filters), tuple(response.frame.annotations),
+        )
     return RenderedView(
         response.view, response.kind, response.stated, nodes, edges, tuple(response.columns),
-        rows, canvas, notes, tuple(response.notices), tuple(response.shown),
+        rows, canvas, notes, tuple(response.notices), tuple(response.shown), frame,
     )
 #: What a binding value or an answered cell value may be.
 DocumentValue = Union[
