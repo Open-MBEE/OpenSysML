@@ -8,6 +8,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // PropertyReader reads queryable properties from shared model semantics.
@@ -53,6 +54,21 @@ func (r *PropertyReader) Values(sym *symbols.Symbol, property string) ([]string,
 		}
 		bodies := r.semantics.DocumentationOf(sym)
 		return bodies, len(bodies) > 0
+	case PropertyTextualRepresentation:
+		if r.semantics == nil {
+			return nil, false
+		}
+		bodies := r.semantics.TextualRepresentationOf(sym)
+		return bodies, len(bodies) > 0
+	case PropertyBody:
+		if r.semantics == nil {
+			return nil, false
+		}
+		if body, ok := r.semantics.AnnotationBodyOf(sym); ok {
+			return []string{body}, true
+		}
+	case PropertyLocale, PropertyLanguage:
+		return presentValues(annotationString(sym, property))
 	case PropertyType:
 		return presentValues(MetamodelTypeNameOf(sym))
 	case PropertyElementType:
@@ -301,4 +317,24 @@ func boundValues(bound semantics.Bound) ([]string, bool) {
 		return []string{"*"}, true
 	}
 	return []string{strconv.FormatInt(bound.Value, 10)}, true
+}
+
+// annotationString is Comment::locale of a comment or documentation or
+// TextualRepresentation::language of a rep, "" for anything else or undeclared.
+func annotationString(sym *symbols.Symbol, property string) string {
+	switch decl := sym.Decl.(type) {
+	case *ast.Comment:
+		if property == PropertyLocale {
+			return source.StringValue(decl.Locale)
+		}
+	case *ast.Documentation:
+		if property == PropertyLocale {
+			return source.StringValue(decl.Locale)
+		}
+	case *ast.TextualRepresentation:
+		if property == PropertyLanguage {
+			return source.StringValue(decl.Language)
+		}
+	}
+	return ""
 }
