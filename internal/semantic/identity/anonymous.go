@@ -21,14 +21,14 @@ type AnonymousMember struct {
 	MembershipPath      string
 }
 
-// AnonymousMemberOf describes sym, an unnamed member declared directly in a
-// named library element; ok is false for a named symbol or an anonymous owner.
+// AnonymousMemberOf describes sym, an unnamed member (declared or implied) a named library element
+// owns, placed by the owner's ownedMember order; ok is false for a named symbol or an anonymous owner.
 func AnonymousMemberOf(model *semantics.Model, catalog *Catalog, sym *symbols.Symbol) (AnonymousMember, bool) {
 	if model == nil || catalog == nil || sym == nil || sym.Name != "" {
 		return AnonymousMember{}, false
 	}
 	owner := sym.Owner()
-	if owner == nil || owner.Scope == nil {
+	if owner == nil {
 		return AnonymousMember{}, false
 	}
 	ownerElement, ok := catalog.ElementForSymbol(owner)
@@ -39,37 +39,34 @@ func AnonymousMemberOf(model *semantics.Model, catalog *Catalog, sym *symbols.Sy
 	if metaclass == "" {
 		return AnonymousMember{}, false
 	}
-	ordinal := -1
-	owner.Scope.ForEachAnonymousMember(func(member *symbols.Symbol) bool {
-		if metaclassName(model, member) == metaclass {
-			ordinal++
+	members, ok := model.ReflectiveElements(owner, "ownedMember")
+	if !ok {
+		return AnonymousMember{}, false
+	}
+	ordinal, index, found := 0, 0, false
+	for _, member := range members {
+		if member == sym {
+			found = true
+			break
 		}
-		return member != sym
-	})
+		if metaclassName(model, member) == metaclass {
+			index++
+			if member.Name == "" {
+				ordinal++
+			}
+		}
+	}
+	if !found {
+		return AnonymousMember{}, false
+	}
 	out := AnonymousMember{
 		Owner:              ownerElement,
 		Metaclass:          metaclass,
 		ID:                 AnonymousMemberID(ownerElement.ID, metaclass, ordinal),
 		OwningMembershipID: AnonymousMemberOwningMembershipID(ownerElement.ID, metaclass, ordinal),
+		Path:               ownerElement.FQN + "/" + metaclass + "[" + strconv.Itoa(index) + "]",
 	}
 	if out.ID == "" {
-		return AnonymousMember{}, false
-	}
-	members, ok := model.ReflectiveElements(owner, "ownedMember")
-	if !ok {
-		return AnonymousMember{}, false
-	}
-	index := 0
-	for _, member := range members {
-		if member == sym {
-			out.Path = ownerElement.FQN + "/" + metaclass + "[" + strconv.Itoa(index) + "]"
-			break
-		}
-		if metaclassName(model, member) == metaclass {
-			index++
-		}
-	}
-	if out.Path == "" {
 		return AnonymousMember{}, false
 	}
 	memberships := model.OwnedMemberships(owner)
@@ -109,8 +106,8 @@ type AnonymousIndex struct {
 	bySymbol             map[*symbols.Symbol]AnonymousMember
 }
 
-// AnonymousMemberIndex indexes every unnamed member declared directly in a
-// named element of catalog, by element id and by owning-membership id.
+// AnonymousMemberIndex indexes every unnamed member a named element of catalog
+// owns, declared or implied, by element id and by owning-membership id.
 func AnonymousMemberIndex(model *semantics.Model, catalog *Catalog) *AnonymousIndex {
 	index := &AnonymousIndex{
 		byID: map[string]AnonymousMember{}, byMembershipID: map[string]AnonymousMember{},
@@ -120,17 +117,23 @@ func AnonymousMemberIndex(model *semantics.Model, catalog *Catalog) *AnonymousIn
 		return index
 	}
 	for _, owner := range catalog.Elements() {
-		if owner.Symbol == nil || owner.Symbol.Scope == nil {
+		if owner.Symbol == nil {
 			continue
 		}
-		owner.Symbol.Scope.ForEachAnonymousMember(func(sym *symbols.Symbol) bool {
+		members, ok := model.ReflectiveElements(owner.Symbol, "ownedMember")
+		if !ok {
+			continue
+		}
+		for _, sym := range members {
+			if sym == nil || sym.Name != "" {
+				continue
+			}
 			if member, ok := AnonymousMemberOf(model, catalog, sym); ok {
 				index.byID[member.ID] = member
 				index.byMembershipID[member.OwningMembershipID] = member
 				index.bySymbol[sym] = member
 			}
-			return true
-		})
+		}
 	}
 	return index
 }
