@@ -1677,9 +1677,21 @@ func ReachToProto(reach runtime.Reach, idx *symbols.Index) *pb.InstanceReach {
 		InstanceId:      reach.Holder.ID,
 		FeatureName:     reach.Feature.Name,
 		FeatureSymbolId: idx.GetFQN(reach.Feature.Symbol),
-		Index:           int32(reach.Index),
+		Index:           indexToProto(reach.Index),
 		Path:            reach.Path(),
 	}
+}
+
+// indexToProto saturates a position within a feature at the int32 bound rather
+// than wrapping.
+func indexToProto(index int) int32 {
+	if index > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	if index < 0 {
+		return 0
+	}
+	return int32(index)
 }
 
 // PathStepsToProto converts the steps of a root-relative object path.
@@ -1689,7 +1701,7 @@ func PathStepsToProto(steps []runtime.PathStep, idx *symbols.Index) []*pb.Instan
 		out = append(out, &pb.InstancePathStep{
 			FeatureName:     step.Feature.Name,
 			FeatureSymbolId: idx.GetFQN(step.Feature.Symbol),
-			Index:           int32(step.Index),
+			Index:           indexToProto(step.Index),
 			InstanceId:      step.Object.ID,
 		})
 	}

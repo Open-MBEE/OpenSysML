@@ -380,7 +380,7 @@ func (c *pkgClient) instancePaths(ctx context.Context, request protoreflect.Mess
 			converted.Steps = append(converted.Steps, &pb.InstancePathStep{
 				FeatureName:     step.FeatureName,
 				FeatureSymbolId: step.FeatureSymbolID,
-				Index:           int32(step.Index),
+				Index:           int32Clamp(step.Index),
 				InstanceId:      step.InstanceID,
 			})
 		}
@@ -2347,7 +2347,7 @@ func instanceToProto(instance *opensysml.Instance) *pb.Instance {
 			InstanceId:      reach.InstanceID,
 			FeatureName:     reach.FeatureName,
 			FeatureSymbolId: reach.FeatureSymbolID,
-			Index:           int32(reach.Index),
+			Index:           int32Clamp(reach.Index),
 			Path:            reach.Path,
 		}
 	}

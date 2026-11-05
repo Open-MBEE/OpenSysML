@@ -1381,9 +1381,21 @@ func reachToProto(reach runtime.Reach, idx *symbols.Index) *JInstanceReach {
 		InstanceId:      I64(reach.Holder.ID),
 		FeatureName:     reach.Feature.Name,
 		FeatureSymbolId: idx.GetFQN(reach.Feature.Symbol),
-		Index:           int32(reach.Index),
+		Index:           indexToJSON(reach.Index),
 		Path:            reach.Path(),
 	}
+}
+
+// indexToJSON saturates a position within a feature at the int32 bound rather
+// than wrapping.
+func indexToJSON(index int) int32 {
+	if index > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	if index < 0 {
+		return 0
+	}
+	return int32(index)
 }
 
 // instanceToProto converts runtime.Instance to the Instance message. Feature values
