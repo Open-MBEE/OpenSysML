@@ -7283,13 +7283,12 @@
       },
       "checks": "A Multiplicity must directly or indirectly specialize the Feature Base::naturals from the Kernel Semantic Library.",
       "ocl": "specializesFromLibrary('Base::naturals')",
-      "implementation": "internal/semantic/semantics/implicit.go:Model.implicitBaseFeatures; internal/semantic/semantics/nested.go:Model.nestedSubsettingFQN",
-      "message": "not computed: the implied-relationship side tables give a declared `Multiplicity` no implied specialization of `Base::naturals`, and the api-json export writes no implied specializations",
+      "implementation": "internal/semantic/semantics/multiplicity_specialization.go:Model.MultiplicityBaseFQN; internal/semantic/semantics/multiplicity_specialization.go:Model.implicitMultiplicityBase; internal/semantic/semantics/implicit.go:Model.implicitBaseFeatures",
+      "message": "observed at model level: every Multiplicity — a usage's written range or implicit [1..1], a KerML `multiplicity` member, the library's own ranges — has `Base::naturals` as its implied general (`DirectSupertypes`, `ImplicitGenerals`) and `ScalarValues::Natural` as its type, unless its declared `subsets` already reaches it (internal/semantic/semantics/multiplicity_specialization_test.go:TestMultiplicitySpecializesNaturals, TestKerMLMultiplicityMemberSpecializesNaturals)",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "not-implemented",
-      "rationale": "no implied-relationship side table (implicit.go kind tables, nested.go nested-feature table) computes this specialization"
+      "status": "faithful"
     },
     {
       "name": "checkMultiplicityTypeFeaturing",
@@ -7363,13 +7362,12 @@
       },
       "checks": "An OccurrenceDefinition with isIndividual = true must have a multiplicity that specializes Base::zeroOrOne from the Kernel Semantic Library.",
       "ocl": "isIndividual implies\n    multiplicity <> null and\n    multiplicity.specializesFromLibrary('Base::zeroOrOne')",
-      "implementation": "internal/semantic/semantics/implicit.go:Model.implicitBaseFeatures; internal/semantic/semantics/nested.go:Model.nestedSubsettingFQN",
-      "message": "not computed: the implied-relationship side tables give a declared `OccurrenceDefinition` no implied specialization of `Base::zeroOrOne`, and the api-json export writes no implied specializations",
+      "implementation": "internal/semantic/semantics/default_multiplicity.go:Model.DefaultMultiplicityMember; internal/semantic/semantics/multiplicity_specialization.go:Model.MultiplicityBaseFQN",
+      "message": "observed at model level: an `individual` occurrence, part or item definition is parsed with a nameless Multiplicity — its `multiplicity`, first among its owned memberships — whose implied general is `Base::zeroOrOne`; a definition that is not individual has none (internal/semantic/semantics/multiplicity_specialization_test.go:TestIndividualOccurrenceDefinitionMultiplicity)",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "not-implemented",
-      "rationale": "no implied-relationship side table (implicit.go kind tables, nested.go nested-feature table) computes this specialization"
+      "status": "faithful"
     },
     {
       "name": "checkOccurrenceUsageSnapshotSpecialization",

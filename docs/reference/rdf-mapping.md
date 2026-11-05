@@ -291,6 +291,26 @@ output references (the `importedMembership` of `import ScalarValues::Real;`) is
 stated as a `sysml:OwningMembership` with its `sysml:memberElement`, marked the
 same way.
 
+The same naming covers the library members a type of the document inherits —
+which the element form's completed `inheritedMembership`, `feature` and kindred
+lists reference (§ Derived properties) — whether or not the model text names
+them: each named member as above, under the membership it is owned by
+(`sysml:FeatureMembership` for a feature); each unnamed one (a documentation
+comment, an invariant, an unnamed connector) by `rdf:type`, `sysml:elementId`
+and `sysx:libraryPath`, the positional path `Owner::qualifiedName/Metaclass[i]`
+(`i` counting the owner's preceding owned elements of that metaclass, the form
+the pilot's bridge keys unnamed elements by) that stands in for the qualified
+name it lacks. The id of an unnamed member is this implementation's: a
+version-5 UUID of that path under its owner's normative id
+(`identity.AnonymousMemberOf`), since the standard publishes no rule for them.
+The reader of the element form restates these from the ids its completed
+properties reference and, in the compact form, from every `libraryReferences`
+entry, each typed as the entry states; a member the model's own statements
+reference resolves by its normative id, as before. A stub the encoder adds for
+an inherited member states the metaclass the semantic model classifies it by
+(a KerML `feature` as `sysml:Feature`); the stub of a member the model text
+references directly keeps stating its declaration's, as it did.
+
 Such an element has no owner in the graph, and the document's root namespace
 does not take it (`LibraryReference`). The graph form — Turtle — keeps these
 names. The API element form does not carry them: there an ownerless element is
@@ -303,8 +323,8 @@ For clients that need to display those names without bundling the library,
 `ConvertResponse.library_references` carries a separate table of `id`, `qualified_name`
 and `type` (metaclass), advertised as `convert_library_references`. The
 [compact API JSON document](api-json-compact.md) carries the same information in the
-optional top-level `libraryReferences` table, with literal `@id`, `qualifiedName` and
-`@type` keys. Only library elements referenced by the written output are included,
+optional top-level `libraryReferences` table, with literal `@id`, `qualifiedName` (or
+`libraryPath`, for an unnamed member) and `@type` keys. Only library elements referenced by the written output are included,
 sorted by ID; no library declarations are added to the default element array.
 
 The CLI writes that table as a JSON side file, without changing the model output:
@@ -2224,11 +2244,16 @@ constraints derive — and lists the keys it completed on the element in
 `"sysx:completedProperties": [...]`; a property the graph states is written as
 stated and not listed. A membership's and an import's `visibility` the graph
 leaves at the metamodel default is completed at it (`public`, 8.3.2.4.3;
-`private`, 8.3.2.4.2) and listed the same way. A property the evaluator cannot
-derive from the graph — one that needs the inherited members of a type whose
-general types the graph does not state, the implied library bases included — is
-not completed: `feature`, `inheritedMembership`, `member` and the collections
-over them stay as the graph states them. Reading, a listed property is
+`private`, 8.3.2.4.2) and listed the same way. The inherited-member family
+(`inheritedMembership`, `feature`, `featureMembership`, `inheritedFeature`,
+`directedFeature`, `input`, `output`, a type's `membership` and `member`, a
+usage's or definition's `usage` and `directedUsage`) is completed from the
+semantic model's inheritance table, which supplies the non-private memberships
+of the general types the graph does not describe — the explicit and implied
+library bases — with redefined features removed (8.3.3.1.10). An element whose
+implied bases the metaclass alone does not determine (an expression, its result
+feature, a multiplicity range, a nested usage's implied subsettings) inherits
+only what the graph states for it. Reading, a listed property is
 the writer's completion and states no triple, so the graph read back is the
 graph written; a property no list names — in a document another writer
 produced, or one this list was stripped from — is the statement it looks like. The compact form's `omit_derived` leaves the completed

@@ -436,8 +436,13 @@ func TestDefaultMultiplicityMember(t *testing.T) {
 			t.Fatalf("link ends = %d, want 2", len(ends))
 		} else {
 			for i, end := range ends {
-				if model.DefaultMultiplicityMember(end) != nil {
-					t.Errorf("positional end %d of link states a default multiplicity; the pilot states none", i)
+				endDefault := model.DefaultMultiplicityMember(end)
+				if endDefault == nil || !IsDefaultMultiplicity(endDefault) {
+					t.Errorf("positional end %d of link states no default multiplicity; SysML v2 §7.13.2 holds every end to [1..1]", i)
+					continue
+				}
+				if memberships := model.OwnedMemberships(end); len(memberships) == 0 || !isDefaultMultiplicityMembership(memberships[len(memberships)-1]) {
+					t.Errorf("positional end %d of link does not own its default Multiplicity's membership last", i)
 				}
 			}
 		}
