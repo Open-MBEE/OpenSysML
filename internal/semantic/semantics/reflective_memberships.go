@@ -120,7 +120,6 @@ func (m *Model) withDefaultMultiplicity(sym *symbols.Symbol, memberships []*symb
 	return append(memberships, membership)
 }
 
-
 // withTransitionMemberships places the memberships of a transition's trigger accept and guard
 // among its scope's, in the source order the conversion writes them.
 func (m *Model) withTransitionMemberships(sym *symbols.Symbol, out, parts []*symbols.Symbol) []*symbols.Symbol {
