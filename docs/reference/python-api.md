@@ -594,6 +594,10 @@ The public exception hierarchy for client, service, model and edit failures.
     options:
       heading_level: 3
 
+::: opensysml.UnresolvedChildError
+    options:
+      heading_level: 3
+
 ::: opensysml.ViewNotFoundError
     options:
       heading_level: 3

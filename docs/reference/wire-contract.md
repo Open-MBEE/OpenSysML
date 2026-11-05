@@ -133,14 +133,19 @@ HTTP/1.1 400 Bad Request
 
 ### `GetSymbol` and the `SymbolInfo` metadata keys
 
-`GetSymbol` answers one `SymbolInfo` for a fully qualified name. Beside its typed fields
-(`typeInfo`, `multiplicity`, `specializations`, `attributes`), `metadata` is a string map of
-facts about the declaration, each present only when it holds:
+`GetSymbol` answers one `SymbolInfo` for a symbol id: a fully qualified name, or the
+positional id an unnamed declaration has in the query API and the export (`Owner::@3` for
+the fourth member of `Owner`, `Owner::@3::wheel` for a named member of it). `child_ids`
+lists the symbol's members under the same ids, named and unnamed alike (a `bind`, a
+`connect`, a `part : P;`, a `@M { … }` or `#M` annotation), each of which `GetSymbol`
+resolves; a member no id reaches, such as a body-local declaration, is not listed. Beside
+its typed fields (`typeInfo`, `multiplicity`, `specializations`, `attributes`), `metadata`
+is a string map of facts about the declaration, each present only when it holds:
 
 | Key | Value | When |
 |-----|-------|------|
 | `visibility` | `default` (none written), `public`, `private` or `protected` | always |
-| `type` | the first typing target as written (`Engine`) | a typed usage |
+| `type` | the first typing target as written (`Engine`), or the metadata definition an annotation names (`FailureMode`) | a typed usage, a `@M`/`#M` metadata usage |
 | `multiplicity` | the declared range as written (`1`, `0..*`) | a usage declaring one |
 | `direction` | `in`, `out` or `inout` | a directed usage |
 | `specializes` | the first specialization target as written | a definition specializing one |
