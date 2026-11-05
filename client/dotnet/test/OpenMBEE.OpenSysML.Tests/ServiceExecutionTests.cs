@@ -20,7 +20,7 @@ namespace OpenMBEE.OpenSysML.Tests;
 [Trait(Category.Name, Category.Integration)]
 public sealed class ServiceExecutionTests(ServiceFixture services) : IClassFixture<ServiceFixture>
 {
-    private const string Withheld = "schedule,schedule_explore,performer,state_trace,action_trace,check";
+    private const string Withheld = "schedule,schedule_explore,performer,state_trace,check";
 
     public static TheoryData<ClientWire> Wires => ClientWires.All;
 
