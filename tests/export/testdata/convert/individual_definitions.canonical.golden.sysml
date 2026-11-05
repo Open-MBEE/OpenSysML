@@ -7,6 +7,8 @@ package IndividualDefinitions {
     individual action def PlantFlag;
     abstract individual part def Spacecraft;
     individual def Eagle specializes Spacecraft;
+    metadata def Flown;
+    individual #Flown part def Lander specializes Spacecraft;
     part def Mission {
         part crew : Astronaut[*];
         individual part commander : 'Neil Armstrong' subsets crew;

@@ -338,6 +338,8 @@ func TestDefaultMultiplicityMember(t *testing.T) {
     part def Trim;
     enum def Color { red; }
     individual part def Probe :> Vehicle { part lens; }
+    metadata def Tag;
+    #Tag individual part def Tagged :> Vehicle;
     connection link connect lid to lid;
     connection named connect e1 ::> lid to e2 ::> lid;
 }`
@@ -419,6 +421,11 @@ func TestDefaultMultiplicityMember(t *testing.T) {
 		}
 		if got, _ := model.ReflectiveElements(probe, "ownedMembership"); len(got) < 2 || got[0].Implicit == nil || got[0].Implicit.Member != first {
 			t.Errorf("Probe ownedMembership = %d elements, want the Multiplicity's first, lens's after", len(got))
+		}
+		tagged := relFixtureSymbol(t, fixture, "Tagged")
+		if rels := model.OwnedRelationships(tagged); len(rels) != 3 || !isDefaultMultiplicityMembership(rels[0]) ||
+			!isPrefixAnnotation(rels[1]) || isDefaultMultiplicityMembership(rels[2]) {
+			t.Errorf("Tagged ownedRelationship = %d elements, want the Multiplicity's membership, the prefix annotation, then the specialization", len(rels))
 		}
 		for _, name := range []string{"Vehicle", "Wheel", "Color"} {
 			if model.DefaultMultiplicityMember(relFixtureSymbol(t, fixture, name)) != nil {

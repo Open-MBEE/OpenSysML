@@ -1596,8 +1596,8 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		}
 		head(rdf.SysMLTerm(metaclass))
 		e.ident(subject, n.Ident)
-		// An individual definition's prefix owns its empty Multiplicity first (SysML.xtext
-		// OccurrenceDefinitionPrefix).
+		// An individual definition owns its empty Multiplicity first, before its prefix
+		// metadata and its head's clauses (SysML.xtext OccurrenceDefinitionPrefix).
 		e.defaultMultiplicity(subject, n, nil)
 		if err := e.declaredKeyword(subject, n, n.Keyword, definitionKeyword(n.Kind), n.Ident.Name, false); err != nil {
 			return err

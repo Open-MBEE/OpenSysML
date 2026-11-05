@@ -297,6 +297,13 @@ func (m *Model) OwnedRelationships(sym *symbols.Symbol) []*symbols.Symbol {
 		return m.implicitOwnedRelationships(sym)
 	}
 	var out, body []*symbols.Symbol
+	memberships := m.OwnedMemberships(sym)
+	if defaultMultiplicityFirst(sym) && len(memberships) > 0 && isDefaultMultiplicityMembership(memberships[0]) {
+		// `individual` and its empty Multiplicity precede the prefix metadata and the
+		// head's clauses (SysML.xtext OccurrenceDefinitionPrefix, DefinitionExtensionKeyword).
+		out = append(out, memberships[0])
+		memberships = memberships[1:]
+	}
 	for _, ann := range m.OwnedAnnotations(sym) {
 		if isPrefixAnnotation(ann) {
 			out = append(out, ann)
@@ -306,7 +313,7 @@ func (m *Model) OwnedRelationships(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	out = append(out, m.ImplicitRelationships(sym)...)
 	body = append(body, m.OwnedImports(sym)...)
-	body = append(body, m.OwnedMemberships(sym)...)
+	body = append(body, memberships...)
 	body = append(body, m.AnnotatingRelationships(sym)...)
 	sort.SliceStable(body, func(i, j int) bool { return body[i].DeclSpan.Offset < body[j].DeclSpan.Offset })
 	return append(out, body...)
@@ -315,6 +322,10 @@ func (m *Model) OwnedRelationships(sym *symbols.Symbol) []*symbols.Symbol {
 // isPrefixAnnotation reports whether an owned Annotation is one a `#M` prefix
 // writes: its annotating element is the prefix's metadata feature, or — on a
 // recorded element, whose record keeps the prefix as a fact — no symbol at all.
+func isDefaultMultiplicityMembership(membership *symbols.Symbol) bool {
+	return membership.Implicit != nil && membership.Implicit.Member != nil && IsDefaultMultiplicity(membership.Implicit.Member)
+}
+
 func isPrefixAnnotation(ann *symbols.Symbol) bool {
 	return ann.Implicit.Member == nil || isPrefixMetadataSymbol(ann.Implicit.Member)
 }
