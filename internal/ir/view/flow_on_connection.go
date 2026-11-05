@@ -178,6 +178,29 @@ func (w *featureWalk) moveFlowNotes(flow flowSite, box *Node) {
 	}
 }
 
+// lineWaypoints counts, for each connection whose line the flows on it split, the waypoints
+// of its Route over every segment: the line is one routed edge, however the cut shares them out.
+func lineWaypoints(r *Rendering) map[Origin]int {
+	items := map[string]bool{}
+	var collect func(nodes []*Node)
+	collect = func(nodes []*Node) {
+		for _, node := range nodes {
+			if itemBox(node) {
+				items[node.ID] = true
+			}
+			collect(node.Children)
+		}
+	}
+	collect(r.Roots)
+	lines := map[Origin]int{}
+	for _, edge := range r.Edges {
+		if edge.Kind == EdgeConnection && (items[edge.From] || items[edge.To]) {
+			lines[edge.Origin] += len(edge.Route)
+		}
+	}
+	return lines
+}
+
 // segmentRoute is a piece of a split route less the cut points a box stands
 // on: the segment ends at the box, so such a cut adds no bend.
 func segmentRoute(piece []Point, headCut, tailCut bool) []Point {

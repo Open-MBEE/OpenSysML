@@ -95,7 +95,7 @@ type drawioWriter struct {
 	cells     map[string]bool       // the cell IDs written, the ends an edge may attach to
 	portBoxes map[string]drawioBox  // port cell ID -> its box in canvas coordinates
 	fqns      map[string]bool       // the qualified names written on cells so far
-	items     map[string]bool       // the item boxes the flows on a connection line are drawn as
+	items     map[string]bool       // the item boxes the flows on a connection line are drawn as, and the n-ary dots
 	names     map[string]drawioName // cell ID -> where its label shows the declared name
 	edgeIDs   map[[2]string]string  // edge ends -> its cell ID, the anchor an edge note joins
 	b         strings.Builder
@@ -436,7 +436,15 @@ func (w *drawioWriter) writeNode(node *Node, parent, parentFQN string) {
 	}
 	compartments := w.compartments(node)
 	header := w.headerHeight(node)
-	w.openObject(drawioObject{id: node.ID, label: strings.Join(w.headerLines(node), "\n"), fqn: fqn, kind: node.Kind, link: w.link(node.Origin), name: w.nodeName(node)})
+	label, name := strings.Join(w.headerLines(node), "\n"), w.nodeName(node)
+	if isDotKind(node.Kind) {
+		// §8.2.3.13's cdot-label: the name alone beside the dot, nothing for none.
+		label, name = "", drawioName{}
+		if before, head := w.labels.headName(node); head != "" {
+			label, name = before+head, drawioName{Offset: len(before), Len: len(head)}
+		}
+	}
+	w.openObject(drawioObject{id: node.ID, label: label, fqn: fqn, kind: node.Kind, link: w.link(node.Origin), name: name})
 	w.attr("style", w.nodeStyle(node, header, len(compartments) > 0))
 	w.b.WriteString(` vertex="1"`)
 	if collapsed(node) {
@@ -930,9 +938,9 @@ func (w *drawioWriter) edgeFQN(edge Edge) string {
 	return fqn
 }
 
-// collectItems notes the item boxes under node, the ends a split line's segments share.
+// collectItems notes the item boxes and n-ary dots under node: the ends segments share.
 func (w *drawioWriter) collectItems(node *Node) {
-	if itemBox(node) {
+	if itemBox(node) || isDotKind(node.Kind) {
 		w.items[node.ID] = true
 	}
 	for _, child := range node.Children {
@@ -940,10 +948,10 @@ func (w *drawioWriter) collectItems(node *Node) {
 	}
 }
 
-// segment reports whether edge is one segment of a connection line the flows on
-// it split: every segment names the connection, being one line.
+// segment reports whether edge is one segment of a connection line the flows on it
+// split, or of an n-ary dot: every segment names the relationship, being one drawing.
 func (w *drawioWriter) segment(edge Edge) bool {
-	return edge.Kind == EdgeConnection && (w.items[edge.From] || w.items[edge.To])
+	return w.items[edge.From] || w.items[edge.To]
 }
 
 // drawioEnds is a set of edge ends.

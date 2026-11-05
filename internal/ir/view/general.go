@@ -1336,8 +1336,16 @@ func (r *Renderer) exposedRelationships(view *symbols.Symbol, exposed []*symbols
 			out.Notices = append(out.Notices, fmt.Sprintf("%s %s is drawn between the nodes of its ends; the view does not show both, so no edge is drawn",
 				declKind(sym), r.notationName(sym)))
 		}
-		for _, edge := range edges {
-			edge.Route = r.routeOf(view, sym, out)
+		dot := g.nodes[symbols.KeyOf(sym)]
+		segments := dot != nil && isDotKind(dot.Kind)
+		for i, edge := range edges {
+			switch {
+			case !segments:
+				edge.Route = r.routeOf(view, sym, out)
+			case i == 0 && len(r.statedRouteOf(view, sym, out)) > 0:
+				out.Notices = append(out.Notices, fmt.Sprintf("%s %s states a route; its %d ends are drawn as a dot and segments, which the route does not steer",
+					declKind(sym), r.notationName(sym), len(edges)))
+			}
 			edge.Style = r.edgeDress(view, sym, edge.From, edge.To, out)
 			g.add(edge)
 		}

@@ -276,8 +276,14 @@ func (r *Renderer) memberNotesOf(view, owner *symbols.Symbol, name, anchor strin
 // routeOf is the waypoints the edge declared as elem follows in view, nil when
 // no Route annotation gives any, resolved as geometryOf resolves a Layout.
 func (r *Renderer) routeOf(view, elem *symbols.Symbol, out *Rendering) []Point {
-	out.drawn.note(elem, true)
 	out.drawn.noteSteered(elem)
+	return r.statedRouteOf(view, elem, out)
+}
+
+// statedRouteOf is routeOf for an element whose Route steers no edge, the n-ary dot and
+// its segments: a draw.io re-route of one is then refused, not written as a Route.
+func (r *Renderer) statedRouteOf(view, elem *symbols.Symbol, out *Rendering) []Point {
+	out.drawn.note(elem, true)
 	site, ok := r.model.RouteOf(view, elem)
 	if !ok {
 		return nil

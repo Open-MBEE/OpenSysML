@@ -35,6 +35,14 @@ func TestGoldenNaryDotsAndFlowsOnConnections(t *testing.T) {
 				if err != nil {
 					t.Fatalf("write %s: %v", form, err)
 				}
+				if form == FormDrawio {
+					// The draw.io golden names each cell's declaration, as the exports the importer reads do.
+					sited, options := renderWithSites(t, "nary.sysml", tc.view)
+					if machine, err = sited.WriteWith(form, options); err != nil {
+						t.Fatalf("write %s: %v", form, err)
+					}
+					checkDrawioDocument(t, machine)
+				}
 				checkGolden(t, filepath.Join("testdata", tc.name+"."+string(form)+".golden"), machine)
 			}
 		})
@@ -306,6 +314,30 @@ func TestNaryConnectionDefRouteIsNoticed(t *testing.T) {
 	want := "connection def Triad states a route; its 3 ends are drawn as a dot and segments, which the route does not steer"
 	if !slices.Contains(got.Notices, want) {
 		t.Errorf("notices = %q, want %q", got.Notices, want)
+	}
+}
+
+// A Route on a split line places the line's ends as any routed edge's, however the cut
+// shares its waypoints out: the first segment keeps a lone waypoint and its part is drawn.
+func TestRoutedSplitLinePlacesItsEnds(t *testing.T) {
+	got := render(t, "nary.sysml", "NaryViews::carLinksRouted")
+	tank, first := got.Roots[0].Children[0], -1
+	for i, edge := range got.Edges {
+		if edge.Kind == EdgeConnection && edge.From == tank.ID {
+			first = i
+		}
+	}
+	if first < 0 || len(got.Edges[first].Route) != 1 {
+		t.Fatalf("edges = %+v, want the first segment from tank with one waypoint", got.Edges)
+	}
+	drawio, err := got.Write(FormDrawio)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`fqn="Nary::Car::tank"`, `fqn="Nary::Car::engine"`, `<mxPoint x="150" y="80"/>`, `source="` + tank.ID + `:`} {
+		if !strings.Contains(drawio, want) {
+			t.Errorf("draw.io export lacks %s", want)
+		}
 	}
 }
 

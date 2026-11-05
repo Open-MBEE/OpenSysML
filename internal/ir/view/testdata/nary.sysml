@@ -98,4 +98,9 @@ package NaryViews {
 		expose NaryRules::rules;
 		render asTreeDiagram;
 	}
+	view carLinksRouted {
+		expose Nary::Car;
+		render asInterconnectionDiagram;
+		metadata Route about Nary::Car::fuelLine { points = (150, 80, 258, 247.5, 258, 121, 206, 121); }
+	}
 }
