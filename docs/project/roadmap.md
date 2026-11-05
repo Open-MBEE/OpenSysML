@@ -221,7 +221,7 @@ workflow `.github/workflows/pr.yml`. Its `changes` job decides the tier — *qui
 for a ready pull request or one labelled `ci:full` — and which of the client, editor and
 documentation jobs the diff touches; the Go suite runs sharded (`runtime`, `model export graph`
 and `rest migrate cli codegen` in the quick tier; `runtime`, `runtime-corpus`, `model`, `export`,
-`graph`, `codegen`, `rest`, `migrate` and `cli` in the full tier, #1440) with every corpus
+`export-corpus`, `export-settled`, `graph`, `codegen`, `rest`, `migrate` and `cli` in the full tier, #1440) with every corpus
 required — `OPENSYSML_REQUIRE_TRAINING_CORPUS`, `_PILOT_CORPORA`, `_SPEC_EXAMPLES`, `_PSSM_SUITE`,
 `_SYSML_V1TOV2`, `_FUML_SUITE`, `_PILOT_LIBRARY_XMI`, `_SMT`, `_WASM` and `_REFERENCE_FMUS` set to
 `1`, the LLM-benchmark and PDF toolchains required where their jobs run — beside the

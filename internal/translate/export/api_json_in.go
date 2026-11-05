@@ -61,6 +61,7 @@ func ReadAPIJSON(data []byte) (*rdf.Graph, error) {
 	if err := addAPIJSONLibraryReferences(graph, references); err != nil {
 		return nil, err
 	}
+	addReferencedLibraryStubs(graph, apiJSONCompletedReferenceIDs(plan.objects))
 	return withoutRootNamespace(graph), nil
 }
 

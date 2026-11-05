@@ -232,11 +232,46 @@ func (m *Model) ImpliedBaseFQNs(node ast.Node, kind source.Kind) []string {
 // ImpliedBaseFQNsForMetaclass returns standard-library bases implied by a
 // graph element's metaclass when its semantic symbol is unavailable.
 func (m *Model) ImpliedBaseFQNsForMetaclass(metaclass string, kind source.Kind) []string {
-	usageKind, ok := impliedUsageKinds[metaclass]
-	if !ok {
-		return nil
+	if metaclass == "ReferenceUsage" && kind != source.KindKerML {
+		// A reference usage has no kind base: it subsets only Base::things (SysML v2 §7.6.2).
+		return []string{baseUsageFQN}
 	}
-	return m.ImpliedBaseFQNs(&ast.Usage{Kind: usageKind}, kind)
+	if usageKind, ok := impliedUsageKinds[metaclass]; ok {
+		return m.ImpliedBaseFQNs(&ast.Usage{Kind: usageKind}, kind)
+	}
+	if definitionKind, ok := impliedDefinitionKinds[metaclass]; ok {
+		return m.ImpliedBaseFQNs(&ast.Definition{Kind: definitionKind}, kind)
+	}
+	return nil
+}
+
+// impliedDefinitionKinds maps the SysML definition metaclasses to the
+// declaration kind whose implied base implicitDefinitionBases records.
+var impliedDefinitionKinds = map[string]ast.DefinitionKind{
+	"ActionDefinition":           ast.DefAction,
+	"AllocationDefinition":       ast.DefAllocation,
+	"AnalysisCaseDefinition":     ast.DefAnalysisCase,
+	"AttributeDefinition":        ast.DefAttribute,
+	"CalculationDefinition":      ast.DefCalc,
+	"CaseDefinition":             ast.DefCase,
+	"ConcernDefinition":          ast.DefConcern,
+	"ConnectionDefinition":       ast.DefConnection,
+	"ConstraintDefinition":       ast.DefConstraint,
+	"EnumerationDefinition":      ast.DefEnumeration,
+	"FlowDefinition":             ast.DefFlow,
+	"InterfaceDefinition":        ast.DefInterface,
+	"ItemDefinition":             ast.DefItem,
+	"MetadataDefinition":         ast.DefMetadata,
+	"OccurrenceDefinition":       ast.DefOccurrence,
+	"PartDefinition":             ast.DefPart,
+	"PortDefinition":             ast.DefPort,
+	"RenderingDefinition":        ast.DefRendering,
+	"RequirementDefinition":      ast.DefRequirement,
+	"StateDefinition":            ast.DefState,
+	"UseCaseDefinition":          ast.DefUseCase,
+	"VerificationCaseDefinition": ast.DefVerificationCase,
+	"ViewDefinition":             ast.DefView,
+	"ViewpointDefinition":        ast.DefViewpoint,
 }
 
 var impliedUsageKinds = map[string]ast.UsageKind{
@@ -261,7 +296,6 @@ var impliedUsageKinds = map[string]ast.UsageKind{
 	"OccurrenceUsage":         ast.UsageOccurrence,
 	"PartUsage":               ast.UsagePart,
 	"PortUsage":               ast.UsagePort,
-	"ReferenceUsage":          ast.UsageAttribute,
 	"RenderingUsage":          ast.UsageRendering,
 	"RequirementUsage":        ast.UsageRequirement,
 	"StateUsage":              ast.UsageState,
