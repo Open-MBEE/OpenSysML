@@ -243,7 +243,7 @@ func TestIndividualOccurrenceDefinitionMultiplicity(t *testing.T) {
 func TestMultiplicityBaseFollowsTheOwner(t *testing.T) {
 	src := `package IOF {
     part def P;
-    individual part def I;
+    individual part def I { multiplicity m [2]; part x : P; }
     part a : P; part b : P;
     connection c connect e1 ::> a to e2 ::> b;
 }`
@@ -253,6 +253,15 @@ func TestMultiplicityBaseFollowsTheOwner(t *testing.T) {
 		asDefault := impliedMultiplicity(individual, individual.DeclSpan, symbols.ImpliedDefaultMultiplicity)
 		if fqn, ok := model.MultiplicityBaseFQN(asDefault); !ok || fqn != "Base::zeroOrOne" {
 			t.Errorf("MultiplicityBaseFQN(I's default-form multiplicity) = %q, %t; want Base::zeroOrOne", fqn, ok)
+		}
+		for _, name := range []string{"m", "x"} {
+			sym := relFixtureSymbol(t, fixture, name)
+			if sym.Kind != symbols.SymbolMultiplicity {
+				sym = model.MultiplicityMember(sym)
+			}
+			if fqn, ok := model.MultiplicityBaseFQN(sym); !ok || fqn != "Base::naturals" {
+				t.Errorf("MultiplicityBaseFQN(%s, in I's body) = %q, %t; want Base::naturals: it is not I's multiplicity", name, fqn, ok)
+			}
 		}
 		plain := relFixtureSymbol(t, fixture, "P")
 		if fqn, ok := model.MultiplicityBaseFQN(impliedMultiplicity(plain, plain.DeclSpan, symbols.ImpliedDefaultMultiplicity)); !ok || fqn != "Base::naturals" {
