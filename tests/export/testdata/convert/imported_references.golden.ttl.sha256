@@ -1,0 +1,41 @@
+sha256 69ac23e32e0b81b16c6788a239667ee965313971962744d793006bee42538b90 bytes 249781 lines 5486
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:OtherPkg
+    a sysml:Package ;
+    sysml:qualifiedName "OtherPkg" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "14"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
+    sysml:elementId "OtherPkg" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "OtherPkg" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:OtherPkg__BudgetLedger, elmt:OtherPkg__Tempo, elmt:OtherPkg__Inner, elmt:OtherPkg__spare ;
+    sysml:ownedMembership elmt:OtherPkg__BudgetLedger_om, elmt:OtherPkg__Tempo_om, elmt:OtherPkg__Inner_om, elmt:OtherPkg__spare_om ;
+    sysml:ownedRelationship elmt:OtherPkg__BudgetLedger_om, elmt:OtherPkg__Tempo_om, elmt:OtherPkg__Inner_om, elmt:OtherPkg__spare_om ;
+    sysx:sourceText "package OtherPkg {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedMember "[{\"@id\":\"OtherPkg__BudgetLedger\"},{\"@id\":\"OtherPkg__Tempo\"},{\"@id\":\"OtherPkg__Inner\"},{\"@id\":\"OtherPkg__spare\"}]" ;
+    json:ownedMembership "[{\"@id\":\"OtherPkg__BudgetLedger_om\"},{\"@id\":\"OtherPkg__Tempo_om\"},{\"@id\":\"OtherPkg__Inner_om\"},{\"@id\":\"OtherPkg__spare_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"OtherPkg__BudgetLedger_om\"},{\"@id\":\"OtherPkg__Tempo_om\"},{\"@id\":\"OtherPkg__Inner_om\"},{\"@id\":\"OtherPkg__spare_om\"}]" .
+
+elmt:OtherPkg__BudgetLedger
+    a sysml:ItemDefinition ;
+    sysml:qualifiedName "OtherPkg::BudgetLedger" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "27"^^xsd:integer ;
+    sysml:elementId "OtherPkg__BudgetLedger" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:OtherPkg ;
+    sysml:owner elmt:OtherPkg ;
