@@ -37,6 +37,8 @@ type Evaluator struct {
 	structureInherited           map[ElementKey]structureInheritedCacheEntry
 	structureEffective           map[ElementKey]structureValueCacheEntry
 	structureNamespace           map[ElementKey]structureValueCacheEntry
+	structureValueLists          map[structureValueListKey]structureInheritedCacheEntry
+	structureRedefined           map[ElementKey]structureElementsCacheEntry
 	structureQualifiedNameBases  map[ElementKey]structureQualifiedNameCacheEntry
 	qualifiedNameNamespaceCaches map[ElementKey]structureQualifiedNameNamespaceCache
 	structureOwnedFilters        map[structureOwnedFilterKey]structureMemoEntry
@@ -61,6 +63,8 @@ func New(res *resolve.Resolver, model *semantics.Model, options ...Options) *Eva
 		structureInherited:           make(map[ElementKey]structureInheritedCacheEntry),
 		structureEffective:           make(map[ElementKey]structureValueCacheEntry),
 		structureNamespace:           make(map[ElementKey]structureValueCacheEntry),
+		structureValueLists:          make(map[structureValueListKey]structureInheritedCacheEntry),
+		structureRedefined:           make(map[ElementKey]structureElementsCacheEntry),
 		structureQualifiedNameBases:  make(map[ElementKey]structureQualifiedNameCacheEntry),
 		qualifiedNameNamespaceCaches: make(map[ElementKey]structureQualifiedNameNamespaceCache),
 		structureOwnedFilters:        make(map[structureOwnedFilterKey]structureMemoEntry),

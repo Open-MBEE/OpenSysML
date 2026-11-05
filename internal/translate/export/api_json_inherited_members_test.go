@@ -132,3 +132,29 @@ func TestAPIJSONRedefinedFeaturesLeaveTheInheritedLists(t *testing.T) {
 		t.Errorf("Timed inherits %d features, want Plain's %d less the redefined Parts::Part::start", len(timed), len(plain))
 	}
 }
+
+// A base's memberships are the same whichever subtype asks first: in a diamond the walk
+// from X reaches C through A and skips it under B, and Y :> B must still inherit C's.
+func TestAPIJSONDiamondInheritanceReachesTheSharedBaseFromEverySubtype(t *testing.T) {
+	graph := duplicateGraph(t, `package Probe {
+		part def C { attribute c : ScalarValues::Real; }
+		part def A :> C;
+		part def B :> C;
+		part def X :> A, B;
+		part def Y :> B;
+	}`, IDQualifiedName)
+	document, err := WriteAPIJSON(graph)
+	if err != nil {
+		t.Fatal(err)
+	}
+	elements := booleansElements(t, document)
+	for _, id := range []string{"Probe__X", "Probe__Y", "Probe__B"} {
+		inherited := referenceIDs(t, elements[id], "inheritedMembership")
+		if !slices.Contains(inherited, "Probe__C__c_om") {
+			t.Errorf("%s.inheritedMembership = %v lacks C's c membership", id, inherited)
+		}
+		if n := slices.Index(inherited, "Probe__C__c_om"); n >= 0 && slices.Contains(inherited[n+1:], "Probe__C__c_om") {
+			t.Errorf("%s.inheritedMembership lists C's c membership twice", id)
+		}
+	}
+}
