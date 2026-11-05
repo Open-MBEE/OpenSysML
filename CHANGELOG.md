@@ -7,7 +7,15 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
 
 ## Unreleased
 
-## 0.12.1 — 2026-11-04
+## 0.12.1 — 2026-11-05
+
+### Changed
+
+- Classifying a due-order choice among executors whose bodies read and write through parts no longer rescans every statement of a move for each write of another that meets one of its reads: each move's statements are indexed once per draw, shared among alternatives with the same footprint, and the places two moves may name one value through are decided once per pair, without a slice or closure per test. Joining what a read or write stands on is a linear merge that copies only when a choice point is added, and a nested branch whose condition stands on the control it already runs under adds that control once. What a choice point touches and what every value stands on are unchanged; `explore` over such models is back to its 0.11.0 speed.
+
+- The due-order draw of an explored or interleaved run tests whether an object owns a feature (`Context.ownsFeature`, reached through `slotHolder` for every conflicting place pair of every pair of due executors) by iterating the object's features (`Context.objectFeatures`) instead of listing them anew on every call; `FeaturesOfObject` collects the same iterator, so its order and name shadowing are unchanged. On the ring model of #1952 the longer exploration (`-schedule explore:runs=6,depth=2000 -advance 40`) takes about a quarter less CPU time, and `tests/perf` gains `BenchmarkExploreDueOrder` over that path.
+
+- The Julia client (`client/julia/OpenSysML`) requires HTTP.jl 2 and JSON.jl 1 (`[compat] HTTP = "2"`, `JSON = "1"`; were `"1"` and `"0.21"`). Decoded JSON objects are now `JSON.Object{String,Any}` (an `AbstractDict` that keeps key order) rather than `Dict{String,Any}`; call deadlines are passed as HTTP.jl's `request_timeout`; and a connection failure surfaces the HTTP.jl 2 exception (`HTTP.ConnectError`, `HTTP.TimeoutError`) unwrapped the same way as before. Julia 1.10 remains the minimum.
 
 ### Fixed
 
@@ -26,6 +34,12 @@ release is described in [docs/project/releasing.md](docs/project/releasing.md).
 - An attribute that subsets another and states no value of its own now holds that feature's values, as many as its lower bound asks, as a part or item subsetter already did (KerML 1.1 §7.3.4.4): `attribute q = 4; attribute r [1] :> q;` reads `r = 4` and `attribute top [1] :> faces` over `faces [6] = (1..6)` reads `1`, where both read `<undetermined>`. A binding on the subsetter picks the value its other end holds; a value the subsetter's type does not admit is not drawn, and too few values is the multiplicity violation the read already reports.
 
 - A transition guard (`transition first s1 if v > 1.0 then s2`) that reads a feature carrying no value is no longer a runtime error that stops the state machine. The guard has no Boolean result, so it is not true and the transition is not enabled (SysML v2 §7.18.2): the machine rests in the source state and keeps running, and the guard is read again exactly where a false guard is, so a later write of the feature lets the transition fire at the next completion of the source state or matching trigger. The same holds for the guard of an entry transition and of a conditional succession in an action (`first a if v > 1.0 then b; else c;` takes the `else`). An evaluation that fails on its own terms, such as a division by zero or a non-Boolean result, is still an error.
+
+- A binding an outer part states for a connected port now displaces a connector end body's `default =` for it, whether the default evaluates or fails (`bind inner.k.dst.voltage = supply.src.voltage` gives `28` over an inner `attribute :>> voltage default = 12;` or `default = 1 / zero;`), and an anonymous interface's bindings through its own features (`interface : ThroughShared connect s.src to k.dst;` with `bind a.voltage = shared; bind shared = b.voltage;`) now reach the connected port as a named one's do, an indexed end (`bind b.voltage = readings#(index);`) selecting with the connector's own `index`.
+
+- The Julia client's release download (`ensure_binary`, `install_binary`, `resolve_latest_version` over `http(s)://` URLs) read the response status before the request had been sent and returned the HTTP response object instead of the body, so every download failed with `answered HTTP 0`; it now reads the status from the response head and returns the bounded body bytes, refusing non-2xx answers and bodies over the limit as before.
+
+- A binding on a nonunique attribute subsetter draws a value as many times as its other end and the subsetted feature both hold it: `target : Integer [2..3] nonunique :> pool` over `pool = (2, 1, 1)`, bound by `binding [2]` to `source = (1, 1)`, holds `(1, 1)` and the binding holds, where it held `(1, 2)` and the binding was violated. A unique subsetter still holds each value once, and no value is drawn more often than the subsetted feature holds it.
 
 ## 0.12.0 — 2026-11-03
 
