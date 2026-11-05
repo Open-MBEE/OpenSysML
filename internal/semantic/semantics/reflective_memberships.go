@@ -120,18 +120,6 @@ func (m *Model) withDefaultMultiplicity(sym *symbols.Symbol, memberships []*symb
 	return append(memberships, membership)
 }
 
-// insertMembership places membership at index at, renumbering the ordinals from there on.
-func insertMembership(memberships []*symbols.Symbol, membership *symbols.Symbol, at int) []*symbols.Symbol {
-	memberships = append(memberships, nil)
-	copy(memberships[at+1:], memberships[at:])
-	memberships[at] = membership
-	for i := at; i < len(memberships); i++ {
-		if memberships[i].Implicit != nil {
-			memberships[i].Implicit.Ordinal = i
-		}
-	}
-	return memberships
-}
 
 // withTransitionMemberships places the memberships of a transition's trigger accept and guard
 // among its scope's, in the source order the conversion writes them.
