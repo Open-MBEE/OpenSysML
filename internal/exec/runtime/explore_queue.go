@@ -83,8 +83,8 @@ const (
 // explorePrefix is one prefix on the queue: its position in plan order and, once run, the result,
 // held only until the run is folded or dropped so the queue keeps no context but the witnesses'.
 type explorePrefix struct {
-	// record is the run departed from, shared by its departures; the prefix is record up to
-	// departs, which takes its next alternative. The root prefix departs from no run.
+	// record is the run departed from, up to its last departure and shared by them, until the
+	// prefix's run starts; the prefix is record up to departs, which takes its next alternative.
 	record  []exploreSlot
 	departs int
 	// key places the prefix in plan order: its parent's key, then its rank among the
@@ -136,6 +136,7 @@ func (q *exploreQueue) work(stop context.Context, job int, fresh func(int) (*Con
 			continue
 		}
 		replay := &exploreRun{prefix: p.plan(), depth: q.budget.Depth}
+		p.record = nil
 		ctx.beginExploration(q.policy, replay)
 		outcome, runErr := run(ctx)
 		if runErr != nil {
@@ -246,8 +247,12 @@ func (q *exploreQueue) finish(p *explorePrefix, replay *exploreRun, outcome Outc
 	if err == nil {
 		children := replay.unexplored()
 		next := make([]*explorePrefix, len(children))
-		for i, departs := range children {
-			next[i] = &explorePrefix{record: replay.record, departs: departs, key: append(slices.Clone(p.key), i)}
+		if len(children) > 0 {
+			// The departures share the record up to the last of them, so the run's later choices and the context they hold go with the run.
+			shared := slices.Clone(replay.record[:children[len(children)-1]+1])
+			for i, departs := range children {
+				next[i] = &explorePrefix{record: shared, departs: departs, key: append(slices.Clone(p.key), i)}
+			}
 		}
 		q.insert(next)
 	}

@@ -351,65 +351,43 @@ func TestExploreWithKeepsNoContextButTheWitnesses(t *testing.T) {
 			if p.replay != nil || p.outcome.ctx != nil || p.outcome.Outputs != nil {
 				t.Errorf("run %d of %d on %d jobs is held by the queue after folding", i+1, x.Runs, jobs)
 			}
+			if p.record != nil {
+				t.Errorf("run %d of %d on %d jobs still holds the record it departed from", i+1, x.Runs, jobs)
+			}
 		}
 	}
 }
 
-// A caller that goes away ends the exploration with its error once the runs in flight are done.
-func TestExploreWithStopsWhenTheCallerGoesAway(t *testing.T) {
-	idx, path := parseIndex(t, threeWritersModel)
-	stop, cancel := context.WithCancel(context.Background())
-	var started atomic.Int64
-	run := actionRun(t, idx, path, "race")
-	x, err := ExploreWith(stop, mustPolicy(t, "explore"), 2, newExploreWorkers(idx).fresh, func(ctx *Context) (Outcome, error) {
-		if started.Add(1) == 1 {
-			cancel()
-		}
-		return run(ctx)
-	})
-	if !errors.Is(err, context.Canceled) || x != nil {
-		t.Fatalf("exploration %v, %v; want nil and the caller's cancellation", x, err)
+// The prefixes a run leaves share one copy of its record, cut at the last departure: the
+// run's later choices, and whatever context their choice points hold, go with the run.
+func TestExploreQueueSharesTheRecordUpToTheLastDeparture(t *testing.T) {
+	q := newExploreQueue(mustPolicy(t, "explore"), ExploreBudget{Runs: 8, Depth: 64}, 1)
+	root := q.next(context.Background())
+	if root == nil || root.plan() != nil {
+		t.Fatalf("root prefix %+v, want one departing from no run", root)
 	}
-}
-
-// A context fresh cannot build fails the exploration at the run that asked for it.
-func TestExploreWithFailsWhenFreshFails(t *testing.T) {
-	idx, path := parseIndex(t, threeWritersModel)
-	workers := newExploreWorkers(idx)
-	broken := errors.New("no context")
-	var built atomic.Int64
-	fresh := func(job int) (*Context, error) {
-		if built.Add(1) == 3 {
-			return nil, broken
-		}
-		return workers.fresh(job)
+	replay := &exploreRun{depth: q.budget.Depth, record: []exploreSlot{
+		{kind: slotPick, alternatives: 2},
+		{kind: slotPick, alternatives: 1},
+		{kind: slotPick, alternatives: 3, taken: 1},
+		{kind: slotPick, alternatives: 2, beyond: true},
+		{kind: slotPick, alternatives: 2, taken: 1},
+	}}
+	q.finish(root, replay, Outcome{}, nil)
+	next := q.order[1:]
+	if len(next) != 2 || next[0].departs != 0 || next[1].departs != 2 {
+		t.Fatalf("%d prefixes queued, want departures at choices 0 and 2", len(next))
 	}
-	x, err := ExploreWith(context.Background(), mustPolicy(t, "explore"), exploreJobs, fresh, actionRun(t, idx, path, "race"))
-	if !errors.Is(err, broken) || x != nil {
-		t.Fatalf("exploration %v, %v; want nil and fresh's error", x, err)
+	if len(next[0].record) != 3 {
+		t.Errorf("the departures hold %d of the run's %d choices, want up to the last departure", len(next[0].record), len(replay.record))
 	}
-}
-
-// A run that does not reach the choice points its prefix planned is a divergence, reported
-// at the run's position in plan order whatever job it ran on.
-func TestExploreWithReportsADivergedReplayAtItsRun(t *testing.T) {
-	idx, path := parseIndex(t, threeWritersModel)
-	run := actionRun(t, idx, path, "race")
-	var runs atomic.Int64
-	diverging := func(ctx *Context) (Outcome, error) {
-		if runs.Add(1) > 1 {
-			return Outcome{ctx: ctx}, nil
-		}
-		return run(ctx)
+	if &next[1].record[0] != &next[0].record[0] {
+		t.Errorf("the departures copy the record each, want one shared")
 	}
-	for _, jobs := range []int{1, exploreJobs} {
-		runs.Store(0)
-		x, err := ExploreWith(context.Background(), mustPolicy(t, "explore"), jobs, newExploreWorkers(idx).fresh, diverging)
-		if !errors.Is(err, ErrExplorationDiverged) || x != nil {
-			t.Fatalf("%d jobs: exploration %v, %v; want nil and a divergence", jobs, x, err)
-		}
-		if !strings.Contains(err.Error(), "run 2:") {
-			t.Fatalf("%d jobs: %v; want the divergence at run 2", jobs, err)
-		}
+	if &next[0].record[0] == &replay.record[0] {
+		t.Errorf("the departures hold the run's own record, want a copy")
+	}
+	if got := next[1].plan(); len(got) != 3 || got[2].taken != 2 || got[0].taken != 0 {
+		t.Errorf("plan of the departure at choice 2 = %+v, want the record up to it taking alternative 2", got)
 	}
 }
