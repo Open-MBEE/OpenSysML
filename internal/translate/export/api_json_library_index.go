@@ -3,6 +3,7 @@ package export
 import (
 	"maps"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
@@ -86,6 +87,62 @@ func addReferencedLibraryStubs(graph *rdf.Graph, completed map[string]bool) {
 		id, _ := rdf.SubjectID(subject)
 		addLibraryStub(graph, index, subject, id)
 	}
+}
+
+// apiJSONMembershipReferenceIDs are the ids the completed properties of the graph's own
+// elements reference, derived from the evaluator alone, without writing the element form.
+func apiJSONMembershipReferenceIDs(graph *rdf.Graph) (map[string]bool, error) {
+	wrapped, err := withRootNamespace(graph)
+	if err != nil {
+		return nil, err
+	}
+	index := newAPIJSONWriteIndex(wrapped)
+	writer := &apiJSONElementWriter{
+		graph:           wrapped,
+		evaluation:      newAPIJSONEvaluationWithIndex(index),
+		comparisonCache: &apiJSONTermCache{},
+		scratch:         &apiJSONWriteScratch{},
+	}
+	ids := map[string]bool{}
+	if writer.evaluation == nil || writer.evaluation.evaluator == nil || writer.evaluation.structure == nil || apiJSONExternalForm(wrapped, writer.scratch) {
+		return ids, nil
+	}
+	var collect func(value any)
+	collect = func(value any) {
+		switch value := value.(type) {
+		case apiJSONReference:
+			if value.ID != "" {
+				ids[value.ID] = true
+			}
+		case []any:
+			for _, item := range value {
+				collect(item)
+			}
+		}
+	}
+	for _, subject := range wrapped.SubjectsView() {
+		if LibraryReference(wrapped, subject) {
+			continue
+		}
+		metaclass := strings.TrimPrefix(wrapped.Type(subject), rdf.SysML)
+		semanticElement, ok := writer.evaluation.structure.element(subject)
+		if metaclass == "" || !ok {
+			continue
+		}
+		for _, property := range apiJSONCompletedPropertiesOf(metaclass) {
+			if property.defaultValue != nil || wrapped.HasProperty(subject, property.predicate) {
+				continue
+			}
+			value, supported := writer.evaluation.evaluator.PropertyReadOnlyUncached(semanticElement, property.class, property.name)
+			if !supported {
+				continue
+			}
+			if spelled, ok := writer.derivedJSONValue(value); ok {
+				collect(spelled)
+			}
+		}
+	}
+	return ids, nil
 }
 
 // addLibraryStub states what the Turtle form states about the library element or

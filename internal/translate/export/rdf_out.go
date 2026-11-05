@@ -957,12 +957,12 @@ func (e *encoder) inheritedLibraryNames() {
 // nameInheritedLibraryMembers is inheritedLibraryNames for a written graph, of
 // one document or a model's merged ones.
 func nameInheritedLibraryMembers(graph *rdf.Graph) {
-	// Completion skips library stubs, so one pass names every library element the lists reference.
-	objects, err := apiJSONElements(graph)
+	// The completed properties are evaluated, not written: their ids name every stub.
+	ids, err := apiJSONMembershipReferenceIDs(graph)
 	if err != nil {
 		return
 	}
-	addReferencedLibraryStubs(graph, apiJSONObjectCompletedReferenceIDs(objects))
+	addReferencedLibraryStubs(graph, ids)
 }
 
 // owningMembershipClaim, after an element's name, says what a claimed membership IRI stands for.
