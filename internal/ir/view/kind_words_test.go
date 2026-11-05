@@ -14,6 +14,13 @@ func TestKindWordsKeepQuotedNamesWhole(t *testing.T) {
 	if got, want := kindWords(kind), []string{"abstract", "#'Safety Level'", "#$::M::Tag", "part"}; !slices.Equal(got, want) {
 		t.Errorf("kindWords(%q) = %q, want %q", kind, got, want)
 	}
+	escaped := `#'Owner\'s Level' part`
+	if got, want := kindWords(escaped), []string{`#'Owner\'s Level'`, "part"}; !slices.Equal(got, want) {
+		t.Errorf("kindWords(%q) = %q, want %q", escaped, got, want)
+	}
+	if got := compartmentName(escaped); got != "parts" {
+		t.Errorf("compartmentName(%q) = %q, want parts", escaped, got)
+	}
 	if prefix, keyword := splitRowPrefix(kind); prefix != "abstract #'Safety Level' #$::M::Tag" || keyword != "part" {
 		t.Errorf("splitRowPrefix(%q) = %q, %q", kind, prefix, keyword)
 	}

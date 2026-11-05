@@ -126,12 +126,17 @@ func splitRowPrefix(kind string) (prefix, keyword string) {
 	return strings.Join(words[:n], " "), strings.Join(words[n:], " ")
 }
 
-// kindWords splits a kind at its spaces, a quoted name (`#'Safety Level'`) kept whole.
+// kindWords splits a kind at its spaces, a quoted name (`#'Safety Level'`) kept
+// whole, its backslash escapes (`'Owner\'s Level'`) read as the notation does.
 func kindWords(kind string) []string {
 	var words []string
-	start, quoted := -1, false
+	start, quoted, escaped := -1, false, false
 	for i, r := range kind {
 		switch {
+		case escaped:
+			escaped = false
+		case quoted && r == '\\':
+			escaped = true
 		case r == '\'':
 			quoted = !quoted
 			if start < 0 {
