@@ -160,6 +160,9 @@ type conformanceCase struct {
 	ExpectedResult        *expectedValue                  `json:"expected_result,omitempty"`
 	ExpectedFeatureValues map[string]expectedFeatureValue `json:"expected_feature_values,omitempty"`
 	ExpectedInstanceCount int                             `json:"expected_instance_count,omitempty"`
+	ExpectedReachPaths    []string                        `json:"expected_reach_paths,omitempty"`
+	ObjectPath            string                          `json:"object_path,omitempty"`
+	ExpectedPaths         []string                        `json:"expected_paths,omitempty"`
 	ExpectedOutputs       map[string]expectedValue        `json:"expected_outputs,omitempty"`
 	ExpectedStatesVisited []string                        `json:"expected_states_visited,omitempty"`
 	ExpectedFinalContext  map[string]expectedValue        `json:"expected_final_context,omitempty"`
@@ -416,6 +419,8 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 		runVerifyConstraintCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "VerifyRequirement":
 		runVerifyRequirementCase(t, srv, ctx, parseResp.ModelHash, tc)
+	case "InstancePaths":
+		runInstancePathsCase(t, srv, ctx, parseResp.ModelHash, tc)
 	default:
 		t.Fatalf("unknown rpc %q", tc.RPC)
 	}
@@ -936,6 +941,9 @@ func runInstantiateCase(t *testing.T, srv *grpc.Service, ctx context.Context, mo
 	}
 	if tc.ExpectedInstanceCount != 0 && len(resp.Instances) != tc.ExpectedInstanceCount {
 		t.Errorf("instances = %d, want %d", len(resp.Instances), tc.ExpectedInstanceCount)
+	}
+	if len(tc.ExpectedReachPaths) > 0 {
+		checkReachPaths(t, resp, tc.ExpectedReachPaths)
 	}
 }
 

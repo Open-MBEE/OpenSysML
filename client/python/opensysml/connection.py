@@ -48,6 +48,7 @@ from opensysml.capabilities import (
     CAPABILITY_ENGINES,
     CAPABILITY_EVALUATE_SUBJECT,
     CAPABILITY_FEATURE_VALUES,
+    CAPABILITY_INSTANCE_PATHS,
     CAPABILITY_FUNCTION_VALUES,
     CAPABILITY_IMPLICIT_PARAMETERS,
     CAPABILITY_BIG_INT_VALUES,
@@ -2416,7 +2417,46 @@ class Connection:
             raise ExecutionError(response.error, diagnostics=wrapped_diags)
         
         graph = {inst.id: inst for inst in response.instances}
-        return Instance(response.instance, graph)
+        return Instance(response.instance, graph, _connection=self, _model_hash=model_hash)
+
+    def instance_paths(self, instance, model_hash):
+        """List every root-relative usage path that reaches one object the
+        service holds for the model (the InstancePaths RPC): from each object
+        ``instantiate`` created, the features walked to reach it, aliases
+        through connector ends and reference usages included.
+
+        Args:
+            instance (int | str): the object by id, or by path: the qualified
+                name it was instantiated as (``Garage::car``), its id (``#2``),
+                or a path through feature values from either
+                (``Garage::car.wheels[2]``; indexes count from 1)
+            model_hash (str): Hash from ParseFile response
+
+        Returns:
+            list of InstancePath, in traversal order: the roots in id order
+            and, from each, depth-first over features in name order and the
+            values of a feature in their order
+
+        Raises:
+            SymbolNotFoundError: no object has the id or the name
+            ValueError: neither id nor path is given, or the path reaches no object
+            ModelNotFoundError: If the service no longer holds the model
+            MissingCapabilityError: If the service predates ``instance_paths``
+        """
+        from opensysml.instance import InstancePath
+
+        self._require_instance_paths()
+        if isinstance(instance, str):
+            obj = sysml_pb2.DocumentObject(path=instance)
+        else:
+            obj = sysml_pb2.DocumentObject(instance_id=int(instance))
+        req = sysml_pb2.InstancePathsRequest(model_hash=model_hash, object=obj)
+        with translate_rpc_errors():
+            response = self._stub.InstancePaths(req)
+        if response.error:
+            wrapped_diags = [Diagnostic(d) for d in response.diagnostics]
+            raise ExecutionError(response.error, diagnostics=wrapped_diags)
+        return [InstancePath(path) for path in response.paths]
     
     def execute_action(self, action_symbol_id, model_hash, inputs=None,
                        schedule=None, performer=None, advance=None, seed=None,
@@ -3791,6 +3831,14 @@ class Connection:
             self.server_info(),
             CAPABILITY_FEATURE_VALUES,
             upgrade_remedy(CAPABILITY_FEATURE_VALUES),
+        )
+
+    def _require_instance_paths(self):
+        """Refuse to list paths from a service without the InstancePaths RPC."""
+        require(
+            self.server_info(),
+            CAPABILITY_INSTANCE_PATHS,
+            upgrade_remedy(CAPABILITY_INSTANCE_PATHS),
         )
 
     def _instances_of(self, response):

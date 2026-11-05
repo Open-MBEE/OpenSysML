@@ -21,7 +21,7 @@ from opensysml.check import (
 )
 from opensysml.diagnostic import Diagnostic
 from opensysml.enumeration import EnumLiteral
-from opensysml.instance import Instance
+from opensysml.instance import Instance, InstancePath, PathStep
 from opensysml.typed import TypedObject
 from opensysml.typefacts import (
     AttributeFacts,
@@ -128,7 +128,7 @@ __all__ = [
     "CheckSearch",
     "CheckViolation",
     "CheckWitness",
-    "Connection", "Model", "Symbol", "Diagnostic", "EnumLiteral", "Instance",
+    "Connection", "Model", "Symbol", "Diagnostic", "EnumLiteral", "Instance", "InstancePath", "PathStep",
     "TypedObject", "TypeFacts", "Multiplicity", "Specialization", "SymbolFacts",
     "AttributeFacts",
     "ServerInfo",
