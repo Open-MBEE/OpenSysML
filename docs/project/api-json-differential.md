@@ -230,7 +230,7 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 99783 elements matched (18471 ours-only, 31542 pilot-only, 0 of them implied); properties: 1874277 present-equal, 42899 present-different, 434358 ours-missing, 76533 pilot-missing, 2124817 absent-both, 53621 indeterminate, 516 pilot-nondeterministic.
+**Scorecard:** 935 files; 99844 elements matched (18544 ours-only, 31481 pilot-only, 0 of them implied); properties: 1875518 present-equal, 42503 present-different, 434362 ours-missing, 76594 pilot-missing, 2125388 absent-both, 53666 indeterminate, 516 pilot-nondeterministic.
 
 The pilot's export failed on 59 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples, 4 test fixtures and, since pilot `2026-09`, the three `Metadata Examples/{Requirement,Risk,Verification}MetadataExample.sysml` whose enumeration-valued metadata bindings the pilot now evaluates into elements with no resource; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 59 failed files out and converted 30 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11735 (metaclass, property) rows carry a comparison; 112895 references compared through the unkeyed sentinel, 162741 of our `sysx:` annotations were left out, and 303/368 elements (ours/pilot) were dropped for ambiguous keys, 17040/32319 for having none.
 
@@ -239,10 +239,10 @@ The pilot's export failed on 59 files (`pilotFailed`: its own export throws on a
 | `examples/sysml-v2-training` | 100 | 8026 | 1130 | 2140 | 152959 | 2822 | 33902 | 5616 |
 | `examples/pilot-corpora/sysml-examples` | 99 | 28252 | 6149 | 7864 | 539991 | 12093 | 123551 | 20736 |
 | `examples/pilot-corpora/sysml-validation` | 56 | 10015 | 1881 | 2584 | 189531 | 5209 | 41866 | 7416 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 6405 | 1153 | 1836 | 111542 | 4118 | 24856 | 7399 |
-| `examples/spec-examples` | 511 | 7371 | 989 | 2359 | 124903 | 2260 | 29866 | 6097 |
-| `tests/testdata` | 40 | 1514 | 175 | 457 | 26663 | 706 | 6274 | 1143 |
-| `examples` | 56 | 30660 | 6072 | 12480 | 583778 | 12955 | 136428 | 23022 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 6443 | 1191 | 1798 | 112424 | 3815 | 24856 | 7437 |
+| `examples/spec-examples` | 511 | 7389 | 1006 | 2341 | 125177 | 2188 | 29870 | 6115 |
+| `tests/testdata` | 40 | 1518 | 193 | 453 | 26719 | 696 | 6274 | 1147 |
+| `examples` | 56 | 30661 | 6072 | 12479 | 583807 | 12944 | 136428 | 23023 |
 | `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 839 | 3 | 162 | 41 |
 | `docs/manual/examples` | 11 | 7487 | 922 | 1822 | 144071 | 2733 | 37453 | 5063 |
 
@@ -308,25 +308,22 @@ move: an enumerated value is a variant, and takes none.
 
 **Every multiplicity specializes `Base::naturals`, an `individual` definition's its own `Base::zeroOrOne`**
 (re-recorded with the implied specializations of KerML 8.3.3.1.9 `checkMultiplicitySpecialization` and
-SysML 8.3.9.3 `checkOccurrenceDefinitionMultiplicitySpecialization`): an `individual` occurrence, part,
-item, action or analysis-case definition is parsed with a nameless `Multiplicity` of its own, first among
-its owned relationships, before its prefix metadata (SysML 8.2.2.9.1 `OccurrenceDefinitionPrefix`; the bare
-`individual def` production writes its `EmptyMultiplicityMember` after the body, where the pilot — and this
-writer — keeps it first), so 60 more `Multiplicity` elements match (3047 → 3107) and the definitions'
-`multiplicity` rows move from ours-missing to present-equal (`OccurrenceDefinition` 36, `PartDefinition`
-14, `ItemDefinition` 6, `ActionDefinition` 3, `AnalysisCaseDefinition` 1), their `ownedMember`,
-`ownedMembership` and `ownedRelationship` rows with them (`OccurrenceDefinition.ownedMember` 11 → 46
-equal, 30 → 0 ours-missing). The same re-record reads a KerML `multiplicity m subsets n;` member's
-`subsets` as its declared general (`Type.ownedSpecialization` 2 → 33 equal, 31 → 0 different;
-`Class.ownedFeature` 38 → 67, `Structure.ownedFeature` 30 → 45 equal; 22 more `Specialization` and 30 more
-`FeatureMembership` elements match). The 60 new
-`Multiplicity` elements join the `type`, `feature`, `member` and `membership` rows (ours-missing 3047 →
-3107) the deferred write-time completion owns (rows 14–20 of § Launch-ready gaps): the pilot states for
-each the type `ScalarValues::Natural` it reaches through its implied general, which the structure-mode
-writer does not derive for any multiplicity yet. Not copied from the pilot, the clauses in hand: its
-`Base::exactlyOne` for a feature-owned and `Base::zeroOrOne` for every classifier-owned `Multiplicity`
-(`ImplicitGeneralizationMap`), which no clause requires — only an `individual` definition's takes
-`zeroOrOne`.
+SysML 8.3.9.3 `checkOccurrenceDefinitionMultiplicitySpecialization`): the bases themselves move no row — the
+implied Subsetting and the `ScalarValues::Natural` it reaches are the `type`, `feature`, `member` and
+`membership` rows of `Multiplicity` (ours-missing 3127, rows 14–20 of § Launch-ready gaps) the deferred
+write-time completion owns, and the empty `Multiplicity` an `individual` definition is parsed with is the
+one the entry above already matches (its `multiplicity` rows stay present-equal). What moves is the same
+re-record reading a KerML `multiplicity m subsets n;` member's `subsets` as its declared general: 22 more
+`Specialization` and 30 more `FeatureMembership` elements match (`Type.ownedSpecialization` 2 → 33 equal,
+31 → 0 different; `Class.ownedFeature` 38 → 67 and `Structure.ownedFeature` 30 → 45 equal;
+`Specialization.isImplied` 15 → 37), all in `kerml-examples`, `spec-examples` and `tests/testdata`. The
+newly matched elements bring their own comparisons: `Specialization.general` 2 → 8 equal with 15 more
+indeterminate (library targets the key does not reach) and one more ours-missing, `OwningMembership.
+memberElement` 5 more present-different (the memberships' members are stated by other keys), and the one
+`BooleanExpression.type` present-different becomes ours-missing. Not copied from the pilot, the clauses in
+hand: its `Base::exactlyOne` for a feature-owned and `Base::zeroOrOne` for every classifier-owned
+`Multiplicity` (`ImplicitGeneralizationMap`), which no clause requires — only an `individual`
+definition's takes `zeroOrOne`.
 
 **Defaulted parameters of an invocation** (re-recorded with the extension libraries at
 `DocumentQueries::WhereType(…, exact = false)` and `Differ`): the pilot's `InvocationExpression.parameter`
