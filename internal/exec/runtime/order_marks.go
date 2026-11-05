@@ -216,8 +216,8 @@ func touchesPlace(touched []lower.Place, p lower.Place) bool {
 	return false
 }
 
-// unionSerials is a sorted union without duplicates. It returns a itself when b
-// adds nothing to it and never writes into either argument.
+// unionSerials is the sorted union of two sorted slices without duplicates. It
+// returns a itself when b adds nothing to it and never writes into either argument.
 func unionSerials(a, b []int64) []int64 {
 	i, j := 0, 0
 	for i < len(a) && j < len(b) {
@@ -255,20 +255,34 @@ func unionSerials(a, b []int64) []int64 {
 // underControl runs what follows under the choice points the serials name — a
 // guard read standing on them, a branch drawn among alternatives — until
 // releaseControl of what it returns; every write made meanwhile stands on them too.
+// A choice point already in control — an inner branch whose condition stands on
+// the one it runs under — is not added again.
 func (ctx *Context) underControl(serials []int64) int {
 	n := len(ctx.controls)
-	ctx.controls = append(ctx.controls, serials...)
+	for _, s := range serials {
+		if !slices.Contains(ctx.controls, s) {
+			ctx.controls = append(ctx.controls, s)
+		}
+	}
 	return n
 }
 
 // releaseControl ends the control underControl returned n for.
 func (ctx *Context) releaseControl(n int) { ctx.controls = ctx.controls[:n] }
 
+// controlling is the choice points the move under way stands on by control,
+// sorted, as a slice of its own.
+func (ctx *Context) controlling() []int64 {
+	out := slices.Clone(ctx.controls)
+	slices.Sort(out)
+	return out
+}
+
 // standingOf is what a move with the footprint reads stands on: the control it
 // runs under and the marks of every place it reads, every mark where the
 // declarations do not decide the places and dynamicAll holds.
 func (ctx *Context) standingOf(fp lower.Footprint, dynamicAll bool) []int64 {
-	return ctx.readStanding(slices.Clone(ctx.controls), fp, dynamicAll, nil)
+	return ctx.readStanding(ctx.controlling(), fp, dynamicAll, nil)
 }
 
 // readStanding unions onto deps the marks of every place the footprint reads,
@@ -342,7 +356,7 @@ func (ctx *Context) writeMarks(places []lower.Place, by []int64) {
 // acceptMarks records the places an accept bound from a message: they stand on
 // what the message's payload stood on where it was sent, and on the control here.
 func (ctx *Context) acceptMarks(places []lower.Place, dependence []int64) {
-	ctx.writeMarks(places, unionSerials(slices.Clone(ctx.controls), dependence))
+	ctx.writeMarks(places, unionSerials(ctx.controlling(), dependence))
 }
 
 // liveChoices is the serials of the run's unresolved choice points.
