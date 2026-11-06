@@ -200,6 +200,10 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 			continue
 		}
 		parameter := m.expressionParameter(expr, symbols.ExpressionParameter, operand.Index)
+		if !operand.Argument {
+			// An operand's parameter is private; an argument list's stays public.
+			parameter.Visibility = ast.VisibilityPrivate
+		}
 		parts.params = append(parts.params, parameter)
 		parts.operands = append(parts.operands, &symbols.Symbol{
 			Kind:       symbols.SymbolExpression,

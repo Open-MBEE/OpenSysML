@@ -488,6 +488,7 @@ expr:Branches__Charge___404_pguard_pin0_om
     sysml:source expr:Branches__Charge___404_pguard ;
     sysml:target expr:Branches__Charge___404_pguard_pin0 ;
     sysml:relatedElement expr:Branches__Charge___404_pguard, expr:Branches__Charge___404_pguard_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Branches__Charge___404_pguard_pin0 ;
     sysml:ownedMemberParameter expr:Branches__Charge___404_pguard_pin0 ;
     json:relatedElement "[{\"@id\":\"Branches__Charge___404_pguard\"},{\"@id\":\"Branches__Charge___404_pguard_pin0\"}]" .
@@ -541,6 +542,7 @@ expr:Branches__Charge___404_pguard_pin1_om
     sysml:source expr:Branches__Charge___404_pguard ;
     sysml:target expr:Branches__Charge___404_pguard_pin1 ;
     sysml:relatedElement expr:Branches__Charge___404_pguard, expr:Branches__Charge___404_pguard_pin1 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Branches__Charge___404_pguard_pin1 ;
     sysml:ownedMemberParameter expr:Branches__Charge___404_pguard_pin1 ;
     json:relatedElement "[{\"@id\":\"Branches__Charge___404_pguard\"},{\"@id\":\"Branches__Charge___404_pguard_pin1\"}]" .
@@ -856,6 +858,7 @@ expr:Branches__Charge___405_pguard_pin0_om
     sysml:source expr:Branches__Charge___405_pguard ;
     sysml:target expr:Branches__Charge___405_pguard_pin0 ;
     sysml:relatedElement expr:Branches__Charge___405_pguard, expr:Branches__Charge___405_pguard_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Branches__Charge___405_pguard_pin0 ;
     sysml:ownedMemberParameter expr:Branches__Charge___405_pguard_pin0 ;
     json:relatedElement "[{\"@id\":\"Branches__Charge___405_pguard\"},{\"@id\":\"Branches__Charge___405_pguard_pin0\"}]" .
@@ -909,6 +912,7 @@ expr:Branches__Charge___405_pguard_pin1_om
     sysml:source expr:Branches__Charge___405_pguard ;
     sysml:target expr:Branches__Charge___405_pguard_pin1 ;
     sysml:relatedElement expr:Branches__Charge___405_pguard, expr:Branches__Charge___405_pguard_pin1 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Branches__Charge___405_pguard_pin1 ;
     sysml:ownedMemberParameter expr:Branches__Charge___405_pguard_pin1 ;
     json:relatedElement "[{\"@id\":\"Branches__Charge___405_pguard\"},{\"@id\":\"Branches__Charge___405_pguard_pin1\"}]" .
@@ -1328,6 +1332,7 @@ expr:Branches__Charge___409_pguard_pin0_om
     sysml:source expr:Branches__Charge___409_pguard ;
     sysml:target expr:Branches__Charge___409_pguard_pin0 ;
     sysml:relatedElement expr:Branches__Charge___409_pguard, expr:Branches__Charge___409_pguard_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Branches__Charge___409_pguard_pin0 ;
     sysml:ownedMemberParameter expr:Branches__Charge___409_pguard_pin0 ;
     json:relatedElement "[{\"@id\":\"Branches__Charge___409_pguard\"},{\"@id\":\"Branches__Charge___409_pguard_pin0\"}]" .
@@ -1381,6 +1386,7 @@ expr:Branches__Charge___409_pguard_pin1_om
     sysml:source expr:Branches__Charge___409_pguard ;
     sysml:target expr:Branches__Charge___409_pguard_pin1 ;
     sysml:relatedElement expr:Branches__Charge___409_pguard, expr:Branches__Charge___409_pguard_pin1 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Branches__Charge___409_pguard_pin1 ;
     sysml:ownedMemberParameter expr:Branches__Charge___409_pguard_pin1 ;
     json:relatedElement "[{\"@id\":\"Branches__Charge___409_pguard\"},{\"@id\":\"Branches__Charge___409_pguard_pin1\"}]" .
