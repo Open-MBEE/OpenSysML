@@ -1319,7 +1319,7 @@ func (ctx *Context) attachClassifierBehaviorWith(inst, self *Instance, decl clas
 
 	switch decl.behavior.Kind {
 	case lower.ExhibitedState:
-		exec, err := newStateExecutorForOccurrence(ctx, sym, inst, occurrence)
+		exec, err := newStateExecutorLowering(ctx, sym, ctx.exhibitedMachine(behavior), inst, occurrence)
 		if err != nil {
 			return nil, fmt.Errorf("exhibited state machine %s of %s: %w", decl.behavior.Name, SymbolText(inst.Type), err)
 		}
@@ -1336,10 +1336,12 @@ func (ctx *Context) attachClassifierBehaviorWith(inst, self *Instance, decl clas
 		behavior.State = exec
 	case lower.PerformedAction:
 		var graph *lower.ActionGraph
+		callee := behavior.callee()
 		if decl.behavior.StatesBody && decl.behavior.NamesBehavior {
 			graph = lower.ToActionNodeFlow(decl.member.Decl, DeclScope(decl.member), ctx.Resolver())
+			callee = sym
 		}
-		exec, err := newActionExecutorOfGraph(ctx, decl.member, sym, self, occurrence, graph)
+		exec, err := newActionExecutorOfGraph(ctx, decl.member, callee, self, occurrence, graph)
 		if err != nil {
 			return nil, fmt.Errorf("performed action %s of %s: %w", decl.behavior.Name, SymbolText(inst.Type), err)
 		}
@@ -1559,6 +1561,9 @@ func (ctx *Context) namedBehavior(sym *symbols.Symbol) *symbols.Symbol {
 	if ref := ctx.model.semantics.ReferencedFeature(sym); ref != nil {
 		return ref
 	}
+	if through := ctx.subsettedBehavior(sym); through != nil {
+		return through
+	}
 	if typ := ctx.extractType(sym); typ != nil {
 		return typ
 	}
@@ -1568,6 +1573,50 @@ func (ctx *Context) namedBehavior(sym *symbols.Symbol) *symbols.Symbol {
 		}
 	}
 	return nil
+}
+
+// subsettedBehavior is the one action or state usage of the model sym subsets, whose
+// performances sym's are (KerML 1.1 §7.3.4.3); nil for none, several, or a library one.
+func (ctx *Context) subsettedBehavior(sym *symbols.Symbol) *symbols.Symbol {
+	if sym == nil || !sym.Kind.IsFeature() {
+		return nil
+	}
+	sem := ctx.model.semantics
+	var found *symbols.Symbol
+	for _, sup := range sem.DirectSupertypes(sym) {
+		if sup.Kind.IsDefinition() || !(sup.Kind.IsAction() || sup.Kind == symbols.SymbolStateUsage) ||
+			ctx.libraryDeclared(sup) || slices.Contains(sem.RedefinedFeatures(sym), sup) {
+			continue
+		}
+		if found != nil {
+			return nil
+		}
+		found = sup
+	}
+	return found
+}
+
+// callee is the behavior the binding declaration names, through which its body is
+// performed: a usage whose members value the performance's parameters, else the body.
+func (b *ObjectBehavior) callee() *symbols.Symbol {
+	if len(b.bindings) > 1 {
+		return b.bindings[1]
+	}
+	return b.Symbol
+}
+
+// exhibitedMachine is the declaration an exhibited machine is lowered from: the nearest
+// binding that is a state usage stating content of its own, not a bare reference, else the body.
+func (ctx *Context) exhibitedMachine(b *ObjectBehavior) *symbols.Symbol {
+	for _, sym := range b.bindings {
+		if sym == b.Symbol {
+			break
+		}
+		if sym.Kind == symbols.SymbolStateUsage && ctx.model.semantics.ReferencedFeature(sym) == nil {
+			return sym
+		}
+	}
+	return b.Symbol
 }
 
 // classifierBehaviorArguments evaluates the arguments a behavior declaration binds,

@@ -65,6 +65,23 @@ func occurrenceHasRedefinedDefault(fv *FeatureValue, attr lower.Attribute, fallb
 	return declared != nil && fv.Feature.DefaultDecl != declared
 }
 
+// occurrenceSupplies reports whether the occurrence's slot fv holds what the performance
+// starts attr from: a value written, bound or declared there. A slot its declaration leaves
+// unvalued (a stand-in, an empty materialization) yields to a value attr declares.
+func (ctx *Context) occurrenceSupplies(attr lower.Attribute, fv *FeatureValue) bool {
+	value := fv.HeldValue()
+	if value.Kind == ValInvalid {
+		return false
+	}
+	if attr.Value == nil {
+		return true
+	}
+	if ctx.HoldsNoValue(value) {
+		return false
+	}
+	return fv.Written || fv.BindingDerived || fv.Feature == nil || fv.Feature.DefaultDecl != nil
+}
+
 // bodyCellState is the observable tracking state of one body cell.
 type bodyCellState struct {
 	cell         *bodyCell
