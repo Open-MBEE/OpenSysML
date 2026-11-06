@@ -156,6 +156,7 @@ test("a qualified miss searches for near names exactly once", async () => {
     childIds: [],
     attributes: [],
     specializations: [],
+    connectorEnds: [],
     withheldLibraryAttributes: 0,
   });
   await using connection = await fakeConnection([], (method, input) => {
