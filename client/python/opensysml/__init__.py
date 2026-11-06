@@ -31,6 +31,7 @@ from opensysml.typefacts import (
     TypeFacts,
 )
 from opensysml.capabilities import (
+    CAPABILITY_ELEMENT_PROPERTIES,
     CAPABILITY_RECORD_RUN,
     CAPABILITY_RUNS,
     CAPABILITY_SELF_CHECK,
@@ -77,6 +78,7 @@ from opensysml.runs import (
     SelfCheckResult,
 )
 from opensysml.query import QueryElement, QueryError
+from opensysml.element_properties import ElementIdentity, ElementProperties, ElementProperty
 from opensysml.sources import SourceDocument
 from opensysml.document import (
     DocumentEvent, DocumentQueryError, DocumentQueryResult, DocumentRow, DocumentState,
@@ -147,6 +149,7 @@ __all__ = [
     "Exploration", "Outcome", "ActionOutputs",
     "Bound", "EngineInfo", "Standing",
     "QueryElement", "QueryError",
+    "ElementIdentity", "ElementProperties", "ElementProperty", "CAPABILITY_ELEMENT_PROPERTIES",
     "SourceDocument",
     "DocumentEvent", "DocumentQueryError", "DocumentQueryResult", "DocumentRow",
     "DocumentState", "DocumentVerdict", "ElementRef", "INFINITY", "ObjectRef",

@@ -86,6 +86,8 @@ func (c *pkgClient) modelCall(method string) (pkgCall, bool) {
 		return c.getDiagnostics, true
 	case "Query":
 		return c.query, true
+	case "GetElementProperties":
+		return c.getElementProperties, true
 	case "ApplyEdits":
 		return c.applyEdits, true
 	}
@@ -989,6 +991,58 @@ func (c *pkgClient) query(ctx context.Context, request protoreflect.Message) (pr
 		})
 	}
 	return response, nil
+}
+
+func (c *pkgClient) getElementProperties(ctx context.Context, request protoreflect.Message) (proto.Message, error) {
+	req := &pb.GetElementPropertiesRequest{}
+	if err := retype(request, req); err != nil {
+		return nil, err
+	}
+	read, err := c.api.ElementProperties(ctx, c.model(req.ModelHash), req.ElementId, req.Properties...)
+	var failure *opensysml.FailureError
+	if errors.As(err, &failure) {
+		return &pb.GetElementPropertiesResponse{Error: failure.Message}, nil
+	}
+	if err != nil {
+		return nil, apiError(err)
+	}
+	response := &pb.GetElementPropertiesResponse{Element: elementRefToProto(read.Element)}
+	for _, property := range read.Properties {
+		converted := &pb.ElementProperty{
+			Name:          property.Name,
+			DefiningClass: property.DefiningClass,
+			Many:          property.Many,
+			Derived:       property.Derived,
+			Unsupported:   property.Unsupported,
+		}
+		for _, value := range property.Values {
+			converted.Values = append(converted.Values, propertyValueToProto(value))
+		}
+		response.Properties = append(response.Properties, converted)
+	}
+	return response, nil
+}
+
+func elementRefToProto(ref opensysml.ElementRef) *pb.ElementRef {
+	return &pb.ElementRef{Id: ref.ID, QualifiedName: ref.QualifiedName, Metaclass: ref.Metaclass}
+}
+
+func propertyValueToProto(value opensysml.PropertyValue) *pb.ElementPropertyValue {
+	switch {
+	case value.Element != nil:
+		return &pb.ElementPropertyValue{Value: &pb.ElementPropertyValue_Element{Element: elementRefToProto(*value.Element)}}
+	case value.String != nil:
+		return &pb.ElementPropertyValue{Value: &pb.ElementPropertyValue_StringValue{StringValue: *value.String}}
+	case value.Bool != nil:
+		return &pb.ElementPropertyValue{Value: &pb.ElementPropertyValue_BoolValue{BoolValue: *value.Bool}}
+	case value.Int != nil:
+		return &pb.ElementPropertyValue{Value: &pb.ElementPropertyValue_IntValue{IntValue: *value.Int}}
+	case value.Real != nil:
+		return &pb.ElementPropertyValue{Value: &pb.ElementPropertyValue_RealValue{RealValue: *value.Real}}
+	case value.Number != nil:
+		return &pb.ElementPropertyValue{Value: &pb.ElementPropertyValue_Number{Number: *value.Number}}
+	}
+	return &pb.ElementPropertyValue{}
 }
 
 func (c *pkgClient) runDocumentQuery(ctx context.Context, request protoreflect.Message) (proto.Message, error) {

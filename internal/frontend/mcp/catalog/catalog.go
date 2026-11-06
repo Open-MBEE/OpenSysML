@@ -146,6 +146,8 @@ var Tools = []Entry{
 		Summary: "Report the service version and the capabilities it serves."},
 	{Name: "symbol", Group: GroupRuntime, RPCs: []string{"GetSymbol"},
 		Summary: "Describe one element of a parsed model."},
+	{Name: "element_properties", Group: GroupRuntime, RPCs: []string{"GetElementProperties"},
+		Summary: "Read the metamodel properties of one element by their specification names."},
 	{Name: "validate_instance", Group: GroupRuntime, RPCs: []string{"ValidateInstance"},
 		Summary: "Validate an instantiated object against its definition, as sysml -validate=<object> does."},
 	{Name: "verify_constraint", Group: GroupRuntime, RPCs: []string{"VerifyConstraint"}, Flags: []string{"constraint"},
