@@ -198,6 +198,10 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 			continue
 		}
 		parameter := m.expressionParameter(expr, symbols.ExpressionParameter, operand.Index)
+		if !operand.Argument {
+			// An operand's parameter is private; an argument list's stays public.
+			parameter.Visibility = ast.VisibilityPrivate
+		}
 		parts.params = append(parts.params, parameter)
 		parts.operands = append(parts.operands, &symbols.Symbol{
 			Kind:       symbols.SymbolExpression,
@@ -313,7 +317,7 @@ func (m *Model) expressionOwnedElements(expr *symbols.Symbol) []*symbols.Symbol 
 // expressionOwnedParts are the elements expr owns, parameters first then the
 // result, as the conversion lists them.
 func (m *Model) expressionOwnedParts(expr *symbols.Symbol) []*symbols.Symbol {
-	if accept := m.acceptParts(expr); accept != nil {
+	if m.acceptParts(expr) != nil {
 		// A trigger's accept owns its payload and receiver; a parameter's value is its FeatureValue's.
 		return m.acceptParameters(expr)
 	}

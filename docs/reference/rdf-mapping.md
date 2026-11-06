@@ -1236,7 +1236,9 @@ The rules the tree follows:
 - **Operands are owned structurally.** Each operand has an input `sysml:Feature`
   with direction `in`, a `ParameterMembership` in the expression's
   `ownedFeatureMembership`, and a `FeatureValue` membership whose `value` is
-  the operand expression. `sysml:parameter`/`sysml:input` identify the
+  the operand expression. An operator's operand membership states
+  `sysml:visibility "private"`, an invocation's argument membership none (public),
+  as the pilot writes them. `sysml:parameter`/`sysml:input` identify the
   parameters, while the JSON annotation preserves their RDF order. An
   invocation also lists under `parameter` the invoked behavior's parameters no
   argument binds — `Time::DurationOf::clock` for `DurationOf(o)`, an `out`, a
