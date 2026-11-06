@@ -152,7 +152,7 @@ list setting, `disabledLints`, read from the same payloads and in the same three
 
 ```json
 { "disabledLints": ["undeclared-signal"] }
-{ "sysml": { "disabledLints": ["undeclared-signal", "port-type-mismatch"] } }
+{ "sysml": { "disabledLints": ["undeclared-signal", "deferred-keeper-unmarked"] } }
 { "sysml.disabledLints": [] }
 ```
 

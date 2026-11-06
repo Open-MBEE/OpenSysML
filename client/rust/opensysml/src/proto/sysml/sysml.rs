@@ -1145,7 +1145,7 @@ pub struct DiagnosticsRequest {
     #[prost(string, tag="1")]
     pub model_hash: ::prost::alloc::string::String,
     /// Lints left out of the diagnostics, by code (`sysml -disable-lint`): one of
-    /// undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or
+    /// undeclared-signal, deferred-keeper-unmarked or
     /// rounded-real-literal. A code naming no lint is INVALID_ARGUMENT.
     #[prost(string, repeated, tag="2")]
     pub disable_lint: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
