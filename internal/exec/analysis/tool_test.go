@@ -46,7 +46,7 @@ func TestManifestReadsOneEntryPerJSONFile(t *testing.T) {
 	if e := entries[1]; e.Version != "2024.1" || e.Executable != "/opt/mc/bin/mc" || len(e.Variables) != 2 || e.File != filepath.Join(dir, "modelcenter.json") {
 		t.Errorf("ModelCenter %+v, want its fields as written", e)
 	}
-	if e := entries[0]; e.Executable != filepath.Join(dir, "bin", "local") {
+	if e := entries[0]; e.Executable != filepath.Join(linksFollowed(t, dir), "bin", "local") {
 		t.Errorf("Local's executable %s, want it resolved against the entry's directory", e.Executable)
 	}
 	if e := entries[2]; e.Executable != "octave" {

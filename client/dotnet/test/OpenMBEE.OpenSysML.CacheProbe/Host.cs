@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -57,8 +58,11 @@ internal static class Host
                 case ["crash", var directory, var step, var payload, var version, var repo]:
                     await Direct.CrashAsync(directory, step, payload, version, repo);
                     return 0;
+                case ["latest", var api, var repo, var idleMilliseconds, var requests]:
+                    await Direct.LatestAsync(api, repo, int.Parse(idleMilliseconds, CultureInfo.InvariantCulture), int.Parse(requests, CultureInfo.InvariantCulture));
+                    return 0;
                 default:
-                    Console.Error.WriteLine("usage: OpenMBEE.OpenSysML.CacheProbe hold|try <cache-dir> | hold-shared|try-shared <lock-file> | hold-and-start <cache-dir> | sleep | copies <cache-dir> | crash <cache-dir> <step> <payload-file> <version> <repo>");
+                    Console.Error.WriteLine("usage: OpenMBEE.OpenSysML.CacheProbe hold|try <cache-dir> | hold-shared|try-shared <lock-file> | hold-and-start <cache-dir> | sleep | copies <cache-dir> | crash <cache-dir> <step> <payload-file> <version> <repo> | latest <api> <repo> <idle-ms> <requests>");
                     return 2;
             }
         }
@@ -153,6 +157,39 @@ internal static class Host
     /// <summary>The modes that use the client in the default context, kept apart from <see cref="Copies"/>.</summary>
     private static class Direct
     {
+        internal static async Task LatestAsync(string api, string repo, int idleMilliseconds, int requests)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(idleMilliseconds);
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(requests);
+            var source = new ReleaseSource
+            {
+                Api = new Uri(api),
+                Downloads = new Uri(api),
+                LoopbackHttp = true,
+                IdleTimeout = TimeSpan.FromMilliseconds(idleMilliseconds),
+            };
+            using var downloader = new BinaryDownloader(source, NullLogger.Instance);
+            for (var index = 0; index < requests; index++)
+            {
+                using var backstop = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                if (index > 0 && await Console.In.ReadLineAsync(backstop.Token) is null)
+                {
+                    throw new InvalidOperationException("Input ended before the next release request was released.");
+                }
+
+                var clock = Stopwatch.StartNew();
+                try
+                {
+                    var tag = await downloader.LatestAsync(repo, backstop.Token);
+                    Emit("latest", ("tag", tag), ("elapsedTicks", clock.Elapsed.Ticks));
+                }
+                catch (ServiceStartException error)
+                {
+                    Emit("failed", ("type", error.GetType().ToString()), ("cause", error.InnerException?.GetType().ToString() ?? "none"), ("message", error.Message), ("elapsedTicks", clock.Elapsed.Ticks));
+                }
+            }
+        }
+
         internal static async Task HoldAsync(string directory)
         {
             var held = await CacheLock.AcquireAsync(new CacheLayout(directory), CacheLock.DefaultWait, NullLogger.Instance, CancellationToken.None);

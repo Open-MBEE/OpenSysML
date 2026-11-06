@@ -57,6 +57,10 @@ internal static class CompleteExecutionWire
         Alternatives = { "a", "b" },
         Taken = "b",
         Text = "send Switch to #3",
+        Token = long.MaxValue,
+        Step = 3,
+        Feature = "this.level",
+        Value = new Wire.Value { IntValue = 2 },
     };
 
     /// <summary>An action's assign record, every fact an action run adds set: the token, the step, the feature written and its value.</summary>

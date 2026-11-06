@@ -59,9 +59,9 @@ fn unlock(file: &File) -> io::Result<()> {
 #[cfg(windows)]
 fn lock(file: &File, wait: bool) -> io::Result<bool> {
     if wait {
-        return fs4::fs_std::FileExt::lock(file).map(|()| true);
+        return fs4::FileExt::lock(file).map(|()| true);
     }
-    match fs4::fs_std::FileExt::try_lock(file) {
+    match fs4::FileExt::try_lock(file) {
         Ok(()) => Ok(true),
         Err(fs4::TryLockError::WouldBlock) => Ok(false),
         Err(fs4::TryLockError::Error(error)) => Err(error),
@@ -70,7 +70,7 @@ fn lock(file: &File, wait: bool) -> io::Result<bool> {
 
 #[cfg(windows)]
 fn unlock(file: &File) -> io::Result<()> {
-    fs4::fs_std::FileExt::unlock(file)
+    fs4::FileExt::unlock(file)
 }
 
 fn say(word: &str) -> io::Result<()> {

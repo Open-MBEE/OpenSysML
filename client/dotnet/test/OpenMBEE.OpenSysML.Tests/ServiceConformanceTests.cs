@@ -110,7 +110,7 @@ public sealed class ServiceConformanceTests(ServiceFixture services) : IClassFix
         var (exit, output, errors) = await RunAsync(Options() with { Transport = "grpc", Protocols = ["grpc"] });
 
         Assert.True(exit == 0, errors + output);
-        Assert.Contains("[grpc] 196 scenarios: ", output, StringComparison.Ordinal);
+        Assert.Contains($"[grpc] {ScenarioSuite.Load(Path.Combine(Suite, "scenarios")).Count} scenarios: ", output, StringComparison.Ordinal);
         Assert.DoesNotContain("[connect]", output, StringComparison.Ordinal);
     }
 

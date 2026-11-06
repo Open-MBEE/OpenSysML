@@ -198,6 +198,11 @@ func (e *Encoding) DecodePair(result *solve.Result, out Output) (*Diverging, err
 	if d.Values[0] == d.Values[1] {
 		return nil, &WitnessError{Var: out.Var.Name, Reason: fmt.Sprintf("both copies end with %s", d.Values[0])}
 	}
+	// Which copy the solver gives which value is arbitrary; order them as the check engine does.
+	if d.Values[1] < d.Values[0] {
+		d.Runs[0], d.Runs[1] = d.Runs[1], d.Runs[0]
+		d.Values[0], d.Values[1] = d.Values[1], d.Values[0]
+	}
 	return d, nil
 }
 

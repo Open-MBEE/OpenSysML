@@ -238,6 +238,7 @@ public sealed class ModelExecutionTests
         var exploredEvents = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ExploreActionAsync("A", options: new RunOptions { PerformerSymbolId = "P::p", Events = ["Go"] }, cancellationToken: token));
         var noPerformer = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ExecuteActionAsync("A", options: new RunOptions { Events = ["Go"] }, cancellationToken: token));
         var stateEvents = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ExecuteStateAsync("S", options: new RunOptions { Events = ["Go"] }, cancellationToken: token));
+        var stateEventsWithArgument = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ExecuteStateAsync("S", ["Go"], new RunOptions { Events = ["Go"] }, token));
         var exploredStateEvents = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ExploreStateAsync("S", options: new RunOptions { Events = ["Go"] }, cancellationToken: token));
         var exploredTrace = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ExploreStateAsync("S", options: new RunOptions { Trace = true }, cancellationToken: token));
         var unset = await Assert.ThrowsAsync<InvalidRequestException>(() =>
@@ -259,6 +260,7 @@ public sealed class ModelExecutionTests
         Assert.Contains("exploration", exploredEvents.Message, StringComparison.Ordinal);
         Assert.Contains(nameof(RunOptions.PerformerSymbolId), noPerformer.Message, StringComparison.Ordinal);
         Assert.Contains("events argument", stateEvents.Message, StringComparison.Ordinal);
+        Assert.Contains("events argument", stateEventsWithArgument.Message, StringComparison.Ordinal);
         Assert.Contains("events argument", exploredStateEvents.Message, StringComparison.Ordinal);
         Assert.Contains("exploration", exploredTrace.Message, StringComparison.Ordinal);
         Assert.Contains("inputs[\"x\"]", unset.Message, StringComparison.Ordinal);
@@ -266,6 +268,7 @@ public sealed class ModelExecutionTests
         Assert.True(new RunOptions { Schedule = "explore:depth=2" }.Explores);
         Assert.False(new RunOptions { Schedule = "explorer" }.Explores);
         Assert.False(RunOptions.Default.Explores);
+        Assert.Null(RunOptions.Default.Events);
     }
 
     [Theory]
@@ -280,6 +283,12 @@ public sealed class ModelExecutionTests
                 "run-as-exploration" => CompleteExecutionWire.ActionExploration,
                 "exploration-without-status" => new Wire.ExecuteActionResponse { Outcomes = { CompleteExecutionWire.Outcome } },
                 "exploration-with-a-run" => new Wire.ExecuteActionResponse { Exploration = CompleteExecutionWire.Status, Outputs = { ["x"] = new Wire.Value { IntValue = 1 } } },
+                "exploration-with-dropped-trace" => new Wire.ExecuteActionResponse { Exploration = CompleteExecutionWire.Status, TraceDropped = 1 },
+                "bad-trace" or "failed-bad-trace" => new Wire.ExecuteActionResponse
+                {
+                    Error = request.ActionSymbolId == "failed-bad-trace" ? "failed" : string.Empty,
+                    Trace = { badTrace.Trace },
+                },
                 "exploration-with-a-trace" => new Wire.ExecuteActionResponse { Exploration = CompleteExecutionWire.Status, Trace = { CompleteExecutionWire.Assign } },
                 "bad-assigned-value" => new Wire.ExecuteActionResponse { Trace = { new Wire.DocumentEvent { Kind = "assign", Value = new Wire.Value { BigIntValue = "007" } } } },
                 _ => badOutput,
@@ -309,6 +318,14 @@ public sealed class ModelExecutionTests
         Assert.Contains("trace", withTrace.Message, StringComparison.Ordinal);
         Assert.Contains("outputs[\"n\"]", output.Message, StringComparison.Ordinal);
         Assert.Contains("trace[0].time", time.Message, StringComparison.Ordinal);
+        foreach (var id in new[] { "bad-trace", "failed-bad-trace" })
+        {
+            var malformed = await Assert.ThrowsAsync<TransportException>(() => model.ExecuteActionAsync(id, cancellationToken: token));
+            Assert.Contains("trace[0].time", malformed.Message, StringComparison.Ordinal);
+        }
+
+        var droppedTrace = await Assert.ThrowsAsync<TransportException>(() => model.ExploreActionAsync("exploration-with-dropped-trace", cancellationToken: token));
+        Assert.Contains("trace", droppedTrace.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -324,10 +341,29 @@ public sealed class ModelExecutionTests
 
         Assert.Single(action.Outputs);
         Assert.Empty(action.Trace);
+        Assert.Equal(0, action.TraceDropped);
         Assert.Single(state.FinalContext);
         Assert.Empty(state.Trace);
         Assert.Throws<ArgumentException>(() => new Outcome([KeyValuePair.Create("x", (Value)null!)], string.Empty, [], string.Empty, 0, [], [], 0, null));
         Assert.Throws<ArgumentException>(() => new Exploration([null!], true, 0, [], 0, 0, false, 0, [], Standing.None));
+    }
+
+    [Theory]
+    [MemberData(nameof(Wires))]
+    public async Task StateEventsUseTheExistingArgumentWithDefaultOrEmptyOptions(ClientWire wire)
+    {
+        using var handler = Serving(wire).On("ExecuteState", Wire.ExecuteStateRequest.Parser, _ => new Wire.ExecuteStateResponse());
+        await using var connection = await FakeConnection.OpenAsync(handler);
+        var model = connection.ModelByHash(Hash);
+        var token = TestContext.Current.CancellationToken;
+
+        await model.ExecuteStateAsync("S", ["go"], cancellationToken: token);
+        await model.ExecuteStateAsync("S", ["go"], new RunOptions { Events = [] }, token);
+
+        var sent = handler.RequestsFor("ExecuteState").Select(request => request.Message(Wire.ExecuteStateRequest.Parser)).ToList();
+        Assert.Equal(2, sent.Count);
+        Assert.Equal(sent[0], sent[1]);
+        Assert.Equal(["go"], sent[1].Events);
     }
 
     private static FakeServiceHandler Serving(ClientWire wire) => new(wire) { Capabilities = FakeModels.ModelCapabilities };

@@ -3,7 +3,8 @@
     An application the cache tests run as a process of its own: it holds or tries the shared cache's
     lock through the client, checks the cross-client lock with its own system calls, loads two copies
     of the client into collectible load contexts and has them contend, or runs a cache transaction and
-    waits at a chosen step to be killed. See Program.cs for its modes.
+    waits at a chosen step to be killed, or measures release HTTP timing without sharing the test
+    runner's thread pool. See Program.cs for its modes.
   -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>

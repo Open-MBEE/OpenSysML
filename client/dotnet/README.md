@@ -1428,6 +1428,9 @@ Unit tests drive every way a private service starts and stops against
 under the binary's name, into a directory of their own with a script beside it: it reports,
 misreports or withholds an address, exits, lingers or floods its output as the script says.
 It serves nothing; the in-process fake HTTP handler answers the connection.
+Marker files are published atomically to prevent partial reads on Windows, including after restarts.
+
+The deadline-only test times the target RPC, not connection setup. Cancellation-precedence checks pass already-cancelled tokens to transport error mapping rather than relying on timer ordering.
 
 Two probes, which the solution also builds, prove what only a process of its own can show,
 and the tests run them against the real binary. [`test/OpenMBEE.OpenSysML.OrphanProbe`](test/OpenMBEE.OpenSysML.OrphanProbe/)
@@ -1485,6 +1488,7 @@ identity, over a changed manifest, and unsigned, and every one must be refused a
 without its signature being fetched: this client verifies pins alone, so no signature passes as
 verified. The real binary is published there too, under a pin of its digest, and a private
 service must start from its download, over each protocol, and a second open must fetch nothing.
+The release fixture uses dedicated workers. Timing-sensitive header tests run the real downloader in the cache probe's separate process, preserving timeout bounds, redirect checks and connection-reuse assertions.
 
 CI runs the whole suite on Linux against the service its build job makes, then both
 conformance targets, and, in the full tier, natively on macOS and Windows against a

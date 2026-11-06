@@ -82,6 +82,27 @@ public sealed class ServiceExecutionTests(ServiceFixture services) : IClassFixtu
 
     [Theory]
     [MemberData(nameof(Wires))]
+    public async Task ActionTracesAreReturnedOnSuccessAndKeptOnFailure(ClientWire wire)
+    {
+        await using var connection = await OpenAsync(wire);
+        var timed = await LoadAsync(connection, "timed.sysml");
+
+        var completed = await timed.ExecuteActionAsync("Timed::delayed", options: new RunOptions { Trace = true }, cancellationToken: Token);
+        var failed = await Assert.ThrowsAsync<ExecutionException>(() =>
+            timed.ExecuteActionAsync("Timed::delayed", options: new RunOptions { Trace = true, Advance = 2 }, cancellationToken: Token));
+        var plain = await timed.ExecuteActionAsync("Timed::delayed", cancellationToken: Token);
+
+        Assert.NotEmpty(completed.Trace);
+        Assert.NotEmpty(failed.Trace);
+        Assert.Equal(2.0, failed.FinalTime);
+        Assert.Equal(Model.ExecuteActionMethod, failed.Method);
+        Assert.Empty(plain.Trace);
+        Assert.Equal(0, plain.TraceDropped);
+        Assert.Equal(plain.Outputs, completed.Outputs);
+    }
+
+    [Theory]
+    [MemberData(nameof(Wires))]
     public async Task AnExplorationReachesEveryOrderOrSaysWhichBudgetCutItShort(ClientWire wire)
     {
         await using var connection = await OpenAsync(wire);
