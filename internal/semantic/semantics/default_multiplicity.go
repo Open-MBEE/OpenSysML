@@ -9,10 +9,28 @@ import (
 // ImplicitlyDeclaresOne) is stated by a Multiplicity it owns: a usage that declares
 // no multiplicity of its own, as the pilot's UsageParserPostProcessor adds one.
 func (m *Model) ImpliesDefaultMultiplicity(sym *symbols.Symbol) bool {
-	if m == nil || sym == nil || sym.Implicit != nil || sym.Chain != nil || sym.Expr != nil {
+	if m == nil || sym == nil || sym.Implicit != nil || sym.Chain != nil || sym.Expr != nil || m.isKerMLDoc(sym) {
 		return false
 	}
-	if !sym.DeclaresUsage() || m.isKerMLDoc(sym) || m.bodyDeclaredBy(sym) != nil {
+	if IsIndividualDefinition(sym) {
+		// An `individual` definition's prefix owns an empty Multiplicity (SysML.xtext
+		// OccurrenceDefinitionPrefix, EmptyMultiplicityMember), first among its relationships.
+		return !m.declaresMultiplicity(sym)
+	}
+	if sym.Kind == symbols.SymbolConnectorEnd {
+		// Every connector end without a written range is held to [1..1], positional
+		// (`connect x to y`) or named (SysML v2 §7.13.2); a flow's ends (FlowEnd) take none.
+		if end, ok := sym.Decl.(*ast.ConnectorEnd); ok && end.Multiplicity != nil {
+			return false
+		}
+		if owner := sym.OwnerScope.OwningElement(); owner != nil {
+			if usage, ok := owner.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageFlow {
+				return false
+			}
+		}
+		return !m.declaresMultiplicity(sym)
+	}
+	if !sym.DeclaresUsage() || m.bodyDeclaredBy(sym) != nil {
 		// What an expression body's scope holds, its parameters first, takes no default.
 		return false
 	}
@@ -128,4 +146,23 @@ func (m *Model) MultiplicityMember(sym *symbols.Symbol) *symbols.Symbol {
 func IsImpliedMultiplicity(sym *symbols.Symbol) bool {
 	decl, ok := symbols.ImpliedDeclOf(sym)
 	return ok && (decl.Form == symbols.ImpliedDefaultMultiplicity || decl.Form == symbols.ImpliedMultiplicityRange)
+}
+
+// IsIndividualDefinition reports whether sym is a definition declared `individual`
+// (an OccurrenceDefinition with isIndividual, SysML v2 §7.9.2).
+func IsIndividualDefinition(sym *symbols.Symbol) bool {
+	if sym == nil || !sym.DeclaresDefinition() {
+		return false
+	}
+	if sym.Recorded() {
+		return sym.Facts.Modifiers.Has(symbols.ModIndividual)
+	}
+	d, ok := sym.Decl.(*ast.Definition)
+	return ok && d.IsIndividual
+}
+
+// defaultMultiplicityFirst reports whether sym's default Multiplicity is owned first
+// (an `individual` definition's prefix) rather than last.
+func defaultMultiplicityFirst(sym *symbols.Symbol) bool {
+	return IsIndividualDefinition(sym)
 }

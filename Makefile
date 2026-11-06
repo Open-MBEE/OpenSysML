@@ -1,4 +1,4 @@
-.PHONY: all build docker vulncheck sca-tools audit audit-npm audit-python audit-rust audit-java extension-libraries-check extension-libraries-sync extension-libraries-pin-check textmate-grammars-check textmate-grammars-publish build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render self-model mcp-registry-check
+.PHONY: all build docker vulncheck sca-tools audit audit-npm audit-python audit-rust audit-java extension-libraries-check extension-libraries-sync extension-libraries-pin-check textmate-grammars-check textmate-grammars-publish build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render spec-compliance-check spec-compliance-render self-model mcp-registry-check
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -90,9 +90,15 @@ TOOLS_DIR := tools
 COVERAGE_PACKAGES ?= ./...
 COVERAGE_TOOLS ?= ./...
 COVERAGE_PROFILE ?= coverage.txt
-# The coverage job's nodes: the race shards except runtime-corpus, since without -race
-# internal/exec/runtime runs whole in about 19 minutes under -coverpkg (see .circleci/config.yml).
-COVERAGE_SHARDS := runtime model export graph codegen tools rest migrate cli
+# The coverage-shard being written, which selects COVERAGE_SELECT_<shard>; empty for make coverage.
+COVERAGE_SHARD ?=
+# The coverage job's nodes: the race shards but runtime-corpus, since without -race internal/exec/runtime
+# runs whole in about 19 minutes under -coverpkg; tests/export whole overran 30 (see .circleci/config.yml).
+COVERAGE_SHARDS := runtime model export export-corpus export-settled graph codegen tools rest migrate cli
+# coverage-shard's split of tests/export by test name, test-shard's; empty for every other shard.
+COVERAGE_SELECT_export = -skip '$(RACE_EXPORT_CORPUS)|$(RACE_EXPORT_SETTLED)'
+COVERAGE_SELECT_export-corpus = -run '$(RACE_EXPORT_CORPUS)'
+COVERAGE_SELECT_export-settled = -run '$(RACE_EXPORT_SETTLED)'
 
 # The commands whose manual pages are generated and shipped, in section 1.
 COMMANDS := sysml sysml-lsp sysml-grpc sysml-jupyter-kernel sysml-mcp
@@ -340,17 +346,27 @@ RACE_SHARD_SKIP := ^(TestTrainingExamplesSemanticErrors|TestCorpusGatesCacheStat
 # about half the package's time under -race.
 RACE_RUNTIME_EXPLORATION := ^TestExploreWithIsExploreOverTheConformanceCorpus$$
 RACE_RUNTIME_CORPUS := ^Test(ExploreWithIsExploreOverTheConformanceCorpus|CheckAgreesWithExploreOverTheConformanceCorpus|CheckWitnessesReplayOverTheConformanceCorpus|ExecutionConformance|ExecutionConformanceUnderPolicies)$$
+# The export-corpus and export-settled shards: the tests/export suites that convert every
+# example model, each about the rest of the package's time under -race since the element
+# form completes the inherited family (locally 21, 26 and 20 minutes).
+RACE_EXPORT_CORPUS := ^Test(APIJSONWritersNeverEmitNameReferences|LibraryFilesComeBackFromTheGraphAlone)$$
+RACE_EXPORT_SETTLED := ^TestSettledCollectionsAreWhatReconcilingWouldFind$$
 RACE_SHARD_TOOLS_SKIP := ^(TestSuiteRead|TestSuiteClassification|TestEmitSuite|TestSuiteClassificationReasons|TestSuiteLibraryCallsAreClassified|TestSuiteReadsControlAndObjectFlow|TestSuiteReadsClassifiers|TestSuiteReadsExceptionHandlers)$$
 
-test-shard: ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|model|export|graph|codegen|tools|rest|migrate|cli)
+test-shard: ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|model|export|export-corpus|export-settled|graph|codegen|tools|rest|migrate|cli)
 	@echo "Running Go race tests, shard $(SHARD)..."
 	@# 55m per package; its job's ceiling is 60. Whole, internal/exec/runtime took 31-57 minutes
-	@# under -race on the CI runners, so it runs as two shards of about half that each.
+	@# under -race on the CI runners, so it runs as two shards of about half that each; so does
+	@# tests/export, whose whole run passed 55 minutes once the element form completed inheritance,
+	@# as three.
 	pkgs=$$(scripts/race-shard.sh $(SHARD)) && case "$(SHARD)" in \
 	  runtime-corpus) go test -run '$(RACE_RUNTIME_EXPLORATION)' -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage-exploration.txt -covermode=atomic $$pkgs && \
 	    go test -run '$(RACE_RUNTIME_CORPUS)' -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_EXPLORATION)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs && \
 	    tail -n +2 coverage-exploration.txt >> coverage.txt && python3 scripts/dedupe-coverage.py coverage.txt ;; \
 	  runtime) go test -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_CORPUS)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
+	  export-corpus) go test -run '$(RACE_EXPORT_CORPUS)' -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
+	  export-settled) go test -run '$(RACE_EXPORT_SETTLED)' -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
+	  export) go test -skip '$(RACE_SHARD_SKIP)|$(RACE_EXPORT_CORPUS)|$(RACE_EXPORT_SETTLED)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
 	  *) go test -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
 	esac
 	@# The tools module runs with tools (tests/wasm) on CircleCI and, as the PR workflow has no
@@ -360,7 +376,7 @@ test-shard: ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|
 test-quick: ## Run the race-free quick tier over one or more race shards (SHARDS="runtime" | "model export graph" | "rest migrate cli codegen")
 	@echo "Running Go tests without race detection, shards $(SHARDS)..."
 	@# Draft pull requests run this instead of test-shard: the same packages and skips, no -race, no coverage.
-	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime model export graph codegen tools rest migrate cli"; exit 1; }
+	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime runtime-corpus model export export-corpus export-settled graph codegen tools rest migrate cli"; exit 1; }
 	pkgs=$$(for shard in $(SHARDS); do scripts/race-shard.sh $$shard || exit 1; done) && \
 	go test -skip '$(RACE_SHARD_SKIP)' -v -timeout 45m $$pkgs
 	case " $(SHARDS) " in *" rest "*|*" tools "*) go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v -timeout 45m ./... ;; esac
@@ -377,7 +393,7 @@ coverage: ## Write the coverage profile the SonarCloud scan reads
 	@# it at this directory; go test folds in only its own binary's counters.
 	rm -rf $(GO_COUNTER_DIR)
 	mkdir -p $(GO_COUNTER_DIR)
-	OPENSYSML_GOCOVERDIR=$(GO_COUNTER_DIR) go test -count=1 -pgo=off -timeout 30m -coverpkg=./... -coverprofile=$(COVERAGE_PROFILE) -covermode=atomic $(COVERAGE_PACKAGES)
+	OPENSYSML_GOCOVERDIR=$(GO_COUNTER_DIR) go test -count=1 -pgo=off -timeout 30m -coverpkg=./... -coverprofile=$(COVERAGE_PROFILE) -covermode=atomic $(COVERAGE_SELECT_$(COVERAGE_SHARD)) $(COVERAGE_PACKAGES)
 	go tool covdata textfmt -i=$(GO_COUNTER_DIR) -o $(GO_COUNTER_DIR)/profile.txt
 	tail -n +2 $(GO_COUNTER_DIR)/profile.txt >> $(COVERAGE_PROFILE)
 	@# The tools' tests exercise product packages too; their profile credits those. It is
@@ -390,10 +406,10 @@ coverage: ## Write the coverage profile the SonarCloud scan reads
 	python3 scripts/dedupe-coverage.py $(COVERAGE_PROFILE)
 	@go tool cover -func=$(COVERAGE_PROFILE) | tail -n 1
 
-coverage-shard: ## Write one CI shard's coverage profile, coverage-$(SHARD).txt (SHARD=runtime|model|export|graph|codegen|tools|rest|migrate|cli)
+coverage-shard: ## Write one CI shard's coverage profile, coverage-$(SHARD).txt (SHARD=runtime|model|export|export-corpus|export-settled|graph|codegen|tools|rest|migrate|cli)
 	@# The race shards' packages; the tools module goes with tools (tests/wasm), as in test-shard.
 	pkgs=$$(scripts/race-shard.sh $(SHARD)) && \
-	$(MAKE) --no-print-directory coverage COVERAGE_PROFILE=coverage-$(SHARD).txt \
+	$(MAKE) --no-print-directory coverage COVERAGE_PROFILE=coverage-$(SHARD).txt COVERAGE_SHARD=$(SHARD) \
 		COVERAGE_PACKAGES="$$(echo $$pkgs)" \
 		COVERAGE_TOOLS="$(if $(filter tools,$(SHARD)),./...)"
 
@@ -622,6 +638,8 @@ scripts-coverage: ## Run the repository scripts and their tests under coverage a
 	$(PYTHON) -m coverage erase --rcfile=scripts/coverage-scripts.ini
 	$(SCRIPTS_COVERAGE) scripts/changelog-test.py
 	$(SCRIPTS_COVERAGE) scripts/changelog.py check
+	$(SCRIPTS_COVERAGE) scripts/spec_compliance-test.py
+	$(SCRIPTS_COVERAGE) scripts/spec_compliance.py check
 	$(SCRIPTS_COVERAGE) scripts/release-announce-test.py
 	$(SCRIPTS_COVERAGE) scripts/release-downloads-test.py
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_census-test.py
@@ -731,9 +749,11 @@ docs-check: ## Verify documentation links, internal-label hygiene, quoted oracle
 	$(PYTHON) scripts/check-doc-ids.py
 	$(PYTHON) scripts/check-doc-figures.py
 	$(PYTHON) scripts/changelog.py check
+	$(PYTHON) scripts/spec_compliance.py check
 	$(MAKE) diagnostics-check
 	$(PYTHON) scripts/mkdocs_census-test.py
 	$(PYTHON) scripts/mkdocs_suite_figures-test.py
+	$(PYTHON) scripts/mkdocs_spec_compliance-test.py
 	$(PYTHON) scripts/griffe_sphinx_roles-test.py
 	$(PYTHON) scripts/mkdocs_install_scripts-test.py
 
@@ -743,6 +763,13 @@ changelog-check: ## Verify every changelog fragment under changes/unreleased/ an
 
 changelog-render: ## Fold changes/unreleased/ fragments into the Unreleased section of CHANGELOG.md
 	$(PYTHON) scripts/changelog.py render
+
+spec-compliance-check: ## Verify the compliance-map sources under docs/project/spec-compliance/ and the combine script; SPEC_COMPLIANCE_PAGE=require|forbid adds the release or develop policy for the combined page
+	$(PYTHON) scripts/spec_compliance-test.py
+	$(PYTHON) scripts/spec_compliance.py check $(if $(filter require,$(SPEC_COMPLIANCE_PAGE)),--require-page)$(if $(filter forbid,$(SPEC_COMPLIANCE_PAGE)),--forbid-page)
+
+spec-compliance-render: ## Combine the compliance-map sources into docs/project/spec-compliance.md (a release commits the result; develop does not)
+	$(PYTHON) scripts/spec_compliance.py render
 
 docs-install: ## Install the documentation site toolchain
 	$(PYTHON) -m pip install -r docs-requirements.txt

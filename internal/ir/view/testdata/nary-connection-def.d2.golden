@@ -10,3 +10,5 @@ n5: "«part def»\nSpoke" { class: definition }
 n0 -- n4: { class: edge; target-arrowhead: { label: "hub" } }
 n0 -- n5: { class: edge; target-arrowhead: { label: "left" } }
 n0 -- n5: { class: edge; target-arrowhead: { label: "right" } }
+frame_name: "«view» NaryViews::definitions" { shape: text; near: top-left }
+frame_tr: "expose Nary::Triad\nexpose Nary::Hub\nexpose Nary::Spoke" { shape: text; near: top-right }

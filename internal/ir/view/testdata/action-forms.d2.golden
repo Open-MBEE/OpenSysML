@@ -48,3 +48,5 @@ n0.n4 -> n0.n3: { class: succession }
 n0.n5 -> n0.n10: { class: succession }
 n0.n10 -> n0.n14: { class: succession }
 n0.n14 -> n0.n20: { class: succession }
+frame_name: "«view» ActionFormViews::monitorView : ActionFlowView" { shape: text; near: top-left }
+frame_tr: "expose ActionForms::Monitor" { shape: text; near: top-right }

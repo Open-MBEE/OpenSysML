@@ -6,48 +6,56 @@ digraph "MachineViews::thermostat" {
   graph [fontname="Helvetica", compound=true];
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
-  subgraph "cluster_n0" {
-    label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«state def»</i></font><br/><b>Thermostat</b></td></tr><hr/><tr><td><font point-size="10">state transition</font></td></tr></table>>;
-    color=black;
+  subgraph "cluster_frame" {
+    label=<<font point-size="10"><i>«view»</i></font> <b>MachineViews::thermostat</b> : StateTransitionView>;
+    labeljust=l;
+    labelloc=t;
     penwidth=0.5;
-    "n0" [shape=point, style=invis, width=0, height=0, label=""];
-    "n12" [shape=point, fillcolor=black, label=""];
-    "n1" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>heating</b>>];
-    subgraph "cluster_n2" {
-      label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«state»</i></font><br/><b>idle</b></td></tr><hr/><tr><td><font point-size="10">state transition</font></td></tr></table>>;
+    margin=8;
+    subgraph "cluster_n0" {
+      label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«state def»</i></font><br/><b>Thermostat</b></td></tr><hr/><tr><td><font point-size="10">state transition</font></td></tr></table>>;
       color=black;
       penwidth=0.5;
-      "n2" [shape=point, style=invis, width=0, height=0, label=""];
-      "n13" [shape=point, fillcolor=black, label=""];
-      "n3" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>drying</b>>];
-      "n4" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>resting</b>>];
-    }
-    subgraph "cluster_n5" {
-      label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«state»</i></font><br/><b>monitoring</b><br/><font point-size="10"><i>«parallel»</i></font></td></tr><hr/><tr><td><font point-size="10">state transition</font></td></tr></table>>;
-      color=black;
-      penwidth=0.5;
-      "n5" [shape=point, style=invis, width=0, height=0, label=""];
-      subgraph "cluster_n6" {
-        label=<<font point-size="10"><i>«region»</i></font><br/><b>lights</b>>;
-        style=dashed;
+      "n0" [shape=point, style=invis, width=0, height=0, label=""];
+      "n12" [shape=point, fillcolor=black, label=""];
+      "n1" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>heating</b>>];
+      subgraph "cluster_n2" {
+        label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«state»</i></font><br/><b>idle</b></td></tr><hr/><tr><td><font point-size="10">state transition</font></td></tr></table>>;
         color=black;
         penwidth=0.5;
-        "n6" [shape=point, style=invis, width=0, height=0, label=""];
-        "n14" [shape=point, fillcolor=black, label=""];
-        "n8" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>lit</b>>];
-        "n9" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>unlit</b>>];
+        "n2" [shape=point, style=invis, width=0, height=0, label=""];
+        "n13" [shape=point, fillcolor=black, label=""];
+        "n3" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>drying</b>>];
+        "n4" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>resting</b>>];
       }
-      subgraph "cluster_n7" {
-        label=<<font point-size="10"><i>«region»</i></font><br/><b>fans</b>>;
-        style=dashed;
+      subgraph "cluster_n5" {
+        label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«state»</i></font><br/><b>monitoring</b><br/><font point-size="10"><i>«parallel»</i></font></td></tr><hr/><tr><td><font point-size="10">state transition</font></td></tr></table>>;
         color=black;
         penwidth=0.5;
-        "n7" [shape=point, style=invis, width=0, height=0, label=""];
-        "n15" [shape=point, fillcolor=black, label=""];
-        "n10" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>off</b><br/>initial>];
-        "n11" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>on</b>>];
+        "n5" [shape=point, style=invis, width=0, height=0, label=""];
+        subgraph "cluster_n6" {
+          label=<<font point-size="10"><i>«region»</i></font><br/><b>lights</b>>;
+          style=dashed;
+          color=black;
+          penwidth=0.5;
+          "n6" [shape=point, style=invis, width=0, height=0, label=""];
+          "n14" [shape=point, fillcolor=black, label=""];
+          "n8" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>lit</b>>];
+          "n9" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>unlit</b>>];
+        }
+        subgraph "cluster_n7" {
+          label=<<font point-size="10"><i>«region»</i></font><br/><b>fans</b>>;
+          style=dashed;
+          color=black;
+          penwidth=0.5;
+          "n7" [shape=point, style=invis, width=0, height=0, label=""];
+          "n15" [shape=point, fillcolor=black, label=""];
+          "n10" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>off</b><br/>initial>];
+          "n11" [style="rounded,filled", label=<<font point-size="10"><i>«state»</i></font><br/><b>on</b>>];
+        }
       }
     }
+    { rank=min; "frame_tr" [shape=none, margin=0, label=<<font point-size="10">expose Machines::Thermostat</font>>]; }
   }
   "n12" -> "n1" [label="[cold]", arrowhead=vee];
   "n12" -> "n2" [label="[not cold]", arrowhead=vee, lhead="cluster_n2"];

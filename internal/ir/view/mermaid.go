@@ -581,6 +581,9 @@ func (r *Rendering) writeMermaidFrontmatter(b *strings.Builder, labels labeller,
 	if extra > 0 {
 		fmt.Fprintf(b, "  flowchart:\n    subGraphTitleMargin:\n      bottom: %d\n", extra*mermaidTitleLine)
 	}
+	if r.Frame != nil {
+		fmt.Fprintf(b, "title: %q\n", r.Frame.NameLine())
+	}
 	b.WriteString("---\n")
 }
 
@@ -1224,6 +1227,9 @@ func mermaidNodeShape(kind Kind, node *Node, labels labeller, options Options) s
 		}
 	}
 	switch node.Kind {
+	case commentKind, docKind, repKind:
+		// Mermaid's card is the nearest to the note's folded corner.
+		return "@{ shape: notch-rect, label: \"" + labels.mermaid(node) + "\" }"
 	case startKind, "initial":
 		return `@{ shape: f-circ, label: "" }`
 	case "final":
@@ -1303,7 +1309,14 @@ func mermaidLabel(node *Node, labels labeller, lines []string, title bool) strin
 	}
 	markdown = append(markdown, labels.details(node)...)
 	markdown = append(markdown, labels.parameterLines(node)...)
-	markdown = append(markdown, labels.compartmentLines(node)...)
+	for _, entry := range labels.compartmentEntries(node) {
+		if entry.Greyed {
+			// Mermaid's markdown strings carry no colour: a greyed row is set in italics.
+			markdown = append(markdown, "*"+entry.Text+"*")
+			continue
+		}
+		markdown = append(markdown, entry.Text)
+	}
 	return `"` + "`" + strings.Join(markdown, "\n") + "`" + `"`
 }
 
@@ -1981,8 +1994,21 @@ func InlineMermaidImages(source, base string) string {
 
 // mermaid is a node's label ready to embed: its lines escaped and joined with
 // `<br>`, which flowcharts, state diagrams and sequence diagrams all break at.
+// mermaid is a node's label as plain text, the compartment rows an edge ends at
+// in `<i>` as the markdown form sets them in italics.
 func (l labeller) mermaid(node *Node) string {
-	return l.mermaidLines(l.lines(node))
+	lines := l.headerLines(node)
+	for i, line := range lines {
+		lines[i] = mermaidText(line)
+	}
+	for _, entry := range l.compartmentEntries(node) {
+		text := mermaidText(entry.Text)
+		if entry.Greyed {
+			text = "<i>" + text + "</i>"
+		}
+		lines = append(lines, text)
+	}
+	return strings.Join(lines, "<br>")
 }
 
 func (l labeller) mermaidTitle(node *Node) string {

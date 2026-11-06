@@ -65,7 +65,7 @@ func TestDOTPilotIsTheDefault(t *testing.T) {
 		if pilot != plain {
 			t.Errorf("%s: the pilot style differs from the default:\n%s\n---\n%s", tc.view, pilot, plain)
 		}
-		if strings.Contains(plain, dotFrameCluster) || strings.Contains(plain, cameoBlockFill) {
+		if strings.Contains(plain, cameoFrameColor) || strings.Contains(plain, cameoBlockFill) {
 			t.Errorf("%s: the default DOT carries the Cameo look:\n%s", tc.view, plain)
 		}
 	}

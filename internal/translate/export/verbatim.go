@@ -333,9 +333,42 @@ func derivedMultiplicityOmitted(graph, check *rdf.Graph, t rdf.Triple) bool {
 			return true
 		}
 	}
+	if t.Predicate.Value == rdf.AnnotationJSON+pOwnedRelationship && t.Object.IsLiteral() {
+		return defaultMembershipListOmitted(graph, t)
+	}
 	return t.Predicate.Value == rdf.SysML+pOwnedMember && t.Object.IsIRI() &&
 		rdf.LocalName(check.Type(t.Object)) == mMultiplicityRange &&
 		graph.Has(rdf.Triple{Subject: t.Subject, Predicate: rdf.IRI(rdf.SysML + pMultiplicity), Object: t.Object})
+}
+
+// defaultMembershipListOmitted reports a json:ownedRelationship list the graph states
+// without the default multiplicity's membership the candidate appends (or prepends).
+func defaultMembershipListOmitted(graph *rdf.Graph, t rdf.Triple) bool {
+	list := t.Object.Value
+	entry := `{"@id":"` + rdf.LocalName(rdf.ExpressionIRI(t.Subject, pMultiplicity).Value) + rdf.OwningMembershipSuffix + `"}`
+	at := strings.Index(list, entry)
+	if at < 0 {
+		return false
+	}
+	switch {
+	case strings.HasPrefix(list[at+len(entry):], ","):
+		list = list[:at] + list[at+len(entry)+1:]
+	case at > 0 && list[at-1] == ',':
+		list = list[:at-1] + list[at+len(entry):]
+	default:
+		list = list[:at] + list[at+len(entry):]
+	}
+	stated := graph.Objects(t.Subject, t.Predicate.Value)
+	if len(stated) == 0 {
+		// The list mirrors the sysml:ownedRelationship statements, checked on their own.
+		return true
+	}
+	for _, prior := range stated {
+		if prior.Value == list {
+			return true
+		}
+	}
+	return false
 }
 
 // derivedNameOmitted reports a sysml:name the candidate derives for an element

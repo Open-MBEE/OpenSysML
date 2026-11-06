@@ -12,6 +12,15 @@ spec = importlib.util.spec_from_file_location("mkdocs_suite_figures", HERE / "mk
 figures = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(figures)
 
+_combine = importlib.util.spec_from_file_location("spec_compliance", HERE / "spec_compliance.py")
+spec_compliance = importlib.util.module_from_spec(_combine)
+_combine.loader.exec_module(spec_compliance)
+
+
+def combined_page() -> str:
+    """The page as the site builds it from docs/project/spec-compliance/."""
+    return spec_compliance.render()
+
 PAGE = """# Compliance
 
 <!-- doc-counts:begin census -->
@@ -64,7 +73,7 @@ class SpliceTest(unittest.TestCase):
     def test_real_tree_renders_into_the_real_page(self):
         rendered = figures.render_site_blocks()
         self.assertEqual(list(rendered), ["docs/project/spec-compliance.md"])
-        text = (HERE.parent / "docs" / "project" / "spec-compliance.md").read_text(encoding="utf-8")
+        text = combined_page()
         out = figures.splice(text, "project/spec-compliance.md", rendered["docs/project/spec-compliance.md"])
         self.assertRegex(out, r"- Runtime robustness: [1-9][0-9,]* runtime robustness cases \(first-level subtests across the `TestRuntimeRobustness\*` functions\)")
         self.assertRegex(out, r"\*\*Measured coverage:\*\* [1-9][0-9,]* top-level `Test` functions in `internal/frontend/lsp`")

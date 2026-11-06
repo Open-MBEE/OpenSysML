@@ -13,7 +13,7 @@ func TestRenderedViewFromProtoPreservesFieldsAndPresence(t *testing.T) {
 		Canvas: &pb.RenderCanvas{Unit: "px", Width: 800, Height: 400, HasSize: true},
 		Nodes: []*pb.RenderNode{{
 			Id: "n0", Kind: "part", Name: "root", NameSynthesized: true, Type: "Demo::Part",
-			Detail: "detail", Text: "text", StandIn: true, Parent: "parent",
+			Detail: "detail", Text: "text", StandIn: true, Parallel: true, Parent: "parent",
 			Ports:    []*pb.RenderPort{{Id: "n0.0", Name: "api", Type: "Demo::API", Direction: "inout"}},
 			Origin:   &pb.Span{File: "views.sysml", StartLine: 4},
 			Geometry: &pb.RenderGeometry{X: 1, Y: 2, Width: 3, Height: 4, HasSize: true, Collapsed: true, Unplaced: true},
@@ -32,6 +32,7 @@ func TestRenderedViewFromProtoPreservesFieldsAndPresence(t *testing.T) {
 			X: 1, Y: 2, Width: 3, Height: 4, HasSize: true,
 			Origin: &pb.Span{File: "views.sysml"},
 		}},
+		Frame: &pb.RenderFrame{Name: "Demo::view", Type: "ViewDef", Exposes: []string{"expose Demo::car"}},
 	}
 
 	rendered := renderedViewFromProto(response)
@@ -41,7 +42,7 @@ func TestRenderedViewFromProtoPreservesFieldsAndPresence(t *testing.T) {
 	node := rendered.Nodes[0]
 	if node.ID != "n0" || node.Kind != "part" || node.Name != "root" || !node.NameSynthesized ||
 		node.Type != "Demo::Part" || node.Detail != "detail" || node.Text != "text" ||
-		!node.StandIn || node.Parent != "parent" || node.Ports[0].Direction != "inout" {
+		!node.StandIn || !node.Parallel || node.Parent != "parent" || node.Ports[0].Direction != "inout" {
 		t.Errorf("rendered node = %+v", node)
 	}
 	if node.Origin == nil || node.Origin.StartLine != 4 || node.Geometry == nil ||
@@ -60,8 +61,12 @@ func TestRenderedViewFromProtoPreservesFieldsAndPresence(t *testing.T) {
 		rendered.Notices[0] != "notice" || len(rendered.Shown) != 2 || rendered.Shown[1] != "edge-labels" {
 		t.Errorf("rendered remaining fields = %+v", rendered)
 	}
+	if f := rendered.Frame; f == nil || f.Name != "Demo::view" || f.Type != "ViewDef" ||
+		len(f.Exposes) != 1 || f.Exposes[0] != "expose Demo::car" || f.Filters != nil {
+		t.Errorf("rendered frame = %+v", rendered.Frame)
+	}
 	empty := renderedViewFromProto(&pb.RenderViewResponse{})
-	if empty.Canvas != nil || empty.Nodes != nil || empty.Edges != nil {
+	if empty.Canvas != nil || empty.Nodes != nil || empty.Edges != nil || empty.Frame != nil {
 		t.Errorf("absent optional/render collections = %+v", empty)
 	}
 }

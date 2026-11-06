@@ -58,8 +58,10 @@ test("rendered view decoder preserves wire fields and message presence", () => {
       type: "Demo::Part",
       detail: "detail",
       text: "text",
+      arrow: "left",
       standIn: true,
       inherited: true,
+      parallel: true,
       parent: "",
       ports: [{ id: "n0.0", name: "api", type: "Demo::API", direction: "inout", inherited: true }],
       origin: { file: "views.sysml", startLine: 4 },
@@ -83,12 +85,15 @@ test("rendered view decoder preserves wire fields and message presence", () => {
     notes: [{ text: "note", anchor: "n0", edgeFrom: "n0", edgeTo: "n1", x: 1, y: 2, width: 3, height: 4, hasSize: true }],
     notices: ["notice"],
     shown: ["port-symbols", "typings"],
+    frame: { name: "Demo::view", type: "ViewDef", exposes: ["expose Demo::car"] },
   });
   const rendered = renderedViewOf(response);
   assert.equal(rendered.view, "Demo::view");
   assert.equal(rendered.nodes[0]?.nameSynthesized, true);
   assert.equal(rendered.nodes[0]?.ports[0]?.direction, "inout");
   assert.equal(rendered.nodes[0]?.inherited, true);
+  assert.equal(rendered.nodes[0]?.arrow, "left");
+  assert.equal(rendered.nodes[0]?.parallel, true);
   assert.equal(rendered.nodes[0]?.ports[0]?.inherited, true);
   assert.equal(rendered.nodes[0]?.origin?.startLine, 4);
   assert.equal(rendered.nodes[0]?.geometry?.collapsed, true);
@@ -101,7 +106,12 @@ test("rendered view decoder preserves wire fields and message presence", () => {
   assert.equal(rendered.notes[0]?.edgeTo, "n1");
   assert.deepEqual(rendered.notices, ["notice"]);
   assert.deepEqual(rendered.shown, ["port-symbols", "typings"]);
-  assert.equal(renderedViewOf(create(RenderViewResponseSchema, {})).canvas, undefined);
+  assert.deepEqual(rendered.frame, {
+    name: "Demo::view", type: "ViewDef", exposes: ["expose Demo::car"], filters: [], annotations: [],
+  });
+  const bare = renderedViewOf(create(RenderViewResponseSchema, {}));
+  assert.equal(bare.canvas, undefined);
+  assert.equal(bare.frame, undefined);
   const sparse = renderedViewOf(create(RenderViewResponseSchema, {
     nodes: [{}],
     edges: [{}],

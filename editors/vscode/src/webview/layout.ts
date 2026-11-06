@@ -11,8 +11,7 @@ import {
   type RenderNode,
   type RenderPort,
   type RenderPoint,
-  type RenderResult,
-} from "../protocol";
+  type RenderResult, type RenderFrame } from "../protocol";
 import type { AutoLayout } from "./autolayout";
 import {
   GAP,
@@ -148,6 +147,8 @@ export interface CanvasLayout {
   routing: Routing;
   /** What the layout left undrawn, worded as the renderer's notices. */
   notices: string[];
+  /** The view frame drawn round the diagram, when the rendering has one. */
+  frame?: RenderFrame;
 }
 
 /** The rendering kinds whose renderers position nodes and route edges from DiagramLayout. */
@@ -298,6 +299,7 @@ export function layoutCanvas(
       placeable: PLACEABLE_KINDS.has(result.kind),
       routing,
       notices: clippingNotice(placed),
+      frame: result.frame,
     }),
     overrides.held,
   );
@@ -470,8 +472,10 @@ function layoutSequence(
     }
     // A hidden edge places no proxy: the point goes where a drawn edge first reaches it.
     if (!hidden[index]) {
-      placeProxy(edge.from, points[0].x, points[0].y);
-      placeProxy(edge.to, points[points.length - 1].x, points[points.length - 1].y);
+      const [first] = points;
+      const last = points.at(-1) ?? first;
+      placeProxy(edge.from, first.x, first.y);
+      placeProxy(edge.to, last.x, last.y);
     }
     routed.push({
       edge,
@@ -853,9 +857,19 @@ export function labelLines(
   }
   const lines: string[] = [];
   const statement = STATEMENT_KINDS.has(node.kind);
-  const keyword = (node.name !== "" || node.arrow !== undefined || statement) && draws("keywords");
+  const annotation = ANNOTATION_KINDS.has(node.kind);
+  const keyword =
+    (node.name !== "" || node.arrow !== undefined || statement || annotationKeyworded(node)) && draws("keywords");
   if (keyword) {
     lines.push(`«${node.kind}»`);
+  }
+  if (annotation && node.name === "") {
+    // Unnamed, the locale or language heads the note, else the body itself does (§8.2.3.4).
+    lines.push(...(node.detail !== "" ? node.detail : (node.text ?? "")).split("\n"));
+    if (node.detail !== "" && (node.text ?? "") !== "") {
+      lines.push(...(node.text ?? "").split("\n"));
+    }
+    return lines;
   }
   if (statement && node.name === "" && node.text) {
     lines.push(node.text);
@@ -868,10 +882,21 @@ export function labelLines(
   if (node.detail !== "" && draws("compartments")) {
     lines.push(node.detail);
   }
+  if (ANNOTATION_KINDS.has(node.kind) && node.name !== "" && (node.text ?? "") !== "") {
+    lines.push(...(node.text ?? "").split("\n"));
+  }
   if (node.arrow !== undefined) {
     lines.push(ARROW_ROW);
   }
   return lines;
+}
+
+/** The annotation nodes of §8.2.3.4, whose body follows the head and detail even when named. */
+const ANNOTATION_KINDS: ReadonlySet<string> = new Set(["comment", "doc", "rep"]);
+
+/** Documentation and textual representations are headed by their keyword even unnamed; a comment only with a name or locale. */
+function annotationKeyworded(node: RenderNode): boolean {
+  return node.kind === "doc" || node.kind === "rep" || (node.kind === "comment" && node.detail !== "");
 }
 
 /** LabelLineClass is the part of a label a line is: its «kind», its head or a detail line. */

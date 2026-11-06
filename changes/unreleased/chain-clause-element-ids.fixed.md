@@ -1,1 +1,0 @@
-- The query surfaces spell each feature-chain clause of a head (`subsets a.b, a.b`, `redefines a.b, a.b`) by the elementId of its own subsetting or redefinition, as the RDF conversion materializes one relationship per chain Feature it owns; the identity reader had keyed chains by their text and reported the first clause's id for every repetition.

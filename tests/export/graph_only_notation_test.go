@@ -7,6 +7,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
 // notationFromTheGraphAlone converts src to Turtle, strips the source text and
@@ -118,8 +119,9 @@ func TestSysMLBindingOwnMultiplicityTakesTheDeclaredForm(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The ends a and b state their implied default Multiplicity too; the ranges are the bindings' own.
-	if n := strings.Count(string(again), "a sysml:MultiplicityRange ;"); n != 2 {
+	// The ends a and b state their implied default Multiplicity too, and the graph names the
+	// library ranges the model inherits; the model's own ranges are the bindings' bounds.
+	if n := ownMultiplicityRanges(t, again); n != 2 {
 		t.Errorf("want the two bindings to keep their own bounds, got %d\n%s", n, again)
 	}
 	if strings.Contains(string(again), "_pend0_pupperBound") {
@@ -232,8 +234,8 @@ func TestGuardedSuccessionKeepsItsSyntax(t *testing.T) {
 	}
 }
 
-// Expression bodies as arguments, chained bodies and casts under a feature
-// chain are written in the form the grammar reads back to the same graph.
+// Expression bodies as `->` operands, chained bodies and casts under a feature
+// chain are written back in the form they were read, bodies unparenthesized.
 func TestExpressionBodiesAndChainsFromTheGraphAlone(t *testing.T) {
 	sysml := `package B {
     part def D {
@@ -244,13 +246,18 @@ func TestExpressionBodiesAndChainsFromTheGraphAlone(t *testing.T) {
         attribute deep = xs.{ in e; e * 2 };
         attribute chained = sub.xs->size();
         attribute casted = (sub as D).xs;
+        calc def H { in body; return : Integer = 1; }
+        attribute applied : Integer = H({ in e : Integer; e });
+        attribute bare : Integer = H { in e : Integer; e };
     }
 }
 `
 	back := notationFromTheGraphAlone(t, "b.sysml", sysml)
 	wantFragments(t, back,
-		"attribute ok : Boolean = xs->forAll({ in e : Integer; e > 0 });",
-		"attribute picked = xs->select({ in e; e > 1 and e < 9 });",
+		"attribute applied : Integer = H({ in e : Integer; e });",
+		"attribute bare : Integer = H { in e : Integer; e };",
+		"attribute ok : Boolean = xs->forAll { in e : Integer; e > 0 };",
+		"attribute picked = xs->select { in e; e > 1 and e < 9 };",
 		"attribute deep = xs.{ in e; e * 2 };",
 		"attribute chained = sub.xs->size();",
 		"attribute casted = (sub as D).xs;")
@@ -266,7 +273,7 @@ func TestExpressionBodiesAndChainsFromTheGraphAlone(t *testing.T) {
 `
 	back = notationFromTheGraphAlone(t, "k.kerml", kerml)
 	wantFragments(t, back,
-		"xs->forAll({ in e; e != null })",
+		"xs->forAll { in e; e != null }",
 		"feature slice redefines xs = (sub as C).xs;",
 		"notEmpty(xs) implies sub.xs->size() > 0 xor false")
 }
@@ -357,4 +364,21 @@ func TestUnplacedMultiplicityIsWrittenOnceAcrossSplitTypings(t *testing.T) {
 	if want := "part p : A[2] subsets x : B;"; !strings.Contains(string(back), want) {
 		t.Errorf("want %q in the notation from the graph alone:\n%s", want, back)
 	}
+}
+
+// ownMultiplicityRanges counts the MultiplicityRange subjects the model owns, not the
+// library references the graph names beside them.
+func ownMultiplicityRanges(t *testing.T, turtle []byte) int {
+	t.Helper()
+	graph, err := rdf.ParseTurtle(turtle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	for _, subject := range graph.SubjectsView() {
+		if graph.Type(subject) == rdf.SysML+"MultiplicityRange" && !export.LibraryReference(graph, subject) {
+			n++
+		}
+	}
+	return n
 }

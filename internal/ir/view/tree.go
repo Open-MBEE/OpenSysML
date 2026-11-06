@@ -32,9 +32,19 @@ func (r *Renderer) treeDepth() int {
 func (r *Renderer) renderTree(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	ids := &nodeIDs{}
 	out.sites = map[*Node]treeSite{}
-	descendants := r.exposedDescendants(view, exposed, func(sym *symbols.Symbol) []*symbols.Symbol { return r.walkMembers(view, sym) })
+	descendants := r.exposedDescendants(view, exposed, func(sym *symbols.Symbol) []*symbols.Symbol {
+		return append(r.walkMembers(view, sym), r.annotatingMembers(sym)...)
+	})
 	for _, elem := range exposed {
 		if descendants[symbols.KeyOf(elem)] {
+			continue
+		}
+		// An annotation exposed on its own is the note of §8.2.3.4, named as a root is.
+		if annotatingSymbol(elem) {
+			if node := r.annotationNode(ids, view, elem, out); node != nil {
+				node.Name = r.notationName(elem)
+				out.Roots = append(out.Roots, node)
+			}
 			continue
 		}
 		walk := treeWalk{view: view, ids: ids, path: expansion{}, out: out}
@@ -209,7 +219,27 @@ func (r *Renderer) treeNode(walk treeWalk, sym, owner *symbols.Symbol, depth int
 		node.Detail = detailWith(node.Detail, cutNote(bound))
 		out.depthCut += cut
 	}
+	if recursive == nil && !folded {
+		node.Children = append(node.Children, r.annotationChildren(walk.ids, view, sym, out)...)
+	}
 	return node
+}
+
+// annotationChildren are the annotation nodes of what sym declares in its body
+// (§8.2.3.4), nested under its node so a folding lists them as its `doc`
+// compartment; the tree's edges join each to the elements it annotates.
+func (r *Renderer) annotationChildren(ids *nodeIDs, view, sym *symbols.Symbol, out *Rendering) []*Node {
+	var nodes []*Node
+	filters := r.walkFilters(view)
+	for _, member := range r.annotatingMembers(sym) {
+		if len(filters) > 0 && !r.admits(filters, member) {
+			continue
+		}
+		if node := r.annotationNode(ids, view, member, out); node != nil {
+			nodes = append(nodes, node)
+		}
+	}
+	return nodes
 }
 
 // treeNodeShallow draws sym without recursively drawing its members; one on

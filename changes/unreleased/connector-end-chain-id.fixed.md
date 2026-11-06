@@ -1,1 +1,0 @@
-- A query's `elementId` of the chain Feature a chain end's ReferenceSubsetting denotes (`connect a.o to b.i`) is the one the RDF conversion mints for it — the end's id extended by `_pchain` — where it was the end's own id, so a Features table and a ReferenceSubsetting's `target` named the end twice.
