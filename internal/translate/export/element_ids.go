@@ -168,6 +168,8 @@ func (ids *ElementIDs) recordConnectorEnds(e *encoder, node ast.Node, subject rd
 		feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, fmt.Sprintf("end%d", i)), subject, fmt.Sprintf("end%d", i))
 		ids.byNode[end] = rdf.LocalName(feature.Value)
 		ids.bySpan[spanKey{e.file.Name(), end.Span()}] = ids.byNode[end]
+		// The end states its implicit [1..1] as a usage does (connectorEnd).
+		ids.recordDefaultMultiplicity(e, end, feature)
 		// The head owns each end through a membership minted beside it (bindingEnds).
 		membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix).Value)
 		ids.membershipByNode[end] = membership
