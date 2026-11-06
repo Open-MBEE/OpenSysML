@@ -37,6 +37,7 @@ var lintCodes = []Entry{
 const (
 	specMOSA  = "MOSA extension library"
 	specOOSEM = "OOSEM extension library"
+	specNPR   = "NPR7123 extension library (NASA NPR 7123.1D)"
 )
 
 // methodCodes are the codes of the method rules: findings of the MOSA and OOSEM
@@ -83,6 +84,41 @@ var methodCodes = []Entry{
 		Meaning: "The connection joins two major system components (or modular systems), a boundary MOSA expects to be designated a modular system interface. " +
 			"Type the connection by a `#modularSystemInterface` definition or mark it so.",
 		Spec: specMOSA,
+	},
+	{
+		Code: "npr7123-review-missing-entrance-or-success-criteria", Tier: TierMethod, Severity: "warning",
+		Summary: "a life-cycle review stating no entrance criteria or no success criteria",
+		Meaning: "NPR 7123.1D section 5.2.2.1 (SE-34) has the technical team define entrance and success criteria for each life-cycle review, so a `LifeCycleReview` usage is expected to nest `EntranceCriterion` and `SuccessCriterion` requirement usages. " +
+			"Subset the transcribed criteria of `NPR7123::ReviewCriteria` into the review's `entranceCriteria` and `successCriteria`, tailoring them as section G.1.2 expects.",
+		Spec: specNPR,
+	},
+	{
+		Code: "npr7123-review-missing-minimum-product", Tier: TierMethod, Severity: "warning",
+		Summary: "a section 5.2.2.2 minimum product absent from its review or below the required maturity",
+		Meaning: "NPR 7123.1D section 5.2.2.2 (SE-35 to SE-56, SE-66 to SE-69) names the minimum products the technical team provides at each life-cycle review and their maturity, recorded on the library's work product definitions as `@MaturityExpectation { required = true }`. " +
+			"Nest an item of that product subsetting `reviewedProducts` under the review, with a `maturity` at or above the one asked for, or document the tailoring in the SEMP.",
+		Spec: specNPR,
+	},
+	{
+		Code: "npr7123-compliance-missing-justification", Tier: TierMethod, Severity: "warning",
+		Summary: "a compliance entry marked tailored or not applicable with no justification",
+		Meaning: "Table H-1 of NPR 7123.1D asks for a justification wherever a requirement is tailored (`T`) or not applicable (`NA`). " +
+			"Give the `@Compliance` annotation a `justification`.",
+		Spec: specNPR,
+	},
+	{
+		Code: "npr7123-compliance-matrix-missing-requirement", Tier: TierMethod, Severity: "warning",
+		Summary: "a compliance matrix whose document has no compliance entry for an active SE requirement",
+		Meaning: "Table H-1 of NPR 7123.1D covers every active `[SE-nn]` requirement, so a `ComplianceMatrix` usage expects its document to hold a `@Compliance`-annotated usage of each definition in `NPR7123::SERequirements`. " +
+			"Add the missing entries, marking each FC, T or NA.",
+		Spec: specNPR,
+	},
+	{
+		Code: "npr7123-semp-missing-process", Tier: TierMethod, Severity: "warning",
+		Summary: "a SEMP not addressing all 17 common technical processes",
+		Meaning: "NPR 7123.1D section 6.2.3 (SE-58) has the SEMP define how each of the 17 common technical processes, as tailored, is applied, so a `SEMP` usage expects one nested usage per process definition of the library. " +
+			"Nest the missing processes (`#technicalPlanning action plan;`) with their `tailoring`.",
+		Spec: specNPR,
 	},
 	{
 		Code: "oosem-requirement-not-derived", Tier: TierMethod, Severity: "warning",

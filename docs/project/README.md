@@ -102,6 +102,10 @@ within these records and means nothing outside this repository.
 - **[MOSA library](mosa-library.md)** — the Modular Open Systems Approach as a bundled OpenSysML
   library: the statute's vocabulary, openness as metadata over the standard model, the
   interface control document and the warning-only checks
+- **[NPR7123 library](npr7123-library.md)** — NASA NPR 7123.1D as a bundled OpenSysML library:
+  the 17 common technical processes, life-cycle reviews with the Appendix G criteria, work-product
+  maturity, TRLs, the active SE requirements, the generated compliance matrix and the warning-only
+  checks
 - **[StateMachines library](statemachines-library.md)** — pseudostates as bundled
   `SemanticMetadata`, so a state machine's `choice`, `junction` and history pseudostates
   spell standard, conforming SysML v2

@@ -2050,6 +2050,11 @@ A transition's `accept when <name>` or `when <name>` trigger names something no 
 | [`mosa-interface-no-standard`](#mosa-interface-no-standard) | warning | a modular system interface conforming to no standard |
 | [`mosa-interface-not-traced`](#mosa-interface-not-traced) | warning | a modular system interface satisfying no requirement |
 | [`mosa-proprietary-no-rationale`](#mosa-proprietary-no-rationale) | warning | an element marked `@Proprietary` with no rationale |
+| [`npr7123-compliance-matrix-missing-requirement`](#npr7123-compliance-matrix-missing-requirement) | warning | a compliance matrix whose document has no compliance entry for an active SE requirement |
+| [`npr7123-compliance-missing-justification`](#npr7123-compliance-missing-justification) | warning | a compliance entry marked tailored or not applicable with no justification |
+| [`npr7123-review-missing-entrance-or-success-criteria`](#npr7123-review-missing-entrance-or-success-criteria) | warning | a life-cycle review stating no entrance criteria or no success criteria |
+| [`npr7123-review-missing-minimum-product`](#npr7123-review-missing-minimum-product) | warning | a section 5.2.2.2 minimum product absent from its review or below the required maturity |
+| [`npr7123-semp-missing-process`](#npr7123-semp-missing-process) | warning | a SEMP not addressing all 17 common technical processes |
 | [`oosem-logical-component-not-allocated`](#oosem-logical-component-not-allocated) | warning | a logical component allocated to nothing |
 | [`oosem-requirement-not-derived`](#oosem-requirement-not-derived) | warning | a requirement derived from no higher-level requirement |
 | [`oosem-requirement-not-satisfied`](#oosem-requirement-not-satisfied) | warning | a requirement nothing satisfies |
@@ -2103,6 +2108,46 @@ Specification: MOSA extension library
 MOSA expects the justification for each proprietary element to be recorded with it. Give the annotation a `rationale`.
 
 Specification: MOSA extension library
+
+#### `npr7123-compliance-matrix-missing-requirement`
+
+**warning** · Method rules · a compliance matrix whose document has no compliance entry for an active SE requirement
+
+Table H-1 of NPR 7123.1D covers every active `[SE-nn]` requirement, so a `ComplianceMatrix` usage expects its document to hold a `@Compliance`-annotated usage of each definition in `NPR7123::SERequirements`. Add the missing entries, marking each FC, T or NA.
+
+Specification: NPR7123 extension library (NASA NPR 7123.1D)
+
+#### `npr7123-compliance-missing-justification`
+
+**warning** · Method rules · a compliance entry marked tailored or not applicable with no justification
+
+Table H-1 of NPR 7123.1D asks for a justification wherever a requirement is tailored (`T`) or not applicable (`NA`). Give the `@Compliance` annotation a `justification`.
+
+Specification: NPR7123 extension library (NASA NPR 7123.1D)
+
+#### `npr7123-review-missing-entrance-or-success-criteria`
+
+**warning** · Method rules · a life-cycle review stating no entrance criteria or no success criteria
+
+NPR 7123.1D section 5.2.2.1 (SE-34) has the technical team define entrance and success criteria for each life-cycle review, so a `LifeCycleReview` usage is expected to nest `EntranceCriterion` and `SuccessCriterion` requirement usages. Subset the transcribed criteria of `NPR7123::ReviewCriteria` into the review's `entranceCriteria` and `successCriteria`, tailoring them as section G.1.2 expects.
+
+Specification: NPR7123 extension library (NASA NPR 7123.1D)
+
+#### `npr7123-review-missing-minimum-product`
+
+**warning** · Method rules · a section 5.2.2.2 minimum product absent from its review or below the required maturity
+
+NPR 7123.1D section 5.2.2.2 (SE-35 to SE-56, SE-66 to SE-69) names the minimum products the technical team provides at each life-cycle review and their maturity, recorded on the library's work product definitions as `@MaturityExpectation { required = true }`. Nest an item of that product subsetting `reviewedProducts` under the review, with a `maturity` at or above the one asked for, or document the tailoring in the SEMP.
+
+Specification: NPR7123 extension library (NASA NPR 7123.1D)
+
+#### `npr7123-semp-missing-process`
+
+**warning** · Method rules · a SEMP not addressing all 17 common technical processes
+
+NPR 7123.1D section 6.2.3 (SE-58) has the SEMP define how each of the 17 common technical processes, as tailored, is applied, so a `SEMP` usage expects one nested usage per process definition of the library. Nest the missing processes (`#technicalPlanning action plan;`) with their `tailoring`.
+
+Specification: NPR7123 extension library (NASA NPR 7123.1D)
 
 #### `oosem-logical-component-not-allocated`
 
