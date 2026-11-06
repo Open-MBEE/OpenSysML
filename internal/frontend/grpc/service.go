@@ -136,6 +136,11 @@ const CapabilityEvaluateSubject = "evaluate_subject"
 // SymbolInfo.attributes, rather than always reporting none.
 const CapabilitySymbolAttributes = "symbol_attributes"
 
+// CapabilitySymbolMembers names the capability of populating
+// SymbolInfo.members, the element's members own and inherited with their
+// provenance, and of honouring GetSymbolRequest.include_library_members.
+const CapabilitySymbolMembers = "symbol_members"
+
 // CapabilityValuation names the capability of populating SymbolInfo.valuation
 // and AttributeInfo.valuation, the value expression a feature declares.
 const CapabilityValuation = "valuation"
@@ -367,7 +372,7 @@ var capabilities = []string{
 	CapabilityTensorValues, CapabilityVerificationVerdicts, CapabilityInfinityValue,
 	CapabilityDiagnosticCodes, CapabilitySchedule, CapabilityCaseEvaluations,
 	CapabilityScheduleExplore, CapabilityFinalTime, CapabilityEngines,
-	CapabilityMetaobjectValues,
+	CapabilityMetaobjectValues, CapabilitySymbolMembers,
 	CapabilityUndeterminedValue,
 	CapabilityEnginesExternal,
 	CapabilityEditDocuments,
@@ -1046,7 +1051,8 @@ func (s *Service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.
 
 	// Convert first match to proto
 	return &pb.SymbolResponse{
-		Symbol: s.symbolToProto(syms[0], cached.SymbolContext()),
+		Symbol: s.symbolToProtoWith(syms[0], cached.SymbolContext(),
+			symbolfacts.Options{IncludeLibraryMembers: req.IncludeLibraryMembers}),
 	}, nil
 }
 

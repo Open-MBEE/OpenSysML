@@ -72,6 +72,14 @@ type expectedValuationReference struct {
 	TargetID string   `json:"target_id"`
 }
 
+// expectedMember is one entry of a GetSymbol case's expected_members.
+type expectedMember struct {
+	ID            string `json:"id"`
+	Kind          string `json:"kind"`
+	Inherited     bool   `json:"inherited,omitempty"`
+	InheritedFrom string `json:"inherited_from,omitempty"`
+}
+
 // expectedNote is the fixture encoding of a pb.VerdictNote.
 type expectedNote struct {
 	Kind    string `json:"kind"`
@@ -192,6 +200,11 @@ type conformanceCase struct {
 	// MinWithheldLibraryAttributes requires the response to state at least this
 	// many library-inherited attributes withheld from the list.
 	MinWithheldLibraryAttributes int32 `json:"min_withheld_library_attributes,omitempty"`
+	// ExpectedMembers is the full ordered member list, own then inherited, each
+	// with its provenance; MinWithheldLibraryMembers requires the response to
+	// state at least this many library-inherited members withheld from it.
+	ExpectedMembers           []expectedMember `json:"expected_members,omitempty"`
+	MinWithheldLibraryMembers int32            `json:"min_withheld_library_members,omitempty"`
 	// ExpectedValuation is the value expression the symbol must declare;
 	// NoValuation requires it to declare none.
 	ExpectedValuation *expectedValuation `json:"expected_valuation,omitempty"`
@@ -892,6 +905,23 @@ func runGetSymbolCase(t *testing.T, srv *grpc.Service, ctx context.Context, mode
 	if want := tc.MinWithheldLibraryAttributes; want > 0 {
 		if got := resp.Symbol.GetWithheldLibraryAttributes(); got < want {
 			t.Errorf("withheld library attributes = %d, want at least %d", got, want)
+		}
+	}
+	if tc.ExpectedMembers != nil {
+		var got []expectedMember
+		for _, member := range resp.Symbol.GetMembers() {
+			got = append(got, expectedMember{
+				ID: member.GetId(), Kind: member.GetKind(),
+				Inherited: member.GetInherited(), InheritedFrom: member.GetInheritedFrom(),
+			})
+		}
+		if fmt.Sprint(got) != fmt.Sprint(tc.ExpectedMembers) {
+			t.Errorf("members = %v, want %v", got, tc.ExpectedMembers)
+		}
+	}
+	if want := tc.MinWithheldLibraryMembers; want > 0 {
+		if got := resp.Symbol.GetWithheldLibraryMembers(); got < want {
+			t.Errorf("withheld library members = %d, want at least %d", got, want)
 		}
 	}
 

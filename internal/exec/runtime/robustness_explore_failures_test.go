@@ -10,6 +10,7 @@ import (
 )
 
 func TestRuntimeRobustnessExploreFailures(t *testing.T) {
+	t.Parallel()
 	t.Run("fresh context failure fails the exploration", testExploreFreshContextFailure)
 	t.Run("root action initialization failure is setup", testExploreActionInitializationFailureIsSetup)
 	t.Run("unordered and empty actions are not setup failures", testExploreUnorderedActionsAreNotSetup)

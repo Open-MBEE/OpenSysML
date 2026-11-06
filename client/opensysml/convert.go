@@ -42,6 +42,17 @@ func symbolFromProto(sym *pb.SymbolInfo) *Symbol {
 		Kind:                      sym.Kind,
 		WithheldLibraryAttributes: int(sym.WithheldLibraryAttributes),
 		Valuation:                 valuationFromProto(sym.Valuation),
+		WithheldLibraryMembers:    int(sym.WithheldLibraryMembers),
+	}
+	for _, member := range sym.Members {
+		out.Members = append(out.Members, SymbolMember{
+			ID:            member.Id,
+			Name:          member.Name,
+			Kind:          member.Kind,
+			Inherited:     member.Inherited,
+			InheritedFrom: member.InheritedFrom,
+			Library:       member.Library,
+		})
 	}
 	if len(sym.Metadata) > 0 {
 		out.Metadata = make(map[string]string, len(sym.Metadata))

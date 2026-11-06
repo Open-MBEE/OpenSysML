@@ -1,0 +1,16 @@
+{
+	"libraries": true,
+	"type": "action",
+	"evaluate": "test::P::pt",
+	"performers": [
+		{
+			"object": "test::p",
+			"outputs": {
+				"y": {"type": "Sequence", "elements": [{"type": "Integer", "value": 10}]}
+			},
+			"slots": {
+				"pt.y": {"type": "Sequence", "elements": [{"type": "Integer", "value": 10}]}
+			}
+		}
+	]
+}

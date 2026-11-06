@@ -164,6 +164,12 @@ type Symbol struct {
 	// WithheldLibraryAttributes counts attributes inherited from
 	// standard-library content, which Attributes leaves out.
 	WithheldLibraryAttributes int
+	// Members are every member of the element, own then inherited, absent
+	// without the symbol_members capability. ChildIDs stays the owned ones.
+	Members []SymbolMember
+	// WithheldLibraryMembers counts members inherited from standard-library
+	// content, which Members leaves out.
+	WithheldLibraryMembers int
 	// Valuation is the value expression the feature declares, nil when it
 	// declares none or the valuation capability is absent.
 	Valuation *Valuation
@@ -198,6 +204,22 @@ type ValuationReference struct {
 	// plain reference has one. TargetID is the last of them.
 	Path     []string
 	TargetID string
+}
+
+// SymbolMember is one member of a symbol, own or inherited.
+type SymbolMember struct {
+	// ID is the member's fully qualified name.
+	ID   string
+	Name string
+	Kind string
+	// Inherited is true when the symbol inherits the member rather than
+	// declaring it.
+	Inherited bool
+	// InheritedFrom is the fully qualified name of the type declaring an
+	// inherited member; empty for an own member.
+	InheritedFrom string
+	// Library is true when the member is declared in standard-library content.
+	Library bool
 }
 
 // Attribute is one attribute of a symbol, with its declared value.

@@ -105,6 +105,11 @@ CAPABILITY_EVALUATE_SUBJECT = "evaluate_subject"
 #: which is indistinguishable from an element that has no attributes.
 CAPABILITY_SYMBOL_ATTRIBUTES = "symbol_attributes"
 
+#: Populated ``SymbolInfo.members``: every member of a symbol, own and inherited,
+#: with its provenance, and ``GetSymbolRequest.include_library_members`` honoured.
+#: Without it only ``child_ids``, the owned members, is reported.
+CAPABILITY_SYMBOL_MEMBERS = "symbol_members"
+
 #: Populated ``SymbolInfo.valuation`` and ``AttributeInfo.valuation``, the value
 #: expression a feature declares. Without it a bound feature cannot be told
 #: from one declaring no value.

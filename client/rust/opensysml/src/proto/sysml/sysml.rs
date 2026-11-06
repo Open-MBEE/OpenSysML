@@ -1125,6 +1125,11 @@ pub struct GetSymbolRequest {
     /// Fully qualified name
     #[prost(string, tag="2")]
     pub symbol_id: ::prost::alloc::string::String,
+    /// List the members inherited from standard-library content in
+    /// SymbolInfo.members, each marked library, instead of counting them in
+    /// withheld_library_members.
+    #[prost(bool, tag="3")]
+    pub include_library_members: bool,
 }
 /// SymbolResponse contains symbol information
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -2322,9 +2327,21 @@ pub struct SymbolInfo {
     /// leaves out. Their absence is stated here rather than silent.
     #[prost(int32, tag="10")]
     pub withheld_library_attributes: i32,
+    /// Every member the element has (KerML Type::member): its owned members, in
+    /// declaration order, then the members it inherits, in inheritance order, a
+    /// redefinition masking what it redefines and a private member of a supertype
+    /// not inherited. Members inherited from standard-library content are left
+    /// out unless GetSymbolRequest.include_library_members asks for them, and are
+    /// counted in withheld_library_members. Reported with the "symbol_members"
+    /// capability; child_ids stays the owned members only.
+    #[prost(message, repeated, tag="11")]
+    pub members: ::prost::alloc::vec::Vec<MemberInfo>,
+    /// Members inherited from standard-library content that `members` leaves out.
+    #[prost(int32, tag="12")]
+    pub withheld_library_members: i32,
     /// The value expression the feature declares (`= e`, `default e`, `:= e`);
     /// unset when it declares none, or without the `valuation` capability.
-    #[prost(message, optional, tag="11")]
+    #[prost(message, optional, tag="13")]
     pub valuation: ::core::option::Option<Valuation>,
 }
 /// Valuation is the value expression a feature declares (KerML Feature::valuation:
@@ -2373,6 +2390,29 @@ pub struct ValuationReference {
     /// FQN of the feature the reference denotes: the last of `path`.
     #[prost(string, tag="3")]
     pub target_id: ::prost::alloc::string::String,
+}
+/// MemberInfo is one member of an element, own or inherited.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MemberInfo {
+    /// FQN of the member, the id GetSymbol takes; a member declared without a
+    /// name has none that resolves.
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    /// Declared name; empty for an unnamed member such as `bind a = b;`.
+    #[prost(string, tag="2")]
+    pub name: ::prost::alloc::string::String,
+    /// Symbol kind of the member ("partUsage", "bindingUsage", ...).
+    #[prost(string, tag="3")]
+    pub kind: ::prost::alloc::string::String,
+    /// True when the member is inherited rather than declared by the element.
+    #[prost(bool, tag="4")]
+    pub inherited: bool,
+    /// FQN of the type declaring an inherited member; empty for an own member.
+    #[prost(string, tag="5")]
+    pub inherited_from: ::prost::alloc::string::String,
+    /// True when the member is declared in standard-library content.
+    #[prost(bool, tag="6")]
+    pub library: bool,
 }
 /// Specialization is one generalization edge an element declares.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
