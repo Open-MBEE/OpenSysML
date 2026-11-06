@@ -59,6 +59,7 @@ func TestExtensionlessBufferReadsAsKerMLOnlyWhenPurelyKerML(t *testing.T) {
 		kerml          bool
 	}{
 		{"pure kerml", "Calls", "package Calls {\n\tfunction pick { in a : Integer; return : Integer; }\n}\n", true},
+		{"kerml features", "Calls", "package Calls {\n\tfunction pick { feature x; step s; connector c; }\n\tstruct S { feature f; }\n}\n", true},
 		{"mixed", "Demo", "package Demo {\n\tpart p;\n\tfunction pick { return : Integer; }\n}\n", false},
 		{"pure sysml", "Demo", "package Demo {\n\tpart p;\n\tcalc def pick { return : Integer; }\n}\n", false},
 	} {
