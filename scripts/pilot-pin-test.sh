@@ -8,13 +8,13 @@ pin_script=$(cd "$(dirname "$0")" && pwd)/pilot-pin.sh
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-# A release repository with one tag: a populated subtree, an empty one, and a
-# pair the multi-target case fetches together.
+# A release repository with one tag: a populated subtree, an empty one, a pair the
+# multi-target case fetches together, and two grammars the file case fetches one of.
 release="$work/release"
 git -C "$work" init -q release
 git -C "$release" config user.email ci@example.com
 git -C "$release" config user.name CI
-mkdir -p "$release/sysml.library.xmi/Domain" "$release/empty.subtree" "$release/pair/a" "$release/pair/b"
+mkdir -p "$release/sysml.library.xmi/Domain" "$release/empty.subtree" "$release/pair/a" "$release/pair/b" "$release/grammar"
 
 # stub_xmi writes a minimal XMI document at each path given.
 stub_xmi() {
@@ -27,6 +27,8 @@ stub_xmi() {
 stub_xmi "$release/sysml.library.xmi/Domain/Quantities.sysmlx" "$release/sysml.library.xmi/Kernel.kermlx" \
 	"$release/pair/a/A.sysmlx" "$release/pair/b/B.sysmlx"
 echo notes >"$release/empty.subtree/README.md"
+echo 'grammar Example;' >"$release/grammar/Example.xtext"
+echo 'grammar Other;' >"$release/grammar/Other.xtext"
 git -C "$release" add .
 git -C "$release" -c commit.gpgsign=false commit -qm release
 git -C "$release" tag test-tag
@@ -52,6 +54,22 @@ fetch() {
 				PILOT_FETCH_GLOBS=("*.sysmlx" "*.kermlx")
 				pilot_fetch_subtrees "$@"
 			' bash "$pin_script" "${subtrees[@]}" 2>&1
+	) || status=$?
+}
+
+# clone <dir> <paths...>: runs pilot_clone the way download-pilot-grammars.sh does,
+# leaving its output and exit status in $output and $status.
+clone() {
+	local dir=$1
+	shift
+	status=0
+	output=$(
+		PILOT_TAG=test-tag PILOT_RELEASE_REPO="file://$release" PILOT_RELEASE_COMMIT="$commit" \
+			bash -euo pipefail -c '
+				. "$1"; shift
+				pilot_from_release
+				pilot_clone "$@"
+			' bash "$pin_script" "$dir" "$@" 2>&1
 	) || status=$?
 }
 
@@ -130,6 +148,16 @@ name="several subtrees are installed from one clone"
 pair_b="$work/dest/pair-b"
 fetch "$commit" "pair/a:$pair_a" "pair/b:$pair_b"
 if [[ $status -eq 0 ]] && [[ $(count_xmi "$pair_a") -eq 1 ]] && [[ $(count_xmi "$pair_b") -eq 1 ]]; then
+	pass "$name"
+else
+	fail "$name"
+fi
+
+name="a file path checks out that file alone, beside a directory"
+clone_dir="$work/clone"
+clone "$clone_dir" grammar/Example.xtext pair/a
+if [[ $status -eq 0 ]] && [[ -f "$clone_dir/grammar/Example.xtext" ]] && [[ ! -e "$clone_dir/grammar/Other.xtext" ]] &&
+	[[ -f "$clone_dir/pair/a/A.sysmlx" ]] && [[ ! -e "$clone_dir/sysml.library.xmi" ]]; then
 	pass "$name"
 else
 	fail "$name"

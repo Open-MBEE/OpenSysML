@@ -42,9 +42,9 @@ pilot_pin() {
 }
 
 # pilot_clone sparse-clones the pinned source repository into $1 with only the given
-# paths checked out, failing unless the tag still resolves to the pinned commit.
+# paths (files or directories) checked out, failing unless the tag still resolves to the pinned commit.
 pilot_clone() {
-	local dir="$1" head
+	local dir="$1" head path patterns=()
 	shift
 	echo "Fetching $* from $PILOT_SOURCE_REPO at $PILOT_TAG ($PILOT_SOURCE_COMMIT) ..."
 	if ! git -c advice.detachedHead=false clone --quiet --filter=blob:none --sparse --depth 1 \
@@ -59,7 +59,12 @@ pilot_clone() {
 		echo "       or override it together with PILOT_TAG deliberately" >&2
 		return 1
 	fi
-	git -C "$dir" sparse-checkout set "$@"
+	# Patterns anchored at the root, not cone mode: a cone names directories only, and
+	# git 2.56 refuses a file path there (download-pilot-grammars.sh names .xtext files).
+	for path in "$@"; do
+		patterns+=("/${path#/}")
+	done
+	git -C "$dir" -c core.sparseCheckoutCone=false sparse-checkout set "${patterns[@]}"
 }
 
 # pilot_count_files counts the files under $1 that match PILOT_FETCH_GLOBS.

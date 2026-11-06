@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.openmbee</groupId>
         <artifactId>syson-mdk</artifactId>
-        <version>0.12.0</version>
+        <version>0.12.1</version>
     </parent>
 
     <artifactId>syson-mdk-backend</artifactId>
@@ -17,7 +17,7 @@
         <dependency>
             <groupId>org.openmbee</groupId>
             <artifactId>opensysml</artifactId>
-            <version>0.12.0</version>
+            <version>0.12.1</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>

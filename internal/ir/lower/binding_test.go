@@ -1,6 +1,7 @@
 package lower
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -189,7 +190,7 @@ func TestBindingThroughEndsReRootsEndPaths(t *testing.T) {
 		t.Fatalf("ToBindings lowered %d bindings, want 3", len(bindings))
 	}
 	attachments := map[string]string{"a": "s.src", "b": "k.dst"}
-	through, ok := bindings[0].ThroughEnds(attachments)
+	through, ok := bindings[0].ThroughEnds(attachments, nil, Hop{})
 	if !ok || through.Ends[0].Path != "s.src.voltage" || through.Ends[1].Path != "k.dst.voltage" {
 		t.Errorf("bind a.voltage = b.voltage through the ends = %q = %q (%v), want s.src.voltage = k.dst.voltage", through.Ends[0].Path, through.Ends[1].Path, ok)
 	}
@@ -199,19 +200,84 @@ func TestBindingThroughEndsReRootsEndPaths(t *testing.T) {
 	if bindings[0].Ends[0].Path != "a.voltage" {
 		t.Errorf("ThroughEnds rewrote the original binding's end to %q", bindings[0].Ends[0].Path)
 	}
-	if _, ok := bindings[1].ThroughEnds(attachments); ok {
-		t.Errorf("bind a.voltage = reading was rewritten, though reading is the connector's own feature")
+	if _, ok := bindings[1].ThroughEnds(attachments, nil, Hop{Feature: "i"}); ok {
+		t.Errorf("bind a.voltage = reading was rewritten, though reading is rooted at no known name")
 	}
-	through, ok = bindings[2].ThroughEnds(attachments)
+	through, ok = bindings[1].ThroughEnds(map[string]string{"a": "s.src", "b": "k.dst", "reading": "i.reading"}, nil, Hop{Feature: "i"})
+	if !ok || through.Ends[0].Path != "s.src.voltage" || through.Ends[1].Path != "i.reading" {
+		t.Errorf("bind a.voltage = reading through the ends and the connector = %q = %q (%v), want s.src.voltage = i.reading", through.Ends[0].Path, through.Ends[1].Path, ok)
+	}
+	through, ok = bindings[2].ThroughEnds(attachments, nil, Hop{})
 	if !ok || through.Ends[0].Path != "s.src" || through.Ends[1].Path != "k.dst" {
 		t.Errorf("bind a = b through the ends = %q = %q (%v), want s.src = k.dst", through.Ends[0].Path, through.Ends[1].Path, ok)
 	}
 	expression := bindings[0]
 	expression.Ends[1] = BindingEnd{Expr: expression.Ends[1].Expr}
-	if _, ok := expression.ThroughEnds(attachments); ok {
-		t.Errorf("a binding whose right end is an expression over no feature path was rewritten")
+	if _, ok := expression.ThroughEnds(attachments, nil, Hop{}); ok {
+		t.Errorf("an expression end of an anonymous connector was rewritten, though nothing reaches the connector")
 	}
-	if _, ok := bindings[0].ThroughEnds(map[string]string{"a": "s.src"}); ok {
+	through, ok = expression.ThroughEnds(attachments, nil, Hop{Feature: "w"})
+	if !ok || through.Ends[0].Path != "s.src.voltage" || through.Ends[1].Path != "" || !slices.Equal(through.Ends[1].Via, []Hop{{Feature: "w"}}) {
+		t.Errorf("an expression end through connector w = %q = via %v (%v), want s.src.voltage = via w", through.Ends[0].Path, through.Ends[1].Via, ok)
+	}
+	anonymous := &ast.Usage{}
+	through, ok = through.ThroughEnds(map[string]string{"s": "p"}, nil, Hop{Anonymous: anonymous})
+	if !ok || through.Ends[0].Path != "p.src.voltage" || !slices.Equal(through.Ends[1].Via, []Hop{{Anonymous: anonymous}, {Feature: "w"}}) {
+		t.Errorf("an expression end re-rooted through nested connectors = %q = via %v (%v), want p.src.voltage = via the anonymous connector then w", through.Ends[0].Path, through.Ends[1].Via, ok)
+	}
+	through, ok = bindings[1].ThroughEnds(attachments, map[string]bool{"reading": true}, Hop{Anonymous: anonymous})
+	if !ok || through.Ends[0].Path != "s.src.voltage" || through.Ends[1].Path != "reading" ||
+		!slices.Equal(through.Ends[1].Via, []Hop{{Anonymous: anonymous}}) || through.Ends[1].HolderPath() != "" {
+		t.Errorf("bind a.voltage = reading through an anonymous connector = %q = %q via %v (%v), want s.src.voltage = reading via the anonymous connector", through.Ends[0].Path, through.Ends[1].Path, through.Ends[1].Via, ok)
+	}
+	through, ok = through.ThroughEnds(map[string]string{"s": "p"}, nil, Hop{Feature: "outer"})
+	if !ok || through.Ends[1].Path != "reading" || !slices.Equal(through.Ends[1].Via, []Hop{{Feature: "outer"}, {Anonymous: anonymous}}) {
+		t.Errorf("a path end on an anonymous connector re-rooted through connector outer = %q via %v (%v), want reading via outer then the anonymous connector", through.Ends[1].Path, through.Ends[1].Via, ok)
+	}
+	if _, ok := bindings[0].ThroughEnds(map[string]string{"a": "s.src"}, nil, Hop{}); ok {
 		t.Errorf("a binding over an end attached to nothing was rewritten")
+	}
+}
+
+func TestEndValueBindingsLowerEndBodyValues(t *testing.T) {
+	p := parser.New(source.New("ends.sysml", []byte(`package P {
+		interface def L {
+			end a : Pw;
+			end b : ~Pw {
+				attribute :>> voltage = 12;
+				attribute :>> current default = 2;
+				attribute :>> phase := 0;
+				attribute :>> label;
+			}
+			attribute reading = 3;
+		}
+	}`)))
+	file := p.ParseFile()
+	idx := symbols.NewIndex()
+	idx.AddDocument("ends.sysml", file)
+	scope := idx.DocumentRoot("ends.sysml")
+	pkg := file.Members[0].(*ast.Membership).Member.(*ast.Package)
+	def := pkg.Members[0].(*ast.Membership).Member.(*ast.Definition)
+	bindings := EndValueBindings(def, scope)
+	if len(bindings) != 2 {
+		t.Fatalf("EndValueBindings lowered %d bindings, want 2: the bound and the default value, not the initial one, the valueless one or the connector's own attribute", len(bindings))
+	}
+	wants := []struct {
+		path     string
+		defaults bool
+	}{{"b.voltage", false}, {"b.current", true}}
+	for i, want := range wants {
+		got := bindings[i]
+		if got.Ends[0].Path != want.path || got.Ends[1].Path != "" || got.Ends[1].Expr == nil || got.Ends[1].Default != want.defaults {
+			t.Errorf("binding %d = %q = expr %T default %v, want %q = its value expression, default %v",
+				i, got.Ends[0].Path, got.Ends[1].Expr, got.Ends[1].Default, want.path, want.defaults)
+		}
+		if got.Decl == nil || got.Decl.Value != got.Ends[1].Expr {
+			t.Errorf("binding %d is declared by %v, want the end's attribute", i, got.Decl)
+		}
+	}
+	through, ok := bindings[0].ThroughEnds(map[string]string{"a": "s.src", "b": "k.dst"}, nil, Hop{Feature: "i"})
+	if !ok || through.Ends[0].Path != "k.dst.voltage" || !slices.Equal(through.Ends[1].Via, []Hop{{Feature: "i"}}) {
+		t.Errorf("the end value through the ends = %q = via %v (%v), want k.dst.voltage = via i", through.Ends[0].Path, through.Ends[1].Via, ok)
 	}
 }
