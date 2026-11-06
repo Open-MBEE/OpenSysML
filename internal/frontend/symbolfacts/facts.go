@@ -280,11 +280,8 @@ func (sc *Context) connectorEndsOf(sym *symbols.Symbol) []*ConnectorEnd {
 				}
 			}
 		}
-		// An end of the connector's own says what it connects. An inherited
-		// end connects what the connector's own `connect`, `from` or `to`
-		// clause names at that position — nothing, when that name does not
-		// resolve — and what the end itself references only when the
-		// connector has no clause for the position.
+		// An owned end or clause settles what is connected, even unresolved; an
+		// inherited end's own reference counts only where no clause names the position.
 		if owned {
 			sc.connectedFeature(info, m.EndReferencedFeature(end))
 		}
