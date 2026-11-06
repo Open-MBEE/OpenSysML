@@ -696,6 +696,7 @@ expr:P__c_pend0
     sysml:owningRelationship expr:P__c_pend0_om ;
     sysml:owningMembership expr:P__c_pend0_om ;
     sysx:sourceText "n.next.next" ;
+    sysml:name "source" ;
     sysml:ownedReferenceSubsetting expr:P__c_pend0_prs ;
     sysml:ownedSubsetting expr:P__c_pend0_prs ;
     sysml:ownedSpecialization expr:P__c_pend0_prs ;
@@ -822,6 +823,7 @@ expr:P__c_pend1
     sysml:owningRelationship expr:P__c_pend1_om ;
     sysml:owningMembership expr:P__c_pend1_om ;
     sysx:sourceText "h.q" ;
+    sysml:name "target" ;
     sysml:ownedReferenceSubsetting expr:P__c_pend1_prs ;
     sysml:ownedSubsetting expr:P__c_pend1_prs ;
     sysml:ownedSpecialization expr:P__c_pend1_prs ;

@@ -465,7 +465,8 @@ expr:Machines__Lamp__on__heat___404_succession_pend0
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Machines__Lamp__on__heat___404_succession ;
     sysml:owningRelationship expr:Machines__Lamp__on__heat___404_succession_pend0_om ;
-    sysml:owningMembership expr:Machines__Lamp__on__heat___404_succession_pend0_om .
+    sysml:owningMembership expr:Machines__Lamp__on__heat___404_succession_pend0_om ;
+    sysml:name "earlierOccurrence" .
 
 expr:Machines__Lamp__on__heat___404_succession_pend0_om
     a sysml:EndFeatureMembership ;
@@ -490,6 +491,7 @@ expr:Machines__Lamp__on__heat___404_succession_pend1
     sysml:owner elmt:Machines__Lamp__on__heat___404_succession ;
     sysml:owningRelationship expr:Machines__Lamp__on__heat___404_succession_pend1_om ;
     sysml:owningMembership expr:Machines__Lamp__on__heat___404_succession_pend1_om ;
+    sysml:name "laterOccurrence" ;
     sysml:ownedReferenceSubsetting expr:Machines__Lamp__on__heat___404_succession_pend1_prs ;
     sysml:ownedSubsetting expr:Machines__Lamp__on__heat___404_succession_pend1_prs ;
     sysml:ownedSpecialization expr:Machines__Lamp__on__heat___404_succession_pend1_prs ;
@@ -813,7 +815,8 @@ expr:Machines__Lamp__on__light___404_succession_pend0
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Machines__Lamp__on__light___404_succession ;
     sysml:owningRelationship expr:Machines__Lamp__on__light___404_succession_pend0_om ;
-    sysml:owningMembership expr:Machines__Lamp__on__light___404_succession_pend0_om .
+    sysml:owningMembership expr:Machines__Lamp__on__light___404_succession_pend0_om ;
+    sysml:name "earlierOccurrence" .
 
 expr:Machines__Lamp__on__light___404_succession_pend0_om
     a sysml:EndFeatureMembership ;
@@ -838,6 +841,7 @@ expr:Machines__Lamp__on__light___404_succession_pend1
     sysml:owner elmt:Machines__Lamp__on__light___404_succession ;
     sysml:owningRelationship expr:Machines__Lamp__on__light___404_succession_pend1_om ;
     sysml:owningMembership expr:Machines__Lamp__on__light___404_succession_pend1_om ;
+    sysml:name "laterOccurrence" ;
     sysml:ownedReferenceSubsetting expr:Machines__Lamp__on__light___404_succession_pend1_prs ;
     sysml:ownedSubsetting expr:Machines__Lamp__on__light___404_succession_pend1_prs ;
     sysml:ownedSpecialization expr:Machines__Lamp__on__light___404_succession_pend1_prs ;
@@ -999,7 +1003,8 @@ expr:Machines__Lamp__on__light___405_succession_pend0
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Machines__Lamp__on__light___405_succession ;
     sysml:owningRelationship expr:Machines__Lamp__on__light___405_succession_pend0_om ;
-    sysml:owningMembership expr:Machines__Lamp__on__light___405_succession_pend0_om .
+    sysml:owningMembership expr:Machines__Lamp__on__light___405_succession_pend0_om ;
+    sysml:name "earlierOccurrence" .
 
 expr:Machines__Lamp__on__light___405_succession_pend0_om
     a sysml:EndFeatureMembership ;
@@ -1024,6 +1029,7 @@ expr:Machines__Lamp__on__light___405_succession_pend1
     sysml:owner elmt:Machines__Lamp__on__light___405_succession ;
     sysml:owningRelationship expr:Machines__Lamp__on__light___405_succession_pend1_om ;
     sysml:owningMembership expr:Machines__Lamp__on__light___405_succession_pend1_om ;
+    sysml:name "laterOccurrence" ;
     sysml:ownedReferenceSubsetting expr:Machines__Lamp__on__light___405_succession_pend1_prs ;
     sysml:ownedSubsetting expr:Machines__Lamp__on__light___405_succession_pend1_prs ;
     sysml:ownedSpecialization expr:Machines__Lamp__on__light___405_succession_pend1_prs ;
@@ -1185,7 +1191,8 @@ expr:Machines__Lamp___404_succession_pend0
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Machines__Lamp___404_succession ;
     sysml:owningRelationship expr:Machines__Lamp___404_succession_pend0_om ;
-    sysml:owningMembership expr:Machines__Lamp___404_succession_pend0_om .
+    sysml:owningMembership expr:Machines__Lamp___404_succession_pend0_om ;
+    sysml:name "earlierOccurrence" .
 
 expr:Machines__Lamp___404_succession_pend0_om
     a sysml:EndFeatureMembership ;
@@ -1210,6 +1217,7 @@ expr:Machines__Lamp___404_succession_pend1
     sysml:owner elmt:Machines__Lamp___404_succession ;
     sysml:owningRelationship expr:Machines__Lamp___404_succession_pend1_om ;
     sysml:owningMembership expr:Machines__Lamp___404_succession_pend1_om ;
+    sysml:name "laterOccurrence" ;
     sysml:ownedReferenceSubsetting expr:Machines__Lamp___404_succession_pend1_prs ;
     sysml:ownedSubsetting expr:Machines__Lamp___404_succession_pend1_prs ;
     sysml:ownedSpecialization expr:Machines__Lamp___404_succession_pend1_prs ;
@@ -1371,7 +1379,8 @@ expr:Machines__Lamp___405_succession_pend0
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Machines__Lamp___405_succession ;
     sysml:owningRelationship expr:Machines__Lamp___405_succession_pend0_om ;
-    sysml:owningMembership expr:Machines__Lamp___405_succession_pend0_om .
+    sysml:owningMembership expr:Machines__Lamp___405_succession_pend0_om ;
+    sysml:name "earlierOccurrence" .
 
 expr:Machines__Lamp___405_succession_pend0_om
     a sysml:EndFeatureMembership ;
@@ -1396,6 +1405,7 @@ expr:Machines__Lamp___405_succession_pend1
     sysml:owner elmt:Machines__Lamp___405_succession ;
     sysml:owningRelationship expr:Machines__Lamp___405_succession_pend1_om ;
     sysml:owningMembership expr:Machines__Lamp___405_succession_pend1_om ;
+    sysml:name "laterOccurrence" ;
     sysml:ownedReferenceSubsetting expr:Machines__Lamp___405_succession_pend1_prs ;
     sysml:ownedSubsetting expr:Machines__Lamp___405_succession_pend1_prs ;
     sysml:ownedSpecialization expr:Machines__Lamp___405_succession_pend1_prs ;
@@ -1557,7 +1567,8 @@ expr:Machines__Lamp___406_succession_pend0
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:Machines__Lamp___406_succession ;
     sysml:owningRelationship expr:Machines__Lamp___406_succession_pend0_om ;
-    sysml:owningMembership expr:Machines__Lamp___406_succession_pend0_om .
+    sysml:owningMembership expr:Machines__Lamp___406_succession_pend0_om ;
+    sysml:name "earlierOccurrence" .
 
 expr:Machines__Lamp___406_succession_pend0_om
     a sysml:EndFeatureMembership ;
@@ -1582,6 +1593,7 @@ expr:Machines__Lamp___406_succession_pend1
     sysml:owner elmt:Machines__Lamp___406_succession ;
     sysml:owningRelationship expr:Machines__Lamp___406_succession_pend1_om ;
     sysml:owningMembership expr:Machines__Lamp___406_succession_pend1_om ;
+    sysml:name "laterOccurrence" ;
     sysml:ownedReferenceSubsetting expr:Machines__Lamp___406_succession_pend1_prs ;
     sysml:ownedSubsetting expr:Machines__Lamp___406_succession_pend1_prs ;
     sysml:ownedSpecialization expr:Machines__Lamp___406_succession_pend1_prs ;

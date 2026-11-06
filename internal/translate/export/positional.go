@@ -98,8 +98,10 @@ func positionalCandidatesOf(doc PositionalDocument, index *symbols.Index, identi
 			if !positionalSymbol(sym, doc.File.Name(), identifies) {
 				continue
 			}
+			// A positional name, or one derived from the feature the symbol implicitly
+			// redefines (`Check::obj`): either is a name the index resolves to nothing.
 			name, ok := names[sym.Decl.Span()]
-			if !ok || !IsPositionalIdentity(name) || len(index.LookupQualified(name)) != 0 {
+			if !ok || len(index.LookupQualified(name)) != 0 {
 				continue
 			}
 			if candidates[name] == nil {

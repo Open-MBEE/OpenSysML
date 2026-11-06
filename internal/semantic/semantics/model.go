@@ -22,7 +22,9 @@ import (
 // Model is the derived semantic model over a symbol index. It memoizes the
 // specialization graph computed from resolved def/usage relationships.
 type Model struct {
-	resolver *resolve.Resolver
+	// kermlDocs memoizes declaresKerML per document of no recorded kind.
+	kermlDocs map[string]bool
+	resolver  *resolve.Resolver
 
 	directSupers map[*symbols.Symbol][]*symbols.Symbol
 	allSupers    map[*symbols.Symbol][]*symbols.Symbol
@@ -189,6 +191,7 @@ type Model struct {
 // inherited members, which a redefinition target may only be reachable through.
 func NewModel(resolver *resolve.Resolver) *Model {
 	m := &Model{
+		kermlDocs:    make(map[string]bool),
 		resolver:     resolver,
 		directSupers: make(map[*symbols.Symbol][]*symbols.Symbol),
 		allSupers:    make(map[*symbols.Symbol][]*symbols.Symbol),
