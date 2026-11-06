@@ -21,6 +21,7 @@ import (
 // objects `all T` enumerates must not depend on the order usages were read, a binding
 // must carry into an adopted context, and a probe must unwind one on rollback.
 func TestRuntimeRobustnessExtentModelDetermined(t *testing.T) {
+	t.Parallel()
 	t.Run("a namespace binding refusing conflicting ends leaves nothing behind", func(t *testing.T) {
 		src := `package test {
 			part def Car;

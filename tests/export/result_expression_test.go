@@ -510,6 +510,7 @@ func TestRepeatedSingleValuedPropertiesAreRefused(t *testing.T) {
 // rational lacking fractional digits gains them, a boolean is `true` or `false`,
 // and a value no token spells — signed, or not finite — is refused by name.
 func TestLiteralValuesAreSpelledAsTokens(t *testing.T) {
+	t.Parallel()
 	turtle := string(withoutTriples(t, convertFixture(t, "result_expressions"), "sysx:sourceText"))
 	const (
 		integer  = `sysml:value "2"^^xsd:integer ;`
@@ -773,6 +774,7 @@ func TestNonStringLiteralsAreRefused(t *testing.T) {
 // datatype is not the one the property holds, a string on a flag or an index
 // and expression text on a name included.
 func TestMistypedLiteralsAreRefusedEverywhere(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct{ fixture, from, to, want string }{
 		{"result_expressions", `sysml:declaredName "Quoted" ;`, `sysml:declaredName "42"^^xsd:integer ;`, "sysml:declaredName takes a string"},
 		{"result_expressions", `sysml:declaredName "Quoted" ;`, `sysml:declaredName "Quoted"^^sysx:Expression ;`, "sysml:declaredName takes a string"},
