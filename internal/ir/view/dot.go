@@ -14,6 +14,7 @@ import (
 const (
 	arrowTailDiamond = "arrowtail=diamond"
 	shapeBox         = "shape=box"
+	shapeNote        = "shape=note"
 	dirNone          = "dir=none"
 )
 
@@ -1347,7 +1348,7 @@ func (w *dotWriter) writeEdge(edge Edge, attrs []string) {
 // its body in plain type; an unnamed comment is its text alone. A stated box
 // pins and sizes it as it does any node.
 func (w *dotWriter) dotAnnotationAttributes(node *Node) []string {
-	attrs := []string{"shape=note"}
+	attrs := []string{shapeNote}
 	if w.skin.cameo {
 		attrs = append(attrs, dotFillAttr(cameoNoteFill), dotColorAttr(cameoLineColor))
 	}
@@ -1386,7 +1387,7 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 		} else if w.kind == KindCase || w.kind == KindMixed {
 			switch node.Kind {
 			case "objective":
-				attrs = append(attrs, "shape=note")
+				attrs = append(attrs, shapeNote)
 			case "actor", "subject":
 				attrs = append(attrs, shapeBox)
 			default:
@@ -2679,7 +2680,7 @@ func (w *dotWriter) writeNotes(indices []int, depth int, top bool) {
 	indent := strings.Repeat("  ", depth)
 	for _, i := range indices {
 		note := w.notes[i]
-		attrs := []string{"shape=note"}
+		attrs := []string{shapeNote}
 		if w.skin.cameo {
 			attrs = append(attrs, dotFillAttr(cameoNoteFill), dotColorAttr(cameoLineColor))
 		}

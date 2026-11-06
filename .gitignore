@@ -72,6 +72,8 @@ coverage-mcp-npm.lcov
 
 # Partial oracle record a failed `make fuml-expected` leaves for diagnosis
 /docs/project/fuml-referee-expected.json.failed
+# Combined from docs/project/spec-compliance/ when the site is built; only a release commits it.
+/docs/project/spec-compliance.md
 
 # Windows VERSIONINFO resources, written by go-winres for GOOS=windows builds
 cmd/*/rsrc_windows_*.syso

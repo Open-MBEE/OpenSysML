@@ -1005,6 +1005,7 @@ expr:Shadows__Governor___404_pguard_pin0_om
     sysml:source expr:Shadows__Governor___404_pguard ;
     sysml:target expr:Shadows__Governor___404_pguard_pin0 ;
     sysml:relatedElement expr:Shadows__Governor___404_pguard, expr:Shadows__Governor___404_pguard_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Shadows__Governor___404_pguard_pin0 ;
     sysml:ownedMemberParameter expr:Shadows__Governor___404_pguard_pin0 ;
     json:relatedElement "[{\"@id\":\"Shadows__Governor___404_pguard\"},{\"@id\":\"Shadows__Governor___404_pguard_pin0\"}]" .
@@ -1058,6 +1059,7 @@ expr:Shadows__Governor___404_pguard_pin1_om
     sysml:source expr:Shadows__Governor___404_pguard ;
     sysml:target expr:Shadows__Governor___404_pguard_pin1 ;
     sysml:relatedElement expr:Shadows__Governor___404_pguard, expr:Shadows__Governor___404_pguard_pin1 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Shadows__Governor___404_pguard_pin1 ;
     sysml:ownedMemberParameter expr:Shadows__Governor___404_pguard_pin1 ;
     json:relatedElement "[{\"@id\":\"Shadows__Governor___404_pguard\"},{\"@id\":\"Shadows__Governor___404_pguard_pin1\"}]" .
@@ -1554,6 +1556,7 @@ expr:Shadows__Governor___405_pguard_pin0_om
     sysml:source expr:Shadows__Governor___405_pguard ;
     sysml:target expr:Shadows__Governor___405_pguard_pin0 ;
     sysml:relatedElement expr:Shadows__Governor___405_pguard, expr:Shadows__Governor___405_pguard_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Shadows__Governor___405_pguard_pin0 ;
     sysml:ownedMemberParameter expr:Shadows__Governor___405_pguard_pin0 ;
     json:relatedElement "[{\"@id\":\"Shadows__Governor___405_pguard\"},{\"@id\":\"Shadows__Governor___405_pguard_pin0\"}]" .
@@ -1607,6 +1610,7 @@ expr:Shadows__Governor___405_pguard_pin1_om
     sysml:source expr:Shadows__Governor___405_pguard ;
     sysml:target expr:Shadows__Governor___405_pguard_pin1 ;
     sysml:relatedElement expr:Shadows__Governor___405_pguard, expr:Shadows__Governor___405_pguard_pin1 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Shadows__Governor___405_pguard_pin1 ;
     sysml:ownedMemberParameter expr:Shadows__Governor___405_pguard_pin1 ;
     json:relatedElement "[{\"@id\":\"Shadows__Governor___405_pguard\"},{\"@id\":\"Shadows__Governor___405_pguard_pin1\"}]" .

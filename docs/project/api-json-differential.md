@@ -230,11 +230,13 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 99784 elements matched (18960 ours-only, 31541 pilot-only, 0 of them implied); properties: 1921851 present-equal, 128715 present-different, 321824 ours-missing, 77521 pilot-missing, 2124129 absent-both, 32771 indeterminate, 516 pilot-nondeterministic.
+**Scorecard:** 935 files; 99784 elements matched (18960 ours-only, 31541 pilot-only, 0 of them implied); properties: 1925112 present-equal, 125454 present-different, 321824 ours-missing, 77521 pilot-missing, 2124129 absent-both, 32771 indeterminate, 516 pilot-nondeterministic.
 
 Re-recorded on develop's individual-definition change (#1943: an `individual def`/`individual usage` is written as `OccurrenceDefinition`/`OccurrenceUsage` with `isIndividual`): 88 more elements match (99534 → 99622), and the 32 `OccurrenceDefinition` rows of the inherited family move from ours-missing to present-different for the causes the paragraph below already lists; no row grew.
 
 Re-recorded again on develop's further defaults (#1942: an `individual def` owns its empty `Multiplicity` first and a named connector end its `[1..1]` last): 160 more elements match (99622 → 99782, the new default `Multiplicity` elements and their memberships), the seven `Multiplicity` rows of the gap table grow 3047 → 3127 for the cause they already state (no multiplicity implied base in the side table), and the `OwningMembership` pilot-missing counts fall by four; no new row.
+
+Re-recorded on the operand visibility change (an operator's operand, a `->` form's receiver and its body are owned by private `ParameterMembership`s, an argument list's arguments and a trigger's `after`/`at`/`when` argument by public ones — the pilot's `OperandEList` against KerMLExpressions.xtext `ArgumentMember`): `ParameterMembership.visibility` moves from 1296 equal / 3289 present-different to 4557 equal / 28 present-different, present-different properties 128353 → 125092; no other row moved and no element's match changed. The 28 left are the operand-less forms `(as T)`, `@T` and `istype T` of a filter: the pilot gives them an implicit self operand (`operand += SelfReferenceExpression`), owned first by a private `ParameterMembership`, and writes a cast's type as a `ReturnParameterMembership` (`TypeResultMember`); this repository writes the type argument alone, as a public `ParameterMembership` — a writer follow-up.
 
 Re-recorded on the connector-end change (a connector's `relatedFeature`, `sourceFeature` and `targetFeature` are the features its ends' ReferenceSubsettings reference, KerML 8.3.4.5.3 — for an end written as a feature chain the anonymous chain Feature the writer already mints for the subsetting, where before it stated nothing, and for a flow end the chain before its last link): 33 rows moved, every one a `relatedFeature`, `sourceFeature` or `targetFeature` of a connector metaclass, and no row grew in ours-missing. 134 rows became present-equal (`FlowUsage` 0 → 36/37/39, `SuccessionFlowUsage` and `SuccessionFlow` 0 → all, `InterfaceUsage` 0 → 5/4/4), the three `Flow` rows lost their one pilot-missing (a KerML flow end written as a lone name states no related feature on either side now), and 362 rows went from ours-missing to present-different (`ConnectionUsage` 1 → 70/69/70, `InterfaceUsage` 0 → 34, `Connector` 4 → 10/6/10, `BindingConnector` 2 → 5/5/3, `SuccessionAsUsage` 2 → 4/3/2, `AllocationUsage` 2 → 3/3/1, `BindingConnectorAsUsage` 0 → 1): the two sides state the same chain, but the pilot keys an unnamed connector end by the effective name of the library end it implicitly redefines (`source`/`target`, `thisThing`/`sameThing`) and this repository positionally, so the chain Features beneath them have no common key (`Interaction Realization-2::driverToVehicleInterface`: ours `…/PortUsage[0]/Feature[0]`, pilot `…::source/Feature[0]`); naming those ends is the writer follow-up that would make them present-equal. The present-different a succession whose two ends name the same feature carries (`Camera::multiFocusing`, `first focus then focus`: the graph, a set, holds the one triple where the pilot's list holds two) is older. The ours-missing that remain (`ConnectionUsage` 8/9/9, `Connector` 4/6/6, `FlowUsage` 10/13/11, `InterfaceUsage` 4/5/5, `AllocationUsage` 1, `SuccessionAsUsage` 1/1/0) have three causes the change does not reach: ends declared in the connector's body (`connection a : A { end port p3 : P ::> p.p1; … }`, `connector = c2 { end feature references a; … }`), ends inherited through the connector's own subsetting (`abstract connector c2 = c1`), and an end naming an end of the connector that owns it (`flow call_getItems … from tlu.cll to apsph.cll` inside `interface APIS_transfer_interface connect (tlu ::> …)`, `allocate e1.x to e2.y` inside an allocation declaring `e1` and `e2`), which the writer does not yet resolve to the end's term. A `message` states a plain-named end as its related feature and nothing for a chained one (the pilot states none for either): `FlowUsage` keeps its one pilot-missing.
 
@@ -242,15 +244,15 @@ The pilot's export failed on 59 files (`pilotFailed`: its own export throws on a
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 7973 | 1164 | 2193 | 156169 | 11579 | 21958 | 5615 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 28124 | 6156 | 7992 | 551704 | 39321 | 88626 | 21009 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 9967 | 1896 | 2632 | 193869 | 15318 | 28561 | 7489 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 6405 | 1153 | 1836 | 113439 | 8838 | 19509 | 7607 |
-| `examples/spec-examples` | 511 | 7360 | 989 | 2370 | 128419 | 6190 | 23306 | 6190 |
-| `tests/testdata` | 40 | 1513 | 174 | 458 | 27541 | 1968 | 4389 | 1186 |
-| `examples` | 56 | 30652 | 6075 | 12488 | 598043 | 36600 | 106048 | 23157 |
-| `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 885 | 33 | 90 | 41 |
-| `docs/manual/examples` | 11 | 7487 | 922 | 1822 | 146433 | 8603 | 30167 | 5072 |
+| `examples/sysml-v2-training` | 100 | 8026 | 1138 | 2140 | 157493 | 11374 | 22016 | 5661 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 28254 | 6251 | 7862 | 555535 | 38046 | 88477 | 21084 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 10015 | 1893 | 2584 | 195350 | 14911 | 28337 | 7514 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 6405 | 1153 | 1836 | 113569 | 8708 | 19509 | 7607 |
+| `examples/spec-examples` | 511 | 7371 | 997 | 2359 | 128679 | 6124 | 23320 | 6196 |
+| `tests/testdata` | 40 | 1513 | 174 | 458 | 27592 | 1917 | 4389 | 1186 |
+| `examples` | 56 | 30660 | 6344 | 12480 | 599268 | 35550 | 106015 | 23163 |
+| `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 887 | 31 | 90 | 41 |
+| `docs/manual/examples` | 11 | 7487 | 1010 | 1822 | 146605 | 8431 | 30167 | 5072 |
 
 **Every connector end's `[1..1]`** (re-recorded when the writer began stating the implicit `[1..1]`
 of a positional end — `connect a to b`, `bind a = b`, `first s1 then s2`, `allocate a to b` — as it
@@ -603,16 +605,16 @@ The largest **present-different** rows, with the reading the examples support:
 
 | metaclass | property | present-equal | present-different |
 |---|---|---:|---:|
-| `Feature` | `ownedRelationship` | 4206 | 1532 |
-| `AttributeUsage` | `ownedRelationship` | 1257 | 1245 |
-| `PartUsage` | `ownedRelationship` | 840 | 1054 |
-| `PartUsage` | `ownedMember` | 339 | 722 |
-| `AttributeUsage` | `ownedMembership` | 1194 | 668 |
-| `PartUsage` | `ownedMembership` | 679 | 668 |
+| `Feature` | `ownedRelationship` | 4206 | 1531 |
+| `AttributeUsage` | `ownedRelationship` | 2522 | 15 |
+| `PartUsage` | `ownedRelationship` | 1840 | 109 |
+| `PartUsage` | `ownedMember` | 1594 | 136 |
+| `AttributeUsage` | `ownedMembership` | 2459 | 11 |
+| `PartUsage` | `ownedMembership` | 1693 | 74 |
 | `Feature` | `ownedMembership` | 4447 | 571 |
-| `FeatureMembership` | `memberElement` | 9476 | 570 |
-| `FeatureMembership` | `ownedMemberElement` | 9476 | 570 |
-| `FeatureMembership` | `ownedRelatedElement` | 9476 | 570 |
+| `FeatureMembership` | `memberElement` | 9510 | 573 |
+| `FeatureMembership` | `ownedMemberElement` | 9510 | 573 |
+| `FeatureMembership` | `ownedRelatedElement` | 9510 | 573 |
 
 ### Where the pilot states nothing and we do
 

@@ -1395,6 +1395,7 @@ expr:Payloads__Ctx___404__cmd_pvalue_pin0_om
     sysml:source expr:Payloads__Ctx___404__cmd_pvalue ;
     sysml:target expr:Payloads__Ctx___404__cmd_pvalue_pin0 ;
     sysml:relatedElement expr:Payloads__Ctx___404__cmd_pvalue, expr:Payloads__Ctx___404__cmd_pvalue_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Payloads__Ctx___404__cmd_pvalue_pin0 ;
     sysml:ownedMemberParameter expr:Payloads__Ctx___404__cmd_pvalue_pin0 ;
     json:relatedElement "[{\"@id\":\"Payloads__Ctx___404__cmd_pvalue\"},{\"@id\":\"Payloads__Ctx___404__cmd_pvalue_pin0\"}]" .
