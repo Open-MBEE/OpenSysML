@@ -48,12 +48,12 @@ func memberFacts(t *testing.T, id string) ([]*Member, int32) {
 }
 
 // Own members come first in declaration order, the anonymous binding among
-// them; inherited members follow, each naming the type declaring it, a
-// private member of the supertype is not inherited, and the library members
-// every part has are withheld and counted rather than dropped.
+// them under its positional id; inherited members follow, each naming the type
+// declaring it, a private member of the supertype is not inherited, and the
+// library members every part has are withheld and counted rather than dropped.
 func TestMembersAreOwnThenInheritedWithProvenance(t *testing.T) {
 	members, withheld := memberFacts(t, "Demo::Controller")
-	want := "Demo::Controller::cmdIn,Demo::Controller::delegate,Demo::Controller::,Demo::Base::gain,Demo::Base::logic"
+	want := "Demo::Controller::cmdIn,Demo::Controller::delegate,Demo::Controller::@2,Demo::Base::gain,Demo::Base::logic"
 	if got := memberIDs(members); got != want {
 		t.Errorf("members = %s, want %s", got, want)
 	}
@@ -86,7 +86,7 @@ func TestUsageMembersIncludeWhatItsTypeDeclares(t *testing.T) {
 	if len(info.ChildIds) != 0 {
 		t.Errorf("child ids = %v, want none: the usage declares nothing", info.ChildIds)
 	}
-	want := "Demo::Controller::cmdIn,Demo::Controller::delegate,Demo::Controller::,Demo::Base::gain,Demo::Base::logic"
+	want := "Demo::Controller::cmdIn,Demo::Controller::delegate,Demo::Controller::@2,Demo::Base::gain,Demo::Base::logic"
 	if got := memberIDs(info.Members); got != want {
 		t.Errorf("members = %s, want %s", got, want)
 	}
@@ -107,7 +107,7 @@ func TestUsageMembersIncludeWhatItsTypeDeclares(t *testing.T) {
 // usage's own, and the redefined one is not inherited.
 func TestRedefinitionMasksTheRedefinedMember(t *testing.T) {
 	members, _ := memberFacts(t, "Demo::system::tuned")
-	want := "Demo::system::tuned::gain,Demo::Controller::cmdIn,Demo::Controller::delegate,Demo::Controller::,Demo::Base::logic"
+	want := "Demo::system::tuned::gain,Demo::Controller::cmdIn,Demo::Controller::delegate,Demo::Controller::@2,Demo::Base::logic"
 	if got := memberIDs(members); got != want {
 		t.Errorf("members = %s, want %s", got, want)
 	}

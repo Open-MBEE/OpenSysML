@@ -2312,3 +2312,24 @@ func NewIndexFromDoc(name string, root *ast.RootNamespace) *Index {
 	idx.AddDocument(name, root)
 	return idx
 }
+
+// QualifiedIdentity is the qualified name identifying sym alone, "" when an
+// owner or sym is unnamed or the name resolves to more than one symbol.
+func (idx *Index) QualifiedIdentity(sym *Symbol) string {
+	if idx == nil || sym == nil {
+		return ""
+	}
+	fqn := idx.GetFQN(sym)
+	if fqn == "" {
+		return ""
+	}
+	for _, segment := range strings.Split(fqn, "::") {
+		if segment == "" {
+			return ""
+		}
+	}
+	if !slices.Contains(idx.LookupQualified(fqn), sym) {
+		return ""
+	}
+	return fqn
+}

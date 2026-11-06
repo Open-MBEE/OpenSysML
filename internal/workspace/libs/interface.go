@@ -237,6 +237,9 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	if sym.Kind == symbols.SymbolMetadataUsage && symbols.AnnotatesOthers(sym.Decl) {
 		facts.Modifiers |= symbols.ModAnnotatesOthers
 	}
+	if sym.IsPrefixMetadata() {
+		facts.Modifiers |= symbols.ModPrefixMetadata
+	}
 	facts.Node = symbols.NodeKindOf(sym.Decl)
 	facts.Keyword = sym.Keyword()
 	facts.Notation = sym.Notation()
