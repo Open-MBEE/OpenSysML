@@ -230,7 +230,7 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 99773 elements matched (18960 ours-only, 31541 pilot-only, 0 of them implied); properties: 1925112 present-equal, 125734 present-different, 321288 ours-missing, 77514 pilot-missing, 2123843 absent-both, 32771 indeterminate, 516 pilot-nondeterministic.
+**Scorecard:** 935 files; 99773 elements matched (18960 ours-only, 31541 pilot-only, 0 of them implied); properties: 1925170 present-equal, 125676 present-different, 321288 ours-missing, 77514 pilot-missing, 2123843 absent-both, 32771 indeterminate, 516 pilot-nondeterministic.
 
 Re-recorded on develop's individual-definition change (#1943: an `individual def`/`individual usage` is written as `OccurrenceDefinition`/`OccurrenceUsage` with `isIndividual`): 88 more elements match (99534 → 99622), and the 32 `OccurrenceDefinition` rows of the inherited family move from ours-missing to present-different for the causes the paragraph below already lists; no row grew.
 
@@ -244,13 +244,13 @@ The pilot's export failed on 59 files (`pilotFailed`: its own export throws on a
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 8026 | 1138 | 2140 | 157523 | 11404 | 21956 | 5661 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 28254 | 6251 | 7862 | 555650 | 38579 | 87827 | 21084 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 10015 | 1893 | 2584 | 195402 | 14957 | 28238 | 7514 |
+| `examples/sysml-v2-training` | 100 | 8026 | 1138 | 2140 | 157524 | 11403 | 21956 | 5661 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 28254 | 6251 | 7862 | 555693 | 38536 | 87827 | 21084 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 10015 | 1893 | 2584 | 195407 | 14952 | 28238 | 7514 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 6405 | 1153 | 1836 | 113569 | 8708 | 19509 | 7607 |
-| `examples/spec-examples` | 511 | 7371 | 997 | 2359 | 128694 | 6135 | 23294 | 6196 |
-| `tests/testdata` | 40 | 1513 | 174 | 458 | 27597 | 1912 | 4389 | 1186 |
-| `examples` | 56 | 30649 | 6344 | 12480 | 599177 | 35527 | 105876 | 23153 |
+| `examples/spec-examples` | 511 | 7371 | 997 | 2359 | 128695 | 6134 | 23294 | 6196 |
+| `tests/testdata` | 40 | 1513 | 174 | 458 | 27601 | 1908 | 4389 | 1186 |
+| `examples` | 56 | 30649 | 6344 | 12480 | 599181 | 35523 | 105876 | 23153 |
 | `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 887 | 31 | 90 | 41 |
 | `docs/manual/examples` | 11 | 7487 | 1010 | 1822 | 146613 | 8481 | 30109 | 5072 |
 
@@ -326,8 +326,8 @@ named as `type`/`conjugatedPortDefinition`, SysML v2.1 §8.3.12.3 `conjugatedPor
 type}`, where the collapsed `sysml:type` had named P itself): every `PortUsage.type` row that was different
 is now equal — 351 → 406 present-equal (55 → 0 present-different; the 87 ours-missing are ports declaring no
 typing, whose type the pilot derives, unchanged) — and the `ref`/`usage` features typed by a conjugate
-follow, `ReferenceUsage.type` 1226 → 1227 equal (6 → 5 different) and `Usage.type` 9 → 11 (5 → 3); 1925327 →
-1925385 present-equal, 125740 → 125682 present-different overall. `ConjugatedPortTyping.type`,
+follow, `ReferenceUsage.type` 1226 → 1227 equal (6 → 5 different) and `Usage.type` 9 → 11 (5 → 3); 1925112 →
+1925170 present-equal, 125734 → 125676 present-different overall. `ConjugatedPortTyping.type`,
 `.conjugatedPortDefinition` and `.portDefinition` (61 equal each) and `PortUsage.portDefinition`/`.definition`
 did not move. No other row moved.
 
