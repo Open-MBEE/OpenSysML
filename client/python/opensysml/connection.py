@@ -2306,12 +2306,15 @@ class Connection:
             response, lambda rows, instances: [self._sweep_row(row, instances, diagnostics) for row in rows],
         )
 
-    def get_symbol(self, model_hash, symbol_id):
+    def get_symbol(self, model_hash, symbol_id, include_library_members=False):
         """Fetch symbol by ID from cached model.
         
         Args:
             model_hash (str): Model content hash
             symbol_id (str): Fully-qualified symbol ID
+            include_library_members (bool): List the members inherited from
+                standard-library content in ``members`` instead of counting
+                them in ``withheld_library_members``
         
         Returns:
             sysml_pb2.SymbolInfo or None: Symbol protobuf, or None if not found
@@ -2319,6 +2322,7 @@ class Connection:
         request = sysml_pb2.GetSymbolRequest(
             model_hash=model_hash,
             symbol_id=symbol_id,
+            include_library_members=include_library_members,
         )
         with translate_rpc_errors():
             response = self._stub.GetSymbol(request)

@@ -24,7 +24,8 @@ type ParseInput struct {
 // SymbolInput names one element of a model.
 type SymbolInput struct {
 	ModelInput
-	SymbolID string `json:"symbolId" jsonschema:"the element's qualified name, as Demo::Vehicle::mass"`
+	SymbolID              string `json:"symbolId" jsonschema:"the element's qualified name, as Demo::Vehicle::mass"`
+	IncludeLibraryMembers bool   `json:"includeLibraryMembers,omitempty" jsonschema:"list the members inherited from standard-library content too, which are otherwise withheld and counted"`
 }
 
 func (g *group) registerParse(s *mcp.Server) {
@@ -66,6 +67,7 @@ func (g *group) registerParse(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "symbol",
 		Description: "Describe one element of a parsed model by qualified name (the GetSymbol RPC): its kind, metadata, children, " +
+			"members (own, then inherited with the type each comes from; standard-library ones withheld unless asked for), " +
 			"attributes with their declared values, static type facts, multiplicity and specializations. An unknown name answers with " +
 			"`error` set rather than failing. The result is the SymbolResponse as protojson writes it.",
 		Annotations: toolkit.ReadOnly("Describe symbol"),
@@ -74,7 +76,9 @@ func (g *group) registerParse(s *mcp.Server) {
 		if err != nil {
 			return nil, nil, err
 		}
-		resp, err := g.svc.GetSymbol(ctx, &pb.GetSymbolRequest{ModelHash: m.hash, SymbolId: in.SymbolID})
+		resp, err := g.svc.GetSymbol(ctx, &pb.GetSymbolRequest{
+			ModelHash: m.hash, SymbolId: in.SymbolID, IncludeLibraryMembers: in.IncludeLibraryMembers,
+		})
 		if err != nil {
 			return nil, nil, toolError(err)
 		}
@@ -116,8 +120,16 @@ func symbolText(resp *pb.SymbolResponse) string {
 	if len(sym.GetChildIds()) > 0 {
 		fmt.Fprintf(&b, "children: %s\n", strings.Join(sym.GetChildIds(), ", "))
 	}
+	for _, m := range sym.GetMembers() {
+		if m.GetInherited() {
+			fmt.Fprintf(&b, "inherited %s %s from %s\n", m.GetKind(), m.GetId(), m.GetInheritedFrom())
+		}
+	}
 	if n := sym.GetWithheldLibraryAttributes(); n > 0 {
 		fmt.Fprintf(&b, "%d library-inherited attributes withheld\n", n)
+	}
+	if n := sym.GetWithheldLibraryMembers(); n > 0 {
+		fmt.Fprintf(&b, "%d library-inherited members withheld\n", n)
 	}
 	return b.String()
 }
