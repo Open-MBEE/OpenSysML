@@ -4747,16 +4747,9 @@ func (e *Evaluator) structureGeneralTypes(element Element) ([]Element, bool) {
 	if !ok {
 		return nil, false
 	}
-	kind := source.KindSysML
-	if documentKind, known := e.elementDocumentKind(element); known {
-		kind = documentKind
-	}
-	var impliedBases []string
-	if metaclass, known := e.options.Structure.Metaclass(element); known {
-		impliedBases = e.model.ImpliedBaseFQNsForMetaclass(metaclass, kind)
-	}
-	if len(impliedBases) == 0 && element.Node != nil {
-		impliedBases = e.model.ImpliedBaseFQNs(element.Node, kind)
+	impliedBases, ok := e.structureImpliedBaseFQNs(element)
+	if !ok {
+		return nil, false
 	}
 	for _, fqn := range impliedBases {
 		symbols := e.resolver.Index().LookupQualified(fqn)
@@ -4777,6 +4770,33 @@ func (e *Evaluator) structureGeneralTypes(element Element) ([]Element, bool) {
 		}
 	}
 	return uniqueStructureElements(bases, e.options.Structure), true
+}
+
+// structureImpliedBaseFQNs names the library types the element implicitly specializes
+// by its metaclass, by its syntax and, outside KerML, by nesting in its owning type.
+func (e *Evaluator) structureImpliedBaseFQNs(element Element) ([]string, bool) {
+	kind := source.KindSysML
+	if documentKind, known := e.elementDocumentKind(element); known {
+		kind = documentKind
+	}
+	var impliedBases []string
+	if metaclass, known := e.options.Structure.Metaclass(element); known {
+		impliedBases = e.model.ImpliedBaseFQNsForMetaclass(metaclass, kind)
+	}
+	if len(impliedBases) == 0 && element.Node != nil {
+		impliedBases = e.model.ImpliedBaseFQNs(element.Node, kind)
+	}
+	if kind == source.KindKerML {
+		return impliedBases, true
+	}
+	nested, ok := e.structureNestedSubsettingFQN(element)
+	if !ok {
+		return nil, false
+	}
+	if nested != "" {
+		impliedBases = append(impliedBases, nested)
+	}
+	return impliedBases, true
 }
 
 // structureSpecializedGeneralTypes lists the types the element's owned specializations name as general.
@@ -4808,6 +4828,56 @@ func (e *Evaluator) structureSpecializedGeneralTypes(element Element) ([]Element
 		}
 	}
 	return bases, true
+}
+
+// structureNestedSubsettingFQN is the library feature a graph usage implicitly subsets by
+// nesting in its owning type (SysML v2 §8.3.6.4, by the metaclasses and attributes the graph states).
+func (e *Evaluator) structureNestedSubsettingFQN(element Element) (string, bool) {
+	if e.model == nil {
+		return "", true
+	}
+	metaclass, known := e.options.Structure.Metaclass(element)
+	if !known {
+		return "", true
+	}
+	owningType, _, ok := e.structureOwningType(element)
+	if !ok {
+		return "", false
+	}
+	if owningType.Kind != ElementValue {
+		return "", true
+	}
+	ownerMetaclass, known := e.options.Structure.Metaclass(owningType.Element)
+	if !known {
+		return "", true
+	}
+	membership, _, ok := e.structureOwningFeatureMembership(element)
+	if !ok || membership.Kind == NullValue {
+		return "", ok
+	}
+	handle := Element{Membership: membership.Membership, IsMembership: true}
+	membershipMetaclass, known := e.options.Structure.Metaclass(handle)
+	if !known {
+		return "", true
+	}
+	var membershipKind string
+	if value, known := e.options.Structure.Attribute(handle, "kind"); known {
+		membershipKind = value.String + value.Enum
+	}
+	composite, known := e.options.Structure.Attribute(element, "isComposite")
+	if !known || composite.Kind != BooleanValue {
+		return "", true
+	}
+	portion := ast.PortionNone
+	if value, known := e.options.Structure.Attribute(element, "portionKind"); known {
+		switch stated := value.String + value.Enum; stated {
+		case "snapshot":
+			portion = ast.PortionSnapshot
+		case "timeslice":
+			portion = ast.PortionTimeslice
+		}
+	}
+	return e.model.ImpliedSubsettingFQNForMetaclass(metaclass, ownerMetaclass, membershipMetaclass, membershipKind, composite.Boolean, portion, owningType.Element.Symbol), true
 }
 
 func (e *Evaluator) elementDocumentKind(element Element) (source.Kind, bool) {

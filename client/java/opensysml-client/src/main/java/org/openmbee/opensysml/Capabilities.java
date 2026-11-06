@@ -123,6 +123,9 @@ public final class Capabilities {
   /** {@code SymbolInfo} carries the attributes of a symbol rather than none. */
   public static final String SYMBOL_ATTRIBUTES = "symbol_attributes";
 
+  /** {@code SymbolInfo} carries every member of a symbol, own and inherited, with its provenance. */
+  public static final String SYMBOL_MEMBERS = "symbol_members";
+
   /** {@code ApplyEdits} can add members and delete declarations. */
   public static final String AUTHORING = "authoring";
 

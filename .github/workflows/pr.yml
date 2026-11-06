@@ -94,7 +94,7 @@ jobs:
         run: |
           if [ "$DRAFT" != true ] || [ "$CI_FULL_LABEL" = true ]; then
             echo "tier=full"
-            echo 'go_shards=["runtime","runtime-corpus","model","export","export-corpus","export-settled","graph","codegen","rest","migrate","cli"]'
+            echo 'go_shards=["runtime","runtime-corpus","runtime-exploration","model","export","export-corpus","export-settled","graph","codegen","rest","migrate","cli"]'
           else
             echo "tier=quick"
             echo 'go_shards=["runtime","model export graph","rest migrate cli codegen"]'
@@ -249,7 +249,7 @@ jobs:
           set -euo pipefail
           profiles=(shards/coverage-*/coverage.txt)
           # One per go-tests shard.
-          if [ "${#profiles[@]}" -ne 11 ]; then echo "error: expected 11 shard profiles, found ${#profiles[@]}" >&2; exit 1; fi
+          if [ "${#profiles[@]}" -ne 12 ]; then echo "error: expected 12 shard profiles, found ${#profiles[@]}" >&2; exit 1; fi
           for f in "${profiles[@]}"; do
             [ "$(head -n 1 "$f")" = "mode: atomic" ] || { echo "error: $f is not an atomic-mode profile" >&2; exit 1; }
           done
