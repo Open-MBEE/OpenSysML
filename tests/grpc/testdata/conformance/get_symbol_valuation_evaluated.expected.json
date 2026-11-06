@@ -1,0 +1,21 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "OccurrenceConfig::system::usage_c::prop_b",
+	"expected_valuation": {
+		"text": "usage_a.prop_a * 2.0",
+		"kind": "operator",
+		"metaclass": "OperatorExpression",
+		"references": [
+			{
+				"text": "usage_a.prop_a",
+				"path": [
+					"OccurrenceConfig::system::usage_a",
+					"OccurrenceConfig::system::usage_a::prop_a"
+				],
+				"target_id": "OccurrenceConfig::system::usage_a::prop_a"
+			}
+		],
+		"evaluated_kind": "real_value",
+		"evaluated": 200
+	}
+}

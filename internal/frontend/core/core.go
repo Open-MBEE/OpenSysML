@@ -434,6 +434,7 @@ func valuationJSON(v *symbolfacts.Valuation) *JValuation {
 	for _, ref := range v.References {
 		out.References = append(out.References, &JValuationReference{Text: ref.Text, Path: ref.Path, TargetId: ref.TargetId})
 	}
+	out.Evaluated = attributeValue(v.Evaluated)
 	return out
 }
 

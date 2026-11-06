@@ -138,7 +138,29 @@ Kinds are `literal`, `null`, `featureReference`, `featureChain`, `operator`,
 and `body`. An operator or invocation lists the references of every operand in
 source order; a literal lists none. `AttributeFacts.valuation` carries the same
 record for each attribute of an element, beside the folded `value`, and
-`Symbol.metadata["value"]` repeats the text for a quick look. The query
+`Symbol.metadata["value"]` repeats the text for a quick look.
+
+`Valuation.evaluated` is what the expression evaluates to once the features it
+reads are followed to the values they are bound to, so an attribute valued by
+another part's attribute reports a number even though `value` stays `None`:
+
+```python
+# part usage_a : A { attribute :>> prop_a = 100.0; }
+# part usage_b : B { attribute :>> prop_b = usage_a.prop_a; }
+# part usage_c : B { attribute :>> prop_b = usage_a.prop_a * 2.0; }
+# part usage_d : B;
+for usage in ("usage_b", "usage_c", "usage_d"):
+    [prop] = [a for a in model.get(f"OccurrenceConfig::system::{usage}").attribute_facts() if a.name == "prop_b"]
+    print(prop.value, prop.valuation and prop.valuation.text, prop.valuation and prop.valuation.evaluated)
+# None usage_a.prop_a 100.0
+# None usage_a.prop_a * 2.0 200.0
+# None None None
+```
+
+`value` is a model-level constant and nothing else; `valuation` tells a value
+that is written from none (`usage_d`), and `evaluated` is `None` when the
+reading reaches a feature with no value, a call or a quantity — fall back to
+`model.eval` there. The query
 API exposes the same facts as the `valueExpression`, `valueExpressionKind` and
 `valueExpressionReference` properties (see [Queries](queries.md)). The service
 reports the `valuation` capability; a service without it raises

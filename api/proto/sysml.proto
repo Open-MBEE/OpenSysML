@@ -1916,6 +1916,11 @@ message Valuation {
   bool is_initial = 5;
   // The features the expression reads, in source order; empty for a literal.
   repeated ValuationReference references = 6;
+  // The expression's value once the features it reads are followed to the
+  // values they are bound to (`usage_a.prop_a` with `:>> prop_a = 100.0` is
+  // 100.0); unset when that determines none. Evaluated, unlike the constant
+  // AttributeInfo.value beside it.
+  Value evaluated = 7;
 }
 
 // ValuationReference is one feature a value expression reads.

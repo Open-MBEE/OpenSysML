@@ -25,6 +25,10 @@ func valuationFromProto(v *pb.Valuation) *Valuation {
 			TargetID: ref.TargetId,
 		})
 	}
+	if v.Evaluated != nil {
+		evaluated := valueFromProto(v.Evaluated)
+		out.Evaluated = &evaluated
+	}
 	return out
 }
 

@@ -88,3 +88,44 @@ func TestValuationOfReadsTheBoundExpression(t *testing.T) {
 		t.Error("a feature declaring no value has a valuation")
 	}
 }
+
+// The evaluated value reads through the features the expression names to the
+// values they are bound to (EvalIn); one that reaches a valueless feature has none.
+func TestValuationOfEvaluatesThroughTheFeaturesItReads(t *testing.T) {
+	const src = `
+	package OccurrenceConfig {
+		part def A { attribute prop_a : ScalarValues::Real; }
+		part def B { attribute prop_b : ScalarValues::Real; }
+		part system {
+			part usage_a : A { attribute :>> prop_a = 100.0; }
+			part usage_b : B { attribute :>> prop_b = usage_a.prop_a; }
+			part usage_c : B { attribute :>> prop_b = usage_a.prop_a * 2.0; }
+			part usage_e : B { attribute :>> prop_b = usage_d.prop_b; }
+			part usage_d : B;
+		}
+	}
+`
+	m, root := buildModelWithStdlibUnwalked(t, src)
+	pkg, _ := root.LookupLocal("OccurrenceConfig")
+	system := member(t, m, pkg, "system")
+	for _, c := range []struct {
+		usage, attribute string
+		evaluated        float64
+		determined       bool
+	}{
+		{"usage_a", "prop_a", 100, true},
+		{"usage_b", "prop_b", 100, true},
+		{"usage_c", "prop_b", 200, true},
+		{"usage_e", "prop_b", 0, false},
+	} {
+		facts, ok := m.ValuationOf(member(t, m, member(t, m, system, c.usage), c.attribute))
+		if !ok {
+			t.Fatalf("%s: no valuation", c.usage)
+		}
+		if (facts.Evaluated != nil) != c.determined {
+			t.Errorf("%s: evaluated %+v, want determined=%v", c.usage, facts.Evaluated, c.determined)
+		} else if c.determined && facts.Evaluated.AsReal() != c.evaluated {
+			t.Errorf("%s: evaluated %v, want %v", c.usage, facts.Evaluated.AsReal(), c.evaluated)
+		}
+	}
+}

@@ -1,0 +1,7 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "OccurrenceConfig::system::usage_b",
+	"expected_attributes": {
+		"prop_b": {"type": "Real"}
+	}
+}

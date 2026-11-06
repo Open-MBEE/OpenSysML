@@ -25,6 +25,11 @@ type ValuationFacts struct {
 	IsInitial bool
 	// References are the features the expression reads, in source order.
 	References []ValuationReference
+	// Evaluated is the value the expression has at model level once the
+	// features it reads are followed to the values they are bound to (EvalIn):
+	// `usage_a.prop_a` with `:>> prop_a = 100.0` is 100.0. Nil when that does
+	// not determine one — a feature with no value, a call, a quantity.
+	Evaluated *Value
 }
 
 // ValuationReference is one feature an expression reads: a plain reference, or
@@ -46,7 +51,7 @@ func (m *Model) ValuationOf(sym *symbols.Symbol) (*ValuationFacts, bool) {
 	if expr == nil {
 		return nil, false
 	}
-	_, isDefault, isInitial, _ := featureValueOf(sym)
+	node, isDefault, isInitial, _ := featureValueOf(sym)
 	metaclass := ""
 	if mc := m.MetaclassOf(expr); mc != nil {
 		metaclass = mc.Name
@@ -59,6 +64,11 @@ func (m *Model) ValuationOf(sym *symbols.Symbol) (*ValuationFacts, bool) {
 		IsInitial: isInitial,
 	}
 	facts.References = m.appendValuationReferences(nil, expr)
+	if node != nil {
+		if value, ok := m.EvalIn(declScope(sym), node); ok {
+			facts.Evaluated = &value
+		}
+	}
 	return facts, true
 }
 

@@ -185,6 +185,10 @@ type Valuation struct {
 	IsInitial bool
 	// References are the features the expression reads, in source order.
 	References []ValuationReference
+	// Evaluated is the expression's value once the features it reads are
+	// followed to their bound values; nil when none is determined. Unlike
+	// Attribute.Value it is evaluated, not a constant.
+	Evaluated *Value
 }
 
 // ValuationReference is one feature a value expression reads.

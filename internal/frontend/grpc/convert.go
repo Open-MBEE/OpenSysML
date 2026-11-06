@@ -53,26 +53,30 @@ func infoToProto(info *symbolfacts.Info, idx *symbols.Index) *pb.SymbolInfo {
 			Kind: spec.Kind, Declared: spec.Declared, TargetId: spec.TargetId, TargetKind: spec.TargetKind,
 		})
 	}
-	out.Valuation = valuationToProto(info.Valuation)
+	out.Valuation = valuationToProto(info.Valuation, idx)
 	for _, attribute := range info.Attributes {
-		a := &pb.AttributeInfo{Name: attribute.Name, Type: attribute.Type, Unit: attribute.Unit, Valuation: valuationToProto(attribute.Valuation)}
-		if attribute.Value != nil {
-			switch {
-			case attribute.Value.String != nil:
-				a.Value = &pb.Value{Kind: &pb.Value_StringValue{StringValue: *attribute.Value.String}}
-			case attribute.Value.Const != nil:
-				a.Value = protoconv.ValueToProto(runtime.Value{
-					Kind: runtime.ValConst, Const: *attribute.Value.Const,
-				}, idx)
-			}
-		}
+		a := &pb.AttributeInfo{Name: attribute.Name, Type: attribute.Type, Unit: attribute.Unit, Valuation: valuationToProto(attribute.Valuation, idx)}
+		a.Value = factValueToProto(attribute.Value, idx)
 		out.Attributes = append(out.Attributes, a)
 	}
 	return out
 }
 
+// factValueToProto converts a constant attribute value; nil for none.
+func factValueToProto(value *symbolfacts.Value, idx *symbols.Index) *pb.Value {
+	switch {
+	case value == nil:
+		return nil
+	case value.String != nil:
+		return &pb.Value{Kind: &pb.Value_StringValue{StringValue: *value.String}}
+	case value.Const != nil:
+		return protoconv.ValueToProto(runtime.Value{Kind: runtime.ValConst, Const: *value.Const}, idx)
+	}
+	return nil
+}
+
 // valuationToProto converts a feature's value-expression facts; nil for none.
-func valuationToProto(v *symbolfacts.Valuation) *pb.Valuation {
+func valuationToProto(v *symbolfacts.Valuation, idx *symbols.Index) *pb.Valuation {
 	if v == nil {
 		return nil
 	}
@@ -80,6 +84,7 @@ func valuationToProto(v *symbolfacts.Valuation) *pb.Valuation {
 	for _, ref := range v.References {
 		out.References = append(out.References, &pb.ValuationReference{Text: ref.Text, Path: ref.Path, TargetId: ref.TargetId})
 	}
+	out.Evaluated = factValueToProto(v.Evaluated, idx)
 	return out
 }
 

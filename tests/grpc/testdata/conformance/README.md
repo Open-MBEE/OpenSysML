@@ -76,7 +76,7 @@ empty else blocks are not authorable.
 | `expected_attributes` | GetSymbol | attribute name → `{type, value_kind, value, unit}`; no `value_kind` requires no value |
 | `expected_metadata` | GetSymbol | metadata key → value the symbol must carry (`variation`, `variant`, `abstract`, `type`, …) |
 | `absent_metadata` | GetSymbol | metadata keys the symbol must not carry |
-| `expected_valuation` | GetSymbol | the value expression the symbol declares: `{text, kind, metaclass, is_default, is_initial, references: [{text, path, target_id}]}`, references in source order |
+| `expected_valuation` | GetSymbol | the value expression the symbol declares: `{text, kind, metaclass, is_default, is_initial, references: [{text, path, target_id}]}`, references in source order; `evaluated_kind`/`evaluated` (as `expected_value` encodes a value) is what it evaluates to through the features it reads, `no_evaluated: true` requires that nothing is determined |
 | `no_valuation` | GetSymbol | the symbol must declare no value expression |
 | `expected_feature_values` | Instantiate | feature name → `{materialized, value_kind, value, error}` |
 | `expected_instance_count` | Instantiate | number of reachable instances in the response graph |

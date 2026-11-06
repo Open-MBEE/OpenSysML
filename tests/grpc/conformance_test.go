@@ -58,6 +58,12 @@ type expectedValuation struct {
 	IsDefault  bool                         `json:"is_default"`
 	IsInitial  bool                         `json:"is_initial"`
 	References []expectedValuationReference `json:"references"`
+	// EvaluatedKind and Evaluated are the value the expression evaluates to
+	// through the features it reads, as expectedValue encodes one; NoEvaluated
+	// requires that none is determined.
+	EvaluatedKind string      `json:"evaluated_kind"`
+	Evaluated     interface{} `json:"evaluated"`
+	NoEvaluated   bool        `json:"no_evaluated"`
 }
 
 type expectedValuationReference struct {
@@ -1613,5 +1619,12 @@ func checkValuation(t *testing.T, tc conformanceCase, got *pb.Valuation) {
 		if ref.GetText() != w.Text || ref.GetTargetId() != w.TargetID || !slices.Equal(ref.GetPath(), w.Path) {
 			t.Errorf("valuation reference %d = %v, want %+v", i, ref, w)
 		}
+	}
+	if want.NoEvaluated && got.GetEvaluated() != nil {
+		kind, value := describeValue(got.GetEvaluated())
+		t.Errorf("valuation evaluated = %s %v, want none", kind, value)
+	}
+	if want.EvaluatedKind != "" {
+		checkValue(t, "valuation evaluated", expectedValue{Kind: want.EvaluatedKind, Value: want.Evaluated}, got.GetEvaluated())
 	}
 }

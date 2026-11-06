@@ -160,9 +160,18 @@ class Valuation:
     references: Tuple[ValuationReference, ...] = field(default_factory=tuple)
     """The features the expression reads, in source order; empty for a literal."""
 
+    evaluated: object = None
+    """The expression's value at model level once the features it reads are
+    followed to the values they are bound to (``usage_a.prop_a`` with
+    ``:>> prop_a = 100.0`` gives ``100.0``); None when that determines none.
+    Unlike :attr:`AttributeFacts.value` it is evaluated, not a constant."""
+
     @classmethod
     def from_pb(cls, pb_valuation) -> "Valuation":
         """Build from a ``Valuation`` protobuf message."""
+        evaluated = None
+        if pb_valuation.HasField("evaluated"):
+            evaluated = value_to_python(pb_valuation.evaluated)
         return cls(
             text=pb_valuation.text,
             kind=pb_valuation.kind,
@@ -170,6 +179,7 @@ class Valuation:
             is_default=pb_valuation.is_default,
             is_initial=pb_valuation.is_initial,
             references=tuple(ValuationReference.from_pb(ref) for ref in pb_valuation.references),
+            evaluated=evaluated,
         )
 
 

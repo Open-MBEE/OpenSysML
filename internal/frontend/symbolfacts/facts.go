@@ -111,6 +111,10 @@ type Valuation struct {
 	IsDefault  bool
 	IsInitial  bool
 	References []ValuationReference
+	// Evaluated is the expression's value once the features it reads are
+	// followed to their bound values; nil when none is determined. Attribute
+	// Value stays the constant the expression folds to on its own.
+	Evaluated *Value
 }
 
 // ValuationReference is one feature a value expression reads: the FQNs of the
@@ -182,6 +186,9 @@ func (sc *Context) valuationOf(sym *symbols.Symbol) *Valuation {
 		out.References = append(out.References, ValuationReference{
 			Text: ref.Text, Path: path, TargetId: sc.Index.GetFQN(ref.Target),
 		})
+	}
+	if facts.Evaluated != nil {
+		out.Evaluated = &Value{Const: facts.Evaluated}
 	}
 	return out
 }

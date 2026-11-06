@@ -154,6 +154,7 @@ type JValuation struct {
 	IsDefault  bool                   `json:"isDefault,omitempty"`
 	IsInitial  bool                   `json:"isInitial,omitempty"`
 	References []*JValuationReference `json:"references,omitempty"`
+	Evaluated  *JValue                `json:"evaluated,omitempty"`
 }
 
 // JValuationReference is one feature a value expression reads.

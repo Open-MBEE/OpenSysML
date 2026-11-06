@@ -2353,6 +2353,12 @@ pub struct Valuation {
     /// The features the expression reads, in source order; empty for a literal.
     #[prost(message, repeated, tag="6")]
     pub references: ::prost::alloc::vec::Vec<ValuationReference>,
+    /// The expression's value once the features it reads are followed to the
+    /// values they are bound to (`usage_a.prop_a` with `:>> prop_a = 100.0` is
+    /// 100.0); unset when that determines none. Evaluated, unlike the constant
+    /// AttributeInfo.value beside it.
+    #[prost(message, optional, tag="7")]
+    pub evaluated: ::core::option::Option<Value>,
 }
 /// ValuationReference is one feature a value expression reads.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

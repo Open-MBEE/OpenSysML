@@ -99,3 +99,21 @@ def test_valuation_names_a_service_that_predates_it():
     with pytest.raises(MissingCapabilityError):
         Symbol(pb, _OldService(), "hash").valuation
     assert Symbol(pb, _NewService(), "hash").valuation is None
+
+
+def test_valuation_carries_the_evaluated_value_beside_a_missing_constant():
+    pb = sysml_pb2.AttributeInfo(
+        name="prop_b", type="ScalarValues::Real",
+        valuation=sysml_pb2.Valuation(
+            text="usage_a.prop_a", kind="featureChain", metaclass="FeatureChainExpression",
+            evaluated=sysml_pb2.Value(real_value=100.0),
+        ),
+    )
+    facts = AttributeFacts.from_pb(pb)
+    assert facts.value is None
+    assert facts.valuation.evaluated == 100.0
+
+
+def test_valuation_without_a_determined_value_evaluates_to_none():
+    pb = sysml_pb2.Valuation(text="usage_d.prop_b", kind="featureChain", metaclass="FeatureChainExpression")
+    assert Valuation.from_pb(pb).evaluated is None
