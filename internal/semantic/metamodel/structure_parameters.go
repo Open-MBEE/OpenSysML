@@ -13,8 +13,9 @@ type structureParameter struct {
 }
 
 // structureImpliedBaseFQNs names the standard-library bases element's metaclass or
-// declaration implies (SysML 8.3.6.2, KerML 8.4.4).
-func (e *Evaluator) structureImpliedBaseFQNs(element Element) []string {
+// declaration implies (SysML 8.3.6.2, KerML 8.4.4) and, for a usage, the library feature
+// its nesting implies it subsets (SysML 8.3.6.4).
+func (e *Evaluator) structureImpliedBaseFQNs(element Element) ([]string, bool) {
 	kind := source.KindSysML
 	if documentKind, known := e.elementDocumentKind(element); known {
 		kind = documentKind
@@ -26,7 +27,16 @@ func (e *Evaluator) structureImpliedBaseFQNs(element Element) []string {
 	if len(bases) == 0 && element.Node != nil {
 		bases = e.model.ImpliedBaseFQNs(element.Node, kind)
 	}
-	return bases
+	if kind != source.KindKerML {
+		nested, ok := e.structureNestedSubsettingFQN(element)
+		if !ok {
+			return nil, false
+		}
+		if nested != "" {
+			bases = append(bases, nested)
+		}
+	}
+	return bases, true
 }
 
 // structureRedefinitionTargets returns the features feature's owned Redefinitions name.
@@ -64,8 +74,12 @@ func (e *Evaluator) structureBehaviorGenerals(owner Element) ([]Element, bool) {
 	if !ok {
 		return nil, false
 	}
+	impliedBases, ok := e.structureImpliedBaseFQNs(owner)
+	if !ok {
+		return nil, false
+	}
 	implied := make(map[ElementKey]bool)
-	for _, fqn := range e.structureImpliedBaseFQNs(owner) {
+	for _, fqn := range impliedBases {
 		for _, symbol := range e.resolver.Index().LookupQualified(fqn) {
 			implied[ElementOf(symbol).Key()] = true
 		}

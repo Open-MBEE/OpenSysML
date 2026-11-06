@@ -230,7 +230,7 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 99783 elements matched (18960 ours-only, 31541 pilot-only, 0 of them implied); properties: 1925535 present-equal, 124641 present-different, 322207 ours-missing, 77522 pilot-missing, 2124079 absent-both, 32775 indeterminate, 516 pilot-nondeterministic.
+**Scorecard:** 935 files; 99783 elements matched (18960 ours-only, 31541 pilot-only, 0 of them implied); properties: 1925924 present-equal, 125248 present-different, 321206 ours-missing, 77522 pilot-missing, 2124079 absent-both, 32780 indeterminate, 516 pilot-nondeterministic.
 
 Re-recorded on the writer that masks the positional parameter redefinition (KerML §8.4.4.6, SysML
 §8.3.6.4): a parameter with no redefinition clause redefines the parameter at its position in each general
@@ -243,15 +243,16 @@ pilot drops `TakePicture::scene` and `::picture` from `Action Decomposition::tak
 unresolved in `action takePicture : TakePicture { in s; attribute a = scene; }`, `limit` unresolved in
 `cap :> limit` at `limit`'s position, both `p1` and `p2` unresolved for a named parameter under two
 generals (an unnamed one answers to `p1`), and `scene` unresolved for an `out` at `scene`'s position beside
-"Redefining feature must have a compatible direction". Figures: present-equal 1,924,974 → 1,925,535 (+561),
-present-different 125,097 → 124,641 (−456), ours-missing 322,318 → 322,207 (−111), indeterminate 32,769 →
-32,775 (+6), pilot-missing and matched unchanged; on the training root present-equal 157,493 → 157,676,
-present-different 11,374 → 11,203, ours-missing 22,016 → 22,002. The movement is the inherited family of
-steps whose parameters redefine their definition's by position (`usage`, `directedUsage`, `input`, `output`,
-`feature`, `member`, `membership`, `inheritedMembership`, `inheritedFeature`, `directedFeature`): rows that
-differed only by the redefined parameter are now equal, pilot-right; the six new indeterminate rows are lists
-whose remaining items are anonymous library members the bridge cannot key (`?` on the pilot's side), so they
-can no longer be compared, not a disagreement. No row grew.
+"Redefining feature must have a compatible direction". Figures against the record below, which carries the
+nested usage's implied subsetting: present-equal 1,925,327 → 1,925,924 (+597), present-different 125,740 →
+125,248 (−492), ours-missing 321,317 → 321,206 (−111), indeterminate 32,774 → 32,780 (+6), pilot-missing and
+matched unchanged; on the training root present-equal 157,493 → 157,734, present-different 11,374 → 11,205,
+ours-missing 22,016 → 21,942. The movement is the inherited family of steps whose parameters redefine their
+definition's by position (`usage`, `directedUsage`, `input`, `output`, `feature`, `member`, `membership`,
+`inheritedMembership`, `inheritedFeature`, `directedFeature`): rows that differed only by the redefined
+parameter are now equal, pilot-right; the six new indeterminate rows are lists whose remaining items are
+anonymous library members the bridge cannot key (`?` on the pilot's side), so they can no longer be
+compared, not a disagreement. No row grew.
 
 Re-recorded on develop's individual-definition change (#1943: an `individual def`/`individual usage` is written as `OccurrenceDefinition`/`OccurrenceUsage` with `isIndividual`): 88 more elements match (99534 → 99622), and the 32 `OccurrenceDefinition` rows of the inherited family move from ours-missing to present-different for the causes the paragraph below already lists; no row grew.
 
@@ -265,15 +266,15 @@ The pilot's export failed on 59 files (`pilotFailed`: its own export throws on a
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 8026 | 1138 | 2140 | 157676 | 11203 | 22002 | 5661 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 28254 | 6251 | 7862 | 555604 | 37987 | 88467 | 21084 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 10015 | 1893 | 2584 | 195426 | 14842 | 28326 | 7514 |
+| `examples/sysml-v2-training` | 100 | 8026 | 1138 | 2140 | 157734 | 11205 | 21942 | 5661 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 28254 | 6251 | 7862 | 555725 | 38514 | 87817 | 21084 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 10015 | 1893 | 2584 | 195479 | 14887 | 28227 | 7514 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 6405 | 1153 | 1836 | 113577 | 8700 | 19509 | 7607 |
-| `examples/spec-examples` | 511 | 7371 | 997 | 2359 | 128684 | 6117 | 23322 | 6196 |
-| `tests/testdata` | 40 | 1513 | 174 | 458 | 27592 | 1917 | 4389 | 1186 |
-| `examples` | 56 | 30659 | 6344 | 12480 | 599472 | 35413 | 105947 | 23161 |
+| `examples/spec-examples` | 511 | 7371 | 997 | 2359 | 128699 | 6128 | 23296 | 6196 |
+| `tests/testdata` | 40 | 1513 | 174 | 458 | 27597 | 1912 | 4389 | 1186 |
+| `examples` | 56 | 30659 | 6344 | 12480 | 599601 | 35390 | 105839 | 23161 |
 | `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 887 | 31 | 90 | 41 |
-| `docs/manual/examples` | 11 | 7487 | 1010 | 1822 | 146617 | 8431 | 30155 | 5072 |
+| `docs/manual/examples` | 11 | 7487 | 1010 | 1822 | 146625 | 8481 | 30097 | 5072 |
 
 **Every connector end's `[1..1]`** (re-recorded when the writer began stating the implicit `[1..1]`
 of a positional end — `connect a to b`, `bind a = b`, `first s1 then s2`, `allocate a to b` — as it
@@ -555,8 +556,8 @@ ours-missing):
      Shoot` redefines `Shoot::image` and takes its name, so `Shoot::image` leaves `usage`, `input` and
      `feature`; ours kept it). The semantic model computes both for AST nodes (`ImplicitSubsettings`,
      `ImpliedBaseFQNs`); structure mode needed rules keyed on metaclass, owner and position. Both are
-     closed in later records below (the nested subsettings by their own change; the positional
-     redefinition by the re-record that follows the #1942 one).
+     closed in later records (the nested subsettings by the record that ends this step; the positional
+     redefinition by the record that heads the results).
    - Two side-table gaps, recorded rather than approximated: a library feature's owned `MultiplicityRange` was
      not a member symbol of the feature (`Parts::parts/MultiplicityRange[0]` and its `OwningMembership` were
      absent from every usage's `member`/`membership`/`inheritedMembership`, one per implied usage base) — closed
@@ -606,6 +607,45 @@ ours-missing):
    `output` +785 — projections of the same lists, so they inherit the verdict of their `feature` row;
    identity noise is confined to the one `localClock` duplicate. Nothing in the movement is a list ours
    states and the spec forbids; each pilot-right row is an itemised gap, not an approximation.
+
+   Re-recorded with a nested usage's implied subsetting derived in structure mode (SysML 2.1 Beta 2 §8.3.6.4,
+   the `check*Specialization` constraints: `checkPartUsageSubpartSpecialization` — "A composite PartUsage
+   whose owningType is a ItemDefinition or ItemUsage must directly or indirectly specialize the PartUsage
+   Items::Item::subparts" — and its siblings for items, occurrences, actions, states, constraints,
+   requirements, cases, ports and views). The semantic model's declaration-keyed rule chains (`nested.go`)
+   are now also answered for a graph element from what the graph states — its metaclass, its owning type's
+   metaclass, `isComposite` and `portionKind` (`ImpliedSubsettingFQNForMetaclass`; the perform, exhibit and
+   include forms are metaclasses of their own there, and the owning membership's metaclass and `kind` tell a
+   requirement's `assume`/`require` constraint, a state's `entry`/`exit` action and a variant apart), with the KerML step fallback consulted when the owning
+   type is a library symbol — and the feature named joins the element's general types, so its
+   `nonPrivateMemberships` are inherited like an implied kind base's. Movement against the record above:
+   present-equal +353, present-different +643, ours-missing −1001, indeterminate +5, elements unchanged, no
+   row grew in ours-missing. By metaclass: `PerformActionUsage` `feature`/`featureMembership` 86,
+   `inheritedMembership` 110, `inheritedFeature` 112, `member`/`membership` 83 rows ours-missing →
+   present-different and `usage` 39 → equal, 44 → different; `AssertConstraintUsage` 52 inherited rows and 39
+   `directedFeature`/`output` rows → different, `usage` 39 → equal; `ExhibitStateUsage` 23 inherited and 5
+   `member`/`feature` rows → different, `usage` 14 → equal; `SatisfyRequirementUsage` 16 inherited and 16
+   `output` rows → different; `IncludeUseCaseUsage` one row per property → different; `StateUsage.usage` 216,
+   `ActionUsage.usage` 35, `CalculationUsage.usage` 6 and `UseCaseUsage.usage` 2 different → equal;
+   `FlowUsage.usage` 2 different → indeterminate. Verdicts: the ours-missing → present rows are the nested
+   forms whose metaclass has no kind base in `ImpliedBaseFQNsForMetaclass` (a `perform action` is an
+   `ActionUsage` by `Actions::actions`, SysML §8.3.16.3), so until now nothing was inherited and the family
+   withheld; the nesting feature (`Parts::Part::performedActions`, `exhibitedStates`,
+   `Requirements::RequirementCheck::assumptions`/`constraints`, …) now carries most of the pilot's list, and
+   the rows are different where the pilot's also carries the kind base's own members — the kind base of
+   these metaclasses is the recorded gap (cause 1's metaclass-keyed bases), not an approximation. The `usage`
+   rows → equal are lists the nesting feature completes exactly. The `PartUsage`, `ItemUsage` and
+   `OccurrenceUsage` rows stay present-different with a smaller difference: a part usage's lists now carry
+   `Items::Item::subparts/MultiplicityRange[0]`, its documentation and `suboccurrences`' members (the
+   pilot's `eng` of the training `Part Definition Example` lists 113 inherited memberships, ours 105, from
+   100), and the pilot's also carry the `MultiplicityRange` of each intermediate feature of the subsetting
+   chain (`Items::Item::subitems/OwningMembership[1]`, `Objects::Object::subobjects/OwningMembership[1]`),
+   which the semantic model inherits through a subsetting only for the directly subsetted feature — a
+   side-table gap recorded here. The Turtle and compact forms change additively (the new stubs and
+   `libraryReferences` rows; two conversion goldens cross 200 KiB into digest form); the unkeyed
+   references rise by 774, the pilot keying a nesting feature's `OwningMembership`s positionally while the
+   compact form spells a membership stub without a `libraryPath`.
+
 
 Not completed, and why: `Type::endFeature` (not taken up in this step; it awaits a measurement of its own) and the
 causes itemised under step 5. `Behavior::step` (0 equal / 257 different),
