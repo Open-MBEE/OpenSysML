@@ -102,6 +102,8 @@ func (c *pkgClient) runtimeCall(method string) (pkgCall, bool) {
 		return c.evaluate, true
 	case "Instantiate":
 		return c.instantiate, true
+	case "InstancePaths":
+		return c.instancePaths, true
 	case "ExecuteAction":
 		return c.executeAction, true
 	case "ExecuteState":
@@ -352,6 +354,39 @@ func (c *pkgClient) instantiate(ctx context.Context, request protoreflect.Messag
 	}
 	for _, instance := range instantiation.Instances {
 		response.Instances = append(response.Instances, instanceToProto(instance))
+	}
+	return response, nil
+}
+
+func (c *pkgClient) instancePaths(ctx context.Context, request protoreflect.Message) (proto.Message, error) {
+	req := &pb.InstancePathsRequest{}
+	if err := retype(request, req); err != nil {
+		return nil, err
+	}
+	ref := opensysml.ObjectRef{InstanceID: req.GetObject().GetInstanceId(), Path: req.GetObject().GetPath()}
+	paths, err := c.api.InstancePaths(ctx, c.model(req.ModelHash), ref)
+	var failure *opensysml.FailureError
+	if errors.As(err, &failure) {
+		return &pb.InstancePathsResponse{Error: failure.Message, Diagnostics: diagnosticsToProto(failure.Diagnostics)}, nil
+	}
+	if err != nil {
+		return nil, apiError(err)
+	}
+	response := &pb.InstancePathsResponse{Truncated: paths.Truncated}
+	for _, path := range paths.Paths {
+		converted := &pb.InstancePath{
+			Root: &pb.InstanceRoot{InstanceId: path.RootInstanceID, SymbolId: path.RootSymbolID},
+			Path: path.Path,
+		}
+		for _, step := range path.Steps {
+			converted.Steps = append(converted.Steps, &pb.InstancePathStep{
+				FeatureName:     step.FeatureName,
+				FeatureSymbolId: step.FeatureSymbolID,
+				Index:           int32Clamp(step.Index),
+				InstanceId:      step.InstanceID,
+			})
+		}
+		response.Paths = append(response.Paths, converted)
 	}
 	return response, nil
 }
@@ -2370,6 +2405,15 @@ func instanceToProto(instance *opensysml.Instance) *pb.Instance {
 				converted.Values = append(converted.Values, valueToProto(element))
 			}
 			out.FeatureValues[name] = converted
+		}
+	}
+	if reach := instance.ReachedBy; reach != nil {
+		out.ReachedBy = &pb.InstanceReach{
+			InstanceId:      reach.InstanceID,
+			FeatureName:     reach.FeatureName,
+			FeatureSymbolId: reach.FeatureSymbolID,
+			Index:           int32Clamp(reach.Index),
+			Path:            reach.Path,
 		}
 	}
 	return out

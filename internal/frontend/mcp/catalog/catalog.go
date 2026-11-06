@@ -113,6 +113,8 @@ var Tools = []Entry{
 		Summary: "Set the feature values a CSV, TSV, JSON or JSON Lines file assigns, one row per element."},
 	{Name: "instantiate", Group: GroupRuntime, RPCs: []string{"Instantiate"}, Flags: []string{"instantiate"},
 		Summary: "Instantiate a definition or usage and report the object's feature values."},
+	{Name: "instance_paths", Group: GroupRuntime, RPCs: []string{"InstancePaths"},
+		Summary: "List every root-relative usage path that reaches an instantiated object."},
 	{Name: "list_engines", Group: GroupRuntime, RPCs: []string{"ListEngines"}, Flags: []string{"engines", "probe"},
 		Summary: "List the analysis engines and whether each is ready."},
 	{Name: "migrate", Group: GroupRuntime, RPCs: []string{"Migrate"},

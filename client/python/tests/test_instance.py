@@ -245,3 +245,183 @@ def test_graph_is_shared_not_copied():
 
     assert inst._graph is graph
     assert inst.engine._graph is graph
+
+
+def reach(instance_id, feature_name, feature_symbol_id, path, index=0):
+    return sysml_pb2.InstanceReach(
+        instance_id=instance_id,
+        feature_name=feature_name,
+        feature_symbol_id=feature_symbol_id,
+        index=index,
+        path=path,
+    )
+
+
+def reached_graph():
+    """A vehicle whose engine's port is also the interface end's object, each
+    instance saying how the traversal reached it, as Instantiate answers."""
+    port = sysml_pb2.Instance(
+        id=4,
+        type_symbol_id="Demo::FuelPort",
+        reached_by=reach(3, "fuelIn", "Demo::Engine::fuelIn", "engine.fuelIn"),
+    )
+    engine = sysml_pb2.Instance(
+        id=3,
+        type_symbol_id="Demo::Engine",
+        feature_values={"fuelIn": scalar_feature("fuelIn", instance_id=4)},
+        reached_by=reach(1, "engine", "Demo::Vehicle::engine", "engine"),
+    )
+    wheel = sysml_pb2.Instance(
+        id=5,
+        type_symbol_id="Demo::Wheel",
+        reached_by=reach(1, "wheels", "Demo::Vehicle::wheels", "wheels[2]", index=2),
+    )
+    vehicle = sysml_pb2.Instance(
+        id=1,
+        type_symbol_id="Demo::Vehicle",
+        feature_values={
+            "engine": scalar_feature("engine", instance_id=3),
+            "wheels": sysml_pb2.FeatureValue(
+                feature_name="wheels",
+                materialized=True,
+                values=[sysml_pb2.Value(instance_id=6), sysml_pb2.Value(instance_id=5)],
+            ),
+        },
+    )
+    return vehicle, {1: vehicle, 3: engine, 4: port, 5: wheel}
+
+
+class TestInstanceReach:
+    def test_root_has_no_owner(self):
+        vehicle, graph = reached_graph()
+        root = Instance(vehicle, graph)
+        assert root.reached_by is None
+        assert root.owner is None
+        assert root.feature is None
+        assert root.feature_symbol_id is None
+        assert root.index is None
+        assert root.path == ""
+
+    def test_nested_instance_reports_owner_feature_and_path(self):
+        vehicle, graph = reached_graph()
+        root = Instance(vehicle, graph)
+        port = root.engine.fuelIn
+        assert port.owner is root.engine
+        assert port.owner.owner is root
+        assert port.feature == "fuelIn"
+        assert port.feature_symbol_id == "Demo::Engine::fuelIn"
+        assert port.index == 0
+        assert port.path == "engine.fuelIn"
+
+    def test_multi_valued_feature_reports_its_index_from_one(self):
+        vehicle, graph = reached_graph()
+        wheel = Instance(vehicle, graph).wheels[1]
+        assert wheel.feature == "wheels"
+        assert wheel.index == 2
+        assert wheel.path == "wheels[2]"
+        assert wheel.owner.id == 1
+
+    def test_an_instance_from_an_older_service_has_no_reach(self):
+        vehicle, graph = vehicle_graph()
+        root = Instance(vehicle, graph)
+        assert root.engine.reached_by is None
+        assert root.engine.owner is None
+        assert root.engine.path == ""
+
+    def test_paths_needs_the_connection(self):
+        vehicle, graph = reached_graph()
+        with pytest.raises(RuntimeError, match="connection"):
+            Instance(vehicle, graph).paths()
+
+    def test_paths_asks_the_connection_for_every_path_to_the_object(self):
+        from opensysml.instance import InstancePath, InstancePaths
+
+        class FakeConnection:
+            def __init__(self):
+                self.asked = []
+
+            def instance_paths(self, instance, model_hash):
+                self.asked.append((instance, model_hash))
+                response = sysml_pb2.InstancePathsResponse(paths=[
+                    sysml_pb2.InstancePath(
+                        root=sysml_pb2.InstanceRoot(instance_id=1, symbol_id="Demo::vehicle"),
+                        path="engine.fuelIn",
+                        steps=[
+                            sysml_pb2.InstancePathStep(feature_name="engine", feature_symbol_id="Demo::Vehicle::engine", instance_id=3),
+                            sysml_pb2.InstancePathStep(feature_name="fuelIn", feature_symbol_id="Demo::Engine::fuelIn", instance_id=4),
+                        ],
+                    ),
+                    sysml_pb2.InstancePath(
+                        root=sysml_pb2.InstanceRoot(instance_id=1, symbol_id="Demo::vehicle"),
+                        path="fuelLine.consumer",
+                        steps=[
+                            sysml_pb2.InstancePathStep(feature_name="fuelLine", feature_symbol_id="Demo::Vehicle::fuelLine", instance_id=2),
+                            sysml_pb2.InstancePathStep(feature_name="consumer", feature_symbol_id="Demo::FuelLine::consumer", instance_id=4),
+                        ],
+                    ),
+                ])
+                return InstancePaths((InstancePath(path) for path in response.paths), truncated=response.truncated)
+
+        vehicle, graph = reached_graph()
+        connection = FakeConnection()
+        root = Instance(vehicle, graph, _connection=connection, _model_hash="abc")
+        paths = root.engine.fuelIn.paths()
+        assert connection.asked == [(4, "abc")]
+        assert [str(path) for path in paths] == ["Demo::vehicle.engine.fuelIn", "Demo::vehicle.fuelLine.consumer"]
+        assert paths[0].root_id == 1
+        assert paths[0].root_symbol_id == "Demo::vehicle"
+        assert paths[0].path == "engine.fuelIn"
+        assert [step.feature_name for step in paths[1].steps] == ["fuelLine", "consumer"]
+        assert paths[1].steps[1].feature_symbol_id == "Demo::FuelLine::consumer"
+        assert paths[1].steps[1].instance_id == 4
+        assert paths[1].steps[1].index == 0
+        assert repr(paths[1].steps[0]) == "PathStep(fuelLine -> #2)"
+        assert paths.truncated is False
+
+    def test_a_feature_named_like_a_reach_attribute_is_read_by_name(self):
+        route = sysml_pb2.Instance(
+            id=7,
+            type_symbol_id="Demo::Route",
+            feature_values={
+                "path": scalar_feature("path", string_value="A-B"),
+                "owner": scalar_feature("owner", string_value="fleet"),
+            },
+            reached_by=reach(1, "route", "Demo::Vehicle::route", "route"),
+        )
+        vehicle = sysml_pb2.Instance(
+            id=1,
+            type_symbol_id="Demo::Vehicle",
+            feature_values={"route": scalar_feature("route", instance_id=7)},
+        )
+        inst = Instance(vehicle, graph={1: vehicle, 7: route}).route
+        assert inst.path == "route"
+        assert inst.owner.id == 1
+        assert inst["path"] == "A-B"
+        assert inst.get("path") == "A-B"
+        assert inst["owner"] == "fleet"
+        assert "path" in inst
+
+    def test_paths_say_when_the_service_cut_them_short(self):
+        from opensysml.instance import InstancePath, InstancePaths
+
+        pb_path = sysml_pb2.InstancePath(root=sysml_pb2.InstanceRoot(instance_id=1, symbol_id="Demo::vehicle"), path="engine")
+        paths = InstancePaths([InstancePath(pb_path)], truncated=True)
+        assert isinstance(paths, list)
+        assert len(paths) == 1
+        assert paths.truncated is True
+        assert repr(paths) == "InstancePaths([InstancePath('Demo::vehicle.engine')], truncated=True)"
+        assert repr(InstancePaths()) == "InstancePaths([])"
+
+    def test_a_displaced_root_is_named_by_its_id(self):
+        from opensysml.instance import InstancePath
+
+        path = InstancePath(sysml_pb2.InstancePath(
+            root=sysml_pb2.InstanceRoot(instance_id=7),
+            path="wheels[2]",
+            steps=[sysml_pb2.InstancePathStep(feature_name="wheels", index=2, instance_id=9)],
+        ))
+        assert str(path) == "#7.wheels[2]"
+        assert repr(path.steps[0]) == "PathStep(wheels[2] -> #9)"
+        root = InstancePath(sysml_pb2.InstancePath(root=sysml_pb2.InstanceRoot(instance_id=7)))
+        assert str(root) == "#7"
+        assert root.steps == []

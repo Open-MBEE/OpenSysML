@@ -26,6 +26,7 @@ const (
 	SysMLService_GetDiagnostics_FullMethodName       = "/sysml.SysMLService/GetDiagnostics"
 	SysMLService_Evaluate_FullMethodName             = "/sysml.SysMLService/Evaluate"
 	SysMLService_Instantiate_FullMethodName          = "/sysml.SysMLService/Instantiate"
+	SysMLService_InstancePaths_FullMethodName        = "/sysml.SysMLService/InstancePaths"
 	SysMLService_ExecuteAction_FullMethodName        = "/sysml.SysMLService/ExecuteAction"
 	SysMLService_ExecuteState_FullMethodName         = "/sysml.SysMLService/ExecuteState"
 	SysMLService_Convert_FullMethodName              = "/sysml.SysMLService/Convert"
@@ -74,6 +75,10 @@ type SysMLServiceClient interface {
 	// Runtime operations (Phase 4)
 	Evaluate(ctx context.Context, in *EvaluateRequest, opts ...grpc.CallOption) (*EvaluateResponse, error)
 	Instantiate(ctx context.Context, in *InstantiateRequest, opts ...grpc.CallOption) (*InstantiateResponse, error)
+	// List every root-relative usage path that reaches one object the model's
+	// population holds, aliases through connector ends and references included.
+	// Reported as the "instance_paths" capability.
+	InstancePaths(ctx context.Context, in *InstancePathsRequest, opts ...grpc.CallOption) (*InstancePathsResponse, error)
 	ExecuteAction(ctx context.Context, in *ExecuteActionRequest, opts ...grpc.CallOption) (*ExecuteActionResponse, error)
 	ExecuteState(ctx context.Context, in *ExecuteStateRequest, opts ...grpc.CallOption) (*ExecuteStateResponse, error)
 	// Convert a model between the representations OpenSysML writes — SysML
@@ -244,6 +249,15 @@ func (c *sysMLServiceClient) Evaluate(ctx context.Context, in *EvaluateRequest, 
 func (c *sysMLServiceClient) Instantiate(ctx context.Context, in *InstantiateRequest, opts ...grpc.CallOption) (*InstantiateResponse, error) {
 	out := new(InstantiateResponse)
 	err := c.cc.Invoke(ctx, SysMLService_Instantiate_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sysMLServiceClient) InstancePaths(ctx context.Context, in *InstancePathsRequest, opts ...grpc.CallOption) (*InstancePathsResponse, error) {
+	out := new(InstancePathsResponse)
+	err := c.cc.Invoke(ctx, SysMLService_InstancePaths_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -496,6 +510,10 @@ type SysMLServiceServer interface {
 	// Runtime operations (Phase 4)
 	Evaluate(context.Context, *EvaluateRequest) (*EvaluateResponse, error)
 	Instantiate(context.Context, *InstantiateRequest) (*InstantiateResponse, error)
+	// List every root-relative usage path that reaches one object the model's
+	// population holds, aliases through connector ends and references included.
+	// Reported as the "instance_paths" capability.
+	InstancePaths(context.Context, *InstancePathsRequest) (*InstancePathsResponse, error)
 	ExecuteAction(context.Context, *ExecuteActionRequest) (*ExecuteActionResponse, error)
 	ExecuteState(context.Context, *ExecuteStateRequest) (*ExecuteStateResponse, error)
 	// Convert a model between the representations OpenSysML writes — SysML
@@ -626,6 +644,9 @@ func (UnimplementedSysMLServiceServer) Evaluate(context.Context, *EvaluateReques
 }
 func (UnimplementedSysMLServiceServer) Instantiate(context.Context, *InstantiateRequest) (*InstantiateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Instantiate not implemented")
+}
+func (UnimplementedSysMLServiceServer) InstancePaths(context.Context, *InstancePathsRequest) (*InstancePathsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InstancePaths not implemented")
 }
 func (UnimplementedSysMLServiceServer) ExecuteAction(context.Context, *ExecuteActionRequest) (*ExecuteActionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExecuteAction not implemented")
@@ -837,6 +858,24 @@ func _SysMLService_Instantiate_Handler(srv interface{}, ctx context.Context, dec
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SysMLServiceServer).Instantiate(ctx, req.(*InstantiateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SysMLService_InstancePaths_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InstancePathsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SysMLServiceServer).InstancePaths(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SysMLService_InstancePaths_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SysMLServiceServer).InstancePaths(ctx, req.(*InstancePathsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1325,6 +1364,10 @@ var SysMLService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Instantiate",
 			Handler:    _SysMLService_Instantiate_Handler,
+		},
+		{
+			MethodName: "InstancePaths",
+			Handler:    _SysMLService_InstancePaths_Handler,
 		},
 		{
 			MethodName: "ExecuteAction",

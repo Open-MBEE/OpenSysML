@@ -51,6 +51,9 @@ const (
 	// SysMLServiceInstantiateProcedure is the fully-qualified name of the SysMLService's Instantiate
 	// RPC.
 	SysMLServiceInstantiateProcedure = "/sysml.SysMLService/Instantiate"
+	// SysMLServiceInstancePathsProcedure is the fully-qualified name of the SysMLService's
+	// InstancePaths RPC.
+	SysMLServiceInstancePathsProcedure = "/sysml.SysMLService/InstancePaths"
 	// SysMLServiceExecuteActionProcedure is the fully-qualified name of the SysMLService's
 	// ExecuteAction RPC.
 	SysMLServiceExecuteActionProcedure = "/sysml.SysMLService/ExecuteAction"
@@ -137,6 +140,10 @@ type SysMLServiceClient interface {
 	// Runtime operations (Phase 4)
 	Evaluate(context.Context, *connect.Request[proto.EvaluateRequest]) (*connect.Response[proto.EvaluateResponse], error)
 	Instantiate(context.Context, *connect.Request[proto.InstantiateRequest]) (*connect.Response[proto.InstantiateResponse], error)
+	// List every root-relative usage path that reaches one object the model's
+	// population holds, aliases through connector ends and references included.
+	// Reported as the "instance_paths" capability.
+	InstancePaths(context.Context, *connect.Request[proto.InstancePathsRequest]) (*connect.Response[proto.InstancePathsResponse], error)
 	ExecuteAction(context.Context, *connect.Request[proto.ExecuteActionRequest]) (*connect.Response[proto.ExecuteActionResponse], error)
 	ExecuteState(context.Context, *connect.Request[proto.ExecuteStateRequest]) (*connect.Response[proto.ExecuteStateResponse], error)
 	// Convert a model between the representations OpenSysML writes — SysML
@@ -293,6 +300,12 @@ func NewSysMLServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			httpClient,
 			baseURL+SysMLServiceInstantiateProcedure,
 			connect.WithSchema(sysMLServiceMethods.ByName("Instantiate")),
+			connect.WithClientOptions(opts...),
+		),
+		instancePaths: connect.NewClient[proto.InstancePathsRequest, proto.InstancePathsResponse](
+			httpClient,
+			baseURL+SysMLServiceInstancePathsProcedure,
+			connect.WithSchema(sysMLServiceMethods.ByName("InstancePaths")),
 			connect.WithClientOptions(opts...),
 		),
 		executeAction: connect.NewClient[proto.ExecuteActionRequest, proto.ExecuteActionResponse](
@@ -457,6 +470,7 @@ type sysMLServiceClient struct {
 	getDiagnostics       *connect.Client[proto.DiagnosticsRequest, proto.DiagnosticsResponse]
 	evaluate             *connect.Client[proto.EvaluateRequest, proto.EvaluateResponse]
 	instantiate          *connect.Client[proto.InstantiateRequest, proto.InstantiateResponse]
+	instancePaths        *connect.Client[proto.InstancePathsRequest, proto.InstancePathsResponse]
 	executeAction        *connect.Client[proto.ExecuteActionRequest, proto.ExecuteActionResponse]
 	executeState         *connect.Client[proto.ExecuteStateRequest, proto.ExecuteStateResponse]
 	convert              *connect.Client[proto.ConvertRequest, proto.ConvertResponse]
@@ -517,6 +531,11 @@ func (c *sysMLServiceClient) Evaluate(ctx context.Context, req *connect.Request[
 // Instantiate calls sysml.SysMLService.Instantiate.
 func (c *sysMLServiceClient) Instantiate(ctx context.Context, req *connect.Request[proto.InstantiateRequest]) (*connect.Response[proto.InstantiateResponse], error) {
 	return c.instantiate.CallUnary(ctx, req)
+}
+
+// InstancePaths calls sysml.SysMLService.InstancePaths.
+func (c *sysMLServiceClient) InstancePaths(ctx context.Context, req *connect.Request[proto.InstancePathsRequest]) (*connect.Response[proto.InstancePathsResponse], error) {
+	return c.instancePaths.CallUnary(ctx, req)
 }
 
 // ExecuteAction calls sysml.SysMLService.ExecuteAction.
@@ -663,6 +682,10 @@ type SysMLServiceHandler interface {
 	// Runtime operations (Phase 4)
 	Evaluate(context.Context, *connect.Request[proto.EvaluateRequest]) (*connect.Response[proto.EvaluateResponse], error)
 	Instantiate(context.Context, *connect.Request[proto.InstantiateRequest]) (*connect.Response[proto.InstantiateResponse], error)
+	// List every root-relative usage path that reaches one object the model's
+	// population holds, aliases through connector ends and references included.
+	// Reported as the "instance_paths" capability.
+	InstancePaths(context.Context, *connect.Request[proto.InstancePathsRequest]) (*connect.Response[proto.InstancePathsResponse], error)
 	ExecuteAction(context.Context, *connect.Request[proto.ExecuteActionRequest]) (*connect.Response[proto.ExecuteActionResponse], error)
 	ExecuteState(context.Context, *connect.Request[proto.ExecuteStateRequest]) (*connect.Response[proto.ExecuteStateResponse], error)
 	// Convert a model between the representations OpenSysML writes — SysML
@@ -815,6 +838,12 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 		SysMLServiceInstantiateProcedure,
 		svc.Instantiate,
 		connect.WithSchema(sysMLServiceMethods.ByName("Instantiate")),
+		connect.WithHandlerOptions(opts...),
+	)
+	sysMLServiceInstancePathsHandler := connect.NewUnaryHandler(
+		SysMLServiceInstancePathsProcedure,
+		svc.InstancePaths,
+		connect.WithSchema(sysMLServiceMethods.ByName("InstancePaths")),
 		connect.WithHandlerOptions(opts...),
 	)
 	sysMLServiceExecuteActionHandler := connect.NewUnaryHandler(
@@ -983,6 +1012,8 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 			sysMLServiceEvaluateHandler.ServeHTTP(w, r)
 		case SysMLServiceInstantiateProcedure:
 			sysMLServiceInstantiateHandler.ServeHTTP(w, r)
+		case SysMLServiceInstancePathsProcedure:
+			sysMLServiceInstancePathsHandler.ServeHTTP(w, r)
 		case SysMLServiceExecuteActionProcedure:
 			sysMLServiceExecuteActionHandler.ServeHTTP(w, r)
 		case SysMLServiceExecuteStateProcedure:
@@ -1068,6 +1099,10 @@ func (UnimplementedSysMLServiceHandler) Evaluate(context.Context, *connect.Reque
 
 func (UnimplementedSysMLServiceHandler) Instantiate(context.Context, *connect.Request[proto.InstantiateRequest]) (*connect.Response[proto.InstantiateResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.Instantiate is not implemented"))
+}
+
+func (UnimplementedSysMLServiceHandler) InstancePaths(context.Context, *connect.Request[proto.InstancePathsRequest]) (*connect.Response[proto.InstancePathsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.InstancePaths is not implemented"))
 }
 
 func (UnimplementedSysMLServiceHandler) ExecuteAction(context.Context, *connect.Request[proto.ExecuteActionRequest]) (*connect.Response[proto.ExecuteActionResponse], error) {

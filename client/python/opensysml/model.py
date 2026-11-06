@@ -879,6 +879,27 @@ class Model:
         """
         return self._client.instantiate(symbol_id, self._hash)
 
+    def instance_paths(self, instance):
+        """List every root-relative usage path that reaches one object this
+        model's population holds, aliases through connector ends and reference
+        usages included; what ``Instance.paths()`` asks for.
+
+        Args:
+            instance (int | str): the object by id, or by path: the qualified
+                name it was instantiated as, its id (``#2``), or a path through
+                feature values from either (``Garage::car.wheels[2]``)
+
+        Returns:
+            InstancePaths: the paths in traversal order, a list of InstancePath
+                whose ``truncated`` says whether the service bounded its search
+
+        Raises:
+            SymbolNotFoundError: no object has the id or the name
+            ModelNotFoundError: If the service no longer holds this model
+            MissingCapabilityError: If the service predates ``instance_paths``
+        """
+        return self._client.instance_paths(instance, self._hash)
+
     def execute_action(self, action_symbol_id, inputs=None, schedule=None, performer=None,
                        advance=None, seed=None, draws=None, clock_step=0.0, trace=False, events=None):
         """Execute one of this model's actions.

@@ -1065,6 +1065,61 @@ $ … /Instantiate -d '{"modelHash":"5a897a97ae46b32a0ac8c79adaf94d674cdf95d3f75
 - `materialized` is `true` when the runtime computed the feature's value for this instance.
   It is omitted when false, and when false there is no `value`. A `Verify*` response shows
   this: constraint and requirement features of the subject are reported unmaterialized.
+- `reachedBy` (capability `instance_paths`) says how the traversal that produced the graph
+  reached the instance: `instanceId` is the instance holding it, `featureName` the holder's
+  feature it is a value of and `featureSymbolId` that feature's qualified name as declared,
+  `index` its position within a multi-valued feature counted from 1 (`0` for a single-valued
+  one) and `path` the whole path from the root (`powertrain.engine.fuelIn`, `wheels[2]`). The
+  root has no `reachedBy`. The traversal is depth-first from the root over the features of
+  an instance in name order — those the model declares first, then those the standard
+  library derives (`subparts`, `ownedPorts`) — and the values of a feature in their order,
+  and reaches an instance once, the first time, which decides `instances`' order too. One
+  object is often a value of several features (a port and the connector end referencing it
+  are one object): `reachedBy` is the one path the traversal came by, and `InstancePaths`
+  below lists every path.
+
+### `InstancePaths`: every path to one object
+
+```console
+$ … /InstancePaths -d '{"modelHash":"…","object":{"path":"Fuel::vehicle.powertrain.engine.fuelIn"}}'
+```
+
+```json
+{
+  "paths": [
+    {
+      "root": {"instanceId": "1", "symbolId": "Fuel::vehicle"},
+      "path": "fuelLine.consumer",
+      "steps": [
+        {"featureName": "fuelLine", "featureSymbolId": "Fuel::vehicle::fuelLine", "instanceId": "2"},
+        {"featureName": "consumer", "featureSymbolId": "Fuel::FuelLine::consumer", "instanceId": "7"}
+      ]
+    },
+    {
+      "root": {"instanceId": "1", "symbolId": "Fuel::vehicle"},
+      "path": "powertrain.engine.fuelIn",
+      "steps": [ … ]
+    }
+  ]
+}
+```
+
+`object` names the object as `RunDocumentQuery` binds one: by `instanceId`, or by `path` — the
+qualified name an object was instantiated as, `#<id>`, or a path through feature values from
+either (`Fuel::vehicle.wheels[2]`; indexes count from 1). The response lists every
+root-relative path that reaches it from every root the model's population holds (each object
+`Instantiate` created), in traversal order: the roots in id order and, from each, depth-first
+over the features the model declares in name order and the values of a feature in their
+order. Aliases through connector ends and reference usages are paths of their own; the
+collections the standard library derives (`subparts`, `ownedPorts`) are not, and a path
+visits no object twice nor, as the instance graph, an object whose type is already on the
+path. `root.symbolId` is the name the root was instantiated as, empty once
+another object took the name (`#<id>` still addresses it). An object that is a root has the
+empty path. The search is bounded: past 1000 paths over all roots, or when a path cut at
+eight steps ended at an object from which the target is reachable, the response is
+`truncated`. An object no root reaches lists no
+path; an id or name nothing materialized is `NOT_FOUND`, a path through no object
+`INVALID_ARGUMENT`, and a service without the capability `UNIMPLEMENTED`.
 
 An error on one feature does not fail the call. `conformance/fixtures/cyclic.sysml` defines
 `a = b + 1.0` and `b = a + 1.0`:
