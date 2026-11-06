@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -16,12 +17,17 @@ import (
 // suffix is the element's position in the structure's table.
 const symbolAspectPrefix = "sym:"
 
+// symbolStructureIDs numbers the structures so a handle names the one table it
+// indexes: `sym:<structure>:<position>`.
+var symbolStructureIDs atomic.Uint64
+
 // SymbolStructure is a Structure projected lazily from the symbols of a resolved
 // model: declared symbols and the relationship and expression symbols the
 // semantic model reflects, with no graph in between.
 type SymbolStructure struct {
-	res   *resolve.Resolver
-	model *semantics.Model
+	res    *resolve.Resolver
+	model  *semantics.Model
+	prefix string
 
 	mu        sync.Mutex
 	elements  []symbolElement
@@ -68,6 +74,7 @@ func NewSymbolStructure(res *resolve.Resolver, model *semantics.Model) *SymbolSt
 	return &SymbolStructure{
 		res:       res,
 		model:     model,
+		prefix:    symbolAspectPrefix + strconv.FormatUint(symbolStructureIDs.Add(1), 10) + ":",
 		positions: make(map[symbolKey]int),
 		conforms:  make(map[[2]string]bool),
 		features:  make(map[[2]string]*metaclassFeature),
@@ -122,7 +129,7 @@ func (s *SymbolStructure) place(sym *symbols.Symbol) symbolElement {
 		return s.elements[position]
 	}
 	position := len(s.elements)
-	aspect := symbolAspectPrefix + strconv.Itoa(position)
+	aspect := s.prefix + strconv.Itoa(position)
 	row := symbolElement{sym: sym}
 	switch _, marker := s.model.InitialNodeTarget(sym); {
 	case marker:
@@ -162,10 +169,10 @@ func (s *SymbolStructure) row(element Element) (symbolElement, bool) {
 	if element.IsMembership {
 		aspect = element.Membership.Aspect
 	}
-	if !strings.HasPrefix(aspect, symbolAspectPrefix) {
+	if !strings.HasPrefix(aspect, s.prefix) {
 		return symbolElement{}, false
 	}
-	position, err := strconv.Atoi(strings.TrimPrefix(aspect, symbolAspectPrefix))
+	position, err := strconv.Atoi(strings.TrimPrefix(aspect, s.prefix))
 	if err != nil || position < 0 || position >= len(s.elements) || s.elements[position].element.Key() != element.Key() {
 		return symbolElement{}, false
 	}
@@ -440,11 +447,7 @@ func (s *SymbolStructure) attributeLocked(element Element, property string) (Val
 	if feature != nil && feature.element {
 		return Value{}, false
 	}
-	stated := true
-	if _, marker := s.model.InitialNodeTarget(row.sym); marker {
-		stated = name == "isLibraryElement" || name == "isImplied" || name == "isImpliedIncluded"
-	}
-	if value, ok := s.model.ReflectiveFeatureValue(row.sym, name); ok && stated {
+	if value, ok := s.model.ReflectiveFeatureValue(row.sym, name); ok && s.reflectsAttribute(row.sym, name) {
 		if name == "direction" && value.Kind == symbols.FilterValueEmpty && semantics.DefaultsToInputDirection(row.sym) {
 			return Value{Kind: StringValue, String: "in", Success: true}, true
 		}
@@ -454,6 +457,15 @@ func (s *SymbolStructure) attributeLocked(element Element, property string) (Val
 		return Value{}, false
 	}
 	return s.unstatedAttribute(feature)
+}
+
+// reflectsAttribute reports whether sym's reflected value of name is the
+// element's own: a `first a;` marker reflects the action's name, not the Membership's.
+func (s *SymbolStructure) reflectsAttribute(sym *symbols.Symbol, name string) bool {
+	if _, marker := s.model.InitialNodeTarget(sym); !marker {
+		return true
+	}
+	return name == "isLibraryElement" || name == "isImplied" || name == "isImpliedIncluded"
 }
 
 func (s *SymbolStructure) unstatedAttribute(feature *metaclassFeature) (Value, bool) {
@@ -496,7 +508,11 @@ func (s *SymbolStructure) statedAttributeLocked(element Element, property string
 	if !ok || !row.known {
 		return Value{}, false
 	}
-	value, ok := s.model.ReflectiveFeatureValue(row.sym, symbolAttributeName(property))
+	name := symbolAttributeName(property)
+	if !s.reflectsAttribute(row.sym, name) {
+		return Value{}, false
+	}
+	value, ok := s.model.ReflectiveFeatureValue(row.sym, name)
 	if !ok || value.Kind == symbols.FilterValueEmpty || value.Kind == symbols.FilterValueUnknown {
 		return Value{}, false
 	}

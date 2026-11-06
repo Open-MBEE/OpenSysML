@@ -108,6 +108,28 @@ func TestSymbolStructureProjectsInitialNodeMarker(t *testing.T) {
 	if name := testProperty(t, evaluator, marker, "Element", "name"); name.Kind != NullValue {
 		t.Fatalf("Element::name of a Membership = %v", name)
 	}
+	if value, ok := structure.StatedAttribute(marker, "declaredName"); ok {
+		t.Fatalf("StatedAttribute(marker, declaredName) = %v, stated; the Membership writes no name", value)
+	}
+}
+
+func TestSymbolStructureRejectsForeignHandles(t *testing.T) {
+	first, _, firstRoot := newSymbolStructureModel(t, "first.sysml", symbolStructureModel)
+	second, _, secondRoot := newSymbolStructureModel(t, "second.sysml", `package Q { part def Person; }`)
+	vehicle := first.ElementFor(testSymbol(t, testSymbol(t, firstRoot, "P").Scope, "Vehicle"))
+	person := second.ElementFor(testSymbol(t, testSymbol(t, secondRoot, "Q").Scope, "Person"))
+	if vehicle.Key() == person.Key() {
+		t.Fatalf("two structures issued the same handle %v", vehicle)
+	}
+	if sym, ok := second.SymbolOf(vehicle); ok {
+		t.Fatalf("second.SymbolOf(first handle) = %v, true", sym)
+	}
+	if _, ok := second.Metaclass(vehicle); ok {
+		t.Fatal("second.Metaclass(first handle) is known")
+	}
+	if sym, ok := first.SymbolOf(vehicle); !ok || sym.Name != "Vehicle" {
+		t.Fatalf("first.SymbolOf(own handle) = %v, %v", sym, ok)
+	}
 }
 
 func TestSymbolStructureIsSafeForConcurrentReads(t *testing.T) {
