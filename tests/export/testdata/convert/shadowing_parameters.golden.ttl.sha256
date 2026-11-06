@@ -1,0 +1,41 @@
+sha256 5c8080c8d516485ee93b079a5885b93effca4496b9f0c6e2058a6bd25808741a bytes 206868 lines 4021
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:Shadows
+    a sysml:Package ;
+    sysml:qualifiedName "Shadows" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "18"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
+    sysml:elementId "Shadows" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "Shadows" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Shadows__Speed, elmt:Shadows__Sweep, elmt:Shadows__Governor ;
+    sysml:ownedMembership elmt:Shadows__Speed_om, elmt:Shadows__Sweep_om, elmt:Shadows__Governor_om ;
+    sysml:ownedRelationship elmt:Shadows__Speed_om, elmt:Shadows__Sweep_om, elmt:Shadows__Governor_om ;
+    sysx:sourceText "package Shadows {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedMember "[{\"@id\":\"Shadows__Speed\"},{\"@id\":\"Shadows__Sweep\"},{\"@id\":\"Shadows__Governor\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Shadows__Speed_om\"},{\"@id\":\"Shadows__Sweep_om\"},{\"@id\":\"Shadows__Governor_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Shadows__Speed_om\"},{\"@id\":\"Shadows__Sweep_om\"},{\"@id\":\"Shadows__Governor_om\"}]" .
+
+elmt:Shadows__Speed
+    a sysml:AttributeDefinition ;
+    sysml:qualifiedName "Shadows::Speed" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "25"^^xsd:integer ;
+    sysml:elementId "Shadows__Speed" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Shadows ;
+    sysml:owner elmt:Shadows ;

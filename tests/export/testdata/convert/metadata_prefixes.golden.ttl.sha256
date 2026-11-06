@@ -1,0 +1,41 @@
+sha256 d669572dd4650ff7461afa195858519bf2e70f0c0e2f0454c334dfad8240fd8a bytes 208484 lines 4412
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:Prefixed
+    a sysml:Package ;
+    sysml:qualifiedName "Prefixed" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "26"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
+    sysml:elementId "Prefixed" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "Prefixed" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Prefixed__Safety, elmt:Prefixed__Reviewed, elmt:Prefixed__Car, elmt:Prefixed__Vehicle, elmt:Prefixed__car, elmt:Prefixed__spare, elmt:Prefixed__option, elmt:Prefixed__wheel, elmt:Prefixed__Notes, elmt:Prefixed___409, elmt:Prefixed__Stopped, elmt:Prefixed__Move, elmt:Prefixed__context, elmt:Prefixed__Braking ;
+    sysml:ownedMembership elmt:Prefixed__Safety_om, elmt:Prefixed__Reviewed_om, elmt:Prefixed__Car_om, elmt:Prefixed__Vehicle_om, elmt:Prefixed__car_om, elmt:Prefixed__spare_om, elmt:Prefixed__option_om, elmt:Prefixed__wheel_om, elmt:Prefixed__Notes_om, elmt:Prefixed___409_om, elmt:Prefixed__Stopped_om, elmt:Prefixed__Move_om, elmt:Prefixed__context_om, elmt:Prefixed__Braking_om ;
+    sysml:ownedRelationship elmt:Prefixed__Safety_om, elmt:Prefixed__Reviewed_om, elmt:Prefixed__Car_om, elmt:Prefixed__Vehicle_om, elmt:Prefixed__car_om, elmt:Prefixed__spare_om, elmt:Prefixed__option_om, elmt:Prefixed__wheel_om, elmt:Prefixed__Notes_om, elmt:Prefixed___409_om, elmt:Prefixed__Stopped_om, elmt:Prefixed__Move_om, elmt:Prefixed__context_om, elmt:Prefixed__Braking_om ;
+    sysx:sourceText "package Prefixed {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedMember "[{\"@id\":\"Prefixed__Safety\"},{\"@id\":\"Prefixed__Reviewed\"},{\"@id\":\"Prefixed__Car\"},{\"@id\":\"Prefixed__Vehicle\"},{\"@id\":\"Prefixed__car\"},{\"@id\":\"Prefixed__spare\"},{\"@id\":\"Prefixed__option\"},{\"@id\":\"Prefixed__wheel\"},{\"@id\":\"Prefixed__Notes\"},{\"@id\":\"Prefixed___409\"},{\"@id\":\"Prefixed__Stopped\"},{\"@id\":\"Prefixed__Move\"},{\"@id\":\"Prefixed__context\"},{\"@id\":\"Prefixed__Braking\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Prefixed__Safety_om\"},{\"@id\":\"Prefixed__Reviewed_om\"},{\"@id\":\"Prefixed__Car_om\"},{\"@id\":\"Prefixed__Vehicle_om\"},{\"@id\":\"Prefixed__car_om\"},{\"@id\":\"Prefixed__spare_om\"},{\"@id\":\"Prefixed__option_om\"},{\"@id\":\"Prefixed__wheel_om\"},{\"@id\":\"Prefixed__Notes_om\"},{\"@id\":\"Prefixed___409_om\"},{\"@id\":\"Prefixed__Stopped_om\"},{\"@id\":\"Prefixed__Move_om\"},{\"@id\":\"Prefixed__context_om\"},{\"@id\":\"Prefixed__Braking_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Prefixed__Safety_om\"},{\"@id\":\"Prefixed__Reviewed_om\"},{\"@id\":\"Prefixed__Car_om\"},{\"@id\":\"Prefixed__Vehicle_om\"},{\"@id\":\"Prefixed__car_om\"},{\"@id\":\"Prefixed__spare_om\"},{\"@id\":\"Prefixed__option_om\"},{\"@id\":\"Prefixed__wheel_om\"},{\"@id\":\"Prefixed__Notes_om\"},{\"@id\":\"Prefixed___409_om\"},{\"@id\":\"Prefixed__Stopped_om\"},{\"@id\":\"Prefixed__Move_om\"},{\"@id\":\"Prefixed__context_om\"},{\"@id\":\"Prefixed__Braking_om\"}]" .
+
+elmt:Prefixed__Safety
+    a sysml:MetadataDefinition ;
+    sysml:qualifiedName "Prefixed::Safety" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "32"^^xsd:integer ;
+    sysml:elementId "Prefixed__Safety" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Prefixed ;
+    sysml:owner elmt:Prefixed ;

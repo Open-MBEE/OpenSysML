@@ -284,7 +284,7 @@ A hash from either parse method is shared by every method that takes a `modelHas
 `GetDiagnostics`, `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction` and `ExecuteState`.
 The module retains the 16 most recently used models; an evicted hash is evicted for every method.
 `GetServerInfo` returns the build version and these capabilities, in order:
-`type_facts`, `enum_values`, `evaluate_subject`, `symbol_attributes`, `unset_value`,
+`type_facts`, `enum_values`, `evaluate_subject`, `symbol_attributes`, `symbol_members`, `unset_value`,
 `feature_values`, `inline_language`, `strict_conformance`, `parse_sources`, `complex_values`,
 `structured_values`, `measurement_refs`, `function_values`, `set_values`, `tensor_values`,
 `infinity_value`, `diagnostic_codes`, `schedule`, `final_time`, `metaobject_values`,
