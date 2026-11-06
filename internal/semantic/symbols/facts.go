@@ -482,6 +482,9 @@ const (
 	// ModPayloadFeature marks the payload a flow declares with `of p : T`, a
 	// KerML PayloadFeature whatever its symbol kind (SysML v2.1 textual notation).
 	ModPayloadFeature
+	// ModPrefixMetadata marks the metadata usage a `#M` prefix declares on the
+	// element owning it (see Symbol.IsPrefixMetadata).
+	ModPrefixMetadata
 )
 
 // Has reports whether every modifier of mask is set.

@@ -14,7 +14,7 @@
       {
         "name": "api-json-writer",
         "source": "internal/translate/export",
-        "sourceDigest": "sha256:125d13250b4bc0c2d75ac908d877295c38760a5493909957eb9eb3fdd9fbcac5"
+        "sourceDigest": "sha256:f033a362407df03ec97d297f92845e1bdb7687c97b7f3614b018ae72214a272d"
       }
     ],
     "inputs": [
@@ -65,7 +65,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 56,
-        "digest": "sha256:065e5f925dd643cbb78aabedb0c8992eb7ab1261894765657610fd49eb97e2d3"
+        "digest": "sha256:d903a39457b50b971e83527e46f66bce3ff4ebd8368ccffa154fe99eaee60ff9"
       },
       {
         "name": "probes",
@@ -113,24 +113,24 @@
     "pilotFailed": 59,
     "pilotLibraryElements": 40244,
     "elements": {
-      "matched": 99960,
-      "oursOnly": 19016,
-      "pilotOnly": 31354,
+      "matched": 100021,
+      "oursOnly": 19089,
+      "pilotOnly": 31293,
       "pilotOnlyImplied": 0,
       "typeMismatch": 1677
     },
     "properties": {
-      "presentEqual": 1928598,
-      "presentDifferent": 126491,
-      "oursMissing": 321554,
-      "pilotMissing": 77659,
-      "absentBoth": 2127752,
+      "presentEqual": 1929884,
+      "presentDifferent": 149702,
+      "oursMissing": 297951,
+      "pilotMissing": 77720,
+      "absentBoth": 2128323,
       "indeterminate": 32796,
       "pilotNondeterministic": 517
     },
     "rows": 11770,
-    "unkeyedReferences": 124892,
-    "extensionProperties": 262617,
+    "unkeyedReferences": 150935,
+    "extensionProperties": 262681,
     "duplicateElements": {
       "ours": 553,
       "pilot": 83427
@@ -140,7 +140,7 @@
       "pilot": 368
     },
     "unkeyableElements": {
-      "ours": 18909,
+      "ours": 18775,
       "pilot": 32319
     }
   },
@@ -162,8 +162,8 @@
       },
       "properties": {
         "presentEqual": 158191,
-        "presentDifferent": 11619,
-        "oursMissing": 22011,
+        "presentDifferent": 13713,
+        "oursMissing": 19917,
         "pilotMissing": 5693,
         "absentBoth": 179036,
         "indeterminate": 2616,
@@ -198,8 +198,8 @@
       },
       "properties": {
         "presentEqual": 556967,
-        "presentDifferent": 38902,
-        "oursMissing": 87910,
+        "presentDifferent": 45342,
+        "oursMissing": 81470,
         "pilotMissing": 21131,
         "absentBoth": 614398,
         "indeterminate": 7540,
@@ -234,8 +234,8 @@
       },
       "properties": {
         "presentEqual": 195402,
-        "presentDifferent": 14957,
-        "oursMissing": 28238,
+        "presentDifferent": 17253,
+        "oursMissing": 25942,
         "pilotMissing": 7514,
         "absentBoth": 219722,
         "indeterminate": 2735,
@@ -263,18 +263,18 @@
       "oursColliding": 4,
       "pilotLibraryElements": 283,
       "elements": {
-        "matched": 6405,
-        "oursOnly": 1153,
-        "pilotOnly": 1836,
+        "matched": 6443,
+        "oursOnly": 1191,
+        "pilotOnly": 1798,
         "pilotOnlyImplied": 0,
         "typeMismatch": 1034
       },
       "properties": {
-        "presentEqual": 113569,
-        "presentDifferent": 8708,
-        "oursMissing": 19509,
-        "pilotMissing": 7607,
-        "absentBoth": 106159,
+        "presentEqual": 114472,
+        "presentDifferent": 9473,
+        "oursMissing": 18441,
+        "pilotMissing": 7645,
+        "absentBoth": 106510,
         "indeterminate": 568,
         "pilotNondeterministic": 9
       },
@@ -287,7 +287,7 @@
         "pilot": 0
       },
       "unkeyableElements": {
-        "ours": 628,
+        "ours": 552,
         "pilot": 608
       }
     },
@@ -299,18 +299,18 @@
       "pilotFailed": 52,
       "pilotLibraryElements": 432,
       "elements": {
-        "matched": 7399,
-        "oursOnly": 988,
-        "pilotOnly": 2331,
+        "matched": 7417,
+        "oursOnly": 1005,
+        "pilotOnly": 2313,
         "pilotOnlyImplied": 0,
         "typeMismatch": 396
       },
       "properties": {
-        "presentEqual": 129282,
-        "presentDifferent": 6182,
-        "oursMissing": 23355,
-        "pilotMissing": 6226,
-        "absentBoth": 141946,
+        "presentEqual": 129574,
+        "presentDifferent": 7781,
+        "oursMissing": 21688,
+        "pilotMissing": 6244,
+        "absentBoth": 142119,
         "indeterminate": 2354,
         "pilotNondeterministic": 7
       },
@@ -323,7 +323,7 @@
         "pilot": 148
       },
       "unkeyableElements": {
-        "ours": 1148,
+        "ours": 1113,
         "pilot": 2179
       }
     },
@@ -336,18 +336,18 @@
       "oursColliding": 15,
       "pilotLibraryElements": 83,
       "elements": {
-        "matched": 1513,
-        "oursOnly": 186,
-        "pilotOnly": 458,
+        "matched": 1517,
+        "oursOnly": 204,
+        "pilotOnly": 454,
         "pilotOnlyImplied": 0,
         "typeMismatch": 28
       },
       "properties": {
-        "presentEqual": 27597,
-        "presentDifferent": 1912,
-        "oursMissing": 4389,
-        "pilotMissing": 1186,
-        "absentBoth": 32524,
+        "presentEqual": 27659,
+        "presentDifferent": 2128,
+        "oursMissing": 4163,
+        "pilotMissing": 1190,
+        "absentBoth": 32562,
         "indeterminate": 375,
         "pilotNondeterministic": 0
       },
@@ -360,7 +360,7 @@
         "pilot": 95
       },
       "unkeyableElements": {
-        "ours": 242,
+        "ours": 220,
         "pilot": 178
       }
     },
@@ -373,18 +373,18 @@
       "oursColliding": 5,
       "pilotLibraryElements": 17663,
       "elements": {
-        "matched": 30696,
+        "matched": 30697,
         "oursOnly": 6319,
-        "pilotOnly": 12433,
+        "pilotOnly": 12432,
         "pilotOnlyImplied": 0,
         "typeMismatch": 184
       },
       "properties": {
-        "presentEqual": 600090,
-        "presentDifferent": 35699,
-        "oursMissing": 105943,
-        "pilotMissing": 23189,
-        "absentBoth": 676651,
+        "presentEqual": 600119,
+        "presentDifferent": 44624,
+        "oursMissing": 97007,
+        "pilotMissing": 23190,
+        "absentBoth": 676660,
         "indeterminate": 13306,
         "pilotNondeterministic": 164
       },
@@ -397,7 +397,7 @@
         "pilot": 103
       },
       "unkeyableElements": {
-        "ours": 8931,
+        "ours": 8930,
         "pilot": 18719
       }
     },
@@ -453,8 +453,8 @@
       },
       "properties": {
         "presentEqual": 146613,
-        "presentDifferent": 8481,
-        "oursMissing": 30109,
+        "presentDifferent": 9357,
+        "oursMissing": 29233,
         "pilotMissing": 5072,
         "absentBoth": 156323,
         "indeterminate": 3287,
@@ -9897,8 +9897,8 @@
       0
     ],
     "Association.ownedFeature": [
-      54,
-      1,
+      55,
+      0,
       0,
       0,
       2,
@@ -9906,8 +9906,8 @@
       0
     ],
     "Association.ownedFeatureMembership": [
-      54,
-      1,
+      55,
+      0,
       0,
       0,
       2,
@@ -9933,8 +9933,8 @@
       0
     ],
     "Association.ownedMember": [
-      33,
-      22,
+      34,
+      21,
       0,
       0,
       2,
@@ -9942,8 +9942,8 @@
       0
     ],
     "Association.ownedMembership": [
-      54,
-      1,
+      55,
+      0,
       0,
       0,
       2,
@@ -12651,8 +12651,8 @@
       0
     ],
     "Behavior.ownedFeature": [
-      28,
-      6,
+      32,
+      2,
       0,
       0,
       24,
@@ -12660,8 +12660,8 @@
       0
     ],
     "Behavior.ownedFeatureMembership": [
-      37,
-      4,
+      41,
+      0,
       0,
       0,
       24,
@@ -12669,8 +12669,8 @@
       0
     ],
     "Behavior.ownedImport": [
-      0,
       1,
+      0,
       0,
       0,
       64,
@@ -12687,8 +12687,8 @@
       0
     ],
     "Behavior.ownedMember": [
-      22,
-      25,
+      26,
+      21,
       0,
       0,
       11,
@@ -12696,8 +12696,8 @@
       0
     ],
     "Behavior.ownedMembership": [
-      36,
-      18,
+      52,
+      2,
       0,
       0,
       11,
@@ -12705,8 +12705,8 @@
       0
     ],
     "Behavior.ownedRelationship": [
-      26,
-      28,
+      30,
+      24,
       3,
       0,
       8,
@@ -15081,8 +15081,8 @@
       0
     ],
     "BooleanExpression.ownedMember": [
-      2,
-      2,
+      4,
+      0,
       0,
       0,
       0,
@@ -15090,8 +15090,8 @@
       0
     ],
     "BooleanExpression.ownedMembership": [
-      0,
-      4,
+      2,
+      2,
       0,
       0,
       0,
@@ -15099,8 +15099,8 @@
       0
     ],
     "BooleanExpression.ownedRedefinition": [
-      0,
       1,
+      0,
       0,
       0,
       3,
@@ -15117,8 +15117,8 @@
       0
     ],
     "BooleanExpression.ownedSpecialization": [
-      0,
       2,
+      0,
       0,
       0,
       2,
@@ -15126,8 +15126,8 @@
       0
     ],
     "BooleanExpression.ownedSubsetting": [
-      0,
       1,
+      0,
       0,
       0,
       3,
@@ -15144,8 +15144,8 @@
       0
     ],
     "BooleanExpression.ownedTyping": [
-      0,
       1,
+      0,
       0,
       0,
       3,
@@ -15271,8 +15271,8 @@
     ],
     "BooleanExpression.type": [
       0,
-      1,
-      3,
+      0,
+      4,
       0,
       0,
       0,
@@ -19221,8 +19221,8 @@
       0
     ],
     "Class.ownedFeature": [
-      38,
-      29,
+      67,
+      0,
       0,
       1,
       60,
@@ -19230,8 +19230,8 @@
       0
     ],
     "Class.ownedFeatureMembership": [
-      45,
-      29,
+      74,
+      0,
       0,
       1,
       60,
@@ -19239,8 +19239,8 @@
       0
     ],
     "Class.ownedImport": [
-      0,
       1,
+      0,
       0,
       0,
       134,
@@ -19257,8 +19257,8 @@
       0
     ],
     "Class.ownedMember": [
-      42,
-      35,
+      75,
+      2,
       0,
       0,
       51,
@@ -19266,8 +19266,8 @@
       0
     ],
     "Class.ownedMembership": [
-      50,
-      34,
+      83,
+      1,
       0,
       0,
       51,
@@ -19275,8 +19275,8 @@
       0
     ],
     "Class.ownedRelationship": [
-      28,
-      67,
+      51,
+      44,
       0,
       0,
       40,
@@ -19320,8 +19320,8 @@
       0
     ],
     "Class.owningMembership": [
-      122,
-      13,
+      124,
+      11,
       0,
       0,
       0,
@@ -19338,8 +19338,8 @@
       0
     ],
     "Class.owningRelationship": [
-      122,
-      13,
+      124,
+      11,
       0,
       0,
       0,
@@ -37293,8 +37293,8 @@
       0
     ],
     "Feature.owningFeatureMembership": [
-      9561,
-      225,
+      9591,
+      195,
       3,
       97,
       0,
@@ -37302,8 +37302,8 @@
       0
     ],
     "Feature.owningMembership": [
-      9822,
-      354,
+      9852,
+      324,
       6,
       0,
       0,
@@ -37320,8 +37320,8 @@
       0
     ],
     "Feature.owningRelationship": [
-      10079,
-      361,
+      10109,
+      331,
       0,
       0,
       0,
@@ -38512,7 +38512,7 @@
       0,
       0,
       0,
-      10981,
+      11011,
       0,
       0
     ],
@@ -38521,7 +38521,7 @@
       0,
       0,
       0,
-      10981,
+      11011,
       0,
       0
     ],
@@ -38530,7 +38530,7 @@
       0,
       0,
       0,
-      10981,
+      11011,
       0,
       0
     ],
@@ -38539,12 +38539,12 @@
       0,
       0,
       0,
-      10981,
+      11011,
       0,
       0
     ],
     "FeatureMembership.isImplied": [
-      10981,
+      11011,
       0,
       0,
       0,
@@ -38553,7 +38553,7 @@
       0
     ],
     "FeatureMembership.isImpliedIncluded": [
-      10981,
+      11011,
       0,
       0,
       0,
@@ -38562,7 +38562,7 @@
       0
     ],
     "FeatureMembership.isLibraryElement": [
-      10981,
+      11011,
       0,
       0,
       0,
@@ -38571,7 +38571,7 @@
       0
     ],
     "FeatureMembership.memberElement": [
-      9512,
+      9542,
       568,
       0,
       0,
@@ -38580,7 +38580,7 @@
       0
     ],
     "FeatureMembership.memberElementId": [
-      9512,
+      9542,
       568,
       0,
       0,
@@ -38589,7 +38589,7 @@
       0
     ],
     "FeatureMembership.memberName": [
-      9061,
+      9091,
       4,
       360,
       199,
@@ -38607,7 +38607,7 @@
       0
     ],
     "FeatureMembership.membershipOwningNamespace": [
-      10981,
+      11011,
       0,
       0,
       0,
@@ -38620,7 +38620,7 @@
       0,
       0,
       0,
-      10981,
+      11011,
       0,
       0
     ],
@@ -38629,12 +38629,12 @@
       0,
       0,
       0,
-      10981,
+      11011,
       0,
       0
     ],
     "FeatureMembership.ownedMemberElement": [
-      9512,
+      9542,
       568,
       0,
       0,
@@ -38643,7 +38643,7 @@
       0
     ],
     "FeatureMembership.ownedMemberElementId": [
-      9512,
+      9542,
       568,
       0,
       0,
@@ -38652,7 +38652,7 @@
       0
     ],
     "FeatureMembership.ownedMemberFeature": [
-      9418,
+      9448,
       566,
       96,
       0,
@@ -38661,7 +38661,7 @@
       0
     ],
     "FeatureMembership.ownedMemberName": [
-      9244,
+      9274,
       4,
       177,
       199,
@@ -38679,7 +38679,7 @@
       0
     ],
     "FeatureMembership.ownedRelatedElement": [
-      9512,
+      9542,
       568,
       0,
       0,
@@ -38692,7 +38692,7 @@
       0,
       0,
       0,
-      10981,
+      11011,
       0,
       0
     ],
@@ -38700,13 +38700,13 @@
       0,
       0,
       0,
-      10981,
+      11011,
       0,
       0,
       0
     ],
     "FeatureMembership.owningRelatedElement": [
-      10981,
+      11011,
       0,
       0,
       0,
@@ -38719,12 +38719,12 @@
       0,
       0,
       0,
-      10981,
+      11011,
       0,
       0
     ],
     "FeatureMembership.owningType": [
-      10981,
+      11011,
       0,
       0,
       0,
@@ -38733,7 +38733,7 @@
       0
     ],
     "FeatureMembership.relatedElement": [
-      9512,
+      9542,
       568,
       0,
       0,
@@ -38742,7 +38742,7 @@
       0
     ],
     "FeatureMembership.source": [
-      10981,
+      11011,
       0,
       0,
       0,
@@ -38751,7 +38751,7 @@
       0
     ],
     "FeatureMembership.target": [
-      9512,
+      9542,
       568,
       0,
       0,
@@ -38764,12 +38764,12 @@
       0,
       0,
       0,
-      10981,
+      11011,
       0,
       0
     ],
     "FeatureMembership.visibility": [
-      10970,
+      11000,
       11,
       0,
       0,
@@ -63457,8 +63457,8 @@
     ],
     "Multiplicity.feature": [
       0,
-      0,
-      3126,
+      3125,
+      1,
       0,
       0,
       0,
@@ -63466,8 +63466,8 @@
     ],
     "Multiplicity.featureMembership": [
       0,
-      0,
-      3126,
+      3125,
+      1,
       0,
       0,
       0,
@@ -63502,8 +63502,8 @@
     ],
     "Multiplicity.inheritedFeature": [
       0,
-      0,
-      3126,
+      3125,
+      1,
       0,
       0,
       0,
@@ -63511,8 +63511,8 @@
     ],
     "Multiplicity.inheritedMembership": [
       0,
-      1,
       3125,
+      1,
       0,
       0,
       0,
@@ -63655,8 +63655,8 @@
     ],
     "Multiplicity.member": [
       0,
-      1,
       3125,
+      1,
       0,
       0,
       0,
@@ -63664,8 +63664,8 @@
     ],
     "Multiplicity.membership": [
       0,
-      1,
       3125,
+      1,
       0,
       0,
       0,
@@ -64060,8 +64060,8 @@
     ],
     "MultiplicityRange.feature": [
       0,
-      0,
       1215,
+      0,
       0,
       0,
       0,
@@ -64069,8 +64069,8 @@
     ],
     "MultiplicityRange.featureMembership": [
       0,
-      0,
       1215,
+      0,
       0,
       0,
       0,
@@ -64105,8 +64105,8 @@
     ],
     "MultiplicityRange.inheritedFeature": [
       0,
-      0,
       1215,
+      0,
       0,
       0,
       0,
@@ -64114,8 +64114,8 @@
     ],
     "MultiplicityRange.inheritedMembership": [
       0,
-      0,
       1215,
+      0,
       0,
       0,
       0,
@@ -68482,7 +68482,7 @@
       0,
       0,
       0,
-      12823,
+      12832,
       0,
       0
     ],
@@ -68491,7 +68491,7 @@
       0,
       0,
       0,
-      12823,
+      12832,
       0,
       0
     ],
@@ -68500,7 +68500,7 @@
       0,
       0,
       0,
-      12823,
+      12832,
       0,
       0
     ],
@@ -68509,12 +68509,12 @@
       0,
       0,
       0,
-      12823,
+      12832,
       0,
       0
     ],
     "OwningMembership.isImplied": [
-      12823,
+      12832,
       0,
       0,
       0,
@@ -68523,7 +68523,7 @@
       0
     ],
     "OwningMembership.isImpliedIncluded": [
-      12823,
+      12832,
       0,
       0,
       0,
@@ -68532,7 +68532,7 @@
       0
     ],
     "OwningMembership.isLibraryElement": [
-      12823,
+      12832,
       0,
       0,
       0,
@@ -68541,8 +68541,8 @@
       0
     ],
     "OwningMembership.memberElement": [
-      12162,
-      432,
+      12166,
+      437,
       0,
       3,
       0,
@@ -68550,8 +68550,8 @@
       0
     ],
     "OwningMembership.memberElementId": [
-      12162,
-      432,
+      12166,
+      437,
       0,
       3,
       0,
@@ -68559,7 +68559,7 @@
       0
     ],
     "OwningMembership.memberName": [
-      5524,
+      5528,
       151,
       31,
       102,
@@ -68577,7 +68577,7 @@
       0
     ],
     "OwningMembership.membershipOwningNamespace": [
-      12823,
+      12832,
       0,
       0,
       0,
@@ -68590,7 +68590,7 @@
       0,
       0,
       0,
-      12823,
+      12832,
       0,
       0
     ],
@@ -68599,13 +68599,13 @@
       0,
       0,
       0,
-      12823,
+      12832,
       0,
       0
     ],
     "OwningMembership.ownedMemberElement": [
-      12162,
-      432,
+      12166,
+      437,
       0,
       3,
       0,
@@ -68613,8 +68613,8 @@
       0
     ],
     "OwningMembership.ownedMemberElementId": [
-      12162,
-      432,
+      12166,
+      437,
       0,
       3,
       0,
@@ -68622,7 +68622,7 @@
       0
     ],
     "OwningMembership.ownedMemberName": [
-      5524,
+      5528,
       151,
       31,
       102,
@@ -68640,8 +68640,8 @@
       0
     ],
     "OwningMembership.ownedRelatedElement": [
-      12162,
-      432,
+      12166,
+      437,
       0,
       3,
       0,
@@ -68653,7 +68653,7 @@
       0,
       0,
       0,
-      12823,
+      12832,
       0,
       0
     ],
@@ -68661,13 +68661,13 @@
       0,
       0,
       0,
-      12823,
+      12832,
       0,
       0,
       0
     ],
     "OwningMembership.owningRelatedElement": [
-      12823,
+      12832,
       0,
       0,
       0,
@@ -68680,13 +68680,13 @@
       0,
       0,
       0,
-      12823,
+      12832,
       0,
       0
     ],
     "OwningMembership.relatedElement": [
-      12162,
-      435,
+      12166,
+      440,
       0,
       0,
       0,
@@ -68694,7 +68694,7 @@
       0
     ],
     "OwningMembership.source": [
-      12823,
+      12832,
       0,
       0,
       0,
@@ -68703,8 +68703,8 @@
       0
     ],
     "OwningMembership.target": [
-      12162,
-      432,
+      12166,
+      437,
       0,
       3,
       0,
@@ -68716,12 +68716,12 @@
       0,
       0,
       0,
-      12823,
+      12832,
       0,
       0
     ],
     "OwningMembership.visibility": [
-      12823,
+      12832,
       0,
       0,
       0,
@@ -74958,8 +74958,8 @@
       0
     ],
     "Predicate.ownedFeatureMembership": [
-      4,
-      1,
+      5,
+      0,
       0,
       0,
       0,
@@ -84331,7 +84331,7 @@
       0,
       0,
       0,
-      15,
+      37,
       0,
       0
     ],
@@ -84340,7 +84340,7 @@
       0,
       0,
       0,
-      13,
+      35,
       0,
       0
     ],
@@ -84349,7 +84349,7 @@
       0,
       0,
       0,
-      15,
+      37,
       0,
       0
     ],
@@ -84358,21 +84358,21 @@
       0,
       0,
       0,
-      15,
+      37,
       0,
       0
     ],
     "Specialization.general": [
-      11,
+      32,
       0,
-      4,
+      5,
       0,
       0,
       0,
       0
     ],
     "Specialization.isImplied": [
-      15,
+      37,
       0,
       0,
       0,
@@ -84381,7 +84381,7 @@
       0
     ],
     "Specialization.isImpliedIncluded": [
-      15,
+      37,
       0,
       0,
       0,
@@ -84390,7 +84390,7 @@
       0
     ],
     "Specialization.isLibraryElement": [
-      15,
+      37,
       0,
       0,
       0,
@@ -84412,7 +84412,7 @@
       0,
       0,
       0,
-      15,
+      37,
       0,
       0
     ],
@@ -84421,7 +84421,7 @@
       0,
       0,
       0,
-      15,
+      37,
       0,
       0
     ],
@@ -84430,7 +84430,7 @@
       0,
       0,
       0,
-      15,
+      37,
       0,
       0
     ],
@@ -84439,7 +84439,7 @@
       0,
       0,
       0,
-      15,
+      37,
       0,
       0
     ],
@@ -84447,7 +84447,7 @@
       2,
       0,
       0,
-      13,
+      35,
       0,
       0,
       0
@@ -84471,7 +84471,7 @@
       0
     ],
     "Specialization.owningRelatedElement": [
-      13,
+      35,
       0,
       0,
       0,
@@ -84484,12 +84484,12 @@
       0,
       0,
       0,
-      13,
+      35,
       0,
       0
     ],
     "Specialization.owningType": [
-      13,
+      35,
       0,
       0,
       0,
@@ -84507,16 +84507,16 @@
       0
     ],
     "Specialization.relatedElement": [
-      10,
+      31,
       0,
-      5,
+      6,
       0,
       0,
       0,
       0
     ],
     "Specialization.source": [
-      13,
+      35,
       0,
       2,
       0,
@@ -84525,7 +84525,7 @@
       0
     ],
     "Specialization.specific": [
-      14,
+      36,
       0,
       1,
       0,
@@ -84534,9 +84534,9 @@
       0
     ],
     "Specialization.target": [
-      10,
+      31,
       0,
-      5,
+      6,
       0,
       0,
       0,
@@ -84547,7 +84547,7 @@
       0,
       0,
       0,
-      15,
+      37,
       0,
       0
     ],
@@ -87486,8 +87486,8 @@
       0
     ],
     "Step.owningMembership": [
-      76,
-      2,
+      78,
+      0,
       0,
       0,
       0,
@@ -87504,8 +87504,8 @@
       0
     ],
     "Step.owningRelationship": [
-      76,
-      2,
+      78,
+      0,
       0,
       0,
       0,
@@ -87846,8 +87846,8 @@
       0
     ],
     "Structure.ownedFeature": [
-      30,
-      15,
+      45,
+      0,
       0,
       0,
       19,
@@ -87855,8 +87855,8 @@
       0
     ],
     "Structure.ownedFeatureMembership": [
-      36,
-      15,
+      51,
+      0,
       0,
       0,
       19,
@@ -87882,8 +87882,8 @@
       0
     ],
     "Structure.ownedMember": [
-      28,
-      24,
+      39,
+      13,
       0,
       0,
       12,
@@ -87891,8 +87891,8 @@
       0
     ],
     "Structure.ownedMembership": [
-      43,
-      15,
+      58,
+      0,
       0,
       0,
       12,
@@ -87900,8 +87900,8 @@
       0
     ],
     "Structure.ownedRelationship": [
-      32,
-      35,
+      43,
+      24,
       2,
       0,
       1,
@@ -96027,8 +96027,8 @@
       0
     ],
     "Type.ownedFeature": [
-      1,
-      6,
+      7,
+      0,
       0,
       0,
       34,
@@ -96036,8 +96036,8 @@
       0
     ],
     "Type.ownedFeatureMembership": [
-      1,
-      6,
+      7,
+      0,
       0,
       0,
       34,
@@ -96063,8 +96063,8 @@
       0
     ],
     "Type.ownedMember": [
-      3,
-      6,
+      9,
+      0,
       0,
       0,
       32,
@@ -96072,8 +96072,8 @@
       0
     ],
     "Type.ownedMembership": [
-      3,
-      6,
+      9,
+      0,
       0,
       0,
       32,
@@ -96081,8 +96081,8 @@
       0
     ],
     "Type.ownedRelationship": [
-      11,
-      30,
+      26,
+      15,
       0,
       0,
       0,
@@ -96090,8 +96090,8 @@
       0
     ],
     "Type.ownedSpecialization": [
-      2,
-      31,
+      33,
+      0,
       0,
       8,
       0,

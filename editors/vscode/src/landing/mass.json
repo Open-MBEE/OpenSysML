@@ -2159,6 +2159,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "1",
+        "featureName": "stage1",
+        "featureSymbolId": "MassRollup::LaunchVehicle::stage1",
+        "path": "stage1"
       }
     },
     {
@@ -2315,6 +2321,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "2",
+        "featureName": "engine1",
+        "featureSymbolId": "MassRollup::S-IC::engine1",
+        "path": "stage1.engine1"
       }
     },
     {
@@ -2471,6 +2483,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "2",
+        "featureName": "engine2",
+        "featureSymbolId": "MassRollup::S-IC::engine2",
+        "path": "stage1.engine2"
       }
     },
     {
@@ -2627,6 +2645,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "2",
+        "featureName": "engine3",
+        "featureSymbolId": "MassRollup::S-IC::engine3",
+        "path": "stage1.engine3"
       }
     },
     {
@@ -2783,6 +2807,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "2",
+        "featureName": "engine4",
+        "featureSymbolId": "MassRollup::S-IC::engine4",
+        "path": "stage1.engine4"
       }
     },
     {
@@ -2939,6 +2969,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "2",
+        "featureName": "engine5",
+        "featureSymbolId": "MassRollup::S-IC::engine5",
+        "path": "stage1.engine5"
       }
     },
     {
@@ -3174,6 +3210,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "1",
+        "featureName": "stage2",
+        "featureSymbolId": "MassRollup::LaunchVehicle::stage2",
+        "path": "stage2"
       }
     },
     {
@@ -3330,6 +3372,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "3",
+        "featureName": "engine1",
+        "featureSymbolId": "MassRollup::S-II::engine1",
+        "path": "stage2.engine1"
       }
     },
     {
@@ -3486,6 +3534,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "3",
+        "featureName": "engine2",
+        "featureSymbolId": "MassRollup::S-II::engine2",
+        "path": "stage2.engine2"
       }
     },
     {
@@ -3642,6 +3696,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "3",
+        "featureName": "engine3",
+        "featureSymbolId": "MassRollup::S-II::engine3",
+        "path": "stage2.engine3"
       }
     },
     {
@@ -3798,6 +3858,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "3",
+        "featureName": "engine4",
+        "featureSymbolId": "MassRollup::S-II::engine4",
+        "path": "stage2.engine4"
       }
     },
     {
@@ -3954,6 +4020,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "3",
+        "featureName": "engine5",
+        "featureSymbolId": "MassRollup::S-II::engine5",
+        "path": "stage2.engine5"
       }
     },
     {
@@ -4113,6 +4185,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "1",
+        "featureName": "stage3",
+        "featureSymbolId": "MassRollup::LaunchVehicle::stage3",
+        "path": "stage3"
       }
     },
     {
@@ -4269,6 +4347,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "4",
+        "featureName": "engine1",
+        "featureSymbolId": "MassRollup::S-IVB::engine1",
+        "path": "stage3.engine1"
       }
     }
   ]

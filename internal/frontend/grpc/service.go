@@ -112,6 +112,11 @@ const CapabilityExportGraphs = "export_graphs"
 // a CSV, TSV, JSON or JSON Lines file assigns, one row per element.
 const CapabilityImportData = "import_data"
 
+// CapabilityInstancePaths names the InstancePaths RPC, which lists every
+// root-relative path reaching an object, and the `reached_by` of an Instance
+// in an instantiated graph, which says how the traversal reached it.
+const CapabilityInstancePaths = "instance_paths"
+
 // CapabilityCompareResults names the CompareResults RPC, which runs the
 // configurations a tool's results sidecar indexes and tables the tool's
 // distributions of their observables beside the runs'.
@@ -406,6 +411,7 @@ var capabilities = []string{
 	CapabilityExportGraphs,
 	CapabilityImportData,
 	CapabilityCompareResults,
+	CapabilityInstancePaths,
 	CapabilityCheck,
 	CapabilityConvertDocuments,
 	CapabilityConvertCompact,
@@ -1036,8 +1042,8 @@ func (s *Service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.
 		return nil, statusErrorf(connect.CodeNotFound, msgModelNotFound, req.ModelHash)
 	}
 
-	// Lookup symbol by FQN
-	syms := symbolfacts.LookupNamed(cached.Index, req.SymbolId)
+	// Lookup symbol by FQN or positional identity
+	syms := cached.LookupSymbol(req.SymbolId)
 	if len(syms) == 0 {
 		return &pb.SymbolResponse{
 			Error: fmt.Sprintf("symbol not found: %s", req.SymbolId),
@@ -1205,7 +1211,7 @@ func (s *Service) Evaluate(ctx context.Context, req *pb.EvaluateRequest) (*pb.Ev
 	// prompt evaluates in the context it pinned.
 	var subject *symbols.Symbol
 	if req.SubjectSymbolId != "" {
-		syms := symbolfacts.LookupNamed(cached.Index, req.SubjectSymbolId)
+		syms := cached.LookupSymbol(req.SubjectSymbolId)
 		if len(syms) == 0 {
 			return &pb.EvaluateResponse{
 				Error: fmt.Sprintf("subject not found: %s", req.SubjectSymbolId),
@@ -1218,7 +1224,7 @@ func (s *Service) Evaluate(ctx context.Context, req *pb.EvaluateRequest) (*pb.Ev
 	var scope *symbols.Scope
 	if req.ContextSymbolId != "" {
 		// Lookup context symbol
-		syms := symbolfacts.LookupNamed(cached.Index, req.ContextSymbolId)
+		syms := cached.LookupSymbol(req.ContextSymbolId)
 		if len(syms) > 0 && syms[0].Scope != nil {
 			scope = syms[0].Scope
 		}
@@ -1287,7 +1293,7 @@ func (s *Service) Instantiate(ctx context.Context, req *pb.InstantiateRequest) (
 	}
 
 	// Lookup symbol
-	syms := symbolfacts.LookupNamed(cached.Index, req.SymbolId)
+	syms := cached.LookupSymbol(req.SymbolId)
 	if len(syms) == 0 {
 		return &pb.InstantiateResponse{
 			Error: fmt.Sprintf("symbol not found: %s", req.SymbolId),
