@@ -1,0 +1,11 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "InheritedMembers::system::tuned",
+	"min_withheld_library_members": 1,
+	"expected_members": [
+		{"id": "InheritedMembers::system::tuned::gain", "kind": "attributeUsage"},
+		{"id": "InheritedMembers::Controller::cmdIn", "kind": "portUsage", "inherited": true, "inherited_from": "InheritedMembers::Controller"},
+		{"id": "InheritedMembers::Controller::logic", "kind": "partUsage", "inherited": true, "inherited_from": "InheritedMembers::Controller"},
+		{"id": "InheritedMembers::Controller::delegate", "kind": "bindingUsage", "inherited": true, "inherited_from": "InheritedMembers::Controller"}
+	]
+}

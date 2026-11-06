@@ -673,6 +673,7 @@ func TestMembershipIDsAreDisjointFromAdversarialElements(t *testing.T) {
 // an edited copy still rooted at the library's package; a user package that
 // only reuses the library's name keeps encoded ids.
 func TestLibraryElementsCarryNormativeIDs(t *testing.T) {
+	t.Parallel()
 	const name = "Kernel Libraries/Kernel Data Type Library/ScalarValues.kerml"
 	src, err := libs.EmbeddedSource().Read(name)
 	if err != nil {
@@ -897,6 +898,7 @@ func TestNormativeSubjectNamesTheLibraryElementExactly(t *testing.T) {
 // the norm fixes an id for it and the graph names it so (sysml:name, no
 // declaredName). Neither side may mistake that id for a declared one.
 func TestEffectivelyNamedLibraryMemberCarriesNormativeID(t *testing.T) {
+	t.Parallel()
 	const name = "Domain Libraries/Geometry/ShapeItems.sysml"
 	src, err := libs.EmbeddedSource().Read(name)
 	if err != nil {
@@ -935,6 +937,7 @@ func TestEffectivelyNamedLibraryMemberCarriesNormativeID(t *testing.T) {
 // ids, none of them declared, and the names it inherits resolved to the copy's
 // own declarations.
 func TestLibraryCopiesConvertAsTheLibrary(t *testing.T) {
+	t.Parallel()
 	const name = "Kernel Libraries/Kernel Semantic Library/Occurrences.kerml"
 	src, err := libs.EmbeddedSource().Read(name)
 	if err != nil {

@@ -164,11 +164,33 @@ type Symbol struct {
 	// WithheldLibraryAttributes counts attributes inherited from
 	// standard-library content, which Attributes leaves out.
 	WithheldLibraryAttributes int
+	// Members are every member of the element, own then inherited, absent
+	// without the symbol_members capability. ChildIDs stays the owned ones.
+	Members []SymbolMember
+	// WithheldLibraryMembers counts members inherited from standard-library
+	// content, which Members leaves out.
+	WithheldLibraryMembers int
 	// IsComposite is Feature::isComposite (a usage without `ref`), nil when the
 	// element is not a feature; IsReference is Usage::isReference, its
 	// negation, nil when it is not a usage.
 	IsComposite *bool
 	IsReference *bool
+}
+
+// SymbolMember is one member of a symbol, own or inherited.
+type SymbolMember struct {
+	// ID is the member's fully qualified name.
+	ID   string
+	Name string
+	Kind string
+	// Inherited is true when the symbol inherits the member rather than
+	// declaring it.
+	Inherited bool
+	// InheritedFrom is the fully qualified name of the type declaring an
+	// inherited member; empty for an own member.
+	InheritedFrom string
+	// Library is true when the member is declared in standard-library content.
+	Library bool
 }
 
 // Attribute is one attribute of a symbol, with its declared value.

@@ -19,6 +19,12 @@ func SymbolToProtoIn(sym *symbols.Symbol, sc *symbolfacts.Context) *pb.SymbolInf
 	return infoToProto(symbolfacts.Of(sym, sc), sc.Index)
 }
 
+// SymbolToProtoWith is SymbolToProtoIn with the options selecting what else
+// the facts report.
+func SymbolToProtoWith(sym *symbols.Symbol, sc *symbolfacts.Context, opts symbolfacts.Options) *pb.SymbolInfo {
+	return infoToProto(symbolfacts.OfWith(sym, sc, opts), sc.Index)
+}
+
 func infoToProto(info *symbolfacts.Info, idx *symbols.Index) *pb.SymbolInfo {
 	if info == nil {
 		return nil
@@ -30,8 +36,19 @@ func infoToProto(info *symbolfacts.Info, idx *symbols.Index) *pb.SymbolInfo {
 		Metadata:                  info.Metadata,
 		ChildIds:                  info.ChildIds,
 		WithheldLibraryAttributes: info.WithheldLibraryAttributes,
+		WithheldLibraryMembers:    info.WithheldLibraryMembers,
 		IsComposite:               info.IsComposite,
 		IsReference:               info.IsReference,
+	}
+	for _, member := range info.Members {
+		out.Members = append(out.Members, &pb.MemberInfo{
+			Id:            member.Id,
+			Name:          member.Name,
+			Kind:          member.Kind,
+			Inherited:     member.Inherited,
+			InheritedFrom: member.InheritedFrom,
+			Library:       member.Library,
+		})
 	}
 	if info.Attributes != nil {
 		out.Attributes = make([]*pb.AttributeInfo, 0, len(info.Attributes))

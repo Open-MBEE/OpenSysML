@@ -22,6 +22,17 @@ func symbolFromProto(sym *pb.SymbolInfo) *Symbol {
 		Name:                      sym.Name,
 		Kind:                      sym.Kind,
 		WithheldLibraryAttributes: int(sym.WithheldLibraryAttributes),
+		WithheldLibraryMembers:    int(sym.WithheldLibraryMembers),
+	}
+	for _, member := range sym.Members {
+		out.Members = append(out.Members, SymbolMember{
+			ID:            member.Id,
+			Name:          member.Name,
+			Kind:          member.Kind,
+			Inherited:     member.Inherited,
+			InheritedFrom: member.InheritedFrom,
+			Library:       member.Library,
+		})
 	}
 	if sym.IsComposite != nil {
 		out.IsComposite = new(bool)
