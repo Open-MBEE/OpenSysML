@@ -267,9 +267,9 @@ pass modelled, at the level it declares, element-scoped only if it implements
 `passes.ElementScoped`), the eight budgets against `runtime.Budgets` (field, default,
 environment variable and the error each exhaustion returns), the rendering kinds against
 `view.Kinds()` and which of them `Supported()`, the standard library against `libs` (the
-override variable it names, whether the embedded snapshot decodes for the bundled files, the
-Make targets that write and check the snapshot, and that the pull request workflow runs the
-check), the evaluator's memoization against the side tables `runtime.Context` keys by syntax
+override variable it names, that a snapshot the test binary embeds decodes for the bundled
+files while a build without one is tolerated, that the snapshot is gitignored rather than
+tracked, the Make target that writes it and that the test targets run it first), the evaluator's memoization against the side tables `runtime.Context` keys by syntax
 node, the compiled calc tier against `runtime.CalcCompileEnvVar` and the environment reference
 that documents it, whether a fresh `runtime.Context` compiles calcs until that variable says
 otherwise, and — invoking the model's own `StepBudget` calc through both tiers — that they agree
@@ -302,8 +302,8 @@ What that cannot do is re-verify behaviour: the invariants are conditions over t
 own attributes, so they catch a claim edited out of agreement with itself or with the
 implementation's declared shape, not a regression inside the parser. The `verification def`s
 in [quality.sysml](quality.sysml) name the gates that do that — `TestGolden`/`TestNegative`,
-`TestStdlibConformance`, `make stdlib-snapshot-check` with the snapshot tests of `libs` and
-`symbols`, the `TestCompiledCalc` parity and differential tests,
+`TestStdlibConformance`, the snapshot tests of `libs` and `symbols` over a snapshot
+`make stdlib-snapshot` writes, the `TestCompiledCalc` parity and differential tests,
 `TestExecutionConformance`/`TestRuntimeRobustness`, the export tests, the race-enabled
 analysis package tests, and the runtime's snapshot and `ExploreWith` tests.
 
