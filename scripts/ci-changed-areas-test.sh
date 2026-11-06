@@ -113,6 +113,7 @@ case_ client-golden go,node client/node/test/render.golden.json
 case_ project-baseline docs,go docs/project/pilot-differential-baseline.json
 case_ project-figures docs,go docs/project/api-json-differential.md
 case_ project-archive docs,go docs/project/archive/CHANGELOG-0.0-0.8.md
+case_ project-compliance-source docs,go docs/project/spec-compliance/02-detailed-semantic-compliance-map/13-action.md
 case_ unclaimed docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode some-new-top-level/thing.txt
 
 # The quick tier runs the Go suite for a service change but not every client; a

@@ -183,7 +183,7 @@ All tests should pass with this demo loaded.
 ## Related Documentation
 
 - [Architecture](../../docs/internals/architecture.md) - the pipeline this demo exercises
-- [Spec compliance](../../docs/project/spec-compliance.md) - semantic rule to implementation to test
+- [Spec compliance](../../docs/project/spec-compliance/) - semantic rule to implementation to test
 
 ## Contributing
 

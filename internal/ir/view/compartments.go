@@ -24,12 +24,15 @@ type Compartment struct {
 // named here follows them in the order its members were declared.
 var compartmentOrder = []string{
 	"attributes", "enums", "occurrences", "individuals", "items", "parts", "ports", "ends",
-	"connections", "interfaces", "flows", "allocations", "actions", "states", "state actions", "calcs",
+	"connections", "interfaces", "flows", "allocations", "actions", "states", stateActionsCompartment, "calcs",
 	"constraints", "requirements", "satisfies", "cases", "analyses", "verifications", "verifies",
 	"use cases", "include use cases", "subject", "objective", "views", "viewpoints", "rendering", "metadata",
 }
 
-// stateActionRoles are the kinds the `state actions` compartment gathers.
+// stateActionsCompartment gathers a state's entry, do and exit actions.
+const stateActionsCompartment = "state actions"
+
+// stateActionRoles are the kinds the stateActionsCompartment gathers.
 var stateActionRoles = map[string]bool{entryActionKind: true, doActionKind: true, exitActionKind: true}
 
 // compartmentHeadings are the compartment names the figures of SysML v2 §8.2.3
@@ -47,9 +50,9 @@ var compartmentHeadings = map[string]string{
 	"objective":      "objective",
 	"satisfy":        "satisfies",
 	"verify":         "verifies",
-	entryActionKind:  "state actions",
-	doActionKind:     "state actions",
-	exitActionKind:   "state actions",
+	entryActionKind:  stateActionsCompartment,
+	doActionKind:     stateActionsCompartment,
+	exitActionKind:   stateActionsCompartment,
 	sendActionKind:   "actions",
 	acceptActionKind: "actions",
 	assignKind:       "actions",
