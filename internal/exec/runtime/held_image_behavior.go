@@ -599,7 +599,8 @@ func (m *materializing) behavior(b imagedBehavior) error {
 			return err
 		}
 		declared := declaredThrough(callee, action, tool)
-		exec := newActionExecutorOn(dst, decl.member, action, declared, tool, b.action.graph, inst, occurrence)
+		body := actionBody{action: action, declared: declared, tool: tool, graph: b.action.graph}
+		exec := newActionExecutorOn(dst, decl.member, body, inst, occurrence)
 		if err := m.actionExecutor(exec, b.action); err != nil {
 			dst.clock.detach(exec)
 			return err

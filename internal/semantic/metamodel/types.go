@@ -157,9 +157,9 @@ type QualifiedNameStructure interface {
 	QualifiedName(Element) (string, bool)
 }
 
-// LibrarySymbolStructure optionally resolves a structure element that merely
+// LibrarySymbolResolver optionally resolves a structure element that merely
 // references a library element to that element's semantic symbol.
-type LibrarySymbolStructure interface {
+type LibrarySymbolResolver interface {
 	LibrarySymbol(Element) (*symbols.Symbol, bool)
 }
 
