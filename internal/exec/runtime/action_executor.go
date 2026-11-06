@@ -1464,7 +1464,8 @@ func (e *ActionExecutor) initializeAttributes() error {
 				return fmt.Errorf("%w: read %s of object #%d: %w",
 					errActionPerformanceOccurrence, attr.Name, e.occurrence.ID, err)
 			}
-			if attr.Binding && !fv.Written && !e.occurrenceRedefinesAttribute(attr, fv) {
+			supplies := e.ctx.occurrenceSupplies(attr, fv)
+			if supplies && attr.Binding && !fv.Written && !e.occurrenceRedefinesAttribute(attr, fv) {
 				value, seeded, err := e.ctx.seedBodyBindingFromFeatureValue(e.root.cells, e.root.key(attr.Name), fv)
 				if err != nil {
 					return fmt.Errorf("eval attribute default %s: %w", attr.Name, err)
@@ -1476,7 +1477,7 @@ func (e *ActionExecutor) initializeAttributes() error {
 					continue
 				}
 			}
-			if value := fv.HeldValue(); value.Kind != ValInvalid &&
+			if value := fv.HeldValue(); supplies &&
 				(!attr.Binding || fv.Written || e.occurrenceRedefinesAttribute(attr, fv)) {
 				e.ctx.writeBodyValue(e.root.cells, e.root.data, e.root.key(attr.Name), value)
 				if err := e.streamInitialOutput(attr.Name, value); err != nil {
