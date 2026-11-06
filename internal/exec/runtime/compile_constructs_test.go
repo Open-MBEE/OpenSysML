@@ -159,6 +159,7 @@ func describeNamedArgs(args map[string]Value) string {
 // Every fixture calc lands on the tier expected of it, and answers on the
 // compiled tier exactly as on the evaluator over the differential vectors.
 func TestCompiledConstructs(t *testing.T) {
+	t.Parallel()
 	for _, fixture := range compiledFixtures {
 		t.Run(strings.TrimSuffix(fixture.file, ".sysml"), func(t *testing.T) {
 			f := loadCompiledFixture(t, fixture.file)

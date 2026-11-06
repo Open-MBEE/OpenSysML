@@ -290,8 +290,7 @@ step, so those gates are required rather than skipped.
 **The quick tier** is what a draft pull request gets — an opt-in for work the author does not
 yet want reviewed — on every push to it, within about a third of the runner time: the binaries,
 the same Go suite without `-race` in three shards (`make test-quick`), the download-free static
-checks (gofmt, vet, the production build, the library snapshot, grpc imports, proto lint and
-breaking), the WebAssembly, Xpect and conformance gates, and only the clients and docs whose
+checks (gofmt, vet, the production build, grpc imports, proto lint and breaking), the WebAssembly, Xpect and conformance gates, and only the clients and docs whose
 own paths changed. The lint, the corpus and solver gates, the PDF toolchain, the coverage merge
 and the fan-out from a service change to every client wait for the full tier. Open a pull
 request ready for review rather than as a draft: marking a draft ready starts a second full run
