@@ -8,7 +8,7 @@ what each oracle measures, which divergences are deliberate, and which rows are 
 the divergence census still keys its rows by a short row number, that number is a cross-reference
 within these records and means nothing outside this repository.
 
-- **[Spec compliance](spec-compliance.md)** — faithful, approximate, or not implemented,
+- **[Spec compliance](spec-compliance.md)** ([sources](spec-compliance/README.md); the page is combined from them when the site is built) — faithful, approximate, or not implemented,
   rule by rule
 - **[Training examples](training-examples.md)** — the OMG corpus, adjudicated per file
 - **[Pilot corpora gate](pilot-corpora.md)** — OpenSysML diagnostics on the three pinned OMG pilot
