@@ -653,7 +653,7 @@ jobs:
           command: make vulncheck
 
   # The race-enabled suite. It is the longest single step in the pipeline, so
-  # it gets the larger class and ten executors, one scripts/race-shard.sh shard each,
+  # it gets the larger class and twelve executors of one or two scripts/race-shard.sh shards,
   # sized so that no node runs much over 25 minutes (the slowest ran 45 with six).
   go-race-test:
     executor: go-executor
@@ -670,36 +670,37 @@ jobs:
 
       - install-fmpy
 
-      # One scripts/race-shard.sh shard per node. internal/exec/runtime ran 31-57 minutes whole
-      # and nears 8.5 GB under -race, so it is two nodes, split by test name as make test-shard does;
-      # tests/export, over 55 minutes whole, is three nodes the same way.
+      # internal/exec/runtime ran 31-57 minutes whole and nears 8.5 GB under -race, so it is three
+      # shards split by test name as make test-shard does, the exploration one sharing the migrate
+      # node; tests/export, over 55 minutes whole, is three nodes the same way.
       - run:
           name: Run Go race tests
           command: |
             set -o pipefail
-            shards=(runtime runtime-corpus model export export-corpus export-settled graph codegen tools rest migrate cli)
+            # One entry per node; a quoted entry runs its shards in turn (tests/hygiene keeps
+            # the entries the shard list of scripts/race-shard.sh).
+            shards=(runtime runtime-corpus model export export-corpus export-settled graph codegen tools rest "migrate runtime-exploration" cli)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
-              echo "error: parallelism is $CIRCLE_NODE_TOTAL, but scripts/race-shard.sh has ${#shards[@]} shards" >&2
+              echo "error: parallelism is $CIRCLE_NODE_TOTAL, but the shard array has ${#shards[@]} nodes" >&2
               exit 1
             fi
-            shard=${shards[$CIRCLE_NODE_INDEX]}
+            for shard in ${shards[$CIRCLE_NODE_INDEX]}; do
             pkgs=$(scripts/race-shard.sh "$shard")
             echo "shard $shard:"; echo "$pkgs"
             # -v over several packages is held back until each finishes, which the
             # no_output_timeout below reads as a hang; -json streams, the script re-emits -v.
             stream() { python3 scripts/go-test-stream.py; }
             # The Makefile's RACE_RUNTIME_CORPUS; tests/hygiene keeps the two the same.
+            exploration='^TestExploreWithIsExploreOverTheConformanceCorpus$'
             corpus='^Test(ExploreWithIsExploreOverTheConformanceCorpus|CheckAgreesWithExploreOverTheConformanceCorpus|CheckWitnessesReplayOverTheConformanceCorpus|ExecutionConformance|ExecutionConformanceUnderPolicies)$'
-            exportcorpus='^Test(APIJSONWritersNeverEmitNameReferences|LibraryFilesComeBackFromTheGraphAlone)$'
+            exportcorpus='^TestAPIJSONWritersNeverEmitNameReferences$'
             exportsettled='^TestSettledCollectionsAreWhatReconcilingWouldFind$'
             case "$shard" in
-              runtime-corpus)
-                # Two processes: the exploration alone nears 5 GB and the five suites together
-                # 9 GB under -race, over this class's 8 GB (the race detector's memory is per process).
-                exploration='^TestExploreWithIsExploreOverTheConformanceCorpus$'
-                go test -json -race -pgo=off -timeout 30m -run "$exploration" $pkgs | stream
-                go test -json -race -pgo=off -timeout 30m -run "$corpus" -skip "$exploration" $pkgs | stream
-                ;;
+              # The exploration suite is its own shard and process: alone it nears 5 GB and the five
+              # suites together 9 GB under -race, over this class's 8 GB (the race detector's memory
+              # is per process). The Makefile's RACE_RUNTIME_EXPLORATION; tests/hygiene keeps the two the same.
+              runtime-exploration) go test -json -race -pgo=off -timeout 30m -run "$exploration" $pkgs | stream ;;
+              runtime-corpus) go test -json -race -pgo=off -timeout 30m -run "$corpus" -skip "$exploration" $pkgs | stream ;;
               runtime) go test -json -race -pgo=off -timeout 30m -skip "$corpus" $pkgs | stream ;;
               # The Makefile's RACE_EXPORT_CORPUS and RACE_EXPORT_SETTLED; tests/hygiene keeps them the same. tests/export
               # whole passed 55 minutes under -race once the element form completed inheritance.
@@ -717,6 +718,7 @@ jobs:
                 go test -json -race -pgo=off -timeout "$timeout" $pkgs | stream
                 ;;
             esac
+            done
           no_output_timeout: 30m
           environment:
             # Turns "corpus absent" into a failure rather than a skip, as the
