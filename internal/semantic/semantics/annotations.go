@@ -1565,13 +1565,25 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		if !m.reflectiveMetaclassConforms(sym, "Feature") {
 			return nil, false
 		}
+		// The second chaining feature of the crossed feature chain (`g crosses f.sub` → sub), else
+		// the end's owned cross feature (KerML 1.1 §8.3.3.3.4 deriveFeatureCrossFeature).
 		crossed := []*symbols.Symbol{}
-		for _, rel := range m.ownedImplicitRelationships(sym, crossSubsetting) {
+		relationships := m.ownedImplicitRelationships(sym, crossSubsetting)
+		for _, rel := range relationships {
 			targets, ok := m.ReflectiveElements(rel, "crossedFeature")
 			if !ok {
 				return nil, false
 			}
-			crossed = append(crossed, targets...)
+			for _, target := range targets {
+				if chain, ok := m.ReflectiveElements(target, "chainingFeature"); ok && len(chain) >= 2 {
+					crossed = append(crossed, chain[1])
+				}
+			}
+		}
+		if len(relationships) == 0 {
+			if owned := m.OwnedCrossFeature(sym); owned != nil {
+				crossed = append(crossed, owned)
+			}
 		}
 		return crossed, true
 	case "ownedTypeFeaturing", "ownedFeatureInverting":

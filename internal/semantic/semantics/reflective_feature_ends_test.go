@@ -16,6 +16,7 @@ func TestReflectiveFeatureEnds(t *testing.T) {
     class C {
         feature f : A;
         feature g crosses f;
+        feature g2 crosses f.sub;
         feature h : B subsets f.sub;
         feature k : A featured by A inverse of A::sub;
         end feature e : A;
@@ -34,7 +35,9 @@ func TestReflectiveFeatureEnds(t *testing.T) {
 		top := nestedSym(t, fixture.root, "P::top")
 
 		assertReflectiveElements(t, model, f, "crossFeature")
-		assertReflectiveElements(t, model, g, "crossFeature", "P::C::f")
+		assertReflectiveElements(t, model, g, "crossFeature")
+		assertReflectiveElements(t, model, nestedSym(t, fixture.root, "P::C::g2"), "crossFeature", "P::A::sub")
+		assertReflectiveElements(t, model, e, "crossFeature")
 
 		assertReflectiveElements(t, model, f, "featureTarget", "P::C::f")
 		assertReflectiveElements(t, model, f, "ownedFeatureChaining")
