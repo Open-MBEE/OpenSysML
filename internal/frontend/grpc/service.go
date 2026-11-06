@@ -112,6 +112,11 @@ const CapabilityExportGraphs = "export_graphs"
 // a CSV, TSV, JSON or JSON Lines file assigns, one row per element.
 const CapabilityImportData = "import_data"
 
+// CapabilityInstancePaths names the InstancePaths RPC, which lists every
+// root-relative path reaching an object, and the `reached_by` of an Instance
+// in an instantiated graph, which says how the traversal reached it.
+const CapabilityInstancePaths = "instance_paths"
+
 // CapabilityCompareResults names the CompareResults RPC, which runs the
 // configurations a tool's results sidecar indexes and tables the tool's
 // distributions of their observables beside the runs'.
@@ -406,6 +411,7 @@ var capabilities = []string{
 	CapabilityExportGraphs,
 	CapabilityImportData,
 	CapabilityCompareResults,
+	CapabilityInstancePaths,
 	CapabilityCheck,
 	CapabilityConvertDocuments,
 	CapabilityConvertCompact,

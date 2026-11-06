@@ -516,3 +516,21 @@ def test_channel_options_bound_no_message_size():
     options = dict(CHANNEL_OPTIONS)
     assert options['grpc.max_receive_message_length'] == -1
     assert options['grpc.max_send_message_length'] == -1
+
+
+def test_instance_paths_keep_the_truncation_flag():
+    with patch('grpc.insecure_channel'):
+        mock_stub = Mock()
+        mock_stub.InstancePaths.return_value = sysml_pb2.InstancePathsResponse(
+            paths=[sysml_pb2.InstancePath(root=sysml_pb2.InstanceRoot(instance_id=1, symbol_id="Demo::vehicle"), path="engine")],
+            truncated=True,
+        )
+        with patch('opensysml.proto.sysml_pb2_grpc.SysMLServiceStub', return_value=mock_stub):
+            conn = Connection(port=50051, auto_start=False)
+            with patch.object(conn, '_require_instance_paths'):
+                paths = conn.instance_paths(4, "abc")
+            assert [str(path) for path in paths] == ["Demo::vehicle.engine"]
+            assert paths.truncated is True
+            request = mock_stub.InstancePaths.call_args[0][0]
+            assert request.model_hash == "abc"
+            assert request.object.instance_id == 4

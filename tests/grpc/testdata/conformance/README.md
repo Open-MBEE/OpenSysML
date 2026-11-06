@@ -64,7 +64,10 @@ empty else blocks are not authorable.
 | `expected_status`, `expected_notes` | VerifyConstraint | the verdict's `status`, and the notes its answer rests on, in order: `kind` (`assumed_one` or `uncovered`), `subject`, `text` |
 | `query` | Query | the standard's `Query` as protojson writes it (`scope`, `select`, `where`, `orderBy`) |
 | `expected_element_ids`, `expected_query_error` | Query | the ids the answer reports, in order; or text the refusal's status message must contain |
-| `instantiate` | RunDocumentQuery, VerifyRequirement | FQNs `Instantiate` creates objects of first, in order, so the query can bind and enumerate them, or the verification is about the objects the model holds |
+| `expected_reach_paths` | Instantiate | the path each instance of the graph says the traversal reached it by (`reached_by.path`), in graph order, the root's being empty; each holder must hold the instance under the feature and index the path ends with |
+| `object_path` | InstancePaths | the object whose paths to list, as `DocumentObject.path`: the name a root was instantiated as, or a path through feature values from it (`Fuel::vehicle.wheels[2]`) |
+| `expected_paths` | InstancePaths | every root-relative path to the object in traversal order, each as `<root>.<path>` (the root alone when the object is a root); `expected_error` a refusal instead |
+| `instantiate` | RunDocumentQuery, VerifyRequirement, InstancePaths | FQNs `Instantiate` creates objects of first, in order, so the query can bind and enumerate them, or the verification is about the objects the model holds |
 | `subject_symbol_id` | VerifyRequirement | optional FQN of the part/usage instantiated as the requirement's subject; absent, the requirement is checked over the objects the model holds, as the REPL's `%requirement` is over a session's |
 | `expected_status`, `expected_verification_verdicts` | VerifyRequirement | the requirement verdict's `status`, and the body verdicts of the cases verifying it, in order: `case`, `kind`, `detail` (empty for a decided verdict) and `instance_type`, the type of the object the case ran on (empty for a run on none) |
 | `query_id` | RunDocumentQuery | FQN of the document query to run |
