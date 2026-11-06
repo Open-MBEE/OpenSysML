@@ -230,7 +230,7 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 99783 elements matched (18960 ours-only, 31541 pilot-only, 0 of them implied); properties: 1924974 present-equal, 125097 present-different, 322318 ours-missing, 77522 pilot-missing, 2124079 absent-both, 32769 indeterminate, 516 pilot-nondeterministic.
+**Scorecard:** 935 files; 99783 elements matched (18960 ours-only, 31541 pilot-only, 0 of them implied); properties: 1925327 present-equal, 125740 present-different, 321317 ours-missing, 77522 pilot-missing, 2124079 absent-both, 32774 indeterminate, 516 pilot-nondeterministic.
 
 Re-recorded on develop's individual-definition change (#1943: an `individual def`/`individual usage` is written as `OccurrenceDefinition`/`OccurrenceUsage` with `isIndividual`): 88 more elements match (99534 → 99622), and the 32 `OccurrenceDefinition` rows of the inherited family move from ours-missing to present-different for the causes the paragraph below already lists; no row grew.
 
@@ -583,6 +583,45 @@ ours-missing):
    `output` +785 — projections of the same lists, so they inherit the verdict of their `feature` row;
    identity noise is confined to the one `localClock` duplicate. Nothing in the movement is a list ours
    states and the spec forbids; each pilot-right row is an itemised gap, not an approximation.
+
+   Re-recorded with a nested usage's implied subsetting derived in structure mode (SysML 2.1 Beta 2 §8.3.6.4,
+   the `check*Specialization` constraints: `checkPartUsageSubpartSpecialization` — "A composite PartUsage
+   whose owningType is a ItemDefinition or ItemUsage must directly or indirectly specialize the PartUsage
+   Items::Item::subparts" — and its siblings for items, occurrences, actions, states, constraints,
+   requirements, cases, ports and views). The semantic model's declaration-keyed rule chains (`nested.go`)
+   are now also answered for a graph element from what the graph states — its metaclass, its owning type's
+   metaclass, `isComposite` and `portionKind` (`ImpliedSubsettingFQNForMetaclass`; the perform, exhibit and
+   include forms are metaclasses of their own there, and the owning membership's metaclass and `kind` tell a
+   requirement's `assume`/`require` constraint, a state's `entry`/`exit` action and a variant apart), with the KerML step fallback consulted when the owning
+   type is a library symbol — and the feature named joins the element's general types, so its
+   `nonPrivateMemberships` are inherited like an implied kind base's. Movement against the record above:
+   present-equal +353, present-different +643, ours-missing −1001, indeterminate +5, elements unchanged, no
+   row grew in ours-missing. By metaclass: `PerformActionUsage` `feature`/`featureMembership` 86,
+   `inheritedMembership` 110, `inheritedFeature` 112, `member`/`membership` 83 rows ours-missing →
+   present-different and `usage` 39 → equal, 44 → different; `AssertConstraintUsage` 52 inherited rows and 39
+   `directedFeature`/`output` rows → different, `usage` 39 → equal; `ExhibitStateUsage` 23 inherited and 5
+   `member`/`feature` rows → different, `usage` 14 → equal; `SatisfyRequirementUsage` 16 inherited and 16
+   `output` rows → different; `IncludeUseCaseUsage` one row per property → different; `StateUsage.usage` 216,
+   `ActionUsage.usage` 35, `CalculationUsage.usage` 6 and `UseCaseUsage.usage` 2 different → equal;
+   `FlowUsage.usage` 2 different → indeterminate. Verdicts: the ours-missing → present rows are the nested
+   forms whose metaclass has no kind base in `ImpliedBaseFQNsForMetaclass` (a `perform action` is an
+   `ActionUsage` by `Actions::actions`, SysML §8.3.16.3), so until now nothing was inherited and the family
+   withheld; the nesting feature (`Parts::Part::performedActions`, `exhibitedStates`,
+   `Requirements::RequirementCheck::assumptions`/`constraints`, …) now carries most of the pilot's list, and
+   the rows are different where the pilot's also carries the kind base's own members — the kind base of
+   these metaclasses is the recorded gap (cause 1's metaclass-keyed bases), not an approximation. The `usage`
+   rows → equal are lists the nesting feature completes exactly. The `PartUsage`, `ItemUsage` and
+   `OccurrenceUsage` rows stay present-different with a smaller difference: a part usage's lists now carry
+   `Items::Item::subparts/MultiplicityRange[0]`, its documentation and `suboccurrences`' members (the
+   pilot's `eng` of the training `Part Definition Example` lists 113 inherited memberships, ours 105, from
+   100), and the pilot's also carry the `MultiplicityRange` of each intermediate feature of the subsetting
+   chain (`Items::Item::subitems/OwningMembership[1]`, `Objects::Object::subobjects/OwningMembership[1]`),
+   which the semantic model inherits through a subsetting only for the directly subsetted feature — a
+   side-table gap recorded here. The Turtle and compact forms change additively (the new stubs and
+   `libraryReferences` rows; two conversion goldens cross 200 KiB into digest form); the unkeyed
+   references rise by 774, the pilot keying a nesting feature's `OwningMembership`s positionally while the
+   compact form spells a membership stub without a `libraryPath`.
+
 
 Not completed, and why: `Type::endFeature` (not taken up in this step; it awaits a measurement of its own) and the
 causes itemised under step 5. `Behavior::step` (0 equal / 257 different),
