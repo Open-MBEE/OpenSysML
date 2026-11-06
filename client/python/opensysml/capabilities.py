@@ -110,6 +110,11 @@ CAPABILITY_SYMBOL_ATTRIBUTES = "symbol_attributes"
 #: Without it only ``child_ids``, the owned members, is reported.
 CAPABILITY_SYMBOL_MEMBERS = "symbol_members"
 
+#: The ``GetElementProperties`` RPC: the metamodel properties of one element by
+#: their specification names, as the model's API element form spells them.
+#: Without it the service refuses the call with ``UNIMPLEMENTED``.
+CAPABILITY_ELEMENT_PROPERTIES = "element_properties"
+
 #: A valueless feature of a value type as ``Value.unset``, read as
 #: :data:`opensysml.UNSET`. Without it the empty object such a feature materializes
 #: crosses as an instance id, which is indistinguishable from an object of a

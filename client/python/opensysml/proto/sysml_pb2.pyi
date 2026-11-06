@@ -845,6 +845,68 @@ class SymbolResponse(_message.Message):
     error: str
     def __init__(self, symbol: _Optional[_Union[SymbolInfo, _Mapping]] = ..., error: _Optional[str] = ...) -> None: ...
 
+class GetElementPropertiesRequest(_message.Message):
+    __slots__ = ("model_hash", "element_id", "properties")
+    MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
+    ELEMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    model_hash: str
+    element_id: str
+    properties: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, model_hash: _Optional[str] = ..., element_id: _Optional[str] = ..., properties: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class GetElementPropertiesResponse(_message.Message):
+    __slots__ = ("element", "properties", "error")
+    ELEMENT_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    element: ElementRef
+    properties: _containers.RepeatedCompositeFieldContainer[ElementProperty]
+    error: str
+    def __init__(self, element: _Optional[_Union[ElementRef, _Mapping]] = ..., properties: _Optional[_Iterable[_Union[ElementProperty, _Mapping]]] = ..., error: _Optional[str] = ...) -> None: ...
+
+class ElementRef(_message.Message):
+    __slots__ = ("id", "qualified_name", "metaclass")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    QUALIFIED_NAME_FIELD_NUMBER: _ClassVar[int]
+    METACLASS_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    qualified_name: str
+    metaclass: str
+    def __init__(self, id: _Optional[str] = ..., qualified_name: _Optional[str] = ..., metaclass: _Optional[str] = ...) -> None: ...
+
+class ElementProperty(_message.Message):
+    __slots__ = ("name", "defining_class", "many", "derived", "values", "unsupported")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    DEFINING_CLASS_FIELD_NUMBER: _ClassVar[int]
+    MANY_FIELD_NUMBER: _ClassVar[int]
+    DERIVED_FIELD_NUMBER: _ClassVar[int]
+    VALUES_FIELD_NUMBER: _ClassVar[int]
+    UNSUPPORTED_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    defining_class: str
+    many: bool
+    derived: bool
+    values: _containers.RepeatedCompositeFieldContainer[ElementPropertyValue]
+    unsupported: str
+    def __init__(self, name: _Optional[str] = ..., defining_class: _Optional[str] = ..., many: _Optional[bool] = ..., derived: _Optional[bool] = ..., values: _Optional[_Iterable[_Union[ElementPropertyValue, _Mapping]]] = ..., unsupported: _Optional[str] = ...) -> None: ...
+
+class ElementPropertyValue(_message.Message):
+    __slots__ = ("element", "string_value", "bool_value", "int_value", "real_value", "number")
+    ELEMENT_FIELD_NUMBER: _ClassVar[int]
+    STRING_VALUE_FIELD_NUMBER: _ClassVar[int]
+    BOOL_VALUE_FIELD_NUMBER: _ClassVar[int]
+    INT_VALUE_FIELD_NUMBER: _ClassVar[int]
+    REAL_VALUE_FIELD_NUMBER: _ClassVar[int]
+    NUMBER_FIELD_NUMBER: _ClassVar[int]
+    element: ElementRef
+    string_value: str
+    bool_value: bool
+    int_value: int
+    real_value: float
+    number: str
+    def __init__(self, element: _Optional[_Union[ElementRef, _Mapping]] = ..., string_value: _Optional[str] = ..., bool_value: _Optional[bool] = ..., int_value: _Optional[int] = ..., real_value: _Optional[float] = ..., number: _Optional[str] = ...) -> None: ...
+
 class DiagnosticsRequest(_message.Message):
     __slots__ = ("model_hash", "disable_lint", "enable_lint")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]

@@ -160,6 +160,11 @@ class SysMLServiceStub:
                 request_serializer=sysml__pb2.QueryRequest.SerializeToString,
                 response_deserializer=sysml__pb2.QueryResponse.FromString,
                 _registered_method=True)
+        self.GetElementProperties = channel.unary_unary(
+                '/sysml.SysMLService/GetElementProperties',
+                request_serializer=sysml__pb2.GetElementPropertiesRequest.SerializeToString,
+                response_deserializer=sysml__pb2.GetElementPropertiesResponse.FromString,
+                _registered_method=True)
         self.RunDocumentQuery = channel.unary_unary(
                 '/sysml.SysMLService/RunDocumentQuery',
                 request_serializer=sysml__pb2.RunDocumentQueryRequest.SerializeToString,
@@ -411,6 +416,17 @@ class SysMLServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetElementProperties(self, request, context):
+        """Read the metamodel properties of one element by their specification
+        names (KerML 1.1 and SysML 2.1 abstract syntax: inheritedFeature,
+        connectorEnd, directedFeature, payloadType, ...), as the model's API
+        element form (Convert to api-json) spells them, without converting the
+        whole model. Reported as the "element_properties" capability.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def RunDocumentQuery(self, request, context):
         """Run a named document query with parameter bindings, the answer the REPL's
         %run-query gives, as typed rows rather than formatted lines. Reported as
@@ -592,6 +608,11 @@ def add_SysMLServiceServicer_to_server(servicer, server):
                     servicer.Query,
                     request_deserializer=sysml__pb2.QueryRequest.FromString,
                     response_serializer=sysml__pb2.QueryResponse.SerializeToString,
+            ),
+            'GetElementProperties': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetElementProperties,
+                    request_deserializer=sysml__pb2.GetElementPropertiesRequest.FromString,
+                    response_serializer=sysml__pb2.GetElementPropertiesResponse.SerializeToString,
             ),
             'RunDocumentQuery': grpc.unary_unary_rpc_method_handler(
                     servicer.RunDocumentQuery,
@@ -1300,6 +1321,33 @@ class SysMLService:
             '/sysml.SysMLService/Query',
             sysml__pb2.QueryRequest.SerializeToString,
             sysml__pb2.QueryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetElementProperties(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/sysml.SysMLService/GetElementProperties',
+            sysml__pb2.GetElementPropertiesRequest.SerializeToString,
+            sysml__pb2.GetElementPropertiesResponse.FromString,
             options,
             channel_credentials,
             insecure,
