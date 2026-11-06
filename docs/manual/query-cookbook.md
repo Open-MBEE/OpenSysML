@@ -559,6 +559,8 @@ are always projectable:
 | `general` | The types a definition specializes or a usage is typed by, in declaration order, each the element itself — printed by name and, in HTML, linked and carrying its qualified name in `data-element`; absent when it specializes none |
 | `isAbstract` | Boolean |
 | `isIndividual` | Boolean: whether a definition or usage carries the `individual` modifier |
+| `isComposite` | Boolean: whether a feature's values are parts of its owner — `part engine` is, `ref part driver`, an attribute, a parameter and a connector end are not |
+| `isReference` | Boolean: `not isComposite`, for a usage |
 | `multiplicityLower`, `multiplicityUpper` | Integers, `*` as unbounded |
 | `satisfiedRequirement` | The requirement a satisfy usage names, or the usage itself when it declares the requirement |
 | `satisfyingFeature` | The feature named by a satisfy usage's `by` clause; a feature chain (`by v.heater`) reports the feature the chain ends at |

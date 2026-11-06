@@ -143,6 +143,8 @@ type JSymbolInfo struct {
 	Multiplicity              *JMultiplicityInfo `json:"multiplicity,omitempty"`
 	Specializations           []*JSpecialization `json:"specializations,omitempty"`
 	WithheldLibraryAttributes int32              `json:"withheldLibraryAttributes,omitempty"`
+	IsComposite               *bool              `json:"isComposite,omitempty"`
+	IsReference               *bool              `json:"isReference,omitempty"`
 }
 
 // JTypeInfo is the protojson-shaped static type message.

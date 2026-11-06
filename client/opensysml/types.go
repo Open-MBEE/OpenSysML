@@ -164,6 +164,11 @@ type Symbol struct {
 	// WithheldLibraryAttributes counts attributes inherited from
 	// standard-library content, which Attributes leaves out.
 	WithheldLibraryAttributes int
+	// IsComposite is Feature::isComposite (a usage without `ref`), nil when the
+	// element is not a feature; IsReference is Usage::isReference, its
+	// negation, nil when it is not a usage.
+	IsComposite *bool
+	IsReference *bool
 }
 
 // Attribute is one attribute of a symbol, with its declared value.

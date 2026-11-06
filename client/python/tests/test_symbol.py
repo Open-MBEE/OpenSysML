@@ -529,3 +529,105 @@ class TestSymbolAttributeFacts:
             "name", "kind", "id", "type", "multiplicity", "value", "unit", "inherited",
         ]
         assert frame.empty
+
+
+def _symbol(info):
+    """A detached symbol: no client, so nothing is fetched."""
+    return Symbol(info, None, "model_abc123")
+
+
+class TestSymbolComposition:
+    """is_composite / is_reference, as the service states them in SymbolInfo."""
+
+    def _car(self, mock_client):
+        """A Car whose children are a part, a ref part and a nested definition."""
+        children = [
+            sysml_pb2.SymbolInfo(
+                id="RefParts::Car::engine", name="engine", kind="partUsage",
+                metadata={"composite": "true"},
+                is_composite=True, is_reference=False,
+            ),
+            sysml_pb2.SymbolInfo(
+                id="RefParts::Car::driver", name="driver", kind="partUsage",
+                metadata={"reference": "true"},
+                is_composite=False, is_reference=True,
+            ),
+            sysml_pb2.SymbolInfo(id="RefParts::Car::Wheel", name="Wheel", kind="partDef"),
+            sysml_pb2.SymbolInfo(
+                id="RefParts::Car::mass", name="mass", kind="attributeUsage",
+                is_composite=False, is_reference=True,
+            ),
+        ]
+        mock_client.get_symbol.side_effect = children
+        parent = sysml_pb2.SymbolInfo(
+            id="RefParts::Car", name="Car", kind="partDef",
+            child_ids=[child.id for child in children],
+        )
+        return Symbol(parent, mock_client, "model_abc123")
+
+    def test_flags_read_the_typed_fields(self):
+        engine = _symbol(sysml_pb2.SymbolInfo(
+            id="RefParts::Car::engine", name="engine", kind="partUsage",
+            is_composite=True, is_reference=False,
+        ))
+        driver = _symbol(sysml_pb2.SymbolInfo(
+            id="RefParts::Car::driver", name="driver", kind="partUsage",
+            is_composite=False, is_reference=True,
+        ))
+
+        assert (engine.is_composite, engine.is_reference) == (True, False)
+        assert (driver.is_composite, driver.is_reference) == (False, True)
+
+    def test_flags_are_none_when_unset(self):
+        """A definition, or an older service, states neither: None, not False."""
+        car = _symbol(sysml_pb2.SymbolInfo(id="RefParts::Car", name="Car", kind="partDef"))
+
+        assert car.is_composite is None
+        assert car.is_reference is None
+        assert "composite" not in car.metadata
+
+    def test_a_kerml_feature_has_is_composite_only(self):
+        feature = _symbol(sysml_pb2.SymbolInfo(
+            id="Kernel::Whole::piece", name="piece", kind="feature", is_composite=True,
+        ))
+
+        assert feature.is_composite is True
+        assert feature.is_reference is None
+
+    def test_facts_carry_the_flags(self):
+        driver = _symbol(sysml_pb2.SymbolInfo(
+            id="RefParts::Car::driver", name="driver", kind="partUsage",
+            is_composite=False, is_reference=True,
+        ))
+        car = _symbol(sysml_pb2.SymbolInfo(id="RefParts::Car", name="Car", kind="partDef"))
+
+        assert (driver.facts().is_composite, driver.facts().is_reference) == (False, True)
+        assert (car.facts().is_composite, car.facts().is_reference) == (None, None)
+
+    def test_parts_include_reference_parts_by_default(self):
+        car = self._car(Mock())
+
+        assert [part.name for part in car.parts()] == ["engine", "driver", "Wheel"]
+
+    def test_parts_composite_filter_skips_ref_parts_and_definitions(self):
+        car = self._car(Mock())
+
+        assert [part.name for part in car.parts(composite=True)] == ["engine"]
+        assert [part.name for part in car.parts(composite=False)] == ["driver"]
+
+    def test_children_composite_filter_spans_every_kind(self):
+        car = self._car(Mock())
+
+        assert [child.name for child in car.children(composite=True)] == ["engine"]
+        assert [child.name for child in car.children(composite=False)] == ["driver", "mass"]
+        assert [child.name for child in car.children()] == ["engine", "driver", "Wheel", "mass"]
+
+    def test_children_filter_does_not_refetch(self):
+        client = Mock()
+        car = self._car(client)
+
+        car.children()
+        car.children(composite=True)
+        car.parts(composite=False)
+
+        assert client.get_symbol.call_count == 4

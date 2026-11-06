@@ -8913,8 +8913,14 @@ type SymbolInfo struct {
 	// Attributes inherited from standard-library content, which `attributes`
 	// leaves out. Their absence is stated here rather than silent.
 	WithheldLibraryAttributes int32 `protobuf:"varint,10,opt,name=withheld_library_attributes,json=withheldLibraryAttributes,proto3" json:"withheld_library_attributes,omitempty"`
-	unknownFields             protoimpl.UnknownFields
-	sizeCache                 protoimpl.SizeCache
+	// Feature::isComposite as the model derives it (a usage without `ref` whose
+	// values are parts of its owner); unset when the element is not a feature.
+	IsComposite *bool `protobuf:"varint,11,opt,name=is_composite,json=isComposite,proto3,oneof" json:"is_composite,omitempty"`
+	// Usage::isReference, the negation of is_composite for a usage (`ref`, an
+	// end, a directed parameter, ...); unset when the element is not a usage.
+	IsReference   *bool `protobuf:"varint,12,opt,name=is_reference,json=isReference,proto3,oneof" json:"is_reference,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SymbolInfo) Reset() {
@@ -9015,6 +9021,20 @@ func (x *SymbolInfo) GetWithheldLibraryAttributes() int32 {
 		return x.WithheldLibraryAttributes
 	}
 	return 0
+}
+
+func (x *SymbolInfo) GetIsComposite() bool {
+	if x != nil && x.IsComposite != nil {
+		return *x.IsComposite
+	}
+	return false
+}
+
+func (x *SymbolInfo) GetIsReference() bool {
+	if x != nil && x.IsReference != nil {
+		return *x.IsReference
+	}
+	return false
 }
 
 // Specialization is one generalization edge an element declares.
@@ -18395,7 +18415,7 @@ const file_sysml_proto_rawDesc = "" +
 	"\x06length\x18\x04 \x01(\x05R\x06length\x12\x19\n" +
 	"\bold_text\x18\x05 \x01(\tR\aoldText\x12\x19\n" +
 	"\bnew_text\x18\x06 \x01(\tR\anewText\x12\x1a\n" +
-	"\bdocument\x18\a \x01(\tR\bdocument\"\xfd\x03\n" +
+	"\bdocument\x18\a \x01(\tR\bdocument\"\xef\x04\n" +
 	"\n" +
 	"SymbolInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
@@ -18410,10 +18430,14 @@ const file_sysml_proto_rawDesc = "" +
 	"\fmultiplicity\x18\b \x01(\v2\x17.sysml.MultiplicityInfoR\fmultiplicity\x12?\n" +
 	"\x0fspecializations\x18\t \x03(\v2\x15.sysml.SpecializationR\x0fspecializations\x12>\n" +
 	"\x1bwithheld_library_attributes\x18\n" +
-	" \x01(\x05R\x19withheldLibraryAttributes\x1a;\n" +
+	" \x01(\x05R\x19withheldLibraryAttributes\x12&\n" +
+	"\fis_composite\x18\v \x01(\bH\x00R\visComposite\x88\x01\x01\x12&\n" +
+	"\fis_reference\x18\f \x01(\bH\x01R\visReference\x88\x01\x01\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"~\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x0f\n" +
+	"\r_is_compositeB\x0f\n" +
+	"\r_is_reference\"~\n" +
 	"\x0eSpecialization\x12\x12\n" +
 	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x1a\n" +
 	"\bdeclared\x18\x02 \x01(\tR\bdeclared\x12\x1b\n" +
@@ -19850,6 +19874,7 @@ func file_sysml_proto_init() {
 		(*EditOperation_AddComment)(nil),
 		(*EditOperation_AddNote)(nil),
 	}
+	file_sysml_proto_msgTypes[88].OneofWrappers = []any{}
 	file_sysml_proto_msgTypes[93].OneofWrappers = []any{
 		(*Value_IntValue)(nil),
 		(*Value_RealValue)(nil),

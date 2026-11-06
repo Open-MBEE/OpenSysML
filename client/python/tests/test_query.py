@@ -452,6 +452,31 @@ class TestQueryAgainstRealService:
                 model.query(oslc="sysml:name=")
         assert [e.id for e in elements] == ["Demo::vehicle"]
 
+    def test_is_composite_and_is_reference_tell_part_from_ref_part(self, real_service):
+        model_text = """package RefParts {
+            part def Engine;
+            part def Person;
+            part def Car {
+                part engine : Engine;
+                ref part driver : Person;
+            }
+        }"""
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(model_text)
+            elements = model.query(
+                scope=["RefParts::Car"],
+                select=["name", "isComposite", "isReference"],
+                where={"operator": "=", "property": "@type", "value": "PartUsage"},
+            )
+            references = model.query(
+                scope=["RefParts::Car"],
+                where={"operator": "=", "property": "isReference", "value": "true"},
+            )
+        by_name = {e.get("name"): e for e in elements}
+        assert (by_name["engine"].get("isComposite"), by_name["engine"].get("isReference")) == ("true", "false")
+        assert (by_name["driver"].get("isComposite"), by_name["driver"].get("isReference")) == ("false", "true")
+        assert [e.id for e in references] == ["RefParts::Car::driver"]
+
     def test_an_unknown_property_is_an_error_not_an_empty_answer(self, real_service):
         with Connection(port=real_service, auto_start=False) as conn:
             model = conn.load_from_content(MODEL)

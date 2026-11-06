@@ -84,6 +84,15 @@ func (r *PropertyReader) Values(sym *symbols.Symbol, property string) ([]string,
 		if sym.DeclaresUsage() || sym.DeclaresDefinition() || sym.IsConjugatedPortDefinition() {
 			return []string{strconv.FormatBool(individual(sym))}, true
 		}
+	case PropertyIsComposite:
+		// Feature::isComposite, read for any feature, a connector's end included.
+		if r.semantics != nil && (sym.DeclaresUsage() || sym.IsFeature()) {
+			return []string{strconv.FormatBool(r.semantics.EffectiveIsComposite(sym))}, true
+		}
+	case PropertyIsReference:
+		if isReference, ok := r.semantics.EffectiveIsReference(sym); ok {
+			return []string{strconv.FormatBool(isReference)}, true
+		}
 	case PropertyMultiplicityLower, PropertyMultiplicityUpper:
 		return r.multiplicityValues(sym, property)
 	case PropertySatisfiedRequirement, PropertySatisfyingFeature:

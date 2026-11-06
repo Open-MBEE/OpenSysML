@@ -1589,7 +1589,7 @@ class AppliedEdit(_message.Message):
     def __init__(self, operation_index: _Optional[int] = ..., target: _Optional[str] = ..., offset: _Optional[int] = ..., length: _Optional[int] = ..., old_text: _Optional[str] = ..., new_text: _Optional[str] = ..., document: _Optional[str] = ...) -> None: ...
 
 class SymbolInfo(_message.Message):
-    __slots__ = ("id", "name", "kind", "metadata", "child_ids", "attributes", "type_info", "multiplicity", "specializations", "withheld_library_attributes")
+    __slots__ = ("id", "name", "kind", "metadata", "child_ids", "attributes", "type_info", "multiplicity", "specializations", "withheld_library_attributes", "is_composite", "is_reference")
     class MetadataEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -1607,6 +1607,8 @@ class SymbolInfo(_message.Message):
     MULTIPLICITY_FIELD_NUMBER: _ClassVar[int]
     SPECIALIZATIONS_FIELD_NUMBER: _ClassVar[int]
     WITHHELD_LIBRARY_ATTRIBUTES_FIELD_NUMBER: _ClassVar[int]
+    IS_COMPOSITE_FIELD_NUMBER: _ClassVar[int]
+    IS_REFERENCE_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     kind: str
@@ -1617,7 +1619,9 @@ class SymbolInfo(_message.Message):
     multiplicity: MultiplicityInfo
     specializations: _containers.RepeatedCompositeFieldContainer[Specialization]
     withheld_library_attributes: int
-    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., kind: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., child_ids: _Optional[_Iterable[str]] = ..., attributes: _Optional[_Iterable[_Union[AttributeInfo, _Mapping]]] = ..., type_info: _Optional[_Union[TypeInfo, _Mapping]] = ..., multiplicity: _Optional[_Union[MultiplicityInfo, _Mapping]] = ..., specializations: _Optional[_Iterable[_Union[Specialization, _Mapping]]] = ..., withheld_library_attributes: _Optional[int] = ...) -> None: ...
+    is_composite: bool
+    is_reference: bool
+    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., kind: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., child_ids: _Optional[_Iterable[str]] = ..., attributes: _Optional[_Iterable[_Union[AttributeInfo, _Mapping]]] = ..., type_info: _Optional[_Union[TypeInfo, _Mapping]] = ..., multiplicity: _Optional[_Union[MultiplicityInfo, _Mapping]] = ..., specializations: _Optional[_Iterable[_Union[Specialization, _Mapping]]] = ..., withheld_library_attributes: _Optional[int] = ..., is_composite: _Optional[bool] = ..., is_reference: _Optional[bool] = ...) -> None: ...
 
 class Specialization(_message.Message):
     __slots__ = ("kind", "declared", "target_id", "target_kind")

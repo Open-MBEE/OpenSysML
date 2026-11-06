@@ -68,6 +68,8 @@ var oslcPropertyMappings = map[string]string{
 	sysmlNS + "owner":                 PropertyOwner,
 	sysmlNS + "isAbstract":            PropertyIsAbstract,
 	sysmlNS + "isIndividual":          PropertyIsIndividual,
+	sysmlNS + "isComposite":           PropertyIsComposite,
+	sysmlNS + "isReference":           PropertyIsReference,
 	sysmlNS + "type":                  PropertyElementType,
 	sysmlNS + "general":               PropertyGeneral,
 	sysmlNS + "multiplicityLower":     PropertyMultiplicityLower,

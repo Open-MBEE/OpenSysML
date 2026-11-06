@@ -105,9 +105,36 @@ class Symbol:
         ``multiplicity``, ``direction``, ``specializes``, ``abstract``,
         ``variation`` (a variation definition or usage, or an enumeration
         definition; always ``abstract`` too) and ``variant`` (a variant usage
-        or an enumerated value), each flag ``"true"``.
+        or an enumerated value), ``composite`` (a composite feature) and
+        ``reference`` (a reference usage; see :attr:`is_composite`, which
+        states the value either way), each flag ``"true"``.
         """
         return dict(self._pb.metadata)
+
+    @property
+    def is_composite(self) -> Optional[bool]:
+        """Return ``Feature::isComposite`` as the model derives it, or None.
+
+        A usage declared without ``ref`` is composite: its values are parts of
+        its owner. ``ref part``, ``ref attribute``, an attribute, a connector
+        end, an ``in``/``out`` parameter and a port owned by a part are not.
+        None when the element is not a feature (a definition, a package) or
+        the service predates the fact.
+        """
+        if not self._pb.HasField("is_composite"):
+            return None
+        return self._pb.is_composite
+
+    @property
+    def is_reference(self) -> Optional[bool]:
+        """Return ``Usage::isReference``, the negation of :attr:`is_composite`.
+
+        None when the element is not a usage (a definition, or a KerML feature,
+        which has :attr:`is_composite` only) or the service predates the fact.
+        """
+        if not self._pb.HasField("is_reference"):
+            return None
+        return self._pb.is_reference
     
     @property
     def type_facts(self) -> Optional[TypeFacts]:
@@ -186,32 +213,40 @@ class Symbol:
             specializations=tuple(self.specializations),
             attributes=tuple(self._attribute_facts()),
             withheld_library_attributes=self.withheld_library_attributes,
+            is_composite=self.is_composite,
+            is_reference=self.is_reference,
         )
 
-    def children(self) -> List["Symbol"]:
+    def children(self, composite: Optional[bool] = None) -> List["Symbol"]:
         """Return all child symbols.
         
         Lazily fetches child symbols using the RPC client if available.
         Caches results after first call.
         Returns empty list if no client is set.
-        
+
+        Reference usages (``ref part``, a parameter, ...) are children too.
+        ``composite=True`` keeps only the composite ones, which is what a
+        containment walk follows; ``composite=False`` keeps only the
+        references. A child whose :attr:`is_composite` is None (a nested
+        definition, or an older service) is left out by either filter.
+
         Returns:
             List of child Symbol objects
         """
-        if self._children_cache is not None:
+        if self._children_cache is None:
+            self._children_cache = self._fetch_children()
+        if composite is None:
             return self._children_cache
-        
+        return [child for child in self._children_cache if child.is_composite is composite]
+
+    def _fetch_children(self) -> List["Symbol"]:
         if self._client is None:
-            self._children_cache = []
-            return self._children_cache
-        
+            return []
         result = []
         for child_id in self._pb.child_ids:
             child_info = self._client.get_symbol(self._model_hash, child_id)
             if child_info is not None:
                 result.append(Symbol(child_info, self._client, self._model_hash))
-        
-        self._children_cache = result
         return result
     
     def attributes(self) -> List["Symbol"]:
@@ -268,13 +303,18 @@ class Symbol:
             result += supertype._inherited_attributes(visited)
         return result
     
-    def parts(self) -> List["Symbol"]:
+    def parts(self, composite: Optional[bool] = None) -> List["Symbol"]:
         """Return child symbols that are part definitions or usages.
-        
+
+        A ``ref part`` is a part usage too, so it is included unless
+        ``composite=True`` asks for the owned parts only (a bill of materials,
+        a mass rollup); ``composite=False`` returns the reference parts. Nested
+        part definitions have no composite flag and are left out by either.
+
         Returns:
             List of part Symbol objects
         """
-        return [child for child in self.children() if child.kind.lower() in PART_KINDS]
+        return [child for child in self.children(composite) if child.kind.lower() in PART_KINDS]
     
     def get_attr(self, name: str) -> Optional["Symbol"]:
         """Get attribute by name.

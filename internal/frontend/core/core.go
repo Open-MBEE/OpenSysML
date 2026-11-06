@@ -389,6 +389,8 @@ func symbolInfo(info *symbolfacts.Info) *JSymbolInfo {
 		Metadata:                  info.Metadata,
 		ChildIds:                  info.ChildIds,
 		WithheldLibraryAttributes: info.WithheldLibraryAttributes,
+		IsComposite:               info.IsComposite,
+		IsReference:               info.IsReference,
 	}
 	if t := info.TypeInfo; t != nil {
 		out.TypeInfo = &JTypeInfo{

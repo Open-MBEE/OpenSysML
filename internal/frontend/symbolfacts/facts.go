@@ -65,6 +65,10 @@ type Info struct {
 	Specializations           []*Specialization
 	Attributes                []*Attribute
 	WithheldLibraryAttributes int32
+	// IsComposite is Feature::isComposite, nil unless the element is a feature;
+	// IsReference is Usage::isReference, nil unless it is a usage.
+	IsComposite *bool
+	IsReference *bool
 }
 
 // TypeInfo describes a symbol's declared, resolved and primitive type.
@@ -118,6 +122,15 @@ func Of(sym *symbols.Symbol, sc *Context) *Info {
 	}
 	// Extract metadata from AST node
 	extractMetadata(sym, info.Metadata)
+	// As the other flags: a metadata key only when it holds; the typed facts
+	// carry the value either way.
+	info.IsComposite, info.IsReference = sc.compositionOf(sym)
+	if info.IsComposite != nil && *info.IsComposite {
+		info.Metadata["composite"] = "true"
+	}
+	if info.IsReference != nil && *info.IsReference {
+		info.Metadata["reference"] = "true"
+	}
 	// Add visibility to metadata
 	info.Metadata["visibility"] = visibilityToString(sym.Visibility)
 	if sym.Scope != nil {
@@ -134,6 +147,22 @@ func Of(sym *symbols.Symbol, sc *Context) *Info {
 	// types and constant default values.
 	info.Attributes, info.WithheldLibraryAttributes = sc.attributesOf(sym)
 	return info
+}
+
+// compositionOf reads Feature::isComposite and Usage::isReference from the
+// semantic model, the same derivation reflection and api-json report, so that
+// `part` and `ref part` (an end, a directed parameter, ...) are told apart
+// without re-reading the notation.
+func (sc *Context) compositionOf(sym *symbols.Symbol) (composite, reference *bool) {
+	if !sym.DeclaresUsage() && !sym.IsFeature() {
+		return nil, nil
+	}
+	isComposite := sc.Semantics.EffectiveIsComposite(sym)
+	composite = &isComposite
+	if isReference, ok := sc.Semantics.EffectiveIsReference(sym); ok {
+		reference = &isReference
+	}
+	return composite, reference
 }
 
 // Root is one document's root namespace: the index's own root symbol for

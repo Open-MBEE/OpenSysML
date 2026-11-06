@@ -1,0 +1,9 @@
+{
+  "rpc": "Query",
+  "query": {
+    "scope": ["RefParts::Car"],
+    "select": ["name", "isReference"],
+    "where": {"primitive": {"property": "isReference", "operator": "PRIMITIVE_OPERATOR_EQUAL", "value": ["true"]}}
+  },
+  "expected_element_ids": ["RefParts::Car::driver", "RefParts::Car::mass", "RefParts::Car::p", "RefParts::Car::drive::speed"]
+}

@@ -1,0 +1,9 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "RefParts::Car::engine",
+	"expected_metadata": {
+		"composite": "true",
+		"type": "Engine"
+	},
+	"absent_metadata": ["reference"]
+}

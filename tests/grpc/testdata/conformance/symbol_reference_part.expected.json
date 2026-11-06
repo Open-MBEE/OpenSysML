@@ -1,0 +1,9 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "RefParts::Car::driver",
+	"expected_metadata": {
+		"reference": "true",
+		"type": "Person"
+	},
+	"absent_metadata": ["composite"]
+}

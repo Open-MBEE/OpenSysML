@@ -2322,6 +2322,14 @@ pub struct SymbolInfo {
     /// leaves out. Their absence is stated here rather than silent.
     #[prost(int32, tag="10")]
     pub withheld_library_attributes: i32,
+    /// Feature::isComposite as the model derives it (a usage without `ref` whose
+    /// values are parts of its owner); unset when the element is not a feature.
+    #[prost(bool, optional, tag="11")]
+    pub is_composite: ::core::option::Option<bool>,
+    /// Usage::isReference, the negation of is_composite for a usage (`ref`, an
+    /// end, a directed parameter, ...); unset when the element is not a usage.
+    #[prost(bool, optional, tag="12")]
+    pub is_reference: ::core::option::Option<bool>,
 }
 /// Specialization is one generalization edge an element declares.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

@@ -1892,6 +1892,12 @@ message SymbolInfo {
   // Attributes inherited from standard-library content, which `attributes`
   // leaves out. Their absence is stated here rather than silent.
   int32 withheld_library_attributes = 10;
+  // Feature::isComposite as the model derives it (a usage without `ref` whose
+  // values are parts of its owner); unset when the element is not a feature.
+  optional bool is_composite = 11;
+  // Usage::isReference, the negation of is_composite for a usage (`ref`, an
+  // end, a directed parameter, ...); unset when the element is not a usage.
+  optional bool is_reference = 12;
 }
 
 // Specialization is one generalization edge an element declares.

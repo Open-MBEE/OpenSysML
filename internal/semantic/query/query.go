@@ -51,6 +51,10 @@ const (
 	PropertyIsAbstract = "isAbstract"
 	// PropertyIsIndividual is the `individual` modifier of a definition or usage.
 	PropertyIsIndividual = "isIndividual"
+	// PropertyIsComposite is Feature::isComposite: whether a feature's values are owned by (parts of) its featuring type.
+	PropertyIsComposite = "isComposite"
+	// PropertyIsReference is Usage::isReference, the negation of isComposite for a usage.
+	PropertyIsReference = "isReference"
 	// PropertyMultiplicityLower is the lower multiplicity bound property.
 	PropertyMultiplicityLower = "multiplicityLower"
 	// PropertyMultiplicityUpper is the upper multiplicity bound property.
@@ -69,7 +73,7 @@ var propertyNames = []string{
 	PropertyID, PropertyType, PropertyName, PropertyDeclaredName,
 	PropertyShortName, PropertyDeclaredShortName, PropertyDocumentation,
 	PropertyTextualRepresentation, PropertyBody, PropertyLocale, PropertyLanguage,
-	PropertyQualifiedName, PropertyOwner, PropertyIsAbstract, PropertyIsIndividual, PropertyElementType,
+	PropertyQualifiedName, PropertyOwner, PropertyIsAbstract, PropertyIsIndividual, PropertyIsComposite, PropertyIsReference, PropertyElementType,
 	PropertyGeneral,
 	PropertyMultiplicityLower, PropertyMultiplicityUpper,
 	PropertySatisfiedRequirement, PropertySatisfyingFeature,

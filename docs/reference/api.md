@@ -1110,6 +1110,8 @@ answer.
 | `owner` | Identity of the owning element; absent for a top-level element, whose owner is the document root | |
 | `isAbstract` | `true`/`false` for a definition or usage; absent for anything else. A standard-library element carries its declaration on every load path (parsed, restored from the on-disk cache or decoded from the bundled snapshot), so it answers too | |
 | `isIndividual` | `true`/`false` for a definition or usage (the `individual` modifier); absent for anything else, and present for a standard-library element as `isAbstract` is | |
+| `isComposite` | `true`/`false` for any feature, a connector's end included: `Feature::isComposite` as the model derives it — a usage without `ref` is composite, while `ref`, an end, an `in`/`out` parameter, an attribute and a port owned by a part (`validatePortUsageIsReference`) are not; absent for a definition or package | |
+| `isReference` | `true`/`false` for a usage: `Usage::isReference`, the negation of `isComposite` (SysML v2.1 §8.3.6.4 `deriveUsageIsReference`); absent for a definition and for a KerML feature, which has `isComposite` only | |
 | `type` | Qualified name of the resolved type of a typed feature; absent when untyped or unresolved | |
 | `satisfiedRequirement` | The requirement a non-verification satisfy usage references, or the satisfy usage itself when it declares the requirement; absent when unresolved or not a satisfy usage | |
 | `satisfyingFeature` | The feature named by a satisfy usage's `by` clause; a feature chain (`by v.heater`) reports the feature the chain ends at; absent when there is no `by` clause or it is unresolved | |

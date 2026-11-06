@@ -30,6 +30,8 @@ func infoToProto(info *symbolfacts.Info, idx *symbols.Index) *pb.SymbolInfo {
 		Metadata:                  info.Metadata,
 		ChildIds:                  info.ChildIds,
 		WithheldLibraryAttributes: info.WithheldLibraryAttributes,
+		IsComposite:               info.IsComposite,
+		IsReference:               info.IsReference,
 	}
 	if info.Attributes != nil {
 		out.Attributes = make([]*pb.AttributeInfo, 0, len(info.Attributes))

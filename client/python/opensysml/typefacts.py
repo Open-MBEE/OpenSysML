@@ -147,3 +147,9 @@ class SymbolFacts:
     #: Library-inherited attributes ``attributes`` leaves out, counted rather
     #: than silently dropped.
     withheld_library_attributes: int = 0
+    #: ``Feature::isComposite``; None when the symbol is not a feature or the
+    #: service predates the fact.
+    is_composite: Optional[bool] = None
+    #: ``Usage::isReference`` (``not is_composite``); None when the symbol is
+    #: not a usage or the service predates the fact.
+    is_reference: Optional[bool] = None

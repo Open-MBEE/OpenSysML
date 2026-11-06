@@ -384,6 +384,19 @@ func (m *Model) EffectiveIsComposite(sym *symbols.Symbol) bool {
 	return composite
 }
 
+// EffectiveIsReference reports the modeled Usage::isReference value, the
+// negation of isComposite (deriveUsageIsReference); ok is false for a symbol
+// that is not a SysML usage (a connector's end is one, a ReferenceUsage).
+func (m *Model) EffectiveIsReference(sym *symbols.Symbol) (isReference, ok bool) {
+	if m == nil || sym == nil {
+		return false, false
+	}
+	if !m.isSysMLUsage(sym) && (sym.Kind != symbols.SymbolConnectorEnd || m.isKerMLDoc(sym)) {
+		return false, false
+	}
+	return !m.EffectiveIsComposite(sym), true
+}
+
 func symbolIsPortion(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false

@@ -23,6 +23,14 @@ func symbolFromProto(sym *pb.SymbolInfo) *Symbol {
 		Kind:                      sym.Kind,
 		WithheldLibraryAttributes: int(sym.WithheldLibraryAttributes),
 	}
+	if sym.IsComposite != nil {
+		out.IsComposite = new(bool)
+		*out.IsComposite = *sym.IsComposite
+	}
+	if sym.IsReference != nil {
+		out.IsReference = new(bool)
+		*out.IsReference = *sym.IsReference
+	}
 	if len(sym.Metadata) > 0 {
 		out.Metadata = make(map[string]string, len(sym.Metadata))
 		for key, value := range sym.Metadata {

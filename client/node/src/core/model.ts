@@ -809,6 +809,13 @@ export class ModelSymbol {
   readonly specializations: readonly SpecializationFacts[];
   /** Library attributes the service did not send, when it withheld any. */
   readonly withheldLibraryAttributes: number;
+  /**
+   * Feature::isComposite as the model derives it (a usage without `ref`);
+   * undefined when the element is not a feature or the service predates it.
+   */
+  readonly isComposite: boolean | undefined;
+  /** Usage::isReference, the negation of isComposite; undefined for a non-usage. */
+  readonly isReference: boolean | undefined;
 
   private readonly connection: Connection;
   private readonly modelHash: string;
@@ -850,6 +857,8 @@ export class ModelSymbol {
       targetKind: specialization.targetKind,
     }));
     this.withheldLibraryAttributes = info.withheldLibraryAttributes;
+    this.isComposite = info.isComposite;
+    this.isReference = info.isReference;
   }
 
   /** The symbols this one owns, fetched one call each. */
