@@ -1761,7 +1761,14 @@ func (m *migration) constraintBody(e *sysmlv1.Element) {
 	saved := m.scope
 	m.scope = e
 	m.comments(e)
-	m.restateInheritedConstraintParameters(e, make(map[string]bool))
+	// A parameter e owns under a general's name takes that position itself.
+	seen := make(map[string]bool)
+	for _, c := range e.Children {
+		if c.Type == "Property" && c.Name != "" {
+			seen[c.Name] = true
+		}
+	}
+	m.restateInheritedConstraintParameters(e, seen)
 	f := m.constraintRule(e)
 	for _, c := range e.Children {
 		if c != f.rule {
