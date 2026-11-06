@@ -480,7 +480,7 @@ func (ctx *Context) bindingRoots(typeSym *symbols.Symbol) map[string]bool {
 	var roots map[string]bool
 	for _, binding := range ctx.objectBindings(typeSym) {
 		for _, end := range binding.Ends {
-			if end.Path == "" {
+			if end.HolderPath() == "" {
 				continue
 			}
 			if roots == nil {

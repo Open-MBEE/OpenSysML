@@ -1,0 +1,16 @@
+{
+  "type": "instance",
+  "instantiate": "test::vals",
+  "slots": {
+    "target": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}, {"type": "Integer", "value": 1}]},
+    "mixed": {"type": "Sequence", "elements": [{"type": "Integer", "value": 2}, {"type": "Integer", "value": 1}, {"type": "Integer", "value": 2}]}
+  },
+  "materialization": {},
+  "validation": {
+    "verdicts": [
+      {"kind": "binding", "assertion": "binding [2] bind [0..1] target = [0..1] source", "status": "holds"},
+      {"kind": "binding", "assertion": "binding [3] bind [0..1] mixed = [0..1] picks", "status": "holds"}
+    ],
+    "valid": true
+  }
+}

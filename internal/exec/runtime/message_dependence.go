@@ -61,7 +61,7 @@ func (ctx *Context) ownsFeature(inst *Instance, sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
 	}
-	for _, of := range ctx.FeaturesOfObject(inst) {
+	for of := range ctx.objectFeatures(inst) {
 		if of.Feature.Symbol == sym {
 			return true
 		}

@@ -784,6 +784,7 @@ expr:Chains__Car__a_pvalue_pin0_om
     sysml:source expr:Chains__Car__a_pvalue ;
     sysml:target expr:Chains__Car__a_pvalue_pin0 ;
     sysml:relatedElement expr:Chains__Car__a_pvalue, expr:Chains__Car__a_pvalue_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Chains__Car__a_pvalue_pin0 ;
     sysml:ownedMemberParameter expr:Chains__Car__a_pvalue_pin0 ;
     json:relatedElement "[{\"@id\":\"Chains__Car__a_pvalue\"},{\"@id\":\"Chains__Car__a_pvalue_pin0\"}]" .
@@ -1022,6 +1023,7 @@ expr:Chains__Car__b_pvalue_pin0_om
     sysml:source expr:Chains__Car__b_pvalue ;
     sysml:target expr:Chains__Car__b_pvalue_pin0 ;
     sysml:relatedElement expr:Chains__Car__b_pvalue, expr:Chains__Car__b_pvalue_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Chains__Car__b_pvalue_pin0 ;
     sysml:ownedMemberParameter expr:Chains__Car__b_pvalue_pin0 ;
     json:relatedElement "[{\"@id\":\"Chains__Car__b_pvalue\"},{\"@id\":\"Chains__Car__b_pvalue_pin0\"}]" .
@@ -1260,6 +1262,7 @@ expr:Chains__Car__c_pvalue_pin0_om
     sysml:source expr:Chains__Car__c_pvalue ;
     sysml:target expr:Chains__Car__c_pvalue_pin0 ;
     sysml:relatedElement expr:Chains__Car__c_pvalue, expr:Chains__Car__c_pvalue_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Chains__Car__c_pvalue_pin0 ;
     sysml:ownedMemberParameter expr:Chains__Car__c_pvalue_pin0 ;
     json:relatedElement "[{\"@id\":\"Chains__Car__c_pvalue\"},{\"@id\":\"Chains__Car__c_pvalue_pin0\"}]" .
@@ -1521,6 +1524,7 @@ expr:Chains__Car__d_pvalue_pa0_pin0_om
     sysml:source expr:Chains__Car__d_pvalue_pa0 ;
     sysml:target expr:Chains__Car__d_pvalue_pa0_pin0 ;
     sysml:relatedElement expr:Chains__Car__d_pvalue_pa0, expr:Chains__Car__d_pvalue_pa0_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Chains__Car__d_pvalue_pa0_pin0 ;
     sysml:ownedMemberParameter expr:Chains__Car__d_pvalue_pa0_pin0 ;
     json:relatedElement "[{\"@id\":\"Chains__Car__d_pvalue_pa0\"},{\"@id\":\"Chains__Car__d_pvalue_pa0_pin0\"}]" .
@@ -1600,6 +1604,7 @@ expr:Chains__Car__d_pvalue_pin0_om
     sysml:source expr:Chains__Car__d_pvalue ;
     sysml:target expr:Chains__Car__d_pvalue_pin0 ;
     sysml:relatedElement expr:Chains__Car__d_pvalue, expr:Chains__Car__d_pvalue_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Chains__Car__d_pvalue_pin0 ;
     sysml:ownedMemberParameter expr:Chains__Car__d_pvalue_pin0 ;
     json:relatedElement "[{\"@id\":\"Chains__Car__d_pvalue\"},{\"@id\":\"Chains__Car__d_pvalue_pin0\"}]" .
@@ -1861,6 +1866,7 @@ expr:Chains__Car__e_pvalue_pa0_pin0_om
     sysml:source expr:Chains__Car__e_pvalue_pa0 ;
     sysml:target expr:Chains__Car__e_pvalue_pa0_pin0 ;
     sysml:relatedElement expr:Chains__Car__e_pvalue_pa0, expr:Chains__Car__e_pvalue_pa0_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Chains__Car__e_pvalue_pa0_pin0 ;
     sysml:ownedMemberParameter expr:Chains__Car__e_pvalue_pa0_pin0 ;
     json:relatedElement "[{\"@id\":\"Chains__Car__e_pvalue_pa0\"},{\"@id\":\"Chains__Car__e_pvalue_pa0_pin0\"}]" .
@@ -1940,6 +1946,7 @@ expr:Chains__Car__e_pvalue_pin0_om
     sysml:source expr:Chains__Car__e_pvalue ;
     sysml:target expr:Chains__Car__e_pvalue_pin0 ;
     sysml:relatedElement expr:Chains__Car__e_pvalue, expr:Chains__Car__e_pvalue_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Chains__Car__e_pvalue_pin0 ;
     sysml:ownedMemberParameter expr:Chains__Car__e_pvalue_pin0 ;
     json:relatedElement "[{\"@id\":\"Chains__Car__e_pvalue\"},{\"@id\":\"Chains__Car__e_pvalue_pin0\"}]" .
@@ -2219,6 +2226,7 @@ expr:Chains__Car__f_pvalue_pin0_om
     sysml:source expr:Chains__Car__f_pvalue ;
     sysml:target expr:Chains__Car__f_pvalue_pin0 ;
     sysml:relatedElement expr:Chains__Car__f_pvalue, expr:Chains__Car__f_pvalue_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Chains__Car__f_pvalue_pin0 ;
     sysml:ownedMemberParameter expr:Chains__Car__f_pvalue_pin0 ;
     json:relatedElement "[{\"@id\":\"Chains__Car__f_pvalue\"},{\"@id\":\"Chains__Car__f_pvalue_pin0\"}]" .

@@ -21,7 +21,7 @@ const (
 	docCountBaselinePath       = "docs/project/pilot-differential-baseline.json"
 	docCountReadmePath         = "README.md"
 	docCountArchitecturePath   = "docs/internals/architecture.md"
-	docCountSpecCompliancePath = "docs/project/spec-compliance.md"
+	docCountSpecCompliancePath = doccounts.SpecComplianceDir
 	docCountReferenceMarker    = "**Reference differential:**"
 	docCountRejectionMarker    = "**Rejection oracle:**"
 )
@@ -165,11 +165,7 @@ func docReadBaselineReport(t *testing.T) Report {
 // regenerator writes the derived lines from, so the two cannot disagree.
 func docReadSpecComplianceCounts(t *testing.T) doccounts.RuleCounts {
 	t.Helper()
-	content, err := os.ReadFile(filepath.FromSlash("../../../" + docCountSpecCompliancePath))
-	if err != nil {
-		t.Fatalf("%s:1: read document: %v", docCountSpecCompliancePath, err)
-	}
-	counts, err := doccounts.CountRules(string(content))
+	counts, err := doccounts.CountSpecComplianceRules(filepath.FromSlash("../../.."))
 	if err != nil {
 		t.Fatalf("%s: %v", docCountSpecCompliancePath, err)
 	}

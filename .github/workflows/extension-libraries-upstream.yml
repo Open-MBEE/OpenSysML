@@ -89,17 +89,8 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Check the library snapshot
-        id: snapshot
-        run: |
-          if make stdlib-snapshot-check; then
-            echo "Snapshot unchanged." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "Snapshot regenerated for the synced libraries." >> "$GITHUB_STEP_SUMMARY"
-            make stdlib-snapshot
-          fi
-
       # The tools module's llm-bench tests drive bin/sysml and skip without it.
+      # `make build` generates the library snapshot of the synced libraries first.
       - name: Build binaries
         run: make build
 
@@ -124,7 +115,6 @@ jobs:
               echo "| step | outcome |"
               echo "| --- | --- |"
               echo "| sync | ${{ steps.sync.outcome }} |"
-              echo "| snapshot | ${{ steps.snapshot.outcome }} |"
               echo "| tests | ${{ steps.tests.outcome }} |"
             } >> "$GITHUB_STEP_SUMMARY"
           fi
