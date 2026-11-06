@@ -211,7 +211,10 @@ reflective metaclass: what `x meta KerML::Feature`, or the last element of
 reflected on and is its identity: two metaobjects are `==` exactly when their
 `element_id` is, whatever type each was cast to. Its `metaclass_id` is the FQN
 of the element's own metaclass (`SysML::Systems::PartUsage`), not the type it
-was cast to. Its features (`declaredName`, `ownedFeature`, ...) are read in the
+was cast to. An anonymous chain Feature (`v.engine.power`, what a chained
+connector end references) carries the FQNs of its chaining features in
+`chaining_feature_ids` and its owner in `owner_id`; `is_chain()` tells one
+apart. Its other features (`declaredName`, `ownedFeature`, ...) are read in the
 model, not carried. A metaobject naming no element is an `Error::Decode`.
 
 A `Value::Undetermined` is a model-level answer the model leaves open — an

@@ -637,6 +637,19 @@ pub struct Metaobject {
     /// FQN of the element's own reflective metaclass
     /// (`SysML::Systems::PartUsage`), not the type it was cast to.
     pub metaclass_id: String,
+    /// FQNs of the chaining features of an anonymous chain Feature (`a.b.c`),
+    /// in order; empty for a named element.
+    pub chaining_feature_ids: Vec<String>,
+    /// FQN of the owning element of an anonymous chain Feature; empty for a
+    /// named element.
+    pub owner_id: String,
+}
+
+impl Metaobject {
+    /// Whether the element is an anonymous chain Feature (`a.b.c`).
+    pub fn is_chain(&self) -> bool {
+        !self.chaining_feature_ids.is_empty()
+    }
 }
 
 impl PartialEq for Metaobject {
@@ -1036,6 +1049,8 @@ pub(crate) fn value_from_wire(value: wire::Value) -> Result<Value, Error> {
             Ok(Value::Metaobject(Metaobject {
                 element_id: v.element_id,
                 metaclass_id: v.metaclass_id,
+                chaining_feature_ids: v.chaining_feature_ids,
+                owner_id: v.owner_id,
             }))
         }
         wire::value::Kind::EnumLiteral(v) => Ok(Value::EnumLiteral(EnumLiteral {
@@ -2830,6 +2845,8 @@ mod tests {
             kind: Some(wire::value::Kind::Metaobject(wire::Metaobject {
                 element_id: element_id.to_owned(),
                 metaclass_id: metaclass_id.to_owned(),
+                chaining_feature_ids: Vec::new(),
+                owner_id: String::new(),
             })),
         }
     }
@@ -2843,12 +2860,15 @@ mod tests {
             Value::Metaobject(Metaobject {
                 element_id: "Demo::seatBelt".to_owned(),
                 metaclass_id: "SysML::Systems::PartUsage".to_owned(),
+                chaining_feature_ids: Vec::new(),
+                owner_id: String::new(),
             })
         );
         let Value::Metaobject(inner) = &seat_belt else {
             panic!("a metaobject should decode as one");
         };
         assert_eq!(inner.metaclass_id, "SysML::Systems::PartUsage");
+        assert!(!inner.is_chain());
 
         // The element is the identity: the type it was cast to does not distinguish two reads.
         let as_feature = value_from_wire(metaobject("Demo::seatBelt", "KerML::Feature")).unwrap();
@@ -2880,6 +2900,30 @@ mod tests {
             value_from_wire(nested),
             Err(Error::Decode(message)) if message.contains("names no element")
         ));
+    }
+
+    #[test]
+    fn an_anonymous_chain_feature_metaobject_carries_its_chaining_features_and_owner() {
+        let chain = value_from_wire(wire::Value {
+            kind: Some(wire::value::Kind::Metaobject(wire::Metaobject {
+                element_id: "Demo::v.engine.power".to_owned(),
+                metaclass_id: "KerML::Feature".to_owned(),
+                chaining_feature_ids: vec![
+                    "Demo::v".to_owned(),
+                    "Demo::Vehicle::engine".to_owned(),
+                    "Demo::Engine::power".to_owned(),
+                ],
+                owner_id: "Demo::c::source".to_owned(),
+            })),
+        })
+        .expect("a chain metaobject should decode");
+        let Value::Metaobject(inner) = &chain else {
+            panic!("a metaobject should decode as one");
+        };
+        assert!(inner.is_chain());
+        assert_eq!(inner.chaining_feature_ids.len(), 3);
+        assert_eq!(inner.chaining_feature_ids[2], "Demo::Engine::power");
+        assert_eq!(inner.owner_id, "Demo::c::source");
     }
 
     #[test]

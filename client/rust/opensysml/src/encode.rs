@@ -211,6 +211,8 @@ fn encode(value: &Value, capabilities: &Capabilities, depth: usize) -> Result<wi
             kind(Kind::Metaobject(wire::Metaobject {
                 element_id: metaobject.element_id.clone(),
                 metaclass_id: metaobject.metaclass_id.clone(),
+                chaining_feature_ids: metaobject.chaining_feature_ids.clone(),
+                owner_id: metaobject.owner_id.clone(),
             }))
         }
         Value::Infinity => {
@@ -468,6 +470,8 @@ mod tests {
             Value::Metaobject(Metaobject {
                 element_id: "P::a".to_owned(),
                 metaclass_id: "SysML::PartUsage".to_owned(),
+                chaining_feature_ids: Vec::new(),
+                owner_id: String::new(),
             }),
             Value::EnumLiteral(EnumLiteral {
                 literal_id: "P::Color::red".to_owned(),
@@ -553,6 +557,8 @@ mod tests {
         refused(&Value::Metaobject(Metaobject {
             element_id: String::new(),
             metaclass_id: "SysML::PartUsage".to_owned(),
+            chaining_feature_ids: Vec::new(),
+            owner_id: String::new(),
         }));
         refused(&Value::EnumLiteral(EnumLiteral {
             literal_id: String::new(),
@@ -642,6 +648,8 @@ mod tests {
                 Value::Metaobject(Metaobject {
                     element_id: "P::a".to_owned(),
                     metaclass_id: String::new(),
+                    chaining_feature_ids: Vec::new(),
+                    owner_id: String::new(),
                 }),
                 CAPABILITY_METAOBJECT_VALUES,
             ),
