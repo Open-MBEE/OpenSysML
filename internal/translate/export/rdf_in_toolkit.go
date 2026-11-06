@@ -531,9 +531,11 @@ func (n *normalizer) collapseRelationships() {
 		}
 		target := firstIRI(graph, subject, relationshipTargetEnds...)
 		if m == mConjugatedPortTyping {
-			// The head writes `~P`: the original definition, the conjugate of
-			// which the typing names as its type.
-			target = n.portDefinitions.original(graph, meta, subject, target)
+			// The head states the ConjugatedPortDefinition the typing names as
+			// its type, written `~P`; a typing naming no conjugate states P.
+			if meta(target) != mConjugatedPortDefinition {
+				target = n.portDefinitions.original(graph, meta, subject, target)
+			}
 			graph.Add(owner, rdf.OpenSysMLTerm(xConjugatedTyping), rdf.Bool(true))
 		}
 		if target.Value == "" {
