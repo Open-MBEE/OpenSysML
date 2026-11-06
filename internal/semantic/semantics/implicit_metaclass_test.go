@@ -25,3 +25,25 @@ func TestImpliedBaseFQNsForMetaclassCoversDefinitions(t *testing.T) {
 		t.Errorf("ImpliedBaseFQNsForMetaclass(Package) = %v, want none", got)
 	}
 }
+
+// An expression's metaclass alone names the evaluations it implicitly subsets (KerML
+// 8.4.4.7, 8.4.4.8), so a graph-only expression inherits Evaluation's members.
+func TestImpliedBaseFQNsForMetaclassCoversExpressions(t *testing.T) {
+	model := &Model{}
+	for metaclass, want := range map[string]string{
+		"Expression":                 "Performances::evaluations",
+		"OperatorExpression":         "Performances::evaluations",
+		"FeatureReferenceExpression": "Performances::evaluations",
+		"ConstructorExpression":      "Performances::constructorEvaluations",
+		"BooleanExpression":          "Performances::booleanEvaluations",
+		"Invariant":                  "Performances::trueEvaluations",
+		"LiteralInteger":             "Performances::literalIntegerEvaluations",
+		"LiteralInfinity":            "Performances::literalIntegerEvaluations",
+		"NullExpression":             "Performances::nullEvaluations",
+		"MetadataAccessExpression":   "Performances::metadataAccessEvaluations",
+	} {
+		if got := model.ImpliedBaseFQNsForMetaclass(metaclass, source.KindKerML); !slices.Equal(got, []string{want}) {
+			t.Errorf("ImpliedBaseFQNsForMetaclass(%s) = %v, want [%s]", metaclass, got, want)
+		}
+	}
+}

@@ -5687,6 +5687,13 @@ func (e *Evaluator) structureFeatureTypesFrom(element Element, visiting map[Elem
 			}
 		}
 	}
+	if len(values) == 0 && len(typeSources) == 0 && len(chaining.Values) == 0 {
+		implied, ok := e.structureImpliedFeatureTypes(element)
+		if !ok {
+			return Value{}, true, false
+		}
+		values = append(values, implied...)
+	}
 
 	if len(chaining.Values) > 0 {
 		last := chaining.Values[len(chaining.Values)-1]

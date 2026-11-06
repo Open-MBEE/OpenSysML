@@ -1,0 +1,41 @@
+sha256 e8eedc10f4d8cb75cfa74afe09000c48e595e5a3e29f9f294f515f52c9fa2e56 bytes 232818 lines 3956
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:ConnectorEnds
+    a sysml:Package ;
+    sysml:qualifiedName "ConnectorEnds" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "25"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
+    sysml:elementId "ConnectorEnds" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "kerml" ;
+    sysml:declaredName "ConnectorEnds" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:ConnectorEnds__Engine, elmt:ConnectorEnds__Tank, elmt:ConnectorEnds__Trigger, elmt:ConnectorEnds__Vehicle ;
+    sysml:ownedMembership elmt:ConnectorEnds__Engine_om, elmt:ConnectorEnds__Tank_om, elmt:ConnectorEnds__Trigger_om, elmt:ConnectorEnds__Vehicle_om ;
+    sysml:ownedRelationship elmt:ConnectorEnds__Engine_om, elmt:ConnectorEnds__Tank_om, elmt:ConnectorEnds__Trigger_om, elmt:ConnectorEnds__Vehicle_om ;
+    sysx:sourceText "package ConnectorEnds {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedMember "[{\"@id\":\"ConnectorEnds__Engine\"},{\"@id\":\"ConnectorEnds__Tank\"},{\"@id\":\"ConnectorEnds__Trigger\"},{\"@id\":\"ConnectorEnds__Vehicle\"}]" ;
+    json:ownedMembership "[{\"@id\":\"ConnectorEnds__Engine_om\"},{\"@id\":\"ConnectorEnds__Tank_om\"},{\"@id\":\"ConnectorEnds__Trigger_om\"},{\"@id\":\"ConnectorEnds__Vehicle_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"ConnectorEnds__Engine_om\"},{\"@id\":\"ConnectorEnds__Tank_om\"},{\"@id\":\"ConnectorEnds__Trigger_om\"},{\"@id\":\"ConnectorEnds__Vehicle_om\"}]" .
+
+elmt:ConnectorEnds__Engine
+    a sysml:ClassUsage ;
+    sysml:qualifiedName "ConnectorEnds::Engine" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "2"^^xsd:integer ;
+    sysx:sourceEndColumn "18"^^xsd:integer ;
+    sysml:elementId "ConnectorEnds__Engine" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:ConnectorEnds ;
+    sysml:owner elmt:ConnectorEnds ;

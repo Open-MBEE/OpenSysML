@@ -940,6 +940,18 @@ elmt:SendNew__Downlink__ground_ft0
     sysml:relatedElement elmt:SendNew__Downlink__ground, elmt:SendNew__Station ;
     json:relatedElement "[{\"@id\":\"SendNew__Downlink__ground\"},{\"@id\":\"SendNew__Station\"}]" .
 
+<urn:sysmlv2:element:7fedf796-6262-51c1-8792-56db055b85ed>
+    a sysml:MultiplicityRange ;
+    sysml:elementId "7fedf796-6262-51c1-8792-56db055b85ed" ;
+    sysx:libraryPath "Performances::evaluations/MultiplicityRange[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:021a4a66-8662-5d07-8d24-198234dea79b>
+    a sysml:OwningMembership ;
+    sysml:elementId "021a4a66-8662-5d07-8d24-198234dea79b" ;
+    sysml:memberElement <urn:sysmlv2:element:7fedf796-6262-51c1-8792-56db055b85ed> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 elmt:f9e920cc-2ec4-56b3-9920-8e5dbbc50a5a
     a sysml:Feature ;
     sysml:elementId "f9e920cc-2ec4-56b3-9920-8e5dbbc50a5a" ;
@@ -964,6 +976,18 @@ elmt:f9e920cc-2ec4-56b3-9920-8e5dbbc50a5a
     a sysml:FeatureMembership ;
     sysml:elementId "03a59ed6-72bb-54ba-9ed1-ac7a3f05f02d" ;
     sysml:memberElement <urn:sysmlv2:element:1c8f6c51-daa8-5e32-999e-831c4b7be22f> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:a2bc4218-3ff1-5ef7-92aa-3c093ff74021
+    a sysml:MultiplicityRange ;
+    sysml:elementId "a2bc4218-3ff1-5ef7-92aa-3c093ff74021" ;
+    sysx:libraryPath "Performances::literalIntegerEvaluations/MultiplicityRange[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:03d20af3-b538-52ad-ad1c-9c3544165be3>
+    a sysml:OwningMembership ;
+    sysml:elementId "03d20af3-b538-52ad-ad1c-9c3544165be3" ;
+    sysml:memberElement elmt:a2bc4218-3ff1-5ef7-92aa-3c093ff74021 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:0856ed9f-5115-58b3-a51f-ba54aca3dce5>
@@ -1135,6 +1159,13 @@ elmt:b2617ada-a10f-5bd5-9dda-3f36c0002d73
     sysml:declaredName "spaceTimeCoincidentOccurrences" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+<urn:sysmlv2:element:0ffc9238-629e-535c-a826-f40efd5eea58>
+    a sysml:Feature ;
+    sysml:elementId "0ffc9238-629e-535c-a826-f40efd5eea58" ;
+    sysml:qualifiedName "Performances::constructorEvaluations::result" ;
+    sysml:declaredName "result" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 <urn:sysmlv2:element:1055a84d-fed9-571c-8367-7f8a9b3a3ac1>
     a sysml:Feature ;
     sysml:elementId "1055a84d-fed9-571c-8367-7f8a9b3a3ac1" ;
@@ -1301,6 +1332,19 @@ elmt:ca89f2c0-7231-52c5-a1a1-fd09a48f013d
     sysml:qualifiedName "Performances::Performance::isDispatch" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+<urn:sysmlv2:element:175c7980-47e6-5cb6-9aec-d8c25829ac40>
+    a sysml:Function ;
+    sysml:elementId "175c7980-47e6-5cb6-9aec-d8c25829ac40" ;
+    sysml:qualifiedName "Performances::LiteralIntegerEvaluation" ;
+    sysml:declaredName "LiteralIntegerEvaluation" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:179fe98c-09a0-5c0c-9377-cb4319cdf0ea>
+    a sysml:Feature ;
+    sysml:elementId "179fe98c-09a0-5c0c-9377-cb4319cdf0ea" ;
+    sysx:libraryPath "Performances::LiteralIntegerEvaluation/Feature[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 <urn:sysmlv2:element:1857138d-05fc-5cd2-bcb1-10546541a5ae>
     a sysml:ItemUsage ;
     sysml:elementId "1857138d-05fc-5cd2-bcb1-10546541a5ae" ;
@@ -1313,6 +1357,18 @@ elmt:ca89f2c0-7231-52c5-a1a1-fd09a48f013d
     sysml:elementId "18d95656-b8e7-5a9d-95bb-0e3e20f1e2c0" ;
     sysml:qualifiedName "Actions::Action::joins" ;
     sysml:declaredName "joins" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:64578c61-ec0a-524b-931b-9ed1269134df>
+    a sysml:Documentation ;
+    sysml:elementId "64578c61-ec0a-524b-931b-9ed1269134df" ;
+    sysx:libraryPath "Performances::literalIntegerEvaluations/Documentation[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:1b006cd1-5678-5e9d-b9fb-ac6d45ce3654>
+    a sysml:OwningMembership ;
+    sysml:elementId "1b006cd1-5678-5e9d-b9fb-ac6d45ce3654" ;
+    sysml:memberElement <urn:sysmlv2:element:64578c61-ec0a-524b-931b-9ed1269134df> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:5776dd9f-de7b-5498-8da5-006a6c79a52a>
@@ -1339,6 +1395,13 @@ elmt:ca89f2c0-7231-52c5-a1a1-fd09a48f013d
     sysml:elementId "1e5d1a3b-0bcf-5091-b752-ea77bfb96708" ;
     sysml:qualifiedName "Occurrences::Occurrence::incomingTransferSort" ;
     sysml:declaredName "incomingTransferSort" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:1ed8521c-8e1f-5447-98b2-3834d625e318>
+    a sysml:Feature ;
+    sysml:elementId "1ed8521c-8e1f-5447-98b2-3834d625e318" ;
+    sysml:qualifiedName "Performances::Performance::self" ;
+    sysml:declaredName "self" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:a4893e36-2d2d-531d-8571-742237854c23
@@ -1457,6 +1520,12 @@ elmt:f6f04e9e-c8f9-5a8e-8e4b-a4504ca2bf85
     sysml:memberElement <urn:sysmlv2:element:340cd2d4-f01d-5027-8aa0-419369abce3c> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+<urn:sysmlv2:element:2954a36d-005e-5162-be35-b50aa9e15c02>
+    a sysml:Documentation ;
+    sysml:elementId "2954a36d-005e-5162-be35-b50aa9e15c02" ;
+    sysx:libraryPath "Performances::constructorEvaluations/Documentation[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 <urn:sysmlv2:element:9d658bdc-b049-55e6-9cab-6ed7d571965e>
     a sysml:ActionUsage ;
     sysml:elementId "9d658bdc-b049-55e6-9cab-6ed7d571965e" ;
@@ -1480,6 +1549,18 @@ elmt:f6f04e9e-c8f9-5a8e-8e4b-a4504ca2bf85
     a sysml:OwningMembership ;
     sysml:elementId "2a2388d3-fd03-5122-81c0-336f9b5e1418" ;
     sysml:memberElement <urn:sysmlv2:element:2aa5ad79-723a-5e81-abc8-b5bff539c52b> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:f4225f80-bc46-584c-8d32-1a60235da94d
+    a sysml:MultiplicityRange ;
+    sysml:elementId "f4225f80-bc46-584c-8d32-1a60235da94d" ;
+    sysx:libraryPath "Performances::constructorEvaluations/MultiplicityRange[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:2b2192fa-5c67-50f7-ace0-5f04be26e487>
+    a sysml:OwningMembership ;
+    sysml:elementId "2b2192fa-5c67-50f7-ace0-5f04be26e487" ;
+    sysml:memberElement elmt:f4225f80-bc46-584c-8d32-1a60235da94d ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:2b7f518b-bb5a-57d2-99c6-1d1c7f4f0eee>
@@ -1571,6 +1652,12 @@ elmt:d2f2efc4-b3fe-5807-85bc-416fbebb05f0
     sysml:memberElement elmt:d2f2efc4-b3fe-5807-85bc-416fbebb05f0 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+<urn:sysmlv2:element:36172e23-06a1-54b9-81f6-097465010623>
+    a sysml:OwningMembership ;
+    sysml:elementId "36172e23-06a1-54b9-81f6-097465010623" ;
+    sysml:memberElement <urn:sysmlv2:element:2954a36d-005e-5162-be35-b50aa9e15c02> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 <urn:sysmlv2:element:36cc01d9-7cf0-54f7-ab42-838ee52d9d1b>
     a sysml:Feature ;
     sysml:elementId "36cc01d9-7cf0-54f7-ab42-838ee52d9d1b" ;
@@ -1623,6 +1710,12 @@ elmt:a44baa93-a4d0-535d-b879-44a30575f348
     sysx:libraryPath "Parts::parts/MultiplicityRange[0]" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+<urn:sysmlv2:element:3b7e3a55-e6c2-5146-b3e9-901d84e29323>
+    a sysml:Documentation ;
+    sysml:elementId "3b7e3a55-e6c2-5146-b3e9-901d84e29323" ;
+    sysx:libraryPath "Performances::performances/Documentation[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 <urn:sysmlv2:element:3badbf8b-cb09-5d34-9186-bddb1ad1c9e9>
     a sysml:FeatureMembership ;
     sysml:elementId "3badbf8b-cb09-5d34-9186-bddb1ad1c9e9" ;
@@ -1666,6 +1759,12 @@ elmt:a44baa93-a4d0-535d-b879-44a30575f348
     sysml:elementId "3e0dc934-f25c-5dea-988f-15724c029d88" ;
     sysml:qualifiedName "Actions::Action::sendSubactions" ;
     sysml:declaredName "sendSubactions" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:3e6cb524-b0e4-5dcd-b2b7-11fffca827b6>
+    a sysml:Documentation ;
+    sysml:elementId "3e6cb524-b0e4-5dcd-b2b7-11fffca827b6" ;
+    sysx:libraryPath "Performances::LiteralIntegerEvaluation/Documentation[0]" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:c5317d0f-35d3-567c-b7de-7f4fa8260ad3
@@ -1718,6 +1817,19 @@ elmt:a4d21db8-87e3-542d-a5de-df08f3486f65
     a sysml:FeatureMembership ;
     sysml:elementId "43dca746-6207-5435-aae7-00ff19be8608" ;
     sysml:memberElement <urn:sysmlv2:element:43f4a2ef-f178-57b6-b967-458a580f1b87> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:d4c65e7a-f5cd-5e32-bb56-93a0cfa01d23
+    a sysml:Feature ;
+    sysml:elementId "d4c65e7a-f5cd-5e32-bb56-93a0cfa01d23" ;
+    sysml:qualifiedName "Performances::Evaluation::result" ;
+    sysml:declaredName "result" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:45cdf0d5-fd70-57f6-bc3a-d637b2689441>
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "45cdf0d5-fd70-57f6-bc3a-d637b2689441" ;
+    sysml:memberElement elmt:d4c65e7a-f5cd-5e32-bb56-93a0cfa01d23 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:45dcb4c0-e0de-53b8-822a-0a14fcd162f3>
@@ -2010,6 +2122,13 @@ elmt:e24b4cdf-0f1e-5b60-a62a-b09e0d1e6956
     sysml:memberElement <urn:sysmlv2:element:45dcb4c0-e0de-53b8-822a-0a14fcd162f3> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+<urn:sysmlv2:element:65787029-c7c2-5cb6-9baa-d428f18e225f>
+    a sysml:Function ;
+    sysml:elementId "65787029-c7c2-5cb6-9baa-d428f18e225f" ;
+    sysml:qualifiedName "Performances::Evaluation" ;
+    sysml:declaredName "Evaluation" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 <urn:sysmlv2:element:6788277f-7cdd-500a-8b02-39844f659f4f>
     a sysml:Feature ;
     sysml:elementId "6788277f-7cdd-500a-8b02-39844f659f4f" ;
@@ -2144,11 +2263,29 @@ elmt:e8f51ddc-033f-5438-b112-790cef7beead
     sysml:memberElement elmt:e8f51ddc-033f-5438-b112-790cef7beead ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+elmt:a93b8c31-afc1-57f4-861d-2044dbbd9bad
+    a sysml:Documentation ;
+    sysml:elementId "a93b8c31-afc1-57f4-861d-2044dbbd9bad" ;
+    sysx:libraryPath "Performances::evaluations/Documentation[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:81908d86-6705-554e-89e1-a0b280dbc66f>
+    a sysml:OwningMembership ;
+    sysml:elementId "81908d86-6705-554e-89e1-a0b280dbc66f" ;
+    sysml:memberElement elmt:a93b8c31-afc1-57f4-861d-2044dbbd9bad ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 <urn:sysmlv2:element:83767a02-f546-544f-9d79-36b42454e9b1>
     a sysml:PortUsage ;
     sysml:elementId "83767a02-f546-544f-9d79-36b42454e9b1" ;
     sysml:qualifiedName "Ports::Port::subports" ;
     sysml:declaredName "subports" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:83dc74b4-d23b-5479-9f69-10f208ba7a5f>
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "83dc74b4-d23b-5479-9f69-10f208ba7a5f" ;
+    sysml:memberElement <urn:sysmlv2:element:179fe98c-09a0-5c0c-9377-cb4319cdf0ea> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:849139cf-c436-5595-98c1-d5b508c55d13>
@@ -2256,6 +2393,12 @@ elmt:fa859d04-71c3-510a-bdb7-d35d7bc10bee
     a sysml:FeatureMembership ;
     sysml:elementId "90871809-f440-5d28-a176-6fcb5e317c1f" ;
     sysml:memberElement elmt:fa859d04-71c3-510a-bdb7-d35d7bc10bee ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:919020ab-01f3-591b-bdca-8a49e22bf8a8>
+    a sysml:OwningMembership ;
+    sysml:elementId "919020ab-01f3-591b-bdca-8a49e22bf8a8" ;
+    sysml:memberElement <urn:sysmlv2:element:3e6cb524-b0e4-5dcd-b2b7-11fffca827b6> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:92215f18-07a8-53a0-8e63-7683815c8881>
@@ -2428,6 +2571,12 @@ elmt:e9ae3b91-2c54-544b-bbd3-8b7512a92238
     sysx:libraryPath "Occurrences::Occurrence/Invariant[7]" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+<urn:sysmlv2:element:9fa412cf-4eee-5f92-81b1-f6f9bcd42d53>
+    a sysml:Documentation ;
+    sysml:elementId "9fa412cf-4eee-5f92-81b1-f6f9bcd42d53" ;
+    sysx:libraryPath "Performances::LiteralEvaluation/Documentation[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 elmt:a173a06d-5e95-5ebb-b5a5-2a2834fba603
     a sysml:FeatureMembership ;
     sysml:elementId "a173a06d-5e95-5ebb-b5a5-2a2834fba603" ;
@@ -2502,6 +2651,12 @@ elmt:aa377331-f86a-597f-b81d-065d8861ddd2
     sysx:libraryPath "Objects::Object/Documentation[0]" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+elmt:ae90207e-5112-52f2-b674-3a6575efdcdc
+    a sysml:OwningMembership ;
+    sysml:elementId "ae90207e-5112-52f2-b674-3a6575efdcdc" ;
+    sysml:memberElement <urn:sysmlv2:element:3b7e3a55-e6c2-5146-b3e9-901d84e29323> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 elmt:ebe22fe0-ea08-54d3-84e5-95e16b0f41c8
     a sysml:ActionUsage ;
     sysml:elementId "ebe22fe0-ea08-54d3-84e5-95e16b0f41c8" ;
@@ -2547,6 +2702,12 @@ elmt:b148c0bf-771c-5559-901e-fadec09947f1
     sysml:memberElement <urn:sysmlv2:element:466488bb-11ee-51bb-8f20-4e3bff091536> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+elmt:b17560c9-f91e-52e0-a6f4-7e11ea0efd16
+    a sysml:OwningMembership ;
+    sysml:elementId "b17560c9-f91e-52e0-a6f4-7e11ea0efd16" ;
+    sysml:memberElement <urn:sysmlv2:element:9fa412cf-4eee-5f92-81b1-f6f9bcd42d53> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 elmt:f369e0d6-4bba-5d84-8d3c-abda5e337f89
     a sysml:PortUsage ;
     sysml:elementId "f369e0d6-4bba-5d84-8d3c-abda5e337f89" ;
@@ -2585,10 +2746,34 @@ elmt:b715b28d-2bca-5201-9ad8-1f91b4cda81f
     sysml:memberElement <urn:sysmlv2:element:39e7ab46-4b77-56c5-be49-cec0a1b784fe> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+elmt:f233bd3d-054b-5316-8d3f-93dad47c776e
+    a sysml:Documentation ;
+    sysml:elementId "f233bd3d-054b-5316-8d3f-93dad47c776e" ;
+    sysx:libraryPath "Performances::literalEvaluations/Documentation[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:b80df72b-d7c5-5e80-a479-a258129195ee
+    a sysml:OwningMembership ;
+    sysml:elementId "b80df72b-d7c5-5e80-a479-a258129195ee" ;
+    sysml:memberElement elmt:f233bd3d-054b-5316-8d3f-93dad47c776e ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 elmt:b8c765f5-e2b2-561e-b58d-5a51e8331460
     a sysml:FeatureMembership ;
     sysml:elementId "b8c765f5-e2b2-561e-b58d-5a51e8331460" ;
     sysml:memberElement <urn:sysmlv2:element:32bcda27-a6a9-5c17-8df9-2e781bc7473b> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:ef832fb7-3d0a-5e27-93cd-75c64b795203
+    a sysml:Documentation ;
+    sysml:elementId "ef832fb7-3d0a-5e27-93cd-75c64b795203" ;
+    sysx:libraryPath "Performances::Evaluation/Documentation[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:b9e3c5d4-c4da-562e-91b9-165b224fd58b
+    a sysml:OwningMembership ;
+    sysml:elementId "b9e3c5d4-c4da-562e-91b9-165b224fd58b" ;
+    sysml:memberElement elmt:ef832fb7-3d0a-5e27-93cd-75c64b795203 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:e5c2b65e-f4b8-5236-a276-af2ffae92354
@@ -2601,6 +2786,12 @@ elmt:ba29c6dc-70bc-55d8-941f-f3834db7107b
     a sysml:FeatureMembership ;
     sysml:elementId "ba29c6dc-70bc-55d8-941f-f3834db7107b" ;
     sysml:memberElement elmt:e5c2b65e-f4b8-5236-a276-af2ffae92354 ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:bba100a6-3aa7-581b-ae70-5a05e6751ab5
+    a sysml:FeatureMembership ;
+    sysml:elementId "bba100a6-3aa7-581b-ae70-5a05e6751ab5" ;
+    sysml:memberElement <urn:sysmlv2:element:1ed8521c-8e1f-5447-98b2-3834d625e318> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:bd909aa8-dcdb-59fb-a116-8670f6db05b1
@@ -2725,6 +2916,12 @@ elmt:ddb82e63-685a-5912-b9a0-a7ae93882ef3
     a sysml:FeatureMembership ;
     sysml:elementId "ddb82e63-685a-5912-b9a0-a7ae93882ef3" ;
     sysml:memberElement <urn:sysmlv2:element:1e5d1a3b-0bcf-5091-b752-ea77bfb96708> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:dde80898-f664-560e-a4b2-ee311214c0f9
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "dde80898-f664-560e-a4b2-ee311214c0f9" ;
+    sysml:memberElement <urn:sysmlv2:element:0ffc9238-629e-535c-a826-f40efd5eea58> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:de659312-2820-58d7-a617-386859c06bd5
