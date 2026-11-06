@@ -13537,12 +13537,6 @@
       "note": "An action step whose declared multiplicity the executor cannot honour under the succession semantics of SysML §8.3.17.6 (an open or excluded count at an endpoint or control node); the pilot names no `validate*` constraint for it, and spec-compliance.md tracks it under action semantics."
     },
     {
-      "file": "internal/check/passes/lint_port_type.go",
-      "pass": "PortTypeMismatchPass",
-      "basis": "extension",
-      "note": "A lint on connections, interfaces and flows between unrelated port definitions; the specification states no such constraint and spec-compliance.md records it as ⚠️ approximate for that reason."
-    },
-    {
       "file": "internal/check/passes/mosa.go",
       "pass": "MOSAPass",
       "basis": "extension",
