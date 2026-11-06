@@ -732,7 +732,7 @@ func isRoutedReceiverSymbol(sym *symbols.Symbol) bool {
 		return false
 	}
 	switch sym.Kind {
-	case symbols.SymbolActionDef, symbols.SymbolActionUsage,
+	case symbols.SymbolActionDef, symbols.SymbolActionUsage, symbols.SymbolSendActionUsage,
 		symbols.SymbolStateDef, symbols.SymbolStateUsage:
 		return true
 	default:
@@ -1177,7 +1177,7 @@ func isBehaviorSymbol(sym *symbols.Symbol) bool {
 		return false
 	}
 	switch sym.Kind {
-	case symbols.SymbolActionUsage, symbols.SymbolStateUsage:
+	case symbols.SymbolActionUsage, symbols.SymbolSendActionUsage, symbols.SymbolStateUsage:
 		return true
 	}
 	return false
@@ -1190,7 +1190,7 @@ func isBehaviorType(sym *symbols.Symbol) bool {
 		return false
 	}
 	switch sym.Kind {
-	case symbols.SymbolActionDef, symbols.SymbolActionUsage, symbols.SymbolStateDef, symbols.SymbolStateUsage:
+	case symbols.SymbolActionDef, symbols.SymbolActionUsage, symbols.SymbolSendActionUsage, symbols.SymbolStateDef, symbols.SymbolStateUsage:
 		return true
 	}
 	return false

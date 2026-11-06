@@ -1448,7 +1448,7 @@ func (ec *exprChecker) argumentMismatch(value ast.Node, prim semantics.PrimType,
 func isBehaviorKind(k symbols.SymbolKind) bool {
 	switch k {
 	case symbols.SymbolCalcDef, symbols.SymbolCalcUsage,
-		symbols.SymbolActionDef, symbols.SymbolActionUsage:
+		symbols.SymbolActionDef, symbols.SymbolActionUsage, symbols.SymbolSendActionUsage:
 		return true
 	}
 	return false
@@ -1457,7 +1457,7 @@ func isBehaviorKind(k symbols.SymbolKind) bool {
 func isInvocationBehaviorKind(k symbols.SymbolKind) bool {
 	switch k {
 	case symbols.SymbolCalcDef, symbols.SymbolCalcUsage,
-		symbols.SymbolActionDef, symbols.SymbolActionUsage,
+		symbols.SymbolActionDef, symbols.SymbolActionUsage, symbols.SymbolSendActionUsage,
 		symbols.SymbolConstraintDef, symbols.SymbolConstraintUsage,
 		symbols.SymbolStateDef, symbols.SymbolStateUsage:
 		return true

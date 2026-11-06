@@ -118,6 +118,7 @@ func Of(sym *symbols.Symbol, sc *Context) *Info {
 	}
 	// Extract metadata from AST node
 	extractMetadata(sym, info.Metadata)
+	sc.sendMetadata(sym, info.Metadata)
 	// Add visibility to metadata
 	info.Metadata["visibility"] = visibilityToString(sym.Visibility)
 	if sym.Scope != nil {

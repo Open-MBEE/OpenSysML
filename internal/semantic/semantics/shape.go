@@ -226,7 +226,7 @@ func IsShapeFeature(sym *symbols.Symbol) bool {
 	}
 	switch sym.Kind {
 	case symbols.SymbolAttributeUsage, symbols.SymbolReferenceUsage, symbols.SymbolPartUsage, symbols.SymbolItemUsage,
-		symbols.SymbolPortUsage, symbols.SymbolConnectionUsage, symbols.SymbolActionUsage,
+		symbols.SymbolPortUsage, symbols.SymbolConnectionUsage, symbols.SymbolActionUsage, symbols.SymbolSendActionUsage,
 		symbols.SymbolStateUsage, symbols.SymbolConstraintUsage, symbols.SymbolRequirementUsage,
 		symbols.SymbolOccurrenceUsage, symbols.SymbolIndividualUsage,
 		symbols.SymbolInterfaceUsage, symbols.SymbolFlowUsage, symbols.SymbolBindingUsage,

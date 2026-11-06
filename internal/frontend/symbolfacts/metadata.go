@@ -1,6 +1,8 @@
 package symbolfacts
 
 import (
+	"strings"
+
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -54,6 +56,41 @@ func extractMetadata(sym *symbols.Symbol, meta map[string]string) {
 }
 
 // formatMultiplicity renders Multiplicity as "lower..upper" or "value".
+// sendMetadata states a send action's arguments as written (SysML v2
+// §8.3.17.15 SendActionUsage): "payload", "sender" (`via`) and "receiver"
+// (`to`), each present only when the send writes it.
+func (sc *Context) sendMetadata(sym *symbols.Symbol, meta map[string]string) {
+	send := symbols.SendStatementOf(sym.Decl)
+	if send == nil || sym.Kind != symbols.SymbolSendActionUsage {
+		return
+	}
+	arguments := map[string]ast.Node{"payload": send.Message}
+	if send.IsVia {
+		arguments["sender"], arguments["receiver"] = send.Target, send.Receiver
+	} else {
+		arguments["receiver"] = send.Target
+	}
+	for key, node := range arguments {
+		if text := sc.expressionText(sym, node); text != "" {
+			meta[key] = text
+		}
+	}
+}
+
+// expressionText is the notation of an expression node of sym's document: its source
+// text, or the name a bare reference writes where no source text is at hand.
+func (sc *Context) expressionText(sym *symbols.Symbol, node ast.Node) string {
+	if node == nil {
+		return ""
+	}
+	if lookup := sc.Semantics.SourceText(); lookup != nil {
+		if text := strings.TrimSpace(lookup(sym.DocName, node.Span())); text != "" {
+			return text
+		}
+	}
+	return ast.QualifiedText(node)
+}
+
 func formatMultiplicity(m *ast.Multiplicity) string {
 	if !m.IsRange {
 		return formatMultiplicityBound(m.Lower)

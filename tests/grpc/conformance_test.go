@@ -174,6 +174,8 @@ type conformanceCase struct {
 	// values; AbsentMetadata are keys it must not carry.
 	ExpectedMetadata map[string]string `json:"expected_metadata,omitempty"`
 	AbsentMetadata   []string          `json:"absent_metadata,omitempty"`
+	// ExpectedKind is the symbol kind the symbol must report.
+	ExpectedKind string `json:"expected_kind,omitempty"`
 
 	// ImportData: the imports, in order.
 	Imports      []conformanceImport `json:"imports,omitempty"`
@@ -851,6 +853,9 @@ func runGetSymbolCase(t *testing.T, srv *grpc.Service, ctx context.Context, mode
 		if strings.Join(got, ",") != strings.Join(tc.ExpectedAttributeNames, ",") {
 			t.Errorf("attributes = %v, want %v", got, tc.ExpectedAttributeNames)
 		}
+	}
+	if tc.ExpectedKind != "" && resp.Symbol.GetKind() != tc.ExpectedKind {
+		t.Errorf("kind = %q, want %q", resp.Symbol.GetKind(), tc.ExpectedKind)
 	}
 	for key, want := range tc.ExpectedMetadata {
 		if got, ok := resp.Symbol.GetMetadata()[key]; !ok || got != want {

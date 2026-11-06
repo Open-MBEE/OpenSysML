@@ -261,7 +261,7 @@ func completionKind(k symbols.SymbolKind) protocol.CompletionItemKind {
 	// Usages name features of an enclosing element.
 	case symbols.SymbolEnumerationUsage:
 		return protocol.CompletionItemKindEnumMember
-	case symbols.SymbolActionUsage, symbols.SymbolCalcUsage,
+	case symbols.SymbolActionUsage, symbols.SymbolSendActionUsage, symbols.SymbolCalcUsage,
 		symbols.SymbolConstraintUsage, symbols.SymbolRequirementUsage,
 		symbols.SymbolCaseUsage, symbols.SymbolAnalysisCaseUsage,
 		symbols.SymbolVerificationCaseUsage, symbols.SymbolUseCaseUsage:

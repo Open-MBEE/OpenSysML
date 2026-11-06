@@ -34,7 +34,7 @@ func (m *Model) inputElements(sym *symbols.Symbol) ([]*symbols.Symbol, bool) {
 	if isExpressionSymbol(sym) {
 		return m.ExpressionParameters(sym), true
 	}
-	if params := m.acceptParameters(sym); params != nil {
+	if params := m.nodeParameters(sym); params != nil {
 		return params, true
 	}
 	if behaviorLike(sym) {
@@ -82,7 +82,7 @@ func (m *Model) parameterListElements(sym *symbols.Symbol) ([]*symbols.Symbol, b
 	if isExpressionSymbol(sym) {
 		return m.expressionParameterParts(sym), true
 	}
-	if params := m.acceptParameters(sym); params != nil {
+	if params := m.nodeParameters(sym); params != nil {
 		return params, true
 	}
 	var out []*symbols.Symbol
@@ -101,7 +101,7 @@ func (m *Model) directedFeatureElements(sym *symbols.Symbol) ([]*symbols.Symbol,
 	if isExpressionSymbol(sym) {
 		return m.expressionParameterParts(sym), true
 	}
-	if params := m.acceptParameters(sym); params != nil {
+	if params := m.nodeParameters(sym); params != nil {
 		return params, true
 	}
 	return m.directedFeatures(sym, ast.DirIn, ast.DirInOut, ast.DirOut), true

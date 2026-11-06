@@ -262,10 +262,10 @@ func (c *relatedCollector) endAnchors(scope *symbols.Scope, attachment ast.Node)
 // successions are the actions the successions of the action owning sym reach
 // from it or leave for it.
 func (c *relatedCollector) successions() {
-	if c.sym.Kind != symbols.SymbolActionUsage {
+	if !c.sym.Kind.IsActionUsage() {
 		return
 	}
-	owner := c.behaviorOwner(symbols.SymbolActionDef, symbols.SymbolActionUsage)
+	owner := c.behaviorOwner(symbols.SymbolActionDef, symbols.SymbolActionUsage, symbols.SymbolSendActionUsage)
 	if owner == nil {
 		return
 	}
