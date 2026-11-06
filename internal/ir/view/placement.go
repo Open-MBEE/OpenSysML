@@ -519,8 +519,8 @@ func (f *folder) grey(ids ...string) {
 		if row, ok := f.rows[id]; ok {
 			row.Greyed = true
 		}
-		for _, copy := range f.copies[id] {
-			copy.Greyed = true
+		for _, duplicate := range f.copies[id] {
+			duplicate.Greyed = true
 		}
 	}
 }

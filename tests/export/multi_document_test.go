@@ -344,6 +344,7 @@ func apiElements(t *testing.T, docs []export.ModelDocument) map[string]string {
 // elements those documents contribute to the whole model's conversion: over
 // every document, the conversions written one at a time partition it.
 func TestModelWritesOnlyItsUnreferencedDocuments(t *testing.T) {
+	t.Parallel()
 	docs := modelDocuments(t,
 		"lib.sysml", `package Lib {
     metadata def Tag { attribute level : ScalarValues::Integer; }

@@ -708,9 +708,10 @@ package OpenSysMLSurfaces {
         attribute :>> gating = true;
     }
 
-    // The committed library snapshot must be the one a fresh build writes.
+    // A snapshot the test build embeds must be the one a fresh build writes;
+    // the suite generates it first, so the gate runs over a current one.
     #Oracle part def StdlibSnapshotGate :> ConformanceOracle {
-        attribute :>> goPackage = "tools/gen/snapshot";
+        attribute :>> goPackage = "internal/workspace/libs";
         attribute :>> reference = "the bundled library files";
         attribute :>> baseline = "internal/workspace/libs/stdlib.snapshot";
         attribute :>> gating = true;
