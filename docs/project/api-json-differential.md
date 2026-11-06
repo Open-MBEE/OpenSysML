@@ -230,7 +230,7 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 99784 elements matched (18960 ours-only, 31541 pilot-only, 0 of them implied); properties: 1924978 present-equal, 125092 present-different, 322320 ours-missing, 77524 pilot-missing, 2124127 absent-both, 32771 indeterminate, 516 pilot-nondeterministic.
+**Scorecard:** 935 files; 99784 elements matched (18960 ours-only, 31541 pilot-only, 0 of them implied); properties: 1941828 present-equal, 177584 present-different, 252381 ours-missing, 77524 pilot-missing, 2124127 absent-both, 33368 indeterminate, 516 pilot-nondeterministic.
 
 Re-recorded on develop's individual-definition change (#1943: an `individual def`/`individual usage` is written as `OccurrenceDefinition`/`OccurrenceUsage` with `isIndividual`): 88 more elements match (99534 → 99622), and the 32 `OccurrenceDefinition` rows of the inherited family move from ours-missing to present-different for the causes the paragraph below already lists; no row grew.
 
@@ -582,6 +582,38 @@ ours-missing):
    identity noise is confined to the one `localClock` duplicate. Nothing in the movement is a list ours
    states and the spec forbids; each pilot-right row is an itemised gap, not an approximation.
 
+   Re-recorded with the expression implied bases derived (KerML 1.1 §8.4.4.7, §8.4.4.8: an `Expression`
+   specializes `Performances::evaluations`, a `LiteralInteger` `literalIntegerEvaluations`, a `NullExpression`
+   `nullEvaluations`, a `ConstructorExpression` `constructorEvaluations`, …; the pilot reads `*` as an integer
+   literal). One side table in `semantics/implicit.go` (`impliedExpressionBases`) names the evaluations
+   feature per expression metaclass, read for a symbol and for a graph element known by metaclass alone, and a
+   feature declaring no typing takes its types from what it implicitly specializes (`metamodel/structure_implied_types.go`):
+   the function an operator, chain, select, collect or trigger invokes or a stated callee resolves to,
+   else the implied base's type. Movement against the record above: present-equal +16850, present-different
+   +52492, ours-missing −69939, indeterminate +597, elements unchanged, no row grew in ours-missing, no new
+   row. `type`, `function` and `behavior` ours-missing → equal for `FeatureReferenceExpression` (2161),
+   `LiteralInteger` (2010), `LiteralString` (1230), `FeatureChainExpression` (516), `LiteralBoolean` (400),
+   `LiteralRational` (329), `LiteralInfinity` (310), `OperatorExpression` (1333 — the 15 present-different are
+   boolean positions where the pilot types the expression by `Performances::BooleanEvaluation` beside the
+   operator's function, 3 indeterminate), `ConstructorExpression` (57), `IndexExpression` (47), `Expression`
+   (32), `NullExpression` (14), `MetadataAccessExpression`, `TriggerInvocationExpression` (6 each),
+   `SelectExpression` (3), `CollectExpression` (1); `InvocationExpression` 122 equal, 6 different and 290
+   indeterminate — the callee is a Function of the model the referee keys differently on the two sides. The
+   inherited families (`inheritedMembership`, `inheritedFeature`, and for a literal `member`, `membership`,
+   `feature`, `featureMembership`) move ours-missing → present-different for every expression metaclass
+   (`FeatureReferenceExpression` 2162, `LiteralInteger` 2010, `OperatorExpression` 1351, `LiteralString` 1230,
+   `InvocationExpression` 537, `FeatureChainExpression` 516, `LiteralBoolean` 400, `LiteralRational` 329,
+   `LiteralInfinity` 310, `ConstructorExpression` 57, `IndexExpression` 47, `NullExpression` 14, the rest
+   under 10): the pilot's lists also carry the documentation memberships and the `self` feature of the typing
+   function, and ours carry `Performances::Evaluation::result`, which the expression's own result parameter
+   redefines (§8.4.4.7.1) — a redefinition structure mode does not derive yet (the positional parameter
+   redefinition rules). The same cause moves `output` and `directedFeature` present-equal → present-different
+   (`FeatureReferenceExpression` 2162, `OperatorExpression` 1215 and 1184, `InvocationExpression` 536 and 353,
+   `FeatureChainExpression` 419, `IndexExpression` 47, the rest under 10): both lists now carry the inherited
+   `result` beside the own one. The unkeyed references rise by 27732, the library membership stubs these
+   families name; the Turtle changes additively (the stubs; two conversion goldens cross 200 KiB into digest
+   form).
+
 Not completed, and why: `Type::endFeature` (not taken up in this step; it awaits a measurement of its own) and the
 causes itemised under step 5. `Behavior::step` (0 equal / 257 different),
 `Step::parameter` and `Behavior::parameter` (21 / 530), `InstantiationExpression::instantiatedType`
@@ -764,7 +796,7 @@ The (metaclass, property) rows ranked by the corpus elements on which the pilot 
 | 2 | `Feature` | `inheritedFeature` | 9806 | 611 | this record's step 5 (completed from the semantic inheritance table; the rows still ours-missing are the expression, result-feature and multiplicity elements whose implied bases structure mode does not reach, and the lists still different are itemised there) | `Type::inheritedFeature = inheritedMembership.memberElement->selectByKind(Feature)` (KerML 8.3.3.1, deriveTypeInheritedFeature) |
 | 3 | `Feature` | `featureMembership` | 9806 | 605 | this record's step 5 (completed from the semantic inheritance table; the rows still ours-missing are the expression, result-feature and multiplicity elements whose implied bases structure mode does not reach, and the lists still different are itemised there) | `Type::featureMembership = ownedFeatureMembership->union(inheritedMembership->selectByKind(FeatureMembership))` (KerML 8.3.3.1; KERML11-191 restricts the inherited part to the supertypes) |
 | 4 | `Feature` | `feature` | 9806 | 605 | this record's step 5 (completed from the semantic inheritance table; the rows still ours-missing are the expression, result-feature and multiplicity elements whose implied bases structure mode does not reach, and the lists still different are itemised there) | `Type::feature = featureMembership.ownedMemberFeature` (KerML 8.3.3.1, deriveTypeFeature) |
-| 5 | `Feature` | `type` | 9663 | 41 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::type = typing.type` with the types inherited through chaining and redefinition (KerML 8.3.3.3, deriveFeatureType) |
+| 5 | `Feature` | `type` | 9661 | 41 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::type = typing.type` with the types inherited through chaining and redefinition (KerML 8.3.3.3, deriveFeatureType) |
 | 6 | `Feature` | `name` | 8882 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Element::name = effectiveName()`: the declared name, or for a feature the name of the feature it redefines (KerML 8.3.2.1, deriveElementName) |
 | 7 | `Feature` | `membership` | 5338 | 5045 | this record's step 5 (completed from the semantic inheritance table; the rows still ours-missing are the expression, result-feature and multiplicity elements whose implied bases structure mode does not reach, and the lists still different are itemised there) | `Namespace::membership = ownedMembership->union(importedMembership)`, and for a Type also `inheritedMembership` (KerML 8.3.2.4, 8.3.3.1) |
 | 8 | `Feature` | `member` | 5338 | 5046 | this record's step 5 (completed from the semantic inheritance table; the rows still ours-missing are the expression, result-feature and multiplicity elements whose implied bases structure mode does not reach, and the lists still different are itemised there) | `Namespace::member = membership.memberElement` (KerML 8.3.2.4, deriveNamespaceMember) |
@@ -780,11 +812,11 @@ The (metaclass, property) rows ranked by the corpus elements on which the pilot 
 | 18 | `AttributeUsage` | `inheritedFeature` | 2296 | 261 | this record's step 5 (completed from the semantic inheritance table; the rows still ours-missing are the expression, result-feature and multiplicity elements whose implied bases structure mode does not reach, and the lists still different are itemised there) | `Type::inheritedFeature = inheritedMembership.memberElement->selectByKind(Feature)` (KerML 8.3.3.1.10, deriveTypeInheritedFeature) |
 | 19 | `AttributeUsage` | `featureMembership` | 2296 | 261 | this record's step 5 (completed from the semantic inheritance table; the rows still ours-missing are the expression, result-feature and multiplicity elements whose implied bases structure mode does not reach, and the lists still different are itemised there) | `Type::featureMembership = ownedFeatureMembership->union(inheritedMembership->selectByKind(FeatureMembership))` (KerML 8.3.3.1.10, deriveTypeFeatureMembership) |
 | 20 | `AttributeUsage` | `feature` | 2296 | 261 | this record's step 5 (completed from the semantic inheritance table; the rows still ours-missing are the expression, result-feature and multiplicity elements whose implied bases structure mode does not reach, and the lists still different are itemised there) | `Type::feature = featureMembership.ownedMemberFeature` (KerML 8.3.3.1.10, deriveTypeFeature) |
-| 21 | `FeatureReferenceExpression` | `type` | 2162 | 0 | not completed — the result-feature family of this record's step 5 | `Feature::type`: the general of every FeatureTyping of the expression, including the implied typing by `Performances::Evaluation` (KerML 8.3.4.8.4; the implied base is `Performances::evaluations`) |
+| 21 | `FeatureReferenceExpression` | `type` | 0 | 1 | completed — the expression's implied base and its function type it (this record's step 5, the expression paragraph) | `Feature::type`: the general of every FeatureTyping of the expression, including the implied typing by `Performances::Evaluation` (KerML 8.3.4.8.4; the implied base is `Performances::evaluations`) |
 | 22 | `FeatureReferenceExpression` | `isModelLevelEvaluable` | 2162 | 0 | not completed — no evaluator rule (`docs/project/constraint-manifest.json`) | `Expression::isModelLevelEvaluable = modelLevelEvaluable(Set{})` (KerML 8.3.4.7.3, deriveExpressionIsModelLevelEvaluable) |
-| 23 | `FeatureReferenceExpression` | `inheritedMembership` | 2162 | 0 | not completed — the result-feature family of this record's step 5 | `Type::inheritedMembership = inheritedMemberships(Set{}, Set{}, false)` (KerML 8.3.3.1.10, deriveTypeInheritedMembership) |
-| 24 | `FeatureReferenceExpression` | `inheritedFeature` | 2162 | 0 | not completed — the result-feature family of this record's step 5 | `Type::inheritedFeature = inheritedMembership.memberElement->selectByKind(Feature)` (KerML 8.3.3.1.10, deriveTypeInheritedFeature) |
-| 25 | `FeatureReferenceExpression` | `behavior` | 2162 | 0 | not completed — the result-feature family of this record's step 5 | `Step::behavior = type->selectByKind(Behavior)` (KerML 8.3.4.6.3, deriveStepBehavior); for an expression the implied `Performances::Evaluation` typing |
+| 23 | `FeatureReferenceExpression` | `inheritedMembership` | 0 | 2162 | completed from `Performances::evaluations` (this record's step 5, the expression paragraph); present-different for the causes that paragraph states | `Type::inheritedMembership = inheritedMemberships(Set{}, Set{}, false)` (KerML 8.3.3.1.10, deriveTypeInheritedMembership) |
+| 24 | `FeatureReferenceExpression` | `inheritedFeature` | 0 | 2162 | completed from `Performances::evaluations` (this record's step 5, the expression paragraph); present-different for the causes that paragraph states | `Type::inheritedFeature = inheritedMembership.memberElement->selectByKind(Feature)` (KerML 8.3.3.1.10, deriveTypeInheritedFeature) |
+| 25 | `FeatureReferenceExpression` | `behavior` | 0 | 1 | completed — the expression's implied base and its function type it (this record's step 5, the expression paragraph) | `Step::behavior = type->selectByKind(Behavior)` (KerML 8.3.4.6.3, deriveStepBehavior); for an expression the implied `Performances::Evaluation` typing |
 | 26 | `FeatureMembership` | `memberName` | 365 | 4 | closed for a named member — the conversion states `memberName` as the member's effective name; the 362 left are implied parameters the pilot names by the library feature they implicitly redefine | `Membership::memberName = memberElement.name` (KerML 8.3.2.3.5, deriveMembershipMemberName) |
 | 27 | `FeatureMembership` | `ownedMemberName` | 182 | 4 | PR #1232 (`feature/api-json-derived-properties-layered`) | `OwningMembership::ownedMemberName = ownedMemberElement.name` (KerML 8.3.2.3.6) |
 | 28 | `Feature` | `featuringType` | 101 | 20 | PR #1232 (`feature/api-json-derived-properties-layered`) | `Feature::featuringType = typeFeaturing.featuringType`, plus the owning type of an owned feature (KerML 8.3.3.3, deriveFeatureFeaturingType; KERML11-3/4 multiplicity featuring) |
