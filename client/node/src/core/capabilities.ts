@@ -11,6 +11,8 @@ export const CAPABILITY_TYPE_FACTS = "type_facts";
 export const CAPABILITY_SYMBOL_ATTRIBUTES = "symbol_attributes";
 /** Populated `SymbolInfo.members`: every member, own and inherited, with its provenance. */
 export const CAPABILITY_SYMBOL_MEMBERS = "symbol_members";
+/** The `GetElementProperties` RPC: an element's metamodel properties by their specification names. */
+export const CAPABILITY_ELEMENT_PROPERTIES = "element_properties";
 /** Evaluating an expression against an instantiated subject. */
 export const CAPABILITY_EVALUATE_SUBJECT = "evaluate_subject";
 /** An object's values as `Instance.feature_values`. */

@@ -16,6 +16,7 @@ from opensysml.model import Model
 from opensysml.action_run import ActionOutputs
 from opensysml.binary import ensure_binary, resolve_latest_version
 from opensysml.capabilities import (
+    CAPABILITY_ELEMENT_PROPERTIES,
     CAPABILITY_CONVERT_CHECK_DIAGNOSTICS,
     CAPABILITY_CONVERT_COMPACT,
     CAPABILITY_CONVERT_LIBRARY_STUBS,
@@ -131,6 +132,7 @@ from opensysml.errors import (
     from_rpc_error,
     translate_rpc_errors,
 )
+from opensysml.element_properties import element_properties_of
 from opensysml.query import QueryError, build_query, elements_of
 from opensysml.sources import source_documents
 from opensysml.values import (
@@ -1992,6 +1994,49 @@ class Connection:
         ):
             response = self._stub.Query(request)
         return elements_of(response)
+
+    def get_element_properties(self, model_hash, element, properties=()):
+        """Read the metamodel properties of one element by their specification names.
+
+        See :mod:`opensysml.element_properties`. The answer is what the model's
+        API element form (``convert`` to ``api-json``) holds for the element,
+        read without converting the whole model.
+
+        Args:
+            model_hash (str): Hash of the loaded model
+            element (str): The element: its qualified name, the positional id of
+                an unnamed member (``Owner::@2``), or the element form's ``@id``
+            properties (Sequence[str], optional): Specification names to read
+                (``"inheritedFeature"``, ``"connectorEnd"``); empty reads every
+                property the element form carries for the element
+
+        Returns:
+            ElementProperties: The element and one entry per property
+
+        Raises:
+            MissingCapabilityError: If the service lacks ``element_properties``
+            SymbolNotFoundError: If the model has no such element
+            ConversionError: If the model has no element form, because a
+                document of it could not be read whole
+            ModelNotFoundError: If the model is no longer cached
+        """
+        require(
+            self.server_info(),
+            CAPABILITY_ELEMENT_PROPERTIES,
+            upgrade_remedy(CAPABILITY_ELEMENT_PROPERTIES),
+        )
+        request = sysml_pb2.GetElementPropertiesRequest(
+            model_hash=model_hash, element_id=element, properties=list(properties)
+        )
+        with translate_rpc_errors(
+            unimplemented=self._capability_refusal((CAPABILITY_ELEMENT_PROPERTIES,))
+        ):
+            response = self._stub.GetElementProperties(request)
+        if response.error:
+            if response.error.startswith("element not found"):
+                raise SymbolNotFoundError(element)
+            raise ConversionError(response.error)
+        return element_properties_of(response)
 
     def run_document_query(self, model_hash, query_id, bindings=None):
         """Run a named document query and answer its typed rows.
