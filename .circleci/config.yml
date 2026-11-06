@@ -670,9 +670,8 @@ jobs:
 
       - install-fmpy
 
-      # internal/exec/runtime ran 31-57 minutes whole and nears 8.5 GB under -race, so it is three
-      # shards split by test name as make test-shard does, the exploration one sharing the migrate
-      # node; tests/export, over 55 minutes whole, is three nodes the same way.
+      # internal/exec/runtime (31-57 minutes whole, near 8.5 GB under -race) is three shards split by
+      # test name as make test-shard does, the exploration one on the migrate node; tests/export is three too.
       - run:
           name: Run Go race tests
           command: |
@@ -696,9 +695,8 @@ jobs:
             exportcorpus='^TestAPIJSONWritersNeverEmitNameReferences$'
             exportsettled='^TestSettledCollectionsAreWhatReconcilingWouldFind$'
             case "$shard" in
-              # The exploration suite is its own shard and process: alone it nears 5 GB and the five
-              # suites together 9 GB under -race, over this class's 8 GB (the race detector's memory
-              # is per process). The Makefile's RACE_RUNTIME_EXPLORATION; tests/hygiene keeps the two the same.
+              # Its own shard and process: alone it nears 5 GB, the five suites together 9 GB under -race,
+              # over this class's 8 GB. The Makefile's RACE_RUNTIME_EXPLORATION; tests/hygiene keeps the two the same.
               runtime-exploration) go test -json -race -pgo=off -timeout 30m -run "$exploration" $pkgs | stream ;;
               runtime-corpus) go test -json -race -pgo=off -timeout 30m -run "$corpus" -skip "$exploration" $pkgs | stream ;;
               runtime) go test -json -race -pgo=off -timeout 30m -skip "$corpus" $pkgs | stream ;;

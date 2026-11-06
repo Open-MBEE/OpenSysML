@@ -342,14 +342,12 @@ test: stdlib-snapshot ## Run Go tests with race detection and coverage
 
 # Run race-free by their own gate steps in the PR workflow's static-and-integrity job.
 RACE_SHARD_SKIP := ^(TestTrainingExamplesSemanticErrors|TestCorpusGatesCacheStateIndependent|TestPilotCorporaDiagnostics|TestPilotLibraryXMI|TestPSSMSuiteMigration|TestDifferentialRandomizedAssignments|TestDifferentialConformanceCorpus|TestDifferentialStandardLibrary|TestDifferentialTrainingCorpus|TestPortability|TestPortabilityGateIsRequired)$$
-# The runtime-corpus and runtime-exploration shards: the suites that run every model of the
-# conformance corpus, about half the package's time under -race; the exploration suite is
-# as long as the other four together, so it is a shard (and a process) of its own.
+# The runtime-corpus shard runs the four suites that walk the conformance corpus; the exploration
+# suite is as long as those four together, so runtime-exploration runs it as a shard of its own.
 RACE_RUNTIME_EXPLORATION := ^TestExploreWithIsExploreOverTheConformanceCorpus$$
 RACE_RUNTIME_CORPUS := ^Test(ExploreWithIsExploreOverTheConformanceCorpus|CheckAgreesWithExploreOverTheConformanceCorpus|CheckWitnessesReplayOverTheConformanceCorpus|ExecutionConformance|ExecutionConformanceUnderPolicies)$$
-# The export-corpus and export-settled shards: the two tests/export suites that convert every
-# example model, each about as long as the rest of the package under -race since the element
-# form completes the inherited family.
+# The export-corpus and export-settled shards: the two tests/export suites that convert every example
+# model, each about as long as the rest of the package under -race (the element form completes the family).
 RACE_EXPORT_CORPUS := ^TestAPIJSONWritersNeverEmitNameReferences$$
 RACE_EXPORT_SETTLED := ^TestSettledCollectionsAreWhatReconcilingWouldFind$$
 RACE_SHARD_TOOLS_SKIP := ^(TestSuiteRead|TestSuiteClassification|TestEmitSuite|TestSuiteClassificationReasons|TestSuiteLibraryCallsAreClassified|TestSuiteReadsControlAndObjectFlow|TestSuiteReadsClassifiers|TestSuiteReadsExceptionHandlers)$$
