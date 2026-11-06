@@ -2,9 +2,6 @@ package export_test
 
 import (
 	"errors"
-	"os"
-	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,66 +12,36 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
-func TestMappingShapeAgreesWithForwardMapping(t *testing.T) {
-	paths := modelFiles(t)
-	exampleRoot := filepath.Join("..", "..", "examples")
-	err := filepath.WalkDir(exampleRoot, func(path string, entry os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if !entry.IsDir() && filepath.Ext(path) == ".sysml" {
-			paths = append(paths, path)
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	sort.Strings(paths)
-	conversions := corpusConversions(t)
-
-	var compared, skipped, disagreements int
+func mappingShapeAgreesWithForwardMapping() corpusCheck {
 	var countsMu sync.Mutex
-	t.Cleanup(func() {
-		countsMu.Lock()
-		defer countsMu.Unlock()
-		t.Logf("compared %d models, skipped %d unconvertible examples; disagreements: %d", compared, skipped, disagreements)
-		if disagreements != 0 {
-			t.Errorf("mapping-shape predicates disagree with the forward mapping at %d nodes", disagreements)
-		}
-	})
-	for _, path := range paths {
-		path := path
-		t.Run(filepath.ToSlash(path), func(t *testing.T) {
-			t.Parallel()
-			defer conversions.release(path)
-			source, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			graph, err := conversions.sysMLToRDF(path, source)
-			if err != nil {
-				if strings.HasPrefix(path, exampleRoot+string(filepath.Separator)) {
-					countsMu.Lock()
-					skipped++
-					countsMu.Unlock()
-					return
-				}
-				t.Fatalf("convert fixture %s: %v", path, err)
-			}
-			if _, err := conversions.apiJSON(path, source, "standard", "graph"); err != nil {
+	compared, disagreements := 0, 0
+	return corpusCheck{
+		name: "mapping_shape_agrees_with_forward_mapping",
+		check: func(t *testing.T, file corpusFile) {
+			if _, err := file.conversions.apiJSON(file.path, file.source, "standard", "graph"); err != nil {
 				var unsupported *export.UnsupportedError
 				if !errors.As(err, &unsupported) {
 					t.Fatalf("write API JSON: %v", err)
 				}
 			}
-			mismatches := mappingShapeDisagreements(t, path, graph)
+			mismatches := mappingShapeDisagreements(t, file.path, file.graph)
 			countsMu.Lock()
 			compared++
 			disagreements += mismatches
 			countsMu.Unlock()
-		})
+		},
+		summarize: func(t *testing.T) {
+			countsMu.Lock()
+			defer countsMu.Unlock()
+			t.Logf("mapping shape: compared %d models; disagreements: %d", compared, disagreements)
+			if disagreements != 0 {
+				t.Errorf("mapping-shape predicates disagree with the forward mapping at %d nodes", disagreements)
+			}
+		},
 	}
+}
+
+func TestMappingShapeAgreesWithForwardMappingForNestedExpressionBodies(t *testing.T) {
 	const nestedExpressionBody = `package Edge {
     attribute def Real;
     calc def Nested {
@@ -87,10 +54,7 @@ func TestMappingShapeAgreesWithForwardMapping(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	countsMu.Lock()
-	compared++
-	disagreements += mappingShapeDisagreements(t, "expression-body-declarations-nest.sysml", graph)
-	countsMu.Unlock()
+	mappingShapeDisagreements(t, "expression-body-declarations-nest.sysml", graph)
 }
 
 func mappingShapeDisagreements(t *testing.T, path string, graph *rdf.Graph) int {
