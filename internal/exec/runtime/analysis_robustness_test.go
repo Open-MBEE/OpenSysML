@@ -88,6 +88,7 @@ func analysisRuntime(t *testing.T, fqn string) (*Context, *symbols.Index, *symbo
 }
 
 func TestAnalysisRobustness(t *testing.T) {
+	t.Parallel()
 	t.Run("unbound_subject", testAnalysisUnboundSubject)
 	t.Run("subject_of_the_wrong_type", testAnalysisSubjectOfTheWrongType)
 	t.Run("missing_in_parameter", testAnalysisMissingInParameter)

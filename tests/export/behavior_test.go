@@ -23,6 +23,7 @@ var behavioralModels = []string{"action_nodes", "loops_conditionals", "state_mac
 // from RDF as the same bytes it was written as, not merely as a graph that says
 // something similar.
 func TestBehavioralModelsComeBackByteIdentical(t *testing.T) {
+	t.Parallel()
 	for _, name := range behavioralModels {
 		t.Run(name, func(t *testing.T) {
 			path := filepath.Join("testdata", "convert", name+".sysml")
@@ -96,6 +97,7 @@ func TestStateMachineMetaclasses(t *testing.T) {
 // Each shape of each behavioral statement round trips on its own, so a failure
 // names the notation that broke rather than a whole model.
 func TestBehavioralStatementsRoundTrip(t *testing.T) {
+	t.Parallel()
 	actions := map[string]string{
 		"initial node":        "first start;",
 		"guarded initial":     "first start if speed > 0 then brake;",
@@ -144,6 +146,7 @@ func TestBehavioralStatementsRoundTrip(t *testing.T) {
 // The members of a state body round trip in each of the shapes the notation
 // allows: a subaction stated with braces, with a single action, or empty.
 func TestStateMembersRoundTrip(t *testing.T) {
+	t.Parallel()
 	members := map[string]string{
 		"entry succession":     "entry;\n        then launch;",
 		"start state":          "state launch;",
@@ -245,6 +248,7 @@ func TestUnsupportedBehavioralShapesAreReported(t *testing.T) {
 // parser reads it. The graph alone, without the text each member was written
 // as, has to bring every such `then` back where it stood.
 func TestThenComesBackPastTheMembersTheParserSkips(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join("testdata", "convert", "then_after_members.sysml")
 	src, err := os.ReadFile(path)
 	if err != nil {
