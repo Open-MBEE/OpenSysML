@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -26,6 +27,13 @@ type SymbolInput struct {
 	ModelInput
 	SymbolID              string `json:"symbolId" jsonschema:"the element's qualified name, as Demo::Vehicle::mass"`
 	IncludeLibraryMembers bool   `json:"includeLibraryMembers,omitempty" jsonschema:"list the members inherited from standard-library content too, which are otherwise withheld and counted"`
+}
+
+// ElementPropertiesInput names an element and the metamodel properties to read.
+type ElementPropertiesInput struct {
+	ModelInput
+	ElementID  string   `json:"elementId" jsonschema:"the element: a qualified name (Demo::Vehicle::mass), the positional id of an unnamed member (Demo::Vehicle::@2), or the id an earlier answer's element value carried, a standard-library element's included"`
+	Properties []string `json:"properties,omitempty" jsonschema:"the properties to read by their KerML/SysML specification names, as inheritedFeature, connectorEnd, isComposite; empty reads every property the element carries"`
 }
 
 func (g *group) registerParse(s *mcp.Server) {
@@ -84,6 +92,72 @@ func (g *group) registerParse(s *mcp.Server) {
 		}
 		return answer(resp, m, symbolText(resp))
 	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "element_properties",
+		Description: "Read the metamodel properties of one element of a parsed model by their KerML/SysML specification names — " +
+			"inheritedFeature, connectorEnd, relatedFeature, directedFeature, isComposite, a feature's value… — as the model's API " +
+			"element form (convert to api-json) spells them (the GetElementProperties RPC). The element is named by qualified name, by " +
+			"the positional id of an unnamed member (Owner::@2) or by the id an earlier answer's element value carried, which walks the " +
+			"model and into the standard library; empty properties reads every property the element carries. A property the metaclass " +
+			"does not declare, or OpenSysML does not derive for the element, answers `unsupported` with the reason. An unknown element " +
+			"answers with `error` set rather than failing. The result is the GetElementPropertiesResponse as protojson writes it.",
+		Annotations: toolkit.ReadOnly("Read element properties"),
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in ElementPropertiesInput) (*mcp.CallToolResult, Result, error) {
+		m, err := g.resolve(ctx, in.ModelInput)
+		if err != nil {
+			return nil, nil, err
+		}
+		resp, err := g.svc.GetElementProperties(ctx, &pb.GetElementPropertiesRequest{
+			ModelHash: m.hash, ElementId: in.ElementID, Properties: in.Properties,
+		})
+		if err != nil {
+			return nil, nil, toolError(err)
+		}
+		return answer(resp, m, elementPropertiesText(resp))
+	})
+}
+
+func elementPropertiesText(resp *pb.GetElementPropertiesResponse) string {
+	if resp.GetError() != "" {
+		return errorText(resp.GetError())
+	}
+	var b strings.Builder
+	element := resp.GetElement()
+	fmt.Fprintf(&b, "%s %s (%s)\n", element.GetMetaclass(), element.GetQualifiedName(), element.GetId())
+	for _, property := range resp.GetProperties() {
+		if property.GetUnsupported() != "" {
+			fmt.Fprintf(&b, "%s: unsupported: %s\n", property.GetName(), property.GetUnsupported())
+			continue
+		}
+		values := make([]string, 0, len(property.GetValues()))
+		for _, value := range property.GetValues() {
+			values = append(values, elementPropertyValueText(value))
+		}
+		fmt.Fprintf(&b, "%s = %s\n", property.GetName(), strings.Join(values, ", "))
+	}
+	return b.String()
+}
+
+func elementPropertyValueText(value *pb.ElementPropertyValue) string {
+	switch v := value.GetValue().(type) {
+	case *pb.ElementPropertyValue_Element:
+		if v.Element.GetQualifiedName() != "" {
+			return v.Element.GetQualifiedName()
+		}
+		return v.Element.GetId()
+	case *pb.ElementPropertyValue_StringValue:
+		return strconv.Quote(v.StringValue)
+	case *pb.ElementPropertyValue_BoolValue:
+		return strconv.FormatBool(v.BoolValue)
+	case *pb.ElementPropertyValue_IntValue:
+		return strconv.FormatInt(v.IntValue, 10)
+	case *pb.ElementPropertyValue_RealValue:
+		return strconv.FormatFloat(v.RealValue, 'g', -1, 64)
+	case *pb.ElementPropertyValue_Number:
+		return v.Number
+	}
+	return "null"
 }
 
 func symbolText(resp *pb.SymbolResponse) string {
