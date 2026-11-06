@@ -284,6 +284,17 @@ type JInstance struct {
 	Id            I64                       `json:"id,omitempty"`
 	TypeSymbolId  string                    `json:"typeSymbolId,omitempty"`
 	FeatureValues map[string]*JFeatureValue `json:"featureValues,omitempty"`
+	ReachedBy     *JInstanceReach           `json:"reachedBy,omitempty"`
+}
+
+// JInstanceReach is the InstanceReach message: how the traversal that produced
+// the graph reached an instance, unset for the root.
+type JInstanceReach struct {
+	InstanceId      I64    `json:"instanceId,omitempty"`
+	FeatureName     string `json:"featureName,omitempty"`
+	FeatureSymbolId string `json:"featureSymbolId,omitempty"`
+	Index           int32  `json:"index,omitempty"`
+	Path            string `json:"path,omitempty"`
 }
 
 // JDiagnostic is the Diagnostic message, shaped in frontend/syntax where the
