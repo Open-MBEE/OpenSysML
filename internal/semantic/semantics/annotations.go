@@ -1726,8 +1726,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return m.connectorRelatedFeatures(sym, feature), true
 	case "ownedRelatedElement", "owningRelatedElement":
-		// A declared connector relates features its types own; its own owner is a membership's.
-		if !m.reflectiveMetaclassConforms(sym, "Connector") {
+		// A declared connector or association relates features and types it does not own;
+		// its own owner is a membership's.
+		if !m.reflectiveMetaclassConforms(sym, "Relationship") {
 			return nil, false
 		}
 		return []*symbols.Symbol{}, true
@@ -2456,6 +2457,14 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 			if m.reflectiveMetaclassConforms(sym, "StateUsage") {
 				return boolValue(d.IsParallel), true
 			}
+		}
+	case *ast.SubstateMember:
+		// The `state s;` of a state body: no `all`, no `parallel`.
+		switch feature {
+		case "isSufficient", "isParallel":
+			return boolValue(false), true
+		case "isVariant":
+			return boolValue(IsVariant(sym)), true
 		}
 	}
 	if sym.Recorded() && feature == "isIndividual" {
