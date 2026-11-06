@@ -165,6 +165,13 @@ type Client interface {
 	// the oslc_query capability.
 	QueryOSLC(ctx context.Context, model *Model, oslc string) ([]QueryElement, error)
 
+	// ElementProperties reads the metamodel properties of one element by their
+	// specification names ("inheritedFeature", "connectorEnd", ...), as the
+	// model's API element form spells them; every property the element carries
+	// when none is named. The element is a qualified name, a positional id or
+	// the form's own id. Requires the element_properties capability.
+	ElementProperties(ctx context.Context, model *Model, element string, properties ...string) (*ElementProperties, error)
+
 	// RunDocumentQuery runs the named document query, binding its entry
 	// parameters — to elements, scalars, or objects the service holds for the
 	// model since Instantiate (Object) — and answers typed rows. Requires the
@@ -355,6 +362,7 @@ type caller interface {
 	selfCheck(ctx context.Context, req *pb.SelfCheckRequest) (*pb.SelfCheckResponse, error)
 	recordRun(ctx context.Context, req *pb.RecordRunRequest) (*pb.RecordRunResponse, error)
 	query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error)
+	getElementProperties(ctx context.Context, req *pb.GetElementPropertiesRequest) (*pb.GetElementPropertiesResponse, error)
 	runDocumentQuery(ctx context.Context, req *pb.RunDocumentQueryRequest) (*pb.RunDocumentQueryResponse, error)
 	renderDocument(ctx context.Context, req *pb.RenderDocumentRequest) (*pb.RenderDocumentResponse, error)
 	renderView(ctx context.Context, req *pb.RenderViewRequest) (*pb.RenderViewResponse, error)

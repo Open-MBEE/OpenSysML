@@ -190,6 +190,10 @@ func (p *inprocess) query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryR
 	return answer(ctx, req, p.svc.Query)
 }
 
+func (p *inprocess) getElementProperties(ctx context.Context, req *pb.GetElementPropertiesRequest) (*pb.GetElementPropertiesResponse, error) {
+	return answer(ctx, req, p.svc.GetElementProperties)
+}
+
 func (p *inprocess) runDocumentQuery(
 	ctx context.Context,
 	req *pb.RunDocumentQueryRequest,
