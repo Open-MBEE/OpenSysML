@@ -80,6 +80,7 @@ type Model struct {
 	usageBase        map[*symbols.Symbol]*symbols.Symbol
 	kermlBase        map[*symbols.Symbol]*symbols.Symbol
 	thingsBase       map[*symbols.Symbol]*symbols.Symbol
+	multiplicityBase map[*symbols.Symbol]*symbols.Symbol
 	chainReachesBase map[*symbols.Symbol]bool
 	// computingUsageBase breaks implicitUsageBaseFeature ->
 	// declaredGeneralizationReaches -> relationshipTarget/resolver lookup ->
@@ -213,6 +214,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		chainTargets:           make(map[*symbols.Symbol]*symbols.Symbol),
 		defaultMultiplicities:  make(map[*symbols.Symbol]*symbols.Symbol),
 		declaredMultiplicities: make(map[*symbols.Symbol]*symbols.Symbol),
+		multiplicityBase:       make(map[*symbols.Symbol]*symbols.Symbol),
 		subtracting:            make(map[*symbols.Symbol]bool),
 		referential:            make(map[*symbols.Symbol]bool),
 		implicitBase:           make(map[*symbols.Symbol][]*symbols.Symbol),
@@ -408,6 +410,11 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		if seen[target] {
 			continue
 		}
+		seen[target] = true
+		out = append(out, target)
+	}
+	// A multiplicity member's `subsets` is a Subsetting written on the declaration (KerML 8.3.3.3.1).
+	if target := m.SubsettedMultiplicity(sym); target != nil && target != sym && !seen[target] {
 		seen[target] = true
 		out = append(out, target)
 	}

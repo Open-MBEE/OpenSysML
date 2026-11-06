@@ -168,13 +168,19 @@ type conformanceCase struct {
 	ExpectedResult        *expectedValue                  `json:"expected_result,omitempty"`
 	ExpectedFeatureValues map[string]expectedFeatureValue `json:"expected_feature_values,omitempty"`
 	ExpectedInstanceCount int                             `json:"expected_instance_count,omitempty"`
+	ExpectedReachPaths    []string                        `json:"expected_reach_paths,omitempty"`
+	ObjectPath            string                          `json:"object_path,omitempty"`
+	ExpectedPaths         []string                        `json:"expected_paths,omitempty"`
 	ExpectedOutputs       map[string]expectedValue        `json:"expected_outputs,omitempty"`
 	ExpectedStatesVisited []string                        `json:"expected_states_visited,omitempty"`
 	ExpectedFinalContext  map[string]expectedValue        `json:"expected_final_context,omitempty"`
 
 	// GetSymbol
-	ExpectedAttributeNames []string                     `json:"expected_attribute_names,omitempty"`
-	ExpectedAttributes     map[string]expectedAttribute `json:"expected_attributes,omitempty"`
+	ExpectedAttributeNames []string `json:"expected_attribute_names,omitempty"`
+	// GetSymbol: the symbol's kind and the ids of its members, in order.
+	ExpectedKind       string                       `json:"expected_kind,omitempty"`
+	ExpectedChildIDs   []string                     `json:"expected_child_ids,omitempty"`
+	ExpectedAttributes map[string]expectedAttribute `json:"expected_attributes,omitempty"`
 	// MinWithheldLibraryAttributes requires the response to state at least this
 	// many library-inherited attributes withheld from the list.
 	MinWithheldLibraryAttributes int32 `json:"min_withheld_library_attributes,omitempty"`
@@ -429,6 +435,8 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 		runVerifyConstraintCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "VerifyRequirement":
 		runVerifyRequirementCase(t, srv, ctx, parseResp.ModelHash, tc)
+	case "InstancePaths":
+		runInstancePathsCase(t, srv, ctx, parseResp.ModelHash, tc)
 	default:
 		t.Fatalf("unknown rpc %q", tc.RPC)
 	}
@@ -855,6 +863,12 @@ func runGetSymbolCase(t *testing.T, srv *grpc.Service, ctx context.Context, mode
 		t.Fatal("expected a symbol")
 	}
 
+	if tc.ExpectedKind != "" && resp.Symbol.GetKind() != tc.ExpectedKind {
+		t.Errorf("kind = %q, want %q", resp.Symbol.GetKind(), tc.ExpectedKind)
+	}
+	if tc.ExpectedChildIDs != nil && !slices.Equal(resp.Symbol.GetChildIds(), tc.ExpectedChildIDs) {
+		t.Errorf("child_ids = %v, want %v", resp.Symbol.GetChildIds(), tc.ExpectedChildIDs)
+	}
 	attrs := resp.Symbol.GetAttributes()
 	if tc.ExpectedAttributeNames != nil {
 		var got []string
@@ -966,6 +980,9 @@ func runInstantiateCase(t *testing.T, srv *grpc.Service, ctx context.Context, mo
 	}
 	if tc.ExpectedInstanceCount != 0 && len(resp.Instances) != tc.ExpectedInstanceCount {
 		t.Errorf("instances = %d, want %d", len(resp.Instances), tc.ExpectedInstanceCount)
+	}
+	if len(tc.ExpectedReachPaths) > 0 {
+		checkReachPaths(t, resp, tc.ExpectedReachPaths)
 	}
 }
 

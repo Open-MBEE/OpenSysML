@@ -5,6 +5,7 @@ package positional
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext"
+	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts/positional" // the symbol facts name unnamed members the same way
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )

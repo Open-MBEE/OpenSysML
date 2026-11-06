@@ -67,6 +67,9 @@ func (s *Service) filterInstanceCapabilities(instance *pb.Instance) {
 	if instance == nil {
 		return
 	}
+	if !s.capabilities.has(CapabilityInstancePaths) {
+		instance.ReachedBy = nil
+	}
 	if !s.capabilities.has(CapabilityFeatureValues) {
 		instance.FeatureValues = nil
 		return

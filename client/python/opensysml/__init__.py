@@ -21,7 +21,7 @@ from opensysml.check import (
 )
 from opensysml.diagnostic import Diagnostic
 from opensysml.enumeration import EnumLiteral
-from opensysml.instance import Instance
+from opensysml.instance import Instance, InstancePath, InstancePaths, PathStep
 from opensysml.typed import TypedObject
 from opensysml.typefacts import (
     AttributeFacts,
@@ -101,7 +101,7 @@ from opensysml.errors import (
     InstanceTypeError, InvalidRequestError, ManifestSignatureError, ModelError,
     ModelFileNotFoundError, ModelNotFoundError, ServiceError,
     ServiceTimeoutError, SigstoreUnavailableError, StaleServiceError, SymbolNotFoundError,
-    ViewNotFoundError,
+    UnresolvedChildError, ViewNotFoundError,
     TypeMismatchError, UnpinnedReleaseError, UnsignedReleaseError,
     UnsupportedOperationError, UnsupportedValueError, WrongKindError,
 )
@@ -128,7 +128,7 @@ __all__ = [
     "CheckSearch",
     "CheckViolation",
     "CheckWitness",
-    "Connection", "Model", "Symbol", "Diagnostic", "EnumLiteral", "Instance",
+    "Connection", "Model", "Symbol", "Diagnostic", "EnumLiteral", "Instance", "InstancePath", "InstancePaths", "PathStep",
     "TypedObject", "TypeFacts", "Multiplicity", "Specialization", "SymbolFacts",
     "AttributeFacts",
     "ServerInfo",
@@ -173,7 +173,7 @@ __all__ = [
     "ModelError", "ModelFileNotFoundError", "ModelNotFoundError",
     "ServiceError", "ServiceTimeoutError", "SigstoreUnavailableError", "StaleServiceError",
     "SymbolNotFoundError",
-    "ViewNotFoundError",
+    "UnresolvedChildError", "ViewNotFoundError",
     "TypeMismatchError", "UnpinnedReleaseError", "UnsignedReleaseError",
     "UnsupportedOperationError", "UnsupportedValueError",
     "WrongKindError",

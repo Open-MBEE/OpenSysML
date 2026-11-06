@@ -2962,6 +2962,18 @@ elmt:e24b4cdf-0f1e-5b60-a62a-b09e0d1e6956
     sysml:memberElement <urn:sysmlv2:element:4f9ef3e3-7e26-56a4-b523-6d0684968a5d> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+elmt:dd588859-da51-5519-ba83-73e11705eae2
+    a sysml:MultiplicityRange ;
+    sysml:elementId "dd588859-da51-5519-ba83-73e11705eae2" ;
+    sysx:libraryPath "Base::naturals/MultiplicityRange[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:6a2d9980-8df2-53db-a855-60b6c8bd9ef5>
+    a sysml:OwningMembership ;
+    sysml:elementId "6a2d9980-8df2-53db-a855-60b6c8bd9ef5" ;
+    sysml:memberElement elmt:dd588859-da51-5519-ba83-73e11705eae2 ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 <urn:sysmlv2:element:9a56e0f4-4e56-553a-9fce-bb415a44d791>
     a sysml:AssertConstraintUsage ;
     sysml:elementId "9a56e0f4-4e56-553a-9fce-bb415a44d791" ;
@@ -3291,6 +3303,12 @@ elmt:d637bdd8-4d2e-5e7c-806a-93a6deb70ac4
     sysml:elementId "8917eb36-28b8-5dfe-8880-663f5bc02c10" ;
     sysml:qualifiedName "Parts::Part::ownedStates" ;
     sysml:declaredName "ownedStates" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:8bf40f7c-340f-5e0b-b47f-87c041708888>
+    a sysml:Documentation ;
+    sysml:elementId "8bf40f7c-340f-5e0b-b47f-87c041708888" ;
+    sysx:libraryPath "Base::naturals/Documentation[0]" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:8c653856-a61f-5c10-a8d2-617504827453>
@@ -3994,6 +4012,12 @@ elmt:c115d6dd-ac22-5d6b-ac58-c79139cccb29
     a sysml:FeatureMembership ;
     sysml:elementId "c115d6dd-ac22-5d6b-ac58-c79139cccb29" ;
     sysml:memberElement <urn:sysmlv2:element:6514d020-9ebc-538e-90a0-7b17b2c26504> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:c148bb4d-d975-5fa6-afa5-808b5ae74139
+    a sysml:OwningMembership ;
+    sysml:elementId "c148bb4d-d975-5fa6-afa5-808b5ae74139" ;
+    sysml:memberElement <urn:sysmlv2:element:8bf40f7c-340f-5e0b-b47f-87c041708888> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:c15aac16-cf23-55aa-905e-7edf955f7925

@@ -70,6 +70,11 @@ class SysMLServiceStub:
                 request_serializer=sysml__pb2.InstantiateRequest.SerializeToString,
                 response_deserializer=sysml__pb2.InstantiateResponse.FromString,
                 _registered_method=True)
+        self.InstancePaths = channel.unary_unary(
+                '/sysml.SysMLService/InstancePaths',
+                request_serializer=sysml__pb2.InstancePathsRequest.SerializeToString,
+                response_deserializer=sysml__pb2.InstancePathsResponse.FromString,
+                _registered_method=True)
         self.ExecuteAction = channel.unary_unary(
                 '/sysml.SysMLService/ExecuteAction',
                 request_serializer=sysml__pb2.ExecuteActionRequest.SerializeToString,
@@ -244,6 +249,15 @@ class SysMLServiceServicer:
 
     def Instantiate(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def InstancePaths(self, request, context):
+        """List every root-relative usage path that reaches one object the model's
+        population holds, aliases through connector ends and references included.
+        Reported as the "instance_paths" capability.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -502,6 +516,11 @@ def add_SysMLServiceServicer_to_server(servicer, server):
                     servicer.Instantiate,
                     request_deserializer=sysml__pb2.InstantiateRequest.FromString,
                     response_serializer=sysml__pb2.InstantiateResponse.SerializeToString,
+            ),
+            'InstancePaths': grpc.unary_unary_rpc_method_handler(
+                    servicer.InstancePaths,
+                    request_deserializer=sysml__pb2.InstancePathsRequest.FromString,
+                    response_serializer=sysml__pb2.InstancePathsResponse.SerializeToString,
             ),
             'ExecuteAction': grpc.unary_unary_rpc_method_handler(
                     servicer.ExecuteAction,
@@ -814,6 +833,33 @@ class SysMLService:
             '/sysml.SysMLService/Instantiate',
             sysml__pb2.InstantiateRequest.SerializeToString,
             sysml__pb2.InstantiateResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def InstancePaths(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/sysml.SysMLService/InstancePaths',
+            sysml__pb2.InstancePathsRequest.SerializeToString,
+            sysml__pb2.InstancePathsResponse.FromString,
             options,
             channel_credentials,
             insecure,

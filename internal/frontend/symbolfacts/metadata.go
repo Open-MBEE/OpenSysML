@@ -39,6 +39,11 @@ func extractMetadata(sym *symbols.Symbol, meta map[string]string) {
 		if decl.IsAbstract {
 			meta["abstract"] = "true"
 		}
+	case *ast.PrefixMetadata:
+		// The metadata definition an `@M` or `#M` annotation is typed by.
+		if decl.Type != nil {
+			meta["type"] = formatQualifiedName(decl.Type)
+		}
 	case *ast.Definition:
 		// Abstract
 		if decl.IsAbstract {

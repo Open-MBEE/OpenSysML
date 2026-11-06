@@ -21,7 +21,8 @@ type Member struct {
 // supertypes own and sym does not redefine (Type::inheritedMembership, a
 // redefinition masking what it redefines, masking.go), a closer declaration of
 // the same name hiding a farther one (MembersOf), and a private member of a
-// supertype is not inherited at all (Type::inheritableMemberships).
+// supertype is not inherited at all (Type::inheritableMemberships). A member
+// owned through an Annotation (a `#M` prefix) is no member of the element.
 func (m *Model) Members(sym *symbols.Symbol) []Member {
 	if sym == nil {
 		return nil
@@ -44,7 +45,7 @@ func (m *Model) Members(sym *symbols.Symbol) []Member {
 			anonymous[s] = true
 		}
 		scope.ForEachMember(func(s *symbols.Symbol) bool {
-			if s.Kind == symbols.SymbolAlias || seen[s] ||
+			if s.Kind == symbols.SymbolAlias || seen[s] || ownedThroughAnnotation(source, s) ||
 				(!anonymous[s] && !namedSet[s] && !(s.Kind == symbols.SymbolDocumentation && s.Name == "")) ||
 				(inherited && (m.maskedBy(mask, s) || !Inheritable(s))) {
 				return true
