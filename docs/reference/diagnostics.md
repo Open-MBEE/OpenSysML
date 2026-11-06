@@ -32,7 +32,6 @@ lint is neither, so it stays a warning and never changes the exit status or bloc
 | Code | Reported on | Tier | Default |
 |------|-------------|------|---------|
 | `undeclared-signal` | a transition's `when <name>` whose name matches no declaration visible where it is written and no signal the model sends | name resolution | on |
-| `port-type-mismatch` | a `connect`, an interface usage or a `flow` joining two ports whose definitions are unrelated | constraint | on |
 | `deferred-keeper-unmarked` | an accept of a deferred signal at the root of the do action of a state annotated `MigrationMetadata::DeferredEvent` that is not marked `MigrationMetadata::DeferredKeeper` | name resolution | on |
 | `rounded-real-literal` | a decimal literal bound or assigned to a feature typed by `Real` that no binary64 value equals, so the feature holds it rounded | type | opt-in |
 
@@ -160,38 +159,6 @@ A signal the model only ever receives from outside (`%send` at the prompt, an in
 event over the wire) is reported, since nothing in the model says it exists; declare it
 (`attribute def Ping;`) to say so, or switch the lint off. The trigger's resolution and
 behavior are unchanged either way.
-
-## `port-type-mismatch` in detail
-
-Two ports a connector joins are compatible (SysML v2 §7.12.2, §7.12.3) when one of these
-holds:
-
-- one's definition specializes the other's, or both specialize a common definition of the
-  model (a library definition such as `Ports::Port`, which every port specializes, does not
-  count);
-- one port's directed features each have a feature of the other with the same name, the
-  conjugate direction (`in` against `out`; `inout` against `inout`) and a conforming type —
-  a conjugated port (`port p : ~P`) reverses its definition's directions first;
-- the connector is typed by an interface definition with two ends, both typed by a port
-  definition, directly or through a model end it redefines: that interface decides what the
-  ends pair, and its own ends are judged by `port-conjugation`. An interface leaving an end
-  untyped decides nothing, and nothing judges a connection definition's or a many-ended
-  interface's ends, so their usages' concrete ends are judged.
-
-A port connected is typed by its own declaration, or else by the nearest model port it
-redefines (`port :>> p;` keeps the type and conjugation of the `p` it redefines).
-
-Otherwise the lint reports the connector at its first end:
-
-```text
-m.sysml:9:13: warning: this connection connects port power : PowerOut to port fuel : FuelIn, whose definitions are unrelated and whose directed features are not conjugate; type one end by the conjugate port (~PowerOut) or by a common definition
-```
-
-It covers `connect a.p to b.q;` (and `connection … connect`), interface usages
-(`interface connect a.p to b.q;`) and `flow` between two ports, whose syntax is
-`ConnectionUsage`, `InterfaceUsage` and `FlowUsage` (`SysML.xtext:1062`, `:1153`, `:1269`).
-An end that is not a port, or whose port type does not resolve, is not judged. The
-specification states no constraint of this kind, so it is a lint rather than an error.
 
 ## `deferred-keeper-unmarked` in detail
 
@@ -1349,7 +1316,7 @@ Specification: OpenSysML diagram layout library
 
 **warning** · Constraints · a feature typed by two types declared disjoint, so it can have no values
 
-A feature's types are its own typings and the types of every feature it subsets or redefines, and types related by disjoining share no instances, so a feature reaching two disjoint types — declared with `disjoint from`, inherited along their specializations, or established by the kernel library (Occurrences::Occurrence is disjoint from Base::DataValue) — can have no values. Type the feature, or the feature it subsets or redefines, by types that can share instances.
+A feature's types are its own typings and the types of every feature it subsets or redefines, and types related by disjoining share no instances, so a feature reaching two disjoint types — declared with `disjoint from`, inherited along their specializations, or established by the kernel library (Occurrences::Occurrence is disjoint from Base::DataValue) — can have no values. Type the feature, or the feature it subsets or redefines, by types that can share instances. An end of a connector typed by an interface or connection definition redefines that definition's end and references the port it attaches to, so it is reported when the two definitions are disjoint; ports of merely unrelated definitions at the two ends of a `connect`, interface or `flow` are not reported, since the specification states no such constraint.
 
 Specification: KerML 1.1 §7.3.2.5 Disjoining, §8.3.3.3.4 (a feature's types are its typings' and its subsetted features'); an OpenSysML advisory
 
@@ -2012,7 +1979,6 @@ Specification: SysML v2 §7.24 (views satisfy viewpoints)
 | Code | Severity | Summary |
 |------|----------|---------|
 | [`deferred-keeper-unmarked`](#deferred-keeper-unmarked) | warning | an accept of a deferred signal not marked as the keeping accept |
-| [`port-type-mismatch`](#port-type-mismatch) | warning | a connection, interface or flow between ports of unrelated definitions |
 | [`rounded-real-literal`](#rounded-real-literal) | warning | a decimal literal a Real feature holds rounded (opt-in) |
 | [`undeclared-signal`](#undeclared-signal) | warning | `when <name>` naming no visible declaration and no sent signal |
 
@@ -2021,12 +1987,6 @@ Specification: SysML v2 §7.24 (views satisfy viewpoints)
 **warning** · Lints · an accept of a deferred signal not marked as the keeping accept
 
 In a state annotated `MigrationMetadata::DeferredEvent`, the accept at the root of the do action that buffers the deferred signal is expected to be marked `MigrationMetadata::DeferredKeeper`, so the migration tooling and readers can tell the keeper from an ordinary accept. Add the `@DeferredKeeper` annotation. Switch the lint off with `-disable-lint deferred-keeper-unmarked`.
-
-#### `port-type-mismatch`
-
-**warning** · Lints · a connection, interface or flow between ports of unrelated definitions
-
-The two ports joined are typed by port definitions neither of which specializes or conjugates the other, so nothing relates what one sends to what the other receives. Type one end by the conjugate (`~P`) of the other's definition, or relate the definitions. Switch the lint off with `-disable-lint port-type-mismatch`.
 
 #### `rounded-real-literal`
 

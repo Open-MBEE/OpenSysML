@@ -183,7 +183,7 @@ package OpenSysMLPipeline {
     #SemanticEngine part def PassRegistry :> Stage {
         attribute :>> goPackage = "internal/check/passes";
         attribute tierCount : Integer = 4;
-        attribute passCount : Integer = 66;
+        attribute passCount : Integer = 65;
         attribute sortsByLevel : Boolean = true;
         attribute skipsDocumentScopedAboveFailure : Boolean = true;
 
@@ -312,8 +312,6 @@ package OpenSysMLPipeline {
         part oosemMethod : ConstraintCheck { attribute :>> goType = "OOSEMMethodPass"; }
         part mosa : ConstraintCheck { attribute :>> goType = "MOSAPass"; }
         part nestedRedefinitions : ConstraintCheck { attribute :>> goType = "NestedRedefinitionPass"; }
-        // A lint: a connection between ports of unrelated definitions.
-        part portTypeMismatch : ConstraintCheck { attribute :>> goType = "PortTypeMismatchPass"; }
 
         in item typed : TypeTable;
         out item findings : Diagnostic;

@@ -11,13 +11,6 @@ var lintCodes = []Entry{
 		Spec: "",
 	},
 	{
-		Code: "port-type-mismatch", Tier: TierLint, Severity: "warning",
-		Summary: "a connection, interface or flow between ports of unrelated definitions",
-		Meaning: "The two ports joined are typed by port definitions neither of which specializes or conjugates the other, so nothing relates what one sends to what the other receives. " +
-			"Type one end by the conjugate (`~P`) of the other's definition, or relate the definitions. Switch the lint off with `-disable-lint port-type-mismatch`.",
-		Spec: "",
-	},
-	{
 		Code: "deferred-keeper-unmarked", Tier: TierLint, Severity: "warning",
 		Summary: "an accept of a deferred signal not marked as the keeping accept",
 		Meaning: "In a state annotated `MigrationMetadata::DeferredEvent`, the accept at the root of the do action that buffers the deferred signal is expected to be marked `MigrationMetadata::DeferredKeeper`, so the migration tooling and readers can tell the keeper from an ordinary accept. " +
