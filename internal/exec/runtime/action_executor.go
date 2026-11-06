@@ -237,7 +237,8 @@ func newActionExecutorOfGraph(
 			action, tool = held, found
 		}
 	}
-	return newActionExecutorOn(ctx, performed, action, declared, tool, graph, self, occurrence), nil
+	body := actionBody{action: action, declared: declared, tool: tool, graph: graph}
+	return newActionExecutorOn(ctx, performed, body, self, occurrence), nil
 }
 
 // declaredThrough is callee when body, what performanceBody resolved it to, is another
@@ -249,24 +250,26 @@ func declaredThrough(callee, body *symbols.Symbol, tool *toolExecution) *symbols
 	return callee
 }
 
-// newActionExecutorOn is an execution of graph, the lowering of action, ready to
-// begin at its root and attached to ctx's clock.
-func newActionExecutorOn(
-	ctx *Context,
-	performed, action, declared *symbols.Symbol,
-	tool *toolExecution,
-	graph *lower.ActionGraph,
-	self, occurrence *Instance,
-) *ActionExecutor {
+// actionBody is what a performance runs: action states the body and graph lowers it;
+// tool performs it in place of the body, and declared is the usage reached through (see ActionExecutor).
+type actionBody struct {
+	action, declared *symbols.Symbol
+	tool             *toolExecution
+	graph            *lower.ActionGraph
+}
+
+// newActionExecutorOn is an execution of body's graph, ready to begin at its root
+// and attached to ctx's clock.
+func newActionExecutorOn(ctx *Context, performed *symbols.Symbol, body actionBody, self, occurrence *Instance) *ActionExecutor {
 	exec := &ActionExecutor{
-		performances:     performances{ctx: ctx, self: self, behavior: action, occurrence: occurrence},
-		action:           action,
+		performances:     performances{ctx: ctx, self: self, behavior: body.action, occurrence: occurrence},
+		action:           body.action,
 		performed:        performed,
-		declared:         declared,
-		tool:             tool,
-		dynamicsKind:     ctx.stateSpaceKindOf(action),
+		declared:         body.declared,
+		tool:             body.tool,
+		dynamicsKind:     ctx.stateSpaceKindOf(body.action),
 		occurrence:       occurrence,
-		graph:            graph,
+		graph:            body.graph,
 		stepCounts:       make(map[stepMultiplicityKey]stepMultiplicityResult),
 		tokens:           make([]Token, 0),
 		state:            StateReady,
@@ -280,7 +283,7 @@ func newActionExecutorOn(
 	shape := exec.performanceShape()
 	exec.features = shape.attributes
 	exec.root = exec.newRootFrame(shape)
-	exec.through = ctx.performedPinBindings(performed, graph, self)
+	exec.through = ctx.performedPinBindings(performed, body.graph, self)
 	exec.owner = exec
 	exec.flow = exec
 	if occurrence != nil {

@@ -3915,54 +3915,7 @@ func (e *Evaluator) computeStructureEffectiveFeatures(element Element) (Value, b
 	if element.Symbol != nil && e.model != nil {
 		portUsage, known := e.isMetaclass(element, "PortUsage")
 		if known && portUsage {
-			relationships, known := e.options.Structure.OwnedRelationships(element)
-			if !known {
-				return Value{}, true, false
-			}
-			for _, relationship := range relationships {
-				isConjugatedTyping, known := e.isMetaclass(relationship, "ConjugatedPortTyping")
-				if !known {
-					return Value{}, true, false
-				}
-				if !isConjugatedTyping {
-					continue
-				}
-				definitions, known := e.relationshipEndpoints(relationship, "conjugatedPortDefinition")
-				if !known {
-					return Value{}, true, false
-				}
-				definitions, known = e.structureFilterValues(definitions, "ConjugatedPortDefinition")
-				if !known || len(definitions) != 1 || definitions[0].Kind != ElementValue {
-					return Value{}, true, false
-				}
-				return e.structureEffectiveFeatures(definitions[0].Element)
-			}
-			var features []*symbols.Symbol
-			for _, feature := range e.model.PortFeatures(element.Symbol) {
-				if feature.Symbol == nil {
-					return Value{}, true, false
-				}
-				features = append(features, feature.Symbol)
-			}
-			if len(features) != 0 {
-				return symbolSequence(features), true, true
-			}
-			types, handled, ok := e.structureFeatureTypes(element)
-			if !handled || !ok {
-				return Value{}, true, false
-			}
-			var inherited []Value
-			for _, typ := range types.Values {
-				if typ.Kind != ElementValue {
-					return Value{}, true, false
-				}
-				features, handled, ok := e.structureEffectiveFeatures(typ.Element)
-				if !handled || !ok {
-					return Value{}, true, false
-				}
-				inherited = append(inherited, features.Values...)
-			}
-			return uniqueStructureValueSequence(inherited, e.options.Structure), true, true
+			return e.structurePortUsageFeatures(element)
 		}
 	}
 	isConjugatedPortDefinition, known := e.isMetaclass(element, "ConjugatedPortDefinition")
@@ -3970,38 +3923,7 @@ func (e *Evaluator) computeStructureEffectiveFeatures(element Element) (Value, b
 		return Value{}, true, false
 	}
 	if isConjugatedPortDefinition {
-		original, ok := e.Property(element, "ConjugatedPortDefinition", "originalPortDefinition")
-		if !ok || original.Kind != ElementValue {
-			return Value{}, true, false
-		}
-		isPortDefinition, known := e.isMetaclass(original.Element, "PortDefinition")
-		if !known {
-			return Value{}, true, false
-		}
-		if isPortDefinition && original.Element.Symbol != nil && e.model != nil {
-			var features []*symbols.Symbol
-			for _, feature := range e.model.PortFeatures(original.Element.Symbol) {
-				if feature.Symbol == nil {
-					return Value{}, true, false
-				}
-				features = append(features, feature.Symbol)
-			}
-			return symbolSequence(features), true, true
-		}
-		owned, handled, ok := e.structureOwnedFeatures(original.Element)
-		if !handled || !ok {
-			return Value{}, true, false
-		}
-		inherited, ok := e.structureInheritedValues(original.Element, "feature")
-		if !ok {
-			e.recordUnsupportedReason(original.Element, "Type", "feature", Reason{
-				Category: ReasonUnresolvedReference,
-				Detail:   "ConjugatedPortDefinition::feature has unresolved specialization references",
-			})
-			return Value{}, true, false
-		}
-		values := append(slicesClone(owned.Values), inherited...)
-		return uniqueStructureValueSequence(values, e.options.Structure), true, true
+		return e.structureConjugatedPortDefinitionFeatures(element)
 	}
 	owned, handled, ok := e.structureOwnedFeatures(element)
 	if !handled || !ok {
@@ -4044,6 +3966,115 @@ func (e *Evaluator) computeStructureEffectiveFeatures(element Element) (Value, b
 		return Value{}, true, false
 	}
 	values := append(slicesClone(owned.Values), symbolSequence(inherited).Values...)
+	return uniqueStructureValueSequence(values, e.options.Structure), true, true
+}
+
+// structurePortUsageFeatures is Type::feature of a port usage: those of the port definition
+// its ConjugatedPortTyping names, else its own port features, else those of its types.
+func (e *Evaluator) structurePortUsageFeatures(element Element) (Value, bool, bool) {
+	definition, conjugated, ok := e.structureConjugatedPortTypingDefinition(element)
+	if !ok {
+		return Value{}, true, false
+	}
+	if conjugated {
+		return e.structureEffectiveFeatures(definition)
+	}
+	features, ok := e.portFeatureSymbols(element.Symbol)
+	if !ok {
+		return Value{}, true, false
+	}
+	if len(features) != 0 {
+		return symbolSequence(features), true, true
+	}
+	types, handled, ok := e.structureFeatureTypes(element)
+	if !handled || !ok {
+		return Value{}, true, false
+	}
+	var inherited []Value
+	for _, typ := range types.Values {
+		if typ.Kind != ElementValue {
+			return Value{}, true, false
+		}
+		features, handled, ok := e.structureEffectiveFeatures(typ.Element)
+		if !handled || !ok {
+			return Value{}, true, false
+		}
+		inherited = append(inherited, features.Values...)
+	}
+	return uniqueStructureValueSequence(inherited, e.options.Structure), true, true
+}
+
+// structureConjugatedPortTypingDefinition is the ConjugatedPortDefinition a port usage's
+// ConjugatedPortTyping names; found is false for a usage typed some other way.
+func (e *Evaluator) structureConjugatedPortTypingDefinition(element Element) (definition Element, found, ok bool) {
+	relationships, known := e.options.Structure.OwnedRelationships(element)
+	if !known {
+		return Element{}, false, false
+	}
+	for _, relationship := range relationships {
+		isConjugatedTyping, known := e.isMetaclass(relationship, "ConjugatedPortTyping")
+		if !known {
+			return Element{}, false, false
+		}
+		if !isConjugatedTyping {
+			continue
+		}
+		definitions, known := e.relationshipEndpoints(relationship, "conjugatedPortDefinition")
+		if !known {
+			return Element{}, false, false
+		}
+		definitions, known = e.structureFilterValues(definitions, "ConjugatedPortDefinition")
+		if !known || len(definitions) != 1 || definitions[0].Kind != ElementValue {
+			return Element{}, false, false
+		}
+		return definitions[0].Element, true, true
+	}
+	return Element{}, false, true
+}
+
+// portFeatureSymbols lists the semantic model's port features of port; false when one has no symbol.
+func (e *Evaluator) portFeatureSymbols(port *symbols.Symbol) ([]*symbols.Symbol, bool) {
+	var features []*symbols.Symbol
+	for _, feature := range e.model.PortFeatures(port) {
+		if feature.Symbol == nil {
+			return nil, false
+		}
+		features = append(features, feature.Symbol)
+	}
+	return features, true
+}
+
+// structureConjugatedPortDefinitionFeatures is Type::feature of a conjugated port
+// definition: the features of the port definition it conjugates.
+func (e *Evaluator) structureConjugatedPortDefinitionFeatures(element Element) (Value, bool, bool) {
+	original, ok := e.Property(element, "ConjugatedPortDefinition", "originalPortDefinition")
+	if !ok || original.Kind != ElementValue {
+		return Value{}, true, false
+	}
+	isPortDefinition, known := e.isMetaclass(original.Element, "PortDefinition")
+	if !known {
+		return Value{}, true, false
+	}
+	if isPortDefinition && original.Element.Symbol != nil && e.model != nil {
+		features, ok := e.portFeatureSymbols(original.Element.Symbol)
+		if !ok {
+			return Value{}, true, false
+		}
+		return symbolSequence(features), true, true
+	}
+	owned, handled, ok := e.structureOwnedFeatures(original.Element)
+	if !handled || !ok {
+		return Value{}, true, false
+	}
+	inherited, ok := e.structureInheritedValues(original.Element, "feature")
+	if !ok {
+		e.recordUnsupportedReason(original.Element, "Type", "feature", Reason{
+			Category: ReasonUnresolvedReference,
+			Detail:   "ConjugatedPortDefinition::feature has unresolved specialization references",
+		})
+		return Value{}, true, false
+	}
+	values := append(slicesClone(owned.Values), inherited...)
 	return uniqueStructureValueSequence(values, e.options.Structure), true, true
 }
 
@@ -4300,7 +4331,7 @@ func (e *Evaluator) structureElementSymbol(element Element) *symbols.Symbol {
 		return element.Symbol
 	}
 	if element.Node == nil {
-		if structure, ok := e.options.Structure.(LibrarySymbolStructure); ok {
+		if structure, ok := e.options.Structure.(LibrarySymbolResolver); ok {
 			if symbol, found := structure.LibrarySymbol(element); found {
 				return symbol
 			}
@@ -4712,6 +4743,64 @@ func (e *Evaluator) computeStructureInheritedMemberships(element Element) ([]Val
 }
 
 func (e *Evaluator) structureGeneralTypes(element Element) ([]Element, bool) {
+	bases, ok := e.structureSpecializedGeneralTypes(element)
+	if !ok {
+		return nil, false
+	}
+	impliedBases, ok := e.structureImpliedBaseFQNs(element)
+	if !ok {
+		return nil, false
+	}
+	for _, fqn := range impliedBases {
+		symbols := e.resolver.Index().LookupQualified(fqn)
+		if len(symbols) == 0 {
+			// Without the standard library there is no implied base to inherit from.
+			if !e.resolver.Index().HasLibrary() {
+				continue
+			}
+			return nil, false
+		}
+		base := ElementOf(symbols[0])
+		isType, known := e.isMetaclass(base, "Type")
+		if !known {
+			return nil, false
+		}
+		if isType {
+			bases = append(bases, base)
+		}
+	}
+	return uniqueStructureElements(bases, e.options.Structure), true
+}
+
+// structureImpliedBaseFQNs names the library types the element implicitly specializes
+// by its metaclass, by its syntax and, outside KerML, by nesting in its owning type.
+func (e *Evaluator) structureImpliedBaseFQNs(element Element) ([]string, bool) {
+	kind := source.KindSysML
+	if documentKind, known := e.elementDocumentKind(element); known {
+		kind = documentKind
+	}
+	var impliedBases []string
+	if metaclass, known := e.options.Structure.Metaclass(element); known {
+		impliedBases = e.model.ImpliedBaseFQNsForMetaclass(metaclass, kind)
+	}
+	if len(impliedBases) == 0 && element.Node != nil {
+		impliedBases = e.model.ImpliedBaseFQNs(element.Node, kind)
+	}
+	if kind == source.KindKerML {
+		return impliedBases, true
+	}
+	nested, ok := e.structureNestedSubsettingFQN(element)
+	if !ok {
+		return nil, false
+	}
+	if nested != "" {
+		impliedBases = append(impliedBases, nested)
+	}
+	return impliedBases, true
+}
+
+// structureSpecializedGeneralTypes lists the types the element's owned specializations name as general.
+func (e *Evaluator) structureSpecializedGeneralTypes(element Element) ([]Element, bool) {
 	specializations, handled, ok := e.structureOwnedFilter(element, "Specialization", false)
 	if !handled || !ok {
 		return nil, false
@@ -4738,45 +4827,7 @@ func (e *Evaluator) structureGeneralTypes(element Element) ([]Element, bool) {
 			}
 		}
 	}
-	kind := source.KindSysML
-	if documentKind, known := e.elementDocumentKind(element); known {
-		kind = documentKind
-	}
-	var impliedBases []string
-	if metaclass, known := e.options.Structure.Metaclass(element); known {
-		impliedBases = e.model.ImpliedBaseFQNsForMetaclass(metaclass, kind)
-	}
-	if len(impliedBases) == 0 && element.Node != nil {
-		impliedBases = e.model.ImpliedBaseFQNs(element.Node, kind)
-	}
-	if kind != source.KindKerML {
-		nested, ok := e.structureNestedSubsettingFQN(element)
-		if !ok {
-			return nil, false
-		}
-		if nested != "" {
-			impliedBases = append(impliedBases, nested)
-		}
-	}
-	for _, fqn := range impliedBases {
-		symbols := e.resolver.Index().LookupQualified(fqn)
-		if len(symbols) == 0 {
-			// Without the standard library there is no implied base to inherit from.
-			if !e.resolver.Index().HasLibrary() {
-				continue
-			}
-			return nil, false
-		}
-		base := ElementOf(symbols[0])
-		isType, known := e.isMetaclass(base, "Type")
-		if !known {
-			return nil, false
-		}
-		if isType {
-			bases = append(bases, base)
-		}
-	}
-	return uniqueStructureElements(bases, e.options.Structure), true
+	return bases, true
 }
 
 // structureNestedSubsettingFQN is the library feature a graph usage implicitly subsets by
@@ -7964,57 +8015,81 @@ func structureRelationshipValues(elements []Value, class, property string) Value
 	return elements[0]
 }
 
+// seenValues tracks the elements and memberships a sequence already holds, by their
+// own keys and by their symbols; the maps are allocated for capacity on first use.
+type seenValues struct {
+	capacity          int
+	elements          map[ElementKey]bool
+	symbols           map[symbols.ElementKey]bool
+	memberships       map[MembershipKey]bool
+	membershipSymbols map[symbols.ElementKey]bool
+}
+
+// repeats reports whether value repeats one seen before, recording it otherwise;
+// values of other kinds never repeat.
+func (seen *seenValues) repeats(value Value) bool {
+	switch value.Kind {
+	case ElementValue:
+		return seen.repeatsElement(value.Element)
+	case MembershipValue:
+		return seen.repeatsMembership(value.Membership)
+	default:
+		return false
+	}
+}
+
+func (seen *seenValues) repeatsElement(element Element) bool {
+	if seen.elements == nil {
+		seen.elements = make(map[ElementKey]bool, seen.capacity)
+		seen.symbols = make(map[symbols.ElementKey]bool, seen.capacity)
+	}
+	key := element.Key()
+	symbolKey := symbols.KeyOf(element.Symbol)
+	if key != (ElementKey{}) && seen.elements[key] ||
+		symbolKey != (symbols.ElementKey{}) && seen.symbols[symbolKey] {
+		return true
+	}
+	if key != (ElementKey{}) {
+		seen.elements[key] = true
+	}
+	if symbolKey != (symbols.ElementKey{}) {
+		seen.symbols[symbolKey] = true
+	}
+	return false
+}
+
+func (seen *seenValues) repeatsMembership(membership Membership) bool {
+	if seen.memberships == nil {
+		seen.memberships = make(map[MembershipKey]bool, seen.capacity)
+		seen.membershipSymbols = make(map[symbols.ElementKey]bool, seen.capacity)
+	}
+	key := membership.Key()
+	symbol := membership.Symbol
+	if membership.Symbol == nil {
+		symbol = membership.Member
+	}
+	symbolKey := symbols.KeyOf(symbol)
+	if key != (MembershipKey{}) && seen.memberships[key] ||
+		symbolKey != (symbols.ElementKey{}) && seen.membershipSymbols[symbolKey] {
+		return true
+	}
+	if key != (MembershipKey{}) {
+		seen.memberships[key] = true
+	}
+	if symbolKey != (symbols.ElementKey{}) {
+		seen.membershipSymbols[symbolKey] = true
+	}
+	return false
+}
+
 func uniqueValueSequence(values []Value) Value {
 	if len(values) <= 1 {
 		return sequence(slicesClone(values)...)
 	}
-	var seenElements map[ElementKey]bool
-	var seenSymbols, seenMembershipSymbols map[symbols.ElementKey]bool
-	var seenMemberships map[MembershipKey]bool
+	seen := seenValues{capacity: len(values)}
 	unique := make([]Value, 0, len(values))
 	for _, value := range values {
-		switch value.Kind {
-		case ElementValue:
-			if seenElements == nil {
-				seenElements = make(map[ElementKey]bool, len(values))
-				seenSymbols = make(map[symbols.ElementKey]bool, len(values))
-			}
-			key := value.Element.Key()
-			symbolKey := symbols.KeyOf(value.Element.Symbol)
-			if key != (ElementKey{}) && seenElements[key] ||
-				symbolKey != (symbols.ElementKey{}) && seenSymbols[symbolKey] {
-				continue
-			}
-			if key != (ElementKey{}) {
-				seenElements[key] = true
-			}
-			if symbolKey != (symbols.ElementKey{}) {
-				seenSymbols[symbolKey] = true
-			}
-		case MembershipValue:
-			if seenMemberships == nil {
-				seenMemberships = make(map[MembershipKey]bool, len(values))
-				seenMembershipSymbols = make(map[symbols.ElementKey]bool, len(values))
-			}
-			membership := value.Membership
-			key := membership.Key()
-			symbol := membership.Symbol
-			if membership.Symbol == nil {
-				symbol = membership.Member
-			}
-			symbolKey := symbols.KeyOf(symbol)
-			if key != (MembershipKey{}) && seenMemberships[key] ||
-				symbolKey != (symbols.ElementKey{}) && seenMembershipSymbols[symbolKey] {
-				continue
-			}
-			if key != (MembershipKey{}) {
-				seenMemberships[key] = true
-			}
-			if symbolKey != (symbols.ElementKey{}) {
-				seenMembershipSymbols[symbolKey] = true
-			}
-		default:
-			unique = append(unique, value)
+		if seen.repeats(value) {
 			continue
 		}
 		unique = append(unique, value)
