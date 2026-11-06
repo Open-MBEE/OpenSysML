@@ -166,35 +166,23 @@ func ownedThroughAnnotation(owner, member *symbols.Symbol) bool {
 }
 
 // isPrefixMetadataSymbol reports whether sym is the metadata feature a `#M`
-// prefix declares on the element it annotates: the symbol OwnedAnnotations
-// synthesizes for it, since the builder registers none (a body `@M;` is a
-// member, exactly as the `metadata` spelling is).
+// prefix declares on the element it annotates (a body `@M;` is a member).
 func isPrefixMetadataSymbol(sym *symbols.Symbol) bool {
-	return sym.OwnerScope == nil && sym.Kind == symbols.SymbolMetadataUsage && !sym.Recorded() &&
-		sym.Decl != nil && isPrefixMetadataDecl(sym.Decl)
+	return sym.IsPrefixMetadata()
 }
 
-func isPrefixMetadataDecl(decl ast.Node) bool {
-	_, ok := decl.(*ast.PrefixMetadata)
-	return ok
-}
-
-// prefixMetadataSymbols synthesizes the metadata feature of each `#M` prefix
-// written on sym, once per element, in prefix order.
+// prefixMetadataSymbols is the metadata feature of each `#M` prefix written on
+// sym, in prefix order: the members the builder registered for them.
 func (m *Model) prefixMetadataSymbols(sym *symbols.Symbol) []*symbols.Symbol {
 	prefixes, _, ok := ast.DeclaredMetadata(sym.Decl)
-	if !ok {
+	if !ok || sym.Scope == nil {
 		return nil
 	}
 	var out []*symbols.Symbol
 	for _, prefix := range prefixes {
-		if prefix == nil {
-			continue
+		if member := sym.Scope.MemberDeclaring(prefix); member != nil {
+			out = append(out, member)
 		}
-		out = append(out, &symbols.Symbol{
-			Name: prefix.Ident.Name, Kind: symbols.SymbolMetadataUsage, Decl: prefix,
-			DocName: sym.DocName, DeclSpan: prefix.Span(), NameSpan: prefix.Ident.NameSpan,
-		})
 	}
 	return out
 }

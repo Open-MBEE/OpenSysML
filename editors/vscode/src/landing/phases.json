@@ -427,6 +427,12 @@
           "featureName": "whileLoops",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "1",
+        "featureName": "phases",
+        "featureSymbolId": "MissionSequence::Mission::phases",
+        "path": "phases"
       }
     },
     {
@@ -497,6 +503,12 @@
           "featureName": "whileLoops",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "2",
+        "featureName": "doAction",
+        "featureSymbolId": "States::StateAction::doAction",
+        "path": "phases.doAction"
       }
     },
     {
@@ -567,6 +579,12 @@
           "featureName": "whileLoops",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "2",
+        "featureName": "entryAction",
+        "featureSymbolId": "States::StateAction::entryAction",
+        "path": "phases.entryAction"
       }
     },
     {
@@ -637,6 +655,12 @@
           "featureName": "whileLoops",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "2",
+        "featureName": "exitAction",
+        "featureSymbolId": "States::StateAction::exitAction",
+        "path": "phases.exitAction"
       }
     }
   ]

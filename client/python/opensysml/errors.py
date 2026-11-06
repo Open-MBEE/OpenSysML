@@ -336,6 +336,27 @@ class SymbolNotFoundError(OpenSysMLError, KeyError):
         return self.args[0]
 
 
+class UnresolvedChildError(SymbolNotFoundError):
+    """Raised when the service lists a child of a symbol under an id it then
+    cannot resolve, so :meth:`Symbol.children` would otherwise silently return
+    fewer members than the symbol has.
+
+    Attributes:
+        owner (str): Id of the symbol whose children were asked for
+        child_ids (list[str]): The listed child ids the service did not resolve
+    """
+
+    def __init__(self, owner, child_ids):
+        self.owner = owner
+        self.child_ids = list(child_ids)
+        super().__init__(self.child_ids[0] if self.child_ids else owner)
+        ids = ", ".join(repr(i) for i in self.child_ids)
+        self.args = (
+            f"the service lists {ids} among the children of {owner!r} "
+            "but does not resolve the id; the symbol's children cannot be read completely",
+        )
+
+
 class ViewNotFoundError(SymbolNotFoundError):
     """Raised when a declared view or pseudo-view target is absent."""
 

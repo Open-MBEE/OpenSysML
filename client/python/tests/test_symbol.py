@@ -7,6 +7,7 @@ from opensysml.capabilities import (
     MissingCapabilityError,
     ServerInfo,
 )
+from opensysml.errors import SymbolNotFoundError, UnresolvedChildError
 from opensysml.symbol import Symbol
 from opensysml.proto import sysml_pb2
 
@@ -189,11 +190,10 @@ class TestSymbolChildren:
         
         assert children == []
     
-    def test_children_skips_none_results(self):
-        """Test children() skips None when get_symbol fails."""
-        # Create mock client that returns None for second child
+    def test_children_raises_on_a_child_the_service_does_not_resolve(self):
+        """children() reports a listed child GetSymbol cannot resolve instead of dropping it."""
         mock_client = Mock()
-        
+
         child1_info = sysml_pb2.SymbolInfo(
             id="Vehicles::Vehicle::mass",
             name="mass",
@@ -201,24 +201,25 @@ class TestSymbolChildren:
         )
         # Second call returns None (symbol not found or RPC error)
         mock_client.get_symbol.side_effect = [child1_info, None]
-        
-        # Create parent SymbolInfo
+
         parent_info = sysml_pb2.SymbolInfo(
             id="Vehicles::Vehicle",
             name="Vehicle",
             kind="partDef",
             child_ids=["Vehicles::Vehicle::mass", "Vehicles::Vehicle::invalid"]
         )
-        
-        # Create parent Symbol
         parent = Symbol(parent_info, mock_client, "model_abc123")
-        
-        # Get children - should skip None
-        children = parent.children()
-        
-        # Verify only valid child returned
-        assert len(children) == 1
-        assert children[0].id == "Vehicles::Vehicle::mass"
+
+        with pytest.raises(UnresolvedChildError) as excinfo:
+            parent.children()
+        assert excinfo.value.owner == "Vehicles::Vehicle"
+        assert excinfo.value.child_ids == ["Vehicles::Vehicle::invalid"]
+        assert isinstance(excinfo.value, SymbolNotFoundError)
+        assert "Vehicles::Vehicle::invalid" in str(excinfo.value)
+        # Nothing is cached, so a later call asks the service again.
+        mock_client.get_symbol.side_effect = [child1_info, None]
+        with pytest.raises(UnresolvedChildError):
+            parent.children()
 
 
 class TestSymbolAttributes:
@@ -741,12 +742,15 @@ class TestSymbolMembers:
         assert not parent.children()[0].inherited
         assert parent.children().withheld_library == 0
 
-    def test_unresolvable_member_ids_are_skipped(self):
-        """A member id the service cannot resolve is left out rather than failing."""
+    def test_unresolvable_member_ids_raise(self):
+        """A member id the service lists but cannot resolve is reported, not dropped."""
         controller = self._controller(Mock())
         symbols = controller._client.get_symbol.side_effect
         controller._client.get_symbol.side_effect = (
             lambda _hash, symbol_id, **kw: None if symbol_id.endswith("delegate") else symbols(_hash, symbol_id, **kw)
         )
 
-        assert [m.name for m in controller.children(inherited=True)] == ["gain", "cmdIn", "logic"]
+        with pytest.raises(UnresolvedChildError) as excinfo:
+            controller.children(inherited=True)
+        assert excinfo.value.owner == controller.id
+        assert [i.rsplit("::", 1)[-1] for i in excinfo.value.child_ids] == ["delegate"]
