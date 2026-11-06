@@ -725,17 +725,13 @@ jobs:
             # the FMI gate runs rather than skips (tests/fmi).
             OPENSYSML_REQUIRE_REFERENCE_FMUS: "1"
 
-  # A second, race-free pass, because the profile the scan reads is written
-  # with -coverpkg, which is too slow to instrument under -race. Serially the
-  # instrumented suite overran the 60-minute job limit even on large, so it runs
-  # as the race test's package shards but runtime-corpus, export-corpus and export-settled (the Makefile's COVERAGE_SHARDS;
-  # without -race the runtime runs whole in about 19 minutes), and go-coverage-merge joins them.
-  # cmd/sysml's exploration budgets alone took 23-30 of the 30 minutes while sharing
-  # the rest node under -coverpkg=./..., so the command has a node of its own.
+  # A race-free pass for the scan's -coverpkg profile, too slow under -race; serially it
+  # overran the 60-minute limit, so it runs sharded and go-coverage-merge joins the shards.
   go-coverage:
     executor: go-executor
     resource_class: large
-    parallelism: 9
+    # The race test's shards but runtime-corpus: without -race the runtime runs whole in about 19 minutes.
+    parallelism: 11
     steps:
       - checkout
       - rehearsal-checkout-tag
@@ -750,7 +746,9 @@ jobs:
       - run:
           name: Write this shard's coverage profile
           command: |
-            shards=(runtime model export graph codegen tools rest migrate cli)
+            # tests/export whole overran 30 minutes, so make coverage-shard splits it by test name.
+            # cmd/sysml has its own node: its exploration budgets took 23-30 minutes on the rest node.
+            shards=(runtime model export export-corpus export-settled graph codegen tools rest migrate cli)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
               echo "error: parallelism is $CIRCLE_NODE_TOTAL, but the Makefile's COVERAGE_SHARDS has ${#shards[@]} shards" >&2
               exit 1

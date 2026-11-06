@@ -90,9 +90,15 @@ TOOLS_DIR := tools
 COVERAGE_PACKAGES ?= ./...
 COVERAGE_TOOLS ?= ./...
 COVERAGE_PROFILE ?= coverage.txt
-# The coverage job's nodes: the race shards except runtime-corpus, export-corpus and export-settled, since without -race
-# internal/exec/runtime runs whole in about 19 minutes under -coverpkg (see .circleci/config.yml).
-COVERAGE_SHARDS := runtime model export graph codegen tools rest migrate cli
+# The coverage-shard being written, which selects COVERAGE_SELECT_<shard>; empty for make coverage.
+COVERAGE_SHARD ?=
+# The coverage job's nodes: the race shards but runtime-corpus, since without -race internal/exec/runtime
+# runs whole in about 19 minutes under -coverpkg; tests/export whole overran 30 (see .circleci/config.yml).
+COVERAGE_SHARDS := runtime model export export-corpus export-settled graph codegen tools rest migrate cli
+# coverage-shard's split of tests/export by test name, test-shard's; empty for every other shard.
+COVERAGE_SELECT_export = -skip '$(RACE_EXPORT_CORPUS)|$(RACE_EXPORT_SETTLED)'
+COVERAGE_SELECT_export-corpus = -run '$(RACE_EXPORT_CORPUS)'
+COVERAGE_SELECT_export-settled = -run '$(RACE_EXPORT_SETTLED)'
 
 # The commands whose manual pages are generated and shipped, in section 1.
 COMMANDS := sysml sysml-lsp sysml-grpc sysml-jupyter-kernel sysml-mcp
@@ -387,7 +393,7 @@ coverage: stdlib-snapshot ## Write the coverage profile the SonarCloud scan read
 	@# it at this directory; go test folds in only its own binary's counters.
 	rm -rf $(GO_COUNTER_DIR)
 	mkdir -p $(GO_COUNTER_DIR)
-	OPENSYSML_GOCOVERDIR=$(GO_COUNTER_DIR) go test -count=1 -pgo=off -timeout 30m -coverpkg=./... -coverprofile=$(COVERAGE_PROFILE) -covermode=atomic $(COVERAGE_PACKAGES)
+	OPENSYSML_GOCOVERDIR=$(GO_COUNTER_DIR) go test -count=1 -pgo=off -timeout 30m -coverpkg=./... -coverprofile=$(COVERAGE_PROFILE) -covermode=atomic $(COVERAGE_SELECT_$(COVERAGE_SHARD)) $(COVERAGE_PACKAGES)
 	go tool covdata textfmt -i=$(GO_COUNTER_DIR) -o $(GO_COUNTER_DIR)/profile.txt
 	tail -n +2 $(GO_COUNTER_DIR)/profile.txt >> $(COVERAGE_PROFILE)
 	@# The tools' tests exercise product packages too; their profile credits those. It is
@@ -400,10 +406,10 @@ coverage: stdlib-snapshot ## Write the coverage profile the SonarCloud scan read
 	python3 scripts/dedupe-coverage.py $(COVERAGE_PROFILE)
 	@go tool cover -func=$(COVERAGE_PROFILE) | tail -n 1
 
-coverage-shard: ## Write one CI shard's coverage profile, coverage-$(SHARD).txt (SHARD=runtime|model|export|graph|codegen|tools|rest|migrate|cli)
+coverage-shard: ## Write one CI shard's coverage profile, coverage-$(SHARD).txt (SHARD=runtime|model|export|export-corpus|export-settled|graph|codegen|tools|rest|migrate|cli)
 	@# The race shards' packages; the tools module goes with tools (tests/wasm), as in test-shard.
 	pkgs=$$(scripts/race-shard.sh $(SHARD)) && \
-	$(MAKE) --no-print-directory coverage COVERAGE_PROFILE=coverage-$(SHARD).txt \
+	$(MAKE) --no-print-directory coverage COVERAGE_PROFILE=coverage-$(SHARD).txt COVERAGE_SHARD=$(SHARD) \
 		COVERAGE_PACKAGES="$$(echo $$pkgs)" \
 		COVERAGE_TOOLS="$(if $(filter tools,$(SHARD)),./...)"
 
@@ -481,6 +487,8 @@ extension-libraries-pin-check: stdlib-snapshot ## After moving the extension-lib
 # and loads the library files instead. The generator runs on the host whatever
 # GOOS/GOARCH the binary is being built for.
 stdlib-snapshot: ## Generate $(LIBS_DIR)/stdlib.snapshot and the Go file embedding it, the snapshot of the bundled library the binaries carry
+	@# The generator imports package libs, which an embedding without its snapshot cannot compile.
+	rm -f $(LIBS_DIR)/snapshot_embedded.go
 	GOOS= GOARCH= go generate ./$(LIBS_DIR)
 
 ontology-table: ## Regenerate the metamodel table from the pilot SysML.ecore that scripts/pilot-pin.sh pins

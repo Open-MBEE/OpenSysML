@@ -489,6 +489,7 @@ expr:InvariantReferences__Tank__holds___400_pin0_om
     sysml:source elmt:InvariantReferences__Tank__holds___400 ;
     sysml:target expr:InvariantReferences__Tank__holds___400_pin0 ;
     sysml:relatedElement elmt:InvariantReferences__Tank__holds___400, expr:InvariantReferences__Tank__holds___400_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:InvariantReferences__Tank__holds___400_pin0 ;
     sysml:ownedMemberParameter expr:InvariantReferences__Tank__holds___400_pin0 ;
     json:relatedElement "[{\"@id\":\"InvariantReferences__Tank__holds___400\"},{\"@id\":\"InvariantReferences__Tank__holds___400_pin0\"}]" .
@@ -698,6 +699,7 @@ expr:InvariantReferences__Tank___405___400_pin0_om
     sysml:source elmt:InvariantReferences__Tank___405___400 ;
     sysml:target expr:InvariantReferences__Tank___405___400_pin0 ;
     sysml:relatedElement elmt:InvariantReferences__Tank___405___400, expr:InvariantReferences__Tank___405___400_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:InvariantReferences__Tank___405___400_pin0 ;
     sysml:ownedMemberParameter expr:InvariantReferences__Tank___405___400_pin0 ;
     json:relatedElement "[{\"@id\":\"InvariantReferences__Tank___405___400\"},{\"@id\":\"InvariantReferences__Tank___405___400_pin0\"}]" .
@@ -795,6 +797,7 @@ expr:InvariantReferences__Tank___405___400_pin1_om
     sysml:source elmt:InvariantReferences__Tank___405___400 ;
     sysml:target expr:InvariantReferences__Tank___405___400_pin1 ;
     sysml:relatedElement elmt:InvariantReferences__Tank___405___400, expr:InvariantReferences__Tank___405___400_pin1 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:InvariantReferences__Tank___405___400_pin1 ;
     sysml:ownedMemberParameter expr:InvariantReferences__Tank___405___400_pin1 ;
     json:relatedElement "[{\"@id\":\"InvariantReferences__Tank___405___400\"},{\"@id\":\"InvariantReferences__Tank___405___400_pin1\"}]" .
@@ -1012,6 +1015,7 @@ expr:InvariantReferences__Tank__bounded___400_pin0_om
     sysml:source elmt:InvariantReferences__Tank__bounded___400 ;
     sysml:target expr:InvariantReferences__Tank__bounded___400_pin0 ;
     sysml:relatedElement elmt:InvariantReferences__Tank__bounded___400, expr:InvariantReferences__Tank__bounded___400_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:InvariantReferences__Tank__bounded___400_pin0 ;
     sysml:ownedMemberParameter expr:InvariantReferences__Tank__bounded___400_pin0 ;
     json:relatedElement "[{\"@id\":\"InvariantReferences__Tank__bounded___400\"},{\"@id\":\"InvariantReferences__Tank__bounded___400_pin0\"}]" .
@@ -1065,6 +1069,7 @@ expr:InvariantReferences__Tank__bounded___400_pin1_om
     sysml:source elmt:InvariantReferences__Tank__bounded___400 ;
     sysml:target expr:InvariantReferences__Tank__bounded___400_pin1 ;
     sysml:relatedElement elmt:InvariantReferences__Tank__bounded___400, expr:InvariantReferences__Tank__bounded___400_pin1 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:InvariantReferences__Tank__bounded___400_pin1 ;
     sysml:ownedMemberParameter expr:InvariantReferences__Tank__bounded___400_pin1 ;
     json:relatedElement "[{\"@id\":\"InvariantReferences__Tank__bounded___400\"},{\"@id\":\"InvariantReferences__Tank__bounded___400_pin1\"}]" .
