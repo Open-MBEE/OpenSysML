@@ -2261,6 +2261,18 @@ elmt:e24b4cdf-0f1e-5b60-a62a-b09e0d1e6956
     sysml:memberElement <urn:sysmlv2:element:0536eca0-9fdc-5208-87c8-2dcc8356081a> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+elmt:dd588859-da51-5519-ba83-73e11705eae2
+    a sysml:MultiplicityRange ;
+    sysml:elementId "dd588859-da51-5519-ba83-73e11705eae2" ;
+    sysx:libraryPath "Base::naturals/MultiplicityRange[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:6a2d9980-8df2-53db-a855-60b6c8bd9ef5>
+    a sysml:OwningMembership ;
+    sysml:elementId "6a2d9980-8df2-53db-a855-60b6c8bd9ef5" ;
+    sysml:memberElement elmt:dd588859-da51-5519-ba83-73e11705eae2 ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 <urn:sysmlv2:element:741ea0aa-b16b-5b44-ac46-564c85d4f05d>
     a sysml:Feature ;
     sysml:elementId "741ea0aa-b16b-5b44-ac46-564c85d4f05d" ;
@@ -2416,6 +2428,12 @@ elmt:d637bdd8-4d2e-5e7c-806a-93a6deb70ac4
     sysml:elementId "8917eb36-28b8-5dfe-8880-663f5bc02c10" ;
     sysml:qualifiedName "Parts::Part::ownedStates" ;
     sysml:declaredName "ownedStates" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:8bf40f7c-340f-5e0b-b47f-87c041708888>
+    a sysml:Documentation ;
+    sysml:elementId "8bf40f7c-340f-5e0b-b47f-87c041708888" ;
+    sysx:libraryPath "Base::naturals/Documentation[0]" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:8c80556c-9854-50c8-b043-9a47d6d3bda1>
@@ -2748,6 +2766,12 @@ elmt:bffacdad-6769-575f-be46-e30433a5af4d
     sysml:elementId "bffacdad-6769-575f-be46-e30433a5af4d" ;
     sysml:qualifiedName "Occurrences::Occurrence::this" ;
     sysml:declaredName "this" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:c148bb4d-d975-5fa6-afa5-808b5ae74139
+    a sysml:OwningMembership ;
+    sysml:elementId "c148bb4d-d975-5fa6-afa5-808b5ae74139" ;
+    sysml:memberElement <urn:sysmlv2:element:8bf40f7c-340f-5e0b-b47f-87c041708888> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:c38c7d9e-1c49-5dd8-9d2d-1a3c929f02a7
