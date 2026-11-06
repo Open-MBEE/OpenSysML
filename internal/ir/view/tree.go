@@ -376,8 +376,8 @@ func (r *Renderer) effectiveMembers(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// standIns maps each inherited feature an own member masks (KerML 7.4.7) to that member;
-// a redefinition masking nothing, such as a parameter's positional one, stands in for none.
+// standIns maps each inherited feature an own member masks (KerML 7.4.7), by clause or by
+// parameter position, to that member; a redefinition masking nothing stands in for none.
 func (r *Renderer) standIns(sym *symbols.Symbol, own []*symbols.Symbol) map[*symbols.Symbol]*symbols.Symbol {
 	out := map[*symbols.Symbol]*symbols.Symbol{}
 	for _, member := range own {

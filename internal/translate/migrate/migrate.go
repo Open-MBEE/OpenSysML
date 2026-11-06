@@ -1761,6 +1761,7 @@ func (m *migration) constraintBody(e *sysmlv1.Element) {
 	saved := m.scope
 	m.scope = e
 	m.comments(e)
+	m.restateInheritedConstraintParameters(e, make(map[string]bool))
 	f := m.constraintRule(e)
 	for _, c := range e.Children {
 		if c != f.rule {
@@ -1783,6 +1784,28 @@ func (m *migration) constraintBody(e *sysmlv1.Element) {
 		m.unmappedExpr(f.rule, f.spec, f.note)
 	}
 	m.scope = saved
+}
+
+// restateInheritedConstraintParameters redefines the generals' parameters by clause, in
+// their order, before e's own: an own parameter would redefine one by position (KerML 8.4.4.6).
+func (m *migration) restateInheritedConstraintParameters(e *sysmlv1.Element, seen map[string]bool) {
+	for _, g := range e.Owned("generalization") {
+		general := m.model.Ref(g, "general")
+		if general == nil {
+			continue
+		}
+		m.restateInheritedConstraintParameters(general, seen)
+		for _, p := range general.Children {
+			if p.Type != "Property" || p.Name == "" || seen[p.Name] || toolContent(p) != "" {
+				continue
+			}
+			if kw, _, _ := m.featureKeyword(p, catConstraintDef); kw == "constraint" {
+				continue
+			}
+			seen[p.Name] = true
+			m.w.line("in attribute :>> " + writeName(p.Name) + ";")
+		}
+	}
 }
 
 func verdictFor(note string) Verdict {

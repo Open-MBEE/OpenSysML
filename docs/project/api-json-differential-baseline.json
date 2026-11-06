@@ -120,12 +120,12 @@
       "typeMismatch": 1682
     },
     "properties": {
-      "presentEqual": 1921680,
-      "presentDifferent": 128354,
-      "oursMissing": 322317,
+      "presentEqual": 1922241,
+      "presentDifferent": 127898,
+      "oursMissing": 322206,
       "pilotMissing": 77523,
       "absentBoth": 2124083,
-      "indeterminate": 32770,
+      "indeterminate": 32776,
       "pilotNondeterministic": 516
     },
     "rows": 11767,
@@ -161,12 +161,12 @@
         "typeMismatch": 6
       },
       "properties": {
-        "presentEqual": 157242,
-        "presentDifferent": 11625,
-        "oursMissing": 22016,
+        "presentEqual": 157425,
+        "presentDifferent": 11454,
+        "oursMissing": 22002,
         "pilotMissing": 5661,
         "absentBoth": 178251,
-        "indeterminate": 2611,
+        "indeterminate": 2613,
         "pilotNondeterministic": 62
       },
       "duplicateElements": {
@@ -197,9 +197,9 @@
         "typeMismatch": 34
       },
       "properties": {
-        "presentEqual": 554318,
-        "presentDifferent": 39227,
-        "oursMissing": 88474,
+        "presentEqual": 554387,
+        "presentDifferent": 39168,
+        "oursMissing": 88464,
         "pilotMissing": 21083,
         "absentBoth": 612877,
         "indeterminate": 7527,
@@ -233,12 +233,12 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 194976,
-        "presentDifferent": 15285,
-        "oursMissing": 28337,
+        "presentEqual": 195052,
+        "presentDifferent": 15216,
+        "oursMissing": 28326,
         "pilotMissing": 7514,
         "absentBoth": 219722,
-        "indeterminate": 2734,
+        "indeterminate": 2738,
         "pilotNondeterministic": 66
       },
       "duplicateElements": {
@@ -270,8 +270,8 @@
         "typeMismatch": 1034
       },
       "properties": {
-        "presentEqual": 113439,
-        "presentDifferent": 8838,
+        "presentEqual": 113447,
+        "presentDifferent": 8830,
         "oursMissing": 19509,
         "pilotMissing": 7607,
         "absentBoth": 106159,
@@ -306,9 +306,9 @@
         "typeMismatch": 396
       },
       "properties": {
-        "presentEqual": 128618,
-        "presentDifferent": 6185,
-        "oursMissing": 23320,
+        "presentEqual": 128623,
+        "presentDifferent": 6178,
+        "oursMissing": 23322,
         "pilotMissing": 6196,
         "absentBoth": 141303,
         "indeterminate": 2350,
@@ -380,9 +380,9 @@
         "typeMismatch": 184
       },
       "properties": {
-        "presentEqual": 598228,
-        "presentDifferent": 36590,
-        "oursMissing": 106015,
+        "presentEqual": 598436,
+        "presentDifferent": 36448,
+        "oursMissing": 105949,
         "pilotMissing": 23163,
         "absentBoth": 675931,
         "indeterminate": 13303,
@@ -452,9 +452,9 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 146433,
+        "presentEqual": 146445,
         "presentDifferent": 8603,
-        "oursMissing": 30167,
+        "oursMissing": 30155,
         "pilotMissing": 5072,
         "absentBoth": 156323,
         "indeterminate": 3287,
@@ -2301,8 +2301,8 @@
       0
     ],
     "ActionUsage.directedFeature": [
-      107,
-      38,
+      139,
+      6,
       22,
       1,
       349,
@@ -2310,8 +2310,8 @@
       0
     ],
     "ActionUsage.directedUsage": [
-      107,
-      38,
+      139,
+      6,
       22,
       1,
       349,
@@ -2418,8 +2418,8 @@
       0
     ],
     "ActionUsage.input": [
-      85,
-      34,
+      113,
+      6,
       19,
       2,
       377,
@@ -2895,8 +2895,8 @@
       0
     ],
     "ActionUsage.output": [
-      94,
-      28,
+      122,
+      0,
       21,
       1,
       373,
@@ -3255,12 +3255,12 @@
       0
     ],
     "ActionUsage.usage": [
-      70,
-      391,
+      72,
+      387,
       46,
       0,
       0,
-      10,
+      12,
       0
     ],
     "ActionUsage.value": [
@@ -6198,9 +6198,9 @@
       0
     ],
     "AnalysisCaseDefinition.subjectParameter": [
-      22,
+      16,
       0,
-      8,
+      14,
       0,
       0,
       0,
@@ -6486,8 +6486,8 @@
       0
     ],
     "AnalysisCaseUsage.input": [
-      5,
-      29,
+      6,
+      28,
       7,
       0,
       0,
@@ -7260,9 +7260,9 @@
       0
     ],
     "AnalysisCaseUsage.subjectParameter": [
-      15,
-      2,
-      24,
+      28,
+      6,
+      7,
       0,
       0,
       0,
@@ -7620,8 +7620,8 @@
       0
     ],
     "AssertConstraintUsage.directedUsage": [
-      1,
-      10,
+      11,
+      0,
       0,
       0,
       68,
@@ -7728,8 +7728,8 @@
       0
     ],
     "AssertConstraintUsage.input": [
-      1,
-      10,
+      11,
+      0,
       0,
       0,
       68,
@@ -8556,8 +8556,8 @@
       0
     ],
     "AssertConstraintUsage.usage": [
-      6,
-      11,
+      16,
+      1,
       62,
       0,
       0,
@@ -15414,8 +15414,8 @@
       0
     ],
     "CalculationDefinition.input": [
-      70,
-      1,
+      71,
+      0,
       79,
       0,
       42,
@@ -16134,8 +16134,8 @@
       0
     ],
     "CalculationUsage.directedUsage": [
-      16,
-      21,
+      30,
+      7,
       80,
       0,
       1,
@@ -16242,8 +16242,8 @@
       0
     ],
     "CalculationUsage.input": [
-      23,
-      14,
+      37,
+      0,
       64,
       0,
       17,
@@ -17043,8 +17043,8 @@
       0
     ],
     "CalculationUsage.usage": [
-      10,
-      29,
+      13,
+      26,
       79,
       0,
       0,
@@ -22551,8 +22551,8 @@
       0
     ],
     "ConcernUsage.stakeholderParameter": [
-      10,
-      2,
+      12,
+      0,
       0,
       0,
       9,
@@ -22561,8 +22561,8 @@
     ],
     "ConcernUsage.subjectParameter": [
       3,
-      8,
-      8,
+      10,
+      6,
       0,
       0,
       0,
@@ -27312,8 +27312,8 @@
       0
     ],
     "ConstraintUsage.directedFeature": [
-      10,
-      183,
+      12,
+      181,
       10,
       0,
       0,
@@ -27321,8 +27321,8 @@
       0
     ],
     "ConstraintUsage.directedUsage": [
-      10,
-      12,
+      18,
+      4,
       4,
       0,
       177,
@@ -27429,8 +27429,8 @@
       0
     ],
     "ConstraintUsage.input": [
-      10,
-      8,
+      18,
+      0,
       8,
       0,
       177,
@@ -28293,8 +28293,8 @@
       0
     ],
     "ConstraintUsage.usage": [
-      175,
-      18,
+      181,
+      12,
       10,
       0,
       0,
@@ -34863,8 +34863,8 @@
       0
     ],
     "ExhibitStateUsage.directedFeature": [
-      0,
       1,
+      0,
       0,
       0,
       49,
@@ -34872,8 +34872,8 @@
       0
     ],
     "ExhibitStateUsage.directedUsage": [
-      0,
       1,
+      0,
       0,
       0,
       49,
@@ -34998,8 +34998,8 @@
       0
     ],
     "ExhibitStateUsage.input": [
-      0,
       1,
+      0,
       0,
       0,
       49,
@@ -35907,8 +35907,8 @@
       0
     ],
     "Expression.directedFeature": [
-      20,
-      15,
+      21,
+      14,
       5,
       0,
       0,
@@ -36015,8 +36015,8 @@
       0
     ],
     "Expression.input": [
-      22,
-      8,
+      23,
+      7,
       4,
       2,
       4,
@@ -45700,8 +45700,8 @@
     ],
     "Function.inheritedFeature": [
       0,
-      1,
-      10,
+      0,
+      11,
       0,
       0,
       0,
@@ -45709,16 +45709,16 @@
     ],
     "Function.inheritedMembership": [
       0,
-      1,
-      10,
+      0,
+      11,
       0,
       0,
       0,
       0
     ],
     "Function.input": [
-      10,
-      1,
+      11,
+      0,
       0,
       0,
       0,
@@ -47040,8 +47040,8 @@
       0
     ],
     "IncludeUseCaseUsage.actorParameter": [
-      8,
-      5,
+      13,
+      0,
       1,
       0,
       5,
@@ -47130,8 +47130,8 @@
       0
     ],
     "IncludeUseCaseUsage.directedFeature": [
-      2,
-      13,
+      7,
+      8,
       4,
       0,
       0,
@@ -47139,8 +47139,8 @@
       0
     ],
     "IncludeUseCaseUsage.directedUsage": [
-      2,
-      13,
+      7,
+      8,
       4,
       0,
       0,
@@ -47265,8 +47265,8 @@
       0
     ],
     "IncludeUseCaseUsage.input": [
-      2,
-      11,
+      7,
+      6,
       6,
       0,
       0,
@@ -48075,9 +48075,9 @@
       0
     ],
     "IncludeUseCaseUsage.subjectParameter": [
-      3,
-      2,
-      14,
+      8,
+      5,
+      6,
       0,
       0,
       0,
@@ -71691,8 +71691,8 @@
       0
     ],
     "PerformActionUsage.directedFeature": [
-      23,
-      17,
+      33,
+      7,
       28,
       0,
       168,
@@ -71700,8 +71700,8 @@
       0
     ],
     "PerformActionUsage.directedUsage": [
-      23,
-      17,
+      33,
+      7,
       28,
       0,
       168,
@@ -71808,8 +71808,8 @@
       0
     ],
     "PerformActionUsage.input": [
-      14,
-      14,
+      23,
+      5,
       24,
       0,
       184,
@@ -72276,8 +72276,8 @@
       0
     ],
     "PerformActionUsage.output": [
-      22,
-      14,
+      30,
+      6,
       17,
       0,
       183,
@@ -72645,12 +72645,12 @@
       0
     ],
     "PerformActionUsage.usage": [
-      34,
-      66,
+      40,
+      56,
       134,
       0,
       0,
-      2,
+      6,
       0
     ],
     "PerformActionUsage.value": [
@@ -79647,8 +79647,8 @@
       0
     ],
     "RequirementUsage.directedFeature": [
-      102,
-      145,
+      128,
+      119,
       22,
       0,
       0,
@@ -79656,8 +79656,8 @@
       0
     ],
     "RequirementUsage.directedUsage": [
-      102,
-      145,
+      128,
+      119,
       22,
       0,
       0,
@@ -79773,8 +79773,8 @@
       0
     ],
     "RequirementUsage.input": [
-      102,
-      30,
+      128,
+      4,
       137,
       0,
       0,
@@ -80619,9 +80619,9 @@
       0
     ],
     "RequirementUsage.subjectParameter": [
-      102,
-      1,
-      166,
+      128,
+      4,
+      137,
       0,
       0,
       0,
@@ -81627,8 +81627,8 @@
       0
     ],
     "SatisfyRequirementUsage.directedFeature": [
-      14,
-      60,
+      45,
+      29,
       7,
       0,
       0,
@@ -81636,8 +81636,8 @@
       0
     ],
     "SatisfyRequirementUsage.directedUsage": [
-      14,
-      60,
+      45,
+      29,
       7,
       0,
       0,
@@ -81753,8 +81753,8 @@
       0
     ],
     "SatisfyRequirementUsage.input": [
-      31,
-      35,
+      62,
+      4,
       15,
       0,
       0,
@@ -82599,9 +82599,9 @@
       0
     ],
     "SatisfyRequirementUsage.subjectParameter": [
-      31,
+      62,
       4,
-      46,
+      15,
       0,
       0,
       0,
@@ -85929,8 +85929,8 @@
       0
     ],
     "StateUsage.directedFeature": [
-      3,
-      1,
+      4,
+      0,
       0,
       0,
       302,
@@ -85938,8 +85938,8 @@
       0
     ],
     "StateUsage.directedUsage": [
-      3,
-      1,
+      4,
+      0,
       0,
       0,
       302,
@@ -86064,8 +86064,8 @@
       0
     ],
     "StateUsage.input": [
-      3,
-      1,
+      4,
+      0,
       0,
       0,
       302,
@@ -86973,8 +86973,8 @@
       0
     ],
     "Step.directedFeature": [
-      6,
-      3,
+      8,
+      1,
       18,
       0,
       51,
@@ -87072,8 +87072,8 @@
       0
     ],
     "Step.input": [
-      5,
-      2,
+      7,
+      0,
       16,
       0,
       55,
@@ -87252,8 +87252,8 @@
       0
     ],
     "Step.output": [
-      5,
-      3,
+      7,
+      1,
       7,
       0,
       63,
@@ -99177,9 +99177,9 @@
       0
     ],
     "UseCaseUsage.subjectParameter": [
-      12,
-      1,
       14,
+      1,
+      12,
       0,
       0,
       0,
@@ -101292,9 +101292,9 @@
       0
     ],
     "VerificationCaseUsage.subjectParameter": [
-      4,
+      34,
       0,
-      39,
+      9,
       0,
       0,
       0,

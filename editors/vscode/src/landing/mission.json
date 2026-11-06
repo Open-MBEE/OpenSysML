@@ -102,12 +102,6 @@
           },
           {
             "id": "n5.1",
-            "name": "payload",
-            "direction": "inout",
-            "inherited": true
-          },
-          {
-            "id": "n5.2",
             "name": "receiver",
             "direction": "in",
             "inherited": true

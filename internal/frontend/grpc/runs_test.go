@@ -26,7 +26,7 @@ const runsModelSource = `package MC {
 		perform action run ::> analysed.settle;
 		attribute :>> observed : Real = analysed.t;
 		return Mean : Real = mean;
-		out N : Natural = runs;
+		out N : Natural :>> runs;
 	}
 }`
 

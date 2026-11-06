@@ -230,11 +230,32 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 99782 elements matched (18470 ours-only, 31543 pilot-only, 0 of them implied); properties: 1921680 present-equal, 128354 present-different, 322317 ours-missing, 77523 pilot-missing, 2124083 absent-both, 32770 indeterminate, 516 pilot-nondeterministic.
+**Scorecard:** 935 files; 99782 elements matched (18470 ours-only, 31543 pilot-only, 0 of them implied); properties: 1922241 present-equal, 127898 present-different, 322206 ours-missing, 77523 pilot-missing, 2124083 absent-both, 32776 indeterminate, 516 pilot-nondeterministic.
 
 Re-recorded on develop's individual-definition change (#1943: an `individual def`/`individual usage` is written as `OccurrenceDefinition`/`OccurrenceUsage` with `isIndividual`): 88 more elements match (99534 → 99622), and the 32 `OccurrenceDefinition` rows of the inherited family move from ours-missing to present-different for the causes the paragraph below already lists; no row grew.
 
 Re-recorded again on develop's further defaults (#1942: an `individual def` owns its empty `Multiplicity` first and a named connector end its `[1..1]` last): 160 more elements match (99622 → 99782, the new default `Multiplicity` elements and their memberships), the seven `Multiplicity` rows of the gap table grow 3047 → 3127 for the cause they already state (no multiplicity implied base in the side table), and the `OwningMembership` pilot-missing counts fall by four; no new row.
+
+Re-recorded on the writer that masks the positional parameter redefinition (KerML §8.4.4.6, SysML
+§8.3.6.4): a parameter with no redefinition clause redefines the parameter at its position in each general
+behavior or step — its result parameter for a result — and the redefined one is no longer inherited, in the
+semantic masking (`Model.MaskedParameterRedefinitions`, whatever the directions: a disagreeing pair is a
+direction violation, not an inherited feature) and in graph mode (`structureMaskedParameterRedefinitions`,
+which reads the general's parameter table from the graph when the general has no symbol). Pilot evidence: the
+pilot drops `TakePicture::scene` and `::picture` from `Action Decomposition::takePicture`'s
+`inheritedMembership`, `inheritedFeature`, `directedUsage` and `input`, and its validator reports `scene`
+unresolved in `action takePicture : TakePicture { in s; attribute a = scene; }`, `limit` unresolved in
+`cap :> limit` at `limit`'s position, both `p1` and `p2` unresolved for a named parameter under two
+generals (an unnamed one answers to `p1`), and `scene` unresolved for an `out` at `scene`'s position beside
+"Redefining feature must have a compatible direction". Figures: present-equal 1,921,680 → 1,922,241 (+561),
+present-different 128,354 → 127,898 (−456), ours-missing 322,317 → 322,206 (−111), indeterminate 32,770 →
+32,776 (+6), pilot-missing and matched unchanged; on the training root present-equal 157,242 → 157,425,
+present-different 11,625 → 11,454, ours-missing 22,016 → 22,002. The movement is the inherited family of
+steps whose parameters redefine their definition's by position (`usage`, `directedUsage`, `input`, `output`,
+`feature`, `member`, `membership`, `inheritedMembership`, `inheritedFeature`, `directedFeature`): rows that
+differed only by the redefined parameter are now equal, pilot-right; the six new indeterminate rows are lists
+whose remaining items are anonymous library members the bridge cannot key (`?` on the pilot's side), so they
+can no longer be compared, not a disagreement. No row grew.
 
 The pilot's export failed on 59 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples, 4 test fixtures and, since pilot `2026-09`, the three `Metadata Examples/{Requirement,Risk,Verification}MetadataExample.sysml` whose enumeration-valued metadata bindings the pilot now evaluates into elements with no resource; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 59 failed files out and converted 30 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11735 (metaclass, property) rows carry a comparison; 112895 references compared through the unkeyed sentinel, 162741 of our `sysx:` annotations were left out, and 303/368 elements (ours/pilot) were dropped for ambiguous keys, 17040/32319 for having none.
 
@@ -511,8 +532,10 @@ ours-missing):
      pilot inherits and we do not), and the positional redefinition of an unnamed parameter by its
      definition's parameter (SysML §8.3.6.4 `Usage` parameters; the pilot's `in item;` of `action shoot :
      Shoot` redefines `Shoot::image` and takes its name, so `Shoot::image` leaves `usage`, `input` and
-     `feature`; ours keeps it). The semantic model computes both for AST nodes (`ImplicitSubsettings`,
-     `ImpliedBaseFQNs`); structure mode would need rules keyed on metaclass, owner and position.
+     `feature`; ours kept it). The semantic model computes both for AST nodes (`ImplicitSubsettings`,
+     `ImpliedBaseFQNs`); structure mode needed rules keyed on metaclass, owner and position. Both are
+     closed in later records below (the nested subsettings by their own change; the positional
+     redefinition by the re-record that follows the #1942 one).
    - Two side-table gaps, recorded rather than approximated: a library feature's owned `MultiplicityRange` was
      not a member symbol of the feature (`Parts::parts/MultiplicityRange[0]` and its `OwningMembership` were
      absent from every usage's `member`/`membership`/`inheritedMembership`, one per implied usage base) — closed
