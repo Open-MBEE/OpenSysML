@@ -426,8 +426,9 @@ class Model:
 
         Example:
             >>> read = model.element_properties("Demo::Pair", "inheritedFeature")
-            >>> [str(e) for e in read["inheritedFeature"].elements][:1]
-            ['Demo::Unit::p']
+            >>> inherited = read["inheritedFeature"].elements
+            >>> str(inherited[0])
+            'Demo::Unit::p'
         """
         return self._client.get_element_properties(self._hash, element, properties)
 
