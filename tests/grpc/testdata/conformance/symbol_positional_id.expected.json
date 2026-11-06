@@ -1,0 +1,6 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "UnnamedChildren::Controller::@3",
+	"expected_kind": "bindingUsage",
+	"expected_child_ids": []
+}

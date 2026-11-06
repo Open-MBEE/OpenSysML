@@ -173,8 +173,11 @@ type conformanceCase struct {
 	ExpectedFinalContext  map[string]expectedValue        `json:"expected_final_context,omitempty"`
 
 	// GetSymbol
-	ExpectedAttributeNames []string                     `json:"expected_attribute_names,omitempty"`
-	ExpectedAttributes     map[string]expectedAttribute `json:"expected_attributes,omitempty"`
+	ExpectedAttributeNames []string `json:"expected_attribute_names,omitempty"`
+	// GetSymbol: the symbol's kind and the ids of its members, in order.
+	ExpectedKind       string                       `json:"expected_kind,omitempty"`
+	ExpectedChildIDs   []string                     `json:"expected_child_ids,omitempty"`
+	ExpectedAttributes map[string]expectedAttribute `json:"expected_attributes,omitempty"`
 	// MinWithheldLibraryAttributes requires the response to state at least this
 	// many library-inherited attributes withheld from the list.
 	MinWithheldLibraryAttributes int32 `json:"min_withheld_library_attributes,omitempty"`
@@ -855,6 +858,12 @@ func runGetSymbolCase(t *testing.T, srv *grpc.Service, ctx context.Context, mode
 		t.Fatal("expected a symbol")
 	}
 
+	if tc.ExpectedKind != "" && resp.Symbol.GetKind() != tc.ExpectedKind {
+		t.Errorf("kind = %q, want %q", resp.Symbol.GetKind(), tc.ExpectedKind)
+	}
+	if tc.ExpectedChildIDs != nil && !slices.Equal(resp.Symbol.GetChildIds(), tc.ExpectedChildIDs) {
+		t.Errorf("child_ids = %v, want %v", resp.Symbol.GetChildIds(), tc.ExpectedChildIDs)
+	}
 	attrs := resp.Symbol.GetAttributes()
 	if tc.ExpectedAttributeNames != nil {
 		var got []string
