@@ -376,28 +376,34 @@ func differentialOf(path string, data []byte) (*structureDifferential, bool) {
 			}
 		}
 	}
+	// Join every symbol to its graph id before comparing anything, so an
+	// id-valued property spells the same element the same way on both sides.
 	matchedIDs := map[string]bool{}
+	var matched []*symbols.Symbol
 	for _, sym := range symbolsSeen {
 		id, ok := diff.graphID(sym)
 		if !ok {
 			continue
 		}
-		graphElement, ok := graphByID[id]
-		if !ok {
+		if _, ok := graphByID[id]; !ok {
 			continue
 		}
 		matchedIDs[id] = true
-		diff.matched++
+		matched = append(matched, sym)
 		if effective, ok := symbolic.ElementIdentity(symbolic.ElementFor(sym)); ok {
 			diff.identityToGraph[effective] = id
 		}
-		diff.compare(graphEvaluation.evaluator, graphElement, symbolEvaluator, symbolic.ElementFor(sym))
 	}
 	for id := range graphByID {
 		diff.graphIDs[id] = true
 		if !matchedIDs[id] {
 			diff.unmatched = append(diff.unmatched, id)
 		}
+	}
+	diff.matched = len(matched)
+	for _, sym := range matched {
+		id, _ := diff.graphID(sym)
+		diff.compare(graphEvaluation.evaluator, graphByID[id], symbolEvaluator, symbolic.ElementFor(sym))
 	}
 	return diff, true
 }
