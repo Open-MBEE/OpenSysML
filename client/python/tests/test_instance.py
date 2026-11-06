@@ -378,6 +378,29 @@ class TestInstanceReach:
         assert repr(paths[1].steps[0]) == "PathStep(fuelLine -> #2)"
         assert paths.truncated is False
 
+    def test_a_feature_named_like_a_reach_attribute_is_read_by_name(self):
+        route = sysml_pb2.Instance(
+            id=7,
+            type_symbol_id="Demo::Route",
+            feature_values={
+                "path": scalar_feature("path", string_value="A-B"),
+                "owner": scalar_feature("owner", string_value="fleet"),
+            },
+            reached_by=reach(1, "route", "Demo::Vehicle::route", "route"),
+        )
+        vehicle = sysml_pb2.Instance(
+            id=1,
+            type_symbol_id="Demo::Vehicle",
+            feature_values={"route": scalar_feature("route", instance_id=7)},
+        )
+        inst = Instance(vehicle, graph={1: vehicle, 7: route}).route
+        assert inst.path == "route"
+        assert inst.owner.id == 1
+        assert inst["path"] == "A-B"
+        assert inst.get("path") == "A-B"
+        assert inst["owner"] == "fleet"
+        assert "path" in inst
+
     def test_paths_say_when_the_service_cut_them_short(self):
         from opensysml.instance import InstancePath, InstancePaths
 

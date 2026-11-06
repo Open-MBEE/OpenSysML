@@ -11,6 +11,13 @@ class Instance:
     lists and nested Instance objects. The protobuf messages remain reachable
     through ``get_feature()`` and ``raw_features``.
 
+    A feature is also an attribute (``inst.engine``), but a real attribute
+    always wins: a feature named like one of the class's own members —
+    ``id``, ``type_symbol_id``, ``features``, ``owner``, ``feature``,
+    ``feature_symbol_id``, ``index``, ``path``, ``reached_by``, ``paths``,
+    ``get`` or any other method — is read by name instead, ``inst["path"]``
+    or ``inst.get("path")``.
+
     Attributes:
         id (int): Unique instance identifier
         type_symbol_id (str): FQN of the def/usage this instantiates

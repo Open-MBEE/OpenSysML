@@ -289,7 +289,10 @@ are one object — so `paths()` asks the service for every root-relative path th
 it, aliases through connector ends and reference usages included, in traversal order.
 The service bounds that search (1000 paths, 8 steps deep); the list it returns is an
 `InstancePaths` whose `truncated` says when the bound cut it short. Both need the
-`instance_paths` capability.
+`instance_paths` capability. These are attributes of the instance, and a real attribute
+always wins over a feature of the same name: a model feature called `owner`, `feature`,
+`index`, `path` or `paths` (like one called `id` or `get`) is read by name,
+`inst["path"]` or `inst.get("path")`, not as `inst.path`.
 
 ```python
 with Connection() as conn:
