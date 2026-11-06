@@ -445,9 +445,9 @@ func TestRenderDocumentFileNameIsWithheldWithoutItsCapability(t *testing.T) {
 }
 
 // The capability is the newest, appended after every one before it.
-func TestVerdictNotesCapabilityIsTheNewest(t *testing.T) {
-	if all := Capabilities(); all[len(all)-1] != CapabilityVerdictNotes {
-		t.Errorf("capabilities %v do not end with %q, the newest", all, CapabilityVerdictNotes)
+func TestElementPropertiesCapabilityIsTheNewest(t *testing.T) {
+	if all := Capabilities(); all[len(all)-1] != CapabilityElementProperties {
+		t.Errorf("capabilities %v do not end with %q, the newest", all, CapabilityElementProperties)
 	}
 }
 
