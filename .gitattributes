@@ -1,6 +1,6 @@
 # Generated stubs and the fixtures tests compare against: GitHub collapses them in
 # diffs and leaves them out of the language statistics. Hand-maintained prose,
-# docs/project/spec-compliance.md included, is not listed here.
+# the docs/project/spec-compliance/ sources included, is not listed here.
 
 # Protobuf and Connect stubs
 api/proto/*.pb.go                                linguist-generated=true
