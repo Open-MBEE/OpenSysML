@@ -1482,6 +1482,40 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			return nil, true
 		}
 		return []*symbols.Symbol{owner}, true
+	case "owningUsage", "owningDefinition":
+		// Usage::owningType when it is a Usage, respectively a Definition (SysML v2 §8.3.6.4).
+		if !m.reflectiveMetaclassConforms(sym, "Usage") {
+			return nil, false
+		}
+		owning := "Definition"
+		if feature == "owningUsage" {
+			owning = "Usage"
+		}
+		owner := m.ownerOf(sym)
+		if owner == nil || !m.reflectiveMetaclassConforms(owner, owning) {
+			return nil, true
+		}
+		return []*symbols.Symbol{owner}, true
+	case "usage", "directedUsage":
+		// The Usages among a Usage's or Definition's `feature`, respectively `directedFeature`.
+		if !m.reflectiveMetaclassConforms(sym, "Usage") && !m.reflectiveMetaclassConforms(sym, "Definition") {
+			return nil, false
+		}
+		base := "feature"
+		if feature == "directedUsage" {
+			base = "directedFeature"
+		}
+		features, ok := m.ReflectiveElements(sym, base)
+		if !ok {
+			return nil, false
+		}
+		usages := []*symbols.Symbol{}
+		for _, member := range features {
+			if m.reflectiveMetaclassConforms(member, "Usage") {
+				usages = append(usages, member)
+			}
+		}
+		return usages, true
 	case "featuringType":
 		if !m.reflectiveMetaclassConforms(sym, "Feature") {
 			return nil, false

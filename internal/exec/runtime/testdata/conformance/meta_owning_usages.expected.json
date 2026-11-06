@@ -1,0 +1,15 @@
+{
+  "type": "instance",
+  "instantiate": "test::Report",
+  "libraries": true,
+  "slots": {
+    "occ1OwningUsages": {"type": "Integer", "value": 0},
+    "occ1OwningDefinitions": {"type": "Integer", "value": 1},
+    "occ2OwningUsages": {"type": "Integer", "value": 1},
+    "occ2OwningDefinitions": {"type": "Integer", "value": 0},
+    "topOwningUsages": {"type": "Integer", "value": 0},
+    "topOwningDefinitions": {"type": "Integer", "value": 0},
+    "occ1Usages": {"type": "Integer", "value": 2},
+    "actDirectedUsages": {"type": "Integer", "value": 2}
+  }
+}
