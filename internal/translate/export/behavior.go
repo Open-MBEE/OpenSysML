@@ -164,7 +164,12 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 
 	case *ast.SendStatement:
 		head(rdf.SysMLTerm(mSend))
-		return true, e.encodeSendArguments(n, subject, fqn)
+		if err := e.encodeSendArguments(n, subject, fqn); err != nil {
+			return true, err
+		}
+		// The body SendNode ends in declares the send's own members, after its arguments.
+		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))
+		return true, e.encode(n.Members, fqn, subject)
 
 	case *ast.TerminateStatement:
 		head(rdf.SysMLTerm(mTerminate))
@@ -1284,7 +1289,7 @@ func (d *decoder) behaviorHead(el *element) (string, bool, error) {
 	case mSend:
 		var texts [3]string
 		for i, property := range sendArgumentLinks {
-			text, err := d.sendArgument(el, property)
+			text, err := d.sendArgument(el, property, i)
 			if err != nil {
 				return "", true, err
 			}
@@ -2614,27 +2619,54 @@ func (d *decoder) payloadArgumentAgrees(accepter, payload *element) error {
 
 // sendArgument is the notation of the argument a send names at property
 // (payloadArgument, senderArgument or receiverArgument): the value of the
-// parameter it owns, or the expression itself where no parameter holds it;
-// "" for an argument the send states none of.
-func (d *decoder) sendArgument(el *element, property string) (string, error) {
+// parameter at position among those it owns (SysML v2 §8.3.17.15 argument(n)),
+// or the stated expression itself where no parameter holds it; "" for an
+// argument the send states none of. A stated argument that is not the
+// parameter's value is refused, since writing one would drop the other.
+func (d *decoder) sendArgument(el *element, property string, position int) (string, error) {
+	refuse := func(note string) (string, error) {
+		return "", &UnsupportedError{What: fmt.Sprintf("the send action <%s>", el.iri), Note: note}
+	}
 	stated := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+property)
-	if len(stated) == 0 {
-		return "", nil
-	}
 	if len(stated) > 1 {
-		return "", &UnsupportedError{
-			What: fmt.Sprintf("the send action <%s>", el.iri),
-			Note: fmt.Sprintf("it states more than one sysml:%s, and the notation writes one", property),
+		return refuse(fmt.Sprintf("it states more than one sysml:%s, and the notation writes one", property))
+	}
+	var param *element
+	if params := d.sendArgumentParams(el); position < len(params) {
+		param = params[position]
+	}
+	if param == nil {
+		if len(stated) == 0 {
+			return "", nil
+		}
+		return d.expressionNodeText(stated[0], el)
+	}
+	value, valued := d.graph.Object(rdf.IRI(param.iri), rdf.SysML+pValue)
+	switch {
+	case !valued && len(stated) == 0:
+		return "", nil
+	case !valued:
+		return refuse(fmt.Sprintf("its sysml:%s <%s> is not the value of its parameter <%s>, which holds none, and writing one would drop the other", property, stated[0].Value, param.iri))
+	case len(stated) == 1 && stated[0] != value:
+		return refuse(fmt.Sprintf("its sysml:%s <%s> is not the value of its parameter <%s>, and writing one would drop the other", property, stated[0].Value, param.iri))
+	}
+	if text, ok := d.stringOf(param, rdf.SysML+pValue); ok {
+		return text, nil
+	}
+	return d.expressionNodeText(value, el)
+}
+
+// sendArgumentParams are the parameters a send's head writes, in argument
+// order: the unnamed ones leading its parameters (SysML.xtext NodeParameterMember,
+// EmptyParameterMember), before any its body declares.
+func (d *decoder) sendArgumentParams(el *element) []*element {
+	params := d.parameterChildren(el)
+	for i, param := range params {
+		if len(d.identWords(param)) > 0 {
+			return params[:i]
 		}
 	}
-	for _, child := range d.parameterChildren(el) {
-		if value, _ := d.graph.Object(rdf.IRI(child.iri), rdf.SysML+pValue); value == stated[0] {
-			if text, ok := d.stringOf(child, rdf.SysML+pValue); ok {
-				return text, nil
-			}
-		}
-	}
-	return d.expressionNodeText(stated[0], el)
+	return params
 }
 
 // parameterChildren are the children el owns through a ParameterMembership, in order.

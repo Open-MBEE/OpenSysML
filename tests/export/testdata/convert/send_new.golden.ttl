@@ -467,6 +467,7 @@ elmt:SendNew__Downlink___402
     sysml:ownedFeatureMembership elmt:SendNew__Downlink___402___400_om, elmt:SendNew__Downlink___402___401_om ;
     sysml:payloadArgument expr:SendNew__Downlink___402___400_pvalue ;
     sysml:senderArgument expr:SendNew__Downlink___402___401_pvalue ;
+    sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        send new Telemetry(frames = 3) via antenna;\n" ;
     json:parameter "[{\"@id\":\"SendNew__Downlink___402___400\"},{\"@id\":\"SendNew__Downlink___402___401\"}]" ;
     json:input "[{\"@id\":\"SendNew__Downlink___402___400\"},{\"@id\":\"SendNew__Downlink___402___401\"}]" ;
@@ -796,6 +797,7 @@ elmt:SendNew__Downlink___403
     sysml:ownedFeatureMembership elmt:SendNew__Downlink___403___400_om, elmt:SendNew__Downlink___403___401_om, elmt:SendNew__Downlink___403___402_om ;
     sysml:payloadArgument expr:SendNew__Downlink___403___400_pvalue ;
     sysml:receiverArgument expr:SendNew__Downlink___403___402_pvalue ;
+    sysx:hasBody "false"^^xsd:boolean ;
     sysx:sourceText "        send new Command(7) to ground;\n" ;
     json:parameter "[{\"@id\":\"SendNew__Downlink___403___400\"},{\"@id\":\"SendNew__Downlink___403___401\"},{\"@id\":\"SendNew__Downlink___403___402\"}]" ;
     json:input "[{\"@id\":\"SendNew__Downlink___403___400\"},{\"@id\":\"SendNew__Downlink___403___401\"},{\"@id\":\"SendNew__Downlink___403___402\"}]" ;

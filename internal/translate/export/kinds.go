@@ -259,9 +259,7 @@ func nodeStatement(n *ast.Usage) ast.Node {
 	}
 	switch s := statement.(type) {
 	case *ast.SendStatement:
-		if !s.HasBody {
-			return s
-		}
+		return s
 	case *ast.AssignmentActionNode:
 		return s
 	}

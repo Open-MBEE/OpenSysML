@@ -1982,8 +1982,8 @@ func (d *decoder) bodyMembers(el *element) ([]*element, error) {
 		children = slices.DeleteFunc(children, func(child *element) bool { return slices.Contains(receivers, child) })
 	}
 	if el.metaclass == mSend {
-		// A send's parameters are the payload, `via` and `to` its head writes.
-		params := d.parameterChildren(el)
+		// A send's argument parameters are the payload, `via` and `to` its head writes.
+		params := d.sendArgumentParams(el)
 		children = slices.DeleteFunc(children, func(child *element) bool { return slices.Contains(params, child) })
 	}
 	return d.positionalSuccessions(children)

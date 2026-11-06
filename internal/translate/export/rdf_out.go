@@ -3867,6 +3867,11 @@ func declaredNameAndMembers(node ast.Node) (string, []ast.Node) {
 		if shorthandRelationship(n) {
 			return "", bodyMembers(n)
 		}
+		// A named send node is the statement it is written as, whose body
+		// declares the node's own members.
+		if send, ok := nodeStatement(n).(*ast.SendStatement); ok {
+			return n.Ident.Name, send.Members
+		}
 		return n.Ident.Name, bodyMembers(n)
 	case *ast.Import:
 		return "", n.Body

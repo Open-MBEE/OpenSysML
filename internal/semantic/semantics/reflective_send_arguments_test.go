@@ -208,3 +208,38 @@ func TestStateActionsAndEffectsAreSendActions(t *testing.T) {
 		t.Errorf("effect send parameter = %v, want payload and sender", params)
 	}
 }
+
+// TestSendBodyParametersFollowItsArguments: a parameter a send's body declares follows
+// the payload, sender and receiver among its parameters, inputs and directed features
+// (SysML.xtext SendNode: the arguments, then the body).
+func TestSendBodyParametersFollowItsArguments(t *testing.T) {
+	m, root := buildModelWithStdlib(t, `package S {
+    item def Alarm;
+    part def Monitor {
+        part display;
+        action supervise {
+            action delayed send new Alarm() to display { in delay : Integer = 50; }
+        }
+    }
+}
+`)
+	send := nested(t, sym(t, root, "S").Scope, "Monitor", "supervise", "delayed")
+	delay := nested(t, send.Scope, "delay")
+	if got := m.MetaclassOf(send).Name; got != "SendActionUsage" {
+		t.Fatalf("delayed metaclass = %s, want SendActionUsage", got)
+	}
+	for _, feature := range []string{"parameter", "input", "directedFeature"} {
+		got, _ := m.ReflectiveElements(send, feature)
+		if len(got) != 4 || got[3] != delay {
+			t.Fatalf("delayed %s = %v, want the payload, sender and receiver parameters then delay", feature, got)
+		}
+		for i := 0; i < 3; i++ {
+			if name := m.MetaclassOf(got[i]).Name; name != "ReferenceUsage" {
+				t.Errorf("delayed %s[%d] metaclass = %s, want ReferenceUsage", feature, i, name)
+			}
+		}
+	}
+	if got, _ := m.ReflectiveElements(send, "receiverArgument"); len(got) != 1 {
+		t.Errorf("delayed receiverArgument = %v, want the display reference", got)
+	}
+}

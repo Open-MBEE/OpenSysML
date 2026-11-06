@@ -91,6 +91,12 @@ func declMembers(sym *symbols.Symbol) []ast.Node {
 	case *ast.Definition:
 		return d.Members
 	case *ast.Usage:
+		// A send node's body is the send statement's (SysML.xtext SendNode).
+		if send := symbols.SendStatementOf(d); send != nil {
+			return send.Members
+		}
+		return d.Members
+	case *ast.SendStatement:
 		return d.Members
 	case *ast.AssumeMember:
 		return d.Body
@@ -172,6 +178,15 @@ func (m *Model) parametersOf(sym *symbols.Symbol) behaviorParameters {
 	defer delete(m.computingParams, sym)
 
 	owned := ownedParameters(sym)
+	// A send's payload, sender and receiver parameters precede the ones its body
+	// declares (SysML v2 §8.3.17.15; SysML.xtext SendNode).
+	if sendParams := m.sendParameters(sym); len(sendParams) > 0 {
+		arguments := make([]parameter, 0, len(sendParams)+len(owned))
+		for _, param := range sendParams {
+			arguments = append(arguments, parameter{sym: param, direction: ast.DirIn})
+		}
+		owned = append(arguments, owned...)
+	}
 	out := behaviorParameters{positional: positionalParameters(owned), result: resultParameter(owned)}
 
 	// Only a single general behavior or step may leave parameters inherited;

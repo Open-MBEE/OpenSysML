@@ -162,3 +162,88 @@ func TestSendShapesRoundTripThroughTurtle(t *testing.T) {
 func normalizeNotation(text string) string {
 	return strings.Join(strings.Fields(text), " ")
 }
+
+// sendBodiesModel writes sends whose body declares a member of their own (SysML.xtext
+// SendNode ends in an ActionBody), named and not.
+const sendBodiesModel = `package P {
+    item def Alarm;
+    part def Monitor {
+        part display;
+        action supervise {
+            action delayed send new Alarm() to display { in delay : Integer = 50; }
+            send new Alarm() to display { in pause : Integer = 5; }
+        }
+    }
+}
+`
+
+// TestSendBodiesBelongToTheSend: a send with a body is one SendActionUsage owning its
+// three parameters and then the body's member, as the symbol table classifies it, and
+// the graph alone reads the body back.
+func TestSendBodiesBelongToTheSend(t *testing.T) {
+	byID := apiJSONByID(t, sendBodiesModel)
+	var sends []map[string]any
+	for _, el := range byID {
+		if el["@type"] == "SendActionUsage" {
+			sends = append(sends, el)
+		}
+	}
+	if len(sends) != 2 {
+		t.Fatalf("%d SendActionUsages, want the named and the unnamed send", len(sends))
+	}
+	for _, send := range sends {
+		members, _ := send["ownedMember"].([]any)
+		if len(members) != 4 {
+			t.Fatalf("send %v owns %d members, want three parameters and the body's", send["declaredName"], len(members))
+		}
+		last := byID[members[3].(map[string]any)["@id"].(string)]
+		if name, _ := last["declaredName"].(string); name != "delay" && name != "pause" {
+			t.Errorf("send %v's last owned member is %v, want the body's parameter", send["declaredName"], last["declaredName"])
+		}
+		if params, _ := send["parameter"].([]any); len(params) != 3 {
+			t.Errorf("send %v parameter = %v, want the payload, sender and receiver", send["declaredName"], params)
+		}
+	}
+	turtle, err := convert.Convert("m.sysml", []byte(sendBodiesModel), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := normalizeNotation(string(back)), normalizeNotation(sendBodiesModel); got != want {
+		t.Errorf("the graph alone changed the model:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+// TestSendArgumentsReadFromTheirParameters: a send's ordered parameters carry its
+// arguments when the graph states no payloadArgument, senderArgument or
+// receiverArgument, and a stated one naming another value than its parameter's
+// is refused rather than one of them dropped.
+func TestSendArgumentsReadFromTheirParameters(t *testing.T) {
+	turtle, err := convert.Convert("m.sysml", []byte(sendShapesModel), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	graph := withoutTriples(t, turtle, "sysx:sourceText")
+	for _, property := range []string{"sysml:payloadArgument", "sysml:senderArgument", "sysml:receiverArgument"} {
+		graph = withoutTriples(t, graph, property)
+	}
+	back, err := convert.Convert("m.ttl", graph, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("without the argument links: %v", err)
+	}
+	if got, want := normalizeNotation(string(back)), normalizeNotation(sendShapesModel); got != want {
+		t.Errorf("the parameters alone changed the model:\n%s\nwant:\n%s", got, want)
+	}
+	stripped := string(withoutTriples(t, turtle, "sysx:sourceText"))
+	from := "sysml:receiverArgument expr:P__Monitor__supervise__notifyTo___402_pvalue"
+	if !strings.Contains(stripped, from) {
+		t.Fatalf("the graph no longer states %q:\n%s", from, stripped)
+	}
+	conflicting := strings.Replace(stripped, from, "sysml:receiverArgument expr:P__Monitor__supervise__notifyVia___401_pvalue", 1)
+	if _, err := convert.Convert("m.ttl", []byte(conflicting), convert.FormatTurtle, convert.FormatSysML); err == nil || !strings.Contains(err.Error(), "is not the value of its parameter") {
+		t.Errorf("a receiverArgument that is not the receiver parameter's value should be refused, got %v", err)
+	}
+}
