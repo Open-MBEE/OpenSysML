@@ -20,6 +20,7 @@ const knownViolationsFile = "testdata/ontology-known-violations.txt"
 // generated ontology table. The graphs are converted from the models rather than
 // embedded, so the gate keeps working when element identity changes underneath it.
 func TestGoldenGraphsMatchOntology(t *testing.T) {
+	t.Parallel()
 	known, err := readKnownViolations(knownViolationsFile)
 	if err != nil {
 		t.Fatal(err)
@@ -62,6 +63,7 @@ func TestGoldenGraphsMatchOntology(t *testing.T) {
 // does not: a member owned by a relationship — an entry action, a `#M` prefix
 // on a dependency or a subject — states its owner but no owningNamespace.
 func TestOwningNamespaceNamesANamespace(t *testing.T) {
+	t.Parallel()
 	relationshipOwned := 0
 	for _, golden := range goldenGraphs(t) {
 		path, graph := golden.path, golden.graph

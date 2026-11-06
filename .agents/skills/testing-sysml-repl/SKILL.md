@@ -3420,7 +3420,7 @@ number rather than quoting the table.
   than trusting either. Count **first-level** subtests: `variant_connection_per_owner` registers one
   sub-subtest per owner, so counting every `=== RUN` line reported 299 conformance cases where 297
   fixtures exist, and inflated the robustness row from 173 to 199. Four documents are allowed to
-  state counts (`docs/project/spec-compliance.md`, `README.md`, `docs/project/roadmap.md`,
+  state counts (the `docs/project/spec-compliance/` sources, `README.md`, `docs/project/roadmap.md`,
   `docs/project/training-examples.md`) and must be updated in one commit; anywhere else, link to
   spec-compliance rather than adding a fifth copy.
 - **Error-class claims: check the export path.** A class can exist in `opensysml.errors` and be absent
@@ -4401,7 +4401,7 @@ part def Machine {
 
 `%state …::modes`, `%advance 5`, `%current` → still `Current state: idle` (nothing in
 `RunToCompletion` polls change events; documented as ⚠️ Approximate in
-`docs/project/spec-compliance.md`). A unit-carrying time trigger (`accept after 5 [SI::s]`) fails
+the `docs/project/spec-compliance/` sources). A unit-carrying time trigger (`accept after 5 [SI::s]`) fails
 with the typed `initialize state machine: schedule events: time duration must be constant, got
 quantity`, while the unitless `accept after 5` fires at t=5 — that pair is the cheapest way to show
 the feature is absent-but-typed rather than half-present.
@@ -5955,17 +5955,20 @@ The shape that actually distinguishes working from broken:
 
 ## The embedded stdlib snapshot: proving the fast path and the fallback are both live (PR #776)
 
-`libs.SharedBase()` decodes `internal/workspace/libs/stdlib.snapshot` instead of parsing the 97 bundled
-library files, and falls back to parsing when the snapshot's recorded digest, format version or
-stream structure does not match. `bin/sysml -memstats -e '2+3' model.sysml` is the whole
-instrument: the two paths differ by an order of magnitude in allocations, so the memstats line
-tells you which one ran without any debug flag.
+`libs.SharedBase()` decodes `internal/workspace/libs/stdlib.snapshot` instead of parsing the 97
+bundled library files, and falls back to parsing when the snapshot's recorded digest, format version
+or stream structure does not match. The snapshot is generated, not committed: `make build-sysml`
+(every Makefile build and test target) runs `make stdlib-snapshot` first, while a plain `go build` or a
+`go install …@version` from the module proxy embeds none and always parses. `bin/sysml -memstats -e
+'2+3' model.sysml` is the whole instrument: the two paths differ by an order of magnitude in
+allocations, so the memstats line tells you which one ran without any debug flag.
 
 | path | how to force it | expected memstats (b7cfcf19) |
 |---|---|---|
-| snapshot | default, or `OPENSYSML_LIBRARY_PATH=<byte-identical copy of internal/workspace/libs/stdlib>` | 13–17 ms, ~67k allocations |
+| snapshot | `make build-sysml`, or `OPENSYSML_LIBRARY_PATH=<byte-identical copy of internal/workspace/libs/stdlib>` | 13–17 ms, ~67k allocations |
 | parse fallback | `OPENSYSML_LIBRARY_PATH=<copy with one comment appended to any .kerml>` | ~70 ms warm / ~220 ms cold cache, ~455k allocations |
-| structurally corrupt blob | worktree, truncate `stdlib.snapshot`, `make build-sysml` | `WARN stdlib snapshot unreadable … pack: corrupt stream`, then the fallback numbers |
+| no snapshot embedded | `rm internal/workspace/libs/stdlib.snapshot internal/workspace/libs/snapshot_embedded.go && go build -o /tmp/sysml ./cmd/sysml` (what `go install` ships) | the fallback numbers and no WARN from `sysml`; `sysml-grpc -log-level debug` logs `no stdlib snapshot embedded` |
+| structurally corrupt blob | truncate `internal/workspace/libs/stdlib.snapshot`, then `go build` (not `make`, which regenerates it) | `WARN stdlib snapshot unreadable … pack: corrupt stream`, then the fallback numbers |
 
 - The unmodified-copy case is the one that catches a digest computed over the *path* instead of
   the *content*: it must be as fast as the default, not as slow as the edited copy.

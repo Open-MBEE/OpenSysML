@@ -227,7 +227,32 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 		name = node.Name
 	}
 	labels[node.ID] = nodeLabel(node, name)
-	line := strings.Repeat("  ", depth) + node.Kind
+	b.WriteString(strings.Repeat("  ", depth) + nodeHeadLine(node, name, shown) + "\n")
+	writeNodeParts(b, node, depth, labels, ports)
+	elided := node.Elided && shown.Has(ElementCompartments)
+	for _, child := range node.Children {
+		if hiddenRow(node, child) {
+			elided = elided || shown.Has(ElementCompartments)
+			continue
+		}
+		writeNodeText(b, child, depth+1, labels, names, ports, shown)
+		if child.Kind == startKind {
+			labels[child.ID] = "start of " + labels[node.ID]
+		}
+		// A proxy on a lifeline is named through it, `producer.publish_source_event`.
+		if ports.sequence {
+			labels[child.ID] = labels[node.ID] + "." + labels[child.ID]
+		}
+	}
+	if elided {
+		b.WriteString(strings.Repeat("  ", depth+1) + ellipsisMark + "\n")
+	}
+}
+
+// nodeHeadLine is a node's own line: its kind, name and type, then what its
+// kind shows of its text, detail, placement and folding.
+func nodeHeadLine(node *Node, name string, shown Shown) string {
+	line := node.Kind
 	if name != "" {
 		line += " " + usagePrefix(node.Inherited) + name
 	}
@@ -255,7 +280,12 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 	if collapsed(node) {
 		line += " collapsed"
 	}
-	b.WriteString(line + "\n")
+	return line
+}
+
+// writeNodeParts writes a node's compartments with their rows, then its ports
+// when the view's kind shows them, labelling each row and port as it goes.
+func writeNodeParts(b *strings.Builder, node *Node, depth int, labels map[string]string, ports portView) {
 	for _, compartment := range node.Compartments {
 		b.WriteString(strings.Repeat("  ", depth+1) + compartment.Name + "\n")
 		for _, row := range compartment.Rows {
@@ -263,29 +293,11 @@ func writeNodeText(b *strings.Builder, node *Node, depth int, labels map[string]
 			b.WriteString(strings.Repeat("  ", depth+2) + rowLine(row) + "\n")
 		}
 	}
-	elided := node.Elided && shown.Has(ElementCompartments)
 	if ports.interconnection || ports.action || ports.tree || ports.sequence {
 		for _, port := range ports.of(node) {
 			labels[port.ID] = labels[node.ID] + "." + port.Name
 			b.WriteString(strings.Repeat("  ", depth+1) + pinLine(port, ports) + "\n")
 		}
-	}
-	for _, child := range node.Children {
-		if hiddenRow(node, child) {
-			elided = elided || shown.Has(ElementCompartments)
-			continue
-		}
-		writeNodeText(b, child, depth+1, labels, names, ports, shown)
-		if child.Kind == startKind {
-			labels[child.ID] = "start of " + labels[node.ID]
-		}
-		// A proxy on a lifeline is named through it, `producer.publish_source_event`.
-		if ports.sequence {
-			labels[child.ID] = labels[node.ID] + "." + labels[child.ID]
-		}
-	}
-	if elided {
-		b.WriteString(strings.Repeat("  ", depth+1) + ellipsisMark + "\n")
 	}
 }
 

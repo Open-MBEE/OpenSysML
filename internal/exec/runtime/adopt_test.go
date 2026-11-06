@@ -1905,6 +1905,7 @@ const adoptExtentBindingSrc = `package Demo {
 // document, the extent's own or another, is in the extent the re-analysis binds, while an edit
 // declaring no usage leaves the binding carried.
 func TestAdoptRebindsAnExtentWhenItsNamespaceChanges(t *testing.T) {
+	t.Parallel()
 	over := func(t *testing.T, model, other string) *Context {
 		t.Helper()
 		return contextOverDocs(t, [][2]string{{"model.sysml", model}, {"other.sysml", other}})
