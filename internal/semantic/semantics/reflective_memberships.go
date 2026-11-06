@@ -84,7 +84,8 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 }
 
 // withDefaultMultiplicity adds the OwningMembership of the Multiplicity sym states
-// (MultiplicityMember): a written range at its clause, the implicit [1..1] last.
+// (MultiplicityMember): a written range at its clause, the implicit [1..1] last, an
+// individual OccurrenceDefinition's first, as the pilot orders them.
 func (m *Model) withDefaultMultiplicity(sym *symbols.Symbol, memberships []*symbols.Symbol, ordinal int) []*symbols.Symbol {
 	member := m.MultiplicityMember(sym)
 	if member == nil {
