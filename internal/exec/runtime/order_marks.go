@@ -20,6 +20,9 @@ import (
 // the data dependence KerML leaves open: successions (Performances.kerml) and
 // send-before-accept (Transfers.kerml) order moves, and only what no such
 // HappensBefore (Occurrences.kerml) orders stands open.
+//
+// A set of choice points is a sorted, duplicate-free []int64 never written once
+// shared, so places, values and captures stand on one set (design/scheduling.md).
 
 // choiceSerials numbers the choice points a process classifies, so a mark names
 // a choice independently of where the run's notes keep it.
@@ -50,12 +53,10 @@ type orderMarks struct {
 	seeds   map[int64]markSeed
 }
 
-// clone is the marks by value, for a capture to restore.
+// clone is the marks by value, for a capture to restore; the sets are shared,
+// being never written.
 func (m orderMarks) clone() orderMarks {
-	out := orderMarks{entries: make([]orderMark, len(m.entries))}
-	for i, e := range m.entries {
-		out.entries[i] = orderMark{place: e.place, by: slices.Clone(e.by)}
-	}
+	out := orderMarks{entries: slices.Clone(m.entries)}
 	if m.seeds != nil {
 		out.seeds = make(map[int64]markSeed, len(m.seeds))
 		for s, seed := range m.seeds {
@@ -86,23 +87,22 @@ func (m *orderMarks) seed(c ChoicePoint, now float64) {
 		m.seeds = make(map[int64]markSeed)
 	}
 	m.seeds[c.serial] = markSeed{at: now, clocked: clockedChoice(c.Kind), touched: c.touched}
+	by := []int64{c.serial}
+	// Places that stood on one set before stand on one set after: it is joined once.
+	var from, joined []int64
+	joinedFrom := false
 	for _, p := range c.touched {
-		m.add(p, []int64{c.serial})
-	}
-}
-
-// add joins the serials to what the place stands on.
-func (m *orderMarks) add(p lower.Place, by []int64) {
-	if len(by) == 0 {
-		return
-	}
-	for i := range m.entries {
-		if m.entries[i].place == p {
-			m.entries[i].by = unionSerials(m.entries[i].by, by)
-			return
+		i := slices.IndexFunc(m.entries, func(e orderMark) bool { return e.place == p })
+		if i < 0 {
+			m.entries = append(m.entries, orderMark{place: p, by: by})
+			continue
 		}
+		if !joinedFrom || !sameSerials(m.entries[i].by, from) {
+			from, joinedFrom = m.entries[i].by, true
+			joined = unionSerials(from, by)
+		}
+		m.entries[i].by = joined
 	}
-	m.entries = append(m.entries, orderMark{place: p, by: slices.Clone(by)})
 }
 
 // of is what a read of the place stands on: every entry the place may name.
@@ -142,15 +142,14 @@ func (m *orderMarks) all() []int64 {
 // ordered after. Only the place itself is rewritten: a same-named place of
 // another declaration may hold a different value, which the write leaves as it was.
 func (m *orderMarks) rewrite(p lower.Place, by []int64, now float64, alike func(p, q lower.Place) bool) {
-	kept := slices.Clone(by)
+	kept := by
 	entries := m.entries[:0]
-	left := make([]int64, 0, 8)
 	for _, e := range m.entries {
 		if !samePlace(e.place, p) || !alike(e.place, p) {
 			entries = append(entries, e)
 			continue
 		}
-		left = left[:0]
+		var left []int64
 		for _, s := range e.by {
 			if seed, ok := m.seeds[s]; ok && seed.clocked && seed.at == now && touchesPlace(seed.touched, p) {
 				left = append(left, s)
@@ -216,8 +215,8 @@ func touchesPlace(touched []lower.Place, p lower.Place) bool {
 	return false
 }
 
-// unionSerials is the sorted union of two sorted slices without duplicates. It
-// returns a itself when b adds nothing to it and never writes into either argument.
+// unionSerials is the union of two sorted, duplicate-free sets: an operand itself
+// where that operand is the union, else a fresh set, by one merge of the two.
 func unionSerials(a, b []int64) []int64 {
 	i, j := 0, 0
 	for i < len(a) && j < len(b) {
@@ -232,8 +231,40 @@ func unionSerials(a, b []int64) []int64 {
 	if j == len(b) {
 		return a
 	}
-	out := make([]int64, 0, len(a)+len(b)-j)
-	out = append(out, a[:i]...)
+	if len(a) == 0 || sameSerials(a, b) {
+		return b
+	}
+	if a[len(a)-1] < b[0] {
+		if len(b) == 1 {
+			return appendSerial(a, b[0])
+		}
+		return concatSerials(a, b)
+	}
+	if b[len(b)-1] < a[0] {
+		return concatSerials(b, a)
+	}
+	n, i, j := 0, 0, 0
+	for i < len(a) && j < len(b) {
+		switch {
+		case a[i] < b[j]:
+			i++
+		case a[i] > b[j]:
+			j++
+		default:
+			i++
+			j++
+		}
+		n++
+	}
+	n += len(a) - i + len(b) - j
+	if n == len(a) {
+		return a
+	}
+	if n == len(b) {
+		return b
+	}
+	out := make([]int64, 0, n)
+	i, j = 0, 0
 	for i < len(a) && j < len(b) {
 		switch {
 		case a[i] < b[j]:
@@ -252,6 +283,35 @@ func unionSerials(a, b []int64) []int64 {
 	return append(out, b[j:]...)
 }
 
+// concatSerials is the union of two sets where every serial of a is below every
+// serial of b.
+func concatSerials(a, b []int64) []int64 {
+	out := make([]int64, 0, len(a)+len(b))
+	out = append(out, a...)
+	return append(out, b...)
+}
+
+// appendSerial joins one serial above a set's own: in place by an atomic claim of
+// the zero slot past the longest set of its array (no serial is 0), else afresh.
+func appendSerial(a []int64, s int64) []int64 {
+	if n := len(a); n < cap(a) {
+		grown := a[:n+1]
+		if atomic.CompareAndSwapInt64(&grown[n], 0, s) {
+			return grown
+		}
+	}
+	out := make([]int64, len(a)+1, 2*len(a)+2)
+	copy(out, a)
+	out[len(a)] = s
+	return out
+}
+
+// sameSerials reports whether two sets are one set: the same serials in the
+// same memory, or both empty.
+func sameSerials(a, b []int64) bool {
+	return len(a) == len(b) && (len(a) == 0 || &a[0] == &b[0])
+}
+
 // underControl runs what follows under the choice points the serials name — a
 // guard read standing on them, a branch drawn among alternatives — until
 // releaseControl of what it returns; every write made meanwhile stands on them too.
@@ -264,18 +324,25 @@ func (ctx *Context) underControl(serials []int64) int {
 			ctx.controls = append(ctx.controls, s)
 		}
 	}
+	ctx.controlSet = nil
 	return n
 }
 
 // releaseControl ends the control underControl returned n for.
-func (ctx *Context) releaseControl(n int) { ctx.controls = ctx.controls[:n] }
+func (ctx *Context) releaseControl(n int) {
+	ctx.controls = ctx.controls[:n]
+	ctx.controlSet = nil
+}
 
-// controlling is the choice points the move under way stands on by control,
-// sorted, as a slice of its own.
+// controlling is the set of choice points the move under way stands on by
+// control, kept until the controls change.
 func (ctx *Context) controlling() []int64 {
-	out := slices.Clone(ctx.controls)
-	slices.Sort(out)
-	return out
+	if ctx.controlSet == nil && len(ctx.controls) > 0 {
+		set := slices.Clone(ctx.controls)
+		slices.Sort(set)
+		ctx.controlSet = slices.Compact(set)
+	}
+	return ctx.controlSet
 }
 
 // standingOf is what a move with the footprint reads stands on: the control it
