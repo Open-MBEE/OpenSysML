@@ -10,9 +10,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
-// conjugateReferenceSource names the implied conjugate `P::'~P'` four ways: a conjugated
-// typing, a conjugated typing by the conjugate itself, which conjugates nothing further,
-// an ordinary typing and an alias (SysML v2 8.3.12.3).
+// conjugateReferenceSource names `P::'~P'` by an ordinary typing, an alias and two conjugated
+// typings, one already naming the conjugate (SysML v2 8.3.12.3).
 const conjugateReferenceSource = `package Q {
     port def P;
     part def Box {

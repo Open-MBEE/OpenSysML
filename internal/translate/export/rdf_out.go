@@ -3266,9 +3266,8 @@ func (e *encoder) relationships(subject rdf.Term, owner string, rels []*ast.Rela
 	}
 }
 
-// conjugateReference is the type a `: ~P` typing names: the ConjugatedPortDefinition
-// minted beside P when P is an element here (SysML v2 8.3.12.3), else P as written.
-// A target that is that conjugate already (`~P::'~P'`) conjugates nothing further.
+// conjugateReference is the type a `: ~P` typing names: the ConjugatedPortDefinition minted
+// beside an element P here (SysML v2 8.3.12.3), that conjugate itself unchanged, else P as written.
 func (e *encoder) conjugateReference(target rdf.Term) rdf.Term {
 	if !target.IsIRI() {
 		return target
