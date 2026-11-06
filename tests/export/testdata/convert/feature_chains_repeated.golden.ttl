@@ -482,6 +482,7 @@ expr:P__h__r_pvalue_pa0_pin0_om
     sysml:source expr:P__h__r_pvalue_pa0 ;
     sysml:target expr:P__h__r_pvalue_pa0_pin0 ;
     sysml:relatedElement expr:P__h__r_pvalue_pa0, expr:P__h__r_pvalue_pa0_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:P__h__r_pvalue_pa0_pin0 ;
     sysml:ownedMemberParameter expr:P__h__r_pvalue_pa0_pin0 ;
     json:relatedElement "[{\"@id\":\"P__h__r_pvalue_pa0\"},{\"@id\":\"P__h__r_pvalue_pa0_pin0\"}]" .
@@ -561,6 +562,7 @@ expr:P__h__r_pvalue_pin0_om
     sysml:source expr:P__h__r_pvalue ;
     sysml:target expr:P__h__r_pvalue_pin0 ;
     sysml:relatedElement expr:P__h__r_pvalue, expr:P__h__r_pvalue_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:P__h__r_pvalue_pin0 ;
     sysml:ownedMemberParameter expr:P__h__r_pvalue_pin0 ;
     json:relatedElement "[{\"@id\":\"P__h__r_pvalue\"},{\"@id\":\"P__h__r_pvalue_pin0\"}]" .
@@ -697,7 +699,11 @@ expr:P__c_pend0
     sysml:ownedReferenceSubsetting expr:P__c_pend0_prs ;
     sysml:ownedSubsetting expr:P__c_pend0_prs ;
     sysml:ownedSpecialization expr:P__c_pend0_prs ;
-    sysml:ownedRelationship expr:P__c_pend0_prs .
+    sysml:ownedRelationship expr:P__c_pend0_prs, expr:P__c_pend0_pmultiplicity_om ;
+    sysml:multiplicity expr:P__c_pend0_pmultiplicity ;
+    sysml:ownedMembership expr:P__c_pend0_pmultiplicity_om ;
+    sysml:ownedMember expr:P__c_pend0_pmultiplicity ;
+    json:ownedRelationship "[{\"@id\":\"P__c_pend0_prs\"},{\"@id\":\"P__c_pend0_pmultiplicity_om\"}]" .
 
 expr:P__c_pend0_om
     a sysml:EndFeatureMembership ;
@@ -782,6 +788,28 @@ expr:P__c_pend0_prs
     sysml:ownedRelatedElement expr:P__c_pend0_pchain ;
     json:relatedElement "[{\"@id\":\"P__c_pend0\"},{\"@id\":\"P__c_pend0_pchain\"}]" .
 
+expr:P__c_pend0_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "P__c_pend0_pmultiplicity" ;
+    sysml:owner expr:P__c_pend0 ;
+    sysml:owningRelationship expr:P__c_pend0_pmultiplicity_om ;
+    sysml:owningMembership expr:P__c_pend0_pmultiplicity_om .
+
+expr:P__c_pend0_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "P__c_pend0_pmultiplicity_om" ;
+    sysml:owner expr:P__c_pend0 ;
+    sysml:memberElement expr:P__c_pend0_pmultiplicity ;
+    sysml:ownedMemberElement expr:P__c_pend0_pmultiplicity ;
+    sysml:ownedRelatedElement expr:P__c_pend0_pmultiplicity ;
+    sysml:owningRelatedElement expr:P__c_pend0 ;
+    sysml:membershipOwningNamespace expr:P__c_pend0 ;
+    sysml:source expr:P__c_pend0 ;
+    sysml:target expr:P__c_pend0_pmultiplicity ;
+    sysml:relatedElement expr:P__c_pend0, expr:P__c_pend0_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"P__c_pend0\"},{\"@id\":\"P__c_pend0_pmultiplicity\"}]" .
+
 expr:P__c_pend1
     a sysml:ReferenceUsage ;
     sysml:isComposite "false"^^xsd:boolean ;
@@ -797,7 +825,11 @@ expr:P__c_pend1
     sysml:ownedReferenceSubsetting expr:P__c_pend1_prs ;
     sysml:ownedSubsetting expr:P__c_pend1_prs ;
     sysml:ownedSpecialization expr:P__c_pend1_prs ;
-    sysml:ownedRelationship expr:P__c_pend1_prs .
+    sysml:ownedRelationship expr:P__c_pend1_prs, expr:P__c_pend1_pmultiplicity_om ;
+    sysml:multiplicity expr:P__c_pend1_pmultiplicity ;
+    sysml:ownedMembership expr:P__c_pend1_pmultiplicity_om ;
+    sysml:ownedMember expr:P__c_pend1_pmultiplicity ;
+    json:ownedRelationship "[{\"@id\":\"P__c_pend1_prs\"},{\"@id\":\"P__c_pend1_pmultiplicity_om\"}]" .
 
 expr:P__c_pend1_om
     a sysml:EndFeatureMembership ;
@@ -869,6 +901,28 @@ expr:P__c_pend1_prs
     sysml:owningRelatedElement expr:P__c_pend1 ;
     sysml:ownedRelatedElement expr:P__c_pend1_pchain ;
     json:relatedElement "[{\"@id\":\"P__c_pend1\"},{\"@id\":\"P__c_pend1_pchain\"}]" .
+
+expr:P__c_pend1_pmultiplicity
+    a sysml:Multiplicity ;
+    sysml:isComposite "false"^^xsd:boolean ;
+    sysml:elementId "P__c_pend1_pmultiplicity" ;
+    sysml:owner expr:P__c_pend1 ;
+    sysml:owningRelationship expr:P__c_pend1_pmultiplicity_om ;
+    sysml:owningMembership expr:P__c_pend1_pmultiplicity_om .
+
+expr:P__c_pend1_pmultiplicity_om
+    a sysml:OwningMembership ;
+    sysml:elementId "P__c_pend1_pmultiplicity_om" ;
+    sysml:owner expr:P__c_pend1 ;
+    sysml:memberElement expr:P__c_pend1_pmultiplicity ;
+    sysml:ownedMemberElement expr:P__c_pend1_pmultiplicity ;
+    sysml:ownedRelatedElement expr:P__c_pend1_pmultiplicity ;
+    sysml:owningRelatedElement expr:P__c_pend1 ;
+    sysml:membershipOwningNamespace expr:P__c_pend1 ;
+    sysml:source expr:P__c_pend1 ;
+    sysml:target expr:P__c_pend1_pmultiplicity ;
+    sysml:relatedElement expr:P__c_pend1, expr:P__c_pend1_pmultiplicity ;
+    json:relatedElement "[{\"@id\":\"P__c_pend1\"},{\"@id\":\"P__c_pend1_pmultiplicity\"}]" .
 
 elmt:P__Node__next_ft0
     a sysml:FeatureTyping ;

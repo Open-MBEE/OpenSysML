@@ -74,13 +74,25 @@ func TestCircleCIShardArraysMatchTheRaceShards(t *testing.T) {
 	if !slices.Equal(race, shards) {
 		t.Errorf("race job shards %v, scripts/race-shard.sh %v", race, shards)
 	}
-	wantCoverage := slices.DeleteFunc(slices.Clone(shards), isCorpusShard)
+	wantCoverage := slices.DeleteFunc(slices.Clone(shards), func(s string) bool { return s == "runtime-corpus" })
 	if !slices.Equal(coverage, wantCoverage) {
-		t.Errorf("coverage job shards %v, want the race shards but the -corpus ones %v", coverage, wantCoverage)
+		t.Errorf("coverage job shards %v, want the race shards but runtime-corpus %v", coverage, wantCoverage)
 	}
 	makeCoverage := strings.Fields(firstSubmatch(t, makefileCoverage, makefile, "Makefile COVERAGE_SHARDS"))
 	if !slices.Equal(coverage, makeCoverage) {
 		t.Errorf("coverage job shards %v, Makefile COVERAGE_SHARDS %v", coverage, makeCoverage)
+	}
+	// A by-test-name shard and the package shard it is cut from each select their tests in
+	// make coverage-shard; without that both would write the whole package's profile.
+	for _, shard := range coverage {
+		if !isCorpusShard(shard) {
+			continue
+		}
+		for _, s := range []string{shard, strings.SplitN(shard, "-", 2)[0]} {
+			if !strings.Contains(makefile, "\nCOVERAGE_SELECT_"+s+" = ") {
+				t.Errorf("coverage shard %s: the Makefile has no COVERAGE_SELECT_%s", shard, s)
+			}
+		}
 	}
 
 	parallelism := map[string]string{}

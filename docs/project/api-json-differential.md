@@ -230,25 +230,44 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 99782 elements matched (18470 ours-only, 31543 pilot-only, 0 of them implied); properties: 1921680 present-equal, 128354 present-different, 322317 ours-missing, 77523 pilot-missing, 2124083 absent-both, 32770 indeterminate, 516 pilot-nondeterministic.
+**Scorecard:** 935 files; 99784 elements matched (18960 ours-only, 31541 pilot-only, 0 of them implied); properties: 1924978 present-equal, 125092 present-different, 322320 ours-missing, 77524 pilot-missing, 2124127 absent-both, 32771 indeterminate, 516 pilot-nondeterministic.
 
 Re-recorded on develop's individual-definition change (#1943: an `individual def`/`individual usage` is written as `OccurrenceDefinition`/`OccurrenceUsage` with `isIndividual`): 88 more elements match (99534 → 99622), and the 32 `OccurrenceDefinition` rows of the inherited family move from ours-missing to present-different for the causes the paragraph below already lists; no row grew.
 
 Re-recorded again on develop's further defaults (#1942: an `individual def` owns its empty `Multiplicity` first and a named connector end its `[1..1]` last): 160 more elements match (99622 → 99782, the new default `Multiplicity` elements and their memberships), the seven `Multiplicity` rows of the gap table grow 3047 → 3127 for the cause they already state (no multiplicity implied base in the side table), and the `OwningMembership` pilot-missing counts fall by four; no new row.
 
+Re-recorded on the operand visibility change (an operator's operand, a `->` form's receiver and its body are owned by private `ParameterMembership`s, an argument list's arguments and a trigger's `after`/`at`/`when` argument by public ones — the pilot's `OperandEList` against KerMLExpressions.xtext `ArgumentMember`): `ParameterMembership.visibility` moves from 1296 equal / 3289 present-different to 4557 equal / 28 present-different, present-different properties 128353 → 125092; no other row moved and no element's match changed. The 28 left are the operand-less forms `(as T)`, `@T` and `istype T` of a filter: the pilot gives them an implicit self operand (`operand += SelfReferenceExpression`), owned first by a private `ParameterMembership`, and writes a cast's type as a `ReturnParameterMembership` (`TypeResultMember`); this repository writes the type argument alone, as a public `ParameterMembership` — a writer follow-up.
+
 The pilot's export failed on 59 files (`pilotFailed`: its own export throws on an element without a resource, 52 of them specification examples, 4 test fixtures and, since pilot `2026-09`, the three `Metadata Examples/{Requirement,Risk,Verification}MetadataExample.sysml` whose enumeration-valued metadata bindings the pilot now evaluates into elements with no resource; the files are named in the run's text report), ours refused 36 (all of them specification examples the parser could not read whole), left the pilot's 59 failed files out and converted 30 documents alone for declaring an element another document of their root declares (`oursColliding`); no root fell back to per-document conversion. 11735 (metaclass, property) rows carry a comparison; 112895 references compared through the unkeyed sentinel, 162741 of our `sysx:` annotations were left out, and 303/368 elements (ours/pilot) were dropped for ambiguous keys, 17040/32319 for having none.
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 7973 | 1164 | 2193 | 156169 | 11579 | 21958 | 5615 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 28124 | 6156 | 7992 | 551704 | 39321 | 88626 | 21009 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 9967 | 1896 | 2632 | 193869 | 15318 | 28561 | 7489 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 6405 | 1153 | 1836 | 113439 | 8838 | 19509 | 7607 |
-| `examples/spec-examples` | 511 | 7360 | 989 | 2370 | 128419 | 6190 | 23306 | 6190 |
-| `tests/testdata` | 40 | 1513 | 174 | 458 | 27541 | 1968 | 4389 | 1186 |
-| `examples` | 56 | 30652 | 6075 | 12488 | 598043 | 36600 | 106048 | 23157 |
-| `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 885 | 33 | 90 | 41 |
-| `docs/manual/examples` | 11 | 7487 | 922 | 1822 | 146433 | 8603 | 30167 | 5072 |
+| `examples/sysml-v2-training` | 100 | 8026 | 1138 | 2140 | 157493 | 11374 | 22016 | 5661 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 28254 | 6251 | 7862 | 555535 | 38046 | 88477 | 21084 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 10015 | 1893 | 2584 | 195350 | 14911 | 28337 | 7514 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 6405 | 1153 | 1836 | 113569 | 8708 | 19509 | 7607 |
+| `examples/spec-examples` | 511 | 7371 | 997 | 2359 | 128679 | 6124 | 23320 | 6196 |
+| `tests/testdata` | 40 | 1513 | 174 | 458 | 27592 | 1917 | 4389 | 1186 |
+| `examples` | 56 | 30660 | 6344 | 12480 | 599268 | 35550 | 106015 | 23163 |
+| `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 887 | 31 | 90 | 41 |
+| `docs/manual/examples` | 11 | 7487 | 1010 | 1822 | 146605 | 8431 | 30167 | 5072 |
+
+**Every connector end's `[1..1]`** (re-recorded when the writer began stating the implicit `[1..1]`
+of a positional end — `connect a to b`, `bind a = b`, `first s1 then s2`, `allocate a to b` — as it
+already did a named end's, SysML v2 §7.13.2 "If a multiplicity is not explicitly declared for an end
+feature, then a default of 1..1 is implicitly declared for it"; the pinned pilot states one on every
+such end (`source`/`target`, `thisThing`/`sameThing`, `earlierOccurrence`/`laterOccurrence`, an
+interface definition's ends) and none on a flow usage's `FlowEnd`s, which the writer leaves alone):
+90 rows moved. 490 Multiplicity elements are ours-only, not matched: the positional end owning each
+is an end the referee cannot pair (the pilot names it `source`/`target`, ours is positional —
+`ConnectionUsage.ownedEndFeature` 8 equal, 81 different, unchanged), so its Multiplicity has no pilot
+counterpart to pair with either. The one positional end it does pair gains its Multiplicity:
+`ReferenceUsage.multiplicity` ours-missing 1 → 0, every `Multiplicity` row 3127 → 3128 and
+`OwningMembership` row 12824 → 12825 (the same columns as before), `ReferenceUsage.ownedElement`,
+`ownedMember` and `ownedMembership` ours-missing 10/9/9 → 9/8/8; matched elements 99782 → 99784,
+ours-only 18470 → 18960, pilot-only 31543 → 31541; nothing else moved (the same 90 rows against develop's
+#1915 writer as against the one before it; the gap table's seven `Multiplicity` rows grow 3127 → 3128 for the
+cause they already state).
 
 **Defaulted parameters of an invocation** (re-recorded with the extension libraries at
 `DocumentQueries::WhereType(…, exact = false)` and `Differ`): the pilot's `InvocationExpression.parameter`
@@ -584,16 +603,16 @@ The largest **present-different** rows, with the reading the examples support:
 
 | metaclass | property | present-equal | present-different |
 |---|---|---:|---:|
-| `Feature` | `ownedRelationship` | 4206 | 1532 |
-| `AttributeUsage` | `ownedRelationship` | 1257 | 1245 |
-| `PartUsage` | `ownedRelationship` | 840 | 1054 |
-| `PartUsage` | `ownedMember` | 339 | 722 |
-| `AttributeUsage` | `ownedMembership` | 1194 | 668 |
-| `PartUsage` | `ownedMembership` | 679 | 668 |
+| `Feature` | `ownedRelationship` | 4206 | 1531 |
+| `AttributeUsage` | `ownedRelationship` | 2522 | 15 |
+| `PartUsage` | `ownedRelationship` | 1840 | 109 |
+| `PartUsage` | `ownedMember` | 1594 | 136 |
+| `AttributeUsage` | `ownedMembership` | 2459 | 11 |
+| `PartUsage` | `ownedMembership` | 1693 | 74 |
 | `Feature` | `ownedMembership` | 4447 | 571 |
-| `FeatureMembership` | `memberElement` | 9476 | 570 |
-| `FeatureMembership` | `ownedMemberElement` | 9476 | 570 |
-| `FeatureMembership` | `ownedRelatedElement` | 9476 | 570 |
+| `FeatureMembership` | `memberElement` | 9510 | 573 |
+| `FeatureMembership` | `ownedMemberElement` | 9510 | 573 |
+| `FeatureMembership` | `ownedRelatedElement` | 9510 | 573 |
 
 ### Where the pilot states nothing and we do
 
@@ -801,12 +820,12 @@ The (metaclass, property) rows ranked by the corpus elements on which the pilot 
 | 58 | `FeatureMembership` | `source` | 0 | 0 | closed — the RDF conversion states a membership's ends (this record's membership paragraph); the present-different are the member's own keying, as `memberElement` | `Relationship::source`, which Membership redefines as `[membershipOwningNamespace]` (KerML 8.3.2.3.5) |
 | 59 | `FeatureMembership` | `isLibraryElement` | 0 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`; writes `true` on library elements only, never `false`) | `Element::isLibraryElement = libraryNamespace() <> null` (KerML 8.3.2.1, deriveElementIsLibraryElement); the pilot writes `false` on every user element |
 | 60 | `Feature` | `isLibraryElement` | 0 | 0 | PR #1232 (`feature/api-json-derived-properties-layered`; writes `true` on library elements only, never `false`) | `Element::isLibraryElement = libraryNamespace() <> null` (KerML 8.3.2.1, deriveElementIsLibraryElement); the pilot writes `false` on every user element |
-| 61 | `Multiplicity` | `feature` | 3127 | 0 | not completed — side-table gap (multiplicity implied base) | `Multiplicity`/`MultiplicityRange` must specialize `Base::naturals` (KerML 8.3.3.3.4 checkMultiplicitySpecialization, 8.3.3.3.5); the semantic side tables compute no implied base for a multiplicity (`ImpliedBaseFQNs` has no multiplicity case, and `Base::naturals` is named nowhere in `internal/semantic/semantics`), so structure mode inherits nothing for the implied-default `Multiplicity` elements develop writes since #1930 — a side-table gap, recorded rather than approximated |
-| 62 | `Multiplicity` | `featureMembership` | 3127 | 0 | not completed — side-table gap (multiplicity implied base) | `Multiplicity`/`MultiplicityRange` must specialize `Base::naturals` (KerML 8.3.3.3.4 checkMultiplicitySpecialization, 8.3.3.3.5); the semantic side tables compute no implied base for a multiplicity (`ImpliedBaseFQNs` has no multiplicity case, and `Base::naturals` is named nowhere in `internal/semantic/semantics`), so structure mode inherits nothing for the implied-default `Multiplicity` elements develop writes since #1930 — a side-table gap, recorded rather than approximated |
-| 63 | `Multiplicity` | `inheritedFeature` | 3127 | 0 | not completed — side-table gap (multiplicity implied base) | `Multiplicity`/`MultiplicityRange` must specialize `Base::naturals` (KerML 8.3.3.3.4 checkMultiplicitySpecialization, 8.3.3.3.5); the semantic side tables compute no implied base for a multiplicity (`ImpliedBaseFQNs` has no multiplicity case, and `Base::naturals` is named nowhere in `internal/semantic/semantics`), so structure mode inherits nothing for the implied-default `Multiplicity` elements develop writes since #1930 — a side-table gap, recorded rather than approximated |
-| 64 | `Multiplicity` | `type` | 3127 | 0 | not completed — side-table gap (multiplicity implied base) | `Multiplicity`/`MultiplicityRange` must specialize `Base::naturals` (KerML 8.3.3.3.4 checkMultiplicitySpecialization, 8.3.3.3.5); the semantic side tables compute no implied base for a multiplicity (`ImpliedBaseFQNs` has no multiplicity case, and `Base::naturals` is named nowhere in `internal/semantic/semantics`), so structure mode inherits nothing for the implied-default `Multiplicity` elements develop writes since #1930 — a side-table gap, recorded rather than approximated |
-| 65 | `Multiplicity` | `inheritedMembership` | 3126 | 1 | not completed — side-table gap (multiplicity implied base) | `Multiplicity`/`MultiplicityRange` must specialize `Base::naturals` (KerML 8.3.3.3.4 checkMultiplicitySpecialization, 8.3.3.3.5); the semantic side tables compute no implied base for a multiplicity (`ImpliedBaseFQNs` has no multiplicity case, and `Base::naturals` is named nowhere in `internal/semantic/semantics`), so structure mode inherits nothing for the implied-default `Multiplicity` elements develop writes since #1930 — a side-table gap, recorded rather than approximated |
-| 66 | `Multiplicity` | `member` | 3126 | 1 | not completed — side-table gap (multiplicity implied base) | `Multiplicity`/`MultiplicityRange` must specialize `Base::naturals` (KerML 8.3.3.3.4 checkMultiplicitySpecialization, 8.3.3.3.5); the semantic side tables compute no implied base for a multiplicity (`ImpliedBaseFQNs` has no multiplicity case, and `Base::naturals` is named nowhere in `internal/semantic/semantics`), so structure mode inherits nothing for the implied-default `Multiplicity` elements develop writes since #1930 — a side-table gap, recorded rather than approximated |
-| 67 | `Multiplicity` | `membership` | 3126 | 1 | not completed — side-table gap (multiplicity implied base) | `Multiplicity`/`MultiplicityRange` must specialize `Base::naturals` (KerML 8.3.3.3.4 checkMultiplicitySpecialization, 8.3.3.3.5); the semantic side tables compute no implied base for a multiplicity (`ImpliedBaseFQNs` has no multiplicity case, and `Base::naturals` is named nowhere in `internal/semantic/semantics`), so structure mode inherits nothing for the implied-default `Multiplicity` elements develop writes since #1930 — a side-table gap, recorded rather than approximated |
+| 61 | `Multiplicity` | `feature` | 3128 | 0 | not completed — side-table gap (multiplicity implied base) | `Multiplicity`/`MultiplicityRange` must specialize `Base::naturals` (KerML 8.3.3.3.4 checkMultiplicitySpecialization, 8.3.3.3.5); the semantic side tables compute no implied base for a multiplicity (`ImpliedBaseFQNs` has no multiplicity case, and `Base::naturals` is named nowhere in `internal/semantic/semantics`), so structure mode inherits nothing for the implied-default `Multiplicity` elements develop writes since #1930 — a side-table gap, recorded rather than approximated |
+| 62 | `Multiplicity` | `featureMembership` | 3128 | 0 | not completed — side-table gap (multiplicity implied base) | `Multiplicity`/`MultiplicityRange` must specialize `Base::naturals` (KerML 8.3.3.3.4 checkMultiplicitySpecialization, 8.3.3.3.5); the semantic side tables compute no implied base for a multiplicity (`ImpliedBaseFQNs` has no multiplicity case, and `Base::naturals` is named nowhere in `internal/semantic/semantics`), so structure mode inherits nothing for the implied-default `Multiplicity` elements develop writes since #1930 — a side-table gap, recorded rather than approximated |
+| 63 | `Multiplicity` | `inheritedFeature` | 3128 | 0 | not completed — side-table gap (multiplicity implied base) | `Multiplicity`/`MultiplicityRange` must specialize `Base::naturals` (KerML 8.3.3.3.4 checkMultiplicitySpecialization, 8.3.3.3.5); the semantic side tables compute no implied base for a multiplicity (`ImpliedBaseFQNs` has no multiplicity case, and `Base::naturals` is named nowhere in `internal/semantic/semantics`), so structure mode inherits nothing for the implied-default `Multiplicity` elements develop writes since #1930 — a side-table gap, recorded rather than approximated |
+| 64 | `Multiplicity` | `type` | 3128 | 0 | not completed — side-table gap (multiplicity implied base) | `Multiplicity`/`MultiplicityRange` must specialize `Base::naturals` (KerML 8.3.3.3.4 checkMultiplicitySpecialization, 8.3.3.3.5); the semantic side tables compute no implied base for a multiplicity (`ImpliedBaseFQNs` has no multiplicity case, and `Base::naturals` is named nowhere in `internal/semantic/semantics`), so structure mode inherits nothing for the implied-default `Multiplicity` elements develop writes since #1930 — a side-table gap, recorded rather than approximated |
+| 65 | `Multiplicity` | `inheritedMembership` | 3127 | 1 | not completed — side-table gap (multiplicity implied base) | `Multiplicity`/`MultiplicityRange` must specialize `Base::naturals` (KerML 8.3.3.3.4 checkMultiplicitySpecialization, 8.3.3.3.5); the semantic side tables compute no implied base for a multiplicity (`ImpliedBaseFQNs` has no multiplicity case, and `Base::naturals` is named nowhere in `internal/semantic/semantics`), so structure mode inherits nothing for the implied-default `Multiplicity` elements develop writes since #1930 — a side-table gap, recorded rather than approximated |
+| 66 | `Multiplicity` | `member` | 3127 | 1 | not completed — side-table gap (multiplicity implied base) | `Multiplicity`/`MultiplicityRange` must specialize `Base::naturals` (KerML 8.3.3.3.4 checkMultiplicitySpecialization, 8.3.3.3.5); the semantic side tables compute no implied base for a multiplicity (`ImpliedBaseFQNs` has no multiplicity case, and `Base::naturals` is named nowhere in `internal/semantic/semantics`), so structure mode inherits nothing for the implied-default `Multiplicity` elements develop writes since #1930 — a side-table gap, recorded rather than approximated |
+| 67 | `Multiplicity` | `membership` | 3127 | 1 | not completed — side-table gap (multiplicity implied base) | `Multiplicity`/`MultiplicityRange` must specialize `Base::naturals` (KerML 8.3.3.3.4 checkMultiplicitySpecialization, 8.3.3.3.5); the semantic side tables compute no implied base for a multiplicity (`ImpliedBaseFQNs` has no multiplicity case, and `Base::naturals` is named nowhere in `internal/semantic/semantics`), so structure mode inherits nothing for the implied-default `Multiplicity` elements develop writes since #1930 — a side-table gap, recorded rather than approximated |
 
 Rows an evaluator rule in PR #1232 (`internal/semantic/metamodel/rules.go`) already names are marked; that PR adds a lazy metamodel evaluator and layers its derived values into the API-JSON writer, so its merge is expected to move those rows from ours-missing to present-equal or present-different, and this referee is how that movement is measured.
