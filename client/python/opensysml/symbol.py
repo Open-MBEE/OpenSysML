@@ -355,14 +355,17 @@ class Symbol:
         A service without ``symbol_members`` cannot enumerate inherited members,
         so against one this method still follows the declared specializations
         itself, as it did before the service enumerated members: the inherited
-        attributes it finds are ordered as :meth:`attribute_facts` reports them
-        and carry :attr:`inherited_from`.
+        attributes it finds are ordered as :meth:`attribute_facts` reports them,
+        carry :attr:`inherited_from`, and the result counts
+        :attr:`withheld_library_attributes`; ``library=True`` still needs the
+        capability, since such a service cannot list library content.
 
         Returns:
             :class:`Members`, a list of attribute Symbol objects
         """
         if (
             inherited
+            and not library
             and self._client is not None
             and not self._client.server_info().has(CAPABILITY_SYMBOL_MEMBERS)
         ):
@@ -385,7 +388,7 @@ class Symbol:
         # A declared attribute the service did not report — an unnamed one, or an
         # older service — is still this symbol's, so it is kept.
         ordered += [attr for attr in declared if attr.name not in reported]
-        self._walked_cache = Members(ordered, self._pb.withheld_library_members)
+        self._walked_cache = Members(ordered, self._pb.withheld_library_attributes)
         return self._walked_cache
 
     def _inherited_attributes(self, visited: set) -> List["Symbol"]:

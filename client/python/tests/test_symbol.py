@@ -424,11 +424,15 @@ class TestSymbolAttributeFacts:
         car_info = self._car_info(mock_client)
         del car_info.members[:]
         car_info.withheld_library_members = 0
+        car_info.withheld_library_attributes = 3
         car = Symbol(car_info, mock_client, "model_abc123")
 
         attributes = car.attributes()
 
         assert [attr.name for attr in attributes] == ["mass", "label"]
+        assert attributes.withheld_library == 3
+        with pytest.raises(MissingCapabilityError):
+            car.attributes(library=True)
         assert not attributes[0].inherited
         assert attributes[1].id == "Demo::Base::label"
         assert attributes[1].inherited_from == "Demo::Base"
