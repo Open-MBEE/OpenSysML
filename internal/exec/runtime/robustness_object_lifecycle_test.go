@@ -13,6 +13,7 @@ import (
 // referred to, releases it from the extent, ends the machine it exhibits, refuses a second
 // destruction and later reads with typed errors, and stays deterministic under exploration.
 func TestRuntimeRobustnessObjectLifecycle(t *testing.T) {
+	t.Parallel()
 	t.Run("two_objects_of_one_usage_are_distinct_and_held", testObjectLifecycleTwoOfOneUsage)
 	t.Run("creation_in_a_loop", testObjectLifecycleCreationInLoop)
 	t.Run("destroy_through_a_reference_ends_the_held_object", testObjectLifecycleDestroyThroughReference)

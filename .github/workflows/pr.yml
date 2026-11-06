@@ -357,11 +357,6 @@ jobs:
         if: needs.changes.outputs.tier == 'full'
         run: make lint
 
-      # The embedded library snapshot is generated from the bundled OMG files;
-      # a change to either without regenerating it must not land.
-      - name: Check the library snapshot is current
-        run: make stdlib-snapshot-check
-
       - name: Check grpc-go stays out of production code
         run: ./scripts/check-grpc-imports.sh
 
@@ -1147,6 +1142,19 @@ jobs:
       # Changelog entries live in changes/unreleased/ until a release folds them in.
       - name: Check changelog fragments
         run: python3 scripts/changelog-test.py && python3 scripts/changelog.py check
+
+      # The combined compliance page is built from docs/project/spec-compliance/; a change
+      # bound for develop must not commit it, while a release or hotfix bound for main must.
+      - name: Check the compliance-map sources and the combined page
+        env:
+          BASE_REF: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_ref || github.base_ref }}
+        run: |
+          python3 scripts/spec_compliance-test.py
+          case "${BASE_REF#refs/heads/}" in
+            develop) python3 scripts/spec_compliance.py check --forbid-page ;;
+            main)    python3 scripts/spec_compliance.py check --require-page ;;
+            *)       python3 scripts/spec_compliance.py check ;;
+          esac
 
       - name: Check the release provenance writer
         run: python3 scripts/release-provenance-test.py

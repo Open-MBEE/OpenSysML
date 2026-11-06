@@ -37,7 +37,7 @@ func TestEvaluateViaTriggerReceiverArgument(t *testing.T) {
 	if elements := name.GetSequence().GetElements(); len(elements) == 1 {
 		name = elements[0]
 	}
-	if got := name.GetStringValue(); got != "p" {
+	if name.GetStringValue() != "p" {
 		t.Errorf("receiverArgument.referent.declaredName = %v, want p", name)
 	}
 	if got := evaluate(accept + ".receiverArgument istype SysML::FeatureReferenceExpression"); !got.GetBoolValue() {
