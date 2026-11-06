@@ -398,6 +398,40 @@ class Model:
         """
         return Editor(self._hash, self.connection)
 
+    def element_properties(self, element, *properties):
+        """Read the metamodel properties of one element by their specification names.
+
+        The KerML 1.1 / SysML 2.1 abstract syntax of the element —
+        ``inheritedFeature``, ``connectorEnd``, ``directedFeature``,
+        ``payloadType``, ... — as the model's API element form spells it. An
+        element reference in the answer carries the form's id, which this method
+        accepts back, so the graph is walked with one vocabulary. See
+        :mod:`opensysml.element_properties`.
+
+        Args:
+            element (str): The element: its qualified name, the positional id of
+                an unnamed member (``Owner::@2``), or an element form id
+            *properties (str): Specification names to read; none reads every
+                property the element form carries for the element
+
+        Returns:
+            ElementProperties: The element and one entry per property, each with
+            its values or why it has none
+
+        Raises:
+            MissingCapabilityError: If the service lacks ``element_properties``
+            SymbolNotFoundError: If the model has no such element
+            ConversionError: If a document of the model could not be read whole
+            ModelNotFoundError: If the service no longer holds this model
+
+        Example:
+            >>> read = model.element_properties("Demo::Pair", "inheritedFeature")
+            >>> inherited = read["inheritedFeature"].elements
+            >>> str(inherited[0])
+            'Demo::Unit::p'
+        """
+        return self._client.get_element_properties(self._hash, element, properties)
+
     def query(self, payload=None, scope=None, select=None, where=None, order_by=None,
               oslc=None):
         """Run a SysML v2 API & Services Query over this model.

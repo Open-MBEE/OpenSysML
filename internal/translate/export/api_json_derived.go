@@ -241,16 +241,30 @@ func (w *apiJSONElementWriter) completeDerived(subject rdf.Term, metaclass strin
 		if spelled == nil {
 			value, supported := w.evaluation.evaluator.PropertyReadOnlyUncached(semanticElement, property.class, property.name)
 			if !supported {
+				reason, explained := w.evaluation.evaluator.Explain(semanticElement, property.class, property.name)
+				if !explained {
+					reason = metamodel.Reason{Category: metamodel.ReasonNoRule, Detail: property.class + "::" + property.name}
+				}
+				w.completionOmitted(subject, metaclass, property.name, reason)
 				continue
 			}
 			var ok bool
 			if spelled, ok = w.derivedJSONValue(value); !ok {
+				if !derivedValueEmpty(value) {
+					w.completionOmitted(subject, metaclass, property.name, metamodel.Reason{
+						Category: metamodel.ReasonUnrepresentedElement, Detail: property.class + "::" + property.name,
+					})
+				}
 				continue
 			}
 			// A single-valued property is spelled as its one value, as the graph's would be.
 			if definition, known := ontology.PropertyOf(metaclass, property.name); known && !definition.Many {
 				values, sequence := spelled.([]any)
 				if sequence && len(values) != 1 {
+					w.completionOmitted(subject, metaclass, property.name, metamodel.Reason{
+						Category: metamodel.ReasonIncompleteStructure,
+						Detail:   fmt.Sprintf("%d values for the single-valued %s::%s", len(values), property.class, property.name),
+					})
 					continue
 				}
 				if sequence {
@@ -265,6 +279,22 @@ func (w *apiJSONElementWriter) completeDerived(subject rdf.Term, metaclass strin
 		element = append(element, apiJSONMember{key: apiJSONCompletedPropertiesKey, value: completed})
 	}
 	return element
+}
+
+// completionOmitted reports a completed property the subject's element object
+// does not carry, and why, to the writer's Omitted option.
+func (w *apiJSONElementWriter) completionOmitted(subject rdf.Term, metaclass, property string, reason metamodel.Reason) {
+	if w.options.Omitted == nil {
+		return
+	}
+	id, _ := rdf.SubjectID(subject)
+	w.options.Omitted(APIJSONOmission{Subject: id, Metaclass: metaclass, Property: property, Reason: reason})
+}
+
+// derivedValueEmpty reports a value the element form spells by omission: null,
+// or an empty collection.
+func derivedValueEmpty(value metamodel.Value) bool {
+	return value.Kind == metamodel.NullValue || (value.Kind == metamodel.SequenceValue && len(value.Values) == 0)
 }
 
 // derivedJSONValue spells an evaluator value in the element form; a null or
@@ -286,13 +316,13 @@ func (w *apiJSONElementWriter) derivedJSONValue(value metamodel.Value) (any, boo
 		if !ok {
 			return nil, false
 		}
-		return apiJSONReference{ID: id}, true
+		return APIJSONReference{ID: id}, true
 	case metamodel.MembershipValue:
 		id, ok := w.derivedElementID(metamodel.MembershipElement(value.Membership))
 		if !ok {
 			return nil, false
 		}
-		return apiJSONReference{ID: id}, true
+		return APIJSONReference{ID: id}, true
 	case metamodel.SequenceValue:
 		if len(value.Values) == 0 {
 			return nil, false

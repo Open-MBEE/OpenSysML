@@ -291,6 +291,14 @@ func (r *remote) query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResp
 	return resp.Msg, nil
 }
 
+func (r *remote) getElementProperties(ctx context.Context, req *pb.GetElementPropertiesRequest) (*pb.GetElementPropertiesResponse, error) {
+	resp, err := r.rpc.GetElementProperties(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, connectToError(err)
+	}
+	return resp.Msg, nil
+}
+
 func (r *remote) runDocumentQuery(
 	ctx context.Context,
 	req *pb.RunDocumentQueryRequest,
