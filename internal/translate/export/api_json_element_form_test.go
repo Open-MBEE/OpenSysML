@@ -2,12 +2,13 @@ package export
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
-
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 const elementFormModel = `package M {
@@ -239,5 +240,58 @@ func TestLibraryElementFormReadsReferencedLibraryElements(t *testing.T) {
 	}
 	if _, _, known, err := LibraryElementForm("Parts::Nowhere"); known || err != nil {
 		t.Errorf("an unknown name is known %v, %v", known, err)
+	}
+}
+
+// overriddenLibrarySource serves one document's text in place of the library's.
+type overriddenLibrarySource struct {
+	libs.Source
+	doc  string
+	text []byte
+}
+
+func (s overriddenLibrarySource) Read(name string) ([]byte, error) {
+	if name == s.doc {
+		return s.text, nil
+	}
+	return s.Source.Read(name)
+}
+
+// A library document's form is read from the text the library index was built
+// from — the configured library's, not the embedded copy's.
+func TestLibraryElementFormReadsTheIndexedLibrarysText(t *testing.T) {
+	shared := sharedLibraryIndex()
+	part, ok := shared.catalog.ElementNamed("Parts::Part")
+	if !ok {
+		t.Fatal("Parts::Part is not catalogued")
+	}
+	doc := part.Symbol.DocName
+	published, err := shared.source.Read(doc)
+	if err != nil {
+		t.Fatalf("read %s: %v", doc, err)
+	}
+	probe := strings.Replace(string(published), "abstract part def Part :> Item {", "abstract part def Part :> Item {\n\t\tattribute probeFromTheConfiguredLibrary : ScalarValues::Boolean;", 1)
+	if probe == string(published) {
+		t.Fatalf("%s declares Part otherwise than expected", doc)
+	}
+	index := &libraryIndex{
+		model:     shared.model,
+		catalog:   shared.catalog,
+		anonymous: shared.anonymous,
+		source:    overriddenLibrarySource{Source: shared.source, doc: doc, text: []byte(probe)},
+	}
+	form, err := index.documentElementForm(doc)
+	if err != nil {
+		t.Fatalf("documentElementForm(%s): %v", doc, err)
+	}
+	if _, ok := form.ByQualifiedName("Parts::Part::probeFromTheConfiguredLibrary"); !ok {
+		t.Error("the form is read from other text than the index's source serves")
+	}
+	sharedForm, err := shared.documentElementForm(doc)
+	if err != nil {
+		t.Fatalf("shared documentElementForm(%s): %v", doc, err)
+	}
+	if _, ok := sharedForm.ByQualifiedName("Parts::Part::probeFromTheConfiguredLibrary"); ok {
+		t.Error("an index's forms are cached on another index")
 	}
 }
