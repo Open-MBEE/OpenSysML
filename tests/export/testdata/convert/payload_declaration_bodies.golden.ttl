@@ -528,6 +528,7 @@ expr:Payloads__Ctx___402_pend0
     sysml:owningRelationship expr:Payloads__Ctx___402_pend0_om ;
     sysml:owningMembership expr:Payloads__Ctx___402_pend0_om ;
     sysx:sourceText "x.i" ;
+    sysml:name "source" ;
     sysml:ownedReferenceSubsetting expr:Payloads__Ctx___402_pend0_prs ;
     sysml:ownedSubsetting expr:Payloads__Ctx___402_pend0_prs ;
     sysml:ownedSpecialization expr:Payloads__Ctx___402_pend0_prs ;
@@ -608,6 +609,7 @@ expr:Payloads__Ctx___402_pend1
     sysml:owningRelationship expr:Payloads__Ctx___402_pend1_om ;
     sysml:owningMembership expr:Payloads__Ctx___402_pend1_om ;
     sysx:sourceText "y.j" ;
+    sysml:name "target" ;
     sysml:ownedReferenceSubsetting expr:Payloads__Ctx___402_pend1_prs ;
     sysml:ownedSubsetting expr:Payloads__Ctx___402_pend1_prs ;
     sysml:ownedSpecialization expr:Payloads__Ctx___402_pend1_prs ;
