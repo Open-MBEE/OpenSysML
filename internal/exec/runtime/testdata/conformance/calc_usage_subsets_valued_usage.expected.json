@@ -1,0 +1,6 @@
+{
+	"libraries": true,
+	"type": "calc",
+	"evaluate": "test::n",
+	"result": {"type": "Sequence", "elements": [{"type": "Integer", "value": 30}]}
+}
