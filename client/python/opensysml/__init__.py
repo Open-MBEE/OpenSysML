@@ -101,7 +101,7 @@ from opensysml.errors import (
     InstanceTypeError, InvalidRequestError, ManifestSignatureError, ModelError,
     ModelFileNotFoundError, ModelNotFoundError, ServiceError,
     ServiceTimeoutError, SigstoreUnavailableError, StaleServiceError, SymbolNotFoundError,
-    ViewNotFoundError,
+    UnresolvedChildError, ViewNotFoundError,
     TypeMismatchError, UnpinnedReleaseError, UnsignedReleaseError,
     UnsupportedOperationError, UnsupportedValueError, WrongKindError,
 )
@@ -173,7 +173,7 @@ __all__ = [
     "ModelError", "ModelFileNotFoundError", "ModelNotFoundError",
     "ServiceError", "ServiceTimeoutError", "SigstoreUnavailableError", "StaleServiceError",
     "SymbolNotFoundError",
-    "ViewNotFoundError",
+    "UnresolvedChildError", "ViewNotFoundError",
     "TypeMismatchError", "UnpinnedReleaseError", "UnsignedReleaseError",
     "UnsupportedOperationError", "UnsupportedValueError",
     "WrongKindError",
