@@ -463,6 +463,10 @@ func (r *Renderer) contentKind(sym *symbols.Symbol) bool {
 	if !containedKind(sym) {
 		return false
 	}
+	// A `#M` prefix is drawn in its element's heading («#M part def»), not as a member.
+	if sym.IsPrefixMetadata() {
+		return false
+	}
 	if sym.Kind == symbols.SymbolRenderingUsage && sym.OwnerScope != nil {
 		if owner := sym.OwnerScope.Owner(); owner != nil && semantics.IsView(owner) {
 			return false

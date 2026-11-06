@@ -261,8 +261,7 @@ func (e *queryEval) candidates(cached *CachedModel, scope []string) ([]*symbols.
 	for _, fqn := range scope {
 		roots := e.sc.Index.LookupQualified(fqn)
 		if len(roots) == 0 {
-			e.positionalNames(cached)
-			if sym := cached.byPositional[fqn]; sym != nil {
+			if sym := e.sc.Positional.Symbol(fqn); sym != nil {
 				roots = []*symbols.Symbol{sym}
 			}
 		}
@@ -288,11 +287,7 @@ func (e *queryEval) candidates(cached *CachedModel, scope []string) ([]*symbols.
 }
 
 func (e *queryEval) identity(sym *symbols.Symbol) string {
-	if identity := corequery.QualifiedIdentity(e.sc.Index, sym); identity != "" {
-		return identity
-	}
-	e.positionalNames(e.cached)
-	return e.cached.positional[sym]
+	return e.sc.Identity(sym)
 }
 
 // elementID is the elementId Convert writes for sym in the qualified id form,
@@ -325,42 +320,6 @@ func (m *CachedModel) elementIDReader() *export.ElementIDReader {
 		m.elementIDs = export.NewElementIDReader(documents)
 	})
 	return m.elementIDs
-}
-
-func (e *queryEval) positionalNames(cached *CachedModel) {
-	cached.positionalNames()
-}
-
-// positionalNames names the model's unnamed members by position, once, so a
-// query and an element read address them by one id.
-func (m *CachedModel) positionalNames() {
-	if m == nil {
-		return
-	}
-	m.positionalOnce.Do(func() {
-		if m.Index == nil {
-			m.positional, m.byPositional = export.PositionalIdentities(nil, nil, nil)
-			return
-		}
-		docs := make([]export.PositionalDocument, 0, len(m.Documents))
-		for _, doc := range m.Documents {
-			if doc == nil || doc.Source == nil {
-				continue
-			}
-			root := m.Index.DocumentRoot(doc.Source.Name())
-			if root == nil {
-				continue
-			}
-			docs = append(docs, export.PositionalDocument{File: doc.Source, Root: root})
-		}
-		m.positional, m.byPositional = export.PositionalIdentities(
-			m.Index,
-			docs,
-			func(sym *symbols.Symbol) bool {
-				return corequery.QualifiedIdentity(m.Index, sym) != ""
-			},
-		)
-	})
 }
 
 // nested returns every element declared inside an element, in declaration

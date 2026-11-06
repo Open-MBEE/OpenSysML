@@ -31,14 +31,19 @@ func modelWithLibrary(t *testing.T, text string) (*symbols.Index, *Context) {
 	t.Helper()
 	base, _ := libs.SharedLibrary()
 	idx := symbols.NewOverlay(base)
-	p := parser.New(source.New("model.sysml", []byte(text)))
+	file := source.New("model.sysml", []byte(text))
+	p := parser.New(file)
 	root := p.ParseFile()
 	if len(p.Diagnostics) > 0 {
 		t.Fatalf("fixture does not parse: %v", p.Diagnostics)
 	}
 	idx.AddDocument("model.sysml", root)
 	idx.ExpandWildcardImports()
-	return idx, NewContext(idx)
+	sc := NewContext(idx)
+	sc.Positional = NewPositional(idx, func() []PositionalDocument {
+		return []PositionalDocument{{File: file, Root: idx.DocumentRoot("model.sysml")}}
+	})
+	return idx, sc
 }
 
 func TestMemberChainPrefersTheModelOverALibraryHomonym(t *testing.T) {

@@ -1,7 +1,8 @@
 """Symbol class for navigating the semantic model."""
 
-from typing import Any, Dict, FrozenSet, Iterable, List, Optional, Protocol, TYPE_CHECKING, Union
+from typing import Any, Dict, FrozenSet, Iterable, List, Optional, Protocol, Tuple, TYPE_CHECKING, Union
 
+from opensysml.errors import UnresolvedChildError
 from opensysml.capabilities import (
     CAPABILITY_SYMBOL_ATTRIBUTES,
     CAPABILITY_SYMBOL_MEMBERS,
@@ -318,9 +319,9 @@ class Symbol:
                     (m for m in every if not m.inherited), every.withheld_library
                 )
             else:
-                fetched = (self._fetch(child_id, None) for child_id in self._pb.child_ids)
                 self._own_cache = Members(
-                    (m for m in fetched if m is not None), self._pb.withheld_library_members
+                    self._fetch_all((child_id, None) for child_id in self._pb.child_ids),
+                    self._pb.withheld_library_members,
                 )
         return self._own_cache
 
@@ -335,21 +336,28 @@ class Symbol:
             refetched = self._client.get_symbol(self._model_hash, self.id, include_library_members=True)
             if refetched is not None:
                 pb = refetched
-        symbols = []
-        for info in pb.members:
-            symbol = self._fetch(info.id, info.inherited_from if info.inherited else None)
-            if symbol is not None:
-                symbols.append(symbol)
+        symbols = self._fetch_all(
+            (info.id, info.inherited_from if info.inherited else None) for info in pb.members
+        )
         result = Members(symbols, pb.withheld_library_members)
         self._members_cache[library] = result
         return result
 
-    def _fetch(self, symbol_id: str, inherited_from: Optional[str]) -> Optional["Symbol"]:
-        """Resolve one member id through the client; None when it does not resolve."""
-        info = self._client.get_symbol(self._model_hash, symbol_id)
-        if info is None:
-            return None
-        return Symbol(info, self._client, self._model_hash, inherited_from)
+    def _fetch_all(self, ids: Iterable[Tuple[str, Optional[str]]]) -> List["Symbol"]:
+        """Resolve every listed member id through the client, raising
+        :class:`UnresolvedChildError` naming the ids the service does not resolve
+        rather than dropping them."""
+        symbols: List["Symbol"] = []
+        unresolved: List[str] = []
+        for symbol_id, inherited_from in ids:
+            info = self._client.get_symbol(self._model_hash, symbol_id)
+            if info is None:
+                unresolved.append(symbol_id)
+                continue
+            symbols.append(Symbol(info, self._client, self._model_hash, inherited_from))
+        if unresolved:
+            raise UnresolvedChildError(self.id, unresolved)
+        return symbols
 
     def children(self, inherited: bool = False, library: bool = False) -> Members:
         """Return this symbol's member symbols of every kind.
@@ -361,11 +369,19 @@ class Symbol:
         members inherited from standard-library content, otherwise withheld and
         counted in the result's ``withheld_library``. See :meth:`members`.
 
+        An unnamed member (``bind a = b;``, ``connect a to b;``, ``part : P;``,
+        ``@M { … }`` or a ``#M`` prefix) is listed under the positional id the
+        query API and the export give it, such as ``Pkg::Owner::@3``.
+
         Lazily fetches each member using the RPC client if available, and
         caches the results. Returns an empty list if no client is set.
 
         Returns:
             :class:`Members`, a list of Symbol objects
+
+        Raises:
+            UnresolvedChildError: the service listed a member it then could not
+                resolve, so the members cannot be read completely
         """
         return self.members(None, inherited, library)
 

@@ -10,7 +10,6 @@ import (
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
-	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
@@ -104,18 +103,13 @@ func (m *CachedModel) elementFormElement(form *export.ElementForm, id string) (e
 	var sym *symbols.Symbol
 	if syms := m.LookupNamedMember(id); len(syms) > 0 {
 		sym = syms[0]
-	} else {
-		m.positionalNames()
-		sym = m.byPositional[id]
+	} else if syms := m.LookupSymbol(id); len(syms) > 0 {
+		sym = syms[0]
 	}
 	if sym == nil {
 		return export.APIJSONElement{}, false
 	}
-	identity := corequery.QualifiedIdentity(m.Index, sym)
-	if identity == "" {
-		m.positionalNames()
-		identity = m.positional[sym]
-	}
+	identity := m.SymbolContext().Identity(sym)
 	if fqn := m.Index.GetFQN(sym); fqn != "" {
 		if element, ok := form.ByQualifiedName(fqn); ok {
 			return element, true
