@@ -788,8 +788,8 @@ docs-engine-assets: stdlib-snapshot ## Build the in-browser WebAssembly assets i
 	@mkdir -p docs/assets
 	GOOS=js GOARCH=wasm $(GO_BUILD) -trimpath -o docs/assets/sysml-wasm.wasm ./cmd/sysml-wasm
 	gzip -9nf docs/assets/sysml-wasm.wasm
-	GOOS=js GOARCH=wasm $(GO_BUILD) -tags sysml_re -o docs/assets/sysml-repl.wasm ./cmd/sysml
-	gzip -9f docs/assets/sysml-repl.wasm
+	GOOS=js GOARCH=wasm $(GO_BUILD) -trimpath -tags sysml_re -o docs/assets/sysml-repl.wasm ./cmd/sysml
+	gzip -9nf docs/assets/sysml-repl.wasm
 	@mkdir -p docs/assets/repl-examples
 	@cp examples/runtime-showcase/*.sysml docs/assets/repl-examples/
 	@cp "$$(go env GOROOT)/lib/wasm/wasm_exec.js" docs/assets/
