@@ -12,7 +12,7 @@ set -euo pipefail
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/pilot-pin.sh"
 
 # The specification documents the pin ships; a release that changes any of them
-# moves the clause numbers docs/project/spec-compliance.md cites.
+# moves the clause numbers the spec-compliance map (docs/project/spec-compliance/) cites.
 SPEC_DOCS=(
 	'doc/1-Kernel_Modeling_Language.pdf'
 	'doc/2a-OMG_Systems_Modeling_Language.pdf'
@@ -139,7 +139,7 @@ if [[ -n "$newest_release" && "$newest_release" != "$PILOT_TAG" ]]; then
 	spec_docs_changed "$newest_release" && verdict=0 || verdict=$?
 	case $verdict in
 	0) report "  the specification PDFs are unchanged: a re-pin moves the pilot, not the clause numbers" ;;
-	1) movement "the specification PDFs changed between $PILOT_TAG and $newest_release: a re-pin must re-read the clause numbers docs/project/spec-compliance.md cites" ;;
+	1) movement "the specification PDFs changed between $PILOT_TAG and $newest_release: a re-pin must re-read the clause numbers the spec-compliance map (docs/project/spec-compliance/) cites" ;;
 	*) movement "the specification PDFs of $PILOT_TAG and $newest_release could not be compared; read them by hand before re-pinning" ;;
 	esac
 fi

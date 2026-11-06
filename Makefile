@@ -1,4 +1,4 @@
-.PHONY: all build docker vulncheck sca-tools audit audit-npm audit-python audit-rust audit-java extension-libraries-check extension-libraries-sync extension-libraries-pin-check textmate-grammars-check textmate-grammars-publish build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render self-model mcp-registry-check
+.PHONY: all build docker vulncheck sca-tools audit audit-npm audit-python audit-rust audit-java extension-libraries-check extension-libraries-sync extension-libraries-pin-check textmate-grammars-check textmate-grammars-publish build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render spec-compliance-check spec-compliance-render self-model mcp-registry-check
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -638,6 +638,8 @@ scripts-coverage: ## Run the repository scripts and their tests under coverage a
 	$(PYTHON) -m coverage erase --rcfile=scripts/coverage-scripts.ini
 	$(SCRIPTS_COVERAGE) scripts/changelog-test.py
 	$(SCRIPTS_COVERAGE) scripts/changelog.py check
+	$(SCRIPTS_COVERAGE) scripts/spec_compliance-test.py
+	$(SCRIPTS_COVERAGE) scripts/spec_compliance.py check
 	$(SCRIPTS_COVERAGE) scripts/release-announce-test.py
 	$(SCRIPTS_COVERAGE) scripts/release-downloads-test.py
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_census-test.py
@@ -747,9 +749,11 @@ docs-check: ## Verify documentation links, internal-label hygiene, quoted oracle
 	$(PYTHON) scripts/check-doc-ids.py
 	$(PYTHON) scripts/check-doc-figures.py
 	$(PYTHON) scripts/changelog.py check
+	$(PYTHON) scripts/spec_compliance.py check
 	$(MAKE) diagnostics-check
 	$(PYTHON) scripts/mkdocs_census-test.py
 	$(PYTHON) scripts/mkdocs_suite_figures-test.py
+	$(PYTHON) scripts/mkdocs_spec_compliance-test.py
 	$(PYTHON) scripts/griffe_sphinx_roles-test.py
 	$(PYTHON) scripts/mkdocs_install_scripts-test.py
 
@@ -759,6 +763,13 @@ changelog-check: ## Verify every changelog fragment under changes/unreleased/ an
 
 changelog-render: ## Fold changes/unreleased/ fragments into the Unreleased section of CHANGELOG.md
 	$(PYTHON) scripts/changelog.py render
+
+spec-compliance-check: ## Verify the compliance-map sources under docs/project/spec-compliance/ and the combine script; SPEC_COMPLIANCE_PAGE=require|forbid adds the release or develop policy for the combined page
+	$(PYTHON) scripts/spec_compliance-test.py
+	$(PYTHON) scripts/spec_compliance.py check $(if $(filter require,$(SPEC_COMPLIANCE_PAGE)),--require-page)$(if $(filter forbid,$(SPEC_COMPLIANCE_PAGE)),--forbid-page)
+
+spec-compliance-render: ## Combine the compliance-map sources into docs/project/spec-compliance.md (a release commits the result; develop does not)
+	$(PYTHON) scripts/spec_compliance.py render
 
 docs-install: ## Install the documentation site toolchain
 	$(PYTHON) -m pip install -r docs-requirements.txt
