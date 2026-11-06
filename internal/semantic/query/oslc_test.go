@@ -2,6 +2,7 @@ package query
 
 import (
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -348,8 +349,9 @@ func TestParseOSLCPropertyDiagnosticsFollowTheActiveBindings(t *testing.T) {
 	if len(names) != 1 || names[0] != "rdf:type" {
 		t.Errorf("names = %#v, want [rdf:type]", names)
 	}
-	if locals := unbound[sysmlNS]; len(locals) == 0 || locals[0] != "declaredName" {
-		t.Errorf("unbound[SysML] = %#v, want the SysML local names", locals)
+	if locals := unbound[sysmlNS]; !slices.IsSorted(locals) || !slices.Contains(locals, "declaredName") ||
+		slices.ContainsFunc(locals, func(local string) bool { return strings.Contains(local, ":") }) {
+		t.Errorf("unbound[SysML] = %#v, want the sorted, unprefixed SysML local names", locals)
 	}
 }
 

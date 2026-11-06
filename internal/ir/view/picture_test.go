@@ -259,7 +259,7 @@ func TestPicturesReachTheRenderingAndTheDOTForm(t *testing.T) {
 			t.Errorf("DOT lacks %q:\n%s", want, dot)
 		}
 	}
-	bench := strings.Index(dot, `label=<`)
+	bench := strings.Index(dot, "«part")
 	if bg, ov := strings.Index(dot, background), strings.Index(dot, overlay); !(bg < bench && bench < ov) {
 		t.Errorf("the background picture is not written before the parts and the overlay after them:\n%s", dot)
 	}
@@ -284,7 +284,7 @@ func TestPictureLayersKeepDeclarationOrder(t *testing.T) {
 		}
 		return i
 	}
-	under0, over1, under2, over3, parts := at("picture:0"), at("picture:1"), at("picture:2"), at("picture:3"), strings.Index(dot, `label=<`)
+	under0, over1, under2, over3, parts := at("picture:0"), at("picture:1"), at("picture:2"), at("picture:3"), strings.Index(dot, "«part")
 	if !(under0 < under2 && under2 < parts && parts < over1 && over1 < over3) {
 		t.Errorf("pictures are not written under the parts then over them, each layer in declaration order:\n%s", dot)
 	}

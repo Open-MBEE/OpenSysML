@@ -346,7 +346,8 @@
       "port-symbols",
       "compartments",
       "edge-labels",
-      "keywords"
+      "keywords",
+      "annotations"
     ]
   },
   "instances": [

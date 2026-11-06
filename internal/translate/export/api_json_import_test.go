@@ -490,6 +490,9 @@ func TestUUIDIDs(t *testing.T) {
 		}
 		ids := []string{}
 		for _, subject := range graph.Subjects() {
+			if LibraryReference(graph, subject) {
+				continue
+			}
 			if local := rdf.LocalName(subject.Value); strings.HasPrefix(subject.Value, rdf.Element) {
 				ids = append(ids, local)
 			}

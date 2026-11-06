@@ -1140,7 +1140,7 @@ pub struct DiagnosticsRequest {
     #[prost(string, tag="1")]
     pub model_hash: ::prost::alloc::string::String,
     /// Lints left out of the diagnostics, by code (`sysml -disable-lint`): one of
-    /// undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or
+    /// undeclared-signal, deferred-keeper-unmarked or
     /// rounded-real-literal. A code naming no lint is INVALID_ARGUMENT.
     #[prost(string, repeated, tag="2")]
     pub disable_lint: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
@@ -1575,6 +1575,9 @@ pub struct LibraryReference {
     /// Metaclass, as API JSON's @type spells it.
     #[prost(string, tag="3")]
     pub r#type: ::prost::alloc::string::String,
+    /// Positional path owner/Metaclass\[i\] of an unnamed member, which has no qualified_name.
+    #[prost(string, tag="4")]
+    pub library_path: ::prost::alloc::string::String,
 }
 /// MigrateRequest asks for a SysML v1 model migrated to v2. The source is a
 /// file_path the service reads, or the document carried inline as content —
@@ -3882,7 +3885,8 @@ pub struct RenderViewResponse {
     pub kind: ::prost::alloc::string::String,
     #[prost(string, tag="3")]
     pub stated: ::prost::alloc::string::String,
-    /// Nodes are flattened with parents before children.
+    /// Nodes are flattened with parents before children; each node is listed once,
+    /// and ids are unique within a rendering.
     #[prost(message, repeated, tag="4")]
     pub nodes: ::prost::alloc::vec::Vec<RenderNode>,
     #[prost(message, repeated, tag="5")]
@@ -3901,6 +3905,25 @@ pub struct RenderViewResponse {
     /// The optional notation elements drawn, in registry order.
     #[prost(string, repeated, tag="11")]
     pub shown: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// The view frame round a graph-shaped rendering; unset for a frameless one.
+    #[prost(message, optional, tag="12")]
+    pub frame: ::core::option::Option<RenderFrame>,
+}
+/// RenderFrame is the view frame of SysML v2 §8.2.3.26: the name compartment's
+/// name and view definition, and the lines of the three information
+/// compartments (exposes top right, filters bottom left, annotations bottom right).
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RenderFrame {
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub r#type: ::prost::alloc::string::String,
+    #[prost(string, repeated, tag="3")]
+    pub exposes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="4")]
+    pub filters: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(string, repeated, tag="5")]
+    pub annotations: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// RenderNode is one flattened node of the rendering.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -3946,6 +3969,9 @@ pub struct RenderNode {
     /// the line's second end, "left" toward its first. Empty for every other node.
     #[prost(string, tag="16")]
     pub arrow: ::prost::alloc::string::String,
+    /// The state's substates run in parallel; a label writes «parallel» under the name.
+    #[prost(bool, tag="17")]
+    pub parallel: bool,
 }
 /// RenderPort is a feature drawn on a node's border.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

@@ -144,7 +144,7 @@ func (f *familyFills) filled(node *Node) bool {
 }
 
 func (f *familyFills) classable(node *Node) bool {
-	return !controlKinds[node.Kind] && !itemBox(node) && (len(node.Children) == 0 || f.tree || f.sequence)
+	return !controlKinds[node.Kind] && !itemBox(node) && !annotationKind(node.Kind) && (len(node.Children) == 0 || f.tree || f.sequence)
 }
 
 // collect records the keyword families of the nodes under node that a palette

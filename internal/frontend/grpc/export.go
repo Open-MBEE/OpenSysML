@@ -401,7 +401,7 @@ func (s *Service) libraryReferencesReceiver(resp *pb.ConvertResponse) func([]exp
 	}
 	return func(refs []export.APIJSONLibraryReference) {
 		for _, ref := range refs {
-			resp.LibraryReferences = append(resp.LibraryReferences, &pb.LibraryReference{Id: ref.ID, QualifiedName: ref.QualifiedName, Type: ref.Type})
+			resp.LibraryReferences = append(resp.LibraryReferences, &pb.LibraryReference{Id: ref.ID, QualifiedName: ref.QualifiedName, Type: ref.Type, LibraryPath: ref.LibraryPath})
 		}
 	}
 }

@@ -1,6 +1,7 @@
 package view
 
 import (
+	"fmt"
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -111,6 +112,13 @@ func (r *Rendering) nestingEdges() map[[2]string]bool {
 	index(r.Roots, "")
 	nesting := map[[2]string]bool{}
 	for _, edge := range r.Edges {
+		if edge.Kind == EdgeAnchor {
+			// An annotation node hangs on its links alone, not on a containment line.
+			if parent, ok := parents[edge.From]; ok && parent != "" {
+				nesting[[2]string{parent, edge.From}] = true
+			}
+			continue
+		}
 		if !membershipEdge(edge.Kind) {
 			continue
 		}
@@ -244,6 +252,10 @@ type association struct {
 func (g *treeGraph) drawAssociationDot(node *Node, site treeSite, line association) {
 	def := site.sym
 	node.Kind, node.Compartments, node.Children, node.Type, node.Typings = connectionDefDotKind, nil, nil, "", nil
+	if route := g.r.unsteeredRoute(site.view, def, g.out); len(route) > 0 {
+		g.out.Notices = append(g.out.Notices, fmt.Sprintf("connection def %s states a route; its %d ends are drawn as a dot and segments, which the route does not steer",
+			localName(def), len(line.ends)))
+	}
 	if g.r.model.NameSynthesized(def) {
 		node.Name = ""
 	}
@@ -326,6 +338,13 @@ func (g *treeGraph) associationLine(node *Node, site treeSite) (line association
 // Notes stay anchored to the node, where the usage is named.
 func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 	sym := site.sym
+	// An annotation nested under its owner is linked by the owner's walk below.
+	if annotatingSymbol(sym) {
+		if g.parent[node.ID] == "" {
+			g.annotationLinks(nil, node, sym, site.view)
+		}
+		return
+	}
 	for _, rel := range semantics.RelationshipsOf(sym) {
 		if rel == nil || rel.Target == nil {
 			continue
@@ -348,6 +367,10 @@ func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 	}
 	for _, child := range node.Children {
 		member := g.out.sites[child].sym
+		if annotatingSymbol(member) {
+			g.annotationLinks(node, child, member, site.view)
+			continue
+		}
 		if !structuralUsage(member) {
 			continue
 		}
@@ -357,6 +380,24 @@ func (g *treeGraph) edgesOf(node *Node, site treeSite) {
 			edge.Route = g.r.routeOf(site.view, member, g.out)
 		}
 		g.add(edge, member)
+	}
+}
+
+// annotationLinks draws the annotation links of the annotation node child,
+// nested under node: a dashed line from the annotation to the node of each
+// drawn element it annotates (§8.2.3.4 annotation-link), its owner's node
+// when it names none.
+func (g *treeGraph) annotationLinks(node, child *Node, member *symbols.Symbol, view *symbols.Symbol) {
+	for _, target := range g.r.annotatedElements(member) {
+		to := g.node(target)
+		if target == member.Owner() && to == nil {
+			to = node
+		}
+		if to == nil || to == child {
+			continue
+		}
+		g.add(Edge{From: child.ID, To: to.ID, Kind: EdgeAnchor, Origin: symbolOrigin(member),
+			Route: g.r.routeOf(view, member, g.out), Style: g.r.styleOf(view, member, g.out)}, member)
 	}
 }
 

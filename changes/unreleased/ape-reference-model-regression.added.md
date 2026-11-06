@@ -1,1 +1,0 @@
-- Add an optional, checksum-verified APE reference model migration regression covering generated syntax, nested requirement references, report identities, and attached images.

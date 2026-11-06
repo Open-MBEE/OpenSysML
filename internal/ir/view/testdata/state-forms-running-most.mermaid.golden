@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» FurnaceViews::runningTree : GeneralView"
 ---
 %% FurnaceViews::runningTree — tree rendering (view def GeneralView)
 %% not represented: 5 member(s) drawn as compartment rows of their owner

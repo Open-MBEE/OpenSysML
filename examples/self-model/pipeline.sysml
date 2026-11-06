@@ -338,22 +338,23 @@ package OpenSysMLPipeline {
         in item tree : SyntaxTree;
     }
 
-    // go generate writes the snapshot; the check target is what CI runs on it.
+    // go generate writes the snapshot and the Go file embedding it, which every
+    // Makefile build target runs first; both are gitignored, never committed.
     part def SnapshotGenerator :> CodeUnit {
         attribute :>> goPackage = "tools/gen/snapshot";
         attribute makeTarget : String = "stdlib-snapshot";
-        attribute checkTarget : String = "stdlib-snapshot-check";
         out item snapshotBlob : LibrarySnapshot;
     }
 
-    // Bundled standard library. Its frozen index is decoded from an embedded
-    // snapshot when that matches the files, and parsed from the files otherwise.
+    // Bundled standard library. Its frozen index is decoded from the snapshot
+    // the build embedded when that matches the files, and parsed from the files
+    // otherwise — also when the build embedded none, as a module-proxy install does.
     #SemanticEngine part def StandardLibrary :> Stage {
         attribute :>> goPackage = "internal/workspace/libs";
         attribute bundledFileCount : Integer = 110;
         attribute cached : Boolean = true;
         attribute snapshotFile : String = "internal/workspace/libs/stdlib.snapshot";
-        attribute snapshotEmbedded : Boolean = true;
+        attribute snapshotTracked : Boolean = false;
         attribute snapshotChecksummed : Boolean = true;
         attribute fallsBackToParsing : Boolean = true;
         attribute overrideEnvVar : String = "OPENSYSML_LIBRARY_PATH";

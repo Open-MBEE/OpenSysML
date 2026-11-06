@@ -1328,6 +1328,7 @@ message LibraryReference {
   string id = 1;
   string qualified_name = 2;
   string type = 3; // Metaclass, as API JSON's @type spells it.
+  string library_path = 4; // Positional path owner/Metaclass[i] of an unnamed member, which has no qualified_name.
 }
 
 // MigrateRequest asks for a SysML v1 model migrated to v2. The source is a
@@ -3061,7 +3062,8 @@ message RenderViewResponse {
   string view = 1;
   string kind = 2;
   string stated = 3;
-  // Nodes are flattened with parents before children.
+  // Nodes are flattened with parents before children; each node is listed once,
+  // and ids are unique within a rendering.
   repeated RenderNode nodes = 4;
   repeated RenderEdge edges = 5;
   repeated string columns = 6;
@@ -3072,6 +3074,19 @@ message RenderViewResponse {
   repeated string notices = 10;
   // The optional notation elements drawn, in registry order.
   repeated string shown = 11;
+  // The view frame round a graph-shaped rendering; unset for a frameless one.
+  RenderFrame frame = 12;
+}
+
+// RenderFrame is the view frame of SysML v2 §8.2.3.26: the name compartment's
+// name and view definition, and the lines of the three information
+// compartments (exposes top right, filters bottom left, annotations bottom right).
+message RenderFrame {
+  string name = 1;
+  string type = 2;
+  repeated string exposes = 3;
+  repeated string filters = 4;
+  repeated string annotations = 5;
 }
 
 // RenderNode is one flattened node of the rendering.
@@ -3101,6 +3116,8 @@ message RenderNode {
   // message whose ends are the connection's): "right" when the item goes toward
   // the line's second end, "left" toward its first. Empty for every other node.
   string arrow = 16;
+  // The state's substates run in parallel; a label writes «parallel» under the name.
+  bool parallel = 17;
 }
 
 // RenderPort is a feature drawn on a node's border.

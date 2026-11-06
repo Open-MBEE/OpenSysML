@@ -87,6 +87,7 @@ func chainTargets(t *testing.T, graph *rdf.Graph, owner rdf.Term, text string) [
 // at ff's generals instead: Polygon inherits Path's `:>> faces`, whose `edges` is
 // the library's StructuredSpaceObject::faces::edges, linked by its normative id.
 func TestShapeItemsChainsThroughRedefiningFacesBindInTheGraph(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join("..", "..", "internal", "workspace", "libs", "stdlib", "Domain Libraries", "Geometry", "ShapeItems.sysml")
 	src, err := os.ReadFile(path)
 	if err != nil {

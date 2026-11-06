@@ -11,7 +11,7 @@ dependency footprint, service ownership and release verification are in
 <dependency>
   <groupId>org.openmbee</groupId>
   <artifactId>opensysml</artifactId>
-  <version>0.11.0</version>
+  <version>0.12.0</version>
 </dependency>
 ```
 
@@ -264,8 +264,8 @@ model.roots();   // one Symbol per document, in request order
 `Connection.convert`/`convertFile` translate source text between notations and
 answer a `Conversion` (`content`, the resolved `fromFormat`/`toFormat`,
 `experimental`/`experimentalNotice`, `diagnostics`, and for `api-json` the
-`libraryReferences` — each a `LibraryReference` with `id`, `qualifiedName` and
-`type` — named outside the element array); `Model.convert` converts the
+`libraryReferences` — each a `LibraryReference` with `id`, `qualifiedName` (or
+`libraryPath` for an unnamed member) and `type` — named outside the element array); `Model.convert` converts the
 parsed model itself. `ConversionOptions` carries a `fromFormat` (else the service
 sniffs it), `tolerateSyntaxErrors` — without it, a syntax error throws a
 `ModelException` carrying the diagnostics rather than converting anyway —

@@ -109,6 +109,7 @@ const (
 	xSourceText     = "sourceText"
 	xSourceTail     = "sourceTail"
 	xSourceLanguage = "sourceLanguage"
+	xLibraryPath    = "libraryPath"
 	// xSourceDocument names the document a root element was written in, when
 	// several documents are converted as one model.
 	xSourceDocument = "sourceDocument"
@@ -265,6 +266,7 @@ func ToRDFWith(file *source.SourceFile, root *ast.RootNamespace, form IDForm) (*
 	if err != nil {
 		return nil, err
 	}
+	e.inheritedLibraryNames()
 	return e.graph, nil
 }
 
@@ -354,6 +356,7 @@ func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Re
 		}
 	}
 	out := mergeDocumentGraphs(encoders, documents)
+	nameInheritedLibraryMembers(out)
 	// Each document's encoder annotated its collections from its own triples,
 	// in their order, and no two documents declare one subject (refused above).
 	out.MarkCollectionsSettled()
@@ -886,50 +889,80 @@ func (e *encoder) libraryNames() {
 	}
 	slices.Sort(subjects)
 	named := map[string]bool{}
-	// name states ref's element, reporting whether it is named in the graph.
-	name := func(ref libraryRef) bool {
-		if done, seen := named[ref.subject.Value]; seen {
-			return done
-		}
-		named[ref.subject.Value] = false
-		metaclass := declaredMetaclass(ref.node)
-		switch n := ref.node.(type) {
-		case *ast.Package:
-			// `standard library package` (KerML 1.0 § 8.3.4.13.3 LibraryPackage).
-			metaclass = mPackage
-			if n.IsLibrary {
-				metaclass = mLibraryPackage
-			}
-		case *ast.Alias:
-			// An alias is a Membership, which the graph names by the membership
-			// it is rather than as an element.
-			return false
-		}
-		if metaclass == "" {
-			return false
-		}
-		named[ref.subject.Value] = true
-		e.graph.Add(ref.subject, rdf.IRI(rdf.RDFType), e.sysml(metaclass))
-		e.graph.Add(ref.subject, e.sysml(pElementID), rdf.String(rdf.LocalName(ref.subject.Value)))
-		e.graph.Add(ref.subject, addressTerm(ref.fqn), rdf.String(ref.fqn))
-		if declared, _ := declaredNameAndMembers(ref.node); declared != "" {
-			e.graph.Add(ref.subject, e.sysml(pDeclaredName), rdf.String(declared))
-		}
-		e.graph.Add(ref.subject, e.sysml(pIsLibraryElement), rdf.Bool(true))
-		return true
-	}
 	for _, iri := range subjects {
 		ref := e.libraryRefs[iri]
 		if referenced[iri] {
-			name(ref)
+			e.nameLibraryRef(ref, named)
 		}
-		if ref.membership.Value != "" && referenced[ref.membership.Value] && name(ref) {
-			e.graph.Add(ref.membership, rdf.IRI(rdf.RDFType), e.sysml(mOwningMembership))
-			e.graph.Add(ref.membership, e.sysml(pElementID), rdf.String(rdf.LocalName(ref.membership.Value)))
-			e.graph.Add(ref.membership, e.sysml(pMemberElement), ref.subject)
-			e.graph.Add(ref.membership, e.sysml(pIsLibraryElement), rdf.Bool(true))
+		if ref.membership.Value != "" && referenced[ref.membership.Value] && e.nameLibraryRef(ref, named) {
+			e.nameLibraryMembership(ref, mOwningMembership)
 		}
 	}
+}
+
+// nameLibraryRef states ref's element, reporting whether it is named in the graph.
+func (e *encoder) nameLibraryRef(ref libraryRef, named map[string]bool) bool {
+	if done, seen := named[ref.subject.Value]; seen {
+		return done
+	}
+	named[ref.subject.Value] = false
+	metaclass := declaredMetaclass(ref.node)
+	switch n := ref.node.(type) {
+	case *ast.Package:
+		// `standard library package` (KerML 1.0 § 8.3.4.13.3 LibraryPackage).
+		metaclass = mPackage
+		if n.IsLibrary {
+			metaclass = mLibraryPackage
+		}
+	case *ast.Alias:
+		// An alias is a Membership, which the graph names by the membership
+		// it is rather than as an element.
+		return false
+	}
+	if metaclass == "" {
+		return false
+	}
+	named[ref.subject.Value] = true
+	e.graph.Add(ref.subject, rdf.IRI(rdf.RDFType), e.sysml(metaclass))
+	e.graph.Add(ref.subject, e.sysml(pElementID), rdf.String(rdf.LocalName(ref.subject.Value)))
+	e.graph.Add(ref.subject, addressTerm(ref.fqn), rdf.String(ref.fqn))
+	if declared, _ := declaredNameAndMembers(ref.node); declared != "" {
+		e.graph.Add(ref.subject, e.sysml(pDeclaredName), rdf.String(declared))
+	}
+	e.graph.Add(ref.subject, e.sysml(pIsLibraryElement), rdf.Bool(true))
+	return true
+}
+
+// nameLibraryMembership states ref's owning membership, a library OwningMembership of ref's element.
+func (e *encoder) nameLibraryMembership(ref libraryRef, metaclass string) {
+	e.graph.Add(ref.membership, rdf.IRI(rdf.RDFType), e.sysml(metaclass))
+	e.graph.Add(ref.membership, e.sysml(pElementID), rdf.String(rdf.LocalName(ref.membership.Value)))
+	e.graph.Add(ref.membership, e.sysml(pMemberElement), ref.subject)
+	e.graph.Add(ref.membership, e.sysml(pIsLibraryElement), rdf.Bool(true))
+}
+
+// inheritedLibraryNames names the library members the document's types inherit,
+// which the element form's completed inherited lists reference and the graph does
+// not otherwise link to: named ones as libraryNames does, unnamed ones (documentation,
+// invariants, unnamed features) by metaclass, elementId and the positional path
+// (sysx:libraryPath, owner/Metaclass[i]) that stands in for the qualified name an
+// unnamed element lacks; the owning membership of each likewise.
+func (e *encoder) inheritedLibraryNames() {
+	if e.ids.model == nil {
+		return
+	}
+	nameInheritedLibraryMembers(e.graph)
+}
+
+// nameInheritedLibraryMembers is inheritedLibraryNames for a written graph, of
+// one document or a model's merged ones.
+func nameInheritedLibraryMembers(graph *rdf.Graph) {
+	// The completed properties are evaluated, not written: their ids name every stub.
+	ids, err := apiJSONMembershipReferenceIDs(graph)
+	if err != nil {
+		return
+	}
+	addReferencedLibraryStubs(graph, ids)
 }
 
 // owningMembershipClaim, after an element's name, says what a claimed membership IRI stands for.
@@ -1596,7 +1629,10 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		}
 		head(rdf.SysMLTerm(metaclass))
 		e.ident(subject, n.Ident)
-		if err := e.declaredKeyword(subject, n, n.Keyword, definitionKeyword(n.Kind), n.Ident.Name, false); err != nil {
+		// An individual definition owns its empty Multiplicity first, before its prefix
+		// metadata and its head's clauses (SysML.xtext OccurrenceDefinitionPrefix).
+		e.defaultMultiplicity(subject, n, nil)
+		if err := e.declaredKeyword(subject, n, n.Keyword, metaclassDefinitionKeyword(n.Kind), n.Ident.Name, false); err != nil {
 			return err
 		}
 		e.flags(subject, []boolProperty{
@@ -1736,7 +1772,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			// from its owner; writing that kind's keyword back would declare more.
 			e.graph.Add(subject, e.sysx(xImplicitKind), rdf.Bool(true))
 		default:
-			if err := e.declaredKeyword(subject, n, n.Keyword, usageKeyword(n.Kind), n.Ident.Name, referencesFeature(n)); err != nil {
+			if err := e.declaredKeyword(subject, n, n.Keyword, metaclassUsageKeyword(n.Kind), n.Ident.Name, referencesFeature(n)); err != nil {
 				return err
 			}
 		}
@@ -2567,7 +2603,7 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 			name = declared.Name
 			keyword = e.referencesKeyword(end)
 		}
-		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, ownerSym: e.ids.declSym[n], slot: slot, index: i, memberName: e.endMemberName(e.ids.declSym[n], i), ends: endCount, target: end.AttachedTarget(), element: end.AttachedIndex(), mult: end.Multiplicity, name: name, keyword: keyword, port: n.Kind == ast.UsageInterface}); err != nil {
+		if err := e.connectorEnd(subject, connectorEndSpec{owner: owner, ownerSym: e.ids.declSym[n], slot: slot, index: i, decl: end, memberName: e.endMemberName(e.ids.declSym[n], i), ends: endCount, target: end.AttachedTarget(), element: end.AttachedIndex(), mult: end.Multiplicity, name: name, keyword: keyword, port: n.Kind == ast.UsageInterface}); err != nil {
 			return err
 		}
 	}
@@ -2641,8 +2677,11 @@ type connectorEndSpec struct {
 	// whose target the notation reaches by position rather than by name.
 	targetTerm rdf.Term
 	// element is the expression an indexed end selects one element of target with.
-	element       ast.Node
-	mult          *ast.Multiplicity
+	element ast.Node
+	mult    *ast.Multiplicity
+	// decl is the end's own node when the notation declares it (ast.ConnectorEnd): the
+	// symbol it keys states the end's default multiplicity.
+	decl          ast.Node
 	name, keyword string
 	// port types the end a PortUsage rather than a ReferenceUsage: an
 	// interface usage's ends are ports (SysML.xtext InterfaceEnd).
@@ -2737,20 +2776,23 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 			e.graph.Add(feature, e.sysx(xEndReferencesKeyword), rdf.String(end.keyword))
 		}
 	}
-	if end.target == nil && end.targetTerm.Value == "" {
-		return e.multiplicity(feature, end.owner, end.mult)
-	}
-	switch {
-	case len(flowSegments) > 0:
-		e.flowEndReferences(feature, flowSegments)
-	case end.targetTerm.Value != "":
-		e.referenceSubsetting(feature, end.targetTerm)
-	default:
-		if err := e.endReferences(feature, end.target); err != nil {
-			return err
+	if end.target != nil || end.targetTerm.Value != "" {
+		switch {
+		case len(flowSegments) > 0:
+			e.flowEndReferences(feature, flowSegments)
+		case end.targetTerm.Value != "":
+			e.referenceSubsetting(feature, end.targetTerm)
+		default:
+			if err := e.endReferences(feature, end.target); err != nil {
+				return err
+			}
 		}
 	}
-	return e.multiplicity(feature, end.owner, end.mult)
+	if err := e.multiplicity(feature, end.owner, end.mult); err != nil {
+		return err
+	}
+	e.defaultMultiplicity(feature, end.decl, end.mult)
+	return nil
 }
 
 // flowEndSegments is the name or chain a flow end names, one term per segment,

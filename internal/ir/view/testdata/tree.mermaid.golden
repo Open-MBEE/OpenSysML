@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» VehicleViews::vehicleView"
 ---
 %% VehicleViews::vehicleView — tree rendering
 flowchart TD

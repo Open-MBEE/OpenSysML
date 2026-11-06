@@ -14,6 +14,7 @@ import (
 )
 
 func TestRuntimeRobustnessAtomicBodyOrder(t *testing.T) {
+	t.Parallel()
 	t.Run("explore_run_budget", testAtomicBodyOrderRunBudget)
 	t.Run("commuting_calc_has_no_choice", testAtomicBodyOrderCommutingCalc)
 	t.Run("compiled_caller_falls_back_for_ordered_schedules", testAtomicBodyOrderCompiledFallback)

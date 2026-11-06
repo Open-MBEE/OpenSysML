@@ -193,6 +193,38 @@ func TestDrawioImportNestedViewElementKeepsItsOwnName(t *testing.T) {
 	}
 }
 
+// rerouteDrawioEdge gives an edge cell one waypoint, as draw.io writes a dragged edge.
+func rerouteDrawioEdge(cell string) string {
+	const points = `<Array as="points"><mxPoint x="600" y="300"/></Array>`
+	if strings.Contains(cell, "<Array") {
+		return regexp.MustCompile(`(?s)<Array as="points">.*?</Array>`).ReplaceAllString(cell, points)
+	}
+	return strings.Replace(cell, `<mxGeometry relative="1" as="geometry"/>`, `<mxGeometry relative="1" as="geometry">`+points+`</mxGeometry>`, 1)
+}
+
+// Re-routing a segment of an n-ary dot, a connection def's or a connection's, is
+// reported and not imported: the dot drawing follows no Route, so none steers it.
+func TestDrawioImportReroutedDotSegmentIsReported(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		file string
+		view string
+		kind Kind
+	}{
+		{"nary-connection-def", "nary.sysml", "NaryViews::definitions", KindTree},
+		{"nary-connection", "nary.sysml", "NaryViews::wheelLinks", KindInterconnection},
+	} {
+		golden, err := os.ReadFile(filepath.Join("testdata", c.name+".drawio.golden"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		imp := drawioGoldenImport(t, c, mutateCell(t, string(golden), "e0", rerouteDrawioEdge))
+		if len(imp.Edits) != 0 || len(imp.Notices) != 1 || !strings.Contains(imp.Notices[0], "no Route steers a") {
+			t.Errorf("%s: edits %+v notices %v, want one notice and no edit", c.name, imp.Edits, imp.Notices)
+		}
+	}
+}
+
 // A usage's typing edge drawn beside its membership edge follows a Route naming
 // its type, which no edit writes yet: re-routing it is reported, while
 // re-routing the membership edge, which the plain Route steers, is a Route.
@@ -203,18 +235,11 @@ func TestDrawioImportReroutedTypingEdgeBesideMembershipIsReported(t *testing.T) 
 		!strings.Contains(membership, `kind="composition"`) || !strings.Contains(membership, `target="n26"`) {
 		t.Fatalf("e37/e15 are not pump's typing and membership edges:\n%s\n%s", typing, membership)
 	}
-	const points = `<Array as="points"><mxPoint x="600" y="300"/></Array>`
-	reroute := func(cell string) string {
-		if strings.Contains(cell, "<Array") {
-			return regexp.MustCompile(`(?s)<Array as="points">.*?</Array>`).ReplaceAllString(cell, points)
-		}
-		return strings.Replace(cell, `<mxGeometry relative="1" as="geometry"/>`, `<mxGeometry relative="1" as="geometry">`+points+`</mxGeometry>`, 1)
-	}
-	imp := drawioGoldenImport(t, c, mutateCell(t, golden, "e37", reroute))
+	imp := drawioGoldenImport(t, c, mutateCell(t, golden, "e37", rerouteDrawioEdge))
 	if len(imp.Edits) != 0 || len(imp.Notices) != 1 || !strings.Contains(imp.Notices[0], "no Route steers a typing edge") {
 		t.Errorf("typing edge: edits %+v notices %v, want one notice and no edit", imp.Edits, imp.Notices)
 	}
-	imp = drawioGoldenImport(t, c, mutateCell(t, golden, "e15", reroute))
+	imp = drawioGoldenImport(t, c, mutateCell(t, golden, "e15", rerouteDrawioEdge))
 	if edit := onlyEdit(t, imp, DrawioEditRoute); edit.Cell != "e15" || edit.Route == nil || len(edit.Route.Points) != 1 {
 		t.Errorf("membership edge: edit %+v, want its one waypoint as a Route", edit)
 	}

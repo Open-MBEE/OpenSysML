@@ -74,13 +74,7 @@ func TestLibraryMultiplicityRangeKeepsItsMetaclassOnEveryPath(t *testing.T) {
 		{"cold", load(cold)},
 		{"warm", load(warm)},
 		{"no cache", load(NewLoader(DefaultSource(), nil))},
-		{"snapshot", func(t *testing.T) *symbols.Index {
-			idx, err := SnapshotIndex()
-			if err != nil {
-				t.Fatalf("load the snapshot: %v", err)
-			}
-			return idx
-		}},
+		{"snapshot", func(t *testing.T) *symbols.Index { return testSnapshotIndex(t) }},
 	}
 	for _, path := range paths {
 		t.Run(path.name, func(t *testing.T) {

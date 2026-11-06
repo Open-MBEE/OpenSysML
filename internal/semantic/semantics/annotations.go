@@ -1573,7 +1573,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return nil, true
 	case "ownedMember":
-		return m.withDefaultMultiplicityMember(sym, m.withTransitionParts(sym, ownedMembersOf(sym))), true
+		return m.withDefaultMultiplicityMember(sym, append(m.acceptParameters(sym), m.withTransitionParts(sym, ownedMembersOf(sym))...)), true
 	case "multiplicity":
 		if !m.reflectiveMetaclassConforms(sym, "Type") {
 			return nil, false
@@ -1582,9 +1582,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "ownedElement":
 		return m.ownedElementsOf(sym), true
 	case "member":
-		return m.withDefaultMultiplicityMember(sym, m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))), true
+		return m.withDefaultMultiplicityMember(sym, append(m.acceptParameters(sym), m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))...)), true
 	case "feature":
-		var features []*symbols.Symbol
+		features := m.acceptParameters(sym)
 		for _, member := range m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)) {
 			if member.IsFeature() || isExpressionSymbol(member) {
 				features = append(features, member)
@@ -2011,10 +2011,14 @@ func (m *Model) withDefaultMultiplicityMember(sym *symbols.Symbol, members []*sy
 	if member == nil {
 		return members
 	}
+	offset := member.DeclSpan.Offset
 	if IsDefaultMultiplicity(member) {
-		return append(members, member)
+		if !defaultMultiplicityFirst(sym) {
+			return append(members, member)
+		}
+		offset = sym.DeclSpan.Offset
 	}
-	at := clausePosition(members, member.DeclSpan.Offset)
+	at := clausePosition(members, offset)
 	members = append(members, nil)
 	copy(members[at+1:], members[at:])
 	members[at] = member
@@ -2072,7 +2076,7 @@ func (m *Model) membersIncludingAnonymous(sym *symbols.Symbol) []*symbols.Symbol
 		}
 		scope.ForEachMember(func(s *symbols.Symbol) bool {
 			if s.Kind == symbols.SymbolAlias || seen[s] ||
-				(!anonymous[s] && !namedSet[s]) ||
+				(!anonymous[s] && !namedSet[s] && !(s.Kind == symbols.SymbolDocumentation && s.Name == "")) ||
 				(inherited && m.maskedBy(mask, s)) {
 				return true
 			}
