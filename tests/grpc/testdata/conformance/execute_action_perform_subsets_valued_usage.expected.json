@@ -1,0 +1,15 @@
+{
+  "rpc": "ExecuteAction",
+  "symbol_id": "test::o",
+  "expected_outputs": {
+    "r": {
+      "kind": "sequence",
+      "elements": [
+        {
+          "kind": "int_value",
+          "value": 10
+        }
+      ]
+    }
+  }
+}

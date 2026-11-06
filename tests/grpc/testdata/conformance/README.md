@@ -77,6 +77,8 @@ empty else blocks are not authorable.
 | `expected_result` | Evaluate, EvaluateCalc | expected `Value` |
 | `expected_attribute_names` | GetSymbol | full ordered attribute name list, own then inherited |
 | `expected_attributes` | GetSymbol | attribute name → `{type, value_kind, value, unit}`; no `value_kind` requires no value |
+| `expected_members` | GetSymbol | full ordered member list, own then inherited, each `{id, kind, inherited, inherited_from}`; library-inherited members are withheld from it |
+| `min_withheld_library_members` | GetSymbol | the response must count at least this many library-inherited members withheld from `members` |
 | `expected_metadata` | GetSymbol | metadata key → value the symbol must carry (`variation`, `variant`, `abstract`, `type`, …) |
 | `absent_metadata` | GetSymbol | metadata keys the symbol must not carry |
 | `expected_feature_values` | Instantiate | feature name → `{materialized, value_kind, value, error}` |

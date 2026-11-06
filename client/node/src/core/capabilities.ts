@@ -9,6 +9,8 @@ import { PLATFORM_PACKAGE_PREFIX } from "./package.js";
 export const CAPABILITY_TYPE_FACTS = "type_facts";
 /** Populated `SymbolInfo.attributes`. */
 export const CAPABILITY_SYMBOL_ATTRIBUTES = "symbol_attributes";
+/** Populated `SymbolInfo.members`: every member, own and inherited, with its provenance. */
+export const CAPABILITY_SYMBOL_MEMBERS = "symbol_members";
 /** Evaluating an expression against an instantiated subject. */
 export const CAPABILITY_EVALUATE_SUBJECT = "evaluate_subject";
 /** An object's values as `Instance.feature_values`. */
