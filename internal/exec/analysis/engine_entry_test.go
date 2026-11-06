@@ -26,6 +26,17 @@ func writeExecutable(t *testing.T, path string) {
 	}
 }
 
+// linksFollowed is dir followed through its links, as a confined command is: a temporary
+// directory may itself lie under one (macOS's /var is /private/var).
+func linksFollowed(t *testing.T, dir string) string {
+	t.Helper()
+	resolved, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resolved
+}
+
 // One entry of each kind loads, in name order, with the fields the manifest fixes.
 func TestManifestReadsEveryKind(t *testing.T) {
 	dir := writeManifest(t, map[string]string{
@@ -63,15 +74,16 @@ func TestManifestReadsEveryKind(t *testing.T) {
 		t.Errorf("graphs:1 version %d %v", v, ok)
 	}
 	priority := m.Engines[1]
-	if priority.Executable != filepath.Join(dir, "priority-policy") || priority.Answers != nil {
+	root := linksFollowed(t, dir)
+	if priority.Executable != filepath.Join(root, "priority-policy") || priority.Answers != nil {
 		t.Errorf("priority %+v, want its relative command confined to the manifest directory and no question fields", priority)
 	}
 	lhs := m.Engines[0]
-	if lhs.Executable != filepath.Join(dir, "lhs-sampler") || lhs.Concurrent {
+	if lhs.Executable != filepath.Join(root, "lhs-sampler") || lhs.Concurrent {
 		t.Errorf("lhs %+v, want a bare command name resolved in the manifest directory, never on PATH", lhs)
 	}
 	wasm := m.Engines[4]
-	if wasm.Module != filepath.Join(dir, "engine.wasm") || wasm.Executable != "" || wasm.Program() != wasm.Module {
+	if wasm.Module != filepath.Join(root, "engine.wasm") || wasm.Executable != "" || wasm.Program() != wasm.Module {
 		t.Errorf("wasm %+v, want its module confined and the program the module", wasm)
 	}
 	for _, tc := range []struct {
@@ -230,7 +242,7 @@ func TestEngineCommandIsConfinedToTheManifestDirectory(t *testing.T) {
 			if err != nil {
 				t.Fatalf("read: %v", err)
 			}
-			if want := filepath.Join(dir, "bin", "inside"); m.Engines[0].Executable != want {
+			if want := filepath.Join(linksFollowed(t, dir), "bin", "inside"); m.Engines[0].Executable != want {
 				t.Errorf("%q resolved to %s, want %s through its links", command, m.Engines[0].Executable, want)
 			}
 			if err := m.Engines[0].Present(); err != nil {

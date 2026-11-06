@@ -226,7 +226,8 @@ func (r toolRun) run() error {
 	defer cancel()
 	cmd := exec.CommandContext(ctx, r.path, r.args...) // #nosec G204 -- the path is the operator's own tool choice
 	cmd.Dir = r.dir
-	cmd.Env = append(append(os.Environ(), "SOURCE_DATE_EPOCH=0"), r.env...)
+	// Environ, unlike os.Environ, carries PWD for Dir rather than the parent's own directory.
+	cmd.Env = append(append(cmd.Environ(), "SOURCE_DATE_EPOCH=0"), r.env...)
 	cmd.Stdin = r.stdin
 	cmd.Stdout = r.stdout
 	var stderr strings.Builder

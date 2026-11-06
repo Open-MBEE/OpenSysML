@@ -144,7 +144,7 @@ int main(int argc, char **argv) {
 		t.Skipf("none of %v is installed", commaLocales)
 	}
 
-	for _, text := range []string{"1.5", "2.5e3", "0.1", "-0.000123", "1e21", "9.5e20", "5e-324", "123456789012345680", "1.7976931348623157e308", "0.0", "-0.5E-10"} {
+	for _, text := range []string{"1.5", "2.5e3", "0.1", "-0.000123", "1e21", "9.5e20", "5e-324", "123456789012345680.0", "1.7976931348623157e308", "0.0", "-0.5E-10"} {
 		want, err := semantics.ParseReal(text)
 		if err != nil {
 			t.Fatalf("ParseReal(%q): %v", text, err)

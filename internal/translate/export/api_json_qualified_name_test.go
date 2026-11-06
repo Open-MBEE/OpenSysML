@@ -2,6 +2,8 @@ package export
 
 import (
 	"encoding/json"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -126,6 +128,9 @@ func TestDeclaredExhibitStateNamePrecedesReferenceNaming(t *testing.T) {
 func TestUnresolvedRequirementConstraintReferenceHasTypedReason(t *testing.T) {
 	path := "../../../examples/sysml-v2-training/32. Requirements/Requirement Groups.sysml"
 	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) && os.Getenv("OPENSYSML_REQUIRE_TRAINING_CORPUS") == "" {
+		t.Skip("training corpus absent; fetch it with ./scripts/download-training-examples.sh")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
