@@ -557,6 +557,7 @@ func TestActionStepMultiplicityNestedUnorderedStartsExploreOneOutcome(t *testing
 }
 
 func TestActionStepMultiplicityExploreOmitsRepeatedLocals(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join("testdata", "conformance", "action_step_multiplicity_shared_writers.sysml")
 	text, err := os.ReadFile(path)
 	if err != nil {
