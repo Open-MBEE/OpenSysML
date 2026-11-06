@@ -396,6 +396,7 @@ expr:Scopes__D__one_pvalue_pin0_om
     sysml:source expr:Scopes__D__one_pvalue ;
     sysml:target expr:Scopes__D__one_pvalue_pin0 ;
     sysml:relatedElement expr:Scopes__D__one_pvalue, expr:Scopes__D__one_pvalue_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Scopes__D__one_pvalue_pin0 ;
     sysml:ownedMemberParameter expr:Scopes__D__one_pvalue_pin0 ;
     json:relatedElement "[{\"@id\":\"Scopes__D__one_pvalue\"},{\"@id\":\"Scopes__D__one_pvalue_pin0\"}]" .
@@ -612,6 +613,7 @@ expr:Scopes__D__one_pvalue_pin1_om
     sysml:source expr:Scopes__D__one_pvalue ;
     sysml:target expr:Scopes__D__one_pvalue_pin1 ;
     sysml:relatedElement expr:Scopes__D__one_pvalue, expr:Scopes__D__one_pvalue_pin1 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Scopes__D__one_pvalue_pin1 ;
     sysml:ownedMemberParameter expr:Scopes__D__one_pvalue_pin1 ;
     json:relatedElement "[{\"@id\":\"Scopes__D__one_pvalue\"},{\"@id\":\"Scopes__D__one_pvalue_pin1\"}]" .
@@ -849,6 +851,7 @@ expr:Scopes__D__two_pvalue_pin0_om
     sysml:source expr:Scopes__D__two_pvalue ;
     sysml:target expr:Scopes__D__two_pvalue_pin0 ;
     sysml:relatedElement expr:Scopes__D__two_pvalue, expr:Scopes__D__two_pvalue_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Scopes__D__two_pvalue_pin0 ;
     sysml:ownedMemberParameter expr:Scopes__D__two_pvalue_pin0 ;
     json:relatedElement "[{\"@id\":\"Scopes__D__two_pvalue\"},{\"@id\":\"Scopes__D__two_pvalue_pin0\"}]" .
@@ -1065,6 +1068,7 @@ expr:Scopes__D__two_pvalue_pin1_om
     sysml:source expr:Scopes__D__two_pvalue ;
     sysml:target expr:Scopes__D__two_pvalue_pin1 ;
     sysml:relatedElement expr:Scopes__D__two_pvalue, expr:Scopes__D__two_pvalue_pin1 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Scopes__D__two_pvalue_pin1 ;
     sysml:ownedMemberParameter expr:Scopes__D__two_pvalue_pin1 ;
     json:relatedElement "[{\"@id\":\"Scopes__D__two_pvalue\"},{\"@id\":\"Scopes__D__two_pvalue_pin1\"}]" .
