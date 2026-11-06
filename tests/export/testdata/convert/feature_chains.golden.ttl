@@ -1425,6 +1425,7 @@ expr:Chains__ctx__x_pvalue_pa0_pin0_om
     sysml:source expr:Chains__ctx__x_pvalue_pa0 ;
     sysml:target expr:Chains__ctx__x_pvalue_pa0_pin0 ;
     sysml:relatedElement expr:Chains__ctx__x_pvalue_pa0, expr:Chains__ctx__x_pvalue_pa0_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Chains__ctx__x_pvalue_pa0_pin0 ;
     sysml:ownedMemberParameter expr:Chains__ctx__x_pvalue_pa0_pin0 ;
     json:relatedElement "[{\"@id\":\"Chains__ctx__x_pvalue_pa0\"},{\"@id\":\"Chains__ctx__x_pvalue_pa0_pin0\"}]" .
@@ -1504,6 +1505,7 @@ expr:Chains__ctx__x_pvalue_pin0_om
     sysml:source expr:Chains__ctx__x_pvalue ;
     sysml:target expr:Chains__ctx__x_pvalue_pin0 ;
     sysml:relatedElement expr:Chains__ctx__x_pvalue, expr:Chains__ctx__x_pvalue_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Chains__ctx__x_pvalue_pin0 ;
     sysml:ownedMemberParameter expr:Chains__ctx__x_pvalue_pin0 ;
     json:relatedElement "[{\"@id\":\"Chains__ctx__x_pvalue\"},{\"@id\":\"Chains__ctx__x_pvalue_pin0\"}]" .

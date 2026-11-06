@@ -14,7 +14,7 @@
       {
         "name": "api-json-writer",
         "source": "internal/translate/export",
-        "sourceDigest": "sha256:1208fe7f08f0ae8f50df50255dda0ed538e2c8c096ff0cdf63b3d20198d509af"
+        "sourceDigest": "sha256:7309c85277cbc4273d3212d6dbcfcacd4cb75956bb09e6e7d926cbc298c6478e"
       }
     ],
     "inputs": [
@@ -89,7 +89,7 @@
         "digest": "sha256:f39db343dafb9c99359f5a92e56dcdd5c52992dc50e50b9268d349aa9cdfdf26"
       }
     ],
-    "recorded": "2026-11-05"
+    "recorded": "2026-11-06"
   },
   "exporter": "org.omg.sysml.util.traversal.facade.impl.JsonElementProcessingFacade with setIsIncludeDerived(true), each input resource's root elements visited through org.omg.sysml.util.traversal.Traversal, toJsonTree(true) (the path of SysMLInteractive.export, the %export magic), via scripts/pilot-json-exporter/ExportJSON.java",
   "normalizations": [
@@ -120,8 +120,8 @@
       "typeMismatch": 1682
     },
     "properties": {
-      "presentEqual": 1922070,
-      "presentDifferent": 128996,
+      "presentEqual": 1925331,
+      "presentDifferent": 125735,
       "oursMissing": 321319,
       "pilotMissing": 77524,
       "absentBoth": 2124127,
@@ -161,8 +161,8 @@
         "typeMismatch": 6
       },
       "properties": {
-        "presentEqual": 157272,
-        "presentDifferent": 11655,
+        "presentEqual": 157523,
+        "presentDifferent": 11404,
         "oursMissing": 21956,
         "pilotMissing": 5661,
         "absentBoth": 178251,
@@ -197,8 +197,8 @@
         "typeMismatch": 34
       },
       "properties": {
-        "presentEqual": 554470,
-        "presentDifferent": 39759,
+        "presentEqual": 555650,
+        "presentDifferent": 38579,
         "oursMissing": 87827,
         "pilotMissing": 21084,
         "absentBoth": 612921,
@@ -233,8 +233,8 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 195028,
-        "presentDifferent": 15331,
+        "presentEqual": 195402,
+        "presentDifferent": 14957,
         "oursMissing": 28238,
         "pilotMissing": 7514,
         "absentBoth": 219722,
@@ -270,8 +270,8 @@
         "typeMismatch": 1034
       },
       "properties": {
-        "presentEqual": 113439,
-        "presentDifferent": 8838,
+        "presentEqual": 113569,
+        "presentDifferent": 8708,
         "oursMissing": 19509,
         "pilotMissing": 7607,
         "absentBoth": 106159,
@@ -306,8 +306,8 @@
         "typeMismatch": 396
       },
       "properties": {
-        "presentEqual": 128633,
-        "presentDifferent": 6196,
+        "presentEqual": 128694,
+        "presentDifferent": 6135,
         "oursMissing": 23294,
         "pilotMissing": 6196,
         "absentBoth": 141303,
@@ -343,8 +343,8 @@
         "typeMismatch": 28
       },
       "properties": {
-        "presentEqual": 27546,
-        "presentDifferent": 1963,
+        "presentEqual": 27597,
+        "presentDifferent": 1912,
         "oursMissing": 4389,
         "pilotMissing": 1186,
         "absentBoth": 32524,
@@ -380,8 +380,8 @@
         "typeMismatch": 184
       },
       "properties": {
-        "presentEqual": 598356,
-        "presentDifferent": 36568,
+        "presentEqual": 599396,
+        "presentDifferent": 35528,
         "oursMissing": 105907,
         "pilotMissing": 23163,
         "absentBoth": 675931,
@@ -416,8 +416,8 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 885,
-        "presentDifferent": 33,
+        "presentEqual": 887,
+        "presentDifferent": 31,
         "oursMissing": 90,
         "pilotMissing": 41,
         "absentBoth": 993,
@@ -452,8 +452,8 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 146441,
-        "presentDifferent": 8653,
+        "presentEqual": 146613,
+        "presentDifferent": 8481,
         "oursMissing": 30109,
         "pilotMissing": 5072,
         "absentBoth": 156323,
@@ -69162,8 +69162,8 @@
       0
     ],
     "ParameterMembership.visibility": [
-      1296,
-      3289,
+      4557,
+      28,
       0,
       0,
       0,

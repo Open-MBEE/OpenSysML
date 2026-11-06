@@ -1413,6 +1413,7 @@ expr:Annotated___403__level_pvalue_pin0_om
     sysml:source expr:Annotated___403__level_pvalue ;
     sysml:target expr:Annotated___403__level_pvalue_pin0 ;
     sysml:relatedElement expr:Annotated___403__level_pvalue, expr:Annotated___403__level_pvalue_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Annotated___403__level_pvalue_pin0 ;
     sysml:ownedMemberParameter expr:Annotated___403__level_pvalue_pin0 ;
     json:relatedElement "[{\"@id\":\"Annotated___403__level_pvalue\"},{\"@id\":\"Annotated___403__level_pvalue_pin0\"}]" .

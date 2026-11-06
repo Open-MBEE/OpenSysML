@@ -482,6 +482,7 @@ expr:P__h__r_pvalue_pa0_pin0_om
     sysml:source expr:P__h__r_pvalue_pa0 ;
     sysml:target expr:P__h__r_pvalue_pa0_pin0 ;
     sysml:relatedElement expr:P__h__r_pvalue_pa0, expr:P__h__r_pvalue_pa0_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:P__h__r_pvalue_pa0_pin0 ;
     sysml:ownedMemberParameter expr:P__h__r_pvalue_pa0_pin0 ;
     json:relatedElement "[{\"@id\":\"P__h__r_pvalue_pa0\"},{\"@id\":\"P__h__r_pvalue_pa0_pin0\"}]" .
@@ -561,6 +562,7 @@ expr:P__h__r_pvalue_pin0_om
     sysml:source expr:P__h__r_pvalue ;
     sysml:target expr:P__h__r_pvalue_pin0 ;
     sysml:relatedElement expr:P__h__r_pvalue, expr:P__h__r_pvalue_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:P__h__r_pvalue_pin0 ;
     sysml:ownedMemberParameter expr:P__h__r_pvalue_pin0 ;
     json:relatedElement "[{\"@id\":\"P__h__r_pvalue\"},{\"@id\":\"P__h__r_pvalue_pin0\"}]" .
