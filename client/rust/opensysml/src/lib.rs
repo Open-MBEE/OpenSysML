@@ -10,6 +10,7 @@ mod conversion;
 mod document;
 mod domain;
 mod edit;
+mod element_properties;
 mod encode;
 mod error;
 mod graphs;
@@ -61,6 +62,7 @@ pub use edit::{
     ImportOptions, MemberOptions, MetadataOptions, Referrer, SatisfyOptions, StateActionKind,
     StatementOptions, ThenStep, TransitionOptions,
 };
+pub use element_properties::{ElementIdentity, ElementProperties, ElementProperty, PropertyValue};
 pub use migration::{
     is_v1, path_is_v1, Layout, MigrateOptions, MigrateSource, Migration, MigrationEntry,
     MigrationReport, MIGRATED_NOT_CONVERTED, MIGRATION_NOTICE, V1_FORMATS, VERDICT_APPROXIMATED,

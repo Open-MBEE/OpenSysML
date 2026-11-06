@@ -181,6 +181,11 @@ func (a *ConnectAdapter) Query(ctx context.Context, req *connect.Request[pb.Quer
 	return connectCall(ctx, req, a.svc.Query)
 }
 
+// GetElementProperties reads the metamodel properties of one element.
+func (a *ConnectAdapter) GetElementProperties(ctx context.Context, req *connect.Request[pb.GetElementPropertiesRequest]) (*connect.Response[pb.GetElementPropertiesResponse], error) {
+	return connectCall(ctx, req, a.svc.GetElementProperties)
+}
+
 // RunDocumentQuery runs a named document query and answers with typed rows.
 func (a *ConnectAdapter) RunDocumentQuery(ctx context.Context, req *connect.Request[pb.RunDocumentQueryRequest]) (*connect.Response[pb.RunDocumentQueryResponse], error) {
 	return connectCall(ctx, req, a.svc.RunDocumentQuery)

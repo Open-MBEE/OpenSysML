@@ -36,6 +36,10 @@ connecting to models.
     options:
       heading_level: 3
 
+::: opensysml.CAPABILITY_ELEMENT_PROPERTIES
+    options:
+      heading_level: 3
+
 ::: opensysml.CAPABILITY_CONSTRAINT_BODY_AUTHORING
     options:
       heading_level: 3
@@ -834,6 +838,23 @@ Results and errors from the standard query model.
       heading_level: 3
 
 ::: opensysml.QueryError
+    options:
+      heading_level: 3
+
+## opensysml.element_properties
+
+An element's metamodel properties by their specification names, as
+`Model.element_properties` and `Symbol.properties` answer them.
+
+::: opensysml.ElementProperties
+    options:
+      heading_level: 3
+
+::: opensysml.ElementProperty
+    options:
+      heading_level: 3
+
+::: opensysml.ElementIdentity
     options:
       heading_level: 3
 

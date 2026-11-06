@@ -159,6 +159,7 @@ What a request asks for is fixed per capability:
 | `check` | Refuse `CheckBehavior`. |
 | `verification` | Refuse `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction`, `ValidateInstance` and `EvaluateCalc`. |
 | `query` | Refuse `Query`. |
+| `element_properties` | Refuse `GetElementProperties`. |
 | `oslc_query` | Refuse `Query` only when `oslc_query` is set; structured queries still use `query`. |
 | `apply_edits` | Refuse `ApplyEdits`. |
 | `authoring` | Refuse `ApplyEdits` only when an operation is `add_member` or `delete`. |

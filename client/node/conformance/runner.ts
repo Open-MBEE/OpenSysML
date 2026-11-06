@@ -40,6 +40,7 @@ export const COVERED_RPCS = [
   "EvaluateCalc",
   "ExecuteAction",
   "ExportGraphs",
+  "GetElementProperties",
   "ExecuteState",
   "GetDiagnostics",
   "GetServerInfo",
@@ -434,6 +435,11 @@ export class Runner {
       this.model(call).calc(String(call.request["symbol_id"]), {
         arguments: valueList(call.request["arguments"]),
       }),
+    GetElementProperties: (call) =>
+      this.model(call).elementProperties(
+        String(call.request["element_id"]),
+        ...stringList(call.request["properties"]),
+      ),
     Query: (call) =>
       this.model(call).query({
         ...(call.request["query"] !== undefined
