@@ -8,9 +8,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )
 
-// TestConnectorEndDefaultMultiplicityHasItsOwnElementID: the Multiplicity stating a positional
-// end's implicit [1..1] (`connect a.o to b.i`) and its OwningMembership are identified as the
-// conversion mints them, under the end at `multiplicity`, for a named and an anonymous connection.
+// TestConnectorEndDefaultMultiplicityHasItsOwnElementID: the Multiplicity stating an end's implicit
+// [1..1] and its OwningMembership are identified as the conversion mints them, named connection or not.
 func TestConnectorEndDefaultMultiplicityHasItsOwnElementID(t *testing.T) {
 	fixture := loadExecutionSource(t, `package Observatory {
 	part def A { port o; port i; }
