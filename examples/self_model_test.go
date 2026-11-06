@@ -3,12 +3,14 @@ package examples
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"regexp"
 	goruntime "runtime"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -779,7 +781,8 @@ func TestSelfModelAskingSurfacesMatchImplementation(t *testing.T) {
 }
 
 // TestSelfModelLibraryMatchesImplementation compares the modelled library with libs:
-// the override variable, the snapshot decoding, its Make targets and the CI check.
+// the override variable, the snapshot decoding, that the snapshot is generated rather
+// than tracked, and the Make targets that write it before every build and test.
 func TestSelfModelLibraryMatchesImplementation(t *testing.T) {
 	idx, ctx := analyseSelfModel(t)
 	stdlib := instantiateSelfModel(t, idx, ctx, "pipeline.sysml", "OpenSysMLPipeline", "StandardLibrary")
@@ -788,10 +791,20 @@ func TestSelfModelLibraryMatchesImplementation(t *testing.T) {
 		t.Errorf("pipeline.sysml says the library is overridden by %s, libs reads %s", got, want)
 	}
 
-	snapshotIdx, err := libs.SnapshotIndex()
-	if decodes := err == nil && snapshotIdx != nil; decodes != stdlib.boolean("snapshotEmbedded") {
-		t.Errorf("pipeline.sysml says snapshotEmbedded = %t, libs.SnapshotIndex() returned (%v, %v)",
-			stdlib.boolean("snapshotEmbedded"), snapshotIdx != nil, err)
+	// A snapshot the test binary embeds must decode; a build without one is the
+	// module-proxy case the fallback exists for, and no other failure is allowed.
+	if _, err := libs.SnapshotIndex(); err != nil && !errors.Is(err, libs.ErrNoSnapshot) {
+		t.Errorf("libs.SnapshotIndex() = %v, want an index or ErrNoSnapshot", err)
+	}
+
+	snapshotFile := filepath.FromSlash(stdlib.str("snapshotFile"))
+	ignore, err := os.ReadFile(filepath.Join("..", filepath.Dir(snapshotFile), ".gitignore"))
+	if err != nil {
+		t.Fatalf("read the snapshot directory's .gitignore: %v", err)
+	}
+	if ignored := slices.Contains(strings.Fields(string(ignore)), filepath.Base(snapshotFile)); ignored == stdlib.boolean("snapshotTracked") {
+		t.Errorf("pipeline.sysml says snapshotTracked = %t, %s gitignores it: %t",
+			stdlib.boolean("snapshotTracked"), filepath.Dir(snapshotFile), ignored)
 	}
 
 	generator, ok := stdlib.parts()["generator"]
@@ -806,23 +819,21 @@ func TestSelfModelLibraryMatchesImplementation(t *testing.T) {
 	for _, match := range makeTargetPattern.FindAllStringSubmatch(string(makefile), -1) {
 		targets[match[1]] = true
 	}
-	for _, attribute := range []string{"makeTarget", "checkTarget"} {
-		if target := generator.str(attribute); !targets[target] {
-			t.Errorf("pipeline.sysml says %s = %q, which the Makefile does not define", attribute, target)
-		}
+	makeTarget := generator.str("makeTarget")
+	if !targets[makeTarget] {
+		t.Errorf("pipeline.sysml says makeTarget = %q, which the Makefile does not define", makeTarget)
 	}
 
-	workflow, err := os.ReadFile(filepath.Join("..", ".github", "workflows", "pr.yml"))
-	if err != nil {
-		t.Fatalf("read the pull request workflow: %v", err)
-	}
 	gate := instantiateSelfModel(t, idx, ctx, "surfaces.sysml", "OpenSysMLSurfaces", "StdlibSnapshotGate")
 	if gate.str("baseline") != stdlib.str("snapshotFile") {
 		t.Errorf("surfaces.sysml gates %s, pipeline.sysml embeds %s", gate.str("baseline"), stdlib.str("snapshotFile"))
 	}
-	if runs := strings.Contains(string(workflow), "make "+generator.str("checkTarget")); runs != gate.boolean("gating") {
-		t.Errorf("surfaces.sysml says the snapshot gate is gating = %t, the pull request workflow runs make %s: %t",
-			gate.boolean("gating"), generator.str("checkTarget"), runs)
+	// The gate is live when the test targets generate the snapshot before the
+	// suite runs, so TestEmbeddedSnapshotIsCurrent checks a current one.
+	generatesFirst := regexp.MustCompile(`(?m)^test(-shard)?: .*\b` + regexp.QuoteMeta(makeTarget) + `\b`)
+	if runs := len(generatesFirst.FindAllString(string(makefile), -1)) == 2; runs != gate.boolean("gating") {
+		t.Errorf("surfaces.sysml says the snapshot gate is gating = %t, the Makefile's test targets run %s first: %t",
+			gate.boolean("gating"), makeTarget, runs)
 	}
 }
 
