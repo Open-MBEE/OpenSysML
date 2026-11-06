@@ -337,7 +337,7 @@ func (c *Core) getSymbol(req *JGetSymbolRequest) ([]byte, error) {
 	if !ok {
 		return nil, jsonrpc.Errorf(jsonrpc.CodeNotFound, msgModelNotFound, req.ModelHash)
 	}
-	matches := symbolfacts.LookupNamed(model.index, req.SymbolId)
+	matches := model.symbolContext().Lookup(req.SymbolId)
 	if len(matches) == 0 {
 		return json.Marshal(&JSymbolResponse{Error: fmt.Sprintf("symbol not found: %s", req.SymbolId)})
 	}
@@ -365,7 +365,25 @@ func (m *cachedModel) symbolContext() *symbolfacts.Context {
 		}
 	}
 	m.symbols.Semantics.SetSourceText(source.TextOf(sources, libs.Text(m.library)))
+	m.symbols.Positional = symbolfacts.NewPositional(m.index, m.positionalDocuments)
 	return m.symbols
+}
+
+// positionalDocuments pairs each document of the model with its root scope,
+// for the positional identities of its unnamed declarations.
+func (m *cachedModel) positionalDocuments() []symbolfacts.PositionalDocument {
+	docs := make([]symbolfacts.PositionalDocument, 0, len(m.documents))
+	for _, document := range m.documents {
+		if document == nil || document.source == nil {
+			continue
+		}
+		root := m.index.DocumentRoot(document.source.Name())
+		if root == nil {
+			continue
+		}
+		docs = append(docs, symbolfacts.PositionalDocument{File: document.source, Root: root})
+	}
+	return docs
 }
 
 func modelDiagnostics(model *cachedModel) []*JDiagnostic {
