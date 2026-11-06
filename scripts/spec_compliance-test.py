@@ -55,7 +55,8 @@ class RenderTests(Fixture):
         )
 
     def test_render_is_deterministic(self) -> None:
-        self.assertEqual(sc.render(self.root), sc.render(self.root))
+        first = sc.render(self.root)
+        self.assertEqual(sc.render(self.root), first)
 
     def test_locate_names_the_source_holding_a_heading(self) -> None:
         found = [p.name for p in sc.locate("action", self.root)]

@@ -230,7 +230,7 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 99844 elements matched (19033 ours-only, 31480 pilot-only, 0 of them implied); properties: 1926260 present-equal, 148314 present-different, 298709 ours-missing, 77583 pilot-missing, 2124650 absent-both, 32769 indeterminate, 516 pilot-nondeterministic.
+**Scorecard:** 935 files; 99844 elements matched (19033 ours-only, 31480 pilot-only, 0 of them implied); properties: 1926613 present-equal, 148957 present-different, 297708 ours-missing, 77583 pilot-missing, 2124650 absent-both, 32774 indeterminate, 516 pilot-nondeterministic.
 
 Re-recorded on develop's individual-definition change (#1943: an `individual def`/`individual usage` is written as `OccurrenceDefinition`/`OccurrenceUsage` with `isIndividual`): 88 more elements match (99534 → 99622), and the 32 `OccurrenceDefinition` rows of the inherited family move from ours-missing to present-different for the causes the paragraph below already lists; no row grew.
 
@@ -244,15 +244,15 @@ The pilot's export failed on 59 files (`pilotFailed`: its own export throws on a
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 8026 | 1138 | 2140 | 157493 | 13468 | 19922 | 5661 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 28254 | 6251 | 7862 | 555535 | 44486 | 82037 | 21084 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 10015 | 1893 | 2584 | 195350 | 17207 | 26041 | 7514 |
+| `examples/sysml-v2-training` | 100 | 8026 | 1138 | 2140 | 157523 | 13498 | 19862 | 5661 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 28254 | 6251 | 7862 | 555650 | 45019 | 81387 | 21084 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 10015 | 1893 | 2584 | 195402 | 17253 | 25942 | 7514 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 6443 | 1191 | 1798 | 114472 | 9473 | 18441 | 7645 |
-| `examples/spec-examples` | 511 | 7389 | 1014 | 2341 | 128971 | 7723 | 21653 | 6214 |
-| `tests/testdata` | 40 | 1517 | 192 | 454 | 27654 | 2133 | 4163 | 1190 |
-| `examples` | 56 | 30660 | 6344 | 12479 | 599293 | 44486 | 97071 | 23162 |
+| `examples/spec-examples` | 511 | 7389 | 1014 | 2341 | 128986 | 7734 | 21627 | 6214 |
+| `tests/testdata` | 40 | 1517 | 192 | 454 | 27659 | 2128 | 4163 | 1190 |
+| `examples` | 56 | 30660 | 6344 | 12479 | 599421 | 44464 | 96963 | 23162 |
 | `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 887 | 31 | 90 | 41 |
-| `docs/manual/examples` | 11 | 7487 | 1010 | 1822 | 146605 | 9307 | 29291 | 5072 |
+| `docs/manual/examples` | 11 | 7487 | 1010 | 1822 | 146613 | 9357 | 29233 | 5072 |
 
 **Every connector end's `[1..1]`** (re-recorded when the writer began stating the implicit `[1..1]`
 of a positional end — `connect a to b`, `bind a = b`, `first s1 then s2`, `allocate a to b` — as it
@@ -273,8 +273,8 @@ cause they already state).
 
 **Every multiplicity specializes `Base::naturals`, an `individual` definition's its own `Base::zeroOrOne`**
 (re-recorded with the implied specializations of KerML 8.3.3.1.9 `checkMultiplicitySpecialization` and
-SysML 8.3.9.3 `checkOccurrenceDefinitionMultiplicitySpecialization`, on the writer of #1950 and #1990 — develop's
-#1915 write-time completion with every connector end's `[1..1]`, keyed by its id): 127 rows moved, matched elements 99783 → 99844,
+SysML 8.3.9.3 `checkOccurrenceDefinitionMultiplicitySpecialization`, on the writer of #1950, #1990 and #1970 — develop's
+#1915 write-time completion with every connector end's `[1..1]`, keyed by its id, and the nested usages' subsettings): 127 rows moved, matched elements 99783 → 99844,
 present-equal +1286, present-different +23217, ours-missing −23609, pilot-missing +61, ours-only +73,
 pilot-only −61. (1) With a base to read, the completed lists now reach every `Multiplicity`: its `feature`,
 `featureMembership`, `inheritedFeature`, `inheritedMembership`, `member` and `membership` rows (61–67 of
@@ -611,6 +611,45 @@ ours-missing):
    `output` +785 — projections of the same lists, so they inherit the verdict of their `feature` row;
    identity noise is confined to the one `localClock` duplicate. Nothing in the movement is a list ours
    states and the spec forbids; each pilot-right row is an itemised gap, not an approximation.
+
+   Re-recorded with a nested usage's implied subsetting derived in structure mode (SysML 2.1 Beta 2 §8.3.6.4,
+   the `check*Specialization` constraints: `checkPartUsageSubpartSpecialization` — "A composite PartUsage
+   whose owningType is a ItemDefinition or ItemUsage must directly or indirectly specialize the PartUsage
+   Items::Item::subparts" — and its siblings for items, occurrences, actions, states, constraints,
+   requirements, cases, ports and views). The semantic model's declaration-keyed rule chains (`nested.go`)
+   are now also answered for a graph element from what the graph states — its metaclass, its owning type's
+   metaclass, `isComposite` and `portionKind` (`ImpliedSubsettingFQNForMetaclass`; the perform, exhibit and
+   include forms are metaclasses of their own there, and the owning membership's metaclass and `kind` tell a
+   requirement's `assume`/`require` constraint, a state's `entry`/`exit` action and a variant apart), with the KerML step fallback consulted when the owning
+   type is a library symbol — and the feature named joins the element's general types, so its
+   `nonPrivateMemberships` are inherited like an implied kind base's. Movement against the record above:
+   present-equal +353, present-different +643, ours-missing −1001, indeterminate +5, elements unchanged, no
+   row grew in ours-missing. By metaclass: `PerformActionUsage` `feature`/`featureMembership` 86,
+   `inheritedMembership` 110, `inheritedFeature` 112, `member`/`membership` 83 rows ours-missing →
+   present-different and `usage` 39 → equal, 44 → different; `AssertConstraintUsage` 52 inherited rows and 39
+   `directedFeature`/`output` rows → different, `usage` 39 → equal; `ExhibitStateUsage` 23 inherited and 5
+   `member`/`feature` rows → different, `usage` 14 → equal; `SatisfyRequirementUsage` 16 inherited and 16
+   `output` rows → different; `IncludeUseCaseUsage` one row per property → different; `StateUsage.usage` 216,
+   `ActionUsage.usage` 35, `CalculationUsage.usage` 6 and `UseCaseUsage.usage` 2 different → equal;
+   `FlowUsage.usage` 2 different → indeterminate. Verdicts: the ours-missing → present rows are the nested
+   forms whose metaclass has no kind base in `ImpliedBaseFQNsForMetaclass` (a `perform action` is an
+   `ActionUsage` by `Actions::actions`, SysML §8.3.16.3), so until now nothing was inherited and the family
+   withheld; the nesting feature (`Parts::Part::performedActions`, `exhibitedStates`,
+   `Requirements::RequirementCheck::assumptions`/`constraints`, …) now carries most of the pilot's list, and
+   the rows are different where the pilot's also carries the kind base's own members — the kind base of
+   these metaclasses is the recorded gap (cause 1's metaclass-keyed bases), not an approximation. The `usage`
+   rows → equal are lists the nesting feature completes exactly. The `PartUsage`, `ItemUsage` and
+   `OccurrenceUsage` rows stay present-different with a smaller difference: a part usage's lists now carry
+   `Items::Item::subparts/MultiplicityRange[0]`, its documentation and `suboccurrences`' members (the
+   pilot's `eng` of the training `Part Definition Example` lists 113 inherited memberships, ours 105, from
+   100), and the pilot's also carry the `MultiplicityRange` of each intermediate feature of the subsetting
+   chain (`Items::Item::subitems/OwningMembership[1]`, `Objects::Object::subobjects/OwningMembership[1]`),
+   which the semantic model inherits through a subsetting only for the directly subsetted feature — a
+   side-table gap recorded here. The Turtle and compact forms change additively (the new stubs and
+   `libraryReferences` rows; two conversion goldens cross 200 KiB into digest form); the unkeyed
+   references rise by 774, the pilot keying a nesting feature's `OwningMembership`s positionally while the
+   compact form spells a membership stub without a `libraryPath`.
+
 
 Not completed, and why: `Type::endFeature` (not taken up in this step; it awaits a measurement of its own) and the
 causes itemised under step 5. `Behavior::step` (0 equal / 257 different),

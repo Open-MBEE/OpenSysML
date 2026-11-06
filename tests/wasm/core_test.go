@@ -352,6 +352,28 @@ func TestCoreWireParity(t *testing.T) {
 		}
 	}
 
+	// The library opt-in reaches the core's enumeration as it reaches the service's.
+	for _, includeLibrary := range []bool{false, true} {
+		params := fmt.Sprintf(`{"modelHash":%q,"symbolId":"Demo::'Vehicle Type'::engine","includeLibraryMembers":%t}`, hash, includeLibrary)
+		body := callCore("GetSymbol", params)
+		response, err := svc.GetSymbol(ctx, mustUnmarshal[pb.GetSymbolRequest](t, params))
+		if err != nil {
+			t.Fatalf("grpc GetSymbol(engine, includeLibraryMembers=%t): %v", includeLibrary, err)
+		}
+		equal("GetSymbol", params, response, body)
+		symbol := response.GetSymbol()
+		if symbol == nil {
+			t.Fatalf("GetSymbol(engine, includeLibraryMembers=%t) returned no symbol", includeLibrary)
+		}
+		if includeLibrary {
+			if symbol.GetWithheldLibraryMembers() != 0 {
+				t.Errorf("includeLibraryMembers still withholds %d members", symbol.GetWithheldLibraryMembers())
+			}
+		} else if symbol.GetWithheldLibraryMembers() == 0 {
+			t.Error("no withheld library member counted, yet every part inherits Parts::Part's")
+		}
+	}
+
 	_, _ = parseSources("core-unresolved.sysml",
 		`package Demo { part def Vehicle { part engine : MissingType; } }`)
 
