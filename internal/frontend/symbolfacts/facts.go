@@ -26,6 +26,9 @@ type Context struct {
 	Index     *symbols.Index
 	Resolver  *resolve.Resolver
 	Semantics *semantics.Model
+	// Positional names the symbols no qualified name identifies; nil when the
+	// host derives none, which leaves such symbols without an id.
+	Positional *Positional
 }
 
 // NewContext builds a conversion context over a symbol index.
@@ -125,9 +128,8 @@ func Of(sym *symbols.Symbol, sc *Context) *Info {
 // OfWith is Of with the options selecting what else is reported.
 func OfWith(sym *symbols.Symbol, sc *Context, opts Options) *Info {
 	defer sc.Lock()()
-	idx := sc.Index
 	info := &Info{
-		Id:       idx.GetFQN(sym), // Fully qualified name
+		Id:       sc.identityOrFQN(sym),
 		Name:     sym.Name,
 		Kind:     sym.Kind.String(),
 		Metadata: make(map[string]string),
@@ -137,8 +139,7 @@ func OfWith(sym *symbols.Symbol, sc *Context, opts Options) *Info {
 	// Add visibility to metadata
 	info.Metadata["visibility"] = visibilityToString(sym.Visibility)
 	if sym.Scope != nil {
-		// Collect child IDs
-		info.ChildIds = collectChildIDs(sym.Scope, idx)
+		info.ChildIds = sc.collectChildIDs(sym.Scope)
 	}
 	// Static type facts: the resolved type, the declared multiplicity and every
 	// generalization edge. These are what a client needs to reconstruct the
@@ -171,15 +172,27 @@ func Root(sc *Context, rootScope *symbols.Scope) *Info {
 		Kind:     "RootNamespace",
 		Metadata: make(map[string]string),
 	}
-	info.ChildIds = collectChildIDs(rootScope, sc.Index)
+	info.ChildIds = sc.collectChildIDs(rootScope)
 	return info
 }
 
-// collectChildIDs extracts child symbol FQNs from a scope
-func collectChildIDs(scope *symbols.Scope, idx *symbols.Index) []string {
+// identityOrFQN is the id a symbol is reported under: the one Lookup answers,
+// else the index's qualified name, so the report still says where it is.
+func (sc *Context) identityOrFQN(sym *symbols.Symbol) string {
+	if id := sc.Identity(sym); id != "" {
+		return id
+	}
+	return sc.Index.GetFQN(sym)
+}
+
+// collectChildIDs lists the members' ids in declaration order, each one Lookup
+// resolves (qualified or positional); a member no id reaches is left out.
+func (sc *Context) collectChildIDs(scope *symbols.Scope) []string {
 	var ids []string
 	for _, sym := range scope.AllMembers() {
-		ids = append(ids, idx.GetFQN(sym))
+		if id := sc.Identity(sym); id != "" {
+			ids = append(ids, id)
+		}
 	}
 	return ids
 }
@@ -272,9 +285,25 @@ func (sc *Context) typeInfoOf(sym *symbols.Symbol) *TypeInfo {
 		return sc.usageTypeInfo(sym, decl)
 	case *ast.Definition:
 		return sc.definitionTypeInfo(sym)
+	case *ast.PrefixMetadata:
+		return sc.annotationTypeInfo(sym, decl)
 	default:
 		return nil
 	}
+}
+
+// annotationTypeInfo derives the type facts of a metadata usage written as an
+// annotation (`@M`, `#M`): the metadata definition it names, resolved.
+func (sc *Context) annotationTypeInfo(sym *symbols.Symbol, decl *ast.PrefixMetadata) *TypeInfo {
+	if decl.Type == nil {
+		return nil
+	}
+	info := &TypeInfo{Declared: decl.Type.Text()}
+	if target := sc.resolveFrom(sym, decl.Type); target != nil {
+		info.ResolvedId = sc.Index.GetFQN(target)
+		info.ResolvedKind = target.Kind.String()
+	}
+	return info
 }
 
 // usageTypeInfo derives the type facts of a usage. An untyped usage still has a

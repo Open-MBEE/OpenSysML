@@ -6,8 +6,8 @@ import (
 
 // Member is one member of a symbol, own or inherited, as the service reports it.
 type Member struct {
-	// Id is the member's FQN, what a symbol lookup takes; an unnamed member has
-	// one that names its owner only.
+	// Id is what a symbol lookup takes: the member's qualified name, or the
+	// positional id (`Owner::@3`) of an unnamed one.
 	Id   string
 	Name string
 	Kind string
@@ -28,31 +28,48 @@ type Member struct {
 // standard-library content — the dozens every part has through Parts::Part and
 // Base::Anything — is withheld and counted unless includeLibrary, as
 // attributesOf withholds library attributes; a library element asked about
-// directly still reports what it declares.
+// directly still reports what it declares. A member no id reaches is left out.
 func (sc *Context) membersOf(sym *symbols.Symbol, includeLibrary bool) ([]*Member, int32) {
 	out := []*Member{}
 	var withheld int32
+	own := make(map[*symbols.Symbol]bool)
+	// The own members are the scope's, exactly as child_ids lists them: a `#M`
+	// prefix is owned through its Annotation yet navigable like any member.
+	if sym.Scope != nil {
+		for _, member := range sym.Scope.AllMembers() {
+			id := sc.Identity(member)
+			if id == "" {
+				continue
+			}
+			own[member] = true
+			out = append(out, &Member{Id: id, Name: member.Name, Kind: member.Kind.String(), Library: sc.libraryDeclared(sym)})
+		}
+	}
 	for _, member := range sc.Semantics.Members(sym) {
+		if !member.Inherited || own[member.Symbol] {
+			continue
+		}
+		id := sc.Identity(member.Symbol)
+		if id == "" {
+			continue
+		}
 		// Provenance is the declaring type's: an unnamed member has no
 		// qualified name of its own to place it by.
 		source := member.Source
 		if source == nil {
 			source = sym
 		}
-		library := sc.libraryDeclared(source)
-		if library && member.Inherited && !includeLibrary {
+		if sc.libraryDeclared(source) && !includeLibrary {
 			withheld++
 			continue
 		}
 		info := &Member{
-			Id:        sc.Index.GetFQN(member.Symbol),
-			Name:      member.Symbol.Name,
-			Kind:      member.Symbol.Kind.String(),
-			Inherited: member.Inherited,
-			Library:   library,
-		}
-		if member.Inherited && member.Source != nil {
-			info.InheritedFrom = sc.Index.GetFQN(member.Source)
+			Id:            id,
+			Name:          member.Symbol.Name,
+			Kind:          member.Symbol.Kind.String(),
+			Inherited:     true,
+			InheritedFrom: sc.Index.GetFQN(source),
+			Library:       sc.libraryDeclared(source),
 		}
 		out = append(out, info)
 	}

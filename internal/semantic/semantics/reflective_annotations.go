@@ -34,7 +34,9 @@ func (m *Model) OwnedAnnotations(sym *symbols.Symbol) []*symbols.Symbol {
 			},
 		})
 	}
+	seen := make(map[*symbols.Symbol]bool)
 	for _, prefix := range m.prefixMetadataSymbols(sym) {
+		seen[prefix] = true
 		out = append(out, &symbols.Symbol{
 			Kind:     symbols.SymbolRelationship,
 			DocName:  sym.DocName,
@@ -44,7 +46,6 @@ func (m *Model) OwnedAnnotations(sym *symbols.Symbol) []*symbols.Symbol {
 			},
 		})
 	}
-	seen := make(map[*symbols.Symbol]bool)
 	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
 		if member == nil || seen[member] || !ownedThroughAnnotation(sym, member) {
 			return true
@@ -149,9 +150,6 @@ func (m *Model) owningAnnotatingRelationship(sym *symbols.Symbol) *symbols.Symbo
 		return nil
 	}
 	owner := m.ownerOf(sym)
-	if isPrefixMetadataSymbol(sym) {
-		owner = m.prefixMetadataOwner(sym)
-	}
 	if owner == nil {
 		return nil
 	}
@@ -286,17 +284,4 @@ func (m *Model) annotationElements(sym *symbols.Symbol, feature string) ([]*symb
 		return empty, true
 	}
 	return nil, false
-}
-
-// prefixMetadataOwner is the element a synthesized prefix metadata feature is
-// written on, found through the annotation that owns it.
-func (m *Model) prefixMetadataOwner(sym *symbols.Symbol) *symbols.Symbol {
-	for owner, annotations := range m.ownedAnnotations {
-		for _, ann := range annotations {
-			if ann.Implicit.Member == sym {
-				return owner
-			}
-		}
-	}
-	return nil
 }

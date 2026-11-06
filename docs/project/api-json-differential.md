@@ -246,15 +246,15 @@ The pilot's export failed on 59 files (`pilotFailed`: its own export throws on a
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 8026 | 1138 | 2140 | 157493 | 11374 | 22016 | 5661 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 28254 | 6251 | 7862 | 555535 | 38046 | 88477 | 21084 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 10015 | 1893 | 2584 | 195350 | 14911 | 28337 | 7514 |
+| `examples/sysml-v2-training` | 100 | 8026 | 1138 | 2140 | 157523 | 11404 | 21956 | 5661 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 28254 | 6251 | 7862 | 555650 | 38579 | 87827 | 21084 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 10015 | 1893 | 2584 | 195402 | 14957 | 28238 | 7514 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 6405 | 1153 | 1836 | 113569 | 8708 | 19509 | 7607 |
-| `examples/spec-examples` | 511 | 7371 | 997 | 2359 | 128679 | 6124 | 23320 | 6196 |
-| `tests/testdata` | 40 | 1513 | 174 | 458 | 27592 | 1917 | 4389 | 1186 |
-| `examples` | 56 | 30659 | 6344 | 12480 | 599264 | 35555 | 106013 | 23161 |
+| `examples/spec-examples` | 511 | 7371 | 997 | 2359 | 128694 | 6135 | 23294 | 6196 |
+| `tests/testdata` | 40 | 1513 | 174 | 458 | 27597 | 1912 | 4389 | 1186 |
+| `examples` | 56 | 30649 | 6344 | 12480 | 599177 | 35527 | 105876 | 23153 |
 | `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 887 | 31 | 90 | 41 |
-| `docs/manual/examples` | 11 | 7487 | 1010 | 1822 | 146605 | 8431 | 30167 | 5072 |
+| `docs/manual/examples` | 11 | 7487 | 1010 | 1822 | 146613 | 8481 | 30109 | 5072 |
 
 **Every connector end's `[1..1]`** (re-recorded when the writer began stating the implicit `[1..1]`
 of a positional end — `connect a to b`, `bind a = b`, `first s1 then s2`, `allocate a to b` — as it
@@ -429,6 +429,16 @@ standard-library element already lands in
 [337 equal, 183 different, 1 ours-missing, 16 absent-both] → [338, 0, 0, 16, 183 indeterminate] and `.parameter` [353, 184] → [354, 0, 183 indeterminate]. Totals: 1293764 → 1293766 present-equal,
 32981 → 32614 present-different, 920639 → 920638 ours-missing, 31138 → 31504 indeterminate; no element count
 moved. The row to equal on each is `A().y` (`Simple Tests/Behaviors.kerml`), whose unbound `A::x` and `A::y` are features of the file and so keyed; the 183 are calls of a library function — the 25 `Descendants(…)` calls of `examples` and `docs/manual/examples` the library pin above moved, the `WhereType(…, exact = false)` calls, every `TimeOf`/`DurationOf`. No other row moved.
+
+**The self-model drops its `port-type-mismatch` pass** (re-recorded when `examples/self-model/pipeline.sysml`
+lost the `part portTypeMismatch : ConstraintCheck { attribute :>> goType = "PortTypeMismatchPass"; }`
+declaration together with the lint it described): the `examples` root lost that declaration's 10 matched
+elements — the `PartUsage` with its `FeatureTyping`, implied `Multiplicity` and the `OwningMembership` of that
+multiplicity, the `AttributeUsage` with its `Redefinition`, `FeatureValue` and `LiteralString`, and the two
+`FeatureMembership`s; 99783 → 99773 matched, 1925327 → 1925112 present-equal, 125740 → 125734
+present-different, 321317 → 321288 ours-missing, 77522 → 77514 pilot-missing, 32774 → 32771 indeterminate;
+the ours-only and pilot-only counts are unchanged. Each scorecard row of those nine kinds fell by one per
+element in the column it already occupied; no row changed column and no other root moved.
 
 ### The element form completes the derived properties
 
