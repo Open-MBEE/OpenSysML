@@ -160,10 +160,10 @@ citations; it moves only when the manifest does.
 <!-- doc-counts:begin validation-spec-coverage -->
 | Document | check* | derive* | validate* | Stated | Pilot-named | Spec-sourced | Implemented | ❌ not implemented | ⛔ deliberate | ❔ unknown |
 |---|---|---|---|---|---|---|---|---|---|---|
-| KerML 1.1 Beta 2 (`Release 2026-07`) | 80 | 90 | 88 | 258 | 87 | 171 | 110 | 58 | 3 | 0 |
-| SysML 2.1 Beta 2 (`Release 2026-07`) | 128 | 145 | 92 | 365 | 87 | 278 | 188 | 87 | 3 | 0 |
+| KerML 1.1 Beta 2 (`Release 2026-07`) | 80 | 90 | 88 | 258 | 87 | 171 | 111 | 57 | 3 | 0 |
+| SysML 2.1 Beta 2 (`Release 2026-07`) | 128 | 145 | 92 | 365 | 87 | 278 | 189 | 86 | 3 | 0 |
 
-**Formal coverage:** the pinned documents state 623 constraints in the Constraints subsections of their abstract-syntax clauses — 208 `check*`, 235 `derive*` and 180 `validate*`. 174 of them are named by a pilot validator and counted in the census above; 449 are recorded from the documents alone, outside the census, of which 298 are implemented, 145 are ❌ not implemented, 6 are ⛔ deliberate and 0 remain ❔ unknown.
+**Formal coverage:** the pinned documents state 623 constraints in the Constraints subsections of their abstract-syntax clauses — 208 `check*`, 235 `derive*` and 180 `validate*`. 174 of them are named by a pilot validator and counted in the census above; 449 are recorded from the documents alone, outside the census, of which 300 are implemented, 143 are ❌ not implemented, 6 are ⛔ deliberate and 0 remain ❔ unknown.
 <!-- doc-counts:end validation-spec-coverage -->
 
 *Stated* is what the documents' Constraints subsections name; *Pilot-named* the ones a pilot

@@ -86,6 +86,11 @@ func (a *ConnectAdapter) Instantiate(ctx context.Context, req *connect.Request[p
 	return connectCall(ctx, req, a.svc.Instantiate)
 }
 
+// InstancePaths lists every root-relative path reaching an object.
+func (a *ConnectAdapter) InstancePaths(ctx context.Context, req *connect.Request[pb.InstancePathsRequest]) (*connect.Response[pb.InstancePathsResponse], error) {
+	return connectCall(ctx, req, a.svc.InstancePaths)
+}
+
 // ExecuteAction runs an action to completion.
 func (a *ConnectAdapter) ExecuteAction(ctx context.Context, req *connect.Request[pb.ExecuteActionRequest]) (*connect.Response[pb.ExecuteActionResponse], error) {
 	return connectCall(ctx, req, a.svc.ExecuteAction)

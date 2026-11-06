@@ -1648,70 +1648,64 @@ type InstanceGraph struct {
 }
 
 // InstanceGraphToProtoWithin converts inst and every instance reachable from it, root first,
-// stopping at bounds and at a type already on the path; an unexpanded child stays a bare id.
+// in the order the runtime's traversal reaches them (see runtime.Context.Traverse):
+// depth-first, features in name order, each object once, stopping at bounds and at a
+// type already on the path; an unexpanded child stays a bare id. Each instance says how
+// the traversal reached it.
 func InstanceGraphToProtoWithin(rt *runtime.Context, inst *runtime.Instance, idx *symbols.Index, bounds GraphBounds) InstanceGraph {
 	var g InstanceGraph
-	seen := make(map[int64]bool)
-	onPath := make(map[*symbols.Symbol]bool)
-
-	var walk func(*runtime.Instance, int) *pb.Instance
-	walk = func(cur *runtime.Instance, depth int) *pb.Instance {
-		if seen[cur.ID] {
-			return nil
-		}
-		if len(g.All) >= bounds.Instances {
-			g.Truncated = true
-			return nil
-		}
-		seen[cur.ID] = true
-		onPath[cur.Type] = true
-		defer delete(onPath, cur.Type)
-
-		// InstanceToProto reads every feature value through GetFeatureValue, which is what
-		// lazily materializes the children the ids below resolve to.
-		pbInst := instanceToProto(rt, cur, idx, func(err error) { g.Errors = append(g.Errors, err) })
+	// Traverse reads every feature value through GetFeatureValue, which is what
+	// lazily materializes the children it descends into, in traversal order.
+	reached := rt.Traverse(inst, runtime.TraversalBounds{Depth: bounds.Depth, Objects: bounds.Instances})
+	g.Truncated = reached.Truncated
+	for _, reach := range reached.Reaches {
+		pbInst := instanceToProto(rt, reach.Object, idx, func(err error) { g.Errors = append(g.Errors, err) })
+		pbInst.ReachedBy = ReachToProto(reach, idx)
 		g.All = append(g.All, pbInst)
-
-		if depth >= bounds.Depth {
-			return pbInst
-		}
-
-		// In name order, so the graph is serialized in the same order every run.
-		for _, name := range slices.Sorted(maps.Keys(pbInst.FeatureValues)) {
-			for _, id := range instanceRefs(pbInst.FeatureValues[name]) {
-				child, ok := rt.Instance(id)
-				if !ok || onPath[child.Type] {
-					continue
-				}
-				walk(child, depth+1)
-			}
-		}
-		return pbInst
 	}
-
-	g.Root = walk(inst, 0)
+	g.Root = g.All[0]
 	return g
 }
 
-// instanceRefs collects the instance IDs a feature value references, scalar or not.
-func instanceRefs(fv *pb.FeatureValue) []int64 {
-	var ids []int64
-	var collect func(*pb.Value)
-	collect = func(v *pb.Value) {
-		if k, ok := v.GetKind().(*pb.Value_InstanceId); ok {
-			ids = append(ids, k.InstanceId)
-		}
-		for _, nested := range NestedValues(v) {
-			collect(nested)
-		}
+// ReachToProto converts how a traversal reached an object; nil for the root,
+// which nothing holds.
+func ReachToProto(reach runtime.Reach, idx *symbols.Index) *pb.InstanceReach {
+	if reach.Holder == nil {
+		return nil
 	}
-	if fv.Value != nil {
-		collect(fv.Value)
+	return &pb.InstanceReach{
+		InstanceId:      reach.Holder.ID,
+		FeatureName:     reach.Feature.Name,
+		FeatureSymbolId: idx.GetFQN(reach.Feature.Symbol),
+		Index:           indexToProto(reach.Index),
+		Path:            reach.Path(),
 	}
-	for _, v := range fv.Values {
-		collect(v)
+}
+
+// indexToProto saturates a position within a feature at the int32 bound rather
+// than wrapping.
+func indexToProto(index int) int32 {
+	if index > math.MaxInt32 {
+		return math.MaxInt32
 	}
-	return ids
+	if index < 0 {
+		return 0
+	}
+	return int32(index)
+}
+
+// PathStepsToProto converts the steps of a root-relative object path.
+func PathStepsToProto(steps []runtime.PathStep, idx *symbols.Index) []*pb.InstancePathStep {
+	out := make([]*pb.InstancePathStep, 0, len(steps))
+	for _, step := range steps {
+		out = append(out, &pb.InstancePathStep{
+			FeatureName:     step.Feature.Name,
+			FeatureSymbolId: idx.GetFQN(step.Feature.Symbol),
+			Index:           indexToProto(step.Index),
+			InstanceId:      step.Object.ID,
+		})
+	}
+	return out
 }
 
 // instanceToProto converts runtime.Instance to protobuf Instance, reading features in name
