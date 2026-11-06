@@ -1,6 +1,7 @@
 package passes
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -132,5 +133,68 @@ func TestDisjointFeatureTypes_ConformingAndUnrelatedHierarchiesStaySilent(t *tes
 		class Z :> X { feature :>> f : A; }`
 	if diags := disjointReports(t, "a.kerml", src); len(diags) != 0 {
 		t.Fatalf("expected no report, got %v", diags)
+	}
+}
+
+// connectedPortDefs declares ports whose definitions are unrelated (P1, P2),
+// disjoint (P1, P3), conjugate (P1, ~P1) or siblings (D1, D2 under Base).
+const connectedPortDefs = `package P {
+	item def V;
+	port def P1 { out item a : V; }
+	port def P2 { in item b : V; }
+	port def P3 disjoint from P1 { in item c : V; }
+	port def Base; port def D1 :> Base; port def D2 :> Base;
+	interface def Link { end a : P1; end b : ~P1; }
+	connection def Pipe { end a : P1; end b : P2; }
+	part def X { port p1 : P1; port d1 : D1; }
+	part def Y { port p2 : P2; port p3 : P3; port p1c : ~P1; port p1s : P1; port d2 : D2; }
+	part sys { part x : X; part y : Y; %s }
+}`
+
+// The specification constrains a connector's ends by featuring and arity only
+// (KerML 1.1 §8.3.4.5.3), and SysML v2 §7.12.2 defines port conformance as the
+// condition under which flows can pair every directed feature, not as a rule;
+// the two ends of a link are distinct features, so even disjoint definitions
+// at the two ends of a `connect` leave the link satisfiable.
+func TestDisjointFeatureTypes_ConnectedPortsStaySilent(t *testing.T) {
+	cases := map[string]string{
+		"unrelated definitions":                `connect x.p1 to y.p2;`,
+		"unrelated definitions, interface":     `interface connect x.p1 to y.p2;`,
+		"unrelated definitions, flow":          `flow from x.p1 to y.p2;`,
+		"disjoint definitions":                 `connect x.p1 to y.p3;`,
+		"disjoint definitions, flow":           `flow from x.p1 to y.p3;`,
+		"conjugate":                            `connect x.p1 to y.p1c;`,
+		"same definition":                      `connect x.p1 to y.p1s;`,
+		"common definition":                    `connect x.d1 to y.d2;`,
+		"typed interface, conjugate ends":      `interface : Link connect x.p1 to y.p1c;`,
+		"typed connection, unrelated ends":     `connection : Pipe connect x.p1 to y.p2;`,
+		"typed connection end over conjugate":  `connection : Pipe connect y.p1c to y.p2;`,
+		"typed interface end over common base": `interface : Link connect x.p1 to y.p1c;`,
+	}
+	for name, body := range cases {
+		t.Run(name, func(t *testing.T) {
+			src := fmt.Sprintf(connectedPortDefs, body)
+			if diags := disjointReports(t, "a.sysml", src); len(diags) != 0 {
+				t.Fatalf("reported: %v", diags)
+			}
+		})
+	}
+}
+
+// An end of a connector typed by an interface or connection definition redefines
+// that definition's end (SysML v2 §7.13.2) and references the port it attaches
+// to, so it is typed by both (KerML 1.1 §8.3.3.3.4): disjoint, it has no values.
+func TestDisjointFeatureTypes_TypedConnectorEndOverDisjointPort(t *testing.T) {
+	cases := []struct {
+		name, body, subject string
+	}{
+		{"interface", `interface : Link connect y.p3 to y.p1c;`, "the end of this interface at y.p3"},
+		{"named connection", `connection c : Pipe connect y.p3 to y.p2;`, "the end of connection c at y.p3"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			src := fmt.Sprintf(connectedPortDefs, tc.body)
+			wantDisjointReport(t, disjointReports(t, "a.sysml", src), tc.subject, "P1", "P3")
+		})
 	}
 }

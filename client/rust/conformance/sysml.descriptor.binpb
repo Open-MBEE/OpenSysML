@@ -1,5 +1,5 @@
 
-Ëà
+·à
 sysml.protosysml"à
 Verdict
 kind (	Rkind
@@ -1587,7 +1587,7 @@ RenderView.sysml.RenderViewRequest.sysml.RenderViewResponseG
 ExportGraphs.sysml.ExportGraphsRequest.sysml.ExportGraphsResponseA
 
 ImportData.sysml.ImportDataRequest.sysml.ImportDataResponseM
-CompareResults.sysml.CompareResultsRequest.sysml.CompareResultsResponseB*Z(github.com/Open-MBEE/OpenSysML/api/protoJ‹…
+CompareResults.sysml.CompareResultsRequest.sysml.CompareResultsResponseB*Z(github.com/Open-MBEE/OpenSysML/api/protoJ÷„
   •
 
   
@@ -5049,9 +5049,9 @@ C
 , ð	
 
 , ð
-á
-,ô#Ò Lints left out of the diagnostics, by code (`sysml -disable-lint`): one of
- undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or
+Í
+,ô#¾ Lints left out of the diagnostics, by code (`sysml -disable-lint`): one of
+ undeclared-signal, deferred-keeper-unmarked or
  rounded-real-literal. A code naming no lint is INVALID_ARGUMENT.
 
 
