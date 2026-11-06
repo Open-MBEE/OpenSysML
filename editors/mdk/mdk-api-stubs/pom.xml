@@ -4,7 +4,7 @@
   <parent>
     <groupId>org.openmbee</groupId>
     <artifactId>magic-mdk-parent</artifactId>
-    <version>0.12.0</version>
+    <version>0.12.1</version>
   </parent>
   <artifactId>magic-mdk-api-stubs</artifactId>
   <name>Compile-only OpenMBEE MDK API stubs</name>
