@@ -120,16 +120,16 @@
       "typeMismatch": 1677
     },
     "properties": {
-      "presentEqual": 1928460,
-      "presentDifferent": 125854,
-      "oursMissing": 322584,
+      "presentEqual": 1928813,
+      "presentDifferent": 126497,
+      "oursMissing": 321583,
       "pilotMissing": 77667,
       "absentBoth": 2127988,
-      "indeterminate": 32794,
+      "indeterminate": 32799,
       "pilotNondeterministic": 517
     },
     "rows": 11770,
-    "unkeyedReferences": 124130,
+    "unkeyedReferences": 124904,
     "extensionProperties": 262641,
     "duplicateElements": {
       "ours": 553,
@@ -161,9 +161,9 @@
         "typeMismatch": 6
       },
       "properties": {
-        "presentEqual": 158161,
-        "presentDifferent": 11589,
-        "oursMissing": 22071,
+        "presentEqual": 158191,
+        "presentDifferent": 11619,
+        "oursMissing": 22011,
         "pilotMissing": 5693,
         "absentBoth": 179036,
         "indeterminate": 2616,
@@ -197,12 +197,12 @@
         "typeMismatch": 29
       },
       "properties": {
-        "presentEqual": 556852,
-        "presentDifferent": 38369,
-        "oursMissing": 88560,
+        "presentEqual": 556967,
+        "presentDifferent": 38902,
+        "oursMissing": 87910,
         "pilotMissing": 21131,
         "absentBoth": 614398,
-        "indeterminate": 7538,
+        "indeterminate": 7540,
         "pilotNondeterministic": 173
       },
       "duplicateElements": {
@@ -233,12 +233,12 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 195350,
-        "presentDifferent": 14911,
-        "oursMissing": 28337,
+        "presentEqual": 195402,
+        "presentDifferent": 14957,
+        "oursMissing": 28238,
         "pilotMissing": 7514,
         "absentBoth": 219722,
-        "indeterminate": 2734,
+        "indeterminate": 2735,
         "pilotNondeterministic": 66
       },
       "duplicateElements": {
@@ -306,9 +306,9 @@
         "typeMismatch": 396
       },
       "properties": {
-        "presentEqual": 129267,
-        "presentDifferent": 6171,
-        "oursMissing": 23381,
+        "presentEqual": 129282,
+        "presentDifferent": 6182,
+        "oursMissing": 23355,
         "pilotMissing": 6226,
         "absentBoth": 141946,
         "indeterminate": 2354,
@@ -343,8 +343,8 @@
         "typeMismatch": 28
       },
       "properties": {
-        "presentEqual": 27592,
-        "presentDifferent": 1917,
+        "presentEqual": 27597,
+        "presentDifferent": 1912,
         "oursMissing": 4389,
         "pilotMissing": 1186,
         "absentBoth": 32524,
@@ -380,12 +380,12 @@
         "typeMismatch": 184
       },
       "properties": {
-        "presentEqual": 600177,
-        "presentDifferent": 35727,
-        "oursMissing": 106080,
+        "presentEqual": 600305,
+        "presentDifferent": 35705,
+        "oursMissing": 105972,
         "pilotMissing": 23197,
         "absentBoth": 676887,
-        "indeterminate": 13307,
+        "indeterminate": 13309,
         "pilotNondeterministic": 164
       },
       "duplicateElements": {
@@ -452,9 +452,9 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 146605,
-        "presentDifferent": 8431,
-        "oursMissing": 30167,
+        "presentEqual": 146613,
+        "presentDifferent": 8481,
+        "oursMissing": 30109,
         "pilotMissing": 5072,
         "absentBoth": 156323,
         "indeterminate": 3287,
@@ -3282,8 +3282,8 @@
       0
     ],
     "ActionUsage.usage": [
-      70,
-      392,
+      105,
+      357,
       45,
       0,
       0,
@@ -7639,8 +7639,8 @@
     ],
     "AssertConstraintUsage.directedFeature": [
       0,
-      16,
-      63,
+      55,
+      24,
       0,
       0,
       0,
@@ -7684,8 +7684,8 @@
     ],
     "AssertConstraintUsage.feature": [
       0,
-      73,
-      6,
+      74,
+      5,
       0,
       0,
       0,
@@ -7693,8 +7693,8 @@
     ],
     "AssertConstraintUsage.featureMembership": [
       0,
-      73,
-      6,
+      74,
+      5,
       0,
       0,
       0,
@@ -7738,8 +7738,8 @@
     ],
     "AssertConstraintUsage.inheritedFeature": [
       0,
-      16,
-      63,
+      68,
+      11,
       0,
       0,
       0,
@@ -7747,8 +7747,8 @@
     ],
     "AssertConstraintUsage.inheritedMembership": [
       0,
-      16,
-      63,
+      68,
+      11,
       0,
       0,
       0,
@@ -8224,8 +8224,8 @@
     ],
     "AssertConstraintUsage.output": [
       0,
-      16,
-      63,
+      55,
+      24,
       0,
       0,
       0,
@@ -8583,9 +8583,9 @@
       0
     ],
     "AssertConstraintUsage.usage": [
-      6,
+      45,
       11,
-      62,
+      23,
       0,
       0,
       0,
@@ -17070,8 +17070,8 @@
       0
     ],
     "CalculationUsage.usage": [
-      10,
-      29,
+      16,
+      23,
       79,
       0,
       0,
@@ -34963,8 +34963,8 @@
     ],
     "ExhibitStateUsage.feature": [
       0,
-      38,
-      12,
+      43,
+      7,
       0,
       0,
       0,
@@ -34972,8 +34972,8 @@
     ],
     "ExhibitStateUsage.featureMembership": [
       0,
-      38,
-      12,
+      43,
+      7,
       0,
       0,
       0,
@@ -35008,8 +35008,8 @@
     ],
     "ExhibitStateUsage.inheritedFeature": [
       0,
-      20,
-      30,
+      43,
+      7,
       0,
       0,
       0,
@@ -35017,8 +35017,8 @@
     ],
     "ExhibitStateUsage.inheritedMembership": [
       0,
-      20,
-      30,
+      43,
+      7,
       0,
       0,
       0,
@@ -35206,8 +35206,8 @@
     ],
     "ExhibitStateUsage.member": [
       0,
-      38,
-      12,
+      43,
+      7,
       0,
       0,
       0,
@@ -35215,8 +35215,8 @@
     ],
     "ExhibitStateUsage.membership": [
       0,
-      38,
-      12,
+      43,
+      7,
       0,
       0,
       0,
@@ -35853,9 +35853,9 @@
       0
     ],
     "ExhibitStateUsage.usage": [
+      21,
+      22,
       7,
-      31,
-      12,
       0,
       0,
       0,
@@ -43342,11 +43342,11 @@
     ],
     "FlowUsage.usage": [
       0,
-      95,
+      93,
       11,
       0,
       0,
-      0,
+      2,
       0
     ],
     "FlowUsage.value": [
@@ -47158,8 +47158,8 @@
     ],
     "IncludeUseCaseUsage.directedFeature": [
       2,
-      13,
-      4,
+      14,
+      3,
       0,
       0,
       0,
@@ -47167,8 +47167,8 @@
     ],
     "IncludeUseCaseUsage.directedUsage": [
       2,
-      13,
-      4,
+      14,
+      3,
       0,
       0,
       0,
@@ -47212,8 +47212,8 @@
     ],
     "IncludeUseCaseUsage.feature": [
       0,
-      15,
-      4,
+      16,
+      3,
       0,
       0,
       0,
@@ -47221,8 +47221,8 @@
     ],
     "IncludeUseCaseUsage.featureMembership": [
       0,
-      15,
-      4,
+      16,
+      3,
       0,
       0,
       0,
@@ -47275,8 +47275,8 @@
     ],
     "IncludeUseCaseUsage.inheritedFeature": [
       0,
-      14,
-      5,
+      16,
+      3,
       0,
       0,
       0,
@@ -47284,8 +47284,8 @@
     ],
     "IncludeUseCaseUsage.inheritedMembership": [
       0,
-      14,
-      5,
+      16,
+      3,
       0,
       0,
       0,
@@ -47482,8 +47482,8 @@
     ],
     "IncludeUseCaseUsage.member": [
       0,
-      15,
-      4,
+      16,
+      3,
       0,
       0,
       0,
@@ -47491,8 +47491,8 @@
     ],
     "IncludeUseCaseUsage.membership": [
       0,
-      15,
-      4,
+      16,
+      3,
       0,
       0,
       0,
@@ -47778,9 +47778,9 @@
       0
     ],
     "IncludeUseCaseUsage.output": [
-      14,
+      16,
       0,
-      5,
+      3,
       0,
       0,
       0,
@@ -48157,8 +48157,8 @@
     ],
     "IncludeUseCaseUsage.usage": [
       2,
-      13,
-      4,
+      14,
+      3,
       0,
       0,
       0,
@@ -71773,8 +71773,8 @@
     ],
     "PerformActionUsage.feature": [
       0,
-      102,
-      134,
+      188,
+      48,
       0,
       0,
       0,
@@ -71782,8 +71782,8 @@
     ],
     "PerformActionUsage.featureMembership": [
       0,
-      102,
-      134,
+      188,
+      48,
       0,
       0,
       0,
@@ -71818,8 +71818,8 @@
     ],
     "PerformActionUsage.inheritedFeature": [
       0,
-      58,
-      178,
+      170,
+      66,
       0,
       0,
       0,
@@ -71827,8 +71827,8 @@
     ],
     "PerformActionUsage.inheritedMembership": [
       0,
-      60,
-      176,
+      170,
+      66,
       0,
       0,
       0,
@@ -72016,8 +72016,8 @@
     ],
     "PerformActionUsage.member": [
       0,
-      107,
-      129,
+      190,
+      46,
       0,
       0,
       0,
@@ -72025,8 +72025,8 @@
     ],
     "PerformActionUsage.membership": [
       0,
-      107,
-      129,
+      190,
+      46,
       0,
       0,
       0,
@@ -72672,12 +72672,12 @@
       0
     ],
     "PerformActionUsage.usage": [
-      34,
-      66,
-      134,
+      73,
+      110,
+      48,
       0,
       0,
-      2,
+      5,
       0
     ],
     "PerformActionUsage.value": [
@@ -81763,8 +81763,8 @@
     ],
     "SatisfyRequirementUsage.inheritedFeature": [
       0,
-      57,
-      24,
+      73,
+      8,
       0,
       0,
       0,
@@ -81772,8 +81772,8 @@
     ],
     "SatisfyRequirementUsage.inheritedMembership": [
       0,
-      57,
-      24,
+      73,
+      8,
       0,
       0,
       0,
@@ -82249,8 +82249,8 @@
     ],
     "SatisfyRequirementUsage.output": [
       57,
-      0,
-      24,
+      16,
+      8,
       0,
       0,
       0,
@@ -86919,8 +86919,8 @@
       0
     ],
     "StateUsage.usage": [
-      12,
-      285,
+      228,
+      69,
       9,
       0,
       0,
@@ -99249,8 +99249,8 @@
       0
     ],
     "UseCaseUsage.usage": [
-      6,
-      17,
+      8,
+      15,
       4,
       0,
       0,

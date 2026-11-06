@@ -133,9 +133,16 @@ HTTP/1.1 400 Bad Request
 
 ### `GetSymbol` and the `SymbolInfo` metadata keys
 
-`GetSymbol` answers one `SymbolInfo` for a fully qualified name. Beside its typed fields
-(`typeInfo`, `multiplicity`, `specializations`, `attributes`), `metadata` is a string map of
-facts about the declaration, each present only when it holds:
+`GetSymbol` answers one `SymbolInfo` for a fully qualified name. `childIds` are the members the
+element itself declares; `members` is every member it has (KerML `Type::member`) — the owned ones
+first, in declaration order, then the inherited ones in inheritance order, each with its `kind`,
+`inherited` and `inheritedFrom`, a redefinition masking what it redefines and a private member of a
+supertype left out. Members inherited from standard-library content are withheld and counted in
+`withheldLibraryMembers` unless the request sets `includeLibraryMembers`, which lists them marked
+`library`. The `symbol_members` capability advertises the field; a service without it answers no
+`members`. Beside the other typed fields (`typeInfo`, `multiplicity`, `specializations`,
+`attributes`), `metadata` is a string map of facts about the declaration, each present only when it
+holds:
 
 | Key | Value | When |
 |-----|-------|------|

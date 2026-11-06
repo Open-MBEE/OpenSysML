@@ -65,6 +65,17 @@ type Info struct {
 	Specializations           []*Specialization
 	Attributes                []*Attribute
 	WithheldLibraryAttributes int32
+	// Members is every member the element has, own then inherited, with
+	// library-inherited ones withheld and counted unless asked for.
+	Members                []*Member
+	WithheldLibraryMembers int32
+}
+
+// Options select what Of reports beyond the facts every caller gets.
+type Options struct {
+	// IncludeLibraryMembers lists the members inherited from standard-library
+	// content in Members, each marked Library, instead of counting them.
+	IncludeLibraryMembers bool
 }
 
 // TypeInfo describes a symbol's declared, resolved and primitive type.
@@ -108,6 +119,11 @@ type Value struct {
 
 // Of derives the plain-Go facts associated with a symbol.
 func Of(sym *symbols.Symbol, sc *Context) *Info {
+	return OfWith(sym, sc, Options{})
+}
+
+// OfWith is Of with the options selecting what else is reported.
+func OfWith(sym *symbols.Symbol, sc *Context, opts Options) *Info {
 	defer sc.Lock()()
 	idx := sc.Index
 	info := &Info{
@@ -134,6 +150,9 @@ func Of(sym *symbols.Symbol, sc *Context) *Info {
 	// The attributes the element has, own and inherited, with their resolved
 	// types and constant default values.
 	info.Attributes, info.WithheldLibraryAttributes = sc.attributesOf(sym)
+	// Every member, own and inherited, with its provenance; child_ids above
+	// stays the owned members only.
+	info.Members, info.WithheldLibraryMembers = sc.membersOf(sym, opts.IncludeLibraryMembers)
 	return info
 }
 
