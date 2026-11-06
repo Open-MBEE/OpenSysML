@@ -118,6 +118,10 @@ const (
 	// SymbolKerMLFeature classifies a KerML Feature the reflective layer
 	// synthesizes without a declaration: an expression's parameter.
 	SymbolKerMLFeature
+	// SymbolSendActionUsage classifies a send action (`send x via p;`,
+	// `action a send x to q;`): an action usage whose payload, sender and
+	// receiver are its parameters (SysML v2 §8.3.17.15 SendActionUsage).
+	SymbolSendActionUsage
 )
 
 var symbolKindNames = map[SymbolKind]string{
@@ -191,6 +195,7 @@ var symbolKindNames = map[SymbolKind]string{
 	SymbolCrossFeature:            "crossFeature",
 	SymbolKerMLType:               "kermlType",
 	SymbolReferenceUsage:          "referenceUsage",
+	SymbolSendActionUsage:         "sendActionUsage",
 }
 
 // String returns the display name of the kind.
@@ -217,7 +222,7 @@ func (k SymbolKind) IsFeature() bool {
 		SymbolIndividualUsage, SymbolMetadataUsage, SymbolEnumerationUsage, SymbolViewUsage,
 		SymbolViewpointUsage, SymbolRenderingUsage, SymbolConcernUsage, SymbolConnectionUsage,
 		SymbolBindingUsage, SymbolSuccessionUsage, SymbolFlowUsage, SymbolPortUsage, SymbolInterfaceUsage,
-		SymbolAllocationUsage, SymbolActionUsage, SymbolStateUsage, SymbolCalcUsage,
+		SymbolAllocationUsage, SymbolActionUsage, SymbolSendActionUsage, SymbolStateUsage, SymbolCalcUsage,
 		SymbolConstraintUsage, SymbolRequirementUsage, SymbolSatisfyRequirementUsage,
 		SymbolCaseUsage, SymbolAnalysisCaseUsage, SymbolVerificationCaseUsage, SymbolUseCaseUsage,
 		SymbolConnectorEnd, SymbolCrossFeature, SymbolMultiplicity, SymbolReferenceUsage,
@@ -233,10 +238,16 @@ func (k SymbolKind) IsFeature() bool {
 // the calculation it is.
 func (k SymbolKind) IsAction() bool {
 	switch k {
-	case SymbolActionDef, SymbolActionUsage, SymbolUseCaseDef, SymbolUseCaseUsage:
+	case SymbolActionDef, SymbolActionUsage, SymbolSendActionUsage, SymbolUseCaseDef, SymbolUseCaseUsage:
 		return true
 	}
 	return false
+}
+
+// IsActionUsage reports whether k classifies an action usage: a plain one or a
+// send action, which is an ActionUsage (SysML v2 §8.3.17.15).
+func (k SymbolKind) IsActionUsage() bool {
+	return k == SymbolActionUsage || k == SymbolSendActionUsage
 }
 
 // IsAttributeLike reports whether k classifies a usage carrying attribute

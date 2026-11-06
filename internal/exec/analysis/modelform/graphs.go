@@ -104,7 +104,7 @@ type graphsExporter struct {
 func (x *graphsExporter) lowerSubject(out *Graphs, sym *symbols.Symbol) error {
 	x.lowered[symbols.FQNOf(sym)] = true
 	switch sym.Kind {
-	case symbols.SymbolActionDef, symbols.SymbolActionUsage:
+	case symbols.SymbolActionDef, symbols.SymbolActionUsage, symbols.SymbolSendActionUsage:
 		graph, err := lower.ToActionGraphWith(sym.Decl, runtime.DeclScope(sym), x.model.Resolver())
 		if err != nil {
 			return fmt.Errorf("%w: %s: %w", ErrGraphsSubject, symbols.FQNOf(sym), err)
@@ -172,7 +172,7 @@ func (x *graphsExporter) perform(scope *symbols.Scope, node ast.Node) []string {
 		}
 		machine := false
 		switch sym.Kind {
-		case symbols.SymbolActionDef, symbols.SymbolActionUsage:
+		case symbols.SymbolActionDef, symbols.SymbolActionUsage, symbols.SymbolSendActionUsage:
 		case symbols.SymbolStateDef, symbols.SymbolStateUsage:
 			machine = true
 		default:

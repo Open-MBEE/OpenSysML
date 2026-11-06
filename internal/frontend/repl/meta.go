@@ -1724,7 +1724,7 @@ func isBehaviorFeature(feat *runtime.EffectiveFeature) bool {
 		return false
 	}
 	switch feat.Symbol.Kind {
-	case symbols.SymbolStateUsage, symbols.SymbolActionUsage:
+	case symbols.SymbolStateUsage, symbols.SymbolActionUsage, symbols.SymbolSendActionUsage:
 		return true
 	default:
 		return false
@@ -1783,7 +1783,7 @@ func behaviorStatus(ctx *runtime.Context, inst *runtime.Instance, feat *runtime.
 		return transitionStatus(trans)
 	}
 	kind := "state"
-	if feat.Symbol.Kind == symbols.SymbolActionUsage {
+	if feat.Symbol.Kind.IsActionUsage() {
 		kind = "action"
 	}
 	behavior, ok := ctx.BehaviorNamed(inst, feat.Name)

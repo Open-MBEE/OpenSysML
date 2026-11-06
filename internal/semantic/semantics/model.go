@@ -178,6 +178,7 @@ type Model struct {
 	valueExpressions map[*symbols.Symbol]*symbols.Symbol
 	expressionParts  map[*symbols.Symbol]*expressionParts
 	transitionParts  map[*symbols.Symbol]*transitionParts
+	sendParts        map[*symbols.Symbol]*sendParts
 	ownedAnnotations map[*symbols.Symbol][]*symbols.Symbol
 	annotatingRels   map[*symbols.Symbol][]*symbols.Symbol
 	ownedImports     map[*symbols.Symbol][]*symbols.Symbol
@@ -434,9 +435,9 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		}
 	}
 
-	// A send written as an action node is a SendActionUsage of its own, so it is
-	// typed by SendAction whether or not a usage declares it.
-	if _, ok := sym.Decl.(*ast.SendStatement); ok {
+	// A send action is typed by SendAction whether or not a usage declares it
+	// (SysML v2 §8.3.17.15 SendActionUsage).
+	if sym.Kind == symbols.SymbolSendActionUsage {
 		for _, sendDef := range m.resolver.Index().LookupQualified("Actions::SendAction") {
 			if sendDef == nil || sendDef == sym || seen[sendDef] {
 				continue

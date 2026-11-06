@@ -1092,6 +1092,7 @@ var usageSymbolKinds = map[symbols.SymbolKind]bool{
 	symbols.SymbolInterfaceUsage:          true,
 	symbols.SymbolAllocationUsage:         true,
 	symbols.SymbolActionUsage:             true,
+	symbols.SymbolSendActionUsage:         true,
 	symbols.SymbolStateUsage:              true,
 	symbols.SymbolCalcUsage:               true,
 	symbols.SymbolConstraintUsage:         true,

@@ -89,7 +89,7 @@ func classOfKind(k symbols.SymbolKind) (semtok.Class, bool) {
 		return semtok.ClassProperty, false
 	case symbols.SymbolEnumerationUsage:
 		return semtok.ClassEnumMember, false
-	case symbols.SymbolActionUsage, symbols.SymbolStateUsage, symbols.SymbolCalcUsage,
+	case symbols.SymbolActionUsage, symbols.SymbolSendActionUsage, symbols.SymbolStateUsage, symbols.SymbolCalcUsage,
 		symbols.SymbolConstraintUsage, symbols.SymbolRequirementUsage, symbols.SymbolCaseUsage,
 		symbols.SymbolAnalysisCaseUsage, symbols.SymbolVerificationCaseUsage,
 		symbols.SymbolUseCaseUsage, symbols.SymbolViewpointUsage, symbols.SymbolConcernUsage:

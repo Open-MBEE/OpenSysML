@@ -322,6 +322,27 @@ func (s *Symbol) DeclaresTransition() bool {
 	return ok
 }
 
+// SendStatementOf is the send statement decl declares: the statement itself,
+// or the one an action node is written as (`action a send x to p;`, SysML v2
+// §8.3.17.15 SendActionUsage); nil for any other declaration.
+func SendStatementOf(decl ast.Node) *ast.SendStatement {
+	switch d := decl.(type) {
+	case *ast.SendStatement:
+		return d
+	case *ast.Usage:
+		if d.Kind != ast.UsageAction || !d.IsActionNode || len(d.Members) != 1 {
+			return nil
+		}
+		member := d.Members[0]
+		if m, ok := member.(*ast.Membership); ok {
+			member = m.Member
+		}
+		send, _ := member.(*ast.SendStatement)
+		return send
+	}
+	return nil
+}
+
 // DeclaresUsage reports whether the symbol was declared by a usage, from its
 // declaration or its record.
 func (s *Symbol) DeclaresUsage() bool {

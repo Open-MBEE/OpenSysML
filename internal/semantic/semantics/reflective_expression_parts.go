@@ -412,6 +412,8 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		out = m.plainExpressionMemberships(sym)
 	} else if value := m.expressionParameterValue(sym); value != nil {
 		out = appendOwningMembership(out, sym, value)
+	} else if value := m.sendParameterValue(sym); value != nil {
+		out = appendOwningMembership(out, sym, value)
 	}
 	m.memberships[sym] = out
 	return out

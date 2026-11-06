@@ -858,7 +858,7 @@ func occurrenceContainer(sym *symbols.Symbol) bool {
 // rather than a participant in it, whose flows are its own action flow.
 func behaviorLike(sym *symbols.Symbol) bool {
 	switch sym.Kind {
-	case symbols.SymbolActionDef, symbols.SymbolActionUsage,
+	case symbols.SymbolActionDef, symbols.SymbolActionUsage, symbols.SymbolSendActionUsage,
 		symbols.SymbolStateDef, symbols.SymbolStateUsage:
 		return true
 	}
@@ -874,7 +874,7 @@ func lifelineLike(sym *symbols.Symbol) bool {
 		symbols.SymbolItemDef, symbols.SymbolItemUsage,
 		symbols.SymbolOccurrenceDef, symbols.SymbolOccurrenceUsage,
 		symbols.SymbolIndividualDef, symbols.SymbolIndividualUsage,
-		symbols.SymbolActionDef, symbols.SymbolActionUsage,
+		symbols.SymbolActionDef, symbols.SymbolActionUsage, symbols.SymbolSendActionUsage,
 		symbols.SymbolStateDef, symbols.SymbolStateUsage:
 		return true
 	}

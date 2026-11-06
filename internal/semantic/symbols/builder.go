@@ -215,7 +215,7 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 			buildMembers(scope, d.Members)
 			return true
 		}
-		buildAnonymousNode(scope, d, SymbolActionUsage, d.Members, vis, trivia)
+		buildAnonymousNode(scope, d, SymbolSendActionUsage, d.Members, vis, trivia)
 		return true
 	case *ast.SuccessionEdge:
 		// A succession with a body is a SuccessionAsUsage whose body declares its
@@ -530,9 +530,13 @@ func defineTransitionEffect(scope *Scope, trans *ast.TransitionMember) {
 	// A statement (`do send x to y`) declares no member of its own, so the
 	// action it performs is named here, its members staying the transition's.
 	statement := NewScope(scope, effect)
+	kind := SymbolActionUsage
+	if SendStatementOf(effect) != nil {
+		kind = SymbolSendActionUsage
+	}
 	sym := newSymbol(
 		ast.Identification{Name: transitionEffectName, NameSpan: effect.Span()},
-		SymbolActionUsage, effect, ast.VisibilityDefault, statement, scope, nil,
+		kind, effect, ast.VisibilityDefault, statement, scope, nil,
 	)
 	scope.Define(transitionEffectName, sym)
 	scope.AddChild(statement)
@@ -819,6 +823,9 @@ var usageSymbolKinds = map[ast.UsageKind]SymbolKind{
 // - Attribute usage with typing or subsets/redefines → AttributeUsage
 // - All other usages → use UsageSymbolKind directly
 func classifyUsage(u *ast.Usage) SymbolKind {
+	if SendStatementOf(u) != nil {
+		return SymbolSendActionUsage
+	}
 	// A `datatype` declares a KerML DataType (KerML 1.0 §8.3.2): a definition whatever
 	// it specializes, unlike the `attribute`/`feature` keywords classified below.
 	if u.Keyword == "datatype" {

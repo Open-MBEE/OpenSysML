@@ -68,6 +68,7 @@ const (
 	pPayloadParameter                  = "payloadParameter"
 	pPayloadArgument                   = "payloadArgument"
 	pReceiverArgument                  = "receiverArgument"
+	pSenderArgument                    = "senderArgument"
 	pConjugatedType                    = "conjugatedType"
 	pOriginalType                      = "originalType"
 	pOriginalPortDefinition            = "originalPortDefinition"

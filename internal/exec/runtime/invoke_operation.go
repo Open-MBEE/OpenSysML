@@ -147,7 +147,7 @@ func (ctx *Context) operationOf(inst *Instance, name string, args OperationArgum
 			errNoSuchBehavior, name, inst.ID, SymbolText(inst.Type))
 	}
 	switch member.Kind {
-	case symbols.SymbolActionDef, symbols.SymbolActionUsage:
+	case symbols.SymbolActionDef, symbols.SymbolActionUsage, symbols.SymbolSendActionUsage:
 		return member, nil
 	case symbols.SymbolStateDef, symbols.SymbolStateUsage:
 		return nil, fmt.Errorf("%w: %s of %s is a state machine, which runs as the object's exhibited machine",

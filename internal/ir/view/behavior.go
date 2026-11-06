@@ -706,7 +706,7 @@ func (r *Renderer) renderActions(view *symbols.Symbol, exposed []*symbols.Symbol
 // it exposed as roots of their own, read from the action's lowered graph and
 // labelled as actionEdges labels them within the action.
 func (r *Renderer) rootSuccessionEdges(view *symbols.Symbol, roots map[*symbols.Symbol]*Node, out *Rendering) {
-	for owner, actions := range rootsByOwner(roots, symbols.SymbolActionUsage, symbols.SymbolActionDef, symbols.SymbolActionUsage) {
+	for owner, actions := range rootsByOwner(roots, symbols.SymbolActionUsage, symbols.SymbolSendActionUsage, symbols.SymbolActionDef, symbols.SymbolActionUsage) {
 		graph, err := lower.ToActionGraphWith(owner.Decl, declScope(owner), r.resolver)
 		if err != nil {
 			continue
@@ -746,7 +746,7 @@ func (r *Renderer) rootSuccessionEdges(view *symbols.Symbol, roots map[*symbols.
 // declared with the keyword `calc` (SysML v2 §7.19.2), drawn the same way.
 func behaviorKind(kind symbols.SymbolKind) bool {
 	switch kind {
-	case symbols.SymbolActionDef, symbols.SymbolActionUsage, symbols.SymbolCalcDef, symbols.SymbolCalcUsage:
+	case symbols.SymbolActionDef, symbols.SymbolActionUsage, symbols.SymbolSendActionUsage, symbols.SymbolCalcDef, symbols.SymbolCalcUsage:
 		return true
 	}
 	return false

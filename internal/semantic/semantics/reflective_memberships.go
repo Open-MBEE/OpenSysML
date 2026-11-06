@@ -49,6 +49,20 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		})
 		ordinal++
 	}
+	for _, param := range m.sendParameters(sym) {
+		// A send action owns its payload, sender and receiver parameters ahead of
+		// its body (SysML.xtext SendNode, NodeParameterMember).
+		out = append(out, &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    sym.DocName,
+			DeclSpan:   param.DeclSpan,
+			Visibility: sym.Visibility,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: param,
+			},
+		})
+		ordinal++
+	}
 	if sym.Scope == nil {
 		out = m.withDefaultMultiplicity(sym, out, ordinal)
 		m.memberships[sym] = out

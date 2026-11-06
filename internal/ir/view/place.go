@@ -280,7 +280,7 @@ func actionLike(sym *symbols.Symbol) bool {
 	switch sym.Kind {
 	case symbols.SymbolActionDef, symbols.SymbolCalcDef, symbols.SymbolCalcUsage:
 		return true
-	case symbols.SymbolActionUsage:
+	case symbols.SymbolActionUsage, symbols.SymbolSendActionUsage:
 		return !isTransition(sym)
 	}
 	return false
