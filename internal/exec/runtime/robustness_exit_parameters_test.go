@@ -12,6 +12,7 @@ import (
 // taken read with a fallback. Each is a typed error or an empty reading, never a
 // panic, and a refused firing leaves the machine where it was.
 func TestRuntimeRobustnessExitParameters(t *testing.T) {
+	t.Parallel()
 	t.Run("payload_of_the_wrong_type", testExitParametersTypeMismatch)
 	t.Run("transition_not_taken_binds_nothing", testExitParametersNotTakenNeedsOne)
 	t.Run("signal_carrying_no_payload", testExitParametersPayloadAbsent)

@@ -127,41 +127,14 @@ func TestAPIJSONMappingNamesPreserveUnresolvedTargetSegments(t *testing.T) {
 	}
 }
 
-func TestAPIJSONMappingQualifiedNamesAreExact(t *testing.T) {
-	paths, exampleRoot := apiJSONQualifiedNamePaths(t)
-	conversions := corpusConversions(t)
-
-	fixtures, fixtureKeys := 0, 0
-	examples, exampleKeys, skippedExamples := 0, 0, 0
+func mappingQualifiedNamesAreExact() corpusCheck {
 	var countsMu sync.Mutex
-	t.Cleanup(func() {
-		countsMu.Lock()
-		defer countsMu.Unlock()
-		t.Logf("convert fixtures: %d models, %d mapping-name keys; examples: %d converting models, %d mapping-name keys, %d skipped",
-			fixtures, fixtureKeys, examples, exampleKeys, skippedExamples)
-	})
-	for _, path := range paths {
-		path := path
-		isExample := strings.HasPrefix(path, exampleRoot+string(filepath.Separator))
-		t.Run(filepath.ToSlash(path), func(t *testing.T) {
-			t.Parallel()
-			defer conversions.release(path)
-			source, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			original, err := conversions.sysMLToRDF(path, source)
-			if err != nil {
-				if isExample {
-					countsMu.Lock()
-					skippedExamples++
-					countsMu.Unlock()
-					t.Logf("skipping non-converting example: %v", err)
-					return
-				}
-				t.Fatalf("convert fixture: %v", err)
-			}
-			document, err := conversions.apiJSON(path, source, "standard", "graph")
+	fixtures, fixtureKeys := 0, 0
+	examples, exampleKeys := 0, 0
+	return corpusCheck{
+		name: "mapping_qualified_names_are_exact",
+		check: func(t *testing.T, file corpusFile) {
+			document, err := file.conversions.apiJSON(file.path, file.source, "standard", "graph")
 			if err != nil {
 				t.Fatalf("WriteAPIJSON: %v", err)
 			}
@@ -184,20 +157,24 @@ func TestAPIJSONMappingQualifiedNamesAreExact(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ReadAPIJSON: %v", err)
 			}
-			assertAPIJSONGraphsEqual(t, apiJSONGraphWithoutLibraryReferences(original), apiJSONGraphWithoutLibraryReferences(got))
+			assertAPIJSONGraphsEqual(t, apiJSONGraphWithoutLibraryReferences(file.graph), apiJSONGraphWithoutLibraryReferences(got))
 
-			if isExample {
-				countsMu.Lock()
+			countsMu.Lock()
+			defer countsMu.Unlock()
+			if file.isExample {
 				examples++
 				exampleKeys += keyed
-				countsMu.Unlock()
 			} else {
-				countsMu.Lock()
 				fixtures++
 				fixtureKeys += keyed
-				countsMu.Unlock()
 			}
-		})
+		},
+		summarize: func(t *testing.T) {
+			countsMu.Lock()
+			defer countsMu.Unlock()
+			t.Logf("mapping names: convert fixtures: %d models, %d mapping-name keys; examples: %d converting models, %d mapping-name keys",
+				fixtures, fixtureKeys, examples, exampleKeys)
+		},
 	}
 }
 
