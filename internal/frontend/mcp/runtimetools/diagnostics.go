@@ -14,7 +14,7 @@ import (
 // DiagnosticsInput names the model whose diagnostics are reported.
 type DiagnosticsInput struct {
 	ModelInput
-	DisableLint []string `json:"disableLint,omitempty" jsonschema:"lints left out of the diagnostics, by code (sysml -disable-lint): undeclared-signal, port-type-mismatch, deferred-keeper-unmarked or rounded-real-literal"`
+	DisableLint []string `json:"disableLint,omitempty" jsonschema:"lints left out of the diagnostics, by code (sysml -disable-lint): undeclared-signal, deferred-keeper-unmarked or rounded-real-literal"`
 	EnableLint  []string `json:"enableLint,omitempty" jsonschema:"opt-in lints kept in the diagnostics, by code (sysml -enable-lint): rounded-real-literal; off unless named, disableLint wins"`
 }
 
