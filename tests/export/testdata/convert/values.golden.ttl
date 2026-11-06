@@ -539,6 +539,7 @@ expr:Values__Sized__total_pvalue_pin0_om
     sysml:source expr:Values__Sized__total_pvalue ;
     sysml:target expr:Values__Sized__total_pvalue_pin0 ;
     sysml:relatedElement expr:Values__Sized__total_pvalue, expr:Values__Sized__total_pvalue_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Values__Sized__total_pvalue_pin0 ;
     sysml:ownedMemberParameter expr:Values__Sized__total_pvalue_pin0 ;
     json:relatedElement "[{\"@id\":\"Values__Sized__total_pvalue\"},{\"@id\":\"Values__Sized__total_pvalue_pin0\"}]" .
@@ -592,6 +593,7 @@ expr:Values__Sized__total_pvalue_pin1_om
     sysml:source expr:Values__Sized__total_pvalue ;
     sysml:target expr:Values__Sized__total_pvalue_pin1 ;
     sysml:relatedElement expr:Values__Sized__total_pvalue, expr:Values__Sized__total_pvalue_pin1 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Values__Sized__total_pvalue_pin1 ;
     sysml:ownedMemberParameter expr:Values__Sized__total_pvalue_pin1 ;
     json:relatedElement "[{\"@id\":\"Values__Sized__total_pvalue\"},{\"@id\":\"Values__Sized__total_pvalue_pin1\"}]" .

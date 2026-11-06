@@ -44,13 +44,25 @@ func classifyBy(c *ChoicePoint, fps []lower.Footprint, dependent func(i, j int) 
 	}
 	c.serial = nextChoiceSerial()
 	found := false
+	standings := make([]*lower.Standing, len(fps))
+	standing := func(i int) *lower.Standing {
+		for j := 0; standings[i] == nil && j < len(fps); j++ {
+			if standings[j] != nil && fps[j].PlacesEqual(fps[i]) {
+				standings[i] = standings[j]
+			}
+		}
+		if standings[i] == nil {
+			standings[i] = fps[i].Standing()
+		}
+		return standings[i]
+	}
 	for i := range fps {
 		for j := i + 1; j < len(fps); j++ {
 			if !dependent(i, j) {
 				continue
 			}
 			found = true
-			c.touchMeeting(fps[i], fps[j], rel(i, j))
+			c.touchMeeting(standing(i), standing(j), rel(i, j))
 		}
 	}
 	c.Independent = !found
@@ -69,30 +81,32 @@ func onValues(fp lower.Footprint) lower.Footprint {
 // the other writes, which sees it before or after. When no place meets (the
 // alternatives meet on the bus, on control, or one is dynamic) every write of
 // both may stand at an order-dependent value.
-func (c *ChoicePoint) touchMeeting(f, g lower.Footprint, rel lower.Relation) {
+func (c *ChoicePoint) touchMeeting(f, g *lower.Standing, rel lower.Relation) {
 	met := c.touchWritesMet(f, g, rel)
 	met = c.touchWritesMet(g, f, rel) || met
 	if !met {
-		c.touchWrites(f, g)
+		c.touchWrites(f.Writes, g.Writes)
 	}
 }
 
 // touchWritesMet touches the writes of f that meet a write of g, and the writes
 // of g standing on a read of g that a write of f meets; it reports whether any did.
-func (c *ChoicePoint) touchWritesMet(f, g lower.Footprint, rel lower.Relation) bool {
+func (c *ChoicePoint) touchWritesMet(f, g *lower.Standing, rel lower.Relation) bool {
 	met := false
 	for _, p := range f.Writes {
 		if c.meets(rel, p, g.Writes) {
 			c.touch(p)
 			met = true
 		}
-		if c.meets(rel, p, g.Reads) {
-			// A pin is each performance's own, delivered to, not raced for: a read of
-			// one sees what arrived, whichever order the moves ran.
-			if shared(p) {
-				for _, q := range g.WritesReading(func(r lower.Place) bool { return c.meets(rel, p, []lower.Place{r}) }) {
-					c.touch(q)
-				}
+		// A pin is each performance's own, delivered to, not raced for: a read of
+		// one sees what arrived, whichever order the moves ran.
+		if !shared(p) {
+			met = c.meets(rel, p, g.Reads) || met
+			continue
+		}
+		if writes, ok := g.WritesReading(func(r lower.Place) bool { return c.meet(rel, p, r) }); ok {
+			for _, q := range writes {
+				c.touch(q)
 			}
 			met = true
 		}
@@ -100,15 +114,20 @@ func (c *ChoicePoint) touchWritesMet(f, g lower.Footprint, rel lower.Relation) b
 	return met
 }
 
-// meets reports whether p may name the value of a place among qs: the
-// declarations' answer, narrowed by what the run knows two parts denote.
+// meets reports whether p may name the value of a place among qs.
 func (c *ChoicePoint) meets(rel lower.Relation, p lower.Place, qs []lower.Place) bool {
 	for _, q := range qs {
-		if rel.PlaceMeets(p, []lower.Place{q}) && (c.alike == nil || c.alike(p, q)) {
+		if c.meet(rel, p, q) {
 			return true
 		}
 	}
 	return false
+}
+
+// meet reports whether p may name the value of q: the declarations' answer,
+// narrowed by what the run knows two parts denote.
+func (c *ChoicePoint) meet(rel lower.Relation, p, q lower.Place) bool {
+	return rel.PlaceMeet(p, q) && (c.alike == nil || c.alike(p, q))
 }
 
 // shared reports whether a place is one slot every move names, which a choice
@@ -124,12 +143,14 @@ func shared(p lower.Place) bool {
 func classifyExclusive(c *ChoicePoint, fps []lower.Footprint) {
 	c.Independent = false
 	c.serial = nextChoiceSerial()
-	c.touchWrites(fps...)
+	for _, fp := range fps {
+		c.touchWrites(fp.Writes)
+	}
 }
 
-func (c *ChoicePoint) touchWrites(fps ...lower.Footprint) {
-	for _, fp := range fps {
-		for _, p := range fp.Writes {
+func (c *ChoicePoint) touchWrites(writes ...[]lower.Place) {
+	for _, places := range writes {
+		for _, p := range places {
 			c.touch(p)
 		}
 	}

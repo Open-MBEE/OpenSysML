@@ -442,6 +442,7 @@ expr:ShadowBody__Sensor__highs_pvalue_pin0_om
     sysml:source expr:ShadowBody__Sensor__highs_pvalue ;
     sysml:target expr:ShadowBody__Sensor__highs_pvalue_pin0 ;
     sysml:relatedElement expr:ShadowBody__Sensor__highs_pvalue, expr:ShadowBody__Sensor__highs_pvalue_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:ShadowBody__Sensor__highs_pvalue_pin0 ;
     sysml:ownedMemberParameter expr:ShadowBody__Sensor__highs_pvalue_pin0 ;
     json:relatedElement "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pin0\"}]" .
@@ -642,6 +643,7 @@ expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0_om
     sysml:source expr:ShadowBody__Sensor__highs_pvalue_pa0_presult ;
     sysml:target expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0 ;
     sysml:relatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult, expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0 ;
     sysml:ownedMemberParameter expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0 ;
     json:relatedElement "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_pin0\"}]" .
@@ -695,6 +697,7 @@ expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1_om
     sysml:source expr:ShadowBody__Sensor__highs_pvalue_pa0_presult ;
     sysml:target expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1 ;
     sysml:relatedElement expr:ShadowBody__Sensor__highs_pvalue_pa0_presult, expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1 ;
     sysml:ownedMemberParameter expr:ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1 ;
     json:relatedElement "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pa0_presult_pin1\"}]" .
@@ -804,6 +807,7 @@ expr:ShadowBody__Sensor__highs_pvalue_pin1_om
     sysml:source expr:ShadowBody__Sensor__highs_pvalue ;
     sysml:target expr:ShadowBody__Sensor__highs_pvalue_pin1 ;
     sysml:relatedElement expr:ShadowBody__Sensor__highs_pvalue, expr:ShadowBody__Sensor__highs_pvalue_pin1 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:ShadowBody__Sensor__highs_pvalue_pin1 ;
     sysml:ownedMemberParameter expr:ShadowBody__Sensor__highs_pvalue_pin1 ;
     json:relatedElement "[{\"@id\":\"ShadowBody__Sensor__highs_pvalue\"},{\"@id\":\"ShadowBody__Sensor__highs_pvalue_pin1\"}]" .

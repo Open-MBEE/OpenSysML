@@ -451,6 +451,7 @@ expr:Ordered__Mixed___401_presult_pa0_pin0_om
     sysml:source expr:Ordered__Mixed___401_presult_pa0 ;
     sysml:target expr:Ordered__Mixed___401_presult_pa0_pin0 ;
     sysml:relatedElement expr:Ordered__Mixed___401_presult_pa0, expr:Ordered__Mixed___401_presult_pa0_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Ordered__Mixed___401_presult_pa0_pin0 ;
     sysml:ownedMemberParameter expr:Ordered__Mixed___401_presult_pa0_pin0 ;
     json:relatedElement "[{\"@id\":\"Ordered__Mixed___401_presult_pa0\"},{\"@id\":\"Ordered__Mixed___401_presult_pa0_pin0\"}]" .
@@ -544,6 +545,7 @@ expr:Ordered__Mixed___401_presult_pa0_pin1_om
     sysml:source expr:Ordered__Mixed___401_presult_pa0 ;
     sysml:target expr:Ordered__Mixed___401_presult_pa0_pin1 ;
     sysml:relatedElement expr:Ordered__Mixed___401_presult_pa0, expr:Ordered__Mixed___401_presult_pa0_pin1 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Ordered__Mixed___401_presult_pa0_pin1 ;
     sysml:ownedMemberParameter expr:Ordered__Mixed___401_presult_pa0_pin1 ;
     json:relatedElement "[{\"@id\":\"Ordered__Mixed___401_presult_pa0\"},{\"@id\":\"Ordered__Mixed___401_presult_pa0_pin1\"}]" .
@@ -612,6 +614,7 @@ expr:Ordered__Mixed___401_presult_pin0_om
     sysml:source expr:Ordered__Mixed___401_presult ;
     sysml:target expr:Ordered__Mixed___401_presult_pin0 ;
     sysml:relatedElement expr:Ordered__Mixed___401_presult, expr:Ordered__Mixed___401_presult_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Ordered__Mixed___401_presult_pin0 ;
     sysml:ownedMemberParameter expr:Ordered__Mixed___401_presult_pin0 ;
     json:relatedElement "[{\"@id\":\"Ordered__Mixed___401_presult\"},{\"@id\":\"Ordered__Mixed___401_presult_pin0\"}]" .
@@ -730,6 +733,7 @@ expr:Ordered__Mixed___401_presult_pa1_pin0_om
     sysml:source expr:Ordered__Mixed___401_presult_pa1 ;
     sysml:target expr:Ordered__Mixed___401_presult_pa1_pin0 ;
     sysml:relatedElement expr:Ordered__Mixed___401_presult_pa1, expr:Ordered__Mixed___401_presult_pa1_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Ordered__Mixed___401_presult_pa1_pin0 ;
     sysml:ownedMemberParameter expr:Ordered__Mixed___401_presult_pa1_pin0 ;
     json:relatedElement "[{\"@id\":\"Ordered__Mixed___401_presult_pa1\"},{\"@id\":\"Ordered__Mixed___401_presult_pa1_pin0\"}]" .
@@ -827,6 +831,7 @@ expr:Ordered__Mixed___401_presult_pa1_pin1_om
     sysml:source expr:Ordered__Mixed___401_presult_pa1 ;
     sysml:target expr:Ordered__Mixed___401_presult_pa1_pin1 ;
     sysml:relatedElement expr:Ordered__Mixed___401_presult_pa1, expr:Ordered__Mixed___401_presult_pa1_pin1 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Ordered__Mixed___401_presult_pa1_pin1 ;
     sysml:ownedMemberParameter expr:Ordered__Mixed___401_presult_pa1_pin1 ;
     json:relatedElement "[{\"@id\":\"Ordered__Mixed___401_presult_pa1\"},{\"@id\":\"Ordered__Mixed___401_presult_pa1_pin1\"}]" .
@@ -895,6 +900,7 @@ expr:Ordered__Mixed___401_presult_pin1_om
     sysml:source expr:Ordered__Mixed___401_presult ;
     sysml:target expr:Ordered__Mixed___401_presult_pin1 ;
     sysml:relatedElement expr:Ordered__Mixed___401_presult, expr:Ordered__Mixed___401_presult_pin1 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Ordered__Mixed___401_presult_pin1 ;
     sysml:ownedMemberParameter expr:Ordered__Mixed___401_presult_pin1 ;
     json:relatedElement "[{\"@id\":\"Ordered__Mixed___401_presult\"},{\"@id\":\"Ordered__Mixed___401_presult_pin1\"}]" .
