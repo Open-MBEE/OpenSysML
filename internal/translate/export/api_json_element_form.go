@@ -3,7 +3,9 @@ package export
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
@@ -16,6 +18,9 @@ type ElementForm struct {
 	byID            map[string]int
 	byQualifiedName map[string]int
 	libraryNames    map[string]APIJSONLibraryReference
+	// omissions records, per element id and property, why the writer left a
+	// value out of the element object.
+	omissions map[string]map[string]metamodel.Reason
 }
 
 // APIJSONElement is one object of the element form: its "@id", its "@type"
@@ -43,7 +48,11 @@ type APIJSONProperty struct {
 // and indexes the result. An unresolvable object property fails the
 // conversion, as WriteAPIJSON does.
 func ModelElementForm(documents []ModelDocument) (*ElementForm, error) {
-	graph, err := ModelToRDFWith(documents, IDQualifiedName)
+	return modelElementFormWith(documents, IDQualifiedName)
+}
+
+func modelElementFormWith(documents []ModelDocument, idForm IDForm) (*ElementForm, error) {
+	graph, err := ModelToRDFWith(documents, idForm)
 	if err != nil {
 		return nil, err
 	}
@@ -55,12 +64,25 @@ func elementFormOfGraph(graph *rdf.Graph) (*ElementForm, error) {
 		byID:            map[string]int{},
 		byQualifiedName: map[string]int{},
 		libraryNames:    map[string]APIJSONLibraryReference{},
+		omissions:       map[string]map[string]metamodel.Reason{},
 	}
-	options := APIJSONOptions{LibraryReferences: func(refs []APIJSONLibraryReference) {
-		for _, ref := range refs {
-			form.libraryNames[ref.ID] = ref
-		}
-	}}
+	options := APIJSONOptions{
+		LibraryReferences: func(refs []APIJSONLibraryReference) {
+			for _, ref := range refs {
+				form.libraryNames[ref.ID] = ref
+			}
+		},
+		Omitted: func(omission APIJSONOmission) {
+			properties := form.omissions[omission.Subject]
+			if properties == nil {
+				properties = map[string]metamodel.Reason{}
+				form.omissions[omission.Subject] = properties
+			}
+			if _, recorded := properties[omission.Property]; !recorded {
+				properties[omission.Property] = omission.Reason
+			}
+		},
+	}
 	objects, err := apiJSONElementsWithOptions(graph, options)
 	if err != nil {
 		return nil, err
@@ -110,14 +132,19 @@ func elementFormValue(value any) (any, error) {
 		return int64(v), nil
 	case uint64:
 		if v > 1<<63-1 {
-			return float64(v), nil
+			return json.Number(strconv.FormatUint(v, 10)), nil
 		}
 		return int64(v), nil
 	case float32:
 		return float64(v), nil
 	case json.Number:
-		if i, err := v.Int64(); err == nil {
-			return i, nil
+		// An integer lexical form beyond int64 keeps its text; only a real form
+		// becomes a float64, and one beyond float64 keeps its text too.
+		if !strings.ContainsAny(string(v), ".eE") {
+			if i, err := v.Int64(); err == nil {
+				return i, nil
+			}
+			return v, nil
 		}
 		if f, err := v.Float64(); err == nil {
 			return f, nil
@@ -182,6 +209,18 @@ func (f *ElementForm) ByQualifiedName(name string) (APIJSONElement, bool) {
 		return APIJSONElement{}, false
 	}
 	return f.elements[i], true
+}
+
+// Omission is why the element id's object carries no value for property: the
+// metamodel evaluator could not derive it for this element, or a reference it
+// holds could not be resolved. A property the object carries, or one that is
+// legitimately empty, has no omission.
+func (f *ElementForm) Omission(id, property string) (metamodel.Reason, bool) {
+	if f == nil {
+		return metamodel.Reason{}, false
+	}
+	reason, ok := f.omissions[id][property]
+	return reason, ok
 }
 
 // NameOf is the qualified name and metaclass of the element an id refers to:

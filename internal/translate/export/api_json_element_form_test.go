@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
+
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
@@ -145,5 +147,97 @@ func TestElementFormValuesHaveDocumentedShapes(t *testing.T) {
 		for _, property := range element.Properties {
 			check(element.ID, property.Name, property.Value)
 		}
+	}
+}
+
+// An integer beyond int64 keeps its decimal text rather than rounding through
+// float64; a real form becomes a float64 unless float64 cannot hold it.
+func TestElementFormValueKeepsLargeIntegersExact(t *testing.T) {
+	cases := map[any]any{
+		json.Number("9223372036854775809"): json.Number("9223372036854775809"),
+		json.Number("42"):                  int64(42),
+		json.Number("2.5"):                 2.5,
+		json.Number("1e3"):                 1000.0,
+		json.Number("1e400"):               json.Number("1e400"),
+		uint64(1<<63 + 1):                  json.Number("9223372036854775809"),
+	}
+	for in, want := range cases {
+		got, err := elementFormValue(in)
+		if err != nil {
+			t.Fatalf("elementFormValue(%v): %v", in, err)
+		}
+		if got != want {
+			t.Errorf("elementFormValue(%v) = %#v, want %#v", in, got, want)
+		}
+	}
+}
+
+// A declared property the writer leaves out of one element's object — because
+// the evaluator could not derive it for that element — is recorded with its
+// reason, so a reader can tell it from a property that is legitimately empty.
+func TestElementFormRecordsPerElementOmissions(t *testing.T) {
+	form := parseElementForm(t, elementFormModel)
+	a, ok := form.ByQualifiedName("M::P::a")
+	if !ok {
+		t.Fatal("M::P::a is not in the form")
+	}
+	reason, omitted := form.Omission(a.ID, "inheritedFeature")
+	if !omitted || reason.Category != metamodel.ReasonUnresolvedReference {
+		t.Fatalf("M::P::a.inheritedFeature omission = %v, %v; want an unresolved-reference reason", reason, omitted)
+	}
+	for _, property := range a.Properties {
+		if property.Name == "inheritedFeature" {
+			t.Fatalf("M::P::a carries inheritedFeature %v and records its omission", property.Value)
+		}
+	}
+	pair, _ := form.ByQualifiedName("M::Pair")
+	if _, omitted := form.Omission(pair.ID, "inheritedFeature"); omitted {
+		t.Error("M::Pair.inheritedFeature is carried, yet an omission is recorded")
+	}
+	unit, _ := form.ByQualifiedName("M::Unit")
+	if _, omitted := form.Omission(unit.ID, "ownedSubclassification"); omitted {
+		t.Error("M::Unit.ownedSubclassification is empty, yet an omission is recorded")
+	}
+	if _, omitted := form.Omission("no-such-id", "name"); omitted {
+		t.Error("an unknown id records an omission")
+	}
+}
+
+// A library element a model's form references is read from its own document's
+// form under the same id, by id or by qualified name; references out of that
+// document are readable the same way.
+func TestLibraryElementFormReadsReferencedLibraryElements(t *testing.T) {
+	form := parseElementForm(t, elementFormModel)
+	pair, _ := form.ByQualifiedName("M::Pair")
+	var portsID string
+	for _, id := range formReferenceIDs(t, formPropertyOf(t, pair, "inheritedFeature")) {
+		if name, _, _ := form.NameOf(id); name == "Parts::Part::ownedPorts" {
+			portsID = id
+		}
+	}
+	if portsID == "" {
+		t.Fatal("M::Pair.inheritedFeature references no Parts::Part::ownedPorts")
+	}
+	ports, libraryForm, known, err := LibraryElementForm(portsID)
+	if err != nil || !known || ports.ID != portsID || ports.Metaclass != "PortUsage" || ports.QualifiedName != "Parts::Part::ownedPorts" {
+		t.Fatalf("LibraryElementForm(%s) = %+v, %v, %v", portsID, ports, known, err)
+	}
+	typeIDs := formReferenceIDs(t, formPropertyOf(t, ports, "type"))
+	if len(typeIDs) != 1 {
+		t.Fatalf("Parts::Part::ownedPorts.type = %v", typeIDs)
+	}
+	if name, _, ok := libraryForm.NameOf(typeIDs[0]); !ok || name != "Ports::Port" {
+		t.Errorf("the library form names %s as %q, %v", typeIDs[0], name, ok)
+	}
+	port, _, known, err := LibraryElementForm(typeIDs[0])
+	if err != nil || !known || port.QualifiedName != "Ports::Port" {
+		t.Errorf("LibraryElementForm(%s) = %+v, %v, %v", typeIDs[0], port, known, err)
+	}
+	byName, _, known, err := LibraryElementForm("Parts::Part")
+	if err != nil || !known || byName.Metaclass != "PartDefinition" {
+		t.Errorf("LibraryElementForm(Parts::Part) = %+v, %v, %v", byName, known, err)
+	}
+	if _, _, known, err := LibraryElementForm("Parts::Nowhere"); known || err != nil {
+		t.Errorf("an unknown name is known %v, %v", known, err)
 	}
 }

@@ -198,6 +198,53 @@ func TestElementPropertiesAddressesUnnamedElementsByPositionAndFormID(t *testing
 	}
 }
 
+// A library element a value references is readable by the id the value
+// carries, and by its qualified name; what it answers is followable in turn.
+func TestElementPropertiesFollowsReferencesIntoTheStandardLibrary(t *testing.T) {
+	r := parseForElementProperties(t, elementPropertiesModel)
+	inherited := r.property("EP::Pair", "inheritedFeature")
+	var ports *pb.ElementRef
+	for _, value := range inherited.Values {
+		if element := value.GetElement(); element != nil && element.QualifiedName == "Parts::Part::ownedPorts" {
+			ports = element
+		}
+	}
+	if ports == nil {
+		t.Fatalf("EP::Pair.inheritedFeature names no Parts::Part::ownedPorts: %v", elementNames(inherited.Values))
+	}
+	byID := r.read(ports.Id, "owner", "type", "isAbstract")
+	if byID.Error != "" {
+		t.Fatalf("GetElementProperties(%s): %s", ports.Id, byID.Error)
+	}
+	if byID.Element.QualifiedName != "Parts::Part::ownedPorts" || byID.Element.Metaclass != "PortUsage" || byID.Element.Id != ports.Id {
+		t.Errorf("library element read by id = %+v", byID.Element)
+	}
+	owner := byID.Properties[0]
+	if len(owner.Values) != 1 || owner.Values[0].GetElement().GetQualifiedName() != "Parts::Part" {
+		t.Errorf("Parts::Part::ownedPorts.owner = %+v", owner)
+	}
+	typed := byID.Properties[1]
+	if len(typed.Values) != 1 || typed.Values[0].GetElement().GetQualifiedName() != "Ports::Port" {
+		t.Errorf("Parts::Part::ownedPorts.type = %+v", typed)
+	}
+	if abstract := byID.Properties[2]; abstract.Unsupported != "" || len(abstract.Values) != 1 || !abstract.Values[0].GetBoolValue() {
+		t.Errorf("Parts::Part::ownedPorts.isAbstract = %+v", abstract)
+	}
+
+	acrossDocuments := r.read(typed.Values[0].GetElement().Id, "name", "isAbstract")
+	if acrossDocuments.Error != "" || acrossDocuments.Element.QualifiedName != "Ports::Port" ||
+		acrossDocuments.Properties[0].Values[0].GetStringValue() != "Port" || !acrossDocuments.Properties[1].Values[0].GetBoolValue() {
+		t.Errorf("a reference into another library document answers %+v", acrossDocuments)
+	}
+	byName := r.read("Parts::Part", "ownedFeature")
+	if byName.Error != "" || byName.Element.Id != owner.Values[0].GetElement().Id || !containsAll(elementNames(byName.Properties[0].Values), "Parts::Part::ownedPorts") {
+		t.Errorf("a library element read by qualified name answers %+v", byName)
+	}
+	if unknown := r.read("Parts::Nowhere", "name"); unknown.Error == "" || !strings.Contains(unknown.Error, "element not found") {
+		t.Errorf("an unknown library name answers %v", unknown)
+	}
+}
+
 func TestElementPropertiesReportsWhyAPropertyHasNoAnswer(t *testing.T) {
 	r := parseForElementProperties(t, elementPropertiesModel)
 
@@ -212,6 +259,13 @@ func TestElementPropertiesReportsWhyAPropertyHasNoAnswer(t *testing.T) {
 	none := r.property("EP::Unit", "ownedSubclassification")
 	if none.Unsupported != "" || len(none.Values) != 0 {
 		t.Errorf("EP::Unit.ownedSubclassification = %+v, want declared and empty", none)
+	}
+	perElement := r.property("EP::CmdPort::cmd", "inheritedFeature")
+	if len(perElement.Values) != 0 || !strings.Contains(perElement.Unsupported, "Type::inheritedFeature is not derived for this element") {
+		t.Errorf("a property the evaluator could not derive for one element answers %+v", perElement)
+	}
+	if inherited := r.property("EP::Pair", "inheritedFeature"); inherited.Unsupported != "" || len(inherited.Values) == 0 {
+		t.Errorf("EP::Pair.inheritedFeature = %+v, want derived", inherited)
 	}
 	omitted := r.property("EP::Pair", "ownedDisjoining")
 	if omitted.Unsupported != "" && !strings.Contains(omitted.Unsupported, "not derived by OpenSysML") {

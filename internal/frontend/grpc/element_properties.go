@@ -19,7 +19,9 @@ import (
 
 // GetElementProperties reads the metamodel properties of one element of a
 // parsed model by their specification names, from the model's API element
-// form: the same values Convert writes as api-json, one element at a time.
+// form: the same values Convert writes as api-json, one element at a time. A
+// standard-library element — one a value referenced, or a library qualified
+// name — is read from the form of the library document declaring it.
 func (s *Service) GetElementProperties(ctx context.Context, req *pb.GetElementPropertiesRequest) (*pb.GetElementPropertiesResponse, error) {
 	if err := s.requireCapability(CapabilityElementProperties); err != nil {
 		return nil, err
@@ -42,7 +44,16 @@ func (s *Service) GetElementProperties(ctx context.Context, req *pb.GetElementPr
 	}
 	element, ok := cached.elementFormElement(form, req.ElementId)
 	if !ok {
-		return &pb.GetElementPropertiesResponse{Error: fmt.Sprintf("element not found: %s", req.ElementId)}, nil
+		// A standard-library element the model's form references, or names,
+		// is read from its own library document's form.
+		var known bool
+		element, form, known, err = export.LibraryElementForm(req.ElementId)
+		if err != nil {
+			return &pb.GetElementPropertiesResponse{Error: err.Error()}, nil
+		}
+		if !known {
+			return &pb.GetElementPropertiesResponse{Error: fmt.Sprintf("element not found: %s", req.ElementId)}, nil
+		}
 	}
 	resp := &pb.GetElementPropertiesResponse{Element: elementRefOf(form, element.ID)}
 	if len(req.Properties) == 0 {
@@ -127,8 +138,9 @@ func elementRefOf(form *export.ElementForm, id string) *pb.ElementRef {
 
 // elementPropertyOf answers one property of an element: its values when the
 // form carries it; none when the metaclass declares it and the form has no
-// value for it; the reason when the metaclass does not declare it or the
-// metamodel evaluator does not derive it.
+// value for it; the reason when the metaclass does not declare it, the
+// writer left it out of this element, or the metamodel evaluator does not
+// derive it at all.
 func elementPropertyOf(form *export.ElementForm, element export.APIJSONElement, name string) *pb.ElementProperty {
 	out := &pb.ElementProperty{Name: name}
 	definition, declared := ontology.PropertyOf(element.Metaclass, name)
@@ -146,6 +158,10 @@ func elementPropertyOf(form *export.ElementForm, element export.APIJSONElement, 
 	}
 	if !declared {
 		out.Unsupported = fmt.Sprintf("%s declares no property %s", element.Metaclass, name)
+		return out
+	}
+	if reason, omitted := form.Omission(element.ID, name); omitted {
+		out.Unsupported = fmt.Sprintf("%s is not derived for this element: %s", definition.QualifiedName(), reason)
 		return out
 	}
 	if reason, omitted := omittedPropertyReasons()[definition.QualifiedName()]; omitted {

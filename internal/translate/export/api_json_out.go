@@ -28,8 +28,9 @@ const (
 	apiJSONMappingValuesKey        = "sysx:mappingValues"
 )
 
-// APIJSONOmission describes an object-property value omitted because its target
-// could not be resolved.
+// APIJSONOmission describes a property value an element object omits: an
+// object property whose target could not be resolved, or a completed derived
+// property the metamodel evaluator could not derive for that subject.
 type APIJSONOmission struct {
 	Subject   string
 	Metaclass string
