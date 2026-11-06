@@ -162,7 +162,7 @@ pilot answers the representation's own. See
 
 ## The doc-counts gate is the usual casualty of a compliance-row change
 
-Any wave that flips a status flag in `docs/project/spec-compliance.md` (for
+Any wave that flips a status flag in a `docs/project/spec-compliance/` source (for
 example a row moving ⚠️ → ✅ because the pilot can now referee it) must also
 update **two aggregate count lines**, or
 `tools/referee/diff/doc_counts_test.go:TestPilotDifferentialDocumentCountsMatchBaseline`
