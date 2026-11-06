@@ -457,9 +457,9 @@ the end of a wave, `cmp build/pilot-xpect/pilot-xpect.json docs/project/pilot-xp
 *is expected to differ* on the branch and the headline tables in `pilot-xpect.md` are expected to be
 stale. Confirm the intent with the lead before filing it — measure and report the live numbers instead.
 
-**Do not forget `make docs-counts`.** Adding rows to `docs/project/spec-compliance.md` without
+**Do not forget `make docs-counts`.** Adding rows to a `docs/project/spec-compliance/` source without
 regenerating the three derived count lines (`README.md`, `docs/internals/architecture.md`,
-`docs/project/spec-compliance.md:13`) fails `tools/referee/diff`'s
+`docs/project/spec-compliance/02-detailed-semantic-compliance-map/29-xpect-declared-rules-kerml.md:13`) fails `tools/referee/diff`'s
 `TestPilotDifferentialDocumentCountsMatchBaseline` (`coverage total: want 690 …, got 688 — run
 \`make docs-counts\``). This is only visible in a full `go test ./...`, so always run the whole gate,
 and confirm the same test passes on the base revision before calling it a branch regression.

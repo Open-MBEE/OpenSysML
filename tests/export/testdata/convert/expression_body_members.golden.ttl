@@ -419,6 +419,7 @@ expr:Bodies__Scaled___401_presult_pa0_pin0_om
     sysml:source expr:Bodies__Scaled___401_presult_pa0 ;
     sysml:target expr:Bodies__Scaled___401_presult_pa0_pin0 ;
     sysml:relatedElement expr:Bodies__Scaled___401_presult_pa0, expr:Bodies__Scaled___401_presult_pa0_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Bodies__Scaled___401_presult_pa0_pin0 ;
     sysml:ownedMemberParameter expr:Bodies__Scaled___401_presult_pa0_pin0 ;
     json:relatedElement "[{\"@id\":\"Bodies__Scaled___401_presult_pa0\"},{\"@id\":\"Bodies__Scaled___401_presult_pa0_pin0\"}]" .
@@ -512,6 +513,7 @@ expr:Bodies__Scaled___401_presult_pa0_pin1_om
     sysml:source expr:Bodies__Scaled___401_presult_pa0 ;
     sysml:target expr:Bodies__Scaled___401_presult_pa0_pin1 ;
     sysml:relatedElement expr:Bodies__Scaled___401_presult_pa0, expr:Bodies__Scaled___401_presult_pa0_pin1 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Bodies__Scaled___401_presult_pa0_pin1 ;
     sysml:ownedMemberParameter expr:Bodies__Scaled___401_presult_pa0_pin1 ;
     json:relatedElement "[{\"@id\":\"Bodies__Scaled___401_presult_pa0\"},{\"@id\":\"Bodies__Scaled___401_presult_pa0_pin1\"}]" .
@@ -580,6 +582,7 @@ expr:Bodies__Scaled___401_presult_pin0_om
     sysml:source expr:Bodies__Scaled___401_presult ;
     sysml:target expr:Bodies__Scaled___401_presult_pin0 ;
     sysml:relatedElement expr:Bodies__Scaled___401_presult, expr:Bodies__Scaled___401_presult_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Bodies__Scaled___401_presult_pin0 ;
     sysml:ownedMemberParameter expr:Bodies__Scaled___401_presult_pin0 ;
     json:relatedElement "[{\"@id\":\"Bodies__Scaled___401_presult\"},{\"@id\":\"Bodies__Scaled___401_presult_pin0\"}]" .
@@ -677,6 +680,7 @@ expr:Bodies__Scaled___401_presult_pin1_om
     sysml:source expr:Bodies__Scaled___401_presult ;
     sysml:target expr:Bodies__Scaled___401_presult_pin1 ;
     sysml:relatedElement expr:Bodies__Scaled___401_presult, expr:Bodies__Scaled___401_presult_pin1 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Bodies__Scaled___401_presult_pin1 ;
     sysml:ownedMemberParameter expr:Bodies__Scaled___401_presult_pin1 ;
     json:relatedElement "[{\"@id\":\"Bodies__Scaled___401_presult\"},{\"@id\":\"Bodies__Scaled___401_presult_pin1\"}]" .

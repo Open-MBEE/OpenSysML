@@ -12,6 +12,7 @@ Run from the repository root:
     python3 scripts/check-doc-links.py
 """
 
+import importlib.util
 import re
 import subprocess
 import sys
@@ -32,6 +33,15 @@ CITED = re.compile(r"`(docs/[A-Za-z0-9_./-]+\.md)`")
 HISTORICAL = ("docs/internals/notes/", "docs/internals/design/")
 # A changelog fragment is folded into CHANGELOG.md, so its links are written from the root.
 FRAGMENTS = "changes/unreleased/"
+# The compliance map is combined from the sources under docs/project/spec-compliance/
+# when the site is built, so the page is a link target without being a file on
+# develop, and a source's links are written from the page's directory.
+PAGE = Path("docs/project/spec-compliance.md")
+_combine = importlib.util.spec_from_file_location("spec_compliance", Path(__file__).resolve().parent / "spec_compliance.py")
+spec_compliance = importlib.util.module_from_spec(_combine)
+assert _combine.loader is not None
+_combine.loader.exec_module(spec_compliance)
+SOURCES = {Path(source).resolve() for source in spec_compliance.sources()}
 
 
 def prose(text: str) -> str:
@@ -65,7 +75,13 @@ def slugs(heading: str) -> set[str]:
 
 
 def anchors_of(path: Path) -> set[str]:
-    text = prose(path.read_text(encoding="utf-8", errors="replace"))
+    if path == PAGE.resolve():
+        return anchors_in(spec_compliance.render())
+    return anchors_in(path.read_text(encoding="utf-8", errors="replace"))
+
+
+def anchors_in(markdown: str) -> set[str]:
+    text = prose(markdown)
     found: set[str] = set()
     seen: dict[str, int] = {}
     for line in HEADING.findall(text):
@@ -90,15 +106,16 @@ def tracked_markdown() -> list[Path]:
 def link_failure(md: Path, link: str, root: Path, anchors: dict[Path, set[str]]) -> str | None:
     """What is wrong with one link, or None if it resolves."""
     target, _, fragment = link.partition("#")
+    source = md.resolve() in SOURCES
     if target:
-        base = root if md.as_posix().startswith(FRAGMENTS) else md.parent
+        base = root if md.as_posix().startswith(FRAGMENTS) else PAGE.parent if source else md.parent
         dest = (base / target).resolve()
         if not dest.is_relative_to(root):
             return f"{md}: escapes the repository: {link}"
-        if not dest.exists():
+        if not dest.exists() and dest != (root / PAGE):
             return f"{md}: no such file: {link}"
     else:
-        dest = md.resolve()
+        dest = (root / PAGE) if source else md.resolve()
     if not fragment:
         return None
     if dest.is_dir():
@@ -134,7 +151,7 @@ def page_failures(md: Path, root: Path, anchors: dict[Path, set[str]]) -> list[s
     failures.extend(
         f"{md}: no such file, cited in prose: {cited}"
         for cited in sorted(set(CITED.findall(text)))
-        if not (root / cited).exists()
+        if not (root / cited).exists() and Path(cited) != PAGE
     )
     return failures
 
