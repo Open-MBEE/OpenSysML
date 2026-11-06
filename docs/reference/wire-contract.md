@@ -135,12 +135,18 @@ HTTP/1.1 400 Bad Request
 
 `GetSymbol` answers one `SymbolInfo` for a symbol id: a fully qualified name, or the
 positional id an unnamed declaration has in the query API and the export (`Owner::@3` for
-the fourth member of `Owner`, `Owner::@3::wheel` for a named member of it). `child_ids`
-lists the symbol's members under the same ids, named and unnamed alike (a `bind`, a
-`connect`, a `part : P;`, a `@M { … }` or `#M` annotation), each of which `GetSymbol`
-resolves; a member no id reaches, such as a body-local declaration, is not listed. Beside
-its typed fields (`typeInfo`, `multiplicity`, `specializations`, `attributes`), `metadata`
-is a string map of facts about the declaration, each present only when it holds:
+the fourth member of `Owner`, `Owner::@3::wheel` for a named member of it). `childIds` are the
+members the element itself declares under the same ids, named and unnamed alike (a `bind`, a
+`connect`, a `part : P;`, a `@M { … }` or `#M` annotation), each of which `GetSymbol` resolves;
+a member no id reaches, such as a body-local declaration, is not listed. `members` is every
+member it has (KerML `Type::member`) — the owned ones first, in declaration order, then the
+inherited ones in inheritance order, each with its `kind`, `inherited` and `inheritedFrom`, a
+redefinition masking what it redefines and a private member of a supertype left out. Members
+inherited from standard-library content are withheld and counted in `withheldLibraryMembers`
+unless the request sets `includeLibraryMembers`, which lists them marked `library`. The
+`symbol_members` capability advertises the field; a service without it answers no `members`.
+Beside the other typed fields (`typeInfo`, `multiplicity`, `specializations`, `attributes`),
+`metadata` is a string map of facts about the declaration, each present only when it holds:
 
 | Key | Value | When |
 |-----|-------|------|

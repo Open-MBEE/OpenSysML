@@ -341,7 +341,7 @@ func (c *Core) getSymbol(req *JGetSymbolRequest) ([]byte, error) {
 	if len(matches) == 0 {
 		return json.Marshal(&JSymbolResponse{Error: fmt.Sprintf("symbol not found: %s", req.SymbolId)})
 	}
-	info := symbolfacts.Of(matches[0], model.symbolContext())
+	info := symbolfacts.OfWith(matches[0], model.symbolContext(), symbolfacts.Options{IncludeLibraryMembers: req.IncludeLibraryMembers})
 	return json.Marshal(&JSymbolResponse{Symbol: symbolInfo(info)})
 }
 
@@ -407,6 +407,17 @@ func symbolInfo(info *symbolfacts.Info) *JSymbolInfo {
 		Metadata:                  info.Metadata,
 		ChildIds:                  info.ChildIds,
 		WithheldLibraryAttributes: info.WithheldLibraryAttributes,
+		WithheldLibraryMembers:    info.WithheldLibraryMembers,
+	}
+	for _, member := range info.Members {
+		out.Members = append(out.Members, &JMemberInfo{
+			Id:            member.Id,
+			Name:          member.Name,
+			Kind:          member.Kind,
+			Inherited:     member.Inherited,
+			InheritedFrom: member.InheritedFrom,
+			Library:       member.Library,
+		})
 	}
 	if t := info.TypeInfo; t != nil {
 		out.TypeInfo = &JTypeInfo{

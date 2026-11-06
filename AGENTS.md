@@ -29,7 +29,7 @@ make build            # build bin/sysml and bin/sysml-lsp (with version ldflags)
 make build-sysml      # REPL binary only
 make build-lsp        # LSP binary only
 make test             # full suite: go test -race -coverprofile ... ./...
-make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|runtime-corpus|model|export|export-corpus|export-settled|graph|codegen|tools|rest|migrate|cli)
+make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|runtime-corpus|runtime-exploration|model|export-corpus|export-settled|graph|codegen|tools|rest|migrate|cli)
 make test-short       # faster, no race detector
 make clean            # remove build artifacts
 ```
@@ -198,8 +198,8 @@ The vendored `OpenSysML Libraries` (`scripts/extension-libraries-pin.sh`, synced
 `scripts/sync-extension-libraries.sh`) are an input to gates far from `internal/workspace/libs`, and
 the full CI tier is expensive, so run them locally before the PR, every time the pin moves:
 
-1. `go generate ./internal/workspace/libs` — `stdlib.snapshot` embeds the libraries; commit it.
-2. `make extension-libraries-pin-check` — Java-free, about a minute: the sync check, the snapshot,
+1. `make extension-libraries-pin-check` — Java-free, about a minute: regenerates the snapshot
+   from the synced libraries, then the sync check,
    `tests/hygiene TestEngineContractCoversEveryBoundName` (a new binding in
    `internal/ir/queryplan/compiler.go` needs an `engine-contract.json` entry upstream, in the same
    library PR as the declaration), the provenance guards of both pilot-differential baselines, and

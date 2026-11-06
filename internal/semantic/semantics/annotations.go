@@ -2055,45 +2055,13 @@ func ownedMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
 }
 
 // membersIncludingAnonymous is Namespace::member: the named and anonymous
-// members MembersOf reports, in declaration order, with inherited members that
-// no feature of sym redefines.
+// members Members reports, in declaration order, with inherited members that
+// no feature of sym redefines and that are not private.
 func (m *Model) membersIncludingAnonymous(sym *symbols.Symbol) []*symbols.Symbol {
-	named := m.MembersOf(sym)
-	namedSet := make(map[*symbols.Symbol]bool, len(named))
-	for _, s := range named {
-		namedSet[s] = true
-	}
-	var out []*symbols.Symbol
-	seen := make(map[*symbols.Symbol]bool, len(named))
-	mask := m.redefinitionMask(sym, true)
-	collect := func(owner *symbols.Symbol, scope *symbols.Scope, inherited bool) {
-		if scope == nil {
-			return
-		}
-		anonymous := make(map[*symbols.Symbol]bool)
-		for _, s := range scope.AnonymousMembers() {
-			anonymous[s] = true
-		}
-		scope.ForEachMember(func(s *symbols.Symbol) bool {
-			if s.Kind == symbols.SymbolAlias || seen[s] || ownedThroughAnnotation(owner, s) ||
-				(!anonymous[s] && !namedSet[s] && !(s.Kind == symbols.SymbolDocumentation && s.Name == "")) ||
-				(inherited && m.maskedBy(mask, s)) {
-				return true
-			}
-			seen[s] = true
-			out = append(out, s)
-			return true
-		})
-	}
-	collect(sym, sym.Scope, false)
-	for _, src := range m.MemberSources(sym) {
-		collect(src, src.Scope, true)
-	}
-	for _, s := range named {
-		if !seen[s] {
-			seen[s] = true
-			out = append(out, s)
-		}
+	members := m.Members(sym)
+	out := make([]*symbols.Symbol, 0, len(members))
+	for _, member := range members {
+		out = append(out, member.Symbol)
 	}
 	return out
 }

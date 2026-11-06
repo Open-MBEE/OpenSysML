@@ -151,3 +151,31 @@ func TestPrefixMetadataTypeResolvesInTheAnnotatedElement(t *testing.T) {
 		t.Errorf("GetSymbol(A::@1) typed %v, want Shadow::A::Tag, the definition the prefix's owner declares", tag.TypeInfo)
 	}
 }
+
+// The members a symbol enumerates with provenance name unnamed members and a
+// `#M` prefix by the same ids child_ids does, then the inherited ones.
+func TestMembersListPositionalAndPrefixIdsWithProvenance(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustParse(t, srv, unnamedChildrenModel)
+	for _, id := range []string{"UnnamedChildren::Controller", "UnnamedChildren::Tagged"} {
+		info := getSymbol(t, srv, hash, id)
+		var own []string
+		for _, m := range info.Members {
+			if !m.Inherited {
+				own = append(own, m.Id)
+			}
+		}
+		if !slices.Equal(own, info.ChildIds) {
+			t.Errorf("%s own members = %v, want child_ids %v", id, own, info.ChildIds)
+		}
+	}
+	controller := getSymbol(t, srv, hash, "UnnamedChildren::Controller")
+	if controller.WithheldLibraryMembers == 0 {
+		t.Errorf("Controller withholds no library members, want the Parts::Part ones counted")
+	}
+	for _, m := range controller.Members {
+		if m.Inherited && m.InheritedFrom == "" {
+			t.Errorf("inherited member %s names no declaring type", m.Id)
+		}
+	}
+}

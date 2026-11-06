@@ -1518,6 +1518,17 @@ func symbolToProto(symbol *opensysml.Symbol) *pb.SymbolInfo {
 		Metadata:                  symbol.Metadata,
 		ChildIds:                  symbol.ChildIDs,
 		WithheldLibraryAttributes: int32(symbol.WithheldLibraryAttributes), // #nosec G115 -- attribute counts are small
+		WithheldLibraryMembers:    int32(symbol.WithheldLibraryMembers),    // #nosec G115 -- member counts are small
+	}
+	for _, member := range symbol.Members {
+		out.Members = append(out.Members, &pb.MemberInfo{
+			Id:            member.ID,
+			Name:          member.Name,
+			Kind:          member.Kind,
+			Inherited:     member.Inherited,
+			InheritedFrom: member.InheritedFrom,
+			Library:       member.Library,
+		})
 	}
 	for _, attribute := range symbol.Attributes {
 		out.Attributes = append(out.Attributes, &pb.AttributeInfo{
