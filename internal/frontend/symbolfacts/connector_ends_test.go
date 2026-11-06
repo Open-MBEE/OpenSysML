@@ -172,6 +172,39 @@ func TestAnonymousConnectionsWithUnnamedEndsReportTheirEnds(t *testing.T) {
 	}
 }
 
+// attachmentsModel types a flow and a connection by definitions whose ends
+// reference features of their own.
+const attachmentsModel = `
+package Attach {
+	private import ScalarValues::*;
+	attribute oldSource : Real; attribute oldTarget : Real;
+	attribute newSource : Real; attribute newTarget : Real;
+	flow def F { end source references oldSource; end target references oldTarget; }
+	flow f : F from newSource to newTarget;
+	connection def C { end a references oldSource; end b references oldTarget; }
+	connection c : C;
+}
+`
+
+func TestOwnAttachmentsOutrankInheritedEndReferences(t *testing.T) {
+	idx, sc := modelWithLibrary(t, attachmentsModel)
+	want := []*ConnectorEnd{
+		{EndId: "Attach::F::source", Name: "source", Declared: "newSource", FeatureId: "Attach::newSource", FeatureKind: "attributeUsage"},
+		{EndId: "Attach::F::target", Name: "target", Declared: "newTarget", FeatureId: "Attach::newTarget", FeatureKind: "attributeUsage"},
+	}
+	if got := Of(one(t, idx, "Attach::f"), sc).ConnectorEnds; !reflect.DeepEqual(got, want) {
+		t.Errorf("flow f : F from newSource to newTarget ends = %s, want %s", endsText(got), endsText(want))
+	}
+	// A connector attaching nothing of its own connects what its inherited ends reference.
+	want = []*ConnectorEnd{
+		{EndId: "Attach::C::a", Name: "a", FeatureId: "Attach::oldSource", FeatureKind: "attributeUsage"},
+		{EndId: "Attach::C::b", Name: "b", FeatureId: "Attach::oldTarget", FeatureKind: "attributeUsage"},
+	}
+	if got := Of(one(t, idx, "Attach::c"), sc).ConnectorEnds; !reflect.DeepEqual(got, want) {
+		t.Errorf("connection c : C ends = %s, want %s", endsText(got), endsText(want))
+	}
+}
+
 // one is the single symbol id names.
 func one(t *testing.T, idx *symbols.Index, id string) *symbols.Symbol {
 	t.Helper()

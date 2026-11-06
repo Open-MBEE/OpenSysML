@@ -265,8 +265,12 @@ func (sc *Context) connectorEndsOf(sym *symbols.Symbol) []*ConnectorEnd {
 	var out []*ConnectorEnd
 	for i := 0; i < len(ends) || i < len(paths) || i < len(featurePaths); i++ {
 		info := &ConnectorEnd{}
-		if i < len(ends) && ends[i] != nil {
-			end := ends[i]
+		var end *symbols.Symbol
+		if i < len(ends) {
+			end = ends[i]
+		}
+		owned := end != nil && end.OwnerScope != nil && end.OwnerScope.OwningElement() == sym
+		if end != nil {
 			info.EndId = sc.Index.GetFQN(end)
 			info.Name = end.Name
 			if decl, ok := end.Decl.(*ast.ConnectorEnd); ok {
@@ -275,6 +279,11 @@ func (sc *Context) connectorEndsOf(sym *symbols.Symbol) []*ConnectorEnd {
 					info.Declared = writtenTarget(semantics.ImpliedEndReference(decl))
 				}
 			}
+		}
+		// An end of the connector's own says what it connects; what an
+		// inherited end references is where the connector's own `connect`,
+		// `from` or `to` clause names nothing at that position.
+		if owned {
 			sc.connectedFeature(info, m.EndReferencedFeature(end))
 		}
 		if info.Name == "" && i < len(paths) {
@@ -284,8 +293,10 @@ func (sc *Context) connectorEndsOf(sym *symbols.Symbol) []*ConnectorEnd {
 			switch {
 			case i < len(featurePaths) && len(featurePaths[i]) > 0:
 				sc.connectedPath(info, featurePaths[i])
-			case i < len(paths):
+			case i < len(paths) && len(paths[i].Features) > 0:
 				sc.connectedPath(info, paths[i].Features)
+			case end != nil && !owned:
+				sc.connectedFeature(info, m.EndReferencedFeature(end))
 			}
 		}
 		out = append(out, info)
