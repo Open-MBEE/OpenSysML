@@ -357,7 +357,7 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	graph.machineDecl = stateMachineDecl
 	graph.recordRunToCompletion(nil, body, DescribeMember(stateMachineDecl))
 
-	graph.Connections = lowerConnections(members, OwnerBehavior, scope)
+	graph.Connections = graph.keptConnections(body)
 	graph.Attributes = graph.keptAttributes(lowerStateAttributes(graph, inherited), lowerStateAttributes(graph, ownMembers(members, scope)))
 	parallelMachine := stateMachineIsParallel(stateMachineDecl)
 	for _, owner := range owners {
@@ -519,6 +519,40 @@ func lowerStateAttributes(graph *StateGraph, members []inheritedMember) []Attrib
 // memberGroup is the members one body contributes to a state, in declaration
 // order: a name written in them resolves in that body's scope, and a succession
 // out of an entry action names one of them.
+// keptConnections lowers the connectors of every body group, farther first, dropping an
+// inherited connector that a nearer one redefines with ends of its own.
+func (g *StateGraph) keptConnections(body []inheritedMember) []Connection {
+	type declared struct {
+		conns []Connection
+		sym   *symbols.Symbol
+	}
+	var kept []declared
+	for _, group := range groupMembers(body) {
+		var own []declared
+		for _, member := range group.nodes {
+			u, ok := unwrapMembership(member).(*ast.Usage)
+			if !ok || !connectorKind(u.Kind) {
+				continue
+			}
+			sym := group.scope.MemberDeclaring(u)
+			conns := lowerConnections([]ast.Node{member}, OwnerBehavior, group.scope)
+			if len(conns) == 0 {
+				continue
+			}
+			kept = slices.DeleteFunc(kept, func(d declared) bool {
+				return g.redefinesMember(group.scope, u, sym, d.sym)
+			})
+			own = append(own, declared{conns: conns, sym: sym})
+		}
+		kept = append(kept, own...)
+	}
+	var out []Connection
+	for _, d := range kept {
+		out = append(out, d.conns...)
+	}
+	return out
+}
+
 type memberGroup struct {
 	owner ast.Node
 	scope *symbols.Scope
