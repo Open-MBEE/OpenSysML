@@ -249,32 +249,45 @@ func (sc *Context) specializationsOf(sym *symbols.Symbol) []*Specialization {
 	return out
 }
 
-// connectorEndsOf reports the ends a connector owns and the features they
-// connect, in end order; a flow, whose ends are its type's, reports the
-// features its `from`/`to` paths name instead. Nil for anything else.
+// connectorEndsOf reports a connector's effective ends in order — its own, then
+// the ones it inherits — and the features they connect; an end with no symbol
+// of its own (a recorded end without a name) and a flow, whose ends are its
+// type's, report what the connector's `connect`/`from`/`to` paths name at that
+// position instead. Nil for anything else.
 func (sc *Context) connectorEndsOf(sym *symbols.Symbol) []*ConnectorEnd {
 	m := sc.Semantics
 	if m == nil {
 		return nil
 	}
+	ends := m.EndFeatures(sym)
+	paths := m.ConnectorEndPaths(sym)
+	featurePaths := m.ConnectorEndFeaturePaths(sym)
 	var out []*ConnectorEnd
-	for _, end := range m.EndFeatures(sym) {
-		if end.OwnerScope == nil || end.OwnerScope.OwningElement() != sym {
-			continue
+	for i := 0; i < len(ends) || i < len(paths) || i < len(featurePaths); i++ {
+		info := &ConnectorEnd{}
+		if i < len(ends) && ends[i] != nil {
+			end := ends[i]
+			info.EndId = sc.Index.GetFQN(end)
+			info.Name = end.Name
+			if decl, ok := end.Decl.(*ast.ConnectorEnd); ok {
+				info.Declared = writtenTarget(decl.ReferencedTarget())
+				if info.Declared == "" {
+					info.Declared = writtenTarget(semantics.ImpliedEndReference(decl))
+				}
+			}
+			sc.connectedFeature(info, m.EndReferencedFeature(end))
 		}
-		info := &ConnectorEnd{EndId: sc.Index.GetFQN(end), Name: end.Name}
-		if decl, ok := end.Decl.(*ast.ConnectorEnd); ok {
-			info.Declared = writtenTarget(semantics.ImpliedEndReference(decl))
+		if info.Name == "" && i < len(paths) {
+			info.Name = paths[i].Name
 		}
-		sc.connectedFeature(info, m.EndReferencedFeature(end))
-		out = append(out, info)
-	}
-	if len(out) > 0 {
-		return out
-	}
-	for _, path := range m.ConnectorEndPaths(sym) {
-		info := &ConnectorEnd{Name: path.Name}
-		sc.connectedPath(info, path.Features)
+		if info.FeatureId == "" {
+			switch {
+			case i < len(featurePaths) && len(featurePaths[i]) > 0:
+				sc.connectedPath(info, featurePaths[i])
+			case i < len(paths):
+				sc.connectedPath(info, paths[i].Features)
+			}
+		}
 		out = append(out, info)
 	}
 	return out
@@ -340,6 +353,13 @@ func (sc *Context) connectedPath(info *ConnectorEnd, path []*symbols.Symbol) {
 // writtenTarget is a connector end's target as written: a qualified name, its
 // chained segments after `.`, or the empty string for anything else.
 func writtenTarget(target ast.Node) string {
+	if chain, ok := target.(*ast.FeatureChainExpr); ok && chain.Member != nil {
+		operand, member := writtenTarget(chain.Operand), writtenTarget(chain.Member)
+		if operand == "" || member == "" {
+			return ""
+		}
+		return operand + "." + member
+	}
 	qn := ast.AsQualifiedName(target)
 	if qn == nil {
 		return ""

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // connectorModel connects features by chains and by plain names, through an
@@ -80,11 +81,12 @@ func TestPlainConnectorEndsAndFlowsReportTheirFeatures(t *testing.T) {
 		got[1].FeatureId != "Ends::vehicle::powertrain" || got[1].Declared != "powertrain" || got[1].EndId == "" {
 		t.Errorf("connect spare to powertrain ends = %s", endsText(got))
 	}
-	// A flow's ends are its type's; the features its paths name are reported.
+	// A flow's ends are the ones it inherits from its type; the features its
+	// paths name are reported at their positions.
 	wantFlow := []*ConnectorEnd{
-		{Name: "source", Declared: "powertrain.tank.level", FeatureId: "Ends::Tank::level", FeatureKind: "attributeUsage",
+		{EndId: "Flows::flows::source", Name: "source", Declared: "powertrain.tank.level", FeatureId: "Ends::Tank::level", FeatureKind: "attributeUsage",
 			ChainIds: []string{"Ends::vehicle::powertrain", "Ends::Powertrain::tank", "Ends::Tank::level"}},
-		{Name: "target", Declared: "powertrain.engine.demand", FeatureId: "Ends::Engine::demand", FeatureKind: "attributeUsage",
+		{EndId: "Flows::flows::target", Name: "target", Declared: "powertrain.engine.demand", FeatureId: "Ends::Engine::demand", FeatureKind: "attributeUsage",
 			ChainIds: []string{"Ends::vehicle::powertrain", "Ends::Powertrain::engine", "Ends::Engine::demand"}},
 	}
 	if !reflect.DeepEqual(flow.ConnectorEnds, wantFlow) {
@@ -92,6 +94,81 @@ func TestPlainConnectorEndsAndFlowsReportTheirFeatures(t *testing.T) {
 	}
 	if ends := Of(one(t, idx, "Ends::Tank"), sc).ConnectorEnds; len(ends) != 0 {
 		t.Errorf("a part definition reports connector ends %s, want none", endsText(ends))
+	}
+}
+
+// inheritedEndsModel declares a connection's ends in a definition another
+// definition and a usage inherit, and an end attached by a qualified name.
+const inheritedEndsModel = `
+package Inherited {
+	port def P;
+	part def Thing { port p : P; }
+	connection def Base { end a : Thing; end b : Thing; }
+	connection def Derived :> Base;
+	part x : Thing;
+	package Other { part y : Thing; }
+	connection link : Base connect x to Other::y;
+	interface i connect supplier ::> Other::y.p to consumer ::> x.p;
+}
+`
+
+func TestConnectorEndsIncludeTheOnesInherited(t *testing.T) {
+	idx, sc := modelWithLibrary(t, inheritedEndsModel)
+	want := []*ConnectorEnd{
+		{EndId: "Inherited::Base::a", Name: "a"},
+		{EndId: "Inherited::Base::b", Name: "b"},
+	}
+	if got := Of(one(t, idx, "Inherited::Derived"), sc).ConnectorEnds; !reflect.DeepEqual(got, want) {
+		t.Errorf("Derived :> Base ends = %s, want %s", endsText(got), endsText(want))
+	}
+	// A usage's own clause ends come first, and redefine the inherited ones.
+	got := Of(one(t, idx, "Inherited::link"), sc).ConnectorEnds
+	if len(got) != 2 || got[0].EndId == "" || got[1].EndId == "" ||
+		got[0].FeatureId != "Inherited::x" || got[0].Declared != "x" ||
+		got[1].FeatureId != "Inherited::Other::y" || got[1].Declared != "Other::y" {
+		t.Errorf("link ends = %s", endsText(got))
+	}
+}
+
+func TestExplicitEndReferencesKeepTheirSpelling(t *testing.T) {
+	idx, sc := modelWithLibrary(t, inheritedEndsModel)
+	got := Of(one(t, idx, "Inherited::i"), sc).ConnectorEnds
+	if len(got) != 2 || got[0].Declared != "Other::y.p" || got[0].FeatureId != "Inherited::Thing::p" ||
+		!reflect.DeepEqual(got[0].ChainIds, []string{"Inherited::Other::y", "Inherited::Thing::p"}) ||
+		got[1].Declared != "x.p" {
+		t.Errorf("interface ends = %s", endsText(got))
+	}
+}
+
+func TestAnonymousConnectionsWithUnnamedEndsReportTheirEnds(t *testing.T) {
+	base, err := libs.SnapshotIndex()
+	if err != nil {
+		base, _ = libs.SharedLibrary()
+	}
+	idx := symbols.NewOverlay(base)
+	sc := NewContext(idx)
+	var connections int
+	var anonymous []*symbols.Symbol
+	var walk func(scope *symbols.Scope)
+	walk = func(scope *symbols.Scope) {
+		anonymous = append(anonymous, scope.AnonymousMembers()...)
+		for _, child := range scope.Children() {
+			walk(child)
+		}
+	}
+	walk(one(t, idx, "Flows").Scope)
+	for _, member := range anonymous {
+		if len(sc.Semantics.EndFeatures(member)) != 2 {
+			continue
+		}
+		connections++
+		ends := Of(member, sc).ConnectorEnds
+		if len(ends) != 2 || ends[0].FeatureId == "" || ends[1].FeatureId == "" {
+			t.Errorf("%s ends = %s, want two connected features", idx.GetFQN(member), endsText(ends))
+		}
+	}
+	if connections == 0 {
+		t.Fatal("the Flows library declares anonymous connections, found none")
 	}
 }
 

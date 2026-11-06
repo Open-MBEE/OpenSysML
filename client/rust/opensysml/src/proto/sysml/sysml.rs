@@ -2353,7 +2353,8 @@ pub struct Specialization {
 /// connects, as the end's ReferenceSubsetting references it (KerML 8.3.4.5.3).
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ConnectorEndInfo {
-    /// FQN of the end feature itself; resolvable through GetSymbol.
+    /// FQN of the end feature itself, an inherited end included; resolvable
+    /// through GetSymbol. Empty for an end with no symbol of its own.
     #[prost(string, tag="1")]
     pub end_id: ::prost::alloc::string::String,
     /// The end's effective name ("supplier", "source"); empty when it has none.

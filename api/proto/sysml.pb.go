@@ -9116,7 +9116,8 @@ func (x *Specialization) GetChainIds() []string {
 // connects, as the end's ReferenceSubsetting references it (KerML 8.3.4.5.3).
 type ConnectorEndInfo struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FQN of the end feature itself; resolvable through GetSymbol.
+	// FQN of the end feature itself, an inherited end included; resolvable
+	// through GetSymbol. Empty for an end with no symbol of its own.
 	EndId string `protobuf:"bytes,1,opt,name=end_id,json=endId,proto3" json:"end_id,omitempty"`
 	// The end's effective name ("supplier", "source"); empty when it has none.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`

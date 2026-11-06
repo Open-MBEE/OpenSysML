@@ -1801,22 +1801,26 @@ func instanceToProto(rt *runtime.Context, inst *runtime.Instance, idx *symbols.I
 
 // chainFeatureFromProto binds a metaobject naming an anonymous chain Feature:
 // the one the relationships written on owner_id denote whose chaining features
-// are the ones named. Nil when the owner has no such chain.
+// are the ones named, which element_id, when given, must spell. Nil when the
+// owner has no such chain, or more than one.
 func chainFeatureFromProto(meta *pb.Metaobject, idx *symbols.Index, sem *semantics.Model) (element, metaclass *symbols.Symbol) {
 	want := strings.Join(meta.GetChainingFeatureIds(), ".")
 	if want == "" {
 		want = meta.GetElementId()
+	} else if id := meta.GetElementId(); id != "" && id != want {
+		return nil, nil
 	}
 	for _, owner := range idx.LookupQualified(meta.GetOwnerId()) {
 		for _, chain := range sem.ChainFeaturesOf(owner) {
-			ids, _ := chainFeatureIdentity(chain, idx.GetFQN)
-			if strings.Join(ids, ".") != want {
+			if ids, _ := chainFeatureIdentity(chain, idx.GetFQN); strings.Join(ids, ".") != want {
 				continue
 			}
-			if mc := sem.MetaclassOf(chain); mc != nil {
-				return chain, mc
+			mc := sem.MetaclassOf(chain)
+			if mc == nil || element != nil {
+				return nil, nil
 			}
+			element, metaclass = chain, mc
 		}
 	}
-	return nil, nil
+	return element, metaclass
 }

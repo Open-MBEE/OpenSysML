@@ -5302,7 +5302,8 @@ export const SpecializationSchema: GenMessage<Specialization> = /*@__PURE__*/
  */
 export type ConnectorEndInfo = Message<"sysml.ConnectorEndInfo"> & {
   /**
-   * FQN of the end feature itself; resolvable through GetSymbol.
+   * FQN of the end feature itself, an inherited end included; resolvable
+   * through GetSymbol. Empty for an end with no symbol of its own.
    *
    * @generated from field: string end_id = 1;
    */
