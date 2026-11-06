@@ -97,6 +97,9 @@ const (
 	SysMLServiceListEnginesProcedure = "/sysml.SysMLService/ListEngines"
 	// SysMLServiceQueryProcedure is the fully-qualified name of the SysMLService's Query RPC.
 	SysMLServiceQueryProcedure = "/sysml.SysMLService/Query"
+	// SysMLServiceGetElementPropertiesProcedure is the fully-qualified name of the SysMLService's
+	// GetElementProperties RPC.
+	SysMLServiceGetElementPropertiesProcedure = "/sysml.SysMLService/GetElementProperties"
 	// SysMLServiceRunDocumentQueryProcedure is the fully-qualified name of the SysMLService's
 	// RunDocumentQuery RPC.
 	SysMLServiceRunDocumentQueryProcedure = "/sysml.SysMLService/RunDocumentQuery"
@@ -207,6 +210,12 @@ type SysMLServiceClient interface {
 	// as the standard defines them, so a client that speaks that API can filter a
 	// model here. Reported as the "query" capability.
 	Query(context.Context, *connect.Request[proto.QueryRequest]) (*connect.Response[proto.QueryResponse], error)
+	// Read the metamodel properties of one element by their specification
+	// names (KerML 1.1 and SysML 2.1 abstract syntax: inheritedFeature,
+	// connectorEnd, directedFeature, payloadType, ...), as the model's API
+	// element form (Convert to api-json) spells them, without converting the
+	// whole model. Reported as the "element_properties" capability.
+	GetElementProperties(context.Context, *connect.Request[proto.GetElementPropertiesRequest]) (*connect.Response[proto.GetElementPropertiesResponse], error)
 	// Run a named document query with parameter bindings, the answer the REPL's
 	// %run-query gives, as typed rows rather than formatted lines. Reported as
 	// the "document_query" capability.
@@ -394,6 +403,12 @@ func NewSysMLServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(sysMLServiceMethods.ByName("Query")),
 			connect.WithClientOptions(opts...),
 		),
+		getElementProperties: connect.NewClient[proto.GetElementPropertiesRequest, proto.GetElementPropertiesResponse](
+			httpClient,
+			baseURL+SysMLServiceGetElementPropertiesProcedure,
+			connect.WithSchema(sysMLServiceMethods.ByName("GetElementProperties")),
+			connect.WithClientOptions(opts...),
+		),
 		runDocumentQuery: connect.NewClient[proto.RunDocumentQueryRequest, proto.RunDocumentQueryResponse](
 			httpClient,
 			baseURL+SysMLServiceRunDocumentQueryProcedure,
@@ -435,37 +450,38 @@ func NewSysMLServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 
 // sysMLServiceClient implements SysMLServiceClient.
 type sysMLServiceClient struct {
-	getServerInfo      *connect.Client[proto.ServerInfoRequest, proto.ServerInfoResponse]
-	parseFile          *connect.Client[proto.ParseFileRequest, proto.ParseFileResponse]
-	parseSources       *connect.Client[proto.ParseSourcesRequest, proto.ParseSourcesResponse]
-	getSymbol          *connect.Client[proto.GetSymbolRequest, proto.SymbolResponse]
-	getDiagnostics     *connect.Client[proto.DiagnosticsRequest, proto.DiagnosticsResponse]
-	evaluate           *connect.Client[proto.EvaluateRequest, proto.EvaluateResponse]
-	instantiate        *connect.Client[proto.InstantiateRequest, proto.InstantiateResponse]
-	executeAction      *connect.Client[proto.ExecuteActionRequest, proto.ExecuteActionResponse]
-	executeState       *connect.Client[proto.ExecuteStateRequest, proto.ExecuteStateResponse]
-	convert            *connect.Client[proto.ConvertRequest, proto.ConvertResponse]
-	migrate            *connect.Client[proto.MigrateRequest, proto.MigrateResponse]
-	applyEdits         *connect.Client[proto.ApplyEditsRequest, proto.ApplyEditsResponse]
-	verifyConstraint   *connect.Client[proto.VerifyConstraintRequest, proto.VerifyConstraintResponse]
-	verifyRequirement  *connect.Client[proto.VerifyRequirementRequest, proto.VerifyRequirementResponse]
-	verifySatisfaction *connect.Client[proto.VerifySatisfactionRequest, proto.VerifySatisfactionResponse]
-	validateInstance   *connect.Client[proto.ValidateInstanceRequest, proto.ValidateInstanceResponse]
-	evaluateCalc       *connect.Client[proto.EvaluateCalcRequest, proto.EvaluateCalcResponse]
-	runAnalysis        *connect.Client[proto.RunAnalysisRequest, proto.RunAnalysisResponse]
-	checkBehavior      *connect.Client[proto.CheckBehaviorRequest, proto.CheckBehaviorResponse]
-	runSweep           *connect.Client[proto.RunSweepRequest, proto.RunSweepResponse]
-	runRuns            *connect.Client[proto.RunRunsRequest, proto.RunRunsResponse]
-	selfCheck          *connect.Client[proto.SelfCheckRequest, proto.SelfCheckResponse]
-	recordRun          *connect.Client[proto.RecordRunRequest, proto.RecordRunResponse]
-	listEngines        *connect.Client[proto.ListEnginesRequest, proto.ListEnginesResponse]
-	query              *connect.Client[proto.QueryRequest, proto.QueryResponse]
-	runDocumentQuery   *connect.Client[proto.RunDocumentQueryRequest, proto.RunDocumentQueryResponse]
-	renderDocument     *connect.Client[proto.RenderDocumentRequest, proto.RenderDocumentResponse]
-	renderView         *connect.Client[proto.RenderViewRequest, proto.RenderViewResponse]
-	exportGraphs       *connect.Client[proto.ExportGraphsRequest, proto.ExportGraphsResponse]
-	importData         *connect.Client[proto.ImportDataRequest, proto.ImportDataResponse]
-	compareResults     *connect.Client[proto.CompareResultsRequest, proto.CompareResultsResponse]
+	getServerInfo        *connect.Client[proto.ServerInfoRequest, proto.ServerInfoResponse]
+	parseFile            *connect.Client[proto.ParseFileRequest, proto.ParseFileResponse]
+	parseSources         *connect.Client[proto.ParseSourcesRequest, proto.ParseSourcesResponse]
+	getSymbol            *connect.Client[proto.GetSymbolRequest, proto.SymbolResponse]
+	getDiagnostics       *connect.Client[proto.DiagnosticsRequest, proto.DiagnosticsResponse]
+	evaluate             *connect.Client[proto.EvaluateRequest, proto.EvaluateResponse]
+	instantiate          *connect.Client[proto.InstantiateRequest, proto.InstantiateResponse]
+	executeAction        *connect.Client[proto.ExecuteActionRequest, proto.ExecuteActionResponse]
+	executeState         *connect.Client[proto.ExecuteStateRequest, proto.ExecuteStateResponse]
+	convert              *connect.Client[proto.ConvertRequest, proto.ConvertResponse]
+	migrate              *connect.Client[proto.MigrateRequest, proto.MigrateResponse]
+	applyEdits           *connect.Client[proto.ApplyEditsRequest, proto.ApplyEditsResponse]
+	verifyConstraint     *connect.Client[proto.VerifyConstraintRequest, proto.VerifyConstraintResponse]
+	verifyRequirement    *connect.Client[proto.VerifyRequirementRequest, proto.VerifyRequirementResponse]
+	verifySatisfaction   *connect.Client[proto.VerifySatisfactionRequest, proto.VerifySatisfactionResponse]
+	validateInstance     *connect.Client[proto.ValidateInstanceRequest, proto.ValidateInstanceResponse]
+	evaluateCalc         *connect.Client[proto.EvaluateCalcRequest, proto.EvaluateCalcResponse]
+	runAnalysis          *connect.Client[proto.RunAnalysisRequest, proto.RunAnalysisResponse]
+	checkBehavior        *connect.Client[proto.CheckBehaviorRequest, proto.CheckBehaviorResponse]
+	runSweep             *connect.Client[proto.RunSweepRequest, proto.RunSweepResponse]
+	runRuns              *connect.Client[proto.RunRunsRequest, proto.RunRunsResponse]
+	selfCheck            *connect.Client[proto.SelfCheckRequest, proto.SelfCheckResponse]
+	recordRun            *connect.Client[proto.RecordRunRequest, proto.RecordRunResponse]
+	listEngines          *connect.Client[proto.ListEnginesRequest, proto.ListEnginesResponse]
+	query                *connect.Client[proto.QueryRequest, proto.QueryResponse]
+	getElementProperties *connect.Client[proto.GetElementPropertiesRequest, proto.GetElementPropertiesResponse]
+	runDocumentQuery     *connect.Client[proto.RunDocumentQueryRequest, proto.RunDocumentQueryResponse]
+	renderDocument       *connect.Client[proto.RenderDocumentRequest, proto.RenderDocumentResponse]
+	renderView           *connect.Client[proto.RenderViewRequest, proto.RenderViewResponse]
+	exportGraphs         *connect.Client[proto.ExportGraphsRequest, proto.ExportGraphsResponse]
+	importData           *connect.Client[proto.ImportDataRequest, proto.ImportDataResponse]
+	compareResults       *connect.Client[proto.CompareResultsRequest, proto.CompareResultsResponse]
 }
 
 // GetServerInfo calls sysml.SysMLService.GetServerInfo.
@@ -593,6 +609,11 @@ func (c *sysMLServiceClient) Query(ctx context.Context, req *connect.Request[pro
 	return c.query.CallUnary(ctx, req)
 }
 
+// GetElementProperties calls sysml.SysMLService.GetElementProperties.
+func (c *sysMLServiceClient) GetElementProperties(ctx context.Context, req *connect.Request[proto.GetElementPropertiesRequest]) (*connect.Response[proto.GetElementPropertiesResponse], error) {
+	return c.getElementProperties.CallUnary(ctx, req)
+}
+
 // RunDocumentQuery calls sysml.SysMLService.RunDocumentQuery.
 func (c *sysMLServiceClient) RunDocumentQuery(ctx context.Context, req *connect.Request[proto.RunDocumentQueryRequest]) (*connect.Response[proto.RunDocumentQueryResponse], error) {
 	return c.runDocumentQuery.CallUnary(ctx, req)
@@ -715,6 +736,12 @@ type SysMLServiceHandler interface {
 	// as the standard defines them, so a client that speaks that API can filter a
 	// model here. Reported as the "query" capability.
 	Query(context.Context, *connect.Request[proto.QueryRequest]) (*connect.Response[proto.QueryResponse], error)
+	// Read the metamodel properties of one element by their specification
+	// names (KerML 1.1 and SysML 2.1 abstract syntax: inheritedFeature,
+	// connectorEnd, directedFeature, payloadType, ...), as the model's API
+	// element form (Convert to api-json) spells them, without converting the
+	// whole model. Reported as the "element_properties" capability.
+	GetElementProperties(context.Context, *connect.Request[proto.GetElementPropertiesRequest]) (*connect.Response[proto.GetElementPropertiesResponse], error)
 	// Run a named document query with parameter bindings, the answer the REPL's
 	// %run-query gives, as typed rows rather than formatted lines. Reported as
 	// the "document_query" capability.
@@ -898,6 +925,12 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(sysMLServiceMethods.ByName("Query")),
 		connect.WithHandlerOptions(opts...),
 	)
+	sysMLServiceGetElementPropertiesHandler := connect.NewUnaryHandler(
+		SysMLServiceGetElementPropertiesProcedure,
+		svc.GetElementProperties,
+		connect.WithSchema(sysMLServiceMethods.ByName("GetElementProperties")),
+		connect.WithHandlerOptions(opts...),
+	)
 	sysMLServiceRunDocumentQueryHandler := connect.NewUnaryHandler(
 		SysMLServiceRunDocumentQueryProcedure,
 		svc.RunDocumentQuery,
@@ -986,6 +1019,8 @@ func NewSysMLServiceHandler(svc SysMLServiceHandler, opts ...connect.HandlerOpti
 			sysMLServiceListEnginesHandler.ServeHTTP(w, r)
 		case SysMLServiceQueryProcedure:
 			sysMLServiceQueryHandler.ServeHTTP(w, r)
+		case SysMLServiceGetElementPropertiesProcedure:
+			sysMLServiceGetElementPropertiesHandler.ServeHTTP(w, r)
 		case SysMLServiceRunDocumentQueryProcedure:
 			sysMLServiceRunDocumentQueryHandler.ServeHTTP(w, r)
 		case SysMLServiceRenderDocumentProcedure:
@@ -1105,6 +1140,10 @@ func (UnimplementedSysMLServiceHandler) ListEngines(context.Context, *connect.Re
 
 func (UnimplementedSysMLServiceHandler) Query(context.Context, *connect.Request[proto.QueryRequest]) (*connect.Response[proto.QueryResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.Query is not implemented"))
+}
+
+func (UnimplementedSysMLServiceHandler) GetElementProperties(context.Context, *connect.Request[proto.GetElementPropertiesRequest]) (*connect.Response[proto.GetElementPropertiesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("sysml.SysMLService.GetElementProperties is not implemented"))
 }
 
 func (UnimplementedSysMLServiceHandler) RunDocumentQuery(context.Context, *connect.Request[proto.RunDocumentQueryRequest]) (*connect.Response[proto.RunDocumentQueryResponse], error) {

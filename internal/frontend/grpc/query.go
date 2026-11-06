@@ -328,30 +328,36 @@ func (m *CachedModel) elementIDReader() *export.ElementIDReader {
 }
 
 func (e *queryEval) positionalNames(cached *CachedModel) {
-	if cached == nil {
+	cached.positionalNames()
+}
+
+// positionalNames names the model's unnamed members by position, once, so a
+// query and an element read address them by one id.
+func (m *CachedModel) positionalNames() {
+	if m == nil {
 		return
 	}
-	cached.positionalOnce.Do(func() {
-		if cached.Index == nil {
-			cached.positional, cached.byPositional = export.PositionalIdentities(nil, nil, nil)
+	m.positionalOnce.Do(func() {
+		if m.Index == nil {
+			m.positional, m.byPositional = export.PositionalIdentities(nil, nil, nil)
 			return
 		}
-		docs := make([]export.PositionalDocument, 0, len(cached.Documents))
-		for _, doc := range cached.Documents {
+		docs := make([]export.PositionalDocument, 0, len(m.Documents))
+		for _, doc := range m.Documents {
 			if doc == nil || doc.Source == nil {
 				continue
 			}
-			root := cached.Index.DocumentRoot(doc.Source.Name())
+			root := m.Index.DocumentRoot(doc.Source.Name())
 			if root == nil {
 				continue
 			}
 			docs = append(docs, export.PositionalDocument{File: doc.Source, Root: root})
 		}
-		cached.positional, cached.byPositional = export.PositionalIdentities(
-			cached.Index,
+		m.positional, m.byPositional = export.PositionalIdentities(
+			m.Index,
 			docs,
 			func(sym *symbols.Symbol) bool {
-				return corequery.QualifiedIdentity(cached.Index, sym) != ""
+				return corequery.QualifiedIdentity(m.Index, sym) != ""
 			},
 		)
 	})

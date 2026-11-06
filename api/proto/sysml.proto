@@ -110,6 +110,13 @@ service SysMLService {
   // model here. Reported as the "query" capability.
   rpc Query(QueryRequest) returns (QueryResponse);
 
+  // Read the metamodel properties of one element by their specification
+  // names (KerML 1.1 and SysML 2.1 abstract syntax: inheritedFeature,
+  // connectorEnd, directedFeature, payloadType, ...), as the model's API
+  // element form (Convert to api-json) spells them, without converting the
+  // whole model. Reported as the "element_properties" capability.
+  rpc GetElementProperties(GetElementPropertiesRequest) returns (GetElementPropertiesResponse);
+
   // Run a named document query with parameter bindings, the answer the REPL's
   // %run-query gives, as typed rows rather than formatted lines. Reported as
   // the "document_query" capability.
@@ -1002,6 +1009,75 @@ message GetSymbolRequest {
 message SymbolResponse {
   SymbolInfo symbol = 1;
   string error = 2;
+}
+
+// GetElementPropertiesRequest names one element of a parsed model and the
+// metamodel properties to read of it.
+message GetElementPropertiesRequest {
+  string model_hash = 1;
+  // The element: its qualified name, the positional id of an unnamed member
+  // (Owner::@3), or the "@id" of the model's API element form.
+  string element_id = 2;
+  // The properties to read, by specification name. Empty reads every property
+  // the element form carries for the element.
+  repeated string properties = 3;
+}
+
+// GetElementPropertiesResponse is one property entry per requested name, in
+// the request's order, or every property the element carries when none was
+// named, in the element form's order.
+message GetElementPropertiesResponse {
+  ElementRef element = 1;
+  repeated ElementProperty properties = 2;
+  // Why there is no answer: the model or the element was not found, or the
+  // model has no element form (a document the parser could not read whole).
+  string error = 3;
+}
+
+// ElementRef identifies an element the element form knows: an element of
+// the model or a standard-library element it references.
+message ElementRef {
+  // The "@id" of the API element form.
+  string id = 1;
+  // The qualified name; empty for an unnamed element. An unnamed
+  // standard-library member carries its library path (owner/Metaclass[i]).
+  string qualified_name = 2;
+  // The metaclass ("ConnectionUsage"); empty when the id is known to nothing.
+  string metaclass = 3;
+}
+
+// ElementProperty is one metamodel property of an element.
+message ElementProperty {
+  // The specification name ("connectorEnd").
+  string name = 1;
+  // The metaclass declaring the property ("Connector"); empty when the
+  // element's metaclass declares no such property.
+  string defining_class = 2;
+  // Whether the property holds a collection; a single-valued property has at
+  // most one value.
+  bool many = 3;
+  // Whether the specification derives the property rather than stating it.
+  bool derived = 4;
+  // The values, in the collection's order; none for an empty or null property.
+  repeated ElementPropertyValue values = 5;
+  // Set when values cannot be answered: the element's metaclass declares no
+  // such property, or OpenSysML does not derive it yet (and why). Empty for a
+  // property that is answered, with or without values.
+  string unsupported = 6;
+}
+
+// ElementPropertyValue is one value of a metamodel property, in the shape the
+// API element form spells it.
+message ElementPropertyValue {
+  oneof value {
+    ElementRef element = 1;
+    string string_value = 2;
+    bool bool_value = 3;
+    int64 int_value = 4;
+    double real_value = 5;
+    // A number beyond int64 and float64, in decimal.
+    string number = 6;
+  }
 }
 
 // DiagnosticsRequest gets all diagnostics for a model

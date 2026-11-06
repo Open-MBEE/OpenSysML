@@ -212,8 +212,8 @@ func (o apiJSONObject) MarshalJSON() ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-// apiJSONReference is the {"@id": <id>} spelling of a reference value.
-type apiJSONReference struct {
+// APIJSONReference is the {"@id": <id>} spelling of a reference value.
+type APIJSONReference struct {
 	ID string `json:"@id"`
 }
 
@@ -826,7 +826,7 @@ func (state *apiJSONPropertyComparisonState) exactTermAt(position int) (rdf.Term
 
 func (state *apiJSONPropertyComparisonState) compareValue(value any) error {
 	switch v := value.(type) {
-	case apiJSONReference:
+	case APIJSONReference:
 		return state.compareReference(v.ID)
 	case apiJSONNameReference:
 		return state.compareTerm(rdf.String(v.name))
@@ -1006,7 +1006,7 @@ func apiJSONMappingValueForTerm(subject, term rdf.Term) (any, error) {
 		if id == "" {
 			return nil, fmt.Errorf("reference %s has no API id", term)
 		}
-		return apiJSONReference{ID: id}, nil
+		return APIJSONReference{ID: id}, nil
 	}
 	if term.IsLiteral() {
 		return term.Value, nil
@@ -1112,7 +1112,7 @@ func apiJSONSysMLValue(
 		values := make([]any, 0, len(objects))
 		for _, object := range objects {
 			if object.IsIRI() {
-				values = append(values, apiJSONReference{ID: rdf.ReferenceID(subject, object)})
+				values = append(values, APIJSONReference{ID: rdf.ReferenceID(subject, object)})
 				continue
 			}
 			value, err := apiJSONScalar(subject, key, object, objectProperty)
@@ -1142,7 +1142,7 @@ func apiJSONSysMLValue(
 		values := make([]any, 0, len(members))
 		for _, member := range members {
 			if member.ID != "" {
-				values = append(values, apiJSONReference{ID: member.ID})
+				values = append(values, APIJSONReference{ID: member.ID})
 				continue
 			}
 			object, err := collectionObject(subject, objects, member)
@@ -1253,7 +1253,7 @@ func apiJSONValues(subject rdf.Term, key string, objects []rdf.Term, objectPrope
 // datatype to spell it in.
 func apiJSONScalar(subject rdf.Term, key string, object rdf.Term, objectProperty bool) (any, error) {
 	if object.IsIRI() {
-		return apiJSONReference{ID: rdf.ReferenceID(subject, object)}, nil
+		return APIJSONReference{ID: rdf.ReferenceID(subject, object)}, nil
 	}
 	if object.Lang != "" {
 		return nil, &UnsupportedError{

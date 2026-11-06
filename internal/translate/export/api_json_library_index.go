@@ -110,7 +110,7 @@ func apiJSONMembershipReferenceIDs(graph *rdf.Graph) (map[string]bool, error) {
 	var collect func(value any)
 	collect = func(value any) {
 		switch value := value.(type) {
-		case apiJSONReference:
+		case APIJSONReference:
 			if value.ID != "" {
 				ids[value.ID] = true
 			}

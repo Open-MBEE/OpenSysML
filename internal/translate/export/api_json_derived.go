@@ -286,13 +286,13 @@ func (w *apiJSONElementWriter) derivedJSONValue(value metamodel.Value) (any, boo
 		if !ok {
 			return nil, false
 		}
-		return apiJSONReference{ID: id}, true
+		return APIJSONReference{ID: id}, true
 	case metamodel.MembershipValue:
 		id, ok := w.derivedElementID(metamodel.MembershipElement(value.Membership))
 		if !ok {
 			return nil, false
 		}
-		return apiJSONReference{ID: id}, true
+		return APIJSONReference{ID: id}, true
 	case metamodel.SequenceValue:
 		if len(value.Values) == 0 {
 			return nil, false

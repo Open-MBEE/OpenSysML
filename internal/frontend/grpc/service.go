@@ -355,6 +355,10 @@ const CapabilityMetaobjectValues = "metaobject_values"
 // leaves open as Value.undetermined rather than as an unsupported null.
 const CapabilityUndeterminedValue = "undetermined_value"
 
+// CapabilityElementProperties names the GetElementProperties RPC, which reads
+// the metamodel properties of one element by their specification names.
+const CapabilityElementProperties = "element_properties"
+
 // capabilities is what this build supports, in report order. A capability is
 // only ever added: renaming or dropping one breaks clients that require it.
 var capabilities = []string{
@@ -416,6 +420,7 @@ var capabilities = []string{
 	CapabilityRenderDocumentFileName,
 	CapabilityOrderDependence,
 	CapabilityVerdictNotes,
+	CapabilityElementProperties,
 }
 
 type capabilityAvailability struct {
