@@ -49,6 +49,8 @@ pub const CAPABILITY_EVALUATE_SUBJECT: &str = "evaluate_subject";
 pub const CAPABILITY_SYMBOL_ATTRIBUTES: &str = "symbol_attributes";
 /// Populated `SymbolInfo.members`: every member, own and inherited, with its provenance.
 pub const CAPABILITY_SYMBOL_MEMBERS: &str = "symbol_members";
+/// The `GetElementProperties` RPC: an element's metamodel properties by their specification names.
+pub const CAPABILITY_ELEMENT_PROPERTIES: &str = "element_properties";
 /// A valueless feature of a value type as `Value.unset`.
 pub const CAPABILITY_UNSET_VALUE: &str = "unset_value";
 /// An object's values as `Instance.feature_values`.
