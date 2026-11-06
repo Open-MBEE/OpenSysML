@@ -341,7 +341,7 @@ func (c *Core) getSymbol(req *JGetSymbolRequest) ([]byte, error) {
 	if len(matches) == 0 {
 		return json.Marshal(&JSymbolResponse{Error: fmt.Sprintf("symbol not found: %s", req.SymbolId)})
 	}
-	info := symbolfacts.Of(matches[0], model.symbolContext())
+	info := symbolfacts.OfWith(matches[0], model.symbolContext(), symbolfacts.Options{IncludeLibraryMembers: req.IncludeLibraryMembers})
 	return json.Marshal(&JSymbolResponse{Symbol: symbolInfo(info)})
 }
 

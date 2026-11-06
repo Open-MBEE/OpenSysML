@@ -412,6 +412,31 @@ class TestSymbolAttributeFacts:
         assert attributes[1].id == "Demo::Base::label"
         assert car.get_attr("label").id == "Demo::Base::label"
 
+    def test_attributes_walk_the_specializations_on_an_older_service(self):
+        """A service without symbol_members still answers inherited attributes:
+        the client follows the declared specializations itself, as it did
+        before the service enumerated members."""
+        mock_client = Mock()
+        mock_client.server_info.return_value = ServerInfo(
+            version="v0.9.0", capabilities=frozenset({"symbol_attributes"}),
+            answered=True, origin="sysml-grpc",
+        )
+        car_info = self._car_info(mock_client)
+        del car_info.members[:]
+        car_info.withheld_library_members = 0
+        car = Symbol(car_info, mock_client, "model_abc123")
+
+        attributes = car.attributes()
+
+        assert [attr.name for attr in attributes] == ["mass", "label"]
+        assert not attributes[0].inherited
+        assert attributes[1].id == "Demo::Base::label"
+        assert attributes[1].inherited_from == "Demo::Base"
+        assert car.get_attr("label").id == "Demo::Base::label"
+        assert car.attributes(inherited=False) == [attributes[0]]
+        with pytest.raises(MissingCapabilityError):
+            car.children(inherited=True)
+
     def test_attributes_of_a_typed_usage_come_from_its_type(self):
         """A usage written as `part car : Car` has the attributes Car declares."""
         mock_client = Mock()
@@ -669,6 +694,24 @@ class TestSymbolMembers:
         assert members.withheld_library == 0
         assert [p.name for p in controller.parts(inherited=True, library=True)] == ["logic", "subparts"]
 
+    def test_owned_members_count_the_withheld_library_ones(self):
+        """The owned list reports the withheld count the service attached."""
+        controller = self._controller(Mock())
+
+        assert controller.children().withheld_library == 1
+        assert controller.parts().withheld_library == 1
+
+    def test_library_alone_keeps_the_owned_members(self):
+        """library=True without inherited=True changes nothing: an owned member
+        is never withheld, so no inherited member slips in and nothing is refetched."""
+        controller = self._controller(Mock())
+
+        assert controller.children(library=True) == []
+        assert controller.parts(library=True) == []
+        assert controller.children(library=True).withheld_library == 1
+        for call in controller._client.get_symbol.call_args_list:
+            assert not call.kwargs.get("include_library_members")
+
     def test_inherited_members_need_the_capability(self):
         """A service without symbol_members cannot enumerate inherited members."""
         controller = self._controller(Mock(), capabilities=frozenset({"symbol_attributes"}))
@@ -692,6 +735,7 @@ class TestSymbolMembers:
 
         assert [m.name for m in parent.children()] == ["a", "b"]
         assert not parent.children()[0].inherited
+        assert parent.children().withheld_library == 0
 
     def test_unresolvable_member_ids_are_skipped(self):
         """A member id the service cannot resolve is left out rather than failing."""

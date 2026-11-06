@@ -269,9 +269,12 @@ includes inherited attributes by default, the set `attribute_facts()` describes.
 inherited member reports `inherited` and `inherited_from`, the type declaring it.
 Members inherited from standard-library content (the dozens every part has through
 `Parts::Part` and `Base::Anything`) are withheld and counted in the returned list's
-`withheld_library` unless `library=True` fetches them. Inherited and library members
-need the service's `symbol_members` capability; a member the service declares without
-a name (`bind a = b;`) is listed but has no id a lookup resolves, so it is left out of
+`withheld_library` — of the owned list too — unless `inherited=True, library=True`
+fetches them; an owned member is never withheld, so `library` alone changes nothing.
+Inherited members need the service's `symbol_members` capability; against an older
+service `attributes()` alone still follows the declared specializations itself, as it
+did before the service enumerated members. A member the service declares without a
+name (`bind a = b;`) is listed but has no id a lookup resolves, so it is left out of
 the result until unnamed members get positional ids.
 
 ::: opensysml.Symbol

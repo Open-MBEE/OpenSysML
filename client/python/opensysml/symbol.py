@@ -106,6 +106,7 @@ class Symbol:
         self._inherited_from = inherited_from
         self._members_cache: Dict[bool, Members] = {}
         self._own_cache: Optional[Members] = None
+        self._walked_cache: Optional[Members] = None
 
     @property
     def inherited(self) -> bool:
@@ -253,18 +254,20 @@ class Symbol:
             kind: Kind name or names to keep (``"partUsage"``, ``PART_KINDS``),
                 matched case-insensitively; None keeps every kind
             inherited: Include inherited members, not only owned ones
-            library: Include members inherited from standard-library content
+            library: With ``inherited``, include the members inherited from
+                standard-library content too; an owned member is never
+                withheld, so without ``inherited`` this changes nothing
 
         Returns:
             :class:`Members`, a list of Symbol objects; empty if no client is set
 
         Raises:
-            MissingCapabilityError: ``inherited`` or ``library`` was asked of a
-                service without ``symbol_members``, which cannot enumerate them
+            MissingCapabilityError: ``inherited`` was asked of a service without
+                ``symbol_members``, which cannot enumerate inherited members
         """
         if self._client is None:
             return Members()
-        if inherited or library:
+        if inherited:
             require(
                 self._client.server_info(),
                 CAPABILITY_SYMBOL_MEMBERS,
@@ -283,12 +286,15 @@ class Symbol:
         enumerates them and from ``child_ids`` otherwise."""
         if self._own_cache is None:
             if self._pb.members:
+                every = self._all_members(False)
                 self._own_cache = Members(
-                    m for m in self._all_members(False) if not m.inherited
+                    (m for m in every if not m.inherited), every.withheld_library
                 )
             else:
-                self._own_cache = Members(self._fetch(child_id, None) for child_id in self._pb.child_ids)
-                self._own_cache = Members(m for m in self._own_cache if m is not None)
+                fetched = (self._fetch(child_id, None) for child_id in self._pb.child_ids)
+                self._own_cache = Members(
+                    (m for m in fetched if m is not None), self._pb.withheld_library_members
+                )
         return self._own_cache
 
     def _all_members(self, library: bool) -> Members:
@@ -346,10 +352,66 @@ class Symbol:
         the declared ones only. Attributes inherited from standard-library
         content are withheld unless ``library`` is set. See :meth:`members`.
 
+        A service without ``symbol_members`` cannot enumerate inherited members,
+        so against one this method still follows the declared specializations
+        itself, as it did before the service enumerated members: the inherited
+        attributes it finds are ordered as :meth:`attribute_facts` reports them
+        and carry :attr:`inherited_from`.
+
         Returns:
             :class:`Members`, a list of attribute Symbol objects
         """
+        if (
+            inherited
+            and self._client is not None
+            and not self._client.server_info().has(CAPABILITY_SYMBOL_MEMBERS)
+        ):
+            return self._walked_attributes()
         return self.members(ATTRIBUTE_KINDS, inherited, library)
+
+    def _walked_attributes(self) -> Members:
+        """Return own and inherited attributes by following the declared
+        specializations client-side, for a service that cannot enumerate
+        inherited members; cached."""
+        if self._walked_cache is not None:
+            return self._walked_cache
+        declared = [m for m in self._own_members() if m.kind.lower() in ATTRIBUTE_KINDS]
+        by_name = {attr.name: attr for attr in declared}
+        for inherited in self._inherited_attributes(set()):
+            by_name.setdefault(inherited.name, inherited)
+
+        reported = [attr.name for attr in self._pb.attributes]
+        ordered = [by_name[name] for name in reported if name in by_name]
+        # A declared attribute the service did not report — an unnamed one, or an
+        # older service — is still this symbol's, so it is kept.
+        ordered += [attr for attr in declared if attr.name not in reported]
+        self._walked_cache = Members(ordered, self._pb.withheld_library_members)
+        return self._walked_cache
+
+    def _inherited_attributes(self, visited: set) -> List["Symbol"]:
+        """Return the attributes the supertypes declare, nearest first, each
+        marked as inherited from the type declaring it. Every generalization
+        edge is followed, typing included: ``part car : Car`` has the attributes
+        ``Car`` declares."""
+        if self._client is None or self.id in visited:
+            return []
+        visited.add(self.id)
+
+        result: List["Symbol"] = []
+        for spec in self.specializations:
+            if not spec.target_id or spec.target_id in visited:
+                continue
+            info = self._client.get_symbol(self._model_hash, spec.target_id)
+            if info is None:
+                continue
+            supertype = Symbol(info, self._client, self._model_hash)
+            result += [
+                Symbol(attr._pb, self._client, self._model_hash, supertype.id)
+                for attr in supertype._own_members()
+                if attr.kind.lower() in ATTRIBUTE_KINDS
+            ]
+            result += supertype._inherited_attributes(visited)
+        return result
 
     def parts(self, inherited: bool = False, library: bool = False) -> Members:
         """Return part members: ``partDef`` and ``partUsage``, own by default
