@@ -183,6 +183,7 @@ package Attach {
 	flow f : F from newSource to newTarget;
 	connection def C { end a references oldSource; end b references oldTarget; }
 	connection c : C;
+	connection d : C connect missing to alsoMissing;
 }
 `
 
@@ -202,6 +203,13 @@ func TestOwnAttachmentsOutrankInheritedEndReferences(t *testing.T) {
 	}
 	if got := Of(one(t, idx, "Attach::c"), sc).ConnectorEnds; !reflect.DeepEqual(got, want) {
 		t.Errorf("connection c : C ends = %s, want %s", endsText(got), endsText(want))
+	}
+	// An attachment of the connector's own that does not resolve connects
+	// nothing; the inherited reference does not stand in for it.
+	for _, end := range Of(one(t, idx, "Attach::d"), sc).ConnectorEnds {
+		if end.FeatureId != "" || len(end.ChainIds) != 0 {
+			t.Errorf("connect missing to alsoMissing end %s connects %s, want nothing", end.Name, end.FeatureId)
+		}
 	}
 }
 
