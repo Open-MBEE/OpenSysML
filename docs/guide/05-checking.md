@@ -730,10 +730,14 @@ name, not an assertion about the object, and is not swept. The command line make
 **Derived values under the solver:**
 
 `%check`, `%solve`, `%explain` and `%configure` ask an external SMT solver what the conditions
-*permit* (see [installing a solver](01-install.md#installing-a-solver-optional)), so a declared
-value is not asserted there — except a *derived* one, written as an expression over other
-features of the same element, which is asserted as the defining equation of its variable: the
-model states not a value but how the value follows from the others.
+*permit* (see [installing a solver](01-install.md#installing-a-solver-optional)), so a `default`
+value is not asserted there: it is what the feature holds unless something overrides it, and the
+question is what the conditions allow. A value written with `=` is different — the feature is
+bound to it at all times (KerML 1.1 §7.3.4.5) — so it is fixed as declared; and a *derived* one,
+written as an expression over other features of the same element, is asserted as the defining
+equation of its variable: the model states not a value but how the value follows from the
+others. Both hold whether the element checked is a part, a constraint or a requirement, and an
+equation a redefinition supplies for an inherited feature counts too.
 
 ```sysml
 sysml> package Box {
@@ -795,7 +799,7 @@ sysml> %solve Box::Crate::fits
   standing: unsatisfiable (proved over inputs: 1 query by solve)
 ```
 
-A literal default (`attribute height = 0.1 [m]`) stays a fixed value, as before, so `%check`'s
+A literal bound with `=` (`attribute height = 0.1 [m]`) stays a fixed value, so `%check`'s
 answers over one do not move; a derived value the object has already materialized is fixed as
 held; and one read through another object (`crate.volume` from a part that holds a `Crate`) is
 the value that object derives, since the equation is over the held object's features. Where

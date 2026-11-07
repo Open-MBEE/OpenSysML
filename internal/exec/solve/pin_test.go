@@ -91,6 +91,29 @@ func TestFixedReadsTheValuesTheModelDeclares(t *testing.T) {
 	}
 }
 
+// TestFixedMarksAValueBoundWithEquals: a value written with `=` is Bound, derived,
+// inherited or redefined over a default alike; one written `default` or `:=` is not.
+func TestFixedMarksAValueBoundWithEquals(t *testing.T) {
+	ctx, idx := fixtureFile(t, "bound_pins.sysml")
+	pins, unfixed := Fixed(ctx, symbolNamed(t, idx, "test::Gauge"), nil)
+	if len(unfixed) != 0 {
+		t.Fatalf("declared values could not be read: %+v", unfixed)
+	}
+	got := map[string]bool{}
+	for _, p := range pins {
+		got[p.Name] = p.Bound
+	}
+	want := map[string]bool{"bound": true, "inherited": true, "rebound": true, "fallback": false, "initial": false, "doubled": true}
+	for name, bound := range want {
+		pinned, ok := got[name]
+		if !ok {
+			t.Errorf("%s was not pinned", name)
+		} else if pinned != bound {
+			t.Errorf("%s Bound = %v, want %v", name, pinned, bound)
+		}
+	}
+}
+
 // TestNoPinsTranslateAsBefore: a translation given no fixed values writes the
 // very script the plain translation writes, which is what keeps every existing
 // golden and verdict standing.

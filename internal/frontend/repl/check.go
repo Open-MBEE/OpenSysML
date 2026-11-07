@@ -2,6 +2,7 @@ package repl
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -230,12 +231,10 @@ func (s *Session) solveQueriesWith(name string, pins pinner) ([]*solve.Query, []
 	// objects, the way validating one of them checks it.
 	if runtime.RequireObject(target.sym) == nil {
 		var self *runtime.Instance
-		if pins == nil {
-			// With no object to read, the values its own features declare are
-			// what distinguishes a configuration from the family it specializes.
-			fixed, unfixed = solve.FixedFor(target.ctx, solve.Fixing{Element: target.sym, Owner: owningElement(target.sym)})
-		} else if inst, _, bad := s.checkSubject(name, target); bad == nil {
-			self = inst
+		if pins != nil {
+			if inst, _, bad := s.checkSubject(name, target); bad == nil {
+				self = inst
+			}
 		}
 		q, err := solve.AssertedOn(target.ctx, target.sym, target.scope, fixed, self)
 		return oneQuery(name, q, unfixed, err)
@@ -251,9 +250,16 @@ func (s *Session) fixedFor(
 	pins pinner,
 ) ([]solve.Pin, []solve.Unfixed, *SolveReport) {
 	if pins == nil {
-		return nil, nil, nil
+		return modelBound(target.ctx, subject), nil, nil
 	}
 	return pins(target, subject)
+}
+
+// modelBound is what the model fixes for subject with no object to read: a value
+// bound with `=` and a derived value's equation; a `default` or `:=` stays free.
+func modelBound(ctx *runtime.Context, subject *symbols.Symbol) []solve.Pin {
+	pins, _ := solve.FixedFor(ctx, solve.Fixing{Element: subject, Owner: owningElement(subject)})
+	return slices.DeleteFunc(pins, func(p solve.Pin) bool { return !p.Bound && p.Derived == nil })
 }
 
 // satisfactionQueries translates every satisfaction assertion an element states,
