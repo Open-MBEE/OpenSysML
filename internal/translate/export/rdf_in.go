@@ -3,6 +3,7 @@ package export
 import (
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"math"
 	"regexp"
 	"slices"
@@ -1795,7 +1796,7 @@ func nameMembers(members []*element, owner string) {
 	for i, el := range members {
 		el.scope = owner
 		if el.qname == "" {
-			el.qname = qualify(owner, "", i)
+			el.qname = naming.Qualify(owner, "", i)
 		}
 		nameMembers(el.children, el.qname)
 	}
@@ -3643,7 +3644,7 @@ func (d *decoder) qualifiedReferences(el *element, terms []rdf.Term, written []s
 // A qualified name is written as the reference form; any other single name is
 // refused, as no notation states it.
 func (d *decoder) literalVariantName(el *element, term rdf.Term) (string, error) {
-	segments := identitySegments(term.Value)
+	segments := naming.Segments(term.Value)
 	if len(segments) != 1 {
 		return "", nil
 	}
@@ -3660,7 +3661,7 @@ func (d *decoder) literalVariantName(el *element, term rdf.Term) (string, error)
 // lastName is the decoded name of a qualified name's last segment, so a
 // quoted `'a::b'` compares as the one name it is.
 func lastName(qname string) string {
-	segments := identitySegments(qname)
+	segments := naming.Segments(qname)
 	return identityName(segments[len(segments)-1])
 }
 
@@ -3865,7 +3866,7 @@ func (d *decoder) writtenQName(el *element) string {
 	}
 	if el.owner != nil && el.owner.owner != nil && d.isNodeMembership(rdf.IRI(el.owner.iri)) {
 		if name, ok := d.stringOf(el, rdf.SysML+pDeclaredName); ok {
-			return d.writtenQName(el.owner.owner) + "::" + identitySegment(name)
+			return d.writtenQName(el.owner.owner) + "::" + naming.Segment(name)
 		}
 	}
 	q := el.qname
@@ -3922,7 +3923,7 @@ func qualifiedNameText(qname string) string {
 	if global {
 		qname = strings.TrimPrefix(qname, "$::")
 	}
-	segments := identitySegments(qname)
+	segments := naming.Segments(qname)
 	for i, segment := range segments {
 		segments[i] = nameText(identityName(segment))
 	}
@@ -4752,21 +4753,21 @@ func (d *decoder) namedMember(term rdf.Term) (*element, string, error) {
 // segment is the name it answers to, and a membership holding its member (rather
 // than standing as a usage, as a subject does) has no segment of its own.
 func (d *decoder) spelledName(el *element) string {
-	segments := identitySegments(el.qname)
+	segments := naming.Segments(el.qname)
 	spelled := make([]string, 0, len(segments))
 	for i, cur := len(segments)-1, el; i >= 0; i-- {
 		segment := segments[i]
 		name := identityName(segment)
-		if cur != nil && positionalSegment(segment) {
+		if cur != nil && naming.PositionalSegment(segment) {
 			effective, ok := d.effectiveName(cur)
 			if ok && effective != name {
-				segment = identitySegment(effective)
+				segment = naming.Segment(effective)
 			} else if ontology.IsAncestorOrSelf(cur.metaclass, mOwningMembership) {
 				cur = cur.owner
 				continue
 			}
 		} else {
-			segment = identitySegment(name)
+			segment = naming.Segment(name)
 		}
 		spelled = append(spelled, segment)
 		if cur != nil {
@@ -4784,7 +4785,7 @@ func (d *decoder) effectiveName(el *element) (string, bool) {
 	for !seen[el.iri] {
 		seen[el.iri] = true
 		if el.library {
-			segments := identitySegments(el.qname)
+			segments := naming.Segments(el.qname)
 			return identityName(segments[len(segments)-1]), true
 		}
 		if name, ok := d.stringOf(el, rdf.SysML+pDeclaredName); ok {
@@ -4845,8 +4846,8 @@ func (d *decoder) namingFeature(el *element) (rdf.Term, bool) {
 // relativeName strips from qname the longest prefix of scope it is declared
 // under, the textual approximation for a reference the resolver does not read.
 func relativeName(qname, scope string) string {
-	qnameParts := identitySegments(qname)
-	scopeParts := identitySegments(scope)
+	qnameParts := naming.Segments(qname)
+	scopeParts := naming.Segments(scope)
 	for n := len(scopeParts); n > 0; n-- {
 		if len(qnameParts) > n && slices.Equal(qnameParts[:n], scopeParts[:n]) {
 			return strings.Join(qnameParts[n:], "::")
@@ -4856,10 +4857,10 @@ func relativeName(qname, scope string) string {
 }
 
 func referenceScope(spelled, target, member, owner string) string {
-	relativeParts := identitySegments(relativeName(spelled, owner))
+	relativeParts := naming.Segments(relativeName(spelled, owner))
 	hasPosition := false
 	for _, part := range relativeParts {
-		if positionalSegment(part) {
+		if naming.PositionalSegment(part) {
 			hasPosition = true
 			break
 		}
@@ -4867,8 +4868,8 @@ func referenceScope(spelled, target, member, owner string) string {
 	if !hasPosition {
 		return owner
 	}
-	targetParts := identitySegments(target)
-	memberParts := identitySegments(member)
+	targetParts := naming.Segments(target)
+	memberParts := naming.Segments(member)
 	if len(targetParts) > len(memberParts) && slices.Equal(targetParts[:len(memberParts)], memberParts) {
 		return member
 	}
@@ -4882,7 +4883,7 @@ func notAName(term rdf.Term) string {
 	if term.Value == "" {
 		return "it is empty"
 	}
-	for _, segment := range identitySegments(strings.TrimPrefix(term.Value, "$::")) {
+	for _, segment := range naming.Segments(strings.TrimPrefix(term.Value, "$::")) {
 		segment = identityName(segment)
 		switch {
 		case segment == "":

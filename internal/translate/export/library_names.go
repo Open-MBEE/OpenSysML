@@ -111,7 +111,7 @@ func encodeLibraryNames(doc string) any {
 		if !el.source.Fixed() {
 			continue
 		}
-		if fqn, ok := e.fqn[node]; ok {
+		if fqn, ok := e.names.FQN[node]; ok {
 			names[el.id] = fqn
 		}
 	}
