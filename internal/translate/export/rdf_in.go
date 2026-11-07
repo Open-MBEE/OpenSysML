@@ -4695,6 +4695,11 @@ func (d *decoder) effectiveName(el *element) (string, bool) {
 		if name, ok := d.stringOf(el, rdf.SysML+pDeclaredName); ok {
 			return name, true
 		}
+		// A transition's `do` statement answers to its role, `effect`, as the symbol
+		// table addresses it; its action declares no name of its own.
+		if d.transitionFeatureKind(el) == "effect" {
+			return "effect", true
+		}
 		naming, ok := d.namingFeature(el)
 		if !ok {
 			return "", false
