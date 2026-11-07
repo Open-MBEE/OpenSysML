@@ -125,10 +125,8 @@ func (m *CachedModel) elementReader() *elementReader {
 	return m.elementReaderValue
 }
 
-// documentExclusions is the documents GetElementProperties reads the model
-// without, in document order: one the parser could not read whole, and one
-// declaring a top-level name an earlier document already declares (Convert
-// refuses the whole model for either). An element of any other document is answered.
+// documentExclusions is the documents the model is read without, in document order:
+// one the parser could not read whole, one redeclaring an earlier document's top-level name.
 func (m *CachedModel) documentExclusions() []*pb.ExcludedDocument {
 	var out []*pb.ExcludedDocument
 	excluded := map[string]bool{}

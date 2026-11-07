@@ -1167,14 +1167,13 @@ pub struct GetElementPropertiesResponse {
     /// element belongs to an excluded document.
     #[prost(string, tag="3")]
     pub error: ::prost::alloc::string::String,
-    /// The model's documents left out of the answer, each with why: a document
-    /// the parser could not read whole, or one declaring a top-level name another
-    /// document already declares. Empty when the whole model is read; an element
-    /// of any other document is answered as usual.
+    /// The documents the model is read without, each with why; empty when the
+    /// whole model is read. An element of any other document is answered as usual.
     #[prost(message, repeated, tag="4")]
     pub excluded_documents: ::prost::alloc::vec::Vec<ExcludedDocument>,
 }
-/// ExcludedDocument is a document GetElementProperties leaves out of a model.
+/// ExcludedDocument is a document GetElementProperties leaves out of a model: one
+/// the parser could not read whole, or one declaring a top-level name again.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ExcludedDocument {
     /// The document's name as the parse request gave it.

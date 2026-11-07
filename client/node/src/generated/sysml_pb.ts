@@ -2639,10 +2639,8 @@ export type GetElementPropertiesResponse = Message<"sysml.GetElementPropertiesRe
   error: string;
 
   /**
-   * The model's documents left out of the answer, each with why: a document
-   * the parser could not read whole, or one declaring a top-level name another
-   * document already declares. Empty when the whole model is read; an element
-   * of any other document is answered as usual.
+   * The documents the model is read without, each with why; empty when the
+   * whole model is read. An element of any other document is answered as usual.
    *
    * @generated from field: repeated sysml.ExcludedDocument excluded_documents = 4;
    */
@@ -2657,7 +2655,8 @@ export const GetElementPropertiesResponseSchema: GenMessage<GetElementProperties
   messageDesc(file_sysml, 45);
 
 /**
- * ExcludedDocument is a document GetElementProperties leaves out of a model.
+ * ExcludedDocument is a document GetElementProperties leaves out of a model: one
+ * the parser could not read whole, or one declaring a top-level name again.
  *
  * @generated from message sysml.ExcludedDocument
  */

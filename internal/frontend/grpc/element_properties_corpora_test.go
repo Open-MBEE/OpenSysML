@@ -11,9 +11,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
-// TestElementPropertiesAnswersEveryElementOfTheCorpora loads the pilot corpora and
-// the training examples as one model and reads every element: one of an excluded
-// document answers that document's error, every other one is answered.
+// TestElementPropertiesAnswersEveryElementOfTheCorpora loads the pilot corpora and the
+// training examples as one model: every element answers, or its excluded document's error.
 func TestElementPropertiesAnswersEveryElementOfTheCorpora(t *testing.T) {
 	var documents []*pb.SourceDocument
 	for _, root := range []string{"../../../examples/pilot-corpora", "../../../examples/sysml-v2-training"} {
