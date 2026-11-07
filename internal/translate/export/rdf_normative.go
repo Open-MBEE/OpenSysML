@@ -550,7 +550,7 @@ func (e *encoder) subjectParameter(subject rdf.Term, owner string, ownerSym *sym
 		e.flags(usage, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}})
 	}
 	e.emitMembershipCore(membership, usage, subject, mSubjectMembership, true)
-	e.subjectMemberNames(membership, ownerSym, rel)
+	e.subjectMemberNames(usage, membership, ownerSym, rel)
 	e.graph.Add(membership, e.sysml(pOwnedSubjectParameter), usage)
 	e.graph.Add(membership, e.sysml(pOwnedMemberParameter), usage)
 	e.graph.Add(membership, e.sysml(pOwnedMemberFeature), usage)
@@ -594,7 +594,7 @@ func (e *encoder) subjectFeatureChainValue(usage rdf.Term, target ast.Node, chai
 
 // subjectMemberNames states the SubjectMembership's memberName and memberShortName: the effective
 // names of the subject parameter the `by` clause rel declares (RequirementCheck::subj, redefined).
-func (e *encoder) subjectMemberNames(membership rdf.Term, ownerSym *symbols.Symbol, rel *ast.Relationship) {
+func (e *encoder) subjectMemberNames(usage, membership rdf.Term, ownerSym *symbols.Symbol, rel *ast.Relationship) {
 	if ownerSym == nil {
 		return
 	}
@@ -603,7 +603,10 @@ func (e *encoder) subjectMemberNames(membership rdf.Term, ownerSym *symbols.Symb
 		if subject.Decl != ast.Node(rel) {
 			continue
 		}
+		// The nameless subject is named by the parameter it redefines (KerML 1.1 §8.3.3.3.4
+		// Feature::namingFeature): derived, so stated by sysml:name alone.
 		if name := e.ids.model.EffectiveNameOf(subject); name != "" {
+			e.graph.Add(usage, e.sysml(pName), rdf.String(name))
 			e.graph.Add(membership, e.sysml(pMemberName), rdf.String(name))
 		}
 		if short := e.ids.model.EffectiveShortNameOf(subject); short != "" {
