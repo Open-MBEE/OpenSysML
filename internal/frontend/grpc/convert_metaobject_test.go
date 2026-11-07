@@ -162,10 +162,8 @@ package M {
 }
 `
 
-// A metaobject of an element with no qualified name crosses under the id a
-// client keeps for any element — the positional id of an unnamed member, the
-// element form's @id of an element the semantic side tables synthesize — which
-// GetElementProperties reads and the service binds back to the same element.
+// An unnamed element's metaobject crosses under a positional id or form @id,
+// which GetElementProperties reads and the service binds back to the element.
 func TestUnnamedMetaobjectCrossesUnderItsElementID(t *testing.T) {
 	srv := mustNewService(t, 4)
 	modelHash := mustParse(t, srv, unnamedMetaobjectModel)

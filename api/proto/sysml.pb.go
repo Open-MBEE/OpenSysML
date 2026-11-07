@@ -10803,11 +10803,8 @@ func (x *Rational) GetDenominator() string {
 // (`declaredName`, `ownedFeature`, ...) are read in the model, not carried.
 type Metaobject struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The id a client keeps for the element reflected on, its identity: the
-	// FQN ("Vehicle::seatBelt"), the positional id of an unnamed member
-	// ("Vehicle::@2"), or the element form's @id of an element the model
-	// synthesizes, such as a send's or accept's argument
-	// ("Vehicle__send___400_pvalue"). GetElementProperties reads any of them.
+	// The id a client keeps for the element: its FQN ("Vehicle::seatBelt"), an unnamed member's
+	// positional id ("Vehicle::@2") or a synthesized element's form @id ("Vehicle__send___400_pvalue").
 	ElementId string `protobuf:"bytes,1,opt,name=element_id,json=elementId,proto3" json:"element_id,omitempty"`
 	// FQN of the element's own reflective metaclass ("SysML::Systems::PartUsage"),
 	// the most specific metaclass of the KerML or SysML library classifying it;

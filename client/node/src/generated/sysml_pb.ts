@@ -6197,11 +6197,8 @@ export const RationalSchema: GenMessage<Rational> = /*@__PURE__*/
  */
 export type Metaobject = Message<"sysml.Metaobject"> & {
   /**
-   * The id a client keeps for the element reflected on, its identity: the
-   * FQN ("Vehicle::seatBelt"), the positional id of an unnamed member
-   * ("Vehicle::@2"), or the element form's @id of an element the model
-   * synthesizes, such as a send's or accept's argument
-   * ("Vehicle__send___400_pvalue"). GetElementProperties reads any of them.
+   * The id a client keeps for the element: its FQN ("Vehicle::seatBelt"), an unnamed member's
+   * positional id ("Vehicle::@2") or a synthesized element's form @id ("Vehicle__send___400_pvalue").
    *
    * @generated from field: string element_id = 1;
    */

@@ -1,5 +1,5 @@
 
-Ë¶
+¾µ
 sysml.protosysml"à
 Verdict
 kind (	Rkind
@@ -1657,8 +1657,8 @@ RenderView.sysml.RenderViewRequest.sysml.RenderViewResponseG
 ExportGraphs.sysml.ExportGraphsRequest.sysml.ExportGraphsResponseA
 
 ImportData.sysml.ImportDataRequest.sysml.ImportDataResponseM
-CompareResults.sysml.CompareResultsRequest.sysml.CompareResultsResponseB*Z(github.com/Open-MBEE/OpenSysML/api/protoJÃÌ
-  ¹
+CompareResults.sysml.CompareResultsRequest.sysml.CompareResultsResponseB*Z(github.com/Open-MBEE/OpenSysML/api/protoJ¶Ë
+  ¶
 
   
 
@@ -9464,7 +9464,7 @@ D
 
 j…
 Ç
-k ›¸ Metaobject is an element of the model held as an instance of its reflective
+k ˜¸ Metaobject is an element of the model held as an instance of its reflective
  metaclass: what `x meta KerML::Feature`, or the last element of
  `x.metadata`, evaluates to (KerML 7.4.9.2, 8.3.4.8.15). It crosses as the
  element it reflects, which is its identity: two metaobjects are the same
@@ -9473,64 +9473,61 @@ D
 
 
 k
-Ú
-k ”Ë The id a client keeps for the element reflected on, its identity: the
- FQN ("Vehicle::seatBelt"), the positional id of an unnamed member
- ("Vehicle::@2"), or the element form's @id of an element the model
- synthesizes, such as a send's or accept's argument
- ("Vehicle__send___400_pvalue"). GetElementProperties reads any of them.
+Í
+k ‘¾ The id a client keeps for the element: its FQN ("Vehicle::seatBelt"), an unnamed member's
+ positional id ("Vehicle::@2") or a synthesized element's form @id ("Vehicle__send___400_pvalue").
 
 
-k ”
+k ‘
 
-k ”	
+k ‘	
 
-k ”
+k ‘
 Ù
-kšÊ FQN of the element's own reflective metaclass ("SysML::Systems::PartUsage"),
+k—Ê FQN of the element's own reflective metaclass ("SysML::Systems::PartUsage"),
  the most specific metaclass of the KerML or SysML library classifying it;
  not the type it was cast to. The service always sends it; a client may omit
  it, in which case the model's is used, but one sent must be the model's or
  the value is rejected.
 
 
-kš
+k—
 
-kš	
+k—	
 
-kš
+k—
 ä
-l¢ ªÕ Undetermined is the model-level result of an expression the model does not
+lŸ §Õ Undetermined is the model-level result of an expression the model does not
  decide: it reads a feature no value is given (`attribute u;`) or counts a
  feature whose multiplicity fixes no count (`part gear[1..*]`). The
  expression is well-formed and evaluation succeeded; the answer is open.
  Every other surface spells it `<undetermined>`.
 
 
-l¢
+lŸ
 c
-l ¥U Why the model leaves the result open, for a reader:
+l ¢U Why the model leaves the result open, for a reader:
  "u has no value in the model".
 
 
-l ¥
+l ¢
 
-l ¥	
+l ¢	
 
-l ¥
+l ¢
 İ
-l©Î How many values the result would hold, as far as the model fixes it:
+l¦Î How many values the result would hold, as far as the model fixes it:
  `1..1` for an arithmetic result over an unbound scalar, `1..*` for the
  elements of a `[1..*]` feature, `0..*` where nothing is known.
 
 
-l©
+l¦
 
-l©
+l¦
 
-l©
+l¦
 ¼
-m² »­ Function is a calc held as a value: a calc definition, or a calc usage with
+m¯ ¸­ Function is a calc held as a value: a calc definition, or a calc usage with
  an input no read could supply, as `Sq` in `Fn(Sq, 3.0)` or the `f` of
  `in calc f {...}`. It crosses as the declaration it is a value of, which is
  its identity: two functions are the same exactly when calc_id and self_id
@@ -9538,31 +9535,31 @@ c
  declared in has no wire form and crosses as the null arm.
 
 
-m²
+m¯
 K
-m ´= FQN of the calc declaration ("Analysis::Sq"). Its identity.
+m ±= FQN of the calc declaration ("Analysis::Sq"). Its identity.
 
 
-m ´
+m ±
 
-m ´	
+m ±	
 
-m ´
+m ±
 È
-mº¹ ID of the object the calc's feature names resolve against, for a calc
+m·¹ ID of the object the calc's feature names resolve against, for a calc
  usage read off a part (`holder.scale`); 0 for a function closing over no
  object. An instance id, living only within the response that sent it: a
  request function with a non-zero self_id is rejected, since no later call
  holds that object.
 
 
-mº
+m·
 
-mº
+m·
 
-mº
+m·
 Ë
-nÅ Ç¼ ValueSet is a unique, unordered collection â€” a Collections::Set's elements â€”
+nÂ Ä¼ ValueSet is a unique, unordered collection â€” a Collections::Set's elements â€”
  as distinct from a ValueSequence, whose order is part of its value. Two sets
  are equal when they hold the same elements in any order. The service sends
  the elements in the runtime's canonical order (Booleans, numbers, strings,
@@ -9572,304 +9569,304 @@ K
  is what a sequence carries.
 
 
-nÅ
+nÂ
 
-n Æ
+n Ã
 
-n Æ
+n Ã
 
 
-n Æ
+n Ã
 
-n Æ
+n Ã
 
-n Æ
+n Ã
 ¾
-oÍ Ó¯ TensorQuantity is a Quantities::TensorQuantityValue of any rank: its
+oÊ Ğ¯ TensorQuantity is a Quantities::TensorQuantityValue of any rank: its
  dimensions and, flattened in row-major order under them, one Quantity per
  component, each with its unit and reduction as a scalar Quantity carries them.
  A tensor of rank one is not a VectorQuantity, on the wire as in the runtime.
 
 
-oÍ
+oÊ
 
-o Ğ  Positive extents, one per rank; their product (one for rank 0) is how many
+o Í  Positive extents, one per rank; their product (one for rank 0) is how many
  components there are, and a tensor not filling them is rejected.
 
 
-o Ğ
+o Í
 
 
-o Ğ
+o Í
 
-o Ğ
+o Í
 
-o Ğ
+o Í
 W
-oÒ#I A named unit sent without its unit_term is rejected as a Quantity's is.
+oÏ#I A named unit sent without its unit_term is rejected as a Quantity's is.
 
 
-oÒ
+oÏ
 
 
-oÒ
+oÏ
 
-oÒ
+oÏ
 
-oÒ!"
+oÏ!"
 ¤
-p× İ• Array is a Collections::Array: its elements flattened in row-major order
+pÔ Ú• Array is a Collections::Array: its elements flattened in row-major order
  under its dimensions, compared by content rather than by the object read.
 
 
-p×
+pÔ
 ›
-p Ú Œ Positive extents, one per rank; their product (one for rank 0) is how many
+p × Œ Positive extents, one per rank; their product (one for rank 0) is how many
  elements there are, and an array not filling them is rejected.
 
 
-p Ú
+p ×
 
 
-p Ú
+p ×
 
-p Ú
+p ×
 
-p Ú
+p ×
 W
-pÜI Any Value each, so an array of quantities or of arrays crosses as such.
+pÙI Any Value each, so an array of quantities or of arrays crosses as such.
 
 
-pÜ
+pÙ
 
 
-pÜ
+pÙ
 
-pÜ
+pÙ
 
-pÜ
+pÙ
 u
-qá åg Vector is a VectorValues::NumericalVectorValue: its components in order,
+qŞ âg Vector is a VectorValues::NumericalVectorValue: its components in order,
  its dimension their number.
 
 
-qá
+qŞ
 ¡
-q ä ’ Each an int_value or a real_value, kept apart as the rest of Value does;
+q á ’ Each an int_value or a real_value, kept apart as the rest of Value does;
  a component of any other arm is rejected rather than read as a number.
 
 
-q ä
+q á
 
 
-q ä
+q á
 
-q ä
+q á
 
-q ä
+q á
  
-ré í‘ VectorQuantity is a Quantities::VectorQuantityValue: one Quantity per axis,
+ræ ê‘ VectorQuantity is a Quantities::VectorQuantityValue: one Quantity per axis,
  unit and reduction included, since the axes need not share a unit.
 
 
-ré
+ræ
 |
-r ì#n At least one (num is Number[1..*]); a named unit sent without its
+r é#n At least one (num is Number[1..*]); a named unit sent without its
  unit_term is rejected as a Quantity's is.
 
 
-r ì
+r é
 
 
-r ì
+r é
 
-r ì
+r é
 
-r ì!"
+r é!"
 œ
-sñ ô Complex is one complex number in rectangular form. It crosses as one value
+sî ñ Complex is one complex number in rectangular form. It crosses as one value
  so `1.0 + 2.0i` cannot be mistaken for a sequence of two Reals.
 
 
-sñ
+sî
 
-s ò
+s ï
 
-s ò
+s ï
 
-s ò	
+s ï	
 
-s ò
+s ï
 
-só
+sğ
 
-só
+sğ
 
-só	
+sğ	
 
-só
+sğ
 ÷
-tù ƒè EnumLiteral is one literal of an enumeration definition. A literal is its own
+tö €è EnumLiteral is one literal of an enumeration definition. A literal is its own
  identity, so it travels as the declaration it names rather than as a number
  or a string: two values are the same literal exactly when `literal_id` is.
 
 
-tù
+tö
 Q
-t ûC FQN of the literal's declaration ("D::Color::red"). Its identity.
+t øC FQN of the literal's declaration ("D::Color::red"). Its identity.
 
 
-t û
+t ø
 
-t û	
+t ø	
 
-t û
+t ø
 L
-tı> FQN of the enumeration definition declaring it ("D::Color").
+tú> FQN of the enumeration definition declaring it ("D::Color").
 
 
-tı
+tú
 
-tı	
+tú	
 
-tı
+tú
 A
-tÿ3 The literal as a reader writes it ("Color::red").
+tü3 The literal as a reader writes it ("Color::red").
 
 
-tÿ
+tü
 
-tÿ	
+tü	
 
-tÿ
+tü
 
-t‚ The scalar the literal equals (`high = 3` carries int_value 3); unset for a
+tÿ The scalar the literal equals (`high = 3` carries int_value 3); unset for a
  literal that is only its identity. Identity stays `literal_id`.
 
 
-t‚
+tÿ
 
-t‚
+tÿ
 
-t‚
+tÿ
 
-u… ‡
+u‚ „
 
-u…
+u‚
 
-u †
+u ƒ
 
-u †
+u ƒ
 
 
-u †
+u ƒ
 
-u †
+u ƒ
 
-u †
+u ƒ
 «
-v‹ œœ Quantity is a magnitude and the measurement reference it is expressed in, sent
+vˆ ™œ Quantity is a magnitude and the measurement reference it is expressed in, sent
  in the unit written: `5.4 [km/h]` crosses as 5.4 `km/h`, not as 1.5 `m/s`.
 
 
-v‹
+vˆ
 V
-v ”F Magnitude, keeping Integer and Real apart as the rest of Value does.
+v Š‘F Magnitude, keeping Integer and Real apart as the rest of Value does.
 
 
-v 
+v Š
 
-v 
+v ‹
 
-v 	
+v ‹	
 
-v 
+v ‹
 
 
-v 
+v ‹
 
-v
+vŒ
 
-v
+vŒ
 
 
-v
+vŒ
 
-v
+vŒ
 V
-v‘!H An Integer magnitude beyond int64, in decimal, as Value.big_int_value.
+v!H An Integer magnitude beyond int64, in decimal, as Value.big_int_value.
 
 
-v‘
+v
 
 
-v‘
+v
 
-v‘ 
+v 
 E
-v“$7 An exact Rational magnitude, as Value.rational_value.
+v$7 An exact Rational magnitude, as Value.rational_value.
 
 
-v“
+v
 
-v“
+v
 
-v“"#
+v"#
 ’
-v—ƒ Unit as written ("km/h") or as an operation composed it ("m/s"); empty for
+v”ƒ Unit as written ("km/h") or as an operation composed it ("m/s"); empty for
  one never written down, described by unit_term alone.
 
 
-v—
+v”
 
-v—	
+v”	
 
-v—
+v”
 Ö
-v›Ç What the unit reduces to, which decides commensurability and conversion.
+v˜Ç What the unit reduces to, which decides commensurability and conversion.
  Required wherever `unit` names one: a named unit sent without its reduction
  is rejected rather than read as dimension one.
 
 
-v›
+v˜
 
 
-v›
+v˜
 
-v›
+v˜
 ô
-w£ ³å MeasurementRef is a MeasurementReferences::ScalarMeasurementReference held as
+w  °å MeasurementRef is a MeasurementReferences::ScalarMeasurementReference held as
  a value: a unit by itself â€” `SI::m`, `km`, or `m / s` as an operation composed
  it â€” as distinct from a Quantity expressed in one. It carries what the runtime
  value carries: the unit as written and what it reduces to, plus the one
  declaration it names when it names one.
 
 
-w£
+w 
 
-w ¦ Unit as written ("km") or as an operation composed it ("m/s"); empty for
+w £ Unit as written ("km") or as an operation composed it ("m/s"); empty for
  one never written down, described by unit_term alone.
 
 
-w ¦
+w £
 
-w ¦	
+w £	
 
-w ¦
+w £
 »
-wª¬ What the unit reduces to. Required wherever `unit` names one, as a
+w§¬ What the unit reduces to. Required wherever `unit` names one, as a
  Quantity's is: a named unit sent without its reduction is rejected rather
  than read as dimension one.
 
 
-wª
+w§
 
 
-wª
+w§
 
-wª
+w§
 î
-w²ß FQN of the one unit declaration the reference names ("SI::kilometre"), which
+w¯ß FQN of the one unit declaration the reference names ("SI::kilometre"), which
  is what tells the declared unit `km` from any other spelling of 1000 metres;
  empty for a unit composed of several ("m/s"), which names no declaration.
  The service always sends it for a named unit. A client may omit it, in
@@ -9878,201 +9875,201 @@ E
  spells, or the value is rejected.
 
 
-w²
+w¯
 
-w²	
+w¯	
 
-w²
+w¯
 ‡
-x· ½y UnitTerm is a unit reduced to a scale factor over base units: `km/h` reduces
+x´ ºy UnitTerm is a unit reduced to a scale factor over base units: `km/h` reduces
  to 1000/3600 over `SI::m` and `SI::s^-1`.
 
 
-x·
+x´
 R
-x ¹D Scale as an unevaluated ratio, so an exact conversion stays exact.
+x ¶D Scale as an unevaluated ratio, so an exact conversion stays exact.
 
 
-x ¹
+x ¶
 
-x ¹	
+x ¶	
 
-x ¹
+x ¶
 
-xº
+x·
 
-xº
+x·
 
-xº	
+x·	
 
-xº
+x·
 H
-x¼": Base units of the reduction, carrying no zero exponents.
+x¹": Base units of the reduction, carrying no zero exponents.
 
 
-x¼
+x¹
 
 
-x¼
+x¹
 
-x¼
+x¹
 
-x¼ !
+x¹ !
 B
-yÀ Ä4 UnitFactor is one base unit raised to an exponent.
+y½ Á4 UnitFactor is one base unit raised to an exponent.
 
 
-yÀ
+y½
 K
-y Â= FQN of the base unit ("SI::m"), naming it across processes.
+y ¿= FQN of the base unit ("SI::m"), naming it across processes.
 
 
-y Â
+y ¿
 
-y Â	
+y ¿	
 
-y Â
+y ¿
 
-yÃ
+yÀ
 
-yÃ
+yÀ
 
-yÃ	
+yÀ	
 
-yÃ
+yÀ
 G
-zÇ Õ9 Diagnostic represents a parse/semantic error or warning
+zÄ Ò9 Diagnostic represents a parse/semantic error or warning
 
 
-zÇ
+zÄ
 *
-z È" "error", "warning", "info"
+z Å" "error", "warning", "info"
 
 
-z È
+z Å
 
-z È	
+z Å	
 
-z È
+z Å
 
-zÉ
+zÆ
 
-zÉ
+zÆ
 
-zÉ	
+zÆ	
 
-zÉ
+zÆ
 
-zÊ
+zÇ
 
-zÊ
+zÇ
 
-zÊ
+zÇ
 
-zÊ
+zÇ
 ª
-zÍ› Stable identifier to branch on instead of the message: a pass or rule code,
+zÊ› Stable identifier to branch on instead of the message: a pass or rule code,
  "syntax", "choice-point", "guard-unevaluable"; empty when none was assigned.
 
 
-zÍ
+zÊ
 
-zÍ	
+zÊ	
 
-zÍ
+zÊ
 ë
-zÑ&Ü On a "choice-point": the features the conflicting alternatives wrote, whose
+zÎ&Ü On a "choice-point": the features the conflicting alternatives wrote, whose
  values the run holds only up to the order it took; empty when the
  alternatives commute (`independent`) or conflict on nothing a value names.
 
 
-zÑ
+zÎ
 
 
-zÑ
+zÎ
 
-zÑ!
+zÎ!
 
-zÑ$%
+zÎ$%
 ‚
-zÔt On a "choice-point": the alternatives commute by their footprints, so the
+zÑt On a "choice-point": the alternatives commute by their footprints, so the
  run's values stand whichever was taken.
 
 
-zÔ
+zÑ
 
-zÔ
+zÑ
 
-zÔ
+zÑ
 1
-{Ø Ş# Span represents a source location
+{Õ Û# Span represents a source location
 
 
-{Ø
+{Õ
 
-{ Ù
+{ Ö
 
-{ Ù
+{ Ö
 
-{ Ù	
+{ Ö	
 
-{ Ù
+{ Ö
 
-{Ú
+{×
 
-{Ú
+{×
 
-{Ú
+{×
 
-{Ú
+{×
 
-{Û
+{Ø
 
-{Û
+{Ø
 
-{Û
+{Ø
 
-{Û
+{Ø
 
-{Ü
+{Ù
 
-{Ü
+{Ù
 
-{Ü
+{Ù
 
-{Ü
+{Ù
 
-{İ
+{Ú
 
-{İ
+{Ú
 
-{İ
+{Ú
 
-{İ
+{Ú
 …
-|â y ServerInfoRequest asks the service to describe itself. It carries no fields;
+|ß y ServerInfoRequest asks the service to describe itself. It carries no fields;
  the answer does not depend on the caller.
 
 
-|â
+|ß
 A
-}å è3 ServerInfoResponse describes the running service.
+}â å3 ServerInfoResponse describes the running service.
 
 
-}å
+}â
 Ò
-} éÃ Build version of the service binary, informational only: it is "dev" for a
+} æÃ Build version of the service binary, informational only: it is "dev" for a
  build without release ldflags, and versions of forks are not comparable.
  Feature decisions belong in `capabilities`.
 
 
-} é
+} æ
 
-} é	
+} æ	
 
-} é
+} æ
 ™C
-}ç#ŠC Named capabilities this build supports, each an exact string a client can
+}ä#ŠC Named capabilities this build supports, each an exact string a client can
  require. Capabilities are only ever added, never renamed or removed with
  their behaviour intact, so requiring one is stable across releases.
  Currently defined:
@@ -10199,1463 +10196,1463 @@ A
                   refused with FAILED_PRECONDITION.
 
 
-}ç
+}ä
 
 
-}ç
+}ä
 
-}ç
+}ä
 
-}ç!"
+}ä!"
 U
-~ë ğG QueryRequest runs a Query against a model the service already parsed.
+~è íG QueryRequest runs a Query against a model the service already parsed.
 
 
-~ë
+~è
 '
-~ ì" from ParseFile response
+~ é" from ParseFile response
 
 
-~ ì
+~ é
 
-~ ì	
+~ é	
 
-~ ì
+~ é
 
-~í
+~ê
 
-~í
+~ê
 
-~í
+~ê
 
-~í
+~ê
 M
-~ï? OSLC Query 3.0 parameter text, mutually exclusive with query.
+~ì? OSLC Query 3.0 parameter text, mutually exclusive with query.
 
 
-~ï
+~ì
 
-~ï	
+~ì	
 
-~ï
+~ì
 •
-ö ø† QueryResponse contains the elements the query selected, in the order they are
+ó õ† QueryResponse contains the elements the query selected, in the order they are
  declared in the model. A query that matches nothing answers with no elements;
  a query the service cannot evaluate fails the call with INVALID_ARGUMENT
  rather than answering empty.
 
 
-ö
+ó
 
- ÷+
+ ô+
 
- ÷
+ ô
 
 
- ÷
+ ô
 
- ÷&
+ ô&
 
- ÷)*
+ ô)*
 ¸
-€ş ‹¨ Query is the standard's Query resource (SysML v2 API & Services). Its `@type`
+€û ˆ¨ Query is the standard's Query resource (SysML v2 API & Services). Its `@type`
  is fixed and carries no information on the wire, and its identity fields
  (`@id`, `owningProject`) belong to a repository that stores queries, which
  this service is not: it evaluates a query against a parsed model.
 
 
-€ş
+€û
 é
-€ ‚Ù Elements the query considers, each named by qualified name, together with
+€ ÿÙ Elements the query considers, each named by qualified name, together with
  every element nested inside them. Empty considers the whole loaded model.
  Corresponds to the standard's `scope` of DataIdentity references.
 
 
-€ ‚
+€ ÿ
 
 
-€ ‚
+€ ÿ
 
-€ ‚
+€ ÿ
 
-€ ‚
+€ ÿ
 Z
-€„K Properties to report for each matched element. Empty reports all of them.
+€K Properties to report for each matched element. Empty reports all of them.
 
 
-€„
+€
 
 
-€„
+€
 
-€„
+€
 
-€„
+€
 Y
-€†J Filter every considered element must satisfy. Unset matches all of them.
+€ƒJ Filter every considered element must satisfy. Unset matches all of them.
 
 
-€†
+€ƒ
 
-€†
+€ƒ
 
-€†
+€ƒ
 é
-€ŠÙ Properties the matched elements are sorted by, in order of precedence,
+€‡Ù Properties the matched elements are sorted by, in order of precedence,
  each ascending; elements equal under every one keep declaration order.
  Corresponds to the standard's `orderBy`. An unknown one fails the call.
 
 
-€Š
+€‡
 
 
-€Š
+€‡
 
-€Š
+€‡
 
-€Š
+€‡
 ¥
- ”• Constraint is the standard's Constraint, whose `@type` discriminates between
+Œ ‘• Constraint is the standard's Constraint, whose `@type` discriminates between
  its two forms. On the wire the form is the oneof arm, not a type tag.
 
 
-
+Œ
 
- “
+ 
 
- 
+ 
 
- ‘&
+ &
 
- ‘
+ 
 
- ‘!
+ !
 
- ‘$%
+ $%
 
-’&
+&
 
-’
+
 
-’!
+!
 
-’$%
+$%
 Y
-‚— ¢J PrimitiveConstraint compares one property of an element against a value.
+‚” ŸJ PrimitiveConstraint compares one property of an element against a value.
 
 
-‚—
+‚”
 2
-‚ ™# Negates the comparison's verdict.
+‚ –# Negates the comparison's verdict.
 
 
-‚ ™
+‚ –
 
-‚ ™
+‚ –
 
-‚ ™
+‚ –
 ¨
-‚œ˜ Property to compare, as named in docs/reference/api.md's query property table
+‚™˜ Property to compare, as named in docs/reference/api.md's query property table
  ("@type", "name", "qualifiedName", ...). An unknown one fails the call.
 
 
-‚œ
+‚™
 
-‚œ	
+‚™	
 
-‚œ
+‚™
 
-‚!
+‚š!
 
-‚
+‚š
 
-‚
+‚š
 
-‚ 
+‚š 
 ğ
-‚¡à Values to compare against. The standard writes one value, and its clients
+‚à Values to compare against. The standard writes one value, and its clients
  also write a list for `@type`; with `=`, `in` and `instanceOf` the element
  matches any of them, while `<`, `<=`, `>` and `>=` require exactly one.
 
 
-‚¡
+‚
 
 
-‚¡
+‚
 
-‚¡
+‚
 
-‚¡
+‚
 €
-¦ ³r PrimitiveOperator is the standard's PrimitiveConstraint.operator, the seven
+£ °r PrimitiveOperator is the standard's PrimitiveConstraint.operator, the seven
  literals of API & Services Â§7.1.4.
 
 
-¦
+£
 %
- §%" unset; fails the call
+ ¤%" unset; fails the call
 
 
- § 
+ ¤ 
 
- §#$
+ ¤#$
 
-¨" "="
+¥" "="
 
 
-¨
+¥
 
-¨
+¥
 
-©!" ">"
+¦!" ">"
 
 
-©
+¦
 
-© 
+¦ 
 
-ª" "<"
+§" "<"
 
 
-ª
+§
 
-ª
+§
 
-«$" "<="
+¨$" "<="
 
 
-«
+¨
 
-«"#
+¨"#
 
-¬'" ">="
+©'" ">="
 
 
-¬"
+©"
 
-¬%&
+©%&
 G
-®9 "in": the property's value is one of the listed values.
+«9 "in": the property's value is one of the listed values.
 
 
-®
+«
 
-®
+«
 ½
-²%® "instanceOf": the element's metaclass (`property` must be "@type")
+¯%® "instanceOf": the element's metaclass (`property` must be "@type")
  conforms to one of the listed metaclasses, so a PartUsage is an instance
  of Usage, Feature and Element.
 
 
-² 
+¯ 
 
-²#$
+¯#$
 í
-ƒ¸ »İ CompositeConstraint combines constraints. The standard combines at least two
+ƒµ ¸İ CompositeConstraint combines constraints. The standard combines at least two
  (`constraint : Constraint [2..*]`): an empty list has no defensible verdict,
  and a one-member list is that member, so either fails the call.
 
 
-ƒ¸
+ƒµ
 
-ƒ ¹!
+ƒ ¶!
 
-ƒ ¹
+ƒ ¶
 
-ƒ ¹
+ƒ ¶
 
-ƒ ¹ 
+ƒ ¶ 
 
-ƒº%
+ƒ·%
 
-ƒº
+ƒ·
 
 
-ƒº
+ƒ·
 
-ƒº 
+ƒ· 
 
-ƒº#$
+ƒ·#$
 Q
-¾ ÂC CompositeOperator is the standard's CompositeConstraint.operator.
+» ¿C CompositeOperator is the standard's CompositeConstraint.operator.
 
 
-¾
+»
 %
- ¿%" unset; fails the call
+ ¼%" unset; fails the call
 
 
- ¿ 
+ ¼ 
 
- ¿#$
+ ¼#$
 
-À" "and"
+½" "and"
 
 
-À
+½
 
-À
+½
 
-Á" "or"
+¾" "or"
 
 
-Á
+¾
 
-Á
+¾
 õ
-„È Ìå QueryResultElement is one matched element. `id` and `type` are always
+„Å Éå QueryResultElement is one matched element. `id` and `type` are always
  reported, since an element record is not usable without them; `properties`
  carries what `select` asked for, omitting a property the element does not
  have.
 
 
-„È
+„Å
 B
-„ É"3 qualified name, the identity this service reports
+„ Æ"3 qualified name, the identity this service reports
 
 
-„ É
+„ Æ
 
-„ É	
+„ Æ	
 
-„ É
+„ Æ
 I
-„Ê": metamodel type name ("PartUsage", "PartDefinition", ...)
+„Ç": metamodel type name ("PartUsage", "PartDefinition", ...)
 
 
-„Ê
+„Ç
 
-„Ê	
+„Ç	
 
-„Ê
+„Ç
 
-„Ë%
+„È%
 
-„Ë
+„È
 
-„Ë 
+„È 
 
-„Ë#$
+„È#$
 á
-…Ó ÜÑ SweepRange is one parameter's range: the endpoints a swept run advances
+…Ğ ÙÑ SweepRange is one parameter's range: the endpoints a swept run advances
  between and the step it advances by, typed by the parameter it binds rather
  than by how they are written. A sampled range states no step; a swept range
  between whole numbers steps by one where it states none, and one with a
  fractional endpoint must state one.
 
 
-…Ó
+…Ğ
 ‹
-… Ö| Name of the input parameter the range binds, which the target must declare
+… Ó| Name of the input parameter the range binds, which the target must declare
  and the request's own arguments must not bind.
 
 
-… Ö
+… Ó
 
-… Ö	
+… Ó	
 
-… Ö
+… Ó
 •
-…Ù… The endpoint the range's runs start at, and the one they run to, which is
+…Ö… The endpoint the range's runs start at, and the one they run to, which is
  inclusive where the step lands on it. Both are required.
 
 
-…Ù
+…Ö
 
-…Ù
+…Ö
 
-…Ù
+…Ö
 
-…Ú
+…×
 
-…Ú
+…×
 
-…Ú
+…×
 
-…Ú
+…×
 
-…Û
+…Ø
 
-…Û
+…Ø
 
-…Û
+…Ø
 
-…Û
+…Ø
 º
-†â ùª RunSweepRequest runs one analysis case or calc once per row of a sweep. Every
+†ß öª RunSweepRequest runs one analysis case or calc once per row of a sweep. Every
  row is an ordinary run of that target with the swept parameters bound to the
  row's values and the request's other arguments as given: this is tool-defined
  orchestration, and changes nothing about how a run executes.
 
 
-†â
+†ß
 
-† ã
+† à
 
-† ã
+† à
 
-† ã	
+† à	
 
-† ã
+† à
 G
-†å8 FQN of the analysis case or calc, definition or usage.
+†â8 FQN of the analysis case or calc, definition or usage.
 
 
-†å
+†â
 
-†å	
+†â	
 
-†å
+†â
 ®
-†è Optional FQN of a part/usage to instantiate as an analysis case's subject,
+†å Optional FQN of a part/usage to instantiate as an analysis case's subject,
  or a path from one to a nested object; see RunAnalysisRequest.subject_symbol_id.
 
 
-†è
+†å
 
-†è	
+†å	
 
-†è
+†å
 x
-†ëi Positional arguments for the target's input parameters, in declaration
+†èi Positional arguments for the target's input parameters, in declaration
  order, as every row binds them.
 
 
-†ë
+†è
 
 
-†ë
+†è
 
-†ë
+†è
 
-†ë
+†è
 V
-†í)G Arguments bound to input parameters by name, as every row binds them.
+†ê)G Arguments bound to input parameters by name, as every row binds them.
 
 
-†í
+†ê
 
-†í$
+†ê$
 
-†í'(
+†ê'(
 ‚
-†ğ!s The ranges swept, which several of make one row per point of their
+†í!s The ranges swept, which several of make one row per point of their
  cartesian product, the first varying slowest.
 
 
-†ğ
+†í
 
 
-†ğ
+†í
 
-†ğ
+†í
 
-†ğ 
+†í 
 ¥
-†ó• Rows to draw uniformly from each range instead of stepping through it. 0
+†ğ• Rows to draw uniformly from each range instead of stepping through it. 0
  steps through them; above 0 needs a seed and refuses a range with a step.
 
 
-†ó
+†ğ
 
-†ó
+†ğ
 
-†ó
+†ğ
 ”
-†ö„ Seed the draws are taken from: the same seed draws the same table on every
+†ó„ Seed the draws are taken from: the same seed draws the same table on every
  platform. Required with `samples`, ignored without it.
 
 
-†ö
+†ó
 
-†ö	
+†ó	
 
-†ö
+†ó
 T
-†øE The engine the sweep is put to; see VerifyConstraintRequest.engine.
+†õE The engine the sweep is put to; see VerifyConstraintRequest.engine.
 
 
-†ø
+†õ
 
-†ø	
+†õ	
 
-†ø
+†õ
 Õ
-‡ş Å SweepRow is one run of a sweep: what it bound, what it produced, how long it
+‡û Å SweepRow is one run of a sweep: what it bound, what it produced, how long it
  took, and what stopped it where it failed. A failed row is reported as a row,
  so one failure does not end the table.
 
 
-‡ş
+‡û
 U
-‡ €!F The parameters this row bound, in the order their ranges were given.
+‡ ı!F The parameters this row bound, in the order their ranges were given.
 
 
-‡ €
+‡ ı
 
 
-‡ €
+‡ ı
 
-‡ €
+‡ ı
 
-‡ € 
+‡ ı 
 o
-‡ƒ"` What the run produced: an analysis case's outputs, or a calc's returned
+‡€"` What the run produced: an analysis case's outputs, or a calc's returned
  value named "result".
 
 
-‡ƒ
+‡€
 
 
-‡ƒ
+‡€
 
-‡ƒ
+‡€
 
-‡ƒ !
+‡€ !
 T
-‡… E What the case's objective and assertions decided; empty for a calc.
+‡‚ E What the case's objective and assertions decided; empty for a calc.
 
 
-‡…
+‡‚
 
 
-‡…
+‡‚
 
-‡…
+‡‚
 
-‡…
+‡‚
 8
-‡‡) Wall time of this run, in microseconds.
+‡„) Wall time of this run, in microseconds.
 
 
-‡‡
+‡„
 
-‡‡
+‡„
 
-‡‡
+‡„
  
-‡Š Set when this run failed rather than the table failing. The outputs and
+‡‡ Set when this run failed rather than the table failing. The outputs and
  evaluations the run made before failing are still reported beside it.
 
 
-‡Š
+‡‡
 
-‡Š	
+‡‡	
 
-‡Š
+‡‡
 6
-‡Œ#' What kind of failure `error` reports.
+‡‰#' What kind of failure `error` reports.
 
 
-‡Œ
+‡‰
 
-‡Œ
+‡‰
 
-‡Œ!"
+‡‰!"
 –
-‡*† Each application this run made of one of the case's own calcs as a
+‡Œ*† Each application this run made of one of the case's own calcs as a
  function value, as RunAnalysisResponse.evaluations reports them.
 
 
-‡
+‡Œ
 
 
-‡
+‡Œ
 
-‡%
+‡Œ%
 
-‡()
+‡Œ()
 Ì
-ˆ• ­¼ RunSweepResponse carries the table, one row per run, in the order the runs
+ˆ’ ª¼ RunSweepResponse carries the table, one row per run, in the order the runs
  were made: lexicographically over the ranges as given for a swept table, and
  in draw order for a sampled one.
 
 
-ˆ•
+ˆ’
 
-ˆ –
+ˆ “
 
-ˆ –
+ˆ “
 
 
-ˆ –
+ˆ “
 
-ˆ –
+ˆ “
 
-ˆ –
+ˆ “
 z
-ˆ™!k The swept parameters, in the order their ranges were given, which is the
+ˆ–!k The swept parameters, in the order their ranges were given, which is the
  order each row's inputs are in.
 
 
-ˆ™
+ˆ–
 
 
-ˆ™
+ˆ–
 
-ˆ™
+ˆ–
 
-ˆ™ 
+ˆ– 
 I
-ˆ›: Whether the rows were drawn rather than stepped through.
+ˆ˜: Whether the rows were drawn rather than stepped through.
 
 
-ˆ›
+ˆ˜
 
-ˆ›
+ˆ˜
 
-ˆ›
+ˆ˜
 X
-ˆI The seed the rows were drawn from, echoed so a table can be reproduced.
+ˆšI The seed the rows were drawn from, echoed so a table can be reproduced.
 
 
-ˆ
+ˆš
 
-ˆ	
+ˆš	
 
-ˆ
+ˆš
 £
-ˆ “ Set when no run was made at all â€” an unknown symbol, a parameter the target
+ˆ“ Set when no run was made at all â€” an unknown symbol, a parameter the target
  does not declare, a range no values follow from, a budget refusal.
 
 
-ˆ 
+ˆ
 
-ˆ 	
+ˆ	
 
-ˆ 
+ˆ
 
-ˆ¡&
+ˆ&
 
-ˆ¡
+ˆ
 
 
-ˆ¡
+ˆ
 
-ˆ¡!
+ˆ!
 
-ˆ¡$%
+ˆ$%
 6
-ˆ£#' What kind of failure `error` reports.
+ˆ #' What kind of failure `error` reports.
 
 
-ˆ£
+ˆ 
 
-ˆ£
+ˆ 
 
-ˆ£!"
+ˆ !"
 „
-ˆ¦"u Every object a row's verdict is about, from every run of the table, so each
+ˆ£"u Every object a row's verdict is about, from every run of the table, so each
  verdict's `instance_id` resolves here.
 
 
-ˆ¦
+ˆ£
 
 
-ˆ¦
+ˆ£
 
-ˆ¦
+ˆ£
 
-ˆ¦ !
+ˆ£ !
 ë
-ˆªÛ The engine that ran the table, the strength of its evidence and the bounds
+ˆ§Û The engine that ran the table, the strength of its evidence and the bounds
  it ran under, as Verdict carries them; each row's verdicts carry the same.
  Empty when no run was made. Reported as the "engines" capability.
 
 
-ˆª
+ˆ§
 
-ˆª	
+ˆ§	
 
-ˆª
+ˆ§
 
-ˆ	«
+ˆ	¨
 
-ˆ	«
+ˆ	¨
 
-ˆ	«	
+ˆ	¨	
 
-ˆ	«
+ˆ	¨
 
 ˆ
-¬
+©
 
 ˆ
-¬
+©
 
 
 ˆ
-¬
+©
 
 ˆ
-¬
+©
 
 ˆ
-¬
+©
 ô
-‰² Ôä RunRunsRequest runs one behavior repeatedly: an action, whose features and
+‰¯ Ñä RunRunsRequest runs one behavior repeatedly: an action, whose features and
  clock the runs observe, or a Simulation::MonteCarlo analysis case, whose
  declared observable each run reports and which is concluded over the sample.
 
 
-‰²
+‰¯
 
-‰ ³
+‰ °
 
-‰ ³
+‰ °
 
-‰ ³	
+‰ °	
 
-‰ ³
+‰ °
 j
-‰¶[ FQN of the action to run; exactly one of action_symbol_id and
+‰³[ FQN of the action to run; exactly one of action_symbol_id and
  analysis_symbol_id is set.
 
 
-‰¶
+‰³
 
-‰¶	
+‰³	
 
-‰¶
+‰³
 V
-‰¸ G FQN of the Simulation::MonteCarlo analysis case, definition or usage.
+‰µ G FQN of the Simulation::MonteCarlo analysis case, definition or usage.
 
 
-‰¸
+‰µ
 
-‰¸	
+‰µ	
 
-‰¸
+‰µ
 8
-‰º ) The action's input parameters, by name.
+‰· ) The action's input parameters, by name.
 
 
-‰º
+‰·
 
-‰º
+‰·
 
-‰º
+‰·
 
-‰½! Optional FQN of a part/usage to perform the action on, or a path from one
+‰º! Optional FQN of a part/usage to perform the action on, or a path from one
  to a nested object; see ExecuteActionRequest.performer_symbol_id.
 
 
-‰½
+‰º
 
-‰½	
+‰º	
 
-‰½ 
+‰º 
 ^
-‰¿O Optional FQN of the case's subject; see RunAnalysisRequest.subject_symbol_id.
+‰¼O Optional FQN of the case's subject; see RunAnalysisRequest.subject_symbol_id.
 
 
-‰¿
+‰¼
 
-‰¿	
+‰¼	
 
-‰¿
+‰¼
 T
-‰ÁE The case's positional and named arguments, as every run binds them.
+‰¾E The case's positional and named arguments, as every run binds them.
 
 
-‰Á
+‰¾
 
 
-‰Á
+‰¾
 
-‰Á
+‰¾
 
-‰Á
+‰¾
 
-‰Â)
+‰¿)
 
-‰Â
+‰¿
 
-‰Â$
+‰¿$
 
-‰Â'(
+‰¿'(
 9
-‰Ä* How many runs to make; must be positive.
+‰Á* How many runs to make; must be positive.
 
 
-‰Ä
+‰Á
 
-‰Ä
+‰Á
 
-‰Ä
+‰Á
 Ä
-‰	È´ Seed the runs draw their modeled randomness from, one derived seed per run:
+‰	Å´ Seed the runs draw their modeled randomness from, one derived seed per run:
  the same seed makes the same runs on every platform. Required unless the
  draws are fixed by `draws`.
 
 
-‰	È
+‰	Å
 
 
-‰	È
+‰	Å
 
-‰	È
+‰	Å
 
-‰	È
+‰	Å
 €
 ‰
-Ëq Draw policy for the model's distributions, as the CLI's -draws: "random"
+Èq Draw policy for the model's distributions, as the CLI's -draws: "random"
  (default), "min", "max" or "average".
 
 
 ‰
-Ë
+È
 
 ‰
-Ë	
+È	
 
 ‰
-Ë
+È
 W
-‰ÍH Clock step of each run, as the CLI's -clock-step; 0 keeps the default.
+‰ÊH Clock step of each run, as the CLI's -clock-step; 0 keeps the default.
 
 
-‰Í
+‰Ê
 
-‰Í	
+‰Ê	
 
-‰Í
+‰Ê
 Ó
-‰ÑÃ Features of the action each run reports, "clock" for the time it completed
+‰ÎÃ Features of the action each run reports, "clock" for the time it completed
  at; empty reports every feature the action holds and the clock. Refused for
  a case, which observes what it declares.
 
 
-‰Ñ
+‰Î
 
 
-‰Ñ
+‰Î
 
-‰Ñ
+‰Î
 
-‰Ñ
+‰Î
 T
-‰ÓE The engine the runs are put to; see VerifyConstraintRequest.engine.
+‰ĞE The engine the runs are put to; see VerifyConstraintRequest.engine.
 
 
-‰Ó
+‰Ğ
 
-‰Ó	
+‰Ğ	
 
-‰Ó
+‰Ğ
 S
-Š× èD RunDistribution summarises one observable over the completed runs.
+ŠÔ åD RunDistribution summarises one observable over the completed runs.
 
 
-Š×
+ŠÔ
 
-Š Ø
+Š Õ
 
-Š Ø
+Š Õ
 
-Š Ø	
+Š Õ	
 
-Š Ø
+Š Õ
 [
-ŠÚL The unit the numbers carry, empty when none or the values are not numbers.
+Š×L The unit the numbers carry, empty when none or the values are not numbers.
 
 
-ŠÚ
+Š×
 
-ŠÚ	
+Š×	
 
-ŠÚ
+Š×
 =
-ŠÜ. Completed runs that produced the observable.
+ŠÙ. Completed runs that produced the observable.
 
 
-ŠÜ
+ŠÙ
 
-ŠÜ
+ŠÙ
 
-ŠÜ
+ŠÙ
 ¢
-Šß’ Whether the values are numbers, so min/max/mean/deviation/percentiles and
+ŠÜ’ Whether the values are numbers, so min/max/mean/deviation/percentiles and
  the histogram are set; otherwise `values` counts each distinct value.
 
 
-Šß
+ŠÜ
 
-Šß
+ŠÜ
 
-Šß
+ŠÜ
 
-Šà
+Šİ
 
-Šà
+Šİ
 
-Šà
+Šİ
 
-Šà
+Šİ
 
-Šá
+ŠŞ
 
-Šá
+ŠŞ
 
-Šá
+ŠŞ
 
-Šá
+ŠŞ
 
-Šâ
+Šß
 
-Šâ
+Šß
 
-Šâ
+Šß
 
-Šâ
+Šß
 :
-Šä+ Sample standard deviation of the numbers.
+Šá+ Sample standard deviation of the numbers.
 
 
-Šä
+Šá
 
-Šä	
+Šá	
 
-Šä
+Šá
 
-Šå)
+Šâ)
 
-Šå
-
-
-Šå
-
-Šå$
-
-Šå'(
-
-Š	æ*
-
-Š	æ
+Šâ
 
 
-Š	æ
+Šâ
 
-Š	æ$
+Šâ$
 
-Š	æ')
+Šâ'(
+
+Š	ã*
+
+Š	ã
+
+
+Š	ã
+
+Š	ã$
+
+Š	ã')
 
 Š
-ç'
+ä'
 
 Š
-ç
+ä
 
 
 Š
-ç
+ä
 
 Š
-ç!
+ä!
 
 Š
-ç$&
+ä$&
 R
-‹ë îC RunPercentile is the value at a percentile of the completed runs.
+‹è ëC RunPercentile is the value at a percentile of the completed runs.
 
 
-‹ë
+‹è
 
-‹ ì
+‹ é
 
-‹ ì
+‹ é
 
-‹ ì	
+‹ é	
 
-‹ ì
+‹ é
 
-‹í
+‹ê
 
-‹í
+‹ê
 
-‹í
+‹ê
 
-‹í
+‹ê
 |
-Œò öm RunHistogramBin counts the runs whose number fell in [low, high]; a single
+Œï óm RunHistogramBin counts the runs whose number fell in [low, high]; a single
  distinct value has low == high.
 
 
-Œò
+Œï
 
-Œ ó
+Œ ğ
 
-Œ ó
+Œ ğ
 
-Œ ó
+Œ ğ
 
-Œ ó
+Œ ğ
 
-Œô
+Œñ
 
-Œô
+Œñ
 
-Œô
+Œñ
 
-Œô
+Œñ
 
-Œõ
+Œò
 
-Œõ
+Œò
 
-Œõ
+Œò
 
-Œõ
+Œò
 R
-ù üC RunCountedValue counts the runs that produced one distinct value.
+ö ùC RunCountedValue counts the runs that produced one distinct value.
 
 
-ù
+ö
 
- ú
+ ÷
 
- ú
+ ÷
 
- ú
+ ÷
 
- ú
+ ÷
 
-û
+ø
 
-û
+ø
 
-û
+ø
 
-û
+ø
 R
-ÿ …C SelfCheckRequest asks for the reflective check of a parsed model.
+ü ‚C SelfCheckRequest asks for the reflective check of a parsed model.
 
 
-ÿ
+ü
 
- €
+ ı
 
- €
+ ı
 
- €	
+ ı	
 
- €
+ ı
 õ
-„)å Qualified names of packages whose constraint definitions apply after the
+)å Qualified names of packages whose constraint definitions apply after the
  bundled SysMLValidation ones (-self-check-package). Each must resolve to a
  package the model or its libraries declare; its own elements are not checked.
 
 
-„
+
 
 
-„
+
 
-„$
+$
 
-„'(
+'(
 “
-‰ ”ƒ SelfCheckFinding is one thing the check reports about a constraint applied
+† ‘ƒ SelfCheckFinding is one thing the check reports about a constraint applied
  to an element, or a constraint or package it skipped.
 
 
-‰
+†
 ò
- â fails: the element answered the constraint false; unevaluated: the runtime
+ Šâ fails: the element answered the constraint false; unevaluated: the runtime
  cannot yet apply the constraint reflectively; error: the evaluation failed;
  warning: a rule constraint was skipped, or a rule package yielded none.
 
 
- 
+ Š
 
- 	
+ Š	
 
- 
+ Š
 Q
-"B "<constraint> for <element>", or the constraint or package alone
+‹"B "<constraint> for <element>", or the constraint or package alone
 
 
-
+‹
 
-	
+‹	
 
-
+‹
 I
-": document:line:col of the element, empty when it has none
+Œ": document:line:col of the element, empty when it has none
 
 
-
+Œ
 
-	
+Œ	
 
-
+Œ
 9
-"* qualified name of the constraint applied
+"* qualified name of the constraint applied
 
 
-
+
 
-	
+	
 
-
+
 6
-‘"' name of the element it was applied to
+"' name of the element it was applied to
 
 
-‘
+
 
-‘	
+	
 
-‘
+
 6
-’"' the reason, for a warning or an error
+"' the reason, for a warning or an error
 
 
-’
+
 
-’	
+	
 
-’
+
 =
-“". the finding as `sysml -self-check` prints it
+". the finding as `sysml -self-check` prints it
 
 
-“
+
 
-“	
+	
 
-“
+
 X
-— šI SelfCheckApplication counts the elements one constraint was applied to.
+” —I SelfCheckApplication counts the elements one constraint was applied to.
 
 
-—
+”
 
- ˜
+ •
 
- ˜
+ •
 
- ˜	
+ •	
 
- ˜
+ •
 
-™
+–
 
-™
+–
 
-™
+–
 
-™
+–
 r
-‘ ¬c SelfCheckResponse is what the check found: every finding, the counts, and
+‘› ©c SelfCheckResponse is what the check found: every finding, the counts, and
  the verdict over them.
 
 
-‘
+‘›
 Œ
-‘ ¡} holds: no violation and no evaluation error; fails: a violation;
+‘ } holds: no violation and no evaluation error; fails: a violation;
  unresolved: no violation, but an evaluation that errored.
 
 
-‘ ¡
+‘ 
 
-‘ ¡	
+‘ 	
 
-‘ ¡
+‘ 
 
-‘¢)
+‘Ÿ)
 
-‘¢
+‘Ÿ
 
 
-‘¢
+‘Ÿ
 
-‘¢$
+‘Ÿ$
 
-‘¢'(
+‘Ÿ'(
 +
-‘£" elements the check visited
+‘ " elements the check visited
 
 
-‘£
+‘ 
 
-‘£
+‘ 
 
-‘£
+‘ 
 -
-‘¤" constraint applications made
+‘¡" constraint applications made
 
 
-‘¤
+‘¡
 
-‘¤
+‘¡
 
-‘¤
+‘¡
 ,
-‘¥" applications answered false
+‘¢" applications answered false
 
 
-‘¥
+‘¢
 
-‘¥
+‘¢
 
-‘¥
+‘¢
 8
-‘¦") applications the runtime could not make
+‘£") applications the runtime could not make
 
 
-‘¦
+‘£
 
-‘¦
+‘£
 
-‘¦
+‘£
 :
-‘§"+ applications and collections that errored
+‘¤"+ applications and collections that errored
 
 
-‘§
+‘¤
 
-‘§
+‘¤
 
-‘§
+‘¤
 -
-‘¨1" by constraint, in name order
+‘¥1" by constraint, in name order
 
 
-‘¨
+‘¥
 
 
-‘¨
+‘¥
 
-‘¨ ,
+‘¥ ,
 
-‘¨/0
+‘¥/0
 C
-‘©"4 the one-line total `sysml -self-check` prints last
+‘¦"4 the one-line total `sysml -self-check` prints last
 
 
-‘©
+‘¦
 
-‘©	
+‘¦	
 
-‘©
+‘¦
 ]
-‘	ª"N non-empty if the check could not start: a rule package named is not declared
+‘	§"N non-empty if the check could not start: a rule package named is not declared
 
 
-‘	ª
+‘	§
 
-‘	ª	
+‘	§	
 
-‘	ª
+‘	§
 
 ‘
-«'
+¨'
 
 ‘
-«
+¨
 
 
 ‘
-«
+¨
 
 ‘
-«!
+¨!
 
 ‘
-«$&
+¨$&
 ‚
-’³ Ãò RecordRunRequest asks for runs of an analysis case to be recorded into the
+’° Àò RecordRunRequest asks for runs of an analysis case to be recorded into the
  model. With neither `ranges` nor `runs` the case runs once; `ranges` runs it
  once per row of the ranges as RunSweep does and records each completed row;
  `runs` runs it that many times as RunRuns does a Simulation::MonteCarlo case
  and records each completed run and the sample's conclusion.
 
 
-’³
+’°
 
-’ ´
+’ ±
 
-’ ´
+’ ±
 
-’ ´	
+’ ±	
 
-’ ´
+’ ±
 H
-’µ "9 qualified name of the analysis case definition or usage
+’² "9 qualified name of the analysis case definition or usage
 
 
-’µ
+’²
 
-’µ	
+’²	
 
-’µ
+’²
 M
-’¶"> part/usage to instantiate as the subject, or a path from one
+’³"> part/usage to instantiate as the subject, or a path from one
 
 
-’¶
+’³
 
-’¶	
+’³	
 
-’¶
+’³
 
-’·
+’´
 
-’·
+’´
 
 
-’·
+’´
 
-’·
+’´
 
-’·
+’´
 
-’¸)
+’µ)
 
-’¸
+’µ
 
-’¸$
+’µ$
 
-’¸'(
+’µ'(
 
-’¹
+’¶
 
-’¹
+’¶
 
-’¹	
+’¶	
 
-’¹
+’¶
 …
-’¼v Package the records go into (-record-into); empty is a Records package
+’¹v Package the records go into (-record-into); empty is a Records package
  beside the package enclosing the case's own.
 
 
-’¼
+’¹
 
-’¼	
+’¹	
 
-’¼
+’¹
 0
-’½!"! records a sweep's rows (-sweep)
+’º!"! records a sweep's rows (-sweep)
 
 
-’½
+’º
 
 
-’½
+’º
 
-’½
+’º
 
-’½ 
+’º 
 G
-’¾"8 records a Monte Carlo sample of this many runs (-runs)
+’»"8 records a Monte Carlo sample of this many runs (-runs)
 
 
-’¾
+’»
 
-’¾
+’»
 
-’¾
+’»
 ?
-’	¿"0 seed of the sample's draws; required with runs
+’	¼"0 seed of the sample's draws; required with runs
 
 
-’	¿
+’	¼
 
 
-’	¿
+’	¼
 
-’	¿
+’	¼
 
-’	¿
+’	¼
 
 ’
-Â€ As in ApplyEditsRequest: a model of several documents is refused unless the
+¿€ As in ApplyEditsRequest: a model of several documents is refused unless the
  request says it reads the response's `documents`.
 
 
 ’
-Â
+¿
 
 ’
-Â
+¿
 
 ’
-Â
+¿
 ƒ
-“Ç æt RecordRunResponse is the runs' own report, what the model gained, and the
+“Ä ãt RecordRunResponse is the runs' own report, what the model gained, and the
  notation the records were written into.
 
 
-“Ç
+“Ä
 T
-“ ÉE The runs' own result, one of these by how the request ran the case.
+“ ÆE The runs' own result, one of these by how the request ran the case.
 
 
-“ É
+“ Æ
 
-“ É
+“ Æ
 
-“ É
+“ Æ
 
-“Ê
+“Ç
 
-“Ê
+“Ç
 
-“Ê
+“Ç
 
-“Ê
+“Ç
 
-“Ë
+“È
 
-“Ë
+“È
 
-“Ë
+“È
 
-“Ë
+“È
 D
-“Ì"5 qualified name of the package the records went into
+“É"5 qualified name of the package the records went into
 
 
-“Ì
+“É
 
-“Ì	
+“É	
 
-“Ì
+“É
 A
-“Í"2 qualified name of the per-case record definition
+“Ê"2 qualified name of the per-case record definition
 
 
-“Í
+“Ê
 
-“Í	
+“Ê	
 
-“Í
+“Ê
 >
-“Î"/ qualified names of the records made, in order
+“Ë"/ qualified names of the records made, in order
 
 
-“Î
+“Ë
 
 
-“Î
+“Ë
 
-“Î
+“Ë
 
-“Î
+“Ë
 ¢
-“Ñ’ The record declarations generated: the target package's full nesting down
+“Î’ The record declarations generated: the target package's full nesting down
  to it, holding the record definition when new and every record usage.
 
 
-“Ñ
+“Î
 
-“Ñ	
+“Î	
 
-“Ñ
+“Î
 ‡
-“Ù÷ The notation of the document the records merged into, byte-identical to
+“Ö÷ The notation of the document the records merged into, byte-identical to
  the source outside the package they joined, or the records as a document of
  their own when no document holds the package's nesting. As in
  ApplyEditsResponse, `content` is set for a single-document model alone and
@@ -11664,263 +11661,263 @@ A
  their package with the notation's extension (`Records.sysml`).
 
 
-“Ù
+“Ö
 
-“Ù	
+“Ö	
 
-“Ù
+“Ö
 
-“Ú(
+“×(
 
-“Ú
+“×
 
 
-“Ú
+“×
 
-“Ú#
+“×#
 
-“Ú&'
+“×&'
 ?
-“	Û"0 rows or runs that failed and were not recorded
+“	Ø"0 rows or runs that failed and were not recorded
 
 
-“	Û
+“	Ø
 
-“	Û
+“	Ø
 
-“	Û
+“	Ø
 P
 “
-Ü"A why runs were not recorded, as `sysml -record-run` reports them
+Ù"A why runs were not recorded, as `sysml -record-run` reports them
 
 
 “
-Ü
+Ù
 
 
 “
-Ü
+Ù
 
 “
-Ü
+Ù
 
 “
-Ü
+Ù
 ­
-“ß Non-empty when nothing was recorded: the case could not run, no run
+“Ü Non-empty when nothing was recorded: the case could not run, no run
  completed, or the records would not analyze cleanly, which leaves the model unchanged.
 
 
-“ß
+“Ü
 
-“ß	
+“Ü	
 
-“ß
+“Ü
 
-“à$
+“İ$
 
-“à
+“İ
 
-“à
+“İ
 
-“à!#
+“İ!#
 
-“á'
+“Ş'
 
-“á
+“Ş
 
 
-“á
+“Ş
 
-“á!
+“Ş!
 
-“á$&
+“Ş$&
 Õ
-“åÅ Hash of the model with the records in it, cached as a parse request's
+“âÅ Hash of the model with the records in it, cached as a parse request's
  would be, so the next request can run against the recorded model without
  parsing it again. Empty when nothing was recorded.
 
 
-“å
+“â
 
-“å	
+“â	
 
-“å
+“â
 ©
-”ê †™ RunRunsResponse is the table of the runs, one row per run in run order, each
+”ç ƒ™ RunRunsResponse is the table of the runs, one row per run in run order, each
  observable's distribution, and for a case its conclusion over the sample.
 
 
-”ê
+”ç
 •
-” í… One row per run: `inputs` carries the run number as `run`, `outputs` what
+” ê… One row per run: `inputs` carries the run number as `run`, `outputs` what
  the run observed, `verdicts` the case's in-run verdicts.
 
 
-” í
+” ê
 
 
-” í
+” ê
 
-” í
+” ê
 
-” í
+” ê
 ”
-”ğ"„ The observables tabled, in column order: those asked for, else every
+”í"„ The observables tabled, in column order: those asked for, else every
  feature the action holds and "clock"; "observed" for a case.
 
 
-”ğ
+”í
 
 
-”ğ
+”í
 
-”ğ
+”í
 
-”ğ !
+”í !
 
-”ñ-
+”î-
 
-”ñ
+”î
 
 
-”ñ
+”î
 
-”ñ(
+”î(
 
-”ñ+,
+”î+,
 ‡
-”ôx Each distribution and, for a case, its conclusion as the CLI prints them
+”ñx Each distribution and, for a case, its conclusion as the CLI prints them
  under the table; the table itself is `rows`.
 
 
-”ô
+”ñ
 
 
-”ô
+”ñ
 
-”ô
+”ñ
 
-”ô
+”ñ
 š
-”÷"Š A case's conclusion over the completed runs: its outputs and verdicts,
+”ô"Š A case's conclusion over the completed runs: its outputs and verdicts,
  which every row's verdicts were settled by. Empty for an action.
 
 
-”÷
+”ô
 
 
-”÷
+”ô
 
-”÷
+”ô
 
-”÷ !
+”ô !
 
-”ø 
+”õ 
 
-”ø
+”õ
 
 
-”ø
+”õ
 
-”ø
+”õ
 
-”ø
+”õ
 ]
-”úN Why the case has no conclusion: no run completed, or the sample was refused.
+”÷N Why the case has no conclusion: no run completed, or the sample was refused.
 
 
-”ú
+”÷
 
-”ú	
+”÷	
 
-”ú
+”÷
 [
-”üL Set when no run was made at all; a failed run is a row carrying its error.
+”ùL Set when no run was made at all; a failed run is a row carrying its error.
 
 
-”ü
+”ù
 
-”ü	
+”ù	
 
-”ü
+”ù
 
-”ı&
+”ú&
 
-”ı
+”ú
 
 
-”ı
+”ú
 
-”ı!
+”ú!
 
-”ı$%
+”ú$%
 
-”	ş$
+”	û$
 
-”	ş
+”	û
 
-”	ş
+”	û
 
-”	ş!#
+”	û!#
 \
 ”
-€#M Every object a row's verdict is about, so each `instance_id` resolves here.
+ı#M Every object a row's verdict is about, so each `instance_id` resolves here.
 
 
 ”
-€
+ı
 
 
 ”
-€
+ı
 
 ”
-€
+ı
 
 ”
-€ "
+ı "
 
-”
+”ş
 
-”
+”ş
 
-”	
+”ş	
 
-”
+”ş
 
-”‚
+”ÿ
 
-”‚
+”ÿ
 
-”‚	
+”ÿ	
 
-”‚
+”ÿ
 
-”ƒ
+”€
 
-”ƒ
+”€
 
 
-”ƒ
+”€
 
-”ƒ
+”€
 
-”ƒ
+”€
 =
-”…. The seed the runs drew from, when they drew.
+”‚. The seed the runs drew from, when they drew.
 
 
-”…
+”‚
 
 
-”…
+”‚
 
-”…
+”‚
 
-”…
+”‚
 ½
-• —­ RunDocumentQueryRequest runs a named document query â€” a calc def
+•Œ ”­ RunDocumentQueryRequest runs a named document query â€” a calc def
  specializing DocumentQueries::Query â€” against a model the service already
  parsed, binding its entry parameters. It answers as %run-query does, but with
  typed rows rather than formatted lines. The query runs over the objects
@@ -11928,226 +11925,226 @@ P
  and `DocumentQueries::Objects` and `Verdicts` reach.
 
 
-•
+•Œ
 (
-• " from ParseFile response
+• " from ParseFile response
 
 
-• 
+• 
 
-• 	
+• 	
 
-• 
+• 
 £
-•““ FQN of the document query to run. Fails with NOT_FOUND when the model does
+•“ FQN of the document query to run. Fails with NOT_FOUND when the model does
  not declare it, and INVALID_ARGUMENT when it declares something else.
 
 
-•“
+•
 
-•“	
+•	
 
-•“
+•
 
-•–-€ Entry-parameter bindings. Repeating a parameter appends to its binding, so
+•“-€ Entry-parameter bindings. Repeating a parameter appends to its binding, so
  a nonscalar parameter can be given several values.
 
 
-•–
+•“
 
 
-•–
+•“
 
-•– (
+•“ (
 
-•–+,
+•“+,
 T
-–š E DocumentQueryBinding binds one entry parameter of a document query.
+–— šE DocumentQueryBinding binds one entry parameter of a document query.
 
 
-–š
+–—
 
-– ›
+– ˜
 
-– ›
+– ˜
 
-– ›	
+– ˜	
 
-– ›
+– ˜
 
-–œ$
+–™$
 
-–œ
+–™
 
 
-–œ
+–™
 
-–œ
+–™
 
-–œ"#
+–™"#
 ¿
-—£ ·¯ DocumentValue is one typed document-query value. A request binds a model
+—  ´¯ DocumentValue is one typed document-query value. A request binds a model
  element by qualified name in element_id, or an object the service holds in
  object; a response also says what the element is in element_type. `infinity`
  denotes an unbounded multiplicity and is only ever answered, never bound.
 
 
-—£
+— 
 
-— ¤´
+— ¡±
 
-— ¤
+— ¡
 2
-— ¥"# qualified name of a model element
+— ¢"# qualified name of a model element
 
 
-— ¥
+— ¢
 
 
-— ¥
+— ¢
 
-— ¥
+— ¢
 
-—¦
+—£
 
-—¦
+—£
 
 
-—¦
+—£
 
-—¦
+—£
 
-—§
+—¤
 
-—§	
+—¤	
 
-—§
+—¤
 
 
-—§
+—¤
 
-—¨
+—¥
 
-—¨
+—¥
 
 
-—¨
+—¥
 
-—¨
+—¥
 
-—©
+—¦
 
-—©
+—¦
 
-—©	
+—¦	
 
-—©
+—¦
 
-—ª
+—§
 
-—ª
+—§
 
-—ª	
+—§	
 
-—ª
+—§
 4
-—«"% magnitude in a unit, `2290000 [kg]`
+—¨"% magnitude in a unit, `2290000 [kg]`
 
 
-—«
+—¨
 
-—«
+—¨
 
-—«
+—¨
 ?
-—¬ "0 a row Verdicts answered; answered, never bound
+—© "0 a row Verdicts answered; answered, never bound
 
 
-—¬
+—©
 
-—¬
+—©
 
-—¬
+—©
 B
-—­"3 an object Instantiate created; bound and answered
+—ª"3 an object Instantiate created; bound and answered
 
 
-—­
+—ª
 
-—­
+—ª
 
-—­
+—ª
 =
-—	®". a row States answered; answered, never bound
+—	«". a row States answered; answered, never bound
 
 
-—	®
+—	«
 
-—	®
+—	«
 
-—	®
+—	«
 =
 —
-¯". a row Events answered; answered, never bound
+¬". a row Events answered; answered, never bound
 
 
 —
-¯
+¬
 
 —
-¯
+¬
 
 —
-¯
+¬
 M
-—±> An Integer beyond int64, in decimal, as Value.big_int_value.
+—®> An Integer beyond int64, in decimal, as Value.big_int_value.
 
 
-—±
+—®
 
 
-—±
+—®
 
-—±
+—®
 <
-—³!- An exact Rational, as Value.rational_value.
+—°!- An exact Rational, as Value.rational_value.
 
 
-—³
+—°
 
-—³
+—°
 
-—³ 
+—° 
 _
-—¶P Metamodel type of element_id ("PartUsage", ...); answered, ignored when bound.
+—³P Metamodel type of element_id ("PartUsage", ...); answered, ignored when bound.
 
 
-—¶
+—³
 
-—¶	
+—³	
 
-—¶
+—³
 Ë
-˜¾ Í» DocumentObject is an object the service holds for the model, created by
+˜» Ê» DocumentObject is an object the service holds for the model, created by
  Instantiate, as a query binds and answers it. A request names it by path
  when path is set, and by instance_id otherwise; a request setting both must
  name one object by both. A response answers both, and the element the object
  stands for.
 
 
-˜¾
+˜»
 w
-˜ Áh The object's id, as Instantiate answered it. Fails with NOT_FOUND when no
+˜ ¾h The object's id, as Instantiate answered it. Fails with NOT_FOUND when no
  object of the model has it.
 
 
-˜ Á
+˜ ¾
 
-˜ Á
+˜ ¾
 
-˜ Á
+˜ ¾
 ˜
-˜Èˆ The object by the label a session reaches it under: the qualified name it
+˜Åˆ The object by the label a session reaches it under: the qualified name it
  was instantiated as (`Garage::car`), its id (`#2`), or a path through the
  feature values of either (`Garage::car.wheels[2]`, `#2.wheels[2]`; indexes
  count from 1). Fails with INVALID_ARGUMENT when the text is no reference or
@@ -12155,191 +12152,191 @@ w
  no object.
 
 
-˜È
+˜Å
 
-˜È	
+˜Å	
 
-˜È
+˜Å
 Ú
-˜ÌÊ The usage the object is held under â€” its own definition or usage for an
+˜ÉÊ The usage the object is held under â€” its own definition or usage for an
  object Instantiate created â€” as an element value with its qualified name
  and metamodel type. Answered, ignored when bound.
 
 
-˜Ì
+˜É
 
-˜Ì
+˜É
 
-˜Ì
+˜É
 £
-™Ñ ç“ DocumentVerdict is one row a `Verdicts` query answered: an assertion checked
+™Î ä“ DocumentVerdict is one row a `Verdicts` query answered: an assertion checked
  on the object at `path`, which the row stands for as its `element`.
 
 
-™Ñ
+™Î
 ¤
-™ Ô” The assertion checked, as an element value: the constraint, requirement,
+™ Ñ” The assertion checked, as an element value: the constraint, requirement,
  satisfy usage or verification case, its element_id empty when anonymous.
 
 
-™ Ô
+™ Ñ
 
-™ Ô
+™ Ñ
 
-™ Ô
+™ Ñ
 O
-™Ö@ "constraint", "requirement", "satisfaction" or "verification".
+™Ó@ "constraint", "requirement", "satisfaction" or "verification".
 
 
-™Ö
+™Ó
 
-™Ö	
+™Ó	
 
-™Ö
+™Ó
  
-™Ù The assertion as written ("assert constraint massKnown", "satisfy Range by
+™Ö The assertion as written ("assert constraint massKnown", "satisfy Range by
  cruise", "verification Tests::massTest"), naming an anonymous one.
 
 
-™Ù
+™Ö
 
-™Ù	
+™Ö	
 
-™Ù
+™Ö
 
-™Ü The object checked, by path from the element the query was bound to
+™Ù The object checked, by path from the element the query was bound to
  ("Garage::car.wheels[2]"); the element's own qualified name for itself.
 
 
-™Ü
+™Ù
 
-™Ü	
+™Ù	
 
-™Ü
+™Ù
 4
-™Ş% "holds", "violated" or "undecided".
+™Û% "holds", "violated" or "undecided".
 
 
-™Ş
+™Û
 
-™Ş	
+™Û	
 
-™Ş
+™Û
 T
-™àE The condition that evaluated to false, as written; empty otherwise.
+™İE The condition that evaluated to false, as written; empty otherwise.
 
 
-™à
+™İ
 
-™à	
+™İ	
 
-™à
+™İ
 Q
-™âB Why the assertion is violated or undecided; empty when it holds.
+™ßB Why the assertion is violated or undecided; empty when it holds.
 
 
-™â
+™ß
 
-™â	
+™ß	
 
-™â
+™ß
 Ì
-™æ#¼ The verdict kinds ("pass", "fail", "inconclusive", "error") of the
+™ã#¼ The verdict kinds ("pass", "fail", "inconclusive", "error") of the
  verification cases verifying the requirement the row is about; a
  verification row's own kind. Empty for a constraint.
 
 
-™æ
+™ã
 
 
-™æ
+™ã
 
-™æ
+™ã
 
-™æ!"
+™ã!"
 Ê
-šì ıº DocumentState is one row a `States` query answered: an active leaf state of
+šé úº DocumentState is one row a `States` query answered: an active leaf state of
  the state machine `object` exhibits, which the row stands for as its `element`
  when the model declares it.
 
 
-šì
+šé
 R
-š îC The object in the state, with the path the session reaches it by.
+š ëC The object in the state, with the path the session reaches it by.
 
 
-š î
+š ë
 
-š î
+š ë
 
-š î
+š ë
 m
-šñ^ The state machine, by the name the object exhibits it under (`lp`), else
+šî^ The state machine, by the name the object exhibits it under (`lp`), else
  its declared name.
 
 
-šñ
+šî
 
-šñ	
+šî	
 
-šñ
+šî
 '
-šó The leaf state's name.
+šğ The leaf state's name.
 
 
-šó
+šğ
 
-šó	
+šğ	
 
-šó
+šğ
 Y
-šõJ The leaf state's path in its machine, composite states first (`on.dim`).
+šòJ The leaf state's path in its machine, composite states first (`on.dim`).
 
 
-šõ
+šò
 
-šõ	
+šò	
 
-šõ
+šò
 v
-šøg The leaf state's declaration as an element value; empty when the machine
+šõg The leaf state's declaration as an element value; empty when the machine
  declares no element for it.
 
 
-šø
+šõ
 
-šø
+šõ
 
-šø
+šõ
 R
-šúC The orthogonal region the leaf is declared in; empty outside one.
+š÷C The orthogonal region the leaf is declared in; empty outside one.
 
 
-šú
+š÷
 
-šú	
+š÷	
 
-šú
+š÷
 Z
-šü K The composite states enclosing the leaf, outermost first; each is active.
+šù K The composite states enclosing the leaf, outermost first; each is active.
 
 
-šü
+šù
 
 
-šü
+šù
 
-šü
+šù
 
-šü
+šù
 ‡
-› ±x DocumentEvent is one row an `Events` query answered: one record of the
+›ş ®x DocumentEvent is one row an `Events` query answered: one record of the
  session's trace, in the order the run made it.
 
 
-›
+›ş
 ¼
-› ˆ¬ "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or
+› …¬ "accept", "send", "transition", "entry", "exit", "do", "choice", "guard" or
  "terminate" for a state machine's records; an action's run adds "step" (a
  token arriving at a node), "wait" (a token parking at an accept node),
  "assign" (a feature written), "decide" (a decision node resolved) and
@@ -12347,519 +12344,519 @@ Z
  node taking a message and its "send" a message posted.
 
 
-› ˆ
+› …
 
-› ˆ	
+› …	
 
-› ˆ
+› …
 
-›‹ The clock's instant when the record was made: a quantity in the clock's
+›ˆ The clock's instant when the record was made: a quantity in the clock's
  unit when the library reduces one, else a bare real of clock units.
 
 
-›‹
+›ˆ
 
-›‹
+›ˆ
 
-›‹
+›ˆ
 œ
-›Œ The object whose behavior made the record; unset for the run's own
+›‹Œ The object whose behavior made the record; unset for the run's own
  records (a due-order choice, a message posted from outside the model).
 
 
-›
+›‹
 
-›
+›‹
 
-›
+›‹
 —
-›‘‡ The behavior the record is about, by the name the object exhibits it
+›‡ The behavior the record is about, by the name the object exhibits it
  under, else its declared name; empty for the run's own records.
 
 
-›‘
+›
 
-›‘	
+›	
 
-›‘
+›
 
-›” The state entered, exited or stepped by an entry, exit or do record; the
+›‘ The state entered, exited or stepped by an entry, exit or do record; the
  action node a wait, assign, decide or action accept record is at.
 
 
-›”
+›‘
 
-›”	
+›‘	
 
-›”
+›‘
 Ç
-›˜· A fired transition's source and target states; a step's source node (empty
+›•· A fired transition's source and target states; a step's source node (empty
  where the token's flow starts) and the node it arrived at; a decide's
  branch taken, as `taken` names it.
 
 
-›˜
+›•
 
-›˜	
+›•	
 
-›˜
+›•
 
-›™
+›–
 
-›™
+›–
 
-›™	
+›–	
 
-›™
+›–
 s
-›œd The object a send was addressed to; unset for every other kind and a
+›™d The object a send was addressed to; unset for every other kind and a
  send addressed to no object.
 
 
-›œ
+›™
 
-›œ
+›™
 
-›œ
+›™
 “
-›Ÿƒ The signal or event accepted or sent, the trigger a transition fired on, or
+›œƒ The signal or event accepted or sent, the trigger a transition fired on, or
  the message type or trigger a wait record waits for.
 
 
-›Ÿ
+›œ
 
-›Ÿ	
+›œ	
 
-›Ÿ
+›œ
 [
-›	¡L An accept's payload, one `name = value` entry per parameter in name order.
+›	L An accept's payload, one `name = value` entry per parameter in name order.
 
 
-›	¡
+›	
 
 
-›	¡
+›	
 
-›	¡
+›	
 
-›	¡
+›	
 ¥
 ›
-¤$• A choice's alternatives, in the order they were offered, and the one taken;
+¡$• A choice's alternatives, in the order they were offered, and the one taken;
  a decide's branches as `<position>-><target node>`, and the one taken.
 
 
 ›
-¤
+¡
 
 
 ›
-¤
+¡
 
 ›
-¤
+¡
 
 ›
-¤!#
+¡!#
 
-›¥
+›¢
 
-›¥
+›¢
 
-›¥	
+›¢	
 
-›¥
+›¢
 :
-›§+ The line the trace prints for the record.
+›¤+ The line the trace prints for the record.
 
 
-›§
+›¤
 
-›§	
+›¤	
 
-›§
+›¤
 ç
-›«× The action token a step, wait, assign, decide or action accept record is
+›¨× The action token a step, wait, assign, decide or action accept record is
  about, and the executor step (1-based) that made the record; 0 for a record
  of neither (a state machine's, a send from outside the model).
 
 
-›«
+›¨
 
-›«
+›¨
 
-›«
+›¨
 
-›¬
+›©
 
-›¬
+›©
 
-›¬
+›©
 
-›¬
+›©
 u
-›¯f The feature an assign record wrote and the value it holds since, as the
+›¬f The feature an assign record wrote and the value it holds since, as the
  run's outputs carry values.
 
 
-›¯
+›¬
 
-›¯	
+›¬	
 
-›¯
+›¬
 
-›°
+›­
 
-›°
+›­
 
-›°
+›­
 
-›°
+›­
 T
-œ´ ¶E DocumentQueryColumn is one projected property, in projection order.
+œ± ³E DocumentQueryColumn is one projected property, in projection order.
 
 
-œ´
+œ±
 
-œ µ
+œ ²
 
-œ µ
+œ ²
 
-œ µ	
+œ ²	
 
-œ µ
+œ ²
 \
-¹ »M DocumentQueryCell is one row's values for one column, in the query's order.
+¶ ¸M DocumentQueryCell is one row's values for one column, in the query's order.
 
 
-¹
+¶
 
- º$
+ ·$
 
- º
+ ·
 
 
- º
+ ·
 
- º
+ ·
 
- º"#
+ ·"#
 s
-¿ Æd DocumentQueryRow is one selected element and its projected cells, one per
+¼ Ãd DocumentQueryRow is one selected element and its projected cells, one per
  column in column order.
 
 
-¿
+¼
 
- Ä The selected element itself, an element value with its qualified name; an
+ Á The selected element itself, an element value with its qualified name; an
  object value for a row over an object the service holds; a verdict value
  for a row `Verdicts` answered; a state value for a row `States` answered;
  an event value for a row `Events` answered.
 
 
- Ä
+ Á
 
- Ä
+ Á
 
- Ä
+ Á
 
-Å'
+Â'
 
-Å
+Â
 
 
-Å
+Â
 
-Å"
+Â"
 
-Å%&
+Â%&
 ¡
-ŸÌ Ï‘ RunDocumentQueryResponse is the query's answer: its projected columns and its
+ŸÉ Ì‘ RunDocumentQueryResponse is the query's answer: its projected columns and its
  rows, both in the deterministic order the engine reports. A query that
  selects nothing answers with no rows; a query that could not be run fails the
  call with the status its failure maps to.
 
 
-ŸÌ 
+ŸÉ 
 
-Ÿ Í+
+Ÿ Ê+
 
-Ÿ Í
-
-
-Ÿ Í
-
-Ÿ Í&
-
-Ÿ Í)*
-
-ŸÎ%
-
-ŸÎ
+Ÿ Ê
 
 
-ŸÎ
+Ÿ Ê
 
-ŸÎ 
+Ÿ Ê&
 
-ŸÎ#$
+Ÿ Ê)*
+
+ŸË%
+
+ŸË
+
+
+ŸË
+
+ŸË 
+
+ŸË#$
 Ä
- Ó Ù´ QueryOutcome is the record behind a document query that could not be run, an error
+ Ğ Ö´ QueryOutcome is the record behind a document query that could not be run, an error
  detail of the failed call: a pathError or modelError at its step, as -json's checks[].outcome.
 
 
- Ó
+ Ğ
 ,
-  Ô" "pathError" or "modelError"
+  Ñ" "pathError" or "modelError"
 
 
-  Ô
+  Ñ
 
-  Ô	
+  Ñ	
 
-  Ô
+  Ñ
 P
- Õ"A the step the outcome is reported at, as "Named(Observatory::x)"
+ Ò"A the step the outcome is reported at, as "Named(Observatory::x)"
 
 
- Õ
+ Ò
 
- Õ	
+ Ò	
 
- Õ
+ Ò
 @
- Ö%"1 a pathError's failures, one per failing element
+ Ó%"1 a pathError's failures, one per failing element
 
 
- Ö
+ Ó
 
 
- Ö
+ Ó
 
- Ö 
+ Ó 
 
- Ö#$
+ Ó#$
 (
- ×%" a modelError's findings
+ Ô%" a modelError's findings
 
 
- ×
+ Ô
 
 
- ×
+ Ô
 
- × 
+ Ô 
 
- ×#$
+ Ô#$
 C
- Ø*"4 a modelError's path failures from the same fan-out
+ Õ*"4 a modelError's path failures from the same fan-out
 
 
- Ø
+ Õ
 
 
- Ø
+ Õ
 
- Ø%
+ Õ%
 
- Ø()
+ Õ()
 
-¡İ á QueryFailure is one failure of one step on one element: what the step
+¡Ú Ş QueryFailure is one failure of one step on one element: what the step
  expected, and what the model holds where the path stopped resolving.
 
 
-¡İ
+¡Ú
 
-¡ Ş
+¡ Û
 
-¡ Ş
+¡ Û
 
-¡ Ş	
+¡ Û	
 
-¡ Ş
+¡ Û
 
-¡ß
+¡Ü
 
-¡ß
+¡Ü
 
-¡ß	
+¡Ü	
 
-¡ß
+¡Ü
 
-¡à
+¡İ
 
-¡à
+¡İ
 
-¡à
+¡İ
 
-¡à
+¡İ
 
-¢å ë QueryFrontier is what the model holds where the path stopped: the last
+¢â è QueryFrontier is what the model holds where the path stopped: the last
  element that resolved and what it offers in place of what was asked.
 
 
-¢å
+¢â
 8
-¢ æ") empty when nothing on the path resolved
+¢ ã") empty when nothing on the path resolved
 
 
-¢ æ
+¢ ã
 
-¢ æ	
+¢ ã	
 
-¢ æ
+¢ ã
 6
-¢ç+"' its members, when a name was expected
+¢ä+"' its members, when a name was expected
 
 
-¢ç
+¢ä
 
 
-¢ç
+¢ä
 
-¢ç&
+¢ä&
 
-¢ç)*
+¢ä)*
 :
-¢è-"+ its features, when a feature was expected
+¢å-"+ its features, when a feature was expected
 
 
-¢è
+¢å
 
 
-¢è
+¢å
 
-¢è (
+¢å (
 
-¢è+,
+¢å+,
 K
-¢é"< the relationship kinds there are, when a kind was expected
+¢æ"< the relationship kinds there are, when a kind was expected
 
 
-¢é
+¢æ
 
 
-¢é
+¢æ
 
-¢é
+¢æ
 
-¢é
+¢æ
 ?
-¢ê"0 the closest spelling, when a name was expected
+¢ç"0 the closest spelling, when a name was expected
 
 
-¢ê
+¢ç
 
-¢ê	
+¢ç	
 
-¢ê
+¢ç
 
-£í ğ
+£ê í
 
-£í
+£ê
 
-£ î
+£ ë
 
-£ î
+£ ë
 
-£ î	
+£ ë	
 
-£ î
+£ ë
 
-£ï
+£ì
 
-£ï
+£ì
 
-£ï	
+£ì	
 
-£ï
+£ì
 
-¤ò õ
+¤ï ò
 
-¤ò
+¤ï
 
-¤ ó
+¤ ğ
 
-¤ ó
+¤ ğ
 
-¤ ó	
+¤ ğ	
 
-¤ ó
+¤ ğ
 -
-¤ô" empty for an untyped feature
+¤ñ" empty for an untyped feature
 
 
-¤ô
+¤ñ
 
-¤ô	
+¤ñ	
 
-¤ô
+¤ñ
 ­
-¥ù ş QueryFinding is one finding about an element at a step: a constraint the
+¥ö û QueryFinding is one finding about an element at a step: a constraint the
  model violates (ambiguousName, multiplicity, typing, unit) and what was observed.
 
 
-¥ù
+¥ö
 
-¥ ú
+¥ ÷
 
-¥ ú
+¥ ÷
 
-¥ ú	
+¥ ÷	
 
-¥ ú
+¥ ÷
 
-¥û
+¥ø
 
-¥û
+¥ø
 
-¥û	
+¥ø	
 
-¥û
+¥ø
 
-¥ü
+¥ù
 
-¥ü
+¥ù
 
-¥ü	
+¥ù	
 
-¥ü
+¥ù
 
-¥ı
+¥ú
 
-¥ı
+¥ú
 
-¥ı	
+¥ú	
 
-¥ı
+¥ú
 å
-¦ƒ Õ RenderDocumentRequest renders a named document â€” a part def specializing
+¦€ ŒÕ RenderDocumentRequest renders a named document â€” a part def specializing
  DocumentQueries::Document â€” to Markdown or HTML. A document binds its
  queries' parameters in the model, so the request carries none.
 
 
-¦ƒ
+¦€
 (
-¦ „" from ParseFile response
+¦ " from ParseFile response
 
 
-¦ „
+¦ 
 
-¦ „	
+¦ 	
 
-¦ „
+¦ 
  
-¦‡ FQN of the document to render. Fails with NOT_FOUND when the model does
+¦„ FQN of the document to render. Fails with NOT_FOUND when the model does
  not declare it, and INVALID_ARGUMENT when it declares something else.
 
 
-¦‡
+¦„
 
-¦‡	
+¦„	
 
-¦‡
+¦„
 ‡
-¦÷ Form to render: "markdown" (the default when empty), "html", the
+¦‹÷ Form to render: "markdown" (the default when empty), "html", the
  standalone page with the default stylesheet that the CLI's -doc-form html
  writes, or "asciidoc", the document the CLI's -doc-form asciidoc writes
  (under the render_document_asciidoc capability). Any other form fails
@@ -12867,1938 +12864,1938 @@ K
  offered here.
 
 
-¦
+¦‹
 
-¦	
+¦‹	
 
-¦
+¦‹
 …
-§• õ RenderDocumentResponse carries the rendered document in the form requested,
+§’ šõ RenderDocumentResponse carries the rendered document in the form requested,
  byte-for-byte what the CLI's -render-document writes: markdown for the
  Markdown form, html for the HTML form, asciidoc for the AsciiDoc form, the
  others left empty.
 
 
-§•
+§’
 
-§ –
+§ “
 
-§ –
+§ “
 
-§ –	
+§ “	
 
-§ –
+§ “
 
-§—
+§”
 
-§—
+§”
 
-§—	
+§”	
 
-§—
+§”
 
-§˜
+§•
 
-§˜
+§•
 
-§˜	
+§•	
 
-§˜
+§•
 Õ
-§œÅ The file a rendered set writes this document to in the requested form
+§™Å The file a rendered set writes this document to in the requested form
  (-render-documents), which the other documents' links to it name.
  Populated under the render_document_file_name capability.
 
 
-§œ
+§™
 
-§œ	
+§™	
 
-§œ
+§™
 [
-¨  ´L RenderViewRequest names a declared view or targeted pseudo-view to render.
+¨ ±L RenderViewRequest names a declared view or targeted pseudo-view to render.
 
 
-¨ 
+¨
 
-¨ ¡
+¨ 
 
-¨ ¡
+¨ 
 
-¨ ¡	
+¨ 	
 
-¨ ¡
+¨ 
 Q
-¨£B A qualified view name or "#<kind>:<qualified name>" pseudo-view.
+¨ B A qualified view name or "#<kind>:<qualified name>" pseudo-view.
 
 
-¨£
+¨ 
 
-¨£	
+¨ 	
 
-¨£
+¨ 
 W
-¨¥H "" or "minimal" (the default), or "full", as view.ParsePorts reads it.
+¨¢H "" or "minimal" (the default), or "full", as view.ParsePorts reads it.
 
 
-¨¥
+¨¢
 
-¨¥	
+¨¢	
 
-¨¥
+¨¢
 ‚
-¨ªò Optional notation elements to draw besides those the view's rendering
+¨§ò Optional notation elements to draw besides those the view's rendering
  shows, as view.ShownOf reads them: "parameter-symbols", "port-symbols",
  "compartments", "edge-labels", "keywords", "multiplicities", "typings",
  "qualifiers", or "all".
 
 
-¨ª
+¨§
 
 
-¨ª
+¨§
 
-¨ª
+¨§
 
-¨ª
+¨§
 ”
-¨­„ How many levels of nested elements to draw below each exposed element,
+¨ª„ How many levels of nested elements to draw below each exposed element,
  overriding the depth the view states; 0 draws every level.
 
 
-¨­
+¨ª
 
-¨­
+¨ª
 
-¨­
+¨ª
 ñ
-¨³á How a tree rendering folds a node's owned members into compartment rows,
+¨°á How a tree rendering folds a node's owned members into compartment rows,
  as view.ParseCompartments reads it: "" or "positioned" (the default, only
  the layout-less members of a tree some Layout positions), "most" (every
  owned usage no Layout, nested definition or package keeps a node) or
  "ports" (the port usages with the ports nested under them).
 
 
-¨³
+¨°
 
-¨³	
+¨°	
 
-¨³
+¨°
 Y
-©· ÉJ RenderViewResponse carries all machine-readable fields of the rendering.
+©´ ÆJ RenderViewResponse carries all machine-readable fields of the rendering.
 
 
-©·
+©´
 
-© ¸
+© µ
 
-© ¸
+© µ
 
-© ¸	
+© µ	
 
-© ¸
+© µ
 
-©¹
+©¶
 
-©¹
+©¶
 
-©¹	
+©¶	
 
-©¹
+©¶
 
-©º
+©·
 
-©º
+©·
 
-©º	
+©·	
 
-©º
+©·
 „
-©½ u Nodes are flattened with parents before children; each node is listed once,
+©º u Nodes are flattened with parents before children; each node is listed once,
  and ids are unique within a rendering.
 
 
-©½
+©º
 
 
-©½
+©º
 
-©½
+©º
 
-©½
+©º
 
-©¾ 
+©» 
 
-©¾
-
-
-©¾
-
-©¾
-
-©¾
-
-©¿
-
-©¿
+©»
 
 
-©¿
+©»
 
-©¿
+©»
 
-©¿
+©»
 
-©À
+©¼
 
-©À
+©¼
 
 
-©À
+©¼
 
-©À
+©¼
 
-©À
+©¼
+
+©½
+
+©½
+
+
+©½
+
+©½
+
+©½
 6
-©Â' Unset when the view states no canvas.
+©¿' Unset when the view states no canvas.
 
 
-©Â
+©¿
 
-©Â
+©¿
 
-©Â
+©¿
 
-©Ã 
+©À 
 
-©Ã
-
-
-©Ã
-
-©Ã
-
-©Ã
-
-©	Ä
-
-©	Ä
+©À
 
 
-©	Ä
+©À
 
-©	Ä
+©À
 
-©	Ä
+©À
+
+©	Á
+
+©	Á
+
+
+©	Á
+
+©	Á
+
+©	Á
 I
 ©
-Æ: The optional notation elements drawn, in registry order.
+Ã: The optional notation elements drawn, in registry order.
 
 
 ©
-Æ
+Ã
 
 
 ©
-Æ
+Ã
 
 ©
-Æ
+Ã
 
 ©
-Æ
+Ã
 Z
-©ÈK The view frame round a graph-shaped rendering; unset for a frameless one.
+©ÅK The view frame round a graph-shaped rendering; unset for a frameless one.
 
 
-©È
+©Å
 
-©È
+©Å
 
-©È
+©Å
 ò
-ªÎ Ôâ RenderFrame is the view frame of SysML v2 Â§8.2.3.26: the name compartment's
+ªË Ñâ RenderFrame is the view frame of SysML v2 Â§8.2.3.26: the name compartment's
  name and view definition, and the lines of the three information
  compartments (exposes top right, filters bottom left, annotations bottom right).
 
 
-ªÎ
+ªË
 
-ª Ï
+ª Ì
 
-ª Ï
+ª Ì
 
-ª Ï	
+ª Ì	
 
-ª Ï
+ª Ì
 
-ªĞ
+ªÍ
 
-ªĞ
+ªÍ
 
-ªĞ	
+ªÍ	
 
-ªĞ
+ªÍ
 
-ªÑ
+ªÎ
 
-ªÑ
-
-
-ªÑ
-
-ªÑ
-
-ªÑ
-
-ªÒ
-
-ªÒ
+ªÎ
 
 
-ªÒ
+ªÎ
 
-ªÒ
+ªÎ
 
-ªÒ
+ªÎ
 
-ªÓ"
+ªÏ
 
-ªÓ
+ªÏ
 
 
-ªÓ
+ªÏ
 
-ªÓ
+ªÏ
 
-ªÓ !
+ªÏ
+
+ªĞ"
+
+ªĞ
+
+
+ªĞ
+
+ªĞ
+
+ªĞ !
 C
-«× ó4 RenderNode is one flattened node of the rendering.
+«Ô ğ4 RenderNode is one flattened node of the rendering.
 
 
-«×
+«Ô
 
-« Ø
+« Õ
 
-« Ø
+« Õ
 
-« Ø	
+« Õ	
 
-« Ø
+« Õ
 
-«Ù
+«Ö
 
-«Ù
+«Ö
 
-«Ù	
+«Ö	
 
-«Ù
+«Ö
 
-«Ú
+«×
 
-«Ú
+«×
 
-«Ú	
+«×	
 
-«Ú
+«×
 
-«Û
+«Ø
 
-«Û
+«Ø
 
-«Û
+«Ø
 
-«Û
+«Ø
 
-«Ü
+«Ù
 
-«Ü
+«Ù
 
-«Ü	
+«Ù	
 
-«Ü
+«Ù
 
-«İ
+«Ú
 
-«İ
+«Ú
 
-«İ	
+«Ú	
 
-«İ
+«Ú
 
-«Ş
+«Û
 
-«Ş
+«Û
 
-«Ş	
+«Û	
 
-«Ş
+«Û
 
-«ß
+«Ü
 
-«ß
+«Ü
 
-«ß
+«Ü
 
-«ß
+«Ü
 
-«à
+«İ
 
-«à
+«İ
 
-«à	
+«İ	
 
-«à
+«İ
 
-«	á!
+«	Ş!
 
-«	á
+«	Ş
 
 
-«	á
+«	Ş
 
-«	á
+«	Ş
 
-«	á 
+«	Ş 
 
 «
-â
+ß
 
 «
-â
+ß
 
 «
-â
+ß
 
 «
-â
+ß
 j
-«ä[ Unset when no layout annotates the node; unplaced when the layout only folds or hides it.
+«á[ Unset when no layout annotates the node; unplaced when the layout only folds or hides it.
 
 
-«ä
+«á
 
-«ä
+«á
 
-«ä
+«á
 
-«å
+«â
 
-«å
+«â
 
-«å
+«â
 
-«å
+«â
 œ
-«èŒ The compartment of the parent node this node is drawn as a row of
+«åŒ The compartment of the parent node this node is drawn as a row of
  ("attributes", "parts", "ports", ...); unset for a node drawn as a box.
 
 
-«è
+«å
 
-«è	
+«å	
 
-«è
+«å
 Û
-«ìË The owner the node is drawn or listed under has the usage through typing,
+«éË The owner the node is drawn or listed under has the usage through typing,
  subclassification or subsetting rather than declares it; the notation
  prefixes its name with `^`. `name` stays the bare name.
 
 
-«ì
+«é
 
-«ì
+«é
 
-«ì
+«é
 õ
-«ğå Set on an item box drawn on a connection line (a flow, succession flow or
+«íå Set on an item box drawn on a connection line (a flow, succession flow or
  message whose ends are the connection's): "right" when the item goes toward
  the line's second end, "left" toward its first. Empty for every other node.
 
 
-«ğ
+«í
 
-«ğ	
+«í	
 
-«ğ
+«í
 c
-«òT The state's substates run in parallel; a label writes Â«parallelÂ» under the name.
+«ïT The state's substates run in parallel; a label writes Â«parallelÂ» under the name.
 
 
-«ò
+«ï
 
-«ò
+«ï
 
-«ò
+«ï
 B
-¬ö ı3 RenderPort is a feature drawn on a node's border.
+¬ó ú3 RenderPort is a feature drawn on a node's border.
 
 
-¬ö
+¬ó
 
-¬ ÷
+¬ ô
 
-¬ ÷
+¬ ô
 
-¬ ÷	
+¬ ô	
 
-¬ ÷
+¬ ô
 
-¬ø
+¬õ
 
-¬ø
+¬õ
 
-¬ø	
+¬õ	
 
-¬ø
+¬õ
 
-¬ù
+¬ö
 
-¬ù
+¬ö
 
-¬ù	
+¬ö	
 
-¬ù
+¬ö
 
-¬ú
+¬÷
 
-¬ú
+¬÷
 
-¬ú	
+¬÷	
 
-¬ú
+¬÷
 u
-¬üf The node's owner has the port from its type rather than declares it; drawn with a `^` before `name`.
+¬ùf The node's owner has the port from its type rather than declares it; drawn with a `^` before `name`.
 
 
-¬ü
+¬ù
 
-¬ü
+¬ù
 
-¬ü
+¬ù
 Q
-­€ ‹B RenderEdge joins two rendered nodes and may connect their ports.
+­ı ˆB RenderEdge joins two rendered nodes and may connect their ports.
 
 
-­€
+­ı
 
-­ 
+­ ş
 
-­ 
+­ ş
 
-­ 	
+­ ş	
 
-­ 
+­ ş
 
-­‚
+­ÿ
 
-­‚
+­ÿ
 
-­‚	
+­ÿ	
 
-­‚
+­ÿ
 
-­ƒ
+­€
 
-­ƒ
+­€
 
-­ƒ	
+­€	
 
-­ƒ
+­€
 
-­„
+­
 
-­„
+­
 
-­„	
+­	
 
-­„
+­
 
-­…
+­‚
 
-­…
+­‚
 
-­…	
+­‚	
 
-­…
+­‚
 
-­†
+­ƒ
 
-­†
+­ƒ
 
-­†	
+­ƒ	
 
-­†
+­ƒ
 
-­‡
+­„
 
-­‡
+­„
 
-­‡	
+­„	
 
-­‡
+­„
 
-­ˆ
+­…
 
-­ˆ
+­…
 
-­ˆ
+­…
 
-­ˆ
+­…
 
-­‰!
+­†!
 
-­‰
+­†
 
 
-­‰
+­†
 
-­‰
+­†
 
-­‰ 
+­† 
 
-­	Š
+­	‡
 
-­	Š
+­	‡
 
-­	Š
+­	‡
 
-­	Š
+­	‡
 I
-® —: RenderGeometry locates a node on the rendering's canvas.
+®‹ ”: RenderGeometry locates a node on the rendering's canvas.
 
 
-®
+®‹
 
-® 
+® Œ
 
-® 
+® Œ
 
-® 	
-
-
-® 
-
-®
-
-®
-
-®	
+® Œ	
 
 
-®
+® Œ
 
-®‘
+®
 
-®‘
+®
 
-®‘	
-
-®‘
+®	
 
-®’
 
-®’
-
-®’	
-
-®’
+®
 
-®“
+®
 
-®“
+®
 
-®“
+®	
 
-®“
+®
 
-®”
+®
 
-®”
+®
 
-®”
+®	
 
-®”
+®
+
+®
+
+®
+
+®
+
+®
+
+®‘
+
+®‘
+
+®‘
+
+®‘
 _
-®–P The layout places nothing (it only folds or hides): x and y carry no position.
+®“P The layout places nothing (it only folds or hides): x and y carry no position.
 
 
-®–
+®“
 
-®–
+®“
 
-®–
+®“
 A
-¯š Ÿ2 RenderCanvas is the rendering's drawing surface.
+¯— œ2 RenderCanvas is the rendering's drawing surface.
 
 
-¯š
+¯—
 
-¯ ›
+¯ ˜
 
-¯ ›
+¯ ˜
 
-¯ ›	
+¯ ˜	
 
-¯ ›
+¯ ˜
 
-¯œ
+¯™
 
-¯œ
+¯™
 
-¯œ	
+¯™	
 
-¯œ
+¯™
 
-¯
+¯š
 
-¯
+¯š
 
-¯	
+¯š	
 
-¯
+¯š
 
-¯
+¯›
 
-¯
+¯›
 
-¯
+¯›
 
-¯
+¯›
 G
-°¢ ª8 RenderStyle is the optional styling of a node or edge.
+°Ÿ §8 RenderStyle is the optional styling of a node or edge.
 
 
-°¢
+°Ÿ
 
-° £
+°  
 
-° £
+°  
 
-° £	
+°  	
 
-° £
+°  
 
-°¤
+°¡
 
-°¤
+°¡
 
-°¤	
+°¡	
 
-°¤
+°¡
 
-°¥
+°¢
 
-°¥
+°¢
 
-°¥	
+°¢	
 
-°¥
+°¢
 
-°¦
+°£
 
-°¦
+°£
 
-°¦	
+°£	
 
-°¦
+°£
 
-°§
+°¤
 
-°§
+°¤
 
-°§	
+°¤	
 
-°§
+°¤
 
-°¨
+°¥
 
-°¨
+°¥
 
-°¨
+°¥
 
-°¨
+°¥
 
-°©
+°¦
 
-°©
+°¦
 
-°©
+°¦
 
-°©
+°¦
 K
-±­ °< RenderPoint is a route waypoint on the rendering's canvas.
+±ª ­< RenderPoint is a route waypoint on the rendering's canvas.
 
 
-±­
+±ª
 
-± ®
+± «
 
-± ®
+± «
 
-± ®	
-
-
-± ®
-
-±¯
-
-±¯
-
-±¯	
+± «	
 
 
-±¯
+± «
+
+±¬
+
+±¬
+
+±¬	
+
+
+±¬
 =
-²³ ¶. RenderRow is one row of a tabular rendering.
+²° ³. RenderRow is one row of a tabular rendering.
 
 
-²³
+²°
 
-² ´
+² ±
 
-² ´
+² ±
 
 
-² ´
+² ±
 
-² ´
+² ±
 
-² ´
+² ±
 
-²µ
+²²
 
-²µ
+²²
 
-²µ
+²²
 
-²µ
+²²
 J
-³¹ Ä; RenderNote is a note box drawn on the rendering's canvas.
+³¶ Á; RenderNote is a note box drawn on the rendering's canvas.
 
 
-³¹
+³¶
 
-³ º
+³ ·
 
-³ º
+³ ·
 
-³ º	
+³ ·	
 
-³ º
+³ ·
 
-³»
+³¸
 
-³»
+³¸
 
-³»	
+³¸	
 
-³»
+³¸
 
-³¼
+³¹
 
-³¼
+³¹
 
-³¼	
+³¹	
 
-³¼
+³¹
 
-³½
+³º
 
-³½
+³º
 
-³½	
+³º	
 
-³½
+³º
 
-³¾
+³»
 
-³¾
+³»
 
-³¾	
-
-
-³¾
-
-³¿
-
-³¿
-
-³¿	
+³»	
 
 
-³¿
+³»
 
-³À
+³¼
 
-³À
+³¼
 
-³À	
-
-³À
+³¼	
 
-³Á
 
-³Á
-
-³Á	
-
-³Á
+³¼
 
-³Â
+³½
 
-³Â
+³½
 
-³Â
+³½	
 
-³Â
+³½
 
-³	Ã
+³¾
 
-³	Ã
+³¾
 
-³	Ã
+³¾	
 
-³	Ã
+³¾
+
+³¿
+
+³¿
+
+³¿
+
+³¿
+
+³	À
+
+³	À
+
+³	À
+
+³	À
 X
-´Ç ËI ExportGraphsRequest names the behavior whose lowered graph is exported.
+´Ä ÈI ExportGraphsRequest names the behavior whose lowered graph is exported.
 
 
-´Ç
+´Ä
 
-´ È
+´ Å
 
-´ È
+´ Å
 
-´ È	
+´ Å	
 
-´ È
+´ Å
 S
-´ÊD Qualified name of an action or state machine, definition or usage.
+´ÇD Qualified name of an action or state machine, definition or usage.
 
 
-´Ê
+´Ç
 
-´Ê	
+´Ç	
 
-´Ê
+´Ç
 æ
-µĞ ×Ö ExportGraphsResponse carries the `graphs:<version>` form: the lowered
+µÍ ÔÖ ExportGraphsResponse carries the `graphs:<version>` form: the lowered
  ActionGraph/StateGraph IR of the subject and of every behavior it performs,
  as canonical JSON â€” the same bytes an external engine is sent.
 
 
-µĞ
+µÍ
 G
-µ Ò8 The form, as canonical JSON with one trailing newline.
+µ Ï8 The form, as canonical JSON with one trailing newline.
 
 
-µ Ò
+µ Ï
 
-µ Ò	
+µ Ï	
 
-µ Ò
+µ Ï
 J
-µÔ; The version of the form, the `version` field of the JSON.
+µÑ; The version of the form, the `version` field of the JSON.
 
 
-µÔ
+µÑ
 
-µÔ
+µÑ
 
-µÔ
+µÑ
 :
-µÖ+ The subject's qualified name as resolved.
+µÓ+ The subject's qualified name as resolved.
 
 
-µÖ
+µÓ
 
-µÖ	
+µÓ	
 
-µÖ
+µÓ
 •
-¶Û é… ImportDataRequest is the data `sysml -import` sets the feature values of, one
+¶Ø æ… ImportDataRequest is the data `sysml -import` sets the feature values of, one
  file per -import, applied in order as one edit each.
 
 
-¶Û
+¶Ø
 
-¶ Ü
+¶ Ù
 
-¶ Ü
+¶ Ù
 
-¶ Ü	
+¶ Ù	
 
-¶ Ü
+¶ Ù
 k
-¶ß"\ The files, in the order they are applied; each is read as its own format
+¶Ü"\ The files, in the order they are applied; each is read as its own format
  and mapping say.
 
 
-¶ß
+¶Ü
 
 
-¶ß
+¶Ü
 
-¶ß
+¶Ü
 
-¶ß !
+¶Ü !
 Ÿ
-¶â What each row is made into, as -import-as: "values", the default, sets the
+¶ß What each row is made into, as -import-as: "values", the default, sets the
  features of the element the row names; nothing else is supported.
 
 
-¶â
+¶ß
 
-¶â	
+¶ß	
 
-¶â
+¶ß
 y
-¶åj Report the values the imports would set, changing nothing; the documents
+¶âj Report the values the imports would set, changing nothing; the documents
  and model hash are then unset.
 
 
-¶å
+¶â
 
-¶å
+¶â
 
-¶å
+¶â
 ¦
-¶è– Accept every edited document in documents when the model has several;
+¶å– Accept every edited document in documents when the model has several;
  without it, a model of several documents is refused as ApplyEdits refuses it.
 
 
-¶è
+¶å
 
-¶è
+¶å
 
-¶è
+¶å
 
-·í ö DataImport is one data file: its name, which names the format by extension
+·ê ó DataImport is one data file: its name, which names the format by extension
  and the file in what goes wrong, and its content.
 
 
-·í
+·ê
 
-· î
+· ë
 
-· î
+· ë
 
-· î	
+· ë	
 
-· î
+· ë
 
-·ï
+·ì
 
-·ï
+·ì
 
-·ï	
+·ì	
 
-·ï
+·ì
 z
-·òk Read the content as csv, tsv, json or jsonl rather than as the name's
+·ïk Read the content as csv, tsv, json or jsonl rather than as the name's
  extension says, as -import-format.
 
 
-·ò
+·ï
 
-·ò	
+·ï	
 
-·ò
+·ï
 ™
-·õ‰ The JSON mapping onto elements and features the content is read by, as the
+·ò‰ The JSON mapping onto elements and features the content is read by, as the
  file -import-map names; empty for the content's own header.
 
 
-·õ
+·ò
 
-·õ	
+·ò	
 
-·õ
+·ò
 U
-¸ù †F ImportDataResponse is what the imports set, and the model they made.
+¸ö ƒF ImportDataResponse is what the imports set, and the model they made.
 
 
-¸ù
+¸ö
 w
-¸ ü"h One per import, in order; unset when the model refuses an import, with
+¸ ù"h One per import, in order; unset when the model refuses an import, with
  error set and nothing changed.
 
 
-¸ ü
+¸ ù
 
 
-¸ ü
+¸ ù
 
-¸ ü
+¸ ù
 
-¸ ü !
+¸ ù !
 V
-¸ş(G The edited documents, as ApplyEdits answers them; unset on a dry run.
+¸û(G The edited documents, as ApplyEdits answers them; unset on a dry run.
 
 
-¸ş
+¸û
 
 
-¸ş
+¸û
 
-¸ş#
+¸û#
 
-¸ş&'
+¸û&'
 P
-¸€A The edited content of a one-document model; unset on a dry run.
+¸ıA The edited content of a one-document model; unset on a dry run.
 
 
-¸€
+¸ı
 
-¸€	
+¸ı	
 
-¸€
+¸ı
 W
-¸‚H The hash of the imported model, parsed and cached; unset on a dry run.
+¸ÿH The hash of the imported model, parsed and cached; unset on a dry run.
 
 
-¸‚
+¸ÿ
 
-¸‚	
+¸ÿ	
 
-¸‚
+¸ÿ
 ^
-¸„O Why the import was refused, "" when it was made; the model is then unchanged.
+¸O Why the import was refused, "" when it was made; the model is then unchanged.
 
 
-¸„
+¸
 
-¸„	
+¸	
 
-¸„
+¸
 
-¸…&
+¸‚&
 
-¸…
+¸‚
 
 
-¸…
+¸‚
 
-¸…!
+¸‚!
 
-¸…$%
+¸‚$%
 –
-¹Š † ImportedFile is what one data file set: the values, the elements they were
+¹‡ Œ† ImportedFile is what one data file set: the values, the elements they were
  set on, and each assignment as `sysml -import` lists it.
 
 
-¹Š
+¹‡
 
-¹ ‹
+¹ ˆ
 
-¹ ‹
+¹ ˆ
 
-¹ ‹	
+¹ ˆ	
 
-¹ ‹
+¹ ˆ
 
-¹Œ
+¹‰
 
-¹Œ
+¹‰
 
-¹Œ
+¹‰
 
-¹Œ
+¹‰
 
-¹
+¹Š
 
-¹
+¹Š
 
-¹
+¹Š
 
-¹
+¹Š
 
-¹)
+¹‹)
 
-¹
+¹‹
 
 
-¹
+¹‹
 
-¹$
+¹‹$
 
-¹'(
+¹‹'(
 ˆ
-º– ø ImportedValue is one assignment: the qualified name of the element, the
+º“ šø ImportedValue is one assignment: the qualified name of the element, the
  feature set, the literal it is set to, the qualified name of the inherited
  feature redefined to set it ("" when the element declares the feature), where
  in the data it came from, and the line `sysml -import` reports it as. A
  redefinition made only to reach a nested inherited feature sets no value.
 
 
-º–
+º“
 
-º —
+º ”
 
-º —
+º ”
 
-º —	
+º ”	
 
-º —
+º ”
 
-º˜
+º•
 
-º˜
+º•
 
-º˜	
+º•	
 
-º˜
+º•
 
-º™
+º–
 
-º™
+º–
 
-º™	
+º–	
 
-º™
+º–
 
-ºš
+º—
 
-ºš
+º—
 
-ºš	
+º—	
 
-ºš
+º—
 
-º›
+º˜
 
-º›
+º˜
 
-º›	
+º˜	
 
-º›
+º˜
 
-ºœ
+º™
 
-ºœ
+º™
 
-ºœ	
+º™	
 
-ºœ
+º™
 °
-»¡ ¹  CompareResultsRequest runs the configurations a tool's results sidecar indexes
+» ¶  CompareResultsRequest runs the configurations a tool's results sidecar indexes
  â€” the JSON `sysml -migration-results` writes â€” against the migrated model.
 
 
-»¡
+»
 
-» ¢
+» Ÿ
 
-» ¢
+» Ÿ
 
-» ¢	
+» Ÿ	
 
-» ¢
+» Ÿ
 .
-»¤ The results sidecar, as JSON.
+»¡ The results sidecar, as JSON.
 
 
-»¤
+»¡
 
-»¤	
+»¡	
 
-»¤
+»¡
 Š
-»§{ The configurations compared, by qualified or simple name, as -action names
+»¤{ The configurations compared, by qualified or simple name, as -action names
  them; every indexed configuration when empty.
 
 
-»§
+»¤
 
 
-»§
+»¤
 
-»§
+»¤
 
-»§
+»¤
 ƒ
-»ªt The runs made of every configuration when positive, as -runs; else each
+»§t The runs made of every configuration when positive, as -runs; else each
  configuration's own numberOfRuns, or one.
 
 
-»ª
+»§
 
-»ª
+»§
 
-»ª
+»§
 Œ
-»­} The seed the runs derive theirs from, as -seed; without one, runs that draw
+»ª} The seed the runs derive theirs from, as -seed; without one, runs that draw
  at random are refused unless draws fixes them.
 
 
-»­
+»ª
 
 
-»­
+»ª
 
-»­
+»ª
 
-»­
+»ª
 Š
-»°{ The draw policy replacing every configuration's durationSimulationMode when
+»­{ The draw policy replacing every configuration's durationSimulationMode when
  set, as -draws: random, min, max or average.
 
 
-»°
+»­
 
-»°	
+»­	
 
-»°
+»­
 s
-»³!d The clock step replacing every configuration's when set, as -clock-step;
+»°!d The clock step replacing every configuration's when set, as -clock-step;
  0 is a continuous clock.
 
 
-»³
+»°
 
 
-»³
+»°
 
-»³
+»°
 
-»³ 
+»° 
 Ë
-»·&» The stored observables compared, each with the feature of the run that
+»´&» The stored observables compared, each with the feature of the run that
  answers it, as -observe; without any, every stored observable is read from
  the target's feature of its own name.
 
 
-»·
+»´
 
 
-»·
+»´
 
-»·!
+»´!
 
-»·$%
+»´$%
 
-»¸
+»µ
 
-»¸
+»µ
 
-»¸	
+»µ	
 
-»¸
+»µ
 «
-¼½ À› ObservablePair is a stored observable and the feature of the run that answers
+¼º ½› ObservablePair is a stored observable and the feature of the run that answers
  it; an empty feature is the target's feature of the observable's own name.
 
 
-¼½
+¼º
 
-¼ ¾
+¼ »
 
-¼ ¾
+¼ »
 
-¼ ¾	
+¼ »	
 
-¼ ¾
+¼ »
 
-¼¿
+¼¼
 
-¼¿
+¼¼
 
-¼¿	
+¼¼	
 
-¼¿
+¼¼
 t
-½Ä Ïe CompareResultsResponse is one comparison per configuration, in the order the
+½Á Ìe CompareResultsResponse is one comparison per configuration, in the order the
  sidecar indexes them.
 
 
-½Ä
+½Á
 
-½ Å6
+½ Â6
 
-½ Å
+½ Â
 
 
-½ Å"
+½ Â"
 
-½ Å#1
+½ Â#1
 
-½ Å45
+½ Â45
 K
-½Ç< The tool the sidecar records as the source of the results.
+½Ä< The tool the sidecar records as the source of the results.
 
 
-½Ç
+½Ä
 
-½Ç	
+½Ä	
 
-½Ç
+½Ä
 O
-½É@ Why nothing was compared, "" when the configurations were run.
+½Æ@ Why nothing was compared, "" when the configurations were run.
 
 
-½É
+½Æ
 
-½É	
+½Æ	
 
-½É
+½Æ
 
-½Ê&
+½Ç&
 
-½Ê
-
-
-½Ê
-
-½Ê!
-
-½Ê$%
-
-½Ë#
-
-½Ë
-
-½Ë
-
-½Ë!"
-
-½Ì
-
-½Ì
-
-½Ì	
-
-½Ì
-
-½Í
-
-½Í
-
-½Í	
-
-½Í
-
-½Î
-
-½Î
+½Ç
 
 
-½Î
+½Ç
 
-½Î
+½Ç!
 
-½Î
+½Ç$%
+
+½È#
+
+½È
+
+½È
+
+½È!"
+
+½É
+
+½É
+
+½É	
+
+½É
+
+½Ê
+
+½Ê
+
+½Ê	
+
+½Ê
+
+½Ë
+
+½Ë
+
+
+½Ë
+
+½Ë
+
+½Ë
 _
-¾Ò óP ConfigurationComparison is one configuration's runs beside the tool's results.
+¾Ï ğP ConfigurationComparison is one configuration's runs beside the tool's results.
 
 
-¾Ò
+¾Ï
 
-¾ Ó
+¾ Ğ
 
-¾ Ó
+¾ Ğ
 
-¾ Ó	
+¾ Ğ	
 
-¾ Ó
+¾ Ğ
 
-¾Ô
+¾Ñ
 
-¾Ô
+¾Ñ
 
-¾Ô	
+¾Ñ	
 
-¾Ô
+¾Ñ
 \
-¾ÖM The migrated behavior the configuration performs, "" when it performs none.
+¾ÓM The migrated behavior the configuration performs, "" when it performs none.
 
 
-¾Ö
+¾Ó
 
-¾Ö	
+¾Ó	
 
-¾Ö
+¾Ó
 P
-¾ØA The feature of the configuration the observables are read from.
+¾ÕA The feature of the configuration the observables are read from.
 
 
-¾Ø
+¾Õ
 
-¾Ø	
+¾Õ	
 
-¾Ø
+¾Õ
 
-¾Ù
+¾Ö
 
-¾Ù
+¾Ö
 
-¾Ù	
+¾Ö	
 
-¾Ù
+¾Ö
 ¦
-¾Ü– holds when runs complete and observables compare; undecided when some do not;
+¾Ù– holds when runs complete and observables compare; undecided when some do not;
  fails when a run fails; unresolved when the configuration cannot run.
 
 
-¾Ü
+¾Ù
 
-¾Ü	
+¾Ù	
 
-¾Ü
+¾Ù
 S
-¾ŞD Why the configuration could not be run, when status is unresolved.
+¾ÛD Why the configuration could not be run, when status is unresolved.
 
 
-¾Ş
+¾Û
 
-¾Ş	
+¾Û	
 
-¾Ş
+¾Û
 G
-¾à8 The runs the tool stored, and over how many snapshots.
+¾İ8 The runs the tool stored, and over how many snapshots.
 
 
-¾à
+¾İ
 
-¾à
+¾İ
 
-¾à
+¾İ
 
-¾á
+¾Ş
 
-¾á
+¾Ş
 
-¾á
+¾Ş
 
-¾á
+¾Ş
 @
-¾	ã1 The runs OpenSysML made and how many completed.
+¾	à1 The runs OpenSysML made and how many completed.
 
 
-¾	ã
+¾	à
 
-¾	ã
+¾	à
 
-¾	ã
+¾	à
 
 ¾
-ä
+á
 
 ¾
-ä
+á
 
 ¾
-ä
+á
 
 ¾
-ä
+á
 
-¾å
+¾â
 
-¾å
+¾â
 
-¾å	
+¾â	
 
-¾å
+¾â
 Y
-¾çJ The seed the runs derived theirs from; unset when the runs drew nothing.
+¾äJ The seed the runs derived theirs from; unset when the runs drew nothing.
 
 
-¾ç
+¾ä
 
 
-¾ç
+¾ä
 
-¾ç
+¾ä
 
-¾ç
+¾ä
 
-¾è
+¾å
 
-¾è
+¾å
 
-¾è	
+¾å	
 
-¾è
+¾å
 :
-¾ê+ One row per run, as RunSweep tables them.
+¾ç+ One row per run, as RunSweep tables them.
 
 
-¾ê
+¾ç
 
 
-¾ê
+¾ç
 
-¾ê
+¾ç
 
-¾ê
+¾ç
 
-¾ë#
+¾è#
 
-¾ë
-
-
-¾ë
-
-¾ë
-
-¾ë "
-
-¾ì1
-
-¾ì
+¾è
 
 
-¾ì
+¾è
 
-¾ì +
+¾è
 
-¾ì.0
+¾è "
+
+¾é1
+
+¾é
+
+
+¾é
+
+¾é +
+
+¾é.0
 q
-¾ïb The errors failed runs ended in, deduplicated, and the notes on the
+¾ìb The errors failed runs ended in, deduplicated, and the notes on the
  configuration and its runs.
 
 
-¾ï
+¾ì
 
 
-¾ï
+¾ì
 
-¾ï
+¾ì
 
-¾ï
+¾ì
 
-¾ğ
+¾í
 
-¾ğ
+¾í
 
 
-¾ğ
+¾í
 
-¾ğ
+¾í
 
-¾ğ
+¾í
 F
-¾ò7 The comparison as `sysml -compare-results` prints it.
+¾ï7 The comparison as `sysml -compare-results` prints it.
 
 
-¾ò
+¾ï
 
 
-¾ò
+¾ï
 
-¾ò
+¾ï
 
-¾ò
+¾ï
 ²
-¿ø ‘¢ ObservableComparison is one observable: the tool's distribution beside the
+¿õ ¢ ObservableComparison is one observable: the tool's distribution beside the
  runs' with the relative difference of each statistic, or why they are not
  compared.
 
 
-¿ø
+¿õ
 
-¿ ù
+¿ ö
 
-¿ ù
+¿ ö
 
-¿ ù	
+¿ ö	
 
-¿ ù
+¿ ö
 
-¿ú
+¿÷
 
-¿ú
+¿÷
 
-¿ú	
+¿÷	
 
-¿ú
+¿÷
 A
-¿ü2 The unit the runs' numbers came in, "" for none.
+¿ù2 The unit the runs' numbers came in, "" for none.
 
 
-¿ü
+¿ù
 
-¿ü	
+¿ù	
 
-¿ü
+¿ù
 Û
-¿€ Ë The tool's distribution, unset when it stored no number; pooled when it
+¿ı Ë The tool's distribution, unset when it stored no number; pooled when it
  was pooled from summaries, so only count and mean are known; unstored
  when the tool stored no result at all to compare against.
 
 
-¿€
+¿ı
 
-¿€
+¿ı
 
-¿€
+¿ı
 
-¿
+¿ş
 
-¿
+¿ş
 
-¿
+¿ş
 
-¿
+¿ş
 
-¿‚
+¿ÿ
 
-¿‚
+¿ÿ
 
-¿‚
+¿ÿ
 
-¿‚
+¿ÿ
 ™
-¿…‰ The distribution of the completed runs, unset when they are not compared;
+¿‚‰ The distribution of the completed runs, unset when they are not compared;
  produced is how many runs produced a number for the feature.
 
 
-¿…
+¿‚
 
-¿…
+¿‚
 
-¿…
+¿‚
 
-¿†
+¿ƒ
 
-¿†
+¿ƒ
 
-¿†
+¿ƒ
 
-¿†
+¿ƒ
 ˆ
-¿‰y Whether the runs were made and are reported, false when the tool stored no
+¿†y Whether the runs were made and are reported, false when the tool stored no
  observable of the name or no number for it.
 
 
-¿‰
+¿†
 
-¿‰
+¿†
 
-¿‰
+¿†
 “
-¿	Œ&ƒ The relative difference of each statistic, unset without both
+¿	‰&ƒ The relative difference of each statistic, unset without both
  distributions; a pooled tool distribution compares the mean alone.
 
 
-¿	Œ
+¿	‰
 
-¿	Œ 
+¿	‰ 
 
-¿	Œ#%
+¿	‰#%
 „
 ¿
-u The per-statistic comparison of the Simulation::MonteCarlo case the
+Œu The per-statistic comparison of the Simulation::MonteCarlo case the
  observable is analysed by, unset when none is.
 
 
 ¿
-
+Œ
 
 ¿
-
+Œ
 
 ¿
-
+Œ
 
-¿
+¿
 
-¿
+¿
 
 
-¿
+¿
 
-¿
+¿
 
-¿
+¿
 ~
-À• o ComparedDistribution is a distribution of numbers by its statistics; a pooled
+À’ šo ComparedDistribution is a distribution of numbers by its statistics; a pooled
  one sets count and mean alone.
 
 
-À•
+À’
 
-À –
+À “
 
-À –
+À “
 
-À –
+À “
 
-À –
+À “
 
-À—
+À”
 
-À—
+À”
 
-À—	
+À”	
 
-À—
+À”
 
-À˜
+À•
 
-À˜
+À•
 
-À˜	
+À•	
 
-À˜
+À•
 
-À™
+À–
 
-À™
+À–
 
-À™	
+À–	
 
-À™
+À–
 
-Àš
+À—
 
-Àš
+À—
 
-Àš	
+À—	
 
-Àš
+À—
 
-À›
+À˜
 
-À›
+À˜
 
-À›	
+À˜	
 
-À›
+À˜
 
-Àœ
+À™
 
-Àœ
+À™
 
-Àœ	
+À™	
 
-Àœ
+À™
 ‡
-Á¡ §x StatisticDifference is the relative difference of each statistic as a signed
+Á ¤x StatisticDifference is the relative difference of each statistic as a signed
  percentage, "" where it is not compared.
 
 
-Á¡
+Á
 
-Á ¢
+Á Ÿ
 
-Á ¢
+Á Ÿ
 
-Á ¢	
+Á Ÿ	
 
-Á ¢
+Á Ÿ
 
-Á£
+Á 
 
-Á£
+Á 
 
-Á£	
+Á 	
 
-Á£
+Á 
 
-Á¤
+Á¡
 
-Á¤
+Á¡
 
-Á¤	
+Á¡	
 
-Á¤
+Á¡
 
-Á¥
+Á¢
 
-Á¥
+Á¢
 
-Á¥	
+Á¢	
 
-Á¥
+Á¢
 
-Á¦
+Á£
 
-Á¦
+Á£
 
-Á¦	
+Á£	
 
-Á¦
+Á£
 §
-Â« ¯— CaseStatistics compares the statistics a Simulation::MonteCarlo case declares
+Â¨ ¬— CaseStatistics compares the statistics a Simulation::MonteCarlo case declares
  of an observable with the tool's pooled values, one row per statistic.
 
 
-Â«
+Â¨
 
-Â ¬
+Â ©
 
-Â ¬
+Â ©
 
-Â ¬	
+Â ©	
 
-Â ¬
+Â ©
 
-Â­"
+Âª"
 
-Â­
-
-
-Â­
-
-Â­
-
-Â­ !
-
-Â®
-
-Â®
+Âª
 
 
-Â®
+Âª
 
-Â®
+Âª
 
-Â®
+Âª !
+
+Â«
+
+Â«
+
+
+Â«
+
+Â«
+
+Â«
 ¢
-Ã³ ¹’ CaseStatistic is one statistic of the case: which, where the case declares
+Ã° ¶’ CaseStatistic is one statistic of the case: which, where the case declares
  it, the tool's value, the runs' value and their relative difference.
 
 
-Ã³
+Ã°
 
-Ã ´
+Ã ±
 
-Ã ´
+Ã ±
 
-Ã ´	
+Ã ±	
 
-Ã ´
+Ã ±
 
-Ãµ
+Ã²
 
-Ãµ
+Ã²
 
-Ãµ	
+Ã²	
 
-Ãµ
+Ã²
 
-Ã¶
+Ã³
 
-Ã¶
+Ã³
 
-Ã¶	
+Ã³	
 
-Ã¶
+Ã³
 
-Ã·
+Ã´
 
-Ã·
+Ã´
 
-Ã·	
+Ã´	
 
-Ã·
+Ã´
 
-Ã¸
+Ãµ
 
-Ã¸
+Ãµ
 
-Ã¸	
+Ãµ	
 
-Ã¸bproto3Òö  
+Ãµbproto3Òö  
