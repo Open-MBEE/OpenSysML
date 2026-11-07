@@ -286,8 +286,9 @@ func TestElementPropertiesReportsWhyAPropertyHasNoAnswer(t *testing.T) {
 	if inherited := r.property("EP::Pair", "inheritedFeature"); inherited.Unsupported != "" || len(inherited.Values) == 0 {
 		t.Errorf("EP::Pair.inheritedFeature = %+v, want derived", inherited)
 	}
-	if inherited := elementNames(r.property("EP::CmdPort::cmd", "inheritedFeature").Values); !containsAll(inherited, "Base::DataValue::self") {
-		t.Errorf("EP::CmdPort::cmd.inheritedFeature = %v, want the implied DataValue base's features", inherited)
+	cmdInherited := r.property("EP::CmdPort::cmd", "inheritedFeature")
+	if len(cmdInherited.Values) != 0 || !strings.Contains(cmdInherited.Unsupported, "Type::inheritedFeature is not derived for this element") {
+		t.Errorf("a property the evaluator could not derive for one element answers %+v", cmdInherited)
 	}
 	unresolved := parseForElementPropertiesWithErrors(t, "package EU { part def Lone { part broken : Missing; } }")
 	perElement := unresolved.property("EU::Lone::broken", "type")

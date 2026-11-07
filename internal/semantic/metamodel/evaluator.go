@@ -252,6 +252,19 @@ func (e *Evaluator) derive(el Element, class, name string) (Value, bool) {
 		}
 	case "Feature":
 		switch name {
+		case "isEnd":
+			if sym == nil {
+				return e.unsupported(el, class, name, Reason{
+					Category: ReasonUnrepresentedElement,
+					Detail:   "Feature has no semantic symbol",
+				})
+			}
+			if meta := e.model.MetaclassOf(sym); meta != nil && e.options.Structure != nil &&
+				e.options.Structure.Specializes(meta.Name, "Multiplicity") {
+				return booleanValue(false), true
+			}
+			value, ok := e.model.ReflectiveFeatureValue(sym, "isEnd")
+			return booleanValue(ok && value.Kind == symbols.FilterValueBool && value.Bool), true
 		case "direction":
 			if sym == nil {
 				return e.unsupported(el, class, name, Reason{

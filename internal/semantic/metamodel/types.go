@@ -157,6 +157,12 @@ type QualifiedNameStructure interface {
 	QualifiedName(Element) (string, bool)
 }
 
+// ImpliedRedefinitionStructure optionally states the features an element redefines by its
+// role (subject, objective, actor, stakeholder, rendering; SysML v2 §8.3.21-§8.3.26) unwritten.
+type ImpliedRedefinitionStructure interface {
+	ImpliedRedefinedFeatures(Element) ([]Element, bool)
+}
+
 // LibrarySymbolResolver optionally resolves a structure element that merely
 // references a library element to that element's semantic symbol.
 type LibrarySymbolResolver interface {

@@ -36,6 +36,11 @@ func (e *Evaluator) structureRedefinitionTargets(feature Element) ([]Element, bo
 			out = append(out, target.Element)
 		}
 	}
+	if implied, ok := e.options.Structure.(ImpliedRedefinitionStructure); ok {
+		if targets, stated := implied.ImpliedRedefinedFeatures(feature); stated {
+			out = append(out, targets...)
+		}
+	}
 	return out, true
 }
 

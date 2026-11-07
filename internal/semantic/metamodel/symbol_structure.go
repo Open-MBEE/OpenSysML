@@ -170,9 +170,10 @@ func (s *SymbolStructure) row(element Element) (symbolElement, bool) {
 		aspect = element.Membership.Aspect
 	}
 	if !strings.HasPrefix(aspect, s.prefix) {
-		// A handle the evaluator made from a symbol itself (ElementOf) is the
-		// symbol's row, placed on first use; its memberships stay the evaluator's.
-		if !element.IsMembership && element.Symbol != nil && aspect == "" {
+		// A handle the evaluator made from a model symbol (ElementOf) is that
+		// symbol's row; a library symbol's handle stays the model's to answer.
+		if !element.IsMembership && element.Symbol != nil && aspect == "" &&
+			!(s.res != nil && s.res.Index() != nil && s.res.Index().Library(element.Symbol)) {
 			return s.place(element.Symbol), true
 		}
 		return symbolElement{}, false
@@ -429,7 +430,15 @@ func (s *SymbolStructure) hasStatedRelatedElementLocked(element Element, propert
 // notation names but the model does not resolve.
 func (s *SymbolStructure) hasUnresolvedRelatedElementLocked(element Element, property string) bool {
 	row, ok := s.row(element)
-	if !ok || row.sym.Implicit == nil || row.sym.Implicit.Form != symbols.ImplicitWritten {
+	if !ok {
+		return false
+	}
+	if property == "connectorEnd" {
+		// A flow's `from`/`to` ends are not features the model declares symbols for.
+		usage, written := row.sym.Decl.(*ast.Usage)
+		return written && usage.FlowEnds != nil && (usage.FlowEnds.From != nil || usage.FlowEnds.To != nil)
+	}
+	if row.sym.Implicit == nil || row.sym.Implicit.Form != symbols.ImplicitWritten {
 		return false
 	}
 	feature := s.feature(row.class, property)
@@ -444,6 +453,9 @@ func (s *SymbolStructure) hasUnresolvedRelatedElementLocked(element Element, pro
 // notation, at the metamodel default where the notation states nothing.
 func (s *SymbolStructure) attributeLocked(element Element, property string) (Value, bool) {
 	row, ok := s.row(element)
+	if !ok && !element.IsMembership && element.Symbol != nil && element.Aspect == "" {
+		row, ok = s.place(element.Symbol), true
+	}
 	if !ok || !row.known || strings.HasPrefix(row.class, ExtensionMetaclassPrefix) {
 		return Value{}, false
 	}
@@ -532,6 +544,26 @@ func symbolAttributeName(property string) string {
 		return "declaredShortName"
 	}
 	return property
+}
+
+// impliedRedefinedFeaturesLocked is the features the element's symbol redefines by
+// its role without a written clause: the same role of each general it specializes.
+func (s *SymbolStructure) impliedRedefinedFeaturesLocked(element Element) ([]Element, bool) {
+	row, ok := s.row(element)
+	if !ok || !row.known || row.sym.Implicit != nil || row.sym.Expr != nil {
+		return nil, false
+	}
+	var implied []*symbols.Symbol
+	candidates := s.model.ImplicitRoleRedefinitions(row.sym)
+	for _, general := range candidates {
+		if general == nil || general == row.sym {
+			continue
+		}
+		if meta := s.model.MetaclassOf(general); meta != nil && s.specializes(meta.Name, "Feature") {
+			implied = append(implied, general)
+		}
+	}
+	return s.elementsOf(implied), true
 }
 
 // DerivedName is the effective name of the element's symbol.
@@ -689,6 +721,12 @@ func (s *SymbolStructure) StatedAttribute(element Element, property string) (Val
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.statedAttributeLocked(element, property)
+}
+
+func (s *SymbolStructure) ImpliedRedefinedFeatures(element Element) ([]Element, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.impliedRedefinedFeaturesLocked(element)
 }
 
 func (s *SymbolStructure) DerivedName(element Element) (string, bool) {

@@ -4902,8 +4902,8 @@ func (e *Evaluator) structureTypeMembers(element Element, property string, visit
 }
 
 func (e *Evaluator) computeStructureTypeMembers(element Element, property string, visited map[ElementKey]bool) ([]Value, bool) {
-	if base, semantic := e.structureSemanticBase(element); semantic {
-		return e.structureLibraryTypeMembers(base, property)
+	if element.Symbol != nil && !e.structureKnows(element) {
+		return e.structureLibraryTypeMembers(element, property)
 	}
 	owned, handled, ok := e.structureOwnedFilter(element, "Membership", true)
 	if !handled || !ok {
@@ -5020,24 +5020,14 @@ func (e *Evaluator) structureKnows(element Element) bool {
 	return known
 }
 
-// structureDefersToModel reports an element whose relationships the semantic model serves rather
-// than the structure: one the structure does not represent, or a library element it only names.
+// structureDefersToModel reports an element whose relationships the semantic model serves
+// rather than the structure: one the structure does not represent, or a library element it only names.
 func (e *Evaluator) structureDefersToModel(element Element) bool {
 	if !e.structureKnows(element) {
 		return true
 	}
 	_, served := e.options.Structure.OwnedRelationships(element)
 	return !served
-}
-
-// structureSemanticBase is the symbol handle a type's members are read from the
-// semantic model by, when the structure defers the type to the model.
-func (e *Evaluator) structureSemanticBase(element Element) (Element, bool) {
-	symbol := e.structureElementSymbol(element)
-	if symbol == nil || !e.structureDefersToModel(element) {
-		return Element{}, false
-	}
-	return ElementOf(symbol), true
 }
 
 // structureFeatureKey identifies a feature the same way whether the graph states it,
@@ -5110,8 +5100,8 @@ func (e *Evaluator) computeStructureNonPrivateMemberships(
 	element Element,
 	visited map[ElementKey]bool,
 ) ([]Value, bool) {
-	if base, semantic := e.structureSemanticBase(element); semantic {
-		return e.structureLibraryTypeMembers(base, "membership")
+	if element.Symbol != nil && !e.structureKnows(element) {
+		return e.structureLibraryTypeMembers(element, "membership")
 	}
 	owned, handled, ok := e.structureOwnedFilter(element, "Membership", true)
 	if !handled || !ok {
@@ -5326,6 +5316,15 @@ func (e *Evaluator) computeStructureAllRedefinedFeatures(feature Element) ([]Ele
 	for len(queue) > 0 {
 		current := queue[0]
 		queue = queue[1:]
+		if symbol := e.structureElementSymbol(current); symbol != nil && e.model != nil && e.structureDefersToModel(current) {
+			for _, redefined := range e.model.AllRedefinedFeatures(symbol) {
+				if target := ElementOf(redefined); !seen[target.Key()] {
+					seen[target.Key()] = true
+					result = append(result, target)
+				}
+			}
+			continue
+		}
 		targets, ok := e.structureRedefinitionTargets(current)
 		if !ok {
 			return nil, false
@@ -5462,6 +5461,11 @@ func (e *Evaluator) structureEffectiveEndFeatures(
 	if !handled || !ok {
 		return unsupported(
 			Reason{Category: ReasonUnrepresentedEndpoint, Detail: "Type::endFeature owned end-feature memberships are unresolved"},
+		)
+	}
+	if e.hasUnresolvedRelatedElement(element, "connectorEnd") {
+		return unsupported(
+			Reason{Category: ReasonUnrepresentedEndpoint, Detail: "Type::endFeature declared ends are not represented"},
 		)
 	}
 	if element.Node != nil {
