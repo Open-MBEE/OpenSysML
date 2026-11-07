@@ -4534,7 +4534,7 @@ func (d *decoder) referenceText(el *element, property string) (string, error) {
 // annotatedElement's targets when a graph states no Annotation elements.
 func (d *decoder) aboutList(el *element) ([]string, error) {
 	var out []string
-	consumed := map[string]bool{}
+	consumed := map[string]string{}
 	for _, child := range el.children {
 		if !child.implied || child.metaclass != mAnnotation {
 			continue
@@ -4554,8 +4554,8 @@ func (d *decoder) aboutList(el *element) ([]string, error) {
 }
 
 // statedForm is the owner's own statement of an Annotation's target: the IRI when the owner
-// states it, else the name the owner wrote — each written name standing for one Annotation.
-func (d *decoder) statedForm(el *element, target rdf.Term, consumed map[string]bool) rdf.Term {
+// states it, else the name the owner wrote — one written name per distinct element it names.
+func (d *decoder) statedForm(el *element, target rdf.Term, consumed map[string]string) rdf.Term {
 	if !target.IsIRI() {
 		return target
 	}
@@ -4568,9 +4568,11 @@ func (d *decoder) statedForm(el *element, target rdf.Term, consumed map[string]b
 	for _, property := range []string{pDeclaredName, pDeclaredShortName} {
 		for _, name := range d.graph.Objects(rdf.IRI(target.Value), rdf.SysML+property) {
 			for _, object := range stated {
-				if !object.IsIRI() && object.Value == name.Value && !consumed[object.Value] {
-					consumed[object.Value] = true
-					return object
+				if !object.IsIRI() && object.Value == name.Value {
+					if by, taken := consumed[object.Value]; !taken || by == target.Value {
+						consumed[object.Value] = target.Value
+						return object
+					}
 				}
 			}
 		}

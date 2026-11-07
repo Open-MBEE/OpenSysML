@@ -189,6 +189,33 @@ func TestAnnotationsMatchedByNameKeepDistinctSpellings(t *testing.T) {
 	}
 }
 
+// Two Annotations of the one namesake both keep the one written name: `about A, A`.
+func TestRepeatedAnnotationsMatchedByNameKeepTheSpelling(t *testing.T) {
+	full := graphOfNotation(t, "package P {\n    comment about A, A /* note */\n}\npackage Q {\n    part def A;\n}\n")
+	namesake := rdf.NewGraphOf(append([]rdf.Triple(nil), full.Triples()...), full.Prefixes)
+	rewritten := 0
+	namesake.RewriteTriples(func(tr *rdf.Triple) bool {
+		if tr.Predicate.Value == rdf.OpenSysML+xSourceText || tr.Predicate.Value == rdf.OpenSysML+xSourceTail {
+			return false
+		}
+		if strings.Contains(tr.Subject.Value, "_an") && tr.Predicate.Value == rdf.SysML+pAnnotatedElement && tr.Object.Value == "A" {
+			*tr = rdf.Triple{Subject: tr.Subject, Predicate: tr.Predicate, Object: rdf.IRI(rdf.Element + "Q__A")}
+			rewritten++
+		}
+		return true
+	})
+	if rewritten != 2 {
+		t.Fatalf("rewrote %d Annotation targets to the namesake, want 2", rewritten)
+	}
+	out, err := ToSysML(namesake)
+	if err != nil {
+		t.Fatalf("the graph reads: %v", err)
+	}
+	if !strings.Contains(string(out), "comment about A, A ") {
+		t.Errorf("the owner's `about A, A` should read back as written:\n%s", out)
+	}
+}
+
 // `about x, x` owns two Annotations of the one element, as the notation adds one per
 // name (KerML 8.2.3.2 AnnotatingElement: `about` names), each with its own id, and
 // reads back as written.
