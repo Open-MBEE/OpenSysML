@@ -4534,12 +4534,13 @@ func (d *decoder) referenceText(el *element, property string) (string, error) {
 // annotatedElement's targets when a graph states no Annotation elements.
 func (d *decoder) aboutList(el *element) ([]string, error) {
 	var out []string
+	consumed := d.reservedNames(el)
 	for _, child := range el.children {
 		if !child.implied || child.metaclass != mAnnotation {
 			continue
 		}
 		for _, term := range d.graph.Objects(rdf.IRI(child.iri), rdf.SysML+pAnnotatedElement) {
-			name, err := d.referenceName(term, el)
+			name, err := d.referenceName(d.statedForm(el, term, consumed), el)
 			if err != nil {
 				return nil, err
 			}
@@ -4550,6 +4551,77 @@ func (d *decoder) aboutList(el *element) ([]string, error) {
 		return out, nil
 	}
 	return d.referenceList(el, rdf.SysML+pAnnotatedElement)
+}
+
+// reservedNames holds, for each annotated element with one written name to its own, that
+// name — so an element with a choice of names does not take the only one another has.
+func (d *decoder) reservedNames(el *element) map[string]string {
+	written := map[string]bool{}
+	for _, object := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pAnnotatedElement) {
+		if !object.IsIRI() {
+			written[object.Value] = true
+		}
+	}
+	reserved := map[string]string{}
+	for _, child := range el.children {
+		if !child.implied || child.metaclass != mAnnotation {
+			continue
+		}
+		for _, target := range d.graph.Objects(rdf.IRI(child.iri), rdf.SysML+pAnnotatedElement) {
+			if !target.IsIRI() {
+				continue
+			}
+			var candidates []string
+			for _, property := range []string{pDeclaredName, pDeclaredShortName} {
+				for _, name := range d.graph.Objects(rdf.IRI(target.Value), rdf.SysML+property) {
+					if written[name.Value] {
+						candidates = append(candidates, name.Value)
+					}
+				}
+			}
+			if len(candidates) == 1 {
+				if by, taken := reserved[candidates[0]]; !taken || by == target.Value {
+					reserved[candidates[0]] = target.Value
+				}
+			}
+		}
+	}
+	return reserved
+}
+
+// statedForm is the owner's own statement of an Annotation's target: the IRI when the owner
+// states it, else the name the owner wrote — one written name per distinct element it names.
+func (d *decoder) statedForm(el *element, target rdf.Term, consumed map[string]string) rdf.Term {
+	if !target.IsIRI() {
+		return target
+	}
+	stated := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pAnnotatedElement)
+	for _, object := range stated {
+		if object.Value == target.Value {
+			return target
+		}
+	}
+	var names []string
+	for _, property := range []string{pDeclaredName, pDeclaredShortName} {
+		for _, name := range d.graph.Objects(rdf.IRI(target.Value), rdf.SysML+property) {
+			names = append(names, name.Value)
+		}
+	}
+	// A name not yet written for any element first; then one this element already holds.
+	for pass := 0; pass < 2; pass++ {
+		for _, name := range names {
+			for _, object := range stated {
+				if object.IsIRI() || object.Value != name {
+					continue
+				}
+				if by, taken := consumed[object.Value]; !taken || (pass == 1 && by == target.Value) {
+					consumed[object.Value] = target.Value
+					return object
+				}
+			}
+		}
+	}
+	return target
 }
 
 func (d *decoder) referenceList(el *element, property string) ([]string, error) {
