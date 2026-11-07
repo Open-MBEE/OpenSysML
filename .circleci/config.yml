@@ -703,7 +703,9 @@ jobs:
               # The Makefile's RACE_EXPORT_CORPUS and RACE_EXPORT_SETTLED; tests/hygiene keeps them the same. tests/export
               # whole passed 55 minutes under -race once the element form completed inheritance.
               export-corpus) go test -json -race -pgo=off -timeout 55m -run "$exportcorpus" $pkgs | stream ;;
-              export-settled) go test -json -race -pgo=off -timeout 55m -run "$exportsettled" $pkgs | stream ;;
+              # Four settled models at once peak at 8.2-8.4 GB under -race, this class's 8 GB (killed on
+              # develop at #2014); two at once peak at 6.5 GB for a tenth more wall time.
+              export-settled) go test -json -race -pgo=off -timeout 55m -parallel 2 -run "$exportsettled" $pkgs | stream ;;
               export) go test -json -race -pgo=off -timeout 55m -skip "$exportcorpus|$exportsettled" $pkgs | stream ;;
               tools)
                 go test -json -race -pgo=off -timeout 30m $pkgs | stream
