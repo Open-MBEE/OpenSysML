@@ -300,9 +300,8 @@ func (n spanNode) Span() source.Span            { return n.span }
 func (n spanNode) LeadingTrivia() []ast.Trivia  { return nil }
 func (n spanNode) TrailingTrivia() []ast.Trivia { return nil }
 
-// aboutClauseNode is the node the conversion keys the i-th `about` Annotation of the
-// annotating element owner by: the name a comment or `@M about …` states, the clause a
-// `metadata m : M about …` usage does.
+// aboutClauseNode is the node the conversion keys owner's i-th `about` Annotation by:
+// the name a comment or `@M about …` states, the clause a `metadata m : M about …` does.
 func aboutClauseNode(owner *symbols.Symbol, i int) ast.Node {
 	if owner == nil || owner.Decl == nil || i < 0 {
 		return nil

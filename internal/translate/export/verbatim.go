@@ -309,9 +309,8 @@ func derivedMembershipOmitted(graph, check *rdf.Graph, t rdf.Triple) bool {
 		!graph.HasProperty(t.Subject, rdf.SysML+key) && !graph.HasProperty(t.Subject, rdf.AnnotationJSON+key)
 }
 
-// derivedAnnotatingRelationshipOmitted reports an annotating element's ownedAnnotatingRelationship
-// (KerML 8.3.2.3.2, derived) the candidate states for an Annotation the graph owns through its
-// ownedRelationship alone; a publish without derived properties states no less.
+// derivedAnnotatingRelationshipOmitted reports a derived ownedAnnotatingRelationship the candidate
+// states for an Annotation the graph owns through ownedRelationship alone (a publish without derived).
 func derivedAnnotatingRelationshipOmitted(graph, check *rdf.Graph, t rdf.Triple) bool {
 	var key string
 	switch {
