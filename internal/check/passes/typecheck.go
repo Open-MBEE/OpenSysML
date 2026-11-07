@@ -392,7 +392,9 @@ func (tc *typeChecker) checkTypeTarget(scope *symbols.Scope, target ast.Node, re
 		return
 	}
 	if relKind == ast.RelRedefines || relKind == ast.RelSubsets {
-		if tc.checkNearestDeclaredUsageTyping(targetSym, decl) {
+		// A satisfy/assert of the wrong referent kind is the referent-kind rule's finding.
+		if referentKindMessage(decl, relKind, referentKind(targetSym), "") == "" &&
+			tc.checkNearestDeclaredUsageTyping(targetSym, decl) {
 			return
 		}
 	}
