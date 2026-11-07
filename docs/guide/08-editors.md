@@ -2,8 +2,9 @@
 
 `sysml-lsp` implements the Language Server Protocol over standard input and output, so any editor
 with a generic LSP client can use it. The VS Code extension in
-[editors/vscode](../../editors/vscode) also adds `.sysml` and `.kerml` syntax
-highlighting; editors built on Tree-sitter get theirs from
+[editors/vscode](../../editors/vscode) and the [Emacs package](#emacs) in
+[editors/emacs](../../editors/emacs) also add `.sysml` and `.kerml` syntax
+highlighting, generated from the same keyword lists; editors built on Tree-sitter get theirs from
 [tree-sitter-sysml](https://github.com/Open-MBEE/tree-sitter-sysml), see
 [Helix, Neovim and Zed](#helix-neovim-and-zed).
 
@@ -279,6 +280,57 @@ is not valid or already taken, an emptied note and a picture given embedded data
 the view's directory. The same import is
 `sysml model.sysml -import-diagram view.drawio -dry-run` on the command line, which prints the
 planned edits and a diff first.
+
+## Emacs
+
+The Emacs package in [editors/emacs](../../editors/emacs) has three parts, each
+usable without the next: `sysml-mode` and `kerml-mode` (highlighting, indentation,
+comments, imenu; Emacs 29.1+), `sysml-lsp` (an
+[lsp-mode](https://emacs-lsp.github.io/lsp-mode/) client for `sysml-lsp`), and
+`sysml-diagram` (a buffer showing a view of the model). It is loaded from the
+checkout rather than installed from MELPA:
+
+```elisp
+(use-package sysml-mode
+  :load-path "~/src/OpenSysML/editors/emacs"
+  :mode (("\\.sysml\\'" . sysml-mode)
+         ("\\.kerml\\'" . kerml-mode)))
+
+(use-package sysml-lsp
+  :load-path "~/src/OpenSysML/editors/emacs"
+  :after lsp-mode
+  :demand t
+  :hook ((sysml-mode kerml-mode) . lsp-deferred))
+
+(use-package sysml-diagram
+  :load-path "~/src/OpenSysML/editors/emacs"
+  :after sysml-lsp
+  :bind (:map sysml-base-mode-map ("C-c C-v" . sysml-diagram-show)))
+```
+
+The server is found as the VS Code extension finds it: `sysml-lsp-server-path`,
+then `bin/sysml-lsp` in the project root, then `sysml-lsp` on `exec-path`.
+
+- **Highlighting** colours each keyword group — declarations, behaviour,
+  modifiers, relationships, word operators — with its own customizable face, plus
+  declared names, type references and quoted names. With the server attached, its
+  semantic tokens colour names by what they resolve to, and leave the keyword
+  groups their faces.
+- **Indentation** follows the formatter's rule, so `TAB` and
+  `lsp-format-buffer` agree: one level per brace, one more for a line continuing
+  the statement above.
+- **Strict conformance** is `sysml-lsp-strict-conformance`, sent as
+  `sysml.strictConformance`; setting it republishes every open document's
+  diagnostics without a restart.
+- **`M-x sysml-diagram-show`** is the counterpart of [the diagram
+  panel](#the-diagram-panel): the same renderings, drawn as a tree of elements
+  with their edges and what could not be represented. `RET` on an element visits
+  its declaration, moving point in the model highlights the element around it,
+  and it redraws as the model is typed, keeping the last good view when a
+  keystroke breaks it. `i` draws a picture with the Mermaid CLI when one is
+  installed.
+
+`editors/emacs/README.md` documents every face, setting and key.
 
 ## Helix, Neovim and Zed
 

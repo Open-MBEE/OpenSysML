@@ -22,7 +22,7 @@ changed=$(git diff --name-only "$(git merge-base "$base" "$head")" "$head")
 # The editors' grammar generator and its committed outputs (the VS Code
 # grammars and the JupyterLab syntax table) are here too: the test that holds
 # them together is a Go test, run by the Go suite.
-service_pattern='^(api/proto/|cmd/|internal/|tools/|client/opensysml/|client/release-digests\.json$|conformance/|tests/|scripts/|examples/|editors/vscode/tools/|editors/vscode/syntaxes/|editors/jupyterlab/src/syntax\.json$|Makefile$|go\.mod$|go\.sum$|install\.sh$|install\.ps1$|action\.yml$|\.github/workflows/|\.github/dependabot\.yml$|\.circleci/|packaging/npm/)'
+service_pattern='^(api/proto/|cmd/|internal/|tools/|client/opensysml/|client/release-digests\.json$|conformance/|tests/|scripts/|examples/|editors/internal/|editors/vscode/tools/|editors/vscode/syntaxes/|editors/jupyterlab/src/syntax\.json$|editors/emacs/tools/|editors/emacs/sysml-mode-keywords\.el$|Makefile$|go\.mod$|go\.sum$|install\.sh$|install\.ps1$|action\.yml$|\.github/workflows/|\.github/dependabot\.yml$|\.circleci/|packaging/npm/)'
 docs_pattern='^(docs/|overrides/|packaging/man/|mkdocs\.yml$|README\.md$|CHANGELOG\.md$|CONTRIBUTING\.md$|AGENTS\.md$|.*\.md$)'
 node_pattern='^client/node/'
 python_pattern='^client/python/'
@@ -32,6 +32,7 @@ julia_pattern='^client/julia/'
 matlab_pattern='^client/matlab/'
 vscode_pattern='^editors/vscode/'
 jupyterlab_pattern='^editors/jupyterlab/'
+emacs_pattern='^editors/emacs/'
 mdk_pattern='^editors/mdk/'
 syson_pattern='^editors/syson/'
 # The Go hygiene suite ratchets every tracked test file and fixture, wherever it
@@ -41,7 +42,7 @@ hygiene_pattern='(^|/)testdata/|\.golden\.|_test\.go$'
 # baselines and figure pages under docs/project, so a change there runs Go as well as docs.
 project_inputs_pattern='^docs/project/.*\.(json|md)$'
 
-known_pattern="$service_pattern|$docs_pattern|$node_pattern|$python_pattern|$java_pattern|$rust_pattern|$julia_pattern|$matlab_pattern|$vscode_pattern|$jupyterlab_pattern|$mdk_pattern|$syson_pattern|^\.agents/|^\.gitignore$|^\.gitattributes$|^LICENSE|^packaging/"
+known_pattern="$service_pattern|$docs_pattern|$node_pattern|$python_pattern|$java_pattern|$rust_pattern|$julia_pattern|$matlab_pattern|$vscode_pattern|$jupyterlab_pattern|$emacs_pattern|$mdk_pattern|$syson_pattern|^\.agents/|^\.gitignore$|^\.gitattributes$|^LICENSE|^packaging/"
 
 matches() {
   local pattern=$1
@@ -79,6 +80,7 @@ emit julia "$( { [[ "$fanout" = true ]] || matches "$julia_pattern"; } && echo t
 emit matlab "$( { [[ "$fanout" = true ]] || matches "$matlab_pattern"; } && echo true || echo false)"
 emit vscode "$( { [[ "$fanout" = true ]] || matches "$vscode_pattern"; } && echo true || echo false)"
 emit jupyterlab "$( { [[ "$fanout" = true ]] || matches "$jupyterlab_pattern"; } && echo true || echo false)"
+emit emacs "$( { [[ "$fanout" = true ]] || matches "$emacs_pattern"; } && echo true || echo false)"
 # The MDK plugin builds on the Java client, so a client change re-runs it too.
 emit mdk "$( { [[ "$fanout" = true ]] || matches "$mdk_pattern" || matches "$java_pattern"; } && echo true || echo false)"
 emit syson "$( { [[ "$fanout" = true ]] || matches "$syson_pattern"; } && echo true || echo false)"
