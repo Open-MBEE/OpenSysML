@@ -170,6 +170,9 @@ func TestParseOSLCRefusesWhatTheLanguageDoesNotDefine(t *testing.T) {
 		{`sysml:name="x"@en`, ErrUnsupportedLiteral},
 		{`rdf:type!=elmt:Demo`, ErrUnsupportedInstanceTerm},
 		{`sysml:id="x"`, ErrUnknownProperty},
+		// Text past the compound term is not dropped.
+		{`sysml:name="a"} and sysml:name="b"`, ErrMalformed},
+		{`oslc.where=sysml:name%3D%22a%22%7D+and+sysml:name%3D%22b%22`, ErrMalformed},
 	}
 	for _, tt := range tests {
 		_, err := ParseOSLC(tt.text, nil)

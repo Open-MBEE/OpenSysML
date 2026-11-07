@@ -59,7 +59,7 @@ func ParseOSLC(text string, table *Table) (Query, error) {
 		return ParseParameters(text, table)
 	}
 	p := newParser(text, clonePrefixes(DefaultPrefixes), table)
-	where, err := p.parseCompound()
+	where, err := p.parseWhere()
 	if err != nil {
 		return Query{}, err
 	}
@@ -119,7 +119,7 @@ func ParseParameters(text string, table *Table) (Query, error) {
 	}
 	if where, present := values[paramWhere]; present {
 		p := newParser(where[0], prefixes, table)
-		parsed, err := p.parseCompound()
+		parsed, err := p.parseWhere()
 		if err != nil {
 			return Query{}, err
 		}
@@ -287,6 +287,19 @@ type oslcParser struct {
 
 func newParser(text string, prefixes map[string]string, table *Table) oslcParser {
 	return oslcParser{s: text, prefixes: prefixes, table: table, features: map[string]bool{}}
+}
+
+// parseWhere reads the whole where text as one compound term.
+func (p *oslcParser) parseWhere() (Constraint, error) {
+	where, err := p.parseCompound()
+	if err != nil {
+		return nil, err
+	}
+	p.skipSpace()
+	if p.pos < len(p.s) {
+		return nil, errorf(ErrMalformed, "OSLC where text continues past its compound term at %q", p.s[p.pos:])
+	}
+	return where, nil
 }
 
 // parseCompound reads `term (and term)*`, a scoped term's body included.
