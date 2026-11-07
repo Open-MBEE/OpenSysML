@@ -5,7 +5,6 @@
 root examples: models 56, skipped 0, matched 28930, unmatched 17504
   AcceptActionUsage::receiverArgument: equal 5, different 1, symbol-missing 0, symbol-extra 0
   AnnotatingElement::annotation: equal 200, different 206, symbol-missing 0, symbol-extra 0
-  Behavior::parameter: equal 180, different 24, symbol-missing 0, symbol-extra 0
   Behavior::step: equal 179, different 25, symbol-missing 0, symbol-extra 0
   ConjugatedPortDefinition::ownedPortConjugator: equal 0, different 20, symbol-missing 0, symbol-extra 0
   Connector::connectorEnd: equal 370, different 0, symbol-missing 0, symbol-extra 12
@@ -90,7 +89,7 @@ root examples: models 56, skipped 0, matched 28930, unmatched 17504
   RequirementUsage::text: equal 141, different 0, symbol-missing 6, symbol-extra 0
   Specialization::owningType: equal 3743, different 13, symbol-missing 0, symbol-extra 0
   StateUsage::entryAction: equal 139, different 3, symbol-missing 0, symbol-extra 0
-  Step::parameter: equal 3073, different 197, symbol-missing 0, symbol-extra 0
+  Step::parameter: equal 3125, different 145, symbol-missing 0, symbol-extra 0
   TransitionUsage::guardExpression: equal 67, different 45, symbol-missing 0, symbol-extra 0
   TransitionUsage::succession: equal 0, different 112, symbol-missing 0, symbol-extra 0
   TransitionUsage::triggerAction: equal 72, different 40, symbol-missing 0, symbol-extra 0
@@ -219,7 +218,6 @@ root tests/testdata: models 40, skipped 0, matched 1462, unmatched 592
 root examples/sysml-v2-training: models 100, skipped 0, matched 7175, unmatched 3896
   AcceptActionUsage::receiverArgument: equal 1, different 4, symbol-missing 0, symbol-extra 0
   AnnotatingElement::annotation: equal 32, different 6, symbol-missing 0, symbol-extra 0
-  Behavior::parameter: equal 45, different 40, symbol-missing 0, symbol-extra 0
   Behavior::step: equal 75, different 10, symbol-missing 0, symbol-extra 0
   ConjugatedPortDefinition::ownedPortConjugator: equal 0, different 8, symbol-missing 0, symbol-extra 0
   Connector::relatedFeature: equal 45, different 0, symbol-missing 27, symbol-extra 0
@@ -301,7 +299,7 @@ root examples/sysml-v2-training: models 100, skipped 0, matched 7175, unmatched 
   Specialization::owningType: equal 906, different 21, symbol-missing 0, symbol-extra 0
   StateUsage::entryAction: equal 34, different 2, symbol-missing 0, symbol-extra 0
   Step::behavior: equal 621, different 0, symbol-missing 0, symbol-extra 2
-  Step::parameter: equal 514, different 109, symbol-missing 0, symbol-extra 0
+  Step::parameter: equal 581, different 42, symbol-missing 0, symbol-extra 0
   TransitionUsage::guardExpression: equal 27, different 2, symbol-missing 0, symbol-extra 0
   TransitionUsage::succession: equal 0, different 29, symbol-missing 0, symbol-extra 0
   TransitionUsage::triggerAction: equal 1, different 28, symbol-missing 0, symbol-extra 0
@@ -343,7 +341,6 @@ root examples/pilot-corpora: models 213, skipped 0, matched 43996, unmatched 164
   Annotation::annotatedElement: equal 15, different 0, symbol-missing 0, symbol-extra 1
   Annotation::owningAnnotatedElement: equal 15, different 0, symbol-missing 0, symbol-extra 1
   AttributeUsage::attributeDefinition: equal 1408, different 0, symbol-missing 0, symbol-extra 2
-  Behavior::parameter: equal 194, different 46, symbol-missing 0, symbol-extra 0
   Behavior::step: equal 218, different 22, symbol-missing 0, symbol-extra 0
   CaseDefinition::subjectParameter: equal 25, different 6, symbol-missing 0, symbol-extra 0
   CaseUsage::objectiveRequirement: equal 61, different 4, symbol-missing 1, symbol-extra 0
@@ -448,7 +445,7 @@ root examples/pilot-corpora: models 213, skipped 0, matched 43996, unmatched 164
   StateUsage::doAction: equal 132, different 3, symbol-missing 0, symbol-extra 0
   StateUsage::entryAction: equal 132, different 3, symbol-missing 0, symbol-extra 0
   Step::behavior: equal 4158, different 8, symbol-missing 1, symbol-extra 13
-  Step::parameter: equal 3937, different 243, symbol-missing 0, symbol-extra 0
+  Step::parameter: equal 4052, different 128, symbol-missing 0, symbol-extra 0
   TransitionUsage::guardExpression: equal 67, different 9, symbol-missing 0, symbol-extra 0
   TransitionUsage::succession: equal 0, different 76, symbol-missing 0, symbol-extra 0
   TransitionUsage::triggerAction: equal 17, different 59, symbol-missing 0, symbol-extra 0
@@ -499,7 +496,6 @@ root examples/spec-examples: models 473, skipped 38, matched 7392, unmatched 403
   Annotation::annotatedElement: equal 6, different 0, symbol-missing 0, symbol-extra 9
   Annotation::owningAnnotatedElement: equal 6, different 0, symbol-missing 0, symbol-extra 9
   AttributeUsage::attributeDefinition: equal 266, different 0, symbol-missing 0, symbol-extra 1
-  Behavior::parameter: equal 114, different 29, symbol-missing 0, symbol-extra 0
   Behavior::step: equal 127, different 16, symbol-missing 0, symbol-extra 0
   Classifier::ownedSubclassification: equal 363, different 15, symbol-missing 0, symbol-extra 0
   ConjugatedPortDefinition::ownedPortConjugator: equal 0, different 3, symbol-missing 0, symbol-extra 0
@@ -595,7 +591,7 @@ root examples/spec-examples: models 473, skipped 38, matched 7392, unmatched 403
   StateDefinition::doAction: equal 16, different 1, symbol-missing 0, symbol-extra 0
   StateDefinition::entryAction: equal 16, different 1, symbol-missing 0, symbol-extra 0
   Step::behavior: equal 620, different 0, symbol-missing 0, symbol-extra 2
-  Step::parameter: equal 529, different 93, symbol-missing 0, symbol-extra 0
+  Step::parameter: equal 576, different 46, symbol-missing 0, symbol-extra 0
   TransitionUsage::guardExpression: equal 7, different 12, symbol-missing 0, symbol-extra 0
   TransitionUsage::succession: equal 0, different 19, symbol-missing 0, symbol-extra 0
   TransitionUsage::triggerAction: equal 10, different 9, symbol-missing 0, symbol-extra 0
