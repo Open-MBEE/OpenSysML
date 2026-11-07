@@ -403,7 +403,7 @@ func fixedValue(
 // features, and over literals — and inst holds no materialized value for it;
 // nil for a literal default, a value the object holds or a variation, which
 // stay fixed as they are. One reading anything else is not derived either: a
-// chain (`inner.x + 1.0`), a qualified or imported name (`test::scale * r`)
+// chain through a held object (chainRootFree), a qualified or imported name (`test::scale * r`)
 // name values the query fixes none of, which an equation would leave to the
 // solver, so the value the evaluator derives from them is what the query fixes.
 // A unit (`[m]`) is a measurement reference, not a value read.
@@ -426,7 +426,13 @@ func derivedDeclaration(ctx *runtime.Context, feat *runtime.EffectiveFeature, in
 				return false
 			}
 		case *ast.FeatureChainExpr:
-			outside = true
+			// A chain rooted in a feature no object is held for (`s.amount` through the subject, a
+			// parameter by SysML v2 §7.21.2) reads a value the query leaves free: `=` binds feat to it (KerML 1.1 §7.3.4.5).
+			if segments, ok := pathSegments(ref); ok && chainRootFree(ctx, inst, feat, features, segments) {
+				reads = true
+			} else {
+				outside = true
+			}
 			return false
 		case *ast.FeatureReference:
 			segments, ok := nameSegments(ref.Name)
@@ -444,6 +450,20 @@ func derivedDeclaration(ctx *runtime.Context, feat *runtime.EffectiveFeature, in
 		return nil
 	}
 	return &Derived{Expr: feat.DefaultValue, Scope: feat.DefaultScope()}
+}
+
+// chainRootFree reports whether segments' root is a feature of the element other than feat that
+// inst holds no object for, reading the root — which materializes a part the object had not yet.
+func chainRootFree(ctx *runtime.Context, inst *runtime.Instance, feat *runtime.EffectiveFeature, features map[string]*symbols.Symbol, segments []string) bool {
+	root, own := features[segments[0]]
+	if !own || root == feat.Symbol {
+		return false
+	}
+	if inst == nil {
+		return true
+	}
+	fv, err := inst.GetFeatureValue(ctx, segments[0])
+	return err == nil && (fv == nil || fv.HeldValue().Kind == runtime.ValInvalid)
 }
 
 // fix asserts the fixed values the query's variables read, and records the ones
