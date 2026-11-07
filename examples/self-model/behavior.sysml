@@ -8,6 +8,7 @@ package OpenSysMLBehavior {
     attribute def EditEvent;
     attribute def TokenArrival;
     attribute def SignalEvent;
+    attribute def MessageArrival;
 
     // One document analysed end to end. The tiers decide whether lowering and
     // execution are reached at all.
@@ -237,8 +238,10 @@ package OpenSysMLBehavior {
         attribute composite : Boolean = false;
         attribute abstractFeature : Boolean = false;
         attribute optional : Boolean = false;
+        attribute kernelMember : Boolean = false;
 
         attribute evaluations : Integer = 0;
+        attribute answeredFromRun : Boolean = false;
         attribute objectsMade : Integer = 0;
         attribute admitted : Boolean = false;
         attribute tracked : Boolean = false;
@@ -248,6 +251,7 @@ package OpenSysMLBehavior {
 
         action refuseUnknown { assign refused := true; }
         action refuseUninitialized { assign refused := true; }
+        action answerFromRun { assign answeredFromRun := true; }
         action returnHeld;
         action holdNothing;
         action readFarEnd { assign evaluations := evaluations + 1; }
@@ -266,6 +270,12 @@ package OpenSysMLBehavior {
         // Naming no feature value of the object is no materialization of one.
         decide lookupGate;
         if declared then bindingGate;
+        else kernelGate;
+
+        // A Kernel Semantic Library member the shape leaves out — a start or end shot, the
+        // snapshots or time slices — is answered from what the run tracks, not refused.
+        decide kernelGate;
+        if kernelMember then answerFromRun;
         else refuseUnknown;
 
         // A value bound or connected is read from its far end whatever the feature states.
@@ -327,6 +337,7 @@ package OpenSysMLBehavior {
         succession first holdNothing then done;
         succession first refuseUnknown then done;
         succession first refuseUninitialized then done;
+        succession first answerFromRun then done;
     }
 
     // The runtime tiers, from an effective feature list to a simulated model.
@@ -345,23 +356,33 @@ package OpenSysMLBehavior {
         transition first behavioralModel then behavioralExecution;
     }
 
-    // Token flow: a step moves every enabled token, and a round with no
-    // movement is a deadlock rather than a hang. The budget is the action-step one.
+    // Token flow: a step moves every enabled token, and a round with no movement is a
+    // deadlock rather than a hang — unless a token is parked at an accept, when the executor
+    // waits for a message or the clock instead. A terminate ends it short of its final node.
+    // The budget is the action-step one; the states are the executor's (runtime.ExecutionState).
     state def TokenFlow {
         attribute progressed : Boolean = true;
+        attribute parked : Boolean = false;
+        attribute terminating : Boolean = false;
         attribute budgetLeft : Integer = 1000000;
+        attribute executorStates : String = "Ready, Running, Completed, Suspended, Waiting, Terminated";
 
         entry; then idle;
 
         state idle;
         state stepping;
+        state waiting;
         state blocked;
         state completed;
+        state terminated;
 
         transition first idle accept TokenArrival then stepping;
-        transition first stepping if progressed and budgetLeft > 0 then idle;
-        transition first stepping if not progressed then blocked;
+        transition first stepping if progressed and budgetLeft > 0 and not terminating then idle;
+        transition first stepping if terminating then terminated;
+        transition first stepping if not progressed and parked then waiting;
+        transition first stepping if not progressed and not parked then blocked;
         transition first stepping if budgetLeft <= 0 then blocked;
+        transition first waiting accept MessageArrival then stepping;
         transition first idle if not progressed then completed;
     }
 

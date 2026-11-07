@@ -41,6 +41,9 @@ package OpenSysMLIdentity {
         attribute keyedBySymbol : Boolean = true;
         attribute touchesSyntaxTree : Boolean = false;
         attribute scopeEqualityIgnoresBranch : Boolean = true;
+        attribute libraryLanguages : String = "KerML, SysML, OpenSysML";
+        attribute extensionPrefix : String = "https://github.com/Open-MBEE/OpenSysML-Extensions-Library/";
+        attribute qualifiedNameSeparator : String = "::";
         out item facts : IdentityFacts;
         port factsOut : ArtifactPort;
     }
@@ -84,11 +87,13 @@ package OpenSysMLIdentity {
         port textOut : ArtifactPort;
     }
 
-    // Measures what survives a live Flexo round trip; the committed report is
-    // the evidence the standardization submission cites.
+    // The client of a live Flexo MMS stack; what survives a round trip through it is
+    // measured by the tools module's referee, whose committed report the submission cites.
     #Identity part def InteropHarness :> CodeUnit {
         attribute :>> goPackage = "internal/translate/interop/flexo";
         attribute measuresRatherThanAsserts : Boolean = true;
+        attribute measuredBy : String = "tools/referee/flexo";
+        attribute gateEnvVar : String = "FLEXO_INTEROP";
     }
 
     // A diff keyed by effective id, so a rename is an update of the same
