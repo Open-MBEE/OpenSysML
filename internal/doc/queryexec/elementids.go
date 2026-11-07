@@ -193,6 +193,12 @@ func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbo
 			return id, true, err
 		}
 		return "", true, nil
+	case symbols.ImplicitAnnotatingRelationship:
+		if node := aboutClauseNode(rel.Owner, rel.Ordinal); node != nil {
+			id, err = read.ReadRelationship(rel.Owner.DocName, node)
+			return id, true, err
+		}
+		return "", true, nil
 	case symbols.ImplicitPortConjugation:
 		if rel.Owner != nil && rel.Owner.Decl != nil {
 			id, err = read.ReadRelationship(rel.Owner.DocName, rel.Owner.Decl)
@@ -293,3 +299,37 @@ type spanNode struct{ span source.Span }
 func (n spanNode) Span() source.Span            { return n.span }
 func (n spanNode) LeadingTrivia() []ast.Trivia  { return nil }
 func (n spanNode) TrailingTrivia() []ast.Trivia { return nil }
+
+// aboutClauseNode is the node the conversion keys the i-th `about` Annotation of the
+// annotating element owner by: the name a comment or `@M about …` states, the clause a
+// `metadata m : M about …` usage does.
+func aboutClauseNode(owner *symbols.Symbol, i int) ast.Node {
+	if owner == nil || owner.Decl == nil || i < 0 {
+		return nil
+	}
+	switch d := owner.Decl.(type) {
+	case *ast.Comment:
+		if i < len(d.About) {
+			return d.About[i]
+		}
+	case *ast.PrefixMetadata:
+		if i < len(d.About) {
+			return d.About[i]
+		}
+	case *ast.Usage:
+		for _, rel := range d.Relationships {
+			if rel == nil || rel.Kind != ast.RelAnnotates || rel.Target == nil {
+				continue
+			}
+			if i == 0 {
+				// A clause nothing spans is keyed by its name, as the conversion keys it.
+				if rel.Span().Len == 0 {
+					return rel.Target
+				}
+				return rel
+			}
+			i--
+		}
+	}
+	return nil
+}

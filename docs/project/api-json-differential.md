@@ -230,7 +230,7 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 99834 elements matched (19033 ours-only, 31480 pilot-only, 0 of them implied); properties: 1926398 present-equal, 148945 present-different, 297685 ours-missing, 77575 pilot-missing, 2124414 absent-both, 32771 indeterminate, 516 pilot-nondeterministic.
+**Scorecard:** 935 files; 99870 elements matched (19037 ours-only, 31444 pilot-only, 0 of them implied); properties: 1926907 present-equal, 148842 present-different, 297639 ours-missing, 77614 pilot-missing, 2124771 absent-both, 32771 indeterminate, 516 pilot-nondeterministic.
 
 Re-recorded on develop's individual-definition change (#1943: an `individual def`/`individual usage` is written as `OccurrenceDefinition`/`OccurrenceUsage` with `isIndividual`): 88 more elements match (99534 → 99622), and the 32 `OccurrenceDefinition` rows of the inherited family move from ours-missing to present-different for the causes the paragraph below already lists; no row grew.
 
@@ -244,15 +244,37 @@ The pilot's export failed on 59 files (`pilotFailed`: its own export throws on a
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 8026 | 1138 | 2140 | 157523 | 13498 | 19862 | 5661 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 28254 | 6251 | 7862 | 555650 | 45019 | 81387 | 21084 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 10015 | 1893 | 2584 | 195402 | 17253 | 25942 | 7514 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 6443 | 1191 | 1798 | 114472 | 9473 | 18441 | 7645 |
-| `examples/spec-examples` | 511 | 7389 | 1014 | 2341 | 128986 | 7734 | 21627 | 6214 |
-| `tests/testdata` | 40 | 1517 | 192 | 454 | 27659 | 2128 | 4163 | 1190 |
-| `examples` | 56 | 30650 | 6344 | 12479 | 599206 | 44452 | 96940 | 23154 |
+| `examples/sysml-v2-training` | 100 | 8031 | 1139 | 2135 | 157593 | 13482 | 19858 | 5666 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 28266 | 6252 | 7850 | 555827 | 44993 | 81356 | 21099 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 10015 | 1893 | 2584 | 195416 | 17239 | 25942 | 7514 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 6446 | 1191 | 1795 | 114507 | 9476 | 18433 | 7648 |
+| `examples/spec-examples` | 511 | 7402 | 1016 | 2328 | 129118 | 7728 | 21631 | 6227 |
+| `tests/testdata` | 40 | 1518 | 192 | 453 | 27674 | 2125 | 4161 | 1191 |
+| `examples` | 56 | 30652 | 6344 | 12477 | 599272 | 44411 | 96935 | 23156 |
 | `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 887 | 31 | 90 | 41 |
 | `docs/manual/examples` | 11 | 7487 | 1010 | 1822 | 146613 | 9357 | 29233 | 5072 |
+
+**An `about` clause's Annotation** (re-recorded when the writer began stating one `Annotation`
+element per element an annotating element's `about` names — `@M about x, y;`, `metadata m : M
+about x;`, `comment about x` — owned by the annotating element after its typing and ahead of its
+body through `ownedAnnotatingRelationship`, as KerML 8.3.2.3.2 and the pilot state it, where the
+collapsed `annotatedElement` alone stood; a metadata usage's typing is owned ahead of its body
+members, as the pilot orders it): 29 rows moved, every one an `Annotation`, `Comment`,
+`MetadataUsage` or `MetadataFeature` row, none with fewer equal. 36 more `Annotation` elements match
+(43 with the seven a dependency owns for its prefix metadata): `annotatingElement` and
+`owningRelatedElement` 43 equal, `owningAnnotatingElement` and `source` 36 equal (a prefix's annotation
+states neither, as before), `MetadataUsage.ownedRelationship`
+279 → 384 equal and 105 → 0 different, `MetadataUsage.ownedAnnotatingRelationship` 13 and
+`Comment.ownedAnnotatingRelationship` 15 ours-missing → equal. What stays: seven annotations whose
+`about` names an element the specification snippet never declares (`sysml/7.27.2/3`,
+`kerml/7.4.13/3`: `about SecurityRequirements, SecurityDesign`) carry no `target`,
+`annotatedElement` or `relatedElement` on our side — an unresolved name is written as no reference,
+as everywhere — and their owners' derived `annotation` is ours-missing for the same reason (4
+`MetadataUsage`, 1 `Comment`); one `Annotation.annotatedElement` is present-different
+(`Simple Tests/Comments.kerml`, `comment about a` where `a` is `doc <a>`): both sides target the
+documentation, which the referee keys `Comments::A::a` on ours and `Comments::A/Documentation[0]` on
+the pilot's; and one comment's annotation is pilot-missing (`Simple Tests/CommentTest.sysml`), the
+pilot listing none for it.
 
 **Every connector end's `[1..1]`** (re-recorded when the writer began stating the implicit `[1..1]`
 of a positional end — `connect a to b`, `bind a = b`, `first s1 then s2`, `allocate a to b` — as it

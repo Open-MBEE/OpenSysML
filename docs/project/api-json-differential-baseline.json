@@ -14,7 +14,7 @@
       {
         "name": "api-json-writer",
         "source": "internal/translate/export",
-        "sourceDigest": "sha256:797695a9aa260cee868d6f96f980dc30c4c1dc861bbf5a5e13bd6b5d0b11b1ad"
+        "sourceDigest": "sha256:6f62893f41e5a6fafc4ed57051c7ef0a1fbe4da0d65a82f4a21a0a561ba70bd9"
       }
     ],
     "inputs": [
@@ -113,24 +113,24 @@
     "pilotFailed": 59,
     "pilotLibraryElements": 40244,
     "elements": {
-      "matched": 99834,
-      "oursOnly": 19033,
-      "pilotOnly": 31480,
+      "matched": 99870,
+      "oursOnly": 19037,
+      "pilotOnly": 31444,
       "pilotOnlyImplied": 0,
       "typeMismatch": 1682
     },
     "properties": {
-      "presentEqual": 1926398,
-      "presentDifferent": 148945,
-      "oursMissing": 297685,
-      "pilotMissing": 77575,
-      "absentBoth": 2124414,
+      "presentEqual": 1926907,
+      "presentDifferent": 148842,
+      "oursMissing": 297639,
+      "pilotMissing": 77614,
+      "absentBoth": 2124771,
       "indeterminate": 32771,
       "pilotNondeterministic": 516
     },
-    "rows": 11767,
-    "unkeyedReferences": 150679,
-    "extensionProperties": 262307,
+    "rows": 11768,
+    "unkeyedReferences": 150700,
+    "extensionProperties": 262358,
     "duplicateElements": {
       "ours": 553,
       "pilot": 83427
@@ -154,18 +154,18 @@
       "oursColliding": 6,
       "pilotLibraryElements": 781,
       "elements": {
-        "matched": 8026,
-        "oursOnly": 1138,
-        "pilotOnly": 2140,
+        "matched": 8031,
+        "oursOnly": 1139,
+        "pilotOnly": 2135,
         "pilotOnlyImplied": 0,
         "typeMismatch": 6
       },
       "properties": {
-        "presentEqual": 157523,
-        "presentDifferent": 13498,
-        "oursMissing": 19862,
-        "pilotMissing": 5661,
-        "absentBoth": 178251,
+        "presentEqual": 157593,
+        "presentDifferent": 13482,
+        "oursMissing": 19858,
+        "pilotMissing": 5666,
+        "absentBoth": 178301,
         "indeterminate": 2611,
         "pilotNondeterministic": 62
       },
@@ -190,18 +190,18 @@
       "pilotFailed": 3,
       "pilotLibraryElements": 2421,
       "elements": {
-        "matched": 28254,
-        "oursOnly": 6251,
-        "pilotOnly": 7862,
+        "matched": 28266,
+        "oursOnly": 6252,
+        "pilotOnly": 7850,
         "pilotOnlyImplied": 0,
         "typeMismatch": 34
       },
       "properties": {
-        "presentEqual": 555650,
-        "presentDifferent": 45019,
-        "oursMissing": 81387,
-        "pilotMissing": 21084,
-        "absentBoth": 612921,
+        "presentEqual": 555827,
+        "presentDifferent": 44993,
+        "oursMissing": 81356,
+        "pilotMissing": 21099,
+        "absentBoth": 613038,
         "indeterminate": 7530,
         "pilotNondeterministic": 172
       },
@@ -233,8 +233,8 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 195402,
-        "presentDifferent": 17253,
+        "presentEqual": 195416,
+        "presentDifferent": 17239,
         "oursMissing": 25942,
         "pilotMissing": 7514,
         "absentBoth": 219722,
@@ -263,18 +263,18 @@
       "oursColliding": 4,
       "pilotLibraryElements": 283,
       "elements": {
-        "matched": 6443,
+        "matched": 6446,
         "oursOnly": 1191,
-        "pilotOnly": 1798,
+        "pilotOnly": 1795,
         "pilotOnlyImplied": 0,
         "typeMismatch": 1034
       },
       "properties": {
-        "presentEqual": 114472,
-        "presentDifferent": 9473,
-        "oursMissing": 18441,
-        "pilotMissing": 7645,
-        "absentBoth": 106510,
+        "presentEqual": 114507,
+        "presentDifferent": 9476,
+        "oursMissing": 18433,
+        "pilotMissing": 7648,
+        "absentBoth": 106540,
         "indeterminate": 568,
         "pilotNondeterministic": 9
       },
@@ -299,18 +299,18 @@
       "pilotFailed": 52,
       "pilotLibraryElements": 432,
       "elements": {
-        "matched": 7389,
-        "oursOnly": 1014,
-        "pilotOnly": 2341,
+        "matched": 7402,
+        "oursOnly": 1016,
+        "pilotOnly": 2328,
         "pilotOnlyImplied": 0,
         "typeMismatch": 396
       },
       "properties": {
-        "presentEqual": 128986,
-        "presentDifferent": 7734,
-        "oursMissing": 21627,
-        "pilotMissing": 6214,
-        "absentBoth": 141476,
+        "presentEqual": 129118,
+        "presentDifferent": 7728,
+        "oursMissing": 21631,
+        "pilotMissing": 6227,
+        "absentBoth": 141606,
         "indeterminate": 2350,
         "pilotNondeterministic": 7
       },
@@ -336,18 +336,18 @@
       "oursColliding": 15,
       "pilotLibraryElements": 83,
       "elements": {
-        "matched": 1517,
+        "matched": 1518,
         "oursOnly": 192,
-        "pilotOnly": 454,
+        "pilotOnly": 453,
         "pilotOnlyImplied": 0,
         "typeMismatch": 28
       },
       "properties": {
-        "presentEqual": 27659,
-        "presentDifferent": 2128,
-        "oursMissing": 4163,
-        "pilotMissing": 1190,
-        "absentBoth": 32562,
+        "presentEqual": 27674,
+        "presentDifferent": 2125,
+        "oursMissing": 4161,
+        "pilotMissing": 1191,
+        "absentBoth": 32572,
         "indeterminate": 375,
         "pilotNondeterministic": 0
       },
@@ -373,18 +373,18 @@
       "oursColliding": 5,
       "pilotLibraryElements": 17663,
       "elements": {
-        "matched": 30650,
+        "matched": 30652,
         "oursOnly": 6344,
-        "pilotOnly": 12479,
+        "pilotOnly": 12477,
         "pilotOnlyImplied": 0,
         "typeMismatch": 184
       },
       "properties": {
-        "presentEqual": 599206,
-        "presentDifferent": 44452,
-        "oursMissing": 96940,
-        "pilotMissing": 23154,
-        "absentBoth": 675656,
+        "presentEqual": 599272,
+        "presentDifferent": 44411,
+        "oursMissing": 96935,
+        "pilotMissing": 23156,
+        "absentBoth": 675676,
         "indeterminate": 13300,
         "pilotNondeterministic": 164
       },
@@ -7336,21 +7336,21 @@
       0,
       0,
       0,
-      7,
+      43,
       0,
       0
     ],
     "Annotation.annotatedElement": [
+      35,
+      1,
       7,
-      0,
-      0,
       0,
       0,
       0,
       0
     ],
     "Annotation.annotatingElement": [
-      7,
+      43,
       0,
       0,
       0,
@@ -7363,7 +7363,7 @@
       0,
       0,
       0,
-      7,
+      43,
       0,
       0
     ],
@@ -7372,7 +7372,7 @@
       0,
       0,
       0,
-      7,
+      43,
       0,
       0
     ],
@@ -7381,12 +7381,12 @@
       0,
       0,
       0,
-      7,
+      43,
       0,
       0
     ],
     "Annotation.isImplied": [
-      7,
+      43,
       0,
       0,
       0,
@@ -7395,7 +7395,7 @@
       0
     ],
     "Annotation.isImpliedIncluded": [
-      7,
+      43,
       0,
       0,
       0,
@@ -7404,7 +7404,7 @@
       0
     ],
     "Annotation.isLibraryElement": [
-      7,
+      43,
       0,
       0,
       0,
@@ -7426,7 +7426,7 @@
       0,
       0,
       0,
-      7,
+      43,
       0,
       0
     ],
@@ -7435,7 +7435,7 @@
       0,
       0,
       0,
-      7,
+      43,
       0,
       0
     ],
@@ -7444,7 +7444,7 @@
       0,
       0,
       0,
-      0,
+      36,
       0,
       0
     ],
@@ -7453,7 +7453,7 @@
       0,
       0,
       0,
-      7,
+      43,
       0,
       0
     ],
@@ -7461,7 +7461,7 @@
       0,
       0,
       0,
-      7,
+      43,
       0,
       0,
       0
@@ -7475,8 +7475,17 @@
       0,
       0
     ],
+    "Annotation.owningAnnotatingElement": [
+      36,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
     "Annotation.owningRelatedElement": [
-      7,
+      43,
       0,
       0,
       0,
@@ -7489,21 +7498,21 @@
       0,
       0,
       0,
-      7,
+      43,
       0,
       0
     ],
     "Annotation.relatedElement": [
-      0,
-      0,
-      7,
+      28,
+      1,
+      14,
       0,
       0,
       0,
       0
     ],
     "Annotation.source": [
-      0,
+      36,
       0,
       7,
       0,
@@ -7512,9 +7521,9 @@
       0
     ],
     "Annotation.target": [
-      0,
-      0,
-      7,
+      28,
+      1,
+      14,
       0,
       0,
       0,
@@ -7525,7 +7534,7 @@
       0,
       0,
       0,
-      7,
+      43,
       0,
       0
     ],
@@ -20499,11 +20508,11 @@
       0
     ],
     "Comment.annotation": [
+      14,
       0,
-      0,
-      15,
-      0,
-      17,
+      1,
+      1,
+      16,
       0,
       0
     ],
@@ -20580,11 +20589,11 @@
       0
     ],
     "Comment.ownedAnnotatingRelationship": [
-      0,
-      0,
       15,
       0,
-      17,
+      0,
+      1,
+      16,
       0,
       0
     ],
@@ -20607,11 +20616,11 @@
       0
     ],
     "Comment.ownedRelationship": [
-      0,
-      0,
       15,
       0,
-      17,
+      0,
+      1,
+      16,
       0,
       0
     ],
@@ -62115,9 +62124,9 @@
       0
     ],
     "MetadataFeature.ownedAnnotatingRelationship": [
-      0,
-      0,
       1,
+      0,
+      0,
       0,
       0,
       0,
@@ -62250,8 +62259,8 @@
       0
     ],
     "MetadataFeature.ownedRelationship": [
-      0,
       1,
+      0,
       0,
       0,
       0,
@@ -62403,9 +62412,9 @@
       0
     ],
     "MetadataUsage.annotation": [
+      9,
       0,
-      0,
-      13,
+      4,
       7,
       364,
       0,
@@ -63051,9 +63060,9 @@
       0
     ],
     "MetadataUsage.ownedAnnotatingRelationship": [
-      0,
-      0,
       13,
+      0,
+      0,
       0,
       371,
       0,
@@ -63186,8 +63195,8 @@
       0
     ],
     "MetadataUsage.ownedRelationship": [
-      279,
-      105,
+      384,
+      0,
       0,
       0,
       0,

@@ -49,6 +49,7 @@ var impliedRelationshipMetaclasses = map[string]bool{
 	mSpecialization:       true,
 	mRedefinition:         true,
 	mReferenceSubsetting:  true,
+	mAnnotation:           true,
 }
 
 // DerivedSatellite reports whether metaclass is one the encoder derives from
@@ -103,7 +104,8 @@ func (d *decoder) normativeImplied(el, parent *element) (bool, error) {
 	switch {
 	case impliedRelationshipMetaclasses[el.metaclass]:
 		if !ownedByParent() || hasAddress(d.graph, rdf.IRI(el.iri)) ||
-			d.graph.HasProperty(rdf.IRI(el.iri), rdf.OpenSysML+xDeclaredKeyword) {
+			d.graph.HasProperty(rdf.IRI(el.iri), rdf.OpenSysML+xDeclaredKeyword) ||
+			d.prefixAnnotation(rdf.IRI(el.iri)) {
 			return false, nil
 		}
 		if _, owned := d.owningMembership[el.iri]; owned {

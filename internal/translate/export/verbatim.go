@@ -266,7 +266,8 @@ func disagreeingTriples(graph, check *rdf.Graph) []rdf.Triple {
 	}
 	for _, t := range check.Triples() {
 		if structural(t) && !graph.Has(t) && !derivedNameOmitted(graph, t) && !derivedVariabilityOmitted(graph, check, t) &&
-			!derivedMembershipOmitted(graph, check, t) && !derivedMultiplicityOmitted(graph, check, t) {
+			!derivedMembershipOmitted(graph, check, t) && !derivedMultiplicityOmitted(graph, check, t) &&
+			!derivedAnnotatingRelationshipOmitted(graph, check, t) {
 			out = append(out, t)
 		}
 	}
@@ -306,6 +307,30 @@ func derivedMembershipOmitted(graph, check *rdf.Graph, t rdf.Triple) bool {
 		(ontology.IsAncestorOrSelf(metaclass, mImport) && (key == pSource || key == pTarget))
 	return derives &&
 		!graph.HasProperty(t.Subject, rdf.SysML+key) && !graph.HasProperty(t.Subject, rdf.AnnotationJSON+key)
+}
+
+// derivedAnnotatingRelationshipOmitted reports an annotating element's ownedAnnotatingRelationship
+// (KerML 8.3.2.3.2, derived) the candidate states for an Annotation the graph owns through its
+// ownedRelationship alone; a publish without derived properties states no less.
+func derivedAnnotatingRelationshipOmitted(graph, check *rdf.Graph, t rdf.Triple) bool {
+	var key string
+	switch {
+	case strings.HasPrefix(t.Predicate.Value, rdf.SysML):
+		key = strings.TrimPrefix(t.Predicate.Value, rdf.SysML)
+	case rdf.IsAnnotationJSON(t.Predicate.Value):
+		key = strings.TrimPrefix(t.Predicate.Value, rdf.AnnotationJSON)
+	default:
+		return false
+	}
+	if key != pOwnedAnnotatingRelationship || graph.HasProperty(t.Subject, rdf.SysML+key) {
+		return false
+	}
+	for _, owned := range graph.Objects(t.Subject, rdf.SysML+pOwnedRelationship) {
+		if rdf.LocalName(check.Type(owned)) == mAnnotation && owned.IsIRI() && !graph.HasProperty(owned, rdf.SysML+pOwnedRelatedElement) {
+			return true
+		}
+	}
+	return false
 }
 
 // derivedMultiplicityOmitted reports a statement of a usage's implied default Multiplicity

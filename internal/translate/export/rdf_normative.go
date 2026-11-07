@@ -135,7 +135,7 @@ type headItem struct {
 // emits relationship elements for, in the order a head no notation spelled
 // states them.
 var materializedKinds = []ast.RelationshipKind{
-	ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences,
+	ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences, ast.RelAnnotates,
 }
 
 // materializeRelationships emits one relationship element per target of each
@@ -157,6 +157,10 @@ func (e *encoder) materializeRelationships(subject rdf.Term) {
 	var targets []pending
 	position := map[headItem]int{}
 	for _, kind := range materializedKinds {
+		// An Annotation's own annotatedElement is its end, not an `about` to materialize.
+		if kind == ast.RelAnnotates && !ontology.IsAncestorOrSelf(e.metaclassOf(subject), "AnnotatingElement") {
+			continue
+		}
 		objects := e.graph.Objects(subject, rdf.SysML+relationshipProperty[kind])
 		for i, target := range objects {
 			position[headItem{kind: kind, element: target}] = len(targets)
@@ -318,6 +322,13 @@ func (e *encoder) relationshipSpec(subject rdf.Term, kind ast.RelationshipKind, 
 			[]string{"ownedRedefinition", pOwnedSubsetting, pOwnedSpecialization, pOwnedRelationship}}, true
 	case ast.RelReferences:
 		return referenceSubsettingSpec(suffix), true
+	case ast.RelAnnotates:
+		// An `about` names an element the annotating element annotates through an
+		// Annotation it owns (KerML 8.3.2.3.2 AnnotatingElement::ownedAnnotatingRelationship).
+		return normativeRelationship{mAnnotation, suffix,
+			[]string{pAnnotatingElement, pOwningAnnotatingElement, pSource, pOwningRelatedElement},
+			[]string{pAnnotatedElement, pTarget},
+			[]string{pOwnedAnnotatingRelationship, pOwnedRelationship}}, true
 	}
 	return normativeRelationship{}, false
 }
@@ -330,6 +341,8 @@ func relationshipSuffix(kind ast.RelationshipKind, classifier, referenceForm boo
 	switch kind {
 	case ast.RelTyping:
 		return "_ft" + index
+	case ast.RelAnnotates:
+		return AnnotationSuffix + index
 	case ast.RelSpecializes:
 		if classifier {
 			return "_sc" + index
