@@ -8,5 +8,6 @@
 !cmd/
 !internal/
 !api/
+!tools/
 **/testdata/
 **/*_test.go

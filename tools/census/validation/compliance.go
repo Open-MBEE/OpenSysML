@@ -115,6 +115,7 @@ type complianceCheck struct {
 	library  map[string]bool
 	goFuncs  map[string]bool
 	markers  map[int]string
+	file     string
 	problems []string
 }
 
@@ -136,34 +137,79 @@ type citedLine struct {
 // must state correctly. A code span citing a name is the name alone, qualified
 // by a Go receiver, a package or a path, or followed by a probe file's suffix.
 func checkCompliance(root, content string, m *manifest.Manifest) error {
-	rows, err := doccounts.RuleRows(content)
+	check, err := newComplianceCheck(root, m)
 	if err != nil {
 		return err
 	}
-	library, err := libraryConstraints(root)
+	if err := check.page(doccounts.SpecCompliancePath, content); err != nil {
+		return err
+	}
+	return check.result(doccounts.SpecCompliancePath)
+}
+
+// checkComplianceSources is checkCompliance over the sources the page is
+// combined from, so a drift is reported at the source and line that carries it.
+func checkComplianceSources(root string, m *manifest.Manifest) error {
+	sources, err := doccounts.SpecComplianceSources(root)
 	if err != nil {
 		return err
+	}
+	check, err := newComplianceCheck(root, m)
+	if err != nil {
+		return err
+	}
+	for _, source := range sources {
+		text, err := doccounts.ReadSpecComplianceSource(root, source)
+		if err != nil {
+			return err
+		}
+		if err := check.page(source, text); err != nil {
+			return err
+		}
+	}
+	return check.result(doccounts.SpecComplianceDir)
+}
+
+func newComplianceCheck(root string, m *manifest.Manifest) (*complianceCheck, error) {
+	library, err := libraryConstraints(root)
+	if err != nil {
+		return nil, err
 	}
 	goFuncs, err := goValidateFunctions(root)
 	if err != nil {
+		return nil, err
+	}
+	return &complianceCheck{index: constraintIndex(m), library: library, goFuncs: goFuncs}, nil
+}
+
+// page checks one file of the map, the whole page or one of its sources.
+func (k *complianceCheck) page(file, content string) error {
+	rows, err := doccounts.RuleRowsIn(file, content)
+	if err != nil {
 		return err
 	}
-	check := &complianceCheck{index: constraintIndex(m), library: library, goFuncs: goFuncs, markers: make(map[int]string, len(rows))}
+	k.file = file
+	k.markers = make(map[int]string, len(rows))
 	for _, row := range rows {
-		check.markers[row.Line] = row.Marker
+		k.markers[row.Line] = row.Marker
 	}
 	for i, text := range strings.Split(content, "\n") {
-		check.checkLine(i+1, text)
+		k.checkLine(i+1, text)
 	}
-	if len(check.problems) == 0 {
+	return nil
+}
+
+// result is the problems found so far as one error naming subject, or nil.
+func (k *complianceCheck) result(subject string) error {
+	if len(k.problems) == 0 {
 		return nil
 	}
-	sort.Strings(check.problems)
-	return fmt.Errorf("%s does not agree with %s:\n  %s", doccounts.SpecCompliancePath, manifest.Path, strings.Join(check.problems, "\n  "))
+	sort.Strings(k.problems)
+	return fmt.Errorf("%s does not agree with %s:\n  %s", subject, manifest.Path, strings.Join(k.problems, "\n  "))
 }
 
 func (k *complianceCheck) problem(number int, format string, args ...any) {
-	k.problems = append(k.problems, fmt.Sprintf("%s:%d: ", doccounts.SpecCompliancePath, number)+fmt.Sprintf(format, args...))
+	k.problems = append(k.problems, fmt.Sprintf("%s:%d: ", k.file, number)+fmt.Sprintf(format, args...))
 }
 
 // checkLine checks the citations of one line: those in code spans, with the

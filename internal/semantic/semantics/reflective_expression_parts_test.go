@@ -247,8 +247,9 @@ func TestScopelessValuedSymbolOwnsItsFeatureValue(t *testing.T) {
 	scopeless := *x
 	scopeless.Scope = nil
 	memberships := m.OwnedMemberships(&scopeless)
-	if len(memberships) != 1 || m.MetaclassOf(memberships[0]).Name != "FeatureValue" {
-		t.Fatalf("OwnedMemberships(scope-less x) = %d, want the FeatureValue", len(memberships))
+	if len(memberships) != 2 || m.MetaclassOf(memberships[0]).Name != "FeatureValue" ||
+		!IsDefaultMultiplicity(memberships[1].Implicit.Member) {
+		t.Fatalf("OwnedMemberships(scope-less x) = %d, want the FeatureValue then the implied default Multiplicity's", len(memberships))
 	}
 	if m.ValueExpression(&scopeless) != memberships[0].Implicit.Member {
 		t.Error("the FeatureValue owns another expression")

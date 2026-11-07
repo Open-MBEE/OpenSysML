@@ -1,0 +1,1 @@
+- The native query leg identifies the `Multiplicity` a connector end's implicit `[1..1]` is stated by, and its `OwningMembership`, as the conversion mints them (`<end>_pmultiplicity`); an end's row read `elementId` as none since the positional-end default landed.

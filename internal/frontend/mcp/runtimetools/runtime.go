@@ -2,7 +2,9 @@ package runtimetools
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"google.golang.org/protobuf/encoding/protojson"
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -23,6 +25,12 @@ type EvaluateInput struct {
 type InstantiateInput struct {
 	ModelInput
 	SymbolID string `json:"symbolId" jsonschema:"qualified name of the part definition or usage to instantiate"`
+}
+
+// InstancePathsInput names the object whose paths are listed.
+type InstancePathsInput struct {
+	ModelInput
+	Object map[string]any `json:"object,omitempty" jsonschema:"the object as a protojson DocumentObject: {\"instanceId\":\"2\"} with the id instantiate answered, or {\"path\":\"Garage::car.wheels[2]\"} with the qualified name it was instantiated as, its id (#2), or a path through feature values from either (indexes count from 1)"`
 }
 
 // ExecuteActionInput runs an action.
@@ -105,6 +113,51 @@ func (g *group) registerRuntime(s *mcp.Server) {
 			if n := len(resp.GetInstances()); n > 1 {
 				fmt.Fprintf(&b, "%d instances reachable\n", n)
 			}
+		}
+		b.WriteString(diagnosticsText(resp.GetDiagnostics()))
+		return answer(resp, m, b.String())
+	})
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "instance_paths",
+		Description: "List every root-relative usage path that reaches one object the model's population holds (the InstancePaths " +
+			"RPC): from each object instantiate created, the features walked to reach it, aliases through connector ends and " +
+			"reference usages included, in traversal order. The result is the InstancePathsResponse as protojson writes it.",
+		Annotations: toolkit.ReadOnly("Instance paths"),
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in InstancePathsInput) (*mcp.CallToolResult, Result, error) {
+		m, err := g.resolve(ctx, in.ModelInput)
+		if err != nil {
+			return nil, nil, err
+		}
+		object := &pb.DocumentObject{}
+		if in.Object != nil {
+			raw, err := json.Marshal(in.Object)
+			if err != nil {
+				return nil, nil, err
+			}
+			if err := protojson.Unmarshal(raw, object); err != nil {
+				return nil, nil, argumentError("object does not read as a DocumentObject: %v", err)
+			}
+		}
+		resp, err := g.svc.InstancePaths(ctx, &pb.InstancePathsRequest{ModelHash: m.hash, Object: object})
+		if err != nil {
+			return nil, nil, toolError(err)
+		}
+		var b strings.Builder
+		b.WriteString(errorText(resp.GetError()))
+		for _, path := range resp.GetPaths() {
+			root := path.GetRoot().GetSymbolId()
+			if root == "" {
+				root = fmt.Sprintf("#%d", path.GetRoot().GetInstanceId())
+			}
+			if path.GetPath() == "" {
+				fmt.Fprintf(&b, "%s\n", root)
+			} else {
+				fmt.Fprintf(&b, "%s.%s\n", root, path.GetPath())
+			}
+		}
+		if resp.GetTruncated() {
+			b.WriteString("(truncated)\n")
 		}
 		b.WriteString(diagnosticsText(resp.GetDiagnostics()))
 		return answer(resp, m, b.String())

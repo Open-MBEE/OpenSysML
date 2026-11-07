@@ -1,6 +1,6 @@
 """Render the test-suite figures when the site is built, not in git.
 
-The test inventory of docs/project/spec-compliance.md carries inline
+The test inventory of the spec-compliance map (docs/project/spec-compliance/) carries inline
 `<!-- doc-counts:begin <name> -->` … `<!-- doc-counts:end <name> -->` blocks that
 name what is counted and state no figure, so a pull request adding a test or a
 fixture never rewrites a shared line. This hook runs `go run -C tools ./cmd/doc-counts

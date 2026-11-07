@@ -175,6 +175,14 @@ func (r *remote) instantiate(ctx context.Context, req *pb.InstantiateRequest) (*
 	return resp.Msg, nil
 }
 
+func (r *remote) instancePaths(ctx context.Context, req *pb.InstancePathsRequest) (*pb.InstancePathsResponse, error) {
+	resp, err := r.rpc.InstancePaths(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, connectToError(err)
+	}
+	return resp.Msg, nil
+}
+
 func (r *remote) executeAction(ctx context.Context, req *pb.ExecuteActionRequest) (*pb.ExecuteActionResponse, error) {
 	resp, err := r.rpc.ExecuteAction(ctx, connect.NewRequest(req))
 	if err != nil {
@@ -277,6 +285,14 @@ func (r *remote) recordRun(ctx context.Context, req *pb.RecordRunRequest) (*pb.R
 
 func (r *remote) query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error) {
 	resp, err := r.rpc.Query(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, connectToError(err)
+	}
+	return resp.Msg, nil
+}
+
+func (r *remote) getElementProperties(ctx context.Context, req *pb.GetElementPropertiesRequest) (*pb.GetElementPropertiesResponse, error) {
+	resp, err := r.rpc.GetElementProperties(ctx, connect.NewRequest(req))
 	if err != nil {
 		return nil, connectToError(err)
 	}

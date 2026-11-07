@@ -123,7 +123,7 @@ func link(t *testing.T, target wasmTarget, name, tags string) string {
 		if a.err = os.MkdirAll(filepath.Dir(a.path), 0o755); a.err != nil {
 			return
 		}
-		args := []string{"build"}
+		args := []string{"build", "-trimpath"}
 		if tags != "" {
 			args = append(args, "-tags", tags)
 		}

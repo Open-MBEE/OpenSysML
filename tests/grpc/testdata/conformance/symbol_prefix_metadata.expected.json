@@ -1,0 +1,6 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "MetadataAnnotations::Pump::PumpStates::overheated",
+	"expected_kind": "stateUsage",
+	"expected_child_ids": ["MetadataAnnotations::Pump::PumpStates::overheated::@0"]
+}

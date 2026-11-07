@@ -14,3 +14,6 @@ connections:
   connection dot n5 -- hub
   connection dot n5 -- leftSpoke
   connection dot n5 -- rightSpoke
+
+notes:
+  "three spokes" on connection dot n4 at (10, 10)

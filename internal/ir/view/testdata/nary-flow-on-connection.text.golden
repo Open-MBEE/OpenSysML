@@ -17,3 +17,9 @@ connections:
   flow n5 -- message n6
   message n6 -- engine.fuelIn
   tank.fuelOut => gauge.fuelIn
+
+notes:
+  "the line" on tank -> flow n4 at (10, 10)
+  "shared" on tank -> flow n4 at (10, 70)
+  "the reading" on flow n5 at (10, 40)
+  "shared" on flow n5 at (10, 70)

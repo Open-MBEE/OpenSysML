@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -53,5 +54,30 @@ func TestConvertLibraryTableForContentAndCachedDocuments(t *testing.T) {
 		} else if len(response.LibraryReferences) != len(direct.LibraryReferences) {
 			t.Fatalf("cached table: %v", response.LibraryReferences)
 		}
+	}
+}
+
+func TestConvertLibraryTableNamesUnnamedMembersByPath(t *testing.T) {
+	srv := mustNewService(t, 10)
+	response, err := srv.Convert(context.Background(), &pb.ConvertRequest{
+		Source: &pb.ConvertRequest_Content{Content: "package P { part def V; part car : V; }"}, FromFormat: "sysml", ToFormat: "api-json",
+	})
+	if err != nil || response.Error != "" {
+		t.Fatalf("convert: %v %v", response, err)
+	}
+	unnamed := 0
+	for _, ref := range response.LibraryReferences {
+		switch {
+		case ref.QualifiedName == "" && ref.LibraryPath != "":
+			unnamed++
+		case ref.QualifiedName != "" && ref.LibraryPath == "":
+		case ref.QualifiedName == "" && ref.LibraryPath == "" && strings.HasSuffix(ref.Type, "Membership"):
+			// An owning membership is an unnamed relationship: neither name applies.
+		default:
+			t.Errorf("entry %q has qualifiedName %q and libraryPath %q, want exactly one", ref.Id, ref.QualifiedName, ref.LibraryPath)
+		}
+	}
+	if unnamed == 0 {
+		t.Fatalf("the inherited unnamed library members (Parts::Part's documentation, …) are not named by path: %v", response.LibraryReferences)
 	}
 }

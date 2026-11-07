@@ -33,15 +33,17 @@
       "items": { "$ref": "#/$defs/element" }
     },
     "libraryReferences": {
-      "description": "Optional name table for referenced standard-library elements, separate from elements. All ids are literal strings, never handles.",
+      "description": "Optional name table for referenced standard-library elements, separate from elements. All ids are literal strings, never handles. A named element carries qualifiedName; an unnamed member carries libraryPath, its positional path Owner::qualifiedName/Metaclass[i].",
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["@id", "@type", "qualifiedName"],
+        "required": ["@id", "@type"],
+        "anyOf": [{ "required": ["qualifiedName"] }, { "required": ["libraryPath"] }],
         "properties": {
           "@id": { "type": "string" },
           "@type": { "type": "string" },
-          "qualifiedName": { "type": "string" }
+          "qualifiedName": { "type": "string" },
+          "libraryPath": { "type": "string" }
         },
         "additionalProperties": false
       }

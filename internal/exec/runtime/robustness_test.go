@@ -25,6 +25,15 @@ const placementBody = `
 		:>> transformation : CoordinateFramePlacement { :>> source = datum; :>> origin = (10.0, 20.0, 30.0) [datum]; }
 	}`
 
+// inParallel runs a robustness case as a parallel subtest; every case builds
+// its own model and context, so the cases of a suite are independent.
+func inParallel(f func(*testing.T)) func(*testing.T) {
+	return func(t *testing.T) {
+		t.Parallel()
+		f(t)
+	}
+}
+
 // instantiateHolder instantiates the `Holder` part def the source declares, for
 // a case whose failure surfaces when one of its feature values is read.
 func instantiateHolder(t *testing.T, src string) (*Instance, *Context) {

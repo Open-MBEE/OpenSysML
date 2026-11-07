@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -311,6 +312,171 @@ func TestImplicitMultiplicityMetaclassSetMatchesSysMLHierarchy(t *testing.T) {
 		_, got := implicitMultiplicityMetaclasses[name]
 		if got != want {
 			t.Errorf("implicit multiplicity membership for %s = %v, want %v", name, got, want)
+		}
+	}
+}
+
+// TestDefaultMultiplicityMember checks that a usage whose multiplicity is the
+// implicit [1..1] owns a Multiplicity stating it — its Type::multiplicity, the
+// member of the last of its owned memberships, an OwningMembership — while a
+// declared range, a subsetting usage, an action, a variant, an enumerated value,
+// a redefinition of a package-level feature and a KerML feature own none.
+func TestDefaultMultiplicityMember(t *testing.T) {
+	src := `package DM {
+    part def Vehicle {
+        attribute mass : ScalarValues::Real;
+        attribute tags : ScalarValues::String [2];
+        part wheels [4] { part hub; }
+        part wheel : Wheel;
+        part spare :> wheel;
+        action go;
+        part trim : Trim { variant part leather : Trim; }
+        part cap redefines lid;
+    }
+    part lid : Wheel;
+    part def Wheel;
+    part def Trim;
+    enum def Color { red; }
+    individual part def Probe :> Vehicle { part lens; }
+    metadata def Tag;
+    individual #Tag part def Tagged :> Vehicle;
+    connection link connect lid to lid;
+    connection named connect e1 ::> lid to e2 ::> lid;
+}`
+	for _, fixture := range reflectiveFixtures(t, "default-multiplicity.sysml", source.KindSysML, src) {
+		model := fixture.model
+		mass := relFixtureSymbol(t, fixture, "mass")
+		member := model.DefaultMultiplicityMember(mass)
+		if member == nil {
+			t.Fatal("DefaultMultiplicityMember(mass) = nil, want the Multiplicity stating its implicit [1..1]")
+		}
+		if model.DefaultMultiplicityMember(mass) != member {
+			t.Error("DefaultMultiplicityMember(mass) changed between reads")
+		}
+		if !IsDefaultMultiplicity(member) || !member.Implied() {
+			t.Error("the member is not recognised as an implied default multiplicity")
+		}
+		if got := model.fqnOf(model.MetaclassOf(member)); got != "KerML::Core::Multiplicity" {
+			t.Errorf("metaclass = %s, want KerML::Core::Multiplicity", got)
+		}
+		assertRelFeature(t, model, mass, "multiplicity", member)
+		assertRelFeature(t, model, member, "owner", mass)
+		if members, _ := model.ReflectiveElements(mass, "ownedMember"); len(members) != 1 || members[0] != member {
+			t.Errorf("mass ownedMember = %d elements, want the default multiplicity alone", len(members))
+		}
+		if members, _ := model.ReflectiveElements(mass, "member"); len(members) == 0 || members[len(members)-1] != member {
+			t.Errorf("mass member = %d elements, want the default multiplicity last", len(members))
+		}
+		if features, _ := model.ReflectiveElements(mass, "feature"); slices.Contains(features, member) {
+			t.Error("mass feature holds the default multiplicity: an OwningMembership is no FeatureMembership")
+		}
+		if elements, _ := model.ReflectiveElements(mass, "ownedElement"); len(elements) == 0 || elements[len(elements)-1] != member {
+			t.Errorf("mass ownedElement = %d elements, want the default multiplicity last", len(elements))
+		}
+		rels := model.OwnedRelationships(mass)
+		if len(rels) == 0 {
+			t.Fatal("mass owns no relationship")
+		}
+		membership := rels[len(rels)-1]
+		if membership.Implicit == nil || membership.Implicit.Member != member {
+			t.Fatalf("the last owned relationship of mass is %s, want the default multiplicity's membership", relMetaName(model, membership))
+		}
+		if got := relMetaName(model, membership); got != "OwningMembership" {
+			t.Errorf("membership metaclass = %s, want OwningMembership", got)
+		}
+		if model.OwningMembership(member) != membership {
+			t.Error("OwningMembership(member) is not the membership mass owns it through")
+		}
+		for sym, feature := range map[*symbols.Symbol]string{membership: "memberName", member: "qualifiedName"} {
+			if value, ok := model.ReflectiveFeatureValues(sym, feature); !ok || len(value) > 1 || (len(value) == 1 && value[0].Kind != symbols.FilterValueEmpty) {
+				t.Errorf("%s = %v, %t; want none: the member is unnamed", feature, value, ok)
+			}
+		}
+		if symbols.KeyOf(member) == symbols.KeyOf(mass) || symbols.SameElement(member, mass) {
+			t.Error("KeyOf(default multiplicity) collides with its usage")
+		}
+		for _, name := range []string{"tags", "spare", "go", "leather", "red", "cap"} {
+			sym := relFixtureSymbol(t, fixture, name)
+			if model.DefaultMultiplicityMember(sym) != nil {
+				t.Errorf("%s owns a default multiplicity, want none", name)
+			}
+		}
+		tags := relFixtureSymbol(t, fixture, "tags")
+		if got, _ := model.ReflectiveElements(tags, "multiplicity"); len(got) != 1 || !IsImpliedMultiplicity(got[0]) || IsDefaultMultiplicity(got[0]) {
+			t.Errorf("tags multiplicity = %d elements, want its declared range alone", len(got))
+		} else if name := MultiplicityMetaclassName(got[0]); name != "MultiplicityRange" {
+			t.Errorf("tags range metaclass = %s, want MultiplicityRange", name)
+		} else if owned, _ := model.ReflectiveElements(tags, "ownedMember"); len(owned) == 0 || owned[0] != got[0] {
+			t.Errorf("tags ownedMember = %d elements, want its declared range first", len(owned))
+		}
+		probe := relFixtureSymbol(t, fixture, "Probe")
+		first := model.DefaultMultiplicityMember(probe)
+		if first == nil || !IsDefaultMultiplicity(first) {
+			t.Fatal("individual part def Probe states no default multiplicity")
+		}
+		for _, feature := range []string{"ownedMember", "ownedElement", "multiplicity"} {
+			if got, _ := model.ReflectiveElements(probe, feature); len(got) == 0 || got[0] != first {
+				t.Errorf("Probe %s = %d elements, want its empty Multiplicity first (SysML.xtext OccurrenceDefinitionPrefix)", feature, len(got))
+			}
+		}
+		if got, _ := model.ReflectiveElements(probe, "ownedMembership"); len(got) < 2 || got[0].Implicit == nil || got[0].Implicit.Member != first {
+			t.Errorf("Probe ownedMembership = %d elements, want the Multiplicity's first, lens's after", len(got))
+		}
+		tagged := relFixtureSymbol(t, fixture, "Tagged")
+		if rels := model.OwnedRelationships(tagged); len(rels) != 3 || !isDefaultMultiplicityMembership(rels[0]) ||
+			!isPrefixAnnotation(rels[1]) || isDefaultMultiplicityMembership(rels[2]) {
+			t.Errorf("Tagged ownedRelationship = %d elements, want the Multiplicity's membership, the prefix annotation, then the specialization", len(rels))
+		}
+		for _, name := range []string{"Vehicle", "Wheel", "Color"} {
+			if model.DefaultMultiplicityMember(relFixtureSymbol(t, fixture, name)) != nil {
+				t.Errorf("%s is no individual, yet states a default multiplicity", name)
+			}
+		}
+		if ends, ok := model.OwnedConnectorEnds(relFixtureSymbol(t, fixture, "link")); !ok || len(ends) != 2 {
+			t.Fatalf("link ends = %d, want 2", len(ends))
+		} else {
+			for i, end := range ends {
+				endDefault := model.DefaultMultiplicityMember(end)
+				if endDefault == nil || !IsDefaultMultiplicity(endDefault) {
+					t.Errorf("positional end %d of link states no default multiplicity; SysML v2 §7.13.2 holds every end to [1..1]", i)
+					continue
+				}
+				if memberships := model.OwnedMemberships(end); len(memberships) == 0 || !isDefaultMultiplicityMembership(memberships[len(memberships)-1]) {
+					t.Errorf("positional end %d of link does not own its default Multiplicity's membership last", i)
+				}
+			}
+		}
+		ends, ok := model.OwnedConnectorEnds(relFixtureSymbol(t, fixture, "named"))
+		if !ok || len(ends) != 2 {
+			t.Fatalf("named ends = %d, want 2", len(ends))
+		}
+		for i, end := range ends {
+			endDefault := model.DefaultMultiplicityMember(end)
+			if endDefault == nil {
+				t.Errorf("named end %d states no default multiplicity: a declared end usage is held to [1..1]", i)
+				continue
+			}
+			if got, _ := model.ReflectiveElements(end, "ownedMember"); len(got) == 0 || got[len(got)-1] != endDefault {
+				t.Errorf("named end %d ownedMember = %d elements, want its default multiplicity last", i, len(got))
+			}
+		}
+		wheels := relFixtureSymbol(t, fixture, "wheels")
+		rangeOf := model.DeclaredMultiplicityMember(wheels)
+		for _, feature := range []string{"ownedMember", "member", "ownedElement"} {
+			if got, _ := model.ReflectiveElements(wheels, feature); len(got) < 2 || got[0] != rangeOf {
+				t.Errorf("wheels %s = %d elements, want its declared range before hub", feature, len(got))
+			}
+		}
+		if got, _ := model.ReflectiveElements(wheels, "ownedMembership"); len(got) < 2 || got[0].Implicit == nil || got[0].Implicit.Member != rangeOf {
+			t.Errorf("wheels ownedMembership = %d elements, want the range's membership before hub's", len(got))
+		}
+		if got, _ := model.ReflectiveElements(relFixtureSymbol(t, fixture, "tags"), "ownedRelationship"); len(got) == 0 {
+			t.Errorf("tags ownedRelationship = %d elements, want the range's OwningMembership among them", len(got))
+		}
+	}
+	for _, fixture := range reflectiveFixtures(t, "default-multiplicity.kerml", source.KindKerML, "package DK {\n    classifier C { feature f : C; }\n}") {
+		if fixture.model.DefaultMultiplicityMember(relFixtureSymbol(t, fixture, "f")) != nil {
+			t.Error("a KerML feature owns a default multiplicity; only a SysML usage takes the implicit [1..1]")
 		}
 	}
 }

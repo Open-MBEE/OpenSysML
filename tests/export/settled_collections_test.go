@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
@@ -26,45 +27,49 @@ func TestSettledCollectionsAreWhatReconcilingWouldFind(t *testing.T) {
 	if len(models) == 0 {
 		t.Fatal("no models found")
 	}
-	checked := 0
-	for _, files := range models {
-		docs, ok := parsedDocuments(files)
-		if !ok {
-			continue
+	var checked atomic.Int64
+	t.Run("models", func(t *testing.T) {
+		for _, files := range models {
+			name := strings.Join(files, ",")
+			t.Run(name, func(t *testing.T) {
+				t.Parallel()
+				docs, ok := parsedDocuments(files)
+				if !ok {
+					return
+				}
+				graph, err := export.ModelToRDFWith(docs, export.IDQualifiedName)
+				if err != nil {
+					return // a model the export refuses is not converted at all
+				}
+				if !graph.CollectionsSettled() {
+					t.Fatalf("%s: the encoder's graph does not say its collections are settled", name)
+				}
+				unvouched := rdf.NewGraphOf(graph.Triples(), graph.Prefixes)
+				reconciled, err := rdf.ReconcileCollections(unvouched)
+				if err != nil {
+					t.Fatalf("%s: reconciling the encoder's collections: %v", name, err)
+				}
+				if reconciled != unvouched {
+					t.Fatalf("%s: reconciling rewrote the encoder's collections, so they were not settled", name)
+				}
+				fast, err := export.WriteAPIJSON(graph)
+				if err != nil {
+					t.Fatalf("%s: %v", name, err)
+				}
+				checkedOut, err := export.WriteAPIJSON(unvouched)
+				if err != nil {
+					t.Fatalf("%s: %v", name, err)
+				}
+				if !bytes.Equal(fast, checkedOut) {
+					t.Errorf("%s: api-json differs between the settled graph and the checked one", name)
+				}
+				checked.Add(1)
+			})
 		}
-		graph, err := export.ModelToRDFWith(docs, export.IDQualifiedName)
-		if err != nil {
-			continue // a model the export refuses is not converted at all
-		}
-		name := strings.Join(files, ",")
-		if !graph.CollectionsSettled() {
-			t.Fatalf("%s: the encoder's graph does not say its collections are settled", name)
-		}
-		unvouched := rdf.NewGraphOf(graph.Triples(), graph.Prefixes)
-		reconciled, err := rdf.ReconcileCollections(unvouched)
-		if err != nil {
-			t.Fatalf("%s: reconciling the encoder's collections: %v", name, err)
-		}
-		if reconciled != unvouched {
-			t.Errorf("%s: reconciling rewrote the encoder's collections, so they were not settled", name)
-			continue
-		}
-		fast, err := export.WriteAPIJSON(graph)
-		if err != nil {
-			t.Fatalf("%s: %v", name, err)
-		}
-		checkedOut, err := export.WriteAPIJSON(unvouched)
-		if err != nil {
-			t.Fatalf("%s: %v", name, err)
-		}
-		if !bytes.Equal(fast, checkedOut) {
-			t.Errorf("%s: api-json differs between the settled graph and the checked one", name)
-		}
-		checked++
-	}
-	t.Logf("%d models checked", checked)
-	if checked < 50 {
-		t.Errorf("only %d models converted; the fixtures moved", checked)
+	})
+	t.Logf("%d models checked", checked.Load())
+	if checked.Load() < 50 {
+		t.Errorf("only %d models converted; the fixtures moved", checked.Load())
 	}
 }
 

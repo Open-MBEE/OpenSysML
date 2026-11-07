@@ -21,6 +21,9 @@ func TestElementIDReaderSpellsTheConjugateAsTheConversionWritesIt(t *testing.T) 
 	}
 	written := map[string]string{}
 	for _, subject := range graph.Subjects() {
+		if LibraryReference(graph, subject) {
+			continue
+		}
 		for _, class := range graph.Objects(subject, rdf.RDFType) {
 			switch class.Value {
 			case rdf.SysML + "ConjugatedPortDefinition", rdf.SysML + "PortConjugation":
@@ -36,6 +39,9 @@ func TestElementIDReaderSpellsTheConjugateAsTheConversionWritesIt(t *testing.T) 
 	conjugate := written[rdf.SysML+"ConjugatedPortDefinition"]
 	var membership string
 	for _, subject := range graph.Subjects() {
+		if LibraryReference(graph, subject) {
+			continue
+		}
 		for _, member := range graph.Objects(subject, rdf.SysML+"ownedMemberElement") {
 			if rdf.LocalName(member.Value) == conjugate {
 				for _, id := range graph.Objects(subject, rdf.SysML+"elementId") {

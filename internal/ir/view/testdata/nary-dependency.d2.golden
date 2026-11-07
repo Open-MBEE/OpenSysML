@@ -13,3 +13,5 @@ n2 -- n4: { class: dependency }
 n3 -- n4: { class: dependency }
 n4 -> n0: { class: dependency }
 n4 -> n1: { class: dependency }
+frame_name: "«view» NaryViews::dependencies" { shape: text; near: top-left }
+frame_tr: "expose NaryRules::Chassis\nexpose NaryRules::Lights\nexpose NaryRules::Brakes\nexpose NaryRules::Steering\nexpose NaryRules::rules" { shape: text; near: top-right }

@@ -22,6 +22,9 @@ type pilotExport struct {
 	// Library counts the standard-library elements the pilot wrote, which this
 	// repository's writer never does; each file that refers to one writes it again.
 	Library int
+	// LibraryKeys maps those elements' normative ids to the bridge's keys, so a
+	// reference of ours to a library element by the same id is keyed alike.
+	LibraryKeys idKeys
 	// Duplicates counts the identical copies dropped; Ambiguous the elements two
 	// of which share a key but differ; Shared names the first such keys.
 	Duplicates int
@@ -132,6 +135,22 @@ func pilotLog(stderr string) string {
 // table addresses every element and reference it wrote, library ones included.
 func keyPilot(document pilotDocument, result *pilotExport) []*element {
 	elements := make([]*element, 0, len(document.Elements))
+	written := make(map[string]bool, len(document.Elements))
+	for _, item := range document.Elements {
+		if id, _ := item.Payload["@id"].(string); item.Payload["isLibraryElement"] != true {
+			written[id] = true
+		}
+	}
+	// The bridge's table keys every element a file refers to, library elements it
+	// does not write included; those keys serve our references to the same ids.
+	for id, key := range document.Keys {
+		if !written[id] && key != "" {
+			if result.LibraryKeys == nil {
+				result.LibraryKeys = make(idKeys)
+			}
+			result.LibraryKeys[id] = key
+		}
+	}
 	for _, item := range document.Elements {
 		payload := item.Payload
 		id, _ := payload["@id"].(string)

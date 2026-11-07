@@ -45,9 +45,12 @@ func TestVerificationMethodBodyIsAMetadataBodyUsage(t *testing.T) {
 	}
 	// The body member declares no name: it is the feature it redefines, not a
 	// declaration of `kind`.
-	for _, line := range strings.Split(turtle, "\n") {
-		if strings.Contains(line, `sysml:declaredName "kind"`) {
-			t.Errorf("the body member declares a name: %s", line)
+	for _, block := range strings.Split(turtle, "\n\n") {
+		if strings.Contains(block, `sysml:isLibraryElement "true"`) {
+			continue
+		}
+		if strings.Contains(block, `sysml:declaredName "kind"`) {
+			t.Errorf("the body member declares a name:\n%s", block)
 		}
 	}
 	// The Redefinition targets VerificationCases::VerificationMethod::kind,

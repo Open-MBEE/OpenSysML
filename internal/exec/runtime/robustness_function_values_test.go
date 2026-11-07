@@ -14,6 +14,7 @@ import (
 // closure, a function given where a String or number is needed, and a closure
 // failing over what it captured.
 func TestRuntimeRobustnessFunctionValues(t *testing.T) {
+	t.Parallel()
 	t.Run("runaway_closure_spends_the_step_budget", testFunctionValueRunawayClosure)
 	t.Run("function_has_no_string_notation", testFunctionValueToString)
 	t.Run("function_is_not_a_number", testFunctionValueArithmetic)

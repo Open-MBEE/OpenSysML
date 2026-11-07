@@ -53,6 +53,7 @@ jobs:
           cache: true
       - name: Build sysml
         run: |
+          make stdlib-snapshot
           go build -o "$RUNNER_TEMP/bin/sysml" ./cmd/sysml
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 

@@ -60,6 +60,7 @@ func commentModel(t *testing.T, body string) string {
 // through Turtle with the source text stripped, so the structural sysml:body
 // alone must restate it.
 func TestCommentBodiesRoundTrip(t *testing.T) {
+	t.Parallel()
 	for _, body := range commentBodies {
 		src := commentModel(t, body)
 		want := []string{body, body}

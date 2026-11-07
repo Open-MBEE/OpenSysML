@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» FilteredWalk::links"
 ---
 %% FilteredWalk::links — interconnection rendering (render asInterconnectionDiagram)
 %% not represented: connect FilteredWalk::rover::'' attaches to 'telemetry.tx', which the view's filter conditions exclude; no edge is drawn
@@ -33,11 +34,9 @@ flowchart LR
       direction LR
       n3("`*«attribute»*
 **length**`")
-      n4("`*«part»*
-**axle**`")
+      n4("«#35;Shown part»<br>axle")
     end
-    n5("`*«part»*
-**radio**`")
+    n5("«#35;Shown part»<br>radio")
     n6("`*«part»*
 **gps**`")
   end

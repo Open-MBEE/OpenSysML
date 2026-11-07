@@ -115,8 +115,11 @@ export interface ConvertOptions {
 /** A referenced standard-library element, not a model root. */
 export interface LibraryReference {
   readonly id: string;
+  /** Empty for an unnamed member, which `libraryPath` names instead. */
   readonly qualifiedName: string;
   readonly type: string;
+  /** The positional path `Owner::qualifiedName/Metaclass[i]` of an unnamed member. */
+  readonly libraryPath?: string;
 }
 
 /** A model written out in one of the formats OpenSysML writes. */

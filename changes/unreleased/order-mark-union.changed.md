@@ -1,0 +1,1 @@
+- The runtime's order-dependence bookkeeping no longer copies the set of choice points a value stands on at every assignment: the sets are shared between the places that stand on them and joined by one merge, which recovers most of the time assignment-heavy bodies spent in it under `-schedule explore`. What is marked order-dependent is unchanged.

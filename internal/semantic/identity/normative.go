@@ -10,6 +10,7 @@ package identity
 import (
 	"crypto/sha1" // #nosec G505 -- RFC 4122 defines a version 5 UUID over SHA-1; it names, it does not protect
 	"encoding/hex"
+	"strconv"
 	"strings"
 )
 
@@ -80,6 +81,24 @@ func NamespaceOf(name string) string {
 // DerivedID is uuid5(namespace, name), namespace spelled as a uuid5-derived id.
 func DerivedID(namespace, name string) string {
 	return uuid5(mustParse(namespace), name).String()
+}
+
+// AnonymousMemberID is this implementation's id for an unnamed library member: uuid5 under
+// its owner's id of metaclass and declaration ordinal; the pilot publishes no rule for these.
+func AnonymousMemberID(ownerID, metaclass string, ordinal int) string {
+	if ownerID == "" || metaclass == "" || ordinal < 0 {
+		return ""
+	}
+	return uuid5(mustParse(ownerID), "/"+metaclass+"["+strconv.Itoa(ordinal)+"]").String()
+}
+
+// AnonymousMemberOwningMembershipID is the id of the OwningMembership owning the
+// anonymous library member AnonymousMemberID names.
+func AnonymousMemberOwningMembershipID(ownerID, metaclass string, ordinal int) string {
+	if ownerID == "" || metaclass == "" || ordinal < 0 {
+		return ""
+	}
+	return uuid5(mustParse(ownerID), "/"+metaclass+"["+strconv.Itoa(ordinal)+"]"+owningMembershipPath).String()
 }
 
 // Separator joins the segments of a qualified name.

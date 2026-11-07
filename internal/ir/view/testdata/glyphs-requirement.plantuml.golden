@@ -1,5 +1,6 @@
 @startuml
 ' NotationGlyphs::Diagrams::requirementGlyphs — requirement rendering (view def GeneralView, filter @RequirementDefinition or @RequirementUsage)
+mainframe <size:10>//«view»//</size> **NotationGlyphs::Diagrams::requirementGlyphs** : GeneralView\n<size:10>expose LevelReq</size>\n<size:10>expose levelReq</size>\n<size:10>expose capacity</size>\n<size:10>expose safety</size>\n<size:10>filter @SysML::RequirementDefinition or @SysML::RequirementUsage</size>
 <style>
 root {
   BackGroundColor white

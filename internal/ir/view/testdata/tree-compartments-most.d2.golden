@@ -7,3 +7,5 @@ classes: {
 n0: "«part def»\nSensor\nattributes\nlabel : String\nreading : Real" { class: definition }
 n3: "«part def»\nController\nattributes\nenabled : Boolean\nparts\nsensor : Sensor" { class: definition }
 n3 <- n0: { class: composition; target-arrowhead: { label: "sensor" } }
+frame_name: "«view» CompartmentDemoViews::controllers" { shape: text; near: top-left }
+frame_tr: "expose CompartmentDemo::Sensor\nexpose CompartmentDemo::Controller" { shape: text; near: top-right }

@@ -6,3 +6,5 @@ classes: {
 }
 # layout: n0 x=10 y=10 w=240 h=260
 n0: "«part def»\nImaging" { class: definition }
+frame_name: "«view» CameraViews::bare" { shape: text; near: top-left }
+frame_tr: "expose Camera::Imaging" { shape: text; near: top-right }

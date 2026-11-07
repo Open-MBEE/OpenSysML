@@ -1510,6 +1510,7 @@ func TestRefusedCollectionClassificationUndoesTheEarlierObjects(t *testing.T) {
 // The objects a classification's behaviors make go with it when it is undone: a refused
 // collection leaves the context holding what it held, however often the read is retried.
 func TestRefusedCollectionClassificationAbandonsWhatItsBehaviorsMade(t *testing.T) {
+	t.Parallel()
 	ctx, idx := libraryShapeContext(t, `package test {
 		private import ScalarValues::*;
 		item def Counter { attribute hits : Rational; }

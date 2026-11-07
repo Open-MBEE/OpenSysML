@@ -37,12 +37,15 @@ type oursExport struct {
 	// Unkeyable counts the elements no key could address, Unkeyed per metaclass.
 	Unkeyable int
 	Unkeyed   map[string]int
+	// libraryKeys keys the library elements the writer refers to by normative id
+	// but never writes, by the keys the pilot gave the same ids.
+	libraryKeys idKeys
 }
 
 // exportOurs converts a root's files together, less skip (the pilot's failures) and
 // the documents whose ids collide, which are converted alone; see the project record.
-func exportOurs(dir string, files []string, skip map[string]bool) (*oursExport, error) {
-	result := &oursExport{Unkeyed: make(map[string]int)}
+func exportOurs(dir string, files []string, skip map[string]bool, libraryKeys idKeys) (*oursExport, error) {
+	result := &oursExport{Unkeyed: make(map[string]int), libraryKeys: libraryKeys}
 	documents, err := result.parseDocuments(dir, files, skip)
 	if err != nil {
 		return nil, err
@@ -144,7 +147,7 @@ func collidingIDs(alone [][]map[string]any) []bool {
 
 // key adds the writer's elements of one conversion, keyed.
 func (r *oursExport) key(raw []map[string]any, file string) {
-	elements, unkeyable := keyOurs(raw, file, r.Unkeyed)
+	elements, unkeyable := keyOurs(raw, file, r.Unkeyed, r.libraryKeys)
 	r.Elements = append(r.Elements, elements...)
 	r.Unkeyable += unkeyable
 }
@@ -191,12 +194,12 @@ type ourKeyer struct {
 // keyOurs keys the writer's elements the way the pilot bridge keys its own: a
 // named element by its qualified name, an unnamed one from its owner, an
 // ownerless one by its document and metaclass.
-func keyOurs(raw []map[string]any, soleFile string, unkeyed map[string]int) ([]*element, int) {
+func keyOurs(raw []map[string]any, soleFile string, unkeyed map[string]int, libraryKeys idKeys) ([]*element, int) {
 	k := &ourKeyer{
 		soleFile:    soleFile,
 		unkeyed:     unkeyed,
 		byID:        make(map[string]map[string]any, len(raw)),
-		keys:        make(idKeys, len(raw)),
+		keys:        make(idKeys, len(raw)+len(libraryKeys)),
 		files:       make(map[string]string, len(raw)),
 		rootOrdinal: make(map[string]int),
 		visiting:    make(map[string]bool),
@@ -204,6 +207,11 @@ func keyOurs(raw []map[string]any, soleFile string, unkeyed map[string]int) ([]*
 	for _, object := range raw {
 		if id, _ := object["@id"].(string); id != "" {
 			k.byID[id] = object
+		}
+	}
+	for id, key := range libraryKeys {
+		if _, written := k.byID[id]; !written {
+			k.keys[id] = key
 		}
 	}
 	var unkeyable int

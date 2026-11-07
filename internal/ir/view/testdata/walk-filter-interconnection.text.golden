@@ -4,8 +4,8 @@ part rover
   attribute mass
   part chassis
     attribute length
-    part axle
-  part radio
+    #Shown part axle
+  #Shown part radio
   part gps
 
 not represented:

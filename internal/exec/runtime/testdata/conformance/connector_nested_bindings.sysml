@@ -4,7 +4,9 @@
 // bind m.outV = b.voltage` inside an interface definition routes the value
 // through the part `m` the connector holds (KerML 1.1 §8.4.4.6.2, the related
 // features of each binding have the same values, so transitively the ends
-// agree); an interface a connection definition owns over its own ends
+// agree), an anonymous interface's feature read on the connector object its
+// declaration materializes, an index (`readings#(index)`) read there too; an
+// interface a connection definition owns over its own ends
 // (`interface w : W connect a.p to b.q`) is re-rooted again when the connection
 // attaches (KerML 1.1 §8.4.4.6.1, an end references the connected feature, so a
 // path through an end is a path through that feature; SysML v2 §7.15.1, an
@@ -23,6 +25,7 @@ package test {
 	interface def EndValue { end a : Pw; end b : ~Pw { attribute :>> voltage = 12; } }
 	interface def EndDefault { end a : Pw; end b : ~Pw { attribute :>> voltage default = 12; } }
 	interface def Plain { end a : Pw; end b : ~Pw; }
+	interface def Picks { end a : Pw; end b : ~Pw; attribute readings : Integer[2] = (5, 28); attribute index : Integer = 2; bind b.voltage = readings#(index); }
 
 	part def Src { port src : Pw { attribute :>> voltage = 28; } }
 	part def Snk { port dst : ~Pw; }
@@ -45,6 +48,19 @@ package test {
 		part s : Src;
 		interface i : ThroughShared connect s.src to k.dst;
 		assert constraint throughSharedBindingHolds { k.dst.voltage == 28 and i.shared == 28 }
+	}
+	part def AnonymousSharedBinding {
+		part s : Src;
+		part k : Snk;
+		interface : ThroughShared connect s.src to k.dst;
+		assert constraint anonymousSharedHolds { k.dst.voltage == 28 }
+	}
+	part def AnonymousIndexedBinding {
+		part s : Src;
+		part k : Snk;
+		attribute index : Integer = 1;
+		interface : Picks connect s.src to k.dst;
+		assert constraint anonymousIndexHolds { k.dst.voltage == 28 }
 	}
 	part def ThroughChainBinding {
 		part s : Src;
@@ -92,6 +108,8 @@ package test {
 	part def System {
 		part throughPart : ThroughPartBinding;
 		part throughShared : ThroughSharedBinding;
+		part anonymousShared : AnonymousSharedBinding;
+		part anonymousIndexed : AnonymousIndexedBinding;
 		part throughChain : ThroughChainBinding;
 		part nested : NestedConnector;
 		part twoLevel : TwoLevelNesting;
@@ -101,6 +119,8 @@ package test {
 		part usageEndValue : UsageEndBodyValue;
 		assert constraint throughPartBindingHolds { throughPart.k.dst.voltage == 28 }
 		assert constraint throughSharedBindingHolds { throughShared.k.dst.voltage == 28 }
+		assert constraint anonymousSharedHolds { anonymousShared.k.dst.voltage == 28 }
+		assert constraint anonymousIndexHolds { anonymousIndexed.k.dst.voltage == 28 }
 		assert constraint throughChainBindingHolds { throughChain.k.dst.voltage == 28 }
 		assert constraint nestedConnectorBindingHolds { nested.k.q.voltage == 28 }
 		assert constraint twoLevelNestingHolds { twoLevel.r2.k.q.voltage == 28 }

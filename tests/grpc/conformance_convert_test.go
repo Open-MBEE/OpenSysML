@@ -29,7 +29,7 @@ func runConvertLibraryReferencesCase(t *testing.T, srv *grpc.Service, ctx contex
 			}
 			for i, want := range tc.LibraryReferences {
 				got := response.LibraryReferences[i]
-				if got.Id != want.Id || got.QualifiedName != want.QualifiedName || got.Type != want.Type {
+				if got.Id != want.Id || got.QualifiedName != want.QualifiedName || got.Type != want.Type || got.LibraryPath != want.LibraryPath {
 					t.Fatalf("table[%d] = %v, want %v", i, got, want)
 				}
 			}
@@ -46,6 +46,10 @@ func runConvertLibraryReferencesCase(t *testing.T, srv *grpc.Service, ctx contex
 				want := make([]map[string]string, len(tc.LibraryReferences))
 				for i, ref := range tc.LibraryReferences {
 					want[i] = map[string]string{"@id": ref.Id, "@type": ref.Type, "qualifiedName": ref.QualifiedName}
+					if ref.LibraryPath != "" {
+						// An unnamed member is named by its positional path; its qualifiedName stays, empty.
+						want[i]["libraryPath"] = ref.LibraryPath
+					}
 				}
 				if !reflect.DeepEqual(doc.Table, want) {
 					t.Fatalf("literal compact table = %v, want %v", doc.Table, want)

@@ -176,7 +176,7 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 			members = append(members, member)
 			switch value := member.value.(type) {
 			case nil:
-			case apiJSONReference:
+			case APIJSONReference:
 				references[member.key] = true
 			case []any:
 				if len(value) == 0 {
@@ -184,7 +184,7 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 				}
 				allReferences := true
 				for _, item := range value {
-					if _, ok := item.(apiJSONReference); !ok {
+					if _, ok := item.(APIJSONReference); !ok {
 						allReferences = false
 						break
 					}
@@ -198,7 +198,7 @@ func WriteAPIJSONCompact(graph *rdf.Graph, opts CompactAPIJSONOptions) ([]byte, 
 				disqualified[member.key] = true
 			}
 			walkCompactValue(member.value, func(value any) {
-				if reference, ok := value.(apiJSONReference); ok {
+				if reference, ok := value.(APIJSONReference); ok {
 					id, _ := rdf.SubjectID(rdf.ReferenceIRI(subject, reference.ID))
 					writtenLibraryIDs[id] = true
 					handle(reference.ID)
@@ -301,7 +301,7 @@ func walkCompactValue(value any, visit func(any)) {
 // handle, bare under a reference key, and anything else as the element form does.
 func writeCompactValue(w apiJSONWriter, value any, bare bool, handles map[string]int) error {
 	switch v := value.(type) {
-	case apiJSONReference:
+	case APIJSONReference:
 		if bare {
 			w.buf.WriteString(strconv.Itoa(handles[v.ID]))
 		} else {

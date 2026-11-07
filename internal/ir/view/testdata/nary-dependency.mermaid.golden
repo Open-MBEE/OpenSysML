@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» NaryViews::dependencies"
 ---
 %% NaryViews::dependencies — tree rendering (render asTreeDiagram)
 flowchart TD

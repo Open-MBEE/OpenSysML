@@ -38,3 +38,5 @@ n9 <- n10: { class: reference }
 n9 <- n11: { class: reference }
 n9 <- n12: { class: composition }
 n9 <- n13: { class: composition }
+frame_name: "«view» AbstractViews::familyTree : Family" { shape: text; near: top-left }
+frame_tr: "expose Vehicle**\nexpose vehicleFamily**\nexpose Models**" { shape: text; near: top-right }

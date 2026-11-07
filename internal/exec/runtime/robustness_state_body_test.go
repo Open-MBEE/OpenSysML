@@ -11,6 +11,7 @@ import (
 // TestRuntimeRobustnessStateBody covers entry, do and exit bodies of states: dangling and
 // unstarted flows, unbound typed-action inputs and bodies that wait or never end.
 func TestRuntimeRobustnessStateBody(t *testing.T) {
+	t.Parallel()
 	t.Run("state_entry_action_input_bound_by_nothing", testStateEntryActionInputBoundByNothing)
 	t.Run("state_block_typed_node_input_bound_by_nothing", testStateBlockTypedNodeInputBoundByNothing)
 	t.Run("state_block_node_unvalued_pin_write_checked", testStateBlockNodeUnvaluedPinWriteChecked)

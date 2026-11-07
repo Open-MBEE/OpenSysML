@@ -255,7 +255,7 @@ func (ctx *Context) boundPortPaths(owner *Instance, paths []string, targets []*s
 			if end < 0 {
 				continue
 			}
-			other := binding.Ends[1-end].Path
+			other := binding.Ends[1-end].HolderPath()
 			if other == "" || slices.Contains(paths, other) {
 				continue
 			}

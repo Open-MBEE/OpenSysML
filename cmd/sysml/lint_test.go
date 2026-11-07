@@ -18,7 +18,7 @@ func TestDisableLintSilencesALint(t *testing.T) {
 	binary := buildCLI(t)
 	wantReport(t, check(t, binary, lintTypo, "-validate"), 0, "`when Pnig` names no declaration", "did you mean Ping?")
 	wantReport(t, check(t, binary, lintTypo, "-strict", "-validate"), 0, "warning[undeclared-signal]: `when Pnig`")
-	got := check(t, binary, lintTypo, "-disable-lint", passes.CodeUndeclaredSignal+","+passes.CodePortTypeMismatch, "-validate")
+	got := check(t, binary, lintTypo, "-disable-lint", passes.CodeUndeclaredSignal+","+passes.CodeDeferredKeeperUnmarked, "-validate")
 	wantReport(t, got, 0)
 	if strings.Contains(got.output(), "Pnig") {
 		t.Fatalf("a disabled lint still reported:\n%s", got.output())
@@ -31,10 +31,10 @@ func TestLintListAcceptsRepeatsAndCommas(t *testing.T) {
 	if err := l.Set(passes.CodeUndeclaredSignal + ", "); err != nil {
 		t.Fatal(err)
 	}
-	if err := l.Set(passes.CodePortTypeMismatch); err != nil {
+	if err := l.Set(passes.CodeDeferredKeeperUnmarked); err != nil {
 		t.Fatal(err)
 	}
-	if got := l.String(); got != passes.CodeUndeclaredSignal+","+passes.CodePortTypeMismatch {
+	if got := l.String(); got != passes.CodeUndeclaredSignal+","+passes.CodeDeferredKeeperUnmarked {
 		t.Fatalf("lintList = %q", got)
 	}
 	if err := l.Set("bogus"); err == nil {

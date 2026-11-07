@@ -540,7 +540,7 @@ func (ctx *Context) bindsUnheldFrameMember(inst *Instance, b lower.Binding) bool
 		return false
 	}
 	for _, end := range b.Ends {
-		head, _, _ := strings.Cut(end.Path, ".")
+		head, _, _ := strings.Cut(end.HolderPath(), ".")
 		if head == "" {
 			continue
 		}

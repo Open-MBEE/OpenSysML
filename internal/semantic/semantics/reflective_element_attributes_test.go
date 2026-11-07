@@ -123,19 +123,32 @@ func TestReflectiveInvariantIsNegated(t *testing.T) {
 	}
 }
 
-// TestReflectiveDeclaredConnectorAsARelationship: a connection usage is a
-// Relationship that is not implied, owns no related element and is owned by
-// none; its ends (reference usages declared by `connect`) are not sufficient.
+// TestReflectiveDeclaredConnectorAsARelationship: a connection usage, and a
+// connection definition (an AssociationStructure), is a Relationship that is
+// not implied, owns no related element and is owned by none; the usage's ends
+// (reference usages declared by `connect`) are not sufficient.
 func TestReflectiveDeclaredConnectorAsARelationship(t *testing.T) {
 	const src = `package P {
 		part a; part b;
 		connection c connect a to b;
+		interface def I { end x : Part; end y : Part; }
+		allocation def A { end f : Part; end p : Part; }
+		part def Part;
 	}`
 	for _, fixture := range reflectiveFixtures(t, "connector.sysml", source.KindSysML, src) {
 		c := nestedSym(t, fixture.root, "P::c")
 		got, ok := fixture.model.ReflectiveFeatureValue(c, "isImplied")
 		if !ok || got.Kind != symbols.FilterValueBool || got.Bool {
 			t.Errorf("c.isImplied = %v (present %t), want false", got, ok)
+		}
+		for _, path := range []string{"P::c", "P::I", "P::A"} {
+			rel := nestedSym(t, fixture.root, path)
+			for _, feature := range []string{"ownedRelatedElement", "owningRelatedElement"} {
+				elements, ok := fixture.model.ReflectiveElements(rel, feature)
+				if !ok || len(elements) != 0 {
+					t.Errorf("%s.%s = %v (present %t), want none", path, feature, elements, ok)
+				}
+			}
 		}
 		for _, feature := range []string{"ownedRelatedElement", "owningRelatedElement"} {
 			elements, ok := fixture.model.ReflectiveElements(c, feature)

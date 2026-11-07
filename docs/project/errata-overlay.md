@@ -78,7 +78,7 @@ verification failed and the entry was removed rather than re-pointed.
 - **The vendored library is never written to either.** Its corrections are applied
   on read, by the `libs.Source` that `Overlay.LibrarySource` wraps around the
   embedded files: `libs.BundledSource` (what `libs.DefaultSource` serves, and what
-  `stdlib.snapshot` is generated from) is the published text with the declared
+  the library snapshot is generated from at build time) is the published text with the declared
   lines substituted, while `libs.EmbeddedSource` still serves the bytes as
   published. The two digest differently, so the snapshot decodes for the bundled
   text only. A directory named by `OPENSYSML_LIBRARY_PATH` is read as it stands.

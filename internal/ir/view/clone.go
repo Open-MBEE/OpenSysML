@@ -27,7 +27,19 @@ func (r *Rendering) Clone() *Rendering {
 	}
 	out.RowOrigins = append([]Origin(nil), r.RowOrigins...)
 	out.Notices = append([]string(nil), r.Notices...)
+	out.Frame = cloneFrame(r.Frame)
 	return &out
+}
+
+func cloneFrame(f *Frame) *Frame {
+	if f == nil {
+		return nil
+	}
+	copied := *f
+	copied.Exposes = append([]string(nil), f.Exposes...)
+	copied.Filters = append([]string(nil), f.Filters...)
+	copied.Annotations = append([]string(nil), f.Annotations...)
+	return &copied
 }
 
 func cloneNodes(nodes []*Node) []*Node {

@@ -310,10 +310,9 @@ each extension is measured against. The same setting is available as `%strict` a
 
 ## Lints
 
-Four further warnings, `undeclared-signal`, `port-type-mismatch`,
-`deferred-keeper-unmarked` and `rounded-real-literal`, are *lints*: the model is valid SysML v2,
-but a `when <name>` that no declaration or `send` accounts for, a connection between ports whose
-definitions are unrelated, a deferred signal's accept loop written without the `DeferredKeeper`
+Three further warnings, `undeclared-signal`, `deferred-keeper-unmarked` and
+`rounded-real-literal`, are *lints*: the model is valid SysML v2,
+but a `when <name>` that no declaration or `send` accounts for, a deferred signal's accept loop written without the `DeferredKeeper`
 marker that names it as the keeper, or a decimal literal such as `0.1` that a `Real` feature can
 only hold rounded, is almost always a slip or a surprise. `-strict` leaves them warnings, since they are not about notation.
 `-disable-lint <code>` switches one off (`%lint <code> off` at the prompt,
@@ -622,11 +621,11 @@ $ sysml -instantiate An::barge -analysis "An::CostAnalysis An::barge" \
   ID: 1
   Use %features An::barge to inspect
 sweep An::CostAnalysis — 3 run(s)
-limit | total | verdict                   | time
-------+-------+---------------------------+--------
-30.0  | 37.0  | affordable: not satisfied | 0.416ms
-35.0  | 37.0  | affordable: not satisfied | 0.019ms
-40.0  | 37.0  | affordable: satisfied     | 0.012ms
+limit | total  | verdict                   | time
+------+--------+---------------------------+--------
+30.0  | [37.0] | affordable: not satisfied | 0.416ms
+35.0  | [37.0] | affordable: not satisfied | 0.019ms
+40.0  | [37.0] | affordable: satisfied     | 0.012ms
   standing: table (observed: 3 rows)
 exit=1
 ```
@@ -640,11 +639,11 @@ wall time each run took, so it is the one column two runs of the same table do n
 $ sysml -calc "An::Sum(2.0)" -sweep "b=0.0..10.0" -samples 3 -seed 42 analysis.sysml
 ✓ package An
 samples An::Sum — 3 run(s), seed 42
-b                  | result             | time
--------------------+--------------------+--------
-8.254725069980449  | 10.254725069980449 | 0.035ms
-0.4281995136143024 | 2.4281995136143024 | 0.001ms
-7.76073049711954   | 9.760730497119539  | 0.000ms
+b                  | result               | time
+-------------------+----------------------+--------
+8.254725069980449  | [10.254725069980449] | 0.035ms
+0.4281995136143024 | [2.4281995136143024] | 0.001ms
+7.76073049711954   | [9.760730497119539]  | 0.000ms
   standing: table (observed: 3 rows)
 ```
 
@@ -865,7 +864,7 @@ jobs:
       security-events: write   # upload-sarif
     steps:
       - uses: actions/checkout@v4
-      - uses: Open-MBEE/OpenSysML@v0.11.0   # the release tag is the sysml installed
+      - uses: Open-MBEE/OpenSysML@v0.12.1   # the release tag is the sysml installed
         with:
           path: models
           format: sarif

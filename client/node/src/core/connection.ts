@@ -28,6 +28,7 @@ import {
   CAPABILITY_STATE_TRACE,
   CAPABILITY_ACTION_TRACE,
   CAPABILITY_QUERY,
+  CAPABILITY_ELEMENT_PROPERTIES,
   CAPABILITY_QUERY_ORDER_BY,
   CAPABILITY_OSLC_QUERY,
   CAPABILITY_RENDER_DOCUMENT,
@@ -56,6 +57,7 @@ import {
 import {
   ClosedConnectionError,
   ConversionError,
+  SymbolNotFoundError,
   ExecutionError,
   InvalidRequestError,
   MigrationError,
@@ -72,6 +74,7 @@ import {
   MigrateRequestSchema,
   ParseSourcesRequestSchema,
   QueryRequestSchema,
+  GetElementPropertiesRequestSchema,
   RenderDocumentRequestSchema,
   RenderViewRequestSchema,
   CheckBehaviorRequestSchema,
@@ -129,6 +132,7 @@ import {
   pathIsV1,
 } from "./conversion.js";
 import type { ConvertOptions, MigrateOptions } from "./conversion.js";
+import { type ElementProperties, elementPropertiesOf } from "./element-properties.js";
 import {
   buildQuery,
   elementsOf,
@@ -651,6 +655,44 @@ export class Connection {
       capabilityRefusal(this.info, needed),
     );
     return elementsOf(response);
+  }
+
+  /**
+   * Reads the metamodel properties of one element by their specification names
+   * (`inheritedFeature`, `connectorEnd`, ...), as the model's API element form
+   * spells them; every property the element carries when none is named. The
+   * element is a qualified name, the positional id of an unnamed member
+   * (`Owner::@2`) or an element form id.
+   */
+  async elementProperties(
+    modelHash: string,
+    element: string,
+    properties: readonly string[] = [],
+  ): Promise<ElementProperties> {
+    requireCapability(
+      this.info,
+      CAPABILITY_ELEMENT_PROPERTIES,
+      upgradeRemedy(CAPABILITY_ELEMENT_PROPERTIES),
+    );
+    const response = await callRpc(
+      this.rpc.getElementProperties(
+        create(GetElementPropertiesRequestSchema, {
+          modelHash,
+          elementId: element,
+          properties: [...properties],
+        }),
+        this.callOptions(),
+      ),
+      "model",
+      capabilityRefusal(this.info, [CAPABILITY_ELEMENT_PROPERTIES]),
+    );
+    if (response.error !== "") {
+      if (response.error.startsWith("element not found")) {
+        throw new SymbolNotFoundError(element);
+      }
+      throw new ConversionError(response.error);
+    }
+    return elementPropertiesOf(response);
   }
 
   /** Runs a named document query and answers its typed rows. */

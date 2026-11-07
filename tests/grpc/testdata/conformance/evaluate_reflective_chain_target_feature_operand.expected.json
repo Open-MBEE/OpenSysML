@@ -1,0 +1,5 @@
+{
+	"rpc": "Evaluate",
+	"expression": "SequenceFunctions::last(ParameterValues::Motor::boost::power.metadata).ownedRelationship.value.argument.?{in e; e istype KerML::Kernel::FeatureChainExpression}.targetFeature.qualifiedName",
+	"expected_result": {"kind": "sequence", "elements": [{"kind": "string_value", "value": "ParameterValues::PowerPort::power"}]}
+}

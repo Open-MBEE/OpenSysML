@@ -1,1 +1,0 @@
-- Reflective reads no longer answer `isConstant` on definitions or `isParallel` outside `StateDefinition` and `StateUsage`.

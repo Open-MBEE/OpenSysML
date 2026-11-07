@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» NotationGlyphs::Diagrams::requirementGlyphs : GeneralView"
 ---
 %% NotationGlyphs::Diagrams::requirementGlyphs — requirement rendering (view def GeneralView, filter @RequirementDefinition or @RequirementUsage)
 flowchart TD

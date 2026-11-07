@@ -801,6 +801,7 @@ func (e *performances) nodePins(graph *lower.ActionGraph, node ast.Node) (nodePi
 	if !performs || lower.IsCaseNode(usage) {
 		return e.pinsOf(graph, node, inv, nil, nil)
 	}
+	inv.step, _ = stepSymbol(graph, node)
 	sym, tied, err := actionCandidates(e.ctx, nodeScope(graph, node), inv)
 	if err != nil {
 		return nodePins{}, err
@@ -2143,6 +2144,7 @@ func (e *performances) performInvocation(perf *actionFrame, inv actionInvocation
 // beginInvocation starts the action a node names as a subperformance of perf,
 // its inputs bound from the node's pins, and returns it to be run to completion.
 func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) (*calleeFrame, error) {
+	inv.step, _ = stepSymbol(perf.flow, perf.node)
 	sym := perf.step
 	if sym == nil {
 		sym = perf.callee
@@ -2153,7 +2155,6 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 			return nil, err
 		}
 	}
-	inv.step, _ = stepSymbol(perf.flow, perf.node)
 	if e.ctx.actionDepth >= maxActionNestingDepth {
 		return nil, fmt.Errorf(
 			"action invocation nested more than %d deep at %s (recursive action?)",

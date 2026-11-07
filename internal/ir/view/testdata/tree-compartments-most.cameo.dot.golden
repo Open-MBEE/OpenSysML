@@ -16,7 +16,7 @@ digraph "CompartmentDemoViews::controllers" {
     penwidth=1;
     margin=8;
     "n0" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="9">«part def»</font><br/><b>Sensor</b></td></tr><hr/><tr><td><font point-size="9">attributes</font></td></tr><tr><td align="left">label : String<br/>reading : Real</td></tr></table>>];
-    "n3" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="9">«part def»</font><br/><b>Controller</b></td></tr><hr/><tr><td><font point-size="9">attributes</font></td></tr><tr><td align="left">enabled : Boolean</td></tr><hr/><tr><td><font point-size="9">parts</font></td></tr><tr><td align="left">sensor : Sensor</td></tr></table>>];
+    "n3" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="9">«part def»</font><br/><b>Controller</b></td></tr><hr/><tr><td><font point-size="9">attributes</font></td></tr><tr><td align="left">enabled : Boolean</td></tr><hr/><tr><td><font point-size="9">parts</font></td></tr><tr><td align="left"><font color="gray">sensor : Sensor</font></td></tr></table>>];
   }
   "n3" -> "n0" [headlabel="sensor", dir=back, arrowtail=diamond];
 }

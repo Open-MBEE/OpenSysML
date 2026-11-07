@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AnnotationViews::tree — tree rendering (render asTreeDiagram) -->
+<!-- 2 node(s) were not laid out and sit on a grid: the draw.io desktop command line (32 or later) arranges them with its normalize and layout elkLayered options, the editor with Arrange › Layout -->
+<mxfile host="OpenSysML" type="device" compressed="false">
+  <diagram id="AnnotationViews-tree" name="AnnotationViews::tree">
+    <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1247" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="frame" value="«view» AnnotationViews::tree" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeWidth=0.5;width=260;height=40;" vertex="1" parent="1">
+            <mxGeometry width="1247" height="1169" as="geometry"/>
+        </mxCell>
+        <mxCell id="frame_tr" value="expose Annotated::Pump&#xA;expose Annotated::Tank" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=10;" vertex="1" parent="1">
+            <mxGeometry x="1046" width="201" height="42" as="geometry"/>
+        </mxCell>
+        <mxCell id="frame_br" value="The structure of the loop, annotated." style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=10;" vertex="1" parent="1">
+            <mxGeometry x="920" y="1133" width="327" height="36" as="geometry"/>
+        </mxCell>
+        <object id="n0" label="«part def»&#xA;Pump" fqn="Annotated::Pump" kind="part def" view="AnnotationViews::tree" link="annotations.sysml:5">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="1">
+            <mxGeometry x="50" y="50" width="847" height="266" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n1" label="«attribute»&#xA;rate" fqn="Annotated::Pump::rate" kind="attribute" view="AnnotationViews::tree" link="annotations.sysml:7">
+          <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
+            <mxGeometry x="16" y="92" width="82" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n2" label="«doc»&#xA;Moves fluid from the tank to the loop." kind="doc" view="AnnotationViews::tree" link="annotations.sysml:6">
+          <mxCell style="shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;" vertex="1" parent="n0">
+            <mxGeometry x="148" y="92" width="367" height="37" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n3" label="Sized for the nominal flow." kind="comment" view="AnnotationViews::tree" link="annotations.sysml:8">
+          <mxCell style="shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;" vertex="1" parent="n0">
+            <mxGeometry x="565" y="92" width="266" height="36" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n4" label="«comment»&#xA;Safety&#xA;locale &#34;en&#34;&#xA;Both are rated for the loop pressure." fqn="Annotated::Pump::Safety" kind="comment" view="AnnotationViews::tree" link="annotations.sysml:9">
+          <mxCell style="shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;" vertex="1" parent="n0">
+            <mxGeometry x="16" y="179" width="327" height="71" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n5" label="«rep»&#xA;inline&#xA;language &#34;plantuml&#34;&#xA;component Pump" fqn="Annotated::Pump::inline" kind="rep" view="AnnotationViews::tree" link="annotations.sysml:11">
+          <mxCell style="shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;" vertex="1" parent="n0">
+            <mxGeometry x="393" y="179" width="176" height="71" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n6" label="«part def»&#xA;Tank" fqn="Annotated::Tank" kind="part def" view="AnnotationViews::tree" link="annotations.sysml:13">
+          <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="1">
+            <mxGeometry x="947" y="50" width="250" height="179" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="n7" label="«doc»&#xA;Capacity&#xA;locale &#34;en&#34;&#xA;Holds the working fluid." fqn="Annotated::Tank::Capacity" kind="doc" view="AnnotationViews::tree" link="annotations.sysml:14">
+          <mxCell style="shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;" vertex="1" parent="n6">
+            <mxGeometry x="16" y="92" width="218" height="71" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e0" label="" kind="reference" view="AnnotationViews::tree" link="annotations.sysml:7">
+          <mxCell style="edgeStyle=none;exitX=0.0673;exitY=0.1579;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;rounded=0;html=0;startArrow=diamondThin;startFill=0;endArrow=none;" edge="1" parent="1" source="n0" target="n1">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e1" label="" kind="anchor" view="AnnotationViews::tree" link="annotations.sysml:6">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.3914;entryY=0.1579;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="n2" target="n0">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e2" label="" kind="anchor" view="AnnotationViews::tree" link="annotations.sysml:8">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.8241;entryY=0.1579;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="n3" target="n0">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+        <object id="e3" label="" kind="anchor" view="AnnotationViews::tree" link="annotations.sysml:9">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.2119;entryY=0.1579;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="n4" target="n0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="229.5" y="204"/>
+                <mxPoint x="182" y="204"/>
+                <mxPoint x="182" y="117"/>
+                <mxPoint x="229.5" y="117"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e4" label="" kind="anchor" view="AnnotationViews::tree" link="annotations.sysml:9">
+          <mxCell style="edgeStyle=none;exitX=0.5015;exitY=0;exitPerimeter=0;entryX=0;entryY=0.7486;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="n4" target="n6">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="230" y="204"/>
+                <mxPoint x="914" y="204"/>
+                <mxPoint x="914" y="184"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e5" label="" kind="anchor" view="AnnotationViews::tree" link="annotations.sysml:11">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.5679;entryY=0.1579;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="n5" target="n0">
+            <mxGeometry relative="1" as="geometry">
+              <Array as="points">
+                <mxPoint x="531" y="204"/>
+                <mxPoint x="581" y="204"/>
+                <mxPoint x="581" y="117"/>
+                <mxPoint x="531" y="117"/>
+              </Array>
+            </mxGeometry>
+          </mxCell>
+        </object>
+        <object id="e6" label="" kind="anchor" view="AnnotationViews::tree" link="annotations.sysml:14">
+          <mxCell style="edgeStyle=none;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.5;entryY=0.2346;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="n7" target="n6">
+            <mxGeometry relative="1" as="geometry"/>
+          </mxCell>
+        </object>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

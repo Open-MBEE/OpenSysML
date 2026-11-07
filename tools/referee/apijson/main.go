@@ -124,7 +124,13 @@ func run(opts options) error {
 		for _, rel := range pilot.Failed {
 			failed[rel] = true
 		}
-		ours, err := exportOurs(dir, files, failed)
+		for id, key := range anonymousLibraryKeys(pilot.LibraryKeys) {
+			if pilot.LibraryKeys == nil {
+				pilot.LibraryKeys = make(idKeys)
+			}
+			pilot.LibraryKeys[id] = key
+		}
+		ours, err := exportOurs(dir, files, failed, pilot.LibraryKeys)
 		if err != nil {
 			return err
 		}

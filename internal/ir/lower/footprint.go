@@ -121,24 +121,122 @@ type Flow struct {
 	Writes []Place
 }
 
-// WritesReading are the places the move writes standing on a read of a place
-// among reads: the writes of the statements reading one, or every write of the
-// move when a read outside its statements (a guard's) or a move described whole does.
-func (f Footprint) WritesReading(reads func(Place) bool) []Place {
-	var out []Place
-	inFlow := false
+// Standing is a footprint indexed for the many questions classifying a choice
+// asks of one move: whether a place meets a read of it, and what it writes
+// standing on the reads met, each distinct place its statements read decided once.
+type Standing struct {
+	Reads  []Place
+	Writes []Place
+	// reads are the distinct places the flows read, inReads whether each is among
+	// Reads; others the places among Reads no flow reads (a guard's); written the
+	// distinct places the flows write, as the move holds them; flows index both.
+	reads   []Place
+	inReads []bool
+	others  []Place
+	written []Place
+	flows   []flowIndex
+	// met, out and writes are scratch for WritesReading.
+	met    []bool
+	out    []bool
+	writes []Place
+}
+
+// flowIndex is one flow by the indices of its reads and writes in its Standing.
+type flowIndex struct {
+	reads  []int
+	writes []int
+}
+
+// Standing indexes the footprint's flows by what they read and write.
+func (f Footprint) Standing() *Standing {
+	s := &Standing{Reads: f.Reads, Writes: f.Writes, flows: make([]flowIndex, 0, len(f.Flows))}
+	readAt, writtenAt := make(map[Place]int), make(map[Place]int)
 	for _, flow := range f.Flows {
-		if slices.ContainsFunc(flow.Reads, reads) {
-			inFlow = true
-			for _, p := range flow.Writes {
-				out = appendPlace(out, f.writeOf(p))
+		var index flowIndex
+		for _, p := range flow.Reads {
+			i, ok := readAt[p]
+			if !ok {
+				i = len(s.reads)
+				readAt[p] = i
+				s.reads = append(s.reads, p)
+			}
+			index.reads = append(index.reads, i)
+		}
+		for _, p := range flow.Writes {
+			if p.Name == "" {
+				continue
+			}
+			w := f.writeOf(p)
+			i, ok := writtenAt[w]
+			if !ok {
+				i = len(s.written)
+				writtenAt[w] = i
+				s.written = append(s.written, w)
+			}
+			index.writes = append(index.writes, i)
+		}
+		s.flows = append(s.flows, index)
+	}
+	s.inReads = make([]bool, len(s.reads))
+	for _, p := range f.Reads {
+		if i, ok := readAt[p]; ok {
+			s.inReads[i] = true
+		} else {
+			s.others = append(s.others, p)
+		}
+	}
+	s.met, s.out = make([]bool, len(s.reads)), make([]bool, len(s.written))
+	return s
+}
+
+// PlacesEqual reports whether the two footprints read and write the same places
+// by the same statements, so one Standing serves both.
+func (f Footprint) PlacesEqual(g Footprint) bool {
+	if !slices.Equal(f.Reads, g.Reads) || !slices.Equal(f.Writes, g.Writes) || len(f.Flows) != len(g.Flows) {
+		return false
+	}
+	for i, flow := range f.Flows {
+		if !slices.Equal(flow.Reads, g.Flows[i].Reads) || !slices.Equal(flow.Writes, g.Flows[i].Writes) {
+			return false
+		}
+	}
+	return true
+}
+
+// WritesReading reports whether a place among Reads is met, and if so the places
+// the move writes standing on a read of a place met: the writes of the statements
+// reading one, or every write of the move when a read outside its statements (a
+// guard's) or a move described whole does. The places are valid until the next call.
+func (s *Standing) WritesReading(meets func(Place) bool) ([]Place, bool) {
+	inFlow, met := false, false
+	for i, p := range s.reads {
+		s.met[i] = meets(p)
+		inFlow = inFlow || s.met[i]
+		met = met || s.met[i] && s.inReads[i]
+	}
+	if !met {
+		met = slices.ContainsFunc(s.others, meets)
+	}
+	if !met {
+		return nil, false
+	}
+	if !inFlow {
+		return s.Writes, true
+	}
+	clear(s.out)
+	s.writes = s.writes[:0]
+	for _, flow := range s.flows {
+		if !slices.ContainsFunc(flow.reads, func(i int) bool { return s.met[i] }) {
+			continue
+		}
+		for _, i := range flow.writes {
+			if !s.out[i] {
+				s.out[i] = true
+				s.writes = append(s.writes, s.written[i])
 			}
 		}
 	}
-	if !inFlow {
-		return f.Writes
-	}
-	return out
+	return s.writes, true
 }
 
 // writeOf is the move's write of the place a flow names, as the move holds it
@@ -215,7 +313,7 @@ func (f Footprint) DependentBy(g Footprint, rel Relation) bool {
 func (rel Relation) placesMeet(as, bs []Place) bool {
 	for _, a := range as {
 		for _, b := range bs {
-			if a.Conflicts(b) && !rel.held(a, b) {
+			if rel.PlaceMeet(a, b) {
 				return true
 			}
 		}
@@ -223,10 +321,10 @@ func (rel Relation) placesMeet(as, bs []Place) bool {
 	return false
 }
 
-// PlaceMeets reports whether p, a place of the first move's, may name the value
-// of one of the second's places among qs.
-func (rel Relation) PlaceMeets(p Place, qs []Place) bool {
-	return rel.placesMeet([]Place{p}, qs)
+// PlaceMeet reports whether p, a place of the first move's, may name the value
+// of q, a place of the second's.
+func (rel Relation) PlaceMeet(p, q Place) bool {
+	return p.Conflicts(q) && !rel.held(p, q)
 }
 
 // held reports whether two conflicting places, the first move's and the
@@ -459,10 +557,10 @@ type footprintBuilder struct {
 	declared          map[ast.Node]ast.Node
 	localDeclarations bool
 	footprint         Footprint
-	// expanding is the stack of usages whose bindings are being read, so a cyclic
-	// binding stops; its first entry sits in expandingRoot and allocates nothing.
-	expandingRoot *ast.Usage
-	expanding     []*ast.Usage
+	// expanded is each usage whose binding has been read, and how, so one is read
+	// once however many expressions reach it; the root entry allocates nothing.
+	expandedRoot expandedUsage
+	expanded     []expandedUsage
 	// sem answers what a feature redefines, explicitly or by position.
 	sem *semantics.Model
 }
@@ -579,10 +677,9 @@ func (b *footprintBuilder) boundValue(sym *symbols.Symbol, direct bool) {
 	if usage.Value != nil && !valueIsBinding(usage.Value, usage.ValueIsInitial, usage.ValueIsDefault) {
 		return
 	}
-	if !b.enter(usage) {
+	if !b.enter(usage, direct) {
 		return
 	}
-	defer b.leave()
 	if usage.Value == nil {
 		// A redefining feature valued by nothing of its own is bound as the one it
 		// redefines is (`attribute :>> y;` over `attribute y = x + 1`), explicitly or
@@ -610,26 +707,25 @@ func (b *footprintBuilder) semantics() *semantics.Model {
 	return b.sem
 }
 
-// enter pushes usage onto the expanding stack, false when it is already there.
-func (b *footprintBuilder) enter(usage *ast.Usage) bool {
-	if usage == b.expandingRoot || slices.Contains(b.expanding, usage) {
-		return false
-	}
-	if b.expandingRoot == nil {
-		b.expandingRoot = usage
-	} else {
-		b.expanding = append(b.expanding, usage)
-	}
-	return true
+// expandedUsage is a usage whose binding the builder has read, directly or through a chain.
+type expandedUsage struct {
+	usage  *ast.Usage
+	direct bool
 }
 
-// leave pops the usage entered last.
-func (b *footprintBuilder) leave() {
-	if n := len(b.expanding); n > 0 {
-		b.expanding = b.expanding[:n-1]
-		return
+// enter records that usage's binding is read, false when it already was: what it
+// reads is the same from every expression reaching it, and a cyclic one stops.
+func (b *footprintBuilder) enter(usage *ast.Usage, direct bool) bool {
+	key := expandedUsage{usage: usage, direct: direct}
+	if key == b.expandedRoot || slices.Contains(b.expanded, key) {
+		return false
 	}
-	b.expandingRoot = nil
+	if b.expandedRoot.usage == nil {
+		b.expandedRoot = key
+	} else {
+		b.expanded = append(b.expanded, key)
+	}
+	return true
 }
 
 // redefinitions are the features sym redefines, explicitly or as a parameter at
@@ -681,10 +777,9 @@ func (b *footprintBuilder) calcUsage(sym *symbols.Symbol, usage *ast.Usage) {
 		return
 	}
 	b.footprint.Dynamic = true
-	if !b.enter(usage) {
+	if !b.enter(usage, true) {
 		return
 	}
-	defer b.leave()
 	scope := sym.Scope
 	if scope == nil {
 		scope = b.scope

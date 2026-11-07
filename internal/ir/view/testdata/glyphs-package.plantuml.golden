@@ -1,5 +1,6 @@
 @startuml
 ' NotationGlyphs::Diagrams::packageGlyphs — package rendering (view def GeneralView, filter @Package)
+mainframe <size:10>//«view»//</size> **NotationGlyphs::Diagrams::packageGlyphs** : GeneralView\n<size:10>expose NotationGlyphs</size>\n<size:10>expose Lib</size>\n<size:10>expose Uses</size>\n<size:10>filter @SysML::Package</size>
 <style>
 root {
   BackGroundColor white

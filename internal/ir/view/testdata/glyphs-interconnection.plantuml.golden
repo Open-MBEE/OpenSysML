@@ -1,5 +1,6 @@
 @startuml
 ' NotationGlyphs::Diagrams::lineGlyphs — interconnection rendering (render asInterconnectionDiagram)
+mainframe <size:10>//«view»//</size> **NotationGlyphs::Diagrams::lineGlyphs**\n<size:10>expose line</size>
 <style>
 root {
   BackGroundColor white

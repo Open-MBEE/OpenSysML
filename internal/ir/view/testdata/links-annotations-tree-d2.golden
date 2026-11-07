@@ -1,0 +1,26 @@
+# AnnotationViews::tree — tree rendering (render asTreeDiagram)
+classes: {
+  definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
+  usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
+  annotation: { shape: page; style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
+  edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  reference: { source-arrowhead: { shape: diamond; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+}
+n0: "«part def»\nPump" { class: definition; link: "https://example.test/src/annotations.sysml#L5" }
+n1: "«attribute»\nrate" { class: usage; link: "https://example.test/src/annotations.sysml#L7" }
+n2: "«doc»\nMoves fluid from the tank to the loop." { class: annotation; link: "https://example.test/src/annotations.sysml#L6" }
+n3: "Sized for the nominal flow." { class: annotation; link: "https://example.test/src/annotations.sysml#L8" }
+n4: "«comment»\nSafety\nlocale \"en\"\nBoth are rated for the loop pressure." { class: annotation; link: "https://example.test/src/annotations.sysml#L9" }
+n5: "«rep»\ninline\nlanguage \"plantuml\"\ncomponent Pump" { class: annotation; link: "https://example.test/src/annotations.sysml#L11" }
+n6: "«part def»\nTank" { class: definition; link: "https://example.test/src/annotations.sysml#L13" }
+n7: "«doc»\nCapacity\nlocale \"en\"\nHolds the working fluid." { class: annotation; link: "https://example.test/src/annotations.sysml#L14" }
+n0 <- n1: { class: reference; link: "https://example.test/src/annotations.sysml#L7" }
+n2 -> n0: { class: edge; link: "https://example.test/src/annotations.sysml#L6" }
+n3 -> n0: { class: edge; link: "https://example.test/src/annotations.sysml#L8" }
+n4 -> n0: { class: edge; link: "https://example.test/src/annotations.sysml#L9" }
+n4 -> n6: { class: edge; link: "https://example.test/src/annotations.sysml#L9" }
+n5 -> n0: { class: edge; link: "https://example.test/src/annotations.sysml#L11" }
+n7 -> n6: { class: edge; link: "https://example.test/src/annotations.sysml#L14" }
+frame_name: "«view» AnnotationViews::tree" { shape: text; near: top-left }
+frame_tr: "expose Annotated::Pump\nexpose Annotated::Tank" { shape: text; near: top-right }
+frame_br: "The structure of the loop, annotated." { shape: text; near: bottom-right }

@@ -108,3 +108,43 @@ func TestQueryFlagRejectsConversion(t *testing.T) {
 		t.Fatalf("outcome = %#v", outcome)
 	}
 }
+
+// A doc or rep element reports its own body (and locale or language), and the
+// element owning it reports the body as its documentation or textualRepresentation.
+func TestQueryFlagReportsAnnotationBodies(t *testing.T) {
+	binary := buildCLI(t)
+	model := filepath.Join(t.TempDir(), "model.sysml")
+	const queryModel = `package Model {
+    metadata def m {
+        attribute a default "a";
+    }
+    part <a> aaaa {
+        doc /*Documentation*/
+        @m {
+            a := "aa";
+        }
+        port p;
+    }
+    part <b> bbb {
+        rep language "rus"
+            /*Textual representation*/
+        port p;
+    }
+    interface connect (a.p, b.p);
+}`
+	if err := os.WriteFile(model, []byte(queryModel), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out := run(t, binary, "-query", `oslc.select=sysml:textualRepresentation,sysml:documentation,sysml:body,sysml:language,sysml:locale`, model)
+	for _, want := range []string{
+		"Model::aaaa  PartUsage  sysml:documentation=Documentation\n",
+		"Model::aaaa::@0  Documentation  sysml:body=Documentation\n",
+		"Model::bbb  PartUsage  sysml:textualRepresentation=Textual representation\n",
+		"Model::bbb::@0  TextualRepresentation  sysml:body=Textual representation  sysml:language=rus\n",
+		"Model::m  MetadataDefinition\n",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("query output = %s, want it to contain %q", out, want)
+		}
+	}
+}

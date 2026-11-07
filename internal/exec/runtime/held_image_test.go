@@ -1591,6 +1591,7 @@ func heldDigest(ctx *Context, held func(id int64) bool) string {
 // side, the source untouched by the copy's run. No instance case is refused; the
 // refusals are pinned by TestHeldImageRefusesWhatItCannotCarry.
 func TestHeldImageRoundTrip(t *testing.T) {
+	t.Parallel()
 	forEachConformanceCase(t, func(t *testing.T, conformanceDir, testName string, expected ExpectedOutcome) {
 		if expected.Type != "instance" {
 			t.Skip("not an instance case")

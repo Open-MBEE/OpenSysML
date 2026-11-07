@@ -1,0 +1,13 @@
+{
+	"rpc": "Query",
+	"query": {
+		"where": {"primitive": {"property": "@type", "operator": "PRIMITIVE_OPERATOR_EQUAL", "value": ["MetadataUsage"]}}
+	},
+	"expected_element_ids": [
+		"MetadataAnnotations::Pump::PumpStates::jammed::@0",
+		"MetadataAnnotations::Pump::PumpStates::overheated::@0",
+		"MetadataAnnotations::Pump::PumpStates::stalled::fm",
+		"MetadataAnnotations::Pump::pumpFluid::flowRate::@0",
+		"MetadataAnnotations::Pump::pumpFluid::pressure::@0"
+	]
+}

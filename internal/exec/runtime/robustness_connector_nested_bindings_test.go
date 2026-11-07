@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -19,7 +20,11 @@ func TestRuntimeRobustnessConnectorNestedBindings(t *testing.T) {
 	t.Run("end_body_default_yields_to_the_connected_port", testEndBodyDefaultYieldsToThePort)
 	t.Run("end_body_value_of_an_anonymous_connector_binds_its_ends", testEndBodyValueOfAnAnonymousConnector)
 	t.Run("failing_end_body_default_yields_to_an_explicit_binding", testFailingEndBodyDefaultYieldsToAnExplicitBinding)
+	t.Run("end_body_default_yields_to_an_outer_binding", testEndBodyDefaultYieldsToAnOuterBinding)
+	t.Run("failing_outer_binding_is_not_masked_by_an_end_body_default", testFailingOuterBindingIsNotMaskedByADefault)
 	t.Run("end_body_value_of_a_required_connector_collection", testEndBodyValueOfARequiredConnectorCollection)
+	t.Run("anonymous_connector_index_is_read_on_the_connector", testAnonymousConnectorIndexIsReadOnTheConnector)
+	t.Run("index_selects_within_each_connector_object", testIndexSelectsWithinEachConnectorObject)
 }
 
 // instantiatePartWithLibraries is instantiatePart over an index carrying the standard library.
@@ -212,6 +217,29 @@ func testEndBodyValueOfAnAnonymousConnector(t *testing.T) {
 	wantIntegerAt(t, ctx, inst, "k.dst.voltage", 12)
 }
 
+// testAnonymousConnectorIndexIsReadOnTheConnector: an anonymous connector's indexed end selects with
+// its own `index`, not the holder's feature of that name.
+func testAnonymousConnectorIndexIsReadOnTheConnector(t *testing.T) {
+	inst, ctx := instantiatePartWithLibraries(t, "Sys", `
+		package test {
+			private import ScalarValues::*;`+connectorNestedBindingParts+`
+			interface def Picks {
+				end a : Pw;
+				end b : ~Pw;
+				attribute readings : Integer[2] = (5, 28);
+				attribute index : Integer = 2;
+				bind b.voltage = readings#(index);
+			}
+			part def Sys {
+				part k : Snk;
+				part s : Src;
+				attribute index : Integer = 1;
+				interface : Picks connect s.src to k.dst;
+			}
+		}`)
+	wantIntegerAt(t, ctx, inst, "k.dst.voltage", 28)
+}
+
 // testFailingEndBodyDefaultYieldsToAnExplicitBinding: a `default =` whose expression fails is
 // never evaluated against a port another binding values; it fails only where it applies.
 func testFailingEndBodyDefaultYieldsToAnExplicitBinding(t *testing.T) {
@@ -252,4 +280,75 @@ func testEndBodyValueOfARequiredConnectorCollection(t *testing.T) {
 			}
 		}`)
 	wantIntegerAt(t, ctx, inst, "k.dst.voltage", 12)
+}
+
+// testEndBodyDefaultYieldsToAnOuterBinding: a binding an outer owner states displaces an inner
+// end body's `default =`, failing or not, and the failing one is still reported where it applies.
+func testEndBodyDefaultYieldsToAnOuterBinding(t *testing.T) {
+	inst, ctx := instantiatePartWithLibraries(t, "Sys", `
+		package test {
+			private import ScalarValues::*;`+connectorNestedBindingParts+`
+			interface def Fails { end a : Pw; end b : ~Pw { attribute :>> voltage default = 1 / divisor; } attribute divisor : Integer = 0; }
+			interface def Ok { end a : Pw; end b : ~Pw { attribute :>> voltage default = 12; } }
+			part def Inner { port inp : Pw; part k : Snk; interface i : Fails connect inp to k.dst; }
+			part def InnerOk { port inp : Pw; part k : Snk; interface i : Ok connect inp to k.dst; }
+			part def Sys {
+				part s : Src;
+				part inner : Inner;
+				part lone : Inner;
+				part innerOk : InnerOk;
+				part loneOk : InnerOk;
+				bind inner.k.dst.voltage = s.src.voltage;
+				bind innerOk.k.dst.voltage = s.src.voltage;
+			}
+		}`)
+	wantIntegerAt(t, ctx, inst, "inner.k.dst.voltage", 28)
+	wantIntegerAt(t, ctx, inst, "innerOk.k.dst.voltage", 28)
+	wantIntegerAt(t, ctx, inst, "loneOk.k.dst.voltage", 12)
+	if _, err := featureValueAt(t, ctx, inst, "lone.k.dst.voltage"); !errors.Is(err, errBindingEnd) {
+		t.Errorf("GetFeatureValue(lone.k.dst.voltage) error = %v, want the failing default's errBindingEnd where it applies", err)
+	}
+}
+
+// testFailingOuterBindingIsNotMaskedByADefault: an outer binding's own failure is reported,
+// not replaced by the inner `default =` it would have displaced.
+func testFailingOuterBindingIsNotMaskedByADefault(t *testing.T) {
+	inst, ctx := instantiatePartWithLibraries(t, "Sys", `
+		package test {
+			private import ScalarValues::*;
+			port def Pr { attribute voltage : Real; }
+			part def Snk { port dst : ~Pr; }
+			interface def Ok { end a : Pr; end b : ~Pr { attribute :>> voltage default = 12.0; } }
+			part def InnerOk { port inp : Pr; part k : Snk; interface i : Ok connect inp to k.dst; }
+			part def Sys {
+				attribute zero : Integer = 0;
+				attribute bad : Real = 1 / zero;
+				part innerOk : InnerOk;
+				bind innerOk.k.dst.voltage = bad;
+			}
+		}`)
+	if fv, err := featureValueAt(t, ctx, inst, "innerOk.k.dst.voltage"); err == nil {
+		t.Errorf("GetFeatureValue(innerOk.k.dst.voltage) = %v, nil error, want the outer binding's failure", fv.Value)
+	}
+}
+
+// testIndexSelectsWithinEachConnectorObject: an index read through a connector collection selects
+// from what each connector object holds, never from their values taken together.
+func testIndexSelectsWithinEachConnectorObject(t *testing.T) {
+	const model = `
+		package test {
+			private import ScalarValues::*;
+			port def Pw { attribute voltage : Integer; }
+			part def A { port p : Pw { attribute :>> voltage = 28; } }
+			part def B { port q : ~Pw; }
+			interface def Picks { end a : Pw; end b : ~Pw; attribute readings : Integer[*] = (5, 28); attribute index : Integer = INDEX; bind b.voltage = readings#(index); }
+			connection def Wired { end a : A; end b : B; interface : Picks connect a.p to b.q; }
+			part def Sys { part s : A; part k : B; connection c : Wired [2] connect s to k; }
+		}`
+	inst, ctx := instantiatePartWithLibraries(t, "Sys", strings.Replace(model, "INDEX", "2", 1))
+	wantIntegerAt(t, ctx, inst, "k.q.voltage", 28)
+	inst, ctx = instantiatePartWithLibraries(t, "Sys", strings.Replace(model, "INDEX", "3", 1))
+	if fv, err := featureValueAt(t, ctx, inst, "k.q.voltage"); !errors.Is(err, errBindingEnd) {
+		t.Errorf("GetFeatureValue(k.q.voltage) = %v, %v, want errBindingEnd: each connector object holds two readings", fv, err)
+	}
 }

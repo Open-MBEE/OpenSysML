@@ -7,63 +7,69 @@
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
-        <object id="n0" label="«part def»&#xA;Car" fqn="Nary::Car" kind="part def" view="NaryViews::carLinks">
+        <mxCell id="frame" value="«view» NaryViews::carLinks" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeWidth=0.5;width=243;height=40;" vertex="1" parent="1">
+            <mxGeometry width="827" height="1169" as="geometry"/>
+        </mxCell>
+        <mxCell id="frame_tr" value="expose Nary::Car" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=10;" vertex="1" parent="1">
+            <mxGeometry x="676" width="151" height="36" as="geometry"/>
+        </mxCell>
+        <object id="n0" label="«part def»&#xA;Car" fqn="Nary::Car" kind="part def" view="NaryViews::carLinks" link="nary.sysml:32">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="1">
             <mxGeometry x="50" y="50" width="321" height="232" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n1" label="«part»&#xA;tank" fqn="Nary::Car::tank" kind="part" view="NaryViews::carLinks">
+        <object id="n1" label="«part»&#xA;tank" fqn="Nary::Car::tank" kind="part" view="NaryViews::carLinks" link="nary.sysml:33">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
             <mxGeometry x="16" y="92" width="54" height="37" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n1:n1.0" label="^fuelOut" fqn="Nary::Car::tank::fuelOut" kind="port" view="NaryViews::carLinks">
+        <object id="n1:n1.0" label="^fuelOut" fqn="Nary::Tank::fuelOut" kind="port" view="NaryViews::carLinks" link="nary.sysml:27">
           <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=center;verticalLabelPosition=top;align=center;verticalAlign=bottom;" vertex="1" parent="n1">
             <mxGeometry x="0.5" y="0" width="12" height="12" relative="1" as="geometry">
               <mxPoint x="-6" y="-6" as="offset"/>
             </mxGeometry>
           </mxCell>
         </object>
-        <object id="n2" label="«part»&#xA;engine" fqn="Nary::Car::engine" kind="part" view="NaryViews::carLinks">
+        <object id="n2" label="«part»&#xA;engine" fqn="Nary::Car::engine" kind="part" view="NaryViews::carLinks" link="nary.sysml:34">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
             <mxGeometry x="120" y="92" width="72" height="37" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n2:n2.0" label="^fuelIn" fqn="Nary::Car::engine::fuelIn" kind="port" view="NaryViews::carLinks">
+        <object id="n2:n2.0" label="^fuelIn" fqn="Nary::Engine::fuelIn" kind="port" view="NaryViews::carLinks" link="nary.sysml:30">
           <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=center;verticalLabelPosition=top;align=center;verticalAlign=bottom;" vertex="1" parent="n2">
             <mxGeometry x="0.5" y="0" width="12" height="12" relative="1" as="geometry">
               <mxPoint x="-6" y="-6" as="offset"/>
             </mxGeometry>
           </mxCell>
         </object>
-        <object id="n3" label="«part»&#xA;gauge" fqn="Nary::Car::gauge" kind="part" view="NaryViews::carLinks">
+        <object id="n3" label="«part»&#xA;gauge" fqn="Nary::Car::gauge" kind="part" view="NaryViews::carLinks" link="nary.sysml:41">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
             <mxGeometry x="242" y="92" width="63" height="37" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n3:n3.0" label="^fuelIn" fqn="Nary::Car::gauge::fuelIn" kind="port" view="NaryViews::carLinks">
+        <object id="n3:n3.0" label="^fuelIn" fqn="Nary::Engine::fuelIn" kind="port" view="NaryViews::carLinks" link="nary.sysml:30">
           <mxCell style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;labelPosition=center;verticalLabelPosition=top;align=center;verticalAlign=bottom;" vertex="1" parent="n3">
             <mxGeometry x="0.5" y="0" width="12" height="12" relative="1" as="geometry">
               <mxPoint x="-6" y="-6" as="offset"/>
             </mxGeometry>
           </mxCell>
         </object>
-        <object id="n4" label="«flow»&#xA;—▶" kind="flow" view="NaryViews::carLinks">
+        <object id="n4" label="«flow»&#xA;—▶" kind="flow" view="NaryViews::carLinks" link="nary.sysml:37">
           <mxCell style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
             <mxGeometry x="16" y="179" width="54" height="37" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n5" label="«flow»&#xA;◀—" kind="flow" view="NaryViews::carLinks">
+        <object id="n5" label="«flow»&#xA;◀—" fqn="Nary::Car::level" kind="flow" view="NaryViews::carLinks" link="nary.sysml:38">
           <mxCell style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
             <mxGeometry x="120" y="179" width="54" height="37" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n6" label="«message»&#xA;—&gt;" kind="message" view="NaryViews::carLinks">
+        <object id="n6" label="«message»&#xA;—&gt;" kind="message" view="NaryViews::carLinks" link="nary.sysml:39">
           <mxCell style="text;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
             <mxGeometry x="224" y="179" width="70" height="37" as="geometry"/>
           </mxCell>
         </object>
-        <object id="e0" label="" kind="connection" view="NaryViews::carLinks">
+        <object id="e0" label="" fqn="Nary::Car::fuelLine" kind="connection" view="NaryViews::carLinks" link="nary.sysml:36">
           <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.0833;exitPerimeter=0;entryX=1;entryY=0.25;entryPerimeter=0;rounded=0;html=0;endArrow=none;strokeWidth=3;" edge="1" parent="1" source="n1:n1.0" target="n4">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
@@ -74,17 +80,17 @@
             </mxGeometry>
           </mxCell>
         </object>
-        <object id="e1" label="" kind="connection" view="NaryViews::carLinks">
+        <object id="e1" label="" fqn="Nary::Car::fuelLine" kind="connection" view="NaryViews::carLinks" link="nary.sysml:36">
           <mxCell style="edgeStyle=none;exitX=1;exitY=0.5135;exitPerimeter=0;entryX=0;entryY=0.5135;entryPerimeter=0;rounded=0;html=0;endArrow=none;strokeWidth=3;" edge="1" parent="1" source="n4" target="n5">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
-        <object id="e2" label="" kind="connection" view="NaryViews::carLinks">
+        <object id="e2" label="" fqn="Nary::Car::fuelLine" kind="connection" view="NaryViews::carLinks" link="nary.sysml:36">
           <mxCell style="edgeStyle=none;exitX=1;exitY=0.2432;exitPerimeter=0;entryX=0;entryY=0.2432;entryPerimeter=0;rounded=0;html=0;endArrow=none;strokeWidth=3;" edge="1" parent="1" source="n5" target="n6">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>
-        <object id="e3" label="" kind="connection" view="NaryViews::carLinks">
+        <object id="e3" label="" fqn="Nary::Car::fuelLine" kind="connection" view="NaryViews::carLinks" link="nary.sysml:36">
           <mxCell style="edgeStyle=none;exitX=0;exitY=0.5;exitPerimeter=0;entryX=0.5;entryY=0.0833;entryPerimeter=0;rounded=0;html=0;endArrow=none;strokeWidth=3;" edge="1" parent="1" source="n6" target="n2:n2.0">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
@@ -95,7 +101,7 @@
             </mxGeometry>
           </mxCell>
         </object>
-        <object id="e4" label="" kind="flow" view="NaryViews::carLinks">
+        <object id="e4" label="" kind="flow" view="NaryViews::carLinks" link="nary.sysml:42">
           <mxCell style="edgeStyle=none;exitX=0.5;exitY=0.0833;exitPerimeter=0;entryX=0.5;entryY=0.0833;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=1;" edge="1" parent="1" source="n1:n1.0" target="n3:n3.0">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
@@ -105,6 +111,27 @@
             </mxGeometry>
           </mxCell>
         </object>
+        <mxCell id="note2" value="the reading" style="shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="274" y="229" width="109" height="36" as="geometry"/>
+        </mxCell>
+        <mxCell id="note2:anchor0" style="edgeStyle=none;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="note2" target="n5">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="note0" value="the line" style="shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="50" y="332" width="84" height="36" as="geometry"/>
+        </mxCell>
+        <mxCell id="note0:anchor0" style="edgeStyle=none;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="note0" target="e0">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="note1" value="shared" style="shape=note;html=0;whiteSpace=wrap;size=14;align=left;verticalAlign=top;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="184" y="332" width="67" height="36" as="geometry"/>
+        </mxCell>
+        <mxCell id="note1:anchor0" style="edgeStyle=none;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="note1" target="e0">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="note1:anchor1" style="edgeStyle=none;html=0;dashed=1;endArrow=none;" edge="1" parent="1" source="note1" target="n5">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>

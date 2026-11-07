@@ -23,6 +23,7 @@ config:
   flowchart:
     subGraphTitleMargin:
       bottom: 24
+title: "«view» DepthLinks::links"
 ---
 %% DepthLinks::links — interconnection rendering (render asInterconnectionDiagram)
 %% not represented: 2 elements nested deeper than 1 level not shown

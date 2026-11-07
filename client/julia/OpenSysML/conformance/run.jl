@@ -146,7 +146,7 @@ end
 function raw_call(conn, method, body_text)
     response = HTTP.post("$(conn.base)/$SERVICE/$method",
                          ["Content-Type" => "application/json"], body_text;
-                         status_exception=false, readtimeout=max(1, round(Int, conn.timeout)))
+                         status_exception=false, request_timeout=max(1, round(Int, conn.timeout)))
     return (status=response.status,
             content_type=lowercase(String(HTTP.header(response, "Content-Type"))),
             body=String(response.body))

@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» NotationGlyphs::Diagrams::fillGlyphs : ActionFlowView"
 ---
 %% NotationGlyphs::Diagrams::fillGlyphs — action rendering (view def ActionFlowView)
 flowchart TD

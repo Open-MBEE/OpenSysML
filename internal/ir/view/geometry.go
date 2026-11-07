@@ -276,8 +276,15 @@ func (r *Renderer) memberNotesOf(view, owner *symbols.Symbol, name, anchor strin
 // routeOf is the waypoints the edge declared as elem follows in view, nil when
 // no Route annotation gives any, resolved as geometryOf resolves a Layout.
 func (r *Renderer) routeOf(view, elem *symbols.Symbol, out *Rendering) []Point {
-	out.drawn.note(elem, true)
 	out.drawn.noteSteered(elem)
+	return r.unsteeredRoute(view, elem, out)
+}
+
+// unsteeredRoute is the waypoints a Route about elem states while the edges
+// drawn for elem cannot follow them; elem is not marked steered, so a round
+// trip refuses to reroute it instead of writing a Route nothing follows.
+func (r *Renderer) unsteeredRoute(view, elem *symbols.Symbol, out *Rendering) []Point {
+	out.drawn.note(elem, true)
 	site, ok := r.model.RouteOf(view, elem)
 	if !ok {
 		return nil

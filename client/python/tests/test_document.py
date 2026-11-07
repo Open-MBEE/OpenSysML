@@ -362,7 +362,7 @@ def test_render_view_decodes_all_fields_and_optional_messages():
     response.canvas.has_size = True
     node = response.nodes.add(
         id="n0", kind="part", name="root", name_synthesized=True, type="Demo::Part",
-        detail="detail", text="text", stand_in=True, parent="", inherited=True,
+        detail="detail", text="text", stand_in=True, parent="", inherited=True, parallel=True,
     )
     node.ports.add(id="n0.0", name="api", type="Demo::API", direction="inout", inherited=True)
     node.origin.file = "views.sysml"
@@ -395,6 +395,9 @@ def test_render_view_decodes_all_fields_and_optional_messages():
         x=1, y=2, width=3, height=4, has_size=True,
         origin=sysml_pb2.Span(file="views.sysml"),
     )
+    response.frame.name = "Demo::view"
+    response.frame.type = "ViewDef"
+    response.frame.exposes.append("expose Demo::car")
 
     rendered = render_view_result(response)
     assert isinstance(rendered, RenderedView)
@@ -402,6 +405,7 @@ def test_render_view_decodes_all_fields_and_optional_messages():
         "Demo::view", "interconnection", "rendered",
     )
     assert rendered.nodes[0].ports[0].direction == "inout"
+    assert rendered.nodes[0].parallel
     assert rendered.nodes[0].origin.start_line == 4
     assert rendered.nodes[0].geometry.collapsed
     assert rendered.nodes[0].geometry.unplaced
@@ -414,6 +418,9 @@ def test_render_view_decodes_all_fields_and_optional_messages():
     assert rendered.notes[0].origin.file == "views.sysml"
     assert rendered.notices == ("notice",)
     assert rendered.shown == ("port-symbols", "typings")
+    assert (rendered.frame.name, rendered.frame.type) == ("Demo::view", "ViewDef")
+    assert rendered.frame.exposes == ("expose Demo::car",)
+    assert rendered.frame.filters == ()
 
     sparse = render_view_result(sysml_pb2.RenderViewResponse(
         nodes=[sysml_pb2.RenderNode()],
@@ -430,6 +437,7 @@ def test_render_view_decodes_all_fields_and_optional_messages():
 
     empty = render_view_result(sysml_pb2.RenderViewResponse())
     assert empty.canvas is None
+    assert empty.frame is None
     assert empty.nodes == ()
 
 

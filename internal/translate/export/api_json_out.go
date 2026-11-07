@@ -28,8 +28,9 @@ const (
 	apiJSONMappingValuesKey        = "sysx:mappingValues"
 )
 
-// APIJSONOmission describes an object-property value omitted because its target
-// could not be resolved.
+// APIJSONOmission describes a property value an element object omits: an
+// object property whose target could not be resolved, or a completed derived
+// property the metamodel evaluator could not derive for that subject.
 type APIJSONOmission struct {
 	Subject   string
 	Metaclass string
@@ -87,7 +88,7 @@ func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]api
 		return nil, err
 	}
 	settled, err := rdf.ReconcileCollectionsWithPolicy(wrapped, func(subject rdf.Term, key string) bool {
-		metaclass := strings.TrimPrefix(wrapped.Type(subject), rdf.SysML)
+		metaclass := apiJSONOntologyMetaclass(strings.TrimPrefix(wrapped.Type(subject), rdf.SysML))
 		property, ok := ontology.PropertyOf(metaclass, key)
 		return ok && property.Nonunique
 	})
@@ -121,9 +122,14 @@ func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]api
 			return nil, err
 		}
 		if LibraryReference(settled, subject) {
-			// Legacy stubs carry stated properties, not metamodel defaults.
+			// Legacy stubs carry stated properties, not metamodel defaults; a stub typed
+			// IndividualDefinition/IndividualUsage states isIndividual by that type.
+			_, legacyIndividual := legacyMetaclasses[rdf.LocalName(settled.Type(subject))]
 			element = slices.DeleteFunc(element, func(member apiJSONMember) bool {
-				return member.key != "@id" && member.key != "@type" && !settled.HasProperty(subject, rdf.SysML+member.key)
+				if member.key == "@id" || member.key == "@type" || (legacyIndividual && member.key == "isIndividual") {
+					return false
+				}
+				return !settled.HasProperty(subject, rdf.SysML+member.key)
 			})
 		}
 		elements = append(elements, element)
@@ -207,8 +213,8 @@ func (o apiJSONObject) MarshalJSON() ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-// apiJSONReference is the {"@id": <id>} spelling of a reference value.
-type apiJSONReference struct {
+// APIJSONReference is the {"@id": <id>} spelling of a reference value.
+type APIJSONReference struct {
 	ID string `json:"@id"`
 }
 
@@ -325,10 +331,15 @@ func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) 
 	if strings.HasPrefix(types[0].Value, rdf.SysML) {
 		metaclass = strings.TrimPrefix(types[0].Value, rdf.SysML)
 	}
+	typeName := apiJSONType(types[0])
+	standard, legacyIndividual := legacyMetaclasses[metaclass]
+	if legacyIndividual {
+		metaclass, typeName = standard, standard
+	}
 	predicates := w.graph.PredicatesView(subject)
 	element := make(apiJSONObject, 0, len(predicates)+5)
 	element = append(element,
-		apiJSONMember{key: "@type", value: apiJSONType(types[0])},
+		apiJSONMember{key: "@type", value: typeName},
 		apiJSONMember{key: "@id", value: id},
 	)
 	var mappingValues apiJSONObject
@@ -375,7 +386,7 @@ func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) 
 				}
 				continue
 			}
-			property, propertyKnown := ontology.PropertyOf(metaclass, key)
+			property, propertyKnown := ontology.PropertyOf(apiJSONOntologyMetaclass(metaclass), key)
 			objectProperty := propertyKnown && property.Kind == ontology.ObjectProperty
 			value, err := apiJSONSysMLValue(
 				w.graph, subject, predicate, key, metaclass, property, propertyKnown, objectProperty, w.nameIndex,
@@ -433,6 +444,9 @@ func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) 
 	}
 	if hasMappingName && !mappingNameEmitted {
 		element = append(element, apiJSONMember{key: apiJSONMappingQualifiedNameKey, value: mappingName})
+	}
+	if legacyIndividual {
+		element = apiJSONWithMember(element, apiJSONMember{key: "isIndividual", value: true})
 	}
 	element = w.completeDerived(subject, metaclass, element)
 	if len(mappingValues) > 0 {
@@ -813,7 +827,7 @@ func (state *apiJSONPropertyComparisonState) exactTermAt(position int) (rdf.Term
 
 func (state *apiJSONPropertyComparisonState) compareValue(value any) error {
 	switch v := value.(type) {
-	case apiJSONReference:
+	case APIJSONReference:
 		return state.compareReference(v.ID)
 	case apiJSONNameReference:
 		return state.compareTerm(rdf.String(v.name))
@@ -993,7 +1007,7 @@ func apiJSONMappingValueForTerm(subject, term rdf.Term) (any, error) {
 		if id == "" {
 			return nil, fmt.Errorf("reference %s has no API id", term)
 		}
-		return apiJSONReference{ID: id}, nil
+		return APIJSONReference{ID: id}, nil
 	}
 	if term.IsLiteral() {
 		return term.Value, nil
@@ -1053,6 +1067,17 @@ func collectionObject(subject rdf.Term, objects []rdf.Term, member rdf.Collectio
 
 // apiJSONType is the "@type" spelling of a metaclass IRI: the bare name in
 // the sysml: vocabulary, the sysx: CURIE in the extension namespace.
+// apiJSONWithMember states member on element, in place of the key's earlier value.
+func apiJSONWithMember(element apiJSONObject, member apiJSONMember) apiJSONObject {
+	for i := range element {
+		if element[i].key == member.key {
+			element[i] = member
+			return element
+		}
+	}
+	return append(element, member)
+}
+
 func apiJSONType(typ rdf.Term) string {
 	if strings.HasPrefix(typ.Value, rdf.OpenSysML) {
 		return "sysx:" + strings.TrimPrefix(typ.Value, rdf.OpenSysML)
@@ -1088,7 +1113,7 @@ func apiJSONSysMLValue(
 		values := make([]any, 0, len(objects))
 		for _, object := range objects {
 			if object.IsIRI() {
-				values = append(values, apiJSONReference{ID: rdf.ReferenceID(subject, object)})
+				values = append(values, APIJSONReference{ID: rdf.ReferenceID(subject, object)})
 				continue
 			}
 			value, err := apiJSONScalar(subject, key, object, objectProperty)
@@ -1118,7 +1143,7 @@ func apiJSONSysMLValue(
 		values := make([]any, 0, len(members))
 		for _, member := range members {
 			if member.ID != "" {
-				values = append(values, apiJSONReference{ID: member.ID})
+				values = append(values, APIJSONReference{ID: member.ID})
 				continue
 			}
 			object, err := collectionObject(subject, objects, member)
@@ -1174,7 +1199,7 @@ func apiJSONResolveUnresolvedProperty(
 	if len(names) == 0 {
 		return value, true
 	}
-	property, known := ontology.PropertyOf(metaclass, key)
+	property, known := ontology.PropertyOf(apiJSONOntologyMetaclass(metaclass), key)
 	subjectID, _ := rdf.SubjectID(subject)
 	if options.Omitted != nil || options.Diagnostic != nil {
 		for _, name := range names {
@@ -1229,7 +1254,7 @@ func apiJSONValues(subject rdf.Term, key string, objects []rdf.Term, objectPrope
 // datatype to spell it in.
 func apiJSONScalar(subject rdf.Term, key string, object rdf.Term, objectProperty bool) (any, error) {
 	if object.IsIRI() {
-		return apiJSONReference{ID: rdf.ReferenceID(subject, object)}, nil
+		return APIJSONReference{ID: rdf.ReferenceID(subject, object)}, nil
 	}
 	if object.Lang != "" {
 		return nil, &UnsupportedError{

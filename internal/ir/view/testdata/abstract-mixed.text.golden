@@ -1,8 +1,7 @@
 AbstractViews::familyMixed - mixed rendering (render asMixedDiagram)
 
 abstract part def Vehicle
-  attribute AbstractViews::Vehicle::mass
-attribute AbstractViews::Vehicle::mass
+  attribute mass
 abstract part vehicleFamily
   abstract port fuel
   abstract part engine
@@ -15,7 +14,7 @@ variation part def Models
 relationships:
   engine -- chassis
   engine -- chassis
-  Vehicle o-- AbstractViews::Vehicle::mass
+  Vehicle o-- mass
   vehicleFamily o-- fuel
   vehicleFamily *-- engine
   vehicleFamily *-- chassis

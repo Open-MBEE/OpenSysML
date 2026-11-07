@@ -1,5 +1,6 @@
 @startuml
 ' NotationGlyphs::Diagrams::definitionGlyphs — definition rendering (view def GeneralView, filter @Definition or @Usage)
+mainframe <size:10>//«view»//</size> **NotationGlyphs::Diagrams::definitionGlyphs** : GeneralView\n<size:10>expose Plant</size>\n<size:10>expose Plant::tank</size>\n<size:10>expose Plant::spare</size>\n<size:10>expose Plant::filling</size>\n<size:10>expose Plant::full</size>\n<size:10>expose Plant::startup</size>\n<size:10>expose LevelReq</size>\n<size:10>expose LevelReq::keepLevel</size>\n<size:10>expose LevelReq::lowLevel</size>\n<size:10>expose bounded</size>\n<size:10>expose tight</size>\n<size:10>expose capacity</size>\n<size:10>expose capacity::asserted</size>\n<size:10>filter @SysML::Definition or @SysML::Usage</size>
 <style>
 root {
   BackGroundColor white
@@ -47,7 +48,7 @@ class "<size:10>//«part»//</size>\n**tank**" as n1 <<part>> <<usage>>
 class "<size:10>//«part»//</size>\n**spare**" as n2 <<part>> <<usage>>
 class "<size:10>//«timeslice»//</size>\n**filling**" as n3 <<timeslice>> <<usage>>
 class "<size:10>//«snapshot»//</size>\n**full**" as n4 <<snapshot>> <<usage>>
-class "<size:10>//«occurrence»//</size>\n**startup**" as n5 <<occurrence>> <<usage>>
+class "<size:10>//«event occurrence»//</size>\n**startup**" as n5 <<event occurrence>> <<usage>>
 class "<size:10>//«requirement def»//</size>\n**LevelReq**" as n6 <<requirement def>>
 class "<size:10>//«require constraint»//</size>\n**keepLevel**" as n7 <<require constraint>> <<usage>>
 class "<size:10>//«assume constraint»//</size>\n**lowLevel**" as n8 <<assume constraint>> <<usage>>

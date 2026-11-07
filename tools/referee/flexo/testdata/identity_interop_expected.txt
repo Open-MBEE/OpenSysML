@@ -13,36 +13,41 @@
 
 [graph]
 fixture	identity_model.sysml
-subjects	19
-triples	268
-bytes	17826
-triples.json	6
-triples.rdf	19
-triples.sysml	183
-triples.sysx	60
+subjects	223
+triples	1214
+bytes	78006
+triples.json	14
+triples.rdf	223
+triples.sysml	888
+triples.sysx	89
 
 [api-json]
 elements	21
-bytes	19402
+bytes	208332
 
 [graph-load]
 accepted	yes
 commits	1
-elements.written	19
-elements.listed	19
+elements.written	223
+elements.listed	223
 elements.unexpected	0
 listing.responses	1
 listing.paging-ignored	yes
-elements.readable-directly	19
-roots.reported	1
-roots.in-model	1
+elements.readable-directly	223
+roots.reported	205
+roots.in-model	205
 
 [graph-load.properties]
-sysml:declaredName	written=7	delivered=7	multi-valued=0/0
-sysml:elementId	written=19	delivered=19	multi-valued=0/0
+sysml:declaredName	written=80	delivered=80	multi-valued=0/0
+sysml:elementId	written=223	delivered=223	multi-valued=0/0
 sysml:featureWithValue	written=2	delivered=2	multi-valued=0/0
 sysml:general	written=2	delivered=2	multi-valued=0/0
-sysml:memberElement	written=8	delivered=8	multi-valued=0/0
+sysml:isComposite	written=5	delivered=5	multi-valued=0/0
+sysml:isLibraryElement	written=204	delivered=204	multi-valued=0/0
+sysml:isVariable	written=3	delivered=3	multi-valued=0/0
+sysml:mayTimeVary	written=3	delivered=3	multi-valued=0/0
+sysml:memberElement	written=110	delivered=110	multi-valued=0/0
+sysml:memberName	written=6	delivered=6	multi-valued=0/0
 sysml:membershipOwningNamespace	written=8	delivered=8	multi-valued=0/0
 sysml:ownedFeature	written=3	delivered=3	multi-valued=0/0
 sysml:ownedFeatureMembership	written=3	delivered=3	multi-valued=0/0
@@ -63,20 +68,21 @@ sysml:owningNamespace	written=6	delivered=6	multi-valued=0/0
 sysml:owningRelatedElement	written=10	delivered=10	multi-valued=0/0
 sysml:owningRelationship	written=8	delivered=8	multi-valued=0/0
 sysml:owningType	written=3	delivered=3	multi-valued=0/0
-sysml:qualifiedName	written=7	delivered=7	multi-valued=0/0
-sysml:relatedElement	written=2	delivered=2	multi-valued=2/2
-sysml:source	written=2	delivered=2	multi-valued=0/0
+sysml:qualifiedName	written=80	delivered=80	multi-valued=0/0
+sysml:relatedElement	written=10	delivered=10	multi-valued=10/10
+sysml:source	written=10	delivered=10	multi-valued=0/0
 sysml:specializes	written=1	delivered=1	multi-valued=0/0
 sysml:specific	written=2	delivered=2	multi-valued=0/0
 sysml:subclassifier	written=1	delivered=1	multi-valued=0/0
 sysml:superclassifier	written=1	delivered=1	multi-valued=0/0
-sysml:target	written=2	delivered=2	multi-valued=0/0
+sysml:target	written=10	delivered=10	multi-valued=0/0
 sysml:type	written=2	delivered=2	multi-valued=0/0
 sysml:typedFeature	written=1	delivered=1	multi-valued=0/0
 sysml:value	written=6	delivered=6	multi-valued=0/0
 sysx:branch	written=1	delivered=0	multi-valued=0/0
 sysx:declaredId	written=2	delivered=0	multi-valued=0/0
 sysx:hasBody	written=7	delivered=0	multi-valued=0/0
+sysx:libraryPath	written=29	delivered=0	multi-valued=0/0
 sysx:memberIndex	written=7	delivered=0	multi-valued=0/0
 sysx:projectId	written=1	delivered=0	multi-valued=0/0
 sysx:sourceColumn	written=7	delivered=0	multi-valued=0/0
@@ -88,25 +94,229 @@ sysx:sourceTail	written=4	delivered=0	multi-valued=0/0
 sysx:sourceText	written=9	delivered=0	multi-valued=0/0
 
 [graph-load.elements]
+02b23acf-5ccb-5fd7-b5b9-bc821b97b95f	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+03a59ed6-72bb-54ba-9ed1-ac7a3f05f02d	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+045cc2ec-52a6-5504-9e14-86f9358e0ead	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+0475ccb3-1978-53fd-8e2c-b77ae2091a5a	type=OwningMembership	listed=yes	direct=ok	properties=3/3
+0536eca0-9fdc-5208-87c8-2dcc8356081a	type=Feature	listed=yes	direct=ok	properties=4/4
+05a7b5d6-dd67-5817-8cf2-ccdbeb306b44	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+05c55e85-6c63-5e53-9964-9e614bc8232e	type=Step	listed=yes	direct=ok	properties=4/4
+05fff4e4-cdd3-5942-b213-8df135a6c562	type=Feature	listed=yes	direct=ok	properties=4/4
+0856ed9f-5115-58b3-a51f-ba54aca3dce5	type=ActionUsage	listed=yes	direct=ok	properties=4/4
+0a3283f6-824d-563c-89d3-a24f6356f62d	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
 0b6e3c1a-4d2f-4e8b-9a7c-5d1f0e9b2a7c	type=PartDefinition	listed=yes	direct=ok	properties=12/21	lost=sysx:declaredId,sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceTail,sysx:sourceText
-0b6e3c1a-4d2f-4e8b-9a7c-5d1f0e9b2a7c_om	type=OwningMembership	listed=yes	direct=ok	properties=7/7
+0b6e3c1a-4d2f-4e8b-9a7c-5d1f0e9b2a7c_om	type=OwningMembership	listed=yes	direct=ok	properties=11/11
+0bcd7e41-9ee6-5959-b4fe-bf4be0032224	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+0e14670d-e4ff-5004-8c40-fadcdaf2d4a0	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+0ecb793f-a890-5fbd-b460-c28c791df30c	type=Feature	listed=yes	direct=ok	properties=4/4
+0fc0fae0-4b34-5499-ab11-daa8573e22d4	type=Feature	listed=yes	direct=ok	properties=4/4
+1055a84d-fed9-571c-8367-7f8a9b3a3ac1	type=Feature	listed=yes	direct=ok	properties=4/4
+10a84f41-2d69-5c1d-b51e-0fec06d86ea3	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+115ed418-9939-5597-8350-60412dc2b5cc	type=AttributeUsage	listed=yes	direct=ok	properties=4/4
+1238bdd0-108c-5180-a446-174b56cb3cf2	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+130d4bcf-76cb-500a-b547-7af4b6b9b8de	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+13e3a72d-c556-5e8f-84c6-cba9d38b61af	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+13fd6beb-9d23-5663-9b41-dfecd7111309	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+142a4e95-2aa7-5859-9847-6f7f3a00d48e	type=OwningMembership	listed=yes	direct=ok	properties=3/3
+14e79bbd-33ea-57a7-9866-6f417fc4f780	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+1607b9db-52c8-5f16-aaf4-c20ed1cfdf44	type=Feature	listed=yes	direct=ok	properties=4/4
+1629aab6-ffdd-5cc0-a6fa-93b1f9cd305c	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+1857138d-05fc-5cd2-bcb1-10546541a5ae	type=ItemUsage	listed=yes	direct=ok	properties=4/4
+1c8f6c51-daa8-5e32-999e-831c4b7be22f	type=Feature	listed=yes	direct=ok	properties=4/4
+1e031fc5-c76a-5aac-9442-bd3d23e962a2	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+1e506913-dbf3-55da-a841-56afa1d5e151	type=BindingConnector	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
+1e5d1a3b-0bcf-5091-b752-ea77bfb96708	type=Feature	listed=yes	direct=ok	properties=4/4
+1f8187ff-3a12-5d84-913a-aa57d0371c61	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+2012913c-a576-5118-9dcb-5b26a927b16a	type=Feature	listed=yes	direct=ok	properties=4/4
+226166ba-3e7e-5b71-b0fc-94cb09d0b63c	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+2329da4f-c5f4-5261-8ac6-2039c4ba6256	type=Documentation	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
+23eed4d1-9254-59a8-ae68-912966ed1d14	type=Feature	listed=yes	direct=ok	properties=4/4
+26ad38de-5b79-57cb-b94c-a4f691290f92	type=Documentation	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
+2766b4b7-d1a7-531e-b7ec-a4efd231e03b	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+27cd823b-91df-5d0b-967d-25f6c022c384	type=Feature	listed=yes	direct=ok	properties=4/4
+29589f01-c2d8-5525-a9bf-8fd157b61b4f	type=Feature	listed=yes	direct=ok	properties=4/4
+2b7f518b-bb5a-57d2-99c6-1d1c7f4f0eee	type=Connector	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
+2b9660c5-2b98-5ecd-bf09-32a62ff6be1e	type=Feature	listed=yes	direct=ok	properties=4/4
+2c713539-72a9-515e-9607-0fb9159bcdf4	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+2ce6ae13-819f-5639-b06e-6872e8624da8	type=Feature	listed=yes	direct=ok	properties=4/4
+2f08c49a-a218-54d7-a39d-7b524c1ffdbe	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+2f4aa2be-ff91-5c09-9a82-d4be68d82ef1	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+2f9985d7-c642-57c9-87ce-20bdf02c65e0	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+336bbaa9-89f8-5ff0-bdac-60ca79acc5f6	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+3522ec00-cc25-5f6b-beae-b1e03226d01b	type=OwningMembership	listed=yes	direct=ok	properties=3/3
+36cc01d9-7cf0-54f7-ab42-838ee52d9d1b	type=Feature	listed=yes	direct=ok	properties=4/4
+3816b00d-8d1f-5238-a3dd-c14fe33d73d7	type=OwningMembership	listed=yes	direct=ok	properties=3/3
+391f5ca9-54aa-5379-b95e-98a17a793082	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+39e7ab46-4b77-56c5-be49-cec0a1b784fe	type=Feature	listed=yes	direct=ok	properties=4/4
+3badbf8b-cb09-5d34-9186-bddb1ad1c9e9	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+3c49932a-6fc4-53a1-9cd7-1c570a44e17a	type=Connector	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
+3df40f7d-79db-5982-b2f6-cd7f7cb0a5cb	type=Documentation	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
+3e02804b-1c6a-5503-a2c5-c78e14988b54	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+41ceb922-d332-5ee7-beca-1996e841e772	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+42cca478-6f8d-5c19-b990-bc4510c8bea7	type=Feature	listed=yes	direct=ok	properties=4/4
+439a1279-5d42-55ce-9d07-a9ea4df0b449	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+43dca746-6207-5435-aae7-00ff19be8608	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+43f4a2ef-f178-57b6-b967-458a580f1b87	type=Feature	listed=yes	direct=ok	properties=4/4
+45dcb4c0-e0de-53b8-822a-0a14fcd162f3	type=Feature	listed=yes	direct=ok	properties=4/4
+48094259-f2f3-5fdf-b5be-6b286a59faa8	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+48d1e048-f68e-5030-9285-ceeada2de558	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+494b6a23-1a41-5d08-bf93-1ce0838c8351	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+49e8396b-1fc1-525a-959c-d375a3ae1993	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+4c2965a7-d536-5f6f-9aa1-f8a680c21923	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+4c3c2b2a-89b0-5e31-bb33-e60cff3c69ad	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+4c5ab59a-f19f-561e-b7be-b5c43c8f8e48	type=ItemUsage	listed=yes	direct=ok	properties=4/4
+4e03b9fa-285a-54dd-8378-40c5e90d0e00	type=StateUsage	listed=yes	direct=ok	properties=4/4
+4f299064-38b9-5eb2-9dce-0927baf46c7c	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+4febfcd1-a222-5ba0-b5df-4f6a12a815bc	type=Invariant	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
+50cf4619-d9a5-51ba-9319-b660a55ec4b1	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+51619b26-d3e3-5d86-a3e9-a290b3e3ab70	type=OwningMembership	listed=yes	direct=ok	properties=3/3
+517290c7-e013-5d08-8373-e9b3da5bcdc3	type=Documentation	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
+52e0e11b-6245-55e6-9156-00d331f6d5ea	type=Feature	listed=yes	direct=ok	properties=4/4
+53344e4e-a4c9-5188-8370-7ec470ba0b0b	type=OwningMembership	listed=yes	direct=ok	properties=3/3
+5776dd9f-de7b-5498-8da5-006a6c79a52a	type=Feature	listed=yes	direct=ok	properties=4/4
+5902e6b8-2cb9-54c4-b765-10c073785d1b	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+5a7f6ed4-62ad-5556-8824-4c59333e8d87	type=Feature	listed=yes	direct=ok	properties=4/4
+605ec34a-8639-56c9-bc31-79954f790359	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+608e08c5-6827-5d66-9182-f678a1fd1bf0	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+61729b14-af9c-546f-b630-5be7b29a4608	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+618024bc-861e-581c-b049-697db6290025	type=Feature	listed=yes	direct=ok	properties=4/4
+621672cf-3bae-5f82-ad5e-bea964929ad2	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+64a32628-ac32-5a0a-ba1c-3bf1313ae41f	type=Feature	listed=yes	direct=ok	properties=4/4
+64ec8f31-0d96-5fc5-b8a6-66dd51426f18	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+66ca9944-3846-5428-b090-20b14ac9d22d	type=Connector	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
+66cbb3e4-2e2e-593b-b96a-84cdebada7fd	type=Connector	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
+6788277f-7cdd-500a-8b02-39844f659f4f	type=Feature	listed=yes	direct=ok	properties=4/4
+6798d50e-12e7-5a73-924f-3520ac875c92	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+680fabfe-ff11-59ee-8a86-9a8588619b3d	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+688621fb-aa68-590b-be82-870a8823f90f	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+6b45d41c-1a99-5d1a-aabb-66e8328f0296	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+6f8479c0-9be1-5944-a0d9-d0a62d374446	type=Connector	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
+703af01e-7298-57ff-94fa-af6f41e1219a	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+717615b2-c88a-5555-ba4b-0cd674442b59	type=Documentation	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
+71b55b92-4947-5a3f-9f3e-8f5b0d498581	type=OwningMembership	listed=yes	direct=ok	properties=3/3
+72b2d69d-5f43-5cd4-8d69-bf404bb11f0c	type=Documentation	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
+73fde21b-008c-55ab-91a7-a20beafa76a1	type=ReferenceUsage	listed=yes	direct=ok	properties=4/4
+741ea0aa-b16b-5b44-ac46-564c85d4f05d	type=Feature	listed=yes	direct=ok	properties=4/4
+7dbaffa7-ca3d-53d5-8e10-729b8893a107	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+80a5b391-d7f4-5d7a-b061-b06c397d4a0c	type=Feature	listed=yes	direct=ok	properties=4/4
+817763b4-4fcd-5d8e-8934-9591df7f05cb	type=Feature	listed=yes	direct=ok	properties=4/4
+854b38c9-82f9-5909-9cd5-ecf8ac71874b	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+85b2c821-569d-5cd3-8a5f-7030c603ad58	type=Connector	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
+85d6b5cc-2b90-5884-bbbe-2ded2f41881c	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+869fa262-b0df-570b-b2ed-3ad85f5460aa	type=Documentation	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
+86fa4360-267a-57c2-a99d-d3f982c10e2c	type=Step	listed=yes	direct=ok	properties=4/4
+875a7dea-6931-5c8e-88b5-e7000b21e1f9	type=Invariant	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
+87ea7f8d-057c-50d0-a805-b980d5cd6d24	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+87ed453a-3c8d-50cc-93d9-f9d9ad7817a6	type=Feature	listed=yes	direct=ok	properties=4/4
+8917eb36-28b8-5dfe-8880-663f5bc02c10	type=StateUsage	listed=yes	direct=ok	properties=4/4
+89aed288-e14b-5b63-bcfe-a5fb2098c176	type=Documentation	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
+8e57748c-699b-525f-a9af-13eba4d0bc6e	type=Feature	listed=yes	direct=ok	properties=4/4
+8eba17d5-4bc1-5a31-8fbc-b5089d73daca	type=Invariant	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
+8ec44c98-4a54-5566-9922-8322c2998033	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+8f325094-2f07-5075-84a2-e20f64999145	type=Feature	listed=yes	direct=ok	properties=4/4
 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90	type=PartDefinition	listed=yes	direct=ok	properties=15/24	lost=sysx:declaredId,sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceTail,sysx:sourceText
-8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_om	type=OwningMembership	listed=yes	direct=ok	properties=7/7
+8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_om	type=OwningMembership	listed=yes	direct=ok	properties=11/11
 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_sc0	type=Subclassification	listed=yes	direct=ok	properties=11/11
+90871809-f440-5d28-a176-6fcb5e317c1f	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+92215f18-07a8-53a0-8e63-7683815c8881	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+928ee8c9-960f-545b-a48e-8c113dc202a5	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+92d5c890-ca0e-5460-b982-ad69c8a0ca1e	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+94108604-2578-5b21-908e-f48652c6cf2e	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+945e988e-b268-598c-bd2b-0c93bf8acbbb	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+951532be-ca58-5725-816f-80d3ff0918f8	type=Feature	listed=yes	direct=ok	properties=4/4
+960f5899-58bf-5e3c-aedc-9cdeadb2b44d	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+968b3a18-112f-5b6a-b09b-c0732c50f69a	type=Feature	listed=yes	direct=ok	properties=4/4
+972ee74a-895b-5dfa-9f39-44859440868d	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+9e759443-5645-5dae-8335-f241d06e03f8	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+9eb5c39c-a43c-55c1-b3cd-ed1c7c7918f2	type=Invariant	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
+9f15f4ff-e883-5ee3-a73f-15730b50b155	type=Feature	listed=yes	direct=ok	properties=4/4
+9f4c2446-26b2-5c04-9878-99c471fb5f5b	type=Invariant	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
 IdentityInterop	type=Package	listed=yes	direct=ok	properties=6/17	lost=sysx:branch,sysx:hasBody,sysx:memberIndex,sysx:projectId,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLanguage,sysx:sourceLine,sysx:sourceTail,sysx:sourceText
-IdentityInterop__Battery__capacity	type=AttributeUsage	listed=yes	direct=ok	properties=10/17	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceText
-IdentityInterop__Battery__capacity_om	type=FeatureMembership	listed=yes	direct=ok	properties=9/9
-IdentityInterop__Battery__capacity_pvalue	type=LiteralRational	listed=yes	direct=ok	properties=5/6	lost=sysx:sourceText
-IdentityInterop__Battery__capacity_pvalue_om	type=FeatureValue	listed=yes	direct=ok	properties=9/9
-IdentityInterop__Component__mass	type=AttributeUsage	listed=yes	direct=ok	properties=10/17	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceText
-IdentityInterop__Component__mass_om	type=FeatureMembership	listed=yes	direct=ok	properties=9/9
-IdentityInterop__Component__mass_pvalue	type=LiteralRational	listed=yes	direct=ok	properties=5/6	lost=sysx:sourceText
-IdentityInterop__Component__mass_pvalue_om	type=FeatureValue	listed=yes	direct=ok	properties=9/9
+IdentityInterop__Battery__capacity	type=AttributeUsage	listed=yes	direct=ok	properties=13/20	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceText
+IdentityInterop__Battery__capacity_om	type=FeatureMembership	listed=yes	direct=ok	properties=13/13
+IdentityInterop__Battery__capacity_pvalue	type=LiteralRational	listed=yes	direct=ok	properties=6/7	lost=sysx:sourceText
+IdentityInterop__Battery__capacity_pvalue_om	type=FeatureValue	listed=yes	direct=ok	properties=12/12
+IdentityInterop__Component__mass	type=AttributeUsage	listed=yes	direct=ok	properties=13/20	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceText
+IdentityInterop__Component__mass_om	type=FeatureMembership	listed=yes	direct=ok	properties=13/13
+IdentityInterop__Component__mass_pvalue	type=LiteralRational	listed=yes	direct=ok	properties=6/7	lost=sysx:sourceText
+IdentityInterop__Component__mass_pvalue_om	type=FeatureValue	listed=yes	direct=ok	properties=12/12
 IdentityInterop__Rover	type=PartDefinition	listed=yes	direct=ok	properties=12/20	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceTail,sysx:sourceText
-IdentityInterop__Rover__battery	type=PartUsage	listed=yes	direct=ok	properties=11/18	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceText
+IdentityInterop__Rover__battery	type=PartUsage	listed=yes	direct=ok	properties=14/21	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceText
 IdentityInterop__Rover__battery_ft0	type=FeatureTyping	listed=yes	direct=ok	properties=11/11
-IdentityInterop__Rover__battery_om	type=FeatureMembership	listed=yes	direct=ok	properties=9/9
-IdentityInterop__Rover_om	type=OwningMembership	listed=yes	direct=ok	properties=7/7
+IdentityInterop__Rover__battery_om	type=FeatureMembership	listed=yes	direct=ok	properties=13/13
+IdentityInterop__Rover_om	type=OwningMembership	listed=yes	direct=ok	properties=11/11
+a173a06d-5e95-5ebb-b5a5-2a2834fba603	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+a44baa93-a4d0-535d-b879-44a30575f348	type=PartUsage	listed=yes	direct=ok	properties=4/4
+a4d21db8-87e3-542d-a5de-df08f3486f65	type=Feature	listed=yes	direct=ok	properties=4/4
+a658a61c-85db-58db-9d23-7f343425feac	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+a84fcd98-9f6c-51bc-ad76-8e8083866e90	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+a9803d38-7250-51c8-81a8-84a93d9352b7	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+aa377331-f86a-597f-b81d-065d8861ddd2	type=Documentation	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
+acbd427f-8ecf-59a6-9c9f-bf9854908e42	type=Feature	listed=yes	direct=ok	properties=4/4
+b015399f-4278-594e-908c-d343d9c6fd10	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+b0f5e041-28a8-54d7-8b10-f98b41e2dda0	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+b2082844-9120-5587-af9f-28a8871d2add	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+b21f7bfd-f340-51d5-af5e-b762799ea908	type=Connector	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
+b2617ada-a10f-5bd5-9dda-3f36c0002d73	type=Feature	listed=yes	direct=ok	properties=4/4
+b2d07ea7-2b17-5ba4-8fb4-8a9e8f206346	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+b4fe98b7-dae4-5828-9747-517a04275b2a	type=BindingConnector	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
+b626df09-dcc4-54b0-befb-f513bf50f9da	type=BindingConnector	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
+b715b28d-2bca-5201-9ad8-1f91b4cda81f	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+b8c04581-14c0-5fd6-8670-746d1853850e	type=Feature	listed=yes	direct=ok	properties=4/4
+b9db8f58-131b-56fb-9a18-01bd8f2870df	type=Feature	listed=yes	direct=ok	properties=4/4
+ba29c6dc-70bc-55d8-941f-f3834db7107b	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+bd909aa8-dcdb-59fb-a116-8670f6db05b1	type=OwningMembership	listed=yes	direct=ok	properties=3/3
+bfd5fb0e-e87b-51ea-a438-6a93d18b05a1	type=ActionUsage	listed=yes	direct=ok	properties=4/4
+bffacdad-6769-575f-be46-e30433a5af4d	type=Feature	listed=yes	direct=ok	properties=4/4
+c38c598e-c640-51ca-be77-4fbd9254c9d1	type=Feature	listed=yes	direct=ok	properties=4/4
+c38c7d9e-1c49-5dd8-9d2d-1a3c929f02a7	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+c4746a24-8316-5f5b-8b65-e33b7b284f93	type=OwningMembership	listed=yes	direct=ok	properties=3/3
+c5317d0f-35d3-567c-b7de-7f4fa8260ad3	type=Feature	listed=yes	direct=ok	properties=4/4
+c5f8e1b2-df65-50d7-a627-0dfbe44da41b	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+c74423e6-fd81-575a-be65-6af18a0925af	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+c88a7695-4294-5588-9bcc-c295513c4eb9	type=Feature	listed=yes	direct=ok	properties=4/4
+c91ad911-9e73-52fe-b252-f5baeb6064ee	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+ca89f2c0-7231-52c5-a1a1-fd09a48f013d	type=Documentation	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
+cc4c79d3-fa74-57bd-af0c-bb7db1a78f06	type=ItemUsage	listed=yes	direct=ok	properties=4/4
+cdbc7853-3c7e-5c48-9817-2dd245e50317	type=Feature	listed=yes	direct=ok	properties=4/4
+d0cefcb9-9a11-5ac1-a47b-3f70c117bd08	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+d0faa274-2307-5d51-9b72-b4d0c259787b	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+d10a161b-6679-54ef-af65-b2e6e3b614bf	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+d1560b5a-db03-5b99-9bbf-1bd3883ef262	type=Feature	listed=yes	direct=ok	properties=4/4
+d637bdd8-4d2e-5e7c-806a-93a6deb70ac4	type=Invariant	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
+d764bba7-46da-530b-b2c2-f50e2a430d1e	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+dbd75b49-0e57-5cf9-ba35-9f8843b1e657	type=Feature	listed=yes	direct=ok	properties=4/4
+dd677401-a352-5fe3-846a-dad08d3eab06	type=PartUsage	listed=yes	direct=ok	properties=4/4
+ddb82e63-685a-5912-b9a0-a7ae93882ef3	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+df7a21c9-f648-538e-b5f6-a0058c9930e5	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+e053f99d-d77c-5289-a703-8778bd907c30	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+e09e3d19-e0bc-52d7-84d0-de35206ec8a1	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+e1111bc4-f9e3-5074-a1e0-2a5c019c4f87	type=OwningMembership	listed=yes	direct=ok	properties=3/3
+e24b4cdf-0f1e-5b60-a62a-b09e0d1e6956	type=Feature	listed=yes	direct=ok	properties=4/4
+e5c2b65e-f4b8-5236-a276-af2ffae92354	type=Invariant	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
+e95dbcde-8fb8-52dc-9199-ee01e4ce3699	type=Feature	listed=yes	direct=ok	properties=4/4
+e9ae3b91-2c54-544b-bbd3-8b7512a92238	type=ConstraintUsage	listed=yes	direct=ok	properties=4/4
+ea462915-971b-556c-82e5-465debcb637d	type=Documentation	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
+eaea3e8f-feb9-54e6-abb2-02be6d86d7c3	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+eb16a9d2-e442-5d31-8b48-add32d3136c8	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+eb64dd16-9465-56e7-8a36-8987c6e36bf5	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+eba60b10-4da7-5503-907b-4bbd67bf477a	type=Feature	listed=yes	direct=ok	properties=4/4
+ed80d442-d498-5236-96ae-71a8a52531d2	type=PartUsage	listed=yes	direct=ok	properties=4/4
+ee33d7cc-1719-5123-a34a-c40f275f9f1b	type=Invariant	listed=yes	direct=ok	properties=2/3	lost=sysx:libraryPath
+eece6ace-38b0-57dd-9eea-8add3ed6c003	type=Feature	listed=yes	direct=ok	properties=4/4
+f17824ba-20fb-5167-bc84-7fb3b452f0ec	type=OwningMembership	listed=yes	direct=ok	properties=3/3
+f1b56022-c5a8-58c4-a3e6-012f693bb32e	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+f22b1a27-60ea-5c53-9741-b40f5e5b2798	type=ItemUsage	listed=yes	direct=ok	properties=4/4
+f369e0d6-4bba-5d84-8d3c-abda5e337f89	type=PortUsage	listed=yes	direct=ok	properties=4/4
+f44ce934-e087-5c0c-a24a-8280cf69df84	type=Feature	listed=yes	direct=ok	properties=4/4
+f6f04e9e-c8f9-5a8e-8e4b-a4504ca2bf85	type=ItemUsage	listed=yes	direct=ok	properties=4/4
+f7162942-e1e4-543d-abef-68b63eea0e30	type=Feature	listed=yes	direct=ok	properties=4/4
+f786fe44-8015-5e00-b8c8-f42a92f43129	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+f97f56b8-390f-58f4-8d8e-fc7ed205efe1	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+f9a6518b-4c8b-5f4e-8a18-d08811663f8b	type=FeatureMembership	listed=yes	direct=ok	properties=3/3
+f9e920cc-2ec4-56b3-9920-8e5dbbc50a5a	type=Feature	listed=yes	direct=ok	properties=4/4
+fa859d04-71c3-510a-bdb7-d35d7bc10bee	type=Feature	listed=yes	direct=ok	properties=4/4
+faf13619-5fb6-5a19-871e-e14767f89a28	type=Feature	listed=yes	direct=ok	properties=4/4
 
 [json-commit]
 accepted	yes
@@ -158,39 +368,88 @@ roots.reported	1
 roots.in-model	1
 
 [api-json-commit.properties]
-declaredName	written=7	delivered=7	multi-valued=0/0
+aliasIds	written=21	delivered=21	multi-valued=0/0
+declaredName	written=21	delivered=21	multi-valued=0/0
+declaredShortName	written=21	delivered=21	multi-valued=0/0
+definition	written=1	delivered=1	multi-valued=0/0
+direction	written=5	delivered=5	multi-valued=0/0
 elementId	written=21	delivered=21	multi-valued=0/0
+feature	written=6	delivered=6	multi-valued=6/6
+featureMembership	written=6	delivered=6	multi-valued=6/6
+featureTarget	written=5	delivered=5	multi-valued=0/0
 featureWithValue	written=2	delivered=2	multi-valued=0/0
+featuringType	written=3	delivered=3	multi-valued=0/0
 general	written=2	delivered=2	multi-valued=0/0
+inheritedFeature	written=6	delivered=6	multi-valued=6/6
+inheritedMembership	written=6	delivered=6	multi-valued=6/6
+isAbstract	written=8	delivered=8	multi-valued=0/0
+isComposite	written=5	delivered=5	multi-valued=0/0
+isConjugated	written=8	delivered=8	multi-valued=0/0
+isConstant	written=5	delivered=5	multi-valued=0/0
+isDefault	written=2	delivered=2	multi-valued=0/0
+isDerived	written=5	delivered=5	multi-valued=0/0
+isEnd	written=5	delivered=5	multi-valued=0/0
+isImplied	written=11	delivered=11	multi-valued=0/0
+isImpliedIncluded	written=21	delivered=21	multi-valued=0/0
+isIndividual	written=4	delivered=4	multi-valued=0/0
+isInitial	written=2	delivered=2	multi-valued=0/0
+isLibraryElement	written=21	delivered=21	multi-valued=0/0
+isOrdered	written=5	delivered=5	multi-valued=0/0
+isPortion	written=5	delivered=5	multi-valued=0/0
+isSufficient	written=8	delivered=8	multi-valued=0/0
+isUnique	written=5	delivered=5	multi-valued=0/0
+isVariable	written=5	delivered=5	multi-valued=0/0
+isVariation	written=6	delivered=6	multi-valued=0/0
+itemDefinition	written=1	delivered=1	multi-valued=0/0
+mayTimeVary	written=3	delivered=3	multi-valued=0/0
+member	written=8	delivered=8	multi-valued=7/7
 memberElement	written=9	delivered=9	multi-valued=0/0
+memberElementId	written=9	delivered=9	multi-valued=0/0
+memberName	written=7	delivered=7	multi-valued=0/0
+membership	written=8	delivered=8	multi-valued=7/7
 membershipOwningNamespace	written=9	delivered=9	multi-valued=0/0
+name	written=7	delivered=7	multi-valued=0/0
+occurrenceDefinition	written=1	delivered=1	multi-valued=0/0
+ownedAttribute	written=2	delivered=2	multi-valued=0/0
+ownedElement	written=7	delivered=7	multi-valued=1/1
 ownedFeature	written=3	delivered=3	multi-valued=0/0
 ownedFeatureMembership	written=3	delivered=3	multi-valued=0/0
-ownedMember	written=5	delivered=5	multi-valued=1/1
+ownedItem	written=1	delivered=1	multi-valued=0/0
+ownedMember	written=7	delivered=7	multi-valued=1/1
 ownedMemberElement	written=9	delivered=9	multi-valued=0/0
+ownedMemberElementId	written=9	delivered=9	multi-valued=0/0
 ownedMemberFeature	written=3	delivered=3	multi-valued=0/0
+ownedMemberName	written=7	delivered=7	multi-valued=0/0
 ownedMembership	written=7	delivered=7	multi-valued=1/1
-ownedRelatedElement	written=9	delivered=9	multi-valued=0/0
-ownedRelationship	written=8	delivered=8	multi-valued=2/2
+ownedOccurrence	written=1	delivered=1	multi-valued=0/0
+ownedPart	written=1	delivered=1	multi-valued=0/0
+ownedRelatedElement	written=11	delivered=11	multi-valued=0/0
+ownedRelationship	written=21	delivered=21	multi-valued=2/2
 ownedSpecialization	written=2	delivered=2	multi-valued=0/0
 ownedSubclassification	written=1	delivered=1	multi-valued=0/0
 ownedTyping	written=1	delivered=1	multi-valued=0/0
+ownedUsage	written=3	delivered=3	multi-valued=0/0
 owner	written=20	delivered=20	multi-valued=0/0
 owningClassifier	written=1	delivered=1	multi-valued=0/0
+owningDefinition	written=3	delivered=3	multi-valued=0/0
 owningFeature	written=1	delivered=1	multi-valued=0/0
+owningFeatureMembership	written=3	delivered=3	multi-valued=0/0
 owningMembership	written=9	delivered=9	multi-valued=0/0
-owningNamespace	written=7	delivered=7	multi-valued=0/0
+owningNamespace	written=9	delivered=9	multi-valued=0/0
 owningRelatedElement	written=11	delivered=11	multi-valued=0/0
-owningRelationship	written=9	delivered=9	multi-valued=0/0
-owningType	written=3	delivered=3	multi-valued=0/0
+owningRelationship	written=21	delivered=21	multi-valued=0/0
+owningType	written=8	delivered=8	multi-valued=0/0
+partDefinition	written=1	delivered=1	multi-valued=0/0
+portionKind	written=1	delivered=1	multi-valued=0/0
 qualifiedName	written=7	delivered=7	multi-valued=0/0
-relatedElement	written=2	delivered=2	multi-valued=2/2
-source	written=2	delivered=2	multi-valued=0/0
+relatedElement	written=11	delivered=11	multi-valued=11/11
+source	written=11	delivered=11	multi-valued=0/0
 specializes	written=1	delivered=1	multi-valued=0/0
 specific	written=2	delivered=2	multi-valued=0/0
 subclassifier	written=1	delivered=1	multi-valued=0/0
 superclassifier	written=1	delivered=1	multi-valued=0/0
 sysx:branch	written=1	delivered=0	multi-valued=0/0
+sysx:completedProperties	written=21	delivered=21	multi-valued=21/21
 sysx:declaredId	written=2	delivered=0	multi-valued=0/0
 sysx:hasBody	written=7	delivered=0	multi-valued=0/0
 sysx:memberIndex	written=7	delivered=0	multi-valued=0/0
@@ -202,46 +461,49 @@ sysx:sourceLanguage	written=1	delivered=0	multi-valued=0/0
 sysx:sourceLine	written=7	delivered=0	multi-valued=0/0
 sysx:sourceTail	written=4	delivered=0	multi-valued=0/0
 sysx:sourceText	written=9	delivered=0	multi-valued=0/0
-target	written=2	delivered=2	multi-valued=0/0
+sysx:statedDefaults	written=1	delivered=0	multi-valued=0/0
+target	written=11	delivered=11	multi-valued=0/0
 type	written=2	delivered=2	multi-valued=0/0
 typedFeature	written=1	delivered=1	multi-valued=0/0
+usage	written=4	delivered=4	multi-valued=4/4
 value	written=6	delivered=6	multi-valued=0/0
+visibility	written=9	delivered=9	multi-valued=0/0
 
 [api-json-commit.elements]
-0b6e3c1a-4d2f-4e8b-9a7c-5d1f0e9b2a7c	type=PartDefinition	listed=yes	direct=ok	properties=12/21	lost=sysx:declaredId,sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceTail,sysx:sourceText
-0b6e3c1a-4d2f-4e8b-9a7c-5d1f0e9b2a7c_om	type=OwningMembership	listed=yes	direct=ok	properties=7/7
-8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90	type=PartDefinition	listed=yes	direct=ok	properties=15/24	lost=sysx:declaredId,sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceTail,sysx:sourceText
-8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_om	type=OwningMembership	listed=yes	direct=ok	properties=7/7
-8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_sc0	type=Subclassification	listed=yes	direct=ok	properties=11/11
-IdentityInterop	type=Package	listed=yes	direct=ok	properties=10/21	lost=sysx:branch,sysx:hasBody,sysx:memberIndex,sysx:projectId,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLanguage,sysx:sourceLine,sysx:sourceTail,sysx:sourceText
-IdentityInterop__Battery__capacity	type=AttributeUsage	listed=yes	direct=ok	properties=10/17	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceText
-IdentityInterop__Battery__capacity_om	type=FeatureMembership	listed=yes	direct=ok	properties=9/9
-IdentityInterop__Battery__capacity_pvalue	type=LiteralRational	listed=yes	direct=ok	properties=5/6	lost=sysx:sourceText
-IdentityInterop__Battery__capacity_pvalue_om	type=FeatureValue	listed=yes	direct=ok	properties=9/9
-IdentityInterop__Component__mass	type=AttributeUsage	listed=yes	direct=ok	properties=10/17	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceText
-IdentityInterop__Component__mass_om	type=FeatureMembership	listed=yes	direct=ok	properties=9/9
-IdentityInterop__Component__mass_pvalue	type=LiteralRational	listed=yes	direct=ok	properties=5/6	lost=sysx:sourceText
-IdentityInterop__Component__mass_pvalue_om	type=FeatureValue	listed=yes	direct=ok	properties=9/9
-IdentityInterop__Rover	type=PartDefinition	listed=yes	direct=ok	properties=12/20	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceTail,sysx:sourceText
-IdentityInterop__Rover__battery	type=PartUsage	listed=yes	direct=ok	properties=11/18	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceText
-IdentityInterop__Rover__battery_ft0	type=FeatureTyping	listed=yes	direct=ok	properties=11/11
-IdentityInterop__Rover__battery_om	type=FeatureMembership	listed=yes	direct=ok	properties=9/9
-IdentityInterop__Rover_om	type=OwningMembership	listed=yes	direct=ok	properties=7/7
-IdentityInterop_ns	type=Namespace	listed=yes	direct=ok	properties=4/4
-IdentityInterop_om	type=OwningMembership	listed=yes	direct=ok	properties=7/7
+0b6e3c1a-4d2f-4e8b-9a7c-5d1f0e9b2a7c	type=PartDefinition	listed=yes	direct=ok	properties=33/42	lost=sysx:declaredId,sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceTail,sysx:sourceText
+0b6e3c1a-4d2f-4e8b-9a7c-5d1f0e9b2a7c_om	type=OwningMembership	listed=yes	direct=ok	properties=24/24
+8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90	type=PartDefinition	listed=yes	direct=ok	properties=36/45	lost=sysx:declaredId,sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceTail,sysx:sourceText
+8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_om	type=OwningMembership	listed=yes	direct=ok	properties=24/24
+8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_sc0	type=Subclassification	listed=yes	direct=ok	properties=22/22
+IdentityInterop	type=Package	listed=yes	direct=ok	properties=19/30	lost=sysx:branch,sysx:hasBody,sysx:memberIndex,sysx:projectId,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLanguage,sysx:sourceLine,sysx:sourceTail,sysx:sourceText
+IdentityInterop__Battery__capacity	type=AttributeUsage	listed=yes	direct=ok	properties=43/50	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceText
+IdentityInterop__Battery__capacity_om	type=FeatureMembership	listed=yes	direct=ok	properties=26/26
+IdentityInterop__Battery__capacity_pvalue	type=LiteralRational	listed=yes	direct=ok	properties=26/27	lost=sysx:sourceText
+IdentityInterop__Battery__capacity_pvalue_om	type=FeatureValue	listed=yes	direct=ok	properties=26/26
+IdentityInterop__Component__mass	type=AttributeUsage	listed=yes	direct=ok	properties=43/50	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceText
+IdentityInterop__Component__mass_om	type=FeatureMembership	listed=yes	direct=ok	properties=26/26
+IdentityInterop__Component__mass_pvalue	type=LiteralRational	listed=yes	direct=ok	properties=26/27	lost=sysx:sourceText
+IdentityInterop__Component__mass_pvalue_om	type=FeatureValue	listed=yes	direct=ok	properties=26/26
+IdentityInterop__Rover	type=PartDefinition	listed=yes	direct=ok	properties=35/43	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceTail,sysx:sourceText
+IdentityInterop__Rover__battery	type=PartUsage	listed=yes	direct=ok	properties=49/56	lost=sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLine,sysx:sourceText
+IdentityInterop__Rover__battery_ft0	type=FeatureTyping	listed=yes	direct=ok	properties=22/22
+IdentityInterop__Rover__battery_om	type=FeatureMembership	listed=yes	direct=ok	properties=26/26
+IdentityInterop__Rover_om	type=OwningMembership	listed=yes	direct=ok	properties=24/24
+IdentityInterop_ns	type=Namespace	listed=yes	direct=ok	properties=14/15	lost=sysx:statedDefaults
+IdentityInterop_om	type=OwningMembership	listed=yes	direct=ok	properties=24/24
 
 [findings]
-graph-load: 19 of 19 elements listed, 174 of 234 properties delivered
+graph-load: 223 of 223 elements listed, 871 of 960 properties delivered
 json-commit: 10 of 10 elements listed, 49 of 49 properties delivered
-api-json-commit: 21 of 21 elements listed, 189 of 249 properties delivered
-graph-load: 12 properties are in the sysx: extension namespace and are dropped unread — extractModelElementToJson ignores every predicate outside the sysml: vocabulary and the JSON annotation namespace (sysx:branch, sysx:declaredId, sysx:hasBody, sysx:memberIndex, sysx:projectId, sysx:sourceColumn, sysx:sourceEndColumn, sysx:sourceEndLine, sysx:sourceLanguage, sysx:sourceLine, sysx:sourceTail, sysx:sourceText)
-graph-load: 6 of 6 multi-valued properties are delivered (sysml:ownedMember on 1/1, sysml:ownedMembership on 1/1, sysml:ownedRelationship on 2/2, sysml:relatedElement on 2/2); a standard predicate with several values is skipped entirely unless a JSON annotation supplies the array
-graph-load: the roots endpoint reports 1 of 19 elements as roots (1 have no owner in the model); it filters on sysml:owner and sysml:owningRelatedElement
+api-json-commit: 21 of 21 elements listed, 594 of 655 properties delivered
+graph-load: 13 properties are in the sysx: extension namespace and are dropped unread — extractModelElementToJson ignores every predicate outside the sysml: vocabulary and the JSON annotation namespace (sysx:branch, sysx:declaredId, sysx:hasBody, sysx:libraryPath, sysx:memberIndex, sysx:projectId, sysx:sourceColumn, sysx:sourceEndColumn, sysx:sourceEndLine, sysx:sourceLanguage, sysx:sourceLine, sysx:sourceTail, sysx:sourceText)
+graph-load: 14 of 14 multi-valued properties are delivered (sysml:ownedMember on 1/1, sysml:ownedMembership on 1/1, sysml:ownedRelationship on 2/2, sysml:relatedElement on 10/10); a standard predicate with several values is skipped entirely unless a JSON annotation supplies the array
+graph-load: the roots endpoint reports 205 of 223 elements as roots (205 have no owner in the model); it filters on sysml:owner and sysml:owningRelatedElement
 json-commit: the roots endpoint reports 1 of 10 elements as roots, 1 in the payload
 api-json-commit: the roots endpoint reports 1 of 21 elements as roots, 1 in the payload
 both: the element listing answered every element it has in 1 response(s) at pageSize=10 — the service accepts pageAfter/pageBefore/pageSize and ignores them
 json-commit: 1 of 1 multi-valued properties are delivered (ownedElement on 1/1), because the commit path stores each array whole as a JSON annotation literal alongside the typed triples
-api-json-commit: 6 of 6 multi-valued properties are delivered (ownedMember on 1/1, ownedMembership on 1/1, ownedRelationship on 2/2, relatedElement on 2/2)
-api-json-commit vs graph-load: 0 properties delivered on api-json only (), 0 on graph-load only ()
-api-json-commit: 60 sysx: properties posted, 0 delivered (sysx:branch, sysx:declaredId, sysx:hasBody, sysx:memberIndex, sysx:projectId, sysx:sourceColumn, sysx:sourceEndColumn, sysx:sourceEndLine, sysx:sourceLanguage, sysx:sourceLine, sysx:sourceTail, sysx:sourceText)
-graph-load: 0 of 19 subjects of the graph are expression nodes or other subjects outside the element namespace
+api-json-commit: 79 of 79 multi-valued properties are delivered (feature on 6/6, featureMembership on 6/6, inheritedFeature on 6/6, inheritedMembership on 6/6, member on 7/7, membership on 7/7, ownedElement on 1/1, ownedMember on 1/1, ownedMembership on 1/1, ownedRelationship on 2/2, relatedElement on 11/11, sysx:completedProperties on 21/21, usage on 4/4)
+api-json-commit vs graph-load: 46 properties delivered on api-json only (aliasIds, completedProperties, declaredShortName, definition, direction, feature, featureMembership, featureTarget, featuringType, inheritedFeature, inheritedMembership, isAbstract, isConjugated, isConstant, isDefault, isDerived, isEnd, isImplied, isImpliedIncluded, isIndividual, isInitial, isOrdered, isPortion, isSufficient, isUnique, isVariation, itemDefinition, member, memberElementId, membership, name, occurrenceDefinition, ownedAttribute, ownedElement, ownedItem, ownedMemberElementId, ownedMemberName, ownedOccurrence, ownedPart, ownedUsage, owningDefinition, owningFeatureMembership, partDefinition, portionKind, usage, visibility), 0 on graph-load only ()
+api-json-commit: 82 sysx: properties posted, 21 delivered (sysx:branch, sysx:completedProperties, sysx:declaredId, sysx:hasBody, sysx:memberIndex, sysx:projectId, sysx:sourceColumn, sysx:sourceEndColumn, sysx:sourceEndLine, sysx:sourceLanguage, sysx:sourceLine, sysx:sourceTail, sysx:sourceText, sysx:statedDefaults)
+graph-load: 0 of 223 subjects of the graph are expression nodes or other subjects outside the element namespace

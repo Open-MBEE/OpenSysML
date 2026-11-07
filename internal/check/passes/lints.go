@@ -16,16 +16,12 @@ const lintSource = "lint"
 // where it is written and no signal the model sends.
 const CodeUndeclaredSignal = "undeclared-signal"
 
-// CodePortTypeMismatch marks a connection, interface or flow between ports
-// whose definitions are unrelated and whose directed features are not conjugate.
-const CodePortTypeMismatch = "port-type-mismatch"
-
 // CodeDeferredKeeperUnmarked marks an accept of a deferred signal at the root
 // of a deferring state's do action that is not marked as the keeping accept.
 const CodeDeferredKeeperUnmarked = "deferred-keeper-unmarked"
 
 // lintCodes are the codes of the lints, in the order surfaces list them.
-var lintCodes = []string{CodeUndeclaredSignal, CodePortTypeMismatch, CodeDeferredKeeperUnmarked, CodeRoundedRealLiteral}
+var lintCodes = []string{CodeUndeclaredSignal, CodeDeferredKeeperUnmarked, CodeRoundedRealLiteral}
 
 // optInLints are the lints left out of the diagnostics until a surface enables
 // them: their findings hold of ordinary models more often than they mark a slip.

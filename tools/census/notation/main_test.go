@@ -140,7 +140,7 @@ func TestCheckCatchesBaselineDrift(t *testing.T) {
 	// A gap recorded drawn: drop its row and move its count.
 	var gaps []Gap
 	for _, g := range b.NonDrawn {
-		if g.Name == "comment-node" {
+		if g.Name == "general-compartment" {
 			b.Totals.Undrawn--
 			b.Totals.Drawn++
 			for i := range b.Clauses {
@@ -160,7 +160,7 @@ func TestCheckCatchesBaselineDrift(t *testing.T) {
 	}
 	writeFile(t, dir, baselinePath, data)
 	code, _, stderr := run(t, "-repo", dir, "-check")
-	if code == 0 || !strings.Contains(stderr, "comment-node (8.2.3.4) is undrawn but the baseline records it drawn") {
+	if code == 0 || !strings.Contains(stderr, "general-compartment (8.2.3.2) is undrawn but the baseline records it drawn") {
 		t.Fatalf("check: %d %s", code, stderr)
 	}
 }
@@ -258,11 +258,11 @@ func TestCheckCatchesAPinChange(t *testing.T) {
 
 func TestCheckCatchesABrokenCitation(t *testing.T) {
 	dir := stageRoot(t)
-	rel := "internal/ir/view/dot_cameo_test.go"
+	rel := "internal/ir/view/annotation_test.go"
 	content := mustRead(t, dir, rel)
-	writeFile(t, dir, rel, bytes.Replace(content, []byte("func TestGoldenDOTCameo("), []byte("func TestGoldenDOTCameoRenamed("), 1))
+	writeFile(t, dir, rel, bytes.Replace(content, []byte("func TestViewFrameCompartments("), []byte("func TestViewFrameCompartmentsRenamed("), 1))
 	code, _, stderr := run(t, "-repo", dir, "-check")
-	if code == 0 || !strings.Contains(stderr, "declares no function TestGoldenDOTCameo") {
+	if code == 0 || !strings.Contains(stderr, "declares no function TestViewFrameCompartments") {
 		t.Fatalf("check: %d %s", code, stderr)
 	}
 }

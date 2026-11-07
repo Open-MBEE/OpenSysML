@@ -152,10 +152,17 @@ func TestAPIJSONPayloadIsAPostableCommit(t *testing.T) {
 		t.Fatalf("build the api-json commit: %v", err)
 	}
 	checkPostableCommit(t, changes, written)
-	// The element form adds the document's root Namespace and the
-	// OwningMembership it owns the one top-level package through.
-	if want := len(graph.Subjects()) + 2; len(written) != want {
-		t.Errorf("the commit posts %d elements for %d graph subjects, want %d", len(written), len(graph.Subjects()), want)
+	// The element form adds the document's root Namespace and the OwningMembership it
+	// owns the one top-level package through; the library members the graph names go to libraryReferences.
+	modelSubjects := 0
+	for _, subject := range graph.Subjects() {
+		if !graph.BoolValue(subject, rdf.SysML+"isLibraryElement") {
+			modelSubjects++
+		}
+	}
+	if want := modelSubjects + 2; len(written) != want {
+		t.Errorf("the commit posts %d elements for %d model subjects of %d, want %d",
+			len(written), modelSubjects, len(graph.Subjects()), want)
 	}
 }
 

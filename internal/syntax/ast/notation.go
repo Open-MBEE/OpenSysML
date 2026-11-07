@@ -74,11 +74,11 @@ func modifierPrefixed(kw string, isAbstract, isVariation bool) string {
 	return kw
 }
 
-// NotationKeyword is the kind keyword a notation names after its modifiers:
-// `part def` of `abstract part def`, `ref part` of `variant ref part`, `variant` alone of `variant`.
+// NotationKeyword is the kind keyword a notation names after its modifiers and user-defined
+// keywords: `part def` of `abstract #command part def`, `ref part` of `variant ref part`.
 func NotationKeyword(notation string) string {
 	kw, rest, _ := strings.Cut(notation, " ")
-	for rest != "" && (kw == "abstract" || kw == "variation" || kw == "variant") {
+	for rest != "" && (kw == "abstract" || kw == "variation" || kw == "variant" || strings.HasPrefix(kw, "#")) {
 		kw, rest, _ = strings.Cut(rest, " ")
 	}
 	if rest == "" {

@@ -9,6 +9,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
@@ -28,6 +29,8 @@ type apiJSONGraphStructure struct {
 	owningRelatedByRelationship [][]rdf.Term
 	metaclassByPosition         []apiJSONMetaclass
 	ownedRelationshipsCache     []*apiJSONOwnedRelationships
+	catalogOnce                 sync.Once
+	catalog                     *identity.Catalog
 }
 
 // apiJSONOwnedRelationships memoizes an element's owned relationships, which
@@ -37,11 +40,35 @@ type apiJSONOwnedRelationships struct {
 	ok            bool
 }
 
+// libraryCatalog is the catalog of normative library ids, built once per structure.
+func (s *apiJSONGraphStructure) libraryCatalog() *identity.Catalog {
+	s.catalogOnce.Do(func() {
+		s.catalog = identity.LibraryCatalogWithOpenSysML(libs.SharedBase())
+	})
+	return s.catalog
+}
+
+// LibrarySymbol resolves a library reference the graph states by id to the library symbol.
+func (s *apiJSONGraphStructure) LibrarySymbol(element metamodel.Element) (*symbols.Symbol, bool) {
+	subject, ok := s.subject(element)
+	if !ok || !LibraryReference(s.graph, subject) {
+		return nil, false
+	}
+	id, ok := rdf.SubjectID(subject)
+	if !ok {
+		return nil, false
+	}
+	library, ok := s.libraryCatalog().Element(id)
+	if !ok || library == nil || library.Symbol == nil {
+		return nil, false
+	}
+	return library.Symbol, true
+}
+
 type apiJSONEvaluation struct {
-	structure   *apiJSONGraphStructure
-	evaluator   *metamodel.Evaluator
-	catalogOnce sync.Once
-	catalog     *identity.Catalog
+	structure *apiJSONGraphStructure
+	evaluator *metamodel.Evaluator
+	model     *semantics.Model
 }
 
 func newAPIJSONEvaluation(graph *rdf.Graph) *apiJSONEvaluation {
@@ -51,9 +78,11 @@ func newAPIJSONEvaluation(graph *rdf.Graph) *apiJSONEvaluation {
 func newAPIJSONEvaluationWithIndex(index *apiJSONGraphIndex) *apiJSONEvaluation {
 	structure := newAPIJSONGraphStructure(index)
 	resolver := resolve.New(libs.SharedBase())
+	model := semantics.NewModel(resolver)
 	return &apiJSONEvaluation{
 		structure: structure,
-		evaluator: metamodel.New(resolver, semantics.NewModel(resolver), metamodel.Options{Structure: structure}),
+		evaluator: metamodel.New(resolver, model, metamodel.Options{Structure: structure}),
+		model:     model,
 	}
 }
 
@@ -502,6 +531,9 @@ func (s *apiJSONGraphStructure) Attribute(element metamodel.Element, property st
 	}
 	objects := s.graph.ObjectsView(subject, apiJSONSysMLPredicate(graphProperty))
 	if len(objects) == 0 {
+		if definition.HasDefault && !definition.Many {
+			return apiJSONGraphAttributeDefault(definition), true
+		}
 		if definition.Lower > 0 {
 			return metamodel.Value{}, false
 		}
@@ -522,6 +554,15 @@ func (s *apiJSONGraphStructure) Attribute(element metamodel.Element, property st
 		values = append(values, value)
 	}
 	return metamodel.Value{Kind: metamodel.SequenceValue, Values: values, Success: true}, true
+}
+
+// apiJSONGraphAttributeDefault is the metamodel default an unstated attribute
+// takes (KerML 8.3.2.4.3 Membership::visibility = public, Import = private).
+func apiJSONGraphAttributeDefault(definition ontology.Property) metamodel.Value {
+	if definition.Range == rdf.XSD+"boolean" {
+		return metamodel.Value{Kind: metamodel.BooleanValue, Boolean: definition.Default == "true", Success: true}
+	}
+	return metamodel.Value{Kind: metamodel.StringValue, String: definition.Default, Success: true}
 }
 
 func apiJSONGraphAttributeValue(object rdf.Term) (metamodel.Value, bool) {

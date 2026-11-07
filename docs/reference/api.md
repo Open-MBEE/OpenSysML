@@ -1103,6 +1103,10 @@ answer.
 | `shortName` | The element's effective short name (`<'HLR-R001'>` declares `HLR-R001`); absent when it has none | |
 | `declaredShortName` | `shortName`, absent when the short name is borrowed from a redefined or subsetted feature | |
 | `documentation` | The body text of the element's `doc` comment, delimiters and indentation removed; absent when undocumented. This single-valued record reports the first body of an element declaring several — a document query's `Project` carries every body | |
+| `textualRepresentation` | The body text of each `rep` the element owns (`Element::textualRepresentation`, KerML §8.3.2.3), exact as `Comment::body` reads it, in declaration order; absent when it owns none. This single-valued record reports the first body of an element declaring several — a document query's `Project` carries every body | |
+| `body` | The exact body (KerML §8.2.3.3.2 Note 1: delimiters, the opening line's white space and each later line's `*` margin removed, every other character kept) of a `comment`, `doc` or `rep` element itself (`Comment::body`, `TextualRepresentation::body`); absent for any other element | |
+| `locale` | The `locale` string a `comment` or `doc` declares (`Comment::locale`); absent when it declares none, and for any other element | |
+| `language` | The `language` string of a `rep` (`TextualRepresentation::language`); absent for any other element | |
 | `owner` | Identity of the owning element; absent for a top-level element, whose owner is the document root | |
 | `isAbstract` | `true`/`false` for a definition or usage; absent for anything else. A standard-library element carries its declaration on every load path (parsed, restored from the on-disk cache or decoded from the bundled snapshot), so it answers too | |
 | `isIndividual` | `true`/`false` for a definition or usage (the `individual` modifier); absent for anything else, and present for a standard-library element as `isAbstract` is | |
@@ -1292,7 +1296,7 @@ ports. Its `show` field names the
 [optional notation elements](../project/view-rendering-forms.md#optional-notation-elements)
 to draw besides those the view's rendering shows — `parameter-symbols`,
 `port-symbols`, `compartments`, `edge-labels`, `keywords`, `multiplicities`,
-`typings`, `qualifiers`, or `all` — and the response's `shown` lists the ones
+`typings`, `qualifiers`, `annotations`, or `all` — and the response's `shown` lists the ones
 drawn; a name none of them has is refused with `INVALID_ARGUMENT` naming the
 elements there are. It is advertised by `render_view`, and a service without
 that capability refuses the request with `UNIMPLEMENTED`.

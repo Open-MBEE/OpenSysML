@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» ToasterViews::toasterView"
 ---
 %% ToasterViews::toasterView — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR

@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» InheritedPrefixViews::rigLinks"
 ---
 %% InheritedPrefixViews::rigLinks — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR

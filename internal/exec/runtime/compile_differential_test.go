@@ -44,6 +44,7 @@ const differentialMaxSteps int64 = 20000
 // TestCompiledCalcDifferential invokes every eligible calc through both tiers on
 // generated arguments, by position and by name, requiring identical outcomes.
 func TestCompiledCalcDifferential(t *testing.T) {
+	t.Parallel()
 	var files []string
 	for _, root := range differentialRoots {
 		files = append(files, sysmlFilesUnder(t, root)...)

@@ -57,7 +57,7 @@ func TestOnlyTheOutermostElementIsARoot(t *testing.T) {
 		}
 		_, owned := graph.Object(subject, rdf.SysML+"owner")
 		_, related := graph.Object(subject, rdf.SysML+"owningRelatedElement")
-		if !owned && !related {
+		if !owned && !related && !graph.BoolValue(subject, rdf.SysML+"isLibraryElement") {
 			roots = append(roots, subject.Value)
 		}
 	}

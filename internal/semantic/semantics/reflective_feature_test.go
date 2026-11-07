@@ -983,8 +983,12 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 		Supers:   []symbols.ElementRef{},
 	}
 	facts.Annotations = model.DeclaredAnnotationFactsOf(sym)
+	facts.Multiplicity = model.MultiplicityFactsOf(sym)
 	if model.IsFlowPayload(sym) {
 		facts.Modifiers |= symbols.ModPayloadFeature
+	}
+	if sym.IsPrefixMetadata() {
+		facts.Modifiers |= symbols.ModPrefixMetadata
 	}
 	if model.UsageMayTimeVary(sym) {
 		facts.Modifiers |= symbols.ModMayTimeVary

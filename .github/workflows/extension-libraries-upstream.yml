@@ -69,7 +69,8 @@ jobs:
           echo "dcdbfada0ce493ee98259c0816e0daafc561c223aadb3af298c2968e73ea39c6  /tmp/cvc5.zip" | sha256sum --check --strict
           unzip -p /tmp/cvc5.zip '*/bin/cvc5' > /tmp/cvc5-bin
           sudo install -m 0755 /tmp/cvc5-bin /usr/local/bin/cvc5
-          cvc5 --version | head -1
+          cvc5_version="$(cvc5 --version)"
+          echo "${cvc5_version%%$'\n'*}"
 
       - name: Provision the pinned corpora
         uses: ./.github/actions/corpora
@@ -88,17 +89,8 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Check the library snapshot
-        id: snapshot
-        run: |
-          if make stdlib-snapshot-check; then
-            echo "Snapshot unchanged." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "Snapshot regenerated for the synced libraries." >> "$GITHUB_STEP_SUMMARY"
-            make stdlib-snapshot
-          fi
-
       # The tools module's llm-bench tests drive bin/sysml and skip without it.
+      # `make build` generates the library snapshot of the synced libraries first.
       - name: Build binaries
         run: make build
 
@@ -123,7 +115,6 @@ jobs:
               echo "| step | outcome |"
               echo "| --- | --- |"
               echo "| sync | ${{ steps.sync.outcome }} |"
-              echo "| snapshot | ${{ steps.snapshot.outcome }} |"
               echo "| tests | ${{ steps.tests.outcome }} |"
             } >> "$GITHUB_STEP_SUMMARY"
           fi

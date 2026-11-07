@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» RobustViews::unrecognized : GeneralView"
 ---
 %% RobustViews::unrecognized — tree rendering (view def GeneralView)
 flowchart TD

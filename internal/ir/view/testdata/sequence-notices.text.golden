@@ -1,11 +1,15 @@
 NoticeViews::handshakeView - sequence rendering (view def SequenceView)
 
 part caller
+  port outbox
+  event occurrence sent
+  event occurrence heard
 part callee
+  port inbox
 
 messages:
-  caller => callee: of Ping
-  caller => caller: echo
+  caller.outbox => callee.inbox: of Ping
+  caller.sent -> caller.heard: echo of Ping
 
 not represented:
   - attribute def Kit::Level has no place in a sequence rendering; it is not shown

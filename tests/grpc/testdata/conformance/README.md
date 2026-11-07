@@ -20,6 +20,7 @@ in this directory, so adding a case is a data-only change.
 | `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `ApplyEdits`, `RunDocumentQuery`, `EvaluateCalc`, `RunRuns`, `SelfCheck`, `RecordRun`, `RenderView` or `Query` |
 | `view`, `compartments` | RenderView | the view or `#<kind>:<name>` pseudo-view to render and the compartment folding (`positioned`, `most` or `ports`; empty is `positioned`) |
 | `expected_node_names`, `expected_compartments`, `expected_edge_labels` | RenderView | the nodes drawn in order, the compartment each row is drawn in by the row's name, and the edge labels in order; `expected_error` a refusal instead |
+| `expected_parallel` | RenderView | the names of the nodes drawn «parallel», in order; omit when none is |
 | `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `ApplyEdits`, `RunDocumentQuery`, `EvaluateCalc`, `ImportData` or `CompareResults` |
 | `imports`, `import_dry_run` | ImportData | the imports (`name`, `content`, optional `import_format` and `import_map`), in order, and whether to report without changing the model |
 | `expected_assignments` | ImportData | the assignments' descriptions over every import, in order; `expected_content` is the edited model, `expected_error` a refusal that leaves it unchanged |
@@ -63,7 +64,10 @@ empty else blocks are not authorable.
 | `expected_status`, `expected_notes` | VerifyConstraint | the verdict's `status`, and the notes its answer rests on, in order: `kind` (`assumed_one` or `uncovered`), `subject`, `text` |
 | `query` | Query | the standard's `Query` as protojson writes it (`scope`, `select`, `where`, `orderBy`) |
 | `expected_element_ids`, `expected_query_error` | Query | the ids the answer reports, in order; or text the refusal's status message must contain |
-| `instantiate` | RunDocumentQuery, VerifyRequirement | FQNs `Instantiate` creates objects of first, in order, so the query can bind and enumerate them, or the verification is about the objects the model holds |
+| `expected_reach_paths` | Instantiate | the path each instance of the graph says the traversal reached it by (`reached_by.path`), in graph order, the root's being empty; each holder must hold the instance under the feature and index the path ends with |
+| `object_path` | InstancePaths | the object whose paths to list, as `DocumentObject.path`: the name a root was instantiated as, or a path through feature values from it (`Fuel::vehicle.wheels[2]`) |
+| `expected_paths` | InstancePaths | every root-relative path to the object in traversal order, each as `<root>.<path>` (the root alone when the object is a root); `expected_error` a refusal instead |
+| `instantiate` | RunDocumentQuery, VerifyRequirement, InstancePaths | FQNs `Instantiate` creates objects of first, in order, so the query can bind and enumerate them, or the verification is about the objects the model holds |
 | `subject_symbol_id` | VerifyRequirement | optional FQN of the part/usage instantiated as the requirement's subject; absent, the requirement is checked over the objects the model holds, as the REPL's `%requirement` is over a session's |
 | `expected_status`, `expected_verification_verdicts` | VerifyRequirement | the requirement verdict's `status`, and the body verdicts of the cases verifying it, in order: `case`, `kind`, `detail` (empty for a decided verdict) and `instance_type`, the type of the object the case ran on (empty for a run on none) |
 | `query_id` | RunDocumentQuery | FQN of the document query to run |
@@ -72,7 +76,10 @@ empty else blocks are not authorable.
 | `expected_rows` | RunDocumentQuery | full ordered row list, each `{element, cells}` — the row's own document value and one list of document values per column |
 | `expected_result` | Evaluate, EvaluateCalc | expected `Value` |
 | `expected_attribute_names` | GetSymbol | full ordered attribute name list, own then inherited |
+| `expected_kind`, `expected_child_ids` | GetSymbol | the symbol's kind, and the full ordered list of its members' ids: a named member's qualified name, an unnamed one's positional identity (`Owner::@3`), which `symbol_id` may name too |
 | `expected_attributes` | GetSymbol | attribute name → `{type, value_kind, value, unit}`; no `value_kind` requires no value |
+| `expected_members` | GetSymbol | full ordered member list, own then inherited, each `{id, kind, inherited, inherited_from}`; library-inherited members are withheld from it |
+| `min_withheld_library_members` | GetSymbol | the response must count at least this many library-inherited members withheld from `members` |
 | `expected_metadata` | GetSymbol | metadata key → value the symbol must carry (`variation`, `variant`, `abstract`, `type`, …) |
 | `absent_metadata` | GetSymbol | metadata keys the symbol must not carry |
 | `expected_feature_values` | Instantiate | feature name → `{materialized, value_kind, value, error}` |

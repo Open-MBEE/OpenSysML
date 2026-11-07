@@ -84,7 +84,6 @@ func DefaultRegistry() *Registry {
 	reg.Register(MOSAPass{})
 	reg.Register(NPR7123Pass{})
 	reg.Register(NestedRedefinitionPass{})
-	reg.Register(PortTypeMismatchPass{})
 	return reg
 }
 

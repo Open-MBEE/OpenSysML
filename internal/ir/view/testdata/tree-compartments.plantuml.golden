@@ -2,6 +2,7 @@
 ' AmplifierViews::positioned — tree rendering (render asTreeDiagram)
 ' not represented: 10 node(s) without a position, drawn as compartment rows of the node above them, and 1 node(s) under them left undrawn
 ' not represented: 5 positioned node(s) and 0 route(s) kept as comments; PlantUML pins no position, the dot form does
+mainframe <size:10>//«view»//</size> **AmplifierViews::positioned**\n<size:10>expose Amplifier::Stage</size>\n<size:10>expose Amplifier::Housing</size>\n<size:10>expose Amplifier::Band</size>
 <style>
 root {
   BackGroundColor white
@@ -53,7 +54,7 @@ class "<size:10>//«part def»//</size>\n**Stage**\nattributes\ngain = 15.0\nnoi
 class "<size:10>//«part»//</size>\n**housing**" as n5 <<part>> <<usage>>
 class "<size:10>//«part»//</size>\n**shield**" as n6 <<part>> <<usage>>
 class "<size:10>//«part def»//</size>\n**Housing**" as n12 <<part def>>
-class "<size:10>//«enum def»//</size>\n**Band**\nenumerations\nlow\nhigh" as n13 <<enum def>>
+class "<size:10>//«enum def»//</size>\n**Band**\nenums\nlow\nhigh" as n13 <<enum def>>
 n0 *-- n5
 n0 *-- n6
 n5 --:|> n12

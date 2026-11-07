@@ -15,7 +15,7 @@ import (
 func TestRenderStyle(t *testing.T) {
 	binary := buildCLI(t)
 	fixture := filepath.Join("..", "..", "internal", "doc", "docrender", "testdata", "placed_report.sysml")
-	const frame = `subgraph "cluster_frame"`
+	const frame = `color="#5B5B59";` // the Cameo frame colour; the default view frame has none
 	check := func(t *testing.T, path, got string, cameo bool) {
 		t.Helper()
 		if strings.Contains(got, frame) != cameo || strings.Contains(got, `fontname="Arial"`) != cameo {

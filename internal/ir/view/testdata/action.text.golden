@@ -5,11 +5,12 @@ action def Drive
   action provide
     in ^fuel
     out ^torque
-  action monitor (own flow)
+  action monitor
+    action flow
     in reading
     initial begin
     action record
-  action tally
+  assign tally (speed := speed + 1)
   fork split
   join sync
   final done
@@ -29,4 +30,4 @@ flow:
   sync -> check
   park -> done
   check -> done: [speed > 0]
-  check -> park
+  check -> park: else

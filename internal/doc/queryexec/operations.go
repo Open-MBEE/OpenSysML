@@ -866,7 +866,7 @@ func (e *executor) propertyValuesBeforeMemberPath(row Value, property string) ([
 		return e.eventPropertyValues(row, property)
 	}
 	sym, _ := row.Element()
-	if isQueryableProperty(property) {
+	if isQueryableProperty(property) && readsAnnotationProperty(sym, property) {
 		values, present := e.reader.Values(sym, property)
 		if property == query.PropertyElementID && e.elementIDErr != nil {
 			return nil, true, e.unevaluable(queryplan.Expression{}, property, row, e.elementIDErr)
@@ -921,6 +921,29 @@ func (e *executor) declaredFeatureValues(sym *symbols.Symbol, property string) (
 	return result, true, nil
 }
 
+// isAnnotationProperty reports a property of the annotating metaclasses alone
+// (Comment::body, Comment::locale, TextualRepresentation::language).
+func isAnnotationProperty(property string) bool {
+	return property == query.PropertyBody || property == query.PropertyLocale || property == query.PropertyLanguage
+}
+
+// readsAnnotationProperty reports whether property is read as query metadata of
+// sym: an annotation property only of a comment, doc or rep, so any other
+// element reads a declared feature of that name.
+func readsAnnotationProperty(sym *symbols.Symbol, property string) bool {
+	if !isAnnotationProperty(property) {
+		return true
+	}
+	if sym == nil {
+		return false
+	}
+	switch sym.Kind {
+	case symbols.SymbolComment, symbols.SymbolDocumentation, symbols.SymbolTextualRepresentation:
+		return true
+	}
+	return false
+}
+
 func isQueryableProperty(property string) bool {
 	switch property {
 	case query.PropertyID,
@@ -930,6 +953,10 @@ func isQueryableProperty(property string) bool {
 		query.PropertyShortName,
 		query.PropertyDeclaredShortName,
 		query.PropertyDocumentation,
+		query.PropertyTextualRepresentation,
+		query.PropertyBody,
+		query.PropertyLocale,
+		query.PropertyLanguage,
 		query.PropertyQualifiedName,
 		query.PropertyOwner,
 		query.PropertyElementType,
@@ -1342,7 +1369,8 @@ func (e *executor) tolerateArgument(expression queryplan.Expression) (bool, erro
 // the frontier; nil for a non-element row or a metamodel property every element answers.
 func (e *executor) missingFeature(expression queryplan.Expression, property string, row Value) *Error {
 	sym, isElement := row.Element()
-	if !isElement || sym == nil || isQueryableProperty(property) || strings.Contains(property, "::") {
+	if !isElement || sym == nil || strings.Contains(property, "::") ||
+		(isQueryableProperty(property) && readsAnnotationProperty(sym, property)) {
 		// A metadata path names an annotation the element may simply not carry.
 		return nil
 	}

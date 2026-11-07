@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» NotationGlyphs::Diagrams::definitionGlyphs : GeneralView"
 ---
 %% NotationGlyphs::Diagrams::definitionGlyphs — definition rendering (view def GeneralView, filter @Definition or @Usage)
 flowchart TD
@@ -33,7 +34,7 @@ flowchart TD
 **filling**`")
   n4("`*«snapshot»*
 **full**`")
-  n5("`*«occurrence»*
+  n5("`*«event occurrence»*
 **startup**`")
   n6["`*«requirement def»*
 **LevelReq**`"]

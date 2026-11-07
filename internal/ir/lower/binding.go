@@ -28,8 +28,8 @@ type BindingEnd struct {
 	// Index selects one element of the feature Path reaches (`xs#(2)`), nil for the whole feature.
 	Index        ast.Node
 	Multiplicity *ast.Multiplicity
-	// Via leads from the binding's holder to the connector object an expression end is read on,
-	// empty for the holder itself; Default marks the expression of a `default =` value.
+	// Via leads from the binding's holder to the connector object an expression or a path end is
+	// read on, empty for the holder itself; Default marks the expression of a `default =` value.
 	Via     []Hop
 	Default bool
 }
@@ -44,6 +44,15 @@ type Hop struct {
 // Reaches reports a hop that leads somewhere: a named feature or an anonymous declaration.
 func (h Hop) Reaches() bool {
 	return h.Feature != "" || h.Anonymous != nil
+}
+
+// HolderPath is the feature path the end reaches from the binding's holder: empty for an
+// expression, or a path read on a connector object Via leads to.
+func (e BindingEnd) HolderPath() string {
+	if len(e.Via) != 0 {
+		return ""
+	}
+	return e.Path
 }
 
 // ToBindings lowers binding connectors directly declared by a type or usage.
@@ -177,19 +186,22 @@ func usageName(scope *symbols.Scope, u *ast.Usage) string {
 	return ""
 }
 
-// ThroughEnds re-roots a path at what roots maps its head to — an end's attachment, or the connector's own
-// feature as the holder reaches it — and leads an expression end to the connector at self; false if it cannot.
-func (b Binding) ThroughEnds(roots map[string]string, self Hop) (Binding, bool) {
+// ThroughEnds re-roots a path at what roots maps its head to and leads an expression end, a path through a
+// feature owned names, or one already on a connector object, to the connector at self; false if it cannot.
+func (b Binding) ThroughEnds(roots map[string]string, owned map[string]bool, self Hop) (Binding, bool) {
 	out := b
 	for i, end := range b.Ends {
-		if end.Path == "" {
-			if end.Expr == nil || !self.Reaches() {
+		head, rest, _ := strings.Cut(end.Path, ".")
+		if end.Path == "" && end.Expr == nil {
+			return Binding{}, false
+		}
+		if end.Path == "" || len(end.Via) != 0 || owned[head] {
+			if !self.Reaches() {
 				return Binding{}, false
 			}
 			out.Ends[i].Via = append([]Hop{self}, end.Via...)
 			continue
 		}
-		head, rest, _ := strings.Cut(end.Path, ".")
 		target, ok := roots[head]
 		if !ok || target == "" {
 			return Binding{}, false

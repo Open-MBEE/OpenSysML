@@ -201,11 +201,11 @@ func TestUndeclaredSignalLintInvokedSend(t *testing.T) {
 func TestWithoutLints(t *testing.T) {
 	diags := []diag.Diagnostic{
 		{Code: CodeUndeclaredSignal, Source: lintSource},
-		{Code: CodePortTypeMismatch, Source: lintSource},
+		{Code: CodeDeferredKeeperUnmarked, Source: lintSource},
 		{Code: CodeUndeclaredSignal, Source: "name-resolution"},
 	}
 	got := WithoutLints(diags, map[string]bool{CodeUndeclaredSignal: true}, nil)
-	if len(got) != 2 || got[0].Code != CodePortTypeMismatch || got[1].Source != "name-resolution" {
+	if len(got) != 2 || got[0].Code != CodeDeferredKeeperUnmarked || got[1].Source != "name-resolution" {
 		t.Fatalf("got %+v", got)
 	}
 	if got := WithoutLints(diags, nil, nil); len(got) != len(diags) {
@@ -239,71 +239,6 @@ func TestWithoutLintsLeavesOptInLintsOut(t *testing.T) {
 	}
 	if got := WithoutLints(diags, enabled, enabled); len(got) != 1 || got[0].Code != CodeUndeclaredSignal {
 		t.Fatalf("enabled and disabled got %+v, want it left out", got)
-	}
-}
-
-const portDefs = `
-	item def Power; item def Fuel;
-	port def PowerOut { out item p : Power; }
-	port def FuelIn { in item f : Fuel; }
-	port def PowerIn { in item p : Power; }
-	port def Base { out item p : Power; }
-	port def Derived :> Base;
-	port def Sibling :> Base;
-	port def Wide { out item p : Power; out item q : Fuel; }
-	port def Other { out item o : Power; }
-	port def OtherIn { in item o : Power; }
-	interface def Mount { end x : Other; end y : PowerIn; flow x.o to y.p; }
-	part def Source { port power : PowerOut; port base : Base; port derived : Derived; port sibling : Sibling; port conj : ~PowerOut; port wide : Wide; port other : Other; }
-	part def Sink { port fuel : FuelIn; port powerIn : PowerIn; }
-	interface def Link { end a : PowerOut; end b : PowerIn; }
-	interface def HalfLink { end a : PowerOut; end b; }
-	connection def Pipe { end a : PowerOut; end b : FuelIn; }
-	interface def SubMount :> Mount { end x; }
-`
-
-func TestPortTypeMismatchLint(t *testing.T) {
-	cases := []struct {
-		name string
-		body string
-		want []string
-	}{
-		{"connect", `connect a.power to b.fuel;`, []string{"connection connects port power : PowerOut to port fuel : FuelIn", "~PowerOut"}},
-		{"named connection", `connection c connect a.power to b.fuel;`, []string{"connection c connects port power : PowerOut"}},
-		{"interface", `interface i connect a.power to b.fuel;`, []string{"interface i connects port power : PowerOut to port fuel : FuelIn"}},
-		{"flow", `flow from a.power to b.fuel;`, []string{"flow connects port power : PowerOut to port fuel : FuelIn"}},
-		{"features by other names", `connect a.other to b.powerIn;`, []string{"port other : Other to port powerIn : PowerIn"}},
-		{"connection typed by a port-typed connection definition", `connection : Pipe connect a.power to b.fuel;`, []string{"port power : PowerOut to port fuel : FuelIn"}},
-		{"interface with one port-typed end", `interface : HalfLink connect a.power to b.fuel;`, []string{"port power : PowerOut to port fuel : FuelIn"}},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			src := "package P {" + portDefs + "\tpart s { part a : Source; part b : Sink; " + tc.body + " }\n}"
-			wantLints(t, src, CodePortTypeMismatch, tc.want)
-		})
-	}
-}
-
-func TestPortTypeMismatchLintSilent(t *testing.T) {
-	cases := map[string]string{
-		"conjugate features":                   `connect a.power to b.powerIn;`,
-		"typed interface":                      `interface : Link connect a.power to b.powerIn;`,
-		"conjugated port":                      `connect a.power to a.conj;`,
-		"same definition":                      `connect a.power to c.power;`,
-		"specialization":                       `connect a.base to a.derived;`,
-		"common definition":                    `connect a.derived to a.sibling;`,
-		"flow between conjugates":              `flow from a.power to b.powerIn;`,
-		"flow of items":                        `flow of Power from a.power.p to b.powerIn.p;`,
-		"non-port ends":                        `connect a to b;`,
-		"one port's features all conjugate":    `connect a.wide to b.powerIn;`,
-		"typed by an interface with port ends": `interface : Mount connect a.other to b.powerIn;`,
-		"port ends inherited by redefinition":  `interface : SubMount connect a.other to b.powerIn;`,
-	}
-	for name, body := range cases {
-		t.Run(name, func(t *testing.T) {
-			src := "package P {" + portDefs + "\tpart s { part a : Source; part b : Sink; part c : Source; " + body + " }\n}"
-			wantLints(t, src, CodePortTypeMismatch)
-		})
 	}
 }
 

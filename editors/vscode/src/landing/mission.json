@@ -49,8 +49,9 @@
       },
       {
         "id": "n2",
-        "kind": "action",
+        "kind": "assign",
         "name": "translunarInjection",
+        "detail": "remaining := remaining - 3150 ['m/s']",
         "parent": "n0",
         "origin": {
           "file": "mission-sequence.sysml",
@@ -62,8 +63,9 @@
       },
       {
         "id": "n3",
-        "kind": "action",
+        "kind": "assign",
         "name": "lunarOrbitInsertion",
+        "detail": "remaining := remaining - 900 ['m/s']",
         "parent": "n0",
         "origin": {
           "file": "mission-sequence.sysml",
@@ -88,8 +90,9 @@
       },
       {
         "id": "n5",
-        "kind": "action",
+        "kind": "accept action",
         "name": "awaitGo",
+        "detail": "go : GoForDescent",
         "parent": "n0",
         "ports": [
           {
@@ -120,8 +123,9 @@
       },
       {
         "id": "n6",
-        "kind": "action",
+        "kind": "assign",
         "name": "descent",
+        "detail": "remaining := remaining - 2100 ['m/s']",
         "parent": "n0",
         "origin": {
           "file": "mission-sequence.sysml",
@@ -133,8 +137,9 @@
       },
       {
         "id": "n7",
-        "kind": "action",
+        "kind": "assign",
         "name": "surfaceOperations",
+        "detail": "landed := true",
         "parent": "n0",
         "origin": {
           "file": "mission-sequence.sysml",
@@ -146,8 +151,9 @@
       },
       {
         "id": "n8",
-        "kind": "action",
+        "kind": "assign",
         "name": "ascent",
+        "detail": "remaining := remaining - 1870 ['m/s']",
         "parent": "n0",
         "origin": {
           "file": "mission-sequence.sysml",
@@ -159,8 +165,9 @@
       },
       {
         "id": "n9",
-        "kind": "action",
+        "kind": "assign",
         "name": "transEarthInjection",
+        "detail": "remaining := remaining - 1000 ['m/s']",
         "parent": "n0",
         "origin": {
           "file": "mission-sequence.sysml",
@@ -172,8 +179,9 @@
       },
       {
         "id": "n10",
-        "kind": "action",
+        "kind": "assign",
         "name": "splashdown",
+        "detail": "returned := true",
         "parent": "n0",
         "origin": {
           "file": "mission-sequence.sysml",
@@ -251,6 +259,7 @@
       {
         "from": "n4",
         "to": "n9",
+        "label": "else",
         "kind": "succession",
         "origin": {
           "file": "mission-sequence.sysml",
@@ -337,7 +346,8 @@
       "port-symbols",
       "compartments",
       "edge-labels",
-      "keywords"
+      "keywords",
+      "annotations"
     ]
   },
   "instances": [
@@ -669,6 +679,12 @@
           "featureName": "whileLoops",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "1",
+        "featureName": "mission",
+        "featureSymbolId": "MissionSequence::Flight::mission",
+        "path": "mission"
       }
     },
     {
@@ -739,6 +755,12 @@
           "featureName": "whileLoops",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "2",
+        "featureName": "ascent",
+        "featureSymbolId": "MissionSequence::LunarMission::ascent",
+        "path": "mission.ascent"
       }
     },
     {
@@ -824,6 +846,12 @@
           "featureName": "whileLoops",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "2",
+        "featureName": "awaitGo",
+        "featureSymbolId": "MissionSequence::LunarMission::awaitGo",
+        "path": "mission.awaitGo"
       }
     },
     {
@@ -942,6 +970,12 @@
           "featureName": "whileLoops",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "4",
+        "featureName": "aState",
+        "featureSymbolId": "Actions::AcceptAction::aState",
+        "path": "mission.awaitGo.aState"
       }
     },
     {
@@ -1012,6 +1046,12 @@
           "featureName": "whileLoops",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "12",
+        "featureName": "doAction",
+        "featureSymbolId": "States::StateAction::doAction",
+        "path": "mission.awaitGo.aState.doAction"
       }
     },
     {
@@ -1082,6 +1122,12 @@
           "featureName": "whileLoops",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "12",
+        "featureName": "entryAction",
+        "featureSymbolId": "States::StateAction::entryAction",
+        "path": "mission.awaitGo.aState.entryAction"
       }
     },
     {
@@ -1152,6 +1198,12 @@
           "featureName": "whileLoops",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "12",
+        "featureName": "exitAction",
+        "featureSymbolId": "States::StateAction::exitAction",
+        "path": "mission.awaitGo.aState.exitAction"
       }
     },
     {
@@ -1222,6 +1274,12 @@
           "featureName": "whileLoops",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "2",
+        "featureName": "descent",
+        "featureSymbolId": "MissionSequence::LunarMission::descent",
+        "path": "mission.descent"
       }
     },
     {
@@ -1292,6 +1350,12 @@
           "featureName": "whileLoops",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "2",
+        "featureName": "lunarOrbitInsertion",
+        "featureSymbolId": "MissionSequence::LunarMission::lunarOrbitInsertion",
+        "path": "mission.lunarOrbitInsertion"
       }
     },
     {
@@ -1362,76 +1426,12 @@
           "featureName": "whileLoops",
           "materialized": true
         }
-      }
-    },
-    {
-      "id": "9",
-      "typeSymbolId": "MissionSequence::LunarMission::translunarInjection",
-      "featureValues": {
-        "acceptSubactions": {
-          "featureName": "acceptSubactions",
-          "materialized": true
-        },
-        "assignments": {
-          "featureName": "assignments",
-          "materialized": true
-        },
-        "controls": {
-          "featureName": "controls",
-          "materialized": true
-        },
-        "decisionTransitions": {
-          "featureName": "decisionTransitions",
-          "materialized": true
-        },
-        "decisions": {
-          "featureName": "decisions",
-          "materialized": true
-        },
-        "forLoops": {
-          "featureName": "forLoops",
-          "materialized": true
-        },
-        "forks": {
-          "featureName": "forks",
-          "materialized": true
-        },
-        "ifSubactions": {
-          "featureName": "ifSubactions",
-          "materialized": true
-        },
-        "joins": {
-          "featureName": "joins",
-          "materialized": true
-        },
-        "loops": {
-          "featureName": "loops",
-          "materialized": true
-        },
-        "merges": {
-          "featureName": "merges",
-          "materialized": true
-        },
-        "sendSubactions": {
-          "featureName": "sendSubactions",
-          "materialized": true
-        },
-        "subactions": {
-          "featureName": "subactions",
-          "materialized": true
-        },
-        "terminateSubactions": {
-          "featureName": "terminateSubactions",
-          "materialized": true
-        },
-        "transitions": {
-          "featureName": "transitions",
-          "materialized": true
-        },
-        "whileLoops": {
-          "featureName": "whileLoops",
-          "materialized": true
-        }
+      },
+      "reachedBy": {
+        "instanceId": "2",
+        "featureName": "splashdown",
+        "featureSymbolId": "MissionSequence::LunarMission::splashdown",
+        "path": "mission.splashdown"
       }
     },
     {
@@ -1502,6 +1502,12 @@
           "featureName": "whileLoops",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "2",
+        "featureName": "surfaceOperations",
+        "featureSymbolId": "MissionSequence::LunarMission::surfaceOperations",
+        "path": "mission.surfaceOperations"
       }
     },
     {
@@ -1572,6 +1578,88 @@
           "featureName": "whileLoops",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "2",
+        "featureName": "transEarthInjection",
+        "featureSymbolId": "MissionSequence::LunarMission::transEarthInjection",
+        "path": "mission.transEarthInjection"
+      }
+    },
+    {
+      "id": "9",
+      "typeSymbolId": "MissionSequence::LunarMission::translunarInjection",
+      "featureValues": {
+        "acceptSubactions": {
+          "featureName": "acceptSubactions",
+          "materialized": true
+        },
+        "assignments": {
+          "featureName": "assignments",
+          "materialized": true
+        },
+        "controls": {
+          "featureName": "controls",
+          "materialized": true
+        },
+        "decisionTransitions": {
+          "featureName": "decisionTransitions",
+          "materialized": true
+        },
+        "decisions": {
+          "featureName": "decisions",
+          "materialized": true
+        },
+        "forLoops": {
+          "featureName": "forLoops",
+          "materialized": true
+        },
+        "forks": {
+          "featureName": "forks",
+          "materialized": true
+        },
+        "ifSubactions": {
+          "featureName": "ifSubactions",
+          "materialized": true
+        },
+        "joins": {
+          "featureName": "joins",
+          "materialized": true
+        },
+        "loops": {
+          "featureName": "loops",
+          "materialized": true
+        },
+        "merges": {
+          "featureName": "merges",
+          "materialized": true
+        },
+        "sendSubactions": {
+          "featureName": "sendSubactions",
+          "materialized": true
+        },
+        "subactions": {
+          "featureName": "subactions",
+          "materialized": true
+        },
+        "terminateSubactions": {
+          "featureName": "terminateSubactions",
+          "materialized": true
+        },
+        "transitions": {
+          "featureName": "transitions",
+          "materialized": true
+        },
+        "whileLoops": {
+          "featureName": "whileLoops",
+          "materialized": true
+        }
+      },
+      "reachedBy": {
+        "instanceId": "2",
+        "featureName": "translunarInjection",
+        "featureSymbolId": "MissionSequence::LunarMission::translunarInjection",
+        "path": "mission.translunarInjection"
       }
     }
   ]

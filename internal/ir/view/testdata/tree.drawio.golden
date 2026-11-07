@@ -7,6 +7,12 @@
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
+        <mxCell id="frame" value="«view» VehicleViews::vehicleView" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeWidth=0.5;width=293;height=40;" vertex="1" parent="1">
+            <mxGeometry width="854" height="1169" as="geometry"/>
+        </mxCell>
+        <mxCell id="frame_tr" value="expose Vehicles::Vehicle" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=10;" vertex="1" parent="1">
+            <mxGeometry x="636" width="218" height="36" as="geometry"/>
+        </mxCell>
         <object id="n0" label="«part def»&#xA;Vehicle" fqn="Vehicles::Vehicle" kind="part def" view="VehicleViews::vehicleView" link="tree.sysml:11">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="1">
             <mxGeometry x="50" y="50" width="418" height="339" as="geometry"/>
@@ -68,7 +74,7 @@
           </mxCell>
         </object>
         <object id="e2" label="" kind="typing" view="VehicleViews::vehicleView" link="tree.sysml:12">
-          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5034;exitPerimeter=0;entryX=0;entryY=0.5034;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n1" target="n7">
+          <mxCell style="edgeStyle=none;exitX=1;exitY=0.5034;exitPerimeter=0;entryX=0;entryY=0.5034;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n1" target="n7">
             <mxGeometry relative="1" as="geometry"/>
           </mxCell>
         </object>

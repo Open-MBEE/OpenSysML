@@ -69,7 +69,7 @@ var constraintCodes = []Entry{
 		Code: "disjoint-feature-types", Tier: TierConstraint, Severity: "warning",
 		Summary: "a feature typed by two types declared disjoint, so it can have no values",
 		Meaning: "A feature's types are its own typings and the types of every feature it subsets or redefines, and types related by disjoining share no instances, so a feature reaching two disjoint types — declared with `disjoint from`, inherited along their specializations, or established by the kernel library (Occurrences::Occurrence is disjoint from Base::DataValue) — can have no values. " +
-			"Type the feature, or the feature it subsets or redefines, by types that can share instances.",
+			"Type the feature, or the feature it subsets or redefines, by types that can share instances. An end of a connector typed by an interface or connection definition redefines that definition's end and references the port it attaches to, so it is reported when the two definitions are disjoint; ports of merely unrelated definitions at the two ends of a `connect`, interface or `flow` are not reported, since the specification states no such constraint.",
 		Spec: "KerML 1.1 §7.3.2.5 Disjoining, §8.3.3.3.4 (a feature's types are its typings' and its subsetted features'); an OpenSysML advisory",
 	},
 	{

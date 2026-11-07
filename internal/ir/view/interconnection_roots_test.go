@@ -60,10 +60,23 @@ func checkPortDrawnOnce(t *testing.T, label, form, portLiteral string) {
 		t.Errorf("%s draws %q %d times, want once:\n%s", label, portLiteral, got, form)
 	}
 	for _, bad := range []string{"a::pa", "b::pb", "already shown"} {
-		if strings.Contains(form, bad) {
+		if strings.Contains(withoutFrameExposes(form), bad) {
 			t.Errorf("%s contains %q:\n%s", label, bad, form)
 		}
 	}
+}
+
+// withoutFrameExposes drops the view frame's expose compartment, which quotes
+// the exposed ports' qualified names as the view wrote them.
+func withoutFrameExposes(form string) string {
+	var kept []string
+	for _, line := range strings.Split(form, "\n") {
+		if strings.Contains(line, "frame_tr") || strings.HasPrefix(line, "mainframe ") {
+			continue
+		}
+		kept = append(kept, line)
+	}
+	return strings.Join(kept, "\n")
 }
 
 // An exposed feature an exposed container already draws nested in it is no

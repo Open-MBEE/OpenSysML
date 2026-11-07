@@ -54,7 +54,7 @@ func TestNamesHoldingTheSeparatorAreQuotedWhole(t *testing.T) {
 // The optional notation elements are named, "all" names every one, and a name
 // none has is refused on every form by an error naming the elements there are.
 func TestNotationElementsAreNamed(t *testing.T) {
-	if got := ElementNames(); got != "parameter-symbols, port-symbols, compartments, edge-labels, keywords, multiplicities, typings, qualifiers, all" {
+	if got := ElementNames(); got != "parameter-symbols, port-symbols, compartments, edge-labels, keywords, multiplicities, typings, qualifiers, annotations, all" {
 		t.Errorf("ElementNames() = %q", got)
 	}
 	shown, err := ParseShown("edge-labels, parameter-symbols")
@@ -83,7 +83,7 @@ func TestNotationElementsAreNamed(t *testing.T) {
 	if got := ElementEdgeLabels.Attribute(); got != "showEdgeLabels" {
 		t.Errorf("Attribute() = %q", got)
 	}
-	if got := DefaultShown.Names(); strings.Join(got, ",") != "port-symbols,compartments,keywords" {
+	if got := DefaultShown.Names(); strings.Join(got, ",") != "port-symbols,compartments,keywords,annotations" {
 		t.Errorf("DefaultShown = %v", got)
 	}
 }

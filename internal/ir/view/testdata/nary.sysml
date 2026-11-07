@@ -56,15 +56,33 @@ package NaryRules {
 
 package NaryViews {
 	private import Views::*;
+	private import DiagramLayout::*;
 	private import StandardViewDefinitions::*;
 
 	view wheelLinks {
 		expose Nary::Wheel;
 		render asInterconnectionDiagram;
+		metadata Note about Nary::Wheel::spokes { text = "three spokes"; x = 10; y = 10; }
 	}
 	view carLinks {
 		expose Nary::Car;
 		render asInterconnectionDiagram;
+		metadata Note about Nary::Car::fuelLine { text = "the line"; x = 10; y = 10; }
+		metadata Note about Nary::Car::level { text = "the reading"; x = 10; y = 40; }
+		metadata Note about Nary::Car::fuelLine, Nary::Car::level { text = "shared"; x = 10; y = 70; }
+	}
+	view definitionsRouted {
+		expose Nary::Triad;
+		expose Nary::Hub;
+		expose Nary::Spoke;
+		render asTreeDiagram;
+		metadata Route about Nary::Triad { points = (10, 10, 20, 20); }
+	}
+	view dependenciesClients {
+		expose NaryRules::Brakes;
+		expose NaryRules::Steering;
+		expose NaryRules::rules;
+		render asTreeDiagram;
 	}
 	view definitions {
 		expose Nary::Triad;
@@ -79,5 +97,33 @@ package NaryViews {
 		expose NaryRules::Steering;
 		expose NaryRules::rules;
 		render asTreeDiagram;
+	}
+	// A Route about an n-ary relationship: its dot and segments are not steered by it.
+	view routedRules {
+		expose NaryRules::Chassis;
+		expose NaryRules::Lights;
+		expose NaryRules::Brakes;
+		expose NaryRules::Steering;
+		expose NaryRules::rules;
+		render asTreeDiagram;
+		metadata DiagramLayout::Route about NaryRules::rules { points = (100, 100, 200, 100); }
+	}
+	view routedSpokes {
+		expose Nary::Wheel::hub;
+		expose Nary::Wheel::leftSpoke;
+		expose Nary::Wheel::rightSpoke;
+		expose Nary::Wheel::spokes;
+		render asTreeDiagram;
+		metadata DiagramLayout::Route about Nary::Wheel::spokes { points = (100, 100, 200, 100); }
+	}
+	view routedWheel {
+		expose Nary::Wheel;
+		render asInterconnectionDiagram;
+		metadata DiagramLayout::Route about Nary::Wheel::spokes { points = (100, 100, 200, 100); }
+	}
+	view carLinksRouted {
+		expose Nary::Car;
+		render asInterconnectionDiagram;
+		metadata Route about Nary::Car::fuelLine { points = (150, 80, 258, 247.5, 258, 121, 206, 121); }
 	}
 }

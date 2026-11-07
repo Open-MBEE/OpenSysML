@@ -7,7 +7,15 @@ digraph "CompartmentDemoViews::controllers" {
   graph [fontname="Helvetica"];
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
-  "n0" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«part def»</i></font><br/><b>Sensor</b></td></tr><hr/><tr><td><font point-size="10">attributes</font></td></tr><tr><td align="left">label : String<br/>reading : Real</td></tr></table>>];
-  "n3" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«part def»</i></font><br/><b>Controller</b></td></tr><hr/><tr><td><font point-size="10">attributes</font></td></tr><tr><td align="left">enabled : Boolean</td></tr><hr/><tr><td><font point-size="10">parts</font></td></tr><tr><td align="left">sensor : Sensor</td></tr></table>>];
+  subgraph "cluster_frame" {
+    label=<<font point-size="10"><i>«view»</i></font> <b>CompartmentDemoViews::controllers</b>>;
+    labeljust=l;
+    labelloc=t;
+    penwidth=0.5;
+    margin=8;
+    "n0" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«part def»</i></font><br/><b>Sensor</b></td></tr><hr/><tr><td><font point-size="10">attributes</font></td></tr><tr><td align="left">label : String<br/>reading : Real</td></tr></table>>];
+    "n3" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><font point-size="10"><i>«part def»</i></font><br/><b>Controller</b></td></tr><hr/><tr><td><font point-size="10">attributes</font></td></tr><tr><td align="left">enabled : Boolean</td></tr><hr/><tr><td><font point-size="10">parts</font></td></tr><tr><td align="left"><font color="gray">sensor : Sensor</font></td></tr></table>>];
+    { rank=min; "frame_tr" [shape=none, margin=0, label=<<font point-size="10">expose CompartmentDemo::Sensor<br/>expose CompartmentDemo::Controller</font>>]; }
+  }
   "n3" -> "n0" [headlabel="sensor", dir=back, arrowtail=diamond];
 }

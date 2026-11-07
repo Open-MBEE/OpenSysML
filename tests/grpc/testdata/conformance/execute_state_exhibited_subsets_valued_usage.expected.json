@@ -1,0 +1,9 @@
+{
+  "rpc": "ExecuteState",
+  "symbol_id": "test::P::es",
+  "performer_symbol_id": "test::p",
+  "expected_states_visited": [
+    "s1",
+    "s2"
+  ]
+}

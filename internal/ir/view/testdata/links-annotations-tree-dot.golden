@@ -1,0 +1,33 @@
+// view: AnnotationViews::tree
+// kind: tree
+// stated: render asTreeDiagram
+// layout: dot
+digraph "AnnotationViews::tree" {
+  graph [fontname="Helvetica"];
+  node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
+  edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
+  subgraph "cluster_frame" {
+    label=<<font point-size="10"><i>«view»</i></font> <b>AnnotationViews::tree</b>>;
+    labeljust=l;
+    labelloc=t;
+    penwidth=0.5;
+    margin=8;
+    "n0" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Pump</b>>, URL="https://example.test/src/annotations.sysml#L5", tooltip="Annotated::Pump"];
+    "n1" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>rate</b>>, URL="https://example.test/src/annotations.sysml#L7", tooltip="Annotated::Pump::rate"];
+    "n2" [shape=note, label=<<font point-size="10"><i>«doc»</i></font><br/>Moves fluid from the tank to the loop.>, URL="https://example.test/src/annotations.sysml#L6", tooltip="annotations.sysml:6:3"];
+    "n3" [shape=note, label=<Sized for the nominal flow.>, URL="https://example.test/src/annotations.sysml#L8", tooltip="annotations.sysml:8:3"];
+    "n4" [shape=note, label=<<font point-size="10"><i>«comment»</i></font><br/><b>Safety</b><br/>locale &#34;en&#34;<br/>Both are rated for the loop pressure.>, URL="https://example.test/src/annotations.sysml#L9", tooltip="Annotated::Pump::Safety"];
+    "n5" [shape=note, label=<<font point-size="10"><i>«rep»</i></font><br/><b>inline</b><br/>language &#34;plantuml&#34;<br/>component Pump>, URL="https://example.test/src/annotations.sysml#L11", tooltip="Annotated::Pump::inline"];
+    "n6" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Tank</b>>, URL="https://example.test/src/annotations.sysml#L13", tooltip="Annotated::Tank"];
+    "n7" [shape=note, label=<<font point-size="10"><i>«doc»</i></font><br/><b>Capacity</b><br/>locale &#34;en&#34;<br/>Holds the working fluid.>, URL="https://example.test/src/annotations.sysml#L14", tooltip="Annotated::Tank::Capacity"];
+    { rank=min; "frame_tr" [shape=none, margin=0, label=<<font point-size="10">expose Annotated::Pump<br/>expose Annotated::Tank</font>>]; }
+    { rank=max; "frame_br" [shape=none, margin=0, label=<<font point-size="10">The structure of the loop, annotated.</font>>]; }
+  }
+  "n0" -> "n1" [dir=back, arrowtail=odiamond, URL="https://example.test/src/annotations.sysml#L7", tooltip="Annotated::Pump::rate"];
+  "n2" -> "n0" [dir=none, style=dashed, URL="https://example.test/src/annotations.sysml#L6", tooltip="annotations.sysml:6:3"];
+  "n3" -> "n0" [dir=none, style=dashed, URL="https://example.test/src/annotations.sysml#L8", tooltip="annotations.sysml:8:3"];
+  "n4" -> "n0" [dir=none, style=dashed, URL="https://example.test/src/annotations.sysml#L9", tooltip="Annotated::Pump::Safety"];
+  "n4" -> "n6" [dir=none, style=dashed, URL="https://example.test/src/annotations.sysml#L9", tooltip="Annotated::Pump::Safety"];
+  "n5" -> "n0" [dir=none, style=dashed, URL="https://example.test/src/annotations.sysml#L11", tooltip="Annotated::Pump::inline"];
+  "n7" -> "n6" [dir=none, style=dashed, URL="https://example.test/src/annotations.sysml#L14", tooltip="Annotated::Tank::Capacity"];
+}

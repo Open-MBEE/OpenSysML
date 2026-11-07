@@ -1,1 +1,0 @@
-- **`suggest.EditDistance` takes its three-way minimum from the builtin `min`** instead of a local `min3` helper; the distance it computes is unchanged.

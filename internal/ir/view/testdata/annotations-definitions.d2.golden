@@ -1,0 +1,13 @@
+# AnnotationViews::definitions — definition rendering (view def GeneralView, filter @PartDefinition; @Definition)
+classes: {
+  definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
+  composition: { source-arrowhead: { shape: diamond; style: { filled: true } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+}
+n0: "«part def»\nPump" { class: definition }
+n1: "«part def»\nTank" { class: definition }
+n2: "«part def»\nValve" { class: definition }
+n3: "«part def»\nSeat" { class: definition }
+n2 <- n3: { class: composition; target-arrowhead: { label: "seat" } }
+frame_name: "«view» AnnotationViews::definitions : GeneralView" { shape: text; near: top-left }
+frame_tr: "expose Annotated*[@SysML::Definition]" { shape: text; near: top-right }
+frame_bl: "filter @SysML::PartDefinition" { shape: text; near: bottom-left }

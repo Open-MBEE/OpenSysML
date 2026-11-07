@@ -77,11 +77,12 @@ package OpenSysMLInvariants {
     }
 
     #Invariant requirement def DerivedLibrarySnapshot {
-        doc /* The embedded snapshot is derived from the library files, checked
-             * against them before use, and never the only way to load them. */
+        doc /* The snapshot is derived from the library files at build time rather
+             * than committed, checked against them before use, and never the only
+             * way to load them. */
         subject stdlib : StandardLibrary;
         require constraint {
-            stdlib.snapshotEmbedded and stdlib.snapshotChecksummed
+            not stdlib.snapshotTracked and stdlib.snapshotChecksummed
                 and stdlib.fallsBackToParsing
         }
     }
@@ -256,7 +257,7 @@ package OpenSysMLGates {
     }
 
     verification def SnapshotGate {
-        doc /* make stdlib-snapshot-check; go test -run 'Snapshot' ./internal/workspace/libs ./internal/semantic/symbols */
+        doc /* make stdlib-snapshot; go test -run 'Snapshot' ./internal/workspace/libs ./internal/semantic/symbols */
         subject stdlib : StandardLibrary;
         objective {
             verify snapshotIsDerived;

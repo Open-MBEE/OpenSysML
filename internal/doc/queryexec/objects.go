@@ -257,7 +257,8 @@ func (e *executor) objectPropertyValues(row Value, property string) ([]Value, bo
 	case query.PropertyElementType:
 		return text(e.objectTypeNames(inst)...), true, nil
 	}
-	if isQueryableProperty(property) {
+	// An object is never an annotation: body, locale and language are its features.
+	if isQueryableProperty(property) && !isAnnotationProperty(property) {
 		decl := objectDeclaration(inst)
 		if decl == nil {
 			return nil, true, nil

@@ -133,6 +133,9 @@ type InvocationExpr struct {
 	Type      *QualifiedName // instantiated type
 	Args      []Node         // positional args (Argument) or ...
 	NamedArgs []NamedArg     // named args, mutually exclusive with Args
+	// BareArgument: Args holds the one operand written without parentheses after
+	// `->` (`xs->forAll {…}`, `xs->reduce '+'`), an operand rather than an argument list.
+	BareArgument bool
 }
 
 // NamedArg is `name = value` in an argument list.

@@ -70,6 +70,11 @@ class SysMLServiceStub:
                 request_serializer=sysml__pb2.InstantiateRequest.SerializeToString,
                 response_deserializer=sysml__pb2.InstantiateResponse.FromString,
                 _registered_method=True)
+        self.InstancePaths = channel.unary_unary(
+                '/sysml.SysMLService/InstancePaths',
+                request_serializer=sysml__pb2.InstancePathsRequest.SerializeToString,
+                response_deserializer=sysml__pb2.InstancePathsResponse.FromString,
+                _registered_method=True)
         self.ExecuteAction = channel.unary_unary(
                 '/sysml.SysMLService/ExecuteAction',
                 request_serializer=sysml__pb2.ExecuteActionRequest.SerializeToString,
@@ -160,6 +165,11 @@ class SysMLServiceStub:
                 request_serializer=sysml__pb2.QueryRequest.SerializeToString,
                 response_deserializer=sysml__pb2.QueryResponse.FromString,
                 _registered_method=True)
+        self.GetElementProperties = channel.unary_unary(
+                '/sysml.SysMLService/GetElementProperties',
+                request_serializer=sysml__pb2.GetElementPropertiesRequest.SerializeToString,
+                response_deserializer=sysml__pb2.GetElementPropertiesResponse.FromString,
+                _registered_method=True)
         self.RunDocumentQuery = channel.unary_unary(
                 '/sysml.SysMLService/RunDocumentQuery',
                 request_serializer=sysml__pb2.RunDocumentQueryRequest.SerializeToString,
@@ -244,6 +254,15 @@ class SysMLServiceServicer:
 
     def Instantiate(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def InstancePaths(self, request, context):
+        """List every root-relative usage path that reaches one object the model's
+        population holds, aliases through connector ends and references included.
+        Reported as the "instance_paths" capability.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -411,6 +430,17 @@ class SysMLServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetElementProperties(self, request, context):
+        """Read the metamodel properties of one element by their specification
+        names (KerML 1.1 and SysML 2.1 abstract syntax: inheritedFeature,
+        connectorEnd, directedFeature, payloadType, ...), as the model's API
+        element form (Convert to api-json) spells them, without converting the
+        whole model. Reported as the "element_properties" capability.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def RunDocumentQuery(self, request, context):
         """Run a named document query with parameter bindings, the answer the REPL's
         %run-query gives, as typed rows rather than formatted lines. Reported as
@@ -503,6 +533,11 @@ def add_SysMLServiceServicer_to_server(servicer, server):
                     request_deserializer=sysml__pb2.InstantiateRequest.FromString,
                     response_serializer=sysml__pb2.InstantiateResponse.SerializeToString,
             ),
+            'InstancePaths': grpc.unary_unary_rpc_method_handler(
+                    servicer.InstancePaths,
+                    request_deserializer=sysml__pb2.InstancePathsRequest.FromString,
+                    response_serializer=sysml__pb2.InstancePathsResponse.SerializeToString,
+            ),
             'ExecuteAction': grpc.unary_unary_rpc_method_handler(
                     servicer.ExecuteAction,
                     request_deserializer=sysml__pb2.ExecuteActionRequest.FromString,
@@ -592,6 +627,11 @@ def add_SysMLServiceServicer_to_server(servicer, server):
                     servicer.Query,
                     request_deserializer=sysml__pb2.QueryRequest.FromString,
                     response_serializer=sysml__pb2.QueryResponse.SerializeToString,
+            ),
+            'GetElementProperties': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetElementProperties,
+                    request_deserializer=sysml__pb2.GetElementPropertiesRequest.FromString,
+                    response_serializer=sysml__pb2.GetElementPropertiesResponse.SerializeToString,
             ),
             'RunDocumentQuery': grpc.unary_unary_rpc_method_handler(
                     servicer.RunDocumentQuery,
@@ -814,6 +854,33 @@ class SysMLService:
             '/sysml.SysMLService/Instantiate',
             sysml__pb2.InstantiateRequest.SerializeToString,
             sysml__pb2.InstantiateResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def InstancePaths(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/sysml.SysMLService/InstancePaths',
+            sysml__pb2.InstancePathsRequest.SerializeToString,
+            sysml__pb2.InstancePathsResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -1300,6 +1367,33 @@ class SysMLService:
             '/sysml.SysMLService/Query',
             sysml__pb2.QueryRequest.SerializeToString,
             sysml__pb2.QueryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetElementProperties(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/sysml.SysMLService/GetElementProperties',
+            sysml__pb2.GetElementPropertiesRequest.SerializeToString,
+            sysml__pb2.GetElementPropertiesResponse.FromString,
             options,
             channel_credentials,
             insecure,

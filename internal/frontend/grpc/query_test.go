@@ -277,7 +277,10 @@ func TestQueryOmitsPropertiesAnElementDoesNotHave(t *testing.T) {
 		t.Fatalf("elements = %d, want 1", len(resp.Elements))
 	}
 	props := resp.Elements[0].Properties
-	for _, absent := range []string{QueryPropOwner, QueryPropIsAbstract, QueryPropMultiplicityLower, QueryPropShortName, QueryPropDocumentation} {
+	for _, absent := range []string{
+		QueryPropOwner, QueryPropIsAbstract, QueryPropMultiplicityLower, QueryPropShortName, QueryPropDocumentation,
+		QueryPropTextualRepresentation, QueryPropBody, QueryPropLocale, QueryPropLanguage,
+	} {
 		if value, ok := props[absent]; ok {
 			t.Errorf("properties[%q] = %q, want it absent for a top-level package", absent, value)
 		}
@@ -1094,4 +1097,88 @@ func TestQueryReportsMetadataUsages(t *testing.T) {
 			}
 		}
 	})
+}
+
+// annotatedQueryModel documents one part and gives another a textual
+// representation, each annotation unnamed.
+const annotatedQueryModel = `package Model {
+	metadata def m {
+		attribute a default "a";
+	}
+	part <a> aaaa {
+		doc /*Documentation*/
+		@m {
+			a := "aa";
+		}
+		port p;
+	}
+	part <b> bbb {
+		rep language "rus"
+			/*Textual representation*/
+		port p;
+	}
+	interface connect (a.p, b.p);
+}`
+
+// TestQueryReportsAnnotationBodies verifies the annotation properties of KerML
+// §8.3.2.3 are reported: an element's textualRepresentation beside its
+// documentation, and a doc or rep element's own body, locale and language.
+func TestQueryReportsAnnotationBodies(t *testing.T) {
+	_, _, resp := runQueryOnSource(t, annotatedQueryModel, &pb.Query{
+		Select: []string{
+			QueryPropTextualRepresentation, QueryPropDocumentation, QueryPropBody, QueryPropLanguage, QueryPropLocale,
+		},
+	})
+	got := make(map[string]map[string]string, len(resp.Elements))
+	for _, element := range resp.Elements {
+		got[element.Id] = element.Properties
+	}
+	want := map[string]map[string]string{
+		"Model::aaaa":     {QueryPropDocumentation: "Documentation"},
+		"Model::aaaa::@0": {QueryPropBody: "Documentation"},
+		"Model::bbb":      {QueryPropTextualRepresentation: "Textual representation"},
+		"Model::bbb::@0":  {QueryPropBody: "Textual representation", QueryPropLanguage: "rus"},
+		"Model::m":        {},
+		"Model::bbb::p":   {},
+	}
+	for id, properties := range want {
+		element, ok := got[id]
+		if !ok {
+			t.Errorf("no element %q in %v", id, resp.Elements)
+			continue
+		}
+		if len(element) != len(properties) {
+			t.Errorf("properties of %s = %v, want %v", id, element, properties)
+		}
+		for property, value := range properties {
+			if element[property] != value {
+				t.Errorf("%s of %s = %q, want %q", property, id, element[property], value)
+			}
+		}
+	}
+}
+
+// TestQueryConstrainsOnAnnotationBodies verifies the annotation properties
+// select as they report: by language, and by the body of the owner's rep.
+func TestQueryConstrainsOnAnnotationBodies(t *testing.T) {
+	_, _, resp := runQueryOnSource(t, annotatedQueryModel, &pb.Query{
+		Where: primitive(QueryPropLanguage, opEqual, false, "rus"),
+	})
+	if ids := answeredIDs(resp); !slices.Equal(ids, []string{"Model::bbb::@0"}) {
+		t.Errorf("language = rus selects %v, want [Model::bbb::@0]", ids)
+	}
+	_, _, resp = runQueryOnSource(t, annotatedQueryModel, &pb.Query{
+		Where: primitive(QueryPropTextualRepresentation, opEqual, false, "Textual representation"),
+	})
+	if ids := answeredIDs(resp); !slices.Equal(ids, []string{"Model::bbb"}) {
+		t.Errorf("textualRepresentation selects %v, want [Model::bbb]", ids)
+	}
+}
+
+func answeredIDs(resp *pb.QueryResponse) []string {
+	ids := make([]string, 0, len(resp.Elements))
+	for _, element := range resp.Elements {
+		ids = append(ids, element.Id)
+	}
+	return ids
 }

@@ -1,0 +1,10 @@
+{
+	"libraries": true,
+	"type": "action",
+	"evaluate": "test::o",
+	"outputs": {
+		"r": {"type": "Sequence", "elements": [{"type": "Integer", "value": 10}]},
+		"t.x": {"type": "Sequence", "elements": [{"type": "Integer", "value": 9}]},
+		"t.y": {"type": "Sequence", "elements": [{"type": "Integer", "value": 10}]}
+	}
+}

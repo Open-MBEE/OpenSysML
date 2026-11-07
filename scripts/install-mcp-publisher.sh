@@ -20,7 +20,8 @@ declare -A MCP_PUBLISHER_SHA256=(
 dest="${1:-build/mcp-publisher}"
 binary="$dest/mcp-publisher"
 
-if [[ -x "$binary" ]] && "$binary" --version 2>/dev/null | grep -q "$MCP_PUBLISHER_VERSION"; then
+# Capture, then grep: a pipe would SIGPIPE the binary, and the capture keeps its exit status.
+if [[ -x "$binary" ]] && version="$("$binary" --version 2>/dev/null)" && grep -q "$MCP_PUBLISHER_VERSION" <<<"$version"; then
   echo "$binary"
   exit 0
 fi

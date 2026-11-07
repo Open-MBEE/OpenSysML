@@ -18,7 +18,7 @@ package MixedMemberships
     require constraint minPressure
     assume constraint primedPump
     assert constraint sealed
-    frame contained
+    frame concern contained
   view memberships
   view membershipsLayout
 

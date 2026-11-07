@@ -515,3 +515,9 @@ func isControlNode(sym *symbols.Symbol) bool {
 		return false
 	}
 }
+
+// DefaultsToInputDirection reports a usage whose kind gives it direction `in`
+// without writing one: a subject, actor or stakeholder parameter.
+func DefaultsToInputDirection(sym *symbols.Symbol) bool {
+	return hasDefaultInputParameterDirection(sym)
+}

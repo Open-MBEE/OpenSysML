@@ -35,3 +35,5 @@ n1 -- n6: { class: edge }
 n1 <- n2: { class: reference }
 n1 <- n3: { class: reference }
 n1 <- n4: { class: reference }
+frame_name: "«view» ParameterCalcViews::calculations" { shape: text; near: top-left }
+frame_tr: "expose ParameterCalcs::add\nexpose ParameterCalcs::Sensor" { shape: text; near: top-right }

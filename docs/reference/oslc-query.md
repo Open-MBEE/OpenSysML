@@ -61,6 +61,10 @@ bound predicate that is not in this table:
 | `sysml:shortName` | `shortName` |
 | `sysml:declaredShortName` | `declaredShortName` |
 | `sysml:documentation` | `documentation` |
+| `sysml:textualRepresentation` | `textualRepresentation` |
+| `sysml:body` | `body` |
+| `sysml:locale` | `locale` |
+| `sysml:language` | `language` |
 | `sysml:owner` | `owner` |
 | `sysml:isAbstract` | `isAbstract` |
 | `sysml:isIndividual` | `isIndividual` |

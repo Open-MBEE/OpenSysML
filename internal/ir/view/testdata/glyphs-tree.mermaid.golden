@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» NotationGlyphs::Diagrams::treeGlyphs"
 ---
 %% NotationGlyphs::Diagrams::treeGlyphs — tree rendering
 flowchart TD
@@ -35,7 +36,7 @@ flowchart TD
 **filling**`")
     n5("`*«snapshot»*
 **full**`")
-    n6("`*«occurrence»*
+    n6("`*«event occurrence»*
 **startup**`")
     n7("`*«part»*
 **spare**`")

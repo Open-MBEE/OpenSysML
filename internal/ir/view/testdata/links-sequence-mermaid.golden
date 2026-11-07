@@ -38,6 +38,9 @@ sequenceDiagram
   link n1: Source @ https://example.test/src/sequence.sysml#L32
   participant n2 as «part»<br>consumer
   link n2: Source @ https://example.test/src/sequence.sysml#L41
-  n2->>n1: subscribe_message
-  n0->>n1: publish_message
-  n1->>n2: deliver_message
+  n2-)n1: subscribe_message of Subscribe
+  n1--)n1:
+  n2--)n2:
+  n0-)n1: publish_message of Publish
+  n1--)n1:
+  n1-)n2: deliver_message of Deliver

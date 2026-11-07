@@ -1553,6 +1553,9 @@ func ownerSymbol(sym *symbols.Symbol) *symbols.Symbol {
 // indexed name names.
 func (m *Model) ownerOf(sym *symbols.Symbol) *symbols.Symbol {
 	if owner := ownerSymbol(sym); owner != nil {
+		if usage := m.metadataBodyOwner(sym, owner); usage != nil {
+			return usage
+		}
 		return owner
 	}
 	if body := m.bodyDeclaredBy(sym); body != nil {
@@ -1574,6 +1577,23 @@ func (m *Model) ownerOf(sym *symbols.Symbol) *symbols.Symbol {
 
 // IsMetadataType reports whether a symbol is a metadata definition or a KerML
 // metaclass — the types an annotation can have.
+// metadataBodyOwner is the metadata usage (`@M { x = 1; }` or `#M`) whose body
+// declares sym: that scope is owned by the metadata definition, not the usage.
+func (m *Model) metadataBodyOwner(sym, owner *symbols.Symbol) *symbols.Symbol {
+	if sym == nil || sym.OwnerScope == nil || sym.Expr != nil || sym.Implicit != nil {
+		return nil
+	}
+	node := sym.OwnerScope.Node()
+	if node == nil || owner.Decl == node {
+		return nil
+	}
+	usage, ok := m.SymbolDeclaring(sym.OwnerScope, node)
+	if !ok || usage == nil || usage.Decl != node || usage.Kind != symbols.SymbolMetadataUsage {
+		return nil
+	}
+	return usage
+}
+
 func IsMetadataType(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false

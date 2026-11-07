@@ -35,6 +35,15 @@ type StateGraph struct {
 	// executable statements by the time it is reached.
 	Behaviors map[*ast.StateNode]*StateBehaviors
 
+	// Parallel: state → its substates run in parallel, by its own `parallel` or
+	// an inherited definition's; MachineParallel says it of the machine.
+	Parallel        map[*ast.StateNode]bool
+	MachineParallel bool
+
+	// Features: a state's entry, do or exit action usage → the directed parameters
+	// it declares (`in target : Target;`), the pins a view draws on its node.
+	Features map[ast.Node][]Feature
+
 	// HiddenStates are graph-only composite owners synthesized for parallel
 	// regions. They execute behaviors but are not user-visible state visits.
 	HiddenStates map[*ast.StateNode]bool
@@ -348,12 +357,13 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 	graph.machineDecl = stateMachineDecl
 	graph.recordRunToCompletion(nil, body, DescribeMember(stateMachineDecl))
 
-	graph.Connections = lowerConnections(members, OwnerBehavior, scope)
+	graph.Connections = graph.keptConnections(body)
 	graph.Attributes = graph.keptAttributes(lowerStateAttributes(graph, inherited), lowerStateAttributes(graph, ownMembers(members, scope)))
 	parallelMachine := stateMachineIsParallel(stateMachineDecl)
 	for _, owner := range owners {
 		parallelMachine = parallelMachine || stateMachineIsParallel(owner)
 	}
+	graph.MachineParallel = parallelMachine
 	graph.Machine = graph.machineState(stateMachineDecl, inherited, members, scope)
 
 	for _, group := range groupMembers(body) {
@@ -509,6 +519,40 @@ func lowerStateAttributes(graph *StateGraph, members []inheritedMember) []Attrib
 // memberGroup is the members one body contributes to a state, in declaration
 // order: a name written in them resolves in that body's scope, and a succession
 // out of an entry action names one of them.
+// keptConnections lowers the connectors of every body group, farther first, dropping an
+// inherited connector that a nearer one redefines with ends of its own.
+func (g *StateGraph) keptConnections(body []inheritedMember) []Connection {
+	type declared struct {
+		conns []Connection
+		sym   *symbols.Symbol
+	}
+	var kept []declared
+	for _, group := range groupMembers(body) {
+		var own []declared
+		for _, member := range group.nodes {
+			u, ok := unwrapMembership(member).(*ast.Usage)
+			if !ok || !connectorKind(u.Kind) {
+				continue
+			}
+			sym := group.scope.MemberDeclaring(u)
+			conns := lowerConnections([]ast.Node{member}, OwnerBehavior, group.scope)
+			if len(conns) == 0 {
+				continue
+			}
+			kept = slices.DeleteFunc(kept, func(d declared) bool {
+				return g.redefinesMember(group.scope, u, sym, d.sym)
+			})
+			own = append(own, declared{conns: conns, sym: sym})
+		}
+		kept = append(kept, own...)
+	}
+	var out []Connection
+	for _, d := range kept {
+		out = append(out, d.conns...)
+	}
+	return out
+}
+
 type memberGroup struct {
 	owner ast.Node
 	scope *symbols.Scope
@@ -579,6 +623,7 @@ func (g *StateGraph) lowerBehaviorsFor(state *ast.StateNode, actions []ast.Node,
 		behavior := lowerStateBehavior(actual, nil, declared, g.resolver)
 		behavior.Owner = state
 		behaviors = append(behaviors, behavior)
+		g.lowerBehaviorFeatures(actual, declared)
 	}
 	return behaviors
 }
@@ -603,6 +648,7 @@ func stateNodeFromUsage(graph *StateGraph, usage *ast.Usage, scope *symbols.Scop
 	for _, owner := range owners {
 		parallel = parallel || stateMachineIsParallel(owner)
 	}
+	graph.Parallel[state] = parallel
 
 	body := append(append([]inheritedMember{}, inherited...), ownMembers(usage.Members, bodyScope)...)
 	graph.recordRunToCompletion(state, body, "the state "+name)
@@ -663,6 +709,7 @@ func newStateGraph(scope *symbols.Scope, endpoints EndpointResolver) *StateGraph
 		endpoints:            endpoints,
 		StateScopes:          make(map[*ast.StateNode]*symbols.Scope),
 		Behaviors:            make(map[*ast.StateNode]*StateBehaviors),
+		Parallel:             make(map[*ast.StateNode]bool),
 		HiddenStates:         make(map[*ast.StateNode]bool),
 		HiddenRegionOf:       make(map[*ast.StateNode]*ast.StateRegion),
 		RegionState:          make(map[*ast.StateRegion]*ast.StateNode),
@@ -2167,4 +2214,31 @@ func collectStateNodeTransitions(graph *StateGraph, n *ast.StateNode, body trans
 		}
 	}
 	return nil
+}
+
+// lowerBehaviorFeatures records the directed parameters a state's action usage
+// declares among its own members, as lowerFeatures does for an action graph's nodes.
+func (g *StateGraph) lowerBehaviorFeatures(node ast.Node, scope *symbols.Scope) {
+	usage, ok := node.(*ast.Usage)
+	if !ok {
+		return
+	}
+	body := childScope(scope, node)
+	var features []Feature
+	for _, member := range usage.Members {
+		m, ok := unwrapMembership(member).(*ast.Usage)
+		if !ok || m.Direction != ast.DirIn && m.Direction != ast.DirOut {
+			continue
+		}
+		if feature, ok := declaredFeature(m, body); ok {
+			features = append(features, feature)
+		}
+	}
+	if len(features) == 0 {
+		return
+	}
+	if g.Features == nil {
+		g.Features = make(map[ast.Node][]Feature)
+	}
+	g.Features[usage] = features
 }

@@ -1,6 +1,7 @@
 @startuml
 ' CompartmentDemoViews::controllers — tree rendering (render asTreeDiagram)
 ' not represented: 4 member(s) drawn as compartment rows of their owner
+mainframe <size:10>//«view»//</size> **CompartmentDemoViews::controllers**\n<size:10>expose CompartmentDemo::Sensor</size>\n<size:10>expose CompartmentDemo::Controller</size>
 <style>
 root {
   BackGroundColor white
@@ -44,6 +45,6 @@ hide stereotype
 hide circle
 hide empty members
 class "<size:10>//«part def»//</size>\n**Sensor**\nattributes\nlabel : String\nreading : Real" as n0 <<part def>>
-class "<size:10>//«part def»//</size>\n**Controller**\nattributes\nenabled : Boolean\nparts\nsensor : Sensor" as n3 <<part def>>
+class "<size:10>//«part def»//</size>\n**Controller**\nattributes\nenabled : Boolean\nparts\n<color:gray>sensor : Sensor</color>" as n3 <<part def>>
 n3 *-- "sensor" n0
 @enduml

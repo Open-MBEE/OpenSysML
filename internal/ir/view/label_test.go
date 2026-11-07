@@ -256,7 +256,7 @@ func TestMermaidLabelShapePerForm(t *testing.T) {
 		{KindSequence, []string{
 			`participant n0 as «state def»<br>Machines::Lamp`,
 			`participant n3 as «part»<br>pump : Pump`,
-			`n1->>n2: switch`,
+			`n0->>n0: switch`,
 		}},
 	}
 	for _, tc := range cases {

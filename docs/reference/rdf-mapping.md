@@ -291,6 +291,26 @@ output references (the `importedMembership` of `import ScalarValues::Real;`) is
 stated as a `sysml:OwningMembership` with its `sysml:memberElement`, marked the
 same way.
 
+The same naming covers the library members a type of the document inherits —
+which the element form's completed `inheritedMembership`, `feature` and kindred
+lists reference (§ Derived properties) — whether or not the model text names
+them: each named member as above, under the membership it is owned by
+(`sysml:FeatureMembership` for a feature); each unnamed one (a documentation
+comment, an invariant, an unnamed connector) by `rdf:type`, `sysml:elementId`
+and `sysx:libraryPath`, the positional path `Owner::qualifiedName/Metaclass[i]`
+(`i` counting the owner's preceding owned elements of that metaclass, the form
+the pilot's bridge keys unnamed elements by) that stands in for the qualified
+name it lacks. The id of an unnamed member is this implementation's: a
+version-5 UUID of that path under its owner's normative id
+(`identity.AnonymousMemberOf`), since the standard publishes no rule for them.
+The reader of the element form restates these from the ids its completed
+properties reference and, in the compact form, from every `libraryReferences`
+entry, each typed as the entry states; a member the model's own statements
+reference resolves by its normative id, as before. A stub the encoder adds for
+an inherited member states the metaclass the semantic model classifies it by
+(a KerML `feature` as `sysml:Feature`); the stub of a member the model text
+references directly keeps stating its declaration's, as it did.
+
 Such an element has no owner in the graph, and the document's root namespace
 does not take it (`LibraryReference`). The graph form — Turtle — keeps these
 names. The API element form does not carry them: there an ownerless element is
@@ -303,8 +323,8 @@ For clients that need to display those names without bundling the library,
 `ConvertResponse.library_references` carries a separate table of `id`, `qualified_name`
 and `type` (metaclass), advertised as `convert_library_references`. The
 [compact API JSON document](api-json-compact.md) carries the same information in the
-optional top-level `libraryReferences` table, with literal `@id`, `qualifiedName` and
-`@type` keys. Only library elements referenced by the written output are included,
+optional top-level `libraryReferences` table, with literal `@id`, `qualifiedName` (or
+`libraryPath`, for an unnamed member) and `@type` keys. Only library elements referenced by the written output are included,
 sorted by ID; no library declarations are added to the default element array.
 
 The CLI writes that table as a JSON side file, without changing the model output:
@@ -485,11 +505,14 @@ triples come); a set of classes with no such member is refused, naming the subje
   `individual part def`, `individual item def`, `individual occurrence def`, …
   carries it and reads back with its `individual` modifier, and so does an
   `individual def`, whose kind keyword states the fact and is written back
-  alone rather than doubled as a modifier. As with `sysml:EnumerationDefinition`
-  and `isVariation`, the metaclass `sysml:IndividualDefinition` states the fact
-  on its own: a graph typed so but carrying no flag — the shape earlier
-  releases wrote — reads back as `individual def` and gains the flag on its
-  next hop, after which it is stable
+  alone rather than doubled as a modifier. An `individual def` is typed
+  `sysml:OccurrenceDefinition` and an `individual` usage `sysml:OccurrenceUsage`
+  (SysML.xtext `IndividualDefinition returns SysML::OccurrenceDefinition`,
+  `IndividualUsage returns SysML::OccurrenceUsage`): the metamodel declares no
+  individual class, and the flag alone states the fact. A graph typed
+  `sysml:IndividualDefinition` or `sysml:IndividualUsage` — the shape earlier
+  releases wrote — still reads back as `individual def` / `individual`, and is
+  written standardly on its next hop
 - `sysml:portionKind`, `"snapshot"` or `"timeslice"`, for a usage declared as a
   portion (`snapshot :>> start`, `timeslice occurrence t`); the two are the
   metamodel's `OccurrenceUsage::portionKind`, so no flag spells them. Such a
@@ -1213,7 +1236,9 @@ The rules the tree follows:
 - **Operands are owned structurally.** Each operand has an input `sysml:Feature`
   with direction `in`, a `ParameterMembership` in the expression's
   `ownedFeatureMembership`, and a `FeatureValue` membership whose `value` is
-  the operand expression. `sysml:parameter`/`sysml:input` identify the
+  the operand expression. An operator's operand membership states
+  `sysml:visibility "private"`, an invocation's argument membership none (public),
+  as the pilot writes them. `sysml:parameter`/`sysml:input` identify the
   parameters, while the JSON annotation preserves their RDF order. An
   invocation also lists under `parameter` the invoked behavior's parameters no
   argument binds — `Time::DurationOf::clock` for `DurationOf(o)`, an `out`, a
@@ -2221,11 +2246,16 @@ constraints derive — and lists the keys it completed on the element in
 `"sysx:completedProperties": [...]`; a property the graph states is written as
 stated and not listed. A membership's and an import's `visibility` the graph
 leaves at the metamodel default is completed at it (`public`, 8.3.2.4.3;
-`private`, 8.3.2.4.2) and listed the same way. A property the evaluator cannot
-derive from the graph — one that needs the inherited members of a type whose
-general types the graph does not state, the implied library bases included — is
-not completed: `feature`, `inheritedMembership`, `member` and the collections
-over them stay as the graph states them. Reading, a listed property is
+`private`, 8.3.2.4.2) and listed the same way. The inherited-member family
+(`inheritedMembership`, `feature`, `featureMembership`, `inheritedFeature`,
+`directedFeature`, `input`, `output`, a type's `membership` and `member`, a
+usage's or definition's `usage` and `directedUsage`) is completed from the
+semantic model's inheritance table, which supplies the non-private memberships
+of the general types the graph does not describe — the explicit and implied
+library bases — with redefined features removed (8.3.3.1.10). An element whose
+implied bases the metaclass alone does not determine (an expression, its result
+feature, a multiplicity range, a nested usage's implied subsettings) inherits
+only what the graph states for it. Reading, a listed property is
 the writer's completion and states no triple, so the graph read back is the
 graph written; a property no list names — in a document another writer
 produced, or one this list was stripped from — is the statement it looks like. The compact form's `omit_derived` leaves the completed
@@ -2461,7 +2491,7 @@ sysml:ControlNode
     a rdfs:Class ;
     rdfs:label "ControlNode" ;
     rdfs:subClassOf sysml:ActionUsage ;
-    sysx:abstract true .
+    sysx:abstract "true"^^xsd:boolean .
 ```
 
 - The subject is the metaclass IRI `rdf:type` names on a converted element, so

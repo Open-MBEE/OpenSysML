@@ -120,6 +120,7 @@ func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[
 		ids.conjugateBySpan[spanKey{e.file.Name(), node.Span()}] = conjugate
 	}
 	ids.recordValuePart(e, node, subject)
+	ids.recordDefaultMultiplicity(e, node, subject)
 	ids.recordConnectorEnds(e, node, subject)
 	ids.recordSatisfySubjects(e, node, subject)
 	ids.registerHeadChains(e, subject, chainTargets(e.writtenHeadClauses(node, parents[node], parents)))
@@ -145,6 +146,20 @@ func (ids *ElementIDs) recordValuePart(e *encoder, node ast.Node, subject rdf.Te
 	e.registerExpressionIDs(ids, value, valued)
 }
 
+// recordDefaultMultiplicity records the Multiplicity a usage's implicit [1..1] or an
+// individual definition is parsed with, and its OwningMembership (defaultMultiplicity), for the id reader.
+func (ids *ElementIDs) recordDefaultMultiplicity(e *encoder, node ast.Node, subject rdf.Term) {
+	sym := e.ids.declSym[node]
+	if sym == nil || !e.ids.model.ImpliesDefaultMultiplicity(sym) {
+		return
+	}
+	element := e.ids.mintedNode(rdf.ExpressionIRI(subject, pMultiplicity), subject, pMultiplicity)
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(element), element, rdf.OwningMembershipSuffix)
+	part := partIDs{element: rdf.LocalName(element.Value), membership: rdf.LocalName(membership.Value)}
+	ids.partByNode[partKey{node, pMultiplicity}] = part
+	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, pMultiplicity}] = part
+}
+
 func (ids *ElementIDs) recordConnectorEnds(e *encoder, node ast.Node, subject rdf.Term) {
 	for i, end := range writtenConnectorEnds(node) {
 		if end == nil {
@@ -153,6 +168,8 @@ func (ids *ElementIDs) recordConnectorEnds(e *encoder, node ast.Node, subject rd
 		feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, fmt.Sprintf("end%d", i)), subject, fmt.Sprintf("end%d", i))
 		ids.byNode[end] = rdf.LocalName(feature.Value)
 		ids.bySpan[spanKey{e.file.Name(), end.Span()}] = ids.byNode[end]
+		// The end states its implicit [1..1] as a usage does (connectorEnd).
+		ids.recordDefaultMultiplicity(e, end, feature)
 		// The head owns each end through a membership minted beside it (bindingEnds).
 		membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix).Value)
 		ids.membershipByNode[end] = membership

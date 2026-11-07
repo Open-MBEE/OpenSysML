@@ -1,5 +1,6 @@
 @startuml
 ' MembershipViews::structure — tree rendering
+mainframe <size:10>//«view»//</size> **MembershipViews::structure**\n<size:10>expose A::APart</size>\n<size:10>expose A::APort</size>\n<size:10>expose A::part1</size>\n<size:10>expose A::part2</size>
 <style>
 root {
   BackGroundColor white

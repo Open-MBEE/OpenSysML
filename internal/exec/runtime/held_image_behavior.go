@@ -593,12 +593,14 @@ func (m *materializing) behavior(b imagedBehavior) error {
 		}
 		behavior.State = exec
 	case b.action != nil:
-		action, tool, _, err := dst.performanceBody(decl.member, behavior.Symbol)
+		callee := behavior.callee()
+		action, tool, _, err := dst.performanceBody(decl.member, callee)
 		if err != nil {
 			return err
 		}
-		declared := declaredThrough(behavior.Symbol, action, tool)
-		exec := newActionExecutorOn(dst, decl.member, action, declared, tool, b.action.graph, inst, occurrence)
+		declared := declaredThrough(callee, action, tool)
+		body := actionBody{action: action, declared: declared, tool: tool, graph: b.action.graph}
+		exec := newActionExecutorOn(dst, decl.member, body, inst, occurrence)
 		if err := m.actionExecutor(exec, b.action); err != nil {
 			dst.clock.detach(exec)
 			return err

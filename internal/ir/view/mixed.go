@@ -66,6 +66,10 @@ func (w *mixedWalk) render(sym *symbols.Symbol, exposed bool, parent *Node) {
 		}
 	}
 	if w.seen[sym] {
+		if exposed && mixedStructural(sym) && !w.queued(sym) {
+			// Walked as an exposed structure's member, it is exposed itself too.
+			w.queueStructure(sym, parent)
+		}
 		return
 	}
 	w.seen[sym] = true
@@ -204,6 +208,16 @@ func (w *mixedWalk) queueStructure(sym *symbols.Symbol, parent *Node) {
 	w.walkStructureMembers(sym, parent)
 }
 
+// queued reports whether sym is already queued for the interconnection builder.
+func (w *mixedWalk) queued(sym *symbols.Symbol) bool {
+	for _, entry := range w.structures {
+		if entry.sym == sym {
+			return true
+		}
+	}
+	return false
+}
+
 // walkStructureMembers collects structural descendants into the shared node map.
 func (w *mixedWalk) walkStructureMembers(sym *symbols.Symbol, parent *Node) {
 	if !w.structureOwners[sym] {
@@ -297,7 +311,7 @@ func (w *mixedWalk) renderStructures() {
 	for _, entry := range w.structures {
 		index(entry.sym)
 	}
-	w.renderDeferredStructureMembers(members, w.structureOrder)
+	adopted := w.renderDeferredStructureMembers(members, w.structureOrder)
 	roots := map[*Node]bool{}
 	for _, root := range temp.Roots {
 		roots[root] = true
@@ -313,15 +327,17 @@ func (w *mixedWalk) renderStructures() {
 			entry.parent.Children[entry.index] = node
 		}
 	}
-	w.removeStructuralSlots()
+	w.removeStructuralSlots(adopted)
 	w.out.Edges = append(w.out.Edges, temp.Edges...)
 	w.out.Notes = append(w.out.Notes, temp.Notes...)
 	w.out.Notices = append(w.out.Notices, temp.Notices...)
 	w.out.depthCut += temp.depthCut
 }
 
-// renderDeferredStructureMembers attaches members after their structural owners are indexed.
-func (w *mixedWalk) renderDeferredStructureMembers(members map[*symbols.Symbol]*Node, owners []*symbols.Symbol) {
+// renderDeferredStructureMembers attaches members after their structural owners are indexed,
+// and is the owner node each member's node now hangs from.
+func (w *mixedWalk) renderDeferredStructureMembers(members map[*symbols.Symbol]*Node, owners []*symbols.Symbol) map[*Node]*Node {
+	adopted := map[*Node]*Node{}
 	for _, sym := range owners {
 		owner := members[sym]
 		if owner == nil {
@@ -329,6 +345,10 @@ func (w *mixedWalk) renderDeferredStructureMembers(members map[*symbols.Symbol]*
 		}
 		for _, member := range w.deferredMembers[sym] {
 			w.render(member, false, owner)
+		}
+		if collapsed(owner) {
+			// A collapsed owner draws nothing beneath it, so a member drawn elsewhere stays there.
+			continue
 		}
 		existingChildren := append([]*Node(nil), owner.Children...)
 		var children []*Node
@@ -344,6 +364,7 @@ func (w *mixedWalk) renderDeferredStructureMembers(members map[*symbols.Symbol]*
 			if node != nil && !directMembers[node] {
 				children = append(children, node)
 				directMembers[node] = true
+				adopted[node] = owner
 			}
 		}
 		for _, child := range existingChildren {
@@ -353,14 +374,16 @@ func (w *mixedWalk) renderDeferredStructureMembers(members map[*symbols.Symbol]*
 		}
 		owner.Children = children
 	}
+	return adopted
 }
 
-// removeStructuralSlots replaces temporary structural placeholders with built nodes.
-func (w *mixedWalk) removeStructuralSlots() {
-	compact := func(nodes []*Node) []*Node {
+// removeStructuralSlots drops the temporary structural placeholders, and every
+// placement of an adopted node other than the one under its owner.
+func (w *mixedWalk) removeStructuralSlots(adopted map[*Node]*Node) {
+	compact := func(parent *Node, nodes []*Node) []*Node {
 		out := nodes[:0]
 		for _, node := range nodes {
-			if node != nil {
+			if owner, ok := adopted[node]; node != nil && (!ok || owner == parent) {
 				out = append(out, node)
 			}
 		}
@@ -368,12 +391,12 @@ func (w *mixedWalk) removeStructuralSlots() {
 	}
 	var walk func(*Node)
 	walk = func(node *Node) {
-		node.Children = compact(node.Children)
+		node.Children = compact(node, node.Children)
 		for _, child := range node.Children {
 			walk(child)
 		}
 	}
-	w.out.Roots = compact(w.out.Roots)
+	w.out.Roots = compact(nil, w.out.Roots)
 	for _, root := range w.out.Roots {
 		walk(root)
 	}

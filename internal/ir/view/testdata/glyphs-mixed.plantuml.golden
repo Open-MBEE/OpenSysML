@@ -1,5 +1,6 @@
 @startuml
 ' NotationGlyphs::Diagrams::mixedGlyphs — mixed rendering (render asMixedDiagram)
+mainframe <size:10>//«view»//</size> **NotationGlyphs::Diagrams::mixedGlyphs**\n<size:10>expose LevelReq</size>\n<size:10>expose levelReq</size>\n<size:10>expose capacity</size>\n<size:10>expose bounded</size>\n<size:10>expose tight</size>\n<size:10>expose tankView</size>\n<size:10>expose Tank</size>
 <style>
 root {
   BackGroundColor white
@@ -41,7 +42,7 @@ note {
 skinparam wrapWidth 300
 hide stereotype
 rectangle "<size:10>//«requirement def»//</size>\n**LevelReq**" as n0 <<requirement def>> {
-  rectangle "<size:10>//«frame»//</size>\n**safety**" as n1 <<frame>> <<usage>>
+  rectangle "<size:10>//«frame concern»//</size>\n**safety**" as n1 <<frame concern>> <<usage>>
 }
 rectangle "<size:10>//«requirement»//</size>\n**NotationGlyphs::levelReq**" as n2 <<requirement>> <<usage>>
 rectangle "<size:10>//«requirement»//</size>\n**capacity**" as n3 <<requirement>> <<usage>> {

@@ -1385,6 +1385,7 @@ func (c *checker) performedBy(graph *lower.ActionGraph, node ast.Node) (settled 
 	if !performs || lower.IsCaseNode(usage) {
 		return nil, nil, false
 	}
+	inv.step, _ = stepSymbol(graph, node)
 	settled, callees, err := actionCandidates(c.ctx, nodeScope(graph, node), inv)
 	if err != nil {
 		return nil, nil, true

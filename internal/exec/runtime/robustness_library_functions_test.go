@@ -14,6 +14,7 @@ import (
 // TestRuntimeRobustnessLibraryFunctions covers library and extension function calls: unknown
 // names, operands of the wrong kind, bodies by reference and the step budget.
 func TestRuntimeRobustnessLibraryFunctions(t *testing.T) {
+	t.Parallel()
 	t.Run("library_function_outside_its_domain", testLibraryFunctionOutsideItsDomain)
 	t.Run("library_function_wrong_arity", testLibraryFunctionWrongArity)
 	t.Run("extension_library_function_outside_its_domain", testExtensionLibraryFunctionOutsideItsDomain)

@@ -403,7 +403,10 @@ func forEachConformanceCase(t *testing.T, f func(t *testing.T, conformanceDir, t
 		}
 		expected := loadExpectedOutcome(t, conformanceDir, testName)
 		cases++
-		t.Run(testName, func(t *testing.T) { f(t, conformanceDir, testName, expected) })
+		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+			f(t, conformanceDir, testName, expected)
+		})
 	}
 	if cases == 0 {
 		t.Fatalf("no conformance cases in %s", conformanceDir)
@@ -415,6 +418,7 @@ func forEachConformanceCase(t *testing.T, f func(t *testing.T, conformanceDir, t
 // completion again: the same trace, the same values, the same error every time,
 // and the same as a run never snapshotted.
 func TestSnapshotRoundTrip(t *testing.T) {
+	t.Parallel()
 	forEachConformanceCase(t, func(t *testing.T, conformanceDir, testName string, expected ExpectedOutcome) {
 		// The plain run fixes how many steps are taken before completion: every
 		// step there is, the one that fails included, up to the bound.
@@ -468,6 +472,7 @@ func TestSnapshotRoundTrip(t *testing.T) {
 // TestSnapshotRestoresTwice restores one snapshot of every conformance case
 // twice, running to completion from each: a snapshot is not consumed by a restore.
 func TestSnapshotRestoresTwice(t *testing.T) {
+	t.Parallel()
 	forEachConformanceCase(t, func(t *testing.T, conformanceDir, testName string, expected ExpectedOutcome) {
 		run := newSteppedRun(t, conformanceDir, testName, expected)
 		// Snapshot before the first step, then every other step after it, so the

@@ -254,6 +254,9 @@ type ActionEdge struct {
 	// Gate is the succession that leads to a succession flow, whose guard and name the
 	// edge takes; nil when the flow follows its source unconditionally.
 	Gate ast.Node
+	// Else marks the `else <target>;` branch of a decision, taken when no guarded
+	// branch of the same decision is (ControlFlowEdge.IsElse).
+	Else bool
 }
 
 // Statement is one lowered statement in an action node's body. Statements are
@@ -1110,6 +1113,7 @@ func (l *actionEdgeLowerer) controlFlowEdge(n *ast.ControlFlowEdge) error {
 		Target: targetNode,
 		Guard:  n.Guard,
 		Decl:   n,
+		Else:   n.IsElse,
 	})
 	return nil
 }

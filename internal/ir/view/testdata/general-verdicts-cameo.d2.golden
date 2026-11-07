@@ -38,3 +38,6 @@ n11 -> n3: "«verify»" { class: edge }
 n12 -> n3: "«verify»" { class: edge }
 n13 -> n5: "«verify»" { class: edge }
 n14 -> n5: "«verify»" { class: edge }
+frame_name: "«view» GeneralViews::requirementView : GeneralView" { shape: text; near: top-left }
+frame_tr: "expose VehicleRequirements**" { shape: text; near: top-right }
+frame_bl: "filter @SysML::RequirementDefinition or @SysML::RequirementUsage" { shape: text; near: bottom-left }

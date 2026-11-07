@@ -7,6 +7,12 @@
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
+        <mxCell id="frame" value="«view» AbstractViews::familyTree : Family" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeWidth=0.5;width=369;height=40;" vertex="1" parent="1">
+            <mxGeometry width="827" height="1169" as="geometry"/>
+        </mxCell>
+        <mxCell id="frame_tr" value="expose Vehicle**&#xA;expose vehicleFamily**&#xA;expose Models**" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=10;" vertex="1" parent="1">
+            <mxGeometry x="626" width="201" height="59" as="geometry"/>
+        </mxCell>
         <object id="n0" label="«abstract part def»&#xA;Vehicle" fqn="AbstractViews::Vehicle" kind="abstract part def" view="AbstractViews::familyTree" link="abstract.sysml:7">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="1">
             <mxGeometry x="50" y="50" width="130" height="145" as="geometry"/>
@@ -93,7 +99,7 @@
           </mxCell>
         </object>
         <object id="e1" label="" kind="typing" view="AbstractViews::familyTree" link="abstract.sysml:14">
-          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5;exitPerimeter=0;entryX=1;entryY=0.7517;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n2" target="n0">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5;exitPerimeter=0;entryX=1;entryY=0.7517;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n2" target="n0">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="213" y="166"/>

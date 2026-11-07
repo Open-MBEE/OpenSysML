@@ -21,3 +21,5 @@ n0: "«part def»\nToaster" {
 }
 n0.n2."n2.0" -- n0.n4: { class: connection }
 n0.n4 -- n0.n1."n1.0": { class: connection }
+frame_name: "«view» ToasterViews::toasterView" { shape: text; near: top-left }
+frame_tr: "expose ToasterDemo::Toaster" { shape: text; near: top-right }

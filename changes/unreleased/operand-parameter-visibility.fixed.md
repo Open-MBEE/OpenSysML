@@ -1,0 +1,1 @@
+- An operator's operand is owned by a private `ParameterMembership` and an invocation's argument by a public one, on reflection, RDF and API-JSON alike — as the pilot states them (`OperandEList` against KerMLExpressions.xtext `ArgumentMember`); a classification operator's type argument stays public.

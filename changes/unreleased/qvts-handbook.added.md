@@ -1,1 +1,0 @@
-- Adds runnable QVTS examples under `examples/qvts` with recorded output, and the guide chapter at `docs/guide/qvts.md`.

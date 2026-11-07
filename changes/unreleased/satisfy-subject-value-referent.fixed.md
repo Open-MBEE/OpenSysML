@@ -1,1 +1,0 @@
-- A satisfy subject's `by` value names its referent on the reflective read before any document walk resolved the clause — the Membership to the feature, or the chain Feature's FeatureChainings for `by a.b` — so a query over the model lists them as the RDF export does.

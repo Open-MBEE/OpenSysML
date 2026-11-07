@@ -6,11 +6,19 @@ digraph "NaryViews::dependencies" {
   graph [fontname="Helvetica"];
   node [shape=box, style=filled, fillcolor=white, color="#181818", fontname="Helvetica", fontsize=14, penwidth=0.5];
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
-  "n0" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Chassis</b>>];
-  "n1" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Lights</b>>];
-  "n2" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Brakes</b>>];
-  "n3" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Steering</b>>];
-  "n4" [shape=circle, fillcolor=black, width=0.2, height=0.2, fixedsize=true, label="", xlabel="rules"];
+  subgraph "cluster_frame" {
+    label=<<font point-size="10"><i>«view»</i></font> <b>NaryViews::dependencies</b>>;
+    labeljust=l;
+    labelloc=t;
+    penwidth=0.5;
+    margin=8;
+    "n0" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Chassis</b>>];
+    "n1" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Lights</b>>];
+    "n2" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Brakes</b>>];
+    "n3" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Steering</b>>];
+    "n4" [shape=circle, fillcolor=black, width=0.2, height=0.2, fixedsize=true, label="", xlabel="rules"];
+    { rank=min; "frame_tr" [shape=none, margin=0, label=<<font point-size="10">expose NaryRules::Chassis<br/>expose NaryRules::Lights<br/>expose NaryRules::Brakes<br/>expose NaryRules::Steering<br/>expose NaryRules::rules</font>>]; }
+  }
   "n2" -> "n4" [dir=none, style=dashed];
   "n3" -> "n4" [dir=none, style=dashed];
   "n4" -> "n0" [arrowhead=vee, style=dashed];

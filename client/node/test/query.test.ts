@@ -57,6 +57,44 @@ test("scope and select narrow the answer", async () => {
   assert.ok(elements.length >= 1);
 });
 
+const ANNOTATED_MODEL = `package Model {
+    metadata def m {
+        attribute a default "a";
+    }
+    part <a> aaaa {
+        doc /*Documentation*/
+        @m {
+            a := "aa";
+        }
+        port p;
+    }
+    part <b> bbb {
+        rep language "rus"
+            /*Textual representation*/
+        port p;
+    }
+    interface connect (a.p, b.p);
+}
+`;
+
+test("annotation bodies are reported", async () => {
+  await using connection = await connect();
+  const model = await connection.loads(ANNOTATED_MODEL);
+  const elements = await model.query({
+    select: ["textualRepresentation", "documentation", "body", "language", "locale"],
+  });
+  const properties = (id: string) => {
+    const element = elements.find((candidate) => candidate.id === id);
+    assert.ok(element, `no element ${id}`);
+    return element.properties;
+  };
+  assert.deepEqual(properties("Model::aaaa"), { documentation: "Documentation" });
+  assert.deepEqual(properties("Model::aaaa::@0"), { body: "Documentation" });
+  assert.deepEqual(properties("Model::bbb"), { textualRepresentation: "Textual representation" });
+  assert.deepEqual(properties("Model::bbb::@0"), { body: "Textual representation", language: "rus" });
+  assert.deepEqual(properties("Model::m"), {});
+});
+
 test("composite and inverse constraints evaluate", async () => {
   await using connection = await connect();
   const model = await connection.loads(MODEL);

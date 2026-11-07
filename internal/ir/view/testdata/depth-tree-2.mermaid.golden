@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» DepthViews::depth2 : TwoLevels"
 ---
 %% DepthViews::depth2 — tree rendering (render asTreeDiagram)
 %% not represented: 2 elements nested deeper than 2 levels not shown

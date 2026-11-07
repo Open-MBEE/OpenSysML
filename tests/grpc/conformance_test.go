@@ -50,6 +50,14 @@ type expectedAttribute struct {
 	Unit      string      `json:"unit"`
 }
 
+// expectedMember is one entry of a GetSymbol case's expected_members.
+type expectedMember struct {
+	ID            string `json:"id"`
+	Kind          string `json:"kind"`
+	Inherited     bool   `json:"inherited,omitempty"`
+	InheritedFrom string `json:"inherited_from,omitempty"`
+}
+
 // expectedNote is the fixture encoding of a pb.VerdictNote.
 type expectedNote struct {
 	Kind    string `json:"kind"`
@@ -102,6 +110,8 @@ type conformanceCase struct {
 	ExpectedNodeNames    []string          `json:"expected_node_names,omitempty"`
 	ExpectedCompartments map[string]string `json:"expected_compartments,omitempty"`
 	ExpectedEdgeLabels   []string          `json:"expected_edge_labels,omitempty"`
+	// ExpectedParallel names the nodes drawn «parallel» (a state whose substates run in parallel).
+	ExpectedParallel []string `json:"expected_parallel,omitempty"`
 
 	// GetDiagnostics lint selection and the codes the answer must and must not carry.
 	DisableLint   []string `json:"disable_lint,omitempty"`
@@ -158,16 +168,27 @@ type conformanceCase struct {
 	ExpectedResult        *expectedValue                  `json:"expected_result,omitempty"`
 	ExpectedFeatureValues map[string]expectedFeatureValue `json:"expected_feature_values,omitempty"`
 	ExpectedInstanceCount int                             `json:"expected_instance_count,omitempty"`
+	ExpectedReachPaths    []string                        `json:"expected_reach_paths,omitempty"`
+	ObjectPath            string                          `json:"object_path,omitempty"`
+	ExpectedPaths         []string                        `json:"expected_paths,omitempty"`
 	ExpectedOutputs       map[string]expectedValue        `json:"expected_outputs,omitempty"`
 	ExpectedStatesVisited []string                        `json:"expected_states_visited,omitempty"`
 	ExpectedFinalContext  map[string]expectedValue        `json:"expected_final_context,omitempty"`
 
 	// GetSymbol
-	ExpectedAttributeNames []string                     `json:"expected_attribute_names,omitempty"`
-	ExpectedAttributes     map[string]expectedAttribute `json:"expected_attributes,omitempty"`
+	ExpectedAttributeNames []string `json:"expected_attribute_names,omitempty"`
+	// GetSymbol: the symbol's kind and the ids of its members, in order.
+	ExpectedKind       string                       `json:"expected_kind,omitempty"`
+	ExpectedChildIDs   []string                     `json:"expected_child_ids,omitempty"`
+	ExpectedAttributes map[string]expectedAttribute `json:"expected_attributes,omitempty"`
 	// MinWithheldLibraryAttributes requires the response to state at least this
 	// many library-inherited attributes withheld from the list.
 	MinWithheldLibraryAttributes int32 `json:"min_withheld_library_attributes,omitempty"`
+	// ExpectedMembers is the full ordered member list, own then inherited, each
+	// with its provenance; MinWithheldLibraryMembers requires the response to
+	// state at least this many library-inherited members withheld from it.
+	ExpectedMembers           []expectedMember `json:"expected_members,omitempty"`
+	MinWithheldLibraryMembers int32            `json:"min_withheld_library_members,omitempty"`
 	// ExpectedMetadata are metadata entries the symbol must carry with these
 	// values; AbsentMetadata are keys it must not carry.
 	ExpectedMetadata map[string]string `json:"expected_metadata,omitempty"`
@@ -414,6 +435,8 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 		runVerifyConstraintCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "VerifyRequirement":
 		runVerifyRequirementCase(t, srv, ctx, parseResp.ModelHash, tc)
+	case "InstancePaths":
+		runInstancePathsCase(t, srv, ctx, parseResp.ModelHash, tc)
 	default:
 		t.Fatalf("unknown rpc %q", tc.RPC)
 	}
@@ -840,6 +863,12 @@ func runGetSymbolCase(t *testing.T, srv *grpc.Service, ctx context.Context, mode
 		t.Fatal("expected a symbol")
 	}
 
+	if tc.ExpectedKind != "" && resp.Symbol.GetKind() != tc.ExpectedKind {
+		t.Errorf("kind = %q, want %q", resp.Symbol.GetKind(), tc.ExpectedKind)
+	}
+	if tc.ExpectedChildIDs != nil && !slices.Equal(resp.Symbol.GetChildIds(), tc.ExpectedChildIDs) {
+		t.Errorf("child_ids = %v, want %v", resp.Symbol.GetChildIds(), tc.ExpectedChildIDs)
+	}
 	attrs := resp.Symbol.GetAttributes()
 	if tc.ExpectedAttributeNames != nil {
 		var got []string
@@ -863,6 +892,23 @@ func runGetSymbolCase(t *testing.T, srv *grpc.Service, ctx context.Context, mode
 	if want := tc.MinWithheldLibraryAttributes; want > 0 {
 		if got := resp.Symbol.GetWithheldLibraryAttributes(); got < want {
 			t.Errorf("withheld library attributes = %d, want at least %d", got, want)
+		}
+	}
+	if tc.ExpectedMembers != nil {
+		var got []expectedMember
+		for _, member := range resp.Symbol.GetMembers() {
+			got = append(got, expectedMember{
+				ID: member.GetId(), Kind: member.GetKind(),
+				Inherited: member.GetInherited(), InheritedFrom: member.GetInheritedFrom(),
+			})
+		}
+		if fmt.Sprint(got) != fmt.Sprint(tc.ExpectedMembers) {
+			t.Errorf("members = %v, want %v", got, tc.ExpectedMembers)
+		}
+	}
+	if want := tc.MinWithheldLibraryMembers; want > 0 {
+		if got := resp.Symbol.GetWithheldLibraryMembers(); got < want {
+			t.Errorf("withheld library members = %d, want at least %d", got, want)
 		}
 	}
 
@@ -935,6 +981,9 @@ func runInstantiateCase(t *testing.T, srv *grpc.Service, ctx context.Context, mo
 	if tc.ExpectedInstanceCount != 0 && len(resp.Instances) != tc.ExpectedInstanceCount {
 		t.Errorf("instances = %d, want %d", len(resp.Instances), tc.ExpectedInstanceCount)
 	}
+	if len(tc.ExpectedReachPaths) > 0 {
+		checkReachPaths(t, resp, tc.ExpectedReachPaths)
+	}
 }
 
 func runExecuteActionCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
@@ -1004,14 +1053,21 @@ func runRenderViewCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 	}
 	names := make([]string, 0, len(resp.Nodes))
 	compartments := map[string]string{}
+	var parallel []string
 	for _, node := range resp.Nodes {
 		names = append(names, node.GetName())
 		if node.GetCompartment() != "" {
 			compartments[node.GetName()] = node.GetCompartment()
 		}
+		if node.GetParallel() {
+			parallel = append(parallel, node.GetName())
+		}
 	}
 	if !slices.Equal(names, tc.ExpectedNodeNames) {
 		t.Errorf("nodes = %v, want %v", names, tc.ExpectedNodeNames)
+	}
+	if !slices.Equal(parallel, tc.ExpectedParallel) {
+		t.Errorf("parallel nodes = %v, want %v", parallel, tc.ExpectedParallel)
 	}
 	if !maps.Equal(compartments, tc.ExpectedCompartments) {
 		t.Errorf("compartment rows = %v, want %v", compartments, tc.ExpectedCompartments)

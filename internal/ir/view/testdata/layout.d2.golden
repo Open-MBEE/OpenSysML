@@ -25,3 +25,5 @@ n0: "«part def»\nLoop" {
   }
 }
 n0.n1."n1.0" -- n0.n2."n2.0": { class: connection; style: { stroke: "#0000FF" } }
+frame_name: "«view» PlantViews::placedView" { shape: text; near: top-left }
+frame_tr: "expose Plant::Loop" { shape: text; near: top-right }

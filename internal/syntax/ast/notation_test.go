@@ -59,15 +59,17 @@ func TestNotationAbstract(t *testing.T) {
 
 func TestNotationKeyword(t *testing.T) {
 	for notation, want := range map[string]string{
-		"part def":              "part def",
-		"abstract part def":     "part def",
-		"variation part def":    "part def",
-		"abstract classifier":   "classifier",
-		"variant":               "variant",
-		"variant ref part":      "ref part",
-		"variant abstract part": "part",
-		"entry action":          "entry action",
-		"":                      "",
+		"part def":                   "part def",
+		"abstract part def":          "part def",
+		"variation part def":         "part def",
+		"abstract classifier":        "classifier",
+		"variant":                    "variant",
+		"variant ref part":           "ref part",
+		"variant abstract part":      "part",
+		"abstract #command part def": "part def",
+		"#safety #command use case":  "use case",
+		"entry action":               "entry action",
+		"":                           "",
 	} {
 		if got := NotationKeyword(notation); got != want {
 			t.Errorf("NotationKeyword(%q) = %q, want %q", notation, got, want)

@@ -20,7 +20,7 @@ const probeFile = "probe.sysml"
 // runs without Java.
 func probeSides(t *testing.T) (*oursExport, pilotDocument) {
 	t.Helper()
-	ours, err := exportOurs("testdata", []string{probeFile}, nil)
+	ours, err := exportOurs("testdata", []string{probeFile}, nil, nil)
 	if err != nil {
 		t.Fatalf("export ours: %v", err)
 	}
@@ -225,7 +225,7 @@ func TestKeyOursAddressesUnnamedElementsStructurally(t *testing.T) {
 		{"@id": "P_om2", "@type": "OwningMembership", "owner": map[string]any{"@id": "P"}, "owningRelatedElement": map[string]any{"@id": "P"}, "ownedRelatedElement": []any{map[string]any{"@id": "P_x"}}},
 		{"@id": "P_x", "@type": "LiteralInteger", "owner": map[string]any{"@id": "P"}, "value": 1.0},
 	}
-	elements, unkeyable := keyOurs(raw, "probe.sysml", map[string]int{})
+	elements, unkeyable := keyOurs(raw, "probe.sysml", map[string]int{}, nil)
 	if unkeyable != 0 {
 		t.Fatalf("%d unkeyable elements", unkeyable)
 	}
@@ -264,7 +264,7 @@ func TestRootsAreTheDifferentialsPlusTheManualExamples(t *testing.T) {
 }
 
 func TestSharedConversionKeysEachDocumentsRootNamespace(t *testing.T) {
-	ours, err := exportOurs("testdata", []string{probeFile, "second.sysml"}, nil)
+	ours, err := exportOurs("testdata", []string{probeFile, "second.sysml"}, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -298,14 +298,14 @@ func TestCollidingDocumentsAreConvertedAlone(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	ours, err := exportOurs(dir, []string{"a.sysml", "b.sysml", "uses.sysml"}, nil)
+	ours, err := exportOurs(dir, []string{"a.sysml", "b.sysml", "uses.sysml"}, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if ours.Colliding != 2 || ours.Separate || ours.Unconvertible != 0 {
 		t.Fatalf("want the two Gears documents alone and the rest shared: colliding %d, separate %v, unconvertible %d", ours.Colliding, ours.Separate, ours.Unconvertible)
 	}
-	skipped, err := exportOurs(dir, []string{"a.sysml", "b.sysml", "uses.sysml"}, map[string]bool{"a.sysml": true, "b.sysml": true})
+	skipped, err := exportOurs(dir, []string{"a.sysml", "b.sysml", "uses.sysml"}, map[string]bool{"a.sysml": true, "b.sysml": true}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,14 +1,33 @@
 # SequenceViews::pubSubView — sequence rendering (view def SequenceView)
 classes: {
   usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
-  edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  succession: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1; stroke-dash: 3 } }
+  open: { target-arrowhead: { shape: arrow }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
 }
 sequence: "" {
   shape: sequence_diagram
-  n0: "«part»\nproducer" { class: usage; link: "https://example.test/src/sequence.sysml#L26" }
-  n1: "«part»\nserver" { class: usage; link: "https://example.test/src/sequence.sysml#L32" }
-  n2: "«part»\nconsumer" { class: usage; link: "https://example.test/src/sequence.sysml#L41" }
-  n2 -> n1: "subscribe_message" { class: edge; link: "https://example.test/src/sequence.sysml#L38" }
-  n0 -> n1: "publish_message" { class: edge; link: "https://example.test/src/sequence.sysml#L30" }
-  n1 -> n2: "deliver_message" { class: edge; link: "https://example.test/src/sequence.sysml#L39" }
+  n0: "«part»\nproducer" {
+    class: usage
+    link: "https://example.test/src/sequence.sysml#L26"
+    n3: "«event occurrence»\npublish_source_event" { class: usage; link: "https://example.test/src/sequence.sysml#L27" }
+  }
+  n1: "«part»\nserver" {
+    class: usage
+    link: "https://example.test/src/sequence.sysml#L32"
+    n6: "«event occurrence»\nsubscribe_target_event" { class: usage; link: "https://example.test/src/sequence.sysml#L33" }
+    n4: "«event occurrence»\npublish_target_event" { class: usage; link: "https://example.test/src/sequence.sysml#L34" }
+    n7: "«event occurrence»\ndeliver_source_event" { class: usage; link: "https://example.test/src/sequence.sysml#L35" }
+  }
+  n2: "«part»\nconsumer" {
+    class: usage
+    link: "https://example.test/src/sequence.sysml#L41"
+    n5: "«event occurrence»\nsubscribe_source_event" { class: usage; link: "https://example.test/src/sequence.sysml#L42" }
+    n8: "«event occurrence»\ndeliver_target_event" { class: usage; link: "https://example.test/src/sequence.sysml#L43" }
+  }
+  n2.n5 -> n1.n6: "subscribe_message of Subscribe" { class: open; link: "https://example.test/src/sequence.sysml#L38" }
+  n1.n6 -> n1.n4: { class: succession; link: "https://example.test/src/sequence.sysml#L34" }
+  n2.n5 -> n2.n8: { class: succession; link: "https://example.test/src/sequence.sysml#L43" }
+  n0.n3 -> n1.n4: "publish_message of Publish" { class: open; link: "https://example.test/src/sequence.sysml#L30" }
+  n1.n4 -> n1.n7: { class: succession; link: "https://example.test/src/sequence.sysml#L35" }
+  n1.n7 -> n2.n8: "deliver_message of Deliver" { class: open; link: "https://example.test/src/sequence.sysml#L39" }
 }

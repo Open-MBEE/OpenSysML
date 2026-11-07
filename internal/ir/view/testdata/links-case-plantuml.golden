@@ -1,6 +1,7 @@
 @startuml
 ' CaseExamples::caseDiagram — case rendering (render asCaseDiagram)
 ' not represented: part def CaseExamples::Tool holds no case; a case rendering does not show it
+mainframe <size:10>//«view»//</size> **CaseExamples::caseDiagram**\n<size:10>expose CaseExamples::Provide Transportation</size>\n<size:10>expose CaseExamples::FuelAnalysis</size>\n<size:10>expose CaseExamples::FuelVerification</size>\n<size:10>expose CaseExamples::Tool</size>
 <style>
 root {
   BackGroundColor white

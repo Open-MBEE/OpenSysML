@@ -12,3 +12,6 @@ n3: "«concern»\nsafety\n“Nothing overflows.”" { class: usage }
 n0 -> n3: "frame" { class: open }
 n1 -> n0: { class: specialization }
 n2 -> n1: "require" { class: open }
+frame_name: "«view» NotationGlyphs::Diagrams::requirementGlyphs : GeneralView" { shape: text; near: top-left }
+frame_tr: "expose LevelReq\nexpose levelReq\nexpose capacity\nexpose safety" { shape: text; near: top-right }
+frame_bl: "filter @SysML::RequirementDefinition or @SysML::RequirementUsage" { shape: text; near: bottom-left }

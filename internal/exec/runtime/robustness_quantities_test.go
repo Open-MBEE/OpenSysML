@@ -14,6 +14,7 @@ import (
 // TestRuntimeRobustnessQuantities covers quantities: missing values, writes of another
 // dimension, measurement references, tensors and coordinate frames.
 func TestRuntimeRobustnessQuantities(t *testing.T) {
+	t.Parallel()
 	t.Run("quantity_incommensurable_comparison", testQuantityIncommensurableComparison)
 	t.Run("quantity_index_is_not_a_unit", testQuantityIndexIsNotAUnit)
 	t.Run("quantity_unit_shadowed_by_sibling", testQuantityUnitShadowedBySibling)

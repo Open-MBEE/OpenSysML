@@ -16,7 +16,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
-	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // sysmlPrefix qualifies a SysML vocabulary property as a diagnostic names it.
@@ -227,7 +226,7 @@ func newDecoder(graph *rdf.Graph, metaclasses map[rdf.Term]string, statedNames m
 		demoted:              map[*element]bool{},
 		demotedExpr:          map[string]bool{},
 		folded:               map[*element]*element{},
-		libraryCatalog:       identity.LibraryCatalog(libs.NewModelIndex()),
+		libraryCatalog:       sharedLibraryIndex().catalog,
 		libraryRefs:          map[string]*element{},
 		importedMemberships:  map[string]*identity.LibraryElement{},
 		ambiguousImports:     map[string]bool{},
@@ -1521,6 +1520,16 @@ func (d *decoder) libraryStubs() (map[string]bool, error) {
 					}
 				}
 			}
+			if anonymous, found := sharedLibraryIndex().anonymous.OwningMembership(id); !ok && found {
+				if len(members) != 1 || !member.IsIRI() || rdf.LocalName(member.Value) != anonymous.ID {
+					return nil, &UnsupportedError{
+						What: fmt.Sprintf("the library membership <%s>", subject.Value),
+						Note: fmt.Sprintf("its id is that of the owning membership of %s, and its memberElement is not that library member", anonymous.Path),
+					}
+				}
+				stubs[subject.Value] = true
+				continue
+			}
 			if !ok {
 				note := fmt.Sprintf("it is marked sysml:isLibraryElement, but the bundled standard library has no owning membership with id %q", id)
 				if hasMemberName {
@@ -1551,6 +1560,16 @@ func (d *decoder) libraryStubs() (map[string]bool, error) {
 			continue
 		}
 		lib, ok := d.libraryElement(subject.Value, id)
+		if anonymous, found := sharedLibraryIndex().anonymous.Element(id); !ok && found {
+			if stated, has := d.graph.Lexical(subject, rdf.OpenSysML+xLibraryPath); has && stated != anonymous.Path {
+				return nil, &UnsupportedError{
+					What: fmt.Sprintf("the library element <%s>", subject.Value),
+					Note: fmt.Sprintf("the graph names it %s, but the bundled standard library gives id %q to %s", stated, id, anonymous.Path),
+				}
+			}
+			stubs[subject.Value] = true
+			continue
+		}
 		if !ok {
 			note := fmt.Sprintf("it is marked sysml:isLibraryElement, but the bundled standard library has no element with id %q", id)
 			if name, kind, stated := d.librarySubjectName(subject); stated {
@@ -1676,8 +1695,12 @@ func (d *decoder) libraryMetaclassCompatible(subject rdf.Term, lib *identity.Lib
 	if lib.Symbol == nil {
 		return false
 	}
-	expected := declaredMetaclass(lib.Symbol.Decl)
-	return expected != "" && ontology.IsAncestorOrSelf(stated, expected)
+	for _, expected := range []string{sharedLibraryIndex().stubMetaclass(lib.Symbol), declaredMetaclass(lib.Symbol.Decl)} {
+		if expected != "" && ontology.IsAncestorOrSelf(stated, expected) {
+			return true
+		}
+	}
+	return false
 }
 
 func (d *decoder) importedMembershipTarget(iri string) (*identity.LibraryElement, bool) {
@@ -3340,7 +3363,7 @@ func (d *decoder) importedName(el *element) (string, error) {
 	if m, ok := d.memberships[term.Value]; ok {
 		return d.referenceName(rdf.IRI(m.member), el)
 	}
-	if lib, ok := identity.LibraryCatalog(libs.NewModelIndex()).OwningMembership(rdf.LocalName(term.Value)); ok {
+	if lib, ok := sharedLibraryIndex().catalog.OwningMembership(rdf.LocalName(term.Value)); ok {
 		return d.referenceName(rdf.ElementIRIForID(lib.ID), el)
 	}
 	return d.referenceName(term, el)

@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» ParametricViews::placedView"
 ---
 %% ParametricViews::placedView — interconnection rendering (render asInterconnectionDiagram)
 %% canvas: w=900 h=220

@@ -212,6 +212,49 @@
           "error": "not found"
         }
       }
+    },
+    {
+      "id": "instance_paths/an_object_never_created_is_not_found",
+      "description": "InstancePaths on an object id nothing materialized answers NOT_FOUND: Instantiate creates the objects the paths lead to.",
+      "rpc": "InstancePaths",
+      "requires_capabilities": [
+        "instance_paths"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "instance_paths"
+      },
+      "model": {
+        "fixture": "simple_part.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "object": {
+          "instance_id": 99
+        }
+      },
+      "expect": {
+        "status": "NOT_FOUND",
+        "status_message_contains": "no object #99"
+      }
+    },
+    {
+      "id": "instance_paths/a_request_naming_no_object_is_invalid",
+      "description": "InstancePaths needs the object, by instance_id or by path.",
+      "rpc": "InstancePaths",
+      "requires_capabilities": [
+        "instance_paths"
+      ],
+      "model": {
+        "fixture": "simple_part.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}"
+      },
+      "expect": {
+        "status": "INVALID_ARGUMENT",
+        "status_message_contains": "neither was given"
+      }
     }
   ]
 }

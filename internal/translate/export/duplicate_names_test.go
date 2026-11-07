@@ -53,6 +53,9 @@ func withoutIdentitySourceText(graph *rdf.Graph) *rdf.Graph {
 func elementSubjectsByQualifiedName(graph *rdf.Graph) map[string]string {
 	subjects := make(map[string]string)
 	for _, subject := range graph.Subjects() {
+		if LibraryReference(graph, subject) {
+			continue
+		}
 		if qname, ok := addressOf(graph, subject); ok {
 			subjects[qname] = subject.Value
 		}
@@ -897,7 +900,7 @@ func TestAPIJSONRoundTripPartialRootIndexes(t *testing.T) {
 func rootPackageAndPartNames(graph *rdf.Graph) map[string]bool {
 	names := map[string]bool{}
 	for _, subject := range graph.Subjects() {
-		if !graph.HasProperty(subject, rdf.SysML+pDeclaredName) {
+		if !graph.HasProperty(subject, rdf.SysML+pDeclaredName) || LibraryReference(graph, subject) {
 			continue
 		}
 		if name, ok := addressOf(graph, subject); ok {

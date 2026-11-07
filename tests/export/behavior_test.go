@@ -23,6 +23,7 @@ var behavioralModels = []string{"action_nodes", "loops_conditionals", "state_mac
 // from RDF as the same bytes it was written as, not merely as a graph that says
 // something similar.
 func TestBehavioralModelsComeBackByteIdentical(t *testing.T) {
+	t.Parallel()
 	for _, name := range behavioralModels {
 		t.Run(name, func(t *testing.T) {
 			path := filepath.Join("testdata", "convert", name+".sysml")
@@ -96,6 +97,7 @@ func TestStateMachineMetaclasses(t *testing.T) {
 // Each shape of each behavioral statement round trips on its own, so a failure
 // names the notation that broke rather than a whole model.
 func TestBehavioralStatementsRoundTrip(t *testing.T) {
+	t.Parallel()
 	actions := map[string]string{
 		"initial node":        "first start;",
 		"guarded initial":     "first start if speed > 0 then brake;",
@@ -144,6 +146,7 @@ func TestBehavioralStatementsRoundTrip(t *testing.T) {
 // The members of a state body round trip in each of the shapes the notation
 // allows: a subaction stated with braces, with a single action, or empty.
 func TestStateMembersRoundTrip(t *testing.T) {
+	t.Parallel()
 	members := map[string]string{
 		"entry succession":     "entry;\n        then launch;",
 		"start state":          "state launch;",
@@ -245,6 +248,7 @@ func TestUnsupportedBehavioralShapesAreReported(t *testing.T) {
 // parser reads it. The graph alone, without the text each member was written
 // as, has to bring every such `then` back where it stood.
 func TestThenComesBackPastTheMembersTheParserSkips(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join("testdata", "convert", "then_after_members.sysml")
 	src, err := os.ReadFile(path)
 	if err != nil {
@@ -421,7 +425,7 @@ func TestFirstThenOwnsItsConnectorEnds(t *testing.T) {
 			t.Errorf("the graph should state %q:\n%s", want, graph)
 		}
 	}
-	if n := strings.Count(graph, "a sysml:EndFeatureMembership"); n != 4 {
+	if n := declaredOfType(graph, "EndFeatureMembership"); n != 4 {
 		t.Errorf("the two successions should own two ends each, found %d end memberships:\n%s", n, graph)
 	}
 	back, err := convert.Convert("m.ttl", withoutTriples(t, turtle, "sysx:sourceText"), convert.FormatTurtle, convert.FormatSysML)
@@ -651,10 +655,13 @@ func TestThenDoneIsOneSuccessionToLibraryDone(t *testing.T) {
 	}
 	graph := string(turtle)
 	done := "<urn:sysmlv2:element:0cdc3cd3-b06c-5c32-beda-0cf4ba164a64>"
-	if strings.Contains(graph, "sysml:memberElement "+done) {
-		t.Errorf("`then done;` should state no Membership of the library's done:\n%s", graph)
+	// The library's own FeatureMembership of done is named as a stub; nothing the model declares may own it.
+	for _, block := range strings.Split(graph, "\n\n") {
+		if strings.Contains(block, "sysml:memberElement "+done) && !strings.Contains(block, `sysml:isLibraryElement "true"`) {
+			t.Errorf("`then done;` should state no Membership of the library's done:\n%s", block)
+		}
 	}
-	if n := strings.Count(graph, "a sysml:SuccessionAsUsage ;"); n != 2 {
+	if n := declaredOfType(graph, "SuccessionAsUsage"); n != 2 {
 		t.Errorf("want the two `then` successions alone, found %d SuccessionAsUsage:\n%s", n, graph)
 	}
 	for _, want := range []string{
@@ -817,7 +824,7 @@ func TestStateBodyFirstThenIsASuccession(t *testing.T) {
 		t.Errorf("a state body's `first x then y;` should map to no initial node:\n%s", turtle)
 	}
 	// The entry's `then idle;` is the third succession.
-	if n := strings.Count(string(turtle), "a sysml:SuccessionAsUsage ;"); n != 3 {
+	if n := declaredOfType(string(turtle), "SuccessionAsUsage"); n != 3 {
 		t.Errorf("want the two `first` successions and the entry's as SuccessionAsUsage, found %d:\n%s", n, turtle)
 	}
 	if n := strings.Count(string(turtle), `sysx:endForm "firstThen"`); n != 2 {
@@ -1144,4 +1151,16 @@ func toTurtle(t *testing.T, path string) string {
 		t.Fatalf("to turtle: %v", err)
 	}
 	return string(turtle)
+}
+
+// declaredOfType counts the elements of metaclass the model declares in turtle,
+// leaving out the library stubs the graph names for the members its types inherit.
+func declaredOfType(turtle, metaclass string) int {
+	n := 0
+	for _, block := range strings.Split(turtle, "\n\n") {
+		if strings.Contains(block, "a sysml:"+metaclass+" ;") && !strings.Contains(block, `sysml:isLibraryElement "true"`) {
+			n++
+		}
+	}
+	return n
 }

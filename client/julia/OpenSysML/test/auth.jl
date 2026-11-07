@@ -3,7 +3,7 @@ function guarded_service(token)
     listener = listen(ip"127.0.0.1", 0)
     port = getsockname(listener)[2]
     close(listener)
-    server = HTTP.serve!(ip"127.0.0.1", port) do request
+    server = HTTP.serve!("127.0.0.1", port) do request
         if HTTP.header(request, "Authorization") != "Bearer $(token)"
             return HTTP.Response(401, ["Content-Type" => "application/json",
                                        "WWW-Authenticate" => "Bearer realm=\"sysml-grpc\""],

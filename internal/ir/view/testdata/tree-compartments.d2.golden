@@ -16,8 +16,10 @@ n0: "«part def»\nStage\nattributes\ngain = 15.0\nnoiseFigure = RealFunctions::
 n5: "«part»\nhousing" { class: usage }
 n6: "«part»\nshield" { class: usage }
 n12: "«part def»\nHousing" { class: definition }
-n13: "«enum def»\nBand\nenumerations\nlow\nhigh" { class: definition }
+n13: "«enum def»\nBand\nenums\nlow\nhigh" { class: definition }
 n0 <- n5: { class: composition }
 n0 <- n6: { class: composition }
 n5 -> n12: { class: specialization }
 n6 -> n12: { class: specialization }
+frame_name: "«view» AmplifierViews::positioned" { shape: text; near: top-left }
+frame_tr: "expose Amplifier::Stage\nexpose Amplifier::Housing\nexpose Amplifier::Band" { shape: text; near: top-right }

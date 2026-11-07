@@ -42,6 +42,12 @@ const (
 	// ElementQualifiers are the qualifying prefixes of a node's name (§8.2.3,
 	// a name may be written qualified or not).
 	ElementQualifiers Element = "qualifiers"
+	// ElementAnnotations are the comment, documentation and textual
+	// representation nodes beside the elements they annotate, each joined to
+	// them by a dashed annotation link (§8.2.3.4, annotation-node and
+	// annotation-link, an optional dependencies-and-annotations-element of a
+	// general view). Left out, no annotation node or link is drawn.
+	ElementAnnotations Element = "annotations"
 )
 
 // ElementAll is the name standing for every optional element at once.
@@ -50,7 +56,7 @@ const ElementAll = "all"
 // elements lists the optional elements in the order they are documented.
 var elements = []Element{
 	ElementParameterSymbols, ElementPortSymbols, ElementCompartments, ElementEdgeLabels,
-	ElementKeywords, ElementMultiplicities, ElementTypings, ElementQualifiers,
+	ElementKeywords, ElementMultiplicities, ElementTypings, ElementQualifiers, ElementAnnotations,
 }
 
 // Elements lists the optional notation elements in documentation order.
@@ -92,11 +98,12 @@ func ElementOfAttribute(name string) (Element, bool) {
 type Shown map[Element]bool
 
 // DefaultShown is what a rendering shows when neither the model nor the caller
-// says: ports, compartments and keywords, as the notation's examples draw them,
-// and none of the parameter symbols, edge labels, multiplicities, typings and
-// qualifiers. It is the one place the default is decided; an action's
-// parameter pins are no optional element but its node form's, always drawn.
-var DefaultShown = Shown{ElementPortSymbols: true, ElementCompartments: true, ElementKeywords: true}
+// says: ports, compartments, keywords and annotations, as the notation's
+// examples draw them, and none of the parameter symbols, edge labels,
+// multiplicities, typings and qualifiers. It is the one place the default is
+// decided; an action's parameter pins are no optional element but its node
+// form's, always drawn.
+var DefaultShown = Shown{ElementPortSymbols: true, ElementCompartments: true, ElementKeywords: true, ElementAnnotations: true}
 
 // AllShown is every optional element, what "all" names: the full notation.
 func AllShown() Shown {

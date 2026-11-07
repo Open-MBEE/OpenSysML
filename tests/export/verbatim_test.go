@@ -478,7 +478,19 @@ func quoteLiteral(value string) string {
 // structural is a Turtle document without its source text.
 func structural(t *testing.T, turtle []byte) string {
 	t.Helper()
-	return string(withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:sourceTail"))
+	return withoutLibraryStubs(string(withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:sourceTail")))
+}
+
+// withoutLibraryStubs drops the blocks naming library elements: an edited graph
+// keeps the ones its former members referenced, a fresh conversion names fewer.
+func withoutLibraryStubs(turtle string) string {
+	var kept []string
+	for _, block := range strings.Split(turtle, "\n\n") {
+		if !strings.Contains(block, `sysml:isLibraryElement "true"`) {
+			kept = append(kept, block)
+		}
+	}
+	return strings.Join(kept, "\n\n")
 }
 
 // A member written on its owner's lines, such as an accept's payload, has no

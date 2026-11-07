@@ -40,8 +40,8 @@ func TestValuedFeatureOwnsItsFeatureValue(t *testing.T) {
 	}
 
 	memberships := m.OwnedMemberships(mass)
-	if len(memberships) != 2 {
-		t.Fatalf("owned memberships of mass = %d, want its FeatureValue then the comment's", len(memberships))
+	if len(memberships) != 3 || !IsDefaultMultiplicity(memberships[2].Implicit.Member) {
+		t.Fatalf("owned memberships of mass = %d, want its FeatureValue, the comment's, then the implied default Multiplicity's", len(memberships))
 	}
 	fv := memberships[0]
 	if got := m.MetaclassOf(fv); got == nil || got.Name != "FeatureValue" {
@@ -61,8 +61,8 @@ func TestValuedFeatureOwnsItsFeatureValue(t *testing.T) {
 		}
 	}
 	countValue := m.OwnedMemberships(count)
-	if len(countValue) != 1 {
-		t.Fatalf("owned memberships of count = %d, want its FeatureValue only", len(countValue))
+	if len(countValue) != 2 || !IsDefaultMultiplicity(countValue[1].Implicit.Member) {
+		t.Fatalf("owned memberships of count = %d, want its FeatureValue then the implied default Multiplicity's", len(countValue))
 	}
 	for feature, want := range map[string]bool{"isDefault": true, "isInitial": true} {
 		if got, ok := m.ReflectiveFeatureValue(countValue[0], feature); !ok || got.Bool != want {
@@ -74,18 +74,18 @@ func TestValuedFeatureOwnsItsFeatureValue(t *testing.T) {
 	}
 
 	rels := m.OwnedRelationships(mass)
-	if len(rels) != 2 || rels[0] != fv || rels[1] != memberships[1] {
+	if len(rels) != 3 || rels[0] != fv || rels[1] != memberships[1] || rels[2] != memberships[2] {
 		names := make([]string, 0, len(rels))
 		for _, rel := range rels {
 			names = append(names, m.MetaclassOf(rel).Name)
 		}
-		t.Errorf("owned relationships of mass = %v, want the FeatureValue then the comment's membership", names)
+		t.Errorf("owned relationships of mass = %v, want the FeatureValue, the comment's membership, then the implied default Multiplicity's", names)
 	}
-	if got, ok := m.ReflectiveElements(mass, "ownedElement"); !ok || len(got) != 2 || got[0] != expr {
-		t.Errorf("ownedElement of mass = %v, want the expression then the comment", got)
+	if got, ok := m.ReflectiveElements(mass, "ownedElement"); !ok || len(got) != 3 || got[0] != expr || !IsDefaultMultiplicity(got[2]) {
+		t.Errorf("ownedElement of mass = %v, want the expression, the comment, then the implied default Multiplicity", got)
 	}
-	if got, ok := m.ReflectiveElements(mass, "ownedMember"); !ok || len(got) != 1 || got[0] == expr {
-		t.Errorf("ownedMember of mass = %v, want the comment only (a FeatureValue is no OwningMembership of a member)", got)
+	if got, ok := m.ReflectiveElements(mass, "ownedMember"); !ok || len(got) != 2 || got[0] == expr || !IsDefaultMultiplicity(got[1]) {
+		t.Errorf("ownedMember of mass = %v, want the comment then the implied default Multiplicity (a FeatureValue is no OwningMembership of a member)", got)
 	}
 
 	for feature, want := range map[string]*symbols.Symbol{

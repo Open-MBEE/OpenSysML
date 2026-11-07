@@ -24,3 +24,15 @@ func MetadataBodyTarget(lookup MetadataBodyResolver, owner *Symbol,
 	}
 	return nil
 }
+
+// IsPrefixMetadata reports whether s is the metadata usage a `#M` prefix declares
+// (its body scope names the annotated declaration; a record keeps ModPrefixMetadata).
+func (s *Symbol) IsPrefixMetadata() bool {
+	if s == nil || s.Kind != SymbolMetadataUsage {
+		return false
+	}
+	if s.Recorded() {
+		return s.Facts.Modifiers&ModPrefixMetadata != 0
+	}
+	return s.Scope != nil && s.Scope.Annotated() != nil
+}

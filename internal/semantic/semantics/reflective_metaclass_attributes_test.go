@@ -14,7 +14,7 @@ func TestReflectiveAttributesBelongToTheirMetaclasses(t *testing.T) {
 		state def Plain;
 		part p {
 			state parallelState parallel { state a; state b; }
-			state plainState;
+			state plainState { state inner; }
 		}
 		constant part frozen;
 	}`)
@@ -30,6 +30,8 @@ func TestReflectiveAttributesBelongToTheirMetaclasses(t *testing.T) {
 		{path: "P::Port", feature: "isParallel"},
 		{path: "P::Parallel", feature: "isParallel", present: true, value: true},
 		{path: "P::Plain", feature: "isParallel", present: true},
+		{path: "P::p::plainState::inner", feature: "isParallel", present: true},
+		{path: "P::p::plainState::inner", feature: "isSufficient", present: true},
 		{path: "P::p::parallelState", feature: "isParallel", present: true, value: true},
 		{path: "P::p::plainState", feature: "isParallel", present: true},
 		{path: "P::p", feature: "isParallel"},

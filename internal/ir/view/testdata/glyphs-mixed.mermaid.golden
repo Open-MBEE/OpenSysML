@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» NotationGlyphs::Diagrams::mixedGlyphs"
 ---
 %% NotationGlyphs::Diagrams::mixedGlyphs — mixed rendering (render asMixedDiagram)
 %% not represented: 4 pin(s) not drawn (bounded.x, tight.x, NotationGlyphs::bounded.x, NotationGlyphs::tight.x); a flowchart draws the pins an edge ends at
@@ -27,7 +28,7 @@ flowchart TD
   subgraph n0 ["`*«requirement def»* **LevelReq**`"]
     direction TD
     n0_anchor[" "]
-    n1("`*«frame»*
+    n1("`*«frame concern»*
 **safety**`")
   end
   n2("`*«requirement»*

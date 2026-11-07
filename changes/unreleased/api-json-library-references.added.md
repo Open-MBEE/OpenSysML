@@ -1,1 +1,0 @@
-- API JSON export can provide a separate standard-library name table without adding library elements as roots, with an opt-in legacy ownerless-stub mode for existing consumers.

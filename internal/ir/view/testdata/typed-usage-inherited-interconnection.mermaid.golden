@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» TypedUsageViews::rocketLinks"
 ---
 %% TypedUsageViews::rocketLinks — interconnection rendering (render asInterconnectionDiagram)
 %% not represented: 4 elements nested deeper than 3 levels not shown

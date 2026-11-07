@@ -27,18 +27,19 @@ config:
     transitionLabelColor: "#000000"
     labelBackgroundColor: "#FFFFFF"
     specialStateColor: "#181818"
+title: "«view» MachineViews::thermostat : StateTransitionView"
 ---
 %% MachineViews::thermostat — state rendering (view def StateTransitionView)
 stateDiagram-v2
-  state "«state def» Thermostat" as n0 {
+  state "«state def» Thermostat<br>state transition" as n0 {
     state "«state»<br>heating" as n1
-    state "«state» idle" as n2 {
+    state "«state» idle<br>state transition" as n2 {
       state "«state»<br>drying" as n3
       state "«state»<br>resting" as n4
       [*] --> n3 : [wet]
       [*] --> n4
     }
-    state "«state» monitoring" as n5 {
+    state "«state» monitoring<br>«parallel»<br>state transition" as n5 {
       state "«region» lights" as n6 {
         state "«state»<br>lit" as n8
         state "«state»<br>unlit" as n9

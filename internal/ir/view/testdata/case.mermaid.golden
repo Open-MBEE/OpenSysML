@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» CaseExamples::caseDiagram"
 ---
 %% CaseExamples::caseDiagram — case rendering (render asCaseDiagram)
 %% not represented: part def CaseExamples::Tool holds no case; a case rendering does not show it

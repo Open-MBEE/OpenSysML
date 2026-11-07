@@ -1,5 +1,6 @@
 @startuml
 ' FlowViews::driveView — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
+mainframe <size:10>//«view»//</size> **FlowViews::driveView** : ActionFlowView\n<size:10>expose Flows::Drive</size>
 <style>
 root {
   BackGroundColor white
@@ -44,11 +45,11 @@ hide empty description
 state "<size:10>//«action def»//</size>\n**Drive**" as n0 <<action def>> [[https://example.test/src/action.sysml#L11]] {
   state "**initial**" as n1 <<start>>
   state "<size:10>//«action»//</size>\n**provide**\nparameters\nin ^fuel\nout ^torque" as n2 <<action>> <<usage>> [[https://example.test/src/action.sysml#L16]]
-  state "<size:10>//«action»//</size>\n**monitor**\nown flow\nparameters\nin reading" as n3 <<action>> <<usage>> [[https://example.test/src/action.sysml#L20]] {
+  state "<size:10>//«action»//</size>\n**monitor**\nparameters\nin reading\naction flow" as n3 <<action>> <<usage>> [[https://example.test/src/action.sysml#L20]] {
     state "**initial**" as n4 <<start>>
     state "<size:10>//«action»//</size>\n**record**" as n5 <<action>> <<usage>> [[https://example.test/src/action.sysml#L23]]
   }
-  state "<size:10>//«action»//</size>\n**tally**" as n6 <<action>> <<usage>> [[https://example.test/src/action.sysml#L29]]
+  state "<size:10>//«assign»//</size>\n**tally**\nspeed := speed + 1" as n6 <<assign>> <<usage>> [[https://example.test/src/action.sysml#L29]]
   state "<size:10>//«fork»//</size>\n**split**" as n7 <<fork>>
   state "<size:10>//«join»//</size>\n**sync**" as n8 <<join>>
   state "**final**" as n9 <<end>>
@@ -67,5 +68,5 @@ n7 -[dashed]-> n6 : [[https://example.test/src/action.sysml#L43]]
 n8 -[dashed]-> n11 : [[https://example.test/src/action.sysml#L47]]
 n10 -[dashed]-> n9 : [[https://example.test/src/action.sysml#L50]]
 n11 -[dashed]-> n9 : [speed <U+003E> 0] [[https://example.test/src/action.sysml#L48]]
-n11 -[dashed]-> n10 : [[https://example.test/src/action.sysml#L49]]
+n11 -[dashed]-> n10 : else [[https://example.test/src/action.sysml#L49]]
 @enduml

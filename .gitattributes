@@ -1,6 +1,6 @@
 # Generated stubs and the fixtures tests compare against: GitHub collapses them in
 # diffs and leaves them out of the language statistics. Hand-maintained prose,
-# docs/project/spec-compliance.md included, is not listed here.
+# the docs/project/spec-compliance/ sources included, is not listed here.
 
 # Protobuf and Connect stubs
 api/proto/*.pb.go                                linguist-generated=true
@@ -23,5 +23,4 @@ tests/export/testdata/**/*.sha256                linguist-generated=true
 
 # Measured baselines and binary build inputs
 docs/project/*-baseline.json                     linguist-generated=true
-internal/workspace/libs/stdlib.snapshot          linguist-generated=true -diff
 cmd/*/default.pgo                                linguist-generated=true -diff

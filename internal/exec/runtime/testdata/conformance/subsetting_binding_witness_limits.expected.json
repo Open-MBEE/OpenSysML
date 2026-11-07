@@ -1,0 +1,16 @@
+{
+  "type": "instance",
+  "instantiate": "test::vals",
+  "slots": {
+    "once": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}, {"type": "Integer", "value": 2}]},
+    "scarce": {"type": "Sequence", "elements": [{"type": "Integer", "value": 1}, {"type": "Integer", "value": 2}]}
+  },
+  "materialization": {},
+  "validation": {
+    "verdicts": [
+      {"kind": "binding", "assertion": "binding [2] bind [0..1] once = [0..1] source", "status": "violated"},
+      {"kind": "binding", "assertion": "binding [2] bind [0..1] scarce = [0..1] source", "status": "violated"}
+    ],
+    "valid": false
+  }
+}

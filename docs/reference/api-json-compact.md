@@ -90,7 +90,7 @@ One JSON object, not indented, ending in a newline:
 | `elementCount` | integer | `ids[0 … elementCount)` are the written elements, in the order the element array writes them. Entries from `elementCount` on are elements a written element refers to that this conversion does not write: a library element, or an element of a document that `documents` left out. |
 | `elementIdsAreIds` | boolean, optional | Present (and `true`) only when every element's `elementId` is its `@id`. Then no element writes `elementId`. |
 | `referenceKeys` | array of string | Keys whose references are written as bare handles (below). |
-| `libraryReferences` | array of object, optional | Names of referenced standard-library elements, sorted by literal `@id`: each entry has `@id`, `@type` (metaclass) and `qualifiedName`. These are metadata, not elements or roots. New writers emit the array even when empty; older documents may omit it. |
+| `libraryReferences` | array of object, optional | Names of referenced standard-library elements, sorted by literal `@id`: each entry has `@id`, `@type` (metaclass) and `qualifiedName`, or `libraryPath` (the positional path `Owner::qualifiedName/Metaclass[i]`) for an unnamed member. These are metadata, not elements or roots. New writers emit the array even when empty; older documents may omit it. |
 | `elements` | array of object | The elements. Element *i* has the id `ids[i]` and carries no `@id`. |
 
 ## Reading it

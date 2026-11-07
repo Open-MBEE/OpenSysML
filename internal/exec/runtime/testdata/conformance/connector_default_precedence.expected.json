@@ -1,0 +1,9 @@
+{
+  "type": "instance",
+  "instantiate": "test::outer",
+  "constraints": {
+    "outerOverridesFailingDefault": true,
+    "outerOverridesDefault": true
+  },
+  "materialization": {}
+}

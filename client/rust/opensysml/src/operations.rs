@@ -6,13 +6,14 @@ use crate::capabilities::{
     upgrade_remedy, CAPABILITY_ACTION_TRACE, CAPABILITY_BIG_INT_VALUES, CAPABILITY_CHECK,
     CAPABILITY_COMPARE_RESULTS, CAPABILITY_COMPLEX_VALUES, CAPABILITY_CONVERT,
     CAPABILITY_CONVERT_CHECK_DIAGNOSTICS, CAPABILITY_CONVERT_COMPACT, CAPABILITY_CONVERT_DOCUMENTS,
-    CAPABILITY_CONVERT_LIBRARY_STUBS, CAPABILITY_DOCUMENT_QUERY, CAPABILITY_ENGINES,
-    CAPABILITY_ENUM_VALUES, CAPABILITY_EXPORT_GRAPHS, CAPABILITY_FUNCTION_VALUES,
-    CAPABILITY_IMPORT_DATA, CAPABILITY_INFINITY_VALUE, CAPABILITY_INLINE_LANGUAGE,
-    CAPABILITY_MEASUREMENT_REFS, CAPABILITY_METAOBJECT_VALUES, CAPABILITY_MIGRATE,
-    CAPABILITY_OSLC_QUERY, CAPABILITY_PARSE_SOURCES, CAPABILITY_PARSE_SOURCES_AFFECTED,
-    CAPABILITY_PERFORMER, CAPABILITY_QUERY, CAPABILITY_QUERY_ORDER_BY, CAPABILITY_RATIONAL_VALUES,
-    CAPABILITY_RECORD_RUN, CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
+    CAPABILITY_CONVERT_LIBRARY_STUBS, CAPABILITY_DOCUMENT_QUERY, CAPABILITY_ELEMENT_PROPERTIES,
+    CAPABILITY_ENGINES, CAPABILITY_ENUM_VALUES, CAPABILITY_EXPORT_GRAPHS,
+    CAPABILITY_FUNCTION_VALUES, CAPABILITY_IMPORT_DATA, CAPABILITY_INFINITY_VALUE,
+    CAPABILITY_INLINE_LANGUAGE, CAPABILITY_MEASUREMENT_REFS, CAPABILITY_METAOBJECT_VALUES,
+    CAPABILITY_MIGRATE, CAPABILITY_OSLC_QUERY, CAPABILITY_PARSE_SOURCES,
+    CAPABILITY_PARSE_SOURCES_AFFECTED, CAPABILITY_PERFORMER, CAPABILITY_QUERY,
+    CAPABILITY_QUERY_ORDER_BY, CAPABILITY_RATIONAL_VALUES, CAPABILITY_RECORD_RUN,
+    CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
     CAPABILITY_RENDER_DOCUMENT_HTML, CAPABILITY_RUNS, CAPABILITY_SCHEDULE,
     CAPABILITY_SCHEDULE_EXPLORE, CAPABILITY_SELF_CHECK, CAPABILITY_SET_VALUES,
     CAPABILITY_STATE_TRACE, CAPABILITY_STRICT_CONFORMANCE, CAPABILITY_STRUCTURED_VALUES,
@@ -27,6 +28,7 @@ use crate::document::{
     DocumentValue, RenderViewCompartments, RenderViewPorts, RenderedView,
 };
 use crate::domain::{Model, Value};
+use crate::element_properties::{element_properties_of, ElementProperties};
 use crate::encode::value_to_wire;
 use crate::error::Error;
 use crate::graphs::Graphs;
@@ -460,6 +462,43 @@ impl Connection {
             needed,
         )?;
         Ok(elements_of(response))
+    }
+
+    /// Read the metamodel properties of one element by their specification
+    /// names (`inheritedFeature`, `connectorEnd`, ...), as the model's API
+    /// element form spells them; every property the element carries when
+    /// `properties` is empty. The element is a qualified name, the positional
+    /// id of an unnamed member (`Owner::@2`) or an element form id.
+    pub fn element_properties(
+        &self,
+        model_hash: &str,
+        element: &str,
+        properties: &[&str],
+    ) -> Result<ElementProperties, Error> {
+        let capabilities = [CAPABILITY_ELEMENT_PROPERTIES];
+        self.require_all(&capabilities)?;
+        let response: wire::GetElementPropertiesResponse = self.gated_rpc(
+            "GetElementProperties",
+            wire::GetElementPropertiesRequest {
+                model_hash: model_hash.to_owned(),
+                element_id: element.to_owned(),
+                properties: properties.iter().map(|p| (*p).to_owned()).collect(),
+            },
+            &capabilities,
+        )?;
+        if !response.error.is_empty() {
+            if response.error.starts_with("element not found") {
+                return Err(Error::SymbolNotFound {
+                    name: element.to_owned(),
+                    suggestions: Vec::new(),
+                });
+            }
+            return Err(Error::Conversion {
+                message: response.error,
+                diagnostics: Vec::new(),
+            });
+        }
+        Ok(element_properties_of(response))
     }
 
     /// Select elements with OSLC Query 3.0 parameter text, such as

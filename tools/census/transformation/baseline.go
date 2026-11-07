@@ -17,7 +17,7 @@ const (
 )
 
 // Census statuses as the baseline records them. The document shows each one
-// with the marker spec-compliance.md uses for the same meaning.
+// with the marker the spec-compliance map uses for the same meaning.
 const (
 	StatusFaithful       = "faithful"
 	StatusApproximate    = "approximate"

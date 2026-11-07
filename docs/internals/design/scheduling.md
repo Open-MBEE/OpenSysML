@@ -114,10 +114,10 @@ already uses — `check_reduce.go`, `future_footprint.go`; there is no second co
   or both completing a performance changes no value). No dependent pair: the alternatives commute,
   the choice is `Independent`, and the run's values do not depend on it. A dependent pair: the
   choice is unresolved, and `Touches` names the places whose values the order decides
-  (`touchMeeting`, `Relation.PlaceMeets`): a place both alternatives write, and, where a write of
+  (`touchMeeting`, `Relation.PlaceMeet`): a place both alternatives write, and, where a write of
   one meets a *read* of the other, what the reading alternative writes from that read — the
   statements of its body whose flow reads the place (`lower.Footprint.Flows`, one data flow per
-  statement, `Footprint.WritesReading`), or every write of the alternative when the read is not a
+  statement, `Footprint.Standing`, `Standing.WritesReading`), or every write of the alternative when the read is not a
   statement's (a guard's) or the move is described whole. The rule throughout: a value is marked
   if and only if exploration proves more than one outcome for it. So the place read is not
   touched by the meeting — a once-written feature read by a racing sibling holds one value
@@ -241,6 +241,16 @@ tracker and never by re-reading declarations in the runtime:
   parameter standing on that and on the control at the accept (`Context.acceptMarks`, from
   `awaitSignal` and `bindAcceptPayload`): the transfer carries the dependence from the sender's
   side to the receiver's.
+- **Representation.** A set of choice points is a sorted, duplicate-free `[]int64` whose elements
+  are never written once shared: `unionSerials` merges its two operands once and hands back an
+  operand that already is the union, so a value computed from one marked read stands on its
+  source's set itself, a capture's clone (`orderMarks.clone`) shares every set with the run it
+  copies, and a seed joins its serial once for every place that stood on one set. A choice point's
+  serial is above every serial of the sets it joins, so `appendSerial` grows a set by one serial
+  in place where it is the longest set of its array, by an atomic claim of the zero slot past it
+  (no serial is 0, and another set may be the same slice, a capture restored alongside); the
+  shorter sets of that array never read past their own length, and where the slot is taken the
+  serial goes into a fresh array with room for what joins next.
 - **The clock.** A choice among the moves of one instant of the shared clock (a transition
   drawn among several, region, due, dispatch, entry, exit and step order) orders none of that
   instant's other writes after its alternatives, so a seed it left stands on the places it touched

@@ -66,14 +66,15 @@ func TestAdjudicationRules(t *testing.T) {
 		{"usage-node", VerdictNotApplicable, CategoryNode},
 		{"part-def", VerdictDrawn, CategoryNode},
 		{"parts-compartment", VerdictDrawn, CategoryCompartment},
-		{"calcs-compartment", VerdictApproximate, CategoryCompartment},
+		{"calcs-compartment", VerdictDrawn, CategoryCompartment},
 		{"connection-graphical", VerdictDrawn, CategoryEdge},
 		{"connection-def-graphical", VerdictDrawn, CategoryEdge},
 		{"flow", VerdictApproximate, CategoryEdge},
 		{"aflow-succession", VerdictDrawn, CategoryEdge},
 		{"n-ary-connection-dot", VerdictDrawn, CategoryNode},
 		{"general-view", VerdictDrawn, CategoryView},
-		{"root-view", VerdictApproximate, CategoryView},
+		{"root-view", VerdictDrawn, CategoryView},
+		{"connection-definition-elaboration", VerdictUndrawn, CategoryView},
 	}
 	for _, tc := range cases {
 		adj, err := Adjudicate(tc.name, edges)

@@ -1,0 +1,48 @@
+@startuml
+' FurnaceViews::burnerTree — tree rendering (view def GeneralView)
+' not represented: 5 member(s) drawn as compartment rows of their owner, and 5 node(s) under them left undrawn
+mainframe <size:10>//«view»//</size> **FurnaceViews::burnerTree** : GeneralView\n<size:10>expose Furnace::Burner</size>
+<style>
+root {
+  BackGroundColor white
+  FontName SansSerif
+  FontSize 14
+  FontColor black
+  LineColor #181818
+  HorizontalAlignment left
+}
+element {
+  BackGroundColor white
+  LineColor #181818
+  LineThickness 0.5
+  RoundCorner 0
+  Shadowing 0.0
+}
+start, end, activityBar {
+  BackGroundColor black
+}
+arrow {
+  LineColor #181818
+  LineThickness 1
+  FontSize 13
+}
+note {
+  BackGroundColor #FEFFDD
+  FontSize 13
+}
+.usage {
+  RoundCorner 20
+}
+.package {
+  LineThickness 1.5
+}
+.region {
+  LineStyle 4
+}
+</style>
+skinparam wrapWidth 300
+hide stereotype
+hide circle
+hide empty members
+class "<size:10>//«state def»//</size>\n**Burner**\nattributes\nflame : Boolean\nstates\noff\nrunning\ntransitions\ntransition\nsuccessions\nfirst running then off" as n0 <<state def>>
+@enduml

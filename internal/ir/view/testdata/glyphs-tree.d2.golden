@@ -15,7 +15,7 @@ n2: "«attribute»\n^level" { class: usage }
 n3: "«part»\npump" { class: usage }
 n4: "«timeslice»\nfilling" { class: usage }
 n5: "«snapshot»\nfull" { class: usage }
-n6: "«occurrence»\nstartup" { class: usage }
+n6: "«event occurrence»\nstartup" { class: usage }
 n7: "«part»\nspare" { class: usage }
 n8: "«attribute»\n^level" { class: usage }
 n9: "«view»\ntankView" { class: usage }
@@ -33,3 +33,5 @@ n7 -> n1: "references" { class: specialization }
 n7 <- n8: { class: reference }
 n9 -> n10: "«expose»" { class: dependency }
 n10 <- n11: { class: reference }
+frame_name: "«view» NotationGlyphs::Diagrams::treeGlyphs" { shape: text; near: top-left }
+frame_tr: "expose Plant\nexpose tankView\nexpose Tank" { shape: text; near: top-right }

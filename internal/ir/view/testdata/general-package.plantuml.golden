@@ -1,5 +1,6 @@
 @startuml
 ' GeneralViews::packageView — package rendering (view def GeneralView, filter @Package)
+mainframe <size:10>//«view»//</size> **GeneralViews::packageView** : GeneralView\n<size:10>expose VehicleStructure</size>\n<size:10>expose VehicleStructure::Powertrain</size>\n<size:10>expose VehicleRequirements</size>\n<size:10>expose VehicleVerification</size>\n<size:10>expose GeneralViews</size>\n<size:10>filter @SysML::Package</size>
 <style>
 root {
   BackGroundColor white

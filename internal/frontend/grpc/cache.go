@@ -101,15 +101,18 @@ type CachedModel struct {
 	// parsed fresh (lineage.go).
 	analysis *analysisSnapshot
 
-	symCtxOnce     sync.Once
-	symCtx         *symbolfacts.Context
-	positionalOnce sync.Once
-	positional     map[*symbols.Symbol]string
-	byPositional   map[string]*symbols.Symbol
+	symCtxOnce sync.Once
+	symCtx     *symbolfacts.Context
 	// elementIDs reads what a conversion of the model writes as each element's
 	// elementId, which a query reports (queryEval.elementID).
 	elementIDsOnce sync.Once
 	elementIDs     *export.ElementIDReader
+	// elementForm is the model's API element form, which GetElementProperties
+	// reads per element, from one conversion made on first use; a model the
+	// conversion refuses keeps the refusal.
+	elementFormOnce sync.Once
+	elementForm     *export.ElementForm
+	elementFormErr  error
 
 	// idle are the workers requests have given back, warm with what they resolved.
 	idleMu sync.Mutex
@@ -224,8 +227,32 @@ func (m *CachedModel) SymbolContext() *symbolfacts.Context {
 	m.symCtxOnce.Do(func() {
 		m.symCtx = NewSymbolContext(m.Index)
 		m.symCtx.Semantics.SetSourceText(cachedSourceText(m))
+		m.symCtx.Positional = symbolfacts.NewPositional(m.Index, m.positionalDocuments)
 	})
 	return m.symCtx
+}
+
+// positionalDocuments pairs each document of the model with its root scope,
+// for the positional identities of its unnamed declarations.
+func (m *CachedModel) positionalDocuments() []symbolfacts.PositionalDocument {
+	docs := make([]symbolfacts.PositionalDocument, 0, len(m.Documents))
+	for _, doc := range m.Documents {
+		if doc == nil || doc.Source == nil {
+			continue
+		}
+		root := m.Index.DocumentRoot(doc.Source.Name())
+		if root == nil {
+			continue
+		}
+		docs = append(docs, symbolfacts.PositionalDocument{File: doc.Source, Root: root})
+	}
+	return docs
+}
+
+// LookupSymbol resolves a symbol id in either form the service reports one: a
+// qualified name, or the positional identity of an unnamed declaration.
+func (m *CachedModel) LookupSymbol(id string) []*symbols.Symbol {
+	return m.SymbolContext().Lookup(id)
 }
 
 // LookupNamedMember resolves a symbol id, a member a subtype inherits included

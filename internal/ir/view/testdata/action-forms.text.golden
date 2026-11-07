@@ -1,0 +1,44 @@
+ActionFormViews::monitorView - action rendering (render asInterconnectionDiagram, view def ActionFlowView)
+
+action def Monitor
+  in sensor
+  out alarm
+  initial start
+  accept action acceptReading (reading : Reading)
+    out reading
+    inout ^payload
+    in ^receiver
+  send action sendAlarm (Alarm to sensor)
+    in ^payload
+    in ^sender
+    in ^receiver
+  assign tally (count := count + 1)
+  loop wait
+    while condition
+      count < 10
+    loop body
+      action poll
+      action record
+  loop sweep
+    for iterator
+      i in 1..3
+    loop body
+      action 'step'
+  if choose
+    if condition
+      count > 5
+    then body
+      action raise
+    else body
+      action lower
+  terminate action final
+
+flow:
+  poll -> record
+  start -> acceptReading
+  acceptReading -> tally
+  sendAlarm -> wait
+  tally -> sendAlarm
+  wait -> sweep
+  sweep -> choose
+  choose -> final

@@ -14,11 +14,16 @@ disclaimer phrase is present. Run via ``make docs-check``.
 
 from __future__ import annotations
 
+import importlib.util
 import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+_combine = importlib.util.spec_from_file_location("spec_compliance", Path(__file__).resolve().parent / "spec_compliance.py")
+spec_compliance = importlib.util.module_from_spec(_combine)
+assert _combine.loader is not None
+_combine.loader.exec_module(spec_compliance)
 
 # A quoted oracle total: one of the three oracles' buckets beside a number. The
 # differential names "only ours"/"only the pilot's"/"fully agreeing", the Xpect
@@ -46,10 +51,14 @@ EXEMPT = {"CHANGELOG.md", "docs/project/archive/CHANGELOG-0.0-0.8.md"}
 EXEMPT_DIRS = {".agents"}
 
 
-def scanned_files() -> list[Path]:
+def scanned_pages() -> list[tuple[Path, str]]:
+    """Each page with its text; the compliance map is one page combined from its sources."""
     files = [ROOT / "README.md"]
     files += sorted((ROOT / "docs").rglob("*.md"))
-    return [f for f in files if f.is_file()]
+    sources = {Path(source).resolve() for source in spec_compliance.sources()}
+    pages = [(f.relative_to(ROOT), f.read_text(encoding="utf-8")) for f in files if f.is_file() and f.resolve() not in sources]
+    pages.append((spec_compliance.PAGE.relative_to(ROOT), spec_compliance.render()))
+    return pages
 
 
 def normalized(text: str) -> str:
@@ -77,11 +86,9 @@ def offending_lines(text: str) -> list[tuple[int, str]]:
 
 def main() -> int:
     failures: list[str] = []
-    for path in scanned_files():
-        relative = path.relative_to(ROOT)
+    for relative, text in scanned_pages():
         if str(relative) in EXEMPT or relative.parts[0] in EXEMPT_DIRS:
             continue
-        text = path.read_text(encoding="utf-8")
         quoted = offending_lines(text)
         if not quoted:
             continue

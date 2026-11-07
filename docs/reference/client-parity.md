@@ -18,7 +18,11 @@ Every client exposes all 31 RPCs (`GetServerInfo`, `ParseFile`, `ParseSources`, 
 `SelfCheck`, `RecordRun`, `ListEngines`, `Query`, `RunDocumentQuery`, `RenderDocument`,
 `RenderView`, `ExportGraphs`, `ImportData`, `CompareResults`) as typed calls, and each runs
 the shared [conformance suite](clients.md#every-client-runs-the-same-conformance-suite)
-over them. The service has no streaming RPC. Capability preflight (`GetServerInfo`
+over them. The 32nd, `InstancePaths` (every root-relative path to one object, capability
+`instance_paths`), is typed in the Go and Python clients — Python as
+`Instance.paths()` beside `Instance.owner`, `.feature` and `.path`, which read the
+`reached_by` of an instantiated `Instance` — and the other clients carry `reached_by`
+through their generated `Instance` message. The service has no streaming RPC. Capability preflight (`GetServerInfo`
 capabilities checked before a call) is typed in every client.
 
 ## Request options

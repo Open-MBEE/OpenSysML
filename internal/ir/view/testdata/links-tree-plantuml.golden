@@ -1,5 +1,6 @@
 @startuml
 ' VehicleViews::vehicleView — tree rendering
+mainframe <size:10>//«view»//</size> **VehicleViews::vehicleView**\n<size:10>expose Vehicles::Vehicle</size>
 <style>
 root {
   BackGroundColor white

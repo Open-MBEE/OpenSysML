@@ -1,5 +1,6 @@
 @startuml
 ' AbstractViews::familyTree — tree rendering (render asTreeDiagram)
+mainframe <size:10>//«view»//</size> **AbstractViews::familyTree** : Family\n<size:10>expose Vehicle<U+002A><U+002A></size>\n<size:10>expose vehicleFamily<U+002A><U+002A></size>\n<size:10>expose Models<U+002A><U+002A></size>
 <style>
 root {
   BackGroundColor white

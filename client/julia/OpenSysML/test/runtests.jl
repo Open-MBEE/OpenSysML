@@ -403,7 +403,7 @@ end
     close(listener)
     canned = Ref{String}("{}")
     requested = Ref("")
-    server = HTTP.serve!(ip"127.0.0.1", port) do req
+    server = HTTP.serve!("127.0.0.1", port) do req
         requested[] = String(req.body)
         HTTP.Response(200, ["Content-Type" => "application/json"], canned[])
     end

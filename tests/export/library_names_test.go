@@ -67,22 +67,33 @@ func TestAPIJSONCarriesNoLibraryElements(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Each id the element form leaves unheld is one the graph names as a library element.
-	named := 0
+	// Each id the element form leaves unheld is one the graph names as a library element:
+	// by qualified name, or by positional path for the unnamed members the inherited lists reference.
+	named, positional := 0, 0
 	for id := range unheld {
-		if !strings.Contains(string(turtle), "<urn:sysmlv2:element:"+id+">\n    a sysml:") &&
-			!strings.Contains(string(turtle), "\nelmt:"+id+"\n    a sysml:") {
+		stub := "<urn:sysmlv2:element:" + id + ">\n    a sysml:"
+		if !strings.Contains(string(turtle), stub) && !strings.Contains(string(turtle), "\nelmt:"+id+"\n    a sysml:") {
 			t.Errorf("the element form references %s, which is no library element the graph names", id)
+			continue
+		}
+		if strings.Contains(turtleSubject(string(turtle), id), "sysx:libraryPath") {
+			positional++
+			continue
 		}
 		named++
 	}
-	// Real, Integer, MassValue, the ISQ package and the membership import of Real.
-	if named != 5 {
-		t.Errorf("the element form leaves %d library ids unheld, want 5", named)
+	// Real, Integer, MassValue, the ISQ package and the membership import of Real, and
+	// the named library features the completed inherited lists reference.
+	if named < 5 {
+		t.Errorf("the element form leaves %d named library ids unheld, want at least 5", named)
+	}
+	if positional == 0 {
+		t.Error("the element form references no unnamed library member named by sysx:libraryPath")
 	}
 	for _, want := range []string{
 		`sysml:qualifiedName "ScalarValues::Real" ;`, `sysml:qualifiedName "ISQBase::MassValue" ;`,
-		`sysml:qualifiedName "ISQ" ;`, `sysml:isLibraryElement "true"^^xsd:boolean`,
+		`sysml:qualifiedName "ISQ" ;`, `sysml:qualifiedName "Items::Item::subparts" ;`,
+		`sysml:isLibraryElement "true"^^xsd:boolean`,
 	} {
 		if !strings.Contains(string(turtle), want) {
 			t.Errorf("the graph should still name the library element: %s", want)
@@ -209,4 +220,20 @@ func TestLibraryMarkerReadsEitherBooleanSpelling(t *testing.T) {
 	if strings.Contains(string(back), "datatype") || strings.Contains(string(back), "library package") {
 		t.Errorf("a library element marked with 1 was written back as a declaration:\n%s", back)
 	}
+}
+
+// turtleSubject is the block of statements turtle makes about the element with id.
+func turtleSubject(turtle, id string) string {
+	start := strings.Index(turtle, "\nelmt:"+id+"\n")
+	if start < 0 {
+		start = strings.Index(turtle, "\n<urn:sysmlv2:element:"+id+">\n")
+	}
+	if start < 0 {
+		return ""
+	}
+	rest := turtle[start+1:]
+	if end := strings.Index(rest, "\n\n"); end >= 0 {
+		return rest[:end]
+	}
+	return rest
 }

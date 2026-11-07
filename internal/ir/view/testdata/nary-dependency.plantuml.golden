@@ -1,5 +1,6 @@
 @startuml
 ' NaryViews::dependencies — tree rendering (render asTreeDiagram)
+mainframe <size:10>//«view»//</size> **NaryViews::dependencies**\n<size:10>expose NaryRules::Chassis</size>\n<size:10>expose NaryRules::Lights</size>\n<size:10>expose NaryRules::Brakes</size>\n<size:10>expose NaryRules::Steering</size>\n<size:10>expose NaryRules::rules</size>
 <style>
 root {
   BackGroundColor white

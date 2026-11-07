@@ -418,6 +418,7 @@ impl Runner {
             "Migrate" => self.migrate(request),
             "ApplyEdits" => self.apply_edits(request, model),
             "Query" => self.query(request),
+            "GetElementProperties" => self.get_element_properties(request),
             "RunDocumentQuery" => self.run_document_query(request),
             "RenderDocument" => self.render_document(request),
             "RenderView" => self.render_view(request),
@@ -796,6 +797,31 @@ impl Runner {
                     elements: elements.into_iter().map(Into::into).collect(),
                 },
             )),
+            Err(error) => classify_error(error),
+        }
+    }
+
+    fn get_element_properties(&self, request: &DynamicMessage) -> Answer {
+        let request: wire::GetElementPropertiesRequest = match decode(request) {
+            Ok(request) => request,
+            Err(answer) => return answer,
+        };
+        let properties: Vec<&str> = request.properties.iter().map(String::as_str).collect();
+        match self.connection.element_properties(
+            &request.model_hash,
+            &request.element_id,
+            &properties,
+        ) {
+            Ok(read) => Answer::Response(self.wire_json(
+                "sysml.GetElementPropertiesResponse",
+                &element_properties_wire(read),
+            )),
+            Err(Error::SymbolNotFound { name, .. }) => {
+                Answer::InBand(serde_json::json!({ "error": format!("element not found: {name}") }))
+            }
+            Err(Error::Conversion { message, .. }) => {
+                Answer::InBand(serde_json::json!({ "error": message }))
+            }
             Err(error) => classify_error(error),
         }
     }
@@ -1636,6 +1662,50 @@ impl Runner {
             .serialize_with_options(&mut serde_json::Serializer::new(&mut bytes), &options)
             .expect("dynamic response serializes");
         serde_json::from_slice(&bytes).expect("serialized dynamic response is JSON")
+    }
+}
+
+fn element_identity_wire(identity: opensysml::ElementIdentity) -> wire::ElementRef {
+    wire::ElementRef {
+        id: identity.id,
+        qualified_name: identity.qualified_name,
+        metaclass: identity.metaclass,
+    }
+}
+
+fn element_properties_wire(
+    read: opensysml::ElementProperties,
+) -> wire::GetElementPropertiesResponse {
+    use opensysml::PropertyValue;
+    use wire::element_property_value::Value;
+    wire::GetElementPropertiesResponse {
+        element: Some(element_identity_wire(read.element)),
+        properties: read
+            .properties
+            .into_iter()
+            .map(|property| wire::ElementProperty {
+                name: property.name,
+                defining_class: property.defining_class,
+                many: property.many,
+                derived: property.derived,
+                values: property
+                    .values
+                    .into_iter()
+                    .map(|value| wire::ElementPropertyValue {
+                        value: Some(match value {
+                            PropertyValue::Element(e) => Value::Element(element_identity_wire(e)),
+                            PropertyValue::String(s) => Value::StringValue(s),
+                            PropertyValue::Bool(b) => Value::BoolValue(b),
+                            PropertyValue::Int(i) => Value::IntValue(i),
+                            PropertyValue::Real(r) => Value::RealValue(r),
+                            PropertyValue::Number(n) => Value::Number(n),
+                        }),
+                    })
+                    .collect(),
+                unsupported: property.unsupported,
+            })
+            .collect(),
+        error: String::new(),
     }
 }
 

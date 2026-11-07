@@ -351,7 +351,44 @@ func TestExploreWithKeepsNoContextButTheWitnesses(t *testing.T) {
 			if p.replay != nil || p.outcome.ctx != nil || p.outcome.Outputs != nil {
 				t.Errorf("run %d of %d on %d jobs is held by the queue after folding", i+1, x.Runs, jobs)
 			}
+			if p.record != nil {
+				t.Errorf("run %d of %d on %d jobs still holds the record it departed from", i+1, x.Runs, jobs)
+			}
 		}
+	}
+}
+
+// The prefixes a run leaves share one copy of its record, cut at the last departure: the
+// run's later choices, and whatever context their choice points hold, go with the run.
+func TestExploreQueueSharesTheRecordUpToTheLastDeparture(t *testing.T) {
+	q := newExploreQueue(mustPolicy(t, "explore"), ExploreBudget{Runs: 8, Depth: 64}, 1)
+	root := q.next(context.Background())
+	if root == nil || root.plan() != nil {
+		t.Fatalf("root prefix %+v, want one departing from no run", root)
+	}
+	replay := &exploreRun{depth: q.budget.Depth, record: []exploreSlot{
+		{kind: slotPick, alternatives: 2},
+		{kind: slotPick, alternatives: 1},
+		{kind: slotPick, alternatives: 3, taken: 1},
+		{kind: slotPick, alternatives: 2, beyond: true},
+		{kind: slotPick, alternatives: 2, taken: 1},
+	}}
+	q.finish(root, replay, Outcome{}, nil)
+	next := q.order[1:]
+	if len(next) != 2 || next[0].departs != 0 || next[1].departs != 2 {
+		t.Fatalf("%d prefixes queued, want departures at choices 0 and 2", len(next))
+	}
+	if len(next[0].record) != 3 {
+		t.Errorf("the departures hold %d of the run's %d choices, want up to the last departure", len(next[0].record), len(replay.record))
+	}
+	if &next[1].record[0] != &next[0].record[0] {
+		t.Errorf("the departures copy the record each, want one shared")
+	}
+	if &next[0].record[0] == &replay.record[0] {
+		t.Errorf("the departures hold the run's own record, want a copy")
+	}
+	if got := next[1].plan(); len(got) != 3 || got[2].taken != 2 || got[0].taken != 0 {
+		t.Errorf("plan of the departure at choice 2 = %+v, want the record up to it taking alternative 2", got)
 	}
 }
 

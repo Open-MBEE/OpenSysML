@@ -33,6 +33,9 @@ final class Normalizer {
           "sysml.Value.instance_id",
           "sysml.Verdict.instance_id",
           "sysml.Function.self_id",
+          "sysml.InstanceReach.instance_id",
+          "sysml.InstanceRoot.instance_id",
+          "sysml.InstancePathStep.instance_id",
           "sysml.DocumentObject.instance_id");
 
   private final String modelHash;

@@ -1614,6 +1614,8 @@ function html(
       #diagram .port-shape.container { fill: var(--vscode-sideBar-background, var(--vscode-editor-background)); }
       #diagram .port-shape.filled { fill: var(--vscode-foreground); }
       #diagram .port-label { fill: var(--vscode-foreground); font-size: 0.85em; }
+      #diagram .pin-arrow { fill: var(--vscode-foreground); font-size: 8px; pointer-events: none; }
+      #diagram .shape.mark { stroke: none; }
       #diagram .label { fill: var(--vscode-foreground); }
       #diagram .label .head { font-weight: 600; }
       #diagram .label .keyword { font-size: 0.85em; opacity: 0.8; }

@@ -177,19 +177,28 @@ var packageTitles = []struct{ Letter, Title string }{
 	{"F", "everything else"},
 }
 
+// The sub-clauses of §8.2.3 the work packages single out, by ordinal.
+const (
+	annotationsClause = 4
+	occurrencesClause = 9
+	actionsClause     = 17
+	statesClause      = 18
+)
+
 func workPackage(r Row) string {
 	if r.Verdict != VerdictUndrawn && r.Verdict != VerdictApproximate {
 		return ""
 	}
+	clause := clauseIndex(r.Clause)
 	switch {
-	case r.Clause == "8.2.3.4", r.Name == "root-view", r.Name == "framed-view", strings.HasPrefix(r.Name, "view-frame-"):
+	case clause == annotationsClause, r.Name == "root-view", r.Name == "framed-view", strings.HasPrefix(r.Name, "view-frame-"):
 		return "A"
-	case r.Clause == "8.2.3.17", r.Clause == "8.2.3.18":
+	case clause == actionsClause, clause == statesClause:
 		return "B"
 	case strings.HasPrefix(r.Name, "n-ary-"), r.Name == "cdot-label", r.Name == "flow-on-connection",
 		strings.HasSuffix(r.Name, "-node-r"), strings.HasSuffix(r.Name, "-node-l"):
 		return "C"
-	case r.Clause == "8.2.3.9", r.Name == "message":
+	case clause == occurrencesClause, r.Name == "message":
 		return "D"
 	case r.Name == "element-inside-textual-compartment", r.Name == "ellipsis-at-lower-left-corner":
 		return "E"
@@ -254,6 +263,18 @@ func (b *Baseline) validate() error {
 	if b.Source.PilotTag == "" || b.Source.ReleaseCommit == "" || b.Source.Clause != "8.2.3" {
 		problems = append(problems, "the source records no pilot tag, release commit or clause 8.2.3")
 	}
+	problems = append(problems, b.clauseProblems()...)
+	problems = append(problems, b.categoryProblems()...)
+	problems = append(problems, b.gapProblems()...)
+	if len(problems) == 0 {
+		return nil
+	}
+	return fmt.Errorf("%s is inconsistent:\n  %s", baselinePath, strings.Join(problems, "\n  "))
+}
+
+// clauseProblems checks the clauses are numbered in order and sum to the totals.
+func (b *Baseline) clauseProblems() []string {
+	var problems []string
 	var sum Counts
 	var statements int
 	for i, c := range b.Clauses {
@@ -276,6 +297,12 @@ func (b *Baseline) validate() error {
 	if sum != b.Totals.Counts || statements != b.Totals.Statements {
 		problems = append(problems, "the clause counts do not sum to the totals")
 	}
+	return problems
+}
+
+// categoryProblems checks the categories are known and sum to the productions.
+func (b *Baseline) categoryProblems() []string {
+	var problems []string
 	categories := 0
 	for name, n := range b.Categories {
 		if !knownCategory(Category(name)) {
@@ -286,20 +313,15 @@ func (b *Baseline) validate() error {
 	if categories != b.Totals.Productions {
 		problems = append(problems, "the category counts do not sum to the productions")
 	}
+	return problems
+}
+
+// gapProblems checks each non-drawn row and that together they match the totals.
+func (b *Baseline) gapProblems() []string {
+	var problems []string
 	var gaps Counts
 	for i, g := range b.NonDrawn {
-		if g.Verdict == VerdictDrawn || !knownVerdict(g.Verdict) {
-			problems = append(problems, fmt.Sprintf("%s: a non-drawn row has verdict %q", g.Name, g.Verdict))
-		}
-		if !knownCategory(g.Category) {
-			problems = append(problems, fmt.Sprintf("%s: unknown category %q", g.Name, g.Category))
-		}
-		if g.Reason == "" {
-			problems = append(problems, fmt.Sprintf("%s: no reason", g.Name))
-		}
-		if (g.Package != "") != (g.Verdict == VerdictUndrawn || g.Verdict == VerdictApproximate) {
-			problems = append(problems, fmt.Sprintf("%s: an undrawn or approximate row has a work package, the others none", g.Name))
-		}
+		problems = append(problems, g.problems()...)
 		if i > 0 && !gapLess(b.NonDrawn[i-1], g) {
 			problems = append(problems, fmt.Sprintf("%s: the non-drawn rows are not sorted by clause then name", g.Name))
 		}
@@ -308,10 +330,24 @@ func (b *Baseline) validate() error {
 	if gaps.Approximate != b.Totals.Approximate || gaps.Undrawn != b.Totals.Undrawn || gaps.NotApplicable != b.Totals.NotApplicable {
 		problems = append(problems, "the non-drawn rows do not match the totals")
 	}
-	if len(problems) == 0 {
-		return nil
+	return problems
+}
+
+func (g Gap) problems() []string {
+	var problems []string
+	if g.Verdict == VerdictDrawn || !knownVerdict(g.Verdict) {
+		problems = append(problems, fmt.Sprintf("%s: a non-drawn row has verdict %q", g.Name, g.Verdict))
 	}
-	return fmt.Errorf("%s is inconsistent:\n  %s", baselinePath, strings.Join(problems, "\n  "))
+	if !knownCategory(g.Category) {
+		problems = append(problems, fmt.Sprintf("%s: unknown category %q", g.Name, g.Category))
+	}
+	if g.Reason == "" {
+		problems = append(problems, fmt.Sprintf("%s: no reason", g.Name))
+	}
+	if (g.Package != "") != (g.Verdict == VerdictUndrawn || g.Verdict == VerdictApproximate) {
+		problems = append(problems, fmt.Sprintf("%s: an undrawn or approximate row has a work package, the others none", g.Name))
+	}
+	return problems
 }
 
 func knownVerdict(v Verdict) bool {

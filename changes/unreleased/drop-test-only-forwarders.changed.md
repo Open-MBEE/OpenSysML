@@ -1,1 +1,0 @@
-- The REPL's `witnessLine` and `sameName` forwarders to `analysis.WitnessLine` and `simresults.SameName`, and the metamodel evaluator's `containsSymbol`, which no production code called, are removed; their tests call `analysis.WitnessLine`, `simresults.SameName` and `slices.Contains` directly. No behaviour changes.

@@ -1,6 +1,13 @@
 // The isomorphic core: everything that does not need a process to spawn.
 
 export { Connection } from "./connection.js";
+export {
+  ElementIdentity,
+  ElementProperties,
+  ElementProperty,
+  type PropertyValue,
+  elementPropertiesOf,
+} from "./element-properties.js";
 export type {
   ConnectionBackend,
   Encoding,
@@ -65,6 +72,7 @@ export type {
   RenderEdge,
   RenderGeometry,
   RenderNode,
+  RenderFrame,
   RenderNote,
   RenderPoint,
   RenderPort,
@@ -217,6 +225,8 @@ export {
   CAPABILITY_UNDETERMINED_VALUE,
   CAPABILITY_VERIFICATION_VERDICTS,
   CAPABILITY_SYMBOL_ATTRIBUTES,
+  CAPABILITY_SYMBOL_MEMBERS,
+  CAPABILITY_ELEMENT_PROPERTIES,
   CAPABILITY_TENSOR_VALUES,
   CAPABILITY_TYPE_FACTS,
   CAPABILITY_UNSET_VALUE,

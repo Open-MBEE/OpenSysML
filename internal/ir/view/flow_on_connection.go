@@ -14,6 +14,7 @@ type flowSite struct {
 	index  int
 	sym    *symbols.Symbol
 	within *Node
+	notes  [2]int // the flow's notes in out.Notes, [from, to)
 }
 
 // lineEnds are the two ends of a connection line, as a flow's ends match them
@@ -91,6 +92,7 @@ func (w *featureWalk) splitLine(line Edge, flows []flowSite) []Edge {
 	boxes := make([]*Node, len(flows))
 	for i, flow := range flows {
 		boxes[i] = w.itemBox(w.out.Edges[flow.index], flow, line)
+		w.moveFlowNotes(flow, boxes[i])
 	}
 	routes := splitRoute(line.Route, len(boxes))
 	atCut := make([]bool, len(boxes))
@@ -165,6 +167,38 @@ func flowBoxKind(sym *symbols.Symbol, kind EdgeKind) string {
 		return "message"
 	}
 	return kind.String()
+}
+
+// moveFlowNotes anchors the notes a flow's edge got — recorded by index when the
+// edge was dressed — on the item box the flow is drawn as instead.
+func (w *featureWalk) moveFlowNotes(flow flowSite, box *Node) {
+	for i := flow.notes[0]; i < flow.notes[1] && i < len(w.out.Notes); i++ {
+		note := &w.out.Notes[i]
+		note.Anchor, note.EdgeFrom, note.EdgeTo = box.ID, "", ""
+	}
+}
+
+// lineWaypoints counts, for each connection whose line the flows on it split, the waypoints
+// of its Route over every segment: the line is one routed edge, however the cut shares them out.
+func lineWaypoints(r *Rendering) map[Origin]int {
+	items := map[string]bool{}
+	var collect func(nodes []*Node)
+	collect = func(nodes []*Node) {
+		for _, node := range nodes {
+			if itemBox(node) {
+				items[node.ID] = true
+			}
+			collect(node.Children)
+		}
+	}
+	collect(r.Roots)
+	lines := map[Origin]int{}
+	for _, edge := range r.Edges {
+		if edge.Kind == EdgeConnection && (items[edge.From] || items[edge.To]) {
+			lines[edge.Origin] += len(edge.Route)
+		}
+	}
+	return lines
 }
 
 // segmentRoute is a piece of a split route less the cut points a box stands

@@ -86,6 +86,11 @@ func (a *ConnectAdapter) Instantiate(ctx context.Context, req *connect.Request[p
 	return connectCall(ctx, req, a.svc.Instantiate)
 }
 
+// InstancePaths lists every root-relative path reaching an object.
+func (a *ConnectAdapter) InstancePaths(ctx context.Context, req *connect.Request[pb.InstancePathsRequest]) (*connect.Response[pb.InstancePathsResponse], error) {
+	return connectCall(ctx, req, a.svc.InstancePaths)
+}
+
 // ExecuteAction runs an action to completion.
 func (a *ConnectAdapter) ExecuteAction(ctx context.Context, req *connect.Request[pb.ExecuteActionRequest]) (*connect.Response[pb.ExecuteActionResponse], error) {
 	return connectCall(ctx, req, a.svc.ExecuteAction)
@@ -174,6 +179,11 @@ func (a *ConnectAdapter) ListEngines(ctx context.Context, req *connect.Request[p
 // Query evaluates a SysML v2 API & Services Query over a parsed model.
 func (a *ConnectAdapter) Query(ctx context.Context, req *connect.Request[pb.QueryRequest]) (*connect.Response[pb.QueryResponse], error) {
 	return connectCall(ctx, req, a.svc.Query)
+}
+
+// GetElementProperties reads the metamodel properties of one element.
+func (a *ConnectAdapter) GetElementProperties(ctx context.Context, req *connect.Request[pb.GetElementPropertiesRequest]) (*connect.Response[pb.GetElementPropertiesResponse], error) {
+	return connectCall(ctx, req, a.svc.GetElementProperties)
 }
 
 // RunDocumentQuery runs a named document query and answers with typed rows.

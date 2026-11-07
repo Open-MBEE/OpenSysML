@@ -288,6 +288,7 @@ impl Connection {
             wire::GetSymbolRequest {
                 model_hash: model_hash.to_owned(),
                 symbol_id: symbol_id.to_owned(),
+                include_library_members: false,
             },
         )?;
         if !response.error.is_empty() {

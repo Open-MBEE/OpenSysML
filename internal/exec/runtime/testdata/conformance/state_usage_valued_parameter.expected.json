@@ -1,0 +1,7 @@
+{
+	"libraries": true,
+	"type": "state",
+	"evaluate": "test::m",
+	"finalState": "s2",
+	"stateVisits": ["s1", "s2"]
+}

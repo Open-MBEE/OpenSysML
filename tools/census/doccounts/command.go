@@ -132,19 +132,15 @@ type rewrite struct {
 }
 
 func pendingRewrites(root string) ([]rewrite, error) {
-	compliance, _, err := readFile(root, SpecCompliancePath)
-	if err != nil {
-		return nil, err
-	}
-	counts, err := CountRules(compliance)
+	counts, err := CountSpecComplianceRules(root)
 	if err != nil {
 		return nil, err
 	}
 	if counts.Total == 0 {
-		return nil, fmt.Errorf("%s states no rule rows", SpecCompliancePath)
+		return nil, fmt.Errorf("%s states no rule rows", SpecComplianceDir)
 	}
 	if counts.KnownFailure != 0 {
-		return nil, fmt.Errorf("%s: %d 🚧 rows; give them a status the census states", SpecCompliancePath, counts.KnownFailure)
+		return nil, fmt.Errorf("%s: %d 🚧 rows; give them a status the census states", SpecComplianceDir, counts.KnownFailure)
 	}
 	figures, err := ReadFigures(root)
 	if err != nil {
@@ -152,42 +148,75 @@ func pendingRewrites(root string) ([]rewrite, error) {
 	}
 
 	var pending []rewrite
-	for _, path := range paths() {
-		content, mode, err := readFile(root, path)
+	for _, page := range paths() {
+		files, err := pageFiles(root, page)
 		if err != nil {
 			return nil, err
 		}
-		updated := content
+		current := make([]string, len(files))
+		updated := make([]string, len(files))
+		modes := make([]fs.FileMode, len(files))
+		for i, file := range files {
+			if current[i], modes[i], err = readFile(root, file); err != nil {
+				return nil, err
+			}
+			updated[i] = current[i]
+		}
 		for _, line := range BaselineLines() {
-			if line.Path != path {
+			if line.Path != page {
 				continue
 			}
-			if updated, err = RewriteBaselineLine(updated, line, figures.Refereed); err != nil {
+			i := carrier(updated, line.Marker)
+			if updated[i], err = RewriteBaselineLine(updated[i], line, figures.Refereed); err != nil {
 				return nil, err
 			}
 		}
 		for _, block := range Blocks() {
-			if block.Path != path {
+			if block.Path != page {
 				continue
 			}
-			if updated, err = RewriteBlock(updated, block, figures); err != nil {
+			i := carrier(updated, fmt.Sprintf(blockBeginFormat, block.Name))
+			if updated[i], err = RewriteBlock(updated[i], block, figures); err != nil {
 				return nil, err
 			}
 		}
 		for _, block := range SiteBlocks() {
-			if block.Path != path {
+			if block.Path != page {
 				continue
 			}
-			if err := CheckSiteBlock(updated, block); err != nil {
+			i := carrier(updated, fmt.Sprintf(blockBeginFormat, block.Name))
+			if err := CheckSiteBlock(updated[i], block); err != nil {
 				return nil, err
 			}
 		}
-		if updated == content {
-			continue
+		for i, file := range files {
+			if updated[i] == current[i] {
+				continue
+			}
+			pending = append(pending, rewrite{path: file, current: current[i], content: updated[i], mode: modes[i]})
 		}
-		pending = append(pending, rewrite{path: path, current: content, content: updated, mode: mode})
 	}
 	return pending, nil
+}
+
+// pageFiles names the files a page's text is read from and written to: the
+// page itself, or the sources of the combined compliance map.
+func pageFiles(root, page string) ([]string, error) {
+	if page != SpecCompliancePath {
+		return []string{page}, nil
+	}
+	return SpecComplianceSources(root)
+}
+
+// carrier is the index of the file carrying a marker; the first when none does,
+// so the rewrite reports the missing marker as it does for a single-file page.
+func carrier(files []string, marker string) int {
+	for i, content := range files {
+		if strings.Contains(content, marker) {
+			return i
+		}
+	}
+	return 0
 }
 
 func diffReport(path, current, generated string) string {

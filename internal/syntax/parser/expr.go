@@ -345,10 +345,12 @@ func (p *Parser) parsePostfixes(start int, expr ast.Node) ast.Node {
 			} else if p.at(lexer.LBrace) {
 				// Function reference given as a body: store as a single arg.
 				inv.Args = []ast.Node{p.parseBodyExpr(p.peek().Span.Offset)}
+				inv.BareArgument = true
 			} else if p.atExprStart() {
 				// Single arg without parens (e.g., `reduce '*'`)
 				// Parse only base expression, not full precedence expression
 				inv.Args = []ast.Node{p.parseBase()}
+				inv.BareArgument = true
 			}
 			inv.NodeSpan = p.spanFrom(start)
 			expr = inv
@@ -456,7 +458,7 @@ func (p *Parser) parseBase() ast.Node {
 		if p.at(lexer.LBrace) && p.peekN(1).Kind == lexer.Keyword && p.peekN(1).KeywordID == "in" {
 			bodyStart := p.peek().Span.Offset
 			bodyExpr := p.parseBodyExpr(bodyStart)
-			inv := &ast.InvocationExpr{Type: qn, Args: []ast.Node{bodyExpr}}
+			inv := &ast.InvocationExpr{Type: qn, Args: []ast.Node{bodyExpr}, BareArgument: true}
 			inv.NodeSpan = p.spanFrom(start)
 			return setBase(inv)
 		}
