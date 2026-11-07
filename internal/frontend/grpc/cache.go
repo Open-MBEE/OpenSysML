@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"fmt"
 	checkws "github.com/Open-MBEE/OpenSysML/internal/check/workspace"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/querytranslate"
 	goruntime "runtime"
 	"sync"
 
@@ -107,6 +108,10 @@ type CachedModel struct {
 	// elementId, which a query reports (queryEval.elementID).
 	elementIDsOnce sync.Once
 	elementIDs     *export.ElementIDReader
+	// propertyTable is the reflective property table the query translator
+	// reads, built once per model.
+	queryTableOnce sync.Once
+	propertyTable  *querytranslate.Table
 	// elementForm is the model's API element form, which GetElementProperties
 	// reads per element, from one conversion made on first use; a model the
 	// conversion refuses keeps the refusal.

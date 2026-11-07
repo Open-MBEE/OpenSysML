@@ -927,7 +927,9 @@ func TestQueryOmitsSatisfyingFeatureWithoutQueryIdentity(t *testing.T) {
 	}
 }
 
-func TestQueryVerifyHasNoSatisfyEndProperties(t *testing.T) {
+// TestQueryVerifyReadsSatisfyEndsReflectively verifies a verify reported as a
+// SatisfyRequirementUsage carries the metaclass property its model states.
+func TestQueryVerifyReadsSatisfyEndsReflectively(t *testing.T) {
 	model := `package Demo {
 		requirement r;
 		verification def Check {
@@ -940,10 +942,13 @@ func TestQueryVerifyHasNoSatisfyEndProperties(t *testing.T) {
 	if len(resp.Elements) != 1 {
 		t.Fatalf("verify elements = %d, want 1: %v", len(resp.Elements), resp.Elements)
 	}
-	for _, property := range []string{QueryPropSatisfiedRequirement, QueryPropSatisfyingFeature} {
-		if _, ok := resp.Elements[0].Properties[property]; ok {
-			t.Errorf("verify properties[%q] = %q, want absent", property, resp.Elements[0].Properties[property])
-		}
+	// The metamodel's satisfiedRequirement is read reflectively of the element
+	// the service reports as a SatisfyRequirementUsage; it is satisfied by nothing.
+	if got := resp.Elements[0].Properties[QueryPropSatisfiedRequirement]; got != "Demo::r" {
+		t.Errorf("verify properties[%q] = %q, want Demo::r", QueryPropSatisfiedRequirement, got)
+	}
+	if got, ok := resp.Elements[0].Properties[QueryPropSatisfyingFeature]; ok {
+		t.Errorf("verify properties[%q] = %q, want absent", QueryPropSatisfyingFeature, got)
 	}
 }
 

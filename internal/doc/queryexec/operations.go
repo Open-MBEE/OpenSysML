@@ -314,19 +314,20 @@ func (e *executor) evaluateWhereType(expression queryplan.Expression) (sequence,
 // a transition is a TransitionUsage) is the named one, by identity; a type of the model never is.
 func (e *executor) valueIsExactly(value Value, test typeTest) bool {
 	meta := e.exactMetaclass(test)
-	if meta == nil {
-		return false
-	}
 	if inst, _, isObject := value.Object(); isObject {
 		for _, typ := range objectTypes(inst) {
-			if symbols.SameElement(e.context.Model.MetaclassOf(typ), meta) {
+			if query.MetamodelTypeNameOf(typ) == test.name || (meta != nil && symbols.SameElement(e.context.Model.MetaclassOf(typ), meta)) {
 				return true
 			}
 		}
 		return false
 	}
 	sym := value.Declaration()
-	return sym != nil && symbols.SameElement(e.context.Model.MetaclassOf(sym), meta)
+	if sym == nil {
+		return false
+	}
+	// The metaclass a row reports as its type is its own, whichever the library derives.
+	return query.MetamodelTypeNameOf(sym) == test.name || (meta != nil && symbols.SameElement(e.context.Model.MetaclassOf(sym), meta))
 }
 
 // exactMetaclass is the metaclass a WhereType name denotes — simple or qualified — and nil
@@ -480,10 +481,10 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 	result := filtered(source)
 	known := false
 	var missing []*Error
-	metaclasses := map[*symbols.Symbol]bool{}
+	seen := newCandidates()
 	columnIndex := projectedColumn(source, property)
 	for i := range source.values {
-		e.noteMetaclass(metaclasses, source.values[i])
+		e.note(seen, source.values[i])
 		values, present, valueErr := e.featureValues(expression, source, i, property, columnIndex)
 		if valueErr != nil {
 			return sequence{}, valueErr
@@ -509,7 +510,7 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 		}
 	}
 	if !known {
-		return sequence{}, e.unknownPropertyAmong(expression, property, e.metaclassPropertyNames(metaclasses))
+		return sequence{}, e.unknownPropertyAmong(expression, property, e.names(seen))
 	}
 	if err := joinMissing(missing); err != nil {
 		return sequence{}, err
@@ -560,8 +561,10 @@ func (e *executor) evaluateOrderBy(expression queryplan.Expression) (sequence, e
 	columnIndex := projectedColumn(source, property)
 	items := make([]sortable, len(source.values))
 	known := false
+	seen := newCandidates()
 	var firstKey Value
 	for i, value := range source.values {
+		e.note(seen, value)
 		values, present, valueErr := e.featureValues(expression, source, i, property, columnIndex)
 		if valueErr != nil {
 			return sequence{}, valueErr
@@ -600,7 +603,7 @@ func (e *executor) evaluateOrderBy(expression queryplan.Expression) (sequence, e
 		}
 	}
 	if !known {
-		return sequence{}, e.unknownProperty(expression, property)
+		return sequence{}, e.unknownPropertyAmong(expression, property, e.names(seen))
 	}
 	var sortErr error
 	var sortKeys [2]Value
@@ -721,15 +724,15 @@ type projection struct {
 	tracker    *propertyTracker
 	known      []bool
 	missing    [][]*Error
-	// metaclasses are those of the element rows read, for an unknown
+	// seen is what the rows read could have named, for an unknown
 	// property's candidates.
-	metaclasses map[*symbols.Symbol]bool
+	seen *candidates
 }
 
 // newProjection reads the operation's properties and computed columns, at
 // least one in all and each named once.
 func (e *executor) newProjection(expression queryplan.Expression) (*projection, error) {
-	p := &projection{e: e, expression: expression, metaclasses: map[*symbols.Symbol]bool{}}
+	p := &projection{e: e, expression: expression, seen: newCandidates()}
 	var err error
 	if hasArgument(expression, "properties") {
 		if p.properties, err = e.stringsArgument(expression, "properties"); err != nil {
@@ -766,7 +769,7 @@ func (e *executor) newProjection(expression queryplan.Expression) (*projection, 
 
 // cells reads one row's columns, noting the properties it carries and lacks.
 func (p *projection) cells(value Value) ([]Cell, error) {
-	p.e.noteMetaclass(p.metaclasses, value)
+	p.e.note(p.seen, value)
 	cells := make([]Cell, len(p.properties)+len(p.computed))
 	for column, property := range p.properties {
 		values, present, err := p.e.propertyValues(value, property)
@@ -796,7 +799,7 @@ func (p *projection) cells(value Value) ([]Cell, error) {
 func (p *projection) checkProperties() error {
 	for i, property := range p.properties {
 		if !p.known[i] {
-			return p.e.unknownPropertyAmong(p.expression, property, p.e.metaclassPropertyNames(p.metaclasses))
+			return p.e.unknownPropertyAmong(p.expression, property, p.e.names(p.seen))
 		}
 	}
 	// A property some rows carry and an element row lacks is a path error
@@ -807,7 +810,7 @@ func (p *projection) checkProperties() error {
 		}
 	}
 	if property, missing := p.tracker.missing(); missing {
-		return p.e.unknownProperty(p.expression, property)
+		return p.e.unknownPropertyAmong(p.expression, property, p.e.names(p.seen))
 	}
 	return nil
 }
@@ -826,11 +829,66 @@ func (e *executor) propertyValues(row Value, property string) ([]Value, bool, er
 		return nil, false, nil
 	}
 	segments, ok := parseMemberPath(property)
-	if !ok || len(segments) <= 1 {
+	if ok && len(segments) > 1 {
+		values, present, _, err = e.memberPathValues(sym, segments)
+		if present || err != nil {
+			return values, present, err
+		}
+	}
+	return e.propertyPathValues(row, property)
+}
+
+// propertyPathValues reads a dotted path of properties from an element row:
+// each segment but the last is read as a property holding elements, whose own
+// property the next segment names. A segment absent on every element it is
+// read of makes the path absent on this row.
+func (e *executor) propertyPathValues(row Value, property string) ([]Value, bool, error) {
+	segments := strings.Split(property, ".")
+	if len(segments) < 2 {
 		return nil, false, nil
 	}
-	values, present, _, err = e.memberPathValues(sym, segments)
-	return values, present, err
+	for _, segment := range segments {
+		if segment == "" {
+			return nil, false, nil
+		}
+	}
+	current := []Value{row}
+	for _, segment := range segments[:len(segments)-1] {
+		var next []Value
+		present := false
+		for _, value := range current {
+			values, found, err := e.propertyValuesBeforeMemberPath(value, segment)
+			if err != nil {
+				return nil, false, err
+			}
+			present = present || found
+			for _, held := range values {
+				if _, ok := held.Element(); ok {
+					next = append(next, held)
+				} else if name, ok := held.String(); ok {
+					// A reader property names a related element by qualified name.
+					if targets := e.context.Index.LookupQualified(name); len(targets) == 1 {
+						next = append(next, ElementValue(targets[0]))
+					}
+				}
+			}
+		}
+		if !present {
+			return nil, false, nil
+		}
+		current = next
+	}
+	var out []Value
+	present := false
+	for _, value := range current {
+		values, found, err := e.propertyValuesBeforeMemberPath(value, segments[len(segments)-1])
+		if err != nil {
+			return nil, false, err
+		}
+		present = present || found
+		out = append(out, values...)
+	}
+	return out, present, nil
 }
 
 // reflectiveQueryableValues answers a queryable property of a row the reader does not describe — a
@@ -1441,13 +1499,20 @@ func (e *executor) features(sym *symbols.Symbol) []FeatureRef {
 	return slices.CompactFunc(out, func(a, b FeatureRef) bool { return a.Name == b.Name })
 }
 
-func (e *executor) unknownProperty(expression queryplan.Expression, property string) error {
-	return e.unknownPropertyAmong(expression, property, nil)
-}
-
 // unknownPropertyAmong is unknownProperty naming what the rows' metaclasses
 // do carry, so the message can offer the nearest.
 func (e *executor) unknownPropertyAmong(expression queryplan.Expression, property string, candidates []string) error {
+	step := Step{Kind: StepProject, Argument: property}
+	if expression.Operation() == queryplan.OperationWhereFeature {
+		step.Kind = StepWhereFeature
+	}
+	frontier := Frontier{Features: make([]FeatureRef, 0, len(candidates))}
+	for _, candidate := range candidates {
+		frontier.Features = append(frontier.Features, FeatureRef{Name: candidate})
+	}
+	if nearest := suggest.Nearest(property, candidates); len(nearest) > 0 {
+		frontier.Nearest = nearest[0]
+	}
 	return &Error{
 		Kind:       ErrorUnknownProperty,
 		Query:      e.definition.Name(),
@@ -1455,6 +1520,9 @@ func (e *executor) unknownPropertyAmong(expression queryplan.Expression, propert
 		Property:   property,
 		Origin:     expression.Origin(),
 		Candidates: candidates,
+		Outcome: &Outcome{Path: &PathError{Failures: []Failure{{
+			Step: step, Expected: "a property of the rows", Frontier: frontier,
+		}}}},
 	}
 }
 

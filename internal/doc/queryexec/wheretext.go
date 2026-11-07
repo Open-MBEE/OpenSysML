@@ -95,7 +95,11 @@ func (e *executor) textColumns(expression queryplan.Expression, source sequence)
 			}
 		}
 		if index < 0 {
-			return nil, e.unknownProperty(expression, name)
+			columns := make([]string, 0, len(source.columns))
+			for _, column := range source.columns {
+				columns = append(columns, column.name)
+			}
+			return nil, e.unknownPropertyAmong(expression, name, columns)
 		}
 		selected = append(selected, index)
 	}

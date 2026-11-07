@@ -26,6 +26,9 @@ type Context struct {
 	// ElementID reads the elementId a conversion of the model writes for an
 	// element, or why the model has none; without one, elementId is absent.
 	ElementID func(sym *symbols.Symbol) (string, error)
+	// Identity names an element where a frontend reports it under another
+	// identity than its qualified name; nil keeps the qualified name.
+	Identity func(sym *symbols.Symbol) string
 	// Runtime holds the objects the query may read; nil makes object bindings
 	// and Objects typed errors.
 	Runtime *runtime.Context
@@ -169,6 +172,9 @@ func Execute(program *queryplan.Program, context Context, bindings Bindings, opt
 		stack:             []string{definition.Name()},
 	}
 	execution.reader.WithElementID(execution.elementID)
+	if context.Identity != nil {
+		execution.reader.WithIdentity(context.Identity)
+	}
 	if err := execution.bind(bindings); err != nil {
 		return nil, err
 	}

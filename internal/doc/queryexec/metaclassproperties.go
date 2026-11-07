@@ -1,6 +1,7 @@
 package queryexec
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"sort"
 	"sync"
 
@@ -68,23 +69,45 @@ func (e *executor) metaclassPropertyOf(sym *symbols.Symbol, property string) (me
 	return declared, ok
 }
 
-// noteMetaclass records the metaclass of an element row in seen.
-func (e *executor) noteMetaclass(seen map[*symbols.Symbol]bool, row Value) {
+// candidates collects what the rows read could have named, for an
+// unknown-property error: the properties of the element rows' metaclasses
+// and the features of the object rows.
+type candidates struct {
+	metaclasses map[*symbols.Symbol]bool
+	features    map[string]bool
+}
+
+func newCandidates() *candidates {
+	return &candidates{metaclasses: map[*symbols.Symbol]bool{}, features: map[string]bool{}}
+}
+
+// note records the metaclass of an element row, or the features of an object
+// row.
+func (e *executor) note(seen *candidates, row Value) {
 	if sym, ok := row.Element(); ok {
 		if metaclass := e.context.Model.MetaclassOf(sym); metaclass != nil {
-			seen[metaclass] = true
+			seen.metaclasses[metaclass] = true
+		}
+		return
+	}
+	if inst, _, ok := row.Object(); ok && e.context.Runtime != nil {
+		for _, of := range e.context.Runtime.FeaturesOfObject(inst) {
+			seen.features[source.NameText(of.Name)] = true
 		}
 	}
 }
 
-// metaclassPropertyNames lists, sorted, the properties of the metaclasses
-// seen, for an unknown-property error's candidates.
-func (e *executor) metaclassPropertyNames(metaclasses map[*symbols.Symbol]bool) []string {
+// names lists, sorted, the properties of the metaclasses and the features
+// seen.
+func (e *executor) names(seen *candidates) []string {
 	set := map[string]bool{}
-	for metaclass := range metaclasses {
+	for metaclass := range seen.metaclasses {
 		for name := range e.metaclassProperties(metaclass) {
 			set[name] = true
 		}
+	}
+	for name := range seen.features {
+		set[name] = true
 	}
 	names := make([]string, 0, len(set))
 	for name := range set {

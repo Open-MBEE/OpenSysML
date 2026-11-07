@@ -94,6 +94,17 @@ type Query struct {
 	// Spelling names, per reported column, the name the request asked for it by,
 	// where that differs from the column name.
 	Spelling map[string]string
+	// Features are the properties the request named as features of the model
+	// itself (OSLC's sysx: namespace), which the evaluator judges on its rows.
+	Features map[string]bool
+}
+
+// feature records a property named as a model feature.
+func (q *Query) feature(name string) {
+	if q.Features == nil {
+		q.Features = make(map[string]bool)
+	}
+	q.Features[name] = true
 }
 
 // SpellingOf returns the name the request asked for column by, so a frontend
@@ -149,6 +160,9 @@ const (
 	// ErrUnsupportedInstanceTerm identifies an instance selection written where
 	// it cannot be the root of the query: negated, scoped or under a disjunction.
 	ErrUnsupportedInstanceTerm
+	// ErrUnsupportedWildcard identifies the `*` value on a property other than
+	// the multiplicity bounds, whose infinity it is.
+	ErrUnsupportedWildcard
 )
 
 // Error is a typed query refusal. A refusal must not be represented as an

@@ -2,6 +2,7 @@ package querytranslate
 
 import (
 	"fmt"
+	"maps"
 	"net/url"
 	"sort"
 	"strconv"
@@ -57,12 +58,16 @@ func ParseOSLC(text string, table *Table) (Query, error) {
 	if isParameterText(text) {
 		return ParseParameters(text, table)
 	}
-	p := oslcParser{s: text, prefixes: clonePrefixes(DefaultPrefixes), table: table}
+	p := newParser(text, clonePrefixes(DefaultPrefixes), table)
 	where, err := p.parseCompound()
 	if err != nil {
 		return Query{}, err
 	}
-	return Query{Where: where}, nil
+	q := Query{Where: where}
+	for name := range p.features {
+		q.feature(name)
+	}
+	return q, nil
 }
 
 func isParameterText(text string) bool {
@@ -97,6 +102,7 @@ func ParseParameters(text string, table *Table) (Query, error) {
 		return Query{}, errorf(ErrMalformed, "oslc.properties is not implemented: name the properties to report with %s", paramSelect)
 	}
 	q := Query{}
+	features := map[string]bool{}
 	if search, present := values[paramSearch]; present {
 		terms, err := parseSearchTerms(search[0])
 		if err != nil {
@@ -105,27 +111,32 @@ func ParseParameters(text string, table *Table) (Query, error) {
 		q.SearchTerms = terms
 	}
 	if order := values.Get(paramOrderBy); order != "" {
-		terms, err := parseOrder(order, prefixes, table)
+		terms, err := parseOrder(order, prefixes, table, features)
 		if err != nil {
 			return Query{}, err
 		}
 		q.OrderBy = terms
 	}
 	if where, present := values[paramWhere]; present {
-		p := oslcParser{s: where[0], prefixes: prefixes, table: table}
+		p := newParser(where[0], prefixes, table)
 		parsed, err := p.parseCompound()
 		if err != nil {
 			return Query{}, err
 		}
 		q.Where = parsed
+		maps.Copy(features, p.features)
 	}
 	if selectText := values.Get(paramSelect); selectText != "" {
-		p := oslcParser{s: selectText, prefixes: prefixes, table: table}
+		p := newParser(selectText, prefixes, table)
 		selections, spelling, err := p.parseSelection()
 		if err != nil {
 			return Query{}, err
 		}
 		q.Select, q.Spelling = selections, spelling
+		maps.Copy(features, p.features)
+	}
+	for name := range features {
+		q.feature(name)
 	}
 	return q, nil
 }
@@ -212,7 +223,7 @@ func parseSearchTerms(text string) ([]string, error) {
 		if !p.peek('"') {
 			return nil, errorf(ErrMalformed, "%s is a comma-separated list of quoted strings", paramSearch)
 		}
-		term, err := p.value()
+		term, _, err := p.value()
 		if err != nil {
 			return nil, err
 		}
@@ -230,7 +241,7 @@ func parseSearchTerms(text string) ([]string, error) {
 	}
 }
 
-func parseOrder(text string, prefixes map[string]string, table *Table) ([]OrderTerm, error) {
+func parseOrder(text string, prefixes map[string]string, table *Table, features map[string]bool) ([]OrderTerm, error) {
 	var out []OrderTerm
 	terms, err := splitCommaStrict(text, paramOrderBy)
 	if err != nil {
@@ -248,7 +259,7 @@ func parseOrder(text string, prefixes map[string]string, table *Table) ([]OrderT
 		if raw == SelectAll {
 			return nil, errorf(ErrMalformed, "oslc.orderBy sorts by named properties; '*' names none")
 		}
-		p := oslcParser{s: raw, prefixes: prefixes, table: table}
+		p := newParser(raw, prefixes, table)
 		name, err := p.parsePath()
 		if err != nil {
 			return nil, err
@@ -256,6 +267,9 @@ func parseOrder(text string, prefixes map[string]string, table *Table) ([]OrderT
 		p.skipSpace()
 		if p.pos < len(p.s) {
 			return nil, errorf(ErrMalformed, "oslc.orderBy term %q has trailing text", raw)
+		}
+		for feature := range p.features {
+			features[feature] = true
 		}
 		out = append(out, OrderTerm{Property: name, Desc: desc})
 	}
@@ -267,6 +281,12 @@ type oslcParser struct {
 	pos      int
 	prefixes map[string]string
 	table    *Table
+	// features collects the model features the text names under sysx:.
+	features map[string]bool
+}
+
+func newParser(text string, prefixes map[string]string, table *Table) oslcParser {
+	return oslcParser{s: text, prefixes: prefixes, table: table, features: map[string]bool{}}
 }
 
 // parseCompound reads `term (and term)*`, a scoped term's body included.
@@ -345,8 +365,11 @@ func (p *oslcParser) parseTerm() (Constraint, error) {
 		var vals []string
 		for {
 			p.skipSpace()
-			value, err := p.value()
+			value, wild, err := p.value()
 			if err != nil {
+				return nil, err
+			}
+			if err := p.wildcard(property, wild); err != nil {
 				return nil, err
 			}
 			vals = append(vals, value)
@@ -365,11 +388,24 @@ func (p *oslcParser) parseTerm() (Constraint, error) {
 		return nil, errorf(ErrMalformed, "OSLC term for %q has no comparison operator", identifier)
 	}
 	p.skipSpace()
-	value, err := p.value()
+	value, wild, err := p.value()
 	if err != nil {
 		return nil, err
 	}
+	if err := p.wildcard(property, wild); err != nil {
+		return nil, err
+	}
 	return p.term(property, op, []string{value})
+}
+
+// wildcard refuses the bare `*` value on a property other than the
+// multiplicity bounds, whose infinity it is: as a wildcard it would match any
+// value, which no plan operation evaluates.
+func (p *oslcParser) wildcard(property string, wild bool) error {
+	if !wild || property == query.PropertyMultiplicityLower || property == query.PropertyMultiplicityUpper {
+		return nil
+	}
+	return errorf(ErrUnsupportedWildcard, "the '*' value on %q is a wildcard, which no comparison evaluates; only sysx:multiplicityLower and sysx:multiplicityUpper take '*', as their infinity", property)
 }
 
 // term is the constraint a comparison of property denotes: a type test or an
@@ -401,6 +437,30 @@ func (p *oslcParser) term(property string, op Operator, values []string) (Constr
 		return Instances{Elements: instances}, nil
 	}
 	return TypeTest{Types: metaclasses, Exact: true, Inverse: op == NotEqual}, nil
+}
+
+// ElementInstances reads a list of @type values as element IRIs of the RDF
+// conversion (<urn:sysmlv2:element:id> or elmt:id), the objects of which an
+// instance term selects; it reports false when no value is one, and an error
+// when only some are.
+func ElementInstances(values []string) (Instances, bool, error) {
+	var names []string
+	for _, value := range values {
+		value = strings.TrimSuffix(strings.TrimPrefix(value, "<"), ">")
+		if local, ok := strings.CutPrefix(value, "elmt:"); ok {
+			value = rdf.Element + local
+		}
+		if name, ok := elementName(value); ok {
+			names = append(names, name)
+		}
+	}
+	if len(names) == 0 {
+		return Instances{}, false, nil
+	}
+	if len(names) != len(values) {
+		return Instances{}, false, errorf(ErrUnsupportedInstanceTerm, "@type mixes element ids and metaclass names; an instance term names elements only")
+	}
+	return Instances{Elements: names}, true, nil
 }
 
 // elementName decodes an element IRI of the RDF conversion to the qualified
@@ -572,19 +632,21 @@ func (p *oslcParser) operator() Operator {
 	return ""
 }
 
-func (p *oslcParser) value() (string, error) {
+// value reads one value; wild reports the bare `*`, which only the
+// multiplicity bounds take, as their infinity.
+func (p *oslcParser) value() (text string, wild bool, err error) {
 	p.skipSpace()
 	if p.pos >= len(p.s) {
-		return "", errorf(ErrMalformed, "OSLC term has no value")
+		return "", false, errorf(ErrMalformed, "OSLC term has no value")
 	}
 	if p.s[p.pos] == '<' {
 		start := p.pos + 1
 		end := strings.IndexByte(p.s[start:], '>')
 		if end < 0 {
-			return "", errorf(ErrMalformed, "unterminated URI value")
+			return "", false, errorf(ErrMalformed, "unterminated URI value")
 		}
 		p.pos = start + end + 1
-		return localValue(p.s[start : start+end]), nil
+		return localValue(p.s[start : start+end]), false, nil
 	}
 	if p.s[p.pos] == '"' {
 		p.pos++
@@ -594,28 +656,28 @@ func (p *oslcParser) value() (string, error) {
 			p.pos++
 			if c == '"' {
 				if p.pos < len(p.s) && p.s[p.pos] == '@' {
-					return "", errorf(ErrUnsupportedLiteral, "language-tagged literals are not supported")
+					return "", false, errorf(ErrUnsupportedLiteral, "language-tagged literals are not supported")
 				}
 				if p.pos+1 < len(p.s) && strings.HasPrefix(p.s[p.pos:], "^^") {
 					p.pos += 2
 					dt, err := p.identifier()
 					if err != nil {
-						return "", err
+						return "", false, err
 					}
 					if !strings.HasPrefix(dt, "xsd:") {
-						return "", errorf(ErrUnsupportedLiteral, "non-xsd datatype %q is not supported", dt)
+						return "", false, errorf(ErrUnsupportedLiteral, "non-xsd datatype %q is not supported", dt)
 					}
 					switch strings.TrimPrefix(dt, "xsd:") {
 					case "string", "boolean", "integer", "decimal", "double":
 					default:
-						return "", errorf(ErrUnsupportedLiteral, "xsd datatype %q is not supported", dt)
+						return "", false, errorf(ErrUnsupportedLiteral, "xsd datatype %q is not supported", dt)
 					}
 				}
-				return b.String(), nil
+				return b.String(), false, nil
 			}
 			if c == '\\' {
 				if p.pos >= len(p.s) || (p.s[p.pos] != '\\' && p.s[p.pos] != '"') {
-					return "", errorf(ErrMalformed, "literal contains unsupported escape")
+					return "", false, errorf(ErrMalformed, "literal contains unsupported escape")
 				}
 				b.WriteByte(p.s[p.pos])
 				p.pos++
@@ -623,11 +685,11 @@ func (p *oslcParser) value() (string, error) {
 			}
 			b.WriteByte(c)
 		}
-		return "", errorf(ErrMalformed, "unterminated string literal")
+		return "", false, errorf(ErrMalformed, "unterminated string literal")
 	}
 	if p.s[p.pos] == '*' {
 		p.pos++
-		return "*", nil
+		return "*", true, nil
 	}
 	start := p.pos
 	for p.pos < len(p.s) {
@@ -639,19 +701,20 @@ func (p *oslcParser) value() (string, error) {
 	}
 	raw := p.s[start:p.pos]
 	if raw == "true" || raw == "false" {
-		return raw, nil
+		return raw, false, nil
 	}
 	if _, err := strconv.ParseFloat(raw, 64); err == nil {
-		return raw, nil
+		return raw, false, nil
 	}
 	if strings.Contains(raw, ":") {
-		return resolveValue(raw, p.prefixes)
+		text, err = resolveValue(raw, p.prefixes)
+		return text, false, err
 	}
 	if raw == "" {
-		return "", errorf(ErrMalformed, "OSLC comparison has no value")
+		return "", false, errorf(ErrMalformed, "OSLC comparison has no value")
 	}
 	// A bare name is the answer's own spelling of a value, so say what quoting it takes.
-	return "", errorf(ErrMalformed,
+	return "", false, errorf(ErrMalformed,
 		"invalid OSLC value %q: write a name as a quoted literal %s", raw, strconv.Quote(raw))
 }
 
@@ -718,8 +781,13 @@ func (p *oslcParser) resolveProperty(name string) (string, error) {
 	if local, ok := strings.CutPrefix(iri, rdf.SysML); ok && table.Metamodel(local) {
 		return local, nil
 	}
-	if local, ok := strings.CutPrefix(iri, rdf.OpenSysML); ok && table.Derived(local) &&
-		local != query.PropertyID && local != query.PropertyType {
+	if local, ok := strings.CutPrefix(iri, rdf.OpenSysML); ok && local != "" &&
+		local != query.PropertyID && local != query.PropertyType && !table.Metamodel(local) {
+		// The OpenSysML namespace names what the metamodel does not: the
+		// evaluator's derived properties, and the features of the model itself.
+		if !table.Derived(local) {
+			p.features[local] = true
+		}
 		return local, nil
 	}
 	return "", unknownOSLCProperty(name, iri, p.prefixes, table)

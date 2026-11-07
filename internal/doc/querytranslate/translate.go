@@ -44,7 +44,13 @@ func Translate(q Query, ctx Context, name string) (*Plan, error) {
 	if table == nil {
 		table = NewTable(ctx.Index, ctx.Model)
 	}
-	t := &translator{ctx: ctx, table: table}
+	t := &translator{ctx: ctx, table: table, features: q.Features}
+	root, where, objects, err := t.root(q.Where)
+	if err != nil {
+		return nil, err
+	}
+	// An object's properties are its features, which the evaluator judges.
+	t.objects = objects
 	columns, err := t.columns(q.Select)
 	if err != nil {
 		return nil, err
@@ -53,10 +59,6 @@ func Translate(q Query, ctx Context, name string) (*Plan, error) {
 		if err := t.knownProperty(term.Property, "oslc.orderBy"); err != nil {
 			return nil, err
 		}
-	}
-	root, where, objects, err := t.root(q.Where)
-	if err != nil {
-		return nil, err
 	}
 	if where != nil {
 		if err := t.validate(where, ""); err != nil {
@@ -100,8 +102,10 @@ func Translate(q Query, ctx Context, name string) (*Plan, error) {
 var origin symbols.Origin
 
 type translator struct {
-	ctx   Context
-	table *Table
+	ctx      Context
+	table    *Table
+	features map[string]bool
+	objects  bool
 }
 
 // columns expands the selection to the properties to project: the universal
@@ -154,8 +158,13 @@ func (t *translator) columns(selections []Selection) ([]string, error) {
 // knownProperty refuses a property the table does not know, naming the nearest
 // spelling it does.
 func (t *translator) knownProperty(property, where string) error {
-	if t.table.Known(property) {
+	if t.objects || t.table.Known(property) || t.features[property] {
 		return nil
+	}
+	for segment := range strings.SplitSeq(property, ".") {
+		if t.features[segment] {
+			return nil
+		}
 	}
 	names := t.table.Names()
 	message := fmt.Sprintf("unknown query property %q in %s", property, where)

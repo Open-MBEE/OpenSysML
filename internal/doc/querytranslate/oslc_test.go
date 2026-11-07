@@ -192,6 +192,19 @@ func TestParseOSLCAllowsInfinityForOrderedMultiplicity(t *testing.T) {
 	}
 }
 
+func TestParseOSLCRefusesTheWildcardValueElsewhere(t *testing.T) {
+	for _, text := range []string{`sysml:name=*`, `sysml:name in ["a", *]`, `rdf:type=*`} {
+		_, err := ParseOSLC(text, nil)
+		if got := kindOf(t, err, ErrUnsupportedWildcard); !strings.Contains(got.Message, "sysx:multiplicityUpper") {
+			t.Fatalf("ParseOSLC(%q) message = %q, want the bounds named", text, got.Message)
+		}
+	}
+	// A quoted "*" is a literal, not the wildcard.
+	if c := mustParse(t, `sysml:name="*"`).Where.(Comparison); c.Values[0] != "*" {
+		t.Fatalf("quoted literal = %#v", c)
+	}
+}
+
 func TestOSLCPropertyNamespacesFollowTheMetamodel(t *testing.T) {
 	// A property the metamodel defines is spelled sysml:, one OpenSysML derives sysx:.
 	_, err := ParseOSLC(`sysml:multiplicityUpper=1`, nil)
