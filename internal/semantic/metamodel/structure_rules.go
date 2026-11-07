@@ -6728,9 +6728,8 @@ func (e *Evaluator) structureStepParameters(element Element) (Value, bool, bool)
 	return e.structureParametersAsDirectedFeatures(element, "Step")
 }
 
-// structureParametersAsDirectedFeatures derives Behavior::parameter and
-// Step::parameter, which redefine Type::directedFeature (KerML 8.3.5.1.2,
-// 8.3.5.1.4): every effective feature owned as a parameter or carrying a direction.
+// structureParametersAsDirectedFeatures derives Behavior::parameter and Step::parameter, which
+// redefine Type::directedFeature (KerML 8.3.5.1.2, 8.3.5.1.4): a parameter member or a directed feature.
 func (e *Evaluator) structureParametersAsDirectedFeatures(element Element, definingClass string) (Value, bool, bool) {
 	unsupported := func(detail string) (Value, bool, bool) {
 		e.recordUnsupportedReason(element, definingClass, "parameter",
@@ -6768,7 +6767,15 @@ func (e *Evaluator) structureParametersAsDirectedFeatures(element Element, defin
 		}
 		for _, feature := range filtered.Values {
 			if !isParameter && feature.Kind == ElementValue {
-				if direction, known := e.structureEffectiveDirection(element, feature.Element); !known || direction == ast.DirNone {
+				direction, known := e.structureEffectiveDirection(element, feature.Element)
+				if !known {
+					e.recordUnsupportedReason(element, definingClass, "parameter", Reason{
+						Category: ReasonIncompleteStructure,
+						Detail:   definingClass + "::parameter effective direction is unavailable",
+					})
+					return Value{}, true, false
+				}
+				if direction == ast.DirNone {
 					continue
 				}
 			}
