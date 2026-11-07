@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -41,18 +42,24 @@ func (s *Service) GetElementProperties(ctx context.Context, req *pb.GetElementPr
 		}
 	}
 	reader := cached.elementReader()
-	if reader.refusal != nil {
-		return &pb.GetElementPropertiesResponse{Error: reader.refusal.Error()}, nil
-	}
 	sym, ok := reader.lookup(req.ElementId)
 	if ok && !cached.Index.Library(sym) {
-		return reader.read(sym, req.Properties), nil
+		if excluded, refused := reader.excluded[sym.DocName]; refused {
+			return &pb.GetElementPropertiesResponse{Error: excluded.Error, ExcludedDocuments: reader.exclusions}, nil
+		}
+		resp := reader.read(sym, req.Properties)
+		resp.ExcludedDocuments = reader.exclusions
+		return resp, nil
 	}
 	id := req.ElementId
 	if ok {
 		id = cached.Index.GetFQN(sym)
 	}
-	return libraryElementProperties(id, req.Properties)
+	resp, err := libraryElementProperties(id, req.Properties)
+	if resp != nil {
+		resp.ExcludedDocuments = reader.exclusions
+	}
+	return resp, err
 }
 
 // libraryElementProperties answers a standard-library element from the API
@@ -82,14 +89,15 @@ func libraryElementProperties(id string, properties []string) (*pb.GetElementPro
 // model and the evaluator memoize without locking, so reads take mu.
 type elementReader struct {
 	model *CachedModel
-	// refusal is why the model is not read at all: a document the parser could
-	// not read whole, whose symbols would silently miss what the parser skipped.
-	refusal   error
-	mu        sync.Mutex
-	structure *metamodel.SymbolStructure
-	evaluator *metamodel.Evaluator
-	addresses map[*symbols.Symbol]string
-	bySymbol  map[string]*symbols.Symbol
+	// exclusions are the documents the model is read without, in document
+	// order, and excluded indexes them by document name.
+	exclusions []*pb.ExcludedDocument
+	excluded   map[string]*pb.ExcludedDocument
+	mu         sync.Mutex
+	structure  *metamodel.SymbolStructure
+	evaluator  *metamodel.Evaluator
+	addresses  map[*symbols.Symbol]string
+	bySymbol   map[string]*symbols.Symbol
 }
 
 // elementReader is the model's symbol-backed property reader, built on first use.
@@ -99,30 +107,87 @@ func (m *CachedModel) elementReader() *elementReader {
 		sem := semantics.NewModel(resolver)
 		sem.SetSourceText(cachedSourceText(m))
 		structure := metamodel.NewSymbolStructure(resolver, sem)
+		exclusions := m.documentExclusions()
+		excluded := make(map[string]*pb.ExcludedDocument, len(exclusions))
+		for _, exclusion := range exclusions {
+			excluded[exclusion.Document] = exclusion
+		}
 		m.elementReaderValue = &elementReader{
-			model:     m,
-			refusal:   m.syntaxRefusal(),
-			structure: structure,
-			evaluator: metamodel.New(resolver, sem, metamodel.Options{Structure: structure}),
-			addresses: map[*symbols.Symbol]string{},
-			bySymbol:  map[string]*symbols.Symbol{},
+			model:      m,
+			exclusions: exclusions,
+			excluded:   excluded,
+			structure:  structure,
+			evaluator:  metamodel.New(resolver, sem, metamodel.Options{Structure: structure}),
+			addresses:  map[*symbols.Symbol]string{},
+			bySymbol:   map[string]*symbols.Symbol{},
 		}
 	})
 	return m.elementReaderValue
 }
 
-// syntaxRefusal is the first document the parser could not read whole, as
-// Convert refuses it; nil when every document parsed clean.
-func (m *CachedModel) syntaxRefusal() error {
-	for _, doc := range m.Documents {
+// documentExclusions is the documents GetElementProperties reads the model
+// without, in document order: one the parser could not read whole, and one
+// declaring a top-level name an earlier document already declares (Convert
+// refuses the whole model for either). An element of any other document is answered.
+func (m *CachedModel) documentExclusions() []*pb.ExcludedDocument {
+	var out []*pb.ExcludedDocument
+	excluded := map[string]bool{}
+	exclude := func(name, why string) {
+		if !excluded[name] {
+			excluded[name] = true
+			out = append(out, &pb.ExcludedDocument{Document: name, Error: why})
+		}
+	}
+	order := map[string]int{}
+	for i, doc := range m.Documents {
 		if doc == nil || doc.Source == nil {
 			continue
 		}
+		order[doc.Source.Name()] = i
 		if syntax := convert.SyntaxErrorOf(doc.Source.Name(), doc.Source, doc.ParseDiags); syntax != nil {
-			return syntax
+			exclude(doc.Source.Name(), syntax.Error())
 		}
 	}
-	return nil
+	declared := map[string]*symbols.Symbol{}
+	var collisions []*symbols.Symbol
+	for _, binding := range m.Index.TopLevelBindings("") {
+		sym := binding.Sym
+		if sym == nil || sym.DocName == "" || m.Index.Library(sym) {
+			continue
+		}
+		if _, known := order[sym.DocName]; !known {
+			continue
+		}
+		prior, taken := declared[binding.Name]
+		switch {
+		case !taken || prior.DocName == sym.DocName:
+			declared[binding.Name] = sym
+		case order[sym.DocName] < order[prior.DocName]:
+			declared[binding.Name] = sym
+			collisions = append(collisions, prior)
+		default:
+			collisions = append(collisions, sym)
+		}
+	}
+	sort.SliceStable(collisions, func(i, j int) bool { return order[collisions[i].DocName] < order[collisions[j].DocName] })
+	for _, sym := range collisions {
+		prior := declared[m.Index.GetFQN(sym)]
+		exclude(sym.DocName, fmt.Sprintf(
+			"cannot read the declaration of %s at %s: its id lands on the same IRI as %s at %s, which another document declares, and merging two elements into one subject would be a different model",
+			sym.Name, m.declarationAt(sym), prior.Name, m.declarationAt(prior)))
+	}
+	return out
+}
+
+// declarationAt spells where sym is declared, as document:line:col.
+func (m *CachedModel) declarationAt(sym *symbols.Symbol) string {
+	for _, doc := range m.Documents {
+		if doc != nil && doc.Source != nil && doc.Source.Name() == sym.DocName {
+			pos := doc.Source.Lines().PosAt(sym.DeclSpan.Offset)
+			return fmt.Sprintf("%s:%d:%d", sym.DocName, pos.Line, pos.Col)
+		}
+	}
+	return sym.DocName
 }
 
 // lookup finds the symbol a request addresses: a symbol id the model resolves (qualified
