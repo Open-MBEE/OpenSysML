@@ -1794,9 +1794,8 @@ func (m *migration) constraintBody(e *sysmlv1.Element) {
 	m.scope = saved
 }
 
-// restateInheritedConstraintParameters redefines the generals' parameters by clause, each in
-// the kind its general wrote it with, before e's own: an own parameter would redefine one by
-// position (KerML 8.4.4.6).
+// restateInheritedConstraintParameters redefines the generals' parameters by clause, in their
+// kind and order, before e's own: an own parameter would redefine one by position (KerML 8.4.4.6).
 func (m *migration) restateInheritedConstraintParameters(e *sysmlv1.Element, seen map[string]bool) {
 	for _, g := range e.Owned("generalization") {
 		general := m.model.Ref(g, "general")
