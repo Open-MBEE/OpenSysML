@@ -692,7 +692,7 @@ func referenceMembershipElements(sym *symbols.Symbol, feature string) ([]*symbol
 }
 
 // referenceMembershipValue is reflectiveFeatureValue for a plain Membership an
-// expression owns: no member names — only an alias specifies a plain Membership's (KerML 8.3.2.3.5,
+// expression owns: no member names — only an alias specifies a plain Membership's (KerML 8.3.2.4.3,
 // 8.2.5.8.3 FeatureReferenceMember) — and the public visibility the conversion leaves unstated.
 func (m *Model) referenceMembershipValue(sym *symbols.Symbol, feature string) (symbols.FilterValue, bool) {
 	switch feature {

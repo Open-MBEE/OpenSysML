@@ -1761,10 +1761,11 @@ func (m *migration) constraintBody(e *sysmlv1.Element) {
 	saved := m.scope
 	m.scope = e
 	m.comments(e)
-	// A parameter e owns under a general's name takes that position itself.
+	// A parameter e owns under a general's name takes that position itself; one that
+	// feature skips as tool content leaves the position to the restatement.
 	seen := make(map[string]bool)
 	for _, c := range e.Children {
-		if c.Type == "Property" && c.Name != "" {
+		if (c.Type == "Property" || c.Type == "Port") && c.Name != "" && toolContent(c) == "" {
 			seen[c.Name] = true
 		}
 	}
@@ -1793,8 +1794,8 @@ func (m *migration) constraintBody(e *sysmlv1.Element) {
 	m.scope = saved
 }
 
-// restateInheritedConstraintParameters redefines the generals' parameters by clause, in
-// their order, before e's own: an own parameter would redefine one by position (KerML 8.4.4.6).
+// restateInheritedConstraintParameters redefines the generals' parameters by clause, in their
+// kind and order, before e's own: an own parameter would redefine one by position (KerML 8.4.4.6).
 func (m *migration) restateInheritedConstraintParameters(e *sysmlv1.Element, seen map[string]bool) {
 	for _, g := range e.Owned("generalization") {
 		general := m.model.Ref(g, "general")
@@ -1806,11 +1807,12 @@ func (m *migration) restateInheritedConstraintParameters(e *sysmlv1.Element, see
 			if p.Type != "Property" || p.Name == "" || seen[p.Name] || toolContent(p) != "" {
 				continue
 			}
-			if kw, _, _ := m.featureKeyword(p, catConstraintDef); kw == "constraint" {
+			kw, prefix, _ := m.featureKeyword(p, catConstraintDef)
+			if kw == "constraint" {
 				continue
 			}
 			seen[p.Name] = true
-			m.w.line("in attribute :>> " + writeName(p.Name) + ";")
+			m.w.line("in " + prefix + kw + " :>> " + writeName(p.Name) + ";")
 		}
 	}
 }
