@@ -232,6 +232,7 @@ expr:QuotedSuccessionEnds__provide_20power___403_pend0
     sysml:owner elmt:QuotedSuccessionEnds__provide_20power___403 ;
     sysml:owningRelationship expr:QuotedSuccessionEnds__provide_20power___403_pend0_om ;
     sysml:owningMembership expr:QuotedSuccessionEnds__provide_20power___403_pend0_om ;
+    sysml:name "earlierOccurrence" ;
     sysml:ownedReferenceSubsetting expr:QuotedSuccessionEnds__provide_20power___403_pend0_prs ;
     sysml:ownedSubsetting expr:QuotedSuccessionEnds__provide_20power___403_pend0_prs ;
     sysml:ownedSpecialization expr:QuotedSuccessionEnds__provide_20power___403_pend0_prs ;
@@ -279,6 +280,7 @@ expr:QuotedSuccessionEnds__provide_20power___403_pend1
     sysml:owningRelationship expr:QuotedSuccessionEnds__provide_20power___403_pend1_om ;
     sysml:owningMembership expr:QuotedSuccessionEnds__provide_20power___403_pend1_om ;
     sysx:sourceText "engineStarted" ;
+    sysml:name "laterOccurrence" ;
     sysml:ownedReferenceSubsetting expr:QuotedSuccessionEnds__provide_20power___403_pend1_prs ;
     sysml:ownedSubsetting expr:QuotedSuccessionEnds__provide_20power___403_pend1_prs ;
     sysml:ownedSpecialization expr:QuotedSuccessionEnds__provide_20power___403_pend1_prs ;
@@ -374,6 +376,7 @@ expr:QuotedSuccessionEnds__provide_20power___404_pend0
     sysml:owner elmt:QuotedSuccessionEnds__provide_20power___404 ;
     sysml:owningRelationship expr:QuotedSuccessionEnds__provide_20power___404_pend0_om ;
     sysml:owningMembership expr:QuotedSuccessionEnds__provide_20power___404_pend0_om ;
+    sysml:name "earlierOccurrence" ;
     sysml:ownedReferenceSubsetting expr:QuotedSuccessionEnds__provide_20power___404_pend0_prs ;
     sysml:ownedSubsetting expr:QuotedSuccessionEnds__provide_20power___404_pend0_prs ;
     sysml:ownedSpecialization expr:QuotedSuccessionEnds__provide_20power___404_pend0_prs ;
@@ -421,6 +424,7 @@ expr:QuotedSuccessionEnds__provide_20power___404_pend1
     sysml:owningRelationship expr:QuotedSuccessionEnds__provide_20power___404_pend1_om ;
     sysml:owningMembership expr:QuotedSuccessionEnds__provide_20power___404_pend1_om ;
     sysx:sourceText "'generate torque'" ;
+    sysml:name "laterOccurrence" ;
     sysml:ownedReferenceSubsetting expr:QuotedSuccessionEnds__provide_20power___404_pend1_prs ;
     sysml:ownedSubsetting expr:QuotedSuccessionEnds__provide_20power___404_pend1_prs ;
     sysml:ownedSpecialization expr:QuotedSuccessionEnds__provide_20power___404_pend1_prs ;
@@ -516,6 +520,7 @@ expr:QuotedSuccessionEnds__provide_20power___405_pend0
     sysml:owner elmt:QuotedSuccessionEnds__provide_20power___405 ;
     sysml:owningRelationship expr:QuotedSuccessionEnds__provide_20power___405_pend0_om ;
     sysml:owningMembership expr:QuotedSuccessionEnds__provide_20power___405_pend0_om ;
+    sysml:name "earlierOccurrence" ;
     sysml:ownedReferenceSubsetting expr:QuotedSuccessionEnds__provide_20power___405_pend0_prs ;
     sysml:ownedSubsetting expr:QuotedSuccessionEnds__provide_20power___405_pend0_prs ;
     sysml:ownedSpecialization expr:QuotedSuccessionEnds__provide_20power___405_pend0_prs ;
@@ -563,6 +568,7 @@ expr:QuotedSuccessionEnds__provide_20power___405_pend1
     sysml:owningRelationship expr:QuotedSuccessionEnds__provide_20power___405_pend1_om ;
     sysml:owningMembership expr:QuotedSuccessionEnds__provide_20power___405_pend1_om ;
     sysx:sourceText "'amplify torque'" ;
+    sysml:name "laterOccurrence" ;
     sysml:ownedReferenceSubsetting expr:QuotedSuccessionEnds__provide_20power___405_pend1_prs ;
     sysml:ownedSubsetting expr:QuotedSuccessionEnds__provide_20power___405_pend1_prs ;
     sysml:ownedSpecialization expr:QuotedSuccessionEnds__provide_20power___405_pend1_prs ;
@@ -665,6 +671,7 @@ expr:QuotedSuccessionEnds__provide_20power__s_pend0
     sysml:owningRelationship expr:QuotedSuccessionEnds__provide_20power__s_pend0_om ;
     sysml:owningMembership expr:QuotedSuccessionEnds__provide_20power__s_pend0_om ;
     sysx:sourceText "'amplify torque'" ;
+    sysml:name "earlierOccurrence" ;
     sysml:ownedReferenceSubsetting expr:QuotedSuccessionEnds__provide_20power__s_pend0_prs ;
     sysml:ownedSubsetting expr:QuotedSuccessionEnds__provide_20power__s_pend0_prs ;
     sysml:ownedSpecialization expr:QuotedSuccessionEnds__provide_20power__s_pend0_prs ;
@@ -738,6 +745,7 @@ expr:QuotedSuccessionEnds__provide_20power__s_pend1
     sysml:owningRelationship expr:QuotedSuccessionEnds__provide_20power__s_pend1_om ;
     sysml:owningMembership expr:QuotedSuccessionEnds__provide_20power__s_pend1_om ;
     sysx:sourceText "done" ;
+    sysml:name "laterOccurrence" ;
     sysml:ownedReferenceSubsetting expr:QuotedSuccessionEnds__provide_20power__s_pend1_prs ;
     sysml:ownedSubsetting expr:QuotedSuccessionEnds__provide_20power__s_pend1_prs ;
     sysml:ownedSpecialization expr:QuotedSuccessionEnds__provide_20power__s_pend1_prs ;
@@ -936,7 +944,8 @@ expr:QuotedSuccessionEnds__drive___401_pend0
     sysml:isEnd "true"^^xsd:boolean ;
     sysml:owner elmt:QuotedSuccessionEnds__drive___401 ;
     sysml:owningRelationship expr:QuotedSuccessionEnds__drive___401_pend0_om ;
-    sysml:owningMembership expr:QuotedSuccessionEnds__drive___401_pend0_om .
+    sysml:owningMembership expr:QuotedSuccessionEnds__drive___401_pend0_om ;
+    sysml:name "earlierOccurrence" .
 
 expr:QuotedSuccessionEnds__drive___401_pend0_om
     a sysml:EndFeatureMembership ;
@@ -962,6 +971,7 @@ expr:QuotedSuccessionEnds__drive___401_pend1
     sysml:owningRelationship expr:QuotedSuccessionEnds__drive___401_pend1_om ;
     sysml:owningMembership expr:QuotedSuccessionEnds__drive___401_pend1_om ;
     sysx:sourceText "'start engine'" ;
+    sysml:name "laterOccurrence" ;
     sysml:ownedReferenceSubsetting expr:QuotedSuccessionEnds__drive___401_pend1_prs ;
     sysml:ownedSubsetting expr:QuotedSuccessionEnds__drive___401_pend1_prs ;
     sysml:ownedSpecialization expr:QuotedSuccessionEnds__drive___401_pend1_prs ;
@@ -1097,6 +1107,7 @@ expr:QuotedSuccessionEnds__drive___403_pend0
     sysml:owningRelationship expr:QuotedSuccessionEnds__drive___403_pend0_om ;
     sysml:owningMembership expr:QuotedSuccessionEnds__drive___403_pend0_om ;
     sysx:sourceText "'start engine'" ;
+    sysml:name "earlierOccurrence" ;
     sysml:ownedReferenceSubsetting expr:QuotedSuccessionEnds__drive___403_pend0_prs ;
     sysml:ownedSubsetting expr:QuotedSuccessionEnds__drive___403_pend0_prs ;
     sysml:ownedSpecialization expr:QuotedSuccessionEnds__drive___403_pend0_prs ;
@@ -1170,6 +1181,7 @@ expr:QuotedSuccessionEnds__drive___403_pend1
     sysml:owningRelationship expr:QuotedSuccessionEnds__drive___403_pend1_om ;
     sysml:owningMembership expr:QuotedSuccessionEnds__drive___403_pend1_om ;
     sysx:sourceText "'drive vehicle'" ;
+    sysml:name "laterOccurrence" ;
     sysml:ownedReferenceSubsetting expr:QuotedSuccessionEnds__drive___403_pend1_prs ;
     sysml:ownedSubsetting expr:QuotedSuccessionEnds__drive___403_pend1_prs ;
     sysml:ownedSpecialization expr:QuotedSuccessionEnds__drive___403_pend1_prs ;

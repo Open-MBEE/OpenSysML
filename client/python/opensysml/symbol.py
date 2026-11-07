@@ -282,6 +282,33 @@ class Symbol:
             return found
         return Members((m for m in found if m.kind.lower() in kinds), found.withheld_library)
 
+    def properties(self, *names):
+        """Read this element's metamodel properties by their specification names.
+
+        :meth:`Model.element_properties` for this symbol: ``names`` are
+        specification names (``"inheritedFeature"``, ``"isComposite"``); none
+        reads every property the element form carries. See
+        :mod:`opensysml.element_properties`.
+
+        Returns:
+            ElementProperties: The element and one entry per property
+
+        Raises:
+            MissingCapabilityError: If the service lacks ``element_properties``
+            ValueError: If no client is set
+        """
+        if self._client is None:
+            raise ValueError("this symbol has no client to read its properties from")
+        return self._client.get_element_properties(self._model_hash, self.id, names)
+
+    def property(self, name):
+        """Read one metamodel property of this element by its specification name.
+
+        Returns:
+            ElementProperty: Its values, or why it has none
+        """
+        return self.properties(name)[name]
+
     def _own_members(self) -> Members:
         """Return the owned members, from ``members`` where the service
         enumerates them and from ``child_ids`` otherwise."""

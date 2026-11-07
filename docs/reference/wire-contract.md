@@ -131,6 +131,28 @@ HTTP/1.1 400 Bad Request
 {"code":"invalid_argument","message":"documents 0 and 1 are both named \"a.sysml\": each document of a model needs its own name"}
 ```
 
+### `GetElementProperties`
+
+`GetElementProperties` answers the metamodel properties of one element by their specification
+names (`inheritedFeature`, `connectorEnd`, `directedFeature`, `payloadType`, `isComposite`, …), as
+the model's API element form — `Convert` to `api-json` — spells them, without converting the whole
+model. `elementId` is a qualified name, the positional id of an unnamed member (`Owner::@2`) or the
+form's own `@id`; `properties` names what to read, and empty reads every property the form carries
+for the element. Each `ElementProperty` carries its `definingClass`, `many` and `derived` from the
+metamodel, its `values` — an `element` (`id`, `qualifiedName`, `metaclass`; the id is accepted back as
+`elementId`, so a client walks the graph), a `stringValue` (an enumeration literal included), a
+`boolValue`, an `intValue`, a `realValue` or a `number` — an integer beyond int64 or a real beyond
+double, as decimal text — and `unsupported`, set with the reason when the element's metaclass
+declares no such property, when the metamodel evaluator could not derive it for this element (the
+form then omits it, and the reason says why — a dependency it does not derive, a reference it could
+not resolve), or when OpenSysML does not derive the property at all; a property that is declared,
+derived and empty answers no values and no reason. A standard-library element — one an `element`
+value references, or a library qualified name such as `Parts::Part` — is read from the form of the
+bundled library document declaring it, converted once per process, so a walk from a model into the
+library continues. A missing element is an in-band `error`; a model whose document the parser could
+not read whole has no element form and reports that the same way. The `element_properties`
+capability advertises the RPC.
+
 ### `GetSymbol` and the `SymbolInfo` metadata keys
 
 `GetSymbol` answers one `SymbolInfo` for a symbol id: a fully qualified name, or the

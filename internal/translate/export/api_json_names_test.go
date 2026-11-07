@@ -49,12 +49,12 @@ func TestAPIJSONFeatureChainResolvesInheritedMember(t *testing.T) {
 	if len(unresolved) != 0 {
 		t.Fatalf("FeatureChaining.target unresolved: %v", unresolved)
 	}
-	target, ok := targetValue.(apiJSONReference)
+	target, ok := targetValue.(APIJSONReference)
 	if !ok || target.ID != rdf.ReferenceID(second, member) {
 		t.Fatalf("FeatureChaining.target = %#v, want reference to %s", targetValue, member.Value)
 	}
 	relatedValue, unresolved := apiJSONResolveNameReference(graph, index, second, pRelatedElement, []any{
-		apiJSONReference{ID: rdf.ReferenceID(second, chain)},
+		APIJSONReference{ID: rdf.ReferenceID(second, chain)},
 		apiJSONNameReference{name: "instrumentUnit"},
 	})
 	if len(unresolved) != 0 {
@@ -99,14 +99,14 @@ func TestAPIJSONFeatureChainPreservesExpressionTargetForLaterLink(t *testing.T) 
 	index := testAPIJSONNameIndex(graph)
 
 	resolved, unresolved := apiJSONResolveFeatureChain(graph, index, chain, []any{
-		apiJSONReference{ID: rdf.ReferenceID(chain, expressionFeature)},
+		APIJSONReference{ID: rdf.ReferenceID(chain, expressionFeature)},
 		apiJSONNameReference{name: "wheel"},
 	})
 	if len(unresolved) != 0 {
 		t.Fatalf("expression-target chain unresolved: %v", unresolved)
 	}
 	for i, target := range []rdf.Term{expressionFeature, wheel} {
-		reference, ok := resolved[i].(apiJSONReference)
+		reference, ok := resolved[i].(APIJSONReference)
 		if !ok || reference.ID != rdf.ReferenceID(chain, target) {
 			t.Fatalf("chain link %d = %#v, want @id for %s", i, resolved[i], target.Value)
 		}
@@ -144,7 +144,7 @@ func TestAPIJSONFeatureChainPreservesExpressionTargetForLaterLink(t *testing.T) 
 	}
 	for i, target := range []rdf.Term{expressionFeature, wheel} {
 		expectedID := rdf.ReferenceID(chain, target)
-		aggregateReference, ok := aggregateLinks[i].(apiJSONReference)
+		aggregateReference, ok := aggregateLinks[i].(APIJSONReference)
 		if !ok || aggregateReference.ID != expectedID {
 			t.Fatalf("aggregate link %d = %#v, want %s", i, aggregateLinks[i], expectedID)
 		}
@@ -154,7 +154,7 @@ func TestAPIJSONFeatureChainPreservesExpressionTargetForLaterLink(t *testing.T) 
 			t.Fatalf("relationship target %d = %#v, want aggregate reference %s",
 				i, relationshipTarget, expectedID)
 		}
-		relationshipReference, ok := relationshipReferences[0].(apiJSONReference)
+		relationshipReference, ok := relationshipReferences[0].(APIJSONReference)
 		if !ok || relationshipReference.ID != expectedID {
 			t.Fatalf("relationship target %d = %#v, want aggregate reference %s",
 				i, relationshipTarget, expectedID)
@@ -270,7 +270,7 @@ func TestAPIJSONGraphNameResolutionUsesShortNames(t *testing.T) {
 			if len(unresolved) != 0 {
 				t.Fatalf("short name unresolved: %v", unresolved)
 			}
-			reference, ok := value.(apiJSONReference)
+			reference, ok := value.(APIJSONReference)
 			if !ok || reference.ID != rdf.ReferenceID(subject, engine) {
 				t.Fatalf("short name result = %#v, want @id %q", value, rdf.ReferenceID(subject, engine))
 			}
@@ -394,7 +394,7 @@ func TestAPIJSONFeatureChainUsesCatalogTypeForLibraryStub(t *testing.T) {
 		t.Fatalf("feature chain unresolved links = %v", unresolved)
 	}
 	for i, target := range []rdf.Term{p, start, done} {
-		reference, ok := resolved[i].(apiJSONReference)
+		reference, ok := resolved[i].(APIJSONReference)
 		if !ok || reference.ID != rdf.ReferenceID(chain, target) {
 			t.Fatalf("feature-chain link %d = %#v, want @id reference to %s", i, resolved[i], target.Value)
 		}
@@ -475,11 +475,11 @@ func TestAPIJSONFeatureChainAggregateMatchesRelationshipTargets(t *testing.T) {
 		t.Fatalf("aggregate feature-chain values = %#v, want %d references", aggregate, len(targets))
 	}
 	for i, target := range targets {
-		reference, ok := resolved[i].(apiJSONReference)
+		reference, ok := resolved[i].(APIJSONReference)
 		if !ok || reference.ID != rdf.ReferenceID(chain, target) {
 			t.Fatalf("aggregate link %d = %#v, want @id reference to %s", i, resolved[i], target.Value)
 		}
-		aggregateReference, ok := aggregateValues[i].(apiJSONReference)
+		aggregateReference, ok := aggregateValues[i].(APIJSONReference)
 		if !ok || aggregateReference.ID != reference.ID {
 			t.Fatalf("aggregate output link %d = %#v, want %s", i, aggregateValues[i], reference.ID)
 		}
@@ -489,7 +489,7 @@ func TestAPIJSONFeatureChainAggregateMatchesRelationshipTargets(t *testing.T) {
 		if len(unresolved) != 0 {
 			t.Fatalf("FeatureChaining %d target unresolved: %v", i, unresolved)
 		}
-		targetReference, ok := relationshipTarget.(apiJSONReference)
+		targetReference, ok := relationshipTarget.(APIJSONReference)
 		if !ok || targetReference.ID != rdf.ReferenceID(relationships[i], target) {
 			t.Fatalf("FeatureChaining %d target = %#v, want @id reference to %s", i, relationshipTarget, target.Value)
 		}
@@ -500,13 +500,13 @@ func TestAPIJSONFeatureChainAggregateMatchesRelationshipTargets(t *testing.T) {
 		chainingFeature, unresolved := apiJSONResolveNameReference(
 			graph, index, relationships[i], pChainingFeature, apiJSONNameReference{name: names[i]},
 		)
-		chainingFeatureReference, ok := chainingFeature.(apiJSONReference)
+		chainingFeatureReference, ok := chainingFeature.(APIJSONReference)
 		if len(unresolved) != 0 || !ok || chainingFeatureReference.ID != reference.ID {
 			t.Fatalf("FeatureChaining %d chainingFeature = %#v, unresolved %v, want %s",
 				i, chainingFeature, unresolved, reference.ID)
 		}
 		related, unresolved := apiJSONResolveNameReference(graph, index, relationships[i], pRelatedElement, []any{
-			apiJSONReference{ID: rdf.ReferenceID(relationships[i], chain)},
+			APIJSONReference{ID: rdf.ReferenceID(relationships[i], chain)},
 			apiJSONNameReference{name: names[i]},
 		})
 		if len(unresolved) != 0 {
@@ -550,14 +550,14 @@ func TestAPIJSONFeatureChainAggregateMatchesRelationshipTargets(t *testing.T) {
 		return nil, false
 	}
 	singleReference := func(value any) (string, bool) {
-		if reference, ok := value.(apiJSONReference); ok {
+		if reference, ok := value.(APIJSONReference); ok {
 			return reference.ID, true
 		}
 		values, ok := value.([]any)
 		if !ok || len(values) != 1 {
 			return "", false
 		}
-		reference, ok := values[0].(apiJSONReference)
+		reference, ok := values[0].(APIJSONReference)
 		return reference.ID, ok
 	}
 	chainElement, ok := findElement(subjectID(chain))
@@ -571,7 +571,7 @@ func TestAPIJSONFeatureChainAggregateMatchesRelationshipTargets(t *testing.T) {
 	}
 	for i, target := range targets {
 		expectedID := rdf.ReferenceID(chain, target)
-		aggregateReference, ok := emittedLinks[i].(apiJSONReference)
+		aggregateReference, ok := emittedLinks[i].(APIJSONReference)
 		if !ok || aggregateReference.ID != expectedID {
 			t.Fatalf("serialized aggregate link %d = %#v, want %s", i, emittedLinks[i], expectedID)
 		}
@@ -595,7 +595,7 @@ func TestAPIJSONFeatureChainAggregateMatchesRelationshipTargets(t *testing.T) {
 		if !ok || !okRelated || len(relatedElements) != 2 {
 			t.Fatalf("serialized FeatureChaining %d relatedElement = %#v, want owner and target references", i, relatedValue)
 		}
-		relatedReference, ok := relatedElements[1].(apiJSONReference)
+		relatedReference, ok := relatedElements[1].(APIJSONReference)
 		if !ok || relatedReference.ID != targetID {
 			t.Fatalf("serialized FeatureChaining %d related target = %#v, want %s", i, relatedElements[1], targetID)
 		}
@@ -623,14 +623,14 @@ func TestAPIJSONFeatureChainAggregateMatchesRelationshipTargets(t *testing.T) {
 	if len(unresolved) != 0 {
 		t.Fatalf("resolved FeatureChaining target unresolved: %v", unresolved)
 	}
-	targetReference, ok := resolvedTarget.(apiJSONReference)
+	targetReference, ok := resolvedTarget.(APIJSONReference)
 	if !ok || targetReference.ID != rdf.ReferenceID(relationships[0], start) {
 		t.Fatalf("resolved FeatureChaining target = %#v, want reference to %s", resolvedTarget, start.Value)
 	}
 	resolvedChainingFeature, unresolved := apiJSONResolveNameReference(
 		graph, index, relationships[0], pChainingFeature, apiJSONNameReference{name: names[0]},
 	)
-	chainingReference, ok := resolvedChainingFeature.(apiJSONReference)
+	chainingReference, ok := resolvedChainingFeature.(APIJSONReference)
 	if len(unresolved) != 0 || !ok || chainingReference.ID != targetReference.ID {
 		t.Fatalf("resolved FeatureChaining chainingFeature = %#v, unresolved %v, want %s",
 			resolvedChainingFeature, unresolved, targetReference.ID)
@@ -671,7 +671,7 @@ func TestAPIJSONFeatureChainAggregateMatchesRelationshipTargets(t *testing.T) {
 			t.Fatalf("unresolved owner %s = %#v, want both FeatureChaining references", property, value)
 		}
 		for i, relationship := range relationships {
-			reference, ok := references[i].(apiJSONReference)
+			reference, ok := references[i].(APIJSONReference)
 			if !ok || reference.ID != rdf.ReferenceID(chain, relationship) {
 				t.Fatalf("unresolved owner %s reference %d = %#v, want %s",
 					property, i, references[i], rdf.ReferenceID(chain, relationship))

@@ -1139,6 +1139,102 @@ pub struct SymbolResponse {
     #[prost(string, tag="2")]
     pub error: ::prost::alloc::string::String,
 }
+/// GetElementPropertiesRequest names one element of a parsed model and the
+/// metamodel properties to read of it.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetElementPropertiesRequest {
+    #[prost(string, tag="1")]
+    pub model_hash: ::prost::alloc::string::String,
+    /// The element: its qualified name, the positional id of an unnamed member
+    /// (Owner::@3), or the "@id" of the model's API element form.
+    #[prost(string, tag="2")]
+    pub element_id: ::prost::alloc::string::String,
+    /// The properties to read, by specification name. Empty reads every property
+    /// the element form carries for the element.
+    #[prost(string, repeated, tag="3")]
+    pub properties: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// GetElementPropertiesResponse is one property entry per requested name, in
+/// the request's order, or every property the element carries when none was
+/// named, in the element form's order.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetElementPropertiesResponse {
+    #[prost(message, optional, tag="1")]
+    pub element: ::core::option::Option<ElementRef>,
+    #[prost(message, repeated, tag="2")]
+    pub properties: ::prost::alloc::vec::Vec<ElementProperty>,
+    /// Why there is no answer: the model or the element was not found, or the
+    /// model has no element form (a document the parser could not read whole).
+    #[prost(string, tag="3")]
+    pub error: ::prost::alloc::string::String,
+}
+/// ElementRef identifies an element the element form knows: an element of
+/// the model or a standard-library element it references.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ElementRef {
+    /// The "@id" of the API element form.
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    /// The qualified name; empty for an unnamed element. An unnamed
+    /// standard-library member carries its library path (owner/Metaclass\[i\]).
+    #[prost(string, tag="2")]
+    pub qualified_name: ::prost::alloc::string::String,
+    /// The metaclass ("ConnectionUsage"); empty when the id is known to nothing.
+    #[prost(string, tag="3")]
+    pub metaclass: ::prost::alloc::string::String,
+}
+/// ElementProperty is one metamodel property of an element.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ElementProperty {
+    /// The specification name ("connectorEnd").
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    /// The metaclass declaring the property ("Connector"); empty when the
+    /// element's metaclass declares no such property.
+    #[prost(string, tag="2")]
+    pub defining_class: ::prost::alloc::string::String,
+    /// Whether the property holds a collection; a single-valued property has at
+    /// most one value.
+    #[prost(bool, tag="3")]
+    pub many: bool,
+    /// Whether the specification derives the property rather than stating it.
+    #[prost(bool, tag="4")]
+    pub derived: bool,
+    /// The values, in the collection's order; none for an empty or null property.
+    #[prost(message, repeated, tag="5")]
+    pub values: ::prost::alloc::vec::Vec<ElementPropertyValue>,
+    /// Set when values cannot be answered: the element's metaclass declares no
+    /// such property, or OpenSysML does not derive it yet (and why). Empty for a
+    /// property that is answered, with or without values.
+    #[prost(string, tag="6")]
+    pub unsupported: ::prost::alloc::string::String,
+}
+/// ElementPropertyValue is one value of a metamodel property, in the shape the
+/// API element form spells it.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ElementPropertyValue {
+    #[prost(oneof="element_property_value::Value", tags="1, 2, 3, 4, 5, 6")]
+    pub value: ::core::option::Option<element_property_value::Value>,
+}
+/// Nested message and enum types in `ElementPropertyValue`.
+pub mod element_property_value {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Value {
+        #[prost(message, tag="1")]
+        Element(super::ElementRef),
+        #[prost(string, tag="2")]
+        StringValue(::prost::alloc::string::String),
+        #[prost(bool, tag="3")]
+        BoolValue(bool),
+        #[prost(int64, tag="4")]
+        IntValue(i64),
+        #[prost(double, tag="5")]
+        RealValue(f64),
+        /// A number beyond int64 and float64, in decimal.
+        #[prost(string, tag="6")]
+        Number(::prost::alloc::string::String),
+    }
+}
 /// DiagnosticsRequest gets all diagnostics for a model
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct DiagnosticsRequest {

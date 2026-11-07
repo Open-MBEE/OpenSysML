@@ -734,6 +734,7 @@ expr:Chains__ctx___402_pend0
     sysml:owningRelationship expr:Chains__ctx___402_pend0_om ;
     sysml:owningMembership expr:Chains__ctx___402_pend0_om ;
     sysx:sourceText "launchVehicle.instrumentUnit.pip" ;
+    sysml:name "source" ;
     sysml:ownedReferenceSubsetting expr:Chains__ctx___402_pend0_prs ;
     sysml:ownedSubsetting expr:Chains__ctx___402_pend0_prs ;
     sysml:ownedSpecialization expr:Chains__ctx___402_pend0_prs ;
@@ -860,6 +861,7 @@ expr:Chains__ctx___402_pend1
     sysml:owningRelationship expr:Chains__ctx___402_pend1_om ;
     sysml:owningMembership expr:Chains__ctx___402_pend1_om ;
     sysx:sourceText "supplier.pip" ;
+    sysml:name "target" ;
     sysml:ownedReferenceSubsetting expr:Chains__ctx___402_pend1_prs ;
     sysml:ownedSubsetting expr:Chains__ctx___402_pend1_prs ;
     sysml:ownedSpecialization expr:Chains__ctx___402_pend1_prs ;
@@ -1030,6 +1032,7 @@ expr:Chains__ctx__ic_pend0
     sysml:owningRelationship expr:Chains__ctx__ic_pend0_om ;
     sysml:owningMembership expr:Chains__ctx__ic_pend0_om ;
     sysx:sourceText "launchVehicle.instrumentUnit.pip" ;
+    sysml:name "a" ;
     sysml:ownedReferenceSubsetting expr:Chains__ctx__ic_pend0_prs ;
     sysml:ownedSubsetting expr:Chains__ctx__ic_pend0_prs ;
     sysml:ownedSpecialization expr:Chains__ctx__ic_pend0_prs ;
@@ -1156,6 +1159,7 @@ expr:Chains__ctx__ic_pend1
     sysml:owningRelationship expr:Chains__ctx__ic_pend1_om ;
     sysml:owningMembership expr:Chains__ctx__ic_pend1_om ;
     sysx:sourceText "supplier.pip" ;
+    sysml:name "b" ;
     sysml:ownedReferenceSubsetting expr:Chains__ctx__ic_pend1_prs ;
     sysml:ownedSubsetting expr:Chains__ctx__ic_pend1_prs ;
     sysml:ownedSpecialization expr:Chains__ctx__ic_pend1_prs ;

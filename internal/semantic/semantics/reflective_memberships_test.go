@@ -152,6 +152,10 @@ func TestAliasIsAMembership(t *testing.T) {
 		assertRelFeature(t, model, alias, "membershipOwningNamespace", p)
 		assertRelFeature(t, model, alias, "owningMembership")
 		assertRelStrings(t, model, alias, "memberName", "E")
+		// The alias names its member, not itself (KerML 8.3.2.3 Membership::memberName).
+		assertRelStrings(t, model, alias, "name")
+		assertRelStrings(t, model, alias, "declaredName")
+		assertRelStrings(t, model, alias, "qualifiedName")
 		assertRelBool(t, model, alias, "isImplied", false)
 	}
 }

@@ -100,3 +100,43 @@ func TestTransitionFeatureKindsReadTheirLiteral(t *testing.T) {
 		}
 	}
 }
+
+// A `do` statement resolves under the role `effect`, but its action only specializes
+// TransitionAction::effect (SysML §8.4.11), so Feature::effectiveName and memberName are none.
+func TestTransitionEffectStatementDeclaresNoName(t *testing.T) {
+	m, root := buildModelWithStdlib(t, `package P {
+    private import ScalarValues::*;
+    attribute def Sig;
+    part def Machine {
+        attribute x : Integer = 1;
+        state sm {
+            entry; then idle;
+            state idle; state busy;
+            transition t1 first idle accept Sig do assign x := 2 then busy;
+            transition t2 first busy accept Sig do action named then idle;
+        }
+    }
+}
+`)
+	sm := nested(t, nested(t, sym(t, root, "P").Scope, "Machine").Scope, "sm").Scope
+	t1 := nested(t, sm, "t1")
+	effects, ok := m.ReflectiveElements(t1, "effectAction")
+	if !ok || len(effects) != 1 {
+		t.Fatalf("t1.effectAction = %v (present %t), want its one `do assign`", effects, ok)
+	}
+	statement := effects[0]
+	assertRelStrings(t, m, statement, "name")
+	assertRelStrings(t, m, statement, "declaredName")
+	assertRelStrings(t, m, statement, "qualifiedName")
+	for _, membership := range m.OwnedMemberships(t1) {
+		if kind, _ := m.ReflectiveFeatureValue(membership, "kind"); kind.RefFQN == "SysML::Systems::TransitionFeatureKind::effect" {
+			assertRelStrings(t, m, membership, "memberName")
+		}
+	}
+	named, _ := m.ReflectiveElements(nested(t, sm, "t2"), "effectAction")
+	if len(named) != 1 {
+		t.Fatalf("t2.effectAction = %v, want its one `do action named`", named)
+	}
+	assertRelStrings(t, m, named[0], "name", "named")
+	assertRelStrings(t, m, named[0], "declaredName", "named")
+}
