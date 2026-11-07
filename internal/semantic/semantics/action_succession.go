@@ -291,3 +291,17 @@ func ActionDeclaration(decl ast.Node) bool {
 	}
 	return false
 }
+
+// InitialNodeTarget is the action a one-ended `first a;` marker names: the
+// declaration or inherited member under that name, which the marker is a Membership of.
+func (m *Model) InitialNodeTarget(sym *symbols.Symbol) (*symbols.Symbol, bool) {
+	if m == nil || sym == nil {
+		return nil, false
+	}
+	node, ok := sym.Decl.(*ast.InitialNode)
+	if !ok || symbols.FirstNamesSource(node) || node.Guard != nil {
+		return nil, false
+	}
+	target := m.actionSymbolNamed(sym.OwnerScope, m.ownerOf(sym), sym.Name)
+	return target, target != nil
+}

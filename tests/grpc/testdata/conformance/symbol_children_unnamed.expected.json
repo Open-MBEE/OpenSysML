@@ -1,0 +1,15 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "UnnamedChildren::Controller",
+	"expected_kind": "partDef",
+	"expected_child_ids": [
+		"UnnamedChildren::Controller::cmdIn",
+		"UnnamedChildren::Controller::logic",
+		"UnnamedChildren::Controller::monitor",
+		"UnnamedChildren::Controller::@3",
+		"UnnamedChildren::Controller::toMonitor",
+		"UnnamedChildren::Controller::@5",
+		"UnnamedChildren::Controller::@6",
+		"UnnamedChildren::Controller::@7"
+	]
+}

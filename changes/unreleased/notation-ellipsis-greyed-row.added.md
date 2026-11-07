@@ -1,0 +1,1 @@
+- View renderings mark a node whose `Layout` hides compartment rows with the graphical notation's `…` at its lower left, in every graphical form and the text form, and grey a compartment row that a folded edge or note ends at — the element inside a textual compartment — in DOT and PlantUML (italic in Mermaid).

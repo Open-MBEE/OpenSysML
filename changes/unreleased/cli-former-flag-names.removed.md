@@ -1,1 +1,0 @@
-- The `sysml` CLI's former flag names: `-to`, replaced by `-convert` in 0.0.7, and `-pdf-title-page`, `-pdf-toc` and `-pdf-number-sections`, replaced by `-doc-title-page`, `-doc-toc` and `-doc-number-sections` in 0.9.0. Only the replacements are declared.

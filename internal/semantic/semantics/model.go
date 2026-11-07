@@ -22,7 +22,9 @@ import (
 // Model is the derived semantic model over a symbol index. It memoizes the
 // specialization graph computed from resolved def/usage relationships.
 type Model struct {
-	resolver *resolve.Resolver
+	// kermlDocs memoizes declaresKerML per document of no recorded kind.
+	kermlDocs map[string]bool
+	resolver  *resolve.Resolver
 
 	directSupers map[*symbols.Symbol][]*symbols.Symbol
 	allSupers    map[*symbols.Symbol][]*symbols.Symbol
@@ -58,6 +60,12 @@ type Model struct {
 	// chainTargets memoizes the feature each relationship object's chain
 	// target denotes.
 	chainTargets map[*symbols.Symbol]*symbols.Symbol
+	// defaultMultiplicities memoizes the Multiplicity stating each usage's
+	// implicit [1..1] (DefaultMultiplicityMember).
+	defaultMultiplicities map[*symbols.Symbol]*symbols.Symbol
+	// declaredMultiplicities caches, per usage, the MultiplicityRange its written range
+	// declares (DeclaredMultiplicityMember).
+	declaredMultiplicities map[*symbols.Symbol]*symbols.Symbol
 	// subtracting memoizes whether a type reaches a difference (see cast.go).
 	subtracting map[*symbols.Symbol]bool
 	// referential memoizes a parameter's referentiality (see shape.go).
@@ -74,6 +82,7 @@ type Model struct {
 	usageBase        map[*symbols.Symbol]*symbols.Symbol
 	kermlBase        map[*symbols.Symbol]*symbols.Symbol
 	thingsBase       map[*symbols.Symbol]*symbols.Symbol
+	multiplicityBase map[*symbols.Symbol]*symbols.Symbol
 	chainReachesBase map[*symbols.Symbol]bool
 	// computingUsageBase breaks implicitUsageBaseFeature ->
 	// declaredGeneralizationReaches -> relationshipTarget/resolver lookup ->
@@ -183,38 +192,42 @@ type Model struct {
 // inherited members, which a redefinition target may only be reachable through.
 func NewModel(resolver *resolve.Resolver) *Model {
 	m := &Model{
+		kermlDocs:    make(map[string]bool),
 		resolver:     resolver,
 		directSupers: make(map[*symbols.Symbol][]*symbols.Symbol),
 		allSupers:    make(map[*symbols.Symbol][]*symbols.Symbol),
 
-		provisionalSupers:   make(map[*symbols.Symbol]bool),
-		computingSupers:     make(map[*symbols.Symbol]int),
-		valuing:             make(map[*symbols.Symbol]bool),
-		referenced:          make(map[*symbols.Symbol]*symbols.Symbol),
-		resolvingRef:        make(map[*symbols.Symbol]bool),
-		memberSources:       make(map[*symbols.Symbol][]*symbols.Symbol),
-		lookupOrder:         make(map[*symbols.Symbol][]lookupSource),
-		contributed:         make(map[*symbols.Symbol][]*symbols.Symbol),
-		nestedRedefs:        make(map[*symbols.Symbol][]NestedRedefinition),
-		allRedefined:        make(map[*symbols.Symbol][]*symbols.Symbol),
-		primTypes:           make(map[*symbols.Symbol]PrimType),
-		params:              make(map[*symbols.Symbol]behaviorParameters),
-		computingParams:     make(map[*symbols.Symbol]int),
-		invocations:         make(map[invocationKey]*InvocationSelection),
-		typingArgs:          make(map[*ast.InvocationExpr]bool),
-		composed:            make(map[composedKey][]*symbols.Symbol),
-		ends:                make(map[*symbols.Symbol][]connectorEnd),
-		chainTargets:        make(map[*symbols.Symbol]*symbols.Symbol),
-		subtracting:         make(map[*symbols.Symbol]bool),
-		referential:         make(map[*symbols.Symbol]bool),
-		implicitBase:        make(map[*symbols.Symbol][]*symbols.Symbol),
-		implicitGenerals:    make(map[*symbols.Symbol][]*symbols.Symbol),
-		implicitSubsettings: make(map[*symbols.Symbol][]*symbols.Symbol),
-		usageBase:           make(map[*symbols.Symbol]*symbols.Symbol),
-		kermlBase:           make(map[*symbols.Symbol]*symbols.Symbol),
-		thingsBase:          make(map[*symbols.Symbol]*symbols.Symbol),
-		chainReachesBase:    make(map[*symbols.Symbol]bool),
-		computingUsageBase:  make(map[*symbols.Symbol]bool),
+		provisionalSupers:      make(map[*symbols.Symbol]bool),
+		computingSupers:        make(map[*symbols.Symbol]int),
+		valuing:                make(map[*symbols.Symbol]bool),
+		referenced:             make(map[*symbols.Symbol]*symbols.Symbol),
+		resolvingRef:           make(map[*symbols.Symbol]bool),
+		memberSources:          make(map[*symbols.Symbol][]*symbols.Symbol),
+		lookupOrder:            make(map[*symbols.Symbol][]lookupSource),
+		contributed:            make(map[*symbols.Symbol][]*symbols.Symbol),
+		nestedRedefs:           make(map[*symbols.Symbol][]NestedRedefinition),
+		allRedefined:           make(map[*symbols.Symbol][]*symbols.Symbol),
+		primTypes:              make(map[*symbols.Symbol]PrimType),
+		params:                 make(map[*symbols.Symbol]behaviorParameters),
+		computingParams:        make(map[*symbols.Symbol]int),
+		invocations:            make(map[invocationKey]*InvocationSelection),
+		typingArgs:             make(map[*ast.InvocationExpr]bool),
+		composed:               make(map[composedKey][]*symbols.Symbol),
+		ends:                   make(map[*symbols.Symbol][]connectorEnd),
+		chainTargets:           make(map[*symbols.Symbol]*symbols.Symbol),
+		defaultMultiplicities:  make(map[*symbols.Symbol]*symbols.Symbol),
+		declaredMultiplicities: make(map[*symbols.Symbol]*symbols.Symbol),
+		multiplicityBase:       make(map[*symbols.Symbol]*symbols.Symbol),
+		subtracting:            make(map[*symbols.Symbol]bool),
+		referential:            make(map[*symbols.Symbol]bool),
+		implicitBase:           make(map[*symbols.Symbol][]*symbols.Symbol),
+		implicitGenerals:       make(map[*symbols.Symbol][]*symbols.Symbol),
+		implicitSubsettings:    make(map[*symbols.Symbol][]*symbols.Symbol),
+		usageBase:              make(map[*symbols.Symbol]*symbols.Symbol),
+		kermlBase:              make(map[*symbols.Symbol]*symbols.Symbol),
+		thingsBase:             make(map[*symbols.Symbol]*symbols.Symbol),
+		chainReachesBase:       make(map[*symbols.Symbol]bool),
+		computingUsageBase:     make(map[*symbols.Symbol]bool),
 
 		superEdgeCache: make(map[*symbols.Symbol][]superEdge),
 		conjSupers:     make(map[*symbols.Symbol][]conjugatedType),
@@ -392,6 +405,11 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		if seen[target] {
 			continue
 		}
+		seen[target] = true
+		out = append(out, target)
+	}
+	// A multiplicity member's `subsets` is a Subsetting written on the declaration (KerML 8.3.3.3.1).
+	if target := m.SubsettedMultiplicity(sym); target != nil && target != sym && !seen[target] {
 		seen[target] = true
 		out = append(out, target)
 	}

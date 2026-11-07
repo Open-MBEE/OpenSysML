@@ -1352,90 +1352,50 @@ type instanceGraph struct {
 // root is returned first; runtime instances live only for the duration of a
 // request, so the whole reachable graph is serialized while the context is alive.
 //
-// Expansion stops at a child whose type is already on the path, at maxGraphDepth
-// and at maxGraphInstances: reading a composite feature value materializes the object it
-// holds, so a self-referential part would otherwise instantiate forever. An
-// unexpanded child stays a bare instance id.
+// The runtime's traversal decides the order and how far it expands (a child
+// whose type is already on the path, maxGraphDepth and maxGraphInstances), and
+// says how each object was reached: reading a composite feature value
+// materializes the object it holds, so a self-referential part would otherwise
+// instantiate forever. An unexpanded child stays a bare instance id.
 func instanceGraphToProto(rt *runtime.Context, inst *runtime.Instance, idx *symbols.Index) instanceGraph {
 	bounds := defaultGraphBounds()
 	var g instanceGraph
-	seen := make(map[int64]bool)
-	onPath := make(map[*symbols.Symbol]bool)
-
-	var walk func(*runtime.Instance, int) *JInstance
-	walk = func(cur *runtime.Instance, depth int) *JInstance {
-		if seen[cur.ID] {
-			return nil
-		}
-		if len(g.All) >= bounds.Instances {
-			g.Truncated = true
-			return nil
-		}
-		seen[cur.ID] = true
-		onPath[cur.Type] = true
-		defer delete(onPath, cur.Type)
-
-		// instanceToProto reads every feature value through GetFeatureValue, which is what
-		// lazily materializes the children the ids below resolve to.
-		pbInst := instanceToProto(rt, cur, idx, func(err error) { g.Errors = append(g.Errors, err) })
+	reached := rt.Traverse(inst, runtime.TraversalBounds{Depth: bounds.Depth, Objects: bounds.Instances})
+	g.Truncated = reached.Truncated
+	for _, reach := range reached.Reaches {
+		pbInst := instanceToProto(rt, reach.Object, idx, func(err error) { g.Errors = append(g.Errors, err) })
+		pbInst.ReachedBy = reachToProto(reach, idx)
 		g.All = append(g.All, pbInst)
-
-		if depth >= bounds.Depth {
-			return pbInst
-		}
-
-		// In name order, so the graph is serialized in the same order every run.
-		for _, name := range slices.Sorted(maps.Keys(pbInst.FeatureValues)) {
-			for _, id := range instanceRefs(pbInst.FeatureValues[name]) {
-				child, ok := rt.Instance(id)
-				if !ok || onPath[child.Type] {
-					continue
-				}
-				walk(child, depth+1)
-			}
-		}
-		return pbInst
 	}
-
-	g.Root = walk(inst, 0)
+	g.Root = g.All[0]
 	return g
 }
 
-// instanceRefs collects the instance IDs a feature value references, scalar or not.
-func instanceRefs(fv *JFeatureValue) []int64 {
-	var ids []int64
-	var collect func(*JValue)
-	collect = func(v *JValue) {
-		if v.InstanceId != nil {
-			ids = append(ids, int64(*v.InstanceId))
-		}
-		for _, nested := range nestedValues(v) {
-			collect(nested)
-		}
+// reachToProto converts how the traversal reached an object; nil for the root,
+// which nothing holds.
+func reachToProto(reach runtime.Reach, idx *symbols.Index) *JInstanceReach {
+	if reach.Holder == nil {
+		return nil
 	}
-	if fv.Value != nil {
-		collect(fv.Value)
+	return &JInstanceReach{
+		InstanceId:      I64(reach.Holder.ID),
+		FeatureName:     reach.Feature.Name,
+		FeatureSymbolId: idx.GetFQN(reach.Feature.Symbol),
+		Index:           indexToJSON(reach.Index),
+		Path:            reach.Path(),
 	}
-	for _, v := range fv.Values {
-		collect(v)
-	}
-	return ids
 }
 
-// nestedValues lists the Values a value holds directly: a sequence's or a set's
-// elements, an array's elements and a vector's components.
-func nestedValues(pv *JValue) []*JValue {
-	switch {
-	case pv.Sequence != nil:
-		return pv.Sequence.Elements
-	case pv.Set != nil:
-		return pv.Set.Elements
-	case pv.Array != nil:
-		return pv.Array.Elements
-	case pv.Vector != nil:
-		return pv.Vector.Components
+// indexToJSON saturates a position within a feature at the int32 bound rather
+// than wrapping.
+func indexToJSON(index int) int32 {
+	if index > math.MaxInt32 {
+		return math.MaxInt32
 	}
-	return nil
+	if index < 0 {
+		return 0
+	}
+	return int32(index)
 }
 
 // instanceToProto converts runtime.Instance to the Instance message. Feature values

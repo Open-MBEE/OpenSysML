@@ -21,7 +21,7 @@ from opensysml.check import (
 )
 from opensysml.diagnostic import Diagnostic
 from opensysml.enumeration import EnumLiteral
-from opensysml.instance import Instance
+from opensysml.instance import Instance, InstancePath, InstancePaths, PathStep
 from opensysml.typed import TypedObject
 from opensysml.typefacts import (
     AttributeFacts,
@@ -31,6 +31,7 @@ from opensysml.typefacts import (
     TypeFacts,
 )
 from opensysml.capabilities import (
+    CAPABILITY_ELEMENT_PROPERTIES,
     CAPABILITY_RECORD_RUN,
     CAPABILITY_RUNS,
     CAPABILITY_SELF_CHECK,
@@ -77,11 +78,12 @@ from opensysml.runs import (
     SelfCheckResult,
 )
 from opensysml.query import QueryElement, QueryError
+from opensysml.element_properties import ElementIdentity, ElementProperties, ElementProperty
 from opensysml.sources import SourceDocument
 from opensysml.document import (
     DocumentEvent, DocumentQueryError, DocumentQueryResult, DocumentRow, DocumentState,
     DocumentVerdict, ElementRef, Graphs, INFINITY, ObjectRef, RenderCanvas, RenderEdge,
-    RenderGeometry, RenderNode, RenderNote, RenderPoint, RenderPort, RenderRow,
+    RenderFrame, RenderGeometry, RenderNode, RenderNote, RenderPoint, RenderPort, RenderRow,
     RenderSpan, RenderStyle, RenderedView,
 )
 from opensysml.conversion import (
@@ -101,7 +103,7 @@ from opensysml.errors import (
     InstanceTypeError, InvalidRequestError, ManifestSignatureError, ModelError,
     ModelFileNotFoundError, ModelNotFoundError, ServiceError,
     ServiceTimeoutError, SigstoreUnavailableError, StaleServiceError, SymbolNotFoundError,
-    ViewNotFoundError,
+    UnresolvedChildError, ViewNotFoundError,
     TypeMismatchError, UnpinnedReleaseError, UnsignedReleaseError,
     UnsupportedOperationError, UnsupportedValueError, WrongKindError,
 )
@@ -128,7 +130,7 @@ __all__ = [
     "CheckSearch",
     "CheckViolation",
     "CheckWitness",
-    "Connection", "Model", "Symbol", "Diagnostic", "EnumLiteral", "Instance",
+    "Connection", "Model", "Symbol", "Diagnostic", "EnumLiteral", "Instance", "InstancePath", "InstancePaths", "PathStep",
     "TypedObject", "TypeFacts", "Multiplicity", "Specialization", "SymbolFacts",
     "AttributeFacts",
     "ServerInfo",
@@ -147,10 +149,11 @@ __all__ = [
     "Exploration", "Outcome", "ActionOutputs",
     "Bound", "EngineInfo", "Standing",
     "QueryElement", "QueryError",
+    "ElementIdentity", "ElementProperties", "ElementProperty", "CAPABILITY_ELEMENT_PROPERTIES",
     "SourceDocument",
     "DocumentEvent", "DocumentQueryError", "DocumentQueryResult", "DocumentRow",
     "DocumentState", "DocumentVerdict", "ElementRef", "INFINITY", "ObjectRef",
-    "RenderCanvas", "RenderEdge", "RenderGeometry", "RenderNode", "RenderNote",
+    "RenderCanvas", "RenderEdge", "RenderFrame", "RenderGeometry", "RenderNode", "RenderNote",
     "RenderPoint", "RenderPort", "RenderRow", "RenderSpan", "RenderStyle", "RenderedView",
     "Graphs",
     "CaseStatistic", "CaseStatistics", "ComparedDistribution", "Comparison", "ConfigurationComparison",
@@ -173,7 +176,7 @@ __all__ = [
     "ModelError", "ModelFileNotFoundError", "ModelNotFoundError",
     "ServiceError", "ServiceTimeoutError", "SigstoreUnavailableError", "StaleServiceError",
     "SymbolNotFoundError",
-    "ViewNotFoundError",
+    "UnresolvedChildError", "ViewNotFoundError",
     "TypeMismatchError", "UnpinnedReleaseError", "UnsignedReleaseError",
     "UnsupportedOperationError", "UnsupportedValueError",
     "WrongKindError",

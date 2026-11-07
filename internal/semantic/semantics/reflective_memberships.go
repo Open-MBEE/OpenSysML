@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -49,6 +50,7 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		ordinal++
 	}
 	if sym.Scope == nil {
+		out = m.withDefaultMultiplicity(sym, out, ordinal)
 		m.memberships[sym] = out
 		return out
 	}
@@ -76,8 +78,46 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	if parts := m.transitionMembers(sym); len(parts) > 0 {
 		out = m.withTransitionMemberships(sym, out, parts)
 	}
+	out = m.withDefaultMultiplicity(sym, out, len(out))
 	m.memberships[sym] = out
 	return out
+}
+
+// withDefaultMultiplicity adds the OwningMembership of the Multiplicity sym states
+// (MultiplicityMember): a written range at its clause, the implicit [1..1] last, an
+// individual OccurrenceDefinition's first, as the pilot orders them.
+func (m *Model) withDefaultMultiplicity(sym *symbols.Symbol, memberships []*symbols.Symbol, ordinal int) []*symbols.Symbol {
+	member := m.MultiplicityMember(sym)
+	if member == nil {
+		return memberships
+	}
+	membership := &symbols.Symbol{
+		Kind:       symbols.SymbolRelationship,
+		DocName:    sym.DocName,
+		DeclSpan:   source.Span{Offset: sym.DeclSpan.End()},
+		Visibility: sym.Visibility,
+		Implicit: &symbols.ImplicitRelationship{
+			Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: member,
+		},
+	}
+	if !IsDefaultMultiplicity(member) || defaultMultiplicityFirst(sym) {
+		offset := member.DeclSpan.Offset
+		if IsDefaultMultiplicity(member) {
+			offset = sym.DeclSpan.Offset
+		}
+		membership.DeclSpan = source.Span{Offset: offset}
+		at := clausePosition(memberships, offset)
+		memberships = append(memberships, nil)
+		copy(memberships[at+1:], memberships[at:])
+		memberships[at] = membership
+		for i := at; i < len(memberships); i++ {
+			if memberships[i].Implicit != nil {
+				memberships[i].Implicit.Ordinal = i
+			}
+		}
+		return memberships
+	}
+	return append(memberships, membership)
 }
 
 // withTransitionMemberships places the memberships of a transition's trigger accept and guard
@@ -126,35 +166,23 @@ func ownedThroughAnnotation(owner, member *symbols.Symbol) bool {
 }
 
 // isPrefixMetadataSymbol reports whether sym is the metadata feature a `#M`
-// prefix declares on the element it annotates: the symbol OwnedAnnotations
-// synthesizes for it, since the builder registers none (a body `@M;` is a
-// member, exactly as the `metadata` spelling is).
+// prefix declares on the element it annotates (a body `@M;` is a member).
 func isPrefixMetadataSymbol(sym *symbols.Symbol) bool {
-	return sym.OwnerScope == nil && sym.Kind == symbols.SymbolMetadataUsage && !sym.Recorded() &&
-		sym.Decl != nil && isPrefixMetadataDecl(sym.Decl)
+	return sym.IsPrefixMetadata()
 }
 
-func isPrefixMetadataDecl(decl ast.Node) bool {
-	_, ok := decl.(*ast.PrefixMetadata)
-	return ok
-}
-
-// prefixMetadataSymbols synthesizes the metadata feature of each `#M` prefix
-// written on sym, once per element, in prefix order.
+// prefixMetadataSymbols is the metadata feature of each `#M` prefix written on
+// sym, in prefix order: the members the builder registered for them.
 func (m *Model) prefixMetadataSymbols(sym *symbols.Symbol) []*symbols.Symbol {
 	prefixes, _, ok := ast.DeclaredMetadata(sym.Decl)
-	if !ok {
+	if !ok || sym.Scope == nil {
 		return nil
 	}
 	var out []*symbols.Symbol
 	for _, prefix := range prefixes {
-		if prefix == nil {
-			continue
+		if member := sym.Scope.MemberDeclaring(prefix); member != nil {
+			out = append(out, member)
 		}
-		out = append(out, &symbols.Symbol{
-			Name: prefix.Ident.Name, Kind: symbols.SymbolMetadataUsage, Decl: prefix,
-			DocName: sym.DocName, DeclSpan: prefix.Span(), NameSpan: prefix.Ident.NameSpan,
-		})
 	}
 	return out
 }
@@ -258,6 +286,13 @@ func (m *Model) OwnedRelationships(sym *symbols.Symbol) []*symbols.Symbol {
 		return m.implicitOwnedRelationships(sym)
 	}
 	var out, body []*symbols.Symbol
+	memberships := m.OwnedMemberships(sym)
+	if defaultMultiplicityFirst(sym) && len(memberships) > 0 && isDefaultMultiplicityMembership(memberships[0]) {
+		// `individual` and its empty Multiplicity precede the prefix metadata and the
+		// head's clauses (SysML.xtext OccurrenceDefinitionPrefix, DefinitionExtensionKeyword).
+		out = append(out, memberships[0])
+		memberships = memberships[1:]
+	}
 	for _, ann := range m.OwnedAnnotations(sym) {
 		if isPrefixAnnotation(ann) {
 			out = append(out, ann)
@@ -267,7 +302,7 @@ func (m *Model) OwnedRelationships(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	out = append(out, m.ImplicitRelationships(sym)...)
 	body = append(body, m.OwnedImports(sym)...)
-	body = append(body, m.OwnedMemberships(sym)...)
+	body = append(body, memberships...)
 	body = append(body, m.AnnotatingRelationships(sym)...)
 	sort.SliceStable(body, func(i, j int) bool { return body[i].DeclSpan.Offset < body[j].DeclSpan.Offset })
 	return append(out, body...)
@@ -276,6 +311,10 @@ func (m *Model) OwnedRelationships(sym *symbols.Symbol) []*symbols.Symbol {
 // isPrefixAnnotation reports whether an owned Annotation is one a `#M` prefix
 // writes: its annotating element is the prefix's metadata feature, or — on a
 // recorded element, whose record keeps the prefix as a fact — no symbol at all.
+func isDefaultMultiplicityMembership(membership *symbols.Symbol) bool {
+	return membership.Implicit != nil && membership.Implicit.Member != nil && IsDefaultMultiplicity(membership.Implicit.Member)
+}
+
 func isPrefixAnnotation(ann *symbols.Symbol) bool {
 	return ann.Implicit.Member == nil || isPrefixMetadataSymbol(ann.Implicit.Member)
 }
@@ -294,6 +333,10 @@ func (m *Model) implicitOwnedRelationships(sym *symbols.Symbol) []*symbols.Symbo
 func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 	if isValueExpressionSymbol(member) {
 		return "FeatureValue"
+	}
+	if IsImpliedMultiplicity(member) {
+		// A type owns its multiplicity through an OwningMembership (KerML 8.3.3.1.10 Type::multiplicity).
+		return "OwningMembership"
 	}
 	if member != nil && member.Expr != nil {
 		switch member.Expr.Role {
@@ -977,4 +1020,15 @@ func (m *Model) aliasMemberElement(sym *symbols.Symbol) *symbols.Symbol {
 		return target
 	}
 	return nil
+}
+
+// clausePosition is where a head clause at offset sits among items in source order:
+// before the first body item past it, else last.
+func clausePosition(items []*symbols.Symbol, offset int) int {
+	for i, item := range items {
+		if item.DeclSpan.Len > 0 && item.DeclSpan.Offset > offset {
+			return i
+		}
+	}
+	return len(items)
 }

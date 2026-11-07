@@ -157,6 +157,12 @@ type QualifiedNameStructure interface {
 	QualifiedName(Element) (string, bool)
 }
 
+// LibrarySymbolResolver optionally resolves a structure element that merely
+// references a library element to that element's semantic symbol.
+type LibrarySymbolResolver interface {
+	LibrarySymbol(Element) (*symbols.Symbol, bool)
+}
+
 // Options supplies graph-stated structure used by the evaluator. When Structure
 // is nil, the evaluator serves properties derivable from the semantic model.
 type Options struct {

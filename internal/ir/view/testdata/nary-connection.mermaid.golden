@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» NaryViews::wheelLinks"
 ---
 %% NaryViews::wheelLinks — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR
@@ -33,6 +34,7 @@ flowchart LR
 **rightSpoke**`")
     n4@{ shape: f-circ, label: "" }
     n5@{ shape: f-circ, label: "" }
+    note0@{ shape: notch-rect, label: "three spokes" }
   end
   n4 ===|"hub"| n1
   n4 ===|"left"| n2
@@ -40,6 +42,9 @@ flowchart LR
   n5 === n1
   n5 === n2
   n5 === n3
+  note0 -.- n4
+  classDef note fill:#FEFFDD,stroke:#181818
+  class note0 note
   linkStyle 0 stroke-width:3px
   linkStyle 1 stroke-width:3px
   linkStyle 2 stroke-width:3px

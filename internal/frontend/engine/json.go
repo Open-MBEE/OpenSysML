@@ -284,6 +284,17 @@ type JInstance struct {
 	Id            I64                       `json:"id,omitempty"`
 	TypeSymbolId  string                    `json:"typeSymbolId,omitempty"`
 	FeatureValues map[string]*JFeatureValue `json:"featureValues,omitempty"`
+	ReachedBy     *JInstanceReach           `json:"reachedBy,omitempty"`
+}
+
+// JInstanceReach is the InstanceReach message: how the traversal that produced
+// the graph reached an instance, unset for the root.
+type JInstanceReach struct {
+	InstanceId      I64    `json:"instanceId,omitempty"`
+	FeatureName     string `json:"featureName,omitempty"`
+	FeatureSymbolId string `json:"featureSymbolId,omitempty"`
+	Index           int32  `json:"index,omitempty"`
+	Path            string `json:"path,omitempty"`
 }
 
 // JDiagnostic is the Diagnostic message, shaped in frontend/syntax where the
@@ -349,9 +360,20 @@ type JRenderViewResponse struct {
 	Columns []string       `json:"columns,omitempty"`
 	Rows    []JRenderRow   `json:"rows,omitempty"`
 	Canvas  *JRenderCanvas `json:"canvas,omitempty"`
+	Frame   *JRenderFrame  `json:"frame,omitempty"`
 	Notes   []JRenderNote  `json:"notes,omitempty"`
 	Notices []string       `json:"notices,omitempty"`
 	Shown   []string       `json:"shown,omitempty"`
+}
+
+// JRenderFrame is the view frame round a diagram: its name compartment and
+// the info compartments at its corners (exposes, filters, annotations).
+type JRenderFrame struct {
+	Name        string   `json:"name"`
+	Type        string   `json:"type,omitempty"`
+	Exposes     []string `json:"exposes,omitempty"`
+	Filters     []string `json:"filters,omitempty"`
+	Annotations []string `json:"annotations,omitempty"`
 }
 
 type JRenderCanvas struct {

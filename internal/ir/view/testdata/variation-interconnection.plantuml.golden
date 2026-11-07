@@ -1,5 +1,6 @@
 @startuml
 ' VariationViews::familyLinks — interconnection rendering (render asInterconnectionDiagram)
+mainframe <size:10>//«view»//</size> **VariationViews::familyLinks** : Family\n<size:10>expose vehicleFamily<U+002A><U+002A></size>
 <style>
 root {
   BackGroundColor white

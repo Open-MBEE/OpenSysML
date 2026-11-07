@@ -7,6 +7,12 @@
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
+        <mxCell id="frame" value="«view» NotationGlyphs::Diagrams::treeGlyphs" style="shape=umlFrame;whiteSpace=wrap;html=1;fillColor=none;strokeWidth=0.5;width=386;height=40;" vertex="1" parent="1">
+            <mxGeometry width="827" height="1169" as="geometry"/>
+        </mxCell>
+        <mxCell id="frame_tr" value="expose Plant&#xA;expose tankView&#xA;expose Tank" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=middle;fontSize=10;" vertex="1" parent="1">
+            <mxGeometry x="685" width="142" height="59" as="geometry"/>
+        </mxCell>
         <object id="n0" label="«part def»&#xA;Plant" fqn="NotationGlyphs::Plant" kind="part def" view="NotationGlyphs::Diagrams::treeGlyphs" link="notation-glyphs.sysml:15">
           <mxCell style="swimlane;html=0;whiteSpace=wrap;fontStyle=1;align=center;verticalAlign=top;startSize=42;collapsible=1;" vertex="1" parent="1">
             <mxGeometry x="50" y="50" width="446" height="448" as="geometry"/>
@@ -118,7 +124,7 @@
           </mxCell>
         </object>
         <object id="e6" label="" kind="typing" view="NotationGlyphs::Diagrams::treeGlyphs" link="notation-glyphs.sysml:16">
-          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5034;exitPerimeter=0;entryX=0;entryY=0.2483;entryPerimeter=0;rounded=0;html=0;dashed=1;endArrow=block;endFill=0;" edge="1" parent="1" source="n1" target="n10">
+          <mxCell style="edgeStyle=none;exitX=0;exitY=0.5034;exitPerimeter=0;entryX=0;entryY=0.2483;entryPerimeter=0;rounded=0;html=0;endArrow=block;endFill=0;" edge="1" parent="1" source="n1" target="n10">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
                 <mxPoint x="34" y="215"/>

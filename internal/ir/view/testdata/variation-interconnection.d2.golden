@@ -13,3 +13,5 @@ n0: "«part»\nvehicleFamily" {
   }
 }
 n0.n1 -- n0.n2: { class: connection }
+frame_name: "«view» VariationViews::familyLinks : Family" { shape: text; near: top-left }
+frame_tr: "expose vehicleFamily**" { shape: text; near: top-right }

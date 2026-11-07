@@ -52,7 +52,7 @@ and OpenSysML reports no error, yet its calculations and its mission action each
 defect only execution reaches — see [the showcase's Apollo 11 section](examples/runtime-showcase/README.md#apollo-11).
 
 The basis for these claims, and their limits, are documented in
-[spec compliance](docs/project/spec-compliance.md) and the
+[spec compliance](docs/project/spec-compliance/) and the
 [pilot differential](docs/project/pilot-differential.md): every diagnostic is compared against the
 pinned OMG pilot implementation over that implementation's own corpora, and no conformance
 certification is claimed.
@@ -98,7 +98,7 @@ brew install Open-MBEE/tap/opensysml
 go install github.com/Open-MBEE/OpenSysML/cmd/sysml@latest
 go install github.com/Open-MBEE/OpenSysML/cmd/sysml-lsp@latest
 ```
-`sysml -version` then reports the release it was built from (`sysml v0.11.0`), or the commit when
+`sysml -version` then reports the release it was built from (`sysml v0.12.1`), or the commit when
 installed from a checkout.
 
 **Or build from source:**
@@ -687,7 +687,7 @@ artifact is on Maven Central at the core's version (`org.openmbee:opensysml`).
 - **[Client libraries](docs/reference/clients.md)** — the Go, Python, Node, Java, Rust, Julia and MATLAB surfaces, and how to choose between them
 - **[Reference](docs/reference/)** — CLI flags, REPL commands, environment, each client's API, service transports, RDF mapping
 - **[Internals](docs/internals/architecture.md)** — the pipeline, the tiers, testing and performance
-- **[Project status](docs/project/spec-compliance.md)** — spec compliance, roadmap and releasing
+- **[Project status](docs/project/README.md)** — spec compliance, roadmap and releasing
 - **[Examples](examples/)** — runtime demonstrations and behavioral model examples
 - **[Agent skills](packaging/agent-skills/)** — skills an LLM coding agent can load to write, check and run models with OpenSysML
 

@@ -1,1 +1,0 @@
-- Documentation: a client feature-parity page (`docs/reference/client-parity.md`) comparing the Python, Node, Java, Rust, Julia and MATLAB clients option by option, each cell linked to its proving test, with the open gaps and their estimates.

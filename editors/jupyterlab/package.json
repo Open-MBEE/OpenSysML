@@ -1,6 +1,6 @@
 {
   "name": "jupyterlab-opensysml",
-  "version": "0.11.0",
+  "version": "0.12.1",
   "description": "SysML v2 and KerML syntax highlighting for JupyterLab and Notebook, matching the OpenSysML sysml kernel.",
   "keywords": [
     "jupyter",
@@ -55,6 +55,8 @@
     "outputDir": "../../client/jupyter-kernel/labextension"
   },
   "overrides": {
-    "sanitize-html": "^2.18.1"
+    "sanitize-html": "^2.18.1",
+    "minimatch": "11.0.1",
+    "glob": "^14.0.3"
   }
 }

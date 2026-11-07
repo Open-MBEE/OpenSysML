@@ -112,6 +112,11 @@ const CapabilityExportGraphs = "export_graphs"
 // a CSV, TSV, JSON or JSON Lines file assigns, one row per element.
 const CapabilityImportData = "import_data"
 
+// CapabilityInstancePaths names the InstancePaths RPC, which lists every
+// root-relative path reaching an object, and the `reached_by` of an Instance
+// in an instantiated graph, which says how the traversal reached it.
+const CapabilityInstancePaths = "instance_paths"
+
 // CapabilityCompareResults names the CompareResults RPC, which runs the
 // configurations a tool's results sidecar indexes and tables the tool's
 // distributions of their observables beside the runs'.
@@ -135,6 +140,11 @@ const CapabilityEvaluateSubject = "evaluate_subject"
 // CapabilitySymbolAttributes names the capability of populating
 // SymbolInfo.attributes, rather than always reporting none.
 const CapabilitySymbolAttributes = "symbol_attributes"
+
+// CapabilitySymbolMembers names the capability of populating
+// SymbolInfo.members, the element's members own and inherited with their
+// provenance, and of honouring GetSymbolRequest.include_library_members.
+const CapabilitySymbolMembers = "symbol_members"
 
 // CapabilityUnsetValue names the capability of reporting a valueless feature of
 // a value type as Value.unset, rather than as the empty object it materializes.
@@ -350,6 +360,10 @@ const CapabilityMetaobjectValues = "metaobject_values"
 // leaves open as Value.undetermined rather than as an unsupported null.
 const CapabilityUndeterminedValue = "undetermined_value"
 
+// CapabilityElementProperties names the GetElementProperties RPC, which reads
+// the metamodel properties of one element by their specification names.
+const CapabilityElementProperties = "element_properties"
+
 // capabilities is what this build supports, in report order. A capability is
 // only ever added: renaming or dropping one breaks clients that require it.
 var capabilities = []string{
@@ -363,7 +377,7 @@ var capabilities = []string{
 	CapabilityTensorValues, CapabilityVerificationVerdicts, CapabilityInfinityValue,
 	CapabilityDiagnosticCodes, CapabilitySchedule, CapabilityCaseEvaluations,
 	CapabilityScheduleExplore, CapabilityFinalTime, CapabilityEngines,
-	CapabilityMetaobjectValues,
+	CapabilityMetaobjectValues, CapabilitySymbolMembers,
 	CapabilityUndeterminedValue,
 	CapabilityEnginesExternal,
 	CapabilityEditDocuments,
@@ -401,6 +415,7 @@ var capabilities = []string{
 	CapabilityExportGraphs,
 	CapabilityImportData,
 	CapabilityCompareResults,
+	CapabilityInstancePaths,
 	CapabilityCheck,
 	CapabilityConvertDocuments,
 	CapabilityConvertCompact,
@@ -411,6 +426,7 @@ var capabilities = []string{
 	CapabilityRenderDocumentFileName,
 	CapabilityOrderDependence,
 	CapabilityVerdictNotes,
+	CapabilityElementProperties,
 }
 
 type capabilityAvailability struct {
@@ -1031,8 +1047,8 @@ func (s *Service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.
 		return nil, statusErrorf(connect.CodeNotFound, msgModelNotFound, req.ModelHash)
 	}
 
-	// Lookup symbol by FQN
-	syms := symbolfacts.LookupNamed(cached.Index, req.SymbolId)
+	// Lookup symbol by FQN or positional identity
+	syms := cached.LookupSymbol(req.SymbolId)
 	if len(syms) == 0 {
 		return &pb.SymbolResponse{
 			Error: fmt.Sprintf("symbol not found: %s", req.SymbolId),
@@ -1041,7 +1057,8 @@ func (s *Service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.
 
 	// Convert first match to proto
 	return &pb.SymbolResponse{
-		Symbol: s.symbolToProto(syms[0], cached.SymbolContext()),
+		Symbol: s.symbolToProtoWith(syms[0], cached.SymbolContext(),
+			symbolfacts.Options{IncludeLibraryMembers: req.IncludeLibraryMembers}),
 	}, nil
 }
 
@@ -1199,7 +1216,7 @@ func (s *Service) Evaluate(ctx context.Context, req *pb.EvaluateRequest) (*pb.Ev
 	// prompt evaluates in the context it pinned.
 	var subject *symbols.Symbol
 	if req.SubjectSymbolId != "" {
-		syms := symbolfacts.LookupNamed(cached.Index, req.SubjectSymbolId)
+		syms := cached.LookupSymbol(req.SubjectSymbolId)
 		if len(syms) == 0 {
 			return &pb.EvaluateResponse{
 				Error: fmt.Sprintf("subject not found: %s", req.SubjectSymbolId),
@@ -1212,7 +1229,7 @@ func (s *Service) Evaluate(ctx context.Context, req *pb.EvaluateRequest) (*pb.Ev
 	var scope *symbols.Scope
 	if req.ContextSymbolId != "" {
 		// Lookup context symbol
-		syms := symbolfacts.LookupNamed(cached.Index, req.ContextSymbolId)
+		syms := cached.LookupSymbol(req.ContextSymbolId)
 		if len(syms) > 0 && syms[0].Scope != nil {
 			scope = syms[0].Scope
 		}
@@ -1281,7 +1298,7 @@ func (s *Service) Instantiate(ctx context.Context, req *pb.InstantiateRequest) (
 	}
 
 	// Lookup symbol
-	syms := symbolfacts.LookupNamed(cached.Index, req.SymbolId)
+	syms := cached.LookupSymbol(req.SymbolId)
 	if len(syms) == 0 {
 		return &pb.InstantiateResponse{
 			Error: fmt.Sprintf("symbol not found: %s", req.SymbolId),

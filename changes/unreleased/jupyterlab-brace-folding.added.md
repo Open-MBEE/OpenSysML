@@ -1,1 +1,0 @@
-- The JupyterLab extension folds `{ … }` blocks in `sysml` and `kerml` cells and files, passing over the braces inside strings, quoted names and comments.

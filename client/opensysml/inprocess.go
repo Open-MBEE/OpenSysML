@@ -127,6 +127,10 @@ func (p *inprocess) instantiate(ctx context.Context, req *pb.InstantiateRequest)
 	return answer(ctx, req, p.svc.Instantiate)
 }
 
+func (p *inprocess) instancePaths(ctx context.Context, req *pb.InstancePathsRequest) (*pb.InstancePathsResponse, error) {
+	return answer(ctx, req, p.svc.InstancePaths)
+}
+
 func (p *inprocess) executeAction(
 	ctx context.Context,
 	req *pb.ExecuteActionRequest,
@@ -188,6 +192,10 @@ func (p *inprocess) recordRun(ctx context.Context, req *pb.RecordRunRequest) (*p
 
 func (p *inprocess) query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error) {
 	return answer(ctx, req, p.svc.Query)
+}
+
+func (p *inprocess) getElementProperties(ctx context.Context, req *pb.GetElementPropertiesRequest) (*pb.GetElementPropertiesResponse, error) {
+	return answer(ctx, req, p.svc.GetElementProperties)
 }
 
 func (p *inprocess) runDocumentQuery(

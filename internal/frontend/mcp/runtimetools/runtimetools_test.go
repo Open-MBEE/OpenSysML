@@ -300,7 +300,7 @@ func TestEveryToolTakingAModelTakesPathsAndSources(t *testing.T) {
 		t.Errorf("%d tools take a model, want the model tools: %v", modelTools, names)
 	}
 	slices.Sort(names)
-	want := []string{"apply_edits", "check_behavior", "compare_results", "convert", "diagnostics", "evaluate", "evaluate_calc", "execute_action", "execute_state", "explain_diagnostic", "export_graphs", "import_data", "instantiate", "list_engines", "migrate", "parse", "query", "record_run", "render_model_document", "render_model_view", "run_analysis", "run_document_query", "run_runs", "run_sweep", "self_check", "server_info", "symbol", "validate_instance", "verify_constraint", "verify_requirement", "verify_satisfaction"}
+	want := []string{"apply_edits", "check_behavior", "compare_results", "convert", "diagnostics", "element_properties", "evaluate", "evaluate_calc", "execute_action", "execute_state", "explain_diagnostic", "export_graphs", "import_data", "instance_paths", "instantiate", "list_engines", "migrate", "parse", "query", "record_run", "render_model_document", "render_model_view", "run_analysis", "run_document_query", "run_runs", "run_sweep", "self_check", "server_info", "symbol", "validate_instance", "verify_constraint", "verify_requirement", "verify_satisfaction"}
 	if !slices.Equal(names, want) {
 		t.Errorf("tools = %v, want %v", names, want)
 	}
@@ -385,6 +385,35 @@ func TestSymbolDescribesAnElement(t *testing.T) {
 	}
 	if _, has := structured(t, res)["modelHash"]; has {
 		t.Error("a call naming a hash repeated it in the result")
+	}
+}
+
+func TestElementPropertiesReadsAnElementBySpecName(t *testing.T) {
+	h := attach(t, newService(t))
+	var resp pb.GetElementPropertiesResponse
+	_, out := h.ok("element_properties", map[string]any{
+		"paths": []string{"demo.sysml"}, "elementId": "Demo::sedan", "properties": []string{"type", "name", "nowhere"},
+	}, &resp)
+	if resp.GetElement().GetMetaclass() != "PartUsage" || !strings.Contains(out, "PartUsage Demo::sedan (") {
+		t.Errorf("element = %v\n%s", resp.GetElement(), out)
+	}
+	if len(resp.GetProperties()) != 3 {
+		t.Fatalf("properties = %v", resp.GetProperties())
+	}
+	typed := resp.GetProperties()[0]
+	if len(typed.GetValues()) != 1 || typed.GetValues()[0].GetElement().GetQualifiedName() != "Demo::Vehicle" || !strings.Contains(out, "type = Demo::Vehicle\n") {
+		t.Errorf("type = %v\n%s", typed, out)
+	}
+	if name := resp.GetProperties()[1]; name.GetValues()[0].GetStringValue() != "sedan" || !strings.Contains(out, "name = \"sedan\"\n") {
+		t.Errorf("name = %v\n%s", name, out)
+	}
+	if undeclared := resp.GetProperties()[2]; undeclared.GetUnsupported() == "" || !strings.Contains(out, "nowhere: unsupported: PartUsage declares no property nowhere") {
+		t.Errorf("nowhere = %v\n%s", undeclared, out)
+	}
+	hash := h.parse()
+	_, out = h.ok("element_properties", map[string]any{"modelHash": hash, "elementId": "Demo::Nowhere"}, &resp)
+	if resp.GetError() == "" || !strings.HasPrefix(out, "error: ") {
+		t.Errorf("unknown element: %v\n%s", resp.GetError(), out)
 	}
 }
 
