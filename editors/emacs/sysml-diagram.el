@@ -83,13 +83,30 @@ See `display-buffer' for the format."
 (defconst sysml-diagram--capability :openSysmlRender
   "The experimental capability a server serving the render methods advertises.")
 
-(defconst sysml-diagram--pseudo-views
-  '(("#tree" . "Model tree (no view declared)")
-    ("#interconnection" . "Interconnections (no view declared)")
-    ("#state" . "State machines (no view declared)")
-    ("#action" . "Action flows (no view declared)")
-    ("#table" . "Element table (no view declared)"))
-  "The pseudo-views the server renders a document through as if it declared one.")
+(defconst sysml-diagram--pseudo-view-labels
+  '(("tree" . "Model tree")
+    ("interconnection" . "Interconnections")
+    ("state" . "State machines")
+    ("action" . "Action flows")
+    ("table" . "Element table")
+    ("sequence" . "Message sequence"))
+  "The names the picker gives the pseudo-views it knows, by kind.")
+
+(defconst sysml-diagram--historical-pseudo-views
+  '("#tree" "#interconnection" "#state" "#action" "#table")
+  "The pseudo-views of a server whose view listing does not name its own.")
+
+(defun sysml-diagram--pseudo-view-entries (specs)
+  "Return the picker entries for the pseudo-views SPECS the server renders.
+SPECS nil, from a server that does not list them, stands for the
+historical set."
+  (mapcar (lambda (spec)
+            (let ((kind (string-remove-prefix "#" spec)))
+              (list spec
+                    (format "%s (no view declared)"
+                            (or (cdr (assoc kind sysml-diagram--pseudo-view-labels)) kind))
+                    t nil)))
+          (or specs sysml-diagram--historical-pseudo-views)))
 
 ;;;; Per-buffer state
 
@@ -166,8 +183,8 @@ See `display-buffer' for the format."
                  (list name (format "%s — %s" name (lsp-get info :kind))
                        (eq (lsp-get info :supported) t) (lsp-get info :reason))))
              (and listing (lsp-get listing :views)))
-     (mapcar (lambda (pseudo) (list (car pseudo) (cdr pseudo) t nil))
-             sysml-diagram--pseudo-views))))
+     (sysml-diagram--pseudo-view-entries
+      (and listing (append (lsp-get listing :pseudoViews) nil))))))
 
 (defun sysml-diagram--default-view (views)
   "Return the view to show first from the picker entries VIEWS.

@@ -186,6 +186,24 @@
   (should (equal (sysml-diagram--default-view '(("V::s" "s" nil "no") ("#tree" "t" t nil))) "#tree"))
   (should (equal (sysml-diagram--default-view '(("#tree" "t" t nil))) "#tree")))
 
+(ert-deftest sysml-diagram-offers-the-pseudo-views-the-server-lists ()
+  (cl-letf (((symbol-function 'lsp--buffer-uri) (lambda () "file:///m.sysml"))
+            ((symbol-function 'lsp-request)
+             (lambda (_method _params)
+               (sysml-diagram-test--json
+                "{\"views\":[{\"name\":\"V::a\",\"kind\":\"general\",\"supported\":true}],\"pseudoViews\":[\"#matrix\",\"#tree\"]}"))))
+    (should (equal (sysml-diagram--views (current-buffer))
+                   '(("V::a" "V::a — general" t nil)
+                     ("#matrix" "matrix (no view declared)" t nil)
+                     ("#tree" "Model tree (no view declared)" t nil))))))
+
+(ert-deftest sysml-diagram-offers-the-historical-pseudo-views-otherwise ()
+  (cl-letf (((symbol-function 'lsp--buffer-uri) (lambda () "file:///m.sysml"))
+            ((symbol-function 'lsp-request)
+             (lambda (_method _params) (sysml-diagram-test--json "{\"views\":[]}"))))
+    (should (equal (mapcar #'car (sysml-diagram--views (current-buffer)))
+                   '("#tree" "#interconnection" "#state" "#action" "#table")))))
+
 (ert-deftest sysml-diagram-refuses-an-undrawable-view ()
   (cl-letf (((symbol-function 'sysml-diagram--views)
              (lambda (_) '(("V::seq" "V::seq — sequence" nil "sequence is not supported")
