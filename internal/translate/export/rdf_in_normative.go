@@ -365,7 +365,13 @@ func (d *decoder) sourceEndsAgree(r *impliedEnds) error {
 // materialized elements, as a graph from before their introduction does,
 // needs no coverage.
 func (d *decoder) verifyCovered(owner *element) error {
-	if owner.implied || !d.materializes(owner) {
+	if owner.implied {
+		return nil
+	}
+	if err := d.verifyAnnotations(owner); err != nil {
+		return err
+	}
+	if !d.materializes(owner) {
 		return nil
 	}
 	stated := d.statedIRITargets(owner)
@@ -401,6 +407,34 @@ func (d *decoder) verifyCovered(owner *element) error {
 		What: fmt.Sprintf("the collapsed properties of <%s>", owner.iri),
 		Note: fmt.Sprintf("they state <%s>, which no materialized relationship element carries, so writing them would assert a relationship the elements deny", strings.Join(missing, ">, <")),
 	}
+}
+
+// verifyAnnotations is the converse half for an annotating element's Annotations:
+// each element one annotates is one the owner's collapsed `annotatedElement` states,
+// else the about clause would silently keep one statement and drop the other.
+func (d *decoder) verifyAnnotations(owner *element) error {
+	if !ontology.IsAncestorOrSelf(owner.metaclass, "AnnotatingElement") {
+		return nil
+	}
+	annotated := d.statedIRITargets(owner)[ast.RelAnnotates]
+	for _, child := range owner.children {
+		if child.metaclass != mAnnotation || d.prefixAnnotation(rdf.IRI(child.iri)) {
+			continue
+		}
+		if _, owned := d.owningMembership[child.iri]; owned {
+			continue
+		}
+		for _, object := range d.collapsedTargets(child) {
+			if !object.IsIRI() || annotated[object.Value] {
+				continue
+			}
+			return &UnsupportedError{
+				What: fmt.Sprintf("the Annotation <%s>", child.iri),
+				Note: fmt.Sprintf("it annotates <%s>, which the collapsed annotatedElement of <%s> does not state, so writing the about clause would keep one statement and drop the other", object.Value, owner.iri),
+			}
+		}
+	}
+	return nil
 }
 
 // materializes reports whether the owner carries an implied relationship element.

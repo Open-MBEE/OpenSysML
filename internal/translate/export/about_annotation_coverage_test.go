@@ -54,6 +54,42 @@ func TestAboutAnnotationsMustCoverEveryAnnotatedElement(t *testing.T) {
 	}
 }
 
+func TestAnnotationMustAnnotateAStatedElement(t *testing.T) {
+	full := graphOfNotation(t, "package P {\n    part def A;\n    part def B;\n    comment about A, B /* note */\n    metadata def M;\n    metadata m : M about A, B;\n}\n")
+	for _, owner := range []string{"P___402", "P__m"} {
+		t.Run(owner, func(t *testing.T) {
+			conflicting := rdf.NewGraphOf(append([]rdf.Triple(nil), full.Triples()...), full.Prefixes)
+			dropped := 0
+			conflicting.RewriteTriples(func(tr *rdf.Triple) bool {
+				// The owner's collapsed statement of B alone, its JSON mirror included; the _an1 Annotation of B stays.
+				if tr.Subject.Value != rdf.Element+owner || !strings.HasSuffix(tr.Predicate.Value, pAnnotatedElement) {
+					return true
+				}
+				if tr.Object.Value == rdf.Element+"P__B" {
+					dropped++
+					return false
+				}
+				if strings.Contains(tr.Object.Value, `{"@id":"P__B"}`) {
+					tr.Object.Value = strings.Replace(tr.Object.Value, `,{"@id":"P__B"}`, "", 1)
+					dropped++
+				}
+				return true
+			})
+			if dropped != 2 {
+				t.Fatalf("rewrote %d collapsed statements of <%sP__B> by %s, want 2", dropped, rdf.Element, owner)
+			}
+			out, err := ToSysML(conflicting)
+			var unsupported *UnsupportedError
+			if !errors.As(err, &unsupported) {
+				t.Fatalf("want an UnsupportedError, got %v; notation:\n%s", err, out)
+			}
+			if !strings.Contains(err.Error(), rdf.Element+"P__B") {
+				t.Errorf("error %q should name the denied <%sP__B>", err, rdf.Element)
+			}
+		})
+	}
+}
+
 // `about x, x` owns two Annotations of the one element, as the notation adds one per
 // name (KerML 8.2.3.2 AnnotatingElement: `about` names), each with its own id, and
 // reads back as written.
