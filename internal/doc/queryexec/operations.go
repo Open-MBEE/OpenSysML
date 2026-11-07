@@ -1348,6 +1348,10 @@ func compareValue(actual Value, operator, expected string) (bool, error) {
 	case ValueElement:
 		sym, _ := actual.Element()
 		return compareText(symbols.FQNOf(sym), operator, expected)
+	case ValueObject:
+		// An object compares by the path it is held under.
+		_, label, _ := actual.Object()
+		return compareText(label, operator, expected)
 	default:
 		return false, errComparison
 	}
@@ -1412,6 +1416,10 @@ func (e *executor) compareOrdered(left, right Value) (int, error) {
 		l, _ := left.Element()
 		r, _ := right.Element()
 		return strings.Compare(symbols.FQNOf(l), symbols.FQNOf(r)), nil
+	case ValueObject:
+		_, l, _ := left.Object()
+		_, r, _ := right.Object()
+		return strings.Compare(l, r), nil
 	case ValueBoolean:
 		l, _ := left.Boolean()
 		r, _ := right.Boolean()

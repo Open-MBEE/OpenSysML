@@ -71,6 +71,16 @@ func TestOSLCQuerySelectsHeldObjects(t *testing.T) {
 	if len(resp.Elements) != 2 || resp.Elements[0].Properties["owner.name"] != "car" {
 		t.Fatalf("wheels of a car with a strong engine = %v, want the car's two", resp.Elements)
 	}
+	// The owner compares and orders by the path it is held under; an object
+	// without one (the spare) orders first, as a missing key does.
+	resp = oslcQuery(t, srv, hash, "oslc.where="+wheel+`&oslc.select=sysml:owner&oslc.orderBy=-sysml:owner`)
+	if len(resp.Elements) != 3 || resp.Elements[0].Path != "Garage::spare" || resp.Elements[1].Properties["owner"] != "Garage::car" || resp.Elements[2].Properties["owner"] != "Garage::car" {
+		t.Fatalf("wheels by owner = %v, want the unowned spare then the car's", resp.Elements)
+	}
+	resp = oslcQuery(t, srv, hash, "oslc.where="+wheel+` and sysml:owner="Garage::car"`)
+	if len(resp.Elements) != 2 {
+		t.Fatalf("wheels owned by the car = %v, want two", resp.Elements)
+	}
 	// Conjoined instance terms keep the objects every term selects.
 	spare := "rdf:type=elmt:" + rdf.EncodeElementID("Garage::spare")
 	if resp := oslcQuery(t, srv, hash, wheel+" and "+spare); len(resp.Elements) != 1 || resp.Elements[0].Path != "Garage::spare" {
