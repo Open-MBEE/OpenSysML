@@ -183,17 +183,17 @@ func (t *translator) knownProperty(property, where string) error {
 // filter to apply.
 func (t *translator) root(where Constraint) (queryplan.Expression, Constraint, bool, error) {
 	source := queryplan.ParameterRef(SourceParameter, origin)
-	var instances []string
+	var selections []Instances
 	var rest []Constraint
 	switch c := where.(type) {
 	case nil:
 		return source, nil, false, nil
 	case Instances:
-		instances = c.Elements
+		selections = []Instances{c}
 	case Conjunction:
 		for _, term := range c.Terms {
 			if selection, ok := term.(Instances); ok {
-				instances = append(instances, selection.Elements...)
+				selections = append(selections, selection)
 				continue
 			}
 			rest = append(rest, term)
@@ -201,17 +201,15 @@ func (t *translator) root(where Constraint) (queryplan.Expression, Constraint, b
 	default:
 		return source, where, false, nil
 	}
-	if len(instances) == 0 {
+	if len(selections) == 0 {
 		return source, where, false, nil
 	}
-	var root queryplan.Expression
-	for _, element := range instances {
-		objects := operate(queryplan.OperationObjects, arg("type", str(element)))
-		if root.Operation() == "" {
-			root = objects
-			continue
-		}
-		root = operate(queryplan.OperationUnion, arg("source", root), arg("other", objects))
+	// The elements of one term select either's objects; conjoined terms keep
+	// the objects every term selects.
+	root := objectsOf(selections[0])
+	for _, selection := range selections[1:] {
+		missing := operate(queryplan.OperationExcept, arg("source", root), arg("exclude", objectsOf(selection)))
+		root = operate(queryplan.OperationExcept, arg("source", root), arg("exclude", missing))
 	}
 	switch len(rest) {
 	case 0:
@@ -221,6 +219,20 @@ func (t *translator) root(where Constraint) (queryplan.Expression, Constraint, b
 	default:
 		return root, Conjunction{Terms: rest}, true, nil
 	}
+}
+
+// objectsOf is the held objects of any of the selection's elements.
+func objectsOf(selection Instances) queryplan.Expression {
+	var root queryplan.Expression
+	for _, element := range selection.Elements {
+		objects := operate(queryplan.OperationObjects, arg("type", str(element)))
+		if root.Operation() == "" {
+			root = objects
+			continue
+		}
+		root = operate(queryplan.OperationUnion, arg("source", root), arg("other", objects))
+	}
+	return root
 }
 
 // validate refuses, before any element is read, what no model could evaluate.

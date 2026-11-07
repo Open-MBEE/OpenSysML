@@ -50,6 +50,15 @@ func TestOSLCQuerySelectsHeldObjects(t *testing.T) {
 	if len(resp.Elements) != 1 || resp.Elements[0].Path != "Garage::spare" {
 		t.Fatalf("pressure<25 = %v, want the spare", resp.Elements)
 	}
+	// Conjoined instance terms keep the objects every term selects.
+	spare := "rdf:type=elmt:" + rdf.EncodeElementID("Garage::spare")
+	if resp := oslcQuery(t, srv, hash, wheel+" and "+spare); len(resp.Elements) != 1 || resp.Elements[0].Path != "Garage::spare" {
+		t.Fatalf("Wheel and spare = %v, want the spare", resp.Elements)
+	}
+	engine := "rdf:type=elmt:" + rdf.EncodeElementID("Garage::Engine")
+	if resp := oslcQuery(t, srv, hash, wheel+" and "+engine); len(resp.Elements) != 0 {
+		t.Fatalf("Wheel and Engine = %v, want none", resp.Elements)
+	}
 	if resp := oslcQuery(t, srv, hash, `rdf:type=sysml:PartUsage`); resp.Elements[0].Path != "" {
 		t.Fatalf("a metaclass query answers elements, got path %q", resp.Elements[0].Path)
 	}
