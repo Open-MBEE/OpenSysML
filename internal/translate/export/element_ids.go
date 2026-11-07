@@ -364,7 +364,8 @@ func (e *encoder) writtenHeadClauses(node, parent ast.Node, parents map[ast.Node
 }
 
 // clauseObjects are the distinct objects the head's clauses of kind state, in clause order, and
-// each clause's position among them: clauses repeating a target (`: T, T`) share one relationship.
+// each clause's position among them: clauses repeating a target (`: T, T`) share one relationship,
+// while each `about` name is its own Annotation (`about x, x` states two).
 func (e *encoder) clauseObjects(subject rdf.Term, clauses []*ast.Relationship, kind ast.RelationshipKind, chains map[*ast.Relationship]int) ([]string, map[*ast.Relationship]int) {
 	var objects []string
 	at := map[*ast.Relationship]int{}
@@ -374,7 +375,7 @@ func (e *encoder) clauseObjects(subject rdf.Term, clauses []*ast.Relationship, k
 		}
 		object := e.clauseObject(subject, rel, chains)
 		i := slices.Index(objects, object)
-		if i < 0 {
+		if i < 0 || kind == ast.RelAnnotates {
 			i = len(objects)
 			objects = append(objects, object)
 		}
@@ -450,6 +451,8 @@ func headClauses(node ast.Node) []*ast.Relationship {
 	switch n := node.(type) {
 	case *ast.Definition:
 		return n.Relationships
+	case *ast.Comment:
+		return aboutClauses(n.About)
 	case *ast.Usage:
 		rels := nodeRelationships(n, "")
 		if !n.IsEnd {
@@ -466,7 +469,7 @@ func headClauses(node ast.Node) []*ast.Relationship {
 		if n.Type == nil {
 			return nil
 		}
-		return []*ast.Relationship{{Kind: ast.RelTyping, Target: n.Type}}
+		return append([]*ast.Relationship{{Kind: ast.RelTyping, Target: n.Type}}, aboutClauses(n.About)...)
 	case *ast.SubjectMember:
 		if n.TypeRef == nil {
 			return n.Relationships
@@ -550,6 +553,24 @@ func (ids *ElementIDs) OfExpressionPart(doc string, node ast.Node, slot string) 
 	}
 	if part, ok := ids.partBySpan[spanPartKey{spanKey{doc, node.Span()}, slot}]; ok {
 		return part.element, part.membership, true
+	}
+	return "", "", false
+}
+
+// OfBodyParameter is the id written for the named parameter of the expression body at
+// body in doc (`in0`… off the body's owner), and its membership's: a parameter has no node.
+func (ids *ElementIDs) OfBodyParameter(doc string, body *ast.BodyExpr, name string) (element, membership string, ok bool) {
+	if ids == nil || body == nil || name == "" {
+		return "", "", false
+	}
+	for _, decl := range ast.BodyDeclarations(body.Params, body.Members) {
+		if decl.Param == nil || decl.Param.Name != name {
+			continue
+		}
+		if part, ok := ids.partBySpan[spanPartKey{spanKey{doc, decl.Param.Span}, decl.Slot()}]; ok {
+			return part.element, part.membership, true
+		}
+		return "", "", false
 	}
 	return "", "", false
 }
@@ -1032,4 +1053,14 @@ func expressionReferenceSlot(node ast.Node) (slot string, name *ast.QualifiedNam
 		return "function", n.Ref, true
 	}
 	return "", nil, false
+}
+
+// aboutClauses are the `about` names of a comment or metadata annotation as the clauses
+// the writer states them by: spanless, so each is keyed by the name it annotates.
+func aboutClauses(about []*ast.QualifiedName) []*ast.Relationship {
+	clauses := make([]*ast.Relationship, 0, len(about))
+	for _, name := range about {
+		clauses = append(clauses, &ast.Relationship{Kind: ast.RelAnnotates, Target: name})
+	}
+	return clauses
 }

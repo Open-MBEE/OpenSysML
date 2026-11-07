@@ -44,7 +44,7 @@ hide stereotype
 hide empty description
 state "<size:10>//«action def»//</size>\n**Monitor**\nparameters\nin sensor\nout alarm" as n0 <<action def>> {
   state "**initial**" as n1 <<start>>
-  state "⚑ <size:10>//«accept action»//</size>\n**acceptReading**\nreading : Reading\nparameters\nout reading\ninout ^payload\nin ^receiver" as n2 <<accept action>> <<usage>>
+  state "⚑ <size:10>//«accept action»//</size>\n**acceptReading**\nreading : Reading\nparameters\nout reading\nin ^receiver" as n2 <<accept action>> <<usage>>
   state "⭓ <size:10>//«send action»//</size>\n**sendAlarm**\nAlarm to sensor\nparameters\nin ^payload\nin ^sender\nin ^receiver" as n3 <<send action>> <<usage>>
   state "<size:10>//«assign»//</size>\n**tally**\ncount := count + 1" as n4 <<assign>> <<usage>>
   state "<size:10>//«loop»//</size>\n**wait**\nwhile condition\ncount <U+003C> 10" as n5 <<loop>> <<usage>> {

@@ -29,9 +29,9 @@ n4: "«constraint»\namplify" {
 }
 n5: "«constraint»\nmix" {
   class: usage
-  "n5.0": "^a" { class: pin }
-  "n5.1": "^b" { class: pin }
-  "n5.2": "^total" { class: pin }
+  "n5.0": "a" { class: pin }
+  "n5.1": "b" { class: pin }
+  "n5.2": "total" { class: pin }
 }
 n0 -- n4."n4.0": "=" { class: edge }
 n1 -- n4."n4.1": "=" { class: edge }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
@@ -428,6 +429,20 @@ func (d *structureDifferential) computeGraphID(sym *symbols.Symbol) (string, boo
 	case sym.Expr != nil:
 		return d.expressionGraphID(sym)
 	}
+	// A body's parameter declares no node of its own: its symbol is keyed by the
+	// body, which the conversion writes as the reference the parameter is in<i> of.
+	if body, ok := sym.Decl.(*ast.BodyExpr); ok && sym.Name != "" {
+		element, _, ok := d.ids.OfBodyParameter(d.doc, body, sym.Name)
+		return element, ok
+	}
+	// A chained end's target is the chain Feature its ReferenceSubsetting owns, minted
+	// off the end (chainFeature), which the chain's own node is not written as.
+	if sym.Kind == symbols.SymbolReferenceUsage && sym.OwnerScope != nil {
+		if end, ok := sym.OwnerScope.Node().(*ast.ConnectorEnd); ok && end.AttachedTarget() == sym.Decl {
+			element, _, ok := d.ids.OfExpressionPart(d.doc, end, "chain")
+			return element, ok
+		}
+	}
 	if implied, ok := symbols.ImpliedDeclOf(sym); ok && implied.Form == symbols.ImpliedDefaultMultiplicity {
 		if element, _, ok := d.ids.OfExpressionPart(d.doc, implied.Of, "multiplicity"); ok {
 			return element, true
@@ -467,6 +482,15 @@ func (d *structureDifferential) implicitGraphID(rel *symbols.ImplicitRelationshi
 		return d.ids.RelationshipOf(d.doc, rel.Node)
 	case symbols.ImplicitImport:
 		return d.ids.OfDeclaration(d.doc, rel.Decl, "")
+	case symbols.ImplicitAnnotatingRelationship:
+		if rel.Owner == nil {
+			return "", false
+		}
+		node := ast.AboutClauseNode(rel.Owner.Decl, rel.Ordinal)
+		if node == nil {
+			return "", false
+		}
+		return d.ids.RelationshipOf(d.doc, node)
 	case symbols.ImplicitReferenceMembership:
 		if rel.Owner == nil || rel.Slot == "" {
 			return "", false
