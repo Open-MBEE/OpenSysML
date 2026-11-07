@@ -1,9 +1,7 @@
-# Publishes a release's Python client and Jupyter kernel package to PyPI with trusted
-# publishing, from the signed GitHub release: CircleCI's for a `v*` tag
-# (docs/project/releasing.md), the nightly workflow's for the `nightly-<yyyymmdd>-<commit>`
-# tag it dispatches this workflow with (docs/project/nightly.md). One workflow publishes
-# both, so every version on the index names the same publisher.
+# Publishes the Python client and Jupyter kernel package of a `v*` release, or of the nightly
+# snapshot that dispatches it, to PyPI with trusted publishing from the signed GitHub release.
 name: Release to PyPI
+run-name: Release to PyPI ${{ inputs.tag || github.ref_name }}
 
 on:
   push:
@@ -66,13 +64,13 @@ jobs:
       - name: Install the checking tools
         run: python -m pip install --only-binary ":all:" pip==26.2.1 twine==7.0.0 packaging==26.3
 
-      # A release tag must name the version both packages declare, and a pre-release goes to
-      # TestPyPI; a night's tag names the date and commit its versions were derived from, by
-      # the commit's own script, and a development version goes to PyPI where no default
-      # install picks it up.
+      # A release tag must name the version both packages declare (a pre-release goes to
+      # TestPyPI); a night's release carries the development version its build derived.
       - name: Resolve the version from the tag
         id: version
         env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
           INPUT_TAG: ${{ inputs.tag }}
@@ -112,13 +110,13 @@ jobs:
                 echo "::error::tag '$TAG' names commit ${commit}, which is not the $(git rev-parse HEAD) checked out at it"
                 exit 1
               fi
-              # The snapshot's version depends on whether the release it leads to is tagged.
-              git fetch --quiet --depth=1 origin 'refs/tags/v*:refs/tags/v*'
-              VERSION="$(python client/python/scripts/snapshot_version.py --date "$date" --commit "$commit" | sed -n 's/^pypi=//p')"
-              if [ -z "$VERSION" ]; then
-                echo "::error::snapshot_version.py derived no PyPI version for ${TAG}"
-                exit 1
-              fi
+              # A re-derivation would move once a release tag lands; the night's wheel keeps the version it built.
+              VERSION="$(gh release view "$TAG" --json assets --jq '.assets[].name' | sed -n 's/^opensysml-\(.*\)-py3-none-any\.whl$/\1/p')"
+              case "$VERSION" in
+                "") echo "::error::release ${TAG} carries no opensysml wheel to take the snapshot version from"; exit 1 ;;
+                *.dev"$date") ;;
+                *) echo "::error::release ${TAG} carries opensysml ${VERSION}, not a development version of ${date}"; exit 1 ;;
+              esac
               INDEX_HOST=pypi.org
               REPOSITORY_URL=https://upload.pypi.org/legacy/
               OIDC_ISSUER="$SNAPSHOT_OIDC_ISSUER"

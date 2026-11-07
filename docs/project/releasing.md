@@ -1521,8 +1521,9 @@ release is published, so a snapshot takes the same path and names the same publi
 in three jobs:
 
 1. `fetch` resolves the version from the tag again: with `check_version.py` for both
-   packages, routing a pre-release to TestPyPI, for a `v*` tag; with the commit's own
-   `snapshot_version.py`, after fetching the `v*` tags it depends on, for a night's. It
+   packages, routing a pre-release to TestPyPI, for a `v*` tag; from the wheel the
+   night's release carries for a night's (the version its build derived, where a
+   re-derivation would move once a release tag lands). It
    then waits, with `scripts/wait-for-release-gate.sh`, until the release is published
    — CircleCI uploads `SHA256SUMS.txt.bundle` only after the Go suite, every client's
    tests and `build-release` passed on the tag; a night's release is created with it —

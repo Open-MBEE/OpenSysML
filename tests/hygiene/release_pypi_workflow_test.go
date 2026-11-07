@@ -88,7 +88,7 @@ func TestReleasePyPIPublishesTheBytesCircleCISigned(t *testing.T) {
 	runs := fetch.runSteps()
 
 	version := stepIndex(runs, `check_version.py --tag "$TAG"`, `check_version.py --jupyter-kernel --tag "$TAG"`, `check_version.py --pre-release --tag "$TAG"`,
-		`IDENTITY_REGEXP="$MANIFEST_IDENTITY_REGEXP"`, `snapshot_version.py --date "$date" --commit "$commit"`, `IDENTITY_REGEXP="$SNAPSHOT_IDENTITY_REGEXP"`)
+		`IDENTITY_REGEXP="$MANIFEST_IDENTITY_REGEXP"`, `gh release view "$TAG" --json assets`, `*.dev"$date")`, `IDENTITY_REGEXP="$SNAPSHOT_IDENTITY_REGEXP"`)
 	gate := stepIndex(runs, `scripts/wait-for-release-gate.sh "$TAG" "$COMMIT"`)
 	download := stepIndex(runs, `gh release download "$TAG"`, "--pattern SHA256SUMS.txt --pattern SHA256SUMS.txt.bundle",
 		`--pattern "opensysml-${VERSION}-py3-none-any.whl"`, `--pattern "opensysml-${VERSION}.tar.gz"`,

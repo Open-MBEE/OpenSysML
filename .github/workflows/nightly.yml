@@ -3,10 +3,8 @@ name: Nightly snapshot
 # Builds the newest green `develop` commit into the release assets and the Python
 # and Node client packages, and publishes them as the per-night prerelease
 # `nightly-<yyyymmdd>-<commit>` (kept 14 days) and the moving alias `nightly`,
-# never marked latest. The clients go to PyPI and npm as development versions
-# that no default install picks up: the Node client from this workflow, the Python
-# client and Jupyter kernel through release-pypi.yml, dispatched with the night's tag,
-# so a snapshot names the publisher a release does. See docs/project/nightly.md.
+# never marked latest. The clients go to PyPI (through release-pypi.yml, the release's
+# publisher) and npm as development versions no default install picks up: docs/project/nightly.md.
 on:
   schedule:
     - cron: '23 3 * * *'
@@ -119,7 +117,7 @@ jobs:
           # pin the digests of its binaries, and a rebuild would not reproduce them byte for byte.
           # A draft is what an interrupted upload leaves behind; it pins nothing and is replaced.
           if draft=$(gh release view "$night" --json isDraft --jq .isDraft 2>/dev/null) && [ "$draft" != true ]; then
-            echo "::notice::$night is already published and is never rebuilt; to retry its npm publication, re-run the failed jobs of the run that published it; to retry its PyPI publication, run the Release to PyPI workflow with its tag."
+            echo "::notice::$night is already published and is never rebuilt; to retry its PyPI or npm publication, re-run the failed jobs of the run that published it."
             echo "publish=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -198,7 +196,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
-      actions: write
       contents: write
       id-token: write
     outputs:
@@ -717,10 +714,8 @@ jobs:
           } > notes.md
           cat notes.md
 
-      # The tarballs go up before the release does: a night whose release is published is
-      # never rebuilt, so the npm job must be able to re-run from what this run kept. A re-run
-      # of this job replaces what its earlier attempt kept, so it never trips over it. The
-      # Python distributions need no artifact: release-pypi.yml takes them from the release.
+      # The tarballs go up before the release does: a night whose release is published is never
+      # rebuilt, so the npm job must re-run from what this run kept (a re-run replaces it).
       - name: Keep the npm tarballs for the npm job
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -782,16 +777,6 @@ jobs:
             --latest=false \
             "${assets[@]}"
           gh release view "$VERSION" --json url,assets --jq '.url, (.assets[].name)'
-
-      # The wheel, sdist and kernel package reach PyPI through the release's own workflow,
-      # which fetches them from the night's release, verifies its manifest against this
-      # workflow's signing identity and publishes as the one trusted publisher PyPI knows.
-      - name: Dispatch the release's PyPI workflow for the night
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          VERSION: ${{ steps.version.outputs.tag }}
-        run: gh workflow run release-pypi.yml --ref "$BRANCH" --field "tag=$VERSION"
 
   # Its own job, so that re-running the failed jobs of a run finishes a night whose release
   # is published without rebuilding it: the alias is recreated from the night's own assets,
@@ -1079,6 +1064,40 @@ jobs:
           if-no-files-found: error
           overwrite: true
           retention-days: ${{ env.RETENTION_DAYS }}
+
+  # The wheel, sdist and kernel package reach PyPI through the release's own workflow, run
+  # on the night's tag and watched to its end, so a snapshot names the publisher a release does.
+  pypi:
+    name: Publish the Python client to PyPI through the release workflow
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Dispatch the release's PyPI workflow for the night and wait for it
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.publish.outputs.tag }}
+        run: |
+          started="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          gh workflow run release-pypi.yml --ref "$BRANCH" --field "tag=$VERSION"
+          # The dispatch returns before the run exists; the run is the one named after the tag since.
+          run=""
+          for _ in $(seq 30); do
+            sleep 10
+            run="$(gh run list --workflow release-pypi.yml --event workflow_dispatch --created ">=$started" \
+              --json databaseId,displayTitle --jq "[.[] | select(.displayTitle == \"Release to PyPI $VERSION\")][0].databaseId // empty")"
+            [ -n "$run" ] && break
+          done
+          if [ -z "$run" ]; then
+            echo "::error::release-pypi.yml did not start for $VERSION."
+            exit 1
+          fi
+          echo "Release to PyPI $VERSION is run $run"
+          gh run watch "$run" --exit-status --interval 30
 
   # Trusted publishing: npm accepts this workflow's OIDC token for each of the seven
   # packages once a maintainer registers it as a trusted publisher on each (repository

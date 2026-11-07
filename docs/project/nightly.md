@@ -247,9 +247,8 @@ the same commit again as a new night, under today's date — for instance after 
 itself changed). A night already published, the same commit under the same date, is never
 rebuilt, forced or not: the packages on PyPI and npm pin the digests of its binaries, which
 a rebuild would not reproduce byte for byte, so the run publishes nothing. To retry a
-night's npm publication, re-run the failed jobs of the run that published it; they
-republish the tarballs that run kept. To retry its PyPI publication, run the *Release to
-PyPI* workflow with the night's tag, as the night does itself. The workflow picks the commit as described
+night's PyPI or npm publication, re-run the failed jobs of the run that published it; they
+publish from the night's release and the tarballs that run kept. The workflow picks the commit as described
 above and, in one job, derives the versions with the commit's own
 [`client/python/scripts/snapshot_version.py`](../../client/python/scripts/snapshot_version.py)
 and stamps them into the checkout's `_version.py` and `package.json` (nothing is
@@ -265,20 +264,21 @@ installed wheel reports the snapshot version, names the night's release as the o
 built against and pins all five digests, as the release pipeline checks a release's wheel;
 builds the platform and WASM packages from the same binaries and packs all seven npm
 tarballs; signs the manifest, which now lists the wheel, with its own GitHub OIDC
-identity; keeps the tarballs as workflow artifacts; publishes the per-night release with
-the repository's own `GITHUB_TOKEN`; and dispatches
-[`release-pypi.yml`](../../.github/workflows/release-pypi.yml) with the night's tag, which
-takes the wheel, sdist and kernel package from the release, checks them against the
-manifest and publishes them to PyPI as it does a stable release's ([Releasing opensysml to
-PyPI](releasing.md#releasing-opensysml-to-pypi)) — so a snapshot and a release name one
-publisher, and PyPI marks no *Change of provenance* between them. A second job recreates the
+identity; keeps the tarballs as workflow artifacts; and publishes the per-night release
+with the repository's own `GITHUB_TOKEN`. A second job recreates the
 alias at the same commit from the night's own assets, title and notes, then deletes the
 per-night releases published more than 14 days ago. Two jobs after the release build the
 Cameo and SysON plugins at the same commit, each fetching the `sysml-grpc` it needs from the
 night's release and checking it against the manifest, and keep them as the run's
-`cameo-plugin` and `syson-plugin` artifacts. One further job, in the `nightly` GitHub
-environment, publishes the seven tarballs to npm under the `nightly` dist-tag — platform
-and WASM packages first, the client last, as the release does — and checks afterwards that
+`cameo-plugin` and `syson-plugin` artifacts. Two further jobs publish the clients. One
+runs [`release-pypi.yml`](../../.github/workflows/release-pypi.yml) on the night's tag and
+waits for it: that workflow takes the wheel, sdist and kernel package from the release,
+checks them against the manifest and publishes them to PyPI as it does a stable release's
+([Releasing opensysml to PyPI](releasing.md#releasing-opensysml-to-pypi)) — so a snapshot
+and a release name one publisher, PyPI marks no *Change of provenance* between them, and
+an upload that fails fails the night. The other, in the `nightly` GitHub environment,
+publishes the seven tarballs to npm under the `nightly` dist-tag — platform and WASM
+packages first, the client last, as the release does — and checks afterwards that
 `latest` still names the stable release. It skips a version the registry already has
 rather than fail, since a version can never be replaced; the PyPI workflow does the same
 for a day's second snapshot, whose version is the first's. The release notes are generated: the commit, the count since
