@@ -375,6 +375,20 @@ the `constant` keyword: every `isConstant` row that was different is now equal �
 `Usage` 21 → 30 (9 → 0) — 1157055 → 1157295 present-equal, 28075 → 27835 present-different overall. No other
 row moved.
 
+**A conjugated typing types by the ConjugatedPortDefinition** (re-recorded when the writer began stating
+the type of `port p : ~P` as P's `ConjugatedPortDefinition`, the element its `ConjugatedPortTyping` already
+named as `type`/`conjugatedPortDefinition`, SysML v2.1 §8.3.12.3 `conjugatedPortDefinition {redefines
+type}`, where the collapsed `sysml:type` had named P itself): every `PortUsage.type` row that differed by the
+conjugate alone is now equal — 408 → 463 present-equal (56 → 1 present-different; the 91 ours-missing are
+ports declaring no typing, whose type the pilot derives, unchanged) — and the `ref`/`usage` features typed by
+a conjugate follow, `ReferenceUsage.type` 1348 → 1349 equal (41 → 40 different) and `Usage.type` 9 → 11
+(5 → 3); 1985911 → 1985969 present-equal, 149129 → 149071 present-different overall. The one `PortUsage.type`
+still different is the connector end `engineToTransmissionInterface::p2` of the pilot's
+`IssueMetadataExample`, bound to a `~DrivePwrPort` port where the interface definition's end is a `ClutchPort`:
+the pilot's `type` lists both, this writer the bound port's conjugate alone, the inherited `ClutchPort` the
+same gap as before. `ConjugatedPortTyping.type`, `.conjugatedPortDefinition` and `.portDefinition` (61 equal
+each) and `PortUsage.portDefinition`/`.definition` did not move. No other row moved.
+
 The scorecard is mostly **ours-missing**: this repository's writer emits a subset of the metamodel's properties, and the referee now measures which, per metaclass. The full ranked scorecard with one concrete example per differing row is `build/pilot-apijson-diff/pilot-apijson-diff.txt` after a run; the baseline keeps every row's seven counts.
 
 **A membership states its ends and its member's names** (re-recorded when the writer began stating
