@@ -28,76 +28,78 @@ const (
 	pVisibility        = "visibility"
 	// The ownership properties of the abstract syntax: an element's owner and
 	// the OwningMembership between them, written from both ends.
-	pOwner                     = "owner"
-	pOwningRelationship        = "owningRelationship"
-	pOwningMembership          = "owningMembership"
-	pOwnedRelationship         = "ownedRelationship"
-	pOwnedMembership           = "ownedMembership"
-	pOwnedMember               = "ownedMember"
-	pMemberElement             = "memberElement"
-	pOwnedMemberElement        = "ownedMemberElement"
-	pOwnedRelatedElement       = "ownedRelatedElement"
-	pOwningRelatedElement      = "owningRelatedElement"
-	pMembershipOwningNamespace = "membershipOwningNamespace"
-	pOwnedMemberFeature        = "ownedMemberFeature"
-	pOwningType                = "owningType"
-	pOwnedFeature              = "ownedFeature"
-	pOwnedFeatureMembership    = "ownedFeatureMembership"
-	pOwnedMemberParameter      = "ownedMemberParameter"
-	pFeatureWithValue          = "featureWithValue"
-	pOwnedReferenceSubsetting  = "ownedReferenceSubsetting"
-	pOwnedSubsetting           = "ownedSubsetting"
-	pOwnedSpecialization       = "ownedSpecialization"
-	pReferencingFeature        = "referencingFeature"
-	pSubsettingFeature         = "subsettingFeature"
-	pSpecific                  = "specific"
-	pReferencedFeature         = "referencedFeature"
-	pSubsettedFeature          = "subsettedFeature"
-	pGeneral                   = "general"
-	pRelatedElement            = "relatedElement"
-	pOwningFeature             = "owningFeature"
-	pVariant                   = "variant"
-	pVariantMembership         = "variantMembership"
-	pOwnedVariantUsage         = "ownedVariantUsage"
-	pOwnedImport               = "ownedImport"
-	pImportOwningNamespace     = "importOwningNamespace"
-	pDirection                 = "direction"
-	pIsImplied                 = "isImplied"
-	pLowerBound                = "lowerBound"
-	pUpperBound                = "upperBound"
-	pValue                     = "value"
-	pIsDefault                 = "isDefault"
-	pIsInitial                 = "isInitial"
-	pIsEnd                     = "isEnd"
-	pIsUnique                  = "isUnique"
-	pName                      = "name"
-	pReferences                = "references"
-	pConnectorEnd              = "connectorEnd"
-	pRelatedFeature            = "relatedFeature"
-	pChainingFeature           = "chainingFeature"
-	pOwnedEndFeature           = "ownedEndFeature"
-	pImportedNamespace         = "importedNamespace"
-	pImportedMembership        = "importedMembership"
-	pImportedElement           = "importedElement"
-	pAliasFor                  = "aliasedElement" // an older mapping's alias target, read only
-	pMemberName                = "memberName"
-	pMemberShortName           = "memberShortName"
-	pClient                    = "client"
-	pSupplier                  = "supplier"
-	pBody                      = "body"
-	pLanguage                  = "language"
-	pLocale                    = "locale"
-	pAnnotatedElement          = "annotatedElement"
-	pAnnotatingElement         = "annotatingElement"
-	pOwnedAnnotation           = "ownedAnnotation"
-	mAnnotation                = "Annotation"
-	mDependency                = "Dependency"
-	pIsImportAll               = "isImportAll"
-	pSourceFeature             = "sourceFeature"
-	pTargetFeature             = "targetFeature"
-	pSource                    = "source"
-	pTarget                    = "target"
-	pPortionKind               = "portionKind"
+	pOwner                       = "owner"
+	pOwningRelationship          = "owningRelationship"
+	pOwningMembership            = "owningMembership"
+	pOwnedRelationship           = "ownedRelationship"
+	pOwnedMembership             = "ownedMembership"
+	pOwnedMember                 = "ownedMember"
+	pMemberElement               = "memberElement"
+	pOwnedMemberElement          = "ownedMemberElement"
+	pOwnedRelatedElement         = "ownedRelatedElement"
+	pOwningRelatedElement        = "owningRelatedElement"
+	pMembershipOwningNamespace   = "membershipOwningNamespace"
+	pOwnedMemberFeature          = "ownedMemberFeature"
+	pOwningType                  = "owningType"
+	pOwnedFeature                = "ownedFeature"
+	pOwnedFeatureMembership      = "ownedFeatureMembership"
+	pOwnedMemberParameter        = "ownedMemberParameter"
+	pFeatureWithValue            = "featureWithValue"
+	pOwnedReferenceSubsetting    = "ownedReferenceSubsetting"
+	pOwnedSubsetting             = "ownedSubsetting"
+	pOwnedSpecialization         = "ownedSpecialization"
+	pReferencingFeature          = "referencingFeature"
+	pSubsettingFeature           = "subsettingFeature"
+	pSpecific                    = "specific"
+	pReferencedFeature           = "referencedFeature"
+	pSubsettedFeature            = "subsettedFeature"
+	pGeneral                     = "general"
+	pRelatedElement              = "relatedElement"
+	pOwningFeature               = "owningFeature"
+	pVariant                     = "variant"
+	pVariantMembership           = "variantMembership"
+	pOwnedVariantUsage           = "ownedVariantUsage"
+	pOwnedImport                 = "ownedImport"
+	pImportOwningNamespace       = "importOwningNamespace"
+	pDirection                   = "direction"
+	pIsImplied                   = "isImplied"
+	pLowerBound                  = "lowerBound"
+	pUpperBound                  = "upperBound"
+	pValue                       = "value"
+	pIsDefault                   = "isDefault"
+	pIsInitial                   = "isInitial"
+	pIsEnd                       = "isEnd"
+	pIsUnique                    = "isUnique"
+	pName                        = "name"
+	pReferences                  = "references"
+	pConnectorEnd                = "connectorEnd"
+	pRelatedFeature              = "relatedFeature"
+	pChainingFeature             = "chainingFeature"
+	pOwnedEndFeature             = "ownedEndFeature"
+	pImportedNamespace           = "importedNamespace"
+	pImportedMembership          = "importedMembership"
+	pImportedElement             = "importedElement"
+	pAliasFor                    = "aliasedElement" // an older mapping's alias target, read only
+	pMemberName                  = "memberName"
+	pMemberShortName             = "memberShortName"
+	pClient                      = "client"
+	pSupplier                    = "supplier"
+	pBody                        = "body"
+	pLanguage                    = "language"
+	pLocale                      = "locale"
+	pAnnotatedElement            = "annotatedElement"
+	pAnnotatingElement           = "annotatingElement"
+	pOwnedAnnotation             = "ownedAnnotation"
+	pOwnedAnnotatingRelationship = "ownedAnnotatingRelationship"
+	pOwningAnnotatingElement     = "owningAnnotatingElement"
+	mAnnotation                  = "Annotation"
+	mDependency                  = "Dependency"
+	pIsImportAll                 = "isImportAll"
+	pSourceFeature               = "sourceFeature"
+	pTargetFeature               = "targetFeature"
+	pSource                      = "source"
+	pTarget                      = "target"
+	pPortionKind                 = "portionKind"
 )
 
 // Property names in the OpenSysML extension namespace: declaration order,
@@ -1982,7 +1984,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		head(rdf.SysMLTerm("Comment"))
 		e.ident(subject, n.Ident)
 		for _, about := range n.About {
-			e.graph.Add(subject, e.sysml(pAnnotatedElement), e.reference(about))
+			e.headRelationship(subject, ast.RelAnnotates, e.reference(about), about)
 		}
 		if n.Locale != "" {
 			e.graph.Add(subject, e.sysml(pLocale), rdf.String(source.StringValue(n.Locale)))
@@ -3181,9 +3183,10 @@ func (e *encoder) metadataUsage(subject rdf.Term, fqn, owner string, n *ast.Pref
 	}
 	e.ident(subject, n.Ident)
 	e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String(sigil))
-	e.graph.Add(subject, e.sysml(relationshipProperty[ast.RelTyping]), e.reference(n.Type))
+	// The typing and the `about` annotations are the head, owned ahead of the body.
+	e.headRelationship(subject, ast.RelTyping, e.reference(n.Type), n.Type)
 	for _, about := range n.About {
-		e.graph.Add(subject, e.sysml(pAnnotatedElement), e.reference(about))
+		e.headRelationship(subject, ast.RelAnnotates, e.reference(about), about)
 	}
 	e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))
 	e.metadataBodies[fqn] = true
@@ -3927,10 +3930,11 @@ func (e *encoder) effectiveName(node ast.Node) string {
 	if name := memberName(node); name != "" {
 		return name
 	}
-	// A usage alone is identified so: a Membership (`first start;`) names nothing,
-	// a chain-referencing `require q.k;` stays positional, and a body's node keys
-	// its first parameter's symbol, not the body's.
-	if _, ok := node.(*ast.Usage); !ok {
+	// Only a usage or a subject is so identified: a Membership (`first start;`) names nothing,
+	// a chain-referencing `require q.k;` stays positional, a body's node keys its parameter.
+	switch node.(type) {
+	case *ast.Usage, *ast.SubjectMember:
+	default:
 		return ""
 	}
 	if sym := e.ids.declSym[node]; sym != nil && sym.IsFeature() {
