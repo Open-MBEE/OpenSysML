@@ -3069,7 +3069,7 @@ elmt:a767eaa4-a7fe-53ef-8723-8f9f134e3ce1
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:8f3cfaf0-8903-5110-8bb0-b670b332674d>
-    a sysml:ParameterMembership ;
+    a sysml:FeatureMembership ;
     sysml:elementId "8f3cfaf0-8903-5110-8bb0-b670b332674d" ;
     sysml:memberElement <urn:sysmlv2:element:79252dcf-845e-5151-a0e9-28ee09987171> ;
     sysml:isLibraryElement "true"^^xsd:boolean .

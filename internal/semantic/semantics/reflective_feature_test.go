@@ -987,6 +987,9 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 	if model.IsFlowPayload(sym) {
 		facts.Modifiers |= symbols.ModPayloadFeature
 	}
+	if AcceptPayload(sym) {
+		facts.Modifiers |= symbols.ModAcceptPayload
+	}
 	if sym.IsPrefixMetadata() {
 		facts.Modifiers |= symbols.ModPrefixMetadata
 	}
