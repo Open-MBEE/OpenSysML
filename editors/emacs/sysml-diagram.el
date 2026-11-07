@@ -348,6 +348,9 @@ ID is the node it draws, or nil for a table row."
      (when sysml-diagram--error
        (concat "  " (propertize (format "stale: %s" sysml-diagram--error) 'face 'error))))))
 
+(defconst sysml-diagram--tabular-kinds '("table" "matrix")
+  "The rendering kinds whose result is columns and rows rather than a diagram.")
+
 (defun sysml-diagram--draw ()
   "Redraw the current view buffer from its last rendering."
   (let ((inhibit-read-only t)
@@ -368,7 +371,7 @@ ID is the node it draws, or nil for a table row."
       (cond
        ((equal sysml-diagram--form "text")
         (insert (lsp-get result :artifact)))
-       ((equal (lsp-get result :kind) "table")
+       ((member (lsp-get result :kind) sysml-diagram--tabular-kinds)
         (sysml-diagram--insert-table (lsp-get result :columns) (lsp-get result :rows)))
        (t
         (let ((nodes (lsp-get result :nodes))
@@ -401,9 +404,17 @@ ID is the node it draws, or nil for a table row."
           (lsp--position-to-point (lsp-get range :end)))))
 
 (defun sysml-diagram--visit (origin)
-  "Visit the declaration ORIGIN locates, selecting its name."
-  (let* ((file (lsp--uri-to-path (lsp-get origin :uri)))
-         (buffer (or (find-buffer-visiting file) (find-file-noselect file))))
+  "Visit the declaration ORIGIN locates, selecting its name.
+A declaration in the bundled library is shown read-only, its text asked
+of the server of the view's model buffer."
+  (let* ((uri (lsp-get origin :uri))
+         (source sysml-diagram--source)
+         (buffer (if (sysml-lsp-stdlib-uri-p uri)
+                     (if (buffer-live-p source)
+                         (with-current-buffer source (sysml-lsp-stdlib-buffer uri))
+                       (user-error "The model this view shows is no longer visited"))
+                   (let ((file (lsp--uri-to-path uri)))
+                     (or (find-buffer-visiting file) (find-file-noselect file))))))
     (pop-to-buffer buffer '((display-buffer-reuse-window display-buffer-use-some-window)))
     (let ((region (sysml-diagram--origin-region origin)))
       (push-mark (point) t)
@@ -605,8 +616,8 @@ Needs `sysml-diagram-mmdc-program' and a frame that can display SVG."
                                   (append (list :textDocument (sysml-diagram--text-document source))
                                           (unless (string-empty-p view) (list :view view))))))
            (kind (lsp-get result :kind)))
-      (when (equal kind "table")
-        (user-error "A table is not drawn; it is already shown as one"))
+      (when (member kind sysml-diagram--tabular-kinds)
+        (user-error "A %s is not drawn; it is already shown as one" kind))
       (let ((svg (sysml-diagram--mermaid-to-svg mmdc (lsp-get result :artifact)))
             (buffer (get-buffer-create (format "*SysML Image: %s*" (buffer-name source)))))
         (with-current-buffer buffer

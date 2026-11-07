@@ -25,6 +25,8 @@
 (require 'compile)
 (require 'lsp-mode)
 (require 'sysml-mode)
+(require 'url-parse)
+(require 'url-util)
 
 (defgroup sysml-lsp nil
   "The OpenSysML language server, through lsp-mode."
@@ -136,12 +138,16 @@ Its arguments are the document URI, the position and the locations."
 
 (defun sysml-lsp--run-paths (file)
   "Return the model paths to load when running an element declared in FILE.
-These are the workspace folders holding FILE, which the server indexes,
-so a name another file declares resolves as it does in the editor; FILE
-alone when no folder holds it."
-  (let ((folders (seq-filter (lambda (folder) (string-prefix-p (file-name-as-directory folder) file))
-                             (lsp-session-folders (lsp-session)))))
-    (or folders (list file))))
+When a workspace folder holds FILE these are all the folders, which the
+server indexes together, so a name another root declares resolves as it
+does in the editor; FILE alone when no folder holds it."
+  (let ((folders (lsp-session-folders (lsp-session))))
+    (if (seq-some (lambda (folder)
+                    (or (string= folder file)
+                        (string-prefix-p (file-name-as-directory folder) file)))
+                  folders)
+        (copy-sequence folders)
+      (list file))))
 
 (defun sysml-lsp--run-arguments (args)
   "Return the `sysml' arguments running the element a lens's ARGS name, or nil."
@@ -151,10 +157,20 @@ alone when no folder holds it."
               (file (lsp--uri-to-path (lsp-get args :uri))))
     (append (list flag element) (sysml-lsp--run-paths file))))
 
+(defun sysml-lsp--unsaved-model-buffers ()
+  "Return the model buffers holding edits not yet saved to their file."
+  (seq-filter (lambda (buffer)
+                (with-current-buffer buffer
+                  (and buffer-file-name
+                       (buffer-modified-p)
+                       (derived-mode-p 'sysml-base-mode))))
+              (buffer-list)))
+
 (defun sysml-lsp--run-element (command)
   "Run the element a Run or Evaluate lens COMMAND names, with `sysml'.
-Model buffers are saved first, since `sysml' reads the files on disk.
-The output is shown in a compilation buffer."
+Model buffers are saved first, since `sysml' reads the files on disk;
+nothing runs while one stays unsaved.  The output is shown in a
+compilation buffer."
   (let* ((args (seq-first (lsp-get command :arguments)))
          (argv (and args (sysml-lsp--run-arguments args)))
          (tool (sysml-lsp--find-tool)))
@@ -164,6 +180,8 @@ The output is shown in a compilation buffer."
       (user-error "Could not find %s; build it with `make build' beside sysml-lsp, or put it on `exec-path'"
                   sysml-lsp--tool))
     (save-some-buffers nil (lambda () (derived-mode-p 'sysml-base-mode)))
+    (when-let* ((unsaved (sysml-lsp--unsaved-model-buffers)))
+      (user-error "Not run: %s not saved" (mapconcat #'buffer-name unsaved ", ")))
     ;; Run from the folder (or the file's directory) the paths name.
     (let ((default-directory (file-name-as-directory
                               (let ((path (car (last argv))))
@@ -171,6 +189,37 @@ The output is shown in a compilation buffer."
       (compilation-start (mapconcat #'shell-quote-argument (cons tool argv) " ")
                          nil
                          (lambda (_mode) (format "*SysML Run: %s*" (lsp-get args :element)))))))
+
+;;;; Bundled library documents
+
+(defconst sysml-lsp--stdlib-content-method "opensysml/stdlibContent"
+  "The request serving the text of a bundled library document.")
+
+(defvar-local sysml-lsp-stdlib-uri nil
+  "The `sysml-stdlib:' URI of the bundled library document this buffer shows.")
+
+(defun sysml-lsp-stdlib-uri-p (uri)
+  "Return non-nil when URI names a document of the bundled library.
+The server reports such locations under the `sysml-stdlib' scheme; no
+file on disk holds them."
+  (string-prefix-p "sysml-stdlib:" uri))
+
+(defun sysml-lsp-stdlib-buffer (uri)
+  "Return a read-only buffer showing the bundled library document URI.
+Its text is asked of the current buffer's server, once per document."
+  (or (seq-find (lambda (buffer) (equal (buffer-local-value 'sysml-lsp-stdlib-uri buffer) uri))
+                (buffer-list))
+      (let* ((text (lsp-get (lsp-request sysml-lsp--stdlib-content-method (list :uri uri)) :text))
+             (path (url-unhex-string (url-filename (url-generic-parse-url uri))))
+             (buffer (generate-new-buffer (format "%s <library>" (file-name-nondirectory path)))))
+        (with-current-buffer buffer
+          (insert text)
+          (if (string-suffix-p ".kerml" path) (kerml-mode) (sysml-mode))
+          (setq sysml-lsp-stdlib-uri uri)
+          (set-buffer-modified-p nil)
+          (setq buffer-read-only t)
+          (goto-char (point-min)))
+        buffer)))
 
 (defun sysml-lsp--server-command ()
   "Return the command to start the language server with."

@@ -91,6 +91,79 @@
     (search-forward "Widget")
     (should (get-text-property (match-beginning 0) 'sysml-diagram-origin))))
 
+(defconst sysml-diagram-test--matrix
+  (concat "{\"view\":\"\",\"kind\":\"matrix\",\"stated\":\"\",\"form\":\"markdown\","
+          "\"artifact\":\"| Source / Target | Cog |\","
+          "\"nodes\":[],\"edges\":[],\"columns\":[\"Source / Target\",\"Cog\"],"
+          "\"rows\":[{\"cells\":[\"Widget\",\"part\"],\"origin\":" (sysml-diagram-test--origin 0 9 15) "}],"
+          "\"notices\":[],\"version\":1}")
+  "A matrix rendering: relationship sources as rows, targets as columns.")
+
+(ert-deftest sysml-diagram-draws-a-matrix ()
+  (sysml-diagram-test--drawing sysml-diagram-test--matrix
+    (should (equal (buffer-substring-no-properties (point-min) (point-max))
+                   "Source / Target  Cog\n---------------  ----\nWidget           part\n"))
+    (goto-char (point-min))
+    (search-forward "Widget")
+    (should (get-text-property (match-beginning 0) 'sysml-diagram-origin))))
+
+(ert-deftest sysml-diagram-image-refuses-a-matrix ()
+  (let ((source (generate-new-buffer " *model*")))
+    (unwind-protect
+        (with-temp-buffer
+          (sysml-diagram-mode)
+          (setq sysml-diagram--source source
+                sysml-diagram--view "#matrix:Kit::Widget")
+          (cl-letf (((symbol-function 'display-images-p) (lambda (&rest _) t))
+                    ((symbol-function 'image-type-available-p) (lambda (&rest _) t))
+                    ((symbol-function 'executable-find) (lambda (&rest _) "/bin/mmdc"))
+                    ((symbol-function 'sysml-diagram--text-document) #'ignore)
+                    ((symbol-function 'lsp-request)
+                     (lambda (&rest _) (sysml-diagram-test--json sysml-diagram-test--matrix)))
+                    ((symbol-function 'sysml-diagram--mermaid-to-svg)
+                     (lambda (&rest _) (ert-fail "a matrix was sent to Mermaid"))))
+            (let ((err (should-error (sysml-diagram-image) :type 'user-error)))
+              (should (string-match-p "matrix" (cadr err))))))
+      (kill-buffer source))))
+
+(defconst sysml-diagram-test--library-uri
+  "sysml-stdlib:/Kernel%20Libraries/Kernel%20Data%20Type%20Library/ScalarValues.kerml"
+  "Where the bundled library declares ScalarValues.")
+
+(ert-deftest sysml-diagram-visits-a-library-declaration ()
+  (let ((source (generate-new-buffer " *model*"))
+        requests visited)
+    (unwind-protect
+        (cl-letf (((symbol-function 'lsp-request)
+                   (lambda (method params)
+                     (push (list method (plist-get params :uri) (current-buffer)) requests)
+                     (sysml-diagram-test--json
+                      "{\"text\":\"standard library package ScalarValues {\\n\\tdatatype Integer;\\n}\\n\"}"))))
+          (with-temp-buffer
+            (sysml-diagram-mode)
+            (setq sysml-diagram--source source)
+            (let ((origin (sysml-diagram-test--json
+                           (format "{\"uri\":\"%s\",\"range\":{\"start\":{\"line\":1,\"character\":1},\"end\":{\"line\":2,\"character\":0}},\"selectionRange\":{\"start\":{\"line\":1,\"character\":10},\"end\":{\"line\":1,\"character\":17}}}"
+                                   sysml-diagram-test--library-uri)))
+                  (view (current-buffer)))
+              (sysml-diagram--visit origin)
+              (setq visited (current-buffer))
+              (should-not (buffer-file-name visited))
+              (should (equal (buffer-name visited) "ScalarValues.kerml <library>"))
+              (should (derived-mode-p 'kerml-mode))
+              (should buffer-read-only)
+              (should (equal sysml-lsp-stdlib-uri sysml-diagram-test--library-uri))
+              (should (looking-at-p "Integer;"))
+              ;; A second visit shows the same buffer without asking again.
+              (with-current-buffer view
+                (sysml-diagram--visit origin))
+              (should (eq (current-buffer) visited))
+              (should (equal requests
+                             (list (list "opensysml/stdlibContent" sysml-diagram-test--library-uri source)))))))
+      (kill-buffer source)
+      (when (buffer-live-p visited)
+        (kill-buffer visited)))))
+
 (ert-deftest sysml-diagram-says-when-nothing-is-shown ()
   (sysml-diagram-test--drawing
       "{\"view\":\"\",\"kind\":\"state\",\"stated\":\"\",\"form\":\"mermaid\",\"artifact\":\"\",\"nodes\":[],\"edges\":[],\"notices\":[],\"version\":1}"
