@@ -4460,14 +4460,15 @@ func (e *StateExecutor) eventBudgetExceeded(maxStateEvents int64) error {
 // state restarts its do behavior rather than resuming the abandoned one; the entry
 // site under way offers the behavior's due steps against the entries left in the move.
 func (e *StateExecutor) startDoAction(state *ast.StateNode) {
-	doBehaviors := e.behaviorsOf(state).Do
-	if len(doBehaviors) == 0 {
+	_, parked := e.entryBehaviors(state)
+	pending := append(slices.Clone(parked), e.behaviorsOf(state).Do...)
+	if len(pending) == 0 {
 		return
 	}
 	e.stopDoAction(state)
 	act := &doAction{
 		state:   state,
-		pending: append([]lower.StateBehavior(nil), doBehaviors...),
+		pending: pending,
 		firing:  e.currentFiring(),
 	}
 	e.doActions = append(e.doActions, act)
@@ -5466,7 +5467,8 @@ func (e *StateExecutor) initialize() (err error) {
 
 // enterMachine runs the machine's own entry behaviors and starts its do behavior.
 func (e *StateExecutor) enterMachine() error {
-	if err := e.executeBehaviors(e.behaviorsOf(e.graph.Machine).Entry); err != nil {
+	instant, _ := e.entryBehaviors(e.graph.Machine)
+	if err := e.executeBehaviors(instant); err != nil {
 		return fmt.Errorf("entry action: %w", err)
 	}
 	e.startDoAction(e.graph.Machine)
@@ -5934,10 +5936,23 @@ func (e *StateExecutor) performEntry(state *ast.StateNode) error {
 	}
 
 	// Execute entry actions
-	if err := e.performingBehaviors(state, e.behaviorsOf(state).Entry); err != nil {
+	instant, _ := e.entryBehaviors(state)
+	if err := e.performingBehaviors(state, instant); err != nil {
 		return fmt.Errorf("entry action: %w", err)
 	}
 	return nil
+}
+
+// entryBehaviors splits a state's entry behaviors at the first that parks for a message: those
+// ahead of it run at the instant of entry, it and the rest ahead of the do behavior (entryAction then doAction).
+func (e *StateExecutor) entryBehaviors(state *ast.StateNode) (instant, parked []lower.StateBehavior) {
+	entry := e.behaviorsOf(state).Entry
+	for i, behavior := range entry {
+		if behavior.AwaitsMessage() {
+			return entry[:i], entry[i:]
+		}
+	}
+	return entry, nil
 }
 
 // performingBehaviors runs behaviors of state with the state counted as performing

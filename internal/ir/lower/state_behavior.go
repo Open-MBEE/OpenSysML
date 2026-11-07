@@ -50,6 +50,19 @@ type StateBehaviors struct {
 	Exit  []StateBehavior
 }
 
+// AwaitsMessage reports a behavior whose flow parks for a message (`entry accept Go via p;`),
+// so it cannot run to its end at the instant it is triggered; a clock or change wait is not one.
+func (b StateBehavior) AwaitsMessage() bool {
+	for _, flow := range BlockFlows(b.Body) {
+		for _, accept := range flow.Accepts {
+			if accept.Trigger == nil {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // LowerBehaviors lowers the actions of an entry, do or exit member, or the
 // effects of a transition, in the scope they were declared in; block is the
 // transition whose body they are the steps of, nil for any other. resolver is
@@ -76,6 +89,16 @@ func lowerStateBehavior(action ast.Node, block ast.Node, scope *symbols.Scope, r
 	case *ast.Usage:
 		behavior.Name, _ = ast.EffectiveName(node)
 		switch {
+		case node.Kind == ast.UsageAction && acceptsMessage(node):
+			// `entry accept a : Sig via p;` parks until the occurrence arrives, as the
+			// accept node of an action body does (SysML.xtext StateAcceptActionUsage).
+			behavior.Body = []Statement{Block{
+				Node:   node,
+				Scope:  childScope(scope, node),
+				Graph:  ToActionNodeFlow(node, scope, resolver),
+				Own:    true,
+				Stated: true,
+			}}
 		case node.Kind == ast.UsageAction && node.HasBody && performsAction(node) && declaresOnlyFeatures(node.Members):
 			// The body binds the pins of the action performed: the usage is the one
 			// node of the behavior's flow, performed as a node of an action body is.
