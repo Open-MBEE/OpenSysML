@@ -417,17 +417,6 @@ package OpenSysMLSurfaces {
         out item diagram : DocumentTree;
     }
 
-    part def QueryCompiler :> CodeUnit {
-        attribute :>> goPackage = "internal/ir/queryplan";
-        attribute immutablePlans : Boolean = true;
-    }
-
-    part def QueryExecutor :> CodeUnit {
-        attribute :>> goPackage = "internal/doc/queryexec";
-        attribute orderedRows : Boolean = true;
-        out item rows : QueryRows;
-    }
-
     // A document is written in the notation, not in a template language: the
     // planner compiles a document definition into an immutable plan holding
     // compiled query programs.
@@ -558,8 +547,10 @@ package OpenSysMLSurfaces {
     part def DocumentPipeline {
         part provenance : Provenance;
         part views : ViewEngine;
-        part queries : QueryCompiler;
-        part rows : QueryExecutor;
+        // The query path itself is OpenSysMLQueries; its compiler and executor
+        // are the stages of this pipeline that turn a table's query into rows.
+        part queries : OpenSysMLQueries::QueryCompiler;
+        part rows : OpenSysMLQueries::QueryExecutor;
         part plans : DocumentPlanner;
         part markdownProse : MarkdownParser;
         part asciidocProse : AsciiDocParser;
@@ -573,6 +564,7 @@ package OpenSysMLSurfaces {
 
         flow of SourceSpan from provenance.origins to views.origins;
         flow of SourceSpan from provenance.origins to ir.origins;
+        flow of OpenSysMLQueries::QueryPlan from queries.plan to rows.plan;
         flow of QueryRows from rows.rows to plans.rows;
         flow of ProseBlocks from markdownProse.blocks to plans.prose;
         flow of ProseBlocks from asciidocProse.blocks to plans.prose;

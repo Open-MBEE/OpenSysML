@@ -207,4 +207,24 @@ package OpenSysMLViews {
 
         satisfy maintainerPerspective;
     }
+
+    // --- The query path ----------------------------------------------------
+
+    // From a calc def over the library, through the compiler and the executor,
+    // to the surfaces that show its rows or its outcome.
+    view queryPath {
+        expose OpenSysMLQueries::QueryPath;
+        render asInterconnectionDiagram;
+    }
+
+    // One step evaluated: a value, a path error or a model error.
+    view stepOutcome : StateTransitionView {
+        expose OpenSysMLQueries::StepOutcome;
+    }
+
+    // The library's calc defs beside the plan operations they compile to.
+    view libraryOperations {
+        expose OpenSysMLQueries::QueryLibrary;
+        render asElementTable;
+    }
 }
