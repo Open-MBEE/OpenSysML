@@ -73,12 +73,17 @@ func (m *Model) shapeFeatures(typ *symbols.Symbol, keep func(*symbols.Symbol) bo
 		if !IsShapeFeature(member) || !keep(member) || m.VariationPointOwning(member) != nil {
 			continue
 		}
-		if f, ok := byName[member.Name]; ok {
+		// A parameter named by the one its position redefines holds that name (KerML 8.2.4).
+		name := member.Name
+		if effective := m.EffectiveNameOf(member); effective != "" {
+			name = effective
+		}
+		if f, ok := byName[name]; ok {
 			f.Symbol = member
 			continue
 		}
-		byName[member.Name] = &ShapeFeature{Name: member.Name, Symbol: member, Declared: member}
-		order = append(order, member.Name)
+		byName[name] = &ShapeFeature{Name: name, Symbol: member, Declared: member}
+		order = append(order, name)
 	}
 	out := make([]ShapeFeature, 0, len(order))
 	for _, name := range order {

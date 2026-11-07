@@ -1,4 +1,4 @@
-.PHONY: all build docker stdlib-snapshot vulncheck sca-tools audit audit-npm audit-python audit-rust audit-java extension-libraries-check extension-libraries-sync extension-libraries-pin-check textmate-grammars-check textmate-grammars-publish build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render spec-compliance-check spec-compliance-render self-model mcp-registry-check
+.PHONY: all build docker stdlib-snapshot vulncheck sca-tools audit audit-npm audit-python audit-rust audit-java extension-libraries-check extension-libraries-sync extension-libraries-pin-check textmate-grammars-check textmate-grammars-publish build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package emacs-keywords emacs-compile emacs-test docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render spec-compliance-check spec-compliance-render self-model mcp-registry-check
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -71,6 +71,10 @@ NPM_LOCK_DIRS := $(NODE_DIR) $(MCP_NPM_DIR) $(VSCODE_DIR) $(JUPYTERLAB_DIR) edit
 PYTHON_PROJECT_DIRS := $(PYTHON_DIR) $(JUPYTER_KERNEL_DIR) packaging/pypi-pysysml
 PYTHON_REQUIREMENTS := docs-requirements.txt
 JAVA_PROJECT_DIRS := client/java editors/syson editors/mdk
+EMACS_DIR := editors/emacs
+EMACS ?= emacs
+# Where `make emacs-test` installs lsp-mode for the suites, outside any user config.
+EMACS_DEPS ?= $(CURDIR)/build/emacs-deps
 PYTHON ?= python3
 # api/proto/buf.gen.python.yaml starts the interpreter this names.
 export PYTHON
@@ -358,13 +362,13 @@ test-shard: stdlib-snapshot ## Run one CI shard of the race suite (SHARD=runtime
 	@# under -race on the CI runners, so it runs as three shards; so does tests/export, whose
 	@# whole run passed 55 minutes once the element form completed inheritance.
 	pkgs=$$(scripts/race-shard.sh $(SHARD)) && case "$(SHARD)" in \
-	  runtime-exploration) go test -run '$(RACE_RUNTIME_EXPLORATION)' -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
-	  runtime-corpus) go test -run '$(RACE_RUNTIME_CORPUS)' -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_EXPLORATION)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
-	  runtime) go test -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_CORPUS)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
-	  export-corpus) go test -run '$(RACE_EXPORT_CORPUS)' -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
-	  export-settled) go test -run '$(RACE_EXPORT_SETTLED)' -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
-	  export) go test -skip '$(RACE_SHARD_SKIP)|$(RACE_EXPORT_CORPUS)|$(RACE_EXPORT_SETTLED)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
-	  *) go test -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
+	  runtime-exploration) go test -run '$(RACE_RUNTIME_EXPLORATION)' -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m $$pkgs ;; \
+	  runtime-corpus) go test -run '$(RACE_RUNTIME_CORPUS)' -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_EXPLORATION)' -v -race -pgo=off -timeout 55m $$pkgs ;; \
+	  runtime) go test -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_CORPUS)' -v -race -pgo=off -timeout 55m $$pkgs ;; \
+	  export-corpus) go test -run '$(RACE_EXPORT_CORPUS)' -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m $$pkgs ;; \
+	  export-settled) go test -run '$(RACE_EXPORT_SETTLED)' -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m $$pkgs ;; \
+	  export) go test -skip '$(RACE_SHARD_SKIP)|$(RACE_EXPORT_CORPUS)|$(RACE_EXPORT_SETTLED)' -v -race -pgo=off -timeout 55m $$pkgs ;; \
+	  *) go test -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m $$pkgs ;; \
 	esac
 	@# The tools module runs with tools (tests/wasm) on CircleCI and, as the PR workflow has no
 	@# tools shard (tests/wasm is its WebAssembly gate job there), with rest on GitHub Actions.
@@ -372,7 +376,7 @@ test-shard: stdlib-snapshot ## Run one CI shard of the race suite (SHARD=runtime
 
 test-quick: stdlib-snapshot ## Run the race-free quick tier over one or more race shards (SHARDS="runtime" | "model export graph" | "rest migrate cli codegen")
 	@echo "Running Go tests without race detection, shards $(SHARDS)..."
-	@# Draft pull requests run this instead of test-shard: the same packages and skips, no -race, no coverage.
+	@# Draft pull requests run this instead of test-shard: the same packages and skips, no -race.
 	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime runtime-corpus runtime-exploration model export export-corpus export-settled graph codegen tools rest migrate cli"; exit 1; }
 	pkgs=$$(for shard in $(SHARDS); do scripts/race-shard.sh $$shard || exit 1; done) && \
 	go test -skip '$(RACE_SHARD_SKIP)' -v -timeout 45m $$pkgs
@@ -716,6 +720,33 @@ vscode-package: ## Package the VS Code extension as a .vsix for side-loading (VS
 	@# `npm run package -- <args>` appends the arguments to the script's last command, `vsce package`.
 	cd $(VSCODE_DIR) && npm ci && npm run package $(if $(VSIX_VERSION),-- $(VSIX_VERSION) --no-update-package-json)
 	@echo "✓ Packaged $(VSCODE_DIR)/opensysml-sysml.vsix"
+
+emacs-keywords: ## Regenerate the Emacs mode's keyword lists from the lexer keywords
+	@echo "Generating Emacs keyword lists..."
+	go run ./$(EMACS_DIR)/tools/genkeywords -out $(EMACS_DIR)
+	@echo "✓ Keyword lists generated"
+
+emacs-compile: ## Byte-compile and checkdoc the Emacs package, warnings as errors
+	@echo "Byte-compiling the Emacs package..."
+	OPENSYSML_EMACS_DEPS=$(EMACS_DEPS) $(EMACS) -Q --batch -l $(EMACS_DIR)/test/deps.el \
+		-L $(EMACS_DIR) --eval '(setq byte-compile-error-on-warn t)' \
+		-f batch-byte-compile $(EMACS_DIR)/sysml-mode-keywords.el $(EMACS_DIR)/sysml-mode.el \
+		$(EMACS_DIR)/sysml-lsp.el $(EMACS_DIR)/sysml-diagram.el
+	rm -f $(EMACS_DIR)/*.elc
+	OPENSYSML_EMACS_DEPS=$(EMACS_DEPS) $(EMACS) -Q --batch -l $(EMACS_DIR)/test/deps.el \
+		-L $(EMACS_DIR) -l $(EMACS_DIR)/test/checkdoc.el \
+		$(EMACS_DIR)/sysml-mode-keywords.el $(EMACS_DIR)/sysml-mode.el \
+		$(EMACS_DIR)/sysml-lsp.el $(EMACS_DIR)/sysml-diagram.el
+	@echo "✓ Emacs package compiles cleanly"
+
+emacs-test: ## Run the Emacs package's ERT suites (the live ones need `make build`)
+	@echo "Running Emacs tests..."
+	OPENSYSML_EMACS_DEPS=$(EMACS_DEPS) $(EMACS) -Q --batch -l $(EMACS_DIR)/test/deps.el \
+		-L $(EMACS_DIR) -L $(EMACS_DIR)/test \
+		-l $(EMACS_DIR)/test/sysml-mode-test.el -l $(EMACS_DIR)/test/sysml-lsp-test.el \
+		-l $(EMACS_DIR)/test/sysml-diagram-test.el \
+		-f ert-run-tests-batch-and-exit
+	@echo "✓ Emacs tests passed"
 
 self-model: build-sysml ## Render the architecture self-model's views (see examples/self-model/README.md)
 	@echo "Rendering the architecture self-model..."

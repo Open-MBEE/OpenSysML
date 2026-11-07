@@ -134,8 +134,9 @@ python -m pypi_attestations verify pypi --repository https://github.com/Open-MBE
   pypi:opensysml-<x.y.z>-py3-none-any.whl
 ```
 
-The `nightly` snapshots on PyPI (`<next>.dev<yyyymmdd>` versions) have carried the same
-attestation, from the nightly workflow, since the first one. **v0.10.0, v0.10.1 and v0.11.0
+The `nightly` snapshots on PyPI (`<next>.dev<yyyymmdd>` versions) have carried an
+attestation since the first one — from the nightly workflow at first, and since it hands
+its distributions to `release-pypi.yml`, the same one a release carries. **v0.10.0, v0.10.1 and v0.11.0
 of both packages do not**: they were uploaded by a CircleCI job with an API token, which PyPI
 cannot attest, and PyPI marks each of them *Loss of provenance* against the attested
 snapshot before it. That was the publishing path of the time, not a compromise; the files

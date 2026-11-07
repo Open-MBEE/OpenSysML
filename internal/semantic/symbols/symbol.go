@@ -420,6 +420,10 @@ const (
 	// NamedByRedefinition: Name is the name of the feature the declaration
 	// redefines (`part :>> p;`), which it replaces in its owner.
 	NamedByRedefinition
+
+	// NamedByRole: Name is the role the declaration takes under its owner (a
+	// transition's `effect`), under which it resolves while declaring no identifier.
+	NamedByRole
 )
 
 // EffectiveName reports whether Name was derived from a naming feature

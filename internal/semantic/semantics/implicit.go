@@ -563,7 +563,64 @@ func (m *Model) isKerMLDoc(sym *symbols.Symbol) bool {
 	if m.resolver == nil || m.resolver.Index() == nil {
 		return false
 	}
-	return m.resolver.Index().DocumentKind(sym.DocName) == source.KindKerML
+	switch m.resolver.Index().DocumentKind(sym.DocName) {
+	case source.KindKerML:
+		return true
+	case source.KindUnknown:
+		return m.declaresKerML(sym.DocName)
+	}
+	return false
+}
+
+// declaresKerML reports whether a document of no recorded kind is KerML text:
+// it declares what only KerML's keywords spell (`class`, `function`, …) and
+// nothing SysML alone spells (`part`, `requirement`, …); mixed text reads as SysML.
+func (m *Model) declaresKerML(doc string) bool {
+	if kerml, ok := m.kermlDocs[doc]; ok {
+		return kerml
+	}
+	kerml, sysml := scopeDeclares(m.resolver.Index().DocumentRoot(doc))
+	m.kermlDocs[doc] = kerml && !sysml
+	return m.kermlDocs[doc]
+}
+
+// scopeDeclares reports whether scope declares a KerML-only and a SysML-only element.
+func scopeDeclares(scope *symbols.Scope) (kerml, sysml bool) {
+	if scope == nil {
+		return false, false
+	}
+	for _, members := range [][]*symbols.Symbol{scope.AllMembers(), scope.AnonymousMembers()} {
+		for _, sym := range members {
+			kerml = kerml || kermlKeyword(keywordOf(sym))
+			sysml = sysml || sysmlDeclaration(sym)
+		}
+	}
+	for _, child := range scope.Children() {
+		k, s := scopeDeclares(child)
+		kerml, sysml = kerml || k, sysml || s
+	}
+	return kerml, sysml
+}
+
+// kermlKeyword reports a declaration keyword KerML alone spells.
+func kermlKeyword(keyword string) bool {
+	_, base := implicitKerMLBases[keyword]
+	_, behavior := implicitKerMLBehaviorBases[keyword]
+	return base || behavior
+}
+
+// sysmlDeclaration reports a usage or definition of a kind SysML alone spells.
+func sysmlDeclaration(sym *symbols.Symbol) bool {
+	switch d := sym.Decl.(type) {
+	case *ast.Usage:
+		_, sysml := implicitUsageBases[d.Kind]
+		_, feature := implicitKerMLFeatureBases[d.Keyword]
+		return sysml && !feature && !kermlKeyword(d.Keyword)
+	case *ast.Definition:
+		_, sysml := implicitDefinitionBases[d.Kind]
+		return sysml && !kermlKeyword(d.Keyword)
+	}
+	return false
 }
 
 // implicitBases returns the stdlib definitions sym is implicitly typed by, or nil when sym

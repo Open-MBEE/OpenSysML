@@ -225,6 +225,22 @@ func (m *Model) parametersOf(sym *symbols.Symbol) behaviorParameters {
 	return out
 }
 
+// PositionalParameter returns the parameter at position of a behavior or step —
+// inherited ones included — or its result parameter when isResult, with its direction.
+func (m *Model) PositionalParameter(sym *symbols.Symbol, position int, isResult bool) (*symbols.Symbol, ast.FeatureDirection) {
+	if m == nil || !behaviorLike(sym) {
+		return nil, ast.DirNone
+	}
+	params := m.parametersOf(sym)
+	if isResult {
+		return params.result.sym, params.result.direction
+	}
+	if position < 0 || position >= len(params.positional) {
+		return nil, ast.DirNone
+	}
+	return params.positional[position].sym, params.positional[position].direction
+}
+
 // ResultParameterOf returns the result parameter of a behavior or step,
 // inherited ones included, or nil when it has none.
 func (m *Model) ResultParameterOf(sym *symbols.Symbol) *symbols.Symbol {
@@ -364,18 +380,25 @@ func memberSymbol(scope *symbols.Scope, node ast.Node) *symbols.Symbol {
 // result parameters. It returns nothing for a feature that is not a parameter,
 // or whose declaration redefines something explicitly.
 func (m *Model) ImplicitParameterRedefinitions(sym *symbols.Symbol) []*symbols.Symbol {
-	return m.implicitParameterTargets(sym, true)
+	return m.implicitParameterTargets(sym, true, true)
 }
 
 // implicitParameterCounterparts returns the parameters at sym's position in the general
 // behaviors whatever their direction (KerML 8.4.4.6): a disagreeing one is a violation there.
 func (m *Model) implicitParameterCounterparts(sym *symbols.Symbol) []*symbols.Symbol {
-	return m.implicitParameterTargets(sym, false)
+	return m.implicitParameterTargets(sym, false, false)
 }
 
-// implicitParameterTargets is the shared walk: matchDirection keeps only the positions
-// whose direction agrees with sym's and leaves a parameter redefining by clause to it.
-func (m *Model) implicitParameterTargets(sym *symbols.Symbol, matchDirection bool) []*symbols.Symbol {
+// MaskedParameterRedefinitions returns the general parameters sym's position redefines
+// whatever their direction (a disagreeing one is a violation, not an inherited feature),
+// which its owner does not inherit; a parameter redefining by clause masks by that clause.
+func (m *Model) MaskedParameterRedefinitions(sym *symbols.Symbol) []*symbols.Symbol {
+	return m.implicitParameterTargets(sym, true, false)
+}
+
+// implicitParameterTargets is the shared walk: skipExplicit leaves a parameter redefining
+// by clause to it, matchDirection keeps only the positions whose direction agrees with sym's.
+func (m *Model) implicitParameterTargets(sym *symbols.Symbol, skipExplicit, matchDirection bool) []*symbols.Symbol {
 	if sym == nil {
 		return nil
 	}
@@ -385,7 +408,7 @@ func (m *Model) implicitParameterTargets(sym *symbols.Symbol, matchDirection boo
 		if sym.Facts == nil || sym.Facts.Direction == ast.DirNone {
 			return nil
 		}
-		if matchDirection && len(sym.Facts.Redefines) > 0 {
+		if skipExplicit && len(sym.Facts.Redefines) > 0 {
 			return nil
 		}
 		direction = sym.Facts.Direction
@@ -395,7 +418,7 @@ func (m *Model) implicitParameterTargets(sym *symbols.Symbol, matchDirection boo
 		if !ok || usage.Direction == ast.DirNone {
 			return nil
 		}
-		if matchDirection && declaresRedefinitionAST(usage) {
+		if skipExplicit && declaresRedefinitionAST(usage) {
 			return nil
 		}
 		direction = usage.Direction
