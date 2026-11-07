@@ -1723,8 +1723,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return m.connectorRelatedFeatures(sym, feature), true
 	case "ownedRelatedElement", "owningRelatedElement":
-		// A declared connector relates features its types own; its own owner is a membership's.
-		if !m.reflectiveMetaclassConforms(sym, "Connector") {
+		// A declared connector or association relates features and types it does not own;
+		// its own owner is a membership's.
+		if !m.reflectiveMetaclassConforms(sym, "Relationship") {
 			return nil, false
 		}
 		return []*symbols.Symbol{}, true
@@ -2326,18 +2327,29 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 			return symbols.FilterValue{}, false
 		}
 		return boolValue(len(m.ownedImplicitRelationships(sym, conjugationMetaclass)) > 0), true
-	case "name", "declaredName":
+	case "declaredName":
 		return stringOrEmpty(SimpleSymbolName(sym)), true
+	case "name":
+		return stringOrEmpty(m.reflectiveName(sym)), true
 	case "shortName":
 		return stringOrEmpty(m.EffectiveShortNameOf(sym)), true
 	case "declaredShortName":
 		return stringOrEmpty(sym.ShortName), true
 	case "qualifiedName":
 		// Element::qualifiedName is null for an unnamed element (KerML 1.1 §8.3.2.1).
-		if SimpleSymbolName(sym) == "" {
+		name := m.reflectiveName(sym)
+		if name == "" {
 			return emptyValue(), true
 		}
-		return stringOrEmpty(m.fqnOf(sym)), true
+		if SimpleSymbolName(sym) != "" {
+			return stringOrEmpty(m.fqnOf(sym)), true
+		}
+		// A derived name qualifies under the owner's qualified name, which the index does not spell.
+		owner, ok := m.reflectiveFeatureValue(ownerSymbol(sym), "qualifiedName")
+		if !ok || owner.Kind != symbols.FilterValueString || owner.Str == "" {
+			return emptyValue(), true
+		}
+		return stringOrEmpty(owner.Str + "::" + name), true
 	case "direction":
 		direction, ok := ReflectiveDirection(sym)
 		if !ok {
@@ -2451,6 +2463,14 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 			if m.reflectiveMetaclassConforms(sym, "StateUsage") {
 				return boolValue(d.IsParallel), true
 			}
+		}
+	case *ast.SubstateMember:
+		// The `state s;` of a state body: no `all`, no `parallel`.
+		switch feature {
+		case "isSufficient", "isParallel":
+			return boolValue(false), true
+		case "isVariant":
+			return boolValue(IsVariant(sym)), true
 		}
 	}
 	if sym.Recorded() && feature == "isIndividual" {
@@ -2772,4 +2792,14 @@ var metaclassNames = map[symbols.SymbolKind]string{
 // of the given kind, or "" for a kind the abstract syntax has no metaclass for.
 func metaclassName(kind symbols.SymbolKind) string {
 	return metaclassNames[kind]
+}
+
+// reflectiveName is Element::name: the declared name, else the effective name a
+// nameless feature takes from the feature it redefines (KerML 1.1 §8.3.3.3) — a
+// positional parameter from its behavior's, a connector end from the end it occupies.
+func (m *Model) reflectiveName(sym *symbols.Symbol) string {
+	if name := SimpleSymbolName(sym); name != "" {
+		return name
+	}
+	return m.EffectiveNameOf(sym)
 }

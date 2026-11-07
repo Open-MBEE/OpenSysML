@@ -762,8 +762,10 @@ func TestBehavioralLibraryMemberKeepsNormativeIDWithoutSourceText(t *testing.T) 
 	}
 }
 `)
-	encoded := `sysml:elementId "` + rdf.EncodeElementID(qname) + `" ;`
-	stale := strings.Replace(string(turtle), encoded, `sysml:elementId "`+want+`" ;`, 1)
+	// Its succession and their ends are identified from the transition's id, so
+	// the graph states them from the normative one too.
+	encoded := rdf.EncodeElementID(qname)
+	stale := strings.ReplaceAll(string(turtle), encoded, want)
 	if stale == string(turtle) {
 		t.Fatalf("the transition's id is not where expected:\n%s", turtle)
 	}

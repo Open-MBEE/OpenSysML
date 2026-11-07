@@ -36,6 +36,10 @@ connecting to models.
     options:
       heading_level: 3
 
+::: opensysml.CAPABILITY_ELEMENT_PROPERTIES
+    options:
+      heading_level: 3
+
 ::: opensysml.CAPABILITY_CONSTRAINT_BODY_AUTHORING
     options:
       heading_level: 3
@@ -299,9 +303,45 @@ An enum literal carries its declaration identity and any scalar value.
 
 ## opensysml.instance
 
-An instance exposes feature values decoded from the service response.
+An instance exposes feature values decoded from the service response, and says how the
+graph it belongs to reached it: `owner` is the instance holding it along the path the
+traversal came by, `feature` the holder's feature it is a value of and `path` the whole
+path from the root (`powertrain.engine.fuelIn`, `wheels[2]`), none for the root. One
+object is often a value of several features — a port and the connector end referencing it
+are one object — so `paths()` asks the service for every root-relative path that reaches
+it, aliases through connector ends and reference usages included, in traversal order.
+The service bounds that search (1000 paths, 8 steps deep); the list it returns is an
+`InstancePaths` whose `truncated` says when the bound cut it short. Both need the
+`instance_paths` capability. These are attributes of the instance, and a real attribute
+always wins over a feature of the same name: a model feature called `owner`, `feature`,
+`index`, `path` or `paths` (like one called `id` or `get`) is read by name,
+`inst["path"]` or `inst.get("path")`, not as `inst.path`.
+
+```python
+with Connection() as conn:
+    model = conn.load("vehicle.sysml")
+    vehicle = conn.instantiate(model.hash, "Fuel::vehicle")
+    port = vehicle.powertrain.engine.fuelIn
+    port.owner is vehicle.powertrain.engine   # True
+    port.feature                              # 'fuelIn'
+    port.path                                 # 'powertrain.engine.fuelIn'
+    [str(p) for p in port.paths()]
+    # ['Fuel::vehicle.fuelLine.consumer', 'Fuel::vehicle.powertrain.engine.fuelIn']
+```
 
 ::: opensysml.Instance
+    options:
+      heading_level: 3
+
+::: opensysml.InstancePaths
+    options:
+      heading_level: 3
+
+::: opensysml.InstancePath
+    options:
+      heading_level: 3
+
+::: opensysml.PathStep
     options:
       heading_level: 3
 
@@ -798,6 +838,23 @@ Results and errors from the standard query model.
       heading_level: 3
 
 ::: opensysml.QueryError
+    options:
+      heading_level: 3
+
+## opensysml.element_properties
+
+An element's metamodel properties by their specification names, as
+`Model.element_properties` and `Symbol.properties` answer them.
+
+::: opensysml.ElementProperties
+    options:
+      heading_level: 3
+
+::: opensysml.ElementProperty
+    options:
+      heading_level: 3
+
+::: opensysml.ElementIdentity
     options:
       heading_level: 3
 

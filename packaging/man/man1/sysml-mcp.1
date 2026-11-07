@@ -366,6 +366,10 @@ one row per element (rpc ImportData, sysml \-import, sysml \-import\-as, sysml
 runtime: Instantiate a definition or usage and report the object's feature
 values (rpc Instantiate, sysml \-instantiate).
 .TP
+.B instance_paths
+runtime: List every root\-relative usage path that reaches an instantiated
+object (rpc InstancePaths).
+.TP
 .B list_engines
 runtime: List the analysis engines and whether each is ready (rpc ListEngines,
 sysml \-engines, sysml \-probe).
@@ -429,6 +433,10 @@ GetServerInfo).
 .TP
 .B symbol
 runtime: Describe one element of a parsed model (rpc GetSymbol).
+.TP
+.B element_properties
+runtime: Read the metamodel properties of one element by their specification
+names (rpc GetElementProperties).
 .TP
 .B validate_instance
 runtime: Validate an instantiated object against its definition, as sysml

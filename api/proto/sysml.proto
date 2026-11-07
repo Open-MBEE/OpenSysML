@@ -28,6 +28,10 @@ service SysMLService {
   // Runtime operations (Phase 4)
   rpc Evaluate(EvaluateRequest) returns (EvaluateResponse);
   rpc Instantiate(InstantiateRequest) returns (InstantiateResponse);
+  // List every root-relative usage path that reaches one object the model's
+  // population holds, aliases through connector ends and references included.
+  // Reported as the "instance_paths" capability.
+  rpc InstancePaths(InstancePathsRequest) returns (InstancePathsResponse);
   rpc ExecuteAction(ExecuteActionRequest) returns (ExecuteActionResponse);
   rpc ExecuteState(ExecuteStateRequest) returns (ExecuteStateResponse);
 
@@ -109,6 +113,13 @@ service SysMLService {
   // as the standard defines them, so a client that speaks that API can filter a
   // model here. Reported as the "query" capability.
   rpc Query(QueryRequest) returns (QueryResponse);
+
+  // Read the metamodel properties of one element by their specification
+  // names (KerML 1.1 and SysML 2.1 abstract syntax: inheritedFeature,
+  // connectorEnd, directedFeature, payloadType, ...), as the model's API
+  // element form (Convert to api-json) spells them, without converting the
+  // whole model. Reported as the "element_properties" capability.
+  rpc GetElementProperties(GetElementPropertiesRequest) returns (GetElementPropertiesResponse);
 
   // Run a named document query with parameter bindings, the answer the REPL's
   // %run-query gives, as typed rows rather than formatted lines. Reported as
@@ -1004,6 +1015,75 @@ message SymbolResponse {
   string error = 2;
 }
 
+// GetElementPropertiesRequest names one element of a parsed model and the
+// metamodel properties to read of it.
+message GetElementPropertiesRequest {
+  string model_hash = 1;
+  // The element: its qualified name, the positional id of an unnamed member
+  // (Owner::@3), or the "@id" of the model's API element form.
+  string element_id = 2;
+  // The properties to read, by specification name. Empty reads every property
+  // the element form carries for the element.
+  repeated string properties = 3;
+}
+
+// GetElementPropertiesResponse is one property entry per requested name, in
+// the request's order, or every property the element carries when none was
+// named, in the element form's order.
+message GetElementPropertiesResponse {
+  ElementRef element = 1;
+  repeated ElementProperty properties = 2;
+  // Why there is no answer: the model or the element was not found, or the
+  // model has no element form (a document the parser could not read whole).
+  string error = 3;
+}
+
+// ElementRef identifies an element the element form knows: an element of
+// the model or a standard-library element it references.
+message ElementRef {
+  // The "@id" of the API element form.
+  string id = 1;
+  // The qualified name; empty for an unnamed element. An unnamed
+  // standard-library member carries its library path (owner/Metaclass[i]).
+  string qualified_name = 2;
+  // The metaclass ("ConnectionUsage"); empty when the id is known to nothing.
+  string metaclass = 3;
+}
+
+// ElementProperty is one metamodel property of an element.
+message ElementProperty {
+  // The specification name ("connectorEnd").
+  string name = 1;
+  // The metaclass declaring the property ("Connector"); empty when the
+  // element's metaclass declares no such property.
+  string defining_class = 2;
+  // Whether the property holds a collection; a single-valued property has at
+  // most one value.
+  bool many = 3;
+  // Whether the specification derives the property rather than stating it.
+  bool derived = 4;
+  // The values, in the collection's order; none for an empty or null property.
+  repeated ElementPropertyValue values = 5;
+  // Set when values cannot be answered: the element's metaclass declares no
+  // such property, or OpenSysML does not derive it yet (and why). Empty for a
+  // property that is answered, with or without values.
+  string unsupported = 6;
+}
+
+// ElementPropertyValue is one value of a metamodel property, in the shape the
+// API element form spells it.
+message ElementPropertyValue {
+  oneof value {
+    ElementRef element = 1;
+    string string_value = 2;
+    bool bool_value = 3;
+    int64 int_value = 4;
+    double real_value = 5;
+    // A number beyond int64 and float64, in decimal.
+    string number = 6;
+  }
+}
+
 // DiagnosticsRequest gets all diagnostics for a model
 message DiagnosticsRequest {
   string model_hash = 1;
@@ -1047,6 +1127,29 @@ message Instance {
   reserved "slots";
   // What the object holds for each feature of its type, by feature name.
   map<string, FeatureValue> feature_values = 4;
+  // How the traversal that serialized the graph reached this object: the object
+  // holding it, the feature of that holder it is a value of, and the path from
+  // the root. Unset for the root. The traversal is depth-first from the root,
+  // over the features of an object in name order (those the model declares
+  // first, then those the standard library derives, such as `subparts`) and the
+  // values of a feature in their order, and reaches an object once, the first
+  // time; one object is often a value of several features (a port and the
+  // connector end referencing it are one object), and InstancePaths lists every
+  // path to it.
+  InstanceReach reached_by = 5;
+}
+
+// InstanceReach is how a traversal of an object graph reached one object.
+message InstanceReach {
+  int64 instance_id = 1;         // the object holding this one
+  string feature_name = 2;       // the holder's feature, a key of its feature_values
+  string feature_symbol_id = 3;  // FQN of the feature as declared
+  // Position among the values of a multi-valued feature, counted from 1 as an
+  // object path indexes them (`wheels[2]`); 0 for a single-valued feature.
+  int32 index = 4;
+  // The path from the root: the feature names, indexed within a multi-valued
+  // feature, joined by dots (`powertrain.engine.fuelIn`, `wheels[2].hub`).
+  string path = 5;
 }
 
 // FeatureValue is what an object holds for one feature of its type.
@@ -1081,6 +1184,63 @@ message InstantiateResponse {
   // Every instance reachable from `instance`, including `instance` itself, so a
   // client can resolve an `instance_id` feature value without a follow-up RPC.
   repeated Instance instances = 4;
+}
+
+// InstancePathsRequest asks for every root-relative usage path that reaches
+// one object: the paths by which a client can address it, and so the parts
+// that share it. A port and the connector end referencing it, or an object and
+// a reference usage bound to it, are one object reached by several paths.
+message InstancePathsRequest {
+  string model_hash = 1;
+  // The object, by id or by path. Fails with NOT_FOUND when no object of the
+  // model's population has the id or the name, INVALID_ARGUMENT when neither
+  // is given or the path reaches no object.
+  DocumentObject object = 2;
+}
+
+// InstancePathsResponse lists the paths, in traversal order: the roots the
+// population holds in id order and, from each, depth-first over the features
+// of an object in name order and the values of a feature in their order. A
+// path visits no object twice, and steps through the features the model
+// declares only: the collections the standard library derives (`subparts`,
+// `ownedPorts`) hold the same objects and are not paths of their own. An
+// object no root reaches has no path.
+message InstancePathsResponse {
+  repeated InstancePath paths = 1;
+  // The paths are cut short: more than `limit` of them reach the object, or
+  // one would be deeper than the service walks.
+  bool truncated = 2;
+  string error = 3;
+  repeated Diagnostic diagnostics = 4;
+}
+
+// InstancePath is one root-relative path to an object: the root it starts
+// from and the features walked from it, each with the object it reaches.
+message InstancePath {
+  InstanceRoot root = 1;
+  // The steps joined as an object path (`powertrain.engine.fuelIn`); empty when
+  // the object is the root itself. `<root label>.<path>` addresses the object
+  // in a DocumentObject.
+  string path = 2;
+  repeated InstancePathStep steps = 3;
+}
+
+// InstanceRoot is an object the population holds on its own: one Instantiate
+// created, by the identity it answered and the name it was created under.
+message InstanceRoot {
+  int64 instance_id = 1;
+  // The qualified name the object was instantiated as, the label a path from
+  // it starts with; empty for an object the name no longer binds, which `#<id>`
+  // addresses.
+  string symbol_id = 2;
+}
+
+// InstancePathStep is one feature walked along a path.
+message InstancePathStep {
+  string feature_name = 1;       // feature of the object before this step
+  string feature_symbol_id = 2;  // FQN of the feature as declared
+  int32 index = 3;               // 1-based within a multi-valued feature, 0 for a single-valued one
+  int64 instance_id = 4;         // the object the step reaches
 }
 
 // ExecuteActionRequest requests action execution

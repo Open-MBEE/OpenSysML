@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.openmbee</groupId>
         <artifactId>syson-mdk</artifactId>
-        <version>0.12.0</version>
+        <version>0.12.1</version>
     </parent>
 
     <artifactId>syson-mdk-api-stubs</artifactId>

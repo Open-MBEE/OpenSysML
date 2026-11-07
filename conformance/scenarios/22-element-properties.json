@@ -1,0 +1,223 @@
+{
+  "scenarios": [
+    {
+      "id": "element_properties/inherited_features_are_read_by_spec_name",
+      "description": "A derived property of the metamodel, by its specification name, names the general's features then the library's.",
+      "rpc": "GetElementProperties",
+      "requires_capabilities": [
+        "element_properties"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "element_properties"
+      },
+      "model": {
+        "fixture": "element_properties.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "element_id": "Demo::Pair",
+        "properties": [
+          "inheritedFeature",
+          "isAbstract"
+        ]
+      },
+      "expect": {
+        "response": {
+          "element": {
+            "qualified_name": "Demo::Pair",
+            "metaclass": "PartDefinition"
+          },
+          "properties": [
+            {
+              "name": "inheritedFeature",
+              "defining_class": "Type",
+              "many": true,
+              "derived": true
+            },
+            {
+              "name": "isAbstract",
+              "defining_class": "Type",
+              "values": [
+                {
+                  "bool_value": false
+                }
+              ]
+            }
+          ]
+        },
+        "contains_all": {
+          "properties.0.values.*.element.qualified_name": [
+            "Demo::Unit::p",
+            "Parts::Part::ownedPorts"
+          ]
+        },
+        "non_empty": [
+          "element.id"
+        ]
+      }
+    },
+    {
+      "id": "element_properties/an_unnamed_connector_is_read_by_position",
+      "description": "The positional id of an unnamed member addresses it, and its connector properties are answered.",
+      "rpc": "GetElementProperties",
+      "requires_capabilities": [
+        "element_properties"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "element_properties"
+      },
+      "model": {
+        "fixture": "element_properties.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "element_id": "Demo::Pair::@2",
+        "properties": [
+          "relatedFeature",
+          "connectorEnd"
+        ]
+      },
+      "expect": {
+        "response": {
+          "element": {
+            "qualified_name": "",
+            "metaclass": "ConnectionUsage"
+          },
+          "properties": [
+            {
+              "name": "relatedFeature",
+              "defining_class": "Connector",
+              "values": [
+                {
+                  "element": {
+                    "qualified_name": "Demo::Pair::u1",
+                    "metaclass": "PartUsage"
+                  }
+                },
+                {
+                  "element": {
+                    "qualified_name": "Demo::Pair::u2",
+                    "metaclass": "PartUsage"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "connectorEnd",
+              "defining_class": "Connector"
+            }
+          ]
+        },
+        "counts": {
+          "properties.1.values": 2
+        }
+      }
+    },
+    {
+      "id": "element_properties/an_undeclared_property_says_so",
+      "rpc": "GetElementProperties",
+      "requires_capabilities": [
+        "element_properties"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "element_properties"
+      },
+      "model": {
+        "fixture": "element_properties.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "element_id": "Demo::Pair",
+        "properties": [
+          "connectorEnd"
+        ]
+      },
+      "expect": {
+        "contains": {
+          "properties.0.unsupported": "declares no property connectorEnd"
+        },
+        "absent": [
+          "properties.0.defining_class"
+        ]
+      }
+    },
+    {
+      "id": "element_properties/an_unselected_read_answers_the_whole_element",
+      "rpc": "GetElementProperties",
+      "requires_capabilities": [
+        "element_properties"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "element_properties"
+      },
+      "model": {
+        "fixture": "element_properties.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "element_id": "Demo::CmdPort::cmd"
+      },
+      "expect": {
+        "min_counts": {
+          "properties": 10
+        },
+        "contains_all": {
+          "properties.*.name": [
+            "direction",
+            "isComposite",
+            "owner",
+            "type"
+          ]
+        }
+      }
+    },
+    {
+      "id": "element_properties/an_unknown_element_is_reported_in_band",
+      "rpc": "GetElementProperties",
+      "requires_capabilities": [
+        "element_properties"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "element_properties"
+      },
+      "model": {
+        "fixture": "element_properties.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "element_id": "Demo::Nope",
+        "properties": [
+          "name"
+        ]
+      },
+      "expect": {
+        "contains": {
+          "error": "element not found"
+        }
+      }
+    },
+    {
+      "id": "element_properties/an_unknown_model_is_not_found",
+      "rpc": "GetElementProperties",
+      "requires_capabilities": [
+        "element_properties"
+      ],
+      "expect_without_capability": {
+        "status": "UNIMPLEMENTED",
+        "status_message_contains": "element_properties"
+      },
+      "request": {
+        "model_hash": "no-such-model",
+        "element_id": "Demo"
+      },
+      "expect": {
+        "status": "NOT_FOUND"
+      }
+    }
+  ]
+}

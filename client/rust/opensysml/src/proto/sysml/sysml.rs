@@ -1139,6 +1139,102 @@ pub struct SymbolResponse {
     #[prost(string, tag="2")]
     pub error: ::prost::alloc::string::String,
 }
+/// GetElementPropertiesRequest names one element of a parsed model and the
+/// metamodel properties to read of it.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetElementPropertiesRequest {
+    #[prost(string, tag="1")]
+    pub model_hash: ::prost::alloc::string::String,
+    /// The element: its qualified name, the positional id of an unnamed member
+    /// (Owner::@3), or the "@id" of the model's API element form.
+    #[prost(string, tag="2")]
+    pub element_id: ::prost::alloc::string::String,
+    /// The properties to read, by specification name. Empty reads every property
+    /// the element form carries for the element.
+    #[prost(string, repeated, tag="3")]
+    pub properties: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// GetElementPropertiesResponse is one property entry per requested name, in
+/// the request's order, or every property the element carries when none was
+/// named, in the element form's order.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetElementPropertiesResponse {
+    #[prost(message, optional, tag="1")]
+    pub element: ::core::option::Option<ElementRef>,
+    #[prost(message, repeated, tag="2")]
+    pub properties: ::prost::alloc::vec::Vec<ElementProperty>,
+    /// Why there is no answer: the model or the element was not found, or the
+    /// model has no element form (a document the parser could not read whole).
+    #[prost(string, tag="3")]
+    pub error: ::prost::alloc::string::String,
+}
+/// ElementRef identifies an element the element form knows: an element of
+/// the model or a standard-library element it references.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ElementRef {
+    /// The "@id" of the API element form.
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    /// The qualified name; empty for an unnamed element. An unnamed
+    /// standard-library member carries its library path (owner/Metaclass\[i\]).
+    #[prost(string, tag="2")]
+    pub qualified_name: ::prost::alloc::string::String,
+    /// The metaclass ("ConnectionUsage"); empty when the id is known to nothing.
+    #[prost(string, tag="3")]
+    pub metaclass: ::prost::alloc::string::String,
+}
+/// ElementProperty is one metamodel property of an element.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ElementProperty {
+    /// The specification name ("connectorEnd").
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    /// The metaclass declaring the property ("Connector"); empty when the
+    /// element's metaclass declares no such property.
+    #[prost(string, tag="2")]
+    pub defining_class: ::prost::alloc::string::String,
+    /// Whether the property holds a collection; a single-valued property has at
+    /// most one value.
+    #[prost(bool, tag="3")]
+    pub many: bool,
+    /// Whether the specification derives the property rather than stating it.
+    #[prost(bool, tag="4")]
+    pub derived: bool,
+    /// The values, in the collection's order; none for an empty or null property.
+    #[prost(message, repeated, tag="5")]
+    pub values: ::prost::alloc::vec::Vec<ElementPropertyValue>,
+    /// Set when values cannot be answered: the element's metaclass declares no
+    /// such property, or OpenSysML does not derive it yet (and why). Empty for a
+    /// property that is answered, with or without values.
+    #[prost(string, tag="6")]
+    pub unsupported: ::prost::alloc::string::String,
+}
+/// ElementPropertyValue is one value of a metamodel property, in the shape the
+/// API element form spells it.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ElementPropertyValue {
+    #[prost(oneof="element_property_value::Value", tags="1, 2, 3, 4, 5, 6")]
+    pub value: ::core::option::Option<element_property_value::Value>,
+}
+/// Nested message and enum types in `ElementPropertyValue`.
+pub mod element_property_value {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Value {
+        #[prost(message, tag="1")]
+        Element(super::ElementRef),
+        #[prost(string, tag="2")]
+        StringValue(::prost::alloc::string::String),
+        #[prost(bool, tag="3")]
+        BoolValue(bool),
+        #[prost(int64, tag="4")]
+        IntValue(i64),
+        #[prost(double, tag="5")]
+        RealValue(f64),
+        /// A number beyond int64 and float64, in decimal.
+        #[prost(string, tag="6")]
+        Number(::prost::alloc::string::String),
+    }
+}
 /// DiagnosticsRequest gets all diagnostics for a model
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct DiagnosticsRequest {
@@ -1201,6 +1297,38 @@ pub struct Instance {
     /// What the object holds for each feature of its type, by feature name.
     #[prost(map="string, message", tag="4")]
     pub feature_values: ::std::collections::HashMap<::prost::alloc::string::String, FeatureValue>,
+    /// How the traversal that serialized the graph reached this object: the object
+    /// holding it, the feature of that holder it is a value of, and the path from
+    /// the root. Unset for the root. The traversal is depth-first from the root,
+    /// over the features of an object in name order (those the model declares
+    /// first, then those the standard library derives, such as `subparts`) and the
+    /// values of a feature in their order, and reaches an object once, the first
+    /// time; one object is often a value of several features (a port and the
+    /// connector end referencing it are one object), and InstancePaths lists every
+    /// path to it.
+    #[prost(message, optional, tag="5")]
+    pub reached_by: ::core::option::Option<InstanceReach>,
+}
+/// InstanceReach is how a traversal of an object graph reached one object.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct InstanceReach {
+    /// the object holding this one
+    #[prost(int64, tag="1")]
+    pub instance_id: i64,
+    /// the holder's feature, a key of its feature_values
+    #[prost(string, tag="2")]
+    pub feature_name: ::prost::alloc::string::String,
+    /// FQN of the feature as declared
+    #[prost(string, tag="3")]
+    pub feature_symbol_id: ::prost::alloc::string::String,
+    /// Position among the values of a multi-valued feature, counted from 1 as an
+    /// object path indexes them (`wheels\[2\]`); 0 for a single-valued feature.
+    #[prost(int32, tag="4")]
+    pub index: i32,
+    /// The path from the root: the feature names, indexed within a multi-valued
+    /// feature, joined by dots (`powertrain.engine.fuelIn`, `wheels\[2\].hub`).
+    #[prost(string, tag="5")]
+    pub path: ::prost::alloc::string::String,
 }
 /// FeatureValue is what an object holds for one feature of its type.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1251,6 +1379,82 @@ pub struct InstantiateResponse {
     /// client can resolve an `instance_id` feature value without a follow-up RPC.
     #[prost(message, repeated, tag="4")]
     pub instances: ::prost::alloc::vec::Vec<Instance>,
+}
+/// InstancePathsRequest asks for every root-relative usage path that reaches
+/// one object: the paths by which a client can address it, and so the parts
+/// that share it. A port and the connector end referencing it, or an object and
+/// a reference usage bound to it, are one object reached by several paths.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InstancePathsRequest {
+    #[prost(string, tag="1")]
+    pub model_hash: ::prost::alloc::string::String,
+    /// The object, by id or by path. Fails with NOT_FOUND when no object of the
+    /// model's population has the id or the name, INVALID_ARGUMENT when neither
+    /// is given or the path reaches no object.
+    #[prost(message, optional, tag="2")]
+    pub object: ::core::option::Option<DocumentObject>,
+}
+/// InstancePathsResponse lists the paths, in traversal order: the roots the
+/// population holds in id order and, from each, depth-first over the features
+/// of an object in name order and the values of a feature in their order. A
+/// path visits no object twice, and steps through the features the model
+/// declares only: the collections the standard library derives (`subparts`,
+/// `ownedPorts`) hold the same objects and are not paths of their own. An
+/// object no root reaches has no path.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InstancePathsResponse {
+    #[prost(message, repeated, tag="1")]
+    pub paths: ::prost::alloc::vec::Vec<InstancePath>,
+    /// The paths are cut short: more than `limit` of them reach the object, or
+    /// one would be deeper than the service walks.
+    #[prost(bool, tag="2")]
+    pub truncated: bool,
+    #[prost(string, tag="3")]
+    pub error: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="4")]
+    pub diagnostics: ::prost::alloc::vec::Vec<Diagnostic>,
+}
+/// InstancePath is one root-relative path to an object: the root it starts
+/// from and the features walked from it, each with the object it reaches.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InstancePath {
+    #[prost(message, optional, tag="1")]
+    pub root: ::core::option::Option<InstanceRoot>,
+    /// The steps joined as an object path (`powertrain.engine.fuelIn`); empty when
+    /// the object is the root itself. `<root label>.<path>` addresses the object
+    /// in a DocumentObject.
+    #[prost(string, tag="2")]
+    pub path: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag="3")]
+    pub steps: ::prost::alloc::vec::Vec<InstancePathStep>,
+}
+/// InstanceRoot is an object the population holds on its own: one Instantiate
+/// created, by the identity it answered and the name it was created under.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct InstanceRoot {
+    #[prost(int64, tag="1")]
+    pub instance_id: i64,
+    /// The qualified name the object was instantiated as, the label a path from
+    /// it starts with; empty for an object the name no longer binds, which `#<id>`
+    /// addresses.
+    #[prost(string, tag="2")]
+    pub symbol_id: ::prost::alloc::string::String,
+}
+/// InstancePathStep is one feature walked along a path.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct InstancePathStep {
+    /// feature of the object before this step
+    #[prost(string, tag="1")]
+    pub feature_name: ::prost::alloc::string::String,
+    /// FQN of the feature as declared
+    #[prost(string, tag="2")]
+    pub feature_symbol_id: ::prost::alloc::string::String,
+    /// 1-based within a multi-valued feature, 0 for a single-valued one
+    #[prost(int32, tag="3")]
+    pub index: i32,
+    /// the object the step reaches
+    #[prost(int64, tag="4")]
+    pub instance_id: i64,
 }
 /// ExecuteActionRequest requests action execution
 #[derive(Clone, PartialEq, ::prost::Message)]

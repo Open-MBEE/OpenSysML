@@ -63,6 +63,14 @@ type Client interface {
 	// instantiation is a FailureError; an unknown model is CodeNotFound.
 	Instantiate(ctx context.Context, model *Model, symbolID string) (*Instantiation, error)
 
+	// InstancePaths lists every root-relative path reaching the object ref
+	// names among those the service holds for the model: from each object
+	// Instantiate created, the features walked to reach it, aliases through
+	// connector ends and reference usages included. An object no id or path
+	// names is CodeNotFound, a malformed ref CodeInvalidArgument; requires the
+	// instance_paths capability.
+	InstancePaths(ctx context.Context, model *Model, ref ObjectRef) (*InstancePaths, error)
+
 	// ExecuteAction executes the named action with the inputs given, bound by
 	// parameter name, and reports the outputs it produced. A Complex input
 	// requires the complex_values capability, an Array, Vector or
@@ -164,6 +172,13 @@ type Client interface {
 	// QueryOSLC selects elements with OSLC Query 3.0 parameter text. Requires
 	// the oslc_query capability.
 	QueryOSLC(ctx context.Context, model *Model, oslc string) ([]QueryElement, error)
+
+	// ElementProperties reads the metamodel properties of one element by their
+	// specification names ("inheritedFeature", "connectorEnd", ...), as the
+	// model's API element form spells them; every property the element carries
+	// when none is named. The element is a qualified name, a positional id or
+	// the form's own id. Requires the element_properties capability.
+	ElementProperties(ctx context.Context, model *Model, element string, properties ...string) (*ElementProperties, error)
 
 	// RunDocumentQuery runs the named document query, binding its entry
 	// parameters — to elements, scalars, or objects the service holds for the
@@ -343,6 +358,7 @@ type caller interface {
 	getDiagnostics(ctx context.Context, req *pb.DiagnosticsRequest) (*pb.DiagnosticsResponse, error)
 	evaluate(ctx context.Context, req *pb.EvaluateRequest) (*pb.EvaluateResponse, error)
 	instantiate(ctx context.Context, req *pb.InstantiateRequest) (*pb.InstantiateResponse, error)
+	instancePaths(ctx context.Context, req *pb.InstancePathsRequest) (*pb.InstancePathsResponse, error)
 	executeAction(ctx context.Context, req *pb.ExecuteActionRequest) (*pb.ExecuteActionResponse, error)
 	executeState(ctx context.Context, req *pb.ExecuteStateRequest) (*pb.ExecuteStateResponse, error)
 	verifyConstraint(ctx context.Context, req *pb.VerifyConstraintRequest) (*pb.VerifyConstraintResponse, error)
@@ -355,6 +371,7 @@ type caller interface {
 	selfCheck(ctx context.Context, req *pb.SelfCheckRequest) (*pb.SelfCheckResponse, error)
 	recordRun(ctx context.Context, req *pb.RecordRunRequest) (*pb.RecordRunResponse, error)
 	query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error)
+	getElementProperties(ctx context.Context, req *pb.GetElementPropertiesRequest) (*pb.GetElementPropertiesResponse, error)
 	runDocumentQuery(ctx context.Context, req *pb.RunDocumentQueryRequest) (*pb.RunDocumentQueryResponse, error)
 	renderDocument(ctx context.Context, req *pb.RenderDocumentRequest) (*pb.RenderDocumentResponse, error)
 	renderView(ctx context.Context, req *pb.RenderViewRequest) (*pb.RenderViewResponse, error)
@@ -631,6 +648,30 @@ func (c *client) Instantiate(ctx context.Context, model *Model, symbolID string)
 		Instances:   instances,
 		Diagnostics: diagnosticsFromProto(resp.Diagnostics),
 	}, nil
+}
+
+func (c *client) InstancePaths(ctx context.Context, model *Model, ref ObjectRef) (*InstancePaths, error) {
+	if err := c.live(); err != nil {
+		return nil, err
+	}
+	hash, err := modelHash(model)
+	if err != nil {
+		return nil, err
+	}
+	if err := c.requireCapabilities(ctx, CapabilityInstancePaths); err != nil {
+		return nil, err
+	}
+	resp, err := c.caller.instancePaths(ctx, &pb.InstancePathsRequest{
+		ModelHash: hash,
+		Object:    &pb.DocumentObject{InstanceId: ref.InstanceID, Path: ref.Path},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if resp.Error != "" {
+		return nil, &FailureError{Op: "InstancePaths", Message: resp.Error, Diagnostics: diagnosticsFromProto(resp.Diagnostics)}
+	}
+	return instancePathsFromProto(resp), nil
 }
 
 // Close releases the implementation once: a second call is a no-op, so a

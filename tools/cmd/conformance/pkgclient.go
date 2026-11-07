@@ -86,6 +86,8 @@ func (c *pkgClient) modelCall(method string) (pkgCall, bool) {
 		return c.getDiagnostics, true
 	case "Query":
 		return c.query, true
+	case "GetElementProperties":
+		return c.getElementProperties, true
 	case "ApplyEdits":
 		return c.applyEdits, true
 	}
@@ -100,6 +102,8 @@ func (c *pkgClient) runtimeCall(method string) (pkgCall, bool) {
 		return c.evaluate, true
 	case "Instantiate":
 		return c.instantiate, true
+	case "InstancePaths":
+		return c.instancePaths, true
 	case "ExecuteAction":
 		return c.executeAction, true
 	case "ExecuteState":
@@ -350,6 +354,39 @@ func (c *pkgClient) instantiate(ctx context.Context, request protoreflect.Messag
 	}
 	for _, instance := range instantiation.Instances {
 		response.Instances = append(response.Instances, instanceToProto(instance))
+	}
+	return response, nil
+}
+
+func (c *pkgClient) instancePaths(ctx context.Context, request protoreflect.Message) (proto.Message, error) {
+	req := &pb.InstancePathsRequest{}
+	if err := retype(request, req); err != nil {
+		return nil, err
+	}
+	ref := opensysml.ObjectRef{InstanceID: req.GetObject().GetInstanceId(), Path: req.GetObject().GetPath()}
+	paths, err := c.api.InstancePaths(ctx, c.model(req.ModelHash), ref)
+	var failure *opensysml.FailureError
+	if errors.As(err, &failure) {
+		return &pb.InstancePathsResponse{Error: failure.Message, Diagnostics: diagnosticsToProto(failure.Diagnostics)}, nil
+	}
+	if err != nil {
+		return nil, apiError(err)
+	}
+	response := &pb.InstancePathsResponse{Truncated: paths.Truncated}
+	for _, path := range paths.Paths {
+		converted := &pb.InstancePath{
+			Root: &pb.InstanceRoot{InstanceId: path.RootInstanceID, SymbolId: path.RootSymbolID},
+			Path: path.Path,
+		}
+		for _, step := range path.Steps {
+			converted.Steps = append(converted.Steps, &pb.InstancePathStep{
+				FeatureName:     step.FeatureName,
+				FeatureSymbolId: step.FeatureSymbolID,
+				Index:           int32Clamp(step.Index),
+				InstanceId:      step.InstanceID,
+			})
+		}
+		response.Paths = append(response.Paths, converted)
 	}
 	return response, nil
 }
@@ -954,6 +991,58 @@ func (c *pkgClient) query(ctx context.Context, request protoreflect.Message) (pr
 		})
 	}
 	return response, nil
+}
+
+func (c *pkgClient) getElementProperties(ctx context.Context, request protoreflect.Message) (proto.Message, error) {
+	req := &pb.GetElementPropertiesRequest{}
+	if err := retype(request, req); err != nil {
+		return nil, err
+	}
+	read, err := c.api.ElementProperties(ctx, c.model(req.ModelHash), req.ElementId, req.Properties...)
+	var failure *opensysml.FailureError
+	if errors.As(err, &failure) {
+		return &pb.GetElementPropertiesResponse{Error: failure.Message}, nil
+	}
+	if err != nil {
+		return nil, apiError(err)
+	}
+	response := &pb.GetElementPropertiesResponse{Element: elementRefToProto(read.Element)}
+	for _, property := range read.Properties {
+		converted := &pb.ElementProperty{
+			Name:          property.Name,
+			DefiningClass: property.DefiningClass,
+			Many:          property.Many,
+			Derived:       property.Derived,
+			Unsupported:   property.Unsupported,
+		}
+		for _, value := range property.Values {
+			converted.Values = append(converted.Values, propertyValueToProto(value))
+		}
+		response.Properties = append(response.Properties, converted)
+	}
+	return response, nil
+}
+
+func elementRefToProto(ref opensysml.ElementRef) *pb.ElementRef {
+	return &pb.ElementRef{Id: ref.ID, QualifiedName: ref.QualifiedName, Metaclass: ref.Metaclass}
+}
+
+func propertyValueToProto(value opensysml.PropertyValue) *pb.ElementPropertyValue {
+	switch {
+	case value.Element != nil:
+		return &pb.ElementPropertyValue{Value: &pb.ElementPropertyValue_Element{Element: elementRefToProto(*value.Element)}}
+	case value.String != nil:
+		return &pb.ElementPropertyValue{Value: &pb.ElementPropertyValue_StringValue{StringValue: *value.String}}
+	case value.Bool != nil:
+		return &pb.ElementPropertyValue{Value: &pb.ElementPropertyValue_BoolValue{BoolValue: *value.Bool}}
+	case value.Int != nil:
+		return &pb.ElementPropertyValue{Value: &pb.ElementPropertyValue_IntValue{IntValue: *value.Int}}
+	case value.Real != nil:
+		return &pb.ElementPropertyValue{Value: &pb.ElementPropertyValue_RealValue{RealValue: *value.Real}}
+	case value.Number != nil:
+		return &pb.ElementPropertyValue{Value: &pb.ElementPropertyValue_Number{Number: *value.Number}}
+	}
+	return &pb.ElementPropertyValue{}
 }
 
 func (c *pkgClient) runDocumentQuery(ctx context.Context, request protoreflect.Message) (proto.Message, error) {
@@ -2316,6 +2405,15 @@ func instanceToProto(instance *opensysml.Instance) *pb.Instance {
 				converted.Values = append(converted.Values, valueToProto(element))
 			}
 			out.FeatureValues[name] = converted
+		}
+	}
+	if reach := instance.ReachedBy; reach != nil {
+		out.ReachedBy = &pb.InstanceReach{
+			InstanceId:      reach.InstanceID,
+			FeatureName:     reach.FeatureName,
+			FeatureSymbolId: reach.FeatureSymbolID,
+			Index:           int32Clamp(reach.Index),
+			Path:            reach.Path,
 		}
 	}
 	return out

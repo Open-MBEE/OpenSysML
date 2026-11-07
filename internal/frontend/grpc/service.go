@@ -112,6 +112,11 @@ const CapabilityExportGraphs = "export_graphs"
 // a CSV, TSV, JSON or JSON Lines file assigns, one row per element.
 const CapabilityImportData = "import_data"
 
+// CapabilityInstancePaths names the InstancePaths RPC, which lists every
+// root-relative path reaching an object, and the `reached_by` of an Instance
+// in an instantiated graph, which says how the traversal reached it.
+const CapabilityInstancePaths = "instance_paths"
+
 // CapabilityCompareResults names the CompareResults RPC, which runs the
 // configurations a tool's results sidecar indexes and tables the tool's
 // distributions of their observables beside the runs'.
@@ -355,6 +360,10 @@ const CapabilityMetaobjectValues = "metaobject_values"
 // leaves open as Value.undetermined rather than as an unsupported null.
 const CapabilityUndeterminedValue = "undetermined_value"
 
+// CapabilityElementProperties names the GetElementProperties RPC, which reads
+// the metamodel properties of one element by their specification names.
+const CapabilityElementProperties = "element_properties"
+
 // capabilities is what this build supports, in report order. A capability is
 // only ever added: renaming or dropping one breaks clients that require it.
 var capabilities = []string{
@@ -406,6 +415,7 @@ var capabilities = []string{
 	CapabilityExportGraphs,
 	CapabilityImportData,
 	CapabilityCompareResults,
+	CapabilityInstancePaths,
 	CapabilityCheck,
 	CapabilityConvertDocuments,
 	CapabilityConvertCompact,
@@ -416,6 +426,7 @@ var capabilities = []string{
 	CapabilityRenderDocumentFileName,
 	CapabilityOrderDependence,
 	CapabilityVerdictNotes,
+	CapabilityElementProperties,
 }
 
 type capabilityAvailability struct {

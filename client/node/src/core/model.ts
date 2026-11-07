@@ -14,6 +14,7 @@ import { EvaluationError, OpenSysMLError, ParseError, SymbolNotFoundError } from
 import { requireLanguage } from "./sources.js";
 import type { ModelDiagnostic } from "./errors.js";
 import type { Conversion, ConvertOptions } from "./conversion.js";
+import type { ElementProperties } from "./element-properties.js";
 import type { QueryForm, QueryElement, QueryPayload } from "./query.js";
 import type { BindingValues, DocumentQueryResult } from "./document.js";
 import type { RenderedView } from "./render-view.js";
@@ -412,6 +413,11 @@ export class Model {
   /** Runs a SysML v2 API & Services Query over this model. */
   query(options: { payload?: QueryPayload } & QueryForm = {}): Promise<QueryElement[]> {
     return this.connection.query(this.hash, options);
+  }
+
+  /** Reads the metamodel properties of one element by their specification names. */
+  elementProperties(element: string, ...properties: string[]): Promise<ElementProperties> {
+    return this.connection.elementProperties(this.hash, element, properties);
   }
 
   /** Runs a named document query against this model. */

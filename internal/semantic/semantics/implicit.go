@@ -232,6 +232,9 @@ func (m *Model) ImpliedBaseFQNs(node ast.Node, kind source.Kind) []string {
 // ImpliedBaseFQNsForMetaclass returns standard-library bases implied by a
 // graph element's metaclass when its semantic symbol is unavailable.
 func (m *Model) ImpliedBaseFQNsForMetaclass(metaclass string, kind source.Kind) []string {
+	if base, ok := impliedMultiplicityBases[metaclass]; ok {
+		return []string{base}
+	}
 	if metaclass == "ReferenceUsage" && kind != source.KindKerML {
 		// A reference usage has no kind base: it subsets only Base::things (SysML v2 §7.6.2).
 		return []string{baseUsageFQN}
@@ -272,6 +275,14 @@ var impliedDefinitionKinds = map[string]ast.DefinitionKind{
 	"VerificationCaseDefinition": ast.DefVerificationCase,
 	"ViewDefinition":             ast.DefView,
 	"ViewpointDefinition":        ast.DefViewpoint,
+}
+
+// impliedMultiplicityBases is the base every Multiplicity subsets by its metaclass alone
+// (KerML 1.1 §8.3.3.1.9); an individual OccurrenceDefinition's subsets Base::zeroOrOne
+// instead (SysML v2 §8.3.9.3), which only its symbol tells (MultiplicityBaseFQN).
+var impliedMultiplicityBases = map[string]string{
+	"Multiplicity":      naturalsFQN,
+	"MultiplicityRange": naturalsFQN,
 }
 
 var impliedUsageKinds = map[string]ast.UsageKind{
@@ -327,6 +338,9 @@ func (m *Model) DeclaresKerMLClassifier(sym *symbols.Symbol) bool {
 func (m *Model) FeatureBaseFQN(sym *symbols.Symbol) (string, bool) {
 	if sym == nil {
 		return "", false
+	}
+	if fqn, ok := m.MultiplicityBaseFQN(sym); ok {
+		return fqn, true
 	}
 	if typed, ok := m.declaredTypeFeatureBase(sym); ok {
 		return typed, true
@@ -549,7 +563,64 @@ func (m *Model) isKerMLDoc(sym *symbols.Symbol) bool {
 	if m.resolver == nil || m.resolver.Index() == nil {
 		return false
 	}
-	return m.resolver.Index().DocumentKind(sym.DocName) == source.KindKerML
+	switch m.resolver.Index().DocumentKind(sym.DocName) {
+	case source.KindKerML:
+		return true
+	case source.KindUnknown:
+		return m.declaresKerML(sym.DocName)
+	}
+	return false
+}
+
+// declaresKerML reports whether a document of no recorded kind is KerML text:
+// it declares what only KerML's keywords spell (`class`, `function`, …) and
+// nothing SysML alone spells (`part`, `requirement`, …); mixed text reads as SysML.
+func (m *Model) declaresKerML(doc string) bool {
+	if kerml, ok := m.kermlDocs[doc]; ok {
+		return kerml
+	}
+	kerml, sysml := scopeDeclares(m.resolver.Index().DocumentRoot(doc))
+	m.kermlDocs[doc] = kerml && !sysml
+	return m.kermlDocs[doc]
+}
+
+// scopeDeclares reports whether scope declares a KerML-only and a SysML-only element.
+func scopeDeclares(scope *symbols.Scope) (kerml, sysml bool) {
+	if scope == nil {
+		return false, false
+	}
+	for _, members := range [][]*symbols.Symbol{scope.AllMembers(), scope.AnonymousMembers()} {
+		for _, sym := range members {
+			kerml = kerml || kermlKeyword(keywordOf(sym))
+			sysml = sysml || sysmlDeclaration(sym)
+		}
+	}
+	for _, child := range scope.Children() {
+		k, s := scopeDeclares(child)
+		kerml, sysml = kerml || k, sysml || s
+	}
+	return kerml, sysml
+}
+
+// kermlKeyword reports a declaration keyword KerML alone spells.
+func kermlKeyword(keyword string) bool {
+	_, base := implicitKerMLBases[keyword]
+	_, behavior := implicitKerMLBehaviorBases[keyword]
+	return base || behavior
+}
+
+// sysmlDeclaration reports a usage or definition of a kind SysML alone spells.
+func sysmlDeclaration(sym *symbols.Symbol) bool {
+	switch d := sym.Decl.(type) {
+	case *ast.Usage:
+		_, sysml := implicitUsageBases[d.Kind]
+		_, feature := implicitKerMLFeatureBases[d.Keyword]
+		return sysml && !feature && !kermlKeyword(d.Keyword)
+	case *ast.Definition:
+		_, sysml := implicitDefinitionBases[d.Kind]
+		return sysml && !kermlKeyword(d.Keyword)
+	}
+	return false
 }
 
 // implicitBases returns the stdlib definitions sym is implicitly typed by, or nil when sym
@@ -688,6 +759,9 @@ func (m *Model) declaredGeneralizationReaches(sym *symbols.Symbol, want string, 
 		}
 	}
 	targets = append(targets, m.semanticMetadataBases(sym)...)
+	if sub := m.SubsettedMultiplicity(sym); sub != nil {
+		targets = append(targets, sub)
+	}
 	for _, target := range targets {
 		// A declaration on the path back to itself is a cycle, not a path to
 		// the base, so it does not displace the implicit one.
@@ -701,7 +775,8 @@ func (m *Model) declaredGeneralizationReaches(sym *symbols.Symbol, want string, 
 			// except back through a cycle, which reaches nothing new, or a
 			// conjugated one, whose supertypes come from what it conjugates.
 			if (slices.Contains(m.kindBaseFQNs(target, m.isKerMLDoc(target)), want) ||
-				slices.Contains(m.kindBaseDefinitionFQNs(target, m.isKerMLDoc(target)), want)) &&
+				slices.Contains(m.kindBaseDefinitionFQNs(target, m.isKerMLDoc(target)), want) ||
+				m.multiplicityBaseIs(target, want)) &&
 				!declaresConjugation(target) && !m.declaredReaches(target, sym, nil) {
 				sameBase = true
 			}
@@ -727,11 +802,16 @@ func (m *Model) declaredReaches(from, want *symbols.Symbol, visiting map[*symbol
 	}
 	visiting[from] = true
 
+	var targets []*symbols.Symbol
 	for _, rel := range RelationshipsOf(from) {
-		if rel == nil || !GeneralizationKind(rel.Kind) {
-			continue
+		if rel != nil && GeneralizationKind(rel.Kind) {
+			targets = append(targets, m.relationshipTarget(from, rel))
 		}
-		target := m.relationshipTarget(from, rel)
+	}
+	if sub := m.SubsettedMultiplicity(from); sub != nil {
+		targets = append(targets, sub)
+	}
+	for _, target := range targets {
 		if target == want || m.declaredReaches(target, want, visiting) {
 			return true
 		}
@@ -933,7 +1013,7 @@ func (m *Model) implicitBaseFeatures(sym *symbols.Symbol, declared []*symbols.Sy
 		return nil
 	}
 	var out []*symbols.Symbol
-	for _, base := range []*symbols.Symbol{m.implicitUsageBaseFeature(sym), m.implicitKerMLFeatureBase(sym)} {
+	for _, base := range []*symbols.Symbol{m.implicitUsageBaseFeature(sym), m.implicitKerMLFeatureBase(sym), m.implicitMultiplicityBase(sym)} {
 		if base != nil && base != sym && !slices.Contains(declared, base) {
 			out = append(out, base)
 		}
@@ -963,7 +1043,7 @@ func (m *Model) ImpliedBaseFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 // whether or not a declared chain suppresses them.
 func (m *Model) candidateBaseFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
-	for _, base := range []*symbols.Symbol{m.implicitUsageBaseFeature(sym), m.implicitKerMLFeatureBase(sym), m.implicitBaseUsage(sym)} {
+	for _, base := range []*symbols.Symbol{m.implicitUsageBaseFeature(sym), m.implicitKerMLFeatureBase(sym), m.implicitMultiplicityBase(sym), m.implicitBaseUsage(sym)} {
 		if base != nil {
 			out = append(out, base)
 		}
@@ -993,6 +1073,9 @@ func (m *Model) declaredChainReachesKindBase(sym *symbols.Symbol) bool {
 
 // computeDeclaredChainReachesKindBase derives declaredChainReachesKindBase for a declaration.
 func (m *Model) computeDeclaredChainReachesKindBase(sym *symbols.Symbol) bool {
+	if fqn, ok := m.MultiplicityBaseFQN(sym); ok {
+		return m.declaredGeneralizationReaches(sym, fqn, nil)
+	}
 	var fqn string
 	var ok bool
 	if m.isKerMLDoc(sym) {

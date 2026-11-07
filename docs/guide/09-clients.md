@@ -65,7 +65,7 @@ package Demo {
     <dependency>
       <groupId>org.openmbee</groupId>
       <artifactId>opensysml</artifactId>
-      <version>0.12.0</version>
+      <version>0.12.1</version>
     </dependency>
     ```
 

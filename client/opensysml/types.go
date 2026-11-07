@@ -23,6 +23,7 @@ const (
 	CapabilityRenderDocument                 = sysmlgrpc.CapabilityRenderDocument
 	CapabilityRenderView                     = sysmlgrpc.CapabilityRenderView
 	CapabilityExportGraphs                   = sysmlgrpc.CapabilityExportGraphs
+	CapabilityInstancePaths                  = sysmlgrpc.CapabilityInstancePaths
 	CapabilityImportData                     = sysmlgrpc.CapabilityImportData
 	CapabilityCompareResults                 = sysmlgrpc.CapabilityCompareResults
 	CapabilityCheck                          = sysmlgrpc.CapabilityCheck
@@ -285,6 +286,73 @@ type Instance struct {
 	// FeatureValues are what the object holds for each feature of its type,
 	// by feature name.
 	FeatureValues map[string]FeatureValue
+	// ReachedBy is how the traversal that produced the Instantiation reached
+	// this object: the holding instance, its feature and the path from the
+	// root. Nil for the root, and under a service without the instance_paths
+	// capability.
+	ReachedBy *Reach
+}
+
+// Reach is how a traversal of an object graph reached one object. The
+// traversal is depth-first from the root, over the features of an object in
+// name order and the values of a feature in their order, reaching an object
+// once; one object may be a value of several features, and InstancePaths
+// lists every path to it.
+type Reach struct {
+	// InstanceID is the object holding this one.
+	InstanceID int64
+	// FeatureName is the holder's feature, a key of its FeatureValues, and
+	// FeatureSymbolID the FQN of the feature as declared.
+	FeatureName     string
+	FeatureSymbolID string
+	// Index is the position among the values of a multi-valued feature,
+	// counted from 1 as an object path indexes them; 0 for a single-valued one.
+	Index int
+	// Path is the path from the root, the feature names joined by dots and
+	// indexed within a multi-valued feature (`powertrain.engine.fuelIn`).
+	Path string
+}
+
+// ObjectRef names an object the service holds for a model: by the id
+// Instantiate answered, or by path — the qualified name it was instantiated
+// as (`Garage::car`), its id (`#2`), or a path through feature values from
+// either (`Garage::car.wheels[2]`; indexes count from 1).
+type ObjectRef struct {
+	InstanceID int64
+	Path       string
+}
+
+// InstancePaths is every root-relative path reaching one object.
+type InstancePaths struct {
+	// Paths, in traversal order: the roots in id order and, from each,
+	// depth-first over features in name order and values in their order.
+	Paths []InstancePath
+	// Truncated reports the paths were cut short: more reach the object than
+	// the service lists, or one deeper than it walks.
+	Truncated bool
+}
+
+// InstancePath is one root-relative path to an object.
+type InstancePath struct {
+	// RootInstanceID is the root the path starts from, and RootSymbolID the
+	// qualified name it was instantiated as; empty when the name no longer
+	// binds it and `#<id>` addresses it.
+	RootInstanceID int64
+	RootSymbolID   string
+	// Path is the steps as an object path; empty when the object is the root.
+	Path  string
+	Steps []PathStep
+}
+
+// PathStep is one feature walked along a path.
+type PathStep struct {
+	FeatureName     string
+	FeatureSymbolID string
+	// Index is the position within a multi-valued feature, from 1; 0 for a
+	// single-valued one.
+	Index int
+	// InstanceID is the object the step reaches.
+	InstanceID int64
 }
 
 // FeatureValue is what an object holds for one feature of its type.

@@ -845,6 +845,68 @@ class SymbolResponse(_message.Message):
     error: str
     def __init__(self, symbol: _Optional[_Union[SymbolInfo, _Mapping]] = ..., error: _Optional[str] = ...) -> None: ...
 
+class GetElementPropertiesRequest(_message.Message):
+    __slots__ = ("model_hash", "element_id", "properties")
+    MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
+    ELEMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    model_hash: str
+    element_id: str
+    properties: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, model_hash: _Optional[str] = ..., element_id: _Optional[str] = ..., properties: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class GetElementPropertiesResponse(_message.Message):
+    __slots__ = ("element", "properties", "error")
+    ELEMENT_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    element: ElementRef
+    properties: _containers.RepeatedCompositeFieldContainer[ElementProperty]
+    error: str
+    def __init__(self, element: _Optional[_Union[ElementRef, _Mapping]] = ..., properties: _Optional[_Iterable[_Union[ElementProperty, _Mapping]]] = ..., error: _Optional[str] = ...) -> None: ...
+
+class ElementRef(_message.Message):
+    __slots__ = ("id", "qualified_name", "metaclass")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    QUALIFIED_NAME_FIELD_NUMBER: _ClassVar[int]
+    METACLASS_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    qualified_name: str
+    metaclass: str
+    def __init__(self, id: _Optional[str] = ..., qualified_name: _Optional[str] = ..., metaclass: _Optional[str] = ...) -> None: ...
+
+class ElementProperty(_message.Message):
+    __slots__ = ("name", "defining_class", "many", "derived", "values", "unsupported")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    DEFINING_CLASS_FIELD_NUMBER: _ClassVar[int]
+    MANY_FIELD_NUMBER: _ClassVar[int]
+    DERIVED_FIELD_NUMBER: _ClassVar[int]
+    VALUES_FIELD_NUMBER: _ClassVar[int]
+    UNSUPPORTED_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    defining_class: str
+    many: bool
+    derived: bool
+    values: _containers.RepeatedCompositeFieldContainer[ElementPropertyValue]
+    unsupported: str
+    def __init__(self, name: _Optional[str] = ..., defining_class: _Optional[str] = ..., many: _Optional[bool] = ..., derived: _Optional[bool] = ..., values: _Optional[_Iterable[_Union[ElementPropertyValue, _Mapping]]] = ..., unsupported: _Optional[str] = ...) -> None: ...
+
+class ElementPropertyValue(_message.Message):
+    __slots__ = ("element", "string_value", "bool_value", "int_value", "real_value", "number")
+    ELEMENT_FIELD_NUMBER: _ClassVar[int]
+    STRING_VALUE_FIELD_NUMBER: _ClassVar[int]
+    BOOL_VALUE_FIELD_NUMBER: _ClassVar[int]
+    INT_VALUE_FIELD_NUMBER: _ClassVar[int]
+    REAL_VALUE_FIELD_NUMBER: _ClassVar[int]
+    NUMBER_FIELD_NUMBER: _ClassVar[int]
+    element: ElementRef
+    string_value: str
+    bool_value: bool
+    int_value: int
+    real_value: float
+    number: str
+    def __init__(self, element: _Optional[_Union[ElementRef, _Mapping]] = ..., string_value: _Optional[str] = ..., bool_value: _Optional[bool] = ..., int_value: _Optional[int] = ..., real_value: _Optional[float] = ..., number: _Optional[str] = ...) -> None: ...
+
 class DiagnosticsRequest(_message.Message):
     __slots__ = ("model_hash", "disable_lint", "enable_lint")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
@@ -886,7 +948,7 @@ class EvaluateResponse(_message.Message):
     def __init__(self, result: _Optional[_Union[Value, _Mapping]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ...) -> None: ...
 
 class Instance(_message.Message):
-    __slots__ = ("id", "type_symbol_id", "feature_values")
+    __slots__ = ("id", "type_symbol_id", "feature_values", "reached_by")
     class FeatureValuesEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -897,10 +959,26 @@ class Instance(_message.Message):
     ID_FIELD_NUMBER: _ClassVar[int]
     TYPE_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
     FEATURE_VALUES_FIELD_NUMBER: _ClassVar[int]
+    REACHED_BY_FIELD_NUMBER: _ClassVar[int]
     id: int
     type_symbol_id: str
     feature_values: _containers.MessageMap[str, FeatureValue]
-    def __init__(self, id: _Optional[int] = ..., type_symbol_id: _Optional[str] = ..., feature_values: _Optional[_Mapping[str, FeatureValue]] = ...) -> None: ...
+    reached_by: InstanceReach
+    def __init__(self, id: _Optional[int] = ..., type_symbol_id: _Optional[str] = ..., feature_values: _Optional[_Mapping[str, FeatureValue]] = ..., reached_by: _Optional[_Union[InstanceReach, _Mapping]] = ...) -> None: ...
+
+class InstanceReach(_message.Message):
+    __slots__ = ("instance_id", "feature_name", "feature_symbol_id", "index", "path")
+    INSTANCE_ID_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_NAME_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
+    INDEX_FIELD_NUMBER: _ClassVar[int]
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    instance_id: int
+    feature_name: str
+    feature_symbol_id: str
+    index: int
+    path: str
+    def __init__(self, instance_id: _Optional[int] = ..., feature_name: _Optional[str] = ..., feature_symbol_id: _Optional[str] = ..., index: _Optional[int] = ..., path: _Optional[str] = ...) -> None: ...
 
 class FeatureValue(_message.Message):
     __slots__ = ("feature_name", "value", "values", "materialized", "error", "order_dependent")
@@ -937,6 +1015,56 @@ class InstantiateResponse(_message.Message):
     diagnostics: _containers.RepeatedCompositeFieldContainer[Diagnostic]
     instances: _containers.RepeatedCompositeFieldContainer[Instance]
     def __init__(self, instance: _Optional[_Union[Instance, _Mapping]] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., instances: _Optional[_Iterable[_Union[Instance, _Mapping]]] = ...) -> None: ...
+
+class InstancePathsRequest(_message.Message):
+    __slots__ = ("model_hash", "object")
+    MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
+    OBJECT_FIELD_NUMBER: _ClassVar[int]
+    model_hash: str
+    object: DocumentObject
+    def __init__(self, model_hash: _Optional[str] = ..., object: _Optional[_Union[DocumentObject, _Mapping]] = ...) -> None: ...
+
+class InstancePathsResponse(_message.Message):
+    __slots__ = ("paths", "truncated", "error", "diagnostics")
+    PATHS_FIELD_NUMBER: _ClassVar[int]
+    TRUNCATED_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    DIAGNOSTICS_FIELD_NUMBER: _ClassVar[int]
+    paths: _containers.RepeatedCompositeFieldContainer[InstancePath]
+    truncated: bool
+    error: str
+    diagnostics: _containers.RepeatedCompositeFieldContainer[Diagnostic]
+    def __init__(self, paths: _Optional[_Iterable[_Union[InstancePath, _Mapping]]] = ..., truncated: _Optional[bool] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ...) -> None: ...
+
+class InstancePath(_message.Message):
+    __slots__ = ("root", "path", "steps")
+    ROOT_FIELD_NUMBER: _ClassVar[int]
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    STEPS_FIELD_NUMBER: _ClassVar[int]
+    root: InstanceRoot
+    path: str
+    steps: _containers.RepeatedCompositeFieldContainer[InstancePathStep]
+    def __init__(self, root: _Optional[_Union[InstanceRoot, _Mapping]] = ..., path: _Optional[str] = ..., steps: _Optional[_Iterable[_Union[InstancePathStep, _Mapping]]] = ...) -> None: ...
+
+class InstanceRoot(_message.Message):
+    __slots__ = ("instance_id", "symbol_id")
+    INSTANCE_ID_FIELD_NUMBER: _ClassVar[int]
+    SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
+    instance_id: int
+    symbol_id: str
+    def __init__(self, instance_id: _Optional[int] = ..., symbol_id: _Optional[str] = ...) -> None: ...
+
+class InstancePathStep(_message.Message):
+    __slots__ = ("feature_name", "feature_symbol_id", "index", "instance_id")
+    FEATURE_NAME_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_SYMBOL_ID_FIELD_NUMBER: _ClassVar[int]
+    INDEX_FIELD_NUMBER: _ClassVar[int]
+    INSTANCE_ID_FIELD_NUMBER: _ClassVar[int]
+    feature_name: str
+    feature_symbol_id: str
+    index: int
+    instance_id: int
+    def __init__(self, feature_name: _Optional[str] = ..., feature_symbol_id: _Optional[str] = ..., index: _Optional[int] = ..., instance_id: _Optional[int] = ...) -> None: ...
 
 class ExecuteActionRequest(_message.Message):
     __slots__ = ("model_hash", "action_symbol_id", "inputs", "schedule", "performer_symbol_id", "advance", "seed", "draws", "clock_step", "trace", "events")
