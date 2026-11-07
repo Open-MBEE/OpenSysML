@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -26,6 +27,9 @@ type Context struct {
 	Index     *symbols.Index
 	Resolver  *resolve.Resolver
 	Semantics *semantics.Model
+	// Metamodel derives the reflective properties the type facts summarize, so
+	// they answer as GetElementProperties does.
+	Metamodel *metamodel.Evaluator
 	// Positional names the symbols no qualified name identifies; nil when the
 	// host derives none, which leaves such symbols without an id.
 	Positional *Positional
@@ -36,7 +40,7 @@ func NewContext(idx *symbols.Index) *Context {
 	resolver := resolve.New(idx)
 	sem := passes.NewTypedModel(resolver)
 	resolver.SetModel(sem)
-	return &Context{Index: idx, Resolver: resolver, Semantics: sem}
+	return &Context{Index: idx, Resolver: resolver, Semantics: sem, Metamodel: metamodel.New(resolver, sem)}
 }
 
 // Lock takes exclusive use of the context's resolver and semantic model, and
@@ -81,7 +85,10 @@ type Options struct {
 	IncludeLibraryMembers bool
 }
 
-// TypeInfo describes a symbol's declared, resolved and primitive type.
+// TypeInfo describes a symbol's written, derived and primitive type. Declared,
+// ResolvedId and ResolvedKind are the typing the declaration writes; Types is
+// the feature's semantic type (Feature::type), which subsetting, reference
+// subsetting and redefinition contribute to.
 type TypeInfo struct {
 	Declared        string
 	ResolvedId      string
@@ -90,6 +97,13 @@ type TypeInfo struct {
 	PrimitiveSource string
 	Quantity        bool
 	Unit            string
+	Types           []*TypeRef
+}
+
+// TypeRef names one derived type of a feature.
+type TypeRef struct {
+	Id   string
+	Kind string
 }
 
 // Multiplicity contains the lower and upper bounds of a symbol's multiplicity.
@@ -209,6 +223,8 @@ func relationshipKindName(k ast.RelationshipKind) string {
 		return "redefines"
 	case ast.RelTyping:
 		return "typing"
+	case ast.RelReferences, ast.RelIncludes:
+		return "references"
 	default:
 		return ""
 	}
@@ -329,6 +345,8 @@ func (sc *Context) usageTypeInfo(sym *symbols.Symbol, decl *ast.Usage) *TypeInfo
 		break
 	}
 
+	info.Types = sc.derivedTypes(sym)
+
 	// PrimTypeOf walks the generalization graph, so it covers a type inherited
 	// through subsetting or redefinition as well as a declared one.
 	if prim := sc.Semantics.PrimTypeOf(sym); prim != semantics.PrimUnknown {
@@ -340,6 +358,26 @@ func (sc *Context) usageTypeInfo(sym *symbols.Symbol, decl *ast.Usage) *TypeInfo
 	}
 	sc.markQuantity(sym, info, decl.Value)
 	return info
+}
+
+// derivedTypes reports the feature's semantic type, Feature::type as the
+// metamodel evaluator derives it (KerML 8.3.3.3): the typing written on the
+// feature and on every feature it subsets, references or redefines, with the
+// redundant supertypes removed. Nil when the evaluator derives none.
+func (sc *Context) derivedTypes(sym *symbols.Symbol) []*TypeRef {
+	value, ok := sc.Metamodel.Property(metamodel.ElementOf(sym), "Feature", "type")
+	if !ok || value.Kind != metamodel.SequenceValue {
+		return nil
+	}
+	var out []*TypeRef
+	for _, item := range value.Values {
+		target := item.Element.Symbol
+		if item.Kind != metamodel.ElementValue || target == nil {
+			continue
+		}
+		out = append(out, &TypeRef{Id: sc.Index.GetFQN(target), Kind: target.Kind.String()})
+	}
+	return out
 }
 
 // definitionTypeInfo derives the type facts of a definition: the library scalar

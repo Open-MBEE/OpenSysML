@@ -146,8 +146,13 @@ type Symbol struct {
 	// ID is the fully qualified name, the identifier the other calls take.
 	ID   string
 	Name string
-	// Kind of the element ("PartDefinition", "AttributeUsage", …).
-	Kind     string
+	// Kind is the declaration keyword kind ("partDef", "attributeUsage", …):
+	// the written syntax, not the metaclass ElementProperties reports.
+	Kind string
+	// Metadata summarises what is written: "type" and "specializes" are the
+	// first written edge of each (Specializations has them all), "direction"
+	// the direction written on the feature (the derived Feature::direction is
+	// ElementProperties' "direction"), plus "multiplicity", "abstract", ….
 	Metadata map[string]string
 	// ChildIDs are the fully qualified names of the element's children.
 	ChildIDs []string
@@ -155,12 +160,14 @@ type Symbol struct {
 	// capability.
 	Attributes []Attribute
 	// Type facts, nil when the element is not a def/usage or the type_facts
-	// capability is absent.
+	// capability is absent. Declared is the written typing, Types the derived
+	// Feature::type (ElementProperties' "type").
 	Type *TypeInfo
 	// Multiplicity as declared, nil when none is declared.
 	Multiplicity *Multiplicity
-	// Specializations are every generalization edge declared, in declaration
-	// order.
+	// Specializations are every generalization edge written, in declaration
+	// order: what ElementProperties' "ownedSpecialization" reflects, without
+	// the implied ones the metamodel adds.
 	Specializations []Specialization
 	// WithheldLibraryAttributes counts attributes inherited from
 	// standard-library content, which Attributes leaves out.
@@ -200,12 +207,15 @@ type Attribute struct {
 
 // TypeInfo is the static type of a usage, or the classification of a
 // definition, as far as the service derives it without running the model.
+// Declared, ResolvedID and ResolvedKind are the typing as written (": T");
+// Types is the derived KerML Feature::type, which the typing of every feature
+// the usage subsets, references or redefines contributes to.
 type TypeInfo struct {
 	// Declared is the type name as written; empty when none is declared.
 	Declared string
-	// ResolvedID is the FQN of the resolved type; empty when unresolved.
+	// ResolvedID is the FQN of the resolved written type; empty when unresolved.
 	ResolvedID string
-	// ResolvedKind is the symbol kind of the resolved type ("partDef", …).
+	// ResolvedKind is the symbol kind of the resolved written type ("partDef", …).
 	ResolvedKind string
 	// Primitive is the library scalar the type reduces to ("Boolean",
 	// "Integer", "Real", …); empty when it is not a scalar value type.
@@ -217,6 +227,17 @@ type TypeInfo struct {
 	Quantity bool
 	// Unit as written when the default value names one ("m/s"), else empty.
 	Unit string
+	// Types are the derived types, most specific first with redundant
+	// supertypes removed; empty for a definition or when none derives.
+	Types []TypeRef
+}
+
+// TypeRef names one derived type of a feature.
+type TypeRef struct {
+	// ID is the FQN of the type.
+	ID string
+	// Kind is the symbol kind of the type ("partDef", "attributeDef", …).
+	Kind string
 }
 
 // Multiplicity is a declared multiplicity range. A bound the service cannot
@@ -228,7 +249,8 @@ type Multiplicity struct {
 
 // Specialization is one generalization edge an element declares.
 type Specialization struct {
-	// Kind of relationship: "specializes", "subsets", "redefines" or "typing".
+	// Kind of relationship: "specializes", "subsets", "redefines", "typing" or
+	// "references" (reference subsetting, "::>" and "include").
 	Kind string
 	// Declared is the target as written ("Engine", "Demo::Engine").
 	Declared string
