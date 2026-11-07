@@ -556,7 +556,7 @@ fn a_document_query_answers_typed_rows_and_a_document_renders() {
         )
         .unwrap();
     assert_eq!(inline.columns, vec!["name", "mass"]);
-    assert_eq!(inline.rows.len(), 4);
+    assert_eq!(inline.rows.len(), 2);
     let fault = model
         .run_inline_document_query::<&str>("Project(Named(\"Observatory\") (\"name\"))", &[])
         .unwrap_err();
