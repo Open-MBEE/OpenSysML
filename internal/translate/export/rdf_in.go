@@ -4539,7 +4539,7 @@ func (d *decoder) aboutList(el *element) ([]string, error) {
 			continue
 		}
 		for _, term := range d.graph.Objects(rdf.IRI(child.iri), rdf.SysML+pAnnotatedElement) {
-			name, err := d.referenceName(term, el)
+			name, err := d.referenceName(d.statedForm(el, term), el)
 			if err != nil {
 				return nil, err
 			}
@@ -4550,6 +4550,36 @@ func (d *decoder) aboutList(el *element) ([]string, error) {
 		return out, nil
 	}
 	return d.referenceList(el, rdf.SysML+pAnnotatedElement)
+}
+
+// statedForm is the owner's own statement of an Annotation's target: the IRI when the
+// owner states it, else the name the owner wrote — an end matched through a declared
+// name does not get to respell the clause.
+func (d *decoder) statedForm(el *element, target rdf.Term) rdf.Term {
+	if !target.IsIRI() {
+		return target
+	}
+	var literal *rdf.Term
+	for _, object := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pAnnotatedElement) {
+		if object.Value == target.Value {
+			return target
+		}
+		if object.IsIRI() || literal != nil {
+			continue
+		}
+		for _, property := range []string{pDeclaredName, pDeclaredShortName} {
+			for _, name := range d.graph.Objects(rdf.IRI(target.Value), rdf.SysML+property) {
+				if name.Value == object.Value {
+					o := object
+					literal = &o
+				}
+			}
+		}
+	}
+	if literal != nil {
+		return *literal
+	}
+	return target
 }
 
 func (d *decoder) referenceList(el *element, property string) ([]string, error) {

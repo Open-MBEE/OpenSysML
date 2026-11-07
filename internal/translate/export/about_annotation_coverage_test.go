@@ -125,6 +125,35 @@ func TestAnnotationMayAnnotateAnElementStatedByName(t *testing.T) {
 	}
 }
 
+// An Annotation matched to the owner's literal through a namesake's declared name
+// does not respell the clause: the owner's `about A` stays `A`, not the namesake.
+func TestAnnotationMatchedByNameKeepsTheOwnersSpelling(t *testing.T) {
+	full := graphOfNotation(t, "package P {\n    comment about A /* note */\n}\npackage Q {\n    part def A;\n}\n")
+	namesake := rdf.NewGraphOf(append([]rdf.Triple(nil), full.Triples()...), full.Prefixes)
+	rewritten := 0
+	namesake.RewriteTriples(func(tr *rdf.Triple) bool {
+		// Without source text the clause is printed from the graph, as another tool's graph is.
+		if tr.Predicate.Value == rdf.OpenSysML+xSourceText || tr.Predicate.Value == rdf.OpenSysML+xSourceTail {
+			return false
+		}
+		if strings.HasSuffix(tr.Subject.Value, "_an0") && tr.Predicate.Value == rdf.SysML+pAnnotatedElement && tr.Object.Value == "A" {
+			*tr = rdf.Triple{Subject: tr.Subject, Predicate: tr.Predicate, Object: rdf.IRI(rdf.Element + "Q__A")}
+			rewritten++
+		}
+		return true
+	})
+	if rewritten != 1 {
+		t.Fatalf("rewrote %d Annotation targets to the namesake, want 1", rewritten)
+	}
+	out, err := ToSysML(namesake)
+	if err != nil {
+		t.Fatalf("the graph reads: %v", err)
+	}
+	if !strings.Contains(string(out), "comment about A ") || strings.Contains(string(out), "Q::A") {
+		t.Errorf("the owner's `about A` should read back as written, not as the namesake:\n%s", out)
+	}
+}
+
 // `about x, x` owns two Annotations of the one element, as the notation adds one per
 // name (KerML 8.2.3.2 AnnotatingElement: `about` names), each with its own id, and
 // reads back as written.
