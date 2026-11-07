@@ -765,7 +765,7 @@ func importMetaclass(imported, exposed string, expose bool) string {
 // importTarget types the import subject by what it imports and states the
 // target: a namespace directly, a membership once the walk has minted it.
 func (e *encoder) importTarget(subject, owner rdf.Term, head func(rdf.Term), n *ast.Import) {
-	// An Import's source is its importOwningNamespace, its target what it imports (KerML 8.3.2.3.3).
+	// An Import's source is its importOwningNamespace, its target what it imports (KerML 8.3.2.4.2).
 	if owner.IsIRI() && owner.Value != "" {
 		e.graph.Add(subject, e.sysml(pSource), owner)
 	}
@@ -2342,7 +2342,7 @@ func (e *encoder) prefixAnnotation(annotation, member, owner rdf.Term, memberFQN
 }
 
 // membershipEnds states a Membership's source as its owning namespace and target as its member
-// (KerML 8.3.2.3.5); relatedElement is source then target (8.3.2.5.2).
+// (KerML 8.3.2.4.3); relatedElement is source then target (8.3.2.1.3).
 func (e *encoder) membershipEnds(membership, owner, member rdf.Term) {
 	e.graph.Add(membership, e.sysml(pSource), owner)
 	e.graph.Add(membership, e.sysml(pTarget), member)
@@ -2369,7 +2369,7 @@ func (e *encoder) emitMembershipCore(membership, member, owner rdf.Term, metacla
 }
 
 // memberNames states Membership::memberName — the declared name, else the written naming feature's as
-// sysml:name spells it, else the effective name the model derives — and memberShortName (KerML 8.3.2.3.5, 8.2.4).
+// sysml:name spells it, else the effective name the model derives — and memberShortName (KerML 8.3.2.4.3, 8.3.3.3.4).
 func (e *encoder) memberNames(membership rdf.Term, node ast.Node) {
 	name, short := e.effectiveName(node), ""
 	// The membership names its member by the model's effective name whatever the
