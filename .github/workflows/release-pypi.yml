@@ -1,5 +1,8 @@
-# Publishes a `v*` release's Python client and Jupyter kernel package to PyPI with
-# trusted publishing, from CircleCI's signed release: docs/project/releasing.md.
+# Publishes a release's Python client and Jupyter kernel package to PyPI with trusted
+# publishing, from the signed GitHub release: CircleCI's for a `v*` tag
+# (docs/project/releasing.md), the nightly workflow's for the `nightly-<yyyymmdd>-<commit>`
+# tag it dispatches this workflow with (docs/project/nightly.md). One workflow publishes
+# both, so every version on the index names the same publisher.
 name: Release to PyPI
 
 on:
@@ -9,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag (vX.Y.Z) whose Python distributions to publish, as the tag push would
+        description: Existing release tag (vX.Y.Z, or a night's nightly-<yyyymmdd>-<commit>) whose Python distributions to publish, as the tag push or the nightly's dispatch would
         required: true
       dry_run:
         description: Fetch and verify the release's distributions without publishing them
@@ -31,6 +34,9 @@ env:
   # The CircleCI identity that signs the release manifest (client/python/opensysml/signing.py).
   MANIFEST_OIDC_ISSUER: https://oidc.circleci.com/org/1169df8b-0b59-400f-82d2-c9d8e98bdb62
   MANIFEST_IDENTITY_REGEXP: ^https://circleci\.com/api/v2/projects/eeb0dddd-237f-4f02-9e51-8e24caef589d/pipeline-definitions/[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$
+  # The nightly workflow's own identity, which signs a snapshot's manifest (docs/project/nightly.md).
+  SNAPSHOT_OIDC_ISSUER: https://token.actions.githubusercontent.com
+  SNAPSHOT_IDENTITY_REGEXP: ^https://github\.com/Open-MBEE/OpenSysML/\.github/workflows/nightly\.yml@refs/heads/develop$
   # CircleCI publishes the release only after its whole suite passed on the tag.
   RELEASE_GATE_TIMEOUT: 10800
   DRY_RUN: ${{ inputs.dry_run == true }}
@@ -42,6 +48,7 @@ jobs:
     timeout-minutes: 200
     outputs:
       tag: ${{ steps.version.outputs.tag }}
+      kind: ${{ steps.version.outputs.kind }}
       version: ${{ steps.version.outputs.version }}
       index-host: ${{ steps.version.outputs.index-host }}
       repository-url: ${{ steps.version.outputs.repository-url }}
@@ -59,7 +66,10 @@ jobs:
       - name: Install the checking tools
         run: python -m pip install --only-binary ":all:" pip==26.2.1 twine==7.0.0 packaging==26.3
 
-      # The tag must name the version both packages declare; a pre-release goes to TestPyPI.
+      # A release tag must name the version both packages declare, and a pre-release goes to
+      # TestPyPI; a night's tag names the date and commit its versions were derived from, by
+      # the commit's own script, and a development version goes to PyPI where no default
+      # install picks it up.
       - name: Resolve the version from the tag
         id: version
         env:
@@ -76,34 +86,61 @@ jobs:
             exit 1
           fi
           case "$TAG" in
-            v[0-9]*.[0-9]*.[0-9]*) ;;
-            *) echo "::error::tag '$TAG' must look like v<major>.<minor>.<patch>[-suffix]"; exit 1 ;;
+            v[0-9]*.[0-9]*.[0-9]*)
+              KIND=release
+              VERSION="$(python client/python/scripts/check_version.py --tag "$TAG")"
+              KERNEL_VERSION="$(python client/python/scripts/check_version.py --jupyter-kernel --tag "$TAG")"
+              if [ "$KERNEL_VERSION" != "$VERSION" ]; then
+                echo "::error::the Jupyter kernel package declares ${KERNEL_VERSION}, the Python client ${VERSION}"
+                exit 1
+              fi
+              if [ "$(python client/python/scripts/check_version.py --pre-release --tag "$TAG")" = "yes" ]; then
+                INDEX_HOST=test.pypi.org
+                REPOSITORY_URL=https://test.pypi.org/legacy/
+              else
+                INDEX_HOST=pypi.org
+                REPOSITORY_URL=https://upload.pypi.org/legacy/
+              fi
+              OIDC_ISSUER="$MANIFEST_OIDC_ISSUER"
+              IDENTITY_REGEXP="$MANIFEST_IDENTITY_REGEXP" ;;
+            nightly-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9a-f]*)
+              KIND=snapshot
+              date="${TAG#nightly-}"
+              date="${date%%-*}"
+              commit="${TAG##*-}"
+              if [ "$(git rev-parse --verify --quiet "${commit}^{commit}")" != "$(git rev-parse HEAD)" ]; then
+                echo "::error::tag '$TAG' names commit ${commit}, which is not the $(git rev-parse HEAD) checked out at it"
+                exit 1
+              fi
+              # The snapshot's version depends on whether the release it leads to is tagged.
+              git fetch --quiet --depth=1 origin 'refs/tags/v*:refs/tags/v*'
+              VERSION="$(python client/python/scripts/snapshot_version.py --date "$date" --commit "$commit" | sed -n 's/^pypi=//p')"
+              if [ -z "$VERSION" ]; then
+                echo "::error::snapshot_version.py derived no PyPI version for ${TAG}"
+                exit 1
+              fi
+              INDEX_HOST=pypi.org
+              REPOSITORY_URL=https://upload.pypi.org/legacy/
+              OIDC_ISSUER="$SNAPSHOT_OIDC_ISSUER"
+              IDENTITY_REGEXP="$SNAPSHOT_IDENTITY_REGEXP" ;;
+            *) echo "::error::tag '$TAG' must look like v<major>.<minor>.<patch>[-suffix] or nightly-<yyyymmdd>-<commit>"; exit 1 ;;
           esac
-          VERSION="$(python client/python/scripts/check_version.py --tag "$TAG")"
-          KERNEL_VERSION="$(python client/python/scripts/check_version.py --jupyter-kernel --tag "$TAG")"
-          if [ "$KERNEL_VERSION" != "$VERSION" ]; then
-            echo "::error::the Jupyter kernel package declares ${KERNEL_VERSION}, the Python client ${VERSION}"
-            exit 1
-          fi
-          if [ "$(python client/python/scripts/check_version.py --pre-release --tag "$TAG")" = "yes" ]; then
-            INDEX_HOST=test.pypi.org
-            REPOSITORY_URL=https://test.pypi.org/legacy/
-          else
-            INDEX_HOST=pypi.org
-            REPOSITORY_URL=https://upload.pypi.org/legacy/
-          fi
-          echo "Publishing ${PYPI_PROJECT} and ${KERNEL_PYPI_PROJECT} ${VERSION} from ${TAG} to ${INDEX_HOST} (dry run: ${DRY_RUN})"
+          echo "Publishing ${PYPI_PROJECT} and ${KERNEL_PYPI_PROJECT} ${VERSION} from ${KIND} ${TAG} to ${INDEX_HOST} (dry run: ${DRY_RUN})"
           {
             echo "tag=$TAG"
+            echo "kind=$KIND"
             echo "version=$VERSION"
             echo "index-host=$INDEX_HOST"
             echo "repository-url=$REPOSITORY_URL"
+            echo "oidc-issuer=$OIDC_ISSUER"
+            echo "identity-regexp=$IDENTITY_REGEXP"
             echo "commit=$(git rev-parse HEAD)"
           } >> "$GITHUB_OUTPUT"
 
       # The bundle is CircleCI's last upload, after the suite and build-release passed on
-      # the tag; the tag must still be the commit checked out here.
-      - name: Wait for CircleCI to publish the gated release
+      # the tag (a night's release is created with it); the tag must still be the commit
+      # checked out here.
+      - name: Wait for the gated release to be published
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -131,13 +168,16 @@ jobs:
         with:
           cosign-release: v3.0.3
 
-      - name: Verify the manifest was signed by the release pipeline
+      - name: Verify the manifest was signed by the pipeline that built the release
+        env:
+          OIDC_ISSUER: ${{ steps.version.outputs.oidc-issuer }}
+          IDENTITY_REGEXP: ${{ steps.version.outputs.identity-regexp }}
         run: |
           cd release
           cosign verify-blob SHA256SUMS.txt \
             --bundle SHA256SUMS.txt.bundle \
-            --certificate-oidc-issuer "$MANIFEST_OIDC_ISSUER" \
-            --certificate-identity-regexp "$MANIFEST_IDENTITY_REGEXP"
+            --certificate-oidc-issuer "$OIDC_ISSUER" \
+            --certificate-identity-regexp "$IDENTITY_REGEXP"
 
       # Every distribution must be a line of the verified manifest; the kernel needs five wheels.
       - name: Check the distributions against the manifest
@@ -241,11 +281,13 @@ jobs:
           name: ${{ env.PYTHON_DIST_ARTIFACT }}
           path: client/python/dist/
 
-      # A PyPI version is immutable: a re-run of a published release fails here by design.
+      # A PyPI version is immutable: a re-run of a published release fails here by design,
+      # while two snapshots of one day share one version, so the second leaves the first.
       - name: Refuse a version the index already has
         id: index
         env:
           VERSION: ${{ needs.fetch.outputs.version }}
+          KIND: ${{ needs.fetch.outputs.kind }}
           INDEX_HOST: ${{ needs.fetch.outputs.index-host }}
         run: |
           ls -l client/python/dist
@@ -254,6 +296,9 @@ jobs:
             200)
               if [ "$DRY_RUN" = "true" ]; then
                 echo "::notice::${PYPI_PROJECT} ${VERSION} is already on ${INDEX_HOST}; a dry run publishes nothing."
+                echo "publish=false" >> "$GITHUB_OUTPUT"
+              elif [ "$KIND" = "snapshot" ]; then
+                echo "::notice::${PYPI_PROJECT} ${VERSION} is already on ${INDEX_HOST}; today's snapshot of the Python client stands as published."
                 echo "publish=false" >> "$GITHUB_OUTPUT"
               else
                 echo "::error::${PYPI_PROJECT} ${VERSION} is already on ${INDEX_HOST}. A PyPI version can be yanked but never replaced, so this job fails rather than half-publishing; a re-run of a published release is expected to fail here and needs no action."
@@ -302,6 +347,7 @@ jobs:
         id: index
         env:
           VERSION: ${{ needs.fetch.outputs.version }}
+          KIND: ${{ needs.fetch.outputs.kind }}
           INDEX_HOST: ${{ needs.fetch.outputs.index-host }}
         run: |
           ls -l client/jupyter-kernel/dist
@@ -310,6 +356,9 @@ jobs:
             200)
               if [ "$DRY_RUN" = "true" ]; then
                 echo "::notice::${KERNEL_PYPI_PROJECT} ${VERSION} is already on ${INDEX_HOST}; a dry run publishes nothing."
+                echo "publish=false" >> "$GITHUB_OUTPUT"
+              elif [ "$KIND" = "snapshot" ]; then
+                echo "::notice::${KERNEL_PYPI_PROJECT} ${VERSION} is already on ${INDEX_HOST}; today's snapshot of the Jupyter kernel stands as published."
                 echo "publish=false" >> "$GITHUB_OUTPUT"
               else
                 echo "::error::${KERNEL_PYPI_PROJECT} ${VERSION} is already on ${INDEX_HOST}. A PyPI version can be yanked but never replaced, so this job fails rather than half-publishing; a re-run of a published release is expected to fail here and needs no action."

@@ -87,22 +87,23 @@ func TestReleasePyPIPublishesTheBytesCircleCISigned(t *testing.T) {
 	fetch := releasePyPIJob(t, workflow, "fetch")
 	runs := fetch.runSteps()
 
-	version := stepIndex(runs, `check_version.py --tag "$TAG"`, `check_version.py --jupyter-kernel --tag "$TAG"`, `check_version.py --pre-release --tag "$TAG"`)
+	version := stepIndex(runs, `check_version.py --tag "$TAG"`, `check_version.py --jupyter-kernel --tag "$TAG"`, `check_version.py --pre-release --tag "$TAG"`,
+		`IDENTITY_REGEXP="$MANIFEST_IDENTITY_REGEXP"`, `snapshot_version.py --date "$date" --commit "$commit"`, `IDENTITY_REGEXP="$SNAPSHOT_IDENTITY_REGEXP"`)
 	gate := stepIndex(runs, `scripts/wait-for-release-gate.sh "$TAG" "$COMMIT"`)
 	download := stepIndex(runs, `gh release download "$TAG"`, "--pattern SHA256SUMS.txt --pattern SHA256SUMS.txt.bundle",
 		`--pattern "opensysml-${VERSION}-py3-none-any.whl"`, `--pattern "opensysml-${VERSION}.tar.gz"`,
 		`--pattern "jupyter_opensysml_kernel-${VERSION}.tar.gz"`, `--pattern "jupyter_opensysml_kernel-${VERSION}-py3-none-*.whl"`)
 	verify := stepIndex(runs, "cosign verify-blob SHA256SUMS.txt", "--bundle SHA256SUMS.txt.bundle",
-		`--certificate-oidc-issuer "$MANIFEST_OIDC_ISSUER"`, `--certificate-identity-regexp "$MANIFEST_IDENTITY_REGEXP"`)
+		`--certificate-oidc-issuer "$OIDC_ISSUER"`, `--certificate-identity-regexp "$IDENTITY_REGEXP"`)
 	check := stepIndex(runs, `[ $# -ne 5 ]`, `grep -q "  ${file}\$" SHA256SUMS.txt`, "sha256sum -c SHA256SUMS.txt --ignore-missing")
 	metadata := stepIndex(runs, "twine check --strict client/python/dist/*", "twine check --strict client/jupyter-kernel/dist/*")
 	smoke := stepIndex(runs, "pip install client/python/dist/opensysml-*.whl", "-u OPENSYSML_BINARY -u OPENSYSML_GRPC_VERSION",
 		"opensysml.load(", `os.environ["RELEASE_TAG"]`, `cached["version"] == expected`)
 	switch {
 	case version < 0:
-		t.Error("the fetch job does not resolve the version from the tag for both packages, nor route a pre-release")
+		t.Error("the fetch job does not resolve the version from a release tag for both packages, route a pre-release, or resolve a night's tag under the nightly's identity")
 	case gate < 0:
-		t.Error("the fetch job does not wait for CircleCI to publish the gated release")
+		t.Error("the fetch job does not wait for the gated release to be published")
 	case download < 0:
 		t.Error("the fetch job does not download the two client distributions, the kernel sdist and wheels, the manifest and its signature from the release")
 	case verify < 0:
@@ -118,6 +119,16 @@ func TestReleasePyPIPublishesTheBytesCircleCISigned(t *testing.T) {
 	}
 	if check >= 0 && strings.Contains(runs[check].Command, "|| true") {
 		t.Error("the manifest check tolerates a failure")
+	}
+	for _, step := range fetch.Steps {
+		if !strings.Contains(step.Run, "cosign verify-blob") {
+			continue
+		}
+		for variable, output := range map[string]string{"OIDC_ISSUER": "oidc-issuer", "IDENTITY_REGEXP": "identity-regexp"} {
+			if !strings.Contains(step.Env[variable], "steps.version.outputs."+output) {
+				t.Errorf("the signature check does not take %s from the version step, which knows whether CircleCI or the nightly signed the release", variable)
+			}
+		}
 	}
 
 	uploads := 0
@@ -154,6 +165,28 @@ func TestReleasePyPIPublishesTheBytesCircleCISigned(t *testing.T) {
 	if identity.MatchString(strings.Replace(project[1], "projects/", "projects/0", 1) + definition) {
 		t.Errorf("MANIFEST_IDENTITY_REGEXP %q accepts a pipeline of another project", identity)
 	}
+
+	// A night's manifest is signed by the nightly workflow itself, on develop, and by nothing else.
+	if workflow.Env["SNAPSHOT_OIDC_ISSUER"] != "https://token.actions.githubusercontent.com" {
+		t.Errorf("SNAPSHOT_OIDC_ISSUER is %q, not GitHub Actions' token issuer", workflow.Env["SNAPSHOT_OIDC_ISSUER"])
+	}
+	snapshot, err := regexp.Compile(workflow.Env["SNAPSHOT_IDENTITY_REGEXP"])
+	if err != nil {
+		t.Fatalf("SNAPSHOT_IDENTITY_REGEXP does not compile: %v", err)
+	}
+	if nightly := "https://github.com/Open-MBEE/OpenSysML/.github/workflows/nightly.yml@refs/heads/develop"; !snapshot.MatchString(nightly) {
+		t.Errorf("SNAPSHOT_IDENTITY_REGEXP %q rejects the nightly's identity %s", snapshot, nightly)
+	}
+	for _, other := range []string{
+		"https://github.com/Open-MBEE/OpenSysML/.github/workflows/release-pypi.yml@refs/heads/develop",
+		"https://github.com/Open-MBEE/OpenSysML/.github/workflows/nightly.yml@refs/heads/feature",
+		"https://github.com/Other/OpenSysML/.github/workflows/nightly.yml@refs/heads/develop",
+		"https://github.com/Open-MBEE/OpenSysMLx/.github/workflows/nightly.yml@refs/heads/develop",
+	} {
+		if snapshot.MatchString(other) {
+			t.Errorf("SNAPSHOT_IDENTITY_REGEXP %q accepts %s", snapshot, other)
+		}
+	}
 }
 
 // TestReleasePyPIReachesTheIndexThroughTrustedPublishing: the two publishing jobs
@@ -164,13 +197,6 @@ func TestReleasePyPIReachesTheIndexThroughTrustedPublishing(t *testing.T) {
 	for _, forbidden := range []string{"secrets.", "TWINE_PASSWORD", "PYPI_API_TOKEN", "twine upload", "--skip-existing", "attestations: false"} {
 		if strings.Contains(raw, forbidden) {
 			t.Errorf("%s mentions %q; the index is reached with the workflow's OIDC identity, every file attested, never a stored token or a silent skip", releasePyPIWorkflow, forbidden)
-		}
-	}
-	nightly, _ := loadNightlyWorkflow(t)
-	var nightlyPublish string
-	for _, step := range nightlyJob(t, nightly, "pypi").Steps {
-		if strings.HasPrefix(step.Uses, "pypa/gh-action-pypi-publish@") {
-			nightlyPublish = step.Uses
 		}
 	}
 
@@ -189,9 +215,9 @@ func TestReleasePyPIReachesTheIndexThroughTrustedPublishing(t *testing.T) {
 			t.Errorf("the %s job's contents permission is %q; publishing to a registry needs none", name, job.Permissions["contents"])
 		}
 		runs := job.runSteps()
-		index := stepIndex(runs, "/pypi/", "/json", "already on", "exit 1", "publish=true")
+		index := stepIndex(runs, "/pypi/", "/json", "already on", "exit 1", "publish=true", `[ "$KIND" = "snapshot" ]`, "publish=false")
 		if index < 0 {
-			t.Errorf("the %s job does not refuse a version the index already has before publishing", name)
+			t.Errorf("the %s job does not refuse a version the index already has before publishing, or does not let a day's second snapshot stand down", name)
 		}
 		published := false
 		for _, step := range job.Steps {
@@ -199,9 +225,6 @@ func TestReleasePyPIReachesTheIndexThroughTrustedPublishing(t *testing.T) {
 				continue
 			}
 			published = true
-			if step.Uses != nightlyPublish {
-				t.Errorf("the %s job uses %s, the nightly %s; one pin per action", name, step.Uses, nightlyPublish)
-			}
 			if _, ok := step.With["password"]; ok {
 				t.Errorf("the %s job's publish step passes a password; trusted publishing needs none", name)
 			}
