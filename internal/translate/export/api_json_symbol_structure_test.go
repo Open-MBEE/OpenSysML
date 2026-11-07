@@ -482,6 +482,15 @@ func (d *structureDifferential) implicitGraphID(rel *symbols.ImplicitRelationshi
 		return d.ids.RelationshipOf(d.doc, rel.Node)
 	case symbols.ImplicitImport:
 		return d.ids.OfDeclaration(d.doc, rel.Decl, "")
+	case symbols.ImplicitAnnotatingRelationship:
+		if rel.Owner == nil {
+			return "", false
+		}
+		node := ast.AboutClauseNode(rel.Owner.Decl, rel.Ordinal)
+		if node == nil {
+			return "", false
+		}
+		return d.ids.RelationshipOf(d.doc, node)
 	case symbols.ImplicitReferenceMembership:
 		if rel.Owner == nil || rel.Slot == "" {
 			return "", false

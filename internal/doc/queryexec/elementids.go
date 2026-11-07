@@ -193,6 +193,12 @@ func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbo
 			return id, true, err
 		}
 		return "", true, nil
+	case symbols.ImplicitAnnotatingRelationship:
+		if node := aboutClauseNode(rel.Owner, rel.Ordinal); node != nil {
+			id, err = read.ReadRelationship(rel.Owner.DocName, node)
+			return id, true, err
+		}
+		return "", true, nil
 	case symbols.ImplicitPortConjugation:
 		if rel.Owner != nil && rel.Owner.Decl != nil {
 			id, err = read.ReadRelationship(rel.Owner.DocName, rel.Owner.Decl)
@@ -293,3 +299,11 @@ type spanNode struct{ span source.Span }
 func (n spanNode) Span() source.Span            { return n.span }
 func (n spanNode) LeadingTrivia() []ast.Trivia  { return nil }
 func (n spanNode) TrailingTrivia() []ast.Trivia { return nil }
+
+// aboutClauseNode is the node the conversion keys owner's i-th `about` Annotation by.
+func aboutClauseNode(owner *symbols.Symbol, i int) ast.Node {
+	if owner == nil {
+		return nil
+	}
+	return ast.AboutClauseNode(owner.Decl, i)
+}

@@ -135,7 +135,7 @@ type headItem struct {
 // emits relationship elements for, in the order a head no notation spelled
 // states them.
 var materializedKinds = []ast.RelationshipKind{
-	ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences,
+	ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences, ast.RelAnnotates,
 }
 
 // materializeRelationships emits one relationship element per target of each
@@ -156,7 +156,18 @@ func (e *encoder) materializeRelationships(subject rdf.Term) {
 	}
 	var targets []pending
 	position := map[headItem]int{}
+	aboutPosition := map[headItem]int{}
 	for _, kind := range materializedKinds {
+		if kind == ast.RelAnnotates {
+			// Each `about` entry is its own Annotation, a repeated name included (KerML
+			// 8.3.2.3.2); the collapsed annotatedElement states each target once.
+			items := e.aboutItems(subject)
+			for i, item := range items {
+				aboutPosition[item] = len(targets)
+				targets = append(targets, pending{kind, item.element, len(items), i})
+			}
+			continue
+		}
 		objects := e.graph.Objects(subject, rdf.SysML+relationshipProperty[kind])
 		for i, target := range objects {
 			position[headItem{kind: kind, element: target}] = len(targets)
@@ -192,6 +203,12 @@ func (e *encoder) materializeRelationships(subject rdf.Term) {
 				block = append(block, item.element)
 				continue
 			}
+			if item.kind == ast.RelAnnotates {
+				if at, ok := aboutPosition[item]; ok {
+					emit(at)
+				}
+				continue
+			}
 			if at, ok := position[headItem{kind: item.kind, element: item.element}]; ok {
 				emit(at)
 			}
@@ -203,6 +220,30 @@ func (e *encoder) materializeRelationships(subject rdf.Term) {
 	if head != nil {
 		e.seatHead(subject, head.anchor, block)
 	}
+}
+
+// aboutItems are the `about` entries an annotating element's head spelled, in
+// order, one per name; a head nothing spelled states each collapsed
+// annotatedElement target once. An Annotation's own annotatedElement is its end.
+func (e *encoder) aboutItems(subject rdf.Term) []headItem {
+	if !ontology.IsAncestorOrSelf(e.metaclassOf(subject), "AnnotatingElement") {
+		return nil
+	}
+	var items []headItem
+	if head := e.heads[subject]; head != nil {
+		for _, item := range head.spelled() {
+			if item.kind == ast.RelAnnotates {
+				items = append(items, item)
+			}
+		}
+	}
+	if len(items) > 0 {
+		return items
+	}
+	for _, target := range e.graph.Objects(subject, rdf.SysML+pAnnotatedElement) {
+		items = append(items, headItem{kind: ast.RelAnnotates, element: target, offset: -1})
+	}
+	return items
 }
 
 // headClauseAmbiguous reports whether subject states target under another
@@ -318,6 +359,13 @@ func (e *encoder) relationshipSpec(subject rdf.Term, kind ast.RelationshipKind, 
 			[]string{"ownedRedefinition", pOwnedSubsetting, pOwnedSpecialization, pOwnedRelationship}}, true
 	case ast.RelReferences:
 		return referenceSubsettingSpec(suffix), true
+	case ast.RelAnnotates:
+		// An `about` names an element the annotating element annotates through an
+		// Annotation it owns (KerML 8.3.2.3.2 AnnotatingElement::ownedAnnotatingRelationship).
+		return normativeRelationship{mAnnotation, suffix,
+			[]string{pAnnotatingElement, pOwningAnnotatingElement, pSource, pOwningRelatedElement},
+			[]string{pAnnotatedElement, pTarget},
+			[]string{pOwnedAnnotatingRelationship, pOwnedRelationship}}, true
 	}
 	return normativeRelationship{}, false
 }
@@ -330,6 +378,8 @@ func relationshipSuffix(kind ast.RelationshipKind, classifier, referenceForm boo
 	switch kind {
 	case ast.RelTyping:
 		return "_ft" + index
+	case ast.RelAnnotates:
+		return AnnotationSuffix + index
 	case ast.RelSpecializes:
 		if classifier {
 			return "_sc" + index
