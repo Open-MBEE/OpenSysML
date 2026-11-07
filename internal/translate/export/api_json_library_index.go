@@ -43,6 +43,13 @@ func (index *libraryIndex) owningMembershipMetaclass(sym *symbols.Symbol) string
 	return identity.OwningMembershipMetaclass(index.model, sym)
 }
 
+// effectiveName is the name the graph gives a library member its clause leaves nameless.
+func (index *libraryIndex) effectiveName(sym *symbols.Symbol) string {
+	index.mu.Lock()
+	defer index.mu.Unlock()
+	return index.model.EffectiveNameOf(sym)
+}
+
 var (
 	sharedLibraryIndexOnce sync.Once
 	sharedLibraryIndexV    *libraryIndex

@@ -22,14 +22,46 @@ func NormativeSubject(id, qualifiedName string) bool {
 	catalog := identity.LibraryCatalog(libs.NewModelIndex())
 	el, ok := catalog.Element(id)
 	if !ok {
-		_, om := catalog.OwningMembership(id)
-		return om && qualifiedName == ""
+		return anonymousSubject(id, qualifiedName)
 	}
 	if el.FQN == qualifiedName {
 		return true
 	}
 	written, err := libraryGraphName(el)
 	return err == nil && written == qualifiedName
+}
+
+// anonymousSubject reports whether id is a library owning membership's, which names
+// nothing, or an unnamed library member's, which the graph names under its catalogued
+// owner by its position (`Owner::@3`) or its effective name, or not at all.
+func anonymousSubject(id, qualifiedName string) bool {
+	index := sharedLibraryIndex()
+	if _, om := index.catalog.OwningMembership(id); om {
+		return qualifiedName == ""
+	}
+	if _, ok := index.anonymous.OwningMembership(id); ok {
+		return qualifiedName == ""
+	}
+	member, ok := index.anonymous.Element(id)
+	if !ok {
+		return false
+	}
+	if qualifiedName == "" {
+		return true
+	}
+	owner, err := libraryGraphName(member.Owner)
+	if err != nil {
+		return false
+	}
+	leaf, ok := strings.CutPrefix(qualifiedName, owner+"::")
+	if !ok {
+		return false
+	}
+	if positionalSegment(leaf) {
+		return true
+	}
+	name := index.effectiveName(member.Symbol)
+	return name != "" && leaf == identitySegment(name)
 }
 
 // libraryDocument is the bundled library document a graph is a version of: the
