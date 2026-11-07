@@ -22,7 +22,9 @@ import (
 // Model is the derived semantic model over a symbol index. It memoizes the
 // specialization graph computed from resolved def/usage relationships.
 type Model struct {
-	resolver *resolve.Resolver
+	// kermlDocs memoizes declaresKerML per document of no recorded kind.
+	kermlDocs map[string]bool
+	resolver  *resolve.Resolver
 
 	directSupers map[*symbols.Symbol][]*symbols.Symbol
 	allSupers    map[*symbols.Symbol][]*symbols.Symbol
@@ -80,6 +82,7 @@ type Model struct {
 	usageBase        map[*symbols.Symbol]*symbols.Symbol
 	kermlBase        map[*symbols.Symbol]*symbols.Symbol
 	thingsBase       map[*symbols.Symbol]*symbols.Symbol
+	multiplicityBase map[*symbols.Symbol]*symbols.Symbol
 	chainReachesBase map[*symbols.Symbol]bool
 	// computingUsageBase breaks implicitUsageBaseFeature ->
 	// declaredGeneralizationReaches -> relationshipTarget/resolver lookup ->
@@ -189,6 +192,7 @@ type Model struct {
 // inherited members, which a redefinition target may only be reachable through.
 func NewModel(resolver *resolve.Resolver) *Model {
 	m := &Model{
+		kermlDocs:    make(map[string]bool),
 		resolver:     resolver,
 		directSupers: make(map[*symbols.Symbol][]*symbols.Symbol),
 		allSupers:    make(map[*symbols.Symbol][]*symbols.Symbol),
@@ -213,6 +217,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		chainTargets:           make(map[*symbols.Symbol]*symbols.Symbol),
 		defaultMultiplicities:  make(map[*symbols.Symbol]*symbols.Symbol),
 		declaredMultiplicities: make(map[*symbols.Symbol]*symbols.Symbol),
+		multiplicityBase:       make(map[*symbols.Symbol]*symbols.Symbol),
 		subtracting:            make(map[*symbols.Symbol]bool),
 		referential:            make(map[*symbols.Symbol]bool),
 		implicitBase:           make(map[*symbols.Symbol][]*symbols.Symbol),
@@ -400,6 +405,11 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		if seen[target] {
 			continue
 		}
+		seen[target] = true
+		out = append(out, target)
+	}
+	// A multiplicity member's `subsets` is a Subsetting written on the declaration (KerML 8.3.3.3.1).
+	if target := m.SubsettedMultiplicity(sym); target != nil && target != sym && !seen[target] {
 		seen[target] = true
 		out = append(out, target)
 	}

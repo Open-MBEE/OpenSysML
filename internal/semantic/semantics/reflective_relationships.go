@@ -596,11 +596,13 @@ func (m *Model) ownedImplicitRelationships(sym *symbols.Symbol, kinds map[string
 }
 
 var (
-	conjugationMetaclass   = map[string]bool{"Conjugation": true, "PortConjugation": true}
-	redefinitionMetaclass  = map[string]bool{"Redefinition": true}
-	referenceSubsetting    = map[string]bool{"ReferenceSubsetting": true}
-	crossSubsetting        = map[string]bool{"CrossSubsetting": true}
-	subclassificationKinds = map[string]bool{"Subclassification": true}
+	conjugationMetaclass      = map[string]bool{"Conjugation": true, "PortConjugation": true}
+	redefinitionMetaclass     = map[string]bool{"Redefinition": true}
+	referenceSubsetting       = map[string]bool{"ReferenceSubsetting": true}
+	crossSubsetting           = map[string]bool{"CrossSubsetting": true}
+	typeFeaturingMetaclass    = map[string]bool{"TypeFeaturing": true}
+	featureInvertingMetaclass = map[string]bool{"FeatureInverting": true}
+	subclassificationKinds    = map[string]bool{"Subclassification": true}
 )
 
 // implicitOwnerElements reads an owner-side element feature: the relationship

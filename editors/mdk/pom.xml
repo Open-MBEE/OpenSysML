@@ -5,7 +5,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.openmbee</groupId>
   <artifactId>magic-mdk-parent</artifactId>
-  <version>0.12.0</version>
+  <version>0.12.1</version>
   <packaging>pom</packaging>
   <name>Magic MDK</name>
   <modules>
@@ -23,7 +23,7 @@
     <maven.compiler.plugin.version>3.16.0</maven.compiler.plugin.version>
     <maven.surefire.plugin.version>3.6.1</maven.surefire.plugin.version>
     <jacoco.plugin.version>0.8.16</jacoco.plugin.version>
-    <opensysml.client.version>0.12.0</opensysml.client.version>
+    <opensysml.client.version>0.12.1</opensysml.client.version>
     <!-- The client's sigstore-java brings grpc-netty-shaded, bcprov/bcpkix, guava and the
          Apache HttpComponents under its Google HTTP client transport; a consumer's own
          management is what holds them past their known advisories. -->

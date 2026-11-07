@@ -148,6 +148,7 @@ var packageLayer = map[string]string{
 	"internal/frontend/combined":               "frontend",
 	"internal/frontend/jsonrpc":                "frontend",
 	"internal/frontend/symbolfacts":            "frontend",
+	"internal/frontend/symbolfacts/positional": "frontend",
 	"internal/frontend/syntax":                 "frontend",
 	"internal/frontend/stdiorpc":               "frontend",
 	"internal/frontend/usage":                  "frontend",

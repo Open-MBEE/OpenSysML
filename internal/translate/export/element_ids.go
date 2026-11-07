@@ -146,8 +146,8 @@ func (ids *ElementIDs) recordValuePart(e *encoder, node ast.Node, subject rdf.Te
 	e.registerExpressionIDs(ids, value, valued)
 }
 
-// recordDefaultMultiplicity records the Multiplicity stating a usage's implicit
-// [1..1] and its OwningMembership (defaultMultiplicity), for the id reader.
+// recordDefaultMultiplicity records the Multiplicity a usage's implicit [1..1] or an
+// individual definition is parsed with, and its OwningMembership (defaultMultiplicity), for the id reader.
 func (ids *ElementIDs) recordDefaultMultiplicity(e *encoder, node ast.Node, subject rdf.Term) {
 	sym := e.ids.declSym[node]
 	if sym == nil || !e.ids.model.ImpliesDefaultMultiplicity(sym) {
@@ -168,6 +168,8 @@ func (ids *ElementIDs) recordConnectorEnds(e *encoder, node ast.Node, subject rd
 		feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, fmt.Sprintf("end%d", i)), subject, fmt.Sprintf("end%d", i))
 		ids.byNode[end] = rdf.LocalName(feature.Value)
 		ids.bySpan[spanKey{e.file.Name(), end.Span()}] = ids.byNode[end]
+		// The end states its implicit [1..1] as a usage does (connectorEnd).
+		ids.recordDefaultMultiplicity(e, end, feature)
 		// The head owns each end through a membership minted beside it (bindingEnds).
 		membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix).Value)
 		ids.membershipByNode[end] = membership

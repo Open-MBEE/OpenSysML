@@ -3,6 +3,7 @@ package semantics
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // ImpliesDefaultMultiplicity reports whether sym's implicit [1..1] (SysML v2 §7.6.3,
@@ -56,23 +57,35 @@ func (m *Model) DefaultMultiplicityMember(sym *symbols.Symbol) *symbols.Symbol {
 	if cached, ok := m.defaultMultiplicities[sym]; ok {
 		return cached
 	}
-	scope := sym.Scope
-	if scope == nil {
-		// A leaf declares no scope of its own; its multiplicity still needs one to be owned through.
-		scope = symbols.NewScope(sym.OwnerScope, nil)
-		scope.SetOwner(sym)
-	}
-	member := &symbols.Symbol{
-		Kind:       symbols.SymbolMultiplicity,
-		DocName:    sym.DocName,
-		DeclSpan:   sym.DeclSpan,
-		Visibility: ast.VisibilityDefault,
-		OwnerScope: scope,
-		Decl:       &symbols.ImpliedDecl{Of: sym.Decl, Form: symbols.ImpliedDefaultMultiplicity},
-	}
+	member := impliedMultiplicity(sym, sym.DeclSpan, symbols.ImpliedDefaultMultiplicity)
 	journal(m, m.defaultMultiplicities, sym, sym.Decl)
 	m.defaultMultiplicities[sym] = member
 	return member
+}
+
+// impliedMultiplicity is the nameless Multiplicity of form owner is parsed with,
+// owned through owner's scope — or one made for a leaf, which declares none.
+func impliedMultiplicity(owner *symbols.Symbol, span source.Span, form symbols.ImpliedForm) *symbols.Symbol {
+	scope := owner.Scope
+	if scope == nil {
+		scope = symbols.NewScope(owner.OwnerScope, nil)
+		scope.SetOwner(owner)
+	}
+	return &symbols.Symbol{
+		Kind:       symbols.SymbolMultiplicity,
+		DocName:    owner.DocName,
+		DeclSpan:   span,
+		Visibility: ast.VisibilityDefault,
+		OwnerScope: scope,
+		Decl:       &symbols.ImpliedDecl{Of: owner.Decl, Form: form},
+	}
+}
+
+// IsDeclaredMultiplicityRange reports whether sym is the MultiplicityRange a usage's
+// written range declares (DeclaredMultiplicityMember), owned at the clause.
+func IsDeclaredMultiplicityRange(sym *symbols.Symbol) bool {
+	decl, ok := symbols.ImpliedDeclOf(sym)
+	return ok && decl.Form == symbols.ImpliedMultiplicityRange
 }
 
 // IsDefaultMultiplicity reports whether sym is the Multiplicity a usage's implicit
@@ -110,30 +123,18 @@ func (m *Model) DeclaredMultiplicityMember(sym *symbols.Symbol) *symbols.Symbol 
 	if cached, ok := m.declaredMultiplicities[sym]; ok {
 		return cached
 	}
-	scope := sym.Scope
-	if scope == nil {
-		scope = symbols.NewScope(sym.OwnerScope, nil)
-		scope.SetOwner(sym)
-	}
 	span := sym.DeclSpan
 	if mult != nil {
 		span = mult.Span()
 	}
-	member := &symbols.Symbol{
-		Kind:       symbols.SymbolMultiplicity,
-		DocName:    sym.DocName,
-		DeclSpan:   span,
-		Visibility: ast.VisibilityDefault,
-		OwnerScope: scope,
-		Decl:       &symbols.ImpliedDecl{Of: sym.Decl, Form: symbols.ImpliedMultiplicityRange},
-	}
+	member := impliedMultiplicity(sym, span, symbols.ImpliedMultiplicityRange)
 	journal(m, m.declaredMultiplicities, sym, sym.Decl)
 	m.declaredMultiplicities[sym] = member
 	return member
 }
 
 // MultiplicityMember is the Multiplicity sym states: its declared range
-// (DeclaredMultiplicityMember) or its implicit [1..1] (DefaultMultiplicityMember).
+// (DeclaredMultiplicityMember) or the implicit one it is parsed with (DefaultMultiplicityMember).
 func (m *Model) MultiplicityMember(sym *symbols.Symbol) *symbols.Symbol {
 	if member := m.DeclaredMultiplicityMember(sym); member != nil {
 		return member
@@ -141,11 +142,18 @@ func (m *Model) MultiplicityMember(sym *symbols.Symbol) *symbols.Symbol {
 	return m.DefaultMultiplicityMember(sym)
 }
 
-// IsImpliedMultiplicity reports whether sym is a usage's declared range or default
+// IsImpliedMultiplicity reports whether sym is a declaration's declared range or default
 // Multiplicity (MultiplicityMember).
 func IsImpliedMultiplicity(sym *symbols.Symbol) bool {
 	decl, ok := symbols.ImpliedDeclOf(sym)
-	return ok && (decl.Form == symbols.ImpliedDefaultMultiplicity || decl.Form == symbols.ImpliedMultiplicityRange)
+	if !ok {
+		return false
+	}
+	switch decl.Form {
+	case symbols.ImpliedDefaultMultiplicity, symbols.ImpliedMultiplicityRange:
+		return true
+	}
+	return false
 }
 
 // IsIndividualDefinition reports whether sym is a definition declared `individual`

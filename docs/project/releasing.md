@@ -100,6 +100,11 @@ Then check the release-facing text:
   and the deletions together. The previous version's entry stays unchanged. Whether `X.Y.Z`
   bumps the patch or the minor segment is decided by model compatibility, as
   [CONTRIBUTING.md § Versioning](../../CONTRIBUTING.md#versioning) states.
+- The compliance map is combined from its sources under `docs/project/spec-compliance/`
+  and committed: `make spec-compliance-render` writes `docs/project/spec-compliance.md`
+  (gitignored, so `git add -f` it), and `make spec-compliance-check SPEC_COMPLIANCE_PAGE=require`
+  passes. `develop` never carries the page — the site builds it — and the release pipeline
+  fails when a tag lacks it or carries a stale one.
 - `README.md` and `docs/guide/` transcripts match what the binary prints.
   Build it (`make build-sysml`) and paste a few commands through it.
 - `python3 scripts/check-doc-links.py` reports no broken link (CI gates on it too).
@@ -189,7 +194,8 @@ branch that moves the integration state onto `main`:
 
 2. Fold the changelog fragments on that branch — `python3 scripts/changelog.py release 0.0.5`,
    as [Before tagging](#before-tagging) describes — and commit `CHANGELOG.md` together with the
-   deleted fragments. Set `VERSION` in `client/python/opensysml/_version.py` to `x.y.z` as
+   deleted fragments. Render the compliance map alongside — `make spec-compliance-render &&
+   git add -f docs/project/spec-compliance.md` — and commit the page in the same change. Set `VERSION` in `client/python/opensysml/_version.py` to `x.y.z` as
    well: the tag publishes `opensysml` at the core version, and the release workflow fails
    before building anything when the two disagree (see
    [Releasing opensysml to PyPI](#releasing-opensysml-to-pypi)). Also set `"version"` in
@@ -282,9 +288,10 @@ branch that moves the integration state onto `main`:
    ```bash
    git checkout develop && git pull
    git merge main
+   git rm -q docs/project/spec-compliance.md   # the release's combined page; develop builds it
    (cd client/node && npm install --package-lock-only --ignore-scripts)   # after a hotfix
    (cd packaging/npm/sysml-mcp && npm install --package-lock-only --ignore-scripts)
-   git commit -am "chore(node): lock the platform packages at the release"  # if either changed
+   git commit -am "chore(docs): drop the released compliance page from develop"
    git push origin develop
    ```
 

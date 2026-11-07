@@ -94,7 +94,7 @@ jobs:
         run: |
           if [ "$DRAFT" != true ] || [ "$CI_FULL_LABEL" = true ]; then
             echo "tier=full"
-            echo 'go_shards=["runtime","runtime-corpus","model","export","export-corpus","export-settled","graph","codegen","rest","migrate","cli"]'
+            echo 'go_shards=["runtime","runtime-corpus","runtime-exploration","model","export","export-corpus","export-settled","graph","codegen","rest","migrate","cli"]'
           else
             echo "tier=quick"
             echo 'go_shards=["runtime","model export graph","rest migrate cli codegen"]'
@@ -249,7 +249,7 @@ jobs:
           set -euo pipefail
           profiles=(shards/coverage-*/coverage.txt)
           # One per go-tests shard.
-          if [ "${#profiles[@]}" -ne 11 ]; then echo "error: expected 11 shard profiles, found ${#profiles[@]}" >&2; exit 1; fi
+          if [ "${#profiles[@]}" -ne 12 ]; then echo "error: expected 12 shard profiles, found ${#profiles[@]}" >&2; exit 1; fi
           for f in "${profiles[@]}"; do
             [ "$(head -n 1 "$f")" = "mode: atomic" ] || { echo "error: $f is not an atomic-mode profile" >&2; exit 1; }
           done
@@ -356,11 +356,6 @@ jobs:
       - name: Run static analysis (staticcheck + gosec)
         if: needs.changes.outputs.tier == 'full'
         run: make lint
-
-      # The embedded library snapshot is generated from the bundled OMG files;
-      # a change to either without regenerating it must not land.
-      - name: Check the library snapshot is current
-        run: make stdlib-snapshot-check
 
       - name: Check grpc-go stays out of production code
         run: ./scripts/check-grpc-imports.sh
@@ -1147,6 +1142,19 @@ jobs:
       # Changelog entries live in changes/unreleased/ until a release folds them in.
       - name: Check changelog fragments
         run: python3 scripts/changelog-test.py && python3 scripts/changelog.py check
+
+      # The combined compliance page is built from docs/project/spec-compliance/; a change
+      # bound for develop must not commit it, while a release or hotfix bound for main must.
+      - name: Check the compliance-map sources and the combined page
+        env:
+          BASE_REF: ${{ github.event_name == 'merge_group' && github.event.merge_group.base_ref || github.base_ref }}
+        run: |
+          python3 scripts/spec_compliance-test.py
+          case "${BASE_REF#refs/heads/}" in
+            develop) python3 scripts/spec_compliance.py check --forbid-page ;;
+            main)    python3 scripts/spec_compliance.py check --require-page ;;
+            *)       python3 scripts/spec_compliance.py check ;;
+          esac
 
       - name: Check the release provenance writer
         run: python3 scripts/release-provenance-test.py

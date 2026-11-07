@@ -673,6 +673,7 @@ func TestMembershipIDsAreDisjointFromAdversarialElements(t *testing.T) {
 // an edited copy still rooted at the library's package; a user package that
 // only reuses the library's name keeps encoded ids.
 func TestLibraryElementsCarryNormativeIDs(t *testing.T) {
+	t.Parallel()
 	const name = "Kernel Libraries/Kernel Data Type Library/ScalarValues.kerml"
 	src, err := libs.EmbeddedSource().Read(name)
 	if err != nil {
@@ -761,8 +762,10 @@ func TestBehavioralLibraryMemberKeepsNormativeIDWithoutSourceText(t *testing.T) 
 	}
 }
 `)
-	encoded := `sysml:elementId "` + rdf.EncodeElementID(qname) + `" ;`
-	stale := strings.Replace(string(turtle), encoded, `sysml:elementId "`+want+`" ;`, 1)
+	// Its succession and their ends are identified from the transition's id, so
+	// the graph states them from the normative one too.
+	encoded := rdf.EncodeElementID(qname)
+	stale := strings.ReplaceAll(string(turtle), encoded, want)
 	if stale == string(turtle) {
 		t.Fatalf("the transition's id is not where expected:\n%s", turtle)
 	}
@@ -897,6 +900,7 @@ func TestNormativeSubjectNamesTheLibraryElementExactly(t *testing.T) {
 // the norm fixes an id for it and the graph names it so (sysml:name, no
 // declaredName). Neither side may mistake that id for a declared one.
 func TestEffectivelyNamedLibraryMemberCarriesNormativeID(t *testing.T) {
+	t.Parallel()
 	const name = "Domain Libraries/Geometry/ShapeItems.sysml"
 	src, err := libs.EmbeddedSource().Read(name)
 	if err != nil {
@@ -935,6 +939,7 @@ func TestEffectivelyNamedLibraryMemberCarriesNormativeID(t *testing.T) {
 // ids, none of them declared, and the names it inherits resolved to the copy's
 // own declarations.
 func TestLibraryCopiesConvertAsTheLibrary(t *testing.T) {
+	t.Parallel()
 	const name = "Kernel Libraries/Kernel Semantic Library/Occurrences.kerml"
 	src, err := libs.EmbeddedSource().Read(name)
 	if err != nil {

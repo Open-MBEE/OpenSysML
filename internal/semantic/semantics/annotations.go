@@ -1482,6 +1482,40 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			return nil, true
 		}
 		return []*symbols.Symbol{owner}, true
+	case "owningUsage", "owningDefinition":
+		// Usage::owningType when it is a Usage, respectively a Definition (SysML v2 §8.3.6.4).
+		if !m.reflectiveMetaclassConforms(sym, "Usage") {
+			return nil, false
+		}
+		owning := "Definition"
+		if feature == "owningUsage" {
+			owning = "Usage"
+		}
+		owner := m.ownerOf(sym)
+		if owner == nil || !m.reflectiveMetaclassConforms(owner, owning) {
+			return nil, true
+		}
+		return []*symbols.Symbol{owner}, true
+	case "usage", "directedUsage":
+		// The Usages among a Usage's or Definition's `feature`, respectively `directedFeature`.
+		if !m.reflectiveMetaclassConforms(sym, "Usage") && !m.reflectiveMetaclassConforms(sym, "Definition") {
+			return nil, false
+		}
+		base := "feature"
+		if feature == "directedUsage" {
+			base = "directedFeature"
+		}
+		features, ok := m.ReflectiveElements(sym, base)
+		if !ok {
+			return nil, false
+		}
+		usages := []*symbols.Symbol{}
+		for _, member := range features {
+			if m.reflectiveMetaclassConforms(member, "Usage") {
+				usages = append(usages, member)
+			}
+		}
+		return usages, true
 	case "featuringType":
 		if !m.reflectiveMetaclassConforms(sym, "Feature") {
 			return nil, false
@@ -1544,6 +1578,93 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		if (sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChainFeature) || sym.Chain != nil {
 			return m.OwnedRelationships(sym), true
 		}
+		if m.reflectiveMetaclassConforms(sym, "Feature") {
+			return []*symbols.Symbol{}, true
+		}
+	case "featureTarget":
+		// The last chaining feature of a chain, else the feature itself (KerML 1.1 §8.3.3.3.4).
+		if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChainFeature {
+			if chain := m.ChainingFeatures(sym); len(chain) > 0 {
+				return []*symbols.Symbol{chain[len(chain)-1]}, true
+			}
+		}
+		if !m.reflectiveMetaclassConforms(sym, "Feature") {
+			return nil, false
+		}
+		if chain := m.chainingFeaturesOf(sym); len(chain) > 0 {
+			return []*symbols.Symbol{chain[len(chain)-1]}, true
+		}
+		return []*symbols.Symbol{sym}, true
+	case "crossFeature":
+		if !m.reflectiveMetaclassConforms(sym, "Feature") {
+			return nil, false
+		}
+		// The second chaining feature of the crossed feature chain (`g crosses f.sub` → sub), else
+		// the end's owned cross feature (KerML 1.1 §8.3.3.3.4 deriveFeatureCrossFeature).
+		crossed := []*symbols.Symbol{}
+		relationships := m.ownedImplicitRelationships(sym, crossSubsetting)
+		for _, rel := range relationships {
+			targets, ok := m.ReflectiveElements(rel, "crossedFeature")
+			if !ok {
+				return nil, false
+			}
+			for _, target := range targets {
+				if chain, ok := m.ReflectiveElements(target, "chainingFeature"); ok && len(chain) >= 2 {
+					crossed = append(crossed, chain[1])
+				}
+			}
+		}
+		if len(relationships) == 0 {
+			if owned := m.OwnedCrossFeature(sym); owned != nil {
+				crossed = append(crossed, owned)
+			}
+		}
+		return crossed, true
+	case "ownedTypeFeaturing", "ownedFeatureInverting":
+		if !m.reflectiveMetaclassConforms(sym, "Feature") {
+			return nil, false
+		}
+		if feature == "ownedTypeFeaturing" {
+			return m.ownedImplicitRelationships(sym, typeFeaturingMetaclass), true
+		}
+		return m.ownedImplicitRelationships(sym, featureInvertingMetaclass), true
+	case "owningFeatureMembership":
+		if !m.reflectiveMetaclassConforms(sym, "Feature") {
+			return nil, false
+		}
+		if membership := m.OwningMembership(sym); membership != nil && m.reflectiveMetaclassConforms(membership, "FeatureMembership") {
+			return []*symbols.Symbol{membership}, true
+		}
+		return []*symbols.Symbol{}, true
+	case "endOwningType":
+		if !m.reflectiveMetaclassConforms(sym, "Feature") {
+			return nil, false
+		}
+		isEnd, ok := m.ReflectiveFeatureValue(sym, "isEnd")
+		if !ok {
+			return nil, false
+		}
+		if isEnd.Kind != symbols.FilterValueBool || !isEnd.Bool {
+			return []*symbols.Symbol{}, true
+		}
+		return m.ReflectiveElements(sym, "owningType")
+	case "variantMembership", "variant":
+		// The VariantMemberships a Usage or Definition owns, respectively their variant usages.
+		if !m.reflectiveMetaclassConforms(sym, "Usage") && !m.reflectiveMetaclassConforms(sym, "Definition") {
+			return nil, false
+		}
+		out := []*symbols.Symbol{}
+		for _, membership := range m.OwnedMemberships(sym) {
+			if !m.reflectiveMetaclassConforms(membership, "VariantMembership") {
+				continue
+			}
+			if feature == "variantMembership" {
+				out = append(out, membership)
+			} else if membership.Implicit != nil && membership.Implicit.Member != nil {
+				out = append(out, membership.Implicit.Member)
+			}
+		}
+		return out, true
 	case "chainingFeature":
 		if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChainFeature {
 			return m.ChainingFeatures(sym), true
@@ -1602,8 +1723,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return m.connectorRelatedFeatures(sym, feature), true
 	case "ownedRelatedElement", "owningRelatedElement":
-		// A declared connector relates features its types own; its own owner is a membership's.
-		if !m.reflectiveMetaclassConforms(sym, "Connector") {
+		// A declared connector or association relates features and types it does not own;
+		// its own owner is a membership's.
+		if !m.reflectiveMetaclassConforms(sym, "Relationship") {
 			return nil, false
 		}
 		return []*symbols.Symbol{}, true
@@ -2045,7 +2167,7 @@ func ownedMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
 	var members []*symbols.Symbol
 	seen := make(map[*symbols.Symbol]bool)
 	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
-		if member.Kind != symbols.SymbolAlias && !seen[member] {
+		if member.Kind != symbols.SymbolAlias && !seen[member] && !ownedThroughAnnotation(sym, member) {
 			seen[member] = true
 			members = append(members, member)
 		}
@@ -2055,45 +2177,13 @@ func ownedMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
 }
 
 // membersIncludingAnonymous is Namespace::member: the named and anonymous
-// members MembersOf reports, in declaration order, with inherited members that
-// no feature of sym redefines.
+// members Members reports, in declaration order, with inherited members that
+// no feature of sym redefines and that are not private.
 func (m *Model) membersIncludingAnonymous(sym *symbols.Symbol) []*symbols.Symbol {
-	named := m.MembersOf(sym)
-	namedSet := make(map[*symbols.Symbol]bool, len(named))
-	for _, s := range named {
-		namedSet[s] = true
-	}
-	var out []*symbols.Symbol
-	seen := make(map[*symbols.Symbol]bool, len(named))
-	mask := m.redefinitionMask(sym, true)
-	collect := func(scope *symbols.Scope, inherited bool) {
-		if scope == nil {
-			return
-		}
-		anonymous := make(map[*symbols.Symbol]bool)
-		for _, s := range scope.AnonymousMembers() {
-			anonymous[s] = true
-		}
-		scope.ForEachMember(func(s *symbols.Symbol) bool {
-			if s.Kind == symbols.SymbolAlias || seen[s] ||
-				(!anonymous[s] && !namedSet[s] && !(s.Kind == symbols.SymbolDocumentation && s.Name == "")) ||
-				(inherited && m.maskedBy(mask, s)) {
-				return true
-			}
-			seen[s] = true
-			out = append(out, s)
-			return true
-		})
-	}
-	collect(sym.Scope, false)
-	for _, src := range m.MemberSources(sym) {
-		collect(src.Scope, true)
-	}
-	for _, s := range named {
-		if !seen[s] {
-			seen[s] = true
-			out = append(out, s)
-		}
+	members := m.Members(sym)
+	out := make([]*symbols.Symbol, 0, len(members))
+	for _, member := range members {
+		out = append(out, member.Symbol)
 	}
 	return out
 }
@@ -2237,18 +2327,29 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 			return symbols.FilterValue{}, false
 		}
 		return boolValue(len(m.ownedImplicitRelationships(sym, conjugationMetaclass)) > 0), true
-	case "name", "declaredName":
+	case "declaredName":
 		return stringOrEmpty(SimpleSymbolName(sym)), true
+	case "name":
+		return stringOrEmpty(m.reflectiveName(sym)), true
 	case "shortName":
 		return stringOrEmpty(m.EffectiveShortNameOf(sym)), true
 	case "declaredShortName":
 		return stringOrEmpty(sym.ShortName), true
 	case "qualifiedName":
 		// Element::qualifiedName is null for an unnamed element (KerML 1.1 §8.3.2.1).
-		if SimpleSymbolName(sym) == "" {
+		name := m.reflectiveName(sym)
+		if name == "" {
 			return emptyValue(), true
 		}
-		return stringOrEmpty(m.fqnOf(sym)), true
+		if SimpleSymbolName(sym) != "" {
+			return stringOrEmpty(m.fqnOf(sym)), true
+		}
+		// A derived name qualifies under the owner's qualified name, which the index does not spell.
+		owner, ok := m.reflectiveFeatureValue(ownerSymbol(sym), "qualifiedName")
+		if !ok || owner.Kind != symbols.FilterValueString || owner.Str == "" {
+			return emptyValue(), true
+		}
+		return stringOrEmpty(owner.Str + "::" + name), true
 	case "direction":
 		direction, ok := ReflectiveDirection(sym)
 		if !ok {
@@ -2362,6 +2463,14 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 			if m.reflectiveMetaclassConforms(sym, "StateUsage") {
 				return boolValue(d.IsParallel), true
 			}
+		}
+	case *ast.SubstateMember:
+		// The `state s;` of a state body: no `all`, no `parallel`.
+		switch feature {
+		case "isSufficient", "isParallel":
+			return boolValue(false), true
+		case "isVariant":
+			return boolValue(IsVariant(sym)), true
 		}
 	}
 	if sym.Recorded() && feature == "isIndividual" {
@@ -2683,4 +2792,14 @@ var metaclassNames = map[symbols.SymbolKind]string{
 // of the given kind, or "" for a kind the abstract syntax has no metaclass for.
 func metaclassName(kind symbols.SymbolKind) string {
 	return metaclassNames[kind]
+}
+
+// reflectiveName is Element::name: the declared name, else the effective name a
+// nameless feature takes from the feature it redefines (KerML 1.1 §8.3.3.3) — a
+// positional parameter from its behavior's, a connector end from the end it occupies.
+func (m *Model) reflectiveName(sym *symbols.Symbol) string {
+	if name := SimpleSymbolName(sym); name != "" {
+		return name
+	}
+	return m.EffectiveNameOf(sym)
 }

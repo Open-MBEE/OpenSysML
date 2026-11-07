@@ -23,6 +23,10 @@ type libraryIndex struct {
 	model     *semantics.Model
 	catalog   *identity.Catalog
 	anonymous *identity.AnonymousIndex
+	// source serves exactly the text the index was built from, and forms holds
+	// the element form of each of its documents a reader asked for.
+	source libs.Source
+	forms  sync.Map // document name -> *libraryDocumentForm
 }
 
 // stubMetaclass is libraryStubMetaclass for sym under the index's lock.
@@ -46,10 +50,10 @@ var (
 
 func sharedLibraryIndex() *libraryIndex {
 	sharedLibraryIndexOnce.Do(func() {
-		base := libs.SharedBase()
+		base, source := libs.SharedLibrary()
 		model := semantics.NewModel(resolve.New(base))
 		catalog := identity.LibraryCatalogWithOpenSysML(base)
-		sharedLibraryIndexV = &libraryIndex{model: model, catalog: catalog, anonymous: identity.AnonymousMemberIndex(model, catalog)}
+		sharedLibraryIndexV = &libraryIndex{model: model, catalog: catalog, anonymous: identity.AnonymousMemberIndex(model, catalog), source: source}
 	})
 	return sharedLibraryIndexV
 }
@@ -110,7 +114,7 @@ func apiJSONMembershipReferenceIDs(graph *rdf.Graph) (map[string]bool, error) {
 	var collect func(value any)
 	collect = func(value any) {
 		switch value := value.(type) {
-		case apiJSONReference:
+		case APIJSONReference:
 			if value.ID != "" {
 				ids[value.ID] = true
 			}

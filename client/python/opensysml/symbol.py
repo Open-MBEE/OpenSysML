@@ -1,9 +1,11 @@
 """Symbol class for navigating the semantic model."""
 
-from typing import Any, Dict, List, Optional, Protocol, TYPE_CHECKING
+from typing import Any, Dict, FrozenSet, Iterable, List, Optional, Protocol, Tuple, TYPE_CHECKING, Union
 
+from opensysml.errors import UnresolvedChildError
 from opensysml.capabilities import (
     CAPABILITY_SYMBOL_ATTRIBUTES,
+    CAPABILITY_SYMBOL_MEMBERS,
     require,
     upgrade_remedy,
 )
@@ -22,12 +24,33 @@ if TYPE_CHECKING:
 # Matched case-insensitively so older PascalCase producers still work.
 ATTRIBUTE_KINDS = frozenset({"attributedef", "attributeusage", "referenceusage"})
 PART_KINDS = frozenset({"partdef", "partusage"})
+PORT_KINDS = frozenset({"portdef", "portusage"})
+BINDING_KINDS = frozenset({"bindingusage"})
+CONNECTION_KINDS = frozenset({
+    "connectiondef", "connectionusage", "bindingusage", "interfacedef",
+    "interfaceusage", "flowusage", "allocationdef", "allocationusage",
+})
+
+KindFilter = Union[str, Iterable[str], None]
+
+
+class Members(List["Symbol"]):
+    """Member symbols, with how many standard-library members were left out.
+
+    A list, so it is used as one; ``withheld_library`` says how many members
+    inherited from standard-library content the service withheld, so their
+    absence is stated rather than silent.
+    """
+
+    def __init__(self, members: Iterable["Symbol"] = (), withheld_library: int = 0):
+        super().__init__(members)
+        self.withheld_library = withheld_library
 
 
 class SymbolSource(Protocol):
     """What a symbol needs of the connection it navigates through."""
 
-    def get_symbol(self, model_hash: str, symbol_id: str) -> Any:
+    def get_symbol(self, model_hash: str, symbol_id: str, include_library_members: bool = False) -> Any:
         """The ``SymbolInfo`` for an id, or None when the model has no such symbol."""
 
     def server_info(self) -> Any:
@@ -68,19 +91,46 @@ class Symbol:
     """
     
     def __init__(self, pb_symbol: "sysml_pb2.SymbolInfo", client: Optional[SymbolSource],
-                 model_hash: str):
+                 model_hash: str, inherited_from: Optional[str] = None):
         """Initialize Symbol from SymbolInfo protobuf.
         
         Args:
             pb_symbol: SymbolInfo protobuf message
             client: Optional RPC client for lazy loading children
             model_hash: Hash of the model this symbol belongs to
+            inherited_from: FQN of the type declaring this symbol when it was
+                reached as an inherited member of another; None otherwise
         """
         self._pb = pb_symbol
         self._client = client
         self._model_hash = model_hash
-        self._children_cache: Optional[List["Symbol"]] = None
-        self._attributes_cache: Optional[List["Symbol"]] = None
+        self._inherited_from = inherited_from
+        self._members_cache: Dict[bool, Members] = {}
+        self._own_cache: Optional[Members] = None
+        self._walked_cache: Optional[Members] = None
+
+    @property
+    def inherited(self) -> bool:
+        """True when this symbol was reached as a member another symbol
+        inherits rather than declares; False for a symbol looked up directly."""
+        return self._inherited_from is not None
+
+    @property
+    def inherited_from(self) -> Optional[str]:
+        """FQN of the type declaring this symbol when it was reached as an
+        inherited member, None otherwise."""
+        return self._inherited_from
+
+    @property
+    def withheld_library_members(self) -> int:
+        """Return how many standard-library-inherited members were withheld.
+
+        :meth:`members` leaves out the members an element inherits from
+        standard-library content (the dozens every part has through
+        ``Parts::Part`` and ``Base::Anything``) unless asked for them; this says
+        how many, so their absence is stated rather than silent.
+        """
+        return self._pb.withheld_library_members
     
     @property
     def id(self) -> str:
@@ -188,48 +238,191 @@ class Symbol:
             withheld_library_attributes=self.withheld_library_attributes,
         )
 
-    def children(self) -> List["Symbol"]:
-        """Return all child symbols.
-        
-        Lazily fetches child symbols using the RPC client if available.
-        Caches results after first call.
-        Returns empty list if no client is set.
-        
+    def members(self, kind: KindFilter = None, inherited: bool = False,
+                library: bool = False) -> Members:
+        """Return this symbol's members, as the service enumerates them.
+
+        Own members come first in declaration order, then — with ``inherited`` —
+        the members inherited through specialization and typing, in inheritance
+        order, as KerML ``Type::member`` lists them: a redefining member hides
+        the one it redefines and a private member of a supertype is not
+        inherited. Each inherited member reports :attr:`inherited` and
+        :attr:`inherited_from`. Members inherited from standard-library content
+        are withheld and counted in the result's ``withheld_library`` unless
+        ``library`` is set, which fetches them too.
+
+        Args:
+            kind: Kind name or names to keep (``"partUsage"``, ``PART_KINDS``),
+                matched case-insensitively; None keeps every kind
+            inherited: Include inherited members, not only owned ones
+            library: With ``inherited``, include the members inherited from
+                standard-library content too; an owned member is never
+                withheld, so without ``inherited`` this changes nothing
+
         Returns:
-            List of child Symbol objects
+            :class:`Members`, a list of Symbol objects; empty if no client is set
+
+        Raises:
+            MissingCapabilityError: ``inherited`` was asked of a service without
+                ``symbol_members``, which cannot enumerate inherited members
         """
-        if self._children_cache is not None:
-            return self._children_cache
-        
         if self._client is None:
-            self._children_cache = []
-            return self._children_cache
-        
-        result = []
-        for child_id in self._pb.child_ids:
-            child_info = self._client.get_symbol(self._model_hash, child_id)
-            if child_info is not None:
-                result.append(Symbol(child_info, self._client, self._model_hash))
-        
-        self._children_cache = result
-        return result
-    
-    def attributes(self) -> List["Symbol"]:
-        """Return the attribute symbols this symbol has, own and inherited.
+            return Members()
+        if inherited:
+            require(
+                self._client.server_info(),
+                CAPABILITY_SYMBOL_MEMBERS,
+                upgrade_remedy(CAPABILITY_SYMBOL_MEMBERS),
+            )
+            found = self._all_members(library)
+        else:
+            found = self._own_members()
+        kinds = _kind_set(kind)
+        if kinds is None:
+            return found
+        return Members((m for m in found if m.kind.lower() in kinds), found.withheld_library)
 
-        Ordered as the service reports the attribute set, so an attribute
-        inherited from a supertype is included and a redefinition masks the
-        declaration it redefines. An inherited attribute is fetched from the
-        supertype that declares it, so it carries its own facts.
+    def properties(self, *names):
+        """Read this element's metamodel properties by their specification names.
+
+        :meth:`Model.element_properties` for this symbol: ``names`` are
+        specification names (``"inheritedFeature"``, ``"isComposite"``); none
+        reads every property the element form carries. See
+        :mod:`opensysml.element_properties`.
 
         Returns:
-            List of attribute Symbol objects
-        """
-        if self._attributes_cache is not None:
-            return self._attributes_cache
+            ElementProperties: The element and one entry per property
 
-        declared = [child for child in self.children() if child.kind.lower() in ATTRIBUTE_KINDS]
-        by_name = {child.name: child for child in declared}
+        Raises:
+            MissingCapabilityError: If the service lacks ``element_properties``
+            ValueError: If no client is set
+        """
+        if self._client is None:
+            raise ValueError("this symbol has no client to read its properties from")
+        return self._client.get_element_properties(self._model_hash, self.id, names)
+
+    def property(self, name):
+        """Read one metamodel property of this element by its specification name.
+
+        Returns:
+            ElementProperty: Its values, or why it has none
+        """
+        return self.properties(name)[name]
+
+    def _own_members(self) -> Members:
+        """Return the owned members, from ``members`` where the service
+        enumerates them and from ``child_ids`` otherwise."""
+        if self._own_cache is None:
+            if self._pb.members:
+                every = self._all_members(False)
+                self._own_cache = Members(
+                    (m for m in every if not m.inherited), every.withheld_library
+                )
+            else:
+                self._own_cache = Members(
+                    self._fetch_all((child_id, None) for child_id in self._pb.child_ids),
+                    self._pb.withheld_library_members,
+                )
+        return self._own_cache
+
+    def _all_members(self, library: bool) -> Members:
+        """Return every member, own then inherited, fetching the standard-library
+        ones too when ``library``; cached per choice."""
+        cached = self._members_cache.get(library)
+        if cached is not None:
+            return cached
+        pb = self._pb
+        if library and pb.withheld_library_members:
+            refetched = self._client.get_symbol(self._model_hash, self.id, include_library_members=True)
+            if refetched is not None:
+                pb = refetched
+        symbols = self._fetch_all(
+            (info.id, info.inherited_from if info.inherited else None) for info in pb.members
+        )
+        result = Members(symbols, pb.withheld_library_members)
+        self._members_cache[library] = result
+        return result
+
+    def _fetch_all(self, ids: Iterable[Tuple[str, Optional[str]]]) -> List["Symbol"]:
+        """Resolve every listed member id through the client, raising
+        :class:`UnresolvedChildError` naming the ids the service does not resolve
+        rather than dropping them."""
+        symbols: List["Symbol"] = []
+        unresolved: List[str] = []
+        for symbol_id, inherited_from in ids:
+            info = self._client.get_symbol(self._model_hash, symbol_id)
+            if info is None:
+                unresolved.append(symbol_id)
+                continue
+            symbols.append(Symbol(info, self._client, self._model_hash, inherited_from))
+        if unresolved:
+            raise UnresolvedChildError(self.id, unresolved)
+        return symbols
+
+    def children(self, inherited: bool = False, library: bool = False) -> Members:
+        """Return this symbol's member symbols of every kind.
+
+        By default only the members this symbol itself declares (its owned
+        members, the service's ``child_ids``); ``inherited=True`` adds the
+        members inherited through specialization and typing, with redefined and
+        private members of the supertypes left out, and ``library=True`` the
+        members inherited from standard-library content, otherwise withheld and
+        counted in the result's ``withheld_library``. See :meth:`members`.
+
+        An unnamed member (``bind a = b;``, ``connect a to b;``, ``part : P;``,
+        ``@M { … }`` or a ``#M`` prefix) is listed under the positional id the
+        query API and the export give it, such as ``Pkg::Owner::@3``.
+
+        Lazily fetches each member using the RPC client if available, and
+        caches the results. Returns an empty list if no client is set.
+
+        Returns:
+            :class:`Members`, a list of Symbol objects
+
+        Raises:
+            UnresolvedChildError: the service listed a member it then could not
+                resolve, so the members cannot be read completely
+        """
+        return self.members(None, inherited, library)
+
+    def attributes(self, inherited: bool = True, library: bool = False) -> Members:
+        """Return attribute members: ``attributeDef``, ``attributeUsage`` and
+        ``referenceUsage``.
+
+        Unlike the other member methods this includes inherited attributes by
+        default, the set :meth:`attribute_facts` and
+        :attr:`withheld_library_attributes` describe; ``inherited=False`` keeps
+        the declared ones only. Attributes inherited from standard-library
+        content are withheld unless ``library`` is set. See :meth:`members`.
+
+        A service without ``symbol_members`` cannot enumerate inherited members,
+        so against one this method still follows the declared specializations
+        itself, as it did before the service enumerated members: the inherited
+        attributes it finds are ordered as :meth:`attribute_facts` reports them,
+        carry :attr:`inherited_from`, and the result counts
+        :attr:`withheld_library_attributes`; ``library=True`` still needs the
+        capability, since such a service cannot list library content.
+
+        Returns:
+            :class:`Members`, a list of attribute Symbol objects
+        """
+        if (
+            inherited
+            and not library
+            and self._client is not None
+            and not self._client.server_info().has(CAPABILITY_SYMBOL_MEMBERS)
+        ):
+            return self._walked_attributes()
+        return self.members(ATTRIBUTE_KINDS, inherited, library)
+
+    def _walked_attributes(self) -> Members:
+        """Return own and inherited attributes by following the declared
+        specializations client-side, for a service that cannot enumerate
+        inherited members; cached."""
+        if self._walked_cache is not None:
+            return self._walked_cache
+        declared = [m for m in self._own_members() if m.kind.lower() in ATTRIBUTE_KINDS]
+        by_name = {attr.name: attr for attr in declared}
         for inherited in self._inherited_attributes(set()):
             by_name.setdefault(inherited.name, inherited)
 
@@ -237,23 +430,20 @@ class Symbol:
         ordered = [by_name[name] for name in reported if name in by_name]
         # A declared attribute the service did not report — an unnamed one, or an
         # older service — is still this symbol's, so it is kept.
-        ordered += [child for child in declared if child.name not in reported]
-
-        self._attributes_cache = ordered
-        return ordered
+        ordered += [attr for attr in declared if attr.name not in reported]
+        self._walked_cache = Members(ordered, self._pb.withheld_library_attributes)
+        return self._walked_cache
 
     def _inherited_attributes(self, visited: set) -> List["Symbol"]:
-        """Return the attribute symbols this symbol's supertypes declare, nearest first.
-
-        Every generalization edge is followed, typing included: a usage written
-        as ``part car : Car`` has the attributes ``Car`` declares, which is what
-        the service reports for it.
-        """
+        """Return the attributes the supertypes declare, nearest first, each
+        marked as inherited from the type declaring it. Every generalization
+        edge is followed, typing included: ``part car : Car`` has the attributes
+        ``Car`` declares."""
         if self._client is None or self.id in visited:
             return []
         visited.add(self.id)
 
-        result = []
+        result: List["Symbol"] = []
         for spec in self.specializations:
             if not spec.target_id or spec.target_id in visited:
                 continue
@@ -262,20 +452,34 @@ class Symbol:
                 continue
             supertype = Symbol(info, self._client, self._model_hash)
             result += [
-                child for child in supertype.children()
-                if child.kind.lower() in ATTRIBUTE_KINDS
+                Symbol(attr._pb, self._client, self._model_hash, supertype.id)
+                for attr in supertype._own_members()
+                if attr.kind.lower() in ATTRIBUTE_KINDS
             ]
             result += supertype._inherited_attributes(visited)
         return result
-    
-    def parts(self) -> List["Symbol"]:
-        """Return child symbols that are part definitions or usages.
-        
-        Returns:
-            List of part Symbol objects
-        """
-        return [child for child in self.children() if child.kind.lower() in PART_KINDS]
-    
+
+    def parts(self, inherited: bool = False, library: bool = False) -> Members:
+        """Return part members: ``partDef`` and ``partUsage``, own by default
+        and the inherited ones with ``inherited=True``. See :meth:`members`."""
+        return self.members(PART_KINDS, inherited, library)
+
+    def ports(self, inherited: bool = False, library: bool = False) -> Members:
+        """Return port members: ``portDef`` and ``portUsage``, own by default
+        and the inherited ones with ``inherited=True``. See :meth:`members`."""
+        return self.members(PORT_KINDS, inherited, library)
+
+    def bindings(self, inherited: bool = False, library: bool = False) -> Members:
+        """Return binding members (``bindingUsage``), own by default and the
+        inherited ones with ``inherited=True``. See :meth:`members`."""
+        return self.members(BINDING_KINDS, inherited, library)
+
+    def connections(self, inherited: bool = False, library: bool = False) -> Members:
+        """Return connector members: connection, binding, interface, flow and
+        allocation definitions and usages, own by default and the inherited
+        ones with ``inherited=True``. See :meth:`members`."""
+        return self.members(CONNECTION_KINDS, inherited, library)
+
     def get_attr(self, name: str) -> Optional["Symbol"]:
         """Get attribute by name.
         
@@ -293,9 +497,9 @@ class Symbol:
     def to_dataframe(self):
         """Convert this symbol's members to a pandas DataFrame.
 
-        One row per child, plus one per attribute inherited from a supertype,
-        with columns: name, kind, id, type, multiplicity, value, unit,
-        inherited. ``value`` and ``unit`` are an attribute's default where the
+        One row per member, own then inherited (:meth:`members` with
+        ``inherited=True``, standard-library members withheld), with columns:
+        name, kind, id, type, multiplicity, value, unit, inherited. ``value`` and ``unit`` are an attribute's default where the
         service resolved a constant one, and are None where it did not.
 
         Returns:
@@ -304,7 +508,8 @@ class Symbol:
         Raises:
             ImportError: If pandas is not installed
             MissingCapabilityError: The service does not report
-                ``symbol_attributes``, so no default could be reported
+                ``symbol_attributes``, so no default could be reported, or not
+                ``symbol_members``, so inherited members cannot be listed
         """
         self._require_resolved_attributes()
         try:
@@ -315,11 +520,7 @@ class Symbol:
                 "Install with: pip install pandas"
             )
 
-        attributes = self.attributes()
-        rows = list(self.children())
-        child_ids = {child.id for child in rows}
-        inherited_ids = {attr.id for attr in attributes if attr.id not in child_ids}
-        rows += [attr for attr in attributes if attr.id in inherited_ids]
+        rows = list(self.children(inherited=True))
 
         columns = ['name', 'kind', 'id', 'type', 'multiplicity', 'value', 'unit', 'inherited']
         if not rows:
@@ -328,7 +529,7 @@ class Symbol:
         # Facts are named, so they are keyed by the attribute id that bears the
         # name: a member of another kind sharing it is not that attribute.
         by_name = {attr.name: attr for attr in self.attribute_facts()}
-        attribute_names = {attr.id: attr.name for attr in attributes}
+        attribute_names = {attr.id: attr.name for attr in rows if attr.kind.lower() in ATTRIBUTE_KINDS}
         row_facts = [by_name.get(attribute_names.get(row.id, "")) for row in rows]
         data = {
             'name': [row.name for row in rows],
@@ -338,7 +539,7 @@ class Symbol:
             'multiplicity': [_multiplicity_text(row) for row in rows],
             'value': [facts.value if facts else None for facts in row_facts],
             'unit': [(facts.unit or None) if facts else None for facts in row_facts],
-            'inherited': [row.id in inherited_ids for row in rows],
+            'inherited': [row.inherited for row in rows],
         }
 
         return pd.DataFrame(data, columns=columns)
@@ -391,3 +592,12 @@ class Symbol:
         
         html.append('</div>')
         return ''.join(html)
+
+
+def _kind_set(kind: KindFilter) -> Optional[FrozenSet[str]]:
+    """Normalize a kind filter to lower-case names, None for every kind."""
+    if kind is None:
+        return None
+    if isinstance(kind, str):
+        return frozenset({kind.lower()})
+    return frozenset(k.lower() for k in kind)

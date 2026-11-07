@@ -197,6 +197,15 @@ func apiJSONOwnedAbsenceMetaclassInGraph(graph *rdf.Graph, metaclass string) str
 	return ""
 }
 
+// apiJSONOntologyMetaclass is the metaclass the ontology declares metaclass's properties
+// under: the grammar's `individual def` is an OccurrenceDefinition, its `individual` usage an OccurrenceUsage.
+func apiJSONOntologyMetaclass(metaclass string) string {
+	if canonical, ok := apiJSONOwnedAbsenceTypeAliases[metaclass]; ok {
+		return canonical
+	}
+	return metaclass
+}
+
 func apiJSONOwnedAbsenceMetaclass(metaclass string) string {
 	metaclass = strings.TrimPrefix(metaclass, rdf.SysML)
 	if strings.HasPrefix(metaclass, rdf.OpenSysML) || strings.HasPrefix(metaclass, "sysx:") {

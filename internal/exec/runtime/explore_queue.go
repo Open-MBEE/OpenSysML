@@ -83,7 +83,10 @@ const (
 // explorePrefix is one prefix on the queue: its position in plan order and, once run, the result,
 // held only until the run is folded or dropped so the queue keeps no context but the witnesses'.
 type explorePrefix struct {
-	prefix []exploreSlot
+	// record is the run departed from, up to its last departure and shared by them, until the
+	// prefix's run starts; the prefix is record up to departs, which takes its next alternative.
+	record  []exploreSlot
+	departs int
 	// key places the prefix in plan order: its parent's key, then its rank among the
 	// prefixes the parent's run left; its length is how many choices the run departs at.
 	key      []int
@@ -132,7 +135,8 @@ func (q *exploreQueue) work(stop context.Context, job int, fresh func(int) (*Con
 			q.finish(p, nil, Outcome{}, &SetupError{Err: err})
 			continue
 		}
-		replay := &exploreRun{prefix: p.prefix, depth: q.budget.Depth}
+		replay := &exploreRun{prefix: p.plan(), depth: q.budget.Depth}
+		p.record = nil
 		ctx.beginExploration(q.policy, replay)
 		outcome, runErr := run(ctx)
 		if runErr != nil {
@@ -243,12 +247,28 @@ func (q *exploreQueue) finish(p *explorePrefix, replay *exploreRun, outcome Outc
 	if err == nil {
 		children := replay.unexplored()
 		next := make([]*explorePrefix, len(children))
-		for i, prefix := range children {
-			next[i] = &explorePrefix{prefix: prefix, key: append(slices.Clone(p.key), i)}
+		if len(children) > 0 {
+			// The departures share the record up to the last of them, so the run's later choices and the context they hold go with the run.
+			shared := slices.Clone(replay.record[:children[len(children)-1]+1])
+			for i, departs := range children {
+				next[i] = &explorePrefix{record: shared, departs: departs, key: append(slices.Clone(p.key), i)}
+			}
 		}
 		q.insert(next)
 	}
 	q.fold()
+}
+
+// plan is the prefix as a run follows it, built once when the run starts: the shared record
+// up to the departure, copied so that choice can take its next alternative.
+func (p *explorePrefix) plan() []exploreSlot {
+	if p.record == nil {
+		return nil
+	}
+	plan := make([]exploreSlot, p.departs+1)
+	copy(plan, p.record[:p.departs+1])
+	plan[p.departs].taken++
+	return plan
 }
 
 // before reports whether p precedes o in plan order: fewer departures, then the lesser key.

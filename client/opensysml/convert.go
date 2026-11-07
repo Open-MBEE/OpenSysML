@@ -22,6 +22,17 @@ func symbolFromProto(sym *pb.SymbolInfo) *Symbol {
 		Name:                      sym.Name,
 		Kind:                      sym.Kind,
 		WithheldLibraryAttributes: int(sym.WithheldLibraryAttributes),
+		WithheldLibraryMembers:    int(sym.WithheldLibraryMembers),
+	}
+	for _, member := range sym.Members {
+		out.Members = append(out.Members, SymbolMember{
+			ID:            member.Id,
+			Name:          member.Name,
+			Kind:          member.Kind,
+			Inherited:     member.Inherited,
+			InheritedFrom: member.InheritedFrom,
+			Library:       member.Library,
+		})
 	}
 	if len(sym.Metadata) > 0 {
 		out.Metadata = make(map[string]string, len(sym.Metadata))
@@ -499,6 +510,36 @@ func instanceFromProto(inst *pb.Instance) *Instance {
 			}
 			out.FeatureValues[name] = converted
 		}
+	}
+	if reach := inst.ReachedBy; reach != nil {
+		out.ReachedBy = &Reach{
+			InstanceID:      reach.InstanceId,
+			FeatureName:     reach.FeatureName,
+			FeatureSymbolID: reach.FeatureSymbolId,
+			Index:           int(reach.Index),
+			Path:            reach.Path,
+		}
+	}
+	return out
+}
+
+func instancePathsFromProto(resp *pb.InstancePathsResponse) *InstancePaths {
+	out := &InstancePaths{Truncated: resp.Truncated}
+	for _, path := range resp.Paths {
+		converted := InstancePath{
+			RootInstanceID: path.GetRoot().GetInstanceId(),
+			RootSymbolID:   path.GetRoot().GetSymbolId(),
+			Path:           path.Path,
+		}
+		for _, step := range path.Steps {
+			converted.Steps = append(converted.Steps, PathStep{
+				FeatureName:     step.FeatureName,
+				FeatureSymbolID: step.FeatureSymbolId,
+				Index:           int(step.Index),
+				InstanceID:      step.InstanceId,
+			})
+		}
+		out.Paths = append(out.Paths, converted)
 	}
 	return out
 }
