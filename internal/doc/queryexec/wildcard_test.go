@@ -74,3 +74,28 @@ calc def Nothing :> Query {
 		t.Fatalf("rows = %d, columns = %d, want none of either", len(result.Rows()), len(result.Columns()))
 	}
 }
+
+// TestExecuteWildcardLeavesOutAComputedColumnsName: a computed column keeps
+// its name to itself; the wildcard does not add a property so named again.
+func TestExecuteWildcardLeavesOutAComputedColumnsName(t *testing.T) {
+	fixture := loadExecutionFixture(t, metaclassPropertyModel+`
+calc def Computed :> Query {
+	in root : Element;
+	Project(source = PartUsages(root = root), properties = ("*"), columns = (Column(name = "name", expression = "x: " + Element::name)), tolerate = true)
+}
+`)
+	bindings := Bindings{"root": {ElementValue(fixture.symbol(t, "Scope"))}}
+	result, err := fixture.execute(t, "Computed", bindings, Options{})
+	if err != nil {
+		t.Fatalf("Computed: %v", err)
+	}
+	named := 0
+	for _, column := range result.Columns() {
+		if column.Name() == "name" {
+			named++
+		}
+	}
+	if named != 1 {
+		t.Fatalf("columns named name = %d, want the computed one alone", named)
+	}
+}

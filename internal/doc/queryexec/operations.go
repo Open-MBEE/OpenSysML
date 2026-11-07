@@ -749,6 +749,9 @@ func (p *projection) expandWildcards(source sequence) error {
 			listed[property] = true
 		}
 	}
+	for _, column := range p.computed {
+		listed[column.name] = true
+	}
 	var properties []string
 	var wildcard []bool
 	for _, property := range p.properties {

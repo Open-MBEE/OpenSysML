@@ -65,6 +65,12 @@ func TestOSLCQuerySelectsHeldObjects(t *testing.T) {
 	if props := resp.Elements[0].Properties; props["engine"] != "Garage::car.engine" || props["wheels.pressure"] != "30" || props["engine.power"] != "100" || len(props) != 4 {
 		t.Fatalf("a car's properties = %v", props)
 	}
+	// An object's owner is the object holding it, so a path through the
+	// owner reads the parent's live values, not its declaration's.
+	resp = oslcQuery(t, srv, hash, "oslc.where="+wheel+` and sysml:owner{sysx:engine{sysx:power>50}}&oslc.select=sysml:owner{sysml:name}`)
+	if len(resp.Elements) != 2 || resp.Elements[0].Properties["owner.name"] != "car" {
+		t.Fatalf("wheels of a car with a strong engine = %v, want the car's two", resp.Elements)
+	}
 	// Conjoined instance terms keep the objects every term selects.
 	spare := "rdf:type=elmt:" + rdf.EncodeElementID("Garage::spare")
 	if resp := oslcQuery(t, srv, hash, wheel+" and "+spare); len(resp.Elements) != 1 || resp.Elements[0].Path != "Garage::spare" {
