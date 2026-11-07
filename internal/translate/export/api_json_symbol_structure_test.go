@@ -423,6 +423,8 @@ func (d *structureDifferential) graphID(sym *symbols.Symbol) (string, bool) {
 
 func (d *structureDifferential) computeGraphID(sym *symbols.Symbol) (string, bool) {
 	switch {
+	case sym.Chain != nil:
+		return d.chainGraphID(sym.Chain)
 	case sym.Implicit != nil:
 		return d.implicitGraphID(sym.Implicit)
 	case sym.Expr != nil:
@@ -439,6 +441,19 @@ func (d *structureDifferential) computeGraphID(sym *symbols.Symbol) (string, boo
 		return rdf.ExpressionNodeID(owner, "multiplicity"), true
 	}
 	return d.ids.OfDeclaration(d.doc, sym.Decl, d.fqn(sym))
+}
+
+// chainGraphID mirrors the chain Feature the conversion mints under the feature
+// whose relationship targets the chain (`chainFeature`), at the slot "chain".
+func (d *structureDifferential) chainGraphID(chain *symbols.ChainingFeature) (string, bool) {
+	if chain.Relationship == nil || chain.Relationship.Implicit == nil || chain.Relationship.Implicit.Owner == nil {
+		return "", false
+	}
+	base, ok := d.graphID(chain.Relationship.Implicit.Owner)
+	if !ok {
+		return "", false
+	}
+	return rdf.ExpressionNodeID(base, "chain"), true
 }
 
 // implicitGraphID mirrors how the conversion mints a relationship it writes for
