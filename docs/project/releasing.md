@@ -37,7 +37,9 @@ kept for 14 days, with the moving alias `nightly` at the newest night; both are 
 marked latest and are signed by the workflow's own GitHub identity rather than the
 CircleCI one the clients pin. The clients go to PyPI and npm as development versions
 (`<next>.dev<yyyymmdd>`; `<next>-nightly.<yyyymmdd>.g<commit>` under the `nightly`
-dist-tag) through trusted publishing, so no default install and no `latest` moves. It
+dist-tag) through trusted publishing — the Node client from the nightly workflow, the
+Python client and Jupyter kernel through `release-pypi.yml`, which the nightly dispatches
+with its tag — so no default install and no `latest` moves. It
 touches nothing described on this page: the `nightly*` tags match neither the `v*` filter
 of the `release` workflow nor the Windows signing workflow, `releases/latest` keeps
 resolving to the stable line, and the stable npm, Maven Central, crates.io and Docker
@@ -1446,8 +1448,10 @@ index:
   [`opensysml`](https://pypi.org/manage/project/opensysml/settings/publishing/) and of
   [`jupyter-opensysml-kernel`](https://pypi.org/manage/project/jupyter-opensysml-kernel/settings/publishing/),
   add a GitHub Actions publisher with owner `Open-MBEE`, repository `OpenSysML`,
-  workflow `release-pypi.yml` and environment `pypi` — beside the nightly's entry
-  (`nightly.yml`, environment `nightly`), which stays.
+  workflow `release-pypi.yml` and environment `pypi` — the one entry: the [nightly
+  snapshots](nightly.md) publish through this workflow too, dispatched with the night's
+  tag, so the index knows one publisher and marks no *Change of provenance* between a
+  snapshot and a release.
 - **TestPyPI** — the same two entries on [test.pypi.org](https://test.pypi.org/manage/projects/),
   which is where a pre-release tag publishes (see [Dry run on
   TestPyPI](#dry-run-on-testpypi)); without them a pre-release tag's upload fails with the
@@ -1511,16 +1515,23 @@ it attaches) and gates `build-release`:
    pins are the manifest's `sysml-grpc-*` lines, signs the manifest, and checks
    the distribution's names carry the tag's version.
 
-`release-pypi.yml`, which the same tag runs on GitHub Actions, in three jobs:
+`release-pypi.yml`, which the same tag runs on GitHub Actions — and which the
+[nightly](nightly.md) dispatches with its `nightly-<yyyymmdd>-<commit>` tag once its
+release is published, so a snapshot takes the same path and names the same publisher —
+in three jobs:
 
-1. `fetch` resolves the version from the tag again, with `check_version.py` for both
-   packages, and routes a pre-release to TestPyPI. It then waits, with
-   `scripts/wait-for-release-gate.sh`, until CircleCI has published the release —
-   `SHA256SUMS.txt.bundle` is uploaded only after the Go suite, every client's tests
-   and `build-release` passed on the tag — and checks the tag still names the commit
-   it checked out. It downloads the wheel, the sdist, the kernel's sdist and five
-   wheels, the manifest and its signature from the release; verifies the signature
-   under the pipeline's identity (the issuer and project the Python client pins);
+1. `fetch` resolves the version from the tag again: with `check_version.py` for both
+   packages, routing a pre-release to TestPyPI, for a `v*` tag; from the wheel the
+   night's release carries for a night's (the version its build derived, where a
+   re-derivation would move once a release tag lands). It
+   then waits, with `scripts/wait-for-release-gate.sh`, until the release is published
+   — CircleCI uploads `SHA256SUMS.txt.bundle` only after the Go suite, every client's
+   tests and `build-release` passed on the tag; a night's release is created with it —
+   and checks the tag still names the commit it checked out. It downloads the wheel, the
+   sdist, the kernel's sdist and five wheels, the manifest and its signature from the
+   release; verifies the signature under the identity that built it (CircleCI's, the
+   issuer and project the Python client pins, for a release; the nightly workflow's own
+   for a snapshot);
    checks each file is a line of the manifest and matches it; runs `twine check
    --strict`; installs the wheel into a clean virtualenv and, with no binary
    configured, loads and evaluates a model against the release the tag names (the
@@ -1529,14 +1540,16 @@ it attaches) and gates `build-release`:
 2. `pypi` (the client) and `jupyter-kernel` (the kernel package), each in the `pypi`
    environment with `id-token: write`, refuse to continue if the index already has the
    version (a re-run for a published release fails here, deliberately: a version cannot
-   be replaced, and `--skip-existing` would let a half-intended re-run look successful)
-   and publish with [`pypa/gh-action-pypi-publish`](https://github.com/pypa/gh-action-pypi-publish),
+   be replaced, and `--skip-existing` would let a half-intended re-run look successful;
+   a day's second snapshot, whose version is the first's, stands down with a notice
+   instead) and publish with [`pypa/gh-action-pypi-publish`](https://github.com/pypa/gh-action-pypi-publish),
    which attests each file. The two jobs are independent, so one project refusing a
    re-run does not block the other.
 
 A publication a transient failure interrupted — Sigstore or the index answering 5xx —
-is retried with `gh workflow run release-pypi.yml -f tag=vX.Y.Z`: the index check makes
-the retry a deliberate failure for a project already published, and the other publishes.
+is retried with `gh workflow run release-pypi.yml -f tag=vX.Y.Z` (or the night's tag):
+the index check makes the retry a deliberate failure for a project already published,
+and the other publishes.
 
 ### Dry run on TestPyPI
 
