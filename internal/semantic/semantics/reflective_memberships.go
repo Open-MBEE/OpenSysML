@@ -391,11 +391,17 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 	return "FeatureMembership"
 }
 
-// isAcceptPayload reports whether member is the accept payload an action usage owner declares.
+// isAcceptPayload reports whether member is the accept payload an action usage owner declares —
+// by its declaration, or by the ModAcceptPayload fact a recorded symbol carries instead.
 func isAcceptPayload(owner, member *symbols.Symbol) bool {
-	usage, ok := owner.Decl.(*ast.Usage)
-	if !ok || usage.Kind != ast.UsageAction || member == nil {
+	if member == nil {
 		return false
+	}
+	if kind, ok := owner.UsageKind(); !ok || kind != ast.UsageAction {
+		return false
+	}
+	if member.Recorded() {
+		return member.Facts.Modifiers.Has(symbols.ModAcceptPayload)
 	}
 	payload, ok := member.Decl.(*ast.Usage)
 	return ok && payload.IsAccept

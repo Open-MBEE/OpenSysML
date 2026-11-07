@@ -299,9 +299,26 @@ func TestParameterAndEndMemberships(t *testing.T) {
     part def W; part def Pt { port pt; }
     connection def CD { end a : W; end b : W; }
     part def Asm { part w1 : W; part w2 : W; connect w1 to w2; }
+    action acc { accept p : Real; }
 }`
 	for _, fixture := range reflectiveFixtures(t, "parameter-memberships.sysml", source.KindSysML, src) {
 		model := fixture.model
+		// An accept payload is a ParameterMembership, on a recorded symbol (its ModAcceptPayload fact) too.
+		payloads := 0
+		for _, nodeMembership := range model.OwnedMemberships(relFixtureSymbol(t, fixture, "acc")) {
+			nodes, _ := model.ReflectiveElements(nodeMembership, "memberElement")
+			for _, node := range nodes {
+				for _, membership := range model.OwnedMemberships(node) {
+					if members, ok := model.ReflectiveElements(membership, "memberElement"); ok && len(members) == 1 && members[0].Name == "p" {
+						assertRelMetaclass(t, model, membership, "ParameterMembership")
+						payloads++
+					}
+				}
+			}
+		}
+		if payloads != 1 {
+			t.Fatalf("acc's accept node owns %d payload memberships, want 1", payloads)
+		}
 		act := relFixtureSymbol(t, fixture, "Act")
 		// A body's `in`/`out` feature is a FeatureMembership with a direction, as the pilot exports it;
 		// only `return` is a ReturnParameterMembership.
