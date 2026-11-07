@@ -13,18 +13,23 @@ import (
 const msgEnumerationAttributeTypes = "An enumeration attribute cannot have more than one type."
 
 // Pilot SysMLValidator (2026-05) checkOneType: these usage kinds are typed by
-// exactly one definition, so a second declared type is an error. Messages are
-// the reference's, per kind.
+// exactly one definition, so a second declared type is an error. Messages are the
+// reference's, per metaclass: a concern, objective or satisfy is a RequirementUsage.
 var oneTypeUsageMessages = map[ast.UsageKind]string{
 	ast.UsageCalc:             "A calculation must be typed by one calculation definition.",
 	ast.UsageConstraint:       "A constraint must be typed by one constraint definition.",
 	ast.UsageRequirement:      "A requirement must be typed by one requirement definition.",
+	ast.UsageObjective:        "A requirement must be typed by one requirement definition.",
+	ast.UsageSatisfy:          "A requirement must be typed by one requirement definition.",
+	ast.UsageConcern:          "A requirement must be typed by one requirement definition.",
+	ast.UsageFramedConcern:    "A requirement must be typed by one requirement definition.",
 	ast.UsageCase:             "A case must be typed by one case definition.",
 	ast.UsageAnalysisCase:     "An analysis case must be typed by one analysis case definition.",
 	ast.UsageVerificationCase: "A verification case must be typed by one verification case definition.",
 	ast.UsageUseCase:          "A use case must be typed by one use case definition.",
 	ast.UsageEnumeration:      "An enumeration must be typed by one enumeration definition.",
 	ast.UsageRendering:        "A rendering must be typed by one rendering definition.",
+	ast.UsageViewRendering:    "A rendering must be typed by one rendering definition.",
 	ast.UsageViewpoint:        "A viewpoint must be typed by one viewpoint definition.",
 	ast.UsageView:             "A view must be typed by one view definition.",
 	ast.UsageMetadata:         "A metadata usage must be typed by one metadata definition.",
