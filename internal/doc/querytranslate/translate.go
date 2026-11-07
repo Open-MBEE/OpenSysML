@@ -49,6 +49,10 @@ func Translate(q Query, ctx Context, name string) (*Plan, error) {
 	if err != nil {
 		return nil, err
 	}
+	if objects && len(q.Scope) > 0 {
+		return nil, errorf(ErrUnsupportedInstanceTerm,
+			"rdf:type=elmt:… selects the objects a session holds, which a scope of declared elements does not narrow; leave the scope empty")
+	}
 	// An object's properties are its features, which the evaluator judges.
 	t.objects = objects
 	columns, err := t.columns(q.Select)

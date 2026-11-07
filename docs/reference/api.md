@@ -1205,8 +1205,9 @@ Where the standard is vague, these are the choices this implementation makes:
   empty list is malformed. `@type in [<urn:sysmlv2:element:…>]`, with the id the
   RDF export writes for an element (`rdf.EncodeElementID`), selects the held
   objects of that element (`Objects`) rather than declared elements; it takes
-  element ids only, is not negated, and is the whole `where` or the first term
-  of its `and`.
+  element ids only, is not negated, and is the whole `where` or a term of its
+  `and` (two such terms keep the objects both select). A `scope`, which names
+  declared elements, does not narrow held objects and is refused with one.
 - `instanceOf` applies to `@type` only, and asks the metamodel rather than the
   text: the element's metaclass must **conform to** one of the listed metaclasses
   through the library's reflective metaclass hierarchy

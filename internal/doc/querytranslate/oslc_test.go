@@ -378,6 +378,7 @@ func TestTranslateRefusesBeforeAnyElementIsRead(t *testing.T) {
 		"instanceOf off @type":   {Query{Where: Comparison{Property: "name", Operator: InstanceOf, Values: []string{"Usage"}}}, ErrUnorderedProperty},
 		"undeclared metaclass":   {Query{Where: TypeTest{Types: []string{"Gizmo"}}}, ErrUnparsableValue},
 		"nested instance term":   {Query{Where: Disjunction{Terms: []Constraint{Instances{Elements: []string{"Demo::A"}}, TypeTest{Types: []string{"PartUsage"}}}}}, ErrUnsupportedInstanceTerm},
+		"scoped instance term":   {Query{Where: Instances{Elements: []string{"Demo::A"}}, Scope: []string{"Demo"}}, ErrUnsupportedInstanceTerm},
 		"scoped scalar":          {Query{Where: Scoped{Property: "name", Inner: Comparison{Property: "name", Operator: Equal, Values: []string{"x"}}}}, ErrUnorderedProperty},
 		"non-boolean isAbstract": {Query{Where: Comparison{Property: "isAbstract", Operator: Equal, Values: []string{"maybe"}}}, ErrUnparsableValue},
 	}
