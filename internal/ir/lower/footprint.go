@@ -121,10 +121,8 @@ type Flow struct {
 	Writes []Place
 }
 
-// Standing is a footprint indexed for the many questions classifying a choice
-// asks of one move: whether a place meets a read or write of it, and what it
-// writes standing on the reads met, each distinct place decided once and only
-// the places a given one may conflict with (by declaration, name or state) tried.
+// Standing is a footprint indexed by declaration, name and state so that a place
+// is decided only against the places of the move it may conflict with, each once.
 type Standing struct {
 	Reads  []Place
 	Writes []Place

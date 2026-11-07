@@ -22,9 +22,8 @@ func wideFootprint(n int) lower.Footprint {
 	return fp
 }
 
-// TestStandingDecidesOnlyConflictingPlaces pins that deciding a place against a
-// move tries the places it may conflict with, not every place the move touches:
-// classifying two wide moves costs their width, not its square.
+// TestStandingDecidesOnlyConflictingPlaces pins that a place is tried only against
+// the places it may conflict with, so two wide moves cost their width, not its square.
 func TestStandingDecidesOnlyConflictingPlaces(t *testing.T) {
 	for _, n := range []int{10, 40, 160} {
 		fp := wideFootprint(n)
