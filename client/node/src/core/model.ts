@@ -5,6 +5,7 @@ import {
   CAPABILITY_EVALUATE_SUBJECT,
   CAPABILITY_INLINE_LANGUAGE,
   CAPABILITY_STRICT_CONFORMANCE,
+  CAPABILITY_SYMBOL_MEMBERS,
   requireCapability,
   upgradeRemedy,
 } from "./capabilities.js";
@@ -15,6 +16,7 @@ import { requireLanguage } from "./sources.js";
 import type { ModelDiagnostic } from "./errors.js";
 import type { Conversion, ConvertOptions } from "./conversion.js";
 import type { ElementProperties } from "./element-properties.js";
+import type { InstancePaths } from "./instance-paths.js";
 import type { QueryForm, QueryElement, QueryPayload } from "./query.js";
 import type { BindingValues, DocumentQueryResult } from "./document.js";
 import type { RenderedView } from "./render-view.js";
@@ -40,6 +42,7 @@ import {
   type Diagnostic,
   type FeatureValue as PbFeatureValue,
   type Instance as PbInstance,
+  type InstanceReach as PbInstanceReach,
   type ParseFileRequest,
   type SymbolInfo,
 } from "../generated/sysml_pb.js";
@@ -75,6 +78,16 @@ function editDistance(left: string, right: string): number {
     previous = current;
   }
   return previous[right.length] ?? 0;
+}
+
+/** What a symbol lookup asks the service for beyond the symbol itself. */
+export interface SymbolOptions {
+  /**
+   * List the members inherited from standard-library content too, which the
+   * service otherwise leaves out and counts in `withheldLibraryMembers`.
+   * Requires `symbol_members`.
+   */
+  includeLibraryMembers?: boolean;
 }
 
 /** How a source is parsed. */
@@ -420,6 +433,26 @@ export class Model {
     return this.connection.elementProperties(this.hash, element, properties);
   }
 
+  /**
+   * Every root-relative path that reaches one object of this model's
+   * population, aliases through connector ends and reference usages included:
+   * what `Instance.reachedBy` gives one of. The object is an `Instance` the
+   * model instantiated, its id, or a path — the qualified name it was
+   * instantiated as (`Garage::car`), its id (`#2`), or a path through feature
+   * values from either (`Garage::car.wheels[2]`; indexes count from 1).
+   * Refused before asking a service without `instance_paths`.
+   */
+  instancePaths(object: Instance | bigint | string): Promise<InstancePaths> {
+    if (object instanceof Instance) {
+      return this.connection.instancePaths(this.hash, { instanceId: object.id });
+    }
+    if (typeof object === "bigint") {
+      return this.connection.instancePaths(this.hash, { instanceId: object });
+    }
+    requireString("object", object);
+    return this.connection.instancePaths(this.hash, { path: object });
+  }
+
   /** Runs a named document query against this model. */
   runDocumentQuery(
     queryId: string,
@@ -672,11 +705,14 @@ export class Model {
   }
 
   /** Looks a symbol up by its qualified name, in one call. */
-  async symbolById(id: string): Promise<ModelSymbol> {
+  async symbolById(id: string, options: SymbolOptions = {}): Promise<ModelSymbol> {
     requireString("id", id);
+    if (options.includeLibraryMembers === true) {
+      requireCapability(this.connection.info, CAPABILITY_SYMBOL_MEMBERS, upgradeRemedy(CAPABILITY_SYMBOL_MEMBERS));
+    }
     const response = await callRpc(
       this.connection.rpc.getSymbol(
-        { modelHash: this.hash, symbolId: id },
+        { modelHash: this.hash, symbolId: id, includeLibraryMembers: options.includeLibraryMembers === true },
         this.connection.callOptions(),
       ),
     );
@@ -809,6 +845,15 @@ export class ModelSymbol {
   readonly kind: string;
   readonly metadata: Readonly<Record<string, string>>;
   readonly childIds: readonly string[];
+  /**
+   * Every member, own then inherited, as a service with `symbol_members`
+   * enumerates them; empty from one without. The standard-library members are
+   * left out and counted in `withheldLibraryMembers` unless the symbol was
+   * fetched with `includeLibraryMembers`.
+   */
+  readonly members: readonly MemberFacts[];
+  /** Members inherited from standard-library content the service did not send. */
+  readonly withheldLibraryMembers: number;
   readonly attributes: readonly AttributeFacts[];
   readonly type: TypeFacts | undefined;
   readonly multiplicity: Multiplicity | undefined;
@@ -827,6 +872,15 @@ export class ModelSymbol {
     this.kind = info.kind;
     this.metadata = { ...info.metadata };
     this.childIds = [...info.childIds];
+    this.members = info.members.map((member) => ({
+      id: member.id,
+      name: member.name,
+      kind: member.kind,
+      inherited: member.inherited,
+      inheritedFrom: member.inheritedFrom,
+      library: member.library,
+    }));
+    this.withheldLibraryMembers = info.withheldLibraryMembers;
     this.attributes = info.attributes.map((attribute) => ({
       name: attribute.name,
       type: attribute.type,
@@ -883,6 +937,73 @@ export class ModelSymbol {
   attribute(name: string): AttributeFacts | undefined {
     return this.attributes.find((attribute) => attribute.name === name);
   }
+
+  /** The members this symbol declares itself: `members` without the inherited ones. */
+  ownMembers(): MemberFacts[] {
+    return this.members.filter((member) => !member.inherited);
+  }
+
+  /**
+   * The members inherited through specialization and typing, in inheritance
+   * order, as KerML `Type::member` lists them: a redefining member hides the one
+   * it redefines, and a private member of a supertype is not inherited.
+   */
+  inheritedMembers(): MemberFacts[] {
+    return this.members.filter((member) => member.inherited);
+  }
+
+  /**
+   * This symbol fetched again with the standard-library members listed rather
+   * than counted, each marked `library` with its provenance. Refused before
+   * asking a service without `symbol_members`, which would ignore the request.
+   */
+  async withLibraryMembers(): Promise<ModelSymbol> {
+    requireCapability(this.connection.info, CAPABILITY_SYMBOL_MEMBERS, upgradeRemedy(CAPABILITY_SYMBOL_MEMBERS));
+    const response = await callRpc(
+      this.connection.rpc.getSymbol(
+        { modelHash: this.modelHash, symbolId: this.id, includeLibraryMembers: true },
+        this.connection.callOptions(),
+      ),
+    );
+    if (response.symbol === undefined) {
+      throw new SymbolNotFoundError(this.id);
+    }
+    return new ModelSymbol(this.connection, this.modelHash, response.symbol);
+  }
+}
+
+/** One member of a type, own or inherited. */
+export interface MemberFacts {
+  /** The member's qualified name, which `symbolById` accepts. */
+  id: string;
+  /** The declared name, empty for an anonymous member. */
+  name: string;
+  /** The element kind (`partUsage`, `attributeUsage`, ...). */
+  kind: string;
+  /** Whether the member is inherited rather than declared by the symbol. */
+  inherited: boolean;
+  /** The qualified name of the type declaring an inherited member; empty for an own one. */
+  inheritedFrom: string;
+  /** Whether the member is standard-library content. */
+  library: boolean;
+}
+
+/**
+ * How a traversal of an object graph reached one object. The traversal is
+ * depth-first from the root, over the features of an object in name order and
+ * the values of a feature in their order, reaching an object once.
+ */
+export interface InstanceReach {
+  /** The object holding this one. */
+  instanceId: bigint;
+  /** The holder's feature, a key of its `features`. */
+  featureName: string;
+  /** The qualified name of the feature as declared. */
+  featureSymbolId: string;
+  /** The position among the values of a multi-valued feature, counted from 1 as an object path indexes them; 0 for a single-valued one. */
+  index: number;
+  /** The path from the root, the feature names joined by dots and indexed within a multi-valued feature (`wheels[2].hub`). */
+  path: string;
 }
 
 /** One feature's value on an instantiated object. */
@@ -896,6 +1017,11 @@ export class Instance {
   readonly id: bigint;
   readonly typeId: string;
   readonly features: ReadonlyMap<string, FeatureValue>;
+  /**
+   * How the traversal that built the object graph reached this object;
+   * undefined for the root, and from a service without `instance_paths`.
+   */
+  readonly reachedBy: InstanceReach | undefined;
 
   constructor(instance: PbInstance) {
     this.id = instance.id;
@@ -905,6 +1031,26 @@ export class Instance {
       features.set(name, decodeFeatureValue(value));
     }
     this.features = features;
+    this.reachedBy = instance.reachedBy === undefined ? undefined : decodeReach(instance.reachedBy);
+  }
+
+  /**
+   * The id of the object holding this one along the path the traversal reached
+   * it by, which `InstanceTree.byId` and `InstanceTree.owner` resolve; undefined
+   * for the root. One object is often a value of several features (a port and
+   * the connector end referencing it are one object); this is the holder the
+   * traversal came through, and `Model.instancePaths` lists every path to it.
+   */
+  get ownerId(): bigint | undefined {
+    return this.reachedBy?.instanceId;
+  }
+
+  /**
+   * The path from the root the traversal reached this object by
+   * (`powertrain.engine.fuelIn`, `wheels[2].hub`); empty for the root.
+   */
+  get path(): string {
+    return this.reachedBy?.path ?? "";
   }
 
   /** The value of one feature, or undefined when the object has no such feature. */
@@ -943,6 +1089,25 @@ export class InstanceTree {
   byId(id: bigint): Instance | undefined {
     return this.all.find((instance) => instance.id === id) ?? (this.root.id === id ? this.root : undefined);
   }
+
+  /**
+   * The object holding another along the path the traversal reached it by;
+   * undefined for the root, and for a holder the instantiation did not produce.
+   */
+  owner(instance: Instance): Instance | undefined {
+    const id = instance.ownerId;
+    return id === undefined ? undefined : this.byId(id);
+  }
+}
+
+function decodeReach(reach: PbInstanceReach): InstanceReach {
+  return {
+    instanceId: reach.instanceId,
+    featureName: reach.featureName,
+    featureSymbolId: reach.featureSymbolId,
+    index: reach.index,
+    path: reach.path,
+  };
 }
 
 function decodeFeatureValue(value: PbFeatureValue): FeatureValue {

@@ -18,6 +18,10 @@ import java.util.Optional;
  * @param multiplicity declared multiplicity, absent when none is declared
  * @param specializations generalization edges declared, in declaration order
  * @param withheldLibraryAttributes how many inherited standard-library attributes are left out
+ * @param members every member, own then inherited, as a service advertising {@code symbol_members}
+ *     enumerates them; empty from one that does not
+ * @param withheldLibraryMembers how many members inherited from standard-library content are left
+ *     out, until asked for with {@link SymbolOptions#withLibraryMembers}
  */
 public record Symbol(
     String id,
@@ -29,7 +33,9 @@ public record Symbol(
     Optional<Symbol.TypeFacts> typeFacts,
     Optional<Symbol.Multiplicity> multiplicity,
     List<Symbol.Specialization> specializations,
-    int withheldLibraryAttributes) {
+    int withheldLibraryAttributes,
+    List<Symbol.Member> members,
+    int withheldLibraryMembers) {
 
   /**
    * Creates a symbol, copying every collection.
@@ -44,6 +50,8 @@ public record Symbol(
    * @param multiplicity declared multiplicity, when declared
    * @param specializations generalization edges
    * @param withheldLibraryAttributes count of omitted library attributes
+   * @param members every member enumerated, own then inherited
+   * @param withheldLibraryMembers count of omitted library members
    */
   public Symbol {
     Objects.requireNonNull(id, "id");
@@ -55,6 +63,102 @@ public record Symbol(
     specializations = List.copyOf(specializations);
     Objects.requireNonNull(typeFacts, "typeFacts");
     Objects.requireNonNull(multiplicity, "multiplicity");
+    members = List.copyOf(members);
+  }
+
+  /**
+   * Creates a symbol of a service that enumerates no members.
+   *
+   * @param id fully qualified name
+   * @param name declared name
+   * @param kind element kind
+   * @param metadata further facts by name
+   * @param childIds FQNs of the children
+   * @param attributes own attributes
+   * @param typeFacts static type facts, when reported
+   * @param multiplicity declared multiplicity, when declared
+   * @param specializations generalization edges
+   * @param withheldLibraryAttributes count of omitted library attributes
+   */
+  public Symbol(
+      String id,
+      String name,
+      String kind,
+      Map<String, String> metadata,
+      List<String> childIds,
+      List<Symbol.Attribute> attributes,
+      Optional<Symbol.TypeFacts> typeFacts,
+      Optional<Symbol.Multiplicity> multiplicity,
+      List<Symbol.Specialization> specializations,
+      int withheldLibraryAttributes) {
+    this(
+        id,
+        name,
+        kind,
+        metadata,
+        childIds,
+        attributes,
+        typeFacts,
+        multiplicity,
+        specializations,
+        withheldLibraryAttributes,
+        List.of(),
+        0);
+  }
+
+  /**
+   * The members this symbol declares itself: {@link #members()} without the inherited ones.
+   *
+   * @return the owned members, in declaration order
+   */
+  public List<Member> ownMembers() {
+    return members.stream().filter(member -> !member.inherited()).toList();
+  }
+
+  /**
+   * The members inherited through specialization and typing, in inheritance order, as KerML
+   * {@code Type::member} lists them: a redefining member hides the one it redefines, and a private
+   * member of a supertype is not inherited.
+   *
+   * @return the inherited members, each naming the type it comes from
+   */
+  public List<Member> inheritedMembers() {
+    return members.stream().filter(Member::inherited).toList();
+  }
+
+  /**
+   * One member of a type, own or inherited.
+   *
+   * @param id fully qualified name of the member, the id {@link Model#symbol(String)} accepts
+   * @param name declared name, empty for an anonymous member
+   * @param kind element kind ({@code "partUsage"}, {@code "attributeUsage"}, …)
+   * @param inherited whether the member is inherited rather than declared by the symbol
+   * @param inheritedFrom FQN of the type that declares an inherited member, absent for an own one
+   * @param library whether the member is standard-library content
+   */
+  public record Member(
+      String id,
+      String name,
+      String kind,
+      boolean inherited,
+      Optional<String> inheritedFrom,
+      boolean library) {
+    /**
+     * Creates a member.
+     *
+     * @param id fully qualified name, never {@code null}
+     * @param name declared name
+     * @param kind element kind
+     * @param inherited whether it is inherited
+     * @param inheritedFrom the declaring type, when inherited
+     * @param library whether it is standard-library content
+     */
+    public Member {
+      Objects.requireNonNull(id, "id");
+      Objects.requireNonNull(name, "name");
+      Objects.requireNonNull(kind, "kind");
+      Objects.requireNonNull(inheritedFrom, "inheritedFrom");
+    }
   }
 
   /**
