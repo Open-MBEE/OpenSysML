@@ -471,6 +471,7 @@ func TestW8BUniquenessConformanceOfAnImplicitSubsetting(t *testing.T) {
 
 // A parameter redefines the general behavior's parameter at its position without `:>>`
 // (KerML 7.4.7.2); that implied Redefinition is held to the constancy rule like a written one.
+// Spec's body no longer inherits `limit`, so `cap :> limit` would not resolve (as in the pilot).
 func TestW8BConstancyConformanceImplicitParameters(t *testing.T) {
 	src := `package IP {
     private import ScalarValues::*;
@@ -478,12 +479,11 @@ func TestW8BConstancyConformanceImplicitParameters(t *testing.T) {
     action def Spec :> Gen { in attribute cap : Real; }
     action def SpecOk :> Gen { in constant attribute cap : Real; }
     action def SpecExplicit :> Gen { in attribute cap :>> limit; }
-    action def SpecSubsets :> Gen { in attribute cap :> limit; }
 }`
 	got := codes(constancyDiags(t, src))
 	const want = "subsetting-constancy-conformance"
-	if len(got) != 3 || got[0] != want || got[1] != want || got[2] != want {
-		t.Fatalf("one finding each for Spec, SpecExplicit and SpecSubsets (written `:>` and implied `:>>` share the target), got %v", got)
+	if len(got) != 2 || got[0] != want || got[1] != want {
+		t.Fatalf("one finding each for Spec and SpecExplicit, got %v", got)
 	}
 }
 
@@ -504,13 +504,14 @@ func TestW8BDirectionConformanceWrittenPositionalTargetReportedOnce(t *testing.T
 	}
 }
 
-// A parameter subsetting its positional counterpart still redefines it by
-// position, so an opposing direction is reported from that redefinition.
+// A parameter subsetting its positional counterpart still redefines it by position, so
+// an opposing direction is reported from that redefinition. The counterpart is no longer
+// inherited (its position redefines it), so the clause names it qualified, as in the pilot.
 func TestW8BDirectionConformancePositionalCounterpartSubsetted(t *testing.T) {
 	const src = `package P {
 		private import ScalarValues::*;
 		action def A { in x : Integer; }
-		action a : A { out y :> x; }
+		action a : A { out y :> A::x; }
 	}`
 	if diags := directionDiags(t, src); len(diags) != 1 {
 		t.Fatalf("got %d direction diagnostics, want one: %v", len(diags), diags)
