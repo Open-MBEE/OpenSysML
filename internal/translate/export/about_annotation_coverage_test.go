@@ -154,6 +154,41 @@ func TestAnnotationMatchedByNameKeepsTheOwnersSpelling(t *testing.T) {
 	}
 }
 
+// Two written names matched to namesakes each keep their own: a target whose short name is
+// another target's name does not take that name's place.
+func TestAnnotationsMatchedByNameKeepDistinctSpellings(t *testing.T) {
+	full := graphOfNotation(t, "package P {\n    comment about S, B /* note */\n}\npackage Q {\n    part def <S> B;\n}\npackage R {\n    part def S;\n}\n")
+	namesakes := rdf.NewGraphOf(append([]rdf.Triple(nil), full.Triples()...), full.Prefixes)
+	rewritten := 0
+	namesakes.RewriteTriples(func(tr *rdf.Triple) bool {
+		if tr.Predicate.Value == rdf.OpenSysML+xSourceText || tr.Predicate.Value == rdf.OpenSysML+xSourceTail {
+			return false
+		}
+		if tr.Predicate.Value != rdf.SysML+pAnnotatedElement {
+			return true
+		}
+		switch {
+		case strings.HasSuffix(tr.Subject.Value, "_an0") && tr.Object.Value == "S":
+			*tr = rdf.Triple{Subject: tr.Subject, Predicate: tr.Predicate, Object: rdf.IRI(rdf.Element + "R__S")}
+			rewritten++
+		case strings.HasSuffix(tr.Subject.Value, "_an1") && tr.Object.Value == "B":
+			*tr = rdf.Triple{Subject: tr.Subject, Predicate: tr.Predicate, Object: rdf.IRI(rdf.Element + "Q__B")}
+			rewritten++
+		}
+		return true
+	})
+	if rewritten != 2 {
+		t.Fatalf("rewrote %d Annotation targets to the namesakes, want 2", rewritten)
+	}
+	out, err := ToSysML(namesakes)
+	if err != nil {
+		t.Fatalf("the graph reads: %v", err)
+	}
+	if !strings.Contains(string(out), "comment about S, B ") {
+		t.Errorf("the owner's `about S, B` should read back as written:\n%s", out)
+	}
+}
+
 // `about x, x` owns two Annotations of the one element, as the notation adds one per
 // name (KerML 8.2.3.2 AnnotatingElement: `about` names), each with its own id, and
 // reads back as written.

@@ -4534,12 +4534,13 @@ func (d *decoder) referenceText(el *element, property string) (string, error) {
 // annotatedElement's targets when a graph states no Annotation elements.
 func (d *decoder) aboutList(el *element) ([]string, error) {
 	var out []string
+	consumed := map[string]bool{}
 	for _, child := range el.children {
 		if !child.implied || child.metaclass != mAnnotation {
 			continue
 		}
 		for _, term := range d.graph.Objects(rdf.IRI(child.iri), rdf.SysML+pAnnotatedElement) {
-			name, err := d.referenceName(d.statedForm(el, term), el)
+			name, err := d.referenceName(d.statedForm(el, term, consumed), el)
 			if err != nil {
 				return nil, err
 			}
@@ -4552,32 +4553,27 @@ func (d *decoder) aboutList(el *element) ([]string, error) {
 	return d.referenceList(el, rdf.SysML+pAnnotatedElement)
 }
 
-// statedForm is the owner's own statement of an Annotation's target: the IRI when the
-// owner states it, else the name the owner wrote — an end matched through a declared
-// name does not get to respell the clause.
-func (d *decoder) statedForm(el *element, target rdf.Term) rdf.Term {
+// statedForm is the owner's own statement of an Annotation's target: the IRI when the owner
+// states it, else the name the owner wrote — each written name standing for one Annotation.
+func (d *decoder) statedForm(el *element, target rdf.Term, consumed map[string]bool) rdf.Term {
 	if !target.IsIRI() {
 		return target
 	}
-	var literal *rdf.Term
-	for _, object := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pAnnotatedElement) {
+	stated := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pAnnotatedElement)
+	for _, object := range stated {
 		if object.Value == target.Value {
 			return target
 		}
-		if object.IsIRI() || literal != nil {
-			continue
-		}
-		for _, property := range []string{pDeclaredName, pDeclaredShortName} {
-			for _, name := range d.graph.Objects(rdf.IRI(target.Value), rdf.SysML+property) {
-				if name.Value == object.Value {
-					o := object
-					literal = &o
+	}
+	for _, property := range []string{pDeclaredName, pDeclaredShortName} {
+		for _, name := range d.graph.Objects(rdf.IRI(target.Value), rdf.SysML+property) {
+			for _, object := range stated {
+				if !object.IsIRI() && object.Value == name.Value && !consumed[object.Value] {
+					consumed[object.Value] = true
+					return object
 				}
 			}
 		}
-	}
-	if literal != nil {
-		return *literal
 	}
 	return target
 }
