@@ -79,7 +79,7 @@ github.com/Open-MBEE/OpenSysML
 │   │   ├── semantics/      # Type system, conformance, multiplicity, invocation selection
 │   │   ├── identity/       # Element identities and the normative ids
 │   │   ├── highlight/      # Semantic token classification
-│   │   └── query/          # The API element-query model and its OSLC prefix map
+│   │   └── query/          # Metamodel property names and the reflective PropertyReader the query surfaces share
 │   ├── ir/
 │   │   ├── lower/          # AST → execution IR (ActionGraph/StateGraph)
 │   │   ├── queryplan/      # Document-query definitions → immutable query plans
@@ -105,6 +105,7 @@ github.com/Open-MBEE/OpenSysML
 │   │   └── interop/        # Flexo MMS (interop/flexo) and repository sync (interop/reposync)
 │   ├── doc/
 │   │   ├── queryexec/      # Query plan execution → typed, ordered row sets
+│   │   ├── querytranslate/ # OSLC Query text and the API Query → query plans (the shared translator core)
 │   │   ├── docir/          # Document plan evaluation → backend-agnostic document tree
 │   │   ├── docrender/      # Markdown and HTML document backends
 │   │   └── docpdf/         # PDF document backend

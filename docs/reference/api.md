@@ -1021,7 +1021,13 @@ repl.Loop(reader, os.Stdout, session)
 This section describes the structured API Query surface; [OSLC Query
 text](oslc-query.md) is the second spelling over the same elements, and
 [Which query is which](../manual/query-kinds.md) places both beside the
-document queries, `Evaluate` and `solve`.
+document queries, `Evaluate` and `solve`. Both spellings are translations
+(`internal/doc/querytranslate`) into the document-query plans of
+`internal/ir/queryplan`, executed by `internal/doc/queryexec` as the
+`DocumentQueries` library's queries are: `where` becomes nested `WhereType`,
+`WhereName` and `WhereFeature` operations, `select` a `Project`, `orderBy`
+nested `OrderBy`s, so the three query spellings share one semantics and one
+failure record.
 
 The gRPC service implements the query surface the **SysML v2 API & Services**
 standard defines, so a client that speaks that API — the
@@ -1031,7 +1037,8 @@ can filter a model OpenSysML parsed. The standard's schema is authoritative:
 `api/openapi.yaml` in the Java client, components `Query`, `Constraint`,
 `PrimitiveConstraint`, `CompositeConstraint`.
 
-**Implementation:** `internal/frontend/grpc/query.go` (`Service.Query`), reported from
+**Implementation:** `internal/frontend/grpc/query.go` (`Service.Query`, translating with
+`internal/doc/querytranslate` and executing with `internal/doc/queryexec`), reported from
 `GetServerInfo` as the `query` capability, with `orderBy` under `query_order_by` (a service
 without it would ignore the field, so every client checks before sending a sorted query).
 Python: `model.query(...)`
@@ -1070,7 +1077,11 @@ model.query({"@type": "Query", "where": {
 ```
 
 Each answered element is `@id`, `@type` and the selected properties it has. A
-property an element does not have is **absent**, not empty. Named elements use
+property an element does not have is **absent**, not empty. A row that is a
+held object — a `where` of `@type` `in` an `elmt:` element id, see [OSLC
+elements and objects](oslc-query.md#elements-and-objects) — also carries the
+object's `path` (`Garage::car.wheels[2]`), the additive `QueryResultElement.path`
+field, which is empty for a declared element. Named elements use
 their qualified name as `@id`; an unnamed declaration uses the same positional
 qualified name as the RDF and API-JSON export, such as `Demo::@4`. That ID can
 also be used as a `scope`. A positionally identified element has no
@@ -1088,10 +1099,17 @@ be used as a `scope` (`TestQueryOmitsBodyLocalDeclarations`).
 
 ### Queryable properties
 
-The set is closed and is the single source of truth in
-`queryProperties` (`internal/frontend/grpc/query.go`). A property outside it is an
-`INVALID_ARGUMENT` error listing the ones that exist — never a silently empty
-answer.
+The properties are the ones the document-query `Project` reads
+(`querytranslate.Table`, built reflectively from the metamodel's metaclass
+declarations plus the evaluator-derived properties below), so a property the
+metamodel declares for some metaclass — `body`, `satisfiedRequirement`,
+`general`, `elementType` — is queryable by its KerML/SysML name even when it is
+not in this table of the commonly asked-for ones. A property no metaclass
+declares is an `INVALID_ARGUMENT` error naming the nearest spelling, carrying the
+[query outcome](../internals/design/query-outcomes.md) as a `QueryOutcome` status
+detail — never a silently empty answer. Properties nest by `.`
+(`owner.name`, `wheels.diameter`), reading the property of the related element
+or the member of the held object the first segment names.
 
 | Property | Reports | Ordered |
 |---|---|---|
@@ -1169,18 +1187,26 @@ so reports no `@type`, like any cached element whose kind was not retained.
 
 Where the standard is vague, these are the choices this implementation makes:
 
-- `=` compares the property's value as text, and matches if it equals **any** of
-  the listed values. The standard writes one value and its clients write a list
-  for `@type`; one value is the degenerate case of the same rule.
-- `>`, `>=`, `<` and `<=` compare numbers, and require exactly one operand and an
-  ordered property (the `multiplicity*` pair). A non-ordered property, more than
-  one operand, or an operand that is not a number is an `INVALID_ARGUMENT` error,
-  not a false verdict. `*` parses as infinity, so `multiplicityUpper > 1` holds
-  for an unbounded feature, and the inclusive forms hold at the bound itself
-  (`multiplicityLower <= 2` selects `attribute x : Real [2..*]`).
+- `=` compares the property's value as the document-query evaluator compares a
+  `WhereFeature` operand — a number as a number, a boolean as `true`/`false`, text
+  lexically — and matches if it equals **any** of the listed values, each
+  alternative one filter whose rows are kept in source order. The standard writes
+  one value and its clients write a list for `@type`; one value is the degenerate
+  case of the same rule. `@type` is a `WhereType` (exact) and `name` a `WhereName`.
+- `>`, `>=`, `<` and `<=` compare numbers, and require exactly one operand and a
+  numeric property (the `multiplicity*` pair, or a model attribute reached by
+  path). A text or boolean property, more than one operand, or an operand that is
+  not a number is an `INVALID_ARGUMENT` error, not a false verdict. `*` parses as
+  infinity, so `multiplicityUpper > 1` holds for an unbounded feature, and the
+  inclusive forms hold at the bound itself (`multiplicityLower <= 2` selects
+  `attribute x : Real [2..*]`).
 - `in` is membership of the property's value in the listed values — the same
   verdict `=` gives a list, under the operator the standard spells it with. An
-  empty list is malformed.
+  empty list is malformed. `@type in [<urn:sysmlv2:element:…>]`, with the id the
+  RDF export writes for an element (`rdf.EncodeElementID`), selects the held
+  objects of that element (`Objects`) rather than declared elements; it takes
+  element ids only, is not negated, and is the whole `where` or the first term
+  of its `and`.
 - `instanceOf` applies to `@type` only, and asks the metamodel rather than the
   text: the element's metaclass must **conform to** one of the listed metaclasses
   through the library's reflective metaclass hierarchy
@@ -1191,11 +1217,14 @@ Where the standard is vague, these are the choices this implementation makes:
 - A `CompositeConstraint` combines **at least two** constraints, as the standard's
   `constraint : Constraint [2..*]` says; an empty or one-member list is malformed
   (write the one constraint on its own).
-- An element that *has no value* for the property fails the comparison; this is a
-  fact about the element, not a fault in the query.
+- An element that *has no value* for the property fails the comparison
+  (`WhereFeature` with `tolerate=true`); this is a fact about the element, not a
+  fault in the query.
 - `inverse` negates the verdict of its own constraint, so a constraint and its
   inverse partition the scope.
-- `and`/`or` combine nested verdicts, short-circuiting once one is decisive.
+- `and` nests one operation inside the next; `or` keeps the rows any member
+  keeps, in source order (`Except` of the rows no member kept), so a disjunction
+  never reorders or duplicates its scope.
 - The whole `where` tree is judged **before** any element is read, so a fault in
   it — an unknown property, a missing operator, an empty or one-member composite,
   `>` on an unordered property, `instanceOf` of an undeclared metaclass — is
@@ -1211,14 +1240,14 @@ Where the standard is vague, these are the choices this implementation makes:
   breaks the ties of those before it, and declaration order breaks the last
   ones (the sort is stable). An unknown property is an `INVALID_ARGUMENT`
   error, as it is in `select` and `where`, even when nothing would be sorted.
-  Comparison per property (`corequery.CompareOrderValues`): an element without
-  the property precedes every element with it; two values of an ordered property
-  (`multiplicityLower`, `multiplicityUpper`) compare as numbers with `*` the
-  greatest, so `1 < 9 < 10 < *`; two values of any other property compare
-  byte-wise as text, which puts `false` before `true` and capitals before
-  lower-case names. Every property has one value type, so present-versus-absent
-  is the only mixed comparison. Sorting by a property `select` leaves out does
-  not add it to the answer. The same comparison orders OSLC `oslc.orderBy`.
+  Each property is one `OrderBy` operation, applied in reverse precedence so the
+  stable sort keeps the later keys within equal earlier ones. Comparison per
+  property is the evaluator's (`queryexec` `OrderBy`, `missing="first"`): an
+  element without the property precedes every element with it; numbers compare
+  as numbers with `*` the greatest, so `1 < 9 < 10 < *`; text compares
+  byte-wise, which puts `false` before `true` and capitals before lower-case
+  names. Sorting by a property `select` leaves out does not add it to the
+  answer. The same operations order OSLC `oslc.orderBy`.
 
 ### Not supported — by design of the standard
 
@@ -1226,14 +1255,13 @@ The standard's query model is deliberately weak, and this is an interop
 surface; the [document queries](../manual/query-kinds.md) are the expressive
 one:
 
-- **No graph traversal and no transitive closure.** There is no "all elements
-  under X", no "everything that specializes Y", no path expressions and no joins.
-  Containment is expressible only as a `scope`; specialization is not expressible
-  at all, even though `semantics.Model` can answer it.
+- **No transitive closure.** There is no "all elements under X" and no
+  "everything that specializes Y": a property path (`owner.name`,
+  `general.qualifiedName`) reads one step, and containment is otherwise
+  expressible only as a `scope`.
 - No `owningProject` / `@id` on the query resource (single-model service, no
-  project or commit store), no derived or computed properties, and no paging of
-  results — elements come back in `orderBy` order, or declaration order without
-  one.
+  project or commit store), and no paging of results — elements come back in
+  `orderBy` order, or declaration order without one.
 
 ---
 

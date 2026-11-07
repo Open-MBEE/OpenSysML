@@ -1,18 +1,29 @@
 # OSLC Query text
 
 OpenSysML accepts OSLC Query 3.0 text as an element-identification query over
-the symbols in a parsed model. It is not an OSLC server: this implementation
-does not provide query capabilities, result containers, service providers, or
-resource shapes.
+the symbols in a parsed model, and over the objects a session holds of them. It
+is not an OSLC server: this implementation does not provide query capabilities,
+result containers, service providers, or resource shapes.
+
+The text is a *translation* into the document-query plans of
+[QVTS](../guide/qvts.md): `internal/doc/querytranslate` parses it into a
+transport-neutral query, compiles that to the plan IR of `internal/ir/queryplan`
+(`WhereType`, `WhereName`, `WhereFeature`, `WhereText`, `Project`, `OrderBy`,
+`Objects`, `Except`), and `internal/doc/queryexec` executes the plan exactly as it
+executes a `DocumentQueries` query. The structured API `Query` of the gRPC
+service is translated by the same package onto the same operations, so the
+three query spellings read the model with one semantics and refuse with one
+record, the [query outcome](../internals/design/query-outcomes.md).
 
 ## Grammar
 
 The supported filter is a compound term:
 
 ```text
-term (" and " term)*
-term ::= identifier comparison_op value
-       | identifier " in " "[" value ("," value)* "]"
+compound   ::= term (" and " term)*
+term       ::= identifier comparison_op value
+             | identifier " in " "[" value ("," value)* "]"
+             | identifier "{" compound "}"
 comparison_op ::= "=" | "!=" | "<" | ">" | "<=" | ">="
 ```
 
@@ -30,11 +41,28 @@ holds for `sysml:type`, whose values are the qualified names of typing
 definitions. A bare name is not a value: `sysml:name=battery` is refused, and
 the diagnostic names the quoted form to write.
 
-The `oslc.where`, `oslc.select`, `oslc.orderBy`, and `oslc.prefix` parameters
-may be supplied as a URL-encoded query-parameter string. Standard decoding
-applies: `+` means a space and percent-encoded sequences are decoded. A bare
-where-clause remains accepted. `oslc.orderBy` accepts `+` and `-` prefixes.
-Selection and ordering are comma-separated.
+A scoped term `sysml:owner{sysml:name="Platform"}` constrains a related
+element: the term inside the braces is evaluated over the element the property
+names, so the example keeps the elements owned by something named `Platform`.
+Scoped terms nest (`sysml:owner{sysml:owner{sysml:name="Robot"}}`) and take
+compound terms, and they apply to any element-valued property, a scoped
+`rdf:type` reading the related element's metaclass.
+
+The `oslc.where`, `oslc.select`, `oslc.orderBy`, `oslc.searchTerms`, and
+`oslc.prefix` parameters may be supplied as a URL-encoded query-parameter
+string. Standard decoding applies: `+` means a space and percent-encoded
+sequences are decoded. A bare where-clause remains accepted. `oslc.orderBy`
+accepts `+` and `-` prefixes. Selection and ordering are comma-separated, and
+both take nested properties: `oslc.select=sysml:name,sysml:owner{sysml:name}`
+reports the owner's name as the column `owner.name`, and
+`oslc.orderBy=-sysml:owner{sysml:name}` orders by it. `*` in `oslc.select`,
+alone or inside a nested selection, is every property each element carries —
+the projection a query that selects nothing reports — read of the reflective
+table `Project` reads (see [query kinds](../manual/query-kinds.md)); a property
+of one metaclass (`sysml:body`, `sysml:satisfiedRequirement`) is selected by
+name. `oslc.searchTerms="wheel","axle"`
+keeps the elements whose text properties contain any of the quoted terms,
+case-insensitively, as `WhereText` matches.
 
 A parameter this implementation does not recognize is a typed error, not something
 to ignore, because ignoring it would answer a different question than the one asked:
@@ -48,77 +76,104 @@ name could not be honored.
 
 ## Prefixes and properties
 
-`sysml:` and `rdf:` are bound by default to the OMG SysML and RDF namespaces.
-`oslc.prefix` adds or rebinds a prefix. An unbound prefix is an error, as is a
-bound predicate that is not in this table:
+`sysml:`, `sysx:`, `elmt:` and `rdf:` are bound by default to the namespaces
+the RDF export writes (`internal/translate/rdf`: the OMG SysML namespace,
+OpenSysML's `urn:opensysml:sysml:`, the `urn:sysmlv2:element:` element
+identifiers, and RDF). `oslc.prefix` adds or rebinds a prefix. An unbound
+prefix is an error.
 
-| OSLC predicate | Query property |
+A property is one of three things, told apart by its namespace:
+
+| Spelling | Property |
 | --- | --- |
-| `rdf:type` | `@type` |
-| `sysml:qualifiedName` | `qualifiedName` and element identity |
-| `sysml:name` | `name` |
-| `sysml:declaredName` | `declaredName` |
-| `sysml:shortName` | `shortName` |
-| `sysml:declaredShortName` | `declaredShortName` |
-| `sysml:documentation` | `documentation` |
-| `sysml:textualRepresentation` | `textualRepresentation` |
-| `sysml:body` | `body` |
-| `sysml:locale` | `locale` |
-| `sysml:language` | `language` |
-| `sysml:owner` | `owner` |
-| `sysml:isAbstract` | `isAbstract` |
-| `sysml:isIndividual` | `isIndividual` |
-| `sysml:type` | `type` |
-| `sysml:multiplicityLower` | `multiplicityLower` |
-| `sysml:multiplicityUpper` | `multiplicityUpper` |
-| `sysml:satisfiedRequirement` | `satisfiedRequirement` |
-| `sysml:satisfyingFeature` | `satisfyingFeature` |
+| `rdf:type` | The element's metaclass (`@type`); the `elmt:` form selects objects, below |
+| `sysml:<property>` | A property the SysML metamodel declares, read reflectively from the model's metaclass declarations — `sysml:name`, `sysml:qualifiedName`, `sysml:owner`, `sysml:isAbstract`, `sysml:documentation`, `sysml:type`, `sysml:satisfiedRequirement`, … every property `Project` can read of the element |
+| `sysx:<property>` | What the metamodel does not declare: the two evaluator-derived properties `sysx:multiplicityLower` and `sysx:multiplicityUpper`, and the features of the model itself (`sysx:pressure`, `sysx:wheels.diameter`), read of each row as a document query's `WhereFeature` reads them |
 
-Unknown properties fail the query instead of silently returning no matches, and
-the diagnostic lists the OSLC predicates of the left column, since the query
-property names of the right column are the Go API's. `@type` and `@id` are not
-OSLC query text: the first is written `rdf:type`, and identity is reported for
-every result rather than asked for. The listed predicates follow the query's own
-`oslc.prefix` bindings, so they are always writable as they read: rebinding
-`sysml` to another namespace lists the properties under whichever prefix names
-the SysML namespace, or reports them as unnamed if none does.
+A `sysml:` spelling of a property the metamodel does not declare is refused
+before any element is read, as a QVTS path failure whose diagnostic lists the
+nearest spellings under the query's own `oslc.prefix` bindings, so they are
+always writable as they read: `sysml:multiplicityUpper` names
+`sysx:multiplicityUpper`, `sysml:nmae` names `sysml:name`. A `sysx:` feature
+the rows do not carry is refused by the evaluator the same way, naming the
+features the rows do have. `@type` and `@id` are not OSLC query text: the
+first is written `rdf:type`, and identity is reported for every result rather
+than asked for.
+
+## Elements and objects
+
+`rdf:type=sysml:PartUsage` selects the *declared* elements of that metaclass
+(`WhereType`, exact), over the model's elements in declaration order.
+`rdf:type=elmt:<id>` selects the *held objects* — the instances a session
+created with `-instantiate`, `%instantiate` or the `Instantiate` RPC — whose
+type is the element `<id>` identifies, over the objects the model holds
+exactly as a document query's `Objects(type)` does. The id is the one the RDF
+export writes for the element (`rdf.EncodeElementID` of its qualified name:
+`elmt:Garage__Wheel`), and the full `<urn:sysmlv2:element:…>` IRI selects
+alike. The two forms do not mix in one `in [...]` list, and an object term is
+not negated or nested.
+
+An object row answers under the path a session reaches it by
+(`Garage::car.wheels[2]`), with the usage it instantiates as its identity and
+metaclass; the gRPC `QueryResultElement.path` field carries the path, and the
+REPL prints it in place of the qualified name. `sysx:` features
+(`sysx:pressure`, `sysx:wheels.diameter`) read the object's attribute values,
+so `rdf:type=elmt:Garage__Wheel and sysx:pressure<25` keeps the under-inflated
+wheels.
 
 ## Semantics and choices
 
-Equality, inequality, and `in` compare lexical values. A multi-valued property
-matches when any value equals an operand. Ordered comparisons are numeric and
-are limited to the two multiplicity properties; `*` is positive infinity for
-those existing model values and operands. Ordered comparisons require exactly
-one operand.
+Every term is one plan operation over the rows the terms before it kept, so
+`and` is nesting and the terms compare as the document-query evaluator
+compares: `sysml:name` terms are `WhereName`, `rdf:type` terms `WhereType`,
+every other term a `WhereFeature` with `tolerate=true`, which keeps a row whose
+property is absent out of the answer without failing the query. Equality,
+inequality and `in` compare typed values — a number against a number, a
+boolean against `true`/`false`, a string lexically — and a multi-valued
+property matches when any value equals an operand. `in [...]` keeps the rows
+any alternative keeps, in source order (`Except` of the rows no alternative
+kept). Ordered comparisons take exactly one numeric operand and apply to the
+numeric properties: the two multiplicity bounds, where `*` is positive
+infinity for model values and operands alike (`sysx:multiplicityUpper=*`
+identifies the unbounded usages), and the model's own attributes. An ordered
+comparison on a text property, a boolean operand that is not `true`/`false`,
+and a metaclass the library does not declare are refused before any element
+is read.
 
 Results keep declaration order, with parents before their children, unless
-`oslc.orderBy` is supplied. `oslc.select` controls which properties are reported;
-identity and metamodel type are always present on every result.
-`oslc.orderBy` compares multiplicity properties numerically, with `*` as
-positive infinity, and compares other properties lexically. Elements missing the
-property keep their existing order.
-The two multiplicity properties also accept `*` as a value in equality comparisons:
-`sysml:multiplicityUpper=*` identifies the unbounded usages. On every other property
-a `*` value would be a wildcard, which this implementation does not evaluate, so it
-is refused rather than compared lexically and silently matching nothing.
+`oslc.orderBy` is supplied. `oslc.select` is a `Project`; identity and
+metamodel type are always present on every result. `oslc.orderBy=+a,-b` is a
+nested `OrderBy` per term, applied in reverse precedence so the stable sort
+keeps `b` within equal `a`; it compares values as the evaluator orders them
+(numbers numerically, `*` as positive infinity, text lexically), and rows
+missing the property keep their existing order.
 
 OSLC compound terms have no `or`, so OSLC text and the structured API Query
-are deliberately not interchangeable; [Which query is
+are deliberately not interchangeable: an `or` in OSLC text is refused with a
+typed error, while the API's composite `or` constraint translates to the same
+plan algebra. [Which query is
 which](../manual/query-kinds.md#the-api-query-over-a-project) places the two
 beside the project's other query surfaces.
 
-## Unsupported constructs
+## Construct coverage
 
 | Construct | Behavior |
 | --- | --- |
-| `scoped_term` / nested property query | Typed error. The OSLC rationale is to match a resource using a related resource's property; graph-pattern traversal is not implemented by this symbol-index evaluator. |
-| Property wildcard (`*` in `oslc.where`, `oslc.select`, or `oslc.orderBy`) | Typed error. Generic property wildcards are not implemented. |
-| Value wildcard (`*` compared against any property but the two multiplicity bounds) | Typed error. On the multiplicity bounds `*` is the model's own infinity value, not a wildcard. |
-| `oslc.searchTerms` | Typed error. Free-text search is distinct from property identification. |
+| `term and term` | Supported: nested plan operations. |
+| `identifier in [...]` | Supported: the rows any alternative keeps, in source order. |
+| `scoped_term` / nested property query | Supported: the inner compound is evaluated over the related element the property names, to any depth. |
+| Nested `oslc.select` / `oslc.orderBy` (`sysml:owner{sysml:name}`) | Supported: reported and ordered as the property path `owner.name`. |
+| Property wildcard `*` in `oslc.select` | Supported: the properties every element carries, at any nesting level; a metaclass-specific property is selected by name. |
+| Property wildcard `*` in `oslc.where` or `oslc.orderBy` | Typed error. A term compares one property and an order has one key; the wildcard names every property. |
+| Value wildcard `*` on the multiplicity bounds | Supported: `*` is the model's own infinity value, not a wildcard. |
+| Value wildcard `*` on any other property | Typed error. A `*` value would be a wildcard, which no plan operation evaluates; refusing it avoids a lexical comparison that silently matches nothing. |
+| `oslc.searchTerms` | Supported: `WhereText` over the result's text properties, any quoted term matching, case-insensitively. Terms are quoted strings; an empty parameter or an unquoted term is refused. |
+| `rdf:type=elmt:<id>` | Supported: the held objects of that element, under their paths. |
+| `or` | Typed error. OSLC Query 3.0 defines no disjunction; the structured API `Query` does. |
 | `oslc.properties` | Typed error naming `oslc.select`, which reports the property projection. |
 | Any other `oslc.*` parameter, or a repeated one | Typed error. |
 | Language-tagged literals | Typed error; model properties do not carry language tags. |
-| Non-`xsd:` or unsupported `xsd:` datatypes | Typed error rather than a potentially misleading lexical comparison. |
+| Non-`xsd:` or unsupported `xsd:` datatypes | Typed error rather than a potentially misleading comparison. |
 
 ## API and command surfaces
 
@@ -132,8 +187,12 @@ element per line as qualified name and metamodel type, followed by selected
 properties. A reported property carries the name the query asked for it by, so
 `oslc.select=rdf:type` reports `rdf:type=PartUsage` and a reported row can be
 written back into a query; rebinding a prefix renames it in the answer too. The
-gRPC response instead keys properties by the query property names of the table
-above, which the structured `query` field also uses.
+gRPC response instead keys properties by their query property names (`name`,
+`owner.name`, `pressure`), which the structured `query` field also uses.
+A refused query carries the [query outcome](../internals/design/query-outcomes.md)
+as a `QueryOutcome` status detail on every transport, as `RunDocumentQuery`
+does, so a client reads the failing step, the frontier and the nearest spelling
+rather than parsing prose.
 The REPL's `%query` and `sysml -query` identify unnamed elements with the same
 positional `@N` IDs as the service query; see [the query model](api.md#the-query-model).
 A query that matches nothing says so: the REPL prints `no
