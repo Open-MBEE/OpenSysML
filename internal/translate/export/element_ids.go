@@ -554,6 +554,24 @@ func (ids *ElementIDs) OfExpressionPart(doc string, node ast.Node, slot string) 
 	return "", "", false
 }
 
+// OfBodyParameter is the id written for the named parameter of the expression body at
+// body in doc (`in0`… off the body's owner), and its membership's: a parameter has no node.
+func (ids *ElementIDs) OfBodyParameter(doc string, body *ast.BodyExpr, name string) (element, membership string, ok bool) {
+	if ids == nil || body == nil || name == "" {
+		return "", "", false
+	}
+	for _, decl := range ast.BodyDeclarations(body.Params, body.Members) {
+		if decl.Param == nil || decl.Param.Name != name {
+			continue
+		}
+		if part, ok := ids.partBySpan[spanPartKey{spanKey{doc, decl.Param.Span}, decl.Slot()}]; ok {
+			return part.element, part.membership, true
+		}
+		return "", "", false
+	}
+	return "", "", false
+}
+
 func (ids *ElementIDs) OfDeclaration(doc string, decl ast.Node, fqn string) (string, bool) {
 	if ids == nil {
 		return "", false

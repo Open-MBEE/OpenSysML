@@ -151,17 +151,18 @@ func (m *Model) MaskingRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol 
 	return m.maskingRedefinedFeatures(sym)
 }
 
-// maskingRedefinedFeatures returns the features sym redefines by clause or by
-// case role, which its owner does not inherit. A library role (a view's `render`,
+// maskingRedefinedFeatures returns the features sym redefines by clause, by parameter
+// position (KerML 8.4.4.6) or by case role, which its owner does not inherit. A library role (a view's `render`,
 // a state's `entry` action) leaves the library name reachable, as in the pilot.
 func (m *Model) maskingRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	explicit := m.RedefinedFeatures(sym)
+	parameters := m.MaskedParameterRedefinitions(sym)
 	roles := m.caseRoleRedefinitions(sym)
-	if len(roles) == 0 {
+	if len(parameters) == 0 && len(roles) == 0 {
 		return explicit
 	}
-	out := make([]*symbols.Symbol, 0, len(explicit)+len(roles))
-	return append(append(out, explicit...), roles...)
+	out := make([]*symbols.Symbol, 0, len(explicit)+len(parameters)+len(roles))
+	return append(append(append(out, explicit...), parameters...), roles...)
 }
 
 // EffectiveNameOf is Element::effectiveName: the declared name, or the one of
