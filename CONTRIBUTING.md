@@ -291,8 +291,8 @@ step, so those gates are required rather than skipped.
 yet want reviewed — on every push to it, within about a third of the runner time: the binaries,
 the same Go suite without `-race` in three shards (`make test-quick`), the download-free static
 checks (gofmt, vet, the production build, grpc imports, proto lint and breaking), the WebAssembly, Xpect and conformance gates, and only the clients and docs whose
-own paths changed. The lint, the corpus and solver gates, the PDF toolchain, the coverage merge
-and the fan-out from a service change to every client wait for the full tier. Open a pull
+own paths changed. The lint, the corpus and solver gates, the PDF toolchain and the fan-out
+from a service change to every client wait for the full tier. Open a pull
 request ready for review rather than as a draft: marking a draft ready starts a second full run
 on a head the quick tier already ran, and a draft is not considered until it is marked ready.
 The full tier is what a pull request has to pass to merge.
