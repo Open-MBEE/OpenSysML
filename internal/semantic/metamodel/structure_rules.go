@@ -5224,27 +5224,21 @@ func (e *Evaluator) structureRemoveRedefinedMemberships(
 		if value.Kind != ElementValue {
 			return nil, false
 		}
-		redefinitions, handled, ok := e.structureOwnedFilter(value.Element, "Redefinition", false)
-		if !handled || !ok {
+		// What an owned feature redefines by clause or, lacking one, by parameter
+		// position (KerML 8.4.4.6) is not inherited.
+		targets, ok := e.structureRedefinitionTargets(value.Element)
+		if !ok {
 			return nil, false
 		}
-		for _, redefinition := range redefinitions.Values {
-			if redefinition.Kind != ElementValue {
-				return nil, false
+		masked, ok := e.structureMaskedParameterRedefinitions(value.Element)
+		if !ok {
+			return nil, false
+		}
+		for _, target := range append(targets, masked...) {
+			if ownedRedefined == nil {
+				ownedRedefined = make(map[ElementKey]bool)
 			}
-			targets, ok := e.relationshipEndpoints(redefinition.Element, "redefinedFeature")
-			if !ok {
-				return nil, false
-			}
-			for _, target := range targets {
-				if target.Kind != ElementValue {
-					return nil, false
-				}
-				if ownedRedefined == nil {
-					ownedRedefined = make(map[ElementKey]bool)
-				}
-				ownedRedefined[e.structureFeatureKey(target.Element)] = true
-			}
+			ownedRedefined[e.structureFeatureKey(target)] = true
 		}
 	}
 	if !redefines && ownedRedefined == nil {
@@ -5312,29 +5306,23 @@ func (e *Evaluator) computeStructureAllRedefinedFeatures(feature Element) ([]Ele
 	for len(queue) > 0 {
 		current := queue[0]
 		queue = queue[1:]
-		redefinitions, handled, ok := e.structureOwnedFilter(current, "Redefinition", false)
-		if !handled || !ok {
+		targets, ok := e.structureRedefinitionTargets(current)
+		if !ok {
 			return nil, false
 		}
-		for _, redefinition := range redefinitions.Values {
-			if redefinition.Kind != ElementValue {
+		if len(targets) == 0 {
+			// A parameter with no clause redefines by position (KerML 8.4.4.6).
+			if targets, ok = e.structureImplicitParameterRedefinitions(current, true); !ok {
 				return nil, false
 			}
-			targets, ok := e.relationshipEndpoints(redefinition.Element, "redefinedFeature")
-			if !ok {
-				return nil, false
+		}
+		for _, target := range targets {
+			if seen[target.Key()] {
+				continue
 			}
-			for _, target := range targets {
-				if target.Kind != ElementValue {
-					return nil, false
-				}
-				if seen[target.Element.Key()] {
-					continue
-				}
-				seen[target.Element.Key()] = true
-				result = append(result, target.Element)
-				queue = append(queue, target.Element)
-			}
+			seen[target.Key()] = true
+			result = append(result, target)
+			queue = append(queue, target)
 		}
 	}
 	return result, true

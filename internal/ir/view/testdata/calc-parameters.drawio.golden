@@ -120,7 +120,7 @@
             <mxGeometry x="120" y="179" width="72" height="37" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n6:n6.0" label="factor" fqn="ParameterCalcs::Sensor::scaled::factor" kind="parameter" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:47">
+        <object id="n6:n6.0" label="^x" fqn="ParameterCalcs::Scale::x" kind="parameter" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:24">
           <mxCell style="rounded=1;arcSize=30;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n6">
             <mxGeometry x="0" y="0.3333333333333333" width="12" height="12" relative="1" as="geometry">
               <mxPoint x="-6" y="-6" as="offset"/>
@@ -132,7 +132,7 @@
             <mxPoint x="-6" y="-6" as="offset"/>
           </mxGeometry>
         </mxCell>
-        <object id="n6:n6.1" label="^x" fqn="ParameterCalcs::Scale::x" kind="parameter" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:24">
+        <object id="n6:n6.1" label="factor" fqn="ParameterCalcs::Sensor::scaled::factor" kind="parameter" view="ParameterCalcViews::calculations" link="calc-parameters.sysml:47">
           <mxCell style="rounded=1;arcSize=30;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n6">
             <mxGeometry x="0" y="0.6666666666666666" width="12" height="12" relative="1" as="geometry">
               <mxPoint x="-6" y="-6" as="offset"/>

@@ -47,7 +47,7 @@
             <mxGeometry x="16" y="142" width="20" height="20" as="geometry"/>
           </mxCell>
         </object>
-        <object id="n2" label="«accept action»&#xA;acceptReading&#xA;reading : Reading&#xA;parameters&#xA;out reading&#xA;inout ^payload&#xA;in ^receiver" fqn="ActionForms::Monitor::acceptReading" kind="accept action" view="ActionFormViews::monitorView" link="action-forms.sysml:15">
+        <object id="n2" label="«accept action»&#xA;acceptReading&#xA;reading : Reading&#xA;parameters&#xA;out reading&#xA;in ^receiver" fqn="ActionForms::Monitor::acceptReading" kind="accept action" view="ActionFormViews::monitorView" link="action-forms.sysml:15">
           <mxCell style="rounded=1;arcSize=10;html=0;whiteSpace=wrap;align=center;verticalAlign=middle;" vertex="1" parent="n0">
             <mxGeometry x="86" y="142" width="159" height="54" as="geometry"/>
           </mxCell>
@@ -67,26 +67,14 @@
             <mxPoint x="-6" y="-6" as="offset"/>
           </mxGeometry>
         </mxCell>
-        <object id="n2:n2.1" label="^payload" fqn="ActionForms::Monitor::acceptReading::payload" kind="parameter" view="ActionFormViews::monitorView">
-          <mxCell style="rounded=1;arcSize=30;whiteSpace=wrap;html=0;fontSize=10;labelPosition=center;verticalLabelPosition=top;align=center;verticalAlign=bottom;" vertex="1" parent="n2">
-            <mxGeometry x="0.5" y="0" width="12" height="12" relative="1" as="geometry">
-              <mxPoint x="-6" y="-6" as="offset"/>
-            </mxGeometry>
-          </mxCell>
-        </object>
-        <mxCell id="n2:n2.1:arrow" value="↕" style="text;html=0;fontSize=8;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;" vertex="1" parent="n2">
-          <mxGeometry x="0.5" y="0" width="12" height="12" relative="1" as="geometry">
-            <mxPoint x="-6" y="-6" as="offset"/>
-          </mxGeometry>
-        </mxCell>
-        <object id="n2:n2.2" label="^receiver" fqn="ActionForms::Monitor::acceptReading::receiver" kind="parameter" view="ActionFormViews::monitorView">
+        <object id="n2:n2.1" label="^receiver" fqn="ActionForms::Monitor::acceptReading::receiver" kind="parameter" view="ActionFormViews::monitorView">
           <mxCell style="rounded=1;arcSize=30;whiteSpace=wrap;html=0;fontSize=10;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" vertex="1" parent="n2">
             <mxGeometry x="0" y="0.5" width="12" height="12" relative="1" as="geometry">
               <mxPoint x="-6" y="-6" as="offset"/>
             </mxGeometry>
           </mxCell>
         </object>
-        <mxCell id="n2:n2.2:arrow" value="→" style="text;html=0;fontSize=8;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;" vertex="1" parent="n2">
+        <mxCell id="n2:n2.1:arrow" value="→" style="text;html=0;fontSize=8;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;movable=0;resizable=0;rotatable=0;deletable=0;editable=0;connectable=0;" vertex="1" parent="n2">
           <mxGeometry x="0" y="0.5" width="12" height="12" relative="1" as="geometry">
             <mxPoint x="-6" y="-6" as="offset"/>
           </mxGeometry>

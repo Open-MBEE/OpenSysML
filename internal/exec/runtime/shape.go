@@ -1,11 +1,10 @@
 package runtime
 
 import (
-	"slices"
-
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"slices"
 )
 
 // EffectiveFeature represents one feature value in a type's flattened schema:
@@ -117,7 +116,7 @@ func (ctx *Context) effectiveFeature(name string, memberSym, typeSym *symbols.Sy
 	// A satisfy usage's `by` is its subject's most specific value (SysML v2 §7.21.4),
 	// over a value or default the subject it binds declares or inherits.
 	defaultVal, defaultDecl := ctx.satisfiedByValue(memberSym, typeSym)
-	if defaultVal == nil {
+	if defaultVal == nil && !ctx.subsettedParameterValue(typeSym, memberSym) {
 		defaultVal, defaultDecl = ctx.extractDefaultValue(memberSym), memberSym
 	}
 	if defaultVal == nil {
@@ -139,6 +138,54 @@ func (ctx *Context) effectiveFeature(name string, memberSym, typeSym *symbols.Sy
 		HoldsSet:              ctx.holdsSet(memberSym, typeSym, mult),
 		Unique:                ctx.model.semantics.IsUnique(memberSym),
 	}
+}
+
+// subsettedParameterValue reports a parameter of a usage typeSym subsets or redefines: its
+// value is what a performance starts from unless the holder binds it, not the slot's own.
+func (ctx *Context) subsettedParameterValue(typeSym, member *symbols.Symbol) bool {
+	if typeSym == nil || member == nil {
+		return false
+	}
+	usage, ok := member.Decl.(*ast.Usage)
+	if !ok || usage.Direction == ast.DirNone {
+		return false
+	}
+	owner := ctx.findOwnerType(member)
+	if owner == nil || owner == typeSym {
+		return false
+	}
+	if _, isUsage := owner.Decl.(*ast.Usage); !isUsage {
+		return false
+	}
+	return ctx.subsetsUsage(typeSym, owner)
+}
+
+// subsetsUsage reports whether sym reaches target through the subsettings its declarations
+// state (`:>`, `::>`, a performed or referenced feature), directly or through what those subset.
+func (ctx *Context) subsetsUsage(sym, target *symbols.Symbol) bool {
+	seen := map[*symbols.Symbol]bool{sym: true}
+	for queue := []*symbols.Symbol{sym}; len(queue) > 0; {
+		cur := queue[0]
+		queue = queue[1:]
+		var next []*symbols.Symbol
+		for _, kind := range []ast.RelationshipKind{ast.RelSubsets, ast.RelReferences} {
+			for _, rel := range ctx.relationshipsOfKind(cur, kind) {
+				next = append(next, ctx.model.semantics.RelationshipTarget(cur, rel))
+			}
+		}
+		next = append(next, ctx.model.semantics.ReferencedFeature(cur))
+		for _, n := range next {
+			if n == nil || seen[n] {
+				continue
+			}
+			if n == target {
+				return true
+			}
+			seen[n] = true
+			queue = append(queue, n)
+		}
+	}
+	return false
 }
 
 // parameterFeatures are the input parameters of typeSym no object carries as a

@@ -1001,6 +1001,9 @@ func (m *Model) aliasMembershipElements(sym *symbols.Symbol, feature string) ([]
 // and short name it declares, and its visibility.
 func (m *Model) aliasMembershipValue(sym *symbols.Symbol, feature string) (symbols.FilterValue, bool) {
 	switch feature {
+	case "name", "declaredName", "shortName", "declaredShortName", "qualifiedName":
+		// The alias names its member; the Membership itself declares no identifier.
+		return emptyValue(), true
 	case "memberName":
 		return stringOrEmpty(SimpleSymbolName(sym)), true
 	case "memberShortName":

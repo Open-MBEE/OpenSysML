@@ -1,8 +1,9 @@
 package semantics
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"slices"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // MembersOf returns the members visible on sym: those declared directly in its
@@ -147,9 +148,33 @@ func (m *Model) eachMember(sym *symbols.Symbol, view memberView, declaring *symb
 				}
 			}
 		}
+		// A parameter named by the one its position redefines is a member under
+		// that name, which no scope binds for it (KerML 8.2.4).
+		var positional []string
+		for _, s := range m.positionallyNamedParameters(scope.Owner()) {
+			name := m.EffectiveNameOf(s)
+			if seenName[name] || seenSym[s] {
+				continue
+			}
+			if !inherited && view == memberViewDeclaring && NotYetMember(s, declaring) {
+				continue
+			}
+			if inherited && m.maskedBy(mask, s) {
+				continue
+			}
+			seenSym[s] = true
+			positional = append(positional, name)
+			if !yield(s) {
+				stopped = true
+				return
+			}
+		}
 		// Mark this scope's names only after processing it, so a short+primary
 		// pair in the same scope does not mask its own second key. A name no
 		// kept member binds masks nothing.
+		for _, name := range positional {
+			seenName[name] = true
+		}
 		for _, key := range scope.MemberNames() {
 			for _, s := range scope.LookupLocalAll(key) {
 				if seenSym[s] {
@@ -252,6 +277,14 @@ func (m *Model) eachContributedMember(sym *symbols.Symbol, name string, yield fu
 					return
 				}
 			}
+			stop := false
+			m.eachPositionallyNamedMember(sup, name, func(s *symbols.Symbol) bool {
+				stop = m.inheritedAlong(s, src.via) && !yield(s)
+				return !stop
+			})
+			if stop {
+				return
+			}
 			continue
 		}
 		// A cached source with no scope is read from the index.
@@ -261,4 +294,32 @@ func (m *Model) eachContributedMember(sym *symbols.Symbol, name string, yield fu
 			}
 		}
 	}
+}
+
+// eachPositionallyNamedMember yields the parameters sup declares without a name of
+// their own that answer to name through the parameter their position redefines.
+func (m *Model) eachPositionallyNamedMember(sup *symbols.Symbol, name string, yield func(*symbols.Symbol) bool) {
+	for _, member := range m.positionallyNamedParameters(sup) {
+		if m.EffectiveNameOf(member) == name && !yield(member) {
+			return
+		}
+	}
+}
+
+// positionallyNamedParameters returns the parameters owner declares without a name
+// of their own that take one from the parameter their position redefines (KerML
+// 8.2.4): a scope binds no name for them, yet they are members under it.
+func (m *Model) positionallyNamedParameters(owner *symbols.Symbol) []*symbols.Symbol {
+	if owner == nil {
+		return nil
+	}
+	var out []*symbols.Symbol
+	for _, param := range ownedParameters(owner) {
+		member := param.sym
+		if member.Naming != symbols.NamedByDeclaration || declaresIdentifier(member) || m.EffectiveNameOf(member) == "" {
+			continue
+		}
+		out = append(out, member)
+	}
+	return out
 }
