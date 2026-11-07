@@ -170,3 +170,23 @@ func TestAPIQuerySelectsHeldObjects(t *testing.T) {
 	}})
 	assertQueryError(t, err, QueryErrUnsupported)
 }
+
+// TestQueryReportsAnEmptyValueAsPresent: a property whose value is the empty
+// string is reported as "", which a client tells from an absent property.
+func TestQueryReportsAnEmptyValueAsPresent(t *testing.T) {
+	_, _, resp := runQueryOnSource(t, "package Demo { comment C /**/ part p; }", &pb.Query{
+		Where:  primitive(QueryPropType, opEqual, false, "Comment"),
+		Select: []string{QueryPropBody, QueryPropDocumentation},
+	})
+	if len(resp.Elements) != 1 {
+		t.Fatalf("comments = %v, want one", resp.Elements)
+	}
+	props := resp.Elements[0].Properties
+	body, present := props[QueryPropBody]
+	if !present || body != "" {
+		t.Fatalf("body = %q (present %v), want the empty string present", body, present)
+	}
+	if _, present := props[QueryPropDocumentation]; present {
+		t.Fatalf("documentation of a comment is present: %v", props)
+	}
+}
