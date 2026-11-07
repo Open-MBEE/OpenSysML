@@ -2,16 +2,16 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"math"
-	"sort"
-	"strconv"
-	"strings"
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/querytranslate"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/suggest"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )
@@ -45,10 +45,10 @@ const (
 type QueryErrorKind int
 
 const (
-	// QueryErrUnknownProperty is a property no queryable property names.
+	// QueryErrUnknownProperty is a property the metamodel does not define.
 	QueryErrUnknownProperty QueryErrorKind = iota + 1
 	// QueryErrMalformedConstraint is a constraint with no form, no operator or
-	// no operand.
+	// no operand, or query text that does not parse.
 	QueryErrMalformedConstraint
 	// QueryErrUnorderedProperty is an ordered comparison (<, <=, >, >=) on a
 	// property that is not ordered, or instanceOf on one that is not "@type".
@@ -58,6 +58,12 @@ const (
 	QueryErrUnparsableValue
 	// QueryErrUnknownScope is a scope naming an element the model does not have.
 	QueryErrUnknownScope
+	// QueryErrUnsupported is a construct the query language does not define or
+	// this service does not evaluate, such as "or" in OSLC text.
+	QueryErrUnsupported
+	// QueryErrEvaluation is a query the plan refused while reading the model:
+	// the QVTS record of the failure is attached as a QueryOutcome detail.
+	QueryErrEvaluation
 )
 
 // QueryError is a query the service refuses to evaluate. It reports itself as
@@ -65,21 +71,28 @@ const (
 type QueryError struct {
 	Kind    QueryErrorKind
 	Message string
+	// Err is the translator's or the evaluator's own fault, kept for its kind.
+	Err error
 }
 
 func (e *QueryError) Error() string { return e.Message }
+
+func (e *QueryError) Unwrap() error { return e.Err }
 
 func queryErrorf(kind QueryErrorKind, format string, args ...any) *QueryError {
 	return &QueryError{Kind: kind, Message: fmt.Sprintf(format, args...)}
 }
 
-// QueryPropertyNames returns every queryable property name, sorted. It is what
-// an unknown-property error lists, and what docs/reference/api.md's table documents.
+// QueryPropertyNames returns the queryable property names the evaluator derives
+// for every element, sorted: what docs/reference/api.md's table documents. The
+// metamodel's own properties are queryable besides, by their declared names.
 func QueryPropertyNames() []string {
 	return corequery.PropertyNames()
 }
 
-// Query evaluates a SysML v2 API & Services Query against a parsed model.
+// Query evaluates a SysML v2 API & Services Query, or OSLC Query 3.0 text, over
+// a parsed model: either is translated to a document-query plan and run by the
+// evaluator over the model's elements, or the objects the model's session holds.
 func (s *Service) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryResponse, error) {
 	if err := s.requireCapability(CapabilityQuery); err != nil {
 		return nil, err
@@ -107,118 +120,289 @@ func (s *Service) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryRes
 
 	sc := cached.SymbolContext()
 	defer sc.Lock()()
+	held := s.objects(cached)
+	defer held.lock(ctx)()
+	qctx := held.queryContext()
 	eval := &queryEval{sc: sc, cached: cached}
-	eval.reader = corequery.NewPropertyReader(sc.Index, sc.Resolver, sc.Semantics).
-		WithIdentity(eval.identity).WithElementID(eval.elementID)
+	qctx.Identity = eval.identity
+	table := cached.queryTable(qctx)
+
+	var parsed querytranslate.Query
+	var err error
 	if req.OslcQuery != "" {
-		parsed, err := corequery.ParseOSLC(req.OslcQuery)
-		if err != nil {
-			return nil, queryStatus(err)
-		}
-		elements, err := corequery.Evaluate(&coreQueryModel{eval: eval, cached: cached}, parsed)
-		if err != nil {
-			return nil, queryStatus(err)
-		}
-		if eval.elementIDErr != nil {
-			return nil, elementIDStatus(eval.elementIDErr)
-		}
-		out := make([]*pb.QueryResultElement, 0, len(elements))
-		for _, element := range elements {
-			out = append(out, &pb.QueryResultElement{
-				Id: element.ID, Type: element.Type, Properties: element.Properties,
-			})
-		}
-		return &pb.QueryResponse{Elements: out}, nil
+		parsed, err = querytranslate.ParseOSLC(req.OslcQuery, table)
+	} else {
+		parsed, err = apiQuery(req.Query)
 	}
-
-	// The query is judged before any element is: whether it is one the service
-	// can evaluate cannot depend on how many elements it happens to consider.
-	if err := validateConstraint(req.Query.Where); err != nil {
-		return nil, queryStatus(err)
-	}
-	if err := eval.resolveMetaclasses(req.Query.Where); err != nil {
-		return nil, queryStatus(err)
-	}
-	projection, err := projectedProperties(req.Query.Select)
 	if err != nil {
 		return nil, queryStatus(err)
 	}
-	if err := validateOrderBy(req.Query.OrderBy); err != nil {
-		return nil, queryStatus(err)
-	}
-	candidates, err := eval.candidates(cached, req.Query.Scope)
+	plan, err := querytranslate.Translate(parsed, querytranslate.Context{Index: qctx.Index, Model: qctx.Model, Table: table}, "Query")
 	if err != nil {
 		return nil, queryStatus(err)
 	}
-
-	rows := make([]orderedRow, 0, len(candidates))
-	for _, sym := range candidates {
-		if !eval.matches(sym, req.Query.Where) {
-			continue
+	bindings := queryexec.Bindings{}
+	if !plan.Objects {
+		candidates, err := eval.candidates(cached, parsed.Scope)
+		if err != nil {
+			return nil, queryStatus(err)
 		}
-		rows = append(rows, orderedRow{
-			element: eval.project(sym, projection),
-			keys:    eval.orderKeys(sym, req.Query.OrderBy),
-		})
+		values := make([]queryexec.Value, len(candidates))
+		for i, sym := range candidates {
+			values[i] = queryexec.ElementValue(sym)
+		}
+		bindings[querytranslate.SourceParameter] = values
 	}
-	if eval.elementIDErr != nil {
-		return nil, elementIDStatus(eval.elementIDErr)
+	result, err := queryexec.Execute(plan.Program, qctx, bindings, queryexec.Options{})
+	if err != nil {
+		return nil, held.queryExecStatus(err)
 	}
-	sortRows(rows, req.Query.OrderBy)
-	elements := make([]*pb.QueryResultElement, 0, len(rows))
+	return &pb.QueryResponse{Elements: eval.resultElements(result)}, nil
+}
+
+// resultElements renders the plan's rows: an element by the identity this
+// service reports and its metamodel type, an object by the element it is an
+// instance of with the path it is held under, and the first value of each
+// selected property as text — an empty string included — omitting the
+// properties the row has no value of.
+func (e *queryEval) resultElements(result *queryexec.RowSet) []*pb.QueryResultElement {
+	rows := result.Rows()
+	columns := result.Columns()
+	out := make([]*pb.QueryResultElement, 0, len(rows))
 	for _, row := range rows {
-		elements = append(elements, row.element)
-	}
-	return &pb.QueryResponse{Elements: elements}, nil
-}
-
-// orderedRow is a matched element with its values of the query's orderBy
-// properties, read once so sorting never re-reads the model.
-type orderedRow struct {
-	element *pb.QueryResultElement
-	keys    []corequery.OrderValue
-}
-
-// validateOrderBy checks every sort property is queryable, as select and where
-// are checked: an unknown one is a fault in the query, not an unsorted answer.
-func validateOrderBy(orderBy []string) error {
-	for _, name := range orderBy {
-		if !corequery.IsProperty(name) {
-			return unknownProperty(name)
+		value := row.Element()
+		element := &pb.QueryResultElement{Properties: make(map[string]string, len(columns))}
+		if decl := value.Declaration(); decl != nil {
+			element.Id = e.identity(decl)
+			element.Type = corequery.MetamodelTypeNameOf(decl)
 		}
-	}
-	return nil
-}
-
-// orderKeys reads an element's values of the sort properties, in orderBy order.
-func (e *queryEval) orderKeys(sym *symbols.Symbol, orderBy []string) []corequery.OrderValue {
-	if len(orderBy) == 0 {
-		return nil
-	}
-	keys := make([]corequery.OrderValue, len(orderBy))
-	for i, name := range orderBy {
-		if values, ok := e.reader.Values(sym, name); ok && len(values) != 0 {
-			keys[i] = corequery.OrderValue{Text: values[0], Present: true}
+		if _, label, ok := value.Object(); ok {
+			element.Path = label
 		}
-	}
-	return keys
-}
-
-// sortRows orders matched elements by the orderBy properties in order of
-// precedence, each ascending under corequery.CompareOrderValues; the sort is
-// stable, so elements equal under every property keep declaration order.
-func sortRows(rows []orderedRow, orderBy []string) {
-	if len(orderBy) == 0 {
-		return
-	}
-	sort.SliceStable(rows, func(i, j int) bool {
-		for k, name := range orderBy {
-			if order := corequery.CompareOrderValues(name, rows[i].keys[k], rows[j].keys[k]); order != 0 {
-				return order < 0
+		for i, cell := range row.Cells() {
+			if i >= len(columns) {
+				break
+			}
+			values := cell.Values()
+			if len(values) == 0 {
+				continue
+			}
+			text, ok := values[0].Text(e.identity)
+			if _, isElement := values[0].Element(); isElement && text == "" {
+				// An element this service has no identity for is not reported.
+				continue
+			}
+			if ok {
+				element.Properties[columns[i].Name()] = text
 			}
 		}
-		return false
-	})
+		out = append(out, element)
+	}
+	return out
+}
+
+// apiQuery reads the standard's Query message into the translator's form,
+// refusing a constraint with no form, no operator or too few members.
+func apiQuery(q *pb.Query) (querytranslate.Query, error) {
+	out := querytranslate.Query{Scope: q.Scope}
+	for _, name := range q.Select {
+		out.Select = append(out.Select, querytranslate.Selection{Property: name})
+	}
+	for _, name := range q.OrderBy {
+		out.OrderBy = append(out.OrderBy, querytranslate.OrderTerm{Property: name})
+	}
+	if q.Where != nil {
+		where, err := apiConstraint(q.Where)
+		if err != nil {
+			return querytranslate.Query{}, err
+		}
+		out.Where = where
+	}
+	return out, nil
+}
+
+func apiConstraint(constraint *pb.Constraint) (querytranslate.Constraint, error) {
+	switch form := constraint.GetConstraint().(type) {
+	case *pb.Constraint_Primitive:
+		return apiPrimitive(form.Primitive)
+	case *pb.Constraint_Composite:
+		return apiComposite(form.Composite)
+	default:
+		return nil, queryErrorf(QueryErrMalformedConstraint, "constraint has neither a primitive nor a composite form")
+	}
+}
+
+func apiPrimitive(c *pb.PrimitiveConstraint) (querytranslate.Constraint, error) {
+	if c == nil {
+		return nil, queryErrorf(QueryErrMalformedConstraint, "PrimitiveConstraint is unset")
+	}
+	operator, ok := apiOperators[c.Operator]
+	if !ok {
+		return nil, queryErrorf(QueryErrMalformedConstraint, "PrimitiveConstraint on %q has no operator", c.Property)
+	}
+	if c.Property == QueryPropType && (operator == querytranslate.Equal || operator == querytranslate.In || operator == querytranslate.InstanceOf) {
+		if len(c.Value) == 0 {
+			return nil, queryErrorf(QueryErrMalformedConstraint, "PrimitiveConstraint on %q has no value to compare against", c.Property)
+		}
+		if instances, ok, err := querytranslate.ElementInstances(c.Value); err != nil {
+			return nil, err
+		} else if ok {
+			if c.Inverse || operator == querytranslate.InstanceOf {
+				return nil, queryErrorf(QueryErrUnsupported, "an instance term on %q selects the objects of its elements; it is not negated and takes =", c.Property)
+			}
+			return instances, nil
+		}
+		return querytranslate.TypeTest{Types: c.Value, Exact: operator != querytranslate.InstanceOf, Inverse: c.Inverse}, nil
+	}
+	return querytranslate.Comparison{Property: c.Property, Operator: operator, Values: c.Value, Inverse: c.Inverse}, nil
+}
+
+// apiOperators spells each operator of the standard as the translator does.
+var apiOperators = map[pb.PrimitiveOperator]querytranslate.Operator{
+	pb.PrimitiveOperator_PRIMITIVE_OPERATOR_EQUAL:         querytranslate.Equal,
+	pb.PrimitiveOperator_PRIMITIVE_OPERATOR_GREATER:       querytranslate.Greater,
+	pb.PrimitiveOperator_PRIMITIVE_OPERATOR_LESS:          querytranslate.Less,
+	pb.PrimitiveOperator_PRIMITIVE_OPERATOR_LESS_EQUAL:    querytranslate.LessEqual,
+	pb.PrimitiveOperator_PRIMITIVE_OPERATOR_GREATER_EQUAL: querytranslate.GreaterEqual,
+	pb.PrimitiveOperator_PRIMITIVE_OPERATOR_IN:            querytranslate.In,
+	pb.PrimitiveOperator_PRIMITIVE_OPERATOR_INSTANCE_OF:   querytranslate.InstanceOf,
+}
+
+// operatorText is the standard's spelling of an operator, for diagnostics.
+func operatorText(op pb.PrimitiveOperator) string {
+	if operator, ok := apiOperators[op]; ok {
+		return string(operator)
+	}
+	return "(no operator)"
+}
+
+// apiComposite reads a composite constraint: the standard combines at least
+// two, so an empty list has no verdict and a one-member list is that member.
+func apiComposite(c *pb.CompositeConstraint) (querytranslate.Constraint, error) {
+	if c == nil {
+		return nil, queryErrorf(QueryErrMalformedConstraint, "CompositeConstraint is unset")
+	}
+	if len(c.Constraint) == 0 {
+		return nil, queryErrorf(QueryErrMalformedConstraint, "CompositeConstraint has no constraints to combine")
+	}
+	if len(c.Constraint) == 1 {
+		return nil, queryErrorf(QueryErrMalformedConstraint,
+			"CompositeConstraint combines at least two constraints, got one; write the constraint on its own")
+	}
+	if c.Operator == pb.CompositeOperator_COMPOSITE_OPERATOR_UNSPECIFIED {
+		return nil, queryErrorf(QueryErrMalformedConstraint, "CompositeConstraint has no operator")
+	}
+	terms := make([]querytranslate.Constraint, 0, len(c.Constraint))
+	for _, member := range c.Constraint {
+		term, err := apiConstraint(member)
+		if err != nil {
+			return nil, err
+		}
+		terms = append(terms, term)
+	}
+	switch c.Operator {
+	case pb.CompositeOperator_COMPOSITE_OPERATOR_AND:
+		return querytranslate.Conjunction{Terms: terms}, nil
+	case pb.CompositeOperator_COMPOSITE_OPERATOR_OR:
+		return querytranslate.Disjunction{Terms: terms}, nil
+	default:
+		return nil, queryErrorf(QueryErrMalformedConstraint, "CompositeConstraint operator %d is not one this service defines", c.Operator)
+	}
+}
+
+// queryStatus reports a refused query as INVALID_ARGUMENT under its kind: the
+// translator's faults map onto the kinds the service documents.
+func queryStatus(err error) error {
+	if err == nil {
+		return nil
+	}
+	var qerr *QueryError
+	if !errors.As(err, &qerr) {
+		qerr = &QueryError{Kind: translatorKind(err), Message: err.Error(), Err: err}
+	}
+	status := connect.NewError(connect.CodeInvalidArgument, qerr)
+	if outcome := translatorOutcome(err); outcome != nil {
+		return withQueryOutcome(status, outcome)
+	}
+	return status
+}
+
+// translatorOutcome is the QVTS record of a translator refusal that has one:
+// an unknown property is a path error whose frontier lists the properties the
+// query could have named, with the nearest spelling.
+func translatorOutcome(err error) *queryexec.Outcome {
+	var terr *querytranslate.Error
+	if !errors.As(err, &terr) || terr.Kind != querytranslate.ErrUnknownProperty {
+		return nil
+	}
+	frontier := queryexec.Frontier{Features: make([]queryexec.FeatureRef, 0, len(terr.Candidates))}
+	for _, candidate := range terr.Candidates {
+		frontier.Features = append(frontier.Features, queryexec.FeatureRef{Name: candidate})
+	}
+	if nearest := suggest.Nearest(terr.Property, terr.Candidates); len(nearest) > 0 {
+		frontier.Nearest = nearest[0]
+	}
+	return &queryexec.Outcome{Path: &queryexec.PathError{Failures: []queryexec.Failure{{
+		Step:     queryexec.Step{Kind: queryexec.StepFeature, Argument: terr.Property},
+		Expected: "a property of the metamodel",
+		Frontier: frontier,
+	}}}}
+}
+
+// translatorKind is the service's kind for a translator refusal.
+func translatorKind(err error) QueryErrorKind {
+	var terr *querytranslate.Error
+	if !errors.As(err, &terr) {
+		return QueryErrMalformedConstraint
+	}
+	switch terr.Kind {
+	case querytranslate.ErrUnknownProperty:
+		return QueryErrUnknownProperty
+	case querytranslate.ErrUnorderedProperty:
+		return QueryErrUnorderedProperty
+	case querytranslate.ErrUnparsableValue:
+		return QueryErrUnparsableValue
+	case querytranslate.ErrUnknownScope:
+		return QueryErrUnknownScope
+	case querytranslate.ErrUnsupportedDisjunction, querytranslate.ErrUnsupportedLiteral,
+		querytranslate.ErrUnsupportedInstanceTerm, querytranslate.ErrUnsupportedWildcard:
+		return QueryErrUnsupported
+	default:
+		return QueryErrMalformedConstraint
+	}
+}
+
+// queryExecStatus reports a plan the evaluator refused: a fault in the query
+// as INVALID_ARGUMENT under its kind with the QVTS record attached, a model no
+// conversion writes elementIds for as FAILED_PRECONDITION, exhaustion as the
+// population reports it.
+func (h *heldObjects) queryExecStatus(err error) error {
+	if status := h.exhausted(err); status != nil {
+		return status
+	}
+	var execErr *queryexec.Error
+	if !errors.As(err, &execErr) {
+		return documentStatus(err)
+	}
+	if execErr.Kind == queryexec.ErrorUnevaluableFeature && execErr.Property == corequery.PropertyElementID && execErr.Cause != nil {
+		return elementIDStatus(execErr.Cause)
+	}
+	qerr := &QueryError{Kind: execKind(execErr), Message: execErr.Error(), Err: execErr}
+	return withQueryOutcome(connect.NewError(connect.CodeInvalidArgument, qerr), execErr.Outcome)
+}
+
+// execKind is the service's kind for an evaluator refusal of a translated plan.
+func execKind(err *queryexec.Error) QueryErrorKind {
+	switch err.Kind {
+	case queryexec.ErrorUnknownProperty, queryexec.ErrorMissingFeature, queryexec.ErrorUnservedProperty:
+		return QueryErrUnknownProperty
+	case queryexec.ErrorInvalidOperator, queryexec.ErrorInvalidOrder:
+		return QueryErrUnorderedProperty
+	case queryexec.ErrorInvalidArgument, queryexec.ErrorUnknownClassification:
+		return QueryErrUnparsableValue
+	default:
+		return QueryErrEvaluation
+	}
 }
 
 // elementIDStatus reports a query that read elementId of a model no conversion
@@ -229,19 +413,11 @@ func elementIDStatus(err error) error {
 		"elementId is the id a conversion of the model writes, and converting this model is refused: %v", err)
 }
 
-// queryEval evaluates one query over a model's symbol context. It holds no
-// element state of its own: every property is read from the index and semantic
-// model on demand.
+// queryEval names the elements of one query over a model's symbol context, and
+// enumerates the ones a scope considers.
 type queryEval struct {
-	// metaclasses are the library declarations the query's instanceOf operands
-	// resolved to, by the name the query wrote.
-	metaclasses map[string]*symbols.Symbol
-	sc          *symbolfacts.Context
-	reader      *corequery.PropertyReader
-	cached      *CachedModel
-	// elementIDErr is why the model has no elementIds, once a property read
-	// asked for one: the conversion that writes them refused the model.
-	elementIDErr error
+	sc     *symbolfacts.Context
+	cached *CachedModel
 }
 
 // candidates returns the elements a query considers, in declaration order: every
@@ -290,23 +466,6 @@ func (e *queryEval) identity(sym *symbols.Symbol) string {
 	return e.sc.Identity(sym)
 }
 
-// elementID is the elementId Convert writes for sym in the qualified id form,
-// read from a conversion of the model made once per model, so a query result
-// joins the converted graph. A model the conversion refuses has none: the
-// refusal is recorded, and a query reading elementId fails with it.
-func (e *queryEval) elementID(sym *symbols.Symbol) string {
-	cached := e.cached
-	if cached == nil {
-		return ""
-	}
-	id, err := cached.elementIDReader().Read(sym.DocName, sym.Decl, e.identity(sym))
-	if err != nil {
-		e.elementIDErr = err
-		return ""
-	}
-	return id
-}
-
 // elementIDReader reads the ids Convert writes for this model, from one
 // conversion made on first use and shared by every query of the model.
 func (m *CachedModel) elementIDReader() *export.ElementIDReader {
@@ -320,6 +479,14 @@ func (m *CachedModel) elementIDReader() *export.ElementIDReader {
 		m.elementIDs = export.NewElementIDReader(documents)
 	})
 	return m.elementIDs
+}
+
+// queryTable is the model's reflective property table, built once per model.
+func (m *CachedModel) queryTable(qctx queryexec.Context) *querytranslate.Table {
+	m.queryTableOnce.Do(func() {
+		m.propertyTable = querytranslate.NewTable(qctx.Index, qctx.Model)
+	})
+	return m.propertyTable
 }
 
 // nested returns every element declared inside an element, in declaration
@@ -385,325 +552,4 @@ func (w *elementWalk) members(sym *symbols.Symbol) {
 	for _, child := range w.eval.sc.Index.LookupDirectChildren(w.eval.sc.Index.GetFQN(sym)) {
 		w.visit(child)
 	}
-}
-
-// projectedProperties returns the properties to report, validating each name.
-// An empty selection reports every property.
-func projectedProperties(selected []string) ([]string, error) {
-	if len(selected) == 0 {
-		return corequery.DefaultProjection(), nil
-	}
-	out := make([]string, 0, len(selected))
-	for _, name := range selected {
-		if !corequery.IsProperty(name) {
-			return nil, unknownProperty(name)
-		}
-		out = append(out, name)
-	}
-	return out, nil
-}
-
-func unknownProperty(name string) *QueryError {
-	return queryErrorf(QueryErrUnknownProperty,
-		"unknown query property %q; queryable properties are %s",
-		name, strings.Join(QueryPropertyNames(), ", "))
-}
-
-// project builds the record of a matched element: its identity and type always,
-// plus the selected properties it has.
-func (e *queryEval) project(sym *symbols.Symbol, selected []string) *pb.QueryResultElement {
-	element := &pb.QueryResultElement{
-		Id:         e.identity(sym),
-		Type:       corequery.MetamodelTypeNameOf(sym),
-		Properties: make(map[string]string, len(selected)),
-	}
-	for _, name := range selected {
-		if values, ok := e.reader.Values(sym, name); ok && len(values) != 0 {
-			element.Properties[name] = values[0]
-		}
-	}
-	return element
-}
-
-// validateConstraint reports whether a constraint is one the service can
-// evaluate at all: every fault in a query is found here, before any element is
-// read, so an empty scope cannot turn a malformed query into "nothing matched".
-func validateConstraint(constraint *pb.Constraint) error {
-	if constraint == nil {
-		return nil // a query with no `where` selects its whole scope
-	}
-	switch form := constraint.Constraint.(type) {
-	case *pb.Constraint_Primitive:
-		return validatePrimitive(form.Primitive)
-	case *pb.Constraint_Composite:
-		return validateComposite(form.Composite)
-	default:
-		return queryErrorf(QueryErrMalformedConstraint,
-			"constraint is neither a PrimitiveConstraint nor a CompositeConstraint")
-	}
-}
-
-// validatePrimitive checks a comparison names a queryable property, has an
-// operator, and has operands that operator can compare.
-func validatePrimitive(c *pb.PrimitiveConstraint) error {
-	if c == nil {
-		return queryErrorf(QueryErrMalformedConstraint, "PrimitiveConstraint is unset")
-	}
-	if !corequery.IsProperty(c.Property) {
-		return unknownProperty(c.Property)
-	}
-	if len(c.Value) == 0 {
-		return queryErrorf(QueryErrMalformedConstraint,
-			"PrimitiveConstraint on %q has no value to compare against", c.Property)
-	}
-	switch c.Operator {
-	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_EQUAL, pb.PrimitiveOperator_PRIMITIVE_OPERATOR_IN:
-		return nil
-	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_GREATER,
-		pb.PrimitiveOperator_PRIMITIVE_OPERATOR_LESS,
-		pb.PrimitiveOperator_PRIMITIVE_OPERATOR_GREATER_EQUAL,
-		pb.PrimitiveOperator_PRIMITIVE_OPERATOR_LESS_EQUAL:
-		return validateOrdered(c)
-	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_INSTANCE_OF:
-		return validateInstanceOf(c)
-	default:
-		return queryErrorf(QueryErrMalformedConstraint,
-			"PrimitiveConstraint on %q has no operator", c.Property)
-	}
-}
-
-// validateInstanceOf checks instanceOf asks about the element's own metaclass,
-// which only "@type" names, with metaclass names for operands. Whether the
-// library declares each one is checked by resolveMetaclasses.
-func validateInstanceOf(c *pb.PrimitiveConstraint) error {
-	if c.Property != QueryPropType {
-		return queryErrorf(QueryErrUnorderedProperty,
-			"instanceOf applies to %q, the element's metaclass, not to %q",
-			QueryPropType, c.Property)
-	}
-	for _, value := range c.Value {
-		if value == "" {
-			return queryErrorf(QueryErrUnparsableValue,
-				"instanceOf on %q needs a metaclass name to compare against, got %q", c.Property, value)
-		}
-	}
-	return nil
-}
-
-// resolveMetaclasses resolves every instanceOf operand under a constraint to
-// the library's declaration of that metaclass, failing the query on one the
-// library does not declare: no element is an instance of it, and answering
-// "nothing matched" would hide the misspelling.
-func (e *queryEval) resolveMetaclasses(constraint *pb.Constraint) error {
-	if constraint == nil {
-		return nil
-	}
-	switch form := constraint.Constraint.(type) {
-	case *pb.Constraint_Primitive:
-		if form.Primitive.Operator != pb.PrimitiveOperator_PRIMITIVE_OPERATOR_INSTANCE_OF {
-			return nil
-		}
-		for _, name := range form.Primitive.Value {
-			if _, done := e.metaclasses[name]; done {
-				continue
-			}
-			meta := e.sc.Semantics.Metaclass(name)
-			if meta == nil {
-				return queryErrorf(QueryErrUnparsableValue,
-					"instanceOf on %q needs a metaclass the library declares, got %q",
-					form.Primitive.Property, name)
-			}
-			if e.metaclasses == nil {
-				e.metaclasses = make(map[string]*symbols.Symbol)
-			}
-			e.metaclasses[name] = meta
-		}
-	case *pb.Constraint_Composite:
-		for _, nested := range form.Composite.Constraint {
-			if err := e.resolveMetaclasses(nested); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-// validateComposite checks a combination has an operator, at least two
-// constraints to combine (the standard's `constraint : Constraint [2..*]`),
-// and no malformed constraint anywhere beneath it, decisive or not.
-func validateComposite(c *pb.CompositeConstraint) error {
-	if c == nil {
-		return queryErrorf(QueryErrMalformedConstraint, "CompositeConstraint is unset")
-	}
-	if len(c.Constraint) == 0 {
-		return queryErrorf(QueryErrMalformedConstraint,
-			"CompositeConstraint has no constraints to combine")
-	}
-	if len(c.Constraint) == 1 {
-		return queryErrorf(QueryErrMalformedConstraint,
-			"CompositeConstraint combines at least two constraints, got one; write the constraint on its own")
-	}
-	switch c.Operator {
-	case pb.CompositeOperator_COMPOSITE_OPERATOR_AND, pb.CompositeOperator_COMPOSITE_OPERATOR_OR:
-	default:
-		return queryErrorf(QueryErrMalformedConstraint, "CompositeConstraint has no operator")
-	}
-	for _, nested := range c.Constraint {
-		if err := validateConstraint(nested); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// matches reports whether an element satisfies a constraint, which
-// validateConstraint has already found evaluable. An unset constraint matches
-// every element, as a query with no `where` selects its whole scope.
-func (e *queryEval) matches(sym *symbols.Symbol, constraint *pb.Constraint) bool {
-	if constraint == nil {
-		return true
-	}
-	switch form := constraint.Constraint.(type) {
-	case *pb.Constraint_Primitive:
-		return e.matchesPrimitive(sym, form.Primitive)
-	case *pb.Constraint_Composite:
-		return e.matchesComposite(sym, form.Composite)
-	default:
-		return true
-	}
-}
-
-// matchesPrimitive compares one property of an element, negating the verdict
-// when the constraint is inverse.
-func (e *queryEval) matchesPrimitive(sym *symbols.Symbol, c *pb.PrimitiveConstraint) bool {
-	values, has := e.reader.Values(sym, c.Property)
-	value := ""
-	if len(values) != 0 {
-		value = values[0]
-	}
-	var verdict bool
-	switch c.Operator {
-	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_EQUAL, pb.PrimitiveOperator_PRIMITIVE_OPERATOR_IN:
-		verdict = has && equalsAny(value, c.Value)
-	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_INSTANCE_OF:
-		verdict = has && e.instanceOfAny(sym, c.Value)
-	default:
-		verdict = has && compareOrdered(c, value)
-	}
-	if c.Inverse {
-		return !verdict
-	}
-	return verdict
-}
-
-// equalsAny reports whether the property's value is one of the constraint's.
-// The standard writes a single value for `=` and a list for `in`, and its
-// clients also write a list for `@type` under `=`; one value is the degenerate
-// case of the same rule.
-func equalsAny(value string, candidates []string) bool {
-	for _, candidate := range candidates {
-		if value == candidate {
-			return true
-		}
-	}
-	return false
-}
-
-// instanceOfAny reports whether the element's metaclass conforms to one of the
-// named metaclasses, which resolveMetaclasses already resolved.
-func (e *queryEval) instanceOfAny(sym *symbols.Symbol, names []string) bool {
-	for _, name := range names {
-		if e.sc.Semantics.InstanceOf(sym, e.metaclasses[name]) {
-			return true
-		}
-	}
-	return false
-}
-
-// validateOrdered checks an ordered comparison has an ordered property and one
-// numeric operand: either fault is a fault in the query, never a false verdict.
-func validateOrdered(c *pb.PrimitiveConstraint) error {
-	if !corequery.IsOrdered(c.Property) {
-		return queryErrorf(QueryErrUnorderedProperty,
-			"query property %q is not ordered, so %s cannot compare it",
-			c.Property, operatorText(c.Operator))
-	}
-	if len(c.Value) != 1 {
-		return queryErrorf(QueryErrMalformedConstraint,
-			"%s on %q compares against exactly one value, got %d",
-			operatorText(c.Operator), c.Property, len(c.Value))
-	}
-	if _, err := parseOrdered(c.Value[0]); err != nil {
-		return queryErrorf(QueryErrUnparsableValue,
-			"%s on %q needs a number to compare against, got %q",
-			operatorText(c.Operator), c.Property, c.Value[0])
-	}
-	return nil
-}
-
-// compareOrdered evaluates <, <=, > or >= against an element's own value. A
-// value that is not a number fails the comparison: that is a fact about the
-// element.
-func compareOrdered(c *pb.PrimitiveConstraint, value string) bool {
-	operand, err := parseOrdered(c.Value[0])
-	if err != nil {
-		return false
-	}
-	actual, err := parseOrdered(value)
-	if err != nil {
-		return false
-	}
-	switch c.Operator {
-	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_GREATER:
-		return actual > operand
-	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_GREATER_EQUAL:
-		return actual >= operand
-	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_LESS_EQUAL:
-		return actual <= operand
-	default:
-		return actual < operand
-	}
-}
-
-// parseOrdered reads a number, accepting the unbounded multiplicity "*" as the
-// infinity it denotes.
-func parseOrdered(text string) (float64, error) {
-	if text == "*" {
-		return math.Inf(1), nil
-	}
-	return strconv.ParseFloat(text, 64)
-}
-
-// operatorText renders an operator as the standard writes it.
-func operatorText(op pb.PrimitiveOperator) string {
-	switch op {
-	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_EQUAL:
-		return "="
-	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_GREATER:
-		return ">"
-	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_LESS:
-		return "<"
-	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_LESS_EQUAL:
-		return "<="
-	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_GREATER_EQUAL:
-		return ">="
-	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_IN:
-		return "in"
-	case pb.PrimitiveOperator_PRIMITIVE_OPERATOR_INSTANCE_OF:
-		return "instanceOf"
-	default:
-		return "(no operator)"
-	}
-}
-
-// matchesComposite combines the verdicts of nested constraints, short-circuiting
-// once one is decisive.
-func (e *queryEval) matchesComposite(sym *symbols.Symbol, c *pb.CompositeConstraint) bool {
-	and := c.Operator == pb.CompositeOperator_COMPOSITE_OPERATOR_AND
-	for _, nested := range c.Constraint {
-		if e.matches(sym, nested) != and {
-			return !and
-		}
-	}
-	return and
 }

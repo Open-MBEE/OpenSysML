@@ -3,17 +3,19 @@ package repl
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
+	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/querytranslate"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
-// Query evaluates OSLC element-identification query text and renders one
-// matched element per line for the interactive frontend.
+// Query translates OSLC query text to a document-query plan, runs it over the
+// session's model and the objects it holds, and renders one matched row per
+// line for the interactive frontend.
 func (s *Session) Query(text string) ([]string, error) {
 	defer s.enter()()
 	return s.query(text)
@@ -22,51 +24,92 @@ func (s *Session) Query(text string) ([]string, error) {
 // errQueryNotLinked is Query's answer in a build that links no positional namer.
 var errQueryNotLinked = errors.New("OSLC query is not linked into this build")
 
+// errNoQueryModel is Query's answer while the session holds no model to query.
+var errNoQueryModel = &querytranslate.Error{Kind: querytranslate.ErrNoModel, Message: "no model loaded"}
+
 func (s *Session) query(text string) ([]string, error) {
 	if replext.Positional() == nil {
 		return nil, errQueryNotLinked
 	}
-	q, err := corequery.ParseOSLC(text)
-	if err != nil {
-		return nil, err
-	}
 	if len(s.sessionMembers()) == 0 || s.hasAnalysisErrors() {
-		return nil, &corequery.Error{Kind: corequery.ErrNoModel, Message: "no model loaded"}
+		return nil, errNoQueryModel
 	}
 	idx := s.browseIndex()
 	if idx == nil {
-		return nil, &corequery.Error{Kind: corequery.ErrNoModel, Message: "no model loaded"}
+		return nil, errNoQueryModel
 	}
-	resolver := resolve.New(idx)
-	model := semantics.NewModel(resolver)
-	model.SetSourceText(s.sessionSourceText())
-	model.SetSourceFile(s.sessionSourceFile)
-	adapter := &replQueryModel{
-		session: s,
-		index:   idx,
+	ctx, err := s.getOrCreateRuntime()
+	if err != nil {
+		return nil, fmt.Errorf("runtime init: %w", err)
 	}
-	adapter.reader = corequery.NewPropertyReader(idx, resolver, model).WithIdentity(adapter.Identity)
-	elements, err := corequery.Evaluate(adapter, q)
+	context := s.queryContext(ctx)
+	namer := &replQueryModel{session: s, index: idx}
+	context.Identity = namer.Identity
+	table := querytranslate.NewTable(context.Index, context.Model)
+	q, err := querytranslate.ParseOSLC(text, table)
 	if err != nil {
 		return nil, err
 	}
-	lines := make([]string, 0, len(elements))
-	for _, element := range elements {
-		line := fmt.Sprintf("%s  %s", element.ID, element.Type)
-		for _, name := range q.Select {
-			if value, ok := element.Properties[name]; ok {
-				line += fmt.Sprintf("  %s=%s", q.SpellingOf(name), value)
+	plan, err := querytranslate.Translate(q, querytranslate.Context{Index: context.Index, Model: context.Model, Table: table}, "%query")
+	if err != nil {
+		return nil, err
+	}
+	bindings := queryexec.Bindings{}
+	if !plan.Objects {
+		candidates, err := namer.Candidates(q.Scope)
+		if err != nil {
+			return nil, err
+		}
+		values := make([]queryexec.Value, len(candidates))
+		for i, sym := range candidates {
+			values[i] = queryexec.ElementValue(sym)
+		}
+		bindings[querytranslate.SourceParameter] = values
+	}
+	result, err := queryexec.Execute(plan.Program, context, bindings, queryexec.Options{})
+	if err != nil {
+		return nil, err
+	}
+	rows := result.Rows()
+	columns := result.Columns()
+	lines := make([]string, 0, len(rows))
+	for _, row := range rows {
+		value := row.Element()
+		var line strings.Builder
+		if _, label, ok := value.Object(); ok {
+			line.WriteString(label)
+			line.WriteString("  ")
+		}
+		if decl := value.Declaration(); decl != nil {
+			fmt.Fprintf(&line, "%s  %s", namer.Identity(decl), corequery.MetamodelTypeNameOf(decl))
+		}
+		if len(q.Select) == 0 {
+			lines = append(lines, line.String())
+			continue
+		}
+		for i, cell := range row.Cells() {
+			values := cell.Values()
+			if i >= len(columns) || len(values) == 0 {
+				continue
+			}
+			text, ok := values[0].Text(namer.Identity)
+			if _, isElement := values[0].Element(); isElement && text == "" {
+				continue
+			}
+			if ok {
+				fmt.Fprintf(&line, "  %s=%s", q.SpellingOf(columns[i].Name()), text)
 			}
 		}
-		lines = append(lines, line)
+		lines = append(lines, line.String())
 	}
 	return lines, nil
 }
 
+// replQueryModel names the session's elements as %query reports them — by
+// qualified name, else by positional identity — and enumerates what a scope considers.
 type replQueryModel struct {
 	session *Session
 	index   *symbols.Index
-	reader  *corequery.PropertyReader
 
 	positionalOnce sync.Once
 	positional     map[*symbols.Symbol]string
@@ -96,7 +139,8 @@ func (m *replQueryModel) Candidates(scope []string) ([]*symbols.Symbol, error) {
 			}
 		}
 		if len(roots) == 0 {
-			return nil, fmt.Errorf("query scope names an element the model does not have: %q", name)
+			return nil, &querytranslate.Error{Kind: querytranslate.ErrUnknownScope,
+				Message: fmt.Sprintf("query scope names an element the model does not have: %q", name)}
 		}
 		for _, root := range roots {
 			m.collectQuerySymbol(root, &out, seen, map[*symbols.Scope]bool{})
@@ -135,10 +179,6 @@ func (m *replQueryModel) collectQuerySymbol(sym *symbols.Symbol, out *[]*symbols
 	}
 }
 
-func (m *replQueryModel) Value(sym *symbols.Symbol, property string) ([]string, bool) {
-	return m.reader.Values(sym, property)
-}
-
 func (m *replQueryModel) Identity(sym *symbols.Symbol) string {
 	if identity := corequery.QualifiedIdentity(m.index, sym); identity != "" {
 		return identity
@@ -172,8 +212,4 @@ func (m *replQueryModel) positionalNames() {
 			},
 		)
 	})
-}
-
-func (m *replQueryModel) Type(sym *symbols.Symbol) string {
-	return corequery.MetamodelTypeNameOf(sym)
 }
