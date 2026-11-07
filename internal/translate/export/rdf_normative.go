@@ -550,7 +550,7 @@ func (e *encoder) subjectParameter(subject rdf.Term, owner string, ownerSym *sym
 		e.flags(usage, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}})
 	}
 	e.emitMembershipCore(membership, usage, subject, mSubjectMembership, true)
-	e.subjectMemberNames(membership, usage, ownerSym, rel)
+	e.subjectMemberNames(membership, ownerSym, rel)
 	e.graph.Add(membership, e.sysml(pOwnedSubjectParameter), usage)
 	e.graph.Add(membership, e.sysml(pOwnedMemberParameter), usage)
 	e.graph.Add(membership, e.sysml(pOwnedMemberFeature), usage)
@@ -592,9 +592,9 @@ func (e *encoder) subjectFeatureChainValue(usage rdf.Term, target ast.Node, chai
 	return e.expressionOwnership(expression, usage, mFeatureValue)
 }
 
-// subjectMemberNames states the SubjectMembership's memberName and memberShortName, and the subject's
-// name: the effective names of the parameter the `by` clause rel declares (RequirementCheck::subj, redefined).
-func (e *encoder) subjectMemberNames(membership, usage rdf.Term, ownerSym *symbols.Symbol, rel *ast.Relationship) {
+// subjectMemberNames states the SubjectMembership's memberName and memberShortName: the effective
+// names of the subject parameter the `by` clause rel declares (RequirementCheck::subj, redefined).
+func (e *encoder) subjectMemberNames(membership rdf.Term, ownerSym *symbols.Symbol, rel *ast.Relationship) {
 	if ownerSym == nil {
 		return
 	}
@@ -603,10 +603,8 @@ func (e *encoder) subjectMemberNames(membership, usage rdf.Term, ownerSym *symbo
 		if subject.Decl != ast.Node(rel) {
 			continue
 		}
-		// The subject redefines the definition's, so it takes that name (KerML 1.1 §8.3.3.3).
 		if name := e.ids.model.EffectiveNameOf(subject); name != "" {
 			e.graph.Add(membership, e.sysml(pMemberName), rdf.String(name))
-			e.graph.Add(usage, e.sysml(pName), rdf.String(name))
 		}
 		if short := e.ids.model.EffectiveShortNameOf(subject); short != "" {
 			e.graph.Add(membership, e.sysml(pMemberShortName), rdf.String(short))

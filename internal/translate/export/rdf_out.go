@@ -3927,11 +3927,10 @@ func (e *encoder) effectiveName(node ast.Node) string {
 	if name := memberName(node); name != "" {
 		return name
 	}
-	// A usage or subject alone is identified so: a Membership (`first start;`) names nothing,
-	// `require q.k;` stays positional, and a body's node keys its first parameter's symbol.
-	switch node.(type) {
-	case *ast.Usage, *ast.SubjectMember:
-	default:
+	// A usage alone is identified so: a Membership (`first start;`) names nothing,
+	// a chain-referencing `require q.k;` stays positional, and a body's node keys
+	// its first parameter's symbol, not the body's.
+	if _, ok := node.(*ast.Usage); !ok {
 		return ""
 	}
 	if sym := e.ids.declSym[node]; sym != nil && sym.IsFeature() {
