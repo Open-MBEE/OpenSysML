@@ -358,13 +358,13 @@ test-shard: stdlib-snapshot ## Run one CI shard of the race suite (SHARD=runtime
 	@# under -race on the CI runners, so it runs as three shards; so does tests/export, whose
 	@# whole run passed 55 minutes once the element form completed inheritance.
 	pkgs=$$(scripts/race-shard.sh $(SHARD)) && case "$(SHARD)" in \
-	  runtime-exploration) go test -run '$(RACE_RUNTIME_EXPLORATION)' -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
-	  runtime-corpus) go test -run '$(RACE_RUNTIME_CORPUS)' -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_EXPLORATION)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
-	  runtime) go test -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_CORPUS)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
-	  export-corpus) go test -run '$(RACE_EXPORT_CORPUS)' -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
-	  export-settled) go test -run '$(RACE_EXPORT_SETTLED)' -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
-	  export) go test -skip '$(RACE_SHARD_SKIP)|$(RACE_EXPORT_CORPUS)|$(RACE_EXPORT_SETTLED)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
-	  *) go test -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m -coverprofile=coverage.txt -covermode=atomic $$pkgs ;; \
+	  runtime-exploration) go test -run '$(RACE_RUNTIME_EXPLORATION)' -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m $$pkgs ;; \
+	  runtime-corpus) go test -run '$(RACE_RUNTIME_CORPUS)' -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_EXPLORATION)' -v -race -pgo=off -timeout 55m $$pkgs ;; \
+	  runtime) go test -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_CORPUS)' -v -race -pgo=off -timeout 55m $$pkgs ;; \
+	  export-corpus) go test -run '$(RACE_EXPORT_CORPUS)' -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m $$pkgs ;; \
+	  export-settled) go test -run '$(RACE_EXPORT_SETTLED)' -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m $$pkgs ;; \
+	  export) go test -skip '$(RACE_SHARD_SKIP)|$(RACE_EXPORT_CORPUS)|$(RACE_EXPORT_SETTLED)' -v -race -pgo=off -timeout 55m $$pkgs ;; \
+	  *) go test -skip '$(RACE_SHARD_SKIP)' -v -race -pgo=off -timeout 55m $$pkgs ;; \
 	esac
 	@# The tools module runs with tools (tests/wasm) on CircleCI and, as the PR workflow has no
 	@# tools shard (tests/wasm is its WebAssembly gate job there), with rest on GitHub Actions.
@@ -372,7 +372,7 @@ test-shard: stdlib-snapshot ## Run one CI shard of the race suite (SHARD=runtime
 
 test-quick: stdlib-snapshot ## Run the race-free quick tier over one or more race shards (SHARDS="runtime" | "model export graph" | "rest migrate cli codegen")
 	@echo "Running Go tests without race detection, shards $(SHARDS)..."
-	@# Draft pull requests run this instead of test-shard: the same packages and skips, no -race, no coverage.
+	@# Draft pull requests run this instead of test-shard: the same packages and skips, no -race.
 	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime runtime-corpus runtime-exploration model export export-corpus export-settled graph codegen tools rest migrate cli"; exit 1; }
 	pkgs=$$(for shard in $(SHARDS); do scripts/race-shard.sh $$shard || exit 1; done) && \
 	go test -skip '$(RACE_SHARD_SKIP)' -v -timeout 45m $$pkgs

@@ -37,7 +37,6 @@ var (
 	makefileExplore    = regexp.MustCompile(`(?m)^RACE_RUNTIME_EXPLORATION := (.+)$`)
 	circleExplore      = regexp.MustCompile(`(?m)^\s*exploration='([^']+)'$`)
 	workflowShards     = regexp.MustCompile(`go_shards=\[([^\]]+)\]`)
-	workflowProfiles   = regexp.MustCompile(`-ne (\d+) \]; then echo "error: expected (\d+) shard profiles`)
 	workflowQuoted     = regexp.MustCompile(`"([^"]+)"`)
 	workflowQuickGroup = regexp.MustCompile(`\s+`)
 )
@@ -135,8 +134,8 @@ func shardArrayEntries(body string) []string {
 
 // TestPRWorkflowMatricesCoverTheRaceShards: the full tier runs every race shard but
 // tools (tests/wasm is the WebAssembly gate job there, the tools module rides with
-// rest), expects one coverage profile per shard, and the quick tier's groups together
-// name every package shard once (runtime and export cover their -corpus shards' package).
+// rest), and the quick tier's groups together name every package shard once (runtime and
+// export cover their -corpus shards' package).
 
 // isCorpusShard says whether a shard is a by-test-name part of another shard's package
 // (runtime-corpus, export-corpus, export-settled): the hyphenated names.
@@ -159,10 +158,6 @@ func TestPRWorkflowMatricesCoverTheRaceShards(t *testing.T) {
 	wantFull := slices.DeleteFunc(slices.Clone(shards), func(s string) bool { return s == "tools" })
 	if !slices.Equal(full, wantFull) {
 		t.Errorf("full tier go_shards %v, want the race shards but tools %v", full, wantFull)
-	}
-	m := workflowProfiles.FindStringSubmatch(workflow)
-	if m == nil || m[1] != itoa(len(full)) || m[2] != itoa(len(full)) {
-		t.Errorf("race-coverage expects %v shard profiles, the full tier has %d shards", m, len(full))
 	}
 
 	var quick []string
