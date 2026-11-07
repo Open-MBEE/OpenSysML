@@ -293,7 +293,7 @@ func (a *npr7123Audit) checkReview(review *symbols.Symbol) {
 	switch {
 	case !entrance && !success:
 		a.report(review, CodeNPR7123ReviewMissingCriteria,
-			"This life-cycle review states no entrance criteria and no success criteria: NPR 7123.1D section 5.2.2.1 (SE-34) has the technical team define both for each review, so nest `EntranceCriterion` and `SuccessCriterion` requirement usages, subsetting `entranceCriteria` and `successCriteria`, from `NPR7123::ReviewCriteria`.")
+			"This life-cycle review states no entrance criteria and no success criteria: NPR 7123.1D section 5.2.2.1 (SE-34) has the technical team define both for each review, so nest `EntranceCriterion` and `SuccessCriterion` requirement usages, subsetting `entranceCriteria` and `successCriteria`, from the library's `ReviewCriteria` package.")
 	case !entrance:
 		a.report(review, CodeNPR7123ReviewMissingCriteria,
 			"This life-cycle review states no entrance criteria: NPR 7123.1D section 5.2.2.1 (SE-34) has the technical team define entrance criteria for each review, so nest `EntranceCriterion` requirement usages subsetting `entranceCriteria`.")

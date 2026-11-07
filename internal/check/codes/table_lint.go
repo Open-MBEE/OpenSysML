@@ -82,7 +82,7 @@ var methodCodes = []Entry{
 		Code: "npr7123-review-missing-entrance-or-success-criteria", Tier: TierMethod, Severity: "warning",
 		Summary: "a life-cycle review stating no entrance criteria or no success criteria",
 		Meaning: "NPR 7123.1D section 5.2.2.1 (SE-34) has the technical team define entrance and success criteria for each life-cycle review, so a `LifeCycleReview` usage is expected to nest `EntranceCriterion` and `SuccessCriterion` requirement usages. " +
-			"Subset the transcribed criteria of `NPR7123::ReviewCriteria` into the review's `entranceCriteria` and `successCriteria`, tailoring them as section G.1.2 expects.",
+			"Subset the transcribed criteria of the library's `ReviewCriteria` package into the review's `entranceCriteria` and `successCriteria`, tailoring them as section G.1.2 expects.",
 		Spec: specNPR,
 	},
 	{
