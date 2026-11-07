@@ -17,6 +17,7 @@ package P {
         ref part pRef ::> q;
         part pBoth : V :> q;
         attribute a : ScalarValues::Real;
+        part inner { ref part q ::> q; }
     }
     part def SubOwner :> Owner {
         part :>> q;
@@ -79,5 +80,15 @@ func TestSpecializationsReportReferenceSubsetting(t *testing.T) {
 	if len(specs) != 1 || specs[0].Kind != "references" || specs[0].Declared != "q" ||
 		specs[0].TargetId != "P::Owner::q" || specs[0].TargetKind != "partUsage" {
 		t.Fatalf("specializations %+v, want one references edge to P::Owner::q", specs)
+	}
+}
+
+func TestSpecializationsReferenceTargetIsNotTheReferencingFeature(t *testing.T) {
+	specs := derivedTypeFacts(t, "P::Owner::inner::q").Specializations
+	if len(specs) != 1 || specs[0].Kind != "references" || specs[0].TargetId != "P::Owner::q" {
+		t.Fatalf("specializations %+v, want one references edge to P::Owner::q", specs)
+	}
+	if types := typeRefIDs(derivedTypeFacts(t, "P::Owner::inner::q").TypeInfo.Types); types != "P::T/partDef" {
+		t.Errorf("types %q, want P::T/partDef", types)
 	}
 }

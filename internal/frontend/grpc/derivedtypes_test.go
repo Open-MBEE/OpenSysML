@@ -20,6 +20,7 @@ package P {
         ref part pRef ::> q;
         part pBoth : V :> q;
         attribute a : ScalarValues::Real;
+        part inner { ref part q ::> q; }
     }
     part def SubOwner :> Owner {
         part :>> q;
@@ -107,5 +108,10 @@ func TestSpecializationsReferences(t *testing.T) {
 	spec := specs[0]
 	if spec.Kind != "references" || spec.Declared != "q" || spec.TargetId != "P::Owner::q" || spec.TargetKind != "partUsage" {
 		t.Errorf("got %s %q -> %q (%s), want references \"q\" -> \"P::Owner::q\" (partUsage)", spec.Kind, spec.Declared, spec.TargetId, spec.TargetKind)
+	}
+	// A referencing feature named like its target resolves outside itself.
+	inner := get("P::Owner::inner::q").Specializations
+	if len(inner) != 1 || inner[0].TargetId != "P::Owner::q" {
+		t.Errorf("inner::q specializations %v, want one references edge to P::Owner::q", inner)
 	}
 }

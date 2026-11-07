@@ -261,7 +261,13 @@ func (sc *Context) specializationsOf(sym *symbols.Symbol) []*Specialization {
 			continue
 		}
 		spec := &Specialization{Kind: kind, Declared: qn.Text()}
-		if target := sc.resolveFrom(sym, qn); target != nil {
+		target := sc.resolveFrom(sym, qn)
+		if kind == "references" {
+			// The semantic model resolves a referenced feature outside the
+			// referencing one, so `ref part a ::> a` does not name itself.
+			target = sc.Semantics.ReferencedFeature(sym)
+		}
+		if target != nil {
 			spec.TargetId = sc.Index.GetFQN(target)
 			spec.TargetKind = target.Kind.String()
 		}
