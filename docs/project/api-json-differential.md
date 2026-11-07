@@ -230,7 +230,7 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 102691 elements matched (16216 ours-only, 28623 pilot-only, 0 of them implied); properties: 1985911 present-equal, 149129 present-different, 303821 ours-missing, 80006 pilot-missing, 2190617 absent-both, 33582 indeterminate, 525 pilot-nondeterministic.
+**Scorecard:** 935 files; 102691 elements matched (16216 ours-only, 28623 pilot-only, 0 of them implied); properties: 1985969 present-equal, 149071 present-different, 303821 ours-missing, 80006 pilot-missing, 2190617 absent-both, 33582 indeterminate, 525 pilot-nondeterministic.
 
 Re-recorded on the positional-redefinition and naming-feature change (a positional parameter redefinition masks the parameter it redefines, KerML 1.1 §8.3.3.3.4 / SysML v2 §8.3.6.3; and a feature its clause leaves nameless is named by its naming feature on the symbol-backed and the graph-backed reader alike: a `satisfy … by lander` or `subject = p` parameter by the subject it redefines — `subj`, the definition's — not by the feature it references, a chained connector end by the end it occupies, an expression body's `in i` parameter as an element of its own beside the nameless body, a transition's `do` statement by nothing (its action *specializes* `Actions::TransitionAction::effect`, SysML v2 §8.4.11 `checkTransitionUsageTransitionFeatureSpecialization`, which is no redefinition), an `alias` Membership by nothing but its `memberName`): 87 more elements match (102568 → 102655; ours-only 16299 → 16212, pilot-only 28746 → 28659), every one a by-reference subject the pilot keys by that name (`Descent::FuelBudget::reserveHeld::lander`, `AnalysisTest::AnalysisCase::obj::subj`, `MassAnalysisCase::obj::mass`) with the subtree under it — its `FeatureValue`, the `FeatureReferenceExpression`, that expression's result `Feature` and `ReturnParameterMembership`; no match is lost. Present-equal 1982570 → 1985402, present-different 149977 → 149232 (`ReferenceUsage.name` 78 rows to equal, `RequirementUsage`/`SatisfyRequirementUsage`/`VerificationCaseUsage`/`AnalysisCaseUsage.subjectParameter` 44/35/30/17), ours-missing 303717 → 303867: the newly matched subtrees bring under comparison properties this repository leaves absent for causes the tables already state — a by-reference subject's `definition`/`type`/`isReference` (17 each), the result `Feature`'s `name`/`ReturnParameterMembership.memberName` `result` (13/12, the `Evaluation::result` redefinition the expression implied-base work completes) — and the 16 `TransitionFeatureMembership.memberName`/`ownedMemberName` rows the pilot states as `effect`/`accepter` and this repository no longer does: the pinned specification derives a Membership's `memberName` from its member's `effectiveName`, which a `do` statement has none of, so the pilot is followed only where the text supports it and the disagreement is kept here. Indeterminate 33556 → 33582 and pilot-nondeterministic 523 → 525 are the pilot's own run-to-run movement on the newly compared subtrees.
 
@@ -248,13 +248,13 @@ The pilot's export failed on 59 files (`pilotFailed`: its own export throws on a
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 8115 | 1055 | 2051 | 159725 | 13232 | 20109 | 5713 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 28834 | 5684 | 7282 | 568107 | 45081 | 82729 | 21472 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 10091 | 1817 | 2508 | 197026 | 17173 | 26110 | 7569 |
+| `examples/sysml-v2-training` | 100 | 8115 | 1055 | 2051 | 159726 | 13231 | 20109 | 5713 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 28834 | 5684 | 7282 | 568150 | 45038 | 82729 | 21472 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 10091 | 1817 | 2508 | 197031 | 17168 | 26110 | 7569 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 6734 | 903 | 1507 | 120727 | 9501 | 18831 | 8268 |
-| `examples/spec-examples` | 511 | 7546 | 872 | 2184 | 132153 | 7541 | 22114 | 6381 |
-| `tests/testdata` | 40 | 1518 | 192 | 453 | 27674 | 2125 | 4161 | 1191 |
-| `examples` | 56 | 31881 | 5115 | 11248 | 624349 | 44933 | 99315 | 24004 |
+| `examples/spec-examples` | 511 | 7546 | 872 | 2184 | 132154 | 7540 | 22114 | 6381 |
+| `tests/testdata` | 40 | 1518 | 192 | 453 | 27678 | 2121 | 4161 | 1191 |
+| `examples` | 56 | 31881 | 5115 | 11248 | 624353 | 44929 | 99315 | 24004 |
 | `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 887 | 31 | 90 | 41 |
 | `docs/manual/examples` | 11 | 7919 | 578 | 1390 | 155263 | 9512 | 30362 | 5367 |
 
