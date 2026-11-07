@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts/positional"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -49,7 +50,7 @@ func identityContext(t *testing.T) *symbolfacts.Context {
 		return []symbolfacts.PositionalDocument{{File: file, Root: idx.DocumentRoot("model.sysml")}}
 	})
 	reader := export.NewElementIDReader([]export.ElementIDDocument{{File: file, Root: root}})
-	sc.ElementIDs = func() *export.ElementIDReader { return reader }
+	sc.ElementForm = func() symbolfacts.ElementForm { return positional.ElementForm(reader) }
 	return sc
 }
 
@@ -148,7 +149,7 @@ func TestElementIdentityNeedsTheFormForSynthesizedElements(t *testing.T) {
 	if got := sc.ResolveElement("D__M__z_pvalue", nil); len(got) != 0 {
 		t.Errorf("ResolveElement without a model = %v, want nothing", got)
 	}
-	sc.ElementIDs = nil
+	sc.ElementForm = nil
 	if got := sc.ElementIdentity(value); got != "" {
 		t.Errorf("ElementIdentity without the form = %q, want none", got)
 	}

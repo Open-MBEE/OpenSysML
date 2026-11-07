@@ -21,7 +21,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/jsonrpc"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
-	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts/positional"
 	fsyntax "github.com/Open-MBEE/OpenSysML/internal/frontend/syntax"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
@@ -33,7 +32,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
@@ -110,13 +108,12 @@ type cachedModel struct {
 }
 
 // elementIdentities is the id vocabulary a metaobject's element crosses in: its
-// qualified name, the positional id of an unnamed member, or the form's `@id`.
+// qualified name, or a positional id once the engine derives one; no form `@id`.
 func (m *cachedModel) elementIdentities() elementIdentities {
 	m.identitiesOnce.Do(func() {
 		m.identities = &symbolfacts.Context{
 			Index:      m.Index,
 			Positional: symbolfacts.NewPositional(m.Index, m.positionalDocuments),
-			ElementIDs: m.elementIDReader,
 		}
 	})
 	return m.identities
@@ -135,19 +132,6 @@ func (m *cachedModel) positionalDocuments() []symbolfacts.PositionalDocument {
 		}
 	}
 	return docs
-}
-
-// elementIDReader reads the ids the conversion writes for this model's
-// elements, from one conversion made on first use.
-func (m *cachedModel) elementIDReader() *export.ElementIDReader {
-	documents := make([]export.ElementIDDocument, 0, len(m.Documents))
-	for _, doc := range m.Documents {
-		if doc.Source != nil {
-			diags := append(append([]parser.Diagnostic{}, doc.Errors...), doc.Warnings...)
-			documents = append(documents, export.ElementIDDocument{File: doc.Source, Root: doc.Root, ParseDiags: diags})
-		}
-	}
-	return export.NewElementIDReader(documents)
 }
 
 // typedModel builds the checker-typed model and resolver the runtime and renderer

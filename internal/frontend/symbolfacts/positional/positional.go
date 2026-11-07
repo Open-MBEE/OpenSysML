@@ -1,5 +1,5 @@
-// Package positional registers the exporter's positional identities
-// (`Owner::@3`) with the symbol facts for the frontends that link the exporter.
+// Package positional gives the symbol facts the exporter's positional identities
+// (`Owner::@3`) and element form ids, for the frontends that link the exporter.
 package positional
 
 import (

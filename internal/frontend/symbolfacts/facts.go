@@ -8,7 +8,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )
 
 // fqnScalarQuantityValue is the library type every quantity value specializes.
@@ -30,9 +29,9 @@ type Context struct {
 	// Positional names the symbols no qualified name identifies; nil when the
 	// host derives none, which leaves such symbols without an id.
 	Positional *Positional
-	// ElementIDs reads the element form's ids, which name the elements the
+	// ElementForm is the element form's ids, which name the elements the
 	// semantic side tables synthesize; nil when the host converts no form.
-	ElementIDs func() *export.ElementIDReader
+	ElementForm func() ElementForm
 }
 
 // NewContext builds a conversion context over a symbol index.
