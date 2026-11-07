@@ -256,10 +256,10 @@ func (s *Session) fixedFor(
 }
 
 // modelBound is what the model fixes for subject with no object to read: a value
-// bound with `=` and a derived value's equation; a `default` or `:=` stays free.
+// written with `=`, literal or derived; a `default` or `:=` value stays free.
 func modelBound(ctx *runtime.Context, subject *symbols.Symbol) []solve.Pin {
 	pins, _ := solve.FixedFor(ctx, solve.Fixing{Element: subject, Owner: owningElement(subject)})
-	return slices.DeleteFunc(pins, func(p solve.Pin) bool { return !p.Bound && p.Derived == nil })
+	return slices.DeleteFunc(pins, func(p solve.Pin) bool { return !p.Bound })
 }
 
 // satisfactionQueries translates every satisfaction assertion an element states,

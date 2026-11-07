@@ -37,6 +37,12 @@ package CheckDerived {
     requirement r2 : R {
         attribute :>> y = x * 2.0;
     }
+
+    constraint kd {
+        attribute x : Real;
+        attribute y : Real default x * 2.0;
+        y > 10.0 and x < 1.0
+    }
 }
 `
 
@@ -83,7 +89,7 @@ package BoundLiteral {
 `
 
 // TestCheckAssertsADerivedValueOnConstraintsAndRequirements: the defining equation is
-// asserted whatever element is checked, one a redefinition supplies included.
+// asserted whatever element is checked, one a redefinition supplies included; a derived `default` is free.
 func TestCheckAssertsADerivedValueOnConstraintsAndRequirements(t *testing.T) {
 	requireSolver(t)
 	s := checkSession(t, checkDerivedModel)
@@ -100,6 +106,7 @@ func TestCheckAssertsADerivedValueOnConstraintsAndRequirements(t *testing.T) {
 			t.Errorf("%%check %s left the derived value free:\n%s", tc.name, out)
 		}
 	}
+	wants(t, run(t, s, "%check CheckDerived::kd"), "✓ Constraint kd is satisfiable", "CheckDerived::kd::y = ")
 }
 
 // TestCheckFixesAValueBoundWithEqualsAndLeavesADefaultFree: a literal written with `=`
