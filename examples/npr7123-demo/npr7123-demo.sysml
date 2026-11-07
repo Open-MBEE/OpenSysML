@@ -154,7 +154,7 @@ package 'Dust Lidar Pathfinder' {
 
 			#reviewItem item rfa1 {
 				:>> kind = ReviewItemKind::requestForAction;
-				:>> status = StatusKind::closed;
+				:>> ReviewItem::status = StatusKind::closed;
 			}
 		}
 
