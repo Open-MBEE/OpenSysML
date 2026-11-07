@@ -1761,10 +1761,11 @@ func (m *migration) constraintBody(e *sysmlv1.Element) {
 	saved := m.scope
 	m.scope = e
 	m.comments(e)
-	// A parameter e owns under a general's name takes that position itself.
+	// A parameter e owns under a general's name takes that position itself; one that
+	// feature skips as tool content leaves the position to the restatement.
 	seen := make(map[string]bool)
 	for _, c := range e.Children {
-		if (c.Type == "Property" || c.Type == "Port") && c.Name != "" {
+		if (c.Type == "Property" || c.Type == "Port") && c.Name != "" && toolContent(c) == "" {
 			seen[c.Name] = true
 		}
 	}

@@ -77,3 +77,36 @@ func TestDerivedConstraintBlockPortIsTheInheritedParameter(t *testing.T) {
 	}
 	session(t, r)
 }
+
+// A port the migrator skips as tool content writes nothing, so the inherited
+// parameter under its name keeps its position through the restatement.
+const constraintToolContentPortModel = `
+    <packagedElement xmi:type="uml:Class" xmi:id="_base" name="Base">
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_bl" name="limit">` + realHref + `</ownedAttribute>
+      <ownedAttribute xmi:type="uml:Property" xmi:id="_bm" name="margin">` + realHref + `</ownedAttribute>
+      <ownedRule xmi:type="uml:Constraint" xmi:id="_brule" constrainedElement="_base">
+        <specification xmi:type="uml:OpaqueExpression" xmi:id="_bspec">
+          <body>margin &lt;= limit</body>
+          <language>SysML</language>
+        </specification>
+      </ownedRule>
+    </packagedElement>
+    <packagedElement xmi:type="uml:Class" xmi:id="_child" name="Child">
+      <generalization xmi:type="uml:Generalization" xmi:id="_g" general="_base"/>
+      <ownedAttribute xmi:type="uml:Port" xmi:id="_cp" name="limit"/>
+    </packagedElement>
+`
+
+func TestSkippedToolContentPortLeavesTheInheritedParameterToTheRestatement(t *testing.T) {
+	r := migrateDocument(t, constraintToolContentPortModel, `
+  <sysml:ConstraintBlock xmi:id="_s1" base_Class="_base"/>
+  <sysml:ConstraintBlock xmi:id="_s2" base_Class="_child"/>
+  <ui:Button xmlns:ui="http://www.magicdraw.com/schemas/UI_Prototyping_Profile.xmi" xmi:id="_s3" base_Port="_cp"/>`)
+	wantLine(t, r.Notation, "in attribute :>> limit;")
+	wantLine(t, r.Notation, "in attribute :>> margin;")
+	wantNoLine(t, r.Notation, "in attribute limit[1] :>> limit;")
+	if n := bytes.Count(r.Notation, []byte(":>> limit")); n != 1 {
+		t.Fatalf("Child must redefine limit once, got %d redefinitions:\n%s", n, r.Notation)
+	}
+	session(t, r)
+}
