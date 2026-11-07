@@ -844,10 +844,17 @@ impl Runner {
             };
             bindings.push((binding.parameter, values));
         }
-        match self
-            .connection
-            .run_document_query(&request.model_hash, &request.query_id, &bindings)
-        {
+        let result = if request.inline_query.is_empty() {
+            self.connection
+                .run_document_query(&request.model_hash, &request.query_id, &bindings)
+        } else {
+            self.connection.run_inline_document_query(
+                &request.model_hash,
+                &request.inline_query,
+                &bindings,
+            )
+        };
+        match result {
             Ok(result) => {
                 Answer::Response(self.wire_json("sysml.RunDocumentQueryResponse", result.wire()))
             }

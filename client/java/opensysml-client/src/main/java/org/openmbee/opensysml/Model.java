@@ -1766,10 +1766,49 @@ public final class Model {
   public DocumentQueryResult runDocumentQuery(
       String queryId, Map<String, List<DocumentValue>> bindings) {
     Objects.requireNonNull(queryId, "queryId");
+    return runDocumentQuery(
+        RunDocumentQueryRequest.newBuilder().setModelHash(hash).setQueryId(queryId), bindings);
+  }
+
+  /**
+   * Runs a query expression written in place of a named query: the result expression of a {@code
+   * calc def} specializing {@code DocumentQueries::Query}, such as {@code
+   * Project(WhereType(Descendants(Named("Vehicles")), "PartUsage"), ("name", "mass"))}, planned in
+   * the model's context with the {@code DocumentQueries} library in scope.
+   *
+   * @param expression the query expression
+   * @return the projected columns and rows
+   * @throws ServiceException if the expression does not parse or plan (positioned as {@code inline
+   *     query <line>:<column>}), or fails as a named query would
+   * @throws CapabilityException if the service does not advertise {@code inline_document_query}
+   */
+  public DocumentQueryResult runInlineDocumentQuery(String expression) {
+    return runInlineDocumentQuery(expression, Map.of());
+  }
+
+  /**
+   * Runs a query expression written in place of a named query, with the entry parameters it
+   * declares bound as {@link #runDocumentQuery(String, Map)} binds a named query's.
+   *
+   * @param expression the query expression
+   * @param bindings the entry parameters' values, by parameter name
+   * @return the projected columns and rows
+   * @throws ServiceException if the expression does not parse or plan, or a binding is refused
+   * @throws CapabilityException if the service does not advertise {@code inline_document_query}
+   */
+  public DocumentQueryResult runInlineDocumentQuery(
+      String expression, Map<String, List<DocumentValue>> bindings) {
+    Objects.requireNonNull(expression, "expression");
+    connection.capabilities().require(Capabilities.INLINE_DOCUMENT_QUERY);
+    return runDocumentQuery(
+        RunDocumentQueryRequest.newBuilder().setModelHash(hash).setInlineQuery(expression),
+        bindings);
+  }
+
+  private DocumentQueryResult runDocumentQuery(
+      RunDocumentQueryRequest.Builder request, Map<String, List<DocumentValue>> bindings) {
     Objects.requireNonNull(bindings, "bindings");
     connection.capabilities().require(Capabilities.DOCUMENT_QUERY);
-    RunDocumentQueryRequest.Builder request =
-        RunDocumentQueryRequest.newBuilder().setModelHash(hash).setQueryId(queryId);
     bindings.forEach(
         (parameter, values) ->
             request.addBindings(

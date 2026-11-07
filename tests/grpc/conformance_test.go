@@ -161,6 +161,7 @@ type conformanceCase struct {
 	// of first, in order, so the request is about the objects the model holds.
 	Instantiate     []string          `json:"instantiate,omitempty"`
 	QueryID         string            `json:"query_id,omitempty"`
+	InlineQuery     string            `json:"inline_query,omitempty"`
 	Bindings        []expectedBinding `json:"bindings,omitempty"`
 	ExpectedColumns []string          `json:"expected_columns,omitempty"`
 	ExpectedRows    []expectedRow     `json:"expected_rows,omitempty"`
