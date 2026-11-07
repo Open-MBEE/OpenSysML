@@ -18,9 +18,8 @@ type ElementProperties struct {
 	ExcludedDocuments []ExcludedDocument
 }
 
-// ExcludedDocument is a document ElementProperties left out of the model: one
-// the parser could not read whole, or one declaring a top-level name another
-// document already declares.
+// ExcludedDocument is a document ElementProperties left out of the model: one the
+// parser could not read whole, or one declaring a top-level name again.
 type ExcludedDocument struct {
 	Document string
 	Error    string
