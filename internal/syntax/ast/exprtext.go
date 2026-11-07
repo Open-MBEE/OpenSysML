@@ -108,7 +108,7 @@ func (p ExprPrinter) primary(operand Node) string {
 }
 
 // operator spells a unary operator before its operand, a binary one between its two, a
-// conditional as `if c ? a else b`, a classification or cast with its type.
+// conditional as `if c ? a else b`, a classification or cast with its type (`@T` over self).
 func (p ExprPrinter) operator(expr *OperatorExpr) string {
 	operands := make([]string, len(expr.Operands))
 	for i, operand := range expr.Operands {
@@ -121,6 +121,8 @@ func (p ExprPrinter) operator(expr *OperatorExpr) string {
 	switch {
 	case expr.Operator == OpConditional && len(operands) == 3:
 		return "if " + operands[0] + " ? " + operands[1] + " else " + operands[2]
+	case expr.TypeRef != nil && len(operands) == 0:
+		return p.join(op, QualifiedNameText(expr.TypeRef))
 	case expr.TypeRef != nil && len(operands) == 1:
 		return p.join(operands[0], " ", op, " ", QualifiedNameText(expr.TypeRef))
 	case len(operands) == 1 && (expr.Operator == OpNot || expr.Operator == OpAll):
@@ -150,6 +152,9 @@ func (p ExprPrinter) operand(expr *OperatorExpr, i int, operand Node) string {
 // grouped reports whether inner, the i-th operand of expr, needs parentheses: one binding
 // looser than expr, or as tight on the side expr does not associate to (`**` to the right).
 func grouped(expr *OperatorExpr, i int, inner *OperatorExpr) bool {
+	if len(inner.Operands) == 0 {
+		return false
+	}
 	if expr.Operator == OpConditional {
 		return i == 0 && inner.Operator == OpConditional
 	}

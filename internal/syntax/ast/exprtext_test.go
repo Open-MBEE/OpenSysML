@@ -45,6 +45,10 @@ func TestExprPrinterGroupsByPrecedence(t *testing.T) {
 		{"(a + b).size()", "(a + b).size()"},
 		{"(a + b) [m]", "(a + b) [m]"},
 		{"if a ? b else c", "if a ? b else c"},
+		{"x @ Safety::Critical", "x @ Safety::Critical"},
+		{"@Safety::Critical", "@Safety::Critical"},
+		{"@@Metaclass", "@@Metaclass"},
+		{"@A and not @@B", "@A and not @@B"},
 	}
 	for _, tc := range cases {
 		got := (ast.ExprPrinter{}).Text(parseExpr(t, tc.in))
