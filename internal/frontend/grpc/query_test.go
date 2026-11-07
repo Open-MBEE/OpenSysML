@@ -420,7 +420,8 @@ func TestQueryMalformedConstraintsFail(t *testing.T) {
 		"one-member composite nested": composite(pb.CompositeOperator_COMPOSITE_OPERATOR_AND,
 			primitive(QueryPropName, opEqual, false, "vehicle"),
 			composite(pb.CompositeOperator_COMPOSITE_OPERATOR_OR, primitive(QueryPropName, opEqual, false, "spare"))),
-		"composite operator": {Constraint: &pb.Constraint_Composite{Composite: &pb.CompositeConstraint{Constraint: []*pb.Constraint{primitive(QueryPropName, opEqual, false, "vehicle"), primitive(QueryPropName, opEqual, false, "spare")}}}},
+		"composite operator":         {Constraint: &pb.Constraint_Composite{Composite: &pb.CompositeConstraint{Constraint: []*pb.Constraint{primitive(QueryPropName, opEqual, false, "vehicle"), primitive(QueryPropName, opEqual, false, "spare")}}}},
+		"unknown composite operator": {Constraint: &pb.Constraint_Composite{Composite: &pb.CompositeConstraint{Operator: 99, Constraint: []*pb.Constraint{primitive(QueryPropName, opEqual, false, "vehicle"), primitive(QueryPropName, opEqual, false, "spare")}}}},
 	}
 	for name, constraint := range cases {
 		t.Run(name, func(t *testing.T) {

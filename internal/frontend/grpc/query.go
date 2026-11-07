@@ -293,10 +293,14 @@ func apiComposite(c *pb.CompositeConstraint) (querytranslate.Constraint, error) 
 		}
 		terms = append(terms, term)
 	}
-	if c.Operator == pb.CompositeOperator_COMPOSITE_OPERATOR_AND {
+	switch c.Operator {
+	case pb.CompositeOperator_COMPOSITE_OPERATOR_AND:
 		return querytranslate.Conjunction{Terms: terms}, nil
+	case pb.CompositeOperator_COMPOSITE_OPERATOR_OR:
+		return querytranslate.Disjunction{Terms: terms}, nil
+	default:
+		return nil, queryErrorf(QueryErrMalformedConstraint, "CompositeConstraint operator %d is not one this service defines", c.Operator)
 	}
-	return querytranslate.Disjunction{Terms: terms}, nil
 }
 
 // queryStatus reports a refused query as INVALID_ARGUMENT under its kind: the
@@ -327,7 +331,8 @@ func translatorKind(err error) QueryErrorKind {
 		return QueryErrUnparsableValue
 	case querytranslate.ErrUnknownScope:
 		return QueryErrUnknownScope
-	case querytranslate.ErrUnsupportedDisjunction, querytranslate.ErrUnsupportedLiteral, querytranslate.ErrUnsupportedInstanceTerm:
+	case querytranslate.ErrUnsupportedDisjunction, querytranslate.ErrUnsupportedLiteral,
+		querytranslate.ErrUnsupportedInstanceTerm, querytranslate.ErrUnsupportedWildcard:
 		return QueryErrUnsupported
 	default:
 		return QueryErrMalformedConstraint
