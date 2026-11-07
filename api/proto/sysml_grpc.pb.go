@@ -160,7 +160,8 @@ type SysMLServiceClient interface {
 	GetElementProperties(ctx context.Context, in *GetElementPropertiesRequest, opts ...grpc.CallOption) (*GetElementPropertiesResponse, error)
 	// Run a named document query with parameter bindings, the answer the REPL's
 	// %run-query gives, as typed rows rather than formatted lines. Reported as
-	// the "document_query" capability.
+	// the "document_query" capability; a query expression written in place of a
+	// name (inline_query) as the "inline_document_query" capability.
 	RunDocumentQuery(ctx context.Context, in *RunDocumentQueryRequest, opts ...grpc.CallOption) (*RunDocumentQueryResponse, error)
 	// Render a named document to Markdown, as the CLI's -render-document does.
 	// Reported as the "render_document" capability.
@@ -595,7 +596,8 @@ type SysMLServiceServer interface {
 	GetElementProperties(context.Context, *GetElementPropertiesRequest) (*GetElementPropertiesResponse, error)
 	// Run a named document query with parameter bindings, the answer the REPL's
 	// %run-query gives, as typed rows rather than formatted lines. Reported as
-	// the "document_query" capability.
+	// the "document_query" capability; a query expression written in place of a
+	// name (inline_query) as the "inline_document_query" capability.
 	RunDocumentQuery(context.Context, *RunDocumentQueryRequest) (*RunDocumentQueryResponse, error)
 	// Render a named document to Markdown, as the CLI's -render-document does.
 	// Reported as the "render_document" capability.
