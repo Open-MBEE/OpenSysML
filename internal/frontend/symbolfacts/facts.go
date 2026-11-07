@@ -4,7 +4,6 @@ import (
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -27,9 +26,6 @@ type Context struct {
 	Index     *symbols.Index
 	Resolver  *resolve.Resolver
 	Semantics *semantics.Model
-	// Metamodel derives the reflective properties the type facts summarize, so
-	// they answer as GetElementProperties does.
-	Metamodel *metamodel.Evaluator
 	// Positional names the symbols no qualified name identifies; nil when the
 	// host derives none, which leaves such symbols without an id.
 	Positional *Positional
@@ -40,7 +36,7 @@ func NewContext(idx *symbols.Index) *Context {
 	resolver := resolve.New(idx)
 	sem := passes.NewTypedModel(resolver)
 	resolver.SetModel(sem)
-	return &Context{Index: idx, Resolver: resolver, Semantics: sem, Metamodel: metamodel.New(resolver, sem)}
+	return &Context{Index: idx, Resolver: resolver, Semantics: sem}
 }
 
 // Lock takes exclusive use of the context's resolver and semantic model, and
@@ -366,19 +362,16 @@ func (sc *Context) usageTypeInfo(sym *symbols.Symbol, decl *ast.Usage) *TypeInfo
 	return info
 }
 
-// derivedTypes reports the feature's semantic type, Feature::type as the
-// metamodel evaluator derives it (KerML 8.3.3.3): the typing written on the
-// feature and on every feature it subsets, references or redefines, with the
-// redundant supertypes removed. Nil when the evaluator derives none.
+// derivedTypes reports Feature::type (KerML 8.3.3.3) as the semantic model
+// derives it for the reflective layer, so GetElementProperties reads the same.
 func (sc *Context) derivedTypes(sym *symbols.Symbol) []*TypeRef {
-	value, ok := sc.Metamodel.Property(metamodel.ElementOf(sym), "Feature", "type")
-	if !ok || value.Kind != metamodel.SequenceValue {
+	types, ok := sc.Semantics.ReflectiveFeatureTypes(sym)
+	if !ok {
 		return nil
 	}
 	var out []*TypeRef
-	for _, item := range value.Values {
-		target := item.Element.Symbol
-		if item.Kind != metamodel.ElementValue || target == nil {
+	for _, target := range types {
+		if target == nil {
 			continue
 		}
 		out = append(out, &TypeRef{Id: sc.Index.GetFQN(target), Kind: target.Kind.String()})
