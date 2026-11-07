@@ -897,9 +897,9 @@ func TestNormativeSubjectNamesTheLibraryElementExactly(t *testing.T) {
 }
 
 // An unnamed library member's minted id is the library's on the subject written
-// under its owner — positionally, or by the effective name a return parameter
-// takes — and its owning membership's id names nothing; another owner's member
-// or a named element is not it.
+// as the encoder writes it — at its position under its owner, or by the effective
+// name a return parameter takes — and its owning membership's id names nothing;
+// another position, another owner's member or a named element is not it.
 func TestNormativeSubjectPlacesAnonymousLibraryMembers(t *testing.T) {
 	base := libs.SharedBase()
 	catalog := identity.LibraryCatalogWithOpenSysML(base)
@@ -919,7 +919,7 @@ func TestNormativeSubjectPlacesAnonymousLibraryMembers(t *testing.T) {
 	}{
 		{documentation, "", true},
 		{documentation, "Parts::Part::@0", true},
-		{documentation, "Parts::Part::@7", true},
+		{documentation, "Parts::Part::@7", false},
 		{documentation, "Parts::Part", false},
 		{documentation, "Parts::Part::ownedPorts", false},
 		{documentation, "Items::Item::@0", false},
@@ -927,7 +927,7 @@ func TestNormativeSubjectPlacesAnonymousLibraryMembers(t *testing.T) {
 		{membership, "", true},
 		{membership, "Parts::Part::@0", false},
 		{result, "TrigFunctions::deg::result", true},
-		{result, "TrigFunctions::deg::@2", true},
+		{result, "TrigFunctions::deg::@2", false},
 		{result, "TrigFunctions::deg::theta_rad", false},
 		{quotedOwner, "BaseFunctions::'@'::result", true},
 		{quotedOwner, "BaseFunctions::@::result", false},

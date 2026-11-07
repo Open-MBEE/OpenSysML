@@ -49,19 +49,8 @@ func anonymousSubject(id, qualifiedName string) bool {
 	if qualifiedName == "" {
 		return true
 	}
-	owner, err := libraryGraphName(member.Owner)
-	if err != nil {
-		return false
-	}
-	leaf, ok := strings.CutPrefix(qualifiedName, owner+"::")
-	if !ok {
-		return false
-	}
-	if positionalSegment(leaf) {
-		return true
-	}
-	name := index.effectiveName(member.Symbol)
-	return name != "" && leaf == identitySegment(name)
+	written, err := writtenLibraryName(member.Symbol.DocName, id)
+	return err == nil && written == qualifiedName
 }
 
 // libraryDocument is the bundled library document a graph is a version of: the
@@ -98,17 +87,22 @@ var libraryGraphNames sync.Map // document name → map[string]string, or error
 // libraryGraphName is the qualified name the encoder writes el under, which
 // positions an effectively named member (`@n`) where the symbol table names it.
 func libraryGraphName(el *identity.LibraryElement) (string, error) {
-	doc := el.Symbol.DocName
+	return writtenLibraryName(el.Symbol.DocName, el.ID)
+}
+
+// writtenLibraryName is the qualified name the encoder writes the element of a
+// bundled library document with the fixed id under: a declared or effective name, or `Owner::@n`.
+func writtenLibraryName(doc, id string) (string, error) {
 	cached, ok := libraryGraphNames.Load(doc)
 	if !ok {
 		cached, _ = libraryGraphNames.LoadOrStore(doc, encodeLibraryNames(doc))
 	}
 	switch names := cached.(type) {
 	case map[string]string:
-		if name, ok := names[el.ID]; ok {
+		if name, ok := names[id]; ok {
 			return name, nil
 		}
-		return "", fmt.Errorf("library element %s is not written by %s", el.FQN, doc)
+		return "", fmt.Errorf("library element %s is not written by %s", id, doc)
 	case error:
 		return "", names
 	}
