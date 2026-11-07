@@ -69,7 +69,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 56,
-        "digest": "sha256:73bdefe20476750eef5ed08db11cd3dcdf48aef65ee6aafc447b458e238789c2"
+        "digest": "sha256:6bb42c6459ae836bf2310f281f5c63a153fc2be09c4b9a39aa6226e72c3817ba"
       },
       {
         "name": "probes",
@@ -86,7 +86,7 @@
         "digest": "sha256:f39db343dafb9c99359f5a92e56dcdd5c52992dc50e50b9268d349aa9cdfdf26"
       }
     ],
-    "recorded": "2026-11-06"
+    "recorded": "2026-11-07"
   },
   "totals": {
     "files": 924,
@@ -18070,79 +18070,79 @@
               "count": 1
             },
             {
-              "line": 445,
+              "line": 455,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 451,
+              "line": 461,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 476,
+              "line": 486,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 498,
+              "line": 508,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 504,
+              "line": 514,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 510,
+              "line": 520,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 517,
+              "line": 527,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 559,
+              "line": 569,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 565,
+              "line": 575,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 579,
+              "line": 589,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 593,
+              "line": 603,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 593,
+              "line": 603,
               "severity": "warning",
               "category": "unmapped",
               "count": 18
             },
             {
-              "line": 599,
+              "line": 609,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
