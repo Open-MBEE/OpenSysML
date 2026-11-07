@@ -198,6 +198,15 @@ compilation buffer."
 (defvar-local sysml-lsp-stdlib-uri nil
   "The `sysml-stdlib:' URI of the bundled library document this buffer shows.")
 
+(defvar-local sysml-lsp--stdlib-workspace nil
+  "The `sysml-lsp' workspace whose server this library buffer's text is from.")
+
+(defun sysml-lsp--workspace ()
+  "Return the current buffer's `sysml-lsp' workspace, or nil."
+  (seq-find (lambda (ws)
+              (eq (lsp--client-server-id (lsp--workspace-client ws)) 'sysml-lsp))
+            (lsp-workspaces)))
+
 (defun sysml-lsp-stdlib-uri-p (uri)
   "Return non-nil when URI names a document of the bundled library.
 The server reports such locations under the `sysml-stdlib' scheme; no
@@ -206,20 +215,25 @@ file on disk holds them."
 
 (defun sysml-lsp-stdlib-buffer (uri)
   "Return a read-only buffer showing the bundled library document URI.
-Its text is asked of the current buffer's server, once per document."
-  (or (seq-find (lambda (buffer) (equal (buffer-local-value 'sysml-lsp-stdlib-uri buffer) uri))
-                (buffer-list))
+Its text is asked of the current buffer's server, once per document and
+server: another build may bundle a different library."
+  (let ((workspace (sysml-lsp--workspace)))
+    (or (seq-find (lambda (buffer)
+                    (and (equal (buffer-local-value 'sysml-lsp-stdlib-uri buffer) uri)
+                         (eq (buffer-local-value 'sysml-lsp--stdlib-workspace buffer) workspace)))
+                  (buffer-list))
       (let* ((text (lsp-get (lsp-request sysml-lsp--stdlib-content-method (list :uri uri)) :text))
              (path (url-unhex-string (url-filename (url-generic-parse-url uri))))
              (buffer (generate-new-buffer (format "%s <library>" (file-name-nondirectory path)))))
         (with-current-buffer buffer
           (insert text)
           (if (string-suffix-p ".kerml" path) (kerml-mode) (sysml-mode))
-          (setq sysml-lsp-stdlib-uri uri)
+          (setq sysml-lsp-stdlib-uri uri
+                sysml-lsp--stdlib-workspace workspace)
           (set-buffer-modified-p nil)
           (setq buffer-read-only t)
           (goto-char (point-min)))
-        buffer)))
+        buffer))))
 
 (defun sysml-lsp--server-command ()
   "Return the command to start the language server with."

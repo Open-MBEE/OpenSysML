@@ -142,9 +142,7 @@ historical set."
 (defun sysml-diagram--workspace (source)
   "Return the `sysml-lsp' workspace of SOURCE, or nil."
   (with-current-buffer source
-    (seq-find (lambda (ws)
-                (eq (lsp--client-server-id (lsp--workspace-client ws)) 'sysml-lsp))
-              (lsp-workspaces))))
+    (sysml-lsp--workspace)))
 
 (defun sysml-diagram--supported-p (workspace)
   "Return non-nil when WORKSPACE serves the render methods."

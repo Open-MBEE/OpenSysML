@@ -132,9 +132,12 @@
 
 (ert-deftest sysml-diagram-visits-a-library-declaration ()
   (let ((source (generate-new-buffer " *model*"))
-        requests visited)
+        (other (generate-new-buffer " *other model*"))
+        requests visited elsewhere)
     (unwind-protect
-        (cl-letf (((symbol-function 'lsp-request)
+        (cl-letf (((symbol-function 'sysml-lsp--workspace)
+                   (lambda () (if (eq (current-buffer) other) 'other-server 'server)))
+                  ((symbol-function 'lsp-request)
                    (lambda (method params)
                      (push (list method (plist-get params :uri) (current-buffer)) requests)
                      (sysml-diagram-test--json
@@ -159,10 +162,25 @@
                 (sysml-diagram--visit origin))
               (should (eq (current-buffer) visited))
               (should (equal requests
-                             (list (list "opensysml/stdlibContent" sysml-diagram-test--library-uri source)))))))
+                             (list (list "opensysml/stdlibContent" sysml-diagram-test--library-uri source))))
+              ;; Another server's library is its own: its text is asked of it.
+              (with-current-buffer view
+                (setq sysml-diagram--source other)
+                (sysml-diagram--visit origin))
+              (setq elsewhere (seq-find (lambda (buffer)
+                                          (eq (buffer-local-value 'sysml-lsp--stdlib-workspace buffer)
+                                              'other-server))
+                                        (buffer-list)))
+              (should elsewhere)
+              (should-not (eq elsewhere visited))
+              (should (= (length requests) 2))
+              (should (equal (car requests)
+                             (list "opensysml/stdlibContent" sysml-diagram-test--library-uri other))))))
       (kill-buffer source)
-      (when (buffer-live-p visited)
-        (kill-buffer visited)))))
+      (kill-buffer other)
+      (dolist (buffer (list visited elsewhere))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
 
 (ert-deftest sysml-diagram-says-when-nothing-is-shown ()
   (sysml-diagram-test--drawing
