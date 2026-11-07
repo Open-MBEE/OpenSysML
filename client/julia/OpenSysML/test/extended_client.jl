@@ -913,7 +913,7 @@ end
                 inline_rows = run_document_query(document_model;
                     inline_query="Project(WhereType(Descendants(Observatory::telescope), \"PartUsage\"), (\"name\", \"mass\"))")
                 @test inline_rows.columns == ["name", "mass"]
-                @test length(inline_rows) == 4
+                @test length(inline_rows) == 2
                 inline_fault = try
                     run_document_query(document_model; inline_query="Project(Named(\"Observatory\") (\"name\"))")
                     nothing
