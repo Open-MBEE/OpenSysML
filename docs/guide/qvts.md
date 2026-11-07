@@ -115,10 +115,25 @@ tables and error messages, including fan-out failures and the JSON model-error c
 A query need not be authored in a file first. `-run-inline-query` takes the body of one — the
 result expression a `calc def` specializing `DocumentQueries::Query` would hold — and runs it
 through the same compiler and executor, so the rows, the JSON, the outcome record on failure
-and the exit status are what the named form gives:
+and the exit status are what the named form gives. This is `MassTable` without a file:
 
 ```console
-$ bin/sysml examples/qvts/lander.sysml -run-inline-query 'Project(WhereType(Descendants(Named("Lander")), "PartUsage"), ("qualifiedName", "mass"))'
+$ bin/sysml examples/qvts/lander.sysml -run-inline-query 'Project(WhereType(Descendants(Named("Lander::lander")), "PartUsage", true), ("qualifiedName", "mass"))'
+```
+
+```text
+✓ package Lander
+✓ Inline query returned 3 rows
+  Columns: qualifiedName, mass
+  Row 1: Lander::lander::cabin
+    qualifiedName = "Lander::lander::cabin"
+    mass = 320.0
+  Row 2: Lander::lander::engine
+    qualifiedName = "Lander::lander::engine"
+    mass = 145.0
+  Row 3: Lander::lander::scienceBay
+    qualifiedName = "Lander::lander::scienceBay"
+    mass = (none)
 ```
 
 The expression is planned in the loaded model's context: the `DocumentQueries` library is
@@ -127,10 +142,15 @@ imported, the model's own names are reachable (`Descendants(Lander::lander)` as 
 `Verdicts`, `States` and `Events`. Text that does not parse or plan is reported at its line and
 column within the expression, with a caret, and is never a diagnostic of the model:
 
+```console
+$ bin/sysml examples/qvts/lander.sysml -run-inline-query 'Project(Named("Lander") ("qualifiedName"))'
+```
+
 ```text
-sysml: inline query 1:30: expected ')'
+✓ package Lander
+sysml: inline query 1:25: expected ')'
 Project(Named("Lander") ("qualifiedName"))
-                             ^
+                        ^
 ```
 
 A path or model fault in the inline expression keeps its QVTS outcome record exactly as a named
@@ -161,12 +181,28 @@ SysML v2 REPL — %help for commands, Ctrl-D to exit
     mass = 320.0
 ```
 
-The result is reported as query rows with projected cells; an inline expression is reported as
+The result is reported as query rows with projected cells. An inline expression is reported as
 `Inline query` instead of the query's name, and its faults are positioned within the expression
 as on the command line:
 
 ```console
-$ printf '%s\n' '%run-query inline Project(Descendants(Named("Lander")), ("qualifiedName", "mass"))' | bin/sysml examples/qvts/lander.sysml
+$ printf '%s\n' '%run-query inline Project(WhereType(Descendants(Named("Lander::lander")), "PartUsage", true), ("qualifiedName", "mass"))' | bin/sysml examples/qvts/lander.sysml
+```
+
+```text
+✓ package Lander
+SysML v2 REPL — %help for commands, Ctrl-D to exit
+✓ Inline query returned 3 rows
+  Columns: qualifiedName, mass
+  Row 1: Lander::lander::cabin
+    qualifiedName = "Lander::lander::cabin"
+    mass = 320.0
+  Row 2: Lander::lander::engine
+    qualifiedName = "Lander::lander::engine"
+    mass = 145.0
+  Row 3: Lander::lander::scienceBay
+    qualifiedName = "Lander::lander::scienceBay"
+    mass = (none)
 ```
 
 The
