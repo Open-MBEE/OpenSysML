@@ -472,7 +472,7 @@ func (e *encoder) declaredSubjects() []mintedSubject {
 	nodes := make([]ast.Node, 0, len(e.fqn))
 	for node := range e.fqn {
 		el, identified := e.ids.byNode[node]
-		if memberName(node) != "" || identified && el.source != identity.SourceDerived {
+		if e.effectiveName(node) != "" || identified && el.source != identity.SourceDerived {
 			nodes = append(nodes, node)
 		}
 	}
@@ -1074,7 +1074,7 @@ func (e *encoder) collect(members []ast.Node, owner, position string) error {
 			}
 		}
 		declared, children := declaredNameAndMembers(node)
-		name := memberName(node)
+		name := e.effectiveName(node)
 		fqn := qualify(owner, name, i)
 		if fqn == "" {
 			continue
@@ -1537,7 +1537,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 	// sibling of the same owner declared first is addressed by position there.
 	fqn, collected := e.fqn[node]
 	if !collected {
-		fqn = qualify(owner, memberName(node), index)
+		fqn = qualify(owner, e.effectiveName(node), index)
 	}
 	subject := h.local
 	local := subject.Value != ""
@@ -2371,11 +2371,15 @@ func (e *encoder) emitMembershipCore(membership, member, owner rdf.Term, metacla
 // memberNames states Membership::memberName — the declared name, else the written naming feature's as
 // sysml:name spells it, else the effective name the model derives — and memberShortName (KerML 8.3.2.3.5, 8.2.4).
 func (e *encoder) memberNames(membership rdf.Term, node ast.Node) {
-	name, short := memberName(node), ""
-	if sym := e.ids.declSym[node]; sym != nil {
-		if name == "" {
+	name, short := e.effectiveName(node), ""
+	// The membership names its member by the model's effective name whatever the
+	// member's identity: `require q.k;` is `k` here, positional in its id.
+	if name == "" {
+		if sym := e.ids.declSym[node]; sym != nil {
 			name = e.ids.model.EffectiveNameOf(sym)
 		}
+	}
+	if sym := e.ids.declSym[node]; sym != nil {
 		short = e.ids.model.EffectiveShortNameOf(sym)
 	}
 	if name != "" {
@@ -2771,12 +2775,17 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 		}
 		e.graph.Add(feature, e.sysx(xSourceText), rdf.String(written))
 	}
+	// An end is named as its EndFeatureMembership names it: the name it declares, else the one of
+	// the end it implicitly redefines (KerML 1.1 §8.3.3.3) — derived, so stated by sysml:name alone.
 	if end.name != "" {
 		e.graph.Add(feature, e.sysml(pDeclaredName), rdf.String(end.name))
-		e.graph.Add(feature, e.sysml(pName), rdf.String(end.name))
 		if end.keyword != "" && end.keyword != referencesSymbol {
 			e.graph.Add(feature, e.sysx(xEndReferencesKeyword), rdf.String(end.keyword))
 		}
+		e.graph.Add(feature, e.sysml(pName), rdf.String(end.name))
+	} else if end.memberName != "" {
+		// Its name alone: an end is positional in this mapping, the name no address of its own.
+		e.graph.Add(feature, e.sysml(pName), rdf.String(end.memberName))
 	}
 	if end.target != nil || end.targetTerm.Value != "" {
 		switch {
@@ -3914,13 +3923,32 @@ func memberName(node ast.Node) string {
 	return ""
 }
 
+// effectiveName is memberName completed by the model: a feature its clause
+// leaves nameless is named by the feature it implicitly redefines — a
+// positional parameter by its behavior's, as KerML 1.1 §8.3.3.3 derives Feature::effectiveName.
+func (e *encoder) effectiveName(node ast.Node) string {
+	if name := memberName(node); name != "" {
+		return name
+	}
+	// A usage alone is identified so: a Membership (`first start;`) names nothing,
+	// a chain-referencing `require q.k;` stays positional, and a body's node keys
+	// its first parameter's symbol, not the body's.
+	if _, ok := node.(*ast.Usage); !ok {
+		return ""
+	}
+	if sym := e.ids.declSym[node]; sym != nil && sym.IsFeature() {
+		return e.ids.model.EffectiveNameOf(sym)
+	}
+	return ""
+}
+
 // derivedName states sysml:name where the effective name is not the declared
 // one, so a reader need not re-derive it from the naming feature.
 func (e *encoder) derivedName(subject rdf.Term, node ast.Node) {
 	if declared, _ := declaredNameAndMembers(node); declared != "" {
 		return
 	}
-	if name := memberName(node); name != "" {
+	if name := e.effectiveName(node); name != "" {
 		e.graph.Add(subject, e.sysml(pName), rdf.String(name))
 	}
 }
