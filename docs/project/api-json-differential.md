@@ -230,7 +230,7 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 102568 elements matched (16299 ours-only, 28746 pilot-only, 0 of them implied); properties: 1982570 present-equal, 149977 present-different, 303717 ours-missing, 79915 pilot-missing, 2187951 absent-both, 33556 indeterminate, 523 pilot-nondeterministic.
+**Scorecard:** 935 files; 102568 elements matched (16299 ours-only, 28746 pilot-only, 0 of them implied); properties: 1982628 present-equal, 149919 present-different, 303717 ours-missing, 79915 pilot-missing, 2187951 absent-both, 33556 indeterminate, 523 pilot-nondeterministic.
 
 Re-recorded on the effective-name change (a feature its clause leaves nameless is named, on every reader, by the feature it implicitly redefines, as KerML 1.1 §8.3.3.3 derives `Feature::effectiveName`: a positional parameter by its behavior's — `in item;` under `action shoot : Shoot` is `shoot::image` — a `return` parameter by `result`, a nameless objective by `obj`, a connector or allocation end by the end it occupies, `source`/`target`, `logical`/`physical`; `declaredName` stays the written one): 2734 more elements match (99834 → 102568; ours-only 19033 → 16299, pilot-only 31480 → 28746, type-mismatched 1682 → 1821, the newly matched ends and objectives this repository types otherwise), present-equal 1926398 → 1982570 and present-different 148945 → 149977 — the newly matched elements bring their subtrees under comparison, differences included. The seven `EndFeatureMembership` member rows go from 129 equal / 395 present-different to 524 / 0, `FeatureMembership.memberElement` 9537 / 573 → 9552 / 560, `Feature.name` 1115 → 1254 equal and `ReferenceUsage.name` 2203 → 2430, and the `FeatureChaining` rows 627 → 1130 equal, the chains under the newly named ends and parameters. Of the 1917 rows that moved, no row has fewer equal; the 151 that gained present-different rows are the subtrees the newly matched ends and objectives bring under comparison for causes the tables already state — an end's `definition`/`type`/`multiplicity` and its `ReferenceSubsetting`'s ends (`ReferenceUsage.definition` 4 → 39, `ReferenceSubsetting.referencedFeature` 15 → 35), an interface end's `PortUsage` rows, and an objective's `verify` requirements (`RequirementUsage.isComposite` 27 → 86, `RequirementVerificationMembership.referencedConstraint` 2 → 43). An end states its derived name alone and no `qualifiedName`: it is positional in this mapping, its name the end it redefines rather than an address of its own, so `Feature.qualifiedName` moves only by the parameters it names (1114 → 1253 equal). A membership names its member by the model's effective name whatever the member's identity, as before — `require q.k;` is `k` to its `RequirementConstraintMembership` and positional in its id.
 
@@ -246,13 +246,13 @@ The pilot's export failed on 59 files (`pilotFailed`: its own export throws on a
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 8082 | 1082 | 2084 | 158767 | 13491 | 20022 | 5692 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 28788 | 5717 | 7328 | 567000 | 45280 | 82656 | 21437 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 10084 | 1824 | 2515 | 196743 | 17282 | 26096 | 7565 |
+| `examples/sysml-v2-training` | 100 | 8082 | 1082 | 2084 | 158768 | 13490 | 20022 | 5692 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 28788 | 5717 | 7328 | 567043 | 45237 | 82656 | 21437 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 10084 | 1824 | 2515 | 196748 | 17277 | 26096 | 7565 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 6731 | 903 | 1510 | 120684 | 9506 | 18839 | 8265 |
-| `examples/spec-examples` | 511 | 7531 | 872 | 2199 | 131961 | 7571 | 22094 | 6367 |
-| `tests/testdata` | 40 | 1517 | 192 | 454 | 27659 | 2128 | 4163 | 1190 |
-| `examples` | 56 | 31863 | 5131 | 11266 | 623639 | 45176 | 99362 | 23991 |
+| `examples/spec-examples` | 511 | 7531 | 872 | 2199 | 131962 | 7570 | 22094 | 6367 |
+| `tests/testdata` | 40 | 1517 | 192 | 454 | 27663 | 2124 | 4163 | 1190 |
+| `examples` | 56 | 31863 | 5131 | 11266 | 623643 | 45172 | 99362 | 23991 |
 | `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 887 | 31 | 90 | 41 |
 | `docs/manual/examples` | 11 | 7919 | 578 | 1390 | 155230 | 9512 | 30395 | 5367 |
 
@@ -350,6 +350,20 @@ the `constant` keyword: every `isConstant` row that was different is now equal �
 (91 → 0), `PortUsage` 397 → 493 (96 → 0), `PartUsage` 1968 → 1989 (21 → 0), `ItemUsage` 345 → 368 (21 → 0),
 `Usage` 21 → 30 (9 → 0) — 1157055 → 1157295 present-equal, 28075 → 27835 present-different overall. No other
 row moved.
+
+**A conjugated typing types by the ConjugatedPortDefinition** (re-recorded when the writer began stating
+the type of `port p : ~P` as P's `ConjugatedPortDefinition`, the element its `ConjugatedPortTyping` already
+named as `type`/`conjugatedPortDefinition`, SysML v2.1 §8.3.12.3 `conjugatedPortDefinition {redefines
+type}`, where the collapsed `sysml:type` had named P itself): every `PortUsage.type` row that differed by the
+conjugate alone is now equal — 408 → 463 present-equal (56 → 1 present-different; the 91 ours-missing are
+ports declaring no typing, whose type the pilot derives, unchanged) — and the `ref`/`usage` features typed by
+a conjugate follow, `ReferenceUsage.type` 1348 → 1349 equal (41 → 40 different) and `Usage.type` 9 → 11
+(5 → 3); 1982570 → 1982628 present-equal, 149977 → 149919 present-different overall. The one `PortUsage.type`
+still different is the connector end `engineToTransmissionInterface::p2` of the pilot's
+`IssueMetadataExample`, bound to a `~DrivePwrPort` port where the interface definition's end is a `ClutchPort`:
+the pilot's `type` lists both, this writer the bound port's conjugate alone, the inherited `ClutchPort` the
+same gap as before. `ConjugatedPortTyping.type`, `.conjugatedPortDefinition` and `.portDefinition` (61 equal
+each) and `PortUsage.portDefinition`/`.definition` did not move. No other row moved.
 
 The scorecard is mostly **ours-missing**: this repository's writer emits a subset of the metamodel's properties, and the referee now measures which, per metaclass. The full ranked scorecard with one concrete example per differing row is `build/pilot-apijson-diff/pilot-apijson-diff.txt` after a run; the baseline keeps every row's seven counts.
 

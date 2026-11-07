@@ -14,7 +14,7 @@
       {
         "name": "api-json-writer",
         "source": "internal/translate/export",
-        "sourceDigest": "sha256:eab38d45e70e90d8bbe6aafeb341b69eabf91706a21dd2e91c16ab41c28bfc5f"
+        "sourceDigest": "sha256:edeae1478869f29acd69d0a07b446eb18a245f11d04e1a6852e9dd6ea94e211a"
       }
     ],
     "inputs": [
@@ -120,8 +120,8 @@
       "typeMismatch": 1821
     },
     "properties": {
-      "presentEqual": 1982570,
-      "presentDifferent": 149977,
+      "presentEqual": 1982628,
+      "presentDifferent": 149919,
       "oursMissing": 303717,
       "pilotMissing": 79915,
       "absentBoth": 2187951,
@@ -161,8 +161,8 @@
         "typeMismatch": 6
       },
       "properties": {
-        "presentEqual": 158767,
-        "presentDifferent": 13491,
+        "presentEqual": 158768,
+        "presentDifferent": 13490,
         "oursMissing": 20022,
         "pilotMissing": 5692,
         "absentBoth": 179678,
@@ -197,8 +197,8 @@
         "typeMismatch": 34
       },
       "properties": {
-        "presentEqual": 567000,
-        "presentDifferent": 45280,
+        "presentEqual": 567043,
+        "presentDifferent": 45237,
         "oursMissing": 82656,
         "pilotMissing": 21437,
         "absentBoth": 626297,
@@ -233,8 +233,8 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 196743,
-        "presentDifferent": 17282,
+        "presentEqual": 196748,
+        "presentDifferent": 17277,
         "oursMissing": 26096,
         "pilotMissing": 7565,
         "absentBoth": 221329,
@@ -306,8 +306,8 @@
         "typeMismatch": 417
       },
       "properties": {
-        "presentEqual": 131961,
-        "presentDifferent": 7571,
+        "presentEqual": 131962,
+        "presentDifferent": 7570,
         "oursMissing": 22094,
         "pilotMissing": 6367,
         "absentBoth": 144425,
@@ -343,8 +343,8 @@
         "typeMismatch": 28
       },
       "properties": {
-        "presentEqual": 27659,
-        "presentDifferent": 2128,
+        "presentEqual": 27663,
+        "presentDifferent": 2124,
         "oursMissing": 4163,
         "pilotMissing": 1190,
         "absentBoth": 32562,
@@ -380,8 +380,8 @@
         "typeMismatch": 200
       },
       "properties": {
-        "presentEqual": 623639,
-        "presentDifferent": 45176,
+        "presentEqual": 623643,
+        "presentDifferent": 45172,
         "oursMissing": 99362,
         "pilotMissing": 23991,
         "absentBoth": 704530,
@@ -74589,8 +74589,8 @@
       0
     ],
     "PortUsage.type": [
-      408,
-      56,
+      463,
+      1,
       91,
       0,
       0,
@@ -76605,8 +76605,8 @@
       0
     ],
     "ReferenceUsage.type": [
-      1348,
-      41,
+      1349,
+      40,
       1157,
       1,
       0,
@@ -97305,8 +97305,8 @@
       0
     ],
     "Usage.type": [
-      9,
-      5,
+      11,
+      3,
       16,
       0,
       0,
