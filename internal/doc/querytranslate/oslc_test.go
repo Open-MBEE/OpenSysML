@@ -1,0 +1,400 @@
+package querytranslate
+
+import (
+	"net/url"
+	"strings"
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/query"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
+)
+
+func mustParse(t *testing.T, text string) Query {
+	t.Helper()
+	q, err := ParseOSLC(text, nil)
+	if err != nil {
+		t.Fatalf("ParseOSLC(%q): %v", text, err)
+	}
+	return q
+}
+
+func kindOf(t *testing.T, err error, want ErrorKind) *Error {
+	t.Helper()
+	got, ok := err.(*Error)
+	if !ok || got.Kind != want {
+		t.Fatalf("error = %#v, want kind %d", err, want)
+	}
+	return got
+}
+
+func TestParseOSLCOperatorsAndValues(t *testing.T) {
+	q := mustParse(t, `sysml:name="wheel" and sysx:multiplicityLower>=2 and sysml:type in [sysml:PartUsage, "x"]`)
+	terms := q.Where.(Conjunction).Terms
+	if len(terms) != 3 {
+		t.Fatalf("where = %#v", q.Where)
+	}
+	if c := terms[0].(Comparison); c.Property != query.PropertyName || c.Values[0] != "wheel" {
+		t.Fatalf("string term = %#v", c)
+	}
+	if c := terms[1].(Comparison); c.Operator != GreaterEqual || c.Property != query.PropertyMultiplicityLower {
+		t.Fatalf("ordered term = %#v", c)
+	}
+	if c := terms[2].(Comparison); c.Operator != In || c.Values[0] != "PartUsage" || c.Values[1] != "x" {
+		t.Fatalf("in term = %#v", c)
+	}
+}
+
+func TestParseOSLCTypeTermsAndInstanceTerms(t *testing.T) {
+	if tt := mustParse(t, `rdf:type=sysml:PartUsage`).Where.(TypeTest); !tt.Exact || tt.Types[0] != "PartUsage" || tt.Inverse {
+		t.Fatalf("type test = %#v", tt)
+	}
+	if tt := mustParse(t, `rdf:type!="PartUsage"`).Where.(TypeTest); !tt.Inverse {
+		t.Fatalf("negated type test = %#v", tt)
+	}
+	if tt := mustParse(t, `rdf:type in [sysml:PartUsage, sysml:PartDefinition]`).Where.(TypeTest); len(tt.Types) != 2 {
+		t.Fatalf("type list = %#v", tt)
+	}
+	id := rdf.EncodeElementID("Demo::Vehicle")
+	if in := mustParse(t, `rdf:type=elmt:`+id).Where.(Instances); in.Elements[0] != "Demo::Vehicle" {
+		t.Fatalf("instances = %#v", in)
+	}
+	if in := mustParse(t, `rdf:type=<`+rdf.Element+id+`>`).Where.(Instances); in.Elements[0] != "Demo::Vehicle" {
+		t.Fatalf("instances by IRI = %#v", in)
+	}
+	if _, err := ParseOSLC(`rdf:type in [elmt:`+id+`, sysml:PartUsage]`, nil); err == nil {
+		t.Fatal("mixed metaclass and element list unexpectedly parsed")
+	}
+	if _, err := ParseOSLC(`rdf:type>sysml:PartUsage`, nil); err == nil {
+		t.Fatal("ordered rdf:type unexpectedly parsed")
+	} else {
+		kindOf(t, err, ErrUnorderedProperty)
+	}
+}
+
+func TestParseOSLCScopedTermsAndNestedSelection(t *testing.T) {
+	q := mustParse(t, `sysml:owner{sysml:name="x" and rdf:type=sysml:Package}`)
+	scoped := q.Where.(Scoped)
+	if scoped.Property != query.PropertyOwner {
+		t.Fatalf("scoped = %#v", scoped)
+	}
+	if inner := scoped.Inner.(Conjunction); len(inner.Terms) != 2 {
+		t.Fatalf("scoped inner = %#v", inner)
+	}
+	q, err := ParseParameters(`oslc.select=sysml:name,sysml:owner{sysml:name,sysml:qualifiedName}&oslc.orderBy=-sysml:owner{sysml:name}`, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cols := q.Columns(); strings.Join(cols, " ") != "name owner.name owner.qualifiedName" {
+		t.Fatalf("columns = %v", cols)
+	}
+	if q.SpellingOf("owner.name") != "sysml:owner{sysml:name}" || q.SpellingOf("owner.qualifiedName") != "sysml:owner{sysml:qualifiedName}" {
+		t.Fatalf("spelling = %#v", q.Spelling)
+	}
+	if len(q.OrderBy) != 1 || q.OrderBy[0].Property != "owner.name" || !q.OrderBy[0].Desc {
+		t.Fatalf("order = %#v", q.OrderBy)
+	}
+}
+
+func TestParseOSLCWildcardAndSearchTerms(t *testing.T) {
+	q, err := ParseParameters(`oslc.select=*,sysml:owner{*}&oslc.searchTerms=%22wheel%22,%22axle%22`, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(q.Select) != 2 || q.Select[0].Property != SelectAll || q.Select[1].Nested[0].Property != SelectAll {
+		t.Fatalf("select = %#v", q.Select)
+	}
+	if len(q.SearchTerms) != 2 || q.SearchTerms[1] != "axle" {
+		t.Fatalf("search terms = %#v", q.SearchTerms)
+	}
+	for _, text := range []string{`oslc.searchTerms=wheel`, `oslc.searchTerms=`, `oslc.searchTerms=%22%22`} {
+		if _, err := ParseOSLC(text, nil); err == nil {
+			t.Errorf("%q unexpectedly parsed", text)
+		} else {
+			kindOf(t, err, ErrMalformed)
+		}
+	}
+}
+
+func TestParseOSLCParametersAndPrefixes(t *testing.T) {
+	q, err := ParseParameters(`oslc.prefix=ex%3D%3Curn%3Aexample%3A%3E&oslc.where=sysml%3Aname%3D%22x%22&oslc.select=sysml%3Aname%2Crdf%3Atype&oslc.orderBy=-sysml%3Aname`, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cols := q.Columns(); len(cols) != 2 || cols[0] != query.PropertyName || cols[1] != query.PropertyType {
+		t.Fatalf("select = %#v", q.Select)
+	}
+	if len(q.OrderBy) != 1 || !q.OrderBy[0].Desc {
+		t.Fatalf("order = %#v", q.OrderBy)
+	}
+	if q.SpellingOf(query.PropertyName) != "sysml:name" || q.SpellingOf(query.PropertyType) != "rdf:type" {
+		t.Fatalf("spelling = %#v", q.Spelling)
+	}
+	if q.SpellingOf(query.PropertyOwner) != query.PropertyOwner {
+		t.Fatalf("spelling of an unasked property = %q", q.SpellingOf(query.PropertyOwner))
+	}
+}
+
+func TestParseOSLCRefusesAPropertySelectedTwice(t *testing.T) {
+	const bound = `oslc.prefix=s%3D%3Chttps://www.omg.org/spec/SysML%23%3E`
+	for _, tt := range []struct{ selection, message string }{
+		{`sysml%3Aname%2Cs%3Aname`, `"sysml:name" and "s:name" are the same property`},
+		{`sysml%3Aname%2Csysml%3Aname`, `names "sysml:name" twice`},
+	} {
+		_, err := ParseParameters(bound+`&oslc.select=`+tt.selection, nil)
+		if err == nil {
+			t.Fatalf("%s unexpectedly parsed", tt.selection)
+		}
+		if got := kindOf(t, err, ErrMalformed); !strings.Contains(got.Message, tt.message) {
+			t.Fatalf("%s error message = %q, want it to contain %q", tt.selection, got.Message, tt.message)
+		}
+	}
+	q, err := ParseParameters(bound+`&oslc.select=sysml%3Aname%2Cs%3Aowner`, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if q.SpellingOf(query.PropertyName) != "sysml:name" || q.SpellingOf(query.PropertyOwner) != "s:owner" {
+		t.Fatalf("spelling = %#v", q.Spelling)
+	}
+}
+
+func TestParseOSLCRefusesWhatTheLanguageDoesNotDefine(t *testing.T) {
+	tests := []struct {
+		text string
+		kind ErrorKind
+	}{
+		{`sysml:name="x" or sysml:name="y"`, ErrUnsupportedDisjunction},
+		{`oslc.orderBy=*`, ErrMalformed},
+		{`oslc.where=*=x`, ErrMalformed},
+		{`oslc.properties=*`, ErrMalformed},
+		{`sysml:name="x"@en`, ErrUnsupportedLiteral},
+		{`rdf:type!=elmt:Demo`, ErrUnsupportedInstanceTerm},
+		{`sysml:id="x"`, ErrUnknownProperty},
+	}
+	for _, tt := range tests {
+		_, err := ParseOSLC(tt.text, nil)
+		if err == nil {
+			t.Errorf("%q unexpectedly parsed", tt.text)
+			continue
+		}
+		if got, ok := err.(*Error); !ok || got.Kind != tt.kind {
+			t.Errorf("%q error = %#v, want kind %d", tt.text, err, tt.kind)
+		}
+	}
+}
+
+func TestParseOSLCAllowsInfinityForOrderedMultiplicity(t *testing.T) {
+	for _, text := range []string{`sysx:multiplicityUpper>=*`, `sysx:multiplicityUpper=*`, `sysx:multiplicityUpper in [*, 1]`} {
+		c := mustParse(t, text).Where.(Comparison)
+		if c.Values[0] != "*" {
+			t.Fatalf("ParseOSLC(%q) = %#v", text, c)
+		}
+	}
+}
+
+func TestOSLCPropertyNamespacesFollowTheMetamodel(t *testing.T) {
+	// A property the metamodel defines is spelled sysml:, one OpenSysML derives sysx:.
+	_, err := ParseOSLC(`sysml:multiplicityUpper=1`, nil)
+	if got := kindOf(t, err, ErrUnknownProperty); !strings.Contains(got.Message, "sysx:multiplicityUpper") {
+		t.Fatalf("message = %q, want the sysx: spelling offered", got.Message)
+	}
+	_, err = ParseOSLC(`sysx:name="x"`, nil)
+	if got := kindOf(t, err, ErrUnknownProperty); !strings.Contains(got.Message, "sysml:name") {
+		t.Fatalf("message = %q, want the sysml: spelling offered", got.Message)
+	}
+	_, err = ParseOSLC(`sysml:nmae="x"`, nil)
+	if got := kindOf(t, err, ErrUnknownProperty); !strings.Contains(got.Message, "sysml:name") {
+		t.Fatalf("message = %q, want the nearest spelling", got.Message)
+	}
+	for _, name := range query.PropertyNames() {
+		if name == query.PropertyID || name == query.PropertyType {
+			continue
+		}
+		prefix := "sysml:"
+		if name == query.PropertyMultiplicityLower || name == query.PropertyMultiplicityUpper {
+			prefix = "sysx:"
+		}
+		if _, err := ParseOSLC(prefix+name+`="x"`, nil); err != nil {
+			t.Errorf("%s%s: %v", prefix, name, err)
+		}
+	}
+}
+
+func TestParseOSLCReducesURIAndPrefixedValuesAlike(t *testing.T) {
+	for _, text := range []string{`sysml:type=sysml:PartUsage`, `sysml:type=<https://www.omg.org/spec/SysML#PartUsage>`} {
+		if c := mustParse(t, text).Where.(Comparison); c.Values[0] != "PartUsage" {
+			t.Fatalf("ParseOSLC(%q) = %#v, want the value PartUsage", text, c)
+		}
+	}
+	if c := mustParse(t, `sysml:name=<urn:example:battery>`).Where.(Comparison); c.Values[0] != "urn:example:battery" {
+		t.Fatalf("value = %#v, want a foreign IRI kept whole", c.Values)
+	}
+}
+
+func TestParseOSLCRefusesParametersItDoesNotRead(t *testing.T) {
+	for _, text := range []string{
+		`oslc.wher=sysml:name%3D%22x%22`, `oslc.where=sysml:name%3D%22x%22&oslc.where=sysml:name%3D%22y%22`,
+		`oslc.where=`, `oslc.select=`, `oslc.prefix=`, `oslc.properties=sysml:name`,
+	} {
+		_, err := ParseOSLC(text, nil)
+		if err == nil {
+			t.Errorf("%q unexpectedly parsed", text)
+			continue
+		}
+		if got, ok := err.(*Error); !ok || got.Kind != ErrMalformed {
+			t.Errorf("%q error = %#v, want ErrMalformed", text, err)
+		}
+	}
+}
+
+func TestParseOSLCRefusesUnquotedNames(t *testing.T) {
+	_, err := ParseOSLC(`sysml:qualifiedName=Robot::Platform::battery`, nil)
+	if got := kindOf(t, err, ErrMalformed); !strings.Contains(got.Message, "quoted literal") {
+		t.Fatalf("error message = %q, want it to name the quoted form", got.Message)
+	}
+	mustParse(t, `sysml:qualifiedName="Robot::Platform::battery"`)
+	_, err = ParseOSLC(`sysml:name=battery`, nil)
+	if got := kindOf(t, err, ErrMalformed); !strings.Contains(got.Message, `quoted literal "battery"`) {
+		t.Fatalf("error message = %q, want it to name the quoted form", got.Message)
+	}
+	q, err := ParseParameters(`oslc.prefix=ex%3D%3Chttps://example.org/%3E&oslc.where=sysml:name%3Dex:a::b`, nil)
+	if err != nil {
+		t.Fatalf("prefixed name with a local \"::\": %v", err)
+	}
+	if c := q.Where.(Comparison); c.Values[0] != "https://example.org/a::b" {
+		t.Fatalf("value = %#v", c.Values)
+	}
+}
+
+func TestParseOSLCPropertyDiagnosticsFollowTheActiveBindings(t *testing.T) {
+	for _, text := range []string{`@type="x"`, `@id="x"`} {
+		_, err := ParseOSLC(text, nil)
+		if got := kindOf(t, err, ErrMalformed); !strings.Contains(got.Message, "rdf:type") && !strings.Contains(got.Message, "reported for every result") {
+			t.Errorf("%q error message = %q, want it to name the OSLC spelling", text, got.Message)
+		}
+	}
+	aliased := `oslc.prefix=s%3D%3Chttps://www.omg.org/spec/SysML%23%3E`
+	_, err := ParseParameters(aliased+`&oslc.where=s:nmae%3D%22x%22`, nil)
+	if got := kindOf(t, err, ErrUnknownProperty); !strings.Contains(got.Message, "s:name") {
+		t.Errorf("error message = %q, want the aliased spelling offered", got.Message)
+	}
+	_, err = ParseParameters(`oslc.prefix=sysml%3D%3Curn:example:other%23%3E&oslc.where=sysml:name%3D%22x%22`, nil)
+	if got := kindOf(t, err, ErrUnknownProperty); strings.Contains(got.Message, "did you mean") || !strings.Contains(got.Message, "have no oslc.prefix binding") {
+		t.Errorf("error message = %q, want the SysML namespace reported as unnamed", got.Message)
+	}
+	_, err = ParseParameters(`oslc.prefix=%21s%3D%3Chttps://www.omg.org/spec/SysML%23%3E&oslc.where=sysml:name%3D%22x%22`, nil)
+	if got := kindOf(t, err, ErrMalformed); !strings.Contains(got.Message, "!s") {
+		t.Errorf("error = %#v, want ErrMalformed naming the unusable prefix", err)
+	}
+	names, unbound := PrefixedPropertyNames(map[string]string{"rdf": rdf.RDFNS}, NewTable(nil, nil))
+	if len(names) != 1 || names[0] != "rdf:type" || len(unbound[rdf.SysML]) == 0 || len(unbound[rdf.OpenSysML]) != 2 {
+		t.Errorf("names = %#v, unbound = %#v", names, unbound)
+	}
+}
+
+func TestParseParametersPreservesEncodedSemicolonAndDecodesValues(t *testing.T) {
+	for text, want := range map[string]string{
+		`oslc.where=sysml%3Aname%3D%22a%253Bb%2Bc%22`: "a%3Bb+c",
+		`oslc.where=sysml%3Aname%3D%22a%3Bb%2Bc%22`:   "a;b+c",
+		`oslc.where=sysml%3Aname%3D%22a+b%22`:         "a b",
+	} {
+		q, err := ParseParameters(text, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := q.Where.(Comparison).Values[0]; got != want {
+			t.Fatalf("%s value = %q, want %q", text, got, want)
+		}
+	}
+	if _, err := ParseParameters(`oslc.where=`+url.QueryEscape(`sysml:name="a"`+"\u00a0and sysml:name=\"b\""), nil); err != nil {
+		t.Fatalf("non-ASCII space before a keyword: %v", err)
+	}
+}
+
+func TestParseOSLCMalformedNeverPanics(t *testing.T) {
+	for _, text := range []string{
+		``, `sysml:name`, `sysml:name=`, `sysml:name="x`, `sysml:name="x" and`, `sysml:owner{`, `sysml:owner{sysml:name="x"`,
+		`rdf:type in [`, `rdf:type in [sysml:PartUsage`, `oslc.select=sysml:owner{`, `oslc.select=sysml:name,`,
+		`oslc.orderBy=+`, `oslc.prefix=x`, `sysml:name="x"^^xsd:date`, `sysml:name="x"^^ex:thing`,
+	} {
+		if _, err := ParseOSLC(text, nil); err == nil {
+			t.Errorf("%q unexpectedly parsed", text)
+		}
+	}
+}
+
+func TestTranslateBuildsTheAgreedPlan(t *testing.T) {
+	q, err := ParseParameters(`oslc.where=rdf:type%3Dsysml:PartUsage+and+sysml:name+in+%5B%22a%22,%22b%22%5D+and+sysml:owner%7Bsysml:name%3D%22Demo%22%7D&oslc.select=sysml:name,sysml:owner{sysml:name}&oslc.orderBy=%2Bsysml:name,-sysx:multiplicityUpper`, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := Translate(q, Context{}, "Test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(plan.Columns, " ") != "name owner.name" || plan.Objects {
+		t.Fatalf("plan = %#v", plan)
+	}
+	ops := operations(plan.Program.Definitions()[0].Expression())
+	// in [a, b] keeps source order: the rows left once each alternative's are
+	// taken away are the ones excluded.
+	want := "order-by order-by project where-feature except except where-name where-type parameter except where-name where-type parameter where-type parameter where-type parameter"
+	if got := strings.Join(ops, " "); got != want {
+		t.Fatalf("operations = %s\nwant %s", got, want)
+	}
+	plan, err = Translate(mustParse(t, `rdf:type=elmt:`+rdf.EncodeElementID("Demo::Vehicle")+` and sysml:name="car"`), Context{}, "Test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !plan.Objects || strings.Join(operations(plan.Program.Definitions()[0].Expression()), " ") != "project where-name objects" {
+		t.Fatalf("instance plan = %#v", operations(plan.Program.Definitions()[0].Expression()))
+	}
+}
+
+func TestTranslateRefusesBeforeAnyElementIsRead(t *testing.T) {
+	tests := map[string]struct {
+		q    Query
+		kind ErrorKind
+	}{
+		"unknown property":       {Query{Where: Comparison{Property: "colour", Operator: Equal, Values: []string{"red"}}}, ErrUnknownProperty},
+		"unknown selection":      {Query{Select: []Selection{{Property: "effectiveName"}}}, ErrUnknownProperty},
+		"unordered property":     {Query{Where: Comparison{Property: "name", Operator: Greater, Values: []string{"1"}}}, ErrUnorderedProperty},
+		"unparsable operand":     {Query{Where: Comparison{Property: "multiplicityUpper", Operator: Less, Values: []string{"many"}}}, ErrUnparsableValue},
+		"ordered needs one":      {Query{Where: Comparison{Property: "multiplicityUpper", Operator: Less, Values: []string{"1", "2"}}}, ErrMalformed},
+		"no operator":            {Query{Where: Comparison{Property: "name", Values: []string{"x"}}}, ErrMalformed},
+		"instanceOf off @type":   {Query{Where: Comparison{Property: "name", Operator: InstanceOf, Values: []string{"Usage"}}}, ErrUnorderedProperty},
+		"undeclared metaclass":   {Query{Where: TypeTest{Types: []string{"Gizmo"}}}, ErrUnparsableValue},
+		"nested instance term":   {Query{Where: Disjunction{Terms: []Constraint{Instances{Elements: []string{"Demo::A"}}, TypeTest{Types: []string{"PartUsage"}}}}}, ErrUnsupportedInstanceTerm},
+		"scoped scalar":          {Query{Where: Scoped{Property: "name", Inner: Comparison{Property: "name", Operator: Equal, Values: []string{"x"}}}}, ErrUnorderedProperty},
+		"non-boolean isAbstract": {Query{Where: Comparison{Property: "isAbstract", Operator: Equal, Values: []string{"maybe"}}}, ErrUnparsableValue},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := Translate(tc.q, Context{}, "Test")
+			if err == nil {
+				t.Fatal("unexpectedly translated")
+			}
+			kindOf(t, err, tc.kind)
+		})
+	}
+}
+
+// operations lists the plan's operations outermost first, following each
+// operation's source (or exclude, then source) down to the root.
+func operations(expression queryplan.Expression) []string {
+	out := []string{string(expression.Operation())}
+	var source *queryplan.Expression
+	for _, argument := range expression.Arguments() {
+		value := argument.Value
+		switch argument.Name {
+		case "exclude":
+			out = append(out, operations(value)...)
+		case "source", "other":
+			source = &value
+		}
+	}
+	if source != nil {
+		out = append(out, operations(*source)...)
+	}
+	return out
+}
