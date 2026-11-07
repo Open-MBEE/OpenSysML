@@ -47,3 +47,41 @@ func TestAboutAnnotationHasItsOwnElementID(t *testing.T) {
 		t.Fatalf("checked %d annotations, want 5", seen)
 	}
 }
+
+// TestRepeatedAboutNamesHaveDistinctElementIDs: `about x, x` owns two Annotations, and the
+// query leg identifies each by its own ordinal, as the conversion mints them.
+func TestRepeatedAboutNamesHaveDistinctElementIDs(t *testing.T) {
+	fixture := loadExecutionSource(t, `package Observatory {
+	metadata def Heritage;
+	part def Telescope;
+	part telescope : Telescope;
+	comment about telescope, telescope /* twice */
+	metadata m : Heritage about telescope, telescope;
+}`)
+	read := export.NewElementIDReader([]export.ElementIDDocument{{File: fixture.file, Root: fixture.root}})
+	members, _ := fixture.model.ReflectiveElements(fixture.symbol(t, "telescope").OwnerScope.Owner(), "ownedMember")
+	seen := 0
+	for _, member := range members {
+		if member.Kind != symbols.SymbolMetadataUsage && member.Kind != symbols.SymbolComment {
+			continue
+		}
+		ownerID, err := ElementIDOf(read, fixture.index, member)
+		if err != nil || ownerID == "" {
+			t.Fatalf("%v id: %q, %v", member.Decl, ownerID, err)
+		}
+		annotations, _ := fixture.model.ReflectiveElements(member, "ownedAnnotatingRelationship")
+		if len(annotations) != 2 {
+			t.Fatalf("%s: %d ownedAnnotatingRelationship, want 2", ownerID, len(annotations))
+		}
+		for i, annotation := range annotations {
+			want := ownerID + "_an" + string(rune('0'+i))
+			if id, err := ElementIDOf(read, fixture.index, annotation); err != nil || id != want {
+				t.Errorf("%s: Annotation %d id %q, %v; want %q", ownerID, i, id, err, want)
+			}
+			seen++
+		}
+	}
+	if seen != 4 {
+		t.Fatalf("checked %d annotations, want 4", seen)
+	}
+}

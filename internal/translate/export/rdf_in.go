@@ -3493,7 +3493,7 @@ func (d *decoder) commentHead(el *element) (string, error) {
 	// trivia, so it is written even when nothing identifies the comment.
 	words := []string{"comment"}
 	words = append(words, d.identWords(el)...)
-	about, err := d.referenceList(el, rdf.SysML+pAnnotatedElement)
+	about, err := d.aboutList(el)
 	if err != nil {
 		return "", err
 	}
@@ -4213,7 +4213,7 @@ func (d *decoder) metadataHead(el *element) (string, error) {
 	if keyword := d.visibility(el); keyword != "" {
 		head = keyword + " " + head
 	}
-	about, err := d.referenceList(el, rdf.SysML+pAnnotatedElement)
+	about, err := d.aboutList(el)
 	if err != nil {
 		return "", err
 	}
@@ -4527,6 +4527,29 @@ func (d *decoder) referenceText(el *element, property string) (string, error) {
 		return "", nil
 	}
 	return list[0], nil
+}
+
+// aboutList is an annotating element's `about` clause: one name per Annotation
+// it owns, in their order (`about x, x` owns two), or the collapsed
+// annotatedElement's targets when a graph states no Annotation elements.
+func (d *decoder) aboutList(el *element) ([]string, error) {
+	var out []string
+	for _, child := range el.children {
+		if !child.implied || child.metaclass != mAnnotation {
+			continue
+		}
+		for _, term := range d.graph.Objects(rdf.IRI(child.iri), rdf.SysML+pAnnotatedElement) {
+			name, err := d.referenceName(term, el)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, name)
+		}
+	}
+	if len(out) > 0 {
+		return out, nil
+	}
+	return d.referenceList(el, rdf.SysML+pAnnotatedElement)
 }
 
 func (d *decoder) referenceList(el *element, property string) ([]string, error) {

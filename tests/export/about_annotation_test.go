@@ -56,3 +56,22 @@ func TestAboutAnnotationsAreOwnedByTheAnnotatingElement(t *testing.T) {
 		}
 	}
 }
+
+// A repeated `about` name states one Annotation per name on the API notation round trip too.
+func TestRepeatedAboutNamesRoundTrip(t *testing.T) {
+	src := "package P {\n\tpart x;\n\tcomment about x, x /* twice */\n}"
+	turtle, err := convert.Convert("m.sysml", []byte(src), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	if want := "sysml:ownedRelationship elmt:P___401_an0, elmt:P___401_an1 ;"; !strings.Contains(string(turtle), want) {
+		t.Errorf("the comment does not own two Annotations %q:\n%s", want, turtle)
+	}
+	back, err := convert.Convert("m.ttl", turtle, convert.FormatTurtle, convert.FormatSysML)
+	if err != nil {
+		t.Fatalf("back to notation: %v", err)
+	}
+	if !strings.Contains(string(back), "comment about x, x") {
+		t.Errorf("the notation does not come back with both names:\n%s", back)
+	}
+}

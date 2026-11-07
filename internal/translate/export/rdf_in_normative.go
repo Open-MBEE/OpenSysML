@@ -365,12 +365,19 @@ func (d *decoder) sourceEndsAgree(r *impliedEnds) error {
 // materialized elements, as a graph from before their introduction does,
 // needs no coverage.
 func (d *decoder) verifyCovered(owner *element) error {
-	// A metadata usage's typing is ruled by its own check, which reads the
-	// collapsed property directly.
-	if owner.implied || owner.metaclass == usageMetaclass[ast.UsageMetadata] || !d.materializes(owner) {
+	if owner.implied || !d.materializes(owner) {
 		return nil
 	}
 	stated := d.statedIRITargets(owner)
+	if owner.metaclass == usageMetaclass[ast.UsageMetadata] {
+		// A metadata usage's typing is ruled by its own check, which reads the
+		// collapsed property directly; its `about` is covered here.
+		stated = map[ast.RelationshipKind]map[string]bool{ast.RelAnnotates: stated[ast.RelAnnotates]}
+	}
+	if !d.materializesAnnotations(owner) {
+		// A graph from before Annotation elements states its `about` collapsed alone.
+		delete(stated, ast.RelAnnotates)
+	}
 	for _, child := range owner.children {
 		if child.implied && impliedRelationshipMetaclasses[child.metaclass] {
 			d.coverTargets(child, stated)
@@ -406,14 +413,26 @@ func (d *decoder) materializes(owner *element) bool {
 	return false
 }
 
+// materializesAnnotations reports whether the owner carries an Annotation element.
+func (d *decoder) materializesAnnotations(owner *element) bool {
+	for _, child := range owner.children {
+		if child.implied && child.metaclass == mAnnotation {
+			return true
+		}
+	}
+	return false
+}
+
 // statedIRITargets is, per relationship kind, the IRI targets the owner's
 // collapsed properties state; a literal edge names its target, so no element
 // covers it.
 func (d *decoder) statedIRITargets(owner *element) map[ast.RelationshipKind]map[string]bool {
 	stated := map[ast.RelationshipKind]map[string]bool{}
-	for _, kind := range []ast.RelationshipKind{
-		ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences,
-	} {
+	kinds := []ast.RelationshipKind{ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences}
+	if ontology.IsAncestorOrSelf(owner.metaclass, "AnnotatingElement") {
+		kinds = append(kinds, ast.RelAnnotates)
+	}
+	for _, kind := range kinds {
 		for _, object := range d.graph.Objects(rdf.IRI(owner.iri), rdf.SysML+relationshipProperty[kind]) {
 			if !object.IsIRI() {
 				continue
