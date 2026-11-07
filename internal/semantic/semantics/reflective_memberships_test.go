@@ -299,7 +299,9 @@ func TestParameterAndEndMemberships(t *testing.T) {
 	for _, fixture := range reflectiveFixtures(t, "parameter-memberships.sysml", source.KindSysML, src) {
 		model := fixture.model
 		act := relFixtureSymbol(t, fixture, "Act")
-		kinds := []string{"ParameterMembership", "ParameterMembership", "ReturnParameterMembership", "FeatureMembership"}
+		// A body's `in`/`out` feature is a FeatureMembership with a direction, as the pilot exports it;
+		// only `return` is a ReturnParameterMembership.
+		kinds := []string{"FeatureMembership", "FeatureMembership", "ReturnParameterMembership", "FeatureMembership"}
 		memberships := model.OwnedMemberships(act)
 		if len(memberships) != len(kinds) {
 			t.Fatalf("Act owns %d memberships, want %d", len(memberships), len(kinds))
@@ -307,7 +309,8 @@ func TestParameterAndEndMemberships(t *testing.T) {
 		for i, kind := range kinds {
 			assertRelMetaclass(t, model, memberships[i], kind)
 		}
-		assertRelFeature(t, model, memberships[0], "ownedMemberParameter", relFixtureSymbol(t, fixture, "p"))
+		assertRelFeature(t, model, memberships[2], "ownedMemberParameter", relFixtureSymbol(t, fixture, "r"))
+		assertRelUnsupported(t, model, memberships[0], "ownedMemberParameter")
 		assertRelUnsupported(t, model, memberships[3], "ownedMemberParameter")
 		cd := relFixtureSymbol(t, fixture, "CD")
 		for _, membership := range model.OwnedMemberships(cd) {

@@ -375,14 +375,13 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 		containsElement(m.EndFeatures(owner), member) {
 		return "EndFeatureMembership"
 	}
+	// A body's directed feature is a FeatureMembership carrying a direction
+	// (SysML.xtext UsageMember, as the pilot exports it); only `return` is a
+	// ReturnParameterMembership.
 	for _, parameter := range m.BehaviorParametersOf(owner) {
-		if parameter.Symbol != member {
-			continue
-		}
-		if parameter.IsResult {
+		if parameter.Symbol == member && parameter.IsResult {
 			return "ReturnParameterMembership"
 		}
-		return "ParameterMembership"
 	}
 	return "FeatureMembership"
 }
