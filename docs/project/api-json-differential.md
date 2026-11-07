@@ -230,7 +230,7 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 102568 elements matched (16299 ours-only, 28746 pilot-only, 0 of them implied); properties: 1982570 present-equal, 149977 present-different, 303717 ours-missing, 79915 pilot-missing, 2187951 absent-both, 33556 indeterminate, 523 pilot-nondeterministic.
+**Scorecard:** 935 files; 102604 elements matched (16303 ours-only, 28710 pilot-only, 0 of them implied); properties: 1983079 present-equal, 149874 present-different, 303671 ours-missing, 79954 pilot-missing, 2188308 absent-both, 33556 indeterminate, 523 pilot-nondeterministic.
 
 Re-recorded on the effective-name change (a feature its clause leaves nameless is named, on every reader, by the feature it implicitly redefines, as KerML 1.1 §8.3.3.3 derives `Feature::effectiveName`: a positional parameter by its behavior's — `in item;` under `action shoot : Shoot` is `shoot::image` — a `return` parameter by `result`, a nameless objective by `obj`, a connector or allocation end by the end it occupies, `source`/`target`, `logical`/`physical`; `declaredName` stays the written one): 2734 more elements match (99834 → 102568; ours-only 19033 → 16299, pilot-only 31480 → 28746, type-mismatched 1682 → 1821, the newly matched ends and objectives this repository types otherwise), present-equal 1926398 → 1982570 and present-different 148945 → 149977 — the newly matched elements bring their subtrees under comparison, differences included. The seven `EndFeatureMembership` member rows go from 129 equal / 395 present-different to 524 / 0, `FeatureMembership.memberElement` 9537 / 573 → 9552 / 560, `Feature.name` 1115 → 1254 equal and `ReferenceUsage.name` 2203 → 2430, and the `FeatureChaining` rows 627 → 1130 equal, the chains under the newly named ends and parameters. Of the 1917 rows that moved, no row has fewer equal; the 151 that gained present-different rows are the subtrees the newly matched ends and objectives bring under comparison for causes the tables already state — an end's `definition`/`type`/`multiplicity` and its `ReferenceSubsetting`'s ends (`ReferenceUsage.definition` 4 → 39, `ReferenceSubsetting.referencedFeature` 15 → 35), an interface end's `PortUsage` rows, and an objective's `verify` requirements (`RequirementUsage.isComposite` 27 → 86, `RequirementVerificationMembership.referencedConstraint` 2 → 43). An end states its derived name alone and no `qualifiedName`: it is positional in this mapping, its name the end it redefines rather than an address of its own, so `Feature.qualifiedName` moves only by the parameters it names (1114 → 1253 equal). A membership names its member by the model's effective name whatever the member's identity, as before — `require q.k;` is `k` to its `RequirementConstraintMembership` and positional in its id.
 
@@ -246,15 +246,37 @@ The pilot's export failed on 59 files (`pilotFailed`: its own export throws on a
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 8082 | 1082 | 2084 | 158767 | 13491 | 20022 | 5692 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 28788 | 5717 | 7328 | 567000 | 45280 | 82656 | 21437 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 10084 | 1824 | 2515 | 196743 | 17282 | 26096 | 7565 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 6731 | 903 | 1510 | 120684 | 9506 | 18839 | 8265 |
-| `examples/spec-examples` | 511 | 7531 | 872 | 2199 | 131961 | 7571 | 22094 | 6367 |
-| `tests/testdata` | 40 | 1517 | 192 | 454 | 27659 | 2128 | 4163 | 1190 |
-| `examples` | 56 | 31863 | 5131 | 11266 | 623639 | 45176 | 99362 | 23991 |
+| `examples/sysml-v2-training` | 100 | 8087 | 1083 | 2079 | 158837 | 13475 | 20018 | 5697 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 28800 | 5718 | 7316 | 567177 | 45254 | 82625 | 21452 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 10084 | 1824 | 2515 | 196757 | 17268 | 26096 | 7565 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 6734 | 903 | 1507 | 120719 | 9509 | 18831 | 8268 |
+| `examples/spec-examples` | 511 | 7544 | 874 | 2186 | 132093 | 7565 | 22098 | 6380 |
+| `tests/testdata` | 40 | 1518 | 192 | 453 | 27674 | 2125 | 4161 | 1191 |
+| `examples` | 56 | 31865 | 5131 | 11264 | 623705 | 45135 | 99357 | 23993 |
 | `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 887 | 31 | 90 | 41 |
 | `docs/manual/examples` | 11 | 7919 | 578 | 1390 | 155230 | 9512 | 30395 | 5367 |
+
+**An `about` clause's Annotation** (re-recorded when the writer began stating one `Annotation`
+element per element an annotating element's `about` names — `@M about x, y;`, `metadata m : M
+about x;`, `comment about x` — owned by the annotating element after its typing and ahead of its
+body through `ownedAnnotatingRelationship`, as KerML 8.3.2.3.2 and the pilot state it, where the
+collapsed `annotatedElement` alone stood; a metadata usage's typing is owned ahead of its body
+members, as the pilot orders it): 29 rows moved, every one an `Annotation`, `Comment`,
+`MetadataUsage` or `MetadataFeature` row, none with fewer equal. 36 more `Annotation` elements match
+(43 with the seven a dependency owns for its prefix metadata): `annotatingElement` and
+`owningRelatedElement` 43 equal, `owningAnnotatingElement` and `source` 36 equal (a prefix's annotation
+states neither, as before), `MetadataUsage.ownedRelationship`
+279 → 384 equal and 105 → 0 different, `MetadataUsage.ownedAnnotatingRelationship` 13 and
+`Comment.ownedAnnotatingRelationship` 15 ours-missing → equal. What stays: seven annotations whose
+`about` names an element the specification snippet never declares (`sysml/7.27.2/3`,
+`kerml/7.4.13/3`: `about SecurityRequirements, SecurityDesign`) carry no `target`,
+`annotatedElement` or `relatedElement` on our side — an unresolved name is written as no reference,
+as everywhere — and their owners' derived `annotation` is ours-missing for the same reason (4
+`MetadataUsage`, 1 `Comment`); one `Annotation.annotatedElement` is present-different
+(`Simple Tests/Comments.kerml`, `comment about a` where `a` is `doc <a>`): both sides target the
+documentation, which the referee keys `Comments::A::a` on ours and `Comments::A/Documentation[0]` on
+the pilot's; and one comment's annotation is pilot-missing (`Simple Tests/CommentTest.sysml`), the
+pilot listing none for it.
 
 **Every connector end's `[1..1]`** (re-recorded when the writer began stating the implicit `[1..1]`
 of a positional end — `connect a to b`, `bind a = b`, `first s1 then s2`, `allocate a to b` — as it
