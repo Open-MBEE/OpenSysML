@@ -805,7 +805,8 @@ $ … /Evaluate -d '{"modelHash":"07a0…b5ca","expression":"Meta::notADefinitio
 - An `element_id` sent that two declarations of the model share (the same qualified name in two
   documents) identifies neither and is refused in band as ambiguous, never bound to whichever the
   index lists first. A form `@id` is resolved under the nearest element a qualified or
-  positional id reaches, among what it owns; one that reaches nothing is unbound.
+  positional id reaches, among what it owns; one that reaches nothing is unbound, and one a
+  declaration's qualified name also spells (`package D__outer___400`) is ambiguous between the two.
 - The arm is gated by the `metaobject_values` capability (see [Capabilities, and what an absent one does](service-transports.md#capabilities-and-what-an-absent-one-does)).
   A service without it sends every metaobject, at any depth, as
   `{"null":"unsupported: metaobject Meta::seatBelt : SysML::Systems::PartUsage"}` and refuses a

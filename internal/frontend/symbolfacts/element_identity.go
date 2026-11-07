@@ -49,41 +49,46 @@ func (sc *Context) formID(sym *symbols.Symbol) string {
 	return id
 }
 
-// ResolveElement is the symbols of sem an ElementIdentity names: a qualified
-// name or positional id as Lookup reads it, else the element form's `@id`,
-// found among what the nearest element Lookup resolves owns.
+// ResolveElement is the symbols of sem an ElementIdentity names: qualified or
+// positional as Lookup reads it, and a form `@id` under the nearest such owner.
 func (sc *Context) ResolveElement(id string, sem *semantics.Model) []*symbols.Symbol {
-	if syms := sc.Lookup(id); len(syms) > 0 {
-		return syms
-	}
+	named := sc.Lookup(id)
 	owner, depth, ok := formIDOwner(id)
 	if !ok {
-		return nil
+		return named
+	}
+	// A declaration spelled like a form id is kept only when the id is its own.
+	var found []*symbols.Symbol
+	seen := map[*symbols.Symbol]bool{}
+	for _, sym := range named {
+		if sc.ElementIdentity(sym) == id {
+			found = append(found, sym)
+			seen[sym] = true
+		}
 	}
 	for owner != "" {
 		if owners := sc.Lookup(owner); len(owners) > 0 {
-			if depth == 0 {
-				return owners
-			}
-			var found []*symbols.Symbol
-			seen := map[*symbols.Symbol]bool{}
 			for _, root := range owners {
+				if depth == 0 && !seen[root] {
+					found = append(found, root)
+					seen[root] = true
+					continue
+				}
 				found = sc.ownedElementNamed(sem, root, id, depth, seen, found)
 			}
 			return found
 		}
 		cut := strings.LastIndex(owner, "::")
 		if cut < 0 {
-			return nil
+			break
 		}
 		owner, depth = owner[:cut], depth+1
 	}
-	return nil
+	return found
 }
 
-// formIDOwner decodes a form `@id` into the qualified name of the element it is
-// written under and how many elements deep below it the id can lie: each
-// expression position is one element, owned through a parameter or not.
+// formIDOwner decodes a form `@id` into the qualified name it is written under
+// and how many elements deep below that the id can lie (one per expression position).
 func formIDOwner(id string) (owner string, depth int, ok bool) {
 	if owner, positions, ok := rdf.DecodeExpressionNodeID(id); ok {
 		return owner, 2 * len(positions), true

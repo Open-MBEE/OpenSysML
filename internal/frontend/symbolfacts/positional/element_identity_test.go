@@ -27,6 +27,7 @@ package D {
   connection def C;
   part holder { part a { part b; } part c; connection : C connect a.b to c; }
 }
+package D__outer___400 { part spelledLikeAFormID; }
 `
 
 // identityContext indexes one document over the standard library with the
@@ -70,9 +71,8 @@ func reflect(t *testing.T, sc *symbolfacts.Context, id string, path ...string) *
 	return sym
 }
 
-// Every element reflection reaches is named by one of the ids the tree already
-// has — qualified name, positional id, element form @id — and that id resolves
-// back to the very symbol in the semantic model it was read from.
+// Every element reflection reaches is named by an id the tree already has, and
+// that id resolves back to the very symbol in the semantic model it was read from.
 func TestElementIdentityIsTheTreesIDAndRoundTrips(t *testing.T) {
 	sc := identityContext(t)
 	cases := []struct {
@@ -126,6 +126,22 @@ func TestResolveElementReadsEveryIDFormOfANamedElement(t *testing.T) {
 
 // Without the element form's ids a synthesized element has no identity, and no
 // semantic model to walk resolves a form id; neither is read as another element.
+func TestResolveElementKeepsADeclarationSpelledLikeAFormIDOnlyAsItsOwn(t *testing.T) {
+	sc := identityContext(t)
+	got := sc.ResolveElement("D__outer___400", sc.Semantics)
+	if len(got) != 2 {
+		t.Fatalf("ResolveElement(D__outer___400) = %v, want the package and D::outer::@0 (ambiguous)", got)
+	}
+	if got[0].Name != "D__outer___400" || got[1] != reflect(t, sc, "D::outer::@0") {
+		t.Errorf("ResolveElement(D__outer___400) = %v, want the package then D::outer::@0", got)
+	}
+	part := sc.Lookup("D__outer___400::spelledLikeAFormID")[0]
+	formID := sc.ElementIdentity(part)
+	if got := sc.ResolveElement(formID, sc.Semantics); got == nil || got[0] != part {
+		t.Errorf("ResolveElement(%s) = %v, want the package's part", formID, got)
+	}
+}
+
 func TestElementIdentityNeedsTheFormForSynthesizedElements(t *testing.T) {
 	sc := identityContext(t)
 	value := reflect(t, sc, "D::M::z", "valuation", "value")
