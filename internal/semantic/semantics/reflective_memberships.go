@@ -375,6 +375,11 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 		containsElement(m.EndFeatures(owner), member) {
 		return "EndFeatureMembership"
 	}
+	if isAcceptPayload(owner, member) {
+		// An accept node's payload is owned as a parameter (SysML.xtext
+		// AcceptNodeDeclaration, PayloadParameterMember), as the conversion writes it.
+		return "ParameterMembership"
+	}
 	// A body's directed feature is a FeatureMembership carrying a direction
 	// (SysML.xtext UsageMember, as the pilot exports it); only `return` is a
 	// ReturnParameterMembership.
@@ -384,6 +389,16 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 		}
 	}
 	return "FeatureMembership"
+}
+
+// isAcceptPayload reports whether member is the accept payload an action usage owner declares.
+func isAcceptPayload(owner, member *symbols.Symbol) bool {
+	usage, ok := owner.Decl.(*ast.Usage)
+	if !ok || usage.Kind != ast.UsageAction || member == nil {
+		return false
+	}
+	payload, ok := member.Decl.(*ast.Usage)
+	return ok && payload.IsAccept
 }
 
 // sysmlMembershipMetaclassName is the SysML membership kind member's
