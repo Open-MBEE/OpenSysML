@@ -4565,14 +4565,22 @@ func (d *decoder) statedForm(el *element, target rdf.Term, consumed map[string]s
 			return target
 		}
 	}
+	var names []string
 	for _, property := range []string{pDeclaredName, pDeclaredShortName} {
 		for _, name := range d.graph.Objects(rdf.IRI(target.Value), rdf.SysML+property) {
+			names = append(names, name.Value)
+		}
+	}
+	// A name not yet written for any element first; then one this element already holds.
+	for pass := 0; pass < 2; pass++ {
+		for _, name := range names {
 			for _, object := range stated {
-				if !object.IsIRI() && object.Value == name.Value {
-					if by, taken := consumed[object.Value]; !taken || by == target.Value {
-						consumed[object.Value] = target.Value
-						return object
-					}
+				if object.IsIRI() || object.Value != name {
+					continue
+				}
+				if by, taken := consumed[object.Value]; !taken || (pass == 1 && by == target.Value) {
+					consumed[object.Value] = target.Value
+					return object
 				}
 			}
 		}
