@@ -1086,6 +1086,11 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      # setup-emacs uses a Nix already on PATH; this one has flakes enabled,
+      # which the nix-emacs-ci build of each Emacs version needs.
+      - name: Install Nix
+        uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
+
       # Emacs 29.1 is the oldest the package supports.
       - name: Set up Emacs
         uses: purcell/setup-emacs@c851e5408f2d2f657fa80375bbe3fb35029aa488 # v6.0
