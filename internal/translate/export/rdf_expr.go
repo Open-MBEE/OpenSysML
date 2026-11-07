@@ -1139,6 +1139,16 @@ func (d *decoder) valueOwner(triple rdf.Triple, valueTargets map[string]string, 
 	return feature, false, nil
 }
 
+// derivedConnectorFeature reports a connector's relatedFeature, sourceFeature or
+// targetFeature, which restate what its ends reference and carry no notation of their own.
+func (d *decoder) derivedConnectorFeature(triple rdf.Triple) bool {
+	switch triple.Predicate.Value {
+	case rdf.SysML + pRelatedFeature, rdf.SysML + pSourceFeature, rdf.SysML + pTargetFeature:
+		return ontology.IsAncestorOrSelf(d.metaclass(triple.Subject), "Connector")
+	}
+	return false
+}
+
 // resolveExpression renders one triple's expression-valued property as notation
 // on the element it belongs to.
 func (d *decoder) resolveExpression(triple rdf.Triple, parents map[string][]rdf.Term, valueTargets map[string]string, directValues map[string]rdf.Term) error {
@@ -1156,6 +1166,9 @@ func (d *decoder) resolveExpression(triple rdf.Triple, parents map[string][]rdf.
 	}
 	if triple.Predicate.Value == rdf.SysML+pReferences &&
 		d.graph.BoolValue(triple.Subject, rdf.SysML+pIsEnd) {
+		return nil
+	}
+	if d.derivedConnectorFeature(triple) {
 		return nil
 	}
 	if !d.isExpressionNode(triple.Object) {

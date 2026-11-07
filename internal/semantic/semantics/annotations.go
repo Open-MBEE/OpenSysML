@@ -2021,34 +2021,40 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 	return m.withDefaultMultiplicityMember(sym, members)
 }
 
-// connectorRelatedFeatures is Connector::relatedFeature, sourceFeature or
-// targetFeature: the features its ends reference, all, the first, or the rest,
-// in end order.
+// connectorRelatedFeatures derives Connector::relatedFeature per KerML 8.3.4.5.3: each
+// end's ownedReferenceSubsetting.subsettedFeature (the chain Feature for a chained end).
 func (m *Model) connectorRelatedFeatures(sym *symbols.Symbol, feature string) []*symbols.Symbol {
 	var related []*symbols.Symbol
-	if sym.Recorded() {
-		related = m.recordedSequence(sym.Facts.RelatedFeatures)
-	} else {
-		ends := m.EndFeatures(sym)
-		paths := m.reflectiveConnectorEndPaths(sym)
-		successionEnds := m.connectorSuccessionRelatedFeatures(sym)
-		count := max(len(ends), len(paths), len(successionEnds))
-		for i := 0; i < count; i++ {
-			var target *symbols.Symbol
-			if i < len(paths) && len(paths[i].Features) > 0 {
-				path := paths[i].Features
-				target = path[len(path)-1]
-			}
-			if target == nil && i < len(successionEnds) {
-				target = successionEnds[i]
-			}
-			if target == nil && i < len(ends) {
-				target = m.ReferencedFeature(ends[i])
-			}
-			if target != nil {
-				related = append(related, target)
-			}
+	ends := m.EndFeatures(sym)
+	var paths []ConnectorEndPath
+	var successionEnds []*symbols.Symbol
+	if !sym.Recorded() {
+		paths = m.reflectiveConnectorEndPaths(sym)
+		successionEnds = m.connectorSuccessionRelatedFeatures(sym)
+	}
+	count := max(len(ends), len(paths), len(successionEnds))
+	for i := 0; i < count; i++ {
+		var target *symbols.Symbol
+		if i < len(ends) {
+			target = m.EndReferencedFeature(ends[i])
 		}
+		// A message's ends own no end feature of their own: the feature its
+		// `from`/`to` path reaches stands in for the end's reference.
+		if target == nil && i < len(paths) && len(paths[i].Features) > 0 {
+			path := paths[i].Features
+			target = path[len(path)-1]
+		}
+		if target == nil && i < len(successionEnds) {
+			target = successionEnds[i]
+		}
+		if target != nil {
+			related = append(related, target)
+		}
+	}
+	// A recorded connector answers through its own recorded ends; one whose ends are
+	// all inherited (a flow's) answers the features its record names.
+	if sym.Recorded() && len(related) == 0 {
+		related = m.recordedSequence(sym.Facts.RelatedFeatures)
 	}
 	switch feature {
 	case "sourceFeature":
@@ -2062,6 +2068,20 @@ func (m *Model) connectorRelatedFeatures(sym *symbols.Symbol, feature string) []
 		return nil
 	}
 	return related
+}
+
+// EndReferencedFeature is the subsettedFeature of end's ownedReferenceSubsetting: the
+// chain Feature for a chained end, else the feature named; nil when unresolved.
+func (m *Model) EndReferencedFeature(end *symbols.Symbol) *symbols.Symbol {
+	if m == nil || end == nil {
+		return nil
+	}
+	for _, rel := range m.ownedImplicitRelationships(end, referenceSubsetting) {
+		if _, target, ok := m.implicitRelationshipEnds(rel); ok {
+			return target
+		}
+	}
+	return m.ReferencedFeature(end)
 }
 
 func (m *Model) reflectiveConnectorEndPaths(sym *symbols.Symbol) []ConnectorEndPath {
