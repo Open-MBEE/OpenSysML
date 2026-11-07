@@ -409,14 +409,13 @@ func (d *decoder) verifyCovered(owner *element) error {
 	}
 }
 
-// verifyAnnotations is the converse half for an annotating element's Annotations:
-// each element one annotates is one the owner's collapsed `annotatedElement` states,
-// else the about clause would silently keep one statement and drop the other.
+// verifyAnnotations is the converse half for an annotating element's Annotations: each
+// element one annotates is one the owner's collapsed `annotatedElement` states, by IRI or
+// declared name, else the about clause would silently keep one statement and drop the other.
 func (d *decoder) verifyAnnotations(owner *element) error {
 	if !ontology.IsAncestorOrSelf(owner.metaclass, "AnnotatingElement") {
 		return nil
 	}
-	annotated := d.statedIRITargets(owner)[ast.RelAnnotates]
 	for _, child := range owner.children {
 		if child.metaclass != mAnnotation || d.prefixAnnotation(rdf.IRI(child.iri)) {
 			continue
@@ -424,13 +423,14 @@ func (d *decoder) verifyAnnotations(owner *element) error {
 		if _, owned := d.owningMembership[child.iri]; owned {
 			continue
 		}
-		for _, object := range d.collapsedTargets(child) {
-			if !object.IsIRI() || annotated[object.Value] {
+		r := d.impliedEnds(child, owner)
+		for value, isIRI := range r.actualIRI {
+			if !isIRI || r.restates(value) {
 				continue
 			}
 			return &UnsupportedError{
-				What: fmt.Sprintf("the Annotation <%s>", child.iri),
-				Note: fmt.Sprintf("it annotates <%s>, which the collapsed annotatedElement of <%s> does not state, so writing the about clause would keep one statement and drop the other", object.Value, owner.iri),
+				What: r.what,
+				Note: fmt.Sprintf("it annotates <%s>, which the collapsed annotatedElement of <%s> does not state, so writing the about clause would keep one statement and drop the other", value, owner.iri),
 			}
 		}
 	}

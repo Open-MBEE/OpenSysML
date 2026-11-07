@@ -90,6 +90,41 @@ func TestAnnotationMustAnnotateAStatedElement(t *testing.T) {
 	}
 }
 
+// A graph stating an about target by its name alone (the collapsed form of a graph
+// that never resolved it) still agrees with an Annotation naming that element by IRI.
+func TestAnnotationMayAnnotateAnElementStatedByName(t *testing.T) {
+	full := graphOfNotation(t, "package P {\n    part def A;\n    comment about A /* note */\n    metadata def M;\n    metadata m : M about A;\n}\n")
+	byName := rdf.NewGraphOf(append([]rdf.Triple(nil), full.Triples()...), full.Prefixes)
+	rewritten := 0
+	byName.RewriteTriples(func(tr *rdf.Triple) bool {
+		if !strings.HasSuffix(tr.Predicate.Value, pAnnotatedElement) || strings.Contains(tr.Subject.Value, "_an") {
+			return true
+		}
+		switch {
+		case tr.Object.Value == rdf.Element+"P__A":
+			*tr = rdf.Triple{Subject: tr.Subject, Predicate: tr.Predicate, Object: rdf.String("A")}
+			rewritten++
+		case strings.Contains(tr.Object.Value, `{"@id":"P__A"}`):
+			tr.Object.Value = strings.Replace(tr.Object.Value, `{"@id":"P__A"}`, `"A"`, 1)
+			rewritten++
+		}
+		return true
+	})
+	if rewritten != 2 {
+		// One statement per owner: a single target carries no JSON mirror.
+		t.Fatalf("rewrote %d collapsed statements of A to its name, want 2", rewritten)
+	}
+	out, err := ToSysML(byName)
+	if err != nil {
+		t.Fatalf("a graph stating the about target by name reads: %v", err)
+	}
+	for _, want := range []string{"comment about A", "metadata m : M about A;"} {
+		if !strings.Contains(string(out), want) {
+			t.Errorf("the graph does not read back with %q:\n%s", want, out)
+		}
+	}
+}
+
 // `about x, x` owns two Annotations of the one element, as the notation adds one per
 // name (KerML 8.2.3.2 AnnotatingElement: `about` names), each with its own id, and
 // reads back as written.
