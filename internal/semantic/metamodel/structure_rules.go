@@ -4902,8 +4902,8 @@ func (e *Evaluator) structureTypeMembers(element Element, property string, visit
 }
 
 func (e *Evaluator) computeStructureTypeMembers(element Element, property string, visited map[ElementKey]bool) ([]Value, bool) {
-	if element.Symbol != nil && !e.structureKnows(element) {
-		return e.structureLibraryTypeMembers(element, property)
+	if base, semantic := e.structureSemanticBase(element); semantic {
+		return e.structureLibraryTypeMembers(base, property)
 	}
 	owned, handled, ok := e.structureOwnedFilter(element, "Membership", true)
 	if !handled || !ok {
@@ -5020,6 +5020,26 @@ func (e *Evaluator) structureKnows(element Element) bool {
 	return known
 }
 
+// structureDefersToModel reports an element whose relationships the semantic model serves rather
+// than the structure: one the structure does not represent, or a library element it only names.
+func (e *Evaluator) structureDefersToModel(element Element) bool {
+	if !e.structureKnows(element) {
+		return true
+	}
+	_, served := e.options.Structure.OwnedRelationships(element)
+	return !served
+}
+
+// structureSemanticBase is the symbol handle a type's members are read from the
+// semantic model by, when the structure defers the type to the model.
+func (e *Evaluator) structureSemanticBase(element Element) (Element, bool) {
+	symbol := e.structureElementSymbol(element)
+	if symbol == nil || !e.structureDefersToModel(element) {
+		return Element{}, false
+	}
+	return ElementOf(symbol), true
+}
+
 // structureFeatureKey identifies a feature the same way whether the graph states it,
 // references it in a library or the semantic model supplies it, so redefinitions match.
 func (e *Evaluator) structureFeatureKey(feature Element) ElementKey {
@@ -5090,8 +5110,8 @@ func (e *Evaluator) computeStructureNonPrivateMemberships(
 	element Element,
 	visited map[ElementKey]bool,
 ) ([]Value, bool) {
-	if element.Symbol != nil && !e.structureKnows(element) {
-		return e.structureLibraryTypeMembers(element, "membership")
+	if base, semantic := e.structureSemanticBase(element); semantic {
+		return e.structureLibraryTypeMembers(base, "membership")
 	}
 	owned, handled, ok := e.structureOwnedFilter(element, "Membership", true)
 	if !handled || !ok {
@@ -5293,7 +5313,7 @@ type structureElementsCacheEntry struct {
 }
 
 func (e *Evaluator) computeStructureAllRedefinedFeatures(feature Element) ([]Element, bool) {
-	if symbol := e.structureElementSymbol(feature); symbol != nil && e.model != nil && !e.structureKnows(feature) {
+	if symbol := e.structureElementSymbol(feature); symbol != nil && e.model != nil && e.structureDefersToModel(feature) {
 		result := []Element{feature}
 		for _, redefined := range e.model.AllRedefinedFeatures(symbol) {
 			result = append(result, ElementOf(redefined))

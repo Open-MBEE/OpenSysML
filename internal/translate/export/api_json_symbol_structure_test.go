@@ -652,27 +652,31 @@ func (d *structureDifferential) spellElement(element metamodel.Element, fromGrap
 	}
 	if element.IsMembership {
 		if members, ok := structure.RelatedElements(element, "memberElement"); ok && len(members) == 1 {
+			member := d.spellElement(members[0], fromGraph)
+			if strings.HasPrefix(member, "lib ") {
+				return "membership of " + member
+			}
 			if id, ok := d.elementID(element, fromGraph); ok {
 				return "#" + id
 			}
-			return "membership of " + d.spellElement(members[0], fromGraph)
+			return "membership of " + member
 		}
 	}
 	if fromGraph {
-		if id, ok := d.graph.ElementIdentity(element); ok {
-			return "#" + id
-		}
 		if sym, ok := d.graph.LibrarySymbol(element); ok {
 			return "lib " + d.fqn(sym)
+		}
+		if id, ok := d.graph.ElementIdentity(element); ok {
+			return "#" + id
 		}
 		return "element?"
 	}
 	if sym, ok := d.symbolic.SymbolOf(element); ok {
-		if id, ok := d.graphID(sym); ok {
-			return "#" + id
-		}
 		if d.index.Library(sym) {
 			return "lib " + d.fqn(sym)
+		}
+		if id, ok := d.graphID(sym); ok {
+			return "#" + id
 		}
 		return "unmapped " + d.fqn(sym)
 	}

@@ -170,6 +170,11 @@ func (s *SymbolStructure) row(element Element) (symbolElement, bool) {
 		aspect = element.Membership.Aspect
 	}
 	if !strings.HasPrefix(aspect, s.prefix) {
+		// A handle the evaluator made from a symbol itself (ElementOf) is the
+		// symbol's row, placed on first use; its memberships stay the evaluator's.
+		if !element.IsMembership && element.Symbol != nil && aspect == "" {
+			return s.place(element.Symbol), true
+		}
 		return symbolElement{}, false
 	}
 	position, err := strconv.Atoi(strings.TrimPrefix(aspect, s.prefix))

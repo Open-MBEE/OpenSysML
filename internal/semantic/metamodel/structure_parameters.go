@@ -13,7 +13,7 @@ type structureParameter struct {
 
 // structureRedefinitionTargets returns the features feature's owned Redefinitions name.
 func (e *Evaluator) structureRedefinitionTargets(feature Element) ([]Element, bool) {
-	if symbol := e.structureElementSymbol(feature); symbol != nil && e.model != nil && !e.structureKnows(feature) {
+	if symbol := e.structureElementSymbol(feature); symbol != nil && e.model != nil && e.structureDefersToModel(feature) {
 		return elementsOf(e.model.RedefinedFeatures(symbol)), true
 	}
 	redefinitions, handled, ok := e.structureOwnedFilter(feature, "Redefinition", false)
@@ -79,7 +79,7 @@ func (e *Evaluator) structureBehaviorGenerals(owner Element) ([]Element, bool) {
 // structureParameterTable mirrors the semantic parameter table: owner's own positional
 // parameters, then what a lone general leaves unclaimed by clause or position, and the result.
 func (e *Evaluator) structureParameterTable(owner Element, visiting map[ElementKey]bool) ([]structureParameter, *structureParameter, bool) {
-	if symbol := e.structureElementSymbol(owner); symbol != nil && !e.structureKnows(owner) {
+	if symbol := e.structureElementSymbol(owner); symbol != nil && e.structureDefersToModel(owner) {
 		var positional []structureParameter
 		for i := 0; ; i++ {
 			sym, direction := e.model.PositionalParameter(symbol, i, false)
@@ -256,7 +256,7 @@ func (e *Evaluator) structureImplicitParameterRedefinitions(feature Element, mat
 // structureMaskedParameterRedefinitions is what a parameter without a clause masks for its
 // owner: the general parameters at its position whatever their direction, as the semantic masking.
 func (e *Evaluator) structureMaskedParameterRedefinitions(feature Element) ([]Element, bool) {
-	if symbol := e.structureElementSymbol(feature); symbol != nil && e.model != nil && !e.structureKnows(feature) {
+	if symbol := e.structureElementSymbol(feature); symbol != nil && e.model != nil && e.structureDefersToModel(feature) {
 		return elementsOf(e.model.MaskedParameterRedefinitions(symbol)), true
 	}
 	explicit, ok := e.structureRedefinitionTargets(feature)

@@ -53,6 +53,20 @@ func parseForElementProperties(t *testing.T, content string) *elementPropertiesR
 	return &elementPropertiesReader{t: t, srv: srv, hash: parsed.ModelHash}
 }
 
+// parseForElementPropertiesWithErrors parses a model whose validation errors
+// are the point: a reference the model does not resolve.
+func parseForElementPropertiesWithErrors(t *testing.T, content string) *elementPropertiesReader {
+	t.Helper()
+	srv := mustNewService(t, 10)
+	parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
+		Source: &pb.ParseFileRequest_Content{Content: content},
+	})
+	if err != nil {
+		t.Fatalf("ParseFile: %v", err)
+	}
+	return &elementPropertiesReader{t: t, srv: srv, hash: parsed.ModelHash}
+}
+
 func (r *elementPropertiesReader) read(element string, properties ...string) *pb.GetElementPropertiesResponse {
 	r.t.Helper()
 	resp, err := r.srv.GetElementProperties(context.Background(), &pb.GetElementPropertiesRequest{
@@ -132,9 +146,18 @@ func TestElementPropertiesReadsDerivedPropertiesBySpecName(t *testing.T) {
 		t.Errorf("EP::Pair::u1.isComposite = %v", composite.Values)
 	}
 
-	value := r.property("EP::Pair::x", "value")
+	var valuation string
+	for _, rel := range r.property("EP::Pair::x", "ownedRelationship").Values {
+		if rel.GetElement().GetMetaclass() == "FeatureValue" {
+			valuation = rel.GetElement().GetId()
+		}
+	}
+	if valuation == "" {
+		t.Fatalf("EP::Pair::x owns no FeatureValue")
+	}
+	value := r.property(valuation, "value")
 	if len(value.Values) != 1 || value.Values[0].GetElement().GetMetaclass() != "OperatorExpression" {
-		t.Fatalf("EP::Pair::x.value = %v", value.Values)
+		t.Fatalf("%s.value = %v", valuation, value.Values)
 	}
 	expression := value.Values[0].GetElement().GetId()
 	if operator := r.property(expression, "operator"); len(operator.Values) != 1 || operator.Values[0].GetStringValue() != "+" {
@@ -260,12 +283,16 @@ func TestElementPropertiesReportsWhyAPropertyHasNoAnswer(t *testing.T) {
 	if none.Unsupported != "" || len(none.Values) != 0 {
 		t.Errorf("EP::Unit.ownedSubclassification = %+v, want declared and empty", none)
 	}
-	perElement := r.property("EP::CmdPort::cmd", "inheritedFeature")
-	if len(perElement.Values) != 0 || !strings.Contains(perElement.Unsupported, "Type::inheritedFeature is not derived for this element") {
-		t.Errorf("a property the evaluator could not derive for one element answers %+v", perElement)
-	}
 	if inherited := r.property("EP::Pair", "inheritedFeature"); inherited.Unsupported != "" || len(inherited.Values) == 0 {
 		t.Errorf("EP::Pair.inheritedFeature = %+v, want derived", inherited)
+	}
+	if inherited := elementNames(r.property("EP::CmdPort::cmd", "inheritedFeature").Values); !containsAll(inherited, "Base::DataValue::self") {
+		t.Errorf("EP::CmdPort::cmd.inheritedFeature = %v, want the implied DataValue base's features", inherited)
+	}
+	unresolved := parseForElementPropertiesWithErrors(t, "package EU { part def Lone { part broken : Missing; } }")
+	perElement := unresolved.property("EU::Lone::broken", "type")
+	if len(perElement.Values) != 0 || !strings.Contains(perElement.Unsupported, "Feature::type is not derived for this element") {
+		t.Errorf("a property the evaluator could not derive for one element answers %+v", perElement)
 	}
 	omitted := r.property("EP::Pair", "ownedDisjoining")
 	if omitted.Unsupported != "" && !strings.Contains(omitted.Unsupported, "not derived by OpenSysML") {

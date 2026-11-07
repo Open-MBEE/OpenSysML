@@ -107,12 +107,10 @@ type CachedModel struct {
 	// elementId, which a query reports (queryEval.elementID).
 	elementIDsOnce sync.Once
 	elementIDs     *export.ElementIDReader
-	// elementForm is the model's API element form, which GetElementProperties
-	// reads per element, from one conversion made on first use; a model the
-	// conversion refuses keeps the refusal.
-	elementFormOnce sync.Once
-	elementForm     *export.ElementForm
-	elementFormErr  error
+	// elementReaderValue evaluates the metamodel over the model's symbols for
+	// GetElementProperties, built on first use.
+	elementReaderOnce  sync.Once
+	elementReaderValue *elementReader
 
 	// idle are the workers requests have given back, warm with what they resolved.
 	idleMu sync.Mutex
