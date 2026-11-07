@@ -247,3 +247,34 @@ func TestSendArgumentsReadFromTheirParameters(t *testing.T) {
 		t.Errorf("a receiverArgument that is not the receiver parameter's value should be refused, got %v", err)
 	}
 }
+
+// sendBodyParameterModel declares a send's parameters in its body where the head
+// writes no payload: the body's `in :>> payload` is the body's, not a head parameter.
+const sendBodyParameterModel = `package SendBodyParameters {
+    item def Alarm;
+    part def Display;
+    action def Monitor {
+        attribute s : Alarm;
+        part display : Display;
+        action snd send { in redefines payload = s; }
+        action notify send { in payload; in sender = display; }
+    }
+}
+`
+
+func TestSendBodyRedefinedParametersRoundTrip(t *testing.T) {
+	turtle, err := convert.Convert("m.sysml", []byte(sendBodyParameterModel), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := normalizeNotation(sendBodyParameterModel)
+	for name, graph := range map[string][]byte{"with text": turtle, "graph only": withoutTriples(t, turtle, "sysx:sourceText")} {
+		back, err := convert.Convert("m.ttl", graph, convert.FormatTurtle, convert.FormatSysML)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if got := normalizeNotation(string(back)); got != want {
+			t.Errorf("%s: round trip changed the model:\n%s\nwant:\n%s", name, got, want)
+		}
+	}
+}

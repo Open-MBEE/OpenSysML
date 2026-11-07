@@ -1295,7 +1295,9 @@ func (d *decoder) behaviorHead(el *element) (string, bool, error) {
 			}
 			texts[i] = text
 		}
-		if texts == [3]string{} {
+		// A head whose parameters all stand empty is a bare `send`: its body
+		// declares the parameters (`action snd send { in :>> payload = s; }`).
+		if texts == [3]string{} && len(d.sendArgumentParams(el)) == 0 {
 			return "", true, d.missing(el, "sysml:"+pPayloadArgument+", sysml:"+pSenderArgument+" or sysml:"+pReceiverArgument, "a send states what it sends or where")
 		}
 		words := append(nodeDeclaration(d, el), "send")
@@ -2662,11 +2664,23 @@ func (d *decoder) sendArgument(el *element, property string, position int) (stri
 func (d *decoder) sendArgumentParams(el *element) []*element {
 	params := d.parameterChildren(el)
 	for i, param := range params {
-		if len(d.identWords(param)) > 0 {
+		if len(d.identWords(param)) > 0 || d.statesRelationship(param) {
 			return params[:i]
 		}
 	}
 	return params
+}
+
+// statesRelationship reports whether el types, specializes, subsets or
+// redefines anything: a send's head parameters state only a value, so a body's
+// `in :>> payload = s;` is the body's, not the head's.
+func (d *decoder) statesRelationship(el *element) bool {
+	for _, kind := range []ast.RelationshipKind{ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences} {
+		if refs, err := d.referenceList(el, rdf.SysML+relationshipProperty[kind]); err == nil && len(refs) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // parameterChildren are the children el owns through a ParameterMembership, in order.
