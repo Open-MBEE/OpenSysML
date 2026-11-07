@@ -1,6 +1,7 @@
 package solve
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
@@ -101,6 +102,18 @@ func TestDerivedValueThroughAHeldSubjectIsReadThroughIt(t *testing.T) {
 		t.Fatalf("Derived = %+v, want no equation: the chain is read through the held object", q.Derived)
 	}
 	solved(t, solver, q, StatusUnsat)
+
+	// Checked as a declaration, r5 still binds s to small, so the root is held
+	// and ok stays the value read through it — unreadable with no object, as before.
+	pins, unfixed = Fixed(ctx, r5, nil)
+	for _, p := range pins {
+		if p.Name == "ok" {
+			t.Fatalf("ok = %+v, want not derived: s is bound to small", p)
+		}
+	}
+	if len(unfixed) != 1 || unfixed[0].Name != "ok" || !errors.Is(unfixed[0].Err, runtime.ErrNoValue) {
+		t.Fatalf("unfixed = %+v, want ok alone, unreadable for want of an object for s", unfixed)
+	}
 }
 
 // TestDerivedValueThroughAParameterOfADefinitionIsItsEquation: a definition checked as such

@@ -248,7 +248,8 @@ func Fixed(ctx *runtime.Context, sym *symbols.Symbol, inst *runtime.Instance) ([
 	var unfixed []Unfixed
 	features := effectiveFeatures(ctx, sym)
 	model := ctx.Semantics()
-	for _, feat := range ctx.FeaturesOf(sym) {
+	all := ctx.FeaturesOf(sym)
+	for _, feat := range all {
 		feature := feat
 		if feature.Name == "" || feature.Symbol == nil {
 			continue
@@ -261,7 +262,7 @@ func Fixed(ctx *runtime.Context, sym *symbols.Symbol, inst *runtime.Instance) ([
 		}
 		// Whether the object holds the value is read before reading it, which
 		// materializes a declared value the object had not yet.
-		derived := derivedDeclaration(ctx, &feature, inst, features)
+		derived := derivedDeclaration(ctx, &feature, inst, features, all)
 		value, source, object, err := fixedValue(ctx, &feature, inst)
 		if err == nil {
 			// A declared value open for a feature nothing gives a value to does not
@@ -407,7 +408,7 @@ func fixedValue(
 // name values the query fixes none of, which an equation would leave to the
 // solver, so the value the evaluator derives from them is what the query fixes.
 // A unit (`[m]`) is a measurement reference, not a value read.
-func derivedDeclaration(ctx *runtime.Context, feat *runtime.EffectiveFeature, inst *runtime.Instance, features map[string]*symbols.Symbol) *Derived {
+func derivedDeclaration(ctx *runtime.Context, feat *runtime.EffectiveFeature, inst *runtime.Instance, features map[string]*symbols.Symbol, all []runtime.EffectiveFeature) *Derived {
 	if feat.DefaultValue == nil || ctx.IsVariationFeature(feat) {
 		return nil
 	}
@@ -428,7 +429,7 @@ func derivedDeclaration(ctx *runtime.Context, feat *runtime.EffectiveFeature, in
 		case *ast.FeatureChainExpr:
 			// A chain rooted in a feature no object is held for (`s.amount` through the subject, a
 			// parameter by SysML v2 §7.21.2) reads a value the query leaves free: `=` binds feat to it (KerML 1.1 §7.3.4.5).
-			if segments, ok := pathSegments(ref); ok && chainRootFree(ctx, inst, feat, features, segments) {
+			if segments, ok := pathSegments(ref); ok && chainRootFree(ctx, inst, feat, features, all, segments) {
 				reads = true
 			} else {
 				outside = true
@@ -453,17 +454,20 @@ func derivedDeclaration(ctx *runtime.Context, feat *runtime.EffectiveFeature, in
 }
 
 // chainRootFree reports whether segments' root is a feature of the element other than feat that
-// inst holds no object for, reading the root — which materializes a part the object had not yet.
-func chainRootFree(ctx *runtime.Context, inst *runtime.Instance, feat *runtime.EffectiveFeature, features map[string]*symbols.Symbol, segments []string) bool {
+// holds no object, read as fixedValue reads it: through inst, else by the value the root declares.
+func chainRootFree(ctx *runtime.Context, inst *runtime.Instance, feat *runtime.EffectiveFeature, features map[string]*symbols.Symbol, all []runtime.EffectiveFeature, segments []string) bool {
 	root, own := features[segments[0]]
 	if !own || root == feat.Symbol {
 		return false
 	}
-	if inst == nil {
-		return true
+	for i := range all {
+		if all[i].Name != segments[0] {
+			continue
+		}
+		value, _, _, err := fixedValue(ctx, &all[i], inst)
+		return errors.Is(err, runtime.ErrNoValue) || err == nil && value.Kind == runtime.ValInvalid
 	}
-	fv, err := inst.GetFeatureValue(ctx, segments[0])
-	return err == nil && (fv == nil || fv.HeldValue().Kind == runtime.ValInvalid)
+	return false
 }
 
 // fix asserts the fixed values the query's variables read, and records the ones
