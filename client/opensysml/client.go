@@ -186,6 +186,10 @@ type Client interface {
 	// document_query capability.
 	RunDocumentQuery(ctx context.Context, model *Model, queryID string, bindings ...Binding) (*Rows, error)
 
+	// RunInlineDocumentQuery runs a query expression written in place of a named
+	// query, as RunDocumentQuery runs one. Requires inline_document_query.
+	RunInlineDocumentQuery(ctx context.Context, model *Model, expression string, bindings ...Binding) (*Rows, error)
+
 	// RenderDocument renders the named document to Markdown. Requires the
 	// render_document capability.
 	RenderDocument(ctx context.Context, model *Model, documentID string) (string, error)

@@ -69,6 +69,7 @@ var CapabilityTools = map[string]string{
 	sysmlgrpc.CapabilityQueryOrderBy:                   "query",
 	sysmlgrpc.CapabilityOSLCQuery:                      "query",
 	sysmlgrpc.CapabilityDocumentQuery:                  "run_document_query",
+	sysmlgrpc.CapabilityInlineDocumentQuery:            "run_document_query",
 	sysmlgrpc.CapabilityRenderDocument:                 "render_model_document",
 	sysmlgrpc.CapabilityRenderDocumentHTML:             "render_model_document",
 	sysmlgrpc.CapabilityRenderDocumentAsciiDoc:         "render_model_document",

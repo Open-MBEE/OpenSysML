@@ -5,7 +5,7 @@ import warnings
 
 from . import sysml_pb2 as sysml__pb2
 
-GRPC_GENERATED_VERSION = '1.83.0'
+GRPC_GENERATED_VERSION = '1.85.1'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -444,7 +444,8 @@ class SysMLServiceServicer:
     def RunDocumentQuery(self, request, context):
         """Run a named document query with parameter bindings, the answer the REPL's
         %run-query gives, as typed rows rather than formatted lines. Reported as
-        the "document_query" capability.
+        the "document_query" capability; a query expression written in place of a
+        name (inline_query) as the "inline_document_query" capability.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

@@ -549,6 +549,18 @@ fn a_document_query_answers_typed_rows_and_a_document_renders() {
         result.rows[0].cells[0],
         vec![DocumentValue::Text("mount".to_owned())]
     );
+    let inline = model
+        .run_inline_document_query::<&str>(
+            "Project(WhereType(Descendants(Observatory::telescope), \"PartUsage\"), (\"name\", \"mass\"))",
+            &[],
+        )
+        .unwrap();
+    assert_eq!(inline.columns, vec!["name", "mass"]);
+    assert_eq!(inline.rows.len(), 4);
+    let fault = model
+        .run_inline_document_query::<&str>("Project(Named(\"Observatory\") (\"name\"))", &[])
+        .unwrap_err();
+    assert!(fault.to_string().contains("inline query 1:"), "{fault}");
     let markdown = model
         .render_document("Observatory::MassReport", DocumentForm::Markdown)
         .unwrap();

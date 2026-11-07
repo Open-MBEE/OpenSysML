@@ -477,19 +477,25 @@ class Model:
             oslc=oslc,
         )
 
-    def run_document_query(self, query_id, bindings=None):
-        """Run one of this model's named document queries.
+    def run_document_query(self, query_id=None, bindings=None, inline_query=None):
+        """Run one of this model's named document queries, or a query expression.
 
         The query is the model's own — a calc def specializing
         ``DocumentQueries::Query`` — not the standard's Query object
-        :meth:`query` evaluates. See :mod:`opensysml.document`.
+        :meth:`query` evaluates. See :mod:`opensysml.document`. Exactly one
+        of ``query_id`` and ``inline_query`` is given.
 
         Args:
-            query_id (str): Qualified name of the document query
+            query_id (str, optional): Qualified name of the document query
             bindings (Mapping, optional): Parameter name to a value or list of
                 values; an :class:`~opensysml.document.ElementRef` binds a
                 model element, an :class:`~opensysml.document.ObjectRef` an
                 object ``instantiate`` built, by id or by path
+            inline_query (str, optional): A query expression run in place of
+                a named query — ``Project(WhereType(Descendants(
+                Named("Vehicles")), "PartUsage"), ("name", "mass"))`` — with
+                the ``DocumentQueries`` library in scope; needs the
+                ``inline_document_query`` capability
 
         Returns:
             DocumentQueryResult: Projected columns and typed rows, in the
@@ -509,9 +515,12 @@ class Model:
             ...     bindings={"root": ElementRef("Observatory::telescope")})
             >>> result.columns
             ('name', 'mass')
+            >>> model.run_document_query(
+            ...     inline_query='Project(Descendants(Observatory::telescope), ("name"))').columns
+            ('name',)
         """
         return self.connection.run_document_query(
-            self._hash, query_id, bindings=bindings,
+            self._hash, query_id, bindings=bindings, inline_query=inline_query,
         )
 
     def render_document(self, document_id, form="markdown"):

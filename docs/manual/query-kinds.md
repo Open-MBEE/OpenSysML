@@ -52,7 +52,11 @@ column does. See
 [Computed columns](query-cookbook.md#computed-columns).
 
 Rows live in one place: a document's `Table` or `List` renders them, and
-`%run-query`/`-run-query` print them. The [query cookbook](query-cookbook.md)
+`%run-query`/`-run-query` print them — by the query's name, or for a query
+written on the spot (`%run-query inline <expression>`,
+`-run-inline-query '<expression>'`, `inline_query` over gRPC, `inlineQuery` over
+MCP): the result expression such a `calc def` would hold, planned and run as a
+named query is, in the model's context. The [query cookbook](query-cookbook.md)
 is the recipe book; the [command reference](../reference/cli.md#command-reference)
 lists the flags, and [Interfaces](interfaces.md) the gRPC and Python calls.
 
