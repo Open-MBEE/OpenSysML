@@ -2204,20 +2204,16 @@ func ReflectiveDirection(sym *symbols.Symbol) (ast.FeatureDirection, bool) {
 		}
 		return ast.DirNone, true
 	}
-	if sym != nil && sym.Recorded() {
-		if !sym.IsFeature() {
-			return ast.DirNone, false
-		}
-		if sym.Facts.Node == symbols.NodeSubject {
-			return ast.DirIn, true
-		}
-		return sym.Facts.Direction, true
-	}
 	if sym == nil || !sym.IsFeature() {
 		return ast.DirNone, false
 	}
-	if _, ok := sym.Decl.(*ast.SubjectMember); ok {
+	// A subject, actor or stakeholder is a parameter whose membership gives it
+	// its direction: `in` (KerML 8.3.4.6 ParameterMembership::parameterDirection).
+	if hasDefaultInputParameterDirection(sym) {
 		return ast.DirIn, true
+	}
+	if sym.Recorded() {
+		return sym.Facts.Direction, true
 	}
 	traits, ok := featureTraitsOf(sym)
 	if ok {
@@ -2760,6 +2756,7 @@ var metaclassNames = map[symbols.SymbolKind]string{
 	symbols.SymbolSuccessionUsage:         "SuccessionAsUsage",
 	symbols.SymbolFlowDef:                 "FlowDefinition",
 	symbols.SymbolFlowUsage:               "FlowUsage",
+	symbols.SymbolSuccessionFlowUsage:     "SuccessionFlowUsage",
 	symbols.SymbolPortDef:                 "PortDefinition",
 	symbols.SymbolPortUsage:               "PortUsage",
 	symbols.SymbolInterfaceDef:            "InterfaceDefinition",
@@ -2768,6 +2765,13 @@ var metaclassNames = map[symbols.SymbolKind]string{
 	symbols.SymbolAllocationUsage:         "AllocationUsage",
 	symbols.SymbolActionDef:               "ActionDefinition",
 	symbols.SymbolActionUsage:             "ActionUsage",
+	symbols.SymbolAcceptActionUsage:       "AcceptActionUsage",
+	symbols.SymbolAssignmentActionUsage:   "AssignmentActionUsage",
+	symbols.SymbolPerformActionUsage:      "PerformActionUsage",
+	symbols.SymbolIfActionUsage:           "IfActionUsage",
+	symbols.SymbolWhileLoopActionUsage:    "WhileLoopActionUsage",
+	symbols.SymbolForLoopActionUsage:      "ForLoopActionUsage",
+	symbols.SymbolTerminateActionUsage:    "TerminateActionUsage",
 	symbols.SymbolStateDef:                "StateDefinition",
 	symbols.SymbolStateUsage:              "StateUsage",
 	symbols.SymbolCalcDef:                 "CalculationDefinition",

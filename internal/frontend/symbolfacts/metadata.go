@@ -36,6 +36,14 @@ func extractMetadata(sym *symbols.Symbol, meta map[string]string) {
 		if decl.IsAbstract {
 			meta["abstract"] = "true"
 		}
+	case *ast.SubjectMember:
+		// A subject written in a requirement body: `subject s : T;`.
+		if decl.Multiplicity != nil {
+			meta["multiplicity"] = formatMultiplicity(decl.Multiplicity)
+		}
+		if decl.TypeRef != nil {
+			meta["type"] = formatQualifiedName(decl.TypeRef)
+		}
 	case *ast.PrefixMetadata:
 		// The metadata definition an `@M` or `#M` annotation is typed by.
 		if decl.Type != nil {

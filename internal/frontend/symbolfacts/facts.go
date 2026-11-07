@@ -136,6 +136,13 @@ func OfWith(sym *symbols.Symbol, sc *Context, opts Options) *Info {
 	}
 	// Extract metadata from AST node
 	extractMetadata(sym, info.Metadata)
+	// A parameter whose direction its membership gives rather than its text,
+	// such as a subject (`in`), reports that direction.
+	if _, written := info.Metadata["direction"]; !written {
+		if dir, ok := semantics.ReflectiveDirection(sym); ok && dir != ast.DirNone {
+			info.Metadata["direction"] = dir.String()
+		}
+	}
 	// Add visibility to metadata
 	info.Metadata["visibility"] = visibilityToString(sym.Visibility)
 	if sym.Scope != nil {
@@ -285,6 +292,8 @@ func (sc *Context) typeInfoOf(sym *symbols.Symbol) *TypeInfo {
 		return sc.usageTypeInfo(sym, decl)
 	case *ast.Definition:
 		return sc.definitionTypeInfo(sym)
+	case *ast.SubjectMember:
+		return sc.subjectTypeInfo(sym, decl)
 	case *ast.PrefixMetadata:
 		return sc.annotationTypeInfo(sym, decl)
 	default:
@@ -308,6 +317,32 @@ func (sc *Context) annotationTypeInfo(sym *symbols.Symbol, decl *ast.PrefixMetad
 
 // usageTypeInfo derives the type facts of a usage. An untyped usage still has a
 // primitive when its default value determines one, reported as inferred.
+// subjectTypeInfo is the type of a subject written in a requirement body
+// (`subject s : T;`), which the declaration carries rather than a relationship.
+func (sc *Context) subjectTypeInfo(sym *symbols.Symbol, decl *ast.SubjectMember) *TypeInfo {
+	info := &TypeInfo{}
+	if decl.TypeRef != nil {
+		sc.declareType(sym, info, decl.TypeRef)
+	}
+	if prim := sc.Semantics.PrimTypeOf(sym); prim != semantics.PrimUnknown {
+		info.Primitive = prim.String()
+		info.PrimitiveSource = "declared"
+	} else if prim, ok := primOfValue(sc.Semantics, decl.BindingExpr); ok {
+		info.Primitive = prim
+		info.PrimitiveSource = "value"
+	}
+	sc.markQuantity(sym, info, decl.BindingExpr)
+	return info
+}
+
+func (sc *Context) declareType(sym *symbols.Symbol, info *TypeInfo, qn *ast.QualifiedName) {
+	info.Declared = qn.Text()
+	if target := sc.resolveFrom(sym, qn); target != nil {
+		info.ResolvedId = sc.Index.GetFQN(target)
+		info.ResolvedKind = target.Kind.String()
+	}
+}
+
 func (sc *Context) usageTypeInfo(sym *symbols.Symbol, decl *ast.Usage) *TypeInfo {
 	info := &TypeInfo{}
 
@@ -321,11 +356,7 @@ func (sc *Context) usageTypeInfo(sym *symbols.Symbol, decl *ast.Usage) *TypeInfo
 		if qn == nil {
 			continue
 		}
-		info.Declared = qn.Text()
-		if target := sc.resolveFrom(sym, qn); target != nil {
-			info.ResolvedId = sc.Index.GetFQN(target)
-			info.ResolvedKind = target.Kind.String()
-		}
+		sc.declareType(sym, info, qn)
 		break
 	}
 

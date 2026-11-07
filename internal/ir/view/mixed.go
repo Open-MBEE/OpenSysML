@@ -411,6 +411,9 @@ func mixedStructural(sym *symbols.Symbol) bool {
 		symbols.SymbolInterfaceDef, symbols.SymbolInterfaceUsage, symbols.SymbolAllocationDef, symbols.SymbolAllocationUsage,
 		symbols.SymbolConstraintDef, symbols.SymbolConstraintUsage:
 		return true
+	case symbols.SymbolReferenceUsage:
+		// A subject is a reference to the structure a case or requirement is about.
+		return semantics.IsSubjectUsage(sym)
 	}
 	return false
 }

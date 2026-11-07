@@ -525,3 +525,34 @@ func (idx *Index) InstallLibraryFacts(name string, facts map[string]*LibraryFact
 		}
 	}
 }
+
+// ActionNodeStatementOf is the statement an action usage is written as (`action a
+// assign x := y;`, SysML v2 §8.2.2.17 ActionNode); nil for any other declaration.
+func ActionNodeStatementOf(decl ast.Node) ast.Node {
+	u, ok := decl.(*ast.Usage)
+	if !ok || u.Kind != ast.UsageAction || !u.IsActionNode || len(u.Members) != 1 {
+		return nil
+	}
+	statement := u.Members[0]
+	if m, ok := statement.(*ast.Membership); ok {
+		statement = m.Member
+	}
+	return statement
+}
+
+// AcceptPayloadOf is the payload parameter of an accept action (`action a accept
+// p : T;`, SysML v2 §8.2.2.17 AcceptNode); nil for any other declaration.
+func AcceptPayloadOf(decl ast.Node) *ast.Usage {
+	u, ok := decl.(*ast.Usage)
+	if !ok || u.Kind != ast.UsageAction || len(u.Members) == 0 {
+		return nil
+	}
+	member := u.Members[0]
+	if m, ok := member.(*ast.Membership); ok {
+		member = m.Member
+	}
+	if payload, ok := member.(*ast.Usage); ok && payload.IsAccept {
+		return payload
+	}
+	return nil
+}

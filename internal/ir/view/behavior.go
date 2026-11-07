@@ -746,10 +746,10 @@ func (r *Renderer) rootSuccessionEdges(view *symbols.Symbol, roots map[*symbols.
 // declared with the keyword `calc` (SysML v2 §7.19.2), drawn the same way.
 func behaviorKind(kind symbols.SymbolKind) bool {
 	switch kind {
-	case symbols.SymbolActionDef, symbols.SymbolActionUsage, symbols.SymbolCalcDef, symbols.SymbolCalcUsage:
+	case symbols.SymbolActionDef, symbols.SymbolCalcDef, symbols.SymbolCalcUsage:
 		return true
 	}
-	return false
+	return kind.IsActionUsage()
 }
 
 // renderAction builds one action graph with shared IDs.

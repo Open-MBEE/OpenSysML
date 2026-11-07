@@ -14,7 +14,7 @@
       {
         "name": "api-json-writer",
         "source": "internal/translate/export",
-        "sourceDigest": "sha256:2bb43dd73f27425e20a911e907691c94ce5b5ab0bd88780b3960e81fc3308532"
+        "sourceDigest": "sha256:615b442675f06b142601bf57a2130550134561124c7a43c420ae7f1840b13884"
       }
     ],
     "inputs": [
@@ -114,23 +114,23 @@
     "pilotLibraryElements": 40244,
     "elements": {
       "matched": 102691,
-      "oursOnly": 16216,
+      "oursOnly": 16210,
       "pilotOnly": 28623,
       "pilotOnlyImplied": 0,
-      "typeMismatch": 1821
+      "typeMismatch": 1820
     },
     "properties": {
-      "presentEqual": 1985911,
-      "presentDifferent": 149129,
-      "oursMissing": 303821,
-      "pilotMissing": 80006,
-      "absentBoth": 2190617,
+      "presentEqual": 1985910,
+      "presentDifferent": 149876,
+      "oursMissing": 303075,
+      "pilotMissing": 80010,
+      "absentBoth": 2190613,
       "indeterminate": 33582,
       "pilotNondeterministic": 525
     },
     "rows": 11768,
-    "unkeyedReferences": 157266,
-    "extensionProperties": 267078,
+    "unkeyedReferences": 157815,
+    "extensionProperties": 267080,
     "duplicateElements": {
       "ours": 553,
       "pilot": 83427
@@ -162,8 +162,8 @@
       },
       "properties": {
         "presentEqual": 159725,
-        "presentDifferent": 13232,
-        "oursMissing": 20109,
+        "presentDifferent": 13272,
+        "oursMissing": 20069,
         "pilotMissing": 5713,
         "absentBoth": 180416,
         "indeterminate": 2635,
@@ -194,12 +194,12 @@
         "oursOnly": 5684,
         "pilotOnly": 7282,
         "pilotOnlyImplied": 0,
-        "typeMismatch": 34
+        "typeMismatch": 32
       },
       "properties": {
-        "presentEqual": 568107,
-        "presentDifferent": 45081,
-        "oursMissing": 82729,
+        "presentEqual": 568106,
+        "presentDifferent": 45166,
+        "oursMissing": 82645,
         "pilotMissing": 21472,
         "absentBoth": 627384,
         "indeterminate": 7727,
@@ -234,8 +234,8 @@
       },
       "properties": {
         "presentEqual": 197026,
-        "presentDifferent": 17173,
-        "oursMissing": 26110,
+        "presentDifferent": 17205,
+        "oursMissing": 26078,
         "pilotMissing": 7569,
         "absentBoth": 221546,
         "indeterminate": 2765,
@@ -300,17 +300,17 @@
       "pilotLibraryElements": 432,
       "elements": {
         "matched": 7546,
-        "oursOnly": 872,
+        "oursOnly": 868,
         "pilotOnly": 2184,
         "pilotOnlyImplied": 0,
-        "typeMismatch": 417
+        "typeMismatch": 419
       },
       "properties": {
-        "presentEqual": 132153,
-        "presentDifferent": 7541,
-        "oursMissing": 22114,
-        "pilotMissing": 6381,
-        "absentBoth": 144626,
+        "presentEqual": 132154,
+        "presentDifferent": 7624,
+        "oursMissing": 22030,
+        "pilotMissing": 6384,
+        "absentBoth": 144623,
         "indeterminate": 2365,
         "pilotNondeterministic": 7
       },
@@ -344,8 +344,8 @@
       },
       "properties": {
         "presentEqual": 27674,
-        "presentDifferent": 2125,
-        "oursMissing": 4161,
+        "presentDifferent": 2155,
+        "oursMissing": 4131,
         "pilotMissing": 1191,
         "absentBoth": 32572,
         "indeterminate": 375,
@@ -374,17 +374,17 @@
       "pilotLibraryElements": 17663,
       "elements": {
         "matched": 31881,
-        "oursOnly": 5115,
+        "oursOnly": 5113,
         "pilotOnly": 11248,
         "pilotOnlyImplied": 0,
-        "typeMismatch": 200
+        "typeMismatch": 199
       },
       "properties": {
-        "presentEqual": 624349,
-        "presentDifferent": 44933,
-        "oursMissing": 99315,
-        "pilotMissing": 24004,
-        "absentBoth": 704913,
+        "presentEqual": 624348,
+        "presentDifferent": 45410,
+        "oursMissing": 98839,
+        "pilotMissing": 24005,
+        "absentBoth": 704912,
         "indeterminate": 13715,
         "pilotNondeterministic": 168
       },
@@ -646,8 +646,8 @@
     ],
     "AcceptActionUsage.inheritedFeature": [
       0,
-      0,
       47,
+      0,
       0,
       0,
       0,
@@ -655,8 +655,8 @@
     ],
     "AcceptActionUsage.inheritedMembership": [
       0,
-      0,
       47,
+      0,
       0,
       0,
       0,
@@ -2304,8 +2304,8 @@
       143,
       2,
       22,
-      1,
-      349,
+      2,
+      348,
       0,
       0
     ],
@@ -2313,8 +2313,8 @@
       143,
       2,
       22,
-      1,
-      349,
+      2,
+      348,
       0,
       0
     ],
@@ -2347,8 +2347,8 @@
     ],
     "ActionUsage.feature": [
       0,
-      471,
-      46,
+      472,
+      45,
       0,
       0,
       0,
@@ -2356,8 +2356,8 @@
     ],
     "ActionUsage.featureMembership": [
       0,
-      471,
-      46,
+      472,
+      45,
       0,
       0,
       0,
@@ -2401,8 +2401,8 @@
     ],
     "ActionUsage.inheritedFeature": [
       0,
-      471,
-      46,
+      472,
+      45,
       0,
       0,
       0,
@@ -2410,8 +2410,8 @@
     ],
     "ActionUsage.inheritedMembership": [
       0,
-      471,
-      46,
+      472,
+      45,
       0,
       0,
       0,
@@ -2421,8 +2421,8 @@
       117,
       2,
       19,
-      2,
-      377,
+      3,
+      376,
       0,
       0
     ],
@@ -2608,8 +2608,8 @@
     ],
     "ActionUsage.member": [
       0,
-      471,
-      46,
+      472,
+      45,
       0,
       0,
       0,
@@ -2617,8 +2617,8 @@
     ],
     "ActionUsage.membership": [
       0,
-      471,
-      46,
+      472,
+      45,
       0,
       0,
       0,
@@ -3255,9 +3255,9 @@
       0
     ],
     "ActionUsage.usage": [
-      136,
-      323,
-      46,
+      132,
+      328,
+      45,
       0,
       0,
       12,
@@ -8710,8 +8710,8 @@
     ],
     "AssignmentActionUsage.feature": [
       0,
-      0,
       111,
+      0,
       0,
       0,
       0,
@@ -8719,8 +8719,8 @@
     ],
     "AssignmentActionUsage.featureMembership": [
       0,
-      0,
       111,
+      0,
       0,
       0,
       0,
@@ -8755,8 +8755,8 @@
     ],
     "AssignmentActionUsage.inheritedFeature": [
       0,
-      0,
       111,
+      0,
       0,
       0,
       0,
@@ -8764,8 +8764,8 @@
     ],
     "AssignmentActionUsage.inheritedMembership": [
       0,
-      0,
       111,
+      0,
       0,
       0,
       0,
@@ -9556,8 +9556,8 @@
     ],
     "AssignmentActionUsage.usage": [
       0,
-      0,
       111,
+      0,
       0,
       0,
       0,
@@ -43531,8 +43531,8 @@
     ],
     "ForLoopActionUsage.inheritedFeature": [
       0,
-      0,
       5,
+      0,
       0,
       0,
       0,
@@ -43540,8 +43540,8 @@
     ],
     "ForLoopActionUsage.inheritedMembership": [
       0,
-      0,
       5,
+      0,
       0,
       0,
       0,
@@ -46249,8 +46249,8 @@
     ],
     "IfActionUsage.inheritedFeature": [
       0,
-      0,
       4,
+      0,
       0,
       0,
       0,
@@ -46258,8 +46258,8 @@
     ],
     "IfActionUsage.inheritedMembership": [
       0,
-      0,
       4,
+      0,
       0,
       0,
       0,
@@ -47013,8 +47013,8 @@
       0
     ],
     "IfActionUsage.usage": [
-      0,
-      4,
+      3,
+      1,
       0,
       0,
       0,
@@ -92716,8 +92716,8 @@
     ],
     "TerminateActionUsage.feature": [
       0,
-      1,
-      10,
+      11,
+      0,
       0,
       0,
       0,
@@ -92725,8 +92725,8 @@
     ],
     "TerminateActionUsage.featureMembership": [
       0,
-      1,
-      10,
+      11,
+      0,
       0,
       0,
       0,
@@ -92761,8 +92761,8 @@
     ],
     "TerminateActionUsage.inheritedFeature": [
       0,
-      0,
       11,
+      0,
       0,
       0,
       0,
@@ -92770,8 +92770,8 @@
     ],
     "TerminateActionUsage.inheritedMembership": [
       0,
-      0,
       11,
+      0,
       0,
       0,
       0,
@@ -92950,8 +92950,8 @@
     ],
     "TerminateActionUsage.member": [
       0,
-      5,
-      6,
+      11,
+      0,
       0,
       0,
       0,
@@ -92959,8 +92959,8 @@
     ],
     "TerminateActionUsage.membership": [
       0,
-      5,
-      6,
+      11,
+      0,
       0,
       0,
       0,
@@ -93553,8 +93553,8 @@
     ],
     "TerminateActionUsage.usage": [
       0,
-      1,
-      10,
+      11,
+      0,
       0,
       0,
       0,
@@ -105568,8 +105568,8 @@
     ],
     "WhileLoopActionUsage.inheritedFeature": [
       0,
-      1,
-      4,
+      5,
+      0,
       0,
       0,
       0,
@@ -105577,8 +105577,8 @@
     ],
     "WhileLoopActionUsage.inheritedMembership": [
       0,
-      1,
-      4,
+      5,
+      0,
       0,
       0,
       0,
@@ -105849,8 +105849,8 @@
       0,
       0,
       0,
-      2,
       3,
+      2,
       0,
       0
     ],
