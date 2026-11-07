@@ -73,6 +73,7 @@ jobs:
       matlab: ${{ steps.areas.outputs.matlab }}
       vscode: ${{ steps.areas.outputs.vscode }}
       jupyterlab: ${{ steps.areas.outputs.jupyterlab }}
+      emacs: ${{ steps.areas.outputs.emacs }}
       mdk: ${{ steps.areas.outputs.mdk }}
       syson: ${{ steps.areas.outputs.syson }}
     steps:
@@ -776,6 +777,7 @@ jobs:
       - static-and-integrity
       - vscode-extension
       - jupyterlab-extension
+      - emacs-package
       - wasm-gate
       - xpect-oracle
     runs-on: ubuntu-latest
@@ -803,6 +805,7 @@ jobs:
           STATIC_AND_INTEGRITY_RESULT: ${{ needs.static-and-integrity.result }}
           VSCODE_EXTENSION_RESULT: ${{ needs.vscode-extension.result }}
           JUPYTERLAB_EXTENSION_RESULT: ${{ needs.jupyterlab-extension.result }}
+          EMACS_PACKAGE_RESULT: ${{ needs.emacs-package.result }}
           WASM_GATE_RESULT: ${{ needs.wasm-gate.result }}
           XPECT_ORACLE_RESULT: ${{ needs.xpect-oracle.result }}
         run: |
@@ -825,6 +828,7 @@ jobs:
              ! ok "$STATIC_AND_INTEGRITY_RESULT" ||
              ! ok "$VSCODE_EXTENSION_RESULT" ||
              ! ok "$JUPYTERLAB_EXTENSION_RESULT" ||
+             ! ok "$EMACS_PACKAGE_RESULT" ||
              ! ok "$WASM_GATE_RESULT" ||
              ! ok "$XPECT_ORACLE_RESULT"; then
             echo "changes=$CHANGES_RESULT"
@@ -845,6 +849,7 @@ jobs:
             echo "static-and-integrity=$STATIC_AND_INTEGRITY_RESULT"
             echo "vscode-extension=$VSCODE_EXTENSION_RESULT"
             echo "jupyterlab-extension=$JUPYTERLAB_EXTENSION_RESULT"
+            echo "emacs-package=$EMACS_PACKAGE_RESULT"
             echo "wasm-gate=$WASM_GATE_RESULT"
             echo "xpect-oracle=$XPECT_ORACLE_RESULT"
             exit 1
@@ -1058,6 +1063,45 @@ jobs:
         run: |
           scripts/download-sca-tools.sh osv-scanner
           make audit-java JAVA_PROJECT_DIRS=editors/mdk
+
+  emacs-package:
+    name: Emacs package
+    needs: changes
+    if: needs.changes.outputs.emacs == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 15
+    env:
+      # The suites drive a live sysml-lsp: requiring it turns "binary absent"
+      # into a failure instead of a skip.
+      OPENSYSML_REQUIRE_EMACS_LSP: "1"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Emacs 29.1 is the oldest the package supports.
+      - name: Set up Emacs
+        uses: purcell/setup-emacs@c851e5408f2d2f657fa80375bbe3fb35029aa488 # v6.0
+        with:
+          version: '29.1'
+
+      # The generated keyword lists are gated by go test ./editors/... in the
+      # Go suite; this job builds the server the live suites drive.
+      - name: Build the language server
+        run: make build-lsp
+
+      - name: Byte-compile and checkdoc
+        run: make emacs-compile
+
+      - name: Run the ERT suites
+        run: make emacs-test
 
   docs:
     name: Documentation site

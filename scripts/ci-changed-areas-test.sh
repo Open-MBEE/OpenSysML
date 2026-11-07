@@ -82,27 +82,32 @@ case_ mdk-child-manifest mdk,python editors/mdk/plugin/pom.xml
 case_ syson-api-stubs-manifest python,syson editors/syson/syson-api-stubs/pom.xml
 case_ syson-backend-manifest python,syson editors/syson/backend/pom.xml
 case_ syson-readme docs,syson editors/syson/README.md
+case_ emacs-only emacs editors/emacs/sysml-mode.el
+case_ emacs-test emacs editors/emacs/test/sysml-mode-test.el
 # The grammar generator and its committed output are held together by a Go test.
-case_ vscode-grammar docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode editors/vscode/tools/gengrammar/grammar.go
-case_ vscode-syntaxes docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode editors/vscode/syntaxes/sysml.tmLanguage.json
-case_ jupyterlab-syntax docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode editors/jupyterlab/src/syntax.json
+case_ vscode-grammar docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode editors/vscode/tools/gengrammar/grammar.go
+case_ emacs-genkeywords docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode editors/emacs/tools/genkeywords/elisp.go
+case_ emacs-keyword-lists docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode editors/emacs/sysml-mode-keywords.el
+case_ shared-keyword-groups docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode editors/internal/keywords/keywords.go
+case_ vscode-syntaxes docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode editors/vscode/syntaxes/sysml.tmLanguage.json
+case_ jupyterlab-syntax docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode editors/jupyterlab/src/syntax.json
 # Any markdown counts as documentation: the site links out to repository files.
 case_ man-page docs packaging/man/man1/sysml.1
 case_ two-client-readmes docs,java,mdk,node,python client/java/README.md client/node/README.md
 case_ two-clients java,mdk,node,python client/java/pom.xml client/node/tsconfig.json
-case_ go-source docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/syntax/parser/parser.go
-case_ go-client docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode client/opensysml/client.go
-case_ release-digests docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode client/release-digests.json
-case_ go-tools docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode tools/gen/snapshot/main.go
-case_ proto docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode api/proto/sysml.proto
-case_ install-script docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode install.sh
-case_ install-script-windows docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode install.ps1
-case_ action docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode action.yml
-case_ conformance docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode conformance/scenarios/01-server-info.json
-case_ workflow docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/workflows/pr.yml
-case_ dependabot docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/dependabot.yml
+case_ go-source docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/syntax/parser/parser.go
+case_ go-client docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode client/opensysml/client.go
+case_ release-digests docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode client/release-digests.json
+case_ go-tools docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode tools/gen/snapshot/main.go
+case_ proto docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode api/proto/sysml.proto
+case_ install-script docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode install.sh
+case_ install-script-windows docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode install.ps1
+case_ action docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode action.yml
+case_ conformance docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode conformance/scenarios/01-server-info.json
+case_ workflow docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/workflows/pr.yml
+case_ dependabot docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/dependabot.yml
 # The npm runner is tested and its lockfile audited in the Go static job, so its package is a service path.
-case_ mcp-lockfile docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode packaging/npm/sysml-mcp/package-lock.json
+case_ mcp-lockfile docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode packaging/npm/sysml-mcp/package-lock.json
 quick_case_ mcp-lockfile go packaging/npm/sysml-mcp/package-lock.json
 # The pysysml stub is audited in the Python job.
 case_ pysysml python packaging/pypi-pysysml/pyproject.toml
@@ -114,7 +119,7 @@ case_ project-baseline docs,go docs/project/pilot-differential-baseline.json
 case_ project-figures docs,go docs/project/api-json-differential.md
 case_ project-archive docs,go docs/project/archive/CHANGELOG-0.0-0.8.md
 case_ project-compliance-source docs,go docs/project/spec-compliance/02-detailed-semantic-compliance-map/13-action.md
-case_ unclaimed docs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode some-new-top-level/thing.txt
+case_ unclaimed docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode some-new-top-level/thing.txt
 
 # The quick tier runs the Go suite for a service change but not every client; a
 # client's or the docs' own paths still run it, and an unclaimed path is only Go.
