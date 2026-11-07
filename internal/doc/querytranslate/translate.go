@@ -179,6 +179,7 @@ func (t *translator) knownProperty(property, where string) error {
 	return &Error{
 		Kind:       ErrUnknownProperty,
 		Message:    suggest.With(message, property, suggest.Nearest(property, names)),
+		Property:   property,
 		Candidates: names,
 	}
 }

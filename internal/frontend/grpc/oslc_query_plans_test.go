@@ -128,20 +128,42 @@ func TestOSLCQueryScopedTermsNestedSelectionAndSearch(t *testing.T) {
 func TestQueryFailureCarriesTheQueryOutcome(t *testing.T) {
 	srv := mustNewService(t, 10)
 	hash := parseFixture(t, srv, objectFixture)
+	// The evaluator's refusal: a property no row carries.
 	_, err := srv.Query(context.Background(), &pb.QueryRequest{ModelHash: hash, OslcQuery: `oslc.where=rdf:type=sysml:Package&oslc.select=sysml:isComposite`})
 	assertQueryError(t, err, QueryErrUnknownProperty)
+	if outcome := queryOutcomeOf(t, err); outcome.Kind != "pathError" {
+		t.Fatalf("outcome = %v, want a path error", outcome)
+	}
+	// The translator's: a property the metamodel does not define, with the
+	// nearest spelling on the frontier — in OSLC text and the structured form.
+	_, err = srv.Query(context.Background(), &pb.QueryRequest{ModelHash: hash, OslcQuery: `sysml:nmae="car"`})
+	assertQueryError(t, err, QueryErrUnknownProperty)
+	if outcome := queryOutcomeOf(t, err); len(outcome.Failures) != 1 || outcome.Failures[0].GetFrontier().GetNearest() != "sysml:name" {
+		t.Fatalf("outcome = %v, want sysml:name nearest", outcome)
+	}
+	_, err = srv.Query(context.Background(), &pb.QueryRequest{ModelHash: hash, Query: &pb.Query{Select: []string{"nmae"}}})
+	assertQueryError(t, err, QueryErrUnknownProperty)
+	if outcome := queryOutcomeOf(t, err); len(outcome.Failures) != 1 || outcome.Failures[0].GetFrontier().GetNearest() != "name" {
+		t.Fatalf("outcome = %v, want name nearest", outcome)
+	}
+}
+
+// queryOutcomeOf is the QueryOutcome detail a failed Query carries.
+func queryOutcomeOf(t *testing.T, err error) *pb.QueryOutcome {
+	t.Helper()
 	var connErr *connect.Error
 	if !errors.As(err, &connErr) {
 		t.Fatalf("error %v is not a connect error", err)
 	}
 	for _, detail := range connErr.Details() {
 		if msg, err := detail.Value(); err == nil {
-			if _, ok := msg.(*pb.QueryOutcome); ok {
-				return
+			if outcome, ok := msg.(*pb.QueryOutcome); ok {
+				return outcome
 			}
 		}
 	}
 	t.Fatalf("no QueryOutcome detail on %v", err)
+	return nil
 }
 
 // TestAPIQuerySelectsHeldObjects: the structured Query reaches the objects

@@ -863,13 +863,13 @@ func unknownOSLCProperty(name, iri string, prefixes map[string]string, table *Ta
 	if local, ok := strings.CutPrefix(iri, rdf.SysML); ok && table.Derived(local) {
 		if prefix, bound := namingPrefix(prefixes, rdf.OpenSysML); bound {
 			fmt.Fprintf(&b, ": the metamodel does not define %s; OpenSysML derives it as %s:%s", local, prefix, local)
-			return &Error{Kind: ErrUnknownProperty, Message: b.String(), Candidates: names}
+			return &Error{Kind: ErrUnknownProperty, Message: b.String(), Property: name, Candidates: names}
 		}
 	}
 	if local, ok := strings.CutPrefix(iri, rdf.OpenSysML); ok && table.Metamodel(local) {
 		if prefix, bound := namingPrefix(prefixes, rdf.SysML); bound {
 			fmt.Fprintf(&b, ": the metamodel defines %s, spelled %s:%s", local, prefix, local)
-			return &Error{Kind: ErrUnknownProperty, Message: b.String(), Candidates: names}
+			return &Error{Kind: ErrUnknownProperty, Message: b.String(), Property: name, Candidates: names}
 		}
 	}
 	message := suggest.With(b.String(), name, suggest.Nearest(name, names))
@@ -883,7 +883,7 @@ func unknownOSLCProperty(name, iri string, prefixes map[string]string, table *Ta
 	for _, namespace := range namespaces {
 		fmt.Fprintf(&b, "; %d properties of <%s> have no %s binding", len(unbound[namespace]), namespace, paramPrefix)
 	}
-	return &Error{Kind: ErrUnknownProperty, Message: b.String(), Candidates: names}
+	return &Error{Kind: ErrUnknownProperty, Message: b.String(), Property: name, Candidates: names}
 }
 
 func resolveValue(name string, prefixes map[string]string) (string, error) {

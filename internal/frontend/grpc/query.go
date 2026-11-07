@@ -11,6 +11,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/doc/querytranslate"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/suggest"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )
@@ -319,7 +320,33 @@ func queryStatus(err error) error {
 	if !errors.As(err, &qerr) {
 		qerr = &QueryError{Kind: translatorKind(err), Message: err.Error(), Err: err}
 	}
-	return connect.NewError(connect.CodeInvalidArgument, qerr)
+	status := connect.NewError(connect.CodeInvalidArgument, qerr)
+	if outcome := translatorOutcome(err); outcome != nil {
+		return withQueryOutcome(status, outcome)
+	}
+	return status
+}
+
+// translatorOutcome is the QVTS record of a translator refusal that has one:
+// an unknown property is a path error whose frontier lists the properties the
+// query could have named, with the nearest spelling.
+func translatorOutcome(err error) *queryexec.Outcome {
+	var terr *querytranslate.Error
+	if !errors.As(err, &terr) || terr.Kind != querytranslate.ErrUnknownProperty {
+		return nil
+	}
+	frontier := queryexec.Frontier{Features: make([]queryexec.FeatureRef, 0, len(terr.Candidates))}
+	for _, candidate := range terr.Candidates {
+		frontier.Features = append(frontier.Features, queryexec.FeatureRef{Name: candidate})
+	}
+	if nearest := suggest.Nearest(terr.Property, terr.Candidates); len(nearest) > 0 {
+		frontier.Nearest = nearest[0]
+	}
+	return &queryexec.Outcome{Path: &queryexec.PathError{Failures: []queryexec.Failure{{
+		Step:     queryexec.Step{Kind: queryexec.StepFeature, Argument: terr.Property},
+		Expected: "a property of the metamodel",
+		Frontier: frontier,
+	}}}}
 }
 
 // translatorKind is the service's kind for a translator refusal.
@@ -361,7 +388,7 @@ func (h *heldObjects) queryExecStatus(err error) error {
 		return elementIDStatus(execErr.Cause)
 	}
 	qerr := &QueryError{Kind: execKind(execErr), Message: execErr.Error(), Err: execErr}
-	return withQueryOutcome(connect.NewError(connect.CodeInvalidArgument, qerr), execErr)
+	return withQueryOutcome(connect.NewError(connect.CodeInvalidArgument, qerr), execErr.Outcome)
 }
 
 // execKind is the service's kind for an evaluator refusal of a translated plan.

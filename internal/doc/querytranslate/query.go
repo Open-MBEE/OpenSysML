@@ -170,6 +170,9 @@ const (
 type Error struct {
 	Kind    ErrorKind
 	Message string
+	// Property is the unknown property as the query wrote it, for
+	// ErrUnknownProperty.
+	Property string
 	// Candidates are the names the query could have written in place of the
 	// unknown one, sorted.
 	Candidates []string
