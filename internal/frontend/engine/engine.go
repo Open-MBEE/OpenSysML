@@ -13,12 +13,15 @@ import (
 	"math"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/jsonrpc"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
+	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts/positional"
 	fsyntax "github.com/Open-MBEE/OpenSysML/internal/frontend/syntax"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
@@ -30,6 +33,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
@@ -99,6 +103,51 @@ type cachedModel struct {
 	model     *runtime.Model
 	resolver  *resolve.Resolver
 	typed     *semantics.Model
+	// identities names a metaobject's element as the gRPC service does, derived
+	// once on first use.
+	identitiesOnce sync.Once
+	identities     *symbolfacts.Context
+}
+
+// elementIdentities is the id vocabulary a metaobject's element crosses in: its
+// qualified name, the positional id of an unnamed member, or the form's `@id`.
+func (m *cachedModel) elementIdentities() elementIdentities {
+	m.identitiesOnce.Do(func() {
+		m.identities = &symbolfacts.Context{
+			Index:      m.Index,
+			Positional: symbolfacts.NewPositional(m.Index, m.positionalDocuments),
+			ElementIDs: m.elementIDReader,
+		}
+	})
+	return m.identities
+}
+
+// positionalDocuments pairs each document with its root scope, for the
+// positional identities of its unnamed declarations.
+func (m *cachedModel) positionalDocuments() []symbolfacts.PositionalDocument {
+	docs := make([]symbolfacts.PositionalDocument, 0, len(m.Documents))
+	for _, doc := range m.Documents {
+		if doc.Source == nil {
+			continue
+		}
+		if root := m.Index.DocumentRoot(doc.Source.Name()); root != nil {
+			docs = append(docs, symbolfacts.PositionalDocument{File: doc.Source, Root: root})
+		}
+	}
+	return docs
+}
+
+// elementIDReader reads the ids the conversion writes for this model's
+// elements, from one conversion made on first use.
+func (m *cachedModel) elementIDReader() *export.ElementIDReader {
+	documents := make([]export.ElementIDDocument, 0, len(m.Documents))
+	for _, doc := range m.Documents {
+		if doc.Source != nil {
+			diags := append(append([]parser.Diagnostic{}, doc.Errors...), doc.Warnings...)
+			documents = append(documents, export.ElementIDDocument{File: doc.Source, Root: doc.Root, ParseDiags: diags})
+		}
+	}
+	return export.NewElementIDReader(documents)
 }
 
 // typedModel builds the checker-typed model and resolver the runtime and renderer
@@ -734,7 +783,7 @@ func (e *Engine) evaluate(ctx context.Context, req *JEvaluateRequest) ([]byte, e
 	}
 
 	return marshal(&JEvaluateResponse{
-		Result: valueToProto(runtimeCtx, result, cached.Index),
+		Result: valueToProto(runtimeCtx, result, cached.Index, cached.elementIdentities()),
 	})
 }
 
@@ -774,7 +823,7 @@ func (e *Engine) instantiate(ctx context.Context, req *JInstantiateRequest) ([]b
 
 	var graph instanceGraph
 	inst, err := runtimeCtx.InstantiateRead(sym, func(inst *runtime.Instance) error {
-		graph = instanceGraphToProto(runtimeCtx, inst, cached.Index)
+		graph = instanceGraphToProto(runtimeCtx, inst, cached.Index, cached.elementIdentities())
 		for _, err := range graph.Errors {
 			if errors.Is(err, runtime.ErrInstanceLimitExceeded) {
 				return err
@@ -895,7 +944,7 @@ func (e *Engine) executeAction(ctx context.Context, req *JExecuteActionRequest) 
 	if len(req.Inputs) > 0 {
 		inputs = make(map[string]runtime.Value, len(req.Inputs))
 		for name, pv := range req.Inputs {
-			val, cerr := protoToRuntimeValue(runtimeCtx, pv, cached.Index, runtimeCtx.Semantics())
+			val, cerr := protoToRuntimeValue(runtimeCtx, pv, cached.Index, runtimeCtx.Semantics(), cached.elementIdentities())
 			if cerr != nil {
 				return marshal(&JExecuteActionResponse{
 					Error: fmt.Sprintf("input %q could not be read: %v", name, cerr),
@@ -915,12 +964,12 @@ func (e *Engine) executeAction(ctx context.Context, req *JExecuteActionRequest) 
 	}
 	self, err := e.performer(cached, runtimeCtx, req.PerformerSymbolId)
 	if err != nil {
-		trace, dropped := traceToJSON(runtimeCtx, cached.Index, traceRecorder)
+		trace, dropped := traceToJSON(runtimeCtx, cached, traceRecorder)
 		return marshal(&JExecuteActionResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped})
 	}
 	events, err := eventMessages(cached, runtimeCtx, action, req.Events, self)
 	if err != nil {
-		trace, dropped := traceToJSON(runtimeCtx, cached.Index, traceRecorder)
+		trace, dropped := traceToJSON(runtimeCtx, cached, traceRecorder)
 		return marshal(&JExecuteActionResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped})
 	}
 
@@ -940,7 +989,7 @@ func (e *Engine) executeAction(ctx context.Context, req *JExecuteActionRequest) 
 	// The choices the run made are reported with its outcome, failed or not: a
 	// failure may hang on the order taken.
 	diags := runNoteDiagnosticsToProto(runtimeCtx.Notes(), cached)
-	trace, dropped := traceToJSON(runtimeCtx, cached.Index, traceRecorder)
+	trace, dropped := traceToJSON(runtimeCtx, cached, traceRecorder)
 	if err != nil {
 		return marshal(&JExecuteActionResponse{
 			Error:        fmt.Sprintf("action execution failed: %v", err),
@@ -952,10 +1001,10 @@ func (e *Engine) executeAction(ctx context.Context, req *JExecuteActionRequest) 
 	}
 
 	return marshal(&JExecuteActionResponse{
-		Outputs:             valuesToProto(runtimeCtx, outputs, cached.Index),
+		Outputs:             valuesToProto(runtimeCtx, outputs, cached),
 		Diagnostics:         diags,
 		FinalTime:           F64(runtimeCtx.Clock().Now()),
-		PerformerAttributes: valuesToProto(runtimeCtx, performer, cached.Index),
+		PerformerAttributes: valuesToProto(runtimeCtx, performer, cached),
 		Trace:               trace,
 		TraceDropped:        dropped,
 	})
@@ -1016,7 +1065,7 @@ func (e *Engine) executeState(ctx context.Context, req *JExecuteStateRequest) ([
 	}
 	self, err := e.performer(cached, runtimeCtx, req.PerformerSymbolId)
 	if err != nil {
-		trace, dropped := traceToJSON(runtimeCtx, cached.Index, traceRecorder)
+		trace, dropped := traceToJSON(runtimeCtx, cached, traceRecorder)
 		return marshal(&JExecuteStateResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped})
 	}
 
@@ -1033,7 +1082,7 @@ func (e *Engine) executeState(ctx context.Context, req *JExecuteStateRequest) ([
 	}
 	finalContext, statesVisited := outcome.Outputs, outcome.StateVisits
 	diags := runNoteDiagnosticsToProto(runtimeCtx.Notes(), cached)
-	trace, dropped := traceToJSON(runtimeCtx, cached.Index, traceRecorder)
+	trace, dropped := traceToJSON(runtimeCtx, cached, traceRecorder)
 	if err != nil {
 		return marshal(&JExecuteStateResponse{
 			Error:        fmt.Sprintf("state machine execution failed: %v", err),
@@ -1046,7 +1095,7 @@ func (e *Engine) executeState(ctx context.Context, req *JExecuteStateRequest) ([
 
 	return marshal(&JExecuteStateResponse{
 		StatesVisited: statesVisited,
-		FinalContext:  valuesToProto(runtimeCtx, finalContext, cached.Index),
+		FinalContext:  valuesToProto(runtimeCtx, finalContext, cached),
 		Diagnostics:   diags,
 		FinalTime:     F64(runtimeCtx.Clock().Now()),
 		Trace:         trace,
@@ -1054,16 +1103,16 @@ func (e *Engine) executeState(ctx context.Context, req *JExecuteStateRequest) ([
 	})
 }
 
-func traceToJSON(rt *runtime.Context, idx *symbols.Index, recorder *runtime.TraceRecorder) ([]JDocumentEvent, int) {
+func traceToJSON(rt *runtime.Context, cached *cachedModel, recorder *runtime.TraceRecorder) ([]JDocumentEvent, int) {
 	if recorder == nil {
 		return nil, 0
 	}
 	events := queryexec.EventsFromTrace(rt, recorder.Records())
 	trace := make([]JDocumentEvent, len(events))
 	for i, event := range events {
-		trace[i] = documentEventToJSON(idx, event)
+		trace[i] = documentEventToJSON(cached.Index, event)
 		if _, value, ok := event.Assigned(); ok {
-			trace[i].Value = valueToProto(rt, value, idx)
+			trace[i].Value = valueToProto(rt, value, cached.Index, cached.elementIdentities())
 		}
 	}
 	dropped, _ := recorder.Dropped()
@@ -1165,10 +1214,10 @@ func elementValueToJSON(idx *symbols.Index, sym *symbols.Symbol) *JDocumentValue
 }
 
 // valuesToProto converts each value of a named map.
-func valuesToProto(rt *runtime.Context, values map[string]runtime.Value, idx *symbols.Index) map[string]*JValue {
+func valuesToProto(rt *runtime.Context, values map[string]runtime.Value, cached *cachedModel) map[string]*JValue {
 	out := make(map[string]*JValue, len(values))
 	for name, value := range values {
-		out[name] = valueToProto(rt, value, idx)
+		out[name] = valueToProto(rt, value, cached.Index, cached.elementIdentities())
 	}
 	return out
 }

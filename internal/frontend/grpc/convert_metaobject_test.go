@@ -140,27 +140,92 @@ func TestMalformedMetaobjectsAreRejected(t *testing.T) {
 	}
 }
 
-// A metaobject of an anonymous element has no qualified name to send, so it
-// crosses as the unsupported null rather than as an arm no receiver could bind;
-// a named sibling of the same owner still crosses under its own name.
-func TestUnnamedMetaobjectCrossesAsUnsupportedNull(t *testing.T) {
-	srv := mustNewService(t, 4)
-	modelHash := mustParse(t, srv, `
+// unnamedMetaobjectModel yields metaobjects of elements no qualified name
+// reaches: an unnamed part, and the receiver argument an accept synthesizes.
+const unnamedMetaobjectModel = `
 package M {
+  private import ScalarValues::*;
   part def V;
   part outer : V { part : V; part named : V; }
   attribute features [*] = (outer meta KerML::Type).ownedFeature;
+  attribute multiplicities [*] = (outer::named meta KerML::Feature).ownedElement;
+  port def P;
+  part def Machine {
+    port p : P;
+    state sm { entry; then idle; state idle; transition t first idle accept sig : Integer via p then idle; }
+  }
+  attribute receiverArgument [*] = (Machine::sm::t meta SysML::TransitionUsage).triggerAction.receiverArgument;
+  calc def IsAnonymous { in m : Metaobjects::Metaobject; return : Boolean[1] = m === (outer meta KerML::Type).ownedFeature#(1); }
+  calc isAnonymous : IsAnonymous;
+  calc def IsReceiver { in m : Metaobjects::Metaobject; return : Boolean[1] = m === receiverArgument#(1); }
+  calc isReceiver : IsReceiver;
 }
-`)
-	elems := mustEvaluate(t, srv, modelHash, "M::features").GetSequence().GetElements()
-	if len(elems) != 2 {
-		t.Fatalf("M::features crossed as %v, want two elements", elems)
+`
+
+// A metaobject of an element with no qualified name crosses under the id a
+// client keeps for any element — the positional id of an unnamed member, the
+// element form's @id of an element the semantic side tables synthesize — which
+// GetElementProperties reads and the service binds back to the same element.
+func TestUnnamedMetaobjectCrossesUnderItsElementID(t *testing.T) {
+	srv := mustNewService(t, 4)
+	modelHash := mustParse(t, srv, unnamedMetaobjectModel)
+	cached, _ := srv.cache.Get(modelHash)
+	idx, sem, sc := cached.Index, NewSymbolContext(cached.Index).Semantics, cached.SymbolContext()
+
+	features := mustEvaluate(t, srv, modelHash, "M::features").GetSequence().GetElements()
+	if len(features) != 2 {
+		t.Fatalf("M::features crossed as %v, want two elements", features)
 	}
-	if elems[0].GetNull() != "unsupported: metaobject of an element with no qualified name" {
-		t.Errorf("anonymous part crossed as %v, want the unsupported null", elems[0])
+	if got := features[0].GetMetaobject(); got.GetElementId() != "M::outer::@0" || got.GetMetaclassId() != "SysML::Systems::PartUsage" {
+		t.Errorf("anonymous part crossed as %v, want M::outer::@0 : SysML::Systems::PartUsage", features[0])
 	}
-	if got := elems[1].GetMetaobject(); got.GetElementId() != "M::outer::named" || got.GetMetaclassId() != "SysML::Systems::PartUsage" {
-		t.Errorf("named part crossed as %v, want M::outer::named : SysML::Systems::PartUsage", elems[1])
+	if got := features[1].GetMetaobject(); got.GetElementId() != "M::outer::named" || got.GetMetaclassId() != "SysML::Systems::PartUsage" {
+		t.Errorf("named part crossed as %v, want M::outer::named : SysML::Systems::PartUsage", features[1])
+	}
+	receiver := mustEvaluate(t, srv, modelHash, "M::receiverArgument").GetSequence().GetElements()
+	const receiverID = "M__Machine__sm__t___40trigger___401_pvalue"
+	if len(receiver) != 1 || receiver[0].GetMetaobject().GetElementId() != receiverID {
+		t.Fatalf("M::receiverArgument crossed as %v, want the metaobject of %s", receiver, receiverID)
+	}
+	if got := receiver[0].GetMetaobject().GetMetaclassId(); !strings.HasSuffix(got, "::FeatureReferenceExpression") {
+		t.Errorf("receiver argument classified as %s, want a FeatureReferenceExpression", got)
+	}
+
+	for _, tc := range []struct {
+		sent         *pb.Value
+		formID, calc string
+	}{
+		{features[0], "M__outer___400", "M::isAnonymous"},
+		{receiver[0], receiverID, "M::isReceiver"},
+	} {
+		id := tc.sent.GetMetaobject().GetElementId()
+		back, err := protoconv.ProtoToRuntimeValueWith(nil, tc.sent, idx, sem, sc)
+		if err != nil {
+			t.Fatalf("ProtoToRuntimeValueWith(%s): %v", id, err)
+		}
+		if back.Kind != runtime.ValMetaobject || sc.ElementIdentity(back.MetaobjectElement()) != id {
+			t.Errorf("%s read back as %s", id, runtime.FormatValue(back))
+		}
+		if again := protoconv.ValueToProtoWith(nil, back, idx, sc); again.GetMetaobject().GetElementId() != id {
+			t.Errorf("%s re-sent as %v", id, again)
+		}
+		props, err := srv.GetElementProperties(context.Background(), &pb.GetElementPropertiesRequest{ModelHash: modelHash, ElementId: id})
+		if err != nil || props.GetError() != "" || props.GetElement().GetId() != tc.formID {
+			t.Errorf("GetElementProperties(%s) = %v, %v; want the element %s", id, props.GetElement(), err, tc.formID)
+		}
+		calc, err := srv.EvaluateCalc(context.Background(), &pb.EvaluateCalcRequest{ModelHash: modelHash, SymbolId: tc.calc, Arguments: []*pb.Value{tc.sent}})
+		if err != nil || calc.GetError() != "" || !calc.GetResult().GetBoolValue() {
+			t.Errorf("EvaluateCalc(%s, %s) = %v, %v; want true", tc.calc, id, calc.GetResult(), err)
+		}
+		if _, err := protoconv.ProtoToValueIn(tc.sent, idx, sem); !errors.Is(err, protoconv.ErrMetaobjectUnbound) {
+			t.Errorf("an index alone resolved %s: %v", id, err)
+		}
+	}
+
+	// An element the form gives no id either crosses as the unsupported null.
+	multiplicities := mustEvaluate(t, srv, modelHash, "M::multiplicities").GetSequence().GetElements()
+	if len(multiplicities) != 1 || multiplicities[0].GetNull() != protoconv.UnsupportedUnidentifiedMetaobject {
+		t.Errorf("M::multiplicities crossed as %v, want one unsupported null", multiplicities)
 	}
 }
 

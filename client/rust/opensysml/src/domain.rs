@@ -632,7 +632,10 @@ pub struct Function {
 /// null, read as [`Error::UnsupportedValue`], in its place.
 #[derive(Clone, Debug, Eq)]
 pub struct Metaobject {
-    /// FQN of the element reflected on (`Vehicle::seatBelt`).
+    /// The id a client keeps for the element reflected on: its FQN
+    /// (`Vehicle::seatBelt`), the positional id of an unnamed member
+    /// (`Vehicle::@2`), or the element form's `@id` of an element the model
+    /// synthesizes, such as a send's or accept's argument.
     pub element_id: String,
     /// FQN of the element's own reflective metaclass
     /// (`SysML::Systems::PartUsage`), not the type it was cast to.

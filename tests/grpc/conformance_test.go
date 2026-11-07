@@ -1472,6 +1472,10 @@ func toProtoValue(t *testing.T, ev expectedValue) *pb.Value {
 		return &pb.Value{Kind: &pb.Value_StringValue{StringValue: s}}
 	case "null":
 		return &pb.Value{Kind: &pb.Value_Null{Null: ""}}
+	case "metaobject":
+		text, _ := ev.Value.(string)
+		element, metaclass, _ := strings.Cut(text, " : ")
+		return &pb.Value{Kind: &pb.Value_Metaobject{Metaobject: &pb.Metaobject{ElementId: element, MetaclassId: metaclass}}}
 	case "instance_id":
 		return &pb.Value{Kind: &pb.Value_InstanceId{InstanceId: int64(mustFloat(t, ev))}}
 	case "sequence":
@@ -1552,6 +1556,8 @@ func describeValue(v *pb.Value) (string, interface{}) {
 		return "null", nil
 	case *pb.Value_Unset:
 		return "unset", nil
+	case *pb.Value_Metaobject:
+		return "metaobject", k.Metaobject.GetElementId() + " : " + k.Metaobject.GetMetaclassId()
 	default:
 		return "no arm", nil
 	}
