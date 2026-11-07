@@ -300,35 +300,10 @@ func (n spanNode) Span() source.Span            { return n.span }
 func (n spanNode) LeadingTrivia() []ast.Trivia  { return nil }
 func (n spanNode) TrailingTrivia() []ast.Trivia { return nil }
 
-// aboutClauseNode is the node the conversion keys owner's i-th `about` Annotation by:
-// the name a comment or `@M about …` states, the clause a `metadata m : M about …` does.
+// aboutClauseNode is the node the conversion keys owner's i-th `about` Annotation by.
 func aboutClauseNode(owner *symbols.Symbol, i int) ast.Node {
-	if owner == nil || owner.Decl == nil || i < 0 {
+	if owner == nil {
 		return nil
 	}
-	switch d := owner.Decl.(type) {
-	case *ast.Comment:
-		if i < len(d.About) {
-			return d.About[i]
-		}
-	case *ast.PrefixMetadata:
-		if i < len(d.About) {
-			return d.About[i]
-		}
-	case *ast.Usage:
-		for _, rel := range d.Relationships {
-			if rel == nil || rel.Kind != ast.RelAnnotates || rel.Target == nil {
-				continue
-			}
-			if i == 0 {
-				// A clause nothing spans is keyed by its name, as the conversion keys it.
-				if rel.Span().Len == 0 {
-					return rel.Target
-				}
-				return rel
-			}
-			i--
-		}
-	}
-	return nil
+	return ast.AboutClauseNode(owner.Decl, i)
 }
