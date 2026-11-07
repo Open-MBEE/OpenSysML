@@ -991,7 +991,7 @@ elmt:Demo__Vehicle
 A membership also states the Relationship ends KerML derives for it — `sysml:source` is
 the owning namespace, `sysml:target` the member, `sysml:relatedElement` both in that order —
 and the member's effective names as `sysml:memberName` / `sysml:memberShortName` (KerML
-8.3.2.3.5; an unnamed feature is named by the one it redefines, KerML 8.2.4). Every membership shape carries them (`FeatureMembership`, `FeatureValue`,
+8.3.2.4.3; an unnamed feature is named by the one it redefines, KerML 8.3.3.3.4). Every membership shape carries them (`FeatureMembership`, `FeatureValue`,
 `ParameterMembership`, `SubjectMembership`, …). Reading a graph back, they restate the
 ownership edges above and are checked through them, not as references of their own.
 
