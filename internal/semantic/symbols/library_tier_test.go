@@ -169,3 +169,28 @@ func TestSnapshotKeepsLibraryTiers(t *testing.T) {
 		}
 	}
 }
+
+// An unnamed member of a library document contributes no name, and still is of
+// the document's tier.
+func TestLibraryTierOfAnUnnamedMember(t *testing.T) {
+	idx := NewIndex()
+	addDoc(t, idx, "Systems Library/Items.sysml", "package Items { item def Item { attribute isSolid; attribute : Boolean; } }")
+	idx.MarkLibraryTier("Systems Library/Items.sysml", TierSystems)
+	var unnamed *Symbol
+	declaring(t, idx, "Items::Item").Scope.ForEachMember(func(s *Symbol) bool {
+		if s.Name == "" {
+			unnamed = s
+		}
+		return unnamed == nil
+	})
+	if unnamed == nil {
+		t.Fatalf("Item declares an unnamed attribute")
+	}
+	if got := idx.LibraryTier(unnamed); got != TierSystems {
+		t.Errorf("LibraryTier(unnamed) = %s, want %s", got, TierSystems)
+	}
+	idx.MarkLibraryTier("Systems Library/Items.sysml", TierNone)
+	if got := idx.LibraryTier(unnamed); got != TierNone {
+		t.Errorf("LibraryTier(unnamed) after unmarking = %s, want %s", got, TierNone)
+	}
+}

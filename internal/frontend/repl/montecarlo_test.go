@@ -33,15 +33,15 @@ const monteCarloModel = `package MC {
 		perform action run ::> analysed.settle;
 		attribute :>> observed : Real = analysed.t;
 		return Mean : Real = mean;
-		out Deviation : Real[0..1] = deviation;
-		out N : Natural = runs;
+		out Deviation : Real[0..1] :>> deviation;
+		out N : Natural :>> runs;
 	}
 	analysis def Timed :> Simulation::MonteCarlo {
 		subject analysed : Probe;
 		perform action run ::> analysed.time;
 		attribute :>> observed : DurationValue = analysed.elapsed;
 		return Mean : DurationValue = mean;
-		out Deviation : DurationValue[0..1] = deviation;
+		out Deviation : DurationValue[0..1] :>> deviation;
 	}
 	analysis def Named :> Simulation::MonteCarlo {
 		subject analysed : Probe;
@@ -68,7 +68,7 @@ const monteCarloModel = `package MC {
 		assert constraint { observed < 3.0 }
 		assert constraint { mean > 0.0 }
 		return Mean : Real = mean;
-		out OutOfSpec : Natural = outOfSpec;
+		out OutOfSpec : Natural :>> outOfSpec;
 	}
 	analysis def Mixed :> Simulation::MonteCarlo {
 		subject analysed : Probe;
@@ -77,7 +77,7 @@ const monteCarloModel = `package MC {
 		assert constraint { observed < 3.0 or mean > 4.0 }
 		assert constraint { mean > 0.0 }
 		return Mean : Real = mean;
-		out OutOfSpec : Natural = outOfSpec;
+		out OutOfSpec : Natural :>> outOfSpec;
 	}
 	analysis def Branching :> Simulation::MonteCarlo {
 		subject analysed : Probe;

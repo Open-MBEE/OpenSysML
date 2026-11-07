@@ -477,7 +477,19 @@ func (w *featureWalk) nestedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 			out = append(out, member)
 		}
 	}
-	return append(out, w.r.typedParameters(sym)...)
+	out = append(out, w.r.typedParameters(sym)...)
+	// A def parameter an own parameter redefines, by clause or by position, is that parameter's pin.
+	for _, member := range w.walkMembers(sym) {
+		if member.Owner() != sym || !isParameterKind(member) {
+			continue
+		}
+		for _, base := range w.r.model.MaskingRedefinedFeatures(member) {
+			if isParameterKind(base) && !w.r.libraryDeclared(base) {
+				out = append(out, base)
+			}
+		}
+	}
+	return out
 }
 
 // connectionEdges adds the edges one connector or flow contributes. A binary
