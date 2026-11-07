@@ -1068,9 +1068,9 @@ func (d *decoder) checkStatedMembershipEnds() error {
 }
 
 // membershipEndsAgree refuses a membership whose stated source, target or relatedElement
-// is not the owner, the member, or both in that order (KerML 8.3.2.3.5, 8.3.2.5.2).
+// is not the owner, the member, or both in that order (KerML 8.3.2.4.3, 8.3.2.1.3).
 // checkStatedImportEnds refuses an Import whose stated source or target disagrees with the owner
-// and the one imported element its own properties state (KerML 8.3.2.3.3), on the first pass only.
+// and the one imported element its own properties state (KerML 8.3.2.4.2), on the first pass only.
 func (d *decoder) checkStatedImportEnds() error {
 	if d.names != nil {
 		return nil
@@ -3493,7 +3493,7 @@ func (d *decoder) commentHead(el *element) (string, error) {
 	// trivia, so it is written even when nothing identifies the comment.
 	words := []string{"comment"}
 	words = append(words, d.identWords(el)...)
-	about, err := d.referenceList(el, rdf.SysML+pAnnotatedElement)
+	about, err := d.aboutList(el)
 	if err != nil {
 		return "", err
 	}
@@ -4213,7 +4213,7 @@ func (d *decoder) metadataHead(el *element) (string, error) {
 	if keyword := d.visibility(el); keyword != "" {
 		head = keyword + " " + head
 	}
-	about, err := d.referenceList(el, rdf.SysML+pAnnotatedElement)
+	about, err := d.aboutList(el)
 	if err != nil {
 		return "", err
 	}
@@ -4553,6 +4553,29 @@ func (d *decoder) referenceText(el *element, property string) (string, error) {
 	return list[0], nil
 }
 
+// aboutList is an annotating element's `about` clause: one name per Annotation
+// it owns, in their order (`about x, x` owns two), or the collapsed
+// annotatedElement's targets when a graph states no Annotation elements.
+func (d *decoder) aboutList(el *element) ([]string, error) {
+	var out []string
+	for _, child := range el.children {
+		if !child.implied || child.metaclass != mAnnotation {
+			continue
+		}
+		for _, term := range d.graph.Objects(rdf.IRI(child.iri), rdf.SysML+pAnnotatedElement) {
+			name, err := d.referenceName(term, el)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, name)
+		}
+	}
+	if len(out) > 0 {
+		return out, nil
+	}
+	return d.referenceList(el, rdf.SysML+pAnnotatedElement)
+}
+
 func (d *decoder) referenceList(el *element, property string) ([]string, error) {
 	var out []string
 	for _, term := range d.graph.Objects(rdf.IRI(el.iri), property) {
@@ -4718,6 +4741,11 @@ func (d *decoder) effectiveName(el *element) (string, bool) {
 		}
 		if name, ok := d.stringOf(el, rdf.SysML+pDeclaredName); ok {
 			return name, true
+		}
+		// A transition's `do` statement answers to its role, `effect`, as the symbol
+		// table addresses it; its action declares no name of its own.
+		if d.transitionFeatureKind(el) == "effect" {
+			return "effect", true
 		}
 		naming, ok := d.namingFeature(el)
 		if !ok {

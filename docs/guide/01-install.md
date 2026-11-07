@@ -385,7 +385,7 @@ error: no SMT solver found: install z3 (`apt install z3`, `brew install z3`) or 
 ## Container image
 
 Every release publishes `openmbee/opensysml` to Docker Hub for `linux/amd64`
-and `linux/arm64`, tagged with the release version (`openmbee/opensysml:0.12.0`)
+and `linux/arm64`, tagged with the release version (`openmbee/opensysml:0.12.1`)
 and, for the newest release that is not a pre-release, `latest`. The image runs
 `sysml-grpc` as its entrypoint, and carries `sysml` and `sysml-lsp` beside it in
 `/usr/local/bin`, so a service that talks to `sysml-grpc` as a sidecar and then
@@ -400,7 +400,7 @@ docker run --rm -p 50051:50051 -p 8081:8081 \
   -host 0.0.0.0 -port 50051 -health-port 8081 \
   -tls-cert /run/tls/server.crt -tls-key /run/tls/server.key
 curl -fsS http://localhost:8081/health
-# {"service":"sysml-grpc","status":"ok","version":"v0.12.0"}
+# {"service":"sysml-grpc","status":"ok","version":"v0.12.1"}
 ```
 
 Port 50051 serves gRPC, Connect and gRPC-Web (see

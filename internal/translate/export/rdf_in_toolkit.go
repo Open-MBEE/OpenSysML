@@ -144,6 +144,7 @@ var collapsedKindsOf = map[string][]ast.RelationshipKind{
 	mSubsetting:           {ast.RelSubsets, ast.RelSpecializes},
 	mRedefinition:         {ast.RelRedefines},
 	mReferenceSubsetting:  {ast.RelReferences, ast.RelSubsets},
+	mAnnotation:           {ast.RelAnnotates},
 }
 
 // relationshipLike reports whether a metaclass is a Relationship element the

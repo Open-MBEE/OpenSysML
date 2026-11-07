@@ -553,6 +553,9 @@ func defineTransitionEffect(scope *Scope, trans *ast.TransitionMember) {
 		ast.Identification{Name: transitionEffectName, NameSpan: effect.Span()},
 		SymbolActionUsage, effect, ast.VisibilityDefault, statement, scope, nil,
 	)
+	// The statement's action subsets TransitionAction::effect (SysML v2.1 §8.4.11.x
+	// checkTransitionUsageTransitionFeatureSpecialization) and declares no name.
+	sym.Naming = NamedByRole
 	scope.Define(transitionEffectName, sym)
 	scope.AddChild(statement)
 }
