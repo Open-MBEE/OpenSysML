@@ -678,6 +678,13 @@ func (e *executor) featureValues(
 	return values, present, nil
 }
 
+// WildcardProperty among a Project's properties stands for every property the
+// source rows could name — those of the element rows' metaclasses the evaluator
+// serves, the evaluator's own, the features of the object rows — sorted;
+// `path.*` for those of the elements a property path reaches. A column no row
+// carries is left out.
+const WildcardProperty = "*"
+
 func (e *executor) evaluateProject(expression queryplan.Expression) (sequence, error) {
 	source, err := e.rowArgument(expression, "source")
 	if err != nil {
@@ -685,6 +692,9 @@ func (e *executor) evaluateProject(expression queryplan.Expression) (sequence, e
 	}
 	p, err := e.newProjection(expression)
 	if err != nil {
+		return sequence{}, err
+	}
+	if err := p.expandWildcards(source); err != nil {
 		return sequence{}, err
 	}
 	total := len(p.properties) + len(p.computed)
@@ -705,12 +715,120 @@ func (e *executor) evaluateProject(expression queryplan.Expression) (sequence, e
 			return sequence{}, err
 		}
 	}
+	p.pruneWildcards(&result)
 	if len(source.values) > 0 {
 		if err := p.checkProperties(); err != nil {
 			return sequence{}, err
 		}
 	}
 	return result, nil
+}
+
+// wildcardPrefix is the path a wildcard property reads through, "" for the
+// rows themselves; ok reports a wildcard.
+func wildcardPrefix(property string) (prefix string, ok bool) {
+	if property == WildcardProperty {
+		return "", true
+	}
+	if prefix, ok := strings.CutSuffix(property, "."+WildcardProperty); ok && prefix != "" {
+		return prefix, true
+	}
+	return "", false
+}
+
+// expandWildcards replaces each wildcard among the properties with the
+// properties the source rows could name there, in its place, leaving out
+// one the properties already list.
+func (p *projection) expandWildcards(source sequence) error {
+	if !slices.ContainsFunc(p.properties, func(property string) bool { _, ok := wildcardPrefix(property); return ok }) {
+		return nil
+	}
+	listed := map[string]bool{}
+	for _, property := range p.properties {
+		if _, ok := wildcardPrefix(property); !ok {
+			listed[property] = true
+		}
+	}
+	var properties []string
+	var wildcard []bool
+	for _, property := range p.properties {
+		prefix, ok := wildcardPrefix(property)
+		if !ok {
+			properties = append(properties, property)
+			wildcard = append(wildcard, false)
+			continue
+		}
+		seen := newCandidates()
+		for _, value := range source.values {
+			if prefix == "" {
+				p.e.note(seen, value)
+				continue
+			}
+			related, _, err := p.e.relatedElements(value, strings.Split(prefix, "."))
+			if err != nil {
+				return p.e.unevaluable(p.expression, prefix, value, err)
+			}
+			for _, value := range related {
+				p.e.note(seen, value)
+			}
+		}
+		for _, name := range p.e.names(seen) {
+			column := name
+			if prefix != "" {
+				column = prefix + "." + name
+			}
+			if listed[column] {
+				continue
+			}
+			listed[column] = true
+			properties = append(properties, column)
+			wildcard = append(wildcard, true)
+		}
+	}
+	p.properties, p.wildcard = properties, wildcard
+	p.known = make([]bool, len(properties))
+	p.missing = make([][]*Error, len(properties))
+	return nil
+}
+
+// pruneWildcards drops the wildcard columns no row carried, from the result
+// and from the projection's own account of its properties.
+func (p *projection) pruneWildcards(result *sequence) {
+	if p.wildcard == nil {
+		return
+	}
+	total := len(result.columns)
+	kept := make([]bool, total)
+	var properties []string
+	var known []bool
+	var missing [][]*Error
+	for i := range total {
+		kept[i] = i >= len(p.properties) || !p.wildcard[i] || p.known[i]
+		if kept[i] && i < len(p.properties) {
+			properties = append(properties, p.properties[i])
+			known = append(known, p.known[i])
+			missing = append(missing, p.missing[i])
+		}
+	}
+	if len(properties) == len(p.properties) {
+		return
+	}
+	result.columns = keepIndexed(result.columns, kept)
+	for row := range result.cells {
+		result.cells[row] = keepIndexed(result.cells[row], kept)
+	}
+	p.properties, p.known, p.missing = properties, known, missing
+}
+
+// keepIndexed is items at the kept indexes, in order.
+func keepIndexed[T any](items []T, kept []bool) []T {
+	out := make([]T, 0, len(items))
+	for i, item := range items {
+		if kept[i] {
+			out = append(out, item)
+		}
+	}
+	return out
 }
 
 // projection is one project operation's columns and what reading its rows
@@ -724,6 +842,9 @@ type projection struct {
 	tracker    *propertyTracker
 	known      []bool
 	missing    [][]*Error
+	// wildcard marks the properties a wildcard expanded to, which a row may
+	// lack and no row need carry.
+	wildcard []bool
 	// seen is what the rows read could have named, for an unknown
 	// property's candidates.
 	seen *candidates
@@ -774,9 +895,14 @@ func (p *projection) cells(value Value) ([]Cell, error) {
 	for column, property := range p.properties {
 		values, present, err := p.e.propertyValues(value, property)
 		if err != nil {
-			return nil, p.e.unevaluable(p.expression, property, value, err)
+			if p.wildcard != nil && p.wildcard[column] && unserved(err) {
+				// A wildcard projects what the evaluator serves.
+				values, present, err = nil, false, nil
+			} else {
+				return nil, p.e.unevaluable(p.expression, property, value, err)
+			}
 		}
-		if !present && !p.tolerate {
+		if !present && !p.tolerate && !(p.wildcard != nil && p.wildcard[column]) {
 			if m := p.e.missingFeature(p.expression, property, value); m != nil {
 				p.missing[column] = append(p.missing[column], m)
 			}
@@ -792,6 +918,13 @@ func (p *projection) cells(value Value) ([]Cell, error) {
 		cells[len(p.properties)+i] = Cell{values: values, origin: value.Origin()}
 	}
 	return cells, nil
+}
+
+// unserved reports the path error of a metaclass property the evaluator
+// does not derive.
+func unserved(err error) bool {
+	var failure *Error
+	return errors.As(err, &failure) && failure.Kind == ErrorUnservedProperty
 }
 
 // checkProperties reports, once every row is read, a property no row carried
@@ -826,6 +959,10 @@ func (e *executor) propertyValues(row Value, property string) ([]Value, bool, er
 	}
 	sym, isElement := row.Element()
 	if !isElement {
+		if _, _, isObject := row.Object(); isObject {
+			// An object's member path reads the objects its features hold.
+			return e.propertyPathValues(row, property)
+		}
 		return nil, false, nil
 	}
 	segments, ok := parseMemberPath(property)
@@ -852,31 +989,9 @@ func (e *executor) propertyPathValues(row Value, property string) ([]Value, bool
 			return nil, false, nil
 		}
 	}
-	current := []Value{row}
-	for _, segment := range segments[:len(segments)-1] {
-		var next []Value
-		present := false
-		for _, value := range current {
-			values, found, err := e.propertyValuesBeforeMemberPath(value, segment)
-			if err != nil {
-				return nil, false, err
-			}
-			present = present || found
-			for _, held := range values {
-				if _, ok := held.Element(); ok {
-					next = append(next, held)
-				} else if name, ok := held.String(); ok {
-					// A reader property names a related element by qualified name.
-					if targets := e.context.Index.LookupQualified(name); len(targets) == 1 {
-						next = append(next, ElementValue(targets[0]))
-					}
-				}
-			}
-		}
-		if !present {
-			return nil, false, nil
-		}
-		current = next
+	current, reached, err := e.relatedElements(row, segments[:len(segments)-1])
+	if !reached || err != nil {
+		return nil, false, err
 	}
 	var out []Value
 	present := false
@@ -889,6 +1004,41 @@ func (e *executor) propertyPathValues(row Value, property string) ([]Value, bool
 		out = append(out, values...)
 	}
 	return out, present, nil
+}
+
+// relatedElements follows the property path's segments from the row to the
+// elements or objects it reaches, a reader property naming an element by
+// qualified name included; present is false when a segment is a property of
+// none of the way.
+func (e *executor) relatedElements(row Value, segments []string) ([]Value, bool, error) {
+	current := []Value{row}
+	for _, segment := range segments {
+		var next []Value
+		present := false
+		for _, value := range current {
+			values, found, err := e.propertyValuesBeforeMemberPath(value, segment)
+			if err != nil {
+				return nil, false, err
+			}
+			present = present || found
+			for _, held := range values {
+				if _, _, isObject := held.Object(); isObject {
+					next = append(next, held)
+				} else if _, ok := held.Element(); ok {
+					next = append(next, held)
+				} else if name, ok := held.String(); ok {
+					if targets := e.context.Index.LookupQualified(name); len(targets) == 1 {
+						next = append(next, ElementValue(targets[0]))
+					}
+				}
+			}
+		}
+		if !present {
+			return nil, false, nil
+		}
+		current = next
+	}
+	return current, true, nil
 }
 
 // reflectiveQueryableValues answers a queryable property of a row the reader does not describe — a

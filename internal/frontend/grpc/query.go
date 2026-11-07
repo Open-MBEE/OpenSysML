@@ -156,15 +156,16 @@ func (s *Service) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryRes
 	if err != nil {
 		return nil, held.queryExecStatus(err)
 	}
-	return &pb.QueryResponse{Elements: eval.resultElements(result, plan.Columns, parsed)}, nil
+	return &pb.QueryResponse{Elements: eval.resultElements(result)}, nil
 }
 
 // resultElements renders the plan's rows: an element by the identity this
 // service reports and its metamodel type, an object by the element it is an
 // instance of with the path it is held under, and the first value of each
 // selected property as text, omitting the properties the row has no value of.
-func (e *queryEval) resultElements(result *queryexec.RowSet, columns []string, q querytranslate.Query) []*pb.QueryResultElement {
+func (e *queryEval) resultElements(result *queryexec.RowSet) []*pb.QueryResultElement {
 	rows := result.Rows()
+	columns := result.Columns()
 	out := make([]*pb.QueryResultElement, 0, len(rows))
 	for _, row := range rows {
 		value := row.Element()
@@ -185,7 +186,7 @@ func (e *queryEval) resultElements(result *queryexec.RowSet, columns []string, q
 				continue
 			}
 			if text, ok := values[0].Text(e.identity); ok && text != "" {
-				element.Properties[columns[i]] = text
+				element.Properties[columns[i].Name()] = text
 			}
 		}
 		out = append(out, element)

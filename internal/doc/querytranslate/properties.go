@@ -85,7 +85,7 @@ func NewTable(index *symbols.Index, model *semantics.Model) *Table {
 				continue
 			}
 			for _, metaclass := range owner.Scope.Members() {
-				if metaclass == nil || metaclass.Kind != symbols.SymbolMetaclass {
+				if !isMetaclass(metaclass) {
 					continue
 				}
 				t.addMetaclass(model, metaclass, number, boolean)
@@ -95,9 +95,21 @@ func NewTable(index *symbols.Index, model *semantics.Model) *Table {
 	return t
 }
 
+// isMetaclass reports a declaration of the abstract syntax: KerML's
+// `metaclass`, or the `metadata def` the SysML library declares its own with.
+func isMetaclass(sym *symbols.Symbol) bool {
+	return sym != nil && (sym.Kind == symbols.SymbolMetaclass || sym.Kind == symbols.SymbolMetadataDef)
+}
+
+// addMetaclass records the metaclass's features, its own and inherited from
+// other metaclasses; one inherited from the library's occurrences and objects
+// (dispatchScope, portionOf) is no property of the metamodel's.
 func (t *Table) addMetaclass(model *semantics.Model, metaclass, number, boolean *symbols.Symbol) {
 	for _, member := range model.MembersOfIncludingRedefined(metaclass) {
 		if member == nil || !member.IsFeature() {
+			continue
+		}
+		if member.OwnerScope != nil && !isMetaclass(member.OwnerScope.Owner()) {
 			continue
 		}
 		name := symbols.LastSegment(member.Name)

@@ -71,6 +71,7 @@ func (s *Session) query(text string) ([]string, error) {
 		return nil, err
 	}
 	rows := result.Rows()
+	columns := result.Columns()
 	lines := make([]string, 0, len(rows))
 	for _, row := range rows {
 		value := row.Element()
@@ -88,11 +89,11 @@ func (s *Session) query(text string) ([]string, error) {
 		}
 		for i, cell := range row.Cells() {
 			values := cell.Values()
-			if i >= len(plan.Columns) || len(values) == 0 {
+			if i >= len(columns) || len(values) == 0 {
 				continue
 			}
 			if text, ok := values[0].Text(namer.Identity); ok && text != "" {
-				fmt.Fprintf(&line, "  %s=%s", q.SpellingOf(plan.Columns[i]), text)
+				fmt.Fprintf(&line, "  %s=%s", q.SpellingOf(columns[i].Name()), text)
 			}
 		}
 		lines = append(lines, line.String())

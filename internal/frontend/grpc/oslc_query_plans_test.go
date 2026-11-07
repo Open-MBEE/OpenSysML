@@ -50,6 +50,21 @@ func TestOSLCQuerySelectsHeldObjects(t *testing.T) {
 	if len(resp.Elements) != 1 || resp.Elements[0].Path != "Garage::spare" {
 		t.Fatalf("pressure<25 = %v, want the spare", resp.Elements)
 	}
+	// An object's wildcard is the features its model declares, not those its
+	// types inherit from the library; a member path reads into the objects a
+	// feature holds, on select, where and orderBy alike.
+	car := "rdf:type=elmt:" + rdf.EncodeElementID("Garage::Car")
+	resp = oslcQuery(t, srv, hash, "oslc.where="+wheel+"&oslc.select=*")
+	if props := resp.Elements[0].Properties; len(props) != 1 || props["pressure"] == "" {
+		t.Fatalf("a wheel's wildcard = %v, want pressure alone", props)
+	}
+	resp = oslcQuery(t, srv, hash, "oslc.where="+car+` and sysx:engine{sysx:power>50}&oslc.select=*,sysx:wheels{*},sysx:engine{sysx:power}&oslc.orderBy=-sysx:engine{sysx:power}`)
+	if len(resp.Elements) != 1 {
+		t.Fatalf("cars with a strong engine = %v, want the car", resp.Elements)
+	}
+	if props := resp.Elements[0].Properties; props["engine"] != "Garage::car.engine" || props["wheels.pressure"] != "30" || props["engine.power"] != "100" || len(props) != 4 {
+		t.Fatalf("a car's properties = %v", props)
+	}
 	// Conjoined instance terms keep the objects every term selects.
 	spare := "rdf:type=elmt:" + rdf.EncodeElementID("Garage::spare")
 	if resp := oslcQuery(t, srv, hash, wheel+" and "+spare); len(resp.Elements) != 1 || resp.Elements[0].Path != "Garage::spare" {
@@ -82,9 +97,19 @@ func TestOSLCQueryScopedTermsNestedSelectionAndSearch(t *testing.T) {
 	if want := "Garage::Car::engine Garage::Car;Garage::Car::wheels Garage::Car"; strings.Join(got, ";") != want {
 		t.Fatalf("scoped = %v, want %s", got, want)
 	}
-	resp = oslcQuery(t, srv, hash, `oslc.where=rdf:type=sysml:PartUsage&oslc.select=*`)
-	if props := resp.Elements[0].Properties; props["qualifiedName"] == "" || props["@type"] != "PartUsage" {
+	// The wildcard is every property the rows' metaclass has that the
+	// evaluator serves — isComposite of a PartUsage among them — and the
+	// evaluator's own; a feature inherited from the library (dispatchScope)
+	// is none, and a nested wildcard reads the related element's.
+	resp = oslcQuery(t, srv, hash, `oslc.where=rdf:type=sysml:PartUsage&oslc.select=*,sysml:owner{*}`)
+	props := resp.Elements[0].Properties
+	if props["qualifiedName"] == "" || props["@type"] != "PartUsage" || props["isComposite"] != "true" || props["owner.@type"] != "PartDefinition" {
 		t.Fatalf("wildcard properties = %v", props)
+	}
+	for _, unwanted := range []string{"*", "dispatchScope", "owner.*"} {
+		if _, ok := props[unwanted]; ok {
+			t.Fatalf("wildcard properties carry %q: %v", unwanted, props)
+		}
 	}
 	resp = oslcQuery(t, srv, hash, `oslc.where=rdf:type=sysml:PartUsage&oslc.searchTerms="WHEEL"`)
 	got = got[:0]

@@ -56,11 +56,15 @@ accepts `+` and `-` prefixes. Selection and ordering are comma-separated, and
 both take nested properties: `oslc.select=sysml:name,sysml:owner{sysml:name}`
 reports the owner's name as the column `owner.name`, and
 `oslc.orderBy=-sysml:owner{sysml:name}` orders by it. `*` in `oslc.select`,
-alone or inside a nested selection, is every property each element carries —
-the projection a query that selects nothing reports — read of the reflective
-table `Project` reads (see [query kinds](../manual/query-kinds.md)); a property
-of one metaclass (`sysml:body`, `sysml:satisfiedRequirement`) is selected by
-name. `oslc.searchTerms="wheel","axle"`
+alone or inside a nested selection, is every property the selected rows could
+name, read of the reflective table `Project` reads (see
+[query kinds](../manual/query-kinds.md)): the properties of the element rows'
+metaclasses the evaluator serves (`isComposite` and `portionKind` of a
+`PartUsage`, `body` of a `Comment`) with the evaluator's own (`rdf:type`,
+`sysx:multiplicityUpper`), or the features an object row's model declares; a
+column no row carries is left out, and a nested `sysml:owner{*}` reads the
+related element's. A query that selects nothing reports the properties every
+element carries. `oslc.searchTerms="wheel","axle"`
 keeps the elements whose text properties contain any of the quoted terms,
 case-insensitively, as `WhereText` matches.
 
@@ -117,9 +121,12 @@ An object row answers under the path a session reaches it by
 (`Garage::car.wheels[2]`), with the usage it instantiates as its identity and
 metaclass; the gRPC `QueryResultElement.path` field carries the path, and the
 REPL prints it in place of the qualified name. `sysx:` features
-(`sysx:pressure`, `sysx:wheels.diameter`) read the object's attribute values,
-so `rdf:type=elmt:Garage__Wheel and sysx:pressure<25` keeps the under-inflated
-wheels.
+(`sysx:pressure`, `sysx:engine{sysx:power}` — the column `engine.power`) read
+the object's values, through the objects its features hold, so
+`rdf:type=elmt:Garage__Wheel and sysx:pressure<25` keeps the under-inflated
+wheels and `rdf:type=elmt:Garage__Car and sysx:engine{sysx:power>50}` the
+cars with a strong engine. Two object terms joined by `and` keep the objects
+both select.
 
 ## Semantics and choices
 
@@ -163,7 +170,7 @@ beside the project's other query surfaces.
 | `identifier in [...]` | Supported: the rows any alternative keeps, in source order. |
 | `scoped_term` / nested property query | Supported: the inner compound is evaluated over the related element the property names, to any depth. |
 | Nested `oslc.select` / `oslc.orderBy` (`sysml:owner{sysml:name}`) | Supported: reported and ordered as the property path `owner.name`. |
-| Property wildcard `*` in `oslc.select` | Supported: the properties every element carries, at any nesting level; a metaclass-specific property is selected by name. |
+| Property wildcard `*` in `oslc.select` | Supported: every property the selected rows could name — their metaclasses' that the evaluator serves, the evaluator's own, an object's declared features — at any nesting level, sorted; a column no row carries is left out. |
 | Property wildcard `*` in `oslc.where` or `oslc.orderBy` | Typed error. A term compares one property and an order has one key; the wildcard names every property. |
 | Value wildcard `*` on the multiplicity bounds | Supported: `*` is the model's own infinity value, not a wildcard. |
 | Value wildcard `*` on any other property | Typed error. A `*` value would be a wildcard, which no plan operation evaluates; refusing it avoids a lexical comparison that silently matches nothing. |

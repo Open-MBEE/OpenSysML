@@ -210,7 +210,7 @@ element. The query also reaches one layer down: `rdf:type=elmt:<id>` (or an
 `@type` of `<urn:sysmlv2:element:…>` in the structured form) selects the
 **objects** the session holds whose definition is that element, each answered
 by its path (`Garage::car.wheels[2]`) with its features (`sysx:pressure`,
-`sysx:wheels.diameter`) as properties — the object rows of
+`sysx:engine{sysx:power}`) as properties — the object rows of
 [a document query](#object-rows-and-verdict-rows), without writing one. No
 joins, no ordering beyond `orderBy`, no paging, nothing about runs or verdicts,
 and nothing from the standard library unless a scope names a library element.

@@ -30,6 +30,8 @@ type Context struct {
 // SourceParameter, and the columns its rows report, in order.
 type Plan struct {
 	Program *queryplan.Program
+	// Columns are the properties projected as written, a wildcard among them
+	// as `*`; the result's columns name what it expanded to.
 	Columns []string
 	// Objects reports a query over the session's held objects, whose root is
 	// Objects rather than the bound source.
@@ -112,8 +114,9 @@ type translator struct {
 	objects  bool
 }
 
-// columns expands the selection to the properties to project: the universal
-// properties for the wildcard, dotted paths for nested selections.
+// columns expands the selection to the properties to project: dotted paths
+// for nested selections, the evaluator's wildcard — every property the rows
+// there carry — for `*`.
 func (t *translator) columns(selections []Selection) ([]string, error) {
 	if len(selections) == 0 {
 		return DefaultProjection(), nil
@@ -124,11 +127,9 @@ func (t *translator) columns(selections []Selection) ([]string, error) {
 	walk = func(prefix string, selections []Selection) error {
 		for _, selection := range selections {
 			if selection.Property == SelectAll {
-				for _, property := range DefaultProjection() {
-					if !seen[prefix+property] {
-						seen[prefix+property] = true
-						out = append(out, prefix+property)
-					}
+				if !seen[prefix+SelectAll] {
+					seen[prefix+SelectAll] = true
+					out = append(out, prefix+SelectAll)
 				}
 				continue
 			}
