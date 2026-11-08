@@ -93,11 +93,7 @@ func Main(args []string, stdout, stderr io.Writer) int {
 }
 
 func run(opts options) error {
-	built, err := repo.BuildRoot()
-	if err != nil {
-		return err
-	}
-	record, err := provenance(opts.repo, built, opts.libraries)
+	record, err := provenance(opts.repo, opts.libraries)
 	if err != nil {
 		return err
 	}
