@@ -4560,9 +4560,11 @@ func (d *decoder) aboutList(el *element) ([]string, error) {
 // reservedNames holds, for each annotated element with one written name to its own, that
 // name — so an element with a choice of names does not take the only one another has.
 func (d *decoder) reservedNames(el *element) map[string]string {
-	written := map[string]bool{}
+	written, byIRI := map[string]bool{}, map[string]bool{}
 	for _, object := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pAnnotatedElement) {
-		if !object.IsIRI() {
+		if object.IsIRI() {
+			byIRI[object.Value] = true
+		} else {
 			written[object.Value] = true
 		}
 	}
@@ -4572,7 +4574,7 @@ func (d *decoder) reservedNames(el *element) map[string]string {
 			continue
 		}
 		for _, target := range d.graph.Objects(rdf.IRI(child.iri), rdf.SysML+pAnnotatedElement) {
-			if !target.IsIRI() {
+			if !target.IsIRI() || byIRI[target.Value] {
 				continue
 			}
 			var candidates []string
