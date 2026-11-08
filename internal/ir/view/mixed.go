@@ -403,8 +403,11 @@ func (w *mixedWalk) removeStructuralSlots(adopted map[*Node]*Node) {
 }
 
 // mixedStructural reports symbols rendered through the interconnection builder:
-// the structures, and the constraints bound to their values.
+// the structures (a case's subject among them), and the constraints bound to their values.
 func mixedStructural(sym *symbols.Symbol) bool {
+	if semantics.IsSubjectUsage(sym) {
+		return true
+	}
 	switch sym.Kind {
 	case symbols.SymbolPartDef, symbols.SymbolPartUsage, symbols.SymbolItemDef, symbols.SymbolItemUsage,
 		symbols.SymbolPortDef, symbols.SymbolPortUsage, symbols.SymbolConnectionDef, symbols.SymbolConnectionUsage,

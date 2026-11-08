@@ -3718,7 +3718,7 @@ elmt:cdbc7853-3c7e-5c48-9817-2dd245e50317
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:dcfd8195-70ca-5d3b-9d5c-2293fe0cdc65
-    a sysml:PartUsage ;
+    a sysml:ReferenceUsage ;
     sysml:elementId "dcfd8195-70ca-5d3b-9d5c-2293fe0cdc65" ;
     sysml:qualifiedName "Requirements::RequirementCheck::subj" ;
     sysml:declaredName "subj" ;
@@ -3824,7 +3824,7 @@ elmt:bfd5fb0e-e87b-51ea-a438-6a93d18b05a1
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:8f87624b-652c-556d-90e4-0b606abf7a24>
-    a sysml:PartUsage ;
+    a sysml:ReferenceUsage ;
     sysml:elementId "8f87624b-652c-556d-90e4-0b606abf7a24" ;
     sysml:qualifiedName "UseCases::UseCase::subj" ;
     sysml:declaredName "subj" ;

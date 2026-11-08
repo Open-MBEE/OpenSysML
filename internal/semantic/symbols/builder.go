@@ -152,11 +152,11 @@ func buildNamespaceDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia 
 		scope.AddChild(child)
 		return true
 	case *ast.SubjectMember:
-		// SubjectMember represents requirement subject: subject <name> : <Type>;
-		// Create a part usage symbol (subject is structural usage like part)
+		// A requirement's `subject <name> : <Type>;` is the ReferenceUsage its
+		// SubjectMembership declares (SysML.xtext SubjectMember).
 		id, naming := namingIdent(d.Ident, d.NamingFeature())
 		child := NewScope(scope, d)
-		sym := newSymbol(id, SymbolPartUsage, d, vis, child, scope, trivia)
+		sym := newSymbol(id, SymbolReferenceUsage, d, vis, child, scope, trivia)
 		naming.apply(sym)
 		defineIdent(scope, id, sym)
 		scope.AddChild(child)
@@ -851,8 +851,8 @@ var usageSymbolKinds = map[ast.UsageKind]SymbolKind{
 	ast.UsageAnalysisCase:     SymbolAnalysisCaseUsage,
 	ast.UsageVerificationCase: SymbolVerificationCaseUsage,
 	ast.UsageUseCase:          SymbolUseCaseUsage,
-	// Subject is a requirement parameter - treat as a part usage for structural purposes.
-	ast.UsageSubject: SymbolPartUsage,
+	// A subject is the ReferenceUsage its SubjectMembership declares (SysML.xtext SubjectMember).
+	ast.UsageSubject: SymbolReferenceUsage,
 	// Objective is a requirement usage (SysML v2 §8.3.20).
 	ast.UsageObjective: SymbolRequirementUsage,
 	// An actor and a stakeholder are part usages (SysML v2 §8.3.19).
