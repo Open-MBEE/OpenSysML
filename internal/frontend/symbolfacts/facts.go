@@ -81,7 +81,10 @@ type Options struct {
 	IncludeLibraryMembers bool
 }
 
-// TypeInfo describes a symbol's declared, resolved and primitive type.
+// TypeInfo describes a symbol's written, derived and primitive type. Declared,
+// ResolvedId and ResolvedKind are the typing the declaration writes; Types is
+// the feature's semantic type (Feature::type), which subsetting, reference
+// subsetting and redefinition contribute to.
 type TypeInfo struct {
 	Declared        string
 	ResolvedId      string
@@ -90,6 +93,13 @@ type TypeInfo struct {
 	PrimitiveSource string
 	Quantity        bool
 	Unit            string
+	Types           []*TypeRef
+}
+
+// TypeRef names one derived type of a feature.
+type TypeRef struct {
+	Id   string
+	Kind string
 }
 
 // Multiplicity contains the lower and upper bounds of a symbol's multiplicity.
@@ -209,6 +219,8 @@ func relationshipKindName(k ast.RelationshipKind) string {
 		return "redefines"
 	case ast.RelTyping:
 		return "typing"
+	case ast.RelReferences, ast.RelIncludes:
+		return "references"
 	default:
 		return ""
 	}
@@ -245,7 +257,13 @@ func (sc *Context) specializationsOf(sym *symbols.Symbol) []*Specialization {
 			continue
 		}
 		spec := &Specialization{Kind: kind, Declared: declaredText(rel, qn)}
-		if target := sc.relationshipTarget(sym, rel, qn); target != nil {
+		target := sc.relationshipTarget(sym, rel, qn)
+		if kind == "references" {
+			// The semantic model resolves a referenced feature outside the
+			// referencing one, so `ref part a ::> a` does not name itself.
+			target = sc.Semantics.ReferencedFeature(sym)
+		}
+		if target != nil {
 			spec.TargetId = sc.Index.GetFQN(target)
 			spec.TargetKind = target.Kind.String()
 		}
@@ -347,6 +365,8 @@ func (sc *Context) usageTypeInfo(sym *symbols.Symbol, decl *ast.Usage) *TypeInfo
 		break
 	}
 
+	info.Types = sc.derivedTypes(sym)
+
 	// PrimTypeOf walks the generalization graph, so it covers a type inherited
 	// through subsetting or redefinition as well as a declared one.
 	if prim := sc.Semantics.PrimTypeOf(sym); prim != semantics.PrimUnknown {
@@ -358,6 +378,23 @@ func (sc *Context) usageTypeInfo(sym *symbols.Symbol, decl *ast.Usage) *TypeInfo
 	}
 	sc.markQuantity(sym, info, decl.Value)
 	return info
+}
+
+// derivedTypes reports Feature::type (KerML 8.3.3.3) as the semantic model
+// derives it for the reflective layer, so GetElementProperties reads the same.
+func (sc *Context) derivedTypes(sym *symbols.Symbol) []*TypeRef {
+	types, ok := sc.Semantics.ReflectiveFeatureTypes(sym)
+	if !ok {
+		return nil
+	}
+	var out []*TypeRef
+	for _, target := range types {
+		if target == nil {
+			continue
+		}
+		out = append(out, &TypeRef{Id: sc.Index.GetFQN(target), Kind: target.Kind.String()})
+	}
+	return out
 }
 
 // definitionTypeInfo derives the type facts of a definition: the library scalar

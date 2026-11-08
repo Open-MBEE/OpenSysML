@@ -124,7 +124,7 @@ func combinedSubtests(t *testing.T, target wasmTarget, r runner, bins map[string
 		if answers["version"] != versionStamp {
 			t.Errorf("sysmlWasm.version = %q, want %q", answers["version"], versionStamp)
 		}
-		for _, method := range []string{"ParseFile", "Evaluate", "GetSymbol", "GetDiagnostics", "RenderView", "afterMalformed"} {
+		for _, method := range []string{"ParseFile", "Evaluate", "GetSymbol", "GetSymbolPositional", "GetDiagnostics", "RenderView", "afterMalformed"} {
 			var answer struct {
 				Result json.RawMessage `json:"result"`
 				Error  json.RawMessage `json:"error"`
@@ -134,6 +134,9 @@ func combinedSubtests(t *testing.T, target wasmTarget, r runner, bins map[string
 			} else if len(answer.Error) != 0 {
 				t.Errorf("%s returned an error: %s", method, answer.Error)
 			}
+		}
+		if !strings.Contains(answers["GetSymbolPositional"], `"Demo::@1"`) {
+			t.Errorf("GetSymbol answered %s, want the unnamed member's positional id Demo::@1 among childIds", answers["GetSymbolPositional"])
 		}
 		if !strings.Contains(answers["RenderView"], `"kind":"interconnection"`) {
 			t.Errorf("RenderView answered %s, want an interconnection drawing", answers["RenderView"])
@@ -394,6 +397,8 @@ func TestCombinedDependencies(t *testing.T) {
 		module + "/internal/frontend/engine",
 		module + "/internal/frontend/core",
 		module + "/internal/doc/queryexec",
+		module + "/internal/frontend/symbolfacts",
+		module + "/internal/semantic/naming",
 	}
 	for _, target := range []wasmTarget{{name: "js", goos: "js"}, {name: "wasip1", goos: "wasip1"}} {
 		t.Run(target.name, func(t *testing.T) {

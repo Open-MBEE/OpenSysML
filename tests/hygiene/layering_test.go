@@ -58,6 +58,7 @@ var packageLayer = map[string]string{
 	"internal/semantic/resolve":   "semantic",
 	"internal/semantic/semantics": "semantic",
 	"internal/semantic/identity":  "semantic",
+	"internal/semantic/naming":    "semantic",
 	"internal/semantic/metamodel": "semantic",
 
 	"internal/ir/lower":                     "ir",
@@ -148,7 +149,6 @@ var packageLayer = map[string]string{
 	"internal/frontend/combined":               "frontend",
 	"internal/frontend/jsonrpc":                "frontend",
 	"internal/frontend/symbolfacts":            "frontend",
-	"internal/frontend/symbolfacts/positional": "frontend",
 	"internal/frontend/syntax":                 "frontend",
 	"internal/frontend/stdiorpc":               "frontend",
 	"internal/frontend/usage":                  "frontend",

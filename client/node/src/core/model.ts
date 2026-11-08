@@ -775,7 +775,19 @@ export class Model {
   }
 }
 
-/** Static type facts about a symbol, as the service reports them. */
+/** One derived type of a feature. */
+export interface TypeRef {
+  /** FQN of the type. */
+  id: string;
+  /** Symbol kind of the type (`partDef`, `attributeDef`, …). */
+  kind: string;
+}
+
+/** Static type facts about a symbol, as the service reports them. `declared`,
+ * `resolvedId` and `resolvedKind` are the typing as written (`: T`); `types` is the
+ * derived KerML `Feature::type` — the `type` property of `elementProperties` — which
+ * the typing of every feature it subsets (`:>`), references (`::>`) or redefines
+ * (`:>>`) contributes to. */
 export interface TypeFacts {
   declared: string;
   resolvedId: string;
@@ -784,6 +796,9 @@ export interface TypeFacts {
   primitiveSource: string;
   quantity: boolean;
   unit: string;
+  /** Derived types, most specific first with redundant supertypes removed; empty for
+   * a definition or when none derives. */
+  types: readonly TypeRef[];
 }
 
 /** One attribute of a symbol, with its declared default when it has one. */
@@ -794,7 +809,10 @@ export interface AttributeFacts {
   value: SysMLValue;
 }
 
-/** One specialization relationship a symbol declares or inherits. */
+/** One generalization edge written on a symbol: `kind` is `specializes`, `subsets`,
+ * `redefines`, `typing` or `references` (reference subsetting, `::>` and `include`).
+ * `elementProperties` reflects these under `ownedSpecialization`, with the implied
+ * ones the metamodel adds. */
 export interface SpecializationFacts {
   kind: string;
   declared: string;
@@ -806,12 +824,19 @@ export interface SpecializationFacts {
 export class ModelSymbol {
   readonly id: string;
   readonly name: string;
+  /** Declaration keyword kind (`partDef`, `actionUsage`, …): the written syntax, not
+   * the metaclass `elementProperties` reports. */
   readonly kind: string;
+  /** Summary of what is written: `type` and `specializes` are the first written edge
+   * of each (`specializations` has them all), `direction` the direction written on the
+   * feature (the derived `Feature::direction` is `elementProperties`' `direction`). */
   readonly metadata: Readonly<Record<string, string>>;
   readonly childIds: readonly string[];
   readonly attributes: readonly AttributeFacts[];
+  /** Written typing (`declared`) and derived `Feature::type` (`types`). */
   readonly type: TypeFacts | undefined;
   readonly multiplicity: Multiplicity | undefined;
+  /** Every generalization edge written, in declaration order. */
   readonly specializations: readonly SpecializationFacts[];
   /** Library attributes the service did not send, when it withheld any. */
   readonly withheldLibraryAttributes: number;
@@ -844,6 +869,7 @@ export class ModelSymbol {
             primitiveSource: info.typeInfo.primitiveSource,
             quantity: info.typeInfo.quantity,
             unit: info.typeInfo.unit,
+            types: info.typeInfo.types.map((ref) => ({ id: ref.id, kind: ref.kind })),
           };
     this.multiplicity =
       info.multiplicity === undefined

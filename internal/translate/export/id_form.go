@@ -2,6 +2,7 @@ package export
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
@@ -88,7 +89,7 @@ func (f *identityFacts) record(subject rdf.Term, pkg, local string) {
 // rootOf returns the qualified name of the document root qualifiedName sits
 // under — the first of its segments.
 func rootOf(qualifiedName string) string {
-	segments := identitySegments(qualifiedName)
+	segments := naming.Segments(qualifiedName)
 	if len(segments) > 0 {
 		return segments[0]
 	}
