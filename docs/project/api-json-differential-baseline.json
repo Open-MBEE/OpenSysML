@@ -114,8 +114,8 @@
       "typeMismatch": 1821
     },
     "properties": {
-      "presentEqual": 1997209,
-      "presentDifferent": 142282,
+      "presentEqual": 1997267,
+      "presentDifferent": 142224,
       "oursMissing": 303699,
       "pilotMissing": 80110,
       "absentBoth": 2195530,
@@ -155,8 +155,8 @@
         "typeMismatch": 6
       },
       "properties": {
-        "presentEqual": 160558,
-        "presentDifferent": 12533,
+        "presentEqual": 160559,
+        "presentDifferent": 12532,
         "oursMissing": 20075,
         "pilotMissing": 5724,
         "absentBoth": 180693,
@@ -191,8 +191,8 @@
         "typeMismatch": 34
       },
       "properties": {
-        "presentEqual": 570748,
-        "presentDifferent": 43466,
+        "presentEqual": 570791,
+        "presentDifferent": 43423,
         "oursMissing": 82719,
         "pilotMissing": 21497,
         "absentBoth": 628554,
@@ -227,8 +227,8 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 201365,
-        "presentDifferent": 15170,
+        "presentEqual": 201370,
+        "presentDifferent": 15165,
         "oursMissing": 26040,
         "pilotMissing": 7648,
         "absentBoth": 223753,
@@ -300,8 +300,8 @@
         "typeMismatch": 417
       },
       "properties": {
-        "presentEqual": 132492,
-        "presentDifferent": 7243,
+        "presentEqual": 132493,
+        "presentDifferent": 7242,
         "oursMissing": 22108,
         "pilotMissing": 6383,
         "absentBoth": 144725,
@@ -337,8 +337,8 @@
         "typeMismatch": 28
       },
       "properties": {
-        "presentEqual": 27829,
-        "presentDifferent": 1936,
+        "presentEqual": 27833,
+        "presentDifferent": 1932,
         "oursMissing": 4161,
         "pilotMissing": 1190,
         "absentBoth": 32592,
@@ -374,8 +374,8 @@
         "typeMismatch": 200
       },
       "properties": {
-        "presentEqual": 625908,
-        "presentDifferent": 43582,
+        "presentEqual": 625912,
+        "presentDifferent": 43578,
         "oursMissing": 99313,
         "pilotMissing": 23991,
         "absentBoth": 705373,
@@ -74592,8 +74592,8 @@
       0
     ],
     "PortUsage.type": [
-      408,
-      56,
+      463,
+      1,
       91,
       0,
       0,
@@ -76608,8 +76608,8 @@
       0
     ],
     "ReferenceUsage.type": [
-      1348,
-      41,
+      1349,
+      40,
       1174,
       1,
       0,
@@ -97308,8 +97308,8 @@
       0
     ],
     "Usage.type": [
-      9,
-      5,
+      11,
+      3,
       16,
       0,
       0,

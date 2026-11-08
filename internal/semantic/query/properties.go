@@ -244,6 +244,13 @@ func (r *PropertyReader) elementType(sym *symbols.Symbol) ([]string, bool) {
 		if alias, ok := r.resolver.ResolveAliasTarget(resolved); ok {
 			resolved = alias
 		}
+		// A conjugated typing's type is the ConjugatedPortDefinition its
+		// written target implies (SysML v2 8.3.12.3).
+		if relationship.Conjugated && r.semantics != nil {
+			if conjugate := r.semantics.ConjugatedPortDefinitionOf(resolved); conjugate != nil {
+				resolved = conjugate
+			}
+		}
 		return presentValues(r.index.GetFQN(resolved))
 	}
 	return nil, false
