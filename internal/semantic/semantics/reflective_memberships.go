@@ -64,9 +64,8 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 			return true
 		}
 		if symbols.IsFirstMarker(member) {
-			// `first x;` is a Membership of the member the body starts at (SysML.xtext
-			// InitialNodeMember), as the pilot exports it and the conversion writes it;
-			// a name no member bears leaves the Membership's member underived.
+			// `first x;` is a Membership of the member the body starts at (SysML.xtext InitialNodeMember),
+			// as the pilot exports it and the conversion writes it; a name no member bears leaves it underived.
 			out = append(out, &symbols.Symbol{
 				Kind:       symbols.SymbolRelationship,
 				DocName:    sym.DocName,
