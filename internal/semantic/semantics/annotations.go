@@ -2027,16 +2027,23 @@ func (m *Model) connectorRelatedFeatures(sym *symbols.Symbol, feature string) []
 	var related []*symbols.Symbol
 	ends := m.EndFeatures(sym)
 	var paths []ConnectorEndPath
-	var successionEnds []*symbols.Symbol
-	if !sym.Recorded() {
+	var successionEnds, recorded []*symbols.Symbol
+	if sym.Recorded() {
+		// A recorded end with no symbol of its own (`connect a to b`) answers the
+		// feature its record names at its position; so do ends all inherited (a flow's).
+		recorded = m.recordedPositions(sym.Facts.RelatedFeatures)
+	} else {
 		paths = m.reflectiveConnectorEndPaths(sym)
 		successionEnds = m.connectorSuccessionRelatedFeatures(sym)
 	}
-	count := max(len(ends), len(paths), len(successionEnds))
+	count := max(len(ends), len(paths), len(successionEnds), len(recorded))
 	for i := 0; i < count; i++ {
 		var target *symbols.Symbol
 		if i < len(ends) {
 			target = m.EndReferencedFeature(ends[i])
+		}
+		if target == nil && i < len(recorded) {
+			target = recorded[i]
 		}
 		// A message's ends own no end feature of their own: the feature its
 		// `from`/`to` path reaches stands in for the end's reference.
@@ -2050,11 +2057,6 @@ func (m *Model) connectorRelatedFeatures(sym *symbols.Symbol, feature string) []
 		if target != nil {
 			related = append(related, target)
 		}
-	}
-	// A recorded connector answers through its own recorded ends; one whose ends are
-	// all inherited (a flow's) answers the features its record names.
-	if sym.Recorded() && len(related) == 0 {
-		related = m.recordedSequence(sym.Facts.RelatedFeatures)
 	}
 	switch feature {
 	case "sourceFeature":

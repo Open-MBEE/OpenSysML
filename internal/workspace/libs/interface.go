@@ -169,10 +169,8 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 		Redefines:      w.refs(sym, m.RedefinedFeatures(sym), "redefined feature"),
 		About:          w.refs(sym, m.AnnotatedElementsOf(sym), "annotated element"),
 	}
-	// A chained end's chain Feature has no record name; the recorded connector derives
-	// it from its end's recorded reference subsetting, so only named ones are recorded.
-	if related, ok := m.ReflectiveElements(sym, "relatedFeature"); ok && !slices.ContainsFunc(related, isChainFeature) {
-		facts.RelatedFeatures = w.refs(sym, related, "related feature")
+	if related, ok := m.ReflectiveElements(sym, "relatedFeature"); ok {
+		facts.RelatedFeatures = w.relatedFeatureRefs(sym, related)
 	}
 	if paths := m.ConnectorEndFeaturePaths(sym); len(paths) > 0 {
 		facts.EndPaths = make([][]symbols.ElementRef, len(paths))
@@ -384,8 +382,19 @@ func declaredTraits(decl ast.Node) (ast.FeatureDirection, symbols.Modifiers) {
 	return ast.DirNone, mods
 }
 
-// isChainFeature reports whether sym is the anonymous Feature a feature chain
-// denotes as a whole.
-func isChainFeature(sym *symbols.Symbol) bool {
-	return sym != nil && sym.Chain != nil
+// relatedFeatureRefs names a connector's related features by position. A record
+// carries no chain Feature, so a chained end names the feature its chain reaches;
+// a recorded end with a symbol of its own derives the chain Feature from its
+// recorded reference subsetting instead and reads this only when it has none.
+func (w *interfaceWriter) relatedFeatureRefs(of *symbols.Symbol, related []*symbols.Symbol) []symbols.ElementRef {
+	out := make([]symbols.ElementRef, len(related))
+	for i, feature := range related {
+		if feature.Chain != nil {
+			if chain, ok := w.model.ReflectiveElements(feature, "chainingFeature"); ok && len(chain) > 0 {
+				feature = chain[len(chain)-1]
+			}
+		}
+		out[i] = w.ref(of, feature, "related feature")
+	}
+	return out
 }
