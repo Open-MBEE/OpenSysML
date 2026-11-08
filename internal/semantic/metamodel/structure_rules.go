@@ -4959,7 +4959,9 @@ func (e *Evaluator) structureLibraryBase(element Element) (Element, bool) {
 	if element.Node != nil || element.IsMembership {
 		return Element{}, false
 	}
-	if structure, ok := e.options.Structure.(LibrarySymbolResolver); ok {
+	// Only the symbol structure refers to a library type by a row of its own; a graph
+	// structure states its library bases as symbols already.
+	if structure, ok := e.options.Structure.(*SymbolStructure); ok {
 		if symbol, found := structure.LibrarySymbol(element); found && symbol != nil {
 			return ElementOf(symbol), true
 		}
