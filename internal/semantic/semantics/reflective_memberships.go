@@ -63,6 +63,21 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 			out = append(out, member)
 			return true
 		}
+		if symbols.IsFirstMarker(member) {
+			// `first x;` is a Membership of the member the body starts at (SysML.xtext InitialNodeMember),
+			// as the pilot exports it and the conversion writes it; a name no member bears leaves it underived.
+			out = append(out, &symbols.Symbol{
+				Kind:       symbols.SymbolRelationship,
+				DocName:    sym.DocName,
+				DeclSpan:   member.DeclSpan,
+				Visibility: member.Visibility,
+				Implicit: &symbols.ImplicitRelationship{
+					Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitReferenceMembership, Member: m.firstMarkerStart(sym, member), Decl: member.Decl,
+				},
+			})
+			ordinal++
+			return true
+		}
 		out = append(out, &symbols.Symbol{
 			Kind:       symbols.SymbolRelationship,
 			DocName:    sym.DocName,
@@ -222,7 +237,8 @@ func (m *Model) OwningMembership(sym *symbols.Symbol) *symbols.Symbol {
 		return nil
 	}
 	for _, membership := range m.OwnedMemberships(owner) {
-		if membership.Implicit != nil && membership.Implicit.Member == sym {
+		// A `first x;` marker's Membership refers to x without owning it.
+		if membership.Implicit != nil && membership.Implicit.Member == sym && membership.Implicit.Form != symbols.ImplicitReferenceMembership {
 			return membership
 		}
 	}
@@ -375,16 +391,36 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 		containsElement(m.EndFeatures(owner), member) {
 		return "EndFeatureMembership"
 	}
-	for _, parameter := range m.BehaviorParametersOf(owner) {
-		if parameter.Symbol != member {
-			continue
-		}
-		if parameter.IsResult {
-			return "ReturnParameterMembership"
-		}
+	if isAcceptPayload(owner, member) {
+		// An accept node's payload is owned as a parameter (SysML.xtext
+		// AcceptNodeDeclaration, PayloadParameterMember), as the conversion writes it.
 		return "ParameterMembership"
 	}
+	// A body's directed feature is a FeatureMembership carrying a direction
+	// (SysML.xtext UsageMember, as the pilot exports it); only `return` is a
+	// ReturnParameterMembership.
+	for _, parameter := range m.BehaviorParametersOf(owner) {
+		if parameter.Symbol == member && parameter.IsResult {
+			return "ReturnParameterMembership"
+		}
+	}
 	return "FeatureMembership"
+}
+
+// isAcceptPayload reports whether member is the accept payload an action usage owner declares —
+// by its declaration, or by the ModAcceptPayload fact a recorded symbol carries instead.
+func isAcceptPayload(owner, member *symbols.Symbol) bool {
+	if member == nil {
+		return false
+	}
+	if kind, ok := owner.UsageKind(); !ok || kind != ast.UsageAction {
+		return false
+	}
+	if member.Recorded() {
+		return member.Facts.Modifiers.Has(symbols.ModAcceptPayload)
+	}
+	payload, ok := member.Decl.(*ast.Usage)
+	return ok && payload.IsAccept
 }
 
 // sysmlMembershipMetaclassName is the SysML membership kind member's
@@ -1034,4 +1070,19 @@ func clausePosition(items []*symbols.Symbol, offset int) int {
 		}
 	}
 	return len(items)
+}
+
+// firstMarkerStart is the member the marker binds to in the body declaring it (an
+// inherited marker binds where it was written, not in the inheritor), or nil.
+func (m *Model) firstMarkerStart(owner, marker *symbols.Symbol) *symbols.Symbol {
+	scope := owner.Scope
+	if marker.OwnerScope != nil {
+		scope = marker.OwnerScope
+	}
+	if node, ok := marker.Decl.(*ast.InitialNode); ok {
+		start, _ := m.resolver.ResolveInitial(scope, node)
+		return start
+	}
+	start, _ := m.resolver.ResolveInitialMember(scope, marker.Name)
+	return start
 }

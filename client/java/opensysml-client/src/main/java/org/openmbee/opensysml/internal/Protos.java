@@ -595,7 +595,10 @@ public final class Protos {
         present(typeInfo.getPrimitive()),
         present(typeInfo.getPrimitiveSource()),
         typeInfo.getQuantity(),
-        present(typeInfo.getUnit()));
+        present(typeInfo.getUnit()),
+        typeInfo.getTypesList().stream()
+            .map(ref -> new Symbol.TypeRef(ref.getId(), present(ref.getKind())))
+            .toList());
   }
 
   private static Symbol.Multiplicity multiplicity(MultiplicityInfo multiplicity) {
