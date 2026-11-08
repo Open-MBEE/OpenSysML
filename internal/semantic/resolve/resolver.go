@@ -124,6 +124,9 @@ type Resolver struct {
 	// resolving holds the depth (see enter) of each lookup on the stack, so a
 	// re-entrant query of the same name fails instead of recursing.
 	resolving map[ast.Node]int
+	// generalizing is the generalization relationships whose targets are being
+	// resolved, so a chain through the specializing feature itself does not recurse.
+	generalizing map[*ast.Relationship]struct{}
 	// featuring holds the depth of each featured-member lookup (featuredMember)
 	// on the stack, whose scope walk may resolve the very chain that began it.
 	featuring map[featuredKey]int
@@ -318,6 +321,7 @@ func New(idx *symbols.Index) *Resolver {
 		modeMemo:              map[modeMemoKey]resolution{},
 		filtered:              map[filteredMemoKey]resolution{},
 		resolving:             map[ast.Node]int{},
+		generalizing:          map[*ast.Relationship]struct{}{},
 		redefining:            map[*ast.QualifiedName]int{},
 		featureChains:         map[featureChainKey]resolution{},
 		parts:                 map[*ast.QualifiedName][]*symbols.Symbol{},

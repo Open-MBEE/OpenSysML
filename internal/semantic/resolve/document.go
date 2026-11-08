@@ -1375,6 +1375,12 @@ func (r *Resolver) findGeneralizationTargets(sym *symbols.Symbol, rels []*ast.Re
 		default:
 			continue
 		}
+		// A general named through the feature itself (`:> f.g` on f) is read
+		// through f's other generals, not through this relationship again.
+		if _, busy := r.generalizing[rel]; busy {
+			continue
+		}
+		r.generalizing[rel] = struct{}{}
 		scope := r.relationshipScope(sym.OwnerScope, sym.Scope, rel)
 		target := rel.Target
 		if fr, ok := target.(*ast.FeatureReference); ok {
@@ -1404,6 +1410,7 @@ func (r *Resolver) findGeneralizationTargets(sym *symbols.Symbol, rels []*ast.Re
 				add(found)
 			}
 		}
+		delete(r.generalizing, rel)
 	}
 	return parents
 }
