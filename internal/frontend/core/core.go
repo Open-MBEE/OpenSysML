@@ -429,6 +429,9 @@ func symbolInfo(info *symbolfacts.Info) *JSymbolInfo {
 			Quantity:        t.Quantity,
 			Unit:            t.Unit,
 		}
+		for _, ref := range t.Types {
+			out.TypeInfo.Types = append(out.TypeInfo.Types, &JTypeRef{Id: ref.Id, Kind: ref.Kind})
+		}
 	}
 	if m := info.Multiplicity; m != nil {
 		out.Multiplicity = &JMultiplicityInfo{Lower: m.Lower, Upper: m.Upper}
