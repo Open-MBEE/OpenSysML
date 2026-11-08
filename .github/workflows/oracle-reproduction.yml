@@ -3,14 +3,11 @@ name: Oracle reproduction
 # The oracle baselines under docs/project/ are only as true as their last
 # recorded run. Re-running the Java-backed oracles needs Java, the pinned pilot
 # jar and the downloaded corpora — which is why neither pr.yml nor CircleCI's
-# build-and-test does them on every change. The Xpect oracle needs only the
-# pinned .xt suites, so pr.yml's xpect-oracle job reproduces its baseline on
-# every pull request, and pr.yml's apijson-differential job re-runs the
-# derived-property differential on the changes that can move its baseline; the
-# rest are reproduced here alone, and every oracle is reproduced here against
-# movement upstream of what pr.yml selects on, on a schedule and on demand, so a
-# baseline that has stopped describing reality surfaces within a day instead of
-# at the next audit. It is deliberately not a
+# build-and-test does them on every change. pr.yml reproduces the Xpect baseline
+# (no Java) on every pull request and the api-json baseline on the changes that
+# can move it; every oracle is reproduced here, on a schedule and on demand, so
+# a baseline that has stopped describing reality surfaces within a day instead
+# of at the next audit. It is deliberately not a
 # required check: it downloads from upstream and takes minutes, so a network
 # failure here must not block a pull request.
 #

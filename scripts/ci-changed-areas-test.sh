@@ -96,9 +96,8 @@ case_ man-page docs packaging/man/man1/sysml.1
 case_ two-client-readmes docs,java,mdk,node,python client/java/README.md client/node/README.md
 case_ two-clients java,mdk,node,python client/java/pom.xml client/node/tsconfig.json
 case_ go-source docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/syntax/parser/parser.go
-# The derived-property differential runs on what can move its baseline — the writer, the
-# referee, the bridge, the pin, the baseline itself — and on nothing else: not a parser
-# change (above), not another oracle's baseline, not an unclaimed path.
+# The derived-property differential runs on what can move its baseline (the writer, the referee,
+# the bridge, the pin, the baseline itself) and on unclaimed paths, like every area; not on a parser change.
 case_ apijson-writer apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/translate/export/api_json_absence.go
 case_ apijson-referee apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode tools/referee/apijson/provenance.go
 case_ apijson-bridge apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode scripts/pilot-json-exporter/ExportJSON.java
@@ -128,7 +127,7 @@ case_ project-baseline docs,go docs/project/pilot-differential-baseline.json
 case_ project-figures docs,go docs/project/api-json-differential.md
 case_ project-archive docs,go docs/project/archive/CHANGELOG-0.0-0.8.md
 case_ project-compliance-source docs,go docs/project/spec-compliance/02-detailed-semantic-compliance-map/13-action.md
-case_ unclaimed docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode some-new-top-level/thing.txt
+case_ unclaimed apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode some-new-top-level/thing.txt
 
 # The quick tier runs the Go suite for a service change but not every client; a
 # client's or the docs' own paths still run it, and an unclaimed path is only Go.
