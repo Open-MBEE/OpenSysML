@@ -15,7 +15,7 @@ that stops describing the implementation fails a test
 ([`../self_model_test.go`](../self_model_test.go)) instead of quietly reading as true in a
 diagram.
 
-The eight files:
+The nine files:
 
 | File | What it holds |
 | --- | --- |
@@ -26,7 +26,8 @@ The eight files:
 | [identity.sysml](identity.sysml) | the element-identity path: the `IdentityMetadata` library the ids are carried by, the encoder that derives an id from a qualified name, the side table that computes each element's effective id, the constraint-tier pass that checks the generated id space, the RDF writer and reader that carry identity through a graph, the Flexo harness that measures a live round trip, the repository sync that diffs a local model against its repository by effective id (`SyncModel`: scope, state, diff, conflicts, minting, write-back) with the `sysml -sync-*` flags that drive it, and the one phase of the [design record](../../docs/project/element-identity-annotations.md) not built — the notation extension filed with OMG |
 | [quality.sysml](quality.sysml) | fourteen architecture invariants as `requirement def`s bound to the modelled parts, the test runs that verify them as `verification def`s, the contributor's use case, and the allocation of every logical unit onto its directory in the source tree |
 | [document.sysml](document.sysml) | the architecture document itself, written in the notation: the queries it runs over the model, the sections and prose it is made of, the diagrams it embeds from [views.sysml](views.sysml), and the tables it generates from the model — so the document is a model element rather than a file someone maintains alongside one |
-| [views.sysml](views.sysml) | forty views — the pipeline, toolchain, instance layer, analysis framework, editor pipeline and identity path as interconnection diagrams, the stage, engine, rendering-kind, surface, markup-parser and invariant tables, the action and state flows including the library load, the calc invocation, the feature read, the question answered and the outcomes explored, the action executed as a sequence diagram, the document and identity round trips, the sync diff, the budget exits, the evidence ladder and the worker and snapshot lifecycles, the architectural layers as filtered exposes, and an overview that frames a maintainer's concern |
+| [views.sysml](views.sysml) | forty-three views — the pipeline, toolchain, instance layer, analysis framework, editor pipeline and identity path as interconnection diagrams, the stage, engine, rendering-kind, surface, markup-parser and invariant tables, the action and state flows including the library load, the calc invocation, the feature read, the question answered and the outcomes explored, the action executed as a sequence diagram, the document and identity round trips, the sync diff, the budget exits, the evidence ladder and the worker and snapshot lifecycles, the architectural layers as filtered exposes, and an overview that frames a maintainer's concern |
+| [queries.sysml](queries.sysml) | `OpenSysMLQueries` — the query path, QVTS (Query, View, Transformation for SysML v2) as this implementation has it: the `DocumentQueries` library with its twenty-six calc defs and the twenty-two plan operations the compiler binds them to, the compiler and its immutable plans, the executor and the outcome record — the ten step kinds, the five constraints a model error names, and `StepOutcome`, the state machine by which a step answers a value (an empty collection is a value), fails as a path error with its frontier or as a model error with its finding; the four surfaces a query is run from and how each shows the outcome (`-run-query` with exit status 2 and `checks[].outcome`, `%run-query`, `RunDocumentQuery` with its `QueryOutcome` detail, a document table); the QVTS recordings as a conformance oracle; the invariant `outcomesAreDistinct`; and the satisfactions by which the toolchain meets its invariants, which `Verdicts` tables from the model |
 
 ## Analyse it
 
@@ -95,9 +96,12 @@ more in `OpenSysMLIdentity` state what the identity design turns on —
 `identityRoundTrips`, `idsDoNotCollide`, `identityIsBesideTheTree` and `syncIsExplicit`; and
 two in `OpenSysMLSurfaces`: `documentsAreTraceable`, that every rendered node can be traced
 back to the element it came from, and `viewsAreHonest`, that a rendering kind the engine
-recognises but cannot produce says so. [`../self_model_test.go`](../self_model_test.go)
-evaluates all twenty, so an invariant the implementation stops satisfying — the standard
-library growing past its clean file count, say — fails `go test ./examples/`.
+recognises but cannot produce says so; and one in `OpenSysMLQueries`: `outcomesAreDistinct`,
+that an empty collection is only ever a value, never the answer to a path or model failure,
+and that every failing element of a fan-out is kept. [`../self_model_test.go`](../self_model_test.go)
+and [`../self_model_queries_test.go`](../self_model_queries_test.go) evaluate all twenty-one,
+so an invariant the implementation stops satisfying — the standard library growing past its
+clean file count, say — fails `go test ./examples/`.
 
 ## Read a view
 
@@ -127,7 +131,7 @@ make self-model
 That writes every view into `build/self-model/` — Mermaid for the structure, action and
 state views, Markdown for the tables. Override the destination with
 `make self-model SELF_MODEL_OUT=/tmp/views`, or render one view at a time in the REPL
-(`-render` takes a single file, and this model is eight):
+(`-render` takes a single file, and this model is nine):
 
 ```
 > %render OpenSysMLViews::tierStates mermaid
@@ -251,6 +255,50 @@ note's test, `TestSelfModelAsciiDocNoteRendersInstalled` in
 [`../self_model_asciidoc_test.go`](../self_model_asciidoc_test.go), renders all three forms and
 pins every value run against the model; it skips with the same instruction when the converter is
 absent and runs in CI's PDF-toolchain job, where an absent converter is a failure.
+
+## Run a query over the model
+
+Every table in the document is a query over the model — a calc def specialising
+`DocumentQueries::Query`, as [the QVTS guide](../../docs/guide/qvts.md) describes — and the
+same queries run from the command line. This one asks the model for the kinds of step a query
+outcome is reported at, keeping only the members of the enumeration by their own metaclass
+(`WhereType` with `exact = true`):
+
+```
+$ ./bin/sysml examples/self-model/*.sysml -run-query OpenSysMLDocument::StepKinds
+✓ Query OpenSysMLDocument::StepKinds returned 10 rows
+  Columns: name
+  Row 1: OpenSysMLQueries::StepKind::Named
+    name = "Named"
+  Row 2: OpenSysMLQueries::StepKind::Owned
+    name = "Owned"
+  Row 3: OpenSysMLQueries::StepKind::Descendants
+    name = "Descendants"
+  Row 4: OpenSysMLQueries::StepKind::Feature
+    name = "Feature"
+  Row 5: OpenSysMLQueries::StepKind::Value
+    name = "Value"
+  Row 6: OpenSysMLQueries::StepKind::OfType
+    name = "OfType"
+  Row 7: OpenSysMLQueries::StepKind::Related
+    name = "Related"
+  Row 8: OpenSysMLQueries::StepKind::WhereFeature
+    name = "WhereFeature"
+  Row 9: OpenSysMLQueries::StepKind::Project
+    name = "Project"
+  Row 10: OpenSysMLQueries::StepKind::Differ
+    name = "Differ"
+```
+
+A query whose root is a parameter (`in root : Element`) is bound by the table that uses it, so
+it runs from the document rather than from the command line; a query that names a feature the
+model lacks does not answer an empty table but fails with the outcome the "Queries and outcomes"
+section of the document describes — exit status 2, and under `-json` the record at
+`checks[].outcome` ([design note](../../docs/internals/design/query-outcomes.md)).
+[`../self_model_queries_test.go`](../self_model_queries_test.go) reads every figure and name
+[queries.sysml](queries.sysml) states back from the library file, `queryplan`, `queryexec`, the
+CLI, the REPL and the protobuf schema, and renders the section to check each of its tables has
+rows.
 
 ## Keeping it honest
 

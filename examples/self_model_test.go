@@ -1741,11 +1741,11 @@ func TestSelfModelDocumentProseReadsTheModel(t *testing.T) {
 	if n := strings.Count(doc, `:>> text = "`); n != 0 {
 		t.Errorf("%d string-literal paragraphs in the document, want none", n)
 	}
-	if n, want := strings.Count(doc, `rep language "markdown"`), 21; n != want {
+	if n, want := strings.Count(doc, `rep language "markdown"`), 22; n != want {
 		t.Errorf("%d Markdown bodies in the document, want %d", n, want)
 	}
 	valueRuns := regexp.MustCompile(`\]\(sysml:value:([^)]+)\)`).FindAllStringSubmatch(doc, -1)
-	if n, want := len(valueRuns), 12; n != want {
+	if n, want := len(valueRuns), 21; n != want {
 		t.Errorf("%d value runs in the document, want %d", n, want)
 	}
 

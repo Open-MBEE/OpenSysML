@@ -245,7 +245,7 @@ nor double-counted as two independent disagreements.
 
 ---
 
-## Results (pilot `2026-09`, 924 files)
+## Results (pilot `2026-09`, 925 files)
 
 | Root | Files | Fully agreeing | Ours | Pilot | Agreed | Severity-only | Only ours | Only pilot |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -255,9 +255,9 @@ nor double-counted as two independent disagreements.
 | `examples/pilot-corpora/kerml-examples` | 58 | 55 | 12 | 0 | 0 | 0 | 12 | 0 |
 | `examples/spec-examples` | 511 | 151 | 1091 | 3395 | 1038 | 6 | 47 | 2351 |
 | `tests/testdata` | 40 | 25 | 76 | 101 | 60 | 5 | 11 | 36 |
-| `examples` | 56 | 49 | 12 | 69 | 4 | 0 | 8 | 65 |
+| `examples` | 57 | 50 | 12 | 76 | 4 | 0 | 8 | 72 |
 | `tools/referee/diff/testdata` (probes) | 4 | 1 | 6 | 0 | 0 | 0 | 6 | 0 |
-| **Total** | **924** | **524** | **1235** | **3575** | **1102** | **11** | **122** | **2462** |
+| **Total** | **925** | **525** | **1235** | **3582** | **1102** | **11** | **122** | **2469** |
 
 **Read the `only ours` total by root, never as one number.** Step 2 removes nine resolver false
 positives from the reference's **own** corpora: `pilot-examples` 16 → **7** and
@@ -307,7 +307,7 @@ Per category, the only-ours totals are: `training` 1 `multiplicity`; `pilot-exam
 1 `unresolved-reference`, 2 `multiplicity`; `examples` 4
 `unmapped`, 1 `kind-mismatch`, 2 `multiplicity`, 1 `unresolved-reference`; `probes` 6 `unmapped`; `spec-examples` 7 `syntax`,
 38 `unresolved-reference`, 2 `unmapped`. Only-pilot: `testdata` 14 `kind-mismatch`, 17 `unmapped`,
-3 `syntax`, 2 `unresolved-reference`; `pilot-examples` 10 `kind-mismatch`; `examples` 24 `unmapped`, 41 `kind-mismatch`; `spec-examples` 1359 `unmapped`,
+3 `syntax`, 2 `unresolved-reference`; `pilot-examples` 10 `kind-mismatch`; `examples` 24 `unmapped`, 48 `kind-mismatch`; `spec-examples` 1359 `unmapped`,
 586 `kind-mismatch`, 196 `syntax`, 156 `unresolved-reference`, 50 `multiplicity`, 4 `units`.
 
 The `spec-examples` figures are dominated by fragments: the specification's examples leave
@@ -1014,8 +1014,8 @@ cascades through the rest of the file. The movement is entirely one file,
 
 | Count | Before the initializer rewrite | Now |
 |---|---:|---:|
-| only pilot | 82 | **2462** |
-| pilot diagnostics | 123 | **3575** |
+| only pilot | 82 | **2469** |
+| pilot diagnostics | 123 | **3582** |
 | severity-only | 9 | **11** |
 
 The rewrite itself took only-pilot to 61 and pilot diagnostics to 101; the `Now` column states
@@ -1235,18 +1235,27 @@ their own day and none is comparable to the table above, so this page keeps only
 run states; what a movement *meant* survives in the per-class adjudications below and in this
 page's history.
 
+### Self-model query-path round
+
+The self-model gained `examples/self-model/queries.sysml`, which the reference reads without a
+diagnostic (925 files, **525** fully agreeing), and its architecture document seven more tables.
+Each table binds a query's `root` parameter to a part of the model, and the reference warns on each
+binding that *bound features should have conforming types* — the same `kind-mismatch` warning it
+already gives the document's existing tables, so `examples` only-pilot rises 65 → **72** and the
+overall count 2462 → **2469**, with no movement in any other root or column.
+
 **Where the current counts stand:**
 
 | Count | Now |
 |---|---:|
-| overall: fully agreeing / only ours / our diagnostics | **524 / 122 / 1235** |
-| only pilot | **2462** |
-| pilot diagnostics | **3575** |
+| overall: fully agreeing / only ours / our diagnostics | **525 / 122 / 1235** |
+| only pilot | **2469** |
+| pilot diagnostics | **3582** |
 | severity-only | **11** |
 | unmapped, our side | **54** |
 | kerml-examples: only ours | **12** |
 | pilot-examples: only ours | **34** |
-| examples: only pilot | **65** |
+| examples: only pilot | **72** |
 
 The KerML root is now the *cleanest* of the three OMG roots in proportion: **9** only-ours against 6
 only-pilot, with 56 of 58 files fully agreeing (439 / 6 and 10 / 58 when the root was added, and

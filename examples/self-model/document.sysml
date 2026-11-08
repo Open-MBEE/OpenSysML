@@ -13,6 +13,7 @@ package OpenSysMLDocument {
     part analysisFramework : OpenSysMLPipeline::AnalysisFramework;
     part viewEngine : OpenSysMLSurfaces::ViewEngine;
     part documentPipeline : OpenSysMLSurfaces::DocumentPipeline;
+    part queryPath : OpenSysMLQueries::QueryPath;
 
     // --- Queries the document runs over this model -----------------------
 
@@ -165,6 +166,63 @@ package OpenSysMLDocument {
     }
 
     // --- The document ----------------------------------------------------
+
+    // --- Queries over the query path, in the vocabulary it compiles --------
+
+    // The library's calc defs and the plan operations the compiler binds them to.
+    calc def LibraryOperations :> Query {
+        in root : Element;
+        return :>> result = Project(
+            source = WhereType(source = OwnedElements(source = DefinitionOf(root = root)), type = "PartUsage"),
+            properties = ("calcDef", "operation"));
+    }
+
+    // The step kinds, kept by their own metaclass: an exact type test.
+    calc def StepKinds :> Query {
+        return :>> result = Project(
+            source = WhereType(source = OwnedElements(source = Named(qualifiedName = "OpenSysMLQueries::StepKind")), type = "EnumerationUsage", exact = true),
+            properties = ("name"));
+    }
+
+    // The document pipeline's parts as the containment tree they form.
+    calc def PipelineTree :> Query {
+        in root : Element;
+        return :>> result = Tree(source = WhereType(source = Descendants(source = DefinitionOf(root = root)), type = "PartUsage"));
+    }
+
+    // Each surface a query is run from, and how it shows the outcome.
+    calc def QuerySurfaces :> Query {
+        in root : Element;
+        return :>> result = Project(
+            source = WhereType(source = OwnedElements(source = DefinitionOf(root = root)), type = "OpenSysMLQueries::QuerySurface"),
+            properties = ("name", "goPackage", "command", "outcomeShown"));
+    }
+
+    // The code units a surface specializes, outgoing along specialization.
+    calc def SurfaceLineage :> Query {
+        return :>> result = Project(
+            source = RelatedElements(source = Named(qualifiedName = "OpenSysMLQueries::CliQuerySurface"), relationshipKind = "specialization", direction = "outgoing"),
+            properties = ("qualifiedName"));
+    }
+
+    // The code units the toolchain and the query path both name, where the
+    // package each puts them in differs: a keyed comparison of two part sets.
+    calc def SurfacePackagesDiffer :> Query {
+        in toolchain : Element;
+        in path : Element;
+        return :>> result = Differ(
+            left = Project(source = WhereType(source = OwnedElements(source = DefinitionOf(root = toolchain)), type = "OpenSysMLArtifacts::CodeUnit"), properties = ("name", "goPackage")),
+            right = Project(source = WhereType(source = OwnedElements(source = DefinitionOf(root = path)), type = "OpenSysMLArtifacts::CodeUnit"), properties = ("name", "goPackage")),
+            key = "name", column = "goPackage");
+    }
+
+    // Every assertion about the toolchain, the identity path and the query
+    // path, as the model declares them: the invariants' verdicts.
+    calc def InvariantVerdicts :> Query {
+        return :>> result = Project(
+            source = Verdicts(source = Named(qualifiedName = ("OpenSysMLSurfaces::opensysml", "OpenSysMLQueries::queryPath")), kind = "all"),
+            properties = ("kind", "path", "verdict"));
+    }
 
     part def ArchitectureDocument :> Document {
         attribute redefines title = "OpenSysML Architecture";
@@ -598,6 +656,88 @@ package OpenSysMLDocument {
                 calc rows : OraclesWithBaselines {
                     in redefines root = OpenSysMLSurfaces::opensysml;
                 }
+            }
+        }
+
+        part queries : Section {
+            attribute redefines title = "Queries and outcomes";
+
+            rep language "markdown" /* Every table in this document is a query: a calc def over the
+             * `DocumentQueries` library, compiled by
+             * [](sysml:value:queryPath.compiler.goPackage) into an immutable
+             * plan and run by [](sysml:value:queryPath.executor.goPackage). A
+             * step of a plan either answers a value — an empty collection is a
+             * value — or fails as a path error, carrying the frontier the model
+             * stopped at, or as a model error, carrying the constraint the model
+             * broke; one failing element fails its fan-out and every failing
+             * element is kept, and only
+             * [](sysml:value:queryPath.executor.toleratingOperations) may tolerate
+             * a miss. [The operations table](sysml:operations) is the library as
+             * the compiler binds it, [the step kinds](sysml:steps) are where an
+             * outcome is reported, and [the surfaces table](sysml:surfaces) is
+             * where a query is run from: the command line exits
+             * [](sysml:value:queryPath.cli.failureExitStatus) and writes the
+             * outcome at [](sysml:value:queryPath.cli.outcomeShown) under
+             * [](sysml:value:queryPath.cli.jsonFlag), the service fails the call
+             * with a [](sysml:value:queryPath.service.outcomeShown) detail. The
+             * recorded examples under [](sysml:value:queryPath.oracle.examples)
+             * pin that behaviour against the guide; their reference is
+             * [](sysml:value:queryPath.oracle.reference).
+             */
+
+            part path : Diagram {
+                attribute redefines caption = "The query path, from the library to the surfaces that show an outcome";
+                attribute redefines direction = "LR";
+                ref redefines source = OpenSysMLViews::queryPath;
+            }
+
+            part outcome : Diagram {
+                attribute redefines caption = "One step evaluated: a value, a path error or a model error";
+                ref redefines source = OpenSysMLViews::stepOutcome;
+            }
+
+            part operations : Table {
+                attribute redefines caption = "The library's calc defs and the plan operations they compile to";
+                calc rows : LibraryOperations {
+                    in redefines root = queryPath.'library';
+                }
+            }
+
+            part steps : Table {
+                attribute redefines caption = "The step kinds an outcome is reported at, kept by their own metaclass (WhereType with exact = true)";
+                calc rows : StepKinds;
+            }
+
+            part surfaces : Table {
+                attribute redefines caption = "The surfaces a query is run from, and how each shows the outcome";
+                calc rows : QuerySurfaces {
+                    in redefines root = queryPath;
+                }
+            }
+
+            part lineage : Table {
+                attribute redefines caption = "What the command-line surface specializes, followed outgoing along specialization (RelatedElements)";
+                calc rows : SurfaceLineage;
+            }
+
+            part tree : Table {
+                attribute redefines caption = "The document pipeline's parts as a containment tree (Tree)";
+                calc rows : PipelineTree {
+                    in redefines root = documentPipeline;
+                }
+            }
+
+            part packages : Table {
+                attribute redefines caption = "The surfaces both the toolchain and the query path name, where their packages differ (Differ keyed by name)";
+                calc rows : SurfacePackagesDiffer {
+                    in redefines toolchain = OpenSysMLSurfaces::opensysml;
+                    in redefines path = queryPath;
+                }
+            }
+
+            part verdicts : Table {
+                attribute redefines caption = "The architecture invariants as the model satisfies them, and the gates that verify them (Verdicts)";
+                calc rows : InvariantVerdicts;
             }
         }
     }
