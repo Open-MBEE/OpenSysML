@@ -152,9 +152,8 @@ func NodeStatement(n *ast.Usage) ast.Node {
 	return nil
 }
 
-// PlainNodeHead reports whether an action node declares nothing but its
-// visibility and name: no prefix, modifier, specialization, multiplicity or
-// value.
+// PlainNodeHead reports whether an action node declares nothing but its visibility
+// and name: no prefix, modifier, specialization, multiplicity or value.
 func PlainNodeHead(n *ast.Usage) bool {
 	return len(n.Prefixes) == 0 && n.PrefixKeyword == "" && len(n.Relationships) == 0 &&
 		n.Multiplicity == nil && n.CrossFeature == nil && n.Value == nil &&
