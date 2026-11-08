@@ -650,7 +650,7 @@ ReferenceSubsetting::referencedFeature	203	export-17
 ReferenceSubsetting::relatedElement	203	export-13
 ReferenceSubsetting::subsettedFeature	203	export-08
 ReferenceSubsetting::target	203	export-14
-ReferenceUsage::declaredName	102	symbol-01
+ReferenceUsage::declaredName	9	symbol-01
 ReferenceUsage::definition	56	symbol-54
 ReferenceUsage::directedFeature	4	symbol-53
 ReferenceUsage::directedUsage	4	symbol-53

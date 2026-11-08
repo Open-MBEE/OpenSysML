@@ -746,10 +746,6 @@ func (m *Model) relationshipTarget(sym *symbols.Symbol, rel *ast.Relationship) *
 		return nil
 	}
 	node := rel.Target
-	if usage, ok := node.(*ast.Usage); ok && usage == sym.Decl && isMetadataBodyFeature(sym) {
-		// The implied redefinition of a metadata body feature targets the type's feature it names.
-		return m.MetadataBodyTargetOf(m.resolver.MetadataBodyOwner(sym.OwnerScope), sym.OwnerScope, usage)
-	}
 	if fr, ok := node.(*ast.FeatureReference); ok {
 		node = fr.Name
 	}

@@ -267,7 +267,7 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 		}
 		// A flow feature's redefinition is a property the conversion writes, which the
 		// api-json structure derives as a Redefinition minted off the feature.
-		if rel.Kind == ast.RelRedefines && (semantics.IsFlowFeature(rel.Owner) || semantics.IsMetadataBodyFeature(rel.Owner) && rel.Node.Target == rel.Owner.Decl) {
+		if rel.Kind == ast.RelRedefines && semantics.IsFlowFeature(rel.Owner) {
 			owner, ok := s.of(rel.Owner)
 			return owner + relationshipSuffix(ast.RelRedefines, false, false, 1, 0), ok
 		}
@@ -275,6 +275,11 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 			return s.ids.RelationshipOf(doc, rel.Node.Target)
 		}
 		return s.ids.RelationshipOf(doc, rel.Node)
+	case symbols.ImplicitMetadataBodyRedefinition:
+		// The Redefinition a metadata body feature's name implies is minted off
+		// the feature, as the conversion writes it.
+		owner, ok := s.of(rel.Owner)
+		return owner + relationshipSuffix(ast.RelRedefines, false, false, 1, 0), ok
 	case symbols.ImplicitImport:
 		return s.ids.OfDeclaration(doc, rel.Decl, "")
 	case symbols.ImplicitAnnotatingRelationship:

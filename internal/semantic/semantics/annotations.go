@@ -1312,10 +1312,6 @@ var usageMetaclassNames = map[ast.UsageKind]string{
 
 // isMetadataBodyFeature reports whether sym is a feature a metadata body declares,
 // at any depth, other than a metadata feature annotating the body's owner.
-// IsMetadataBodyFeature reports whether sym is a feature a metadata usage's body
-// binds (`@M { x = 1; }`), which redefines the metadata type's feature it names.
-func IsMetadataBodyFeature(sym *symbols.Symbol) bool { return isMetadataBodyFeature(sym) }
-
 func isMetadataBodyFeature(sym *symbols.Symbol) bool {
 	kind, ok := sym.UsageKind()
 	if !ok || kind == ast.UsageMetadata {
@@ -2483,7 +2479,7 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		}
 		return boolValue(len(m.ownedImplicitRelationships(sym, conjugationMetaclass)) > 0), true
 	case "declaredName":
-		return stringOrEmpty(declaredSymbolName(sym)), true
+		return stringOrEmpty(m.declaredSymbolName(sym)), true
 	case "name":
 		return stringOrEmpty(m.reflectiveName(sym)), true
 	case "shortName":
@@ -2958,7 +2954,7 @@ func metaclassName(kind symbols.SymbolKind) string {
 // nameless feature takes from the feature it redefines (KerML 1.1 §8.3.3.3) — a
 // positional parameter from its behavior's, a connector end from the end it occupies.
 func (m *Model) reflectiveName(sym *symbols.Symbol) string {
-	if name := declaredSymbolName(sym); name != "" {
+	if name := m.declaredSymbolName(sym); name != "" {
 		return name
 	}
 	if name := m.EffectiveNameOf(sym); name != "" {
@@ -2972,10 +2968,14 @@ func (m *Model) reflectiveName(sym *symbols.Symbol) string {
 }
 
 // declaredSymbolName is the symbol's name as its declaration states it; a name the
-// symbol table gave it for the role it takes (a transition's `effect`) is none.
-func declaredSymbolName(sym *symbols.Symbol) string {
+// symbol table gave it for the role it takes (a transition's `effect`) is none, and
+// a metadata body feature's `mission = …` names the feature it redefines, not itself.
+func (m *Model) declaredSymbolName(sym *symbols.Symbol) string {
 	// `:>> x` and a role name are derived, not declared (KerML 8.3.2.1 Element::declaredName).
 	if sym == nil || sym.Naming == symbols.NamedByRole || sym.Naming == symbols.NamedByRedefinition {
+		return ""
+	}
+	if m.RestatesMetadataBodyFeature(sym) {
 		return ""
 	}
 	return SimpleSymbolName(sym)
