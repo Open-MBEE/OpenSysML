@@ -63,6 +63,22 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 			out = append(out, member)
 			return true
 		}
+		if symbols.IsFirstMarker(member) {
+			// `first x;` is a Membership of the member the body starts at (SysML.xtext
+			// InitialNodeMember), as the pilot exports it and the conversion writes it;
+			// a name no member bears leaves the Membership's member underived.
+			out = append(out, &symbols.Symbol{
+				Kind:       symbols.SymbolRelationship,
+				DocName:    sym.DocName,
+				DeclSpan:   member.DeclSpan,
+				Visibility: member.Visibility,
+				Implicit: &symbols.ImplicitRelationship{
+					Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitReferenceMembership, Member: m.firstMarkerStart(sym, member), Decl: member.Decl,
+				},
+			})
+			ordinal++
+			return true
+		}
 		out = append(out, &symbols.Symbol{
 			Kind:       symbols.SymbolRelationship,
 			DocName:    sym.DocName,
@@ -222,7 +238,8 @@ func (m *Model) OwningMembership(sym *symbols.Symbol) *symbols.Symbol {
 		return nil
 	}
 	for _, membership := range m.OwnedMemberships(owner) {
-		if membership.Implicit != nil && membership.Implicit.Member == sym {
+		// A `first x;` marker's Membership refers to x without owning it.
+		if membership.Implicit != nil && membership.Implicit.Member == sym && membership.Implicit.Form != symbols.ImplicitReferenceMembership {
 			return membership
 		}
 	}
@@ -1054,4 +1071,14 @@ func clausePosition(items []*symbols.Symbol, offset int) int {
 		}
 	}
 	return len(items)
+}
+
+// firstMarkerStart is the member of owner's body the marker binds to, or nil.
+func (m *Model) firstMarkerStart(owner, marker *symbols.Symbol) *symbols.Symbol {
+	if node, ok := marker.Decl.(*ast.InitialNode); ok {
+		start, _ := m.resolver.ResolveInitial(owner.Scope, node)
+		return start
+	}
+	start, _ := m.resolver.ResolveInitialMember(owner.Scope, marker.Name)
+	return start
 }
