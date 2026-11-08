@@ -598,7 +598,6 @@ func TestNestedMetadataBodyFeaturesAreIdentifiedPerAnnotation(t *testing.T) {
 	}
 }
 
-
 // A model's own ElementId is no identity annotation: it takes a position, as in the conversion.
 func TestShadowingElementIdKeepsItsPosition(t *testing.T) {
 	table, _ := buildTable(t, `package P {
