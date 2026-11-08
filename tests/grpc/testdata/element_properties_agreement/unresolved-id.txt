@@ -30,7 +30,7 @@ Namespace::@id	1	export-39
 NamespaceImport::@id	2	export-38
 NullExpression::@id	2	export-40
 OperatorExpression::@id	53	export-42
-OwningMembership::@id	449	export-50
+OwningMembership::@id	229	export-50
 Package::@id	21	export-37
 ParameterMembership::@id	91	export-50
 PortConjugation::@id	31	export-41

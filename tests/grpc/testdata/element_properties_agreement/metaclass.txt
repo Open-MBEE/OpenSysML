@@ -23,7 +23,7 @@ LibraryPackage::@type	2	export-25
 MetadataUsage::@type	10	symbol-44
 NamespaceExpose::@type	13	export-22
 NamespaceImport::@type	6	export-23
-OwningMembership::@type	47	symbol-46
+OwningMembership::@type	44	symbol-46
 PerformActionUsage::@type	86	export-26
 PredicateUsage::@type	5	symbol-44
 ReferenceSubsetting::@type	9	export-19

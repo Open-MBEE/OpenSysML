@@ -97,6 +97,26 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		m.memberships[sym] = out
 		return out
 	}
+	if !relationshipBodyOwner(sym) {
+		// A namespace owns its `#M` prefixes through OwningMemberships written
+		// before its body's (SysML.xtext PrefixMetadataMember).
+		for _, prefix := range m.prefixMetadataSymbols(sym) {
+			if seen[prefix] {
+				continue
+			}
+			seen[prefix] = true
+			out = append(out, &symbols.Symbol{
+				Kind:       symbols.SymbolRelationship,
+				DocName:    sym.DocName,
+				DeclSpan:   prefix.DeclSpan,
+				Visibility: prefix.Visibility,
+				Implicit: &symbols.ImplicitRelationship{
+					Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: prefix,
+				},
+			})
+			ordinal++
+		}
+	}
 	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
 		if member.Decl == sym.Decl && IsStatementNode(sym.Decl) {
 			// A `for` variable is a body-local name, not an element the
@@ -247,13 +267,15 @@ func isSatisfySubjectSymbol(sym *symbols.Symbol) bool {
 }
 
 // ownedThroughAnnotation reports whether owner owns member through an
-// Annotation rather than a Membership: a `#M` prefix metadata feature, or an
-// annotating element in the body of a relationship or alias (KerML 8.2.3.3.1).
+// Annotation rather than a Membership: an annotating element, a `#M` prefix
+// metadata feature included, in the body of a relationship or alias (KerML
+// 8.2.3.3.1, KerML.xtext PrefixMetadataAnnotation). A namespace owns its
+// prefix metadata through an OwningMembership (KerML.xtext PrefixMetadataMember).
 func ownedThroughAnnotation(owner, member *symbols.Symbol) bool {
-	if isPrefixMetadataSymbol(member) {
-		return true
+	if !relationshipBodyOwner(owner) {
+		return false
 	}
-	return relationshipBodyOwner(owner) && isAnnotatingSymbol(member) && !symbols.AnnotatesOthers(member.Decl)
+	return isPrefixMetadataSymbol(member) || isAnnotatingSymbol(member) && !symbols.AnnotatesOthers(member.Decl)
 }
 
 // isPrefixMetadataSymbol reports whether sym is the metadata feature a `#M`
@@ -265,11 +287,24 @@ func isPrefixMetadataSymbol(sym *symbols.Symbol) bool {
 // prefixMetadataSymbols is the metadata feature of each `#M` prefix written on
 // sym, in prefix order: the members the builder registered for them.
 func (m *Model) prefixMetadataSymbols(sym *symbols.Symbol) []*symbols.Symbol {
-	prefixes, _, ok := ast.DeclaredMetadata(sym.Decl)
-	if !ok || sym.Scope == nil {
+	if sym.Scope == nil {
 		return nil
 	}
 	var out []*symbols.Symbol
+	if sym.Recorded() {
+		// A record marks its prefix metadata members (ModPrefixMetadata).
+		sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
+			if member != nil && member.IsPrefixMetadata() {
+				out = append(out, member)
+			}
+			return true
+		})
+		return out
+	}
+	prefixes, _, ok := ast.DeclaredMetadata(sym.Decl)
+	if !ok {
+		return nil
+	}
 	for _, prefix := range prefixes {
 		if member := sym.Scope.MemberDeclaring(prefix); member != nil {
 			out = append(out, member)
@@ -302,8 +337,8 @@ func relationshipBodyOwner(sym *symbols.Symbol) bool {
 
 // OwningMembership returns the Membership through which sym's owner owns it, or
 // nil for an element owned through no membership: a root element, an alias or
-// other relationship owned directly, a prefix metadata feature, or a reflected
-// relationship object.
+// other relationship owned directly, a relationship's prefix metadata feature,
+// or a reflected relationship object.
 func (m *Model) OwningMembership(sym *symbols.Symbol) *symbols.Symbol {
 	if m == nil || sym == nil || sym.Implicit != nil || sym.Chain != nil || sym.Kind == symbols.SymbolAlias {
 		return nil
@@ -467,6 +502,11 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 	}
 	if _, ok := m.transitionFeatureKind(owner, member); ok {
 		return "TransitionFeatureMembership"
+	}
+	if member.Kind == symbols.SymbolMetadataUsage {
+		// A namespace owns a metadata usage, `#M` prefix or body `@M;`, through an
+		// OwningMembership (SysML.xtext PrefixMetadataMember, AnnotatingMember).
+		return "OwningMembership"
 	}
 	if _, ok := member.Decl.(*ast.IfBranchNode); ok {
 		// A branch of `if` is an ActionUsage parameter the conditional owns

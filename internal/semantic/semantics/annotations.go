@@ -1893,7 +1893,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "ownedFeature":
 		features := append([]*symbols.Symbol(nil), m.expressionOwnedParts(sym)...)
 		for _, member := range m.withTransitionParts(sym, ownedMembersOf(sym)) {
-			if member.IsFeature() || isExpressionSymbol(member) {
+			// A metadata feature is owned through an OwningMembership, not a
+			// FeatureMembership (KerML.xtext AnnotatingMember, SysML.xtext PrefixMetadataMember).
+			if (member.IsFeature() || isExpressionSymbol(member)) && member.Kind != symbols.SymbolMetadataUsage {
 				features = append(features, member)
 			}
 		}
