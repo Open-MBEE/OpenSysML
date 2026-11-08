@@ -33,7 +33,10 @@ func TestMetadataBodyRedefinitionHasItsElementID(t *testing.T) {
 			t.Fatalf("body feature id: %q, %v", featureID, err)
 		}
 		rels, _ := fixture.model.ReflectiveElements(features[0], "ownedRelationship")
-		if meta := fixture.model.MetaclassOf(rels[0]); len(rels) == 0 || meta == nil || meta.Name != "Redefinition" {
+		if len(rels) == 0 {
+			t.Fatal("body feature owns no relationship, want its Redefinition first")
+		}
+		if meta := fixture.model.MetaclassOf(rels[0]); meta == nil || meta.Name != "Redefinition" {
 			t.Fatalf("body feature ownedRelationship = %v, want its Redefinition first", rels)
 		}
 		if id, err := elementID(rels[0]); err != nil || id != featureID+"_rd0" {
