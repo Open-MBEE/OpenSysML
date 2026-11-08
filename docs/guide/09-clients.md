@@ -220,6 +220,39 @@ diagnostics; the examples check those before using the result. A false constrain
 answer about the model, not an exception. For service resolution and error details, see the
 [client-library reference](../reference/clients.md).
 
+### Read an element's metamodel properties
+
+A service that advertises the `element_properties` capability answers the `GetElementProperties`
+RPC: the properties of one element by their KerML/SysML specification names (`inheritedFeature`,
+`connectorEnd`, `isComposite`, …), spelled as the model's api-json export spells them. The element is
+a qualified name, the positional id of an unnamed member (`Owner::@2`) or the id an earlier answer
+carried — every id an answer returns reads back, a standard-library element or an unnamed library
+member included, so a client walks from the model into the library. The Go, Python, Rust and Node
+clients and the MCP server expose it (`client.ElementProperties`, `Model.element_properties`,
+`element_properties`); the WASM build serves neither it nor `Convert`.
+
+=== "Go"
+
+    ```go
+    read, err := client.ElementProperties(ctx, model, "Demo::sedan", "inheritedFeature")
+    if err != nil { return err }
+    for _, feature := range read.Property("inheritedFeature").Elements() {
+        fmt.Println(feature.QualifiedName, feature.Metaclass)
+    }
+    ```
+
+=== "Python"
+
+    ```python
+    read = model.element_properties("Demo::sedan", "inheritedFeature")
+    for feature in read["inheritedFeature"].elements:
+        print(feature.qualified_name, feature.metaclass)
+        model.element_properties(feature.id, "owner")  # the id reads back
+    ```
+
+See the [wire contract](../reference/wire-contract.md#getelementproperties) for the value arms and
+how an unanswerable property says why.
+
 ## From Go
 
 The [client index](../clients.md) links to the Go overview and walkthrough. The
