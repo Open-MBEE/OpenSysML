@@ -4950,9 +4950,8 @@ func (e *Evaluator) computeStructureTypeMembers(element Element, property string
 	return e.structureMembershipsProperty(memberships, property)
 }
 
-// structureLibraryBase is the library type a base element stands for, by its symbol:
-// an implied base the model names, or a stated one the structure refers to (`: Boolean`),
-// whose members the semantic inheritance table has and the structure does not.
+// structureLibraryBase is the library type a base stands for — implied by the model or stated
+// (`: Boolean`) as a structure reference — whose members the inheritance table has, not the structure.
 func (e *Evaluator) structureLibraryBase(element Element) (Element, bool) {
 	if element.Symbol != nil {
 		return element, !e.structureKnows(element)
