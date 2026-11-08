@@ -205,20 +205,21 @@ func TestReflectivePlainUsagesOwnTheirRelationships(t *testing.T) {
 		_, target = singleRelationship(t, model, shadowed, "ownedRedefinition", "KerML::Core::Redefinition")
 		assertReflectiveElements(t, model, target, "chainingFeature", "P::Base::sub", "P::Base::sub::w")
 
-		// A chain that resolves to nothing denotes no feature: the target side
-		// stays underived and the relationship owns no related element.
+		// A chain that resolves to nothing is still written as a chain Feature
+		// (KerML 8.3.3.3.9): the relationship targets and owns it, and it chains nothing.
 		dangling := nestedSym(t, fixture.root, "P::Dangling::b")
 		rels := reflectiveElementsOf(t, model, dangling, "ownedSubsetting")
 		if len(rels) != 1 {
 			t.Fatalf("b.ownedSubsetting has %d relationships, want 1", len(rels))
 		}
-		for _, property := range []string{"target", "subsettedFeature"} {
-			if got, ok := model.ReflectiveElements(rels[0], property); ok {
-				t.Errorf("b subsetting %s = %v, want underived for an unresolved chain", property, fqns(got))
+		for _, property := range []string{"target", "subsettedFeature", "ownedRelatedElement"} {
+			got := reflectiveElementsOf(t, model, rels[0], property)
+			if len(got) != 1 || got[0].Chain == nil {
+				t.Fatalf("b subsetting %s = %v, want the chain Feature of the unresolved chain", property, fqns(got))
 			}
-		}
-		if got := reflectiveElementsOf(t, model, rels[0], "ownedRelatedElement"); len(got) != 0 {
-			t.Errorf("b subsetting ownedRelatedElement = %v, want none", fqns(got))
+			if chained := reflectiveElementsOf(t, model, got[0], "chainingFeature"); len(chained) != 0 {
+				t.Errorf("unresolved chain Feature chains %v, want nothing", fqns(chained))
+			}
 		}
 
 		derived := nestedSym(t, fixture.root, "P::Derived")

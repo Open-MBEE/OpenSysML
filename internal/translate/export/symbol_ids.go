@@ -165,13 +165,25 @@ func (s *SymbolIDs) compute(sym *symbols.Symbol) (string, bool) {
 	// off the end (chainFeature), which the chain's own node is not written as.
 	if sym.Kind == symbols.SymbolReferenceUsage && sym.OwnerScope != nil {
 		if end, ok := sym.OwnerScope.Node().(*ast.ConnectorEnd); ok && end.AttachedTarget() == sym.Decl {
-			element, _, ok := s.ids.OfExpressionPart(doc, end, "chain")
-			return element, ok
+			if element, _, ok := s.ids.OfExpressionPart(doc, end, "chain"); ok {
+				return element, true
+			}
 		}
 		// A flow end's flow feature is minted off the end (flowEndReferences).
 		if semantics.IsFlowFeature(sym) {
 			element, _, ok := s.ids.OfExpressionPart(doc, sym.OwnerScope.Node(), "ff")
 			return element, ok
+		}
+	}
+	// The chain Feature a relationship's chain target denotes is minted off the element
+	// the relationship is written on: an end's `_pend0_pchain`, a transition's `_psourcechain`.
+	if sym.Chain != nil && sym.Chain.Relationship != nil && sym.Chain.Relationship.Implicit != nil && sym.Chain.Relationship.Implicit.Owner != nil {
+		if base, ok := s.of(sym.Chain.Relationship.Implicit.Owner); ok {
+			slot := "chain"
+			if sym.Chain.Relationship.Implicit.Slot == "sourcemember" {
+				slot = "sourcechain"
+			}
+			return rdf.ExpressionNodeID(base, slot), true
 		}
 	}
 	if implied, ok := symbols.ImpliedDeclOf(sym); ok &&

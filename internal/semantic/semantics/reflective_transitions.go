@@ -153,7 +153,7 @@ func (p *transitionParts) withSuccession(trans *symbols.Symbol, target *ast.Qual
 	empty := &ast.ConnectorEnd{}
 	empty.NodeSpan = source.Span{Offset: span.Offset}
 	p.sourceEnd = transitionPart(trans, empty, empty.NodeSpan, symbols.SymbolConnectorEnd, p.succession, symbols.ExpressionConnectorEnd)
-	end := &ast.ConnectorEnd{Target: target}
+	end := &ast.ConnectorEnd{Target: dottedTargetChain(target)}
 	end.NodeSpan = span
 	p.targetEnd = transitionPart(trans, end, span, symbols.SymbolConnectorEnd, p.succession, symbols.ExpressionConnectorEnd)
 	p.targetEnd.Expr.Index = 1
@@ -470,4 +470,25 @@ func nameHasChain(name *ast.QualifiedName) bool {
 		}
 	}
 	return false
+}
+
+// dottedTargetChain is the feature chain a dotted transition target (`then a.b`) is
+// written as (SysML.xtext TransitionSuccession), nested as the parser shapes one.
+func dottedTargetChain(target *ast.QualifiedName) ast.Node {
+	if target == nil || len(target.Parts) < 2 {
+		return target
+	}
+	segment := func(i int) *ast.QualifiedName {
+		name := &ast.QualifiedName{}
+		name.SetSingleton(target.Parts[i])
+		name.NodeSpan = target.Parts[i].Span
+		return name
+	}
+	var node ast.Node = segment(0)
+	for i := 1; i < len(target.Parts); i++ {
+		chain := &ast.FeatureChainExpr{Operand: node, Member: segment(i)}
+		chain.NodeSpan = source.Span{Offset: target.Span().Offset, Len: target.Parts[i].Span.Offset + target.Parts[i].Span.Len - target.Span().Offset}
+		node = chain
+	}
+	return node
 }

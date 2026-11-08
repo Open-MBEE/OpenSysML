@@ -83,11 +83,8 @@ func (m *Model) chainTargetFeature(rel *symbols.Symbol) *symbols.Symbol {
 	if cached, ok := m.chainTargets[rel]; ok {
 		return cached
 	}
-	// A chain that resolves to nothing denotes no feature: the relationship's
-	// target side stays underived, as it does for an unresolved name.
-	if len(m.chainPath(owner, rel.Implicit.Kind, node, facts)) == 0 {
-		return nil
-	}
+	// The chain feature is written whether or not its segments resolve (KerML
+	// 8.3.3.3.9); one that resolves to nothing chains no feature.
 	scope := owner.Scope
 	if scope == nil {
 		// A leaf declares no scope of its own; its chain feature still needs

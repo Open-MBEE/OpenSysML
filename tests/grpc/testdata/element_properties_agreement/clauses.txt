@@ -115,3 +115,4 @@ symbol-51	symbol	inherited and implied memberships the export omits (KerML 8.3.2
 symbol-52	symbol	the collection includes the implied and inherited members the structure reflects and the export omits (KerML 8.3.3.1.10 Type derived collections)
 symbol-53	symbol	the implied members (parameters, ends, multiplicities) the structure reflects and the export omits (SysML 8.3.16.15 checkTransitionUsageParameters, KerML 8.3.3.1.10 Type::directedFeature)
 symbol-54	symbol	the implied members and library definitions the structure reflects and the export omits (KerML 8.3.3.3.5 Feature::type incl. implied typing; SysML 8.3.16.15 implied parameters)
+export-59	export	the form writes one FeatureChaining per written segment of a chain, resolved or not (KerML 8.3.3.3.9, SysML.xtext OwnedFeatureChain); the structure chains only the features that resolve
