@@ -50,7 +50,65 @@ func TestFirstMarkerIsAMembershipOfTheStart(t *testing.T) {
 				t.Errorf("the first marker is among ownedFeatureMembership; it is a plain Membership")
 			}
 		}
+		// The start is no ownedMember (its Membership owns nothing) but one member and one feature.
+		if got := countNamed(members, "start"); got != 0 {
+			t.Errorf("ownedMember of observe names start %d times, want 0", got)
+		}
+		for _, property := range []string{"member", "feature"} {
+			elements, _ := model.ReflectiveElements(observe, property)
+			if got := countNamed(elements, "start"); got != 1 {
+				t.Errorf("%s of observe names start %d times, want 1", property, got)
+			}
+		}
 	}
+}
+
+// TestFirstMarkerNamingABodyMemberListsItOnce: `first take;` before `action take` makes take a
+// member once, not once per membership — Namespace::member is a set.
+func TestFirstMarkerNamingABodyMemberListsItOnce(t *testing.T) {
+	const src = `package T {
+		action drain {
+			first take;
+			action take;
+		}
+	}`
+	for _, fixture := range reflectiveFixtures(t, "first-marker-body-member.sysml", source.KindSysML, src) {
+		model := fixture.model
+		drain := relFixtureSymbol(t, fixture, "drain")
+		var take *symbols.Symbol
+		for _, candidate := range drain.Scope.LookupLocalAll("take") {
+			if !symbols.IsFirstMarker(candidate) {
+				take = candidate
+			}
+		}
+		if take == nil {
+			t.Fatal("drain declares no action take")
+		}
+		memberships := model.OwnedMemberships(drain)
+		if len(memberships) != 2 {
+			t.Fatalf("drain owns %d memberships, want the marker's Membership and take's FeatureMembership", len(memberships))
+		}
+		assertRelMetaclass(t, model, memberships[0], "Membership")
+		assertRelFeature(t, model, memberships[0], "memberElement", take)
+		assertRelMetaclass(t, model, memberships[1], "FeatureMembership")
+		assertRelFeature(t, model, take, "owningMembership", memberships[1])
+		for _, property := range []string{"ownedMember", "member", "feature", "ownedFeature"} {
+			elements, _ := model.ReflectiveElements(drain, property)
+			if got := countNamed(elements, "take"); got != 1 {
+				t.Errorf("%s of drain names take %d times, want 1", property, got)
+			}
+		}
+	}
+}
+
+func countNamed(elements []*symbols.Symbol, name string) int {
+	n := 0
+	for _, element := range elements {
+		if element.Name == name {
+			n++
+		}
+	}
+	return n
 }
 
 // TestFirstMarkerNamingNoMemberIsStillAMembership: `first action1;` naming nothing the body

@@ -1694,7 +1694,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return nil, true
 	case "ownedMember":
-		return m.withDefaultMultiplicityMember(sym, m.withFirstMarkerStarts(sym, append(m.acceptParameters(sym), m.withTransitionParts(sym, ownedMembersOf(sym))...))), true
+		return m.withDefaultMultiplicityMember(sym, append(m.acceptParameters(sym), m.withTransitionParts(sym, ownedMembersOf(sym))...)), true
 	case "multiplicity":
 		if !m.reflectiveMetaclassConforms(sym, "Type") {
 			return nil, false
@@ -1703,7 +1703,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "ownedElement":
 		return m.ownedElementsOf(sym), true
 	case "member":
-		return m.withDefaultMultiplicityMember(sym, m.withFirstMarkerStarts(sym, append(m.acceptParameters(sym), m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))...))), true
+		return m.withDefaultMultiplicityMember(sym, append(m.acceptParameters(sym), m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))...)), true
 	case "feature":
 		features := m.acceptParameters(sym)
 		for _, member := range m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)) {
@@ -2176,34 +2176,25 @@ func ownedMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
 	return members
 }
 
-// withFirstMarkerStarts appends the members the body's `first x;` markers bind to:
-// each marker's Membership makes its start a member of sym, as the pilot derives it.
-func (m *Model) withFirstMarkerStarts(sym *symbols.Symbol, members []*symbols.Symbol) []*symbols.Symbol {
-	if sym.Scope == nil {
-		return members
-	}
-	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
-		if symbols.IsFirstMarker(member) {
-			if start := m.firstMarkerStart(sym, member); start != nil {
-				members = append(members, start)
-			}
-		}
-		return true
-	})
-	return members
-}
-
 // membersIncludingAnonymous is Namespace::member: the named and anonymous
 // members Members reports, in declaration order, with inherited members that
 // no feature of sym redefines and that are not private.
 func (m *Model) membersIncludingAnonymous(sym *symbols.Symbol) []*symbols.Symbol {
 	members := m.Members(sym)
 	out := make([]*symbols.Symbol, 0, len(members))
+	seen := make(map[*symbols.Symbol]bool, len(members))
 	for _, member := range members {
-		if symbols.IsFirstMarker(member.Symbol) {
+		element := member.Symbol
+		if symbols.IsFirstMarker(element) {
+			// A `first x;` marker's Membership makes its start a member — once, as a
+			// Namespace::member is a set — in place of the marker, which masks the start it names.
+			element = m.firstMarkerStart(sym, element)
+		}
+		if element == nil || seen[element] {
 			continue
 		}
-		out = append(out, member.Symbol)
+		seen[element] = true
+		out = append(out, element)
 	}
 	return out
 }
