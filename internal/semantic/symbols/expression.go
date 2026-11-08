@@ -42,6 +42,9 @@ const (
 	// ExpressionPayload is a parameter of that accept: its payload, valued by a time or change
 	// event's TriggerInvocationExpression, or its `via` receiver; Owner is the accept.
 	ExpressionPayload
+	// ExpressionOperand is an expression an action node statement writes at a slot of its own
+	// (the `if` condition, an assignment's target and value, `send` payload and receiver, ...).
+	ExpressionOperand
 )
 
 // ExpressionElement is the side record of a symbol the reflective layer

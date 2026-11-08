@@ -27,7 +27,8 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		return cached
 	}
 	value := m.ValueExpression(sym)
-	if sym.Scope == nil && value == nil {
+	statements := append(m.statementOperands(sym), m.statementNodes(sym)...)
+	if sym.Scope == nil && value == nil && len(statements) == 0 {
 		return nil
 	}
 	journal(m, m.memberships, sym, sym.Decl)
@@ -49,12 +50,34 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		})
 		ordinal++
 	}
+	if sym.Scope == nil && len(statements) == 0 {
+		out = m.withDefaultMultiplicity(sym, out, ordinal)
+		m.memberships[sym] = out
+		return out
+	}
+	for _, statement := range statements {
+		out = append(out, &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    sym.DocName,
+			DeclSpan:   statement.DeclSpan,
+			Visibility: sym.Visibility,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: statement,
+			},
+		})
+		ordinal++
+	}
 	if sym.Scope == nil {
 		out = m.withDefaultMultiplicity(sym, out, ordinal)
 		m.memberships[sym] = out
 		return out
 	}
 	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
+		if member.Decl == sym.Decl && IsStatementNode(sym.Decl) {
+			// A `for` variable is a body-local name, not an element the
+			// conversion writes (sysx:loopVariable is a string).
+			return true
+		}
 		if member == nil || seen[member] || member.Chain != nil || ownedThroughAnnotation(sym, member) {
 			return true
 		}
@@ -354,10 +377,23 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 			return "TransitionFeatureMembership"
 		case symbols.ExpressionPayload:
 			return "ParameterMembership"
+		case symbols.ExpressionOperand:
+			switch member.Expr.Slot {
+			case "condition":
+				return "ParameterMembership"
+			case "value":
+				return "FeatureValue"
+			}
+			return "OwningMembership"
 		}
 	}
 	if _, ok := m.transitionFeatureKind(owner, member); ok {
 		return "TransitionFeatureMembership"
+	}
+	if _, ok := member.Decl.(*ast.IfBranchNode); ok {
+		// A branch of `if` is an ActionUsage parameter the conditional owns
+		// (SysML.xtext ActionBodyParameterMember).
+		return "ParameterMembership"
 	}
 	if isBodyParameterSymbol(member) {
 		// A body's `in` feature is a FeatureMember of the type body both

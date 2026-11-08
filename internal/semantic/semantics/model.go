@@ -177,13 +177,17 @@ type Model struct {
 	// memberships, ownedAnnotations, annotatingRels and ownedImports memoize
 	// the Membership, Annotation and Import objects each element implies
 	// (see reflective_memberships.go, reflective_annotations.go).
-	memberships      map[*symbols.Symbol][]*symbols.Symbol
-	valueExpressions map[*symbols.Symbol]*symbols.Symbol
-	expressionParts  map[*symbols.Symbol]*expressionParts
-	transitionParts  map[*symbols.Symbol]*transitionParts
-	ownedAnnotations map[*symbols.Symbol][]*symbols.Symbol
-	annotatingRels   map[*symbols.Symbol][]*symbols.Symbol
-	ownedImports     map[*symbols.Symbol][]*symbols.Symbol
+	memberships             map[*symbols.Symbol][]*symbols.Symbol
+	valueExpressions        map[*symbols.Symbol]*symbols.Symbol
+	statementSymbols        map[*symbols.Symbol][]*symbols.Symbol
+	statementOwners         map[*symbols.Symbol]*symbols.Symbol
+	statementScopes         map[*symbols.Scope]*symbols.Symbol
+	statementOperandSymbols map[*symbols.Symbol][]*symbols.Symbol
+	expressionParts         map[*symbols.Symbol]*expressionParts
+	transitionParts         map[*symbols.Symbol]*transitionParts
+	ownedAnnotations        map[*symbols.Symbol][]*symbols.Symbol
+	annotatingRels          map[*symbols.Symbol][]*symbols.Symbol
+	ownedImports            map[*symbols.Symbol][]*symbols.Symbol
 }
 
 // NewModel creates a semantic model backed by the given name resolver. The

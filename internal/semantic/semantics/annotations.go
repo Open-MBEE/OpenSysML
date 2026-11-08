@@ -1136,6 +1136,23 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 		return "MergeNode"
 	case *ast.DecisionNode:
 		return "DecisionNode"
+	case *ast.IfActionNode:
+		return "IfActionUsage"
+	case *ast.IfBranchNode:
+		return "ActionUsage"
+	case *ast.WhileLoopActionNode:
+		if decl.Kind == ast.LoopFor {
+			return "ForLoopActionUsage"
+		}
+		return "WhileLoopActionUsage"
+	case *ast.AssignmentActionNode:
+		return "AssignmentActionUsage"
+	case *ast.TerminateStatement:
+		return "TerminateActionUsage"
+	case *ast.PerformActionNode, *ast.ActionExecutionNode:
+		return "PerformActionUsage"
+	case *ast.SendStatement:
+		return "SendActionUsage"
 	case *ast.Usage:
 		if IsFlowPayload(sym) {
 			return "PayloadFeature"
