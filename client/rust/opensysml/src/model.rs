@@ -9,7 +9,7 @@ use crate::conversion::{
     FORMAT_TURTLE,
 };
 use crate::document::{DocumentForm, DocumentQueryResult, DocumentValue};
-use crate::domain::{Model, Symbol, Value};
+use crate::domain::{Model, Symbol, SymbolOptions, Value};
 use crate::edit::Editor;
 use crate::element_properties::ElementProperties;
 use crate::error::Error;
@@ -290,7 +290,10 @@ impl Model {
     }
 
     fn symbol_by_id(&self, fqn: &str) -> Result<Option<Symbol>, Error> {
-        match self.connection.get_symbol(self.hash(), fqn) {
+        match self
+            .connection
+            .get_symbol(self.hash(), fqn, &SymbolOptions::default())
+        {
             Ok(symbol) if symbol.id() == fqn => Ok(Some(symbol)),
             Ok(_) | Err(Error::Model(_)) => Ok(None),
             Err(error) => Err(error),

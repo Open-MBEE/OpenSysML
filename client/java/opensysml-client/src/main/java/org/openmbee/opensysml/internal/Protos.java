@@ -15,6 +15,8 @@ import org.openmbee.opensysml.DocumentQueryResult;
 import org.openmbee.opensysml.DocumentRow;
 import org.openmbee.opensysml.DocumentValue;
 import org.openmbee.opensysml.Edit;
+import org.openmbee.opensysml.ElementProperties;
+import org.openmbee.opensysml.ElementRef;
 import org.openmbee.opensysml.EditFailure;
 import org.openmbee.opensysml.EditResult;
 import org.openmbee.opensysml.EditedDocument;
@@ -23,6 +25,7 @@ import org.openmbee.opensysml.EnumLiteral;
 import org.openmbee.opensysml.Exploration;
 import org.openmbee.opensysml.FailureReason;
 import org.openmbee.opensysml.Instance;
+import org.openmbee.opensysml.InstancePaths;
 import org.openmbee.opensysml.Instantiation;
 import org.openmbee.opensysml.Migration;
 import org.openmbee.opensysml.MigrationEntry;
@@ -87,7 +90,15 @@ import org.openmbee.opensysml.ImportedValue;
 import org.openmbee.opensysml.ObservableComparison;
 import org.openmbee.opensysml.StatisticDifference;
 import org.openmbee.opensysml.proto.CompareResultsResponse;
+import org.openmbee.opensysml.proto.ElementProperty;
+import org.openmbee.opensysml.proto.ElementPropertyValue;
+import org.openmbee.opensysml.proto.GetElementPropertiesResponse;
 import org.openmbee.opensysml.proto.ImportDataResponse;
+import org.openmbee.opensysml.proto.InstancePath;
+import org.openmbee.opensysml.proto.InstancePathStep;
+import org.openmbee.opensysml.proto.InstancePathsResponse;
+import org.openmbee.opensysml.proto.InstanceReach;
+import org.openmbee.opensysml.proto.MemberInfo;
 import java.util.OptionalLong;
 import org.openmbee.opensysml.proto.RunSweepResponse;
 import org.openmbee.opensysml.proto.SelfCheckResponse;
@@ -478,6 +489,17 @@ public final class Protos {
               present(specialization.getTargetId()),
               present(specialization.getTargetKind())));
     }
+    List<Symbol.Member> members = new ArrayList<>(symbol.getMembersCount());
+    for (MemberInfo member : symbol.getMembersList()) {
+      members.add(
+          new Symbol.Member(
+              member.getId(),
+              member.getName(),
+              member.getKind(),
+              member.getInherited(),
+              present(member.getInheritedFrom()),
+              member.getLibrary()));
+    }
     return new Symbol(
         symbol.getId(),
         symbol.getName(),
@@ -490,7 +512,79 @@ public final class Protos {
             ? Optional.of(multiplicity(symbol.getMultiplicity()))
             : Optional.empty(),
         specializations,
-        symbol.getWithheldLibraryAttributes());
+        symbol.getWithheldLibraryAttributes(),
+        members,
+        symbol.getWithheldLibraryMembers());
+  }
+
+  /**
+   * An element's metamodel properties.
+   *
+   * @param response the generated answer
+   * @return the immutable read
+   */
+  public static ElementProperties elementProperties(GetElementPropertiesResponse response) {
+    List<ElementProperties.Property> properties = new ArrayList<>(response.getPropertiesCount());
+    for (ElementProperty property : response.getPropertiesList()) {
+      List<ElementProperties.PropertyValue> values = new ArrayList<>(property.getValuesCount());
+      for (ElementPropertyValue value : property.getValuesList()) {
+        values.add(propertyValue(value));
+      }
+      properties.add(
+          new ElementProperties.Property(
+              property.getName(),
+              property.getDefiningClass(),
+              property.getMany(),
+              property.getDerived(),
+              values,
+              present(property.getUnsupported())));
+    }
+    return new ElementProperties(elementRef(response.getElement()), properties);
+  }
+
+  private static ElementRef elementRef(org.openmbee.opensysml.proto.ElementRef reference) {
+    return new ElementRef(reference.getId(), reference.getQualifiedName(), reference.getMetaclass());
+  }
+
+  private static ElementProperties.PropertyValue propertyValue(ElementPropertyValue value) {
+    return switch (value.getValueCase()) {
+      case ELEMENT -> new ElementProperties.PropertyValue.Element(elementRef(value.getElement()));
+      case STRING_VALUE -> new ElementProperties.PropertyValue.Text(value.getStringValue());
+      case BOOL_VALUE -> new ElementProperties.PropertyValue.Bool(value.getBoolValue());
+      case INT_VALUE -> new ElementProperties.PropertyValue.Integer(value.getIntValue());
+      case REAL_VALUE -> new ElementProperties.PropertyValue.Real(value.getRealValue());
+      case NUMBER -> new ElementProperties.PropertyValue.Number(value.getNumber());
+      case VALUE_NOT_SET ->
+          throw new IllegalArgumentException("an ElementPropertyValue with no value");
+    };
+  }
+
+  /**
+   * Every path to one object.
+   *
+   * @param response the generated answer
+   * @return the immutable paths
+   */
+  public static InstancePaths instancePaths(InstancePathsResponse response) {
+    List<InstancePaths.Path> paths = new ArrayList<>(response.getPathsCount());
+    for (InstancePath path : response.getPathsList()) {
+      List<InstancePaths.Step> steps = new ArrayList<>(path.getStepsCount());
+      for (InstancePathStep step : path.getStepsList()) {
+        steps.add(
+            new InstancePaths.Step(
+                step.getFeatureName(),
+                step.getFeatureSymbolId(),
+                step.getIndex(),
+                step.getInstanceId()));
+      }
+      paths.add(
+          new InstancePaths.Path(
+              path.getRoot().getInstanceId(),
+              present(path.getRoot().getSymbolId()),
+              path.getPath(),
+              steps));
+    }
+    return new InstancePaths(paths, response.getTruncated());
   }
 
   private static Symbol.TypeFacts typeFacts(TypeInfo typeInfo) {
@@ -537,7 +631,19 @@ public final class Protos {
               featureValue.getMaterialized(),
               present(featureValue.getError())));
     }
-    return new Instance(instance.getId(), instance.getTypeSymbolId(), featureValues);
+    Optional<Instance.Reach> reachedBy = Optional.empty();
+    if (instance.hasReachedBy()) {
+      InstanceReach reach = instance.getReachedBy();
+      reachedBy =
+          Optional.of(
+              new Instance.Reach(
+                  reach.getInstanceId(),
+                  reach.getFeatureName(),
+                  reach.getFeatureSymbolId(),
+                  reach.getIndex(),
+                  reach.getPath()));
+    }
+    return new Instance(instance.getId(), instance.getTypeSymbolId(), featureValues, reachedBy);
   }
 
   /**

@@ -46,6 +46,7 @@ export const COVERED_RPCS = [
   "GetServerInfo",
   "GetSymbol",
   "ImportData",
+  "InstancePaths",
   "Instantiate",
   "ListEngines",
   "ParseFile",
@@ -384,13 +385,17 @@ export class Runner {
   private readonly calls: Record<CoveredRpc, (call: Call) => Promise<unknown>> = {
     GetServerInfo: () => this.connection.serverInfo(),
     ParseFile: ({ request }) => this.parseFile(request),
-    GetSymbol: (call) => this.model(call).symbolById(String(call.request["symbol_id"])),
+    GetSymbol: (call) =>
+      this.model(call).symbolById(String(call.request["symbol_id"]), {
+        ...flagOption(call.request, "include_library_members", "includeLibraryMembers"),
+      }),
     Evaluate: (call) =>
       this.model(call).eval(String(call.request["expression"]), {
         ...stringOption(call.request, "context_symbol_id", "context"),
         ...stringOption(call.request, "subject_symbol_id", "subject"),
       }),
     Instantiate: (call) => this.model(call).instantiate(String(call.request["symbol_id"])),
+    InstancePaths: (call) => this.model(call).instancePaths(instancePathsObject(call.request["object"])),
     ParseSources: ({ request }) => this.parseSources(request),
     GetDiagnostics: (call) =>
       this.model(call).refreshDiagnostics({
@@ -718,6 +723,16 @@ function dataImports(value: unknown): { name: string; content: string; format?: 
       ...stringOption(item, "import_map", "map"),
     };
   });
+}
+
+/** An InstancePaths request's object: by id, or by path; the id when it names neither. */
+function instancePathsObject(value: unknown): bigint | string {
+  const object = (value ?? {}) as Record<string, unknown>;
+  if (typeof object["path"] === "string" && object["path"] !== "") {
+    return object["path"];
+  }
+  const id = object["instance_id"];
+  return typeof id === "number" || typeof id === "bigint" || typeof id === "string" ? BigInt(id) : 0n;
 }
 
 /** A request's `observe` list of stored-name → feature pairs. */

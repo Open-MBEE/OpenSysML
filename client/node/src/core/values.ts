@@ -128,7 +128,10 @@ export interface FunctionValue {
 /**
  * An element of the model held as an instance of its reflective metaclass: what
  * `x meta KerML::Feature`, or the last element of `x.metadata`, evaluates to.
- * `elementId` is the FQN of the element reflected on, which is its identity;
+ * `elementId` is the id a client keeps for the element reflected on, which is
+ * its identity: its FQN, the positional id of an unnamed member (`Owner::@2`),
+ * or the element form's `@id` of an element the model synthesizes (a send's or
+ * accept's argument), as `getElementProperties` reads one;
  * `metaclassId` is the FQN of the element's own metaclass
  * (`SysML::Systems::PartUsage`), not the type it was cast to. The service always
  * sends it; one sent to the service may leave it empty to have the model's used,
