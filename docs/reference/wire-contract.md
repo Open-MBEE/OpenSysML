@@ -788,8 +788,8 @@ $ … /Evaluate -d '{"modelHash":"07a0…b5ca","expression":"Meta::notADefinitio
       (`Meta__holder___402_pend0_pchain`).
   It is never empty: a `metaobject` with no `elementId` is malformed, and a decoder refuses it
   rather than reading it as "no element". A decoder keeps the id opaque; it never parses one.
-  The WebAssembly engine links no exporter, so it names an element by its qualified name only
-  and sends a metaobject of one with none as the unsupported null below.
+  The WebAssembly engine links no exporter, so it names an element by its qualified name or
+  positional id only, and sends a metaobject of one with neither as the unsupported null below.
 - `metaclassId` is the fully qualified name of the reflective metaclass that classifies the
   element — a part usage is a `SysML::Systems::PartUsage` however it was cast — so a client
   learns what the element is, not what the model asked for. A cast to a metaclass the element

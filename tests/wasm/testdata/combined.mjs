@@ -18,6 +18,8 @@ console.log('version', globalThis.sysmlWasm.version);
 console.log('ParseFile', parseFile);
 console.log('Evaluate', call('Evaluate', { modelHash: hash, expression: '1 + 1' }));
 console.log('GetSymbol', call('GetSymbol', { modelHash: hash, symbolId: 'Demo::Item' }));
+const unnamed = JSON.parse(call('ParseFile', { content: 'package Demo { part def Item; part : Item; }' })).result?.modelHash;
+console.log('GetSymbolPositional', call('GetSymbol', { modelHash: unnamed, symbolId: 'Demo' }));
 console.log('GetDiagnostics', call('GetDiagnostics', { modelHash: hash }));
 console.log('RenderView', call('RenderView', { modelHash: hash, view: '#interconnection:Demo::Item' }));
 console.log('malformed', globalThis.sysmlWasm.call('ParseFile', '{'));

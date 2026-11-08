@@ -1,4 +1,6 @@
-package positional
+// Package elementform gives the symbol facts the exporter's element form ids,
+// for the frontends that link the exporter.
+package elementform
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
@@ -7,9 +9,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
-// ElementForm is the exporter's element form read from reader, for a symbol
-// context of a frontend that links the exporter.
-func ElementForm(reader *export.ElementIDReader) symbolfacts.ElementForm {
+// New is the exporter's element form read from reader, for a symbol context of
+// a frontend that links the exporter.
+func New(reader *export.ElementIDReader) symbolfacts.ElementForm {
 	return elementForm{reader}
 }
 

@@ -108,7 +108,7 @@ type cachedModel struct {
 }
 
 // elementIdentities is the id vocabulary a metaobject's element crosses in: its
-// qualified name, or a positional id once the engine derives one; no form `@id`.
+// qualified name or positional id; no form `@id`, which needs the exporter.
 func (m *cachedModel) elementIdentities() elementIdentities {
 	m.identitiesOnce.Do(func() {
 		m.identities = &symbolfacts.Context{
@@ -128,7 +128,7 @@ func (m *cachedModel) positionalDocuments() []symbolfacts.PositionalDocument {
 			continue
 		}
 		if root := m.Index.DocumentRoot(doc.Source.Name()); root != nil {
-			docs = append(docs, symbolfacts.PositionalDocument{File: doc.Source, Root: root})
+			docs = append(docs, symbolfacts.PositionalDocument{File: doc.Source, Root: doc.Root, Scope: root})
 		}
 	}
 	return docs

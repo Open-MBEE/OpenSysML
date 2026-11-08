@@ -176,6 +176,11 @@ func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbo
 		}
 		return "", true, nil
 	case symbols.ImplicitReferenceMembership:
+		if rel.Decl != nil {
+			// A `first x;` marker is the Membership itself, identified as the conversion mints it.
+			id, err = read.Read(sym.DocName, rel.Decl, "")
+			return id, true, err
+		}
 		if rel.Owner != nil && rel.Owner.Decl != nil {
 			_, membership, err := read.ReadExpressionPart(rel.Owner.DocName, rel.Owner.Decl, rel.Slot)
 			return membership, true, err

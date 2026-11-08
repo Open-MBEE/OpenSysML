@@ -302,6 +302,9 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	if semantics.AcceptPayload(sym) {
 		facts.Modifiers |= symbols.ModAcceptPayload
 	}
+	if symbols.IsFirstMarker(sym) {
+		facts.Modifiers |= symbols.ModFirstMarker
+	}
 	if base, bound, unconditional := m.BaseTypeFacts(sym); bound {
 		if !unconditional {
 			w.fail(sym, "conditional baseType binding")

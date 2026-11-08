@@ -3,6 +3,7 @@ package export
 import (
 	"fmt"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
@@ -47,9 +48,9 @@ func SynthesizedElementID(sym *symbols.Symbol, ownerID func(*symbols.Symbol) str
 	case symbols.ExpressionGuard:
 		return rdf.ExpressionNodeID(owner, xGuard), true
 	case symbols.ExpressionTriggerAction:
-		return memberElementID(owner, triggerSegment), true
+		return memberElementID(owner, naming.TriggerSegment), true
 	case symbols.ExpressionPayload:
-		return memberElementID(owner, qualify("", paramName(sym.Decl), part.Index)), true
+		return memberElementID(owner, naming.Qualify("", naming.ParamName(sym.Decl), part.Index)), true
 	}
 	return "", false
 }

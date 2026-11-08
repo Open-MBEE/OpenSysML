@@ -1,10 +1,10 @@
-package positional_test
+package elementform_test
 
 import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
-	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts/positional"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts/elementform"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -47,10 +47,10 @@ func identityContext(t *testing.T) *symbolfacts.Context {
 	idx.ExpandWildcardImports()
 	sc := symbolfacts.NewContext(idx)
 	sc.Positional = symbolfacts.NewPositional(idx, func() []symbolfacts.PositionalDocument {
-		return []symbolfacts.PositionalDocument{{File: file, Root: idx.DocumentRoot("model.sysml")}}
+		return []symbolfacts.PositionalDocument{{File: file, Root: root, Scope: idx.DocumentRoot("model.sysml")}}
 	})
 	reader := export.NewElementIDReader([]export.ElementIDDocument{{File: file, Root: root}})
-	sc.ElementForm = func() symbolfacts.ElementForm { return positional.ElementForm(reader) }
+	sc.ElementForm = func() symbolfacts.ElementForm { return elementform.New(reader) }
 	return sc
 }
 

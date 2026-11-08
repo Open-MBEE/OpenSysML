@@ -82,6 +82,8 @@ empty else blocks are not authorable.
 | `min_withheld_library_members` | GetSymbol | the response must count at least this many library-inherited members withheld from `members` |
 | `expected_metadata` | GetSymbol | metadata key → value the symbol must carry (`variation`, `variant`, `abstract`, `type`, …) |
 | `absent_metadata` | GetSymbol | metadata keys the symbol must not carry |
+| `expected_type_info` | GetSymbol | `{declared, resolved_id, types}`: the typing as written (empty when none is) and the derived `Feature::type` ids, most specific first |
+| `expected_specializations` | GetSymbol | full ordered list of generalization edges, each `{kind, declared, target_id}`; `kind` is `typing`, `specializes`, `subsets`, `redefines` or `references` |
 | `expected_feature_values` | Instantiate | feature name → `{materialized, value_kind, value, error}` |
 | `expected_instance_count` | Instantiate | number of reachable instances in the response graph |
 | `expected_outputs` | ExecuteAction, EvaluateCalc | output name → expected `Value`; for EvaluateCalc it is the outputs a calc usage computes when invoked without arguments |
