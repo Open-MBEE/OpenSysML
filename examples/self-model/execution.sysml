@@ -27,6 +27,7 @@ package OpenSysMLExecution {
         attribute identityIsInteger : Boolean = true;
         attribute oneValuePerSchemaEntry : Boolean = true;
         attribute knowsItsOwner : Boolean = true;
+        attribute kernelMembersOutsideShape : Boolean = true;
     }
 
     // What one feature of one object holds (runtime.FeatureValue): the schema
@@ -38,15 +39,28 @@ package OpenSysMLExecution {
         attribute assumed : Boolean default = false;
     }
 
-    item def ActionRequest;
+    // What a surface may ask of ExecuteAction and ExecuteState alike, over gRPC and the
+    // JSON engine: a simulated time to run for, the run's trace, and events to send.
+    item def ActionRequest {
+        attribute advanceField : String = "advance";
+        attribute traceField : String = "trace";
+        attribute eventsField : String = "events";
+        attribute traceCapability : String = "action_trace";
+        attribute stateTraceCapability : String = "state_trace";
+    }
     item def ActionDeclaration;
-    item def ActionResults;
+
+    // What comes back: outputs, the final time, and the trace as DocumentEvent records.
+    item def ActionResults {
+        attribute traceRecord : String = "DocumentEvent";
+    }
     item def ChoicePoint;
     item def Alternative;
     item def Expression;
     item def FeatureRead;
     item def FeatureWrite;
     item def HeldValue;
+    item def LoopPerformance;
 
     // --- The units of the layer -----------------------------------------------
 
@@ -152,6 +166,16 @@ package OpenSysMLExecution {
 
     // --- Around the layer ------------------------------------------------------
 
+    // runtime.Model: what every run of a worker shares and no run writes — the schema,
+    // the lowered action graphs, the feature-chain declarations, each statement's
+    // footprint and the subsetting walks, each resolved once per model.
+    part def SharedModel :> CodeUnit {
+        attribute :>> goPackage = "internal/exec/runtime";
+        attribute :>> memoized = true;
+        attribute memoTables : String = "actionGraphs, chainDeclarations, classifierBehaviors, features, footprints, orders, subsetsTransitively, subsetters";
+        attribute iteratesObjectFeatures : Boolean = true;
+    }
+
     // runtime.Context: what one run makes — its objects, budgets, clock, trace and
     // the choices it took — over a model shared with every other run of the worker.
     part def RunContext :> CodeUnit {
@@ -160,6 +184,19 @@ package OpenSysMLExecution {
         attribute ownsBudgets : Boolean = true;
         attribute recordsChoices : Boolean = true;
         attribute sharesModel : Boolean = true;
+        attribute answersShotsFromRun : Boolean = true;
+        attribute keepsObjectOnStartFailure : Boolean = true;
+        attribute startFailureCode : String = "behavior-start-failed";
+    }
+
+    // A loop reached by an action body is a LoopAction performance held under the
+    // performing action's `loops`; each iteration performs the loop body held under `body`.
+    part def LoopPerformances :> CodeUnit {
+        attribute :>> goPackage = "internal/exec/runtime";
+        attribute loopsFeature : String = "Actions::Action::loops";
+        attribute bodyFeature : String = "Actions::LoopAction::body";
+        attribute loopTypes : String = "Actions::WhileLoopAction, Actions::ForLoopAction";
+        attribute iterationPerformsBody : Boolean = true;
     }
 
     // Where a step has several enabled alternatives the policy picks one and the
@@ -170,6 +207,8 @@ package OpenSysMLExecution {
         attribute defaultPolicy : String = "reverse";
         attribute policySpellings : String = "declared, reverse, seed:<n>, explore[:runs=<n>,depth=<d>], replay:<file>";
         attribute recordsChoicePoints : Boolean = true;
+        attribute dueOrderChoice : String = "due order";
+        attribute indexesStandingPerDraw : Boolean = true;
     }
 
     // --- One action executed ---------------------------------------------------
@@ -204,8 +243,15 @@ package OpenSysMLExecution {
             then event occurrence guardAsked;
             then event occurrence valueTaken;
             then event occurrence assigned;
+            then event occurrence loopEntered;
+            then event occurrence iterationPerformed;
             then event occurrence tokensAdvanced;
             then event occurrence finished;
+        }
+
+        part loops : LoopPerformances {
+            event occurrence loopHeld;
+            then event occurrence bodyHeld;
         }
 
         part scheduler : Scheduler {
@@ -239,6 +285,8 @@ package OpenSysMLExecution {
         message value of HeldValue from evaluator.evaluated to executor.valueTaken;
         message setFeatureValue of FeatureWrite from executor.assigned to instances.written;
         message invalidateDependents of FeatureWrite from instances.written to instances.invalidated;
+        message performLoop of LoopPerformance from executor.loopEntered to loops.loopHeld;
+        message performBody of LoopPerformance from loops.bodyHeld to executor.iterationPerformed;
         message trace of ExecutionTrace from executor.tokensAdvanced to context.completed;
         message results of ActionResults from executor.finished to context.resultsCollected;
         message answer of ActionResults from context.answering to surface.answered;

@@ -312,6 +312,21 @@ package OpenSysMLGates {
         return attribute verdict : VerdictKind;
     }
 
+    // The whole suite under the race detector, as CircleCI runs it: one shard per package
+    // group of scripts/race-shard.sh, the runtime and tests/export split three ways by test name.
+    verification def RaceSuite {
+        doc /* make test-shard SHARD=<shard> */
+        attribute shardList : String = "scripts/race-shard.sh";
+        attribute shards : String = "runtime, runtime-corpus, runtime-exploration, model, export, export-corpus, export-settled, graph, codegen, tools, rest, migrate, cli";
+        attribute shardCount : Integer = 13;
+        attribute nodeCount : Integer = 12;
+        subject runtime : Runtime;
+        objective {
+            verify executionIsBounded;
+        }
+        return attribute verdict : VerdictKind;
+    }
+
     verification parserGate : ParserGate {
         subject parser = opensysml.pipeline.parser;
     }
@@ -344,8 +359,20 @@ package OpenSysMLGates {
         subject runtime = opensysml.pipeline.runtime;
     }
 
-    // The contributor's loop, and who takes part in it.
+    verification raceSuite : RaceSuite {
+        subject runtime = opensysml.pipeline.runtime;
+    }
+
+    // The contributor's loop, and who takes part in it: a branch cut from develop, a pull
+    // request opened ready for review against it, the full tier on every push and once more
+    // in the merge queue, and a maintainer's merge.
     use case def LandAChange {
+        attribute baseBranch : String = "develop";
+        attribute opensReadyForReview : Boolean = true;
+        attribute pullRequestEvents : String = "opened, synchronize, reopened, ready_for_review, labeled";
+        attribute fullTierLabel : String = "ci:full";
+        attribute draftRunsQuickTier : Boolean = true;
+        attribute mergeQueueEvent : String = "merge_group";
         subject change : SourceUnit;
         actor contributor : Contributor;
         actor ci : ContinuousIntegration;
@@ -393,6 +420,24 @@ package OpenSysMLCodebase {
         }
         part suites : Directory {
             attribute :>> path = "tests";
+        }
+        part conformance : Directory {
+            attribute :>> path = "conformance";
+        }
+        part packaging : Directory {
+            attribute :>> path = "packaging";
+        }
+        part scripts : Directory {
+            attribute :>> path = "scripts";
+        }
+        part documentation : Directory {
+            attribute :>> path = "docs";
+        }
+        part examples : Directory {
+            attribute :>> path = "examples";
+        }
+        part changes : Directory {
+            attribute :>> path = "changes";
         }
     }
 

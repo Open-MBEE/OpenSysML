@@ -323,8 +323,31 @@ package OpenSysMLPipeline {
     #SemanticEngine part def Workspace :> Stage {
         attribute :>> goPackage = "internal/workspace/model";
         attribute oneSessionPerWorkspace : Boolean = true;
+        part projects : ProjectDiscovery;
+        part fit : WorkspaceChecks;
         port documents : ArtifactPort;
         port requests : RequestPort;
+    }
+
+    // The project interchange format: a directory holding .project.json is a project, and
+    // what a package manager installs beside it — a plain lib/ or sysand's .sysand/lib —
+    // is read as installed projects rather than the workspace's own files.
+    part def ProjectDiscovery :> CodeUnit {
+        attribute :>> goPackage = "internal/workspace/project";
+        attribute projectFile : String = ".project.json";
+        attribute libraryLayouts : String = "lib, .sysand/lib";
+        attribute libraryRootsEnvVar : String = "OPENSYSML_LIBRARY_ROOTS";
+        attribute archiveExtension : String = ".kpar";
+    }
+
+    // Checks of the workspace as a whole, which no document's own analysis sees: a
+    // `library package` two documents declare is reported once, on the copy references
+    // do not resolve to.
+    part def WorkspaceChecks :> CodeUnit {
+        attribute :>> goPackage = "internal/check/workspace";
+        attribute source : String = "workspace";
+        attribute libraryDeclaredTwice : String = "library-declared-twice";
+        attribute oncePerWorkspace : Boolean = true;
     }
 
     // The compact binary encoding the library snapshot is written in.
@@ -525,9 +548,15 @@ package OpenSysMLPipeline {
     }
 
     // Discharges constraint sets through an external SMT solver.
+    // A constraint posed to an SMT solver: the features it reads are the unknowns, their
+    // held or declared values pins, and a derived declared value a defining equation
+    // rather than a pin, so the solver may move what it is computed from.
     #Backend part def Solver :> Stage {
         attribute :>> goPackage = "internal/exec/solve";
         attribute engines : String = "z3, cvc5";
+        attribute solverEnvVar : String = "OPENSYSML_SMT";
+        attribute pinSources : String = "held, declared, chosen";
+        attribute derivedRole : String = "defining equation";
         port requests : RequestPort;
     }
 
@@ -609,6 +638,9 @@ package OpenSysMLPipeline {
         attribute :>> replays = true;
         attribute :>> needsProcess = true;
         attribute :>> adapts = "internal/exec/smt";
+        attribute defaultMoves : Integer = 40;
+        attribute maxSlots : Integer = 32;
+        attribute encodesDerivedFeatures : Boolean = true;
     }
 
     // An FMU's model description behind the fmi/1 runner protocol; registered
