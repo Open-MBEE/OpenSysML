@@ -10,11 +10,6 @@
         "source": "scripts/pilot-json-exporter/ExportJSON.java",
         "sourceDigest": "sha256:366acec8fd58c0df0f6d61cc123b31ef5477dce327e32f1144b52eea199b6178",
         "release": "2026-09 (jupyter-sysml-kernel 0.63.0)"
-      },
-      {
-        "name": "api-json-writer",
-        "source": "internal/translate/export",
-        "sourceDigest": "sha256:e9cdb4462ab6e91cccf93fe8d5dacd0536a027d191c0dddb361ecb4ecdd89e99"
       }
     ],
     "inputs": [
@@ -88,8 +83,7 @@
         "files": 16,
         "digest": "sha256:f39db343dafb9c99359f5a92e56dcdd5c52992dc50e50b9268d349aa9cdfdf26"
       }
-    ],
-    "recorded": "2026-11-08"
+    ]
   },
   "exporter": "org.omg.sysml.util.traversal.facade.impl.JsonElementProcessingFacade with setIsIncludeDerived(true), each input resource's root elements visited through org.omg.sysml.util.traversal.Traversal, toJsonTree(true) (the path of SysMLInteractive.export, the %export magic), via scripts/pilot-json-exporter/ExportJSON.java",
   "normalizations": [
