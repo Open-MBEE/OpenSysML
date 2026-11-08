@@ -140,6 +140,7 @@ func buildNamespaceDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia 
 		buildSatisfySubjects(child, d)
 		buildMembers(child, d.Members)
 		buildConnectorEnds(child, d)
+		buildImpliedPayload(child, d)
 		return true
 	case *ast.SubstateMember:
 		// SubstateMember represents simple state declaration: state <name>;
@@ -506,6 +507,48 @@ func buildConnectorEnds(scope *Scope, u *ast.Usage) {
 		defineIdent(scope, id, sym)
 		scope.AddChild(child)
 	}
+	if u.FlowEnds == nil {
+		return
+	}
+	// A flow's `from` and `to` ends are end features of the flow as a connect
+	// clause's are (SysML v2 §7.21.2 FlowEnd; a message's are its event ends),
+	// anonymous, each declared by the node naming what it attaches to. A flow
+	// end references the prefix of that name and owns a flow feature, declared
+	// by the last segment, which redefines the feature it names (SysML.xtext
+	// FlowEnd, FlowFeature); a message end references the event it names whole.
+	for _, end := range []ast.Node{u.FlowEnds.From, u.FlowEnds.To} {
+		if end == nil {
+			continue
+		}
+		child := NewScope(scope, end)
+		sym := newSymbol(ast.Identification{}, SymbolConnectorEnd, end, ast.VisibilityDefault, child, scope, nil)
+		defineIdent(scope, ast.Identification{}, sym)
+		scope.AddChild(child)
+		if u.Keyword == "message" {
+			continue
+		}
+		if _, last := ast.FlowEndSegments(end); last != nil {
+			flowFeatureScope := NewScope(child, last)
+			flowFeature := newSymbol(ast.Identification{}, SymbolReferenceUsage, last, ast.VisibilityDefault, flowFeatureScope, child, nil)
+			defineIdent(child, ast.Identification{}, flowFeature)
+			child.AddChild(flowFeatureScope)
+		}
+	}
+}
+
+// buildImpliedPayload registers the payload feature a flow's `of` clause states
+// without declaring one (`of T`), an unnamed member of the flow typed by the
+// clause (SysML-textual-bnf PayloadFeature); a declared payload (`of p : T`)
+// is a body member already.
+func buildImpliedPayload(scope *Scope, u *ast.Usage) {
+	payload := u.FlowEnds.ImpliedPayload()
+	if payload == nil {
+		return
+	}
+	child := NewScope(scope, payload)
+	sym := newSymbol(ast.Identification{}, classifyUsage(payload), payload, ast.VisibilityDefault, child, scope, nil)
+	defineIdent(scope, ast.Identification{}, sym)
+	scope.AddChild(child)
 }
 
 // buildCrossFeature registers the cross feature an end declares inline ahead of

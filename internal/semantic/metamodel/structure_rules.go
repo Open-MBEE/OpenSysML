@@ -5500,31 +5500,12 @@ func (e *Evaluator) structureEffectiveEndFeatures(
 			return sequence(owned.Values...), true, true
 		}
 		values := make([]Value, 0, len(features))
-		hasFlowEnds := false
-		if usage, ok := element.Symbol.Decl.(*ast.Usage); ok && usage.FlowEnds != nil {
-			hasFlowEnds = usage.FlowEnds.From != nil || usage.FlowEnds.To != nil
-		}
 		for index, feature := range features {
 			if index < len(owned.Values) {
 				values = append(values, owned.Values[index])
 				continue
 			}
 			if feature != nil {
-				if hasFlowEnds && e.resolver != nil && e.resolver.Index() != nil &&
-					e.resolver.Index().Library(feature) {
-					if _, represented := e.options.Structure.Metaclass(ElementOf(feature)); !represented {
-						if _, identified := identity.LibraryCatalog(e.resolver.Index()).ElementForSymbol(feature); identified {
-							return unsupported(Reason{
-								Category: ReasonMissingStructure,
-								Detail:   "Type::endFeature implied flow end is absent from Structure",
-							})
-						}
-						return unsupported(Reason{
-							Category: ReasonLibraryTargetWithoutCatalogIdentity,
-							Detail:   symbols.FQNOf(feature),
-						})
-					}
-				}
 				values = append(values, elementValue(ElementOf(feature)))
 				continue
 			}

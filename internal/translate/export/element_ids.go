@@ -190,6 +190,31 @@ func (ids *ElementIDs) recordConnectorEnds(e *encoder, node ast.Node, subject rd
 			}
 		}
 	}
+	// A flow's `from`/`to` ends are minted off the flow at their position (connectorEnd,
+	// messageEnd), each owned through a membership beside it; a flow end owns the flow
+	// feature redefining the last segment of its name (flowEndReferences).
+	usage, ok := node.(*ast.Usage)
+	if !ok || usage.FlowEnds == nil {
+		return
+	}
+	for i, end := range []ast.Node{usage.FlowEnds.From, usage.FlowEnds.To} {
+		if end == nil {
+			continue
+		}
+		slot := fmt.Sprintf("end%d", i)
+		feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+		ids.byNode[end] = rdf.LocalName(feature.Value)
+		ids.bySpan[spanKey{e.file.Name(), end.Span()}] = ids.byNode[end]
+		membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix).Value)
+		ids.membershipByNode[end] = membership
+		ids.membershipBySpan[spanKey{e.file.Name(), end.Span()}] = membership
+		if usage.Keyword == "message" {
+			continue
+		}
+		flowFeature := rdf.LocalName(e.ids.mintedNode(rdf.ExpressionIRI(feature, "ff"), feature, "ff").Value)
+		ids.partByNode[partKey{end, "ff"}] = partIDs{element: flowFeature}
+		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), end.Span()}, "ff"}] = partIDs{element: flowFeature}
+	}
 }
 
 // endChainLinks counts the features an end's chain target is written as, as the
@@ -397,6 +422,27 @@ func (e *encoder) writtenBoundEndReferences(node ast.Node, subject rdf.Term, out
 			if rel != nil && rel.Kind == ast.RelReferences && rel.Target == end.AttachedTarget() {
 				out[rel] = out[end]
 			}
+		}
+	}
+	// A flow end's ReferenceSubsetting is written for the prefix of its name, a message
+	// end's for the whole name (flowEndReferences, messageEnd); the flow feature's
+	// redefinition of the last segment is a property, no relationship element.
+	usage, ok := node.(*ast.Usage)
+	if !ok || usage.FlowEnds == nil {
+		return
+	}
+	for i, end := range []ast.Node{usage.FlowEnds.From, usage.FlowEnds.To} {
+		if end == nil {
+			continue
+		}
+		slot := fmt.Sprintf("end%d", i)
+		feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+		if usage.Keyword == "message" {
+			out[ast.EndTarget(end)] = e.referenceSubsettingID(feature)
+			continue
+		}
+		if prefix, _ := ast.FlowEndSegments(end); prefix != nil {
+			out[prefix] = e.referenceSubsettingID(feature)
 		}
 	}
 }

@@ -1,6 +1,7 @@
 package metamodel
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -231,6 +232,9 @@ func membershipKind(sym *symbols.Symbol) string {
 		}
 	}
 	if sym.Kind == symbols.SymbolConnectorEnd {
+		if semantics.IsMessageEnd(sym) {
+			return "ParameterMembership"
+		}
 		return "EndFeatureMembership"
 	}
 	owner := sym.Owner()

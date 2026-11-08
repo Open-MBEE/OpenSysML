@@ -74,6 +74,13 @@ func (m *Model) ownedEnds(sym *symbols.Symbol) []*symbols.Symbol {
 			}
 			out = append(out, memberSymbol(sym.Scope, end))
 		}
+		if u.FlowEnds != nil && u.Keyword != "message" {
+			for _, end := range []ast.Node{u.FlowEnds.From, u.FlowEnds.To} {
+				if end != nil {
+					out = append(out, memberSymbol(sym.Scope, end))
+				}
+			}
+		}
 	}
 	for _, member := range declMembers(sym) {
 		usage, ok := unwrapUsage(member)
@@ -376,7 +383,9 @@ func declaresEnd(sym *symbols.Symbol) bool {
 	case *ast.Usage:
 		return d.IsEnd
 	}
-	return false
+	// A flow's `from`/`to` end, declared by the node naming what it attaches to;
+	// a message's event ends are parameters, not ends (SysML.xtext MessageEventMember).
+	return sym.Kind == symbols.SymbolConnectorEnd && !IsMessageEnd(sym)
 }
 
 // UnmatchedConnectorEnds returns the ends the connector sym declares that
@@ -542,8 +551,10 @@ func endReferencesFeature(end connectorEnd) bool {
 			return referencesFeature(d.Relationships)
 		case *ast.ConnectorEnd:
 			return d.AttachedTarget() != nil
+		default:
+			// A flow end is declared by the node naming the feature it attaches to.
+			return d != nil && FlowEndReference(end.feature) != nil
 		}
-		return false
 	}
 	if end.owner.Recorded() {
 		// A clause end without a symbol of its own is attached to a feature.

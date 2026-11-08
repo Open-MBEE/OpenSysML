@@ -1137,6 +1137,9 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 	case *ast.DecisionNode:
 		return "DecisionNode"
 	case *ast.Usage:
+		if IsFlowPayload(sym) {
+			return "PayloadFeature"
+		}
 		if decl.IsEvent {
 			return "EventOccurrenceUsage"
 		}
@@ -1187,8 +1190,98 @@ func ConnectorEndMetaclassName(sym *symbols.Symbol) string {
 		if kind, ok := connectorKind(sym.OwnerScope); ok && kind == ast.UsageInterface {
 			return metaclassName(symbols.SymbolPortUsage)
 		}
+		if IsMessageEnd(sym) {
+			// A message's ends are the event occurrences it relates (SysML.xtext MessageEventMember).
+			return "EventOccurrenceUsage"
+		}
+		if IsFlowEnd(sym) {
+			return "FlowEnd"
+		}
 	}
 	return referenceUsageMetaclassName
+}
+
+// IsFlowPayload reports whether sym is the payload feature a flow's `of` clause
+// gives it: declared there (`of p : T`), or implied by a payload type (`of T`).
+func IsFlowPayload(sym *symbols.Symbol) bool {
+	if sym == nil || sym.OwnerScope == nil {
+		return false
+	}
+	decl, ok := sym.Decl.(*ast.Usage)
+	if !ok {
+		return false
+	}
+	flow, ok := sym.OwnerScope.Node().(*ast.Usage)
+	if !ok || flow.Kind != ast.UsageFlow || flow.FlowEnds == nil {
+		return false
+	}
+	if flow.FlowEnds.PayloadDecl == decl {
+		return true
+	}
+	return flow.FlowEnds.PayloadDecl == nil && len(decl.Relationships) == 1 &&
+		decl.Relationships[0].Kind == ast.RelTyping && decl.Relationships[0].Target == flow.FlowEnds.Payload
+}
+
+// IsFlowFeature reports whether sym is the feature a flow end owns to redefine
+// the last segment of what the end names (SysML.xtext FlowFeature).
+func IsFlowFeature(sym *symbols.Symbol) bool {
+	if sym == nil || sym.Kind != symbols.SymbolReferenceUsage || sym.OwnerScope == nil {
+		return false
+	}
+	decl, ok := sym.Decl.(*ast.QualifiedName)
+	if !ok {
+		return false
+	}
+	end := sym.OwnerScope.Owner()
+	if !IsFlowEnd(end) {
+		return false
+	}
+	_, last := ast.FlowEndSegments(end.Decl)
+	return last == decl
+}
+
+// FlowEndReference is the node a flow's `from`/`to` end reference-subsets: the
+// prefix of the name a flow end states (its flow feature redefines the rest),
+// the whole name for a message end; nil when the end references nothing.
+func FlowEndReference(end *symbols.Symbol) ast.Node {
+	usage, ok := flowEndOwner(end)
+	if !ok {
+		return nil
+	}
+	if usage.Keyword == "message" {
+		return ast.EndTarget(end.Decl)
+	}
+	prefix, _ := ast.FlowEndSegments(end.Decl)
+	return prefix
+}
+
+// IsFlowEnd reports whether sym is a `from`/`to` end of a flow usage other than
+// a message (SysML.xtext FlowEnd).
+func IsFlowEnd(sym *symbols.Symbol) bool {
+	usage, ok := flowEndOwner(sym)
+	return ok && usage.Keyword != "message"
+}
+
+// IsMessageEnd reports whether sym is a `from`/`to` end of a message.
+func IsMessageEnd(sym *symbols.Symbol) bool {
+	usage, ok := flowEndOwner(sym)
+	return ok && usage.Keyword == "message"
+}
+
+// flowEndOwner is the flow usage whose `from`/`to` end sym is, declared by the
+// node naming what the end attaches to rather than by a ConnectorEnd.
+func flowEndOwner(sym *symbols.Symbol) (*ast.Usage, bool) {
+	if sym == nil || sym.Kind != symbols.SymbolConnectorEnd || sym.OwnerScope == nil {
+		return nil, false
+	}
+	if _, clause := sym.Decl.(*ast.ConnectorEnd); clause {
+		return nil, false
+	}
+	usage, ok := sym.OwnerScope.Node().(*ast.Usage)
+	if !ok || usage.Kind != ast.UsageFlow || usage.FlowEnds == nil {
+		return nil, false
+	}
+	return usage, true
 }
 
 // usageMetaclassNames maps the usage kinds the symbol taxonomy keeps no kind
@@ -2585,6 +2678,9 @@ func (m *Model) reflectiveFeatureFlags(sym *symbols.Symbol) (reflectiveFeatureFl
 		case *ast.ConnectorEnd:
 			flags.isEnd = true
 		default:
+			// A flow's end is declared by the node naming what it attaches to; a
+			// message's ends are the events it relates, parameters rather than ends.
+			flags.isEnd = sym.Kind == symbols.SymbolConnectorEnd && !IsMessageEnd(sym)
 			if isUsage {
 				flags.isComposite = defaultUsageComposite(sym.Kind)
 			}

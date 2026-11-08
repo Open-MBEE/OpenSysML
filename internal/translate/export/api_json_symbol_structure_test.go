@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
@@ -442,6 +443,11 @@ func (d *structureDifferential) computeGraphID(sym *symbols.Symbol) (string, boo
 			element, _, ok := d.ids.OfExpressionPart(d.doc, end, "chain")
 			return element, ok
 		}
+		// A flow end's flow feature is minted off the end (flowEndReferences).
+		if semantics.IsFlowFeature(sym) {
+			element, _, ok := d.ids.OfExpressionPart(d.doc, sym.OwnerScope.Node(), "ff")
+			return element, ok
+		}
 	}
 	if implied, ok := symbols.ImpliedDeclOf(sym); ok && implied.Form == symbols.ImpliedDefaultMultiplicity {
 		if element, _, ok := d.ids.OfExpressionPart(d.doc, implied.Of, "multiplicity"); ok {
@@ -475,6 +481,12 @@ func (d *structureDifferential) implicitGraphID(rel *symbols.ImplicitRelationshi
 	case symbols.ImplicitWritten:
 		if rel.Node == nil {
 			return "", false
+		}
+		// A flow feature's redefinition is a property the conversion writes, which the
+		// api-json structure derives as a Redefinition minted off the feature.
+		if rel.Kind == ast.RelRedefines && semantics.IsFlowFeature(rel.Owner) {
+			owner, ok := d.graphID(rel.Owner)
+			return owner + relationshipSuffix(ast.RelRedefines, false, false, 1, 0), ok
 		}
 		if rel.Node.Span().Len == 0 && rel.Node.Target != nil {
 			return d.ids.RelationshipOf(d.doc, rel.Node.Target)

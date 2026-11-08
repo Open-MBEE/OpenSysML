@@ -718,6 +718,45 @@ type FlowEnds struct {
 	PayloadMultiplicity *Multiplicity
 }
 
+// FlowEndSegments splits what a flow's `from`/`to` end names into the prefix the
+// end itself references and the last segment its flow feature redefines
+// (SysML.xtext FlowEnd): `a.p.fuel` is the prefix `a.p` and `fuel`; a lone `a`
+// has no prefix. Nil, nil for a node that names nothing.
+func FlowEndSegments(target Node) (prefix Node, last *QualifiedName) {
+	switch t := EndTarget(target).(type) {
+	case *FeatureChainExpr:
+		return t.Operand, t.Member
+	case *FeatureReference:
+		return nil, t.Name
+	case *QualifiedName:
+		return nil, t
+	}
+	return nil, nil
+}
+
+// ImpliedPayload is the payload feature an `of` clause states without declaring
+// one (`of T`, `of T[1]`): a usage made up to carry the typing and multiplicity
+// the clause gives it (SysML-textual-bnf PayloadFeature), spanning the clause.
+// Nil when the clause declares the feature itself or states no payload.
+func (f *FlowEnds) ImpliedPayload() *Usage {
+	if f == nil || f.Payload == nil || f.PayloadDecl != nil {
+		return nil
+	}
+	span := f.Payload.Span()
+	if f.PayloadMultiplicity != nil {
+		other := f.PayloadMultiplicity.Span()
+		start := min(span.Offset, other.Offset)
+		end := max(span.Offset+span.Len, other.Offset+other.Len)
+		span = source.Span{Offset: start, Len: end - start}
+	}
+	return &Usage{
+		NodeBase:      NodeBase{NodeSpan: span},
+		Kind:          UsageAttribute,
+		Relationships: []*Relationship{{NodeBase: NodeBase{NodeSpan: f.Payload.Span()}, Kind: RelTyping, Target: f.Payload}},
+		Multiplicity:  f.PayloadMultiplicity,
+	}
+}
+
 // CrossFeatureMember is the cross feature declared inline by an end feature,
 // the `x1 [0..1]` of `end x1 [0..1] feature x : C1` (KerML 8.3.4.5).
 type CrossFeatureMember struct {
