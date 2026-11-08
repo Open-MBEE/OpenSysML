@@ -515,3 +515,35 @@ func TestLibraryVersionOverAnOverlayThatChangesTheLibrary(t *testing.T) {
 		t.Errorf("a copy of the added package under the base file's name: version %q, want lib/hulls.sysml", got)
 	}
 }
+
+// A metadata body's `mission = …` is the usage's own feature: its id is minted under the
+// metadata usage (by position, `P::@3`), not under the definition whose feature it redefines.
+func TestMetadataBodyFeatureIsIdentifiedUnderItsUsage(t *testing.T) {
+	table, idx := buildTable(t, `package P {
+	part def T;
+	part telescope : T;
+	metadata def Heritage { attribute mission : String; }
+	@Heritage about telescope { mission = "Hubble"; }
+}
+`)
+	definition := infoOf(t, table, idx, "P::Heritage::mission")
+	var body *identity.Info
+	for _, sym := range table.Symbols() {
+		if sym.Name == "mission" && sym != definition.Symbol {
+			info, ok := table.Info(sym)
+			if !ok {
+				t.Fatal("body feature has no identity")
+			}
+			body = info
+		}
+	}
+	if body == nil {
+		t.Fatal("no body feature symbol")
+	}
+	if want := rdf.EncodeElementID("P::@3::mission"); body.EffectiveID != want {
+		t.Fatalf("body feature id = %q, want %q", body.EffectiveID, want)
+	}
+	if body.EffectiveID == definition.EffectiveID {
+		t.Fatal("body feature shares the definition feature's id")
+	}
+}

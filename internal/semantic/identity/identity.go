@@ -13,6 +13,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
+	"strconv"
+	"strings"
 )
 
 // FQNs of the identity metadata definitions in the bundled library.
@@ -259,6 +261,11 @@ func (b *builder) infoOf(sym *symbols.Symbol) *Info {
 		return nil
 	}
 	fqn := b.idx.GetFQN(sym)
+	if b.model.RestatesMetadataBodyFeature(sym) {
+		// `mission = …` in a metadata body is the usage's own feature, not the
+		// definition's its scope resolves names in (same qualified name).
+		fqn = b.metadataBodyFQN(sym)
+	}
 	if fqn == "" {
 		return nil
 	}
@@ -425,4 +432,86 @@ func collectSymbols(roots []*symbols.Scope) []*symbols.Symbol {
 		walk(root)
 	}
 	return out
+}
+
+// metadataBodyFQN qualifies a metadata body feature under the metadata usage owning it,
+// an unnamed usage addressed by its position among its owner's members, as the conversion names it.
+func (b *builder) metadataBodyFQN(sym *symbols.Symbol) string {
+	scope := sym.OwnerScope
+	if scope == nil || scope.Parent() == nil {
+		return ""
+	}
+	usage := scope.Parent().MemberDeclaring(scope.Node())
+	if usage == nil {
+		return ""
+	}
+	usageFQN := symbols.FQNOf(usage)
+	if usage.Name == "" {
+		index, ok := b.memberIndex(usage)
+		if !ok {
+			return ""
+		}
+		usageFQN = "@" + strconv.Itoa(index)
+		if owner := usage.OwnerScope.Owner(); owner != nil {
+			usageFQN = symbols.FQNOf(owner) + "::" + usageFQN
+		}
+	}
+	return usageFQN + "::" + sym.Name
+}
+
+// memberIndex is the position of the metadata usage among the members its owner declares,
+// identity annotations left out as the conversion leaves them; a `#M` prefix follows the body.
+func (b *builder) memberIndex(usage *symbols.Symbol) (int, bool) {
+	prefix, ok := usage.Decl.(*ast.PrefixMetadata)
+	if !ok || usage.OwnerScope == nil {
+		return 0, false
+	}
+	var members []ast.Node
+	var prefixes []*ast.PrefixMetadata
+	switch n := usage.OwnerScope.Node().(type) {
+	case *ast.RootNamespace:
+		members = n.Members
+	case *ast.Package:
+		members, prefixes = n.Members, n.Prefixes
+	case *ast.Namespace:
+		members, prefixes = n.Members, n.Prefixes
+	case *ast.Definition:
+		members, prefixes = n.Members, n.Prefixes
+	case *ast.Usage:
+		members, prefixes = n.Members, n.Prefixes
+	default:
+		return 0, false
+	}
+	index := 0
+	for _, member := range members {
+		node := member
+		if m, ok := member.(*ast.Membership); ok {
+			node = m.Member
+		}
+		if node == nil || b.identityAnnotation(node) {
+			continue
+		}
+		if node == ast.Node(prefix) {
+			return index, true
+		}
+		index++
+	}
+	for _, p := range prefixes {
+		if p == prefix {
+			return index, true
+		}
+		index++
+	}
+	return 0, false
+}
+
+// identityAnnotation reports a member the conversion consumes into an element's id.
+func (b *builder) identityAnnotation(node ast.Node) bool {
+	p, ok := node.(*ast.PrefixMetadata)
+	if !ok || p.Type == nil {
+		return false
+	}
+	name := p.Type.Text()
+	return name == ElementIdFQN || name == ProjectRefFQN ||
+		strings.HasSuffix(ElementIdFQN, "::"+name) || strings.HasSuffix(ProjectRefFQN, "::"+name)
 }
