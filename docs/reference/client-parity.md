@@ -83,7 +83,7 @@ from the clients and a gap is a stated gap rather than a silent one.
 | `final_time` | bound | bound | bound | bound | bound | bound | bound |
 | `engines` | bound | bound | bound | bound | bound | bound | bound |
 | `metaobject_values` | bound | bound | bound | bound | bound | bound | bound |
-| `symbol_members` | bound | not bound | bound | bound | bound | not bound | not bound |
+| `symbol_members` | bound | bound | bound | bound | bound | not bound | not bound |
 | `undetermined_value` | bound | bound | bound | bound | bound | bound | bound |
 | `engines_external` | not bound | not bound | not bound | not bound | bound | not bound | not bound |
 | `edit_documents` | bound | bound | bound | bound | bound | bound | bound |
