@@ -67,6 +67,10 @@ type identityFacts struct {
 	pkg     map[string]string
 	pkgOf   map[string]string
 	localOf map[string]string
+	// multiplicities holds, by owner subject IRI, the ids the library fixes for the
+	// MultiplicityRange a library feature declares; catalog places it, built on first need.
+	multiplicities map[string]elementIdentity
+	catalog        *identity.Catalog
 }
 
 // analyzeModel indexes the documents of one model together over the standard
@@ -148,6 +152,7 @@ func documentIdentity(table *identity.Table, model *semantics.Model, res *resolv
 		}
 		facts.noteScope(info, scopeKeys)
 		facts.index(sym, info, identityRoot(table, sym, info))
+		facts.indexMultiplicityRange(sym, info)
 	}
 	facts.qualified = len(scopeKeys) > 1
 	facts.scopes = scopeKeys
@@ -157,19 +162,20 @@ func documentIdentity(table *identity.Table, model *semantics.Model, res *resolv
 // newIdentityFacts is the empty side table for a document in the given id form.
 func newIdentityFacts(form IDForm, model *semantics.Model, res *resolve.Resolver) *identityFacts {
 	return &identityFacts{
-		form:         form,
-		byFQN:        map[string]elementIdentity{},
-		byNode:       map[ast.Node]elementIdentity{},
-		declSym:      map[ast.Node]*symbols.Symbol{},
-		symByFQN:     map[string]*symbols.Symbol{},
-		bodyParamSym: map[*ast.BodyExpr]map[string]*symbols.Symbol{},
-		provenance:   map[ast.Node]*identity.Scope{},
-		model:        model,
-		res:          res,
-		library:      map[*symbols.Symbol]string{},
-		pkg:          map[string]string{},
-		pkgOf:        map[string]string{},
-		localOf:      map[string]string{},
+		form:           form,
+		byFQN:          map[string]elementIdentity{},
+		byNode:         map[ast.Node]elementIdentity{},
+		declSym:        map[ast.Node]*symbols.Symbol{},
+		symByFQN:       map[string]*symbols.Symbol{},
+		bodyParamSym:   map[*ast.BodyExpr]map[string]*symbols.Symbol{},
+		provenance:     map[ast.Node]*identity.Scope{},
+		model:          model,
+		res:            res,
+		library:        map[*symbols.Symbol]string{},
+		multiplicities: map[string]elementIdentity{},
+		pkg:            map[string]string{},
+		pkgOf:          map[string]string{},
+		localOf:        map[string]string{},
 	}
 }
 
@@ -238,6 +244,41 @@ func (f *identityFacts) index(sym *symbols.Symbol, info *identity.Info, root str
 	}
 }
 
+// indexMultiplicityRange files the ids this implementation mints for the
+// MultiplicityRange a library feature declares (an unnamed member under its fixed id).
+func (f *identityFacts) indexMultiplicityRange(sym *symbols.Symbol, info *identity.Info) {
+	if !info.Fixed() || sym.Name == "" {
+		return
+	}
+	member := f.model.DeclaredMultiplicityMember(sym)
+	if member == nil {
+		return
+	}
+	if f.catalog == nil {
+		f.catalog = identity.LibraryCatalogWithOpenSysML(f.res.Index())
+	}
+	anonymous, ok := identity.AnonymousMemberOf(f.model, f.catalog, member)
+	if !ok {
+		return
+	}
+	f.multiplicities[rdf.ElementIRIForID(info.EffectiveID).Value] = elementIdentity{
+		id: anonymous.ID, source: info.Source, membership: anonymous.OwningMembershipID,
+	}
+}
+
+// multiplicityRange is the IRIs of the MultiplicityRange the element at owner
+// declares and of its owning membership: the library's fixed ones, else derived.
+func (f *identityFacts) multiplicityRange(owner rdf.Term) (rangeNode, membership rdf.Term) {
+	if el, ok := f.multiplicities[owner.Value]; ok {
+		rangeNode, membership = rdf.IRI(rdf.Expression+el.id), rdf.ElementIRIForID(el.membership)
+		f.record(rangeNode, f.pkgOf[owner.Value], el.id)
+		f.record(membership, f.pkgOf[owner.Value], el.membership)
+		return rangeNode, membership
+	}
+	rangeNode = f.mintedNode(rdf.ExpressionIRI(owner, "multiplicity"), owner, "multiplicity")
+	return rangeNode, f.minted(rdf.OwningMembershipIRIOf(rangeNode), rangeNode, rdf.OwningMembershipSuffix)
+}
+
 // exportableID rejects an ElementId annotation the graph cannot carry back.
 func exportableID(info *identity.Info) error {
 	if !info.Declared {
@@ -290,7 +331,7 @@ func (f *identityFacts) libraryElement(sym *symbols.Symbol) (string, bool) {
 		return "", false
 	}
 	info, ok := identity.Of(f.model, f.res, sym)
-	if !ok || !info.Fixed() {
+	if !ok || !info.Fixed() || sym.Name == "" {
 		return "", false
 	}
 	if _, taken := f.byFQN[info.FQN]; taken {
