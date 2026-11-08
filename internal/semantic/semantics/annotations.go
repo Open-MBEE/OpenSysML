@@ -1581,6 +1581,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			return nil, false
 		}
 		owner := m.ownerOf(sym)
+		if owner == nil {
+			owner = m.rootNamespaceOwner(sym)
+		}
 		if owner == nil || !m.reflectiveMetaclassConforms(owner, "Namespace") {
 			return nil, true
 		}
@@ -1803,6 +1806,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "owner":
 		if owner := ownerSymbol(sym); owner != nil {
 			return []*symbols.Symbol{owner}, true
+		}
+		if root := m.rootNamespaceOwner(sym); root != nil {
+			return []*symbols.Symbol{root}, true
 		}
 		return nil, true
 	case "ownedMember":

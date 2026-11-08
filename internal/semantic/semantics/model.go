@@ -190,6 +190,8 @@ type Model struct {
 	ownedAnnotations        map[*symbols.Symbol][]*symbols.Symbol
 	annotatingRels          map[*symbols.Symbol][]*symbols.Symbol
 	ownedImports            map[*symbols.Symbol][]*symbols.Symbol
+	// rootNamespaces memoizes each document's reflected RootNamespace (see reflective_root.go).
+	rootNamespaces map[string]*symbols.Symbol
 }
 
 // NewModel creates a semantic model backed by the given name resolver. The
@@ -277,6 +279,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		ownedAnnotations:      make(map[*symbols.Symbol][]*symbols.Symbol),
 		annotatingRels:        make(map[*symbols.Symbol][]*symbols.Symbol),
 		ownedImports:          make(map[*symbols.Symbol][]*symbols.Symbol),
+		rootNamespaces:        make(map[string]*symbols.Symbol),
 	}
 	if resolver != nil {
 		resolver.SetModel(m)

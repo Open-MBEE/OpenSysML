@@ -280,6 +280,9 @@ func (m *Model) OwningMembership(sym *symbols.Symbol) *symbols.Symbol {
 	}
 	owner := m.ownerOf(sym)
 	if owner == nil {
+		owner = m.rootNamespaceOwner(sym)
+	}
+	if owner == nil {
 		return nil
 	}
 	for _, membership := range m.OwnedMemberships(owner) {
@@ -869,8 +872,8 @@ func (m *Model) importElements(sym *symbols.Symbol, feature string) ([]*symbols.
 	}
 	if imp.Kind == ast.ImportMembership {
 		// KerML 8.3.2.5 MembershipImport: importedMembership redefines target and
-		// importedElement is its memberElement. A document root is reflected as
-		// no element, so the membership of a root-level member is not derived.
+		// importedElement is its memberElement; a root-level member's is the
+		// membership its document's RootNamespace owns it through.
 		if feature == "importedElement" {
 			if target.Kind == symbols.SymbolAlias {
 				return m.aliasMembershipElements(target, "memberElement")
