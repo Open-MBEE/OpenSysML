@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 
@@ -343,5 +344,126 @@ func TestElementPropertiesCapabilityIsAdvertised(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("capabilities %v lack %q", info.Capabilities, CapabilityElementProperties)
+	}
+}
+
+// libraryMembersModel inherits, through Parts::Part, library members no name
+// catalogues: documentation, invariants and connectors of Occurrences::Occurrence,
+// the declared range of Parts::parts.
+const libraryMembersModel = `
+package P {
+    part def Unit;
+    part def V { part x : Unit; }
+    part a : V;
+}
+`
+
+// Every id an answer carries is accepted back: each inherited membership of
+// P::a reads, and its memberElement reads, the unnamed library members included.
+func TestElementPropertiesReadsBackEveryIdAnAnswerCarries(t *testing.T) {
+	r := parseForElementProperties(t, libraryMembersModel)
+	memberships := r.property("P::a", "inheritedMembership")
+	unnamedMembers := 0
+	for _, value := range memberships.Values {
+		membership := value.GetElement()
+		read := r.read(membership.Id, "memberElement")
+		if read.Error != "" {
+			t.Errorf("inheritedMembership %s (%s) does not read back: %s", membership.Id, membership.Metaclass, read.Error)
+			continue
+		}
+		if read.Element.Id != membership.Id || read.Element.Metaclass != membership.Metaclass {
+			t.Errorf("inheritedMembership %s reads back as %+v", membership.Id, read.Element)
+		}
+		members := read.Properties[0].Values
+		if len(members) != 1 || members[0].GetElement() == nil {
+			t.Errorf("%s.memberElement = %+v", membership.Id, read.Properties[0])
+			continue
+		}
+		member := r.read(members[0].GetElement().Id, "owner")
+		if member.Error != "" {
+			t.Errorf("memberElement %s of %s does not read back: %s", members[0].GetElement().Id, membership.Id, member.Error)
+			continue
+		}
+		if member.Element.QualifiedName == "" {
+			unnamedMembers++
+		}
+	}
+	if unnamedMembers < 18 {
+		t.Errorf("P::a inherits %d memberships of unnamed library members, want the Pilot's 18 features and more", unnamedMembers)
+	}
+	for _, value := range r.property("P::a", "inheritedFeature").Values {
+		feature := value.GetElement()
+		if read := r.read(feature.Id, "name"); read.Error != "" {
+			t.Errorf("inheritedFeature %s (%s) does not read back: %s", feature.Id, feature.Metaclass, read.Error)
+		}
+	}
+}
+
+// flowEndsModel declares a flow and a message whose ends and payload the `of`,
+// `from` and `to` clauses state without declaring features for them.
+const flowEndsModel = `package P {
+	item def Sig;
+	part def Tank { out item fuelOut : Sig; }
+	part def Engine { in item fuelIn : Sig; }
+	part def V {
+		part tank : Tank;
+		part engine : Engine;
+		flow f1 of Sig from tank.fuelOut to engine.fuelIn;
+		message msg of Sig from tank to engine;
+	}
+}`
+
+func TestElementPropertiesAnswerFlowAndMessageEnds(t *testing.T) {
+	r := parseForElementProperties(t, flowEndsModel)
+	metaclasses := func(property *pb.ElementProperty) []string {
+		var out []string
+		for _, value := range property.Values {
+			element := value.GetElement()
+			if element.Id == "" {
+				t.Errorf("%s lists an element without an id: %+v", property.Name, element)
+			}
+			out = append(out, element.Metaclass)
+		}
+		return out
+	}
+	for _, tc := range []struct {
+		element, property string
+		want              []string
+	}{
+		{"P::V::f1", "ownedFeature", []string{"PayloadFeature", "FlowEnd", "FlowEnd"}},
+		{"P::V::f1", "connectorEnd", []string{"FlowEnd", "FlowEnd"}},
+		{"P::V::f1", "flowEnd", []string{"FlowEnd", "FlowEnd"}},
+		// A flow end references the occurrence its name's prefix reaches; its flow
+		// feature redefines the item the last segment names.
+		{"P::V::f1", "relatedFeature", []string{"PartUsage", "PartUsage"}},
+		{"P::V::f1", "sourceFeature", []string{"PartUsage"}},
+		{"P::V::f1", "targetFeature", []string{"PartUsage"}},
+		{"P::V::msg", "ownedFeature", []string{"PayloadFeature", "EventOccurrenceUsage", "EventOccurrenceUsage"}},
+		// A message's event ends are parameters, not ends: its connector ends stay
+		// the library's source and target (SysML.xtext MessageEventMember).
+		{"P::V::msg", "connectorEnd", []string{"OccurrenceUsage", "OccurrenceUsage"}},
+	} {
+		property := r.property(tc.element, tc.property)
+		if property.Unsupported != "" {
+			t.Errorf("%s.%s: %s", tc.element, tc.property, property.Unsupported)
+			continue
+		}
+		if got := metaclasses(property); !slices.Equal(got, tc.want) {
+			t.Errorf("%s.%s = %v, want %v", tc.element, tc.property, got, tc.want)
+		}
+	}
+	for _, value := range r.property("P::V::f1", "connectorEnd").Values {
+		end := value.GetElement()
+		read := r.read(end.Id, "isEnd", "owner")
+		if read.Error != "" {
+			t.Errorf("flow end %s does not read back: %s", end.Id, read.Error)
+			continue
+		}
+		if isEnd := read.Properties[0].Values; len(isEnd) != 1 || !isEnd[0].GetBoolValue() {
+			t.Errorf("%s.isEnd = %+v, want true", end.Id, read.Properties[0])
+		}
+		if owner := read.Properties[1].Values; len(owner) != 1 || owner[0].GetElement().GetQualifiedName() != "P::V::f1" {
+			t.Errorf("%s.owner = %+v, want P::V::f1", end.Id, read.Properties[1])
+		}
 	}
 }

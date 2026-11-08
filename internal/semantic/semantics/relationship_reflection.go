@@ -24,7 +24,13 @@ func ImpliedEndReference(end *ast.ConnectorEnd) ast.Node {
 // connectorEndAttachment is the reference subsetting an end's attachment
 // states, as the written edge the relationship object it reflects spans.
 func connectorEndAttachment(target ast.Node) *ast.Relationship {
-	rel := &ast.Relationship{Kind: ast.RelReferences, Target: target}
+	return impliedRelationship(ast.RelReferences, target)
+}
+
+// impliedRelationship is a relationship of kind a declaration implies toward
+// target without writing a clause, spanning the node that implies it.
+func impliedRelationship(kind ast.RelationshipKind, target ast.Node) *ast.Relationship {
+	rel := &ast.Relationship{Kind: kind, Target: target}
 	rel.NodeSpan = target.Span()
 	return rel
 }

@@ -295,6 +295,12 @@ func (m *modelEncoders) declares(node ast.Node) bool {
 	return m != nil && m.declaring[node] != nil
 }
 
+// declares reports whether this document, or another of its model, declares node.
+func (e *encoder) declares(node ast.Node) bool {
+	_, collected := e.fqn[node]
+	return collected || e.model.declares(node)
+}
+
 // siblingElement is the qualified name of an element another document of the
 // model declares, as that document's encoder names it, whose identity this
 // document then links it by: the same subject that document writes.
@@ -851,8 +857,8 @@ func (e *encoder) importedMembership(name *ast.QualifiedName) rdf.Term {
 		}
 		membership := e.ids.owningMembershipOf(decl, e.ids.subjectForNode(decl, fqn))
 		// A membership minted here, a library element's normative one, or one
-		// another document of the model mints for what it declares.
-		if _, minted := e.subjects[membership.Value]; minted || e.ids.normativeMembership(decl) || e.model.declares(decl) {
+		// this document or another of the model writes for what it declares.
+		if _, minted := e.subjects[membership.Value]; minted || e.ids.normativeMembership(decl) || e.declares(decl) {
 			return membership
 		}
 	}
@@ -1158,27 +1164,11 @@ func (e *encoder) payloadOf(u *ast.Usage) *ast.Usage {
 	}
 	payload := u.FlowEnds.PayloadDecl
 	if payload == nil {
-		span := u.FlowEnds.Payload.Span()
-		if mult := u.FlowEnds.PayloadMultiplicity; mult != nil {
-			span = spanUnion(span, mult.Span())
-		}
-		payload = &ast.Usage{
-			NodeBase:      ast.NodeBase{NodeSpan: span},
-			Kind:          ast.UsageAttribute,
-			Relationships: []*ast.Relationship{{NodeBase: ast.NodeBase{NodeSpan: u.FlowEnds.Payload.Span()}, Kind: ast.RelTyping, Target: u.FlowEnds.Payload}},
-			Multiplicity:  u.FlowEnds.PayloadMultiplicity,
-		}
+		payload = u.FlowEnds.ImpliedPayload()
 	}
 	e.payloads[u] = payload
 	e.payloadFeatures[payload] = true
 	return payload
-}
-
-// spanUnion is the smallest span covering both.
-func spanUnion(a, b source.Span) source.Span {
-	start := min(a.Offset, b.Offset)
-	end := max(a.Offset+a.Len, b.Offset+b.Len)
-	return source.Span{Offset: start, Len: end - start}
 }
 
 // collectCrossFeature records the name of the cross feature an end declares
@@ -3373,8 +3363,7 @@ func (e *encoder) multiplicity(subject rdf.Term, owner string, mult *ast.Multipl
 		return nil
 	}
 	e.graph.Prefixes[rdf.ExpressionPrefix] = rdf.Expression
-	rangeNode := e.ids.mintedNode(rdf.ExpressionIRI(subject, "multiplicity"), subject, "multiplicity")
-	membership := e.ids.minted(rdf.OwningMembershipIRIOf(rangeNode), rangeNode, rdf.OwningMembershipSuffix)
+	rangeNode, membership := e.ids.multiplicityRange(subject)
 	for _, c := range []struct{ iri, standsFor string }{
 		{rangeNode.Value, "the multiplicity range of " + rdf.LocalName(subject.Value)},
 		{membership.Value, "the owning membership of the multiplicity range"},

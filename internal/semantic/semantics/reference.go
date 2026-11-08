@@ -64,6 +64,9 @@ func (m *Model) ReferencedFeature(sym *symbols.Symbol) *symbols.Symbol {
 // that clause outside its relationship list when it is written with the
 // `references` keyword, so it is asked for its own.
 func referenceSubsettingTarget(sym *symbols.Symbol) ast.Node {
+	if _, ok := flowEndOwner(sym); ok {
+		return FlowEndReference(sym)
+	}
 	switch decl := sym.Decl.(type) {
 	case *ast.ConnectorEnd:
 		return decl.AttachedTarget()
@@ -89,7 +92,7 @@ func referenceSubsettingTarget(sym *symbols.Symbol) ast.Node {
 // feature of the connector's owner, so it resolves one scope out — the same
 // scope the document walk uses (resolve/document.go).
 func referenceScope(sym *symbols.Symbol) *symbols.Scope {
-	if _, ok := sym.Decl.(*ast.ConnectorEnd); ok && sym.OwnerScope != nil {
+	if sym.Kind == symbols.SymbolConnectorEnd && sym.OwnerScope != nil {
 		return sym.OwnerScope.Parent()
 	}
 	return sym.OwnerScope

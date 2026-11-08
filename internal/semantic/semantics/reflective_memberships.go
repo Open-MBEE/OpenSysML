@@ -371,6 +371,10 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 	if !member.IsFeature() || !m.reflectiveMetaclassConforms(owner, "Type") {
 		return "OwningMembership"
 	}
+	if IsMessageEnd(member) {
+		// A message holds its event ends as parameters (SysML.xtext MessageEventMember).
+		return "ParameterMembership"
+	}
 	if member.Kind == symbols.SymbolConnectorEnd || usageFlag(member, func(u *ast.Usage) bool { return u.IsEnd }) ||
 		containsElement(m.EndFeatures(owner), member) {
 		return "EndFeatureMembership"

@@ -241,3 +241,81 @@ def test_a_refused_document_raises_a_conversion_error_naming_the_excluded_docume
     with pytest.raises(ConversionError, match="syntax error") as raised:
         conn.get_element_properties("hash1", "C")
     assert raised.value.excluded_documents == [("c.sysml", "c.sysml: 3 syntax error(s)")]
+
+
+LIBRARY_MEMBERS_MODEL = """
+package P {
+    private import ScalarValues::*;
+    port def PP { out item v : Real; }
+    part def Unit { port p : PP; }
+    part def Tank { out item fuelOut : Real; }
+    part def Engine { in item fuelIn : Real; }
+    connection def Link { end a : Unit; end b : Unit; }
+    item def Sig;
+    calc def Calc { in x : Real; return r : Real; }
+    part def V {
+        part x : Unit; part y : Unit;
+        part tank : Tank; part engine : Engine;
+        connection c1 : Link connect x.p to y.p;
+        flow f1 of Real from tank.fuelOut to engine.fuelIn;
+        message msg of Sig from tank to engine;
+        port sp : PP;
+        action sendIt send new Sig() via sp;
+        attribute s : Sig = new Sig();
+        attribute chain = x.p;
+        part comp : Unit;
+        ref part r : Unit;
+    }
+    part a : V;
+}
+"""
+
+
+@pytest.mark.integration
+class TestEveryIdAnAnswerCarriesReadsBack:
+    """Every inherited membership of P::a, and the member it owns, reads back —
+    the memberships of unnamed standard-library members included."""
+
+    def setup_method(self):
+        import grpc
+
+        try:
+            self.conn = Connection(auto_start=False)
+            self.conn._stub.GetDiagnostics(sysml_pb2.DiagnosticsRequest(model_hash=""))
+        except grpc.RpcError as exc:
+            if exc.code() != grpc.StatusCode.NOT_FOUND:
+                self.conn = None
+                skip_or_fail_without_service(
+                    f"the sysml-grpc service on localhost:50051 answered {exc.code()}"
+                )
+        except Exception as exc:
+            self.conn = None
+            skip_or_fail_without_service(
+                f"no sysml-grpc service could be reached on localhost:50051 ({exc})"
+            )
+        self.model = self.conn.load_from_content(LIBRARY_MEMBERS_MODEL)
+
+    def teardown_method(self):
+        conn = self.__dict__.get("conn")
+        if conn is not None:
+            conn.close()
+
+    def test_every_inherited_membership_and_its_member_read_back(self):
+        memberships = self.model.element_properties("P::a", "inheritedMembership")["inheritedMembership"].elements
+        assert len(memberships) > 100
+        unnamed = []
+        for membership in memberships:
+            read = self.model.element_properties(membership.id, "memberElement")
+            assert read.element.id == membership.id and read.element.metaclass == membership.metaclass
+            member = read["memberElement"].value
+            again = self.model.element_properties(member.id, "owner")
+            assert again.element.id == member.id
+            if not again.element.qualified_name:
+                unnamed.append(again.element.metaclass)
+        assert len(unnamed) >= 18 and "Documentation" in unnamed and "MultiplicityRange" in unnamed
+
+    def test_every_inherited_feature_reads_back(self):
+        features = self.model.element_properties("P::a", "inheritedFeature")["inheritedFeature"].elements
+        assert features
+        for feature in features:
+            assert self.model.element_properties(feature.id, "name").element.id == feature.id

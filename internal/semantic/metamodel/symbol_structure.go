@@ -433,11 +433,6 @@ func (s *SymbolStructure) hasUnresolvedRelatedElementLocked(element Element, pro
 	if !ok {
 		return false
 	}
-	if property == "connectorEnd" {
-		// A flow's `from`/`to` ends are not features the model declares symbols for.
-		usage, written := row.sym.Decl.(*ast.Usage)
-		return written && usage.FlowEnds != nil && (usage.FlowEnds.From != nil || usage.FlowEnds.To != nil)
-	}
 	if row.sym.Implicit == nil || row.sym.Implicit.Form != symbols.ImplicitWritten {
 		return false
 	}

@@ -126,6 +126,9 @@ type Info struct {
 	Source Source
 	// Language is the library a fixed id is minted under; zero otherwise.
 	Language Language
+	// MembershipID is the id this implementation mints for the owning membership
+	// of an unnamed library member; "" where the membership id follows the name.
+	MembershipID string
 	// Annotated reports an ElementId annotation on the element.
 	Annotated bool
 	// Declared reports that the annotation's id evaluated to a constant
@@ -154,6 +157,9 @@ func (i *Info) Fixed() bool { return i.Source.Fixed() }
 func (i *Info) OwningMembershipID() string {
 	if !i.Fixed() {
 		return ""
+	}
+	if i.MembershipID != "" {
+		return i.MembershipID
 	}
 	return OwningMembershipID(i.Language, i.FQN)
 }
@@ -231,6 +237,8 @@ type builder struct {
 	known  map[*symbols.Symbol]bool // scope memo: sym has an entry in scopes
 	// norm decides which library symbols the norm fixes an id for.
 	norm *qualifier
+	// catalog places an unnamed library member under its catalogued owner; built on first need.
+	catalog *Catalog
 }
 
 func newBuilder(model *semantics.Model, res *resolve.Resolver) *builder {
@@ -256,11 +264,11 @@ func (b *builder) infoOf(sym *symbols.Symbol) *Info {
 	}
 	info := &Info{Symbol: sym, FQN: fqn, EffectiveID: rdf.EncodeElementID(fqn)}
 	if lang, ok := b.norm.language(sym); ok {
-		info.Source, info.Language = SourceNormative, lang
-		if lang == OpenSysML {
-			info.Source = SourceExtension
-		}
+		info.Source, info.Language = fixedSource(lang), lang
 		info.EffectiveID = ElementID(lang, fqn)
+	} else if member, lang, ok := b.anonymousMember(sym); ok {
+		info.Source, info.Language = fixedSource(lang), lang
+		info.EffectiveID, info.MembershipID = member.ID, member.OwningMembershipID
 	}
 	for _, site := range b.model.AnnotationSitesOf(sym) {
 		if site.TypeFQN != ElementIdFQN {
@@ -293,6 +301,31 @@ func (b *builder) infoOf(sym *symbols.Symbol) *Info {
 	}
 	info.Scope = b.scopeOf(sym)
 	return info
+}
+
+// fixedSource is the source of an id a bundled library of language lang fixes.
+func fixedSource(lang Language) Source {
+	if lang == OpenSysML {
+		return SourceExtension
+	}
+	return SourceNormative
+}
+
+// anonymousMember is the id this implementation mints for sym, an unnamed member
+// of a catalogued library element (AnonymousMemberOf); ok is false for any other symbol.
+func (b *builder) anonymousMember(sym *symbols.Symbol) (AnonymousMember, Language, bool) {
+	if sym.Name != "" {
+		return AnonymousMember{}, 0, false
+	}
+	lang, ok := LibraryLanguage(b.idx.LibraryTier(sym))
+	if !ok {
+		return AnonymousMember{}, 0, false
+	}
+	if b.catalog == nil {
+		b.catalog = LibraryCatalogWithOpenSysML(b.idx)
+	}
+	member, ok := AnonymousMemberOf(b.model, b.catalog, sym)
+	return member, lang, ok
 }
 
 // scopeOf resolves the nearest enclosing ProjectRef binding of sym, the

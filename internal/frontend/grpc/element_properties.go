@@ -11,6 +11,7 @@ import (
 	"connectrpc.com/connect"
 
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -52,7 +53,7 @@ func (s *Service) GetElementProperties(ctx context.Context, req *pb.GetElementPr
 		return resp, nil
 	}
 	id := req.ElementId
-	if ok {
+	if ok && sym.Name != "" {
 		id = cached.Index.GetFQN(sym)
 	}
 	resp, err := libraryElementProperties(id, req.Properties)
@@ -94,10 +95,14 @@ type elementReader struct {
 	exclusions []*pb.ExcludedDocument
 	excluded   map[string]*pb.ExcludedDocument
 	mu         sync.Mutex
-	structure  *metamodel.SymbolStructure
-	evaluator  *metamodel.Evaluator
-	addresses  map[*symbols.Symbol]string
-	bySymbol   map[string]*symbols.Symbol
+	semantics  *semantics.Model
+	// catalog fixes the ids of the bundled libraries' elements and memberships,
+	// built on first use.
+	catalog   *identity.Catalog
+	structure *metamodel.SymbolStructure
+	evaluator *metamodel.Evaluator
+	addresses map[*symbols.Symbol]string
+	bySymbol  map[string]*symbols.Symbol
 }
 
 // elementReader is the model's symbol-backed property reader, built on first use.
@@ -116,6 +121,7 @@ func (m *CachedModel) elementReader() *elementReader {
 			model:      m,
 			exclusions: exclusions,
 			excluded:   excluded,
+			semantics:  sem,
 			structure:  structure,
 			evaluator:  metamodel.New(resolver, sem, metamodel.Options{Structure: structure}),
 			addresses:  map[*symbols.Symbol]string{},
@@ -270,7 +276,7 @@ func (r *elementReader) address(sym *symbols.Symbol, depth int) string {
 	if r.model.Index.Library(sym) {
 		// The id the library document's own form reads the element back by.
 		if id, _ = r.structure.ElementIdentity(r.structure.ElementFor(sym)); id == "" {
-			id = r.model.Index.GetFQN(sym)
+			id = r.libraryElementID(sym)
 		}
 	} else {
 		id = r.model.SymbolContext().Identity(sym)
@@ -433,6 +439,9 @@ func (r *elementReader) values(value metamodel.Value) []*pb.ElementPropertyValue
 // refOf identifies an element the evaluator answered with: one of this
 // structure's, or a symbol the evaluator named directly.
 func (r *elementReader) refOf(element metamodel.Element) *pb.ElementRef {
+	if ref, ok := r.libraryMembershipRef(element); ok {
+		return ref
+	}
 	sym, ok := r.structure.SymbolOf(element)
 	if !ok && element.Symbol != nil {
 		sym, ok = element.Symbol, true
@@ -447,6 +456,52 @@ func (r *elementReader) refOf(element metamodel.Element) *pb.ElementRef {
 		return ref
 	}
 	return r.ref(sym, element)
+}
+
+// libraryMembershipRef identifies a membership owning a library element: no
+// symbol stands for it, so it carries the id the library document's own form
+// writes for it (fixed for a catalogued member, minted for an unnamed one), the
+// one id scheme every surface reads the membership by.
+func (r *elementReader) libraryMembershipRef(element metamodel.Element) (*pb.ElementRef, bool) {
+	membership := element.Membership
+	if !element.IsMembership || membership.Symbol != nil || membership.Member == nil || !r.model.Index.Library(membership.Member) {
+		return nil, false
+	}
+	ref := &pb.ElementRef{Metaclass: membership.Metaclass()}
+	if library, ok := r.libraryCatalog().ElementForSymbol(membership.Member); ok && library != nil {
+		ref.Id = library.OwningMembershipID
+	} else if member, ok := identity.AnonymousMemberOf(r.semantics, r.libraryCatalog(), membership.Member); ok {
+		ref.Id = member.OwningMembershipID
+		if member.MembershipMetaclass != "" {
+			ref.Metaclass = member.MembershipMetaclass
+		}
+	}
+	if ref.Id == "" {
+		return nil, false
+	}
+	if ref.Metaclass == "" {
+		ref.Metaclass, _ = r.structure.Metaclass(element)
+	}
+	return ref, true
+}
+
+// libraryElementID is the id the library document's own form writes for sym
+// when no identity names it: minted under its catalogued owner for an unnamed
+// member, else its qualified name.
+func (r *elementReader) libraryElementID(sym *symbols.Symbol) string {
+	if sym.Name == "" {
+		if member, ok := identity.AnonymousMemberOf(r.semantics, r.libraryCatalog(), sym); ok {
+			return member.ID
+		}
+	}
+	return r.model.Index.GetFQN(sym)
+}
+
+func (r *elementReader) libraryCatalog() *identity.Catalog {
+	if r.catalog == nil {
+		r.catalog = identity.LibraryCatalogWithOpenSysML(r.model.Index)
+	}
+	return r.catalog
 }
 
 // ref identifies the element standing for sym: the id a client reads it back

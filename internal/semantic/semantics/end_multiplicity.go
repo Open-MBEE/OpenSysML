@@ -137,6 +137,10 @@ func (w *multiplicityWalk) generals(sym *symbols.Symbol) []*symbols.Symbol {
 	out := w.m.allGenerals(sym)
 	if end, ok := sym.Decl.(*ast.ConnectorEnd); ok {
 		out = append(out, w.resolve(enclosingScope(sym), end.AttachedTarget()))
+	} else if _, ok := flowEndOwner(sym); ok {
+		if target := FlowEndReference(sym); target != nil {
+			out = append(out, w.resolve(enclosingScope(sym), target))
+		}
 	} else if sym.Recorded() {
 		for _, kind := range []ast.RelationshipKind{ast.RelReferences, ast.RelCrosses, ast.RelChains} {
 			out = append(out, w.m.RecordedRelationshipTargets(sym, kind)...)
