@@ -472,17 +472,16 @@ func appendOwningMembership(out []*symbols.Symbol, owner, member *symbols.Symbol
 	})
 }
 
-// appendReferenceMembership appends the Membership through which owner names
-// the element name resolves to, at slot; nothing while the name is unresolved.
+// appendReferenceMembership appends the Membership through which owner names the element
+// name resolves to, at slot; it is written while the name is unresolved too, naming no member.
 func (m *Model) appendReferenceMembership(out []*symbols.Symbol, owner *symbols.Symbol, slot string, name *ast.QualifiedName) []*symbols.Symbol {
 	target := m.referencedSymbol(owner, name)
 	if target == nil {
 		target = m.subjectValueTarget(owner)
 	}
-	if target == nil {
-		return out
+	if target != nil {
+		target = m.triggerPayloadElement(target)
 	}
-	target = m.triggerPayloadElement(target)
 	return append(out, &symbols.Symbol{
 		Kind:       symbols.SymbolRelationship,
 		DocName:    owner.DocName,
@@ -674,6 +673,9 @@ func (m *Model) expressionReferencedElements(expr *symbols.Symbol, feature strin
 	}
 	for _, membership := range m.OwnedMemberships(expr) {
 		if rel := membership.Implicit; rel != nil && rel.Form == symbols.ImplicitReferenceMembership && rel.Slot == feature {
+			if rel.Member == nil {
+				return []*symbols.Symbol{}
+			}
 			return []*symbols.Symbol{rel.Member}
 		}
 	}

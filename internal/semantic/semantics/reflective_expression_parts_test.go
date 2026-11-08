@@ -450,9 +450,14 @@ func TestExpressionOwnsTheMembershipToWhatItNames(t *testing.T) {
 			t.Errorf("Membership.%s = %v (%v), want empty", feature, names(got), ok)
 		}
 	}
+	// An unresolved reference still owns the Membership it is written with (KerML 8.2.5.8.3
+	// FeatureReferenceMember); it names no member, so memberElement stays underived.
 	dangling := m.ValueExpression(member(t, m, d, "dangling"))
-	if got := names(m.OwnedMemberships(dangling)); len(got) != 1 || got[0] != "ReturnParameterMembership" {
-		t.Errorf("an unresolved reference owns %v, want its result only", got)
+	if got := names(m.OwnedMemberships(dangling)); len(got) != 2 || got[0] != "Membership" || got[1] != "ReturnParameterMembership" {
+		t.Errorf("an unresolved reference owns %v, want a Membership naming nothing, then its result", got)
+	}
+	if got, ok := m.ReflectiveElements(m.OwnedMemberships(dangling)[0], "memberElement"); ok {
+		t.Errorf("an unresolved reference's Membership.memberElement = %v, want underived", names(got))
 	}
 	if got, ok := m.ReflectiveElements(dangling, "referent"); !ok || len(got) != 0 {
 		t.Errorf("an unresolved reference's referent = %v (%v)", names(got), ok)

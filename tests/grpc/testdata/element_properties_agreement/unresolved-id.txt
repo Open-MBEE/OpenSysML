@@ -22,7 +22,7 @@ ForkNode::@id	2	export-49
 LiteralBoolean::@id	1	export-46
 LiteralInfinity::@id	28	export-49
 LiteralInteger::@id	102	export-49
-Membership::@id	492	export-53
+Membership::@id	85	export-53
 MembershipImport::@id	19	export-38
 Multiplicity::@id	4	export-51
 MultiplicityRange::@id	85	export-51

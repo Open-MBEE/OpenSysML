@@ -551,9 +551,9 @@ JoinNode::occurrenceDefinition	9	symbol-41
 JoinNode::type	9	symbol-19
 Membership::memberElement	19	symbol-47
 Membership::memberElementId	52	symbol-47
-Membership::membershipOwningNamespace	2001	symbol-07
-Membership::relatedElement	54	symbol-10
-Membership::source	54	symbol-11
+Membership::membershipOwningNamespace	2408	symbol-07
+Membership::relatedElement	458	symbol-10
+Membership::source	458	symbol-11
 Membership::target	33	symbol-12
 MembershipExpose::relatedElement	71	symbol-10
 MembershipImport::relatedElement	169	symbol-10
