@@ -428,9 +428,8 @@ func collectSymbols(roots []*symbols.Scope) []*symbols.Symbol {
 	return out
 }
 
-// qualifiedName is the symbol's qualified name, a metadata body feature's under the usage
-// owning it: `mission = …` in a metadata body is the usage's own feature, not the
-// definition's its scope resolves names in (same qualified name).
+// qualifiedName is the symbol's qualified name, a metadata body feature's under the usage owning
+// it: `mission = …` is the usage's own feature, not the definition's its scope resolves names in.
 func (b *builder) qualifiedName(sym *symbols.Symbol) string {
 	if b.model.RestatesMetadataBodyFeature(sym) {
 		if fqn := b.metadataBodyFQN(sym); fqn != "" {
@@ -440,9 +439,8 @@ func (b *builder) qualifiedName(sym *symbols.Symbol) string {
 	return b.idx.GetFQN(sym)
 }
 
-// metadataBodyFQN qualifies a metadata body feature under the metadata usage owning it,
-// an unnamed usage addressed by its position among its owner's members, as the conversion
-// names it; a feature nested in a body feature is qualified under that feature's name.
+// metadataBodyFQN qualifies a metadata body feature under the usage owning it — an unnamed usage
+// by its position among its owner's members, as the conversion names it — or under its body feature.
 func (b *builder) metadataBodyFQN(sym *symbols.Symbol) string {
 	scope := sym.OwnerScope
 	if scope == nil || scope.Parent() == nil {
@@ -512,9 +510,8 @@ func (b *builder) memberIndex(usage *symbols.Symbol) (int, bool) {
 	return 0, false
 }
 
-// identityAnnotation reports a member the conversion leaves out of its positions: an
-// ElementId or ProjectRef annotation (by the type it resolves to, as the conversion
-// consumes it), of the element it is written about or of the owner it is written in.
+// identityAnnotation reports a member the conversion leaves out of its positions: an ElementId or
+// ProjectRef annotation, by the type it resolves to, of the element it is about or the owner it is in.
 func (b *builder) identityAnnotation(scope *symbols.Scope, node ast.Node) bool {
 	sym := scope.MemberDeclaring(node)
 	if sym == nil {
