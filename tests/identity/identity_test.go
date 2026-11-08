@@ -598,3 +598,26 @@ func TestNestedMetadataBodyFeaturesAreIdentifiedPerAnnotation(t *testing.T) {
 	}
 }
 
+
+// A model's own ElementId is no identity annotation: it takes a position, as in the conversion.
+func TestShadowingElementIdKeepsItsPosition(t *testing.T) {
+	table, _ := buildTable(t, `package P {
+	part def T;
+	part telescope : T;
+	metadata def ElementId { attribute id : String; }
+	@ElementId { id = "local"; }
+	metadata def Heritage { attribute mission : String; }
+	@Heritage about telescope { mission = "Hubble"; }
+}
+`)
+	want := rdf.EncodeElementID("P::@5::mission")
+	for _, sym := range table.Symbols() {
+		if sym.Name != "mission" {
+			continue
+		}
+		if info, ok := table.Info(sym); ok && info.EffectiveID == want {
+			return
+		}
+	}
+	t.Fatalf("no body feature identified as %q", want)
+}

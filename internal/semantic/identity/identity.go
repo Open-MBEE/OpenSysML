@@ -14,7 +14,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"strconv"
-	"strings"
 )
 
 // FQNs of the identity metadata definitions in the bundled library.
@@ -496,7 +495,7 @@ func (b *builder) memberIndex(usage *symbols.Symbol) (int, bool) {
 		if m, ok := member.(*ast.Membership); ok {
 			node = m.Member
 		}
-		if node == nil || b.identityAnnotation(node) {
+		if node == nil || b.identityAnnotation(usage.OwnerScope, node) {
 			continue
 		}
 		if node == usage.Decl {
@@ -513,14 +512,28 @@ func (b *builder) memberIndex(usage *symbols.Symbol) (int, bool) {
 	return 0, false
 }
 
-// identityAnnotation reports an ElementId/ProjectRef annotation, which the conversion
-// consumes into element ids rather than counting as a member.
-func (b *builder) identityAnnotation(node ast.Node) bool {
-	p, ok := node.(*ast.PrefixMetadata)
-	if !ok || p.Type == nil {
+// identityAnnotation reports a member the conversion leaves out of its positions: an
+// ElementId or ProjectRef annotation (by the type it resolves to, as the conversion
+// consumes it), of the element it is written about or of the owner it is written in.
+func (b *builder) identityAnnotation(scope *symbols.Scope, node ast.Node) bool {
+	sym := scope.MemberDeclaring(node)
+	if sym == nil {
 		return false
 	}
-	name := p.Type.Text()
-	return name == ElementIdFQN || name == ProjectRefFQN ||
-		strings.HasSuffix(ElementIdFQN, "::"+name) || strings.HasSuffix(ProjectRefFQN, "::"+name)
+	targets := b.model.AnnotatedElementsOf(sym)
+	if len(targets) == 0 {
+		owner := scope.Owner()
+		if owner == nil {
+			return false
+		}
+		targets = []*symbols.Symbol{owner}
+	}
+	for _, target := range targets {
+		for _, site := range b.model.AnnotationSitesOf(target) {
+			if site.Node == node && (site.TypeFQN == ElementIdFQN || site.TypeFQN == ProjectRefFQN) {
+				return true
+			}
+		}
+	}
+	return false
 }
