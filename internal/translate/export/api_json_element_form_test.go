@@ -197,14 +197,20 @@ func TestElementFormRecordsPerElementOmissions(t *testing.T) {
 			t.Fatalf("M::P::a carries inheritedFeature %v and records its omission", property.Value)
 		}
 	}
-	// A feature typed by a library type inherits that type's features; nothing is omitted.
-	typed := parseElementForm(t, elementFormModel)
-	a, _ = typed.ByQualifiedName("M::P::a")
-	if _, omitted := typed.Omission(a.ID, "inheritedFeature"); omitted {
-		t.Error("M::P::a : ScalarValues::Integer records an inheritedFeature omission")
+	// A feature typed by a library type inherits that type's own features; nothing is omitted.
+	typed := parseElementForm(t, "package M { attribute def R { attribute q : Quantities::ScalarQuantityValue; } }")
+	q, _ := typed.ByQualifiedName("M::R::q")
+	if _, omitted := typed.Omission(q.ID, "inheritedFeature"); omitted {
+		t.Error("M::R::q records an inheritedFeature omission")
 	}
-	if ids := formReferenceIDs(t, formPropertyOf(t, a, "inheritedFeature")); len(ids) == 0 {
-		t.Error("M::P::a : ScalarValues::Integer inherits no feature; want Integer's and dataValues'")
+	var stated bool
+	for _, id := range formReferenceIDs(t, formPropertyOf(t, q, "inheritedFeature")) {
+		if name, _, _ := typed.NameOf(id); name == "Quantities::ScalarQuantityValue::mRef" {
+			stated = true
+		}
+	}
+	if !stated {
+		t.Error("M::R::q inherits no Quantities::ScalarQuantityValue::mRef, its stated type's own feature")
 	}
 	pair, _ := form.ByQualifiedName("M::Pair")
 	if _, omitted := form.Omission(pair.ID, "inheritedFeature"); omitted {
