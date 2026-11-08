@@ -174,14 +174,20 @@ func (m *Model) maskingRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol 
 // EffectiveNameOf is Element::effectiveName: the declared name, or the one of
 // the feature an unnamed feature takes its identifiers from (KerML 1.1 §8.2.4).
 func (m *Model) EffectiveNameOf(sym *symbols.Symbol) string {
-	return inheritedIdentifier(sym, declaresIdentifier, declaredName, m.namingFeature)
+	return inheritedIdentifier(sym, m.declaresOwnIdentifier, declaredName, m.namingFeature)
 }
 
 // EffectiveShortNameOf is Element::shortName: the declared short name, or, for
 // a feature declaring neither identifier, that of the feature it takes its
 // identifiers from (KerML 1.1 §8.2.4, §8.3.3.3).
 func (m *Model) EffectiveShortNameOf(sym *symbols.Symbol) string {
-	return inheritedIdentifier(sym, declaresIdentifier, declaredShortName, m.namingFeature)
+	return inheritedIdentifier(sym, m.declaresOwnIdentifier, declaredShortName, m.namingFeature)
+}
+
+// declaresOwnIdentifier is declaresIdentifier for a symbol that is not a metadata
+// body restatement: `m = …` writes the redefined feature's name, not one of its own.
+func (m *Model) declaresOwnIdentifier(sym *symbols.Symbol) bool {
+	return declaresIdentifier(sym) && !m.RestatesMetadataBodyFeature(sym)
 }
 
 func declaredName(sym *symbols.Symbol) string      { return sym.Name }

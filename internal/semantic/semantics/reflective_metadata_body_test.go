@@ -65,6 +65,40 @@ func TestMetadataBodyFeatureRedefinesByNameWithoutDeclaringOne(t *testing.T) {
 	}
 }
 
+// A restatement by short name (`m = …` for `attribute <m> mission`) takes both
+// identifiers from the feature it redefines, not the token it was written with.
+func TestMetadataBodyRestatementByShortNameIsNamedByItsTarget(t *testing.T) {
+	const src = `package P {
+		part def T; part telescope : T;
+		metadata def Heritage { attribute <m> mission : String; }
+		@Heritage about telescope { m = "Hubble"; }
+	}`
+	for _, fixture := range reflectiveFixtures(t, "metadata-body-short.sysml", source.KindSysML, src) {
+		model := fixture.model
+		if nestedSym(t, fixture.root, "P::telescope").Recorded() {
+			continue
+		}
+		var body []*symbols.Symbol
+		for _, member := range model.Members(nestedSym(t, fixture.root, "P")) {
+			if member.Symbol.Kind == symbols.SymbolMetadataUsage {
+				body = model.membersIncludingAnonymous(member.Symbol)
+			}
+		}
+		if len(body) != 1 {
+			t.Fatalf("metadata body members = %d, want the restatement", len(body))
+		}
+		if got, _ := model.ReflectiveFeatureValues(body[0], "declaredName"); len(got) != 0 {
+			t.Errorf("declaredName = %v, want none", got)
+		}
+		if got, _ := model.ReflectiveFeatureValues(body[0], "name"); len(got) != 1 || got[0].Str != "mission" {
+			t.Errorf("name = %v, want mission, the redefined feature's", got)
+		}
+		if got, _ := model.ReflectiveFeatureValues(body[0], "shortName"); len(got) != 1 || got[0].Str != "m" {
+			t.Errorf("shortName = %v, want m, the redefined feature's", got)
+		}
+	}
+}
+
 // The predicate answers for an absent symbol rather than dereferencing it.
 func TestRestatesMetadataBodyFeatureOfNoSymbolIsFalse(t *testing.T) {
 	fixture := reflectiveFixtures(t, "metadata-body-nil.sysml", source.KindSysML, `package P;`)[0]
