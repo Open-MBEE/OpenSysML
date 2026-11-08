@@ -13,6 +13,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
+	"strconv"
 )
 
 // FQNs of the identity metadata definitions in the bundled library.
@@ -258,7 +259,7 @@ func (b *builder) infoOf(sym *symbols.Symbol) *Info {
 	if sym == nil || (sym.Decl == nil && !sym.Recorded()) || sym.Kind == symbols.SymbolAlias {
 		return nil
 	}
-	fqn := b.idx.GetFQN(sym)
+	fqn := b.qualifiedName(sym)
 	if fqn == "" {
 		return nil
 	}
@@ -425,4 +426,111 @@ func collectSymbols(roots []*symbols.Scope) []*symbols.Symbol {
 		walk(root)
 	}
 	return out
+}
+
+// qualifiedName is the symbol's qualified name, a metadata body feature's under the usage owning
+// it: `mission = …` is the usage's own feature, not the definition's its scope resolves names in.
+func (b *builder) qualifiedName(sym *symbols.Symbol) string {
+	if b.model.RestatesMetadataBodyFeature(sym) {
+		if fqn := b.metadataBodyFQN(sym); fqn != "" {
+			return fqn
+		}
+	}
+	return b.idx.GetFQN(sym)
+}
+
+// metadataBodyFQN qualifies a metadata body feature under the usage owning it — an unnamed usage
+// by its position among its owner's members, as the conversion names it — or under its body feature.
+func (b *builder) metadataBodyFQN(sym *symbols.Symbol) string {
+	scope := sym.OwnerScope
+	if scope == nil || scope.Parent() == nil {
+		return ""
+	}
+	usage := scope.Parent().MemberDeclaring(scope.Node())
+	if usage == nil {
+		return ""
+	}
+	usageFQN := b.qualifiedName(usage)
+	if usage.Name == "" {
+		index, ok := b.memberIndex(usage)
+		if !ok {
+			return ""
+		}
+		usageFQN = "@" + strconv.Itoa(index)
+		if owner := usage.OwnerScope.Owner(); owner != nil {
+			usageFQN = b.qualifiedName(owner) + "::" + usageFQN
+		}
+	}
+	return usageFQN + "::" + sym.Name
+}
+
+// memberIndex is the position of the metadata usage among the members its owner declares,
+// identity annotations left out as the conversion leaves them; a `#M` prefix follows the body.
+func (b *builder) memberIndex(usage *symbols.Symbol) (int, bool) {
+	if usage.Decl == nil || usage.OwnerScope == nil {
+		return 0, false
+	}
+	prefix, _ := usage.Decl.(*ast.PrefixMetadata)
+	var members []ast.Node
+	var prefixes []*ast.PrefixMetadata
+	switch n := usage.OwnerScope.Node().(type) {
+	case *ast.RootNamespace:
+		members = n.Members
+	case *ast.Package:
+		members, prefixes = n.Members, n.Prefixes
+	case *ast.Namespace:
+		members, prefixes = n.Members, n.Prefixes
+	case *ast.Definition:
+		members, prefixes = n.Members, n.Prefixes
+	case *ast.Usage:
+		members, prefixes = n.Members, n.Prefixes
+	default:
+		return 0, false
+	}
+	index := 0
+	for _, member := range members {
+		node := member
+		if m, ok := member.(*ast.Membership); ok {
+			node = m.Member
+		}
+		if node == nil || b.identityAnnotation(usage.OwnerScope, node) {
+			continue
+		}
+		if node == usage.Decl {
+			return index, true
+		}
+		index++
+	}
+	for _, p := range prefixes {
+		if prefix != nil && p == prefix {
+			return index, true
+		}
+		index++
+	}
+	return 0, false
+}
+
+// identityAnnotation reports a member the conversion leaves out of its positions: an ElementId or
+// ProjectRef annotation, by the type it resolves to, of the element it is about or the owner it is in.
+func (b *builder) identityAnnotation(scope *symbols.Scope, node ast.Node) bool {
+	sym := scope.MemberDeclaring(node)
+	if sym == nil {
+		return false
+	}
+	targets := b.model.AnnotatedElementsOf(sym)
+	if len(targets) == 0 {
+		owner := scope.Owner()
+		if owner == nil {
+			return false
+		}
+		targets = []*symbols.Symbol{owner}
+	}
+	for _, target := range targets {
+		for _, site := range b.model.AnnotationSitesOf(target) {
+			if site.Node == node && (site.TypeFQN == ElementIdFQN || site.TypeFQN == ProjectRefFQN) {
+				return true
+			}
+		}
+	}
+	return false
 }
