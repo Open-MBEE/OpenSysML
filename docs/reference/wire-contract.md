@@ -149,7 +149,10 @@ not resolve), or when OpenSysML does not derive the property at all; a property 
 derived and empty answers no values and no reason. A standard-library element — one an `element`
 value references, or a library qualified name such as `Parts::Part` — is read from the form of the
 bundled library document declaring it, converted once per process, so a walk from a model into the
-library continues. A missing element is an in-band `error`; a model whose document the parser could
+library continues; a library member no name catalogues — the documentation, invariants and
+connectors a part inherits from `Occurrences::Occurrence`, a declared multiplicity range — and its
+owning membership read back under the ids an answer carried them by, so every id an answer returns
+is accepted back. A missing element is an in-band `error`; a model whose document the parser could
 not read whole has no element form and reports that the same way. The `element_properties`
 capability advertises the RPC.
 
