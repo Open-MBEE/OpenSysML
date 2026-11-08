@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"slices"
 	"testing"
 
@@ -58,6 +59,8 @@ func TestRegularCommentsAreCommentMembers(t *testing.T) {
 		{"after_body_expression_result", `part def P { attribute y = xs.?{ in x; x /* c */ }; }`, nil},
 		{"between_transition_clauses", `state def S { state A; transition first A accept Go /* c */ then A; }`, nil},
 		{"before_attached_then", `action def A { first start; /* c */ then done; }`, nil},
+		{"before_attached_then_after_nested", `action def A { action a { /* d */ /* e */ } /* c */ then done; }`, []string{"d ", "e "}},
+		{"before_attached_transition", `state def S { state A; /* c */ accept Go do action a { /* d */ /* e */ } then A; }`, []string{"d ", "e "}},
 		{"line_notes_are_not_elements", "package P { // c\n part a; // d\n }", nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -129,5 +132,22 @@ func TestRecoveredPrefixRunCommentsAreMembers(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestAttachedMemberKeepsPrecedingMembers checks that taking back the comments
+// before a member-attached transition drops nothing but them, whatever member
+// positions its own effect body opened in between.
+func TestAttachedMemberKeepsPrecedingMembers(t *testing.T) {
+	const input = `state def S { state A; /* c */ accept Go do action a { /* d */ /* e */ } then B; state B; }`
+	root := New(source.New("t.sysml", []byte(input))).ParseFile()
+	def := root.Members[0].(*ast.Membership).Member.(*ast.Definition)
+	var got []string
+	for _, m := range def.Members {
+		got = append(got, fmt.Sprintf("%T", m))
+	}
+	want := []string{"*ast.SubstateMember", "*ast.TransitionMember", "*ast.SubstateMember"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("state body members = %v, want %v", got, want)
 	}
 }

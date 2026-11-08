@@ -63,9 +63,9 @@ type Parser struct {
 	// commentNext indexes the first of comments not yet judged by a member
 	// position: the ones before it were read as Comment members or left as trivia.
 	commentNext int
-	// emitted counts the Comment members the last memberStart returned, which
-	// markAttached takes back when the member turns out to continue the one before.
-	emitted int
+	// emitted counts, per member position, the Comment members memberStart returned
+	// there, which markAttached takes back when the member continues the one before.
+	emitted map[int]int
 	// recovered are the Comment members a recovery admitted ahead of the member
 	// being parsed, for the body to take before that member.
 	recovered []ast.Node
@@ -596,7 +596,12 @@ func (p *Parser) spanFrom(start int) source.Span {
 func (p *Parser) memberStart() []ast.Node {
 	p.memberStarts = append(p.memberStarts, p.peek().Span.Offset)
 	members := p.commentMembers()
-	p.emitted = len(members)
+	if len(members) > 0 {
+		if p.emitted == nil {
+			p.emitted = map[int]int{}
+		}
+		p.emitted[p.peek().Span.Offset] += len(members)
+	}
 	return members
 }
 
@@ -701,15 +706,15 @@ func (p *Parser) markAttached(m ast.Node, members []ast.Node) []ast.Node {
 		return members
 	}
 	p.attachedStarts = append(p.attachedStarts, m.Span().Offset)
-	return p.untakeComments(members)
+	return p.untakeComments(members, m.Span().Offset)
 }
 
-// untakeComments drops the Comment members the last memberStart returned, once the
-// position turned out to continue the member before it; they are reported as trivia.
-func (p *Parser) untakeComments(members []ast.Node) []ast.Node {
-	n := max(len(members)-p.emitted, 0)
-	p.emitted = 0
-	return members[:n]
+// untakeComments drops the Comment members memberStart returned at the position at, once
+// it turned out to continue the member before it; they are reported as trivia instead.
+func (p *Parser) untakeComments(members []ast.Node, at int) []ast.Node {
+	n := p.emitted[at]
+	delete(p.emitted, at)
+	return members[:len(members)-n]
 }
 
 // reportMisplacedComments warns on each regular comment written where the

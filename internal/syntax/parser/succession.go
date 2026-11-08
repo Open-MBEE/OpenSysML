@@ -353,7 +353,7 @@ func (b *bodyBuilder) takeSuccession() {
 		// `then done;` is a target succession to the done node, which the
 		// keyword opens rather than a member: neither offset is a member start.
 		p.attachedStarts = append(p.attachedStarts, tok.Span.Offset, p.peek().Span.Offset)
-		b.members = p.untakeComments(b.members)
+		b.members = p.untakeComments(b.members, tok.Span.Offset)
 		sourceMultiplicity, targetMultiplicity = nil, multiplicity
 	}
 	if b.pending {
