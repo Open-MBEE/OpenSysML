@@ -2083,9 +2083,9 @@
         "Membership::memberElementId": {
           "ours": {
             "carriers": 3350,
-            "value": 1683,
+            "value": 1685,
             "empty": 0,
-            "notDerived": 1667
+            "notDerived": 1665
           },
           "pilot": {
             "carriers": 5387,
@@ -2335,9 +2335,9 @@
         "OwningMembership::ownedMemberElementId": {
           "ours": {
             "carriers": 3072,
-            "value": 1405,
+            "value": 1407,
             "empty": 0,
-            "notDerived": 1667
+            "notDerived": 1665
           },
           "pilot": {
             "carriers": 4911,
@@ -6171,9 +6171,9 @@
         "Membership::memberElementId": {
           "ours": {
             "carriers": 13166,
-            "value": 5462,
+            "value": 5468,
             "empty": 0,
-            "notDerived": 7704
+            "notDerived": 7698
           },
           "pilot": {
             "carriers": 18124,
@@ -6423,9 +6423,9 @@
         "OwningMembership::ownedMemberElementId": {
           "ours": {
             "carriers": 11981,
-            "value": 4285,
+            "value": 4291,
             "empty": 0,
-            "notDerived": 7696
+            "notDerived": 7690
           },
           "pilot": {
             "carriers": 16535,
@@ -10245,9 +10245,9 @@
         "Membership::memberElementId": {
           "ours": {
             "carriers": 4474,
-            "value": 2159,
+            "value": 2160,
             "empty": 0,
-            "notDerived": 2315
+            "notDerived": 2314
           },
           "pilot": {
             "carriers": 6394,
@@ -10497,9 +10497,9 @@
         "OwningMembership::ownedMemberElementId": {
           "ours": {
             "carriers": 4095,
-            "value": 1781,
+            "value": 1782,
             "empty": 0,
-            "notDerived": 2314
+            "notDerived": 2313
           },
           "pilot": {
             "carriers": 5874,
@@ -13535,9 +13535,9 @@
         "Membership::memberElementId": {
           "ours": {
             "carriers": 2516,
-            "value": 1323,
+            "value": 1325,
             "empty": 0,
-            "notDerived": 1193
+            "notDerived": 1191
           },
           "pilot": {
             "carriers": 3463,
@@ -13731,9 +13731,9 @@
         "OwningMembership::ownedMemberElementId": {
           "ours": {
             "carriers": 2388,
-            "value": 1195,
+            "value": 1197,
             "empty": 0,
-            "notDerived": 1193
+            "notDerived": 1191
           },
           "pilot": {
             "carriers": 3319,
@@ -16377,9 +16377,9 @@
         "Membership::memberElementId": {
           "ours": {
             "carriers": 3092,
-            "value": 1725,
+            "value": 1726,
             "empty": 0,
-            "notDerived": 1367
+            "notDerived": 1366
           },
           "pilot": {
             "carriers": 4643,
@@ -16629,9 +16629,9 @@
         "OwningMembership::ownedMemberElementId": {
           "ours": {
             "carriers": 2972,
-            "value": 1607,
+            "value": 1608,
             "empty": 0,
-            "notDerived": 1365
+            "notDerived": 1364
           },
           "pilot": {
             "carriers": 4465,
@@ -23937,9 +23937,9 @@
         "Membership::memberElementId": {
           "ours": {
             "carriers": 13268,
-            "value": 5168,
+            "value": 5173,
             "empty": 0,
-            "notDerived": 8100
+            "notDerived": 8095
           },
           "pilot": {
             "carriers": 22997,
@@ -24189,9 +24189,9 @@
         "OwningMembership::ownedMemberElementId": {
           "ours": {
             "carriers": 12525,
-            "value": 4428,
+            "value": 4433,
             "empty": 0,
-            "notDerived": 8097
+            "notDerived": 8092
           },
           "pilot": {
             "carriers": 21263,
@@ -34161,9 +34161,9 @@
     "Membership::memberElementId": {
       "ours": {
         "carriers": 42086,
-        "value": 18706,
+        "value": 18723,
         "empty": 0,
-        "notDerived": 23380
+        "notDerived": 23363
       },
       "pilot": {
         "carriers": 66197,
@@ -34413,9 +34413,9 @@
     "OwningMembership::ownedMemberElementId": {
       "ours": {
         "carriers": 39143,
-        "value": 15780,
+        "value": 15797,
         "empty": 0,
-        "notDerived": 23363
+        "notDerived": 23346
       },
       "pilot": {
         "carriers": 61067,

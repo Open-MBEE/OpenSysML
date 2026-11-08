@@ -264,7 +264,9 @@ func (b *builder) infoOf(sym *symbols.Symbol) *Info {
 	if b.model.RestatesMetadataBodyFeature(sym) {
 		// `mission = …` in a metadata body is the usage's own feature, not the
 		// definition's its scope resolves names in (same qualified name).
-		fqn = b.metadataBodyFQN(sym)
+		if q := b.metadataBodyFQN(sym); q != "" {
+			fqn = q
+		}
 	}
 	if fqn == "" {
 		return nil
@@ -462,10 +464,10 @@ func (b *builder) metadataBodyFQN(sym *symbols.Symbol) string {
 // memberIndex is the position of the metadata usage among the members its owner declares,
 // identity annotations left out as the conversion leaves them; a `#M` prefix follows the body.
 func (b *builder) memberIndex(usage *symbols.Symbol) (int, bool) {
-	prefix, ok := usage.Decl.(*ast.PrefixMetadata)
-	if !ok || usage.OwnerScope == nil {
+	if usage.Decl == nil || usage.OwnerScope == nil {
 		return 0, false
 	}
+	prefix, _ := usage.Decl.(*ast.PrefixMetadata)
 	var members []ast.Node
 	var prefixes []*ast.PrefixMetadata
 	switch n := usage.OwnerScope.Node().(type) {
@@ -491,13 +493,13 @@ func (b *builder) memberIndex(usage *symbols.Symbol) (int, bool) {
 		if node == nil || b.identityAnnotation(node) {
 			continue
 		}
-		if node == ast.Node(prefix) {
+		if node == usage.Decl {
 			return index, true
 		}
 		index++
 	}
 	for _, p := range prefixes {
-		if p == prefix {
+		if prefix != nil && p == prefix {
 			return index, true
 		}
 		index++

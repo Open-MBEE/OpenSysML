@@ -547,3 +547,26 @@ func TestMetadataBodyFeatureIsIdentifiedUnderItsUsage(t *testing.T) {
 		t.Fatal("body feature shares the definition feature's id")
 	}
 }
+
+// The `metadata M { a = 1; }` spelling of a metadata usage is identified the same way.
+func TestMetadataUsageBodyFeatureIsIdentifiedUnderItsUsage(t *testing.T) {
+	table, _ := buildTable(t, `package P {
+	metadata def M { attribute a; }
+	part def C { metadata M { a = 1; } }
+}
+`)
+	for _, sym := range table.Symbols() {
+		if sym.Name != "a" || sym.OwnerScope == nil || sym.OwnerScope.Owner() == nil || sym.OwnerScope.Owner().Name == "M" {
+			continue
+		}
+		info, ok := table.Info(sym)
+		if !ok {
+			t.Fatal("body feature has no identity")
+		}
+		if want := rdf.EncodeElementID("P::C::@0::a"); info.EffectiveID != want {
+			t.Fatalf("body feature id = %q, want %q", info.EffectiveID, want)
+		}
+		return
+	}
+	t.Fatal("no body feature symbol")
+}
