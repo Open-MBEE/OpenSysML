@@ -203,9 +203,8 @@ func TestInheritedSuccessionsDoNotJoinSameSpanActions(t *testing.T) {
 	}
 }
 
-// A named action node exposed as a root of its own keeps the successions its
-// owner declares between it and the owner's other actions (SysML v2 §8.2.2.17: an
-// if or loop node is an action usage of its own metaclass).
+// A named action node exposed as a root of its own keeps the successions its owner declares
+// between it and the owner's other actions (SysML v2 §8.2.2.17: an if or loop node is an action usage).
 func TestActionNodeRootsAreJoinedByTheirOwnersSuccessions(t *testing.T) {
 	src := "package Nodes {\n action def Run {\n  attribute ok : ScalarValues::Boolean;\n  action prepare;\n  action check if ok { action pass; }\n  action spin while ok { action turn; }\n  first prepare then check;\n  first check then spin;\n }\n}\n"
 	r, idx := loadSources(t, []string{"nodes.sysml"}, [][]byte{[]byte(src)})

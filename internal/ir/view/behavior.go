@@ -60,9 +60,8 @@ func notShown(r *Renderer, elem *symbols.Symbol, what, rendering string) string 
 	return fmt.Sprintf("%s %s is no %s; %s %s rendering does not show it", declKind(elem), r.notationName(elem), what, article(rendering), rendering)
 }
 
-// rootsByOwner groups the roots whose kind isRoot by the nearest owner whose kind
-// isOwner declaring them, keeping only owners with two or more such roots and
-// not drawn themselves, whose body the roots are then drawn apart from.
+// rootsByOwner groups the roots whose kind isRoot by the nearest owner (kind isOwner) declaring
+// them, keeping only undrawn owners of two or more such roots, whose body the roots are drawn apart from.
 func rootsByOwner(roots map[*symbols.Symbol]*Node, isRoot, isOwner func(symbols.SymbolKind) bool) map[*symbols.Symbol]map[*symbols.Symbol]*Node {
 	out := map[*symbols.Symbol]map[*symbols.Symbol]*Node{}
 	for sym, node := range roots {
@@ -741,9 +740,8 @@ func (r *Renderer) rootSuccessionEdges(view *symbols.Symbol, roots map[*symbols.
 	}
 }
 
-// actionOwnerKind reports whether an element of the kind owns the successions
-// of the actions declared in its body: an action def or an action usage of any
-// node kind, whose body the lowered ActionGraph orders.
+// actionOwnerKind reports whether an element of the kind owns the successions of the actions
+// in its body: an action def or an action usage of any node kind, whose body the ActionGraph orders.
 func actionOwnerKind(kind symbols.SymbolKind) bool {
 	return kind == symbols.SymbolActionDef || kind.IsActionUsage()
 }
