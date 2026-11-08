@@ -28,6 +28,10 @@ type SymbolStructure struct {
 	res    *resolve.Resolver
 	model  *semantics.Model
 	prefix string
+	// identities, when set, spells every element by the id the model's API
+	// element form writes for it (SetIdentities); else a named declared element
+	// carries its identity-table id and an anonymous one none.
+	identities func(*symbols.Symbol) (string, bool)
 
 	mu        sync.Mutex
 	elements  []symbolElement
@@ -596,10 +600,28 @@ func (s *SymbolStructure) qualifiedNameLocked(element Element) (string, bool) {
 	return fqn, fqn != ""
 }
 
-// ElementIdentity is the stable id of a named declared element (identity package).
+// SetIdentities makes the structure spell its elements by identities: the one
+// id scheme the model's API element form writes, for named and anonymous
+// elements alike, so a reader and the form name one element one way.
+func (s *SymbolStructure) SetIdentities(identities func(*symbols.Symbol) (string, bool)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.identities = identities
+}
+
+// ElementIdentity is the stable id of an element: the injected identities'
+// (SetIdentities), else a named declared element's identity-table id.
 func (s *SymbolStructure) elementIdentityLocked(element Element) (string, bool) {
 	row, ok := s.row(element)
-	if !ok || row.sym.Implicit != nil || row.sym.Expr != nil || row.sym.Name == "" {
+	if !ok {
+		return "", false
+	}
+	if s.identities != nil {
+		if id, ok := s.identities(row.sym); ok {
+			return id, true
+		}
+	}
+	if row.sym.Implicit != nil || row.sym.Expr != nil || row.sym.Name == "" {
 		return "", false
 	}
 	info, ok := identity.Of(s.model, s.res, row.sym)

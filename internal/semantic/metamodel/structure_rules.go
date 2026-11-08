@@ -1849,6 +1849,7 @@ func (e *Evaluator) structureAttribute(element Element, property string) (Value,
 }
 
 func (e *Evaluator) semanticBooleanAttribute(element Element, property string) (Value, bool, bool) {
+	sym := e.structureUsageSymbol(element)
 	var value bool
 	switch property {
 	case "isComposite", "isReference":
@@ -1860,7 +1861,7 @@ func (e *Evaluator) semanticBooleanAttribute(element Element, property string) (
 						Category: ReasonIncompleteStructure,
 						Detail:   "Usage::isReference owning Type classification is unavailable",
 					}
-					if element.Symbol == nil || e.model == nil {
+					if sym == nil || e.model == nil {
 						reason = Reason{
 							Category: ReasonMissingSemanticModel,
 							Detail:   "Usage::isReference has no semantic Usage symbol to determine referentiality",
@@ -1872,19 +1873,19 @@ func (e *Evaluator) semanticBooleanAttribute(element Element, property string) (
 			}
 			value = composite
 		} else {
-			if element.Symbol == nil || e.model == nil {
+			if sym == nil || e.model == nil {
 				return Value{}, true, false
 			}
-			value = e.model.EffectiveIsComposite(element.Symbol)
+			value = e.model.EffectiveIsComposite(sym)
 		}
 		if property == "isReference" {
 			value = !value
 		}
 	case "isVariable":
-		if element.Symbol == nil || e.model == nil {
+		if sym == nil || e.model == nil {
 			return Value{}, true, false
 		}
-		value = e.model.FeatureIsVariable(element.Symbol)
+		value = e.model.FeatureIsVariable(sym)
 	case "mayTimeVary":
 		owningType, handled, ok := e.structureOwningType(element)
 		if !handled || !ok {
@@ -1900,7 +1901,7 @@ func (e *Evaluator) semanticBooleanAttribute(element Element, property string) (
 		if owningType.Kind != ElementValue {
 			return booleanValue(false), true, true
 		}
-		if element.Symbol == nil || owningType.Element.Symbol == nil || e.model == nil {
+		if sym == nil || e.structureUsageSymbol(owningType.Element) == nil || e.model == nil {
 			e.recordUnsupportedReason(
 				element, "Usage", "mayTimeVary",
 				Reason{
@@ -1910,9 +1911,9 @@ func (e *Evaluator) semanticBooleanAttribute(element Element, property string) (
 			)
 			return Value{}, true, false
 		}
-		value = e.model.UsageMayTimeVaryForOwningType(element.Symbol, owningType.Element.Symbol)
+		value = e.model.UsageMayTimeVaryForOwningType(sym, e.structureUsageSymbol(owningType.Element))
 	default:
-		reflective, ok := e.model.ReflectiveFeatureValue(element.Symbol, property)
+		reflective, ok := e.model.ReflectiveFeatureValue(sym, property)
 		if !ok || reflective.Kind != symbols.FilterValueBool {
 			return Value{}, true, false
 		}
@@ -4356,6 +4357,16 @@ func (e *Evaluator) structureEffectiveDirection(owner, feature Element) (ast.Fea
 		return ast.DirIn, true
 	}
 	return ast.DirNone, true
+}
+
+// structureUsageSymbol is the symbol behind an element on either structure: a
+// graph element's declaration, or the symbol a symbol-backed structure projects.
+func (e *Evaluator) structureUsageSymbol(element Element) *symbols.Symbol {
+	if sym := e.structureElementSymbol(element); sym != nil {
+		return sym
+	}
+	sym, _ := e.structureSymbolOf(element)
+	return sym
 }
 
 func (e *Evaluator) structureElementSymbol(element Element) *symbols.Symbol {
