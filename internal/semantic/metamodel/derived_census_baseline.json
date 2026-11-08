@@ -10,11 +10,6 @@
         "source": "scripts/pilot-json-exporter/ExportJSON.java",
         "sourceDigest": "sha256:366acec8fd58c0df0f6d61cc123b31ef5477dce327e32f1144b52eea199b6178",
         "release": "2026-09 (jupyter-sysml-kernel 0.63.0)"
-      },
-      {
-        "name": "metamodel-evaluator",
-        "source": "internal/semantic/metamodel",
-        "sourceDigest": "sha256:aaba188195cae6d129a40ea8e9c50e66e2751167b662b37ffbce0a3bfe9893e8"
       }
     ],
     "inputs": [
@@ -870,8 +865,8 @@
         "Definition::ownedItem": {
           "ours": {
             "carriers": 346,
-            "value": 48,
-            "empty": 298,
+            "value": 46,
+            "empty": 300,
             "notDerived": 0
           },
           "pilot": {
@@ -912,8 +907,8 @@
         "Definition::ownedPart": {
           "ours": {
             "carriers": 346,
-            "value": 33,
-            "empty": 313,
+            "value": 31,
+            "empty": 315,
             "notDerived": 0
           },
           "pilot": {
@@ -940,8 +935,8 @@
         "Definition::ownedReference": {
           "ours": {
             "carriers": 346,
-            "value": 63,
-            "empty": 283,
+            "value": 66,
+            "empty": 280,
             "notDerived": 0
           },
           "pilot": {
@@ -2059,9 +2054,9 @@
         },
         "ItemUsage::itemDefinition": {
           "ours": {
-            "carriers": 398,
-            "value": 231,
-            "empty": 137,
+            "carriers": 383,
+            "value": 223,
+            "empty": 130,
             "notDerived": 30
           },
           "pilot": {
@@ -2297,9 +2292,9 @@
         },
         "OccurrenceUsage::individualDefinition": {
           "ours": {
-            "carriers": 789,
+            "carriers": 774,
             "value": 2,
-            "empty": 701,
+            "empty": 686,
             "notDerived": 86
           },
           "pilot": {
@@ -2311,9 +2306,9 @@
         },
         "OccurrenceUsage::occurrenceDefinition": {
           "ours": {
-            "carriers": 789,
-            "value": 343,
-            "empty": 360,
+            "carriers": 774,
+            "value": 335,
+            "empty": 353,
             "notDerived": 86
           },
           "pilot": {
@@ -2395,9 +2390,9 @@
         },
         "PartUsage::partDefinition": {
           "ours": {
-            "carriers": 287,
-            "value": 177,
-            "empty": 82,
+            "carriers": 272,
+            "value": 169,
+            "empty": 75,
             "notDerived": 28
           },
           "pilot": {
@@ -3768,8 +3763,8 @@
         "Usage::nestedItem": {
           "ours": {
             "carriers": 1327,
-            "value": 134,
-            "empty": 1193,
+            "value": 130,
+            "empty": 1197,
             "notDerived": 0
           },
           "pilot": {
@@ -3796,8 +3791,8 @@
         "Usage::nestedOccurrence": {
           "ours": {
             "carriers": 1327,
-            "value": 248,
-            "empty": 1079,
+            "value": 245,
+            "empty": 1082,
             "notDerived": 0
           },
           "pilot": {
@@ -3810,8 +3805,8 @@
         "Usage::nestedPart": {
           "ours": {
             "carriers": 1327,
-            "value": 86,
-            "empty": 1241,
+            "value": 82,
+            "empty": 1245,
             "notDerived": 0
           },
           "pilot": {
@@ -3838,8 +3833,8 @@
         "Usage::nestedReference": {
           "ours": {
             "carriers": 1327,
-            "value": 166,
-            "empty": 1161,
+            "value": 174,
+            "empty": 1153,
             "notDerived": 0
           },
           "pilot": {
@@ -4020,8 +4015,8 @@
         "Usage::usage": {
           "ours": {
             "carriers": 1327,
-            "value": 877,
-            "empty": 202,
+            "value": 870,
+            "empty": 209,
             "notDerived": 248
           },
           "pilot": {
@@ -4958,8 +4953,8 @@
         "Definition::ownedItem": {
           "ours": {
             "carriers": 728,
-            "value": 113,
-            "empty": 615,
+            "value": 105,
+            "empty": 623,
             "notDerived": 0
           },
           "pilot": {
@@ -5000,8 +4995,8 @@
         "Definition::ownedPart": {
           "ours": {
             "carriers": 728,
-            "value": 76,
-            "empty": 652,
+            "value": 68,
+            "empty": 660,
             "notDerived": 0
           },
           "pilot": {
@@ -5028,8 +5023,8 @@
         "Definition::ownedReference": {
           "ours": {
             "carriers": 728,
-            "value": 145,
-            "empty": 583,
+            "value": 156,
+            "empty": 572,
             "notDerived": 0
           },
           "pilot": {
@@ -6147,10 +6142,10 @@
         },
         "ItemUsage::itemDefinition": {
           "ours": {
-            "carriers": 999,
-            "value": 523,
-            "empty": 357,
-            "notDerived": 119
+            "carriers": 963,
+            "value": 504,
+            "empty": 345,
+            "notDerived": 114
           },
           "pilot": {
             "carriers": 914,
@@ -6385,10 +6380,10 @@
         },
         "OccurrenceUsage::individualDefinition": {
           "ours": {
-            "carriers": 2344,
+            "carriers": 2308,
             "value": 42,
-            "empty": 1918,
-            "notDerived": 384
+            "empty": 1887,
+            "notDerived": 379
           },
           "pilot": {
             "carriers": 2333,
@@ -6399,10 +6394,10 @@
         },
         "OccurrenceUsage::occurrenceDefinition": {
           "ours": {
-            "carriers": 2344,
-            "value": 992,
-            "empty": 968,
-            "notDerived": 384
+            "carriers": 2308,
+            "value": 973,
+            "empty": 956,
+            "notDerived": 379
           },
           "pilot": {
             "carriers": 2333,
@@ -6483,10 +6478,10 @@
         },
         "PartUsage::partDefinition": {
           "ours": {
-            "carriers": 747,
-            "value": 443,
-            "empty": 220,
-            "notDerived": 84
+            "carriers": 711,
+            "value": 424,
+            "empty": 208,
+            "notDerived": 79
           },
           "pilot": {
             "carriers": 703,
@@ -7856,8 +7851,8 @@
         "Usage::nestedItem": {
           "ours": {
             "carriers": 4253,
-            "value": 262,
-            "empty": 3991,
+            "value": 246,
+            "empty": 4007,
             "notDerived": 0
           },
           "pilot": {
@@ -7884,8 +7879,8 @@
         "Usage::nestedOccurrence": {
           "ours": {
             "carriers": 4253,
-            "value": 627,
-            "empty": 3626,
+            "value": 624,
+            "empty": 3629,
             "notDerived": 0
           },
           "pilot": {
@@ -7898,8 +7893,8 @@
         "Usage::nestedPart": {
           "ours": {
             "carriers": 4253,
-            "value": 181,
-            "empty": 4072,
+            "value": 165,
+            "empty": 4088,
             "notDerived": 0
           },
           "pilot": {
@@ -7926,8 +7921,8 @@
         "Usage::nestedReference": {
           "ours": {
             "carriers": 4253,
-            "value": 504,
-            "empty": 3749,
+            "value": 520,
+            "empty": 3733,
             "notDerived": 0
           },
           "pilot": {
@@ -8108,8 +8103,8 @@
         "Usage::usage": {
           "ours": {
             "carriers": 4253,
-            "value": 2365,
-            "empty": 700,
+            "value": 2353,
+            "empty": 712,
             "notDerived": 1188
           },
           "pilot": {
@@ -9032,8 +9027,8 @@
         "Definition::ownedItem": {
           "ours": {
             "carriers": 386,
-            "value": 21,
-            "empty": 365,
+            "value": 17,
+            "empty": 369,
             "notDerived": 0
           },
           "pilot": {
@@ -9060,8 +9055,8 @@
         "Definition::ownedOccurrence": {
           "ours": {
             "carriers": 386,
-            "value": 59,
-            "empty": 327,
+            "value": 58,
+            "empty": 328,
             "notDerived": 0
           },
           "pilot": {
@@ -9074,8 +9069,8 @@
         "Definition::ownedPart": {
           "ours": {
             "carriers": 386,
-            "value": 20,
-            "empty": 366,
+            "value": 16,
+            "empty": 370,
             "notDerived": 0
           },
           "pilot": {
@@ -9102,8 +9097,8 @@
         "Definition::ownedReference": {
           "ours": {
             "carriers": 386,
-            "value": 61,
-            "empty": 325,
+            "value": 64,
+            "empty": 322,
             "notDerived": 0
           },
           "pilot": {
@@ -10221,9 +10216,9 @@
         },
         "ItemUsage::itemDefinition": {
           "ours": {
-            "carriers": 443,
-            "value": 231,
-            "empty": 170,
+            "carriers": 427,
+            "value": 221,
+            "empty": 164,
             "notDerived": 42
           },
           "pilot": {
@@ -10459,9 +10454,9 @@
         },
         "OccurrenceUsage::individualDefinition": {
           "ours": {
-            "carriers": 919,
+            "carriers": 903,
             "value": 10,
-            "empty": 827,
+            "empty": 811,
             "notDerived": 82
           },
           "pilot": {
@@ -10473,9 +10468,9 @@
         },
         "OccurrenceUsage::occurrenceDefinition": {
           "ours": {
-            "carriers": 919,
-            "value": 414,
-            "empty": 423,
+            "carriers": 903,
+            "value": 404,
+            "empty": 417,
             "notDerived": 82
           },
           "pilot": {
@@ -10557,9 +10552,9 @@
         },
         "PartUsage::partDefinition": {
           "ours": {
-            "carriers": 397,
-            "value": 220,
-            "empty": 135,
+            "carriers": 381,
+            "value": 210,
+            "empty": 129,
             "notDerived": 42
           },
           "pilot": {
@@ -11930,8 +11925,8 @@
         "Usage::nestedItem": {
           "ours": {
             "carriers": 1578,
-            "value": 164,
-            "empty": 1414,
+            "value": 160,
+            "empty": 1418,
             "notDerived": 0
           },
           "pilot": {
@@ -11958,8 +11953,8 @@
         "Usage::nestedOccurrence": {
           "ours": {
             "carriers": 1578,
-            "value": 302,
-            "empty": 1276,
+            "value": 301,
+            "empty": 1277,
             "notDerived": 0
           },
           "pilot": {
@@ -11972,8 +11967,8 @@
         "Usage::nestedPart": {
           "ours": {
             "carriers": 1578,
-            "value": 140,
-            "empty": 1438,
+            "value": 136,
+            "empty": 1442,
             "notDerived": 0
           },
           "pilot": {
@@ -12000,8 +11995,8 @@
         "Usage::nestedReference": {
           "ours": {
             "carriers": 1578,
-            "value": 215,
-            "empty": 1363,
+            "value": 224,
+            "empty": 1354,
             "notDerived": 0
           },
           "pilot": {
@@ -12182,8 +12177,8 @@
         "Usage::usage": {
           "ours": {
             "carriers": 1578,
-            "value": 969,
-            "empty": 212,
+            "value": 963,
+            "empty": 218,
             "notDerived": 397
           },
           "pilot": {
@@ -15108,8 +15103,8 @@
         "Definition::ownedItem": {
           "ours": {
             "carriers": 226,
-            "value": 62,
-            "empty": 164,
+            "value": 60,
+            "empty": 166,
             "notDerived": 0
           },
           "pilot": {
@@ -15150,8 +15145,8 @@
         "Definition::ownedPart": {
           "ours": {
             "carriers": 226,
-            "value": 43,
-            "empty": 183,
+            "value": 40,
+            "empty": 186,
             "notDerived": 0
           },
           "pilot": {
@@ -15178,8 +15173,8 @@
         "Definition::ownedReference": {
           "ours": {
             "carriers": 226,
-            "value": 48,
-            "empty": 178,
+            "value": 50,
+            "empty": 176,
             "notDerived": 0
           },
           "pilot": {
@@ -16353,10 +16348,10 @@
         },
         "ItemUsage::itemDefinition": {
           "ours": {
-            "carriers": 220,
+            "carriers": 207,
             "value": 24,
             "empty": 60,
-            "notDerived": 136
+            "notDerived": 123
           },
           "pilot": {
             "carriers": 197,
@@ -16591,10 +16586,10 @@
         },
         "OccurrenceUsage::individualDefinition": {
           "ours": {
-            "carriers": 650,
+            "carriers": 637,
             "value": 0,
             "empty": 308,
-            "notDerived": 342
+            "notDerived": 329
           },
           "pilot": {
             "carriers": 663,
@@ -16605,10 +16600,10 @@
         },
         "OccurrenceUsage::occurrenceDefinition": {
           "ours": {
-            "carriers": 650,
+            "carriers": 637,
             "value": 33,
             "empty": 275,
-            "notDerived": 342
+            "notDerived": 329
           },
           "pilot": {
             "carriers": 663,
@@ -16689,10 +16684,10 @@
         },
         "PartUsage::partDefinition": {
           "ours": {
-            "carriers": 168,
+            "carriers": 155,
             "value": 11,
             "empty": 44,
-            "notDerived": 113
+            "notDerived": 100
           },
           "pilot": {
             "carriers": 143,
@@ -18090,8 +18085,8 @@
         "Usage::nestedItem": {
           "ours": {
             "carriers": 1061,
-            "value": 29,
-            "empty": 1032,
+            "value": 26,
+            "empty": 1035,
             "notDerived": 0
           },
           "pilot": {
@@ -18132,8 +18127,8 @@
         "Usage::nestedPart": {
           "ours": {
             "carriers": 1061,
-            "value": 28,
-            "empty": 1033,
+            "value": 25,
+            "empty": 1036,
             "notDerived": 0
           },
           "pilot": {
@@ -18160,8 +18155,8 @@
         "Usage::nestedReference": {
           "ours": {
             "carriers": 1061,
-            "value": 161,
-            "empty": 900,
+            "value": 162,
+            "empty": 899,
             "notDerived": 0
           },
           "pilot": {
@@ -22696,8 +22691,8 @@
         "Definition::ownedItem": {
           "ours": {
             "carriers": 646,
-            "value": 161,
-            "empty": 485,
+            "value": 139,
+            "empty": 507,
             "notDerived": 0
           },
           "pilot": {
@@ -22724,8 +22719,8 @@
         "Definition::ownedOccurrence": {
           "ours": {
             "carriers": 646,
-            "value": 280,
-            "empty": 366,
+            "value": 279,
+            "empty": 367,
             "notDerived": 0
           },
           "pilot": {
@@ -22738,8 +22733,8 @@
         "Definition::ownedPart": {
           "ours": {
             "carriers": 646,
-            "value": 96,
-            "empty": 550,
+            "value": 74,
+            "empty": 572,
             "notDerived": 0
           },
           "pilot": {
@@ -22766,8 +22761,8 @@
         "Definition::ownedReference": {
           "ours": {
             "carriers": 646,
-            "value": 114,
-            "empty": 532,
+            "value": 139,
+            "empty": 507,
             "notDerived": 0
           },
           "pilot": {
@@ -23913,9 +23908,9 @@
         },
         "ItemUsage::itemDefinition": {
           "ours": {
-            "carriers": 1218,
-            "value": 765,
-            "empty": 410,
+            "carriers": 1157,
+            "value": 732,
+            "empty": 382,
             "notDerived": 43
           },
           "pilot": {
@@ -24151,9 +24146,9 @@
         },
         "OccurrenceUsage::individualDefinition": {
           "ours": {
-            "carriers": 2387,
+            "carriers": 2326,
             "value": 2,
-            "empty": 2325,
+            "empty": 2264,
             "notDerived": 60
           },
           "pilot": {
@@ -24165,9 +24160,9 @@
         },
         "OccurrenceUsage::occurrenceDefinition": {
           "ours": {
-            "carriers": 2387,
-            "value": 1070,
-            "empty": 1257,
+            "carriers": 2326,
+            "value": 1037,
+            "empty": 1229,
             "notDerived": 60
           },
           "pilot": {
@@ -24249,9 +24244,9 @@
         },
         "PartUsage::partDefinition": {
           "ours": {
-            "carriers": 836,
-            "value": 631,
-            "empty": 162,
+            "carriers": 775,
+            "value": 598,
+            "empty": 134,
             "notDerived": 43
           },
           "pilot": {
@@ -25636,8 +25631,8 @@
         "Usage::nestedItem": {
           "ours": {
             "carriers": 5131,
-            "value": 118,
-            "empty": 5013,
+            "value": 92,
+            "empty": 5039,
             "notDerived": 0
           },
           "pilot": {
@@ -25664,8 +25659,8 @@
         "Usage::nestedOccurrence": {
           "ours": {
             "carriers": 5131,
-            "value": 304,
-            "empty": 4827,
+            "value": 279,
+            "empty": 4852,
             "notDerived": 0
           },
           "pilot": {
@@ -25678,8 +25673,8 @@
         "Usage::nestedPart": {
           "ours": {
             "carriers": 5131,
-            "value": 96,
-            "empty": 5035,
+            "value": 70,
+            "empty": 5061,
             "notDerived": 0
           },
           "pilot": {
@@ -25706,8 +25701,8 @@
         "Usage::nestedReference": {
           "ours": {
             "carriers": 5131,
-            "value": 546,
-            "empty": 4585,
+            "value": 577,
+            "empty": 4554,
             "notDerived": 0
           },
           "pilot": {
@@ -25888,8 +25883,8 @@
         "Usage::usage": {
           "ours": {
             "carriers": 5131,
-            "value": 2551,
-            "empty": 728,
+            "value": 2523,
+            "empty": 756,
             "notDerived": 1852
           },
           "pilot": {
@@ -29066,8 +29061,8 @@
         "Definition::ownedItem": {
           "ours": {
             "carriers": 164,
-            "value": 22,
-            "empty": 142,
+            "value": 12,
+            "empty": 152,
             "notDerived": 0
           },
           "pilot": {
@@ -29094,8 +29089,8 @@
         "Definition::ownedOccurrence": {
           "ours": {
             "carriers": 164,
-            "value": 39,
-            "empty": 125,
+            "value": 29,
+            "empty": 135,
             "notDerived": 0
           },
           "pilot": {
@@ -29108,8 +29103,8 @@
         "Definition::ownedPart": {
           "ours": {
             "carriers": 164,
-            "value": 22,
-            "empty": 142,
+            "value": 12,
+            "empty": 152,
             "notDerived": 0
           },
           "pilot": {
@@ -29136,8 +29131,8 @@
         "Definition::ownedReference": {
           "ours": {
             "carriers": 164,
-            "value": 78,
-            "empty": 86,
+            "value": 88,
+            "empty": 76,
             "notDerived": 0
           },
           "pilot": {
@@ -30101,9 +30096,9 @@
         },
         "ItemUsage::itemDefinition": {
           "ours": {
-            "carriers": 208,
-            "value": 121,
-            "empty": 86,
+            "carriers": 186,
+            "value": 111,
+            "empty": 74,
             "notDerived": 1
           },
           "pilot": {
@@ -30339,9 +30334,9 @@
         },
         "OccurrenceUsage::individualDefinition": {
           "ours": {
-            "carriers": 406,
+            "carriers": 384,
             "value": 0,
-            "empty": 366,
+            "empty": 344,
             "notDerived": 40
           },
           "pilot": {
@@ -30353,9 +30348,9 @@
         },
         "OccurrenceUsage::occurrenceDefinition": {
           "ours": {
-            "carriers": 406,
-            "value": 205,
-            "empty": 161,
+            "carriers": 384,
+            "value": 195,
+            "empty": 149,
             "notDerived": 40
           },
           "pilot": {
@@ -30437,9 +30432,9 @@
         },
         "PartUsage::partDefinition": {
           "ours": {
-            "carriers": 186,
-            "value": 121,
-            "empty": 64,
+            "carriers": 164,
+            "value": 111,
+            "empty": 52,
             "notDerived": 1
           },
           "pilot": {
@@ -31754,8 +31749,8 @@
         "Usage::nestedItem": {
           "ours": {
             "carriers": 749,
-            "value": 50,
-            "empty": 699,
+            "value": 38,
+            "empty": 711,
             "notDerived": 0
           },
           "pilot": {
@@ -31796,8 +31791,8 @@
         "Usage::nestedPart": {
           "ours": {
             "carriers": 749,
-            "value": 48,
-            "empty": 701,
+            "value": 36,
+            "empty": 713,
             "notDerived": 0
           },
           "pilot": {
@@ -31824,8 +31819,8 @@
         "Usage::nestedReference": {
           "ours": {
             "carriers": 749,
-            "value": 97,
-            "empty": 652,
+            "value": 109,
+            "empty": 640,
             "notDerived": 0
           },
           "pilot": {
@@ -32006,8 +32001,8 @@
         "Usage::usage": {
           "ours": {
             "carriers": 749,
-            "value": 283,
-            "empty": 94,
+            "value": 271,
+            "empty": 106,
             "notDerived": 372
           },
           "pilot": {
@@ -32892,8 +32887,8 @@
     "Definition::ownedItem": {
       "ours": {
         "carriers": 2602,
-        "value": 437,
-        "empty": 2165,
+        "value": 389,
+        "empty": 2213,
         "notDerived": 0
       },
       "pilot": {
@@ -32920,8 +32915,8 @@
     "Definition::ownedOccurrence": {
       "ours": {
         "carriers": 2602,
-        "value": 810,
-        "empty": 1792,
+        "value": 798,
+        "empty": 1804,
         "notDerived": 0
       },
       "pilot": {
@@ -32934,8 +32929,8 @@
     "Definition::ownedPart": {
       "ours": {
         "carriers": 2602,
-        "value": 298,
-        "empty": 2304,
+        "value": 249,
+        "empty": 2353,
         "notDerived": 0
       },
       "pilot": {
@@ -32962,8 +32957,8 @@
     "Definition::ownedReference": {
       "ours": {
         "carriers": 2602,
-        "value": 513,
-        "empty": 2089,
+        "value": 567,
+        "empty": 2035,
         "notDerived": 0
       },
       "pilot": {
@@ -34137,10 +34132,10 @@
     },
     "ItemUsage::itemDefinition": {
       "ours": {
-        "carriers": 3544,
-        "value": 1911,
-        "empty": 1247,
-        "notDerived": 386
+        "carriers": 3381,
+        "value": 1831,
+        "empty": 1182,
+        "notDerived": 368
       },
       "pilot": {
         "carriers": 3310,
@@ -34375,10 +34370,10 @@
     },
     "OccurrenceUsage::individualDefinition": {
       "ours": {
-        "carriers": 7591,
+        "carriers": 7428,
         "value": 56,
-        "empty": 6522,
-        "notDerived": 1013
+        "empty": 6377,
+        "notDerived": 995
       },
       "pilot": {
         "carriers": 7785,
@@ -34389,10 +34384,10 @@
     },
     "OccurrenceUsage::occurrenceDefinition": {
       "ours": {
-        "carriers": 7591,
-        "value": 3078,
-        "empty": 3500,
-        "notDerived": 1013
+        "carriers": 7428,
+        "value": 2998,
+        "empty": 3435,
+        "notDerived": 995
       },
       "pilot": {
         "carriers": 7785,
@@ -34473,10 +34468,10 @@
     },
     "PartUsage::partDefinition": {
       "ours": {
-        "carriers": 2662,
-        "value": 1614,
-        "empty": 722,
-        "notDerived": 326
+        "carriers": 2499,
+        "value": 1534,
+        "empty": 657,
+        "notDerived": 308
       },
       "pilot": {
         "carriers": 2474,
@@ -35874,8 +35869,8 @@
     "Usage::nestedItem": {
       "ours": {
         "carriers": 14268,
-        "value": 761,
-        "empty": 13507,
+        "value": 696,
+        "empty": 13572,
         "notDerived": 0
       },
       "pilot": {
@@ -35902,8 +35897,8 @@
     "Usage::nestedOccurrence": {
       "ours": {
         "carriers": 14268,
-        "value": 1733,
-        "empty": 12535,
+        "value": 1701,
+        "empty": 12567,
         "notDerived": 0
       },
       "pilot": {
@@ -35916,8 +35911,8 @@
     "Usage::nestedPart": {
       "ours": {
         "carriers": 14268,
-        "value": 580,
-        "empty": 13688,
+        "value": 515,
+        "empty": 13753,
         "notDerived": 0
       },
       "pilot": {
@@ -35944,8 +35939,8 @@
     "Usage::nestedReference": {
       "ours": {
         "carriers": 14268,
-        "value": 1703,
-        "empty": 12565,
+        "value": 1780,
+        "empty": 12488,
         "notDerived": 0
       },
       "pilot": {
@@ -36126,8 +36121,8 @@
     "Usage::usage": {
       "ours": {
         "carriers": 14268,
-        "value": 7444,
-        "empty": 2091,
+        "value": 7379,
+        "empty": 2156,
         "notDerived": 4733
       },
       "pilot": {
