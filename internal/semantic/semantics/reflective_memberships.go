@@ -1072,12 +1072,17 @@ func clausePosition(items []*symbols.Symbol, offset int) int {
 	return len(items)
 }
 
-// firstMarkerStart is the member of owner's body the marker binds to, or nil.
+// firstMarkerStart is the member the marker binds to in the body declaring it (an
+// inherited marker binds where it was written, not in the inheritor), or nil.
 func (m *Model) firstMarkerStart(owner, marker *symbols.Symbol) *symbols.Symbol {
+	scope := owner.Scope
+	if marker.OwnerScope != nil {
+		scope = marker.OwnerScope
+	}
 	if node, ok := marker.Decl.(*ast.InitialNode); ok {
-		start, _ := m.resolver.ResolveInitial(owner.Scope, node)
+		start, _ := m.resolver.ResolveInitial(scope, node)
 		return start
 	}
-	start, _ := m.resolver.ResolveInitialMember(owner.Scope, marker.Name)
+	start, _ := m.resolver.ResolveInitialMember(scope, marker.Name)
 	return start
 }

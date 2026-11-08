@@ -489,7 +489,11 @@ func (r *Resolver) ResolveInitialMember(scope *symbols.Scope, name string) (*sym
 	if sym, ok := memberPastLabels(scope, name); ok {
 		return sym, true
 	}
-	return r.lookupContributedMember(scope.Owner(), name, nil)
+	// An inherited start marker bearing the name is a label too, not the start.
+	if sym, ok := r.lookupContributedMember(scope.Owner(), name, nil); ok && !symbols.IsFirstMarker(sym) {
+		return sym, true
+	}
+	return nil, false
 }
 
 // PartAlias returns the alias membership the i-th segment of qn was written as,

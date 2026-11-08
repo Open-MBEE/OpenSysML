@@ -101,6 +101,33 @@ func TestFirstMarkerNamingABodyMemberListsItOnce(t *testing.T) {
 	}
 }
 
+// TestInheritedFirstMarkerIsNoFeature: a body inheriting `first take; action take;` has the
+// inherited take among its members and features once, and the marker never.
+func TestInheritedFirstMarkerIsNoFeature(t *testing.T) {
+	const src = `package T {
+		action def A {
+			first take;
+			action take;
+		}
+		action def B :> A;
+	}`
+	for _, fixture := range reflectiveFixtures(t, "first-marker-inherited.sysml", source.KindSysML, src) {
+		model := fixture.model
+		b := relFixtureSymbol(t, fixture, "B")
+		for _, property := range []string{"member", "feature"} {
+			elements, _ := model.ReflectiveElements(b, property)
+			if got := countNamed(elements, "take"); got != 1 {
+				t.Errorf("%s of B names take %d times, want 1", property, got)
+			}
+			for _, element := range elements {
+				if symbols.IsFirstMarker(element) {
+					t.Errorf("%s of B lists the first marker itself", property)
+				}
+			}
+		}
+	}
+}
+
 func countNamed(elements []*symbols.Symbol, name string) int {
 	n := 0
 	for _, element := range elements {
