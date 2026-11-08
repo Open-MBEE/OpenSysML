@@ -950,7 +950,7 @@ func (m *Model) chainFeatureMemberships(chain *symbols.Symbol) []*symbols.Symbol
 func (m *Model) ChainingFeatures(chain *symbols.Symbol) []*symbols.Symbol {
 	links := []*symbols.Symbol{}
 	for _, chaining := range m.OwnedRelationships(chain) {
-		if chaining.Implicit != nil && chaining.Implicit.Form == symbols.ImplicitFeatureChaining {
+		if chaining.Implicit != nil && chaining.Implicit.Form == symbols.ImplicitFeatureChaining && chaining.Implicit.Member != nil {
 			links = append(links, chaining.Implicit.Member)
 		}
 	}
@@ -964,8 +964,14 @@ func featureChainingElements(sym *symbols.Symbol, feature string) ([]*symbols.Sy
 	case "source", "featureChained", "owningRelatedElement", "owner":
 		return []*symbols.Symbol{rel.Owner}, true
 	case "target", "chainingFeature":
+		if rel.Member == nil {
+			return []*symbols.Symbol{}, true
+		}
 		return []*symbols.Symbol{rel.Member}, true
 	case "relatedElement":
+		if rel.Member == nil {
+			return []*symbols.Symbol{rel.Owner}, true
+		}
 		return []*symbols.Symbol{rel.Owner, rel.Member}, true
 	case "ownedRelatedElement", "ownedRelationship", "ownedElement", "ownedAnnotation", "owningRelationship",
 		"owningMembership", "owningNamespace", "documentation", "textualRepresentation":

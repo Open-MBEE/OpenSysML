@@ -250,10 +250,9 @@ Feature::member	20	symbol-51
 Feature::membership	20	symbol-51
 Feature::multiplicity	12	export-57
 Feature::ownedElement	12	symbol-02
-Feature::ownedFeatureChaining	112	export-59
 Feature::ownedMember	12	symbol-08
 Feature::ownedMembership	12	symbol-09
-Feature::ownedRelationship	160	symbol-03
+Feature::ownedRelationship	48	symbol-03
 Feature::ownedSpecialization	36	export-07
 Feature::ownedTyping	36	export-57
 Feature::owner	5	export-56

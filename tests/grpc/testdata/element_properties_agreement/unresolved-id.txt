@@ -13,7 +13,7 @@ ElementFilterMembership::@id	21	export-36
 EndFeatureMembership::@id	20	export-50
 Feature::@id	225	export-54
 FeatureChainExpression::@id	16	export-43
-FeatureChaining::@id	323	export-34
+FeatureChaining::@id	62	export-34
 FeatureMembership::@id	51	export-50
 FeatureReferenceExpression::@id	47	export-45
 FeatureTyping::@id	67	export-55

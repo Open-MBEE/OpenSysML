@@ -817,6 +817,31 @@ func (m *Model) attachmentPath(scope *symbols.Scope, node ast.Node) []*symbols.S
 // chainPath resolves each prefix of a feature chain with resolve, outermost
 // first; nil as soon as one resolves to nothing.
 func chainPath(node ast.Node, resolve func(ast.Node) (*symbols.Symbol, bool)) []*symbols.Symbol {
+	prefixes := chainPrefixes(node)
+	path := chainPrefix(node, resolve)
+	if len(path) != len(prefixes) {
+		return nil
+	}
+	return path
+}
+
+// chainPrefix resolves the prefixes of a feature chain with resolve, outermost
+// first, stopping at the first that resolves to nothing.
+func chainPrefix(node ast.Node, resolve func(ast.Node) (*symbols.Symbol, bool)) []*symbols.Symbol {
+	prefixes := chainPrefixes(node)
+	path := make([]*symbols.Symbol, 0, len(prefixes))
+	for i := len(prefixes) - 1; i >= 0; i-- {
+		target, ok := resolve(prefixes[i])
+		if !ok || target == nil {
+			break
+		}
+		path = append(path, target)
+	}
+	return path
+}
+
+// chainPrefixes are the prefixes of a feature chain, innermost (the whole chain) first.
+func chainPrefixes(node ast.Node) []ast.Node {
 	var prefixes []ast.Node
 	for n := node; n != nil; {
 		prefixes = append(prefixes, n)
@@ -826,15 +851,7 @@ func chainPath(node ast.Node, resolve func(ast.Node) (*symbols.Symbol, bool)) []
 		}
 		n = chain.Operand
 	}
-	path := make([]*symbols.Symbol, 0, len(prefixes))
-	for i := len(prefixes) - 1; i >= 0; i-- {
-		target, ok := resolve(prefixes[i])
-		if !ok || target == nil {
-			return nil
-		}
-		path = append(path, target)
-	}
-	return path
+	return prefixes
 }
 
 type connectorEndInput struct {

@@ -410,7 +410,6 @@ Expression::function	1	symbol-25
 Expression::parameter	4	symbol-27
 Expression::type	1	symbol-19
 Feature::endOwningType	12	symbol-45
-Feature::featureTarget	112	symbol-45
 Feature::featuringType	12	symbol-17
 Feature::owningFeatureMembership	12	symbol-45
 Feature::owningType	12	symbol-45
@@ -418,6 +417,7 @@ Feature::type	246	symbol-19
 FeatureChainExpression::instantiatedType	296	symbol-29
 FeatureChainExpression::operand	479	symbol-30
 FeatureChainExpression::targetFeature	7	symbol-23
+FeatureChaining::relatedElement	227	symbol-10
 FeatureInverting::documentation	1	symbol-50
 FeatureInverting::ownedAnnotation	1	symbol-05
 FeatureInverting::ownedElement	1	symbol-50

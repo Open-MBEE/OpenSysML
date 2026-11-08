@@ -690,10 +690,16 @@ func (m *Model) implicitOwnerElements(sym *symbols.Symbol, feature string) ([]*s
 }
 
 // chainTargetChainings are the FeatureChainings the feature a relationship's chain target
-// denotes owns, one per feature the chain is written as (KerML 8.3.3.3.9), as the conversion writes them.
+// denotes owns, one per segment the chain is written as (KerML 8.3.3.3.9); an unresolved one chains nothing.
 func (m *Model) chainTargetChainings(chain *symbols.Symbol) []*symbols.Symbol {
 	out := []*symbols.Symbol{}
-	for _, target := range m.chainingFeaturesOf(chain) {
+	resolved := m.chainingFeaturesOf(chain)
+	written := writtenChainLength(chain)
+	for i := 0; i < written; i++ {
+		var target *symbols.Symbol
+		if i < len(resolved) {
+			target = resolved[i]
+		}
 		out = append(out, &symbols.Symbol{
 			Kind:       symbols.SymbolRelationship,
 			DocName:    chain.DocName,
@@ -706,6 +712,30 @@ func (m *Model) chainTargetChainings(chain *symbols.Symbol) []*symbols.Symbol {
 		})
 	}
 	return out
+}
+
+// writtenChainLength is the number of segments a chain Feature's chain is written as.
+func writtenChainLength(chain *symbols.Symbol) int {
+	if chain.Chain == nil {
+		return 0
+	}
+	if chain.Chain.Node == nil {
+		facts, ok := recordedRelationship(chain.Chain.Relationship)
+		if !ok {
+			return 0
+		}
+		return len(facts.Path)
+	}
+	n := 1
+	for node := chain.Chain.Node; node != nil; {
+		n++
+		next, ok := node.Operand.(*ast.FeatureChainExpr)
+		if !ok {
+			break
+		}
+		node = next
+	}
+	return n
 }
 
 // isReferenceSubsetting reports whether rel is its owner's OwnedReferenceSubsetting — the
