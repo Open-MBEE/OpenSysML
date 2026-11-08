@@ -260,14 +260,7 @@ func (b *builder) infoOf(sym *symbols.Symbol) *Info {
 	if sym == nil || (sym.Decl == nil && !sym.Recorded()) || sym.Kind == symbols.SymbolAlias {
 		return nil
 	}
-	fqn := b.idx.GetFQN(sym)
-	if b.model.RestatesMetadataBodyFeature(sym) {
-		// `mission = …` in a metadata body is the usage's own feature, not the
-		// definition's its scope resolves names in (same qualified name).
-		if q := b.metadataBodyFQN(sym); q != "" {
-			fqn = q
-		}
-	}
+	fqn := b.qualifiedName(sym)
 	if fqn == "" {
 		return nil
 	}
@@ -436,8 +429,21 @@ func collectSymbols(roots []*symbols.Scope) []*symbols.Symbol {
 	return out
 }
 
+// qualifiedName is the symbol's qualified name, a metadata body feature's under the usage
+// owning it: `mission = …` in a metadata body is the usage's own feature, not the
+// definition's its scope resolves names in (same qualified name).
+func (b *builder) qualifiedName(sym *symbols.Symbol) string {
+	if b.model.RestatesMetadataBodyFeature(sym) {
+		if fqn := b.metadataBodyFQN(sym); fqn != "" {
+			return fqn
+		}
+	}
+	return b.idx.GetFQN(sym)
+}
+
 // metadataBodyFQN qualifies a metadata body feature under the metadata usage owning it,
-// an unnamed usage addressed by its position among its owner's members, as the conversion names it.
+// an unnamed usage addressed by its position among its owner's members, as the conversion
+// names it; a feature nested in a body feature is qualified under that feature's name.
 func (b *builder) metadataBodyFQN(sym *symbols.Symbol) string {
 	scope := sym.OwnerScope
 	if scope == nil || scope.Parent() == nil {
@@ -447,7 +453,7 @@ func (b *builder) metadataBodyFQN(sym *symbols.Symbol) string {
 	if usage == nil {
 		return ""
 	}
-	usageFQN := symbols.FQNOf(usage)
+	usageFQN := b.qualifiedName(usage)
 	if usage.Name == "" {
 		index, ok := b.memberIndex(usage)
 		if !ok {
@@ -455,7 +461,7 @@ func (b *builder) metadataBodyFQN(sym *symbols.Symbol) string {
 		}
 		usageFQN = "@" + strconv.Itoa(index)
 		if owner := usage.OwnerScope.Owner(); owner != nil {
-			usageFQN = symbols.FQNOf(owner) + "::" + usageFQN
+			usageFQN = b.qualifiedName(owner) + "::" + usageFQN
 		}
 	}
 	return usageFQN + "::" + sym.Name
@@ -507,7 +513,8 @@ func (b *builder) memberIndex(usage *symbols.Symbol) (int, bool) {
 	return 0, false
 }
 
-// identityAnnotation reports a member the conversion consumes into an element's id.
+// identityAnnotation reports an ElementId/ProjectRef annotation, which the conversion
+// consumes into element ids rather than counting as a member.
 func (b *builder) identityAnnotation(node ast.Node) bool {
 	p, ok := node.(*ast.PrefixMetadata)
 	if !ok || p.Type == nil {

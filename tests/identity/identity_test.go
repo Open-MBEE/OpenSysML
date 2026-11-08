@@ -570,3 +570,31 @@ func TestMetadataUsageBodyFeatureIsIdentifiedUnderItsUsage(t *testing.T) {
 	}
 	t.Fatal("no body feature symbol")
 }
+
+// A feature nested in a body feature is qualified under that feature, one per annotation.
+func TestNestedMetadataBodyFeaturesAreIdentifiedPerAnnotation(t *testing.T) {
+	table, _ := buildTable(t, `package P {
+	part def T;
+	part x : T;
+	part y : T;
+	metadata def M { attribute a { attribute b; } }
+	@M about x { a { b = 1; } }
+	@M about y { a { b = 2; } }
+}
+`)
+	got := map[string]bool{}
+	for _, sym := range table.Symbols() {
+		if sym.Name != "b" {
+			continue
+		}
+		if info, ok := table.Info(sym); ok {
+			got[info.EffectiveID] = true
+		}
+	}
+	for _, fqn := range []string{"P::M::a::b", "P::@4::a::b", "P::@5::a::b"} {
+		if !got[rdf.EncodeElementID(fqn)] {
+			t.Errorf("no feature b identified as %q; got %v", rdf.EncodeElementID(fqn), got)
+		}
+	}
+}
+
