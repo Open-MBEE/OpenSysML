@@ -80,6 +80,10 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 	} else if IsFlowFeature(owner) {
 		// A flow feature redefines the feature the end's last segment names (SysML.xtext FlowFeature).
 		out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelRedefines, false, impliedRelationship(ast.RelRedefines, owner.Decl)))
+	} else if usage, ok := owner.Decl.(*ast.Usage); ok && isMetadataBodyFeature(owner) && !declaresRedefinitionAST(usage) && m.metadataBodyRedefines(owner, usage) {
+		// `@M { x = 1; }` binds x by redefining the metadata type's x (SysML.xtext
+		// MetadataBodyUsage), a Redefinition the conversion writes.
+		out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelRedefines, false, impliedRelationship(ast.RelRedefines, owner.Decl)))
 	}
 	// A multiplicity member's `subsets` is its one written relationship, held on
 	// the declaration rather than in a Relationships list.
@@ -714,4 +718,15 @@ func isReferenceSubsetting(rel *symbols.ImplicitRelationship) bool {
 		}
 	}
 	return false
+}
+
+// metadataBodyRedefines reports whether the metadata body feature owner names a
+// feature of its metadata type other than itself, as the conversion requires
+// before it writes the implied Redefinition (implicitMetadataBodyTarget).
+func (m *Model) metadataBodyRedefines(owner *symbols.Symbol, usage *ast.Usage) bool {
+	if m.resolver == nil {
+		return false
+	}
+	target := m.MetadataBodyTargetOf(m.resolver.MetadataBodyOwner(owner.OwnerScope), owner.OwnerScope, usage)
+	return target != nil && target != owner
 }

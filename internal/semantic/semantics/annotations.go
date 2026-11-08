@@ -1312,6 +1312,10 @@ var usageMetaclassNames = map[ast.UsageKind]string{
 
 // isMetadataBodyFeature reports whether sym is a feature a metadata body declares,
 // at any depth, other than a metadata feature annotating the body's owner.
+// IsMetadataBodyFeature reports whether sym is a feature a metadata usage's body
+// binds (`@M { x = 1; }`), which redefines the metadata type's feature it names.
+func IsMetadataBodyFeature(sym *symbols.Symbol) bool { return isMetadataBodyFeature(sym) }
+
 func isMetadataBodyFeature(sym *symbols.Symbol) bool {
 	kind, ok := sym.UsageKind()
 	if !ok || kind == ast.UsageMetadata {
