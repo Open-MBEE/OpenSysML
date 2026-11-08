@@ -145,6 +145,10 @@ func (s *SymbolIDs) compute(sym *symbols.Symbol) (string, bool) {
 	switch {
 	case sym.Implicit != nil:
 		return s.implicitID(sym.Implicit)
+	case semantics.IsFilterPackage(sym):
+		// The filter package is minted off the import that imports and owns it (filterPackage).
+		base, ok := s.of(s.model.FilterPackageImport(sym))
+		return base + filterPackageSuffix, ok
 	case sym.Expr != nil:
 		return s.expressionID(sym)
 	case s.model.IsRootNamespace(sym):
@@ -253,6 +257,10 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 			// A `filter` member is written as the ElementFilterMembership itself.
 			return s.ids.OfDeclaration(doc, rel.Decl, "")
 		}
+		if semantics.IsFilterPackage(rel.Owner) {
+			base, ok := s.of(rel.Owner)
+			return base + filterMembershipSuffix, ok
+		}
 		if id, ok := s.ids.OwningMembershipOfDeclaration(doc, rel.Member.Decl, s.fqn(rel.Member)); ok && rel.Member.Expr == nil {
 			return id, true
 		}
@@ -293,6 +301,10 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 		owner, ok := s.of(rel.Owner)
 		return owner + relationshipSuffix(ast.RelRedefines, false, false, 1, 0), ok
 	case symbols.ImplicitImport:
+		if semantics.IsFilterPackage(rel.Owner) {
+			base, ok := s.of(rel.Owner)
+			return base + filterImportSuffix, ok
+		}
 		return s.ids.OfDeclaration(doc, rel.Decl, "")
 	case symbols.ImplicitAnnotatingRelationship:
 		if rel.Owner == nil {
@@ -362,6 +374,11 @@ func (s *SymbolIDs) expressionID(sym *symbols.Symbol) (string, bool) {
 		}
 		return s.partID(owner.Expr.Owner, "a0")
 	case symbols.ExpressionChainFeature, symbols.ExpressionOperand:
+		if sym.Expr.Slot == "filter" && owner.Implicit != nil && semantics.IsFilterPackage(owner.Implicit.Owner) {
+			// A filter package's condition is minted off the import written with the filter.
+			base, ok := s.of(s.model.FilterPackageImport(owner.Implicit.Owner))
+			return rdf.ExpressionNodeID(base, "filter"), ok
+		}
 		return s.partID(owner, sym.Expr.Slot)
 	case symbols.ExpressionTransitionSuccession:
 		// The conversion mints a transition's succession off the transition (transitionSuccession).

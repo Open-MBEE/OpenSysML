@@ -371,6 +371,9 @@ func (m *Model) OwningRelationship(sym *symbols.Symbol) *symbols.Symbol {
 	if sym.Chain != nil {
 		return sym.Chain.Relationship
 	}
+	if imp := m.FilterPackageImport(sym); imp != nil {
+		return imp
+	}
 	if membership := m.OwningMembership(sym); membership != nil {
 		return membership
 	}
@@ -380,7 +383,13 @@ func (m *Model) OwningRelationship(sym *symbols.Symbol) *symbols.Symbol {
 // OwnedImports returns the Import objects the namespace sym declares, in
 // declaration order (KerML 8.3.2.5 Namespace::ownedImport).
 func (m *Model) OwnedImports(sym *symbols.Symbol) []*symbols.Symbol {
-	if m == nil || sym == nil || sym.Implicit != nil || sym.Scope == nil {
+	if m == nil || sym == nil || sym.Implicit != nil {
+		return nil
+	}
+	if IsFilterPackage(sym) {
+		return []*symbols.Symbol{m.filterPackagePartsOf(sym).inner}
+	}
+	if sym.Scope == nil {
 		return nil
 	}
 	defer m.own(sym).LeaveDoc()
@@ -929,14 +938,34 @@ func (m *Model) importElements(sym *symbols.Symbol, feature string) ([]*symbols.
 	imp, _ := rel.Decl.(*ast.Import)
 	owner := []*symbols.Symbol{rel.Owner}
 	empty := []*symbols.Symbol{}
+	pkg := m.filterPackageOf(sym)
 	switch feature {
 	case "source", "importOwningNamespace", "owningRelatedElement", "owner":
 		return owner, true
-	case "ownedRelatedElement", "ownedElement", "ownedRelationship", "ownedAnnotation",
+	case "ownedRelatedElement", "ownedElement":
+		if pkg != nil {
+			return []*symbols.Symbol{pkg}, true
+		}
+		return empty, true
+	case "ownedRelationship", "ownedAnnotation",
 		"owningRelationship", "owningMembership", "owningNamespace", "documentation", "textualRepresentation":
 		return empty, true
 	}
-	target := m.importTarget(rel.Owner, imp)
+	if pkg != nil {
+		// An import with a filter imports the filter package it owns (SysML.xtext FilterPackage).
+		switch feature {
+		case "importedElement", "importedNamespace", "target":
+			return []*symbols.Symbol{pkg}, true
+		case "relatedElement":
+			return []*symbols.Symbol{rel.Owner, pkg}, true
+		}
+		return nil, false
+	}
+	namespace := rel.Owner
+	if IsFilterPackage(namespace) {
+		namespace = namespace.Expr.Owner
+	}
+	target := m.importTarget(namespace, imp)
 	if target == nil {
 		return nil, false
 	}
@@ -1023,12 +1052,18 @@ func (m *Model) importValue(sym *symbols.Symbol, feature string) (symbols.Filter
 	if imp == nil {
 		return symbols.FilterValue{}, false
 	}
+	// The import a filter package owns is written private and imports as the declaration's
+	// kind does; `expose` and `all` belong to the import of the package (SysML.xtext FilterPackage).
+	inner := IsFilterPackage(sym.Implicit.Owner)
 	switch feature {
 	case "isRecursive":
-		return boolValue(imp.IsRecursive), true
+		return boolValue(imp.IsRecursive && m.filterPackageOf(sym) == nil), true
 	case "isImportAll":
-		return boolValue(imp.IsAll), true
+		return boolValue(imp.IsAll && !inner), true
 	case "visibility":
+		if inner {
+			return m.visibilityValue(ast.VisibilityPrivate), true
+		}
 		return m.visibilityValue(imp.Visibility), true
 	}
 	return symbols.FilterValue{}, false
@@ -1041,8 +1076,8 @@ func (m *Model) importMetaclassName(sym *symbols.Symbol) string {
 	if imp == nil {
 		return ""
 	}
-	expose := imp.IsExpose && !m.isKerMLDoc(sym.Implicit.Owner)
-	if imp.Kind == ast.ImportNamespace {
+	expose := imp.IsExpose && !m.isKerMLDoc(sym.Implicit.Owner) && !IsFilterPackage(sym.Implicit.Owner)
+	if imp.Kind == ast.ImportNamespace || m.filterPackageOf(sym) != nil {
 		if expose {
 			return "NamespaceExpose"
 		}

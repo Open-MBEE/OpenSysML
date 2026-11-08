@@ -102,8 +102,10 @@ func IsFilterMembership(sym *symbols.Symbol) bool {
 	if sym == nil || sym.Implicit == nil {
 		return false
 	}
-	_, ok := sym.Implicit.Decl.(*ast.FilterMember)
-	return ok
+	if _, ok := sym.Implicit.Decl.(*ast.FilterMember); ok {
+		return true
+	}
+	return sym.Implicit.Form == symbols.ImplicitMembership && IsFilterPackage(sym.Implicit.Owner)
 }
 
 // mergeMemberships places extra memberships among out in source order and renumbers

@@ -65,6 +65,8 @@ func expressionElementMetaclassName(sym *symbols.Symbol) string {
 			return "ReferenceUsage"
 		case symbols.ExpressionTransitionSuccession:
 			return "SuccessionAsUsage"
+		case symbols.ExpressionFilterPackage:
+			return "Package"
 		}
 	}
 	if isSatisfySubjectChainValue(sym) {
@@ -379,6 +381,11 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	journal(m, m.memberships, sym, sym.Decl)
 	if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChainFeature {
 		out := m.chainFeatureMemberships(sym)
+		m.memberships[sym] = out
+		return out
+	}
+	if IsFilterPackage(sym) {
+		out := []*symbols.Symbol{m.filterPackagePartsOf(sym).membership}
 		m.memberships[sym] = out
 		return out
 	}

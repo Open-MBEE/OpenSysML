@@ -183,6 +183,9 @@ type Model struct {
 	statementSymbols        map[*symbols.Symbol][]*symbols.Symbol
 	resultExpressionSymbols map[*symbols.Symbol][]*symbols.Symbol
 	filterMembershipSymbols map[*symbols.Symbol][]*symbols.Symbol
+	filterPackages          map[*symbols.Symbol]*symbols.Symbol
+	filterPackageImports    map[*symbols.Symbol]*symbols.Symbol
+	filterPackageMembers    map[*symbols.Symbol]filterPackageParts
 	statementOwners         map[*symbols.Symbol]*symbols.Symbol
 	statementScopes         map[*symbols.Scope]*symbols.Symbol
 	statementOperandSymbols map[*symbols.Symbol][]*symbols.Symbol

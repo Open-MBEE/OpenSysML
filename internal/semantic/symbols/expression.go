@@ -58,6 +58,9 @@ const (
 	// ExpressionBound is a bound of a written MultiplicityRange, owned by the
 	// range through an OwningMembership: Slot "lowerBound" or "upperBound".
 	ExpressionBound
+	// ExpressionFilterPackage is the Package an import with a filter, `import X::*[c]`,
+	// imports and owns (SysML.xtext FilterPackage); Owner is the importing namespace.
+	ExpressionFilterPackage
 )
 
 // ExpressionElement is the side record of a symbol the reflective layer
