@@ -21,11 +21,14 @@ func extractMetadata(sym *symbols.Symbol, meta map[string]string) {
 		if decl.Multiplicity != nil {
 			meta["multiplicity"] = formatMultiplicity(decl.Multiplicity)
 		}
-		// Type (first typing relationship)
+		// Type (first typing relationship), with the `~` of a conjugated typing
 		for _, rel := range decl.Relationships {
 			if rel.Kind == ast.RelTyping {
 				if qn, ok := rel.Target.(*ast.QualifiedName); ok {
 					meta["type"] = formatQualifiedName(qn)
+					if rel.Conjugated {
+						meta["type"] = "~" + meta["type"]
+					}
 					break
 				}
 			}
@@ -37,6 +40,14 @@ func extractMetadata(sym *symbols.Symbol, meta map[string]string) {
 		// Abstract
 		if decl.IsAbstract {
 			meta["abstract"] = "true"
+		}
+	case *ast.SubjectMember:
+		// A subject written in a requirement body: `subject s : T;`.
+		if decl.Multiplicity != nil {
+			meta["multiplicity"] = formatMultiplicity(decl.Multiplicity)
+		}
+		if decl.TypeRef != nil {
+			meta["type"] = formatQualifiedName(decl.TypeRef)
 		}
 	case *ast.PrefixMetadata:
 		// The metadata definition an `@M` or `#M` annotation is typed by.

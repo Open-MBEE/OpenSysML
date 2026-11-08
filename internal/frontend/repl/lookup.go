@@ -992,6 +992,9 @@ func scopeSymbolFor(scope *symbols.Scope, decl ast.Node) *symbols.Symbol {
 // actionKinds are the kinds the action debugger runs: actions, and use cases, which
 // are actions whose body runs as one (SysML v2 §7.19).
 var actionKinds = []symbols.SymbolKind{
-	symbols.SymbolActionUsage, symbols.SymbolSendActionUsage, symbols.SymbolActionDef,
+	symbols.SymbolActionUsage, symbols.SymbolActionDef,
+	symbols.SymbolAcceptActionUsage, symbols.SymbolAssignmentActionUsage, symbols.SymbolPerformActionUsage,
+	symbols.SymbolIfActionUsage, symbols.SymbolWhileLoopActionUsage, symbols.SymbolForLoopActionUsage,
+	symbols.SymbolTerminateActionUsage, symbols.SymbolSendActionUsage,
 	symbols.SymbolUseCaseUsage, symbols.SymbolUseCaseDef,
 }

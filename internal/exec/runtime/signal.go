@@ -732,11 +732,10 @@ func isRoutedReceiverSymbol(sym *symbols.Symbol) bool {
 		return false
 	}
 	switch sym.Kind {
-	case symbols.SymbolActionDef, symbols.SymbolActionUsage, symbols.SymbolSendActionUsage,
-		symbols.SymbolStateDef, symbols.SymbolStateUsage:
+	case symbols.SymbolActionDef, symbols.SymbolStateDef, symbols.SymbolStateUsage:
 		return true
 	default:
-		return false
+		return sym.Kind.IsActionUsage()
 	}
 }
 
@@ -1176,11 +1175,7 @@ func isBehaviorSymbol(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
 	}
-	switch sym.Kind {
-	case symbols.SymbolActionUsage, symbols.SymbolSendActionUsage, symbols.SymbolStateUsage:
-		return true
-	}
-	return false
+	return sym.Kind.IsActionUsage() || sym.Kind == symbols.SymbolStateUsage
 }
 
 // isBehaviorType reports whether sym is a behavior, whose objects are its
@@ -1190,10 +1185,10 @@ func isBehaviorType(sym *symbols.Symbol) bool {
 		return false
 	}
 	switch sym.Kind {
-	case symbols.SymbolActionDef, symbols.SymbolActionUsage, symbols.SymbolSendActionUsage, symbols.SymbolStateDef, symbols.SymbolStateUsage:
+	case symbols.SymbolActionDef, symbols.SymbolStateDef, symbols.SymbolStateUsage:
 		return true
 	}
-	return false
+	return sym.Kind.IsActionUsage()
 }
 
 // isPerformanceEvent reports an `event occurrence` a behavior declares: it occurs

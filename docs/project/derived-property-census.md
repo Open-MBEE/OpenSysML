@@ -124,14 +124,13 @@ is, and `build/derived-census/derived-census.txt` renders a run.
 | `probes` | 4 | 45 (26) | 53 (0, 0) |
 | `manual-examples` | 11 | 3963 (2393) | 9379 (0, 0) |
 
-Of the 297 served rules, **271 answer a value** on at least one element, **12 are empty
-everywhere** they apply, **10 are never derived** and 4 apply to no element of any root; the pilot
-answers a value for 286. **18 rules are silent** — ours never a value, the pilot a value somewhere:
+Of the 297 served rules, **272 answer a value** on at least one element, **12 are empty
+everywhere** they apply, **9 are never derived** and 4 apply to no element of any root; the pilot
+answers a value for 286. **17 rules are silent** — ours never a value, the pilot a value somewhere:
 
 | Silent rule | Ours: empty / not derived / carriers | Pilot: values / carriers |
 |---|---:|---:|
 | `ConjugatedPortTyping::conjugatedPortDefinition` | 60 / 0 / 60 | 60 / 60 |
-| `ConjugatedPortTyping::portDefinition` | 0 / 60 / 60 | 60 / 60 |
 | `Documentation::documentedElement` | 0 / 387 / 387 | 388 / 388 |
 | `Flow::flowEnd` | 208 / 0 / 208 | 144 / 211 |
 | `Flow::sourceOutputFeature` | 0 / 208 / 208 | 145 / 211 |
@@ -149,7 +148,7 @@ answers a value for 286. **18 rules are silent** — ours never a value, the pil
 | `TransitionUsage::target` | 0 / 224 / 224 | 336 / 336 |
 | `UseCaseDefinition::includedUseCase` | 0 / 16 / 16 | 2 / 16 |
 
-Three of the eighteen are one derivation stated three ways (`TransitionUsage::source`, `::target`
+Three of the seventeen are one derivation stated three ways (`TransitionUsage::source`, `::target`
 and `::succession`; `Flow::flowEnd`, `::sourceOutputFeature` and `::targetInputFeature`). The rules
 counted *not derived* are declined on every carrier with a reason `Explain` reports —
 `Import::importedElement` because the evaluator reads the import's syntax node, which a

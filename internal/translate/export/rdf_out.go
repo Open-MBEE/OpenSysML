@@ -616,6 +616,7 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 		regions:            map[rdf.Term]region{},
 		verifiedReferences: map[rdf.Term]bool{},
 		heads:              map[rdf.Term]*declarationHead{},
+		conjugateOriginals: map[string]rdf.Term{},
 		bodies:             map[rdf.Term]region{},
 		offsets:            map[string]int{},
 	}
@@ -708,6 +709,9 @@ type encoder struct {
 	// heads records each declaration head's clauses in the order the notation
 	// spelled them, for the order its relationship elements are owned in.
 	heads map[rdf.Term]*declarationHead
+	// conjugateOriginals is the port definition each ConjugatedPortDefinition a
+	// `: ~P` typing names here is the conjugate of, by the conjugate's IRI.
+	conjugateOriginals map[string]rdf.Term
 	// membershipImports are the membership imports, whose imported membership
 	// is written once every membership is minted.
 	membershipImports []membershipImport
@@ -1479,6 +1483,10 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if e.performed[n] {
 			metaclass = mPerform
 		}
+		if metaclass == mSuccessionFlowUsage && e.file.Kind() == source.KindKerML {
+			// A KerML flow is written as the FlowUsage its reader takes; so is a succession flow.
+			metaclass = mFlowUsage
+		}
 		if metaclass == mAcceptAction {
 			e.acceptPayloads[acceptPayload(n)] = subject
 		}
@@ -1594,7 +1602,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		}
 		// The prefix a kind keyword was qualified with (`assume constraint c`) is
 		// part of the declaration; `assert` is the AssertConstraintUsage metaclass.
-		if n.PrefixKeyword != "" && !assertedConstraint(n) && !prefixCarriedByGraph(n) {
+		if n.PrefixKeyword != "" && !assertedConstraint(n) && !prefixCarriedByGraph(n, metaclass) {
 			e.graph.Add(subject, e.sysx(xDeclaredPrefix), rdf.String(n.PrefixKeyword))
 		}
 		// A trigger's parameters declare nothing of their own: their owning type
@@ -3038,12 +3046,30 @@ func (e *encoder) relationships(subject rdf.Term, owner string, rels []*ast.Rela
 				continue
 			}
 			if name, ok := rel.Target.(*ast.QualifiedName); ok {
-				e.headRelationship(subject, kind, e.reference(name), rel)
+				object := e.reference(name)
+				if kind == ast.RelTyping && rel.Conjugated {
+					object = e.conjugateReference(object)
+				}
+				e.headRelationship(subject, kind, object, rel)
 				continue
 			}
 			e.headRelationship(subject, kind, rdf.TypedLiteral(e.text(rel.Target), rdf.OpenSysML+dtExpression), rel)
 		}
 	}
+}
+
+// conjugateReference is the type a `: ~P` typing names: the ConjugatedPortDefinition minted
+// beside an element P here (SysML v2 8.3.12.3), that conjugate itself unchanged, else P as written.
+func (e *encoder) conjugateReference(target rdf.Term) rdf.Term {
+	if !target.IsIRI() {
+		return target
+	}
+	if _, isConjugate := e.conjugateOriginals[target.Value]; isConjugate {
+		return target
+	}
+	conjugate := e.ids.minted(rdf.RelationshipIRI(target, "_conjugated"), target, "_conjugated")
+	e.conjugateOriginals[conjugate.Value] = target
+	return conjugate
 }
 
 // headRelationship states one clause of subject's declaration head as the
@@ -3289,7 +3315,24 @@ func (e *encoder) reference(name *ast.QualifiedName) rdf.Term {
 	if decl, fqn, ok := e.referent(name); ok {
 		return e.ids.subjectForNode(decl, fqn)
 	}
+	if conjugate, ok := e.impliedConjugate(name); ok {
+		return conjugate
+	}
 	return rdf.String(qualifiedText(name))
+}
+
+// impliedConjugate links a name written as `P::'~P'` to the ConjugatedPortDefinition
+// minted beside P (SysML v2 8.3.12.3): implied, it has no declaration of its own here.
+func (e *encoder) impliedConjugate(name *ast.QualifiedName) (rdf.Term, bool) {
+	sym, ok := e.res.PartSymbol(name, len(name.Parts)-1)
+	if !ok || sym == nil || !sym.IsConjugatedPortDefinition() {
+		return rdf.Term{}, false
+	}
+	decl, fqn, ok := e.linked(semantics.OriginalPortDefinitionOf(sym), true)
+	if !ok {
+		return rdf.Term{}, false
+	}
+	return e.conjugateReference(e.ids.subjectForNode(decl, fqn)), true
 }
 
 // referent is the element reference links a name to, if any.
@@ -3506,12 +3549,14 @@ func referencesFeature(n *ast.Usage) bool {
 // prefixCarriedByGraph reports a prefix the graph already states structurally:
 // a state's `entry`/`do`/`exit` by the subaction membership that owns the
 // action, an `include` by the IncludeUseCaseUsage metaclass.
-func prefixCarriedByGraph(n *ast.Usage) bool {
+func prefixCarriedByGraph(n *ast.Usage, metaclass string) bool {
 	switch n.PrefixKeyword {
 	case "entry", "do", "exit":
 		return n.Kind == ast.UsageAction
 	case "include":
 		return n.Kind == ast.UsageUseCase
+	case "succession":
+		return metaclass == mSuccessionFlowUsage
 	}
 	return false
 }

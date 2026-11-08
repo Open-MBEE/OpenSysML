@@ -862,11 +862,10 @@ func occurrenceContainer(sym *symbols.Symbol) bool {
 // rather than a participant in it, whose flows are its own action flow.
 func behaviorLike(sym *symbols.Symbol) bool {
 	switch sym.Kind {
-	case symbols.SymbolActionDef, symbols.SymbolActionUsage, symbols.SymbolSendActionUsage,
-		symbols.SymbolStateDef, symbols.SymbolStateUsage:
+	case symbols.SymbolActionDef, symbols.SymbolStateDef, symbols.SymbolStateUsage:
 		return true
 	}
-	return false
+	return sym.Kind.IsActionUsage()
 }
 
 // lifelineLike reports whether an element can hold an occurrence, which is what
@@ -882,9 +881,8 @@ func lifelineLike(sym *symbols.Symbol) bool {
 		symbols.SymbolItemDef, symbols.SymbolItemUsage,
 		symbols.SymbolOccurrenceDef, symbols.SymbolOccurrenceUsage,
 		symbols.SymbolIndividualDef, symbols.SymbolIndividualUsage,
-		symbols.SymbolActionDef, symbols.SymbolActionUsage, symbols.SymbolSendActionUsage,
-		symbols.SymbolStateDef, symbols.SymbolStateUsage:
+		symbols.SymbolActionDef, symbols.SymbolStateDef, symbols.SymbolStateUsage:
 		return true
 	}
-	return false
+	return sym.Kind.IsActionUsage()
 }

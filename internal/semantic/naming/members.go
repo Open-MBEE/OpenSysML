@@ -146,7 +146,7 @@ func NodeStatement(n *ast.Usage) ast.Node {
 	switch s := statement.(type) {
 	case *ast.SendStatement:
 		return s
-	case *ast.AssignmentActionNode:
+	case *ast.AssignmentActionNode, *ast.IfActionNode, *ast.WhileLoopActionNode:
 		return s
 	}
 	return nil

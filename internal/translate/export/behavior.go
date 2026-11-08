@@ -1879,7 +1879,7 @@ func (d *decoder) loopText(el *element, depth int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	text := head + " " + body
+	text := strings.Join(append(nodeDeclaration(d, el), head), " ") + " " + body
 	// An `until` clause states the condition tested after each iteration, and
 	// terminates the loop; so does a body written without braces.
 	if until, ok := d.stringOf(el, rdf.OpenSysML+xUntilCondition); ok {
@@ -1920,7 +1920,7 @@ func (d *decoder) conditionalText(el *element, depth int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	text := "if " + condition + " " + thenText
+	text := strings.Join(append(nodeDeclaration(d, el), "if", condition), " ") + " " + thenText
 	if otherwise == nil {
 		return text, nil
 	}

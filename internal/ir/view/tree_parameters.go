@@ -14,10 +14,12 @@ import (
 // §8.2.3.19, §8.2.3.20), rather than as a member of its own.
 func treeParameter(owner, member *symbols.Symbol) bool {
 	switch owner.Kind {
-	case symbols.SymbolCalcDef, symbols.SymbolCalcUsage, symbols.SymbolActionDef, symbols.SymbolActionUsage, symbols.SymbolSendActionUsage,
+	case symbols.SymbolCalcDef, symbols.SymbolCalcUsage, symbols.SymbolActionDef,
 		symbols.SymbolConstraintDef, symbols.SymbolConstraintUsage:
 	default:
-		return false
+		if !owner.Kind.IsActionUsage() {
+			return false
+		}
 	}
 	return member.IsFeature() && pinDirection(member) != PortUndirected
 }

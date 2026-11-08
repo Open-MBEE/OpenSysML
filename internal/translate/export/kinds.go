@@ -210,11 +210,21 @@ func usageMetaclassOf(n *ast.Usage, inMetadataBody bool) (string, bool) {
 	case acceptPayload(n) != nil:
 		return mAcceptAction, true
 	}
-	switch naming.NodeStatement(n).(type) {
+	switch s := naming.NodeStatement(n).(type) {
 	case *ast.SendStatement:
 		return mSend, true
 	case *ast.AssignmentActionNode:
 		return mAssignment, true
+	case *ast.IfActionNode:
+		return mIfAction, true
+	case *ast.WhileLoopActionNode:
+		if s.Kind == ast.LoopFor {
+			return mForLoop, true
+		}
+		return mWhileLoop, true
+	}
+	if n.IsSuccessionFlow() {
+		return mSuccessionFlowUsage, true
 	}
 	if n.Keyword == "" && (n.Kind == ast.UsageAttribute || inMetadataBody && n.Kind == ast.UsageEnumeration || n.Ident.Name == "" && n.Kind < ast.UsageConnection) {
 		// A kindless usage is a DefaultReferenceUsage; an unnamed one is too,
@@ -282,6 +292,7 @@ var metaclassKeywordUsage = map[string]ast.UsageKind{
 	mTerminate:             ast.UsageAction,
 	mPerform:               ast.UsageAction,
 	mAcceptAction:          ast.UsageAction, // an accept node, its payload the accept parameter
+	mSuccessionFlowUsage:   ast.UsageFlow,
 	mExhibitStateUsage:     ast.UsageState,
 	mIncludeUseCaseUsage:   ast.UsageUseCase,
 	// PartUsage types actor and stakeholder members too, RequirementUsage an

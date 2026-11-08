@@ -1723,12 +1723,7 @@ func isBehaviorFeature(feat *runtime.EffectiveFeature) bool {
 	if feat.Symbol == nil || symbols.IsAbstract(feat.Symbol) {
 		return false
 	}
-	switch feat.Symbol.Kind {
-	case symbols.SymbolStateUsage, symbols.SymbolActionUsage, symbols.SymbolSendActionUsage:
-		return true
-	default:
-		return false
-	}
+	return feat.Symbol.Kind == symbols.SymbolStateUsage || feat.Symbol.Kind.IsActionUsage()
 }
 
 // behaviorLines lists an object's behaviors under their own heading with what each

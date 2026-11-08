@@ -34,10 +34,13 @@ func (r *Renderer) ElementKind(sym *symbols.Symbol) Kind {
 	if sym == nil {
 		return KindTree
 	}
+	if sym.Kind.IsActionUsage() {
+		return KindAction
+	}
 	switch sym.Kind {
 	case symbols.SymbolStateDef, symbols.SymbolStateUsage:
 		return KindState
-	case symbols.SymbolActionDef, symbols.SymbolActionUsage, symbols.SymbolSendActionUsage, symbols.SymbolCalcDef, symbols.SymbolCalcUsage:
+	case symbols.SymbolActionDef, symbols.SymbolCalcDef, symbols.SymbolCalcUsage:
 		return KindAction
 	case symbols.SymbolCaseDef, symbols.SymbolCaseUsage,
 		symbols.SymbolAnalysisCaseDef, symbols.SymbolAnalysisCaseUsage,

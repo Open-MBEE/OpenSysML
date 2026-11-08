@@ -130,7 +130,7 @@ func (c *relatedCollector) generalizations() {
 	for _, target := range c.generalizationTargets(c.sym) {
 		c.add(RelatedGeneralizations, target)
 	}
-	for _, typ := range c.r.model.DeclaredTypes(c.sym) {
+	for _, typ := range c.r.drawnTypes(c.sym) {
 		c.add(RelatedTypes, typ)
 	}
 }
@@ -191,7 +191,7 @@ func (c *relatedCollector) modelWide() {
 				c.add(RelatedSpecializations, elem)
 			}
 		}
-		for _, typ := range c.r.model.DeclaredTypes(elem) {
+		for _, typ := range c.r.drawnTypes(elem) {
 			if typ == c.sym {
 				c.add(RelatedTypedUsages, elem)
 			}
@@ -265,7 +265,7 @@ func (c *relatedCollector) successions() {
 	if !c.sym.Kind.IsActionUsage() {
 		return
 	}
-	owner := c.behaviorOwner(symbols.SymbolActionDef, symbols.SymbolActionUsage, symbols.SymbolSendActionUsage)
+	owner := behaviorOwnerWhere(c.sym, actionOwnerKind)
 	if owner == nil {
 		return
 	}
@@ -279,22 +279,15 @@ func (c *relatedCollector) successions() {
 	}
 }
 
-// behaviorOwner is the nearest element declaring sym whose kind is one of kinds.
-func (c *relatedCollector) behaviorOwner(kinds ...symbols.SymbolKind) *symbols.Symbol {
-	return behaviorOwnerOf(c.sym, kinds...)
-}
-
-// behaviorOwnerOf is the nearest element declaring sym whose kind is one of kinds.
-func behaviorOwnerOf(sym *symbols.Symbol, kinds ...symbols.SymbolKind) *symbols.Symbol {
+// behaviorOwnerWhere is the nearest element declaring sym whose kind isOwner.
+func behaviorOwnerWhere(sym *symbols.Symbol, isOwner func(symbols.SymbolKind) bool) *symbols.Symbol {
 	for scope := sym.OwnerScope; scope != nil; scope = scope.Owner().OwnerScope {
 		owner := scope.Owner()
 		if owner == nil {
 			return nil
 		}
-		for _, kind := range kinds {
-			if owner.Kind == kind {
-				return owner
-			}
+		if isOwner(owner.Kind) {
+			return owner
 		}
 	}
 	return nil
