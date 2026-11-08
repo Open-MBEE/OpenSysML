@@ -61,6 +61,9 @@ func symbolFromProto(sym *pb.SymbolInfo) *Symbol {
 			Quantity:        sym.TypeInfo.Quantity,
 			Unit:            sym.TypeInfo.Unit,
 		}
+		for _, ref := range sym.TypeInfo.Types {
+			out.Type.Types = append(out.Type.Types, TypeRef{ID: ref.Id, Kind: ref.Kind})
+		}
 	}
 	if sym.Multiplicity != nil {
 		out.Multiplicity = &Multiplicity{Lower: sym.Multiplicity.Lower, Upper: sym.Multiplicity.Upper}

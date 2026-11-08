@@ -1,64 +1,20 @@
-package export
+package naming
 
 import (
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-func TestDeclarationNamesUsesPositionalExporterName(t *testing.T) {
-	file := source.New("small.sysml", []byte(`package Demo { part def Item; part : Item; }`))
-	p := parser.New(file)
-	root := p.ParseFile()
-	if len(p.Diagnostics) != 0 {
-		t.Fatalf("parse diagnostics = %v", p.Diagnostics)
-	}
-	names, err := DeclarationNames(file, root)
-	if err != nil {
-		t.Fatalf("DeclarationNames: %v", err)
-	}
-	if names == nil {
-		t.Fatal("DeclarationNames returned a nil map")
-	}
-	pkg := root.Members[0].(*ast.Membership).Member.(*ast.Package)
-	unnamed := pkg.Members[1].(*ast.Membership).Member.(*ast.Usage)
-	if got := names[unnamed.Span()]; got != "Demo::@1" {
-		t.Errorf("DeclarationNames[%v] = %q, want Demo::@1", unnamed.Span(), got)
-	}
-}
-
-func TestDeclarationNamesKeepsNamedAndPositionalIdentitiesDistinct(t *testing.T) {
-	file := source.New("collision.sysml", []byte(`package Collision {
-		metadata def M;
-		#M part def Car {
-			part def '@1';
-		}
-	}`))
-	p := parser.New(file)
-	root := p.ParseFile()
-	if len(p.Diagnostics) != 0 {
-		t.Fatalf("parse diagnostics = %v", p.Diagnostics)
-	}
-	names, err := DeclarationNames(file, root)
-	if err != nil {
-		t.Fatalf("DeclarationNames: %v", err)
-	}
-	pkg := root.Members[0].(*ast.Membership).Member.(*ast.Package)
-	car := pkg.Members[1].(*ast.Membership).Member.(*ast.Definition)
-	member := car.Members[0].(*ast.Membership).Member.(*ast.Definition)
-	if got := names[member.Span()]; got != "Collision::Car::'@1'" {
-		t.Errorf("named member identity = %q, want Collision::Car::'@1'", got)
-	}
-	if got := names[car.Prefixes[0].Span()]; got != "Collision::Car::@1" {
-		t.Errorf("prefix identity = %q, want Collision::Car::@1", got)
-	}
-}
-
-func TestPositionalIdentitiesUsesExporterNames(t *testing.T) {
-	file := source.New("small.sysml", []byte(`package Demo { part def Item; part : Item; }`))
+func indexed(t *testing.T, name, text string) (*source.SourceFile, *ast.RootNamespace, *symbols.Index) {
+	t.Helper()
+	file := source.New(name, []byte(text))
 	p := parser.New(file)
 	root := p.ParseFile()
 	if len(p.Diagnostics) != 0 {
@@ -66,13 +22,59 @@ func TestPositionalIdentitiesUsesExporterNames(t *testing.T) {
 	}
 	index := symbols.NewIndex()
 	index.AddDocument(file.Name(), root)
+	return file, root, index
+}
+
+func built(t *testing.T, file *source.SourceFile, root *ast.RootNamespace, index *symbols.Index) *Table {
+	t.Helper()
+	res := resolve.New(index)
+	model := semantics.NewModel(res)
+	res.SetModel(model)
+	res.ResolveDocument(file.Name(), root)
+	names, err := Build(file, root, model, identity.Build(model, res, index.DocumentRoot(file.Name())))
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	return names
+}
+
+func TestBuildNamesUnnamedMemberByPosition(t *testing.T) {
+	file, root, index := indexed(t, "small.sysml", `package Demo { part def Item; part : Item; }`)
+	names := built(t, file, root, index)
+	pkg := root.Members[0].(*ast.Membership).Member.(*ast.Package)
+	unnamed := pkg.Members[1].(*ast.Membership).Member.(*ast.Usage)
+	if got := names.FQN[unnamed]; got != "Demo::@1" {
+		t.Errorf("FQN[unnamed] = %q, want Demo::@1", got)
+	}
+}
+
+func TestBuildKeepsNamedAndPositionalIdentitiesDistinct(t *testing.T) {
+	file, root, index := indexed(t, "collision.sysml", `package Collision {
+		metadata def M;
+		#M part def Car {
+			part def '@1';
+		}
+	}`)
+	names := built(t, file, root, index)
+	pkg := root.Members[0].(*ast.Membership).Member.(*ast.Package)
+	car := pkg.Members[1].(*ast.Membership).Member.(*ast.Definition)
+	member := car.Members[0].(*ast.Membership).Member.(*ast.Definition)
+	if got := names.FQN[member]; got != "Collision::Car::'@1'" {
+		t.Errorf("named member identity = %q, want Collision::Car::'@1'", got)
+	}
+	if got := names.FQN[car.Prefixes[0]]; got != "Collision::Car::@1" {
+		t.Errorf("prefix identity = %q, want Collision::Car::@1", got)
+	}
+}
+
+func TestPositionalIdentitiesNameUnnamedMembers(t *testing.T) {
+	file, root, index := indexed(t, "small.sysml", `package Demo { part def Item; part : Item; }`)
 	pkgs := index.LookupQualified("Demo")
 	if len(pkgs) == 0 {
 		t.Fatal("index has no Demo package")
 	}
-	pkg := pkgs[0]
 	var unnamed *symbols.Symbol
-	for _, sym := range pkg.Scope.AllMembers() {
+	for _, sym := range pkgs[0].Scope.AllMembers() {
 		if sym.Name == "" {
 			unnamed = sym
 			break
@@ -81,9 +83,10 @@ func TestPositionalIdentitiesUsesExporterNames(t *testing.T) {
 	if unnamed == nil {
 		t.Fatal("index has no unnamed usage")
 	}
-	positional, reverse := PositionalIdentities(index, []PositionalDocument{{
-		File: file,
-		Root: index.DocumentRoot(file.Name()),
+	positional, reverse := PositionalIdentities(index, []Document{{
+		File:  file,
+		Root:  root,
+		Scope: index.DocumentRoot(file.Name()),
 	}}, func(sym *symbols.Symbol) bool {
 		fqn := index.GetFQN(sym)
 		for _, candidate := range index.LookupQualified(fqn) {
@@ -101,12 +104,27 @@ func TestPositionalIdentitiesUsesExporterNames(t *testing.T) {
 	}
 }
 
+func TestPositionalIdentitiesNamePrefixMetadataMembers(t *testing.T) {
+	file, root, index := indexed(t, "prefix.sysml", `package P {
+		part def Holder { part; part named; }
+		metadata def M;
+		part def Pump { #M part x; }
+	}`)
+	positional, _ := PositionalIdentities(index, []Document{{File: file, Root: root, Scope: index.DocumentRoot(file.Name())}},
+		func(sym *symbols.Symbol) bool { return index.QualifiedIdentity(sym) != "" })
+	got := map[string]bool{}
+	for _, name := range positional {
+		got[name] = true
+	}
+	for _, want := range []string{"P::Holder::@0", "P::Pump::x::@0"} {
+		if !got[want] {
+			t.Errorf("positional identities %v lack %s", got, want)
+		}
+	}
+}
+
 func TestPositionalIdentityIgnoresImpliedConjugate(t *testing.T) {
-	file := source.New("short-port.sysml", []byte(`package P { port def <s>; }`))
-	p := parser.New(file)
-	root := p.ParseFile()
-	index := symbols.NewIndex()
-	index.AddDocument(file.Name(), root)
+	file, root, index := indexed(t, "short-port.sysml", `package P { port def <s>; }`)
 	pkg := index.LookupQualified("P")[0]
 	short, ok := pkg.Scope.LookupLocal("s")
 	if !ok {
@@ -122,11 +140,8 @@ func TestPositionalIdentityIgnoresImpliedConjugate(t *testing.T) {
 	if conjugate == nil || conjugate.DeclSpan != short.DeclSpan {
 		t.Fatalf("conjugate %v does not share the original declaration span", conjugate)
 	}
-	names, err := DeclarationNames(file, root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := names[short.Decl.Span()]; got != "P::@0" {
+	names := built(t, file, root, index)
+	if got := names.FQN[short.Decl]; got != "P::@0" {
 		t.Fatalf("short port declaration name = %q, want P::@0", got)
 	}
 	identifies := func(sym *symbols.Symbol) bool {

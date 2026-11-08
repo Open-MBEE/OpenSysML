@@ -219,6 +219,9 @@ func membershipKind(sym *symbols.Symbol) string {
 	if _, ok := sym.Decl.(*ast.CrossFeatureMember); ok {
 		return "OwningMembership"
 	}
+	if _, ok := sym.Decl.(*ast.IfBranchNode); ok {
+		return "ParameterMembership"
+	}
 	if usage, ok := sym.Decl.(*ast.Usage); ok {
 		switch {
 		case usage.IsVariant:

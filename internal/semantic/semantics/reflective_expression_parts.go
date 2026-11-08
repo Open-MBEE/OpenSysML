@@ -43,7 +43,7 @@ func isExpressionSymbol(sym *symbols.Symbol) bool {
 	}
 	switch sym.Expr.Role {
 	case symbols.ExpressionValue, symbols.ExpressionArgument, symbols.ExpressionChangeWrapper, symbols.ExpressionChangeCondition,
-		symbols.ExpressionBody, symbols.ExpressionBodyResult, symbols.ExpressionGuard:
+		symbols.ExpressionBody, symbols.ExpressionBodyResult, symbols.ExpressionGuard, symbols.ExpressionOperand:
 		return true
 	}
 	return false
@@ -681,8 +681,14 @@ func referenceMembershipElements(sym *symbols.Symbol, feature string) ([]*symbol
 	case "source", "membershipOwningNamespace", "owningRelatedElement", "owner":
 		return []*symbols.Symbol{rel.Owner}, true
 	case "target", "memberElement":
+		if rel.Member == nil {
+			return nil, false
+		}
 		return []*symbols.Symbol{rel.Member}, true
 	case "relatedElement":
+		if rel.Member == nil {
+			return nil, false
+		}
 		return []*symbols.Symbol{rel.Owner, rel.Member}, true
 	case "ownedRelatedElement", "ownedRelationship", "ownedElement", "ownedAnnotation", "owningRelationship",
 		"owningMembership", "owningNamespace", "documentation", "textualRepresentation", "ownedImport", "ownedMembership":

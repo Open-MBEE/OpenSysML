@@ -361,6 +361,10 @@ Static type, multiplicity and specialization facts resolved for symbols.
     options:
       heading_level: 3
 
+::: opensysml.TypeRef
+    options:
+      heading_level: 3
+
 ::: opensysml.Multiplicity
     options:
       heading_level: 3

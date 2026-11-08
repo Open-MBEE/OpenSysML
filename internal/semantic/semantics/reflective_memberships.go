@@ -27,7 +27,8 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		return cached
 	}
 	value := m.ValueExpression(sym)
-	if sym.Scope == nil && value == nil {
+	statements := append(m.statementOperands(sym), m.statementNodes(sym)...)
+	if sym.Scope == nil && value == nil && len(statements) == 0 {
 		return nil
 	}
 	journal(m, m.memberships, sym, sym.Decl)
@@ -49,18 +50,55 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		})
 		ordinal++
 	}
+	if sym.Scope == nil && len(statements) == 0 {
+		out = m.withDefaultMultiplicity(sym, out, ordinal)
+		m.memberships[sym] = out
+		return out
+	}
+	for _, statement := range statements {
+		out = append(out, &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    sym.DocName,
+			DeclSpan:   statement.DeclSpan,
+			Visibility: sym.Visibility,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: statement,
+			},
+		})
+		ordinal++
+	}
 	if sym.Scope == nil {
 		out = m.withDefaultMultiplicity(sym, out, ordinal)
 		m.memberships[sym] = out
 		return out
 	}
 	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
+		if member.Decl == sym.Decl && IsStatementNode(sym.Decl) {
+			// A `for` variable is a body-local name, not an element the
+			// conversion writes (sysx:loopVariable is a string).
+			return true
+		}
 		if member == nil || seen[member] || member.Chain != nil || ownedThroughAnnotation(sym, member) {
 			return true
 		}
 		seen[member] = true
 		if member.Kind == symbols.SymbolAlias {
 			out = append(out, member)
+			return true
+		}
+		if symbols.IsFirstMarker(member) {
+			// `first x;` is a Membership of the member the body starts at (SysML.xtext InitialNodeMember),
+			// as the pilot exports it and the conversion writes it; a name no member bears leaves it underived.
+			out = append(out, &symbols.Symbol{
+				Kind:       symbols.SymbolRelationship,
+				DocName:    sym.DocName,
+				DeclSpan:   member.DeclSpan,
+				Visibility: member.Visibility,
+				Implicit: &symbols.ImplicitRelationship{
+					Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitReferenceMembership, Member: m.firstMarkerStart(sym, member), Decl: member.Decl,
+				},
+			})
+			ordinal++
 			return true
 		}
 		out = append(out, &symbols.Symbol{
@@ -222,7 +260,8 @@ func (m *Model) OwningMembership(sym *symbols.Symbol) *symbols.Symbol {
 		return nil
 	}
 	for _, membership := range m.OwnedMemberships(owner) {
-		if membership.Implicit != nil && membership.Implicit.Member == sym {
+		// A `first x;` marker's Membership refers to x without owning it.
+		if membership.Implicit != nil && membership.Implicit.Member == sym && membership.Implicit.Form != symbols.ImplicitReferenceMembership {
 			return membership
 		}
 	}
@@ -354,10 +393,23 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 			return "TransitionFeatureMembership"
 		case symbols.ExpressionPayload:
 			return "ParameterMembership"
+		case symbols.ExpressionOperand:
+			switch member.Expr.Slot {
+			case "condition":
+				return "ParameterMembership"
+			case "value":
+				return "FeatureValue"
+			}
+			return "OwningMembership"
 		}
 	}
 	if _, ok := m.transitionFeatureKind(owner, member); ok {
 		return "TransitionFeatureMembership"
+	}
+	if _, ok := member.Decl.(*ast.IfBranchNode); ok {
+		// A branch of `if` is an ActionUsage parameter the conditional owns
+		// (SysML.xtext ActionBodyParameterMember).
+		return "ParameterMembership"
 	}
 	if isBodyParameterSymbol(member) {
 		// A body's `in` feature is a FeatureMember of the type body both
@@ -1058,4 +1110,19 @@ func clausePosition(items []*symbols.Symbol, offset int) int {
 		}
 	}
 	return len(items)
+}
+
+// firstMarkerStart is the member the marker binds to in the body declaring it (an
+// inherited marker binds where it was written, not in the inheritor), or nil.
+func (m *Model) firstMarkerStart(owner, marker *symbols.Symbol) *symbols.Symbol {
+	scope := owner.Scope
+	if marker.OwnerScope != nil {
+		scope = marker.OwnerScope
+	}
+	if node, ok := marker.Decl.(*ast.InitialNode); ok {
+		start, _ := m.resolver.ResolveInitial(scope, node)
+		return start
+	}
+	start, _ := m.resolver.ResolveInitialMember(scope, marker.Name)
+	return start
 }

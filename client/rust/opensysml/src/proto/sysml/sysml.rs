@@ -2514,6 +2514,10 @@ pub struct AppliedEdit {
     pub document: ::prost::alloc::string::String,
 }
 /// SymbolInfo represents any SysML element
+/// SymbolInfo is the symbol table's summary of an element. Several fields
+/// restate metamodel properties that GetElementProperties derives in full; each
+/// such field names the property it summarises, and element_properties is the
+/// surface whose answer the specification defines.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SymbolInfo {
     /// Unique identifier (fully qualified name)
@@ -2521,10 +2525,16 @@ pub struct SymbolInfo {
     pub id: ::prost::alloc::string::String,
     #[prost(string, tag="2")]
     pub name: ::prost::alloc::string::String,
-    /// "PartDefinition", "AttributeUsage", etc
+    /// Declaration keyword kind ("partDef", "attributeUsage", "actionUsage", ...):
+    /// the written syntax, not the element's metaclass. GetElementProperties
+    /// reports the metaclass and every property that classifies the element.
     #[prost(string, tag="3")]
     pub kind: ::prost::alloc::string::String,
-    /// multiplicity, type, etc
+    /// Summary entries: "type" and "specializes" (the first written edge of each,
+    /// kept for compatibility; `specializations` has them all), "multiplicity",
+    /// "direction" (the direction written on the feature; the derived
+    /// Feature::direction is GetElementProperties' `direction`), "abstract",
+    /// "variation", "variant" and the like.
     #[prost(map="string, string", tag="4")]
     pub metadata: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
     /// References to children
@@ -2532,14 +2542,19 @@ pub struct SymbolInfo {
     pub child_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(message, repeated, tag="6")]
     pub attributes: ::prost::alloc::vec::Vec<AttributeInfo>,
-    /// Static type facts; unset when the element is not a def/usage.
+    /// Static type facts; unset when the element is not a def/usage. `declared`
+    /// is the written typing and `types` the derived Feature::type, the `type`
+    /// property of GetElementProperties.
     #[prost(message, optional, tag="7")]
     pub type_info: ::core::option::Option<TypeInfo>,
     /// Declared multiplicity; unset when none is declared.
     #[prost(message, optional, tag="8")]
     pub multiplicity: ::core::option::Option<MultiplicityInfo>,
-    /// Every generalization edge declared, in declaration order. metadata\["type"\]
-    /// and metadata\["specializes"\] report only the first, kept for compatibility.
+    /// Every generalization edge declared, in declaration order: the written
+    /// relationships Type::ownedSpecialization of GetElementProperties reflects
+    /// (typing, subsetting, reference subsetting, redefinition, specialization),
+    /// but not the implied ones the metamodel adds. metadata\["type"\] and
+    /// metadata\["specializes"\] report only the first, kept for compatibility.
     #[prost(message, repeated, tag="9")]
     pub specializations: ::prost::alloc::vec::Vec<Specialization>,
     /// Attributes inherited from standard-library content, which `attributes`
@@ -2585,7 +2600,8 @@ pub struct MemberInfo {
 /// Specialization is one generalization edge an element declares.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Specialization {
-    /// Relationship kind: "specializes", "subsets", "redefines" or "typing".
+    /// Relationship kind: "specializes", "subsets", "redefines", "typing" or
+    /// "references" (reference subsetting, `::>` and `include`).
     #[prost(string, tag="1")]
     pub kind: ::prost::alloc::string::String,
     /// The target as written in the source ("Engine", "Demo::Engine").
@@ -2600,15 +2616,20 @@ pub struct Specialization {
 }
 /// TypeInfo is the static type of a usage, or the classification of a
 /// definition, as far as the service derives it without running the model.
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+/// TypeInfo summarises an element's typing. `declared`, `resolved_id` and
+/// `resolved_kind` are the typing the declaration writes (`: T`); `types` is
+/// the feature's semantic type as the metamodel derives it, the `type` property
+/// of GetElementProperties (KerML Feature::type), which the typing of every
+/// feature it subsets, references or redefines contributes to.
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TypeInfo {
     /// Type name as written; empty when none is declared.
     #[prost(string, tag="1")]
     pub declared: ::prost::alloc::string::String,
-    /// FQN of the resolved type; empty when unresolved or undeclared.
+    /// FQN of the resolved written type; empty when unresolved or undeclared.
     #[prost(string, tag="2")]
     pub resolved_id: ::prost::alloc::string::String,
-    /// Symbol kind of the resolved type ("partDef", "attributeDef", ...).
+    /// Symbol kind of the resolved written type ("partDef", "attributeDef", ...).
     #[prost(string, tag="3")]
     pub resolved_kind: ::prost::alloc::string::String,
     /// Library scalar the type reduces to ("Boolean", "Integer", "Real", ...);
@@ -2625,6 +2646,21 @@ pub struct TypeInfo {
     /// Unit as written when the default value names one ("m/s"), else empty.
     #[prost(string, tag="7")]
     pub unit: ::prost::alloc::string::String,
+    /// The feature's derived types (Feature::type), most specific first, with the
+    /// redundant supertypes removed: `part pBoth : V :> q` with `q : T` reports V
+    /// and T. Empty when the element is not a feature or none derives.
+    #[prost(message, repeated, tag="8")]
+    pub types: ::prost::alloc::vec::Vec<TypeRef>,
+}
+/// TypeRef names one derived type of a feature.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct TypeRef {
+    /// FQN of the type.
+    #[prost(string, tag="1")]
+    pub id: ::prost::alloc::string::String,
+    /// Symbol kind of the type ("partDef", "attributeDef", ...).
+    #[prost(string, tag="2")]
+    pub kind: ::prost::alloc::string::String,
 }
 /// MultiplicityInfo is a declared multiplicity range. A bound the service cannot
 /// evaluate statically is empty.

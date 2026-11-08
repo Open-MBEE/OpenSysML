@@ -430,6 +430,11 @@ func (d *structureDifferential) computeGraphID(sym *symbols.Symbol) (string, boo
 	case sym.Expr != nil:
 		return d.expressionGraphID(sym)
 	}
+	// A `for` variable is keyed by its loop, which the conversion writes as a
+	// string (sysx:loopVariable), not as an element of its own.
+	if _, ok := sym.Decl.(*ast.WhileLoopActionNode); ok && sym.Name != "" {
+		return "", false
+	}
 	// A body's parameter declares no node of its own: its symbol is keyed by the
 	// body, which the conversion writes as the reference the parameter is in<i> of.
 	if body, ok := sym.Decl.(*ast.BodyExpr); ok && sym.Name != "" {
@@ -504,6 +509,10 @@ func (d *structureDifferential) implicitGraphID(rel *symbols.ImplicitRelationshi
 		}
 		return d.ids.RelationshipOf(d.doc, node)
 	case symbols.ImplicitReferenceMembership:
+		if rel.Decl != nil {
+			// A `first x;` marker's Membership is minted from the marker itself.
+			return d.ids.OfDeclaration(d.doc, rel.Decl, "")
+		}
 		if rel.Owner == nil || rel.Slot == "" {
 			return "", false
 		}
@@ -545,13 +554,22 @@ func (d *structureDifferential) expressionGraphID(sym *symbols.Symbol) (string, 
 			return "", false
 		}
 		return d.expressionPartID(owner.Expr.Owner, "a0")
-	case symbols.ExpressionChainFeature:
+	case symbols.ExpressionChainFeature, symbols.ExpressionOperand:
 		return d.expressionPartID(owner, sym.Expr.Slot)
 	}
 	if sym.Decl != nil && sym.Decl != owner.Decl {
 		if id, ok := d.ids.OfDeclaration(d.doc, sym.Decl, ""); ok {
 			return id, true
 		}
+	}
+	if sym.Expr.Role == symbols.ExpressionArgument {
+		// An argument under a statement's operand is minted off its position under
+		// the expression, not the parameter binding it.
+		expression := owner
+		if expression.Expr != nil && expression.Expr.Role == symbols.ExpressionParameter && expression.Expr.Owner != nil {
+			expression = expression.Expr.Owner
+		}
+		return d.expressionPartID(expression, fmt.Sprintf("a%d", sym.Expr.Index))
 	}
 	return "", false
 }
