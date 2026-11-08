@@ -4,7 +4,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
-	"slices"
 )
 
 // RelatedKind names one kind of relationship Related groups elements by; the
@@ -278,16 +277,6 @@ func (c *relatedCollector) successions() {
 			c.add(RelatedSuccessions, succession.Source.Symbol)
 		}
 	}
-}
-
-// behaviorOwner is the nearest element declaring sym whose kind is one of kinds.
-func (c *relatedCollector) behaviorOwner(kinds ...symbols.SymbolKind) *symbols.Symbol {
-	return behaviorOwnerOf(c.sym, kinds...)
-}
-
-// behaviorOwnerOf is the nearest element declaring sym whose kind is one of kinds.
-func behaviorOwnerOf(sym *symbols.Symbol, kinds ...symbols.SymbolKind) *symbols.Symbol {
-	return behaviorOwnerWhere(sym, func(kind symbols.SymbolKind) bool { return slices.Contains(kinds, kind) })
 }
 
 // behaviorOwnerWhere is the nearest element declaring sym whose kind isOwner.
