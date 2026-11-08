@@ -26,6 +26,16 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	if cached, ok := m.memberships[sym]; ok {
 		return cached
 	}
+	if bounds := m.MultiplicityBounds(sym); bounds != nil {
+		// A written range owns its bounds (KerML 8.3.3.6 MultiplicityRange).
+		journal(m, m.memberships, sym, sym.Decl)
+		var out []*symbols.Symbol
+		for _, bound := range bounds {
+			out = appendOwningMembership(out, sym, bound)
+		}
+		m.memberships[sym] = out
+		return out
+	}
 	value := m.ValueExpression(sym)
 	statements := append(m.statementOperands(sym), m.statementNodes(sym)...)
 	parts := m.transitionMembers(sym)

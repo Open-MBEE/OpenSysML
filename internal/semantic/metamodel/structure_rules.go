@@ -6166,6 +6166,15 @@ func (e *Evaluator) structureUnmaterializedEndName(element Element, property str
 	if len(redefinitions.Values) > 0 {
 		return Value{}, false, false
 	}
+	// A succession's implied end is named by the HappensBefore end it redefines
+	// (SysML v2 §8.3.16.5 SuccessionAsUsage), as the conversion writes it.
+	if property == "name" && e.model != nil {
+		if sym, ok := e.structureSymbolOf(element); ok && sym.Expr != nil && sym.Expr.Role == symbols.ExpressionConnectorEnd {
+			if name := e.model.ImpliedEndName(ast.UsageSuccession, sym.Expr.Index); name != "" {
+				return stringValue(name), true, true
+			}
+		}
+	}
 	return nullValue(), true, true
 }
 
@@ -7706,13 +7715,18 @@ func (e *Evaluator) structureMultiplicityBounds(element Element, property string
 }
 
 func (e *Evaluator) structureInvocationArguments(element Element) (Value, bool, bool) {
-	instantiatedType, ok := e.Property(element, "InstantiationExpression", "instantiatedType")
-	if !ok || instantiatedType.Kind != ElementValue {
-		return Value{}, true, false
-	}
 	constructor, known := e.isMetaclass(element, "ConstructorExpression")
 	if !known {
 		return Value{}, true, false
+	}
+	instantiatedType, ok := e.Property(element, "InstantiationExpression", "instantiatedType")
+	if !ok || instantiatedType.Kind != ElementValue {
+		if constructor {
+			return Value{}, true, false
+		}
+		// With no type to bind formals against, the arguments are the values of
+		// the owned input parameters in order (KerML 8.3.4.8.4 InvocationExpression::argument).
+		return e.structureInputValues(element)
 	}
 	var inputs Value
 	if constructor {
@@ -7837,36 +7851,70 @@ func (e *Evaluator) structureInvocationArguments(element Element) (Value, bool, 
 		if bound[formalIndex] > 1 {
 			return Value{}, true, false
 		}
-		valuations, handled, ok := e.structureOwnedFilter(feature.Element, "FeatureValue", false)
-		if !handled || !ok {
+		values, ok := e.structureFeatureValueExpressions(feature.Element)
+		if !ok {
 			return Value{}, true, false
 		}
-		for _, valuation := range valuations.Values {
-			var valuationElement Element
-			switch valuation.Kind {
-			case ElementValue:
-				valuationElement = valuation.Element
-			case MembershipValue:
-				valuationElement = MembershipElement(valuation.Membership)
-			default:
-				return Value{}, true, false
-			}
-			values, ok := e.relationshipEndpoints(valuationElement, "value")
-			if !ok {
-				return Value{}, true, false
-			}
-			filtered, ok := e.structureFilterValues(values, "Expression")
-			if !ok {
-				return Value{}, true, false
-			}
-			featureValues[formalIndex] = append(featureValues[formalIndex], filtered...)
-		}
+		featureValues[formalIndex] = append(featureValues[formalIndex], values...)
 	}
 	var arguments []Value
 	for _, values := range featureValues {
 		arguments = append(arguments, values...)
 	}
 	return sequence(arguments...), true, true
+}
+
+// structureInputValues are the value Expressions of element's owned input
+// features, in feature order.
+func (e *Evaluator) structureInputValues(element Element) (Value, bool, bool) {
+	ownedFeatures, handled, ok := e.structureOwnedFeatures(element)
+	if !handled || !ok {
+		return Value{}, true, false
+	}
+	inputs, ok := e.structureOperatorInputs(element, ownedFeatures.Values)
+	if !ok {
+		return Value{}, true, false
+	}
+	var arguments []Value
+	for _, feature := range inputs {
+		values, ok := e.structureFeatureValueExpressions(feature.Element)
+		if !ok {
+			return Value{}, true, false
+		}
+		arguments = append(arguments, values...)
+	}
+	return sequence(arguments...), true, true
+}
+
+// structureFeatureValueExpressions are the Expressions the FeatureValues of
+// feature bind as its value.
+func (e *Evaluator) structureFeatureValueExpressions(feature Element) ([]Value, bool) {
+	valuations, handled, ok := e.structureOwnedFilter(feature, "FeatureValue", false)
+	if !handled || !ok {
+		return nil, false
+	}
+	var out []Value
+	for _, valuation := range valuations.Values {
+		var valuationElement Element
+		switch valuation.Kind {
+		case ElementValue:
+			valuationElement = valuation.Element
+		case MembershipValue:
+			valuationElement = MembershipElement(valuation.Membership)
+		default:
+			return nil, false
+		}
+		values, ok := e.relationshipEndpoints(valuationElement, "value")
+		if !ok {
+			return nil, false
+		}
+		filtered, ok := e.structureFilterValues(values, "Expression")
+		if !ok {
+			return nil, false
+		}
+		out = append(out, filtered...)
+	}
+	return out, true
 }
 
 func (e *Evaluator) structurePublicFeatures(features []Value) ([]Value, bool) {

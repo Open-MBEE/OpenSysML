@@ -121,6 +121,11 @@ func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[
 		ids.conjugateBySpan[spanKey{e.file.Name(), node.Span()}] = conjugate
 	}
 	ids.recordValuePart(e, node, subject)
+	if member, ok := node.(*ast.ConstraintMember); ok && member.Keyword == "" && member.Name == "" && member.Body == nil && member.Expression != nil {
+		// A bare body expression is written as the expression itself (ConstraintMember
+		// case of the walk), so its parts are minted off the member's subject.
+		e.registerExpressionIDs(ids, subject, member.Expression)
+	}
 	ids.recordDefaultMultiplicity(e, node, subject)
 	ids.recordConnectorEnds(e, node, subject)
 	ids.recordSatisfySubjects(e, node, subject)

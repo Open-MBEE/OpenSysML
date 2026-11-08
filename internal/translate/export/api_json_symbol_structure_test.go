@@ -340,6 +340,8 @@ func differentialOf(path string, data []byte) (*structureDifferential, bool) {
 		counts:          map[string]*differentialCounts{},
 		samples:         map[string][]string{},
 	}
+	// The structure spells its elements as the served structure does (elementReader).
+	symbolic.SetIdentities(diff.symbolIDs.Of)
 	// Every symbol reachable from the document's root namespace through ownership.
 	symbolsSeen := diff.symbolIDs.Reachable()
 	graphByID := map[string]metamodel.Element{}

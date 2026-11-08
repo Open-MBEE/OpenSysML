@@ -2957,7 +2957,14 @@ func (m *Model) reflectiveName(sym *symbols.Symbol) string {
 	if name := declaredSymbolName(sym); name != "" {
 		return name
 	}
-	return m.EffectiveNameOf(sym)
+	if name := m.EffectiveNameOf(sym); name != "" {
+		return name
+	}
+	if sym != nil && sym.Naming == symbols.NamedByRedefinition {
+		// The written `:>> x` names the feature even while x does not resolve.
+		return sym.Name
+	}
+	return ""
 }
 
 // declaredSymbolName is the symbol's name as its declaration states it; a name the

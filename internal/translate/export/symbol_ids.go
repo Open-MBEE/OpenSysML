@@ -174,7 +174,8 @@ func (s *SymbolIDs) compute(sym *symbols.Symbol) (string, bool) {
 			return element, ok
 		}
 	}
-	if implied, ok := symbols.ImpliedDeclOf(sym); ok && implied.Form == symbols.ImpliedDefaultMultiplicity {
+	if implied, ok := symbols.ImpliedDeclOf(sym); ok &&
+		(implied.Form == symbols.ImpliedDefaultMultiplicity || implied.Form == symbols.ImpliedMultiplicityRange) {
 		if element, _, ok := s.ids.OfExpressionPart(doc, implied.Of, "multiplicity"); ok {
 			return element, true
 		}
@@ -321,9 +322,8 @@ func (s *SymbolIDs) expressionID(sym *symbols.Symbol) (string, bool) {
 	case symbols.ExpressionResult:
 		return s.partID(owner, "out")
 	case symbols.ExpressionBody:
-		if id, ok := s.ids.OfDeclaration(doc, sym.Decl, ""); ok {
-			return id, true
-		}
+		// The body is minted off the reference wrapping it (bodyExpression); the
+		// node itself is recorded at the wrapper.
 		return s.partID(owner, "body")
 	case symbols.ExpressionBodyResult:
 		// A type body's result expression is a member of its own; a `{ … }` body's is
@@ -350,6 +350,12 @@ func (s *SymbolIDs) expressionID(sym *symbols.Symbol) (string, bool) {
 		return base + "_succession", true
 	case symbols.ExpressionConnectorEnd:
 		return s.partID(owner, fmt.Sprintf("end%d", sym.Expr.Index))
+	case symbols.ExpressionBound:
+		// A range's bound is minted off the feature declaring the range (multiplicityBound).
+		if owner.OwnerScope == nil || owner.OwnerScope.Owner() == nil {
+			return "", false
+		}
+		return s.partID(owner.OwnerScope.Owner(), sym.Expr.Slot)
 	case symbols.ExpressionTransitionParameter:
 		// Minted off the transition as an element (emptyParameterMember).
 		base, ok := s.of(owner)
@@ -387,7 +393,11 @@ func (s *SymbolIDs) expressionID(sym *symbols.Symbol) (string, bool) {
 		if expression.Expr != nil && expression.Expr.Role == symbols.ExpressionParameter && expression.Expr.Owner != nil {
 			expression = expression.Expr.Owner
 		}
-		return s.partID(expression, fmt.Sprintf("a%d", sym.Expr.Index))
+		slot := sym.Expr.Slot
+		if slot == "" {
+			slot = fmt.Sprintf("a%d", sym.Expr.Index)
+		}
+		return s.partID(expression, slot)
 	}
 	return "", false
 }
@@ -396,6 +406,10 @@ func (s *SymbolIDs) expressionID(sym *symbols.Symbol) (string, bool) {
 func (s *SymbolIDs) partID(owner *symbols.Symbol, slot string) (string, bool) {
 	if element, _, ok := s.ids.OfExpressionPart(owner.DocName, owner.Decl, slot); ok && element != "" {
 		return element, true
+	}
+	if owner.Expr != nil && owner.Expr.Role == symbols.ExpressionBody && owner.Expr.Owner != nil {
+		// A body's parts keep the ids minted off the reference wrapping it (bodyExpression).
+		owner = owner.Expr.Owner
 	}
 	base, ok := s.of(owner)
 	if !ok {

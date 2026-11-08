@@ -43,7 +43,7 @@ func isExpressionSymbol(sym *symbols.Symbol) bool {
 	}
 	switch sym.Expr.Role {
 	case symbols.ExpressionValue, symbols.ExpressionArgument, symbols.ExpressionChangeWrapper, symbols.ExpressionChangeCondition,
-		symbols.ExpressionBody, symbols.ExpressionBodyResult, symbols.ExpressionGuard, symbols.ExpressionOperand:
+		symbols.ExpressionBody, symbols.ExpressionBodyResult, symbols.ExpressionGuard, symbols.ExpressionOperand, symbols.ExpressionBound:
 		return true
 	}
 	return false
@@ -213,7 +213,7 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 			Decl:       operand.Node,
 			DeclSpan:   operand.Node.Span(),
 			Visibility: expr.Visibility,
-			Expr:       &symbols.ExpressionElement{Owner: parameter, Role: symbols.ExpressionArgument, Index: operand.Index},
+			Expr:       &symbols.ExpressionElement{Owner: parameter, Role: symbols.ExpressionArgument, Index: operand.Index, Slot: operand.Slot},
 		})
 	}
 	if typeArgument >= 0 {

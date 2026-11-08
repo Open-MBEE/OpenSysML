@@ -1049,12 +1049,6 @@ func (e *Evaluator) instantiationExpressionProperty(element Element, name string
 			Detail:   "InstantiationExpression::" + name + " has no instantiation rule",
 		})
 	}
-	if element.Node == nil {
-		// A symbol-backed expression is read from the node its symbol reflects.
-		if sym, ok := e.structureSymbolOf(element); ok && sym.Expr != nil {
-			element.Node = sym.Decl
-		}
-	}
 	expressionNode := expressionNodeOf(element)
 	if operator, ok := expressionNode.(*ast.OperatorExpr); ok {
 		if e.model == nil {
@@ -1245,13 +1239,6 @@ func (e *Evaluator) instantiationExpressionProperty(element Element, name string
 			Detail:   "instantiation target lookup requires a resolver and semantic model",
 		})
 	}
-	if element.Container == nil {
-		// A symbol-backed expression resolves its callee where its owning
-		// feature's names resolve: the nearest declared owner with a scope.
-		if sym, ok := e.structureSymbolOf(element); ok {
-			element.Container = expressionContainer(sym)
-		}
-	}
 	if element.Container == nil || element.Container.Scope == nil {
 		return unsupported(Reason{
 			Category: ReasonMissingStructure,
@@ -1373,20 +1360,3 @@ func cloneValue(value Value) Value {
 }
 
 func keyName(class, name string) string { return class + "::" + name }
-
-// expressionContainer is the namespace a synthesized expression's names resolve
-// in: the first owner up the expression chain that declares a scope, else that
-// owner's own namespace.
-func expressionContainer(sym *symbols.Symbol) *symbols.Symbol {
-	owner := sym
-	for owner != nil && owner.Expr != nil {
-		owner = owner.Expr.Owner
-	}
-	if owner == nil {
-		return nil
-	}
-	if owner.Scope != nil {
-		return owner
-	}
-	return owner.Owner()
-}

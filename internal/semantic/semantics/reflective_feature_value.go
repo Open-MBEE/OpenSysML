@@ -81,7 +81,8 @@ func isValueExpressionSymbol(sym *symbols.Symbol) bool {
 	switch sym.Expr.Role {
 	case symbols.ExpressionOperand:
 		return sym.Expr.Slot == "value"
-	case symbols.ExpressionChangeCondition, symbols.ExpressionBody, symbols.ExpressionBodyResult, symbols.ExpressionGuard:
+	case symbols.ExpressionChangeCondition, symbols.ExpressionBody, symbols.ExpressionBodyResult, symbols.ExpressionGuard,
+		symbols.ExpressionBound:
 		// Owned through a FeatureMembership or ResultExpressionMembership,
 		// not bound as a value (changeArgument, bodyExpression).
 		return false

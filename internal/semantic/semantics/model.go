@@ -179,6 +179,7 @@ type Model struct {
 	// (see reflective_memberships.go, reflective_annotations.go).
 	memberships             map[*symbols.Symbol][]*symbols.Symbol
 	valueExpressions        map[*symbols.Symbol]*symbols.Symbol
+	multiplicityBounds      map[*symbols.Symbol][]*symbols.Symbol
 	statementSymbols        map[*symbols.Symbol][]*symbols.Symbol
 	resultExpressionSymbols map[*symbols.Symbol][]*symbols.Symbol
 	filterMembershipSymbols map[*symbols.Symbol][]*symbols.Symbol

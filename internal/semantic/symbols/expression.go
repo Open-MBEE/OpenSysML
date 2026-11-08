@@ -55,6 +55,9 @@ const (
 	// §8.3.16.15 checkTransitionUsageParameters): Slot "linkparam" for the
 	// transitionLinkSource parameter, "triggerparam" for the trigger payload's.
 	ExpressionTransitionParameter
+	// ExpressionBound is a bound of a written MultiplicityRange, owned by the
+	// range through an OwningMembership: Slot "lowerBound" or "upperBound".
+	ExpressionBound
 )
 
 // ExpressionElement is the side record of a symbol the reflective layer
