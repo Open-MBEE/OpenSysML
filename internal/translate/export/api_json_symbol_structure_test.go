@@ -663,7 +663,7 @@ func (d *structureDifferential) spellElement(element metamodel.Element, fromGrap
 		}
 	}
 	if fromGraph {
-		if sym, ok := d.graph.LibrarySymbol(element); ok {
+		if sym, ok := d.graph.LibrarySymbol(element); ok && d.fqn(sym) != "" {
 			return "lib " + d.fqn(sym)
 		}
 		if id, ok := d.graph.ElementIdentity(element); ok {
@@ -672,7 +672,7 @@ func (d *structureDifferential) spellElement(element metamodel.Element, fromGrap
 		return "element?"
 	}
 	if sym, ok := d.symbolic.SymbolOf(element); ok {
-		if d.index.Library(sym) {
+		if d.index.Library(sym) && d.fqn(sym) != "" {
 			return "lib " + d.fqn(sym)
 		}
 		if id, ok := d.graphID(sym); ok {
