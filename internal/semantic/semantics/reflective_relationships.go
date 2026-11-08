@@ -62,6 +62,12 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 	}
 	// A connector end reference-subsets the feature it attaches to whether or
 	// not a clause of its own says so (SysML v2 8.2.2.13.1).
+	if prefix, ok := owner.Decl.(*ast.PrefixMetadata); ok && prefix.Type != nil {
+		// `@T { … }` types the metadata usage by T (SysML.xtext MetadataUsage), a
+		// FeatureTyping the conversion writes as the head's (metadataUsage).
+		out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelTyping, false, impliedRelationship(ast.RelTyping, prefix.Type)))
+		ordinal++
+	}
 	if end, ok := owner.Decl.(*ast.ConnectorEnd); ok {
 		if target := ImpliedEndReference(end); target != nil {
 			out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelReferences, false, connectorEndAttachment(target)))
