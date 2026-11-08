@@ -426,10 +426,23 @@ func (b *bodyBuilder) kindFollows(i int) bool {
 	return ok
 }
 
+// start opens a member position: the Comment members of the regular comments
+// written before it are appended as they are, since a comment neither
+// sequences from a pending `then` nor is the member a later `then` leaves from.
+func (b *bodyBuilder) start() {
+	b.members = append(b.members, b.p.memberStart()...)
+}
+
+// close appends the Comment members written before the body's closing brace.
+func (b *bodyBuilder) close() {
+	b.members = append(b.members, b.p.closeComments()...)
+}
+
 // add appends a member, synthesising the succession edge of a pending `then`
 // after it. A succession that cannot be built is reported rather than dropped,
 // since dropping it would silently change execution order.
 func (b *bodyBuilder) add(m ast.Node) {
+	b.members = append(b.members, b.p.takeRecovered()...)
 	if m == nil {
 		return
 	}

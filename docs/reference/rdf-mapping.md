@@ -618,7 +618,11 @@ triples come); a set of classes with no such member is refused, naming the subje
   KerML §8.2.3.3.2's body processing leaves — white space at either end kept — and
   a graph without source text writes it back as a comment that processes to the
   same string. A body holding `*/`, which no regular comment can state, or a
-  carriage return is refused rather than written as something else. A line note
+  carriage return is refused rather than written as something else. A `/* */`
+  comment written where a member may appear — before a member, at the close of
+  a body or at either end of a file — is a `sysml:Comment` with neither name nor
+  `about`, owned by the namespace it is written in, as `comment /* */` is; one
+  inside a declaration or an expression is trivia, not an element. A line note
   (`// ...`) is not an element, so it reaches the graph only in `sysx:sourceText`.
 - A metadata annotation — `@Safety;`, `@Safety { level = 2; }`, `metadata m :
   Safety about a, b;` or the prefix `#Safety part def P;` — is a

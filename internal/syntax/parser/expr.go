@@ -650,7 +650,7 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 	b := &ast.BodyExpr{}
 
 	// A body may open with documentation, a member of the body like its features.
-	p.memberStart()
+	b.Members = append(b.Members, p.memberStart()...)
 	if p.atKeyword("doc") {
 		b.Members = append(b.Members, p.parseDocumentation(p.peek().Span.Offset))
 	}
@@ -664,7 +664,7 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 
 	if hasShorthandParam {
 		// Parse single param without "in" keyword
-		p.memberStart()
+		b.Members = append(b.Members, p.memberStart()...)
 		var paramType *ast.QualifiedName
 		var paramMult *ast.Multiplicity
 
@@ -690,10 +690,12 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 	for p.atKeyword("in") || p.atBodyExprMember() {
 		// A body expression is a calculation body, so it may declare features of
 		// its own between its parameters and its result.
-		p.memberStart()
+		b.Members = append(b.Members, p.memberStart()...)
 		if !p.atKeyword("in") {
 			before := p.peek().Span.Offset
-			b.Members = append(b.Members, p.parseBodyMember())
+			member := p.parseBodyMember()
+			b.Members = append(b.Members, p.takeRecovered()...)
+			b.Members = append(b.Members, member)
 			// Force progress: a member that consumed nothing would spin the loop.
 			if p.peek().Span.Offset == before && !p.at(lexer.RBrace) && !p.atEOF() {
 				p.advance()
@@ -741,12 +743,14 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 				p.advance() // {
 				leave := p.pushBodyContext(bodyOther)
 				for !p.at(lexer.RBrace) && !p.atEOF() {
-					p.memberStart()
+					paramMembers = append(paramMembers, p.memberStart()...)
 					pm := p.parseBodyMember()
 					p.markAttached(pm)
+					paramMembers = append(paramMembers, p.takeRecovered()...)
 					paramMembers = append(paramMembers, pm)
 				}
 				leave()
+				paramMembers = append(paramMembers, p.closeComments()...)
 				p.expect(lexer.RBrace, "expected '}'")
 			}
 			b.Params = append(b.Params, ast.BodyParam{
@@ -766,10 +770,11 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 		}
 	}
 	if !p.at(lexer.RBrace) {
-		p.memberStart()
+		b.Members = append(b.Members, p.memberStart()...)
 		b.Result = p.ParseExpression()
 		p.resultEnd()
 	}
+	b.Members = append(b.Members, p.closeComments()...)
 	p.expect(lexer.RBrace, "expected '}'")
 	b.NodeSpan = p.spanFrom(start)
 	return b
