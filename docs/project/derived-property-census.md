@@ -45,8 +45,11 @@ so; `-require-exporter` makes the absence a failure instead. A root the baseline
 then has an empty pilot column, which no rule can be silent against.
 
 **Re-recording.** The baseline moves whenever a rule, a fixture under a root, the standard library,
-the pin or the bridge does; its `provenance` block records each of those by digest, and `-check`
-names the one that moved before holding the counts to it. To re-record:
+the pin or the bridge does. Its `provenance` block records the inputs the pilot's column depends on
+by digest — the pin, the bridge, each root, the libraries — and `-check` names the one that moved
+before holding the counts to it; this repository's own rules are not digested (a branch would move
+the baseline without moving a count), so a rule change is caught where it moves a count or the
+`silent` list, and nowhere else. To re-record:
 
 1. provision the exporter and the downloaded roots (above), so the pilot column is re-exported
    rather than carried over;

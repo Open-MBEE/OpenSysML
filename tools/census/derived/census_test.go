@@ -158,17 +158,13 @@ func TestReportFinishClassifiesRules(t *testing.T) {
 	}
 }
 
-func TestProvenanceNamesTheEvaluatorAndTheRoots(t *testing.T) {
+func TestProvenanceNamesTheBridgeAndTheRoots(t *testing.T) {
 	root, err := repo.Root()
 	if err != nil {
 		t.Fatal(err)
 	}
-	built, err := repo.BuildRoot()
-	if err != nil {
-		t.Fatal(err)
-	}
 	libraries := filepath.Join(root, "internal", "workspace", "libs", "stdlib", "OpenSysML Libraries")
-	record, err := provenance(root, built, libraries)
+	record, err := provenance(root, libraries)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,7 +172,7 @@ func TestProvenanceNamesTheEvaluatorAndTheRoots(t *testing.T) {
 	for _, tool := range record.Tools {
 		tools = append(tools, tool.Name)
 	}
-	if strings.Join(tools, ",") != bridgeName+","+evaluatorName {
+	if strings.Join(tools, ",") != bridgeName {
 		t.Errorf("tools = %v", tools)
 	}
 	var inputs []string
