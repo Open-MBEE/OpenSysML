@@ -116,7 +116,7 @@ func lookupPath(t *testing.T, root *Scope, path string) *Symbol {
 	t.Helper()
 	scope := root
 	var sym *Symbol
-	for _, step := range splitPath(path) {
+	for _, step := range strings.Split(path, "::") {
 		if scope == nil {
 			return nil
 		}
@@ -128,14 +128,6 @@ func lookupPath(t *testing.T, root *Scope, path string) *Symbol {
 		scope = sym.Scope
 	}
 	return sym
-}
-
-func splitPath(path string) []string {
-	var steps []string
-	for _, s := range strings.Split(path, "::") {
-		steps = append(steps, s)
-	}
-	return steps
 }
 
 func TestActionNodeKindsShareTheActionFamily(t *testing.T) {
