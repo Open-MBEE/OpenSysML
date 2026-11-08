@@ -3,6 +3,7 @@ package export
 import (
 	"flag"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"os"
 	"path/filepath"
 	"sort"
@@ -475,6 +476,10 @@ func (d *structureDifferential) implicitGraphID(rel *symbols.ImplicitRelationshi
 		if rel.Member == nil {
 			return "", false
 		}
+		if _, ok := rel.Decl.(*ast.FilterMember); ok {
+			// A `filter` member is written as the ElementFilterMembership itself.
+			return d.ids.OfDeclaration(d.doc, rel.Decl, "")
+		}
 		if id, ok := d.ids.OwningMembershipOfDeclaration(d.doc, rel.Member.Decl, d.fqn(rel.Member)); ok && rel.Member.Expr == nil {
 			return id, true
 		}
@@ -486,6 +491,11 @@ func (d *structureDifferential) implicitGraphID(rel *symbols.ImplicitRelationshi
 	case symbols.ImplicitWritten:
 		if rel.Node == nil {
 			return "", false
+		}
+		if rel.Owner != nil && rel.Owner.Expr != nil && rel.Owner.Expr.Role == symbols.ExpressionConnectorEnd && rel.Kind.ReferenceSubsets() {
+			// A synthesized end's reference subsetting is minted off the end (connectorEnd).
+			end, ok := d.graphID(rel.Owner)
+			return rdf.ExpressionNodeID(end, "rs"), ok
 		}
 		// A flow feature's redefinition is a property the conversion writes, which the
 		// api-json structure derives as a Redefinition minted off the feature.
@@ -548,7 +558,14 @@ func (d *structureDifferential) expressionGraphID(sym *symbols.Symbol) (string, 
 		}
 		return d.expressionPartID(owner, "body")
 	case symbols.ExpressionBodyResult:
+		// A type body's result expression is a member of its own; a `{ … }` body's is
+		// minted off the body (result).
+		if id, ok := d.ids.OfDeclaration(d.doc, sym.Decl, ""); ok {
+			return id, true
+		}
 		return d.expressionPartID(owner, "result")
+	case symbols.ExpressionGuard:
+		return d.expressionPartID(owner, "guard")
 	case symbols.ExpressionChangeWrapper:
 		if owner.Expr == nil || owner.Expr.Owner == nil {
 			return "", false
@@ -556,11 +573,44 @@ func (d *structureDifferential) expressionGraphID(sym *symbols.Symbol) (string, 
 		return d.expressionPartID(owner.Expr.Owner, "a0")
 	case symbols.ExpressionChainFeature, symbols.ExpressionOperand:
 		return d.expressionPartID(owner, sym.Expr.Slot)
+	case symbols.ExpressionTransitionSuccession:
+		// The conversion mints a transition's succession off the transition (transitionSuccession).
+		base, ok := d.graphID(owner)
+		if !ok {
+			return "", false
+		}
+		return base + "_succession", true
+	case symbols.ExpressionConnectorEnd:
+		return d.expressionPartID(owner, fmt.Sprintf("end%d", sym.Expr.Index))
+	case symbols.ExpressionTransitionParameter:
+		// Minted off the transition as an element (emptyParameterMember).
+		base, ok := d.graphID(owner)
+		if !ok {
+			return "", false
+		}
+		return base + "_" + sym.Expr.Slot, true
+	case symbols.ExpressionTriggerAction:
+		// The trigger's accept is minted as the transition's `@trigger` member (encodeTrigger).
+		if base, ok := d.graphID(owner); ok {
+			return base + encodedSegment(naming.TriggerSegment), true
+		}
+	case symbols.ExpressionPayload:
+		if id, ok := d.ids.OfDeclaration(d.doc, sym.Decl, ""); ok {
+			return id, true
+		}
+		// A time or change trigger's payload is an implied unnamed parameter of the accept.
+		if base, ok := d.graphID(owner); ok {
+			return base + encodedSegment(fmt.Sprintf("@%d", sym.Expr.Index)), true
+		}
 	}
 	if sym.Decl != nil && sym.Decl != owner.Decl {
 		if id, ok := d.ids.OfDeclaration(d.doc, sym.Decl, ""); ok {
 			return id, true
 		}
+	}
+	if sym.Expr.Role == symbols.ExpressionValue {
+		// A time or change trigger's payload is valued by the event it accepts.
+		return d.expressionPartID(owner, "value")
 	}
 	if sym.Expr.Role == symbols.ExpressionArgument {
 		// An argument under a statement's operand is minted off its position under
@@ -729,4 +779,9 @@ func (d *structureDifferential) elementID(element metamodel.Element, fromGraph b
 		return d.graphID(sym)
 	}
 	return "", false
+}
+
+// encodedSegment is how a qualified name's final segment lengthens an encoded element id.
+func encodedSegment(segment string) string {
+	return strings.TrimPrefix(rdf.EncodeElementID("x::"+segment), "x")
 }

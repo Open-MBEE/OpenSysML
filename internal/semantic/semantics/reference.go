@@ -92,6 +92,11 @@ func referenceSubsettingTarget(sym *symbols.Symbol) ast.Node {
 // feature of the connector's owner, so it resolves one scope out — the same
 // scope the document walk uses (resolve/document.go).
 func referenceScope(sym *symbols.Symbol) *symbols.Scope {
+	if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionConnectorEnd {
+		// A transition succession's end is synthesized with the scope its target
+		// is written in: the transition's owner's (SysML.xtext TransitionSuccession).
+		return sym.OwnerScope
+	}
 	if sym.Kind == symbols.SymbolConnectorEnd && sym.OwnerScope != nil {
 		return sym.OwnerScope.Parent()
 	}

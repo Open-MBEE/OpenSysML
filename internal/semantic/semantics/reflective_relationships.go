@@ -170,6 +170,9 @@ func (m *Model) implicitMetaclassName(sym *symbols.Symbol) string {
 	rel := sym.Implicit
 	switch rel.Form {
 	case symbols.ImplicitMembership:
+		if IsFilterMembership(sym) {
+			return "ElementFilterMembership"
+		}
 		return m.membershipMetaclassName(rel.Owner, rel.Member)
 	case symbols.ImplicitOwnedAnnotation, symbols.ImplicitAnnotatingRelationship:
 		return "Annotation"

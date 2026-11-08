@@ -180,6 +180,8 @@ type Model struct {
 	memberships             map[*symbols.Symbol][]*symbols.Symbol
 	valueExpressions        map[*symbols.Symbol]*symbols.Symbol
 	statementSymbols        map[*symbols.Symbol][]*symbols.Symbol
+	resultExpressionSymbols map[*symbols.Symbol][]*symbols.Symbol
+	filterMembershipSymbols map[*symbols.Symbol][]*symbols.Symbol
 	statementOwners         map[*symbols.Symbol]*symbols.Symbol
 	statementScopes         map[*symbols.Scope]*symbols.Symbol
 	statementOperandSymbols map[*symbols.Symbol][]*symbols.Symbol

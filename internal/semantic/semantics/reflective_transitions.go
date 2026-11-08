@@ -19,6 +19,17 @@ type transitionParts struct {
 	receiver      *symbols.Symbol
 	receiverValue *symbols.Symbol
 	guard         *symbols.Symbol
+	// succession is the SuccessionAsUsage the `then` clause owns (SysML.xtext
+	// TransitionSuccessionMember), sourceEnd its empty source end and targetEnd the
+	// end referring to the target, as the conversion writes them.
+	succession *symbols.Symbol
+	sourceEnd  *symbols.Symbol
+	targetEnd  *symbols.Symbol
+	// linkParameter and triggerParameter are the implied `in` parameters a transition
+	// owns ahead of its trigger (SysML v2 §8.3.16.15; SysML-textual-bnf EmptyParameterMember),
+	// the second only where a trigger declares a payload.
+	linkParameter    *symbols.Symbol
+	triggerParameter *symbols.Symbol
 }
 
 // acceptParameters are the payload and receiver parameters of the trigger accept sym, in that
@@ -49,7 +60,8 @@ func (p *transitionParts) parameterValue(param *symbols.Symbol) *symbols.Symbol 
 // read answers the same identities; nil for any other symbol.
 func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
 	trans, ok := transitionDecl(sym)
-	if !ok || m == nil {
+	branch, isBranch := transitionBranchDecl(sym)
+	if !ok && !isBranch || m == nil {
 		return nil
 	}
 	defer m.own(sym).LeaveDoc()
@@ -61,16 +73,38 @@ func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
 	}
 	journal(m, m.transitionParts, sym, sym.Decl)
 	parts := &transitionParts{}
+	if !isBranch && !trans.IsSuccession {
+		parts.linkParameter = transitionParameter(sym, "linkparam")
+		if payload, event := triggerPayload(trans); payload != nil || event != nil {
+			parts.triggerParameter = transitionParameter(sym, "triggerparam")
+		}
+	}
+	if isBranch {
+		if branch.Guard != nil {
+			parts.guard = transitionPart(sym, branch.Guard, branch.Guard.Span(), symbols.SymbolExpression, sym, symbols.ExpressionGuard)
+		}
+		parts.withSuccession(sym, branch.Target)
+		m.transitionParts[sym] = parts
+		return parts
+	}
 	if payload, event := triggerPayload(trans); payload != nil || event != nil {
 		if payload != nil && payload.Value != nil {
 			event = payload.Value
 		}
-		parts.accepter = transitionPart(sym, trans.Trigger, trans.TriggerSpan, symbols.SymbolActionUsage, sym, symbols.ExpressionTriggerAction)
+		// The trigger's accept is an unnamed composite action of its own (SysML.xtext
+		// TriggerActionMember); the trigger node itself is its payload or event.
+		accept := &ast.Usage{Kind: ast.UsageAction}
+		accept.NodeSpan = trans.TriggerSpan
+		parts.accepter = transitionPart(sym, accept, trans.TriggerSpan, symbols.SymbolActionUsage, sym, symbols.ExpressionTriggerAction)
 		var decl ast.Node = payload
 		if payload == nil {
 			decl = event
 		}
 		parts.payload = transitionPart(sym, decl, decl.Span(), symbols.SymbolReferenceUsage, parts.accepter, symbols.ExpressionPayload)
+		if payload != nil {
+			// `accept s : Sig` names the payload parameter (SysML.xtext TriggerActionMember).
+			parts.payload.Name, parts.payload.NameSpan = ast.EffectiveName(payload)
+		}
 		if event != nil {
 			parts.payloadValue = transitionPart(sym, event, event.Span(), symbols.SymbolExpression, parts.payload, symbols.ExpressionValue)
 		}
@@ -89,8 +123,47 @@ func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
 	if trans.Guard != nil {
 		parts.guard = transitionPart(sym, trans.Guard, trans.Guard.Span(), symbols.SymbolExpression, sym, symbols.ExpressionGuard)
 	}
+	if !trans.IsSuccession {
+		// The `then` succession follows the trigger, guard and effect (SysML.xtext
+		// TransitionUsage); the conversion writes it ahead of them (encodeTransition).
+		parts.withSuccession(sym, trans.Target)
+	}
 	m.transitionParts[sym] = parts
 	return parts
+}
+
+// withSuccession synthesizes the succession the transition trans owns for `then target`
+// (SysML.xtext TransitionSuccession): an empty source end and an end referring to the
+// target, each an end feature the succession owns, resolved where the transition is written.
+func (p *transitionParts) withSuccession(trans *symbols.Symbol, target *ast.QualifiedName) {
+	if target == nil {
+		return
+	}
+	span := target.Span()
+	p.succession = transitionPart(trans, trans.Decl, span, symbols.SymbolSuccessionUsage, trans, symbols.ExpressionTransitionSuccession)
+	empty := &ast.ConnectorEnd{}
+	empty.NodeSpan = source.Span{Offset: span.Offset}
+	p.sourceEnd = transitionPart(trans, empty, empty.NodeSpan, symbols.SymbolConnectorEnd, p.succession, symbols.ExpressionConnectorEnd)
+	end := &ast.ConnectorEnd{Target: target}
+	end.NodeSpan = span
+	p.targetEnd = transitionPart(trans, end, span, symbols.SymbolConnectorEnd, p.succession, symbols.ExpressionConnectorEnd)
+	p.targetEnd.Expr.Index = 1
+	for _, part := range []*symbols.Symbol{p.succession, p.sourceEnd, p.targetEnd} {
+		part.OwnerScope = trans.OwnerScope
+	}
+}
+
+// successionEnds are the ends of a transition's synthesized succession sym, in order; nil
+// for any other symbol.
+func (m *Model) successionEnds(sym *symbols.Symbol) []*symbols.Symbol {
+	if sym == nil || sym.Expr == nil || sym.Expr.Role != symbols.ExpressionTransitionSuccession {
+		return nil
+	}
+	parts := m.transitionPartsOf(sym.Expr.Owner)
+	if parts == nil || parts.succession != sym {
+		return nil
+	}
+	return []*symbols.Symbol{parts.sourceEnd, parts.targetEnd}
 }
 
 func transitionPart(trans *symbols.Symbol, decl ast.Node, span source.Span, kind symbols.SymbolKind,
@@ -103,6 +176,16 @@ func transitionPart(trans *symbols.Symbol, decl ast.Node, span source.Span, kind
 		Visibility: trans.Visibility,
 		Expr:       &symbols.ExpressionElement{Owner: owner, Role: role},
 	}
+}
+
+// transitionBranchDecl is the decision branch sym is synthesized for (`if g then b;`,
+// `else b;`), a transition usage that owns a guard and a succession but no trigger.
+func transitionBranchDecl(sym *symbols.Symbol) (*ast.ControlFlowEdge, bool) {
+	if sym == nil || sym.Implicit != nil || sym.Expr != nil {
+		return nil, false
+	}
+	branch, ok := sym.Decl.(*ast.ControlFlowEdge)
+	return branch, ok
 }
 
 func transitionDecl(sym *symbols.Symbol) (*ast.TransitionMember, bool) {
@@ -183,12 +266,28 @@ func (m *Model) transitionMembers(sym *symbols.Symbol) []*symbols.Symbol {
 		return nil
 	}
 	var out []*symbols.Symbol
-	for _, part := range []*symbols.Symbol{parts.accepter, parts.guard} {
+	for _, part := range []*symbols.Symbol{parts.linkParameter, parts.triggerParameter, parts.succession, parts.accepter, parts.guard} {
 		if part != nil {
 			out = append(out, part)
 		}
 	}
 	return out
+}
+
+// transitionParameter synthesizes an implied parameter of trans at slot, placed at the
+// transition's start as the conversion orders it (transitionHeadMembers).
+func transitionParameter(trans *symbols.Symbol, slot string) *symbols.Symbol {
+	decl := &ast.Usage{Kind: ast.UsageAttribute, IsReference: true, Direction: ast.DirIn}
+	decl.NodeSpan = source.Span{Offset: trans.DeclSpan.Offset}
+	part := transitionPart(trans, decl, decl.NodeSpan, symbols.SymbolReferenceUsage, trans, symbols.ExpressionTransitionParameter)
+	part.Expr.Slot = slot
+	part.OwnerScope = trans.OwnerScope
+	return part
+}
+
+// IsTransitionParameter reports whether sym is an implied parameter of a transition.
+func IsTransitionParameter(sym *symbols.Symbol) bool {
+	return sym != nil && sym.Expr != nil && sym.Expr.Role == symbols.ExpressionTransitionParameter
 }
 
 // withTransitionParts places a transition's trigger accept and guard among its members, in
@@ -265,4 +364,23 @@ func triggerKind(node ast.Node) string {
 		return "after"
 	}
 	return ""
+}
+
+// triggerPayloadElement is the element sym stands for: a transition's recorded trigger
+// payload is the payload parameter of the synthesized trigger accept; any other symbol is itself.
+func (m *Model) triggerPayloadElement(sym *symbols.Symbol) *symbols.Symbol {
+	if trans := sym.Owner(); trans != nil && m.isRecordedTriggerPayload(trans, sym) {
+		return m.transitionPartsOf(trans).payload
+	}
+	return sym
+}
+
+// isRecordedTriggerPayload reports whether member is the symbol the builder recorded for
+// trans's trigger payload, which the synthesized payload part of the trigger's accept stands for.
+func (m *Model) isRecordedTriggerPayload(trans, member *symbols.Symbol) bool {
+	if member == nil || member.Decl == nil || member.Expr != nil || member.Implicit != nil {
+		return false
+	}
+	parts := m.transitionPartsOf(trans)
+	return parts != nil && parts.accepter != nil && parts.payload != nil && parts.payload.Decl == member.Decl
 }
