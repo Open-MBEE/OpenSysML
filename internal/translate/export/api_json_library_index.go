@@ -1,6 +1,7 @@
 package export
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"maps"
 	"slices"
 	"strings"
@@ -187,7 +188,7 @@ func addNamedLibraryStub(graph *rdf.Graph, subject rdf.Term, library *identity.L
 	}
 	graph.Add(subject, rdf.SysMLTerm(pElementID), rdf.String(library.ID))
 	graph.Add(subject, rdf.SysMLTerm(pQualifiedName), rdf.String(library.FQN))
-	if declared, _ := declaredNameAndMembers(library.Symbol.Decl); declared != "" {
+	if declared, _ := naming.DeclaredNameAndMembers(library.Symbol.Decl); declared != "" {
 		graph.Add(subject, rdf.SysMLTerm(pDeclaredName), rdf.String(declared))
 	}
 	graph.Add(subject, rdf.SysMLTerm(pIsLibraryElement), rdf.Bool(true))

@@ -381,7 +381,7 @@ func (m *cachedModel) positionalDocuments() []symbolfacts.PositionalDocument {
 		if root == nil {
 			continue
 		}
-		docs = append(docs, symbolfacts.PositionalDocument{File: document.source, Root: root})
+		docs = append(docs, symbolfacts.PositionalDocument{File: document.source, Root: document.root, Scope: root})
 	}
 	return docs
 }
