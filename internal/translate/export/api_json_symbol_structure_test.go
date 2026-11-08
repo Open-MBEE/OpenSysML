@@ -475,6 +475,10 @@ func (d *structureDifferential) implicitGraphID(rel *symbols.ImplicitRelationshi
 		if rel.Member == nil {
 			return "", false
 		}
+		if _, ok := rel.Decl.(*ast.FilterMember); ok {
+			// A `filter` member is written as the ElementFilterMembership itself.
+			return d.ids.OfDeclaration(d.doc, rel.Decl, "")
+		}
 		if id, ok := d.ids.OwningMembershipOfDeclaration(d.doc, rel.Member.Decl, d.fqn(rel.Member)); ok && rel.Member.Expr == nil {
 			return id, true
 		}
@@ -548,7 +552,14 @@ func (d *structureDifferential) expressionGraphID(sym *symbols.Symbol) (string, 
 		}
 		return d.expressionPartID(owner, "body")
 	case symbols.ExpressionBodyResult:
+		// A type body's result expression is a member of its own; a `{ … }` body's is
+		// minted off the body (result).
+		if id, ok := d.ids.OfDeclaration(d.doc, sym.Decl, ""); ok {
+			return id, true
+		}
 		return d.expressionPartID(owner, "result")
+	case symbols.ExpressionGuard:
+		return d.expressionPartID(owner, "guard")
 	case symbols.ExpressionChangeWrapper:
 		if owner.Expr == nil || owner.Expr.Owner == nil {
 			return "", false
@@ -556,6 +567,15 @@ func (d *structureDifferential) expressionGraphID(sym *symbols.Symbol) (string, 
 		return d.expressionPartID(owner.Expr.Owner, "a0")
 	case symbols.ExpressionChainFeature, symbols.ExpressionOperand:
 		return d.expressionPartID(owner, sym.Expr.Slot)
+	case symbols.ExpressionTransitionSuccession:
+		// The conversion mints a transition's succession off the transition (transitionSuccession).
+		base, ok := d.graphID(owner)
+		if !ok {
+			return "", false
+		}
+		return base + "_succession", true
+	case symbols.ExpressionConnectorEnd:
+		return d.expressionPartID(owner, fmt.Sprintf("end%d", sym.Expr.Index))
 	}
 	if sym.Decl != nil && sym.Decl != owner.Decl {
 		if id, ok := d.ids.OfDeclaration(d.doc, sym.Decl, ""); ok {

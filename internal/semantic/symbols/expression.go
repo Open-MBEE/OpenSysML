@@ -45,6 +45,12 @@ const (
 	// ExpressionOperand is an expression an action node statement writes at a slot of its own
 	// (the `if` condition, an assignment's target and value, `send` payload and receiver, ...).
 	ExpressionOperand
+	// ExpressionTransitionSuccession is the succession a transition owns for its
+	// `then` clause (SysML.xtext TransitionSuccessionMember), and
+	// ExpressionConnectorEnd an end of that succession, Index 0 its empty source end
+	// and 1 the end referring to the target.
+	ExpressionTransitionSuccession
+	ExpressionConnectorEnd
 )
 
 // ExpressionElement is the side record of a symbol the reflective layer

@@ -1153,6 +1153,8 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 		return "PerformActionUsage"
 	case *ast.SendStatement:
 		return "SendActionUsage"
+	case *ast.ControlFlowEdge:
+		return "TransitionUsage"
 	case *ast.Usage:
 		if IsFlowPayload(sym) {
 			return "PayloadFeature"

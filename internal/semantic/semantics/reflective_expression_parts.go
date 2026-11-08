@@ -61,8 +61,10 @@ func expressionElementMetaclassName(sym *symbols.Symbol) string {
 			return "Expression"
 		case symbols.ExpressionTriggerAction:
 			return "AcceptActionUsage"
-		case symbols.ExpressionPayload:
+		case symbols.ExpressionPayload, symbols.ExpressionConnectorEnd:
 			return "ReferenceUsage"
+		case symbols.ExpressionTransitionSuccession:
+			return "SuccessionAsUsage"
 		}
 	}
 	if isSatisfySubjectChainValue(sym) {
@@ -381,7 +383,12 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		return out
 	}
 	var out []*symbols.Symbol
-	if parts := m.acceptParts(sym); parts != nil {
+	if ends := m.successionEnds(sym); ends != nil {
+		// A transition's succession owns its two ends (SysML.xtext TransitionSuccession).
+		for _, end := range ends {
+			out = appendOwningMembership(out, sym, end)
+		}
+	} else if parts := m.acceptParts(sym); parts != nil {
 		// A trigger's accept owns its payload and receiver parameters, which own their values.
 		members := m.acceptParameters(sym)
 		if sym.Expr.Role == symbols.ExpressionPayload {

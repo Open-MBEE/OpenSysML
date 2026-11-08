@@ -110,6 +110,10 @@ func IsStatementNode(node ast.Node) bool {
 	case *ast.IfActionNode, *ast.IfBranchNode, *ast.WhileLoopActionNode, *ast.AssignmentActionNode,
 		*ast.TerminateStatement, *ast.PerformActionNode, *ast.ActionExecutionNode:
 		return true
+	case *ast.ControlFlowEdge:
+		// A decision's branch (`if g then b;`, `else b;`) is a transition usage
+		// owning its guard and a succession (SysML.xtext TargetTransitionUsage).
+		return true
 	}
 	return false
 }

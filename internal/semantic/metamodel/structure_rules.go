@@ -1323,7 +1323,7 @@ func (e *Evaluator) structureTransitionEndpoint(element Element, endpoint string
 		}
 		return structurePropertyCardinality(filtered, true)
 	}
-	node := structureElementNode(element)
+	node := e.structureNodeOf(element)
 	owner, known := e.structureSemanticOwnerSymbol(element)
 	if !known {
 		e.recordUnsupportedReason(element, "TransitionUsage", endpoint, Reason{
@@ -1623,13 +1623,33 @@ func (e *Evaluator) structureActionSuccessionOwner(node ast.Node) (*symbols.Symb
 	return nil, false
 }
 
+// symbolBackedStructure is a Structure whose elements project symbols of the semantic
+// model (SymbolStructure), so a rule can read the model's own derivation for them.
+type symbolBackedStructure interface {
+	SymbolOf(Element) (*symbols.Symbol, bool)
+	ElementFor(*symbols.Symbol) Element
+}
+
+// structureSymbolOf is the symbol element projects, where the Structure is symbol-backed.
+func (e *Evaluator) structureSymbolOf(element Element) (*symbols.Symbol, bool) {
+	if element.Symbol != nil {
+		return element.Symbol, true
+	}
+	if resolver, ok := e.options.Structure.(symbolBackedStructure); ok {
+		if sym, found := resolver.SymbolOf(element); found && sym != nil {
+			return sym, true
+		}
+	}
+	return nil, false
+}
+
 func (e *Evaluator) structureSemanticOwnerSymbol(element Element) (*symbols.Symbol, bool) {
 	owner, present, known := e.structureOwnerElement(element)
 	if !known || !present || e.model == nil {
 		return e.structureActionSuccessionOwner(structureElementNode(element))
 	}
-	if owner.Symbol != nil {
-		return owner.Symbol, true
+	if sym, ok := e.structureSymbolOf(owner); ok {
+		return sym, true
 	}
 	if owner.Node == nil {
 		return e.structureActionSuccessionOwner(structureElementNode(element))
@@ -1643,6 +1663,18 @@ func (e *Evaluator) structureSemanticOwnerSymbol(element Element) (*symbols.Symb
 		return symbol, true
 	}
 	return e.structureActionSuccessionOwner(structureElementNode(element))
+}
+
+// structureNodeOf is the notation node element stands for: its own, or its
+// symbol's declaration where the Structure is symbol-backed.
+func (e *Evaluator) structureNodeOf(element Element) ast.Node {
+	if node := structureElementNode(element); node != nil {
+		return node
+	}
+	if sym, ok := e.structureSymbolOf(element); ok {
+		return sym.Decl
+	}
+	return nil
 }
 
 func structureElementNode(element Element) ast.Node {
@@ -5546,10 +5578,7 @@ func (e *Evaluator) structureFeatureTypes(element Element) (Value, bool, bool) {
 		e.recordUnsupportedReason(element, "Feature", "type", reason)
 		return Value{}, true, false
 	}
-	if resolver, ok := e.options.Structure.(interface {
-		SymbolOf(Element) (*symbols.Symbol, bool)
-		ElementFor(*symbols.Symbol) Element
-	}); ok && e.model != nil {
+	if resolver, ok := e.options.Structure.(symbolBackedStructure); ok && e.model != nil {
 		// One derivation for every surface: the Symbol facts answer Feature::type
 		// from the semantic model, so the structure reads the same answer.
 		if sym, found := resolver.SymbolOf(element); found && sym != nil {

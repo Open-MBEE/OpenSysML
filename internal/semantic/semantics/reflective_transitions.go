@@ -19,6 +19,12 @@ type transitionParts struct {
 	receiver      *symbols.Symbol
 	receiverValue *symbols.Symbol
 	guard         *symbols.Symbol
+	// succession is the SuccessionAsUsage the `then` clause owns (SysML.xtext
+	// TransitionSuccessionMember), sourceEnd its empty source end and targetEnd the
+	// end referring to the target, as the conversion writes them.
+	succession *symbols.Symbol
+	sourceEnd  *symbols.Symbol
+	targetEnd  *symbols.Symbol
 }
 
 // acceptParameters are the payload and receiver parameters of the trigger accept sym, in that
@@ -49,7 +55,8 @@ func (p *transitionParts) parameterValue(param *symbols.Symbol) *symbols.Symbol 
 // read answers the same identities; nil for any other symbol.
 func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
 	trans, ok := transitionDecl(sym)
-	if !ok || m == nil {
+	branch, isBranch := transitionBranchDecl(sym)
+	if !ok && !isBranch || m == nil {
 		return nil
 	}
 	defer m.own(sym).LeaveDoc()
@@ -61,6 +68,14 @@ func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
 	}
 	journal(m, m.transitionParts, sym, sym.Decl)
 	parts := &transitionParts{}
+	if isBranch {
+		if branch.Guard != nil {
+			parts.guard = transitionPart(sym, branch.Guard, branch.Guard.Span(), symbols.SymbolExpression, sym, symbols.ExpressionGuard)
+		}
+		parts.withSuccession(sym, branch.Target)
+		m.transitionParts[sym] = parts
+		return parts
+	}
 	if payload, event := triggerPayload(trans); payload != nil || event != nil {
 		if payload != nil && payload.Value != nil {
 			event = payload.Value
@@ -89,8 +104,49 @@ func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
 	if trans.Guard != nil {
 		parts.guard = transitionPart(sym, trans.Guard, trans.Guard.Span(), symbols.SymbolExpression, sym, symbols.ExpressionGuard)
 	}
+	if !trans.IsSuccession {
+		// The conversion writes the succession ahead of the trigger and guard (encodeTransition).
+		parts.withSuccession(sym, trans.Target)
+		if parts.succession != nil {
+			parts.succession.DeclSpan = source.Span{Offset: sym.DeclSpan.Offset}
+		}
+	}
 	m.transitionParts[sym] = parts
 	return parts
+}
+
+// withSuccession synthesizes the succession the transition trans owns for `then target`
+// (SysML.xtext TransitionSuccession): an empty source end and an end referring to the
+// target, each an end feature the succession owns, resolved where the transition is written.
+func (p *transitionParts) withSuccession(trans *symbols.Symbol, target *ast.QualifiedName) {
+	if target == nil {
+		return
+	}
+	span := target.Span()
+	p.succession = transitionPart(trans, trans.Decl, span, symbols.SymbolSuccessionUsage, trans, symbols.ExpressionTransitionSuccession)
+	empty := &ast.ConnectorEnd{}
+	empty.NodeSpan = source.Span{Offset: span.Offset}
+	p.sourceEnd = transitionPart(trans, empty, empty.NodeSpan, symbols.SymbolConnectorEnd, p.succession, symbols.ExpressionConnectorEnd)
+	end := &ast.ConnectorEnd{Target: target}
+	end.NodeSpan = span
+	p.targetEnd = transitionPart(trans, end, span, symbols.SymbolConnectorEnd, p.succession, symbols.ExpressionConnectorEnd)
+	p.targetEnd.Expr.Index = 1
+	for _, part := range []*symbols.Symbol{p.succession, p.sourceEnd, p.targetEnd} {
+		part.OwnerScope = trans.OwnerScope
+	}
+}
+
+// successionEnds are the ends of a transition's synthesized succession sym, in order; nil
+// for any other symbol.
+func (m *Model) successionEnds(sym *symbols.Symbol) []*symbols.Symbol {
+	if sym == nil || sym.Expr == nil || sym.Expr.Role != symbols.ExpressionTransitionSuccession {
+		return nil
+	}
+	parts := m.transitionPartsOf(sym.Expr.Owner)
+	if parts == nil || parts.succession != sym {
+		return nil
+	}
+	return []*symbols.Symbol{parts.sourceEnd, parts.targetEnd}
 }
 
 func transitionPart(trans *symbols.Symbol, decl ast.Node, span source.Span, kind symbols.SymbolKind,
@@ -103,6 +159,16 @@ func transitionPart(trans *symbols.Symbol, decl ast.Node, span source.Span, kind
 		Visibility: trans.Visibility,
 		Expr:       &symbols.ExpressionElement{Owner: owner, Role: role},
 	}
+}
+
+// transitionBranchDecl is the decision branch sym is synthesized for (`if g then b;`,
+// `else b;`), a transition usage that owns a guard and a succession but no trigger.
+func transitionBranchDecl(sym *symbols.Symbol) (*ast.ControlFlowEdge, bool) {
+	if sym == nil || sym.Implicit != nil || sym.Expr != nil {
+		return nil, false
+	}
+	branch, ok := sym.Decl.(*ast.ControlFlowEdge)
+	return branch, ok
 }
 
 func transitionDecl(sym *symbols.Symbol) (*ast.TransitionMember, bool) {
@@ -183,7 +249,7 @@ func (m *Model) transitionMembers(sym *symbols.Symbol) []*symbols.Symbol {
 		return nil
 	}
 	var out []*symbols.Symbol
-	for _, part := range []*symbols.Symbol{parts.accepter, parts.guard} {
+	for _, part := range []*symbols.Symbol{parts.accepter, parts.guard, parts.succession} {
 		if part != nil {
 			out = append(out, part)
 		}

@@ -33,6 +33,13 @@ func TestTransitionFeatureKindsReadTheirLiteral(t *testing.T) {
 	t1 := nested(t, sm, "t1")
 	var kinds []string
 	for _, membership := range m.OwnedMemberships(t1) {
+		if membership.Implicit != nil && membership.Implicit.Member != nil {
+			// The `then busy` succession is owned through an OwningMembership
+			// (SysML.xtext TransitionSuccessionMember), not a transition feature.
+			if meta := m.MetaclassOf(membership.Implicit.Member); meta != nil && meta.Name == "SuccessionAsUsage" {
+				continue
+			}
+		}
 		if meta := m.MetaclassOf(membership); meta == nil || meta.Name != "TransitionFeatureMembership" {
 			t.Errorf("t1 owns a %v, want only TransitionFeatureMemberships", meta)
 			continue

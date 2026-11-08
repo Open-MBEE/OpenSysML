@@ -28,7 +28,9 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	value := m.ValueExpression(sym)
 	statements := append(m.statementOperands(sym), m.statementNodes(sym)...)
-	if sym.Scope == nil && value == nil && len(statements) == 0 {
+	parts := m.transitionMembers(sym)
+	bodyParts := len(m.resultExpressionMembers(sym)) + len(m.filterMemberships(sym))
+	if sym.Scope == nil && value == nil && len(statements) == 0 && len(parts) == 0 && bodyParts == 0 {
 		return nil
 	}
 	journal(m, m.memberships, sym, sym.Decl)
@@ -50,7 +52,7 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		})
 		ordinal++
 	}
-	if sym.Scope == nil && len(statements) == 0 {
+	if sym.Scope == nil && len(statements) == 0 && len(parts) == 0 && bodyParts == 0 {
 		out = m.withDefaultMultiplicity(sym, out, ordinal)
 		m.memberships[sym] = out
 		return out
@@ -68,7 +70,11 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		ordinal++
 	}
 	if sym.Scope == nil {
-		out = m.withDefaultMultiplicity(sym, out, ordinal)
+		if len(parts) > 0 {
+			out = m.withTransitionMemberships(sym, out, parts)
+		}
+		out = m.withBodyPartMemberships(sym, out)
+		out = m.withDefaultMultiplicity(sym, out, len(out))
 		m.memberships[sym] = out
 		return out
 	}
@@ -113,12 +119,29 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		ordinal++
 		return true
 	})
-	if parts := m.transitionMembers(sym); len(parts) > 0 {
+	if len(parts) > 0 {
 		out = m.withTransitionMemberships(sym, out, parts)
 	}
+	out = m.withBodyPartMemberships(sym, out)
 	out = m.withDefaultMultiplicity(sym, out, len(out))
 	m.memberships[sym] = out
 	return out
+}
+
+// withBodyPartMemberships places the ResultExpressionMemberships and
+// ElementFilterMemberships a body writes without declaring a member among out.
+func (m *Model) withBodyPartMemberships(sym *symbols.Symbol, out []*symbols.Symbol) []*symbols.Symbol {
+	var extra []*symbols.Symbol
+	for _, result := range m.resultExpressionMembers(sym) {
+		extra = append(extra, &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    sym.DocName,
+			DeclSpan:   result.DeclSpan,
+			Visibility: result.Visibility,
+			Implicit:   &symbols.ImplicitRelationship{Owner: sym, Form: symbols.ImplicitMembership, Member: result},
+		})
+	}
+	return mergeMemberships(out, append(extra, m.filterMemberships(sym)...))
 }
 
 // withDefaultMultiplicity adds the OwningMembership of the Multiplicity sym states
@@ -161,8 +184,9 @@ func (m *Model) withDefaultMultiplicity(sym *symbols.Symbol, memberships []*symb
 // withTransitionMemberships places the memberships of a transition's trigger accept and guard
 // among its scope's, in the source order the conversion writes them.
 func (m *Model) withTransitionMemberships(sym *symbols.Symbol, out, parts []*symbols.Symbol) []*symbols.Symbol {
+	var extra []*symbols.Symbol
 	for _, part := range parts {
-		out = append(out, &symbols.Symbol{
+		extra = append(extra, &symbols.Symbol{
 			Kind:       symbols.SymbolRelationship,
 			DocName:    sym.DocName,
 			DeclSpan:   part.DeclSpan,
@@ -170,13 +194,7 @@ func (m *Model) withTransitionMemberships(sym *symbols.Symbol, out, parts []*sym
 			Implicit:   &symbols.ImplicitRelationship{Owner: sym, Form: symbols.ImplicitMembership, Member: part},
 		})
 	}
-	sort.SliceStable(out, func(i, j int) bool { return out[i].DeclSpan.Offset < out[j].DeclSpan.Offset })
-	for i, membership := range out {
-		if membership.Implicit != nil {
-			membership.Implicit.Ordinal = i
-		}
-	}
-	return out
+	return mergeMemberships(out, extra)
 }
 
 // isSatisfySubjectSymbol reports whether sym is the subject parameter a satisfy
@@ -393,6 +411,10 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 			return "TransitionFeatureMembership"
 		case symbols.ExpressionPayload:
 			return "ParameterMembership"
+		case symbols.ExpressionTransitionSuccession:
+			return "OwningMembership"
+		case symbols.ExpressionConnectorEnd:
+			return "EndFeatureMembership"
 		case symbols.ExpressionOperand:
 			switch member.Expr.Slot {
 			case "condition":
