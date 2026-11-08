@@ -56,3 +56,23 @@ func TestSubjectIsAReferenceUsageParameter(t *testing.T) {
 		}
 	}
 }
+
+// A recorded subject (a library's, a cached index's) is a subject too: the role
+// reads the recorded facts, not a declaration a recorded symbol lacks.
+func TestRecordedSubjectIsASubjectUsage(t *testing.T) {
+	const src = `package P {
+		part def Subsystem;
+		requirement def MassLimit { subject sub : Subsystem; }
+		use case def ObserveTarget { subject obs : Subsystem; actor who : Subsystem; }
+	}`
+	for _, fixture := range reflectiveFixtures(t, "recorded-subject.sysml", source.KindSysML, src) {
+		for _, path := range []string{"P::MassLimit::sub", "P::ObserveTarget::obs"} {
+			if sym := nestedSym(t, fixture.root, path); !IsSubjectUsage(sym) {
+				t.Errorf("%s (recorded %t) is no subject usage", path, sym.Recorded())
+			}
+		}
+		if actor := nestedSym(t, fixture.root, "P::ObserveTarget::who"); IsSubjectUsage(actor) {
+			t.Errorf("actor (recorded %t) is a subject usage", actor.Recorded())
+		}
+	}
+}
