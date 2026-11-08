@@ -60,6 +60,20 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 		}
 		ordinal++
 	}
+	// A metadata body feature without a `:>>` clause redefines the metadata
+	// type's feature its name restates (KerML 7.4.7; SysML.xtext MetadataBodyUsage).
+	for _, target := range m.implicitMetadataBodyRedefinitions(owner) {
+		out = append(out, &symbols.Symbol{
+			Kind:     symbols.SymbolRelationship,
+			DocName:  owner.DocName,
+			DeclSpan: owner.DeclSpan,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: owner, Ordinal: ordinal, Kind: ast.RelRedefines,
+				Form: symbols.ImplicitMetadataBodyRedefinition, Member: target,
+			},
+		})
+		ordinal++
+	}
 	// A connector end reference-subsets the feature it attaches to whether or
 	// not a clause of its own says so (SysML v2 8.2.2.13.1).
 	if end, ok := owner.Decl.(*ast.ConnectorEnd); ok {
@@ -169,6 +183,8 @@ func (m *Model) implicitMetaclassName(sym *symbols.Symbol) string {
 		return m.importMetaclassName(sym)
 	case symbols.ImplicitPortConjugation:
 		return "PortConjugation"
+	case symbols.ImplicitMetadataBodyRedefinition:
+		return "Redefinition"
 	case symbols.ImplicitReferenceMembership:
 		return "Membership"
 	case symbols.ImplicitFeatureChaining:
@@ -316,6 +332,9 @@ func relationshipEndFeature(meta, feature string) (sourceSide, targetSide bool) 
 func (m *Model) implicitRelationshipEnds(sym *symbols.Symbol) (src, tgt *symbols.Symbol, tgtOK bool) {
 	rel := sym.Implicit
 	src = rel.Owner
+	if rel.Form == symbols.ImplicitMetadataBodyRedefinition {
+		return src, rel.Member, rel.Member != nil
+	}
 	if rel.Node != nil {
 		// A chain target's general is the implicit chaining feature the chain
 		// denotes as a whole (KerML 8.3.3.3.9), never the chain's final feature.

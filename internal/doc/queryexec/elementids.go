@@ -204,7 +204,8 @@ func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbo
 			return id, true, err
 		}
 		return "", true, nil
-	case symbols.ImplicitPortConjugation:
+	case symbols.ImplicitPortConjugation, symbols.ImplicitMetadataBodyRedefinition:
+		// The conversion keys a relationship the declaration states without a clause by the declaration.
 		if rel.Owner != nil && rel.Owner.Decl != nil {
 			id, err = read.ReadRelationship(rel.Owner.DocName, rel.Owner.Decl)
 			return id, true, err
