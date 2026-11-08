@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 
@@ -63,9 +64,6 @@ type Parser struct {
 	// commentNext indexes the first of comments not yet judged by a member
 	// position: the ones before it were read as Comment members or left as trivia.
 	commentNext int
-	// emitted counts, per member position, the Comment members memberStart returned
-	// there, which markAttached takes back when the member continues the one before.
-	emitted map[int]int
 	// recovered are the Comment members a recovery admitted ahead of the member
 	// being parsed, for the body to take before that member.
 	recovered []ast.Node
@@ -595,14 +593,7 @@ func (p *Parser) spanFrom(start int) source.Span {
 // before it are: a bare `/* */` there is a Comment with neither name nor `about` (KerML.xtext Comment).
 func (p *Parser) memberStart() []ast.Node {
 	p.memberStarts = append(p.memberStarts, p.peek().Span.Offset)
-	members := p.commentMembers()
-	if len(members) > 0 {
-		if p.emitted == nil {
-			p.emitted = map[int]int{}
-		}
-		p.emitted[p.peek().Span.Offset] += len(members)
-	}
-	return members
+	return p.commentMembers()
 }
 
 // closeComments returns the Comment members before the `}` or EOF closing a body; after a
@@ -712,9 +703,28 @@ func (p *Parser) markAttached(m ast.Node, members []ast.Node) []ast.Node {
 // untakeComments drops the Comment members memberStart returned at the position at, once
 // it turned out to continue the member before it; they are reported as trivia instead.
 func (p *Parser) untakeComments(members []ast.Node, at int) []ast.Node {
-	n := p.emitted[at]
-	delete(p.emitted, at)
-	return members[:len(members)-n]
+	n := len(members)
+	for n > 0 && p.isCommentBefore(members[n-1], at) {
+		n--
+	}
+	return members[:n]
+}
+
+// isCommentBefore reports whether m is the Comment member memberStart made of a bare
+// regular comment whose next significant token is the one at off.
+func (p *Parser) isCommentBefore(m ast.Node, off int) bool {
+	ms, ok := m.(*ast.Membership)
+	if !ok {
+		return false
+	}
+	c, ok := ms.Member.(*ast.Comment)
+	if !ok || c.NodeSpan != c.BodySpan {
+		return false
+	}
+	i, found := slices.BinarySearchFunc(p.comments, c.BodySpan.Offset, func(pc pendingComment, want int) int {
+		return cmp.Compare(pc.span.Offset, want)
+	})
+	return found && p.comments[i].next.Span.Offset == off
 }
 
 // reportMisplacedComments warns on each regular comment written where the
