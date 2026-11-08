@@ -2770,7 +2770,8 @@ pub struct Rational {
 /// (`declaredName`, `ownedFeature`, ...) are read in the model, not carried.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Metaobject {
-    /// FQN of the element reflected on ("Vehicle::seatBelt"). Its identity.
+    /// The id a client keeps for the element: its FQN ("Vehicle::seatBelt"), an unnamed member's
+    /// positional id ("Vehicle::@2") or a synthesized element's form @id ("Vehicle__send___400_pvalue").
     #[prost(string, tag="1")]
     pub element_id: ::prost::alloc::string::String,
     /// FQN of the element's own reflective metaclass ("SysML::Systems::PartUsage"),

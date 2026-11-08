@@ -1,0 +1,11 @@
+{
+  "rpc": "Evaluate",
+  "expression": "Anonymous::features",
+  "expected_result": {
+    "kind": "sequence",
+    "elements": [
+      {"kind": "metaobject", "value": "Anonymous::outer::@0 : SysML::Systems::PartUsage"},
+      {"kind": "metaobject", "value": "Anonymous::outer::named : SysML::Systems::PartUsage"}
+    ]
+  }
+}
