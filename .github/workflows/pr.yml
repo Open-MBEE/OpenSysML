@@ -64,6 +64,7 @@ jobs:
       tier: ${{ steps.tier.outputs.tier }}
       go_shards: ${{ steps.tier.outputs.go_shards }}
       go: ${{ steps.areas.outputs.go }}
+      apijson: ${{ steps.areas.outputs.apijson }}
       docs: ${{ steps.areas.outputs.docs }}
       node: ${{ steps.areas.outputs.node }}
       python: ${{ steps.areas.outputs.python }}
@@ -636,6 +637,71 @@ jobs:
       - name: Xpect oracle reproduces its baseline
         run: go run -C tools ./cmd/pilot-xpect -check
 
+  # The derived-property differential's committed baseline
+  # (docs/project/api-json-differential-baseline.json) records the pinned
+  # pilot's side only — no digest of this repository's writer and no recording
+  # date — so a writer edit moves it only where it moves a verdict, and two
+  # branches re-recording it conflict only where their verdicts differ. What
+  # proves the figures current is re-running the differential, which needs Java,
+  # the pinned pilot jar and the corpora; it runs here on every change that can
+  # move the baseline (scripts/ci-changed-areas.sh's apijson area) rather than a
+  # day later in the oracle-reproduction workflow.
+  apijson-differential:
+    name: Derived-property differential reproduces its baseline
+    needs: changes
+    if: needs.changes.outputs.apijson == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # The pinned pilot implementation is a Java artifact and the bridge is a
+      # plain-Java program compiled against it.
+      - name: Set up Java
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Cache the pinned pilot implementation
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: build/pilot-validator
+          key: pilot-validator-${{ hashFiles('scripts/download-pilot-validator.sh', 'scripts/pilot-pin.sh') }}
+
+      - name: Download the pinned pilot JSON exporter
+        run: ./scripts/download-pilot-json-exporter.sh
+
+      - name: Provision the pinned corpora
+        uses: ./.github/actions/corpora
+
+      # Re-runs the comparison and diffs the fresh report against the committed
+      # baseline. A failure names whether the provenance moved (the pinned
+      # reference or an input changed underneath the baseline) or only the
+      # figures did: an implementation movement to adjudicate, then re-record
+      # with `go run -C tools ./cmd/pilot-apijson-diff -update`.
+      - name: Derived-property differential reproduces its baseline
+        run: go run -C tools ./cmd/pilot-apijson-diff -check
+
+      # The fresh report, so a failing run can be read without reproducing the
+      # environment.
+      - name: Upload the fresh report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pilot-apijson-diff
+          path: build/pilot-apijson-diff/
+          if-no-files-found: warn
+
   # The client jobs download this binary rather than building one, so it runs
   # whenever the service or any client does.
   build:
@@ -732,6 +798,7 @@ jobs:
       - emacs-package
       - wasm-gate
       - xpect-oracle
+      - apijson-differential
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -759,6 +826,7 @@ jobs:
           EMACS_PACKAGE_RESULT: ${{ needs.emacs-package.result }}
           WASM_GATE_RESULT: ${{ needs.wasm-gate.result }}
           XPECT_ORACLE_RESULT: ${{ needs.xpect-oracle.result }}
+          APIJSON_DIFFERENTIAL_RESULT: ${{ needs.apijson-differential.result }}
         run: |
           ok() { local result="$1"; [ "$result" = success ] || [ "$result" = skipped ]; }
           if [ "$CHANGES_RESULT" != success ] ||
@@ -780,7 +848,8 @@ jobs:
              ! ok "$JUPYTERLAB_EXTENSION_RESULT" ||
              ! ok "$EMACS_PACKAGE_RESULT" ||
              ! ok "$WASM_GATE_RESULT" ||
-             ! ok "$XPECT_ORACLE_RESULT"; then
+             ! ok "$XPECT_ORACLE_RESULT" ||
+             ! ok "$APIJSON_DIFFERENTIAL_RESULT"; then
             echo "changes=$CHANGES_RESULT"
             echo "build=$BUILD_RESULT"
             echo "mdk-plugin=$MDK_PLUGIN_RESULT"
@@ -801,6 +870,7 @@ jobs:
             echo "emacs-package=$EMACS_PACKAGE_RESULT"
             echo "wasm-gate=$WASM_GATE_RESULT"
             echo "xpect-oracle=$XPECT_ORACLE_RESULT"
+            echo "apijson-differential=$APIJSON_DIFFERENTIAL_RESULT"
             exit 1
           fi
 

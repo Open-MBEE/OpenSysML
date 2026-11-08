@@ -1,13 +1,16 @@
 name: Oracle reproduction
 
-# The three oracle baselines under docs/project/ are only as true as their last
-# recorded run. Re-running the differential and rejection oracles needs Java,
-# the pinned pilot jar and the downloaded corpora — which is why neither pr.yml
-# nor CircleCI's build-and-test does those. The Xpect oracle needs only the
+# The oracle baselines under docs/project/ are only as true as their last
+# recorded run. Re-running the Java-backed oracles needs Java, the pinned pilot
+# jar and the downloaded corpora — which is why neither pr.yml nor CircleCI's
+# build-and-test does them on every change. The Xpect oracle needs only the
 # pinned .xt suites, so pr.yml's xpect-oracle job reproduces its baseline on
-# every pull request; the Java-backed oracles are reproduced here alone, on a
-# schedule and on demand, so a baseline that has stopped describing reality
-# surfaces within a day instead of at the next audit. It is deliberately not a
+# every pull request, and pr.yml's apijson-differential job re-runs the
+# derived-property differential on the changes that can move its baseline; the
+# rest are reproduced here alone, and every oracle is reproduced here against
+# movement upstream of what pr.yml selects on, on a schedule and on demand, so a
+# baseline that has stopped describing reality surfaces within a day instead of
+# at the next audit. It is deliberately not a
 # required check: it downloads from upstream and takes minutes, so a network
 # failure here must not block a pull request.
 #
@@ -71,7 +74,7 @@ jobs:
           ./scripts/download-spec-examples.sh
 
       # Each oracle's -check re-runs the comparison and diffs the fresh report
-      # against its committed baseline, ignoring only the recording date. The
+      # against its committed baseline, ignoring only a recording date. The
       # failure names whether the provenance moved (the pinned reference or an
       # input changed underneath the baseline: investigate the provisioning) or
       # only the counts did (an implementation movement: adjudicate, then
