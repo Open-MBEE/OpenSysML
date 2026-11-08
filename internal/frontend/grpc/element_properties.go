@@ -106,6 +106,13 @@ type elementReader struct {
 func (m *CachedModel) elementReader() *elementReader {
 	m.elementReaderOnce.Do(func() {
 		resolver := resolve.New(m.Index)
+		// The structure reads references through the resolver's record of the
+		// documents (referencedSymbol), as the conversion does before it writes.
+		for _, doc := range m.Documents {
+			if doc != nil && doc.Source != nil && doc.Root != nil {
+				resolver.ResolveDocument(doc.Source.Name(), doc.Root)
+			}
+		}
 		sem := semantics.NewModel(resolver)
 		sem.SetSourceText(cachedSourceText(m))
 		structure := metamodel.NewSymbolStructure(resolver, sem)
