@@ -4,6 +4,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"slices"
 )
 
 // RelatedKind names one kind of relationship Related groups elements by; the
@@ -265,7 +266,7 @@ func (c *relatedCollector) successions() {
 	if !c.sym.Kind.IsActionUsage() {
 		return
 	}
-	owner := c.behaviorOwner(symbols.SymbolActionDef, symbols.SymbolActionUsage)
+	owner := behaviorOwnerWhere(c.sym, actionOwnerKind)
 	if owner == nil {
 		return
 	}
@@ -286,15 +287,18 @@ func (c *relatedCollector) behaviorOwner(kinds ...symbols.SymbolKind) *symbols.S
 
 // behaviorOwnerOf is the nearest element declaring sym whose kind is one of kinds.
 func behaviorOwnerOf(sym *symbols.Symbol, kinds ...symbols.SymbolKind) *symbols.Symbol {
+	return behaviorOwnerWhere(sym, func(kind symbols.SymbolKind) bool { return slices.Contains(kinds, kind) })
+}
+
+// behaviorOwnerWhere is the nearest element declaring sym whose kind isOwner.
+func behaviorOwnerWhere(sym *symbols.Symbol, isOwner func(symbols.SymbolKind) bool) *symbols.Symbol {
 	for scope := sym.OwnerScope; scope != nil; scope = scope.Owner().OwnerScope {
 		owner := scope.Owner()
 		if owner == nil {
 			return nil
 		}
-		for _, kind := range kinds {
-			if owner.Kind == kind {
-				return owner
-			}
+		if isOwner(owner.Kind) {
+			return owner
 		}
 	}
 	return nil

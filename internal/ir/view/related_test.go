@@ -202,3 +202,30 @@ func TestInheritedSuccessionsDoNotJoinSameSpanActions(t *testing.T) {
 		t.Errorf("roots %d, edges %+v; want a and b unjoined: x -> y is Base's", len(rendering.Roots), rendering.Edges)
 	}
 }
+
+// A named action node exposed as a root of its own keeps the successions its
+// owner declares between it and the owner's other actions (SysML v2 §8.2.2.17: an
+// if or loop node is an action usage of its own metaclass).
+func TestActionNodeRootsAreJoinedByTheirOwnersSuccessions(t *testing.T) {
+	src := "package Nodes {\n action def Run {\n  attribute ok : ScalarValues::Boolean;\n  action prepare;\n  action check if ok { action pass; }\n  action spin while ok { action turn; }\n  first prepare then check;\n  first check then spin;\n }\n}\n"
+	r, idx := loadSources(t, []string{"nodes.sysml"}, [][]byte{[]byte(src)})
+	for _, fqn := range []string{"Nodes::Run::check", "Nodes::Run::spin"} {
+		if kind := lookup(t, idx, fqn).Kind; kind == symbols.SymbolActionUsage {
+			t.Fatalf("fixture: %s is a plain action usage, want a node kind", fqn)
+		}
+	}
+	rendering, err := r.RenderExposed([]*symbols.Symbol{lookup(t, idx, "Nodes::Run::prepare"), lookup(t, idx, "Nodes::Run::check"), lookup(t, idx, "Nodes::Run::spin")}, KindAction, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var successions []string
+	for _, edge := range rendering.Edges {
+		if edge.Kind == EdgeSuccession {
+			successions = append(successions, rendering.Roots[rootIndex(rendering, edge.From)].Name+" -> "+rendering.Roots[rootIndex(rendering, edge.To)].Name)
+		}
+	}
+	want := []string{"Nodes::Run::prepare -> Nodes::Run::check", "Nodes::Run::check -> Nodes::Run::spin"}
+	if len(rendering.Roots) != 3 || strings.Join(successions, "|") != strings.Join(want, "|") {
+		t.Fatalf("roots %d, successions %q, notices %v; want %q", len(rendering.Roots), successions, rendering.Notices, want)
+	}
+}
