@@ -69,7 +69,17 @@ func Main(args []string, stdout, stderr io.Writer) int {
 		opts.out = filepath.Join(root, "build", toolName)
 	}
 	if *rootsFlag != "" {
+		if opts.check {
+			fmt.Fprintf(stderr, "%s: -check compares every root; drop -roots\n", toolName)
+			return 2
+		}
 		opts.roots = strings.Split(*rootsFlag, ",")
+		for _, name := range opts.roots {
+			if !slices.ContainsFunc(roots(), func(r diff.Root) bool { return r.Name == name }) {
+				fmt.Fprintf(stderr, "%s: unknown root %q; the roots are %s\n", toolName, name, strings.Join(rootNames(), ", "))
+				return 2
+			}
+		}
 	}
 	if opts.libraries, err = diff.LibrariesHandedOver(root); err != nil {
 		fmt.Fprintf(stderr, "%s: %v\n", toolName, err)

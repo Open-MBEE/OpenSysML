@@ -28,6 +28,15 @@ var manualExamples = diff.Root{Name: "manual-examples", Dir: "docs/manual/exampl
 // roots are the corpus roots measured, in report order.
 func roots() []diff.Root { return append(diff.Roots(), manualExamples) }
 
+// rootNames lists the measured roots' names, in report order.
+func rootNames() []string {
+	names := make([]string, 0, len(roots()))
+	for _, root := range roots() {
+		names = append(names, root.Name)
+	}
+	return names
+}
+
 // Report is the census as written: the run's provenance, every root's counts,
 // the totals over the roots and the rules the gate holds against.
 type Report struct {
