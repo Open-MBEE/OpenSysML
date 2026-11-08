@@ -1806,7 +1806,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return nil, true
 	case "ownedMember":
-		return m.withDefaultMultiplicityMember(sym, append(m.acceptParameters(sym), m.withTransitionParts(sym, ownedMembersOf(sym))...)), true
+		return m.owningMembershipMembers(sym), true
 	case "multiplicity":
 		if !m.reflectiveMetaclassConforms(sym, "Type") {
 			return nil, false
@@ -2270,6 +2270,24 @@ func (m *Model) multiplicityMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
 		}
 	}
 	return out
+}
+
+// owningMembershipMembers is Namespace::ownedMember, the members of sym's owned
+// OwningMemberships (KerML 8.3.2.4.5 deriveNamespaceOwnedMember) but its FeatureValue's.
+func (m *Model) owningMembershipMembers(sym *symbols.Symbol) []*symbols.Symbol {
+	var members []*symbols.Symbol
+	value := m.ValueExpression(sym)
+	seen := map[*symbols.Symbol]bool{value: true}
+	for _, membership := range m.OwnedMemberships(sym) {
+		if membership.Implicit == nil || membership.Implicit.Form != symbols.ImplicitMembership {
+			continue
+		}
+		if member := membership.Implicit.Member; member != nil && !seen[member] {
+			seen[member] = true
+			members = append(members, member)
+		}
+	}
+	return members
 }
 
 func ownedMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
