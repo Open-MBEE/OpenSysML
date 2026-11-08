@@ -2671,9 +2671,8 @@ func (d *decoder) sendArgumentParams(el *element) []*element {
 	return params
 }
 
-// statesRelationship reports whether el types, specializes, subsets or
-// redefines anything: a send's head parameters state only a value, so a body's
-// `in :>> payload = s;` is the body's, not the head's.
+// statesRelationship reports whether el types, specializes, subsets or redefines anything;
+// a send's head parameters state only a value, so a body's `in :>> payload = s;` is the body's.
 func (d *decoder) statesRelationship(el *element) bool {
 	for _, kind := range []ast.RelationshipKind{ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences} {
 		if refs, err := d.referenceList(el, rdf.SysML+relationshipProperty[kind]); err == nil && len(refs) > 0 {
