@@ -337,7 +337,6 @@ func TestReflectiveFeatureFlagsForWrapperDeclarations(t *testing.T) {
 	paths := []string{
 		"P::Owner::child", "P::Owner::borrowed",
 		"P::Flow::f", "P::Flow::j", "P::Flow::m", "P::Flow::d",
-		"P::Flow::start",
 		"P::Req::subject",
 		"P::Marked::annotation",
 		"P::machine::running", "P::machine::running::idle", "P::machine::t",
@@ -994,6 +993,9 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 	}
 	if AcceptPayload(sym) {
 		facts.Modifiers |= symbols.ModAcceptPayload
+	}
+	if symbols.IsFirstMarker(sym) {
+		facts.Modifiers |= symbols.ModFirstMarker
 	}
 	if sym.IsPrefixMetadata() {
 		facts.Modifiers |= symbols.ModPrefixMetadata
