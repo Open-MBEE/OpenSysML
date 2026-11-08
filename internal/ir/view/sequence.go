@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -842,6 +843,9 @@ func isSuccessionUsage(sym *symbols.Symbol) bool {
 // an interaction in its body, in which case those are the lifelines and the
 // container itself is not one.
 func occurrenceContainer(sym *symbols.Symbol) bool {
+	if semantics.IsSubjectUsage(sym) {
+		return true
+	}
 	switch sym.Kind {
 	case symbols.SymbolOccurrenceDef, symbols.SymbolOccurrenceUsage,
 		symbols.SymbolIndividualDef, symbols.SymbolIndividualUsage,
@@ -869,6 +873,10 @@ func behaviorLike(sym *symbols.Symbol) bool {
 // a sequence rendering draws a lifeline for. An attribute, a port, a package or
 // a view holds none, and is reported rather than drawn.
 func lifelineLike(sym *symbols.Symbol) bool {
+	if semantics.IsSubjectUsage(sym) {
+		// A case's subject holds events as the part it refers to does.
+		return true
+	}
 	switch sym.Kind {
 	case symbols.SymbolPartDef, symbols.SymbolPartUsage,
 		symbols.SymbolItemDef, symbols.SymbolItemUsage,

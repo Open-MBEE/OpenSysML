@@ -1555,7 +1555,7 @@ elmt:cdbc7853-3c7e-5c48-9817-2dd245e50317
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:dcfd8195-70ca-5d3b-9d5c-2293fe0cdc65
-    a sysml:PartUsage ;
+    a sysml:ReferenceUsage ;
     sysml:elementId "dcfd8195-70ca-5d3b-9d5c-2293fe0cdc65" ;
     sysml:qualifiedName "Requirements::RequirementCheck::subj" ;
     sysml:declaredName "subj" ;

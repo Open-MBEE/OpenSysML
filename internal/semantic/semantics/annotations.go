@@ -2224,7 +2224,7 @@ func ReflectiveDirection(sym *symbols.Symbol) (ast.FeatureDirection, bool) {
 		if !sym.IsFeature() {
 			return ast.DirNone, false
 		}
-		if sym.Facts.Node == symbols.NodeSubject {
+		if sym.Facts.Direction == ast.DirNone && hasDefaultInputParameterDirection(sym) {
 			return ast.DirIn, true
 		}
 		return sym.Facts.Direction, true
@@ -2236,6 +2236,10 @@ func ReflectiveDirection(sym *symbols.Symbol) (ast.FeatureDirection, bool) {
 		return ast.DirIn, true
 	}
 	traits, ok := featureTraitsOf(sym)
+	if ok && traits.Direction == ast.DirNone && hasDefaultInputParameterDirection(sym) {
+		// A subject, actor or stakeholder parameter is `in` without writing it.
+		return ast.DirIn, true
+	}
 	if ok {
 		return traits.Direction, true
 	}
@@ -2572,7 +2576,8 @@ func (m *Model) reflectiveFeatureFlags(sym *symbols.Symbol) (reflectiveFeatureFl
 		flags.isOrdered = mods.Has(symbols.ModOrdered)
 		flags.isUnique = !mods.Has(symbols.ModNonunique)
 		if isUsage {
-			flags.isComposite = mods.Has(symbols.ModComposite) || !recordedUsageIsReferential(sym)
+			flags.isComposite = mods.Has(symbols.ModComposite) ||
+				(!recordedUsageIsReferential(sym) && !hasDefaultInputParameterDirection(sym))
 		} else {
 			flags.isComposite = mods.Has(symbols.ModComposite)
 		}
@@ -2586,7 +2591,8 @@ func (m *Model) reflectiveFeatureFlags(sym *symbols.Symbol) (reflectiveFeatureFl
 			flags.isOrdered = d.IsOrdered
 			flags.isUnique = !d.IsNonunique
 			if isUsage {
-				flags.isComposite = d.IsComposite || !usageIsReferential(d)
+				flags.isComposite = d.IsComposite ||
+					(!usageIsReferential(d) && !hasDefaultInputParameterDirection(sym))
 			} else {
 				flags.isComposite = d.IsComposite
 			}
