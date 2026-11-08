@@ -51,6 +51,10 @@ const (
 	// and 1 the end referring to the target.
 	ExpressionTransitionSuccession
 	ExpressionConnectorEnd
+	// ExpressionTransitionParameter is an implied parameter of a transition (SysML v2
+	// §8.3.16.15 checkTransitionUsageParameters): Slot "linkparam" for the
+	// transitionLinkSource parameter, "triggerparam" for the trigger payload's.
+	ExpressionTransitionParameter
 )
 
 // ExpressionElement is the side record of a symbol the reflective layer

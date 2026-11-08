@@ -2340,7 +2340,7 @@ func ReflectiveDirection(sym *symbols.Symbol) (ast.FeatureDirection, bool) {
 			return ast.DirIn, true
 		case symbols.ExpressionResult:
 			return ast.DirOut, true
-		case symbols.ExpressionPayload:
+		case symbols.ExpressionPayload, symbols.ExpressionTransitionParameter:
 			return ast.DirIn, true
 		}
 		return ast.DirNone, true

@@ -87,6 +87,11 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		if member == nil || seen[member] || member.Chain != nil || ownedThroughAnnotation(sym, member) {
 			return true
 		}
+		if m.isRecordedTriggerPayload(sym, member) {
+			// `accept s : Sig` names the trigger action's payload parameter, which the
+			// accept owns (SysML.xtext TriggerActionMember), though it scopes in the transition.
+			return true
+		}
 		seen[member] = true
 		if member.Kind == symbols.SymbolAlias {
 			out = append(out, member)
@@ -413,6 +418,8 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 			return "ParameterMembership"
 		case symbols.ExpressionTransitionSuccession:
 			return "OwningMembership"
+		case symbols.ExpressionTransitionParameter:
+			return "ParameterMembership"
 		case symbols.ExpressionConnectorEnd:
 			return "EndFeatureMembership"
 		case symbols.ExpressionOperand:

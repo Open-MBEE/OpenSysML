@@ -61,7 +61,7 @@ func expressionElementMetaclassName(sym *symbols.Symbol) string {
 			return "Expression"
 		case symbols.ExpressionTriggerAction:
 			return "AcceptActionUsage"
-		case symbols.ExpressionPayload, symbols.ExpressionConnectorEnd:
+		case symbols.ExpressionPayload, symbols.ExpressionConnectorEnd, symbols.ExpressionTransitionParameter:
 			return "ReferenceUsage"
 		case symbols.ExpressionTransitionSuccession:
 			return "SuccessionAsUsage"
@@ -482,6 +482,7 @@ func (m *Model) appendReferenceMembership(out []*symbols.Symbol, owner *symbols.
 	if target == nil {
 		return out
 	}
+	target = m.triggerPayloadElement(target)
 	return append(out, &symbols.Symbol{
 		Kind:       symbols.SymbolRelationship,
 		DocName:    owner.DocName,
