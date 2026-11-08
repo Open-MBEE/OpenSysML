@@ -157,9 +157,9 @@ named by the pilot's metaclass when the two sides disagree on the metaclass (`ty
 ## Detectors
 
 - **Determinism.** The report is sorted throughout (roots in order, elements by key, properties by
-  name, rows by differing count then name); two runs over one checkout write byte-identical reports
-  but for the recording date, which is what `-check` verifies in the oracle-reproduction workflow
-  and what `TestReportIsDeterministic` pins without Java. The pilot's own output is not
+  name, rows by differing count then name); two runs over one checkout write byte-identical reports,
+  which is what `-check` verifies in the pull-request workflow's `apijson-differential` job and in
+  the oracle-reproduction workflow, and what `TestReportIsDeterministic` pins without Java. The pilot's own output is not
   deterministic across JVMs for every property; a property shown to move is declared
   pilot-nondeterministic (below) rather than re-recorded, so `-check` holds on any JVM.
 - **Disagreement.** `TestDisagreementDetectorIsLive` compares the committed pilot export of
@@ -167,27 +167,30 @@ named by the pilot's metaclass when the two sides disagree on the metaclass (`ty
   in which one derived collection of `Derived Probe::Vehicle` is emptied (`ownedUsage` → exactly one
   ours-missing in that row, nowhere else) and one in which one attribute is flipped (`isAbstract` →
   exactly one present-different), each with one example naming the element.
-- **Provenance.** The baseline's `provenance` block names both sides of the comparison: the pilot
-  pin (`pilotTag`, `pilotCommit`, `pilotArtifact`), the errata-registry digest, one `tools` entry
-  per side, every root's file digest and, as the `opensysml-libraries` input, the digest of the
-  library directory the bridge reads beside the standard library. `pilot-json-exporter` digests the bridge source
-  `scripts/pilot-json-exporter/ExportJSON.java` against the pinned release; `api-json-writer`
-  digests this repository's writer, `internal/translate/export`: its non-test `.go` files, sorted by
-  file name, each hashed by name and content, so the digest is the same on any machine and in any
-  checkout path. It moves on any edit to a production source of the package (a renamed member, a
-  dropped property, a reordered emission) and stays put on edits to its tests, fixtures or prose. It
-  does not cover what the writer consumes — the parser, name resolution, the metamodel or the library
-  — so a semantic change upstream still surfaces as count movement with no named cause; it names
-  writer changes only. `TestCommittedBaselineStatesThisRepositorysProvenance` checks, without Java,
-  that every one of those fields is this checkout's; `-check` holds the same block to the baseline
-  before the counts, so a writer edit stops it at `provenance.tools[api-json-writer].sourceDigest:
-  baseline records …, repository now has …` rather than at bare count drift (the fresh report it
-  wrote still holds the moved buckets). The writer digested is the one linked into the referee —
-  the checkout it was built from — which `-repo` pointing elsewhere does not change; a `-trimpath`
-  build keeps no record of that checkout and is refused rather than guessed at. `TestProvenanceGuardFailsOnAMovedPin`
-  and `TestProvenanceGuardFailsOnAnEditedWriter` pin that a moved pin and an edited writer are each
-  named with the refresh command. `TestRecordStatesTheBaselinesFigures` (`make docs-counts`) ties
-  this record's figures to the baseline.
+- **Provenance.** The baseline's `provenance` block names the reference side of the comparison
+  and the inputs: the pilot pin (`pilotTag`, `pilotCommit`, `pilotArtifact`), the errata-registry
+  digest, the `pilot-json-exporter` tool — the bridge source `scripts/pilot-json-exporter/ExportJSON.java`
+  digested against the pinned release — every root's file digest and, as the `opensysml-libraries`
+  input, the digest of the library directory the bridge reads beside the standard library. Every one
+  of those lines moves only on a pin bump, an errata change or an edit to a compared input. The block
+  deliberately states nothing about this repository's writer and carries no recording date: the
+  figures are the writer's record, so an edit under `internal/translate/export` moves the baseline
+  only where it moves a verdict, one line per bucket like the corpus ratchets, and two branches
+  re-recording it conflict only where their verdicts differ. (A writer digest and a date were once
+  recorded; every export PR rewrote those lines differently, and the second to land conflicted in a
+  generated file.) `TestCommittedBaselineStatesThisRepositorysProvenance` checks, without Java, that
+  every recorded field is this checkout's; `TestProvenanceStatesOnlyTheReferenceSide` pins that no
+  recorded tool is this repository's and that no date is stamped; `TestProvenanceGuardFailsOnAMovedPin`
+  and `TestProvenanceGuardFailsOnAnEditedBridge` pin that a moved pin and an edited bridge are each
+  named with the refresh command. `-check` holds the same block to the baseline before the counts,
+  so a provenance mismatch stops it at `provenance.…: baseline records …, repository now has …`
+  rather than at bare count drift. What proves the figures current against a writer edit is the
+  differential itself: the pull-request workflow's `apijson-differential` job runs `-check` on every
+  change under the writer, the referee, the bridge, the pin or the baseline (the `apijson` area of
+  `scripts/ci-changed-areas.sh`), and the oracle-reproduction workflow runs it daily for movement
+  upstream of the writer — the parser, name resolution, the metamodel or the library — which no digest
+  ever named. `TestRecordStatesTheBaselinesFigures` (`make docs-counts`) ties this record's figures
+  to the baseline.
 
 The pinned pilot's verdict on the probe (`validate-sysml-batch`): clean.
 
@@ -230,7 +233,7 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 102691 elements matched (16210 ours-only, 28623 pilot-only, 0 of them implied); properties: 1985910 present-equal, 149876 present-different, 303075 ours-missing, 80010 pilot-missing, 2190613 absent-both, 33582 indeterminate, 525 pilot-nondeterministic.
+**Scorecard:** 935 files; 102691 elements matched (16216 ours-only, 28623 pilot-only, 0 of them implied); properties: 1985969 present-equal, 149071 present-different, 303821 ours-missing, 80006 pilot-missing, 2190617 absent-both, 33582 indeterminate, 525 pilot-nondeterministic.
 
 Re-recorded on the action-node and subject classification change (an action written as a node is the `AcceptActionUsage`/`AssignmentActionUsage`/`PerformActionUsage`/`IfActionUsage`/`WhileLoopActionUsage`/`ForLoopActionUsage`/`TerminateActionUsage` of its statement, SysML v2 §8.2.2.17, a `succession flow` a `SuccessionFlowUsage`, §8.2.2.14, and a `subject` a `ReferenceUsage` parameter of direction `in`, §8.2.2.19): six fewer ours-only elements (16216 → 16210) as a named `if`/`while`/`for` node is written as the node that carries the name rather than an anonymous node under a plain `ActionUsage` (`StructuredControlTest` and `Sysml 7.17.12 example 4::dynamicScenario`); type mismatches 1821 → 1820, three fewer in `pilot-examples` and `examples` where the pilot already names the node, two more in `spec-examples` where `Sysml 7.17.11 example 1::test` (`action test if speed < lowerLimit …`, its `lowerLimit`, `IncreaseSpeed` and `MaintainSpeed` undeclared) is now the `IfActionUsage` the grammar states while the pilot's export of that incomplete example gives an `ActionUsage` without condition or branches — the same element adds the one pilot-missing on `ActionUsage.input`, `directedFeature` and `directedUsage`; 746 properties move from ours-missing to present-different (303821 → 303075, 149129 → 149876) because the node metaclasses' `inheritedFeature`, `inheritedMembership`, `feature`, `featureMembership`, `member`, `membership` and `usage` rows now list the library-inherited members the pilot lists, under our ids; `IfActionUsage.usage` goes 0/4 → 3/1 equal/different and `ActionUsage.usage` 136 → 132 equal as four named nodes leave the generic row; `WhileLoopActionUsage.nestedConnection` pilot-missing 2 → 3 is a `succession flow` inside a loop the pilot does not report as a nested connection.
 
@@ -250,13 +253,13 @@ The pilot's export failed on 59 files (`pilotFailed`: its own export throws on a
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 8115 | 1055 | 2051 | 159725 | 13232 | 20109 | 5713 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 28834 | 5684 | 7282 | 568107 | 45081 | 82729 | 21472 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 10091 | 1817 | 2508 | 197026 | 17173 | 26110 | 7569 |
+| `examples/sysml-v2-training` | 100 | 8115 | 1055 | 2051 | 159726 | 13231 | 20109 | 5713 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 28834 | 5684 | 7282 | 568150 | 45038 | 82729 | 21472 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 10091 | 1817 | 2508 | 197031 | 17168 | 26110 | 7569 |
 | `examples/pilot-corpora/kerml-examples` | 58 | 6734 | 903 | 1507 | 120727 | 9501 | 18831 | 8268 |
-| `examples/spec-examples` | 511 | 7546 | 872 | 2184 | 132153 | 7541 | 22114 | 6381 |
-| `tests/testdata` | 40 | 1518 | 192 | 453 | 27674 | 2125 | 4161 | 1191 |
-| `examples` | 56 | 31881 | 5115 | 11248 | 624349 | 44933 | 99315 | 24004 |
+| `examples/spec-examples` | 511 | 7546 | 872 | 2184 | 132154 | 7540 | 22114 | 6381 |
+| `tests/testdata` | 40 | 1518 | 192 | 453 | 27678 | 2121 | 4161 | 1191 |
+| `examples` | 56 | 31881 | 5115 | 11248 | 624353 | 44929 | 99315 | 24004 |
 | `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 887 | 31 | 90 | 41 |
 | `docs/manual/examples` | 11 | 7919 | 578 | 1390 | 155263 | 9512 | 30362 | 5367 |
 
@@ -376,6 +379,20 @@ the `constant` keyword: every `isConstant` row that was different is now equal �
 (91 → 0), `PortUsage` 397 → 493 (96 → 0), `PartUsage` 1968 → 1989 (21 → 0), `ItemUsage` 345 → 368 (21 → 0),
 `Usage` 21 → 30 (9 → 0) — 1157055 → 1157295 present-equal, 28075 → 27835 present-different overall. No other
 row moved.
+
+**A conjugated typing types by the ConjugatedPortDefinition** (re-recorded when the writer began stating
+the type of `port p : ~P` as P's `ConjugatedPortDefinition`, the element its `ConjugatedPortTyping` already
+named as `type`/`conjugatedPortDefinition`, SysML v2.1 §8.3.12.3 `conjugatedPortDefinition {redefines
+type}`, where the collapsed `sysml:type` had named P itself): every `PortUsage.type` row that differed by the
+conjugate alone is now equal — 408 → 463 present-equal (56 → 1 present-different; the 91 ours-missing are
+ports declaring no typing, whose type the pilot derives, unchanged) — and the `ref`/`usage` features typed by
+a conjugate follow, `ReferenceUsage.type` 1348 → 1349 equal (41 → 40 different) and `Usage.type` 9 → 11
+(5 → 3); 1985911 → 1985969 present-equal, 149129 → 149071 present-different overall. The one `PortUsage.type`
+still different is the connector end `engineToTransmissionInterface::p2` of the pilot's
+`IssueMetadataExample`, bound to a `~DrivePwrPort` port where the interface definition's end is a `ClutchPort`:
+the pilot's `type` lists both, this writer the bound port's conjugate alone, the inherited `ClutchPort` the
+same gap as before. `ConjugatedPortTyping.type`, `.conjugatedPortDefinition` and `.portDefinition` (61 equal
+each) and `PortUsage.portDefinition`/`.definition` did not move. No other row moved.
 
 The scorecard is mostly **ours-missing**: this repository's writer emits a subset of the metamodel's properties, and the referee now measures which, per metaclass. The full ranked scorecard with one concrete example per differing row is `build/pilot-apijson-diff/pilot-apijson-diff.txt` after a run; the baseline keeps every row's seven counts.
 

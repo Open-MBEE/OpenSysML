@@ -425,18 +425,22 @@ func referenceSubsettingSpec(suffix string) normativeRelationship {
 		[]string{pOwnedReferenceSubsetting, pOwnedSubsetting, pOwnedSpecialization, pOwnedRelationship}}
 }
 
-// emitConjugatedPortTyping materializes `: ~P` as a ConjugatedPortTyping whose
-// type is P's ConjugatedPortDefinition and whose portDefinition is P itself
-// (SysML v2 1.0 § 8.3.12 Ports); an external P is named `~P` by the literal.
+// emitConjugatedPortTyping materializes `: ~P` as a ConjugatedPortTyping typing by P's
+// ConjugatedPortDefinition with portDefinition P (SysML v2 § 8.3.12); an external P is named `~P`.
 func (e *encoder) emitConjugatedPortTyping(subject, target rdf.Term, spec normativeRelationship) rdf.Term {
 	spec.metaclass = mConjugatedPortTyping
 	spec.targetEnds = append([]string{pConjugatedPortDefinition}, spec.targetEnds...)
-	conjugated := rdf.String("~" + target.Value)
+	conjugated, original := rdf.String("~"+target.Value), target
 	if target.IsIRI() {
-		conjugated = e.ids.minted(rdf.RelationshipIRI(target, "_conjugated"), target, "_conjugated")
+		conjugated = target
+		if stated, ok := e.conjugateOriginals[target.Value]; ok {
+			original = stated
+		} else {
+			conjugated = e.ids.minted(rdf.RelationshipIRI(target, "_conjugated"), target, "_conjugated")
+		}
 	}
 	relation := e.emitRelationship(subject, conjugated, spec)
-	e.graph.Add(relation, e.sysml(pPortDefinition), target)
+	e.graph.Add(relation, e.sysml(pPortDefinition), original)
 	return relation
 }
 

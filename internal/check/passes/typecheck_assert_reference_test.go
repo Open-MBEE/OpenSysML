@@ -282,7 +282,8 @@ part ctx { assert h.q; assert h.c; }`
 	}
 }
 
-// The other requirement-parameter usages stay parts and stay rejected.
+// The other requirement-parameter usages (a subject is a ReferenceUsage, an actor
+// and a stakeholder PartUsages) stay rejected.
 func TestAssertReferenceToRequirementParameterPartsRejected(t *testing.T) {
 	tests := []struct {
 		name, target, found string

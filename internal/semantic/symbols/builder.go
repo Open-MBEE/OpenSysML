@@ -151,8 +151,8 @@ func buildNamespaceDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia 
 		scope.AddChild(child)
 		return true
 	case *ast.SubjectMember:
-		// A subject is the ReferenceUsage its SubjectMembership declares (SysML v2
-		// §8.2.2.19 SubjectUsage), whatever body it is written in.
+		// A requirement's `subject <name> : <Type>;` is the ReferenceUsage its
+		// SubjectMembership declares (SysML.xtext SubjectMember).
 		id, naming := namingIdent(d.Ident, d.NamingFeature())
 		child := NewScope(scope, d)
 		sym := newSymbol(id, SymbolReferenceUsage, d, vis, child, scope, trivia)
@@ -808,8 +808,7 @@ var usageSymbolKinds = map[ast.UsageKind]SymbolKind{
 	ast.UsageAnalysisCase:     SymbolAnalysisCaseUsage,
 	ast.UsageVerificationCase: SymbolVerificationCaseUsage,
 	ast.UsageUseCase:          SymbolUseCaseUsage,
-	// A subject is a ReferenceUsage (SysML v2 §8.2.2.19 SubjectUsage), as the
-	// SubjectMember shape of the same declaration is.
+	// A subject is the ReferenceUsage its SubjectMembership declares (SysML.xtext SubjectMember).
 	ast.UsageSubject: SymbolReferenceUsage,
 	// Objective is a requirement usage (SysML v2 §8.3.20).
 	ast.UsageObjective: SymbolRequirementUsage,

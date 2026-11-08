@@ -27,6 +27,7 @@ type actionsWorkflow struct {
 
 type actionsJob struct {
 	Needs       yaml.Node         `yaml:"needs"`
+	If          string            `yaml:"if"`
 	Environment string            `yaml:"environment"`
 	Permissions map[string]string `yaml:"permissions"`
 	Outputs     map[string]string `yaml:"outputs"`

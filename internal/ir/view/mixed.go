@@ -403,17 +403,17 @@ func (w *mixedWalk) removeStructuralSlots(adopted map[*Node]*Node) {
 }
 
 // mixedStructural reports symbols rendered through the interconnection builder:
-// the structures, and the constraints bound to their values.
+// the structures (a case's subject among them), and the constraints bound to their values.
 func mixedStructural(sym *symbols.Symbol) bool {
+	if semantics.IsSubjectUsage(sym) {
+		return true
+	}
 	switch sym.Kind {
 	case symbols.SymbolPartDef, symbols.SymbolPartUsage, symbols.SymbolItemDef, symbols.SymbolItemUsage,
 		symbols.SymbolPortDef, symbols.SymbolPortUsage, symbols.SymbolConnectionDef, symbols.SymbolConnectionUsage,
 		symbols.SymbolInterfaceDef, symbols.SymbolInterfaceUsage, symbols.SymbolAllocationDef, symbols.SymbolAllocationUsage,
 		symbols.SymbolConstraintDef, symbols.SymbolConstraintUsage:
 		return true
-	case symbols.SymbolReferenceUsage:
-		// A subject is a reference to the structure a case or requirement is about.
-		return semantics.IsSubjectUsage(sym)
 	}
 	return false
 }
@@ -632,7 +632,7 @@ func (w *mixedWalk) referenceEdges() {
 			}
 		}
 		if sym.Kind.IsFeature() && specialLabel == "" {
-			for _, target := range w.r.model.DeclaredTypes(sym) {
+			for _, target := range w.r.drawnTypes(sym) {
 				if target.Kind.IsDefinition() {
 					add(sym, target, EdgeTyping, "", sym, nil)
 				}

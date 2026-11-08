@@ -130,7 +130,7 @@ func (c *relatedCollector) generalizations() {
 	for _, target := range c.generalizationTargets(c.sym) {
 		c.add(RelatedGeneralizations, target)
 	}
-	for _, typ := range c.r.model.DeclaredTypes(c.sym) {
+	for _, typ := range c.r.drawnTypes(c.sym) {
 		c.add(RelatedTypes, typ)
 	}
 }
@@ -191,7 +191,7 @@ func (c *relatedCollector) modelWide() {
 				c.add(RelatedSpecializations, elem)
 			}
 		}
-		for _, typ := range c.r.model.DeclaredTypes(elem) {
+		for _, typ := range c.r.drawnTypes(elem) {
 			if typ == c.sym {
 				c.add(RelatedTypedUsages, elem)
 			}

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -208,6 +209,9 @@ func (l *sequenceLowerer) generals(sym *symbols.Symbol) []*symbols.Symbol {
 // sequenceLifeline reports whether a member of the occurrence can hold the events
 // of a lifeline: a part, item, port, occurrence or individual usage.
 func sequenceLifeline(sym *symbols.Symbol) bool {
+	if semantics.IsSubjectUsage(sym) {
+		return sym.Scope != nil
+	}
 	switch sym.Kind {
 	case symbols.SymbolPartUsage, symbols.SymbolItemUsage, symbols.SymbolPortUsage,
 		symbols.SymbolOccurrenceUsage, symbols.SymbolIndividualUsage:

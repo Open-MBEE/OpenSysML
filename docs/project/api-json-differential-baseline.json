@@ -10,11 +10,6 @@
         "source": "scripts/pilot-json-exporter/ExportJSON.java",
         "sourceDigest": "sha256:366acec8fd58c0df0f6d61cc123b31ef5477dce327e32f1144b52eea199b6178",
         "release": "2026-09 (jupyter-sysml-kernel 0.63.0)"
-      },
-      {
-        "name": "api-json-writer",
-        "source": "internal/translate/export",
-        "sourceDigest": "sha256:66e71a8a164010187ddedd2da888dcb3a475a95f108e4bd41f4f1de7f3d4910b"
       }
     ],
     "inputs": [
@@ -88,8 +83,7 @@
         "files": 16,
         "digest": "sha256:f39db343dafb9c99359f5a92e56dcdd5c52992dc50e50b9268d349aa9cdfdf26"
       }
-    ],
-    "recorded": "2026-11-08"
+    ]
   },
   "exporter": "org.omg.sysml.util.traversal.facade.impl.JsonElementProcessingFacade with setIsIncludeDerived(true), each input resource's root elements visited through org.omg.sysml.util.traversal.Traversal, toJsonTree(true) (the path of SysMLInteractive.export, the %export magic), via scripts/pilot-json-exporter/ExportJSON.java",
   "normalizations": [
@@ -120,8 +114,8 @@
       "typeMismatch": 1820
     },
     "properties": {
-      "presentEqual": 1985910,
-      "presentDifferent": 149876,
+      "presentEqual": 1985968,
+      "presentDifferent": 149818,
       "oursMissing": 303075,
       "pilotMissing": 80010,
       "absentBoth": 2190613,
@@ -161,8 +155,8 @@
         "typeMismatch": 6
       },
       "properties": {
-        "presentEqual": 159725,
-        "presentDifferent": 13272,
+        "presentEqual": 159726,
+        "presentDifferent": 13271,
         "oursMissing": 20069,
         "pilotMissing": 5713,
         "absentBoth": 180416,
@@ -197,8 +191,8 @@
         "typeMismatch": 32
       },
       "properties": {
-        "presentEqual": 568106,
-        "presentDifferent": 45166,
+        "presentEqual": 568149,
+        "presentDifferent": 45123,
         "oursMissing": 82645,
         "pilotMissing": 21472,
         "absentBoth": 627384,
@@ -233,8 +227,8 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 197026,
-        "presentDifferent": 17205,
+        "presentEqual": 197031,
+        "presentDifferent": 17200,
         "oursMissing": 26078,
         "pilotMissing": 7569,
         "absentBoth": 221546,
@@ -306,8 +300,8 @@
         "typeMismatch": 419
       },
       "properties": {
-        "presentEqual": 132154,
-        "presentDifferent": 7624,
+        "presentEqual": 132155,
+        "presentDifferent": 7623,
         "oursMissing": 22030,
         "pilotMissing": 6384,
         "absentBoth": 144623,
@@ -343,8 +337,8 @@
         "typeMismatch": 28
       },
       "properties": {
-        "presentEqual": 27674,
-        "presentDifferent": 2155,
+        "presentEqual": 27678,
+        "presentDifferent": 2151,
         "oursMissing": 4131,
         "pilotMissing": 1191,
         "absentBoth": 32572,
@@ -380,8 +374,8 @@
         "typeMismatch": 199
       },
       "properties": {
-        "presentEqual": 624348,
-        "presentDifferent": 45410,
+        "presentEqual": 624352,
+        "presentDifferent": 45406,
         "oursMissing": 98839,
         "pilotMissing": 24005,
         "absentBoth": 704912,
@@ -74598,8 +74592,8 @@
       0
     ],
     "PortUsage.type": [
-      408,
-      56,
+      463,
+      1,
       91,
       0,
       0,
@@ -76614,8 +76608,8 @@
       0
     ],
     "ReferenceUsage.type": [
-      1348,
-      41,
+      1349,
+      40,
       1174,
       1,
       0,
@@ -97314,8 +97308,8 @@
       0
     ],
     "Usage.type": [
-      9,
-      5,
+      11,
+      3,
       16,
       0,
       0,

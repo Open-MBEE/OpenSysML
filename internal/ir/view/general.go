@@ -592,7 +592,7 @@ func (g *generalGraph) featureEdges(sym *symbols.Symbol, from *Node) {
 			continue
 		}
 		kind := g.r.membershipKind(member)
-		for _, typ := range g.r.model.DeclaredTypes(member) {
+		for _, typ := range g.r.drawnTypes(member) {
 			if to := g.drawn(typ); to != nil {
 				g.add(Edge{From: from.ID, To: to.ID, Kind: kind, ToLabel: symbols.LastSegment(g.r.fqn(member)), Origin: symbolOrigin(member)})
 			}
@@ -992,7 +992,7 @@ func (g *generalGraph) deriveEdges(sym *symbols.Symbol) []Edge {
 // the type it is declared with, else the requirement it subsets or redefines,
 // else the member itself.
 func (g *generalGraph) declaredRequirement(member *symbols.Symbol) *symbols.Symbol {
-	if types := g.r.model.DeclaredTypes(member); len(types) > 0 {
+	if types := g.r.drawnTypes(member); len(types) > 0 {
 		return types[0]
 	}
 	for _, rel := range semantics.RelationshipsOf(member) {

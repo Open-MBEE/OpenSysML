@@ -3048,15 +3048,20 @@ describe this repository:
   each validator bridge's source, and a digest and file count of every corpus root the run
   compared and of the library directory the reference was handed, alongside the ISO date it was
   recorded. No absolute path is an identity, so two
-  machines that agree on the pin and the inputs record the same provenance.
+  machines that agree on the pin and the inputs record the same provenance. It names the reference
+  side and the inputs only, never this repository's implementation: a digest of our own code would
+  move with every edit and make concurrent re-records conflict on a generated line (the api-json
+  baseline once carried one, and its date, and no longer does — see `api-json-differential.md`).
 - **A Java-free guard in the normal suite.** `TestCommittedBaselineStatesThisRepositorysProvenance`
   (in each oracle's package) compares that record against the repository as it stands. If the pin
   moves, a bridge is edited or a corpus this repository owns changes and a baseline is not
   re-recorded, it fails naming the field, the recorded value, the current value and the exact
   refresh command. It reads only committed files.
-- **A scheduled Java-backed reproduction.** `.github/workflows/oracle-reproduction.yml` installs
-  Java, provisions the pinned validators and corpora and runs all three oracles with `-check`
-  daily and on demand. Its failure distinguishes a moved provenance — the pinned reference or an
+- **A Java-backed reproduction.** `.github/workflows/oracle-reproduction.yml` installs Java,
+  provisions the pinned validators and corpora and runs every oracle with `-check` daily and on
+  demand; the pull-request workflow runs the Xpect oracle's `-check` (Java-free) on every change
+  that can move it and the api-json differential's on every change under its writer, referee,
+  bridge, pin or baseline. Its failure distinguishes a moved provenance — the pinned reference or an
   input changed underneath the baseline, so investigate the provisioning — from moved counts with
   matching provenance, which is an implementation movement to adjudicate and then re-record —
   unless two exports of the pinned reference itself disagree on the moved row, as the pilot's
