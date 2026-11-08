@@ -35,3 +35,15 @@ func InStateMachine(scope *Scope) bool {
 func FirstNamesSource(n *ast.InitialNode) bool {
 	return n.Successor != nil
 }
+
+// IsFirstMarker reports whether sym is a `first x;` start marker — an InitialNode
+// without a successor, or a recorded symbol carrying the ModFirstMarker fact instead.
+func IsFirstMarker(sym *Symbol) bool {
+	if sym == nil {
+		return false
+	}
+	if marker, ok := sym.Decl.(*ast.InitialNode); ok {
+		return !FirstNamesSource(marker)
+	}
+	return sym.Recorded() && sym.Facts != nil && sym.Facts.Modifiers.Has(ModFirstMarker)
+}
