@@ -1,0 +1,74 @@
+# exported-not-answered disagreements between the api-json export and GetElementProperties over the
+# committed examples, counted per metamodel property (Metaclass::property, the
+# export's metaclass). Tab-separated: class, count, key of the clause in clauses.txt
+# (the side that is correct and the KerML/SysML clause it rests on).
+# TestElementPropertiesAgreeWithTheAPIJSONExport fails on a row not here, on a count
+# above the one here, on a row here the run no longer produces, and on a ? key; a count
+# that fell is re-recorded with -update-agreement-ratchet.
+AcceptActionUsage::payloadArgument	11	export-27
+AcceptActionUsage::payloadParameter	26	export-27
+AcceptActionUsage::receiverArgument	10	export-27
+AttributeUsage::attributeDefinition	74	symbol-43
+AttributeUsage::definition	126	symbol-44
+AttributeUsage::directedUsage	10	symbol-43
+AttributeUsage::isVariation	333	symbol-44
+AttributeUsage::mayTimeVary	333	symbol-44
+AttributeUsage::nestedAction	1	symbol-43
+AttributeUsage::nestedAttribute	42	symbol-43
+AttributeUsage::nestedConnection	5	symbol-43
+AttributeUsage::nestedOccurrence	1	symbol-43
+AttributeUsage::nestedUsage	43	symbol-43
+AttributeUsage::owningUsage	90	symbol-44
+AttributeUsage::usage	65	symbol-43
+BindingConnectorAsUsage::isVariation	16	symbol-44
+BindingConnectorAsUsage::mayTimeVary	16	symbol-44
+BindingConnectorAsUsage::nestedReference	16	symbol-43
+BindingConnectorAsUsage::nestedUsage	16	symbol-43
+BindingConnectorAsUsage::owningUsage	7	symbol-44
+BindingConnectorAsUsage::usage	16	symbol-43
+FeatureMembership::ownedMemberFeature	1	export-27
+FeatureMembership::owningType	1	export-27
+FlowUsage::directedUsage	6	symbol-43
+FlowUsage::isIndividual	6	symbol-43
+FlowUsage::isVariation	6	symbol-44
+FlowUsage::mayTimeVary	6	symbol-44
+FlowUsage::owningUsage	1	symbol-44
+FlowUsage::portionKind	6	symbol-43
+FlowUsage::usage	6	symbol-43
+LibraryPackage::isStandard	2	symbol-43
+MetadataUsage::isIndividual	10	symbol-43
+MetadataUsage::isVariation	10	symbol-44
+MetadataUsage::mayTimeVary	10	symbol-44
+MetadataUsage::nestedAttribute	1	symbol-43
+MetadataUsage::nestedReference	2	symbol-43
+MetadataUsage::nestedUsage	3	symbol-43
+MetadataUsage::portionKind	10	symbol-43
+NamespaceExpose::importedNamespace	13	export-27
+NamespaceImport::importedNamespace	6	export-27
+ReferenceSubsetting::referencedFeature	8	export-27
+ReferenceSubsetting::referencingFeature	9	export-27
+ReferenceUsage::definition	39	symbol-44
+ReferenceUsage::isVariation	172	symbol-44
+ReferenceUsage::mayTimeVary	172	symbol-44
+ReferenceUsage::nestedAttribute	1	symbol-43
+ReferenceUsage::nestedUsage	1	symbol-43
+ReferenceUsage::owningUsage	54	symbol-44
+ReferenceUsage::usage	2	symbol-43
+Specialization::general	2	export-27
+Specialization::specific	3	export-27
+Subclassification::general	1	export-27
+Subclassification::owningClassifier	1	export-27
+Subclassification::specific	1	export-27
+Subclassification::subclassifier	1	export-27
+Subclassification::superclassifier	1	export-27
+Subsetting::general	1	export-27
+Subsetting::owningFeature	1	export-27
+Subsetting::specific	1	export-27
+Subsetting::subsettedFeature	1	export-27
+Subsetting::subsettingFeature	1	export-27
+SuccessionAsUsage::isVariation	9	symbol-44
+SuccessionAsUsage::mayTimeVary	9	symbol-44
+SuccessionAsUsage::nestedReference	9	symbol-43
+SuccessionAsUsage::nestedUsage	9	symbol-43
+SuccessionAsUsage::owningUsage	1	symbol-44
+SuccessionAsUsage::usage	8	symbol-43

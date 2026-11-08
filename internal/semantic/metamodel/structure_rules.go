@@ -1849,6 +1849,7 @@ func (e *Evaluator) structureAttribute(element Element, property string) (Value,
 }
 
 func (e *Evaluator) semanticBooleanAttribute(element Element, property string) (Value, bool, bool) {
+	sym := e.structureUsageSymbol(element)
 	var value bool
 	switch property {
 	case "isComposite", "isReference":
@@ -1860,7 +1861,7 @@ func (e *Evaluator) semanticBooleanAttribute(element Element, property string) (
 						Category: ReasonIncompleteStructure,
 						Detail:   "Usage::isReference owning Type classification is unavailable",
 					}
-					if element.Symbol == nil || e.model == nil {
+					if sym == nil || e.model == nil {
 						reason = Reason{
 							Category: ReasonMissingSemanticModel,
 							Detail:   "Usage::isReference has no semantic Usage symbol to determine referentiality",
@@ -1872,19 +1873,19 @@ func (e *Evaluator) semanticBooleanAttribute(element Element, property string) (
 			}
 			value = composite
 		} else {
-			if element.Symbol == nil || e.model == nil {
+			if sym == nil || e.model == nil {
 				return Value{}, true, false
 			}
-			value = e.model.EffectiveIsComposite(element.Symbol)
+			value = e.model.EffectiveIsComposite(sym)
 		}
 		if property == "isReference" {
 			value = !value
 		}
 	case "isVariable":
-		if element.Symbol == nil || e.model == nil {
+		if sym == nil || e.model == nil {
 			return Value{}, true, false
 		}
-		value = e.model.FeatureIsVariable(element.Symbol)
+		value = e.model.FeatureIsVariable(sym)
 	case "mayTimeVary":
 		owningType, handled, ok := e.structureOwningType(element)
 		if !handled || !ok {
@@ -1900,7 +1901,7 @@ func (e *Evaluator) semanticBooleanAttribute(element Element, property string) (
 		if owningType.Kind != ElementValue {
 			return booleanValue(false), true, true
 		}
-		if element.Symbol == nil || owningType.Element.Symbol == nil || e.model == nil {
+		if sym == nil || e.structureUsageSymbol(owningType.Element) == nil || e.model == nil {
 			e.recordUnsupportedReason(
 				element, "Usage", "mayTimeVary",
 				Reason{
@@ -1910,9 +1911,9 @@ func (e *Evaluator) semanticBooleanAttribute(element Element, property string) (
 			)
 			return Value{}, true, false
 		}
-		value = e.model.UsageMayTimeVaryForOwningType(element.Symbol, owningType.Element.Symbol)
+		value = e.model.UsageMayTimeVaryForOwningType(sym, e.structureUsageSymbol(owningType.Element))
 	default:
-		reflective, ok := e.model.ReflectiveFeatureValue(element.Symbol, property)
+		reflective, ok := e.model.ReflectiveFeatureValue(sym, property)
 		if !ok || reflective.Kind != symbols.FilterValueBool {
 			return Value{}, true, false
 		}
@@ -4358,6 +4359,16 @@ func (e *Evaluator) structureEffectiveDirection(owner, feature Element) (ast.Fea
 	return ast.DirNone, true
 }
 
+// structureUsageSymbol is the symbol behind an element on either structure: a
+// graph element's declaration, or the symbol a symbol-backed structure projects.
+func (e *Evaluator) structureUsageSymbol(element Element) *symbols.Symbol {
+	if sym := e.structureElementSymbol(element); sym != nil {
+		return sym
+	}
+	sym, _ := e.structureSymbolOf(element)
+	return sym
+}
+
 func (e *Evaluator) structureElementSymbol(element Element) *symbols.Symbol {
 	if element.Symbol != nil {
 		return element.Symbol
@@ -6155,6 +6166,15 @@ func (e *Evaluator) structureUnmaterializedEndName(element Element, property str
 	if len(redefinitions.Values) > 0 {
 		return Value{}, false, false
 	}
+	// A succession's implied end is named by the HappensBefore end it redefines
+	// (SysML v2 §8.3.16.5 SuccessionAsUsage), as the conversion writes it.
+	if property == "name" && e.model != nil {
+		if sym, ok := e.structureSymbolOf(element); ok && sym.Expr != nil && sym.Expr.Role == symbols.ExpressionConnectorEnd {
+			if name := e.model.ImpliedEndName(ast.UsageSuccession, sym.Expr.Index); name != "" {
+				return stringValue(name), true, true
+			}
+		}
+	}
 	return nullValue(), true, true
 }
 
@@ -7695,13 +7715,18 @@ func (e *Evaluator) structureMultiplicityBounds(element Element, property string
 }
 
 func (e *Evaluator) structureInvocationArguments(element Element) (Value, bool, bool) {
-	instantiatedType, ok := e.Property(element, "InstantiationExpression", "instantiatedType")
-	if !ok || instantiatedType.Kind != ElementValue {
-		return Value{}, true, false
-	}
 	constructor, known := e.isMetaclass(element, "ConstructorExpression")
 	if !known {
 		return Value{}, true, false
+	}
+	instantiatedType, ok := e.Property(element, "InstantiationExpression", "instantiatedType")
+	if !ok || instantiatedType.Kind != ElementValue {
+		if constructor {
+			return Value{}, true, false
+		}
+		// With no type to bind formals against, the arguments are the values of
+		// the owned input parameters in order (KerML 8.3.4.8.4 InvocationExpression::argument).
+		return e.structureInputValues(element)
 	}
 	var inputs Value
 	if constructor {
@@ -7826,36 +7851,70 @@ func (e *Evaluator) structureInvocationArguments(element Element) (Value, bool, 
 		if bound[formalIndex] > 1 {
 			return Value{}, true, false
 		}
-		valuations, handled, ok := e.structureOwnedFilter(feature.Element, "FeatureValue", false)
-		if !handled || !ok {
+		values, ok := e.structureFeatureValueExpressions(feature.Element)
+		if !ok {
 			return Value{}, true, false
 		}
-		for _, valuation := range valuations.Values {
-			var valuationElement Element
-			switch valuation.Kind {
-			case ElementValue:
-				valuationElement = valuation.Element
-			case MembershipValue:
-				valuationElement = MembershipElement(valuation.Membership)
-			default:
-				return Value{}, true, false
-			}
-			values, ok := e.relationshipEndpoints(valuationElement, "value")
-			if !ok {
-				return Value{}, true, false
-			}
-			filtered, ok := e.structureFilterValues(values, "Expression")
-			if !ok {
-				return Value{}, true, false
-			}
-			featureValues[formalIndex] = append(featureValues[formalIndex], filtered...)
-		}
+		featureValues[formalIndex] = append(featureValues[formalIndex], values...)
 	}
 	var arguments []Value
 	for _, values := range featureValues {
 		arguments = append(arguments, values...)
 	}
 	return sequence(arguments...), true, true
+}
+
+// structureInputValues are the value Expressions of element's owned input
+// features, in feature order.
+func (e *Evaluator) structureInputValues(element Element) (Value, bool, bool) {
+	ownedFeatures, handled, ok := e.structureOwnedFeatures(element)
+	if !handled || !ok {
+		return Value{}, true, false
+	}
+	inputs, ok := e.structureOperatorInputs(element, ownedFeatures.Values)
+	if !ok {
+		return Value{}, true, false
+	}
+	var arguments []Value
+	for _, feature := range inputs {
+		values, ok := e.structureFeatureValueExpressions(feature.Element)
+		if !ok {
+			return Value{}, true, false
+		}
+		arguments = append(arguments, values...)
+	}
+	return sequence(arguments...), true, true
+}
+
+// structureFeatureValueExpressions are the Expressions the FeatureValues of
+// feature bind as its value.
+func (e *Evaluator) structureFeatureValueExpressions(feature Element) ([]Value, bool) {
+	valuations, handled, ok := e.structureOwnedFilter(feature, "FeatureValue", false)
+	if !handled || !ok {
+		return nil, false
+	}
+	var out []Value
+	for _, valuation := range valuations.Values {
+		var valuationElement Element
+		switch valuation.Kind {
+		case ElementValue:
+			valuationElement = valuation.Element
+		case MembershipValue:
+			valuationElement = MembershipElement(valuation.Membership)
+		default:
+			return nil, false
+		}
+		values, ok := e.relationshipEndpoints(valuationElement, "value")
+		if !ok {
+			return nil, false
+		}
+		filtered, ok := e.structureFilterValues(values, "Expression")
+		if !ok {
+			return nil, false
+		}
+		out = append(out, filtered...)
+	}
+	return out, true
 }
 
 func (e *Evaluator) structurePublicFeatures(features []Value) ([]Value, bool) {

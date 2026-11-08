@@ -26,17 +26,33 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	if cached, ok := m.memberships[sym]; ok {
 		return cached
 	}
+	if bounds := m.MultiplicityBounds(sym); bounds != nil {
+		// A written range owns its bounds (KerML 8.3.3.6 MultiplicityRange).
+		journal(m, m.memberships, sym, sym.Decl)
+		var out []*symbols.Symbol
+		for _, bound := range bounds {
+			out = appendOwningMembership(out, sym, bound)
+		}
+		m.memberships[sym] = out
+		return out
+	}
 	value := m.ValueExpression(sym)
 	statements := append(m.statementOperands(sym), m.statementNodes(sym)...)
 	parts := m.transitionMembers(sym)
+	ends := m.successionEnds(sym)
 	bodyParts := len(m.resultExpressionMembers(sym)) + len(m.filterMemberships(sym))
-	if sym.Scope == nil && value == nil && len(statements) == 0 && len(parts) == 0 && bodyParts == 0 {
+	if sym.Scope == nil && value == nil && len(statements) == 0 && len(parts) == 0 && len(ends) == 0 && bodyParts == 0 {
 		return nil
 	}
 	journal(m, m.memberships, sym, sym.Decl)
 	var out []*symbols.Symbol
 	seen := make(map[*symbols.Symbol]bool)
 	ordinal := 0
+	for _, end := range ends {
+		// A `then` succession owns its ends ahead of its body (encodeSuccessionEdge).
+		out = appendOwningMembership(out, sym, end)
+		ordinal++
+	}
 	if value != nil {
 		// The feature's value part declares a FeatureValue that owns the
 		// expression (KerML 8.3.3.3.5 Feature::valuation subsets ownedMembership),
@@ -57,19 +73,22 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		m.memberships[sym] = out
 		return out
 	}
+	// A statement's membership stands where the statement is written among the
+	// body's declared members (mergeMemberships), as the conversion orders them.
+	var statementMemberships []*symbols.Symbol
 	for _, statement := range statements {
-		out = append(out, &symbols.Symbol{
+		statementMemberships = append(statementMemberships, &symbols.Symbol{
 			Kind:       symbols.SymbolRelationship,
 			DocName:    sym.DocName,
 			DeclSpan:   statement.DeclSpan,
 			Visibility: sym.Visibility,
 			Implicit: &symbols.ImplicitRelationship{
-				Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: statement,
+				Owner: sym, Form: symbols.ImplicitMembership, Member: statement,
 			},
 		})
-		ordinal++
 	}
 	if sym.Scope == nil {
+		out = mergeMemberships(out, statementMemberships)
 		if len(parts) > 0 {
 			out = m.withTransitionMemberships(sym, out, parts)
 		}
@@ -124,6 +143,7 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		ordinal++
 		return true
 	})
+	out = mergeMemberships(out, statementMemberships)
 	if len(parts) > 0 {
 		out = m.withTransitionMemberships(sym, out, parts)
 	}
@@ -190,6 +210,16 @@ func (m *Model) withDefaultMultiplicity(sym *symbols.Symbol, memberships []*symb
 // among its scope's, in the source order the conversion writes them.
 func (m *Model) withTransitionMemberships(sym *symbols.Symbol, out, parts []*symbols.Symbol) []*symbols.Symbol {
 	var extra []*symbols.Symbol
+	if tp := m.transitionPartsOf(sym); tp != nil && tp.sourceMember != nil {
+		// `first source` is a Membership of the source state (transitionSourceMember).
+		extra = append(extra, &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    sym.DocName,
+			DeclSpan:   tp.source.Span(),
+			Visibility: sym.Visibility,
+			Implicit:   &symbols.ImplicitRelationship{Owner: sym, Form: symbols.ImplicitReferenceMembership, Member: tp.sourceMember, Slot: "sourcemember"},
+		})
+	}
 	for _, part := range parts {
 		extra = append(extra, &symbols.Symbol{
 			Kind:       symbols.SymbolRelationship,
@@ -279,6 +309,9 @@ func (m *Model) OwningMembership(sym *symbols.Symbol) *symbols.Symbol {
 		return nil
 	}
 	owner := m.ownerOf(sym)
+	if owner == nil {
+		owner = m.rootNamespaceOwner(sym)
+	}
 	if owner == nil {
 		return nil
 	}
@@ -869,8 +902,8 @@ func (m *Model) importElements(sym *symbols.Symbol, feature string) ([]*symbols.
 	}
 	if imp.Kind == ast.ImportMembership {
 		// KerML 8.3.2.5 MembershipImport: importedMembership redefines target and
-		// importedElement is its memberElement. A document root is reflected as
-		// no element, so the membership of a root-level member is not derived.
+		// importedElement is its memberElement; a root-level member's is the
+		// membership its document's RootNamespace owns it through.
 		if feature == "importedElement" {
 			if target.Kind == symbols.SymbolAlias {
 				return m.aliasMembershipElements(target, "memberElement")

@@ -1312,6 +1312,10 @@ var usageMetaclassNames = map[ast.UsageKind]string{
 
 // isMetadataBodyFeature reports whether sym is a feature a metadata body declares,
 // at any depth, other than a metadata feature annotating the body's owner.
+// IsMetadataBodyFeature reports whether sym is a feature a metadata usage's body
+// binds (`@M { x = 1; }`), which redefines the metadata type's feature it names.
+func IsMetadataBodyFeature(sym *symbols.Symbol) bool { return isMetadataBodyFeature(sym) }
+
 func isMetadataBodyFeature(sym *symbols.Symbol) bool {
 	kind, ok := sym.UsageKind()
 	if !ok || kind == ast.UsageMetadata {
@@ -1581,6 +1585,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			return nil, false
 		}
 		owner := m.ownerOf(sym)
+		if owner == nil {
+			owner = m.rootNamespaceOwner(sym)
+		}
 		if owner == nil || !m.reflectiveMetaclassConforms(owner, "Namespace") {
 			return nil, true
 		}
@@ -1803,6 +1810,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "owner":
 		if owner := ownerSymbol(sym); owner != nil {
 			return []*symbols.Symbol{owner}, true
+		}
+		if root := m.rootNamespaceOwner(sym); root != nil {
+			return []*symbols.Symbol{root}, true
 		}
 		return nil, true
 	case "ownedMember":
@@ -2951,13 +2961,21 @@ func (m *Model) reflectiveName(sym *symbols.Symbol) string {
 	if name := declaredSymbolName(sym); name != "" {
 		return name
 	}
-	return m.EffectiveNameOf(sym)
+	if name := m.EffectiveNameOf(sym); name != "" {
+		return name
+	}
+	if sym != nil && sym.Naming == symbols.NamedByRedefinition {
+		// The written `:>> x` names the feature even while x does not resolve.
+		return sym.Name
+	}
+	return ""
 }
 
 // declaredSymbolName is the symbol's name as its declaration states it; a name the
 // symbol table gave it for the role it takes (a transition's `effect`) is none.
 func declaredSymbolName(sym *symbols.Symbol) string {
-	if sym == nil || sym.Naming == symbols.NamedByRole {
+	// `:>> x` and a role name are derived, not declared (KerML 8.3.2.1 Element::declaredName).
+	if sym == nil || sym.Naming == symbols.NamedByRole || sym.Naming == symbols.NamedByRedefinition {
 		return ""
 	}
 	return SimpleSymbolName(sym)

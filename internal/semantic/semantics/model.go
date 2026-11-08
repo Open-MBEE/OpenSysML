@@ -179,6 +179,7 @@ type Model struct {
 	// (see reflective_memberships.go, reflective_annotations.go).
 	memberships             map[*symbols.Symbol][]*symbols.Symbol
 	valueExpressions        map[*symbols.Symbol]*symbols.Symbol
+	multiplicityBounds      map[*symbols.Symbol][]*symbols.Symbol
 	statementSymbols        map[*symbols.Symbol][]*symbols.Symbol
 	resultExpressionSymbols map[*symbols.Symbol][]*symbols.Symbol
 	filterMembershipSymbols map[*symbols.Symbol][]*symbols.Symbol
@@ -187,9 +188,12 @@ type Model struct {
 	statementOperandSymbols map[*symbols.Symbol][]*symbols.Symbol
 	expressionParts         map[*symbols.Symbol]*expressionParts
 	transitionParts         map[*symbols.Symbol]*transitionParts
+	edgeEnds                map[*symbols.Symbol][]*symbols.Symbol
 	ownedAnnotations        map[*symbols.Symbol][]*symbols.Symbol
 	annotatingRels          map[*symbols.Symbol][]*symbols.Symbol
 	ownedImports            map[*symbols.Symbol][]*symbols.Symbol
+	// rootNamespaces memoizes each document's reflected RootNamespace (see reflective_root.go).
+	rootNamespaces map[string]*symbols.Symbol
 }
 
 // NewModel creates a semantic model backed by the given name resolver. The
@@ -277,6 +281,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		ownedAnnotations:      make(map[*symbols.Symbol][]*symbols.Symbol),
 		annotatingRels:        make(map[*symbols.Symbol][]*symbols.Symbol),
 		ownedImports:          make(map[*symbols.Symbol][]*symbols.Symbol),
+		rootNamespaces:        make(map[string]*symbols.Symbol),
 	}
 	if resolver != nil {
 		resolver.SetModel(m)
@@ -741,6 +746,10 @@ func (m *Model) relationshipTarget(sym *symbols.Symbol, rel *ast.Relationship) *
 		return nil
 	}
 	node := rel.Target
+	if usage, ok := node.(*ast.Usage); ok && usage == sym.Decl && isMetadataBodyFeature(sym) {
+		// The implied redefinition of a metadata body feature targets the type's feature it names.
+		return m.MetadataBodyTargetOf(m.resolver.MetadataBodyOwner(sym.OwnerScope), sym.OwnerScope, usage)
+	}
 	if fr, ok := node.(*ast.FeatureReference); ok {
 		node = fr.Name
 	}

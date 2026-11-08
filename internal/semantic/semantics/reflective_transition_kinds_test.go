@@ -43,6 +43,11 @@ func TestTransitionFeatureKindsReadTheirLiteral(t *testing.T) {
 			if IsTransitionParameter(membership.Implicit.Member) {
 				continue
 			}
+			// `first source` is a Membership of the source state (SysML.xtext
+			// TransitionSourceMember), not a transition feature.
+			if membership.Implicit.Form == symbols.ImplicitReferenceMembership {
+				continue
+			}
 		}
 		if meta := m.MetaclassOf(membership); meta == nil || meta.Name != "TransitionFeatureMembership" {
 			t.Errorf("t1 owns a %v, want only TransitionFeatureMemberships", meta)

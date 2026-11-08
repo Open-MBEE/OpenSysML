@@ -25,6 +25,10 @@ type transitionParts struct {
 	succession *symbols.Symbol
 	sourceEnd  *symbols.Symbol
 	targetEnd  *symbols.Symbol
+	// sourceMember is the state `first source` names, held by a Membership the
+	// transition owns (SysML.xtext TransitionSourceMember); nil for a chain.
+	sourceMember *symbols.Symbol
+	source       *ast.QualifiedName
 	// linkParameter and triggerParameter are the implied `in` parameters a transition
 	// owns ahead of its trigger (SysML v2 §8.3.16.15; SysML-textual-bnf EmptyParameterMember),
 	// the second only where a trigger declares a payload.
@@ -73,6 +77,11 @@ func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
 	}
 	journal(m, m.transitionParts, sym, sym.Decl)
 	parts := &transitionParts{}
+	if !isBranch && trans.Source != nil && !nameHasChain(trans.Source) {
+		if member := m.referencedSymbol(sym, trans.Source); member != nil {
+			parts.source, parts.sourceMember = trans.Source, member
+		}
+	}
 	if !isBranch && !trans.IsSuccession {
 		parts.linkParameter = transitionParameter(sym, "linkparam")
 		if payload, event := triggerPayload(trans); payload != nil || event != nil {
@@ -156,7 +165,13 @@ func (p *transitionParts) withSuccession(trans *symbols.Symbol, target *ast.Qual
 // successionEnds are the ends of a transition's synthesized succession sym, in order; nil
 // for any other symbol.
 func (m *Model) successionEnds(sym *symbols.Symbol) []*symbols.Symbol {
-	if sym == nil || sym.Expr == nil || sym.Expr.Role != symbols.ExpressionTransitionSuccession {
+	if sym == nil {
+		return nil
+	}
+	if edge, ok := sym.Decl.(*ast.SuccessionEdge); ok && (sym.Expr == nil || sym.Expr.Role != symbols.ExpressionConnectorEnd) {
+		return m.edgeEndsOf(sym, edge)
+	}
+	if sym.Expr == nil || sym.Expr.Role != symbols.ExpressionTransitionSuccession {
 		return nil
 	}
 	parts := m.transitionPartsOf(sym.Expr.Owner)
@@ -383,4 +398,76 @@ func (m *Model) isRecordedTriggerPayload(trans, member *symbols.Symbol) bool {
 	}
 	parts := m.transitionPartsOf(trans)
 	return parts != nil && parts.accepter != nil && parts.payload != nil && parts.payload.Decl == member.Decl
+}
+
+// edgeEndsOf synthesizes the two ends a `then target` succession written in a body
+// owns (SysML.xtext TargetSuccession): an empty source end carrying the source
+// multiplicity and an end referring to the target, as the conversion writes them
+// (encodeSuccessionEdge) when the source is implied by position rather than named
+// ahead of the succession.
+func (m *Model) edgeEndsOf(sym *symbols.Symbol, edge *ast.SuccessionEdge) []*symbols.Symbol {
+	if cached, ok := m.edgeEnds[sym]; ok {
+		return cached
+	}
+	if m.edgeEnds == nil {
+		m.edgeEnds = make(map[*symbols.Symbol][]*symbols.Symbol)
+	}
+	implied := edge.Source != nil && edge.Source.Span().Offset < edge.Span().Offset
+	positional := edge.Source == nil && edge.SourceMember != nil
+	if !implied && !(positional && (edge.SourceMultiplicity != nil || edge.TargetMultiplicity != nil)) {
+		m.edgeEnds[sym] = nil
+		return nil
+	}
+	span := edge.Span()
+	if edge.Target != nil {
+		span = edge.Target.Span()
+	}
+	empty := &ast.ConnectorEnd{Multiplicity: edge.SourceMultiplicity}
+	empty.NodeSpan = source.Span{Offset: edge.Span().Offset}
+	sourceEnd := transitionPart(sym, empty, empty.NodeSpan, symbols.SymbolConnectorEnd, sym, symbols.ExpressionConnectorEnd)
+	end := &ast.ConnectorEnd{Multiplicity: edge.TargetMultiplicity}
+	switch {
+	case edge.Target != nil:
+		end.Target = edge.Target
+	case edge.TargetMember != nil:
+		if _, done := edge.TargetMember.(*ast.FinalNode); done {
+			// `then done;` ends at the action's inherited done (Actions::Action::done).
+			end.Target = ast.QualifiedNameOf("done")
+		} else if name := scopeMemberName(sym.OwnerScope, edge.TargetMember); name != "" {
+			end.Target = ast.QualifiedNameOf(name)
+		}
+	}
+	end.NodeSpan = span
+	targetEnd := transitionPart(sym, end, span, symbols.SymbolConnectorEnd, sym, symbols.ExpressionConnectorEnd)
+	targetEnd.Expr.Index = 1
+	for _, part := range []*symbols.Symbol{sourceEnd, targetEnd} {
+		part.OwnerScope = sym.OwnerScope
+	}
+	ends := []*symbols.Symbol{sourceEnd, targetEnd}
+	m.edgeEnds[sym] = ends
+	return ends
+}
+
+// scopeMemberName is the name of the member scope declares at node, or "".
+func scopeMemberName(scope *symbols.Scope, node ast.Node) string {
+	if scope == nil || node == nil {
+		return ""
+	}
+	name := ""
+	scope.ForEachMember(func(member *symbols.Symbol) bool {
+		if member != nil && member.Decl == node && member.Name != "" {
+			name = member.Name
+		}
+		return name == ""
+	})
+	return name
+}
+
+func nameHasChain(name *ast.QualifiedName) bool {
+	for _, part := range name.Parts {
+		if part.Chained {
+			return true
+		}
+	}
+	return false
 }

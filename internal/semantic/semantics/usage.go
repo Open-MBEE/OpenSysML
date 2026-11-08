@@ -128,6 +128,11 @@ func (m *Model) FeatureIsVariable(sym *symbols.Symbol) bool {
 	if sym == nil || isKerMLTypeDecl(sym) {
 		return false
 	}
+	// A connector's implied end and a flow end's flow feature declare no `var`
+	// and are written non-variable (connectorEnd, flowEndReferences).
+	if (sym.Expr != nil && sym.Expr.Role == symbols.ExpressionConnectorEnd) || IsFlowFeature(sym) {
+		return false
+	}
 	if sym.Recorded() {
 		mods := sym.Facts.Modifiers
 		if m.isKerMLDoc(sym) {
@@ -301,6 +306,10 @@ func (m *Model) UsageIsComposite(sym *symbols.Symbol) bool {
 func (m *Model) usageIsAlwaysReferential(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
+	}
+	if _, ok := sym.Decl.(*ast.SuccessionEdge); ok {
+		// A `then` succession is a SuccessionAsUsage, referential as `succession` is.
+		return true
 	}
 	if sym.Recorded() {
 		if sym.Kind == symbols.SymbolBindingUsage || sym.Kind == symbols.SymbolSuccessionUsage ||

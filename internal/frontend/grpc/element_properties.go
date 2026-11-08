@@ -101,14 +101,26 @@ type elementReader struct {
 	catalog   *identity.Catalog
 	structure *metamodel.SymbolStructure
 	evaluator *metamodel.Evaluator
-	addresses map[*symbols.Symbol]string
-	bySymbol  map[string]*symbols.Symbol
+	// ids spells every element by the id the model's API element form (Convert)
+	// writes for it, and resolves such an id back; nil when the form refuses the
+	// model (idsRefusal), when the reader falls back to the symbols' own ids.
+	ids        *export.SymbolIDs
+	idsRefusal error
+	addresses  map[*symbols.Symbol]string
+	bySymbol   map[string]*symbols.Symbol
 }
 
 // elementReader is the model's symbol-backed property reader, built on first use.
 func (m *CachedModel) elementReader() *elementReader {
 	m.elementReaderOnce.Do(func() {
 		resolver := resolve.New(m.Index)
+		// The structure reads references through the resolver's record of the
+		// documents (referencedSymbol), as the conversion does before it writes.
+		for _, doc := range m.Documents {
+			if doc != nil && doc.Source != nil && doc.Root != nil {
+				resolver.ResolveDocument(doc.Source.Name(), doc.Root)
+			}
+		}
 		sem := semantics.NewModel(resolver)
 		sem.SetSourceText(cachedSourceText(m))
 		structure := metamodel.NewSymbolStructure(resolver, sem)
@@ -117,7 +129,7 @@ func (m *CachedModel) elementReader() *elementReader {
 		for _, exclusion := range exclusions {
 			excluded[exclusion.Document] = exclusion
 		}
-		m.elementReaderValue = &elementReader{
+		reader := &elementReader{
 			model:      m,
 			exclusions: exclusions,
 			excluded:   excluded,
@@ -127,8 +139,38 @@ func (m *CachedModel) elementReader() *elementReader {
 			addresses:  map[*symbols.Symbol]string{},
 			bySymbol:   map[string]*symbols.Symbol{},
 		}
+		reader.ids, reader.idsRefusal = m.symbolIDs(resolver, sem, excluded)
+		if reader.ids != nil {
+			structure.SetIdentities(reader.ids.Of)
+			// The ownership walk reads the semantic model, which memoizes
+			// without locking: done here, before the evaluator shares it.
+			reader.ids.Reachable()
+		}
+		m.elementReaderValue = reader
 	})
 	return m.elementReaderValue
+}
+
+// symbolIDs spells the model's symbols by the ids Convert writes for the elements
+// of the documents read (the excluded ones left out, so a top-level name two
+// documents declare is no collision here); the error is why the form refuses
+// those documents together (an id outside the alphabet).
+func (m *CachedModel) symbolIDs(resolver *resolve.Resolver, sem *semantics.Model, excluded map[string]*pb.ExcludedDocument) (*export.SymbolIDs, error) {
+	documents := make([]export.ModelDocument, 0, len(m.Documents))
+	for _, doc := range m.Documents {
+		if doc == nil || doc.Source == nil || doc.Root == nil || excluded[doc.Source.Name()] != nil {
+			continue
+		}
+		documents = append(documents, export.ModelDocument{File: doc.Source, Root: doc.Root})
+	}
+	if len(documents) == 0 {
+		return nil, nil
+	}
+	ids, err := export.NewElementIDs(documents)
+	if err != nil {
+		return nil, err
+	}
+	return export.NewSymbolIDs(ids, resolver, sem), nil
 }
 
 // documentExclusions is the documents the model is read without, in document order:
@@ -194,9 +236,13 @@ func (m *CachedModel) declarationAt(sym *symbols.Symbol) string {
 	return sym.DocName
 }
 
-// lookup finds the symbol a request addresses: a symbol id the model resolves (qualified
-// name, inherited member, positional id), or a path address this reader gave an element no id names.
+// lookup finds the symbol a request addresses: the id the API element form writes for it, a
+// symbol id the model resolves (qualified name, inherited member, positional id), or a path
+// address this reader gave an element no id names.
 func (r *elementReader) lookup(id string) (*symbols.Symbol, bool) {
+	if sym, ok := r.ids.Symbol(id); ok {
+		return sym, true
+	}
 	if syms := r.model.LookupNamedMember(id); len(syms) > 0 {
 		return syms[0], true
 	}
@@ -278,7 +324,7 @@ func (r *elementReader) address(sym *symbols.Symbol, depth int) string {
 		if id, _ = r.structure.ElementIdentity(r.structure.ElementFor(sym)); id == "" {
 			id = r.libraryElementID(sym)
 		}
-	} else {
+	} else if id, _ = r.ids.Of(sym); id == "" {
 		id = r.model.SymbolContext().Identity(sym)
 	}
 	if id == "" && depth <= maxPathDepth {

@@ -184,7 +184,9 @@ func declaredShortName(sym *symbols.Symbol) string { return sym.ShortName }
 // declaresIdentifier reports whether sym's declaration states a name or a short
 // name of its own; a symbol named by its naming feature (KerML 7.3.4.5) declares neither.
 func declaresIdentifier(sym *symbols.Symbol) bool {
-	return sym.Naming == symbols.NamedByDeclaration && (sym.Name != "" || sym.ShortName != "")
+	// A short name is always written by the declaration (`<R1> :>> x`); a name
+	// is declared only when the naming feature does not supply it.
+	return sym.ShortName != "" || (sym.Naming == symbols.NamedByDeclaration && sym.Name != "")
 }
 
 // inheritedIdentifier reads identifier id from the first of sym and the

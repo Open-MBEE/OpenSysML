@@ -62,6 +62,12 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 	}
 	// A connector end reference-subsets the feature it attaches to whether or
 	// not a clause of its own says so (SysML v2 8.2.2.13.1).
+	if prefix, ok := owner.Decl.(*ast.PrefixMetadata); ok && prefix.Type != nil {
+		// `@T { … }` types the metadata usage by T (SysML.xtext MetadataUsage), a
+		// FeatureTyping the conversion writes as the head's (metadataUsage).
+		out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelTyping, false, impliedRelationship(ast.RelTyping, prefix.Type)))
+		ordinal++
+	}
 	if end, ok := owner.Decl.(*ast.ConnectorEnd); ok {
 		if target := ImpliedEndReference(end); target != nil {
 			out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelReferences, false, connectorEndAttachment(target)))
@@ -73,6 +79,10 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 		}
 	} else if IsFlowFeature(owner) {
 		// A flow feature redefines the feature the end's last segment names (SysML.xtext FlowFeature).
+		out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelRedefines, false, impliedRelationship(ast.RelRedefines, owner.Decl)))
+	} else if usage, ok := owner.Decl.(*ast.Usage); ok && isMetadataBodyFeature(owner) && !declaresRedefinitionAST(usage) && m.metadataBodyRedefines(owner, usage) {
+		// `@M { x = 1; }` binds x by redefining the metadata type's x (SysML.xtext
+		// MetadataBodyUsage), a Redefinition the conversion writes.
 		out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelRedefines, false, impliedRelationship(ast.RelRedefines, owner.Decl)))
 	}
 	// A multiplicity member's `subsets` is its one written relationship, held on
@@ -708,4 +718,15 @@ func isReferenceSubsetting(rel *symbols.ImplicitRelationship) bool {
 		}
 	}
 	return false
+}
+
+// metadataBodyRedefines reports whether the metadata body feature owner names a
+// feature of its metadata type other than itself, as the conversion requires
+// before it writes the implied Redefinition (implicitMetadataBodyTarget).
+func (m *Model) metadataBodyRedefines(owner *symbols.Symbol, usage *ast.Usage) bool {
+	if m.resolver == nil {
+		return false
+	}
+	target := m.MetadataBodyTargetOf(m.resolver.MetadataBodyOwner(owner.OwnerScope), owner.OwnerScope, usage)
+	return target != nil && target != owner
 }

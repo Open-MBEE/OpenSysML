@@ -3,7 +3,6 @@ package export
 import (
 	"flag"
 	"fmt"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"os"
 	"path/filepath"
 	"sort"
@@ -11,9 +10,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
@@ -24,10 +21,9 @@ import (
 type structureDifferential struct {
 	graph    *apiJSONGraphStructure
 	symbolic *metamodel.SymbolStructure
-	ids      *ElementIDs
-	index    *symbols.Index
-	doc      string
-	symbolID map[*symbols.Symbol]string
+	// symbolIDs spells each symbol by the id the conversion wrote for its element.
+	symbolIDs *SymbolIDs
+	index     *symbols.Index
 	// identityToGraph maps the symbol structure's element identities to the
 	// ids the conversion wrote, so id-valued strings compare across structures.
 	identityToGraph map[string]string
@@ -324,6 +320,11 @@ func differentialOf(path string, data []byte) (*structureDifferential, bool) {
 	if err != nil {
 		return nil, false
 	}
+	// The graph is read as the API element form writes it: under the document's
+	// root Namespace, which the symbol structure reflects too.
+	if graph, err = withRootNamespace(graph); err != nil {
+		return nil, false
+	}
 	model := encoders[0].ids.model
 	index := newAPIJSONWriteIndex(graph)
 	graphEvaluation := newAPIJSONEvaluationWithIndex(index)
@@ -332,39 +333,17 @@ func differentialOf(path string, data []byte) (*structureDifferential, bool) {
 	diff := &structureDifferential{
 		graph:           graphEvaluation.structure,
 		symbolic:        symbolic,
-		ids:             ids,
+		symbolIDs:       NewSymbolIDs(ids, res, model),
 		index:           res.Index(),
-		doc:             sf.Name(),
-		symbolID:        map[*symbols.Symbol]string{},
 		identityToGraph: map[string]string{},
 		graphIDs:        map[string]bool{},
 		counts:          map[string]*differentialCounts{},
 		samples:         map[string][]string{},
 	}
-	// Reach every symbol from the document root through ownership.
-	var symbolsSeen []*symbols.Symbol
-	seen := map[*symbols.Symbol]bool{}
-	var visit func(sym *symbols.Symbol)
-	visit = func(sym *symbols.Symbol) {
-		if sym == nil || seen[sym] {
-			return
-		}
-		seen[sym] = true
-		symbolsSeen = append(symbolsSeen, sym)
-		for _, rel := range model.OwnedRelationships(sym) {
-			visit(rel)
-			if related, ok := model.ReflectiveElements(rel, "ownedRelatedElement"); ok {
-				for _, owned := range related {
-					visit(owned)
-				}
-			}
-		}
-	}
-	if scope := res.Index().DocumentRoot(sf.Name()); scope != nil {
-		for _, member := range scope.Members() {
-			visit(member)
-		}
-	}
+	// The structure spells its elements as the served structure does (elementReader).
+	symbolic.SetIdentities(diff.symbolIDs.Of)
+	// Every symbol reachable from the document's root namespace through ownership.
+	symbolsSeen := diff.symbolIDs.Reachable()
 	graphByID := map[string]metamodel.Element{}
 	for position, subject := range index.subjects {
 		if position >= index.settled {
@@ -384,7 +363,7 @@ func differentialOf(path string, data []byte) (*structureDifferential, bool) {
 	matchedIDs := map[string]bool{}
 	var matched []*symbols.Symbol
 	for _, sym := range symbolsSeen {
-		id, ok := diff.graphID(sym)
+		id, ok := diff.symbolIDs.Of(sym)
 		if !ok {
 			continue
 		}
@@ -405,235 +384,10 @@ func differentialOf(path string, data []byte) (*structureDifferential, bool) {
 	}
 	diff.matched = len(matched)
 	for _, sym := range matched {
-		id, _ := diff.graphID(sym)
+		id, _ := diff.symbolIDs.Of(sym)
 		diff.compare(graphEvaluation.evaluator, graphByID[id], symbolEvaluator, symbolic.ElementFor(sym))
 	}
 	return diff, true
-}
-
-// graphID is the elementId the conversion wrote for the element sym reflects.
-func (d *structureDifferential) graphID(sym *symbols.Symbol) (string, bool) {
-	if id, ok := d.symbolID[sym]; ok {
-		return id, id != ""
-	}
-	id, ok := d.computeGraphID(sym)
-	if !ok {
-		id = ""
-	}
-	d.symbolID[sym] = id
-	return id, ok
-}
-
-func (d *structureDifferential) computeGraphID(sym *symbols.Symbol) (string, bool) {
-	switch {
-	case sym.Implicit != nil:
-		return d.implicitGraphID(sym.Implicit)
-	case sym.Expr != nil:
-		return d.expressionGraphID(sym)
-	}
-	// A `for` variable is keyed by its loop, which the conversion writes as a
-	// string (sysx:loopVariable), not as an element of its own.
-	if _, ok := sym.Decl.(*ast.WhileLoopActionNode); ok && sym.Name != "" {
-		return "", false
-	}
-	// A body's parameter declares no node of its own: its symbol is keyed by the
-	// body, which the conversion writes as the reference the parameter is in<i> of.
-	if body, ok := sym.Decl.(*ast.BodyExpr); ok && sym.Name != "" {
-		element, _, ok := d.ids.OfBodyParameter(d.doc, body, sym.Name)
-		return element, ok
-	}
-	// A chained end's target is the chain Feature its ReferenceSubsetting owns, minted
-	// off the end (chainFeature), which the chain's own node is not written as.
-	if sym.Kind == symbols.SymbolReferenceUsage && sym.OwnerScope != nil {
-		if end, ok := sym.OwnerScope.Node().(*ast.ConnectorEnd); ok && end.AttachedTarget() == sym.Decl {
-			element, _, ok := d.ids.OfExpressionPart(d.doc, end, "chain")
-			return element, ok
-		}
-		// A flow end's flow feature is minted off the end (flowEndReferences).
-		if semantics.IsFlowFeature(sym) {
-			element, _, ok := d.ids.OfExpressionPart(d.doc, sym.OwnerScope.Node(), "ff")
-			return element, ok
-		}
-	}
-	if implied, ok := symbols.ImpliedDeclOf(sym); ok && implied.Form == symbols.ImpliedDefaultMultiplicity {
-		if element, _, ok := d.ids.OfExpressionPart(d.doc, implied.Of, "multiplicity"); ok {
-			return element, true
-		}
-		owner, ok := d.ids.OfDeclaration(d.doc, implied.Of, "")
-		if !ok {
-			return "", false
-		}
-		return rdf.ExpressionNodeID(owner, "multiplicity"), true
-	}
-	return d.ids.OfDeclaration(d.doc, sym.Decl, d.fqn(sym))
-}
-
-// implicitGraphID mirrors how the conversion mints a relationship it writes for
-// the notation: a membership from its member, a written clause from its node.
-func (d *structureDifferential) implicitGraphID(rel *symbols.ImplicitRelationship) (string, bool) {
-	switch rel.Form {
-	case symbols.ImplicitMembership:
-		if rel.Member == nil {
-			return "", false
-		}
-		if _, ok := rel.Decl.(*ast.FilterMember); ok {
-			// A `filter` member is written as the ElementFilterMembership itself.
-			return d.ids.OfDeclaration(d.doc, rel.Decl, "")
-		}
-		if id, ok := d.ids.OwningMembershipOfDeclaration(d.doc, rel.Member.Decl, d.fqn(rel.Member)); ok && rel.Member.Expr == nil {
-			return id, true
-		}
-		member, ok := d.graphID(rel.Member)
-		if !ok {
-			return "", false
-		}
-		return member + rdf.OwningMembershipSuffix, true
-	case symbols.ImplicitWritten:
-		if rel.Node == nil {
-			return "", false
-		}
-		if rel.Owner != nil && rel.Owner.Expr != nil && rel.Owner.Expr.Role == symbols.ExpressionConnectorEnd && rel.Kind.ReferenceSubsets() {
-			// A synthesized end's reference subsetting is minted off the end (connectorEnd).
-			end, ok := d.graphID(rel.Owner)
-			return rdf.ExpressionNodeID(end, "rs"), ok
-		}
-		// A flow feature's redefinition is a property the conversion writes, which the
-		// api-json structure derives as a Redefinition minted off the feature.
-		if rel.Kind == ast.RelRedefines && semantics.IsFlowFeature(rel.Owner) {
-			owner, ok := d.graphID(rel.Owner)
-			return owner + relationshipSuffix(ast.RelRedefines, false, false, 1, 0), ok
-		}
-		if rel.Node.Span().Len == 0 && rel.Node.Target != nil {
-			return d.ids.RelationshipOf(d.doc, rel.Node.Target)
-		}
-		return d.ids.RelationshipOf(d.doc, rel.Node)
-	case symbols.ImplicitImport:
-		return d.ids.OfDeclaration(d.doc, rel.Decl, "")
-	case symbols.ImplicitAnnotatingRelationship:
-		if rel.Owner == nil {
-			return "", false
-		}
-		node := ast.AboutClauseNode(rel.Owner.Decl, rel.Ordinal)
-		if node == nil {
-			return "", false
-		}
-		return d.ids.RelationshipOf(d.doc, node)
-	case symbols.ImplicitReferenceMembership:
-		if rel.Decl != nil {
-			// A `first x;` marker's Membership is minted from the marker itself.
-			return d.ids.OfDeclaration(d.doc, rel.Decl, "")
-		}
-		if rel.Owner == nil || rel.Slot == "" {
-			return "", false
-		}
-		_, membership, ok := d.ids.OfExpressionPart(d.doc, rel.Owner.Decl, rel.Slot)
-		if !ok && rel.Owner.Expr != nil {
-			return d.expressionPartID(rel.Owner, rel.Slot)
-		}
-		return membership, ok
-	case symbols.ImplicitFeatureChaining:
-		if rel.Owner == nil || rel.Slot == "" {
-			return "", false
-		}
-		return d.expressionPartID(rel.Owner, rel.Slot)
-	}
-	return "", false
-}
-
-// expressionGraphID mirrors the conversion's expression ids: a node of the
-// notation by its node, a part it mints (parameters, results) by its slot.
-func (d *structureDifferential) expressionGraphID(sym *symbols.Symbol) (string, bool) {
-	owner := sym.Expr.Owner
-	if owner == nil {
-		return "", false
-	}
-	switch sym.Expr.Role {
-	case symbols.ExpressionParameter:
-		return d.expressionPartID(owner, fmt.Sprintf("in%d", sym.Expr.Index))
-	case symbols.ExpressionResult:
-		return d.expressionPartID(owner, "out")
-	case symbols.ExpressionBody:
-		if id, ok := d.ids.OfDeclaration(d.doc, sym.Decl, ""); ok {
-			return id, true
-		}
-		return d.expressionPartID(owner, "body")
-	case symbols.ExpressionBodyResult:
-		// A type body's result expression is a member of its own; a `{ … }` body's is
-		// minted off the body (result).
-		if id, ok := d.ids.OfDeclaration(d.doc, sym.Decl, ""); ok {
-			return id, true
-		}
-		return d.expressionPartID(owner, "result")
-	case symbols.ExpressionGuard:
-		return d.expressionPartID(owner, "guard")
-	case symbols.ExpressionChangeWrapper:
-		if owner.Expr == nil || owner.Expr.Owner == nil {
-			return "", false
-		}
-		return d.expressionPartID(owner.Expr.Owner, "a0")
-	case symbols.ExpressionChainFeature, symbols.ExpressionOperand:
-		return d.expressionPartID(owner, sym.Expr.Slot)
-	case symbols.ExpressionTransitionSuccession:
-		// The conversion mints a transition's succession off the transition (transitionSuccession).
-		base, ok := d.graphID(owner)
-		if !ok {
-			return "", false
-		}
-		return base + "_succession", true
-	case symbols.ExpressionConnectorEnd:
-		return d.expressionPartID(owner, fmt.Sprintf("end%d", sym.Expr.Index))
-	case symbols.ExpressionTransitionParameter:
-		// Minted off the transition as an element (emptyParameterMember).
-		base, ok := d.graphID(owner)
-		if !ok {
-			return "", false
-		}
-		return base + "_" + sym.Expr.Slot, true
-	case symbols.ExpressionTriggerAction:
-		// The trigger's accept is minted as the transition's `@trigger` member (encodeTrigger).
-		if base, ok := d.graphID(owner); ok {
-			return base + encodedSegment(naming.TriggerSegment), true
-		}
-	case symbols.ExpressionPayload:
-		if id, ok := d.ids.OfDeclaration(d.doc, sym.Decl, ""); ok {
-			return id, true
-		}
-		// A time or change trigger's payload is an implied unnamed parameter of the accept.
-		if base, ok := d.graphID(owner); ok {
-			return base + encodedSegment(fmt.Sprintf("@%d", sym.Expr.Index)), true
-		}
-	}
-	if sym.Decl != nil && sym.Decl != owner.Decl {
-		if id, ok := d.ids.OfDeclaration(d.doc, sym.Decl, ""); ok {
-			return id, true
-		}
-	}
-	if sym.Expr.Role == symbols.ExpressionValue {
-		// A time or change trigger's payload is valued by the event it accepts.
-		return d.expressionPartID(owner, "value")
-	}
-	if sym.Expr.Role == symbols.ExpressionArgument {
-		// An argument under a statement's operand is minted off its position under
-		// the expression, not the parameter binding it.
-		expression := owner
-		if expression.Expr != nil && expression.Expr.Role == symbols.ExpressionParameter && expression.Expr.Owner != nil {
-			expression = expression.Expr.Owner
-		}
-		return d.expressionPartID(expression, fmt.Sprintf("a%d", sym.Expr.Index))
-	}
-	return "", false
-}
-
-// expressionPartID is the id of the part the conversion mints at slot under owner.
-func (d *structureDifferential) expressionPartID(owner *symbols.Symbol, slot string) (string, bool) {
-	if element, _, ok := d.ids.OfExpressionPart(d.doc, owner.Decl, slot); ok && element != "" {
-		return element, true
-	}
-	base, ok := d.graphID(owner)
-	if !ok {
-		return "", false
-	}
-	return rdf.ExpressionNodeID(base, slot), true
 }
 
 func (d *structureDifferential) compare(graphEvaluator *metamodel.Evaluator, graphElement metamodel.Element,
@@ -755,7 +509,7 @@ func (d *structureDifferential) spellElement(element metamodel.Element, fromGrap
 		if d.index.Library(sym) && d.fqn(sym) != "" {
 			return "lib " + d.fqn(sym)
 		}
-		if id, ok := d.graphID(sym); ok {
+		if id, ok := d.symbolIDs.Of(sym); ok {
 			return "#" + id
 		}
 		return "unmapped " + d.fqn(sym)
@@ -776,12 +530,7 @@ func (d *structureDifferential) elementID(element metamodel.Element, fromGraph b
 		return d.graph.ElementIdentity(element)
 	}
 	if sym, ok := d.symbolic.SymbolOf(element); ok {
-		return d.graphID(sym)
+		return d.symbolIDs.Of(sym)
 	}
 	return "", false
-}
-
-// encodedSegment is how a qualified name's final segment lengthens an encoded element id.
-func encodedSegment(segment string) string {
-	return strings.TrimPrefix(rdf.EncodeElementID("x::"+segment), "x")
 }
