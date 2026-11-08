@@ -29,6 +29,9 @@ type Context struct {
 	// Positional names the symbols no qualified name identifies; nil when the
 	// host derives none, which leaves such symbols without an id.
 	Positional *Positional
+	// ElementForm is the element form's ids, which name the elements the
+	// semantic side tables synthesize; nil when the host converts no form.
+	ElementForm func() ElementForm
 }
 
 // NewContext builds a conversion context over a symbol index.

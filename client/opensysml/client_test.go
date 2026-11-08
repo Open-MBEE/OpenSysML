@@ -238,3 +238,36 @@ func TestReturnedValuesAreCopiesTheCallerOwns(t *testing.T) {
 		}
 	}
 }
+
+func TestLookupSymbolListsLibraryMembersOnRequest(t *testing.T) {
+	client := newClient(t)
+	model := parseVehicle(t, client)
+	withheld, err := client.LookupSymbol(context.Background(), model, "Demo::sedan")
+	if err != nil {
+		t.Fatalf("LookupSymbol: %v", err)
+	}
+	if withheld.WithheldLibraryMembers == 0 {
+		t.Fatalf("symbol = %+v, want library members withheld by default", withheld)
+	}
+	for _, member := range withheld.Members {
+		if member.Library {
+			t.Errorf("member %+v listed without WithLibraryMembers", member)
+		}
+	}
+	listed, err := client.LookupSymbol(context.Background(), model, "Demo::sedan", opensysml.WithLibraryMembers())
+	if err != nil {
+		t.Fatalf("LookupSymbol(WithLibraryMembers): %v", err)
+	}
+	if listed.WithheldLibraryMembers != 0 {
+		t.Errorf("WithheldLibraryMembers = %d, want 0 once they are listed", listed.WithheldLibraryMembers)
+	}
+	library := 0
+	for _, member := range listed.Members {
+		if member.Library {
+			library++
+		}
+	}
+	if library != withheld.WithheldLibraryMembers {
+		t.Errorf("listed %d library members, want the %d withheld before", library, withheld.WithheldLibraryMembers)
+	}
+}

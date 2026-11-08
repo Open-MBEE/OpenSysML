@@ -103,6 +103,39 @@ Value mass = model.evalWithSubject("mass", "Demo::sedan");  // with a `self`
 Instantiation built = model.instantiate("Demo::Vehicle");
 ```
 
+### Members, element properties and object paths
+
+```java
+Symbol m = model.symbol("Demo::m");
+m.childIds();                    // the owned members' ids, as before
+m.members();                     // every member, own then inherited: Symbol.Member records
+m.ownMembers();                  // the ones m declares
+m.inheritedMembers();            // the inherited ones; inheritedFrom() names the declaring type
+m.withheldLibraryMembers();      // standard-library members counted rather than listed, until:
+Symbol full = model.symbol("Demo::m", SymbolOptions.defaults().withLibraryMembers(true));
+full.members().stream().filter(Symbol.Member::library).toList();
+
+ElementProperties read = model.elementProperties("Demo::Pair", "inheritedFeature", "isAbstract");
+read.element();                  // ElementRef: id, qualifiedName, metaclass
+read.get("inheritedFeature").orElseThrow().elements();   // ElementRefs, whose ids the call accepts back
+read.get("isAbstract").orElseThrow().value();            // Optional<PropertyValue>: Bool, Text, Integer, Real, Number, Element
+read.get("connectorEnd").orElseThrow().unsupported();    // why a property has no values, when it cannot be answered
+model.elementProperties("Demo::Pair::@2");               // an unnamed member by position; no names reads every property
+
+Instantiation built = model.instantiate("Demo::sedan");
+Instance engine = built.resolve(reference).orElseThrow();
+engine.reachedBy();              // Optional<Instance.Reach>: owner id, feature, index, path; empty for the root
+engine.owner();                  // Optional<Value.InstanceReference>, resolved by built.owner(engine)
+engine.path();                   // "engine"
+InstancePaths paths = model.instancePaths(engine);       // or by id, or by path "Demo::sedan.engine"
+paths.paths().get(0).steps();    // InstancePaths.Step records; paths.truncated() when the search was bounded
+```
+
+`members()` is populated by a service advertising `symbol_members` and empty from one that
+does not; asking for library members, `elementProperties` and `instancePaths` are each refused
+with a `CapabilityException` before anything is sent when the service lacks `symbol_members`,
+`element_properties` or `instance_paths`.
+
 `ParseOptions` is a record of `Language` (`SYSML` or `KERML`) and
 `strictConformance`, with `defaults()` and `withLanguage`/`withStrictConformance`.
 
