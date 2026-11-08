@@ -1,0 +1,117 @@
+# Adjudications of the classes of disagreement between the api-json export and
+# GetElementProperties (see <kind>.txt beside this file: unresolved-id, the export's id the
+# RPC does not resolve; metaclass, the two sides classify the element differently; value, both
+# answer, differently; exported-not-answered; answered-not-exported). Tab-separated: key, the
+# side that is correct (symbol or export), the KerML/SysML clause it rests on.
+export-01	export	Feature::type on a feature typed through a conjugated or chained endpoint the structure does not represent (KerML 8.3.3.3.5); the structure answers unsupported
+export-02	export	KerML 8.3.2.1 Element::owningMembership of an anonymous member element; the structure answers none for it
+export-03	export	KerML 8.3.2.1 Element::owningNamespace of an expression wrapper or filter condition the structure owns through no membership; the structure answers none
+export-04	export	KerML 8.3.2.1 Element::owningRelationship of an anonymous member element; the structure answers none for it
+export-05	export	KerML 8.3.2.4.3 Membership::visibility defaults to public on an implied membership; the structure answers private
+export-06	export	KerML 8.3.2.5.1 Relationship::ownedRelatedElement of an anonymous relationship; the structure answers none for it
+export-07	export	KerML 8.3.3.1.10 Type::ownedSpecialization; the structure spells a specialization the form writes as `_ss0` by position (id mapping gap)
+export-08	export	KerML 8.3.3.3.8 Subsetting::subsettedFeature of an implied redefinition; the structure resolves a different library feature and needs a symbol-side check
+export-09	export	KerML 8.3.3.4.2 Connector::sourceFeature of a transition succession whose source the structure does not resolve; it answers unsupported
+export-10	export	KerML 8.3.3.4.2 Connector::targetFeature of a transition succession whose target the structure does not resolve; it answers unsupported
+export-11	export	KerML 8.3.4.8.7 InstantiationExpression::argument of a send payload expression; the structure answers unsupported
+export-12	export	KerML 8.3.4.8.x LiteralRational::value of a literal inside a feature value; the structure answers unsupported
+export-13	export	Relationship::relatedElement on a typing by a conjugated port `~P` (KerML 8.3.2.5.1); the structure answers unsupported
+export-14	export	Relationship::target on a typing by a conjugated port `~P` (KerML 8.3.2.5.1); the structure answers unsupported
+export-15	export	Specialization::general on a typing by a conjugated port `~P` (KerML 8.3.3.1.2); the structure answers unsupported
+export-16	export	SysML 8.3.12.1 ItemUsage::itemDefinition of a metadata usage is its metadata definition; the structure answers none
+export-17	export	SysML 8.3.17.6 ReferenceSubsetting::referencedFeature is the chain Feature the form writes (`_pchain`); the structure has no symbol for the chain and spells a positional id
+export-18	export	SysML 8.3.19.3 MetadataUsage::metadataDefinition is the metadata definition typing it; the structure answers none
+export-19	export	`::>` on a reference or end is a ReferenceSubsetting (SysML 8.3.17.6 ReferenceSubsetting); the structure answers Subsetting
+export-20	export	`::>` on a reference or end is a ReferenceSubsetting (SysML 8.3.17.6 ReferenceSubsetting); the structure answers Subsetting or Conjugation
+export-21	export	`exhibit state` is an ExhibitStateUsage (SysML 8.3.16.9); the structure answers StateUsage
+export-22	export	`expose X::*` is a NamespaceExpose (SysML 8.3.20.6); the structure answers MembershipExpose
+export-23	export	`import X::*` is a NamespaceImport (KerML 8.3.2.4.9); the structure answers MembershipImport
+export-24	export	`include use case` is an IncludeUseCaseUsage (SysML 8.3.26.2); the structure answers UseCaseUsage
+export-25	export	`library package` is a LibraryPackage (KerML 8.3.2.6.3); the structure answers Package
+export-26	export	`perform action` is a PerformActionUsage (SysML 8.3.16.12); the structure answers ActionUsage
+export-27	export	a stated property of the metaclass the form writes (KerML/SysML abstract syntax); the structure answers none for it (symbol-side gap)
+export-28	export	a subclassification naming `~T` is a Subclassification (KerML 8.3.3.1.4); the structure answers Conjugation
+export-29	export	an action node whose body is `accept` is an AcceptActionUsage (SysML 8.3.16.2); the structure answers ActionUsage
+export-30	export	an action node whose body is `assign` is an AssignmentActionUsage (SysML 8.3.16.5); the structure answers ActionUsage
+export-31	export	an action node whose body is `send` is a SendActionUsage (SysML 8.3.16.13); the structure answers ActionUsage
+export-32	export	an action node whose body is `terminate` is a TerminateActionUsage (SysML 8.3.16.14); the structure answers ActionUsage
+export-33	export	as the conversion writes it for this anonymous usage (succession, flow or binding end, SysML 8.3.17.1 Usage::isReference/isComposite, KerML 8.3.3.3.5 Feature::isVariable); the structure derives it from the usage kind and needs a symbol-side fix
+export-34	export	the form writes a feature chain's first chaining (KerML 8.3.3.3.3 FeatureChaining) (_pfc0); the structure does not resolve its id
+export-35	export	the form writes an annotation element the structure does not reflect (KerML 8.3.2.2 Annotation) (_an); the structure does not resolve its id
+export-36	export	the form writes an element of this metaclass the structure has no symbol for (_efm); the structure does not resolve its id
+export-37	export	the form writes an element of this metaclass the structure has no symbol for (_fp); the structure does not resolve its id
+export-38	export	the form writes an element of this metaclass the structure has no symbol for (_im); the structure does not resolve its id
+export-39	export	the form writes an element of this metaclass the structure has no symbol for (_ns); the structure does not resolve its id
+export-40	export	the form writes an element of this metaclass the structure has no symbol for (_pa1); the structure does not resolve its id
+export-41	export	the form writes an element of this metaclass the structure has no symbol for (_pc); the structure does not resolve its id
+export-42	export	the form writes an element of this metaclass the structure has no symbol for (_pfilter); the structure does not resolve its id
+export-43	export	the form writes an element of this metaclass the structure has no symbol for (_pguard); the structure does not resolve its id
+export-44	export	the form writes an element of this metaclass the structure has no symbol for (_prs); the structure does not resolve its id
+export-45	export	the form writes an element of this metaclass the structure has no symbol for (_ptarget); the structure does not resolve its id
+export-46	export	the form writes an element of this metaclass the structure has no symbol for (_pvalue); the structure does not resolve its id
+export-47	export	the form writes an element of this metaclass the structure has no symbol for (_sc0); the structure does not resolve its id
+export-48	export	the form writes an element of this metaclass the structure has no symbol for (_ss0); the structure does not resolve its id
+export-49	export	the form writes an element of this metaclass the structure has no symbol for (id); the structure does not resolve its id
+export-50	export	the form writes the OwningMembership of an element the structure has no symbol for (_om); the structure does not resolve its id
+export-51	export	the form writes the multiplicity of a connector end (KerML 8.3.4.11 Multiplicity; 8.3.3.3.5 Feature::multiplicity) (_pmultiplicity); the structure does not resolve its id
+export-52	export	the form writes the parameter of a filter condition (KerML 8.3.4.8.2 Expression::parameter) (_pin0); the structure does not resolve its id
+export-53	export	the form writes the referent Membership of a feature reference expression in a feature value (KerML 8.3.4.8.5 FeatureReferenceExpression::referent) (_preferent); the structure does not resolve its id
+export-54	export	the form writes the result parameter of a filter condition (SysML 8.3.11.x ElementFilterMembership; KerML 8.3.4.8.2 Expression::result) (_pout); the structure does not resolve its id
+export-55	export	the form writes the typing of a filter condition's parameter (KerML 8.3.3.3.4 FeatureTyping) (_ft0); the structure does not resolve its id
+export-56	export	the property as the form writes it (KerML/SysML abstract syntax); the structure answers a different value and needs a symbol-side check
+export-57	export	the property as the form writes it (KerML/SysML abstract syntax); the structure answers none, unsupported or a positional id (symbol-side gap)
+export-58	export	the specialization naming a conjugated type `~T` is a Specialization of that type (KerML 8.3.3.1.4 Conjugation is the type's own relationship); the structure answers Conjugation
+symbol-01	symbol	KerML 8.3.2.1 Element::declaredName is the name as declared, a quoted name included; the export writes it empty
+symbol-02	symbol	KerML 8.3.2.1 Element::ownedElement over ownedRelationship, implied relationships included
+symbol-03	symbol	KerML 8.3.2.1 Element::ownedRelationship includes the implied relationships (typing, subsetting, memberships) the export omits
+symbol-04	symbol	KerML 8.3.2.2 AnnotatingElement::annotation over the owned Annotation; the export writes documentation as a body member only
+symbol-05	symbol	KerML 8.3.2.2 Element::ownedAnnotation over the owned Annotation relationships; the export writes documentation as a body member only
+symbol-06	symbol	KerML 8.3.2.4.3 Membership::memberName of a flow end payload feature is its declared name; the export omits it
+symbol-07	symbol	KerML 8.3.2.4.3 Membership::membershipOwningNamespace redefines owningRelatedElement; the export states owner only
+symbol-08	symbol	KerML 8.3.2.4.5 Namespace::ownedMember over every owned membership, synthesized ones included; inherited and implied memberships the export omits (KerML 8.3.2.4.5 Namespace::membership, 8.3.3.1.10 Type::inheritedMembership over the implied library specializations)
+symbol-09	symbol	KerML 8.3.2.4.5 Namespace::ownedMembership includes the implied memberships (multiplicity, parameters, ends) the export spells partially
+symbol-10	symbol	KerML 8.3.2.5.1 Relationship::relatedElement = source and target, derived union the export omits
+symbol-11	symbol	KerML 8.3.2.5.1 Relationship::source is derived on every relationship; the export states it on some only
+symbol-12	symbol	KerML 8.3.2.5.1 Relationship::target is derived on every relationship; the export states it on some only
+symbol-13	symbol	KerML 8.3.3.1.10 Type::endFeature over Type::feature, inherited ends included; the export omits inherited features
+symbol-14	symbol	KerML 8.3.3.1.10 Type::feature, inherited library features included; the export omits inherited features
+symbol-15	symbol	KerML 8.3.3.1.10 Type::featureMembership, inherited library memberships included; the export omits them
+symbol-16	symbol	KerML 8.3.3.1.9 FeatureMembership::ownedMemberFeature redefines ownedMemberElement; the export states memberElement only
+symbol-17	symbol	KerML 8.3.3.3.5 Feature::featuringType over the owning type; the export writes none
+symbol-18	symbol	KerML 8.3.3.3.5 Feature::isConstant is stated false on every feature; the export writes it only when true
+symbol-19	symbol	KerML 8.3.3.3.5 Feature::type includes the implied library typing (8.3.3.3.4 checkFeatureTypeFeaturing); the export writes no implied typing
+symbol-20	symbol	KerML 8.3.3.4.2 Connector::association = the Associations among Feature::type, the implied library one included
+symbol-21	symbol	KerML 8.3.3.4.2 Connector::relatedFeature over connectorEnd; the export writes none
+symbol-22	symbol	KerML 8.3.3.4.2 Connector::sourceFeature = relatedFeature[0]; the export writes none
+symbol-23	symbol	KerML 8.3.3.4.2 Connector::targetFeature = relatedFeature[1..]; the export writes none
+symbol-24	symbol	KerML 8.3.4.7.1 Behavior::step over the features typed by Behaviors, inherited ones included
+symbol-25	symbol	KerML 8.3.4.8.2 Expression::function = the Function among Feature::type, implied library one included
+symbol-26	symbol	KerML 8.3.4.8.3 Step::behavior = the Behaviors among Feature::type, implied Performances::Performance included
+symbol-27	symbol	KerML 8.3.4.8.3 Step::parameter over the directed features, inherited ones included; the export omits inherited parameters
+symbol-28	symbol	KerML 8.3.4.8.4 Function::expression over the features typed by Functions; the export writes none
+symbol-29	symbol	KerML 8.3.4.8.7 InstantiationExpression::instantiatedType is derived from the invoked type; the export writes none
+symbol-30	symbol	KerML 8.3.4.8.x OperatorExpression::operand over the owned argument parameters; the export omits operand on statement expressions
+symbol-31	symbol	KerML 8.3.4.x Connector/Flow::interaction = the Interactions among Feature::type, implied library one included
+symbol-32	symbol	SysML 8.3.11.3 ConstraintUsage::constraintDefinition over Usage::definition, implied Constraints::ConstraintCheck included
+symbol-33	symbol	SysML 8.3.12.1 ItemUsage::itemDefinition over Usage::definition, implied Items::Item included
+symbol-34	symbol	SysML 8.3.14.1 PartUsage::partDefinition over Usage::definition, implied Parts::Part included
+symbol-35	symbol	SysML 8.3.16.1 ActionUsage::actionDefinition over Usage::definition, implied Actions::Action included
+symbol-36	symbol	SysML 8.3.16.x StateUsage::stateDefinition over Usage::definition, implied States::StateAction included
+symbol-37	symbol	SysML 8.3.17.1 Usage::definition = the Classifiers among Feature::type, implied library definitions included; the export writes none
+symbol-38	symbol	SysML 8.3.17.1 Usage::isReference is derived (not isComposite); the export writes isComposite only
+symbol-39	symbol	SysML 8.3.17.3 Usage::defaultFeaturingType is derived; the export writes none
+symbol-40	symbol	SysML 8.3.8.1 AttributeUsage::attributeDefinition over Usage::definition, implied Base::DataValue included
+symbol-41	symbol	SysML 8.3.9.3 OccurrenceUsage::occurrenceDefinition over Usage::definition, implied Occurrences::Occurrence included
+symbol-42	symbol	`satisfy requirement` is a SatisfyRequirementUsage (SysML 8.3.15.11); the export writes RequirementUsage
+symbol-43	symbol	a KerML declaration has no SysML usage properties (KerML 8.3.3 Feature; SysML 8.3.17.1 Usage); the export writes them for KerML features it classifies as usages
+symbol-44	symbol	a KerML declaration is of its KerML metaclass (KerML 8.3.3 Feature, 8.3.3.1 Type, 8.3.4 Kernel); the export classifies it as a SysML usage/definition kind
+symbol-45	symbol	a derived property of the metaclass (KerML/SysML abstract syntax); the export writes none for it
+symbol-46	symbol	a feature a type owns is owned through a FeatureMembership (KerML 8.3.3.1.9 FeatureMembership); the export writes OwningMembership
+symbol-47	symbol	a stated property of every element (KerML 8.3.2.1 Element, 8.3.3.1.1 Type); the export writes this element as id and type only
+symbol-48	symbol	an element-valued property (KerML 8.3.3.3.8 Subsetting); the export writes the written text instead
+symbol-49	symbol	an end feature is owned through an EndFeatureMembership (KerML 8.3.3.1.5 EndFeatureMembership); the export writes FeatureMembership
+symbol-50	symbol	an owned collection of the element (KerML 8.3.2.1 Element::ownedRelationship, 8.3.3.1.10 Type::ownedFeature); the export writes this element as id and type only
+symbol-51	symbol	inherited and implied memberships the export omits (KerML 8.3.2.4.5 Namespace::membership, 8.3.3.1.10 Type::inheritedMembership over the implied library specializations)
+symbol-52	symbol	the collection includes the implied and inherited members the structure reflects and the export omits (KerML 8.3.3.1.10 Type derived collections)
+symbol-53	symbol	the implied members (parameters, ends, multiplicities) the structure reflects and the export omits (SysML 8.3.16.15 checkTransitionUsageParameters, KerML 8.3.3.1.10 Type::directedFeature)
+symbol-54	symbol	the implied members and library definitions the structure reflects and the export omits (KerML 8.3.3.3.5 Feature::type incl. implied typing; SysML 8.3.16.15 implied parameters)

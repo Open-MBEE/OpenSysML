@@ -44,30 +44,35 @@ func agreementExamples(t *testing.T) []string {
 	return paths
 }
 
-// agreementAdjudicated reads testdata/element_properties_agreement_adjudicated.txt:
-// the (model, element, property) rows GetElementProperties answers and the export
-// omits, each with the clause the answer rests on. A row the run no longer
-// produces is stale and fails, like a ratchet.
-var updateAgreementRatchet = flag.Bool("update-agreement-ratchet", false, "re-record the counts of tests/grpc/testdata/element_properties_agreement_ratchet.txt, keeping each row's side and clause")
+// updateAgreementRatchet re-records the counts under testdata/element_properties_agreement/,
+// keeping each row's clause key.
+var updateAgreementRatchet = flag.Bool("update-agreement-ratchet", false, "re-record the counts of tests/grpc/testdata/element_properties_agreement/<kind>.txt, keeping each row's clause key")
 
-const agreementRatchetPath = "testdata/element_properties_agreement_ratchet.txt"
+// agreementRatchetDir holds clauses.txt (key, side, clause: the adjudications) and one
+// <kind>.txt per kind of disagreement (class, count, clause key).
+const agreementRatchetDir = "testdata/element_properties_agreement"
+
+var agreementKinds = []string{"unresolved-id", "metaclass", "value", "exported-not-answered", "answered-not-exported"}
 
 // agreementRow is one class of disagreement between the api-json export and
 // GetElementProperties: a metamodel property of a metaclass (or its @id / @type) and
 // the kind of disagreement.
 type agreementRow struct{ class, kind string }
 
-// agreementRatchet is the recorded count of a class with the side that is correct
-// (symbol or export) and the KerML/SysML clause it rests on.
+// agreementRatchet is the recorded count of a class with the adjudication it rests on:
+// the clause's key, the side that is correct (symbol or export) and the KerML/SysML clause.
 type agreementRatchet struct {
-	count        int
-	side, clause string
+	count             int
+	key, side, clause string
 }
 
-func agreementRatchetRows(t *testing.T) map[agreementRow]agreementRatchet {
+type agreementClause struct{ side, text string }
+
+func agreementClauses(t *testing.T) map[string]agreementClause {
 	t.Helper()
-	out := map[agreementRow]agreementRatchet{}
-	data, err := os.ReadFile(agreementRatchetPath)
+	path := filepath.Join(agreementRatchetDir, "clauses.txt")
+	out := map[string]agreementClause{}
+	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return out
 	}
@@ -79,52 +84,88 @@ func agreementRatchetRows(t *testing.T) map[agreementRow]agreementRatchet {
 			continue
 		}
 		fields := strings.Split(line, "\t")
-		if len(fields) != 5 {
-			t.Fatalf("%s: want class, kind, count, side, clause; got %q", agreementRatchetPath, line)
+		if len(fields) != 3 {
+			t.Fatalf("%s: want key, side, clause; got %q", path, line)
 		}
-		count, err := strconv.Atoi(fields[2])
+		if fields[1] != "symbol" && fields[1] != "export" {
+			t.Fatalf("%s: %q: the side is symbol or export", path, line)
+		}
+		if _, dup := out[fields[0]]; dup {
+			t.Fatalf("%s: clause %s twice", path, fields[0])
+		}
+		out[fields[0]] = agreementClause{fields[1], fields[2]}
+	}
+	return out
+}
+
+func agreementRatchetRows(t *testing.T) map[agreementRow]agreementRatchet {
+	t.Helper()
+	clauses := agreementClauses(t)
+	out := map[agreementRow]agreementRatchet{}
+	for _, kind := range agreementKinds {
+		path := filepath.Join(agreementRatchetDir, kind+".txt")
+		data, err := os.ReadFile(path)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
 		if err != nil {
-			t.Fatalf("%s: %q: %v", agreementRatchetPath, line, err)
+			t.Fatal(err)
 		}
-		if fields[3] != "symbol" && fields[3] != "export" {
-			t.Fatalf("%s: %q: the side is symbol or export", agreementRatchetPath, line)
+		for _, line := range strings.Split(string(data), "\n") {
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			fields := strings.Split(line, "\t")
+			if len(fields) != 3 {
+				t.Fatalf("%s: want class, count, clause key; got %q", path, line)
+			}
+			count, err := strconv.Atoi(fields[1])
+			if err != nil {
+				t.Fatalf("%s: %q: %v", path, line, err)
+			}
+			row := agreementRow{fields[0], kind}
+			if _, dup := out[row]; dup {
+				t.Fatalf("%s: %s twice", path, fields[0])
+			}
+			recorded := agreementRatchet{count: count, key: fields[2], side: "?", clause: "?"}
+			if clause, ok := clauses[fields[2]]; ok {
+				recorded.side, recorded.clause = clause.side, clause.text
+			} else if fields[2] != "?" {
+				t.Fatalf("%s: %s: no clause %s in clauses.txt", path, fields[0], fields[2])
+			}
+			out[row] = recorded
 		}
-		out[agreementRow{fields[0], fields[1]}] = agreementRatchet{count, fields[3], fields[4]}
 	}
 	return out
 }
 
 func writeAgreementRatchet(t *testing.T, recorded map[agreementRow]agreementRatchet, counts map[agreementRow]int) {
 	t.Helper()
-	rows := make([]agreementRow, 0, len(counts))
+	byKind := map[string][]agreementRow{}
 	for row := range counts {
-		rows = append(rows, row)
+		byKind[row.kind] = append(byKind[row.kind], row)
 	}
-	sort.Slice(rows, func(i, j int) bool {
-		if rows[i].class != rows[j].class {
-			return rows[i].class < rows[j].class
+	for _, kind := range agreementKinds {
+		rows := byKind[kind]
+		sort.Slice(rows, func(i, j int) bool { return rows[i].class < rows[j].class })
+		var b strings.Builder
+		fmt.Fprintf(&b, "# %s disagreements between the api-json export and GetElementProperties over the\n", kind)
+		b.WriteString("# committed examples, counted per metamodel property (Metaclass::property, the\n")
+		b.WriteString("# export's metaclass). Tab-separated: class, count, key of the clause in clauses.txt\n")
+		b.WriteString("# (the side that is correct and the KerML/SysML clause it rests on).\n")
+		b.WriteString("# TestElementPropertiesAgreeWithTheAPIJSONExport fails on a row not here, on a count\n")
+		b.WriteString("# above the one here, on a row here the run no longer produces, and on a ? key; a count\n")
+		b.WriteString("# that fell is re-recorded with -update-agreement-ratchet.\n")
+		for _, row := range rows {
+			key := "?"
+			if prior, ok := recorded[row]; ok {
+				key = prior.key
+			}
+			fmt.Fprintf(&b, "%s\t%d\t%s\n", row.class, counts[row], key)
 		}
-		return rows[i].kind < rows[j].kind
-	})
-	var b strings.Builder
-	b.WriteString("# Classes of disagreement between the api-json export and GetElementProperties over\n")
-	b.WriteString("# the committed examples, counted per metamodel property (Metaclass::property, the\n")
-	b.WriteString("# export's metaclass) and kind: unresolved-id (the export's id the RPC does not\n")
-	b.WriteString("# resolve), metaclass (the two sides classify the element differently), value (both\n")
-	b.WriteString("# answer, differently), exported-not-answered, answered-not-exported. Each row names the\n")
-	b.WriteString("# side that is correct and the KerML/SysML clause it rests on. Tab-separated:\n")
-	b.WriteString("# class, kind, count, side, clause. TestElementPropertiesAgreeWithTheAPIJSONExport fails\n")
-	b.WriteString("# on a row not here, on a count above the one here, and on a row here the run no longer\n")
-	b.WriteString("# produces; a count that fell is re-recorded with -update-agreement-ratchet.\n")
-	for _, row := range rows {
-		side, clause := "?", "?"
-		if prior, ok := recorded[row]; ok {
-			side, clause = prior.side, prior.clause
+		if err := os.WriteFile(filepath.Join(agreementRatchetDir, kind+".txt"), []byte(b.String()), 0o644); err != nil {
+			t.Fatal(err)
 		}
-		fmt.Fprintf(&b, "%s\t%s\t%d\t%s\t%s\n", row.class, row.kind, counts[row], side, clause)
-	}
-	if err := os.WriteFile(agreementRatchetPath, []byte(b.String()), 0o644); err != nil {
-		t.Fatal(err)
 	}
 }
 
@@ -261,10 +302,10 @@ func TestElementPropertiesAgreeWithTheAPIJSONExport(t *testing.T) {
 	}
 	for row, prior := range recorded {
 		if prior.side == "?" || prior.clause == "?" {
-			t.Errorf("%s: %s %s carries no side or clause", agreementRatchetPath, row.class, row.kind)
+			t.Errorf("%s/%s.txt: %s carries no clause key", agreementRatchetDir, row.kind, row.class)
 		}
 		if _, ok := counts[row]; !ok {
-			t.Errorf("%s: %s %s no longer differs; remove the row", agreementRatchetPath, row.class, row.kind)
+			t.Errorf("%s/%s.txt: %s no longer differs; remove the row", agreementRatchetDir, row.kind, row.class)
 		}
 	}
 	if fell > 0 && !*updateAgreementRatchet {

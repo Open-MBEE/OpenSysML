@@ -1,0 +1,46 @@
+# unresolved-id disagreements between the api-json export and GetElementProperties over the
+# committed examples, counted per metamodel property (Metaclass::property, the
+# export's metaclass). Tab-separated: class, count, key of the clause in clauses.txt
+# (the side that is correct and the KerML/SysML clause it rests on).
+# TestElementPropertiesAgreeWithTheAPIJSONExport fails on a row not here, on a count
+# above the one here, on a row here the run no longer produces, and on a ? key; a count
+# that fell is re-recorded with -update-agreement-ratchet.
+Annotation::@id	2	export-35
+AssignmentActionUsage::@id	4	export-49
+DecisionNode::@id	6	export-49
+Documentation::@id	4	export-49
+ElementFilterMembership::@id	21	export-36
+EndFeatureMembership::@id	20	export-50
+Feature::@id	397	export-54
+FeatureChainExpression::@id	16	export-43
+FeatureChaining::@id	447	export-34
+FeatureMembership::@id	51	export-50
+FeatureReferenceExpression::@id	47	export-45
+FeatureTyping::@id	67	export-55
+FeatureValue::@id	80	export-50
+ForkNode::@id	2	export-49
+LiteralBoolean::@id	1	export-46
+LiteralInfinity::@id	28	export-49
+LiteralInteger::@id	102	export-49
+Membership::@id	492	export-53
+MembershipImport::@id	19	export-38
+Multiplicity::@id	4	export-51
+MultiplicityRange::@id	85	export-51
+Namespace::@id	1	export-39
+NamespaceImport::@id	2	export-38
+NullExpression::@id	2	export-40
+OperatorExpression::@id	53	export-42
+OwningMembership::@id	449	export-50
+Package::@id	21	export-37
+ParameterMembership::@id	91	export-50
+PortConjugation::@id	31	export-41
+ReferenceSubsetting::@id	41	export-44
+ReferenceUsage::@id	34	export-52
+ResultExpressionMembership::@id	1	export-50
+ReturnParameterMembership::@id	117	export-50
+SendActionUsage::@id	1	export-49
+StateSubactionMembership::@id	41	export-49
+Subclassification::@id	2	export-47
+Subsetting::@id	7	export-48
+SuccessionAsUsage::@id	14	export-49
+TransitionFeatureMembership::@id	3	export-50
