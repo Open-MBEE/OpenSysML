@@ -124,18 +124,24 @@ func (m *Model) directRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	return append(out, m.implicitMetadataBodyRedefinitions(sym)...)
 }
 
+// RestatesMetadataBodyFeature reports whether sym is a metadata body's `mission = …`:
+// a feature declaring no name of its own, named by the definition's feature it redefines.
+func (m *Model) RestatesMetadataBodyFeature(sym *symbols.Symbol) bool {
+	return m != nil && len(m.implicitMetadataBodyRedefinitions(sym)) > 0
+}
+
 // implicitMetadataBodyRedefinitions is the metadata type's feature a body
 // declaration without a `:>>` clause redefines by its name (KerML 7.4.7).
 func (m *Model) implicitMetadataBodyRedefinitions(sym *symbols.Symbol) []*symbols.Symbol {
-	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok || m.resolver == nil || declaresRedefinitionAST(usage) {
+	if _, ok := sym.UsageKind(); !ok || m.resolver == nil || DeclaresRedefinition(sym) ||
+		sym.Naming != symbols.NamedByDeclaration {
 		return nil
 	}
 	owner := m.resolver.MetadataBodyOwner(sym.OwnerScope)
 	if owner == nil {
 		return nil
 	}
-	target := symbols.MetadataBodyTarget(m, owner, usage.Ident)
+	target := symbols.MetadataBodyTarget(m, owner, ast.Identification{Name: sym.Name, ShortName: sym.ShortName})
 	if target == nil || target == sym {
 		return nil
 	}
