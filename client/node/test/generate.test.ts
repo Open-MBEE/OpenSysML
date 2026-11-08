@@ -462,6 +462,6 @@ test("collectDefinitions takes the type the service derives for a subsetting fea
   const definitions = await collectDefinitions(root);
   const resolved = definitions.find((definition) => definition.id === "Demo::Car")?.features[1];
   assert.equal(resolved?.type?.declared, "");
-  assert.equal(resolved?.type?.resolvedId, "Demo::Engine");
-  assert.equal(resolved?.type?.resolvedKind, "partDef");
+  assert.equal(resolved.type.resolvedId, "Demo::Engine");
+  assert.equal(resolved.type.resolvedKind, "partDef");
 });
