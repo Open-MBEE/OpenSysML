@@ -7,14 +7,34 @@ use crate::domain::{value_from_wire, Symbol, Value};
 use crate::error::Error;
 use crate::wire;
 
-/// A feature's declared and resolved type.
+/// One derived type of a feature.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct TypeRef {
+    /// Qualified name of the type.
+    pub id: String,
+    /// Symbol kind of the type, such as `partDef`.
+    pub kind: String,
+}
+
+impl From<wire::TypeRef> for TypeRef {
+    fn from(reference: wire::TypeRef) -> Self {
+        Self {
+            id: reference.id,
+            kind: reference.kind,
+        }
+    }
+}
+
+/// A feature's type: the typing as written (`declared`, `resolved_id`, `resolved_kind`) and
+/// the derived KerML `Feature::type` (`types`), which the typing of every feature it subsets,
+/// references or redefines contributes to; `element_properties` reports the latter as `type`.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct TypeFacts {
     /// Type name as written; empty when none is declared.
     pub declared: String,
-    /// Qualified name of the resolved type; empty when unresolved or undeclared.
+    /// Qualified name of the resolved written type; empty when unresolved or undeclared.
     pub resolved_id: String,
-    /// Symbol kind of the resolved type, such as `partDef`.
+    /// Symbol kind of the resolved written type, such as `partDef`.
     pub resolved_kind: String,
     /// Library scalar the type reduces to, such as `Real`; empty when it is not one.
     pub primitive: String,
@@ -24,6 +44,9 @@ pub struct TypeFacts {
     pub quantity: bool,
     /// Unit as written, when the default value names one.
     pub unit: String,
+    /// The derived types, most specific first with redundant supertypes removed; empty for a
+    /// definition or when none derives.
+    pub types: Vec<TypeRef>,
 }
 
 impl From<wire::TypeInfo> for TypeFacts {
@@ -36,6 +59,7 @@ impl From<wire::TypeInfo> for TypeFacts {
             primitive_source: info.primitive_source,
             quantity: info.quantity,
             unit: info.unit,
+            types: info.types.into_iter().map(TypeRef::from).collect(),
         }
     }
 }
@@ -73,10 +97,12 @@ impl From<wire::MultiplicityInfo> for Multiplicity {
     }
 }
 
-/// One specialization a symbol declares: subclassification, subsetting, redefinition and so on.
+/// One generalization edge written on a symbol; `element_properties` reflects these under
+/// `ownedSpecialization`, together with the implied ones the metamodel adds.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Specialization {
-    /// The relationship, such as `subclassification`.
+    /// The relationship: `specializes`, `subsets`, `redefines`, `typing` or `references`
+    /// (reference subsetting, `::>` and `include`).
     pub kind: String,
     /// The target as written.
     pub declared: String,

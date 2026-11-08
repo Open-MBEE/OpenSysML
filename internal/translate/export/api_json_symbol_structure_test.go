@@ -509,6 +509,10 @@ func (d *structureDifferential) implicitGraphID(rel *symbols.ImplicitRelationshi
 		}
 		return d.ids.RelationshipOf(d.doc, node)
 	case symbols.ImplicitReferenceMembership:
+		if rel.Decl != nil {
+			// A `first x;` marker's Membership is minted from the marker itself.
+			return d.ids.OfDeclaration(d.doc, rel.Decl, "")
+		}
 		if rel.Owner == nil || rel.Slot == "" {
 			return "", false
 		}

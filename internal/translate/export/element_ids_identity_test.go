@@ -43,7 +43,7 @@ func TestElementIDsByIdentityAreTheWrittenIDs(t *testing.T) {
 			t.Fatalf("%s: NewElementIDs: %v", name, err)
 		}
 		for _, e := range encoders {
-			for node, fqn := range e.fqn {
+			for node, fqn := range e.names.FQN {
 				written, ok := graph.Lexical(e.ids.subjectForNode(node, fqn), rdf.SysML+pElementID)
 				got, has := minted.bySpan[spanKey{name, node.Span()}]
 				if has != ok || got != written {
@@ -102,7 +102,7 @@ func compareWrittenRelationships(t *testing.T, name string, graph *rdf.Graph, en
 	written := map[string]bool{}
 	for _, e := range encoders {
 		subjects := []rdf.Term{}
-		for node, fqn := range e.fqn {
+		for node, fqn := range e.names.FQN {
 			subject := e.ids.subjectForNode(node, fqn)
 			subjects = append(subjects, subject)
 			if usage, ok := node.(*ast.Usage); ok {
@@ -180,7 +180,7 @@ func TestElementIDReaderMintsEveryWrittenRelationship(t *testing.T) {
 	reader := NewElementIDReader([]ElementIDDocument{{File: sf, Root: doc.Root}})
 	suffixes := map[string]int{}
 	for _, e := range encoders {
-		for node, fqn := range e.fqn {
+		for node, fqn := range e.names.FQN {
 			for key, want := range e.writtenRelationships(node, e.parentDeclarations()[node], e.ids.subjectForNode(node, fqn), e.parentDeclarations()) {
 				got, err := reader.ReadRelationship("r.sysml", key)
 				if err != nil || got != want {
@@ -204,7 +204,7 @@ func TestElementIDReaderMintsEveryWrittenRelationship(t *testing.T) {
 		t.Errorf("the writer materialized a second typing for `: Base, Base, R::Base`")
 	}
 	for _, e := range encoders {
-		for node, fqn := range e.fqn {
+		for node, fqn := range e.names.FQN {
 			if fqn != "R::Sys::twice" {
 				continue
 			}
@@ -223,7 +223,7 @@ func TestElementIDReaderMintsEveryWrittenRelationship(t *testing.T) {
 		}
 	}
 	for _, e := range encoders {
-		for node, fqn := range e.fqn {
+		for node, fqn := range e.names.FQN {
 			if fqn != "R::Sys::w" {
 				continue
 			}
@@ -252,9 +252,9 @@ func TestElementIDReaderWritesNoIDForAnAbsorbedFinalNode(t *testing.T) {
 		t.Fatal(err)
 	}
 	absorbed := 0
-	for node := range e.absorbed {
+	for node := range e.names.Absorbed {
 		absorbed++
-		if id, ok := NewElementIDReader([]ElementIDDocument{doc}).Read("then.sysml", node, e.fqn[node]); ok != nil || id != "" {
+		if id, ok := NewElementIDReader([]ElementIDDocument{doc}).Read("then.sysml", node, e.names.FQN[node]); ok != nil || id != "" {
 			t.Fatalf("the absorbed final node reads id %q (%v), want none", id, ok)
 		}
 	}
@@ -330,7 +330,7 @@ func TestElementIDReaderMintsEveryBoundEnd(t *testing.T) {
 	}
 	forms := map[string]int{}
 	for _, e := range encoders {
-		for node, fqn := range e.fqn {
+		for node, fqn := range e.names.FQN {
 			usage, ok := node.(*ast.Usage)
 			if !ok || len(usage.ConnectorEnds) == 0 {
 				continue

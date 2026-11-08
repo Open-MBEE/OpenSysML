@@ -5546,6 +5546,22 @@ func (e *Evaluator) structureFeatureTypes(element Element) (Value, bool, bool) {
 		e.recordUnsupportedReason(element, "Feature", "type", reason)
 		return Value{}, true, false
 	}
+	if resolver, ok := e.options.Structure.(interface {
+		SymbolOf(Element) (*symbols.Symbol, bool)
+		ElementFor(*symbols.Symbol) Element
+	}); ok && e.model != nil {
+		// One derivation for every surface: the Symbol facts answer Feature::type
+		// from the semantic model, so the structure reads the same answer.
+		if sym, found := resolver.SymbolOf(element); found && sym != nil {
+			if types, supported := e.featureTypes(sym); supported {
+				values := make([]Value, 0, len(types))
+				for _, typ := range types {
+					values = append(values, Value{Kind: ElementValue, Element: resolver.ElementFor(typ), Success: true})
+				}
+				return Value{Kind: SequenceValue, Values: values, Success: true}, true, true
+			}
+		}
+	}
 	value, handled, ok := e.structureFeatureTypesFrom(element, make(map[ElementKey]bool))
 	if !handled || !ok {
 		return unsupported(

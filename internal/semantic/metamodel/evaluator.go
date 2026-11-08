@@ -857,66 +857,15 @@ func (e *Evaluator) completeMembers(sym *symbols.Symbol) bool {
 }
 
 func (e *Evaluator) featureTypes(sym *symbols.Symbol) ([]*symbols.Symbol, bool) {
-	if !e.completeFeatureTypeInputs(sym) {
-		return nil, false
-	}
-	types := e.model.FeatureTypeSet(sym)
-	if len(types) == 0 {
-		if _, hasBase := e.model.FeatureBaseFQN(sym); hasBase {
-			return nil, false
-		}
-	}
-	return types, true
+	return e.model.ReflectiveFeatureTypes(sym)
 }
 
 func (e *Evaluator) completeFeatureTypeInputs(sym *symbols.Symbol) bool {
-	if sym == nil {
-		return false
-	}
-	seen := make(map[*symbols.Symbol]bool)
-	queue := []*symbols.Symbol{sym}
-	for len(queue) > 0 {
-		candidate := queue[0]
-		queue = queue[1:]
-		if candidate == nil || seen[candidate] {
-			continue
-		}
-		seen[candidate] = true
-		if e.model.SupertypesProvisional(candidate) ||
-			e.model.HasSpecializationCycle(candidate) ||
-			!e.completeRelationships(candidate) {
-			return false
-		}
-		for _, relationship := range semantics.RelationshipsOf(candidate) {
-			if relationship == nil || relationship.Kind == ast.RelTyping ||
-				!semantics.GeneralizationKind(relationship.Kind) {
-				continue
-			}
-			target := e.model.RelationshipTarget(candidate, relationship)
-			if target == nil {
-				return false
-			}
-			if target.IsFeature() {
-				queue = append(queue, target)
-			}
-		}
-	}
-	return true
+	return e.model.FeatureTypeInputsComplete(sym)
 }
 
 func (e *Evaluator) completeRelationships(sym *symbols.Symbol) bool {
-	for _, rel := range semantics.RelationshipsOf(sym) {
-		if rel == nil {
-			return false
-		}
-		if !semantics.GeneralizationKind(rel.Kind) && !rel.Kind.ReferenceSubsets() {
-			continue
-		}
-		if rel.Target == nil || e.model.RelationshipTarget(sym, rel) == nil {
-			return false
-		}
-	}
-	return true
+	return e.model.GeneralizationsResolve(sym)
 }
 
 func (e *Evaluator) featureDirection(element Element) (ast.FeatureDirection, bool) {
