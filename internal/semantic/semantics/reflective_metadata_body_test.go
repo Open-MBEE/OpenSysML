@@ -64,3 +64,11 @@ func TestMetadataBodyFeatureRedefinesByNameWithoutDeclaringOne(t *testing.T) {
 		}
 	}
 }
+
+// The predicate answers for an absent symbol rather than dereferencing it.
+func TestRestatesMetadataBodyFeatureOfNoSymbolIsFalse(t *testing.T) {
+	fixture := reflectiveFixtures(t, "metadata-body-nil.sysml", source.KindSysML, `package P;`)[0]
+	if fixture.model.RestatesMetadataBodyFeature(nil) {
+		t.Fatal("nil symbol restates a metadata body feature")
+	}
+}

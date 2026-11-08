@@ -127,7 +127,7 @@ func (m *Model) directRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 // RestatesMetadataBodyFeature reports whether sym is a metadata body's `mission = …`:
 // a feature declaring no name of its own, named by the definition's feature it redefines.
 func (m *Model) RestatesMetadataBodyFeature(sym *symbols.Symbol) bool {
-	return m != nil && len(m.implicitMetadataBodyRedefinitions(sym)) > 0
+	return m != nil && sym != nil && len(m.implicitMetadataBodyRedefinitions(sym)) > 0
 }
 
 // implicitMetadataBodyRedefinitions is the metadata type's feature a body
