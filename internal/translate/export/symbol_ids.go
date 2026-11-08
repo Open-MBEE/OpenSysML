@@ -260,8 +260,8 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 		if rel.Node == nil {
 			return "", false
 		}
-		if rel.Owner != nil && rel.Owner.Expr != nil && rel.Owner.Expr.Role == symbols.ExpressionConnectorEnd && rel.Kind.ReferenceSubsets() {
-			// A synthesized end's reference subsetting is minted off the end (connectorEnd).
+		if rel.Owner != nil && isConnectorEnd(rel.Owner) && rel.Kind.ReferenceSubsets() {
+			// An end's reference subsetting is minted off the end (connectorEnd).
 			end, ok := s.of(rel.Owner)
 			return rdf.ExpressionNodeID(end, "rs"), ok
 		}
@@ -428,4 +428,9 @@ func (s *SymbolIDs) fqn(sym *symbols.Symbol) string {
 // encodedSegment is how a qualified name's final segment lengthens an encoded element id.
 func encodedSegment(segment string) string {
 	return strings.TrimPrefix(rdf.EncodeElementID("x::"+segment), "x")
+}
+
+// isConnectorEnd reports whether sym is a connector's end, declared or synthesized.
+func isConnectorEnd(sym *symbols.Symbol) bool {
+	return sym.Kind == symbols.SymbolConnectorEnd || sym.Expr != nil && sym.Expr.Role == symbols.ExpressionConnectorEnd
 }

@@ -417,8 +417,16 @@ func (m *Model) edgeEndsOf(sym *symbols.Symbol, edge *ast.SuccessionEdge) []*sym
 	empty.NodeSpan = source.Span{Offset: edge.Span().Offset}
 	sourceEnd := transitionPart(sym, empty, empty.NodeSpan, symbols.SymbolConnectorEnd, sym, symbols.ExpressionConnectorEnd)
 	end := &ast.ConnectorEnd{Multiplicity: edge.TargetMultiplicity}
-	if edge.Target != nil {
+	switch {
+	case edge.Target != nil:
 		end.Target = edge.Target
+	case edge.TargetMember != nil:
+		if _, done := edge.TargetMember.(*ast.FinalNode); done {
+			// `then done;` ends at the action's inherited done (Actions::Action::done).
+			end.Target = ast.QualifiedNameOf("done")
+		} else if name := scopeMemberName(sym.OwnerScope, edge.TargetMember); name != "" {
+			end.Target = ast.QualifiedNameOf(name)
+		}
 	}
 	end.NodeSpan = span
 	targetEnd := transitionPart(sym, end, span, symbols.SymbolConnectorEnd, sym, symbols.ExpressionConnectorEnd)
@@ -429,4 +437,19 @@ func (m *Model) edgeEndsOf(sym *symbols.Symbol, edge *ast.SuccessionEdge) []*sym
 	ends := []*symbols.Symbol{sourceEnd, targetEnd}
 	m.edgeEnds[sym] = ends
 	return ends
+}
+
+// scopeMemberName is the name of the member scope declares at node, or "".
+func scopeMemberName(scope *symbols.Scope, node ast.Node) string {
+	if scope == nil || node == nil {
+		return ""
+	}
+	name := ""
+	scope.ForEachMember(func(member *symbols.Symbol) bool {
+		if member != nil && member.Decl == node && member.Name != "" {
+			name = member.Name
+		}
+		return name == ""
+	})
+	return name
 }
