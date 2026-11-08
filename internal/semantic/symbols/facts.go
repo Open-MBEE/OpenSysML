@@ -479,6 +479,9 @@ const (
 	// ModAnnotatesOthers marks a metadata usage written with an `about` clause,
 	// whether or not the elements it names resolve (see AnnotatesOthers).
 	ModAnnotatesOthers
+	// ModFirstMarker marks a `first x;` start marker: a Membership of the member the
+	// body starts at, declaring no feature of its own (see IsFirstMarker).
+	ModFirstMarker
 	// ModPayloadFeature marks the payload a flow declares with `of p : T`, a
 	// KerML PayloadFeature whatever its symbol kind (SysML v2.1 textual notation).
 	ModPayloadFeature

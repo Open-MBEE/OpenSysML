@@ -2172,7 +2172,7 @@ func ownedMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
 	var members []*symbols.Symbol
 	seen := make(map[*symbols.Symbol]bool)
 	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
-		if member.Kind != symbols.SymbolAlias && !seen[member] && !ownedThroughAnnotation(sym, member) {
+		if member.Kind != symbols.SymbolAlias && !seen[member] && !ownedThroughAnnotation(sym, member) && !symbols.IsFirstMarker(member) {
 			seen[member] = true
 			members = append(members, member)
 		}
@@ -2187,8 +2187,19 @@ func ownedMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
 func (m *Model) membersIncludingAnonymous(sym *symbols.Symbol) []*symbols.Symbol {
 	members := m.Members(sym)
 	out := make([]*symbols.Symbol, 0, len(members))
+	seen := make(map[*symbols.Symbol]bool, len(members))
 	for _, member := range members {
-		out = append(out, member.Symbol)
+		element := member.Symbol
+		if symbols.IsFirstMarker(element) {
+			// A `first x;` marker's Membership makes its start a member — once, as a
+			// Namespace::member is a set — in place of the marker, which masks the start it names.
+			element = m.firstMarkerStart(sym, element)
+		}
+		if element == nil || seen[element] {
+			continue
+		}
+		seen[element] = true
+		out = append(out, element)
 	}
 	return out
 }

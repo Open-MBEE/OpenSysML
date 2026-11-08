@@ -3256,8 +3256,8 @@ The 33 new rows, all `error`: `Simple Tests/Imports.kerml` 3 (`class X :> A;` tw
 `13a-Model Containment.sysml` 3 (`alias 'Sport Sedan' for vehicle1_c1;`, `public import Engine;`,
 `public import Transmission;`), `Annex_A_VehicleViews.sysml` 6 (unqualified `vehicle_b`, which the
 recursive `import …VehicleConfiguration_b::**` brings three times), `SysML v2 Spec Annex A
-SimpleVehicleModel.sysml` 20 (eleven `vehicle_b`, two `redefines engine`, one `redefines
-providePower`, and six consequences — redefinitions under an unresolved `engine`, members read
+SimpleVehicleModel.sysml` 20 (nine `vehicle_b`, two `redefines engine`, one `redefines
+providePower`, and eight consequences — redefinitions under an unresolved `engine`, members read
 through `vehicle_b_1 :> vehicle_b`), and the fixture `resolve/imports.sysml` 1. The per-file
 ratchet in `tests/corpus/testdata/pilot_corpora_expected.txt` records the four corpus files' new
 counts ([pilot-corpora.md](pilot-corpora.md), "Imported memberships the specification hides").
