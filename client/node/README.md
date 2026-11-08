@@ -27,14 +27,30 @@ await using model = await loads(`package Demo {
 
 const value = await model.eval("2 + 2");     // { kind: "int", value: 4n }
 const car = await model.symbol("Demo::Car"); // by qualified name
-await car.children();                        // its members, as symbols
+await car.children();                        // its owned members, as symbols
+car.members;                                 // every member, own and inherited, with its provenance
+car.inheritedMembers();                      // the inherited ones: `inheritedFrom` names the type
+car.withheldLibraryMembers;                  // standard-library members counted, not listed, until
+await car.withLibraryMembers();              // ... fetched again with them listed
+await model.elementProperties("Demo::Car", "inheritedFeature"); // metamodel properties by spec name
 
 const tree = await model.instantiate("Demo::Car");
 const wheels = tree.get("wheels");           // a FeatureValue union
 if (wheels?.kind === "many") {
   console.log(wheels.values.length);         // 4
 }
+const wheel = tree.byId(2n);
+wheel?.reachedBy;                            // how the traversal reached it: owner, feature, index, path
+wheel?.path;                                 // "wheels[2]"
+tree.owner(wheel!);                          // the holding object, the root here
+await model.instancePaths(wheel!);           // every root-relative path to it, aliases included
 ```
+
+`members`, `withLibraryMembers()` and `includeLibraryMembers` need the `symbol_members`
+capability, `elementProperties` needs `element_properties` and `instancePaths` needs
+`instance_paths`; each is refused with a `MissingCapabilityError` before asking a service
+that lacks it, and a symbol from a service without `symbol_members` enumerates no members
+(its `childIds` still name the owned ones).
 
 `loads`/`load` open a connection of their own and close it with the model.
 `connect()` is the longer-lived form, and parses more than one source over one
@@ -761,15 +777,17 @@ npm run conformance -- --allow-skips --report report.json
 
 | protocol | ran | passed | failed | skipped |
 | --- | --: | --: | --: | --: |
-| `grpc` | 166 | 163 | 0 | 3 |
-| `connect` | 166 | 163 | 0 | 3 |
-| `connect-json` | 166 | 163 | 0 | 3 |
-| **total** | **498** | **489** | **0** | **9** |
+| `grpc` | 206 | 198 | 0 | 8 |
+| `connect` | 206 | 198 | 0 | 8 |
+| `connect-json` | 206 | 198 | 0 | 8 |
+| **total** | **618** | **594** | **0** | **24** |
 
-The 3 skips per protocol are the requests the public API cannot express because
-it validates them before calling: a `ParseFile` naming no source (`load` and
+The 8 skips per protocol are three requests the public API cannot express because
+it validates them before calling — a `ParseFile` naming no source (`load` and
 `loads` always name one), a `ParseSources` naming no document and a
-`ParseSources` naming two documents alike (`parseSources` refuses both). Every
+`ParseSources` naming two documents alike (`parseSources` refuses both) — and the
+five scenarios of `RunRuns`, `SelfCheck` and `RecordRun`, which this runner does
+not yet make through the public API. Every
 skip carries its reason in the report. A refusal the client makes before asking,
 in the service's own words and with the status the service would answer — a v1
 model offered to `convert`, a v2 one to `migrate` — is reported as that status,
