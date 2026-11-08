@@ -8,6 +8,7 @@ package export
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"slices"
 	"sort"
 	"strings"
@@ -513,9 +514,9 @@ func (d *decoder) verifyConjugated(el, parent *element) error {
 	if original, ok := d.stringOf(parent, rdf.SysML+pDeclaredName); ok {
 		expectedName = "~" + original
 	} else if parent.qname != "" {
-		segments := identitySegments(parent.qname)
+		segments := naming.Segments(parent.qname)
 		last := segments[len(segments)-1]
-		if !positionalSegment(last) {
+		if !naming.PositionalSegment(last) {
 			expectedName = "~" + identityName(last)
 		}
 	}

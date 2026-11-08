@@ -153,7 +153,7 @@ func coreSubtests(t *testing.T, target wasmTarget, r runner, bins map[string]str
 		if answers["version"] != versionStamp {
 			t.Errorf("sysmlCore.version = %q, want %q", answers["version"], versionStamp)
 		}
-		for _, method := range []string{"ParseSources", "ParseFile", "GetDiagnostics", "GetSymbol"} {
+		for _, method := range []string{"ParseSources", "ParseFile", "GetDiagnostics", "GetSymbol", "GetSymbolPositional"} {
 			var answer struct {
 				Result json.RawMessage `json:"result"`
 				Error  json.RawMessage `json:"error"`
@@ -163,6 +163,9 @@ func coreSubtests(t *testing.T, target wasmTarget, r runner, bins map[string]str
 			} else if len(answer.Error) != 0 {
 				t.Errorf("%s returned an error: %s", method, answer.Error)
 			}
+		}
+		if !strings.Contains(answers["GetSymbolPositional"], `"Demo::@1"`) {
+			t.Errorf("GetSymbol answered %s, want the unnamed member's positional id Demo::@1 among childIds", answers["GetSymbolPositional"])
 		}
 		if !strings.Contains(answers["malformed"], `"code":3`) {
 			t.Errorf("malformed params answered %s, want InvalidArgument (3)", answers["malformed"])
@@ -459,6 +462,8 @@ func TestCoreDependencies(t *testing.T) {
 		module + "/internal/workspace/libs",
 		module + "/internal/frontend/jsonrpc",
 		module + "/internal/frontend/syntax",
+		module + "/internal/frontend/symbolfacts",
+		module + "/internal/semantic/naming",
 	}
 	checkWasmDependencies(t, "./cmd/sysml-core", required, func(dependency string) bool {
 		return forbiddenCoreDependency(module, dependency)

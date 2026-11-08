@@ -48,7 +48,7 @@ type ImplicitRelationship struct {
 	Node       *ast.Relationship    // the written edge; nil when Owner is recorded
 	Form       ImplicitForm         // what the relationship is
 	Member     *Symbol              // the element at the other end of a membership or annotation
-	Decl       ast.Node             // the import declaration of an ImplicitImport
+	Decl       ast.Node             // the import declaration of an ImplicitImport, the `first x;` marker of an ImplicitReferenceMembership
 	Slot       string               // the position the conversion names an ImplicitReferenceMembership by
 }
 

@@ -2,6 +2,7 @@ package export
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -29,9 +30,8 @@ type elementIdentity struct {
 }
 
 // identityFacts is the identity side table of one document translated for the
-// encoder: effective ids by qualified name, the annotation nodes consumed
-// into identity rather than exported as model content, and each ProjectRef
-// scope keyed by the qualified name of the namespace that declares it.
+// encoder: effective ids by qualified name, and each ProjectRef scope keyed by
+// the qualified name of the namespace that declares it.
 type identityFacts struct {
 	byFQN map[string]elementIdentity
 	// byNode keys each identity by its declaration node: an unnamed element's
@@ -45,7 +45,6 @@ type identityFacts struct {
 	// bodyParamSym is the symbol of each expression body's parameter by name; a
 	// body parameter declares the body node, so declSym cannot hold it.
 	bodyParamSym map[*ast.BodyExpr]map[string]*symbols.Symbol
-	consumed     map[ast.Node]bool
 	provenance   map[ast.Node]*identity.Scope
 	// qualified reports a multi-scope document, whose scoped elements get
 	// IRIs qualified by their scope so ids repeated across scopes stay apart.
@@ -140,8 +139,7 @@ func analyzeDocument(file *source.SourceFile, root *ast.RootNamespace, library s
 
 // documentIdentity builds the identity side table for one parsed document,
 // refusing an id that is not a constant string or is outside the id alphabet.
-func documentIdentity(name string, res *resolve.Resolver, model *semantics.Model, form IDForm) (*identityFacts, error) {
-	table := identity.Build(model, res, res.Index().DocumentRoot(name))
+func documentIdentity(table *identity.Table, model *semantics.Model, res *resolve.Resolver, form IDForm) (*identityFacts, error) {
 	facts := newIdentityFacts(form, model, res)
 	scopeKeys := map[string]bool{}
 	for _, sym := range table.Symbols() {
@@ -149,7 +147,7 @@ func documentIdentity(name string, res *resolve.Resolver, model *semantics.Model
 		if !ok {
 			continue
 		}
-		if err := facts.consumeAnnotated(info); err != nil {
+		if err := facts.checkAnnotated(info); err != nil {
 			return nil, err
 		}
 		facts.noteScope(info, scopeKeys)
@@ -170,7 +168,6 @@ func newIdentityFacts(form IDForm, model *semantics.Model, res *resolve.Resolver
 		declSym:        map[ast.Node]*symbols.Symbol{},
 		symByFQN:       map[string]*symbols.Symbol{},
 		bodyParamSym:   map[*ast.BodyExpr]map[string]*symbols.Symbol{},
-		consumed:       map[ast.Node]bool{},
 		provenance:     map[ast.Node]*identity.Scope{},
 		model:          model,
 		res:            res,
@@ -182,29 +179,22 @@ func newIdentityFacts(form IDForm, model *semantics.Model, res *resolve.Resolver
 	}
 }
 
-// consumeAnnotated checks a symbol's ElementId annotation and marks its
-// declarations consumed, so the writer does not state the annotation again.
-func (f *identityFacts) consumeAnnotated(info *identity.Info) error {
+// checkAnnotated refuses a symbol's ElementId annotation the export cannot carry.
+func (f *identityFacts) checkAnnotated(info *identity.Info) error {
 	if !info.Annotated {
 		return nil
 	}
 	if err := exportableID(info); err != nil {
 		return err
 	}
-	for _, d := range info.Declarations {
-		f.consumed[d.Node] = true
-	}
 	return nil
 }
 
-// noteScope records the scope a symbol's id is qualified under: its declarations
-// are consumed, the scope is the provenance of its symbol, and its key is noted.
+// noteScope records the scope a symbol's id is qualified under as the
+// provenance of its symbol, and notes its key.
 func (f *identityFacts) noteScope(info *identity.Info, scopeKeys map[string]bool) {
 	if info.Scope == nil {
 		return
-	}
-	for _, d := range info.Scope.Declarations {
-		f.consumed[d.Node] = true
 	}
 	f.provenance[info.Scope.Symbol.Decl] = info.Scope
 	scopeKeys[info.Scope.Key()] = true
@@ -219,12 +209,12 @@ func identityRoot(table *identity.Table, sym *symbols.Symbol, info *identity.Inf
 			return ""
 		}
 		if root.Name != "" {
-			return identitySegment(root.Name)
+			return naming.Segment(root.Name)
 		}
 		return ri.FQN
 	}
 	if sym.Name != "" {
-		return identitySegment(sym.Name)
+		return naming.Segment(sym.Name)
 	}
 	return info.FQN
 }
@@ -453,10 +443,4 @@ func (f *identityFacts) normativeMembership(node ast.Node) bool {
 // nothing, and the graph reads that id as the norm's without the record.
 func (f *identityFacts) declaredIDAt(node ast.Node) bool {
 	return f.byNode[node].declared
-}
-
-// skip reports whether node is an identity annotation consumed into the
-// graph's identity rather than exported as model content.
-func (f *identityFacts) skip(node ast.Node) bool {
-	return f.consumed[node]
 }
