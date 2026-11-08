@@ -39,14 +39,20 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	value := m.ValueExpression(sym)
 	statements := append(m.statementOperands(sym), m.statementNodes(sym)...)
 	parts := m.transitionMembers(sym)
+	ends := m.successionEnds(sym)
 	bodyParts := len(m.resultExpressionMembers(sym)) + len(m.filterMemberships(sym))
-	if sym.Scope == nil && value == nil && len(statements) == 0 && len(parts) == 0 && bodyParts == 0 {
+	if sym.Scope == nil && value == nil && len(statements) == 0 && len(parts) == 0 && len(ends) == 0 && bodyParts == 0 {
 		return nil
 	}
 	journal(m, m.memberships, sym, sym.Decl)
 	var out []*symbols.Symbol
 	seen := make(map[*symbols.Symbol]bool)
 	ordinal := 0
+	for _, end := range ends {
+		// A `then` succession owns its ends ahead of its body (encodeSuccessionEdge).
+		out = appendOwningMembership(out, sym, end)
+		ordinal++
+	}
 	if value != nil {
 		// The feature's value part declares a FeatureValue that owns the
 		// expression (KerML 8.3.3.3.5 Feature::valuation subsets ownedMembership),
@@ -67,19 +73,22 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		m.memberships[sym] = out
 		return out
 	}
+	// A statement's membership stands where the statement is written among the
+	// body's declared members (mergeMemberships), as the conversion orders them.
+	var statementMemberships []*symbols.Symbol
 	for _, statement := range statements {
-		out = append(out, &symbols.Symbol{
+		statementMemberships = append(statementMemberships, &symbols.Symbol{
 			Kind:       symbols.SymbolRelationship,
 			DocName:    sym.DocName,
 			DeclSpan:   statement.DeclSpan,
 			Visibility: sym.Visibility,
 			Implicit: &symbols.ImplicitRelationship{
-				Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: statement,
+				Owner: sym, Form: symbols.ImplicitMembership, Member: statement,
 			},
 		})
-		ordinal++
 	}
 	if sym.Scope == nil {
+		out = mergeMemberships(out, statementMemberships)
 		if len(parts) > 0 {
 			out = m.withTransitionMemberships(sym, out, parts)
 		}
@@ -134,6 +143,7 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		ordinal++
 		return true
 	})
+	out = mergeMemberships(out, statementMemberships)
 	if len(parts) > 0 {
 		out = m.withTransitionMemberships(sym, out, parts)
 	}

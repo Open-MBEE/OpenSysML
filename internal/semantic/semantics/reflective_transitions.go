@@ -156,7 +156,13 @@ func (p *transitionParts) withSuccession(trans *symbols.Symbol, target *ast.Qual
 // successionEnds are the ends of a transition's synthesized succession sym, in order; nil
 // for any other symbol.
 func (m *Model) successionEnds(sym *symbols.Symbol) []*symbols.Symbol {
-	if sym == nil || sym.Expr == nil || sym.Expr.Role != symbols.ExpressionTransitionSuccession {
+	if sym == nil {
+		return nil
+	}
+	if edge, ok := sym.Decl.(*ast.SuccessionEdge); ok && (sym.Expr == nil || sym.Expr.Role != symbols.ExpressionConnectorEnd) {
+		return m.edgeEndsOf(sym, edge)
+	}
+	if sym.Expr == nil || sym.Expr.Role != symbols.ExpressionTransitionSuccession {
 		return nil
 	}
 	parts := m.transitionPartsOf(sym.Expr.Owner)
@@ -383,4 +389,44 @@ func (m *Model) isRecordedTriggerPayload(trans, member *symbols.Symbol) bool {
 	}
 	parts := m.transitionPartsOf(trans)
 	return parts != nil && parts.accepter != nil && parts.payload != nil && parts.payload.Decl == member.Decl
+}
+
+// edgeEndsOf synthesizes the two ends a `then target` succession written in a body
+// owns (SysML.xtext TargetSuccession): an empty source end carrying the source
+// multiplicity and an end referring to the target, as the conversion writes them
+// (encodeSuccessionEdge) when the source is implied by position rather than named
+// ahead of the succession.
+func (m *Model) edgeEndsOf(sym *symbols.Symbol, edge *ast.SuccessionEdge) []*symbols.Symbol {
+	if cached, ok := m.edgeEnds[sym]; ok {
+		return cached
+	}
+	if m.edgeEnds == nil {
+		m.edgeEnds = make(map[*symbols.Symbol][]*symbols.Symbol)
+	}
+	implied := edge.Source != nil && edge.Source.Span().Offset < edge.Span().Offset
+	positional := edge.Source == nil && edge.SourceMember != nil
+	if !implied && !(positional && (edge.SourceMultiplicity != nil || edge.TargetMultiplicity != nil)) {
+		m.edgeEnds[sym] = nil
+		return nil
+	}
+	span := edge.Span()
+	if edge.Target != nil {
+		span = edge.Target.Span()
+	}
+	empty := &ast.ConnectorEnd{Multiplicity: edge.SourceMultiplicity}
+	empty.NodeSpan = source.Span{Offset: edge.Span().Offset}
+	sourceEnd := transitionPart(sym, empty, empty.NodeSpan, symbols.SymbolConnectorEnd, sym, symbols.ExpressionConnectorEnd)
+	end := &ast.ConnectorEnd{Multiplicity: edge.TargetMultiplicity}
+	if edge.Target != nil {
+		end.Target = edge.Target
+	}
+	end.NodeSpan = span
+	targetEnd := transitionPart(sym, end, span, symbols.SymbolConnectorEnd, sym, symbols.ExpressionConnectorEnd)
+	targetEnd.Expr.Index = 1
+	for _, part := range []*symbols.Symbol{sourceEnd, targetEnd} {
+		part.OwnerScope = sym.OwnerScope
+	}
+	ends := []*symbols.Symbol{sourceEnd, targetEnd}
+	m.edgeEnds[sym] = ends
+	return ends
 }

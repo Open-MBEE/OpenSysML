@@ -188,6 +188,7 @@ type Model struct {
 	statementOperandSymbols map[*symbols.Symbol][]*symbols.Symbol
 	expressionParts         map[*symbols.Symbol]*expressionParts
 	transitionParts         map[*symbols.Symbol]*transitionParts
+	edgeEnds                map[*symbols.Symbol][]*symbols.Symbol
 	ownedAnnotations        map[*symbols.Symbol][]*symbols.Symbol
 	annotatingRels          map[*symbols.Symbol][]*symbols.Symbol
 	ownedImports            map[*symbols.Symbol][]*symbols.Symbol

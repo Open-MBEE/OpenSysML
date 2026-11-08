@@ -28,8 +28,12 @@ func (m *Model) statementNodes(sym *symbols.Symbol) []*symbols.Symbol {
 		if !IsStatementNode(member) || nodeStatementOf(sym.Decl) == member {
 			continue
 		}
+		kind := symbols.SymbolActionUsage
+		if _, ok := member.(*ast.SuccessionEdge); ok {
+			kind = symbols.SymbolSuccessionUsage
+		}
 		node := &symbols.Symbol{
-			Kind:       symbols.SymbolActionUsage,
+			Kind:       kind,
 			Decl:       member,
 			DeclSpan:   member.Span(),
 			DocName:    sym.DocName,
@@ -106,7 +110,11 @@ func (m *Model) statementScopeOwner(scope *symbols.Scope) *symbols.Symbol {
 // IsStatementNode reports whether node is a statement the reflective layer
 // synthesizes an action node for.
 func IsStatementNode(node ast.Node) bool {
-	switch node.(type) {
+	switch node := node.(type) {
+	case *ast.SuccessionEdge:
+		// A bodiless `then target` is a SuccessionAsUsage of the body (SysML.xtext
+		// TargetSuccession); one with a body is a symbol the builder declares.
+		return len(node.Members) == 0
 	case *ast.IfActionNode, *ast.IfBranchNode, *ast.WhileLoopActionNode, *ast.AssignmentActionNode,
 		*ast.TerminateStatement, *ast.PerformActionNode, *ast.ActionExecutionNode:
 		return true
