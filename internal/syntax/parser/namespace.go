@@ -451,8 +451,7 @@ func (p *Parser) parseNamespaceBody(ctx bodyContext) ([]ast.Node, bool) {
 		members = append(members, p.memberStart()...)
 		before := p.peek().Span.Offset
 		member := p.parseMember()
-		p.markAttached(member)
-		members = append(members, p.takeRecovered()...)
+		members = append(p.markAttached(member, members), p.takeRecovered()...)
 		members = append(members, member)
 		if p.peek().Span.Offset == before && !p.at(lexer.RBrace) && !p.atEOF() {
 			p.advance()

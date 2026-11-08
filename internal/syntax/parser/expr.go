@@ -745,8 +745,7 @@ func (p *Parser) parseBodyExpr(start int) ast.Node {
 				for !p.at(lexer.RBrace) && !p.atEOF() {
 					paramMembers = append(paramMembers, p.memberStart()...)
 					pm := p.parseBodyMember()
-					p.markAttached(pm)
-					paramMembers = append(paramMembers, p.takeRecovered()...)
+					paramMembers = append(p.markAttached(pm, paramMembers), p.takeRecovered()...)
 					paramMembers = append(paramMembers, pm)
 				}
 				leave()

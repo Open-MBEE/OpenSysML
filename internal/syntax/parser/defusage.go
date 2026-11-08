@@ -1712,8 +1712,7 @@ func (p *Parser) parseDefUsage(start int) ast.Node {
 					members = append(members, p.memberStart()...)
 					m := p.parseBodyMember()
 					if m != nil {
-						p.markAttached(m)
-						members = append(members, p.takeRecovered()...)
+						members = append(p.markAttached(m, members), p.takeRecovered()...)
 						members = append(members, m)
 					}
 				}
@@ -2570,8 +2569,7 @@ func (p *Parser) parseUsageBody(u *ast.Usage, kind ast.UsageKind, start int) {
 					p.effectStmtStart = p.peek().Span.Offset
 				}
 				member := p.parseActionMember()
-				p.markAttached(member)
-				members = append(members, p.takeRecovered()...)
+				members = append(p.markAttached(member, members), p.takeRecovered()...)
 				members = append(members, member)
 				// Only an inline statement continues the body; a succession names
 				// members of the enclosing body.
@@ -5287,8 +5285,7 @@ func (p *Parser) parseMetadataUsage(start int) *ast.PrefixMetadata {
 		for !p.at(lexer.RBrace) && !p.atEOF() {
 			body = append(body, p.memberStart()...)
 			if m := p.parseBodyMember(); m != nil {
-				p.markAttached(m)
-				body = append(body, p.takeRecovered()...)
+				body = append(p.markAttached(m, body), p.takeRecovered()...)
 				body = append(body, m)
 				continue
 			}

@@ -57,7 +57,7 @@ func TestRegularCommentsAreCommentMembers(t *testing.T) {
 		{"after_result", `calc def F { 1 /* c */ }`, nil},
 		{"after_body_expression_result", `part def P { attribute y = xs.?{ in x; x /* c */ }; }`, nil},
 		{"between_transition_clauses", `state def S { state A; transition first A accept Go /* c */ then A; }`, nil},
-		{"before_attached_then", `action def A { first start; /* c */ then done; }`, []string{"c "}},
+		{"before_attached_then", `action def A { first start; /* c */ then done; }`, nil},
 		{"line_notes_are_not_elements", "package P { // c\n part a; // d\n }", nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
