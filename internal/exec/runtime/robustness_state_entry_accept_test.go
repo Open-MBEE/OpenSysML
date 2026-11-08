@@ -6,10 +6,8 @@ import (
 	"testing"
 )
 
-// TestRuntimeRobustnessStateEntryAccept covers the failure modes of an accept
-// written as a state's entry, do or exit action: an entry or do accept nothing
-// sends to leaves its state active rather than ending the run, and an exit
-// accept nothing can post is a deadlock, since the exit runs at the instant.
+// TestRuntimeRobustnessStateEntryAccept: an entry or do accept nothing sends to leaves its state
+// active rather than ending the run; an exit accept nothing can post is a deadlock (exit runs at the instant).
 func TestRuntimeRobustnessStateEntryAccept(t *testing.T) {
 	t.Run("entry_accept_with_no_sender_stays_parked", testEntryAcceptWithNoSenderStaysParked)
 	t.Run("do_accept_with_no_sender_stays_parked", testDoAcceptWithNoSenderStaysParked)
