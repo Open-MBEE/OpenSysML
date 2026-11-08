@@ -13,14 +13,12 @@ import (
 	"math"
 	"os"
 	"strings"
-	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/objref"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/jsonrpc"
-	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
 	fsyntax "github.com/Open-MBEE/OpenSysML/internal/frontend/syntax"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
@@ -101,37 +99,30 @@ type cachedModel struct {
 	model     *runtime.Model
 	resolver  *resolve.Resolver
 	typed     *semantics.Model
-	// identities names a metaobject's element as the gRPC service does, derived
-	// once on first use.
-	identitiesOnce sync.Once
-	identities     *symbolfacts.Context
+	// identities names a metaobject's element by qualified identity, as the
+	// service does for a named element.
+	identities engineIdentities
 }
 
 // elementIdentities is the id vocabulary a metaobject's element crosses in: its
-// qualified name or positional id; no form `@id`, which needs the exporter.
+// qualified name; positional and form ids need code the engine's size budget excludes.
 func (m *cachedModel) elementIdentities() elementIdentities {
-	m.identitiesOnce.Do(func() {
-		m.identities = &symbolfacts.Context{
-			Index:      m.Index,
-			Positional: symbolfacts.NewPositional(m.Index, m.positionalDocuments),
-		}
-	})
-	return m.identities
+	m.identities.index = m.Index
+	return &m.identities
 }
 
-// positionalDocuments pairs each document with its root scope, for the
-// positional identities of its unnamed declarations.
-func (m *cachedModel) positionalDocuments() []symbolfacts.PositionalDocument {
-	docs := make([]symbolfacts.PositionalDocument, 0, len(m.Documents))
-	for _, doc := range m.Documents {
-		if doc.Source == nil {
-			continue
-		}
-		if root := m.Index.DocumentRoot(doc.Source.Name()); root != nil {
-			docs = append(docs, symbolfacts.PositionalDocument{File: doc.Source, Root: doc.Root, Scope: root})
-		}
+// engineIdentities names an element by its qualified identity alone.
+type engineIdentities struct{ index *symbols.Index }
+
+func (e *engineIdentities) ElementIdentity(sym *symbols.Symbol) string {
+	if sym == nil {
+		return ""
 	}
-	return docs
+	return e.index.QualifiedIdentity(sym)
+}
+
+func (e *engineIdentities) ResolveElement(id string, _ *semantics.Model) []*symbols.Symbol {
+	return e.index.LookupQualified(id)
 }
 
 // typedModel builds the checker-typed model and resolver the runtime and renderer
