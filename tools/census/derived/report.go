@@ -17,8 +17,6 @@ const (
 	refreshCommand    = "go run -C tools ./cmd/derived-census -update"
 	bridgeSource      = "scripts/pilot-json-exporter/ExportJSON.java"
 	bridgeName        = "pilot-json-exporter"
-	evaluatorSource   = "internal/semantic/metamodel"
-	evaluatorName     = "metamodel-evaluator"
 )
 
 // manualExamples is the handbook's worked examples, measured as the api-json
@@ -136,9 +134,8 @@ func (r *Report) finish() {
 	r.Summary.Silent = len(r.Silent)
 }
 
-// provenance identifies the run's inputs: the pin, the bridge, the evaluator
-// linked into this executable (digested in built), the roots and the libraries.
-func provenance(checkout, built, libraries string) (baseline.Record, error) {
+// provenance identifies the run's inputs: the pin, the bridge, the roots and the libraries.
+func provenance(checkout, libraries string) (baseline.Record, error) {
 	pin, err := baseline.ReadPin(checkout)
 	if err != nil {
 		return baseline.Record{}, err
@@ -146,10 +143,6 @@ func provenance(checkout, built, libraries string) (baseline.Record, error) {
 	bridgeDigest, err := baseline.DigestFile(filepath.Join(checkout, filepath.FromSlash(bridgeSource)))
 	if err != nil {
 		return baseline.Record{}, fmt.Errorf("digest %s: %w", bridgeSource, err)
-	}
-	evaluatorDigest, err := baseline.DigestPackage(filepath.Join(built, filepath.FromSlash(evaluatorSource)))
-	if err != nil {
-		return baseline.Record{}, fmt.Errorf("digest %s: %w", evaluatorSource, err)
 	}
 	overlay, err := errata.Load()
 	if err != nil {
@@ -162,7 +155,6 @@ func provenance(checkout, built, libraries string) (baseline.Record, error) {
 		Errata:        baseline.ErrataDigest(overlay.Entries()),
 		Tools: []baseline.Tool{
 			{Name: bridgeName, Source: bridgeSource, SourceDigest: bridgeDigest, Release: pin.Release()},
-			{Name: evaluatorName, Source: evaluatorSource, SourceDigest: evaluatorDigest},
 		},
 	}
 	for _, root := range roots() {
