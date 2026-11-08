@@ -41,15 +41,45 @@ func agreementExamples(t *testing.T) []string {
 	return paths
 }
 
+// agreementAdjudicated reads testdata/element_properties_agreement_adjudicated.txt:
+// the (model, element, property) rows GetElementProperties answers and the export
+// omits, each with the clause the answer rests on. A row the run no longer
+// produces is stale and fails, like a ratchet.
+func agreementAdjudicated(t *testing.T) map[[3]string]string {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join("testdata", "element_properties_agreement_adjudicated.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows := map[[3]string]string{}
+	for number, line := range strings.Split(string(data), "\n") {
+		if line = strings.TrimSpace(line); line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		fields := strings.Split(line, "\t")
+		if len(fields) != 4 {
+			t.Fatalf("element_properties_agreement_adjudicated.txt:%d: want model, element, property and clause separated by tabs", number+1)
+		}
+		rows[[3]string{fields[0], fields[1], fields[2]}] = fields[3]
+	}
+	return rows
+}
+
 // GetElementProperties answers what the api-json export writes, for every
 // (element, metamodel property) pair of every example: the same names, the same
 // values in the same order, element values by the same id; the export's `sysx:`
-// extension keys are no metamodel properties. A hygiene check, not a baseline.
+// extension keys are no metamodel properties. The export spells an empty or
+// null derived value, and one it has no rule for, by leaving the key out
+// (completeDerived), so an omitted key agrees with an empty or unsupported
+// answer; an omitted key against a value is a disagreement the adjudicated
+// file must name. A hygiene check, not a baseline.
 func TestElementPropertiesAgreeWithTheAPIJSONExport(t *testing.T) {
 	paths := agreementExamples(t)
 	if len(paths) == 0 {
 		t.Fatal("no example models")
 	}
+	adjudicated := agreementAdjudicated(t)
+	seen := map[[3]string]bool{}
 	srv, err := grpc.NewService(4, "test")
 	if err != nil {
 		t.Fatal(err)
@@ -113,9 +143,26 @@ func TestElementPropertiesAgreeWithTheAPIJSONExport(t *testing.T) {
 					t.Errorf("%s: %s.%s exported as %s, answered as %s", path, id, name, want, got)
 				}
 			}
-			for name := range answered {
-				t.Errorf("%s: %s.%s is answered but not exported", path, id, name)
+			for name, property := range answered {
+				if property.Unsupported != "" || len(property.Values) == 0 {
+					continue
+				}
+				model, err := filepath.Rel(filepath.Join("..", ".."), path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				row := [3]string{filepath.ToSlash(model), id, name}
+				if _, ok := adjudicated[row]; ok {
+					seen[row] = true
+					continue
+				}
+				t.Errorf("%s: %s.%s is answered as %s but not exported", path, id, name, propertySpelling(property))
 			}
+		}
+	}
+	for row, clause := range adjudicated {
+		if !seen[row] {
+			t.Errorf("element_properties_agreement_adjudicated.txt: %s %s.%s (%s) no longer differs; remove the row", row[0], row[1], row[2], clause)
 		}
 	}
 	if converted == 0 || elements == 0 {
