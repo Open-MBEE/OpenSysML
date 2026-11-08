@@ -1,0 +1,9 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "DerivedTypes::SubOwner::q",
+	"expected_kind": "partUsage",
+	"expected_type_info": {"declared": "", "resolved_id": "", "types": ["DerivedTypes::T"]},
+	"expected_specializations": [
+		{"kind": "redefines", "declared": "q", "target_id": "DerivedTypes::Owner::q"}
+	]
+}

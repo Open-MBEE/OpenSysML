@@ -754,3 +754,60 @@ class TestSymbolMembers:
             controller.children(inherited=True)
         assert excinfo.value.owner == controller.id
         assert [i.rsplit("::", 1)[-1] for i in excinfo.value.child_ids] == ["delegate"]
+
+
+class TestSymbolTypeFacts:
+    """The written typing and the derived types are reported side by side."""
+
+    def _symbol(self, info):
+        return Symbol(info, Mock(), "model_abc123")
+
+    def test_derived_types_are_listed_beside_the_written_typing(self):
+        info = sysml_pb2.SymbolInfo(
+            id="P::Owner::pBoth",
+            name="pBoth",
+            kind="partUsage",
+            type_info=sysml_pb2.TypeInfo(
+                declared="V",
+                resolved_id="P::V",
+                resolved_kind="partDef",
+                types=[
+                    sysml_pb2.TypeRef(id="P::V", kind="partDef"),
+                    sysml_pb2.TypeRef(id="P::T", kind="partDef"),
+                ],
+            ),
+        )
+        facts = self._symbol(info).type_facts
+        assert facts.declared == "V"
+        assert facts.resolved_id == "P::V"
+        assert [(ref.id, ref.kind) for ref in facts.types] == [
+            ("P::V", "partDef"),
+            ("P::T", "partDef"),
+        ]
+
+    def test_a_feature_typed_only_through_subsetting_has_derived_types(self):
+        info = sysml_pb2.SymbolInfo(
+            id="P::Owner::pRef",
+            name="pRef",
+            kind="partUsage",
+            type_info=sysml_pb2.TypeInfo(types=[sysml_pb2.TypeRef(id="P::T", kind="partDef")]),
+            specializations=[
+                sysml_pb2.Specialization(
+                    kind="references", declared="q", target_id="P::Owner::q", target_kind="partUsage"
+                )
+            ],
+        )
+        symbol = self._symbol(info)
+        assert symbol.type_facts.declared == ""
+        assert symbol.type_facts.resolved_id == ""
+        assert [ref.id for ref in symbol.type_facts.types] == ["P::T"]
+        assert [(spec.kind, spec.target_id) for spec in symbol.specializations] == [
+            ("references", "P::Owner::q")
+        ]
+
+    def test_an_older_service_reports_no_derived_types(self):
+        info = sysml_pb2.SymbolInfo(
+            id="P::Owner::q", name="q", kind="partUsage",
+            type_info=sysml_pb2.TypeInfo(declared="T", resolved_id="P::T"),
+        )
+        assert self._symbol(info).type_facts.types == ()

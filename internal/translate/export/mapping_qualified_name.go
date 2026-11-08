@@ -1,6 +1,7 @@
 package export
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"sort"
 	"strconv"
 	"strings"
@@ -186,10 +187,10 @@ func mappingQualifiedNamesWithContext(graph *rdf.Graph, context *mappingQualifie
 			return "", false
 		}
 
-		value := qualify(ownerName, name, index)
+		value := naming.Qualify(ownerName, name, index)
 		if hasName && context.conforms(graph, subject, "ConjugatedPortDefinition") &&
 			strings.HasPrefix(name, "~") {
-			value = strings.TrimSuffix(value, identitySegment(name)) + "'" + name + "'"
+			value = strings.TrimSuffix(value, naming.Segment(name)) + "'" + name + "'"
 		}
 		resolved[subject.Value] = value
 		known[subject.Value] = true
@@ -535,7 +536,7 @@ func mappingLastWrittenName(name string) string {
 		}
 		return segment
 	}
-	qualified := identitySegments(name)
+	qualified := naming.Segments(name)
 	if len(qualified) == 0 {
 		return ""
 	}

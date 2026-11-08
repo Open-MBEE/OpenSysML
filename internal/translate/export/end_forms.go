@@ -2,6 +2,7 @@ package export
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"slices"
 	"strconv"
 	"strings"
@@ -1219,7 +1220,7 @@ func (d *decoder) flowEndTargetName(target rdf.Term) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	segments := identitySegments(el.qname)
+	segments := naming.Segments(el.qname)
 	if len(segments) == 0 {
 		return "", &UnsupportedError{What: fmt.Sprintf("the flow-end redefinition target <%s>", target.Value), Note: "it has no qualified name"}
 	}

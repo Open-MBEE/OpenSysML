@@ -7,6 +7,7 @@ package export
 import (
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"math"
 	"math/big"
 	"slices"
@@ -513,7 +514,7 @@ func (e *encoder) bodyParameter(subject, base rdf.Term, owner string, body *ast.
 // bodyMember emits one declaration of an expression body as the member it is:
 // positioned by the body, with no qualified name or namespace of its own.
 func (e *encoder) bodyMember(subject, base rdf.Term, owner string, index int, member ast.Node) error {
-	node, visibility := unwrapMember(member)
+	node, visibility := naming.UnwrapMember(member)
 	if node == nil {
 		return &UnsupportedError{
 			What: fmt.Sprintf("the empty member at %s", e.where(member)),
