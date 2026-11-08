@@ -2963,7 +2963,8 @@ func (m *Model) reflectiveName(sym *symbols.Symbol) string {
 // declaredSymbolName is the symbol's name as its declaration states it; a name the
 // symbol table gave it for the role it takes (a transition's `effect`) is none.
 func declaredSymbolName(sym *symbols.Symbol) string {
-	if sym == nil || sym.Naming == symbols.NamedByRole {
+	// `:>> x` and a role name are derived, not declared (KerML 8.3.2.1 Element::declaredName).
+	if sym == nil || sym.Naming == symbols.NamedByRole || sym.Naming == symbols.NamedByRedefinition {
 		return ""
 	}
 	return SimpleSymbolName(sym)
