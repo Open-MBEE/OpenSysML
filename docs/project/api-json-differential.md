@@ -157,9 +157,9 @@ named by the pilot's metaclass when the two sides disagree on the metaclass (`ty
 ## Detectors
 
 - **Determinism.** The report is sorted throughout (roots in order, elements by key, properties by
-  name, rows by differing count then name); two runs over one checkout write byte-identical reports
-  but for the recording date, which is what `-check` verifies in the oracle-reproduction workflow
-  and what `TestReportIsDeterministic` pins without Java. The pilot's own output is not
+  name, rows by differing count then name); two runs over one checkout write byte-identical reports,
+  which is what `-check` verifies in the pull-request workflow's `apijson-differential` job and in
+  the oracle-reproduction workflow, and what `TestReportIsDeterministic` pins without Java. The pilot's own output is not
   deterministic across JVMs for every property; a property shown to move is declared
   pilot-nondeterministic (below) rather than re-recorded, so `-check` holds on any JVM.
 - **Disagreement.** `TestDisagreementDetectorIsLive` compares the committed pilot export of
@@ -167,27 +167,30 @@ named by the pilot's metaclass when the two sides disagree on the metaclass (`ty
   in which one derived collection of `Derived Probe::Vehicle` is emptied (`ownedUsage` → exactly one
   ours-missing in that row, nowhere else) and one in which one attribute is flipped (`isAbstract` →
   exactly one present-different), each with one example naming the element.
-- **Provenance.** The baseline's `provenance` block names both sides of the comparison: the pilot
-  pin (`pilotTag`, `pilotCommit`, `pilotArtifact`), the errata-registry digest, one `tools` entry
-  per side, every root's file digest and, as the `opensysml-libraries` input, the digest of the
-  library directory the bridge reads beside the standard library. `pilot-json-exporter` digests the bridge source
-  `scripts/pilot-json-exporter/ExportJSON.java` against the pinned release; `api-json-writer`
-  digests this repository's writer, `internal/translate/export`: its non-test `.go` files, sorted by
-  file name, each hashed by name and content, so the digest is the same on any machine and in any
-  checkout path. It moves on any edit to a production source of the package (a renamed member, a
-  dropped property, a reordered emission) and stays put on edits to its tests, fixtures or prose. It
-  does not cover what the writer consumes — the parser, name resolution, the metamodel or the library
-  — so a semantic change upstream still surfaces as count movement with no named cause; it names
-  writer changes only. `TestCommittedBaselineStatesThisRepositorysProvenance` checks, without Java,
-  that every one of those fields is this checkout's; `-check` holds the same block to the baseline
-  before the counts, so a writer edit stops it at `provenance.tools[api-json-writer].sourceDigest:
-  baseline records …, repository now has …` rather than at bare count drift (the fresh report it
-  wrote still holds the moved buckets). The writer digested is the one linked into the referee —
-  the checkout it was built from — which `-repo` pointing elsewhere does not change; a `-trimpath`
-  build keeps no record of that checkout and is refused rather than guessed at. `TestProvenanceGuardFailsOnAMovedPin`
-  and `TestProvenanceGuardFailsOnAnEditedWriter` pin that a moved pin and an edited writer are each
-  named with the refresh command. `TestRecordStatesTheBaselinesFigures` (`make docs-counts`) ties
-  this record's figures to the baseline.
+- **Provenance.** The baseline's `provenance` block names the reference side of the comparison
+  and the inputs: the pilot pin (`pilotTag`, `pilotCommit`, `pilotArtifact`), the errata-registry
+  digest, the `pilot-json-exporter` tool — the bridge source `scripts/pilot-json-exporter/ExportJSON.java`
+  digested against the pinned release — every root's file digest and, as the `opensysml-libraries`
+  input, the digest of the library directory the bridge reads beside the standard library. Every one
+  of those lines moves only on a pin bump, an errata change or an edit to a compared input. The block
+  deliberately states nothing about this repository's writer and carries no recording date: the
+  figures are the writer's record, so an edit under `internal/translate/export` moves the baseline
+  only where it moves a verdict, one line per bucket like the corpus ratchets, and two branches
+  re-recording it conflict only where their verdicts differ. (A writer digest and a date were once
+  recorded; every export PR rewrote those lines differently, and the second to land conflicted in a
+  generated file.) `TestCommittedBaselineStatesThisRepositorysProvenance` checks, without Java, that
+  every recorded field is this checkout's; `TestProvenanceStatesOnlyTheReferenceSide` pins that no
+  recorded tool is this repository's and that no date is stamped; `TestProvenanceGuardFailsOnAMovedPin`
+  and `TestProvenanceGuardFailsOnAnEditedBridge` pin that a moved pin and an edited bridge are each
+  named with the refresh command. `-check` holds the same block to the baseline before the counts,
+  so a provenance mismatch stops it at `provenance.…: baseline records …, repository now has …`
+  rather than at bare count drift. What proves the figures current against a writer edit is the
+  differential itself: the pull-request workflow's `apijson-differential` job runs `-check` on every
+  change under the writer, the referee, the bridge, the pin or the baseline (the `apijson` area of
+  `scripts/ci-changed-areas.sh`), and the oracle-reproduction workflow runs it daily for movement
+  upstream of the writer — the parser, name resolution, the metamodel or the library — which no digest
+  ever named. `TestRecordStatesTheBaselinesFigures` (`make docs-counts`) ties this record's figures
+  to the baseline.
 
 The pinned pilot's verdict on the probe (`validate-sysml-batch`): clean.
 
