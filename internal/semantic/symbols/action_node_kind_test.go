@@ -137,3 +137,18 @@ func splitPath(path string) []string {
 	}
 	return steps
 }
+
+func TestActionNodeKindsShareTheActionFamily(t *testing.T) {
+	for _, kind := range []SymbolKind{SymbolActionUsage, SymbolAcceptActionUsage, SymbolAssignmentActionUsage,
+		SymbolPerformActionUsage, SymbolIfActionUsage, SymbolWhileLoopActionUsage, SymbolForLoopActionUsage,
+		SymbolTerminateActionUsage} {
+		if got := kind.Family(); got != "action" {
+			t.Errorf("%s.Family() = %q, want %q", kind, got, "action")
+		}
+	}
+	for kind, want := range map[SymbolKind]string{SymbolFlowUsage: "flow", SymbolSuccessionFlowUsage: "flow", SymbolSuccessionUsage: "succession", SymbolActionDef: "action"} {
+		if got := kind.Family(); got != want {
+			t.Errorf("%s.Family() = %q, want %q", kind, got, want)
+		}
+	}
+}

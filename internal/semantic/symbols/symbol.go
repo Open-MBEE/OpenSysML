@@ -223,7 +223,15 @@ func (k SymbolKind) String() string {
 
 // Family names the kind without its def/usage distinction, in the notation's words:
 // SymbolActionDef and SymbolActionUsage are both "action", SymbolUseCaseDef "use case".
+// An action node is declared with the `action` keyword and a succession flow with
+// `flow`, so their families are their keywords', not their metaclasses'.
 func (k SymbolKind) Family() string {
+	switch {
+	case k.IsActionUsage():
+		return "action"
+	case k == SymbolSuccessionFlowUsage:
+		return "flow"
+	}
 	name := k.String()
 	name = strings.TrimSuffix(strings.TrimSuffix(name, "Def"), "Usage")
 	return spacedWords(name)
