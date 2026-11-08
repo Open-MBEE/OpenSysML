@@ -135,9 +135,8 @@ func TestRecoveredPrefixRunCommentsAreMembers(t *testing.T) {
 	}
 }
 
-// TestAttachedMemberKeepsPrecedingMembers checks that taking back the comments
-// before a member-attached transition drops nothing but them, whatever member
-// positions its own effect body opened in between.
+// TestAttachedMemberKeepsPrecedingMembers checks that taking back the comments before a
+// member-attached transition drops nothing else, whatever positions its effect body opened.
 func TestAttachedMemberKeepsPrecedingMembers(t *testing.T) {
 	const input = `state def S { state A; /* c */ accept Go do action a { /* d */ /* e */ } then B; state B; }`
 	root := New(source.New("t.sysml", []byte(input))).ParseFile()
