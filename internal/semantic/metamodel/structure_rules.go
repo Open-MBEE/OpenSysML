@@ -4902,8 +4902,8 @@ func (e *Evaluator) structureTypeMembers(element Element, property string, visit
 }
 
 func (e *Evaluator) computeStructureTypeMembers(element Element, property string, visited map[ElementKey]bool) ([]Value, bool) {
-	if element.Symbol != nil && !e.structureKnows(element) {
-		return e.structureLibraryTypeMembers(element, property)
+	if base, ok := e.structureLibraryBase(element); ok {
+		return e.structureLibraryTypeMembers(base, property)
 	}
 	owned, handled, ok := e.structureOwnedFilter(element, "Membership", true)
 	if !handled || !ok {
@@ -4948,6 +4948,24 @@ func (e *Evaluator) computeStructureTypeMembers(element Element, property string
 		append(append(public, protected...), inherited...), e.options.Structure,
 	).Values
 	return e.structureMembershipsProperty(memberships, property)
+}
+
+// structureLibraryBase is the library type a base element stands for, by its symbol:
+// an implied base the model names, or a stated one the structure refers to (`: Boolean`),
+// whose members the semantic inheritance table has and the structure does not.
+func (e *Evaluator) structureLibraryBase(element Element) (Element, bool) {
+	if element.Symbol != nil {
+		return element, !e.structureKnows(element)
+	}
+	if element.Node != nil || element.IsMembership {
+		return Element{}, false
+	}
+	if structure, ok := e.options.Structure.(LibrarySymbolResolver); ok {
+		if symbol, found := structure.LibrarySymbol(element); found && symbol != nil {
+			return ElementOf(symbol), true
+		}
+	}
+	return Element{}, false
 }
 
 // structureLibraryTypeMembers reads a library base's non-private memberships, anonymous ones
@@ -5090,8 +5108,8 @@ func (e *Evaluator) computeStructureNonPrivateMemberships(
 	element Element,
 	visited map[ElementKey]bool,
 ) ([]Value, bool) {
-	if element.Symbol != nil && !e.structureKnows(element) {
-		return e.structureLibraryTypeMembers(element, "membership")
+	if base, ok := e.structureLibraryBase(element); ok {
+		return e.structureLibraryTypeMembers(base, "membership")
 	}
 	owned, handled, ok := e.structureOwnedFilter(element, "Membership", true)
 	if !handled || !ok {

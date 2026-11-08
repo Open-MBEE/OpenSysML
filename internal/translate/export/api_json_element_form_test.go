@@ -178,7 +178,12 @@ func TestElementFormValueKeepsLargeIntegersExact(t *testing.T) {
 // the evaluator could not derive it for that element — is recorded with its
 // reason, so a reader can tell it from a property that is legitimately empty.
 func TestElementFormRecordsPerElementOmissions(t *testing.T) {
-	form := parseElementForm(t, elementFormModel)
+	form := parseElementForm(t, `package M {
+    port def P { in attribute a : Missing; }
+    part def Unit { port p : P; }
+    part def Pair :> Unit { part u : Unit; }
+}
+`)
 	a, ok := form.ByQualifiedName("M::P::a")
 	if !ok {
 		t.Fatal("M::P::a is not in the form")
@@ -191,6 +196,15 @@ func TestElementFormRecordsPerElementOmissions(t *testing.T) {
 		if property.Name == "inheritedFeature" {
 			t.Fatalf("M::P::a carries inheritedFeature %v and records its omission", property.Value)
 		}
+	}
+	// A feature typed by a library type inherits that type's features; nothing is omitted.
+	typed := parseElementForm(t, elementFormModel)
+	a, _ = typed.ByQualifiedName("M::P::a")
+	if _, omitted := typed.Omission(a.ID, "inheritedFeature"); omitted {
+		t.Error("M::P::a : ScalarValues::Integer records an inheritedFeature omission")
+	}
+	if ids := formReferenceIDs(t, formPropertyOf(t, a, "inheritedFeature")); len(ids) == 0 {
+		t.Error("M::P::a : ScalarValues::Integer inherits no feature; want Integer's and dataValues'")
 	}
 	pair, _ := form.ByQualifiedName("M::Pair")
 	if _, omitted := form.Omission(pair.ID, "inheritedFeature"); omitted {
