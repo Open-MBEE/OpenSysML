@@ -2025,6 +2025,32 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 // end's ownedReferenceSubsetting.subsettedFeature (the chain Feature for a chained end).
 func (m *Model) connectorRelatedFeatures(sym *symbols.Symbol, feature string) []*symbols.Symbol {
 	var related []*symbols.Symbol
+	for _, target := range m.ConnectorRelatedFeaturesByEnd(sym) {
+		if target != nil {
+			related = append(related, target)
+		}
+	}
+	switch feature {
+	case "sourceFeature":
+		if len(related) > 1 {
+			return related[:1]
+		}
+	case "targetFeature":
+		if len(related) > 1 {
+			return related[1:]
+		}
+		return nil
+	}
+	return related
+}
+
+// ConnectorRelatedFeaturesByEnd is the feature each end of the connector sym
+// references, by end position, nil for an end referencing none; relatedFeature
+// is these without the nils, and a library record keeps them by position.
+func (m *Model) ConnectorRelatedFeaturesByEnd(sym *symbols.Symbol) []*symbols.Symbol {
+	if m == nil || sym == nil || !m.reflectiveMetaclassConforms(sym, "Connector") {
+		return nil
+	}
 	ends := m.EndFeatures(sym)
 	var paths []ConnectorEndPath
 	var successionEnds, recorded []*symbols.Symbol
@@ -2037,7 +2063,11 @@ func (m *Model) connectorRelatedFeatures(sym *symbols.Symbol, feature string) []
 		successionEnds = m.connectorSuccessionRelatedFeatures(sym)
 	}
 	count := max(len(ends), len(paths), len(successionEnds), len(recorded))
-	for i := 0; i < count; i++ {
+	if count == 0 {
+		return nil
+	}
+	related := make([]*symbols.Symbol, count)
+	for i := range related {
 		var target *symbols.Symbol
 		if i < len(ends) {
 			target = m.EndReferencedFeature(ends[i])
@@ -2054,20 +2084,7 @@ func (m *Model) connectorRelatedFeatures(sym *symbols.Symbol, feature string) []
 		if target == nil && i < len(successionEnds) {
 			target = successionEnds[i]
 		}
-		if target != nil {
-			related = append(related, target)
-		}
-	}
-	switch feature {
-	case "sourceFeature":
-		if len(related) > 1 {
-			return related[:1]
-		}
-	case "targetFeature":
-		if len(related) > 1 {
-			return related[1:]
-		}
-		return nil
+		related[i] = target
 	}
 	return related
 }

@@ -31,6 +31,7 @@ func TestRecordedConnectorRelatedFeaturesKeepEveryEnd(t *testing.T) {
 			connection mixed connect c.p to consumer ::> a.inner.q;
 			connection named connect supplier ::> a.p to consumer ::> c.p;
 			binding bound bind a.p = c.p;
+			connection gap { end e1; end e2 ::> c.p; }
 		}
 	}`
 	idx := NewModelIndex()
@@ -76,6 +77,9 @@ func TestRecordedConnectorRelatedFeaturesKeepEveryEnd(t *testing.T) {
 		{"mixed", []string{"p", "chain(a.inner.q)"}},
 		{"named", []string{"chain(a.p)", "chain(c.p)"}},
 		{"bound", []string{"p", "p"}},
+		// An end referencing nothing holds its position, so the one reference
+		// stays the second end's and is not read twice.
+		{"gap", []string{"chain(c.p)"}},
 	} {
 		connector, ok := asm.Scope.LookupLocal(tc.connector)
 		if !ok {
