@@ -25,6 +25,10 @@ type transitionParts struct {
 	succession *symbols.Symbol
 	sourceEnd  *symbols.Symbol
 	targetEnd  *symbols.Symbol
+	// sourceMember is the state `first source` names, held by a Membership the
+	// transition owns (SysML.xtext TransitionSourceMember); nil for a chain.
+	sourceMember *symbols.Symbol
+	source       *ast.QualifiedName
 	// linkParameter and triggerParameter are the implied `in` parameters a transition
 	// owns ahead of its trigger (SysML v2 §8.3.16.15; SysML-textual-bnf EmptyParameterMember),
 	// the second only where a trigger declares a payload.
@@ -73,6 +77,11 @@ func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
 	}
 	journal(m, m.transitionParts, sym, sym.Decl)
 	parts := &transitionParts{}
+	if !isBranch && trans.Source != nil && !nameHasChain(trans.Source) {
+		if member := m.referencedSymbol(sym, trans.Source); member != nil {
+			parts.source, parts.sourceMember = trans.Source, member
+		}
+	}
 	if !isBranch && !trans.IsSuccession {
 		parts.linkParameter = transitionParameter(sym, "linkparam")
 		if payload, event := triggerPayload(trans); payload != nil || event != nil {
@@ -452,4 +461,13 @@ func scopeMemberName(scope *symbols.Scope, node ast.Node) string {
 		return name == ""
 	})
 	return name
+}
+
+func nameHasChain(name *ast.QualifiedName) bool {
+	for _, part := range name.Parts {
+		if part.Chained {
+			return true
+		}
+	}
+	return false
 }

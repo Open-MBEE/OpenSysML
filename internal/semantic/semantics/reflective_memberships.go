@@ -210,6 +210,16 @@ func (m *Model) withDefaultMultiplicity(sym *symbols.Symbol, memberships []*symb
 // among its scope's, in the source order the conversion writes them.
 func (m *Model) withTransitionMemberships(sym *symbols.Symbol, out, parts []*symbols.Symbol) []*symbols.Symbol {
 	var extra []*symbols.Symbol
+	if tp := m.transitionPartsOf(sym); tp != nil && tp.sourceMember != nil {
+		// `first source` is a Membership of the source state (transitionSourceMember).
+		extra = append(extra, &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    sym.DocName,
+			DeclSpan:   tp.source.Span(),
+			Visibility: sym.Visibility,
+			Implicit:   &symbols.ImplicitRelationship{Owner: sym, Form: symbols.ImplicitReferenceMembership, Member: tp.sourceMember, Slot: "sourcemember"},
+		})
+	}
 	for _, part := range parts {
 		extra = append(extra, &symbols.Symbol{
 			Kind:       symbols.SymbolRelationship,

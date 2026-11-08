@@ -298,6 +298,11 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 		if !ok && rel.Owner.Expr != nil {
 			return s.partID(rel.Owner, rel.Slot)
 		}
+		if !ok {
+			// A transition's source Membership is minted off the transition (transitionSourceMember).
+			base, ok := s.of(rel.Owner)
+			return rdf.ExpressionNodeID(base, rel.Slot), ok
+		}
 		return membership, ok
 	case symbols.ImplicitFeatureChaining:
 		if rel.Owner == nil || rel.Slot == "" {
