@@ -778,16 +778,11 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 			return structurePropertyCardinality(filtered, true)
 		}
 	case "ConjugatedPortTyping":
-		if name == "portDefinition" {
-			targets, ok := e.relationshipEndpoints(element, "conjugatedPortDefinition")
-			if !ok {
-				return Value{}, true, false
-			}
-			filtered, ok := e.structureFilterValues(targets, "ConjugatedPortDefinition")
-			if !ok {
-				return Value{}, true, false
-			}
-			conjugated, handled, ok := structurePropertyCardinality(filtered, true)
+		switch name {
+		case "conjugatedPortDefinition":
+			return e.structureConjugatedPortTypingTarget(element)
+		case "portDefinition":
+			conjugated, handled, ok := e.structureConjugatedPortTypingTarget(element)
 			if !handled || !ok || conjugated.Kind == NullValue {
 				return conjugated, true, ok
 			}
@@ -796,6 +791,10 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 			}
 			value, ok := e.Property(conjugated.Element, "ConjugatedPortDefinition", "originalPortDefinition")
 			return value, true, ok
+		}
+	case "PortConjugation":
+		if name == "conjugatedPortDefinition" {
+			return e.structureRelationshipOwner(element, "ConjugatedPortDefinition")
 		}
 	case "MultiplicityRange":
 		switch name {
@@ -6857,8 +6856,6 @@ func (e *Evaluator) structureRelationshipProperty(element Element, class, name s
 		return sequence(endpoints...), true, true
 	case "owningType":
 		return e.structureRelationshipOwner(element, "Type")
-	case "conjugatedPortDefinition":
-		return e.structureRelationshipOwner(element, "ConjugatedPortDefinition")
 	case "owningFeature":
 		return e.structureRelationshipOwner(element, "Feature")
 	case "importOwningNamespace":
@@ -7177,6 +7174,20 @@ func (e *Evaluator) structureRelationshipOwner(element Element, expected string)
 		}
 	}
 	return elementValue(owner), true, true
+}
+
+// structureConjugatedPortTypingTarget is the ConjugatedPortDefinition a ConjugatedPortTyping
+// types its feature by: its target (SysML v2 8.3.12.3, conjugatedPortDefinition redefines type).
+func (e *Evaluator) structureConjugatedPortTypingTarget(element Element) (Value, bool, bool) {
+	targets, ok := e.relationshipEndpoints(element, "conjugatedPortDefinition")
+	if !ok {
+		return Value{}, true, false
+	}
+	filtered, ok := e.structureFilterValues(targets, "ConjugatedPortDefinition")
+	if !ok {
+		return Value{}, true, false
+	}
+	return structurePropertyCardinality(filtered, true)
 }
 
 func (e *Evaluator) relationshipEndpoints(element Element, property string) ([]Value, bool) {
