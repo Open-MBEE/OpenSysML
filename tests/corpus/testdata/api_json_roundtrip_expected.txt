@@ -3,8 +3,8 @@
 # element form (hop 2), then the two graphs compared as triple sets.
 # Verdicts: stable (hop 2 is byte-identical), whitespace-only (bytes
 # differ, triple sets equal once the whitespace inside sysx:sourceText
-# literals is normalised), graph-diff, unwritable (the JSON form ->
-# notation refused), unparseable (the written notation no longer
+# literals is normalised and every element states the same sysx:Note
+# texts), graph-diff, unwritable (the JSON form -> notation refused), unparseable (the written notation no longer
 # converts) and refused:<class> (notation -> the JSON form refused).
 # This is a per-file ratchet, not a claim that any verdict is right;
 # see docs/project/rdf-corpus-roundtrip.md. Regenerate with:
