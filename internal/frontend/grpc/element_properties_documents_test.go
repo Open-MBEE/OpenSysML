@@ -93,3 +93,30 @@ func TestElementPropertiesExcludesNothingForAValidationError(t *testing.T) {
 		}
 	}
 }
+
+func TestElementPropertiesReadsAPackageAnUnreadableDocumentAlsoDeclares(t *testing.T) {
+	r := parseDocumentsForElementProperties(t,
+		&pb.SourceDocument{Name: "broken.sysml", Source: &pb.SourceDocument_Content{Content: "package A { part def Unit; part def }"}},
+		&pb.SourceDocument{Name: "good.sysml", Source: &pb.SourceDocument_Content{Content: "package A { part def Whole; }"}},
+	)
+	whole := r.read("A::Whole", "name")
+	if whole.Error != "" || len(whole.Properties) != 1 {
+		t.Fatalf("the readable declaration's element answers %+v", whole)
+	}
+	if got := excludedNames(whole); len(got) != 1 || got[0] != "broken.sysml" {
+		t.Errorf("excluded documents = %v, want [broken.sysml] only", got)
+	}
+}
+
+func TestElementPropertiesKeepsDocumentsWhoseShortNameOnlyIsShared(t *testing.T) {
+	r := parseDocumentsForElementProperties(t,
+		&pb.SourceDocument{Name: "alpha.sysml", Source: &pb.SourceDocument_Content{Content: "package <A> Alpha { part def Unit; }"}},
+		&pb.SourceDocument{Name: "a.sysml", Source: &pb.SourceDocument_Content{Content: "package A { part def Other; }"}},
+	)
+	for _, id := range []string{"Alpha::Unit", "A::Other"} {
+		resp := r.read(id, "name")
+		if resp.Error != "" || len(resp.Properties) != 1 || len(resp.ExcludedDocuments) != 0 {
+			t.Errorf("%s answers %+v, want an answer with no excluded document", id, resp)
+		}
+	}
+}

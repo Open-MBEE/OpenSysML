@@ -204,8 +204,11 @@ func (m *CachedModel) documentExclusions() []*pb.ExcludedDocument {
 		if sym == nil || sym.DocName == "" || m.Index.Library(sym) {
 			continue
 		}
-		if _, known := order[sym.DocName]; !known {
+		if _, known := order[sym.DocName]; !known || excluded[sym.DocName] {
 			continue
+		}
+		if binding.Name != m.Index.GetFQN(sym) {
+			continue // a short name mints no id of its own
 		}
 		prior, taken := declared[binding.Name]
 		switch {
