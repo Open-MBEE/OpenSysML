@@ -1361,6 +1361,12 @@ elmt:ec247891-201e-5122-b55b-8e1ed43fc6e8
     sysml:declaredName "withoutOccurrences" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+<urn:sysmlv2:element:0630960c-1046-5275-92d4-0f07db1d9944>
+    a sysml:Documentation ;
+    sysml:elementId "0630960c-1046-5275-92d4-0f07db1d9944" ;
+    sysx:libraryPath "Occurrences::Occurrence::spaceEnclosedOccurrences/Documentation[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 <urn:sysmlv2:element:0813bc82-6ac1-5653-af87-7f1e5265d3ff>
     a sysml:ActionUsage ;
     sysml:elementId "0813bc82-6ac1-5653-af87-7f1e5265d3ff" ;
@@ -1403,6 +1409,12 @@ elmt:b626df09-dcc4-54b0-befb-f513bf50f9da
     a sysml:FeatureMembership ;
     sysml:elementId "0a3283f6-824d-563c-89d3-a24f6356f62d" ;
     sysml:memberElement elmt:b626df09-dcc4-54b0-befb-f513bf50f9da ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:0ae03d15-0ece-5593-9f0c-4c83141a13d4>
+    a sysml:Comment ;
+    sysml:elementId "0ae03d15-0ece-5593-9f0c-4c83141a13d4" ;
+    sysx:libraryPath "Occurrences::Occurrence::spaceEnclosedOccurrences/Comment[0]" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:0afa3a63-3f95-5ab8-ae9d-a89eca59240f>
@@ -1675,6 +1687,18 @@ elmt:cf0082b2-b7e8-5a1a-9f9f-5a0ac4f1093a
     sysx:libraryPath "Occurrences::Occurrence/BindingConnector[0]" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+<urn:sysmlv2:element:92d61cb9-1693-5e64-b811-a6fcf169ef18>
+    a sysml:Comment ;
+    sysml:elementId "92d61cb9-1693-5e64-b811-a6fcf169ef18" ;
+    sysx:libraryPath "Occurrences::Occurrence::endShot/Comment[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:1e59545b-fdc1-574b-ad31-023525561b37>
+    a sysml:OwningMembership ;
+    sysml:elementId "1e59545b-fdc1-574b-ad31-023525561b37" ;
+    sysml:memberElement <urn:sysmlv2:element:92d61cb9-1693-5e64-b811-a6fcf169ef18> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 <urn:sysmlv2:element:1e5d1a3b-0bcf-5091-b752-ea77bfb96708>
     a sysml:Feature ;
     sysml:elementId "1e5d1a3b-0bcf-5091-b752-ea77bfb96708" ;
@@ -1792,6 +1816,12 @@ elmt:b4fe98b7-dae4-5828-9747-517a04275b2a
     sysml:declaredName "snapshots" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+<urn:sysmlv2:element:2c3e95c3-2c1c-59ef-b345-2ec2c074183c>
+    a sysml:Documentation ;
+    sysml:elementId "2c3e95c3-2c1c-59ef-b345-2ec2c074183c" ;
+    sysx:libraryPath "Actions::Action::start/Documentation[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 <urn:sysmlv2:element:8f325094-2f07-5075-84a2-e20f64999145>
     a sysml:Feature ;
     sysml:elementId "8f325094-2f07-5075-84a2-e20f64999145" ;
@@ -1815,6 +1845,18 @@ elmt:eaa33a0d-7766-5e2b-b40d-a19a7ea7f941
     a sysml:OwningMembership ;
     sysml:elementId "2d577033-2482-5361-a62c-91e43aaf27c5" ;
     sysml:memberElement elmt:eaa33a0d-7766-5e2b-b40d-a19a7ea7f941 ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:d6427e5d-987d-539d-b38d-a632225fb397
+    a sysml:Comment ;
+    sysml:elementId "d6427e5d-987d-539d-b38d-a632225fb397" ;
+    sysx:libraryPath "Occurrences::Occurrence::spaceTimeEnclosedOccurrences/Comment[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:2e208e23-2abc-56fc-b414-f3c60e789f53>
+    a sysml:OwningMembership ;
+    sysml:elementId "2e208e23-2abc-56fc-b414-f3c60e789f53" ;
+    sysml:memberElement elmt:d6427e5d-987d-539d-b38d-a632225fb397 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:acbd427f-8ecf-59a6-9c9f-bf9854908e42
@@ -1848,6 +1890,18 @@ elmt:acbd427f-8ecf-59a6-9c9f-bf9854908e42
     sysml:memberElement <urn:sysmlv2:element:9eb5c39c-a43c-55c1-b3cd-ed1c7c7918f2> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+<urn:sysmlv2:element:2ff571d4-a9fc-5514-9c3e-d041063322c8>
+    a sysml:Feature ;
+    sysml:elementId "2ff571d4-a9fc-5514-9c3e-d041063322c8" ;
+    sysml:qualifiedName "Occurrences::Occurrence::portions::portionOfLife" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:3101c498-4e95-5436-a2a8-c667209cca47>
+    a sysml:OwningMembership ;
+    sysml:elementId "3101c498-4e95-5436-a2a8-c667209cca47" ;
+    sysml:memberElement <urn:sysmlv2:element:0630960c-1046-5275-92d4-0f07db1d9944> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 elmt:fadaca75-7737-54f2-86e6-71fc63112622
     a sysml:Documentation ;
     sysml:elementId "fadaca75-7737-54f2-86e6-71fc63112622" ;
@@ -1864,6 +1918,18 @@ elmt:fadaca75-7737-54f2-86e6-71fc63112622
     a sysml:FeatureMembership ;
     sysml:elementId "336bbaa9-89f8-5ff0-bdac-60ca79acc5f6" ;
     sysml:memberElement <urn:sysmlv2:element:2b9660c5-2b98-5ecd-bf09-32a62ff6be1e> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:6f7a7e9f-def2-56e2-bfeb-afbbe108b9c1>
+    a sysml:Documentation ;
+    sysml:elementId "6f7a7e9f-def2-56e2-bfeb-afbbe108b9c1" ;
+    sysx:libraryPath "Actions::Action::done/Documentation[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:33d2dea8-720b-5016-85ca-b3c70a7a3237>
+    a sysml:OwningMembership ;
+    sysml:elementId "33d2dea8-720b-5016-85ca-b3c70a7a3237" ;
+    sysml:memberElement <urn:sysmlv2:element:6f7a7e9f-def2-56e2-bfeb-afbbe108b9c1> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:f2273767-31df-5795-bc4d-cd094c7178d4
@@ -1915,6 +1981,12 @@ elmt:d2f2efc4-b3fe-5807-85bc-416fbebb05f0
     sysml:elementId "36cc01d9-7cf0-54f7-ab42-838ee52d9d1b" ;
     sysml:qualifiedName "Occurrences::Occurrence::spaceTimeEnclosedOccurrences" ;
     sysml:declaredName "spaceTimeEnclosedOccurrences" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:381258a3-7601-5720-950f-5ae6701aa2a8>
+    a sysml:Documentation ;
+    sysml:elementId "381258a3-7601-5720-950f-5ae6701aa2a8" ;
+    sysx:libraryPath "Occurrences::Occurrence::snapshots/Documentation[0]" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:717615b2-c88a-5555-ba4b-0cd674442b59>
@@ -1977,6 +2049,12 @@ elmt:e84c9a50-e708-59ba-95b7-bc3fc2dda2f9
     a sysml:FeatureMembership ;
     sysml:elementId "3badbf8b-cb09-5d34-9186-bddb1ad1c9e9" ;
     sysml:memberElement <urn:sysmlv2:element:1055a84d-fed9-571c-8367-7f8a9b3a3ac1> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:3c36aab1-d9cc-5ecf-8c66-7d40fab8058a>
+    a sysml:OwningMembership ;
+    sysml:elementId "3c36aab1-d9cc-5ecf-8c66-7d40fab8058a" ;
+    sysml:memberElement <urn:sysmlv2:element:381258a3-7601-5720-950f-5ae6701aa2a8> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:3c49932a-6fc4-53a1-9cd7-1c570a44e17a>
@@ -2062,6 +2140,18 @@ elmt:a4d21db8-87e3-542d-a5de-df08f3486f65
     a sysml:FeatureMembership ;
     sysml:elementId "43dca746-6207-5435-aae7-00ff19be8608" ;
     sysml:memberElement <urn:sysmlv2:element:43f4a2ef-f178-57b6-b967-458a580f1b87> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:fb413c09-1fb7-5864-b4e6-04bea805d693
+    a sysml:Comment ;
+    sysml:elementId "fb413c09-1fb7-5864-b4e6-04bea805d693" ;
+    sysx:libraryPath "Occurrences::Occurrence::spaceEnclosedOccurrences/Comment[1]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:4506b6eb-9630-517b-9807-6160765f9fb3>
+    a sysml:OwningMembership ;
+    sysml:elementId "4506b6eb-9630-517b-9807-6160765f9fb3" ;
+    sysml:memberElement elmt:fb413c09-1fb7-5864-b4e6-04bea805d693 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:45ab9383-bc50-56e3-b529-f8181f2db1d1>
@@ -2172,11 +2262,30 @@ elmt:ee33d7cc-1719-5123-a34a-c40f275f9f1b
     sysml:memberElement <urn:sysmlv2:element:3c49932a-6fc4-53a1-9cd7-1c570a44e17a> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+<urn:sysmlv2:element:50f884da-23d9-5ef6-9549-2a31707cde32>
+    a sysml:BindingConnector ;
+    sysml:elementId "50f884da-23d9-5ef6-9549-2a31707cde32" ;
+    sysx:libraryPath "Occurrences::Occurrence::snapshots/BindingConnector[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 <urn:sysmlv2:element:5540acce-64df-5ee7-8698-98d49dc63b88>
     a sysml:ActionUsage ;
     sysml:elementId "5540acce-64df-5ee7-8698-98d49dc63b88" ;
     sysml:qualifiedName "Actions::Action::assignments" ;
     sysml:declaredName "assignments" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:6aff10fb-f563-5dc6-aecf-0345fbe578cb>
+    a sysml:Feature ;
+    sysml:elementId "6aff10fb-f563-5dc6-aecf-0345fbe578cb" ;
+    sysml:qualifiedName "Occurrences::Occurrence::endShot::subendshot" ;
+    sysml:declaredName "subendshot" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:5606f593-9af6-51e6-82d5-83021af311f2>
+    a sysml:FeatureMembership ;
+    sysml:elementId "5606f593-9af6-51e6-82d5-83021af311f2" ;
+    sysml:memberElement <urn:sysmlv2:element:6aff10fb-f563-5dc6-aecf-0345fbe578cb> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:57d1fe0d-424e-55cd-b260-8ed99a963cea>
@@ -2307,6 +2416,26 @@ elmt:f4604e00-5482-5304-9e24-4ec7f643c6c8
     sysml:memberElement elmt:f4604e00-5482-5304-9e24-4ec7f643c6c8 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+<urn:sysmlv2:element:8808307a-b40c-5388-8603-81e975d11070>
+    a sysml:Feature ;
+    sysml:elementId "8808307a-b40c-5388-8603-81e975d11070" ;
+    sysml:qualifiedName "Occurrences::Occurrence::spaceEnclosedOccurrences::largerSpace" ;
+    sysml:declaredName "largerSpace" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:69989798-a67e-5ac5-8c59-677ee1a5196c>
+    a sysml:FeatureMembership ;
+    sysml:elementId "69989798-a67e-5ac5-8c59-677ee1a5196c" ;
+    sysml:memberElement <urn:sysmlv2:element:8808307a-b40c-5388-8603-81e975d11070> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:6a14adce-e285-529a-b4be-1212f22ddf0f>
+    a sysml:Feature ;
+    sysml:elementId "6a14adce-e285-529a-b4be-1212f22ddf0f" ;
+    sysml:qualifiedName "Occurrences::Occurrence::spaceEnclosedOccurrences::smallerSpace" ;
+    sysml:declaredName "smallerSpace" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 elmt:dd588859-da51-5519-ba83-73e11705eae2
     a sysml:MultiplicityRange ;
     sysml:elementId "dd588859-da51-5519-ba83-73e11705eae2" ;
@@ -2407,6 +2536,12 @@ elmt:ea462915-971b-556c-82e5-465debcb637d
     sysml:memberElement <urn:sysmlv2:element:0afa3a63-3f95-5ab8-ae9d-a89eca59240f> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+<urn:sysmlv2:element:7a0dc97f-7548-536d-8ef3-bf35b93cd5fe>
+    a sysml:FeatureMembership ;
+    sysml:elementId "7a0dc97f-7548-536d-8ef3-bf35b93cd5fe" ;
+    sysml:memberElement <urn:sysmlv2:element:50f884da-23d9-5ef6-9549-2a31707cde32> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 <urn:sysmlv2:element:7c45e930-5326-55e0-a1d8-f8618fdfc605>
     a sysml:ActionUsage ;
     sysml:elementId "7c45e930-5326-55e0-a1d8-f8618fdfc605" ;
@@ -2505,6 +2640,12 @@ elmt:d637bdd8-4d2e-5e7c-806a-93a6deb70ac4
     a sysml:Documentation ;
     sysml:elementId "8ccd4306-62dd-5f55-87fd-d75930c48ca3" ;
     sysx:libraryPath "Occurrences::Occurrence::timeEnclosedOccurrences/Documentation[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:8ce35eba-9254-5861-9126-092f6803f90e>
+    a sysml:Documentation ;
+    sysml:elementId "8ce35eba-9254-5861-9126-092f6803f90e" ;
+    sysx:libraryPath "Occurrences::Occurrence::portions/Documentation[0]" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:8d331260-c08d-5a3e-8650-7f526cb4a7e4>
@@ -2656,10 +2797,22 @@ elmt:c64ab43a-790b-5369-b8e4-3382ae24c736
     sysx:libraryPath "Occurrences::Occurrence/Invariant[7]" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+<urn:sysmlv2:element:9fa948ec-4d6c-5210-85c5-a5a9062bf1a4>
+    a sysml:FeatureMembership ;
+    sysml:elementId "9fa948ec-4d6c-5210-85c5-a5a9062bf1a4" ;
+    sysml:memberElement <urn:sysmlv2:element:2ff571d4-a9fc-5514-9c3e-d041063322c8> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 elmt:a173a06d-5e95-5ebb-b5a5-2a2834fba603
     a sysml:FeatureMembership ;
     sysml:elementId "a173a06d-5e95-5ebb-b5a5-2a2834fba603" ;
     sysml:memberElement <urn:sysmlv2:element:2012913c-a576-5118-9dcb-5b26a927b16a> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:a403c5f8-2d5e-5d15-844c-e046a3a88320
+    a sysml:FeatureMembership ;
+    sysml:elementId "a403c5f8-2d5e-5d15-844c-e046a3a88320" ;
+    sysml:memberElement <urn:sysmlv2:element:6a14adce-e285-529a-b4be-1212f22ddf0f> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:a45916ae-c41c-523a-9cb8-9ada531bb88d
@@ -2704,6 +2857,18 @@ elmt:a658a61c-85db-58db-9d23-7f343425feac
     a sysml:FeatureMembership ;
     sysml:elementId "a658a61c-85db-58db-9d23-7f343425feac" ;
     sysml:memberElement elmt:c38c598e-c640-51ca-be77-4fbd9254c9d1 ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:f904dc2f-fff2-5133-a1a9-0f06500aaf74
+    a sysml:Documentation ;
+    sysml:elementId "f904dc2f-fff2-5133-a1a9-0f06500aaf74" ;
+    sysx:libraryPath "Occurrences::Occurrence::timeSlices/Documentation[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:a868b5d6-d05c-50fa-b137-b5f5b71842d1
+    a sysml:OwningMembership ;
+    sysml:elementId "a868b5d6-d05c-50fa-b137-b5f5b71842d1" ;
+    sysml:memberElement elmt:f904dc2f-fff2-5133-a1a9-0f06500aaf74 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:a9288242-c5d9-569d-8c4b-c9e0e0e30879
@@ -2769,6 +2934,12 @@ elmt:b715b28d-2bca-5201-9ad8-1f91b4cda81f
     sysml:memberElement <urn:sysmlv2:element:39e7ab46-4b77-56c5-be49-cec0a1b784fe> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+elmt:b8003128-d2c4-5b44-b33a-978349b0be3d
+    a sysml:OwningMembership ;
+    sysml:elementId "b8003128-d2c4-5b44-b33a-978349b0be3d" ;
+    sysml:memberElement <urn:sysmlv2:element:8ce35eba-9254-5861-9126-092f6803f90e> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 elmt:e5c2b65e-f4b8-5236-a276-af2ffae92354
     a sysml:Invariant ;
     sysml:elementId "e5c2b65e-f4b8-5236-a276-af2ffae92354" ;
@@ -2812,6 +2983,18 @@ elmt:c4746a24-8316-5f5b-8b65-e33b7b284f93
     sysml:memberElement <urn:sysmlv2:element:3df40f7d-79db-5982-b2f6-cd7f7cb0a5cb> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+elmt:e73dd134-cef9-5b17-9205-bd388812eee5
+    a sysml:Documentation ;
+    sysml:elementId "e73dd134-cef9-5b17-9205-bd388812eee5" ;
+    sysx:libraryPath "Occurrences::Occurrence::startShot/Documentation[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:c5d72ae2-7821-5dbd-b36b-e693f0e4b2c5
+    a sysml:OwningMembership ;
+    sysml:elementId "c5d72ae2-7821-5dbd-b36b-e693f0e4b2c5" ;
+    sysml:memberElement elmt:e73dd134-cef9-5b17-9205-bd388812eee5 ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 elmt:c74423e6-fd81-575a-be65-6af18a0925af
     a sysml:FeatureMembership ;
     sysml:elementId "c74423e6-fd81-575a-be65-6af18a0925af" ;
@@ -2841,6 +3024,12 @@ elmt:cb8ce66d-0d72-5859-8f18-3d1a69f3e1fe
     a sysml:FeatureMembership ;
     sysml:elementId "cb8ce66d-0d72-5859-8f18-3d1a69f3e1fe" ;
     sysml:memberElement elmt:da5e9eb5-b3e3-5f23-9ef2-7c9cef01c5dd ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:cc360038-8c0e-584e-bd6b-a4eabb970cdf
+    a sysml:OwningMembership ;
+    sysml:elementId "cc360038-8c0e-584e-bd6b-a4eabb970cdf" ;
+    sysml:memberElement <urn:sysmlv2:element:0ae03d15-0ece-5593-9f0c-4c83141a13d4> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:db0b2590-1035-512c-b067-686a67c7d430
@@ -2891,6 +3080,12 @@ elmt:d764bba7-46da-530b-b2c2-f50e2a430d1e
     sysml:memberElement <urn:sysmlv2:element:42cca478-6f8d-5c19-b990-bc4510c8bea7> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+elmt:daae2082-5ad9-575e-a84a-11eb2708f97e
+    a sysml:OwningMembership ;
+    sysml:elementId "daae2082-5ad9-575e-a84a-11eb2708f97e" ;
+    sysml:memberElement <urn:sysmlv2:element:2c3e95c3-2c1c-59ef-b345-2ec2c074183c> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 elmt:dbd75b49-0e57-5cf9-ba35-9f8843b1e657
     a sysml:Feature ;
     sysml:elementId "dbd75b49-0e57-5cf9-ba35-9f8843b1e657" ;
@@ -2902,6 +3097,18 @@ elmt:ddb82e63-685a-5912-b9a0-a7ae93882ef3
     a sysml:FeatureMembership ;
     sysml:elementId "ddb82e63-685a-5912-b9a0-a7ae93882ef3" ;
     sysml:memberElement <urn:sysmlv2:element:1e5d1a3b-0bcf-5091-b752-ea77bfb96708> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:e87815aa-f602-5bae-bdab-aea0ac4272e8
+    a sysml:Documentation ;
+    sysml:elementId "e87815aa-f602-5bae-bdab-aea0ac4272e8" ;
+    sysx:libraryPath "Occurrences::Occurrence::endShot/Documentation[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:ddfab96f-7f6b-5f8f-95b3-8988008f8925
+    a sysml:OwningMembership ;
+    sysml:elementId "ddfab96f-7f6b-5f8f-95b3-8988008f8925" ;
+    sysml:memberElement elmt:e87815aa-f602-5bae-bdab-aea0ac4272e8 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:df7a21c9-f648-538e-b5f6-a0058c9930e5
@@ -2916,10 +3123,22 @@ elmt:e053f99d-d77c-5289-a703-8778bd907c30
     sysml:memberElement <urn:sysmlv2:element:968b3a18-112f-5b6a-b09b-c0732c50f69a> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+elmt:e180e5e0-d8c2-5fac-ad1a-45c766bd0678
+    a sysml:Documentation ;
+    sysml:elementId "e180e5e0-d8c2-5fac-ad1a-45c766bd0678" ;
+    sysx:libraryPath "Occurrences::Occurrence::spaceTimeEnclosedOccurrences/Documentation[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 elmt:e368be48-70ad-5647-8f05-b7706ae9e138
     a sysml:FeatureMembership ;
     sysml:elementId "e368be48-70ad-5647-8f05-b7706ae9e138" ;
     sysml:memberElement <urn:sysmlv2:element:1f8424a7-2500-583d-a15a-494fbec0beef> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:e5947009-311a-53c9-b926-b2bf8de7b857
+    a sysml:OwningMembership ;
+    sysml:elementId "e5947009-311a-53c9-b926-b2bf8de7b857" ;
+    sysml:memberElement elmt:e180e5e0-d8c2-5fac-ad1a-45c766bd0678 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:f44ce934-e087-5c0c-a24a-8280cf69df84

@@ -4945,8 +4945,8 @@ func (e *Evaluator) structureTypeMembers(element Element, property string, visit
 }
 
 func (e *Evaluator) computeStructureTypeMembers(element Element, property string, visited map[ElementKey]bool) ([]Value, bool) {
-	if element.Symbol != nil && !e.structureKnows(element) {
-		return e.structureLibraryTypeMembers(element, property)
+	if base, ok := e.structureLibraryBase(element); ok {
+		return e.structureLibraryTypeMembers(base, property)
 	}
 	owned, handled, ok := e.structureOwnedFilter(element, "Membership", true)
 	if !handled || !ok {
@@ -4991,6 +4991,24 @@ func (e *Evaluator) computeStructureTypeMembers(element Element, property string
 		append(append(public, protected...), inherited...), e.options.Structure,
 	).Values
 	return e.structureMembershipsProperty(memberships, property)
+}
+
+// structureLibraryBase is the one decision both member walks make: a type the structure
+// only references — implied, stated as `: Boolean`, or held as a row without its symbol —
+// and a feature whose relationships the structure leaves to the semantic model have no
+// member rows there, so their members are read through the recovered symbol.
+func (e *Evaluator) structureLibraryBase(element Element) (Element, bool) {
+	if element.Symbol != nil && !e.structureKnows(element) {
+		return element, true
+	}
+	if element.IsMembership || e.model == nil {
+		return Element{}, false
+	}
+	symbol := e.structureElementSymbol(element)
+	if symbol == nil || (e.structureKnows(element) && !e.structureDefersToModel(element)) {
+		return Element{}, false
+	}
+	return ElementOf(symbol), true
 }
 
 // structureLibraryTypeMembers reads a library base's non-private memberships, anonymous ones
@@ -5143,8 +5161,8 @@ func (e *Evaluator) computeStructureNonPrivateMemberships(
 	element Element,
 	visited map[ElementKey]bool,
 ) ([]Value, bool) {
-	if element.Symbol != nil && !e.structureKnows(element) {
-		return e.structureLibraryTypeMembers(element, "membership")
+	if base, ok := e.structureLibraryBase(element); ok {
+		return e.structureLibraryTypeMembers(base, "membership")
 	}
 	owned, handled, ok := e.structureOwnedFilter(element, "Membership", true)
 	if !handled || !ok {
@@ -7719,6 +7737,16 @@ func (e *Evaluator) structureInvocationArguments(element Element) (Value, bool, 
 	if !known {
 		return Value{}, true, false
 	}
+	// A feature chain's instantiated type is the feature it chains to, not a
+	// function whose inputs bind the arguments: its one argument is the source
+	// its owned input parameter values (KerML 8.3.4.8.5 FeatureChainExpression).
+	chain, known := e.isMetaclass(element, "FeatureChainExpression")
+	if !known {
+		return Value{}, true, false
+	}
+	if chain {
+		return e.structureInputValues(element)
+	}
 	instantiatedType, ok := e.Property(element, "InstantiationExpression", "instantiatedType")
 	if !ok || instantiatedType.Kind != ElementValue {
 		if constructor {
@@ -7920,10 +7948,35 @@ func (e *Evaluator) structureFeatureValueExpressions(feature Element) ([]Value, 
 func (e *Evaluator) structurePublicFeatures(features []Value) ([]Value, bool) {
 	public := make([]Value, 0, len(features))
 	for _, feature := range features {
-		if feature.Kind != ElementValue || feature.Element.Symbol == nil {
+		if feature.Kind != ElementValue {
 			return nil, false
 		}
-		if symbols.VisibleOutside(feature.Element.Symbol.Visibility) {
+		if feature.Element.Symbol != nil {
+			if symbols.VisibleOutside(feature.Element.Symbol.Visibility) {
+				public = append(public, feature)
+			}
+			continue
+		}
+		// A library feature the structure holds without a symbol is read
+		// through its owning membership's visibility.
+		membership, ok := e.Property(feature.Element, "Element", "owningMembership")
+		if !ok {
+			return nil, false
+		}
+		var owning Element
+		switch membership.Kind {
+		case ElementValue:
+			owning = membership.Element
+		case MembershipValue:
+			owning = MembershipElement(membership.Membership)
+		default:
+			return nil, false
+		}
+		visibility, ok := e.structureMembershipVisibility(owning)
+		if !ok {
+			return nil, false
+		}
+		if visibility.public {
 			public = append(public, feature)
 		}
 	}

@@ -88,6 +88,20 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 		})
 		ordinal++
 	}
+	// A constructor's named argument feature redefines the feature of the
+	// instantiated type it names (KerML 8.3.4.8.3 ConstructorExpression).
+	if formal, named := m.constructorArgumentFormal(owner); named && formal != nil {
+		out = append(out, &symbols.Symbol{
+			Kind:     symbols.SymbolRelationship,
+			DocName:  owner.DocName,
+			DeclSpan: owner.DeclSpan,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: owner, Ordinal: ordinal, Kind: ast.RelRedefines,
+				Form: symbols.ImplicitParameterRedefinition, Member: formal,
+			},
+		})
+		ordinal++
+	}
 	// A connector end reference-subsets the feature it attaches to whether or
 	// not a clause of its own says so (SysML v2 8.2.2.13.1).
 	if prefix, ok := owner.Decl.(*ast.PrefixMetadata); ok && prefix.Type != nil {
@@ -222,6 +236,8 @@ func (m *Model) implicitMetaclassName(sym *symbols.Symbol) string {
 		return "Redefinition"
 	case symbols.ImplicitTypeArgumentTyping:
 		return "FeatureTyping"
+	case symbols.ImplicitParameterRedefinition:
+		return "Redefinition"
 	case symbols.ImplicitReferenceMembership:
 		return "Membership"
 	case symbols.ImplicitFeatureChaining:
@@ -368,7 +384,8 @@ func relationshipEndFeature(meta, feature string) (sourceSide, targetSide bool) 
 func (m *Model) implicitRelationshipEnds(sym *symbols.Symbol) (src, tgt *symbols.Symbol, tgtOK bool) {
 	rel := sym.Implicit
 	src = rel.Owner
-	if rel.Form == symbols.ImplicitMetadataBodyRedefinition || rel.Form == symbols.ImplicitTypeArgumentTyping {
+	if rel.Form == symbols.ImplicitMetadataBodyRedefinition || rel.Form == symbols.ImplicitTypeArgumentTyping ||
+		rel.Form == symbols.ImplicitParameterRedefinition {
 		return src, rel.Member, rel.Member != nil
 	}
 	if rel.Node != nil {

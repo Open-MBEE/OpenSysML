@@ -41,6 +41,10 @@ const (
 	// Owner of a classification or cast expression has to the type Member it names
 	// (SysML.xtext TypeReferenceMember).
 	ImplicitTypeArgumentTyping
+	// ImplicitParameterRedefinition reflects the Redefinition a constructor's
+	// named argument feature Owner has to the feature Member of the instantiated
+	// type it names (KerML 8.3.4.8.3 ConstructorExpression).
+	ImplicitParameterRedefinition
 )
 
 // ImplicitRelationship is a relationship the abstract syntax holds as an

@@ -20,6 +20,7 @@ InteractionUsage::@type	1	symbol-44
 LibraryPackage::@type	2	export-25
 MetadataUsage::@type	10	symbol-44
 OwningMembership::@type	44	symbol-46
+ParameterMembership::@type	14	symbol-72
 PerformActionUsage::@type	47	export-26
 PredicateUsage::@type	5	symbol-44
 ReferenceSubsetting::@type	9	export-19

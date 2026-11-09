@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -315,11 +316,70 @@ func (m *Model) positionallyNamedParameters(owner *symbols.Symbol) []*symbols.Sy
 	}
 	var out []*symbols.Symbol
 	for _, param := range ownedParameters(owner) {
-		member := param.sym
-		if member.Naming != symbols.NamedByDeclaration || declaresIdentifier(member) || m.EffectiveNameOf(member) == "" {
-			continue
+		if m.positionallyNamed(param.sym) {
+			out = append(out, param.sym)
 		}
-		out = append(out, member)
 	}
 	return out
+}
+
+// PositionallyNamed reports whether sym is a parameter declared without a name of
+// its own that answers to the name of the parameter its position redefines.
+func (m *Model) PositionallyNamed(sym *symbols.Symbol) bool {
+	if m == nil || sym == nil || !m.positionallyNamed(sym) {
+		return false
+	}
+	for _, param := range ownedParameters(sym.Owner()) {
+		if param.sym == sym {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *Model) positionallyNamed(sym *symbols.Symbol) bool {
+	return sym.Naming == symbols.NamedByDeclaration && !declaresIdentifier(sym) && m.EffectiveNameOf(sym) != ""
+}
+
+// roleNamed reports a usage declared without a name that takes one from the feature its role
+// redefines — an objective's `obj`, a subject's `subject`; a parameter is PositionallyNamed instead.
+func (m *Model) roleNamed(sym *symbols.Symbol) bool {
+	if !m.positionallyNamed(sym) || !sym.IsFeature() {
+		return false
+	}
+	switch sym.Decl.(type) {
+	case *ast.Usage, *ast.SubjectMember:
+		return true
+	}
+	return false
+}
+
+// QualifiedNameOf is Element::qualifiedName (KerML 8.2.4): the owner's qualified
+// name and sym's effective name, so a parameter named by the one its position
+// redefines, or an objective by the `obj` its role redefines, is qualified as a
+// declared name is, and so is a member under either (`T::obj::massRequirement`);
+// "" where sym has no name, an owner naming nothing is skipped as FQNOf skips it.
+func (m *Model) QualifiedNameOf(sym *symbols.Symbol) string {
+	if m == nil || sym == nil {
+		return ""
+	}
+	name := sym.Name
+	if name == "" {
+		if !m.PositionallyNamed(sym) && !m.roleNamed(sym) {
+			return ""
+		}
+		name = m.EffectiveNameOf(sym)
+	}
+	owner := sym.Owner()
+	if owner == nil {
+		return name
+	}
+	ownerName := m.QualifiedNameOf(owner)
+	if ownerName == "" {
+		if sym.Name == "" {
+			return ""
+		}
+		return symbols.FQNOf(sym)
+	}
+	return ownerName + "::" + name
 }

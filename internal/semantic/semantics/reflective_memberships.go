@@ -528,6 +528,10 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 	if member != nil && member.Expr != nil {
 		switch member.Expr.Role {
 		case symbols.ExpressionParameter:
+			if owner := member.Expr.Owner; owner != nil && owner.Expr != nil && owner.Expr.Role == symbols.ExpressionResult {
+				// A constructor's result owns its argument features (KerML.xtext ConstructorResultMember).
+				return "FeatureMembership"
+			}
 			return "ParameterMembership"
 		case symbols.ExpressionResult:
 			return "ReturnParameterMembership"

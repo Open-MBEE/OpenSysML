@@ -73,6 +73,13 @@ func (sc *Context) Identity(sym *symbols.Symbol) string {
 	if identity := sc.Index.QualifiedIdentity(sym); identity != "" {
 		return identity
 	}
+	// A parameter named by the one its position redefines is qualified under
+	// that name (KerML 8.2.4), which the index binds nothing for.
+	if sc.Semantics.PositionallyNamed(sym) {
+		if identity := sc.Semantics.QualifiedNameOf(sym); identity != "" {
+			return identity
+		}
+	}
 	return sc.Positional.Of(sym)
 }
 
@@ -81,6 +88,15 @@ func (sc *Context) Identity(sym *symbols.Symbol) string {
 func (sc *Context) Lookup(id string) []*symbols.Symbol {
 	if syms := LookupNamed(sc.Index, id); len(syms) > 0 {
 		return syms
+	}
+	// The chain is walked in the unquoted spelling the index records, which is
+	// also the one QualifiedNameOf answers, whatever spelling the id uses.
+	name := id
+	if plain, ok := UnquotedName(id); ok {
+		name = plain
+	}
+	if sym, _ := MemberChain(sc.Index, sc.Semantics, name); sym != nil && sc.Semantics.PositionallyNamed(sym) && sc.Semantics.QualifiedNameOf(sym) == name {
+		return []*symbols.Symbol{sym}
 	}
 	if sym := sc.Positional.Symbol(id); sym != nil {
 		return []*symbols.Symbol{sym}

@@ -357,10 +357,35 @@ func (w *apiJSONElementWriter) derivedElementID(element metamodel.Element) (stri
 	if !ok || library == nil {
 		return w.anonymousLibraryID(symbol, element.IsMembership)
 	}
+	if id, ok := w.heldLibraryElementID(library.ID, element.IsMembership); ok {
+		return id, true
+	}
 	if element.IsMembership {
 		return library.OwningMembershipID, library.OwningMembershipID != ""
 	}
 	return library.ID, library.ID != ""
+}
+
+// heldLibraryElementID spells a library element the graph itself holds — a
+// library document converted as the model — by the graph's own ids, so the
+// element reached through a library type and the one the graph states are one:
+// the subject's id, or its owningMembership's for the membership.
+func (w *apiJSONElementWriter) heldLibraryElementID(id string, membership bool) (string, bool) {
+	if id == "" {
+		return "", false
+	}
+	subject := rdf.ElementIRIForID(id)
+	if _, held := w.evaluation.structure.element(subject); !held {
+		return "", false
+	}
+	if !membership {
+		return id, true
+	}
+	owning, ok := w.graph.Object(subject, rdf.SysML+pOwningMembership)
+	if !ok {
+		return "", false
+	}
+	return rdf.SubjectID(owning)
 }
 
 // anonymousLibraryID mints the id of a library member no qualified name
@@ -375,6 +400,9 @@ func (w *apiJSONElementWriter) anonymousLibraryID(symbol *symbols.Symbol, member
 	}
 	if !ok {
 		return "", false
+	}
+	if id, ok := w.heldLibraryElementID(member.ID, membership); ok {
+		return id, true
 	}
 	if membership {
 		return member.OwningMembershipID, member.OwningMembershipID != ""
