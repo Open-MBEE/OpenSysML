@@ -43,7 +43,6 @@ ActionUsage::usage	19	symbol-51
 AllocationDefinition::isSufficient	4	export-56
 AllocationUsage::connectorEnd	3	export-56
 AllocationUsage::ownedReferenceSubsetting	1	export-57
-AllocationUsage::relatedFeature	1	symbol-52
 AnalysisCaseDefinition::directedFeature	11	symbol-53
 AnalysisCaseDefinition::directedUsage	11	symbol-53
 AnalysisCaseDefinition::feature	12	symbol-51
@@ -102,7 +101,7 @@ BindingConnectorAsUsage::isComposite	19	export-33
 BindingConnectorAsUsage::member	16	symbol-51
 BindingConnectorAsUsage::membership	16	symbol-51
 BindingConnectorAsUsage::ownedRelationship	2	symbol-03
-BindingConnectorAsUsage::relatedFeature	23	symbol-52
+BindingConnectorAsUsage::relatedFeature	1	symbol-52
 BindingConnectorAsUsage::targetFeature	1	export-10
 CaseDefinition::directedFeature	1	symbol-53
 CaseDefinition::directedUsage	1	symbol-53
@@ -147,7 +146,6 @@ Conjugation::ownedRelatedElement	1	export-06
 Conjugation::ownedRelationship	1	symbol-03
 ConnectionDefinition::isSufficient	23	export-56
 ConnectionUsage::connectorEnd	32	export-57
-ConnectionUsage::relatedFeature	3	symbol-52
 Connector::connectorEnd	6	export-57
 Connector::ownedRelationship	7	symbol-03
 ConstraintUsage::declaredName	4	symbol-01
@@ -281,7 +279,7 @@ FlowUsage::ownedMember	75	symbol-08
 FlowUsage::ownedMembership	75	symbol-09
 FlowUsage::ownedReferenceSubsetting	1	export-57
 FlowUsage::ownedRelationship	75	symbol-03
-FlowUsage::relatedFeature	1	export-57
+FlowUsage::relatedFeature	2	export-57
 FlowUsage::sourceFeature	1	export-09
 FlowUsage::targetFeature	1	export-10
 FlowUsage::type	2	export-01
@@ -639,7 +637,7 @@ SuccessionAsUsage::member	12	symbol-51
 SuccessionAsUsage::membership	12	symbol-51
 SuccessionAsUsage::ownedReferenceSubsetting	1	export-57
 SuccessionAsUsage::ownedRelationship	5	symbol-03
-SuccessionAsUsage::relatedFeature	4	symbol-52
+SuccessionAsUsage::relatedFeature	3	symbol-52
 SuccessionAsUsage::sourceFeature	154	export-09
 SuccessionAsUsage::targetFeature	169	export-10
 SuccessionFlowUsage::feature	1	export-62
