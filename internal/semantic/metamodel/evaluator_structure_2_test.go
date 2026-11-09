@@ -1165,9 +1165,8 @@ func TestStructureBackedOwningRelationshipOpposites(t *testing.T) {
 	}
 }
 
-// Documentation::documentedElement subsets owner (KerML 1.1 §8.3.2.3.5): the
-// namespace a doc comment is a member of, or the relationship whose body
-// annotates it through an owned Annotation.
+// Documentation::documentedElement subsets owner (KerML 1.1 §8.3.2.3.5): the owning
+// namespace, or the relationship whose body annotates it through an owned Annotation.
 func TestStructureBackedDocumentedElementIsTheOwner(t *testing.T) {
 	evaluator, _ := newTestEvaluator(t, "documented-element.sysml", "package P {}")
 	documentation := Element{Aspect: "documentation"}

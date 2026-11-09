@@ -6976,11 +6976,8 @@ func (e *Evaluator) structureFeatureReferenceReferent(element Element) (Value, b
 	return nullValue(), true, true
 }
 
-// structureDocumentedElement derives Documentation::documentedElement, which
-// subsets owner and redefines annotatedElement (KerML 1.1 §8.3.2.3.5): the
-// documented element is always the element owning the documentation (§7.2.4.2),
-// the namespace a doc comment is a member of or the relationship whose body
-// annotates it.
+// structureDocumentedElement derives Documentation::documentedElement, which subsets
+// owner (KerML 1.1 §8.3.2.3.5): always the element owning the documentation (§7.2.4.2).
 func (e *Evaluator) structureDocumentedElement(element Element) (Value, bool, bool) {
 	owner, handled, ok := e.structureOwner(element)
 	if !handled || !ok {
@@ -6991,10 +6988,8 @@ func (e *Evaluator) structureDocumentedElement(element Element) (Value, bool, bo
 	return owner, true, true
 }
 
-// structureMetadataAccessReferencedElement derives
-// MetadataAccessExpression::referencedElement (KerML 1.1 §8.3.4.8.15): the
-// memberElement of the expression's first owned membership that is no
-// FeatureMembership, null when it owns none.
+// structureMetadataAccessReferencedElement derives MetadataAccessExpression::referencedElement
+// (KerML 1.1 §8.3.4.8.15): the first non-FeatureMembership owned membership's memberElement.
 func (e *Evaluator) structureMetadataAccessReferencedElement(element Element) (Value, bool, bool) {
 	unsupported := func(reason Reason) (Value, bool, bool) {
 		e.recordUnsupportedReason(element, "MetadataAccessExpression", "referencedElement", reason)

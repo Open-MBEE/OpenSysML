@@ -23,9 +23,8 @@ type censusWitness struct {
 	path, modelHash, id, metaclass string
 }
 
-// censusModels are the models the census reads: the examples and the gRPC
-// conformance fixtures, which carry the metaclasses the handbook's examples do
-// not reach (unioning, differencing, cross subsetting, type featuring, ...).
+// censusModels are the models the census reads: the examples and the gRPC conformance
+// fixtures, which carry the metaclasses the handbook's examples do not reach.
 func censusModels(t *testing.T) []string {
 	t.Helper()
 	paths := agreementExamples(t)
@@ -37,13 +36,8 @@ func censusModels(t *testing.T) []string {
 	return append(paths, fixtures...)
 }
 
-// TestElementPropertiesServeEveryRuleAndExplainEveryOmission walks the whole
-// of `metamodel.Rules()` and `metamodel.Omitted()`, not a sample. Every rule
-// and omission names a property the metamodel declares on its defining class.
-// For every served rule some element whose metaclass specializes the rule's
-// defining class is answered with values or an empty answer and no reason; for
-// every omitted property such an element is answered with the recorded reason.
-// A property no model element carries is a gap in the fixtures and fails too.
+// TestElementPropertiesServeEveryRuleAndExplainEveryOmission walks all of metamodel.Rules()
+// and Omitted(): every served rule is answered by some carrier, every omission says why.
 func TestElementPropertiesServeEveryRuleAndExplainEveryOmission(t *testing.T) {
 	rules, omissions := metamodel.Rules(), metamodel.Omitted()
 	if len(rules) == 0 || len(omissions) == 0 {
@@ -212,11 +206,8 @@ func TestElementPropertiesServeEveryRuleAndExplainEveryOmission(t *testing.T) {
 	t.Logf("%d served rules and %d omissions witnessed over %d models", len(rules), len(omissions), len(censusModels(t)))
 }
 
-// elementFormAbsentMetaclasses are the relationship metaclasses the API element
-// form states as text of their owner (`unions`, `intersects`, `differences`,
-// `crosses`, `featured by`) rather than as elements, so no element of the form
-// carries their properties and nothing can witness their rules or omissions
-// until the form states them. An entry that becomes carried fails the census.
+// elementFormAbsentMetaclasses are the relationship metaclasses the API element form states
+// as text of their owner rather than as elements; an entry that becomes carried fails the census.
 var elementFormAbsentMetaclasses = map[string]string{
 	"Unioning":        "a type's `unions` is a text property of the type in the element form",
 	"Intersecting":    "a type's `intersects` is a text property of the type in the element form",

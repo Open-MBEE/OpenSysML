@@ -239,9 +239,8 @@ type conformanceCase struct {
 	// different elements of one model share it.
 	Model string `json:"model,omitempty"`
 
-	// GetElementProperties: the element read, the properties asked for (empty
-	// reads every property the element form carries) and, per property asked
-	// for, the answer expected. ExpectedError is the in-band error instead.
+	// GetElementProperties: the element read, the properties asked for (empty reads every
+	// property the element form carries) and the answer expected per property.
 	ElementID          string                    `json:"element_id,omitempty"`
 	Properties         []string                  `json:"properties,omitempty"`
 	ExpectedProperties []expectedElementProperty `json:"expected_properties,omitempty"`
@@ -254,10 +253,8 @@ type conformanceCase struct {
 	ExpectedFinalTime *float64 `json:"expected_final_time,omitempty"`
 }
 
-// expectedElementProperty is one answer of a GetElementProperties case: the
-// metamodel facts of the property, its values spelled as conformanceValueText
-// spells them (an element by qualified name, or by id when it has none), in
-// order, and the text its unsupported reason must contain when it has no answer.
+// expectedElementProperty is one answer of a GetElementProperties case: the property's
+// facts, its values as conformanceValueText spells them, or the text of its unsupported reason.
 type expectedElementProperty struct {
 	Name                string   `json:"name"`
 	DefiningClass       string   `json:"defining_class,omitempty"`
