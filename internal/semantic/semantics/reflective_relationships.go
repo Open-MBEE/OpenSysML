@@ -207,6 +207,10 @@ func (m *Model) implicitMetaclassName(sym *symbols.Symbol) string {
 		if IsFilterMembership(sym) {
 			return "ElementFilterMembership"
 		}
+		if _, ok := SubactionKind(rel.Decl); ok {
+			// `entry;` is a StateSubactionMembership performing no action (SysML.xtext EntryActionMember).
+			return "StateSubactionMembership"
+		}
 		return m.membershipMetaclassName(rel.Owner, rel.Member)
 	case symbols.ImplicitOwnedAnnotation, symbols.ImplicitAnnotatingRelationship:
 		return "Annotation"

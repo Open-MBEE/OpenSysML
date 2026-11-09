@@ -74,7 +74,8 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		})
 		ordinal++
 	}
-	if sym.Scope == nil && len(statements) == 0 && len(parts) == 0 && bodyParts == 0 {
+	emptySubactions := m.emptySubactionMemberships(sym)
+	if sym.Scope == nil && len(statements) == 0 && len(parts) == 0 && bodyParts == 0 && len(emptySubactions) == 0 {
 		out = m.withDefaultMultiplicity(sym, out, ordinal)
 		m.memberships[sym] = out
 		return out
@@ -93,6 +94,7 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 			},
 		})
 	}
+	statementMemberships = append(statementMemberships, emptySubactions...)
 	if sym.Scope == nil {
 		out = mergeMemberships(out, statementMemberships)
 		if len(parts) > 0 {
@@ -515,6 +517,10 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 			return "OwningMembership"
 		}
 	}
+	if _, _, ok := subactionOf(owner.Decl, member.Decl); ok {
+		// `entry assign x := 1;` performs a statement through a StateSubactionMembership.
+		return "StateSubactionMembership"
+	}
 	if _, ok := m.transitionFeatureKind(owner, member); ok {
 		return "TransitionFeatureMembership"
 	}
@@ -856,6 +862,10 @@ func (m *Model) membershipValue(sym *symbols.Symbol, feature string) (symbols.Fi
 	case "memberShortName", "ownedMemberShortName":
 		return stringOrEmpty(m.EffectiveShortNameOf(rel.Member)), true
 	case "visibility":
+		if rel.Member == nil {
+			// `entry;` owns no member: its visibility is the membership's own.
+			return m.visibilityValue(sym.Visibility), true
+		}
 		return m.visibilityValue(rel.Member.Visibility), true
 	case "isDefault", "isInitial":
 		if !isValueExpressionSymbol(rel.Member) {
@@ -876,7 +886,7 @@ func (m *Model) membershipValue(sym *symbols.Symbol, feature string) (symbols.Fi
 			return m.enumLiteralValue(m.sysmlMetaclass("RequirementConstraintKind"), kind)
 		}
 		if m.reflectiveMetaclassConforms(sym, "StateSubactionMembership") {
-			return m.enumLiteralValue(m.sysmlMetaclass("StateSubactionKind"), stateSubactionKind(rel.Member))
+			return m.enumLiteralValue(m.sysmlMetaclass("StateSubactionKind"), subactionKindOf(rel))
 		}
 		if kind, ok := m.transitionFeatureKind(rel.Owner, rel.Member); ok {
 			return m.enumLiteralValue(m.sysmlMetaclass("TransitionFeatureKind"), kind)
@@ -886,16 +896,28 @@ func (m *Model) membershipValue(sym *symbols.Symbol, feature string) (symbols.Fi
 }
 
 // stateSubactionKind is the `entry`, `do` or `exit` a state subaction is written with.
-func stateSubactionKind(member *symbols.Symbol) string {
-	u, ok := member.Decl.(*ast.Usage)
-	if !ok {
+func subactionKindOf(rel *symbols.ImplicitRelationship) string {
+	if kind, ok := SubactionKind(rel.Decl); ok {
+		return kind
+	}
+	if rel.Member == nil {
 		return ""
 	}
-	switch u.Keyword {
-	case "entry", "do", "exit":
-		return u.Keyword
+	if u, ok := rel.Member.Decl.(*ast.Usage); ok {
+		switch u.Keyword {
+		case "entry", "do", "exit":
+			return u.Keyword
+		}
+		if u.PrefixKeyword != "" {
+			return u.PrefixKeyword
+		}
 	}
-	return u.PrefixKeyword
+	if rel.Owner != nil {
+		if _, kind, ok := subactionOf(rel.Owner.Decl, rel.Member.Decl); ok {
+			return kind
+		}
+	}
+	return ""
 }
 
 // visibilityValue is the VisibilityKind literal of a declared visibility,

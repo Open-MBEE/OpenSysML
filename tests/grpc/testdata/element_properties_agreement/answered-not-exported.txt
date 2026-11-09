@@ -83,7 +83,7 @@ AssignmentActionUsage::feature	15	symbol-14
 AssignmentActionUsage::featureMembership	15	symbol-15
 AssignmentActionUsage::inheritedFeature	15	symbol-51
 AssignmentActionUsage::inheritedMembership	15	symbol-51
-AssignmentActionUsage::isReference	121	symbol-38
+AssignmentActionUsage::isReference	125	symbol-38
 AssignmentActionUsage::occurrenceDefinition	15	symbol-41
 AssignmentActionUsage::type	15	symbol-19
 AssignmentActionUsage::usage	15	symbol-50
@@ -414,8 +414,8 @@ Feature::featuringType	12	symbol-17
 Feature::owningFeatureMembership	12	symbol-45
 Feature::owningType	12	symbol-45
 Feature::type	276	symbol-19
-FeatureChainExpression::instantiatedType	296	symbol-29
-FeatureChainExpression::operand	480	symbol-30
+FeatureChainExpression::instantiatedType	302	symbol-29
+FeatureChainExpression::operand	486	symbol-30
 FeatureChainExpression::targetFeature	7	symbol-23
 FeatureChaining::relatedElement	227	symbol-10
 FeatureInverting::documentation	1	symbol-50
@@ -551,9 +551,9 @@ JoinNode::occurrenceDefinition	9	symbol-41
 JoinNode::type	9	symbol-19
 Membership::memberElement	19	symbol-47
 Membership::memberElementId	52	symbol-47
-Membership::membershipOwningNamespace	2417	symbol-07
-Membership::relatedElement	466	symbol-10
-Membership::source	466	symbol-11
+Membership::membershipOwningNamespace	2432	symbol-07
+Membership::relatedElement	468	symbol-10
+Membership::source	468	symbol-11
 Membership::target	33	symbol-12
 MembershipExpose::relatedElement	71	symbol-10
 MembershipImport::relatedElement	188	symbol-10
@@ -581,7 +581,7 @@ OccurrenceUsage::nestedFlow	2	symbol-45
 OccurrenceUsage::occurrenceDefinition	44	symbol-41
 OccurrenceUsage::type	39	symbol-19
 OperatorExpression::input	16	symbol-51
-OperatorExpression::operand	917	symbol-30
+OperatorExpression::operand	919	symbol-30
 OwningMembership::ownedMemberFeature	44	symbol-16
 OwningMembership::owningType	44	symbol-45
 ParameterMembership::ownedMemberFeature	7	symbol-16
@@ -772,11 +772,11 @@ Specialization::target	2	symbol-12
 StateDefinition::ownedTransition	21	symbol-45
 StateDefinition::state	31	symbol-45
 StateDefinition::step	31	symbol-24
-StateSubactionMembership::action	39	symbol-45
+StateSubactionMembership::action	46	symbol-45
 StateSubactionMembership::memberName	39	symbol-06
-StateSubactionMembership::relatedElement	39	symbol-10
-StateSubactionMembership::source	39	symbol-11
-StateSubactionMembership::target	39	symbol-12
+StateSubactionMembership::relatedElement	80	symbol-10
+StateSubactionMembership::source	80	symbol-11
+StateSubactionMembership::target	46	symbol-12
 StateUsage::actionDefinition	187	symbol-35
 StateUsage::behavior	187	symbol-26
 StateUsage::definition	187	symbol-37

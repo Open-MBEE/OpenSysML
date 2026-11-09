@@ -250,6 +250,10 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 	}
 	switch rel.Form {
 	case symbols.ImplicitMembership:
+		if _, ok := semantics.SubactionKind(rel.Decl); ok {
+			// `entry;` is written as the StateSubactionMembership itself.
+			return s.ids.OfDeclaration(doc, rel.Decl, "")
+		}
 		if rel.Member == nil {
 			return "", false
 		}
@@ -260,6 +264,10 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 		if semantics.IsFilterPackage(rel.Owner) {
 			base, ok := s.of(rel.Owner)
 			return base + filterMembershipSuffix, ok
+		}
+		if node, ok := semantics.SubactionMemberOf(rel.Owner, rel.Member); ok {
+			// An action a subaction performs is owned through the member written as the membership.
+			return s.ids.OfDeclaration(doc, node, "")
 		}
 		if id, ok := s.ids.OwningMembershipOfDeclaration(doc, rel.Member.Decl, s.fqn(rel.Member)); ok && rel.Member.Expr == nil {
 			return id, true

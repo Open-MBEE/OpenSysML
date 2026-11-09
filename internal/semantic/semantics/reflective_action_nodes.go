@@ -131,9 +131,9 @@ func IsStatementNode(node ast.Node) bool {
 func statementBodyOf(decl ast.Node) []ast.Node {
 	switch d := decl.(type) {
 	case *ast.Usage:
-		return d.Members
+		return withSubactionActions(d.Members)
 	case *ast.Definition:
-		return d.Members
+		return withSubactionActions(d.Members)
 	case *ast.IfActionNode:
 		out := make([]ast.Node, 0, 2)
 		for _, branch := range d.Branches() {
