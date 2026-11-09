@@ -211,6 +211,10 @@ type doAction struct {
 	// run is the behavior under way, paused between two statements or where its
 	// flow waits on the clock or for a message; nil between behaviors.
 	run *doRun
+	// entering marks an action still running its state's entry, parked for a message:
+	// run and the entryLeft behaviors heading pending are the entry's remainder.
+	entering  bool
+	entryLeft int
 }
 
 // due reports work of the do behavior runnable now: a paused behavior with its
@@ -973,6 +977,9 @@ func (e *StateExecutor) hasBody(state *ast.StateNode) bool {
 // scheduleTimeTransitions queues a time event per time-triggered transition out
 // of the state whose timer is not running yet, due at the clock's instant.
 func (e *StateExecutor) scheduleTimeTransitions(state *ast.StateNode) error {
+	if e.entryParked(state) {
+		return nil // armed once the entry has run (settleEntered on resumption)
+	}
 	transitions := e.graph.Transitions[state]
 	// Transitions sharing a trigger spelling compete for one occurrence, so a
 	// group of equal time triggers arms a single timer drawn among by weight.
@@ -2091,6 +2098,9 @@ func (e *StateExecutor) enclosesActiveRegion(state *ast.StateNode) bool {
 func (e *StateExecutor) enabledTransitions(state *ast.StateNode, event *Event) ([]int, []RunNote, error) {
 	var enabled []int
 	var notes []RunNote
+	if e.entryParked(state) {
+		return nil, nil, nil // the entry runs to its end before the state can be left
+	}
 	transitions := e.graph.Transitions[state]
 	// Once one is enabled the transition is decided; the rest are probed only to
 	// report the choice, which leaves the run as it was.
@@ -4024,7 +4034,7 @@ func (e *StateExecutor) dueWork() bool {
 	if !e.drivable() {
 		return false
 	}
-	return e.completionDue || len(e.held) > 0 || e.hasDueEvent() || e.hasPendingSignal() || e.HasPendingDoWork()
+	return e.completionDue || e.heldReady() || e.hasDueEvent() || e.hasPendingSignal() || e.HasPendingDoWork()
 }
 
 // watchesChange reports a change condition the active configuration waits on.
@@ -4084,7 +4094,7 @@ func (e *StateExecutor) runOne(progress *dueProgress) (moved bool, err error) {
 func (e *StateExecutor) oneUnit(progress *dueProgress) (moved bool, err error) {
 	defer e.counting(progress)()
 	e.resetEntering()
-	if len(e.held) > 0 {
+	if e.heldReady() {
 		return e.entryStep(progress)
 	}
 	if e.completionDue {
@@ -4404,7 +4414,7 @@ func (e *StateExecutor) runUnit(progress *dueProgress) (bool, error) {
 // else the next due event); false when nothing was left to do at this instant.
 func (e *StateExecutor) runStep(progress *dueProgress) (bool, error) {
 	e.resetEntering()
-	if len(e.held) > 0 {
+	if e.heldReady() {
 		return e.entryStep(progress)
 	}
 	if e.completionDue {
@@ -4460,22 +4470,53 @@ func (e *StateExecutor) eventBudgetExceeded(maxStateEvents int64) error {
 // state restarts its do behavior rather than resuming the abandoned one; the entry
 // site under way offers the behavior's due steps against the entries left in the move.
 func (e *StateExecutor) startDoAction(state *ast.StateNode) {
-	_, parked := e.entryBehaviors(state)
-	pending := append(slices.Clone(parked), e.behaviorsOf(state).Do...)
+	if e.parkedEntryOf(state) != nil {
+		return // the do behaviors are behind the entry's remainder (parkEntry)
+	}
+	pending := e.behaviorsOf(state).Do
 	if len(pending) == 0 {
 		return
 	}
-	e.stopDoAction(state)
-	act := &doAction{
+	e.registerDoAction(&doAction{
 		state:   state,
-		pending: pending,
+		pending: slices.Clone(pending),
 		firing:  e.currentFiring(),
-	}
+	})
+}
+
+// parkEntry registers the remainder of a state's entry (run, parked for a message, and
+// the behaviors rest after it) as its do action, ahead of its do behaviors.
+func (e *StateExecutor) parkEntry(state *ast.StateNode, run *doRun, rest []lower.StateBehavior) {
+	e.registerDoAction(&doAction{
+		state:     state,
+		pending:   slices.Concat(rest, e.behaviorsOf(state).Do),
+		firing:    e.currentFiring(),
+		run:       run,
+		entering:  true,
+		entryLeft: len(rest),
+	})
+}
+
+// registerDoAction makes act the running do action of its state, replacing the one
+// abandoned when the state was last exited, and offers it to the entry site under way.
+func (e *StateExecutor) registerDoAction(act *doAction) {
+	e.stopDoAction(act.state)
 	e.doActions = append(e.doActions, act)
 	e.began = append(e.began, act)
 	if e.inFront(choiceEntryOrder) {
 		e.front.offer(act)
 	}
+}
+
+// parkedEntryOf is the do action still running state's parked entry, nil once the
+// entry has run to its end or where it ran at the instant.
+func (e *StateExecutor) parkedEntryOf(state *ast.StateNode) *doAction {
+	for _, act := range e.doActions {
+		if act.state == state && act.entering {
+			return act
+		}
+	}
+	return nil
 }
 
 // resumeEntering counts the running do behaviors of the states as begun by the move, which
@@ -4582,11 +4623,23 @@ func (e *StateExecutor) stepDoAction(act *doAction, goOn func(*doRun) (*doRun, e
 
 	e.moved = true
 	if e.trace() != nil {
-		e.trace().recordDoStep(e.traceOrigin(), act.state.Name, e.StatePath(act.state), e.regionPathName(act.state))
+		if act.entering {
+			e.trace().recordEntryStep(e.traceOrigin(), act.state.Name, e.StatePath(act.state), e.regionPathName(act.state))
+		} else {
+			e.trace().recordDoStep(e.traceOrigin(), act.state.Name, e.StatePath(act.state), e.regionPathName(act.state))
+		}
 	}
 	if run == nil {
 		act.pending = act.pending[1:]
+		if act.entering {
+			if act.entryLeft == 0 {
+				act.entering = false // the first do behavior begins
+			} else {
+				act.entryLeft--
+			}
+		}
 		if run = e.newDoRun(behavior, act.firing); run == nil {
+			act.settleEntering()
 			return nil
 		}
 		goOn = func(run *doRun) (*doRun, error) { return run.resume(e.ctx) }
@@ -4596,7 +4649,15 @@ func (e *StateExecutor) stepDoAction(act *doAction, goOn func(*doRun) (*doRun, e
 	if err != nil {
 		return fmt.Errorf("do action in state %s: %w", act.state.Name, err)
 	}
+	act.settleEntering()
 	return nil
+}
+
+// settleEntering ends the entry of an entering action whose last entry behavior has run.
+func (act *doAction) settleEntering() {
+	if act.entering && act.run == nil && act.entryLeft == 0 {
+		act.entering = false
+	}
 }
 
 // doBehaviorsTaking lists the do behaviors the message being dispatched lets go on:
@@ -4790,6 +4851,12 @@ func doBehaviorDescription(state *ast.StateNode) string {
 // settleDoActions drops the do behaviors that have finished and schedules the
 // completion of their states and newly completed owners.
 func (e *StateExecutor) settleDoActions() error {
+	if err := e.resumeParkedEntries(); err != nil {
+		return err
+	}
+	if e.state.Ended() {
+		return nil
+	}
 	finished := make([]*ast.StateNode, 0, len(e.doActions))
 	kept := e.doActions[:0]
 	for _, act := range e.doActions {
@@ -5036,7 +5103,7 @@ func (e *StateExecutor) dropsMessage(m Message) (bool, error) {
 // entry cascade held, no completion of its own due, no queued event due and no
 // do behavior with a step to take.
 func (e *StateExecutor) settledNow() bool {
-	return len(e.held) == 0 && !e.completionDue && !e.hasDueEvent() && !e.HasPendingDoWork()
+	return !e.heldReady() && !e.completionDue && !e.hasDueEvent() && !e.HasPendingDoWork()
 }
 
 // seenBehavior reports whether this machine is attached ahead of behavior among
@@ -5449,6 +5516,10 @@ func (e *StateExecutor) initialize() (err error) {
 			return fmt.Errorf("enter state machine: %w", err)
 		}
 		e.state = StateRunning
+		if act := e.parkedEntryOf(e.graph.Machine); act != nil {
+			e.holdParkedEntry(nil, act, nil, nil)
+			return nil
+		}
 		return e.enterMachineStart()
 	}
 
@@ -5462,14 +5533,22 @@ func (e *StateExecutor) initialize() (err error) {
 	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode)
 	e.activeConfig.defaultComplete = make(map[*ast.StateRegion]bool)
 	e.activeConfig.simpleState = nil
+	if act := e.parkedEntryOf(e.graph.Machine); act != nil {
+		e.holdParkedEntry(nil, act, nil, nil)
+		return nil
+	}
 	return e.enterMachineRegions()
 }
 
 // enterMachine runs the machine's own entry behaviors and starts its do behavior.
 func (e *StateExecutor) enterMachine() error {
-	instant, _ := e.entryBehaviors(e.graph.Machine)
-	if err := e.executeBehaviors(instant); err != nil {
+	run, rest, err := e.executeEntryBehaviors(e.graph.Machine, e.behaviorsOf(e.graph.Machine).Entry)
+	if err != nil {
 		return fmt.Errorf("entry action: %w", err)
+	}
+	if run != nil {
+		e.parkEntry(e.graph.Machine, run, rest)
+		return nil
 	}
 	e.startDoAction(e.graph.Machine)
 	return nil
@@ -5835,6 +5914,13 @@ func (e *StateExecutor) enterStateInto(state *ast.StateNode, branches map[*ast.S
 	// entries of its substates and the do behaviors of the states active with it.
 	e.startDoAction(state)
 
+	// An entry parked for a message holds the state's body back until it has run.
+	if act := e.parkedEntryOf(state); act != nil {
+		regions := e.graph.CompositeStates[state]
+		e.holdParkedEntry(state, act, regions, branches)
+		return nil
+	}
+
 	if regions, isComposite := e.graph.CompositeStates[state]; isComposite {
 		if held, err := e.holdEntry(state, regions, branches); err != nil {
 			return err
@@ -5935,24 +6021,15 @@ func (e *StateExecutor) performEntry(state *ast.StateNode) error {
 		}
 	}
 
-	// Execute entry actions
-	instant, _ := e.entryBehaviors(state)
-	if err := e.performingBehaviors(state, instant); err != nil {
+	// Execute entry actions, at the instant up to where one waits for a message.
+	run, rest, err := e.executeEntryBehaviors(state, e.behaviorsOf(state).Entry)
+	if err != nil {
 		return fmt.Errorf("entry action: %w", err)
 	}
-	return nil
-}
-
-// entryBehaviors splits a state's entry behaviors at the first that parks for a message: those
-// ahead of it run at the instant of entry, it and the rest ahead of the do behavior (entryAction then doAction).
-func (e *StateExecutor) entryBehaviors(state *ast.StateNode) (instant, parked []lower.StateBehavior) {
-	entry := e.behaviorsOf(state).Entry
-	for i, behavior := range entry {
-		if behavior.AwaitsMessage() {
-			return entry[:i], entry[i:]
-		}
+	if run != nil {
+		e.parkEntry(state, run, rest)
 	}
-	return entry, nil
+	return nil
 }
 
 // performingBehaviors runs behaviors of state with the state counted as performing
@@ -6547,7 +6624,7 @@ func (e *StateExecutor) ProcessNextEvent() (err error) {
 	var progress dueProgress
 	defer e.counting(&progress)()
 	e.resetEntering()
-	if len(e.held) > 0 {
+	if e.heldReady() {
 		_, err := e.entryStep(&progress)
 		return err
 	}
@@ -6626,7 +6703,7 @@ func (e *StateExecutor) HasDueEvent() bool {
 // an event is queued, a signal this machine accepts is in flight, or a state's
 // do behavior has actions left to run.
 func (e *StateExecutor) HasPendingWork() bool {
-	return e.completionDue || len(e.held) > 0 || e.eventQueue.Len() > 0 || len(e.doActions) > 0 ||
+	return e.completionDue || e.heldReady() || e.eventQueue.Len() > 0 || len(e.doActions) > 0 ||
 		e.hasPendingSignal() || e.hasPendingChange()
 }
 
@@ -6655,7 +6732,7 @@ func (e *StateExecutor) RunDoRound() (ran int, err error) {
 	defer e.ctx.beginExecutorRun(&e.driven)()
 	defer e.completedWhole(&err)
 
-	if len(e.held) > 0 {
+	if e.heldReady() {
 		return 0, nil
 	}
 	return e.runDoRound()

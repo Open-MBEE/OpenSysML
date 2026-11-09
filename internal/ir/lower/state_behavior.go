@@ -50,19 +50,6 @@ type StateBehaviors struct {
 	Exit  []StateBehavior
 }
 
-// AwaitsMessage reports a behavior whose flow parks for a message (`entry accept Go via p;`),
-// so it cannot run to its end at the instant it is triggered; a clock or change wait is not one.
-func (b StateBehavior) AwaitsMessage() bool {
-	for _, flow := range BlockFlows(b.Body) {
-		for _, accept := range flow.Accepts {
-			if accept.Trigger == nil {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 // LowerBehaviors lowers the actions of an entry, do or exit member, or the
 // effects of a transition, in the scope they were declared in; block is the
 // transition whose body they are the steps of, nil for any other. resolver is
