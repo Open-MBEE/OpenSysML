@@ -2,6 +2,7 @@ package semantics
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -23,6 +24,8 @@ type expressionParts struct {
 	body      *symbols.Symbol   // a `{ … }` reference's referent, the body Expression
 	members   []*symbols.Symbol // a body's parameters and members, in the conversion's order
 	chain     *symbols.Symbol   // the Feature a receiver-reached call names its function by
+	// constructor marks a ConstructorExpression, whose result owns the params.
+	constructor bool
 }
 
 // resultBearingExpressions are the expression metaclasses whose evaluation
@@ -196,6 +199,12 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 		m.expressionParts[expr] = parts
 		return parts
 	}
+	if _, constructor := expr.Decl.(*ast.ConstructorExpr); constructor {
+		// A constructor owns only its result, which owns the features its
+		// arguments value (KerML 8.3.4.8.3, KerML.xtext ConstructorResultMember).
+		parts.constructor = true
+		parts.result = m.expressionParameter(expr, symbols.ExpressionResult, 0)
+	}
 	operands, typeArgument := ast.ExpressionOperands(expr.Decl)
 	for _, operand := range operands {
 		if operand.Index < 0 {
@@ -204,6 +213,9 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 			continue
 		}
 		parameter := m.expressionParameter(expr, symbols.ExpressionParameter, operand.Index)
+		if parts.constructor {
+			parameter.Expr.Owner = parts.result
+		}
 		if !operand.Argument {
 			// An operand's parameter is private; an argument list's stays public.
 			parameter.Visibility = ast.VisibilityPrivate
@@ -222,7 +234,7 @@ func (m *Model) expressionPartsOf(expr *symbols.Symbol) *expressionParts {
 		parts.params = append(parts.params, m.expressionParameter(expr, symbols.ExpressionParameter, typeArgument))
 		parts.operands = append(parts.operands, nil)
 	}
-	if resultBearingExpressions[expressionElementMetaclassName(expr)] {
+	if resultBearingExpressions[expressionElementMetaclassName(expr)] && parts.result == nil {
 		parts.result = m.expressionParameter(expr, symbols.ExpressionResult, 0)
 	}
 	if slot, _, _ := m.expressionChainOf(expr); slot != "" {
@@ -247,10 +259,23 @@ func (m *Model) expressionParameter(expr *symbols.Symbol, role symbols.Expressio
 // ExpressionParameters are the `in` parameters of the expression element expr,
 // one per operand and one per type argument, in the conversion's order.
 func (m *Model) ExpressionParameters(expr *symbols.Symbol) []*symbols.Symbol {
-	if parts := m.expressionPartsOf(expr); parts != nil {
+	if parts := m.expressionPartsOf(expr); parts != nil && !parts.constructor {
 		return parts.params
 	}
 	return nil
+}
+
+// constructorResultFeatures are the features the result of a ConstructorExpression
+// owns, one per argument in written order; nil for any other symbol.
+func (m *Model) constructorResultFeatures(result *symbols.Symbol) []*symbols.Symbol {
+	if result == nil || result.Expr == nil || result.Expr.Role != symbols.ExpressionResult {
+		return nil
+	}
+	parts := m.expressionPartsOf(result.Expr.Owner)
+	if parts == nil || !parts.constructor || parts.result != result {
+		return nil
+	}
+	return parts.params
 }
 
 // ExpressionArguments are the operands of the expression element expr, as
@@ -281,13 +306,66 @@ func (m *Model) ExpressionResult(expr *symbols.Symbol) *symbols.Symbol {
 	return nil
 }
 
+// constructorArgumentFormal is the feature of the instantiated type a
+// constructor's argument feature param stands for: the one its name binds in
+// the named form (`new T(x = 1)`), the one at its position among the type's
+// public features in the positional form (KerML 8.3.4.8.3). named reports the
+// named form; formal is nil when param is no constructor argument or the
+// feature does not resolve.
+func (m *Model) constructorArgumentFormal(param *symbols.Symbol) (formal *symbols.Symbol, named bool) {
+	if m == nil || param == nil || param.Expr == nil || param.Expr.Role != symbols.ExpressionParameter {
+		return nil, false
+	}
+	result := param.Expr.Owner
+	features := m.constructorResultFeatures(result)
+	index := slices.Index(features, param)
+	if index < 0 {
+		return nil, false
+	}
+	expr := result.Expr.Owner
+	ctor, ok := expr.Decl.(*ast.ConstructorExpr)
+	if !ok {
+		return nil, false
+	}
+	operands, _ := ast.ExpressionOperands(expr.Decl)
+	if index >= len(operands) {
+		return nil, false
+	}
+	typ := m.referencedSymbol(expr, ctor.Type)
+	if name := operands[index].Name; name != nil {
+		if typ == nil {
+			return nil, true
+		}
+		formal, _ = m.LookupMember(typ, symbols.LastSegment(name.Text()))
+		return formal, true
+	}
+	if typ == nil {
+		return nil, false
+	}
+	position := 0
+	for _, member := range m.MembersOf(typ) {
+		if !symbols.VisibleOutside(member.Visibility) || !m.reflectiveMetaclassConforms(member, "Feature") {
+			continue
+		}
+		if position == index {
+			return member, false
+		}
+		position++
+	}
+	return nil, false
+}
+
 // expressionParameterValue is the operand the synthesized `in` parameter
 // binds, nil for a type argument's parameter or the `out`.
 func (m *Model) expressionParameterValue(param *symbols.Symbol) *symbols.Symbol {
 	if m == nil || param == nil || param.Expr == nil || param.Expr.Role != symbols.ExpressionParameter {
 		return nil
 	}
-	parts := m.expressionPartsOf(param.Expr.Owner)
+	owner := param.Expr.Owner
+	if owner != nil && owner.Expr != nil && owner.Expr.Role == symbols.ExpressionResult {
+		owner = owner.Expr.Owner
+	}
+	parts := m.expressionPartsOf(owner)
 	if parts == nil {
 		return nil
 	}
@@ -331,7 +409,7 @@ func (m *Model) expressionOwnedParts(expr *symbols.Symbol) []*symbols.Symbol {
 	if parts == nil {
 		return nil
 	}
-	out := append([]*symbols.Symbol{}, parts.params...)
+	out := append([]*symbols.Symbol{}, m.ExpressionParameters(expr)...)
 	if parts.condition != nil {
 		// A change wrapper owns its condition through a FeatureMembership,
 		// ahead of its result (changeArgument).
@@ -356,7 +434,7 @@ func (m *Model) expressionParameterParts(expr *symbols.Symbol) []*symbols.Symbol
 	if parts == nil {
 		return nil
 	}
-	out := append([]*symbols.Symbol{}, parts.params...)
+	out := append([]*symbols.Symbol{}, m.ExpressionParameters(expr)...)
 	if result := m.ExpressionResult(expr); result != nil {
 		out = append(out, result)
 	}
@@ -426,6 +504,10 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		out = appendOwningMembership(out, sym, parts.result)
 	} else if isExpressionSymbol(sym) {
 		out = m.plainExpressionMemberships(sym)
+	} else if features := m.constructorResultFeatures(sym); len(features) > 0 {
+		for _, feature := range features {
+			out = appendOwningMembership(out, sym, feature)
+		}
 	} else if value := m.expressionParameterValue(sym); value != nil {
 		out = appendOwningMembership(out, sym, value)
 	} else if value := m.sendParameterValue(sym); value != nil {

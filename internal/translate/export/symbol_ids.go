@@ -322,9 +322,9 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 		// A type argument's typing is minted off its parameter, as the conversion writes it (typeArgument).
 		owner, ok := s.of(rel.Owner)
 		return owner + relationshipSuffix(ast.RelTyping, false, false, 1, 0), ok
-	case symbols.ImplicitMetadataBodyRedefinition:
-		// The Redefinition a metadata body feature's name implies is minted off
-		// the feature, as the conversion writes it.
+	case symbols.ImplicitMetadataBodyRedefinition, symbols.ImplicitParameterRedefinition:
+		// The Redefinition a metadata body feature's name or a constructor's named
+		// argument implies is minted off the feature, as the conversion writes it.
 		owner, ok := s.of(rel.Owner)
 		return owner + relationshipSuffix(ast.RelRedefines, false, false, 1, 0), ok
 	case symbols.ImplicitImport:
@@ -500,6 +500,11 @@ func (s *SymbolIDs) partID(owner *symbols.Symbol, slot string) (string, bool) {
 	}
 	if owner.Expr != nil && owner.Expr.Role == symbols.ExpressionBody && owner.Expr.Owner != nil {
 		// A body's parts keep the ids minted off the reference wrapping it (bodyExpression).
+		owner = owner.Expr.Owner
+	}
+	if owner.Expr != nil && owner.Expr.Role == symbols.ExpressionResult && owner.Expr.Owner != nil {
+		// A constructor's result owns the argument features; their parts keep the
+		// ids minted off the constructor.
 		owner = owner.Expr.Owner
 	}
 	base, ok := s.of(owner)

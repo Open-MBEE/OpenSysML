@@ -320,6 +320,14 @@ func TestInvocationOwnsItsArgumentParameters(t *testing.T) {
 			t.Fatalf("%s: value expression %v", c.name, expr)
 		}
 		params, args := m.ExpressionParameters(expr), m.ExpressionArguments(expr)
+		if c.metaclass == "ConstructorExpression" {
+			// A constructor owns only its result, which owns the argument
+			// features (KerML 8.3.4.8.3).
+			if len(params) != 0 {
+				t.Errorf("%s: constructor owns %d parameters, want none", c.name, len(params))
+			}
+			params = m.constructorResultFeatures(m.ExpressionResult(expr))
+		}
 		if len(params) != len(c.args) || len(args) != len(c.args) {
 			t.Errorf("%s: %d parameters, %d arguments, want %d", c.name, len(params), len(args), len(c.args))
 			continue
@@ -338,9 +346,17 @@ func TestInvocationOwnsItsArgumentParameters(t *testing.T) {
 		if m.ExpressionResult(expr) == nil {
 			t.Errorf("%s: no result parameter", c.name)
 		}
-		// The Membership to the function, the parameters, the result.
-		if got := len(m.OwnedMemberships(expr)); got != len(c.args)+2 {
-			t.Errorf("%s owns %d memberships, want %d", c.name, got, len(c.args)+2)
+		// The Membership to the function, the parameters, the result; a
+		// constructor's result owns the parameters instead.
+		want := len(c.args) + 2
+		if c.metaclass == "ConstructorExpression" {
+			want = 2
+			if got := len(m.OwnedMemberships(m.ExpressionResult(expr))); got != len(c.args) {
+				t.Errorf("%s: the result owns %d memberships, want %d", c.name, got, len(c.args))
+			}
+		}
+		if got := len(m.OwnedMemberships(expr)); got != want {
+			t.Errorf("%s owns %d memberships, want %d", c.name, got, want)
 		}
 	}
 }

@@ -40,6 +40,7 @@ MetadataUsage::nestedAttribute	1	symbol-43
 MetadataUsage::nestedReference	2	symbol-43
 MetadataUsage::nestedUsage	3	symbol-43
 MetadataUsage::portionKind	10	symbol-43
+ParameterMembership::ownedMemberParameter	14	symbol-72
 ReferenceSubsetting::referencedFeature	8	export-27
 ReferenceSubsetting::referencingFeature	9	export-27
 ReferenceUsage::definition	39	symbol-44

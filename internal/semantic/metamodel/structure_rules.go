@@ -7930,10 +7930,35 @@ func (e *Evaluator) structureFeatureValueExpressions(feature Element) ([]Value, 
 func (e *Evaluator) structurePublicFeatures(features []Value) ([]Value, bool) {
 	public := make([]Value, 0, len(features))
 	for _, feature := range features {
-		if feature.Kind != ElementValue || feature.Element.Symbol == nil {
+		if feature.Kind != ElementValue {
 			return nil, false
 		}
-		if symbols.VisibleOutside(feature.Element.Symbol.Visibility) {
+		if feature.Element.Symbol != nil {
+			if symbols.VisibleOutside(feature.Element.Symbol.Visibility) {
+				public = append(public, feature)
+			}
+			continue
+		}
+		// A library feature the structure holds without a symbol is read
+		// through its owning membership's visibility.
+		membership, ok := e.Property(feature.Element, "Element", "owningMembership")
+		if !ok {
+			return nil, false
+		}
+		var owning Element
+		switch membership.Kind {
+		case ElementValue:
+			owning = membership.Element
+		case MembershipValue:
+			owning = MembershipElement(membership.Membership)
+		default:
+			return nil, false
+		}
+		visibility, ok := e.structureMembershipVisibility(owning)
+		if !ok {
+			return nil, false
+		}
+		if visibility.public {
 			public = append(public, feature)
 		}
 	}

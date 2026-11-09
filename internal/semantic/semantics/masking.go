@@ -250,6 +250,11 @@ func (m *Model) namingFeature(sym *symbols.Symbol) *symbols.Symbol {
 	if redefinesChainFirst(sym) {
 		return nil
 	}
+	// A constructor's argument feature is named after the feature of the
+	// instantiated type it values (KerML 8.3.4.8.3).
+	if formal, _ := m.constructorArgumentFormal(sym); formal != nil {
+		return formal
+	}
 	for _, candidate := range m.directRedefinedFeatures(sym) {
 		if candidate != nil && candidate != sym {
 			return candidate
