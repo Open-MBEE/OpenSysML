@@ -87,11 +87,11 @@ func TestQueryFlagRefusesWildcardValue(t *testing.T) {
 		t.Fatal(err)
 	}
 	outcome := runCommand(t, exec.Command(binary, "-query", `sysml:name=*`, model))
-	if outcome.status == 0 || !strings.Contains(outcome.stderr, "value wildcards are not implemented") {
+	if outcome.status == 0 || !strings.Contains(outcome.stderr, "'*' value on \"name\" is a wildcard") {
 		t.Fatalf("outcome = %#v", outcome)
 	}
-	out := run(t, binary, "-query", `oslc.where=sysml:multiplicityUpper%3D*&oslc.select=sysml:multiplicityUpper`, model)
-	if !strings.Contains(out, "Demo::wheel  PartUsage  sysml:multiplicityUpper=*") {
+	out := run(t, binary, "-query", `oslc.where=sysx:multiplicityUpper%3D*&oslc.select=sysx:multiplicityUpper`, model)
+	if !strings.Contains(out, "Demo::wheel  PartUsage  sysx:multiplicityUpper=*") {
 		t.Fatalf("query output = %s", out)
 	}
 }

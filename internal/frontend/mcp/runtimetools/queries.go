@@ -53,9 +53,10 @@ func (g *group) registerQueries(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "query",
 		Description: "Select elements of a parsed model with a SysML v2 API & Services Query — scope, select, where, orderBy — or OSLC query " +
-			"text (the Query RPC). Each matched element answers its qualified name, metamodel type and the properties select asked " +
-			"for. A query the service cannot evaluate fails with INVALID_ARGUMENT rather than answering empty. The result is the " +
-			"QueryResponse as protojson writes it.",
+			"text (the Query RPC), run as a document-query plan over the model's elements, or over the objects instantiate created " +
+			"when @type names an element (rdf:type=elmt:<id>). Each matched element answers its qualified name, metamodel type and " +
+			"the properties select asked for; an object answers its path too. A query the service cannot evaluate fails with " +
+			"INVALID_ARGUMENT and a QueryOutcome detail rather than answering empty. The result is the QueryResponse as protojson writes it.",
 		Annotations: toolkit.ReadOnly("Query model"),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in QueryInput) (*mcp.CallToolResult, Result, error) {
 		m, err := g.resolve(ctx, in.ModelInput)
@@ -167,6 +168,9 @@ func queryText(resp *pb.QueryResponse) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%d elements\n", len(resp.GetElements()))
 	for _, e := range resp.GetElements() {
+		if e.GetPath() != "" {
+			fmt.Fprintf(&b, "%s ", e.GetPath())
+		}
 		fmt.Fprintf(&b, "%s (%s)", e.GetId(), e.GetType())
 		names := make([]string, 0, len(e.GetProperties()))
 		for name := range e.GetProperties() {

@@ -12643,13 +12643,18 @@ func (x *CompositeConstraint) GetConstraint() []*Constraint {
 
 // QueryResultElement is one matched element. `id` and `type` are always
 // reported, since an element record is not usable without them; `properties`
-// carries what `select` asked for, omitting a property the element does not
-// have.
+// carries what `select` asked for, omitting a property the element has no
+// value of. An OSLC query selecting held objects (`rdf:type=elmt:<id>`) answers
+// one record per object: `id` and `type` name the element the object is an
+// instance of, and `path` the object itself.
 type QueryResultElement struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`     // qualified name, the identity this service reports
-	Type          string                 `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"` // metamodel type name ("PartUsage", "PartDefinition", ...)
-	Properties    map[string]string      `protobuf:"bytes,3,rep,name=properties,proto3" json:"properties,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Id         string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`     // qualified name, the identity this service reports
+	Type       string                 `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"` // metamodel type name ("PartUsage", "PartDefinition", ...)
+	Properties map[string]string      `protobuf:"bytes,3,rep,name=properties,proto3" json:"properties,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// The path the session holds an object under (`car.wheels[2]`, `#7`); empty
+	// for a model element.
+	Path          string `protobuf:"bytes,4,opt,name=path,proto3" json:"path,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -12703,6 +12708,13 @@ func (x *QueryResultElement) GetProperties() map[string]string {
 		return x.Properties
 	}
 	return nil
+}
+
+func (x *QueryResultElement) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
 }
 
 // SweepRange is one parameter's range: the endpoints a swept run advances
@@ -19766,13 +19778,14 @@ const file_sysml_proto_rawDesc = "" +
 	"\boperator\x18\x01 \x01(\x0e2\x18.sysml.CompositeOperatorR\boperator\x121\n" +
 	"\n" +
 	"constraint\x18\x02 \x03(\v2\x11.sysml.ConstraintR\n" +
-	"constraint\"\xc2\x01\n" +
+	"constraint\"\xd6\x01\n" +
 	"\x12QueryResultElement\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12I\n" +
 	"\n" +
 	"properties\x18\x03 \x03(\v2).sysml.QueryResultElement.PropertiesEntryR\n" +
-	"properties\x1a=\n" +
+	"properties\x12\x12\n" +
+	"\x04path\x18\x04 \x01(\tR\x04path\x1a=\n" +
 	"\x0fPropertiesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x90\x01\n" +

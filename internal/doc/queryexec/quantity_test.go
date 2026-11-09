@@ -112,6 +112,10 @@ func cellTexts(t *testing.T, result *RowSet, column int) []string {
 			out = append(out, symbols.FQNOf(sym))
 			continue
 		}
+		if _, label, ok := value.Object(); ok {
+			out = append(out, label)
+			continue
+		}
 		t.Fatalf("cell %d holds an unexpected %s", column, value.Kind())
 	}
 	return out

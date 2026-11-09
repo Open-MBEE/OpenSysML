@@ -3260,8 +3260,10 @@ pub struct CompositeConstraint {
 }
 /// QueryResultElement is one matched element. `id` and `type` are always
 /// reported, since an element record is not usable without them; `properties`
-/// carries what `select` asked for, omitting a property the element does not
-/// have.
+/// carries what `select` asked for, omitting a property the element has no
+/// value of. An OSLC query selecting held objects (`rdf:type=elmt:<id>`) answers
+/// one record per object: `id` and `type` name the element the object is an
+/// instance of, and `path` the object itself.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryResultElement {
     /// qualified name, the identity this service reports
@@ -3272,6 +3274,10 @@ pub struct QueryResultElement {
     pub r#type: ::prost::alloc::string::String,
     #[prost(map="string, string", tag="3")]
     pub properties: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    /// The path the session holds an object under (`car.wheels\[2\]`, `#7`); empty
+    /// for a model element.
+    #[prost(string, tag="4")]
+    pub path: ::prost::alloc::string::String,
 }
 /// SweepRange is one parameter's range: the endpoints a swept run advances
 /// between and the step it advances by, typed by the parameter it binds rather

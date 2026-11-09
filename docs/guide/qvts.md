@@ -222,6 +222,14 @@ fails with a recorded path or model outcome, the failed RPC status carries a `Qu
 detail, for an inline expression as for a named query. It contains the outcome kind and step, the path failures and their frontiers, or the model
 findings and any path failures from the same fan-out.
 
+The same engine answers the `Query` RPC: a SysML v2 API & Services `Query` or OSLC Query text
+(`-query`, `%query`, `oslc_query`, the MCP `query` tool) is translated into a document-query plan —
+`WhereType`, `WhereName`, `WhereFeature`, `WhereText`, `Project`, `OrderBy` over the model's
+elements, or `Objects` over the held objects when `rdf:type=elmt:<id>` names an element — and run
+by it, so those surfaces fail with the same `QueryOutcome` detail (an unknown property is a path
+error naming the nearest spelling) and compare values by type as a `query def` does. See
+[OSLC Query text](../reference/oslc-query.md) for the plan each construct becomes.
+
 No shipped client—Go (`client/opensysml`), Java, Julia, MATLAB, Node, Python, Rust, or the Jupyter
 kernel—decodes this status detail today. Clients can read the status message, but currently do not
 expose the structured `QueryOutcome` record as a client-level result. The wire message is defined
@@ -234,7 +242,7 @@ query-engine behavior:
 
 | Case | Current behavior |
 |:--|:--|
-| Unknown metaclass, property, relationship kind or direction | The command exits 2 with a message but no outcome record. |
+| Unknown metaclass, relationship kind or direction | The command exits 2 with a message but no outcome record (an unknown property is a path error naming the nearest spelling). |
 | Several missing names in one `Named` call | Only the first missing name is reported. |
 | `OrderBy(missing = "error")` | Reports “cannot evaluate” without an outcome record. |
 | Successful `-json` query check | No `outcome: value` field is emitted. |

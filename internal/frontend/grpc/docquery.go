@@ -551,7 +551,7 @@ func documentStatus(err error) error {
 	}
 	var execErr *queryexec.Error
 	if errors.As(err, &execErr) {
-		return withQueryOutcome(statusWithOrigin(queryExecCode(execErr.Kind), err, execErr.Origin), execErr)
+		return withQueryOutcome(statusWithOrigin(queryExecCode(execErr.Kind), err, execErr.Origin), execErr.Outcome)
 	}
 	var docPlanErr *docplan.Error
 	if errors.As(err, &docPlanErr) {
@@ -561,7 +561,7 @@ func documentStatus(err error) error {
 	if errors.As(err, &docIRErr) {
 		status := statusWithOrigin(docIRCode(docIRErr), err, docIRErr.Origin)
 		if errors.As(docIRErr.Err, &execErr) {
-			return withQueryOutcome(status, execErr)
+			return withQueryOutcome(status, execErr.Outcome)
 		}
 		return status
 	}
@@ -573,22 +573,22 @@ func documentStatus(err error) error {
 func inlineStatus(inlineErr *queryplan.InlineError) error {
 	var execErr *queryexec.Error
 	if errors.As(inlineErr.Err, &execErr) {
-		return withQueryOutcome(connect.NewError(queryExecCode(execErr.Kind), inlineErr), execErr)
+		return withQueryOutcome(connect.NewError(queryExecCode(execErr.Kind), inlineErr), execErr.Outcome)
 	}
 	return connect.NewError(connect.CodeInvalidArgument, inlineErr)
 }
 
 // withQueryOutcome attaches the QVTS record behind a failed query to its status
 // as a QueryOutcome detail, so a client reads the frontier and not just the message.
-func withQueryOutcome(status error, execErr *queryexec.Error) error {
-	if execErr.Outcome == nil {
+func withQueryOutcome(status error, outcome *queryexec.Outcome) error {
+	if outcome == nil {
 		return status
 	}
 	var connErr *connect.Error
 	if !errors.As(status, &connErr) {
 		return status
 	}
-	detail, err := connect.NewErrorDetail(queryOutcomeMessage(*execErr.Outcome))
+	detail, err := connect.NewErrorDetail(queryOutcomeMessage(*outcome))
 	if err != nil {
 		return status
 	}
