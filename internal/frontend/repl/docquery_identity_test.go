@@ -131,7 +131,7 @@ func TestRunQueryTableSpellsAnEffectivelyNamedElementByItsQualifiedName(t *testi
 	if !typings.Holds() || typings.Table == nil {
 		t.Fatalf("Typings verdict = %s: %v", typings.Status, typings.Lines)
 	}
-	checked, wheel := false, false
+	checked, library, wheel := false, false, false
 	for _, row := range typings.Table.Rows {
 		switch id := strings.Trim(cellText(row.Cells, 0), `"`); {
 		case id == "Observatory__ExposureTime__result_ft0":
@@ -141,6 +141,7 @@ func TestRunQueryTableSpellsAnEffectivelyNamedElementByItsQualifiedName(t *testi
 			}
 		case id == "Observatory__ExposureTime__flux_ft0":
 			// A library type the conversion did not write keeps the prompt's spelling, never its fixed id.
+			library = true
 			if got := cellText(row.Cells, 2); got != "ScalarValues::Real" {
 				t.Errorf("type of flux's typing = %q, want the library type by its qualified name", got)
 			}
@@ -153,8 +154,8 @@ func TestRunQueryTableSpellsAnEffectivelyNamedElementByItsQualifiedName(t *testi
 			}
 		}
 	}
-	if !checked || !wheel {
-		t.Fatalf("missing the return parameter's (%v) or wheel's (%v) FeatureTyping row; rows %v", checked, wheel, typings.Table.Rows)
+	if !checked || !library || !wheel {
+		t.Fatalf("missing the return parameter's (%v), flux's (%v) or wheel's (%v) FeatureTyping row; rows %v", checked, library, wheel, typings.Table.Rows)
 	}
 	verifications := s.RunDocumentQuery("Verifications root=Observatory")
 	if !verifications.Holds() || verifications.Table == nil {
