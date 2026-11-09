@@ -18,11 +18,12 @@ type QueryInput struct {
 	OSLCQuery string         `json:"oslcQuery,omitempty" jsonschema:"OSLC Query 3.0 parameter text, instead of query"`
 }
 
-// RunDocumentQueryInput runs a named document query.
+// RunDocumentQueryInput runs a named document query, or a query expression.
 type RunDocumentQueryInput struct {
 	ModelInput
-	QueryID  string           `json:"queryId" jsonschema:"qualified name of the document query, a calc def specializing DocumentQueries::Query"`
-	Bindings []map[string]any `json:"bindings,omitempty" jsonschema:"entry-parameter bindings, each a protojson DocumentQueryBinding {\"parameter\":name,\"values\":[DocumentValue]} where a DocumentValue is {\"elementId\":qualified name}, {\"stringValue\":..}, {\"intValue\":\"..\"}, {\"realValue\":..}, {\"boolValue\":..} or {\"object\":{\"path\":\"Garage::car\"}}"`
+	QueryID     string           `json:"queryId,omitempty" jsonschema:"qualified name of the document query, a calc def specializing DocumentQueries::Query; one of queryId and inlineQuery"`
+	InlineQuery string           `json:"inlineQuery,omitempty" jsonschema:"a query expression run in place of a named query — the body of such a calc def, e.g. Project(WhereType(Descendants(Named(\"Vehicles\")), \"PartUsage\"), (\"name\", \"mass\")) — with the DocumentQueries library in scope and the model's names reachable; a fault in it is reported at its line and column; needs the inline_document_query capability"`
+	Bindings    []map[string]any `json:"bindings,omitempty" jsonschema:"entry-parameter bindings, each a protojson DocumentQueryBinding {\"parameter\":name,\"values\":[DocumentValue]} where a DocumentValue is {\"elementId\":qualified name}, {\"stringValue\":..}, {\"intValue\":\"..\"}, {\"realValue\":..}, {\"boolValue\":..} or {\"object\":{\"path\":\"Garage::car\"}}"`
 }
 
 // RenderDocumentInput renders a named document.
@@ -78,9 +79,10 @@ func (g *group) registerQueries(s *mcp.Server) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "run_document_query",
-		Description: "Run a named document query with parameter bindings and answer its typed rows (the RunDocumentQuery RPC, the " +
-			"REPL's %run-query). The query runs over the model and over the objects instantiate created for the same modelHash, which " +
-			"a binding may name. The result is the RunDocumentQueryResponse as protojson writes it; the text is the table.",
+		Description: "Run a named document query, or a query expression written in inlineQuery in place of a name, with parameter " +
+			"bindings and answer its typed rows (the RunDocumentQuery RPC, the REPL's %run-query). The query runs over the model and " +
+			"over the objects instantiate created for the same modelHash, which a binding may name. The result is the " +
+			"RunDocumentQueryResponse as protojson writes it; the text is the table.",
 		Annotations: toolkit.ReadOnly("Run document query"),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in RunDocumentQueryInput) (*mcp.CallToolResult, Result, error) {
 		m, err := g.resolve(ctx, in.ModelInput)

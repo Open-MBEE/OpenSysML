@@ -14441,10 +14441,11 @@ func (x *RunRunsResponse) GetSeed() uint64 {
 	return 0
 }
 
-// RunDocumentQueryRequest runs a named document query — a calc def
-// specializing DocumentQueries::Query — against a model the service already
-// parsed, binding its entry parameters. It answers as %run-query does, but with
-// typed rows rather than formatted lines. The query runs over the objects
+// RunDocumentQueryRequest runs a document query — a calc def specializing
+// DocumentQueries::Query the model declares, named by query_id, or the body of
+// one written in inline_query — against a model the service already parsed,
+// binding its entry parameters. It answers as %run-query does, but with typed
+// rows rather than formatted lines. The query runs over the objects
 // Instantiate created for the model, which a binding may name (DocumentObject)
 // and `DocumentQueries::Objects` and `Verdicts` reach.
 type RunDocumentQueryRequest struct {
@@ -14452,10 +14453,20 @@ type RunDocumentQueryRequest struct {
 	ModelHash string                 `protobuf:"bytes,1,opt,name=model_hash,json=modelHash,proto3" json:"model_hash,omitempty"` // from ParseFile response
 	// FQN of the document query to run. Fails with NOT_FOUND when the model does
 	// not declare it, and INVALID_ARGUMENT when it declares something else.
+	// Exactly one of query_id and inline_query is given.
 	QueryId string `protobuf:"bytes,2,opt,name=query_id,json=queryId,proto3" json:"query_id,omitempty"`
 	// Entry-parameter bindings. Repeating a parameter appends to its binding, so
 	// a nonscalar parameter can be given several values.
-	Bindings      []*DocumentQueryBinding `protobuf:"bytes,3,rep,name=bindings,proto3" json:"bindings,omitempty"`
+	Bindings []*DocumentQueryBinding `protobuf:"bytes,3,rep,name=bindings,proto3" json:"bindings,omitempty"`
+	// A query expression to run in place of a named query — the result
+	// expression of a `calc def` specializing DocumentQueries::Query, such as
+	// `Project(WhereType(Descendants(Named("Vehicles")), "PartUsage"), ("name",
+	// "mass"))` — compiled in the model's context with the DocumentQueries
+	// library in scope and the model's own names reachable. A fault in the
+	// expression fails with INVALID_ARGUMENT positioned within it (`inline query
+	// <line>:<column>`); a path or model error carries a QueryOutcome detail as a
+	// named query's does. Reported as the "inline_document_query" capability.
+	InlineQuery   string `protobuf:"bytes,4,opt,name=inline_query,json=inlineQuery,proto3" json:"inline_query,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -14509,6 +14520,13 @@ func (x *RunDocumentQueryRequest) GetBindings() []*DocumentQueryBinding {
 		return x.Bindings
 	}
 	return nil
+}
+
+func (x *RunDocumentQueryRequest) GetInlineQuery() string {
+	if x != nil {
+		return x.InlineQuery
+	}
+	return ""
 }
 
 // DocumentQueryBinding binds one entry parameter of a document query.
@@ -19954,12 +19972,13 @@ const file_sysml_proto_rawDesc = "" +
 	"\bstrength\x18\r \x01(\tR\bstrength\x12$\n" +
 	"\x06bounds\x18\x0e \x03(\v2\f.sysml.BoundR\x06bounds\x12\x17\n" +
 	"\x04seed\x18\x0f \x01(\x04H\x00R\x04seed\x88\x01\x01B\a\n" +
-	"\x05_seed\"\x8c\x01\n" +
+	"\x05_seed\"\xaf\x01\n" +
 	"\x17RunDocumentQueryRequest\x12\x1d\n" +
 	"\n" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x12\x19\n" +
 	"\bquery_id\x18\x02 \x01(\tR\aqueryId\x127\n" +
-	"\bbindings\x18\x03 \x03(\v2\x1b.sysml.DocumentQueryBindingR\bbindings\"b\n" +
+	"\bbindings\x18\x03 \x03(\v2\x1b.sysml.DocumentQueryBindingR\bbindings\x12!\n" +
+	"\finline_query\x18\x04 \x01(\tR\vinlineQuery\"b\n" +
 	"\x14DocumentQueryBinding\x12\x1c\n" +
 	"\tparameter\x18\x01 \x01(\tR\tparameter\x12,\n" +
 	"\x06values\x18\x02 \x03(\v2\x14.sysml.DocumentValueR\x06values\"\xcf\x04\n" +
