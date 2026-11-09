@@ -160,8 +160,10 @@ repeat and interleave, and run in the order written.
 ## Run the same query in the REPL
 
 The REPL command is `%run-query <qualified-query-name>`, or `%run-query inline <expression>`
-for an expression written in place of a name. Loading the model files first makes
-their query definitions available in the session:
+for an expression written in place of a name (a query that is itself named `inline` is run
+by its qualified name, or with its `<parameter>=<expression>` bindings, which no query
+expression begins with). Loading the model files first makes their query definitions
+available in the session:
 
 ```console
 $ printf '%s\n' '%run-query QVTSDemo::CabinMass' | bin/sysml examples/qvts/lander.sysml examples/qvts/queries.sysml

@@ -37,13 +37,25 @@ func (s *Session) inlineQueryVerdict(text string) Verdict {
 }
 
 // inlineInvocation reads `inline <expression>` out of a %run-query invocation,
-// false when the invocation names a query instead.
+// false when the invocation names a query instead — including a query named
+// inline, whose bindings `<parameter>=<expression>` no query expression begins with.
 func inlineInvocation(invocation string) (string, bool) {
 	rest, ok := strings.CutPrefix(invocation, inlineKeyword)
 	if !ok || rest == "" || (rest[0] != ' ' && rest[0] != '\t') {
 		return "", false
 	}
-	return strings.TrimSpace(rest), true
+	text := strings.TrimSpace(rest)
+	if args := splitQueryArgs(text); len(args) > 0 && isBindingArg(args[0]) {
+		return "", false
+	}
+	return text, true
+}
+
+// isBindingArg reports whether a %run-query argument is a `<parameter>=<expression>`
+// binding: a parameter name, with no call in it, before a single `=`.
+func isBindingArg(arg string) bool {
+	name, value, ok := strings.Cut(arg, "=")
+	return ok && name != "" && !strings.ContainsAny(name, "(\"'") && !strings.HasPrefix(value, "=")
 }
 
 // runInlineQuery plans text over the session's declarations, in an index of its

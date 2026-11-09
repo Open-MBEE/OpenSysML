@@ -97,3 +97,21 @@ func TestRunQueryInlineReadsHeldObjects(t *testing.T) {
 	wants(t, run(t, s, `%run-query inline Project(OwnedElements(Garage::Car), ("name", "pressure"))`),
 		"✓ Inline query returned 1 row", "Row 1: Garage::Car::wheels")
 }
+
+func TestRunQueryInlineKeywordYieldsToAQueryNamedInline(t *testing.T) {
+	s := docQuerySession(t)
+	if res := s.Submit(`package Shadow {
+	private import DocumentQueries::*;
+	private import KerML::Root::*;
+	calc def inline :> Query {
+		in root : Element;
+		WhereType(source = Descendants(source = root), type = "PartUsage")
+	}
+}`); len(errorDiagnostics(res.Diagnostics)) > 0 {
+		t.Fatalf("model did not analyse cleanly: %v", res.Diagnostics)
+	}
+	// Bindings name the query inline; a query expression never begins with one.
+	wants(t, run(t, s, "%run-query inline root=Observatory::telescope"), "✓ Query Shadow::inline returned 3 rows")
+	wants(t, run(t, s, "%run-query Shadow::inline root=Observatory::telescope"), "✓ Query Shadow::inline returned 3 rows")
+	wants(t, run(t, s, "%run-query inline "+inlineProjection), "✓ Inline query returned 3 rows")
+}
