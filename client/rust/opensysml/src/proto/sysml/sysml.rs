@@ -4035,6 +4035,14 @@ pub struct QueryOutcome {
     /// a modelError's path failures from the same fan-out
     #[prost(message, repeated, tag="5")]
     pub path_failures: ::prost::alloc::vec::Vec<QueryFailure>,
+    /// The detail is bounded to fit a status trailer: the lists above hold the first
+    /// few of a fan-out, and these count how many there were in all (the CLI's -json record carries every one).
+    #[prost(int32, tag="6")]
+    pub failures_total: i32,
+    #[prost(int32, tag="7")]
+    pub findings_total: i32,
+    #[prost(int32, tag="8")]
+    pub path_failures_total: i32,
 }
 /// QueryFailure is one failure of one step on one element: what the step
 /// expected, and what the model holds where the path stopped resolving.
@@ -4066,9 +4074,8 @@ pub struct QueryFrontier {
     /// the closest spelling, when a name was expected
     #[prost(string, tag="5")]
     pub nearest: ::prost::alloc::string::String,
-    /// The detail is bounded so it fits a status trailer: members, features and
-    /// kinds list the nearest spellings only, and these are how many there were
-    /// in all. The CLI's -json record and the REPL carry the whole list.
+    /// Bounded to fit a status trailer: members, features and kinds hold the nearest spellings
+    /// only, and these count how many there were in all (the CLI's -json record carries every one).
     #[prost(int32, tag="6")]
     pub members_total: i32,
     #[prost(int32, tag="7")]
