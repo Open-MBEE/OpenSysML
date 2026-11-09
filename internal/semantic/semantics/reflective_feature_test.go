@@ -819,10 +819,14 @@ func TestReflectivePartUsageIncludesImplicitPartDefinition(t *testing.T) {
 		}
 	}`
 	for _, fixture := range reflectiveFixtures(t, "part-usage-types.sysml", source.KindSysML, src) {
-		for _, path := range []string{"P::actual", "P::Case::subject"} {
-			usage := nestedSym(t, fixture.root, path)
-			assertReflectiveElements(t, fixture.model, usage, "type", "P::ItemType", "Parts::Part")
-			assertReflectiveElements(t, fixture.model, usage, "partDefinition", "Parts::Part")
+		usage := nestedSym(t, fixture.root, "P::actual")
+		assertReflectiveElements(t, fixture.model, usage, "type", "P::ItemType", "Parts::Part")
+		assertReflectiveElements(t, fixture.model, usage, "partDefinition", "Parts::Part")
+		// A subject is a ReferenceUsage: no part kind, no implicit Parts::Part.
+		subject := nestedSym(t, fixture.root, "P::Case::subject")
+		assertReflectiveElements(t, fixture.model, subject, "type", "P::ItemType")
+		if _, ok := fixture.model.ReflectiveElements(subject, "partDefinition"); ok {
+			t.Errorf("P::Case::subject.partDefinition is derived; a ReferenceUsage has none")
 		}
 	}
 }
@@ -1027,9 +1031,12 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 			}
 		}
 	}
-	if related, ok := model.ReflectiveElements(sym, "relatedFeature"); ok {
+	if related := model.ConnectorRelatedFeaturesByEnd(sym); len(related) > 0 {
 		facts.RelatedFeatures = make([]symbols.ElementRef, len(related))
 		for i, feature := range related {
+			if feature == nil {
+				continue
+			}
 			if ref, found := idx.RefTo(feature); found {
 				facts.RelatedFeatures[i] = ref
 			} else {

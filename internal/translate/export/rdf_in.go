@@ -1982,6 +1982,11 @@ func (d *decoder) bodyMembers(el *element) ([]*element, error) {
 		}
 		children = slices.DeleteFunc(children, func(child *element) bool { return slices.Contains(receivers, child) })
 	}
+	if el.metaclass == mSend {
+		// A send's argument parameters are the payload, `via` and `to` its head writes.
+		params := d.sendArgumentParams(el)
+		children = slices.DeleteFunc(children, func(child *element) bool { return slices.Contains(params, child) })
+	}
 	return d.positionalSuccessions(children)
 }
 
@@ -2563,6 +2568,10 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	// `assert not constraint c` negates the declaration that prefix introduces.
 	// Negation on its own has no notation, so it is reported rather than dropped.
 	prefix, hasPrefix := d.stringOf(el, rdf.OpenSysML+xDeclaredPrefix)
+	if el.metaclass == mSuccessionFlowUsage && !hasPrefix {
+		// A SuccessionFlowUsage is the `succession` its metaclass states.
+		prefix, hasPrefix = "succession", true
+	}
 	negated := d.boolOf(el, rdf.SysML+"isNegated")
 	// The qualifier a qualified usage's metaclass states prefixes the kind
 	// keyword of a declaration (`perform action pa`) and is the whole keyword
@@ -2805,7 +2814,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	if d.nonunique(el) {
 		multPart += " nonunique"
 	}
-	typed, err := d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelTyping])
+	typed, err := d.typingNames(el)
 	if err != nil {
 		return "", err
 	}
@@ -3864,6 +3873,11 @@ func (d *decoder) writtenQName(el *element) string {
 		slices.Contains(d.receiverParams(el.owner, d.acceptParam(el.owner)), el) {
 		return d.writtenQName(el.owner)
 	}
+	// A send's parameters are its head's arguments, so a name their values spell
+	// is written from the send.
+	if el.owner != nil && el.owner.metaclass == mSend && slices.Contains(d.parameterChildren(el.owner), el) {
+		return d.writtenQName(el.owner)
+	}
 	if el.owner != nil && el.owner.owner != nil && d.isNodeMembership(rdf.IRI(el.owner.iri)) {
 		if name, ok := d.stringOf(el, rdf.SysML+pDeclaredName); ok {
 			return d.writtenQName(el.owner.owner) + "::" + naming.Segment(name)
@@ -4287,22 +4301,45 @@ func (d *decoder) visibility(el *element) string {
 // for clauses no owned relationship places. multPart, when given, is the
 // multiplicity part, written where the multiplicity's membership stands among
 // those relationships, else with the typing clause.
+// typingNames spells the types el is typed by; a ConjugatedPortTyping's as `~P`
+// (SysML v2 8.3.12.3), P being the port definition the stated conjugate conjugates.
+// The `~` belongs to that typing alone: elsewhere the conjugate keeps its qualified name.
+func (d *decoder) typingNames(el *element) ([]string, error) {
+	if !d.boolOf(el, rdf.OpenSysML+xConjugatedTyping) {
+		return d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelTyping])
+	}
+	var out []string
+	for _, term := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+relationshipProperty[ast.RelTyping]) {
+		if original := d.portDefinitions.original(d.graph, d.metaclass, rdf.Term{}, term); original.IsIRI() && original != term {
+			term = original
+		}
+		name, err := d.referenceName(term, el)
+		if err != nil {
+			return nil, err
+		}
+		if !strings.HasPrefix(name, "~") {
+			name = "~" + name
+		}
+		out = append(out, name)
+	}
+	return out, nil
+}
+
 func (d *decoder) relationshipWords(el *element, multPart string, skip ...ast.RelationshipKind) ([]string, error) {
 	targets := map[ast.RelationshipKind][]string{}
 	for _, kind := range relationshipOrder {
 		if slices.Contains(skip, kind) {
 			continue
 		}
-		names, err := d.referenceList(el, rdf.SysML+relationshipProperty[kind])
+		var names []string
+		var err error
+		if kind == ast.RelTyping {
+			names, err = d.typingNames(el)
+		} else {
+			names, err = d.referenceList(el, rdf.SysML+relationshipProperty[kind])
+		}
 		if err != nil {
 			return nil, err
-		}
-		// Conjugation qualifies the type a feature is typed by, not the feature
-		// itself: the notation is `port p : ~P` (SysML v2 ConjugatedPortTyping).
-		if kind == ast.RelTyping && d.boolOf(el, rdf.OpenSysML+xConjugatedTyping) {
-			for i, name := range names {
-				names[i] = "~" + name
-			}
 		}
 		targets[kind] = names
 	}
@@ -4396,7 +4433,7 @@ var headClauseKinds = map[string][]ast.RelationshipKind{
 // derived `target` or `general` still names the end its own way.
 var headClauseTargets = map[string][]string{
 	mFeatureTyping:        {"type", pGeneral, pTarget},
-	mConjugatedPortTyping: {pPortDefinition},
+	mConjugatedPortTyping: {pConjugatedPortDefinition, pPortDefinition},
 	mSubclassification:    {"superclassifier", pGeneral, pTarget},
 	mSpecialization:       {pGeneral, pTarget},
 	mSubsetting:           {pSubsettedFeature, pGeneral, pTarget},
@@ -4425,21 +4462,22 @@ func (d *decoder) spelledHead(el *element) []headClause {
 			}
 			continue
 		}
-		var target rdf.Term
+		// A ConjugatedPortTyping relates both its conjugate and the original
+		// it is of; the head states whichever of the two the writer stated.
+		var targets []rdf.Term
 		for _, property := range headClauseTargets[metaclass] {
 			if end, ok := d.graph.Object(owned, rdf.SysML+property); ok {
-				target = end
-				break
+				targets = append(targets, end)
 			}
 		}
-		if target.Value == "" {
+		if len(targets) == 0 {
 			continue
 		}
 		var candidates []headClause
 		for _, kind := range headClauseKinds[metaclass] {
 			for index, object := range objects[kind] {
 				clause := headClause{kind: kind, index: index}
-				if object == target && !taken[clause] {
+				if slices.Contains(targets, object) && !taken[clause] {
 					candidates = append(candidates, clause)
 					break
 				}

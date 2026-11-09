@@ -92,6 +92,11 @@ func DeclaredNameAndMembers(node ast.Node) (string, []ast.Node) {
 		if ShorthandRelationship(n) {
 			return "", BodyMembers(n)
 		}
+		// A named send node is the statement it is written as, whose body
+		// declares the node's own members.
+		if send, ok := NodeStatement(n).(*ast.SendStatement); ok {
+			return n.Ident.Name, send.Members
+		}
 		return n.Ident.Name, BodyMembers(n)
 	case *ast.Import:
 		return "", n.Body
@@ -121,6 +126,40 @@ func DeclaredNameAndMembers(node ast.Node) (string, []ast.Node) {
 		return n.Ident.Name, nil
 	}
 	return "", nil
+}
+
+// NodeStatement is the statement an action node is written as, which the node
+// is (`action s send x to r;` is one SendActionUsage named s, SysML.xtext
+// SendNode; `action a assign x := y;` one AssignmentActionUsage,
+// AssignmentNode), or nil for any other usage: a node chaining further
+// statements with `then`, or one whose declaration says more than its
+// visibility and name (`#M action a : A assign …`), which the statement's
+// notation cannot write back and so keeps the action it is declared as.
+func NodeStatement(n *ast.Usage) ast.Node {
+	if n.Kind != ast.UsageAction || !n.IsActionNode || len(n.Members) != 1 || !PlainNodeHead(n) {
+		return nil
+	}
+	statement := n.Members[0]
+	if m, ok := statement.(*ast.Membership); ok {
+		statement = m.Member
+	}
+	switch s := statement.(type) {
+	case *ast.SendStatement:
+		return s
+	case *ast.AssignmentActionNode, *ast.IfActionNode, *ast.WhileLoopActionNode:
+		return s
+	}
+	return nil
+}
+
+// PlainNodeHead reports whether an action node declares nothing but its visibility
+// and name: no prefix, modifier, specialization, multiplicity or value.
+func PlainNodeHead(n *ast.Usage) bool {
+	return len(n.Prefixes) == 0 && n.PrefixKeyword == "" && len(n.Relationships) == 0 &&
+		n.Multiplicity == nil && n.CrossFeature == nil && n.Value == nil &&
+		!n.IsAbstract && !n.IsVariation && !n.IsVariant && !n.IsReference && !n.IsVariable &&
+		!n.IsIndividual && n.Portion == ast.PortionNone && !n.IsPortion && n.Direction == ast.DirNone &&
+		!n.IsEnd && !n.IsConstant && !n.IsDerived && !n.IsOrdered && !n.IsNonunique && !n.IsParallel
 }
 
 // BehaviorNameAndMembers returns the name a behavioral node declares and the

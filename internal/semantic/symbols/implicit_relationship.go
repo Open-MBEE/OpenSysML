@@ -34,6 +34,9 @@ const (
 	// ImplicitFeatureChaining reflects the FeatureChaining a chain feature
 	// Owner holds to one Member of its chain, at Slot `fc%d` (KerML 8.3.3.3.3).
 	ImplicitFeatureChaining
+	// ImplicitMetadataBodyRedefinition reflects the Redefinition a metadata body
+	// feature Owner implies to the Member its name restates (SysML.xtext MetadataBodyUsage).
+	ImplicitMetadataBodyRedefinition
 )
 
 // ImplicitRelationship is a relationship the abstract syntax holds as an

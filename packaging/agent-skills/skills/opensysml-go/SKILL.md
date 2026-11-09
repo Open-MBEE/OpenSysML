@@ -46,6 +46,11 @@ Parsing broken source succeeds: syntax and resolution errors arrive in `model.Di
 several files use `client.ParseFiles(ctx, []string{"base.sysml", "extra.sysml"})`; `ParseFile`
 reads one document, so imports across files do not resolve.
 
+`client.LookupSymbol(ctx, model, "Demo::sedan")` returns the `Symbol` with its `Members` (own then
+inherited, each with `Inherited`, `InheritedFrom` and `Library`); standard-library members are only
+counted in `WithheldLibraryMembers` unless you pass `opensysml.WithLibraryMembers()`, which needs the
+`symbol_members` capability and is refused with `CodeUnimplemented` on a service without it.
+
 ## Evaluate, instantiate, run
 
 ```go

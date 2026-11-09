@@ -595,6 +595,34 @@ class TestSymbolAttributeFacts:
         assert frame.empty
 
 
+class TestSendActionSymbol:
+    """A send action's symbol reports its kind and arguments."""
+
+    def test_send_action_kind_and_arguments(self):
+        info = sysml_pb2.SymbolInfo(
+            id="Monitor::supervise::notifyVia",
+            name="notifyVia",
+            kind="sendActionUsage",
+            metadata={"payload": "new Alarm(3)", "sender": "alarmPort", "visibility": "public"},
+        )
+        sym = Symbol(info, None, "model_abc123")
+        assert sym.kind == "sendActionUsage"
+        assert sym.metadata["payload"] == "new Alarm(3)"
+        assert sym.metadata["sender"] == "alarmPort"
+        assert "receiver" not in sym.metadata
+
+    def test_send_action_to_only_has_a_receiver_and_no_sender(self):
+        info = sysml_pb2.SymbolInfo(
+            id="Monitor::supervise::notifyTo",
+            name="notifyTo",
+            kind="sendActionUsage",
+            metadata={"payload": "new Alarm(5)", "receiver": "display"},
+        )
+        sym = Symbol(info, None, "model_abc123")
+        assert sym.metadata["receiver"] == "display"
+        assert "sender" not in sym.metadata
+
+
 class TestSymbolMembers:
     """Test the member methods against the service's member enumeration:
     own members by default, inherited ones on request, standard-library
