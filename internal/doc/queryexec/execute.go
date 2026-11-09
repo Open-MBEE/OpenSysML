@@ -29,6 +29,8 @@ type Context struct {
 	// Identity names an element where a frontend reports it under another
 	// identity than its qualified name; nil keeps the qualified name.
 	Identity func(sym *symbols.Symbol) string
+	// ElementAddress is the address the conversion stated for an elementId it wrote (ElementIDReader.ReadAddress).
+	ElementAddress func(id string) (string, bool)
 	// Runtime holds the objects the query may read; nil makes object bindings
 	// and Objects typed errors.
 	Runtime *runtime.Context
