@@ -100,6 +100,8 @@ const effectiveNameQueryModel = `package Observatory {
 	calc def ExposureTime { in flux : Real; return : Real = 1.0 / flux; }
 	requirement massRequirement;
 	verification def ThroughputTest { objective { verify massRequirement; } }
+	part { part wheel : Wheel; }
+	part def Wheel;
 	calc def Typings :> Query {
 		in root : Element;
 		Project(
@@ -129,18 +131,25 @@ func TestRunQueryTableSpellsAnEffectivelyNamedElementByItsQualifiedName(t *testi
 	if !typings.Holds() || typings.Table == nil {
 		t.Fatalf("Typings verdict = %s: %v", typings.Status, typings.Lines)
 	}
-	checked := false
+	checked, wheel := false, false
 	for _, row := range typings.Table.Rows {
-		if strings.Trim(cellText(row.Cells, 0), `"`) != "Observatory__ExposureTime__result_ft0" {
-			continue
-		}
-		checked = true
-		if got := cellText(row.Cells, 1); got != "Observatory::ExposureTime::result" {
-			t.Errorf("typedFeature of the return parameter's typing = %q, want its qualified name through the effective name result", got)
+		switch id := strings.Trim(cellText(row.Cells, 0), `"`); {
+		case id == "Observatory__ExposureTime__result_ft0":
+			checked = true
+			if got := cellText(row.Cells, 1); got != "Observatory::ExposureTime::result" {
+				t.Errorf("typedFeature of the return parameter's typing = %q, want its qualified name through the effective name result", got)
+			}
+		case strings.HasSuffix(id, "__wheel_ft0"):
+			// A named part under an anonymous part has no qualifiedName: the conversion addresses it by
+			// position, and the table keeps spelling it by that elementId, never as `Observatory::wheel`.
+			wheel = true
+			if got, want := cellText(row.Cells, 1), strings.TrimSuffix(id, "_ft0"); got != want || !strings.Contains(got, "___") {
+				t.Errorf("typedFeature of wheel's typing = %q, want its positional elementId %q", got, want)
+			}
 		}
 	}
-	if !checked {
-		t.Fatalf("no row for the return parameter's FeatureTyping; rows %v", typings.Table.Rows)
+	if !checked || !wheel {
+		t.Fatalf("missing the return parameter's (%v) or wheel's (%v) FeatureTyping row; rows %v", checked, wheel, typings.Table.Rows)
 	}
 	verifications := s.RunDocumentQuery("Verifications root=Observatory")
 	if !verifications.Holds() || verifications.Table == nil {

@@ -13,9 +13,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -227,6 +225,7 @@ func (s *Session) queryContext(ctx *runtime.Context) queryexec.Context {
 		context.ElementID = func(sym *symbols.Symbol) (string, error) {
 			return queryexec.ElementIDOf(read, index, sym)
 		}
+		context.ElementAddress = read.ReadAddress
 	}
 	return context
 }
@@ -431,7 +430,7 @@ func (s *Session) queryValueList(ctx *runtime.Context, elements []runtime.Value)
 // renderRowSet reports an executed query's rows as the prompt prints them, the row and
 // column counts as values, and the table as data (positionally addressed elements by elementId there).
 func renderRowSet(name string, result *queryexec.RowSet, context queryexec.Context) ([]string, []NamedValue, *VerdictTable) {
-	spell := tableSpelling(context.Model, context.Resolver, context.ElementID)
+	spell := tableSpelling(context.ElementID, context.ElementAddress)
 	rows := result.Rows()
 	columns := result.Columns()
 	lines := []string{fmt.Sprintf("✓ Query %s returned %s", name, countOf(len(rows), "row", "rows"))}
@@ -473,23 +472,26 @@ func queryCellValues(cell queryexec.Cell, spell func(queryexec.Value) string) []
 	return out
 }
 
-// tableSpelling spells a value as the prompt does, except an element the conversion identifies,
-// which the table spells by the address the conversion derives — the qualified name it states as
-// the element's qualifiedName, through an effective name (`return : Real` is `result`) as through a
-// declared one; the elementId where it addresses the element by position (`P::@2::mission`).
-func tableSpelling(model *semantics.Model, res *resolve.Resolver, elementID func(*symbols.Symbol) (string, error)) func(queryexec.Value) string {
+// tableSpelling spells a value as the prompt does, except an element the conversion wrote, which the
+// table spells by the address the conversion stated for it: the qualifiedName (through an effective
+// name too, `F::result`, `T::obj::massRequirement`), or its elementId where the address is positional
+// (`P::@2::mission`: unnamed, or under an unnamed owner).
+func tableSpelling(elementID func(*symbols.Symbol) (string, error), elementAddress func(string) (string, bool)) func(queryexec.Value) string {
 	return func(value queryexec.Value) string {
 		sym, ok := value.Element()
-		if !ok || elementID == nil || model == nil || res == nil {
+		if !ok || elementID == nil {
 			return formatQueryValue(value)
 		}
-		if info, ok := identity.Of(model, res, sym); ok && !naming.IsPositionalIdentity(info.FQN) {
-			return notationName(info.FQN)
+		id, err := elementID(sym)
+		if err != nil || id == "" {
+			return formatQueryValue(value)
 		}
-		if id, err := elementID(sym); err == nil && id != "" {
-			return id
+		if elementAddress != nil {
+			if address, ok := elementAddress(id); ok && !naming.IsPositionalIdentity(address) {
+				return notationName(address)
+			}
 		}
-		return formatQueryValue(value)
+		return id
 	}
 }
 

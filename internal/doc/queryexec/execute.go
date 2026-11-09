@@ -26,6 +26,8 @@ type Context struct {
 	// ElementID reads the elementId a conversion of the model writes for an
 	// element, or why the model has none; without one, elementId is absent.
 	ElementID func(sym *symbols.Symbol) (string, error)
+	// ElementAddress is the address the conversion stated for an elementId it wrote (ElementIDReader.ReadAddress).
+	ElementAddress func(id string) (string, bool)
 	// Runtime holds the objects the query may read; nil makes object bindings
 	// and Objects typed errors.
 	Runtime *runtime.Context
