@@ -182,6 +182,10 @@ func (s *SymbolIDs) compute(sym *symbols.Symbol) (string, bool) {
 	// The chain Feature a relationship's chain target denotes is minted off the element
 	// the relationship is written on: an end's `_pend0_pchain`, a transition's `_psourcechain`.
 	if sym.Chain != nil && sym.Chain.Relationship != nil && sym.Chain.Relationship.Implicit != nil && sym.Chain.Relationship.Implicit.Owner != nil {
+		if element, _, ok := s.ids.OfExpressionPart(doc, sym.Decl, "chain"); ok {
+			// A head clause's chain (`subsets a.b`) is minted off the feature at its position among the head's chains (headChain).
+			return element, true
+		}
 		if base, ok := s.of(sym.Chain.Relationship.Implicit.Owner); ok {
 			slot := "chain"
 			if sym.Chain.Relationship.Implicit.Slot == "sourcemember" {

@@ -171,6 +171,9 @@ func (m *Model) successionEnds(sym *symbols.Symbol) []*symbols.Symbol {
 	if edge, ok := sym.Decl.(*ast.SuccessionEdge); ok && (sym.Expr == nil || sym.Expr.Role != symbols.ExpressionConnectorEnd) {
 		return m.edgeEndsOf(sym, edge)
 	}
+	if node, ok := sym.Decl.(*ast.InitialNode); ok && node.Successor != nil && sym.Expr == nil && sym.Implicit == nil {
+		return m.initialEndsOf(sym, node)
+	}
 	if sym.Expr == nil || sym.Expr.Role != symbols.ExpressionTransitionSuccession {
 		return nil
 	}
@@ -444,6 +447,36 @@ func (m *Model) edgeEndsOf(sym *symbols.Symbol, edge *ast.SuccessionEdge) []*sym
 		part.OwnerScope = sym.OwnerScope
 	}
 	ends := []*symbols.Symbol{sourceEnd, targetEnd}
+	m.edgeEnds[sym] = ends
+	return ends
+}
+
+// initialEndsOf synthesizes the two ends a `first a then b;` succession written in a
+// body owns (SysML.xtext SourceSuccessionMember): an end referring to each named
+// member, the target's carrying the written multiplicity, as the conversion writes
+// them (encodeInitialSuccession).
+func (m *Model) initialEndsOf(sym *symbols.Symbol, node *ast.InitialNode) []*symbols.Symbol {
+	if cached, ok := m.edgeEnds[sym]; ok {
+		return cached
+	}
+	if m.edgeEnds == nil {
+		m.edgeEnds = make(map[*symbols.Symbol][]*symbols.Symbol)
+	}
+	var ends []*symbols.Symbol
+	for i, ref := range []*ast.QualifiedName{node.First, node.Successor} {
+		end := &ast.ConnectorEnd{Target: ref}
+		if i == 1 {
+			end.Multiplicity = node.TargetMultiplicity
+		}
+		end.NodeSpan = node.Span()
+		if ref != nil {
+			end.NodeSpan = ref.Span()
+		}
+		part := transitionPart(sym, end, end.NodeSpan, symbols.SymbolConnectorEnd, sym, symbols.ExpressionConnectorEnd)
+		part.Expr.Index = i
+		part.OwnerScope = sym.OwnerScope
+		ends = append(ends, part)
+	}
 	m.edgeEnds[sym] = ends
 	return ends
 }

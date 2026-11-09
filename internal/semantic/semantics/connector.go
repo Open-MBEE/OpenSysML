@@ -54,7 +54,14 @@ func (m *Model) IsAssociationOrConnector(sym *symbols.Symbol) bool {
 // its position, reported as a nil entry. A recorded connector reads its ends
 // from its record, which carries no entry for an end with no name of its own.
 func (m *Model) ownedEnds(sym *symbols.Symbol) []*symbols.Symbol {
-	if sym == nil || sym.Scope == nil {
+	if sym == nil {
+		return nil
+	}
+	if ends := m.successionEnds(sym); len(ends) > 0 {
+		// A synthesized succession (`then b;`, `first a then b;`, a transition's) owns the ends synthesized for it.
+		return ends
+	}
+	if sym.Scope == nil {
 		return nil
 	}
 	if sym.Recorded() {

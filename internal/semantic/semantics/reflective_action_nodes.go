@@ -29,7 +29,7 @@ func (m *Model) statementNodes(sym *symbols.Symbol) []*symbols.Symbol {
 			continue
 		}
 		kind := symbols.SymbolActionUsage
-		if _, ok := member.(*ast.SuccessionEdge); ok {
+		if isBodySuccessionNode(member) {
 			kind = symbols.SymbolSuccessionUsage
 		}
 		node := &symbols.Symbol{
@@ -115,6 +115,10 @@ func IsStatementNode(node ast.Node) bool {
 		// A bodiless `then target` is a SuccessionAsUsage of the body (SysML.xtext
 		// TargetSuccession); one with a body is a symbol the builder declares.
 		return len(node.Members) == 0
+	case *ast.InitialNode:
+		// A bodiless `first a then b;` is a SuccessionAsUsage of the body (SysML.xtext
+		// SourceSuccessionMember); `first a;` is the body's start marker, a Membership.
+		return node.Successor != nil && len(node.Members) == 0
 	case *ast.IfActionNode, *ast.IfBranchNode, *ast.WhileLoopActionNode, *ast.AssignmentActionNode,
 		*ast.TerminateStatement, *ast.PerformActionNode, *ast.ActionExecutionNode:
 		return true
@@ -248,4 +252,16 @@ func nodeStatementOf(decl ast.Node) ast.Node {
 		return NodeStatementOf(u)
 	}
 	return nil
+}
+
+// isBodySuccessionNode reports whether node is a succession written as a statement
+// of a body: `then b;` or `first a then b;`.
+func isBodySuccessionNode(node ast.Node) bool {
+	switch node := node.(type) {
+	case *ast.SuccessionEdge:
+		return true
+	case *ast.InitialNode:
+		return node.Successor != nil
+	}
+	return false
 }
