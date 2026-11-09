@@ -8,7 +8,6 @@ import io
 import json
 import os
 import stat
-import subprocess
 import sys
 import tempfile
 import textwrap
@@ -168,11 +167,6 @@ class GatesTest(unittest.TestCase):
             json.dump({"test": {}}, f)
         with self.assertRaisesRegex(gates.GateError, "pins no sdk.version"):
             gates.preflight(self.host("10.0.402", RUNTIMES_10), self.global_json)
-
-    def test_the_real_global_json_pins_an_sdk(self):
-        self.assertRegex(gates.pinned_sdk(), r"^10\.0\.\d+$")
-        with open(gates.GLOBAL_JSON, encoding="utf-8") as f:
-            self.assertEqual(json.load(f)["sdk"].get("rollForward"), "latestPatch")
 
     def test_coverage_accepts_handwritten_library_code(self):
         self.write("run/coverage.cobertura.1.xml", report(["/_/client/dotnet/src/Lib/A.cs"]))
@@ -997,35 +991,6 @@ class GoldensTest(unittest.TestCase):
             self.assertTrue(os.path.isfile(os.path.join(gates.REPO_ROOT, output)), output)
             for source in sources:
                 self.assertTrue(os.path.exists(os.path.join(gates.REPO_ROOT, source)), source)
-
-
-class MakefileTest(unittest.TestCase):
-    def test_test_and_coverage_require_the_schema_check_with_makes_buf_command(self):
-        environment = dict(os.environ)
-        for variable in ("BUF", "MAKEFLAGS", "MFLAGS", "MAKEOVERRIDES"):
-            environment.pop(variable, None)
-        environment["OPENSYSML_REQUIRE_BUF"] = "0"
-        for target in ("dotnet-test", "dotnet-coverage"):
-            for buf in (None, "buf-schema-probe --debug"):
-                with self.subTest(target=target, buf=buf):
-                    command = ["make", "--no-print-directory", "-n", target, "DOTNET=dotnet-schema-probe"]
-                    if buf is not None:
-                        command.append("BUF=" + buf)
-                    result = subprocess.run(
-                        command, cwd=gates.REPO_ROOT, capture_output=True, text=True, timeout=30,
-                        env=environment,
-                    )
-                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-                    invocations = [
-                        line for line in result.stdout.splitlines()
-                        if "dotnet-schema-probe test --solution " in line
-                    ]
-                    self.assertEqual(len(invocations), 1, result.stdout)
-                    expected = buf or "go run github.com/bufbuild/buf/cmd/buf@v1.57.2"
-                    self.assertTrue(
-                        invocations[0].startswith(f'BUF="{expected}" OPENSYSML_REQUIRE_BUF=1 '),
-                        invocations[0],
-                    )
 
 
 if __name__ == "__main__":

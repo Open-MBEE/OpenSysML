@@ -12,7 +12,7 @@ internal static class Category
     /// <summary>Needs nothing but the checkout and the runtime.</summary>
     internal const string Unit = "Unit";
 
-    /// <summary>Needs a sysml-grpc binary, see <see cref="ServiceGate"/>, or buf, see <see cref="BufGate"/>.</summary>
+    /// <summary>Needs a sysml-grpc binary, see <see cref="ServiceGate"/>.</summary>
     internal const string Integration = "Integration";
 
     /// <summary>Needs the Python, Java and Rust toolchains, whose clients' cache lock it is run against; see <see cref="InteropGate"/>.</summary>

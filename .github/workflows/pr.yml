@@ -1592,13 +1592,12 @@ jobs:
           scripts/ci-apt-install.sh z3
           z3 --version
 
-      # A test that needs the service, buf, a solver, or another client's toolchain, fails rather than skips without it.
+      # A test that needs the service, a solver, or another client's toolchain, fails rather than skips without it.
       - name: Run .NET client tests
         env:
           OPENSYSML_GRPC_BINARY: ${{ github.workspace }}/bin/sysml-grpc
           OPENSYSML_REQUIRE_SERVICE: "1"
           OPENSYSML_REQUIRE_INTEROP: "1"
-          OPENSYSML_REQUIRE_BUF: "1"
           OPENSYSML_REQUIRE_SMT: "1"
         run: make dotnet-test
 
@@ -1607,7 +1606,6 @@ jobs:
           OPENSYSML_GRPC_BINARY: ${{ github.workspace }}/bin/sysml-grpc
           OPENSYSML_REQUIRE_SERVICE: "1"
           OPENSYSML_REQUIRE_INTEROP: "1"
-          OPENSYSML_REQUIRE_BUF: "1"
           OPENSYSML_REQUIRE_SMT: "1"
         run: make dotnet-coverage
 

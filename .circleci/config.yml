@@ -1636,13 +1636,12 @@ jobs:
           name: Build sysml-grpc
           command: make build-grpc
 
-      # A test that needs the service, buf or a solver fails rather than skips without one.
+      # A test that needs the service or a solver fails rather than skips without one.
       - run:
           name: Run .NET client tests
           command: |
             OPENSYSML_GRPC_BINARY="$PWD/bin/sysml-grpc" \
             OPENSYSML_REQUIRE_SERVICE=1 \
-            OPENSYSML_REQUIRE_BUF=1 \
             OPENSYSML_REQUIRE_SMT=1 \
               make dotnet-test
 
@@ -1651,7 +1650,6 @@ jobs:
           command: |
             OPENSYSML_GRPC_BINARY="$PWD/bin/sysml-grpc" \
             OPENSYSML_REQUIRE_SERVICE=1 \
-            OPENSYSML_REQUIRE_BUF=1 \
             OPENSYSML_REQUIRE_SMT=1 \
               make dotnet-coverage
 

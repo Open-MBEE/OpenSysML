@@ -1301,16 +1301,10 @@ The output is deterministic: declarations in ordinal order, nothing of the machi
 ## Building and testing
 
 ```bash
-make dotnet-test       # preflight, locked restore, build, format check, tests (schema check required), samples
+make dotnet-test       # preflight, locked restore, build, format check, tests, samples
 make dotnet-coverage   # the tests under coverlet: Cobertura and JUnit in bin/dotnet/coverage
 make conformance-dotnet conformance-dotnet-check   # the conformance suite; see Conformance
 ```
-
-`make dotnet-test` and `make dotnet-coverage` require the [protocol schema check](#protocol-code):
-they pass Make's `BUF` command to the tests and set `OPENSYSML_REQUIRE_BUF=1`, so missing buf
-fails instead of skipping. The default runs the pinned buf with Go; use `BUF=buf` to use an
-installed binary. The first `go run` may download buf's Go dependencies. Neither target
-regenerates or rewrites the committed C# files.
 
 `make dotnet-test` runs these commands, which also work on their own:
 
@@ -1318,16 +1312,14 @@ regenerates or rewrites the committed C# files.
 dotnet restore client/dotnet/OpenSysML.slnx --locked-mode
 dotnet format client/dotnet/OpenSysML.slnx --verify-no-changes --no-restore
 dotnet build client/dotnet/OpenSysML.slnx -c Release --no-restore -warnaserror
-BUF='go run github.com/bufbuild/buf/cmd/buf@v1.57.2' OPENSYSML_REQUIRE_BUF=1 \
-  dotnet test --solution client/dotnet/OpenSysML.slnx -c Release --no-build
+dotnet test --solution client/dotnet/OpenSysML.slnx -c Release --no-build
 ```
 
 `dotnet test` runs on Microsoft.Testing.Platform, which `global.json` selects; the VSTest
 form `dotnet test <solution>` is not supported. Every test declares a `Category` trait,
 `Unit`, `Integration` or `Interop`, and a test enforces that, so a filter never silently
 drops one. `Unit` tests need only the checkout and the runtime; `Integration` tests need the
-service binary, or buf for the one that holds the [protocol code](#protocol-code) to the
-schema; `Interop` tests need the other clients' toolchains.
+service binary; `Interop` tests need the other clients' toolchains.
 
 Integration tests run against the binary `OPENSYSML_GRPC_BINARY` names, which they start
 themselves on ports the kernel chooses and reach by address: once serving its default
@@ -1462,23 +1454,8 @@ neither buf nor network access. Do not edit them; regenerate them after a schema
 make proto-csharp      # also part of make proto
 ```
 
-CI regenerates them with the pinned buf before building and fails on any difference. A test,
-`WireSchemaTests.TheCommittedStubsAreTheSchema`, catches the same drift locally: it builds
-the schema with buf and compares its `sysml.proto` with the descriptor compiled into
-`Sysml.cs` on every message, field (name, number, type, label, type name, oneof and proto3
-`optional`), oneof, reserved number and name, enum value and RPC, and names the first
-declaration where they part. Options are not compared, since managed mode rewrites the C#
-namespace in what only the C# plugins see. It runs `$BUF`, read as the Makefile reads it,
-else `buf` on `PATH`, and skips without either; set `OPENSYSML_REQUIRE_BUF=1` to turn that
-skip into a failure. `make dotnet-test` and `make dotnet-coverage` always require it, on
-every platform, and pass their `BUF` command (the pinned `go run` by default); a missing or
-failed command is a test failure, not a skip. The comparison only builds the schema: it does
-not invoke the remote C# generators or rewrite the stubs. To run it alone with the pinned buf:
-
-```bash
-BUF='go run github.com/bufbuild/buf/cmd/buf@v1.57.2' OPENSYSML_REQUIRE_BUF=1 \
-  dotnet test --project client/dotnet/test/OpenMBEE.OpenSysML.Tests -c Release --filter 'FullyQualifiedName~WireSchemaTests'
-```
+CI regenerates them with the pinned buf before building and fails on any difference;
+`make proto-csharp` followed by `git diff` on the two files does the same locally.
 
 [`api/proto/buf.gen.csharp.yaml`](../../api/proto/buf.gen.csharp.yaml) pins the generators
 to the runtime packages `Directory.Packages.props` pins: `protocolbuffers/csharp` v36.2 for

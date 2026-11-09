@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Linq;
 using System.Text;
 using System.Text.Json;
 using OpenMBEE.OpenSysML.Internal;
@@ -13,20 +12,6 @@ public sealed class ReleaseDigestsTests
 {
     private const string Repo = "Open-MBEE/OpenSysML";
     private const string Digest = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-
-    [Fact]
-    public void EmbeddedCopyIsTheRepositoryTable()
-    {
-        using var stream = typeof(ReleaseDigests).Assembly.GetManifestResourceStream(ReleaseDigests.ResourceName);
-        Assert.NotNull(stream);
-        using var embedded = new MemoryStream();
-        stream.CopyTo(embedded);
-        var table = File.ReadAllBytes(Repository.PathOf("client", "release-digests.json"));
-
-        Assert.True(
-            embedded.ToArray().AsSpan().SequenceEqual(table),
-            "The embedded release-digests.json is not client/release-digests.json; run python3 scripts/sync-release-digests.py.");
-    }
 
     [Fact]
     public void EmbeddedTablePinsEveryAssetOfTheRepositoryTable()

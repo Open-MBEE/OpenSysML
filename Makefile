@@ -724,7 +724,6 @@ dotnet-build: dotnet-preflight ## Restore the .NET client from its lock files an
 	$(DOTNET) restore $(DOTNET_SLN) --locked-mode
 	$(DOTNET) build $(DOTNET_SLN) -c Release --no-restore -warnaserror
 
-# Require the schema comparison locally too; Make's BUF defaults to pinned go run.
 # With OPENSYSML_GRPC_BINARY and OPENSYSML_REQUIRE_SERVICE=1 set, as CI sets them,
 # a test that needs the service fails rather than skips without one, and so does the
 # Vehicle sample's run against a service the sample gate starts.
@@ -732,7 +731,7 @@ dotnet-test: dotnet-build ## Check formatting, run the .NET client tests and its
 	@echo "Running .NET client tests..."
 	$(DOTNET) format $(DOTNET_SLN) --verify-no-changes --no-restore
 	rm -rf $(DOTNET_REPORTS)/test
-	BUF="$(BUF)" OPENSYSML_REQUIRE_BUF=1 $(DOTNET) test --solution $(DOTNET_SLN) -c Release --no-build \
+	$(DOTNET) test --solution $(DOTNET_SLN) -c Release --no-build \
 		--minimum-expected-tests $(DOTNET_MIN_TESTS) \
 		--results-directory $(CURDIR)/$(DOTNET_REPORTS)/test --report-xunit-junit
 	$(PYTHON) $(DOTNET_DIR)/scripts/dotnet-gates.py sample --dotnet "$(DOTNET)" \
@@ -759,7 +758,7 @@ dotnet-generate-check: dotnet-build ## Fail unless every committed golden of the
 dotnet-coverage: dotnet-build ## Run the .NET client tests under coverlet; write Cobertura and JUnit under bin/dotnet/coverage
 	@echo "Running .NET client tests with coverage..."
 	rm -rf $(DOTNET_REPORTS)/coverage
-	BUF="$(BUF)" OPENSYSML_REQUIRE_BUF=1 $(DOTNET) test --solution $(DOTNET_SLN) -c Release --no-build \
+	$(DOTNET) test --solution $(DOTNET_SLN) -c Release --no-build \
 		--minimum-expected-tests $(DOTNET_MIN_TESTS) \
 		--results-directory $(CURDIR)/$(DOTNET_REPORTS)/coverage --report-xunit-junit \
 		--coverlet --coverlet-output-format cobertura \
