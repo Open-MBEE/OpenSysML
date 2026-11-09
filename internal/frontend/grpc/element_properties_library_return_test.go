@@ -32,3 +32,27 @@ func TestGetElementPropertiesNamesAnUnnamedLibraryParameterByItsEffectiveName(t 
 		t.Errorf("directedFeature = %s, want Performances::BooleanEvaluation::result among them", joined)
 	}
 }
+
+// An unnamed library member that takes no name from a redefinition — one of
+// Parts::Part's connectors or invariants, inherited by every part definition —
+// carries its library path (owner/Metaclass[i]), never an empty name.
+func TestGetElementPropertiesNamesAnUnnamedLibraryMemberByItsLibraryPath(t *testing.T) {
+	r := parseForElementProperties(t, `package P { part def U; }`)
+	resp := r.read("P__U", "inheritedFeature")
+	if len(resp.Properties) != 1 || resp.Properties[0].Unsupported != "" {
+		t.Fatalf("inheritedFeature: %v", resp.Properties)
+	}
+	var paths []string
+	for _, value := range resp.Properties[0].Values {
+		element := value.GetElement()
+		if element.GetQualifiedName() == "" {
+			t.Errorf("library member %q (%s) has no qualified name", element.GetId(), element.GetMetaclass())
+		}
+		if strings.Contains(element.GetQualifiedName(), "/Connector[") || strings.Contains(element.GetQualifiedName(), "/Invariant[") {
+			paths = append(paths, element.GetQualifiedName())
+		}
+	}
+	if len(paths) == 0 {
+		t.Fatalf("no inherited unnamed library member carries a library path; got %d values", len(resp.Properties[0].Values))
+	}
+}
