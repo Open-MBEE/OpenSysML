@@ -3157,6 +3157,18 @@ func (p *Parser) parseStateSubactionActions(start int, kind stateSubactionKind) 
 		return []ast.Node{member}, nil
 	}
 
+	// StateAcceptActionUsage (SysML v2.1 §8.2.2.18.1): `<kind> accept a : Sig via p;`.
+	// Only in a state body's own members does a bare `accept` open a transition.
+	if p.atKeyword("accept") {
+		member := p.parseAcceptNode(p.peek().Span.Offset, ast.VisibilityDefault, nil, nil)
+		markStateSubaction(member, kind)
+		// Its ActionBody is `;` or a block, so `then` cannot directly follow it.
+		if last, ok := p.lastToken(); ok && last.Kind != lexer.Semicolon && last.Kind != lexer.RBrace {
+			p.expectSemicolon("accept action")
+		}
+		return []ast.Node{member}, nil
+	}
+
 	// A behavioral statement: `<kind> assign x := 1;`, `<kind> send s to t;`.
 	if p.isBehavioralKeyword() {
 		return []ast.Node{p.parseActionMember()}, nil
