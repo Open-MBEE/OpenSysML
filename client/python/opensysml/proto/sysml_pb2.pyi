@@ -534,7 +534,7 @@ class Outcome(_message.Message):
     def __init__(self, outputs: _Optional[_Mapping[str, Value]] = ..., final_state: _Optional[str] = ..., states_visited: _Optional[_Iterable[str]] = ..., error: _Optional[str] = ..., linearizations: _Optional[int] = ..., witness: _Optional[_Iterable[str]] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., probability: _Optional[float] = ..., probability_range: _Optional[_Union[ProbabilityRange, _Mapping]] = ...) -> None: ...
 
 class ExplorationStatus(_message.Message):
-    __slots__ = ("complete", "runs", "budgets_hit", "runs_budget", "depth_budget", "probabilities_lower_bound", "failed_linearizations", "unenumerated")
+    __slots__ = ("complete", "runs", "budgets_hit", "runs_budget", "depth_budget", "probabilities_lower_bound", "failed_linearizations", "unenumerated", "coverage")
     COMPLETE_FIELD_NUMBER: _ClassVar[int]
     RUNS_FIELD_NUMBER: _ClassVar[int]
     BUDGETS_HIT_FIELD_NUMBER: _ClassVar[int]
@@ -543,6 +543,7 @@ class ExplorationStatus(_message.Message):
     PROBABILITIES_LOWER_BOUND_FIELD_NUMBER: _ClassVar[int]
     FAILED_LINEARIZATIONS_FIELD_NUMBER: _ClassVar[int]
     UNENUMERATED_FIELD_NUMBER: _ClassVar[int]
+    COVERAGE_FIELD_NUMBER: _ClassVar[int]
     complete: bool
     runs: int
     budgets_hit: _containers.RepeatedScalarFieldContainer[str]
@@ -551,7 +552,26 @@ class ExplorationStatus(_message.Message):
     probabilities_lower_bound: bool
     failed_linearizations: int
     unenumerated: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, complete: _Optional[bool] = ..., runs: _Optional[int] = ..., budgets_hit: _Optional[_Iterable[str]] = ..., runs_budget: _Optional[int] = ..., depth_budget: _Optional[int] = ..., probabilities_lower_bound: _Optional[bool] = ..., failed_linearizations: _Optional[int] = ..., unenumerated: _Optional[_Iterable[str]] = ...) -> None: ...
+    coverage: Coverage
+    def __init__(self, complete: _Optional[bool] = ..., runs: _Optional[int] = ..., budgets_hit: _Optional[_Iterable[str]] = ..., runs_budget: _Optional[int] = ..., depth_budget: _Optional[int] = ..., probabilities_lower_bound: _Optional[bool] = ..., failed_linearizations: _Optional[int] = ..., unenumerated: _Optional[_Iterable[str]] = ..., coverage: _Optional[_Union[Coverage, _Mapping]] = ...) -> None: ...
+
+class Coverage(_message.Message):
+    __slots__ = ("states", "transitions")
+    STATES_FIELD_NUMBER: _ClassVar[int]
+    TRANSITIONS_FIELD_NUMBER: _ClassVar[int]
+    states: _containers.RepeatedCompositeFieldContainer[CoverageEntry]
+    transitions: _containers.RepeatedCompositeFieldContainer[CoverageEntry]
+    def __init__(self, states: _Optional[_Iterable[_Union[CoverageEntry, _Mapping]]] = ..., transitions: _Optional[_Iterable[_Union[CoverageEntry, _Mapping]]] = ...) -> None: ...
+
+class CoverageEntry(_message.Message):
+    __slots__ = ("path", "declaration", "runs")
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    DECLARATION_FIELD_NUMBER: _ClassVar[int]
+    RUNS_FIELD_NUMBER: _ClassVar[int]
+    path: str
+    declaration: str
+    runs: int
+    def __init__(self, path: _Optional[str] = ..., declaration: _Optional[str] = ..., runs: _Optional[int] = ...) -> None: ...
 
 class CheckBehaviorRequest(_message.Message):
     __slots__ = ("model_hash", "action_symbol_id", "state_machine_symbol_id", "inputs", "performer_symbol_id", "check_property", "check_diverge", "check_input", "check_assume", "check_witness", "check_depth", "check_states", "check_unroll", "check_timeout", "engine")
@@ -662,7 +682,7 @@ class CheckFinal(_message.Message):
     def __init__(self, outcome: _Optional[str] = ..., values: _Optional[_Mapping[str, str]] = ..., witness: _Optional[_Union[CheckWitness, _Mapping]] = ...) -> None: ...
 
 class CheckSearch(_message.Message):
-    __slots__ = ("states", "moves", "max_depth", "bounds_hit", "horizon", "horizon_set", "mass_bounded", "notes", "scope", "status")
+    __slots__ = ("states", "moves", "max_depth", "bounds_hit", "horizon", "horizon_set", "mass_bounded", "notes", "scope", "status", "coverage")
     STATES_FIELD_NUMBER: _ClassVar[int]
     MOVES_FIELD_NUMBER: _ClassVar[int]
     MAX_DEPTH_FIELD_NUMBER: _ClassVar[int]
@@ -673,6 +693,7 @@ class CheckSearch(_message.Message):
     NOTES_FIELD_NUMBER: _ClassVar[int]
     SCOPE_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
+    COVERAGE_FIELD_NUMBER: _ClassVar[int]
     states: int
     moves: int
     max_depth: int
@@ -683,7 +704,8 @@ class CheckSearch(_message.Message):
     notes: _containers.RepeatedScalarFieldContainer[str]
     scope: _containers.RepeatedScalarFieldContainer[str]
     status: str
-    def __init__(self, states: _Optional[int] = ..., moves: _Optional[int] = ..., max_depth: _Optional[int] = ..., bounds_hit: _Optional[_Iterable[str]] = ..., horizon: _Optional[float] = ..., horizon_set: _Optional[bool] = ..., mass_bounded: _Optional[bool] = ..., notes: _Optional[_Iterable[str]] = ..., scope: _Optional[_Iterable[str]] = ..., status: _Optional[str] = ...) -> None: ...
+    coverage: Coverage
+    def __init__(self, states: _Optional[int] = ..., moves: _Optional[int] = ..., max_depth: _Optional[int] = ..., bounds_hit: _Optional[_Iterable[str]] = ..., horizon: _Optional[float] = ..., horizon_set: _Optional[bool] = ..., mass_bounded: _Optional[bool] = ..., notes: _Optional[_Iterable[str]] = ..., scope: _Optional[_Iterable[str]] = ..., status: _Optional[str] = ..., coverage: _Optional[_Union[Coverage, _Mapping]] = ...) -> None: ...
 
 class CheckBehaviorResponse(_message.Message):
     __slots__ = ("verdict", "lines", "search", "violations", "divergences", "finals", "claim", "free_inputs", "assumptions", "witness", "contrast", "engine", "strength", "bounds", "reason", "error")

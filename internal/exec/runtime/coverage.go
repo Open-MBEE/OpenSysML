@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"cmp"
+	"fmt"
 	"slices"
 	"strings"
 
@@ -171,4 +172,33 @@ func machineName(object *Instance, behavior *symbols.Symbol) string {
 		}
 	}
 	return behavior.Name
+}
+
+// Lines renders the coverage for a text verdict: a summary, then one line per
+// state entered and transition taken naming the instance path, the declaration
+// and how many runs — or schedules, as `did` names what the engine counted — did so.
+func (c Coverage) Lines(did string) []string {
+	if c.Empty() {
+		return nil
+	}
+	lines := []string{fmt.Sprintf("coverage over all %ss: %s entered, %s taken", did,
+		coverageCount(len(c.States), "state"), coverageCount(len(c.Transitions), "transition"))}
+	for _, entry := range c.States {
+		lines = append(lines, "  state "+entry.line(did))
+	}
+	for _, entry := range c.Transitions {
+		lines = append(lines, "  transition "+entry.line(did))
+	}
+	return lines
+}
+
+func (e CoverageEntry) line(did string) string {
+	return fmt.Sprintf("%s (%s): %s", e.Path, e.Declaration, coverageCount(e.Runs, did))
+}
+
+func coverageCount(n int, noun string) string {
+	if n == 1 {
+		return "1 " + noun
+	}
+	return fmt.Sprintf("%d %ss", n, noun)
 }
