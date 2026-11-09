@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/doc/querytranslate"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
-	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
@@ -122,7 +122,7 @@ func TestQueryAndMetaQuery(t *testing.T) {
 	fresh := NewSession()
 	if _, err := fresh.Query(`oslc.where=rdf:type="PartUsage"`); err == nil {
 		t.Fatal("fresh Session.Query unexpectedly succeeded")
-	} else if queryErr, ok := err.(*corequery.Error); !ok || queryErr.Kind != corequery.ErrNoModel {
+	} else if queryErr, ok := err.(*querytranslate.Error); !ok || queryErr.Kind != querytranslate.ErrNoModel {
 		t.Fatalf("fresh Session.Query error = %#v, want ErrNoModel", err)
 	}
 	freshLines, _, err := fresh.runMeta(`%query oslc.where=rdf:type="PartUsage"`)
@@ -135,7 +135,7 @@ func TestQueryAndMetaQuery(t *testing.T) {
 	}
 	if _, err := broken.Query(`oslc.where=rdf:type="PartUsage"`); err == nil {
 		t.Fatal("query against broken model unexpectedly succeeded")
-	} else if queryErr, ok := err.(*corequery.Error); !ok || queryErr.Kind != corequery.ErrNoModel {
+	} else if queryErr, ok := err.(*querytranslate.Error); !ok || queryErr.Kind != querytranslate.ErrNoModel {
 		t.Fatalf("broken Session.Query error = %#v, want ErrNoModel", err)
 	}
 	s := NewSession()
