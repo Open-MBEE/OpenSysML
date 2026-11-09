@@ -53,7 +53,7 @@ func (m *Model) nestedSubsettingFQN(sym *symbols.Symbol) string {
 	}
 	switch owner.Decl.(type) {
 	case *ast.Definition, *ast.Usage, *ast.SubstateMember, *ast.TransitionMember,
-		*ast.AssumeMember, *ast.RequireMember:
+		*ast.SendStatement, *ast.AssumeMember, *ast.RequireMember:
 	default:
 		return ""
 	}
@@ -502,6 +502,8 @@ func ownerUsageKind(owner *symbols.Symbol) (ast.UsageKind, bool) {
 		return ast.UsageState, true
 	case *ast.TransitionMember:
 		return ast.UsageTransition, true
+	case *ast.SendStatement:
+		return ast.UsageAction, true
 	case *ast.AssumeMember, *ast.RequireMember:
 		return ast.UsageConstraint, true
 	}
@@ -656,43 +658,60 @@ func (m *Model) kermlFeatureNestedFQN(sym, owner *symbols.Symbol, usage *ast.Usa
 	return ""
 }
 
-// ImpliedSubsettingFQNForMetaclass is nestedSubsettingFQN for a graph element known by its
-// metaclasses (its own, its owning type's and its owning membership's with that membership's kind).
-func (m *Model) ImpliedSubsettingFQNForMetaclass(metaclass, ownerMetaclass, membershipMetaclass, membershipKind string, composite bool, portion ast.PortionKind, owner *symbols.Symbol) string {
-	u, ok := nestedUsageOfMetaclass(metaclass)
+// NestedMetaclasses is what the graph states of a nested feature: its, its owning type's
+// and both owning memberships' metaclasses, the membership kind, isParallel, isComposite, portionKind.
+type NestedMetaclasses struct {
+	Metaclass, OwnerMetaclass, MembershipMetaclass, MembershipKind string
+	OwnerMembershipMetaclass                                       string
+	OwnerParallel, Composite                                       bool
+	Portion                                                        ast.PortionKind
+}
+
+// ImpliedSubsettingFQNForMetaclass is nestedSubsettingFQN for a graph element known by
+// its metaclasses; owner is the owning type's symbol when it has one.
+func (m *Model) ImpliedSubsettingFQNForMetaclass(n NestedMetaclasses, owner *symbols.Symbol) string {
+	u, ok := nestedUsageOfMetaclass(n.Metaclass)
 	if !ok {
 		return ""
 	}
-	u.Composite = composite
-	u.Portion = portion
-	switch membershipMetaclass {
+	u.Composite = n.Composite
+	u.Portion = n.Portion
+	switch n.MembershipMetaclass {
 	case "VariantMembership":
 		return ""
 	case "ActorMembership":
 		u.Kind = ast.UsageActor
 	case "StakeholderMembership":
 		u.Kind = ast.UsageStakeholder
+	case "ObjectiveMembership":
+		u.Kind = ast.UsageObjective
 	case "RequirementConstraintMembership":
-		u.RequirementConstraint, u.Assumed = true, membershipKind == "assumption"
+		u.RequirementConstraint, u.Assumed = true, n.MembershipKind == "assumption"
 	case "StateSubactionMembership":
-		u.EntryExitAction = membershipKind != "do"
+		u.EntryExitAction = n.MembershipKind != "do"
+	case "RequirementVerificationMembership":
+		u.Kind, u.Verified = ast.UsageSatisfy, true
 	}
-	o, ok := nestedOwnerOfMetaclass(ownerMetaclass)
+	o, ok := nestedOwnerOfMetaclass(n.OwnerMetaclass)
 	if !ok {
 		return ""
+	}
+	o.Parallel = n.OwnerParallel
+	if n.OwnerMembershipMetaclass == "ObjectiveMembership" && !o.IsDef {
+		o.Usage = ast.UsageObjective
 	}
 	fqn, step := nestedRuleFQN(u, o)
 	if step {
 		if owner == nil {
 			return ""
 		}
-		return m.stepNestedFQN(owner, composite)
+		return m.stepNestedFQN(owner, n.Composite)
 	}
 	return fqn
 }
 
 // nestedUsageOfMetaclass is what a usage's metaclass alone says of it to the implicit
-// subsetting rules: its kind, and the perform/exhibit/include forms, metaclasses of their own.
+// subsetting rules: its kind, and the perform/exhibit/include/event/accept/send/terminate roles.
 func nestedUsageOfMetaclass(metaclass string) (NestedUsage, bool) {
 	switch metaclass {
 	case "PerformActionUsage":
@@ -705,6 +724,14 @@ func nestedUsageOfMetaclass(metaclass string) (NestedUsage, bool) {
 		return NestedUsage{Kind: ast.UsageConstraint}, true
 	case "SatisfyRequirementUsage":
 		return NestedUsage{Kind: ast.UsageSatisfy}, true
+	case "EventOccurrenceUsage":
+		return NestedUsage{Kind: ast.UsageOccurrence, Event: true}, true
+	case "AcceptActionUsage":
+		return NestedUsage{Kind: ast.UsageAction, Accept: true}, true
+	case "SendActionUsage":
+		return NestedUsage{Kind: ast.UsageAction, Send: true}, true
+	case "TerminateActionUsage":
+		return NestedUsage{Kind: ast.UsageAction, Terminate: true}, true
 	}
 	if kind, ok := impliedUsageKinds[metaclass]; ok {
 		return NestedUsage{Kind: kind}, true

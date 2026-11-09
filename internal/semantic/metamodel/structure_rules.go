@@ -4877,7 +4877,19 @@ func (e *Evaluator) structureNestedSubsettingFQN(element Element) (string, bool)
 			portion = ast.PortionTimeslice
 		}
 	}
-	return e.model.ImpliedSubsettingFQNForMetaclass(metaclass, ownerMetaclass, membershipMetaclass, membershipKind, composite.Boolean, portion, owningType.Element.Symbol), true
+	nested := semantics.NestedMetaclasses{
+		Metaclass: metaclass, OwnerMetaclass: ownerMetaclass,
+		MembershipMetaclass: membershipMetaclass, MembershipKind: membershipKind,
+		Composite: composite.Boolean, Portion: portion,
+	}
+	if value, known := e.options.Structure.Attribute(owningType.Element, "isParallel"); known && value.Kind == BooleanValue {
+		nested.OwnerParallel = value.Boolean
+	}
+	if ownerMembership, _, ok := e.structureOwningFeatureMembership(owningType.Element); ok && ownerMembership.Kind != NullValue {
+		handle := Element{Membership: ownerMembership.Membership, IsMembership: true}
+		nested.OwnerMembershipMetaclass, _ = e.options.Structure.Metaclass(handle)
+	}
+	return e.model.ImpliedSubsettingFQNForMetaclass(nested, owningType.Element.Symbol), true
 }
 
 func (e *Evaluator) elementDocumentKind(element Element) (source.Kind, bool) {
