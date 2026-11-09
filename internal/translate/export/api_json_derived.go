@@ -366,10 +366,8 @@ func (w *apiJSONElementWriter) derivedElementID(element metamodel.Element) (stri
 	return library.ID, library.ID != ""
 }
 
-// heldLibraryElementID spells a library element the graph itself holds — a
-// library document converted as the model — by the graph's own ids, so the
-// element reached through a library type and the one the graph states are one:
-// the subject's id, or its owningMembership's for the membership.
+// heldLibraryElementID spells a library element the graph itself holds (a library document converted as
+// the model) by the graph's own ids: the subject's id, or its owningMembership's for the membership.
 func (w *apiJSONElementWriter) heldLibraryElementID(id string, membership bool) (string, bool) {
 	if id == "" {
 		return "", false

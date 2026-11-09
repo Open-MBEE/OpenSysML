@@ -6,9 +6,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
-// A feature subsetting a chain through itself (`ref p : Person :> p.asPresident`,
-// the pilot's JohnIndividualExample) generalizes to the chain's final feature,
-// read through its typing, without resolving its own generals again.
+// A feature subsetting a chain through itself (`ref p : Person :> p.asPresident`) generalizes to
+// the chain's final feature, read through its typing, without resolving its own generals again.
 func TestSubsettingAChainThroughItselfGeneralizesToItsFinalFeature(t *testing.T) {
 	root := parsedRoot(t, "a.sysml", `package P {
 		item def Person { ref asPresident[0..1] : Person; }

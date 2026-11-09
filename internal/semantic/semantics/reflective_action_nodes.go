@@ -233,9 +233,8 @@ func (m *Model) statementOperands(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// NodeStatementOf is the statement a plain-headed action node is written as
-// (`action a assign …`, `action a if …`, `action a while …`, `action a send …`;
-// SysML v2 §8.2.2.17 ActionNode): the rule the conversion reads (naming.NodeStatement).
+// NodeStatementOf is the statement a plain-headed action node is written as (`action a assign …`,
+// `action a if …`; SysML v2 §8.2.2.17 ActionNode), the rule the conversion reads (naming.NodeStatement).
 func NodeStatementOf(n *ast.Usage) ast.Node {
 	if n == nil || !PlainNodeHead(n) {
 		return nil

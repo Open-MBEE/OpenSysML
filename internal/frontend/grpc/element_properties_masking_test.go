@@ -2,10 +2,8 @@ package grpc
 
 import "testing"
 
-// A name an objective's body writes resolves past the subject its generals
-// declare: the objective's own subject redefines it (SysML 8.3.18), so the
-// case's subject is reached instead (KerML 8.3.3.3.6), as the record the
-// reader resolves the documents into is made with the semantic model attached.
+// A name an objective's body writes resolves past the subject its generals declare, which the
+// objective's own subject redefines (SysML 8.3.18; KerML 8.3.3.3.6), to the case's subject.
 func TestGetElementPropertiesResolvesPastARedefinedInheritedSubject(t *testing.T) {
 	r := parseForElementProperties(t, `package P {
 	part def Lander;

@@ -1268,9 +1268,8 @@ func TestStructureConnectorEndsResolveAnonymousOwnedEnds(t *testing.T) {
 	}
 }
 
-// isOwnedFlowEnd reports whether end is one of flow's own anonymous `from`/`to`
-// ends: the end features a flow owns (SysML v2 §7.21.2), which redefine the
-// source and target ends it inherits.
+// isOwnedFlowEnd reports whether end is one of flow's own anonymous `from`/`to` ends (SysML v2
+// §7.21.2), which redefine the source and target ends it inherits.
 func isOwnedFlowEnd(end, flow *symbols.Symbol) bool {
 	return end != nil && end.Kind == symbols.SymbolConnectorEnd && end.Name == "" && end.Owner() == flow
 }

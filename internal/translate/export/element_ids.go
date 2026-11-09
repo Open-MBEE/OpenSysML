@@ -200,9 +200,8 @@ func (ids *ElementIDs) recordConnectorEnds(e *encoder, node ast.Node, subject rd
 			}
 		}
 	}
-	// A flow's `from`/`to` ends are minted off the flow at their position (connectorEnd,
-	// messageEnd), each owned through a membership beside it; a flow end owns the flow
-	// feature redefining the last segment of its name (flowEndReferences).
+	// A flow's `from`/`to` ends are minted off the flow at their position (connectorEnd, messageEnd), each
+	// owned through a membership beside it; a flow end owns the flow feature redefining its last segment.
 	usage, ok := node.(*ast.Usage)
 	if !ok || usage.FlowEnds == nil {
 		return
@@ -434,9 +433,8 @@ func (e *encoder) writtenBoundEndReferences(node ast.Node, subject rdf.Term, out
 			}
 		}
 	}
-	// A flow end's ReferenceSubsetting is written for the prefix of its name, a message
-	// end's for the whole name (flowEndReferences, messageEnd); the flow feature's
-	// redefinition of the last segment is a property, no relationship element.
+	// A flow end's ReferenceSubsetting is written for its name's prefix, a message end's for the whole
+	// name (flowEndReferences, messageEnd); the flow feature's redefinition is a property, no element.
 	usage, ok := node.(*ast.Usage)
 	if !ok || usage.FlowEnds == nil {
 		return

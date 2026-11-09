@@ -7,10 +7,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// resultExpressionMembers are the expressions a function-like type's own body states as
-// results (`calc def C { x + 1 }`, `require constraint { a >= b }`), each the member of a
-// ResultExpressionMembership the type owns (KerML 8.3.4.6 Function, SysML.xtext
-// CalculationBody); synthesized once so every read answers the same identities.
+// resultExpressionMembers are the expressions a function-like type's body states as results
+// (`calc def C { x + 1 }`), each the member of a ResultExpressionMembership (KerML 8.3.4.6); synthesized once.
 func (m *Model) resultExpressionMembers(sym *symbols.Symbol) []*symbols.Symbol {
 	if m == nil || sym == nil || sym.Implicit != nil || sym.Expr != nil || sym.Recorded() {
 		return nil
@@ -53,9 +51,8 @@ func (m *Model) resultExpressionMembers(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// filterMemberships are the ElementFilterMemberships a namespace's `filter <cond>;`
-// members write (KerML 8.2.4), each owning its condition expression, minted off the
-// membership as the conversion writes it; synthesized once per namespace.
+// filterMemberships are the ElementFilterMemberships a namespace's `filter <cond>;` members write
+// (KerML 8.2.4), each owning its condition, minted as the conversion writes them; synthesized once.
 func (m *Model) filterMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	if m == nil || sym == nil || sym.Implicit != nil || sym.Expr != nil || sym.Recorded() {
 		return nil

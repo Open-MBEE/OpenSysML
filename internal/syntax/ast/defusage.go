@@ -718,10 +718,8 @@ type FlowEnds struct {
 	PayloadMultiplicity *Multiplicity
 }
 
-// FlowEndSegments splits what a flow's `from`/`to` end names into the prefix the
-// end itself references and the last segment its flow feature redefines
-// (SysML.xtext FlowEnd): `a.p.fuel` is the prefix `a.p` and `fuel`; a lone `a`
-// has no prefix. Nil, nil for a node that names nothing.
+// FlowEndSegments splits a flow end's name into the prefix the end references and the last segment its
+// flow feature redefines (SysML.xtext FlowEnd): `a.p.fuel` is `a.p` and `fuel`; nil, nil when it names nothing.
 func FlowEndSegments(target Node) (prefix Node, last *QualifiedName) {
 	switch t := EndTarget(target).(type) {
 	case *FeatureChainExpr:
@@ -734,10 +732,8 @@ func FlowEndSegments(target Node) (prefix Node, last *QualifiedName) {
 	return nil, nil
 }
 
-// ImpliedPayload is the payload feature an `of` clause states without declaring
-// one (`of T`, `of T[1]`): a usage made up to carry the typing and multiplicity
-// the clause gives it (SysML-textual-bnf PayloadFeature), spanning the clause.
-// Nil when the clause declares the feature itself or states no payload.
+// ImpliedPayload is the payload feature an `of T` clause implies without declaring one: a usage carrying the
+// clause's typing and multiplicity (SysML-textual-bnf PayloadFeature); nil for a declared or absent payload.
 func (f *FlowEnds) ImpliedPayload() *Usage {
 	if f == nil || f.Payload == nil || f.PayloadDecl != nil {
 		return nil

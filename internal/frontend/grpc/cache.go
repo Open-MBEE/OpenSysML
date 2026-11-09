@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"fmt"
 	checkws "github.com/Open-MBEE/OpenSysML/internal/check/workspace"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/querytranslate"
 	goruntime "runtime"
 	"sync"
 
@@ -112,6 +113,10 @@ type CachedModel struct {
 	// GetElementProperties, built on first use.
 	elementReaderOnce  sync.Once
 	elementReaderValue *elementReader
+	// propertyTable is the reflective property table the query translator
+	// reads, built once per model.
+	queryTableOnce sync.Once
+	propertyTable  *querytranslate.Table
 
 	// idle are the workers requests have given back, warm with what they resolved.
 	idleMu sync.Mutex

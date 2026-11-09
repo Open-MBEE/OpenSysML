@@ -2,6 +2,7 @@ package export
 
 import (
 	"bytes"
+	"slices"
 	"sort"
 	"strings"
 
@@ -185,6 +186,27 @@ func (s *authoredSource) shareLines(regions []region, spans []source.Span) {
 			regions[i].start = spans[i].Offset
 		}
 	}
+}
+
+// tokenBounded narrows each region sharing its first line with the member before
+// it to start at its own first token, so the notes written there are the earlier
+// member's; spans are the members' first tokens.
+func (s *authoredSource) tokenBounded(regions []region, spans []source.Span) []region {
+	out := slices.Clone(regions)
+	for i, r := range out {
+		// Only a member sharing its first line with the member before it is bounded.
+		if r == (region{}) || i == 0 || spans[i-1].Offset < r.start {
+			continue
+		}
+		first := s.index(spans[i].Offset)
+		for k := first - 1; k >= 0 && s.spans[k].Offset >= r.start; k-- {
+			if !s.trivia(k) {
+				out[i].start = spans[i].Offset
+				break
+			}
+		}
+	}
+	return out
 }
 
 // wholeLines reports whether every region starts and ends on a line boundary,

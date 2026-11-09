@@ -5,11 +5,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// MultiplicityBounds are the bound Expressions a written MultiplicityRange owns
-// (KerML 8.3.3.6 MultiplicityRange::lowerBound, upperBound), in that order: `[n]`
-// states the upper bound alone, as the conversion writes it. The range is a
-// feature's clause or a `multiplicity m [a..b]` declaration (KerML.xtext
-// MultiplicityRange). Nil for any other symbol, a default multiplicity included.
+// MultiplicityBounds are the lower and upper bound Expressions a written MultiplicityRange owns (KerML
+// 8.3.3.6; `[n]` states the upper alone), for a feature's clause or `multiplicity m [a..b]`; nil otherwise.
 func (m *Model) MultiplicityBounds(rng *symbols.Symbol) []*symbols.Symbol {
 	if m == nil || rng == nil {
 		return nil

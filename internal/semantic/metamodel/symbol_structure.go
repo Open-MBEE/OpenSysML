@@ -29,9 +29,8 @@ type SymbolStructure struct {
 	res    *resolve.Resolver
 	model  *semantics.Model
 	prefix string
-	// identities, when set, spells every element by the id the model's API
-	// element form writes for it (SetIdentities); else a named declared element
-	// carries its identity-table id and an anonymous one none.
+	// identities, when set, spells every element by the API element form's id (SetIdentities);
+	// else a named declared element carries its identity-table id and an anonymous one none.
 	identities func(*symbols.Symbol) (string, bool)
 
 	mu        sync.Mutex
@@ -607,9 +606,8 @@ func (s *SymbolStructure) qualifiedNameLocked(element Element) (string, bool) {
 	return fqn, fqn != ""
 }
 
-// SetIdentities makes the structure spell its elements by identities: the one
-// id scheme the model's API element form writes, for named and anonymous
-// elements alike, so a reader and the form name one element one way.
+// SetIdentities makes the structure spell its elements by identities, the one id scheme the API
+// element form writes for named and anonymous elements alike.
 func (s *SymbolStructure) SetIdentities(identities func(*symbols.Symbol) (string, bool)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -54,9 +54,8 @@ const agreementRatchetDir = "testdata/element_properties_agreement"
 
 var agreementKinds = []string{"unresolved-id", "metaclass", "value", "exported-not-answered", "answered-not-exported"}
 
-// agreementRow is one class of disagreement between the api-json export and
-// GetElementProperties: a metamodel property of a metaclass (or its @id / @type) and
-// the kind of disagreement.
+// agreementRow is one class of disagreement between the api-json export and GetElementProperties:
+// a metamodel property of a metaclass (or its @id / @type) and the kind of disagreement.
 type agreementRow struct{ class, kind string }
 
 // agreementRatchet is the recorded count of a class with the adjudication it rests on:
@@ -169,9 +168,8 @@ func writeAgreementRatchet(t *testing.T, recorded map[agreementRow]agreementRatc
 	}
 }
 
-// metamodelProperty reports whether name is a property the metamodel declares on
-// class or an ancestor (KerML/SysML abstract syntax), as opposed to a key the
-// export writes for its own reader (`redefines`, `specializes`, `subsets`, `references`).
+// metamodelProperty reports whether name is a property the metamodel declares on class or an ancestor,
+// as opposed to a key the export writes for its own reader (`redefines`, `specializes`, `subsets`, `references`).
 func metamodelProperty(class, name string) bool {
 	for _, definition := range ontology.Properties() {
 		if definition.Name == name && ontology.IsAncestorOrSelf(class, definition.DefiningClass) {
@@ -181,13 +179,8 @@ func metamodelProperty(class, name string) bool {
 	return false
 }
 
-// TestElementPropertiesAgreeWithTheAPIJSONExport converts every committed example to
-// the api-json form and asks GetElementProperties for each element the form writes,
-// by the form's id, comparing every metamodel property the form states with the
-// answer. Each disagreement is counted in its class (Metaclass::property, kind) and
-// held against testdata/element_properties_agreement_ratchet.txt, where every class
-// carries the side that is correct and the clause it rests on: a class not recorded,
-// or one that grew, fails.
+// TestElementPropertiesAgreeWithTheAPIJSONExport asks GetElementProperties for every element the api-json form
+// writes and ratchets each disagreement class (Metaclass::property, kind) in testdata/element_properties_agreement_ratchet.txt.
 func TestElementPropertiesAgreeWithTheAPIJSONExport(t *testing.T) {
 	paths := agreementExamples(t)
 	if len(paths) == 0 {
@@ -235,6 +228,11 @@ func TestElementPropertiesAgreeWithTheAPIJSONExport(t *testing.T) {
 		for _, object := range objects {
 			id, _ := object["@id"].(string)
 			metaclass, _ := object["@type"].(string)
+			if strings.HasPrefix(metaclass, "sysx:") {
+				// An export-only node (a sysx:Note holding a bare comment) reflects no
+				// metamodel element, so the RPC has none to answer for it.
+				continue
+			}
 			resp, err := srv.GetElementProperties(ctx, &pb.GetElementPropertiesRequest{ModelHash: parsed.ModelHash, ElementId: id})
 			if err != nil {
 				t.Fatalf("%s: GetElementProperties(%s): %v", path, id, err)

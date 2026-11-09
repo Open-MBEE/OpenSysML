@@ -21,11 +21,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 )
 
-// GetElementProperties reads the metamodel properties of one element of a
-// parsed model by their specification names, evaluated over the symbols the
-// model resolved to (metamodel.SymbolStructure), one element at a time. A
-// standard-library element — one a value referenced, or a library qualified
-// name — is read from the form of the library document declaring it.
+// GetElementProperties reads one element's metamodel properties by their specification names over
+// the symbols the model resolved to (metamodel.SymbolStructure); a library element reads from its document's form.
 func (s *Service) GetElementProperties(ctx context.Context, req *pb.GetElementPropertiesRequest) (*pb.GetElementPropertiesResponse, error) {
 	if err := s.requireCapability(CapabilityElementProperties); err != nil {
 		return nil, err
@@ -101,9 +98,8 @@ type elementReader struct {
 	catalog   *identity.Catalog
 	structure *metamodel.SymbolStructure
 	evaluator *metamodel.Evaluator
-	// ids spells every element by the id the model's API element form (Convert)
-	// writes for it, and resolves such an id back; nil when the form refuses the
-	// model (idsRefusal), when the reader falls back to the symbols' own ids.
+	// ids spells every element by the id the API element form (Convert) writes and resolves it
+	// back; nil when the form refuses the model (idsRefusal) and the symbols' own ids serve.
 	ids        *export.SymbolIDs
 	idsRefusal error
 	addresses  map[*symbols.Symbol]string
@@ -114,10 +110,8 @@ type elementReader struct {
 func (m *CachedModel) elementReader() *elementReader {
 	m.elementReaderOnce.Do(func() {
 		resolver := resolve.New(m.Index)
-		// The structure reads references through the resolver's record of the
-		// documents (referencedSymbol), as the conversion does before it writes;
-		// the record is made with the semantic model attached, so that what a
-		// redefinition masks (KerML 8.3.3.3.6) is not inherited by name.
+		// References are read through the resolver's record of the documents (referencedSymbol), made
+		// with the semantic model attached so what a redefinition masks (KerML 8.3.3.3.6) is not inherited by name.
 		sem := semantics.NewModel(resolver)
 		resolver.SetModel(sem)
 		for _, doc := range m.Documents {
@@ -154,10 +148,8 @@ func (m *CachedModel) elementReader() *elementReader {
 	return m.elementReaderValue
 }
 
-// symbolIDs spells the model's symbols by the ids Convert writes for the elements
-// of the documents read (the excluded ones left out, so a top-level name two
-// documents declare is no collision here); the error is why the form refuses
-// those documents together (an id outside the alphabet).
+// symbolIDs spells the model's symbols by the ids Convert writes for the documents read, the excluded
+// ones left out (so a top-level name two documents declare is no collision here); the error is an id outside the alphabet.
 func (m *CachedModel) symbolIDs(resolver *resolve.Resolver, sem *semantics.Model, excluded map[string]*pb.ExcludedDocument) (*export.SymbolIDs, error) {
 	documents := make([]export.ModelDocument, 0, len(m.Documents))
 	for _, doc := range m.Documents {
@@ -242,9 +234,8 @@ func (m *CachedModel) declarationAt(sym *symbols.Symbol) string {
 	return sym.DocName
 }
 
-// lookup finds the symbol a request addresses: the id the API element form writes for it, a
-// symbol id the model resolves (qualified name, inherited member, positional id), or a path
-// address this reader gave an element no id names.
+// lookup finds the symbol a request addresses: the API element form's id, a symbol id the model
+// resolves (qualified name, inherited member, positional id), or a path address this reader gave.
 func (r *elementReader) lookup(id string) (*symbols.Symbol, bool) {
 	if sym, ok := r.ids.Symbol(id); ok {
 		return sym, true
@@ -510,10 +501,8 @@ func (r *elementReader) refOf(element metamodel.Element) *pb.ElementRef {
 	return r.ref(sym, element)
 }
 
-// libraryMembershipRef identifies a membership owning a library element: no
-// symbol stands for it, so it carries the id the library document's own form
-// writes for it (fixed for a catalogued member, minted for an unnamed one), the
-// one id scheme every surface reads the membership by.
+// libraryMembershipRef identifies a membership owning a library element by the id the library
+// document's form writes for it (fixed for a catalogued member, minted for an unnamed one).
 func (r *elementReader) libraryMembershipRef(element metamodel.Element) (*pb.ElementRef, bool) {
 	membership := element.Membership
 	if !element.IsMembership || membership.Symbol != nil || membership.Member == nil || !r.model.Index.Library(membership.Member) {
@@ -537,9 +526,8 @@ func (r *elementReader) libraryMembershipRef(element metamodel.Element) (*pb.Ele
 	return ref, true
 }
 
-// libraryElementID is the id the library document's own form writes for sym
-// when no identity names it: minted under its catalogued owner for an unnamed
-// member, else its qualified name.
+// libraryElementID is the id the library document's form writes for sym when no identity names
+// it: minted under its catalogued owner for an unnamed member, else its qualified name.
 func (r *elementReader) libraryElementID(sym *symbols.Symbol) string {
 	if sym.Name == "" {
 		// Named only by redefinition (BooleanEvaluation's `return : Boolean;`):
@@ -581,11 +569,8 @@ func (r *elementReader) qualifiedName(sym *symbols.Symbol) string {
 	return r.model.Index.QualifiedIdentity(sym)
 }
 
-// libraryEffectiveQualifiedName names an unnamed library feature by the
-// identifier it takes from the feature it redefines (KerML 8.2.4
-// effectiveName): BooleanEvaluation's `return : Boolean;` is
-// Performances::BooleanEvaluation::result. One that takes none carries its
-// library path (owner/Metaclass[i]), as ElementIdentity promises.
+// libraryEffectiveQualifiedName names an unnamed library feature by its effective name (KerML 8.2.4;
+// BooleanEvaluation's `return : Boolean;` is Performances::BooleanEvaluation::result), else by its library path.
 func (r *elementReader) libraryEffectiveQualifiedName(sym *symbols.Symbol) string {
 	if r.semantics == nil {
 		return ""

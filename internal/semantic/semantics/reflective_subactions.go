@@ -88,9 +88,8 @@ func withSubactionActions(members []ast.Node) []ast.Node {
 	return out
 }
 
-// emptySubactionMemberships returns the StateSubactionMemberships of the
-// subaction members of sym's body that perform no action (`entry;`): each is
-// written, and the conversion writes it, as a membership owning nothing.
+// emptySubactionMemberships returns the StateSubactionMemberships of sym's subaction members that
+// perform no action (`entry;`), each a membership owning nothing, as the conversion writes it.
 func (m *Model) emptySubactionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	if m == nil || sym == nil || sym.Implicit != nil || sym.Expr != nil || sym.Recorded() {
 		return nil

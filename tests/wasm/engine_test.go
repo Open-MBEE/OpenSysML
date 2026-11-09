@@ -22,11 +22,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// engineGzipBudget bounds growth of the gzipped js build of sysml-engine (9,105,348 bytes under go1.27.3
-// on 2026-10-27; raised to 9,500,000 on 2026-11-08 when bare comments entered the library snapshot at
-// 9,425,954, to 9,510,000 on 2026-11-09 when the reflective constructor and metadata paths and the shared
-// library-member rule entered, measured at 9,502,192-9,502,250 across builds); TestEngineDependencies, not
-// this budget, catches a forbidden dependency.
+// engineGzipBudget bounds the gzipped js build of sysml-engine, last raised to 9,510,000 on 2026-11-09 for the reflective
+// constructor/metadata paths and the shared library-member rule (9,502,192-9,502,250); TestEngineDependencies catches a forbidden dependency.
 const engineGzipBudget = 9510000
 
 func TestEngineDependencies(t *testing.T) {

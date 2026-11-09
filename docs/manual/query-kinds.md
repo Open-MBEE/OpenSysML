@@ -13,8 +13,8 @@ the reference; this one only draws the boundaries.
 | [Document queries](#document-queries-over-elements) | The model's elements: declarations, ownership, relationships, declared values | Ordered rows of elements, projected into typed columns | Objects unless the session holds them; nothing a solver would infer | `%run-query`, `-run-query`, `RunDocumentQuery`, tables and lists in a document |
 | [Object and verdict rows](#object-rows-and-verdict-rows) | The objects a session holds and the assertions about them | Rows standing for objects (by path and id) or for verdicts | Objects no session created; the model's relationships over an object row | The same, in a session with `-instantiate`/`%instantiate` |
 | [State and event rows](#runtime-state-and-event-queries) | The state machines the held objects exhibit, as they stand now, and the trace the session recorded | One row per active leaf state; one row per trace record, at its instant | Anything outside the current session; a run no trace recorded | The same, in a session with a run and `-trace`/`%trace on` |
-| [API `Query`](#the-api-query-over-a-project) | The elements of one loaded model, by property | Elements with their properties, in declaration order | Objects, values, the library, traversal beyond containment | `Query` RPC, `model.query(...)` |
-| [OSLC Query text](#the-api-query-over-a-project) | The same elements, by prefixed property | Element identification only | The same; `or` | `%query`, `-query`, `oslc_query` in `Query` |
+| [API `Query`](#the-api-query-over-a-project) | The elements of one loaded model, or the objects of one element, by property | Elements (or objects, by path) with their properties, in declaration order | Values, the library, traversal beyond one property step | `Query` RPC, `model.query(...)` |
+| [OSLC Query text](#the-api-query-over-a-project) | The same, by prefixed property | The same | The same; `or` | `%query`, `-query`, `oslc_query` in `Query`, MCP `query` |
 | [`Evaluate`](#evaluate-one-expression-in-one-scope) | One expression in one scope, over a held object when named | One value — a scalar, a sequence, an object, an element | Rows, columns, anything the expression's scope does not reach | `%eval`, `-eval`, `Evaluate` RPC |
 | [`all T` and collection operations](#the-runtime-population-all-t) | The instances a definition classifies, as an expression | An ordered sequence, and whatever the library functions make of it | Data-type values; the state a machine is in; the trace | Inside `%eval`, `-eval`, `Evaluate`, any expression |
 | [`solve` and its siblings](#solve-over-constraints) | A constraint, requirement or satisfaction assertion, with what is already fixed | A satisfying assignment, `unsat` with the conflict, or `unknown` | What a run *did*; anything the solver's theory does not cover | `%check`, `%solve`, `%explain`, `%configure`, `%optimize`; the `solve` engine |
@@ -184,11 +184,18 @@ structured `Query` shape the standard defines — `scope`, `select`, a `where`
 tree of primitive and composite constraints — filtering the elements of one
 loaded model by their properties (`name`, `@type`, `multiplicityLower`, …). It
 answers elements with their properties, in declaration order. **OSLC Query
-text** is a second spelling over the same elements (`oslc.where=sysml:name="wheel"`
-with `oslc.select`, `oslc.orderBy`, `oslc.properties` and `oslc.searchTerms`),
-accepted for element identification by tools that speak OSLC. The two differ
-in what they can express — structured queries support `or`, OSLC compound
-terms only `and` — so neither subsumes the other.
+text** is a second spelling of the same query (`oslc.where=sysml:name="wheel"`
+with `oslc.select`, `oslc.orderBy`, `oslc.properties`, `oslc.prefix` and
+`oslc.searchTerms`), accepted by tools that speak OSLC. Neither has an
+evaluator of its own: both are *translated* into a document-query plan — the
+same `WhereType`, `WhereName`, `WhereFeature`, `WhereText`, `Project` and
+`OrderBy` operations a `query def` compiles to — and executed by the
+document-query engine, so a property compares by its type (`<` on a
+multiplicity bound is numeric), a property the metamodel does not define is a
+path error naming the nearest spelling, and a failure carries the same
+structured `QueryOutcome` a document query reports. The two spellings differ
+only in what their grammars can write: structured queries support `or`, OSLC
+compound terms only `and`.
 
 ```console
 $ sysml cookbook.sysml -query 'sysml:name="primaryMirror"'
@@ -196,17 +203,27 @@ $ sysml cookbook.sysml -query 'sysml:name="primaryMirror"'
 Cookbook::telescope::primaryMirror  PartUsage
 ```
 
-Both are element identification and nothing more: no traversal, no joins, no
-ordering or paging beyond the OSLC `orderBy`, no derived values, and nothing
-about objects, runs or verdicts. Neither reaches the standard library unless
-a scope names a library element. An unknown parameter or property is refused
-as written (`unknown OSLC query parameter "rdf:type"`), not answered empty.
+The properties are the metamodel's, read reflectively — whatever `Project`
+reads of an element, not a fixed list — and a one-step path (`owner.name`, or
+the OSLC scoped term `sysml:owner{sysml:name="x"}`) reaches the related
+element. The query also reaches one layer down: `rdf:type=elmt:<id>` (or an
+`@type` of `<urn:sysmlv2:element:…>` in the structured form) selects the
+**objects** the session holds whose definition is that element, each answered
+by its path (`Garage::car.wheels[2]`) with its features (`sysx:pressure`,
+`sysx:engine{sysx:power}`) as properties — the object rows of
+[a document query](#object-rows-and-verdict-rows), without writing one. No
+joins, no ordering beyond `orderBy`, no paging, nothing about runs or verdicts,
+and nothing from the standard library unless a scope names a library element.
+An unknown parameter or property is refused as written (`unknown OSLC query
+parameter "oslc.paging"`, `unknown property "nam"; did you mean "name"`), not
+answered empty.
 
 Read [SysML v2 API & Services `Query`](../reference/api.md#sysml-v2-api--services-query)
 for the structured form and its comparison semantics, and
-[OSLC Query text](../reference/oslc-query.md) for the text grammar; the
-entry points are the `Query` RPC (`query` or `oslc_query`), `model.query(...)`
-in Python, `%query` at the prompt and `-query` on the command line.
+[OSLC Query text](../reference/oslc-query.md) for the text grammar and the
+plan each construct becomes; the entry points are the `Query` RPC (`query` or
+`oslc_query`), `model.query(...)` in Python, the MCP `query` tool, `%query` at
+the prompt and `-query` on the command line.
 
 ## `Evaluate`: one expression in one scope
 

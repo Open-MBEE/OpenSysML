@@ -34,9 +34,8 @@ func TestTransitionFeatureKindsReadTheirLiteral(t *testing.T) {
 	var kinds []string
 	for _, membership := range m.OwnedMemberships(t1) {
 		if membership.Implicit != nil && membership.Implicit.Member != nil {
-			// The `then busy` succession is owned through an OwningMembership
-			// (SysML.xtext TransitionSuccessionMember) and the implied parameters
-			// through ParameterMemberships (EmptyParameterMember), not as transition features.
+			// The `then busy` succession is owned through an OwningMembership (TransitionSuccessionMember)
+			// and the implied parameters through ParameterMemberships, not as transition features.
 			if meta := m.MetaclassOf(membership.Implicit.Member); meta != nil && meta.Name == "SuccessionAsUsage" {
 				continue
 			}
