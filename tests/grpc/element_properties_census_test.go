@@ -23,17 +23,16 @@ type censusWitness struct {
 	path, modelHash, id, metaclass string
 }
 
-// censusModels are the models the census reads: the examples and the gRPC conformance
-// fixtures, which carry the metaclasses the handbook's examples do not reach.
+// censusModels are the models the census reads, the small gRPC conformance fixtures first
+// (they carry the metaclasses the handbook's examples do not reach), then the examples.
 func censusModels(t *testing.T) []string {
 	t.Helper()
-	paths := agreementExamples(t)
 	fixtures, err := filepath.Glob(filepath.Join("testdata", "conformance", "*.*ml"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	sort.Strings(fixtures)
-	return append(paths, fixtures...)
+	return append(fixtures, agreementExamples(t)...)
 }
 
 // TestElementPropertiesServeEveryRuleAndExplainEveryOmission walks all of metamodel.Rules()
@@ -101,11 +100,26 @@ func TestElementPropertiesServeEveryRuleAndExplainEveryOmission(t *testing.T) {
 	settled := map[string]censusWitness{}
 	tried := map[string]int{}
 	const triesPerKey = 40
+	// closed reports whether every key is settled, out of tries, or has no carrier the
+	// element form can state, so the scan need not export the models that remain.
+	closed := func() bool {
+		for key, w := range open {
+			if _, done := settled[key]; done || tried[key] >= triesPerKey {
+				continue
+			}
+			if _, absent := elementFormAbsentMetaclasses[w.class]; !absent {
+				return false
+			}
+		}
+		return true
+	}
 
+	read := 0
 	for _, path := range censusModels(t) {
-		if len(settled) == len(open) {
+		if closed() {
 			break
 		}
+		read++
 		data, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)
@@ -203,11 +217,11 @@ func TestElementPropertiesServeEveryRuleAndExplainEveryOmission(t *testing.T) {
 			}
 		}
 	}
-	t.Logf("%d served rules and %d omissions witnessed over %d models", len(rules), len(omissions), len(censusModels(t)))
+	t.Logf("%d served rules and %d omissions witnessed over %d models", len(rules), len(omissions), read)
 }
 
-// elementFormAbsentMetaclasses are the relationship metaclasses the API element form states
-// as text of their owner rather than as elements; an entry that becomes carried fails the census.
+// elementFormAbsentMetaclasses are the relationship metaclasses the API element form states as
+// text of their owner rather than as elements; one carried by a model the census read fails it.
 var elementFormAbsentMetaclasses = map[string]string{
 	"Unioning":        "a type's `unions` is a text property of the type in the element form",
 	"Intersecting":    "a type's `intersects` is a text property of the type in the element form",
