@@ -318,6 +318,7 @@ func (c *checker) searchFrom(stop context.Context, fresh func() (*Context, error
 	}
 	if err != nil {
 		// Failing to start fails on every schedule from it: a violation with no move.
+		c.foldCoverage()
 		c.violate(Violation{Kind: ViolationFailure, Err: err, Witness: c.failing(err), Mass: mass})
 		return more, nil
 	}
