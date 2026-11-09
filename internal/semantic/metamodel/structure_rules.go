@@ -4902,8 +4902,8 @@ func (e *Evaluator) structureTypeMembers(element Element, property string, visit
 }
 
 func (e *Evaluator) computeStructureTypeMembers(element Element, property string, visited map[ElementKey]bool) ([]Value, bool) {
-	if element.Symbol != nil && !e.structureKnows(element) {
-		return e.structureLibraryTypeMembers(element, property)
+	if base, ok := e.structureLibraryBase(element); ok {
+		return e.structureLibraryTypeMembers(base, property)
 	}
 	owned, handled, ok := e.structureOwnedFilter(element, "Membership", true)
 	if !handled || !ok {
@@ -4948,6 +4948,25 @@ func (e *Evaluator) computeStructureTypeMembers(element Element, property string
 		append(append(public, protected...), inherited...), e.options.Structure,
 	).Values
 	return e.structureMembershipsProperty(memberships, property)
+}
+
+// structureLibraryBase is the one decision both member walks make: a library type the structure only
+// references — implied, or stated as `: Boolean` — has no rows there, so its members are read by this symbol.
+func (e *Evaluator) structureLibraryBase(element Element) (Element, bool) {
+	if element.Symbol != nil {
+		return element, !e.structureKnows(element)
+	}
+	if element.Node != nil || element.IsMembership {
+		return Element{}, false
+	}
+	// Only the symbol structure refers to a library type by a row of its own; a graph
+	// structure states its library bases as symbols already.
+	if structure, ok := e.options.Structure.(*SymbolStructure); ok {
+		if symbol, found := structure.LibrarySymbol(element); found && symbol != nil {
+			return ElementOf(symbol), true
+		}
+	}
+	return Element{}, false
 }
 
 // structureLibraryTypeMembers reads a library base's non-private memberships, anonymous ones
@@ -5090,8 +5109,8 @@ func (e *Evaluator) computeStructureNonPrivateMemberships(
 	element Element,
 	visited map[ElementKey]bool,
 ) ([]Value, bool) {
-	if element.Symbol != nil && !e.structureKnows(element) {
-		return e.structureLibraryTypeMembers(element, "membership")
+	if base, ok := e.structureLibraryBase(element); ok {
+		return e.structureLibraryTypeMembers(base, "membership")
 	}
 	owned, handled, ok := e.structureOwnedFilter(element, "Membership", true)
 	if !handled || !ok {
