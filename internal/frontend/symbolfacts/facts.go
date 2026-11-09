@@ -149,6 +149,7 @@ func OfWith(sym *symbols.Symbol, sc *Context, opts Options) *Info {
 	}
 	// Extract metadata from AST node
 	extractMetadata(sym, info.Metadata)
+	sc.sendMetadata(sym, info.Metadata)
 	// A parameter whose direction its membership gives rather than its text,
 	// such as a subject (`in`), reports that direction.
 	if _, written := info.Metadata["direction"]; !written {

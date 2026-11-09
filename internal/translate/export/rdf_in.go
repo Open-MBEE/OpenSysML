@@ -1982,6 +1982,11 @@ func (d *decoder) bodyMembers(el *element) ([]*element, error) {
 		}
 		children = slices.DeleteFunc(children, func(child *element) bool { return slices.Contains(receivers, child) })
 	}
+	if el.metaclass == mSend {
+		// A send's argument parameters are the payload, `via` and `to` its head writes.
+		params := d.sendArgumentParams(el)
+		children = slices.DeleteFunc(children, func(child *element) bool { return slices.Contains(params, child) })
+	}
 	return d.positionalSuccessions(children)
 }
 
@@ -3866,6 +3871,11 @@ func (d *decoder) writtenQName(el *element) string {
 	// name its value spells is written from the node.
 	if el.owner != nil && el.owner.metaclass == mAcceptAction && d.transitionFeatureKind(el.owner) != "trigger" &&
 		slices.Contains(d.receiverParams(el.owner, d.acceptParam(el.owner)), el) {
+		return d.writtenQName(el.owner)
+	}
+	// A send's parameters are its head's arguments, so a name their values spell
+	// is written from the send.
+	if el.owner != nil && el.owner.metaclass == mSend && slices.Contains(d.parameterChildren(el.owner), el) {
 		return d.writtenQName(el.owner)
 	}
 	if el.owner != nil && el.owner.owner != nil && d.isNodeMembership(rdf.IRI(el.owner.iri)) {

@@ -1031,9 +1031,12 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 			}
 		}
 	}
-	if related, ok := model.ReflectiveElements(sym, "relatedFeature"); ok {
+	if related := model.ConnectorRelatedFeaturesByEnd(sym); len(related) > 0 {
 		facts.RelatedFeatures = make([]symbols.ElementRef, len(related))
 		for i, feature := range related {
+			if feature == nil {
+				continue
+			}
 			if ref, found := idx.RefTo(feature); found {
 				facts.RelatedFeatures[i] = ref
 			} else {

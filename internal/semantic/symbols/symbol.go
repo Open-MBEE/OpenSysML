@@ -130,6 +130,10 @@ const (
 	// SymbolKerMLFeature classifies a KerML Feature the reflective layer
 	// synthesizes without a declaration: an expression's parameter.
 	SymbolKerMLFeature
+	// SymbolSendActionUsage classifies a send action (`send x via p;`,
+	// `action a send x to q;`): an action usage whose payload, sender and
+	// receiver are its parameters (SysML v2 §8.3.17.15 SendActionUsage).
+	SymbolSendActionUsage
 )
 
 var symbolKindNames = map[SymbolKind]string{
@@ -211,6 +215,7 @@ var symbolKindNames = map[SymbolKind]string{
 	SymbolCrossFeature:            "crossFeature",
 	SymbolKerMLType:               "kermlType",
 	SymbolReferenceUsage:          "referenceUsage",
+	SymbolSendActionUsage:         "sendActionUsage",
 }
 
 // String returns the display name of the kind.
@@ -268,11 +273,11 @@ func (k SymbolKind) IsAction() bool {
 	return k.IsActionUsage()
 }
 
-// IsActionUsage reports whether k classifies an action usage: a plain one or an
-// action node, which is an ActionUsage of its own metaclass (SysML v2 §8.2.2.17).
+// IsActionUsage reports whether k classifies an action usage: a plain one or an action
+// node (a send included), which is an ActionUsage of its own metaclass (SysML v2 §8.2.2.17).
 func (k SymbolKind) IsActionUsage() bool {
 	switch k {
-	case SymbolActionUsage, SymbolAcceptActionUsage, SymbolAssignmentActionUsage, SymbolPerformActionUsage,
+	case SymbolActionUsage, SymbolSendActionUsage, SymbolAcceptActionUsage, SymbolAssignmentActionUsage, SymbolPerformActionUsage,
 		SymbolIfActionUsage, SymbolWhileLoopActionUsage, SymbolForLoopActionUsage, SymbolTerminateActionUsage:
 		return true
 	}

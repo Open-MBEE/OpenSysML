@@ -267,7 +267,7 @@ func completionKind(k symbols.SymbolKind) protocol.CompletionItemKind {
 		return protocol.CompletionItemKindEnumMember
 	case symbols.SymbolActionUsage, symbols.SymbolAcceptActionUsage, symbols.SymbolAssignmentActionUsage,
 		symbols.SymbolPerformActionUsage, symbols.SymbolIfActionUsage, symbols.SymbolWhileLoopActionUsage,
-		symbols.SymbolForLoopActionUsage, symbols.SymbolTerminateActionUsage, symbols.SymbolCalcUsage,
+		symbols.SymbolForLoopActionUsage, symbols.SymbolTerminateActionUsage, symbols.SymbolSendActionUsage, symbols.SymbolCalcUsage,
 		symbols.SymbolConstraintUsage, symbols.SymbolRequirementUsage,
 		symbols.SymbolCaseUsage, symbols.SymbolAnalysisCaseUsage,
 		symbols.SymbolVerificationCaseUsage, symbols.SymbolUseCaseUsage:

@@ -1463,6 +1463,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	if elems, ok := m.transitionElements(sym, feature); ok {
 		return elems, true
 	}
+	if elems, ok := m.sendElements(sym, feature); ok {
+		return elems, true
+	}
 	switch feature {
 	case "owningNamespace":
 		if !m.reflectiveMetaclassConforms(sym, "Element") {
@@ -1694,7 +1697,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return nil, true
 	case "ownedMember":
-		return m.withDefaultMultiplicityMember(sym, append(m.acceptParameters(sym), m.withTransitionParts(sym, ownedMembersOf(sym))...)), true
+		return m.withDefaultMultiplicityMember(sym, append(m.nodeParameters(sym), m.withTransitionParts(sym, ownedMembersOf(sym))...)), true
 	case "multiplicity":
 		if !m.reflectiveMetaclassConforms(sym, "Type") {
 			return nil, false
@@ -1703,9 +1706,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "ownedElement":
 		return m.ownedElementsOf(sym), true
 	case "member":
-		return m.withDefaultMultiplicityMember(sym, append(m.acceptParameters(sym), m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))...)), true
+		return m.withDefaultMultiplicityMember(sym, append(m.nodeParameters(sym), m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))...)), true
 	case "feature":
-		features := m.acceptParameters(sym)
+		features := m.nodeParameters(sym)
 		for _, member := range m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)) {
 			if member.IsFeature() || isExpressionSymbol(member) {
 				features = append(features, member)
@@ -1774,6 +1777,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		return []*symbols.Symbol{}, true
 	case "ownedFeature":
 		features := append([]*symbols.Symbol(nil), m.expressionOwnedParts(sym)...)
+		features = append(features, m.sendParameters(sym)...)
 		for _, member := range m.withTransitionParts(sym, ownedMembersOf(sym)) {
 			if member.IsFeature() || isExpressionSymbol(member) {
 				features = append(features, member)
@@ -1990,6 +1994,7 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 		members = append(members, value)
 	}
 	members = append(members, m.expressionOwnedElements(sym)...)
+	members = append(members, m.nodeParameters(sym)...)
 	members = append(members, m.withTransitionParts(sym, ownedMembersOf(sym))...)
 	seen := make(map[*symbols.Symbol]bool, len(members))
 	for _, member := range members {
@@ -2021,33 +2026,13 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 	return m.withDefaultMultiplicityMember(sym, members)
 }
 
-// connectorRelatedFeatures is Connector::relatedFeature, sourceFeature or
-// targetFeature: the features its ends reference, all, the first, or the rest,
-// in end order.
+// connectorRelatedFeatures derives Connector::relatedFeature per KerML 8.3.4.5.3: each
+// end's ownedReferenceSubsetting.subsettedFeature (the chain Feature for a chained end).
 func (m *Model) connectorRelatedFeatures(sym *symbols.Symbol, feature string) []*symbols.Symbol {
 	var related []*symbols.Symbol
-	if sym.Recorded() {
-		related = m.recordedSequence(sym.Facts.RelatedFeatures)
-	} else {
-		ends := m.EndFeatures(sym)
-		paths := m.reflectiveConnectorEndPaths(sym)
-		successionEnds := m.connectorSuccessionRelatedFeatures(sym)
-		count := max(len(ends), len(paths), len(successionEnds))
-		for i := 0; i < count; i++ {
-			var target *symbols.Symbol
-			if i < len(paths) && len(paths[i].Features) > 0 {
-				path := paths[i].Features
-				target = path[len(path)-1]
-			}
-			if target == nil && i < len(successionEnds) {
-				target = successionEnds[i]
-			}
-			if target == nil && i < len(ends) {
-				target = m.ReferencedFeature(ends[i])
-			}
-			if target != nil {
-				related = append(related, target)
-			}
+	for _, target := range m.ConnectorRelatedFeaturesByEnd(sym) {
+		if target != nil {
+			related = append(related, target)
 		}
 	}
 	switch feature {
@@ -2062,6 +2047,65 @@ func (m *Model) connectorRelatedFeatures(sym *symbols.Symbol, feature string) []
 		return nil
 	}
 	return related
+}
+
+// ConnectorRelatedFeaturesByEnd is the feature each end of the connector sym
+// references, by end position, nil for an end referencing none; relatedFeature
+// is these without the nils, and a library record keeps them by position.
+func (m *Model) ConnectorRelatedFeaturesByEnd(sym *symbols.Symbol) []*symbols.Symbol {
+	if m == nil || sym == nil || !m.reflectiveMetaclassConforms(sym, "Connector") {
+		return nil
+	}
+	ends := m.EndFeatures(sym)
+	var paths []ConnectorEndPath
+	var successionEnds, recorded []*symbols.Symbol
+	if sym.Recorded() {
+		// A recorded end with no symbol of its own (`connect a to b`) answers the
+		// feature its record names at its position; so do ends all inherited (a flow's).
+		recorded = m.recordedPositions(sym.Facts.RelatedFeatures)
+	} else {
+		paths = m.reflectiveConnectorEndPaths(sym)
+		successionEnds = m.connectorSuccessionRelatedFeatures(sym)
+	}
+	count := max(len(ends), len(paths), len(successionEnds), len(recorded))
+	if count == 0 {
+		return nil
+	}
+	related := make([]*symbols.Symbol, count)
+	for i := range related {
+		var target *symbols.Symbol
+		if i < len(ends) {
+			target = m.EndReferencedFeature(ends[i])
+		}
+		if target == nil && i < len(recorded) {
+			target = recorded[i]
+		}
+		// A message's ends own no end feature of their own: the feature its
+		// `from`/`to` path reaches stands in for the end's reference.
+		if target == nil && i < len(paths) && len(paths[i].Features) > 0 {
+			path := paths[i].Features
+			target = path[len(path)-1]
+		}
+		if target == nil && i < len(successionEnds) {
+			target = successionEnds[i]
+		}
+		related[i] = target
+	}
+	return related
+}
+
+// EndReferencedFeature is the subsettedFeature of end's ownedReferenceSubsetting: the
+// chain Feature for a chained end, else the feature named; nil when unresolved.
+func (m *Model) EndReferencedFeature(end *symbols.Symbol) *symbols.Symbol {
+	if m == nil || end == nil {
+		return nil
+	}
+	for _, rel := range m.ownedImplicitRelationships(end, referenceSubsetting) {
+		if _, target, ok := m.implicitRelationshipEnds(rel); ok {
+			return target
+		}
+	}
+	return m.ReferencedFeature(end)
 }
 
 func (m *Model) reflectiveConnectorEndPaths(sym *symbols.Symbol) []ConnectorEndPath {
@@ -2793,6 +2837,7 @@ var metaclassNames = map[symbols.SymbolKind]string{
 	symbols.SymbolWhileLoopActionUsage:    "WhileLoopActionUsage",
 	symbols.SymbolForLoopActionUsage:      "ForLoopActionUsage",
 	symbols.SymbolTerminateActionUsage:    "TerminateActionUsage",
+	symbols.SymbolSendActionUsage:         "SendActionUsage",
 	symbols.SymbolStateDef:                "StateDefinition",
 	symbols.SymbolStateUsage:              "StateUsage",
 	symbols.SymbolCalcDef:                 "CalculationDefinition",

@@ -181,6 +181,7 @@ type Model struct {
 	valueExpressions map[*symbols.Symbol]*symbols.Symbol
 	expressionParts  map[*symbols.Symbol]*expressionParts
 	transitionParts  map[*symbols.Symbol]*transitionParts
+	sendParts        map[*symbols.Symbol]*sendParts
 	ownedAnnotations map[*symbols.Symbol][]*symbols.Symbol
 	annotatingRels   map[*symbols.Symbol][]*symbols.Symbol
 	ownedImports     map[*symbols.Symbol][]*symbols.Symbol
@@ -452,9 +453,9 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		}
 	}
 
-	// A send written as an action node is a SendActionUsage of its own, so it is
-	// typed by SendAction whether or not a usage declares it.
-	if _, ok := sym.Decl.(*ast.SendStatement); ok {
+	// A send action is typed by SendAction whether or not a usage declares it
+	// (SysML v2 §8.3.17.15 SendActionUsage).
+	if sym.Kind == symbols.SymbolSendActionUsage {
 		for _, sendDef := range m.resolver.Index().LookupQualified("Actions::SendAction") {
 			if sendDef == nil || sendDef == sym || seen[sendDef] {
 				continue
@@ -640,6 +641,21 @@ func (m *Model) recordedSequence(refs []symbols.ElementRef) []*symbols.Symbol {
 	for _, ref := range refs {
 		if target := m.recordedElement(ref); target != nil {
 			out = append(out, target)
+		}
+	}
+	return out
+}
+
+// recordedPositions is recordedSequence keeping every position: nil where a fact
+// names no element, or one the record no longer declares.
+func (m *Model) recordedPositions(refs []symbols.ElementRef) []*symbols.Symbol {
+	if len(refs) == 0 {
+		return nil
+	}
+	out := make([]*symbols.Symbol, len(refs))
+	for i, ref := range refs {
+		if !ref.IsZero() {
+			out[i] = m.recordedElement(ref)
 		}
 	}
 	return out

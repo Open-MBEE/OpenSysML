@@ -176,3 +176,27 @@ func TestIsPositionalIdentityRequiresCanonicalIndex(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildNamesANamedSendBodyAsTheSends(t *testing.T) {
+	file, root, index := indexed(t, "send.sysml", `package Demo {
+		action def A {
+			action a send x via p { in x; }
+		}
+	}`)
+	names := built(t, file, root, index)
+	pkg := root.Members[0].(*ast.Membership).Member.(*ast.Package)
+	def := pkg.Members[0].(*ast.Membership).Member.(*ast.Definition)
+	a := def.Members[0].(*ast.Membership).Member.(*ast.Usage)
+	statement, _ := UnwrapMember(a.Members[0])
+	send, ok := statement.(*ast.SendStatement)
+	if !ok {
+		t.Fatalf("a's member is %T, want *ast.SendStatement", statement)
+	}
+	body, _ := UnwrapMember(send.Members[0])
+	if got := names.FQN[body]; got != "Demo::A::a::x" {
+		t.Errorf("FQN[body] = %q, want Demo::A::a::x: the send's body is the node's own", got)
+	}
+	if got, ok := names.FQN[send]; ok {
+		t.Errorf("FQN[send] = %q, want none: the statement is the node, not a member of it", got)
+	}
+}

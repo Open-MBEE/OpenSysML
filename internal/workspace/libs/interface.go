@@ -169,8 +169,8 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 		Redefines:      w.refs(sym, m.RedefinedFeatures(sym), "redefined feature"),
 		About:          w.refs(sym, m.AnnotatedElementsOf(sym), "annotated element"),
 	}
-	if related, ok := m.ReflectiveElements(sym, "relatedFeature"); ok {
-		facts.RelatedFeatures = w.refs(sym, related, "related feature")
+	if related := m.ConnectorRelatedFeaturesByEnd(sym); len(related) > 0 {
+		facts.RelatedFeatures = w.relatedFeatureRefs(sym, related)
 	}
 	if paths := m.ConnectorEndFeaturePaths(sym); len(paths) > 0 {
 		facts.EndPaths = make([][]symbols.ElementRef, len(paths))
@@ -383,4 +383,24 @@ func declaredTraits(decl ast.Node) (ast.FeatureDirection, symbols.Modifiers) {
 		set(oc.ValueIsDefault, symbols.ModDefault)
 	}
 	return ast.DirNone, mods
+}
+
+// relatedFeatureRefs names a connector's related features by end position, zero
+// for an end referencing none. A record carries no chain Feature, so a chained end
+// names the feature its chain reaches; a recorded end with a symbol of its own
+// derives the chain Feature from its recorded reference subsetting instead.
+func (w *interfaceWriter) relatedFeatureRefs(of *symbols.Symbol, related []*symbols.Symbol) []symbols.ElementRef {
+	out := make([]symbols.ElementRef, len(related))
+	for i, feature := range related {
+		if feature == nil {
+			continue
+		}
+		if feature.Chain != nil {
+			if chain, ok := w.model.ReflectiveElements(feature, "chainingFeature"); ok && len(chain) > 0 {
+				feature = chain[len(chain)-1]
+			}
+		}
+		out[i] = w.ref(of, feature, "related feature")
+	}
+	return out
 }

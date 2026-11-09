@@ -657,6 +657,9 @@ elmt:P__c
     sysml:ownedFeatureMembership expr:P__c_pend0_om, expr:P__c_pend1_om ;
     sysml:ownedFeature expr:P__c_pend0, expr:P__c_pend1 ;
     sysml:ownedEndFeature expr:P__c_pend0, expr:P__c_pend1 ;
+    sysml:relatedFeature expr:P__c_pend0_pchain, expr:P__c_pend1_pchain ;
+    sysml:sourceFeature expr:P__c_pend0_pchain ;
+    sysml:targetFeature expr:P__c_pend1_pchain ;
     sysx:endForm "to" ;
     sysx:endVerb "connect" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -667,7 +670,8 @@ elmt:P__c
     json:ownedMember "[{\"@id\":\"P__c_pend0\"},{\"@id\":\"P__c_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"P__c_pend0_om\"},{\"@id\":\"P__c_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"P__c_pend0\"},{\"@id\":\"P__c_pend1\"}]" ;
-    json:ownedEndFeature "[{\"@id\":\"P__c_pend0\"},{\"@id\":\"P__c_pend1\"}]" .
+    json:ownedEndFeature "[{\"@id\":\"P__c_pend0\"},{\"@id\":\"P__c_pend1\"}]" ;
+    json:relatedFeature "[{\"@id\":\"P__c_pend0_pchain\"},{\"@id\":\"P__c_pend1_pchain\"}]" .
 
 elmt:P__c_om
     a sysml:OwningMembership ;

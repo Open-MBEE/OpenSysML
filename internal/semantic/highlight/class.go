@@ -91,7 +91,7 @@ func classOfKind(k symbols.SymbolKind) (semtok.Class, bool) {
 		return semtok.ClassEnumMember, false
 	case symbols.SymbolActionUsage, symbols.SymbolAcceptActionUsage, symbols.SymbolAssignmentActionUsage, symbols.SymbolPerformActionUsage,
 		symbols.SymbolIfActionUsage, symbols.SymbolWhileLoopActionUsage, symbols.SymbolForLoopActionUsage,
-		symbols.SymbolTerminateActionUsage,
+		symbols.SymbolTerminateActionUsage, symbols.SymbolSendActionUsage,
 		symbols.SymbolStateUsage, symbols.SymbolCalcUsage,
 		symbols.SymbolConstraintUsage, symbols.SymbolRequirementUsage, symbols.SymbolCaseUsage,
 		symbols.SymbolAnalysisCaseUsage, symbols.SymbolVerificationCaseUsage,
