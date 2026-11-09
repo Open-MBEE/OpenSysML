@@ -75,7 +75,7 @@ and `experimental_notice`, which the Python client raises as an
 | `sysml:` | `https://www.omg.org/spec/SysML#`             | Metaclasses and metamodel properties |
 | `elmt:`  | `urn:sysmlv2:element:`                        | The elements of the converted model |
 | `sysx:`  | `urn:opensysml:sysml:`                        | The few properties the metamodel does not define |
-| `expr:`  | `urn:opensysml:expr:`                         | The expressions an element's positions hold, see [Expressions](#expressions) |
+| `expr:`  | `urn:opensysml:expr:`                         | The expressions an element's positions hold, see [Expressions](#expressions), and the notes its lines hold, see [Notes](#notes) |
 | `json:`  | `urn:sysmlv2:annotation:json:`                | One JSON literal per collection-valued property, see [Collections](#collections) |
 | `rdf:`, `xsd:` | the standard RDF and XML Schema namespaces | `rdf:type`, literal datatypes |
 
@@ -678,6 +678,7 @@ The `sysx:` properties:
 | `sysx:sourceText`, `sysx:sourceTail` | The element's lines as written, comments and blank lines included, which a conversion back to notation prefers while they still state what the graph states. An element with members carries the lines ahead of them as its text and those after them as its tail. See [Source text](#source-text). |
 | `sysx:sourceDocument` | On each root element of a model converted from several documents, the name of the document it was written in, since one graph no longer keeps the documents apart |
 | `sysx:sourceLine`, `sysx:sourceColumn`, `sysx:sourceEndLine`, `sysx:sourceEndColumn` | Where each declared element is written in its document: 1-based lines and columns (columns count bytes), the end exclusive, as a diagnostic's span gives them, trailing whitespace excluded. Layout like `sysx:sourceText`: reading the graph ignores them, and an element sharing a line with its owner, which has no `sysx:sourceText` of its own, still has them |
+| `sysx:note` | The notes an element's own lines hold — `//` and `//* */` notes, and `/* */` comments where the grammar admits no `Comment` element — each a `sysx:Note` node addressed by position (`expr:P__x_pnote0`) carrying `sysx:noteText` as written, `sysx:noteToken` (the element's code tokens ahead of it) or `sysx:noteTrailing` (none follows it), `sysx:noteOwnLine` and, in the tail closing a body, `sysx:noteTail`; see [Notes](#notes). Layout, like the source text: a conversion back to notation puts each after the token it followed when the element is rebuilt. |
 | `sysx:sourceLanguage` | On each root element, the grammar the file was written in — `sysml` or `kerml` — so the text is read back under the grammar it was written under, and a flag the two grammars spell differently (`const` against `constant`, see the feature flags above) is written in that grammar. Absent for a buffer with no model extension (standard input, a REPL session), which the parser reads as SysML with KerML's `all` prefix. See [Source text](#source-text). |
 | `sysx:declaredKeyword` | The kind keyword as written, when it is one of the synonyms several keywords share (`datatype` and `attribute`, `function` and `calc`, KerML's `feature` and `attribute`, `snapshot` and `occurrence`), on a named declaration and on an anonymous one alike (`feature :>> x;`, `snapshot :>> start { … }`). The AST records one kind for all of them, so without this the notation would come back rewritten. Where the graph types the fact the keyword states — `sysml:portionKind` for `snapshot`/`timeslice`, the metaclass `sysml:EventOccurrenceUsage` for `event`, `sysml:AssertConstraintUsage` for `assert` — the typed fact is authoritative and this predicate only chooses between two spellings of it (`snapshot :>> start` against `snapshot occurrence :>> start`; `event m.start` against `event occurrence references m.start`; `assert c` against `assert constraint references c`); a keyword the typing contradicts (`snapshot` with `sysml:portionKind "timeslice"` or none, `event` on a `sysml:PartUsage`, `assert` on a `sysml:ConstraintUsage`) is refused rather than one of the two written. KerML's `feature` has no typed counterpart — an attribute usage is what the AST records for it and `sysx:sourceLanguage` does not decide between the two — so it is carried as this spelling alone. Also the keyword a constraint body's condition is stated with (`assert`, `assume`, or absent for a bare condition, which asserts implicitly), the `constraint` of an `assume`/`require` member that declares a constraint usage (so its `references C` is read as a specialization, where `require C` alone states the constraint the member refers to), and the sigil a metadata annotation was written with: `@` for a member (`@Safety;`), `#` for a prefix ahead of a declaration (`#Safety part def P;`), absent for the `metadata` keyword. |
 | `sysx:declaredPrefix` | The keyword qualifying the kind keyword after it — the `assume` of `assume constraint c : C`. It says what the declaration is for, and the AST kind alone does not carry it. The `assert` of `assert constraint c : C` is not written here: that usage is a `sysml:AssertConstraintUsage`, and the metaclass states it; a graph stating both with another prefix is refused. |
@@ -923,11 +924,15 @@ package Rover {
 }
 ```
 
-Here `sysml:isAbstract` was added to `Hub` after the export: its line — and the
-note that was written above it — is rebuilt from the graph, and every other
-line is kept, the blank line after it included, since that belongs to
-`Vehicle`. Rebuilt lines end the way most of the elements' text does, CRLF or
+Here `sysml:isAbstract` was added to `Hub` after the export: its line is
+rebuilt from the graph — the note that was written above it put back from its
+`sysx:Note` node, see [Notes](#notes) — and every other line is kept, the blank
+line after it included, since that belongs to `Vehicle`. Rebuilt lines end the way most of the elements' text does, CRLF or
 LF; an expression's text lies inside its element's and is not counted again.
+The notes are compared by their text: a `sysx:Note` whose text the element's
+text holds in order agrees with it, whatever its `sysx:noteToken` or
+`sysx:noteOwnLine` say, so a position edited alone takes effect once the element
+is rebuilt for another reason or its text is set aside.
 Text that no longer parses, or whose disagreement cannot be placed on one
 element, demotes every element to canonical notation rather than writing an
 invalid or contradictory file; one that lands on notation already rebuilt is
@@ -949,6 +954,63 @@ notation, an edited flag, an edited expression, an edited string, an edited
 accept payload, a removed member, an added and a removed `then`, dropped
 identity annotations, text that does not parse) and `export_test.go`
 (`TestGoldenConversions` locks both notations for every fixture).
+
+
+### Notes
+
+A `//` note, a `//* */` note, or a `/* */` comment written where the grammar
+admits no `Comment` element (inside a declaration head, inside an expression,
+after a result expression) is no element of the model, and the pilot drops it.
+This mapping keeps each one as a **note**: a `sysx:Note` node of the element
+whose own lines hold it — the lines `sysx:sourceText` and `sysx:sourceTail`
+carry, so a note inside an expression belongs to the declaration the expression
+is in, and a comment on an element's last line to that element. The node is
+addressed by its position, like an expression node (`expr:Rover__Hub_pnote0`,
+the first note of `Rover::Hub`), so a provenance record or an SBVR reading of a
+note can cite it; it has neither `elementId` nor owner, since it is no Element.
+It carries:
+
+- `sysx:noteText` — the text as written, delimiters included (`// four of them`,
+  `/* one */`), so the kind of note is the text's;
+- `sysx:noteToken` — how many of the element's own code tokens precede it: `0`
+  for a note on the line(s) above the declaration, `4` for `/* one */` in
+  `attribute x = 1 /* one */ + 2`; in the tail closing a body (`sysx:noteTail
+  true`), `0` for one ahead of the `}`;
+- `sysx:noteTrailing` — in place of the count, when no code token of the
+  element's lines follows the note (`part def Hub; // note`, a note after the
+  `}`): such a note follows the last token however many the rebuilt head has;
+- `sysx:noteOwnLine` — whether it starts its line.
+
+`sysx:note` lists an element's notes in order, those of the head before those of
+the tail. In API JSON each note is an object of its own, `"@type": "sysx:Note"`,
+and the element's `"sysx:note"` references it by `@id`.
+
+```turtle
+elmt:Rover__Vehicle__x
+    a sysml:AttributeUsage ;
+    sysx:note expr:Rover__Vehicle__x_pnote0, expr:Rover__Vehicle__x_pnote1 .
+
+expr:Rover__Vehicle__x_pnote0
+    a sysx:Note ;
+    sysx:noteText "/* one */" ;
+    sysx:noteToken "4"^^xsd:integer ;        # after `attribute x = 1`
+    sysx:noteOwnLine "false"^^xsd:boolean .
+```
+
+Notes are layout, as source text is: the decoder sets them aside when it checks
+the text against the graph, and writes them back from the text while the text
+stands. The notes an element is charged with follow its lines, so a member
+sharing a line with its owner's head gets the notes after its own tokens there;
+rebuilt on a line of its own, it is charged the same. When an element is rebuilt — its text demoted, stripped, or never
+carried, as in a graph another tool wrote — each note is put back after the
+token it followed, on its own line or inline as it was written; one past the
+tokens the canonical head has (a synonym spelled out, a clause the canonical
+form drops) follows the last of them, and none is dropped. The graph is
+authoritative here too: a note edited or added in the graph demotes the text
+that does not state it, and the element is rebuilt with the graph's notes; a
+comment the graph does not state is left to the text, since it may be a body or
+another subject's note written inside this text (a filter's, a `then`'s). The `Comment` elements the grammar does admit — a bare `/* */` before a
+member, at the close of a body, at either end of a file — are elements, not notes.
 
 ### Ownership
 

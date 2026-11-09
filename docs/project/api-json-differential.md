@@ -233,7 +233,9 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 104414 elements matched (15222 ours-only, 26900 pilot-only, 0 of them implied); properties: 2024264 present-equal, 142934 present-different, 306820 ours-missing, 80902 pilot-missing, 2220458 absent-both, 35107 indeterminate, 534 pilot-nondeterministic.
+**Scorecard:** 935 files; 104414 elements matched (18080 ours-only, 26900 pilot-only, 0 of them implied); properties: 2024264 present-equal, 142934 present-different, 306820 ours-missing, 80902 pilot-missing, 2220458 absent-both, 35107 indeterminate, 534 pilot-nondeterministic.
+
+Re-recorded on the source-notes change (a `//` or `//* */` note, or a `/* */` comment written where the grammar admits no `Comment` element, is kept as a `sysx:Note` node of the element whose lines hold it, an entry of its own in the element form; see `docs/reference/rdf-mapping.md` § Notes): 2858 more ours-only elements (15222 → 18080), every one a `sysx:Note` entry the pilot has no counterpart for, as it has none for the `sysx:` behavioral nodes; the matched and pilot-only elements and every property figure are unchanged, the notes being entries beside the elements rather than properties of them, while the extension properties grow by their `sysx:note` references and `sysx:noteText`/`sysx:noteToken`/`sysx:noteOwnLine`/`sysx:noteTail`/`sysx:noteTrailing` fields (271250 → 272781).
 
 Re-recorded on the redefined-parameter inheritance change (a behavior with several generals inherits the parameters its own leave unredefined from each of them, KerML 1.1 §7.4.7.2 / §8.3.3.1, so `Calculations::Calculation` has `Evaluation::result` and a `calc def`'s declared `return` redefines it by position, §8.4.4.6; a return a clause leaves nameless is identified by the name of the result it redefines, §8.2.4 / §8.3.3.3, `Performances::BooleanEvaluation::result` where it was a minted positional id): 1044 more elements match (103370 → 104414), the same 1044 leaving ours-only (16266 → 15222) and pilot-only (27944 → 26900) — the standard library's nameless returns and the parameters identified through them; on the matched elements 23052 more properties are present-equal (2001212 → 2024264) and 830 fewer present-different (143764 → 142934), while ours-missing (302723 → 306820) and pilot-missing (80256 → 80902) grow by the properties of the newly matched elements neither side states for the other yet; 8 more pilot-nondeterministic (526 → 534) are declared rows the newly matched elements fall in. No row grew in present-different.
 
@@ -257,15 +259,15 @@ The pilot's export failed on 59 files (`pilotFailed`: its own export throws on a
 
 | root | files | matched | ours-only | pilot-only | present-equal | present-different | ours-missing | pilot-missing |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `examples/sysml-v2-training` | 100 | 8182 | 1042 | 1984 | 161239 | 12787 | 20078 | 5756 |
-| `examples/pilot-corpora/sysml-examples` | 99 | 29024 | 5748 | 7092 | 572274 | 43859 | 82523 | 21544 |
-| `examples/pilot-corpora/sysml-validation` | 56 | 10312 | 1843 | 2287 | 201379 | 15197 | 25999 | 7648 |
-| `examples/pilot-corpora/kerml-examples` | 58 | 6802 | 903 | 1439 | 122095 | 8936 | 18809 | 8269 |
-| `examples/spec-examples` | 511 | 7584 | 860 | 2146 | 133097 | 7372 | 22070 | 6413 |
-| `tests/testdata` | 40 | 1520 | 204 | 451 | 27833 | 1962 | 4131 | 1190 |
-| `examples` | 56 | 31974 | 5088 | 11155 | 627007 | 44232 | 98716 | 24028 |
-| `tools/referee/diff/testdata` | 4 | 53 | 0 | 0 | 899 | 13 | 90 | 41 |
-| `docs/manual/examples` | 11 | 7919 | 578 | 1390 | 155389 | 9406 | 30307 | 5367 |
+| `examples/sysml-v2-training` | 100 | 8322 | 934 | 1844 | 164388 | 12638 | 20608 | 5844 |
+| `examples/pilot-corpora/sysml-examples` | 99 | 29194 | 5814 | 6922 | 576267 | 43459 | 83192 | 21647 |
+| `examples/pilot-corpora/sysml-validation` | 56 | 10413 | 1791 | 2186 | 203626 | 15126 | 26379 | 7710 |
+| `examples/pilot-corpora/kerml-examples` | 58 | 6802 | 1068 | 1439 | 122097 | 8934 | 18809 | 8269 |
+| `examples/spec-examples` | 511 | 7624 | 2010 | 2106 | 134020 | 7273 | 22229 | 6442 |
+| `tests/testdata` | 40 | 1537 | 249 | 434 | 28208 | 1953 | 4202 | 1201 |
+| `examples` | 56 | 32550 | 5533 | 10579 | 639300 | 44208 | 101004 | 24381 |
+| `tools/referee/diff/testdata` | 4 | 53 | 8 | 0 | 899 | 13 | 90 | 41 |
+| `docs/manual/examples` | 11 | 7919 | 673 | 1390 | 155459 | 9330 | 30307 | 5367 |
 
 **An `about` clause's Annotation** (re-recorded when the writer began stating one `Annotation`
 element per element an annotating element's `about` names — `@M about x, y;`, `metadata m : M
@@ -330,6 +332,11 @@ member only where that qualified name is empty): the member is unrepresented, so
 typed by it in `HSUVRequirements.sysml` omit `member`, `membership` and `usage` (present-different 361 → 356,
 ours-missing 9 → 14; develop records 28). Catalogue the role-named member — a develop follow-up, not widened
 here.
+
+The merge of develop e074d3f40c (#2071, `sysx:Note` export nodes; #2027, OSLC query plans) moved no
+row: the record re-made over the merged tree equals the branch's previous record property for
+property, and its difference from develop's own record is the branch's export movement adjudicated
+above.
 
 **Every multiplicity specializes `Base::naturals`, an `individual` definition's its own `Base::zeroOrOne`**
 (re-recorded with the implied specializations of KerML 8.3.3.1.9 `checkMultiplicitySpecialization` and
