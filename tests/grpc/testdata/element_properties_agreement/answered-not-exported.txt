@@ -623,6 +623,7 @@ PerformActionUsage::occurrenceDefinition	58	symbol-41
 PerformActionUsage::parameter	15	symbol-27
 PerformActionUsage::type	58	symbol-19
 PerformActionUsage::usage	16	symbol-50
+PortConjugation::conjugatedPortDefinition	31	symbol-60
 PortUsage::definition	40	symbol-37
 PortUsage::endFeature	2	symbol-13
 PortUsage::isReference	194	symbol-38

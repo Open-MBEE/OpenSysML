@@ -354,6 +354,14 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 			return "", false
 		}
 		return s.partID(rel.Owner, rel.Slot)
+	case symbols.ImplicitPortConjugation:
+		// A conjugated port definition's PortConjugation is minted off the conjugate (conjugatedPortDefinition).
+		implied, ok := symbols.ImpliedDeclOf(rel.Owner)
+		if !ok {
+			return "", false
+		}
+		conjugate, ok := s.ids.conjugateOf(doc, implied)
+		return conjugate.conjugation, ok
 	}
 	return "", false
 }

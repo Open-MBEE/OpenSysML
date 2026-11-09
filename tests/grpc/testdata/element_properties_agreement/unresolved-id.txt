@@ -24,7 +24,6 @@ Namespace::@id	1	export-39
 OperatorExpression::@id	3	export-42
 OwningMembership::@id	13	export-50
 ParameterMembership::@id	12	export-50
-PortConjugation::@id	31	export-41
 ReferenceSubsetting::@id	27	export-44
 ReferenceUsage::@id	10	export-52
 ResultExpressionMembership::@id	1	export-50
