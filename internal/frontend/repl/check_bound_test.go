@@ -194,3 +194,40 @@ func TestSolveReadsAnObjectForItsOwnFeaturesOnly(t *testing.T) {
 	wants(t, run(t, s, "%solve Shadow::h::k"), "✓ Constraint k has values satisfying it",
 		"Shadow::h::k::x = 1.0  (declared)", "Shadow::h::w = 3  (held by object 1)")
 }
+
+// redefinedModel: the constraint's `:>> a = 7.0` redefines the part's a and is
+// the nearer declaration of it; c7 redefines b without a value and inherits the part's.
+const redefinedModel = `
+package Redef {
+    private import ScalarValues::*;
+
+    part p {
+        attribute a : Real default 2.0;
+        attribute b : Real = 3.0;
+
+        constraint c6 {
+            attribute :>> a = 7.0;
+            a > 8.0
+        }
+
+        constraint c7 {
+            attribute :>> b;
+            b > 0.0
+        }
+    }
+}
+`
+
+// TestCheckFixesARedefinitionOverTheFeatureItRedefines: c6 is unsatisfiable under its
+// own a = 7.0, also over an object holding a = 2.0; c7 reads the b that object holds.
+func TestCheckFixesARedefinitionOverTheFeatureItRedefines(t *testing.T) {
+	requireSolver(t)
+	s := checkSession(t, redefinedModel)
+	wants(t, run(t, s, "%check Redef::p::c6"), "✗ Constraint c6 is unsatisfiable")
+	conflict := []string{"✗ Constraint c6 has no values consistent with the value already fixed",
+		"Redef::p::c6::a = 7.0  (declared)", "In the conflict: Redef::p::c6::a = 7.0"}
+	wants(t, run(t, s, "%solve Redef::p::c6"), conflict...)
+	run(t, s, "%instantiate Redef::p")
+	wants(t, run(t, s, "%solve Redef::p::c6"), conflict...)
+	wants(t, run(t, s, "%solve Redef::p::c7"), "✓ Constraint c7 has values satisfying it", "Redef::p::c7::b = 3  (held by object 1)")
+}

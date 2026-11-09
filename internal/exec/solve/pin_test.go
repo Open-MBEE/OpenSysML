@@ -155,6 +155,70 @@ func TestFixedForReadsAnObjectForItsOwnFeaturesOnly(t *testing.T) {
 	}
 }
 
+// TestFixedForFixesARedefinitionOverTheFeatureItRedefines: c6's `:>> a = 7.0` is
+// the nearer declaration of a; c7's valueless `:>> b` reads b as the part holds or declares it.
+func TestFixedForFixesARedefinitionOverTheFeatureItRedefines(t *testing.T) {
+	ctx, idx := fixtureFile(t, "redefined_pins.sysml")
+	owner := symbolNamed(t, idx, "test::p")
+	type want struct {
+		value  float64
+		source PinSource
+		bound  bool
+	}
+	check := func(t *testing.T, f Fixing, wants map[string]want, superseded ...string) {
+		t.Helper()
+		pins, unfixed := FixedFor(ctx, f)
+		if len(unfixed) != 0 {
+			t.Fatalf("values could not be read: %+v", unfixed)
+		}
+		got := map[*symbols.Symbol]Pin{}
+		for _, p := range pins {
+			got[p.Feature] = p
+		}
+		for feature, w := range wants {
+			p, ok := got[symbolNamed(t, idx, feature)]
+			if !ok {
+				t.Errorf("%s not pinned", feature)
+				continue
+			}
+			if value := p.Value.Const.AsReal(); value != w.value || p.Source != w.source || p.Bound != w.bound {
+				t.Errorf("%s pinned to %v (%v, bound %v), want %v (%v, bound %v)",
+					feature, value, p.Source, p.Bound, w.value, w.source, w.bound)
+			}
+		}
+		for _, feature := range superseded {
+			if p, ok := got[symbolNamed(t, idx, feature)]; ok {
+				t.Errorf("%s pinned to %v (%v), want its redefinition pinned instead", feature, p.Value.Const.AsReal(), p.Source)
+			}
+		}
+	}
+	c6 := symbolNamed(t, idx, "test::p::c6")
+	c7 := symbolNamed(t, idx, "test::p::c7")
+	t.Run("declared", func(t *testing.T) {
+		check(t, Fixing{Element: c6, Owner: owner}, map[string]want{
+			"test::p::c6::a": {7.0, PinDeclared, true},
+			"test::p::b":     {3.0, PinDeclared, true},
+		}, "test::p::a")
+		check(t, Fixing{Element: c7, Owner: owner}, map[string]want{
+			"test::p::c7::b": {3.0, PinDeclared, true},
+		}, "test::p::b")
+	})
+	t.Run("held", func(t *testing.T) {
+		object, err := ctx.Instantiate(owner)
+		if err != nil {
+			t.Fatalf("instantiate p: %v", err)
+		}
+		check(t, Fixing{Element: c6, Owner: owner, Object: object, ObjectType: owner}, map[string]want{
+			"test::p::c6::a": {7.0, PinDeclared, true},
+			"test::p::b":     {3.0, PinHeld, false},
+		}, "test::p::a")
+		check(t, Fixing{Element: c7, Owner: owner, Object: object, ObjectType: owner}, map[string]want{
+			"test::p::a":     {2.0, PinHeld, false},
+			"test::p::c7::b": {3.0, PinHeld, false},
+		}, "test::p::b")
+	})
+}
+
 // TestFixedMarksAValueBoundWithEquals: a value written with `=` is Bound, derived,
 // inherited or redefined over a default alike; one written `default` or `:=` is not.
 func TestFixedMarksAValueBoundWithEquals(t *testing.T) {
