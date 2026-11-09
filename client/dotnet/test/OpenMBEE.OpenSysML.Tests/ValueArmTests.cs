@@ -9,7 +9,7 @@ namespace OpenMBEE.OpenSysML.Tests;
 /// One test per <see cref="ValueKind"/>, named after it: the arm's value is equal to a twin and hashes
 /// alike, differs from another of its kind and from another kind, is written as exactly the expected
 /// message, is read back from it, survives the binary wire, and is displayed as specified.
-/// <see cref="ValueInventoryTests"/> holds this class to one test per kind.
+/// <see cref="SealedHierarchyTests"/> holds this class to one test per kind.
 /// </summary>
 [Trait(Category.Name, Category.Unit)]
 public sealed class ValueArmTests

@@ -1298,49 +1298,6 @@ while metaclass ranges require object properties. A redefinition that keeps a pr
 its type in the subclass's interface (`new`), and every interface of the chain reads the most specific value.
 The output is deterministic: declarations in ordinal order, nothing of the machine or the time.
 
-## Coverage
-
-Every RPC of the service and the public methods that call it, as the
-[parity inventory](#parity-inventory) records them, in schema order; a test fails when this table
-and the inventory disagree. An RPC the schema adds is listed `deferred` until a public method
-calls it. Every field of the messages these RPCs exchange is classified in the inventory too, and
-the [conformance runner](#conformance) runs every RPC's scenarios over each protocol, skipping only
-the reviewed requests the API cannot express.
-
-| RPC | Status | Called by |
-| --- | --- | --- |
-| `GetServerInfo` | implemented | `Connection.OpenAsync` |
-| `ParseFile` | implemented | `Connection.LoadAsync`, `Connection.LoadContentAsync` |
-| `ParseSources` | implemented | `Connection.ParseSourcesAsync` |
-| `GetSymbol` | implemented | `Model.SymbolAsync`, `Model.FindSymbolAsync`, `Model.FindAsync`, `Model.LookupAsync` |
-| `GetDiagnostics` | implemented | `Model.GetDiagnosticsAsync` |
-| `Evaluate` | implemented | `Model.EvalAsync`, `Model.EvaluateAsync` |
-| `Instantiate` | implemented | `Model.InstantiateAsync` |
-| `ExecuteAction` | implemented | `Model.ExecuteActionAsync`, `Model.ExploreActionAsync` |
-| `ExecuteState` | implemented | `Model.ExecuteStateAsync`, `Model.ExploreStateAsync` |
-| `Convert` | implemented | `Connection.ConvertAsync`, `Model.ConvertAsync`, `Model.ToNotationAsync`, `Model.ToTurtleAsync`, `Model.ToApiJsonAsync`, `Model.SaveAsync` |
-| `Migrate` | implemented | `Connection.MigrateAsync` |
-| `ApplyEdits` | implemented | `Model.Edit().ApplyAsync`, `Model.ApplyEditsAsync` |
-| `VerifyConstraint` | implemented | `Model.VerifyConstraintAsync` |
-| `VerifyRequirement` | implemented | `Model.VerifyRequirementAsync` |
-| `VerifySatisfaction` | implemented | `Model.VerifySatisfactionAsync`, `Model.SatisfiedAsync` |
-| `ValidateInstance` | implemented | `Model.ValidateInstanceAsync` |
-| `EvaluateCalc` | implemented | `Model.CalcAsync` |
-| `RunAnalysis` | implemented | `Model.RunAnalysisAsync`, `Model.ExploreAnalysisAsync` |
-| `CheckBehavior` | implemented | `Model.CheckActionAsync`, `Model.CheckStateAsync` |
-| `RunSweep` | implemented | `Model.RunSweepAsync` |
-| `RunRuns` | implemented | `Model.RunActionRunsAsync`, `Model.RunAnalysisRunsAsync` |
-| `SelfCheck` | implemented | `Model.SelfCheckAsync` |
-| `RecordRun` | implemented | `Model.RecordRunAsync` |
-| `ListEngines` | implemented | `Connection.ListEnginesAsync` |
-| `Query` | implemented | `Model.QueryAsync`, `Model.QueryOslcAsync` |
-| `RunDocumentQuery` | implemented | `Model.RunDocumentQueryAsync` |
-| `RenderDocument` | implemented | `Model.RenderDocumentAsync` |
-| `RenderView` | implemented | `Model.RenderViewAsync` |
-| `ExportGraphs` | implemented | `Model.ExportGraphsAsync` |
-| `ImportData` | implemented | `Model.ImportDataAsync` |
-| `CompareResults` | implemented | `Model.CompareResultsAsync` |
-
 ## Building and testing
 
 ```bash
@@ -1536,38 +1493,6 @@ they are left out of the public API baseline and of coverage by their exact path
 anything else. Handwritten code refers to them as `Wire.X` rather than
 importing the namespace, whose `Array` would otherwise shadow `System.Array`.
 
-## Parity inventory
-
-[`test/testdata/parity.json`](test/testdata/parity.json) records what the client must cover,
-and the tests hold it to the schema and the [conformance scenarios](../../conformance/):
-
-- `rpcs`: one row per RPC, in schema order, with its request and response messages, the
-  public methods that will call it, its status (`deferred` until a public method calls it),
-  every scenario of the RPC, and the capabilities the service requires of a request, each
-  with the request field and the condition that make it required, in the order the service
-  checks them. `valueFields` lists the request fields whose `Value`s are subject to the
-  value gates.
-- `values` and `edits`: every arm of `Value` and of `EditOperation`, with the capability a
-  request holding the arm needs and, for a `Value`, the one under which the service sends it,
-  and once implemented the test that proves the arm. Every `Value` and `EditOperation` arm is
-  implemented; `sendGateOrder` and `gateOrder` are the orders the service checks the value and
-  edit capabilities in, which tests read from the service's source along with the predicates
-  behind each edit capability.
-- `population`: response fields the service fills only under a capability.
-- `fields`: every field of every message an RPC reaches, `deferred`, or once mapped `typed`,
-  `raw-only` or `unsupported` with its reason and the test that proves it. Each message lists
-  its fields in groups of one classification, `{"status", "reason", "test", "fields": [...]}`
-  with a reason and test only where the classification has them; a field named twice, a group
-  naming no field, and two groups of one classification, which are one group, are refused.
-
-The checks compare sets, never counts: an RPC, field, arm or scenario the schema or the
-suite adds, renames or removes fails the tests until the inventory accounts for it, and so
-does a scenario that requires a capability no gate or governed field of its RPC names.
-The schema they read is the descriptor compiled into the committed protocol code, which is
-itself held to `api/proto/sysml.proto` (see [Protocol code](#protocol-code)), so the
-inventory cannot pass against a stale copy of the schema.
-The scenarios are read with the conformance runner's own reader, described next.
-
 ## Conformance runner core
 
 [`src/OpenMBEE.OpenSysML.Conformance`](src/OpenMBEE.OpenSysML.Conformance/) is the part of a
@@ -1679,9 +1604,9 @@ and fails on any call to `Connection.CallAsync` or the generated stub. A request
 the adapter cannot send, or one the API has no way to express, is skipped for a stated reason;
 so is one the API itself refuses with `InvalidRequestException`, for that exception's message.
 
-Skips are accounted exactly. `expected-skips.json` lists the RPCs no adapter covers, which
-must be the inventory's `deferred` rows and today are none, and the scenarios whose request the API cannot
-express, each with the reason its adapter gives. The run fails for any other skip, a listed
+Skips are accounted exactly. `expected-skips.json` lists the RPCs no adapter covers, today none,
+and the scenarios whose request the API cannot express, each with the reason its adapter gives.
+The run fails for any other skip, a listed
 skip given another reason, and a listed skip that ran, whether or not `-allow-skips` is
 passed; in a configuration withholding capabilities, a skip is accounted only by a withheld
 capability, the service must advertise exactly the default set without them, and each must

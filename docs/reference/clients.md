@@ -94,8 +94,7 @@ The Rust client covers the same service surface as typed results — `parse_sour
 [Rust API](rust-api.md) describes.
 
 The .NET client covers the same service surface as typed immutable results, every RPC called by
-a public method, and records which method calls each in a parity inventory its tests hold to the
-schema; the [.NET API](dotnet-api.md) lists them by area.
+a public method; the [.NET API](dotnet-api.md) lists them by area.
 
 Those RPCs exist and are served. `ApplyEdits` also edits a model of several documents, parsed
 together by `ParseSources`, as one atomic batch — every document the edits reach is answered in

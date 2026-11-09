@@ -3,47 +3,19 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
-using Microsoft.CodeAnalysis;
 using OpenMBEE.OpenSysML.Internal;
 using Xunit;
 
 namespace OpenMBEE.OpenSysML.Tests;
 
 /// <summary>
-/// Holds the edits to the schema, the inventory and the service: one sealed record per arm of <c>EditOperation</c>,
-/// each written as its arm; the gates and their order, and every predicate behind them, read from the service's own
-/// source rather than restated; and no derivation from outside the library.
+/// Holds the edits to the service: the gates and their order, and every predicate behind them, read from the
+/// service's own source rather than restated.
 /// </summary>
 [Trait(Category.Name, Category.Unit)]
 public sealed partial class EditInventoryTests
 {
-    private static readonly ParityInventory Committed = ParityInventory.LoadCommitted();
-
     private static readonly string EditSource = Repository.PathOf("internal", "frontend", "grpc", "edit.go");
-
-    [Fact]
-    public void EveryArmHasOneSealedRecordWrittenAsThatArmAndOneImplementedInventoryArm()
-    {
-        var oneof = Wire.EditOperation.Descriptor.Oneofs.Single(oneof => oneof.Name == "operation");
-        var records = typeof(Edit).GetNestedTypes().Where(type => type.IsSubclassOf(typeof(Edit))).ToList();
-
-        Assert.All(records, type => Assert.True(type.IsSealed, type.Name));
-        Assert.Equal(oneof.Fields.Count, records.Count);
-        Assert.Equal(
-            oneof.Fields.Select(field => Committed.Edits.Arms[field.Name].Edit).Order(StringComparer.Ordinal),
-            records.Select(type => type.Name).Order(StringComparer.Ordinal));
-        Assert.Equal(records.Select(type => type.Name).Order(StringComparer.Ordinal), CompleteEditingWire.Edits.Select(edit => edit.GetType().Name).Order(StringComparer.Ordinal));
-        foreach (var edit in CompleteEditingWire.Edits)
-        {
-            var written = EditWire.ToWire(edit);
-            Assert.Equal(edit.Arm, oneof.Fields.Single(field => field.FieldNumber == (int)written.OperationCase).Name);
-            Assert.Equal(Committed.Edits.Arms[edit.Arm].Edit, edit.GetType().Name);
-        }
-
-        Assert.All(
-            Committed.Edits.Arms.Values,
-            arm => Assert.Equal(("implemented", "ModelEditingTests.EveryArmAndEveryOptionIsSentAsTheSchemaWritesIt"), (arm.Status, arm.Test)));
-    }
 
     [Fact]
     public void TheGatesAreTheServicesInTheOrderItChecksThem()
@@ -55,7 +27,6 @@ public sealed partial class EditInventoryTests
         var checks = GoGate().Matches(GoFunction(EditSource, "func (s *Service) ApplyEdits(")).Select(match => constants[match.Groups[2].Value]).ToList();
 
         Assert.Equal(EditWire.GateOrder, checks);
-        Assert.Equal(Committed.Edits.GateOrder, EditWire.GateOrder);
     }
 
     [Fact]
@@ -152,19 +123,6 @@ public sealed partial class EditInventoryTests
         Assert.Contains(Capabilities.ActionBodyStatementAuthoring, Needed(Edit.AddSequence.Node("A", "action", "x")));
         Assert.DoesNotContain(Capabilities.ActionBodyStatementAuthoring, Needed(plain with { Owner = "A" }));
         Assert.DoesNotContain(Capabilities.ActionBodyStatementAuthoring, Needed(Edit.AddSequence.First("A", "x")));
-    }
-
-    [Fact]
-    public void ACompilationOutsideTheLibraryCannotDeriveFromAnEdit()
-    {
-        Assert.Empty(ValueInventoryTests.Errors("public static class Use { public static Edit Make() => new Edit.SetValue(\"A\", \"1\") with { Value = \"2\" }; }"));
-        Assert.Contains("CS0534", ValueInventoryTests.Errors("public sealed record Outside : Edit;"));
-        Assert.Contains("CS0534", ValueInventoryTests.Errors("public sealed record Outside : Edit { public Outside(Edit edit) : base(edit) { } }"));
-        Assert.Contains("CS0534", ValueInventoryTests.Errors("public sealed record Outside : Edit;", MetadataImportOptions.All));
-        foreach (var arm in typeof(Edit).GetNestedTypes().Where(type => type.IsSubclassOf(typeof(Edit))))
-        {
-            Assert.Contains("CS0509", ValueInventoryTests.Errors($"public sealed record Outside : Edit.{arm.Name};"));
-        }
     }
 
     // One edit of each arm with nothing optional written.

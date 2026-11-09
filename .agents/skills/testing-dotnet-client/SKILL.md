@@ -19,7 +19,7 @@ and the Microsoft.Testing.Platform runner.
   `curl -sSfL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh && bash /tmp/dotnet-install.sh --jsonfile global.json --install-dir ~/.dotnet`,
   then `export DOTNET_ROOT=$HOME/.dotnet PATH=$HOME/.dotnet:$PATH` in every shell that runs `make`.
 - Build the real service: `make build-grpc`. A stale `bin/sysml-grpc` from before a schema change
-  fails parity and conformance in confusing ways; rebuild after every merge.
+  fails the service and conformance tests in confusing ways; rebuild after every merge.
 - Interop needs Python 3, a JDK with `javac` (`JAVA_HOME` or `PATH`) and Cargo. On macOS set
   `JAVA_HOME=$(/usr/libexec/java_home)`.
 - `dotnet test <solution>` (the VSTest form) does not work; use `dotnet test --solution ...` or the

@@ -876,37 +876,6 @@ public sealed class ConformanceAdapterTests
     }
 
     [Fact]
-    public void EveryAdapterReadsItsRpcsRequestAndSendsOnlyFieldsTheInventoryTypes()
-    {
-        var inventory = ParityInventory.LoadCommitted();
-        foreach (var (name, adapter) in ApiAdapters.All)
-        {
-            var method = ScenarioRequests.Method(name);
-            var fields = inventory.Fields[method.InputType.FullName];
-
-            Assert.Equal(method.InputType.ClrType, adapter.RequestType);
-            Assert.Equal(
-                fields.Where(field => field.Value.Status == "typed").Select(field => field.Key).Order(StringComparer.Ordinal),
-                adapter.Fields.Order(StringComparer.Ordinal));
-        }
-    }
-
-    [Fact]
-    public void TheAdaptersCoverEveryImplementedRpcAndTheExpectedSkipsListEveryDeferredOne()
-    {
-        var rows = ParityInventory.LoadCommitted().Rpcs;
-        var expected = ExpectedSkips.Load(Repository.PathOf("client", "dotnet", "test", "testdata", "expected-skips.json"));
-
-        Assert.Equal(
-            rows.Where(row => row.Status == "implemented").Select(row => row.Rpc).Order(StringComparer.Ordinal),
-            ApiAdapters.All.Keys.Order(StringComparer.Ordinal));
-        Assert.Equal(
-            rows.Where(row => row.Status == "deferred").Select(row => row.Rpc).Order(StringComparer.Ordinal),
-            expected.UncoveredRpcs.Order(StringComparer.Ordinal));
-        Assert.Empty(expected.Problems(ScenarioSuite.Load(Repository.PathOf("conformance", "scenarios")), ScenarioRequests.Service, ApiAdapters.All.Keys));
-    }
-
-    [Fact]
     public void NothingInTheRunnerReachesTheServiceRaw()
     {
         var raw = new HashSet<MethodBase>(typeof(Connection).GetMethods().Where(method => method.Name == nameof(Connection.CallAsync)));

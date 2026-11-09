@@ -14,7 +14,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="OpenMBEE.OpenSysML.Conformance.Tests" />
-    <!-- The parity inventory reads the scenarios through this loader rather than a second one. -->
+    <!-- Its adapters and renderings are tested over the client's fake service, in the client's test project. -->
     <InternalsVisibleTo Include="OpenMBEE.OpenSysML.Tests" />
   </ItemGroup>
 </Project>
