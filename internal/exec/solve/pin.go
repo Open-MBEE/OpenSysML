@@ -84,9 +84,13 @@ type Pin struct {
 	// Object is the object holding the value, 0 for a value no object holds.
 	Object int64
 
+	// Bound says a declared value was written with `=`, a binding the feature
+	// holds at all times, rather than as a `default` or `:=` initial value.
+	Bound bool
+
 	// Derived is the expression the model declares the value by, over other
 	// features of the same element, for a value the object has not materialized;
-	// nil for a literal default or a held value. A derived value is defined by
+	// nil for a literal value or a held one. A derived value is defined by
 	// its equation in the query rather than fixed, Value standing in only where
 	// the equation cannot be stated.
 	Derived *Derived
@@ -276,7 +280,7 @@ func Fixed(ctx *runtime.Context, sym *symbols.Symbol, inst *runtime.Instance) ([
 			if err != nil || value.Kind == runtime.ValInvalid || value.Kind == runtime.ValUndetermined || ctx.HoldsNoValue(value) {
 				value = runtime.Value{}
 			}
-			pins = append(pins, Pin{Feature: feature.Symbol, Name: feature.Name, Value: value, Source: PinDeclared, Derived: derived})
+			pins = append(pins, Pin{Feature: feature.Symbol, Name: feature.Name, Value: value, Source: PinDeclared, Bound: feature.Binds(), Derived: derived})
 			continue
 		}
 		switch {
@@ -291,6 +295,7 @@ func Fixed(ctx *runtime.Context, sym *symbols.Symbol, inst *runtime.Instance) ([
 				Value:   value,
 				Source:  source,
 				Object:  object,
+				Bound:   source == PinDeclared && feature.Binds(),
 			})
 		}
 	}
@@ -313,28 +318,52 @@ type Fixing struct {
 // its object holds for the features of its own definition, else what the owner —
 // the element the conditions were written in — declares, and then what the
 // element's own features declare. A feature fixed twice is fixed by the nearer
-// source, which is what an evaluation about it would read.
+// source, which is what an evaluation about it would read; a feature that only
+// shares its name with a nearer one is another feature, fixed on its own.
 func FixedFor(ctx *runtime.Context, f Fixing) ([]Pin, []Unfixed) {
 	var pins []Pin
 	var unfixed []Unfixed
-	fixed := make(map[string]bool)
+	fixed := fixedFeatures{model: ctx.Semantics(), seen: make(map[*symbols.Symbol]bool)}
 	inst := f.Object
 	for _, from := range fixedFrom(ctx, f) {
 		found, notRead := Fixed(ctx, from, inst)
 		for _, p := range found {
-			if !fixed[p.Name] {
-				fixed[p.Name] = true
+			if fixed.add(p.Feature) {
 				pins = append(pins, p)
 			}
 		}
 		for _, u := range notRead {
-			if !fixed[u.Name] {
-				fixed[u.Name] = true
+			if fixed.add(u.Feature) {
 				unfixed = append(unfixed, u)
 			}
 		}
 	}
 	return pins, unfixed
+}
+
+// fixedFeatures are the features a query has a value for so far, each with what
+// it redefines: a redefinition and the feature it redefines read the one value.
+type fixedFeatures struct {
+	model *semantics.Model
+	seen  map[*symbols.Symbol]bool
+}
+
+// add records feature and reports whether it was new, that is neither it nor a
+// feature it redefines was fixed already.
+func (f *fixedFeatures) add(feature *symbols.Symbol) bool {
+	if feature == nil {
+		return false
+	}
+	chain := append([]*symbols.Symbol{feature}, f.model.AllRedefinedFeatures(feature)...)
+	for _, sym := range chain {
+		if f.seen[sym] {
+			return false
+		}
+	}
+	for _, sym := range chain {
+		f.seen[sym] = true
+	}
+	return true
 }
 
 // fixedFrom are the types whose features a query reads values of, nearest first:
@@ -402,7 +431,7 @@ func fixedValue(
 // derivedDeclaration is the expression the model declares feat's value by when
 // it is derived — written over other features of the element itself, among
 // features, and over literals — and inst holds no materialized value for it;
-// nil for a literal default, a value the object holds or a variation, which
+// nil for a literal value, a value the object holds or a variation, which
 // stay fixed as they are. One reading anything else is not derived either: a
 // chain through a held object (chainRootFree), a qualified or imported name (`test::scale * r`)
 // name values the query fixes none of, which an equation would leave to the
