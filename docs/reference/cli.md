@@ -1922,7 +1922,13 @@ With `-json` the check carries the rows as `outcomes` — each with its `values`
 optional exact `probability`, optional `probabilityRange` (`min`, `max`), `witness` (one choice
 per entry, in run order) and, for a failed run, its `error` — and how the exploration ended as
 `exploration` (`complete`, `runs`, `budgetsHit`, optional `failedLinearizations`,
-`probabilitiesLowerBound`):
+`probabilitiesLowerBound`, `coverage`). `coverage` is what every run entered and took, not only
+the witness of each outcome: `states[]` and `transitions[]`, each entry's `path` qualified by the
+instance that ran the machine (`Cov::sys#1.m.run: s0 -> viaB`, so one definition instantiated
+many times is told apart), its `declaration` (`Cov::M::run::s0 -> viaB`) and the number of
+`runs` that did so. The text verdict prints the same after the table, as
+`coverage over all runs: 5 states entered, 4 transitions taken` followed by one `state …` or
+`transition …` line each:
 
 ```json
 {
@@ -1951,7 +1957,8 @@ per entry, in run order) and, for a failed run, its `error` — and how the expl
         "complete": false,
         "runs": 1,
         "budgetsHit": ["runs"],
-        "probabilitiesLowerBound": false
+        "probabilitiesLowerBound": false,
+        "coverage": { "states": [], "transitions": [] }
       }
     }
   ]
@@ -2350,7 +2357,11 @@ with its `values[]`, each with `value`, `witness`, `draws` and `path`) and `outc
 violation also carries `mass`: the sum of the path probabilities of the search paths reaching it —
 a weighted pick its stated share, an unweighted choice the uniform `1/n` a `seed:<n>` takes each
 alternative with — and the check object carries `massLowerBound`, true when a bound was hit, a state was reached again or the persistent-set reduction left a move
-out, since the masses then bound the true figure from below.
+out, since the masses then bound the true figure from below. The check object also carries
+`coverage`: every state entered and transition taken over all the searched schedules, in the
+form the `explore` report uses (`states[]`, `transitions[]`, each `path`, `declaration` and the
+number of schedules, as `runs`, that did so); the text verdict lists the same under
+`coverage over all schedules: …`.
 
 ### Deciding a property over the inputs
 
