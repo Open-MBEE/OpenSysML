@@ -175,6 +175,11 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	if len(parts) > 0 {
 		out = m.withTransitionMemberships(sym, out, parts)
 	}
+	if accept := m.acceptActionParts(sym); accept != nil {
+		// An accept action owns its `via` receiver parameter after its body's members (acceptReceiver).
+		accept.receiver.Expr.Index = len(out)
+		out = appendOwningMembership(out, sym, accept.receiver)
+	}
 	out = m.withBodyPartMemberships(sym, out)
 	out = m.withDefaultMultiplicity(sym, out, len(out))
 	m.memberships[sym] = out

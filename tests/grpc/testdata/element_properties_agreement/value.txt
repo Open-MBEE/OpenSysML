@@ -5,22 +5,10 @@
 # TestElementPropertiesAgreeWithTheAPIJSONExport fails on a row not here, on a count
 # above the one here, on a row here the run no longer produces, and on a ? key; a count
 # that fell is re-recorded with -update-agreement-ratchet.
-AcceptActionUsage::directedFeature	10	symbol-53
-AcceptActionUsage::directedUsage	10	symbol-53
 AcceptActionUsage::feature	26	symbol-51
 AcceptActionUsage::featureMembership	26	symbol-51
-AcceptActionUsage::input	10	symbol-53
 AcceptActionUsage::member	26	symbol-51
 AcceptActionUsage::membership	26	symbol-51
-AcceptActionUsage::nestedReference	10	export-57
-AcceptActionUsage::nestedUsage	10	symbol-53
-AcceptActionUsage::ownedElement	10	symbol-02
-AcceptActionUsage::ownedFeature	10	symbol-53
-AcceptActionUsage::ownedFeatureMembership	10	symbol-53
-AcceptActionUsage::ownedMember	10	symbol-08
-AcceptActionUsage::ownedMembership	10	symbol-09
-AcceptActionUsage::ownedRelationship	10	symbol-03
-AcceptActionUsage::parameter	10	symbol-54
 AcceptActionUsage::usage	26	symbol-51
 ActionDefinition::feature	12	symbol-51
 ActionDefinition::featureMembership	12	symbol-51
@@ -532,8 +520,8 @@ ReferenceSubsetting::subsettedFeature	7	export-08
 ReferenceSubsetting::target	7	export-14
 ReferenceUsage::declaredName	9	symbol-01
 ReferenceUsage::definition	56	symbol-54
-ReferenceUsage::directedFeature	4	symbol-53
-ReferenceUsage::directedUsage	4	symbol-53
+ReferenceUsage::directedFeature	2	symbol-53
+ReferenceUsage::directedUsage	2	symbol-53
 ReferenceUsage::direction	17	export-57
 ReferenceUsage::elementId	3	export-56
 ReferenceUsage::feature	155	symbol-51
@@ -542,7 +530,7 @@ ReferenceUsage::featureTarget	3	export-56
 ReferenceUsage::featuringType	4	export-57
 ReferenceUsage::inheritedFeature	153	symbol-51
 ReferenceUsage::inheritedMembership	157	symbol-51
-ReferenceUsage::input	3	symbol-53
+ReferenceUsage::input	1	symbol-53
 ReferenceUsage::isConstant	810	symbol-18
 ReferenceUsage::isEnd	23	export-56
 ReferenceUsage::isVariable	229	export-33

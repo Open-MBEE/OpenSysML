@@ -329,9 +329,53 @@ func (m *Model) acceptParts(sym *symbols.Symbol) *transitionParts {
 	case symbols.ExpressionTriggerAction:
 		return m.transitionPartsOf(sym.Expr.Owner)
 	case symbols.ExpressionPayload:
+		if owner := sym.Expr.Owner; owner != nil && owner.Expr == nil {
+			return m.acceptActionParts(owner)
+		}
 		return m.acceptParts(sym.Expr.Owner)
 	}
 	return nil
+}
+
+// acceptActionParts are the parts of the accept action usage sym written with `via p`
+// (`action a accept x : T via p;`): its receiver parameter, valued by the
+// FeatureReferenceExpression to p, as the conversion writes them (acceptReceiver);
+// nil for any other symbol.
+func (m *Model) acceptActionParts(sym *symbols.Symbol) *transitionParts {
+	if m == nil || sym == nil || sym.Expr != nil || sym.Implicit != nil || sym.Recorded() {
+		return nil
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	if !ok || usage.Kind != ast.UsageAction {
+		return nil
+	}
+	var via *ast.QualifiedName
+	for _, rel := range usage.Relationships {
+		if rel != nil && rel.Kind == ast.RelVia {
+			via, _ = rel.Target.(*ast.QualifiedName)
+		}
+	}
+	if via == nil {
+		return nil
+	}
+	defer m.own(sym).LeaveDoc()
+	if parts, ok := m.transitionParts[sym]; ok {
+		return parts
+	}
+	if m.transitionParts == nil {
+		m.transitionParts = make(map[*symbols.Symbol]*transitionParts)
+	}
+	journal(m, m.transitionParts, sym, sym.Decl)
+	parts := &transitionParts{accepter: sym}
+	ref := &ast.FeatureReference{Name: via}
+	ref.NodeSpan = via.Span()
+	receiver := &ast.Usage{Kind: ast.UsageAttribute, IsReference: true, Direction: ast.DirIn, Value: ref}
+	receiver.NodeSpan = via.Span()
+	parts.receiver = transitionPart(sym, receiver, receiver.NodeSpan, symbols.SymbolReferenceUsage, sym, symbols.ExpressionPayload)
+	parts.receiver.OwnerScope = sym.OwnerScope
+	parts.receiverValue = transitionPart(sym, ref, ref.NodeSpan, symbols.SymbolExpression, parts.receiver, symbols.ExpressionValue)
+	m.transitionParts[sym] = parts
+	return parts
 }
 
 // transitionElements is ReflectiveElements for the features of a transition and of its

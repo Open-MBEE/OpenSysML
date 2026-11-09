@@ -551,7 +551,7 @@ JoinNode::occurrenceDefinition	9	symbol-41
 JoinNode::type	9	symbol-19
 Membership::memberElement	19	symbol-47
 Membership::memberElementId	52	symbol-47
-Membership::membershipOwningNamespace	2451	symbol-07
+Membership::membershipOwningNamespace	2461	symbol-07
 Membership::relatedElement	468	symbol-10
 Membership::source	468	symbol-11
 Membership::target	33	symbol-12
@@ -674,7 +674,7 @@ ReferenceSubsetting::relatedElement	3	symbol-10
 ReferenceSubsetting::subsettedFeature	3	symbol-45
 ReferenceSubsetting::target	3	symbol-12
 ReferenceUsage::crossFeature	3	symbol-45
-ReferenceUsage::definition	1367	symbol-37
+ReferenceUsage::definition	1377	symbol-37
 ReferenceUsage::endFeature	15	symbol-13
 ReferenceUsage::endOwningType	23	symbol-45
 ReferenceUsage::feature	6	symbol-14
@@ -699,7 +699,7 @@ ReferenceUsage::owningFeatureMembership	26	symbol-45
 ReferenceUsage::owningType	26	symbol-45
 ReferenceUsage::owningUsage	23	symbol-45
 ReferenceUsage::qualifiedName	4	symbol-47
-ReferenceUsage::type	1464	symbol-19
+ReferenceUsage::type	1474	symbol-19
 ReferenceUsage::usage	28	symbol-50
 RenderingDefinition::ownedRendering	1	symbol-45
 RenderingDefinition::ownedView	1	symbol-45
