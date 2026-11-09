@@ -1,0 +1,10 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "P::Ver",
+	"expected_kind": "verificationCaseDef",
+	"min_withheld_library_members": 1,
+	"expected_members": [
+		{"id": "P::Ver::s", "kind": "referenceUsage"},
+		{"id": "VerificationCases::VerificationCase::verdict", "kind": "referenceUsage", "inherited": true, "inherited_from": "VerificationCases::VerificationCase"}
+	]
+}

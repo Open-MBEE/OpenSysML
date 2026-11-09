@@ -151,11 +151,11 @@ func buildNamespaceDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia 
 		scope.AddChild(child)
 		return true
 	case *ast.SubjectMember:
-		// SubjectMember represents requirement subject: subject <name> : <Type>;
-		// Create a part usage symbol (subject is structural usage like part)
+		// A requirement's `subject <name> : <Type>;` is the ReferenceUsage its
+		// SubjectMembership declares (SysML.xtext SubjectMember).
 		id, naming := namingIdent(d.Ident, d.NamingFeature())
 		child := NewScope(scope, d)
-		sym := newSymbol(id, SymbolPartUsage, d, vis, child, scope, trivia)
+		sym := newSymbol(id, SymbolReferenceUsage, d, vis, child, scope, trivia)
 		naming.apply(sym)
 		defineIdent(scope, id, sym)
 		scope.AddChild(child)
@@ -213,7 +213,7 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 			buildMembers(scope, d.Members)
 			return true
 		}
-		buildAnonymousNode(scope, d, SymbolActionUsage, d.Members, vis, trivia)
+		buildAnonymousNode(scope, d, SymbolSendActionUsage, d.Members, vis, trivia)
 		return true
 	case *ast.SuccessionEdge:
 		// A succession with a body is a SuccessionAsUsage whose body declares its
@@ -549,9 +549,13 @@ func defineTransitionEffect(scope *Scope, trans *ast.TransitionMember) {
 	// A statement (`do send x to y`) declares no member of its own, so the
 	// action it performs is named here, its members staying the transition's.
 	statement := NewScope(scope, effect)
+	kind := SymbolActionUsage
+	if SendStatementOf(effect) != nil {
+		kind = SymbolSendActionUsage
+	}
 	sym := newSymbol(
 		ast.Identification{Name: transitionEffectName, NameSpan: effect.Span()},
-		SymbolActionUsage, effect, ast.VisibilityDefault, statement, scope, nil,
+		kind, effect, ast.VisibilityDefault, statement, scope, nil,
 	)
 	// The statement's action subsets TransitionAction::effect (SysML v2.1 §8.4.11.x
 	// checkTransitionUsageTransitionFeatureSpecialization) and declares no name.
@@ -808,8 +812,8 @@ var usageSymbolKinds = map[ast.UsageKind]SymbolKind{
 	ast.UsageAnalysisCase:     SymbolAnalysisCaseUsage,
 	ast.UsageVerificationCase: SymbolVerificationCaseUsage,
 	ast.UsageUseCase:          SymbolUseCaseUsage,
-	// Subject is a requirement parameter - treat as a part usage for structural purposes.
-	ast.UsageSubject: SymbolPartUsage,
+	// A subject is the ReferenceUsage its SubjectMembership declares (SysML.xtext SubjectMember).
+	ast.UsageSubject: SymbolReferenceUsage,
 	// Objective is a requirement usage (SysML v2 §8.3.20).
 	ast.UsageObjective: SymbolRequirementUsage,
 	// An actor and a stakeholder are part usages (SysML v2 §8.3.19).
@@ -851,6 +855,12 @@ func classifyUsage(u *ast.Usage) SymbolKind {
 	if u.Keyword == "function" {
 		return SymbolCalcDef
 	}
+	if kind := classifyActionNode(u); kind != SymbolUnknown {
+		return kind
+	}
+	if u.IsSuccessionFlow() {
+		return SymbolSuccessionFlowUsage
+	}
 	// Only classify attribute usages (datatype, attribute, feature keywords)
 	if u.Kind != ast.UsageAttribute {
 		return UsageSymbolKind(u.Kind)
@@ -887,4 +897,38 @@ func classifyUsage(u *ast.Usage) SymbolKind {
 
 	// Default: treat as usage
 	return SymbolAttributeUsage
+}
+
+// classifyActionNode is the kind of the node an action usage is written as
+// (SysML v2 §8.2.2.17 ActionNode); SymbolUnknown for a plain action usage.
+func classifyActionNode(u *ast.Usage) SymbolKind {
+	if u.Kind != ast.UsageAction {
+		return SymbolUnknown
+	}
+	switch {
+	case u.IsTerminate:
+		return SymbolTerminateActionUsage
+	case u.IsPerformedAction():
+		return SymbolPerformActionUsage
+	case AcceptPayloadOf(u) != nil:
+		return SymbolAcceptActionUsage
+	}
+	switch statement := ActionNodeStatementOf(u).(type) {
+	case *ast.SendStatement:
+		return SymbolSendActionUsage
+	case *ast.AssignmentActionNode:
+		return SymbolAssignmentActionUsage
+	case *ast.PerformActionNode:
+		return SymbolPerformActionUsage
+	case *ast.IfActionNode:
+		return SymbolIfActionUsage
+	case *ast.WhileLoopActionNode:
+		if statement.Kind == ast.LoopFor {
+			return SymbolForLoopActionUsage
+		}
+		return SymbolWhileLoopActionUsage
+	case *ast.TerminateStatement:
+		return SymbolTerminateActionUsage
+	}
+	return SymbolUnknown
 }

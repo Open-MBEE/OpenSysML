@@ -76,11 +76,20 @@ func (r *PropertyReader) Values(sym *symbols.Symbol, property string) ([]string,
 	case PropertyGeneral:
 		return r.generals(sym)
 	case PropertyIsAbstract:
-		// Type::isAbstract: a definition (the implied conjugated port definition included) or any feature, a connector's end included.
+		// Type::isAbstract, as reflection derives it (a variation, an enumeration definition included, is abstract);
+		// without a model, the `abstract` keyword of a definition, a feature or the implied conjugated port definition.
+		if value, ok := r.reflectiveBoolean(sym, property); ok {
+			return value, true
+		}
 		if sym.DeclaresUsage() || sym.DeclaresDefinition() || sym.IsFeature() || sym.IsConjugatedPortDefinition() {
 			return []string{strconv.FormatBool(symbols.IsAbstract(sym))}, true
 		}
 	case PropertyIsIndividual:
+		// OccurrenceDefinition/OccurrenceUsage::isIndividual as reflection derives it (a `state s;` of a state
+		// body, a connector's port end included); without a model, the `individual` keyword of a declaration.
+		if value, ok := r.reflectiveBoolean(sym, property); ok {
+			return value, true
+		}
 		if sym.DeclaresUsage() || sym.DeclaresDefinition() || sym.IsConjugatedPortDefinition() {
 			return []string{strconv.FormatBool(individual(sym))}, true
 		}
@@ -88,6 +97,8 @@ func (r *PropertyReader) Values(sym *symbols.Symbol, property string) ([]string,
 		return r.multiplicityValues(sym, property)
 	case PropertySatisfiedRequirement, PropertySatisfyingFeature:
 		return r.satisfyEnd(sym, property)
+	case PropertyPayloadArgument, PropertySenderArgument, PropertyReceiverArgument:
+		return r.sendArgument(sym, property)
 	case PropertyElementID:
 		if r.elementID != nil {
 			return presentValues(r.elementID(sym))
@@ -191,6 +202,37 @@ func (r *PropertyReader) satisfyEnd(sym *symbols.Symbol, property string) ([]str
 	return r.resolveTargetIdentity(sym, ends.Satisfier)
 }
 
+// sendArgument is an argument of the send action sym as written (SysML v2
+// §8.3.17.15): absent for an argument the send leaves out and for any other element.
+func (r *PropertyReader) sendArgument(sym *symbols.Symbol, property string) ([]string, bool) {
+	send := symbols.SendStatementOf(sym.Decl)
+	if send == nil || sym.Kind != symbols.SymbolSendActionUsage || r.semantics == nil {
+		return nil, false
+	}
+	var argument ast.Node
+	switch property {
+	case PropertyPayloadArgument:
+		argument = send.Message
+	case PropertySenderArgument:
+		if send.IsVia {
+			argument = send.Target
+		}
+	case PropertyReceiverArgument:
+		argument = send.Receiver
+		if !send.IsVia {
+			argument = send.Target
+		}
+	}
+	if argument == nil {
+		return nil, false
+	}
+	lookup := r.semantics.SourceText()
+	if lookup == nil {
+		return presentValues(ast.QualifiedText(argument))
+	}
+	return presentValues(strings.TrimSpace(lookup(sym.DocName, argument.Span())))
+}
+
 func (r *PropertyReader) resolveTargetIdentity(sym *symbols.Symbol, target ast.Node) ([]string, bool) {
 	if r.resolver == nil {
 		return nil, false
@@ -235,6 +277,13 @@ func (r *PropertyReader) elementType(sym *symbols.Symbol) ([]string, bool) {
 		if alias, ok := r.resolver.ResolveAliasTarget(resolved); ok {
 			resolved = alias
 		}
+		// A conjugated typing's type is the ConjugatedPortDefinition its
+		// written target implies (SysML v2 8.3.12.3).
+		if relationship.Conjugated && r.semantics != nil {
+			if conjugate := r.semantics.ConjugatedPortDefinitionOf(resolved); conjugate != nil {
+				resolved = conjugate
+			}
+		}
 		return presentValues(r.index.GetFQN(resolved))
 	}
 	return nil, false
@@ -267,6 +316,19 @@ func (r *PropertyReader) generals(sym *symbols.Symbol) ([]string, bool) {
 		}
 	}
 	return values, len(values) > 0
+}
+
+// reflectiveBoolean reads a boolean metaclass attribute from the semantic model, so the
+// reader states what reflection derives; absent a model or a derivation it is not read here.
+func (r *PropertyReader) reflectiveBoolean(sym *symbols.Symbol, property string) ([]string, bool) {
+	if r.semantics == nil {
+		return nil, false
+	}
+	value, ok := r.semantics.ReflectiveFeatureValue(sym, property)
+	if !ok || value.Kind != symbols.FilterValueBool {
+		return nil, false
+	}
+	return []string{strconv.FormatBool(value.Bool)}, true
 }
 
 // individual reports whether sym's declaration carries the `individual` modifier.

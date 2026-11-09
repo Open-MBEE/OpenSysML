@@ -41,7 +41,7 @@ func modelWithLibrary(t *testing.T, text string) (*symbols.Index, *Context) {
 	idx.ExpandWildcardImports()
 	sc := NewContext(idx)
 	sc.Positional = NewPositional(idx, func() []PositionalDocument {
-		return []PositionalDocument{{File: file, Root: idx.DocumentRoot("model.sysml")}}
+		return []PositionalDocument{{File: file, Root: root, Scope: idx.DocumentRoot("model.sysml")}}
 	})
 	return idx, sc
 }

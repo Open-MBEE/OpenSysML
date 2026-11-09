@@ -1,6 +1,7 @@
 package export
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
@@ -20,12 +21,12 @@ func TestAddressTermTellsAPositionFromAnAtSignName(t *testing.T) {
 	// A declared name beginning with `@` is quoted in an address, so it never
 	// reads as a position.
 	for _, name := range []string{"@abc", "@2", "@trigger"} {
-		if got := identitySegment(name); got != "'"+name+"'" {
-			t.Errorf("identitySegment(%q) = %s, want it quoted", name, got)
+		if got := naming.Segment(name); got != "'"+name+"'" {
+			t.Errorf("naming.Segment(%q) = %s, want it quoted", name, got)
 		}
 	}
-	if got := identitySegment("Named"); got != "Named" {
-		t.Errorf("identitySegment(Named) = %s", got)
+	if got := naming.Segment("Named"); got != "Named" {
+		t.Errorf("naming.Segment(Named) = %s", got)
 	}
 	for name, want := range cases {
 		if got := addressTerm(name).Value; got != want {

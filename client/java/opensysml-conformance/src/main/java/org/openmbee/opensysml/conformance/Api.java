@@ -20,6 +20,8 @@ import org.openmbee.opensysml.Edit;
 import org.openmbee.opensysml.EditException;
 import org.openmbee.opensysml.EditOptions;
 import org.openmbee.opensysml.EditResult;
+import org.openmbee.opensysml.ElementProperties;
+import org.openmbee.opensysml.InstancePaths;
 import org.openmbee.opensysml.ExecutionOptions;
 import org.openmbee.opensysml.Exploration;
 import org.openmbee.opensysml.Instantiation;
@@ -47,6 +49,8 @@ import org.openmbee.opensysml.RunsOptions;
 import org.openmbee.opensysml.SweepOptions;
 import org.openmbee.opensysml.SweepRange;
 import org.openmbee.opensysml.Symbol;
+import org.openmbee.opensysml.SymbolNotFoundException;
+import org.openmbee.opensysml.SymbolOptions;
 import org.openmbee.opensysml.TransportException;
 import org.openmbee.opensysml.Validation;
 import org.openmbee.opensysml.Value;
@@ -69,7 +73,12 @@ import org.openmbee.opensysml.proto.ExecuteActionRequest;
 import org.openmbee.opensysml.proto.ExecuteActionResponse;
 import org.openmbee.opensysml.proto.ExecuteStateRequest;
 import org.openmbee.opensysml.proto.ExecuteStateResponse;
+import org.openmbee.opensysml.proto.DocumentObject;
+import org.openmbee.opensysml.proto.GetElementPropertiesRequest;
+import org.openmbee.opensysml.proto.GetElementPropertiesResponse;
 import org.openmbee.opensysml.proto.GetSymbolRequest;
+import org.openmbee.opensysml.proto.InstancePathsRequest;
+import org.openmbee.opensysml.proto.InstancePathsResponse;
 import org.openmbee.opensysml.proto.InstantiateRequest;
 import org.openmbee.opensysml.proto.InstantiateResponse;
 import org.openmbee.opensysml.proto.ListEnginesRequest;
@@ -147,6 +156,8 @@ final class Api {
   private static final String RPC_GET_DIAGNOSTICS = "GetDiagnostics";
   private static final String RPC_GET_SERVER_INFO = "GetServerInfo";
   private static final String RPC_GET_SYMBOL = "GetSymbol";
+  private static final String RPC_GET_ELEMENT_PROPERTIES = "GetElementProperties";
+  private static final String RPC_INSTANCE_PATHS = "InstancePaths";
   private static final String RPC_INSTANTIATE = "Instantiate";
   private static final String RPC_LIST_ENGINES = "ListEngines";
   private static final String RPC_PARSE_FILE = "ParseFile";
@@ -179,6 +190,8 @@ final class Api {
           RPC_LIST_ENGINES,
           RPC_PARSE_FILE,
           RPC_GET_SYMBOL,
+          RPC_GET_ELEMENT_PROPERTIES,
+          RPC_INSTANCE_PATHS,
           RPC_GET_DIAGNOSTICS,
           RPC_EVALUATE,
           RPC_INSTANTIATE,
@@ -247,6 +260,8 @@ final class Api {
   private static Message.Builder modelRequest(String method) {
     return switch (method) {
       case RPC_GET_SYMBOL -> GetSymbolRequest.newBuilder();
+      case RPC_GET_ELEMENT_PROPERTIES -> GetElementPropertiesRequest.newBuilder();
+      case RPC_INSTANCE_PATHS -> InstancePathsRequest.newBuilder();
       case RPC_GET_DIAGNOSTICS -> DiagnosticsRequest.newBuilder();
       case RPC_EVALUATE -> EvaluateRequest.newBuilder();
       case RPC_INSTANTIATE -> InstantiateRequest.newBuilder();
@@ -325,6 +340,8 @@ final class Api {
   private Message callModel(String method, Message request) {
     return switch (method) {
       case RPC_GET_SYMBOL -> symbol((GetSymbolRequest) request);
+      case RPC_GET_ELEMENT_PROPERTIES -> elementProperties((GetElementPropertiesRequest) request);
+      case RPC_INSTANCE_PATHS -> instancePaths((InstancePathsRequest) request);
       case RPC_GET_DIAGNOSTICS -> diagnostics((DiagnosticsRequest) request);
       case RPC_EVALUATE -> evaluate((EvaluateRequest) request);
       case RPC_INSTANTIATE -> instantiate((InstantiateRequest) request);
@@ -399,11 +416,47 @@ final class Api {
 
   private SymbolResponse symbol(GetSymbolRequest request) {
     Model model = connection.model(request.getModelHash());
+    SymbolOptions options =
+        SymbolOptions.defaults().withLibraryMembers(request.getIncludeLibraryMembers());
     try {
-      Symbol symbol = model.symbol(request.getSymbolId());
+      Symbol symbol = model.symbol(request.getSymbolId(), options);
       return SymbolResponse.newBuilder().setSymbol(Rendering.symbol(symbol)).build();
     } catch (ModelException e) {
       return SymbolResponse.newBuilder().setError(e.getMessage()).build();
+    }
+  }
+
+  private GetElementPropertiesResponse elementProperties(GetElementPropertiesRequest request) {
+    Model model = connection.model(request.getModelHash());
+    try {
+      ElementProperties read =
+          model.elementProperties(
+              request.getElementId(), request.getPropertiesList().toArray(String[]::new));
+      return Rendering.elementProperties(read);
+    } catch (SymbolNotFoundException e) {
+      // The service reports an unknown element in band; the client raises it, in its own words.
+      return GetElementPropertiesResponse.newBuilder()
+          .setError("element not found: " + e.name())
+          .build();
+    } catch (ModelException e) {
+      return GetElementPropertiesResponse.newBuilder().setError(e.getMessage()).build();
+    }
+  }
+
+  private InstancePathsResponse instancePaths(InstancePathsRequest request) {
+    Model model = connection.model(request.getModelHash());
+    DocumentObject object = request.getObject();
+    try {
+      InstancePaths paths =
+          object.getPath().isEmpty()
+              ? model.instancePaths(object.getInstanceId())
+              : model.instancePaths(object.getPath());
+      return Rendering.instancePaths(paths);
+    } catch (ModelException e) {
+      return InstancePathsResponse.newBuilder()
+          .setError(e.getMessage())
+          .addAllDiagnostics(Rendering.diagnostics(e.diagnostics()))
+          .build();
     }
   }
 

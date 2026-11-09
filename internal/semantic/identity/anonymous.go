@@ -12,6 +12,7 @@ import (
 // the pilot's exporter keys unnamed elements by (owner/Metaclass[i], i counting the
 // owner's preceding owned elements, or relationships, of the same metaclass).
 type AnonymousMember struct {
+	Symbol              *symbols.Symbol
 	Owner               *LibraryElement
 	Metaclass           string
 	MembershipMetaclass string
@@ -60,6 +61,7 @@ func AnonymousMemberOf(model *semantics.Model, catalog *Catalog, sym *symbols.Sy
 		return AnonymousMember{}, false
 	}
 	out := AnonymousMember{
+		Symbol:             sym,
 		Owner:              ownerElement,
 		Metaclass:          metaclass,
 		ID:                 AnonymousMemberID(ownerElement.ID, metaclass, ordinal),

@@ -1,54 +1,39 @@
-package export
+package naming
 
 import (
 	"slices"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// PositionalDocument pairs a source file with the scope containing its symbols.
-type PositionalDocument struct {
-	File *source.SourceFile
-	Root *symbols.Scope
+// Document is one document of an index: its source, the tree the index was
+// built from, and its root scope.
+type Document struct {
+	File  *source.SourceFile
+	Root  *ast.RootNamespace
+	Scope *symbols.Scope
 }
 
-// DeclarationNames maps declarations to their RDF qualified names by span.
-// Unnamed declarations use the export's positional `@N` identity.
-func DeclarationNames(file *source.SourceFile, root *ast.RootNamespace) (map[source.Span]string, error) {
-	e, err := newEncoder(file, root, "", IDQualifiedName)
-	if err != nil {
-		return nil, err
-	}
-	names := make(map[source.Span]string, len(e.fqn))
-	ambiguous := make(map[source.Span]bool)
-	for node, name := range e.fqn {
-		span := node.Span()
-		if previous, exists := names[span]; exists && previous != name {
-			delete(names, span)
-			ambiguous[span] = true
-			continue
-		}
-		if !ambiguous[span] {
-			names[span] = name
-		}
-	}
-	return names, nil
-}
-
-// PositionalIdentities maps symbols without qualified identities to export names.
-func PositionalIdentities(index *symbols.Index, docs []PositionalDocument, identifies func(*symbols.Symbol) bool) (map[*symbols.Symbol]string, map[string]*symbols.Symbol) {
+// PositionalIdentities names the declared symbols of docs that no qualified
+// identity names (identifies reports those), by their position: `Owner::@N`.
+func PositionalIdentities(index *symbols.Index, docs []Document, identifies func(*symbols.Symbol) bool) (map[*symbols.Symbol]string, map[string]*symbols.Symbol) {
 	positional := make(map[*symbols.Symbol]string)
 	byPositional := make(map[string]*symbols.Symbol)
 	if index == nil || identifies == nil {
 		return positional, byPositional
 	}
+	res := resolve.New(index)
+	model := semantics.NewModel(res)
+	res.SetModel(model)
 	candidates := make(map[string]map[*symbols.Symbol]bool)
 	for _, doc := range docs {
-		positionalCandidatesOf(doc, index, identifies, candidates)
+		positionalCandidatesOf(doc, res, model, identifies, candidates)
 	}
 	for _, candidate := range acceptedPositional(candidates) {
 		sym := candidate.sym
@@ -71,22 +56,18 @@ type positionalCandidate struct {
 	sym  *symbols.Symbol
 }
 
-// positionalCandidatesOf records, under each positional name the document
-// derives, the symbols claiming it.
-func positionalCandidatesOf(doc PositionalDocument, index *symbols.Index, identifies func(*symbols.Symbol) bool, candidates map[string]map[*symbols.Symbol]bool) {
-	if doc.File == nil || doc.Root == nil {
+// positionalCandidatesOf records, under each name the document derives, the
+// symbols claiming it.
+func positionalCandidatesOf(doc Document, res *resolve.Resolver, model *semantics.Model, identifies func(*symbols.Symbol) bool, candidates map[string]map[*symbols.Symbol]bool) {
+	if doc.File == nil || doc.Root == nil || doc.Scope == nil {
 		return
 	}
-	file := source.NewWithKind(doc.File.Name(), doc.File.Bytes(), doc.File.Kind())
-	p := parser.New(file)
-	root := p.ParseFile()
-	if len(p.Diagnostics) != 0 {
-		return
-	}
-	names, err := DeclarationNames(file, root)
+	res.ResolveDocument(doc.File.Name(), doc.Root)
+	names, err := Build(doc.File, doc.Root, model, identity.Build(model, res, doc.Scope))
 	if err != nil {
 		return
 	}
+	index := res.Index()
 	seen := make(map[*symbols.Scope]bool)
 	var walk func(*symbols.Scope)
 	walk = func(current *symbols.Scope) {
@@ -100,7 +81,7 @@ func positionalCandidatesOf(doc PositionalDocument, index *symbols.Index, identi
 			}
 			// A positional name, or one derived from the feature the symbol implicitly
 			// redefines (`Check::obj`): either is a name the index resolves to nothing.
-			name, ok := names[sym.Decl.Span()]
+			name, ok := names.FQN[sym.Decl]
 			if !ok || len(index.LookupQualified(name)) != 0 {
 				continue
 			}
@@ -113,7 +94,7 @@ func positionalCandidatesOf(doc PositionalDocument, index *symbols.Index, identi
 			walk(child)
 		}
 	}
-	walk(doc.Root)
+	walk(doc.Scope)
 }
 
 // positionalSymbol reports a declared symbol of the document that no
@@ -138,7 +119,7 @@ func acceptedPositional(candidates map[string]map[*symbols.Symbol]bool) []positi
 		}
 	}
 	slices.SortFunc(accepted, func(a, b positionalCandidate) int {
-		aDepth, bDepth := len(identitySegments(a.name)), len(identitySegments(b.name))
+		aDepth, bDepth := len(Segments(a.name)), len(Segments(b.name))
 		if aDepth < bDepth {
 			return -1
 		}
@@ -148,14 +129,4 @@ func acceptedPositional(candidates map[string]map[*symbols.Symbol]bool) []positi
 		return strings.Compare(a.name, b.name)
 	})
 	return accepted
-}
-
-// IsPositionalIdentity reports whether a name contains a canonical `@N` segment.
-func IsPositionalIdentity(name string) bool {
-	for _, segment := range identitySegments(name) {
-		if positionalSegment(segment) {
-			return true
-		}
-	}
-	return false
 }

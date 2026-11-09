@@ -22,7 +22,7 @@ func (writer) DefaultInstances() int { return protoconv.DefaultGraphBounds().Ins
 
 func (writer) Write(ctx *runtime.Context, inst *runtime.Instance, index *symbols.Index, depth, instances int, warning func() string) ([]byte, []error, error) {
 	bounds := protoconv.GraphBounds{Depth: depth, Instances: instances}
-	graph := protoconv.InstanceGraphToProtoWithin(ctx, inst, index, bounds)
+	graph := protoconv.InstanceGraphToProtoWithin(ctx, inst, index, bounds, nil)
 	resp := &pb.InstantiateResponse{Instance: graph.Root, Instances: graph.All}
 	if graph.Truncated {
 		resp.Diagnostics = append(resp.Diagnostics, &pb.Diagnostic{Severity: "warning", Message: warning()})

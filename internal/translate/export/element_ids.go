@@ -2,6 +2,7 @@ package export
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"slices"
 	"strings"
@@ -100,7 +101,7 @@ func newElementIDTables(res *resolve.Resolver, encoders []*encoder) *ElementIDs 
 }
 
 func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[ast.Node]ast.Node) {
-	fqn := e.fqn[node]
+	fqn := e.names.FQN[node]
 	subject := e.ids.subjectForNode(node, fqn)
 	id := rdf.LocalName(subject.Value)
 	ids.byNode[node] = id
@@ -981,7 +982,7 @@ func (e *encoder) registerBodyDeclarations(ids *ElementIDs, base rdf.Term, param
 // feeds them to bodyDeclarations.
 func localMembers(decl ast.Node) []ast.Node {
 	if usage, ok := decl.(*ast.Usage); ok {
-		return bodyMembers(usage)
+		return naming.BodyMembers(usage)
 	}
 	return ast.DeclMembers(decl)
 }
