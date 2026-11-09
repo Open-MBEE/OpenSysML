@@ -23,6 +23,7 @@ func (d *decoder) render(roots []*element) (string, error) {
 		d.printed = map[*element]bool{}
 		d.rebuilt = map[*element]bool{}
 		d.prefixed = map[*element]bool{}
+		d.bodyAt = map[*element]region{}
 		d.usedExpr = map[string]bool{}
 		d.written = nil
 		d.implied = 0
@@ -70,6 +71,20 @@ func (d *decoder) verbatim(el *element) (string, bool) {
 		return "", false
 	}
 	return d.graph.Lexical(rdf.IRI(el.iri), rdf.OpenSysML+xSourceText)
+}
+
+// verbatimWithNotes is verbatim for an element whose text holds the notes the
+// graph states; one stating others is demoted, since the graph is authoritative.
+func (d *decoder) verbatimWithNotes(el *element) (string, bool) {
+	text, ok := d.verbatim(el)
+	if !ok {
+		return "", false
+	}
+	if d.statesNotes() && !d.notesAgree(el, text) {
+		d.demoted[el] = true
+		return "", false
+	}
+	return text, true
 }
 
 // expressionText returns the source text an expression node is written as, if
@@ -247,17 +262,21 @@ func (d *decoder) demoteAll() {
 }
 
 // disagreeingTriples lists the structural triples only one of the two graphs
-// states. Source text differs from canonical notation by design, and a member
-// index states an order the notation keeps whatever the numbers, so both skip.
+// states. Source text differs from canonical notation by design, a member
+// index states an order the notation keeps whatever the numbers, and a note
+// is layout like the text it is read from, so all of those skip.
 func disagreeingTriples(graph, check *rdf.Graph) []rdf.Triple {
 	var out []rdf.Triple
+	noteNode := func(term rdf.Term) bool {
+		return graph.Type(term) == rdf.OpenSysML+mNote || check.Type(term) == rdf.OpenSysML+mNote
+	}
 	structural := func(t rdf.Triple) bool {
 		switch t.Predicate.Value {
 		case rdf.OpenSysML + xSourceText, rdf.OpenSysML + xSourceTail, rdf.OpenSysML + xSourceLanguage,
 			rdf.OpenSysML + xMemberIndex:
 			return false
 		}
-		return !IsSourceRangeProperty(t.Predicate.Value)
+		return !IsSourceRangeProperty(t.Predicate.Value) && !IsNoteProperty(t.Predicate.Value) && !noteNode(t.Subject)
 	}
 	for _, t := range graph.Triples() {
 		if structural(t) && !check.Has(t) {

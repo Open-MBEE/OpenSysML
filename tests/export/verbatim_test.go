@@ -80,7 +80,7 @@ func TestRootsSharingALineComeBack(t *testing.T) {
 		"elmt:B\n    a sysml:Package ;\n",
 		"elmt:B\n    a sysml:LibraryPackage ;\n")
 	back := toNotation(t, edited)
-	want := "package A; /* between */ library package B;\n\npackage C {\n\tpart p; } package D;"
+	want := "package A; /* between */ library package B; // after\n\npackage C {\n\tpart p; } package D;"
 	if back != want {
 		t.Errorf("the edited root was not rebuilt in place:\n--- want ---\n%s--- got ---\n%s", want, back)
 	}
@@ -132,6 +132,8 @@ func TestEditedGraphDoesNotResurrectStaleText(t *testing.T) {
 package Rover {
     /* Definitions come first. */
     part def Wheel :> Part; // a synonym the printer would spell out
+    //* A note the parser skips
+       over two lines. */
     abstract part def Hub;
 
     part def Vehicle {
@@ -315,7 +317,7 @@ func TestPositionalSuccessionEditsRebuildTheirTarget(t *testing.T) {
 `
 	turtle := idTurtle(t, sequenced)
 	added := editTurtle(t, turtle, `        then action b;\n`, `        action b;\n`)
-	want := strings.Replace(sequenced, "        // b follows\n", "", 1)
+	want := sequenced
 	if back := toNotation(t, added); back != want {
 		t.Errorf("an added succession was not written:\n--- want ---\n%s--- got ---\n%s", want, back)
 	}
@@ -323,6 +325,7 @@ func TestPositionalSuccessionEditsRebuildTheirTarget(t *testing.T) {
 		t.Errorf("the notation does not state the added succession:\n--- want ---\n%s--- got ---\n%s", want, got)
 	}
 
+	// The unlinked succession's note is still stated, so it is still written.
 	removed := withoutMember(t, turtle, "elmt:P__Q___402")
 	want = strings.Replace(want, "        then action b;\n", "        action b;\n", 1)
 	if back := toNotation(t, removed); back != want {
@@ -434,7 +437,7 @@ func TestEditedExpressionDoesNotResurrectStaleText(t *testing.T) {
 	turtle = editTurtle(t, turtle, `sysml:value "4"^^xsd:integer`, `sysml:value "5"^^xsd:integer`)
 	back := toNotation(t, turtle)
 	want := `package P {
-    attribute mass : Real = 5;
+    attribute mass : Real = 5; // the mass
     attribute count : Integer = 2; // and the count
 }
 `
@@ -455,7 +458,7 @@ func TestEditedStringValueIsWrittenAsALiteral(t *testing.T) {
 	turtle = editTurtle(t, turtle, `sysml:value "plain"`, "sysml:value "+quoteLiteral(value))
 	back := toNotation(t, turtle)
 	want := `package P {
-    attribute label : String = "say \"hi\"\\\n\t\r\b\f";
+    attribute label : String = "say \"hi\"\\\n\t\r\b\f"; // the label
     attribute count : Integer = 2; // and the count
 }
 `
@@ -530,6 +533,7 @@ package Accepts {
     attribute def Cmd;
     attribute def Other;
     action def Drive {
+        // waits for a command
         accept sig : Other;
         // then goes
         action go;
@@ -549,7 +553,7 @@ package Accepts {
 func TestUnparsableSourceTextIsIgnored(t *testing.T) {
 	turtle := editTurtle(t, commentedTurtle(t), `part def Hub;\n`, `part def Hub\n`)
 	back := toNotation(t, turtle)
-	if want := toNotation(t, withoutTriples(t, turtle, "sysx:sourceText")); back != want {
+	if want := toNotation(t, withoutSourceTextKeepingNotes(t, turtle)); back != want {
 		t.Errorf("unparsable text was not replaced:\n--- want ---\n%s--- got ---\n%s", want, back)
 	}
 	if strings.Contains(back, "part def Hub\n") || !strings.Contains(back, "part def Hub;") {
@@ -624,7 +628,7 @@ func TestRootsOfTwoLanguagesAreWrittenCanonically(t *testing.T) {
 		t.Fatalf("round trip changed the notation:\n--- want ---\n%s--- got ---\n%s", two, back)
 	}
 	mixed := editTurtle(t, turtle, `sysx:sourceLanguage "sysml"`, `sysx:sourceLanguage "kerml"`)
-	if back, want := toNotation(t, mixed), toNotation(t, withoutTriples(t, turtle, "sysx:sourceText")); back != want {
+	if back, want := toNotation(t, mixed), toNotation(t, withoutSourceTextKeepingNotes(t, turtle)); back != want {
 		t.Errorf("text of two languages was trusted:\n--- want ---\n%s--- got ---\n%s", want, back)
 	}
 }
