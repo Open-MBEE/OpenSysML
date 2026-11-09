@@ -160,15 +160,16 @@ func (s *Service) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryRes
 	if err != nil {
 		return nil, held.queryExecStatus(err)
 	}
-	return &pb.QueryResponse{Elements: eval.resultElements(result)}, nil
+	return &pb.QueryResponse{Elements: eval.resultElements(qctx, result)}, nil
 }
 
 // resultElements renders the plan's rows: an element by the identity this
 // service reports and its metamodel type, an object by the element it is an
 // instance of with the path it is held under, and the first value of each
-// selected property as text — an empty string included — omitting the
-// properties the row has no value of.
-func (e *queryEval) resultElements(result *queryexec.RowSet) []*pb.QueryResultElement {
+// selected property as text — an empty string included, an expression element
+// as written — omitting the properties the row has no value of and an element
+// this service has no identity for.
+func (e *queryEval) resultElements(qctx queryexec.Context, result *queryexec.RowSet) []*pb.QueryResultElement {
 	rows := result.Rows()
 	columns := result.Columns()
 	out := make([]*pb.QueryResultElement, 0, len(rows))
@@ -190,12 +191,7 @@ func (e *queryEval) resultElements(result *queryexec.RowSet) []*pb.QueryResultEl
 			if len(values) == 0 {
 				continue
 			}
-			text, ok := values[0].Text(e.identity)
-			if _, isElement := values[0].Element(); isElement && text == "" {
-				// An element this service has no identity for is not reported.
-				continue
-			}
-			if ok {
+			if text, ok := qctx.PropertyText(values[0]); ok {
 				element.Properties[columns[i].Name()] = text
 			}
 		}

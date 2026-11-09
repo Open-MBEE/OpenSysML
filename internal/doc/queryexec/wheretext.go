@@ -5,7 +5,6 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/query"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // evaluateWhereText keeps the projected rows one of whose cells, among the
@@ -115,7 +114,7 @@ func (e *executor) valueText(value Value) string {
 				return name
 			}
 		}
-		return symbols.FQNOf(sym)
+		return e.elementText(sym)
 	}
 	if _, label, ok := value.Object(); ok {
 		return label

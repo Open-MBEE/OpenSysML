@@ -228,3 +228,47 @@ func TestQueryReportsAnEmptyValueAsPresent(t *testing.T) {
 		t.Fatalf("documentation of a comment is present: %v", props)
 	}
 }
+
+// TestQueryWalksASendActionsArguments: a send's payloadArgument, senderArgument
+// and receiverArgument are the expression elements the metamodel derives, so a
+// path continues through them — to their metaclass, or the feature a reference
+// names — while the argument itself, having no identity, reads as written, and
+// a term on it compares the same.
+func TestQueryWalksASendActionsArguments(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustParse(t, srv, `package Demo {
+		item def Alarm;
+		part def Monitor {
+			port alarmPort;
+			part display;
+			action supervise {
+				action notifyVia send new Alarm(3) via alarmPort;
+				action notifyTo send new Alarm(5) to display;
+			}
+		}
+	}`)
+	resp := oslcQuery(t, srv, hash, `oslc.where=rdf:type=sysml:SendActionUsage and sysml:senderArgument{sysml:referent{sysml:name="alarmPort"}}`+
+		`&oslc.select=sysml:payloadArgument{rdf:type},sysml:senderArgument{rdf:type,sysml:referent{sysml:name}}`)
+	if len(resp.Elements) != 1 || resp.Elements[0].Id != "Demo::Monitor::supervise::notifyVia" {
+		t.Fatalf("scoped on the sender = %v", resp.Elements)
+	}
+	want := map[string]string{
+		"payloadArgument.@type":        "ConstructorExpression",
+		"senderArgument.@type":         "FeatureReferenceExpression",
+		"senderArgument.referent.name": "alarmPort",
+	}
+	for property, value := range want {
+		if got := resp.Elements[0].Properties[property]; got != value {
+			t.Errorf("%s = %q, want %q (%v)", property, got, value, resp.Elements[0].Properties)
+		}
+	}
+	resp = oslcQuery(t, srv, hash, `oslc.where=rdf:type=sysml:SendActionUsage and sysml:payloadArgument="new Alarm(5)"&oslc.select=sysml:payloadArgument,sysml:receiverArgument{sysml:referent{sysml:qualifiedName}}`)
+	if len(resp.Elements) != 1 || resp.Elements[0].Properties["payloadArgument"] != "new Alarm(5)" ||
+		resp.Elements[0].Properties["receiverArgument.referent.qualifiedName"] != "Demo::Monitor::display" {
+		t.Fatalf("payload as written = %v", resp.Elements)
+	}
+	resp = oslcQuery(t, srv, hash, `oslc.where=rdf:type=sysml:SendActionUsage&oslc.select=sysml:payloadArgument&oslc.orderBy=-sysml:payloadArgument`)
+	if len(resp.Elements) != 2 || resp.Elements[0].Properties["payloadArgument"] != "new Alarm(5)" {
+		t.Fatalf("ordered by the payload as written = %v", resp.Elements)
+	}
+}

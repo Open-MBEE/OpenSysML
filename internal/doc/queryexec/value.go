@@ -8,6 +8,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // ValueKind classifies one scalar query value.
@@ -441,4 +442,42 @@ func StaticRow(cells []string, origin symbols.Origin) Row {
 		row.cells[i] = Cell{values: []Value{StringValue(text)}, origin: origin}
 	}
 	return row
+}
+
+// WrittenExpression is the text an expression element the model synthesizes —
+// a send's argument, a feature's value — was written as. Such an element has
+// no name, scope or identity of its own, so a surface that names elements by
+// identity reports it this way; ok is false for any other element.
+func (c Context) WrittenExpression(sym *symbols.Symbol) (string, bool) {
+	if sym == nil || sym.Expr == nil || sym.Decl == nil {
+		return "", false
+	}
+	if lookup := c.Model.SourceText(); lookup != nil {
+		if text := strings.TrimSpace(lookup(sym.DocName, sym.DeclSpan)); text != "" {
+			return text, true
+		}
+	}
+	return ast.QualifiedText(sym.Decl), true
+}
+
+// PropertyText is a value as a property's text on a surface that names elements
+// by Identity: Value.Text, an expression element — which has no identity —
+// reported as written. ok is false for a value the surface has no text for, an
+// element it cannot name included.
+func (c Context) PropertyText(v Value) (string, bool) {
+	text, ok := v.Text(c.Identity)
+	if sym, isElement := v.Element(); isElement && text == "" {
+		return c.WrittenExpression(sym)
+	}
+	return text, ok
+}
+
+// elementText is what an element compares and orders as: its qualified name,
+// or the written text of an expression element, which has none.
+func (e *executor) elementText(sym *symbols.Symbol) string {
+	if name := symbols.FQNOf(sym); name != "" {
+		return name
+	}
+	text, _ := e.context.WrittenExpression(sym)
+	return text
 }

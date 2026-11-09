@@ -94,6 +94,14 @@ A property is one of three things, told apart by its namespace:
 | `sysml:<property>` | A property the SysML metamodel declares, read reflectively from the model's metaclass declarations — `sysml:name`, `sysml:qualifiedName`, `sysml:owner`, `sysml:isAbstract`, `sysml:documentation`, `sysml:type`, `sysml:satisfiedRequirement`, … every property `Project` can read of the element |
 | `sysx:<property>` | What the metamodel does not declare: the two evaluator-derived properties `sysx:multiplicityLower` and `sysx:multiplicityUpper`, and the features of the model itself (`sysx:pressure`, `sysx:wheels.diameter`), read of each row as a document query's `WhereFeature` reads them |
 
+An element-valued property reads as the element's identity, and a scoped term
+or nested selection continues through it. An expression element the metamodel
+derives — a send's `sysml:payloadArgument`, `sysml:senderArgument` or
+`sysml:receiverArgument` — has no identity of its own, so it reads, compares
+and orders as written (`new Alarm(3)`), while a path through it reaches what
+it refers to: `sysml:senderArgument{rdf:type}` is `FeatureReferenceExpression`,
+`sysml:senderArgument{sysml:referent{sysml:name}}` the port it names.
+
 A `sysml:` spelling of a property the metamodel does not declare is refused
 before any element is read, as a QVTS path failure whose diagnostic lists the
 nearest spellings under the query's own `oslc.prefix` bindings, so they are

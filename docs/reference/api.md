@@ -1109,7 +1109,11 @@ declares is an `INVALID_ARGUMENT` error naming the nearest spelling, carrying th
 [query outcome](../internals/design/query-outcomes.md) as a `QueryOutcome` status
 detail — never a silently empty answer. Properties nest by `.`
 (`owner.name`, `wheels.diameter`), reading the property of the related element
-or the member of the held object the first segment names.
+or the member of the held object the first segment names. An element-valued
+property reports the element's `@id`; an expression element the metamodel
+derives — a send's `payloadArgument`, `senderArgument`, `receiverArgument` —
+has none, so it reports, compares and orders as written (`new Alarm(3)`), and
+a path continues through it (`senderArgument.@type`, `senderArgument.referent.name`).
 
 | Property | Reports | Ordered |
 |---|---|---|

@@ -68,3 +68,27 @@ func TestQuerySelectsHeldObjectsByPath(t *testing.T) {
 		t.Fatalf("or: %v", err)
 	}
 }
+
+// TestQueryReadsASendsArgumentAsWritten: a send's argument is an expression
+// element with no identity, so %query prints it as written, and a path through
+// it reaches what it refers to.
+func TestQueryReadsASendsArgumentAsWritten(t *testing.T) {
+	s := NewSession()
+	if result := s.Submit(`package Demo {
+		item def Alarm { attribute level : ScalarValues::Integer; }
+		part def Monitor {
+			port alarmPort;
+			action supervise { action notifyVia send new Alarm(3) via alarmPort; }
+		}
+	}`); len(result.Diagnostics) != 0 {
+		t.Fatalf("Submit diagnostics = %v", result.Diagnostics)
+	}
+	lines, err := s.Query(`oslc.where=rdf:type=sysml:SendActionUsage&oslc.select=sysml:payloadArgument,sysml:senderArgument{sysml:referent{sysml:name}}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "Demo::Monitor::supervise::notifyVia  SendActionUsage  sysml:payloadArgument=new Alarm(3)  sysml:senderArgument{sysml:referent{sysml:name}}=alarmPort"
+	if len(lines) != 1 || lines[0] != want {
+		t.Fatalf("send =\n%s\nwant\n%s", strings.Join(lines, "\n"), want)
+	}
+}

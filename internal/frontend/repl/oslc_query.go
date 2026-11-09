@@ -92,11 +92,7 @@ func (s *Session) query(text string) ([]string, error) {
 			if i >= len(columns) || len(values) == 0 {
 				continue
 			}
-			text, ok := values[0].Text(namer.Identity)
-			if _, isElement := values[0].Element(); isElement && text == "" {
-				continue
-			}
-			if ok {
+			if text, ok := context.PropertyText(values[0]); ok {
 				fmt.Fprintf(&line, "  %s=%s", q.SpellingOf(columns[i].Name()), text)
 			}
 		}

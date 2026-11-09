@@ -1053,6 +1053,13 @@ func (e *executor) reflectiveQueryableValues(sym *symbols.Symbol, property strin
 	if _, declared := sym.RelationshipDecl(); sym.Implicit == nil && sym.Expr == nil && !declared {
 		return nil, nil
 	}
+	if property == query.PropertyType {
+		// The reader classifies by symbol kind, which such a symbol has none of.
+		if name := e.metaclassOf(sym); name != "" {
+			return []Value{valueAt(StringValue(name), ElementValue(sym).Origin())}, nil
+		}
+		return nil, nil
+	}
 	values, _, err := e.reflectiveValues(queryplan.Expression{}, sym, property)
 	return values, err
 }
@@ -1176,9 +1183,6 @@ func isQueryableProperty(property string) bool {
 		query.PropertyIsIndividual,
 		query.PropertyMultiplicityLower,
 		query.PropertyMultiplicityUpper,
-		query.PropertyPayloadArgument,
-		query.PropertySenderArgument,
-		query.PropertyReceiverArgument,
 		query.PropertyElementID:
 		return true
 	default:
@@ -1418,7 +1422,7 @@ func (e *executor) compareOrdered(left, right Value) (int, error) {
 	case ValueElement:
 		l, _ := left.Element()
 		r, _ := right.Element()
-		return strings.Compare(symbols.FQNOf(l), symbols.FQNOf(r)), nil
+		return strings.Compare(e.elementText(l), e.elementText(r)), nil
 	case ValueObject:
 		_, l, _ := left.Object()
 		_, r, _ := right.Object()
