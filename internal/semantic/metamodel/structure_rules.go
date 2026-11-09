@@ -4950,10 +4950,8 @@ func (e *Evaluator) computeStructureTypeMembers(element Element, property string
 	return e.structureMembershipsProperty(memberships, property)
 }
 
-// structureLibraryBase decides, for both member walks (type members, non-private memberships),
-// whether a type's members are read from the semantic inheritance table instead of the structure:
-// a library type the structure only references — implied, or stated as `: Boolean` — has no rows
-// of its own there, and the symbol returned is the one to read them by.
+// structureLibraryBase is the one decision both member walks make: a library type the structure only
+// references — implied, or stated as `: Boolean` — has no rows there, so its members are read by this symbol.
 func (e *Evaluator) structureLibraryBase(element Element) (Element, bool) {
 	if element.Symbol != nil {
 		return element, !e.structureKnows(element)
