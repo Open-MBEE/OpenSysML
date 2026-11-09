@@ -18,7 +18,7 @@ FeatureTyping::@id	19	export-55
 FeatureValue::@id	9	export-50
 ForkNode::@id	2	export-49
 LiteralInteger::@id	2	export-49
-Membership::@id	32	export-53
+Membership::@id	23	export-53
 Multiplicity::@id	4	symbol-55
 Namespace::@id	1	export-39
 OperatorExpression::@id	3	export-42

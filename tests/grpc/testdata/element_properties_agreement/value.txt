@@ -245,14 +245,14 @@ FeatureReferenceExpression::directedFeature	2	symbol-53
 FeatureReferenceExpression::feature	13	symbol-51
 FeatureReferenceExpression::featureMembership	13	symbol-51
 FeatureReferenceExpression::member	66	symbol-51
-FeatureReferenceExpression::membership	23	symbol-51
+FeatureReferenceExpression::membership	14	symbol-51
 FeatureReferenceExpression::output	2	export-56
 FeatureReferenceExpression::ownedElement	13	symbol-02
 FeatureReferenceExpression::ownedFeature	13	symbol-53
 FeatureReferenceExpression::ownedFeatureMembership	13	symbol-53
 FeatureReferenceExpression::ownedMember	13	symbol-08
-FeatureReferenceExpression::ownedMembership	23	symbol-09
-FeatureReferenceExpression::ownedRelationship	23	symbol-03
+FeatureReferenceExpression::ownedMembership	14	symbol-09
+FeatureReferenceExpression::ownedRelationship	14	symbol-03
 FeatureReferenceExpression::parameter	2	symbol-54
 FeatureReferenceExpression::referent	25	export-56
 FeatureReferenceExpression::result	2	export-56
