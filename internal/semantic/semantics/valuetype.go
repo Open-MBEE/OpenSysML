@@ -525,11 +525,17 @@ func (m *Model) ImplicitBaseParameter(sym *symbols.Symbol) *symbols.Symbol {
 		return nil
 	}
 	for _, redefined := range m.ImplicitParameterRedefinitions(sym) {
-		if m.IsKindBaseParameter(sym.OwnerScope.Owner(), redefined) {
+		if m.kindBaseParameterOf(sym, redefined) {
 			return redefined
 		}
 	}
 	return nil
+}
+
+// kindBaseParameterOf reports whether param is a kind base's parameter (see
+// IsKindBaseParameter) of the behavior or step owning sym.
+func (m *Model) kindBaseParameterOf(sym, param *symbols.Symbol) bool {
+	return sym.OwnerScope != nil && m.IsKindBaseParameter(sym.OwnerScope.Owner(), param)
 }
 
 // IsKindBaseParameter reports whether param is a parameter of a behavior or step

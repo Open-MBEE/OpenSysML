@@ -833,19 +833,22 @@ func TestCollectionNestedElements(t *testing.T) {
 	}
 }
 
-// A mapper named by function holds one value per element where its result declares no
-// multiplicity, as a feature does — not any number — while a result whose declared bound is not
-// evaluable holds an unknown number; a count past int64 exceeds every bound.
+// A mapper named by function holds one value per element where its result declares exactly one —
+// not any number — while a result declaring no multiplicity inherits Evaluation::result's [0..*]
+// (KerML 8.3.3.1), and one whose declared bound is not evaluable holds an unknown number; a count
+// past int64 exceeds every bound.
 func TestCollectionSizeThroughNamedMapperAndPastInt64(t *testing.T) {
 	m, s := collectionModel(t, `
 		part two : C[2];
 		attribute n : Positive;
-		function Named { in c : C; return r : String; }
+		function Named { in c : C; return r : String[1]; }
+		function Inherited { in c : C; return r : String; }
 		function Unsure { in c : C; return r : String[n]; }
 		part def H { part many : C[9223372036854775807]; }
 		part hs : H[2];
 		part huge : C[9223372036854775807];
 		attribute named = (two->collect Named)->reduce { in a : String; in b : String; 1 };
+		attribute inherited = (two->collect Inherited)->reduce { in a : String; in b : String; 1 };
 		attribute unsure = (two->collect Unsure)->reduce { in a : String; in b : String; 1 };
 		attribute sum = (huge, huge)->reduce { in a : C; in b : C; a.name };
 		attribute product = hs.many->reduce { in a : C; in b : C; a.name };`)
@@ -853,9 +856,11 @@ func TestCollectionSizeThroughNamedMapperAndPastInt64(t *testing.T) {
 	if elements, ok := m.CollectionElements(s, valueOf(t, s, "named")); !ok || len(elements) != 1 || symbols.LastSegment(elements[0].Types[0].Name) != "Integer" {
 		t.Errorf("named: elements %v, want the reducer's Integer alone", elements)
 	}
-	wantValueTypes(t, m, s, "unsure", "ScalarValue")
-	if elements, ok := m.CollectionElements(s, valueOf(t, s, "unsure")); !ok || len(elements) != 2 {
-		t.Errorf("unsure: elements %v, want the reducer's Integer and the mapper's String", elements)
+	for _, name := range []string{"inherited", "unsure"} {
+		wantValueTypes(t, m, s, name, "ScalarValue")
+		if elements, ok := m.CollectionElements(s, valueOf(t, s, name)); !ok || len(elements) != 2 {
+			t.Errorf("%s: elements %v, want the reducer's Integer and the mapper's String", name, elements)
+		}
 	}
 	for _, name := range []string{"sum", "product"} {
 		wantValueTypes(t, m, s, name, "String")
