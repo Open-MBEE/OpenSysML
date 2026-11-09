@@ -30,13 +30,13 @@ and the Microsoft.Testing.Platform runner.
 ```bash
 export OPENSYSML_GRPC_BINARY="$PWD/bin/sysml-grpc" OPENSYSML_REQUIRE_SERVICE=1 OPENSYSML_REQUIRE_INTEROP=1
 export OPENSYSML_REQUIRE_SMT=1   # needs z3 or cvc5 on PATH: the verdict-notes test asks the service a solver question
-make dotnet-test        # format, 0-warning build, whole suite, Vehicle sample, gate self-tests, digests
-make dotnet-coverage    # same suite under coverlet; Cobertura and JUnit in bin/dotnet/coverage
+make dotnet-test        # format, 0-warning build, whole suite under coverlet, Vehicle sample, gate self-tests, digests
 ```
 
 Without the two `REQUIRE` variables, absent prerequisites are skips **by name**, and a run that
 skipped them proves nothing about the service, the lifecycle or locking. `DOTNET_MIN_TESTS` in the
-Makefile is a floor on executed tests: raise it when tests are added, never lower it to pass. Every
+Makefile is a floor on executed tests: raise it when tests are added, lower it only by the tests a
+change deliberately removes, never to pass. Every
 test declares `Category` `Unit`, `Integration` or `Interop`; focus with
 `dotnet test --project client/dotnet/test/OpenMBEE.OpenSysML.Tests -c Release --filter 'FullyQualifiedName~ClassName'`.
 

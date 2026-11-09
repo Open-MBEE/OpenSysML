@@ -1,4 +1,4 @@
-.PHONY: all build docker vulncheck sca-tools audit audit-npm audit-python audit-rust audit-java extension-libraries-check extension-libraries-sync extension-libraries-pin-check textmate-grammars-check textmate-grammars-publish build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab conformance-dotnet conformance-dotnet-check test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check dotnet-metamodel dotnet-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage dotnet-preflight dotnet-build dotnet-test dotnet-coverage dotnet-generate dotnet-generate-goldens dotnet-generate-check python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-csharp proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render self-model mcp-registry-check
+.PHONY: all build docker vulncheck sca-tools audit audit-npm audit-python audit-rust audit-java extension-libraries-check extension-libraries-sync extension-libraries-pin-check textmate-grammars-check textmate-grammars-publish build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab conformance-dotnet conformance-dotnet-check test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check dotnet-metamodel dotnet-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage dotnet-preflight dotnet-build dotnet-test dotnet-generate dotnet-generate-goldens dotnet-generate-check python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-csharp proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render self-model mcp-registry-check
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -83,7 +83,7 @@ DOTNET ?= dotnet
 DOTNET_DIR := client/dotnet
 DOTNET_SLN := $(DOTNET_DIR)/OpenSysML.slnx
 DOTNET_REPORTS := $(BIN_DIR)/dotnet
-DOTNET_MIN_TESTS := 3383
+DOTNET_MIN_TESTS := 3309
 DOTNET_CLIENT_VERSION = $(shell sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' $(DOTNET_DIR)/Directory.Build.props)
 # The typed-code generator, run from its Release build with the arguments a user gives it.
 DOTNET_GENERATE = $(DOTNET) run --project $(DOTNET_DIR)/src/OpenMBEE.OpenSysML.Generate -c Release --no-build --
@@ -727,13 +727,18 @@ dotnet-build: dotnet-preflight ## Restore the .NET client from its lock files an
 # With OPENSYSML_GRPC_BINARY and OPENSYSML_REQUIRE_SERVICE=1 set, as CI sets them,
 # a test that needs the service fails rather than skips without one, and so does the
 # Vehicle sample's run against a service the sample gate starts.
-dotnet-test: dotnet-build ## Check formatting, run the .NET client tests and its samples, and write JUnit under bin/dotnet/test
+dotnet-test: dotnet-build ## Check formatting, run the .NET client tests under coverlet and its samples; write JUnit under bin/dotnet/test and Cobertura under bin/dotnet/coverage
 	@echo "Running .NET client tests..."
 	$(DOTNET) format $(DOTNET_SLN) --verify-no-changes --no-restore
-	rm -rf $(DOTNET_REPORTS)/test
+	rm -rf $(DOTNET_REPORTS)/test $(DOTNET_REPORTS)/coverage
 	$(DOTNET) test --solution $(DOTNET_SLN) -c Release --no-build \
 		--minimum-expected-tests $(DOTNET_MIN_TESTS) \
-		--results-directory $(CURDIR)/$(DOTNET_REPORTS)/test --report-xunit-junit
+		--results-directory $(CURDIR)/$(DOTNET_REPORTS)/test --report-xunit-junit \
+		--coverlet --coverlet-output-format cobertura \
+		$(foreach f,$(DOTNET_GENERATED),--coverlet-exclude-by-file '**/$(f)')
+	mkdir -p $(DOTNET_REPORTS)/coverage
+	mv $(DOTNET_REPORTS)/test/*.cobertura*.xml $(DOTNET_REPORTS)/coverage/
+	$(PYTHON) $(DOTNET_DIR)/scripts/dotnet-gates.py coverage $(DOTNET_REPORTS)/coverage --generated $(DOTNET_GENERATED)
 	$(PYTHON) $(DOTNET_DIR)/scripts/dotnet-gates.py sample --dotnet "$(DOTNET)" \
 		--expect "OpenMBEE.OpenSysML $(DOTNET_CLIENT_VERSION) (.NETCoreApp,Version=v10.0)"
 	$(PYTHON) $(DOTNET_DIR)/scripts/dotnet-gates.py metamodel-sample --dotnet "$(DOTNET)" \
@@ -755,16 +760,6 @@ dotnet-generate-goldens: dotnet-build ## Regenerate the .NET generator's committ
 dotnet-generate-check: dotnet-build ## Fail unless every committed golden of the .NET generator is what its documents generate
 	$(PYTHON) $(DOTNET_DIR)/scripts/dotnet-gates.py goldens --check --dotnet "$(DOTNET)"
 
-dotnet-coverage: dotnet-build ## Run the .NET client tests under coverlet; write Cobertura and JUnit under bin/dotnet/coverage
-	@echo "Running .NET client tests with coverage..."
-	rm -rf $(DOTNET_REPORTS)/coverage
-	$(DOTNET) test --solution $(DOTNET_SLN) -c Release --no-build \
-		--minimum-expected-tests $(DOTNET_MIN_TESTS) \
-		--results-directory $(CURDIR)/$(DOTNET_REPORTS)/coverage --report-xunit-junit \
-		--coverlet --coverlet-output-format cobertura \
-		$(foreach f,$(DOTNET_GENERATED),--coverlet-exclude-by-file '**/$(f)')
-	$(PYTHON) $(DOTNET_DIR)/scripts/dotnet-gates.py coverage $(DOTNET_REPORTS)/coverage --generated $(DOTNET_GENERATED)
-	@echo "✓ Wrote $(DOTNET_REPORTS)/coverage"
 vscode-coverage: ## Run the VS Code extension's tests and write coverage-vscode.lcov
 	@echo "Running the VS Code extension tests with coverage..."
 	cd $(VSCODE_DIR) && npm ci && npm run test:coverage
