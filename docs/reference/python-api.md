@@ -809,6 +809,14 @@ Outcomes and search metadata returned by behavior exploration.
     options:
       heading_level: 3
 
+::: opensysml.Coverage
+    options:
+      heading_level: 3
+
+::: opensysml.CoverageEntry
+    options:
+      heading_level: 3
+
 ## opensysml.action_run
 
 Action outputs decoded from a completed run.
