@@ -7,16 +7,17 @@ import (
 
 // MultiplicityBounds are the bound Expressions a written MultiplicityRange owns
 // (KerML 8.3.3.6 MultiplicityRange::lowerBound, upperBound), in that order: `[n]`
-// states the upper bound alone, as the conversion writes it. Nil for any other
-// symbol, a default multiplicity included.
+// states the upper bound alone, as the conversion writes it. The range is a
+// feature's clause or a `multiplicity m [a..b]` declaration (KerML.xtext
+// MultiplicityRange). Nil for any other symbol, a default multiplicity included.
 func (m *Model) MultiplicityBounds(rng *symbols.Symbol) []*symbols.Symbol {
-	if m == nil || !IsDeclaredMultiplicityRange(rng) || rng.OwnerScope == nil {
+	if m == nil || rng == nil {
 		return nil
 	}
 	if cached, ok := m.multiplicityBounds[rng]; ok {
 		return cached
 	}
-	mult := UsageMultiplicityOf(rng.OwnerScope.Owner())
+	mult := declaredRangeClause(rng)
 	if mult == nil {
 		return nil
 	}
@@ -47,4 +48,16 @@ func (m *Model) MultiplicityBounds(rng *symbols.Symbol) []*symbols.Symbol {
 	journal(m, m.multiplicityBounds, rng, rng.Decl)
 	m.multiplicityBounds[rng] = out
 	return out
+}
+
+// declaredRangeClause is the written clause a MultiplicityRange symbol states: the
+// owning feature's for the range its clause implies, a multiplicity declaration's own.
+func declaredRangeClause(rng *symbols.Symbol) *ast.Multiplicity {
+	if decl, ok := rng.Decl.(*ast.MultiplicityDecl); ok {
+		return decl.Range
+	}
+	if !IsDeclaredMultiplicityRange(rng) || rng.OwnerScope == nil {
+		return nil
+	}
+	return UsageMultiplicityOf(rng.OwnerScope.Owner())
 }

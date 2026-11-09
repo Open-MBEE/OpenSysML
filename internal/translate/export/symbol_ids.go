@@ -394,7 +394,11 @@ func (s *SymbolIDs) expressionID(sym *symbols.Symbol) (string, bool) {
 	case symbols.ExpressionConnectorEnd:
 		return s.partID(owner, fmt.Sprintf("end%d", sym.Expr.Index))
 	case symbols.ExpressionBound:
-		// A range's bound is minted off the feature declaring the range (multiplicityBound).
+		// A range's bound is minted off the feature declaring the range, or off a
+		// multiplicity declaration's own id (multiplicityBound).
+		if _, declared := owner.Decl.(*ast.MultiplicityDecl); declared {
+			return s.partID(owner, sym.Expr.Slot)
+		}
 		if owner.OwnerScope == nil || owner.OwnerScope.Owner() == nil {
 			return "", false
 		}

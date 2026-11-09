@@ -26,7 +26,8 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	if cached, ok := m.memberships[sym]; ok {
 		return cached
 	}
-	if bounds := m.MultiplicityBounds(sym); bounds != nil {
+	bounds := m.MultiplicityBounds(sym)
+	if bounds != nil && sym.Scope == nil {
 		// A written range owns its bounds (KerML 8.3.3.6 MultiplicityRange).
 		journal(m, m.memberships, sym, sym.Decl)
 		var out []*symbols.Symbol
@@ -48,6 +49,11 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	seen := make(map[*symbols.Symbol]bool)
 	ordinal := 0
+	for _, bound := range bounds {
+		// A multiplicity declaration owns its bounds ahead of its body (KerML 8.3.3.6).
+		out = appendOwningMembership(out, sym, bound)
+		ordinal++
+	}
 	for _, end := range ends {
 		// A `then` succession owns its ends ahead of its body (encodeSuccessionEdge).
 		out = appendOwningMembership(out, sym, end)

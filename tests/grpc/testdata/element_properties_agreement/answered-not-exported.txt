@@ -413,7 +413,7 @@ Feature::endOwningType	12	symbol-45
 Feature::featuringType	12	symbol-17
 Feature::owningFeatureMembership	12	symbol-45
 Feature::owningType	12	symbol-45
-Feature::type	275	symbol-19
+Feature::type	276	symbol-19
 FeatureChainExpression::instantiatedType	296	symbol-29
 FeatureChainExpression::operand	480	symbol-30
 FeatureChainExpression::targetFeature	7	symbol-23
@@ -551,9 +551,9 @@ JoinNode::occurrenceDefinition	9	symbol-41
 JoinNode::type	9	symbol-19
 Membership::memberElement	19	symbol-47
 Membership::memberElementId	52	symbol-47
-Membership::membershipOwningNamespace	2416	symbol-07
-Membership::relatedElement	465	symbol-10
-Membership::source	465	symbol-11
+Membership::membershipOwningNamespace	2417	symbol-07
+Membership::relatedElement	466	symbol-10
+Membership::source	466	symbol-11
 Membership::target	33	symbol-12
 MembershipExpose::relatedElement	71	symbol-10
 MembershipImport::relatedElement	188	symbol-10
