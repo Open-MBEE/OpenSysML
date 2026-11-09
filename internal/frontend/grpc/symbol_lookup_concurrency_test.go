@@ -8,9 +8,8 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 )
 
-// Concurrent GetSymbol requests share one cached model, and a symbol id named by
-// the parameter its position redefines is found through the member walk, which
-// memoizes into the shared semantic model: the lookups must serialize on it.
+// Concurrent GetSymbol requests share one cached model, whose semantic model
+// memoizes the member walk a positionally named id takes: the lookups must serialize on it.
 func TestGetSymbolConcurrentLookupsShareTheModel(t *testing.T) {
 	srv := mustNewService(t, 10)
 	parsed, _ := parseContent(t, srv, `package P {
