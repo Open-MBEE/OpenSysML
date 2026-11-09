@@ -245,6 +245,12 @@ func (e *PinError) Unwrap() error { return ErrNotPinnable }
 // The second result names the features whose value could not be read, which stay
 // free rather than being reported as fixed to something.
 func Fixed(ctx *runtime.Context, sym *symbols.Symbol, inst *runtime.Instance) ([]Pin, []Unfixed) {
+	return fixedOf(ctx, sym, inst, inst)
+}
+
+// fixedOf reads the values fixed for the features of sym: what held, an object of sym's type, holds,
+// else what their declarations state, evaluated on inst, whose own feature of the name is another feature.
+func fixedOf(ctx *runtime.Context, sym *symbols.Symbol, inst, held *runtime.Instance) ([]Pin, []Unfixed) {
 	if ctx == nil || sym == nil {
 		return nil, nil
 	}
@@ -265,8 +271,8 @@ func Fixed(ctx *runtime.Context, sym *symbols.Symbol, inst *runtime.Instance) ([
 		}
 		// Whether the object holds the value is read before reading it, which
 		// materializes a declared value the object had not yet.
-		derived := derivedDeclaration(ctx, &feature, inst, features)
-		value, source, object, err := fixedValue(ctx, &feature, inst)
+		derived := derivedDeclaration(ctx, &feature, held, features)
+		value, source, object, err := fixedValue(ctx, &feature, inst, held)
 		if err == nil {
 			// A declared value open for a feature nothing gives a value to does not
 			// evaluate, as a failed read does; a feature holding nothing itself stays free.
@@ -318,14 +324,19 @@ type Fixing struct {
 // the element the conditions were written in — declares, and then what the
 // element's own features declare. A feature fixed twice is fixed by the nearer
 // source, which is what an evaluation about it would read; a feature that only
-// shares its name with a nearer one is another feature, fixed on its own.
+// shares its name with a nearer one, or with one the object holds, is another
+// feature, fixed on its own.
 func FixedFor(ctx *runtime.Context, f Fixing) ([]Pin, []Unfixed) {
 	var pins []Pin
 	var unfixed []Unfixed
 	fixed := fixedFeatures{model: ctx.Semantics(), seen: make(map[*symbols.Symbol]bool)}
 	inst := f.Object
 	for _, from := range fixedFrom(ctx, f) {
-		found, notRead := Fixed(ctx, from, inst)
+		var held *runtime.Instance
+		if inst != nil && (from == f.ObjectType || from == inst.Type) {
+			held = inst
+		}
+		found, notRead := fixedOf(ctx, from, inst, held)
 		for _, p := range found {
 			if fixed.add(p.Feature) {
 				pins = append(pins, p)
@@ -393,27 +404,27 @@ func fixedFrom(ctx *runtime.Context, f Fixing) []*symbols.Symbol {
 	return froms
 }
 
-// fixedValue is the value the model fixes for one feature: the one an object
-// holds, else the one its declaration states, evaluated where it was written.
+// fixedValue is the value the model fixes for one feature: the one held holds for it,
+// else the one its declaration states, evaluated on inst where it was written.
 func fixedValue(
 	ctx *runtime.Context,
 	feat *runtime.EffectiveFeature,
-	inst *runtime.Instance,
+	inst, held *runtime.Instance,
 ) (runtime.Value, PinSource, int64, error) {
-	if inst != nil {
-		if fv, ok := inst.FeatureValues[feat.Name]; ok && fv != nil {
+	if held != nil {
+		if fv, ok := held.FeatureValues[feat.Name]; ok && fv != nil {
 			if fv.Materialized {
-				return fv.HeldValue(), PinHeld, inst.ID, nil
+				return fv.HeldValue(), PinHeld, held.ID, nil
 			}
 			// Reading a value feature is what evaluating it does; a variation is
 			// read instead from its declaration, since reading it would bind the
 			// variant and materialize the object of it.
 			if !ctx.IsVariationFeature(feat) {
-				read, err := inst.GetFeatureValue(ctx, feat.Name)
+				read, err := held.GetFeatureValue(ctx, feat.Name)
 				if err != nil {
-					return runtime.Value{}, PinHeld, inst.ID, err
+					return runtime.Value{}, PinHeld, held.ID, err
 				}
-				return read.HeldValue(), PinHeld, inst.ID, nil
+				return read.HeldValue(), PinHeld, held.ID, nil
 			}
 		}
 	}
@@ -429,19 +440,19 @@ func fixedValue(
 
 // derivedDeclaration is the expression the model declares feat's value by when
 // it is derived — written over other features of the element itself, among
-// features, and over literals — and inst holds no materialized value for it;
+// features, and over literals — and held holds no materialized value for it;
 // nil for a literal value, a value the object holds or a variation, which
 // stay fixed as they are. One reading anything else is not derived either: a
 // chain (`inner.x + 1.0`), a qualified or imported name (`test::scale * r`)
 // name values the query fixes none of, which an equation would leave to the
 // solver, so the value the evaluator derives from them is what the query fixes.
 // A unit (`[m]`) is a measurement reference, not a value read.
-func derivedDeclaration(ctx *runtime.Context, feat *runtime.EffectiveFeature, inst *runtime.Instance, features map[string]*symbols.Symbol) *Derived {
+func derivedDeclaration(ctx *runtime.Context, feat *runtime.EffectiveFeature, held *runtime.Instance, features map[string]*symbols.Symbol) *Derived {
 	if feat.DefaultValue == nil || ctx.IsVariationFeature(feat) {
 		return nil
 	}
-	if inst != nil {
-		if fv, ok := inst.FeatureValues[feat.Name]; ok && fv != nil && fv.Materialized {
+	if held != nil {
+		if fv, ok := held.FeatureValues[feat.Name]; ok && fv != nil && fv.Materialized {
 			return nil
 		}
 	}

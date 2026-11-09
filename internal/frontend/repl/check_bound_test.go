@@ -166,3 +166,31 @@ func TestCheckFixesAValueNamedLikeItsOwners(t *testing.T) {
 	wants(t, run(t, s, "%explain Shadow::h::k"), "Shadow::h::k::x == 1.0, declared by the model")
 	wants(t, run(t, s, "%check Shadow::h::m"), "✓ Constraint m is satisfiable", "Shadow::h::m::w = ")
 }
+
+// shadowedObjectModel: the constraint's own x, bound with `=`, is satisfiable
+// where the part's x of the same name, the one its objects hold, is not.
+const shadowedObjectModel = `
+package Shadow {
+    private import ScalarValues::*;
+
+    part h {
+        attribute x : Real default 2.0;
+        attribute w : Real = 3.0;
+
+        constraint k {
+            attribute x : Real = 1.0;
+            x < 1.5 and w > 0.0
+        }
+    }
+}
+`
+
+// TestSolveReadsAnObjectForItsOwnFeaturesOnly: over an object of the part, the
+// constraint's own x is fixed as declared, not to the x the object holds.
+func TestSolveReadsAnObjectForItsOwnFeaturesOnly(t *testing.T) {
+	requireSolver(t)
+	s := checkSession(t, shadowedObjectModel)
+	run(t, s, "%instantiate Shadow::h")
+	wants(t, run(t, s, "%solve Shadow::h::k"), "✓ Constraint k has values satisfying it",
+		"Shadow::h::k::x = 1.0  (declared)", "Shadow::h::w = 3  (held by object 1)")
+}
