@@ -235,7 +235,7 @@ func (e *Evaluator) structureRedefinedParameterIndex(inherited []structureParame
 }
 
 // structureParameterRedefines reports whether feature redefines target, directly or
-// transitively, by clause or by position.
+// transitively, by clause or by position with an agreeing direction (KerML 8.4.4.6).
 func (e *Evaluator) structureParameterRedefines(feature, target Element) (bool, bool) {
 	visited := make(map[ElementKey]bool)
 	var redefines func(Element) (bool, bool)
@@ -248,7 +248,7 @@ func (e *Evaluator) structureParameterRedefines(feature, target Element) (bool, 
 		if !ok {
 			return false, false
 		}
-		implicit, ok := e.structureImplicitParameterRedefinitions(p, false)
+		implicit, ok := e.structureImplicitParameterRedefinitions(p, true)
 		if !ok {
 			return false, false
 		}
