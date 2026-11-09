@@ -24,8 +24,6 @@ export-18	export	SysML 8.3.19.3 MetadataUsage::metadataDefinition is the metadat
 export-19	export	`::>` on a reference or end is a ReferenceSubsetting (SysML 8.3.17.6 ReferenceSubsetting); the structure answers Subsetting
 export-20	export	`::>` on a reference or end is a ReferenceSubsetting (SysML 8.3.17.6 ReferenceSubsetting); the structure answers Subsetting or Conjugation
 export-21	export	`exhibit state` is an ExhibitStateUsage (SysML 8.3.16.9); the structure answers StateUsage
-export-22	export	`expose X::*` is a NamespaceExpose (SysML 8.3.20.6); the structure answers MembershipExpose
-export-23	export	`import X::*` is a NamespaceImport (KerML 8.3.2.4.9); the structure answers MembershipImport
 export-24	export	`include use case` is an IncludeUseCaseUsage (SysML 8.3.26.2); the structure answers UseCaseUsage
 export-25	export	`library package` is a LibraryPackage (KerML 8.3.2.6.3); the structure answers Package
 export-26	export	`perform action` is a PerformActionUsage (SysML 8.3.16.12); the structure answers ActionUsage
@@ -38,17 +36,11 @@ export-32	export	an action node whose body is `terminate` is a TerminateActionUs
 export-33	export	as the conversion writes it for this anonymous usage (succession, flow or binding end, SysML 8.3.17.1 Usage::isReference/isComposite, KerML 8.3.3.3.5 Feature::isVariable); the structure derives it from the usage kind and needs a symbol-side fix
 export-34	export	the form writes a feature chain's first chaining (KerML 8.3.3.3.3 FeatureChaining) (_pfc0); the structure does not resolve its id
 export-35	export	the form writes an annotation element the structure does not reflect (KerML 8.3.2.2 Annotation) (_an); the structure does not resolve its id
-export-36	export	the form writes an element of this metaclass the structure has no symbol for (_efm); the structure does not resolve its id
-export-37	export	the form writes an element of this metaclass the structure has no symbol for (_fp); the structure does not resolve its id
-export-38	export	the form writes an element of this metaclass the structure has no symbol for (_im); the structure does not resolve its id
 export-39	export	the form writes an element of this metaclass the structure has no symbol for (_ns); the structure does not resolve its id
-export-40	export	the form writes an element of this metaclass the structure has no symbol for (_pa1); the structure does not resolve its id
-export-41	export	the form writes an element of this metaclass the structure has no symbol for (_pc); the structure does not resolve its id
 export-42	export	the form writes an element of this metaclass the structure has no symbol for (_pfilter); the structure does not resolve its id
 export-43	export	the form writes an element of this metaclass the structure has no symbol for (_pguard); the structure does not resolve its id
 export-44	export	the form writes an element of this metaclass the structure has no symbol for (_prs); the structure does not resolve its id
 export-45	export	the form writes an element of this metaclass the structure has no symbol for (_ptarget); the structure does not resolve its id
-export-46	export	the form writes an element of this metaclass the structure has no symbol for (_pvalue); the structure does not resolve its id
 export-47	export	the form writes an element of this metaclass the structure has no symbol for (_sc0); the structure does not resolve its id
 export-48	export	the form writes an element of this metaclass the structure has no symbol for (_ss0); the structure does not resolve its id
 export-49	export	the form writes an element of this metaclass the structure has no symbol for (id); the structure does not resolve its id
