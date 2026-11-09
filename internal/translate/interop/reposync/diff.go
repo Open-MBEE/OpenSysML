@@ -355,23 +355,23 @@ func viewOf(g *rdf.Graph, rep Carrier) (map[string]*subjectView, []UncarriedProp
 	// the standard library, not an element of the model: it is never created,
 	// changed or deleted in a repository.
 	library := map[string]bool{}
-	// A node typed outside the metamodel (a sysx:Note) is no element the
-	// repository can hold: left out of the comparison, as its properties would be.
-	foreign := map[string]string{}
+	// A note is part of an element's lines, no element the repository can hold:
+	// left out of the comparison, as the element's layout properties are.
+	notes := map[string]bool{}
 	for _, subject := range g.Subjects() {
 		if export.LibraryReference(g, subject) {
 			library[subject.Value] = true
 		}
-		if typ := g.Type(subject); rep != nil && typ != "" && !strings.HasPrefix(typ, rdf.SysML) {
-			foreign[subject.Value] = typ
+		if rep != nil && g.Type(subject) == export.NoteClass {
+			notes[subject.Value] = true
 		}
 	}
 	for _, triple := range g.Triples() {
 		if !triple.Subject.IsIRI() || library[triple.Subject.Value] {
 			continue
 		}
-		if typ, ok := foreign[triple.Subject.Value]; ok {
-			uncarried[typ]++
+		if notes[triple.Subject.Value] {
+			uncarried[export.NoteClass]++
 			continue
 		}
 		id := rdf.LocalName(triple.Subject.Value)

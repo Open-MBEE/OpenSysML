@@ -106,6 +106,9 @@ func isLineNote(text string) bool {
 	return strings.HasPrefix(text, "//") && !strings.HasPrefix(text, "//*")
 }
 
+// NoteClass is the class of a note node: part of an element's lines, no Element.
+const NoteClass = rdf.OpenSysML + mNote
+
 // IsNoteProperty reports whether iri is one of the properties stating a note, which
 // say nothing of the model: layout, like the source text they are read from.
 func IsNoteProperty(iri string) bool {

@@ -845,7 +845,7 @@ func TestNotesAreNoElementsOfTheRepository(t *testing.T) {
 `))
 	var notes int
 	for _, subject := range local.Subjects() {
-		if local.Type(subject) == rdf.OpenSysML+"Note" {
+		if local.Type(subject) == export.NoteClass {
 			notes++
 		}
 	}
