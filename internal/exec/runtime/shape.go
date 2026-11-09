@@ -43,6 +43,16 @@ func (f *EffectiveFeature) defaultIsFallback() bool {
 	return ok && usage.ValueIsDefault
 }
 
+// Binds reports whether DefaultValue was written with `=`: a binding the feature
+// holds at all times, neither a `default` fallback nor a `:=` initial value.
+func (f *EffectiveFeature) Binds() bool {
+	if f.DefaultDecl == nil || f.DefaultValue == nil {
+		return false
+	}
+	usage, ok := f.DefaultDecl.Decl.(*ast.Usage)
+	return ok && !usage.ValueIsDefault && !usage.ValueIsInitial
+}
+
 // DefaultScope returns the scope DefaultValue resolves its names in, which for
 // an inherited default is where the redefined declaration wrote it.
 func (f *EffectiveFeature) DefaultScope() *symbols.Scope {
