@@ -18,9 +18,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 )
 
-// syntaxGzipBudget bounds the gzipped js build of sysml-syntax, which serves no resolution and no stdlib:
-// linking either adds 250 KB+ or 1.55 MB and trips it. 1,365,010 bytes on 2026-10-19; 1,645,836 on 2026-10-27 under
-// go1.27.3, whose encoding/json is the json/v2 implementation (1,359,712 with GOEXPERIMENT=nojsonv2).
+// syntaxGzipBudget bounds the gzipped js build of sysml-syntax (-trimpath, stripped), which serves no
+// resolution and no stdlib — linking either adds 250 KB+ or 1.55 MB and trips it: 1,662,521 bytes under go1.27.3
+// on 2026-11-09 at develop 8de845591f, the same with or without the library snapshot, which it does not embed.
 const syntaxGzipBudget = 1800000
 
 // syntaxCalls are the calls the stdio session and the host surface both make,

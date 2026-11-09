@@ -8,8 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -23,9 +21,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// coreGzipBudget bounds the gzipped js build of sysml-core: raised to 6,800,000 on 2026-10-24 when Markdown
-// bodies brought in goldmark (6,302,493 -> 6,601,115 bytes), to 7,300,000 on 2026-10-27 when go1.27.3 linked it at 7,069,278,
-// to 7,400,000 on 2026-11-08 when bare comments entered the library snapshot (7,328,201).
+// coreGzipBudget bounds the gzipped js build of sysml-core as the gate links it (-trimpath, stripped,
+// the library snapshot embedded, as every Makefile build target embeds it): 7,358,267 bytes under go1.27.3
+// on 2026-11-09 at develop 8de845591f, 5,674,539 without the snapshot.
 const coreGzipBudget = 7400000
 
 const cleanCoreModel = `
@@ -473,16 +471,9 @@ func TestCoreDependencies(t *testing.T) {
 
 func checkWasmDependencies(t *testing.T, command string, required []string, forbidden func(dependency string) bool) {
 	t.Helper()
-	root, err := filepath.Abs(filepath.Join("..", ".."))
-	if err != nil {
-		t.Fatalf("resolving repository root: %v", err)
-	}
-	for _, target := range []wasmTarget{{name: "js", goos: "js"}, {name: "wasip1", goos: "wasip1"}} {
+	for _, target := range wasmTargets {
 		t.Run(target.name, func(t *testing.T) {
-			cmd := exec.Command("go", "list", "-deps", command)
-			cmd.Dir = root
-			cmd.Env = append(os.Environ(), "GOOS="+target.goos, "GOARCH=wasm")
-			output, err := cmd.CombinedOutput()
+			output, err := goFor(target, "list", "-deps", command)
 			if err != nil {
 				t.Fatalf("go list -deps for %s: %v\n%s", command, err, output)
 			}
