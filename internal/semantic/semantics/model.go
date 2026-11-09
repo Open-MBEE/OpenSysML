@@ -660,6 +660,21 @@ func (m *Model) recordedSequence(refs []symbols.ElementRef) []*symbols.Symbol {
 	return out
 }
 
+// recordedPositions is recordedSequence keeping every position: nil where a fact
+// names no element, or one the record no longer declares.
+func (m *Model) recordedPositions(refs []symbols.ElementRef) []*symbols.Symbol {
+	if len(refs) == 0 {
+		return nil
+	}
+	out := make([]*symbols.Symbol, len(refs))
+	for i, ref := range refs {
+		if !ref.IsZero() {
+			out[i] = m.recordedElement(ref)
+		}
+	}
+	return out
+}
+
 // recordedElement restores the element a fact names, or nil when the name no
 // longer declares one.
 func (m *Model) recordedElement(ref symbols.ElementRef) *symbols.Symbol {

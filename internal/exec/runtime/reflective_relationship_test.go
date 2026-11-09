@@ -93,8 +93,19 @@ func TestReflectiveConnectorEndsAreOwned(t *testing.T) {
 	if got, want := reflectText(t, second+".referencedFeature.chainingFeature"), "[meta(test::Asm::k : SysML::Systems::PartUsage), meta(test::Sink::u : SysML::Systems::PortUsage)]"; got != want {
 		t.Errorf("second end's chainingFeature = %s, want %s", got, want)
 	}
-	if got, want := reflectText(t, c1+".relatedFeature"), "[meta(test::Source::y : SysML::Systems::PortUsage), meta(test::Sink::u : SysML::Systems::PortUsage)]"; got != want {
+	// The connector relates the chain Features its ends reference (KerML
+	// deriveConnectorRelatedFeature), not the chains' last features.
+	if got, want := reflectText(t, c1+".relatedFeature"), "[meta(test::Asm::c1::<unnamed>::<unnamed> : KerML::Core::Feature), meta(test::Asm::c1::<unnamed>::<unnamed> : KerML::Core::Feature)]"; got != want {
 		t.Errorf("c1.relatedFeature = %s, want %s", got, want)
+	}
+	for property, want := range map[string]string{
+		"sourceFeature.chainingFeature":      "[meta(test::Asm::s : SysML::Systems::PartUsage), meta(test::Source::y : SysML::Systems::PortUsage)]",
+		"targetFeature.chainingFeature":      "[meta(test::Asm::k : SysML::Systems::PartUsage), meta(test::Sink::u : SysML::Systems::PortUsage)]",
+		"relatedFeature#(2).chainingFeature": "[meta(test::Asm::k : SysML::Systems::PartUsage), meta(test::Sink::u : SysML::Systems::PortUsage)]",
+	} {
+		if got := reflectText(t, c1+"."+property); got != want {
+			t.Errorf("c1.%s = %s, want %s", property, got, want)
+		}
 	}
 }
 
