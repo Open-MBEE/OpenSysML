@@ -15683,12 +15683,18 @@ func (x *QueryFailure) GetFrontier() *QueryFrontier {
 // QueryFrontier is what the model holds where the path stopped: the last
 // element that resolved and what it offers in place of what was asked.
 type QueryFrontier struct {
-	state         protoimpl.MessageState  `protogen:"open.v1"`
-	At            string                  `protobuf:"bytes,1,opt,name=at,proto3" json:"at,omitempty"`             // empty when nothing on the path resolved
-	Members       []*QueryFrontierMember  `protobuf:"bytes,2,rep,name=members,proto3" json:"members,omitempty"`   // its members, when a name was expected
-	Features      []*QueryFrontierFeature `protobuf:"bytes,3,rep,name=features,proto3" json:"features,omitempty"` // its features, when a feature was expected
-	Kinds         []string                `protobuf:"bytes,4,rep,name=kinds,proto3" json:"kinds,omitempty"`       // the relationship kinds there are, when a kind was expected
-	Nearest       string                  `protobuf:"bytes,5,opt,name=nearest,proto3" json:"nearest,omitempty"`   // the closest spelling, when a name was expected
+	state    protoimpl.MessageState  `protogen:"open.v1"`
+	At       string                  `protobuf:"bytes,1,opt,name=at,proto3" json:"at,omitempty"`             // empty when nothing on the path resolved
+	Members  []*QueryFrontierMember  `protobuf:"bytes,2,rep,name=members,proto3" json:"members,omitempty"`   // its members, when a name was expected
+	Features []*QueryFrontierFeature `protobuf:"bytes,3,rep,name=features,proto3" json:"features,omitempty"` // its features, when a feature was expected
+	Kinds    []string                `protobuf:"bytes,4,rep,name=kinds,proto3" json:"kinds,omitempty"`       // the relationship kinds there are, when a kind was expected
+	Nearest  string                  `protobuf:"bytes,5,opt,name=nearest,proto3" json:"nearest,omitempty"`   // the closest spelling, when a name was expected
+	// The detail is bounded so it fits a status trailer: members, features and
+	// kinds list the nearest spellings only, and these are how many there were
+	// in all. The CLI's -json record and the REPL carry the whole list.
+	MembersTotal  int32 `protobuf:"varint,6,opt,name=members_total,json=membersTotal,proto3" json:"members_total,omitempty"`
+	FeaturesTotal int32 `protobuf:"varint,7,opt,name=features_total,json=featuresTotal,proto3" json:"features_total,omitempty"`
+	KindsTotal    int32 `protobuf:"varint,8,opt,name=kinds_total,json=kindsTotal,proto3" json:"kinds_total,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -15756,6 +15762,27 @@ func (x *QueryFrontier) GetNearest() string {
 		return x.Nearest
 	}
 	return ""
+}
+
+func (x *QueryFrontier) GetMembersTotal() int32 {
+	if x != nil {
+		return x.MembersTotal
+	}
+	return 0
+}
+
+func (x *QueryFrontier) GetFeaturesTotal() int32 {
+	if x != nil {
+		return x.FeaturesTotal
+	}
+	return 0
+}
+
+func (x *QueryFrontier) GetKindsTotal() int32 {
+	if x != nil {
+		return x.KindsTotal
+	}
+	return 0
 }
 
 type QueryFrontierMember struct {
@@ -20044,13 +20071,17 @@ const file_sysml_proto_rawDesc = "" +
 	"\fQueryFailure\x12\x12\n" +
 	"\x04step\x18\x01 \x01(\tR\x04step\x12\x1a\n" +
 	"\bexpected\x18\x02 \x01(\tR\bexpected\x120\n" +
-	"\bfrontier\x18\x03 \x01(\v2\x14.sysml.QueryFrontierR\bfrontier\"\xbe\x01\n" +
+	"\bfrontier\x18\x03 \x01(\v2\x14.sysml.QueryFrontierR\bfrontier\"\xab\x02\n" +
 	"\rQueryFrontier\x12\x0e\n" +
 	"\x02at\x18\x01 \x01(\tR\x02at\x124\n" +
 	"\amembers\x18\x02 \x03(\v2\x1a.sysml.QueryFrontierMemberR\amembers\x127\n" +
 	"\bfeatures\x18\x03 \x03(\v2\x1b.sysml.QueryFrontierFeatureR\bfeatures\x12\x14\n" +
 	"\x05kinds\x18\x04 \x03(\tR\x05kinds\x12\x18\n" +
-	"\anearest\x18\x05 \x01(\tR\anearest\"G\n" +
+	"\anearest\x18\x05 \x01(\tR\anearest\x12#\n" +
+	"\rmembers_total\x18\x06 \x01(\x05R\fmembersTotal\x12%\n" +
+	"\x0efeatures_total\x18\a \x01(\x05R\rfeaturesTotal\x12\x1f\n" +
+	"\vkinds_total\x18\b \x01(\x05R\n" +
+	"kindsTotal\"G\n" +
 	"\x13QueryFrontierMember\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1c\n" +
 	"\tmetaclass\x18\x02 \x01(\tR\tmetaclass\">\n" +

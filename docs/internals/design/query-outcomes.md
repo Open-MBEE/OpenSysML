@@ -43,6 +43,10 @@ same fan-out; `Frontier` carries `At`, `Members (name, metaclass)`, `Features (n
 and `Nearest`. `Named` and the `missing-feature` outcome of `Project`/`WhereFeature` fill it today, the latter with one failure per element lacking the feature (the fan-out keeps every failing element, as `fanOut_pathError_all` in qvts requires). The surfaces that show it: `-run-query` prints it under the
 error line and `-json` writes it as `checks[].outcome` in the shape `qvts/sparql/expected/*.json`
 records (`outcome`, `step`, `failures` | `findings` + `pathFailures`); `%run-query` prints the same
-lines; the gRPC service attaches it to the failed call as a `QueryOutcome` error detail. The
+lines; the gRPC service attaches it to the failed call as a `QueryOutcome` error detail, each
+frontier list cut to the eight spellings nearest the step's argument with its whole count beside it
+(`membersTotal`, `featuresTotal`, `kindsTotal`), since the detail rides in a status trailer gRPC caps
+at 8 KiB while a metamodel-wide frontier names hundreds of properties; the CLI's and REPL's records
+carry the whole list. The
 `qvts` differential can therefore compare native, SPARQL and Lean outcomes on one record; its runner
 does not read the native form yet.

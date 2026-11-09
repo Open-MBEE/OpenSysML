@@ -3214,6 +3214,12 @@ message QueryFrontier {
   repeated QueryFrontierFeature features = 3;  // its features, when a feature was expected
   repeated string kinds = 4;                   // the relationship kinds there are, when a kind was expected
   string nearest = 5;                          // the closest spelling, when a name was expected
+  // The detail is bounded so it fits a status trailer: members, features and
+  // kinds list the nearest spellings only, and these are how many there were
+  // in all. The CLI's -json record and the REPL carry the whole list.
+  int32 members_total = 6;
+  int32 features_total = 7;
+  int32 kinds_total = 8;
 }
 
 message QueryFrontierMember {

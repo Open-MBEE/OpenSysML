@@ -4066,6 +4066,15 @@ pub struct QueryFrontier {
     /// the closest spelling, when a name was expected
     #[prost(string, tag="5")]
     pub nearest: ::prost::alloc::string::String,
+    /// The detail is bounded so it fits a status trailer: members, features and
+    /// kinds list the nearest spellings only, and these are how many there were
+    /// in all. The CLI's -json record and the REPL carry the whole list.
+    #[prost(int32, tag="6")]
+    pub members_total: i32,
+    #[prost(int32, tag="7")]
+    pub features_total: i32,
+    #[prost(int32, tag="8")]
+    pub kinds_total: i32,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct QueryFrontierMember {

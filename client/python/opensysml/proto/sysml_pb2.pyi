@@ -2664,18 +2664,24 @@ class QueryFailure(_message.Message):
     def __init__(self, step: _Optional[str] = ..., expected: _Optional[str] = ..., frontier: _Optional[_Union[QueryFrontier, _Mapping]] = ...) -> None: ...
 
 class QueryFrontier(_message.Message):
-    __slots__ = ("at", "members", "features", "kinds", "nearest")
+    __slots__ = ("at", "members", "features", "kinds", "nearest", "members_total", "features_total", "kinds_total")
     AT_FIELD_NUMBER: _ClassVar[int]
     MEMBERS_FIELD_NUMBER: _ClassVar[int]
     FEATURES_FIELD_NUMBER: _ClassVar[int]
     KINDS_FIELD_NUMBER: _ClassVar[int]
     NEAREST_FIELD_NUMBER: _ClassVar[int]
+    MEMBERS_TOTAL_FIELD_NUMBER: _ClassVar[int]
+    FEATURES_TOTAL_FIELD_NUMBER: _ClassVar[int]
+    KINDS_TOTAL_FIELD_NUMBER: _ClassVar[int]
     at: str
     members: _containers.RepeatedCompositeFieldContainer[QueryFrontierMember]
     features: _containers.RepeatedCompositeFieldContainer[QueryFrontierFeature]
     kinds: _containers.RepeatedScalarFieldContainer[str]
     nearest: str
-    def __init__(self, at: _Optional[str] = ..., members: _Optional[_Iterable[_Union[QueryFrontierMember, _Mapping]]] = ..., features: _Optional[_Iterable[_Union[QueryFrontierFeature, _Mapping]]] = ..., kinds: _Optional[_Iterable[str]] = ..., nearest: _Optional[str] = ...) -> None: ...
+    members_total: int
+    features_total: int
+    kinds_total: int
+    def __init__(self, at: _Optional[str] = ..., members: _Optional[_Iterable[_Union[QueryFrontierMember, _Mapping]]] = ..., features: _Optional[_Iterable[_Union[QueryFrontierFeature, _Mapping]]] = ..., kinds: _Optional[_Iterable[str]] = ..., nearest: _Optional[str] = ..., members_total: _Optional[int] = ..., features_total: _Optional[int] = ..., kinds_total: _Optional[int] = ...) -> None: ...
 
 class QueryFrontierMember(_message.Message):
     __slots__ = ("name", "metaclass")

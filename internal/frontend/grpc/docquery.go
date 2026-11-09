@@ -17,6 +17,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/suggest"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
@@ -548,17 +549,74 @@ func queryOutcomeMessage(outcome queryexec.Outcome) *pb.QueryOutcome {
 	return out
 }
 
+// frontierLimit bounds each list a QueryFrontier carries on the wire: the
+// detail rides in a status trailer, which gRPC caps at 8 KiB, and a
+// metamodel-wide frontier names hundreds of properties.
+const frontierLimit = 8
+
+// queryFailures converts the failures field for field, each frontier list
+// bounded to the spellings nearest the step's argument with the whole count
+// recorded, so the detail stays a status trailer whatever the model's size.
 func queryFailures(failures []queryexec.Failure) []*pb.QueryFailure {
 	out := make([]*pb.QueryFailure, 0, len(failures))
 	for _, f := range failures {
-		frontier := &pb.QueryFrontier{At: f.Frontier.At, Kinds: f.Frontier.Kinds, Nearest: f.Frontier.Nearest}
+		frontier := &pb.QueryFrontier{
+			At: f.Frontier.At, Nearest: f.Frontier.Nearest,
+			MembersTotal: int32Clamp(len(f.Frontier.Members)), FeaturesTotal: int32Clamp(len(f.Frontier.Features)), KindsTotal: int32Clamp(len(f.Frontier.Kinds)),
+		}
+		members := map[string]queryexec.Member{}
 		for _, m := range f.Frontier.Members {
-			frontier.Members = append(frontier.Members, &pb.QueryFrontierMember{Name: m.Name, Metaclass: m.Metaclass})
+			members[m.Name] = m
 		}
+		for _, name := range nearestFirst(f.Step.Argument, mapKeys(f.Frontier.Members, func(m queryexec.Member) string { return m.Name })) {
+			frontier.Members = append(frontier.Members, &pb.QueryFrontierMember{Name: name, Metaclass: members[name].Metaclass})
+		}
+		features := map[string]queryexec.FeatureRef{}
 		for _, r := range f.Frontier.Features {
-			frontier.Features = append(frontier.Features, &pb.QueryFrontierFeature{Name: r.Name, Type: r.Type})
+			features[r.Name] = r
 		}
+		for _, name := range nearestFirst(f.Step.Argument, mapKeys(f.Frontier.Features, func(r queryexec.FeatureRef) string { return r.Name })) {
+			frontier.Features = append(frontier.Features, &pb.QueryFrontierFeature{Name: name, Type: features[name].Type})
+		}
+		frontier.Kinds = nearestFirst(f.Step.Argument, f.Frontier.Kinds)
 		out = append(out, &pb.QueryFailure{Step: f.Step.Label(), Expected: f.Expected, Frontier: frontier})
+	}
+	return out
+}
+
+// nearestFirst is at most frontierLimit of names: the spellings nearest word
+// first, then the rest in their given order; nil for none.
+func nearestFirst(word string, names []string) []string {
+	if len(names) == 0 {
+		return nil
+	}
+	out := make([]string, 0, frontierLimit)
+	seen := map[string]bool{}
+	for _, name := range suggest.Nearest(word, names) {
+		if len(out) == frontierLimit {
+			return out
+		}
+		if !seen[name] {
+			seen[name] = true
+			out = append(out, name)
+		}
+	}
+	for _, name := range names {
+		if len(out) == frontierLimit {
+			break
+		}
+		if !seen[name] {
+			seen[name] = true
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
+func mapKeys[T any](items []T, key func(T) string) []string {
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		out = append(out, key(item))
 	}
 	return out
 }
