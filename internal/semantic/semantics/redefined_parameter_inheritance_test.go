@@ -165,3 +165,44 @@ func TestUnnamedLibraryReturnIsQualifiedByTheRedefinedName(t *testing.T) {
 		t.Fatalf("QualifiedNameOf(Cons::x) is not the index's")
 	}
 }
+
+// The result a calc's kind has as its base, Evaluation::result, is what every calc
+// has: a declared return redefining it by position inherits its multiplicity but
+// takes neither its typing nor its nonuniqueness, and a calc declaring no return
+// has the base's result as its own, typed Anything, which binds as nothing known.
+func TestKindBaseResultSaysNothingOfTheBehaviorsOwn(t *testing.T) {
+	m, root := buildModelWithStdlib(t, `package P {
+		private import ScalarValues::*;
+		calc def Twice { in x : Integer; return : Integer[*] = (x, x); }
+		calc def Untyped { in x : Integer; x + 1 }
+	}`)
+	result := libSym(t, m, "Performances::Evaluation::result")
+	twice := nestedSym(t, root, "P::Twice")
+	ret := m.ResultParameterOf(twice)
+	if ret == nil || ret.Owner() != twice {
+		t.Fatalf("ResultParameterOf(Twice) = %v, want its own return", ret)
+	}
+	if got := m.ImplicitBaseParameter(ret); got != result {
+		t.Errorf("ImplicitBaseParameter(Twice's return) = %v, want Evaluation::result", got)
+	}
+	if m.IsKindBaseParameter(twice, ret) {
+		t.Errorf("Twice's own return is taken for the kind base's")
+	}
+	if !m.IsUnique(ret) || m.IsUnique(result) {
+		t.Errorf("IsUnique: return %v, Evaluation::result %v; want a unique return redefining a nonunique result", m.IsUnique(ret), m.IsUnique(result))
+	}
+	if r := m.EffectiveParameterRange(ret); !r.Lower.Known || r.Lower.Value != 0 || !r.Upper.Known || !r.Upper.Infinite {
+		t.Errorf("EffectiveParameterRange(Twice's return) = %s, want [0..*]", r.Text())
+	}
+	untyped := nestedSym(t, root, "P::Untyped")
+	if got := m.ResultParameterOf(untyped); got != result || !m.IsKindBaseParameter(untyped, got) {
+		t.Errorf("ResultParameterOf(Untyped) = %v, want Evaluation::result as the kind base's", got)
+	}
+	anything := libSym(t, m, "Base::Anything")
+	if arg := (Argument{Type: anything}); arg.known() || arg.typed() != nil {
+		t.Errorf("an argument typed Anything alone is known: %v", arg)
+	}
+	if arg := (Argument{Type: libSym(t, m, "ScalarValues::Integer")}); !arg.known() {
+		t.Errorf("an argument typed Integer is unknown")
+	}
+}
