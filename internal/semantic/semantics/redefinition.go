@@ -189,8 +189,8 @@ func (m *Model) parametersOf(sym *symbols.Symbol) behaviorParameters {
 	}
 	out := behaviorParameters{positional: positionalParameters(owned), result: resultParameter(owned)}
 
-	// Only a single general behavior or step may leave parameters inherited;
-	// with more than one, every parameter has to be redefined by an owned one.
+	// What no owned parameter redefines, by clause or by position, is inherited
+	// from each general in turn (KerML 8.3.3.1), ordered after the owned ones.
 	// The kind's implicit base beside a declared general does not count as one.
 	var generals []*symbols.Symbol
 	for _, sup := range m.DirectSupertypes(sym) {
@@ -202,11 +202,12 @@ func (m *Model) parametersOf(sym *symbols.Symbol) behaviorParameters {
 		bases := m.ImplicitGenerals(sym)
 		generals = slices.DeleteFunc(generals, func(sup *symbols.Symbol) bool { return slices.Contains(bases, sup) })
 	}
-	if len(generals) == 1 {
-		general := m.parametersOf(generals[0])
-		claimed := claimedParameters(out, general)
+	declared := out
+	for _, sup := range generals {
+		general := m.parametersOf(sup)
+		claimed := claimedParameters(declared, general)
 		for _, p := range general.positional {
-			if !claimed[p.sym] {
+			if !claimed[p.sym] && !m.listsParameter(out.positional, p.sym) {
 				out.positional = append(out.positional, p)
 			}
 		}
@@ -223,6 +224,17 @@ func (m *Model) parametersOf(sym *symbols.Symbol) behaviorParameters {
 	}
 	m.params[sym] = out
 	return out
+}
+
+// listsParameter reports whether params already carries general's parameter sym,
+// as itself or as a parameter inherited through another general that redefines it.
+func (m *Model) listsParameter(params []parameter, sym *symbols.Symbol) bool {
+	for _, p := range params {
+		if p.sym == sym || slices.Contains(m.AllRedefinedFeatures(p.sym), sym) {
+			return true
+		}
+	}
+	return false
 }
 
 // PositionalParameter returns the parameter at position of a behavior or step —
