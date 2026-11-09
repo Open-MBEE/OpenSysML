@@ -87,3 +87,91 @@ func TestExploreCoverageSpansEveryRun(t *testing.T) {
 		t.Errorf("lines %q\nwant %q", got, wantLines)
 	}
 }
+
+// exploreMachine explores the state machine stateDef running on an instance of
+// partDef under the explore policy.
+func exploreMachine(t *testing.T, m *exploreModel, partDef, stateDef string) *Exploration {
+	t.Helper()
+	policy, err := ParseSchedulePolicy("explore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	machine := oneSymbol(t, m.idx, partDef)
+	stateSym := oneSymbol(t, m.idx, stateDef)
+	x, err := Explore(context.Background(), policy, m.fresh, func(ctx *Context) (Outcome, error) {
+		self, err := ctx.Instantiate(machine)
+		if err != nil {
+			return Outcome{}, err
+		}
+		exec, err := newStateExecutor(ctx, stateSym, self)
+		if err != nil {
+			return Outcome{}, err
+		}
+		if err := exec.initialize(); err != nil {
+			return Outcome{}, err
+		}
+		if err := exec.RunToCompletion(); err != nil {
+			return Outcome{}, err
+		}
+		return Outcome{FinalState: StateVertexName(exec.CurrentState()), ctx: ctx}, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return x
+}
+
+// A fork's branches and a join's segments are transitions taken: the coverage
+// holds each branch from the fork and each segment into the join, beside the
+// transition into the fork and the one out of the join, which leaves the
+// composite state the join's segments exited.
+func TestExploreCoverageHoldsForkBranchesAndJoinSegments(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		part def M;
+		state def Run {
+			entry; then ready;
+			state ready;
+			state working parallel {
+				state left {
+					entry; then ls;
+					state ls;
+					state lwork;
+				}
+				state right {
+					entry; then rs;
+					state rs;
+					state rwork;
+				}
+			}
+			state fin;
+			fork split;
+			join sync;
+			transition first ready then split;
+			transition first split then lwork;
+			transition first split then rwork;
+			transition first lwork then sync;
+			transition first rwork then sync;
+			transition first sync then fin;
+		}
+	}`)
+	x := exploreMachine(t, m, "test::M", "test::Run")
+	if !x.Complete() {
+		t.Fatalf("status %q, want complete", x.Status())
+	}
+	var taken []string
+	for _, entry := range x.Coverage.Transitions {
+		taken = append(taken, entry.Declaration)
+	}
+	for _, want := range []string{
+		"test::Run::ready -> split",
+		"test::Run::split -> lwork",
+		"test::Run::split -> rwork",
+		"test::Run::lwork -> sync",
+		"test::Run::rwork -> sync",
+		"test::Run::working -> fin",
+	} {
+		if !slices.Contains(taken, want) {
+			t.Errorf("transitions taken %q lack %q", taken, want)
+		}
+	}
+}

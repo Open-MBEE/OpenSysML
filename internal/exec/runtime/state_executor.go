@@ -3629,6 +3629,7 @@ func (e *StateExecutor) fireJoinSegment(trans *lower.Transition, plan *lower.Joi
 		return err
 	}
 	e.noteFired(trans)
+	e.ctx.noteTransitionTaken(e.self, e.stateMachine, source.Name, StateVertexName(trans.Target))
 	return nil
 }
 
