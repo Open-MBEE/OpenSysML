@@ -143,6 +143,7 @@ func (e *Evaluator) structureParameterTable(owner Element, visiting map[ElementK
 		return nil, nil, false
 	}
 	declared := positional
+	declaredResult := result
 	for _, general := range generals {
 		inherited, inheritedResult, ok := e.structureParameterTable(general, visiting)
 		if !ok {
@@ -184,15 +185,84 @@ func (e *Evaluator) structureParameterTable(owner Element, visiting map[ElementK
 			if !ok {
 				return nil, nil, false
 			}
-			if !listed {
-				positional = append(positional, p)
+			if listed {
+				continue
 			}
+			// A general's parameter redefining one an earlier general lent takes its place.
+			i, ok := e.structureRedefinedParameterIndex(positional[len(declared):], p.element)
+			if !ok {
+				return nil, nil, false
+			}
+			if i >= 0 {
+				positional[len(declared)+i] = p
+				continue
+			}
+			positional = append(positional, p)
 		}
-		if result == nil && inheritedResult != nil && !claimed[inheritedResult.element.Key()] {
+		if inheritedResult == nil || claimed[inheritedResult.element.Key()] {
+			continue
+		}
+		if result == nil {
 			result = inheritedResult
+			continue
+		}
+		if declaredResult == nil {
+			supersedes, ok := e.structureParameterRedefines(inheritedResult.element, result.element)
+			if !ok {
+				return nil, nil, false
+			}
+			if supersedes {
+				result = inheritedResult
+			}
 		}
 	}
 	return positional, result, true
+}
+
+// structureRedefinedParameterIndex is the index of the inherited parameter that feature
+// redefines, directly or transitively, or -1 when it redefines none of them.
+func (e *Evaluator) structureRedefinedParameterIndex(inherited []structureParameter, feature Element) (int, bool) {
+	for i, p := range inherited {
+		found, ok := e.structureParameterRedefines(feature, p.element)
+		if !ok {
+			return -1, false
+		}
+		if found {
+			return i, true
+		}
+	}
+	return -1, true
+}
+
+// structureParameterRedefines reports whether feature redefines target, directly or
+// transitively, by clause or by position.
+func (e *Evaluator) structureParameterRedefines(feature, target Element) (bool, bool) {
+	visited := make(map[ElementKey]bool)
+	var redefines func(Element) (bool, bool)
+	redefines = func(p Element) (bool, bool) {
+		if visited[p.Key()] {
+			return false, true
+		}
+		visited[p.Key()] = true
+		targets, ok := e.structureRedefinitionTargets(p)
+		if !ok {
+			return false, false
+		}
+		implicit, ok := e.structureImplicitParameterRedefinitions(p, false)
+		if !ok {
+			return false, false
+		}
+		for _, t := range append(targets, implicit...) {
+			if t.Key() == target.Key() {
+				return true, true
+			}
+			if found, ok := redefines(t); !ok || found {
+				return found, ok
+			}
+		}
+		return false, true
+	}
+	return redefines(feature)
 }
 
 // structureListsParameter reports whether the parameters inherited so far carry feature, as
