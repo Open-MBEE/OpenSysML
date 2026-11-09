@@ -82,7 +82,7 @@ func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
 			parts.source, parts.sourceMember = trans.Source, member
 		}
 	}
-	if !isBranch && !trans.IsSuccession {
+	if !isBranch {
 		parts.linkParameter = transitionParameter(sym, "linkparam")
 		if payload, event := triggerPayload(trans); payload != nil || event != nil {
 			parts.triggerParameter = transitionParameter(sym, "triggerparam")
@@ -132,11 +132,9 @@ func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
 	if trans.Guard != nil {
 		parts.guard = transitionPart(sym, trans.Guard, trans.Guard.Span(), symbols.SymbolExpression, sym, symbols.ExpressionGuard)
 	}
-	if !trans.IsSuccession {
-		// The `then` succession follows the trigger, guard and effect (SysML.xtext
-		// TransitionUsage); the conversion writes it ahead of them (encodeTransition).
-		parts.withSuccession(sym, trans.Target)
-	}
+	// The `then` succession follows the trigger, guard and effect (SysML.xtext
+	// TransitionUsage); the conversion writes it ahead of them (encodeTransition).
+	parts.withSuccession(sym, trans.Target)
 	m.transitionParts[sym] = parts
 	return parts
 }
@@ -211,7 +209,7 @@ func transitionDecl(sym *symbols.Symbol) (*ast.TransitionMember, bool) {
 		return nil, false
 	}
 	trans, ok := sym.Decl.(*ast.TransitionMember)
-	return trans, ok && !trans.IsSuccession
+	return trans, ok
 }
 
 // triggerPayload is a trigger's payload parameter, or the event an unnamed payload's value is
