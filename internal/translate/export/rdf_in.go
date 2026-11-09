@@ -821,9 +821,16 @@ func (d *decoder) build() ([]*element, error) {
 	}
 	var order []*element
 	for _, subject := range d.graph.Subjects() {
-		if stubs[subject.Value] || d.isMembership(subject) || d.isExpressionNode(subject) || d.isFilterPackageNode(subject) || d.isNote(subject) {
+		if d.isNote(subject) {
+			if _, ok := d.graph.Lexical(subject, rdf.OpenSysML+xNoteText); !ok {
+				return nil, &UnsupportedError{What: fmt.Sprintf("the note <%s>", subject.Value),
+					Note: "it states no sysx:noteText, so it cannot be written back"}
+			}
+			continue
+		}
+		if stubs[subject.Value] || d.isMembership(subject) || d.isExpressionNode(subject) || d.isFilterPackageNode(subject) {
 			// A node of an expression graph belongs to the declaration that holds
-			// the expression, not to an element of its own; so do a filter package and a note.
+			// the expression, not to an element of its own; so does a filter package.
 			continue
 		}
 		el, err := d.readElement(subject)

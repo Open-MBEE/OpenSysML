@@ -232,3 +232,13 @@ func TestNoteInsideAnExpressionIsWrittenOnce(t *testing.T) {
 		t.Errorf("the rebuilt declaration lost its expression's note:\n%s", back)
 	}
 }
+
+// A note the graph names without a text cannot be written back, and is refused
+// rather than dropped.
+func TestNoteWithoutTextIsRefused(t *testing.T) {
+	broken := withoutProperty(t, idTurtle(t, noted), "sysx:noteText")
+	_, err := convert.Convert("m.ttl", broken, convert.FormatTurtle, convert.FormatSysML)
+	if err == nil || !strings.Contains(err.Error(), "sysx:noteText") {
+		t.Fatalf("a note without text was not refused: %v", err)
+	}
+}
