@@ -276,15 +276,16 @@ func apiJSONRoundTripVerdict(rel string, src []byte) (string, error) {
 	return "graph-diff", nil
 }
 
-// sameTriples compares two graphs as sets, ignoring triple order and the
-// whitespace inside sysx:sourceText literals.
+// sameTriples compares two graphs as sets, ignoring triple order, the
+// whitespace inside sysx:sourceText literals and the notes, which are layout too.
 func sameTriples(a, b *rdf.Graph) bool {
 	set := func(g *rdf.Graph) map[rdf.Triple]bool {
 		sourceText := rdf.OpenSysMLTerm("sourceText")
 		out := make(map[rdf.Triple]bool, len(g.Triples()))
 		for _, triple := range g.Triples() {
 			// Where a declaration is written is layout, as its text's whitespace is.
-			if export.IsSourceRangeProperty(triple.Predicate.Value) {
+			if export.IsSourceRangeProperty(triple.Predicate.Value) || export.IsNoteProperty(triple.Predicate.Value) ||
+				g.Type(triple.Subject) == rdf.OpenSysML+"Note" {
 				continue
 			}
 			if triple.Predicate == sourceText && triple.Object.IsLiteral() {

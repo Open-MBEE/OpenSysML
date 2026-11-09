@@ -9,6 +9,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/reposync"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/sysmlapi"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
@@ -836,5 +837,35 @@ func TestDependencyPrefixIsNotMinted(t *testing.T) {
 		if _, ok := again.Object(rdf.ElementIRIForID(minted), rdf.RDFType); !ok {
 			t.Errorf("%s, minted %s, is not at that id after write-back:\n%s", old, minted, back)
 		}
+	}
+}
+
+func TestNotesAreNoElementsOfTheRepository(t *testing.T) {
+	local := graphOf(t, scoped(vehicle+`	part def Wheel; // legacy
+`))
+	var notes int
+	for _, subject := range local.Subjects() {
+		if local.Type(subject) == rdf.OpenSysML+"Note" {
+			notes++
+		}
+	}
+	if notes == 0 {
+		t.Fatal("the fixture states no note")
+	}
+	set, err := reposync.Diff(local, graphOf(t, scoped(vehicle)), reposync.Options{Representation: sysmlapi.Representation{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, change := range byKind(set, reposync.KindCreate) {
+		if strings.Contains(change.ID, "note") {
+			t.Errorf("the note %s is written as an element of the repository:\n%s", change.ID, set.Text())
+		}
+	}
+	var left bool
+	for _, uncarried := range set.Uncarried {
+		left = left || strings.Contains(uncarried.Property, "Note")
+	}
+	if !left {
+		t.Errorf("the note left out of the comparison is not reported:\n%s", set.Text())
 	}
 }

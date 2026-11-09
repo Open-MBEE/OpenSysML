@@ -420,6 +420,7 @@ var multiValuedProperties = map[string]bool{
 	xBodyMember:     true,
 	xBodyParameter:  true,
 	xEffectMember:   true,
+	xNote:           true,
 	xRelatedFeature: true,
 }
 
@@ -522,7 +523,7 @@ func isIndexProperty(iri string) bool {
 		return false
 	}
 	switch rdf.LocalName(iri) {
-	case xMemberIndex, xArgumentIndex, xEndIndex:
+	case xMemberIndex, xArgumentIndex, xEndIndex, xNoteToken:
 		return true
 	}
 	return false
@@ -617,7 +618,8 @@ func literalDatatypes(metaclass, predicate string) []string {
 	switch {
 	case isIndexProperty(predicate), IsSourceRangeProperty(predicate):
 		return integerLiterals
-	case strings.HasPrefix(name, "is"), name == xHasBody, name == xDeclaredID, name == xHasEffect, name == xBracedEffect, name == xConjugatedTyping, name == xSourceMultiplicityBeforeThen:
+	case strings.HasPrefix(name, "is"), name == xHasBody, name == xDeclaredID, name == xHasEffect, name == xBracedEffect, name == xConjugatedTyping, name == xSourceMultiplicityBeforeThen,
+		name == xNoteOwnLine, name == xNoteTail, name == xNoteTrailing:
 		return booleanLiterals
 	case strings.HasPrefix(predicate, rdf.SysML) && (name == pLowerBound || name == pUpperBound):
 		// A feature's bound is an Expression the notation also states as a bare number.
@@ -762,6 +764,11 @@ type decoder struct {
 	// written records where each element landed in this pass's notation, the
 	// members of one ahead of it.
 	written []writing
+	// bodyAt records where a rebuilt element's body members landed in its own
+	// notation, for its notes to be put back around them.
+	bodyAt map[*element]region
+	// notesStated caches statesNotes.
+	notesStated *bool
 	// nl is the line ending rebuilt notation is written with.
 	nl string
 }
@@ -814,9 +821,9 @@ func (d *decoder) build() ([]*element, error) {
 	}
 	var order []*element
 	for _, subject := range d.graph.Subjects() {
-		if stubs[subject.Value] || d.isMembership(subject) || d.isExpressionNode(subject) || d.isFilterPackageNode(subject) {
+		if stubs[subject.Value] || d.isMembership(subject) || d.isExpressionNode(subject) || d.isFilterPackageNode(subject) || d.isNote(subject) {
 			// A node of an expression graph belongs to the declaration that holds
-			// the expression, not to an element of its own; so does a filter package.
+			// the expression, not to an element of its own; so do a filter package and a note.
 			continue
 		}
 		el, err := d.readElement(subject)
@@ -1863,7 +1870,29 @@ func seatPositional(elements []*element) {
 // the notation it was written.
 func (d *decoder) print(b *strings.Builder, el *element, depth int) error {
 	start := b.Len()
-	err := d.printElement(b, el, depth)
+	notes := d.notesWritten(el)
+	if len(notes) == 0 {
+		err := d.printElement(b, el, depth)
+		d.written = append(d.written, writing{el, region{start, b.Len()}})
+		return err
+	}
+	// An element with notes is written apart, so they can be put back into a
+	// rebuilt notation; verbatim text holds them already.
+	var seg strings.Builder
+	from := len(d.written)
+	delete(d.bodyAt, el)
+	err := d.printElement(&seg, el, depth)
+	text := seg.String()
+	var ins []insertion
+	if err == nil && !d.printed[el] {
+		body, hasBody := d.bodyAt[el]
+		text, ins = withNotes(text, notes, body, hasBody, strings.Repeat("    ", depth), d.nl)
+	}
+	for i := from; i < len(d.written); i++ {
+		w := &d.written[i]
+		w.where = region{start + relocate(w.where.start, ins, true), start + relocate(w.where.end, ins, false)}
+	}
+	b.WriteString(text)
 	d.written = append(d.written, writing{el, region{start, b.Len()}})
 	return err
 }
@@ -1871,7 +1900,7 @@ func (d *decoder) print(b *strings.Builder, el *element, depth int) error {
 func (d *decoder) printElement(b *strings.Builder, el *element, depth int) error {
 	indent := strings.Repeat("    ", depth)
 	lead := indent + el.prefix
-	if text, ok := d.verbatim(el); ok {
+	if text, ok := d.verbatimWithNotes(el); ok {
 		// The text writes the `#` prefixes itself, so they are only checked here;
 		// one disagreeing with the graph demotes the text like any other triple.
 		if _, err := d.prefixWords(el); err != nil {
@@ -1960,11 +1989,14 @@ func (d *decoder) printElement(b *strings.Builder, el *element, depth int) error
 	for _, annotation := range annotations {
 		b.WriteString(indent + "    " + annotation + d.nl)
 	}
+	body := region{start: b.Len()}
 	for _, child := range children {
 		if err := d.print(b, child, depth+1); err != nil {
 			return err
 		}
 	}
+	body.end = b.Len()
+	d.bodyAt[el] = body
 	b.WriteString(indent + "}" + d.nl)
 	return nil
 }
