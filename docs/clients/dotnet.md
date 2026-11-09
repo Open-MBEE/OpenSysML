@@ -206,5 +206,6 @@ is a complete program, and the
 ## Next steps
 
 - [.NET API reference](../reference/dotnet-api.md)
-- [Client README, testing and conformance runner](../../client/dotnet/README.md)
+- [Client README](../../client/dotnet/README.md)
+- [Building, testing and the conformance runner](../../client/dotnet/DEVELOPING.md)
 - [Shared SysML model examples](../../examples/)

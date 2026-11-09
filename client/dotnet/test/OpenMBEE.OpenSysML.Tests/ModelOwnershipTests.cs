@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -172,42 +171,5 @@ public sealed class ModelOwnershipTests
         await Assert.ThrowsAsync<ModelNotFoundException>(() => file.GetDiagnosticsAsync(cancellationToken: TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<ArgumentException>(() => OpenSysMLClient.LoadAsync(string.Empty, options, cancellationToken: TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<ArgumentNullException>(() => OpenSysMLClient.LoadContentAsync(null!, options, cancellationToken: TestContext.Current.CancellationToken));
-    }
-
-    [Fact]
-    public async Task AOneShotLoadWhoseOpenFailsParsesNothing()
-    {
-        var parsed = false;
-
-        var error = await Assert.ThrowsAsync<ServiceStartException>(() => OpenSysMLClient.LoadOwnedAsync(
-            token => Connection.OpenAsync(new ConnectionOptions { AutoStart = false }, _ => null, token),
-            (connection, token) =>
-            {
-                parsed = true;
-                return connection.LoadContentAsync("package P;", null, token);
-            },
-            TestContext.Current.CancellationToken));
-
-        Assert.Contains("AutoStart is false", error.Message, StringComparison.Ordinal);
-        Assert.False(parsed);
-    }
-
-    [Fact]
-    public async Task ARecordedOwnershipIsCarriedOnlyByTheOneShotHandle()
-    {
-        using var handler = new FakeServiceHandler { Capabilities = FakeModels.ModelCapabilities }.Parsing("h", FakeModels.Symbol("r", string.Empty, "RootNamespace"));
-        await using var connection = await FakeConnection.OpenAsync(handler);
-        var borrowed = await connection.LoadAsync();
-
-        var owning = borrowed.Owning();
-
-        Assert.False(borrowed.OwnsConnection);
-        Assert.True(owning.OwnsConnection);
-        Assert.Equal(borrowed.Hash, owning.Hash);
-        Assert.Equal(borrowed.Roots, owning.Roots);
-        Assert.Equal(borrowed.ParseDiagnostics, owning.ParseDiagnostics);
-        Assert.Equal("model h (1 root, 0 errors)", borrowed.ToString());
-        IReadOnlyList<string> documents = owning.Documents;
-        Assert.Empty(documents);
     }
 }

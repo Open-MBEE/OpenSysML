@@ -63,7 +63,7 @@ case_ java-skill docs,python packaging/agent-skills/skills/opensysml-java/SKILL.
 case_ node-only node client/node/src/node/binary.ts
 case_ node-manifest node,python client/node/package.json
 case_ python-only python client/python/opensysml/connection.py
-case_ signed-release-fixture dotnet,python client/python/tests/fixtures/signed_release/SHA256SUMS.txt.bundle
+case_ signed-release-fixture python client/python/tests/fixtures/signed_release/SHA256SUMS.txt.bundle
 # The .NET generator's committed goldens are generated from the Python client's multi-file model too.
 case_ generator-fixture dotnet,python client/python/tests/fixtures/multifile/lib.sysml
 case_ metamodel-reader-fixture dotnet,python client/python/tests/fixtures/metamodel/bigger.full.json
@@ -141,12 +141,12 @@ quick_case_ project-baseline docs,go docs/project/pilot-differential-baseline.js
 quick_case_ java-manifest java,mdk,python client/java/pom.xml
 quick_case_ node-only node client/node/src/node/binary.ts
 quick_case_ dotnet-props dotnet,python client/dotnet/Directory.Build.props
-# A draft touching only the .NET client, its gates, its SDK pin or the signing fixtures it
-# serves still runs the .NET client job; a schema or scenario change waits for the full tier.
+# A draft touching only the .NET client, its gates or its SDK pin still runs the .NET
+# client job; a schema or scenario change waits for the full tier.
 quick_case_ dotnet-only dotnet client/dotnet/src/OpenMBEE.OpenSysML/Internal/PrivateService.cs
 quick_case_ dotnet-gates dotnet client/dotnet/scripts/dotnet-gates.py
 quick_case_ dotnet-sdk-pin dotnet global.json
-quick_case_ signed-release-fixture dotnet,python client/python/tests/fixtures/signed_release/SHA256SUMS.txt.bundle
+quick_case_ signed-release-fixture python client/python/tests/fixtures/signed_release/SHA256SUMS.txt.bundle
 quick_case_ generator-fixture dotnet,python client/python/tests/fixtures/multifile/top.sysml
 quick_case_ metamodel-reader-fixture dotnet,python client/python/tests/fixtures/metamodel/bigger.full.json
 quick_case_ dotnet-guide docs,dotnet docs/clients/dotnet.md

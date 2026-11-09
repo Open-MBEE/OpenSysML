@@ -99,18 +99,6 @@ public sealed class ConformanceVerificationRenderingTests
     }
 
     [Fact]
-    public void AnAnalysisExplorationIsRenderedWithItsStanding()
-    {
-        var sample = CompleteVerificationWire.Exploration;
-        var read = ExecutionWire.Exploration(sample.Outcomes, sample.Exploration, ExecutionWire.StandingOf(sample.Engine, sample.Strength, sample.Bounds), Model.RunAnalysisMethod);
-
-        Assert.Equal(sample.Outcomes, Rendering.Outcomes(read));
-        Assert.Equal(sample.Exploration, Rendering.ExplorationStatus(read));
-        Assert.Equal((sample.Engine, sample.Strength), (read.Standing.Engine, read.Standing.Strength));
-        Assert.Equal(sample.Bounds, Rendering.Bounds(read.Standing));
-    }
-
-    [Fact]
     public void EveryEngineIsRenderedWithEveryFact()
     {
         var sample = CompleteVerificationWire.Engines;

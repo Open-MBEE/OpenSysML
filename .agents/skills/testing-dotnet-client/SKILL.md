@@ -5,7 +5,7 @@ description: How to test the OpenMBEE.OpenSysML .NET client (client/dotnet) end 
 
 # Testing the .NET client
 
-Read `client/dotnet/README.md` (Building and testing, Conformance) first; every rule it states is a
+Read `client/dotnet/DEVELOPING.md` (Building and testing, Conformance) first; every rule it states is a
 test somewhere. Run every command from the repository root, since `global.json` there selects the SDK
 and the Microsoft.Testing.Platform runner.
 
@@ -19,7 +19,7 @@ and the Microsoft.Testing.Platform runner.
   `curl -sSfL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh && bash /tmp/dotnet-install.sh --jsonfile global.json --install-dir ~/.dotnet`,
   then `export DOTNET_ROOT=$HOME/.dotnet PATH=$HOME/.dotnet:$PATH` in every shell that runs `make`.
 - Build the real service: `make build-grpc`. A stale `bin/sysml-grpc` from before a schema change
-  fails parity and conformance in confusing ways; rebuild after every merge.
+  fails the service and conformance tests in confusing ways; rebuild after every merge.
 - Interop needs Python 3, a JDK with `javac` (`JAVA_HOME` or `PATH`) and Cargo. On macOS set
   `JAVA_HOME=$(/usr/libexec/java_home)`.
 - `dotnet test <solution>` (the VSTest form) does not work; use `dotnet test --solution ...` or the
@@ -30,13 +30,13 @@ and the Microsoft.Testing.Platform runner.
 ```bash
 export OPENSYSML_GRPC_BINARY="$PWD/bin/sysml-grpc" OPENSYSML_REQUIRE_SERVICE=1 OPENSYSML_REQUIRE_INTEROP=1
 export OPENSYSML_REQUIRE_SMT=1   # needs z3 or cvc5 on PATH: the verdict-notes test asks the service a solver question
-make dotnet-test        # format, 0-warning build, whole suite, Vehicle sample, gate self-tests, digests
-make dotnet-coverage    # same suite under coverlet; Cobertura and JUnit in bin/dotnet/coverage
+make dotnet-test        # format, 0-warning build, whole suite under coverlet, Vehicle sample, gate self-tests, digests
 ```
 
 Without the two `REQUIRE` variables, absent prerequisites are skips **by name**, and a run that
 skipped them proves nothing about the service, the lifecycle or locking. `DOTNET_MIN_TESTS` in the
-Makefile is a floor on executed tests: raise it when tests are added, never lower it to pass. Every
+Makefile is a floor on executed tests: raise it when tests are added, lower it only by the tests a
+change deliberately removes, never to pass. Every
 test declares `Category` `Unit`, `Integration` or `Interop`; focus with
 `dotnet test --project client/dotnet/test/OpenMBEE.OpenSysML.Tests -c Release --filter 'FullyQualifiedName~ClassName'`.
 
@@ -53,10 +53,9 @@ test declares `Category` `Unit`, `Integration` or `Interop`; focus with
   against the Python, Java and Rust holders in `test/interop`, both directions, including a killed
   holder. The Rust holder builds into `bin/dotnet/interop`. Never test against your real
   `~/.opensysml`; the tests use caches of their own.
-- **Release trust.** `SignedReleaseTests` serves the Python client's signed-release fixtures
-  (`client/python/tests/fixtures/signed_release/`) from the loopback `ReleaseServer`: every unpinned
-  one must be refused as `UnpinnedReleaseException` with its signature never fetched.
-  `DownloadResolutionTests` and `BinaryDownloaderTests` cover pins, stalls, redirects and size limits.
+- **Release trust.** `DownloadResolutionTests` and `BinaryDownloaderTests` serve releases from the loopback
+  `ReleaseServer`: every unpinned one must be refused as `UnpinnedReleaseException` with nothing fetched,
+  and they cover pins, stalls, redirects and size limits.
   No test reaches the network; a real GitHub download is a manual check.
 - **Linux `ETXTBSY`.** In a Linux container, three Linux-only tests prove the busy-binary retry; on
   macOS they skip by name. Run Linux in the pinned SDK image with `--init`.

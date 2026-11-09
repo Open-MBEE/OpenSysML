@@ -78,19 +78,26 @@ public sealed class ReleaseRequestTests
     [Fact]
     public void ThisMachineIsNamedAsGoNamesIt()
     {
-        var goos = OperatingSystem.IsLinux() ? "linux" : OperatingSystem.IsMacOS() ? "darwin" : OperatingSystem.IsWindows() ? "windows" : null;
-        Assert.SkipWhen(goos is null, "The suite runs on Linux, macOS and Windows; this platform has no published release to name.");
-        var goarch = RuntimeInformation.OSArchitecture switch { Architecture.X64 => "amd64", Architecture.Arm64 => "arm64", _ => null };
-        Assert.SkipWhen(goarch is null, $"{RuntimeInformation.OSArchitecture} has no published release to name.");
+        var (goos, goarch, asset) = (OperatingSystem.IsLinux(), OperatingSystem.IsMacOS(), OperatingSystem.IsWindows(), RuntimeInformation.OSArchitecture) switch
+        {
+            (true, _, _, Architecture.X64) => ("linux", "amd64", "sysml-grpc-linux-amd64"),
+            (true, _, _, Architecture.Arm64) => ("linux", "arm64", "sysml-grpc-linux-arm64"),
+            (_, true, _, Architecture.X64) => ("darwin", "amd64", "sysml-grpc-darwin-amd64"),
+            (_, true, _, Architecture.Arm64) => ("darwin", "arm64", "sysml-grpc-darwin-arm64"),
+            (_, _, true, Architecture.X64) => ("windows", "amd64", "sysml-grpc-windows-amd64.exe"),
+            (_, _, true, Architecture.Arm64) => ("windows", "arm64", string.Empty),
+            _ => (string.Empty, string.Empty, string.Empty),
+        };
+        Assert.SkipWhen(goos.Length == 0, $"{RuntimeInformation.OSDescription} on {RuntimeInformation.OSArchitecture} has no published release to name.");
 
         Assert.Equal((goos, goarch), (ReleasePlatform.HostGoos, ReleasePlatform.HostGoarch));
-        if (goos == "windows" && goarch == "arm64")
+        if (asset.Length == 0)
         {
             Assert.Throws<UnsupportedPlatformException>(ReleasePlatform.HostAsset);
         }
         else
         {
-            Assert.Equal(ReleasePlatform.Asset(goos!, goarch!), ReleasePlatform.HostAsset());
+            Assert.Equal(asset, ReleasePlatform.HostAsset());
         }
     }
 

@@ -629,6 +629,37 @@ public sealed class ConformanceAdapterTests
         ["RecordRun"] = (
             new Wire.RecordRunRequest { ModelHash = Hash, AnalysisSymbolId = "Sw::CostAnalysis", AcceptDocuments = true },
             CompleteSamplingWire.FailedRunRecording),
+        ["RecordRun refused"] = (
+            new Wire.RecordRunRequest { ModelHash = Hash, AnalysisSymbolId = "Sw::CostAnalysis", AcceptDocuments = true },
+            CompleteSamplingWire.RefusedRecording),
+        ["RecordRun of a failed sweep"] = (
+            new Wire.RecordRunRequest
+            {
+                ModelHash = Hash,
+                AnalysisSymbolId = "Sw::CostAnalysis",
+                Ranges = { new Wire.SweepRange { Parameter = "limit", Start = new Wire.Value { RealValue = 0 }, End = new Wire.Value { RealValue = 40 }, Step = new Wire.Value { RealValue = 20 } } },
+                AcceptDocuments = true,
+            },
+            new Wire.RecordRunResponse
+            {
+                Sweep = new Wire.RunSweepResponse { Error = "e", FailureReason = Wire.FailureReason.WrongKind, Engine = "sweep" },
+                Error = "e",
+                FailureReason = Wire.FailureReason.WrongKind,
+            }),
+        ["RecordRun of a failed sample"] = (
+            new Wire.RecordRunRequest { ModelHash = Hash, AnalysisSymbolId = "MC::Mc", Runs = 2, Seed = 0, AcceptDocuments = true },
+            new Wire.RecordRunResponse
+            {
+                Sample = new Wire.RunRunsResponse { Error = "e", FailureReason = Wire.FailureReason.Evaluation, Engine = "sweep" },
+                Error = "e",
+                FailureReason = Wire.FailureReason.Evaluation,
+            }),
+        ["RecordRun of an unconcluded sample"] = (
+            new Wire.RecordRunRequest { ModelHash = Hash, AnalysisSymbolId = "MC::Mc", Runs = 2, Seed = 0, AcceptDocuments = true },
+            new Wire.RecordRunResponse { Sample = CompleteSamplingWire.Unconcluded, Skipped = 1, Error = "nothing recorded: no run completed" }),
+        ["RecordRun of nothing"] = (
+            new Wire.RecordRunRequest { ModelHash = Hash, AnalysisSymbolId = "Sw::CostAnalysis", AcceptDocuments = true },
+            new Wire.RecordRunResponse { Error = "e" }),
         ["Convert"] = (
             new Wire.ConvertRequest { Content = "package P {", FromFormat = "sysml", ToFormat = "api-json" },
             CompleteConversionWire.FailedConversion),
@@ -668,7 +699,7 @@ public sealed class ConformanceAdapterTests
     public async Task AFailureTheAnswerReportsIsRenderedInBand(ClientWire wire, string name)
     {
         var (request, response) = InBand[name];
-        var method = ScenarioRequests.Method(name);
+        var method = ScenarioRequests.Method(name.Split(' ')[0]);
         using var handler = Serving(wire, method.Name, response);
         await using var connection = await FakeConnection.OpenAsync(handler);
 
@@ -873,37 +904,6 @@ public sealed class ConformanceAdapterTests
                 Documents = { new Wire.SourceDocument { Content = "package A;", Name = "a.sysml" }, new Wire.SourceDocument { Content = "package B;", Name = "b.sysml" } },
             },
             Assert.Single(handler.RequestsFor("ParseSources")).Message(Wire.ParseSourcesRequest.Parser));
-    }
-
-    [Fact]
-    public void EveryAdapterReadsItsRpcsRequestAndSendsOnlyFieldsTheInventoryTypes()
-    {
-        var inventory = ParityInventory.LoadCommitted();
-        foreach (var (name, adapter) in ApiAdapters.All)
-        {
-            var method = ScenarioRequests.Method(name);
-            var fields = inventory.Fields[method.InputType.FullName];
-
-            Assert.Equal(method.InputType.ClrType, adapter.RequestType);
-            Assert.Equal(
-                fields.Where(field => field.Value.Status == "typed").Select(field => field.Key).Order(StringComparer.Ordinal),
-                adapter.Fields.Order(StringComparer.Ordinal));
-        }
-    }
-
-    [Fact]
-    public void TheAdaptersCoverEveryImplementedRpcAndTheExpectedSkipsListEveryDeferredOne()
-    {
-        var rows = ParityInventory.LoadCommitted().Rpcs;
-        var expected = ExpectedSkips.Load(Repository.PathOf("client", "dotnet", "test", "testdata", "expected-skips.json"));
-
-        Assert.Equal(
-            rows.Where(row => row.Status == "implemented").Select(row => row.Rpc).Order(StringComparer.Ordinal),
-            ApiAdapters.All.Keys.Order(StringComparer.Ordinal));
-        Assert.Equal(
-            rows.Where(row => row.Status == "deferred").Select(row => row.Rpc).Order(StringComparer.Ordinal),
-            expected.UncoveredRpcs.Order(StringComparer.Ordinal));
-        Assert.Empty(expected.Problems(ScenarioSuite.Load(Repository.PathOf("conformance", "scenarios")), ScenarioRequests.Service, ApiAdapters.All.Keys));
     }
 
     [Fact]

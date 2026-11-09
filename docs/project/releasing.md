@@ -2361,8 +2361,8 @@ other, so its `.NET client tests` job checks the embedded table.
 ### What the release relies on
 
 The client is held to its contract by the suite, not at the tag: CircleCI's `build-test`
-workflow and the pull-request workflow run `make dotnet-test`, `make dotnet-coverage`,
-`make conformance-dotnet` and `make conformance-dotnet-check` on Linux, and the pull-request
+workflow and the pull-request workflow run `make dotnet-test` and
+`make conformance-dotnet-check` on Linux, and the pull-request
 workflow's full tier runs the whole suite natively on macOS and Windows. The commit tagged has
 passed them on its way to `main`. There is nothing to rerun if the release goes wrong after the
 tag: the client's release is the tag, and a fix is the next core patch release.

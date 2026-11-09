@@ -15,7 +15,9 @@ namespace OpenMBEE.OpenSysML.Tests;
 [Trait(Category.Name, Category.Unit)]
 public sealed class ValueWriteTests
 {
-    private static readonly Capabilities All = new(ServiceCapabilities.Names);
+    private static readonly IReadOnlyCollection<string> Names = [.. CapabilitiesTests.Constants.Values];
+
+    private static readonly Capabilities All = new(Names);
 
     public static TheoryData<Value, string> Unsendable => new()
     {
@@ -146,11 +148,11 @@ public sealed class ValueWriteTests
         Assert.Equal(ValueWire.SendGateOrder, ValueWire.RequiredCapabilities(ValueWire.ToWire(everything, "v")));
         foreach (var capability in ValueWire.SendGateOrder)
         {
-            Assert.Equal(capability, Assert.Throws<CapabilityException>(() => Fit(everything, new Capabilities(ServiceCapabilities.Names.Except(held)))).Capability);
+            Assert.Equal(capability, Assert.Throws<CapabilityException>(() => Fit(everything, new Capabilities(Names.Except(held)))).Capability);
             held.Remove(capability);
         }
 
-        Fit(everything, new Capabilities(ServiceCapabilities.Names.Except(held)));
+        Fit(everything, new Capabilities(Names.Except(held)));
     }
 
     [Fact]
@@ -291,7 +293,7 @@ public sealed class ValueWriteTests
             new ValueList<Value>([new Value.IntegerValue(1), new Value.UnsetValue()]), "arguments")).Message, StringComparison.Ordinal);
     }
 
-    private static Capabilities Without(string capability) => new(ServiceCapabilities.Names.Where(name => name != capability));
+    private static Capabilities Without(string capability) => new(Names.Where(name => name != capability));
 
     private static Wire.Value Fit(Value value, Capabilities capabilities)
     {

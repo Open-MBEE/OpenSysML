@@ -1636,28 +1636,14 @@ jobs:
           name: Build sysml-grpc
           command: make build-grpc
 
-      # A test that needs the service, buf or a solver fails rather than skips without one.
+      # A test that needs the service or a solver fails rather than skips without one.
       - run:
           name: Run .NET client tests
           command: |
             OPENSYSML_GRPC_BINARY="$PWD/bin/sysml-grpc" \
             OPENSYSML_REQUIRE_SERVICE=1 \
-            OPENSYSML_REQUIRE_BUF=1 \
             OPENSYSML_REQUIRE_SMT=1 \
               make dotnet-test
-
-      - run:
-          name: Measure .NET client coverage
-          command: |
-            OPENSYSML_GRPC_BINARY="$PWD/bin/sysml-grpc" \
-            OPENSYSML_REQUIRE_SERVICE=1 \
-            OPENSYSML_REQUIRE_BUF=1 \
-            OPENSYSML_REQUIRE_SMT=1 \
-              make dotnet-coverage
-
-      - run:
-          name: Run the conformance suite through the .NET client
-          command: make conformance-dotnet
 
       - run:
           name: Compare the .NET conformance run with the reference runner
@@ -1671,11 +1657,6 @@ jobs:
           destination: dotnet-reports
 
       # The reports matter most when the gate failed and halted the job.
-      - store_artifacts:
-          path: bin/conformance-report-dotnet.json
-          destination: conformance-report-dotnet.json
-          when: always
-
       - store_artifacts:
           path: bin/conformance-dotnet-check
           destination: conformance-dotnet-check

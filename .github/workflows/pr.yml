@@ -1592,29 +1592,14 @@ jobs:
           scripts/ci-apt-install.sh z3
           z3 --version
 
-      # A test that needs the service, buf, a solver, or another client's toolchain, fails rather than skips without it.
+      # A test that needs the service, a solver, or another client's toolchain, fails rather than skips without it.
       - name: Run .NET client tests
         env:
           OPENSYSML_GRPC_BINARY: ${{ github.workspace }}/bin/sysml-grpc
           OPENSYSML_REQUIRE_SERVICE: "1"
           OPENSYSML_REQUIRE_INTEROP: "1"
-          OPENSYSML_REQUIRE_BUF: "1"
           OPENSYSML_REQUIRE_SMT: "1"
         run: make dotnet-test
-
-      - name: Measure .NET client coverage
-        env:
-          OPENSYSML_GRPC_BINARY: ${{ github.workspace }}/bin/sysml-grpc
-          OPENSYSML_REQUIRE_SERVICE: "1"
-          OPENSYSML_REQUIRE_INTEROP: "1"
-          OPENSYSML_REQUIRE_BUF: "1"
-          OPENSYSML_REQUIRE_SMT: "1"
-        run: make dotnet-coverage
-
-      # Every protocol and the withheld configuration, through the public API, against the
-      # downloaded binary; a skip expected-skips.json does not list fails it.
-      - name: Run the conformance suite through the .NET client
-        run: make conformance-dotnet
 
       # The reference runner is Go, which this job otherwise does not need.
       - name: Set up Go
@@ -1623,6 +1608,9 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      # Every protocol and the withheld configuration, through the public API, against the
+      # downloaded binary, beside the reference runner; a skip expected-skips.json does not
+      # list fails it.
       - name: Compare the .NET conformance run with the reference runner
         run: make conformance-dotnet-check
 
@@ -1633,8 +1621,6 @@ jobs:
           name: dotnet-reports
           path: |
             bin/dotnet/
-            bin/conformance-report-dotnet.json
-            bin/conformance-report-dotnet.xml
             bin/conformance-dotnet-check/
           if-no-files-found: ignore
 

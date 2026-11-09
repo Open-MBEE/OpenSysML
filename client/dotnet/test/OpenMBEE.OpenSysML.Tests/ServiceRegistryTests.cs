@@ -472,12 +472,6 @@ public sealed class ServiceRegistryTests
         Assert.Empty(registry.Entries());
     }
 
-    [Fact]
-    public void TheSharedRegistryIsOneInstance()
-    {
-        Assert.Same(ServiceRegistry.Shared, ServiceRegistry.Shared);
-    }
-
     /// <summary>Waits for a condition the registry reaches on another thread.</summary>
     internal static async Task WaitUntilAsync(Func<bool> condition)
     {

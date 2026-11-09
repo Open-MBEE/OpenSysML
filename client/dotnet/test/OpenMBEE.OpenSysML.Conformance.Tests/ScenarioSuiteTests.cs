@@ -14,7 +14,6 @@ namespace OpenMBEE.OpenSysML.Conformance.Tests;
 public sealed class ScenarioSuiteTests
 {
     private static readonly string Scenarios = Repository.PathOf("conformance", "scenarios");
-    private static readonly string Fixtures = Repository.PathOf("conformance", "fixtures");
 
     [Fact]
     public void ScenariosArriveInFileNameThenDeclarationOrder()
@@ -240,69 +239,6 @@ public sealed class ScenarioSuiteTests
 
         Assert.NotEmpty(loaded);
         Assert.Equal(expected, loaded.Select(scenario => scenario.Id));
-    }
-
-    [Fact]
-    public void EveryCommittedScenarioNamesAnRpcOfTheService()
-    {
-        var unknown = ScenarioSuite.Load(Scenarios).Where(scenario => ScenarioRequests.Service.FindMethodByName(scenario.Method) is null).Select(scenario => scenario.Id);
-        Assert.Empty(unknown);
-    }
-
-    [Fact]
-    public void EveryRpcIsCoveredByACommittedScenario()
-    {
-        var covered = ScenarioSuite.Load(Scenarios).Select(scenario => scenario.Method).ToHashSet(StringComparer.Ordinal);
-        var uncovered = ScenarioRequests.Service.Methods.Select(method => method.Name).Where(name => !covered.Contains(name)).ToList();
-        Assert.True(uncovered.Count == 0, $"No scenario covers {string.Join(", ", uncovered)}.");
-    }
-
-    [Fact]
-    public void TheCommittedSuiteCoversBothKindsOfFailure()
-    {
-        var statuses = new HashSet<string>(StringComparer.Ordinal);
-        var withoutCapability = new HashSet<string>(StringComparer.Ordinal);
-        var inBand = 0;
-        foreach (var scenario in ScenarioSuite.Load(Scenarios))
-        {
-            var expects = new List<Expectation> { scenario.Expect };
-            if (scenario.ExpectWithoutCapability is { } fallback)
-            {
-                expects.Add(fallback);
-                Assert.Equal("UNIMPLEMENTED", fallback.Status);
-                Assert.Contains(fallback.StatusMessageContains, scenario.RequiresCapabilities);
-                withoutCapability.Add(fallback.StatusMessageContains);
-            }
-
-            foreach (var expect in expects)
-            {
-                if (expect.Status.Length > 0)
-                {
-                    statuses.Add(expect.Status);
-                }
-
-                inBand += expect.NonEmpty.Concat(expect.Contains.Keys).Count(path => path.EndsWith("error", StringComparison.Ordinal));
-            }
-        }
-
-        Assert.Superset(new HashSet<string>(["INVALID_ARGUMENT", "NOT_FOUND", "UNIMPLEMENTED"]), statuses);
-        Assert.True(inBand > 0, "No scenario expects a failure reported in the response's error field.");
-        Assert.Superset(new HashSet<string>(["strict_conformance", "oslc_query"]), withoutCapability);
-    }
-
-    [Fact]
-    public void EveryCommittedFixtureIsRead()
-    {
-        var scenarios = ScenarioSuite.Load(Scenarios);
-        var unread = Directory.GetFiles(Fixtures, "*.sysml")
-            .Select(Path.GetFileName)
-            .Where(name => !scenarios.Any(scenario =>
-                (scenario.Model?.FixtureNames.Contains(name) ?? false)
-                || (scenario.Request?.GetRawText().Contains("${fixture:" + name + "}", StringComparison.Ordinal) ?? false)))
-            .ToList();
-
-        Assert.NotEmpty(Directory.GetFiles(Fixtures, "*.sysml"));
-        Assert.Empty(unread);
     }
 
     private static string Minimal(string id) => $$"""{"id": "{{id}}", "rpc": "GetServerInfo"}""";

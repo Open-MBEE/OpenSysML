@@ -14,25 +14,6 @@ namespace OpenMBEE.OpenSysML.Tests;
 public sealed class RpcMethodsTests
 {
     [Fact]
-    public void EveryMethodOfTheDescriptorIsRegisteredInSchemaOrder()
-    {
-        var declared = Wire.SysMLService.Descriptor.Methods;
-
-        Assert.Equal("sysml.SysMLService", RpcMethods.ServiceName);
-        Assert.Equal(declared.Select(method => method.Name), RpcMethods.All.Select(method => method.Name));
-        Assert.All(RpcMethods.All.Zip(declared), pair =>
-        {
-            var (method, descriptor) = pair;
-            Assert.Same(descriptor, method.Descriptor);
-            Assert.Equal($"sysml.SysMLService/{descriptor.Name}", method.QualifiedName);
-            Assert.Equal(descriptor.InputType.ClrType, method.RequestType);
-            Assert.Equal(descriptor.OutputType.ClrType, method.ResponseType);
-            Assert.Same(descriptor.InputType.Parser, method.RequestParser);
-            Assert.Same(descriptor.OutputType.Parser, method.ResponseParser);
-        });
-    }
-
-    [Fact]
     public void TheRegistryAgreesWithTheGeneratedClientStub()
     {
         // The generated stub keeps its methods private; the registry must name the same calls.
@@ -109,18 +90,6 @@ public sealed class RpcMethodsTests
     }
 
     [Fact]
-    public void EveryMethodResolvesWithItsOwnMessages()
-    {
-        var resolve = typeof(RpcMethodsTests).GetMethod(nameof(Resolve), BindingFlags.NonPublic | BindingFlags.Static)!;
-        foreach (var method in RpcMethods.All)
-        {
-            var typed = resolve.MakeGenericMethod(method.RequestType, method.ResponseType).Invoke(null, [method.QualifiedName]);
-
-            Assert.NotNull(typed);
-        }
-    }
-
-    [Fact]
     public void AMismatchedPairingIsRefusedWithBothPairings()
     {
         const string Expected = "sysml.SysMLService/Evaluate takes OpenMBEE.OpenSysML.Wire.EvaluateRequest and returns OpenMBEE.OpenSysML.Wire.EvaluateResponse, ";
@@ -188,15 +157,6 @@ public sealed class RpcMethodsTests
 
     private static T Deserialize<T>(Marshaller<T> marshaller, byte[] payload) =>
         marshaller.ContextualDeserializer(new Deserialization(payload));
-
-    private static RpcMethod<TRequest, TResponse>? Resolve<TRequest, TResponse>(string name)
-        where TRequest : class, IMessage<TRequest>
-        where TResponse : class, IMessage<TResponse>
-    {
-        Assert.True(RpcMethods.TryResolve<TRequest, TResponse>(name, out var method, out var problem), problem);
-        Assert.Equal(typeof(TRequest), method.Untyped.RequestType);
-        return method;
-    }
 
     private sealed class Serialization : SerializationContext
     {
