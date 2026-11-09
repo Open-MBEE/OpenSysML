@@ -206,3 +206,25 @@ func TestKindBaseResultSaysNothingOfTheBehaviorsOwn(t *testing.T) {
 		t.Errorf("an argument typed Integer is unknown")
 	}
 }
+
+// A general's parameter that redefines one an earlier general lent replaces it,
+// whichever general comes first: Both inherits Sub's q and s, not Base's p and r
+// beside them (KerML 8.3.3.1).
+func TestLaterGeneralsRedefinerReplacesTheParameterInheritedBeforeIt(t *testing.T) {
+	m, root := buildModel(t, `package Q {
+		behavior Base { in p; return r; }
+		behavior Sub specializes Base { in q :>> p; return s :>> r; }
+		behavior Both specializes Base, Sub;
+	}`)
+	both := nestedSym(t, root, "Q::Both")
+	var got []string
+	for _, p := range m.BehaviorParametersOf(both) {
+		got = append(got, p.Symbol.Owner().Name+"::"+p.Symbol.Name)
+	}
+	if want := []string{"Sub::q", "Sub::s"}; !slices.Equal(got, want) {
+		t.Fatalf("BehaviorParametersOf(Both) = %v, want %v", got, want)
+	}
+	if result := m.ResultParameterOf(both); result != nestedSym(t, root, "Q::Sub::s") {
+		t.Fatalf("ResultParameterOf(Both) = %v, want Sub::s", result)
+	}
+}

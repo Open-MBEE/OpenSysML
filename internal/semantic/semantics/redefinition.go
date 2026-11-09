@@ -190,17 +190,26 @@ func (m *Model) parametersOf(sym *symbols.Symbol) behaviorParameters {
 	out := behaviorParameters{positional: positionalParameters(owned), result: resultParameter(owned)}
 
 	// What no owned parameter redefines, by clause or by position, is inherited
-	// from each general in turn (KerML 8.3.3.1), ordered after the owned ones.
+	// from each general in turn (KerML 8.3.3.1), ordered after the owned ones; a
+	// general's parameter redefining one an earlier general lent takes its place.
 	declared := out
 	m.forBehaviorGenerals(sym, func(sup *symbols.Symbol) {
 		general := m.parametersOf(sup)
 		claimed := claimedParameters(declared, general)
 		for _, p := range general.positional {
-			if !claimed[p.sym] && !m.listsParameter(out.positional, p.sym) {
-				out.positional = append(out.positional, p)
+			if claimed[p.sym] || m.listsParameter(out.positional, p.sym) {
+				continue
 			}
+			if i := m.redefinedIndex(out.positional[len(declared.positional):], p.sym); i >= 0 {
+				out.positional[len(declared.positional)+i] = p
+				continue
+			}
+			out.positional = append(out.positional, p)
 		}
-		if out.result.sym == nil && !claimed[general.result.sym] {
+		if general.result.sym == nil || claimed[general.result.sym] {
+			return
+		}
+		if out.result.sym == nil || (declared.result.sym == nil && m.redefines(general.result.sym, out.result.sym)) {
 			out.result = general.result
 		}
 	})
@@ -245,11 +254,27 @@ func (m *Model) forBehaviorGenerals(sym *symbols.Symbol, fn func(sup *symbols.Sy
 // as itself or as a parameter inherited through another general that redefines it.
 func (m *Model) listsParameter(params []parameter, sym *symbols.Symbol) bool {
 	for _, p := range params {
-		if p.sym == sym || slices.Contains(m.AllRedefinedFeatures(p.sym), sym) {
+		if p.sym == sym || m.redefines(p.sym, sym) {
 			return true
 		}
 	}
 	return false
+}
+
+// redefinedIndex is the index of the parameter in params that sym redefines, or -1.
+func (m *Model) redefinedIndex(params []parameter, sym *symbols.Symbol) int {
+	for i, p := range params {
+		if m.redefines(sym, p.sym) {
+			return i
+		}
+	}
+	return -1
+}
+
+// redefines reports whether sym redefines target, directly or through the
+// parameters it redefines.
+func (m *Model) redefines(sym, target *symbols.Symbol) bool {
+	return slices.Contains(m.AllRedefinedFeatures(sym), target)
 }
 
 // PositionalParameter returns the parameter at position of a behavior or step —
