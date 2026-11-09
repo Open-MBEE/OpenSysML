@@ -30,6 +30,9 @@ type ElementIDReader interface {
 	ReadOwningMembership(doc string, decl ast.Node, fqn string) (string, error)
 	ReadRelationship(doc string, node ast.Node) (string, error)
 	ReadExpressionPart(doc string, node ast.Node, slot string) (element, membership string, err error)
+	// ReadAddress is the address the conversion stated for the element written with id: its
+	// qualifiedName, or a positional address (`P::@2::x`); none for a minted or unknown id.
+	ReadAddress(id string) (string, bool)
 }
 
 // defaultMultiplicitySlot is the slot the conversion mints a usage's default

@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -340,26 +341,45 @@ func (m *Model) positionallyNamed(sym *symbols.Symbol) bool {
 	return sym.Naming == symbols.NamedByDeclaration && !declaresIdentifier(sym) && m.EffectiveNameOf(sym) != ""
 }
 
+// roleNamed reports a usage declared without a name that takes one from the feature its role
+// redefines — an objective's `obj`, a subject's `subject`; a parameter is PositionallyNamed instead.
+func (m *Model) roleNamed(sym *symbols.Symbol) bool {
+	if !m.positionallyNamed(sym) || !sym.IsFeature() {
+		return false
+	}
+	switch sym.Decl.(type) {
+	case *ast.Usage, *ast.SubjectMember:
+		return true
+	}
+	return false
+}
+
 // QualifiedNameOf is Element::qualifiedName (KerML 8.2.4): the owner's qualified
 // name and sym's effective name, so a parameter named by the one its position
-// redefines is qualified as a declared name is; "" where either name is missing.
+// redefines, or an objective by the `obj` its role redefines, is qualified as a
+// declared name is, and so is a member under either (`T::obj::massRequirement`);
+// "" where sym has no name, an owner naming nothing is skipped as FQNOf skips it.
 func (m *Model) QualifiedNameOf(sym *symbols.Symbol) string {
 	if m == nil || sym == nil {
 		return ""
 	}
-	if sym.Name != "" {
-		return symbols.FQNOf(sym)
-	}
-	if !m.PositionallyNamed(sym) {
-		return ""
+	name := sym.Name
+	if name == "" {
+		if !m.PositionallyNamed(sym) && !m.roleNamed(sym) {
+			return ""
+		}
+		name = m.EffectiveNameOf(sym)
 	}
 	owner := sym.Owner()
 	if owner == nil {
-		return ""
+		return name
 	}
 	ownerName := m.QualifiedNameOf(owner)
 	if ownerName == "" {
-		return ""
+		if sym.Name == "" {
+			return ""
+		}
+		return symbols.FQNOf(sym)
 	}
-	return ownerName + "::" + m.EffectiveNameOf(sym)
+	return ownerName + "::" + name
 }
