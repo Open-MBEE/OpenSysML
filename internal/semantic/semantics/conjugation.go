@@ -118,12 +118,22 @@ func (m *Model) superEdges(sym *symbols.Symbol) []superEdge {
 				continue
 			}
 			resolved := m.recordedElement(rel.Target)
+			conjugated := rel.Conjugated
+			if rel.Kind == ast.RelTyping {
+				resolved, conjugated = m.conjugatedTypingTarget(resolved, conjugated)
+			}
 			if resolved == nil || resolved == sym || seen[resolved] {
 				continue
 			}
 			seen[resolved] = true
-			out = append(out, superEdge{sym: resolved, conjugated: rel.Conjugated, typing: rel.Kind == ast.RelTyping})
+			out = append(out, superEdge{sym: resolved, conjugated: conjugated, typing: rel.Kind == ast.RelTyping})
 		}
+	}
+	// A ConjugatedPortDefinition's one edge conjugates the port definition
+	// that implies it (SysML v2 8.3.12.3).
+	if original := OriginalPortDefinitionOf(sym); original != nil && !seen[original] {
+		seen[original] = true
+		out = append(out, superEdge{sym: original, conjugated: true})
 	}
 	// Supertypes known beyond declared relationships never conjugate.
 	for _, sup := range m.DirectSupertypes(sym) {
@@ -157,11 +167,18 @@ func (m *Model) declaredSuperEdges(sym *symbols.Symbol, seen map[*symbols.Symbol
 			continue
 		}
 		canonical, aliasOK := m.resolver.ResolveAliasTarget(resolved)
-		if !aliasOK || canonical == sym || seen[canonical] {
+		if !aliasOK {
+			continue
+		}
+		conjugated := rel.Conjugated
+		if rel.Kind == ast.RelTyping {
+			canonical, conjugated = m.conjugatedTypingTarget(canonical, conjugated)
+		}
+		if canonical == sym || seen[canonical] {
 			continue
 		}
 		seen[canonical] = true
-		out = append(out, superEdge{sym: canonical, conjugated: rel.Conjugated, typing: rel.Kind == ast.RelTyping})
+		out = append(out, superEdge{sym: canonical, conjugated: conjugated, typing: rel.Kind == ast.RelTyping})
 	}
 	return out
 }
@@ -468,7 +485,7 @@ func (m *Model) portTypeOf(sym *symbols.Symbol) (*symbols.Symbol, bool) {
 		if !typed {
 			continue
 		}
-		if kind, isDef := typ.DefinitionKind(); !isDef || kind != ast.DefPort {
+		if !IsPortDefinition(typ) {
 			return nil, false
 		}
 		return typ, conjugated
@@ -485,7 +502,8 @@ func (m *Model) declaredTyping(sym *symbols.Symbol) (typ *symbols.Symbol, conjug
 				continue
 			}
 			if target := m.recordedElement(rel.Target); target != nil {
-				return target, rel.Conjugated, true
+				target, conjugated = m.conjugatedTypingTarget(target, rel.Conjugated)
+				return target, conjugated, true
 			}
 		}
 		return nil, false, false
@@ -510,7 +528,8 @@ func (m *Model) declaredTyping(sym *symbols.Symbol) (typ *symbols.Symbol, conjug
 		if !aliasOK {
 			continue
 		}
-		return canonical, rel.Conjugated, true
+		canonical, conjugated = m.conjugatedTypingTarget(canonical, rel.Conjugated)
+		return canonical, conjugated, true
 	}
 	return nil, false, false
 }
@@ -551,10 +570,19 @@ func (m *Model) DeclaredTypes(sym *symbols.Symbol) []*symbols.Symbol {
 	if m == nil || sym == nil || m.resolver == nil {
 		return nil
 	}
-	if sym.Recorded() {
-		return m.RecordedRelationshipTargets(sym, ast.RelTyping)
-	}
 	var types []*symbols.Symbol
+	if sym.Recorded() {
+		for _, rel := range sym.Facts.Relationships {
+			if rel.Kind != ast.RelTyping {
+				continue
+			}
+			if target := m.recordedElement(rel.Target); target != nil {
+				target, _ = m.conjugatedTypingTarget(target, rel.Conjugated)
+				types = append(types, target)
+			}
+		}
+		return types
+	}
 	for _, rel := range RelationshipsOf(sym) {
 		if rel == nil || rel.Kind != ast.RelTyping || rel.Target == nil {
 			continue
@@ -572,6 +600,7 @@ func (m *Model) DeclaredTypes(sym *symbols.Symbol) []*symbols.Symbol {
 			continue
 		}
 		if canonical, aliasOK := m.resolver.ResolveAliasTarget(resolved); aliasOK {
+			canonical, _ = m.conjugatedTypingTarget(canonical, rel.Conjugated)
 			types = append(types, canonical)
 		}
 	}

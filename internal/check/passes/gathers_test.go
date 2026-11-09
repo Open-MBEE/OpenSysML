@@ -321,7 +321,7 @@ func TestGathersRegatherOfAnUnchangedAnnotatedDocumentMovesNoId(t *testing.T) {
 	w.analyze("annotated.sysml")
 
 	w.regathered = nil
-	w.put("meta.sysml", meta("/* a note */"))
+	w.put("meta.sysml", meta("// a note\n"))
 	for _, name := range w.regathered {
 		if strings.HasPrefix(name, "\x00identity/") {
 			t.Errorf("a comment moved ids: %q", name)

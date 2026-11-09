@@ -87,8 +87,6 @@ const (
 	xBodyMember       = "bodyMember"
 	xAssignOperator   = "assignmentOperator"
 	xPayload          = "payload"
-	xReceiver         = "receiver"
-	xIsVia            = "isVia"
 	xTarget           = "target"
 )
 
@@ -166,16 +164,12 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 
 	case *ast.SendStatement:
 		head(rdf.SysMLTerm(mSend))
-		if err := e.expression(subject, e.sysx(xPayload), xPayload, owner, n.Message); err != nil {
+		if err := e.encodeSendArguments(n, subject, fqn); err != nil {
 			return true, err
 		}
-		if err := e.expression(subject, e.sysx(xReceiver), xReceiver, owner, n.Target); err != nil {
-			return true, err
-		}
-		if n.IsVia {
-			e.graph.Add(subject, e.sysx(xIsVia), rdf.Bool(true))
-		}
-		return true, nil
+		// The body SendNode ends in declares the send's own members, after its arguments.
+		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))
+		return true, e.encode(n.Members, fqn, subject)
 
 	case *ast.TerminateStatement:
 		head(rdf.SysMLTerm(mTerminate))
@@ -798,6 +792,70 @@ func (e *encoder) encodeTrigger(n *ast.TransitionMember, subject rdf.Term, fqn s
 	return true, nil
 }
 
+// sendArgumentLinks are the properties naming a send's arguments, in parameter order.
+var sendArgumentLinks = [...]string{pPayloadArgument, pSenderArgument, pReceiverArgument}
+
+// encodeSendArguments emits a send's payload, sender and receiver as the `in`
+// parameters it owns, each valued by its expression (SysML v2 8.3.17.15
+// SendActionUsage; SysML.xtext SendNode, NodeParameterMember): the payload
+// first, then the `via` sender, then the `to` receiver, an EmptyParameterMember
+// standing in for a sender a `to` alone leaves out, or a payload left out. The
+// send names each value as its payloadArgument, senderArgument or receiverArgument.
+func (e *encoder) encodeSendArguments(n *ast.SendStatement, subject rdf.Term, fqn string) error {
+	var arguments [3]ast.Node
+	written := [3]bool{true}
+	arguments[0] = n.Message
+	switch {
+	case n.IsVia:
+		arguments[1], written[1] = n.Target, true
+		if n.Receiver != nil {
+			arguments[2], written[2] = n.Receiver, true
+		}
+	case n.Target != nil:
+		written[1] = true
+		arguments[2], written[2] = n.Target, true
+	}
+	var params []ast.Node
+	for i, argument := range arguments {
+		if !written[i] {
+			continue
+		}
+		param := &ast.Usage{Kind: ast.UsageAttribute, IsReference: true, Direction: ast.DirIn, Value: argument}
+		param.NodeSpan = sendParameterSpan(n, arguments, i)
+		e.triggerParams[param] = ""
+		params = append(params, param)
+	}
+	if err := e.encodeInline(params, fqn, subject); err != nil {
+		return err
+	}
+	index := 0
+	for i := range arguments {
+		if !written[i] {
+			continue
+		}
+		param := e.ids.subjectFor(naming.Qualify(fqn, "", index))
+		index++
+		if value, ok := e.graph.Object(param, rdf.SysML+pValue); ok {
+			e.graph.Add(subject, e.sysml(sendArgumentLinks[i]), value)
+		}
+	}
+	return nil
+}
+
+// sendParameterSpan places parameter i of send: at its argument, or, for one
+// written empty, where the next written argument begins.
+func sendParameterSpan(send *ast.SendStatement, arguments [3]ast.Node, i int) source.Span {
+	if arguments[i] != nil {
+		return arguments[i].Span()
+	}
+	for _, next := range arguments[i+1:] {
+		if next != nil {
+			return source.Span{Offset: next.Span().Offset}
+		}
+	}
+	return source.Span{Offset: send.Span().End()}
+}
+
 // transitionMemberLinks marks each member of a transition's effect or body as
 // such, so a reader can tell the two apart.
 func (e *encoder) transitionMemberLinks(n *ast.TransitionMember, subject rdf.Term, property string, members []ast.Node) error {
@@ -1088,16 +1146,29 @@ func (d *decoder) behaviorHead(el *element) (string, bool, error) {
 		return strings.Join(words, " "), true, nil
 
 	case mSend:
-		payload, hasPayload := d.stringOf(el, rdf.OpenSysML+xPayload)
-		receiver, hasReceiver := d.stringOf(el, rdf.OpenSysML+xReceiver)
-		if !hasPayload || !hasReceiver {
-			return "", true, d.missing(el, "sysx:"+xPayload+" and sysx:"+xReceiver, "a send states what it sends and where")
+		var texts [3]string
+		for i, property := range sendArgumentLinks {
+			text, err := d.sendArgument(el, property, i)
+			if err != nil {
+				return "", true, err
+			}
+			texts[i] = text
 		}
-		keyword := "to"
-		if d.boolOf(el, rdf.OpenSysML+xIsVia) {
-			keyword = "via"
+		// A head whose parameters all stand empty is a bare `send`: its body
+		// declares the parameters (`action snd send { in :>> payload = s; }`).
+		if texts == [3]string{} && len(d.sendArgumentParams(el)) == 0 {
+			return "", true, d.missing(el, "sysml:"+pPayloadArgument+", sysml:"+pSenderArgument+" or sysml:"+pReceiverArgument, "a send states what it sends or where")
 		}
-		words := append(nodeDeclaration(d, el), "send", payload, keyword, receiver)
+		words := append(nodeDeclaration(d, el), "send")
+		if texts[0] != "" {
+			words = append(words, texts[0])
+		}
+		if texts[1] != "" {
+			words = append(words, "via", texts[1])
+		}
+		if texts[2] != "" {
+			words = append(words, "to", texts[2])
+		}
 		return strings.Join(words, " "), true, nil
 
 	case mTerminate:
@@ -1808,7 +1879,7 @@ func (d *decoder) loopText(el *element, depth int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	text := head + " " + body
+	text := strings.Join(append(nodeDeclaration(d, el), head), " ") + " " + body
 	// An `until` clause states the condition tested after each iteration, and
 	// terminates the loop; so does a body written without braces.
 	if until, ok := d.stringOf(el, rdf.OpenSysML+xUntilCondition); ok {
@@ -1849,7 +1920,7 @@ func (d *decoder) conditionalText(el *element, depth int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	text := "if " + condition + " " + thenText
+	text := strings.Join(append(nodeDeclaration(d, el), "if", condition), " ") + " " + thenText
 	if otherwise == nil {
 		return text, nil
 	}
@@ -2405,6 +2476,80 @@ func (d *decoder) payloadArgumentAgrees(accepter, payload *element) error {
 		}
 	}
 	return nil
+}
+
+// sendArgument is the notation of the argument a send names at property
+// (payloadArgument, senderArgument or receiverArgument): the value of the
+// parameter at position among those it owns (SysML v2 §8.3.17.15 argument(n)),
+// or the stated expression itself where no parameter holds it; "" for an
+// argument the send states none of. A stated argument that is not the
+// parameter's value is refused, since writing one would drop the other.
+func (d *decoder) sendArgument(el *element, property string, position int) (string, error) {
+	refuse := func(note string) (string, error) {
+		return "", &UnsupportedError{What: fmt.Sprintf("the send action <%s>", el.iri), Note: note}
+	}
+	stated := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+property)
+	if len(stated) > 1 {
+		return refuse(fmt.Sprintf("it states more than one sysml:%s, and the notation writes one", property))
+	}
+	var param *element
+	if params := d.sendArgumentParams(el); position < len(params) {
+		param = params[position]
+	}
+	if param == nil {
+		if len(stated) == 0 {
+			return "", nil
+		}
+		return d.expressionNodeText(stated[0], el)
+	}
+	value, valued := d.graph.Object(rdf.IRI(param.iri), rdf.SysML+pValue)
+	switch {
+	case !valued && len(stated) == 0:
+		return "", nil
+	case !valued:
+		return refuse(fmt.Sprintf("its sysml:%s <%s> is not the value of its parameter <%s>, which holds none, and writing one would drop the other", property, stated[0].Value, param.iri))
+	case len(stated) == 1 && stated[0] != value:
+		return refuse(fmt.Sprintf("its sysml:%s <%s> is not the value of its parameter <%s>, and writing one would drop the other", property, stated[0].Value, param.iri))
+	}
+	if text, ok := d.stringOf(param, rdf.SysML+pValue); ok {
+		return text, nil
+	}
+	return d.expressionNodeText(value, el)
+}
+
+// sendArgumentParams are the parameters a send's head writes, in argument
+// order: the unnamed ones leading its parameters (SysML.xtext NodeParameterMember,
+// EmptyParameterMember), before any its body declares.
+func (d *decoder) sendArgumentParams(el *element) []*element {
+	params := d.parameterChildren(el)
+	for i, param := range params {
+		if len(d.identWords(param)) > 0 || d.statesRelationship(param) {
+			return params[:i]
+		}
+	}
+	return params
+}
+
+// statesRelationship reports whether el types, specializes, subsets or redefines anything;
+// a send's head parameters state only a value, so a body's `in :>> payload = s;` is the body's.
+func (d *decoder) statesRelationship(el *element) bool {
+	for _, kind := range []ast.RelationshipKind{ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences} {
+		if refs, err := d.referenceList(el, rdf.SysML+relationshipProperty[kind]); err == nil && len(refs) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// parameterChildren are the children el owns through a ParameterMembership, in order.
+func (d *decoder) parameterChildren(el *element) []*element {
+	var params []*element
+	for _, child := range el.children {
+		if m, ok := d.owningMembership[child.iri]; ok && d.metaclass(rdf.IRI(m.iri)) == mParameterMembership {
+			params = append(params, child)
+		}
+	}
+	return params
 }
 
 // receiverParams are the parameters of a trigger action other than its

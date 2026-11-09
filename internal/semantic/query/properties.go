@@ -97,6 +97,8 @@ func (r *PropertyReader) Values(sym *symbols.Symbol, property string) ([]string,
 		return r.multiplicityValues(sym, property)
 	case PropertySatisfiedRequirement, PropertySatisfyingFeature:
 		return r.satisfyEnd(sym, property)
+	case PropertyPayloadArgument, PropertySenderArgument, PropertyReceiverArgument:
+		return r.sendArgument(sym, property)
 	case PropertyElementID:
 		if r.elementID != nil {
 			return presentValues(r.elementID(sym))
@@ -200,6 +202,37 @@ func (r *PropertyReader) satisfyEnd(sym *symbols.Symbol, property string) ([]str
 	return r.resolveTargetIdentity(sym, ends.Satisfier)
 }
 
+// sendArgument is an argument of the send action sym as written (SysML v2
+// §8.3.17.15): absent for an argument the send leaves out and for any other element.
+func (r *PropertyReader) sendArgument(sym *symbols.Symbol, property string) ([]string, bool) {
+	send := symbols.SendStatementOf(sym.Decl)
+	if send == nil || sym.Kind != symbols.SymbolSendActionUsage || r.semantics == nil {
+		return nil, false
+	}
+	var argument ast.Node
+	switch property {
+	case PropertyPayloadArgument:
+		argument = send.Message
+	case PropertySenderArgument:
+		if send.IsVia {
+			argument = send.Target
+		}
+	case PropertyReceiverArgument:
+		argument = send.Receiver
+		if !send.IsVia {
+			argument = send.Target
+		}
+	}
+	if argument == nil {
+		return nil, false
+	}
+	lookup := r.semantics.SourceText()
+	if lookup == nil {
+		return presentValues(ast.QualifiedText(argument))
+	}
+	return presentValues(strings.TrimSpace(lookup(sym.DocName, argument.Span())))
+}
+
 func (r *PropertyReader) resolveTargetIdentity(sym *symbols.Symbol, target ast.Node) ([]string, bool) {
 	if r.resolver == nil {
 		return nil, false
@@ -243,6 +276,13 @@ func (r *PropertyReader) elementType(sym *symbols.Symbol) ([]string, bool) {
 		}
 		if alias, ok := r.resolver.ResolveAliasTarget(resolved); ok {
 			resolved = alias
+		}
+		// A conjugated typing's type is the ConjugatedPortDefinition its
+		// written target implies (SysML v2 8.3.12.3).
+		if relationship.Conjugated && r.semantics != nil {
+			if conjugate := r.semantics.ConjugatedPortDefinitionOf(resolved); conjugate != nil {
+				resolved = conjugate
+			}
 		}
 		return presentValues(r.index.GetFQN(resolved))
 	}
