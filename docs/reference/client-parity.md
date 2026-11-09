@@ -132,7 +132,7 @@ from the clients and a gap is a stated gap rather than a silent one.
 | `render_document_file_name` | bound | bound | bound | bound | bound | bound | not bound |
 | `order_dependence` | bound | not bound | bound | not bound | not bound | not bound | not bound |
 | `verdict_notes` | bound | not bound | bound | bound | bound | bound | bound |
-| `element_properties` | bound | not bound | bound | bound | bound | not bound | not bound |
+| `element_properties` | bound | bound | bound | bound | bound | bound | bound |
 
 
 ## Request options

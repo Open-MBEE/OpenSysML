@@ -1122,18 +1122,13 @@ func TestStructureBackedOwningRelationshipOpposites(t *testing.T) {
 	cases := []ownerCase{
 		{class: "Conjugation", property: "owningType", ownerClass: "PartDefinition"},
 		{class: "Disjoining", property: "owningType", ownerClass: "PartDefinition"},
-		{class: "Differencing", property: "owningType", ownerClass: "PartDefinition"},
-		{class: "Intersecting", property: "owningType", ownerClass: "PartDefinition"},
-		{class: "Unioning", property: "owningType", ownerClass: "PartDefinition"},
 		{class: "Specialization", property: "owningType", ownerClass: "PartDefinition"},
 		{class: "FeatureTyping", property: "owningFeature", ownerClass: "PartUsage"},
 		{class: "FeatureInverting", property: "owningFeature", ownerClass: "PartUsage"},
 		{class: "CrossSubsetting", property: "owningFeature", ownerClass: "PartUsage"},
-		{class: "FeatureChaining", property: "owningFeature", ownerClass: "PartUsage"},
 		{class: "FeatureMembership", property: "owningType", ownerClass: "PartDefinition"},
 		{class: "Import", property: "importOwningNamespace", ownerClass: "Package"},
 		{class: "Annotation", property: "owningAnnotatedElement", ownerClass: "PartDefinition"},
-		{class: "Documentation", property: "documentedElement", ownerClass: "PartDefinition"},
 	}
 	structure := testStructure{
 		metaclasses:           make(map[ElementKey]string),
@@ -1167,6 +1162,67 @@ func TestStructureBackedOwningRelationshipOpposites(t *testing.T) {
 		if !ok || got.Kind != ElementValue || got.Element.Key() != owner.owner.Key() {
 			t.Errorf("%s::%s = %#v, %t; want owning %s", owner.test.class, owner.test.property, got, ok, owner.test.ownerClass)
 		}
+	}
+}
+
+// Documentation::documentedElement subsets owner (KerML 1.1 §8.3.2.3.5): the
+// namespace a doc comment is a member of, or the relationship whose body
+// annotates it through an owned Annotation.
+func TestStructureBackedDocumentedElementIsTheOwner(t *testing.T) {
+	evaluator, _ := newTestEvaluator(t, "documented-element.sysml", "package P {}")
+	documentation := Element{Aspect: "documentation"}
+	namespace := Element{Aspect: "documented-namespace"}
+	membership := MembershipElement(Membership{Aspect: "documentation-membership", kind: "OwningMembership"})
+	evaluator.options.Structure = testStructure{
+		metaclasses: map[ElementKey]string{
+			documentation.Key(): "Documentation",
+			namespace.Key():     "Package",
+			membership.Key():    "OwningMembership",
+		},
+		ownedRelationships: map[ElementKey][]Element{
+			documentation.Key(): {},
+			namespace.Key():     {},
+			membership.Key():    {},
+		},
+		owningRelationships: map[ElementKey]testOptionalElement{
+			documentation.Key(): {element: membership, present: true},
+		},
+		owningRelatedElements: map[ElementKey]testOptionalElement{
+			membership.Key(): {element: namespace, present: true},
+		},
+		specializes: func(sub, super string) bool {
+			return sub == "Package" && super == "Namespace" || testSpecializes(sub, super)
+		},
+	}
+	value, ok := evaluator.Property(documentation, "Documentation", "documentedElement")
+	if !ok || value.Kind != ElementValue || value.Element.Key() != namespace.Key() {
+		t.Fatalf("Documentation::documentedElement = %#v, %t; want the owning namespace %v", value, ok, namespace)
+	}
+
+	evaluator, _ = newTestEvaluator(t, "documented-element.sysml", "package P {}")
+	dependency := Element{Aspect: "documented-dependency"}
+	annotation := Element{Aspect: "documentation-annotation"}
+	evaluator.options.Structure = testStructure{
+		metaclasses: map[ElementKey]string{
+			documentation.Key(): "Documentation",
+			dependency.Key():    "Dependency",
+			annotation.Key():    "Annotation",
+		},
+		ownedRelationships: map[ElementKey][]Element{
+			documentation.Key(): {},
+			dependency.Key():    {annotation},
+			annotation.Key():    {},
+		},
+		owningRelationships: map[ElementKey]testOptionalElement{
+			documentation.Key(): {element: annotation, present: true},
+		},
+		owningRelatedElements: map[ElementKey]testOptionalElement{
+			annotation.Key(): {element: dependency, present: true},
+		},
+	}
+	value, ok = evaluator.Property(documentation, "Documentation", "documentedElement")
+	if !ok || value.Kind != ElementValue || value.Element.Key() != dependency.Key() {
+		t.Fatalf("Documentation::documentedElement = %#v, %t; want the annotating relationship's owner %v", value, ok, dependency)
 	}
 }
 

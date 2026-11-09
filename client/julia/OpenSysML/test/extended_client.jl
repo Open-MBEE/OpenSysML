@@ -1287,3 +1287,79 @@ end
         close(server)
     end
 end
+
+@testset "element_properties reads an element's properties by specification name" begin
+    answer = Dict{String,Any}(
+        "element" => Dict("id" => "Demo__Pair", "qualifiedName" => "Demo::Pair", "metaclass" => "PartDefinition"),
+        "properties" => Any[
+            Dict("name" => "inheritedFeature", "definingClass" => "Type", "many" => true, "derived" => true,
+                 "values" => Any[Dict("element" => Dict("id" => "Demo__Unit__p", "qualifiedName" => "Demo::Unit::p",
+                                                        "metaclass" => "PortUsage")),
+                                 Dict("element" => Dict("id" => "0c53", "metaclass" => "Feature"))]),
+            Dict("name" => "isAbstract", "definingClass" => "Type", "values" => Any[Dict("boolValue" => false)]),
+            Dict("name" => "declaredName", "definingClass" => "Element", "values" => Any[Dict("stringValue" => "Pair")]),
+            Dict("name" => "lowerBound", "values" => Any[Dict("intValue" => "3")]),
+            Dict("name" => "mass", "values" => Any[Dict("realValue" => 1.5)]),
+            Dict("name" => "huge", "values" => Any[Dict("number" => "18446744073709551616")]),
+            Dict("name" => "connectorEnd", "unsupported" => "PartDefinition declares no property connectorEnd")])
+    server, requests, address = recording_service(["element_properties"]; handler=(method, body) -> answer)
+    conn = external(address)
+    try
+        model = Model(conn, "a"^64, Diagnostic[])
+        read = element_properties(model, "Demo::Pair", "inheritedFeature", "isAbstract")
+        @test requests[end].method == "GetElementProperties"
+        @test requests[end].body["modelHash"] == "a"^64
+        @test requests[end].body["elementId"] == "Demo::Pair"
+        @test requests[end].body["properties"] == ["inheritedFeature", "isAbstract"]
+        @test read.element == ElementIdentity("Demo__Pair", "Demo::Pair", "PartDefinition")
+        @test length(read) == 7 && haskey(read, "isAbstract") && !haskey(read, "owner")
+        inherited = read["inheritedFeature"]
+        @test inherited.defining_class == "Type" && inherited.many && inherited.derived && is_answered(inherited)
+        @test property_elements(inherited) == [ElementIdentity("Demo__Unit__p", "Demo::Unit::p", "PortUsage"),
+                                               ElementIdentity("0c53", "", "Feature")]
+        @test string(property_elements(inherited)[2]) == "0c53"
+        @test property_value(read["isAbstract"]) === false
+        @test property_value(read["declaredName"]) == "Pair"
+        @test property_value(read["lowerBound"]) === Int64(3)
+        @test property_value(read["mass"]) === 1.5
+        @test property_value(read["huge"]) == "18446744073709551616"
+        @test !is_answered(read["connectorEnd"]) && property_value(read["connectorEnd"]) === nothing
+        @test occursin("declares no property", read["connectorEnd"].unsupported)
+        @test [p.name for p in read] == ["inheritedFeature", "isAbstract", "declaredName", "lowerBound", "mass", "huge", "connectorEnd"]
+        element_properties(model, "Demo::Pair")
+        @test !haskey(requests[end].body, "properties")
+    finally
+        close(conn)
+        close(server)
+    end
+end
+
+@testset "element_properties is refused before the call without its capability" begin
+    server, requests, address = recording_service(["query"])
+    conn = external(address)
+    try
+        @test_throws MissingCapabilityError element_properties(Model(conn, "a"^64, Diagnostic[]), "Demo::Pair")
+        @test all(request -> request.method == "GetServerInfo", requests)
+    finally
+        close(conn)
+        close(server)
+    end
+end
+
+@testset "element_properties raises the service's in-band error" begin
+    server, _, address = recording_service(["element_properties"];
+                                           handler=(method, body) -> Dict("error" => "element not found: Demo::Missing"))
+    conn = external(address)
+    try
+        err = try
+            element_properties(Model(conn, "a"^64, Diagnostic[]), "Demo::Missing")
+            nothing
+        catch exception
+            exception
+        end
+        @test err !== nothing && occursin("element not found: Demo::Missing", sprint(showerror, err))
+    finally
+        close(conn)
+        close(server)
+    end
+end

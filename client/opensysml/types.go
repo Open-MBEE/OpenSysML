@@ -74,6 +74,7 @@ const (
 	CapabilityRecordRun                      = sysmlgrpc.CapabilityRecordRun
 	CapabilityStateTrace                     = sysmlgrpc.CapabilityStateTrace
 	CapabilityActionTrace                    = sysmlgrpc.CapabilityActionTrace
+	CapabilityElementProperties              = sysmlgrpc.CapabilityElementProperties
 	CapabilityEngines                        = sysmlgrpc.CapabilityEngines
 	CapabilityUndeterminedValue              = sysmlgrpc.CapabilityUndeterminedValue
 	CapabilityBigIntValues                   = sysmlgrpc.CapabilityBigIntValues

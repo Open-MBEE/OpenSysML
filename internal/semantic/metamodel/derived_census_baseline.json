@@ -1117,9 +1117,9 @@
         "Documentation::documentedElement": {
           "ours": {
             "carriers": 12,
-            "value": 0,
+            "value": 12,
             "empty": 0,
-            "notDerived": 12
+            "notDerived": 0
           },
           "pilot": {
             "carriers": 16,
@@ -1714,20 +1714,6 @@
             "value": 181,
             "empty": 0,
             "notDerived": 0
-          }
-        },
-        "FeatureChaining::owningFeature": {
-          "ours": {
-            "carriers": 98,
-            "value": 98,
-            "empty": 0,
-            "notDerived": 0
-          },
-          "pilot": {
-            "carriers": 181,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 181
           }
         },
         "FeatureMembership::ownedMemberFeature": {
@@ -3970,20 +3956,6 @@
             "notDerived": 0
           }
         },
-        "Usage::ownedUsage": {
-          "ours": {
-            "carriers": 1347,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 1347
-          },
-          "pilot": {
-            "carriers": 1821,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 1821
-          }
-        },
         "Usage::owningDefinition": {
           "ours": {
             "carriers": 1347,
@@ -5205,9 +5177,9 @@
         "Documentation::documentedElement": {
           "ours": {
             "carriers": 105,
-            "value": 0,
+            "value": 105,
             "empty": 0,
-            "notDerived": 105
+            "notDerived": 0
           },
           "pilot": {
             "carriers": 96,
@@ -5804,20 +5776,6 @@
             "notDerived": 0
           }
         },
-        "FeatureChaining::owningFeature": {
-          "ours": {
-            "carriers": 865,
-            "value": 865,
-            "empty": 0,
-            "notDerived": 0
-          },
-          "pilot": {
-            "carriers": 1219,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 1219
-          }
-        },
         "FeatureMembership::ownedMemberFeature": {
           "ours": {
             "carriers": 7043,
@@ -6220,6 +6178,20 @@
           "pilot": {
             "carriers": 18124,
             "value": 18124,
+            "empty": 0,
+            "notDerived": 0
+          }
+        },
+        "MetadataAccessExpression::referencedElement": {
+          "ours": {
+            "carriers": 0,
+            "value": 0,
+            "empty": 0,
+            "notDerived": 0
+          },
+          "pilot": {
+            "carriers": 3,
+            "value": 3,
             "empty": 0,
             "notDerived": 0
           }
@@ -8058,20 +8030,6 @@
             "notDerived": 0
           }
         },
-        "Usage::ownedUsage": {
-          "ours": {
-            "carriers": 4324,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 4324
-          },
-          "pilot": {
-            "carriers": 5239,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 5239
-          }
-        },
         "Usage::owningDefinition": {
           "ours": {
             "carriers": 4324,
@@ -9279,9 +9237,9 @@
         "Documentation::documentedElement": {
           "ours": {
             "carriers": 52,
-            "value": 0,
+            "value": 52,
             "empty": 0,
-            "notDerived": 52
+            "notDerived": 0
           },
           "pilot": {
             "carriers": 59,
@@ -9876,20 +9834,6 @@
             "value": 210,
             "empty": 0,
             "notDerived": 0
-          }
-        },
-        "FeatureChaining::owningFeature": {
-          "ours": {
-            "carriers": 154,
-            "value": 154,
-            "empty": 0,
-            "notDerived": 0
-          },
-          "pilot": {
-            "carriers": 210,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 210
           }
         },
         "FeatureMembership::ownedMemberFeature": {
@@ -12132,20 +12076,6 @@
             "notDerived": 0
           }
         },
-        "Usage::ownedUsage": {
-          "ours": {
-            "carriers": 1596,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 1596
-          },
-          "pilot": {
-            "carriers": 2012,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 2012
-          }
-        },
         "Usage::owningDefinition": {
           "ours": {
             "carriers": 1596,
@@ -12594,20 +12524,6 @@
             "notDerived": 0
           }
         },
-        "Differencing::owningType": {
-          "ours": {
-            "carriers": 11,
-            "value": 11,
-            "empty": 0,
-            "notDerived": 0
-          },
-          "pilot": {
-            "carriers": 11,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 11
-          }
-        },
         "Disjoining::owningType": {
           "ours": {
             "carriers": 7,
@@ -12625,9 +12541,9 @@
         "Documentation::documentedElement": {
           "ours": {
             "carriers": 39,
-            "value": 0,
+            "value": 39,
             "empty": 0,
-            "notDerived": 39
+            "notDerived": 0
           },
           "pilot": {
             "carriers": 39,
@@ -13210,20 +13126,6 @@
             "notDerived": 0
           }
         },
-        "FeatureChaining::owningFeature": {
-          "ours": {
-            "carriers": 170,
-            "value": 170,
-            "empty": 0,
-            "notDerived": 0
-          },
-          "pilot": {
-            "carriers": 251,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 251
-          }
-        },
         "FeatureInverting::owningFeature": {
           "ours": {
             "carriers": 4,
@@ -13490,20 +13392,6 @@
             "notDerived": 0
           }
         },
-        "Intersecting::owningType": {
-          "ours": {
-            "carriers": 8,
-            "value": 8,
-            "empty": 0,
-            "notDerived": 0
-          },
-          "pilot": {
-            "carriers": 8,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 8
-          }
-        },
         "InvocationExpression::operand": {
           "ours": {
             "carriers": 88,
@@ -13586,6 +13474,20 @@
             "value": 3462,
             "empty": 0,
             "notDerived": 1
+          }
+        },
+        "MetadataAccessExpression::referencedElement": {
+          "ours": {
+            "carriers": 0,
+            "value": 0,
+            "empty": 0,
+            "notDerived": 0
+          },
+          "pilot": {
+            "carriers": 4,
+            "value": 4,
+            "empty": 0,
+            "notDerived": 0
           }
         },
         "MultiplicityRange::bound": {
@@ -14300,20 +14202,6 @@
             "value": 72,
             "empty": 0,
             "notDerived": 1
-          }
-        },
-        "Unioning::owningType": {
-          "ours": {
-            "carriers": 51,
-            "value": 51,
-            "empty": 0,
-            "notDerived": 0
-          },
-          "pilot": {
-            "carriers": 51,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 51
           }
         }
       }
@@ -15352,20 +15240,6 @@
             "notDerived": 0
           }
         },
-        "Differencing::owningType": {
-          "ours": {
-            "carriers": 2,
-            "value": 2,
-            "empty": 0,
-            "notDerived": 0
-          },
-          "pilot": {
-            "carriers": 2,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 2
-          }
-        },
         "Disjoining::owningType": {
           "ours": {
             "carriers": 10,
@@ -15383,9 +15257,9 @@
         "Documentation::documentedElement": {
           "ours": {
             "carriers": 20,
-            "value": 0,
+            "value": 20,
             "empty": 0,
-            "notDerived": 20
+            "notDerived": 0
           },
           "pilot": {
             "carriers": 32,
@@ -15982,20 +15856,6 @@
             "notDerived": 0
           }
         },
-        "FeatureChaining::owningFeature": {
-          "ours": {
-            "carriers": 52,
-            "value": 52,
-            "empty": 0,
-            "notDerived": 0
-          },
-          "pilot": {
-            "carriers": 152,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 152
-          }
-        },
         "FeatureInverting::owningFeature": {
           "ours": {
             "carriers": 5,
@@ -16318,20 +16178,6 @@
             "notDerived": 0
           }
         },
-        "Intersecting::owningType": {
-          "ours": {
-            "carriers": 2,
-            "value": 2,
-            "empty": 0,
-            "notDerived": 0
-          },
-          "pilot": {
-            "carriers": 2,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 2
-          }
-        },
         "InvocationExpression::operand": {
           "ours": {
             "carriers": 89,
@@ -16428,6 +16274,20 @@
             "value": 4635,
             "empty": 0,
             "notDerived": 8
+          }
+        },
+        "MetadataAccessExpression::referencedElement": {
+          "ours": {
+            "carriers": 1,
+            "value": 0,
+            "empty": 1,
+            "notDerived": 0
+          },
+          "pilot": {
+            "carriers": 5,
+            "value": 5,
+            "empty": 0,
+            "notDerived": 0
           }
         },
         "MetadataUsage::metadataDefinition": {
@@ -17844,20 +17704,6 @@
             "notDerived": 2
           }
         },
-        "Unioning::owningType": {
-          "ours": {
-            "carriers": 5,
-            "value": 5,
-            "empty": 0,
-            "notDerived": 0
-          },
-          "pilot": {
-            "carriers": 5,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 5
-          }
-        },
         "Usage::definition": {
           "ours": {
             "carriers": 1092,
@@ -18290,20 +18136,6 @@
             "value": 1,
             "empty": 1418,
             "notDerived": 0
-          }
-        },
-        "Usage::ownedUsage": {
-          "ours": {
-            "carriers": 1092,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 1092
-          },
-          "pilot": {
-            "carriers": 1419,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 1419
           }
         },
         "Usage::owningDefinition": {
@@ -19331,9 +19163,9 @@
         "Documentation::documentedElement": {
           "ours": {
             "carriers": 1,
-            "value": 0,
+            "value": 1,
             "empty": 0,
-            "notDerived": 1
+            "notDerived": 0
           },
           "pilot": {
             "carriers": 0,
@@ -19928,20 +19760,6 @@
             "value": 12,
             "empty": 0,
             "notDerived": 0
-          }
-        },
-        "FeatureChaining::owningFeature": {
-          "ours": {
-            "carriers": 12,
-            "value": 12,
-            "empty": 0,
-            "notDerived": 0
-          },
-          "pilot": {
-            "carriers": 12,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 12
           }
         },
         "FeatureMembership::ownedMemberFeature": {
@@ -21806,20 +21624,6 @@
             "notDerived": 0
           }
         },
-        "Usage::ownedUsage": {
-          "ours": {
-            "carriers": 168,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 168
-          },
-          "pilot": {
-            "carriers": 263,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 263
-          }
-        },
         "Usage::owningDefinition": {
           "ours": {
             "carriers": 168,
@@ -22957,9 +22761,9 @@
         "Documentation::documentedElement": {
           "ours": {
             "carriers": 133,
-            "value": 0,
+            "value": 133,
             "empty": 0,
-            "notDerived": 133
+            "notDerived": 0
           },
           "pilot": {
             "carriers": 133,
@@ -23556,20 +23360,6 @@
             "notDerived": 0
           }
         },
-        "FeatureChaining::owningFeature": {
-          "ours": {
-            "carriers": 586,
-            "value": 586,
-            "empty": 0,
-            "notDerived": 0
-          },
-          "pilot": {
-            "carriers": 834,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 834
-          }
-        },
         "FeatureInverting::owningFeature": {
           "ours": {
             "carriers": 2,
@@ -23986,6 +23776,20 @@
           "pilot": {
             "carriers": 22997,
             "value": 22997,
+            "empty": 0,
+            "notDerived": 0
+          }
+        },
+        "MetadataAccessExpression::referencedElement": {
+          "ours": {
+            "carriers": 5,
+            "value": 5,
+            "empty": 0,
+            "notDerived": 0
+          },
+          "pilot": {
+            "carriers": 5,
+            "value": 5,
             "empty": 0,
             "notDerived": 0
           }
@@ -25390,20 +25194,6 @@
             "notDerived": 0
           }
         },
-        "Unioning::owningType": {
-          "ours": {
-            "carriers": 3,
-            "value": 3,
-            "empty": 0,
-            "notDerived": 0
-          },
-          "pilot": {
-            "carriers": 3,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 3
-          }
-        },
         "Usage::definition": {
           "ours": {
             "carriers": 5148,
@@ -25836,20 +25626,6 @@
             "value": 0,
             "empty": 7233,
             "notDerived": 0
-          }
-        },
-        "Usage::ownedUsage": {
-          "ours": {
-            "carriers": 5148,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 5148
-          },
-          "pilot": {
-            "carriers": 7233,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 7233
           }
         },
         "Usage::owningDefinition": {
@@ -28274,20 +28050,6 @@
             "notDerived": 0
           }
         },
-        "Usage::ownedUsage": {
-          "ours": {
-            "carriers": 1,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 1
-          },
-          "pilot": {
-            "carriers": 1,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 1
-          }
-        },
         "Usage::owningDefinition": {
           "ours": {
             "carriers": 1,
@@ -29313,9 +29075,9 @@
         "Documentation::documentedElement": {
           "ours": {
             "carriers": 45,
-            "value": 0,
+            "value": 45,
             "empty": 0,
-            "notDerived": 45
+            "notDerived": 0
           },
           "pilot": {
             "carriers": 45,
@@ -29896,20 +29658,6 @@
             "value": 191,
             "empty": 0,
             "notDerived": 0
-          }
-        },
-        "FeatureChaining::owningFeature": {
-          "ours": {
-            "carriers": 103,
-            "value": 103,
-            "empty": 0,
-            "notDerived": 0
-          },
-          "pilot": {
-            "carriers": 191,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 191
           }
         },
         "FeatureMembership::ownedMemberFeature": {
@@ -31956,20 +31704,6 @@
             "notDerived": 0
           }
         },
-        "Usage::ownedUsage": {
-          "ours": {
-            "carriers": 749,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 749
-          },
-          "pilot": {
-            "carriers": 789,
-            "value": 0,
-            "empty": 0,
-            "notDerived": 789
-          }
-        },
         "Usage::owningDefinition": {
           "ours": {
             "carriers": 749,
@@ -33136,20 +32870,6 @@
         "notDerived": 0
       }
     },
-    "Differencing::owningType": {
-      "ours": {
-        "carriers": 13,
-        "value": 13,
-        "empty": 0,
-        "notDerived": 0
-      },
-      "pilot": {
-        "carriers": 13,
-        "value": 0,
-        "empty": 0,
-        "notDerived": 13
-      }
-    },
     "Disjoining::owningType": {
       "ours": {
         "carriers": 18,
@@ -33167,9 +32887,9 @@
     "Documentation::documentedElement": {
       "ours": {
         "carriers": 407,
-        "value": 0,
+        "value": 407,
         "empty": 0,
-        "notDerived": 407
+        "notDerived": 0
       },
       "pilot": {
         "carriers": 420,
@@ -33766,20 +33486,6 @@
         "notDerived": 0
       }
     },
-    "FeatureChaining::owningFeature": {
-      "ours": {
-        "carriers": 2040,
-        "value": 2040,
-        "empty": 0,
-        "notDerived": 0
-      },
-      "pilot": {
-        "carriers": 3050,
-        "value": 0,
-        "empty": 0,
-        "notDerived": 3050
-      }
-    },
     "FeatureInverting::owningFeature": {
       "ours": {
         "carriers": 11,
@@ -34102,20 +33808,6 @@
         "notDerived": 0
       }
     },
-    "Intersecting::owningType": {
-      "ours": {
-        "carriers": 10,
-        "value": 10,
-        "empty": 0,
-        "notDerived": 0
-      },
-      "pilot": {
-        "carriers": 10,
-        "value": 0,
-        "empty": 0,
-        "notDerived": 10
-      }
-    },
     "InvocationExpression::operand": {
       "ours": {
         "carriers": 1898,
@@ -34212,6 +33904,20 @@
         "value": 66188,
         "empty": 0,
         "notDerived": 9
+      }
+    },
+    "MetadataAccessExpression::referencedElement": {
+      "ours": {
+        "carriers": 6,
+        "value": 5,
+        "empty": 1,
+        "notDerived": 0
+      },
+      "pilot": {
+        "carriers": 17,
+        "value": 17,
+        "empty": 0,
+        "notDerived": 0
       }
     },
     "MetadataUsage::metadataDefinition": {
@@ -35628,20 +35334,6 @@
         "notDerived": 3
       }
     },
-    "Unioning::owningType": {
-      "ours": {
-        "carriers": 59,
-        "value": 59,
-        "empty": 0,
-        "notDerived": 0
-      },
-      "pilot": {
-        "carriers": 59,
-        "value": 0,
-        "empty": 0,
-        "notDerived": 59
-      }
-    },
     "Usage::definition": {
       "ours": {
         "carriers": 14425,
@@ -36076,20 +35768,6 @@
         "notDerived": 0
       }
     },
-    "Usage::ownedUsage": {
-      "ours": {
-        "carriers": 14425,
-        "value": 0,
-        "empty": 0,
-        "notDerived": 14425
-      },
-      "pilot": {
-        "carriers": 18777,
-        "value": 0,
-        "empty": 0,
-        "notDerived": 18777
-      }
-    },
     "Usage::owningDefinition": {
       "ours": {
         "carriers": 14425,
@@ -36274,17 +35952,16 @@
     }
   },
   "summary": {
-    "served": 297,
-    "answering": 276,
+    "served": 293,
+    "answering": 274,
     "empty": 11,
-    "notDerived": 9,
+    "notDerived": 7,
     "uncarried": 1,
-    "silent": 18,
-    "pilotAnswering": 288
+    "silent": 17,
+    "pilotAnswering": 289
   },
   "silent": [
     "ConjugatedPortTyping::conjugatedPortDefinition",
-    "Documentation::documentedElement",
     "Flow::flowEnd",
     "Flow::sourceOutputFeature",
     "Flow::targetInputFeature",
