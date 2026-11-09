@@ -2,6 +2,7 @@ package export
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -261,6 +262,10 @@ func withNotes(text string, notes []note, body region, hasBody bool, indent, nl 
 		headEnd = body.start
 	}
 	inner := indent + "    "
+	head = unwritten(head, text[:headEnd])
+	if hasBody {
+		tail = unwritten(tail, text[body.end:])
+	}
 	ins := placeNotes(text[:headEnd], head, 0, func(n int) string {
 		if n == 0 {
 			return indent
@@ -284,6 +289,21 @@ func withNotes(text string, notes []note, body region, hasBody bool, indent, nl 
 	}
 	b.WriteString(text[last:])
 	return b.String(), ins
+}
+
+// unwritten drops the notes a part of the rebuilt notation holds already, in
+// order: those inside an expression kept as its text was written.
+func unwritten(notes []note, part string) []note {
+	var out []note
+	comments := commentTexts(part)
+	for _, n := range notes {
+		if i := slices.Index(comments, n.text); i >= 0 {
+			comments = comments[i+1:]
+			continue
+		}
+		out = append(out, n)
+	}
+	return out
 }
 
 // placeNotes computes the insertions of notes into one part of the notation, which

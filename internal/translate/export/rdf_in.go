@@ -1986,10 +1986,10 @@ func (d *decoder) printElement(b *strings.Builder, el *element, depth int) error
 		b.WriteString(" parallel")
 	}
 	b.WriteString(" {" + d.nl)
+	body := region{start: b.Len()}
 	for _, annotation := range annotations {
 		b.WriteString(indent + "    " + annotation + d.nl)
 	}
-	body := region{start: b.Len()}
 	for _, child := range children {
 		if err := d.print(b, child, depth+1); err != nil {
 			return err

@@ -215,3 +215,20 @@ func withoutProperty(t *testing.T, turtle []byte, property string) []byte {
 	}
 	return []byte(strings.Join(blocks, "\n\n"))
 }
+
+// A note inside an expression is held by the expression's text, which a rebuilt
+// declaration keeps: it is not written a second time from the sysx:Note.
+func TestNoteInsideAnExpressionIsWrittenOnce(t *testing.T) {
+	turtle := idTurtle(t, noted)
+	edited := editTurtle(t, turtle, `sysml:declaredName "x"`, `sysml:declaredName "y"`)
+	edited = editTurtle(t, edited, `sysml:qualifiedName "Rover::Vehicle::x"`, `sysml:qualifiedName "Rover::Vehicle::y"`)
+	back := toNotation(t, edited)
+	for _, note := range []string{"/* one */", "// sum"} {
+		if n := strings.Count(back, note); n != 1 {
+			t.Errorf("the rebuilt declaration writes %s %d time(s):\n%s", note, n, back)
+		}
+	}
+	if !strings.Contains(back, "attribute y = 1 /* one */ + 2 {") {
+		t.Errorf("the rebuilt declaration lost its expression's note:\n%s", back)
+	}
+}
