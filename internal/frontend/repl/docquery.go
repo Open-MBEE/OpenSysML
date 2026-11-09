@@ -14,6 +14,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -430,7 +431,7 @@ func (s *Session) queryValueList(ctx *runtime.Context, elements []runtime.Value)
 // renderRowSet reports an executed query's rows as the prompt prints them, the row and
 // column counts as values, and the table as data (positionally addressed elements by elementId there).
 func renderRowSet(name string, result *queryexec.RowSet, context queryexec.Context) ([]string, []NamedValue, *VerdictTable) {
-	spell := tableSpelling(context.ElementID, context.ElementAddress)
+	spell := tableSpelling(context.Index, context.ElementID, context.ElementAddress)
 	rows := result.Rows()
 	columns := result.Columns()
 	lines := []string{fmt.Sprintf("✓ Query %s returned %s", name, countOf(len(rows), "row", "rows"))}
@@ -475,8 +476,9 @@ func queryCellValues(cell queryexec.Cell, spell func(queryexec.Value) string) []
 // tableSpelling spells a value as the prompt does, except an element the conversion wrote, which the
 // table spells by the address the conversion stated for it: the qualifiedName (through an effective
 // name too, `F::result`, `T::obj::massRequirement`), or its elementId where the address is positional
-// (`P::@2::mission`: unnamed, or under an unnamed owner).
-func tableSpelling(elementID func(*symbols.Symbol) (string, error), elementAddress func(string) (string, bool)) func(queryexec.Value) string {
+// (`P::@2::mission`: unnamed, or under an unnamed owner). An element it stated no address for — a
+// library type, by its fixed id — keeps the prompt's spelling when a qualified name identifies it.
+func tableSpelling(index *symbols.Index, elementID func(*symbols.Symbol) (string, error), elementAddress func(string) (string, bool)) func(queryexec.Value) string {
 	return func(value queryexec.Value) string {
 		sym, ok := value.Element()
 		if !ok || elementID == nil {
@@ -487,9 +489,15 @@ func tableSpelling(elementID func(*symbols.Symbol) (string, error), elementAddre
 			return formatQueryValue(value)
 		}
 		if elementAddress != nil {
-			if address, ok := elementAddress(id); ok && !naming.IsPositionalIdentity(address) {
+			if address, ok := elementAddress(id); ok {
+				if naming.IsPositionalIdentity(address) {
+					return id
+				}
 				return notationName(address)
 			}
+		}
+		if query.QualifiedIdentity(index, sym) != "" {
+			return formatQueryValue(value)
 		}
 		return id
 	}

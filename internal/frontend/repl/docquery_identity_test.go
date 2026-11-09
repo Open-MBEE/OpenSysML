@@ -106,7 +106,7 @@ const effectiveNameQueryModel = `package Observatory {
 		in root : Element;
 		Project(
 			source = WhereType(source = Descendants(source = root, relationships = true), type = "FeatureTyping", exact = true),
-			properties = ("elementId", "typedFeature")
+			properties = ("elementId", "typedFeature", "type")
 		)
 	}
 	calc def Verifications :> Query {
@@ -138,6 +138,11 @@ func TestRunQueryTableSpellsAnEffectivelyNamedElementByItsQualifiedName(t *testi
 			checked = true
 			if got := cellText(row.Cells, 1); got != "Observatory::ExposureTime::result" {
 				t.Errorf("typedFeature of the return parameter's typing = %q, want its qualified name through the effective name result", got)
+			}
+		case id == "Observatory__ExposureTime__flux_ft0":
+			// A library type the conversion did not write keeps the prompt's spelling, never its fixed id.
+			if got := cellText(row.Cells, 2); got != "ScalarValues::Real" {
+				t.Errorf("type of flux's typing = %q, want the library type by its qualified name", got)
 			}
 		case strings.HasSuffix(id, "__wheel_ft0"):
 			// A named part under an anonymous part has no qualifiedName: the conversion addresses it by
