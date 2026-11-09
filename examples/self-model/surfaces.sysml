@@ -333,10 +333,8 @@ package OpenSysMLSurfaces {
         attribute speaksTo : String = "sysml-lsp";
     }
 
-    // A modelling tool reaching the service through the Java client: Magic MDK
-    // as a Cameo plugin, SysON MDK as a backend over SysON's Spring and GraphQL
-    // APIs with the explorer action, operation dialog and mapped run results
-    // in its frontend. Each is a Maven build whose pom names the plugin.
+    // A modelling tool reaching the service through the Java client — Magic MDK
+    // as a Cameo plugin, SysON MDK as a SysON backend; each pom names the plugin.
     abstract part def ToolIntegration :> CodeUnit {
         attribute speaksTo : String = "sysml-grpc";
         attribute overClient : String = "client/java";
@@ -476,9 +474,8 @@ package OpenSysMLSurfaces {
         attribute supported : Boolean default = true;
     }
 
-    // A rendering form: the notation a rendering is written in. Diagram forms
-    // are what -diagram-form accepts, a run-only form renders an execution
-    // rather than a view, and an editable one is read back by -import-diagram.
+    // A rendering form: the notation a rendering is written in; diagram forms
+    // feed -diagram-form, run-only ones render runs, editable ones import back.
     part def RenderingForm {
         attribute form : String;
         attribute diagram : Boolean default = false;
@@ -831,9 +828,8 @@ package OpenSysMLSurfaces {
         attribute :>> gating = true;
     }
 
-    // A snapshot the test build embeds must be the one a fresh build writes;
-    // the snapshot is generated and gitignored, the suite writes it first, and
-    // a build without one skips the gate rather than failing it.
+    // The embedded snapshot must be what a fresh build writes; it is generated
+    // and gitignored, the suite writes it first, and a build without one skips.
     #Oracle part def StdlibSnapshotGate :> ConformanceOracle {
         attribute :>> goPackage = "internal/workspace/libs";
         attribute :>> reference = "the bundled library files";
@@ -880,9 +876,8 @@ package OpenSysMLSurfaces {
         attribute :>> baseline = "tools/referee/flexo/testdata/interop_expected.txt";
         attribute gateEnv : String = "FLEXO_INTEROP";
     }
-    // The censuses over OMG material beyond the validator: the SysML v1 to v2
-    // transformation model, the specifications' formal constraints, the
-    // graphical-notation clause and the grammars' production shapes.
+    // The censuses over OMG material beyond the validator: the v1-to-v2 mapping,
+    // the formal constraints, the notation clause and the grammars' shapes.
     #Oracle part def TransformationCensus :> ConformanceOracle {
         attribute :>> goPackage = "tools/census/transformation";
         attribute :>> reference = "OMG SysML v1 to v2 transformation model";
