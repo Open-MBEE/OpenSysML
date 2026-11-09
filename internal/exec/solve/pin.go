@@ -317,28 +317,52 @@ type Fixing struct {
 // its object holds for the features of its own definition, else what the owner —
 // the element the conditions were written in — declares, and then what the
 // element's own features declare. A feature fixed twice is fixed by the nearer
-// source, which is what an evaluation about it would read.
+// source, which is what an evaluation about it would read; a feature that only
+// shares its name with a nearer one is another feature, fixed on its own.
 func FixedFor(ctx *runtime.Context, f Fixing) ([]Pin, []Unfixed) {
 	var pins []Pin
 	var unfixed []Unfixed
-	fixed := make(map[string]bool)
+	fixed := fixedFeatures{model: ctx.Semantics(), seen: make(map[*symbols.Symbol]bool)}
 	inst := f.Object
 	for _, from := range fixedFrom(ctx, f) {
 		found, notRead := Fixed(ctx, from, inst)
 		for _, p := range found {
-			if !fixed[p.Name] {
-				fixed[p.Name] = true
+			if fixed.add(p.Feature) {
 				pins = append(pins, p)
 			}
 		}
 		for _, u := range notRead {
-			if !fixed[u.Name] {
-				fixed[u.Name] = true
+			if fixed.add(u.Feature) {
 				unfixed = append(unfixed, u)
 			}
 		}
 	}
 	return pins, unfixed
+}
+
+// fixedFeatures are the features a query has a value for so far, each with what
+// it redefines: a redefinition and the feature it redefines read the one value.
+type fixedFeatures struct {
+	model *semantics.Model
+	seen  map[*symbols.Symbol]bool
+}
+
+// add records feature and reports whether it was new, that is neither it nor a
+// feature it redefines was fixed already.
+func (f *fixedFeatures) add(feature *symbols.Symbol) bool {
+	if feature == nil {
+		return false
+	}
+	chain := append([]*symbols.Symbol{feature}, f.model.AllRedefinedFeatures(feature)...)
+	for _, sym := range chain {
+		if f.seen[sym] {
+			return false
+		}
+	}
+	for _, sym := range chain {
+		f.seen[sym] = true
+	}
+	return true
 }
 
 // fixedFrom are the types whose features a query reads values of, nearest first:

@@ -91,6 +91,30 @@ func TestFixedReadsTheValuesTheModelDeclares(t *testing.T) {
 	}
 }
 
+// TestFixedForKeepsAFeatureNamedLikeItsOwners: a constraint's own feature is fixed beside its owner's of the same name.
+func TestFixedForKeepsAFeatureNamedLikeItsOwners(t *testing.T) {
+	ctx, idx := fixtureFile(t, "shadowed_pins.sysml")
+	owner := symbolNamed(t, idx, "test::h")
+	element := symbolNamed(t, idx, "test::h::k")
+	pins, unfixed := FixedFor(ctx, Fixing{Element: element, Owner: owner})
+	if len(unfixed) != 0 {
+		t.Fatalf("declared values could not be read: %+v", unfixed)
+	}
+	got := map[*symbols.Symbol]float64{}
+	for _, p := range pins {
+		got[p.Feature] = p.Value.Const.AsReal()
+	}
+	for _, want := range []struct {
+		feature string
+		value   float64
+	}{{"test::h::x", 2.0}, {"test::h::w", 3.0}, {"test::h::k::x", 1.0}} {
+		sym := symbolNamed(t, idx, want.feature)
+		if value, ok := got[sym]; !ok || value != want.value {
+			t.Errorf("%s pinned to %v (present %v), want %v", want.feature, value, ok, want.value)
+		}
+	}
+}
+
 // TestFixedMarksAValueBoundWithEquals: a value written with `=` is Bound, derived,
 // inherited or redefined over a default alike; one written `default` or `:=` is not.
 func TestFixedMarksAValueBoundWithEquals(t *testing.T) {

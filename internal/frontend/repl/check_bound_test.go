@@ -133,3 +133,36 @@ func TestCheckFixesAnInheritedValueBoundWithEquals(t *testing.T) {
 	wants(t, run(t, s, "%check BoundLiteral::rebound"), "✗ Requirement rebound is unsatisfiable")
 	wants(t, run(t, s, "%check BoundLiteral::redefaulted"), "✓ Requirement redefaulted is satisfiable", "::limit = ")
 }
+
+// shadowedModel: the constraint's own x is bound with `=` beside the part's x of
+// the same name, a default; its w is the part's, bound with `=`.
+const shadowedModel = `
+package Shadow {
+    private import ScalarValues::*;
+
+    part h {
+        attribute x : Real default 2.0;
+        attribute w : Real = 3.0;
+
+        constraint k {
+            attribute x : Real = 1.0;
+            x > 1.5 and w > 0.0
+        }
+
+        constraint m {
+            attribute w : Real default 0.0;
+            w > 0.0 and w < 1.0
+        }
+    }
+}
+`
+
+// TestCheckFixesAValueNamedLikeItsOwners: a feature bound on the constraint is fixed though the
+// owning part declares a default under its name; a default on the constraint stays free.
+func TestCheckFixesAValueNamedLikeItsOwners(t *testing.T) {
+	requireSolver(t)
+	s := checkSession(t, shadowedModel)
+	wants(t, run(t, s, "%check Shadow::h::k"), "✗ Constraint k is unsatisfiable")
+	wants(t, run(t, s, "%explain Shadow::h::k"), "Shadow::h::k::x == 1.0, declared by the model")
+	wants(t, run(t, s, "%check Shadow::h::m"), "✓ Constraint m is satisfiable", "Shadow::h::m::w = ")
+}
