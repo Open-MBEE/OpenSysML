@@ -68,7 +68,7 @@ var servedRules = []Rule{
 	{DefiningClass: "Behavior", Property: "step", Constraint: "deriveBehaviorStep"},
 	{DefiningClass: "Behavior", Property: "parameter", Basis: "redefines Type::directedFeature"},
 	{DefiningClass: "Step", Property: "behavior", Constraint: "deriveStepBehavior"},
-	{DefiningClass: "Step", Property: "parameter", Basis: "owned ParameterMembership members of the Step"},
+	{DefiningClass: "Step", Property: "parameter", Basis: "redefines Type::directedFeature"},
 	{DefiningClass: "Expression", Property: "function", Basis: "function type of the expression"},
 	{DefiningClass: "Expression", Property: "result", Constraint: "deriveExpressionResult"},
 	{DefiningClass: "FeatureReferenceExpression", Property: "referent", Constraint: "deriveFeatureReferenceExpressionReferent"},

@@ -418,8 +418,8 @@ func TestDeclarationOverAChainIsNotDerived(t *testing.T) {
 
 // TestDerivedDetectionReadsTheElementsOwnFeaturesOnly: a declared value is
 // derived when it reads the element's own features and literals, a unit being
-// no value read; one naming anything else — a qualified or imported name, a
-// chain — is fixed to the value the evaluator derives, since the query fixes
+// no value read, or a chain rooted in one no object is held for; one naming a
+// qualified or imported name is fixed to the value the evaluator derives, since the query fixes
 // no value of what it names and an equation would leave it to the solver.
 func TestDerivedDetectionReadsTheElementsOwnFeaturesOnly(t *testing.T) {
 	ctx, idx := fixture(t, "derived_names.sysml", `package test {
@@ -444,7 +444,7 @@ func TestDerivedDetectionReadsTheElementsOwnFeaturesOnly(t *testing.T) {
 	pins, unfixed := Fixed(ctx, symbolNamed(t, idx, "test::Item"), nil)
 	for _, p := range pins {
 		switch p.Name {
-		case "qualified", "imported", "nested":
+		case "qualified", "imported":
 			t.Errorf("%s = %+v, want not derived and not fixed: it names a value the query does not fix", p.Name, p)
 		case "factor":
 			if p.Derived != nil || p.Value.Kind != runtime.ValConst {
@@ -455,6 +455,9 @@ func TestDerivedDetectionReadsTheElementsOwnFeaturesOnly(t *testing.T) {
 	if doubled := derivedPin(t, pins, "doubled"); doubled.Value.Kind != runtime.ValInvalid {
 		t.Errorf("doubled = %+v, want derived over len, its unit no value read", doubled)
 	}
+	if nested := derivedPin(t, pins, "nested"); nested.Value.Kind != runtime.ValInvalid {
+		t.Errorf("nested = %+v, want derived over inner.x and r, no object held for inner", nested)
+	}
 	notRead := map[string]bool{}
 	for _, u := range unfixed {
 		if !errors.Is(u.Err, runtime.ErrNoValue) {
@@ -462,8 +465,8 @@ func TestDerivedDetectionReadsTheElementsOwnFeaturesOnly(t *testing.T) {
 		}
 		notRead[u.Name] = true
 	}
-	if !notRead["qualified"] || !notRead["imported"] || !notRead["nested"] {
-		t.Errorf("unfixed = %+v, want qualified, imported and nested, unreadable for want of r", unfixed)
+	if !notRead["qualified"] || !notRead["imported"] || len(unfixed) != 2 {
+		t.Errorf("unfixed = %+v, want qualified and imported, unreadable for want of r", unfixed)
 	}
 	c := symbolNamed(t, idx, "test::Item::c")
 	q, err := ConstraintWith(ctx, c, c.OwnerScope, pins)

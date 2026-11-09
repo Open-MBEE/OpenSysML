@@ -408,6 +408,9 @@ elmt:Chains__ctx___402
     sysml:ownedFeatureMembership expr:Chains__ctx___402_pend0_om, expr:Chains__ctx___402_pend1_om ;
     sysml:ownedFeature expr:Chains__ctx___402_pend0, expr:Chains__ctx___402_pend1 ;
     sysml:ownedEndFeature expr:Chains__ctx___402_pend0, expr:Chains__ctx___402_pend1 ;
+    sysml:relatedFeature expr:Chains__ctx___402_pend0_pchain, expr:Chains__ctx___402_pend1_pchain ;
+    sysml:sourceFeature expr:Chains__ctx___402_pend0_pchain ;
+    sysml:targetFeature expr:Chains__ctx___402_pend1_pchain ;
     sysx:endForm "to" ;
     sysx:declaredKeyword "connect" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -418,7 +421,8 @@ elmt:Chains__ctx___402
     json:ownedMember "[{\"@id\":\"Chains__ctx___402_pend0\"},{\"@id\":\"Chains__ctx___402_pend1\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Chains__ctx___402_pend0_om\"},{\"@id\":\"Chains__ctx___402_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Chains__ctx___402_pend0\"},{\"@id\":\"Chains__ctx___402_pend1\"}]" ;
-    json:ownedEndFeature "[{\"@id\":\"Chains__ctx___402_pend0\"},{\"@id\":\"Chains__ctx___402_pend1\"}]" .
+    json:ownedEndFeature "[{\"@id\":\"Chains__ctx___402_pend0\"},{\"@id\":\"Chains__ctx___402_pend1\"}]" ;
+    json:relatedFeature "[{\"@id\":\"Chains__ctx___402_pend0_pchain\"},{\"@id\":\"Chains__ctx___402_pend1_pchain\"}]" .
 
 elmt:Chains__ctx___402_om
     a sysml:FeatureMembership ;
@@ -2334,6 +2338,18 @@ elmt:c997ad00-60d6-590a-a92c-650dd6f917a1
     a sysml:OwningMembership ;
     sysml:elementId "c997ad00-60d6-590a-a92c-650dd6f917a1" ;
     sysml:memberElement <urn:sysmlv2:element:24f984dc-78af-5ede-bc7a-4a641dccff28> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:db0b2590-1035-512c-b067-686a67c7d430
+    a sysml:Comment ;
+    sysml:elementId "db0b2590-1035-512c-b067-686a67c7d430" ;
+    sysx:libraryPath "Occurrences::Occurrence/Comment[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:cd6c9495-be14-578e-9065-28c9dbe6b52c
+    a sysml:OwningMembership ;
+    sysml:elementId "cd6c9495-be14-578e-9065-28c9dbe6b52c" ;
+    sysml:memberElement elmt:db0b2590-1035-512c-b067-686a67c7d430 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:d0cefcb9-9a11-5ac1-a47b-3f70c117bd08

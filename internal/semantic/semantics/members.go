@@ -315,11 +315,51 @@ func (m *Model) positionallyNamedParameters(owner *symbols.Symbol) []*symbols.Sy
 	}
 	var out []*symbols.Symbol
 	for _, param := range ownedParameters(owner) {
-		member := param.sym
-		if member.Naming != symbols.NamedByDeclaration || declaresIdentifier(member) || m.EffectiveNameOf(member) == "" {
-			continue
+		if m.positionallyNamed(param.sym) {
+			out = append(out, param.sym)
 		}
-		out = append(out, member)
 	}
 	return out
+}
+
+// PositionallyNamed reports whether sym is a parameter declared without a name of
+// its own that answers to the name of the parameter its position redefines.
+func (m *Model) PositionallyNamed(sym *symbols.Symbol) bool {
+	if m == nil || sym == nil || !m.positionallyNamed(sym) {
+		return false
+	}
+	for _, param := range ownedParameters(sym.Owner()) {
+		if param.sym == sym {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *Model) positionallyNamed(sym *symbols.Symbol) bool {
+	return sym.Naming == symbols.NamedByDeclaration && !declaresIdentifier(sym) && m.EffectiveNameOf(sym) != ""
+}
+
+// QualifiedNameOf is Element::qualifiedName (KerML 8.2.4): the owner's qualified
+// name and sym's effective name, so a parameter named by the one its position
+// redefines is qualified as a declared name is; "" where either name is missing.
+func (m *Model) QualifiedNameOf(sym *symbols.Symbol) string {
+	if m == nil || sym == nil {
+		return ""
+	}
+	if sym.Name != "" {
+		return symbols.FQNOf(sym)
+	}
+	if !m.PositionallyNamed(sym) {
+		return ""
+	}
+	owner := sym.Owner()
+	if owner == nil {
+		return ""
+	}
+	ownerName := m.QualifiedNameOf(owner)
+	if ownerName == "" {
+		return ""
+	}
+	return ownerName + "::" + m.EffectiveNameOf(sym)
 }

@@ -67,6 +67,69 @@ func (e *StateExecutor) executeBehavior(behavior lower.StateBehavior) (bool, err
 	return host.terminated, nil
 }
 
+// executeEntryBehaviors runs a state's entry behaviors at the instant of entry until one
+// waits for a message: that run, paused, and the behaviors after it are the entry's remainder.
+func (e *StateExecutor) executeEntryBehaviors(state *ast.StateNode, behaviors []lower.StateBehavior) (*doRun, []lower.StateBehavior, error) {
+	if len(behaviors) == 0 {
+		return nil, nil, nil
+	}
+	if e.performing == nil {
+		e.performing = make(map[*ast.StateNode]int)
+	}
+	e.performing[state]++
+	defer func() {
+		if e.performing[state]--; e.performing[state] == 0 {
+			delete(e.performing, state)
+		}
+	}()
+	var ended []ast.Node
+	for i, behavior := range behaviors {
+		if e.endedBefore(ended, behavior) {
+			continue
+		}
+		run, terminated, err := e.executeEntryBehavior(behavior)
+		if err != nil {
+			return nil, nil, err
+		}
+		if run != nil {
+			return run, behaviors[i+1:], nil
+		}
+		if terminated {
+			ended = append(ended, behavior.Block)
+		}
+	}
+	return nil, nil, nil
+}
+
+// executeEntryBehavior runs one entry behavior at the instant to its end (reporting a run
+// its own `terminate` ended) or to where its flow waits for a message, returning the paused run.
+func (e *StateExecutor) executeEntryBehavior(behavior lower.StateBehavior) (*doRun, bool, error) {
+	if err := e.validateBehaviorMultiplicity(behavior); err != nil {
+		return nil, false, err
+	}
+	if len(behavior.Body) == 0 {
+		return nil, false, nil
+	}
+	host := e.behaviorHost(behavior, e.currentFiring())
+	defer e.ctx.holdClock(host.describe())()
+	oneMove := e.ctx.scheduling().oneMove()
+	run := &bodyRun{work: host, awaitsMessages: true, steps: oneMove, holdsClock: true}
+	for {
+		pause, paused := run.resume(e.ctx)
+		if !paused {
+			return nil, host.terminated, run.err
+		}
+		if pause.onWait && pause.wait.onMessage {
+			// From here on the remainder runs in the do rounds, as a do behavior does.
+			run.yields, run.nodesYield, run.guards, run.holdsClock = true, true, oneMove, false
+			return &doRun{host: host, body: run}, false, nil
+		}
+		if !pause.tokenStep {
+			return nil, false, errPaused
+		}
+	}
+}
+
 func (h *stateStmtHost) runBehavior() error {
 	if !h.exec.ctx.scheduling().oneMove() {
 		return h.run()

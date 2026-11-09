@@ -1,0 +1,10 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "SendActions::Monitor::supervise::notifyTo",
+	"expected_kind": "sendActionUsage",
+	"expected_metadata": {
+		"payload": "new Alarm(5)",
+		"receiver": "display"
+	},
+	"absent_metadata": ["sender"]
+}

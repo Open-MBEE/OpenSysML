@@ -181,6 +181,7 @@ type Model struct {
 	valueExpressions map[*symbols.Symbol]*symbols.Symbol
 	expressionParts  map[*symbols.Symbol]*expressionParts
 	transitionParts  map[*symbols.Symbol]*transitionParts
+	sendParts        map[*symbols.Symbol]*sendParts
 	ownedAnnotations map[*symbols.Symbol][]*symbols.Symbol
 	annotatingRels   map[*symbols.Symbol][]*symbols.Symbol
 	ownedImports     map[*symbols.Symbol][]*symbols.Symbol
@@ -385,6 +386,14 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 	m.directSupers[sym] = nil
 	m.computingSupers[sym] = m.resolver.Enter()
 	defer delete(m.computingSupers, sym)
+	// A ConjugatedPortDefinition's only generalization is the port definition
+	// that implies it, whose features it inherits reversed (SysML v2 8.3.12.3).
+	if original := OriginalPortDefinitionOf(sym); original != nil {
+		out := []*symbols.Symbol{original}
+		m.directSupers[sym] = out
+		m.resolver.Leave()
+		return out
+	}
 	if sym.Facts != nil && (sym.Facts.Supers != nil || sym.Facts.Recorded) {
 		out := m.recordedSupertypes(sym)
 		m.directSupers[sym] = out
@@ -429,24 +438,9 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		}
 	}
 
-	// Action usages containing send statements need implicit SendAction typing
-	// to provide access to sentMessage member
-	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageAction {
-		if hasSendStatement(usage) {
-			sendActionDefs := m.resolver.Index().LookupQualified("Actions::SendAction")
-			if len(sendActionDefs) > 0 && sendActionDefs[0] != nil {
-				sendActionDef := sendActionDefs[0]
-				if !seen[sendActionDef] {
-					seen[sendActionDef] = true
-					out = append(out, sendActionDef)
-				}
-			}
-		}
-	}
-
-	// A send written as an action node is a SendActionUsage of its own, so it is
-	// typed by SendAction whether or not a usage declares it.
-	if _, ok := sym.Decl.(*ast.SendStatement); ok {
+	// A send action is typed by SendAction whether or not a usage declares it
+	// (SysML v2 §8.3.17.15 SendActionUsage).
+	if sym.Kind == symbols.SymbolSendActionUsage {
 		for _, sendDef := range m.resolver.Index().LookupQualified("Actions::SendAction") {
 			if sendDef == nil || sendDef == sym || seen[sendDef] {
 				continue
@@ -637,6 +631,21 @@ func (m *Model) recordedSequence(refs []symbols.ElementRef) []*symbols.Symbol {
 	return out
 }
 
+// recordedPositions is recordedSequence keeping every position: nil where a fact
+// names no element, or one the record no longer declares.
+func (m *Model) recordedPositions(refs []symbols.ElementRef) []*symbols.Symbol {
+	if len(refs) == 0 {
+		return nil
+	}
+	out := make([]*symbols.Symbol, len(refs))
+	for i, ref := range refs {
+		if !ref.IsZero() {
+			out[i] = m.recordedElement(ref)
+		}
+	}
+	return out
+}
+
 // recordedElement restores the element a fact names, or nil when the name no
 // longer declares one.
 func (m *Model) recordedElement(ref symbols.ElementRef) *symbols.Symbol {
@@ -688,6 +697,9 @@ func (m *Model) GeneralizationTargetOf(sym *symbols.Symbol, rel *ast.Relationshi
 		return nil
 	}
 	target = resolved
+	if rel.Kind == ast.RelTyping {
+		target, _ = m.conjugatedTypingTarget(target, rel.Conjugated)
+	}
 	// A same-named subsetting targets the inherited feature, not the binding
 	// that resolves first in the owner's scope.
 	if len(qn.Parts) == 1 && rel.Kind == ast.RelSubsets && !subsetsSibling(sym, target) {
@@ -751,10 +763,14 @@ func (m *Model) relationshipTarget(sym *symbols.Symbol, rel *ast.Relationship) *
 	if !ok || target == nil {
 		return nil
 	}
-	if resolved, aliasOK := m.resolver.ResolveAliasTarget(target); aliasOK {
-		return resolved
+	resolved, aliasOK := m.resolver.ResolveAliasTarget(target)
+	if !aliasOK {
+		return nil
 	}
-	return nil
+	if rel.Kind == ast.RelTyping {
+		resolved, _ = m.conjugatedTypingTarget(resolved, rel.Conjugated)
+	}
+	return resolved
 }
 
 // chainTarget resolves a chain target (`subsets b.f`) to its final feature, as
@@ -1259,16 +1275,6 @@ func (m *Model) HasSpecializationCycle(sym *symbols.Symbol) bool {
 			if up == sym {
 				return true
 			}
-		}
-	}
-	return false
-}
-
-// hasSendStatement checks if an action usage contains a send statement in its body
-func hasSendStatement(usage *ast.Usage) bool {
-	for _, member := range usage.Members {
-		if _, ok := member.(*ast.SendStatement); ok {
-			return true
 		}
 	}
 	return false

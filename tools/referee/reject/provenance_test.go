@@ -47,11 +47,11 @@ func TestProvenanceGuardFailsOnAMovedCorpus(t *testing.T) {
 // exists to catch, so it must fail rather than pass vacuously.
 func TestProvenanceGuardFailsOnAnUnstatedProvenance(t *testing.T) {
 	_, current := currentProvenance(t)
-	corrupted := corruptBaseline(t, committedBaseline, `"recorded"`, `"recordedOn"`)
+	corrupted := corruptBaseline(t, committedBaseline, `"inputs"`, `"compared"`)
 
 	err := baseline.CheckCommitted(corrupted, refreshCommand, current)
-	if err == nil || !strings.Contains(err.Error(), "states no ISO recording date") {
-		t.Fatalf("an undated baseline gave %v", err)
+	if err == nil || !strings.Contains(err.Error(), "states no compared inputs") {
+		t.Fatalf("a baseline without inputs gave %v", err)
 	}
 }
 
