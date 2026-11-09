@@ -112,7 +112,7 @@ func (m *Model) declaresMultiplicity(sym *symbols.Symbol) bool {
 // (`[4]`) declares, owned at the clause as the conversion writes it; nil without a range.
 func (m *Model) DeclaredMultiplicityMember(sym *symbols.Symbol) *symbols.Symbol {
 	if m == nil || sym == nil || sym.Implicit != nil || sym.Chain != nil || sym.Expr != nil ||
-		(!sym.DeclaresUsage() && !DeclaresEndFeature(sym)) {
+		(!sym.DeclaresUsage() && !DeclaresEndFeature(sym) && sym.Kind != symbols.SymbolCrossFeature) {
 		return nil
 	}
 	mult := UsageMultiplicityOf(sym)

@@ -567,8 +567,8 @@ MetadataUsage::isReference	285	symbol-38
 MetadataUsage::ownedAnnotation	10	symbol-05
 MetadataUsage::type	7	symbol-19
 Multiplicity::type	2581	symbol-19
-MultiplicityRange::featuringType	2	symbol-17
-MultiplicityRange::type	501	symbol-19
+MultiplicityRange::featuringType	37	symbol-17
+MultiplicityRange::type	536	symbol-19
 NamespaceExpose::relatedElement	24	symbol-10
 NamespaceImport::importOwningNamespace	2	symbol-45
 NamespaceImport::relatedElement	279	symbol-10
