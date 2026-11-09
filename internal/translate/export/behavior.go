@@ -440,10 +440,11 @@ func (e *encoder) encodeSubaction(n ast.Node, actions []ast.Node, kind string, h
 }
 
 // markPerformed records the action usages among members as performed actions.
+// An accept is its own metaclass there (SysML.xtext StateAcceptActionUsage).
 func (e *encoder) markPerformed(members []ast.Node) {
 	for _, member := range members {
 		if node, _ := naming.UnwrapMember(member); node != nil {
-			if usage, ok := node.(*ast.Usage); ok && usage.Kind == ast.UsageAction {
+			if usage, ok := node.(*ast.Usage); ok && usage.Kind == ast.UsageAction && acceptPayload(usage) == nil {
 				e.performed[usage] = true
 			}
 		}

@@ -1,0 +1,64 @@
+materialize: Rig #1
+materialize: Sender #2
+start: exhibited state machine life of #2
+materialize: life #3
+enter: idle
+materialize: Receiver #4
+start: exhibited state machine life of #4
+materialize: life #5
+enter: idle
+run: exhibited state machine life of #2
+run: exhibited state machine life of #4
+exit: idle
+enter: begin (entry action)
+stmt send
+materialize: Go #6
+  eval feature go -> instance#6
+materialize: ReceiverPort #7
+materialize: SenderPort #8
+materialize: Transfer #9
+transition: idle -> begin (event: accept Start)
+run: exhibited state machine life of #4
+exit: idle
+enter: working (entry action)
+stmt action body
+enter action node: state behavior <anonymous>
+  stmt send
+materialize: Ack #10
+    eval feature ack -> instance#10
+materialize: Transfer #11
+transition: idle -> working (event: accept Go)
+exit: begin
+enter: follow (entry action)
+stmt send
+materialize: Run #12
+  eval feature run -> instance#12
+materialize: Transfer #13
+transition: begin -> follow (event: accept Ack)
+exit: follow
+enter: sent
+transition: follow -> sent
+run: exhibited state machine life of #4
+do: working (entry action)
+  stmt assign log
+        eval feature log -> 0
+        eval literal 10 -> 10
+      eval operator * -> 0
+      eval literal 1 -> 1
+    eval operator + -> 1
+leave action node: state behavior <anonymous>
+choice entering working: next a(entry), c(entry) (unordered; took a(entry) first; independent)
+enter: a (entry action)
+stmt assign leftLog
+      eval feature log -> 1
+      eval literal 10 -> 10
+    eval operator * -> 10
+    eval literal 2 -> 2
+  eval operator + -> 12
+enter: c (entry action)
+stmt assign rightLog
+      eval feature log -> 1
+      eval literal 10 -> 10
+    eval operator * -> 10
+    eval literal 3 -> 3
+  eval operator + -> 13

@@ -508,6 +508,9 @@ func (s *SymbolStructure) attributeValue(value symbols.FilterValue, feature *met
 		return Value{Kind: IntegerValue, Integer: value.Int, Success: true}, true
 	case symbols.FilterValueReal:
 		return Value{Kind: RealValue, Real: value.Real, Success: true}, true
+	case symbols.FilterValueRational:
+		real, _ := value.Rat.Float64()
+		return Value{Kind: RealValue, Real: real, Success: true}, true
 	case symbols.FilterValueString:
 		return Value{Kind: StringValue, String: value.Str, Success: true}, true
 	case symbols.FilterValueRef:

@@ -115,13 +115,16 @@ func (m *CachedModel) elementReader() *elementReader {
 	m.elementReaderOnce.Do(func() {
 		resolver := resolve.New(m.Index)
 		// The structure reads references through the resolver's record of the
-		// documents (referencedSymbol), as the conversion does before it writes.
+		// documents (referencedSymbol), as the conversion does before it writes;
+		// the record is made with the semantic model attached, so that what a
+		// redefinition masks (KerML 8.3.3.3.6) is not inherited by name.
+		sem := semantics.NewModel(resolver)
+		resolver.SetModel(sem)
 		for _, doc := range m.Documents {
 			if doc != nil && doc.Source != nil && doc.Root != nil {
 				resolver.ResolveDocument(doc.Source.Name(), doc.Root)
 			}
 		}
-		sem := semantics.NewModel(resolver)
 		sem.SetSourceText(cachedSourceText(m))
 		structure := metamodel.NewSymbolStructure(resolver, sem)
 		exclusions := m.documentExclusions()
