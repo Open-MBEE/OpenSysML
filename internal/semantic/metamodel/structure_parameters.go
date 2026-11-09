@@ -175,7 +175,7 @@ func (e *Evaluator) structureParameterTable(owner Element, visiting map[ElementK
 			if claimed[p.element.Key()] {
 				continue
 			}
-			listed, ok := e.structureListsParameter(positional, p.element)
+			listed, ok := e.structureListsParameter(positional[len(declared):], p.element)
 			if !ok {
 				return nil, nil, false
 			}
@@ -190,9 +190,9 @@ func (e *Evaluator) structureParameterTable(owner Element, visiting map[ElementK
 	return positional, result, true
 }
 
-// structureListsParameter reports whether params already carries feature, as itself or as a
-// parameter inherited through another general that redefines it, directly or transitively.
-func (e *Evaluator) structureListsParameter(params []structureParameter, feature Element) (bool, bool) {
+// structureListsParameter reports whether the parameters inherited so far carry feature, as
+// itself or as one redefining it, directly or transitively; the owned ones claim by position.
+func (e *Evaluator) structureListsParameter(inherited []structureParameter, feature Element) (bool, bool) {
 	visited := make(map[ElementKey]bool)
 	var redefines func(Element) (bool, bool)
 	redefines = func(p Element) (bool, bool) {
@@ -218,7 +218,7 @@ func (e *Evaluator) structureListsParameter(params []structureParameter, feature
 		}
 		return false, true
 	}
-	for _, p := range params {
+	for _, p := range inherited {
 		if found, ok := redefines(p.element); !ok || found {
 			return found, ok
 		}
@@ -231,6 +231,12 @@ func (e *Evaluator) structureListsParameter(params []structureParameter, feature
 func (e *Evaluator) structureImplicitParameterRedefinitions(feature Element, matchDirection bool) ([]Element, bool) {
 	if e.model == nil {
 		return nil, true
+	}
+	if symbol := e.structureElementSymbol(feature); symbol != nil && !e.structureKnows(feature) {
+		if matchDirection {
+			return elementsOf(e.model.ImplicitParameterRedefinitions(symbol)), true
+		}
+		return elementsOf(e.model.MaskedParameterRedefinitions(symbol)), true
 	}
 	owner, handled, ok := e.structureOwningType(feature)
 	if !handled || !ok {
