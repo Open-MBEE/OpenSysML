@@ -101,7 +101,8 @@ func (m *Model) isPayloadFeature(sym *symbols.Symbol) bool {
 // UsageMayTimeVaryForOwningType derives Usage::mayTimeVary for the owning type
 // stated by Structure, or nil when the usage has no owning FeatureMembership.
 func (m *Model) UsageMayTimeVaryForOwningType(sym, owner *symbols.Symbol) bool {
-	if sym == nil {
+	if sym == nil || m.isKerMLDoc(sym) {
+		// A KerML feature has no Usage::mayTimeVary (as UsageMayTimeVary).
 		return false
 	}
 	isPortion, underAction := false, false
@@ -582,9 +583,13 @@ func synthesizedPartOwner(sym *symbols.Symbol) *symbols.Symbol {
 // synthesizes shares its declaration node with what wrote it, so it is read by
 // its kind: a succession is a HappensBefore link, no Occurrence.
 func (m *Model) owningTypeIsOccurrence(owner *symbols.Symbol) bool {
-	if owner.Kind == symbols.SymbolMetadataUsage {
+	switch owner.Kind {
+	case symbols.SymbolMetadataUsage:
 		// A metadata usage's type is a Metaobject, an Object (KerML Metaobjects).
 		return m.UsageMayTimeVaryUnderKind(ast.UsageMetadata)
+	case symbols.SymbolExpression:
+		// An expression body is a Performance, an Occurrence (KerML Performances).
+		return true
 	}
 	if owner.Expr != nil {
 		switch owner.Kind {

@@ -183,7 +183,7 @@ ExhibitStateUsage::feature	13	symbol-51
 ExhibitStateUsage::featureMembership	13	symbol-51
 ExhibitStateUsage::inheritedFeature	13	symbol-51
 ExhibitStateUsage::inheritedMembership	13	symbol-51
-ExhibitStateUsage::isComposite	13	export-33
+ExhibitStateUsage::isComposite	13	symbol-67
 ExhibitStateUsage::member	13	symbol-51
 ExhibitStateUsage::membership	13	symbol-51
 ExhibitStateUsage::ownedFeatureMembership	7	symbol-56
@@ -300,7 +300,7 @@ IncludeUseCaseUsage::feature	4	symbol-51
 IncludeUseCaseUsage::featureMembership	4	symbol-51
 IncludeUseCaseUsage::inheritedFeature	4	symbol-51
 IncludeUseCaseUsage::inheritedMembership	4	symbol-51
-IncludeUseCaseUsage::isComposite	9	export-33
+IncludeUseCaseUsage::isComposite	9	symbol-67
 IncludeUseCaseUsage::member	4	symbol-51
 IncludeUseCaseUsage::membership	4	symbol-51
 IncludeUseCaseUsage::usage	3	symbol-51
@@ -334,7 +334,7 @@ MetadataAccessExpression::referencedElement	5	export-57
 MetadataUsage::annotation	2	export-57
 MetadataUsage::definition	222	symbol-54
 MetadataUsage::itemDefinition	222	export-16
-MetadataUsage::mayTimeVary	3	export-33
+MetadataUsage::mayTimeVary	3	symbol-68
 MetadataUsage::metadataDefinition	222	export-18
 MetadataUsage::occurrenceDefinition	222	symbol-54
 MetadataUsage::ownedAnnotatingRelationship	7	export-57
@@ -450,7 +450,7 @@ PerformActionUsage::feature	22	symbol-51
 PerformActionUsage::featureMembership	22	symbol-51
 PerformActionUsage::inheritedFeature	2	symbol-51
 PerformActionUsage::inheritedMembership	2	symbol-51
-PerformActionUsage::isComposite	43	export-33
+PerformActionUsage::isComposite	43	symbol-67
 PerformActionUsage::member	26	symbol-51
 PerformActionUsage::membership	26	symbol-51
 PerformActionUsage::nestedAction	1	export-57
@@ -495,7 +495,6 @@ ReferenceUsage::inheritedFeature	129	symbol-51
 ReferenceUsage::inheritedMembership	129	symbol-51
 ReferenceUsage::input	3	symbol-53
 ReferenceUsage::isEnd	23	export-56
-ReferenceUsage::mayTimeVary	25	export-33
 ReferenceUsage::member	133	symbol-51
 ReferenceUsage::membership	133	symbol-51
 ReferenceUsage::multiplicity	4	symbol-55
@@ -519,7 +518,7 @@ ReferenceUsage::owningUsage	2	export-57
 ReferenceUsage::type	69	export-01
 ReferenceUsage::usage	47	symbol-51
 RenderingUsage::declaredName	26	symbol-01
-RenderingUsage::isComposite	26	export-33
+RenderingUsage::isComposite	26	symbol-67
 RequirementDefinition::directedFeature	7	symbol-53
 RequirementDefinition::directedUsage	7	symbol-53
 RequirementDefinition::feature	55	symbol-51

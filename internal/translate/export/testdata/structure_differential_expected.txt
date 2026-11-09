@@ -93,7 +93,7 @@ root examples: models 56, skipped 0, matched 46572, unmatched 32
   Usage::definition: equal 3343, different 1963, symbol-missing 0, symbol-extra 1310
   Usage::directedUsage: equal 6546, different 70, symbol-missing 0, symbol-extra 0
   Usage::isReference: equal 6558, different 58, symbol-missing 0, symbol-extra 0
-  Usage::mayTimeVary: equal 918, different 3, symbol-missing 0, symbol-extra 5695
+  Usage::mayTimeVary: equal 921, different 0, symbol-missing 0, symbol-extra 5695
   Usage::nestedAction: equal 6613, different 3, symbol-missing 0, symbol-extra 0
   Usage::nestedAttribute: equal 6588, different 28, symbol-missing 0, symbol-extra 0
   Usage::nestedConnection: equal 6612, different 4, symbol-missing 0, symbol-extra 0
@@ -416,7 +416,7 @@ root examples/pilot-corpora: models 213, skipped 0, matched 61237, unmatched 140
   Usage::definition: equal 3744, different 2365, symbol-missing 0, symbol-extra 2006
   Usage::directedUsage: equal 7923, different 185, symbol-missing 1, symbol-extra 6
   Usage::isReference: equal 7981, different 134, symbol-missing 0, symbol-extra 0
-  Usage::mayTimeVary: equal 1108, different 58, symbol-missing 0, symbol-extra 6949
+  Usage::mayTimeVary: equal 1166, different 0, symbol-missing 0, symbol-extra 6949
   Usage::nestedAction: equal 8112, different 3, symbol-missing 0, symbol-extra 0
   Usage::nestedAttribute: equal 8008, different 107, symbol-missing 0, symbol-extra 0
   Usage::nestedConnection: equal 8113, different 2, symbol-missing 0, symbol-extra 0
