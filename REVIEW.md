@@ -75,10 +75,10 @@ These are mechanical and are checked before a push, not discovered in review:
   `;` in Emacs Lisp); it must print nothing.
 - No dead code: a helper left without callers after a refactor fails `staticcheck` and the
   no-dead-code rule. `go vet ./...` and `make lint`.
-- A change under `internal/translate/export` moves the writer digest the api-json provenance guard
-  pins: run `go run -C tools ./cmd/pilot-apijson-diff -update` and `go test -C tools ./referee/apijson`
-  before pushing (`AGENTS.md` §6.2). The same holds for the pilot-differential baseline and the
-  embedded library snapshot when their inputs move.
+- A change under `internal/translate/export` is compared, not re-recorded: run
+  `go run -C tools ./cmd/pilot-apijson-diff -check` and `go test -C tools ./referee/apijson` before
+  pushing, and re-record with `-update` only after adjudicating a moved bucket (`AGENTS.md` §6.2).
+  The same holds for the pilot-differential baseline and the embedded library snapshot.
 - Tests are not reduced. Deleting or narrowing a test that still guards live code is a finding
   even when the replacement is tidier; each bug fixed gets a regression test named for the
   behaviour; a `_test.go` file over 2,000 lines or a fixture over 200 KiB fails

@@ -29,9 +29,10 @@ go test -count=1 ./tests/hygiene                            # size caps, layerin
 
 Repeat the comment check for the other comment syntaxes the diff touches: `#` in Makefiles,
 shell, YAML and Python, `;` in Emacs Lisp, `//` in TypeScript and protobuf. A change under
-`internal/translate/export` also needs `go run -C tools ./cmd/pilot-apijson-diff -update` and
-`go test -C tools ./referee/apijson`; a library pin bump needs `make extension-libraries-pin-check`
-(`AGENTS.md` §6.1–6.2).
+`internal/translate/export` also needs `go run -C tools ./cmd/pilot-apijson-diff -check`, which
+fails rather than skips when the pilot exporter is absent, and `go test -C tools ./referee/apijson`;
+re-record with `-update` only after adjudicating a moved bucket (`AGENTS.md` §6.2). A library pin
+bump needs `make extension-libraries-pin-check` (§6.1).
 
 ## 2. Build the change map
 
