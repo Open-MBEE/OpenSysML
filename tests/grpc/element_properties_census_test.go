@@ -23,16 +23,16 @@ type censusWitness struct {
 	path, modelHash, id, metaclass string
 }
 
-// censusModels are the models the census reads, the small gRPC conformance fixtures first
-// (they carry the metaclasses the handbook's examples do not reach), then the examples.
-func censusModels(t *testing.T) []string {
+// censusModels are the models the census reads: the gRPC conformance fixtures, which it always
+// reads whole (they carry the metaclasses the examples do not reach), then the examples.
+func censusModels(t *testing.T) (fixtures, examples []string) {
 	t.Helper()
 	fixtures, err := filepath.Glob(filepath.Join("testdata", "conformance", "*.*ml"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	sort.Strings(fixtures)
-	return append(fixtures, agreementExamples(t)...)
+	return fixtures, agreementExamples(t)
 }
 
 // TestElementPropertiesServeEveryRuleAndExplainEveryOmission walks all of metamodel.Rules()
@@ -101,7 +101,7 @@ func TestElementPropertiesServeEveryRuleAndExplainEveryOmission(t *testing.T) {
 	tried := map[string]int{}
 	const triesPerKey = 40
 	// closed reports whether every key is settled, out of tries, or has no carrier the
-	// element form can state, so the scan need not export the models that remain.
+	// element form can state, so the scan need not export the examples that remain.
 	closed := func() bool {
 		for key, w := range open {
 			if _, done := settled[key]; done || tried[key] >= triesPerKey {
@@ -114,9 +114,12 @@ func TestElementPropertiesServeEveryRuleAndExplainEveryOmission(t *testing.T) {
 		return true
 	}
 
+	// carriers are the elements stated with a metaclass of elementFormAbsentMetaclasses.
+	carriers := map[string][]string{}
+	fixtures, examples := censusModels(t)
 	read := 0
-	for _, path := range censusModels(t) {
-		if closed() {
+	for _, path := range append(fixtures, examples...) {
+		if read >= len(fixtures) && closed() {
 			break
 		}
 		read++
@@ -136,6 +139,9 @@ func TestElementPropertiesServeEveryRuleAndExplainEveryOmission(t *testing.T) {
 		for _, object := range objects {
 			metaclass, _ := object["@type"].(string)
 			id, _ := object["@id"].(string)
+			if _, absent := elementFormAbsentMetaclasses[metaclass]; absent {
+				carriers[metaclass] = append(carriers[metaclass], filepath.Base(path)+" "+id)
+			}
 			var pending []string
 			for _, key := range keysOf(metaclass) {
 				if _, done := settled[key]; !done && tried[key] < triesPerKey {
@@ -210,18 +216,17 @@ func TestElementPropertiesServeEveryRuleAndExplainEveryOmission(t *testing.T) {
 		t.Errorf("%s (%s): no model element is answered as expected; seen:\n  %s", key, kind, strings.Join(seen[key], "\n  "))
 	}
 	for class, reason := range elementFormAbsentMetaclasses {
-		for key, witness := range settled {
-			if open[key].class == class {
-				t.Errorf("%s is carried by %s (%s) in %s; the element form now states %s elements, so drop it from elementFormAbsentMetaclasses (%s)",
-					key, witness.id, witness.metaclass, witness.path, class, reason)
-			}
+		if stated := carriers[class]; len(stated) > 0 {
+			t.Errorf("the element form now states %s elements (%s), so drop it from elementFormAbsentMetaclasses (%s)",
+				class, strings.Join(stated, ", "), reason)
 		}
 	}
 	t.Logf("%d served rules and %d omissions witnessed over %d models", len(rules), len(omissions), read)
 }
 
 // elementFormAbsentMetaclasses are the relationship metaclasses the API element form states as
-// text of their owner rather than as elements; one carried by a model the census read fails it.
+// text of their owner rather than as elements; element_properties_census_absent_forms.kerml
+// writes each, and the census fails the day the form states one of them as an element.
 var elementFormAbsentMetaclasses = map[string]string{
 	"Unioning":        "a type's `unions` is a text property of the type in the element form",
 	"Intersecting":    "a type's `intersects` is a text property of the type in the element form",
