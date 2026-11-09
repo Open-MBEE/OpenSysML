@@ -154,10 +154,8 @@ func (m *Model) chainPath(owner *symbols.Symbol, kind ast.RelationshipKind, node
 	return resolved
 }
 
-// chainingFeaturesOf is Feature::chainingFeature of sym: for the feature a
-// relationship's chain target (`s.y`) denotes as a whole, the features the chain is
-// written as, in order, up to the first that resolves to nothing (KerML 8.3.3.3.4);
-// empty for any other feature.
+// chainingFeaturesOf is Feature::chainingFeature of the feature a relationship's chain target (`s.y`)
+// denotes: the chain's features in order up to the first unresolved (KerML 8.3.3.3.4); empty otherwise.
 func (m *Model) chainingFeaturesOf(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym.Chain == nil {
 		return nil

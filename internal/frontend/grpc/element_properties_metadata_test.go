@@ -6,9 +6,8 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 )
 
-// A metadata feature written as an annotation (`@M { … }`) is typed by the
-// metadata definition it names (SysML 8.3.19.3), and a rational literal in its
-// body states its value (KerML 8.3.4.8.x LiteralRational::value).
+// A metadata feature written as an annotation (`@M { … }`) is typed by the definition it names
+// (SysML 8.3.19.3), and a rational literal in its body states its value (LiteralRational::value).
 func TestGetElementPropertiesTypesAnAnnotationMetadataUsage(t *testing.T) {
 	r := parseForElementProperties(t, `package P {
 		private import ScalarValues::*;

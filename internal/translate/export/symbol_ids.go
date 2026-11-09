@@ -13,12 +13,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
-// SymbolIDs spells the symbols of a model by the elementIds Convert writes for
-// the elements they reflect (ElementIDs): declared elements by their declaration,
-// the memberships, relationships and expression parts the semantic model
-// reflects by the rule the conversion mints theirs with. A symbol-backed reader
-// and the API element form thus name one element one way, and an id a client
-// read from either resolves back to its symbol (Symbol).
+// SymbolIDs spells a model's symbols by the elementIds Convert writes for the elements they reflect
+// (ElementIDs), so a symbol-backed reader and the API element form name one element one way (Symbol resolves back).
 type SymbolIDs struct {
 	ids   *ElementIDs
 	model *semantics.Model
@@ -53,9 +49,8 @@ func (ids *ElementIDs) Documents() []string {
 	return names
 }
 
-// Of is the elementId the conversion writes for the element sym reflects; false
-// where the conversion writes none (a `for` variable, an element the mapping
-// does not cover).
+// Of is the elementId the conversion writes for the element sym reflects; false where it writes
+// none (a `for` variable, an element the mapping does not cover).
 func (s *SymbolIDs) Of(sym *symbols.Symbol) (string, bool) {
 	if s == nil || sym == nil {
 		return "", false
@@ -215,9 +210,8 @@ func (s *SymbolIDs) compute(sym *symbols.Symbol) (string, bool) {
 	return id, ok
 }
 
-// rootNamespaceID mirrors rootNamespaceIDs: the root Namespace is named off the
-// document's first top-level element with RootNamespaceSuffix, repeated while
-// the candidate is an id the conversion already writes.
+// rootNamespaceID mirrors rootNamespaceIDs: the root Namespace is named off the document's first
+// top-level element with RootNamespaceSuffix, repeated while the candidate is an id already written.
 func (s *SymbolIDs) rootNamespaceID(root *symbols.Symbol) (string, bool) {
 	for _, membership := range s.model.OwnedMemberships(root) {
 		if membership.Implicit == nil || membership.Implicit.Member == nil {
@@ -359,9 +353,8 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 		}
 		_, membership, ok := s.ids.OfExpressionPart(doc, rel.Owner.Decl, rel.Slot)
 		if !ok && rel.Owner.Decl != nil && (rel.Slot == "referent" || rel.Slot == "targetFeature") {
-			// An expression written as an element of its own (a body's result, `eval`'s
-			// expression) owns its referent Membership off its element id, not as a part
-			// (referentMembershipNode); its function and argument memberships stay parts.
+			// An expression written as an element of its own (a body's result) owns its referent Membership
+			// off its element id, not as a part (referentMembershipNode); function and argument memberships stay parts.
 			if base, declared := s.ids.OfDeclaration(doc, rel.Owner.Decl, ""); declared {
 				if own, ok := s.of(rel.Owner); ok && own == base {
 					return base + "_" + rel.Slot, true
@@ -538,9 +531,8 @@ func isConnectorEnd(sym *symbols.Symbol) bool {
 	return sym.Kind == symbols.SymbolConnectorEnd || sym.Expr != nil && sym.Expr.Role == symbols.ExpressionConnectorEnd
 }
 
-// bodyParameterRelationshipID spells the relationship rel a body parameter's head
-// clause writes (`in a : T :> f`): the parameter's id and the suffix the conversion
-// mints for the clause's kind at its position among the clauses of that kind.
+// bodyParameterRelationshipID spells the relationship a body parameter's head clause writes (`in a : T :> f`):
+// the parameter's id and the suffix the conversion mints for the clause's kind at its position.
 func (s *SymbolIDs) bodyParameterRelationshipID(rel *symbols.ImplicitRelationship) (string, bool) {
 	element, ok := s.of(rel.Owner)
 	if !ok {

@@ -81,9 +81,8 @@ func TestDottedExpressionNamesOwnAChainFeatureOnlyForAReceiverCallee(t *testing.
 			native = append(native, model.MetaclassOf(membership).Name)
 		}
 		if _, constructor := expr.Decl.(*ast.ConstructorExpr); constructor {
-			// A constructor owns only its result, which owns the argument features
-			// (KerML 8.3.4.8.3; the pilot writes this shape); the conversion still
-			// writes the arguments as the constructor's own parameters.
+			// A constructor owns only its result, which owns the argument features (KerML 8.3.4.8.3);
+			// the conversion still writes the arguments as the constructor's own parameters.
 			written = []string{"Membership", "ReturnParameterMembership"}
 		}
 		if strings.Join(native, ",") != strings.Join(written, ",") {

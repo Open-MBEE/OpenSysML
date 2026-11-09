@@ -304,11 +304,8 @@ func isSatisfySubjectSymbol(sym *symbols.Symbol) bool {
 	return ok && rel.Kind == ast.RelSubject
 }
 
-// ownedThroughAnnotation reports whether owner owns member through an
-// Annotation rather than a Membership: an annotating element, a `#M` prefix
-// metadata feature included, in the body of a relationship or alias (KerML
-// 8.2.3.3.1, KerML.xtext PrefixMetadataAnnotation). A namespace owns its
-// prefix metadata through an OwningMembership (KerML.xtext PrefixMetadataMember).
+// ownedThroughAnnotation reports whether owner owns member through an Annotation, not a Membership:
+// an annotating element in a relationship or alias body (KerML 8.2.3.3.1); a namespace's prefix metadata is a member.
 func ownedThroughAnnotation(owner, member *symbols.Symbol) bool {
 	if !relationshipBodyOwner(owner) {
 		return false
@@ -373,10 +370,8 @@ func relationshipBodyOwner(sym *symbols.Symbol) bool {
 	return ok
 }
 
-// OwningMembership returns the Membership through which sym's owner owns it, or
-// nil for an element owned through no membership: a root element, an alias or
-// other relationship owned directly, a relationship's prefix metadata feature,
-// or a reflected relationship object.
+// OwningMembership returns the Membership through which sym's owner owns it; nil for a root element,
+// a directly owned relationship, a relationship's prefix metadata or a reflected relationship object.
 func (m *Model) OwningMembership(sym *symbols.Symbol) *symbols.Symbol {
 	if m == nil || sym == nil || sym.Implicit != nil || sym.Chain != nil || sym.Kind == symbols.SymbolAlias {
 		return nil
@@ -1042,9 +1037,8 @@ func (m *Model) importElements(sym *symbols.Symbol, feature string) ([]*symbols.
 		return nil, false
 	}
 	if imp.Kind == ast.ImportMembership {
-		// KerML 8.3.2.5 MembershipImport: importedMembership redefines target and
-		// importedElement is its memberElement; a root-level member's is the
-		// membership its document's RootNamespace owns it through.
+		// KerML 8.3.2.5 MembershipImport: importedMembership redefines target, importedElement is its
+		// memberElement; a root-level member's is the membership its document's RootNamespace owns it through.
 		if feature == "importedElement" {
 			if target.Kind == symbols.SymbolAlias {
 				return m.aliasMembershipElements(target, "memberElement")

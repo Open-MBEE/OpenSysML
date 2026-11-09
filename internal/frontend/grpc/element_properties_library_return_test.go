@@ -5,9 +5,8 @@ import (
 	"testing"
 )
 
-// A library parameter named only by redefinition — BooleanEvaluation's
-// `return : Boolean;` — is answered by its catalogued id and the qualified
-// name of its effective name, not by its owner's name with an empty segment.
+// A library parameter named only by redefinition (BooleanEvaluation's `return : Boolean;`) answers
+// its catalogued id and effective qualified name, not its owner's name with an empty segment.
 func TestGetElementPropertiesNamesAnUnnamedLibraryParameterByItsEffectiveName(t *testing.T) {
 	r := parseForElementProperties(t, `package P {
 		private import ScalarValues::*;
@@ -33,9 +32,8 @@ func TestGetElementPropertiesNamesAnUnnamedLibraryParameterByItsEffectiveName(t 
 	}
 }
 
-// An unnamed library member that takes no name from a redefinition — one of
-// Parts::Part's connectors or invariants, inherited by every part definition —
-// carries its library path (owner/Metaclass[i]), never an empty name.
+// An unnamed library member taking no name from a redefinition (Parts::Part's connectors and
+// invariants, inherited by every part definition) carries its library path, never an empty name.
 func TestGetElementPropertiesNamesAnUnnamedLibraryMemberByItsLibraryPath(t *testing.T) {
 	r := parseForElementProperties(t, `package P { part def U; }`)
 	resp := r.read("P__U", "inheritedFeature")

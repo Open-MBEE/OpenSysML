@@ -4993,10 +4993,8 @@ func (e *Evaluator) computeStructureTypeMembers(element Element, property string
 	return e.structureMembershipsProperty(memberships, property)
 }
 
-// structureLibraryBase is the one decision both member walks make: a type the structure
-// only references — implied, stated as `: Boolean`, or held as a row without its symbol —
-// and a feature whose relationships the structure leaves to the semantic model have no
-// member rows there, so their members are read through the recovered symbol.
+// structureLibraryBase is the one decision both member walks make: a type the structure only
+// references and a feature it leaves to the semantic model read their members through the recovered symbol.
 func (e *Evaluator) structureLibraryBase(element Element) (Element, bool) {
 	if element.Symbol != nil && !e.structureKnows(element) {
 		return element, true
@@ -7737,9 +7735,8 @@ func (e *Evaluator) structureInvocationArguments(element Element) (Value, bool, 
 	if !known {
 		return Value{}, true, false
 	}
-	// A feature chain's instantiated type is the feature it chains to, not a
-	// function whose inputs bind the arguments: its one argument is the source
-	// its owned input parameter values (KerML 8.3.4.8.5 FeatureChainExpression).
+	// A feature chain instantiates the feature it chains to, not a function: its one argument is
+	// the source its owned input parameter values (KerML 8.3.4.8.5 FeatureChainExpression).
 	chain, known := e.isMetaclass(element, "FeatureChainExpression")
 	if !known {
 		return Value{}, true, false

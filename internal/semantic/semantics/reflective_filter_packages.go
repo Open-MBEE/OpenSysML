@@ -11,9 +11,8 @@ type filterPackageParts struct {
 	inner, membership *symbols.Symbol
 }
 
-// filterPackageOf is the Package an import with a filter, `import X::*[c]`, imports and
-// owns (KerML 8.2.5.4 Import; SysML.xtext FilterPackage): it owns the import as written
-// and a private ElementFilterMembership whose condition is c. Nil for any other import.
+// filterPackageOf is the Package a filtered import `import X::*[c]` owns (KerML 8.2.5.4; SysML.xtext
+// FilterPackage): the import as written and a private ElementFilterMembership of c. Nil otherwise.
 func (m *Model) filterPackageOf(imp *symbols.Symbol) *symbols.Symbol {
 	if m == nil || imp == nil || imp.Implicit == nil || imp.Implicit.Form != symbols.ImplicitImport {
 		return nil
@@ -56,9 +55,8 @@ func (m *Model) FilterPackageImport(pkg *symbols.Symbol) *symbols.Symbol {
 	return m.filterPackageImports[pkg]
 }
 
-// filterPackagePartsOf synthesizes a filter package's import and filter membership once:
-// the import keeps the declaration's kind and recursion, the membership is private and
-// owns the condition, which resolves its names where the import is written.
+// filterPackagePartsOf synthesizes a filter package's import (the declaration's kind and recursion)
+// and private filter membership once; the condition resolves its names where the import is written.
 func (m *Model) filterPackagePartsOf(pkg *symbols.Symbol) filterPackageParts {
 	imp := m.FilterPackageImport(pkg)
 	if imp == nil {

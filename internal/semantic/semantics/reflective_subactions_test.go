@@ -6,10 +6,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
-// A state owns one StateSubactionMembership per `entry`, `do` or `exit` member
-// (SysML.xtext EntryActionMember, DoActionMember, ExitActionMember): a bare
-// `entry;` owns nothing through it, a statement or an action usage is owned
-// through it, and each states its kind.
+// A state owns one StateSubactionMembership per `entry`, `do` or `exit` member (SysML.xtext
+// EntryActionMember…): a bare `entry;` owns nothing through it, a statement or usage is owned through it.
 func TestReflectiveStateOwnsItsSubactionMemberships(t *testing.T) {
 	m, root := buildModelWithStdlib(t, `package P {
 	attribute x : ScalarValues::Boolean;

@@ -450,9 +450,8 @@ func usageIsComposite(usage *ast.Usage) bool {
 	if usage.Kind == ast.UsageBinding || usage.Kind == ast.UsageSuccession {
 		return false
 	}
-	// A usage that refers to what it names (`perform a`, `exhibit s`, `include u`,
-	// `render r`) is a reference; an asserted constraint (`assert c`, SysML.xtext
-	// AssertConstraintUsage) subsets c by reference and stays composite.
+	// A usage referring to what it names (`perform a`, `exhibit s`, `include u`, `render r`) is a
+	// reference; an asserted constraint (`assert c`) subsets c by reference and stays composite.
 	for _, rel := range usage.Relationships {
 		if rel != nil && rel.Kind == ast.RelReferences && usage.Keyword != "assert" {
 			return false
@@ -564,9 +563,8 @@ func DefaultsToInputDirection(sym *symbols.Symbol) bool {
 	return hasDefaultInputParameterDirection(sym)
 }
 
-// synthesizedPartOwner is the element a synthesized part (a transition's
-// succession and its ends, a trigger's accept and payload) is owned through,
-// its owning type; nil for a symbol declared in a scope of its own.
+// synthesizedPartOwner is the owning type of a synthesized part (a transition's succession and ends,
+// a trigger's accept and payload); nil for a symbol declared in a scope of its own.
 func synthesizedPartOwner(sym *symbols.Symbol) *symbols.Symbol {
 	if sym == nil || sym.Expr == nil {
 		return nil
@@ -578,10 +576,8 @@ func synthesizedPartOwner(sym *symbols.Symbol) *symbols.Symbol {
 	return nil
 }
 
-// owningTypeIsOccurrence reports whether the owning type owner is an Occurrence
-// (deriveUsageMayTimeVary). A succession or binding a transition or body
-// synthesizes shares its declaration node with what wrote it, so it is read by
-// its kind: a succession is a HappensBefore link, no Occurrence.
+// owningTypeIsOccurrence reports whether owner is an Occurrence (deriveUsageMayTimeVary); a synthesized
+// succession or binding shares its node with what wrote it, so it is read by its kind (a succession is a link).
 func (m *Model) owningTypeIsOccurrence(owner *symbols.Symbol) bool {
 	switch owner.Kind {
 	case symbols.SymbolMetadataUsage:

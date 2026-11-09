@@ -306,12 +306,8 @@ func (m *Model) ExpressionResult(expr *symbols.Symbol) *symbols.Symbol {
 	return nil
 }
 
-// constructorArgumentFormal is the feature of the instantiated type a
-// constructor's argument feature param stands for: the one its name binds in
-// the named form (`new T(x = 1)`), the one at its position among the type's
-// public features in the positional form (KerML 8.3.4.8.3). named reports the
-// named form; formal is nil when param is no constructor argument or the
-// feature does not resolve.
+// constructorArgumentFormal is the instantiated type's feature a constructor argument param stands for:
+// by name (`new T(x = 1)`, named true) or by position (KerML 8.3.4.8.3); nil when none resolves.
 func (m *Model) constructorArgumentFormal(param *symbols.Symbol) (formal *symbols.Symbol, named bool) {
 	if m == nil || param == nil || param.Expr == nil || param.Expr.Role != symbols.ExpressionParameter {
 		return nil, false

@@ -19,9 +19,8 @@ type transitionParts struct {
 	receiver      *symbols.Symbol
 	receiverValue *symbols.Symbol
 	guard         *symbols.Symbol
-	// succession is the SuccessionAsUsage the `then` clause owns (SysML.xtext
-	// TransitionSuccessionMember), sourceEnd its empty source end and targetEnd the
-	// end referring to the target, as the conversion writes them.
+	// succession is the SuccessionAsUsage the `then` clause owns (SysML.xtext TransitionSuccessionMember),
+	// sourceEnd its empty source end and targetEnd the end referring to the target.
 	succession *symbols.Symbol
 	sourceEnd  *symbols.Symbol
 	targetEnd  *symbols.Symbol
@@ -29,14 +28,12 @@ type transitionParts struct {
 	// transition owns (SysML.xtext TransitionSourceMember); nil for a chain.
 	sourceMember *symbols.Symbol
 	source       *ast.QualifiedName
-	// sourceChain is the chain Feature a dotted `first a.b` denotes, which the
-	// transition owns through sourceChainMembership, an OwningMembership, as the
-	// conversion writes it (transitionSourceMember); nil for a plain name.
+	// sourceChain is the chain Feature a dotted `first a.b` denotes, owned through sourceChainMembership
+	// as the conversion writes it (transitionSourceMember); nil for a plain name.
 	sourceChain           *symbols.Symbol
 	sourceChainMembership *symbols.Symbol
-	// linkParameter and triggerParameter are the implied `in` parameters a transition
-	// owns ahead of its trigger (SysML v2 §8.3.16.15; SysML-textual-bnf EmptyParameterMember),
-	// the second only where a trigger declares a payload.
+	// linkParameter and triggerParameter are the implied `in` parameters a transition owns ahead of
+	// its trigger (SysML v2 §8.3.16.15), the second only where a trigger declares a payload.
 	linkParameter    *symbols.Symbol
 	triggerParameter *symbols.Symbol
 }
@@ -146,9 +143,8 @@ func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
 	return parts
 }
 
-// withSuccession synthesizes the succession the transition trans owns for `then target`
-// (SysML.xtext TransitionSuccession): an empty source end and an end referring to the
-// target, each an end feature the succession owns, resolved where the transition is written.
+// withSuccession synthesizes the succession trans owns for `then target` (SysML.xtext TransitionSuccession):
+// an empty source end and an end referring to the target, resolved where the transition is written.
 func (p *transitionParts) withSuccession(trans *symbols.Symbol, target *ast.QualifiedName) {
 	if target == nil {
 		return
@@ -342,10 +338,8 @@ func (m *Model) acceptParts(sym *symbols.Symbol) *transitionParts {
 	return nil
 }
 
-// acceptActionParts are the parts of the accept action usage sym written with `via p`
-// (`action a accept x : T via p;`): its receiver parameter, valued by the
-// FeatureReferenceExpression to p, as the conversion writes them (acceptReceiver);
-// nil for any other symbol.
+// acceptActionParts are the parts of an accept action written with `via p`: its receiver parameter,
+// valued by the FeatureReferenceExpression to p, as the conversion writes them (acceptReceiver); nil otherwise.
 func (m *Model) acceptActionParts(sym *symbols.Symbol) *transitionParts {
 	if m == nil || sym == nil || sym.Expr != nil || sym.Implicit != nil || sym.Recorded() {
 		return nil
@@ -452,11 +446,8 @@ func (m *Model) isRecordedTriggerPayload(trans, member *symbols.Symbol) bool {
 	return parts != nil && parts.accepter != nil && parts.payload != nil && parts.payload.Decl == member.Decl
 }
 
-// edgeEndsOf synthesizes the two ends a `then target` succession written in a body
-// owns (SysML.xtext TargetSuccession): an empty source end carrying the source
-// multiplicity and an end referring to the target, as the conversion writes them
-// (encodeSuccessionEdge) when the source is implied by position rather than named
-// ahead of the succession.
+// edgeEndsOf synthesizes the two ends a body's `then target` succession owns (SysML.xtext TargetSuccession):
+// an empty source end with the source multiplicity and an end referring to the target (encodeSuccessionEdge).
 func (m *Model) edgeEndsOf(sym *symbols.Symbol, edge *ast.SuccessionEdge) []*symbols.Symbol {
 	if cached, ok := m.edgeEnds[sym]; ok {
 		return cached
@@ -500,10 +491,8 @@ func (m *Model) edgeEndsOf(sym *symbols.Symbol, edge *ast.SuccessionEdge) []*sym
 	return ends
 }
 
-// initialEndsOf synthesizes the two ends a `first a then b;` succession written in a
-// body owns (SysML.xtext SourceSuccessionMember): an end referring to each named
-// member, the target's carrying the written multiplicity, as the conversion writes
-// them (encodeInitialSuccession).
+// initialEndsOf synthesizes the two ends a body's `first a then b;` succession owns (SysML.xtext
+// SourceSuccessionMember): one referring to each member, the target's with the multiplicity (encodeInitialSuccession).
 func (m *Model) initialEndsOf(sym *symbols.Symbol, node *ast.InitialNode) []*symbols.Symbol {
 	if cached, ok := m.edgeEnds[sym]; ok {
 		return cached
@@ -554,9 +543,8 @@ func nameHasChain(name *ast.QualifiedName) bool {
 	return false
 }
 
-// withSourceChain gives the transition trans the chain Feature its dotted `first
-// a.b` denotes (SysML.xtext TransitionSourceMember, a feature chain) and the
-// OwningMembership it owns the chain through (KerML 8.3.3.3.9).
+// withSourceChain gives trans the chain Feature its dotted `first a.b` denotes (SysML.xtext
+// TransitionSourceMember) and the OwningMembership it owns the chain through (KerML 8.3.3.3.9).
 func (p *transitionParts) withSourceChain(trans *symbols.Symbol, source *ast.QualifiedName) {
 	node := chainNode(dottedTargetChain(source))
 	if node == nil {

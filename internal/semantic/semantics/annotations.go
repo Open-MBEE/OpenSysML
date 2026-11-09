@@ -1263,9 +1263,8 @@ func IsFlowFeature(sym *symbols.Symbol) bool {
 	return last == decl
 }
 
-// FlowEndReference is the node a flow's `from`/`to` end reference-subsets: the
-// prefix of the name a flow end states (its flow feature redefines the rest),
-// the whole name for a message end; nil when the end references nothing.
+// FlowEndReference is the node a flow's `from`/`to` end reference-subsets: a flow end's name prefix
+// (its flow feature redefines the rest), a message end's whole name; nil when it references nothing.
 func FlowEndReference(end *symbols.Symbol) ast.Node {
 	usage, ok := flowEndOwner(end)
 	if !ok {
@@ -2068,10 +2067,8 @@ func (m *Model) reflectiveFeatureTypes(sym *symbols.Symbol) []*symbols.Symbol {
 	return m.FeatureTypeSetWithImplied(sym)
 }
 
-// annotationMetadataType is the one type of a metadata feature written as an
-// annotation (`#M part p`, `@M { … }`): the metadata definition it names
-// (SysML 8.3.19.3; KerML.xtext PrefixMetadataAnnotation, AnnotatingMember),
-// nil while that does not resolve. annotation is false for any other symbol.
+// annotationMetadataType is the type of a metadata feature written as an annotation (`#M part p`,
+// `@M { … }`): the definition it names (SysML 8.3.19.3), nil unresolved; annotation is false otherwise.
 func (m *Model) annotationMetadataType(sym *symbols.Symbol) (typ *symbols.Symbol, annotation bool) {
 	if sym.Recorded() && sym.Facts.Node == symbols.NodePrefixMetadata {
 		return m.recordedElement(sym.Facts.MetadataType), true

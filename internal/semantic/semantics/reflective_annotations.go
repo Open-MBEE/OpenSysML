@@ -6,13 +6,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// OwnedAnnotations returns the Annotations sym owns as their annotated element
-// (KerML 8.3.2.1 Element::ownedAnnotation), each owning its annotating element:
-// one per `#M` prefix metadata feature of a relationship, and one per annotating
-// element in a relationship body (KerML 8.2.3.3.1 OwnedAnnotation). A namespace
-// owns its prefix metadata and the annotating elements of its body through
-// memberships, and they annotate it through no Annotation (8.3.2.3.2
-// deriveAnnotatingElementAnnotatedElement).
+// OwnedAnnotations returns the Annotations sym owns as their annotated element (KerML 8.3.2.1), one per
+// prefix metadata feature or body annotating element of a relationship; a namespace owns those through memberships.
 func (m *Model) OwnedAnnotations(sym *symbols.Symbol) []*symbols.Symbol {
 	if m == nil || sym == nil || sym.Implicit != nil {
 		return nil

@@ -510,12 +510,8 @@ func buildConnectorEnds(scope *Scope, u *ast.Usage) {
 	if u.FlowEnds == nil {
 		return
 	}
-	// A flow's `from` and `to` ends are end features of the flow as a connect
-	// clause's are (SysML v2 §7.21.2 FlowEnd; a message's are its event ends),
-	// anonymous, each declared by the node naming what it attaches to. A flow
-	// end references the prefix of that name and owns a flow feature, declared
-	// by the last segment, which redefines the feature it names (SysML.xtext
-	// FlowEnd, FlowFeature); a message end references the event it names whole.
+	// A flow's `from`/`to` ends are anonymous end features (SysML v2 §7.21.2 FlowEnd): each references its
+	// name's prefix and owns a flow feature redefining the last segment; a message end references the whole event.
 	for _, end := range []ast.Node{u.FlowEnds.From, u.FlowEnds.To} {
 		if end == nil {
 			continue
@@ -536,10 +532,8 @@ func buildConnectorEnds(scope *Scope, u *ast.Usage) {
 	}
 }
 
-// buildImpliedPayload registers the payload feature a flow's `of` clause states
-// without declaring one (`of T`), an unnamed member of the flow typed by the
-// clause (SysML-textual-bnf PayloadFeature); a declared payload (`of p : T`)
-// is a body member already.
+// buildImpliedPayload registers the unnamed payload feature a flow's `of T` clause implies (SysML-textual-bnf
+// PayloadFeature), typed by the clause; a declared payload (`of p : T`) is a body member already.
 func buildImpliedPayload(scope *Scope, u *ast.Usage) {
 	payload := u.FlowEnds.ImpliedPayload()
 	if payload == nil {

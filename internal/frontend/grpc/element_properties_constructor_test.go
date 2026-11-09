@@ -2,10 +2,8 @@ package grpc
 
 import "testing"
 
-// A constructor owns only its result, which owns one `in` feature per argument
-// named after the instantiated type's feature it values; a named argument's
-// feature redefines that feature, and argument lists the values in the type's
-// declared feature order (KerML 8.3.4.8.3).
+// A constructor owns only its result, which owns one `in` feature per argument named after the type's
+// feature it values (a named one redefining it); argument follows declared feature order (KerML 8.3.4.8.3).
 func TestGetElementPropertiesShapesAConstructorExpression(t *testing.T) {
 	r := parseForElementProperties(t, `package P {
 		private import ScalarValues::*;

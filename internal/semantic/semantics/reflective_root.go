@@ -5,10 +5,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// RootNamespace is the unnamed, unowned Namespace a document's text is (KerML
-// 8.2.3.2 / KerML.xtext RootNamespace), reflected once per document: it owns the
-// document's top-level elements through OwningMemberships, as the pilot
-// serializes a document. Nil for a document the index does not hold.
+// RootNamespace is the unnamed, unowned Namespace a document's text is (KerML 8.2.3.2), reflected once
+// per document, owning its top-level elements through OwningMemberships; nil for a document not indexed.
 func (m *Model) RootNamespace(doc string) *symbols.Symbol {
 	if m == nil || m.resolver == nil || m.resolver.Index() == nil {
 		return nil

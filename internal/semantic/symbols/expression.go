@@ -45,15 +45,12 @@ const (
 	// ExpressionOperand is an expression an action node statement writes at a slot of its own
 	// (the `if` condition, an assignment's target and value, `send` payload and receiver, ...).
 	ExpressionOperand
-	// ExpressionTransitionSuccession is the succession a transition owns for its
-	// `then` clause (SysML.xtext TransitionSuccessionMember), and
-	// ExpressionConnectorEnd an end of that succession, Index 0 its empty source end
-	// and 1 the end referring to the target.
+	// ExpressionTransitionSuccession is the succession a transition's `then` clause owns (SysML.xtext
+	// TransitionSuccessionMember); ExpressionConnectorEnd its ends, Index 0 the empty source, 1 the target.
 	ExpressionTransitionSuccession
 	ExpressionConnectorEnd
-	// ExpressionTransitionParameter is an implied parameter of a transition (SysML v2
-	// §8.3.16.15 checkTransitionUsageParameters): Slot "linkparam" for the
-	// transitionLinkSource parameter, "triggerparam" for the trigger payload's.
+	// ExpressionTransitionParameter is an implied transition parameter (SysML v2 §8.3.16.15): Slot
+	// "linkparam" for the transitionLinkSource parameter, "triggerparam" for the trigger payload's.
 	ExpressionTransitionParameter
 	// ExpressionBound is a bound of a written MultiplicityRange, owned by the
 	// range through an OwningMembership: Slot "lowerBound" or "upperBound".

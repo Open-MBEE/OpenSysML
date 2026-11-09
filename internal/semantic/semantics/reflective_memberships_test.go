@@ -189,8 +189,7 @@ func TestOwnedAnnotationsAndAnnotatingElements(t *testing.T) {
 		dep := relFixtureSymbol(t, fixture, "Dep")
 		c := relFixtureSymbol(t, fixture, "C")
 		// D owns its #Tag prefix through an OwningMembership, not an Annotation (SysML.xtext
-		// PrefixMetadataMember): the prefix annotates D as its owning namespace (KerML
-		// 8.3.2.3.2 deriveAnnotatingElementAnnotatedElement).
+		// PrefixMetadataMember): the prefix annotates its owning namespace (KerML 8.3.2.3.2).
 		if owned := model.OwnedAnnotations(d); len(owned) != 0 {
 			t.Fatalf("D owns %d annotations, want none", len(owned))
 		}
@@ -604,9 +603,8 @@ package B { private import A::X; private import A::Y; }`
 	}
 }
 
-// TestRootLevelMembershipImport pins `import X;` of a root-level package: the
-// imported element is X, and the imported membership the one through which the
-// document's RootNamespace owns X.
+// TestRootLevelMembershipImport pins `import X;` of a root-level package: the imported element is
+// X and the imported membership the one its document's RootNamespace owns X through.
 func TestRootLevelMembershipImport(t *testing.T) {
 	const src = `package X; package P { private import X; }`
 	for _, fixture := range reflectiveFixtures(t, "root-import.sysml", source.KindSysML, src) {
