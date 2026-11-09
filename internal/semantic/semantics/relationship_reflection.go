@@ -83,11 +83,8 @@ func (m *Model) chainTargetFeature(rel *symbols.Symbol) *symbols.Symbol {
 	if cached, ok := m.chainTargets[rel]; ok {
 		return cached
 	}
-	// A chain that resolves to nothing denotes no feature: the relationship's
-	// target side stays underived, as it does for an unresolved name.
-	if len(m.chainPath(owner, rel.Implicit.Kind, node, facts)) == 0 {
-		return nil
-	}
+	// The chain feature is written whether or not its segments resolve (KerML
+	// 8.3.3.3.9); one that resolves to nothing chains no feature.
 	scope := owner.Scope
 	if scope == nil {
 		// A leaf declares no scope of its own; its chain feature still needs
@@ -118,24 +115,30 @@ func (m *Model) chainTargetFeature(rel *symbols.Symbol) *symbols.Symbol {
 // sym is. Nil when target is a name or a feature of the chain resolves to nothing.
 func (m *Model) ChainTargetPath(sym *symbols.Symbol, kind ast.RelationshipKind, target ast.Node) []*symbols.Symbol {
 	chain := chainNode(target)
-	if chain == nil {
+	if chain == nil || m.resolver == nil {
 		return nil
 	}
-	if m.resolver == nil {
-		return nil
-	}
+	return chainPath(chain, m.chainTargetResolver(sym, kind))
+}
+
+// chainTargetResolver resolves one prefix of the chain target of a relationship of
+// kind owned by sym, in the scope that relationship reads its target in.
+func (m *Model) chainTargetResolver(sym *symbols.Symbol, kind ast.RelationshipKind) func(ast.Node) (*symbols.Symbol, bool) {
 	_, isEnd := sym.Decl.(*ast.ConnectorEnd)
+	scope := sym.OwnerScope
 	switch {
 	case kind == ast.RelRedefines:
 		// A redefinition's chain starts at a feature the owner inherits, not
 		// at a member of its own that shadows the name (KerML 8.3.3.3.6).
-		return chainPath(chain, func(prefix ast.Node) (*symbols.Symbol, bool) {
+		return func(prefix ast.Node) (*symbols.Symbol, bool) {
 			return m.resolver.ResolveRedefinitionTarget(sym.OwnerScope, sym.Decl, prefix)
-		})
+		}
 	case isEnd && kind.ReferenceSubsets():
-		return m.attachmentPath(referenceScope(sym), chain)
+		scope = referenceScope(sym)
 	}
-	return m.attachmentPath(sym.OwnerScope, chain)
+	return func(prefix ast.Node) (*symbols.Symbol, bool) {
+		return m.resolver.ResolveTarget(scope, prefix)
+	}
 }
 
 // chainPath is the resolved path of a relationship's chain target, from the
@@ -152,19 +155,23 @@ func (m *Model) chainPath(owner *symbols.Symbol, kind ast.RelationshipKind, node
 }
 
 // chainingFeaturesOf is Feature::chainingFeature of sym: for the feature a
-// relationship's chain target (`s.y`) denotes as a whole, the features the
-// chain is written as, in order; empty for any other feature.
+// relationship's chain target (`s.y`) denotes as a whole, the features the chain is
+// written as, in order, up to the first that resolves to nothing (KerML 8.3.3.3.4);
+// empty for any other feature.
 func (m *Model) chainingFeaturesOf(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym.Chain == nil {
 		return nil
 	}
 	rel := sym.Chain.Relationship
-	var facts symbols.RelationshipFacts
-	if sym.Chain.Node == nil {
-		var ok bool
-		if facts, ok = recordedRelationship(rel); !ok {
+	if sym.Chain.Node != nil {
+		if m.resolver == nil {
 			return nil
 		}
+		return chainPrefix(sym.Chain.Node, m.chainTargetResolver(rel.Implicit.Owner, rel.Implicit.Kind))
 	}
-	return m.chainPath(rel.Implicit.Owner, rel.Implicit.Kind, sym.Chain.Node, facts)
+	facts, ok := recordedRelationship(rel)
+	if !ok {
+		return nil
+	}
+	return m.chainPath(rel.Implicit.Owner, rel.Implicit.Kind, nil, facts)
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // symbolAspectPrefix marks an element handle a SymbolStructure hands out; the
@@ -56,6 +57,7 @@ type symbolKey struct {
 	implicit symbols.ImplicitRelationship
 	expr     symbols.ExpressionElement
 	node     ast.Node
+	span     source.Span
 	chain    *symbols.ChainingFeature
 	sym      *symbols.Symbol
 	kind     symbols.SymbolKind
@@ -102,7 +104,9 @@ func keyOf(sym *symbols.Symbol) symbolKey {
 	case sym.Expr != nil:
 		return symbolKey{expr: *sym.Expr, form: 2}
 	case sym.Decl != nil:
-		return symbolKey{node: sym.Decl, chain: sym.Chain, kind: sym.Kind, form: 3}
+		// A body's parameters (`{ in a; in b; … }`) are declared against the one
+		// body node: the span tells them apart.
+		return symbolKey{node: sym.Decl, span: sym.DeclSpan, chain: sym.Chain, kind: sym.Kind, form: 3}
 	}
 	return symbolKey{sym: sym, form: 4}
 }

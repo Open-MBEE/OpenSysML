@@ -5,9 +5,6 @@
 # TestElementPropertiesAgreeWithTheAPIJSONExport fails on a row not here, on a count
 # above the one here, on a row here the run no longer produces, and on a ? key; a count
 # that fell is re-recorded with -update-agreement-ratchet.
-AcceptActionUsage::payloadArgument	11	export-27
-AcceptActionUsage::payloadParameter	26	export-27
-AcceptActionUsage::receiverArgument	10	export-27
 AttributeUsage::attributeDefinition	74	symbol-43
 AttributeUsage::definition	126	symbol-44
 AttributeUsage::directedUsage	10	symbol-43
@@ -43,8 +40,6 @@ MetadataUsage::nestedAttribute	1	symbol-43
 MetadataUsage::nestedReference	2	symbol-43
 MetadataUsage::nestedUsage	3	symbol-43
 MetadataUsage::portionKind	10	symbol-43
-NamespaceExpose::importedNamespace	13	export-27
-NamespaceImport::importedNamespace	6	export-27
 ReferenceSubsetting::referencedFeature	8	export-27
 ReferenceSubsetting::referencingFeature	9	export-27
 ReferenceUsage::definition	39	symbol-44

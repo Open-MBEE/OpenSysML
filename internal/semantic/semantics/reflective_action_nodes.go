@@ -21,15 +21,31 @@ func (m *Model) statementNodes(sym *symbols.Symbol) []*symbols.Symbol {
 		lookup = sym.OwnerScope
 	}
 	var out []*symbols.Symbol
-	for _, member := range statementBodyOf(sym.Decl) {
+	body := statementBodyOf(sym.Decl)
+	if statement := nodeStatementOf(sym.Decl); statement != nil {
+		// A node written as its statement (`action a if c … else …`, `action a
+		// while c { … }`) owns the statement's branches and body as its own.
+		body = statementBodyOf(statement)
+		if lookup != nil {
+			if child := lookup.ChildFor(statement); child != nil {
+				lookup = child
+				if m.statementScopes == nil {
+					m.statementOwners = make(map[*symbols.Symbol]*symbols.Symbol)
+					m.statementScopes = make(map[*symbols.Scope]*symbols.Symbol)
+				}
+				m.statementScopes[child] = sym
+			}
+		}
+	}
+	for _, member := range body {
 		if wrapper, ok := member.(*ast.Membership); ok {
 			member = wrapper.Member
 		}
-		if !IsStatementNode(member) || nodeStatementOf(sym.Decl) == member {
+		if !IsStatementNode(member) {
 			continue
 		}
 		kind := symbols.SymbolActionUsage
-		if _, ok := member.(*ast.SuccessionEdge); ok {
+		if isBodySuccessionNode(member) {
 			kind = symbols.SymbolSuccessionUsage
 		}
 		node := &symbols.Symbol{
@@ -115,6 +131,10 @@ func IsStatementNode(node ast.Node) bool {
 		// A bodiless `then target` is a SuccessionAsUsage of the body (SysML.xtext
 		// TargetSuccession); one with a body is a symbol the builder declares.
 		return len(node.Members) == 0
+	case *ast.InitialNode:
+		// A bodiless `first a then b;` is a SuccessionAsUsage of the body (SysML.xtext
+		// SourceSuccessionMember); `first a;` is the body's start marker, a Membership.
+		return node.Successor != nil && len(node.Members) == 0
 	case *ast.IfActionNode, *ast.IfBranchNode, *ast.WhileLoopActionNode, *ast.AssignmentActionNode,
 		*ast.TerminateStatement, *ast.PerformActionNode, *ast.ActionExecutionNode:
 		return true
@@ -131,9 +151,9 @@ func IsStatementNode(node ast.Node) bool {
 func statementBodyOf(decl ast.Node) []ast.Node {
 	switch d := decl.(type) {
 	case *ast.Usage:
-		return d.Members
+		return withSubactionActions(d.Members)
 	case *ast.Definition:
-		return d.Members
+		return withSubactionActions(d.Members)
 	case *ast.IfActionNode:
 		out := make([]ast.Node, 0, 2)
 		for _, branch := range d.Branches() {
@@ -181,18 +201,20 @@ func (m *Model) statementOperands(sym *symbols.Symbol) []*symbols.Symbol {
 	case *ast.IfActionNode:
 		add("condition", d.Condition)
 	case *ast.WhileLoopActionNode:
-		if d.Kind == ast.LoopFor {
+		switch d.Kind {
+		case ast.LoopFor:
 			add("collection", d.Collection)
-		} else {
+		case ast.LoopUntil:
+			// `loop { … } until c;` tests its condition after each iteration: it is the
+			// until condition, and the loop has no while condition (encodeLoop).
+			add("untilCondition", d.Condition)
+		default:
 			add("whileCondition", d.Condition)
 			add("untilCondition", d.Until)
 		}
 	case *ast.AssignmentActionNode:
 		add("target", d.Target)
 		add("value", d.Value)
-	case *ast.SendStatement:
-		add("payload", d.Message)
-		add("receiver", d.Target)
 	case *ast.TerminateStatement:
 		add("expression", d.Target)
 	case *ast.PerformActionNode:
@@ -211,22 +233,15 @@ func (m *Model) statementOperands(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// NodeStatementOf is the send or assignment a plain-headed action node is (`action a assign x := y;`,
-// SysML.xtext SendNode/AssignmentNode); nil for any other usage, which keeps the action it declares.
+// NodeStatementOf is the statement a plain-headed action node is written as
+// (`action a assign …`, `action a if …`, `action a while …`, `action a send …`;
+// SysML v2 §8.2.2.17 ActionNode): the rule the conversion reads (naming.NodeStatement).
 func NodeStatementOf(n *ast.Usage) ast.Node {
-	if n == nil || n.Kind != ast.UsageAction || !n.IsActionNode || len(n.Members) != 1 || !PlainNodeHead(n) {
+	if n == nil || !PlainNodeHead(n) {
 		return nil
 	}
-	statement := n.Members[0]
-	if m, ok := statement.(*ast.Membership); ok {
-		statement = m.Member
-	}
-	switch s := statement.(type) {
-	case *ast.SendStatement:
-		if !s.HasBody {
-			return s
-		}
-	case *ast.AssignmentActionNode:
+	switch s := symbols.ActionNodeStatementOf(n).(type) {
+	case *ast.SendStatement, *ast.AssignmentActionNode, *ast.IfActionNode, *ast.WhileLoopActionNode:
 		return s
 	}
 	return nil
@@ -248,4 +263,16 @@ func nodeStatementOf(decl ast.Node) ast.Node {
 		return NodeStatementOf(u)
 	}
 	return nil
+}
+
+// isBodySuccessionNode reports whether node is a succession written as a statement
+// of a body: `then b;` or `first a then b;`.
+func isBodySuccessionNode(node ast.Node) bool {
+	switch node := node.(type) {
+	case *ast.SuccessionEdge:
+		return true
+	case *ast.InitialNode:
+		return node.Successor != nil
+	}
+	return false
 }

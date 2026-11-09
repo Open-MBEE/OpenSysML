@@ -12,7 +12,7 @@ import (
 
 // kindMappingDigest pins the declaration-kind → SymbolKind mapping, which the
 // on-disk library index persists and must be invalidated for when it changes.
-const kindMappingDigest = "187de3b0c0e04e1e"
+const kindMappingDigest = "97f47fda5699409a"
 
 func TestSymbolKindMappingIsPinnedToTheIndexFormatVersion(t *testing.T) {
 	var b strings.Builder

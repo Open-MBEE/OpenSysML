@@ -26,7 +26,8 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	if cached, ok := m.memberships[sym]; ok {
 		return cached
 	}
-	if bounds := m.MultiplicityBounds(sym); bounds != nil {
+	bounds := m.MultiplicityBounds(sym)
+	if bounds != nil && sym.Scope == nil {
 		// A written range owns its bounds (KerML 8.3.3.6 MultiplicityRange).
 		journal(m, m.memberships, sym, sym.Decl)
 		var out []*symbols.Symbol
@@ -48,6 +49,11 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	var out []*symbols.Symbol
 	seen := make(map[*symbols.Symbol]bool)
 	ordinal := 0
+	for _, bound := range bounds {
+		// A multiplicity declaration owns its bounds ahead of its body (KerML 8.3.3.6).
+		out = appendOwningMembership(out, sym, bound)
+		ordinal++
+	}
 	for _, end := range ends {
 		// A `then` succession owns its ends ahead of its body (encodeSuccessionEdge).
 		out = appendOwningMembership(out, sym, end)
@@ -68,7 +74,22 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		})
 		ordinal++
 	}
-	if sym.Scope == nil && len(statements) == 0 && len(parts) == 0 && bodyParts == 0 {
+	for _, param := range m.sendParameters(sym) {
+		// A send action owns its payload, sender and receiver parameters ahead of
+		// its body (SysML.xtext SendNode, NodeParameterMember).
+		out = append(out, &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    sym.DocName,
+			DeclSpan:   param.DeclSpan,
+			Visibility: sym.Visibility,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: param,
+			},
+		})
+		ordinal++
+	}
+	emptySubactions := m.emptySubactionMemberships(sym)
+	if sym.Scope == nil && len(statements) == 0 && len(parts) == 0 && bodyParts == 0 && len(emptySubactions) == 0 {
 		out = m.withDefaultMultiplicity(sym, out, ordinal)
 		m.memberships[sym] = out
 		return out
@@ -87,6 +108,7 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 			},
 		})
 	}
+	statementMemberships = append(statementMemberships, emptySubactions...)
 	if sym.Scope == nil {
 		out = mergeMemberships(out, statementMemberships)
 		if len(parts) > 0 {
@@ -97,7 +119,35 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		m.memberships[sym] = out
 		return out
 	}
-	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
+	if !relationshipBodyOwner(sym) {
+		// A namespace owns its `#M` prefixes through OwningMemberships written
+		// before its body's (SysML.xtext PrefixMetadataMember).
+		for _, prefix := range m.prefixMetadataSymbols(sym) {
+			if seen[prefix] {
+				continue
+			}
+			seen[prefix] = true
+			out = append(out, &symbols.Symbol{
+				Kind:       symbols.SymbolRelationship,
+				DocName:    sym.DocName,
+				DeclSpan:   prefix.DeclSpan,
+				Visibility: prefix.Visibility,
+				Implicit: &symbols.ImplicitRelationship{
+					Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: prefix,
+				},
+			})
+			ordinal++
+		}
+	}
+	scope := sym.Scope
+	if statement := nodeStatementOf(sym.Decl); statement != nil {
+		// A node written as its statement (`action a while c { … }`) owns the
+		// members its statement's body declares.
+		if child := scope.ChildFor(statement); child != nil {
+			scope = child
+		}
+	}
+	scope.ForEachMember(func(member *symbols.Symbol) bool {
 		if member.Decl == sym.Decl && IsStatementNode(sym.Decl) {
 			// A `for` variable is a body-local name, not an element the
 			// conversion writes (sysx:loopVariable is a string).
@@ -146,6 +196,11 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	out = mergeMemberships(out, statementMemberships)
 	if len(parts) > 0 {
 		out = m.withTransitionMemberships(sym, out, parts)
+	}
+	if accept := m.acceptActionParts(sym); accept != nil {
+		// An accept action owns its `via` receiver parameter after its body's members (acceptReceiver).
+		accept.receiver.Expr.Index = len(out)
+		out = appendOwningMembership(out, sym, accept.receiver)
 	}
 	out = m.withBodyPartMemberships(sym, out)
 	out = m.withDefaultMultiplicity(sym, out, len(out))
@@ -210,7 +265,10 @@ func (m *Model) withDefaultMultiplicity(sym *symbols.Symbol, memberships []*symb
 // among its scope's, in the source order the conversion writes them.
 func (m *Model) withTransitionMemberships(sym *symbols.Symbol, out, parts []*symbols.Symbol) []*symbols.Symbol {
 	var extra []*symbols.Symbol
-	if tp := m.transitionPartsOf(sym); tp != nil && tp.sourceMember != nil {
+	if tp := m.transitionPartsOf(sym); tp != nil && tp.sourceChainMembership != nil {
+		// `first a.b` is a chain Feature the transition owns (transitionSourceMember).
+		extra = append(extra, tp.sourceChainMembership)
+	} else if tp != nil && tp.sourceMember != nil {
 		// `first source` is a Membership of the source state (transitionSourceMember).
 		extra = append(extra, &symbols.Symbol{
 			Kind:       symbols.SymbolRelationship,
@@ -247,13 +305,15 @@ func isSatisfySubjectSymbol(sym *symbols.Symbol) bool {
 }
 
 // ownedThroughAnnotation reports whether owner owns member through an
-// Annotation rather than a Membership: a `#M` prefix metadata feature, or an
-// annotating element in the body of a relationship or alias (KerML 8.2.3.3.1).
+// Annotation rather than a Membership: an annotating element, a `#M` prefix
+// metadata feature included, in the body of a relationship or alias (KerML
+// 8.2.3.3.1, KerML.xtext PrefixMetadataAnnotation). A namespace owns its
+// prefix metadata through an OwningMembership (KerML.xtext PrefixMetadataMember).
 func ownedThroughAnnotation(owner, member *symbols.Symbol) bool {
-	if isPrefixMetadataSymbol(member) {
-		return true
+	if !relationshipBodyOwner(owner) {
+		return false
 	}
-	return relationshipBodyOwner(owner) && isAnnotatingSymbol(member) && !symbols.AnnotatesOthers(member.Decl)
+	return isPrefixMetadataSymbol(member) || isAnnotatingSymbol(member) && !symbols.AnnotatesOthers(member.Decl)
 }
 
 // isPrefixMetadataSymbol reports whether sym is the metadata feature a `#M`
@@ -265,11 +325,24 @@ func isPrefixMetadataSymbol(sym *symbols.Symbol) bool {
 // prefixMetadataSymbols is the metadata feature of each `#M` prefix written on
 // sym, in prefix order: the members the builder registered for them.
 func (m *Model) prefixMetadataSymbols(sym *symbols.Symbol) []*symbols.Symbol {
-	prefixes, _, ok := ast.DeclaredMetadata(sym.Decl)
-	if !ok || sym.Scope == nil {
+	if sym.Scope == nil {
 		return nil
 	}
 	var out []*symbols.Symbol
+	if sym.Recorded() {
+		// A record marks its prefix metadata members (ModPrefixMetadata).
+		sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
+			if member != nil && member.IsPrefixMetadata() {
+				out = append(out, member)
+			}
+			return true
+		})
+		return out
+	}
+	prefixes, _, ok := ast.DeclaredMetadata(sym.Decl)
+	if !ok {
+		return nil
+	}
 	for _, prefix := range prefixes {
 		if member := sym.Scope.MemberDeclaring(prefix); member != nil {
 			out = append(out, member)
@@ -302,8 +375,8 @@ func relationshipBodyOwner(sym *symbols.Symbol) bool {
 
 // OwningMembership returns the Membership through which sym's owner owns it, or
 // nil for an element owned through no membership: a root element, an alias or
-// other relationship owned directly, a prefix metadata feature, or a reflected
-// relationship object.
+// other relationship owned directly, a relationship's prefix metadata feature,
+// or a reflected relationship object.
 func (m *Model) OwningMembership(sym *symbols.Symbol) *symbols.Symbol {
 	if m == nil || sym == nil || sym.Implicit != nil || sym.Chain != nil || sym.Kind == symbols.SymbolAlias {
 		return nil
@@ -336,6 +409,9 @@ func (m *Model) OwningRelationship(sym *symbols.Symbol) *symbols.Symbol {
 	if sym.Chain != nil {
 		return sym.Chain.Relationship
 	}
+	if imp := m.FilterPackageImport(sym); imp != nil {
+		return imp
+	}
 	if membership := m.OwningMembership(sym); membership != nil {
 		return membership
 	}
@@ -345,7 +421,13 @@ func (m *Model) OwningRelationship(sym *symbols.Symbol) *symbols.Symbol {
 // OwnedImports returns the Import objects the namespace sym declares, in
 // declaration order (KerML 8.3.2.5 Namespace::ownedImport).
 func (m *Model) OwnedImports(sym *symbols.Symbol) []*symbols.Symbol {
-	if m == nil || sym == nil || sym.Implicit != nil || sym.Scope == nil {
+	if m == nil || sym == nil || sym.Implicit != nil {
+		return nil
+	}
+	if IsFilterPackage(sym) {
+		return []*symbols.Symbol{m.filterPackagePartsOf(sym).inner}
+	}
+	if sym.Scope == nil {
 		return nil
 	}
 	defer m.own(sym).LeaveDoc()
@@ -425,12 +507,22 @@ func (m *Model) implicitOwnedRelationships(sym *symbols.Symbol) []*symbols.Symbo
 // owner owns member: a FeatureMembership for a feature of a type, narrowed to
 // the SysML membership the member's declaration implies (SysML 8.3), else an
 // OwningMembership.
+// MembershipMetaclassOf is the metaclass of the membership through which owner
+// owns, or inherits, member: ParameterMembership for a parameter, and so on.
+func (m *Model) MembershipMetaclassOf(owner, member *symbols.Symbol) string {
+	return m.membershipMetaclassName(owner, member)
+}
+
 func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 	if isValueExpressionSymbol(member) {
 		return "FeatureValue"
 	}
 	if IsImpliedMultiplicity(member) {
 		// A type owns its multiplicity through an OwningMembership (KerML 8.3.3.1.10 Type::multiplicity).
+		return "OwningMembership"
+	}
+	if member != nil && member.Chain != nil {
+		// A chain Feature is owned through an OwningMembership (KerML 8.3.3.3.9).
 		return "OwningMembership"
 	}
 	if member != nil && member.Expr != nil {
@@ -465,8 +557,17 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 			return "OwningMembership"
 		}
 	}
+	if _, _, ok := subactionOf(owner.Decl, member.Decl); ok {
+		// `entry assign x := 1;` performs a statement through a StateSubactionMembership.
+		return "StateSubactionMembership"
+	}
 	if _, ok := m.transitionFeatureKind(owner, member); ok {
 		return "TransitionFeatureMembership"
+	}
+	if member.Kind == symbols.SymbolMetadataUsage {
+		// A namespace owns a metadata usage, `#M` prefix or body `@M;`, through an
+		// OwningMembership (SysML.xtext PrefixMetadataMember, AnnotatingMember).
+		return "OwningMembership"
 	}
 	if _, ok := member.Decl.(*ast.IfBranchNode); ok {
 		// A branch of `if` is an ActionUsage parameter the conditional owns
@@ -801,6 +902,10 @@ func (m *Model) membershipValue(sym *symbols.Symbol, feature string) (symbols.Fi
 	case "memberShortName", "ownedMemberShortName":
 		return stringOrEmpty(m.EffectiveShortNameOf(rel.Member)), true
 	case "visibility":
+		if rel.Member == nil {
+			// `entry;` owns no member: its visibility is the membership's own.
+			return m.visibilityValue(sym.Visibility), true
+		}
 		return m.visibilityValue(rel.Member.Visibility), true
 	case "isDefault", "isInitial":
 		if !isValueExpressionSymbol(rel.Member) {
@@ -821,7 +926,7 @@ func (m *Model) membershipValue(sym *symbols.Symbol, feature string) (symbols.Fi
 			return m.enumLiteralValue(m.sysmlMetaclass("RequirementConstraintKind"), kind)
 		}
 		if m.reflectiveMetaclassConforms(sym, "StateSubactionMembership") {
-			return m.enumLiteralValue(m.sysmlMetaclass("StateSubactionKind"), stateSubactionKind(rel.Member))
+			return m.enumLiteralValue(m.sysmlMetaclass("StateSubactionKind"), subactionKindOf(rel))
 		}
 		if kind, ok := m.transitionFeatureKind(rel.Owner, rel.Member); ok {
 			return m.enumLiteralValue(m.sysmlMetaclass("TransitionFeatureKind"), kind)
@@ -831,16 +936,28 @@ func (m *Model) membershipValue(sym *symbols.Symbol, feature string) (symbols.Fi
 }
 
 // stateSubactionKind is the `entry`, `do` or `exit` a state subaction is written with.
-func stateSubactionKind(member *symbols.Symbol) string {
-	u, ok := member.Decl.(*ast.Usage)
-	if !ok {
+func subactionKindOf(rel *symbols.ImplicitRelationship) string {
+	if kind, ok := SubactionKind(rel.Decl); ok {
+		return kind
+	}
+	if rel.Member == nil {
 		return ""
 	}
-	switch u.Keyword {
-	case "entry", "do", "exit":
-		return u.Keyword
+	if u, ok := rel.Member.Decl.(*ast.Usage); ok {
+		switch u.Keyword {
+		case "entry", "do", "exit":
+			return u.Keyword
+		}
+		if u.PrefixKeyword != "" {
+			return u.PrefixKeyword
+		}
 	}
-	return u.PrefixKeyword
+	if rel.Owner != nil {
+		if _, kind, ok := subactionOf(rel.Owner.Decl, rel.Member.Decl); ok {
+			return kind
+		}
+	}
+	return ""
 }
 
 // visibilityValue is the VisibilityKind literal of a declared visibility,
@@ -889,14 +1006,34 @@ func (m *Model) importElements(sym *symbols.Symbol, feature string) ([]*symbols.
 	imp, _ := rel.Decl.(*ast.Import)
 	owner := []*symbols.Symbol{rel.Owner}
 	empty := []*symbols.Symbol{}
+	pkg := m.filterPackageOf(sym)
 	switch feature {
 	case "source", "importOwningNamespace", "owningRelatedElement", "owner":
 		return owner, true
-	case "ownedRelatedElement", "ownedElement", "ownedRelationship", "ownedAnnotation",
+	case "ownedRelatedElement", "ownedElement":
+		if pkg != nil {
+			return []*symbols.Symbol{pkg}, true
+		}
+		return empty, true
+	case "ownedRelationship", "ownedAnnotation",
 		"owningRelationship", "owningMembership", "owningNamespace", "documentation", "textualRepresentation":
 		return empty, true
 	}
-	target := m.importTarget(rel.Owner, imp)
+	if pkg != nil {
+		// An import with a filter imports the filter package it owns (SysML.xtext FilterPackage).
+		switch feature {
+		case "importedElement", "importedNamespace", "target":
+			return []*symbols.Symbol{pkg}, true
+		case "relatedElement":
+			return []*symbols.Symbol{rel.Owner, pkg}, true
+		}
+		return nil, false
+	}
+	namespace := rel.Owner
+	if IsFilterPackage(namespace) {
+		namespace = namespace.Expr.Owner
+	}
+	target := m.importTarget(namespace, imp)
 	if target == nil {
 		return nil, false
 	}
@@ -983,12 +1120,18 @@ func (m *Model) importValue(sym *symbols.Symbol, feature string) (symbols.Filter
 	if imp == nil {
 		return symbols.FilterValue{}, false
 	}
+	// The import a filter package owns is written private and imports as the declaration's
+	// kind does; `expose` and `all` belong to the import of the package (SysML.xtext FilterPackage).
+	inner := IsFilterPackage(sym.Implicit.Owner)
 	switch feature {
 	case "isRecursive":
-		return boolValue(imp.IsRecursive), true
+		return boolValue(imp.IsRecursive && m.filterPackageOf(sym) == nil), true
 	case "isImportAll":
-		return boolValue(imp.IsAll), true
+		return boolValue(imp.IsAll && !inner), true
 	case "visibility":
+		if inner {
+			return m.visibilityValue(ast.VisibilityPrivate), true
+		}
 		return m.visibilityValue(imp.Visibility), true
 	}
 	return symbols.FilterValue{}, false
@@ -1001,8 +1144,8 @@ func (m *Model) importMetaclassName(sym *symbols.Symbol) string {
 	if imp == nil {
 		return ""
 	}
-	expose := imp.IsExpose && !m.isKerMLDoc(sym.Implicit.Owner)
-	if imp.Kind == ast.ImportNamespace {
+	expose := imp.IsExpose && !m.isKerMLDoc(sym.Implicit.Owner) && !IsFilterPackage(sym.Implicit.Owner)
+	if imp.Kind == ast.ImportNamespace || m.filterPackageOf(sym) != nil {
 		if expose {
 			return "NamespaceExpose"
 		}

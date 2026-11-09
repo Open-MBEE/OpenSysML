@@ -24,8 +24,6 @@ export-18	export	SysML 8.3.19.3 MetadataUsage::metadataDefinition is the metadat
 export-19	export	`::>` on a reference or end is a ReferenceSubsetting (SysML 8.3.17.6 ReferenceSubsetting); the structure answers Subsetting
 export-20	export	`::>` on a reference or end is a ReferenceSubsetting (SysML 8.3.17.6 ReferenceSubsetting); the structure answers Subsetting or Conjugation
 export-21	export	`exhibit state` is an ExhibitStateUsage (SysML 8.3.16.9); the structure answers StateUsage
-export-22	export	`expose X::*` is a NamespaceExpose (SysML 8.3.20.6); the structure answers MembershipExpose
-export-23	export	`import X::*` is a NamespaceImport (KerML 8.3.2.4.9); the structure answers MembershipImport
 export-24	export	`include use case` is an IncludeUseCaseUsage (SysML 8.3.26.2); the structure answers UseCaseUsage
 export-25	export	`library package` is a LibraryPackage (KerML 8.3.2.6.3); the structure answers Package
 export-26	export	`perform action` is a PerformActionUsage (SysML 8.3.16.12); the structure answers ActionUsage
@@ -38,22 +36,15 @@ export-32	export	an action node whose body is `terminate` is a TerminateActionUs
 export-33	export	as the conversion writes it for this anonymous usage (succession, flow or binding end, SysML 8.3.17.1 Usage::isReference/isComposite, KerML 8.3.3.3.5 Feature::isVariable); the structure derives it from the usage kind and needs a symbol-side fix
 export-34	export	the form writes a feature chain's first chaining (KerML 8.3.3.3.3 FeatureChaining) (_pfc0); the structure does not resolve its id
 export-35	export	the form writes an annotation element the structure does not reflect (KerML 8.3.2.2 Annotation) (_an); the structure does not resolve its id
-export-36	export	the form writes an element of this metaclass the structure has no symbol for (_efm); the structure does not resolve its id
-export-37	export	the form writes an element of this metaclass the structure has no symbol for (_fp); the structure does not resolve its id
-export-38	export	the form writes an element of this metaclass the structure has no symbol for (_im); the structure does not resolve its id
 export-39	export	the form writes an element of this metaclass the structure has no symbol for (_ns); the structure does not resolve its id
-export-40	export	the form writes an element of this metaclass the structure has no symbol for (_pa1); the structure does not resolve its id
-export-41	export	the form writes an element of this metaclass the structure has no symbol for (_pc); the structure does not resolve its id
 export-42	export	the form writes an element of this metaclass the structure has no symbol for (_pfilter); the structure does not resolve its id
 export-43	export	the form writes an element of this metaclass the structure has no symbol for (_pguard); the structure does not resolve its id
 export-44	export	the form writes an element of this metaclass the structure has no symbol for (_prs); the structure does not resolve its id
 export-45	export	the form writes an element of this metaclass the structure has no symbol for (_ptarget); the structure does not resolve its id
-export-46	export	the form writes an element of this metaclass the structure has no symbol for (_pvalue); the structure does not resolve its id
 export-47	export	the form writes an element of this metaclass the structure has no symbol for (_sc0); the structure does not resolve its id
 export-48	export	the form writes an element of this metaclass the structure has no symbol for (_ss0); the structure does not resolve its id
 export-49	export	the form writes an element of this metaclass the structure has no symbol for (id); the structure does not resolve its id
 export-50	export	the form writes the OwningMembership of an element the structure has no symbol for (_om); the structure does not resolve its id
-export-51	export	the form writes the multiplicity of a connector end (KerML 8.3.4.11 Multiplicity; 8.3.3.3.5 Feature::multiplicity) (_pmultiplicity); the structure does not resolve its id
 export-52	export	the form writes the parameter of a filter condition (KerML 8.3.4.8.2 Expression::parameter) (_pin0); the structure does not resolve its id
 export-53	export	the form writes the referent Membership of a feature reference expression in a feature value (KerML 8.3.4.8.5 FeatureReferenceExpression::referent) (_preferent); the structure does not resolve its id
 export-54	export	the form writes the result parameter of a filter condition (SysML 8.3.11.x ElementFilterMembership; KerML 8.3.4.8.2 Expression::result) (_pout); the structure does not resolve its id
@@ -115,3 +106,19 @@ symbol-51	symbol	inherited and implied memberships the export omits (KerML 8.3.2
 symbol-52	symbol	the collection includes the implied and inherited members the structure reflects and the export omits (KerML 8.3.3.1.10 Type derived collections)
 symbol-53	symbol	the implied members (parameters, ends, multiplicities) the structure reflects and the export omits (SysML 8.3.16.15 checkTransitionUsageParameters, KerML 8.3.3.1.10 Type::directedFeature)
 symbol-54	symbol	the implied members and library definitions the structure reflects and the export omits (KerML 8.3.3.3.5 Feature::type incl. implied typing; SysML 8.3.16.15 implied parameters)
+symbol-55	symbol	SysML v2 §7.6.3 (implicit [1..1] of attribute, enumeration, item, part, port, view and rendering usages; UsageParserPostProcessor): a ReferenceUsage states no implied Multiplicity, and the form writes none for any other ReferenceUsage; a trigger's declared payload parameter (SysML.xtext PayloadParameter) gets one because the form reads the rule for the recorded item usage, not the ReferenceUsage it writes (exporter follow-up)
+symbol-56	symbol	KerML 8.3.3.1.10 Type::ownedFeatureMembership (the owned FeatureMemberships) and SysML 8.3.16 StateSubactionMembership (a FeatureMembership): a bare `entry;` is a StateSubactionMembership performing no action, which the form lists among ownedMembership but leaves out of ownedFeatureMembership
+symbol-57	symbol	KerML 8.3.2.1 Element::owner (the owningRelationship's owningRelatedElement): a statement a subaction performs (`entry assign x := 1;`) is owned by the state through its StateSubactionMembership; the form writes the membership itself as the statement's owner (exporter follow-up)
+symbol-58	symbol	SysML.xtext SourceSuccessionMember: `first a then b;` owns the two ConnectorEnds it is written with, each referring to the member it names, whether or not that name resolves (the structure reflects what is written); the form writes no end when the source resolves to nothing (exporter follow-up)
+symbol-59	symbol	KerML 8.2.3.5 name resolution outward from the innermost scope, KerML 8.3.3.3.5 Feature::effectiveName (an unnamed `perform a;` bears the name of a): the first segment of `perform 'provide power'.'generate torque'` in vehicle_c1::engine_v1 is vehicle_c1's perform usage; the form resolves a head clause's chain from the outermost scope (exporter follow-up)
+symbol-60	symbol	SysML 8.3.11.3 PortConjugation::conjugatedPortDefinition (the conjugated port definition owning the conjugation, redefining Conjugation::owningType) is derived; the form writes no value for it
+symbol-61	symbol	KerML 8.3.2.3.2 / 7.2.3.2: a comment written in a relationship's body annotates that relationship, its owningRelatedElement; the export writes no annotation for it
+symbol-62	symbol	KerML 8.3.2.5.1 Relationship::ownedRelatedElement: a comment written in a relationship's body is owned by the relationship; the export writes the relationship's owning namespace as its owner (exporter follow-up)
+symbol-63	symbol	KerML 8.3.2.4.2 ElementFilterMembership is an OwningMembership, so a namespace's filter condition is among its ownedMember; the export omits it
+symbol-64	symbol	KerML 8.3.4.8.3 Step::parameter = the directed features: the parameters a send action's body declares (`in payload;`) are its parameters; the export writes only the implied one
+export-59	export	KerML 8.3.2.1 Element::owningRelationship of a comment written in a relationship's body is that relationship (ownedRelatedElement); the structure answers the Annotation it synthesizes
+export-60	export	KerML 8.3.2.5.1: a comment written in an import's body is the import's ownedRelatedElement; the structure declares no element for it
+export-61	export	SysML 8.3.16.13 SendActionUsage: the form lists the implied parameter before the parameters the body declares; the structure lists the body's first
+export-62	export	SysML.xtext SuccessionFlowUsage: the form lists the ends written in the declaration before the body's members; the structure lists the body's members first
+export-63	export	the FeatureValue and its expression of a parameter declared in an anonymous send statement's body (`send x { in sender = y; }`); the structure spells no id for them
+symbol-65	symbol	SysML 8.3.16.7 ForLoopActionUsage::loopVariable is a ReferenceUsage the loop owns; the export writes only its name and no element for it (exporter follow-up)

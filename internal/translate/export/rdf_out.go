@@ -616,6 +616,7 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 		regions:            map[rdf.Term]region{},
 		verifiedReferences: map[rdf.Term]bool{},
 		heads:              map[rdf.Term]*declarationHead{},
+		conjugateOriginals: map[string]rdf.Term{},
 		bodies:             map[rdf.Term]region{},
 		offsets:            map[string]int{},
 	}
@@ -708,6 +709,9 @@ type encoder struct {
 	// heads records each declaration head's clauses in the order the notation
 	// spelled them, for the order its relationship elements are owned in.
 	heads map[rdf.Term]*declarationHead
+	// conjugateOriginals is the port definition each ConjugatedPortDefinition a
+	// `: ~P` typing names here is the conjugate of, by the conjugate's IRI.
+	conjugateOriginals map[string]rdf.Term
 	// membershipImports are the membership imports, whose imported membership
 	// is written once every membership is minted.
 	membershipImports []membershipImport
@@ -718,7 +722,7 @@ func (e *encoder) indexTriggerMembers() {
 		// A named send or assignment node is the statement it is written as,
 		// so a name the statement writes is written from the node.
 		if usage, ok := node.(*ast.Usage); ok {
-			if statement := nodeStatement(usage); statement != nil {
+			if statement := naming.NodeStatement(usage); statement != nil {
 				e.triggerMembers[statement] = fqn
 			}
 			continue
@@ -1159,7 +1163,7 @@ func (e *encoder) writtenDeclarations() []ast.Node {
 	statements := map[ast.Node]bool{}
 	for node := range e.names.FQN {
 		if usage, ok := node.(*ast.Usage); ok {
-			if statement := nodeStatement(usage); statement != nil {
+			if statement := naming.NodeStatement(usage); statement != nil {
 				statements[statement] = true
 			}
 		}
@@ -1479,6 +1483,10 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if e.performed[n] {
 			metaclass = mPerform
 		}
+		if metaclass == mSuccessionFlowUsage && e.file.Kind() == source.KindKerML {
+			// A KerML flow is written as the FlowUsage its reader takes; so is a succession flow.
+			metaclass = mFlowUsage
+		}
 		if metaclass == mAcceptAction {
 			e.acceptPayloads[acceptPayload(n)] = subject
 		}
@@ -1594,7 +1602,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		}
 		// The prefix a kind keyword was qualified with (`assume constraint c`) is
 		// part of the declaration; `assert` is the AssertConstraintUsage metaclass.
-		if n.PrefixKeyword != "" && !assertedConstraint(n) && !prefixCarriedByGraph(n) {
+		if n.PrefixKeyword != "" && !assertedConstraint(n) && !prefixCarriedByGraph(n, metaclass) {
 			e.graph.Add(subject, e.sysx(xDeclaredPrefix), rdf.String(n.PrefixKeyword))
 		}
 		// A trigger's parameters declare nothing of their own: their owning type
@@ -1650,7 +1658,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			relationships := make([]*ast.Relationship, 0, len(n.Relationships))
 			for _, rel := range nodeRelationships(n, metaclass) {
 				if rel != nil && rel.Kind == ast.RelReferences && rel.Target != nil {
-					if err := e.endReferences(subject, rel.Target); err != nil {
+					if _, err := e.endReferences(subject, rel.Target); err != nil {
 						return err
 					}
 					continue
@@ -1697,7 +1705,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 				return err
 			}
 		}
-		if statement := nodeStatement(n); statement != nil {
+		if statement := naming.NodeStatement(n); statement != nil {
 			// The node is the statement it is written as: its parts are the
 			// node's own, not a member's.
 			discard := func(rdf.Term) {
@@ -2430,11 +2438,8 @@ func (e *encoder) bindingEnds(subject rdf.Term, owner string, n *ast.Usage) erro
 	return nil
 }
 
-// messageEnd emits one end of a `message`: an EventOccurrenceUsage the flow
-// owns through a ParameterMembership (SysML.xtext MessageEventMember, whose
-// MessageEvent owns a ReferenceSubsetting to the end's target). The collapsed
-// related/source/target features the flow states are the same a connector
-// end's are, and a chained target is written the way a connector end's is.
+// messageEnd emits one end of a `message` (SysML.xtext MessageEventMember) and states a
+// plain-named end as the message's related feature; a chain is not, as no end owns it.
 func (e *encoder) messageEnd(subject rdf.Term, index int, target ast.Node) error {
 	slot := fmt.Sprintf("end%d", index)
 	feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
@@ -2447,19 +2452,32 @@ func (e *encoder) messageEnd(subject rdf.Term, index int, target ast.Node) error
 	e.graph.Add(subject, e.sysml(pOwnedFeatureMembership), membership)
 	e.graph.Add(subject, e.sysml(pOwnedFeature), feature)
 	e.graph.Add(subject, e.sysml(pParameter), feature)
-	if reference, ok := e.endReferenceIRI(target); ok {
-		e.graph.Add(subject, e.sysml(pRelatedFeature), reference)
-		if index == 0 {
-			e.graph.Add(subject, e.sysml(pSourceFeature), reference)
-		} else {
-			e.graph.Add(subject, e.sysml(pTargetFeature), reference)
-		}
-	}
 	e.emitMembershipCore(membership, feature, subject, mParameterMembership, true)
 	e.graph.Add(membership, e.sysml(pOwnedMemberFeature), feature)
 	e.graph.Add(membership, e.sysml(pOwnedMemberParameter), feature)
 	e.graph.Add(feature, e.sysx(xSourceText), rdf.String(e.text(target)))
-	return e.endReferences(feature, target)
+	reference, err := e.endReferences(feature, target)
+	if err != nil {
+		return err
+	}
+	if name, ok := target.(*ast.QualifiedName); ok && !qualifiedNameHasChain(name) {
+		e.connectorRelatedFeature(subject, reference, index, 2)
+	}
+	return nil
+}
+
+// connectorRelatedFeature states Connector::relatedFeature as the feature the end's
+// ReferenceSubsetting references (KerML 8.3.4.5.3); a binary connector's ends are source and target.
+func (e *encoder) connectorRelatedFeature(subject, reference rdf.Term, index, ends int) {
+	if reference.Value == "" || !reference.IsIRI() {
+		return
+	}
+	e.graph.Add(subject, e.sysml(pRelatedFeature), reference)
+	if ends == 2 && index == 0 {
+		e.graph.Add(subject, e.sysml(pSourceFeature), reference)
+	} else if ends == 2 && index == 1 {
+		e.graph.Add(subject, e.sysml(pTargetFeature), reference)
+	}
 }
 
 // connectorEndSpec is one connector end to emit: which end it is, its target,
@@ -2545,14 +2563,6 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 	e.graph.Add(subject, e.sysml(pOwnedFeatureMembership), membership)
 	e.graph.Add(subject, e.sysml(pOwnedFeature), feature)
 	e.graph.Add(subject, e.sysml(pOwnedEndFeature), feature)
-	if reference, ok := e.endReferenceIRI(end.target); ok && !end.noCollapse {
-		e.graph.Add(subject, e.sysml(pRelatedFeature), reference)
-		if end.ends == 2 && end.index == 0 {
-			e.graph.Add(subject, e.sysml(pSourceFeature), reference)
-		} else if end.ends == 2 && end.index == 1 {
-			e.graph.Add(subject, e.sysml(pTargetFeature), reference)
-		}
-	}
 	e.emitMembershipCore(membership, feature, subject, mEndFeatureMembership, true)
 	if end.memberName != "" {
 		e.graph.Add(membership, e.sysml(pMemberName), rdf.String(end.memberName))
@@ -2580,15 +2590,21 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 		e.graph.Add(feature, e.sysml(pName), rdf.String(end.memberName))
 	}
 	if end.target != nil || end.targetTerm.Value != "" {
+		var reference rdf.Term
 		switch {
 		case len(flowSegments) > 0:
-			e.flowEndReferences(feature, flowSegments)
+			reference = e.flowEndReferences(feature, flowSegments)
 		case end.targetTerm.Value != "":
 			e.referenceSubsetting(feature, end.targetTerm)
+			reference = end.targetTerm
 		default:
-			if err := e.endReferences(feature, end.target); err != nil {
+			var err error
+			if reference, err = e.endReferences(feature, end.target); err != nil {
 				return err
 			}
+		}
+		if !end.noCollapse {
+			e.connectorRelatedFeature(subject, reference, end.index, end.ends)
 		}
 	}
 	if err := e.multiplicity(feature, end.owner, end.mult); err != nil {
@@ -2625,14 +2641,17 @@ func (e *encoder) flowEndSegments(end connectorEndSpec) []rdf.Term {
 // the feature itself for one, a FeatureChainPrefix for more — and a
 // FlowFeature, a ReferenceUsage the end owns, redefining the last segment.
 // `a.p.fuel` subsets the chain a.p and redefines fuel; a lone `a` only redefines a.
-func (e *encoder) flowEndReferences(feature rdf.Term, segments []rdf.Term) {
+// It returns the feature the end's ReferenceSubsetting references, none for a lone name.
+func (e *encoder) flowEndReferences(feature rdf.Term, segments []rdf.Term) rdf.Term {
 	prefix, last := segments[:len(segments)-1], segments[len(segments)-1]
+	var reference rdf.Term
 	switch len(prefix) {
 	case 0:
 	case 1:
-		e.referenceSubsetting(feature, prefix[0])
+		reference = prefix[0]
+		e.referenceSubsetting(feature, reference)
 	default:
-		e.chainFeature(feature, prefix)
+		reference = e.chainFeature(feature, prefix)
 	}
 	flowFeature := e.ids.mintedNode(rdf.ExpressionIRI(feature, "ff"), feature, "ff")
 	membership := e.ids.minted(rdf.OwningMembershipIRIOf(flowFeature), flowFeature, rdf.OwningMembershipSuffix)
@@ -2649,36 +2668,31 @@ func (e *encoder) flowEndReferences(feature rdf.Term, segments []rdf.Term) {
 		e.flags(flowFeature, []boolProperty{{"isVariable", true}, {"mayTimeVary", true}})
 	}
 	e.graph.Add(flowFeature, e.sysml(relationshipProperty[ast.RelRedefines]), last)
+	return reference
 }
 
-// endReferenceIRI returns a linked simple-name target, excluding chains.
-func (e *encoder) endReferenceIRI(target ast.Node) (rdf.Term, bool) {
-	name, ok := target.(*ast.QualifiedName)
-	if !ok || qualifiedNameHasChain(name) {
-		return rdf.Term{}, false
-	}
-	reference := e.reference(name)
-	return reference, reference.IsIRI()
-}
-
-// endReferences writes a simple reference, structural chain, or expression target.
-func (e *encoder) endReferences(feature rdf.Term, target ast.Node) error {
+// endReferences writes a simple reference, structural chain, or expression target and
+// returns the term the end's ReferenceSubsetting references (the chain Feature for a chain).
+func (e *encoder) endReferences(feature rdf.Term, target ast.Node) (rdf.Term, error) {
 	switch target := target.(type) {
 	case *ast.QualifiedName:
 		if qualifiedNameHasChain(target) {
-			return e.endChainReferences(feature, target)
+			return e.endChainReferences(feature, target), nil
 		}
-		e.referenceSubsetting(feature, e.reference(target))
+		reference := e.reference(target)
+		e.referenceSubsetting(feature, reference)
+		return reference, nil
 	case *ast.FeatureChainExpr:
 		segments := make([]rdf.Term, 0, len(featureChainSegments(target)))
 		for _, segment := range featureChainSegments(target) {
 			segments = append(segments, e.reference(segment))
 		}
-		e.chainFeature(feature, segments)
+		return e.chainFeature(feature, segments), nil
 	default:
-		e.referenceSubsetting(feature, rdf.TypedLiteral(e.text(target), rdf.OpenSysML+dtExpression))
+		literal := rdf.TypedLiteral(e.text(target), rdf.OpenSysML+dtExpression)
+		e.referenceSubsetting(feature, literal)
+		return literal, nil
 	}
-	return nil
 }
 
 // referenceSubsetting writes the standard relationship that connects an end
@@ -2705,7 +2719,7 @@ func (e *encoder) referenceSubsetting(feature, target rdf.Term) rdf.Term {
 // chainFeature mints the chain Feature an end's reference subsetting owns
 // (OwnedReferenceSubsetting's OwnedFeatureChain): it is related to the end
 // through the ReferenceSubsetting, whose ownedRelatedElement it is.
-func (e *encoder) chainFeature(feature rdf.Term, segments []rdf.Term) {
+func (e *encoder) chainFeature(feature rdf.Term, segments []rdf.Term) rdf.Term {
 	chain := e.ids.mintedNode(rdf.ExpressionIRI(feature, "chain"), feature, "chain")
 	e.typed(chain, mFeature)
 	e.graph.Add(chain, e.sysml(pElementID), rdf.String(rdf.LocalName(chain.Value)))
@@ -2714,12 +2728,12 @@ func (e *encoder) chainFeature(feature rdf.Term, segments []rdf.Term) {
 	e.graph.Add(subsetting, e.sysml(pOwnedRelatedElement), chain)
 	e.graph.Add(chain, e.sysml(pOwningRelationship), subsetting)
 	e.graph.Add(chain, e.sysml(pOwner), feature)
+	return chain
 }
 
-func (e *encoder) endChainReferences(feature rdf.Term, target *ast.QualifiedName) error {
+func (e *encoder) endChainReferences(feature rdf.Term, target *ast.QualifiedName) rdf.Term {
 	segments := append([]rdf.Term(nil), e.qualifiedChainReferences(target)...)
-	e.chainFeature(feature, segments)
-	return nil
+	return e.chainFeature(feature, segments)
 }
 
 // qualifiedNameHasChain reports whether a qualified name contains a chained segment.
@@ -3038,12 +3052,30 @@ func (e *encoder) relationships(subject rdf.Term, owner string, rels []*ast.Rela
 				continue
 			}
 			if name, ok := rel.Target.(*ast.QualifiedName); ok {
-				e.headRelationship(subject, kind, e.reference(name), rel)
+				object := e.reference(name)
+				if kind == ast.RelTyping && rel.Conjugated {
+					object = e.conjugateReference(object)
+				}
+				e.headRelationship(subject, kind, object, rel)
 				continue
 			}
 			e.headRelationship(subject, kind, rdf.TypedLiteral(e.text(rel.Target), rdf.OpenSysML+dtExpression), rel)
 		}
 	}
+}
+
+// conjugateReference is the type a `: ~P` typing names: the ConjugatedPortDefinition minted
+// beside an element P here (SysML v2 8.3.12.3), that conjugate itself unchanged, else P as written.
+func (e *encoder) conjugateReference(target rdf.Term) rdf.Term {
+	if !target.IsIRI() {
+		return target
+	}
+	if _, isConjugate := e.conjugateOriginals[target.Value]; isConjugate {
+		return target
+	}
+	conjugate := e.ids.minted(rdf.RelationshipIRI(target, "_conjugated"), target, "_conjugated")
+	e.conjugateOriginals[conjugate.Value] = target
+	return conjugate
 }
 
 // headRelationship states one clause of subject's declaration head as the
@@ -3289,7 +3321,24 @@ func (e *encoder) reference(name *ast.QualifiedName) rdf.Term {
 	if decl, fqn, ok := e.referent(name); ok {
 		return e.ids.subjectForNode(decl, fqn)
 	}
+	if conjugate, ok := e.impliedConjugate(name); ok {
+		return conjugate
+	}
 	return rdf.String(qualifiedText(name))
+}
+
+// impliedConjugate links a name written as `P::'~P'` to the ConjugatedPortDefinition
+// minted beside P (SysML v2 8.3.12.3): implied, it has no declaration of its own here.
+func (e *encoder) impliedConjugate(name *ast.QualifiedName) (rdf.Term, bool) {
+	sym, ok := e.res.PartSymbol(name, len(name.Parts)-1)
+	if !ok || sym == nil || !sym.IsConjugatedPortDefinition() {
+		return rdf.Term{}, false
+	}
+	decl, fqn, ok := e.linked(semantics.OriginalPortDefinitionOf(sym), true)
+	if !ok {
+		return rdf.Term{}, false
+	}
+	return e.conjugateReference(e.ids.subjectForNode(decl, fqn)), true
 }
 
 // referent is the element reference links a name to, if any.
@@ -3506,12 +3555,14 @@ func referencesFeature(n *ast.Usage) bool {
 // prefixCarriedByGraph reports a prefix the graph already states structurally:
 // a state's `entry`/`do`/`exit` by the subaction membership that owns the
 // action, an `include` by the IncludeUseCaseUsage metaclass.
-func prefixCarriedByGraph(n *ast.Usage) bool {
+func prefixCarriedByGraph(n *ast.Usage, metaclass string) bool {
 	switch n.PrefixKeyword {
 	case "entry", "do", "exit":
 		return n.Kind == ast.UsageAction
 	case "include":
 		return n.Kind == ast.UsageUseCase
+	case "succession":
+		return metaclass == mSuccessionFlowUsage
 	}
 	return false
 }

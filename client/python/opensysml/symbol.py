@@ -160,7 +160,10 @@ class Symbol:
         ``multiplicity``, ``direction``, ``specializes``, ``abstract``,
         ``variation`` (a variation definition or usage, or an enumeration
         definition; always ``abstract`` too) and ``variant`` (a variant usage
-        or an enumerated value), each flag ``"true"``.
+        or an enumerated value), each flag ``"true"``. A send action (kind
+        ``sendActionUsage``) also carries ``payload``, ``sender`` (its ``via``)
+        and ``receiver`` (its ``to``), each the expression as written and
+        present only when the send writes it.
 
         These summarise what is written: ``type`` and ``specializes`` are the
         first written edge of each (:attr:`specializations` has them all) and

@@ -8,10 +8,11 @@ import (
 
 // OwnedAnnotations returns the Annotations sym owns as their annotated element
 // (KerML 8.3.2.1 Element::ownedAnnotation), each owning its annotating element:
-// one per `#M` prefix metadata feature, and one per annotating element in a
-// relationship body (KerML 8.2.3.3.1 OwnedAnnotation). An annotating element
-// in a namespace body is owned through a membership and annotates the
-// namespace through no Annotation (8.3.2.3.2 deriveAnnotatingElementAnnotatedElement).
+// one per `#M` prefix metadata feature of a relationship, and one per annotating
+// element in a relationship body (KerML 8.2.3.3.1 OwnedAnnotation). A namespace
+// owns its prefix metadata and the annotating elements of its body through
+// memberships, and they annotate it through no Annotation (8.3.2.3.2
+// deriveAnnotatingElementAnnotatedElement).
 func (m *Model) OwnedAnnotations(sym *symbols.Symbol) []*symbols.Symbol {
 	if m == nil || sym == nil || sym.Implicit != nil {
 		return nil
@@ -25,6 +26,9 @@ func (m *Model) OwnedAnnotations(sym *symbols.Symbol) []*symbols.Symbol {
 	// A record keeps each prefix annotation as a fact, not as a symbol: the
 	// Annotation is reflected with no annotating element to read through it.
 	for _, span := range m.recordedPrefixAnnotationSpans(sym) {
+		if !relationshipBodyOwner(sym) {
+			break
+		}
 		out = append(out, &symbols.Symbol{
 			Kind:     symbols.SymbolRelationship,
 			DocName:  sym.DocName,
@@ -36,6 +40,9 @@ func (m *Model) OwnedAnnotations(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	seen := make(map[*symbols.Symbol]bool)
 	for _, prefix := range m.prefixMetadataSymbols(sym) {
+		if !relationshipBodyOwner(sym) {
+			break
+		}
 		seen[prefix] = true
 		out = append(out, &symbols.Symbol{
 			Kind:     symbols.SymbolRelationship,
@@ -177,9 +184,6 @@ func (m *Model) annotationsOfAnnotatingElement(sym *symbols.Symbol) []*symbols.S
 func (m *Model) annotatedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 	annotations := m.annotationsOfAnnotatingElement(sym)
 	if len(annotations) == 0 {
-		if isPrefixMetadataSymbol(sym) {
-			return []*symbols.Symbol{}
-		}
 		if owner := m.ownerOf(sym); owner != nil && m.reflectiveMetaclassConforms(owner, "Namespace") {
 			return []*symbols.Symbol{owner}
 		}

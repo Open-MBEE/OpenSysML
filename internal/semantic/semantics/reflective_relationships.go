@@ -74,6 +74,20 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 		})
 		ordinal++
 	}
+	// The type argument of `x @ T`, `x istype T` or `x as T` is an in parameter typed
+	// by T with no value (SysML.xtext TypeReferenceMember), as the conversion writes it.
+	if target := m.typeArgumentType(owner); target != nil {
+		out = append(out, &symbols.Symbol{
+			Kind:     symbols.SymbolRelationship,
+			DocName:  owner.DocName,
+			DeclSpan: owner.DeclSpan,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: owner, Ordinal: ordinal, Kind: ast.RelTyping,
+				Form: symbols.ImplicitTypeArgumentTyping, Member: target,
+			},
+		})
+		ordinal++
+	}
 	// A connector end reference-subsets the feature it attaches to whether or
 	// not a clause of its own says so (SysML v2 8.2.2.13.1).
 	if prefix, ok := owner.Decl.(*ast.PrefixMetadata); ok && prefix.Type != nil {
@@ -193,6 +207,10 @@ func (m *Model) implicitMetaclassName(sym *symbols.Symbol) string {
 		if IsFilterMembership(sym) {
 			return "ElementFilterMembership"
 		}
+		if _, ok := SubactionKind(rel.Decl); ok {
+			// `entry;` is a StateSubactionMembership performing no action (SysML.xtext EntryActionMember).
+			return "StateSubactionMembership"
+		}
 		return m.membershipMetaclassName(rel.Owner, rel.Member)
 	case symbols.ImplicitOwnedAnnotation, symbols.ImplicitAnnotatingRelationship:
 		return "Annotation"
@@ -202,6 +220,8 @@ func (m *Model) implicitMetaclassName(sym *symbols.Symbol) string {
 		return "PortConjugation"
 	case symbols.ImplicitMetadataBodyRedefinition:
 		return "Redefinition"
+	case symbols.ImplicitTypeArgumentTyping:
+		return "FeatureTyping"
 	case symbols.ImplicitReferenceMembership:
 		return "Membership"
 	case symbols.ImplicitFeatureChaining:
@@ -280,8 +300,7 @@ var featureTypingMetaclassNames = map[string]bool{
 }
 
 // relationshipEndFeature reports whether feature is the source- or target-side
-// end the relationship metaclass meta declares. ConjugatedPortTyping answers
-// only its `portDefinition`; its general end stays unimplemented.
+// end meta declares; a ConjugatedPortTyping's `portDefinition` is read apart.
 func relationshipEndFeature(meta, feature string) (sourceSide, targetSide bool) {
 	switch feature {
 	case "subclassifier":
@@ -325,8 +344,8 @@ func relationshipEndFeature(meta, feature string) (sourceSide, targetSide bool) 
 	case "superclassifier":
 		targetSide = meta == "Subclassification"
 	case "type":
-		targetSide = meta == "FeatureTyping"
-	case "portDefinition":
+		targetSide = featureTypingMetaclassNames[meta]
+	case "conjugatedPortDefinition":
 		targetSide = meta == "ConjugatedPortTyping"
 	case "subsettedFeature":
 		targetSide = subsettingMetaclassNames[meta]
@@ -349,7 +368,7 @@ func relationshipEndFeature(meta, feature string) (sourceSide, targetSide bool) 
 func (m *Model) implicitRelationshipEnds(sym *symbols.Symbol) (src, tgt *symbols.Symbol, tgtOK bool) {
 	rel := sym.Implicit
 	src = rel.Owner
-	if rel.Form == symbols.ImplicitMetadataBodyRedefinition {
+	if rel.Form == symbols.ImplicitMetadataBodyRedefinition || rel.Form == symbols.ImplicitTypeArgumentTyping {
 		return src, rel.Member, rel.Member != nil
 	}
 	if rel.Node != nil {
@@ -444,15 +463,24 @@ func (m *Model) implicitRelationshipElements(sym *symbols.Symbol, feature string
 	case "source":
 		return source, true
 	case "target":
-		if tgtOK && meta != "ConjugatedPortTyping" {
+		if tgtOK {
 			return []*symbols.Symbol{tgt}, true
 		}
 		return nil, false
 	case "relatedElement":
-		if tgtOK && meta != "ConjugatedPortTyping" {
+		if tgtOK {
 			return []*symbols.Symbol{src, tgt}, true
 		}
 		return nil, false
+	case "portDefinition":
+		// The original the conjugate is of (SysML v2 8.3.12.3); the target itself when it implies no conjugate.
+		if meta != "ConjugatedPortTyping" || !tgtOK {
+			return nil, false
+		}
+		if original := OriginalPortDefinitionOf(tgt); original != nil {
+			return []*symbols.Symbol{original}, true
+		}
+		return []*symbols.Symbol{tgt}, true
 	case "owningRelatedElement", "owner":
 		return source, true
 	case "ownedRelatedElement":
@@ -476,7 +504,7 @@ func (m *Model) implicitRelationshipElements(sym *symbols.Symbol, feature string
 	switch {
 	case feature == "specific" && specializationMetaclassNames[meta]:
 		return source, true
-	case feature == "general" && specializationMetaclassNames[meta] && meta != "ConjugatedPortTyping", tgtEnd:
+	case feature == "general" && specializationMetaclassNames[meta], tgtEnd:
 		if tgtOK {
 			return []*symbols.Symbol{tgt}, true
 		}
@@ -690,10 +718,16 @@ func (m *Model) implicitOwnerElements(sym *symbols.Symbol, feature string) ([]*s
 }
 
 // chainTargetChainings are the FeatureChainings the feature a relationship's chain target
-// denotes owns, one per feature the chain is written as (KerML 8.3.3.3.9), as the conversion writes them.
+// denotes owns, one per segment the chain is written as (KerML 8.3.3.3.9); an unresolved one chains nothing.
 func (m *Model) chainTargetChainings(chain *symbols.Symbol) []*symbols.Symbol {
 	out := []*symbols.Symbol{}
-	for _, target := range m.chainingFeaturesOf(chain) {
+	resolved := m.chainingFeaturesOf(chain)
+	written := writtenChainLength(chain)
+	for i := 0; i < written; i++ {
+		var target *symbols.Symbol
+		if i < len(resolved) {
+			target = resolved[i]
+		}
 		out = append(out, &symbols.Symbol{
 			Kind:       symbols.SymbolRelationship,
 			DocName:    chain.DocName,
@@ -706,6 +740,54 @@ func (m *Model) chainTargetChainings(chain *symbols.Symbol) []*symbols.Symbol {
 		})
 	}
 	return out
+}
+
+// writtenChainLength is the number of segments a chain Feature's chain is written as.
+func writtenChainLength(chain *symbols.Symbol) int {
+	if chain.Chain == nil {
+		return 0
+	}
+	if chain.Chain.Node == nil {
+		facts, ok := recordedRelationship(chain.Chain.Relationship)
+		if !ok {
+			return 0
+		}
+		return len(facts.Path)
+	}
+	n := 1
+	for node := chain.Chain.Node; node != nil; {
+		n++
+		next, ok := node.Operand.(*ast.FeatureChainExpr)
+		if !ok {
+			break
+		}
+		node = next
+	}
+	return n
+}
+
+// typeArgumentType is the type the type-argument parameter sym of a classification or
+// cast expression names (`x @ T`, `x as T`); nil for any other symbol or an unresolved name.
+func (m *Model) typeArgumentType(sym *symbols.Symbol) *symbols.Symbol {
+	if sym == nil || sym.Expr == nil || sym.Expr.Role != symbols.ExpressionParameter || sym.Expr.Owner == nil {
+		return nil
+	}
+	expr := sym.Expr.Owner
+	_, typeArgument := ast.ExpressionOperands(expr.Decl)
+	if typeArgument < 0 || sym.Expr.Index != typeArgument {
+		return nil
+	}
+	var name *ast.QualifiedName
+	switch n := expr.Decl.(type) {
+	case *ast.OperatorExpr:
+		name = n.TypeRef
+	case *ast.CastExpr:
+		name = n.TargetType
+	}
+	if name == nil {
+		return nil
+	}
+	return m.referencedSymbol(expr, name)
 }
 
 // isReferenceSubsetting reports whether rel is its owner's OwnedReferenceSubsetting — the

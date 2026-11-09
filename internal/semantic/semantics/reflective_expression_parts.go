@@ -65,6 +65,8 @@ func expressionElementMetaclassName(sym *symbols.Symbol) string {
 			return "ReferenceUsage"
 		case symbols.ExpressionTransitionSuccession:
 			return "SuccessionAsUsage"
+		case symbols.ExpressionFilterPackage:
+			return "Package"
 		}
 	}
 	if isSatisfySubjectChainValue(sym) {
@@ -382,6 +384,11 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		m.memberships[sym] = out
 		return out
 	}
+	if IsFilterPackage(sym) {
+		out := []*symbols.Symbol{m.filterPackagePartsOf(sym).membership}
+		m.memberships[sym] = out
+		return out
+	}
 	var out []*symbols.Symbol
 	if ends := m.successionEnds(sym); ends != nil {
 		// A transition's succession owns its two ends (SysML.xtext TransitionSuccession).
@@ -420,6 +427,8 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	} else if isExpressionSymbol(sym) {
 		out = m.plainExpressionMemberships(sym)
 	} else if value := m.expressionParameterValue(sym); value != nil {
+		out = appendOwningMembership(out, sym, value)
+	} else if value := m.sendParameterValue(sym); value != nil {
 		out = appendOwningMembership(out, sym, value)
 	}
 	m.memberships[sym] = out
@@ -472,17 +481,16 @@ func appendOwningMembership(out []*symbols.Symbol, owner, member *symbols.Symbol
 	})
 }
 
-// appendReferenceMembership appends the Membership through which owner names
-// the element name resolves to, at slot; nothing while the name is unresolved.
+// appendReferenceMembership appends the Membership through which owner names the element
+// name resolves to, at slot; it is written while the name is unresolved too, naming no member.
 func (m *Model) appendReferenceMembership(out []*symbols.Symbol, owner *symbols.Symbol, slot string, name *ast.QualifiedName) []*symbols.Symbol {
 	target := m.referencedSymbol(owner, name)
 	if target == nil {
 		target = m.subjectValueTarget(owner)
 	}
-	if target == nil {
-		return out
+	if target != nil {
+		target = m.triggerPayloadElement(target)
 	}
-	target = m.triggerPayloadElement(target)
 	return append(out, &symbols.Symbol{
 		Kind:       symbols.SymbolRelationship,
 		DocName:    owner.DocName,
@@ -674,6 +682,9 @@ func (m *Model) expressionReferencedElements(expr *symbols.Symbol, feature strin
 	}
 	for _, membership := range m.OwnedMemberships(expr) {
 		if rel := membership.Implicit; rel != nil && rel.Form == symbols.ImplicitReferenceMembership && rel.Slot == feature {
+			if rel.Member == nil {
+				return []*symbols.Symbol{}
+			}
 			return []*symbols.Symbol{rel.Member}
 		}
 	}
@@ -950,7 +961,7 @@ func (m *Model) chainFeatureMemberships(chain *symbols.Symbol) []*symbols.Symbol
 func (m *Model) ChainingFeatures(chain *symbols.Symbol) []*symbols.Symbol {
 	links := []*symbols.Symbol{}
 	for _, chaining := range m.OwnedRelationships(chain) {
-		if chaining.Implicit != nil && chaining.Implicit.Form == symbols.ImplicitFeatureChaining {
+		if chaining.Implicit != nil && chaining.Implicit.Form == symbols.ImplicitFeatureChaining && chaining.Implicit.Member != nil {
 			links = append(links, chaining.Implicit.Member)
 		}
 	}
@@ -964,8 +975,14 @@ func featureChainingElements(sym *symbols.Symbol, feature string) ([]*symbols.Sy
 	case "source", "featureChained", "owningRelatedElement", "owner":
 		return []*symbols.Symbol{rel.Owner}, true
 	case "target", "chainingFeature":
+		if rel.Member == nil {
+			return []*symbols.Symbol{}, true
+		}
 		return []*symbols.Symbol{rel.Member}, true
 	case "relatedElement":
+		if rel.Member == nil {
+			return []*symbols.Symbol{rel.Owner}, true
+		}
 		return []*symbols.Symbol{rel.Owner, rel.Member}, true
 	case "ownedRelatedElement", "ownedRelationship", "ownedElement", "ownedAnnotation", "owningRelationship",
 		"owningMembership", "owningNamespace", "documentation", "textualRepresentation":

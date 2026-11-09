@@ -307,7 +307,7 @@ func (m *Model) usageIsAlwaysReferential(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
 	}
-	if _, ok := sym.Decl.(*ast.SuccessionEdge); ok {
+	if isBodySuccessionNode(sym.Decl) {
 		// A `then` succession is a SuccessionAsUsage, referential as `succession` is.
 		return true
 	}

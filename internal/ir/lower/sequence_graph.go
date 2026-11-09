@@ -234,7 +234,7 @@ func (l *sequenceLowerer) lifeline(line *symbols.Symbol) bool {
 			for _, nested := range member.Scope.AllMembers() {
 				switch u, ok := nested.Decl.(*ast.Usage); {
 				case !ok:
-				case nested.Kind == symbols.SymbolActionUsage:
+				case nested.Kind.IsActionUsage():
 					ev.Performs = append(ev.Performs, nested)
 				case resolve.IsAssertion(u):
 					ev.Asserts = append(ev.Asserts, Assert{Node: u, Sym: nested, Scope: member.Scope})

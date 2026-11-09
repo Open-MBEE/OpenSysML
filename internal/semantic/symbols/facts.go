@@ -85,8 +85,9 @@ type LibraryFacts struct {
 	// an end with no symbol of its own (`connect a to b`).
 	Ends []ElementRef
 
-	// RelatedFeatures are the features a connector's ends reference, in end
-	// order, as derived from the declaration.
+	// RelatedFeatures are the features a connector's ends reference, by end position,
+	// zero for an end referencing none; a chained end names the feature its chain
+	// reaches, a record carrying no chain Feature.
 	RelatedFeatures []ElementRef
 
 	// EndPaths are the features each end of a connector object usage names in
@@ -322,6 +323,27 @@ func (s *Symbol) DeclaresTransition() bool {
 	return ok
 }
 
+// SendStatementOf is the send statement decl declares: the statement itself,
+// or the one an action node is written as (`action a send x to p;`, SysML v2
+// §8.3.17.15 SendActionUsage); nil for any other declaration.
+func SendStatementOf(decl ast.Node) *ast.SendStatement {
+	switch d := decl.(type) {
+	case *ast.SendStatement:
+		return d
+	case *ast.Usage:
+		if d.Kind != ast.UsageAction || !d.IsActionNode || len(d.Members) != 1 {
+			return nil
+		}
+		member := d.Members[0]
+		if m, ok := member.(*ast.Membership); ok {
+			member = m.Member
+		}
+		send, _ := member.(*ast.SendStatement)
+		return send
+	}
+	return nil
+}
+
 // DeclaresUsage reports whether the symbol was declared by a usage, from its
 // declaration or its record.
 func (s *Symbol) DeclaresUsage() bool {
@@ -527,4 +549,35 @@ func (idx *Index) InstallLibraryFacts(name string, facts map[string]*LibraryFact
 			e.sym.Facts = f
 		}
 	}
+}
+
+// ActionNodeStatementOf is the statement an action usage is written as (`action a
+// assign x := y;`, SysML v2 §8.2.2.17 ActionNode); nil for any other declaration.
+func ActionNodeStatementOf(decl ast.Node) ast.Node {
+	u, ok := decl.(*ast.Usage)
+	if !ok || u.Kind != ast.UsageAction || !u.IsActionNode || len(u.Members) != 1 {
+		return nil
+	}
+	statement := u.Members[0]
+	if m, ok := statement.(*ast.Membership); ok {
+		statement = m.Member
+	}
+	return statement
+}
+
+// AcceptPayloadOf is the payload parameter of an accept action (`action a accept
+// p : T;`, SysML v2 §8.2.2.17 AcceptNode); nil for any other declaration.
+func AcceptPayloadOf(decl ast.Node) *ast.Usage {
+	u, ok := decl.(*ast.Usage)
+	if !ok || u.Kind != ast.UsageAction || len(u.Members) == 0 {
+		return nil
+	}
+	member := u.Members[0]
+	if m, ok := member.(*ast.Membership); ok {
+		member = m.Member
+	}
+	if payload, ok := member.(*ast.Usage); ok && payload.IsAccept {
+		return payload
+	}
+	return nil
 }

@@ -1,7 +1,7 @@
 package export
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 )
@@ -210,11 +210,21 @@ func usageMetaclassOf(n *ast.Usage, inMetadataBody bool) (string, bool) {
 	case acceptPayload(n) != nil:
 		return mAcceptAction, true
 	}
-	switch nodeStatement(n).(type) {
+	switch s := naming.NodeStatement(n).(type) {
 	case *ast.SendStatement:
 		return mSend, true
 	case *ast.AssignmentActionNode:
 		return mAssignment, true
+	case *ast.IfActionNode:
+		return mIfAction, true
+	case *ast.WhileLoopActionNode:
+		if s.Kind == ast.LoopFor {
+			return mForLoop, true
+		}
+		return mWhileLoop, true
+	}
+	if n.IsSuccessionFlow() {
+		return mSuccessionFlowUsage, true
 	}
 	if n.Keyword == "" && (n.Kind == ast.UsageAttribute || inMetadataBody && n.Kind == ast.UsageEnumeration || n.Ident.Name == "" && n.Kind < ast.UsageConnection) {
 		// A kindless usage is a DefaultReferenceUsage; an unnamed one is too,
@@ -241,12 +251,6 @@ func acceptPayload(n *ast.Usage) *ast.Usage {
 		return payload
 	}
 	return nil
-}
-
-// nodeStatement is the statement an action node is written as, which the node
-// is (semantics.NodeStatementOf), or nil for any other usage.
-func nodeStatement(n *ast.Usage) ast.Node {
-	return semantics.NodeStatementOf(n)
 }
 
 // eventOccurrence reports an occurrence declared with `event`, whether as its
@@ -288,6 +292,7 @@ var metaclassKeywordUsage = map[string]ast.UsageKind{
 	mTerminate:             ast.UsageAction,
 	mPerform:               ast.UsageAction,
 	mAcceptAction:          ast.UsageAction, // an accept node, its payload the accept parameter
+	mSuccessionFlowUsage:   ast.UsageFlow,
 	mExhibitStateUsage:     ast.UsageState,
 	mIncludeUseCaseUsage:   ast.UsageUseCase,
 	// PartUsage types actor and stakeholder members too, RequirementUsage an

@@ -5,8 +5,6 @@
 # TestElementPropertiesAgreeWithTheAPIJSONExport fails on a row not here, on a count
 # above the one here, on a row here the run no longer produces, and on a ? key; a count
 # that fell is re-recorded with -update-agreement-ratchet.
-AcceptActionUsage::@type	26	export-29
-AssignmentActionUsage::@type	15	export-30
 AssociationUsage::@type	12	symbol-44
 AttributeUsage::@type	333	symbol-44
 BehaviorUsage::@type	24	symbol-44
@@ -21,18 +19,14 @@ IncludeUseCaseUsage::@type	11	export-24
 InteractionUsage::@type	1	symbol-44
 LibraryPackage::@type	2	export-25
 MetadataUsage::@type	10	symbol-44
-NamespaceExpose::@type	13	export-22
-NamespaceImport::@type	6	export-23
-OwningMembership::@type	47	symbol-46
-PerformActionUsage::@type	86	export-26
+OwningMembership::@type	44	symbol-46
+PerformActionUsage::@type	47	export-26
 PredicateUsage::@type	5	symbol-44
 ReferenceSubsetting::@type	9	export-19
 ReferenceUsage::@type	174	symbol-44
 RequirementUsage::@type	24	symbol-42
-SendActionUsage::@type	10	export-31
 Specialization::@type	17	export-58
 StructureUsage::@type	31	symbol-44
 Subclassification::@type	1	export-28
 Subsetting::@type	1	export-20
 SuccessionAsUsage::@type	9	symbol-44
-TerminateActionUsage::@type	6	export-32

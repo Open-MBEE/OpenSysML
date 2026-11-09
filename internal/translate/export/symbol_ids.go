@@ -145,6 +145,10 @@ func (s *SymbolIDs) compute(sym *symbols.Symbol) (string, bool) {
 	switch {
 	case sym.Implicit != nil:
 		return s.implicitID(sym.Implicit)
+	case semantics.IsFilterPackage(sym):
+		// The filter package is minted off the import that imports and owns it (filterPackage).
+		base, ok := s.of(s.model.FilterPackageImport(sym))
+		return base + filterPackageSuffix, ok
 	case sym.Expr != nil:
 		return s.expressionID(sym)
 	case s.model.IsRootNamespace(sym):
@@ -165,13 +169,29 @@ func (s *SymbolIDs) compute(sym *symbols.Symbol) (string, bool) {
 	// off the end (chainFeature), which the chain's own node is not written as.
 	if sym.Kind == symbols.SymbolReferenceUsage && sym.OwnerScope != nil {
 		if end, ok := sym.OwnerScope.Node().(*ast.ConnectorEnd); ok && end.AttachedTarget() == sym.Decl {
-			element, _, ok := s.ids.OfExpressionPart(doc, end, "chain")
-			return element, ok
+			if element, _, ok := s.ids.OfExpressionPart(doc, end, "chain"); ok {
+				return element, true
+			}
 		}
 		// A flow end's flow feature is minted off the end (flowEndReferences).
 		if semantics.IsFlowFeature(sym) {
 			element, _, ok := s.ids.OfExpressionPart(doc, sym.OwnerScope.Node(), "ff")
 			return element, ok
+		}
+	}
+	// The chain Feature a relationship's chain target denotes is minted off the element
+	// the relationship is written on: an end's `_pend0_pchain`, a transition's `_psourcechain`.
+	if sym.Chain != nil && sym.Chain.Relationship != nil && sym.Chain.Relationship.Implicit != nil && sym.Chain.Relationship.Implicit.Owner != nil {
+		if element, _, ok := s.ids.OfExpressionPart(doc, sym.Decl, "chain"); ok {
+			// A head clause's chain (`subsets a.b`) is minted off the feature at its position among the head's chains (headChain).
+			return element, true
+		}
+		if base, ok := s.of(sym.Chain.Relationship.Implicit.Owner); ok {
+			slot := "chain"
+			if sym.Chain.Relationship.Implicit.Slot == "sourcemember" {
+				slot = "sourcechain"
+			}
+			return rdf.ExpressionNodeID(base, slot), true
 		}
 	}
 	if implied, ok := symbols.ImpliedDeclOf(sym); ok &&
@@ -234,12 +254,30 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 	}
 	switch rel.Form {
 	case symbols.ImplicitMembership:
+		if _, ok := semantics.SubactionKind(rel.Decl); ok {
+			// `entry;` is written as the StateSubactionMembership itself.
+			return s.ids.OfDeclaration(doc, rel.Decl, "")
+		}
 		if rel.Member == nil {
 			return "", false
 		}
 		if _, ok := rel.Decl.(*ast.FilterMember); ok {
 			// A `filter` member is written as the ElementFilterMembership itself.
 			return s.ids.OfDeclaration(doc, rel.Decl, "")
+		}
+		if semantics.IsFilterPackage(rel.Owner) {
+			base, ok := s.of(rel.Owner)
+			return base + filterMembershipSuffix, ok
+		}
+		if node, ok := semantics.SubactionMemberOf(rel.Owner, rel.Member); ok {
+			// An action a subaction performs is owned through the member written as the membership.
+			return s.ids.OfDeclaration(doc, node, "")
+		}
+		if body, ok := rel.Member.Decl.(*ast.BodyExpr); ok && rel.Member.Name != "" {
+			// A body's parameter is keyed by its body; its FeatureMembership is minted
+			// off the parameter (bodyParameter), not off the body's own membership.
+			_, membership, ok := s.ids.OfBodyParameter(doc, body, rel.Member.Name)
+			return membership, ok
 		}
 		if id, ok := s.ids.OwningMembershipOfDeclaration(doc, rel.Member.Decl, s.fqn(rel.Member)); ok && rel.Member.Expr == nil {
 			return id, true
@@ -260,6 +298,11 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 		if rel.Node == nil {
 			return "", false
 		}
+		if _, ok := rel.Owner.Decl.(*ast.BodyExpr); ok && rel.Owner.Name != "" {
+			// A body parameter's head clauses are materialized off the parameter, in
+			// the order written per kind (bodyParameter, materializeRelationships).
+			return s.bodyParameterRelationshipID(rel)
+		}
 		if rel.Owner != nil && isConnectorEnd(rel.Owner) && rel.Kind.ReferenceSubsets() {
 			// An end's reference subsetting is minted off the end (connectorEnd).
 			end, ok := s.of(rel.Owner)
@@ -275,12 +318,20 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 			return s.ids.RelationshipOf(doc, rel.Node.Target)
 		}
 		return s.ids.RelationshipOf(doc, rel.Node)
+	case symbols.ImplicitTypeArgumentTyping:
+		// A type argument's typing is minted off its parameter, as the conversion writes it (typeArgument).
+		owner, ok := s.of(rel.Owner)
+		return owner + relationshipSuffix(ast.RelTyping, false, false, 1, 0), ok
 	case symbols.ImplicitMetadataBodyRedefinition:
 		// The Redefinition a metadata body feature's name implies is minted off
 		// the feature, as the conversion writes it.
 		owner, ok := s.of(rel.Owner)
 		return owner + relationshipSuffix(ast.RelRedefines, false, false, 1, 0), ok
 	case symbols.ImplicitImport:
+		if semantics.IsFilterPackage(rel.Owner) {
+			base, ok := s.of(rel.Owner)
+			return base + filterImportSuffix, ok
+		}
 		return s.ids.OfDeclaration(doc, rel.Decl, "")
 	case symbols.ImplicitAnnotatingRelationship:
 		if rel.Owner == nil {
@@ -300,6 +351,16 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 			return "", false
 		}
 		_, membership, ok := s.ids.OfExpressionPart(doc, rel.Owner.Decl, rel.Slot)
+		if !ok && rel.Owner.Decl != nil && (rel.Slot == "referent" || rel.Slot == "targetFeature") {
+			// An expression written as an element of its own (a body's result, `eval`'s
+			// expression) owns its referent Membership off its element id, not as a part
+			// (referentMembershipNode); its function and argument memberships stay parts.
+			if base, declared := s.ids.OfDeclaration(doc, rel.Owner.Decl, ""); declared {
+				if own, ok := s.of(rel.Owner); ok && own == base {
+					return base + "_" + rel.Slot, true
+				}
+			}
+		}
 		if !ok && rel.Owner.Expr != nil {
 			return s.partID(rel.Owner, rel.Slot)
 		}
@@ -314,6 +375,14 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 			return "", false
 		}
 		return s.partID(rel.Owner, rel.Slot)
+	case symbols.ImplicitPortConjugation:
+		// A conjugated port definition's PortConjugation is minted off the conjugate (conjugatedPortDefinition).
+		implied, ok := symbols.ImpliedDeclOf(rel.Owner)
+		if !ok {
+			return "", false
+		}
+		conjugate, ok := s.ids.conjugateOf(doc, implied)
+		return conjugate.conjugation, ok
 	}
 	return "", false
 }
@@ -349,7 +418,15 @@ func (s *SymbolIDs) expressionID(sym *symbols.Symbol) (string, bool) {
 			return "", false
 		}
 		return s.partID(owner.Expr.Owner, "a0")
+	case symbols.ExpressionChangeCondition:
+		// The wrapper's referent is the condition, minted off the wrapper (changeArgument).
+		return s.partID(owner, "change")
 	case symbols.ExpressionChainFeature, symbols.ExpressionOperand:
+		if sym.Expr.Slot == "filter" && owner.Implicit != nil && semantics.IsFilterPackage(owner.Implicit.Owner) {
+			// A filter package's condition is minted off the import written with the filter.
+			base, ok := s.of(s.model.FilterPackageImport(owner.Implicit.Owner))
+			return rdf.ExpressionNodeID(base, "filter"), ok
+		}
 		return s.partID(owner, sym.Expr.Slot)
 	case symbols.ExpressionTransitionSuccession:
 		// The conversion mints a transition's succession off the transition (transitionSuccession).
@@ -361,7 +438,11 @@ func (s *SymbolIDs) expressionID(sym *symbols.Symbol) (string, bool) {
 	case symbols.ExpressionConnectorEnd:
 		return s.partID(owner, fmt.Sprintf("end%d", sym.Expr.Index))
 	case symbols.ExpressionBound:
-		// A range's bound is minted off the feature declaring the range (multiplicityBound).
+		// A range's bound is minted off the feature declaring the range, or off a
+		// multiplicity declaration's own id (multiplicityBound).
+		if _, declared := owner.Decl.(*ast.MultiplicityDecl); declared {
+			return s.partID(owner, sym.Expr.Slot)
+		}
 		if owner.OwnerScope == nil || owner.OwnerScope.Owner() == nil {
 			return "", false
 		}
@@ -443,4 +524,28 @@ func encodedSegment(segment string) string {
 // isConnectorEnd reports whether sym is a connector's end, declared or synthesized.
 func isConnectorEnd(sym *symbols.Symbol) bool {
 	return sym.Kind == symbols.SymbolConnectorEnd || sym.Expr != nil && sym.Expr.Role == symbols.ExpressionConnectorEnd
+}
+
+// bodyParameterRelationshipID spells the relationship rel a body parameter's head
+// clause writes (`in a : T :> f`): the parameter's id and the suffix the conversion
+// mints for the clause's kind at its position among the clauses of that kind.
+func (s *SymbolIDs) bodyParameterRelationshipID(rel *symbols.ImplicitRelationship) (string, bool) {
+	element, ok := s.of(rel.Owner)
+	if !ok {
+		return "", false
+	}
+	count, index, ordinal := 0, 0, 0
+	for _, written := range semantics.RelationshipsOf(rel.Owner) {
+		if written == nil {
+			continue
+		}
+		if written.Kind == rel.Kind {
+			if ordinal < rel.Ordinal {
+				index++
+			}
+			count++
+		}
+		ordinal++
+	}
+	return element + relationshipSuffix(rel.Kind, false, rel.Kind.ReferenceSubsets(), count, index), true
 }
