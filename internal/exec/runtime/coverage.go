@@ -99,6 +99,10 @@ func (ctx *Context) noteTransitionTaken(object *Instance, machine *symbols.Symbo
 }
 
 func (ctx *Context) noteCoverage(object *Instance, machine *symbols.Symbol, state, to string) {
+	// A probe's work is rolled back: what it entered, the run never did.
+	if ctx.probes > 0 {
+		return
+	}
 	key := coverageKey{behavior: machine, state: state, to: to}
 	if object != nil {
 		key.object = object.ID
