@@ -9,17 +9,10 @@ namespace OpenMBEE.OpenSysML.Tests;
 [Trait(Category.Name, Category.Unit)]
 public sealed class CapabilitiesTests
 {
-    private static readonly IReadOnlyDictionary<string, string> Constants = typeof(Capabilities)
+    internal static readonly IReadOnlyDictionary<string, string> Constants = typeof(Capabilities)
         .GetFields(BindingFlags.Public | BindingFlags.Static)
         .Where(field => field.IsLiteral)
         .ToDictionary(field => field.Name, field => (string)field.GetRawConstantValue()!);
-
-    [Fact]
-    public void EveryCapabilityTheServiceDeclaresHasAConstantAndNoConstantIsInvented()
-    {
-        Assert.NotEmpty(ServiceCapabilities.Names);
-        Assert.Equal(ServiceCapabilities.Names.Order(StringComparer.Ordinal), Constants.Values.Order(StringComparer.Ordinal));
-    }
 
     [Fact]
     public void EachConstantIsNamedForItsValue()

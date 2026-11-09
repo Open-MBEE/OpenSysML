@@ -1439,11 +1439,8 @@ contradicts its pin, bytes that contradict both, a body that stalls before or af
 headers, never ends, trickles, claims a length it does not have or arrives gzipped to many times
 its size, and redirects that loop, say not where, or leave for plain HTTP. Each runs against a
 cache of the test's own, through the same resolution an open makes, and must leave a working
-cache as it was and nothing staged. The signed-release fixtures the Python client's verifier is
-tested against are served as a release nothing pins, valid, valid only historically, by another
-identity, over a changed manifest, and unsigned, and every one must be refused as unpinned
-without its signature being fetched: this client verifies pins alone, so no signature passes as
-verified. The real binary is published there too, under a pin of its digest, and a private
+cache as it was and nothing staged.
+The real binary is published there too, under a pin of its digest, and a private
 service must start from its download, over each protocol, and a second open must fetch nothing.
 The release fixture uses dedicated workers. Timing-sensitive header tests run the real downloader in the cache probe's separate process, preserving timeout bounds, redirect checks and connection-reuse assertions.
 

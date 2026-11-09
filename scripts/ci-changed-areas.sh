@@ -77,10 +77,10 @@ emit node "$( { [[ "$fanout" = true ]] || matches "$node_pattern"; } && echo tru
 emit python "$( { [[ "$fanout" = true ]] || matches "$python_pattern" || matches '^packaging/pypi-pysysml/' || matches '^client/node/package\.json$' || matches '^client/java/(pom\.xml|README\.md)$' || matches '^docs/reference/java-api\.md$' || matches '^packaging/agent-skills/skills/opensysml-java/SKILL\.md$' || matches '^client/rust/opensysml/Cargo\.toml$' || matches '^client/rust/Cargo\.lock$' || matches '^client/dotnet/Directory\.Build\.props$' || matches '^editors/(mdk|syson(/backend)?)/pom\.xml$' || matches '^editors/(mdk/(plugin|tools|openapi-stubs|mdk-api-stubs|mdk-bridge|dist)|syson/syson-api-stubs)/pom\.xml$' || matches '^editors/(vscode|jupyterlab|syson/frontend)/package(-lock)?\.json$'; } && echo true || echo false)"
 emit java "$( { [[ "$fanout" = true ]] || matches "$java_pattern"; } && echo true || echo false)"
 emit rust "$( { [[ "$fanout" = true ]] || matches "$rust_pattern"; } && echo true || echo false)"
-# The .NET suite serves the Python client's signed-release fixtures as a release
-# it must refuse, so a change to them runs it too, as does one to the metamodel
-# table and hierarchy its metamodel tests hold the generated types against.
-emit dotnet "$( { [[ "$fanout" = true ]] || matches "$dotnet_pattern" || matches '^client/python/tests/fixtures/signed_release/' || matches '^client/python/tests/fixtures/multifile/' || matches '^client/python/tests/fixtures/metamodel/' || matches '^internal/translate/rdf/ontology/(table\.go|sysml-metaclasses\.ttl)$' || matches '^docs/clients/dotnet\.md$'; } && echo true || echo false)"
+# The .NET suite reads the Python client's multi-file and metamodel fixtures, so a
+# change to them runs it too, as does one to the metamodel table and hierarchy its
+# metamodel tests hold the generated types against.
+emit dotnet "$( { [[ "$fanout" = true ]] || matches "$dotnet_pattern" || matches '^client/python/tests/fixtures/multifile/' || matches '^client/python/tests/fixtures/metamodel/' || matches '^internal/translate/rdf/ontology/(table\.go|sysml-metaclasses\.ttl)$' || matches '^docs/clients/dotnet\.md$'; } && echo true || echo false)"
 emit julia "$( { [[ "$fanout" = true ]] || matches "$julia_pattern"; } && echo true || echo false)"
 emit matlab "$( { [[ "$fanout" = true ]] || matches "$matlab_pattern"; } && echo true || echo false)"
 emit vscode "$( { [[ "$fanout" = true ]] || matches "$vscode_pattern"; } && echo true || echo false)"

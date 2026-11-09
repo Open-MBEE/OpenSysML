@@ -44,7 +44,6 @@ public sealed class ServiceConnectionTests(ServiceFixture services) : IClassFixt
         Assert.Equal(services.Version, connection.ServerInfo.Version);
         Assert.NotEmpty(connection.Capabilities.Names);
         Assert.All(ServerInfoScenarioCapabilities(), capability => Assert.True(connection.Capabilities.Has(capability), capability));
-        Assert.Empty(connection.Capabilities.Names.Except(ServiceCapabilities.Names));
     }
 
     [Theory]

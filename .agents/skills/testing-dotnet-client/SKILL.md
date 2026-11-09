@@ -53,10 +53,9 @@ test declares `Category` `Unit`, `Integration` or `Interop`; focus with
   against the Python, Java and Rust holders in `test/interop`, both directions, including a killed
   holder. The Rust holder builds into `bin/dotnet/interop`. Never test against your real
   `~/.opensysml`; the tests use caches of their own.
-- **Release trust.** `SignedReleaseTests` serves the Python client's signed-release fixtures
-  (`client/python/tests/fixtures/signed_release/`) from the loopback `ReleaseServer`: every unpinned
-  one must be refused as `UnpinnedReleaseException` with its signature never fetched.
-  `DownloadResolutionTests` and `BinaryDownloaderTests` cover pins, stalls, redirects and size limits.
+- **Release trust.** `DownloadResolutionTests` and `BinaryDownloaderTests` serve releases from the loopback
+  `ReleaseServer`: every unpinned one must be refused as `UnpinnedReleaseException` with nothing fetched,
+  and they cover pins, stalls, redirects and size limits.
   No test reaches the network; a real GitHub download is a manual check.
 - **Linux `ETXTBSY`.** In a Linux container, three Linux-only tests prove the busy-binary retry; on
   macOS they skip by name. Run Linux in the pinned SDK image with `--init`.

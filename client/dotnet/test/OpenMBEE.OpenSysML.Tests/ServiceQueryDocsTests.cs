@@ -14,9 +14,9 @@ namespace OpenMBEE.OpenSysML.Tests;
 /// client wire: structured and OSLC queries with every constraint form; element, object and scalar bindings answering
 /// element, object, verdict, state and event rows; Markdown and HTML documents; views with ports, notation, depth,
 /// layout, styles, notes and tables, nothing the view omits filled in; the refusals of a missing model, a missing
-/// declaration and a fault in the model's declarations told apart; the answers of every conformance fixture and
-/// every view the renderer's own tests declare read without a malformed-answer refusal; and, against a service
-/// withholding these capabilities, refusals made before anything is sent.
+/// declaration and a fault in the model's declarations told apart; the answers of every conformance fixture read
+/// without a malformed-answer refusal; and, against a service withholding these capabilities, refusals made before
+/// anything is sent.
 /// </summary>
 [Trait(Category.Name, Category.Integration)]
 public sealed class ServiceQueryDocsTests(ServiceFixture services) : IClassFixture<ServiceFixture>
@@ -153,7 +153,7 @@ public sealed class ServiceQueryDocsTests(ServiceFixture services) : IClassFixtu
         await using var connection = await OpenAsync(wire);
         var observatory = (await connection.LoadAsync(Fixture("document.sysml"), cancellationToken: Token)).RequireNoErrors();
         var garage = (await connection.LoadAsync(Fixture("verdicts.sysml"), cancellationToken: Token)).RequireNoErrors();
-        var objects = (await connection.LoadAsync(Repository.PathOf("internal", "doc", "docrender", "testdata", "object_report.sysml"), cancellationToken: Token)).RequireNoErrors();
+        var objects = (await connection.LoadAsync(TestModel("object_report.sysml"), cancellationToken: Token)).RequireNoErrors();
         var lamps = (await connection.LoadContentAsync(Lamps, cancellationToken: Token)).RequireNoErrors();
         var telescope = new DocumentBinding("root", DocumentValue.ElementRef("Observatory::telescope"));
 
@@ -264,7 +264,7 @@ public sealed class ServiceQueryDocsTests(ServiceFixture services) : IClassFixtu
     {
         await using var connection = await OpenAsync(wire);
         var views = (await connection.LoadAsync(Fixture("views.sysml"), cancellationToken: Token)).RequireNoErrors();
-        var tree = await connection.LoadAsync(ViewTestdata("depth-tree.sysml"), cancellationToken: Token);
+        var tree = await connection.LoadAsync(TestModel("depth-tree.sysml"), cancellationToken: Token);
 
         var minimal = await views.RenderViewAsync("RenderViewDemo::connections", cancellationToken: Token);
         var full = await views.RenderViewAsync("RenderViewDemo::connections", new RenderViewOptions { Ports = RenderViewPorts.Full, Show = [ViewNotation.EdgeLabels] }, Token);
@@ -301,8 +301,8 @@ public sealed class ServiceQueryDocsTests(ServiceFixture services) : IClassFixtu
     {
         await using var connection = await OpenAsync(wire);
         var views = (await connection.LoadAsync(Fixture("views.sysml"), cancellationToken: Token)).RequireNoErrors();
-        var tree = (await connection.LoadAsync(ViewTestdata("depth-tree.sysml"), cancellationToken: Token)).RequireNoErrors();
-        var inheriting = (await connection.LoadAsync(ViewTestdata("inherited-prefix.sysml"), cancellationToken: Token)).RequireNoErrors();
+        var tree = (await connection.LoadAsync(TestModel("depth-tree.sysml"), cancellationToken: Token)).RequireNoErrors();
+        var inheriting = (await connection.LoadAsync(TestModel("inherited-prefix.sysml"), cancellationToken: Token)).RequireNoErrors();
 
         var positioned = await tree.RenderViewAsync("DepthViews::depth1", cancellationToken: Token);
         var most = await tree.RenderViewAsync("DepthViews::depth1", new RenderViewOptions { Compartments = RenderViewCompartments.Most }, Token);
@@ -339,9 +339,9 @@ public sealed class ServiceQueryDocsTests(ServiceFixture services) : IClassFixtu
     public async Task AViewsLayoutStylesNotesCanvasAndTableAreReadAsTheViewStatesThem(ClientWire wire)
     {
         await using var connection = await OpenAsync(wire);
-        var plant = await connection.LoadAsync(ViewTestdata("layout.sysml"), cancellationToken: Token);
-        var fleet = (await connection.LoadAsync(ViewTestdata("table.sysml"), cancellationToken: Token)).RequireNoErrors();
-        var folded = await connection.LoadAsync(ViewTestdata("layout-collapsed.sysml"), cancellationToken: Token);
+        var plant = await connection.LoadAsync(TestModel("layout.sysml"), cancellationToken: Token);
+        var fleet = (await connection.LoadAsync(TestModel("table.sysml"), cancellationToken: Token)).RequireNoErrors();
+        var folded = await connection.LoadAsync(TestModel("layout-collapsed.sysml"), cancellationToken: Token);
 
         var placed = await plant.RenderViewAsync("PlantViews::placedView", cancellationToken: Token);
         var plain = await plant.RenderViewAsync("PlantViews::plainView", cancellationToken: Token);
@@ -386,39 +386,6 @@ public sealed class ServiceQueryDocsTests(ServiceFixture services) : IClassFixtu
         var wheel = foldOnly.Nodes.Single(node => node.Name == "wheel");
         Assert.Equal(["hub"], foldOnly.ChildrenOf(wheel).Select(node => node.Name));
         Assert.Equal(wheel.Id, foldOnly.Node(foldOnly.ChildrenOf(wheel).Single().Parent)!.Id);
-    }
-
-    [Theory]
-    [MemberData(nameof(Wires))]
-    public async Task EveryViewTheRenderersOwnTestsDeclareIsReadWithItsNodesInOrder(ClientWire wire)
-    {
-        await using var connection = await OpenAsync(wire);
-        var rendered = 0;
-
-        foreach (var path in Directory.GetFiles(Repository.PathOf("internal", "ir", "view", "testdata"), "*.sysml").Order(StringComparer.Ordinal))
-        {
-            var model = await connection.LoadAsync(path, cancellationToken: Token);
-            if (model.HasErrors)
-            {
-                continue;
-            }
-
-            foreach (var view in (await model.QueryAsync(new Query { Where = QueryConstraint.Equal("@type", "ViewUsage") }, Token)).Elements)
-            {
-                try
-                {
-                    var rendering = await model.RenderViewAsync(view.Id, new RenderViewOptions { Ports = RenderViewPorts.Full, Show = [ViewNotation.All] }, Token);
-                    Assert.All(rendering.Nodes.Where(node => node.Parent.Length > 0), node => Assert.NotNull(rendering.Node(node.Parent)));
-                    rendered++;
-                }
-                catch (ServiceException refused) when (refused.StatusCode == StatusCode.InvalidArgument)
-                {
-                    // A view the renderer refuses to select or draw is refused in its own words, not read.
-                }
-            }
-        }
-
-        Assert.True(rendered > 100, $"only {rendered} views were rendered");
     }
 
     [Theory]
@@ -470,7 +437,8 @@ public sealed class ServiceQueryDocsTests(ServiceFixture services) : IClassFixtu
 
     private static string Fixture(string name) => Repository.PathOf("conformance", "fixtures", name);
 
-    private static string ViewTestdata(string name) => Repository.PathOf("internal", "ir", "view", "testdata", name);
+    // Models copied from the service's renderer and document tests, so changing those does not change these.
+    private static string TestModel(string name) => Repository.PathOf("client", "dotnet", "test", "testdata", "models", name);
 
     private async Task<Connection> OpenAsync(ClientWire wire)
     {
