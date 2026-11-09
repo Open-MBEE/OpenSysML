@@ -544,6 +544,7 @@ func (e *encoder) encodeDocument(root *ast.RootNamespace) error {
 	e.mintedComposites()
 	e.libraryNames()
 	e.sourceText()
+	e.notes()
 	if err := rdf.AnnotateCollections(e.graph); err != nil {
 		return err
 	}
@@ -614,6 +615,8 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 		ids:                ids,
 		subjects:           map[string]string{},
 		regions:            map[rdf.Term]region{},
+		noteRegions:        map[rdf.Term]region{},
+		noteBodies:         map[rdf.Term]region{},
 		verifiedReferences: map[rdf.Term]bool{},
 		heads:              map[rdf.Term]*declarationHead{},
 		conjugateOriginals: map[string]rdf.Term{},
@@ -699,6 +702,10 @@ type encoder struct {
 	// regions holds each element's lines, bodies the lines its members tile.
 	regions map[rdf.Term]region
 	bodies  map[rdf.Term]region
+	// noteRegions and noteBodies are the same, bounded by tokens rather than
+	// lines where members share a line, for the notes of each (see notes).
+	noteRegions map[rdf.Term]region
+	noteBodies  map[rdf.Term]region
 	// offsets holds where in file each element's declaration starts.
 	offsets map[string]int
 	// verifiedReferences holds the `verify` members written as a reference
@@ -1084,7 +1091,15 @@ func (e *encoder) encode(members []ast.Node, owner string, ownerTerm rdf.Term) e
 		}
 		e.bodies[ownerTerm] = body
 	}
-	return e.encodeMembers(kept, regions, inline, owner, ownerTerm, 0)
+	noteRegions := e.src.tokenBounded(regions, spans)
+	if len(regions) > 0 && ownerTerm.Value != "" {
+		body := region{noteRegions[0].start, noteRegions[len(noteRegions)-1].end}
+		if prior, ok := e.noteBodies[ownerTerm]; ok {
+			body = region{min(prior.start, body.start), max(prior.end, body.end)}
+		}
+		e.noteBodies[ownerTerm] = body
+	}
+	return e.encodeMembers(kept, regions, noteRegions, inline, owner, ownerTerm, 0)
 }
 
 // encodeInline walks members whose lines interleave with their owner's own
@@ -1097,10 +1112,10 @@ func (e *encoder) encodeInline(members []ast.Node, owner string, ownerTerm rdf.T
 // member group's: a transition's body members index after its effect's.
 func (e *encoder) encodeInlineAt(members []ast.Node, indexOffset int, owner string, ownerTerm rdf.Term) error {
 	kept := e.names.Kept(members)
-	return e.encodeMembers(kept, make([]region, len(kept)), true, owner, ownerTerm, indexOffset)
+	return e.encodeMembers(kept, make([]region, len(kept)), make([]region, len(kept)), true, owner, ownerTerm, indexOffset)
 }
 
-func (e *encoder) encodeMembers(kept []ast.Node, regions []region, inline bool, owner string, ownerTerm rdf.Term, indexOffset int) error {
+func (e *encoder) encodeMembers(kept []ast.Node, regions, noteRegions []region, inline bool, owner string, ownerTerm rdf.Term, indexOffset int) error {
 	// last and beforeLast are the latest members a `then` sequences from; a
 	// member-attached `then` follows its target prev, so its source is the
 	// latest of them before prev.
@@ -1127,10 +1142,11 @@ func (e *encoder) encodeMembers(kept []ast.Node, regions []region, inline bool, 
 		encodes := !e.names.Absorbed[node]
 		if !encodes {
 			regions[i+1] = regions[i]
+			noteRegions[i+1] = noteRegions[i]
 		}
 		if encodes {
 			h := memberHead{node: node, visibility: visibility, owner: ownerTerm, index: i + indexOffset,
-				lines: regions[i], inline: inline, typeFeature: isTypeFeatureMember(member), last: i == len(kept)-1}
+				lines: regions[i], noteLines: noteRegions[i], inline: inline, typeFeature: isTypeFeatureMember(member), last: i == len(kept)-1}
 			if err := e.encodeMember(h, owner); err != nil {
 				return err
 			}
@@ -1258,6 +1274,7 @@ type memberHead struct {
 	index      int
 	metaclass  rdf.Term
 	lines      region
+	noteLines  region
 	inline     bool
 	// typeFeature marks a KerML `member` (TypeFeatureMember): a feature its type
 	// owns through a plain OwningMembership rather than a FeatureMembership.
@@ -1311,6 +1328,9 @@ func (e *encoder) head(subject rdf.Term, h memberHead) {
 	e.graph.Add(subject, e.sysx(xMemberIndex), rdf.Int(index))
 	if !inline {
 		e.regions[subject] = lines
+	}
+	if h.noteLines != (region{}) {
+		e.noteRegions[subject] = h.noteLines
 	}
 	if language := languageName(e.file.Kind()); ownerTerm.Value == "" && h.local.Value == "" && language != "" {
 		e.graph.Add(subject, e.sysx(xSourceLanguage), rdf.String(language))

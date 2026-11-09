@@ -108,7 +108,7 @@
     "pilotLibraryElements": 40244,
     "elements": {
       "matched": 104414,
-      "oursOnly": 15222,
+      "oursOnly": 18080,
       "pilotOnly": 26900,
       "pilotOnlyImplied": 0,
       "typeMismatch": 1815
@@ -124,7 +124,7 @@
     },
     "rows": 11771,
     "unkeyedReferences": 158684,
-    "extensionProperties": 271250,
+    "extensionProperties": 272781,
     "duplicateElements": {
       "ours": 553,
       "pilot": 83427
@@ -149,7 +149,7 @@
       "pilotLibraryElements": 781,
       "elements": {
         "matched": 8322,
-        "oursOnly": 902,
+        "oursOnly": 934,
         "pilotOnly": 1844,
         "pilotOnlyImplied": 0,
         "typeMismatch": 6
@@ -185,7 +185,7 @@
       "pilotLibraryElements": 2421,
       "elements": {
         "matched": 29194,
-        "oursOnly": 5578,
+        "oursOnly": 5814,
         "pilotOnly": 6922,
         "pilotOnlyImplied": 0,
         "typeMismatch": 27
@@ -221,7 +221,7 @@
       "pilotLibraryElements": 751,
       "elements": {
         "matched": 10413,
-        "oursOnly": 1742,
+        "oursOnly": 1791,
         "pilotOnly": 2186,
         "pilotOnlyImplied": 0,
         "typeMismatch": 0
@@ -258,7 +258,7 @@
       "pilotLibraryElements": 283,
       "elements": {
         "matched": 6802,
-        "oursOnly": 903,
+        "oursOnly": 1068,
         "pilotOnly": 1439,
         "pilotOnlyImplied": 0,
         "typeMismatch": 1136
@@ -294,7 +294,7 @@
       "pilotLibraryElements": 432,
       "elements": {
         "matched": 7624,
-        "oursOnly": 820,
+        "oursOnly": 2010,
         "pilotOnly": 2106,
         "pilotOnlyImplied": 0,
         "typeMismatch": 419
@@ -331,7 +331,7 @@
       "pilotLibraryElements": 83,
       "elements": {
         "matched": 1537,
-        "oursOnly": 187,
+        "oursOnly": 249,
         "pilotOnly": 434,
         "pilotOnlyImplied": 0,
         "typeMismatch": 28
@@ -368,7 +368,7 @@
       "pilotLibraryElements": 17663,
       "elements": {
         "matched": 32550,
-        "oursOnly": 4512,
+        "oursOnly": 5533,
         "pilotOnly": 10579,
         "pilotOnlyImplied": 0,
         "typeMismatch": 199
@@ -404,7 +404,7 @@
       "pilotLibraryElements": 5,
       "elements": {
         "matched": 53,
-        "oursOnly": 0,
+        "oursOnly": 8,
         "pilotOnly": 0,
         "pilotOnlyImplied": 0,
         "typeMismatch": 0
@@ -440,7 +440,7 @@
       "pilotLibraryElements": 17825,
       "elements": {
         "matched": 7919,
-        "oursOnly": 578,
+        "oursOnly": 673,
         "pilotOnly": 1390,
         "pilotOnlyImplied": 0,
         "typeMismatch": 0
