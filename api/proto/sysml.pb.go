@@ -4624,7 +4624,12 @@ type GetElementPropertiesResponse struct {
 	// element belongs to an excluded document.
 	Error string `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
 	// The documents the model is read without, each with why; empty when the
-	// whole model is read. An element of any other document is answered as usual.
+	// whole model is read. An element of any other document is answered as usual,
+	// and its properties may still name elements of an excluded document: the
+	// derived properties (KerML 8.3.3.3 Feature::type, 8.3.3.1 Type::inheritedMembership,
+	// 8.2.3 Namespace::member) are defined over the whole model, as the pilot keeps a
+	// partially parsed file's elements; a request for such an element answers its
+	// document's error.
 	ExcludedDocuments []*ExcludedDocument `protobuf:"bytes,4,rep,name=excluded_documents,json=excludedDocuments,proto3" json:"excluded_documents,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
