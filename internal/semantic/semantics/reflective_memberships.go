@@ -243,7 +243,10 @@ func (m *Model) withDefaultMultiplicity(sym *symbols.Symbol, memberships []*symb
 // among its scope's, in the source order the conversion writes them.
 func (m *Model) withTransitionMemberships(sym *symbols.Symbol, out, parts []*symbols.Symbol) []*symbols.Symbol {
 	var extra []*symbols.Symbol
-	if tp := m.transitionPartsOf(sym); tp != nil && tp.sourceMember != nil {
+	if tp := m.transitionPartsOf(sym); tp != nil && tp.sourceChainMembership != nil {
+		// `first a.b` is a chain Feature the transition owns (transitionSourceMember).
+		extra = append(extra, tp.sourceChainMembership)
+	} else if tp != nil && tp.sourceMember != nil {
 		// `first source` is a Membership of the source state (transitionSourceMember).
 		extra = append(extra, &symbols.Symbol{
 			Kind:       symbols.SymbolRelationship,
@@ -488,6 +491,10 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 	}
 	if IsImpliedMultiplicity(member) {
 		// A type owns its multiplicity through an OwningMembership (KerML 8.3.3.1.10 Type::multiplicity).
+		return "OwningMembership"
+	}
+	if member != nil && member.Chain != nil {
+		// A chain Feature is owned through an OwningMembership (KerML 8.3.3.3.9).
 		return "OwningMembership"
 	}
 	if member != nil && member.Expr != nil {

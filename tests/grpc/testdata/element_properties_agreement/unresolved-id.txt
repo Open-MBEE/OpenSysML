@@ -8,8 +8,7 @@
 Annotation::@id	2	export-35
 DecisionNode::@id	6	export-49
 Documentation::@id	4	export-49
-Feature::@id	4	export-54
-FeatureChaining::@id	4	export-34
+Feature::@id	2	export-54
 FeatureMembership::@id	29	export-50
 FeatureTyping::@id	19	export-55
 ForkNode::@id	2	export-49
@@ -17,7 +16,7 @@ Membership::@id	11	export-53
 Multiplicity::@id	4	symbol-55
 Namespace::@id	1	export-39
 OperatorExpression::@id	1	export-42
-OwningMembership::@id	8	export-50
+OwningMembership::@id	6	export-50
 ReferenceSubsetting::@id	24	export-44
 ReferenceUsage::@id	1	export-52
 ResultExpressionMembership::@id	1	export-50

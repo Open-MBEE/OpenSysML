@@ -29,6 +29,11 @@ type transitionParts struct {
 	// transition owns (SysML.xtext TransitionSourceMember); nil for a chain.
 	sourceMember *symbols.Symbol
 	source       *ast.QualifiedName
+	// sourceChain is the chain Feature a dotted `first a.b` denotes, which the
+	// transition owns through sourceChainMembership, an OwningMembership, as the
+	// conversion writes it (transitionSourceMember); nil for a plain name.
+	sourceChain           *symbols.Symbol
+	sourceChainMembership *symbols.Symbol
 	// linkParameter and triggerParameter are the implied `in` parameters a transition
 	// owns ahead of its trigger (SysML v2 §8.3.16.15; SysML-textual-bnf EmptyParameterMember),
 	// the second only where a trigger declares a payload.
@@ -77,8 +82,10 @@ func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
 	}
 	journal(m, m.transitionParts, sym, sym.Decl)
 	parts := &transitionParts{}
-	if !isBranch && trans.Source != nil && !nameHasChain(trans.Source) {
-		if member := m.referencedSymbol(sym, trans.Source); member != nil {
+	if !isBranch && trans.Source != nil {
+		if nameHasChain(trans.Source) {
+			parts.withSourceChain(sym, trans.Source)
+		} else if member := m.referencedSymbol(sym, trans.Source); member != nil {
 			parts.source, parts.sourceMember = trans.Source, member
 		}
 	}
@@ -545,6 +552,39 @@ func nameHasChain(name *ast.QualifiedName) bool {
 		}
 	}
 	return false
+}
+
+// withSourceChain gives the transition trans the chain Feature its dotted `first
+// a.b` denotes (SysML.xtext TransitionSourceMember, a feature chain) and the
+// OwningMembership it owns the chain through (KerML 8.3.3.3.9).
+func (p *transitionParts) withSourceChain(trans *symbols.Symbol, source *ast.QualifiedName) {
+	node := chainNode(dottedTargetChain(source))
+	if node == nil {
+		return
+	}
+	membership := &symbols.Symbol{
+		Kind:       symbols.SymbolRelationship,
+		DocName:    trans.DocName,
+		DeclSpan:   source.Span(),
+		Visibility: trans.Visibility,
+		Implicit:   &symbols.ImplicitRelationship{Owner: trans, Form: symbols.ImplicitMembership, Slot: "sourcemember"},
+	}
+	scope := trans.Scope
+	if scope == nil {
+		scope = symbols.NewScope(trans.OwnerScope, nil)
+		scope.SetOwner(trans)
+	}
+	chain := &symbols.Symbol{
+		Kind:       symbols.SymbolReferenceUsage,
+		DocName:    trans.DocName,
+		Decl:       node,
+		DeclSpan:   node.Span(),
+		Visibility: ast.VisibilityDefault,
+		OwnerScope: scope,
+		Chain:      &symbols.ChainingFeature{Relationship: membership, Node: node},
+	}
+	membership.Implicit.Member = chain
+	p.source, p.sourceChain, p.sourceChainMembership = source, chain, membership
 }
 
 // dottedTargetChain is the feature chain a dotted transition target (`then a.b`) is
