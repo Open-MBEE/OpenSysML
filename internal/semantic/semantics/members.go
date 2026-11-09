@@ -341,9 +341,8 @@ func (m *Model) positionallyNamed(sym *symbols.Symbol) bool {
 	return sym.Naming == symbols.NamedByDeclaration && !declaresIdentifier(sym) && m.EffectiveNameOf(sym) != ""
 }
 
-// roleNamed reports a usage declared without a name of its own that takes one from the
-// feature its role implicitly redefines — an objective's `obj`, a subject's `subject` — as the
-// conversion names it (naming.Table.EffectiveName); a parameter is PositionallyNamed instead.
+// roleNamed reports a usage declared without a name that takes one from the feature its role
+// redefines — an objective's `obj`, a subject's `subject`; a parameter is PositionallyNamed instead.
 func (m *Model) roleNamed(sym *symbols.Symbol) bool {
 	if !m.positionallyNamed(sym) || !sym.IsFeature() {
 		return false

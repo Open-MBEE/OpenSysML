@@ -428,9 +428,8 @@ func collectSymbols(roots []*symbols.Scope) []*symbols.Symbol {
 	return out
 }
 
-// qualifiedName is the symbol's qualified name as the model derives it — through an effective
-// name, its own or an owner's (`T::obj::massRequirement`) — a metadata body feature's under the
-// usage owning it: `mission = …` is the usage's own feature, not the definition's its scope resolves names in.
+// qualifiedName is the symbol's qualified name as the model derives it, through an effective name too
+// (`T::obj::massRequirement`); a metadata body feature's (`mission = …`) is under the usage owning it.
 func (b *builder) qualifiedName(sym *symbols.Symbol) string {
 	if b.model.RestatesMetadataBodyFeature(sym) {
 		if fqn := b.metadataBodyFQN(sym); fqn != "" {
