@@ -191,19 +191,8 @@ func (m *Model) parametersOf(sym *symbols.Symbol) behaviorParameters {
 
 	// What no owned parameter redefines, by clause or by position, is inherited
 	// from each general in turn (KerML 8.3.3.1), ordered after the owned ones.
-	// The kind's implicit base beside a declared general does not count as one.
-	var generals []*symbols.Symbol
-	for _, sup := range m.DirectSupertypes(sym) {
-		if behaviorLike(sup) {
-			generals = append(generals, sup)
-		}
-	}
-	if len(generals) > 1 {
-		bases := m.ImplicitGenerals(sym)
-		generals = slices.DeleteFunc(generals, func(sup *symbols.Symbol) bool { return slices.Contains(bases, sup) })
-	}
 	declared := out
-	for _, sup := range generals {
+	m.forBehaviorGenerals(sym, func(sup *symbols.Symbol) {
 		general := m.parametersOf(sup)
 		claimed := claimedParameters(declared, general)
 		for _, p := range general.positional {
@@ -214,7 +203,7 @@ func (m *Model) parametersOf(sym *symbols.Symbol) behaviorParameters {
 		if out.result.sym == nil && !claimed[general.result.sym] {
 			out.result = general.result
 		}
-	}
+	})
 
 	// A list derived while a guard cut a query short may have missed a
 	// parameter, so it is recomputed on the next query, not memoized.
@@ -227,6 +216,32 @@ func (m *Model) parametersOf(sym *symbols.Symbol) behaviorParameters {
 }
 
 // listsParameter reports whether params already carries general's parameter sym,
+
+// forBehaviorGenerals calls fn for each behavior or step whose parameters sym's
+// redefine by position and inherit: its direct behavior-like generals, less the base
+// feature its kind implies, whose parameters are its type's, and less the base type
+// it implies beside a declared general, which reaches that base already (KerML 7.4.7.2).
+func (m *Model) forBehaviorGenerals(sym *symbols.Symbol, fn func(sup *symbols.Symbol)) {
+	bases := m.ImplicitGenerals(sym)
+	supertypes := m.DirectSupertypes(sym)
+	declared := false
+	for _, sup := range supertypes {
+		if behaviorLike(sup) && !slices.Contains(bases, sup) {
+			declared = true
+			break
+		}
+	}
+	for _, sup := range supertypes {
+		if !behaviorLike(sup) {
+			continue
+		}
+		if slices.Contains(bases, sup) && (declared || sup.IsFeature()) {
+			continue
+		}
+		fn(sup)
+	}
+}
+
 // as itself or as a parameter inherited through another general that redefines it.
 func (m *Model) listsParameter(params []parameter, sym *symbols.Symbol) bool {
 	for _, p := range params {
@@ -456,33 +471,27 @@ func (m *Model) implicitParameterTargets(sym *symbols.Symbol, skipExplicit, matc
 	}
 
 	var out []*symbols.Symbol
-	// The base feature a kind implies owns no parameters; those of its type are
-	// reached through the kind's base definition or the declared chain already.
-	baseFeatures := m.ImpliedBaseFeatures(owner)
-	for _, sup := range m.DirectSupertypes(owner) {
-		if !behaviorLike(sup) || slices.Contains(baseFeatures, sup) {
-			continue
-		}
+	m.forBehaviorGenerals(owner, func(sup *symbols.Symbol) {
 		supParams := m.parametersOf(sup)
 		var target parameter
 		if isResult {
 			target = supParams.result
 		} else {
 			if position >= len(supParams.positional) {
-				continue
+				return
 			}
 			target = supParams.positional[position]
 		}
 		if target.sym == nil || target.sym == sym {
-			continue
+			return
 		}
 		// A redefining parameter has the same direction as the parameter it
 		// redefines; a position whose directions disagree is not a redefinition.
 		if matchDirection && target.direction != direction {
-			continue
+			return
 		}
 		out = append(out, target.sym)
-	}
+	})
 	return out
 }
 

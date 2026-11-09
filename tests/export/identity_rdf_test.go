@@ -897,9 +897,10 @@ func TestNormativeSubjectNamesTheLibraryElementExactly(t *testing.T) {
 }
 
 // An unnamed library member's minted id is the library's on the subject written
-// as the encoder writes it — at its position under its owner, or by the effective
-// name a return parameter takes — and its owning membership's id names nothing;
-// another position, another owner's member or a named element is not it.
+// as the encoder writes it — at its position under its owner — and its owning
+// membership's id names nothing; a return parameter named by the result it
+// redefines is catalogued under that name (KerML 8.3.3.3), so no positional id
+// is it; another position, another owner's member or a named element is not it.
 func TestNormativeSubjectPlacesAnonymousLibraryMembers(t *testing.T) {
 	base := libs.SharedBase()
 	catalog := identity.LibraryCatalogWithOpenSysML(base)
@@ -911,8 +912,14 @@ func TestNormativeSubjectPlacesAnonymousLibraryMembers(t *testing.T) {
 	}
 	documentation := identity.AnonymousMemberID(part.ID, "Documentation", 0)
 	membership := identity.AnonymousMemberOwningMembershipID(part.ID, "Documentation", 0)
-	result := identity.AnonymousMemberID(deg.ID, "Feature", 0)
-	quotedOwner := identity.AnonymousMemberID(at.ID, "Feature", 0)
+	degResult, _ := catalog.ElementNamed("TrigFunctions::deg::result")
+	atResult, _ := catalog.ElementNamed("BaseFunctions::@::result")
+	if degResult == nil || atResult == nil {
+		t.Fatal("the returns of TrigFunctions::deg and BaseFunctions::@ are not catalogued under result")
+	}
+	result := degResult.ID
+	quotedOwner := atResult.ID
+	positional := identity.AnonymousMemberID(deg.ID, "Feature", 0)
 	cases := []struct {
 		id, qname string
 		want      bool
@@ -929,8 +936,10 @@ func TestNormativeSubjectPlacesAnonymousLibraryMembers(t *testing.T) {
 		{result, "TrigFunctions::deg::result", true},
 		{result, "TrigFunctions::deg::@2", false},
 		{result, "TrigFunctions::deg::theta_rad", false},
+		{positional, "TrigFunctions::deg::result", false},
+		{positional, "TrigFunctions::deg::@0", false},
 		{quotedOwner, "BaseFunctions::'@'::result", true},
-		{quotedOwner, "BaseFunctions::@::result", false},
+		{quotedOwner, "BaseFunctions::'@'::@0", false},
 	}
 	for _, c := range cases {
 		if got := export.NormativeSubject(c.id, c.qname); got != c.want {

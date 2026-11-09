@@ -251,7 +251,7 @@ func (m *Model) ExprResultType(scope *symbols.Scope, node ast.Node) *symbols.Sym
 		if types := m.collectionResultTypes(scope, n, called); len(types) > 0 {
 			return types[0]
 		}
-		if result := m.ResultParameterOf(called); result != nil && !m.IsKindBaseParameter(called, result) {
+		if result := m.ResultParameterOf(called); result != nil {
 			return m.featureResultType(result)
 		}
 	}
@@ -414,7 +414,7 @@ func (m *Model) featureConformance(sym, want *symbols.Symbol) Conformance {
 		return Conformance{Known: true, Holds: true}
 	}
 	// A step named as a value stands for its result: a constraint is its Boolean.
-	if result := m.ResultParameterOf(sym); result != nil && result != sym && !m.IsKindBaseParameter(sym, result) {
+	if result := m.ResultParameterOf(sym); result != nil && result != sym {
 		return m.featureConformance(result, want)
 	}
 	if value := m.typingValue(sym); value != nil {
@@ -1026,7 +1026,7 @@ func (m *Model) invocationConformance(scope *symbols.Scope, e *ast.InvocationExp
 		return c
 	}
 	result := m.ResultParameterOf(called)
-	if result == nil || m.IsKindBaseParameter(called, result) {
+	if result == nil {
 		return conformanceUnknown()
 	}
 	return m.featureConformance(result, want)
