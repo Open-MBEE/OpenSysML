@@ -21,6 +21,7 @@ const elementFormModel = `package M {
         connect u1.p to u2.p;
         attribute x : ScalarValues::Real = 2.0 + 1.0;
     }
+    part def Lone { attribute broken : Missing; }
 }
 `
 
@@ -179,18 +180,22 @@ func TestElementFormValueKeepsLargeIntegersExact(t *testing.T) {
 // reason, so a reader can tell it from a property that is legitimately empty.
 func TestElementFormRecordsPerElementOmissions(t *testing.T) {
 	form := parseElementForm(t, elementFormModel)
-	a, ok := form.ByQualifiedName("M::P::a")
+	a, ok := form.ByQualifiedName("M::Lone::broken")
 	if !ok {
-		t.Fatal("M::P::a is not in the form")
+		t.Fatal("M::Lone::broken is not in the form")
 	}
 	reason, omitted := form.Omission(a.ID, "inheritedFeature")
 	if !omitted || reason.Category != metamodel.ReasonUnresolvedReference {
-		t.Fatalf("M::P::a.inheritedFeature omission = %v, %v; want an unresolved-reference reason", reason, omitted)
+		t.Fatalf("M::Lone::broken.inheritedFeature omission = %v, %v; want an unresolved-reference reason", reason, omitted)
 	}
 	for _, property := range a.Properties {
 		if property.Name == "inheritedFeature" {
-			t.Fatalf("M::P::a carries inheritedFeature %v and records its omission", property.Value)
+			t.Fatalf("M::Lone::broken carries inheritedFeature %v and records its omission", property.Value)
 		}
+	}
+	typed, _ := form.ByQualifiedName("M::P::a")
+	if _, omitted := form.Omission(typed.ID, "inheritedFeature"); omitted {
+		t.Error("M::P::a.inheritedFeature is carried through its library type, yet an omission is recorded")
 	}
 	pair, _ := form.ByQualifiedName("M::Pair")
 	if _, omitted := form.Omission(pair.ID, "inheritedFeature"); omitted {

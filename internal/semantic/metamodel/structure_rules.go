@@ -4945,8 +4945,11 @@ func (e *Evaluator) structureTypeMembers(element Element, property string, visit
 }
 
 func (e *Evaluator) computeStructureTypeMembers(element Element, property string, visited map[ElementKey]bool) ([]Value, bool) {
-	if element.Symbol != nil && !e.structureKnows(element) {
-		return e.structureLibraryTypeMembers(element, property)
+	if symbol := e.structureElementSymbol(element); symbol != nil && e.model != nil &&
+		(!e.structureKnows(element) || e.structureDefersToModel(element)) {
+		// A library type the structure holds only as a row, or not at all, is
+		// read through its symbol.
+		return e.structureLibraryTypeMembers(ElementOf(symbol), property)
 	}
 	owned, handled, ok := e.structureOwnedFilter(element, "Membership", true)
 	if !handled || !ok {

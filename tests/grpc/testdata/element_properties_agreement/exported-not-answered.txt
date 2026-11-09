@@ -16,7 +16,7 @@ AttributeUsage::nestedConnection	5	symbol-43
 AttributeUsage::nestedOccurrence	1	symbol-43
 AttributeUsage::nestedUsage	43	symbol-43
 AttributeUsage::owningUsage	90	symbol-44
-AttributeUsage::usage	65	symbol-43
+AttributeUsage::usage	75	symbol-43
 BindingConnectorAsUsage::isVariation	16	symbol-44
 BindingConnectorAsUsage::mayTimeVary	16	symbol-44
 BindingConnectorAsUsage::nestedReference	16	symbol-43
@@ -49,7 +49,7 @@ ReferenceUsage::mayTimeVary	172	symbol-44
 ReferenceUsage::nestedAttribute	1	symbol-43
 ReferenceUsage::nestedUsage	1	symbol-43
 ReferenceUsage::owningUsage	54	symbol-44
-ReferenceUsage::usage	2	symbol-43
+ReferenceUsage::usage	12	symbol-43
 Specialization::general	2	export-27
 Specialization::specific	3	export-27
 Subclassification::general	1	export-27
@@ -67,4 +67,4 @@ SuccessionAsUsage::mayTimeVary	9	symbol-44
 SuccessionAsUsage::nestedReference	9	symbol-43
 SuccessionAsUsage::nestedUsage	9	symbol-43
 SuccessionAsUsage::owningUsage	1	symbol-44
-SuccessionAsUsage::usage	8	symbol-43
+SuccessionAsUsage::usage	9	symbol-43

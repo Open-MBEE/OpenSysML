@@ -288,8 +288,8 @@ func TestElementPropertiesReportsWhyAPropertyHasNoAnswer(t *testing.T) {
 		t.Errorf("EP::Pair.inheritedFeature = %+v, want derived", inherited)
 	}
 	cmdInherited := r.property("EP::CmdPort::cmd", "inheritedFeature")
-	if len(cmdInherited.Values) != 0 || !strings.Contains(cmdInherited.Unsupported, "Type::inheritedFeature is not derived for this element") {
-		t.Errorf("a property the evaluator could not derive for one element answers %+v", cmdInherited)
+	if cmdInherited.Unsupported != "" || len(cmdInherited.Values) == 0 {
+		t.Errorf("EP::CmdPort::cmd.inheritedFeature = %+v, want the features its library type inherits", cmdInherited)
 	}
 	unresolved := parseForElementPropertiesWithErrors(t, "package EU { part def Lone { part broken : Missing; } }")
 	perElement := unresolved.property("EU::Lone::broken", "type")
