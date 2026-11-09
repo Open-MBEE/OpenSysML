@@ -7,6 +7,7 @@ import (
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docir"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
@@ -16,6 +17,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -28,8 +30,9 @@ const (
 	bindingFormat = "binding %s: %v"
 )
 
-// RunDocumentQuery runs a named document query with parameter bindings, the
-// answer %run-query gives, as typed rows rather than formatted lines.
+// RunDocumentQuery runs a named document query, or a query expression written
+// in place of a name, with parameter bindings: the answer %run-query gives, as
+// typed rows rather than formatted lines.
 func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQueryRequest) (*pb.RunDocumentQueryResponse, error) {
 	if err := s.requireCapability(CapabilityDocumentQuery); err != nil {
 		return nil, err
@@ -38,25 +41,38 @@ func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQuery
 	if !ok {
 		return nil, statusErrorf(connect.CodeNotFound, msgModelNotFound, req.ModelHash)
 	}
-	if req.QueryId == "" {
-		return nil, statusError(connect.CodeInvalidArgument, "a document query to run must be named in query_id")
+	switch {
+	case req.QueryId == "" && req.InlineQuery == "":
+		return nil, statusError(connect.CodeInvalidArgument, "a document query to run must be named in query_id or written in inline_query")
+	case req.QueryId != "" && req.InlineQuery != "":
+		return nil, statusError(connect.CodeInvalidArgument, "a document query is named in query_id or written in inline_query, not both")
+	case req.InlineQuery != "":
+		if err := s.requireCapability(CapabilityInlineDocumentQuery); err != nil {
+			return nil, err
+		}
 	}
 	// The query runs over the model's runtime and the objects it holds, as
 	// %run-query runs over the session's; Objects answers no rows while none are held.
 	held := s.objects(cached)
 	defer held.lock(ctx)()
 	qctx := held.queryContext()
-	sym, err := documentSymbol(qctx.Index, req.QueryId)
-	if err != nil {
-		return nil, err
-	}
-	if !queryplan.IsQueryDefinition(qctx.Index, qctx.Model, sym) {
-		return nil, statusErrorf(connect.CodeInvalidArgument,
-			"%s is not a document query: one is a calc def specializing DocumentQueries::Query", req.QueryId)
-	}
-	program, err := queryplan.Compile(qctx.Index, qctx.Model, qctx.Resolver, sym)
-	if err != nil {
-		return nil, documentStatus(err)
+	var (
+		program *queryplan.Program
+		inline  *queryplan.Inline
+		err     error
+	)
+	queryName := req.QueryId
+	if req.InlineQuery != "" {
+		queryName = "the inline query"
+		inline, program, qctx, err = cached.inlineQuery(qctx, req.InlineQuery)
+		if err != nil {
+			return nil, documentStatus(err)
+		}
+	} else {
+		program, err = namedQuery(qctx, req.QueryId)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if slices.ContainsFunc(req.Bindings, bindingHoldsBigInt) {
 		if err := s.requireCapability(CapabilityBigIntValues); err != nil {
@@ -74,19 +90,54 @@ func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQuery
 	}
 	result, err := queryexec.Execute(program, qctx, bindings, queryexec.Options{})
 	if err != nil {
-		return nil, held.documentStatus(err)
+		return nil, held.documentStatus(queryexec.LocateInline(inline, err))
 	}
 	response := rowSetResponse(qctx.Index, result)
 	if !s.capabilities.has(CapabilityBigIntValues) && slices.ContainsFunc(response.Rows, rowHoldsBigInt) {
 		// DocumentValue has no unsupported arm to stand in for a wide Integer.
 		return nil, statusErrorf(connect.CodeUnimplemented,
-			"capability %q is unavailable: query %s answers an Integer beyond int64", CapabilityBigIntValues, req.QueryId)
+			"capability %q is unavailable: query %s answers an Integer beyond int64", CapabilityBigIntValues, queryName)
 	}
 	if !s.capabilities.has(CapabilityRationalValues) && slices.ContainsFunc(response.Rows, rowHoldsRational) {
 		return nil, statusErrorf(connect.CodeUnimplemented,
-			"capability %q is unavailable: query %s answers an exact Rational", CapabilityRationalValues, req.QueryId)
+			"capability %q is unavailable: query %s answers an exact Rational", CapabilityRationalValues, queryName)
 	}
 	return response, nil
+}
+
+// namedQuery plans the document query the model declares under id.
+func namedQuery(qctx queryexec.Context, id string) (*queryplan.Program, error) {
+	sym, err := documentSymbol(qctx.Index, id)
+	if err != nil {
+		return nil, err
+	}
+	if !queryplan.IsQueryDefinition(qctx.Index, qctx.Model, sym) {
+		return nil, statusErrorf(connect.CodeInvalidArgument,
+			"%s is not a document query: one is a calc def specializing DocumentQueries::Query", id)
+	}
+	program, err := queryplan.Compile(qctx.Index, qctx.Model, qctx.Resolver, sym)
+	if err != nil {
+		return nil, documentStatus(err)
+	}
+	return program, nil
+}
+
+// inlineQuery plans text as a query definition of its own over the model, in an
+// index beside the model's, and answers the context the plan executes in.
+func (m *CachedModel) inlineQuery(qctx queryexec.Context, text string) (*queryplan.Inline, *queryplan.Program, queryexec.Context, error) {
+	inline, err := queryplan.ParseInline(qctx.Index, text)
+	if err != nil {
+		return nil, nil, qctx, err
+	}
+	resolver := resolve.New(inline.Index)
+	sem := passes.NewTypedModel(resolver)
+	sem.SetSourceText(cachedSourceText(m))
+	program, err := queryplan.Compile(inline.Index, sem, resolver, inline.Entry)
+	if err != nil {
+		return inline, nil, qctx, queryexec.LocateInline(inline, err)
+	}
+	qctx.Index, qctx.Resolver, qctx.Model = inline.Index, resolver, sem
+	return inline, program, qctx, nil
 }
 
 func bindingHoldsRational(binding *pb.DocumentQueryBinding) bool {
@@ -490,13 +541,17 @@ func documentEvent(idx *symbols.Index, event queryexec.Event) *pb.DocumentEvent 
 // documentStatus maps a typed engine failure onto the status code for it,
 // keeping the engine's own message and appending the source it names.
 func documentStatus(err error) error {
+	var inlineErr *queryplan.InlineError
+	if errors.As(err, &inlineErr) {
+		return inlineStatus(inlineErr)
+	}
 	var planErr *queryplan.Error
 	if errors.As(err, &planErr) {
 		return statusWithOrigin(queryPlanCode(planErr.Kind), err, planErr.Origin)
 	}
 	var execErr *queryexec.Error
 	if errors.As(err, &execErr) {
-		return withQueryOutcome(statusWithOrigin(queryExecCode(execErr.Kind), err, execErr.Origin), execErr)
+		return withQueryOutcome(statusWithOrigin(queryExecCode(execErr.Kind), err, execErr.Origin), execErr.Outcome)
 	}
 	var docPlanErr *docplan.Error
 	if errors.As(err, &docPlanErr) {
@@ -506,24 +561,34 @@ func documentStatus(err error) error {
 	if errors.As(err, &docIRErr) {
 		status := statusWithOrigin(docIRCode(docIRErr), err, docIRErr.Origin)
 		if errors.As(docIRErr.Err, &execErr) {
-			return withQueryOutcome(status, execErr)
+			return withQueryOutcome(status, execErr.Outcome)
 		}
 		return status
 	}
 	return connect.NewError(connect.CodeInternal, err)
 }
 
+// inlineStatus is the status a fault in an inline query reports as: text that
+// does not parse or plan is the caller's argument; execution keeps its mapping.
+func inlineStatus(inlineErr *queryplan.InlineError) error {
+	var execErr *queryexec.Error
+	if errors.As(inlineErr.Err, &execErr) {
+		return withQueryOutcome(connect.NewError(queryExecCode(execErr.Kind), inlineErr), execErr.Outcome)
+	}
+	return connect.NewError(connect.CodeInvalidArgument, inlineErr)
+}
+
 // withQueryOutcome attaches the QVTS record behind a failed query to its status
 // as a QueryOutcome detail, so a client reads the frontier and not just the message.
-func withQueryOutcome(status error, execErr *queryexec.Error) error {
-	if execErr.Outcome == nil {
+func withQueryOutcome(status error, outcome *queryexec.Outcome) error {
+	if outcome == nil {
 		return status
 	}
 	var connErr *connect.Error
 	if !errors.As(status, &connErr) {
 		return status
 	}
-	detail, err := connect.NewErrorDetail(queryOutcomeMessage(*execErr.Outcome))
+	detail, err := connect.NewErrorDetail(queryOutcomeMessage(*outcome))
 	if err != nil {
 		return status
 	}

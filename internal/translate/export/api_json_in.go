@@ -1033,6 +1033,10 @@ func (index *apiJSONIndex) classifyExpressions(
 // expression reports whether the object is classified an expression node by
 // what is classified so far.
 func (index *apiJSONIndex) expression(object *apiJSONElementData) bool {
+	if object.typ == "sysx:"+mNote {
+		// A note is a node of the element whose lines hold it, never an element.
+		return true
+	}
 	ids, types, expressionIDs := index.ids, index.types, index.expressionIDs
 	if base, isMembership := strings.CutSuffix(object.id, rdf.OwningMembershipSuffix); isMembership {
 		return ids[base] && expressionIDs[base]

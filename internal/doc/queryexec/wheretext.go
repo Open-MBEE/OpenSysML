@@ -5,7 +5,6 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/query"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // evaluateWhereText keeps the projected rows one of whose cells, among the
@@ -95,7 +94,11 @@ func (e *executor) textColumns(expression queryplan.Expression, source sequence)
 			}
 		}
 		if index < 0 {
-			return nil, e.unknownProperty(expression, name)
+			columns := make([]string, 0, len(source.columns))
+			for _, column := range source.columns {
+				columns = append(columns, column.name)
+			}
+			return nil, e.unknownPropertyAmong(expression, name, columns)
 		}
 		selected = append(selected, index)
 	}
@@ -111,7 +114,7 @@ func (e *executor) valueText(value Value) string {
 				return name
 			}
 		}
-		return symbols.FQNOf(sym)
+		return e.elementText(sym)
 	}
 	if _, label, ok := value.Object(); ok {
 		return label

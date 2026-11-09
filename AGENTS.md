@@ -184,6 +184,8 @@ Then update the compliance map: edit the area's source under `docs/project/spec-
 5. **Implement the correct fix.** For bug fixes, keep edits minimal and scoped. For features, implement completely (see §8) — "minimal" means *no unrelated changes*, never *under-built*. Match existing style; keep imports at the top.
 6. **Add/adjust tests** to lock in the fix and cover the failure mode.
 7. **Verify** with the full gate in §2. Remove any temporary debug code and dead code.
+   Then review the head yourself with `.agents/skills/reviewing-pull-requests/SKILL.md` against
+   `REVIEW.md` and fix what it finds before pushing (§10).
 8. **Commit** using Conventional Commits (see §7). Keep PRs focused (one feature/fix each).
 9. **Open the PR ready for review** against `develop`. The full CI tier runs on every push and must be
    green. Address review findings as they arrive rather than waiting for CI. Merging is a maintainer's
@@ -349,5 +351,24 @@ Bug-fix discipline (small, scoped diffs) does **not** apply to feature work. For
 - **Forgetting `-update`/`-update-traces`** after an intentional golden change, or running them blindly and masking a real regression — always review the golden diff.
 - **Leaving unused structs/functions** after a refactor — `go vet ./...` and clean them up.
 - **Assuming where states/members live** (Members vs Substates vs Regions) — verify against actual parser output.
+
+---
+
+## 10. Self-Review Before Every Push
+
+The automated review on GitHub reads `REVIEW.md` and finds, on about half of all pull requests,
+defects of a few recurring shapes: a language edge case the change did not handle (inherited,
+redefined, anonymous, same-named, nested), a sibling surface that still answers the old way, a
+test deleted or narrowed, and a code comment over two lines. Each costs a review round, a full CI
+tier and a second review. Catch them first:
+
+1. Run the gate in §2 on the exact head you will push.
+2. Follow `.agents/skills/reviewing-pull-requests/SKILL.md`: the mechanical checks, a change map of
+   every function and caller, the edge-case axes and surfaces in `REVIEW.md` probed with a real
+   model, and the tests checked for reductions.
+3. Fix every bug and settle every flag in the same push. A root cause outside the PR's scope goes
+   in the PR body as a known limitation with its reproducer.
+4. When a review finding does land, batch the fixes across all open findings, re-run the gate, and
+   push once.
 
 See `CONTRIBUTING.md` and `docs/internals/architecture.md` for the authoritative, detailed references.

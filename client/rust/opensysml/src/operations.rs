@@ -9,10 +9,10 @@ use crate::capabilities::{
     CAPABILITY_CONVERT_LIBRARY_STUBS, CAPABILITY_DOCUMENT_QUERY, CAPABILITY_ELEMENT_PROPERTIES,
     CAPABILITY_ENGINES, CAPABILITY_ENUM_VALUES, CAPABILITY_EXPORT_GRAPHS,
     CAPABILITY_FUNCTION_VALUES, CAPABILITY_IMPORT_DATA, CAPABILITY_INFINITY_VALUE,
-    CAPABILITY_INLINE_LANGUAGE, CAPABILITY_MEASUREMENT_REFS, CAPABILITY_METAOBJECT_VALUES,
-    CAPABILITY_MIGRATE, CAPABILITY_OSLC_QUERY, CAPABILITY_PARSE_SOURCES,
-    CAPABILITY_PARSE_SOURCES_AFFECTED, CAPABILITY_PERFORMER, CAPABILITY_QUERY,
-    CAPABILITY_QUERY_ORDER_BY, CAPABILITY_RATIONAL_VALUES, CAPABILITY_RECORD_RUN,
+    CAPABILITY_INLINE_DOCUMENT_QUERY, CAPABILITY_INLINE_LANGUAGE, CAPABILITY_MEASUREMENT_REFS,
+    CAPABILITY_METAOBJECT_VALUES, CAPABILITY_MIGRATE, CAPABILITY_OSLC_QUERY,
+    CAPABILITY_PARSE_SOURCES, CAPABILITY_PARSE_SOURCES_AFFECTED, CAPABILITY_PERFORMER,
+    CAPABILITY_QUERY, CAPABILITY_QUERY_ORDER_BY, CAPABILITY_RATIONAL_VALUES, CAPABILITY_RECORD_RUN,
     CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
     CAPABILITY_RENDER_DOCUMENT_HTML, CAPABILITY_RUNS, CAPABILITY_SCHEDULE,
     CAPABILITY_SCHEDULE_EXPLORE, CAPABILITY_SELF_CHECK, CAPABILITY_SET_VALUES,
@@ -528,6 +528,41 @@ impl Connection {
         query_id: &str,
         bindings: &[(K, Vec<DocumentValue>)],
     ) -> Result<DocumentQueryResult, Error> {
+        self.document_query(
+            wire::RunDocumentQueryRequest {
+                model_hash: model_hash.to_owned(),
+                query_id: query_id.to_owned(),
+                ..Default::default()
+            },
+            bindings,
+        )
+    }
+
+    /// Run a query expression written in place of a named query — the result
+    /// expression of a `calc def` specializing `DocumentQueries::Query` — as
+    /// `run_document_query` runs a named one; needs `inline_document_query`.
+    pub fn run_inline_document_query<K: AsRef<str>>(
+        &self,
+        model_hash: &str,
+        expression: &str,
+        bindings: &[(K, Vec<DocumentValue>)],
+    ) -> Result<DocumentQueryResult, Error> {
+        self.require_all(&[CAPABILITY_INLINE_DOCUMENT_QUERY])?;
+        self.document_query(
+            wire::RunDocumentQueryRequest {
+                model_hash: model_hash.to_owned(),
+                inline_query: expression.to_owned(),
+                ..Default::default()
+            },
+            bindings,
+        )
+    }
+
+    fn document_query<K: AsRef<str>>(
+        &self,
+        mut request: wire::RunDocumentQueryRequest,
+        bindings: &[(K, Vec<DocumentValue>)],
+    ) -> Result<DocumentQueryResult, Error> {
         let mut bindings = bindings_to_wire(bindings)?;
         self.require_all(&[CAPABILITY_DOCUMENT_QUERY])?;
         if !self.capabilities().has(CAPABILITY_RATIONAL_VALUES) {
@@ -539,14 +574,11 @@ impl Connection {
         if bindings.iter().any(binding_holds_rational) {
             self.require_all(&[CAPABILITY_RATIONAL_VALUES])?;
         }
+        request.bindings = bindings;
         let response = self.gated_rpc(
             "RunDocumentQuery",
-            wire::RunDocumentQueryRequest {
-                model_hash: model_hash.to_owned(),
-                query_id: query_id.to_owned(),
-                bindings,
-            },
-            &[CAPABILITY_DOCUMENT_QUERY],
+            request,
+            &[CAPABILITY_DOCUMENT_QUERY, CAPABILITY_INLINE_DOCUMENT_QUERY],
         )?;
         result_of(response)
     }
