@@ -320,16 +320,9 @@ type Fixing struct {
 	ObjectType *symbols.Symbol
 }
 
-// FixedFor gathers the values fixed for a query about the fixing's element: what
-// its object holds for the features of its own definition, else what the owner —
-// the element the conditions were written in — declares, and then what the
-// element's own features declare. A feature fixed twice is fixed by the nearer
-// source, which is what an evaluation about it would read; a feature that only
-// shares its name with a nearer one, or with one the object holds, is another
-// feature, fixed on its own.
+// FixedFor gathers the values fixed for a query about the fixing's element, from
+// its object, its owner and the element itself; see fixedFeatures for a feature read twice.
 func FixedFor(ctx *runtime.Context, f Fixing) ([]Pin, []Unfixed) {
-	var pins []Pin
-	var unfixed []Unfixed
 	fixed := fixedFeatures{model: ctx.Semantics(), seen: make(map[*symbols.Symbol]bool)}
 	inst := f.Object
 	for _, from := range fixedFrom(ctx, f) {
@@ -339,42 +332,73 @@ func FixedFor(ctx *runtime.Context, f Fixing) ([]Pin, []Unfixed) {
 		}
 		found, notRead := fixedOf(ctx, from, inst, held)
 		for _, p := range found {
-			if fixed.add(p.Feature) {
-				pins = append(pins, p)
-			}
+			fixed.add(p)
 		}
 		for _, u := range notRead {
-			if fixed.add(u.Feature) {
-				unfixed = append(unfixed, u)
-			}
+			fixed.addUnfixed(u)
 		}
 	}
-	return pins, unfixed
+	return fixed.pins, fixed.unfixed
 }
 
-// fixedFeatures are the features a query has a value for so far, each with what
-// it redefines: a redefinition and the feature it redefines read the one value.
+// fixedFeatures are the values a query has so far. A feature and what it redefines
+// are one feature: the nearest declaration of it, read last, is the one the conditions name.
 type fixedFeatures struct {
-	model *semantics.Model
-	seen  map[*symbols.Symbol]bool
+	model   *semantics.Model
+	seen    map[*symbols.Symbol]bool
+	pins    []Pin
+	unfixed []Unfixed
 }
 
-// add records feature and reports whether it was new, that is neither it nor a
-// feature it redefines was fixed already.
-func (f *fixedFeatures) add(feature *symbols.Symbol) bool {
-	if feature == nil {
+// add keeps p, in place of a value read for a feature it redefines, unless its
+// feature was read already.
+func (f *fixedFeatures) add(p Pin) {
+	if f.supersede(p.Feature) {
+		f.pins = append(f.pins, p)
+	}
+}
+
+// addUnfixed keeps u on the terms of add.
+func (f *fixedFeatures) addUnfixed(u Unfixed) {
+	if f.supersede(u.Feature) {
+		f.unfixed = append(f.unfixed, u)
+	}
+}
+
+// supersede records feature and drops what was read for the features it
+// redefines; false for no feature or one read already.
+func (f *fixedFeatures) supersede(feature *symbols.Symbol) bool {
+	if feature == nil || f.seen[feature] {
 		return false
 	}
 	chain := append([]*symbols.Symbol{feature}, f.model.AllRedefinedFeatures(feature)...)
+	in := make(map[*symbols.Symbol]bool, len(chain))
 	for _, sym := range chain {
-		if f.seen[sym] {
-			return false
-		}
-	}
-	for _, sym := range chain {
+		in[sym] = true
 		f.seen[sym] = true
 	}
+	f.pins = slices.DeleteFunc(f.pins, func(p Pin) bool { return in[p.Feature] })
+	f.unfixed = slices.DeleteFunc(f.unfixed, func(u Unfixed) bool { return in[u.Feature] })
 	return true
+}
+
+// heldBy is the object a feature's value is held by and the name it holds it under:
+// held for its own feature, else inst for a feature of inst's type a valueless redefinition reads.
+func heldBy(ctx *runtime.Context, feat *runtime.EffectiveFeature, inst, held *runtime.Instance) (*runtime.Instance, string) {
+	if held != nil {
+		return held, feat.Name
+	}
+	if inst == nil || inst.Type == nil || (feat.DefaultValue != nil && feat.DefaultDecl == feat.Symbol) {
+		return nil, ""
+	}
+	for _, redefined := range ctx.Semantics().AllRedefinedFeatures(feat.Symbol) {
+		for _, own := range ctx.FeaturesOf(inst.Type) {
+			if own.Symbol == redefined {
+				return inst, own.Name
+			}
+		}
+	}
+	return nil, ""
 }
 
 // fixedFrom are the types whose features a query reads values of, nearest first:
@@ -412,8 +436,8 @@ func fixedValue(
 	feat *runtime.EffectiveFeature,
 	inst, held *runtime.Instance,
 ) (runtime.Value, PinSource, int64, error) {
-	if held != nil {
-		if fv, ok := held.FeatureValues[feat.Name]; ok && fv != nil {
+	if held, name := heldBy(ctx, feat, inst, held); held != nil {
+		if fv, ok := held.FeatureValues[name]; ok && fv != nil {
 			if fv.Materialized {
 				return fv.HeldValue(), PinHeld, held.ID, nil
 			}
@@ -421,7 +445,7 @@ func fixedValue(
 			// read instead from its declaration, since reading it would bind the
 			// variant and materialize the object of it.
 			if !ctx.IsVariationFeature(feat) {
-				read, err := held.GetFeatureValue(ctx, feat.Name)
+				read, err := held.GetFeatureValue(ctx, name)
 				if err != nil {
 					return runtime.Value{}, PinHeld, held.ID, err
 				}
@@ -452,8 +476,8 @@ func derivedDeclaration(ctx *runtime.Context, feat *runtime.EffectiveFeature, in
 	if feat.DefaultValue == nil || ctx.IsVariationFeature(feat) {
 		return nil
 	}
-	if held != nil {
-		if fv, ok := held.FeatureValues[feat.Name]; ok && fv != nil && fv.Materialized {
+	if held, name := heldBy(ctx, feat, inst, held); held != nil {
+		if fv, ok := held.FeatureValues[name]; ok && fv != nil && fv.Materialized {
 			return nil
 		}
 	}
