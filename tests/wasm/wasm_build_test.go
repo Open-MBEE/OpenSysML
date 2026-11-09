@@ -57,9 +57,8 @@ func repoRoot() (string, error) {
 	return root, nil
 }
 
-// goFor runs a go subcommand for the target over the snapshot overlay, at the
-// repository root. Later environment entries win, so GOOS and GOARCH override whatever
-// the test process carries.
+// goFor runs a go subcommand for the target at the repository root, over the snapshot overlay; later
+// environment entries win, so GOOS and GOARCH override whatever the test process carries.
 func goFor(target wasmTarget, subcommand string, args ...string) ([]byte, error) {
 	root, err := repoRoot()
 	if err != nil {
@@ -75,9 +74,8 @@ func goFor(target wasmTarget, subcommand string, args ...string) ([]byte, error)
 // library snapshot and the Go file embedding it, and where snapshotOverlay supplies them whether or not it ran.
 const libsDir = "internal/workspace/libs"
 
-// snapshotOverlay is the go build -overlay every go command of the gate runs with: the library snapshot
-// generated for this run and the Go file embedding it, laid over package libs. The gate so measures and runs
-// the embedding artifact every Makefile build target ships, not whichever of the two builds (1.6 MB apart gzipped) the tree holds.
+// snapshotOverlay is the go build -overlay every go command of the gate runs with: the library snapshot generated for
+// this run and the Go file embedding it over package libs, so the gate measures what the Makefile builds, not what the tree holds.
 var snapshotOverlay string
 
 // generateSnapshot runs the generator behind `make stdlib-snapshot` into dir and returns the overlay file naming

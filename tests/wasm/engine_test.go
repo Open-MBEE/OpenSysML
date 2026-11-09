@@ -22,9 +22,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// engineGzipBudget bounds the gzipped js build of sysml-engine as the gate links it (-trimpath, stripped,
-// the library snapshot embedded, as every Makefile build target embeds it): 9,451,978 bytes under go1.27.3
-// on 2026-11-09 at develop 8de845591f, 7,764,416 without the snapshot. TestEngineDependencies, not this budget, catches a forbidden dependency.
+// engineGzipBudget bounds the gzipped js sysml-engine the gate links (-trimpath, stripped, the library snapshot embedded, as
+// every Makefile build target does): 9,451,978 bytes under go1.27.3 on 2026-11-09 at develop 8de845591f, 7,764,416 without the snapshot.
 const engineGzipBudget = 9500000
 
 func TestEngineDependencies(t *testing.T) {

@@ -21,9 +21,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// coreGzipBudget bounds the gzipped js build of sysml-core as the gate links it (-trimpath, stripped,
-// the library snapshot embedded, as every Makefile build target embeds it): 7,358,267 bytes under go1.27.3
-// on 2026-11-09 at develop 8de845591f, 5,674,539 without the snapshot.
+// coreGzipBudget bounds the gzipped js sysml-core the gate links (-trimpath, stripped, the library snapshot embedded, as
+// every Makefile build target does): 7,358,267 bytes under go1.27.3 on 2026-11-09 at develop 8de845591f, 5,674,539 without the snapshot.
 const coreGzipBudget = 7400000
 
 const cleanCoreModel = `
