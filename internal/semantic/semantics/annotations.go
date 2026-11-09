@@ -2348,7 +2348,7 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		}
 		return boolValue(len(m.ownedImplicitRelationships(sym, conjugationMetaclass)) > 0), true
 	case "declaredName":
-		return stringOrEmpty(declaredSymbolName(sym)), true
+		return stringOrEmpty(m.declaredSymbolName(sym)), true
 	case "name":
 		return stringOrEmpty(m.reflectiveName(sym)), true
 	case "shortName":
@@ -2829,16 +2829,20 @@ func metaclassName(kind symbols.SymbolKind) string {
 // nameless feature takes from the feature it redefines (KerML 1.1 §8.3.3.3) — a
 // positional parameter from its behavior's, a connector end from the end it occupies.
 func (m *Model) reflectiveName(sym *symbols.Symbol) string {
-	if name := declaredSymbolName(sym); name != "" {
+	if name := m.declaredSymbolName(sym); name != "" {
 		return name
 	}
 	return m.EffectiveNameOf(sym)
 }
 
 // declaredSymbolName is the symbol's name as its declaration states it; a name the
-// symbol table gave it for the role it takes (a transition's `effect`) is none.
-func declaredSymbolName(sym *symbols.Symbol) string {
+// symbol table gave it for the role it takes (a transition's `effect`) is none, and
+// a metadata body feature's `mission = …` names the feature it redefines, not itself.
+func (m *Model) declaredSymbolName(sym *symbols.Symbol) string {
 	if sym == nil || sym.Naming == symbols.NamedByRole {
+		return ""
+	}
+	if m.RestatesMetadataBodyFeature(sym) {
 		return ""
 	}
 	return SimpleSymbolName(sym)

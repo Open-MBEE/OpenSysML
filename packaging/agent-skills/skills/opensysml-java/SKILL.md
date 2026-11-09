@@ -79,6 +79,30 @@ calc.result();                                                 // Optional[RealV
 not errors and must not be read as 0 or `false`: `UndeterminedValue` (the model leaves it open),
 `UnsetValue` (an object holds nothing for the feature) and `NullValue`.
 
+## Members, element properties and object paths
+
+```java
+Symbol m = model.symbol("Demo::m");
+m.members();                      // every member, own then inherited: Symbol.Member(id, name, kind, inherited, inheritedFrom, library)
+m.inheritedMembers();             // the inherited ones; inheritedFrom() names the declaring type
+m.withheldLibraryMembers();       // standard-library members counted, not listed, until:
+model.symbol("Demo::m", SymbolOptions.defaults().withLibraryMembers(true));
+
+ElementProperties read = model.elementProperties("Demo::Pair", "inheritedFeature", "isAbstract");
+read.get("inheritedFeature").orElseThrow().elements();       // ElementRefs; their id() is accepted back
+read.get("connectorEnd").map(p -> p.unsupported());          // why a property has no values
+
+Instance engine = built.reachable().get(1);
+engine.reachedBy();               // Optional<Instance.Reach>: owner id, feature, index, path; empty for the root
+built.owner(engine);              // the holding object
+model.instancePaths(engine);      // InstancePaths: every root-relative path, aliases included
+```
+
+`members()` is empty from a service without `symbol_members` (`childIds()` still names the owned
+ones); library members, `elementProperties` and `instancePaths` are refused with
+`CapabilityException` before the call when the service lacks `symbol_members`,
+`element_properties` or `instance_paths`.
+
 ## Verify
 
 ```java
