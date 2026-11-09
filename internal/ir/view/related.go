@@ -262,10 +262,10 @@ func (c *relatedCollector) endAnchors(scope *symbols.Scope, attachment ast.Node)
 // successions are the actions the successions of the action owning sym reach
 // from it or leave for it.
 func (c *relatedCollector) successions() {
-	if c.sym.Kind != symbols.SymbolActionUsage {
+	if !c.sym.Kind.IsActionUsage() {
 		return
 	}
-	owner := c.behaviorOwner(symbols.SymbolActionDef, symbols.SymbolActionUsage)
+	owner := behaviorOwnerWhere(c.sym, actionOwnerKind)
 	if owner == nil {
 		return
 	}
@@ -279,22 +279,15 @@ func (c *relatedCollector) successions() {
 	}
 }
 
-// behaviorOwner is the nearest element declaring sym whose kind is one of kinds.
-func (c *relatedCollector) behaviorOwner(kinds ...symbols.SymbolKind) *symbols.Symbol {
-	return behaviorOwnerOf(c.sym, kinds...)
-}
-
-// behaviorOwnerOf is the nearest element declaring sym whose kind is one of kinds.
-func behaviorOwnerOf(sym *symbols.Symbol, kinds ...symbols.SymbolKind) *symbols.Symbol {
+// behaviorOwnerWhere is the nearest element declaring sym whose kind isOwner.
+func behaviorOwnerWhere(sym *symbols.Symbol, isOwner func(symbols.SymbolKind) bool) *symbols.Symbol {
 	for scope := sym.OwnerScope; scope != nil; scope = scope.Owner().OwnerScope {
 		owner := scope.Owner()
 		if owner == nil {
 			return nil
 		}
-		for _, kind := range kinds {
-			if owner.Kind == kind {
-				return owner
-			}
+		if isOwner(owner.Kind) {
+			return owner
 		}
 	}
 	return nil

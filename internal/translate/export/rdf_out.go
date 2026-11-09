@@ -1483,6 +1483,10 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if e.performed[n] {
 			metaclass = mPerform
 		}
+		if metaclass == mSuccessionFlowUsage && e.file.Kind() == source.KindKerML {
+			// A KerML flow is written as the FlowUsage its reader takes; so is a succession flow.
+			metaclass = mFlowUsage
+		}
 		if metaclass == mAcceptAction {
 			e.acceptPayloads[acceptPayload(n)] = subject
 		}
@@ -1598,7 +1602,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		}
 		// The prefix a kind keyword was qualified with (`assume constraint c`) is
 		// part of the declaration; `assert` is the AssertConstraintUsage metaclass.
-		if n.PrefixKeyword != "" && !assertedConstraint(n) && !prefixCarriedByGraph(n) {
+		if n.PrefixKeyword != "" && !assertedConstraint(n) && !prefixCarriedByGraph(n, metaclass) {
 			e.graph.Add(subject, e.sysx(xDeclaredPrefix), rdf.String(n.PrefixKeyword))
 		}
 		// A trigger's parameters declare nothing of their own: their owning type
@@ -3545,12 +3549,14 @@ func referencesFeature(n *ast.Usage) bool {
 // prefixCarriedByGraph reports a prefix the graph already states structurally:
 // a state's `entry`/`do`/`exit` by the subaction membership that owns the
 // action, an `include` by the IncludeUseCaseUsage metaclass.
-func prefixCarriedByGraph(n *ast.Usage) bool {
+func prefixCarriedByGraph(n *ast.Usage, metaclass string) bool {
 	switch n.PrefixKeyword {
 	case "entry", "do", "exit":
 		return n.Kind == ast.UsageAction
 	case "include":
 		return n.Kind == ast.UsageUseCase
+	case "succession":
+		return metaclass == mSuccessionFlowUsage
 	}
 	return false
 }

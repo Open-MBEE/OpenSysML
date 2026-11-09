@@ -2563,6 +2563,10 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	// `assert not constraint c` negates the declaration that prefix introduces.
 	// Negation on its own has no notation, so it is reported rather than dropped.
 	prefix, hasPrefix := d.stringOf(el, rdf.OpenSysML+xDeclaredPrefix)
+	if el.metaclass == mSuccessionFlowUsage && !hasPrefix {
+		// A SuccessionFlowUsage is the `succession` its metaclass states.
+		prefix, hasPrefix = "succession", true
+	}
 	negated := d.boolOf(el, rdf.SysML+"isNegated")
 	// The qualifier a qualified usage's metaclass states prefixes the kind
 	// keyword of a declaration (`perform action pa`) and is the whole keyword
