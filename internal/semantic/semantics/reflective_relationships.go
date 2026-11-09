@@ -263,8 +263,7 @@ var featureTypingMetaclassNames = map[string]bool{
 }
 
 // relationshipEndFeature reports whether feature is the source- or target-side
-// end the relationship metaclass meta declares. ConjugatedPortTyping answers
-// only its `portDefinition`; its general end stays unimplemented.
+// end meta declares; a ConjugatedPortTyping's `portDefinition` is read apart.
 func relationshipEndFeature(meta, feature string) (sourceSide, targetSide bool) {
 	switch feature {
 	case "subclassifier":
@@ -308,8 +307,8 @@ func relationshipEndFeature(meta, feature string) (sourceSide, targetSide bool) 
 	case "superclassifier":
 		targetSide = meta == "Subclassification"
 	case "type":
-		targetSide = meta == "FeatureTyping"
-	case "portDefinition":
+		targetSide = featureTypingMetaclassNames[meta]
+	case "conjugatedPortDefinition":
 		targetSide = meta == "ConjugatedPortTyping"
 	case "subsettedFeature":
 		targetSide = subsettingMetaclassNames[meta]
@@ -427,15 +426,24 @@ func (m *Model) implicitRelationshipElements(sym *symbols.Symbol, feature string
 	case "source":
 		return source, true
 	case "target":
-		if tgtOK && meta != "ConjugatedPortTyping" {
+		if tgtOK {
 			return []*symbols.Symbol{tgt}, true
 		}
 		return nil, false
 	case "relatedElement":
-		if tgtOK && meta != "ConjugatedPortTyping" {
+		if tgtOK {
 			return []*symbols.Symbol{src, tgt}, true
 		}
 		return nil, false
+	case "portDefinition":
+		// The original the conjugate is of (SysML v2 8.3.12.3); the target itself when it implies no conjugate.
+		if meta != "ConjugatedPortTyping" || !tgtOK {
+			return nil, false
+		}
+		if original := OriginalPortDefinitionOf(tgt); original != nil {
+			return []*symbols.Symbol{original}, true
+		}
+		return []*symbols.Symbol{tgt}, true
 	case "owningRelatedElement", "owner":
 		return source, true
 	case "ownedRelatedElement":
@@ -459,7 +467,7 @@ func (m *Model) implicitRelationshipElements(sym *symbols.Symbol, feature string
 	switch {
 	case feature == "specific" && specializationMetaclassNames[meta]:
 		return source, true
-	case feature == "general" && specializationMetaclassNames[meta] && meta != "ConjugatedPortTyping", tgtEnd:
+	case feature == "general" && specializationMetaclassNames[meta], tgtEnd:
 		if tgtOK {
 			return []*symbols.Symbol{tgt}, true
 		}

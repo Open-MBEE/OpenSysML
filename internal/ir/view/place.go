@@ -202,7 +202,7 @@ func hasCaseOwner(sym *symbols.Symbol) bool {
 // mixedReferenceEdge reports whether sym contributes a reference between drawn nodes.
 func (r *Renderer) mixedReferenceEdge(sym *symbols.Symbol) bool {
 	if sym.Kind.IsFeature() {
-		for _, target := range r.model.DeclaredTypes(sym) {
+		for _, target := range r.drawnTypes(sym) {
 			if target.Kind.IsDefinition() {
 				return true
 			}
