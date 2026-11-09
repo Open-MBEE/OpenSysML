@@ -19,8 +19,9 @@ These produce findings on GitHub only when skipped locally. Every one must be cl
 git fetch -q origin develop                                 # a stale origin/develop puts merged work in every diff below
 gofmt -l .                                                  # prints nothing
 go vet ./... && make lint                                   # staticcheck + gosec; dead helpers fail here
-git diff --merge-base origin/develop -- '*.go' \
-  | awk '/^\+\s*\/\//{n++; if(n>2) print; next} {n=0}'     # prints nothing: comments are 1–2 lines
+git diff --merge-base origin/develop -U2 -- '*.go' | awk \
+  '/^-/{next} /^[+ ][[:space:]]*\/\//{n++; a=a||/^\+/; if(n>2&&a) print; next} {n=0;a=0}'
+                                                            # prints nothing: no added line leaves a comment over 2 lines
 python3 scripts/check-doc-ids.py                            # no work-item labels in reader-facing text
 python3 scripts/changelog.py check                          # fragments valid
 go test -count=1 ./tests/hygiene                            # size caps, layering, contract tests

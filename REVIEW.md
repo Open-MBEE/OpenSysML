@@ -69,10 +69,10 @@ not to affect, the others. Name the ones the diff touches and check each:
 
 These are mechanical and are checked before a push, not discovered in review:
 
-- A code comment is one or two lines (`AGENTS.md` §7). Run
-  `git diff --merge-base origin/develop -- '*.go' | awk '/^\+\s*\/\//{n++; if(n>2) print; next} {n=0}'`
-  and extend it to the other comment syntaxes the diff touches (`#` in Make, shell, YAML and
-  Python; `;` in Emacs Lisp); it must print nothing.
+- A code comment is one or two lines (`AGENTS.md` §7), counting the existing lines an added
+  line extends. Run the comment gate in `.agents/skills/reviewing-pull-requests/SKILL.md` §1 and
+  repeat it for the other comment syntaxes the diff touches (`#` in Make, shell, YAML and Python;
+  `;` in Emacs Lisp); it must print nothing.
 - No dead code: a helper left without callers after a refactor fails `staticcheck` and the
   no-dead-code rule. `go vet ./...` and `make lint`.
 - A change under `internal/translate/export` moves the writer digest the api-json provenance guard
