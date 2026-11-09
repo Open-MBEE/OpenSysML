@@ -3,10 +3,13 @@ package org.openmbee.opensysml.conformance;
 import org.openmbee.opensysml.CaseEvaluation;
 import org.openmbee.opensysml.CheckResult;
 import org.openmbee.opensysml.Diagnostic;
+import org.openmbee.opensysml.ElementProperties;
+import org.openmbee.opensysml.ElementRef;
 import org.openmbee.opensysml.EngineInfo;
 import org.openmbee.opensysml.Exploration;
 import org.openmbee.opensysml.FailureReason;
 import org.openmbee.opensysml.Instance;
+import org.openmbee.opensysml.InstancePaths;
 import org.openmbee.opensysml.Outcome;
 import org.openmbee.opensysml.QueryElement;
 import org.openmbee.opensysml.RenderedView;
@@ -32,7 +35,16 @@ import org.openmbee.opensysml.proto.CheckViolation;
 import org.openmbee.opensysml.proto.CheckWitness;
 import org.openmbee.opensysml.proto.CalcOutput;
 import org.openmbee.opensysml.proto.ExplorationStatus;
+import org.openmbee.opensysml.proto.ElementProperty;
+import org.openmbee.opensysml.proto.ElementPropertyValue;
 import org.openmbee.opensysml.proto.FeatureValue;
+import org.openmbee.opensysml.proto.GetElementPropertiesResponse;
+import org.openmbee.opensysml.proto.InstancePath;
+import org.openmbee.opensysml.proto.InstancePathStep;
+import org.openmbee.opensysml.proto.InstancePathsResponse;
+import org.openmbee.opensysml.proto.InstanceReach;
+import org.openmbee.opensysml.proto.InstanceRoot;
+import org.openmbee.opensysml.proto.MemberInfo;
 import org.openmbee.opensysml.proto.MultiplicityInfo;
 import org.openmbee.opensysml.proto.QueryResultElement;
 import org.openmbee.opensysml.proto.Span;
@@ -497,7 +509,19 @@ final class Rendering {
             .setKind(symbol.kind())
             .putAllMetadata(symbol.metadata())
             .addAllChildIds(symbol.childIds())
-            .setWithheldLibraryAttributes(symbol.withheldLibraryAttributes());
+            .setWithheldLibraryAttributes(symbol.withheldLibraryAttributes())
+            .setWithheldLibraryMembers(symbol.withheldLibraryMembers());
+    for (Symbol.Member member : symbol.members()) {
+      MemberInfo.Builder rendered =
+          MemberInfo.newBuilder()
+              .setId(member.id())
+              .setName(member.name())
+              .setKind(member.kind())
+              .setInherited(member.inherited())
+              .setLibrary(member.library());
+      member.inheritedFrom().ifPresent(rendered::setInheritedFrom);
+      builder.addMembers(rendered);
+    }
     for (Symbol.Attribute attribute : symbol.attributes()) {
       AttributeInfo.Builder rendered =
           AttributeInfo.newBuilder().setName(attribute.name()).setType(attribute.type());
@@ -560,6 +584,94 @@ final class Rendering {
       featureValue.values().forEach(value -> rendered.addValues(value(value)));
       featureValue.error().ifPresent(rendered::setError);
       builder.putFeatureValues(entry.getKey(), rendered.build());
+    }
+    instance
+        .reachedBy()
+        .ifPresent(
+            reach ->
+                builder.setReachedBy(
+                    InstanceReach.newBuilder()
+                        .setInstanceId(reach.instanceId())
+                        .setFeatureName(reach.featureName())
+                        .setFeatureSymbolId(reach.featureSymbolId())
+                        .setIndex(reach.index())
+                        .setPath(reach.path())));
+    return builder.build();
+  }
+
+  /**
+   * An element's properties.
+   *
+   * @param read the immutable read
+   * @return the generated answer
+   */
+  static GetElementPropertiesResponse elementProperties(ElementProperties read) {
+    GetElementPropertiesResponse.Builder builder =
+        GetElementPropertiesResponse.newBuilder().setElement(elementRef(read.element()));
+    for (ElementProperties.Property property : read.properties()) {
+      ElementProperty.Builder rendered =
+          ElementProperty.newBuilder()
+              .setName(property.name())
+              .setDefiningClass(property.definingClass())
+              .setMany(property.many())
+              .setDerived(property.derived());
+      property.unsupported().ifPresent(rendered::setUnsupported);
+      for (ElementProperties.PropertyValue value : property.values()) {
+        rendered.addValues(propertyValue(value));
+      }
+      builder.addProperties(rendered);
+    }
+    return builder.build();
+  }
+
+  private static org.openmbee.opensysml.proto.ElementRef elementRef(ElementRef reference) {
+    return org.openmbee.opensysml.proto.ElementRef.newBuilder()
+        .setId(reference.id())
+        .setQualifiedName(reference.qualifiedName())
+        .setMetaclass(reference.metaclass())
+        .build();
+  }
+
+  private static ElementPropertyValue propertyValue(ElementProperties.PropertyValue value) {
+    ElementPropertyValue.Builder rendered = ElementPropertyValue.newBuilder();
+    if (value instanceof ElementProperties.PropertyValue.Element element) {
+      rendered.setElement(elementRef(element.element()));
+    } else if (value instanceof ElementProperties.PropertyValue.Text text) {
+      rendered.setStringValue(text.value());
+    } else if (value instanceof ElementProperties.PropertyValue.Bool bool) {
+      rendered.setBoolValue(bool.value());
+    } else if (value instanceof ElementProperties.PropertyValue.Integer integer) {
+      rendered.setIntValue(integer.value());
+    } else if (value instanceof ElementProperties.PropertyValue.Real real) {
+      rendered.setRealValue(real.value());
+    } else if (value instanceof ElementProperties.PropertyValue.Number number) {
+      rendered.setNumber(number.digits());
+    }
+    return rendered.build();
+  }
+
+  /**
+   * Every path to an object.
+   *
+   * @param paths the immutable paths
+   * @return the generated answer
+   */
+  static InstancePathsResponse instancePaths(InstancePaths paths) {
+    InstancePathsResponse.Builder builder =
+        InstancePathsResponse.newBuilder().setTruncated(paths.truncated());
+    for (InstancePaths.Path path : paths.paths()) {
+      InstanceRoot.Builder root = InstanceRoot.newBuilder().setInstanceId(path.rootInstanceId());
+      path.rootSymbolId().ifPresent(root::setSymbolId);
+      InstancePath.Builder rendered = InstancePath.newBuilder().setRoot(root).setPath(path.path());
+      for (InstancePaths.Step step : path.steps()) {
+        rendered.addSteps(
+            InstancePathStep.newBuilder()
+                .setFeatureName(step.featureName())
+                .setFeatureSymbolId(step.featureSymbolId())
+                .setIndex(step.index())
+                .setInstanceId(step.instanceId()));
+      }
+      builder.addPaths(rendered);
     }
     return builder.build();
   }

@@ -7,6 +7,7 @@ package export
 import (
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"math"
 	"math/big"
 	"slices"
@@ -513,7 +514,7 @@ func (e *encoder) bodyParameter(subject, base rdf.Term, owner string, body *ast.
 // bodyMember emits one declaration of an expression body as the member it is:
 // positioned by the body, with no qualified name or namespace of its own.
 func (e *encoder) bodyMember(subject, base rdf.Term, owner string, index int, member ast.Node) error {
-	node, visibility := unwrapMember(member)
+	node, visibility := naming.UnwrapMember(member)
 	if node == nil {
 		return &UnsupportedError{
 			What: fmt.Sprintf("the empty member at %s", e.where(member)),
@@ -1139,6 +1140,16 @@ func (d *decoder) valueOwner(triple rdf.Triple, valueTargets map[string]string, 
 	return feature, false, nil
 }
 
+// derivedConnectorFeature reports a connector's relatedFeature, sourceFeature or
+// targetFeature, which restate what its ends reference and carry no notation of their own.
+func (d *decoder) derivedConnectorFeature(triple rdf.Triple) bool {
+	switch triple.Predicate.Value {
+	case rdf.SysML + pRelatedFeature, rdf.SysML + pSourceFeature, rdf.SysML + pTargetFeature:
+		return ontology.IsAncestorOrSelf(d.metaclass(triple.Subject), "Connector")
+	}
+	return false
+}
+
 // resolveExpression renders one triple's expression-valued property as notation
 // on the element it belongs to.
 func (d *decoder) resolveExpression(triple rdf.Triple, parents map[string][]rdf.Term, valueTargets map[string]string, directValues map[string]rdf.Term) error {
@@ -1156,6 +1167,9 @@ func (d *decoder) resolveExpression(triple rdf.Triple, parents map[string][]rdf.
 	}
 	if triple.Predicate.Value == rdf.SysML+pReferences &&
 		d.graph.BoolValue(triple.Subject, rdf.SysML+pIsEnd) {
+		return nil
+	}
+	if d.derivedConnectorFeature(triple) {
 		return nil
 	}
 	if !d.isExpressionNode(triple.Object) {

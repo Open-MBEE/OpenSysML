@@ -129,7 +129,7 @@ func (v *verifyContext) caseResponse(run caseRun, plan analysis.Plan, err error)
 	for _, out := range result.Outputs {
 		resp.Outputs = append(resp.Outputs, &pb.CalcOutput{
 			Name:  out.Name,
-			Value: v.service.valueToProto(v.runtime, out.Value, v.cached.Index),
+			Value: v.service.valueToProto(v.runtime, out.Value, v.cached),
 		})
 	}
 	for i := range result.Verdicts {
@@ -297,12 +297,12 @@ func (v *verifyContext) caseEvaluations(evaluations []runtime.AnalysisEvaluation
 	for _, e := range evaluations {
 		pe := &pb.CaseEvaluation{FunctionId: e.Function, Selected: e.Selected, Tied: e.Tied}
 		for _, arg := range e.Arguments {
-			pe.Arguments = append(pe.Arguments, v.service.valueToProto(v.runtime, arg, v.cached.Index))
+			pe.Arguments = append(pe.Arguments, v.service.valueToProto(v.runtime, arg, v.cached))
 		}
 		if e.Error != nil {
 			pe.Error = e.Error.Error()
 		} else {
-			pe.Result = v.service.valueToProto(v.runtime, e.Result, v.cached.Index)
+			pe.Result = v.service.valueToProto(v.runtime, e.Result, v.cached)
 		}
 		out = append(out, pe)
 	}
@@ -414,7 +414,7 @@ func (v *verifyContext) argument(arg *pb.Value) (runtime.Value, error, error) {
 	if err := v.service.requireValueCapabilities(arg); err != nil {
 		return runtime.Value{}, nil, err
 	}
-	val, err := protoconv.ProtoToRuntimeValue(v.runtime, arg, v.cached.Index, v.sem())
+	val, err := protoconv.ProtoToRuntimeValueWith(v.runtime, arg, v.cached.Index, v.sem(), v.cached.SymbolContext())
 	if err != nil {
 		return runtime.Value{}, err, nil
 	}

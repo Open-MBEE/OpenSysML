@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 )
 
 func TestMetaHelpAndList(t *testing.T) {
@@ -359,7 +359,7 @@ func TestReplQueryAssignsPositionalIdentityToKerMLDeclarations(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, sym := range candidates {
-		if sym.Name == "" && export.IsPositionalIdentity(model.Identity(sym)) {
+		if sym.Name == "" && naming.IsPositionalIdentity(model.Identity(sym)) {
 			return
 		}
 	}

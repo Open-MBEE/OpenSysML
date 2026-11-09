@@ -174,15 +174,35 @@ func TestImplicitConjugatedPortTyping(t *testing.T) {
 			t.Fatalf("ImplicitRelationships(p) = %d, want 1", len(rels))
 		}
 		rel := rels[0]
+		conjugate := model.ConjugatedPortDefinitionOf(pd)
+		if conjugate == nil {
+			t.Fatal("Pd implies no ConjugatedPortDefinition")
+		}
 		assertRelMetaclass(t, model, rel, "ConjugatedPortTyping")
 		assertRelFeature(t, model, rel, "portDefinition", pd)
 		assertRelFeature(t, model, rel, "typedFeature", p)
 		assertRelFeature(t, model, rel, "specific", p)
-		assertRelUnsupported(t, model, rel, "general")
-		assertRelUnsupported(t, model, rel, "type")
-		assertRelUnsupported(t, model, rel, "target")
-		assertRelUnsupported(t, model, rel, "relatedElement")
-		assertRelUnsupported(t, model, rel, "conjugatedPortDefinition")
+		// conjugatedPortDefinition redefines type (SysML v2 8.3.12.3): the conjugate, not the original.
+		assertRelFeature(t, model, rel, "general", conjugate)
+		assertRelFeature(t, model, rel, "type", conjugate)
+		assertRelFeature(t, model, rel, "target", conjugate)
+		assertRelFeature(t, model, rel, "conjugatedPortDefinition", conjugate)
+		if got, ok := model.ReflectiveElements(rel, "relatedElement"); !ok || len(got) != 2 || got[0] != p || got[1] != conjugate {
+			t.Errorf("relatedElement = %v, %t; want [p, ~Pd]", got, ok)
+		}
+		if got := model.FeatureTypeSet(p); len(got) != 1 || got[0] != conjugate {
+			t.Errorf("FeatureTypeSet(p) = %v, want [~Pd]", got)
+		}
+		// PortUsage::portDefinition redefines occurrenceDefinition: both are the conjugate.
+		for _, feature := range []string{"type", "occurrenceDefinition", "portDefinition"} {
+			assertRelFeature(t, model, p, feature, conjugate)
+		}
+		if !model.IsConjugated(p) {
+			t.Error("IsConjugated(p) = false, want true")
+		}
+		if !model.Conforms(p, pd) {
+			t.Error("p does not conform to Pd")
+		}
 	}
 }
 

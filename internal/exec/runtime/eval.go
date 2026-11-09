@@ -1484,13 +1484,13 @@ func (ctx *Context) contextOccurrence(inst *Instance) *Instance {
 // definition or a behavior usage, whose instances are performances.
 func isPerformanceKind(kind symbols.SymbolKind) bool {
 	switch kind {
-	case symbols.SymbolActionUsage, symbols.SymbolStateUsage, symbols.SymbolCalcUsage,
+	case symbols.SymbolStateUsage, symbols.SymbolCalcUsage,
 		symbols.SymbolCaseUsage, symbols.SymbolAnalysisCaseUsage,
 		symbols.SymbolVerificationCaseUsage, symbols.SymbolUseCaseUsage,
 		symbols.SymbolConstraintUsage, symbols.SymbolRequirementUsage:
 		return true
 	}
-	return isBehaviorDefKind(kind)
+	return kind.IsActionUsage() || isBehaviorDefKind(kind)
 }
 
 // isBehaviorDefKind reports whether kind is a behavior definition — an action,

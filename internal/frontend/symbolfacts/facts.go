@@ -29,6 +29,9 @@ type Context struct {
 	// Positional names the symbols no qualified name identifies; nil when the
 	// host derives none, which leaves such symbols without an id.
 	Positional *Positional
+	// ElementForm is the element form's ids, which name the elements the
+	// semantic side tables synthesize; nil when the host converts no form.
+	ElementForm func() ElementForm
 }
 
 // NewContext builds a conversion context over a symbol index.
@@ -81,7 +84,10 @@ type Options struct {
 	IncludeLibraryMembers bool
 }
 
-// TypeInfo describes a symbol's declared, resolved and primitive type.
+// TypeInfo describes a symbol's written, derived and primitive type. Declared,
+// ResolvedId and ResolvedKind are the typing the declaration writes; Types is
+// the feature's semantic type (Feature::type), which subsetting, reference
+// subsetting and redefinition contribute to.
 type TypeInfo struct {
 	Declared        string
 	ResolvedId      string
@@ -90,6 +96,13 @@ type TypeInfo struct {
 	PrimitiveSource string
 	Quantity        bool
 	Unit            string
+	Types           []*TypeRef
+}
+
+// TypeRef names one derived type of a feature.
+type TypeRef struct {
+	Id   string
+	Kind string
 }
 
 // Multiplicity contains the lower and upper bounds of a symbol's multiplicity.
@@ -136,6 +149,14 @@ func OfWith(sym *symbols.Symbol, sc *Context, opts Options) *Info {
 	}
 	// Extract metadata from AST node
 	extractMetadata(sym, info.Metadata)
+	sc.sendMetadata(sym, info.Metadata)
+	// A parameter whose direction its membership gives rather than its text,
+	// such as a subject (`in`), reports that direction.
+	if _, written := info.Metadata["direction"]; !written {
+		if dir, ok := semantics.ReflectiveDirection(sym); ok && dir != ast.DirNone {
+			info.Metadata["direction"] = dir.String()
+		}
+	}
 	// Add visibility to metadata
 	info.Metadata["visibility"] = visibilityToString(sym.Visibility)
 	if sym.Scope != nil {
@@ -209,6 +230,8 @@ func relationshipKindName(k ast.RelationshipKind) string {
 		return "redefines"
 	case ast.RelTyping:
 		return "typing"
+	case ast.RelReferences, ast.RelIncludes:
+		return "references"
 	default:
 		return ""
 	}
@@ -244,14 +267,38 @@ func (sc *Context) specializationsOf(sym *symbols.Symbol) []*Specialization {
 		if qn == nil {
 			continue
 		}
-		spec := &Specialization{Kind: kind, Declared: qn.Text()}
-		if target := sc.resolveFrom(sym, qn); target != nil {
+		spec := &Specialization{Kind: kind, Declared: declaredText(rel, qn)}
+		target := sc.relationshipTarget(sym, rel, qn)
+		if kind == "references" {
+			// The semantic model resolves a referenced feature outside the
+			// referencing one, so `ref part a ::> a` does not name itself.
+			target = sc.Semantics.ReferencedFeature(sym)
+		}
+		if target != nil {
 			spec.TargetId = sc.Index.GetFQN(target)
 			spec.TargetKind = target.Kind.String()
 		}
 		out = append(out, spec)
 	}
 	return out
+}
+
+// declaredText is the relationship's target as written, with the `~` of a
+// conjugated typing (SysML v2 8.3.12.3) the name alone does not carry.
+func declaredText(rel *ast.Relationship, qn *ast.QualifiedName) string {
+	if rel.Conjugated {
+		return "~" + qn.Text()
+	}
+	return qn.Text()
+}
+
+// relationshipTarget resolves the element a relationship in sym's declaration
+// names; a conjugated typing's is the ConjugatedPortDefinition its target implies.
+func (sc *Context) relationshipTarget(sym *symbols.Symbol, rel *ast.Relationship, qn *ast.QualifiedName) *symbols.Symbol {
+	if rel.Kind == ast.RelTyping && rel.Conjugated && sc.Semantics != nil {
+		return sc.Semantics.TypingTarget(sym, rel)
+	}
+	return sc.resolveFrom(sym, qn)
 }
 
 // resolveFrom resolves a qualified name written in sym's declaration,
@@ -285,6 +332,8 @@ func (sc *Context) typeInfoOf(sym *symbols.Symbol) *TypeInfo {
 		return sc.usageTypeInfo(sym, decl)
 	case *ast.Definition:
 		return sc.definitionTypeInfo(sym)
+	case *ast.SubjectMember:
+		return sc.subjectTypeInfo(sym, decl)
 	case *ast.PrefixMetadata:
 		return sc.annotationTypeInfo(sym, decl)
 	default:
@@ -308,6 +357,32 @@ func (sc *Context) annotationTypeInfo(sym *symbols.Symbol, decl *ast.PrefixMetad
 
 // usageTypeInfo derives the type facts of a usage. An untyped usage still has a
 // primitive when its default value determines one, reported as inferred.
+// subjectTypeInfo is the type of a subject written in a requirement body
+// (`subject s : T;`), which the declaration carries rather than a relationship.
+func (sc *Context) subjectTypeInfo(sym *symbols.Symbol, decl *ast.SubjectMember) *TypeInfo {
+	info := &TypeInfo{}
+	if decl.TypeRef != nil {
+		sc.declareType(sym, info, decl.TypeRef)
+	}
+	if prim := sc.Semantics.PrimTypeOf(sym); prim != semantics.PrimUnknown {
+		info.Primitive = prim.String()
+		info.PrimitiveSource = "declared"
+	} else if prim, ok := primOfValue(sc.Semantics, decl.BindingExpr); ok {
+		info.Primitive = prim
+		info.PrimitiveSource = "value"
+	}
+	sc.markQuantity(sym, info, decl.BindingExpr)
+	return info
+}
+
+func (sc *Context) declareType(sym *symbols.Symbol, info *TypeInfo, qn *ast.QualifiedName) {
+	info.Declared = qn.Text()
+	if target := sc.resolveFrom(sym, qn); target != nil {
+		info.ResolvedId = sc.Index.GetFQN(target)
+		info.ResolvedKind = target.Kind.String()
+	}
+}
+
 func (sc *Context) usageTypeInfo(sym *symbols.Symbol, decl *ast.Usage) *TypeInfo {
 	info := &TypeInfo{}
 
@@ -321,13 +396,15 @@ func (sc *Context) usageTypeInfo(sym *symbols.Symbol, decl *ast.Usage) *TypeInfo
 		if qn == nil {
 			continue
 		}
-		info.Declared = qn.Text()
-		if target := sc.resolveFrom(sym, qn); target != nil {
+		info.Declared = declaredText(rel, qn)
+		if target := sc.relationshipTarget(sym, rel, qn); target != nil {
 			info.ResolvedId = sc.Index.GetFQN(target)
 			info.ResolvedKind = target.Kind.String()
 		}
 		break
 	}
+
+	info.Types = sc.derivedTypes(sym)
 
 	// PrimTypeOf walks the generalization graph, so it covers a type inherited
 	// through subsetting or redefinition as well as a declared one.
@@ -340,6 +417,23 @@ func (sc *Context) usageTypeInfo(sym *symbols.Symbol, decl *ast.Usage) *TypeInfo
 	}
 	sc.markQuantity(sym, info, decl.Value)
 	return info
+}
+
+// derivedTypes reports Feature::type (KerML 8.3.3.3) as the semantic model
+// derives it for the reflective layer, so GetElementProperties reads the same.
+func (sc *Context) derivedTypes(sym *symbols.Symbol) []*TypeRef {
+	types, ok := sc.Semantics.ReflectiveFeatureTypes(sym)
+	if !ok {
+		return nil
+	}
+	var out []*TypeRef
+	for _, target := range types {
+		if target == nil {
+			continue
+		}
+		out = append(out, &TypeRef{Id: sc.Index.GetFQN(target), Kind: target.Kind.String()})
+	}
+	return out
 }
 
 // definitionTypeInfo derives the type facts of a definition: the library scalar

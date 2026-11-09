@@ -78,6 +78,7 @@ github.com/Open-MBEE/OpenSysML
 │   │   ├── suggest/        # Name suggestions for unresolved references
 │   │   ├── semantics/      # Type system, conformance, multiplicity, invocation selection
 │   │   ├── identity/       # Element identities and the normative ids
+│   │   ├── naming/         # Qualified and positional (`Owner::@N`) names of declarations, shared by the export and the symbol facts
 │   │   ├── highlight/      # Semantic token classification
 │   │   └── query/          # The API element-query model and its OSLC prefix map
 │   ├── ir/

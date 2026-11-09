@@ -6,7 +6,7 @@
 
 use std::env;
 
-use opensysml::{Connection, EvalOptions, Magnitude, Model, Value};
+use opensysml::{Connection, EvalOptions, Magnitude, Model, SymbolOptions, Value};
 
 /// The same model the `capable_model` example tours.
 const MODEL: &str = r#"
@@ -271,4 +271,47 @@ fn instantiating_again_builds_a_new_object() {
         second.iter().all(|id| *id > highest),
         "{second:?} after {first:?}"
     );
+}
+
+#[test]
+fn library_members_are_listed_on_request() {
+    let Some(model) = model_or_skip() else {
+        return;
+    };
+    let withheld = model
+        .symbol("Vehicles::Car")
+        .unwrap_or_else(|error| panic!("symbol lookup failed: {error}"));
+    assert!(withheld.withheld_library_members() > 0);
+    assert!(withheld.members().iter().all(|member| !member.library));
+    assert_eq!(
+        withheld
+            .own_members()
+            .iter()
+            .map(|member| member.name.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "color",
+            "name",
+            "street",
+            "mass",
+            "unpainted",
+            "engine",
+            "wheels"
+        ]
+    );
+    let listed = model
+        .symbol_with(
+            "Vehicles::Car",
+            &SymbolOptions {
+                include_library_members: true,
+            },
+        )
+        .unwrap_or_else(|error| panic!("symbol lookup failed: {error}"));
+    assert_eq!(listed.withheld_library_members(), 0);
+    let library = listed
+        .inherited_members()
+        .iter()
+        .filter(|member| member.library)
+        .count();
+    assert_eq!(library as i32, withheld.withheld_library_members());
 }
