@@ -1694,6 +1694,12 @@ elmt:f6f04e9e-c8f9-5a8e-8e4b-a4504ca2bf85
     sysx:libraryPath "Ports::ports/MultiplicityRange[0]" ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+<urn:sysmlv2:element:263a3eb4-137e-55cb-b88e-0d969300a798>
+    a sysml:MultiplicityRange ;
+    sysml:elementId "263a3eb4-137e-55cb-b88e-0d969300a798" ;
+    sysx:libraryPath "Actions::sendActions/MultiplicityRange[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 <urn:sysmlv2:element:26ad38de-5b79-57cb-b94c-a4f691290f92>
     a sysml:Documentation ;
     sysml:elementId "26ad38de-5b79-57cb-b94c-a4f691290f92" ;
@@ -1788,19 +1794,6 @@ elmt:f6f04e9e-c8f9-5a8e-8e4b-a4504ca2bf85
     a sysml:FeatureMembership ;
     sysml:elementId "2c713539-72a9-515e-9607-0fb9159bcdf4" ;
     sysml:memberElement <urn:sysmlv2:element:8f325094-2f07-5075-84a2-e20f64999145> ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-elmt:e96dffdb-38dc-54a1-9129-78e6126445c2
-    a sysml:Feature ;
-    sysml:elementId "e96dffdb-38dc-54a1-9129-78e6126445c2" ;
-    sysml:qualifiedName "Transfers::SendPerformance::sender" ;
-    sysml:declaredName "sender" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-<urn:sysmlv2:element:2c91a17c-1e71-567e-8596-a306a38c6dd1>
-    a sysml:FeatureMembership ;
-    sysml:elementId "2c91a17c-1e71-567e-8596-a306a38c6dd1" ;
-    sysml:memberElement elmt:e96dffdb-38dc-54a1-9129-78e6126445c2 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:2ce7d4f3-05ec-5640-8ef3-2ac5a1d18a23>
@@ -2349,6 +2342,12 @@ elmt:c07c022c-fe72-5b6a-bd1b-3d8f031127c0
     a sysml:FeatureMembership ;
     sysml:elementId "5c5f56f8-8be2-5d54-a5fb-8c599977ed4f" ;
     sysml:memberElement <urn:sysmlv2:element:3e0dc934-f25c-5dea-988f-15724c029d88> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:5cbd86b3-0fe3-58df-a4c0-b0fdd79ae72e>
+    a sysml:OwningMembership ;
+    sysml:elementId "5cbd86b3-0fe3-58df-a4c0-b0fdd79ae72e" ;
+    sysml:memberElement <urn:sysmlv2:element:263a3eb4-137e-55cb-b88e-0d969300a798> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:5cf205b9-f527-54fb-90f0-73705c1889a7>
@@ -2987,12 +2986,6 @@ elmt:a84fcd98-9f6c-51bc-ad76-8e8083866e90
     sysml:memberElement <urn:sysmlv2:element:86fa4360-267a-57c2-a99d-d3f982c10e2c> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
-elmt:a8558e47-1012-5952-a726-cc6f69e02b9e
-    a sysml:ReferenceUsage ;
-    sysml:elementId "a8558e47-1012-5952-a726-cc6f69e02b9e" ;
-    sysml:qualifiedName "Actions::SendAction::payload" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
 elmt:a9288242-c5d9-569d-8c4b-c9e0e0e30879
     a sysml:Documentation ;
     sysml:elementId "a9288242-c5d9-569d-8c4b-c9e0e0e30879" ;
@@ -3409,12 +3402,6 @@ elmt:f23a1510-b31f-50d2-a45e-0bb96121f0d9
     a sysml:Documentation ;
     sysml:elementId "f23a1510-b31f-50d2-a45e-0bb96121f0d9" ;
     sysx:libraryPath "Actions::actions/Documentation[0]" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-elmt:f600102f-0a59-5a01-b7ca-fcc2c593af7e
-    a sysml:FeatureMembership ;
-    sysml:elementId "f600102f-0a59-5a01-b7ca-fcc2c593af7e" ;
-    sysml:memberElement elmt:a8558e47-1012-5952-a726-cc6f69e02b9e ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:f68a041b-272b-5183-a614-eb1272bc1b82

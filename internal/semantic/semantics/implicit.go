@@ -303,7 +303,10 @@ var impliedMultiplicityBases = map[string]string{
 // impliedNodeUsageBases are the bases a usage metaclass of its own subsets in
 // place of its kind's, as usageBaseFeatureFQN reads them off the notation.
 var impliedNodeUsageBases = map[string]string{
-	"SuccessionFlowUsage": "Flows::successionFlows",
+	"AcceptActionUsage":    acceptActionsFQN,
+	"SendActionUsage":      sendActionsFQN,
+	"SuccessionFlowUsage":  "Flows::successionFlows",
+	"TerminateActionUsage": "Actions::terminateActions",
 }
 
 var impliedUsageKinds = map[string]ast.UsageKind{
