@@ -164,7 +164,7 @@ import {
   ENGINE_AUTO,
   type EngineInfo,
 } from "./engines.js";
-import { Exploration, Outcome } from "./exploration.js";
+import { coverageOf, Exploration, Outcome } from "./exploration.js";
 import {
   analysisResultOf,
   decodeVerificationVerdict,
@@ -1250,6 +1250,7 @@ export class Connection {
       depthBudget: status?.depthBudget ?? 0,
       probabilitiesLowerBound: status?.probabilitiesLowerBound ?? false,
       unenumerated: status?.unenumerated ?? [],
+      coverage: coverageOf(status?.coverage),
     });
   }
 
