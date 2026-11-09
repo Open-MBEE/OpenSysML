@@ -36,9 +36,8 @@ func (s *Session) inlineQueryVerdict(text string) Verdict {
 	return Verdict{Subject: text, Status: VerdictHolds, Lines: lines, Values: values, Table: table}
 }
 
-// inlineInvocation reads `inline <expression>` out of a %run-query invocation,
-// false when the invocation names a query instead — including a query named
-// inline, whose bindings `<parameter>=<expression>` no query expression begins with.
+// inlineInvocation reads `inline <expression>` out of a %run-query invocation;
+// false when it names a query, even one named inline followed by its bindings.
 func inlineInvocation(invocation string) (string, bool) {
 	rest, ok := strings.CutPrefix(invocation, inlineKeyword)
 	if !ok || rest == "" || (rest[0] != ' ' && rest[0] != '\t') {
