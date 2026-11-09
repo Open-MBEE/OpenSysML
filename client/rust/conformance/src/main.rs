@@ -1711,6 +1711,14 @@ fn element_properties_wire(
                 unsupported: property.unsupported,
             })
             .collect(),
+        excluded_documents: read
+            .excluded_documents
+            .into_iter()
+            .map(|document| wire::ExcludedDocument {
+                document: document.document,
+                error: document.error,
+            })
+            .collect(),
         error: String::new(),
     }
 }

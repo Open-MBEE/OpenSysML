@@ -123,6 +123,19 @@ pub struct ElementProperties {
     pub element: ElementIdentity,
     /// One entry per property.
     pub properties: Vec<ElementProperty>,
+    /// The documents the model was read without, each with the error that
+    /// kept it out; empty when the whole model was read.
+    pub excluded_documents: Vec<ExcludedDocument>,
+}
+
+/// A document the model was read without.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ExcludedDocument {
+    /// The document's name, as it was given to the service.
+    pub document: String,
+    /// Why the document was left out: its syntax error, or the top-level
+    /// declaration colliding with another document's.
+    pub error: String,
 }
 
 impl ElementProperties {
@@ -170,6 +183,14 @@ pub(crate) fn element_properties_of(
                 derived: p.derived,
                 values: p.values.into_iter().filter_map(property_value_of).collect(),
                 unsupported: p.unsupported,
+            })
+            .collect(),
+        excluded_documents: response
+            .excluded_documents
+            .into_iter()
+            .map(|d| ExcludedDocument {
+                document: d.document,
+                error: d.error,
             })
             .collect(),
     }
@@ -227,8 +248,19 @@ mod tests {
                 },
             ],
             error: String::new(),
+            excluded_documents: vec![wire::ExcludedDocument {
+                document: "broken.sysml".to_owned(),
+                error: "broken.sysml:1:1: syntax error".to_owned(),
+            }],
         };
         let read = element_properties_of(response);
+        assert_eq!(
+            read.excluded_documents,
+            vec![ExcludedDocument {
+                document: "broken.sysml".to_owned(),
+                error: "broken.sysml:1:1: syntax error".to_owned(),
+            }]
+        );
         assert_eq!(read.element.to_string(), "EP::Pair");
         let inherited = read.get("inheritedFeature").unwrap();
         assert!(inherited.many && inherited.derived && inherited.supported());
