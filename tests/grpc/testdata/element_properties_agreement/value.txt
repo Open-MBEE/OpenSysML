@@ -70,13 +70,6 @@ AnalysisCaseUsage::input	6	symbol-53
 AnalysisCaseUsage::member	7	symbol-51
 AnalysisCaseUsage::membership	7	symbol-51
 AnalysisCaseUsage::usage	7	symbol-51
-AssertConstraintUsage::feature	3	symbol-51
-AssertConstraintUsage::featureMembership	3	symbol-51
-AssertConstraintUsage::inheritedFeature	3	symbol-51
-AssertConstraintUsage::inheritedMembership	3	symbol-51
-AssertConstraintUsage::isComposite	3	export-33
-AssertConstraintUsage::member	3	symbol-51
-AssertConstraintUsage::membership	3	symbol-51
 AssignmentActionUsage::owner	4	symbol-57
 AttributeUsage::feature	128	symbol-51
 AttributeUsage::featureMembership	128	symbol-51
@@ -502,8 +495,7 @@ ReferenceUsage::inheritedFeature	129	symbol-51
 ReferenceUsage::inheritedMembership	129	symbol-51
 ReferenceUsage::input	3	symbol-53
 ReferenceUsage::isEnd	23	export-56
-ReferenceUsage::isVariable	140	export-33
-ReferenceUsage::mayTimeVary	238	export-33
+ReferenceUsage::mayTimeVary	25	export-33
 ReferenceUsage::member	133	symbol-51
 ReferenceUsage::membership	133	symbol-51
 ReferenceUsage::multiplicity	4	symbol-55

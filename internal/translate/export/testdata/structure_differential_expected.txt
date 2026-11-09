@@ -210,7 +210,7 @@ root examples/sysml-v2-training: models 100, skipped 0, matched 11287, unmatched
   Feature::direction: equal 4171, different 6, symbol-missing 0, symbol-extra 0
   Feature::endOwningType: equal 4171, different 6, symbol-missing 0, symbol-extra 0
   Feature::featuringType: equal 4164, different 13, symbol-missing 0, symbol-extra 0
-  Feature::isComposite: equal 4165, different 12, symbol-missing 0, symbol-extra 0
+  Feature::isComposite: equal 4166, different 11, symbol-missing 0, symbol-extra 0
   Feature::isConstant: equal 40, different 0, symbol-missing 0, symbol-extra 4137
   Feature::isEnd: equal 4171, different 6, symbol-missing 0, symbol-extra 0
   Feature::ownedReferenceSubsetting: equal 4163, different 14, symbol-missing 0, symbol-extra 0
@@ -230,8 +230,8 @@ root examples/sysml-v2-training: models 100, skipped 0, matched 11287, unmatched
   Membership::memberName: equal 5046, different 11, symbol-missing 0, symbol-extra 5
   Membership::memberShortName: equal 5056, different 0, symbol-missing 0, symbol-extra 6
   MetadataUsage::metadataDefinition: equal 3, different 14, symbol-missing 0, symbol-extra 6
-  Namespace::member: equal 4629, different 99, symbol-missing 0, symbol-extra 8
-  Namespace::membership: equal 4639, different 89, symbol-missing 0, symbol-extra 8
+  Namespace::member: equal 4630, different 98, symbol-missing 0, symbol-extra 8
+  Namespace::membership: equal 4640, different 88, symbol-missing 0, symbol-extra 8
   Namespace::ownedMember: equal 4694, different 42, symbol-missing 0, symbol-extra 0
   Namespace::ownedMembership: equal 4690, different 46, symbol-missing 0, symbol-extra 0
   OccurrenceUsage::individualDefinition: equal 734, different 0, symbol-missing 0, symbol-extra 70
@@ -254,10 +254,10 @@ root examples/sysml-v2-training: models 100, skipped 0, matched 11287, unmatched
   TransitionUsage::target: equal 0, different 0, symbol-missing 0, symbol-extra 32
   Type::directedFeature: equal 4500, different 15, symbol-missing 0, symbol-extra 8
   Type::endFeature: equal 4509, different 6, symbol-missing 0, symbol-extra 8
-  Type::feature: equal 4422, different 93, symbol-missing 0, symbol-extra 8
-  Type::featureMembership: equal 4422, different 93, symbol-missing 0, symbol-extra 8
-  Type::inheritedFeature: equal 4462, different 53, symbol-missing 0, symbol-extra 8
-  Type::inheritedMembership: equal 4462, different 53, symbol-missing 0, symbol-extra 8
+  Type::feature: equal 4423, different 92, symbol-missing 0, symbol-extra 8
+  Type::featureMembership: equal 4423, different 92, symbol-missing 0, symbol-extra 8
+  Type::inheritedFeature: equal 4463, different 52, symbol-missing 0, symbol-extra 8
+  Type::inheritedMembership: equal 4463, different 52, symbol-missing 0, symbol-extra 8
   Type::input: equal 4500, different 15, symbol-missing 0, symbol-extra 8
   Type::multiplicity: equal 4522, different 1, symbol-missing 0, symbol-extra 0
   Type::output: equal 4515, different 0, symbol-missing 0, symbol-extra 8
@@ -267,7 +267,7 @@ root examples/sysml-v2-training: models 100, skipped 0, matched 11287, unmatched
   Type::ownedSpecialization: equal 4509, different 14, symbol-missing 0, symbol-extra 0
   Usage::definition: equal 904, different 589, symbol-missing 0, symbol-extra 260
   Usage::directedUsage: equal 1741, different 7, symbol-missing 0, symbol-extra 5
-  Usage::isReference: equal 1741, different 12, symbol-missing 0, symbol-extra 0
+  Usage::isReference: equal 1742, different 11, symbol-missing 0, symbol-extra 0
   Usage::mayTimeVary: equal 190, different 0, symbol-missing 0, symbol-extra 1563
   Usage::nestedOccurrence: equal 1751, different 2, symbol-missing 0, symbol-extra 0
   Usage::nestedReference: equal 1751, different 2, symbol-missing 0, symbol-extra 0
@@ -329,7 +329,7 @@ root examples/pilot-corpora: models 213, skipped 0, matched 61237, unmatched 140
   Feature::endOwningType: equal 22729, different 50, symbol-missing 0, symbol-extra 0
   Feature::featureTarget: equal 22770, different 0, symbol-missing 0, symbol-extra 9
   Feature::featuringType: equal 22512, different 258, symbol-missing 0, symbol-extra 9
-  Feature::isComposite: equal 22639, different 140, symbol-missing 0, symbol-extra 0
+  Feature::isComposite: equal 22641, different 138, symbol-missing 0, symbol-extra 0
   Feature::isConstant: equal 374, different 0, symbol-missing 0, symbol-extra 22405
   Feature::isEnd: equal 22729, different 50, symbol-missing 0, symbol-extra 0
   Feature::isVariable: equal 21753, different 0, symbol-missing 0, symbol-extra 1026
@@ -362,8 +362,8 @@ root examples/pilot-corpora: models 213, skipped 0, matched 61237, unmatched 140
   Membership::membershipOwningNamespace: equal 26995, different 6, symbol-missing 0, symbol-extra 0
   MetadataUsage::metadataDefinition: equal 10, different 131, symbol-missing 0, symbol-extra 98
   Namespace::importedMembership: equal 24947, different 0, symbol-missing 1, symbol-extra 0
-  Namespace::member: equal 23807, different 1130, symbol-missing 2, symbol-extra 9
-  Namespace::membership: equal 23851, different 1086, symbol-missing 2, symbol-extra 9
+  Namespace::member: equal 23809, different 1128, symbol-missing 2, symbol-extra 9
+  Namespace::membership: equal 23853, different 1084, symbol-missing 2, symbol-extra 9
   Namespace::ownedImport: equal 24947, different 1, symbol-missing 0, symbol-extra 0
   Namespace::ownedMember: equal 24788, different 160, symbol-missing 0, symbol-extra 0
   Namespace::ownedMembership: equal 24734, different 214, symbol-missing 0, symbol-extra 0
@@ -394,10 +394,10 @@ root examples/pilot-corpora: models 213, skipped 0, matched 61237, unmatched 140
   Type::differencingType: equal 24211, different 5, symbol-missing 0, symbol-extra 0
   Type::directedFeature: equal 23970, different 236, symbol-missing 1, symbol-extra 9
   Type::endFeature: equal 24153, different 53, symbol-missing 1, symbol-extra 9
-  Type::feature: equal 23163, different 1043, symbol-missing 1, symbol-extra 9
-  Type::featureMembership: equal 23171, different 1035, symbol-missing 1, symbol-extra 9
-  Type::inheritedFeature: equal 23268, different 938, symbol-missing 1, symbol-extra 9
-  Type::inheritedMembership: equal 23267, different 939, symbol-missing 1, symbol-extra 9
+  Type::feature: equal 23165, different 1041, symbol-missing 1, symbol-extra 9
+  Type::featureMembership: equal 23173, different 1033, symbol-missing 1, symbol-extra 9
+  Type::inheritedFeature: equal 23270, different 936, symbol-missing 1, symbol-extra 9
+  Type::inheritedMembership: equal 23269, different 937, symbol-missing 1, symbol-extra 9
   Type::input: equal 23983, different 223, symbol-missing 1, symbol-extra 9
   Type::intersectingType: equal 24212, different 4, symbol-missing 0, symbol-extra 0
   Type::isConjugated: equal 24210, different 6, symbol-missing 0, symbol-extra 0
@@ -415,7 +415,7 @@ root examples/pilot-corpora: models 213, skipped 0, matched 61237, unmatched 140
   Type::unioningType: equal 24195, different 19, symbol-missing 2, symbol-extra 0
   Usage::definition: equal 3744, different 2365, symbol-missing 0, symbol-extra 2006
   Usage::directedUsage: equal 7923, different 185, symbol-missing 1, symbol-extra 6
-  Usage::isReference: equal 7979, different 136, symbol-missing 0, symbol-extra 0
+  Usage::isReference: equal 7981, different 134, symbol-missing 0, symbol-extra 0
   Usage::mayTimeVary: equal 1108, different 58, symbol-missing 0, symbol-extra 6949
   Usage::nestedAction: equal 8112, different 3, symbol-missing 0, symbol-extra 0
   Usage::nestedAttribute: equal 8008, different 107, symbol-missing 0, symbol-extra 0
@@ -479,7 +479,7 @@ root examples/spec-examples: models 473, skipped 38, matched 12421, unmatched 50
   Feature::direction: equal 3993, different 15, symbol-missing 0, symbol-extra 0
   Feature::endOwningType: equal 3981, different 27, symbol-missing 0, symbol-extra 0
   Feature::featuringType: equal 3933, different 71, symbol-missing 4, symbol-extra 0
-  Feature::isComposite: equal 3940, different 68, symbol-missing 0, symbol-extra 0
+  Feature::isComposite: equal 3942, different 66, symbol-missing 0, symbol-extra 0
   Feature::isConstant: equal 92, different 0, symbol-missing 0, symbol-extra 3916
   Feature::isEnd: equal 3981, different 27, symbol-missing 0, symbol-extra 0
   Feature::isVariable: equal 3651, different 0, symbol-missing 0, symbol-extra 357
@@ -506,8 +506,8 @@ root examples/spec-examples: models 473, skipped 38, matched 12421, unmatched 50
   Membership::memberShortName: equal 5257, different 0, symbol-missing 4, symbol-extra 19
   Membership::membershipOwningNamespace: equal 5273, different 7, symbol-missing 0, symbol-extra 0
   MetadataUsage::metadataDefinition: equal 8, different 0, symbol-missing 0, symbol-extra 16
-  Namespace::member: equal 5143, different 213, symbol-missing 0, symbol-extra 2
-  Namespace::membership: equal 5146, different 210, symbol-missing 0, symbol-extra 2
+  Namespace::member: equal 5145, different 211, symbol-missing 0, symbol-extra 2
+  Namespace::membership: equal 5148, different 208, symbol-missing 0, symbol-extra 2
   Namespace::ownedMember: equal 5307, different 51, symbol-missing 0, symbol-extra 0
   Namespace::ownedMembership: equal 5294, different 64, symbol-missing 0, symbol-extra 0
   OccurrenceUsage::individualDefinition: equal 573, different 0, symbol-missing 0, symbol-extra 146
@@ -536,10 +536,10 @@ root examples/spec-examples: models 473, skipped 38, matched 12421, unmatched 50
   Type::differencingType: equal 4385, different 1, symbol-missing 0, symbol-extra 0
   Type::directedFeature: equal 4348, different 36, symbol-missing 0, symbol-extra 2
   Type::endFeature: equal 4378, different 6, symbol-missing 0, symbol-extra 2
-  Type::feature: equal 4184, different 200, symbol-missing 0, symbol-extra 2
-  Type::featureMembership: equal 4182, different 202, symbol-missing 0, symbol-extra 2
-  Type::inheritedFeature: equal 4223, different 161, symbol-missing 0, symbol-extra 2
-  Type::inheritedMembership: equal 4223, different 161, symbol-missing 0, symbol-extra 2
+  Type::feature: equal 4186, different 198, symbol-missing 0, symbol-extra 2
+  Type::featureMembership: equal 4184, different 200, symbol-missing 0, symbol-extra 2
+  Type::inheritedFeature: equal 4225, different 159, symbol-missing 0, symbol-extra 2
+  Type::inheritedMembership: equal 4225, different 159, symbol-missing 0, symbol-extra 2
   Type::input: equal 4352, different 32, symbol-missing 0, symbol-extra 2
   Type::intersectingType: equal 4385, different 1, symbol-missing 0, symbol-extra 0
   Type::isConjugated: equal 4381, different 5, symbol-missing 0, symbol-extra 0
@@ -556,7 +556,7 @@ root examples/spec-examples: models 473, skipped 38, matched 12421, unmatched 50
   Type::unioningType: equal 4383, different 0, symbol-missing 3, symbol-extra 0
   Usage::definition: equal 823, different 543, symbol-missing 0, symbol-extra 417
   Usage::directedUsage: equal 1754, different 27, symbol-missing 0, symbol-extra 2
-  Usage::isReference: equal 1713, different 68, symbol-missing 2, symbol-extra 0
+  Usage::isReference: equal 1715, different 66, symbol-missing 2, symbol-extra 0
   Usage::mayTimeVary: equal 296, different 0, symbol-missing 0, symbol-extra 1487
   Usage::nestedAction: equal 1782, different 1, symbol-missing 0, symbol-extra 0
   Usage::nestedAttribute: equal 1767, different 16, symbol-missing 0, symbol-extra 0
