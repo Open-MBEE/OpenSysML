@@ -21,8 +21,9 @@ import (
 
 // combinedGzipBudget bounds the gzipped js build of sysml-wasm: raised to 10,400,000 on
 // 2026-10-27 when go1.27.3 linked it at 10,008,006 bytes (9,570,777 -> 9,908,881 for the
-// same develop source under go1.25.11 and go1.27.3, stripped builds).
-const combinedGzipBudget = 10400000
+// same develop source under go1.25.11 and go1.27.3, stripped builds), and to 10,500,000 on
+// 2026-11-09 when the redefined-parameter inheritance change linked it at 10,401,066 bytes.
+const combinedGzipBudget = 10500000
 
 const combinedModel = `package Demo { part def Item; }`
 
