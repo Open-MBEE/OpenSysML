@@ -1167,13 +1167,8 @@ pub struct GetElementPropertiesResponse {
     /// element belongs to an excluded document.
     #[prost(string, tag="3")]
     pub error: ::prost::alloc::string::String,
-    /// The documents the model is read without, each with why; empty when the
-    /// whole model is read. An element of any other document is answered as usual,
-    /// and its properties may still name elements of an excluded document: the
-    /// derived properties (KerML 8.3.3.3 Feature::type, 8.3.3.1 Type::inheritedMembership,
-    /// 8.2.3 Namespace::member) are defined over the whole model, as the pilot keeps a
-    /// partially parsed file's elements; a request for such an element answers its
-    /// document's error.
+    /// The documents the model is read without, each with why; empty when the whole model is read. Any other element is answered
+    /// and may name theirs (KerML 8.3.3.3 type, 8.3.3.1 inheritedMembership, 8.2.3 member derive over the whole model, as the pilot does); asking for theirs answers its document's error.
     #[prost(message, repeated, tag="4")]
     pub excluded_documents: ::prost::alloc::vec::Vec<ExcludedDocument>,
 }
