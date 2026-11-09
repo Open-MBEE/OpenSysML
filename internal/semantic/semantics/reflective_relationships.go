@@ -74,6 +74,20 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 		})
 		ordinal++
 	}
+	// The type argument of `x @ T`, `x istype T` or `x as T` is an in parameter typed
+	// by T with no value (SysML.xtext TypeReferenceMember), as the conversion writes it.
+	if target := m.typeArgumentType(owner); target != nil {
+		out = append(out, &symbols.Symbol{
+			Kind:     symbols.SymbolRelationship,
+			DocName:  owner.DocName,
+			DeclSpan: owner.DeclSpan,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: owner, Ordinal: ordinal, Kind: ast.RelTyping,
+				Form: symbols.ImplicitTypeArgumentTyping, Member: target,
+			},
+		})
+		ordinal++
+	}
 	// A connector end reference-subsets the feature it attaches to whether or
 	// not a clause of its own says so (SysML v2 8.2.2.13.1).
 	if prefix, ok := owner.Decl.(*ast.PrefixMetadata); ok && prefix.Type != nil {
@@ -202,6 +216,8 @@ func (m *Model) implicitMetaclassName(sym *symbols.Symbol) string {
 		return "PortConjugation"
 	case symbols.ImplicitMetadataBodyRedefinition:
 		return "Redefinition"
+	case symbols.ImplicitTypeArgumentTyping:
+		return "FeatureTyping"
 	case symbols.ImplicitReferenceMembership:
 		return "Membership"
 	case symbols.ImplicitFeatureChaining:
@@ -349,7 +365,7 @@ func relationshipEndFeature(meta, feature string) (sourceSide, targetSide bool) 
 func (m *Model) implicitRelationshipEnds(sym *symbols.Symbol) (src, tgt *symbols.Symbol, tgtOK bool) {
 	rel := sym.Implicit
 	src = rel.Owner
-	if rel.Form == symbols.ImplicitMetadataBodyRedefinition {
+	if rel.Form == symbols.ImplicitMetadataBodyRedefinition || rel.Form == symbols.ImplicitTypeArgumentTyping {
 		return src, rel.Member, rel.Member != nil
 	}
 	if rel.Node != nil {
@@ -736,6 +752,30 @@ func writtenChainLength(chain *symbols.Symbol) int {
 		node = next
 	}
 	return n
+}
+
+// typeArgumentType is the type the type-argument parameter sym of a classification or
+// cast expression names (`x @ T`, `x as T`); nil for any other symbol or an unresolved name.
+func (m *Model) typeArgumentType(sym *symbols.Symbol) *symbols.Symbol {
+	if sym == nil || sym.Expr == nil || sym.Expr.Role != symbols.ExpressionParameter || sym.Expr.Owner == nil {
+		return nil
+	}
+	expr := sym.Expr.Owner
+	_, typeArgument := ast.ExpressionOperands(expr.Decl)
+	if typeArgument < 0 || sym.Expr.Index != typeArgument {
+		return nil
+	}
+	var name *ast.QualifiedName
+	switch n := expr.Decl.(type) {
+	case *ast.OperatorExpr:
+		name = n.TypeRef
+	case *ast.CastExpr:
+		name = n.TargetType
+	}
+	if name == nil {
+		return nil
+	}
+	return m.referencedSymbol(expr, name)
 }
 
 // isReferenceSubsetting reports whether rel is its owner's OwnedReferenceSubsetting — the

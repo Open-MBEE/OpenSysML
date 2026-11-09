@@ -295,6 +295,10 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 			return s.ids.RelationshipOf(doc, rel.Node.Target)
 		}
 		return s.ids.RelationshipOf(doc, rel.Node)
+	case symbols.ImplicitTypeArgumentTyping:
+		// A type argument's typing is minted off its parameter, as the conversion writes it (typeArgument).
+		owner, ok := s.of(rel.Owner)
+		return owner + relationshipSuffix(ast.RelTyping, false, false, 1, 0), ok
 	case symbols.ImplicitMetadataBodyRedefinition:
 		// The Redefinition a metadata body feature's name implies is minted off
 		// the feature, as the conversion writes it.
