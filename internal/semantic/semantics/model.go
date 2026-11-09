@@ -452,21 +452,6 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		}
 	}
 
-	// Action usages containing send statements need implicit SendAction typing
-	// to provide access to sentMessage member
-	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Kind == ast.UsageAction {
-		if hasSendStatement(usage) {
-			sendActionDefs := m.resolver.Index().LookupQualified("Actions::SendAction")
-			if len(sendActionDefs) > 0 && sendActionDefs[0] != nil {
-				sendActionDef := sendActionDefs[0]
-				if !seen[sendActionDef] {
-					seen[sendActionDef] = true
-					out = append(out, sendActionDef)
-				}
-			}
-		}
-	}
-
 	// A send action is typed by SendAction whether or not a usage declares it
 	// (SysML v2 §8.3.17.15 SendActionUsage).
 	if sym.Kind == symbols.SymbolSendActionUsage {
@@ -1304,16 +1289,6 @@ func (m *Model) HasSpecializationCycle(sym *symbols.Symbol) bool {
 			if up == sym {
 				return true
 			}
-		}
-	}
-	return false
-}
-
-// hasSendStatement checks if an action usage contains a send statement in its body
-func hasSendStatement(usage *ast.Usage) bool {
-	for _, member := range usage.Members {
-		if _, ok := member.(*ast.SendStatement); ok {
-			return true
 		}
 	}
 	return false

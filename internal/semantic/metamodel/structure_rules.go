@@ -4945,11 +4945,8 @@ func (e *Evaluator) structureTypeMembers(element Element, property string, visit
 }
 
 func (e *Evaluator) computeStructureTypeMembers(element Element, property string, visited map[ElementKey]bool) ([]Value, bool) {
-	if symbol := e.structureElementSymbol(element); symbol != nil && e.model != nil &&
-		(!e.structureKnows(element) || e.structureDefersToModel(element)) {
-		// A library type the structure holds only as a row, or not at all, is
-		// read through its symbol.
-		return e.structureLibraryTypeMembers(ElementOf(symbol), property)
+	if base, ok := e.structureLibraryBase(element); ok {
+		return e.structureLibraryTypeMembers(base, property)
 	}
 	owned, handled, ok := e.structureOwnedFilter(element, "Membership", true)
 	if !handled || !ok {
@@ -4994,6 +4991,24 @@ func (e *Evaluator) computeStructureTypeMembers(element Element, property string
 		append(append(public, protected...), inherited...), e.options.Structure,
 	).Values
 	return e.structureMembershipsProperty(memberships, property)
+}
+
+// structureLibraryBase is the one decision both member walks make: a type the structure
+// only references — implied, stated as `: Boolean`, or held as a row without its symbol —
+// and a feature whose relationships the structure leaves to the semantic model have no
+// member rows there, so their members are read through the recovered symbol.
+func (e *Evaluator) structureLibraryBase(element Element) (Element, bool) {
+	if element.Symbol != nil && !e.structureKnows(element) {
+		return element, true
+	}
+	if element.IsMembership || e.model == nil {
+		return Element{}, false
+	}
+	symbol := e.structureElementSymbol(element)
+	if symbol == nil || (e.structureKnows(element) && !e.structureDefersToModel(element)) {
+		return Element{}, false
+	}
+	return ElementOf(symbol), true
 }
 
 // structureLibraryTypeMembers reads a library base's non-private memberships, anonymous ones
@@ -5146,8 +5161,8 @@ func (e *Evaluator) computeStructureNonPrivateMemberships(
 	element Element,
 	visited map[ElementKey]bool,
 ) ([]Value, bool) {
-	if element.Symbol != nil && !e.structureKnows(element) {
-		return e.structureLibraryTypeMembers(element, "membership")
+	if base, ok := e.structureLibraryBase(element); ok {
+		return e.structureLibraryTypeMembers(base, "membership")
 	}
 	owned, handled, ok := e.structureOwnedFilter(element, "Membership", true)
 	if !handled || !ok {

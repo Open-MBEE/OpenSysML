@@ -1305,12 +1305,6 @@ elmt:f9e920cc-2ec4-56b3-9920-8e5dbbc50a5a
     sysml:memberElement <urn:sysmlv2:element:29589f01-c2d8-5525-a9bf-8fd157b61b4f> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
-<urn:sysmlv2:element:05fb92ff-ecef-564b-b89e-6d7ae5f030f3>
-    a sysml:Feature ;
-    sysml:elementId "05fb92ff-ecef-564b-b89e-6d7ae5f030f3" ;
-    sysx:libraryPath "Performances::BooleanEvaluation/Feature[0]" ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
 <urn:sysmlv2:element:05fff4e4-cdd3-5942-b213-8df135a6c562>
     a sysml:Feature ;
     sysml:elementId "05fff4e4-cdd3-5942-b213-8df135a6c562" ;
@@ -1636,12 +1630,6 @@ elmt:acbd427f-8ecf-59a6-9c9f-bf9854908e42
     a sysml:FeatureMembership ;
     sysml:elementId "2f9985d7-c642-57c9-87ce-20bdf02c65e0" ;
     sysml:memberElement <urn:sysmlv2:element:9eb5c39c-a43c-55c1-b3cd-ed1c7c7918f2> ;
-    sysml:isLibraryElement "true"^^xsd:boolean .
-
-<urn:sysmlv2:element:31af2886-262b-514f-b0c9-14677c8a8add>
-    a sysml:ReturnParameterMembership ;
-    sysml:elementId "31af2886-262b-514f-b0c9-14677c8a8add" ;
-    sysml:memberElement <urn:sysmlv2:element:05fb92ff-ecef-564b-b89e-6d7ae5f030f3> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:336bbaa9-89f8-5ff0-bdac-60ca79acc5f6>
@@ -2128,6 +2116,18 @@ elmt:fa859d04-71c3-510a-bdb7-d35d7bc10bee
     a sysml:FeatureMembership ;
     sysml:elementId "90871809-f440-5d28-a176-6fcb5e317c1f" ;
     sysml:memberElement elmt:fa859d04-71c3-510a-bdb7-d35d7bc10bee ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:bca3d873-62ee-59a0-b51a-85657345ae1d
+    a sysml:Feature ;
+    sysml:elementId "bca3d873-62ee-59a0-b51a-85657345ae1d" ;
+    sysml:qualifiedName "Performances::BooleanEvaluation::result" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+<urn:sysmlv2:element:91c978aa-a7db-586e-9699-45cfed1c54fd>
+    a sysml:ReturnParameterMembership ;
+    sysml:elementId "91c978aa-a7db-586e-9699-45cfed1c54fd" ;
+    sysml:memberElement elmt:bca3d873-62ee-59a0-b51a-85657345ae1d ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 <urn:sysmlv2:element:928ee8c9-960f-545b-a48e-8c113dc202a5>
