@@ -995,6 +995,6 @@ var actionKinds = []symbols.SymbolKind{
 	symbols.SymbolActionUsage, symbols.SymbolActionDef,
 	symbols.SymbolAcceptActionUsage, symbols.SymbolAssignmentActionUsage, symbols.SymbolPerformActionUsage,
 	symbols.SymbolIfActionUsage, symbols.SymbolWhileLoopActionUsage, symbols.SymbolForLoopActionUsage,
-	symbols.SymbolTerminateActionUsage,
+	symbols.SymbolTerminateActionUsage, symbols.SymbolSendActionUsage,
 	symbols.SymbolUseCaseUsage, symbols.SymbolUseCaseDef,
 }

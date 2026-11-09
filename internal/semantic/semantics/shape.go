@@ -234,7 +234,7 @@ func IsShapeFeature(sym *symbols.Symbol) bool {
 		symbols.SymbolPortUsage, symbols.SymbolConnectionUsage, symbols.SymbolActionUsage,
 		symbols.SymbolAcceptActionUsage, symbols.SymbolAssignmentActionUsage, symbols.SymbolPerformActionUsage,
 		symbols.SymbolIfActionUsage, symbols.SymbolWhileLoopActionUsage, symbols.SymbolForLoopActionUsage,
-		symbols.SymbolTerminateActionUsage,
+		symbols.SymbolTerminateActionUsage, symbols.SymbolSendActionUsage,
 		symbols.SymbolStateUsage, symbols.SymbolConstraintUsage, symbols.SymbolRequirementUsage,
 		symbols.SymbolOccurrenceUsage, symbols.SymbolIndividualUsage,
 		symbols.SymbolInterfaceUsage, symbols.SymbolFlowUsage, symbols.SymbolSuccessionFlowUsage, symbols.SymbolBindingUsage,

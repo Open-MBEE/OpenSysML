@@ -430,7 +430,7 @@ may read the relationship-valued ones: `ownedRelationship`, `ownedAnnotation`, `
 and the requirement properties derived through memberships — `text`, `requiredConstraint`,
 `assumedConstraint`, `framedConcern`, `actorParameter`, `stakeholderParameter` on a requirement,
 `verifiedRequirement` on a verification case (not on a requirement: the metamodel declares no
-inverse), `satisfiedRequirement` and `satisfyingFeature` on a `satisfy`. Each Membership,
+inverse), `satisfiedRequirement` and `satisfyingFeature` on a `satisfy`, `payloadArgument`, `senderArgument` and `receiverArgument` on a send action. Each Membership,
 Annotation or Import read this way is a metaobject answering the ends and attributes its
 metaclass declares (`memberElement`, `memberName`, `visibility`, `kind`, `annotatedElement`,
 `importedNamespace`, …). A feature the metaclass declares but the model cannot derive

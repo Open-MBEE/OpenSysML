@@ -273,7 +273,7 @@ func (fc *funcCompiler) functionValueOf(sym *symbols.Symbol, where string) (func
 		case symbols.SymbolCalcDef, symbols.SymbolCalcUsage, symbols.SymbolActionDef,
 			symbols.SymbolAcceptActionUsage, symbols.SymbolAssignmentActionUsage, symbols.SymbolPerformActionUsage,
 			symbols.SymbolIfActionUsage, symbols.SymbolWhileLoopActionUsage, symbols.SymbolForLoopActionUsage,
-			symbols.SymbolTerminateActionUsage, symbols.SymbolActionUsage:
+			symbols.SymbolTerminateActionUsage, symbols.SymbolSendActionUsage, symbols.SymbolActionUsage:
 			if owner == sym.Owner() {
 				return fc.closureValue(sym)
 			}

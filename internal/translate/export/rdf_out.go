@@ -722,7 +722,7 @@ func (e *encoder) indexTriggerMembers() {
 		// A named send or assignment node is the statement it is written as,
 		// so a name the statement writes is written from the node.
 		if usage, ok := node.(*ast.Usage); ok {
-			if statement := nodeStatement(usage); statement != nil {
+			if statement := naming.NodeStatement(usage); statement != nil {
 				e.triggerMembers[statement] = fqn
 			}
 			continue
@@ -1163,7 +1163,7 @@ func (e *encoder) writtenDeclarations() []ast.Node {
 	statements := map[ast.Node]bool{}
 	for node := range e.names.FQN {
 		if usage, ok := node.(*ast.Usage); ok {
-			if statement := nodeStatement(usage); statement != nil {
+			if statement := naming.NodeStatement(usage); statement != nil {
 				statements[statement] = true
 			}
 		}
@@ -1705,7 +1705,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 				return err
 			}
 		}
-		if statement := nodeStatement(n); statement != nil {
+		if statement := naming.NodeStatement(n); statement != nil {
 			// The node is the statement it is written as: its parts are the
 			// node's own, not a member's.
 			discard := func(rdf.Term) {

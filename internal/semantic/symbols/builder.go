@@ -213,7 +213,7 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 			buildMembers(scope, d.Members)
 			return true
 		}
-		buildAnonymousNode(scope, d, SymbolActionUsage, d.Members, vis, trivia)
+		buildAnonymousNode(scope, d, SymbolSendActionUsage, d.Members, vis, trivia)
 		return true
 	case *ast.SuccessionEdge:
 		// A succession with a body is a SuccessionAsUsage whose body declares its
@@ -549,9 +549,13 @@ func defineTransitionEffect(scope *Scope, trans *ast.TransitionMember) {
 	// A statement (`do send x to y`) declares no member of its own, so the
 	// action it performs is named here, its members staying the transition's.
 	statement := NewScope(scope, effect)
+	kind := SymbolActionUsage
+	if SendStatementOf(effect) != nil {
+		kind = SymbolSendActionUsage
+	}
 	sym := newSymbol(
 		ast.Identification{Name: transitionEffectName, NameSpan: effect.Span()},
-		SymbolActionUsage, effect, ast.VisibilityDefault, statement, scope, nil,
+		kind, effect, ast.VisibilityDefault, statement, scope, nil,
 	)
 	// The statement's action subsets TransitionAction::effect (SysML v2.1 §8.4.11.x
 	// checkTransitionUsageTransitionFeatureSpecialization) and declares no name.
@@ -910,6 +914,8 @@ func classifyActionNode(u *ast.Usage) SymbolKind {
 		return SymbolAcceptActionUsage
 	}
 	switch statement := ActionNodeStatementOf(u).(type) {
+	case *ast.SendStatement:
+		return SymbolSendActionUsage
 	case *ast.AssignmentActionNode:
 		return SymbolAssignmentActionUsage
 	case *ast.PerformActionNode:

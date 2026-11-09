@@ -594,7 +594,7 @@ func isFeaturingType(sym *symbols.Symbol) bool {
 		symbols.SymbolInterfaceUsage, symbols.SymbolAllocationUsage,
 		symbols.SymbolActionUsage, symbols.SymbolAcceptActionUsage, symbols.SymbolAssignmentActionUsage, symbols.SymbolPerformActionUsage,
 		symbols.SymbolIfActionUsage, symbols.SymbolWhileLoopActionUsage, symbols.SymbolForLoopActionUsage,
-		symbols.SymbolTerminateActionUsage, symbols.SymbolStateUsage,
+		symbols.SymbolTerminateActionUsage, symbols.SymbolSendActionUsage, symbols.SymbolStateUsage,
 		symbols.SymbolCalcUsage, symbols.SymbolConstraintUsage,
 		symbols.SymbolRequirementUsage, symbols.SymbolCaseUsage,
 		symbols.SymbolAnalysisCaseUsage, symbols.SymbolVerificationCaseUsage,

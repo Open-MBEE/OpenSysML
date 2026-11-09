@@ -1463,6 +1463,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	if elems, ok := m.transitionElements(sym, feature); ok {
 		return elems, true
 	}
+	if elems, ok := m.sendElements(sym, feature); ok {
+		return elems, true
+	}
 	switch feature {
 	case "owningNamespace":
 		if !m.reflectiveMetaclassConforms(sym, "Element") {
@@ -1694,7 +1697,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return nil, true
 	case "ownedMember":
-		return m.withDefaultMultiplicityMember(sym, append(m.acceptParameters(sym), m.withTransitionParts(sym, ownedMembersOf(sym))...)), true
+		return m.withDefaultMultiplicityMember(sym, append(m.nodeParameters(sym), m.withTransitionParts(sym, ownedMembersOf(sym))...)), true
 	case "multiplicity":
 		if !m.reflectiveMetaclassConforms(sym, "Type") {
 			return nil, false
@@ -1703,9 +1706,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "ownedElement":
 		return m.ownedElementsOf(sym), true
 	case "member":
-		return m.withDefaultMultiplicityMember(sym, append(m.acceptParameters(sym), m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))...)), true
+		return m.withDefaultMultiplicityMember(sym, append(m.nodeParameters(sym), m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))...)), true
 	case "feature":
-		features := m.acceptParameters(sym)
+		features := m.nodeParameters(sym)
 		for _, member := range m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)) {
 			if member.IsFeature() || isExpressionSymbol(member) {
 				features = append(features, member)
@@ -1774,6 +1777,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		return []*symbols.Symbol{}, true
 	case "ownedFeature":
 		features := append([]*symbols.Symbol(nil), m.expressionOwnedParts(sym)...)
+		features = append(features, m.sendParameters(sym)...)
 		for _, member := range m.withTransitionParts(sym, ownedMembersOf(sym)) {
 			if member.IsFeature() || isExpressionSymbol(member) {
 				features = append(features, member)
@@ -1990,6 +1994,7 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 		members = append(members, value)
 	}
 	members = append(members, m.expressionOwnedElements(sym)...)
+	members = append(members, m.nodeParameters(sym)...)
 	members = append(members, m.withTransitionParts(sym, ownedMembersOf(sym))...)
 	seen := make(map[*symbols.Symbol]bool, len(members))
 	for _, member := range members {
@@ -2793,6 +2798,7 @@ var metaclassNames = map[symbols.SymbolKind]string{
 	symbols.SymbolWhileLoopActionUsage:    "WhileLoopActionUsage",
 	symbols.SymbolForLoopActionUsage:      "ForLoopActionUsage",
 	symbols.SymbolTerminateActionUsage:    "TerminateActionUsage",
+	symbols.SymbolSendActionUsage:         "SendActionUsage",
 	symbols.SymbolStateDef:                "StateDefinition",
 	symbols.SymbolStateUsage:              "StateUsage",
 	symbols.SymbolCalcDef:                 "CalculationDefinition",

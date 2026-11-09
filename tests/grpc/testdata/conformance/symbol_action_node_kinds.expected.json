@@ -6,7 +6,7 @@
 		{"id": "P::A::sig", "kind": "referenceUsage"},
 		{"id": "P::A::p", "kind": "referenceUsage"},
 		{"id": "P::A::count", "kind": "attributeUsage"},
-		{"id": "P::A::sendIt", "kind": "actionUsage"},
+		{"id": "P::A::sendIt", "kind": "sendActionUsage"},
 		{"id": "P::A::acceptIt", "kind": "acceptActionUsage"},
 		{"id": "P::A::assignIt", "kind": "assignmentActionUsage"},
 		{"id": "P::A::performIt", "kind": "performActionUsage"},
