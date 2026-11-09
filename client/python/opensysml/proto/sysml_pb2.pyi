@@ -2114,7 +2114,7 @@ class CompositeConstraint(_message.Message):
     def __init__(self, operator: _Optional[_Union[CompositeOperator, str]] = ..., constraint: _Optional[_Iterable[_Union[Constraint, _Mapping]]] = ...) -> None: ...
 
 class QueryResultElement(_message.Message):
-    __slots__ = ("id", "type", "properties")
+    __slots__ = ("id", "type", "properties", "path")
     class PropertiesEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -2125,10 +2125,12 @@ class QueryResultElement(_message.Message):
     ID_FIELD_NUMBER: _ClassVar[int]
     TYPE_FIELD_NUMBER: _ClassVar[int]
     PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    PATH_FIELD_NUMBER: _ClassVar[int]
     id: str
     type: str
     properties: _containers.ScalarMap[str, str]
-    def __init__(self, id: _Optional[str] = ..., type: _Optional[str] = ..., properties: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    path: str
+    def __init__(self, id: _Optional[str] = ..., type: _Optional[str] = ..., properties: _Optional[_Mapping[str, str]] = ..., path: _Optional[str] = ...) -> None: ...
 
 class SweepRange(_message.Message):
     __slots__ = ("parameter", "start", "end", "step")

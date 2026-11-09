@@ -2660,12 +2660,17 @@ enum CompositeOperator {
 
 // QueryResultElement is one matched element. `id` and `type` are always
 // reported, since an element record is not usable without them; `properties`
-// carries what `select` asked for, omitting a property the element does not
-// have.
+// carries what `select` asked for, omitting a property the element has no
+// value of. An OSLC query selecting held objects (`rdf:type=elmt:<id>`) answers
+// one record per object: `id` and `type` name the element the object is an
+// instance of, and `path` the object itself.
 message QueryResultElement {
   string id = 1;    // qualified name, the identity this service reports
   string type = 2;  // metamodel type name ("PartUsage", "PartDefinition", ...)
   map<string, string> properties = 3;
+  // The path the session holds an object under (`car.wheels[2]`, `#7`); empty
+  // for a model element.
+  string path = 4;
 }
 
 // SweepRange is one parameter's range: the endpoints a swept run advances
