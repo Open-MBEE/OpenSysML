@@ -226,6 +226,8 @@ func UsageMultiplicityOf(sym *symbols.Symbol) *ast.Multiplicity {
 		return decl.Multiplicity
 	case *ast.CrossFeatureMember:
 		return decl.Multiplicity
+	case *ast.ConnectorEnd:
+		return decl.Multiplicity
 	}
 	return nil
 }

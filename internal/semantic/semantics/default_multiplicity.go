@@ -111,7 +111,8 @@ func (m *Model) declaresMultiplicity(sym *symbols.Symbol) bool {
 // DeclaredMultiplicityMember is the nameless MultiplicityRange a usage's written range
 // (`[4]`) declares, owned at the clause as the conversion writes it; nil without a range.
 func (m *Model) DeclaredMultiplicityMember(sym *symbols.Symbol) *symbols.Symbol {
-	if m == nil || sym == nil || sym.Implicit != nil || sym.Chain != nil || sym.Expr != nil || !sym.DeclaresUsage() {
+	if m == nil || sym == nil || sym.Implicit != nil || sym.Chain != nil || sym.Expr != nil ||
+		(!sym.DeclaresUsage() && !DeclaresEndFeature(sym)) {
 		return nil
 	}
 	mult := UsageMultiplicityOf(sym)
