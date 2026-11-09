@@ -207,9 +207,8 @@ func TestKindBaseResultSaysNothingOfTheBehaviorsOwn(t *testing.T) {
 	}
 }
 
-// A general's parameter that redefines one an earlier general lent replaces it,
-// whichever general comes first: Both inherits Sub's q and s, not Base's p and r
-// beside them (KerML 8.3.3.1).
+// A general's parameter redefining one an earlier general lent replaces it (KerML
+// 8.3.3.1): Both inherits Sub's q and s, not Base's p and r beside them.
 func TestLaterGeneralsRedefinerReplacesTheParameterInheritedBeforeIt(t *testing.T) {
 	m, root := buildModel(t, `package Q {
 		behavior Base { in p; return r; }
