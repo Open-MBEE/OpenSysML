@@ -414,8 +414,8 @@ Feature::featuringType	12	symbol-17
 Feature::owningFeatureMembership	12	symbol-45
 Feature::owningType	12	symbol-45
 Feature::type	276	symbol-19
-FeatureChainExpression::instantiatedType	302	symbol-29
-FeatureChainExpression::operand	486	symbol-30
+FeatureChainExpression::instantiatedType	306	symbol-29
+FeatureChainExpression::operand	490	symbol-30
 FeatureChainExpression::targetFeature	7	symbol-23
 FeatureChaining::relatedElement	227	symbol-10
 FeatureInverting::documentation	1	symbol-50
@@ -551,7 +551,7 @@ JoinNode::occurrenceDefinition	9	symbol-41
 JoinNode::type	9	symbol-19
 Membership::memberElement	19	symbol-47
 Membership::memberElementId	52	symbol-47
-Membership::membershipOwningNamespace	2432	symbol-07
+Membership::membershipOwningNamespace	2451	symbol-07
 Membership::relatedElement	468	symbol-10
 Membership::source	468	symbol-11
 Membership::target	33	symbol-12
@@ -581,7 +581,7 @@ OccurrenceUsage::nestedFlow	2	symbol-45
 OccurrenceUsage::occurrenceDefinition	44	symbol-41
 OccurrenceUsage::type	39	symbol-19
 OperatorExpression::input	16	symbol-51
-OperatorExpression::operand	919	symbol-30
+OperatorExpression::operand	923	symbol-30
 OwningMembership::ownedMemberFeature	44	symbol-16
 OwningMembership::owningType	44	symbol-45
 ParameterMembership::ownedMemberFeature	7	symbol-16

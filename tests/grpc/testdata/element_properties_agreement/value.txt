@@ -243,7 +243,7 @@ Feature::owner	5	export-56
 Feature::owningNamespace	5	export-03
 Feature::owningType	5	export-56
 Feature::type	199	export-01
-FeatureChainExpression::argument	299	export-11
+FeatureChainExpression::argument	303	export-11
 FeatureChainExpression::member	7	symbol-51
 FeatureChainExpression::membership	9	symbol-51
 FeatureChainExpression::ownedMembership	9	symbol-09
@@ -267,7 +267,7 @@ FeatureReferenceExpression::ownedMember	13	symbol-08
 FeatureReferenceExpression::ownedMembership	23	symbol-09
 FeatureReferenceExpression::ownedRelationship	23	symbol-03
 FeatureReferenceExpression::parameter	2	symbol-54
-FeatureReferenceExpression::referent	36	export-56
+FeatureReferenceExpression::referent	25	export-56
 FeatureReferenceExpression::result	2	export-56
 FeatureTyping::general	45	export-15
 FeatureTyping::ownedRelatedElement	1	export-06

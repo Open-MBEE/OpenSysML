@@ -385,6 +385,9 @@ func (s *SymbolIDs) expressionID(sym *symbols.Symbol) (string, bool) {
 			return "", false
 		}
 		return s.partID(owner.Expr.Owner, "a0")
+	case symbols.ExpressionChangeCondition:
+		// The wrapper's referent is the condition, minted off the wrapper (changeArgument).
+		return s.partID(owner, "change")
 	case symbols.ExpressionChainFeature, symbols.ExpressionOperand:
 		if sym.Expr.Slot == "filter" && owner.Implicit != nil && semantics.IsFilterPackage(owner.Implicit.Owner) {
 			// A filter package's condition is minted off the import written with the filter.
