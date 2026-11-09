@@ -1782,7 +1782,7 @@ class Specialization(_message.Message):
     def __init__(self, kind: _Optional[str] = ..., declared: _Optional[str] = ..., target_id: _Optional[str] = ..., target_kind: _Optional[str] = ...) -> None: ...
 
 class TypeInfo(_message.Message):
-    __slots__ = ("declared", "resolved_id", "resolved_kind", "primitive", "primitive_source", "quantity", "unit")
+    __slots__ = ("declared", "resolved_id", "resolved_kind", "primitive", "primitive_source", "quantity", "unit", "types")
     DECLARED_FIELD_NUMBER: _ClassVar[int]
     RESOLVED_ID_FIELD_NUMBER: _ClassVar[int]
     RESOLVED_KIND_FIELD_NUMBER: _ClassVar[int]
@@ -1790,6 +1790,7 @@ class TypeInfo(_message.Message):
     PRIMITIVE_SOURCE_FIELD_NUMBER: _ClassVar[int]
     QUANTITY_FIELD_NUMBER: _ClassVar[int]
     UNIT_FIELD_NUMBER: _ClassVar[int]
+    TYPES_FIELD_NUMBER: _ClassVar[int]
     declared: str
     resolved_id: str
     resolved_kind: str
@@ -1797,7 +1798,16 @@ class TypeInfo(_message.Message):
     primitive_source: str
     quantity: bool
     unit: str
-    def __init__(self, declared: _Optional[str] = ..., resolved_id: _Optional[str] = ..., resolved_kind: _Optional[str] = ..., primitive: _Optional[str] = ..., primitive_source: _Optional[str] = ..., quantity: _Optional[bool] = ..., unit: _Optional[str] = ...) -> None: ...
+    types: _containers.RepeatedCompositeFieldContainer[TypeRef]
+    def __init__(self, declared: _Optional[str] = ..., resolved_id: _Optional[str] = ..., resolved_kind: _Optional[str] = ..., primitive: _Optional[str] = ..., primitive_source: _Optional[str] = ..., quantity: _Optional[bool] = ..., unit: _Optional[str] = ..., types: _Optional[_Iterable[_Union[TypeRef, _Mapping]]] = ...) -> None: ...
+
+class TypeRef(_message.Message):
+    __slots__ = ("id", "kind")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    kind: str
+    def __init__(self, id: _Optional[str] = ..., kind: _Optional[str] = ...) -> None: ...
 
 class MultiplicityInfo(_message.Message):
     __slots__ = ("lower", "upper")
@@ -2104,7 +2114,7 @@ class CompositeConstraint(_message.Message):
     def __init__(self, operator: _Optional[_Union[CompositeOperator, str]] = ..., constraint: _Optional[_Iterable[_Union[Constraint, _Mapping]]] = ...) -> None: ...
 
 class QueryResultElement(_message.Message):
-    __slots__ = ("id", "type", "properties")
+    __slots__ = ("id", "type", "properties", "path")
     class PropertiesEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -2115,10 +2125,12 @@ class QueryResultElement(_message.Message):
     ID_FIELD_NUMBER: _ClassVar[int]
     TYPE_FIELD_NUMBER: _ClassVar[int]
     PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    PATH_FIELD_NUMBER: _ClassVar[int]
     id: str
     type: str
     properties: _containers.ScalarMap[str, str]
-    def __init__(self, id: _Optional[str] = ..., type: _Optional[str] = ..., properties: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    path: str
+    def __init__(self, id: _Optional[str] = ..., type: _Optional[str] = ..., properties: _Optional[_Mapping[str, str]] = ..., path: _Optional[str] = ...) -> None: ...
 
 class SweepRange(_message.Message):
     __slots__ = ("parameter", "start", "end", "step")

@@ -29,6 +29,7 @@ from opensysml.typefacts import (
     Specialization,
     SymbolFacts,
     TypeFacts,
+    TypeRef,
 )
 from opensysml.capabilities import (
     CAPABILITY_ELEMENT_PROPERTIES,
@@ -131,7 +132,7 @@ __all__ = [
     "CheckViolation",
     "CheckWitness",
     "Connection", "Model", "Symbol", "Diagnostic", "EnumLiteral", "Instance", "InstancePath", "InstancePaths", "PathStep",
-    "TypedObject", "TypeFacts", "Multiplicity", "Specialization", "SymbolFacts",
+    "TypedObject", "TypeFacts", "TypeRef", "Multiplicity", "Specialization", "SymbolFacts",
     "AttributeFacts",
     "ServerInfo",
     "UNSET", "UnsetType", "Undetermined",

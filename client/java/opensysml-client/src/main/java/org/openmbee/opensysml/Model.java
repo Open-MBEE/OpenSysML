@@ -14,7 +14,12 @@ import org.openmbee.opensysml.proto.ExecuteActionRequest;
 import org.openmbee.opensysml.proto.ExecuteActionResponse;
 import org.openmbee.opensysml.proto.ExecuteStateRequest;
 import org.openmbee.opensysml.proto.ExecuteStateResponse;
+import org.openmbee.opensysml.proto.DocumentObject;
+import org.openmbee.opensysml.proto.GetElementPropertiesRequest;
+import org.openmbee.opensysml.proto.GetElementPropertiesResponse;
 import org.openmbee.opensysml.proto.GetSymbolRequest;
+import org.openmbee.opensysml.proto.InstancePathsRequest;
+import org.openmbee.opensysml.proto.InstancePathsResponse;
 import org.openmbee.opensysml.proto.InstantiateRequest;
 import org.openmbee.opensysml.proto.InstantiateResponse;
 import org.openmbee.opensysml.proto.QueryRequest;
@@ -356,7 +361,27 @@ public final class Model {
    * @throws ServiceException if the service does not hold this model
    */
   public Symbol symbol(String symbolId) {
-    SymbolResponse response = symbolResponse(symbolId);
+    return symbol(symbolId, SymbolOptions.defaults());
+  }
+
+  /**
+   * A symbol by qualified name, with what the lookup asks for beyond the symbol itself.
+   *
+   * <p>A service advertising {@code symbol_members} enumerates every member of the symbol, own and
+   * inherited, in {@link Symbol#members()}; the members inherited from standard-library content
+   * are left out and counted in {@link Symbol#withheldLibraryMembers()} unless the options ask for
+   * them.
+   *
+   * @param symbolId a qualified name, such as {@code "Demo::Vehicle"}
+   * @param options what to ask for
+   * @return the symbol
+   * @throws ModelException if the model declares no such symbol
+   * @throws CapabilityException if library members are asked of a service without {@code
+   *     symbol_members}, which would ignore the request
+   * @throws ServiceException if the service does not hold this model
+   */
+  public Symbol symbol(String symbolId, SymbolOptions options) {
+    SymbolResponse response = symbolResponse(symbolId, options);
     if (!response.getError().isEmpty()) {
       throw new ModelException(response.getError(), List.of());
     }
@@ -371,10 +396,124 @@ public final class Model {
    * @throws ServiceException if the service does not hold this model
    */
   public Optional<Symbol> findSymbol(String symbolId) {
-    SymbolResponse response = symbolResponse(symbolId);
+    return findSymbol(symbolId, SymbolOptions.defaults());
+  }
+
+  /**
+   * A symbol by qualified name, absent when the model declares no such symbol, with what the lookup
+   * asks for beyond the symbol itself.
+   *
+   * @param symbolId a qualified name
+   * @param options what to ask for, as {@link #symbol(String, SymbolOptions)} takes them
+   * @return the symbol, or empty
+   * @throws CapabilityException if library members are asked of a service without {@code
+   *     symbol_members}
+   * @throws ServiceException if the service does not hold this model
+   */
+  public Optional<Symbol> findSymbol(String symbolId, SymbolOptions options) {
+    SymbolResponse response = symbolResponse(symbolId, options);
     return response.getError().isEmpty()
         ? Optional.of(Protos.symbol(response.getSymbol()))
         : Optional.empty();
+  }
+
+  /**
+   * Reads the metamodel properties of one element by their specification names ({@code
+   * inheritedFeature}, {@code connectorEnd}, …), as the model's API element form spells them;
+   * every property the element carries when none is named.
+   *
+   * <p>The element is a qualified name, the positional id of an unnamed member ({@code
+   * "Owner::@2"}) or an element form id — which every {@link ElementRef} in an answer carries, so
+   * the graph is walked with one vocabulary.
+   *
+   * @param element the element to read
+   * @param properties the specification names, none for every property
+   * @return the element and one entry per property, answered or saying why not
+   * @throws SymbolNotFoundException if the model has no such element
+   * @throws ModelException if the service refused the read
+   * @throws CapabilityException if the service does not advertise {@code element_properties}
+   * @throws ServiceException if the service does not hold this model
+   */
+  public ElementProperties elementProperties(String element, String... properties) {
+    Objects.requireNonNull(element, "element");
+    connection.capabilities().require(Capabilities.ELEMENT_PROPERTIES);
+    GetElementPropertiesResponse response =
+        connection.call(
+            "GetElementProperties",
+            GetElementPropertiesRequest.newBuilder()
+                .setModelHash(hash)
+                .setElementId(element)
+                .addAllProperties(List.of(properties))
+                .build(),
+            GetElementPropertiesResponse.getDefaultInstance());
+    if (!response.getError().isEmpty()) {
+      if (response.getError().startsWith("element not found")) {
+        throw new SymbolNotFoundException(element, List.of());
+      }
+      throw new ModelException(response.getError(), List.of());
+    }
+    return Protos.elementProperties(response);
+  }
+
+  /**
+   * Every root-relative path that reaches one object of this model's population, aliases through
+   * connector ends and reference usages included: what {@link Instance#reachedBy()} gives one of.
+   *
+   * @param instance an object {@link #instantiate} built
+   * @return the paths in traversal order, and whether the service bounded its search
+   * @throws ModelException if the service could not list them
+   * @throws CapabilityException if the service does not advertise {@code instance_paths}
+   * @throws ServiceException {@code NOT_FOUND} if no object has the id, or if the service does not
+   *     hold this model
+   */
+  public InstancePaths instancePaths(Instance instance) {
+    Objects.requireNonNull(instance, "instance");
+    return instancePaths(instance.id());
+  }
+
+  /**
+   * Every root-relative path that reaches the object of an id.
+   *
+   * @param instanceId the id {@link #instantiate} gave the object
+   * @return the paths, as {@link #instancePaths(Instance)} answers them
+   * @throws ModelException if the service could not list them
+   * @throws CapabilityException if the service does not advertise {@code instance_paths}
+   * @throws ServiceException {@code NOT_FOUND} if no object has the id, or if the service does not
+   *     hold this model
+   */
+  public InstancePaths instancePaths(long instanceId) {
+    return instancePaths(DocumentObject.newBuilder().setInstanceId(instanceId).build());
+  }
+
+  /**
+   * Every root-relative path that reaches the object at a path.
+   *
+   * @param objectPath the qualified name the object was instantiated as ({@code "Garage::car"}),
+   *     its id ({@code "#2"}), or a path through feature values from either ({@code
+   *     "Garage::car.wheels[2]"}; indexes count from 1)
+   * @return the paths, as {@link #instancePaths(Instance)} answers them
+   * @throws ModelException if the service could not list them
+   * @throws CapabilityException if the service does not advertise {@code instance_paths}
+   * @throws ServiceException {@code NOT_FOUND} if nothing is at the path, or if the service does
+   *     not hold this model
+   */
+  public InstancePaths instancePaths(String objectPath) {
+    Objects.requireNonNull(objectPath, "objectPath");
+    return instancePaths(DocumentObject.newBuilder().setPath(objectPath).build());
+  }
+
+  private InstancePaths instancePaths(DocumentObject object) {
+    connection.capabilities().require(Capabilities.INSTANCE_PATHS);
+    InstancePathsResponse response =
+        connection.call(
+            "InstancePaths",
+            InstancePathsRequest.newBuilder().setModelHash(hash).setObject(object).build(),
+            InstancePathsResponse.getDefaultInstance());
+    if (!response.getError().isEmpty()) {
+      throw new ModelException(
+          response.getError(), Protos.diagnostics(response.getDiagnosticsList()));
+    }
+    return Protos.instancePaths(response);
   }
   /**
    * A symbol by short name or qualified name, answered from the service's index.
@@ -2154,11 +2293,19 @@ public final class Model {
         .ifPresent(question -> connection.capabilities().require(Capabilities.VERIFICATION_QUESTIONS));
   }
 
-  private SymbolResponse symbolResponse(String symbolId) {
+  private SymbolResponse symbolResponse(String symbolId, SymbolOptions options) {
     Objects.requireNonNull(symbolId, NAME_SYMBOL_ID);
+    Objects.requireNonNull(options, "options");
+    if (options.includeLibraryMembers()) {
+      connection.capabilities().require(Capabilities.SYMBOL_MEMBERS);
+    }
     return connection.call(
         "GetSymbol",
-        GetSymbolRequest.newBuilder().setModelHash(hash).setSymbolId(symbolId).build(),
+        GetSymbolRequest.newBuilder()
+            .setModelHash(hash)
+            .setSymbolId(symbolId)
+            .setIncludeLibraryMembers(options.includeLibraryMembers())
+            .build(),
         SymbolResponse.getDefaultInstance());
   }
 

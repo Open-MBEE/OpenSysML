@@ -1569,13 +1569,18 @@ func (ctx *Context) subrequirementHoldsAt(activation int64, cond Condition, feat
 // every required condition holds.
 func negatedText(conds []Condition) string {
 	var texts []string
+	var only Condition
 	for _, cond := range conds {
 		if !cond.Required {
 			continue
 		}
+		only = cond
 		texts = append(texts, conditionLabel(cond))
 	}
 	if len(texts) == 1 {
+		if only.Group == nil && only.Conflict == nil && only.Circular == nil && !only.Negated {
+			return negatedConditionText(only.Expr)
+		}
 		return "not " + texts[0]
 	}
 	return "not (" + strings.Join(texts, " and ") + ")"
@@ -1739,8 +1744,11 @@ func conditionLabel(cond Condition) string {
 			text = requirementKeyword(cond.Subrequirement) + " " + cond.Subrequirement.Name + " " + text
 		}
 	}
-	if cond.Negated {
-		text = "not " + text
+	switch {
+	case cond.Negated && cond.Group == nil:
+		return negatedConditionText(cond.Expr)
+	case cond.Negated:
+		return "not " + text
 	}
 	return text
 }
@@ -1750,61 +1758,16 @@ func ConditionText(n ast.Node) string { return conditionText(n) }
 
 // qualifiedNameText writes a qualified name as the notation does, each segment
 // quoted when it needs quoting.
-func qualifiedNameText(qn *ast.QualifiedName) string {
-	if qn == nil {
-		return ""
-	}
-	names := make([]string, 0, len(qn.Parts))
-	for _, seg := range qn.Parts {
-		if seg.Text != "" {
-			names = append(names, seg.Text)
-		}
-	}
-	return source.QualifiedNameOf(names)
-}
+func qualifiedNameText(qn *ast.QualifiedName) string { return ast.QualifiedNameText(qn) }
 
-// conditionText renders a condition compactly, so a violation names the
+// conditionPrinter renders a condition compactly, so a violation names the
 // condition that failed rather than only the element that states it.
-func conditionText(n ast.Node) string {
-	switch e := n.(type) {
-	case *ast.LiteralInteger:
-		return e.Value
-	case *ast.LiteralReal:
-		return e.Value
-	case *ast.LiteralString:
-		return e.Value
-	case *ast.LiteralBool:
-		if e.Value {
-			return "true"
-		}
-		return "false"
-	case *ast.FeatureReference:
-		return qualifiedNameText(e.Name)
-	case *ast.FeatureChainExpr:
-		return conditionText(e.Operand) + "." + qualifiedNameText(e.Member)
-	case *ast.OperatorExpr:
-		switch len(e.Operands) {
-		case 1:
-			return e.Operator.String() + " " + conditionText(e.Operands[0])
-		case 2:
-			return conditionText(e.Operands[0]) + " " + e.Operator.String() + " " + conditionText(e.Operands[1])
-		}
-	case *ast.InvocationExpr:
-		args := make([]string, 0, len(e.Args))
-		for _, arg := range e.Args {
-			args = append(args, conditionText(arg))
-		}
-		return qualifiedNameText(e.Type) + "(" + strings.Join(args, ", ") + ")"
-	case *ast.IndexExpr:
-		// The bracket form is a quantity, `1.0 [m]`; `#` indexes a sequence.
-		if e.Bracket {
-			unit := semantics.UnitExprText(e.Index)
-			if unit == "" {
-				unit = conditionText(e.Index)
-			}
-			return conditionText(e.Operand) + " [" + unit + "]"
-		}
-		return conditionText(e.Operand) + "#(" + conditionText(e.Index) + ")"
-	}
-	return traceLabel(n)
+var conditionPrinter = ast.ExprPrinter{Unit: semantics.UnitExprText, Other: traceLabel}
+
+func conditionText(n ast.Node) string { return conditionPrinter.Text(n) }
+
+// negatedConditionText renders `not` over a condition's expression, grouping a
+// binary one so the text reads back as the negation of the whole.
+func negatedConditionText(expr ast.Node) string {
+	return conditionText(&ast.OperatorExpr{Operator: ast.OpNot, Operands: []ast.Node{expr}})
 }

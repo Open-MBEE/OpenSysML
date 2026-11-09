@@ -51,7 +51,7 @@ type Client interface {
 
 	// LookupSymbol looks a symbol up by fully qualified name. An unknown name
 	// is a FailureError; an unknown model is CodeNotFound.
-	LookupSymbol(ctx context.Context, model *Model, symbolID string) (*Symbol, error)
+	LookupSymbol(ctx context.Context, model *Model, symbolID string, opts ...SymbolOption) (*Symbol, error)
 
 	// Evaluate evaluates a SysML expression against the parsed model. An
 	// expression that does not parse or evaluate is a FailureError carrying
@@ -579,7 +579,16 @@ func (c *client) Diagnostics(ctx context.Context, model *Model, opts ...Diagnost
 	return diagnosticsFromProto(resp.Diagnostics), nil
 }
 
-func (c *client) LookupSymbol(ctx context.Context, model *Model, symbolID string) (*Symbol, error) {
+// SymbolOption widens what LookupSymbol asks the service to report.
+type SymbolOption func(*pb.GetSymbolRequest)
+
+// WithLibraryMembers lists the members inherited from standard-library content
+// too, which are otherwise only counted in Symbol.WithheldLibraryMembers.
+func WithLibraryMembers() SymbolOption {
+	return func(req *pb.GetSymbolRequest) { req.IncludeLibraryMembers = true }
+}
+
+func (c *client) LookupSymbol(ctx context.Context, model *Model, symbolID string, opts ...SymbolOption) (*Symbol, error) {
 	if err := c.live(); err != nil {
 		return nil, err
 	}
@@ -587,7 +596,16 @@ func (c *client) LookupSymbol(ctx context.Context, model *Model, symbolID string
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.caller.getSymbol(ctx, &pb.GetSymbolRequest{ModelHash: hash, SymbolId: symbolID})
+	req := &pb.GetSymbolRequest{ModelHash: hash, SymbolId: symbolID}
+	for _, opt := range opts {
+		opt(req)
+	}
+	if req.IncludeLibraryMembers {
+		if err := c.requireCapabilities(ctx, CapabilitySymbolMembers); err != nil {
+			return nil, err
+		}
+	}
+	resp, err := c.caller.getSymbol(ctx, req)
 	if err != nil {
 		return nil, err
 	}

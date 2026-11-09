@@ -281,7 +281,10 @@ public sealed interface Value {
    * {@code metaobject_values} capability reports one as itself rather than as an unsupported
    * {@link NullValue}.
    *
-   * @param elementId FQN of the element reflected on ({@code "Vehicle::seatBelt"}), never empty
+   * @param elementId the id a client keeps for the element reflected on, never empty: its FQN
+   *     ({@code "Vehicle::seatBelt"}), the positional id of an unnamed member ({@code
+   *     "Vehicle::@2"}), or the element form's {@code @id} of an element the model synthesizes,
+   *     such as a send's or accept's argument
    * @param metaclassId FQN of the element's own reflective metaclass ({@code
    *     "SysML::Systems::PartUsage"}), not the type it was cast to; the service always sends it
    */

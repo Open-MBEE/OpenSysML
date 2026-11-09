@@ -381,7 +381,7 @@ func (m *cachedModel) positionalDocuments() []symbolfacts.PositionalDocument {
 		if root == nil {
 			continue
 		}
-		docs = append(docs, symbolfacts.PositionalDocument{File: document.source, Root: root})
+		docs = append(docs, symbolfacts.PositionalDocument{File: document.source, Root: document.root, Scope: root})
 	}
 	return docs
 }
@@ -428,6 +428,9 @@ func symbolInfo(info *symbolfacts.Info) *JSymbolInfo {
 			PrimitiveSource: t.PrimitiveSource,
 			Quantity:        t.Quantity,
 			Unit:            t.Unit,
+		}
+		for _, ref := range t.Types {
+			out.TypeInfo.Types = append(out.TypeInfo.Types, &JTypeRef{Id: ref.Id, Kind: ref.Kind})
 		}
 	}
 	if m := info.Multiplicity; m != nil {

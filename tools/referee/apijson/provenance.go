@@ -14,8 +14,6 @@ const (
 	refreshCommand    = "go run -C tools ./cmd/pilot-apijson-diff -update"
 	bridgeSource      = "scripts/pilot-json-exporter/ExportJSON.java"
 	bridgeName        = "pilot-json-exporter"
-	writerSource      = "internal/translate/export"
-	writerName        = "api-json-writer"
 )
 
 // manualExamples is the one root the pilot differential does not compare: the
@@ -25,11 +23,9 @@ var manualExamples = diff.Root{Name: "manual-examples", Dir: "docs/manual/exampl
 // roots are the differential's corpus roots plus the manual's examples.
 func roots() []diff.Root { return append(diff.Roots(), manualExamples) }
 
-// provenance identifies the run's inputs: checkout's pin, bridge and corpora, the
-// writer linked into this executable, digested in built, its build checkout, and
-// the libraries (an absolute directory inside checkout) the bridge reads beside
-// the standard library.
-func provenance(checkout, built, libraries string) (baseline.Record, error) {
+// provenance identifies the reference side and the inputs: checkout's pin, bridge, corpora and the
+// libraries the bridge reads. It names nothing of our writer, so a writer edit moves only verdicts.
+func provenance(checkout, libraries string) (baseline.Record, error) {
 	pin, err := baseline.ReadPin(checkout)
 	if err != nil {
 		return baseline.Record{}, err
@@ -37,10 +33,6 @@ func provenance(checkout, built, libraries string) (baseline.Record, error) {
 	bridgeDigest, err := baseline.DigestFile(filepath.Join(checkout, filepath.FromSlash(bridgeSource)))
 	if err != nil {
 		return baseline.Record{}, fmt.Errorf("digest %s: %w", bridgeSource, err)
-	}
-	writerDigest, err := baseline.DigestPackage(filepath.Join(built, filepath.FromSlash(writerSource)))
-	if err != nil {
-		return baseline.Record{}, fmt.Errorf("digest %s: %w", writerSource, err)
 	}
 	overlay, err := errata.Load()
 	if err != nil {
@@ -53,7 +45,6 @@ func provenance(checkout, built, libraries string) (baseline.Record, error) {
 		Errata:        baseline.ErrataDigest(overlay.Entries()),
 		Tools: []baseline.Tool{
 			{Name: bridgeName, Source: bridgeSource, SourceDigest: bridgeDigest, Release: pin.Release()},
-			{Name: writerName, Source: writerSource, SourceDigest: writerDigest},
 		},
 	}
 	for _, root := range roots() {

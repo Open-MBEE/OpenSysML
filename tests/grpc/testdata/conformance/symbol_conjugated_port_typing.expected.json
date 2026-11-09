@@ -1,0 +1,7 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "ConjugatedPorts::Receiver::cmdIn",
+	"expected_metadata": {
+		"type": "~CmdPort"
+	}
+}

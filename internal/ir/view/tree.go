@@ -288,7 +288,7 @@ type expansion map[*symbols.Symbol]bool
 // leave undoes. A type of sym already being expanded above is returned as well,
 // and then sym alone is marked: the walk shows its own members and no inherited one.
 func (r *Renderer) enter(path expansion, sym *symbols.Symbol) (recursive *symbols.Symbol, added []*symbols.Symbol) {
-	types := r.model.DeclaredTypes(sym)
+	types := r.drawnTypes(sym)
 	for _, typ := range types {
 		if path[typ] {
 			recursive, types = typ, nil

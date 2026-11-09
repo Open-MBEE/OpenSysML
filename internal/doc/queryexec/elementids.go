@@ -30,6 +30,9 @@ type ElementIDReader interface {
 	ReadOwningMembership(doc string, decl ast.Node, fqn string) (string, error)
 	ReadRelationship(doc string, node ast.Node) (string, error)
 	ReadExpressionPart(doc string, node ast.Node, slot string) (element, membership string, err error)
+	// ReadAddress is the address the conversion stated for the element written with id: its
+	// qualifiedName, or a positional address (`P::@2::x`); none for a minted or unknown id.
+	ReadAddress(id string) (string, bool)
 }
 
 // defaultMultiplicitySlot is the slot the conversion mints a usage's default
@@ -176,6 +179,11 @@ func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbo
 		}
 		return "", true, nil
 	case symbols.ImplicitReferenceMembership:
+		if rel.Decl != nil {
+			// A `first x;` marker is the Membership itself, identified as the conversion mints it.
+			id, err = read.Read(sym.DocName, rel.Decl, "")
+			return id, true, err
+		}
 		if rel.Owner != nil && rel.Owner.Decl != nil {
 			_, membership, err := read.ReadExpressionPart(rel.Owner.DocName, rel.Owner.Decl, rel.Slot)
 			return membership, true, err
@@ -199,7 +207,8 @@ func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbo
 			return id, true, err
 		}
 		return "", true, nil
-	case symbols.ImplicitPortConjugation:
+	case symbols.ImplicitPortConjugation, symbols.ImplicitMetadataBodyRedefinition:
+		// The conversion keys a relationship the declaration states without a clause by the declaration.
 		if rel.Owner != nil && rel.Owner.Decl != nil {
 			id, err = read.ReadRelationship(rel.Owner.DocName, rel.Owner.Decl)
 			return id, true, err

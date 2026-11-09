@@ -2276,4 +2276,183 @@ class ApiIntegrationTest {
     assertEquals(listed, probed);
     assertTrue(probed.containsAll(List.of("run", "explore", "solve", "sweep")), probed.toString());
   }
+
+  private static final String MEMBERS =
+      """
+      package Demo {
+        part def Base { part p; }
+        part def Mid :> Base;
+        part m : Mid;
+      }
+      """;
+
+  @Test
+  void aUsageListsTheMembersItInheritsThroughItsType() {
+    assertTrue(connection.capabilities().has(Capabilities.SYMBOL_MEMBERS));
+    Model model = connection.parse(MEMBERS);
+    Symbol m = model.symbol("Demo::m");
+    assertEquals(List.of(), m.childIds());
+    assertEquals(List.of(), m.ownMembers());
+    Symbol.Member p = m.inheritedMembers().get(0);
+    assertEquals("Demo::Base::p", p.id());
+    assertEquals("p", p.name());
+    assertEquals("partUsage", p.kind());
+    assertEquals(Optional.of("Demo::Base"), p.inheritedFrom());
+    assertFalse(p.library());
+    assertTrue(m.members().stream().noneMatch(Symbol.Member::library));
+    assertTrue(m.withheldLibraryMembers() > 0);
+
+    Symbol base = model.symbol("Demo::Base");
+    assertEquals(List.of("Demo::Base::p"), base.childIds());
+    assertEquals(
+        List.of(new Symbol.Member("Demo::Base::p", "p", "partUsage", false, Optional.empty(), false)),
+        base.ownMembers());
+
+    Symbol full = model.symbol("Demo::m", SymbolOptions.defaults().withLibraryMembers(true));
+    assertEquals(0, full.withheldLibraryMembers());
+    assertEquals(m.members(), full.members().subList(0, m.members().size()));
+    List<Symbol.Member> library = full.members().stream().filter(Symbol.Member::library).toList();
+    assertEquals(m.withheldLibraryMembers(), library.size());
+    assertTrue(library.stream().allMatch(member -> member.inheritedFrom().isPresent()));
+    assertEquals(
+        Optional.of(full),
+        model.findSymbol("Demo::m", SymbolOptions.defaults().withLibraryMembers(true)));
+  }
+
+  private static final String PROPERTIES =
+      """
+      package EP {
+        port def CmdPort { out attribute cmd : ScalarValues::Integer; }
+        part def Unit { port p : CmdPort; }
+        part def Pair :> Unit {
+          part u1 : Unit;
+          part u2 : Unit;
+          connect u1 to u2;
+        }
+      }
+      """;
+
+  @Test
+  void readsAnElementsPropertiesBySpecificationNameAndAcceptsTheIdsBack() {
+    assertTrue(connection.capabilities().has(Capabilities.ELEMENT_PROPERTIES));
+    Model model = connection.parse(PROPERTIES);
+    ElementProperties read =
+        model.elementProperties("EP::Pair", "inheritedFeature", "isAbstract", "connectorEnd");
+    assertEquals("EP::Pair", read.element().qualifiedName());
+    assertEquals("PartDefinition", read.element().metaclass());
+    assertFalse(read.element().id().isEmpty());
+    assertEquals(
+        List.of("inheritedFeature", "isAbstract", "connectorEnd"),
+        read.properties().stream().map(ElementProperties.Property::name).toList());
+    ElementProperties.Property inherited = read.get("inheritedFeature").orElseThrow();
+    assertTrue(inherited.many() && inherited.derived() && inherited.supported());
+    assertEquals("Type", inherited.definingClass());
+    assertEquals("EP::Unit::p", inherited.elements().get(0).qualifiedName());
+    assertEquals(
+        Optional.of(new ElementProperties.PropertyValue.Bool(false)),
+        read.get("isAbstract").orElseThrow().value());
+    ElementProperties.Property none = read.get("connectorEnd").orElseThrow();
+    assertFalse(none.supported());
+    assertTrue(none.unsupported().orElseThrow().contains("declares no property connectorEnd"));
+
+    ElementProperties byId = model.elementProperties(read.element().id(), "isAbstract");
+    assertEquals(read.element(), byId.element());
+    ElementProperties port = model.elementProperties(inherited.elements().get(0).id(), "direction");
+    assertEquals("EP::Unit::p", port.element().qualifiedName());
+    ElementProperties connector = model.elementProperties("EP::Pair::@2", "connectorEnd");
+    assertEquals("ConnectionUsage", connector.element().metaclass());
+    assertEquals(2, connector.get("connectorEnd").orElseThrow().elements().size());
+    ElementProperties whole = model.elementProperties("EP::CmdPort::cmd");
+    assertTrue(whole.has("direction") && whole.has("isComposite") && whole.has("owner"));
+
+    SymbolNotFoundException missing =
+        assertThrows(
+            SymbolNotFoundException.class, () -> model.elementProperties("EP::Nope", "name"));
+    assertEquals("EP::Nope", missing.name());
+  }
+
+  @Test
+  void anObjectSaysHowItWasReachedAndEveryPathToIt() {
+    assertTrue(connection.capabilities().has(Capabilities.INSTANCE_PATHS));
+    Model model = connection.parse(VEHICLE);
+    Instantiation built = model.instantiate("Demo::sedan");
+    Instance root = built.root();
+    assertEquals(Optional.empty(), root.reachedBy());
+    assertEquals(Optional.empty(), built.owner(root));
+    assertEquals("", root.path());
+    Value.InstanceReference reference =
+        (Value.InstanceReference) root.featureValues().get("engine").value().orElseThrow();
+    Instance engine = built.resolve(reference).orElseThrow();
+    Instance.Reach reach = engine.reachedBy().orElseThrow();
+    assertEquals(root.id(), reach.instanceId());
+    assertEquals("engine", reach.featureName());
+    assertEquals("Demo::Vehicle::engine", reach.featureSymbolId());
+    assertEquals(0, reach.index());
+    assertEquals("engine", reach.path());
+    assertEquals("engine", engine.path());
+    assertEquals(Optional.of(new Value.InstanceReference(root.id())), engine.owner());
+    assertEquals(Optional.of(root), built.owner(engine));
+
+    InstancePaths paths = model.instancePaths(engine);
+    assertFalse(paths.truncated());
+    InstancePaths.Path path = paths.paths().get(0);
+    assertEquals(root.id(), path.rootInstanceId());
+    assertEquals(Optional.of("Demo::sedan"), path.rootSymbolId());
+    assertEquals("engine", path.path());
+    assertEquals(
+        List.of(new InstancePaths.Step("engine", "Demo::Vehicle::engine", 0, engine.id())),
+        path.steps());
+    assertEquals(paths, model.instancePaths(engine.id()));
+    assertEquals(paths, model.instancePaths("Demo::sedan.engine"));
+    assertEquals("", model.instancePaths(root).paths().get(0).path());
+
+    ServiceException missing =
+        assertThrows(ServiceException.class, () -> model.instancePaths(Long.MAX_VALUE));
+    assertEquals(StatusCode.NOT_FOUND, missing.status());
+  }
+
+  @Test
+  void theNewReadsAreRefusedBeforeAskingAServiceWithoutTheirCapabilities() throws Exception {
+    HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    server.createContext(
+        "/",
+        exchange -> {
+          exchange.getRequestBody().readAllBytes();
+          if (!exchange.getRequestURI().getPath().endsWith("/GetServerInfo")) {
+            throw new IllegalStateException("the client asked " + exchange.getRequestURI());
+          }
+          byte[] body =
+              org.openmbee.opensysml.proto.ServerInfoResponse.newBuilder()
+                  .setVersion("test")
+                  .build()
+                  .toByteArray();
+          exchange.getResponseHeaders().add("Content-Type", "application/proto");
+          exchange.sendResponseHeaders(200, body.length);
+          try (OutputStream output = exchange.getResponseBody()) {
+            output.write(body);
+          }
+        });
+    server.start();
+    try (Connection older =
+        Connection.open(
+            ConnectionOptions.builder()
+                .service("127.0.0.1", server.getAddress().getPort())
+                .build())) {
+      Model model = new Model(older, "hash", List.of(), List.of());
+      SymbolOptions library = SymbolOptions.defaults().withLibraryMembers(true);
+      assertEquals(
+          Capabilities.SYMBOL_MEMBERS,
+          assertThrows(CapabilityException.class, () -> model.symbol("Demo::m", library))
+              .capability());
+      assertEquals(
+          Capabilities.ELEMENT_PROPERTIES,
+          assertThrows(CapabilityException.class, () -> model.elementProperties("Demo::m"))
+              .capability());
+      assertEquals(
+          Capabilities.INSTANCE_PATHS,
+          assertThrows(CapabilityException.class, () -> model.instancePaths(1)).capability());
+    } finally {
+      server.stop(0);
+    }
+  }
 }

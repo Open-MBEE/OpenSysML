@@ -719,7 +719,13 @@ class Metaobject:
     not carried.
 
     Attributes:
-        element_id (str): FQN of the element reflected on (``Vehicle::seatBelt``)
+        element_id (str): The id a client keeps for the element reflected on:
+            its qualified name (``Vehicle::seatBelt``), the positional id of an
+            unnamed member (``Vehicle::@2``), or the element form's ``@id`` of
+            an element the model synthesizes, such as a send's or accept's
+            argument (``Vehicle__send___400_pvalue``). Whichever it is,
+            :meth:`Connection.get_element_properties` reads it and sending it
+            back binds the same element.
         metaclass_id (str): FQN of the element's own reflective metaclass
             (``SysML::Systems::PartUsage``), not the type it was cast to. The
             service always sends it; one sent to the service may be left empty

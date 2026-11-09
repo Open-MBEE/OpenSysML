@@ -239,6 +239,9 @@ func (m *Model) ImpliedBaseFQNsForMetaclass(metaclass string, kind source.Kind) 
 		// A reference usage has no kind base: it subsets only Base::things (SysML v2 §7.6.2).
 		return []string{baseUsageFQN}
 	}
+	if base, ok := impliedNodeUsageBases[metaclass]; ok && kind != source.KindKerML {
+		return []string{base}
+	}
 	if usageKind, ok := impliedUsageKinds[metaclass]; ok {
 		return m.ImpliedBaseFQNs(&ast.Usage{Kind: usageKind}, kind)
 	}
@@ -285,8 +288,16 @@ var impliedMultiplicityBases = map[string]string{
 	"MultiplicityRange": naturalsFQN,
 }
 
+// impliedNodeUsageBases are the bases a usage metaclass of its own subsets in
+// place of its kind's, as usageBaseFeatureFQN reads them off the notation.
+var impliedNodeUsageBases = map[string]string{
+	"SuccessionFlowUsage": "Flows::successionFlows",
+}
+
 var impliedUsageKinds = map[string]ast.UsageKind{
+	"AcceptActionUsage":       ast.UsageAction,
 	"ActionUsage":             ast.UsageAction,
+	"AssignmentActionUsage":   ast.UsageAction,
 	"AllocationUsage":         ast.UsageAllocation,
 	"AnalysisCaseUsage":       ast.UsageAnalysisCase,
 	"AttributeUsage":          ast.UsageAttribute,
@@ -299,6 +310,8 @@ var impliedUsageKinds = map[string]ast.UsageKind{
 	"EnumerationUsage":        ast.UsageEnumeration,
 	"Expression":              ast.UsageExpr,
 	"FlowUsage":               ast.UsageFlow,
+	"ForLoopActionUsage":      ast.UsageAction,
+	"IfActionUsage":           ast.UsageAction,
 	"IndividualUsage":         ast.UsageIndividual,
 	"InterfaceUsage":          ast.UsageInterface,
 	"InteractionUsage":        ast.UsageInteraction,
@@ -312,7 +325,10 @@ var impliedUsageKinds = map[string]ast.UsageKind{
 	"StateUsage":              ast.UsageState,
 	"Step":                    ast.UsageStep,
 	"SuccessionAsUsage":       ast.UsageSuccession,
+	"SuccessionFlowUsage":     ast.UsageFlow,
+	"TerminateActionUsage":    ast.UsageAction,
 	"TransitionUsage":         ast.UsageTransition,
+	"WhileLoopActionUsage":    ast.UsageAction,
 	"UseCaseUsage":            ast.UsageUseCase,
 	"VerificationCaseUsage":   ast.UsageVerificationCase,
 	"ViewUsage":               ast.UsageView,

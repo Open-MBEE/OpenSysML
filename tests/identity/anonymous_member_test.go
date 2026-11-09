@@ -55,3 +55,35 @@ func TestAnonymousMemberPathsMatchThePilotsPositionalKeys(t *testing.T) {
 		}
 	}
 }
+
+// The identity table of a library document gives its unnamed members the ids
+// the anonymous index mints, with their owning memberships, so a document
+// converted alone writes them under the ids a model's export references.
+func TestLibraryDocumentIdentityMintsAnonymousMemberIDs(t *testing.T) {
+	base := libs.SharedBase()
+	resolver := resolve.New(base)
+	model := semantics.NewModel(resolver)
+	catalog := identity.LibraryCatalogWithOpenSysML(base)
+	const doc = "Systems Library/Parts.sysml"
+	table := identity.Build(model, resolver, base.DocumentRoot(doc))
+	unnamed := 0
+	for _, sym := range table.Symbols() {
+		if sym.Name != "" {
+			continue
+		}
+		info, _ := table.Info(sym)
+		member, ok := identity.AnonymousMemberOf(model, catalog, sym)
+		if !ok {
+			t.Errorf("%s: the anonymous index does not place the unnamed %s", info.FQN, sym.Kind)
+			continue
+		}
+		unnamed++
+		if !info.Fixed() || info.EffectiveID != member.ID || info.OwningMembershipID() != member.OwningMembershipID {
+			t.Errorf("%s: identity %s (%s, membership %s), anonymous index %s (membership %s)",
+				member.Path, info.EffectiveID, info.Source, info.OwningMembershipID(), member.ID, member.OwningMembershipID)
+		}
+	}
+	if unnamed == 0 {
+		t.Fatalf("%s declares no unnamed member", doc)
+	}
+}

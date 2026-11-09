@@ -655,9 +655,9 @@ remove both. The namespace is well-formed; the name resolves to nothing in it, s
 walks on to the outer scopes and an unqualified `Engine` in `C` is unresolved. OpenSysML does
 this. The pilot does not: its `NamespaceImportAdapter.importMemberships` adds every visible
 membership of the imported namespace, hiding by owned names only, so `C::Engine` resolves to the
-first import's member and nothing is reported. The warning marks exactly the memberships §7.2.5.4
-hides; the use-site error says which imports hide the name and that qualifying it resolves it. The
-pinned validator accepts every fixture below silently, except that on `Sub :> Base` it warns
+first import's member and nothing is reported. The hiding itself is not reported (the clause makes
+it a derivation); the use-site error says which imports hide the name and that qualifying it
+resolves it. The pinned validator accepts every fixture below silently, except that on `Sub :> Base` it warns
 `Duplicate of inherited member name 'Engine' from Left, Right`.
 
 ```sysml
@@ -698,8 +698,8 @@ part def Base { protected import Left::*; protected import Right::*; }
   Kernel Function Library packages, library content the collision computation leaves out, so they
   are untouched.
 
-Over the OMG corpora this reports 238 warnings, every one a same-metaclass pair under the
-rule above, and the hiding leaves 32 references unresolved (adjudicated per file in
+Over the OMG corpora the hiding, every case a same-metaclass pair under the rule above, leaves 32
+references unresolved (adjudicated per file in
 [pilot-corpora.md](pilot-corpora.md), "Imported memberships the specification hides"): `13a-Model Containment.sysml` (six names — `Engine`, `Transmission`, `ClutchPort`,
 `DrivePwrPort`, `EngineToTransmissionInterface`, `vehicle1_c1` — from
 `'2a-Parts Interconnection'::*` and `'8-Requirements'::*`), `4a-Functional Allocation.sysml`
@@ -715,9 +715,18 @@ nested feature names — `vehicle_b::mass` beside `vehicle_b::fuelTank::mass`,
 namespaces; `VehiclePartDef::Vehicle::*` beside `FuelTankPartDef::FuelTank::*` brings two `mass`.
 Recursive imports reach that far because `Namespace::visibleMemberships(…, isRecursive = true)`
 recurses into every owned member that is a `Namespace`, types and features included; the pilot's
-`NamespaceUtil.getVisibleMembershipsFor` does the same. The pilot is silent on all 238, which the
+`NamespaceUtil.getVisibleMembershipsFor` does the same. The pilot is silent on all 32, which the
 differential records as only-ours rows ([pilot-differential.md](pilot-differential.md)); the Xpect
-suite declares none of them and no agreeing row moves.
+suite declares none of them and no agreeing row moves. The pilot's binding is declaration-order
+dependent: with `package T { package A { part x { attribute a; } } package B { part o { part x {
+attribute b; } } } }` and `public import T::**;`, it resolves `x.a` and leaves `x.b` unresolved,
+and swapping `A` and `B` swaps the verdicts (`KerMLScope.resolveRecursive` returns the first
+match; `KerMLValidator.checkNamespace` carries the note "Does not check distinguishibility for
+imported Memberships"). In the Annex A vehicle model it binds `PartsTree::vehicle_b` because
+`PartsTree` is declared before `DiscreteInteractions`. Qualifying the nine `vehicle_b` of
+`SimpleVehicleModel.sysml` and the six of `Annex_A_VehicleViews.sysml` as `PartsTree::vehicle_b`
+takes both files to zero diagnostics, the pilot still silent, so the models conform with those
+fifteen edits and nothing else.
 
 **Specification:** KerML §8.3.2.4.5 `Namespace::membership` is "all Memberships in this
 Namespace, including (at least) the union of `ownedMemberships` and `importedMemberships`", and
@@ -728,9 +737,9 @@ as above. §8.3.2.4.4 `Import::importedMemberships`, `Namespace::importedMembers
 ("excluding … a Membership whose … name is the same as an ownedMembership's").
 
 **Assessment:** spec clear, OpenSysML follows it, the pilot does not: §7.2.5.4 hides a name
-two imports bring, so the reference does not resolve; OpenSysML warns at the import that brought
+two imports bring, so the reference does not resolve; OpenSysML hides the name without reporting
 the collision and leaves the reference unresolved with the hint; the pilot binds the first import's
-member and reports nothing. The toolkit's use-site error has the spec's outcome (the name is
+member in declaration order and reports nothing. The toolkit's use-site error has the spec's outcome (the name is
 unresolved) but reports it as an ambiguity at the reference rather than a hidden name at the
 namespace. The exclusions listed above — one element reached twice, the inherited reading, the
 library, the overload set a call gathers — are the adjudicated readings.

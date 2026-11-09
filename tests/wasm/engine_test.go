@@ -23,8 +23,9 @@ import (
 )
 
 // engineGzipBudget bounds growth of the gzipped js build of sysml-engine (9,105,348 bytes under go1.27.3
-// on 2026-10-27); TestEngineDependencies, not this budget, catches a forbidden dependency.
-const engineGzipBudget = 9400000
+// on 2026-10-27; raised to 9,500,000 on 2026-11-08 when bare comments entered the library snapshot at
+// 9,425,954); TestEngineDependencies, not this budget, catches a forbidden dependency.
+const engineGzipBudget = 9500000
 
 func TestEngineDependencies(t *testing.T) {
 	const module = "github.com/Open-MBEE/OpenSysML"

@@ -35,7 +35,7 @@ func (p *Parser) parseCalcBody() []ast.Node {
 	}
 
 	for !p.at(lexer.RBrace) && !p.atEOF() {
-		p.memberStart()
+		body.start()
 		before := p.peek().Span.Offset
 
 		// A calculation body carries the members of an action body
@@ -86,6 +86,7 @@ func (p *Parser) parseCalcBody() []ast.Node {
 		}
 	}
 
+	body.close()
 	p.expect(lexer.RBrace, "expected '}' after calc body")
 	return body.finish()
 }
@@ -123,7 +124,7 @@ func (p *Parser) parseMixedBody() []ast.Node {
 	body := p.newBodyBuilder()
 
 	for !p.at(lexer.RBrace) && !p.atEOF() {
-		p.memberStart()
+		body.start()
 		before := p.peek().Span.Offset
 
 		if member, ok := p.parseSourceMultiplicitySuccession(); ok {
@@ -170,6 +171,7 @@ func (p *Parser) parseMixedBody() []ast.Node {
 		}
 	}
 
+	body.close()
 	p.expect(lexer.RBrace, "expected '}' after action body")
 	return body.finish()
 }
@@ -1241,7 +1243,7 @@ func (p *Parser) parseWhileLoopAction(tok lexer.Token) ast.Node {
 		parsed := p.newBodyBuilder()
 		leave := p.pushBodyContext(bodyAction)
 		for !p.at(lexer.RBrace) && !p.atEOF() {
-			p.memberStart()
+			parsed.start()
 			if member, ok := p.parseSourceMultiplicitySuccession(); ok {
 				parsed.add(member)
 				continue
@@ -1253,6 +1255,7 @@ func (p *Parser) parseWhileLoopAction(tok lexer.Token) ast.Node {
 			parsed.add(p.parseActionMember())
 		}
 		leave()
+		parsed.close()
 		body = parsed.finish()
 
 		p.expect(lexer.RBrace, "expected '}' after while body")
@@ -1297,7 +1300,7 @@ func (p *Parser) parseLoopAction(tok lexer.Token) ast.Node {
 	parsed := p.newBodyBuilder()
 	leave := p.pushBodyContext(bodyAction)
 	for !p.atKeyword("until") && !p.at(lexer.RBrace) && !p.atEOF() {
-		p.memberStart()
+		parsed.start()
 		before := p.peek().Span.Offset
 		if member, ok := p.parseSourceMultiplicitySuccession(); ok {
 			parsed.add(member)
@@ -1336,6 +1339,9 @@ func (p *Parser) parseLoopAction(tok lexer.Token) ast.Node {
 		}
 	}
 	leave()
+	if braced {
+		parsed.close()
+	}
 	tail := parsed.finish()
 	if bodyParameter {
 		body = append(body, tail...)
@@ -1424,7 +1430,7 @@ func (p *Parser) parseForAction(tok lexer.Token) ast.Node {
 	parsed := p.newBodyBuilder()
 	leave := p.pushBodyContext(bodyAction)
 	for !p.at(lexer.RBrace) && !p.atEOF() {
-		p.memberStart()
+		parsed.start()
 		before := p.peek().Span.Offset
 		if member, ok := p.parseSourceMultiplicitySuccession(); ok {
 			parsed.add(member)
@@ -1462,6 +1468,7 @@ func (p *Parser) parseForAction(tok lexer.Token) ast.Node {
 		}
 	}
 	leave()
+	parsed.close()
 	body = parsed.finish()
 
 	p.expect(lexer.RBrace, "expected '}'")
@@ -1576,7 +1583,7 @@ func (p *Parser) parseIfBranch(kind ast.IfBranchKind, start int, closeMsg string
 	parsed := p.newBodyBuilder()
 	leave := p.pushBodyContext(bodyAction)
 	for !p.at(lexer.RBrace) && !p.atEOF() {
-		p.memberStart()
+		parsed.start()
 		before := p.peek().Span.Offset
 		if member, ok := p.parseSourceMultiplicitySuccession(); ok {
 			parsed.add(member)
@@ -1608,6 +1615,7 @@ func (p *Parser) parseIfBranch(kind ast.IfBranchKind, start int, closeMsg string
 		parsed.add(p.parseActionMember())
 	}
 	leave()
+	parsed.close()
 	p.expect(lexer.RBrace, closeMsg)
 	body := parsed.finish()
 
@@ -1853,7 +1861,7 @@ func (p *Parser) parseConstraintMembers(nested bool) []ast.Node {
 	body := p.newBodyBuilder()
 
 	for !p.at(lexer.RBrace) && !p.atEOF() {
-		p.memberStart()
+		body.start()
 		before := p.peek().Span.Offset
 
 		// A member-attached `then` sequences the members either side of it.
@@ -1889,6 +1897,7 @@ func (p *Parser) parseConstraintMembers(nested bool) []ast.Node {
 		}
 	}
 
+	body.close()
 	p.expect(lexer.RBrace, "expected '}' after constraint body")
 	return body.finish()
 }
@@ -2117,7 +2126,7 @@ func (p *Parser) parseRequirementBody() []ast.Node {
 	body := p.newBodyBuilder()
 
 	for !p.at(lexer.RBrace) && !p.atEOF() {
-		p.memberStart()
+		body.start()
 		before := p.peek().Span.Offset
 		// A requirement body carries the members of a definition body
 		// (SysML.xtext RequirementBodyItem), a member-attached `then` among them,
@@ -2139,6 +2148,7 @@ func (p *Parser) parseRequirementBody() []ast.Node {
 		}
 	}
 
+	body.close()
 	p.expect(lexer.RBrace, "expected '}' after requirement body")
 	return body.finish()
 }
@@ -2213,6 +2223,7 @@ func (p *Parser) parseKeywordedRequirementMember(start int) ast.Node {
 	prefixes := p.parsePrefixMetadata()
 	if len(prefixes) > 0 {
 		p.reportMisplacedPrefixMetadata(prefixes, kw)
+		p.recoverComments(prefixes[0].Span().Offset, kw)
 	}
 	p.advance() // the keyword
 	prefixes = append(prefixes, p.parsePrefixMetadata()...)
@@ -2555,7 +2566,7 @@ func (p *Parser) parseStateBody() []ast.Node {
 	allowBody := true
 
 	for !p.at(lexer.RBrace) && !p.atEOF() {
-		p.memberStart()
+		body.start()
 		// A member-attached `then` sequences the members either side of it; a
 		// `then` naming states (`succession first idle then done;`) is a member of its own,
 		// which parseStateMember reads (see succession.go).
@@ -2568,6 +2579,7 @@ func (p *Parser) parseStateBody() []ast.Node {
 		body.add(member)
 	}
 
+	body.close()
 	p.expect(lexer.RBrace, "expected '}' after state body")
 	return body.finish()
 }
@@ -3142,6 +3154,18 @@ func (p *Parser) parseStateSubactionActions(start int, kind stateSubactionKind) 
 	if p.atKeyword("action") {
 		member := p.parseBodyMember()
 		markStateSubaction(member, kind)
+		return []ast.Node{member}, nil
+	}
+
+	// StateAcceptActionUsage (SysML v2.1 §8.2.2.18.1): `<kind> accept a : Sig via p;`.
+	// Only in a state body's own members does a bare `accept` open a transition.
+	if p.atKeyword("accept") {
+		member := p.parseAcceptNode(p.peek().Span.Offset, ast.VisibilityDefault, nil, nil)
+		markStateSubaction(member, kind)
+		// Its ActionBody is `;` or a block, so `then` cannot directly follow it.
+		if last, ok := p.lastToken(); ok && last.Kind != lexer.Semicolon && last.Kind != lexer.RBrace {
+			p.expectSemicolon("accept action")
+		}
 		return []ast.Node{member}, nil
 	}
 

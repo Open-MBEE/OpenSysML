@@ -872,6 +872,9 @@ type doActionCapture struct {
 	firing  *firing
 	run     *doRun
 	body    *bodyCapture
+	// entering and entryLeft are the do action's entry bookkeeping (doAction).
+	entering  bool
+	entryLeft int
 }
 
 // capture is the executor's state between steps; the paused work of its do
@@ -929,7 +932,7 @@ func (e *StateExecutor) capture() stateCapture {
 		c.history[node] = historyRecord{child: record.child, regions: maps.Clone(record.regions)}
 	}
 	for _, act := range e.doActions {
-		c.doActions = append(c.doActions, doActionCapture{act: act, pending: slices.Clone(act.pending), firing: act.firing.snapshot(), run: act.run})
+		c.doActions = append(c.doActions, doActionCapture{act: act, pending: slices.Clone(act.pending), firing: act.firing.snapshot(), run: act.run, entering: act.entering, entryLeft: act.entryLeft})
 	}
 	return c
 }
@@ -969,6 +972,7 @@ func (c stateCapture) restore() {
 	e.doActions = e.doActions[:0]
 	for _, act := range c.doActions {
 		act.act.pending, act.act.firing, act.act.run = slices.Clone(act.pending), act.firing.snapshot(), act.run
+		act.act.entering, act.act.entryLeft = act.entering, act.entryLeft
 		e.doActions = append(e.doActions, act.act)
 		if act.body != nil {
 			act.body.restore()
@@ -1010,6 +1014,7 @@ func cloneHeldEntries(entries []heldEntry) []heldEntry {
 			machine:      entry.machine,
 			firing:       entry.firing.snapshot(),
 			routeEffects: cloneRouteEntryEffects(entry.routeEffects),
+			awaits:       entry.awaits,
 		}
 	}
 	return cloned

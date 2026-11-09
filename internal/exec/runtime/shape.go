@@ -43,6 +43,16 @@ func (f *EffectiveFeature) defaultIsFallback() bool {
 	return ok && usage.ValueIsDefault
 }
 
+// Binds reports whether DefaultValue was written with `=`: a binding the feature
+// holds at all times, neither a `default` fallback nor a `:=` initial value.
+func (f *EffectiveFeature) Binds() bool {
+	if f.DefaultDecl == nil || f.DefaultValue == nil {
+		return false
+	}
+	usage, ok := f.DefaultDecl.Decl.(*ast.Usage)
+	return ok && !usage.ValueIsDefault && !usage.ValueIsInitial
+}
+
 // DefaultScope returns the scope DefaultValue resolves its names in, which for
 // an inherited default is where the redefined declaration wrote it.
 func (f *EffectiveFeature) DefaultScope() *symbols.Scope {
@@ -235,12 +245,18 @@ func (ctx *Context) statedType(featureSym *symbols.Symbol) *symbols.Symbol {
 }
 
 // statedTypes is every type a feature declares (`part x : A, B`), or those of
-// the first feature it specializes that declares any when it declares none.
+// the first feature it specializes that declares any when it declares none; the
+// parameter of its owner's kind base it implicitly redefines types every such
+// parameter and so says nothing about this one.
 func (ctx *Context) statedTypes(featureSym *symbols.Symbol) []*symbols.Symbol {
 	if types := ctx.declaredTypes(featureSym); len(types) > 0 {
 		return types
 	}
+	baseParam := ctx.model.semantics.ImplicitBaseParameter(featureSym)
 	for _, sup := range ctx.model.semantics.AllDeclaredSupertypes(featureSym) {
+		if sup == baseParam {
+			continue
+		}
 		if types := ctx.declaredTypes(sup); len(types) > 0 {
 			return types
 		}

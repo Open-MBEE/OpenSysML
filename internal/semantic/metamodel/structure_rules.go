@@ -4902,8 +4902,8 @@ func (e *Evaluator) structureTypeMembers(element Element, property string, visit
 }
 
 func (e *Evaluator) computeStructureTypeMembers(element Element, property string, visited map[ElementKey]bool) ([]Value, bool) {
-	if element.Symbol != nil && !e.structureKnows(element) {
-		return e.structureLibraryTypeMembers(element, property)
+	if base, ok := e.structureLibraryBase(element); ok {
+		return e.structureLibraryTypeMembers(base, property)
 	}
 	owned, handled, ok := e.structureOwnedFilter(element, "Membership", true)
 	if !handled || !ok {
@@ -4948,6 +4948,25 @@ func (e *Evaluator) computeStructureTypeMembers(element Element, property string
 		append(append(public, protected...), inherited...), e.options.Structure,
 	).Values
 	return e.structureMembershipsProperty(memberships, property)
+}
+
+// structureLibraryBase is the one decision both member walks make: a library type the structure only
+// references — implied, or stated as `: Boolean` — has no rows there, so its members are read by this symbol.
+func (e *Evaluator) structureLibraryBase(element Element) (Element, bool) {
+	if element.Symbol != nil {
+		return element, !e.structureKnows(element)
+	}
+	if element.Node != nil || element.IsMembership {
+		return Element{}, false
+	}
+	// Only the symbol structure refers to a library type by a row of its own; a graph
+	// structure states its library bases as symbols already.
+	if structure, ok := e.options.Structure.(*SymbolStructure); ok {
+		if symbol, found := structure.LibrarySymbol(element); found && symbol != nil {
+			return ElementOf(symbol), true
+		}
+	}
+	return Element{}, false
 }
 
 // structureLibraryTypeMembers reads a library base's non-private memberships, anonymous ones
@@ -5090,8 +5109,8 @@ func (e *Evaluator) computeStructureNonPrivateMemberships(
 	element Element,
 	visited map[ElementKey]bool,
 ) ([]Value, bool) {
-	if element.Symbol != nil && !e.structureKnows(element) {
-		return e.structureLibraryTypeMembers(element, "membership")
+	if base, ok := e.structureLibraryBase(element); ok {
+		return e.structureLibraryTypeMembers(base, "membership")
 	}
 	owned, handled, ok := e.structureOwnedFilter(element, "Membership", true)
 	if !handled || !ok {
@@ -6721,71 +6740,66 @@ func (e *Evaluator) structureActionArgument(element Element, property string, on
 }
 
 func (e *Evaluator) structureBehaviorParameters(element Element) (Value, bool, bool) {
-	memberships, handled, ok := e.structureEffectiveFeatureMemberships(element)
-	if !handled || !ok {
-		e.recordUnsupportedReason(
-			element, "Behavior", "parameter",
-			Reason{Category: ReasonUnrepresentedEndpoint, Detail: "Behavior::parameter effective FeatureMembership endpoints are unavailable"},
-		)
-		return Value{}, true, false
-	}
-	var parameters []Value
-	for _, value := range memberships.Values {
-		membership := Element{Membership: value.Membership, IsMembership: true}
-		isParameter, known := e.isMetaclass(membership, "ParameterMembership")
-		if !known {
-			e.recordUnsupportedReason(
-				element, "Behavior", "parameter",
-				Reason{Category: ReasonUnrepresentedElement, Detail: "Behavior::parameter effective membership has no represented metaclass"},
-			)
-			return Value{}, true, false
-		}
-		if !isParameter {
-			continue
-		}
-		members, ok := e.structureMembershipMembers(membership)
-		if !ok {
-			e.recordUnsupportedReason(
-				element, "Behavior", "parameter",
-				Reason{Category: ReasonUnrepresentedEndpoint, Detail: "Behavior::parameter ParameterMembership memberElement is unavailable"},
-			)
-			return Value{}, true, false
-		}
-		filtered, handled, ok := e.structureFilterRelated(members, "Feature", false)
-		if !handled || !ok {
-			e.recordUnsupportedReason(
-				element, "Behavior", "parameter",
-				Reason{Category: ReasonUnrepresentedEndpoint, Detail: "Behavior::parameter ParameterMembership member is not a represented Feature"},
-			)
-			return Value{}, true, false
-		}
-		parameters = append(parameters, filtered.Values...)
-	}
-	return sequence(parameters...), true, true
+	return e.structureParametersAsDirectedFeatures(element, "Behavior")
 }
 
 func (e *Evaluator) structureStepParameters(element Element) (Value, bool, bool) {
-	memberships, handled, ok := e.structureOwnedFilter(element, "ParameterMembership", true)
-	if !handled || !ok {
+	return e.structureParametersAsDirectedFeatures(element, "Step")
+}
+
+// structureParametersAsDirectedFeatures derives Behavior::parameter and Step::parameter, which
+// redefine Type::directedFeature (KerML 8.3.5.1.2, 8.3.5.1.4): a parameter member or a directed feature.
+func (e *Evaluator) structureParametersAsDirectedFeatures(element Element, definingClass string) (Value, bool, bool) {
+	unsupported := func(detail string) (Value, bool, bool) {
+		e.recordUnsupportedReason(element, definingClass, "parameter",
+			Reason{Category: ReasonUnrepresentedEndpoint, Detail: definingClass + "::parameter " + detail})
 		return Value{}, true, false
+	}
+	// A step's parameters are its owned ones; a behavior's include the inherited.
+	var memberships Value
+	var handled, ok bool
+	if definingClass == "Step" {
+		memberships, handled, ok = e.structureOwnedFilter(element, "FeatureMembership", true)
+	} else {
+		memberships, handled, ok = e.structureEffectiveFeatureMemberships(element)
+	}
+	if !handled || !ok {
+		return unsupported("FeatureMembership endpoints are unavailable")
 	}
 	var parameters []Value
 	for _, value := range memberships.Values {
 		if value.Kind != MembershipValue {
-			return Value{}, true, false
+			return unsupported("membership is not a Membership")
 		}
-		members, ok := e.structureMembershipMembers(Element{
-			Membership:   value.Membership,
-			IsMembership: true,
-		})
+		membership := Element{Membership: value.Membership, IsMembership: true}
+		isParameter, known := e.isMetaclass(membership, "ParameterMembership")
+		if !known {
+			return unsupported("effective membership has no represented metaclass")
+		}
+		members, ok := e.structureMembershipMembers(membership)
 		if !ok {
-			return Value{}, true, false
+			return unsupported("effective membership memberElement is unavailable")
 		}
 		filtered, handled, ok := e.structureFilterRelated(members, "Feature", false)
 		if !handled || !ok {
-			return Value{}, true, false
+			return unsupported("effective membership member is not a represented Feature")
 		}
-		parameters = append(parameters, filtered.Values...)
+		for _, feature := range filtered.Values {
+			if !isParameter && feature.Kind == ElementValue {
+				direction, known := e.structureEffectiveDirection(element, feature.Element)
+				if !known {
+					e.recordUnsupportedReason(element, definingClass, "parameter", Reason{
+						Category: ReasonIncompleteStructure,
+						Detail:   definingClass + "::parameter effective direction is unavailable",
+					})
+					return Value{}, true, false
+				}
+				if direction == ast.DirNone {
+					continue
+				}
+			}
+			parameters = append(parameters, feature)
+		}
 	}
 	return sequence(parameters...), true, true
 }

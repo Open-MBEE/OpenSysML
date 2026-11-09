@@ -96,6 +96,13 @@ case_ man-page docs packaging/man/man1/sysml.1
 case_ two-client-readmes docs,java,mdk,node,python client/java/README.md client/node/README.md
 case_ two-clients java,mdk,node,python client/java/pom.xml client/node/tsconfig.json
 case_ go-source docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/syntax/parser/parser.go
+# The derived-property differential runs on what can move its baseline (the writer, the referee,
+# the bridge, the pin, the baseline itself) and on unclaimed paths, like every area; not on a parser change.
+case_ apijson-writer apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/translate/export/api_json_absence.go
+case_ apijson-referee apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode tools/referee/apijson/provenance.go
+case_ apijson-bridge apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode scripts/pilot-json-exporter/ExportJSON.java
+case_ apijson-pin apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode scripts/pilot-pin.sh
+case_ apijson-baseline apijson,docs,go docs/project/api-json-differential-baseline.json
 case_ go-client docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode client/opensysml/client.go
 case_ release-digests docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode client/release-digests.json
 case_ go-tools docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode tools/gen/snapshot/main.go
@@ -104,7 +111,8 @@ case_ install-script docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,
 case_ install-script-windows docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode install.ps1
 case_ action docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode action.yml
 case_ conformance docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode conformance/scenarios/01-server-info.json
-case_ workflow docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/workflows/pr.yml
+case_ workflow apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/workflows/pr.yml
+case_ other-workflow docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/workflows/oracle-reproduction.yml
 case_ dependabot docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/dependabot.yml
 # The npm runner is tested and its lockfile audited in the Go static job, so its package is a service path.
 case_ mcp-lockfile docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode packaging/npm/sysml-mcp/package-lock.json
@@ -119,13 +127,14 @@ case_ project-baseline docs,go docs/project/pilot-differential-baseline.json
 case_ project-figures docs,go docs/project/api-json-differential.md
 case_ project-archive docs,go docs/project/archive/CHANGELOG-0.0-0.8.md
 case_ project-compliance-source docs,go docs/project/spec-compliance/02-detailed-semantic-compliance-map/13-action.md
-case_ unclaimed docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode some-new-top-level/thing.txt
+case_ unclaimed apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode some-new-top-level/thing.txt
 
 # The quick tier runs the Go suite for a service change but not every client; a
 # client's or the docs' own paths still run it, and an unclaimed path is only Go.
 quick_case_ go-source go internal/syntax/parser/parser.go
+quick_case_ apijson-writer apijson,go internal/translate/export/api_json_absence.go
 quick_case_ proto go api/proto/sysml.proto
-quick_case_ workflow go .github/workflows/pr.yml
+quick_case_ workflow apijson,go .github/workflows/pr.yml
 quick_case_ unclaimed go some-new-top-level/thing.txt
 quick_case_ go-and-node go,node internal/syntax/parser/parser.go client/node/src/node/binary.ts
 quick_case_ go-and-docs docs,go internal/syntax/parser/parser.go docs/guide/index.md

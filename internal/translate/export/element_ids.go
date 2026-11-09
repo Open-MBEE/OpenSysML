@@ -2,6 +2,7 @@ package export
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"slices"
 	"strings"
@@ -22,11 +23,14 @@ type ElementIDs struct {
 	// byNode keys each id by the declaration the conversion wrote it for: two
 	// identity scopes may declare one qualified name, and only the node tells
 	// their elements apart.
-	byNode   map[ast.Node]string
-	bySpan   map[spanKey]string // the same declaration in another parse of the document
-	byName   map[string]string
-	res      *resolve.Resolver
-	encoders []*encoder
+	byNode map[ast.Node]string
+	bySpan map[spanKey]string // the same declaration in another parse of the document
+	byName map[string]string
+	// addressByID is the address the conversion stated for each declared element's id: its
+	// qualifiedName, or its positional address (`P::@2::x`) where the metamodel derives none.
+	addressByID map[string]string
+	res         *resolve.Resolver
+	encoders    []*encoder
 	// membershipByNode, membershipBySpan and membershipByName are the ids written
 	// for the owning membership of each declared element, keyed as the element's.
 	membershipByNode map[ast.Node]string
@@ -91,7 +95,7 @@ func identityIDsOf(res *resolve.Resolver, encoders []*encoder, referenced []bool
 }
 
 func newElementIDTables(res *resolve.Resolver, encoders []*encoder) *ElementIDs {
-	return &ElementIDs{byNode: map[ast.Node]string{}, bySpan: map[spanKey]string{}, byName: map[string]string{},
+	return &ElementIDs{byNode: map[ast.Node]string{}, bySpan: map[spanKey]string{}, byName: map[string]string{}, addressByID: map[string]string{},
 		membershipByNode: map[ast.Node]string{}, membershipBySpan: map[spanKey]string{}, membershipByName: map[string]string{},
 		relationshipByNode: map[ast.Node]string{}, relationshipBySpan: map[spanKey]string{},
 		conjugateByNode: map[ast.Node]conjugateIDs{}, conjugateBySpan: map[spanKey]conjugateIDs{},
@@ -100,13 +104,14 @@ func newElementIDTables(res *resolve.Resolver, encoders []*encoder) *ElementIDs 
 }
 
 func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[ast.Node]ast.Node) {
-	fqn := e.fqn[node]
+	fqn := e.names.FQN[node]
 	subject := e.ids.subjectForNode(node, fqn)
 	id := rdf.LocalName(subject.Value)
 	ids.byNode[node] = id
 	ids.bySpan[spanKey{e.file.Name(), node.Span()}] = id
 	if fqn != "" {
 		ids.byName[fqn] = id
+		ids.addressByID[id] = fqn
 	}
 	if membership, ok := e.writtenOwningMembership(node, parents[node], fqn); ok {
 		local := rdf.LocalName(membership.Value)
@@ -575,6 +580,16 @@ func (ids *ElementIDs) OfBodyParameter(doc string, body *ast.BodyExpr, name stri
 	return "", "", false
 }
 
+// AddressOf is the address the conversion stated for the declared element written with id —
+// a qualifiedName, or a positional address (`P::@2::x`); none for a minted or unknown id.
+func (ids *ElementIDs) AddressOf(id string) (string, bool) {
+	if ids == nil {
+		return "", false
+	}
+	address, ok := ids.addressByID[id]
+	return address, ok
+}
+
 func (ids *ElementIDs) OfDeclaration(doc string, decl ast.Node, fqn string) (string, bool) {
 	if ids == nil {
 		return "", false
@@ -713,6 +728,19 @@ func (r *ElementIDReader) Read(doc string, decl ast.Node, fqn string) (string, e
 	}
 	id, _ := r.ids.OfDeclaration(doc, decl, fqn)
 	return id, nil
+}
+
+// ReadAddress is the address the conversion stated for the element written with id
+// (ElementIDs.AddressOf); none before a conversion, or for a minted or unknown id.
+func (r *ElementIDReader) ReadAddress(id string) (string, bool) {
+	if r == nil {
+		return "", false
+	}
+	r.once.Do(r.convert)
+	if r.err != nil {
+		return "", false
+	}
+	return r.ids.AddressOf(id)
 }
 
 // ReadOwningMembership is the elementId of the owning membership of the element
@@ -981,7 +1009,7 @@ func (e *encoder) registerBodyDeclarations(ids *ElementIDs, base rdf.Term, param
 // feeds them to bodyDeclarations.
 func localMembers(decl ast.Node) []ast.Node {
 	if usage, ok := decl.(*ast.Usage); ok {
-		return bodyMembers(usage)
+		return naming.BodyMembers(usage)
 	}
 	return ast.DeclMembers(decl)
 }

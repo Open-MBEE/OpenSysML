@@ -2,8 +2,8 @@
 # notation -> Turtle (hop 1) -> notation -> Turtle (hop 2), then the two
 # Turtle graphs compared as triple sets. Verdicts: stable (hop 2 is
 # byte-identical), whitespace-only (bytes differ, triple sets equal once the
-# whitespace inside sysx:sourceText literals is normalised), graph-diff,
-# unwritable (Turtle -> notation refused), unparseable (the written notation
+# whitespace inside sysx:sourceText literals is normalised and every element
+# states the same sysx:Note texts), graph-diff, unwritable (Turtle -> notation refused), unparseable (the written notation
 # no longer converts) and refused:<class> (notation -> Turtle refused). This
 # is a per-file ratchet, not a claim that any verdict is right; see
 # docs/project/rdf-corpus-roundtrip.md. Regenerate with:

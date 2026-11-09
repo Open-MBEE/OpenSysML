@@ -3,6 +3,7 @@ package export
 import (
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"math"
 	"regexp"
 	"slices"
@@ -419,6 +420,7 @@ var multiValuedProperties = map[string]bool{
 	xBodyMember:     true,
 	xBodyParameter:  true,
 	xEffectMember:   true,
+	xNote:           true,
 	xRelatedFeature: true,
 }
 
@@ -521,7 +523,7 @@ func isIndexProperty(iri string) bool {
 		return false
 	}
 	switch rdf.LocalName(iri) {
-	case xMemberIndex, xArgumentIndex, xEndIndex:
+	case xMemberIndex, xArgumentIndex, xEndIndex, xNoteToken:
 		return true
 	}
 	return false
@@ -616,7 +618,8 @@ func literalDatatypes(metaclass, predicate string) []string {
 	switch {
 	case isIndexProperty(predicate), IsSourceRangeProperty(predicate):
 		return integerLiterals
-	case strings.HasPrefix(name, "is"), name == xHasBody, name == xDeclaredID, name == xHasEffect, name == xBracedEffect, name == xConjugatedTyping, name == xSourceMultiplicityBeforeThen:
+	case strings.HasPrefix(name, "is"), name == xHasBody, name == xDeclaredID, name == xHasEffect, name == xBracedEffect, name == xConjugatedTyping, name == xSourceMultiplicityBeforeThen,
+		name == xNoteOwnLine, name == xNoteTail, name == xNoteTrailing:
 		return booleanLiterals
 	case strings.HasPrefix(predicate, rdf.SysML) && (name == pLowerBound || name == pUpperBound):
 		// A feature's bound is an Expression the notation also states as a bare number.
@@ -761,6 +764,11 @@ type decoder struct {
 	// written records where each element landed in this pass's notation, the
 	// members of one ahead of it.
 	written []writing
+	// bodyAt records where a rebuilt element's body members landed in its own
+	// notation, for its notes to be put back around them.
+	bodyAt map[*element]region
+	// notesStated caches statesNotes.
+	notesStated *bool
 	// nl is the line ending rebuilt notation is written with.
 	nl string
 }
@@ -813,6 +821,13 @@ func (d *decoder) build() ([]*element, error) {
 	}
 	var order []*element
 	for _, subject := range d.graph.Subjects() {
+		if d.isNote(subject) {
+			if _, ok := d.graph.Lexical(subject, rdf.OpenSysML+xNoteText); !ok {
+				return nil, &UnsupportedError{What: fmt.Sprintf("the note <%s>", subject.Value),
+					Note: "it states no sysx:noteText, so it cannot be written back"}
+			}
+			continue
+		}
 		if stubs[subject.Value] || d.isMembership(subject) || d.isExpressionNode(subject) || d.isFilterPackageNode(subject) {
 			// A node of an expression graph belongs to the declaration that holds
 			// the expression, not to an element of its own; so does a filter package.
@@ -1795,7 +1810,7 @@ func nameMembers(members []*element, owner string) {
 	for i, el := range members {
 		el.scope = owner
 		if el.qname == "" {
-			el.qname = qualify(owner, "", i)
+			el.qname = naming.Qualify(owner, "", i)
 		}
 		nameMembers(el.children, el.qname)
 	}
@@ -1862,7 +1877,29 @@ func seatPositional(elements []*element) {
 // the notation it was written.
 func (d *decoder) print(b *strings.Builder, el *element, depth int) error {
 	start := b.Len()
-	err := d.printElement(b, el, depth)
+	notes := d.notesWritten(el)
+	if len(notes) == 0 {
+		err := d.printElement(b, el, depth)
+		d.written = append(d.written, writing{el, region{start, b.Len()}})
+		return err
+	}
+	// An element with notes is written apart, so they can be put back into a
+	// rebuilt notation; verbatim text holds them already.
+	var seg strings.Builder
+	from := len(d.written)
+	delete(d.bodyAt, el)
+	err := d.printElement(&seg, el, depth)
+	text := seg.String()
+	var ins []insertion
+	if err == nil && !d.printed[el] {
+		body, hasBody := d.bodyAt[el]
+		text, ins = withNotes(text, notes, body, hasBody, strings.Repeat("    ", depth), d.nl)
+	}
+	for i := from; i < len(d.written); i++ {
+		w := &d.written[i]
+		w.where = region{start + relocate(w.where.start, ins, true), start + relocate(w.where.end, ins, false)}
+	}
+	b.WriteString(text)
 	d.written = append(d.written, writing{el, region{start, b.Len()}})
 	return err
 }
@@ -1870,7 +1907,7 @@ func (d *decoder) print(b *strings.Builder, el *element, depth int) error {
 func (d *decoder) printElement(b *strings.Builder, el *element, depth int) error {
 	indent := strings.Repeat("    ", depth)
 	lead := indent + el.prefix
-	if text, ok := d.verbatim(el); ok {
+	if text, ok := d.verbatimWithNotes(el); ok {
 		// The text writes the `#` prefixes itself, so they are only checked here;
 		// one disagreeing with the graph demotes the text like any other triple.
 		if _, err := d.prefixWords(el); err != nil {
@@ -1956,6 +1993,7 @@ func (d *decoder) printElement(b *strings.Builder, el *element, depth int) error
 		b.WriteString(" parallel")
 	}
 	b.WriteString(" {" + d.nl)
+	body := region{start: b.Len()}
 	for _, annotation := range annotations {
 		b.WriteString(indent + "    " + annotation + d.nl)
 	}
@@ -1964,6 +2002,8 @@ func (d *decoder) printElement(b *strings.Builder, el *element, depth int) error
 			return err
 		}
 	}
+	body.end = b.Len()
+	d.bodyAt[el] = body
 	b.WriteString(indent + "}" + d.nl)
 	return nil
 }
@@ -1980,6 +2020,11 @@ func (d *decoder) bodyMembers(el *element) ([]*element, error) {
 			receivers = append(receivers, d.receiverParams(el, accept)...)
 		}
 		children = slices.DeleteFunc(children, func(child *element) bool { return slices.Contains(receivers, child) })
+	}
+	if el.metaclass == mSend {
+		// A send's argument parameters are the payload, `via` and `to` its head writes.
+		params := d.sendArgumentParams(el)
+		children = slices.DeleteFunc(children, func(child *element) bool { return slices.Contains(params, child) })
 	}
 	return d.positionalSuccessions(children)
 }
@@ -2562,6 +2607,10 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	// `assert not constraint c` negates the declaration that prefix introduces.
 	// Negation on its own has no notation, so it is reported rather than dropped.
 	prefix, hasPrefix := d.stringOf(el, rdf.OpenSysML+xDeclaredPrefix)
+	if el.metaclass == mSuccessionFlowUsage && !hasPrefix {
+		// A SuccessionFlowUsage is the `succession` its metaclass states.
+		prefix, hasPrefix = "succession", true
+	}
 	negated := d.boolOf(el, rdf.SysML+"isNegated")
 	// The qualifier a qualified usage's metaclass states prefixes the kind
 	// keyword of a declaration (`perform action pa`) and is the whole keyword
@@ -2804,7 +2853,7 @@ func (d *decoder) usageHead(el *element, kind ast.UsageKind) (string, error) {
 	if d.nonunique(el) {
 		multPart += " nonunique"
 	}
-	typed, err := d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelTyping])
+	typed, err := d.typingNames(el)
 	if err != nil {
 		return "", err
 	}
@@ -3643,7 +3692,7 @@ func (d *decoder) qualifiedReferences(el *element, terms []rdf.Term, written []s
 // A qualified name is written as the reference form; any other single name is
 // refused, as no notation states it.
 func (d *decoder) literalVariantName(el *element, term rdf.Term) (string, error) {
-	segments := identitySegments(term.Value)
+	segments := naming.Segments(term.Value)
 	if len(segments) != 1 {
 		return "", nil
 	}
@@ -3660,7 +3709,7 @@ func (d *decoder) literalVariantName(el *element, term rdf.Term) (string, error)
 // lastName is the decoded name of a qualified name's last segment, so a
 // quoted `'a::b'` compares as the one name it is.
 func lastName(qname string) string {
-	segments := identitySegments(qname)
+	segments := naming.Segments(qname)
 	return identityName(segments[len(segments)-1])
 }
 
@@ -3863,9 +3912,14 @@ func (d *decoder) writtenQName(el *element) string {
 		slices.Contains(d.receiverParams(el.owner, d.acceptParam(el.owner)), el) {
 		return d.writtenQName(el.owner)
 	}
+	// A send's parameters are its head's arguments, so a name their values spell
+	// is written from the send.
+	if el.owner != nil && el.owner.metaclass == mSend && slices.Contains(d.parameterChildren(el.owner), el) {
+		return d.writtenQName(el.owner)
+	}
 	if el.owner != nil && el.owner.owner != nil && d.isNodeMembership(rdf.IRI(el.owner.iri)) {
 		if name, ok := d.stringOf(el, rdf.SysML+pDeclaredName); ok {
-			return d.writtenQName(el.owner.owner) + "::" + identitySegment(name)
+			return d.writtenQName(el.owner.owner) + "::" + naming.Segment(name)
 		}
 	}
 	q := el.qname
@@ -3922,7 +3976,7 @@ func qualifiedNameText(qname string) string {
 	if global {
 		qname = strings.TrimPrefix(qname, "$::")
 	}
-	segments := identitySegments(qname)
+	segments := naming.Segments(qname)
 	for i, segment := range segments {
 		segments[i] = nameText(identityName(segment))
 	}
@@ -4286,22 +4340,45 @@ func (d *decoder) visibility(el *element) string {
 // for clauses no owned relationship places. multPart, when given, is the
 // multiplicity part, written where the multiplicity's membership stands among
 // those relationships, else with the typing clause.
+// typingNames spells the types el is typed by; a ConjugatedPortTyping's as `~P`
+// (SysML v2 8.3.12.3), P being the port definition the stated conjugate conjugates.
+// The `~` belongs to that typing alone: elsewhere the conjugate keeps its qualified name.
+func (d *decoder) typingNames(el *element) ([]string, error) {
+	if !d.boolOf(el, rdf.OpenSysML+xConjugatedTyping) {
+		return d.referenceList(el, rdf.SysML+relationshipProperty[ast.RelTyping])
+	}
+	var out []string
+	for _, term := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+relationshipProperty[ast.RelTyping]) {
+		if original := d.portDefinitions.original(d.graph, d.metaclass, rdf.Term{}, term); original.IsIRI() && original != term {
+			term = original
+		}
+		name, err := d.referenceName(term, el)
+		if err != nil {
+			return nil, err
+		}
+		if !strings.HasPrefix(name, "~") {
+			name = "~" + name
+		}
+		out = append(out, name)
+	}
+	return out, nil
+}
+
 func (d *decoder) relationshipWords(el *element, multPart string, skip ...ast.RelationshipKind) ([]string, error) {
 	targets := map[ast.RelationshipKind][]string{}
 	for _, kind := range relationshipOrder {
 		if slices.Contains(skip, kind) {
 			continue
 		}
-		names, err := d.referenceList(el, rdf.SysML+relationshipProperty[kind])
+		var names []string
+		var err error
+		if kind == ast.RelTyping {
+			names, err = d.typingNames(el)
+		} else {
+			names, err = d.referenceList(el, rdf.SysML+relationshipProperty[kind])
+		}
 		if err != nil {
 			return nil, err
-		}
-		// Conjugation qualifies the type a feature is typed by, not the feature
-		// itself: the notation is `port p : ~P` (SysML v2 ConjugatedPortTyping).
-		if kind == ast.RelTyping && d.boolOf(el, rdf.OpenSysML+xConjugatedTyping) {
-			for i, name := range names {
-				names[i] = "~" + name
-			}
 		}
 		targets[kind] = names
 	}
@@ -4395,7 +4472,7 @@ var headClauseKinds = map[string][]ast.RelationshipKind{
 // derived `target` or `general` still names the end its own way.
 var headClauseTargets = map[string][]string{
 	mFeatureTyping:        {"type", pGeneral, pTarget},
-	mConjugatedPortTyping: {pPortDefinition},
+	mConjugatedPortTyping: {pConjugatedPortDefinition, pPortDefinition},
 	mSubclassification:    {"superclassifier", pGeneral, pTarget},
 	mSpecialization:       {pGeneral, pTarget},
 	mSubsetting:           {pSubsettedFeature, pGeneral, pTarget},
@@ -4424,21 +4501,22 @@ func (d *decoder) spelledHead(el *element) []headClause {
 			}
 			continue
 		}
-		var target rdf.Term
+		// A ConjugatedPortTyping relates both its conjugate and the original
+		// it is of; the head states whichever of the two the writer stated.
+		var targets []rdf.Term
 		for _, property := range headClauseTargets[metaclass] {
 			if end, ok := d.graph.Object(owned, rdf.SysML+property); ok {
-				target = end
-				break
+				targets = append(targets, end)
 			}
 		}
-		if target.Value == "" {
+		if len(targets) == 0 {
 			continue
 		}
 		var candidates []headClause
 		for _, kind := range headClauseKinds[metaclass] {
 			for index, object := range objects[kind] {
 				clause := headClause{kind: kind, index: index}
-				if object == target && !taken[clause] {
+				if slices.Contains(targets, object) && !taken[clause] {
 					candidates = append(candidates, clause)
 					break
 				}
@@ -4556,9 +4634,11 @@ func (d *decoder) aboutList(el *element) ([]string, error) {
 // reservedNames holds, for each annotated element with one written name to its own, that
 // name — so an element with a choice of names does not take the only one another has.
 func (d *decoder) reservedNames(el *element) map[string]string {
-	written := map[string]bool{}
+	written, byIRI := map[string]bool{}, map[string]bool{}
 	for _, object := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pAnnotatedElement) {
-		if !object.IsIRI() {
+		if object.IsIRI() {
+			byIRI[object.Value] = true
+		} else {
 			written[object.Value] = true
 		}
 	}
@@ -4568,7 +4648,7 @@ func (d *decoder) reservedNames(el *element) map[string]string {
 			continue
 		}
 		for _, target := range d.graph.Objects(rdf.IRI(child.iri), rdf.SysML+pAnnotatedElement) {
-			if !target.IsIRI() {
+			if !target.IsIRI() || byIRI[target.Value] {
 				continue
 			}
 			var candidates []string
@@ -4752,21 +4832,21 @@ func (d *decoder) namedMember(term rdf.Term) (*element, string, error) {
 // segment is the name it answers to, and a membership holding its member (rather
 // than standing as a usage, as a subject does) has no segment of its own.
 func (d *decoder) spelledName(el *element) string {
-	segments := identitySegments(el.qname)
+	segments := naming.Segments(el.qname)
 	spelled := make([]string, 0, len(segments))
 	for i, cur := len(segments)-1, el; i >= 0; i-- {
 		segment := segments[i]
 		name := identityName(segment)
-		if cur != nil && positionalSegment(segment) {
+		if cur != nil && naming.PositionalSegment(segment) {
 			effective, ok := d.effectiveName(cur)
 			if ok && effective != name {
-				segment = identitySegment(effective)
+				segment = naming.Segment(effective)
 			} else if ontology.IsAncestorOrSelf(cur.metaclass, mOwningMembership) {
 				cur = cur.owner
 				continue
 			}
 		} else {
-			segment = identitySegment(name)
+			segment = naming.Segment(name)
 		}
 		spelled = append(spelled, segment)
 		if cur != nil {
@@ -4784,7 +4864,7 @@ func (d *decoder) effectiveName(el *element) (string, bool) {
 	for !seen[el.iri] {
 		seen[el.iri] = true
 		if el.library {
-			segments := identitySegments(el.qname)
+			segments := naming.Segments(el.qname)
 			return identityName(segments[len(segments)-1]), true
 		}
 		if name, ok := d.stringOf(el, rdf.SysML+pDeclaredName); ok {
@@ -4845,8 +4925,8 @@ func (d *decoder) namingFeature(el *element) (rdf.Term, bool) {
 // relativeName strips from qname the longest prefix of scope it is declared
 // under, the textual approximation for a reference the resolver does not read.
 func relativeName(qname, scope string) string {
-	qnameParts := identitySegments(qname)
-	scopeParts := identitySegments(scope)
+	qnameParts := naming.Segments(qname)
+	scopeParts := naming.Segments(scope)
 	for n := len(scopeParts); n > 0; n-- {
 		if len(qnameParts) > n && slices.Equal(qnameParts[:n], scopeParts[:n]) {
 			return strings.Join(qnameParts[n:], "::")
@@ -4856,10 +4936,10 @@ func relativeName(qname, scope string) string {
 }
 
 func referenceScope(spelled, target, member, owner string) string {
-	relativeParts := identitySegments(relativeName(spelled, owner))
+	relativeParts := naming.Segments(relativeName(spelled, owner))
 	hasPosition := false
 	for _, part := range relativeParts {
-		if positionalSegment(part) {
+		if naming.PositionalSegment(part) {
 			hasPosition = true
 			break
 		}
@@ -4867,8 +4947,8 @@ func referenceScope(spelled, target, member, owner string) string {
 	if !hasPosition {
 		return owner
 	}
-	targetParts := identitySegments(target)
-	memberParts := identitySegments(member)
+	targetParts := naming.Segments(target)
+	memberParts := naming.Segments(member)
 	if len(targetParts) > len(memberParts) && slices.Equal(targetParts[:len(memberParts)], memberParts) {
 		return member
 	}
@@ -4882,7 +4962,7 @@ func notAName(term rdf.Term) string {
 	if term.Value == "" {
 		return "it is empty"
 	}
-	for _, segment := range identitySegments(strings.TrimPrefix(term.Value, "$::")) {
+	for _, segment := range naming.Segments(strings.TrimPrefix(term.Value, "$::")) {
 		segment = identityName(segment)
 		switch {
 		case segment == "":

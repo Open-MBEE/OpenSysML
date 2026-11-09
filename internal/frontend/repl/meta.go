@@ -1723,12 +1723,7 @@ func isBehaviorFeature(feat *runtime.EffectiveFeature) bool {
 	if feat.Symbol == nil || symbols.IsAbstract(feat.Symbol) {
 		return false
 	}
-	switch feat.Symbol.Kind {
-	case symbols.SymbolStateUsage, symbols.SymbolActionUsage:
-		return true
-	default:
-		return false
-	}
+	return feat.Symbol.Kind == symbols.SymbolStateUsage || feat.Symbol.Kind.IsActionUsage()
 }
 
 // behaviorLines lists an object's behaviors under their own heading with what each
@@ -1783,7 +1778,7 @@ func behaviorStatus(ctx *runtime.Context, inst *runtime.Instance, feat *runtime.
 		return transitionStatus(trans)
 	}
 	kind := "state"
-	if feat.Symbol.Kind == symbols.SymbolActionUsage {
+	if feat.Symbol.Kind.IsActionUsage() {
 		kind = "action"
 	}
 	behavior, ok := ctx.BehaviorNamed(inst, feat.Name)

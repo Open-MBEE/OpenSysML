@@ -167,6 +167,9 @@ func (r TraceRecord) Line() (line string, printed bool) {
 		}
 		return fmt.Sprintf("exit: %s", r.State), true
 	case TraceDo:
+		if r.Action {
+			return fmt.Sprintf("do: %s (entry action)", r.State), true
+		}
 		return fmt.Sprintf("do: %s", r.State), true
 	case TraceChoice, TraceGuard:
 		return r.Note.String(), true
@@ -628,6 +631,11 @@ func (tr *TraceRecorder) record(entry string) {
 // interleaving of concurrently active states' do behaviors becomes visible.
 func (tr *TraceRecorder) recordDoStep(origin TraceOrigin, state, path, region string) {
 	tr.add(TraceRecord{Kind: TraceDo, Origin: origin, State: state, Path: path, Region: region})
+}
+
+// recordEntryStep records one action of a state's parked entry behavior gone on with in a do round.
+func (tr *TraceRecorder) recordEntryStep(origin TraceOrigin, state, path, region string) {
+	tr.add(TraceRecord{Kind: TraceDo, Origin: origin, State: state, Path: path, Region: region, Action: true})
 }
 
 // recordEvent records an event being processed.

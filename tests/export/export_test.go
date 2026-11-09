@@ -2361,31 +2361,13 @@ var sourceRangeProperties = []string{"sysx:sourceLine", "sysx:sourceColumn", "sy
 func withoutTriples(t *testing.T, turtle []byte, property string) []byte {
 	t.Helper()
 	if property == "sysx:sourceText" {
+		// Where a declaration is written and the notes on its lines are layout, as its text is.
 		for _, position := range sourceRangeProperties {
 			turtle = withoutTriples(t, turtle, position)
 		}
+		turtle = withoutNotes(t, turtle)
 	}
-	var blocks []string
-	for _, block := range strings.Split(string(turtle), "\n\n") {
-		var kept []string
-		for _, line := range strings.Split(block, "\n") {
-			if strings.HasPrefix(strings.TrimSpace(line), property+" ") {
-				continue
-			}
-			kept = append(kept, line)
-		}
-		// Dropping the last triple of a block leaves the one before it to end it.
-		for i := len(kept) - 1; i >= 0; i-- {
-			if trimmed := strings.TrimRight(kept[i], "\n"); strings.HasSuffix(trimmed, " ;") {
-				kept[i] = strings.TrimSuffix(trimmed, " ;") + " ."
-				break
-			} else if trimmed != "" {
-				break
-			}
-		}
-		blocks = append(blocks, strings.Join(kept, "\n"))
-	}
-	return []byte(strings.Join(blocks, "\n\n"))
+	return withoutProperty(t, turtle, property)
 }
 
 // Every end-binding head states the form its ends are written in, so the
@@ -4043,8 +4025,10 @@ func structuralTriples(t *testing.T, turtle []byte) map[rdf.Triple]bool {
 	}
 	out := map[rdf.Triple]bool{}
 	for _, triple := range g.Triples() {
+		// The notes of an element's lines are layout, as its text is.
 		if triple.Predicate == rdf.OpenSysMLTerm("sourceText") || triple.Predicate == rdf.OpenSysMLTerm("sourceTail") ||
-			export.IsSourceRangeProperty(triple.Predicate.Value) {
+			export.IsSourceRangeProperty(triple.Predicate.Value) || export.IsNoteProperty(triple.Predicate.Value) ||
+			g.Type(triple.Subject) == rdf.OpenSysML+"Note" {
 			continue
 		}
 		out[triple] = true

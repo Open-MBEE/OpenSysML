@@ -198,7 +198,7 @@ func (e *StateExecutor) enabledMoves() []enabledMove {
 	if e.state != StateRunning && e.state != StateSuspended {
 		return nil
 	}
-	if len(e.held) > 0 {
+	if ready := e.readyHeld(); len(ready) > 0 {
 		dispatch, free := e.dispatchFree(e.dueDispatch())
 		var moves []enabledMove
 		if free {
@@ -207,9 +207,9 @@ func (e *StateExecutor) enabledMoves() []enabledMove {
 				moves = append(moves, move)
 			}
 		}
-		for i, item := range e.held {
+		for i, item := range ready {
 			picks := []int(nil)
-			if free || len(e.held) > 1 {
+			if free || len(ready) > 1 {
 				pick := i
 				if free {
 					pick++

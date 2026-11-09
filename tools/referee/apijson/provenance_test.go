@@ -11,8 +11,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/tools/referee/diff"
 )
 
-// The Java-free guard: the committed baseline must state the pin, the bridge and
-// writer sources and the corpora as this checkout has them, without the pilot.
+// The Java-free guard: the committed baseline must state the pin, the bridge
+// source and the corpora as this checkout has them, without the pilot.
 func TestCommittedBaselineStatesThisRepositorysProvenance(t *testing.T) {
 	path, current := currentProvenance(t)
 	if err := baseline.CheckCommitted(path, refreshCommand, current); err != nil {
@@ -63,41 +63,69 @@ func currentProvenance(t *testing.T) (string, baseline.Record) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The test binary is compiled from the checkout it runs in: root is both.
-	current, err := provenance(root, root, libraries)
+	current, err := provenance(root, libraries)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return filepath.Join(root, filepath.FromSlash(committedBaseline)), current
 }
 
-// Editing the writer package moves its digest, and the guard names that tool
-// rather than letting the movement surface as bare count drift.
-func TestProvenanceGuardFailsOnAnEditedWriter(t *testing.T) {
+// The baseline names the reference side only (pinned tools, no digest of our sources, no date), so a
+// writer edit moves only verdicts; pr.yml's apijson-differential job is what proves the figures current.
+func TestProvenanceStatesOnlyTheReferenceSide(t *testing.T) {
 	path, current := currentProvenance(t)
-	var writer *baseline.Tool
-	for i := range current.Tools {
-		if current.Tools[i].Name == writerName {
-			writer = &current.Tools[i]
+	if current.Recorded != "" {
+		t.Errorf("provenance stamps a recording date %q", current.Recorded)
+	}
+	if len(current.Tools) == 0 {
+		t.Fatal("provenance names no tool")
+	}
+	for _, tool := range current.Tools {
+		if tool.Release == "" {
+			t.Errorf("tool %s has no pinned release: it is this repository's own, and its digest would move with every edit", tool.Name)
+		}
+		if strings.HasPrefix(tool.Source, "internal/") {
+			t.Errorf("tool %s digests %s, this repository's implementation", tool.Name, tool.Source)
 		}
 	}
-	if writer == nil || writer.Source != writerSource || writer.Release != "" {
-		t.Fatalf("want a release-less %s tool digesting %s, got %+v", writerName, writerSource, current.Tools)
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range []string{`"recorded"`, `"api-json-writer"`, `"internal/translate/export"`} {
+		if strings.Contains(string(content), line) {
+			t.Errorf("committed baseline carries %s, a line that moves without a verdict moving", line)
+		}
+	}
+}
+
+// Editing the bridge source moves its digest, and the guard names that tool rather than letting
+// the movement surface as bare count drift.
+func TestProvenanceGuardFailsOnAnEditedBridge(t *testing.T) {
+	path, current := currentProvenance(t)
+	var bridge *baseline.Tool
+	for i := range current.Tools {
+		if current.Tools[i].Name == bridgeName {
+			bridge = &current.Tools[i]
+		}
+	}
+	if bridge == nil || bridge.Source != bridgeSource || bridge.Release == "" {
+		t.Fatalf("want a released %s tool digesting %s, got %+v", bridgeName, bridgeSource, current.Tools)
 	}
 	content, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	corrupted := filepath.Join(t.TempDir(), "baseline.json")
-	stale := strings.Replace(string(content), writer.SourceDigest, "sha256:"+strings.Repeat("0", 64), 1)
+	stale := strings.Replace(string(content), bridge.SourceDigest, "sha256:"+strings.Repeat("0", 64), 1)
 	if stale == string(content) {
-		t.Fatalf("committed baseline does not record the writer digest %s", writer.SourceDigest)
+		t.Fatalf("committed baseline does not record the bridge digest %s", bridge.SourceDigest)
 	}
 	if err := os.WriteFile(corrupted, []byte(stale), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	err = baseline.CheckCommitted(corrupted, refreshCommand, current)
-	want := "tools[" + writerName + "].sourceDigest"
+	want := "tools[" + bridgeName + "].sourceDigest"
 	if err == nil || !strings.Contains(err.Error(), want) || !strings.Contains(err.Error(), refreshCommand) {
 		t.Fatalf("want a %s mismatch naming the refresh command, got %v", want, err)
 	}

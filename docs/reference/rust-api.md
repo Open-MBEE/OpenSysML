@@ -104,6 +104,9 @@ model.root();                          // Option<&Symbol>
 
 let car = model.symbol("Demo::Car")?;
 for child in car.children()? { }       // one call per level
+car.members();                         // own then inherited, each with inherited_from and library
+car.withheld_library_members();        // standard-library members left out, until:
+model.symbol_with("Demo::Car", &SymbolOptions { include_library_members: true })?;
 
 let value: Value = model.eval("2 + 2")?;
 let evaluation = model.evaluate("mass", &EvalOptions { .. })?;   // subject, context
@@ -113,7 +116,9 @@ for instance in built.instances() {
 }
 ```
 
-`Symbol` exposes `id()`, `name()`, `kind()` and `children()`; `Instance` exposes
+`Symbol` exposes `id()`, `name()`, `kind()`, `children()`, `members()`, `own_members()`,
+`inherited_members()` and `withheld_library_members()` (`symbol_with` and
+`include_library_members` need the `symbol_members` capability); `Instance` exposes
 `id()`, `type_symbol_id()`, `feature_values()` and `feature(name)`; `FeatureValue`
 exposes `name()`, `value()`, `values()`, `materialized()` and `error()`, which is
 how a feature the service could not compute is told apart from one it computed as

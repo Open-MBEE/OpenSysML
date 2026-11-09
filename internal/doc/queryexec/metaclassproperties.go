@@ -4,10 +4,21 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
+
+// ownProperties are the evaluator's properties of every element row beyond
+// the metamodel's: a wildcard projects them and a misspelling is matched
+// against them.
+var ownProperties = []string{
+	query.PropertyID, query.PropertyType, query.PropertyElementType, query.PropertyGeneral,
+	query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper,
+}
 
 // metaclassProperty is a feature the library's metaclass declaration has,
 // its own or inherited, with the class declaring it.
@@ -17,7 +28,9 @@ type metaclassProperty struct {
 }
 
 // metaclassProperties are the metaclass's features by name, inherited and
-// redefined ones included (partDefinition and definition), memoized.
+// redefined ones included (partDefinition and definition), memoized. A feature
+// a metaclass inherits from the library's occurrences and objects (dispatchScope,
+// portionOf) is no property of the metamodel's and is left out.
 func (e *executor) metaclassProperties(metaclass *symbols.Symbol) map[string]metaclassProperty {
 	if properties, ok := e.metaclassFeatures[metaclass]; ok {
 		return properties
@@ -39,12 +52,22 @@ func (e *executor) metaclassProperties(metaclass *symbols.Symbol) map[string]met
 		}
 		definingClass := ""
 		if member.OwnerScope != nil && member.OwnerScope.Owner() != nil {
-			definingClass = symbols.LastSegment(member.OwnerScope.Owner().Name)
+			owner := member.OwnerScope.Owner()
+			if !isMetaclass(owner) {
+				continue
+			}
+			definingClass = symbols.LastSegment(owner.Name)
 		}
 		properties[name] = metaclassProperty{Name: name, DefiningClass: definingClass}
 	}
 	e.metaclassFeatures[metaclass] = properties
 	return properties
+}
+
+// isMetaclass reports a declaration of the abstract syntax: KerML's
+// `metaclass`, or the `metadata def` the SysML library declares its own with.
+func isMetaclass(sym *symbols.Symbol) bool {
+	return sym != nil && (sym.Kind == symbols.SymbolMetaclass || sym.Kind == symbols.SymbolMetadataDef)
 }
 
 // unservedReasons are the metamodel evaluator's reasons for the derived
@@ -68,23 +91,60 @@ func (e *executor) metaclassPropertyOf(sym *symbols.Symbol, property string) (me
 	return declared, ok
 }
 
-// noteMetaclass records the metaclass of an element row in seen.
-func (e *executor) noteMetaclass(seen map[*symbols.Symbol]bool, row Value) {
+// candidates collects what the rows read could have named, for an
+// unknown-property error: the properties of the element rows' metaclasses
+// and the features of the object rows.
+type candidates struct {
+	metaclasses map[*symbols.Symbol]bool
+	features    map[string]bool
+}
+
+func newCandidates() *candidates {
+	return &candidates{metaclasses: map[*symbols.Symbol]bool{}, features: map[string]bool{}}
+}
+
+// note records the metaclass of an element row, or the features of an object
+// row the model declares — not those its types inherit from the library
+// (shape, portionOf), which are no properties a query names.
+func (e *executor) note(seen *candidates, row Value) {
 	if sym, ok := row.Element(); ok {
 		if metaclass := e.context.Model.MetaclassOf(sym); metaclass != nil {
-			seen[metaclass] = true
+			seen.metaclasses[metaclass] = true
+		}
+		return
+	}
+	if inst, _, ok := row.Object(); ok && e.context.Runtime != nil {
+		for _, of := range e.context.Runtime.FeaturesOfObject(inst) {
+			if e.declaredInLibrary(of.Feature) {
+				continue
+			}
+			seen.features[source.NameText(of.Name)] = true
 		}
 	}
 }
 
-// metaclassPropertyNames lists, sorted, the properties of the metaclasses
-// seen, for an unknown-property error's candidates.
-func (e *executor) metaclassPropertyNames(metaclasses map[*symbols.Symbol]bool) []string {
+// declaredInLibrary reports a feature a bundled library document declares.
+func (e *executor) declaredInLibrary(feature *runtime.EffectiveFeature) bool {
+	if feature == nil || feature.OwnerType == nil || e.context.Index == nil {
+		return false
+	}
+	return e.context.Index.IsLibraryDocument(feature.OwnerType.DocName)
+}
+
+// names lists, sorted, the properties of the metaclasses and the features
+// seen, the evaluator's own properties of an element row included.
+func (e *executor) names(seen *candidates) []string {
 	set := map[string]bool{}
-	for metaclass := range metaclasses {
+	for metaclass := range seen.metaclasses {
 		for name := range e.metaclassProperties(metaclass) {
 			set[name] = true
 		}
+		for _, name := range ownProperties {
+			set[name] = true
+		}
+	}
+	for name := range seen.features {
+		set[name] = true
 	}
 	names := make([]string, 0, len(set))
 	for name := range set {

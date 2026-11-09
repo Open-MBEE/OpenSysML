@@ -1,6 +1,7 @@
 package export
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"strings"
 	"unicode/utf8"
 
@@ -19,7 +20,7 @@ const xPositionalName = "positionalName"
 // the writer's address for an unnamed or minted member, rather than a name.
 func isPositionalName(name string) bool {
 	for {
-		segment, rest, more := cutIdentitySegment(name)
+		segment, rest, more := naming.CutSegment(name)
 		if strings.HasPrefix(segment, "@") {
 			return true
 		}

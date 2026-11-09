@@ -156,7 +156,7 @@ func (w *materializeWalk) descend(children []*Instance, depth int, held bool) bo
 // is read as an unperformed one: for the values its declarations bind.
 func (ctx *Context) unperformedUsage(inst *Instance, feat *EffectiveFeature) bool {
 	sym := feat.Symbol
-	if sym == nil || sym.Decl == nil || (sym.Kind != symbols.SymbolActionUsage && sym.Kind != symbols.SymbolStateUsage) {
+	if sym == nil || sym.Decl == nil || (!sym.Kind.IsActionUsage() && sym.Kind != symbols.SymbolStateUsage) {
 		return false
 	}
 	for _, b := range inst.behaviors {

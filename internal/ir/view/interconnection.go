@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -363,8 +364,7 @@ func casePin(owner, member *symbols.Symbol) bool {
 	case symbols.SymbolAttributeUsage, symbols.SymbolReferenceUsage:
 		return true
 	}
-	usage, ok := member.Decl.(*ast.Usage)
-	return ok && (usage.Kind == ast.UsageSubject || usage.Kind == ast.UsageActor || usage.Kind == ast.UsageStakeholder)
+	return semantics.IsSubjectUsage(member) || semantics.IsActorUsage(member)
 }
 
 // constraintParameter reports whether member is a parameter of the constraint owner —

@@ -353,6 +353,7 @@ func (b *bodyBuilder) takeSuccession() {
 		// `then done;` is a target succession to the done node, which the
 		// keyword opens rather than a member: neither offset is a member start.
 		p.attachedStarts = append(p.attachedStarts, tok.Span.Offset, p.peek().Span.Offset)
+		b.members = p.untakeComments(b.members, tok.Span.Offset)
 		sourceMultiplicity, targetMultiplicity = nil, multiplicity
 	}
 	if b.pending {
@@ -426,16 +427,28 @@ func (b *bodyBuilder) kindFollows(i int) bool {
 	return ok
 }
 
+// start opens a member position; the Comment members before it join the body as they are, since
+// a comment neither sequences from a pending `then` nor is what a later `then` leaves from.
+func (b *bodyBuilder) start() {
+	b.members = append(b.members, b.p.memberStart()...)
+}
+
+// close appends the Comment members written before the body's closing brace.
+func (b *bodyBuilder) close() {
+	b.members = append(b.members, b.p.closeComments()...)
+}
+
 // add appends a member, synthesising the succession edge of a pending `then`
 // after it. A succession that cannot be built is reported rather than dropped,
 // since dropping it would silently change execution order.
 func (b *bodyBuilder) add(m ast.Node) {
 	if m == nil {
+		b.members = append(b.members, b.p.takeRecovered()...)
 		return
 	}
 	// A one-name edge or a source-less transition continues the member before
 	// it: record it before its source is bound, which clears the mark it is read by.
-	b.p.markAttached(m)
+	b.members = append(b.p.markAttached(m, b.members), b.p.takeRecovered()...)
 	pending, at, valid := b.pending, b.pendingAt, b.valid
 	sourceMultiplicity, targetMultiplicity := b.sourceMultiplicity, b.targetMultiplicity
 	b.pending = false

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -38,8 +39,8 @@ const (
 		"# notation -> Turtle (hop 1) -> notation -> Turtle (hop 2), then the two\n" +
 		"# Turtle graphs compared as triple sets. Verdicts: stable (hop 2 is\n" +
 		"# byte-identical), whitespace-only (bytes differ, triple sets equal once the\n" +
-		"# whitespace inside sysx:sourceText literals is normalised), graph-diff,\n" +
-		"# unwritable (Turtle -> notation refused), unparseable (the written notation\n" +
+		"# whitespace inside sysx:sourceText literals is normalised and every element\n" +
+		"# states the same sysx:Note texts), graph-diff, unwritable (Turtle -> notation refused), unparseable (the written notation\n" +
 		"# no longer converts) and refused:<class> (notation -> Turtle refused). This\n" +
 		"# is a per-file ratchet, not a claim that any verdict is right; see\n" +
 		"# docs/project/rdf-corpus-roundtrip.md. Regenerate with:\n" +
@@ -50,8 +51,8 @@ const (
 		"# element form (hop 2), then the two graphs compared as triple sets.\n" +
 		"# Verdicts: stable (hop 2 is byte-identical), whitespace-only (bytes\n" +
 		"# differ, triple sets equal once the whitespace inside sysx:sourceText\n" +
-		"# literals is normalised), graph-diff, unwritable (the JSON form ->\n" +
-		"# notation refused), unparseable (the written notation no longer\n" +
+		"# literals is normalised and every element states the same sysx:Note\n" +
+		"# texts), graph-diff, unwritable (the JSON form -> notation refused), unparseable (the written notation no longer\n" +
 		"# converts) and refused:<class> (notation -> the JSON form refused).\n" +
 		"# This is a per-file ratchet, not a claim that any verdict is right;\n" +
 		"# see docs/project/rdf-corpus-roundtrip.md. Regenerate with:\n" +
@@ -237,7 +238,7 @@ func corpusRoundTripVerdict(rel string, src []byte) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("hop 2 Turtle does not parse: %w", err)
 	}
-	if sameTriples(first, second) {
+	if sameTriples(first, second) && sameNotes(first, second) {
 		return "whitespace-only", nil
 	}
 	return "graph-diff", nil
@@ -270,21 +271,49 @@ func apiJSONRoundTripVerdict(rel string, src []byte) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("hop 2 api-json does not parse: %w", err)
 	}
-	if sameTriples(first, second) {
+	if sameTriples(first, second) && sameNotes(first, second) {
 		return "whitespace-only", nil
 	}
 	return "graph-diff", nil
 }
 
-// sameTriples compares two graphs as sets, ignoring triple order and the
-// whitespace inside sysx:sourceText literals.
+// sameNotes reports whether every element states the same notes, by text and
+// in order, in both graphs: a note lost or moved to another element on the
+// second hop is a difference, though the notes are layout for sameTriples.
+func sameNotes(a, b *rdf.Graph) bool {
+	notes := func(g *rdf.Graph) map[string][]string {
+		out := map[string][]string{}
+		for _, triple := range g.Triples() {
+			if triple.Predicate.Value != rdf.OpenSysML+"note" {
+				continue
+			}
+			text, _ := g.Lexical(triple.Object, rdf.OpenSysML+"noteText")
+			out[triple.Subject.Value] = append(out[triple.Subject.Value], text)
+		}
+		return out
+	}
+	first, second := notes(a), notes(b)
+	if len(first) != len(second) {
+		return false
+	}
+	for owner, texts := range first {
+		if !slices.Equal(texts, second[owner]) {
+			return false
+		}
+	}
+	return true
+}
+
+// sameTriples compares two graphs as sets, ignoring triple order, the
+// whitespace inside sysx:sourceText literals and the notes, which are layout too.
 func sameTriples(a, b *rdf.Graph) bool {
 	set := func(g *rdf.Graph) map[rdf.Triple]bool {
 		sourceText := rdf.OpenSysMLTerm("sourceText")
 		out := make(map[rdf.Triple]bool, len(g.Triples()))
 		for _, triple := range g.Triples() {
 			// Where a declaration is written is layout, as its text's whitespace is.
-			if export.IsSourceRangeProperty(triple.Predicate.Value) {
+			if export.IsSourceRangeProperty(triple.Predicate.Value) || export.IsNoteProperty(triple.Predicate.Value) ||
+				g.Type(triple.Subject) == rdf.OpenSysML+"Note" {
 				continue
 			}
 			if triple.Predicate == sourceText && triple.Object.IsLiteral() {
@@ -533,6 +562,34 @@ func TestRefusalClass(t *testing.T) {
 }
 
 // Only sysx:sourceText whitespace and triple order are ignored.
+func TestSameNotes(t *testing.T) {
+	parse := func(turtle string) *rdf.Graph {
+		g, err := rdf.ParseTurtle([]byte(turtle))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return g
+	}
+	const prefixes = "@prefix sysx: <" + rdf.OpenSysML + "> .\n"
+	const notes = "<urn:a> sysx:note <urn:n0>, <urn:n1> .\n<urn:n0> sysx:noteText \"// one\" .\n<urn:n1> sysx:noteText \"// two\" .\n"
+	a := parse(prefixes + notes)
+	if !sameTriples(a, parse(prefixes+"<urn:a> sysx:note <urn:n0> .\n<urn:n0> sysx:noteText \"// one\" .\n")) {
+		t.Error("the notes are layout to sameTriples")
+	}
+	if !sameNotes(a, parse(prefixes+notes)) {
+		t.Error("the same notes must compare equal")
+	}
+	if sameNotes(a, parse(prefixes+"<urn:a> sysx:note <urn:n0> .\n<urn:n0> sysx:noteText \"// one\" .\n")) {
+		t.Error("a lost note must distinguish graphs")
+	}
+	if sameNotes(a, parse(prefixes+"<urn:a> sysx:note <urn:n1>, <urn:n0> .\n<urn:n0> sysx:noteText \"// one\" .\n<urn:n1> sysx:noteText \"// two\" .\n")) {
+		t.Error("notes in another order must distinguish graphs")
+	}
+	if sameNotes(a, parse(prefixes+"<urn:b> sysx:note <urn:n0>, <urn:n1> .\n<urn:n0> sysx:noteText \"// one\" .\n<urn:n1> sysx:noteText \"// two\" .\n")) {
+		t.Error("notes of another element must distinguish graphs")
+	}
+}
+
 func TestSameTriples(t *testing.T) {
 	parse := func(turtle string) *rdf.Graph {
 		g, err := rdf.ParseTurtle([]byte(turtle))

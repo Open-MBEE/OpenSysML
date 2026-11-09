@@ -453,3 +453,29 @@ func TestHoverWritesTheAbstractKeyword(t *testing.T) {
 		}
 	}
 }
+
+// A reference to a port typed `~P` hovers as `port p : ~P`: the `~` of the
+// conjugated typing (SysML v2 8.3.12.3) is part of the type it declares.
+func TestHoverKeepsTheConjugationOfAPortType(t *testing.T) {
+	ws := model.NewWorkspace()
+	s := NewServer(ws)
+	name := uri.File("/tmp/conjugated.sysml").FsPath()
+	src := "package P { port def CmdPort; part def R { port cmdIn : ~CmdPort; port cmdOut : CmdPort; connect cmdOut to cmdIn; } }"
+	ws.Open(name, []byte(src), 1)
+
+	for ref, want := range map[string]string{"cmdIn": "port cmdIn : ~CmdPort", "cmdOut": "port cmdOut : CmdPort"} {
+		pos := offsetToPosition([]byte(src), strings.LastIndex(src, ref))
+		res, err := s.Hover(context.Background(), &protocol.HoverParams{
+			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri.File(name)},
+				Position:     pos,
+			},
+		})
+		if err != nil || res == nil {
+			t.Fatalf("Hover(%s) = %v, %v; want content", ref, res, err)
+		}
+		if got := hoverMarkup(t, res).Value; !strings.Contains(got, want) {
+			t.Errorf("hover on %s = %q, want %q", ref, got, want)
+		}
+	}
+}

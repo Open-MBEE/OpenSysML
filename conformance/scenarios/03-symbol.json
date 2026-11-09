@@ -22,6 +22,80 @@
       }
     },
     {
+      "id": "symbol/inherited_members_are_listed_with_provenance",
+      "description": "A usage's members include the ones inherited through its type's specializations, each naming the type that declares it; child_ids stays the owned members, and the standard-library ones are counted rather than listed.",
+      "rpc": "GetSymbol",
+      "requires_capabilities": [
+        "symbol_members"
+      ],
+      "model": {
+        "fixture": "members.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Demo::m"
+      },
+      "expect": {
+        "contains_all": {
+          "symbol.members.*.id": [
+            "Demo::Base::p"
+          ]
+        },
+        "contains": {
+          "symbol.members.0.id": "Demo::Base::p",
+          "symbol.members.0.inherited_from": "Demo::Base"
+        },
+        "response": {
+          "symbol": {
+            "members": [
+              {
+                "id": "Demo::Base::p",
+                "name": "p",
+                "kind": "partUsage",
+                "inherited": true,
+                "inherited_from": "Demo::Base"
+              }
+            ]
+          }
+        },
+        "non_empty": [
+          "symbol.withheld_library_members"
+        ],
+        "absent": [
+          "symbol.child_ids"
+        ]
+      }
+    },
+    {
+      "id": "symbol/library_members_are_listed_on_request",
+      "description": "include_library_members lists the standard-library members otherwise counted, each marked library with its provenance, and the count drops to zero.",
+      "rpc": "GetSymbol",
+      "requires_capabilities": [
+        "symbol_members"
+      ],
+      "model": {
+        "fixture": "members.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Demo::m",
+        "include_library_members": true
+      },
+      "expect": {
+        "contains_all": {
+          "symbol.members.*.id": [
+            "Demo::Base::p"
+          ]
+        },
+        "min_counts": {
+          "symbol.members": 2
+        },
+        "absent": [
+          "symbol.withheld_library_members"
+        ]
+      }
+    },
+    {
       "id": "symbol/an_attribute_reports_the_kind_that_filters_it",
       "description": "Attribute and part usages are told apart by kind, which is how a client offers attributes() and parts().",
       "rpc": "GetSymbol",

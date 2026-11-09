@@ -372,6 +372,9 @@ Features:
   diameter = 16.0
   <span class="osml-dim">…</span>
 
+<span class="osml-prompt">sysml&gt;</span> %query oslc.where=rdf:type=elmt:Wheel&amp;oslc.select=sysx:diameter   <span class="osml-dim"># the held objects of an element</span>
+Wheel  Wheel  PartDefinition  sysx:diameter=16
+
 <span class="osml-prompt">sysml&gt;</span> calc add { in x; in y; x + y }
 <span class="osml-ok">✓ calc add</span>
 
@@ -465,9 +468,13 @@ package Vehicles {
     part def Wheel;
   <span class="osml-dim">…</span>
 
-<span class="osml-prompt">$</span> sysml -query 'oslc.where=sysml:name="wheels"' vehicles.sysml
+<span class="osml-prompt">$</span> sysml -query 'oslc.where=sysml:name="wheels"' vehicles.sysml   <span class="osml-dim"># OSLC text, run as a document-query plan</span>
 <span class="osml-ok">✓ package Vehicles</span>
 Vehicles::Car::wheels  PartUsage
+
+<span class="osml-prompt">$</span> sysml -query 'oslc.where=sysml:owner{sysml:name="Car"}&amp;oslc.select=sysml:name,sysx:multiplicityUpper' vehicles.sysml
+<span class="osml-ok">✓ package Vehicles</span>
+Vehicles::Car::wheels  PartUsage  sysml:name=wheels  sysx:multiplicityUpper=4
 </code></pre>
 <a class="osml-pane__more" href="../guide/07-saving-and-rdf/">Saving and RDF, in the guide</a>
 </div>

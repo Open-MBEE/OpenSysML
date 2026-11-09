@@ -1447,22 +1447,20 @@ func (ec *exprChecker) argumentMismatch(value ast.Node, prim semantics.PrimType,
 // isBehaviorKind reports the behavior kinds whose parameter lists are checked.
 func isBehaviorKind(k symbols.SymbolKind) bool {
 	switch k {
-	case symbols.SymbolCalcDef, symbols.SymbolCalcUsage,
-		symbols.SymbolActionDef, symbols.SymbolActionUsage:
+	case symbols.SymbolCalcDef, symbols.SymbolCalcUsage, symbols.SymbolActionDef:
 		return true
 	}
-	return false
+	return k.IsActionUsage()
 }
 
 func isInvocationBehaviorKind(k symbols.SymbolKind) bool {
 	switch k {
-	case symbols.SymbolCalcDef, symbols.SymbolCalcUsage,
-		symbols.SymbolActionDef, symbols.SymbolActionUsage,
+	case symbols.SymbolCalcDef, symbols.SymbolCalcUsage, symbols.SymbolActionDef,
 		symbols.SymbolConstraintDef, symbols.SymbolConstraintUsage,
 		symbols.SymbolStateDef, symbols.SymbolStateUsage:
 		return true
 	}
-	return false
+	return k.IsActionUsage()
 }
 
 func (ec *exprChecker) isInvocationBehavior(sym *symbols.Symbol, visiting map[*symbols.Symbol]bool) bool {

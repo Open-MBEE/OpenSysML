@@ -19,10 +19,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/jsonrpc"
 )
 
-// combinedGzipBudget bounds the gzipped js build of sysml-wasm: raised to 10,400,000 on
-// 2026-10-27 when go1.27.3 linked it at 10,008,006 bytes (9,570,777 -> 9,908,881 for the
-// same develop source under go1.25.11 and go1.27.3, stripped builds).
-const combinedGzipBudget = 10400000
+// combinedGzipBudget bounds the gzipped js build of sysml-wasm: raised to 10,500,000 on
+// 2026-11-09 when develop 227e88ee3b measured 10,397,368 bytes, the condition-printer branch
+// alone 10,294,659 and their merge 10,400,077 (10,400,000 since 2026-10-27, at 10,008,006).
+const combinedGzipBudget = 10500000
 
 const combinedModel = `package Demo { part def Item; }`
 
@@ -124,7 +124,7 @@ func combinedSubtests(t *testing.T, target wasmTarget, r runner, bins map[string
 		if answers["version"] != versionStamp {
 			t.Errorf("sysmlWasm.version = %q, want %q", answers["version"], versionStamp)
 		}
-		for _, method := range []string{"ParseFile", "Evaluate", "GetSymbol", "GetDiagnostics", "RenderView", "afterMalformed"} {
+		for _, method := range []string{"ParseFile", "Evaluate", "GetSymbol", "GetSymbolPositional", "GetDiagnostics", "RenderView", "afterMalformed"} {
 			var answer struct {
 				Result json.RawMessage `json:"result"`
 				Error  json.RawMessage `json:"error"`
@@ -134,6 +134,9 @@ func combinedSubtests(t *testing.T, target wasmTarget, r runner, bins map[string
 			} else if len(answer.Error) != 0 {
 				t.Errorf("%s returned an error: %s", method, answer.Error)
 			}
+		}
+		if !strings.Contains(answers["GetSymbolPositional"], `"Demo::@1"`) {
+			t.Errorf("GetSymbol answered %s, want the unnamed member's positional id Demo::@1 among childIds", answers["GetSymbolPositional"])
 		}
 		if !strings.Contains(answers["RenderView"], `"kind":"interconnection"`) {
 			t.Errorf("RenderView answered %s, want an interconnection drawing", answers["RenderView"])
@@ -394,6 +397,8 @@ func TestCombinedDependencies(t *testing.T) {
 		module + "/internal/frontend/engine",
 		module + "/internal/frontend/core",
 		module + "/internal/doc/queryexec",
+		module + "/internal/frontend/symbolfacts",
+		module + "/internal/semantic/naming",
 	}
 	for _, target := range []wasmTarget{{name: "js", goos: "js"}, {name: "wasip1", goos: "wasip1"}} {
 		t.Run(target.name, func(t *testing.T) {

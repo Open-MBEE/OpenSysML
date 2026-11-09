@@ -41,22 +41,24 @@ func (s *Service) filterSymbolInfo(info *pb.SymbolInfo) *pb.SymbolInfo {
 	return info
 }
 
-func (s *Service) valueToProto(rt *runtime.Context, value runtime.Value, idx *symbols.Index) *pb.Value {
-	out := protoconv.ValueToProtoIn(rt, value, idx)
+// valueToProto converts a value of cached's model, naming a metaobject's
+// element by the id the model's symbol context gives it.
+func (s *Service) valueToProto(rt *runtime.Context, value runtime.Value, cached *CachedModel) *pb.Value {
+	out := protoconv.ValueToProtoWith(rt, value, cached.Index, cached.SymbolContext())
 	s.filterValueCapabilities(out)
 	return out
 }
 
-func (s *Service) valuesToProto(rt *runtime.Context, values map[string]runtime.Value, idx *symbols.Index) map[string]*pb.Value {
+func (s *Service) valuesToProto(rt *runtime.Context, values map[string]runtime.Value, cached *CachedModel) map[string]*pb.Value {
 	out := make(map[string]*pb.Value, len(values))
 	for name, value := range values {
-		out[name] = s.valueToProto(rt, value, idx)
+		out[name] = s.valueToProto(rt, value, cached)
 	}
 	return out
 }
 
-func (s *Service) instanceGraphToProto(rt *runtime.Context, inst *runtime.Instance, idx *symbols.Index) protoconv.InstanceGraph {
-	graph := protoconv.InstanceGraphToProtoWithin(rt, inst, idx, protoconv.DefaultGraphBounds())
+func (s *Service) instanceGraphToProto(rt *runtime.Context, inst *runtime.Instance, cached *CachedModel) protoconv.InstanceGraph {
+	graph := protoconv.InstanceGraphToProtoWithin(rt, inst, cached.Index, protoconv.DefaultGraphBounds(), cached.SymbolContext())
 	for _, instance := range graph.All {
 		s.filterInstanceCapabilities(instance)
 	}

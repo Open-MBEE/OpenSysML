@@ -298,6 +298,14 @@ class ModelExamplesTest {
     assertEquals(Optional.of("Tank"), facts.declared());
     assertEquals(Optional.of("Kinds::Tank"), facts.resolvedId());
     assertEquals(Optional.of("partDef"), facts.resolvedKind());
+    assertEquals(
+        List.of(new Symbol.TypeRef("Kinds::Tank", Optional.of("partDef"))), facts.types());
+    Symbol.TypeFacts redefined = model.symbol("Kinds::tank::level").typeFacts().orElseThrow();
+    assertEquals(Optional.empty(), redefined.declared());
+    assertEquals(
+        List.of(new Symbol.TypeRef("ScalarValues::Real", Optional.of("attributeDef"))),
+        redefined.types());
+    assertEquals("redefines", model.symbol("Kinds::tank::level").specializations().get(0).kind());
     Symbol.TypeFacts primitive = model.symbol("Kinds::Temp").typeFacts().orElseThrow();
     assertEquals(Optional.of("Real"), primitive.primitive());
   }

@@ -13,6 +13,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -191,7 +193,7 @@ func (s *Session) runDocumentQuery(name string, args []string) ([]string, []Name
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	lines, values, table := renderRowSet(notationName(fqn), result, context.ElementID)
+	lines, values, table := renderRowSet(notationName(fqn), result, context)
 	return lines, values, table, nil
 }
 
@@ -224,6 +226,7 @@ func (s *Session) queryContext(ctx *runtime.Context) queryexec.Context {
 		context.ElementID = func(sym *symbols.Symbol) (string, error) {
 			return queryexec.ElementIDOf(read, index, sym)
 		}
+		context.ElementAddress = read.ReadAddress
 	}
 	return context
 }
@@ -426,8 +429,9 @@ func (s *Session) queryValueList(ctx *runtime.Context, elements []runtime.Value)
 }
 
 // renderRowSet reports an executed query's rows as the prompt prints them, the row and
-// column counts as values, and the table as data (nameless elements by elementId there).
-func renderRowSet(name string, result *queryexec.RowSet, elementID func(*symbols.Symbol) (string, error)) ([]string, []NamedValue, *VerdictTable) {
+// column counts as values, and the table as data (positionally addressed elements by elementId there).
+func renderRowSet(name string, result *queryexec.RowSet, context queryexec.Context) ([]string, []NamedValue, *VerdictTable) {
+	spell := tableSpelling(context.Index, context.ElementID, context.ElementAddress)
 	rows := result.Rows()
 	columns := result.Columns()
 	lines := []string{fmt.Sprintf("✓ Query %s returned %s", name, countOf(len(rows), "row", "rows"))}
@@ -448,9 +452,9 @@ func renderRowSet(name string, result *queryexec.RowSet, elementID func(*symbols
 				break
 			}
 			lines = append(lines, fmt.Sprintf("    %s = %s", names[j], formatQueryCell(cell)))
-			cells[j] = queryCellValues(cell, elementID)
+			cells[j] = queryCellValues(cell, spell)
 		}
-		table.Rows = append(table.Rows, VerdictTableRow{Element: tableValue(row.Element(), elementID), Cells: cells})
+		table.Rows = append(table.Rows, VerdictTableRow{Element: spell(row.Element()), Cells: cells})
 	}
 	values := []NamedValue{{Name: "rows", Value: strconv.Itoa(len(rows))}}
 	if len(names) > 0 {
@@ -460,24 +464,43 @@ func renderRowSet(name string, result *queryexec.RowSet, elementID func(*symbols
 }
 
 // queryCellValues is a cell's values as the table spells each; empty for an empty cell.
-func queryCellValues(cell queryexec.Cell, elementID func(*symbols.Symbol) (string, error)) []string {
+func queryCellValues(cell queryexec.Cell, spell func(queryexec.Value) string) []string {
 	values := cell.Values()
 	out := make([]string, len(values))
 	for i, value := range values {
-		out[i] = tableValue(value, elementID)
+		out[i] = spell(value)
 	}
 	return out
 }
 
-// tableValue spells a value as the prompt does, except an element without a name
-// (printed blank or as ”), which the table spells by its elementId when one is read.
-func tableValue(value queryexec.Value, elementID func(*symbols.Symbol) (string, error)) string {
-	if sym, ok := value.Element(); ok && sym.Name == "" && elementID != nil {
-		if id, err := elementID(sym); err == nil && id != "" {
-			return id
+// tableSpelling spells a value as the prompt does, except an element the conversion wrote, which the
+// table spells by the address the conversion stated for it: the qualifiedName (through an effective
+// name too, `F::result`, `T::obj::massRequirement`), or its elementId where the address is positional
+// (`P::@2::mission`: unnamed, or under an unnamed owner). An element it stated no address for — a
+// library type, by its fixed id — keeps the prompt's spelling when a qualified name identifies it.
+func tableSpelling(index *symbols.Index, elementID func(*symbols.Symbol) (string, error), elementAddress func(string) (string, bool)) func(queryexec.Value) string {
+	return func(value queryexec.Value) string {
+		sym, ok := value.Element()
+		if !ok || elementID == nil {
+			return formatQueryValue(value)
 		}
+		id, err := elementID(sym)
+		if err != nil || id == "" {
+			return formatQueryValue(value)
+		}
+		if elementAddress != nil {
+			if address, ok := elementAddress(id); ok {
+				if naming.IsPositionalIdentity(address) {
+					return id
+				}
+				return notationName(address)
+			}
+		}
+		if query.QualifiedIdentity(index, sym) != "" {
+			return formatQueryValue(value)
+		}
+		return id
 	}
-	return formatQueryValue(value)
 }
 
 // formatQueryCell renders one projected cell: nothing, one value, or a

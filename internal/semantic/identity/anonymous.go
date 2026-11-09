@@ -12,6 +12,7 @@ import (
 // the pilot's exporter keys unnamed elements by (owner/Metaclass[i], i counting the
 // owner's preceding owned elements, or relationships, of the same metaclass).
 type AnonymousMember struct {
+	Symbol              *symbols.Symbol
 	Owner               *LibraryElement
 	Metaclass           string
 	MembershipMetaclass string
@@ -22,9 +23,10 @@ type AnonymousMember struct {
 }
 
 // AnonymousMemberOf describes sym, an unnamed member (declared or implied) a named library element
-// owns, placed by the owner's ownedMember order; ok is false for a named symbol or an anonymous owner.
+// owns, placed by the owner's ownedMember order; ok is false for a named symbol — a parameter
+// named by the one its position redefines included — or an anonymous owner.
 func AnonymousMemberOf(model *semantics.Model, catalog *Catalog, sym *symbols.Symbol) (AnonymousMember, bool) {
-	if model == nil || catalog == nil || sym == nil || sym.Name != "" {
+	if model == nil || catalog == nil || sym == nil || model.QualifiedNameOf(sym) != "" {
 		return AnonymousMember{}, false
 	}
 	owner := sym.Owner()
@@ -51,7 +53,7 @@ func AnonymousMemberOf(model *semantics.Model, catalog *Catalog, sym *symbols.Sy
 		}
 		if metaclassName(model, member) == metaclass {
 			index++
-			if member.Name == "" {
+			if model.QualifiedNameOf(member) == "" {
 				ordinal++
 			}
 		}
@@ -60,6 +62,7 @@ func AnonymousMemberOf(model *semantics.Model, catalog *Catalog, sym *symbols.Sy
 		return AnonymousMember{}, false
 	}
 	out := AnonymousMember{
+		Symbol:             sym,
 		Owner:              ownerElement,
 		Metaclass:          metaclass,
 		ID:                 AnonymousMemberID(ownerElement.ID, metaclass, ordinal),

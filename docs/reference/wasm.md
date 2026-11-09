@@ -241,7 +241,8 @@ diagnostics and shared symbol facts.
   hash, one root per document, and diagnostics.
 - `ParseFile` parses a single inline document or file and returns its hash, root and diagnostics.
 - `GetDiagnostics` returns the parser and validation diagnostics for a cached model.
-- `GetSymbol` returns the symbol's type, multiplicity, specialization and attribute facts.
+- `GetSymbol` returns the symbol's type, multiplicity, specialization and attribute facts, and
+  the ids of its children, an unnamed member by its position (`Owner::@N`) as the service names it.
 
 The `js` build installs `globalThis.sysmlCore` with `version` and synchronous
 `call(method, paramsJSON)`, which returns the JSON-RPC envelope string. Passing `-stdio`

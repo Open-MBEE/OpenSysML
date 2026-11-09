@@ -2,6 +2,7 @@ package export
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"sort"
 	"strconv"
 	"strings"
@@ -253,7 +254,7 @@ func chainTextIn(graph *rdf.Graph, meta func(rdf.Term) string, index map[string]
 
 // lastSegmentText writes the last segment of a qualified name as notation.
 func lastSegmentText(qname string) string {
-	segments := identitySegments(qname)
+	segments := naming.Segments(qname)
 	return nameText(identityName(segments[len(segments)-1]))
 }
 
@@ -532,9 +533,11 @@ func (n *normalizer) collapseRelationships() {
 		}
 		target := firstIRI(graph, subject, relationshipTargetEnds...)
 		if m == mConjugatedPortTyping {
-			// The head writes `~P`: the original definition, the conjugate of
-			// which the typing names as its type.
-			target = n.portDefinitions.original(graph, meta, subject, target)
+			// The head states the ConjugatedPortDefinition the typing names as
+			// its type, written `~P`; a typing naming no conjugate states P.
+			if meta(target) != mConjugatedPortDefinition {
+				target = n.portDefinitions.original(graph, meta, subject, target)
+			}
 			graph.Add(owner, rdf.OpenSysMLTerm(xConjugatedTyping), rdf.Bool(true))
 		}
 		if target.Value == "" {
@@ -1110,11 +1113,11 @@ func (n *normalizer) nameOf(subject rdf.Term) string {
 				break
 			}
 		}
-		q := qualify(base, "", index)
+		q := naming.Qualify(base, "", index)
 		qname[subject.Value] = q
 		return q
 	}
-	q := qualify(base, name, 0)
+	q := naming.Qualify(base, name, 0)
 	// A name an earlier sibling already took is not an identity: the
 	// later element is addressed by its position.
 	for i, sibling := range siblings {
@@ -1123,7 +1126,7 @@ func (n *normalizer) nameOf(subject rdf.Term) string {
 		}
 		for _, earlier := range siblings[:i] {
 			if prior := n.nameOf(earlier); prior != "" && prior == q {
-				q = qualify(base, "", i)
+				q = naming.Qualify(base, "", i)
 				break
 			}
 		}
@@ -1888,9 +1891,9 @@ func unresolvedNames(graph *rdf.Graph, meta func(rdf.Term) string) (map[string]s
 
 // plainQualifiedName spells the identity form of a qualified name.
 func plainQualifiedName(name string) string {
-	segments := identitySegments(name)
+	segments := naming.Segments(name)
 	for i, segment := range segments {
-		segments[i] = identitySegment(identityName(segment))
+		segments[i] = naming.Segment(identityName(segment))
 	}
 	return strings.Join(segments, "::")
 }
