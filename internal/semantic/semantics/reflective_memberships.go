@@ -346,6 +346,12 @@ func (m *Model) implicitOwnedRelationships(sym *symbols.Symbol) []*symbols.Symbo
 // owner owns member: a FeatureMembership for a feature of a type, narrowed to
 // the SysML membership the member's declaration implies (SysML 8.3), else an
 // OwningMembership.
+// MembershipMetaclassOf is the metaclass of the membership through which owner
+// owns, or inherits, member: ParameterMembership for a parameter, and so on.
+func (m *Model) MembershipMetaclassOf(owner, member *symbols.Symbol) string {
+	return m.membershipMetaclassName(owner, member)
+}
+
 func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 	if isValueExpressionSymbol(member) {
 		return "FeatureValue"

@@ -851,6 +851,12 @@ func classifyUsage(u *ast.Usage) SymbolKind {
 	if u.Keyword == "function" {
 		return SymbolCalcDef
 	}
+	if kind := classifyActionNode(u); kind != SymbolUnknown {
+		return kind
+	}
+	if u.IsSuccessionFlow() {
+		return SymbolSuccessionFlowUsage
+	}
 	// Only classify attribute usages (datatype, attribute, feature keywords)
 	if u.Kind != ast.UsageAttribute {
 		return UsageSymbolKind(u.Kind)
@@ -887,4 +893,36 @@ func classifyUsage(u *ast.Usage) SymbolKind {
 
 	// Default: treat as usage
 	return SymbolAttributeUsage
+}
+
+// classifyActionNode is the kind of the node an action usage is written as
+// (SysML v2 §8.2.2.17 ActionNode); SymbolUnknown for a plain action usage.
+func classifyActionNode(u *ast.Usage) SymbolKind {
+	if u.Kind != ast.UsageAction {
+		return SymbolUnknown
+	}
+	switch {
+	case u.IsTerminate:
+		return SymbolTerminateActionUsage
+	case u.IsPerformedAction():
+		return SymbolPerformActionUsage
+	case AcceptPayloadOf(u) != nil:
+		return SymbolAcceptActionUsage
+	}
+	switch statement := ActionNodeStatementOf(u).(type) {
+	case *ast.AssignmentActionNode:
+		return SymbolAssignmentActionUsage
+	case *ast.PerformActionNode:
+		return SymbolPerformActionUsage
+	case *ast.IfActionNode:
+		return SymbolIfActionUsage
+	case *ast.WhileLoopActionNode:
+		if statement.Kind == ast.LoopFor {
+			return SymbolForLoopActionUsage
+		}
+		return SymbolWhileLoopActionUsage
+	case *ast.TerminateStatement:
+		return SymbolTerminateActionUsage
+	}
+	return SymbolUnknown
 }

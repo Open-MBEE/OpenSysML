@@ -278,7 +278,7 @@ func generalNodeKind(r *Renderer, sym *symbols.Symbol) bool {
 func generalRelationship(sym *symbols.Symbol) bool {
 	switch sym.Kind {
 	case symbols.SymbolSatisfyRequirementUsage, symbols.SymbolConnectionUsage, symbols.SymbolBindingUsage,
-		symbols.SymbolSuccessionUsage, symbols.SymbolFlowUsage, symbols.SymbolInterfaceUsage,
+		symbols.SymbolSuccessionUsage, symbols.SymbolFlowUsage, symbols.SymbolSuccessionFlowUsage, symbols.SymbolInterfaceUsage,
 		symbols.SymbolAllocationUsage, symbols.SymbolDependency, symbols.SymbolConnectorEnd:
 		return true
 	}
