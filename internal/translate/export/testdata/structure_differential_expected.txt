@@ -33,7 +33,7 @@ root examples: models 56, skipped 0, matched 46572, unmatched 32
   Feature::direction: equal 18667, different 49, symbol-missing 0, symbol-extra 0
   Feature::endOwningType: equal 18714, different 2, symbol-missing 0, symbol-extra 0
   Feature::featuringType: equal 18707, different 9, symbol-missing 0, symbol-extra 0
-  Feature::isComposite: equal 18389, different 327, symbol-missing 0, symbol-extra 0
+  Feature::isComposite: equal 18560, different 156, symbol-missing 0, symbol-extra 0
   Feature::isConstant: equal 328, different 0, symbol-missing 0, symbol-extra 18388
   Feature::isEnd: equal 18714, different 2, symbol-missing 0, symbol-extra 0
   Feature::isVariable: equal 18527, different 0, symbol-missing 0, symbol-extra 189
@@ -92,7 +92,7 @@ root examples: models 56, skipped 0, matched 46572, unmatched 32
   Type::unioningType: equal 19392, different 1, symbol-missing 0, symbol-extra 0
   Usage::definition: equal 3343, different 1963, symbol-missing 0, symbol-extra 1310
   Usage::directedUsage: equal 6546, different 70, symbol-missing 0, symbol-extra 0
-  Usage::isReference: equal 6289, different 327, symbol-missing 0, symbol-extra 0
+  Usage::isReference: equal 6460, different 156, symbol-missing 0, symbol-extra 0
   Usage::mayTimeVary: equal 918, different 3, symbol-missing 0, symbol-extra 5695
   Usage::nestedAction: equal 6613, different 3, symbol-missing 0, symbol-extra 0
   Usage::nestedAttribute: equal 6588, different 28, symbol-missing 0, symbol-extra 0
@@ -210,7 +210,7 @@ root examples/sysml-v2-training: models 100, skipped 0, matched 11287, unmatched
   Feature::direction: equal 4171, different 6, symbol-missing 0, symbol-extra 0
   Feature::endOwningType: equal 4171, different 6, symbol-missing 0, symbol-extra 0
   Feature::featuringType: equal 4164, different 13, symbol-missing 0, symbol-extra 0
-  Feature::isComposite: equal 4085, different 92, symbol-missing 0, symbol-extra 0
+  Feature::isComposite: equal 4104, different 73, symbol-missing 0, symbol-extra 0
   Feature::isConstant: equal 40, different 0, symbol-missing 0, symbol-extra 4137
   Feature::isEnd: equal 4171, different 6, symbol-missing 0, symbol-extra 0
   Feature::ownedReferenceSubsetting: equal 4163, different 14, symbol-missing 0, symbol-extra 0
@@ -267,7 +267,7 @@ root examples/sysml-v2-training: models 100, skipped 0, matched 11287, unmatched
   Type::ownedSpecialization: equal 4509, different 14, symbol-missing 0, symbol-extra 0
   Usage::definition: equal 904, different 589, symbol-missing 0, symbol-extra 260
   Usage::directedUsage: equal 1741, different 7, symbol-missing 0, symbol-extra 5
-  Usage::isReference: equal 1661, different 92, symbol-missing 0, symbol-extra 0
+  Usage::isReference: equal 1680, different 73, symbol-missing 0, symbol-extra 0
   Usage::mayTimeVary: equal 190, different 0, symbol-missing 0, symbol-extra 1563
   Usage::nestedOccurrence: equal 1751, different 2, symbol-missing 0, symbol-extra 0
   Usage::nestedReference: equal 1751, different 2, symbol-missing 0, symbol-extra 0
@@ -329,7 +329,7 @@ root examples/pilot-corpora: models 213, skipped 0, matched 61237, unmatched 140
   Feature::endOwningType: equal 22729, different 50, symbol-missing 0, symbol-extra 0
   Feature::featureTarget: equal 22770, different 0, symbol-missing 0, symbol-extra 9
   Feature::featuringType: equal 22512, different 258, symbol-missing 0, symbol-extra 9
-  Feature::isComposite: equal 22368, different 411, symbol-missing 0, symbol-extra 0
+  Feature::isComposite: equal 22449, different 330, symbol-missing 0, symbol-extra 0
   Feature::isConstant: equal 374, different 0, symbol-missing 0, symbol-extra 22405
   Feature::isEnd: equal 22729, different 50, symbol-missing 0, symbol-extra 0
   Feature::isVariable: equal 21753, different 0, symbol-missing 0, symbol-extra 1026
@@ -415,7 +415,7 @@ root examples/pilot-corpora: models 213, skipped 0, matched 61237, unmatched 140
   Type::unioningType: equal 24195, different 19, symbol-missing 2, symbol-extra 0
   Usage::definition: equal 3744, different 2365, symbol-missing 0, symbol-extra 2006
   Usage::directedUsage: equal 7923, different 185, symbol-missing 1, symbol-extra 6
-  Usage::isReference: equal 7708, different 407, symbol-missing 0, symbol-extra 0
+  Usage::isReference: equal 7789, different 326, symbol-missing 0, symbol-extra 0
   Usage::mayTimeVary: equal 1108, different 58, symbol-missing 0, symbol-extra 6949
   Usage::nestedAction: equal 8112, different 3, symbol-missing 0, symbol-extra 0
   Usage::nestedAttribute: equal 8008, different 107, symbol-missing 0, symbol-extra 0
@@ -479,7 +479,7 @@ root examples/spec-examples: models 473, skipped 38, matched 12421, unmatched 50
   Feature::direction: equal 3993, different 15, symbol-missing 0, symbol-extra 0
   Feature::endOwningType: equal 3981, different 27, symbol-missing 0, symbol-extra 0
   Feature::featuringType: equal 3933, different 71, symbol-missing 4, symbol-extra 0
-  Feature::isComposite: equal 3875, different 133, symbol-missing 0, symbol-extra 0
+  Feature::isComposite: equal 3886, different 122, symbol-missing 0, symbol-extra 0
   Feature::isConstant: equal 92, different 0, symbol-missing 0, symbol-extra 3916
   Feature::isEnd: equal 3981, different 27, symbol-missing 0, symbol-extra 0
   Feature::isVariable: equal 3651, different 0, symbol-missing 0, symbol-extra 357
@@ -556,7 +556,7 @@ root examples/spec-examples: models 473, skipped 38, matched 12421, unmatched 50
   Type::unioningType: equal 4383, different 0, symbol-missing 3, symbol-extra 0
   Usage::definition: equal 823, different 543, symbol-missing 0, symbol-extra 417
   Usage::directedUsage: equal 1754, different 27, symbol-missing 0, symbol-extra 2
-  Usage::isReference: equal 1648, different 133, symbol-missing 2, symbol-extra 0
+  Usage::isReference: equal 1659, different 122, symbol-missing 2, symbol-extra 0
   Usage::mayTimeVary: equal 296, different 0, symbol-missing 0, symbol-extra 1487
   Usage::nestedAction: equal 1782, different 1, symbol-missing 0, symbol-extra 0
   Usage::nestedAttribute: equal 1767, different 16, symbol-missing 0, symbol-extra 0

@@ -97,7 +97,6 @@ BindingConnectorAsUsage::featureMembership	16	symbol-51
 BindingConnectorAsUsage::featuringType	2	symbol-52
 BindingConnectorAsUsage::inheritedFeature	16	symbol-51
 BindingConnectorAsUsage::inheritedMembership	16	symbol-51
-BindingConnectorAsUsage::isComposite	19	export-33
 BindingConnectorAsUsage::member	16	symbol-51
 BindingConnectorAsUsage::membership	16	symbol-51
 BindingConnectorAsUsage::ownedRelationship	2	symbol-03
@@ -153,8 +152,8 @@ ConstraintUsage::feature	3	symbol-51
 ConstraintUsage::featureMembership	3	symbol-51
 ConstraintUsage::inheritedFeature	2	symbol-51
 ConstraintUsage::inheritedMembership	2	symbol-51
-ConstraintUsage::isVariable	115	export-33
-ConstraintUsage::mayTimeVary	115	export-33
+ConstraintUsage::isVariable	115	symbol-66
+ConstraintUsage::mayTimeVary	115	symbol-66
 ConstraintUsage::member	3	symbol-51
 ConstraintUsage::membership	3	symbol-51
 ConstraintUsage::ownedElement	1	symbol-02
@@ -502,10 +501,9 @@ ReferenceUsage::featuringType	4	export-57
 ReferenceUsage::inheritedFeature	129	symbol-51
 ReferenceUsage::inheritedMembership	129	symbol-51
 ReferenceUsage::input	3	symbol-53
-ReferenceUsage::isConstant	814	symbol-18
 ReferenceUsage::isEnd	23	export-56
-ReferenceUsage::isVariable	298	export-33
-ReferenceUsage::mayTimeVary	596	export-33
+ReferenceUsage::isVariable	140	export-33
+ReferenceUsage::mayTimeVary	238	export-33
 ReferenceUsage::member	133	symbol-51
 ReferenceUsage::membership	133	symbol-51
 ReferenceUsage::multiplicity	4	symbol-55
@@ -547,7 +545,7 @@ RequirementUsage::feature	106	symbol-51
 RequirementUsage::featureMembership	106	symbol-51
 RequirementUsage::inheritedFeature	106	symbol-51
 RequirementUsage::inheritedMembership	106	symbol-51
-RequirementUsage::isComposite	53	export-33
+RequirementUsage::isComposite	53	symbol-66
 RequirementUsage::member	106	symbol-51
 RequirementUsage::membership	106	symbol-51
 RequirementUsage::ownedRelationship	13	symbol-03
@@ -632,7 +630,7 @@ SuccessionAsUsage::featureMembership	12	symbol-51
 SuccessionAsUsage::featuringType	1	symbol-52
 SuccessionAsUsage::inheritedFeature	8	symbol-51
 SuccessionAsUsage::inheritedMembership	8	symbol-51
-SuccessionAsUsage::isComposite	395	export-33
+SuccessionAsUsage::isComposite	213	export-33
 SuccessionAsUsage::member	12	symbol-51
 SuccessionAsUsage::membership	12	symbol-51
 SuccessionAsUsage::ownedReferenceSubsetting	1	export-57
