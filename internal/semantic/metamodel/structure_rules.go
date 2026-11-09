@@ -7719,6 +7719,16 @@ func (e *Evaluator) structureInvocationArguments(element Element) (Value, bool, 
 	if !known {
 		return Value{}, true, false
 	}
+	// A feature chain's instantiated type is the feature it chains to, not a
+	// function whose inputs bind the arguments: its one argument is the source
+	// its owned input parameter values (KerML 8.3.4.8.5 FeatureChainExpression).
+	chain, known := e.isMetaclass(element, "FeatureChainExpression")
+	if !known {
+		return Value{}, true, false
+	}
+	if chain {
+		return e.structureInputValues(element)
+	}
 	instantiatedType, ok := e.Property(element, "InstantiationExpression", "instantiatedType")
 	if !ok || instantiatedType.Kind != ElementValue {
 		if constructor {
