@@ -219,6 +219,30 @@ class TestElementPropertiesAgainstTheService:
             self.model.element_properties("EP::Nowhere")
 
 
+def test_excluded_documents_decode_with_the_answer():
+    response = _response()
+    response.excluded_documents.add(document="c.sysml", error="c.sysml: 3 syntax error(s)")
+    read = element_properties_of(response)
+    assert [(d.document, d.error) for d in read.excluded_documents] == [
+        ("c.sysml", "c.sysml: 3 syntax error(s)")
+    ]
+    assert element_properties_of(_response()).excluded_documents == []
+
+
+def test_a_refused_document_raises_a_conversion_error_naming_the_excluded_documents():
+    stub = Mock()
+    stub.GetElementProperties.return_value = sysml_pb2.GetElementPropertiesResponse(
+        error="c.sysml: 3 syntax error(s)",
+        excluded_documents=[
+            sysml_pb2.ExcludedDocument(document="c.sysml", error="c.sysml: 3 syntax error(s)")
+        ],
+    )
+    conn = _connection(stub)
+    with pytest.raises(ConversionError, match="syntax error") as raised:
+        conn.get_element_properties("hash1", "C")
+    assert raised.value.excluded_documents == [("c.sysml", "c.sysml: 3 syntax error(s)")]
+
+
 LIBRARY_MEMBERS_MODEL = """
 package P {
     private import ScalarValues::*;

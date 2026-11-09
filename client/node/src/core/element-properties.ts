@@ -97,14 +97,31 @@ export class ElementProperty {
 }
 
 /** What one read answered: the element and its properties, in the order asked for, or the element form's order when none was named. */
+/** A document the read left out of the model: one the parser could not read whole, or one declaring a top-level name another document already declares. */
+export class ExcludedDocument {
+  readonly document: string;
+  readonly error: string;
+  constructor(fields: { document: string; error: string }) {
+    this.document = fields.document;
+    this.error = fields.error;
+  }
+}
+
 export class ElementProperties {
   readonly element: ElementIdentity;
   readonly properties: readonly ElementProperty[];
+  /** The documents the model was read without; empty when the whole model was read. */
+  readonly excludedDocuments: readonly ExcludedDocument[];
   private readonly byName: Map<string, ElementProperty>;
 
-  constructor(element: ElementIdentity, properties: readonly ElementProperty[]) {
+  constructor(
+    element: ElementIdentity,
+    properties: readonly ElementProperty[],
+    excludedDocuments: readonly ExcludedDocument[] = [],
+  ) {
     this.element = element;
     this.properties = properties;
+    this.excludedDocuments = excludedDocuments;
     this.byName = new Map(properties.map((property) => [property.name, property]));
   }
 
@@ -164,6 +181,9 @@ export function elementPropertiesOf(response: GetElementPropertiesResponse): Ele
           values: property.values.map(propertyValueOf),
           unsupported: property.unsupported,
         }),
+    ),
+    response.excludedDocuments.map(
+      (excluded) => new ExcludedDocument({ document: excluded.document, error: excluded.error }),
     ),
   );
 }

@@ -856,14 +856,24 @@ class GetElementPropertiesRequest(_message.Message):
     def __init__(self, model_hash: _Optional[str] = ..., element_id: _Optional[str] = ..., properties: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class GetElementPropertiesResponse(_message.Message):
-    __slots__ = ("element", "properties", "error")
+    __slots__ = ("element", "properties", "error", "excluded_documents")
     ELEMENT_FIELD_NUMBER: _ClassVar[int]
     PROPERTIES_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
+    EXCLUDED_DOCUMENTS_FIELD_NUMBER: _ClassVar[int]
     element: ElementRef
     properties: _containers.RepeatedCompositeFieldContainer[ElementProperty]
     error: str
-    def __init__(self, element: _Optional[_Union[ElementRef, _Mapping]] = ..., properties: _Optional[_Iterable[_Union[ElementProperty, _Mapping]]] = ..., error: _Optional[str] = ...) -> None: ...
+    excluded_documents: _containers.RepeatedCompositeFieldContainer[ExcludedDocument]
+    def __init__(self, element: _Optional[_Union[ElementRef, _Mapping]] = ..., properties: _Optional[_Iterable[_Union[ElementProperty, _Mapping]]] = ..., error: _Optional[str] = ..., excluded_documents: _Optional[_Iterable[_Union[ExcludedDocument, _Mapping]]] = ...) -> None: ...
+
+class ExcludedDocument(_message.Message):
+    __slots__ = ("document", "error")
+    DOCUMENT_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    document: str
+    error: str
+    def __init__(self, document: _Optional[str] = ..., error: _Optional[str] = ...) -> None: ...
 
 class ElementRef(_message.Message):
     __slots__ = ("id", "qualified_name", "metaclass")
