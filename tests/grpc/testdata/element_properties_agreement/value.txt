@@ -173,7 +173,7 @@ Disjoining::ownedRelationship	1	symbol-03
 Disjoining::typeDisjoined	1	export-57
 Documentation::owner	9	export-56
 Documentation::owningRelationship	9	export-04
-ElementFilterMembership::owningNamespace	11	export-03
+ElementFilterMembership::owningNamespace	11	symbol-69
 ElementFilterMembership::visibility	11	export-05
 EventOccurrenceUsage::ownedElement	2	symbol-02
 EventOccurrenceUsage::ownedRelationship	8	symbol-03
@@ -321,13 +321,13 @@ LiteralRational::value	222	export-12
 Membership::memberElement	48	export-56
 Membership::memberElementId	8	export-56
 Membership::ownedRelatedElement	4	export-06
-Membership::owningNamespace	52	export-03
+Membership::owningNamespace	52	symbol-69
 Membership::relatedElement	8	export-13
 Membership::target	27	export-14
-MembershipExpose::owningNamespace	71	export-03
+MembershipExpose::owningNamespace	71	symbol-69
 MembershipImport::importedMembership	4	export-56
 MembershipImport::ownedRelatedElement	1	export-60
-MembershipImport::owningNamespace	169	export-03
+MembershipImport::owningNamespace	169	symbol-69
 MembershipImport::target	4	export-14
 MembershipImport::visibility	1	export-05
 MetadataAccessExpression::referencedElement	5	export-57
@@ -346,11 +346,11 @@ Multiplicity::ownedSubsetting	3	export-57
 MultiplicityRange::ownedMember	2	symbol-08
 Namespace::documentation	2	export-57
 Namespace::ownedElement	2	symbol-02
-NamespaceExpose::owningNamespace	24	export-03
+NamespaceExpose::owningNamespace	24	symbol-69
 NamespaceImport::ownedRelatedElement	1	export-06
 NamespaceImport::owner	2	export-56
 NamespaceImport::owningMembership	2	export-02
-NamespaceImport::owningNamespace	277	export-03
+NamespaceImport::owningNamespace	277	symbol-69
 NamespaceImport::owningRelatedElement	2	export-56
 NamespaceImport::owningRelationship	2	export-04
 NamespaceImport::visibility	2	export-05
@@ -463,7 +463,7 @@ PerformActionUsage::ownedFeatureMembership	4	symbol-53
 PerformActionUsage::ownedMember	4	symbol-08
 PerformActionUsage::ownedMembership	4	symbol-09
 PerformActionUsage::ownedRelationship	5	symbol-03
-PerformActionUsage::owner	39	export-56
+PerformActionUsage::owner	39	symbol-57
 PerformActionUsage::usage	22	symbol-51
 PortUsage::feature	2	symbol-51
 PortUsage::featureMembership	2	symbol-51
@@ -594,7 +594,7 @@ StateDefinition::ownedFeature	5	symbol-53
 StateDefinition::ownedFeatureMembership	20	symbol-53
 StateDefinition::ownedMember	5	symbol-08
 StateDefinition::usage	7	symbol-51
-StateSubactionMembership::owningNamespace	80	export-03
+StateSubactionMembership::owningNamespace	80	symbol-69
 StateUsage::feature	15	symbol-51
 StateUsage::featureMembership	15	symbol-51
 StateUsage::inheritedFeature	15	symbol-51
