@@ -205,7 +205,14 @@ func (s *SymbolIDs) compute(sym *symbols.Symbol) (string, bool) {
 		}
 		return rdf.ExpressionNodeID(owner, "multiplicity"), true
 	}
-	return s.ids.OfDeclaration(doc, sym.Decl, s.fqn(sym))
+	fqn := s.fqn(sym)
+	id, ok := s.ids.OfDeclaration(doc, sym.Decl, fqn)
+	if ok && sym.Name == "" && id == fqn {
+		// An unnamed member of a document the table does not hold (a library
+		// type's `return : Boolean;`) has no name to be keyed by; its catalog does.
+		return "", false
+	}
+	return id, ok
 }
 
 // rootNamespaceID mirrors rootNamespaceIDs: the root Namespace is named off the

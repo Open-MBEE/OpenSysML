@@ -316,6 +316,13 @@ missing and 261 → 1,801 different; totals: present-different +22,505, ours-mis
 were omitted, in the pilot's shape, but the implied memberships in them are keyed differently from the
 pilot's, which is the open gap of the section below.
 
+**Library members named only by redefinition** (re-recorded when a library feature that declares no name
+of its own — `BooleanEvaluation`'s `return : Boolean;`, qualified by the name it takes from the feature it
+redefines, KerML 8.2.4 — began to be spelled by the bundled library's id instead of its owner's name with an
+empty segment, and a library element the converted document itself holds by the graph's own id): 1,044 elements
+move from ours-only/pilot-only to matched (103,370 → 104,414); present-equal +23,637, ours-missing −4,470,
+present-different +6,278 (the inherited lists those members sit in now compare by id), pilot-missing +695.
+
 **Every multiplicity specializes `Base::naturals`, an `individual` definition's its own `Base::zeroOrOne`**
 (re-recorded with the implied specializations of KerML 8.3.3.1.9 `checkMultiplicitySpecialization` and
 SysML 8.3.9.3 `checkOccurrenceDefinitionMultiplicitySpecialization`, on the writer of #1950, #1990, #1970 and #1932 — develop's

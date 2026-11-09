@@ -477,9 +477,15 @@ func (r *elementReader) libraryMembershipRef(element metamodel.Element) (*pb.Ele
 // member, else its qualified name.
 func (r *elementReader) libraryElementID(sym *symbols.Symbol) string {
 	if sym.Name == "" {
+		// Named only by redefinition (BooleanEvaluation's `return : Boolean;`):
+		// the catalog keys it by its effective name.
+		if element, ok := r.libraryCatalog().ElementForSymbol(sym); ok && element != nil && element.ID != "" {
+			return element.ID
+		}
 		if member, ok := identity.AnonymousMemberOf(r.semantics, r.libraryCatalog(), sym); ok {
 			return member.ID
 		}
+		return r.semantics.QualifiedNameOf(sym)
 	}
 	return r.model.Index.GetFQN(sym)
 }
@@ -502,9 +508,32 @@ func (r *elementReader) ref(sym *symbols.Symbol, element metamodel.Element) *pb.
 // qualifiedName is the name that identifies sym, "" for an unnamed element.
 func (r *elementReader) qualifiedName(sym *symbols.Symbol) string {
 	if r.model.Index.Library(sym) {
+		if sym.Name == "" {
+			return r.libraryEffectiveQualifiedName(sym)
+		}
 		return r.model.Index.GetFQN(sym)
 	}
 	return r.model.Index.QualifiedIdentity(sym)
+}
+
+// libraryEffectiveQualifiedName names an unnamed library feature by the
+// identifier it takes from the feature it redefines (KerML 8.2.4
+// effectiveName): BooleanEvaluation's `return : Boolean;` is
+// Performances::BooleanEvaluation::result. "" when it takes none.
+func (r *elementReader) libraryEffectiveQualifiedName(sym *symbols.Symbol) string {
+	if r.semantics == nil {
+		return ""
+	}
+	name := r.semantics.EffectiveNameOf(sym)
+	owner := sym.Owner()
+	if name == "" || owner == nil {
+		return ""
+	}
+	ownerName := r.model.Index.GetFQN(owner)
+	if ownerName == "" {
+		return ""
+	}
+	return ownerName + "::" + name
 }
 
 // libraryElementRefOf identifies a standard-library element by the library
