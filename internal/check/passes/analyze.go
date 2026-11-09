@@ -83,7 +83,6 @@ func DefaultRegistry() *Registry {
 	reg.Register(OOSEMMethodPass{})
 	reg.Register(MOSAPass{})
 	reg.Register(NestedRedefinitionPass{})
-	reg.Register(PortTypeMismatchPass{})
 	return reg
 }
 

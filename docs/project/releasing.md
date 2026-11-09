@@ -39,7 +39,9 @@ kept for 14 days, with the moving alias `nightly` at the newest night; both are 
 marked latest and are signed by the workflow's own GitHub identity rather than the
 CircleCI one the clients pin. The clients go to PyPI and npm as development versions
 (`<next>.dev<yyyymmdd>`; `<next>-nightly.<yyyymmdd>.g<commit>` under the `nightly`
-dist-tag) through trusted publishing, so no default install and no `latest` moves. It
+dist-tag) through trusted publishing — the Node client from the nightly workflow, the
+Python client and Jupyter kernel through `release-pypi.yml`, which the nightly dispatches
+with its tag — so no default install and no `latest` moves. It
 touches nothing described on this page: the `nightly*` tags match neither the `v*` filter
 of the `release` workflow nor the Windows signing workflow, `releases/latest` keeps
 resolving to the stable line, and the stable npm, Maven Central, crates.io and Docker
@@ -102,6 +104,11 @@ Then check the release-facing text:
   and the deletions together. The previous version's entry stays unchanged. Whether `X.Y.Z`
   bumps the patch or the minor segment is decided by model compatibility, as
   [CONTRIBUTING.md § Versioning](../../CONTRIBUTING.md#versioning) states.
+- The compliance map is combined from its sources under `docs/project/spec-compliance/`
+  and committed: `make spec-compliance-render` writes `docs/project/spec-compliance.md`
+  (gitignored, so `git add -f` it), and `make spec-compliance-check SPEC_COMPLIANCE_PAGE=require`
+  passes. `develop` never carries the page — the site builds it — and the release pipeline
+  fails when a tag lacks it or carries a stale one.
 - `README.md` and `docs/guide/` transcripts match what the binary prints.
   Build it (`make build-sysml`) and paste a few commands through it.
 - `python3 scripts/check-doc-links.py` reports no broken link (CI gates on it too).
@@ -191,7 +198,8 @@ branch that moves the integration state onto `main`:
 
 2. Fold the changelog fragments on that branch — `python3 scripts/changelog.py release 0.0.5`,
    as [Before tagging](#before-tagging) describes — and commit `CHANGELOG.md` together with the
-   deleted fragments. Set `VERSION` in `client/python/opensysml/_version.py` to `x.y.z` as
+   deleted fragments. Render the compliance map alongside — `make spec-compliance-render &&
+   git add -f docs/project/spec-compliance.md` — and commit the page in the same change. Set `VERSION` in `client/python/opensysml/_version.py` to `x.y.z` as
    well: the tag publishes `opensysml` at the core version, and the release workflow fails
    before building anything when the two disagree (see
    [Releasing opensysml to PyPI](#releasing-opensysml-to-pypi)). Also set `"version"` in
@@ -289,9 +297,10 @@ branch that moves the integration state onto `main`:
    ```bash
    git checkout develop && git pull
    git merge main
+   git rm -q docs/project/spec-compliance.md   # the release's combined page; develop builds it
    (cd client/node && npm install --package-lock-only --ignore-scripts)   # after a hotfix
    (cd packaging/npm/sysml-mcp && npm install --package-lock-only --ignore-scripts)
-   git commit -am "chore(node): lock the platform packages at the release"  # if either changed
+   git commit -am "chore(docs): drop the released compliance page from develop"
    git push origin develop
    ```
 
@@ -1222,7 +1231,7 @@ supplies `SONAR_TOKEN` (the same context `Open-MBEE/flexo-mms-layer1-service`
 uses, so no new credential is provisioned). It reads
 `sonar-project.properties` at the repository root and four coverage reports
 persisted to the workspace — `coverage.txt` from `go-coverage-merge`, which joins
-`go-coverage`'s nine package shards,
+`go-coverage`'s eleven shards,
 `coverage-python.xml` from `python-test`, `coverage-node.lcov` from
 `node-test`, and JaCoCo's `jacoco.xml` per Java module — and it un-shallows the
 clone because SonarCloud needs full history for blame and new-code detection.
@@ -1446,8 +1455,10 @@ index:
   [`opensysml`](https://pypi.org/manage/project/opensysml/settings/publishing/) and of
   [`jupyter-opensysml-kernel`](https://pypi.org/manage/project/jupyter-opensysml-kernel/settings/publishing/),
   add a GitHub Actions publisher with owner `Open-MBEE`, repository `OpenSysML`,
-  workflow `release-pypi.yml` and environment `pypi` — beside the nightly's entry
-  (`nightly.yml`, environment `nightly`), which stays.
+  workflow `release-pypi.yml` and environment `pypi` — the one entry: the [nightly
+  snapshots](nightly.md) publish through this workflow too, dispatched with the night's
+  tag, so the index knows one publisher and marks no *Change of provenance* between a
+  snapshot and a release.
 - **TestPyPI** — the same two entries on [test.pypi.org](https://test.pypi.org/manage/projects/),
   which is where a pre-release tag publishes (see [Dry run on
   TestPyPI](#dry-run-on-testpypi)); without them a pre-release tag's upload fails with the
@@ -1511,16 +1522,23 @@ it attaches) and gates `build-release`:
    pins are the manifest's `sysml-grpc-*` lines, signs the manifest, and checks
    the distribution's names carry the tag's version.
 
-`release-pypi.yml`, which the same tag runs on GitHub Actions, in three jobs:
+`release-pypi.yml`, which the same tag runs on GitHub Actions — and which the
+[nightly](nightly.md) dispatches with its `nightly-<yyyymmdd>-<commit>` tag once its
+release is published, so a snapshot takes the same path and names the same publisher —
+in three jobs:
 
-1. `fetch` resolves the version from the tag again, with `check_version.py` for both
-   packages, and routes a pre-release to TestPyPI. It then waits, with
-   `scripts/wait-for-release-gate.sh`, until CircleCI has published the release —
-   `SHA256SUMS.txt.bundle` is uploaded only after the Go suite, every client's tests
-   and `build-release` passed on the tag — and checks the tag still names the commit
-   it checked out. It downloads the wheel, the sdist, the kernel's sdist and five
-   wheels, the manifest and its signature from the release; verifies the signature
-   under the pipeline's identity (the issuer and project the Python client pins);
+1. `fetch` resolves the version from the tag again: with `check_version.py` for both
+   packages, routing a pre-release to TestPyPI, for a `v*` tag; from the wheel the
+   night's release carries for a night's (the version its build derived, where a
+   re-derivation would move once a release tag lands). It
+   then waits, with `scripts/wait-for-release-gate.sh`, until the release is published
+   — CircleCI uploads `SHA256SUMS.txt.bundle` only after the Go suite, every client's
+   tests and `build-release` passed on the tag; a night's release is created with it —
+   and checks the tag still names the commit it checked out. It downloads the wheel, the
+   sdist, the kernel's sdist and five wheels, the manifest and its signature from the
+   release; verifies the signature under the identity that built it (CircleCI's, the
+   issuer and project the Python client pins, for a release; the nightly workflow's own
+   for a snapshot);
    checks each file is a line of the manifest and matches it; runs `twine check
    --strict`; installs the wheel into a clean virtualenv and, with no binary
    configured, loads and evaluates a model against the release the tag names (the
@@ -1529,14 +1547,16 @@ it attaches) and gates `build-release`:
 2. `pypi` (the client) and `jupyter-kernel` (the kernel package), each in the `pypi`
    environment with `id-token: write`, refuse to continue if the index already has the
    version (a re-run for a published release fails here, deliberately: a version cannot
-   be replaced, and `--skip-existing` would let a half-intended re-run look successful)
-   and publish with [`pypa/gh-action-pypi-publish`](https://github.com/pypa/gh-action-pypi-publish),
+   be replaced, and `--skip-existing` would let a half-intended re-run look successful;
+   a day's second snapshot, whose version is the first's, stands down with a notice
+   instead) and publish with [`pypa/gh-action-pypi-publish`](https://github.com/pypa/gh-action-pypi-publish),
    which attests each file. The two jobs are independent, so one project refusing a
    re-run does not block the other.
 
 A publication a transient failure interrupted — Sigstore or the index answering 5xx —
-is retried with `gh workflow run release-pypi.yml -f tag=vX.Y.Z`: the index check makes
-the retry a deliberate failure for a project already published, and the other publishes.
+is retried with `gh workflow run release-pypi.yml -f tag=vX.Y.Z` (or the night's tag):
+the index check makes the retry a deliberate failure for a project already published,
+and the other publishes.
 
 ### Dry run on TestPyPI
 

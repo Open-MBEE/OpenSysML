@@ -2229,6 +2229,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "1",
+        "featureName": "flexo",
+        "featureSymbolId": "OpenSysMLStack::stack::flexo",
+        "path": "flexo"
       }
     },
     {
@@ -2243,6 +2249,12 @@
           "featureName": "subports",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "2",
+        "featureName": "api",
+        "featureSymbolId": "OpenSysMLStack::Project::api",
+        "path": "flexo.api"
       }
     },
     {
@@ -2328,6 +2340,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "2",
+        "featureName": "auth",
+        "featureSymbolId": "OpenSysMLStack::stack::flexo::auth",
+        "path": "flexo.auth"
       }
     },
     {
@@ -2413,6 +2431,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "2",
+        "featureName": "layer1",
+        "featureSymbolId": "OpenSysMLStack::stack::flexo::layer1",
+        "path": "flexo.layer1"
       }
     },
     {
@@ -2498,6 +2522,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "2",
+        "featureName": "quadstore",
+        "featureSymbolId": "OpenSysMLStack::stack::flexo::quadstore",
+        "path": "flexo.quadstore"
       }
     },
     {
@@ -2583,6 +2613,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "2",
+        "featureName": "sysmlv2",
+        "featureSymbolId": "OpenSysMLStack::stack::flexo::sysmlv2",
+        "path": "flexo.sysmlv2"
       }
     },
     {
@@ -2906,6 +2942,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "1",
+        "featureName": "opensysml",
+        "featureSymbolId": "OpenSysMLStack::stack::opensysml",
+        "path": "opensysml"
       }
     },
     {
@@ -2991,6 +3033,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "3",
+        "featureName": "analyzers",
+        "featureSymbolId": "OpenSysMLStack::stack::opensysml::analyzers",
+        "path": "opensysml.analyzers"
       }
     },
     {
@@ -3005,6 +3053,12 @@
           "featureName": "subports",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "3",
+        "featureName": "api",
+        "featureSymbolId": "OpenSysMLStack::Project::api",
+        "path": "opensysml.api"
       }
     },
     {
@@ -3090,6 +3144,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "3",
+        "featureName": "clients",
+        "featureSymbolId": "OpenSysMLStack::stack::opensysml::clients",
+        "path": "opensysml.clients"
       }
     },
     {
@@ -3175,6 +3235,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "3",
+        "featureName": "docgen",
+        "featureSymbolId": "OpenSysMLStack::stack::opensysml::docgen",
+        "path": "opensysml.docgen"
       }
     },
     {
@@ -3260,6 +3326,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "3",
+        "featureName": "editors",
+        "featureSymbolId": "OpenSysMLStack::stack::opensysml::editors",
+        "path": "opensysml.editors"
       }
     },
     {
@@ -3345,6 +3417,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "3",
+        "featureName": "engine",
+        "featureSymbolId": "OpenSysMLStack::stack::opensysml::engine",
+        "path": "opensysml.engine"
       }
     },
     {
@@ -3430,6 +3508,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "3",
+        "featureName": "interchange",
+        "featureSymbolId": "OpenSysMLStack::stack::opensysml::interchange",
+        "path": "opensysml.interchange"
       }
     },
     {
@@ -3515,6 +3599,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "3",
+        "featureName": "jupyter",
+        "featureSymbolId": "OpenSysMLStack::stack::opensysml::jupyter",
+        "path": "opensysml.jupyter"
       }
     },
     {
@@ -3600,6 +3690,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "3",
+        "featureName": "lsp",
+        "featureSymbolId": "OpenSysMLStack::stack::opensysml::lsp",
+        "path": "opensysml.lsp"
       }
     },
     {
@@ -3685,6 +3781,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "3",
+        "featureName": "migration",
+        "featureSymbolId": "OpenSysMLStack::stack::opensysml::migration",
+        "path": "opensysml.migration"
       }
     },
     {
@@ -3770,6 +3872,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "3",
+        "featureName": "oslc",
+        "featureSymbolId": "OpenSysMLStack::stack::opensysml::oslc",
+        "path": "opensysml.oslc"
       }
     },
     {
@@ -3855,6 +3963,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "3",
+        "featureName": "parser",
+        "featureSymbolId": "OpenSysMLStack::stack::opensysml::parser",
+        "path": "opensysml.parser"
       }
     },
     {
@@ -3940,6 +4054,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "3",
+        "featureName": "repl",
+        "featureSymbolId": "OpenSysMLStack::stack::opensysml::repl",
+        "path": "opensysml.repl"
       }
     },
     {
@@ -4025,6 +4145,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "3",
+        "featureName": "service",
+        "featureSymbolId": "OpenSysMLStack::stack::opensysml::service",
+        "path": "opensysml.service"
       }
     },
     {
@@ -4110,6 +4236,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "3",
+        "featureName": "solver",
+        "featureSymbolId": "OpenSysMLStack::stack::opensysml::solver",
+        "path": "opensysml.solver"
       }
     },
     {
@@ -4195,6 +4327,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "3",
+        "featureName": "stdlib",
+        "featureSymbolId": "OpenSysMLStack::stack::opensysml::stdlib",
+        "path": "opensysml.stdlib"
       }
     },
     {
@@ -4280,6 +4418,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "3",
+        "featureName": "validation",
+        "featureSymbolId": "OpenSysMLStack::stack::opensysml::validation",
+        "path": "opensysml.validation"
       }
     },
     {
@@ -4375,6 +4519,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "1",
+        "featureName": "opensysml_flexo",
+        "featureSymbolId": "OpenSysMLStack::stack::opensysml_flexo",
+        "path": "opensysml_flexo"
       }
     },
     {
@@ -4594,6 +4744,12 @@
           },
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "1",
+        "featureName": "pilot",
+        "featureSymbolId": "OpenSysMLStack::stack::pilot",
+        "path": "pilot"
       }
     },
     {
@@ -4608,6 +4764,12 @@
           "featureName": "subports",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "7",
+        "featureName": "api",
+        "featureSymbolId": "OpenSysMLStack::Project::api",
+        "path": "pilot.api"
       }
     },
     {
@@ -4693,6 +4855,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "7",
+        "featureName": "editors",
+        "featureSymbolId": "OpenSysMLStack::stack::pilot::editors",
+        "path": "pilot.editors"
       }
     },
     {
@@ -4778,6 +4946,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "7",
+        "featureName": "evaluator",
+        "featureSymbolId": "OpenSysMLStack::stack::pilot::evaluator",
+        "path": "pilot.evaluator"
       }
     },
     {
@@ -4863,6 +5037,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "7",
+        "featureName": "grammars",
+        "featureSymbolId": "OpenSysMLStack::stack::pilot::grammars",
+        "path": "pilot.grammars"
       }
     },
     {
@@ -4948,6 +5128,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "7",
+        "featureName": "jupyter",
+        "featureSymbolId": "OpenSysMLStack::stack::pilot::jupyter",
+        "path": "pilot.jupyter"
       }
     },
     {
@@ -5033,6 +5219,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "7",
+        "featureName": "plantuml",
+        "featureSymbolId": "OpenSysMLStack::stack::pilot::plantuml",
+        "path": "pilot.plantuml"
       }
     },
     {
@@ -5118,6 +5310,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "7",
+        "featureName": "stdlib",
+        "featureSymbolId": "OpenSysMLStack::stack::pilot::stdlib",
+        "path": "pilot.stdlib"
       }
     },
     {
@@ -5203,6 +5401,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "7",
+        "featureName": "validation",
+        "featureSymbolId": "OpenSysMLStack::stack::pilot::validation",
+        "path": "pilot.validation"
       }
     },
     {
@@ -5288,6 +5492,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "7",
+        "featureName": "xmi",
+        "featureSymbolId": "OpenSysMLStack::stack::pilot::xmi",
+        "path": "pilot.xmi"
       }
     },
     {
@@ -5383,6 +5593,12 @@
           "featureName": "voids",
           "materialized": true
         }
+      },
+      "reachedBy": {
+        "instanceId": "1",
+        "featureName": "pilot_flexo",
+        "featureSymbolId": "OpenSysMLStack::stack::pilot_flexo",
+        "path": "pilot_flexo"
       }
     }
   ]

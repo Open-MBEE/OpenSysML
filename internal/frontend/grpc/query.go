@@ -38,6 +38,9 @@ const (
 	QueryPropMultiplicityUpper     = corequery.PropertyMultiplicityUpper
 	QueryPropSatisfiedRequirement  = corequery.PropertySatisfiedRequirement
 	QueryPropSatisfyingFeature     = corequery.PropertySatisfyingFeature
+	QueryPropPayloadArgument       = corequery.PropertyPayloadArgument
+	QueryPropSenderArgument        = corequery.PropertySenderArgument
+	QueryPropReceiverArgument      = corequery.PropertyReceiverArgument
 )
 
 // QueryErrorKind classifies why a query could not be evaluated. Every kind fails
@@ -261,8 +264,7 @@ func (e *queryEval) candidates(cached *CachedModel, scope []string) ([]*symbols.
 	for _, fqn := range scope {
 		roots := e.sc.Index.LookupQualified(fqn)
 		if len(roots) == 0 {
-			e.positionalNames(cached)
-			if sym := cached.byPositional[fqn]; sym != nil {
+			if sym := e.sc.Positional.Symbol(fqn); sym != nil {
 				roots = []*symbols.Symbol{sym}
 			}
 		}
@@ -288,11 +290,7 @@ func (e *queryEval) candidates(cached *CachedModel, scope []string) ([]*symbols.
 }
 
 func (e *queryEval) identity(sym *symbols.Symbol) string {
-	if identity := corequery.QualifiedIdentity(e.sc.Index, sym); identity != "" {
-		return identity
-	}
-	e.positionalNames(e.cached)
-	return e.cached.positional[sym]
+	return e.sc.Identity(sym)
 }
 
 // elementID is the elementId Convert writes for sym in the qualified id form,
@@ -325,36 +323,6 @@ func (m *CachedModel) elementIDReader() *export.ElementIDReader {
 		m.elementIDs = export.NewElementIDReader(documents)
 	})
 	return m.elementIDs
-}
-
-func (e *queryEval) positionalNames(cached *CachedModel) {
-	if cached == nil {
-		return
-	}
-	cached.positionalOnce.Do(func() {
-		if cached.Index == nil {
-			cached.positional, cached.byPositional = export.PositionalIdentities(nil, nil, nil)
-			return
-		}
-		docs := make([]export.PositionalDocument, 0, len(cached.Documents))
-		for _, doc := range cached.Documents {
-			if doc == nil || doc.Source == nil {
-				continue
-			}
-			root := cached.Index.DocumentRoot(doc.Source.Name())
-			if root == nil {
-				continue
-			}
-			docs = append(docs, export.PositionalDocument{File: doc.Source, Root: root})
-		}
-		cached.positional, cached.byPositional = export.PositionalIdentities(
-			cached.Index,
-			docs,
-			func(sym *symbols.Symbol) bool {
-				return corequery.QualifiedIdentity(cached.Index, sym) != ""
-			},
-		)
-	})
 }
 
 // nested returns every element declared inside an element, in declaration

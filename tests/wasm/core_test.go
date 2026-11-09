@@ -24,8 +24,9 @@ import (
 )
 
 // coreGzipBudget bounds the gzipped js build of sysml-core: raised to 6,800,000 on 2026-10-24 when Markdown
-// bodies brought in goldmark (6,302,493 -> 6,601,115 bytes), to 7,300,000 on 2026-10-27 when go1.27.3 linked it at 7,069,278.
-const coreGzipBudget = 7300000
+// bodies brought in goldmark (6,302,493 -> 6,601,115 bytes), to 7,300,000 on 2026-10-27 when go1.27.3 linked it at 7,069,278,
+// to 7,400,000 on 2026-11-08 when bare comments entered the library snapshot (7,328,201).
+const coreGzipBudget = 7400000
 
 const cleanCoreModel = `
 package Demo {
@@ -153,7 +154,7 @@ func coreSubtests(t *testing.T, target wasmTarget, r runner, bins map[string]str
 		if answers["version"] != versionStamp {
 			t.Errorf("sysmlCore.version = %q, want %q", answers["version"], versionStamp)
 		}
-		for _, method := range []string{"ParseSources", "ParseFile", "GetDiagnostics", "GetSymbol"} {
+		for _, method := range []string{"ParseSources", "ParseFile", "GetDiagnostics", "GetSymbol", "GetSymbolPositional"} {
 			var answer struct {
 				Result json.RawMessage `json:"result"`
 				Error  json.RawMessage `json:"error"`
@@ -163,6 +164,9 @@ func coreSubtests(t *testing.T, target wasmTarget, r runner, bins map[string]str
 			} else if len(answer.Error) != 0 {
 				t.Errorf("%s returned an error: %s", method, answer.Error)
 			}
+		}
+		if !strings.Contains(answers["GetSymbolPositional"], `"Demo::@1"`) {
+			t.Errorf("GetSymbol answered %s, want the unnamed member's positional id Demo::@1 among childIds", answers["GetSymbolPositional"])
 		}
 		if !strings.Contains(answers["malformed"], `"code":3`) {
 			t.Errorf("malformed params answered %s, want InvalidArgument (3)", answers["malformed"])
@@ -352,6 +356,28 @@ func TestCoreWireParity(t *testing.T) {
 		}
 	}
 
+	// The library opt-in reaches the core's enumeration as it reaches the service's.
+	for _, includeLibrary := range []bool{false, true} {
+		params := fmt.Sprintf(`{"modelHash":%q,"symbolId":"Demo::'Vehicle Type'::engine","includeLibraryMembers":%t}`, hash, includeLibrary)
+		body := callCore("GetSymbol", params)
+		response, err := svc.GetSymbol(ctx, mustUnmarshal[pb.GetSymbolRequest](t, params))
+		if err != nil {
+			t.Fatalf("grpc GetSymbol(engine, includeLibraryMembers=%t): %v", includeLibrary, err)
+		}
+		equal("GetSymbol", params, response, body)
+		symbol := response.GetSymbol()
+		if symbol == nil {
+			t.Fatalf("GetSymbol(engine, includeLibraryMembers=%t) returned no symbol", includeLibrary)
+		}
+		if includeLibrary {
+			if symbol.GetWithheldLibraryMembers() != 0 {
+				t.Errorf("includeLibraryMembers still withholds %d members", symbol.GetWithheldLibraryMembers())
+			}
+		} else if symbol.GetWithheldLibraryMembers() == 0 {
+			t.Error("no withheld library member counted, yet every part inherits Parts::Part's")
+		}
+	}
+
 	_, _ = parseSources("core-unresolved.sysml",
 		`package Demo { part def Vehicle { part engine : MissingType; } }`)
 
@@ -437,6 +463,8 @@ func TestCoreDependencies(t *testing.T) {
 		module + "/internal/workspace/libs",
 		module + "/internal/frontend/jsonrpc",
 		module + "/internal/frontend/syntax",
+		module + "/internal/frontend/symbolfacts",
+		module + "/internal/semantic/naming",
 	}
 	checkWasmDependencies(t, "./cmd/sysml-core", required, func(dependency string) bool {
 		return forbiddenCoreDependency(module, dependency)

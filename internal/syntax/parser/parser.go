@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 
@@ -60,6 +61,12 @@ type Parser struct {
 	// comments are the regular comments lexed, each with the token following it,
 	// so the ones written where no member may start can be reported.
 	comments []pendingComment
+	// commentNext indexes the first of comments not yet judged by a member
+	// position: the ones before it were read as Comment members or left as trivia.
+	commentNext int
+	// recovered are the Comment members a recovery admitted ahead of the member
+	// being parsed, for the body to take before that member.
+	recovered []ast.Node
 	// memberStarts are the offsets at which a member was parsed to begin; a
 	// comment before one of them is a Comment element the grammar admits.
 	memberStarts []int
@@ -176,6 +183,8 @@ type parseCheckpoint struct {
 	undefinedOpLen int
 	typedByCount   int
 	memberStartLen int
+	commentNext    int
+	recoveredLen   int
 	commentBodyLen int
 	attachedLen    int
 	resultEndLen   int
@@ -553,6 +562,14 @@ func (p *Parser) takePendingComment() (source.Span, bool) {
 		return source.Span{}, false
 	}
 	sp := p.pendingComment
+	// The body is the first comment after the notation's last token: a second
+	// one before the next token (`doc /* d */ /* c */`) is a Comment of its own.
+	next := p.peek().Span.Offset
+	for i := len(p.comments) - 1; i >= 0 && p.comments[i].next.Span.Offset >= next; i-- {
+		if p.comments[i].next.Span.Offset == next {
+			sp = p.comments[i].span
+		}
+	}
 	p.hasPendingComment = false
 	p.commentBodies = append(p.commentBodies, sp.Offset)
 	p.bodyEnd = sp.End()
@@ -572,10 +589,74 @@ func (p *Parser) spanFrom(start int) source.Span {
 	return source.Span{Offset: start, Len: end - start}
 }
 
-// memberStart records the offset a member is about to be parsed at, so a
-// comment before it is known to sit where the grammar admits one.
-func (p *Parser) memberStart() {
+// memberStart opens a member position and returns the Comment members the regular comments
+// before it are: a bare `/* */` there is a Comment with neither name nor `about` (KerML.xtext Comment).
+func (p *Parser) memberStart() []ast.Node {
 	p.memberStarts = append(p.memberStarts, p.peek().Span.Offset)
+	return p.commentMembers()
+}
+
+// closeComments returns the Comment members before the `}` or EOF closing a body; after a
+// trailing result expression the grammar admits none (SysML.xtext CalculationBodyPart).
+func (p *Parser) closeComments() []ast.Node {
+	if n := len(p.resultEnds); n > 0 && p.resultEnds[n-1] == p.peek().Span.Offset {
+		return nil
+	}
+	return p.commentMembers()
+}
+
+// commentMembers wraps each regular comment before the current token that is no notation's
+// body as an anonymous Comment member; the scan resumes where the last member position left it.
+func (p *Parser) commentMembers() []ast.Node {
+	return p.commentMembersBefore(p.peek().Span.Offset, -1)
+}
+
+// commentMembersBefore wraps the comments followed by the token at off (or, when from is not
+// negative, written anywhere in [from, off)) and skips the rest up to there as trivia or bodies.
+func (p *Parser) commentMembersBefore(off, from int) []ast.Node {
+	var members []ast.Node
+	for ; p.commentNext < len(p.comments); p.commentNext++ {
+		c := p.comments[p.commentNext]
+		if c.next.Span.Offset > off {
+			break
+		}
+		if (c.next.Span.Offset < off && (from < 0 || c.span.Offset < from)) || p.isCommentBody(c.span.Offset) {
+			continue
+		}
+		comment := &ast.Comment{BodySpan: c.span}
+		comment.NodeSpan = c.span
+		m := &ast.Membership{Member: comment}
+		m.NodeSpan = c.span
+		members = append(members, m)
+	}
+	return members
+}
+
+// recoverComments admits the comments between a misplaced prefix run starting at from and the
+// keyword it is read as following, as Comment members the body takes ahead of it (takeRecovered).
+func (p *Parser) recoverComments(from int, kw lexer.Token) {
+	p.memberStarts = append(p.memberStarts, kw.Span.Offset)
+	p.recovered = append(p.recovered, p.commentMembersBefore(kw.Span.Offset, from)...)
+}
+
+// takeRecovered returns the Comment members a recovery admitted ahead of the
+// member just parsed, which the body places before it.
+func (p *Parser) takeRecovered() []ast.Node {
+	members := p.recovered
+	p.recovered = nil
+	return members
+}
+
+// isCommentBody reports whether the comment at off was consumed as the body of
+// a `comment`, `doc` or `rep` notation. Bodies are recorded in source order and
+// the one asked about is among the latest, so the scan runs from the end.
+func (p *Parser) isCommentBody(off int) bool {
+	for i := len(p.commentBodies) - 1; i >= 0 && p.commentBodies[i] >= off; i-- {
+		if p.commentBodies[i] == off {
+			return true
+		}
+	}
+	return false
 }
 
 // resultEnd records the offset just past a body's trailing result expression
@@ -589,17 +670,19 @@ func (p *Parser) ParseFile() *ast.RootNamespace {
 	start := p.peek().Span.Offset
 	root := &ast.RootNamespace{}
 	for !p.atEOF() {
-		p.memberStart()
+		root.Members = append(root.Members, p.memberStart()...)
 		before := p.pos
 		beforeOff := p.peek().Span.Offset
 		member := p.parseMember()
-		p.markAttached(member)
+		root.Members = p.markAttached(member, root.Members)
+		root.Members = append(root.Members, p.takeRecovered()...)
 		root.Members = append(root.Members, member)
 		// Guarantee progress: if nothing was consumed, skip a token.
 		if p.pos == before && p.peek().Span.Offset == beforeOff && !p.atEOF() {
 			p.advance()
 		}
 	}
+	root.Members = append(root.Members, p.closeComments()...)
 	root.NodeSpan = p.spanFrom(start)
 	root.UndefinedOperators = p.undefinedOps
 	root.TypedBy = p.typedByCount
@@ -607,13 +690,41 @@ func (p *Parser) ParseFile() *ast.RootNamespace {
 	return root
 }
 
-// markAttached records where a member continuing the one before it began:
-// such a member opens no member position of its own, so a comment before it
-// is written where the grammar admits none.
-func (p *Parser) markAttached(m ast.Node) {
-	if m != nil && isAttachedMember(memberNode(m)) {
-		p.attachedStarts = append(p.attachedStarts, m.Span().Offset)
+// markAttached records where a member continuing the one before it began. Such a member opens no
+// member position, so the Comments memberStart made of the comments before it go back to trivia.
+func (p *Parser) markAttached(m ast.Node, members []ast.Node) []ast.Node {
+	if m == nil || !isAttachedMember(memberNode(m)) {
+		return members
 	}
+	p.attachedStarts = append(p.attachedStarts, m.Span().Offset)
+	return p.untakeComments(members, m.Span().Offset)
+}
+
+// untakeComments drops the Comment members memberStart returned at the position at, once
+// it turned out to continue the member before it; they are reported as trivia instead.
+func (p *Parser) untakeComments(members []ast.Node, at int) []ast.Node {
+	n := len(members)
+	for n > 0 && p.isCommentBefore(members[n-1], at) {
+		n--
+	}
+	return members[:n]
+}
+
+// isCommentBefore reports whether m is the Comment member memberStart made of a bare
+// regular comment whose next significant token is the one at off.
+func (p *Parser) isCommentBefore(m ast.Node, off int) bool {
+	ms, ok := m.(*ast.Membership)
+	if !ok {
+		return false
+	}
+	c, ok := ms.Member.(*ast.Comment)
+	if !ok || c.NodeSpan != c.BodySpan {
+		return false
+	}
+	i, found := slices.BinarySearchFunc(p.comments, c.BodySpan.Offset, func(pc pendingComment, want int) int {
+		return cmp.Compare(pc.span.Offset, want)
+	})
+	return found && p.comments[i].next.Span.Offset == off
 }
 
 // reportMisplacedComments warns on each regular comment written where the
@@ -667,6 +778,8 @@ func (p *Parser) checkpoint() parseCheckpoint {
 		undefinedOpLen: len(p.undefinedOps),
 		typedByCount:   p.typedByCount,
 		memberStartLen: len(p.memberStarts),
+		commentNext:    p.commentNext,
+		recoveredLen:   len(p.recovered),
 		commentBodyLen: len(p.commentBodies),
 		attachedLen:    len(p.attachedStarts),
 		resultEndLen:   len(p.resultEnds),
@@ -689,6 +802,8 @@ func (p *Parser) restore(cp parseCheckpoint) {
 	p.undefinedOps = p.undefinedOps[:cp.undefinedOpLen]
 	p.typedByCount = cp.typedByCount
 	p.memberStarts = p.memberStarts[:cp.memberStartLen]
+	p.commentNext = cp.commentNext
+	p.recovered = p.recovered[:cp.recoveredLen]
 	p.commentBodies = p.commentBodies[:cp.commentBodyLen]
 	p.attachedStarts = p.attachedStarts[:cp.attachedLen]
 	p.resultEnds = p.resultEnds[:cp.resultEndLen]

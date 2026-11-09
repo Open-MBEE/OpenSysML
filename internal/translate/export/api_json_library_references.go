@@ -24,7 +24,7 @@ func apiJSONReferencedLibraryIDs(elements []apiJSONObject) map[string]bool {
 		subject := rdf.ReferenceIRI(rdf.Term{}, element[1].value.(string))
 		for _, member := range element {
 			walkCompactValue(member.value, func(value any) {
-				if ref, ok := value.(apiJSONReference); ok {
+				if ref, ok := value.(APIJSONReference); ok {
 					id, _ := rdf.SubjectID(rdf.ReferenceIRI(subject, ref.ID))
 					referenced[id] = true
 				}

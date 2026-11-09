@@ -7,10 +7,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -19,16 +21,80 @@ import (
 	"github.com/Open-MBEE/OpenSysML/tests/testutil/graphcmp"
 )
 
-// TestEmbeddedSnapshotIsCurrent fails when the committed snapshot was not
-// regenerated after the bundled library, or the snapshot format, changed.
-func TestEmbeddedSnapshotIsCurrent(t *testing.T) {
-	want, err := BuildSnapshot(BundledSource())
-	if err != nil {
-		t.Fatalf("BuildSnapshot: %v", err)
+// builtSnapshot is the snapshot of the bundled library, built once per test
+// binary: the decode path is exercised from it whether or not the tree has a
+// generated snapshot to embed.
+var builtSnapshot struct {
+	once sync.Once
+	data []byte
+	err  error
+}
+
+// testSnapshot returns the snapshot BuildSnapshot writes for the bundled library.
+func testSnapshot(tb testing.TB) []byte {
+	tb.Helper()
+	builtSnapshot.once.Do(func() {
+		builtSnapshot.data, builtSnapshot.err = BuildSnapshot(BundledSource())
+	})
+	if builtSnapshot.err != nil {
+		tb.Fatalf("BuildSnapshot: %v", builtSnapshot.err)
 	}
-	if !bytes.Equal(want, stdlibSnapshot) {
+	return builtSnapshot.data
+}
+
+// testSnapshotIndex is SnapshotIndex over the snapshot testSnapshot builds.
+func testSnapshotIndex(tb testing.TB) *symbols.Index {
+	tb.Helper()
+	idx, err := snapshotIndexFrom(testSnapshot(tb), DefaultSource())
+	if err != nil {
+		tb.Fatalf("decode the snapshot: %v", err)
+	}
+	return idx
+}
+
+// TestEmbeddedSnapshotIsCurrent fails when a generated snapshot is embedded
+// that was not regenerated after the bundled library, or the snapshot format,
+// changed. A tree without one — a module-proxy checkout — has nothing to check.
+func TestEmbeddedSnapshotIsCurrent(t *testing.T) {
+	if stdlibSnapshot == nil {
+		t.Skip("no snapshot embedded; `make stdlib-snapshot` generates one")
+	}
+	if want := testSnapshot(t); !bytes.Equal(want, stdlibSnapshot) {
 		t.Fatalf("stdlib.snapshot is stale (%d bytes embedded, %d regenerated); run `go generate ./internal/workspace/libs`",
 			len(stdlibSnapshot), len(want))
+	}
+}
+
+// TestSnapshotIndexTellsAnAbsentSnapshotFromABrokenOne pins the two fallbacks
+// apart: a build without a snapshot is expected and only noted at debug level,
+// a snapshot that fails to decode is a build defect and warned about.
+func TestSnapshotIndexTellsAnAbsentSnapshotFromABrokenOne(t *testing.T) {
+	var absent []byte
+	if _, err := snapshotIndexFrom(absent, BundledSource()); !errors.Is(err, ErrNoSnapshot) {
+		t.Errorf("absent snapshot: got %v, want ErrNoSnapshot", err)
+	}
+	broken := []byte("not a snapshot")
+	if _, err := snapshotIndexFrom(broken, BundledSource()); !errors.Is(err, pack.ErrCorrupt) {
+		t.Errorf("broken snapshot: got %v, want ErrCorrupt", err)
+	}
+
+	var logs bytes.Buffer
+	original := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	t.Cleanup(func() { slog.SetDefault(original) })
+
+	if idx := frozenLibraryFrom(absent, BundledSource()); len(idx.LookupQualified("Base::Anything")) == 0 {
+		t.Error("absent snapshot: the library files were not loaded")
+	}
+	if got := logs.String(); !strings.Contains(got, "level=DEBUG") || strings.Contains(got, "level=WARN") {
+		t.Errorf("absent snapshot: want one debug record and no warning, got %q", got)
+	}
+	logs.Reset()
+	if idx := frozenLibraryFrom(broken, BundledSource()); len(idx.LookupQualified("Base::Anything")) == 0 {
+		t.Error("broken snapshot: the library files were not loaded")
+	}
+	if got := logs.String(); !strings.Contains(got, "level=WARN") {
+		t.Errorf("broken snapshot: want a warning, got %q", got)
 	}
 }
 
@@ -43,7 +109,7 @@ func TestSnapshotIndexMatchesFreshLoad(t *testing.T) {
 	}
 	fresh.Freeze()
 
-	decoded, err := DecodeSnapshot(stdlibSnapshot, loader.setDigest())
+	decoded, err := DecodeSnapshot(testSnapshot(t), loader.setDigest())
 	if err != nil {
 		t.Fatalf("DecodeSnapshot: %v", err)
 	}
@@ -79,7 +145,7 @@ func TestSnapshotIndexMatchesFreshLoad(t *testing.T) {
 
 // snapshotKindDigest pins the SymbolKind and PseudostateKind numbering the snapshot
 // stream persists under snapshotFormatVersion; a kind added or moved renumbers the ones after it.
-const snapshotKindDigest = "e7b3ced9fc89d152"
+const snapshotKindDigest = "b2dc82bb738f01d1"
 
 func TestSnapshotFormatVersionPinsSymbolKinds(t *testing.T) {
 	var b strings.Builder
@@ -94,14 +160,14 @@ func TestSnapshotFormatVersionPinsSymbolKinds(t *testing.T) {
 	if got := hex.EncodeToString(sum[:8]); got != snapshotKindDigest {
 		t.Fatalf("SymbolKind or PseudostateKind numbering changed under snapshot format %d (digest %s, want %s).\n"+
 			"The snapshot stream persists kinds as integers: bump snapshotFormatVersion so a "+
-			"blob in the old numbering is refused, regenerate stdlib.snapshot with "+
-			"`go generate ./internal/workspace/libs`, then update snapshotKindDigest.",
+			"blob in the old numbering is refused, then update snapshotKindDigest.",
 			snapshotFormatVersion, got, snapshotKindDigest)
 	}
 }
 
 func TestDecodeSnapshotRefusesOtherFiles(t *testing.T) {
-	if _, err := DecodeSnapshot(stdlibSnapshot, "0000"); !errors.Is(err, ErrSnapshotStale) {
+	snapshot := testSnapshot(t)
+	if _, err := DecodeSnapshot(snapshot, "0000"); !errors.Is(err, ErrSnapshotStale) {
 		t.Errorf("digest mismatch: got %v, want ErrSnapshotStale", err)
 	}
 	// A blob in the previous or a later format is refused before its stream
@@ -119,7 +185,7 @@ func TestDecodeSnapshotRefusesOtherFiles(t *testing.T) {
 		other := binary.AppendUvarint([]byte(snapshotMagic), version)
 		other = binary.AppendUvarint(other, uint64(len(digest)))
 		other = append(other, digest...)
-		other = append(other, stdlibSnapshot[len(other):]...)
+		other = append(other, snapshot[len(other):]...)
 		if _, err := DecodeSnapshot(other, digest); !errors.Is(err, ErrSnapshotStale) {
 			t.Errorf("format %d: got %v, want ErrSnapshotStale", version, err)
 		}
@@ -129,33 +195,34 @@ func TestDecodeSnapshotRefusesOtherFiles(t *testing.T) {
 // TestDecodeSnapshotRejectsCorruption feeds truncated and altered snapshots to
 // the decoder, which must report each rather than panic or return an index.
 func TestDecodeSnapshotRejectsCorruption(t *testing.T) {
+	snapshot := testSnapshot(t)
 	digest := NewLoader(BundledSource(), nil).setDigest()
 	if _, err := DecodeSnapshot([]byte("not a snapshot"), digest); !errors.Is(err, pack.ErrCorrupt) {
 		t.Errorf("garbage: got %v, want ErrCorrupt", err)
 	}
-	for _, n := range []int{len(snapshotMagic) + 3, len(stdlibSnapshot) / 2, len(stdlibSnapshot) - 1} {
-		if _, err := DecodeSnapshot(stdlibSnapshot[:n], digest); err == nil {
+	for _, n := range []int{len(snapshotMagic) + 3, len(snapshot) / 2, len(snapshot) - 1} {
+		if _, err := DecodeSnapshot(snapshot[:n], digest); err == nil {
 			t.Errorf("truncated to %d bytes: decoded without error", n)
 		}
 	}
 	// Damage that still parses — a byte inside a string, a run in the string
 	// table — is caught by the checksum, so no altered blob is decoded.
 	header := len(snapshotMagic) + len(digest) + 3
-	for _, at := range []int{header, 200000, len(stdlibSnapshot) * 3 / 4, len(stdlibSnapshot) - 200} {
-		data := bytes.Clone(stdlibSnapshot)
+	for _, at := range []int{header, 200000, len(snapshot) * 3 / 4, len(snapshot) - 200} {
+		data := bytes.Clone(snapshot)
 		data[at] ^= 0xff
 		if _, err := DecodeSnapshot(data, digest); !errors.Is(err, pack.ErrCorrupt) {
 			t.Errorf("byte %d flipped: got %v, want ErrCorrupt", at, err)
 		}
 	}
-	data := bytes.Clone(stdlibSnapshot)
+	data := bytes.Clone(snapshot)
 	for i := 200000; i < 200064; i++ {
 		data[i] ^= 0xff
 	}
 	if _, err := DecodeSnapshot(data, digest); !errors.Is(err, pack.ErrCorrupt) {
 		t.Errorf("64 bytes flipped: got %v, want ErrCorrupt", err)
 	}
-	if _, err := DecodeSnapshot(append(bytes.Clone(stdlibSnapshot), 0), digest); !errors.Is(err, pack.ErrCorrupt) {
+	if _, err := DecodeSnapshot(append(bytes.Clone(snapshot), 0), digest); !errors.Is(err, pack.ErrCorrupt) {
 		t.Errorf("trailing byte: got %v, want ErrCorrupt", err)
 	}
 }
@@ -167,7 +234,8 @@ func TestSnapshotIndexFollowsLibraryPath(t *testing.T) {
 	dir := t.TempDir()
 	writeLibraryTo(t, BundledSource(), dir)
 	t.Setenv(LibraryPathEnvVar, dir)
-	if _, err := SnapshotIndex(); err != nil {
+	snapshot := testSnapshot(t)
+	if _, err := snapshotIndexFrom(snapshot, DefaultSource()); err != nil {
 		t.Errorf("identical override: %v, want the snapshot", err)
 	}
 
@@ -175,7 +243,7 @@ func TestSnapshotIndexFollowsLibraryPath(t *testing.T) {
 	if err := os.WriteFile(edited, []byte("standard library package ScalarValues { datatype Edited; }\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := SnapshotIndex(); !errors.Is(err, ErrSnapshotStale) {
+	if _, err := snapshotIndexFrom(snapshot, DefaultSource()); !errors.Is(err, ErrSnapshotStale) {
 		t.Errorf("edited override: got %v, want ErrSnapshotStale", err)
 	}
 	idx := symbols.NewIndex()
@@ -208,11 +276,12 @@ func writeLibraryTo(t *testing.T, src Source, dir string) {
 // BenchmarkDecodeSnapshot times what a process pays to start from the
 // snapshot instead of from the files.
 func BenchmarkDecodeSnapshot(b *testing.B) {
+	snapshot := testSnapshot(b)
 	digest := NewLoader(BundledSource(), nil).setDigest()
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, err := DecodeSnapshot(stdlibSnapshot, digest); err != nil {
+		if _, err := DecodeSnapshot(snapshot, digest); err != nil {
 			b.Fatal(err)
 		}
 	}

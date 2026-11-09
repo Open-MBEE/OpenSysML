@@ -259,7 +259,7 @@ func (ss *Session) FeatureValue(object int64, feature string) (*pb.FeatureValue,
 	// A member read as a whole undetermined value — a Kernel collection the runtime
 	// cannot enumerate — is sent as that value, not as an empty collection.
 	if held := fv.HeldValue(); held.Kind == runtime.ValUndetermined {
-		out.Value = ss.svc.valueToProto(ss.rt, held, ss.cached.Index)
+		out.Value = ss.svc.valueToProto(ss.rt, held, ss.cached)
 		return out, nil
 	}
 	if fv.Feature.Scalar() {
@@ -268,7 +268,7 @@ func (ss *Session) FeatureValue(object int64, feature string) (*pb.FeatureValue,
 		case fv.Value.Kind == runtime.ValInvalid:
 			out.Value = &pb.Value{Kind: &pb.Value_Unset{Unset: true}}
 		default:
-			out.Value = ss.svc.valueToProto(ss.rt, fv.Value, ss.cached.Index)
+			out.Value = ss.svc.valueToProto(ss.rt, fv.Value, ss.cached)
 		}
 		return out, nil
 	}
@@ -277,7 +277,7 @@ func (ss *Session) FeatureValue(object int64, feature string) (*pb.FeatureValue,
 		return nil, err
 	}
 	for _, elem := range elements {
-		out.Values = append(out.Values, ss.svc.valueToProto(ss.rt, elem, ss.cached.Index))
+		out.Values = append(out.Values, ss.svc.valueToProto(ss.rt, elem, ss.cached))
 	}
 	return out, nil
 }
@@ -339,7 +339,7 @@ func (ss *Session) Evaluate(expression, contextSymbolID string) (*pb.Value, erro
 	if evalErr != nil {
 		return nil, ss.runFailure(evalErr, "evaluation failed: %v")
 	}
-	return ss.svc.valueToProto(ss.rt, result, ss.cached.Index), nil
+	return ss.svc.valueToProto(ss.rt, result, ss.cached), nil
 }
 
 // Members lists the named members the named declaration's scope holds, in
@@ -603,7 +603,7 @@ func (ss *Session) Perform(object int64, actionID string, inputs map[string]*pb.
 		Diagnostics: ss.diagnostics(notes),
 	}
 	for name, val := range exec.Results() {
-		out.Outputs[name] = ss.svc.valueToProto(ss.rt, val, ss.cached.Index)
+		out.Outputs[name] = ss.svc.valueToProto(ss.rt, val, ss.cached)
 	}
 	return out, nil
 }
@@ -729,7 +729,7 @@ func (ss *Session) value(name string, pv *pb.Value) (runtime.Value, error) {
 	if err := ss.svc.requireValueCapabilities(pv); err != nil {
 		return runtime.Value{}, err
 	}
-	val, err := protoconv.ProtoToRuntimeValue(ss.rt, pv, ss.cached.Index, ss.rt.Semantics())
+	val, err := protoconv.ProtoToRuntimeValueWith(ss.rt, pv, ss.cached.Index, ss.rt.Semantics(), ss.cached.SymbolContext())
 	if err != nil {
 		return runtime.Value{}, sessionFailuref("value %q could not be read: %v", name, err)
 	}

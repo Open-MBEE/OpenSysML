@@ -159,6 +159,7 @@ What a request asks for is fixed per capability:
 | `check` | Refuse `CheckBehavior`. |
 | `verification` | Refuse `VerifyConstraint`, `VerifyRequirement`, `VerifySatisfaction`, `ValidateInstance` and `EvaluateCalc`. |
 | `query` | Refuse `Query`. |
+| `element_properties` | Refuse `GetElementProperties`. |
 | `oslc_query` | Refuse `Query` only when `oslc_query` is set; structured queries still use `query`. |
 | `apply_edits` | Refuse `ApplyEdits`. |
 | `authoring` | Refuse `ApplyEdits` only when an operation is `add_member` or `delete`. |
@@ -171,6 +172,7 @@ What a request asks for is fixed per capability:
 | `compare_results` | Refuse `CompareResults`. |
 | `type_facts` | Response-population capability: omit type facts; no request asks for them. |
 | `symbol_attributes` | Response-population capability: omit symbol attributes; no request asks for them. |
+| `symbol_members` | Response-population capability: omit `SymbolInfo.members`, the members own and inherited with their provenance, and the `withheld_library_members` count; `GetSymbolRequest.include_library_members` is ignored without it. |
 | `feature_values` | Response-population capability: omit instance feature values; no request asks for them. |
 | `enum_values` | Response-population capability: encode enum values as unsupported nulls; no request asks for them. |
 | `unset_value` | Response-population capability: encode unset values as unsupported nulls; no request asks for them. |

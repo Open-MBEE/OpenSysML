@@ -10,6 +10,7 @@ mod conversion;
 mod document;
 mod domain;
 mod edit;
+mod element_properties;
 mod encode;
 mod error;
 mod graphs;
@@ -35,9 +36,10 @@ pub use check::{
 pub use connection::{Connection, TOKEN_ENV};
 pub use domain::{
     Array, BigInteger, Capabilities, Complex, Diagnostic, EnumLiteral, EvalOptions, Evaluation,
-    FeatureValue, Function, Instance, Instantiation, Language, Magnitude, MeasurementRef,
+    FeatureValue, Function, Instance, Instantiation, Language, Magnitude, MeasurementRef, Member,
     Metaobject, Model, ModelResponse, ParseOptions, Quantity, ServerInfo, Set, Span, Symbol,
-    TensorQuantity, Undetermined, UnitFactor, UnitTerm, Value, Vector, VectorQuantity,
+    SymbolOptions, TensorQuantity, Undetermined, UnitFactor, UnitTerm, Value, Vector,
+    VectorQuantity,
 };
 pub use error::{Error, Status};
 pub use graphs::Graphs;
@@ -61,6 +63,7 @@ pub use edit::{
     ImportOptions, MemberOptions, MetadataOptions, Referrer, SatisfyOptions, StateActionKind,
     StatementOptions, ThenStep, TransitionOptions,
 };
+pub use element_properties::{ElementIdentity, ElementProperties, ElementProperty, PropertyValue};
 pub use migration::{
     is_v1, path_is_v1, Layout, MigrateOptions, MigrateSource, Migration, MigrationEntry,
     MigrationReport, MIGRATED_NOT_CONVERTED, MIGRATION_NOTICE, V1_FORMATS, VERDICT_APPROXIMATED,

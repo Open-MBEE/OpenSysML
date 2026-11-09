@@ -175,7 +175,7 @@ func (ctx *Context) unbegunPerformance(inst *Instance) bool {
 		return false
 	}
 	sym := fv.Feature.Symbol
-	if sym.Kind != symbols.SymbolActionUsage && sym.Kind != symbols.SymbolStateUsage {
+	if !sym.Kind.IsActionUsage() && sym.Kind != symbols.SymbolStateUsage {
 		return false
 	}
 	for _, b := range owner.behaviors {

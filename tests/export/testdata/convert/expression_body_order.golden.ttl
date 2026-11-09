@@ -451,6 +451,7 @@ expr:Ordered__Mixed___401_presult_pa0_pin0_om
     sysml:source expr:Ordered__Mixed___401_presult_pa0 ;
     sysml:target expr:Ordered__Mixed___401_presult_pa0_pin0 ;
     sysml:relatedElement expr:Ordered__Mixed___401_presult_pa0, expr:Ordered__Mixed___401_presult_pa0_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Ordered__Mixed___401_presult_pa0_pin0 ;
     sysml:ownedMemberParameter expr:Ordered__Mixed___401_presult_pa0_pin0 ;
     json:relatedElement "[{\"@id\":\"Ordered__Mixed___401_presult_pa0\"},{\"@id\":\"Ordered__Mixed___401_presult_pa0_pin0\"}]" .
@@ -544,6 +545,7 @@ expr:Ordered__Mixed___401_presult_pa0_pin1_om
     sysml:source expr:Ordered__Mixed___401_presult_pa0 ;
     sysml:target expr:Ordered__Mixed___401_presult_pa0_pin1 ;
     sysml:relatedElement expr:Ordered__Mixed___401_presult_pa0, expr:Ordered__Mixed___401_presult_pa0_pin1 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Ordered__Mixed___401_presult_pa0_pin1 ;
     sysml:ownedMemberParameter expr:Ordered__Mixed___401_presult_pa0_pin1 ;
     json:relatedElement "[{\"@id\":\"Ordered__Mixed___401_presult_pa0\"},{\"@id\":\"Ordered__Mixed___401_presult_pa0_pin1\"}]" .
@@ -612,6 +614,7 @@ expr:Ordered__Mixed___401_presult_pin0_om
     sysml:source expr:Ordered__Mixed___401_presult ;
     sysml:target expr:Ordered__Mixed___401_presult_pin0 ;
     sysml:relatedElement expr:Ordered__Mixed___401_presult, expr:Ordered__Mixed___401_presult_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Ordered__Mixed___401_presult_pin0 ;
     sysml:ownedMemberParameter expr:Ordered__Mixed___401_presult_pin0 ;
     json:relatedElement "[{\"@id\":\"Ordered__Mixed___401_presult\"},{\"@id\":\"Ordered__Mixed___401_presult_pin0\"}]" .
@@ -730,6 +733,7 @@ expr:Ordered__Mixed___401_presult_pa1_pin0_om
     sysml:source expr:Ordered__Mixed___401_presult_pa1 ;
     sysml:target expr:Ordered__Mixed___401_presult_pa1_pin0 ;
     sysml:relatedElement expr:Ordered__Mixed___401_presult_pa1, expr:Ordered__Mixed___401_presult_pa1_pin0 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Ordered__Mixed___401_presult_pa1_pin0 ;
     sysml:ownedMemberParameter expr:Ordered__Mixed___401_presult_pa1_pin0 ;
     json:relatedElement "[{\"@id\":\"Ordered__Mixed___401_presult_pa1\"},{\"@id\":\"Ordered__Mixed___401_presult_pa1_pin0\"}]" .
@@ -827,6 +831,7 @@ expr:Ordered__Mixed___401_presult_pa1_pin1_om
     sysml:source expr:Ordered__Mixed___401_presult_pa1 ;
     sysml:target expr:Ordered__Mixed___401_presult_pa1_pin1 ;
     sysml:relatedElement expr:Ordered__Mixed___401_presult_pa1, expr:Ordered__Mixed___401_presult_pa1_pin1 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Ordered__Mixed___401_presult_pa1_pin1 ;
     sysml:ownedMemberParameter expr:Ordered__Mixed___401_presult_pa1_pin1 ;
     json:relatedElement "[{\"@id\":\"Ordered__Mixed___401_presult_pa1\"},{\"@id\":\"Ordered__Mixed___401_presult_pa1_pin1\"}]" .
@@ -895,6 +900,7 @@ expr:Ordered__Mixed___401_presult_pin1_om
     sysml:source expr:Ordered__Mixed___401_presult ;
     sysml:target expr:Ordered__Mixed___401_presult_pin1 ;
     sysml:relatedElement expr:Ordered__Mixed___401_presult, expr:Ordered__Mixed___401_presult_pin1 ;
+    sysml:visibility "private" ;
     sysml:ownedMemberFeature expr:Ordered__Mixed___401_presult_pin1 ;
     sysml:ownedMemberParameter expr:Ordered__Mixed___401_presult_pin1 ;
     json:relatedElement "[{\"@id\":\"Ordered__Mixed___401_presult\"},{\"@id\":\"Ordered__Mixed___401_presult_pin1\"}]" .
@@ -2581,6 +2587,18 @@ elmt:c91ad911-9e73-52fe-b252-f5baeb6064ee
     a sysml:FeatureMembership ;
     sysml:elementId "c91ad911-9e73-52fe-b252-f5baeb6064ee" ;
     sysml:memberElement elmt:faf13619-5fb6-5a19-871e-e14767f89a28 ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:db0b2590-1035-512c-b067-686a67c7d430
+    a sysml:Comment ;
+    sysml:elementId "db0b2590-1035-512c-b067-686a67c7d430" ;
+    sysx:libraryPath "Occurrences::Occurrence/Comment[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:cd6c9495-be14-578e-9065-28c9dbe6b52c
+    a sysml:OwningMembership ;
+    sysml:elementId "cd6c9495-be14-578e-9065-28c9dbe6b52c" ;
+    sysml:memberElement elmt:db0b2590-1035-512c-b067-686a67c7d430 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:ce1e26be-26ce-5b72-9a3e-1f940c8d35db

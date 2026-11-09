@@ -1,0 +1,74 @@
+(RootNamespace
+  (Membership visibility="default"
+    (Package name="StateSubactionAccept" library=false standard=false
+      (Membership visibility="default"
+        (Definition kind="attribute" abstract=false variation=false name="Sig"))
+      (Membership visibility="default"
+        (Definition kind="attribute" abstract=false variation=false name="Stop"))
+      (Membership visibility="default"
+        (Definition kind="port" abstract=false variation=false name="SigPort"))
+      (Membership visibility="default"
+        (Definition kind="state" abstract=false variation=false name="Monitor"
+          (Membership visibility="default"
+            (Usage kind="port" name="p" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=SigPort
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="attribute" name="count" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=ScalarValues::Integer
+                (*ast.QualifiedName))))
+          (Membership visibility="default"
+            (Usage kind="state" name="idle" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (EntryMember
+                (Membership visibility="default"
+                  (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="entry"
+                    (Relationship kind="via" target=p
+                      (*ast.QualifiedName))
+                    (Membership visibility="default"
+                      (Usage kind="attribute" name="a" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                        (Relationship kind="typing" target=Sig
+                          (*ast.QualifiedName)))))))
+              (DoMember
+                (Membership visibility="default"
+                  (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="do"
+                    (Membership visibility="default"
+                      (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                        (Relationship kind="typing" target=Sig
+                          (*ast.QualifiedName)))))))
+              (ExitMember
+                (Membership visibility="default"
+                  (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="exit"
+                    (Membership visibility="default"
+                      (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                        (Relationship kind="subsets" target=stop
+                          (*ast.QualifiedName))))
+                    (*ast.AssignmentActionNode))))))
+          (Membership visibility="default"
+            (Usage kind="state" name="busy" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (EntryMember
+                (Membership visibility="default"
+                  (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="entry"
+                    (Membership visibility="default"
+                      (Usage kind="attribute" name="a" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                        (Relationship kind="typing" target=Sig
+                          (*ast.QualifiedName)))))))
+              (SuccessionEdge source="@entry" target="idle")))
+          (Membership visibility="default"
+            (Usage kind="state" name="done" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (DoMember
+                (Membership visibility="default"
+                  (Usage kind="action" name="" ref=false direction="none" composite=false derived=false ordered=false nonunique=false prefix="do"
+                    (Membership visibility="default"
+                      (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                        (TimeEvent absolute=false
+                          (IndexExpr bracket=true
+                            (LiteralInteger value="2")
+                            (FeatureReference name="SI::s"))))))))
+              (TransitionMember source="" target="idle"
+                (Usage kind="attribute" name="" ref=true direction="out" composite=false derived=false ordered=false nonunique=false
+                  (Relationship kind="typing" target=Stop
+                    (*ast.QualifiedName))))))
+          (Membership visibility="default"
+            (Usage kind="occurrence" name="stop" ref=false direction="none" composite=false derived=false ordered=false nonunique=false
+              (Relationship kind="typing" target=Stop
+                (*ast.QualifiedName)))))))))

@@ -33,7 +33,10 @@ func (ctx *Context) calcToolCall(shape *calcShape, scope *symbols.Scope, held fu
 			continue
 		}
 		if param.IsResult {
-			result = param.Symbol
+			// The kind base's result (`Evaluation::result`) is nothing a tool answers.
+			if !ctx.model.semantics.IsKindBaseParameter(shape.Sym, param.Symbol) {
+				result = param.Symbol
+			}
 			continue
 		}
 		if param.Symbol.Name == "" {

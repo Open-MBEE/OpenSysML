@@ -31,12 +31,12 @@ var (
 	circleSettled      = regexp.MustCompile(`(?m)^\s*exportsettled='([^']+)'$`)
 	makefileCoverage   = regexp.MustCompile(`(?m)^COVERAGE_SHARDS := (.+)$`)
 	circleShardArrays  = regexp.MustCompile(`(?m)^\s*shards=\(([^)]+)\)$`)
+	shardArrayEntry    = regexp.MustCompile(`"([^"]*)"|(\S+)`)
 	circleParallelism  = regexp.MustCompile(`(?m)^  (go-race-test|go-coverage):\n(?:    .*\n)*?    parallelism: (\d+)$`)
 	circleCorpus       = regexp.MustCompile(`(?m)^\s*corpus='([^']+)'$`)
 	makefileExplore    = regexp.MustCompile(`(?m)^RACE_RUNTIME_EXPLORATION := (.+)$`)
 	circleExplore      = regexp.MustCompile(`(?m)^\s*exploration='([^']+)'$`)
 	workflowShards     = regexp.MustCompile(`go_shards=\[([^\]]+)\]`)
-	workflowProfiles   = regexp.MustCompile(`-ne (\d+) \]; then echo "error: expected (\d+) shard profiles`)
 	workflowQuoted     = regexp.MustCompile(`"([^"]+)"`)
 	workflowQuickGroup = regexp.MustCompile(`\s+`)
 )
@@ -68,26 +68,49 @@ func TestCircleCIShardArraysMatchTheRaceShards(t *testing.T) {
 	if len(arrays) != 2 {
 		t.Fatalf(".circleci/config.yml: expected the race and coverage shard arrays, found %d", len(arrays))
 	}
-	race := strings.Fields(arrays[0][1])
+	raceNodes := shardArrayEntries(arrays[0][1])
 	coverage := strings.Fields(arrays[1][1])
 
-	if !slices.Equal(race, shards) {
-		t.Errorf("race job shards %v, scripts/race-shard.sh %v", race, shards)
+	// A race node runs one shard, or the shards of one quoted entry in turn; together the
+	// nodes run every shard once, in whatever order.
+	var race []string
+	for _, node := range raceNodes {
+		race = append(race, strings.Fields(node)...)
 	}
-	wantCoverage := slices.DeleteFunc(slices.Clone(shards), isCorpusShard)
+	slices.Sort(race)
+	if !slices.Equal(race, slices.Sorted(slices.Values(shards))) {
+		t.Errorf("race job nodes %q run shards %v, scripts/race-shard.sh %v", raceNodes, race, shards)
+	}
+	// The coverage job has no corpus shards of the runtime: without -race the package runs
+	// whole in its runtime shard.
+	wantCoverage := slices.DeleteFunc(slices.Clone(shards), func(s string) bool {
+		return s == "runtime-corpus" || s == "runtime-exploration"
+	})
 	if !slices.Equal(coverage, wantCoverage) {
-		t.Errorf("coverage job shards %v, want the race shards but the -corpus ones %v", coverage, wantCoverage)
+		t.Errorf("coverage job shards %v, want the race shards but the runtime's corpus shards %v", coverage, wantCoverage)
 	}
 	makeCoverage := strings.Fields(firstSubmatch(t, makefileCoverage, makefile, "Makefile COVERAGE_SHARDS"))
 	if !slices.Equal(coverage, makeCoverage) {
 		t.Errorf("coverage job shards %v, Makefile COVERAGE_SHARDS %v", coverage, makeCoverage)
+	}
+	// A by-test-name shard and the package shard it is cut from each select their tests in
+	// make coverage-shard; without that both would write the whole package's profile.
+	for _, shard := range coverage {
+		if !isCorpusShard(shard) {
+			continue
+		}
+		for _, s := range []string{shard, strings.SplitN(shard, "-", 2)[0]} {
+			if !strings.Contains(makefile, "\nCOVERAGE_SELECT_"+s+" = ") {
+				t.Errorf("coverage shard %s: the Makefile has no COVERAGE_SELECT_%s", shard, s)
+			}
+		}
 	}
 
 	parallelism := map[string]string{}
 	for _, m := range circleParallelism.FindAllStringSubmatch(config, -1) {
 		parallelism[m[1]] = m[2]
 	}
-	if got, want := parallelism["go-race-test"], len(race); got != itoa(want) {
+	if got, want := parallelism["go-race-test"], len(raceNodes); got != itoa(want) {
 		t.Errorf("go-race-test parallelism %q, its shard array has %d entries", got, want)
 	}
 	if got, want := parallelism["go-coverage"], len(coverage); got != itoa(want) {
@@ -95,10 +118,24 @@ func TestCircleCIShardArraysMatchTheRaceShards(t *testing.T) {
 	}
 }
 
+// shardArrayEntries splits the body of a bash array literal into its entries: words, and
+// double-quoted strings (which may hold several words) as one entry each.
+func shardArrayEntries(body string) []string {
+	var entries []string
+	for _, m := range shardArrayEntry.FindAllStringSubmatch(body, -1) {
+		if m[1] != "" {
+			entries = append(entries, m[1])
+		} else {
+			entries = append(entries, m[2])
+		}
+	}
+	return entries
+}
+
 // TestPRWorkflowMatricesCoverTheRaceShards: the full tier runs every race shard but
 // tools (tests/wasm is the WebAssembly gate job there, the tools module rides with
-// rest), expects one coverage profile per shard, and the quick tier's groups together
-// name every package shard once (runtime and export cover their -corpus shards' package).
+// rest), and the quick tier's groups together name every package shard once (runtime and
+// export cover their -corpus shards' package).
 
 // isCorpusShard says whether a shard is a by-test-name part of another shard's package
 // (runtime-corpus, export-corpus, export-settled): the hyphenated names.
@@ -121,10 +158,6 @@ func TestPRWorkflowMatricesCoverTheRaceShards(t *testing.T) {
 	wantFull := slices.DeleteFunc(slices.Clone(shards), func(s string) bool { return s == "tools" })
 	if !slices.Equal(full, wantFull) {
 		t.Errorf("full tier go_shards %v, want the race shards but tools %v", full, wantFull)
-	}
-	m := workflowProfiles.FindStringSubmatch(workflow)
-	if m == nil || m[1] != itoa(len(full)) || m[2] != itoa(len(full)) {
-		t.Errorf("race-coverage expects %v shard profiles, the full tier has %d shards", m, len(full))
 	}
 
 	var quick []string

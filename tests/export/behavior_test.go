@@ -23,6 +23,7 @@ var behavioralModels = []string{"action_nodes", "loops_conditionals", "state_mac
 // from RDF as the same bytes it was written as, not merely as a graph that says
 // something similar.
 func TestBehavioralModelsComeBackByteIdentical(t *testing.T) {
+	t.Parallel()
 	for _, name := range behavioralModels {
 		t.Run(name, func(t *testing.T) {
 			path := filepath.Join("testdata", "convert", name+".sysml")
@@ -96,6 +97,7 @@ func TestStateMachineMetaclasses(t *testing.T) {
 // Each shape of each behavioral statement round trips on its own, so a failure
 // names the notation that broke rather than a whole model.
 func TestBehavioralStatementsRoundTrip(t *testing.T) {
+	t.Parallel()
 	actions := map[string]string{
 		"initial node":        "first start;",
 		"guarded initial":     "first start if speed > 0 then brake;",
@@ -144,6 +146,7 @@ func TestBehavioralStatementsRoundTrip(t *testing.T) {
 // The members of a state body round trip in each of the shapes the notation
 // allows: a subaction stated with braces, with a single action, or empty.
 func TestStateMembersRoundTrip(t *testing.T) {
+	t.Parallel()
 	members := map[string]string{
 		"entry succession":     "entry;\n        then launch;",
 		"start state":          "state launch;",
@@ -245,6 +248,7 @@ func TestUnsupportedBehavioralShapesAreReported(t *testing.T) {
 // parser reads it. The graph alone, without the text each member was written
 // as, has to bring every such `then` back where it stood.
 func TestThenComesBackPastTheMembersTheParserSkips(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join("testdata", "convert", "then_after_members.sysml")
 	src, err := os.ReadFile(path)
 	if err != nil {
@@ -953,8 +957,11 @@ func TestThenIsRefusedWhenTheGraphSequencesFromAnotherMember(t *testing.T) {
 	if err != nil {
 		t.Fatalf("to turtle: %v", err)
 	}
+	// The flow before the `then` relates its own source, a, as well (its FlowEnd references
+	// the feature before `.y`), so the succession's statement is the one in its block.
 	const stated = "sysml:sourceFeature elmt:P__A__a"
-	if strings.Count(string(turtle), stated) != 1 {
+	succession := elementBlock(t, string(turtle), "a sysml:SuccessionAsUsage ;", stated)
+	if strings.Count(succession, stated) != 1 {
 		t.Fatalf("the succession should state its source once as %s:\n%s", stated, turtle)
 	}
 	for name, source := range map[string]string{
@@ -962,9 +969,26 @@ func TestThenIsRefusedWhenTheGraphSequencesFromAnotherMember(t *testing.T) {
 		"the flow written before": "elmt:P__A___402",
 	} {
 		t.Run(name, func(t *testing.T) {
-			checkThenIsRefusedWithSource(t, turtle, stated, source)
+			moved := strings.Replace(string(turtle), succession, strings.Replace(succession, stated, "sysml:sourceFeature "+source, 1), 1)
+			checkThenIsRefusedWithSource(t, turtle, []byte(moved), source)
 		})
 	}
+}
+
+// elementBlock is the one Turtle block of turtle whose second line is typed
+// and which states stated; none or several fail the test.
+func elementBlock(t *testing.T, turtle, typed, stated string) string {
+	t.Helper()
+	var found []string
+	for _, block := range strings.Split(turtle, "\n\n") {
+		if lines := strings.SplitN(block, "\n", 3); len(lines) >= 2 && strings.TrimSpace(lines[1]) == typed && strings.Contains(block, stated) {
+			found = append(found, block)
+		}
+	}
+	if len(found) != 1 {
+		t.Fatalf("%d blocks are typed %q and state %s, want one:\n%s", len(found), typed, stated, turtle)
+	}
+	return found[0]
 }
 
 // The non-feature members a `then` is read past are no source for it either: a
@@ -995,7 +1019,8 @@ func TestThenIsRefusedWhenTheGraphSequencesFromANonFeature(t *testing.T) {
 		"the multiplicity written before":      "elmt:P__A__m",
 	} {
 		t.Run(name, func(t *testing.T) {
-			checkThenIsRefusedWithSource(t, turtle, stated, source)
+			moved := strings.Replace(string(turtle), stated, "sysml:sourceFeature "+source, 1)
+			checkThenIsRefusedWithSource(t, turtle, []byte(moved), source)
 		})
 	}
 }
@@ -1024,20 +1049,20 @@ func TestThenIsRefusedWhenTheGraphSequencesFromAStateBodyComment(t *testing.T) {
 		"the comment written before": "elmt:P__S___402",
 	} {
 		t.Run(name, func(t *testing.T) {
-			checkThenIsRefusedWithSource(t, turtle, stated, source)
+			moved := strings.Replace(string(turtle), stated, "sysml:sourceFeature "+source, 1)
+			checkThenIsRefusedWithSource(t, turtle, []byte(moved), source)
 		})
 	}
 }
 
 // checkThenIsRefusedWithSource moves the stated source of the one succession
 // in turtle to source, an element of the graph, and requires the refusal.
-func checkThenIsRefusedWithSource(t *testing.T, turtle []byte, stated, source string) {
+func checkThenIsRefusedWithSource(t *testing.T, turtle, moved []byte, source string) {
 	t.Helper()
 	if !strings.Contains(string(turtle), "\n"+source+"\n") {
 		t.Fatalf("%s is not an element of the graph:\n%s", source, turtle)
 	}
-	moved := strings.Replace(string(turtle), stated, "sysml:sourceFeature "+source, 1)
-	_, err := convert.Convert("m.ttl", []byte(moved), convert.FormatTurtle, convert.FormatSysML)
+	_, err := convert.Convert("m.ttl", moved, convert.FormatTurtle, convert.FormatSysML)
 	var unsupported *export.UnsupportedError
 	if !errors.As(err, &unsupported) {
 		t.Fatalf("want an UnsupportedError, got %v", err)

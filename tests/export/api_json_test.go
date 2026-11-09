@@ -56,6 +56,7 @@ func tripleSet(g *rdf.Graph) map[rdf.Triple]bool {
 // it and reading it back must yield the graph's triple set exactly, and writing
 // the graph it read must spell the document the same way again.
 func TestAPIJSONInverseOverAllFixtures(t *testing.T) {
+	t.Parallel()
 	refused := 0
 	for _, path := range apiJSONModels(t) {
 		name, _ := fixtureName(path)
@@ -188,6 +189,7 @@ var apiJSONDevelopStandardRouteParityFixtures = []string{
 }
 
 func TestAPIJSONConvertRoutesMatchTurtleOnDevelopPassingFixtures(t *testing.T) {
+	t.Parallel()
 	expected := make(map[string]struct{}, len(apiJSONDevelopStandardRouteParityFixtures))
 	for _, path := range apiJSONDevelopStandardRouteParityFixtures {
 		expected[filepath.Clean(path)] = struct{}{}
