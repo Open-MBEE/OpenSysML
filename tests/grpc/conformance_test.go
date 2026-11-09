@@ -50,6 +50,22 @@ type expectedAttribute struct {
 	Unit      string      `json:"unit"`
 }
 
+// expectedTypeInfo is a GetSymbol case's expected_type_info: the typing as
+// written and the derived Feature::type ids, in order.
+type expectedTypeInfo struct {
+	Declared   string   `json:"declared"`
+	ResolvedID string   `json:"resolved_id"`
+	Types      []string `json:"types"`
+}
+
+// expectedSpecialization is one entry of a GetSymbol case's
+// expected_specializations.
+type expectedSpecialization struct {
+	Kind     string `json:"kind"`
+	Declared string `json:"declared"`
+	TargetID string `json:"target_id"`
+}
+
 // expectedMember is one entry of a GetSymbol case's expected_members.
 type expectedMember struct {
 	ID            string `json:"id"`
@@ -193,6 +209,10 @@ type conformanceCase struct {
 	// values; AbsentMetadata are keys it must not carry.
 	ExpectedMetadata map[string]string `json:"expected_metadata,omitempty"`
 	AbsentMetadata   []string          `json:"absent_metadata,omitempty"`
+	// ExpectedTypeInfo pins the written typing and the derived types;
+	// ExpectedSpecializations the full ordered list of generalization edges.
+	ExpectedTypeInfo        *expectedTypeInfo        `json:"expected_type_info,omitempty"`
+	ExpectedSpecializations []expectedSpecialization `json:"expected_specializations,omitempty"`
 
 	// ImportData: the imports, in order.
 	Imports      []conformanceImport `json:"imports,omitempty"`
@@ -889,6 +909,28 @@ func runGetSymbolCase(t *testing.T, srv *grpc.Service, ctx context.Context, mode
 			t.Errorf("metadata[%s] = %q, want it absent", key, got)
 		}
 	}
+	if want := tc.ExpectedTypeInfo; want != nil {
+		info := resp.Symbol.GetTypeInfo()
+		if info.GetDeclared() != want.Declared || info.GetResolvedId() != want.ResolvedID {
+			t.Errorf("type_info written typing = %q/%q, want %q/%q", info.GetDeclared(), info.GetResolvedId(), want.Declared, want.ResolvedID)
+		}
+		var got []string
+		for _, ref := range info.GetTypes() {
+			got = append(got, ref.GetId())
+		}
+		if strings.Join(got, ",") != strings.Join(want.Types, ",") {
+			t.Errorf("type_info.types = %v, want %v", got, want.Types)
+		}
+	}
+	if tc.ExpectedSpecializations != nil {
+		var got []expectedSpecialization
+		for _, spec := range resp.Symbol.GetSpecializations() {
+			got = append(got, expectedSpecialization{Kind: spec.GetKind(), Declared: spec.GetDeclared(), TargetID: spec.GetTargetId()})
+		}
+		if !slices.Equal(got, tc.ExpectedSpecializations) {
+			t.Errorf("specializations = %v, want %v", got, tc.ExpectedSpecializations)
+		}
+	}
 	if want := tc.MinWithheldLibraryAttributes; want > 0 {
 		if got := resp.Symbol.GetWithheldLibraryAttributes(); got < want {
 			t.Errorf("withheld library attributes = %d, want at least %d", got, want)
@@ -1472,6 +1514,10 @@ func toProtoValue(t *testing.T, ev expectedValue) *pb.Value {
 		return &pb.Value{Kind: &pb.Value_StringValue{StringValue: s}}
 	case "null":
 		return &pb.Value{Kind: &pb.Value_Null{Null: ""}}
+	case "metaobject":
+		text, _ := ev.Value.(string)
+		element, metaclass, _ := strings.Cut(text, " : ")
+		return &pb.Value{Kind: &pb.Value_Metaobject{Metaobject: &pb.Metaobject{ElementId: element, MetaclassId: metaclass}}}
 	case "instance_id":
 		return &pb.Value{Kind: &pb.Value_InstanceId{InstanceId: int64(mustFloat(t, ev))}}
 	case "sequence":
@@ -1552,6 +1598,8 @@ func describeValue(v *pb.Value) (string, interface{}) {
 		return "null", nil
 	case *pb.Value_Unset:
 		return "unset", nil
+	case *pb.Value_Metaobject:
+		return "metaobject", k.Metaobject.GetElementId() + " : " + k.Metaobject.GetMetaclassId()
 	default:
 		return "no arm", nil
 	}

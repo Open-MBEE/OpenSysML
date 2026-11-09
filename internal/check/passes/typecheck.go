@@ -392,7 +392,9 @@ func (tc *typeChecker) checkTypeTarget(scope *symbols.Scope, target ast.Node, re
 		return
 	}
 	if relKind == ast.RelRedefines || relKind == ast.RelSubsets {
-		if tc.checkNearestDeclaredUsageTyping(targetSym, decl) {
+		// A satisfy/assert of the wrong referent kind is the referent-kind rule's finding.
+		if referentKindMessage(decl, relKind, referentKind(targetSym), "") == "" &&
+			tc.checkNearestDeclaredUsageTyping(targetSym, decl) {
 			return
 		}
 	}
@@ -1088,10 +1090,19 @@ var usageSymbolKinds = map[symbols.SymbolKind]bool{
 	symbols.SymbolBindingUsage:            true,
 	symbols.SymbolSuccessionUsage:         true,
 	symbols.SymbolFlowUsage:               true,
+	symbols.SymbolSuccessionFlowUsage:     true,
 	symbols.SymbolPortUsage:               true,
 	symbols.SymbolInterfaceUsage:          true,
 	symbols.SymbolAllocationUsage:         true,
 	symbols.SymbolActionUsage:             true,
+	symbols.SymbolAcceptActionUsage:       true,
+	symbols.SymbolAssignmentActionUsage:   true,
+	symbols.SymbolPerformActionUsage:      true,
+	symbols.SymbolIfActionUsage:           true,
+	symbols.SymbolWhileLoopActionUsage:    true,
+	symbols.SymbolForLoopActionUsage:      true,
+	symbols.SymbolTerminateActionUsage:    true,
+	symbols.SymbolSendActionUsage:         true,
 	symbols.SymbolStateUsage:              true,
 	symbols.SymbolCalcUsage:               true,
 	symbols.SymbolConstraintUsage:         true,

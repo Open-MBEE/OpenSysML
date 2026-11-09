@@ -253,6 +253,8 @@ elmt:Chains__Named
     sysml:declaredName "Named" ;
     sysml:annotatedElement elmt:Chains__V ;
     sysml:body "a comment that is identified " ;
+    sysml:ownedAnnotatingRelationship elmt:Chains__Named_an0 ;
+    sysml:ownedRelationship elmt:Chains__Named_an0 ;
     sysx:sourceText "    comment Named about V /* a comment that is identified */\n" .
 
 elmt:Chains__Named_om
@@ -314,6 +316,19 @@ elmt:Chains__c_ft0
     sysml:owner elmt:Chains__c ;
     sysml:relatedElement elmt:Chains__c, elmt:Chains__V ;
     json:relatedElement "[{\"@id\":\"Chains__c\"},{\"@id\":\"Chains__V\"}]" .
+
+elmt:Chains__Named_an0
+    a sysml:Annotation ;
+    sysml:elementId "Chains__Named_an0" ;
+    sysml:annotatingElement elmt:Chains__Named ;
+    sysml:owningAnnotatingElement elmt:Chains__Named ;
+    sysml:source elmt:Chains__Named ;
+    sysml:owningRelatedElement elmt:Chains__Named ;
+    sysml:annotatedElement elmt:Chains__V ;
+    sysml:target elmt:Chains__V ;
+    sysml:owner elmt:Chains__Named ;
+    sysml:relatedElement elmt:Chains__Named, elmt:Chains__V ;
+    json:relatedElement "[{\"@id\":\"Chains__Named\"},{\"@id\":\"Chains__V\"}]" .
 
 elmt:f9e920cc-2ec4-56b3-9920-8e5dbbc50a5a
     a sysml:Feature ;
@@ -1596,6 +1611,18 @@ elmt:c91ad911-9e73-52fe-b252-f5baeb6064ee
     a sysml:FeatureMembership ;
     sysml:elementId "c91ad911-9e73-52fe-b252-f5baeb6064ee" ;
     sysml:memberElement elmt:faf13619-5fb6-5a19-871e-e14767f89a28 ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:db0b2590-1035-512c-b067-686a67c7d430
+    a sysml:Comment ;
+    sysml:elementId "db0b2590-1035-512c-b067-686a67c7d430" ;
+    sysx:libraryPath "Occurrences::Occurrence/Comment[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:cd6c9495-be14-578e-9065-28c9dbe6b52c
+    a sysml:OwningMembership ;
+    sysml:elementId "cd6c9495-be14-578e-9065-28c9dbe6b52c" ;
+    sysml:memberElement elmt:db0b2590-1035-512c-b067-686a67c7d430 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:d0cefcb9-9a11-5ac1-a47b-3f70c117bd08

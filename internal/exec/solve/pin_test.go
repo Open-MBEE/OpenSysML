@@ -91,6 +91,157 @@ func TestFixedReadsTheValuesTheModelDeclares(t *testing.T) {
 	}
 }
 
+// TestFixedForKeepsAFeatureNamedLikeItsOwners: a constraint's own feature is fixed beside its owner's of the same name.
+func TestFixedForKeepsAFeatureNamedLikeItsOwners(t *testing.T) {
+	ctx, idx := fixtureFile(t, "shadowed_pins.sysml")
+	owner := symbolNamed(t, idx, "test::h")
+	element := symbolNamed(t, idx, "test::h::k")
+	pins, unfixed := FixedFor(ctx, Fixing{Element: element, Owner: owner})
+	if len(unfixed) != 0 {
+		t.Fatalf("declared values could not be read: %+v", unfixed)
+	}
+	got := map[*symbols.Symbol]float64{}
+	for _, p := range pins {
+		got[p.Feature] = p.Value.Const.AsReal()
+	}
+	for _, want := range []struct {
+		feature string
+		value   float64
+	}{{"test::h::x", 2.0}, {"test::h::w", 3.0}, {"test::h::k::x", 1.0}} {
+		sym := symbolNamed(t, idx, want.feature)
+		if value, ok := got[sym]; !ok || value != want.value {
+			t.Errorf("%s pinned to %v (present %v), want %v", want.feature, value, ok, want.value)
+		}
+	}
+}
+
+// TestFixedForReadsAnObjectForItsOwnFeaturesOnly: the owner's object holds its
+// x and w; the constraint's own x, another feature, is fixed as declared.
+func TestFixedForReadsAnObjectForItsOwnFeaturesOnly(t *testing.T) {
+	ctx, idx := fixtureFile(t, "shadowed_pins.sysml")
+	owner := symbolNamed(t, idx, "test::h")
+	element := symbolNamed(t, idx, "test::h::k")
+	object, err := ctx.Instantiate(owner)
+	if err != nil {
+		t.Fatalf("instantiate h: %v", err)
+	}
+	pins, unfixed := FixedFor(ctx, Fixing{Element: element, Owner: owner, Object: object, ObjectType: owner})
+	if len(unfixed) != 0 {
+		t.Fatalf("values could not be read: %+v", unfixed)
+	}
+	got := map[*symbols.Symbol]Pin{}
+	for _, p := range pins {
+		got[p.Feature] = p
+	}
+	for _, want := range []struct {
+		feature string
+		value   float64
+		source  PinSource
+		bound   bool
+	}{
+		{"test::h::x", 2.0, PinHeld, false},
+		{"test::h::w", 3.0, PinHeld, false},
+		{"test::h::k::x", 1.0, PinDeclared, true},
+	} {
+		p, ok := got[symbolNamed(t, idx, want.feature)]
+		if !ok {
+			t.Errorf("%s not pinned", want.feature)
+			continue
+		}
+		if value := p.Value.Const.AsReal(); value != want.value || p.Source != want.source || p.Bound != want.bound {
+			t.Errorf("%s pinned to %v (%v, bound %v), want %v (%v, bound %v)",
+				want.feature, value, p.Source, p.Bound, want.value, want.source, want.bound)
+		}
+	}
+}
+
+// TestFixedForFixesARedefinitionOverTheFeatureItRedefines: c6's `:>> a = 7.0` is
+// the nearer declaration of a; c7's valueless `:>> b` reads b as the part holds or declares it.
+func TestFixedForFixesARedefinitionOverTheFeatureItRedefines(t *testing.T) {
+	ctx, idx := fixtureFile(t, "redefined_pins.sysml")
+	owner := symbolNamed(t, idx, "test::p")
+	type want struct {
+		value  float64
+		source PinSource
+		bound  bool
+	}
+	check := func(t *testing.T, f Fixing, wants map[string]want, superseded ...string) {
+		t.Helper()
+		pins, unfixed := FixedFor(ctx, f)
+		if len(unfixed) != 0 {
+			t.Fatalf("values could not be read: %+v", unfixed)
+		}
+		got := map[*symbols.Symbol]Pin{}
+		for _, p := range pins {
+			got[p.Feature] = p
+		}
+		for feature, w := range wants {
+			p, ok := got[symbolNamed(t, idx, feature)]
+			if !ok {
+				t.Errorf("%s not pinned", feature)
+				continue
+			}
+			if value := p.Value.Const.AsReal(); value != w.value || p.Source != w.source || p.Bound != w.bound {
+				t.Errorf("%s pinned to %v (%v, bound %v), want %v (%v, bound %v)",
+					feature, value, p.Source, p.Bound, w.value, w.source, w.bound)
+			}
+		}
+		for _, feature := range superseded {
+			if p, ok := got[symbolNamed(t, idx, feature)]; ok {
+				t.Errorf("%s pinned to %v (%v), want its redefinition pinned instead", feature, p.Value.Const.AsReal(), p.Source)
+			}
+		}
+	}
+	c6 := symbolNamed(t, idx, "test::p::c6")
+	c7 := symbolNamed(t, idx, "test::p::c7")
+	t.Run("declared", func(t *testing.T) {
+		check(t, Fixing{Element: c6, Owner: owner}, map[string]want{
+			"test::p::c6::a": {7.0, PinDeclared, true},
+			"test::p::b":     {3.0, PinDeclared, true},
+		}, "test::p::a")
+		check(t, Fixing{Element: c7, Owner: owner}, map[string]want{
+			"test::p::c7::b": {3.0, PinDeclared, true},
+		}, "test::p::b")
+	})
+	t.Run("held", func(t *testing.T) {
+		object, err := ctx.Instantiate(owner)
+		if err != nil {
+			t.Fatalf("instantiate p: %v", err)
+		}
+		check(t, Fixing{Element: c6, Owner: owner, Object: object, ObjectType: owner}, map[string]want{
+			"test::p::c6::a": {7.0, PinDeclared, true},
+			"test::p::b":     {3.0, PinHeld, false},
+		}, "test::p::a")
+		check(t, Fixing{Element: c7, Owner: owner, Object: object, ObjectType: owner}, map[string]want{
+			"test::p::a":     {2.0, PinHeld, false},
+			"test::p::c7::b": {3.0, PinHeld, false},
+		}, "test::p::b")
+	})
+}
+
+// TestFixedMarksAValueBoundWithEquals: a value written with `=` is Bound, derived,
+// inherited or redefined over a default alike; one written `default` or `:=` is not.
+func TestFixedMarksAValueBoundWithEquals(t *testing.T) {
+	ctx, idx := fixtureFile(t, "bound_pins.sysml")
+	pins, unfixed := Fixed(ctx, symbolNamed(t, idx, "test::Gauge"), nil)
+	if len(unfixed) != 0 {
+		t.Fatalf("declared values could not be read: %+v", unfixed)
+	}
+	got := map[string]bool{}
+	for _, p := range pins {
+		got[p.Name] = p.Bound
+	}
+	want := map[string]bool{"bound": true, "inherited": true, "rebound": true, "fallback": false, "initial": false, "doubled": true}
+	for name, bound := range want {
+		pinned, ok := got[name]
+		if !ok {
+			t.Errorf("%s was not pinned", name)
+		} else if pinned != bound {
+			t.Errorf("%s Bound = %v, want %v", name, pinned, bound)
+		}
+	}
+}
+
 // TestNoPinsTranslateAsBefore: a translation given no fixed values writes the
 // very script the plain translation writes, which is what keeps every existing
 // golden and verdict standing.

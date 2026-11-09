@@ -405,6 +405,39 @@ type Comment struct {
 	BodySpan source.Span // the REGULAR_COMMENT token span
 }
 
+// AboutClauseNode is the node the i-th `about` entry of an annotating declaration is keyed by:
+// the name a comment or `@M about …` states, the clause a `metadata m : M about …` does.
+func AboutClauseNode(decl Node, i int) Node {
+	if decl == nil || i < 0 {
+		return nil
+	}
+	switch d := decl.(type) {
+	case *Comment:
+		if i < len(d.About) {
+			return d.About[i]
+		}
+	case *PrefixMetadata:
+		if i < len(d.About) {
+			return d.About[i]
+		}
+	case *Usage:
+		for _, rel := range d.Relationships {
+			if rel == nil || rel.Kind != RelAnnotates || rel.Target == nil {
+				continue
+			}
+			if i == 0 {
+				// A clause nothing spans is keyed by its name.
+				if rel.Span().Len == 0 {
+					return rel.Target
+				}
+				return rel
+			}
+			i--
+		}
+	}
+	return nil
+}
+
 // Documentation is `doc <id> [locale s] /* ... */`.
 type Documentation struct {
 	NodeBase

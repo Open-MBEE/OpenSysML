@@ -1862,8 +1862,10 @@ func (ctx *Context) bindsAFeature(sym *symbols.Symbol) bool {
 // feature, not a behavior, a constraint or a parameter, whose values bind no field.
 func holdsRecordField(sym *symbols.Symbol) bool {
 	switch sym.Kind {
-	case symbols.SymbolActionUsage, symbols.SymbolStateUsage,
-		symbols.SymbolConstraintUsage, symbols.SymbolRequirementUsage:
+	case symbols.SymbolStateUsage, symbols.SymbolConstraintUsage, symbols.SymbolRequirementUsage:
+		return false
+	}
+	if sym.Kind.IsActionUsage() {
 		return false
 	}
 	return semantics.IsShapeFeature(sym) && !semantics.IsParameter(sym)
@@ -1975,7 +1977,12 @@ func (ctx *Context) qualifiedMemberOf(self *Instance, scope *symbols.Scope, expr
 	if !ok || feature == nil || !ctx.model.semantics.Conforms(self.Type, ctx.findOwnerType(feature)) {
 		return Value{}, false, nil
 	}
-	fv, err := self.MemberValue(ctx, feature.Name)
+	// The object holds the feature under its redefiner's name where one redefines it.
+	name := feature.Name
+	if denoted, ok := ctx.denotedFeature(self.Type, feature); ok {
+		name = denoted
+	}
+	fv, err := self.MemberValue(ctx, name)
 	if err != nil {
 		return Value{}, true, err
 	}

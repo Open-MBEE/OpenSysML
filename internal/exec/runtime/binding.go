@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
@@ -1572,39 +1571,7 @@ func (ctx *Context) bindingExprText(expr ast.Node, scope *symbols.Scope) string 
 			}
 		}
 	}
-	switch node := expr.(type) {
-	case *ast.OperatorExpr:
-		parts := make([]string, len(node.Operands))
-		for i, operand := range node.Operands {
-			parts[i] = ctx.bindingExprText(operand, scope)
-		}
-		return strings.Join(parts, " "+node.Operator.String()+" ")
-	case *ast.FeatureReference:
-		return ctx.bindingExprText(node.Name, scope)
-	case *ast.FeatureChainExpr:
-		return ctx.bindingExprText(node.Operand, scope) + "." + ctx.bindingExprText(node.Member, scope)
-	case *ast.IndexExpr:
-		operand, index := ctx.bindingExprText(node.Operand, scope), ctx.bindingExprText(node.Index, scope)
-		if node.Bracket {
-			return operand + " [" + index + "]"
-		}
-		return operand + "#(" + index + ")"
-	case *ast.QualifiedName:
-		parts := make([]string, len(node.Parts))
-		for i, part := range node.Parts {
-			parts[i] = part.Text
-		}
-		return strings.Join(parts, "::")
-	case *ast.LiteralInteger:
-		return node.Value
-	case *ast.LiteralReal:
-		return node.Value
-	case *ast.LiteralBool:
-		return strconv.FormatBool(node.Value)
-	case *ast.LiteralString:
-		return node.Value
-	}
-	return ast.Dump(expr)
+	return ast.ExprPrinter{Other: ast.Dump}.Text(expr)
 }
 
 func bindingValueText(val Value) string {

@@ -15,6 +15,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts/elementform"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -233,6 +234,7 @@ func (m *CachedModel) SymbolContext() *symbolfacts.Context {
 		m.symCtx = NewSymbolContext(m.Index)
 		m.symCtx.Semantics.SetSourceText(cachedSourceText(m))
 		m.symCtx.Positional = symbolfacts.NewPositional(m.Index, m.positionalDocuments)
+		m.symCtx.ElementForm = func() symbolfacts.ElementForm { return elementform.New(m.elementIDReader()) }
 	})
 	return m.symCtx
 }
@@ -249,15 +251,17 @@ func (m *CachedModel) positionalDocuments() []symbolfacts.PositionalDocument {
 		if root == nil {
 			continue
 		}
-		docs = append(docs, symbolfacts.PositionalDocument{File: doc.Source, Root: root})
+		docs = append(docs, symbolfacts.PositionalDocument{File: doc.Source, Root: doc.Root, Scope: root})
 	}
 	return docs
 }
 
-// LookupSymbol resolves a symbol id in either form the service reports one: a
-// qualified name, or the positional identity of an unnamed declaration.
+// LookupSymbol resolves a symbol id in either form the service reports one, under
+// the symbol context's lock: the member walk memoizes into the shared semantic model.
 func (m *CachedModel) LookupSymbol(id string) []*symbols.Symbol {
-	return m.SymbolContext().Lookup(id)
+	sc := m.SymbolContext()
+	defer sc.Lock()()
+	return sc.Lookup(id)
 }
 
 // LookupNamedMember resolves a symbol id, a member a subtype inherits included

@@ -1,0 +1,10 @@
+{
+  "rpc": "Evaluate",
+  "expression": "Accepts::receiverArgument",
+  "expected_result": {
+    "kind": "sequence",
+    "elements": [
+      {"kind": "metaobject", "value": "Accepts__Machine__sm__t___40trigger___401_pvalue : KerML::Kernel::FeatureReferenceExpression"}
+    ]
+  }
+}

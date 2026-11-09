@@ -482,7 +482,20 @@ func (d *structureDifferential) implicitGraphID(rel *symbols.ImplicitRelationshi
 		return d.ids.RelationshipOf(d.doc, rel.Node)
 	case symbols.ImplicitImport:
 		return d.ids.OfDeclaration(d.doc, rel.Decl, "")
+	case symbols.ImplicitAnnotatingRelationship:
+		if rel.Owner == nil {
+			return "", false
+		}
+		node := ast.AboutClauseNode(rel.Owner.Decl, rel.Ordinal)
+		if node == nil {
+			return "", false
+		}
+		return d.ids.RelationshipOf(d.doc, node)
 	case symbols.ImplicitReferenceMembership:
+		if rel.Decl != nil {
+			// A `first x;` marker's Membership is minted from the marker itself.
+			return d.ids.OfDeclaration(d.doc, rel.Decl, "")
+		}
 		if rel.Owner == nil || rel.Slot == "" {
 			return "", false
 		}
@@ -526,6 +539,22 @@ func (d *structureDifferential) expressionGraphID(sym *symbols.Symbol) (string, 
 		return d.expressionPartID(owner.Expr.Owner, "a0")
 	case symbols.ExpressionChainFeature:
 		return d.expressionPartID(owner, sym.Expr.Slot)
+	case symbols.ExpressionPayload:
+		// A send's argument parameter is written as the send's unnamed member at
+		// its argument position (encodeSendArguments: qualify(fqn, "", i)).
+		if owner.Kind == symbols.SymbolSendActionUsage {
+			base, ok := d.graphID(owner)
+			if !ok {
+				return "", false
+			}
+			return base + rdf.EncodeElementID(fmt.Sprintf("::@%d", sym.Expr.Index)), true
+		}
+	case symbols.ExpressionValue:
+		// The value of a send's argument parameter is the parameter's `value` part.
+		if owner.Expr != nil && owner.Expr.Role == symbols.ExpressionPayload && owner.Expr.Owner != nil &&
+			owner.Expr.Owner.Kind == symbols.SymbolSendActionUsage {
+			return d.expressionPartID(owner, pValue)
+		}
 	}
 	if sym.Decl != nil && sym.Decl != owner.Decl {
 		if id, ok := d.ids.OfDeclaration(d.doc, sym.Decl, ""); ok {

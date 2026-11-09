@@ -200,8 +200,9 @@ func (m *replQueryModel) positionalNames() {
 				continue
 			}
 			docs = append(docs, replext.PositionalDocument{
-				File: sourceForKind(doc.Name, doc.Content, doc.Kind()),
-				Root: root,
+				File:  sourceForKind(doc.Name, doc.Content, doc.Kind()),
+				Root:  doc.AST,
+				Scope: root,
 			})
 		}
 		m.positional, m.byPositional = replext.Positional()(

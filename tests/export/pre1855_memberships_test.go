@@ -44,7 +44,7 @@ func TestPre1855MembershipsKeepVerbatimText(t *testing.T) {
 	if !strings.Contains(graph, membership) {
 		t.Fatal("the fixture's membership of car is not where the control looks")
 	}
-	for _, comment := range []string{"// Imports come first.", "/* The chassis carries everything else. */", "// Two tonnes."} {
+	for _, comment := range []string{"// Imports come first.", "// The chassis carries everything else.", "// Two tonnes."} {
 		if !bytes.Contains(want, []byte(comment)) {
 			t.Fatalf("the fixture's notation lacks %q", comment)
 		}
@@ -73,7 +73,7 @@ func TestPre1855MembershipsKeepVerbatimText(t *testing.T) {
 	if bytes.Contains(back, []byte("// A small model")) {
 		t.Errorf("a stated memberName that disagrees with the text did not demote it:\n%s", back)
 	}
-	for _, comment := range []string{"/* The chassis carries everything else. */", "// Two tonnes."} {
+	for _, comment := range []string{"// The chassis carries everything else.", "// Two tonnes."} {
 		if !bytes.Contains(back, []byte(comment)) {
 			t.Errorf("a disagreement over one membership demoted a member's text (%q):\n%s", comment, back)
 		}

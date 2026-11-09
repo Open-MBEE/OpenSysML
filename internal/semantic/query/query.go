@@ -52,6 +52,12 @@ const (
 	PropertySatisfiedRequirement = "satisfiedRequirement"
 	// PropertySatisfyingFeature is the feature a satisfy usage is by.
 	PropertySatisfyingFeature = "satisfyingFeature"
+	// PropertyPayloadArgument, PropertySenderArgument and PropertyReceiverArgument
+	// are the arguments of a send action as written: what it sends, the `via`
+	// sender and the `to` receiver (SysML v2 §8.3.17.15 SendActionUsage).
+	PropertyPayloadArgument  = "payloadArgument"
+	PropertySenderArgument   = "senderArgument"
+	PropertyReceiverArgument = "receiverArgument"
 	// PropertyElementID is the elementId a conversion of the model writes for
 	// the element, reported only where the reader is given one (WithElementID).
 	PropertyElementID = "elementId"
@@ -66,6 +72,7 @@ var propertyNames = []string{
 	PropertyGeneral,
 	PropertyMultiplicityLower, PropertyMultiplicityUpper,
 	PropertySatisfiedRequirement, PropertySatisfyingFeature,
+	PropertyPayloadArgument, PropertySenderArgument, PropertyReceiverArgument,
 	PropertyElementID,
 }
 

@@ -618,7 +618,11 @@ triples come); a set of classes with no such member is refused, naming the subje
   KerML §8.2.3.3.2's body processing leaves — white space at either end kept — and
   a graph without source text writes it back as a comment that processes to the
   same string. A body holding `*/`, which no regular comment can state, or a
-  carriage return is refused rather than written as something else. A line note
+  carriage return is refused rather than written as something else. A `/* */`
+  comment written where a member may appear — before a member, at the close of
+  a body or at either end of a file — is a `sysml:Comment` with neither name nor
+  `about`, owned by the namespace it is written in, as `comment /* */` is; one
+  inside a declaration or an expression is trivia, not an element. A line note
   (`// ...`) is not an element, so it reaches the graph only in `sysx:sourceText`.
 - A metadata annotation — `@Safety;`, `@Safety { level = 2; }`, `metadata m :
   Safety about a, b;` or the prefix `#Safety part def P;` — is a
@@ -991,7 +995,7 @@ elmt:Demo__Vehicle
 A membership also states the Relationship ends KerML derives for it — `sysml:source` is
 the owning namespace, `sysml:target` the member, `sysml:relatedElement` both in that order —
 and the member's effective names as `sysml:memberName` / `sysml:memberShortName` (KerML
-8.3.2.3.5; an unnamed feature is named by the one it redefines, KerML 8.2.4). Every membership shape carries them (`FeatureMembership`, `FeatureValue`,
+8.3.2.4.3; an unnamed feature is named by the one it redefines, KerML 8.3.3.3.4). Every membership shape carries them (`FeatureMembership`, `FeatureValue`,
 `ParameterMembership`, `SubjectMembership`, …). Reading a graph back, they restate the
 ownership edges above and are checked through them, not as references of their own.
 
@@ -1462,7 +1466,7 @@ the node, that name is used; the rest are `sysx:` terms, marked below.
 | `action a;`, `action a { x + 1 }` | `sysx:ActionExecutionNode` | `sysml:references` or `sysx:expression` |
 | `perform a;` | `sysml:PerformActionUsage` | `sysx:expression` (the action performed) |
 | `assign x := 1;`, `action a assign x := 1;` | `sysml:AssignmentActionUsage` (a named node is the one element, carrying the name) | `sysx:target`, `sysml:value`, `sysx:assignmentOperator` when it is not `:=` |
-| `send M(x) to p;`, `… via p;`, `action s send M(x) to p;` | `sysml:SendActionUsage` (a named node is the one element, carrying the name) | `sysx:payload`, `sysx:receiver`, `sysx:isVia` |
+| `send M(x) to p;`, `… via p;`, `action s send M(x) to p;` | `sysml:SendActionUsage` (a named node is the one element, carrying the name) | none: the payload, `via` sender and `to` receiver are `in` `sysml:ReferenceUsage` parameters the send owns through `sysml:ParameterMembership`s, in that order, each valued by its expression through a `sysml:FeatureValue`; the send names the values as `sysml:payloadArgument`, `sysml:senderArgument` and `sysml:receiverArgument` (SysML v2 §8.3.17.15). A `to` with no `via` leaves an empty sender parameter between the payload and the receiver, and `send via p` an empty payload parameter, as the pilot writes them. |
 | `terminate;`, `terminate x;` | `sysml:TerminateActionUsage` | `sysx:expression` |
 | `action stop terminate;` (a declared terminate action usage) | `sysml:TerminateActionUsage` | the usage's own properties, `sysx:hasBody` among them — which is what tells a declaration from the statement above, since a statement never states it |
 | `accept sig : Signal;`, `accept when c;` | `sysml:AcceptActionUsage` (SysML.xtext `AcceptNode`) | the payload is the action's `sysml:payloadParameter`, owned through a `sysml:ParameterMembership` and flagged `sysml:isAccept`; `via p` is the action's `sysml:receiverArgument`, the `sysml:FeatureReferenceExpression` to `p` a second parameter binds, as a transition's trigger has it (a graph stating `sysml:via` instead still reads); and `sysx:declaredKeyword "accept"` where the optional `action` was not written; an `after`, `at` or `when` event is the payload's value, a `sysml:TriggerInvocationExpression` whose `sysml:kind` is the keyword |

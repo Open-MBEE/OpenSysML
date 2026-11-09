@@ -1,0 +1,24 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "StateEntryAcceptFires::Rig",
+  "materialization": {},
+  "objects": [
+    {
+      "path": "sender",
+      "finalState": "sent",
+      "events": [{"signal": "Start"}],
+      "stateVisits": ["idle", "begin", "ping", "sent"]
+    },
+    {
+      "path": "target",
+      "finalState": "done",
+      "stateVisits": ["ready", "waiting", "done"]
+    },
+    {
+      "path": "decoy",
+      "finalState": "ready",
+      "stateVisits": ["ready"]
+    }
+  ]
+}
