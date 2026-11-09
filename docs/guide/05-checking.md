@@ -717,7 +717,10 @@ sysml> %validate car.wheels[1]
 
 The verdicts come root first, then each held object as the walk reaches it, and each names the
 object it is about by the path from the one validated, a collection element by its position
-(`wheels[2]`, counted from 1). The object is valid only when every assertion holds *and* every
+(`wheels[2]`, counted from 1). A failed condition is printed as the tree that was evaluated, an
+operand parenthesised only where its operator binds looser than the enclosing one — `a and (b or c)`
+keeps its parentheses, `(a and b) or c` prints without them — so the text reads back as the
+condition that was checked. The object is valid only when every assertion holds *and* every
 object it holds was reached: an assertion that could not be evaluated — a feature no value
 reaches — is reported as undecided with the reason, not as false, and leaves the object undecided
 rather than valid; so does a walk cut short by an object graph that goes on without end. An

@@ -11,6 +11,6 @@
 (declare-const |test::WheelChoice::wheel.rim| |test::WheelChoice::wheel::rim|)
 ; required condition: wheel::rim == wheel::rim::steel or wheel::rim == wheel::rim::carbon — analysis WheelChoice, at objectives.sysml:133:4
 (assert (or (= |test::WheelChoice::wheel.rim| |test::WheelChoice::wheel::rim::steel|) (= |test::WheelChoice::wheel.rim| |test::WheelChoice::wheel::rim::carbon|)))
-; minimize: lightestRim = operator if, at objectives.sysml:137:23
+; minimize: lightestRim = if wheel::rim == wheel::rim::carbon ? 4 else 9, at objectives.sysml:137:23
 (minimize (ite (= |test::WheelChoice::wheel.rim| |test::WheelChoice::wheel::rim::carbon|) 4 9))
 (check-sat)
