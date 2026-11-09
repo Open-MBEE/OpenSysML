@@ -227,3 +227,37 @@ func TestLaterGeneralsRedefinerReplacesTheParameterInheritedBeforeIt(t *testing.
 		t.Fatalf("ResultParameterOf(Both) = %v, want Sub::s", result)
 	}
 }
+
+// A usage named by its role — a nameless objective takes `obj` from the VerificationCase
+// feature it redefines — is qualified by that name as a declared one is, and so is a member
+// under it: the requirement the objective verifies is `T::obj::massRequirement`, as the
+// conversion names it, not the definition's own member FQNOf skips the owner to spell.
+func TestRoleNamedObjectiveQualifiesItselfAndItsMembers(t *testing.T) {
+	m, root := buildModelWithStdlib(t, `package P {
+		requirement massRequirement;
+		verification def T { objective { verify massRequirement; } }
+	}`)
+	def := nestedSym(t, root, "P::T")
+	var obj *symbols.Symbol
+	for _, member := range def.Scope.AllMembers() {
+		if member.Name == "" && member.IsFeature() {
+			obj = member
+		}
+	}
+	if obj == nil {
+		t.Fatalf("no nameless objective under P::T: %v", def.Scope.MemberNames())
+	}
+	if m.PositionallyNamed(obj) || m.EffectiveNameOf(obj) != "obj" {
+		t.Fatalf("the objective is not role-named obj: positional %v, effective %q", m.PositionallyNamed(obj), m.EffectiveNameOf(obj))
+	}
+	if got := m.QualifiedNameOf(obj); got != "P::T::obj" {
+		t.Fatalf("QualifiedNameOf(objective) = %q, want P::T::obj", got)
+	}
+	verified, ok := obj.Scope.LookupLocal("massRequirement")
+	if !ok {
+		t.Fatalf("the objective owns no massRequirement: %v", obj.Scope.MemberNames())
+	}
+	if got := m.QualifiedNameOf(verified); got != "P::T::obj::massRequirement" {
+		t.Fatalf("QualifiedNameOf(verified requirement) = %q, want P::T::obj::massRequirement (FQNOf spells %q)", got, symbols.FQNOf(verified))
+	}
+}

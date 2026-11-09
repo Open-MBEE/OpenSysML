@@ -89,3 +89,71 @@ func cellText(cells [][]string, i int) string {
 	}
 	return cells[i][0]
 }
+
+// effectiveNameQueryModel has two elements the conversion names through an effective name: a calc
+// def's nameless `return` parameter (`result`, the feature it implicitly redefines) and the
+// requirement a nameless objective (`obj`) verifies, owned under it.
+const effectiveNameQueryModel = `package Observatory {
+	private import DocumentQueries::*;
+	private import KerML::Root::Element;
+	private import ScalarValues::*;
+	calc def ExposureTime { in flux : Real; return : Real = 1.0 / flux; }
+	requirement massRequirement;
+	verification def ThroughputTest { objective { verify massRequirement; } }
+	calc def Typings :> Query {
+		in root : Element;
+		Project(
+			source = WhereType(source = Descendants(source = root, relationships = true), type = "FeatureTyping", exact = true),
+			properties = ("elementId", "typedFeature")
+		)
+	}
+	calc def Verifications :> Query {
+		in root : Element;
+		Project(
+			source = WhereType(source = Descendants(source = root, relationships = true), type = "RequirementVerificationMembership", exact = true),
+			properties = ("elementId", "memberElement", "owningRelatedElement")
+		)
+	}
+}`
+
+// TestRunQueryTableSpellsAnEffectivelyNamedElementByItsQualifiedName: the table spells an element
+// by the qualified name the conversion derives for it — through an effective name as through a
+// declared one, as the RDF writer states its qualifiedName — and by elementId only where the
+// conversion addresses it by position.
+func TestRunQueryTableSpellsAnEffectivelyNamedElementByItsQualifiedName(t *testing.T) {
+	s := NewSession()
+	if res := s.Submit(effectiveNameQueryModel); len(errorDiagnostics(res.Diagnostics)) > 0 {
+		t.Fatalf("model did not analyse cleanly: %v", res.Diagnostics)
+	}
+	typings := s.RunDocumentQuery("Typings root=Observatory")
+	if !typings.Holds() || typings.Table == nil {
+		t.Fatalf("Typings verdict = %s: %v", typings.Status, typings.Lines)
+	}
+	checked := false
+	for _, row := range typings.Table.Rows {
+		if strings.Trim(cellText(row.Cells, 0), `"`) != "Observatory__ExposureTime__result_ft0" {
+			continue
+		}
+		checked = true
+		if got := cellText(row.Cells, 1); got != "Observatory::ExposureTime::result" {
+			t.Errorf("typedFeature of the return parameter's typing = %q, want its qualified name through the effective name result", got)
+		}
+	}
+	if !checked {
+		t.Fatalf("no row for the return parameter's FeatureTyping; rows %v", typings.Table.Rows)
+	}
+	verifications := s.RunDocumentQuery("Verifications root=Observatory")
+	if !verifications.Holds() || verifications.Table == nil {
+		t.Fatalf("Verifications verdict = %s: %v", verifications.Status, verifications.Lines)
+	}
+	if n := len(verifications.Table.Rows); n != 1 {
+		t.Fatalf("RequirementVerificationMembership rows = %d, want 1: %v", n, verifications.Table.Rows)
+	}
+	row := verifications.Table.Rows[0]
+	if got := cellText(row.Cells, 1); got != "Observatory::ThroughputTest::obj::massRequirement" {
+		t.Errorf("memberElement = %q, want the verified requirement under the objective's effective name obj", got)
+	}
+	if got := cellText(row.Cells, 2); got != "Observatory::ThroughputTest::obj" {
+		t.Errorf("owningRelatedElement = %q, want the objective by its effective name", got)
+	}
+}
