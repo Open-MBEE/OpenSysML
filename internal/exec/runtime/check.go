@@ -206,6 +206,9 @@ type CheckReport struct {
 	// runs took in one order without a choice point, so a clean report observed
 	// rather than bounded the result.
 	Unenumerated []CoverageGap
+	// Coverage is every state entered and transition taken over all the searched
+	// schedules, not only the witness of each final, with how many schedules did so.
+	Coverage Coverage
 	// Scope is the distinct reasons the finals were observed short of quiescence.
 	Scope []ObservationReason
 	// MassBounded reports the violations' masses are lower bounds: they are when a
@@ -367,6 +370,8 @@ type checker struct {
 	nested, untold map[string]bool
 	// gaps are the coverage gaps the searched runs left on their contexts.
 	gaps []CoverageGap
+	// coverage is what the schedules searched so far entered and took.
+	coverage Coverage
 	// scope is the reasons the finals so far were observed short of quiescence.
 	scope []ObservationReason
 }
@@ -561,9 +566,11 @@ func (c *checker) failing(err error) Witness {
 // stopping early once stop ends; mass is the probability of the start's picks.
 func (c *checker) search(stop context.Context, mass float64) error {
 	if err := c.run.stabilize(); err != nil {
+		c.foldCoverage()
 		return c.failed(err, 0, mass)
 	}
 	if c.run.terminal() {
+		c.foldCoverage()
 		return c.complete(0, mass, nil)
 	}
 	root, key, err := c.enter(0, nil, mass, nil)
@@ -600,12 +607,16 @@ func (c *checker) search(stop context.Context, mass float64) error {
 		c.visited[f.key].explored[m.name] = true
 		f.snap.Restore()
 		c.run.turn = f.turn
+		depth := len(c.stack)
 		if err := c.take(f, m); err != nil {
 			c.releaseAll()
 			return err
 		}
 		// The next move's restore rewinds the context's notes, so fold them now.
 		c.foldGaps()
+		if len(c.stack) == depth {
+			c.foldCoverage()
+		}
 	}
 	return nil
 }
@@ -614,6 +625,13 @@ func (c *checker) search(stop context.Context, mass float64) error {
 // checker's, since restoring the context's snapshot drops them.
 func (c *checker) foldGaps() {
 	c.gaps = mergeGaps(c.gaps, c.ctx.gaps())
+}
+
+// foldCoverage folds what the schedule that just ended — at a final, a
+// violation, a bound or a state already visited — entered and took into the
+// checker's coverage, counting the schedule for each.
+func (c *checker) foldCoverage() {
+	c.coverage.merge(c.ctx.runCoverage())
 }
 
 // stopped is the check ended by its caller, with what it had searched so far.
@@ -1434,6 +1452,7 @@ func (c *checker) result() *CheckReport {
 		Violations:   c.violations,
 		Finals:       slices.Clone(c.results),
 		Unenumerated: c.gaps,
+		Coverage:     c.coverage,
 		Scope:        c.scope,
 	}
 	sort.Slice(r.Finals, func(i, j int) bool { return r.Finals[i].identity < r.Finals[j].identity })

@@ -2719,6 +2719,7 @@ func (e *StateExecutor) enterBelow(trans *lower.Transition, fromName string, lca
 		return fmt.Errorf("complete state machine: %w", err)
 	}
 
+	e.ctx.noteTransitionTaken(e.self, e.stateMachine, fromName, targetState.Name)
 	// Record trace
 	if e.trace() != nil {
 		eventName := triggerName(trans.Trigger)
@@ -2770,6 +2771,7 @@ func (e *StateExecutor) terminateMachine(fromName string, trigger ast.Node, stop
 		return err
 	}
 	name, _ := ast.EffectiveName(stop)
+	e.ctx.noteTransitionTaken(e.self, e.stateMachine, fromName, name)
 	if e.trace() != nil {
 		e.trace().RecordStateTransition(e.traceOrigin(), fromName, name, triggerName(trigger))
 	}
@@ -2892,6 +2894,7 @@ func (e *StateExecutor) completeInto(trans *lower.Transition, fromName string, t
 			return fmt.Errorf("schedule completion of state %s: %w", target.Name, err)
 		}
 	}
+	e.ctx.noteTransitionTaken(e.self, e.stateMachine, fromName, target.Name)
 	if e.trace() != nil {
 		e.trace().RecordStateTransition(e.traceOrigin(), fromName, target.Name, triggerName(trans.Trigger))
 	}
@@ -3366,6 +3369,7 @@ func (e *StateExecutor) fireForkTransition(trans *lower.Transition, fork *ast.Ps
 	if err := e.completeIfDone(owner); err != nil {
 		return fmt.Errorf("complete state machine: %w", err)
 	}
+	e.ctx.noteTransitionTaken(e.self, e.stateMachine, StateVertexName(trans.Source), fork.Name)
 	if e.trace() != nil {
 		e.trace().RecordStateTransition(e.traceOrigin(), StateVertexName(trans.Source), fork.Name, "")
 	}
@@ -6011,6 +6015,7 @@ func (e *StateExecutor) performEntry(state *ast.StateNode) error {
 	if !e.graph.HiddenStates[state] {
 		// Track state visit
 		e.stateVisits = append(e.stateVisits, state.Name)
+		e.ctx.noteStateEntered(e.self, e.stateMachine, e.StatePath(state))
 
 		// Record trace
 		if trace := e.trace(); trace != nil {
