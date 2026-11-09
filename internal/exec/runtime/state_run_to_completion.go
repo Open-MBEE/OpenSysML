@@ -33,6 +33,68 @@ type heldEntry struct {
 	// bound; the entries and do behaviors performed on resumption read it.
 	firing       *firing
 	routeEffects map[*ast.StateRegion][]routeEffect
+	// awaits is the owner's entry behavior parked for a message, after whose end the
+	// cascade goes on below the owner; nil for one paused at a run-to-completion boundary.
+	awaits *doAction
+}
+
+// heldReady reports a cascade paused at a run-to-completion boundary, whose next
+// step may be performed now; one awaiting a parked entry behavior is not ready.
+func (e *StateExecutor) heldReady() bool {
+	return len(e.readyHeld()) > 0
+}
+
+// readyHeld lists the held cascades the next entry step may perform.
+func (e *StateExecutor) readyHeld() []heldEntry {
+	var ready []heldEntry
+	for _, item := range e.held {
+		if item.awaits == nil {
+			ready = append(ready, item)
+		}
+	}
+	return ready
+}
+
+// entryParked reports a state (nil: the machine) whose entry behavior is parked
+// for a message, its body yet to be entered.
+func (e *StateExecutor) entryParked(state *ast.StateNode) bool {
+	for _, item := range e.held {
+		if item.awaits != nil && item.owner == state {
+			return true
+		}
+	}
+	return false
+}
+
+// holdParkedEntry pauses the entry cascade at owner while act, its entry behavior,
+// is parked for a message; resumeParkedEntries enters owner's body after its end.
+func (e *StateExecutor) holdParkedEntry(owner *ast.StateNode, act *doAction, regions []*ast.StateRegion, branches map[*ast.StateRegion]*ast.StateNode) {
+	e.held = append(e.held, heldEntry{
+		owner: owner, regions: regions, branches: branches,
+		chain: e.enteringChain(owner), scopes: []*ast.StateNode{owner}, machine: owner == nil && e.enteringMachine,
+		firing: e.currentFiring(), routeEffects: cloneRouteEntryEffects(e.pendingRouteEntryEffects),
+		awaits: act,
+	})
+}
+
+// resumeParkedEntries performs the cascades whose parked entry behavior has run
+// to its end, each within the firing that began it.
+func (e *StateExecutor) resumeParkedEntries() error {
+	for i := 0; i < len(e.held); {
+		item := e.held[i]
+		if item.awaits == nil || item.awaits.entering {
+			i++
+			continue
+		}
+		e.held = slices.Delete(e.held, i, i+1)
+		if err := e.performHeld(item); err != nil {
+			return err
+		}
+		if e.state.Ended() {
+			return nil
+		}
+	}
+	return nil
 }
 
 // runToCompletionValueError reports an unevaluable or non-Boolean RTC value.
@@ -148,6 +210,13 @@ func (e *StateExecutor) performHeld(item heldEntry) (err error) {
 	}
 	e.resumeEntering(begun)
 	defer e.unfireOnError(len(e.fired), &err)
+	if item.owner == nil && item.awaits != nil {
+		// The machine's own entry was parked: its body starts now.
+		if len(e.graph.TopRegions) == 0 {
+			return e.enterMachineStart()
+		}
+		return e.enterMachineRegions()
+	}
 	if item.regions != nil {
 		if e.activeConfig.simpleState == item.owner {
 			e.activeConfig.simpleState = nil
@@ -203,24 +272,24 @@ func (e *StateExecutor) settleEntered(leaf *ast.StateNode) error {
 	return e.completeIfDone(leaf)
 }
 
-// entryStep chooses between free dispatch and held entry work.
+// entryStep chooses between free dispatch and held entry work, among the cascades
+// ready to go on (readyHeld).
 func (e *StateExecutor) entryStep(progress *dueProgress) (bool, error) {
+	ready := e.readyHeld()
 	dispatch, free := e.dispatchFree(e.dueDispatch())
 	if dispatch.fails != nil {
 		return false, dispatch.fails
 	}
-	if !free && len(e.held) == 1 {
-		item := e.held[0]
-		e.held = slices.Delete(e.held, 0, 1)
-		return true, e.performHeld(item)
+	if !free && len(ready) == 1 {
+		return true, e.performHeld(e.takeHeld(ready[0]))
 	}
-	alternatives := make([]string, 0, len(e.held)+1)
-	fps := make([]lower.Footprint, 0, len(e.held)+1)
+	alternatives := make([]string, 0, len(ready)+1)
+	fps := make([]lower.Footprint, 0, len(ready)+1)
 	if free {
 		alternatives = append(alternatives, dispatch.label)
 		fps = append(fps, dispatchFootprint(e))
 	}
-	for _, item := range e.held {
+	for _, item := range ready {
 		alternatives = append(alternatives, e.entryLabel(item.owner))
 		fps = append(fps, e.heldEntryFootprint(item))
 	}
@@ -230,9 +299,7 @@ func (e *StateExecutor) entryStep(progress *dueProgress) (bool, error) {
 			defer func() { e.dispatchAmong = nil }()
 			return e.dispatchOne(progress)
 		}
-		item := e.held[0]
-		e.held = slices.Delete(e.held, 0, 1)
-		return true, e.performHeld(item)
+		return true, e.performHeld(e.takeHeld(ready[0]))
 	}
 	choice := ChoicePoint{
 		Kind:         choiceEntryStep,
@@ -257,9 +324,18 @@ func (e *StateExecutor) entryStep(progress *dueProgress) (bool, error) {
 	if free {
 		index--
 	}
-	item := e.held[index]
-	e.held = slices.Delete(e.held, index, index+1)
-	return true, e.performHeld(item)
+	return true, e.performHeld(e.takeHeld(ready[index]))
+}
+
+// takeHeld removes item from the held cascades, returning it to be performed.
+func (e *StateExecutor) takeHeld(item heldEntry) heldEntry {
+	for i := range e.held {
+		if e.held[i].owner == item.owner && e.held[i].awaits == item.awaits {
+			e.held = slices.Delete(e.held, i, i+1)
+			break
+		}
+	}
+	return item
 }
 
 // heldScopes returns RTC scopes currently guarding dispatch.
