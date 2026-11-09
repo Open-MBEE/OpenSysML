@@ -2477,14 +2477,16 @@ class RunRunsResponse(_message.Message):
     def __init__(self, rows: _Optional[_Iterable[_Union[SweepRow, _Mapping]]] = ..., observables: _Optional[_Iterable[str]] = ..., distributions: _Optional[_Iterable[_Union[RunDistribution, _Mapping]]] = ..., lines: _Optional[_Iterable[str]] = ..., outputs: _Optional[_Iterable[_Union[CalcOutput, _Mapping]]] = ..., verdicts: _Optional[_Iterable[_Union[Verdict, _Mapping]]] = ..., unconcluded: _Optional[str] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ..., instances: _Optional[_Iterable[_Union[Instance, _Mapping]]] = ..., engine: _Optional[str] = ..., strength: _Optional[str] = ..., bounds: _Optional[_Iterable[_Union[Bound, _Mapping]]] = ..., seed: _Optional[int] = ...) -> None: ...
 
 class RunDocumentQueryRequest(_message.Message):
-    __slots__ = ("model_hash", "query_id", "bindings")
+    __slots__ = ("model_hash", "query_id", "bindings", "inline_query")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     QUERY_ID_FIELD_NUMBER: _ClassVar[int]
     BINDINGS_FIELD_NUMBER: _ClassVar[int]
+    INLINE_QUERY_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     query_id: str
     bindings: _containers.RepeatedCompositeFieldContainer[DocumentQueryBinding]
-    def __init__(self, model_hash: _Optional[str] = ..., query_id: _Optional[str] = ..., bindings: _Optional[_Iterable[_Union[DocumentQueryBinding, _Mapping]]] = ...) -> None: ...
+    inline_query: str
+    def __init__(self, model_hash: _Optional[str] = ..., query_id: _Optional[str] = ..., bindings: _Optional[_Iterable[_Union[DocumentQueryBinding, _Mapping]]] = ..., inline_query: _Optional[str] = ...) -> None: ...
 
 class DocumentQueryBinding(_message.Message):
     __slots__ = ("parameter", "values")

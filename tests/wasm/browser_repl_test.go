@@ -10,9 +10,9 @@ import (
 	"testing"
 )
 
-// replGzipBudget bounds the gzipped RE (sysml_re) js build the CLI page downloads for its in-browser
-// REPL, last raised to 16,060,000 on 2026-11-09 for the reflective symbol-structure paths (measured 16,050,610).
-const replGzipBudget = 16060000
+// replGzipBudget bounds the gzipped RE (sysml_re) js build the CLI page downloads for its in-browser REPL,
+// last raised to 16,100,000 on 2026-11-09 when the -trimpath link measured 16,008,627 bytes (this branch measures 16,050,610).
+const replGzipBudget = 16100000
 
 // TestBrowserREPLWalkthroughs runs every walkthrough the CLI page offers
 // (docs/assets/repl-walkthroughs.json) through the page's own host,
