@@ -214,6 +214,9 @@ func (r *Renderer) renderGeneral(view *symbols.Symbol, exposed []*symbols.Symbol
 	for _, edge := range related {
 		g.add(edge)
 	}
+	for _, sym := range slices.Clone(g.order) {
+		g.annotationNodes(sym)
+	}
 	if library > 0 {
 		out.Notices = append(out.Notices, fmt.Sprintf("%d exposed standard library element(s) not drawn; a %s rendering draws the model's own elements", library, g.kind))
 	}
@@ -275,7 +278,7 @@ func generalNodeKind(r *Renderer, sym *symbols.Symbol) bool {
 func generalRelationship(sym *symbols.Symbol) bool {
 	switch sym.Kind {
 	case symbols.SymbolSatisfyRequirementUsage, symbols.SymbolConnectionUsage, symbols.SymbolBindingUsage,
-		symbols.SymbolSuccessionUsage, symbols.SymbolFlowUsage, symbols.SymbolInterfaceUsage,
+		symbols.SymbolSuccessionUsage, symbols.SymbolFlowUsage, symbols.SymbolSuccessionFlowUsage, symbols.SymbolInterfaceUsage,
 		symbols.SymbolAllocationUsage, symbols.SymbolDependency, symbols.SymbolConnectorEnd:
 		return true
 	}
@@ -304,6 +307,36 @@ func (g *generalGraph) node(sym *symbols.Symbol) *Node {
 	g.order = append(g.order, sym)
 	g.out.Roots = append(g.out.Roots, node)
 	return node
+}
+
+// annotationNodes draws the annotation nodes of what sym declares in its body
+// (§8.2.3.4) beside its node, each linked by a dashed annotation link to the
+// drawn elements it annotates. A requirement node quotes the opening of its
+// documentation as its detail; the documentation node carries the whole text.
+func (g *generalGraph) annotationNodes(sym *symbols.Symbol) {
+	owner := g.drawn(sym)
+	if owner == nil {
+		return
+	}
+	filters := g.r.walkFilters(g.view)
+	for _, member := range g.r.annotatingMembers(sym) {
+		if len(filters) > 0 && !g.r.admits(filters, member) {
+			continue
+		}
+		node := g.r.annotationNode(g.ids, g.view, member, g.out)
+		if node == nil {
+			continue
+		}
+		g.out.Roots = append(g.out.Roots, node)
+		for _, target := range g.r.annotatedElements(member) {
+			to := g.drawn(target)
+			if to == nil {
+				continue
+			}
+			g.add(Edge{From: node.ID, To: to.ID, Kind: EdgeAnchor, Origin: symbolOrigin(member),
+				Route: g.r.routeOf(g.view, member, g.out), Style: g.r.styleOf(g.view, member, g.out)})
+		}
+	}
 }
 
 // drawn is the node already drawing sym, nil when there is none.
@@ -559,7 +592,7 @@ func (g *generalGraph) featureEdges(sym *symbols.Symbol, from *Node) {
 			continue
 		}
 		kind := g.r.membershipKind(member)
-		for _, typ := range g.r.model.DeclaredTypes(member) {
+		for _, typ := range g.r.drawnTypes(member) {
 			if to := g.drawn(typ); to != nil {
 				g.add(Edge{From: from.ID, To: to.ID, Kind: kind, ToLabel: symbols.LastSegment(g.r.fqn(member)), Origin: symbolOrigin(member)})
 			}
@@ -959,7 +992,7 @@ func (g *generalGraph) deriveEdges(sym *symbols.Symbol) []Edge {
 // the type it is declared with, else the requirement it subsets or redefines,
 // else the member itself.
 func (g *generalGraph) declaredRequirement(member *symbols.Symbol) *symbols.Symbol {
-	if types := g.r.model.DeclaredTypes(member); len(types) > 0 {
+	if types := g.r.drawnTypes(member); len(types) > 0 {
 		return types[0]
 	}
 	for _, rel := range semantics.RelationshipsOf(member) {
@@ -1063,6 +1096,10 @@ func (g *generalGraph) dependencyLabel(sym *symbols.Symbol) string {
 // a dashed headless link from each client, a dependency arrow (a refinement's «refine») to each supplier.
 func (g *generalGraph) naryDependency(sym *symbols.Symbol, kind EdgeKind, name string, dep *ast.Dependency) []Edge {
 	clients, suppliers := g.hubEnds(name, sym, dep.Clients), g.hubEnds(name, sym, dep.Suppliers)
+	// A dot with no client or no supplier would show half a dependency.
+	if !g.hubAdmitsAny(clients) || !g.hubAdmitsAny(suppliers) {
+		return nil
+	}
 	label := ""
 	if kind == EdgeDependency {
 		label = g.dependencyLabel(sym)
@@ -1087,6 +1124,16 @@ func (g *generalGraph) naryDependency(sym *symbols.Symbol, kind EdgeKind, name s
 		}
 	}
 	return out
+}
+
+// hubAdmitsAny reports whether some end is drawn or may be drawn for a hub.
+func (g *generalGraph) hubAdmitsAny(ends []*symbols.Symbol) bool {
+	for _, end := range ends {
+		if g.drawn(end) != nil || g.hubAdmits(end) {
+			return true
+		}
+	}
+	return false
 }
 
 // hubEnds resolves the ends of an n-ary relationship, reporting one that does
@@ -1300,9 +1347,9 @@ func (g *generalGraph) relationshipEdges(sym *symbols.Symbol) (edges []Edge, ok 
 
 // exposedRelationships draws, on a rendering of another kind whose nodes drawn
 // stand for their elements, the dependency-like relationships view exposes
-// between the nodes of their ends, following their Route annotations: the
-// graphical notation draws a dependency between any two element nodes a view
-// shows. An exposed end no node draws yet gets a plain node, so the line has
+// between the nodes of their ends, following their Route annotations (an n-ary
+// one's dot and segments are not steered; a notice says so): the graphical
+// notation draws a dependency between any two element nodes a view shows. An exposed end no node draws yet gets a plain node, so the line has
 // both ends. It returns the exposed elements drawn this way.
 func (r *Renderer) exposedRelationships(view *symbols.Symbol, exposed []*symbols.Symbol, ids *nodeIDs,
 	drawn map[symbols.ElementKey]*Node, out *Rendering) map[*symbols.Symbol]bool {
@@ -1322,8 +1369,17 @@ func (r *Renderer) exposedRelationships(view *symbols.Symbol, exposed []*symbols
 			out.Notices = append(out.Notices, fmt.Sprintf("%s %s is drawn between the nodes of its ends; the view does not show both, so no edge is drawn",
 				declKind(sym), r.notationName(sym)))
 		}
+		var route []Point
+		if g.hubbed(sym) {
+			if len(r.unsteeredRoute(view, sym, out)) > 0 {
+				out.Notices = append(out.Notices, fmt.Sprintf("%s %s states a route; its ends are drawn as a dot and segments, which the route does not steer",
+					declKind(sym), r.notationName(sym)))
+			}
+		} else {
+			route = r.routeOf(view, sym, out)
+		}
 		for _, edge := range edges {
-			edge.Route = r.routeOf(view, sym, out)
+			edge.Route = route
 			edge.Style = r.edgeDress(view, sym, edge.From, edge.To, out)
 			g.add(edge)
 		}
@@ -1332,4 +1388,11 @@ func (r *Renderer) exposedRelationships(view *symbols.Symbol, exposed []*symbols
 		used[sym] = true
 	}
 	return used
+}
+
+// hubbed reports whether sym is drawn as an n-ary dot, whose segments no single
+// Route steers, as the interconnection walk's naryConnection also holds.
+func (g *generalGraph) hubbed(sym *symbols.Symbol) bool {
+	node := g.drawn(sym)
+	return node != nil && (node.Kind == connectionDotKind || node.Kind == dependencyDotKind)
 }

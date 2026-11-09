@@ -131,16 +131,52 @@ HTTP/1.1 400 Bad Request
 {"code":"invalid_argument","message":"documents 0 and 1 are both named \"a.sysml\": each document of a model needs its own name"}
 ```
 
+### `GetElementProperties`
+
+`GetElementProperties` answers the metamodel properties of one element by their specification
+names (`inheritedFeature`, `connectorEnd`, `directedFeature`, `payloadType`, `isComposite`, …), as
+the model's API element form — `Convert` to `api-json` — spells them, without converting the whole
+model. `elementId` is a qualified name, the positional id of an unnamed member (`Owner::@2`) or the
+form's own `@id`; `properties` names what to read, and empty reads every property the form carries
+for the element. Each `ElementProperty` carries its `definingClass`, `many` and `derived` from the
+metamodel, its `values` — an `element` (`id`, `qualifiedName`, `metaclass`; the id is accepted back as
+`elementId`, so a client walks the graph), a `stringValue` (an enumeration literal included), a
+`boolValue`, an `intValue`, a `realValue` or a `number` — an integer beyond int64 or a real beyond
+double, as decimal text — and `unsupported`, set with the reason when the element's metaclass
+declares no such property, when the metamodel evaluator could not derive it for this element (the
+form then omits it, and the reason says why — a dependency it does not derive, a reference it could
+not resolve), or when OpenSysML does not derive the property at all; a property that is declared,
+derived and empty answers no values and no reason. A standard-library element — one an `element`
+value references, or a library qualified name such as `Parts::Part` — is read from the form of the
+bundled library document declaring it, converted once per process, so a walk from a model into the
+library continues; a library member no name catalogues — the documentation, invariants and
+connectors a part inherits from `Occurrences::Occurrence`, a declared multiplicity range — and its
+owning membership read back under the ids an answer carried them by, so every id an answer returns
+is accepted back. A missing element is an in-band `error`; a model whose document the parser could
+not read whole has no element form and reports that the same way. The `element_properties`
+capability advertises the RPC.
+
 ### `GetSymbol` and the `SymbolInfo` metadata keys
 
-`GetSymbol` answers one `SymbolInfo` for a fully qualified name. Beside its typed fields
-(`typeInfo`, `multiplicity`, `specializations`, `attributes`), `metadata` is a string map of
-facts about the declaration, each present only when it holds:
+`GetSymbol` answers one `SymbolInfo` for a symbol id: a fully qualified name, or the
+positional id an unnamed declaration has in the query API and the export (`Owner::@3` for
+the fourth member of `Owner`, `Owner::@3::wheel` for a named member of it). `childIds` are the
+members the element itself declares under the same ids, named and unnamed alike (a `bind`, a
+`connect`, a `part : P;`, a `@M { … }` or `#M` annotation), each of which `GetSymbol` resolves;
+a member no id reaches, such as a body-local declaration, is not listed. `members` is every
+member it has (KerML `Type::member`) — the owned ones first, in declaration order, then the
+inherited ones in inheritance order, each with its `kind`, `inherited` and `inheritedFrom`, a
+redefinition masking what it redefines and a private member of a supertype left out. Members
+inherited from standard-library content are withheld and counted in `withheldLibraryMembers`
+unless the request sets `includeLibraryMembers`, which lists them marked `library`. The
+`symbol_members` capability advertises the field; a service without it answers no `members`.
+Beside the other typed fields (`typeInfo`, `multiplicity`, `specializations`, `attributes`),
+`metadata` is a string map of facts about the declaration, each present only when it holds:
 
 | Key | Value | When |
 |-----|-------|------|
 | `visibility` | `default` (none written), `public`, `private` or `protected` | always |
-| `type` | the first typing target as written (`Engine`) | a typed usage |
+| `type` | the first typing target as written (`Engine`), or the metadata definition an annotation names (`FailureMode`) | a typed usage, a `@M`/`#M` metadata usage |
 | `multiplicity` | the declared range as written (`1`, `0..*`) | a usage declaring one |
 | `direction` | `in`, `out` or `inout` | a directed usage |
 | `specializes` | the first specialization target as written | a definition specializing one |
@@ -278,7 +314,7 @@ arms, each captured from `Evaluate` against the model at the end of this section
 | `function` | object | `{"result":{"function":{"calcId":"F::Sq"}}}` | A calc held as a value: the calc it names and, when it was read off an object, that object |
 | `set` | object | `{"result":{"set":{"elements":[{"intValue":"1"},{"intValue":"2"},{"intValue":"3"}]}}}` | Unordered collection without duplicates; `elements` are `Value`s, listed in canonical order |
 | `tensorQuantity` | object | `{"result":{"tensorQuantity":{"dimensions":["2","2","2"],"components":[{"realMagnitude":1,"unit":"m","unitTerm":{…}},…]}}}` | Tensor of quantities of any rank; one `quantity` body per component, row-major |
-| `metaobject` | object | `{"result":{"metaobject":{"elementId":"Meta::seatBelt","metaclassId":"SysML::Systems::PartUsage"}}}` | An element of the model held as an instance of its metaclass (`x meta T`, the last member of `x.metadata`): the element it reflects on and the metaclass that classifies it |
+| `metaobject` | object | `{"result":{"metaobject":{"elementId":"Meta::seatBelt","metaclassId":"SysML::Systems::PartUsage"}}}` | An element of the model held as an instance of its metaclass (`x meta T`, the last member of `x.metadata`): the element it reflects on, by the id a client keeps for any element (qualified name, positional id `Owner::@2`, or the element form's `@id`), and the metaclass that classifies it |
 | `undetermined` | object | `{"result":{"undetermined":{"reason":"P::Q::d has no value in the model","count":{"lower":"1","upper":"1"}}}}` | A model-level result the model leaves open: a read of a feature with no value, or of one whose count is not fixed, or an operation over such a read. `count` bounds the values it would hold |
 
 The `array`, `vector` and `vectorQuantity` rows were captured against
@@ -367,7 +403,8 @@ decode(v):
                  components := map the quantity rule over v.tensorQuantity.components;
                  require len(components) == product(dimensions), else an error
   metaobject   → element := v.metaobject.elementId, require it non-empty, else an error;
-                 metaclass := v.metaobject.metaclassId; the element is the identity
+                 metaclass := v.metaobject.metaclassId; the element is the identity, in
+                 whichever id form it arrived (qualified name, positional id, form @id)
   undetermined → the language's "undetermined" sentinel carrying v.undetermined.reason (a
                  string) and v.undetermined.count (lower and upper as strings, upper "*"
                  when unbounded); distinct from unset, from null and from false. Never
@@ -735,9 +772,25 @@ $ … /Evaluate -d '{"modelHash":"07a0…b5ca","expression":"Meta::notADefinitio
 {"result":{"sequence":{}}}
 ```
 
-- `elementId` is the fully qualified name of the element, and is the identity a client keeps
-  to send the same metaobject back. It is never empty: a `metaobject` with no `elementId` is
-  malformed, and a decoder refuses it rather than reading it as "no element".
+- `elementId` is the identity a client keeps to send the same metaobject back, and is one of
+  the ids the tree already addresses an element by — the same ids `GetElementProperties`
+  accepts and reports in its `ElementRef`s, so a client hands a metaobject's `elementId` to
+  `GetElementProperties` or `GetSymbol` and hands back what those report:
+    - the fully qualified name, for an element one identifies (`Meta::seatBelt`);
+    - the positional id of an unnamed member (`Meta::outer::@0`, the `@N` segment
+      [`GetElementProperties`](#getelementproperties) and `GetSymbol` address one by), for an
+      unnamed declaration;
+    - the element form's `@id` (the `convert` to `api-json`), for an element the semantic side
+      tables synthesize and no scope declares: a send's or accept's parameter and its argument
+      value (`Meta__Monitor__sm__relay___40trigger___401_pvalue` is the `receiverArgument` of
+      the accept of `Meta::Monitor::sm::relay`), a transition's guard, an expression's
+      operands and parameters, a feature-chain Feature at a connector end
+      (`Meta__holder___402_pend0_pchain`).
+  It is never empty: a `metaobject` with no `elementId` is malformed, and a decoder refuses it
+  rather than reading it as "no element". A decoder keeps the id opaque; it never parses one.
+  The WebAssembly engine, whose size budget excludes the exporter and the positional naming,
+  names an element by its qualified name only and sends a metaobject of one with none as the
+  unsupported null below.
 - `metaclassId` is the fully qualified name of the reflective metaclass that classifies the
   element — a part usage is a `SysML::Systems::PartUsage` however it was cast — so a client
   learns what the element is, not what the model asked for. A cast to a metaclass the element
@@ -751,13 +804,15 @@ $ … /Evaluate -d '{"modelHash":"07a0…b5ca","expression":"Meta::notADefinitio
   `(Meta::seatBelt meta KerML::Feature)#(1).qualifiedName` is `{"stringValue":"Meta::seatBelt"}` —
   and a feature the engine does not derive is an evaluation failure naming the feature, not a
   guess.
-- A metaobject of an anonymous element — one with no qualified name to send, such as an
-  unnamed part among a type's `ownedFeature` — is the unsupported null
-  `{"null":"unsupported: metaobject of an element with no qualified name"}`, under the `null`
-  arm's rule. A named element nested in an anonymous one keeps its name (`Mid::inner`).
+- A metaobject of an element none of those ids reaches (the implied `Multiplicity` a usage
+  owns) is the unsupported null `{"null":"unsupported: metaobject of an element with no
+  identity"}`, under the `null` arm's rule. A named element nested in an anonymous one keeps
+  its name (`Mid::inner`).
 - An `element_id` sent that two declarations of the model share (the same qualified name in two
   documents) identifies neither and is refused in band as ambiguous, never bound to whichever the
-  index lists first.
+  index lists first. A form `@id` is resolved under the nearest element a qualified or
+  positional id reaches, among what it owns; one that reaches nothing is unbound, and one a
+  declaration's qualified name also spells (`package D__outer___400`) is ambiguous between the two.
 - The arm is gated by the `metaobject_values` capability (see [Capabilities, and what an absent one does](service-transports.md#capabilities-and-what-an-absent-one-does)).
   A service without it sends every metaobject, at any depth, as
   `{"null":"unsupported: metaobject Meta::seatBelt : SysML::Systems::PartUsage"}` and refuses a
@@ -913,7 +968,7 @@ HTTP/1.1 400 Bad Request
 
 $ … /Query -d '{"modelHash":"2af5…dea2","query":{"where":{"primitive":{"property":"colour","operator":"PRIMITIVE_OPERATOR_EQUAL","value":["red"]}}}}'
 HTTP/1.1 400 Bad Request
-{"code":"invalid_argument","message":"unknown query property \"colour\"; queryable properties are @id, @type, declaredName, declaredShortName, documentation, isAbstract, isIndividual, multiplicityLower, multiplicityUpper, name, owner, qualifiedName, satisfiedRequirement, satisfyingFeature, shortName, type"}
+{"code":"invalid_argument","message":"unknown query property \"colour\"; queryable properties are @id, @type, body, declaredName, declaredShortName, documentation, elementId, general, isAbstract, isIndividual, language, locale, multiplicityLower, multiplicityUpper, name, owner, payloadArgument, qualifiedName, receiverArgument, satisfiedRequirement, satisfyingFeature, senderArgument, shortName, textualRepresentation, type"}
 
 $ … /ApplyEdits -d '{"modelHash":"997e…6134","acceptDocuments":true,"document":"nope.sysml","operations":[{"rename":{"target":"EngineUser::Car","newName":"Automobile"}}]}'
 HTTP/1.1 400 Bad Request
@@ -1032,6 +1087,61 @@ $ … /Instantiate -d '{"modelHash":"5a897a97ae46b32a0ac8c79adaf94d674cdf95d3f75
 - `materialized` is `true` when the runtime computed the feature's value for this instance.
   It is omitted when false, and when false there is no `value`. A `Verify*` response shows
   this: constraint and requirement features of the subject are reported unmaterialized.
+- `reachedBy` (capability `instance_paths`) says how the traversal that produced the graph
+  reached the instance: `instanceId` is the instance holding it, `featureName` the holder's
+  feature it is a value of and `featureSymbolId` that feature's qualified name as declared,
+  `index` its position within a multi-valued feature counted from 1 (`0` for a single-valued
+  one) and `path` the whole path from the root (`powertrain.engine.fuelIn`, `wheels[2]`). The
+  root has no `reachedBy`. The traversal is depth-first from the root over the features of
+  an instance in name order — those the model declares first, then those the standard
+  library derives (`subparts`, `ownedPorts`) — and the values of a feature in their order,
+  and reaches an instance once, the first time, which decides `instances`' order too. One
+  object is often a value of several features (a port and the connector end referencing it
+  are one object): `reachedBy` is the one path the traversal came by, and `InstancePaths`
+  below lists every path.
+
+### `InstancePaths`: every path to one object
+
+```console
+$ … /InstancePaths -d '{"modelHash":"…","object":{"path":"Fuel::vehicle.powertrain.engine.fuelIn"}}'
+```
+
+```json
+{
+  "paths": [
+    {
+      "root": {"instanceId": "1", "symbolId": "Fuel::vehicle"},
+      "path": "fuelLine.consumer",
+      "steps": [
+        {"featureName": "fuelLine", "featureSymbolId": "Fuel::vehicle::fuelLine", "instanceId": "2"},
+        {"featureName": "consumer", "featureSymbolId": "Fuel::FuelLine::consumer", "instanceId": "7"}
+      ]
+    },
+    {
+      "root": {"instanceId": "1", "symbolId": "Fuel::vehicle"},
+      "path": "powertrain.engine.fuelIn",
+      "steps": [ … ]
+    }
+  ]
+}
+```
+
+`object` names the object as `RunDocumentQuery` binds one: by `instanceId`, or by `path` — the
+qualified name an object was instantiated as, `#<id>`, or a path through feature values from
+either (`Fuel::vehicle.wheels[2]`; indexes count from 1). The response lists every
+root-relative path that reaches it from every root the model's population holds (each object
+`Instantiate` created), in traversal order: the roots in id order and, from each, depth-first
+over the features the model declares in name order and the values of a feature in their
+order. Aliases through connector ends and reference usages are paths of their own; the
+collections the standard library derives (`subparts`, `ownedPorts`) are not, and a path
+visits no object twice nor, as the instance graph, an object whose type is already on the
+path. `root.symbolId` is the name the root was instantiated as, empty once
+another object took the name (`#<id>` still addresses it). An object that is a root has the
+empty path. The search is bounded: past 1000 paths over all roots, or when a path cut at
+eight steps ended at an object from which the target is reachable, the response is
+`truncated`. An object no root reaches lists no
+path; an id or name nothing materialized is `NOT_FOUND`, a path through no object
+`INVALID_ARGUMENT`, and a service without the capability `UNIMPLEMENTED`.
 
 An error on one feature does not fail the call. `conformance/fixtures/cyclic.sysml` defines
 `a = b + 1.0` and `b = a + 1.0`:
@@ -2053,9 +2163,11 @@ names every standard-library element the output references: each entry has `id` 
 literal normative ID), `qualifiedName` and `type` (the API JSON metaclass). Entries are
 sorted by ID and do not declare elements or roots. It needs no request option and is
 advertised as `convert_library_references`; an empty table means no library references.
-`qualifiedName` is empty for an unnamed library relationship, such as an owning membership.
+`qualifiedName` is empty for an unnamed library relationship, such as an owning membership;
+an unnamed library member (a documentation comment, an invariant, an unnamed connector) has
+`libraryPath` instead, the positional path `Owner::qualifiedName/Metaclass[i]`.
 The compact document also carries the table outside `elements`, using the API JSON keys
-`@id`, `qualifiedName` and `@type`. For graph input, only library metadata present in the
+`@id`, `qualifiedName` (or `libraryPath`) and `@type`. For graph input, only library metadata present in the
 graph can be reported. Other target formats and failed conversions return no table.
 
 `includeLibraryStubs`, advertised as `convert_library_stubs`, restores the ownerless

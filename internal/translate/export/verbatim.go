@@ -266,7 +266,8 @@ func disagreeingTriples(graph, check *rdf.Graph) []rdf.Triple {
 	}
 	for _, t := range check.Triples() {
 		if structural(t) && !graph.Has(t) && !derivedNameOmitted(graph, t) && !derivedVariabilityOmitted(graph, check, t) &&
-			!derivedMembershipOmitted(graph, check, t) {
+			!derivedMembershipOmitted(graph, check, t) && !derivedMultiplicityOmitted(graph, check, t) &&
+			!derivedAnnotatingRelationshipOmitted(graph, check, t) && !derivedConnectorFeatureOmitted(graph, check, t) {
 			out = append(out, t)
 		}
 	}
@@ -284,8 +285,29 @@ func derivedVariabilityOmitted(graph, check *rdf.Graph, t rdf.Triple) bool {
 		!graph.HasProperty(t.Subject, t.Predicate.Value)
 }
 
+// derivedConnectorFeatureOmitted reports a connector's derived relatedFeature, sourceFeature
+// or targetFeature the candidate states and the graph omits; the ends' subsettings restate it.
+func derivedConnectorFeatureOmitted(graph, check *rdf.Graph, t rdf.Triple) bool {
+	var key string
+	switch {
+	case strings.HasPrefix(t.Predicate.Value, rdf.SysML):
+		key = strings.TrimPrefix(t.Predicate.Value, rdf.SysML)
+	case rdf.IsAnnotationJSON(t.Predicate.Value):
+		key = strings.TrimPrefix(t.Predicate.Value, rdf.AnnotationJSON)
+	default:
+		return false
+	}
+	switch key {
+	case pRelatedFeature, pSourceFeature, pTargetFeature:
+	default:
+		return false
+	}
+	return ontology.IsAncestorOrSelf(rdf.LocalName(check.Type(t.Subject)), "Connector") &&
+		!graph.HasProperty(t.Subject, t.Predicate.Value)
+}
+
 // derivedMembershipOmitted reports a Membership end or name, or an Import's end (sysml: statement or
-// its collection annotation), the candidate derives (KerML 8.3.2.3.5, 8.3.2.3.3) and the graph omits.
+// its collection annotation), the candidate derives (KerML 8.3.2.4.3, 8.3.2.4.2) and the graph omits.
 func derivedMembershipOmitted(graph, check *rdf.Graph, t rdf.Triple) bool {
 	var key string
 	switch {
@@ -306,6 +328,92 @@ func derivedMembershipOmitted(graph, check *rdf.Graph, t rdf.Triple) bool {
 		(ontology.IsAncestorOrSelf(metaclass, mImport) && (key == pSource || key == pTarget))
 	return derives &&
 		!graph.HasProperty(t.Subject, rdf.SysML+key) && !graph.HasProperty(t.Subject, rdf.AnnotationJSON+key)
+}
+
+// derivedAnnotatingRelationshipOmitted reports a derived ownedAnnotatingRelationship the candidate
+// states for an Annotation the graph owns through ownedRelationship alone (a publish without derived).
+func derivedAnnotatingRelationshipOmitted(graph, check *rdf.Graph, t rdf.Triple) bool {
+	var key string
+	switch {
+	case strings.HasPrefix(t.Predicate.Value, rdf.SysML):
+		key = strings.TrimPrefix(t.Predicate.Value, rdf.SysML)
+	case rdf.IsAnnotationJSON(t.Predicate.Value):
+		key = strings.TrimPrefix(t.Predicate.Value, rdf.AnnotationJSON)
+	default:
+		return false
+	}
+	if key != pOwnedAnnotatingRelationship || graph.HasProperty(t.Subject, rdf.SysML+key) {
+		return false
+	}
+	for _, owned := range graph.Objects(t.Subject, rdf.SysML+pOwnedRelationship) {
+		if rdf.LocalName(check.Type(owned)) == mAnnotation && owned.IsIRI() && !graph.HasProperty(owned, rdf.SysML+pOwnedRelatedElement) {
+			return true
+		}
+	}
+	return false
+}
+
+// derivedMultiplicityOmitted reports a statement of a usage's implied default Multiplicity
+// (SysML v2 7.6.3) the candidate derives and the graph omits — the Multiplicity, its
+// OwningMembership and the usage's edges to them — or the ownedMember restating a declared
+// range the graph states as the usage's multiplicity; an older graph states no less.
+func derivedMultiplicityOmitted(graph, check *rdf.Graph, t rdf.Triple) bool {
+	defaultMultiplicity := func(term rdf.Term) bool {
+		return term.IsIRI() && !graph.HasProperty(term, rdf.RDFType) &&
+			rdf.LocalName(check.Type(term)) == mMultiplicityClass
+	}
+	owningMembership := func(term rdf.Term) bool {
+		if !term.IsIRI() || graph.HasProperty(term, rdf.RDFType) {
+			return false
+		}
+		for _, member := range check.Objects(term, rdf.SysML+pOwnedMemberElement) {
+			if defaultMultiplicity(member) {
+				return true
+			}
+		}
+		return false
+	}
+	for _, term := range []rdf.Term{t.Subject, t.Object} {
+		if defaultMultiplicity(term) || owningMembership(term) {
+			return true
+		}
+	}
+	if t.Predicate.Value == rdf.AnnotationJSON+pOwnedRelationship && t.Object.IsLiteral() {
+		return defaultMembershipListOmitted(graph, t)
+	}
+	return t.Predicate.Value == rdf.SysML+pOwnedMember && t.Object.IsIRI() &&
+		rdf.LocalName(check.Type(t.Object)) == mMultiplicityRange &&
+		graph.Has(rdf.Triple{Subject: t.Subject, Predicate: rdf.IRI(rdf.SysML + pMultiplicity), Object: t.Object})
+}
+
+// defaultMembershipListOmitted reports a json:ownedRelationship list the graph states
+// without the default multiplicity's membership the candidate appends (or prepends).
+func defaultMembershipListOmitted(graph *rdf.Graph, t rdf.Triple) bool {
+	list := t.Object.Value
+	entry := `{"@id":"` + rdf.LocalName(rdf.ExpressionIRI(t.Subject, pMultiplicity).Value) + rdf.OwningMembershipSuffix + `"}`
+	at := strings.Index(list, entry)
+	if at < 0 {
+		return false
+	}
+	switch {
+	case strings.HasPrefix(list[at+len(entry):], ","):
+		list = list[:at] + list[at+len(entry)+1:]
+	case at > 0 && list[at-1] == ',':
+		list = list[:at-1] + list[at+len(entry):]
+	default:
+		list = list[:at] + list[at+len(entry):]
+	}
+	stated := graph.Objects(t.Subject, t.Predicate.Value)
+	if len(stated) == 0 {
+		// The list mirrors the sysml:ownedRelationship statements, checked on their own.
+		return true
+	}
+	for _, prior := range stated {
+		if prior.Value == list {
+			return true
+		}
+	}
+	return false
 }
 
 // derivedNameOmitted reports a sysml:name the candidate derives for an element

@@ -2,7 +2,6 @@ package libs
 
 import (
 	"bytes"
-	_ "embed" // for the //go:embed directive
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -16,19 +15,20 @@ import (
 
 //go:generate go run -C ../../../tools ./gen/snapshot
 
-// stdlibSnapshot is the bundled library, parsed, indexed, expanded and frozen
-// at generation time, so that a process starts by decoding it instead of
-// repeating that work. It is derived from the files under stdlib/ by
-// `go generate ./internal/workspace/libs` and never edited by hand.
-//
-//go:embed stdlib.snapshot
+// stdlibSnapshot is the snapshot of the bundled library this binary embeds:
+// the library parsed, indexed, expanded and frozen, so that a process starts
+// by decoding it instead of repeating that work. `make stdlib-snapshot` (`go
+// generate ./internal/workspace/libs`) derives stdlib.snapshot from the files
+// under stdlib/ and writes snapshot_embedded.go, whose init embeds it here;
+// both are gitignored. A tree without them — what `go install` compiles from
+// the module proxy — leaves it nil and loads the files instead.
 var stdlibSnapshot []byte
 
 // snapshotMagic opens every snapshot, and snapshotFormatVersion changes
 // whenever the stream layout does, so a stale blob is refused, not misread.
 const (
 	snapshotMagic         = "OpenSysML library snapshot\n"
-	snapshotFormatVersion = 27
+	snapshotFormatVersion = 28
 )
 
 // snapshotCRC checksums the index stream, so a damaged byte that still parses
@@ -38,6 +38,10 @@ var snapshotCRC = crc32.MakeTable(crc32.Castagnoli)
 // ErrSnapshotStale reports a snapshot built from different library files, or
 // in a different format, than the ones in hand.
 var ErrSnapshotStale = errors.New("libs: library snapshot does not match the library files")
+
+// ErrNoSnapshot reports a binary built without a generated snapshot, which
+// loads the library files instead.
+var ErrNoSnapshot = errors.New("libs: no library snapshot embedded")
 
 // BuildSnapshot loads src into a fresh index the way a process without a
 // snapshot would, freezes it, and returns the snapshot bytes for it. The
@@ -115,15 +119,24 @@ var gcPause sync.Mutex
 
 // SnapshotIndex returns the frozen library index decoded from the embedded
 // snapshot, when the snapshot was built from exactly the files DefaultSource
-// yields. It fails with ErrSnapshotStale when it was not — an edited bundled
-// file, a LibraryPathEnvVar override with other content — and the caller
-// loads the files instead.
+// yields. It fails with ErrNoSnapshot when the build embedded none, and with
+// ErrSnapshotStale when the snapshot was built from other files — an edited
+// bundled file, a LibraryPathEnvVar override with other content — and the
+// caller loads the files instead.
 func SnapshotIndex() (*symbols.Index, error) {
 	return snapshotIndexOf(DefaultSource())
 }
 
 // snapshotIndexOf is SnapshotIndex over the given source.
 func snapshotIndexOf(src Source) (*symbols.Index, error) {
-	digest := NewLoader(src, nil).setDigest()
-	return DecodeSnapshot(stdlibSnapshot, digest)
+	return snapshotIndexFrom(stdlibSnapshot, src)
+}
+
+// snapshotIndexFrom decodes data as the snapshot of src's files; nil data is
+// a build that embedded none.
+func snapshotIndexFrom(data []byte, src Source) (*symbols.Index, error) {
+	if data == nil {
+		return nil, ErrNoSnapshot
+	}
+	return DecodeSnapshot(data, NewLoader(src, nil).setDigest())
 }

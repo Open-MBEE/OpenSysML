@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» AbstractViews::familyLinks : Family"
 ---
 %% AbstractViews::familyLinks — interconnection rendering (render asInterconnectionDiagram)
 flowchart LR

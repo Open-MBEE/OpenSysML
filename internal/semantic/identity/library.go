@@ -3,6 +3,8 @@ package identity
 import (
 	"sync"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
@@ -24,12 +26,25 @@ func LibraryLanguage(tier symbols.LibraryTier) (Language, bool) {
 
 // qualifier decides which library symbols their library gives a qualified name, and so an id.
 type qualifier struct {
-	idx  libraryView
-	memo map[*symbols.Symbol]bool
+	idx   libraryView
+	model *semantics.Model
+	memo  map[*symbols.Symbol]bool
 }
 
-func newQualifier(idx libraryView) *qualifier {
-	return &qualifier{idx: idx, memo: make(map[*symbols.Symbol]bool)}
+func newQualifier(idx libraryView, model *semantics.Model) *qualifier {
+	return &qualifier{idx: idx, model: model, memo: make(map[*symbols.Symbol]bool)}
+}
+
+// modelOf is a semantic model over the index a library view reads, for the
+// names its unnamed parameters take from the ones their positions redefine.
+func modelOf(idx libraryView) *semantics.Model {
+	switch v := idx.(type) {
+	case *symbols.Index:
+		return semantics.NewModel(resolve.New(v))
+	case apartFrom:
+		return semantics.NewModel(resolve.New(v.idx))
+	}
+	return nil
 }
 
 // language is the library whose scheme fixes sym's id, if any.
@@ -43,11 +58,12 @@ func (q *qualifier) language(sym *symbols.Symbol) (Language, bool) {
 
 // qualified reports whether sym and every owner is named and first so named in
 // its namespace; an unnamed or shadowed element, and anything below one, has no id.
+// A parameter named by the one its position redefines is named (KerML 8.2.4).
 func (q *qualifier) qualified(sym *symbols.Symbol) bool {
 	if known, seen := q.memo[sym]; seen {
 		return known
 	}
-	ok := sym.Name != "" && sym.Kind != symbols.SymbolAlias && firstSoNamed(sym)
+	ok := sym.Kind != symbols.SymbolAlias && (sym.Name != "" && firstSoNamed(sym) || q.model.PositionallyNamed(sym))
 	if ok && sym.OwnerScope != nil {
 		if owner := sym.OwnerScope.Owner(); owner != nil {
 			ok = q.qualified(owner)
@@ -55,6 +71,15 @@ func (q *qualifier) qualified(sym *symbols.Symbol) bool {
 	}
 	q.memo[sym] = ok
 	return ok
+}
+
+// qualifiedName is the qualified name of a symbol qualified reports: the index's,
+// or the one a parameter takes from the parameter its position redefines.
+func (q *qualifier) qualifiedName(sym *symbols.Symbol) string {
+	if sym.Name == "" && q.model != nil {
+		return q.model.QualifiedNameOf(sym)
+	}
+	return q.idx.GetFQN(sym)
 }
 
 // firstSoNamed reports whether sym is the first owned (non-alias) member of its
@@ -199,14 +224,20 @@ func libraryCatalogIndex(idx *symbols.Index) *symbols.Index {
 	return idx
 }
 
+// mergeCatalogs answers an id from any catalog, and a symbol or name by the
+// first catalog that fixes it: the extension scheme over the pilot's for OpenSysML's own.
 func mergeCatalogs(catalogs ...*Catalog) *Catalog {
 	merged := newCatalog()
 	for _, catalog := range catalogs {
 		for _, element := range catalog.order {
 			merged.elements[element.ID] = element
 			merged.memberships[element.OwningMembershipID] = element
-			merged.symbols[element.Symbol] = element
-			merged.names[element.FQN] = element
+			if _, fixed := merged.symbols[element.Symbol]; !fixed {
+				merged.symbols[element.Symbol] = element
+			}
+			if _, fixed := merged.names[element.FQN]; !fixed {
+				merged.names[element.FQN] = element
+			}
 			merged.order = append(merged.order, element)
 		}
 		for name, root := range catalog.roots {
@@ -322,13 +353,13 @@ func newCatalog() *Catalog {
 
 // buildCatalog fixes the id of every named element of idx's library documents.
 func buildCatalog(idx libraryView) *Catalog {
-	q := newQualifier(idx)
-	return buildCatalogWithLanguage(idx, q.language)
+	q := newQualifier(idx, modelOf(idx))
+	return buildCatalogWithLanguage(idx, q, q.language)
 }
 
 func buildOpenSysMLCatalog(idx libraryView) *Catalog {
-	q := newQualifier(idx)
-	return buildCatalogWithLanguage(idx, func(sym *symbols.Symbol) (Language, bool) {
+	q := newQualifier(idx, modelOf(idx))
+	return buildCatalogWithLanguage(idx, q, func(sym *symbols.Symbol) (Language, bool) {
 		if idx.LibraryTier(sym) != symbols.TierOpenSysML || !q.qualified(sym) {
 			return 0, false
 		}
@@ -345,6 +376,7 @@ func buildOpenSysMLCatalog(idx libraryView) *Catalog {
 
 func buildCatalogWithLanguage(
 	idx libraryView,
+	q *qualifier,
 	language func(*symbols.Symbol) (Language, bool),
 ) *Catalog {
 	c := newCatalog()
@@ -363,7 +395,7 @@ func buildCatalogWithLanguage(
 		if !ok {
 			continue
 		}
-		fqn := idx.GetFQN(sym)
+		fqn := q.qualifiedName(sym)
 		if fqn == "" {
 			continue
 		}

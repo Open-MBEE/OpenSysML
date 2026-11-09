@@ -1,5 +1,6 @@
 @startuml
 ' MachineViews::thermostat — state rendering (view def StateTransitionView)
+mainframe <size:10>//«view»//</size> **MachineViews::thermostat** : StateTransitionView\n<size:10>expose Machines::Thermostat</size>
 <style>
 root {
   BackGroundColor white

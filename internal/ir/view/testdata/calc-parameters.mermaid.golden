@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#181818"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» ParameterCalcViews::calculations"
 ---
 %% ParameterCalcViews::calculations — tree rendering (render asTreeDiagram)
 flowchart TD
@@ -47,8 +48,8 @@ out ^result`")
     n6("`*«calc»*
 **scaled**
 parameters
-in factor
 in ^x
+in factor
 inout ^count
 out ^doubled
 out ^r`")

@@ -6,9 +6,9 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
-	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 // apiJSONCompletedPropertiesKey names, on an element object, the derived
@@ -58,6 +58,19 @@ var apiJSONCompletedProperties = []apiJSONCompletedProperty{
 	{class: "Type", name: "ownedEndFeature", clause: "8.3.3.1.10 deriveTypeOwnedEndFeature"},
 	{class: "Type", name: "ownedConjugator", clause: "8.3.3.1.10 deriveTypeOwnedConjugator"},
 	{class: "Type", name: "multiplicity", clause: "8.3.3.1.10 deriveTypeMultiplicity"},
+	{class: "Namespace", name: "membership", clause: "8.3.2.4.5 deriveNamespaceMembership"},
+	{class: "Namespace", name: "member", clause: "8.3.2.4.5 deriveNamespaceMember"},
+	{class: "Type", name: "inheritedMembership", clause: "8.3.3.1.10 deriveTypeInheritedMembership"},
+	{class: "Type", name: "featureMembership", clause: "8.3.3.1.10 deriveTypeFeatureMembership"},
+	{class: "Type", name: "feature", clause: "8.3.3.1.10 deriveTypeFeature"},
+	{class: "Type", name: "inheritedFeature", clause: "8.3.3.1.10 deriveTypeInheritedFeature"},
+	{class: "Type", name: "directedFeature", clause: "8.3.3.1.10 deriveTypeDirectedFeature"},
+	{class: "Type", name: "input", clause: "8.3.3.1.10 deriveTypeInput"},
+	{class: "Type", name: "output", clause: "8.3.3.1.10 deriveTypeOutput"},
+	{class: "Usage", name: "usage", clause: "SysML 8.3.6.4 deriveUsageUsage"},
+	{class: "Usage", name: "directedUsage", clause: "SysML 8.3.6.4 deriveUsageDirectedUsage"},
+	{class: "Definition", name: "usage", clause: "SysML 8.3.6.2 deriveDefinitionUsage"},
+	{class: "Definition", name: "directedUsage", clause: "SysML 8.3.6.2 deriveDefinitionDirectedUsage"},
 	{class: "Classifier", name: "ownedSubclassification", clause: "8.3.3.2.2 deriveClassifierOwnedSubclassification"},
 	{class: "Feature", name: "owningType", clause: "8.3.3.3.4 deriveFeatureOwningType"},
 	{class: "Feature", name: "owningFeatureMembership", clause: "8.3.3.3.4 deriveFeatureOwningFeatureMembership"},
@@ -228,16 +241,30 @@ func (w *apiJSONElementWriter) completeDerived(subject rdf.Term, metaclass strin
 		if spelled == nil {
 			value, supported := w.evaluation.evaluator.PropertyReadOnlyUncached(semanticElement, property.class, property.name)
 			if !supported {
+				reason, explained := w.evaluation.evaluator.Explain(semanticElement, property.class, property.name)
+				if !explained {
+					reason = metamodel.Reason{Category: metamodel.ReasonNoRule, Detail: property.class + "::" + property.name}
+				}
+				w.completionOmitted(subject, metaclass, property.name, reason)
 				continue
 			}
 			var ok bool
 			if spelled, ok = w.derivedJSONValue(value); !ok {
+				if !derivedValueEmpty(value) {
+					w.completionOmitted(subject, metaclass, property.name, metamodel.Reason{
+						Category: metamodel.ReasonUnrepresentedElement, Detail: property.class + "::" + property.name,
+					})
+				}
 				continue
 			}
 			// A single-valued property is spelled as its one value, as the graph's would be.
 			if definition, known := ontology.PropertyOf(metaclass, property.name); known && !definition.Many {
 				values, sequence := spelled.([]any)
 				if sequence && len(values) != 1 {
+					w.completionOmitted(subject, metaclass, property.name, metamodel.Reason{
+						Category: metamodel.ReasonIncompleteStructure,
+						Detail:   fmt.Sprintf("%d values for the single-valued %s::%s", len(values), property.class, property.name),
+					})
 					continue
 				}
 				if sequence {
@@ -252,6 +279,22 @@ func (w *apiJSONElementWriter) completeDerived(subject rdf.Term, metaclass strin
 		element = append(element, apiJSONMember{key: apiJSONCompletedPropertiesKey, value: completed})
 	}
 	return element
+}
+
+// completionOmitted reports a completed property the subject's element object
+// does not carry, and why, to the writer's Omitted option.
+func (w *apiJSONElementWriter) completionOmitted(subject rdf.Term, metaclass, property string, reason metamodel.Reason) {
+	if w.options.Omitted == nil {
+		return
+	}
+	id, _ := rdf.SubjectID(subject)
+	w.options.Omitted(APIJSONOmission{Subject: id, Metaclass: metaclass, Property: property, Reason: reason})
+}
+
+// derivedValueEmpty reports a value the element form spells by omission: null,
+// or an empty collection.
+func derivedValueEmpty(value metamodel.Value) bool {
+	return value.Kind == metamodel.NullValue || (value.Kind == metamodel.SequenceValue && len(value.Values) == 0)
 }
 
 // derivedJSONValue spells an evaluator value in the element form; a null or
@@ -273,13 +316,13 @@ func (w *apiJSONElementWriter) derivedJSONValue(value metamodel.Value) (any, boo
 		if !ok {
 			return nil, false
 		}
-		return apiJSONReference{ID: id}, true
+		return APIJSONReference{ID: id}, true
 	case metamodel.MembershipValue:
 		id, ok := w.derivedElementID(metamodel.MembershipElement(value.Membership))
 		if !ok {
 			return nil, false
 		}
-		return apiJSONReference{ID: id}, true
+		return APIJSONReference{ID: id}, true
 	case metamodel.SequenceValue:
 		if len(value.Values) == 0 {
 			return nil, false
@@ -312,7 +355,7 @@ func (w *apiJSONElementWriter) derivedElementID(element metamodel.Element) (stri
 	}
 	library, ok := w.evaluation.libraryCatalog().ElementForSymbol(symbol)
 	if !ok || library == nil {
-		return "", false
+		return w.anonymousLibraryID(symbol, element.IsMembership)
 	}
 	if element.IsMembership {
 		return library.OwningMembershipID, library.OwningMembershipID != ""
@@ -320,12 +363,28 @@ func (w *apiJSONElementWriter) derivedElementID(element metamodel.Element) (stri
 	return library.ID, library.ID != ""
 }
 
+// anonymousLibraryID mints the id of a library member no qualified name
+// catalogues (identity.AnonymousMemberID), under its catalogued owner.
+func (w *apiJSONElementWriter) anonymousLibraryID(symbol *symbols.Symbol, membership bool) (string, bool) {
+	if w.evaluation.model == nil {
+		return "", false
+	}
+	member, ok := sharedLibraryIndex().anonymous.Member(symbol)
+	if !ok {
+		member, ok = identity.AnonymousMemberOf(w.evaluation.model, w.evaluation.libraryCatalog(), symbol)
+	}
+	if !ok {
+		return "", false
+	}
+	if membership {
+		return member.OwningMembershipID, member.OwningMembershipID != ""
+	}
+	return member.ID, member.ID != ""
+}
+
 // libraryCatalog is the catalog of normative library ids, built once per evaluation.
 func (e *apiJSONEvaluation) libraryCatalog() *identity.Catalog {
-	e.catalogOnce.Do(func() {
-		e.catalog = identity.LibraryCatalogWithOpenSysML(libs.SharedBase())
-	})
-	return e.catalog
+	return e.structure.libraryCatalog()
 }
 
 // apiJSONCheckCompletedProperties refuses a sysx:completedProperties list naming a

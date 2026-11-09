@@ -88,11 +88,12 @@ func TestRootsSharingALineComeBack(t *testing.T) {
 		t.Errorf("the notation does not state the edited graph:\n--- want ---\n%s--- got ---\n%s", want, got)
 	}
 	// The trivia after a root is its own, so a root rebuilt ahead of another
-	// leaves that one at the start of its line.
+	// leaves the next root — the comment, a root in its own right — at the
+	// start of its line.
 	edited = editTurtle(t, turtle,
 		"elmt:A\n    a sysml:Package ;\n",
 		"elmt:A\n    a sysml:LibraryPackage ;\n")
-	want = "library package A;\npackage B; // after\n\npackage C {\n\tpart p; } package D;"
+	want = "library package A;\n/* between */ package B; // after\n\npackage C {\n\tpart p; } package D;"
 	if back := toNotation(t, edited); back != want {
 		t.Errorf("the first root was not rebuilt in place:\n--- want ---\n%s--- got ---\n%s", want, back)
 	}
@@ -103,6 +104,7 @@ func TestRootsSharingALineComeBack(t *testing.T) {
 func TestStrippedGraphPrintsCanonically(t *testing.T) {
 	back := toNotation(t, withoutTriples(t, commentedTurtle(t), "sysx:sourceText"))
 	want := `package Rover {
+    comment /* Definitions come first. */
     part def Wheel specializes Part;
     part def Hub;
     part def Vehicle {
@@ -173,7 +175,7 @@ func TestMembersAfterARemovedOneKeepTheirText(t *testing.T) {
 	turtle := idTurtle(t, `package P {
     part def A; // the first
     part def B; // the second
-    /* about C */
+    // about C
     part def C {
         part x : A; // inside
     }
@@ -185,7 +187,7 @@ func TestMembersAfterARemovedOneKeepTheirText(t *testing.T) {
 	back := toNotation(t, turtle)
 	want := `package P {
     part def A; // the first
-    /* about C */
+    // about C
     part def C {
         part x : A; // inside
     }
@@ -478,7 +480,19 @@ func quoteLiteral(value string) string {
 // structural is a Turtle document without its source text.
 func structural(t *testing.T, turtle []byte) string {
 	t.Helper()
-	return string(withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:sourceTail"))
+	return withoutLibraryStubs(string(withoutTriples(t, withoutTriples(t, turtle, "sysx:sourceText"), "sysx:sourceTail")))
+}
+
+// withoutLibraryStubs drops the blocks naming library elements: an edited graph
+// keeps the ones its former members referenced, a fresh conversion names fewer.
+func withoutLibraryStubs(turtle string) string {
+	var kept []string
+	for _, block := range strings.Split(turtle, "\n\n") {
+		if !strings.Contains(block, `sysml:isLibraryElement "true"`) {
+			kept = append(kept, block)
+		}
+	}
+	return strings.Join(kept, "\n\n")
 }
 
 // A member written on its owner's lines, such as an accept's payload, has no

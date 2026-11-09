@@ -163,7 +163,7 @@ the view kind, stated rendering, notices, canvas, nodes, edges, notes and, for t
 
 `show` is optional: an array naming the [optional notation elements](../project/view-rendering-forms.md#optional-notation-elements)
 to draw besides those the view's rendering shows (`parameter-symbols`, `port-symbols`,
-`compartments`, `edge-labels`, `keywords`, `multiplicities`, `typings`, `qualifiers`, or `all`),
+`compartments`, `edge-labels`, `keywords`, `multiplicities`, `typings`, `qualifiers`, `annotations`, or `all`),
 as `sysml -render-show` does; an unknown name is an invalid-argument error. The response's
 `shown` lists the elements drawn.
 
@@ -241,7 +241,8 @@ diagnostics and shared symbol facts.
   hash, one root per document, and diagnostics.
 - `ParseFile` parses a single inline document or file and returns its hash, root and diagnostics.
 - `GetDiagnostics` returns the parser and validation diagnostics for a cached model.
-- `GetSymbol` returns the symbol's type, multiplicity, specialization and attribute facts.
+- `GetSymbol` returns the symbol's type, multiplicity, specialization and attribute facts, and
+  the ids of its children, an unnamed member by its position (`Owner::@N`) as the service names it.
 
 The `js` build installs `globalThis.sysmlCore` with `version` and synchronous
 `call(method, paramsJSON)`, which returns the JSON-RPC envelope string. Passing `-stdio`
@@ -284,7 +285,7 @@ A hash from either parse method is shared by every method that takes a `modelHas
 `GetDiagnostics`, `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction` and `ExecuteState`.
 The module retains the 16 most recently used models; an evicted hash is evicted for every method.
 `GetServerInfo` returns the build version and these capabilities, in order:
-`type_facts`, `enum_values`, `evaluate_subject`, `symbol_attributes`, `unset_value`,
+`type_facts`, `enum_values`, `evaluate_subject`, `symbol_attributes`, `symbol_members`, `unset_value`,
 `feature_values`, `inline_language`, `strict_conformance`, `parse_sources`, `complex_values`,
 `structured_values`, `measurement_refs`, `function_values`, `set_values`, `tensor_values`,
 `infinity_value`, `diagnostic_codes`, `schedule`, `final_time`, `metaobject_values`,

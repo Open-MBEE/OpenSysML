@@ -33,6 +33,16 @@ func BoundText(b semantics.Bound) string {
 	return strconv.FormatInt(b.Value, 10)
 }
 
+// ElementIdentities names the element a metaobject reflects on the wire by the
+// id a client keeps for any element, and resolves such an id back in a model.
+type ElementIdentities interface {
+	// ElementIdentity is the id of sym: its qualified name, the positional id
+	// of an unnamed member, or the element form's `@id`; "" for none.
+	ElementIdentity(sym *symbols.Symbol) string
+	// ResolveElement is every symbol of sem the id names, in the same forms.
+	ResolveElement(id string, sem *semantics.Model) []*symbols.Symbol
+}
+
 // ValueToProto converts runtime.Value to protobuf Value. An enumeration literal
 // is named by its declaration, which idx supplies the qualified name of.
 func ValueToProto(val runtime.Value, idx *symbols.Index) *pb.Value {
@@ -42,8 +52,14 @@ func ValueToProto(val runtime.Value, idx *symbols.Index) *pb.Value {
 // ValueToProtoIn converts a value read from a live context, which is what tells
 // an object holding no value from one with features: the former crosses as the
 // unset arm, as every other surface reads it. rt may be nil for a value no
-// context materialized.
+// context materialized. A metaobject names its element by qualified name alone.
 func ValueToProtoIn(rt *runtime.Context, val runtime.Value, idx *symbols.Index) *pb.Value {
+	return ValueToProtoWith(rt, val, idx, nil)
+}
+
+// ValueToProtoWith is ValueToProtoIn naming a metaobject's element as ids does,
+// so an element with no qualified name crosses under the id a client can keep.
+func ValueToProtoWith(rt *runtime.Context, val runtime.Value, idx *symbols.Index, ids ElementIdentities) *pb.Value {
 	if rt != nil && rt.HoldsNoValue(val) {
 		return &pb.Value{Kind: &pb.Value_Unset{Unset: true}}
 	}
@@ -87,11 +103,11 @@ func ValueToProtoIn(rt *runtime.Context, val runtime.Value, idx *symbols.Index) 
 			return &pb.Value{Kind: &pb.Value_Null{Null: err.Error()}}
 		}
 		for _, elem := range held {
-			pbElements = append(pbElements, ValueToProtoIn(rt, elem, idx))
+			pbElements = append(pbElements, ValueToProtoWith(rt, elem, idx, ids))
 		}
 		return &pb.Value{Kind: &pb.Value_Sequence{Sequence: &pb.ValueSequence{Elements: pbElements}}}
 	case runtime.ValSet:
-		return setToProto(rt, val, idx)
+		return setToProto(rt, val, idx, ids)
 	case runtime.ValVariant:
 		// The wire Value has no variant form: the object a selected variant
 		// materialized is reported by identity, a valueless selection as unsupported.
@@ -110,7 +126,7 @@ func ValueToProtoIn(rt *runtime.Context, val runtime.Value, idx *symbols.Index) 
 	case runtime.ValComplex:
 		return &pb.Value{Kind: &pb.Value_Complex{Complex: ComplexToProto(val.Complex())}}
 	case runtime.ValArray:
-		return &pb.Value{Kind: &pb.Value_Array{Array: arrayToProto(rt, val.Array(), idx)}}
+		return &pb.Value{Kind: &pb.Value_Array{Array: arrayToProto(rt, val.Array(), idx, ids)}}
 	case runtime.ValVector:
 		return &pb.Value{Kind: &pb.Value_Vector{Vector: vectorToProto(val.Vector())}}
 	case runtime.ValVectorQuantity:
@@ -133,9 +149,9 @@ func ValueToProtoIn(rt *runtime.Context, val runtime.Value, idx *symbols.Index) 
 		}
 		return &pb.Value{Kind: &pb.Value_TensorQuantity{TensorQuantity: ptq}}
 	case runtime.ValMetaobject:
-		meta := metaobjectToProto(val, idx)
+		meta := metaobjectToProto(val, idx, ids)
 		if meta == nil {
-			return &pb.Value{Kind: &pb.Value_Null{Null: "unsupported: metaobject of an element with no qualified name"}}
+			return &pb.Value{Kind: &pb.Value_Null{Null: UnsupportedUnidentifiedMetaobject}}
 		}
 		return &pb.Value{Kind: &pb.Value_Metaobject{Metaobject: meta}}
 	case runtime.ValUndetermined:
@@ -181,19 +197,40 @@ func enumLiteralValueToProto(val runtime.Value, idx *symbols.Index) *pb.Value {
 	return &pb.Value{Kind: &pb.Value_EnumLiteral{EnumLiteral: lit}}
 }
 
+// UnsupportedUnidentifiedMetaobject is the null arm a metaobject crosses as
+// when no id names its element: no qualified name, and ids gives it none.
+const UnsupportedUnidentifiedMetaobject = UnsupportedNullPrefix + "metaobject of an element with no identity"
+
 // metaobjectToProto names a metaobject by the element it reflects, which is its
-// identity, and by that element's own metaclass. Nil when either is unnamed: an
-// anonymous element has no qualified name a receiver could bind.
-func metaobjectToProto(val runtime.Value, idx *symbols.Index) *pb.Metaobject {
+// identity, and by that element's own metaclass; nil when either has no id.
+func metaobjectToProto(val runtime.Value, idx *symbols.Index, ids ElementIdentities) *pb.Metaobject {
 	element, metaclass := val.MetaobjectElement(), val.MetaobjectClass()
-	if element == nil || metaclass == nil || element.Name == "" || metaclass.Name == "" {
+	if element == nil || metaclass == nil || metaclass.Name == "" {
 		return nil
 	}
-	elementID, metaclassID := element.Name, metaclass.Name
+	elementID, metaclassID := ElementIdentity(element, idx, ids), metaclass.Name
 	if idx != nil {
-		elementID, metaclassID = idx.GetFQN(element), idx.GetFQN(metaclass)
+		metaclassID = idx.GetFQN(metaclass)
+	}
+	if elementID == "" {
+		return nil
 	}
 	return &pb.Metaobject{ElementId: elementID, MetaclassId: metaclassID}
+}
+
+// ElementIdentity is the id a metaobject of sym crosses under: what ids gives
+// it, else its qualified name in idx; "" when it has neither.
+func ElementIdentity(sym *symbols.Symbol, idx *symbols.Index, ids ElementIdentities) string {
+	if ids != nil {
+		return ids.ElementIdentity(sym)
+	}
+	if sym == nil || sym.Name == "" {
+		return ""
+	}
+	if idx != nil {
+		return idx.GetFQN(sym)
+	}
+	return sym.Name
 }
 
 // enumLiteralToProto names a literal by the declaration it is, which is its
@@ -230,10 +267,10 @@ func ProtoToComplex(pc *pb.Complex) complex128 {
 
 // arrayToProto marshals an array as its dimensions and its row-major elements,
 // each converted as any value is.
-func arrayToProto(rt *runtime.Context, a *runtime.Array, idx *symbols.Index) *pb.Array {
+func arrayToProto(rt *runtime.Context, a *runtime.Array, idx *symbols.Index, ids ElementIdentities) *pb.Array {
 	pa := &pb.Array{Dimensions: slices.Clone(a.Dimensions)}
 	for _, elem := range a.Elements {
-		pa.Elements = append(pa.Elements, ValueToProtoIn(rt, elem, idx))
+		pa.Elements = append(pa.Elements, ValueToProtoWith(rt, elem, idx, ids))
 	}
 	return pa
 }
@@ -241,11 +278,11 @@ func arrayToProto(rt *runtime.Context, a *runtime.Array, idx *symbols.Index) *pb
 // setToProto marshals a set's distinct elements in canonical order, each
 // converted as any value is. A member with no wire form withholds the whole
 // set: sent as nulls, two such members would read as one repeated.
-func setToProto(rt *runtime.Context, val runtime.Value, idx *symbols.Index) *pb.Value {
+func setToProto(rt *runtime.Context, val runtime.Value, idx *symbols.Index, ids ElementIdentities) *pb.Value {
 	ps := &pb.ValueSet{}
 	if s := val.Set(); s != nil {
 		for _, elem := range s.Elements() {
-			pv := ValueToProtoIn(rt, elem, idx)
+			pv := ValueToProtoWith(rt, elem, idx, ids)
 			if reason, ok := UnsupportedReason(pv); ok {
 				return UnsupportedSet(val, reason)
 			}
@@ -781,8 +818,15 @@ func ProtoToValueIn(pv *pb.Value, idx *symbols.Index, sem *semantics.Model) (run
 
 // ProtoToRuntimeValue is ProtoToValueIn for a value bound for the runtime rt,
 // which is what a function's calc is bound in and its object looked up in;
-// rt may be nil for a value naming no function.
+// rt may be nil for a value naming no function. A metaobject's element is
+// resolved by qualified name alone.
 func ProtoToRuntimeValue(rt *runtime.Context, pv *pb.Value, idx *symbols.Index, sem *semantics.Model) (runtime.Value, error) {
+	return ProtoToRuntimeValueWith(rt, pv, idx, sem, nil)
+}
+
+// ProtoToRuntimeValueWith is ProtoToRuntimeValue resolving a metaobject's
+// element as ids does, in every form ValueToProtoWith names one.
+func ProtoToRuntimeValueWith(rt *runtime.Context, pv *pb.Value, idx *symbols.Index, sem *semantics.Model, ids ElementIdentities) (runtime.Value, error) {
 	if pv == nil {
 		return runtime.Value{Kind: runtime.ValNull}, nil
 	}
@@ -798,12 +842,12 @@ func ProtoToRuntimeValue(rt *runtime.Context, pv *pb.Value, idx *symbols.Index, 
 	case *pb.Value_Function:
 		return functionFromProto(rt, k.Function, idx)
 	case *pb.Value_Metaobject:
-		return metaobjectFromProto(k.Metaobject, idx, sem)
+		return metaobjectFromProto(k.Metaobject, idx, sem, ids)
 	case *pb.Value_Sequence:
 		seq := runtime.NewSequence()
 		if k.Sequence != nil {
 			for _, elem := range k.Sequence.Elements {
-				val, err := ProtoToRuntimeValue(rt, elem, idx, sem)
+				val, err := ProtoToRuntimeValueWith(rt, elem, idx, sem, ids)
 				if err != nil {
 					return runtime.Value{}, err
 				}
@@ -812,11 +856,11 @@ func ProtoToRuntimeValue(rt *runtime.Context, pv *pb.Value, idx *symbols.Index, 
 		}
 		return runtime.NewSequenceValue(seq), nil
 	case *pb.Value_Set:
-		return protoToSet(rt, k.Set, idx, sem)
+		return protoToSet(rt, k.Set, idx, sem, ids)
 	case *pb.Value_TensorQuantity:
 		return protoToTensorQuantity(k.TensorQuantity, idx, sem)
 	case *pb.Value_Array:
-		return protoToArray(rt, k.Array, idx, sem)
+		return protoToArray(rt, k.Array, idx, sem, ids)
 	case *pb.Value_Vector:
 		return protoToVector(k.Vector)
 	case *pb.Value_VectorQuantity:
@@ -878,7 +922,7 @@ func functionFromProto(rt *runtime.Context, fn *pb.Function, idx *symbols.Index)
 // names, reflected on as the metaclass the model classifies it by. A name two
 // declarations share identifies neither, and a metaclass_id naming another
 // metaclass is refused rather than read as a cast.
-func metaobjectFromProto(meta *pb.Metaobject, idx *symbols.Index, sem *semantics.Model) (runtime.Value, error) {
+func metaobjectFromProto(meta *pb.Metaobject, idx *symbols.Index, sem *semantics.Model, ids ElementIdentities) (runtime.Value, error) {
 	if meta == nil || meta.GetElementId() == "" {
 		return runtime.Value{}, fmt.Errorf("%w: element_id is empty", ErrMetaobjectUnbound)
 	}
@@ -886,7 +930,7 @@ func metaobjectFromProto(meta *pb.Metaobject, idx *symbols.Index, sem *semantics
 		return runtime.Value{}, fmt.Errorf("%w: metaobject %s: no model to resolve it against", ErrMetaobjectUnbound, meta.GetElementId())
 	}
 	var element, metaclass *symbols.Symbol
-	for _, sym := range idx.LookupQualified(meta.GetElementId()) {
+	for _, sym := range ResolveElement(meta.GetElementId(), idx, sem, ids) {
 		mc := sem.MetaclassOf(sym)
 		if mc == nil || sym == element {
 			continue
@@ -906,12 +950,21 @@ func metaobjectFromProto(meta *pb.Metaobject, idx *symbols.Index, sem *semantics
 	return runtime.NewMetaobject(element, metaclass), nil
 }
 
+// ResolveElement is every symbol of sem the id of a metaobject's element names:
+// as ids reads one, else the declarations of that qualified name in idx.
+func ResolveElement(id string, idx *symbols.Index, sem *semantics.Model, ids ElementIdentities) []*symbols.Symbol {
+	if ids != nil {
+		return ids.ResolveElement(id, sem)
+	}
+	return idx.LookupQualified(id)
+}
+
 // protoToSet rebuilds a set from elements sent in any order, refusing one sent
 // twice rather than reading the two as one.
-func protoToSet(rt *runtime.Context, ps *pb.ValueSet, idx *symbols.Index, sem *semantics.Model) (runtime.Value, error) {
+func protoToSet(rt *runtime.Context, ps *pb.ValueSet, idx *symbols.Index, sem *semantics.Model, ids ElementIdentities) (runtime.Value, error) {
 	set := runtime.NewSetIn(rt)
 	for i, elem := range ps.GetElements() {
-		val, err := ProtoToRuntimeValue(rt, elem, idx, sem)
+		val, err := ProtoToRuntimeValueWith(rt, elem, idx, sem, ids)
 		if err != nil {
 			return runtime.Value{}, err
 		}
@@ -949,14 +1002,14 @@ func protoToTensorQuantity(ptq *pb.TensorQuantity, idx *symbols.Index, sem *sema
 
 // protoToArray rebuilds an array, refusing a shape its elements do not fill
 // rather than reading them under some other shape.
-func protoToArray(rt *runtime.Context, pa *pb.Array, idx *symbols.Index, sem *semantics.Model) (runtime.Value, error) {
+func protoToArray(rt *runtime.Context, pa *pb.Array, idx *symbols.Index, sem *semantics.Model, ids ElementIdentities) (runtime.Value, error) {
 	dimensions := slices.Clone(pa.GetDimensions())
 	if err := CheckArrayShape(dimensions, len(pa.GetElements())); err != nil {
 		return runtime.Value{}, err
 	}
 	elements := make([]runtime.Value, 0, len(pa.GetElements()))
 	for _, elem := range pa.GetElements() {
-		val, err := ProtoToRuntimeValue(rt, elem, idx, sem)
+		val, err := ProtoToRuntimeValueWith(rt, elem, idx, sem, ids)
 		if err != nil {
 			return runtime.Value{}, err
 		}
@@ -1648,75 +1701,69 @@ type InstanceGraph struct {
 }
 
 // InstanceGraphToProtoWithin converts inst and every instance reachable from it, root first,
-// stopping at bounds and at a type already on the path; an unexpanded child stays a bare id.
-func InstanceGraphToProtoWithin(rt *runtime.Context, inst *runtime.Instance, idx *symbols.Index, bounds GraphBounds) InstanceGraph {
+// in the order the runtime's traversal reaches them (see runtime.Context.Traverse):
+// depth-first, features in name order, each object once, stopping at bounds and at a
+// type already on the path; an unexpanded child stays a bare id. Each instance says how
+// the traversal reached it.
+func InstanceGraphToProtoWithin(rt *runtime.Context, inst *runtime.Instance, idx *symbols.Index, bounds GraphBounds, ids ElementIdentities) InstanceGraph {
 	var g InstanceGraph
-	seen := make(map[int64]bool)
-	onPath := make(map[*symbols.Symbol]bool)
-
-	var walk func(*runtime.Instance, int) *pb.Instance
-	walk = func(cur *runtime.Instance, depth int) *pb.Instance {
-		if seen[cur.ID] {
-			return nil
-		}
-		if len(g.All) >= bounds.Instances {
-			g.Truncated = true
-			return nil
-		}
-		seen[cur.ID] = true
-		onPath[cur.Type] = true
-		defer delete(onPath, cur.Type)
-
-		// InstanceToProto reads every feature value through GetFeatureValue, which is what
-		// lazily materializes the children the ids below resolve to.
-		pbInst := instanceToProto(rt, cur, idx, func(err error) { g.Errors = append(g.Errors, err) })
+	// Traverse reads every feature value through GetFeatureValue, which is what
+	// lazily materializes the children it descends into, in traversal order.
+	reached := rt.Traverse(inst, runtime.TraversalBounds{Depth: bounds.Depth, Objects: bounds.Instances})
+	g.Truncated = reached.Truncated
+	for _, reach := range reached.Reaches {
+		pbInst := instanceToProto(rt, reach.Object, idx, ids, func(err error) { g.Errors = append(g.Errors, err) })
+		pbInst.ReachedBy = ReachToProto(reach, idx)
 		g.All = append(g.All, pbInst)
-
-		if depth >= bounds.Depth {
-			return pbInst
-		}
-
-		// In name order, so the graph is serialized in the same order every run.
-		for _, name := range slices.Sorted(maps.Keys(pbInst.FeatureValues)) {
-			for _, id := range instanceRefs(pbInst.FeatureValues[name]) {
-				child, ok := rt.Instance(id)
-				if !ok || onPath[child.Type] {
-					continue
-				}
-				walk(child, depth+1)
-			}
-		}
-		return pbInst
 	}
-
-	g.Root = walk(inst, 0)
+	g.Root = g.All[0]
 	return g
 }
 
-// instanceRefs collects the instance IDs a feature value references, scalar or not.
-func instanceRefs(fv *pb.FeatureValue) []int64 {
-	var ids []int64
-	var collect func(*pb.Value)
-	collect = func(v *pb.Value) {
-		if k, ok := v.GetKind().(*pb.Value_InstanceId); ok {
-			ids = append(ids, k.InstanceId)
-		}
-		for _, nested := range NestedValues(v) {
-			collect(nested)
-		}
+// ReachToProto converts how a traversal reached an object; nil for the root,
+// which nothing holds.
+func ReachToProto(reach runtime.Reach, idx *symbols.Index) *pb.InstanceReach {
+	if reach.Holder == nil {
+		return nil
 	}
-	if fv.Value != nil {
-		collect(fv.Value)
+	return &pb.InstanceReach{
+		InstanceId:      reach.Holder.ID,
+		FeatureName:     reach.Feature.Name,
+		FeatureSymbolId: idx.GetFQN(reach.Feature.Symbol),
+		Index:           indexToProto(reach.Index),
+		Path:            reach.Path(),
 	}
-	for _, v := range fv.Values {
-		collect(v)
+}
+
+// indexToProto saturates a position within a feature at the int32 bound rather
+// than wrapping.
+func indexToProto(index int) int32 {
+	if index > math.MaxInt32 {
+		return math.MaxInt32
 	}
-	return ids
+	if index < 0 {
+		return 0
+	}
+	return int32(index)
+}
+
+// PathStepsToProto converts the steps of a root-relative object path.
+func PathStepsToProto(steps []runtime.PathStep, idx *symbols.Index) []*pb.InstancePathStep {
+	out := make([]*pb.InstancePathStep, 0, len(steps))
+	for _, step := range steps {
+		out = append(out, &pb.InstancePathStep{
+			FeatureName:     step.Feature.Name,
+			FeatureSymbolId: idx.GetFQN(step.Feature.Symbol),
+			Index:           indexToProto(step.Index),
+			InstanceId:      step.Object.ID,
+		})
+	}
+	return out
 }
 
 // instanceToProto converts runtime.Instance to protobuf Instance, reading features in name
 // order through GetFeatureValue and handing each unreadable value's typed error to failed.
-func instanceToProto(rt *runtime.Context, inst *runtime.Instance, idx *symbols.Index, failed func(error)) *pb.Instance {
+func instanceToProto(rt *runtime.Context, inst *runtime.Instance, idx *symbols.Index, ids ElementIdentities, failed func(error)) *pb.Instance {
 	pbValues := make(map[string]*pb.FeatureValue)
 
 	for _, name := range slices.Sorted(maps.Keys(inst.FeatureValues)) {
@@ -1745,7 +1792,7 @@ func instanceToProto(rt *runtime.Context, inst *runtime.Instance, idx *symbols.I
 			case fv.Value.Kind == runtime.ValInvalid:
 				pbValue.Value = &pb.Value{Kind: &pb.Value_Unset{Unset: true}}
 			default:
-				pbValue.Value = ValueToProtoIn(rt, fv.Value, idx)
+				pbValue.Value = ValueToProtoWith(rt, fv.Value, idx, ids)
 			}
 		} else {
 			elements, err := objref.CollectionElements(rt, fv.Values)
@@ -1754,7 +1801,7 @@ func instanceToProto(rt *runtime.Context, inst *runtime.Instance, idx *symbols.I
 				pbValue.Error = err.Error()
 			}
 			for _, elem := range elements {
-				pbValue.Values = append(pbValue.Values, ValueToProtoIn(rt, elem, idx))
+				pbValue.Values = append(pbValue.Values, ValueToProtoWith(rt, elem, idx, ids))
 			}
 		}
 

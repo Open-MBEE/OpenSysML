@@ -337,11 +337,11 @@ func (c *Core) getSymbol(req *JGetSymbolRequest) ([]byte, error) {
 	if !ok {
 		return nil, jsonrpc.Errorf(jsonrpc.CodeNotFound, msgModelNotFound, req.ModelHash)
 	}
-	matches := symbolfacts.LookupNamed(model.index, req.SymbolId)
+	matches := model.symbolContext().Lookup(req.SymbolId)
 	if len(matches) == 0 {
 		return json.Marshal(&JSymbolResponse{Error: fmt.Sprintf("symbol not found: %s", req.SymbolId)})
 	}
-	info := symbolfacts.Of(matches[0], model.symbolContext())
+	info := symbolfacts.OfWith(matches[0], model.symbolContext(), symbolfacts.Options{IncludeLibraryMembers: req.IncludeLibraryMembers})
 	return json.Marshal(&JSymbolResponse{Symbol: symbolInfo(info)})
 }
 
@@ -365,7 +365,25 @@ func (m *cachedModel) symbolContext() *symbolfacts.Context {
 		}
 	}
 	m.symbols.Semantics.SetSourceText(source.TextOf(sources, libs.Text(m.library)))
+	m.symbols.Positional = symbolfacts.NewPositional(m.index, m.positionalDocuments)
 	return m.symbols
+}
+
+// positionalDocuments pairs each document of the model with its root scope,
+// for the positional identities of its unnamed declarations.
+func (m *cachedModel) positionalDocuments() []symbolfacts.PositionalDocument {
+	docs := make([]symbolfacts.PositionalDocument, 0, len(m.documents))
+	for _, document := range m.documents {
+		if document == nil || document.source == nil {
+			continue
+		}
+		root := m.index.DocumentRoot(document.source.Name())
+		if root == nil {
+			continue
+		}
+		docs = append(docs, symbolfacts.PositionalDocument{File: document.source, Root: document.root, Scope: root})
+	}
+	return docs
 }
 
 func modelDiagnostics(model *cachedModel) []*JDiagnostic {
@@ -389,6 +407,17 @@ func symbolInfo(info *symbolfacts.Info) *JSymbolInfo {
 		Metadata:                  info.Metadata,
 		ChildIds:                  info.ChildIds,
 		WithheldLibraryAttributes: info.WithheldLibraryAttributes,
+		WithheldLibraryMembers:    info.WithheldLibraryMembers,
+	}
+	for _, member := range info.Members {
+		out.Members = append(out.Members, &JMemberInfo{
+			Id:            member.Id,
+			Name:          member.Name,
+			Kind:          member.Kind,
+			Inherited:     member.Inherited,
+			InheritedFrom: member.InheritedFrom,
+			Library:       member.Library,
+		})
 	}
 	if t := info.TypeInfo; t != nil {
 		out.TypeInfo = &JTypeInfo{
@@ -399,6 +428,9 @@ func symbolInfo(info *symbolfacts.Info) *JSymbolInfo {
 			PrimitiveSource: t.PrimitiveSource,
 			Quantity:        t.Quantity,
 			Unit:            t.Unit,
+		}
+		for _, ref := range t.Types {
+			out.TypeInfo.Types = append(out.TypeInfo.Types, &JTypeRef{Id: ref.Id, Kind: ref.Kind})
 		}
 	}
 	if m := info.Multiplicity; m != nil {

@@ -1,0 +1,89 @@
+package identity_test
+
+import (
+	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
+)
+
+// The positional paths are the keys the pilot's exporter gives the same unnamed
+// members of the standard library (its key table for a training example).
+func TestAnonymousMemberPathsMatchThePilotsPositionalKeys(t *testing.T) {
+	base := libs.SharedBase()
+	resolver := resolve.New(base)
+	model := semantics.NewModel(resolver)
+	catalog := identity.LibraryCatalogWithOpenSysML(base)
+	cases := []struct {
+		owner, metaclass string
+		ordinal          int
+		path, membership string
+	}{
+		{"Parts::Part", "Documentation", 0, "Parts::Part/Documentation[0]", "Parts::Part/OwningMembership[0]"},
+		{"Occurrences::Occurrence", "Documentation", 0, "Occurrences::Occurrence/Documentation[0]", "Occurrences::Occurrence/OwningMembership[0]"},
+		{"Occurrences::Occurrence", "Connector", 0, "Occurrences::Occurrence/Connector[0]", "Occurrences::Occurrence/FeatureMembership[4]"},
+		{"Occurrences::Occurrence", "Invariant", 0, "Occurrences::Occurrence/Invariant[0]", "Occurrences::Occurrence/FeatureMembership[23]"},
+	}
+	for _, c := range cases {
+		owner := resolver.Index().LookupQualified(c.owner)[0]
+		var found *identity.AnonymousMember
+		seen := -1
+		owner.Scope.ForEachAnonymousMember(func(sym *symbols.Symbol) bool {
+			member, ok := identity.AnonymousMemberOf(model, catalog, sym)
+			if ok && member.Metaclass == c.metaclass {
+				seen++
+				if seen == c.ordinal {
+					found = &member
+					return false
+				}
+			}
+			return true
+		})
+		if found == nil {
+			t.Errorf("%s has no anonymous %s #%d", c.owner, c.metaclass, c.ordinal)
+			continue
+		}
+		if found.Path != c.path || found.MembershipPath != c.membership {
+			t.Errorf("%s %s #%d: paths %s / %s, want %s / %s", c.owner, c.metaclass, c.ordinal, found.Path, found.MembershipPath, c.path, c.membership)
+		}
+		ownerElement, _ := catalog.ElementNamed(c.owner)
+		if found.ID != identity.AnonymousMemberID(ownerElement.ID, c.metaclass, c.ordinal) || found.OwningMembershipID != identity.AnonymousMemberOwningMembershipID(ownerElement.ID, c.metaclass, c.ordinal) {
+			t.Errorf("%s %s #%d: ids differ from the minting functions", c.owner, c.metaclass, c.ordinal)
+		}
+	}
+}
+
+// The identity table of a library document gives its unnamed members the ids
+// the anonymous index mints, with their owning memberships, so a document
+// converted alone writes them under the ids a model's export references.
+func TestLibraryDocumentIdentityMintsAnonymousMemberIDs(t *testing.T) {
+	base := libs.SharedBase()
+	resolver := resolve.New(base)
+	model := semantics.NewModel(resolver)
+	catalog := identity.LibraryCatalogWithOpenSysML(base)
+	const doc = "Systems Library/Parts.sysml"
+	table := identity.Build(model, resolver, base.DocumentRoot(doc))
+	unnamed := 0
+	for _, sym := range table.Symbols() {
+		if sym.Name != "" {
+			continue
+		}
+		info, _ := table.Info(sym)
+		member, ok := identity.AnonymousMemberOf(model, catalog, sym)
+		if !ok {
+			t.Errorf("%s: the anonymous index does not place the unnamed %s", info.FQN, sym.Kind)
+			continue
+		}
+		unnamed++
+		if !info.Fixed() || info.EffectiveID != member.ID || info.OwningMembershipID() != member.OwningMembershipID {
+			t.Errorf("%s: identity %s (%s, membership %s), anonymous index %s (membership %s)",
+				member.Path, info.EffectiveID, info.Source, info.OwningMembershipID(), member.ID, member.OwningMembershipID)
+		}
+	}
+	if unnamed == 0 {
+		t.Fatalf("%s declares no unnamed member", doc)
+	}
+}

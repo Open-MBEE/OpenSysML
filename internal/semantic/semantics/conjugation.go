@@ -118,12 +118,22 @@ func (m *Model) superEdges(sym *symbols.Symbol) []superEdge {
 				continue
 			}
 			resolved := m.recordedElement(rel.Target)
+			conjugated := rel.Conjugated
+			if rel.Kind == ast.RelTyping {
+				resolved, conjugated = m.conjugatedTypingTarget(resolved, conjugated)
+			}
 			if resolved == nil || resolved == sym || seen[resolved] {
 				continue
 			}
 			seen[resolved] = true
-			out = append(out, superEdge{sym: resolved, conjugated: rel.Conjugated, typing: rel.Kind == ast.RelTyping})
+			out = append(out, superEdge{sym: resolved, conjugated: conjugated, typing: rel.Kind == ast.RelTyping})
 		}
+	}
+	// A ConjugatedPortDefinition's one edge conjugates the port definition
+	// that implies it (SysML v2 8.3.12.3).
+	if original := OriginalPortDefinitionOf(sym); original != nil && !seen[original] {
+		seen[original] = true
+		out = append(out, superEdge{sym: original, conjugated: true})
 	}
 	// Supertypes known beyond declared relationships never conjugate.
 	for _, sup := range m.DirectSupertypes(sym) {
@@ -157,11 +167,18 @@ func (m *Model) declaredSuperEdges(sym *symbols.Symbol, seen map[*symbols.Symbol
 			continue
 		}
 		canonical, aliasOK := m.resolver.ResolveAliasTarget(resolved)
-		if !aliasOK || canonical == sym || seen[canonical] {
+		if !aliasOK {
+			continue
+		}
+		conjugated := rel.Conjugated
+		if rel.Kind == ast.RelTyping {
+			canonical, conjugated = m.conjugatedTypingTarget(canonical, conjugated)
+		}
+		if canonical == sym || seen[canonical] {
 			continue
 		}
 		seen[canonical] = true
-		out = append(out, superEdge{sym: canonical, conjugated: rel.Conjugated, typing: rel.Kind == ast.RelTyping})
+		out = append(out, superEdge{sym: canonical, conjugated: conjugated, typing: rel.Kind == ast.RelTyping})
 	}
 	return out
 }
@@ -468,7 +485,7 @@ func (m *Model) portTypeOf(sym *symbols.Symbol) (*symbols.Symbol, bool) {
 		if !typed {
 			continue
 		}
-		if kind, isDef := typ.DefinitionKind(); !isDef || kind != ast.DefPort {
+		if !IsPortDefinition(typ) {
 			return nil, false
 		}
 		return typ, conjugated
@@ -485,7 +502,8 @@ func (m *Model) declaredTyping(sym *symbols.Symbol) (typ *symbols.Symbol, conjug
 				continue
 			}
 			if target := m.recordedElement(rel.Target); target != nil {
-				return target, rel.Conjugated, true
+				target, conjugated = m.conjugatedTypingTarget(target, rel.Conjugated)
+				return target, conjugated, true
 			}
 		}
 		return nil, false, false
@@ -510,7 +528,8 @@ func (m *Model) declaredTyping(sym *symbols.Symbol) (typ *symbols.Symbol, conjug
 		if !aliasOK {
 			continue
 		}
-		return canonical, rel.Conjugated, true
+		canonical, conjugated = m.conjugatedTypingTarget(canonical, rel.Conjugated)
+		return canonical, conjugated, true
 	}
 	return nil, false, false
 }
@@ -551,10 +570,19 @@ func (m *Model) DeclaredTypes(sym *symbols.Symbol) []*symbols.Symbol {
 	if m == nil || sym == nil || m.resolver == nil {
 		return nil
 	}
-	if sym.Recorded() {
-		return m.RecordedRelationshipTargets(sym, ast.RelTyping)
-	}
 	var types []*symbols.Symbol
+	if sym.Recorded() {
+		for _, rel := range sym.Facts.Relationships {
+			if rel.Kind != ast.RelTyping {
+				continue
+			}
+			if target := m.recordedElement(rel.Target); target != nil {
+				target, _ = m.conjugatedTypingTarget(target, rel.Conjugated)
+				types = append(types, target)
+			}
+		}
+		return types
+	}
 	for _, rel := range RelationshipsOf(sym) {
 		if rel == nil || rel.Kind != ast.RelTyping || rel.Target == nil {
 			continue
@@ -572,90 +600,9 @@ func (m *Model) DeclaredTypes(sym *symbols.Symbol) []*symbols.Symbol {
 			continue
 		}
 		if canonical, aliasOK := m.resolver.ResolveAliasTarget(resolved); aliasOK {
+			canonical, _ = m.conjugatedTypingTarget(canonical, rel.Conjugated)
 			types = append(types, canonical)
 		}
 	}
 	return types
-}
-
-// ConnectedPortsMismatch returns the port definitions typing the end features
-// a and b the connector joins when they are incompatible: neither conforms to
-// the other, they specialize no common definition of the model's own, and
-// neither port's directed features all match the other's with conjugate
-// directions and conforming types (§7.12.2). An end not typed by a port
-// definition is not reported, nor is a connector typed by an interface whose
-// two ends are typed by ports: that interface decides what they pair.
-func (m *Model) ConnectedPortsMismatch(connector, a, b *symbols.Symbol) (portA, portB *symbols.Symbol, mismatch bool) {
-	portA, featuresA, ok := m.endPortFeatures(a)
-	if !ok {
-		return nil, nil, false
-	}
-	portB, featuresB, ok := m.endPortFeatures(b)
-	if !ok {
-		return nil, nil, false
-	}
-	if m.Conforms(portA, portB) || m.Conforms(portB, portA) || m.shareModelSupertype(portA, portB) {
-		return nil, nil, false
-	}
-	if m.featuresMatchConjugate(featuresA, featuresB, nil) || m.featuresMatchConjugate(featuresB, featuresA, nil) {
-		return nil, nil, false
-	}
-	if m.typedByPortEnds(connector) {
-		return nil, nil, false
-	}
-	return portA, portB, true
-}
-
-// typedByPortEnds reports whether connector is typed by an interface whose two
-// ends are both typed by port definitions: InterfaceEndPortMismatch judges that
-// pairing, so the interface decides what its usages' ends pair.
-func (m *Model) typedByPortEnds(connector *symbols.Symbol) bool {
-	for _, typ := range m.DeclaredTypes(connector) {
-		if !interfaceLike(typ) {
-			continue
-		}
-		ends := m.endsOf(typ)
-		if len(ends) == 2 && m.typedByPort(ends[0]) && m.typedByPort(ends[1]) {
-			return true
-		}
-	}
-	return false
-}
-
-// typedByPort reports whether end is typed by a port definition, by its own
-// typing or else by that of the nearest model end it redefines; a library end
-// types every connector end by a library base, which decides nothing.
-func (m *Model) typedByPort(end *symbols.Symbol) bool {
-	if end == nil {
-		return false
-	}
-	for _, sym := range append([]*symbols.Symbol{end}, m.redefinedTransitively(end)...) {
-		if m.libraryTier(sym).Library() {
-			continue
-		}
-		if types := m.DeclaredTypes(sym); len(types) > 0 {
-			return slices.ContainsFunc(types, func(typ *symbols.Symbol) bool {
-				return typ != nil && typ.Kind == symbols.SymbolPortDef
-			})
-		}
-	}
-	return false
-}
-
-// shareModelSupertype reports whether a and b both specialize one definition
-// the model declares; every port specializes the library's Ports::Port, which
-// relates nothing.
-func (m *Model) shareModelSupertype(a, b *symbols.Symbol) bool {
-	supers := make(map[*symbols.Symbol]bool)
-	for _, typ := range m.conjugatedSupertypes(a) {
-		if typ.sym != a && !m.libraryTier(typ.sym).Library() {
-			supers[typ.sym] = true
-		}
-	}
-	for _, typ := range m.conjugatedSupertypes(b) {
-		if typ.sym != b && supers[typ.sym] {
-			return true
-		}
-	}
-	return false
 }

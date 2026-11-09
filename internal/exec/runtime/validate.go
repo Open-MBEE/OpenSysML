@@ -441,7 +441,10 @@ type boundEnds struct {
 func boundEndsOf(binding lower.Binding) boundEnds {
 	paths := make([]string, len(binding.Ends))
 	for i, end := range binding.Ends {
-		paths[i] = end.Path
+		for _, hop := range end.Via {
+			paths[i] += fmt.Sprintf("%s%p.", hop.Feature, hop.Anonymous)
+		}
+		paths[i] += end.Path
 	}
 	return boundEnds{decl: binding.Decl, ends: strings.Join(paths, "\x00")}
 }

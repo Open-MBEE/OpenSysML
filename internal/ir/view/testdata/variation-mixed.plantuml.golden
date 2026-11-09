@@ -1,5 +1,6 @@
 @startuml
 ' VariationViews::familyMixed — mixed rendering (render asMixedDiagram)
+mainframe <size:10>//«view»//</size> **VariationViews::familyMixed** : Family\n<size:10>expose vehicleFamily<U+002A><U+002A></size>\n<size:10>expose EngineChoices<U+002A><U+002A></size>
 <style>
 root {
   BackGroundColor white

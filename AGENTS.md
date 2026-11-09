@@ -29,7 +29,7 @@ make build            # build bin/sysml and bin/sysml-lsp (with version ldflags)
 make build-sysml      # REPL binary only
 make build-lsp        # LSP binary only
 make test             # full suite: go test -race -coverprofile ... ./...
-make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|runtime-corpus|model|export|graph|codegen|tools|rest|migrate|cli)
+make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|runtime-corpus|runtime-exploration|model|export-corpus|export-settled|graph|codegen|tools|rest|migrate|cli)
 make test-short       # faster, no race detector
 make clean            # remove build artifacts
 ```
@@ -165,7 +165,7 @@ When touching the lexer/parser or adding grammar:
 3. **Golden execution traces** for ordering-sensitive behavior (fork/join, transitions): `go test -run TestExecutionTrace ./internal/exec/runtime` (update flag: `-update-traces`).
 4. **Robustness:** add a failure-mode case (deadlock, unbound params, missing refs, dangling transitions, step budget) as a subtest of a `TestRuntimeRobustness<Feature>` function in `internal/exec/runtime/robustness_<feature>_test.go` — a new file for a new feature, so branches never edit one shared registry; `robustness_test.go` holds only the shared helpers and is not where new ones go. Must return typed errors, never panic or hang. The suite counters read every `TestRuntimeRobustness*` function, and gRPC cases follow the same pattern with `TestGRPCRobustness*`.
 
-Then update `docs/project/spec-compliance.md` mapping: semantic rule → implementation (file:function) → test → status (✅ faithful / ⚠️ approximate / ❌ not implemented / 🚧 known failure).
+Then update the compliance map: edit the area's source under `docs/project/spec-compliance/` (`python3 scripts/spec_compliance.py locate "<heading>"` names it; the combined `docs/project/spec-compliance.md` is built from the sources and is never committed on `develop`), mapping semantic rule → implementation (file:function) → test → status (✅ faithful / ⚠️ approximate / ❌ not implemented / 🚧 known failure).
 
 ### 5.3 General
 - Unit tests live beside code as `*_test.go`, one concern per test.
@@ -198,8 +198,8 @@ The vendored `OpenSysML Libraries` (`scripts/extension-libraries-pin.sh`, synced
 `scripts/sync-extension-libraries.sh`) are an input to gates far from `internal/workspace/libs`, and
 the full CI tier is expensive, so run them locally before the PR, every time the pin moves:
 
-1. `go generate ./internal/workspace/libs` — `stdlib.snapshot` embeds the libraries; commit it.
-2. `make extension-libraries-pin-check` — Java-free, about a minute: the sync check, the snapshot,
+1. `make extension-libraries-pin-check` — Java-free, about a minute: regenerates the snapshot
+   from the synced libraries, then the sync check,
    `tests/hygiene TestEngineContractCoversEveryBoundName` (a new binding in
    `internal/ir/queryplan/compiler.go` needs an `engine-contract.json` entry upstream, in the same
    library PR as the declaration), the provenance guards of both pilot-differential baselines, and
@@ -211,16 +211,20 @@ the full CI tier is expensive, so run them locally before the PR, every time the
    into `docs/project/pilot-differential.md` / `api-json-differential.md`, then re-record with
    `-update` and run `make docs-counts`. A library change that adds declarations always moves
    `pilotLibraryElements`; anything else moving is an implementation difference to explain.
-### 6.2 Changing `internal/translate/export`: the api-json writer provenance
+### 6.2 Changing `internal/translate/export`: the api-json differential
 
-The api-json baseline's `api-json-writer` provenance digests **every non-test `.go` file of
-`internal/translate/export`** — the RDF/api-json writer *and* the reverse converter
-(`rdf_in*.go`), element ids, names, addresses — so any commit touching that package, however
-small, moves the digest and turns the `rest` shard red on `TestCommittedBaselineStatesThisRepositorysProvenance`.
-Before pushing such a commit (including a review fix pushed after a re-record): run
-`go run -C tools ./cmd/pilot-apijson-diff -update` over the real corpus directories, confirm that
-only `sourceDigest` moved (account for anything else in `docs/project/api-json-differential.md`),
-and run `go test -C tools -count=1 ./referee/apijson` as the pre-push check.
+The api-json baseline (`docs/project/api-json-differential-baseline.json`) records the pinned
+pilot's side and the compared inputs only — no digest of this repository's writer and no
+recording date — so a commit under `internal/translate/export` moves it only where it moves a
+verdict, one bucket line at a time, and two branches re-recording it conflict only where their
+verdicts differ. What proves the figures current is the differential itself: the pull-request
+workflow's `apijson-differential` job runs `go run -C tools ./cmd/pilot-apijson-diff -check` on
+every change under the writer, the referee, the bridge, the pin or the baseline. Before pushing
+such a commit, run `go run -C tools ./cmd/pilot-apijson-diff` over the real corpus directories
+(`-check` to confirm the baseline reproduces); if a bucket moved, adjudicate it in
+`docs/project/api-json-differential.md`, re-record with `-update` and run `make docs-counts`.
+Never re-record a baseline whose figures did not move: its provenance lines change only on a pin
+bump, an errata change or an edit to a compared input.
 
 ### 6.3 Keeping the agent skills current
 
@@ -331,7 +335,7 @@ Bug-fix discipline (small, scoped diffs) does **not** apply to feature work. For
 4. **Implement layer by layer**, keeping `go build ./...` and `go vet ./...` green at each step.
 5. **Handle all cases explicitly.** Every unsupported path returns a typed error with a clear message — never a silent no-op, panic, or wrong result.
 6. **Remove interim scaffolding** (bridges, temporary fields, debug prints, dead code) before finishing.
-7. **Verify the full gate** (§2), **update `docs/project/spec-compliance.md`** with honest status flags, and **update the agent skills** the feature's surface is described in (§6.3).
+7. **Verify the full gate** (§2), **update the compliance map's source under `docs/project/spec-compliance/`** with honest status flags, and **update the agent skills** the feature's surface is described in (§6.3).
 
 **When a feature is genuinely too large to finish correctly in one pass:** stop and flag it. Deliver a correct, complete *subset* with the remaining scope explicitly documented as known limitations + failing/`t.Skip`-with-reason tests or a `known_failures` entry. Never fake completeness.
 

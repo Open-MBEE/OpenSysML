@@ -1,5 +1,6 @@
 @startuml
 ' ParameterCalcViews::calculations — tree rendering (render asTreeDiagram)
+mainframe <size:10>//«view»//</size> **ParameterCalcViews::calculations**\n<size:10>expose ParameterCalcs::add</size>\n<size:10>expose ParameterCalcs::Sensor</size>
 <style>
 root {
   BackGroundColor white
@@ -49,7 +50,7 @@ class "<size:10>//«attribute»//</size>\n**b**" as n3 <<attribute>> <<usage>>
 class "<size:10>//«attribute»//</size>\n**gain**" as n4 <<attribute>> <<usage>>
 class "<size:10>//«calc»//</size>\n**sum**\nparameters\nin x\nin ^y\nout ^result" as n5 <<calc>> <<usage>>
 n1 -- n5
-class "<size:10>//«calc»//</size>\n**scaled**\nparameters\nin factor\nin ^x\ninout ^count\nout ^doubled\nout ^r" as n6 <<calc>> <<usage>>
+class "<size:10>//«calc»//</size>\n**scaled**\nparameters\nin ^x\nin factor\ninout ^count\nout ^doubled\nout ^r" as n6 <<calc>> <<usage>>
 n1 -- n6
 n1 o-- n2
 n1 o-- n3

@@ -42,3 +42,5 @@ n0.n5.n7.n15 -> n0.n5.n7.n10: { class: edge }
 n0.n1 -> n0.n2: { class: edge }
 n0.n2 -> n0.n5: { class: edge }
 n0.n5.n7.n10 -> n0.n5.n7.n11: { class: edge }
+frame_name: "«view» MachineViews::thermostat : StateTransitionView" { shape: text; near: top-left }
+frame_tr: "expose Machines::Thermostat" { shape: text; near: top-right }

@@ -20,6 +20,7 @@ config:
     clusterBkg: "#FFFFFF"
     clusterBorder: "#5B5B59"
     edgeLabelBackground: "#FFFFFF"
+title: "«view» GeneralViews::requirementView : GeneralView"
 ---
 %% GeneralViews::requirementView — requirement rendering (view def GeneralView, filter @RequirementDefinition or @RequirementUsage)
 %% style cameo

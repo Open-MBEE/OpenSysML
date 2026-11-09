@@ -8,7 +8,7 @@ what each oracle measures, which divergences are deliberate, and which rows are 
 the divergence census still keys its rows by a short row number, that number is a cross-reference
 within these records and means nothing outside this repository.
 
-- **[Spec compliance](spec-compliance.md)** — faithful, approximate, or not implemented,
+- **[Spec compliance](spec-compliance.md)** ([sources](spec-compliance/README.md); the page is combined from them when the site is built) — faithful, approximate, or not implemented,
   rule by rule
 - **[Implicit specialization audit](implicit-specialization-audit.md)** — every implied
   generalization against KerML/SysML §8.4 and the pilot's map, row by row
@@ -29,6 +29,10 @@ within these records and means nothing outside this repository.
 - **[API-JSON derived-property differential](api-json-differential.md)** — every corpus model's
   API element JSON compared property by property with the pinned pilot's export, bucketed per
   (metaclass, property) as a scorecard of the metamodel's derived properties
+- **[Derived-property census](derived-property-census.md)** — for every served derivation rule,
+  how many elements of the corpus models answer a value, answer nothing or are not derived through
+  the symbol-backed Structure `GetElementProperties` reads, against the pinned pilot's export; the
+  rules silent where the pilot answers are the gate's baseline
 - **[PSSM referee](pssm-referee.md)** — the OMG PSSM state-machine test suite, translated by rule
   into SysML v2 notation and run against the runtime as an advisory oracle, its bucket counts
   gated in CI; never evidence of SysML v2 conformance

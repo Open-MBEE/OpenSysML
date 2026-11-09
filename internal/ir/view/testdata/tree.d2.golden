@@ -26,3 +26,5 @@ n1 <- n2: { class: reference }
 n1 <- n3: { class: composition }
 n7 <- n8: { class: reference }
 n7 <- n9: { class: composition }
+frame_name: "«view» VehicleViews::vehicleView" { shape: text; near: top-left }
+frame_tr: "expose Vehicles::Vehicle" { shape: text; near: top-right }

@@ -73,12 +73,17 @@ func (m *Model) shapeFeatures(typ *symbols.Symbol, keep func(*symbols.Symbol) bo
 		if !IsShapeFeature(member) || !keep(member) || m.VariationPointOwning(member) != nil {
 			continue
 		}
-		if f, ok := byName[member.Name]; ok {
+		// A parameter named by the one its position redefines holds that name (KerML 8.2.4).
+		name := member.Name
+		if effective := m.EffectiveNameOf(member); effective != "" {
+			name = effective
+		}
+		if f, ok := byName[name]; ok {
 			f.Symbol = member
 			continue
 		}
-		byName[member.Name] = &ShapeFeature{Name: member.Name, Symbol: member, Declared: member}
-		order = append(order, member.Name)
+		byName[name] = &ShapeFeature{Name: name, Symbol: member, Declared: member}
+		order = append(order, name)
 	}
 	out := make([]ShapeFeature, 0, len(order))
 	for _, name := range order {
@@ -227,9 +232,12 @@ func IsShapeFeature(sym *symbols.Symbol) bool {
 	switch sym.Kind {
 	case symbols.SymbolAttributeUsage, symbols.SymbolReferenceUsage, symbols.SymbolPartUsage, symbols.SymbolItemUsage,
 		symbols.SymbolPortUsage, symbols.SymbolConnectionUsage, symbols.SymbolActionUsage,
+		symbols.SymbolAcceptActionUsage, symbols.SymbolAssignmentActionUsage, symbols.SymbolPerformActionUsage,
+		symbols.SymbolIfActionUsage, symbols.SymbolWhileLoopActionUsage, symbols.SymbolForLoopActionUsage,
+		symbols.SymbolTerminateActionUsage, symbols.SymbolSendActionUsage,
 		symbols.SymbolStateUsage, symbols.SymbolConstraintUsage, symbols.SymbolRequirementUsage,
 		symbols.SymbolOccurrenceUsage, symbols.SymbolIndividualUsage,
-		symbols.SymbolInterfaceUsage, symbols.SymbolFlowUsage, symbols.SymbolBindingUsage,
+		symbols.SymbolInterfaceUsage, symbols.SymbolFlowUsage, symbols.SymbolSuccessionFlowUsage, symbols.SymbolBindingUsage,
 		// An allocation usage is a connection usage of the allocation library
 		// (SysML v2 §8.3.19), so an object carries it as a feature.
 		symbols.SymbolAllocationUsage,

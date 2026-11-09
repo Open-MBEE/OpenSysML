@@ -15,7 +15,7 @@ result:
     "openSysmlRenderLines": ["splines", "ortho", "polyline"],
     "openSysmlRenderCompartments": ["positioned", "most", "ports"],
     "openSysmlRenderElements": ["parameter-symbols", "port-symbols", "compartments", "edge-labels",
-      "keywords", "multiplicities", "typings", "qualifiers", "all"] } } }
+      "keywords", "multiplicities", "typings", "qualifiers", "annotations", "all"] } } }
 ```
 
 `openSysmlRender` covers the view-rendering methods, `openSysmlRenderDocument`
@@ -152,7 +152,7 @@ list setting, `disabledLints`, read from the same payloads and in the same three
 
 ```json
 { "disabledLints": ["undeclared-signal"] }
-{ "sysml": { "disabledLints": ["undeclared-signal", "port-type-mismatch"] } }
+{ "sysml": { "disabledLints": ["undeclared-signal", "deferred-keeper-unmarked"] } }
 { "sysml.disabledLints": [] }
 ```
 
@@ -227,7 +227,7 @@ Renders one view of a document.
 | `palette` | Optional. A palette the `dot`, `mermaid`, `plantuml`, `d2` and `drawio` forms fill nodes with by keyword family: `okabe-ito`, `tol-bright`, `tol-muted`, `tol-light`, `brewer-set2`, `brewer-dark2`, `viridis` or `cividis` ([the palettes](../project/view-rendering-forms.md#palettes)). Omitted or empty draws black and white. Mermaid sequence diagrams note that they cannot fill individual participants; `text` and `markdown` ignore palettes. A server advertising `openSysmlRenderPalette` gives each node the palette colours as `fill` and `border`, so a client drawing the nodes itself can use the same colours. |
 | `style` | Optional. The drawing style the `dot` or `mermaid` form draws in: `pilot` (the default, the Pilot visualizer's B&W) or `cameo`, the look of Cameo Systems Modeler — 11 pt Arial, gradient fills in Cameo's colours, compartments and UML pseudo-state symbols ([the measurements](../project/view-rendering-forms.md#the-cameo-style)). Mermaid draws supported Cameo details but flattens gradients and omits the frame and header tab; unsupported details are noted. PlantUML and D2 note a style other than `pilot` as not represented; `text` and `markdown` ignore it. The result's `style` names the style drawn, the default when omitted. |
 | `ports` | Optional. How much of a part's ports an interconnection or mixed rendering draws: `minimal` (the default), the ports an interconnection edge ends at, each a small square on the part's border named beside it, or `full`, every port a part has, labelled `name : Type`. Other kinds ignore it. |
-| `show` | Optional. The notation elements the SysML v2 notation makes optional that the rendering draws besides the ones its view's rendering shows, each a name the `openSysmlRenderElements` capability lists: `parameter-symbols` (a case's actor, subject and stakeholder parameters on the node's boundary; without them a connection ends at the node itself; an action's parameter pins are always drawn), `port-symbols`, `compartments`, `edge-labels`, `keywords`, `multiplicities`, `typings`, `qualifiers`, or `all`. Port symbols, compartments and keywords are drawn by default; the result's `shown` lists what was drawn. |
+| `show` | Optional. The notation elements the SysML v2 notation makes optional that the rendering draws besides the ones its view's rendering shows, each a name the `openSysmlRenderElements` capability lists: `parameter-symbols` (a case's actor, subject and stakeholder parameters on the node's boundary; without them a connection ends at the node itself; an action's parameter pins are always drawn), `port-symbols`, `compartments`, `edge-labels`, `keywords`, `multiplicities`, `typings`, `qualifiers`, `annotations`, or `all`. Port symbols, compartments and keywords are drawn by default; the result's `shown` lists what was drawn. |
 | `depth` | Optional. How many levels of nested elements a tree or interconnection rendering draws below each exposed element, overriding the `depth` attribute the view states, on a server advertising the `openSysmlRenderDepth` capability; absent or `0` leaves the view's own depth in force. An element at the bound keeps its compartment rows and ports and carries the detail `nested deeper than N levels; not shown`; the elements directly below the bound are counted once in `notices`. A negative value is refused. |
 | `include` | Optional. Qualified names of elements drawn besides what the view exposes, as if the view exposed them too, with the edges between them and the view's own nodes, on a server advertising the `openSysmlRenderInclude` capability; each name is one a node carries in `fqn`, resolved in the requested document first and then among the documents the session holds. Nothing is written to the model: a panel adds and removes included elements on its own. Each node drawn this way is marked `included`; naming what the view already draws changes nothing; a name resolving to no element, or to several documents' declarations, is reported in `notices` and the rest of the rendering stands. An element the rendering's kind draws nothing for is reported as every exposed element of that kind is. |
 | `overlay` | Optional. `verdicts` runs the verification cases verifying each requirement of a `requirement` rendering and labels and colours the requirement by their verdicts, each node carrying the worst as `verdict` (`pass`, `inconclusive`, `fail`, `error`). Omitted, nothing runs. Refused on another kind, and when unknown. |
@@ -507,7 +507,7 @@ rather than crashing or answering with partial output.
 An optional `show` array names the [optional notation elements](../project/view-rendering-forms.md#optional-notation-elements) every
 diagram draws besides those its view's rendering and its diagram block's `show` attribute show —
 `parameter-symbols`, `port-symbols`, `compartments`, `edge-labels`, `keywords`, `multiplicities`,
-`typings`, `qualifiers`, or `all` — as `-render-show` does; a name none of them has is an
+`typings`, `qualifiers`, `annotations`, or `all` — as `-render-show` does; a name none of them has is an
 `InvalidParams` error naming the elements there are.
 
 An optional `linkTemplate` request field applies `{file}`, `{line}`, `{col}`, `{qname}` and `{id}`
@@ -989,4 +989,6 @@ editor: send `initialize`, then `textDocument/didOpen`, then:
 ```
 
 The VS Code extension's diagram panel is the reference client; see
-[the editors guide](../guide/08-editors.md#the-diagram-panel).
+[the editors guide](../guide/08-editors.md#the-diagram-panel). The Emacs package's
+view buffer is a second one, drawing the `nodes`, `edges` and `rows` as text rather
+than the artifact — see [the editors guide](../guide/08-editors.md#emacs).

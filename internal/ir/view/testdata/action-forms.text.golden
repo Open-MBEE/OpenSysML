@@ -6,7 +6,6 @@ action def Monitor
   initial start
   accept action acceptReading (reading : Reading)
     out reading
-    inout ^payload
     in ^receiver
   send action sendAlarm (Alarm to sensor)
     in ^payload

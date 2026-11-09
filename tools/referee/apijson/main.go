@@ -87,15 +87,10 @@ func Main(args []string, stderr io.Writer) int {
 }
 
 func run(opts options) error {
-	built, err := repo.BuildRoot()
+	record, err := provenance(opts.repo, opts.libraries)
 	if err != nil {
 		return err
 	}
-	record, err := provenance(opts.repo, built, opts.libraries)
-	if err != nil {
-		return err
-	}
-	record.Recorded = baseline.Today()
 	report := &Report{Provenance: record, Exporter: exporterDescription, Normalizations: normalizations, PilotNondeterministic: pilotNondeterminism}
 	result := newComparison()
 	logs := make(map[string]string)
@@ -124,7 +119,13 @@ func run(opts options) error {
 		for _, rel := range pilot.Failed {
 			failed[rel] = true
 		}
-		ours, err := exportOurs(dir, files, failed)
+		for id, key := range anonymousLibraryKeys(pilot.LibraryKeys) {
+			if pilot.LibraryKeys == nil {
+				pilot.LibraryKeys = make(idKeys)
+			}
+			pilot.LibraryKeys[id] = key
+		}
+		ours, err := exportOurs(dir, files, failed, pilot.LibraryKeys)
 		if err != nil {
 			return err
 		}

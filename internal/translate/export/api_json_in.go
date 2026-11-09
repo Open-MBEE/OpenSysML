@@ -61,6 +61,7 @@ func ReadAPIJSON(data []byte) (*rdf.Graph, error) {
 	if err := addAPIJSONLibraryReferences(graph, references); err != nil {
 		return nil, err
 	}
+	addReferencedLibraryStubs(graph, apiJSONCompletedReferenceIDs(plan.objects))
 	return withoutRootNamespace(graph), nil
 }
 
@@ -1063,7 +1064,7 @@ func (index *apiJSONIndex) expression(object *apiJSONElementData) bool {
 // `event occurrence` usage is never a node — its owner is a namespace, not a
 // FlowUsage, so the metaclass alone decides nothing here.
 func messageParameterEnd(ownerType, membershipType, memberType string) bool {
-	return ownerType == "FlowUsage" && membershipType == mParameterMembership && memberType == mEventOccurrenceUsage
+	return flowMetaclasses[ownerType] && membershipType == mParameterMembership && memberType == mEventOccurrenceUsage
 }
 
 // nodeMembershipMetaclass reports whether an element of this metaclass can

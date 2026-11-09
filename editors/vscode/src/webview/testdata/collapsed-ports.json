@@ -7,10 +7,11 @@
     "shown": [
       "port-symbols",
       "compartments",
-      "keywords"
+      "keywords",
+      "annotations"
     ],
     "form": "mermaid",
-    "artifact": "---\nconfig:\n  fontFamily: \"Helvetica, Arial, sans-serif\"\n  theme: base\n  themeCSS: \".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }\"\n  themeVariables:\n    fontFamily: \"Helvetica, Arial, sans-serif\"\n    fontSize: \"14px\"\n    primaryColor: \"#FFFFFF\"\n    secondaryColor: \"#FFFFFF\"\n    tertiaryColor: \"#FFFFFF\"\n    background: \"#FFFFFF\"\n    primaryBorderColor: \"#181818\"\n    primaryTextColor: \"#000000\"\n    lineColor: \"#181818\"\n    textColor: \"#000000\"\n    noteBkgColor: \"#FEFFDD\"\n    noteBorderColor: \"#181818\"\n    noteTextColor: \"#000000\"\n    clusterBkg: \"#FFFFFF\"\n    clusterBorder: \"#181818\"\n    edgeLabelBackground: \"#FFFFFF\"\n---\n%% FoldedPorts::tree — tree rendering (render asTreeDiagram)\n%% layout: n1 collapsed\nflowchart TD\n  n0[\"`*«part def»*\n**Vehicle**`\"]\n    n1(\"`*«part»*\n**engine**`\")\n      n2(\"`*«port»*\n**fuelIn**`\")\n      n3(\"`*«port»*\n**shaftOut**`\")\n    n4(\"`*«part»*\n**tank**`\")\n      n5(\"`*«port»*\n**fuelOut**`\")\n    n6(\"`*«part»*\n**wheel**`\")\n      n7(\"`*«port»*\n**hub**`\")\n    n8(\"`**connect**`\")\n  n0 --- n8\n    n9(\"`**connect**`\")\n  n0 --- n9\n    n10(\"`**connect**`\")\n  n0 --- n10\n  n0 ---|\"◆\"| n1\n  n0 ---|\"◆\"| n4\n  n0 ---|\"◆\"| n6\n  n1 ---|\"◇\"| n2\n  n1 ---|\"◇\"| n3\n  n4 ---|\"◇\"| n5\n  n6 ---|\"◇\"| n7\n",
+    "artifact": "---\nconfig:\n  fontFamily: \"Helvetica, Arial, sans-serif\"\n  theme: base\n  themeCSS: \".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }\"\n  themeVariables:\n    fontFamily: \"Helvetica, Arial, sans-serif\"\n    fontSize: \"14px\"\n    primaryColor: \"#FFFFFF\"\n    secondaryColor: \"#FFFFFF\"\n    tertiaryColor: \"#FFFFFF\"\n    background: \"#FFFFFF\"\n    primaryBorderColor: \"#181818\"\n    primaryTextColor: \"#000000\"\n    lineColor: \"#181818\"\n    textColor: \"#000000\"\n    noteBkgColor: \"#FEFFDD\"\n    noteBorderColor: \"#181818\"\n    noteTextColor: \"#000000\"\n    clusterBkg: \"#FFFFFF\"\n    clusterBorder: \"#181818\"\n    edgeLabelBackground: \"#FFFFFF\"\ntitle: \"«view» FoldedPorts::tree\"\n---\n%% FoldedPorts::tree — tree rendering (render asTreeDiagram)\n%% layout: n1 collapsed\nflowchart TD\n  n0[\"`*«part def»*\n**Vehicle**`\"]\n    n1(\"`*«part»*\n**engine**`\")\n      n2(\"`*«port»*\n**fuelIn**`\")\n      n3(\"`*«port»*\n**shaftOut**`\")\n    n4(\"`*«part»*\n**tank**`\")\n      n5(\"`*«port»*\n**fuelOut**`\")\n    n6(\"`*«part»*\n**wheel**`\")\n      n7(\"`*«port»*\n**hub**`\")\n    n8(\"`**connect**`\")\n  n0 --- n8\n    n9(\"`**connect**`\")\n  n0 --- n9\n    n10(\"`**connect**`\")\n  n0 --- n10\n  n0 ---|\"◆\"| n1\n  n0 ---|\"◆\"| n4\n  n0 ---|\"◆\"| n6\n  n1 ---|\"◇\"| n2\n  n1 ---|\"◇\"| n3\n  n4 ---|\"◇\"| n5\n  n6 ---|\"◇\"| n7\n",
     "nodes": [
       {
         "id": "n0",
@@ -701,6 +702,12 @@
       }
     ],
     "notices": [],
+    "frame": {
+      "name": "FoldedPorts::tree",
+      "exposes": [
+        "expose Vehicle"
+      ]
+    },
     "palette": {
       "members": [
         "action",
@@ -835,10 +842,11 @@
     "shown": [
       "port-symbols",
       "compartments",
-      "keywords"
+      "keywords",
+      "annotations"
     ],
     "form": "mermaid",
-    "artifact": "---\nconfig:\n  fontFamily: \"Helvetica, Arial, sans-serif\"\n  theme: base\n  themeCSS: \".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }\"\n  themeVariables:\n    fontFamily: \"Helvetica, Arial, sans-serif\"\n    fontSize: \"14px\"\n    primaryColor: \"#FFFFFF\"\n    secondaryColor: \"#FFFFFF\"\n    tertiaryColor: \"#FFFFFF\"\n    background: \"#FFFFFF\"\n    primaryBorderColor: \"#181818\"\n    primaryTextColor: \"#000000\"\n    lineColor: \"#181818\"\n    textColor: \"#000000\"\n    noteBkgColor: \"#FEFFDD\"\n    noteBorderColor: \"#181818\"\n    noteTextColor: \"#000000\"\n    clusterBkg: \"#FFFFFF\"\n    clusterBorder: \"#181818\"\n    edgeLabelBackground: \"#FFFFFF\"\n---\n%% FoldedPorts::wiring — interconnection rendering (render asInterconnectionDiagram)\n%% layout: n1 collapsed\nflowchart LR\n  subgraph n0 [\"`*«part def»* **Vehicle**`\"]\n    direction LR\n    subgraph n1 [\"`*«part»* **engine**`\"]\n      direction LR\n      n1_anchor[\" \"]\n      n2(\"`*«port»*\n**fuelIn**`\")\n      n3(\"`*«port»*\n**shaftOut**`\")\n    end\n    subgraph n4 [\"`*«part»* **tank**`\"]\n      direction LR\n      n5(\"`*«port»*\n**fuelOut**`\")\n    end\n    subgraph n6 [\"`*«part»* **wheel**`\"]\n      direction LR\n      n7(\"`*«port»*\n**hub**`\")\n    end\n  end\n  n5 === n2\n  n3 === n7\n  n1_anchor === n5\n  classDef anchor fill:none,stroke:none\n  class n1_anchor anchor\n  linkStyle 0 stroke-width:3px\n  linkStyle 1 stroke-width:3px\n  linkStyle 2 stroke-width:3px\n",
+    "artifact": "---\nconfig:\n  fontFamily: \"Helvetica, Arial, sans-serif\"\n  theme: base\n  themeCSS: \".edgeLabel rect { opacity: 1 !important; } .cluster-label .nodeLabel { text-align: center; }\"\n  themeVariables:\n    fontFamily: \"Helvetica, Arial, sans-serif\"\n    fontSize: \"14px\"\n    primaryColor: \"#FFFFFF\"\n    secondaryColor: \"#FFFFFF\"\n    tertiaryColor: \"#FFFFFF\"\n    background: \"#FFFFFF\"\n    primaryBorderColor: \"#181818\"\n    primaryTextColor: \"#000000\"\n    lineColor: \"#181818\"\n    textColor: \"#000000\"\n    noteBkgColor: \"#FEFFDD\"\n    noteBorderColor: \"#181818\"\n    noteTextColor: \"#000000\"\n    clusterBkg: \"#FFFFFF\"\n    clusterBorder: \"#181818\"\n    edgeLabelBackground: \"#FFFFFF\"\ntitle: \"«view» FoldedPorts::wiring\"\n---\n%% FoldedPorts::wiring — interconnection rendering (render asInterconnectionDiagram)\n%% layout: n1 collapsed\nflowchart LR\n  subgraph n0 [\"`*«part def»* **Vehicle**`\"]\n    direction LR\n    subgraph n1 [\"`*«part»* **engine**`\"]\n      direction LR\n      n1_anchor[\" \"]\n      n2(\"`*«port»*\n**fuelIn**`\")\n      n3(\"`*«port»*\n**shaftOut**`\")\n    end\n    subgraph n4 [\"`*«part»* **tank**`\"]\n      direction LR\n      n5(\"`*«port»*\n**fuelOut**`\")\n    end\n    subgraph n6 [\"`*«part»* **wheel**`\"]\n      direction LR\n      n7(\"`*«port»*\n**hub**`\")\n    end\n  end\n  n5 === n2\n  n3 === n7\n  n1_anchor === n5\n  classDef anchor fill:none,stroke:none\n  class n1_anchor anchor\n  linkStyle 0 stroke-width:3px\n  linkStyle 1 stroke-width:3px\n  linkStyle 2 stroke-width:3px\n",
     "nodes": [
       {
         "id": "n0",
@@ -1306,6 +1314,12 @@
       }
     ],
     "notices": [],
+    "frame": {
+      "name": "FoldedPorts::wiring",
+      "exposes": [
+        "expose Vehicle"
+      ]
+    },
     "palette": {
       "members": [
         "attribute",

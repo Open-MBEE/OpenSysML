@@ -32,9 +32,19 @@ func (r *Renderer) treeDepth() int {
 func (r *Renderer) renderTree(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	ids := &nodeIDs{}
 	out.sites = map[*Node]treeSite{}
-	descendants := r.exposedDescendants(view, exposed, func(sym *symbols.Symbol) []*symbols.Symbol { return r.walkMembers(view, sym) })
+	descendants := r.exposedDescendants(view, exposed, func(sym *symbols.Symbol) []*symbols.Symbol {
+		return append(r.walkMembers(view, sym), r.annotatingMembers(sym)...)
+	})
 	for _, elem := range exposed {
 		if descendants[symbols.KeyOf(elem)] {
+			continue
+		}
+		// An annotation exposed on its own is the note of §8.2.3.4, named as a root is.
+		if annotatingSymbol(elem) {
+			if node := r.annotationNode(ids, view, elem, out); node != nil {
+				node.Name = r.notationName(elem)
+				out.Roots = append(out.Roots, node)
+			}
 			continue
 		}
 		walk := treeWalk{view: view, ids: ids, path: expansion{}, out: out}
@@ -209,7 +219,27 @@ func (r *Renderer) treeNode(walk treeWalk, sym, owner *symbols.Symbol, depth int
 		node.Detail = detailWith(node.Detail, cutNote(bound))
 		out.depthCut += cut
 	}
+	if recursive == nil && !folded {
+		node.Children = append(node.Children, r.annotationChildren(walk.ids, view, sym, out)...)
+	}
 	return node
+}
+
+// annotationChildren are the annotation nodes of what sym declares in its body
+// (§8.2.3.4), nested under its node so a folding lists them as its `doc`
+// compartment; the tree's edges join each to the elements it annotates.
+func (r *Renderer) annotationChildren(ids *nodeIDs, view, sym *symbols.Symbol, out *Rendering) []*Node {
+	var nodes []*Node
+	filters := r.walkFilters(view)
+	for _, member := range r.annotatingMembers(sym) {
+		if len(filters) > 0 && !r.admits(filters, member) {
+			continue
+		}
+		if node := r.annotationNode(ids, view, member, out); node != nil {
+			nodes = append(nodes, node)
+		}
+	}
+	return nodes
 }
 
 // treeNodeShallow draws sym without recursively drawing its members; one on
@@ -258,7 +288,7 @@ type expansion map[*symbols.Symbol]bool
 // leave undoes. A type of sym already being expanded above is returned as well,
 // and then sym alone is marked: the walk shows its own members and no inherited one.
 func (r *Renderer) enter(path expansion, sym *symbols.Symbol) (recursive *symbols.Symbol, added []*symbols.Symbol) {
-	types := r.model.DeclaredTypes(sym)
+	types := r.drawnTypes(sym)
 	for _, typ := range types {
 		if path[typ] {
 			recursive, types = typ, nil
@@ -346,8 +376,8 @@ func (r *Renderer) effectiveMembers(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// standIns maps each inherited feature an own member masks (KerML 7.4.7) to that member;
-// a redefinition masking nothing, such as a parameter's positional one, stands in for none.
+// standIns maps each inherited feature an own member masks (KerML 7.4.7), by clause or by
+// parameter position, to that member; a redefinition masking nothing stands in for none.
 func (r *Renderer) standIns(sym *symbols.Symbol, own []*symbols.Symbol) map[*symbols.Symbol]*symbols.Symbol {
 	out := map[*symbols.Symbol]*symbols.Symbol{}
 	for _, member := range own {
@@ -431,6 +461,10 @@ func (r *Renderer) containedMembers(sym *symbols.Symbol) []*symbols.Symbol {
 // Ordinary metadata on an element is content.
 func (r *Renderer) contentKind(sym *symbols.Symbol) bool {
 	if !containedKind(sym) {
+		return false
+	}
+	// A `#M` prefix is drawn in its element's heading («#M part def»), not as a member.
+	if sym.IsPrefixMetadata() {
 		return false
 	}
 	if sym.Kind == symbols.SymbolRenderingUsage && sym.OwnerScope != nil {

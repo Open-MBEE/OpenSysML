@@ -233,6 +233,7 @@ func TestFeatureChainUnresolvedLinkIsOmitted(t *testing.T) {
 // The reader takes the normative FeatureChaining elements, the derived
 // chainingFeature list, or both — and refuses the two disagreeing.
 func TestFeatureChainReaderForms(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join("testdata", "convert", "feature_chains.sysml")
 	src, err := os.ReadFile(path)
 	if err != nil {

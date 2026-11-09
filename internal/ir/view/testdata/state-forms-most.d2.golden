@@ -4,3 +4,5 @@ classes: {
   definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
 }
 n0: "«state def»\nBurner\nattributes\nflame : Boolean\nstates\noff\nrunning\ntransitions\ntransition\nsuccessions\nfirst running then off" { class: definition }
+frame_name: "«view» FurnaceViews::burnerTree : GeneralView" { shape: text; near: top-left }
+frame_tr: "expose Furnace::Burner" { shape: text; near: top-right }

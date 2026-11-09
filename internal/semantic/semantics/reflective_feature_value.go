@@ -45,7 +45,10 @@ func (m *Model) ValueExpression(sym *symbols.Symbol) *symbols.Symbol {
 		// A synthesized `in` parameter binds its operand and a trigger's payload its event;
 		// no other expression part declares a value.
 		if sym.Expr.Role == symbols.ExpressionPayload {
-			return m.acceptParts(sym).payloadValue
+			if parts := m.acceptParts(sym); parts != nil {
+				return parts.parameterValue(sym)
+			}
+			return m.sendParameterValue(sym)
 		}
 		return m.expressionParameterValue(sym)
 	}

@@ -66,6 +66,18 @@ type RenderedView struct {
 	// Shown lists the optional notation elements drawn, the view's own and
 	// those WithShow asked for.
 	Shown []string
+	// Frame is the view frame round a graph-shaped rendering; nil when frameless.
+	Frame *RenderFrame
+}
+
+// RenderFrame is the view frame of SysML v2 §8.2.3.26: the name compartment's
+// name and view definition, and the lines of its three information compartments.
+type RenderFrame struct {
+	Name        string
+	Type        string
+	Exposes     []string
+	Filters     []string
+	Annotations []string
 }
 
 // RenderNode is a view node with optional geometry and style.
@@ -78,7 +90,10 @@ type RenderNode struct {
 	Detail          string
 	Text            string
 	StandIn         bool
-	Parent          string
+	// Parallel marks a state whose substates run in parallel; the notation
+	// writes «parallel» under its name.
+	Parallel bool
+	Parent   string
 	// Compartment names the compartment of Parent this node is a row of
 	// ("attributes", "parts", "ports", ...); empty for a node drawn as a box.
 	Compartment string
@@ -208,8 +223,8 @@ func renderedViewFromProto(response *pb.RenderViewResponse) *RenderedView {
 	for _, node := range response.Nodes {
 		converted := RenderNode{
 			ID: node.Id, Kind: node.Kind, Name: node.Name, NameSynthesized: node.NameSynthesized,
-			Type: node.Type, Detail: node.Detail, Text: node.Text, StandIn: node.StandIn, Parent: node.Parent, Compartment: node.Compartment,
-			Origin: renderSpanFromProto(node.Origin),
+			Type: node.Type, Detail: node.Detail, Text: node.Text, StandIn: node.StandIn, Parallel: node.Parallel, Parent: node.Parent,
+			Compartment: node.Compartment, Origin: renderSpanFromProto(node.Origin),
 		}
 		for _, port := range node.Ports {
 			converted.Ports = append(converted.Ports, RenderPort{
@@ -250,6 +265,12 @@ func renderedViewFromProto(response *pb.RenderViewResponse) *RenderedView {
 		result.Canvas = &RenderCanvas{
 			Unit: response.Canvas.Unit, Width: response.Canvas.Width, Height: response.Canvas.Height,
 			HasSize: response.Canvas.HasSize,
+		}
+	}
+	if f := response.Frame; f != nil {
+		result.Frame = &RenderFrame{
+			Name: f.Name, Type: f.Type, Exposes: append([]string(nil), f.Exposes...),
+			Filters: append([]string(nil), f.Filters...), Annotations: append([]string(nil), f.Annotations...),
 		}
 	}
 	return result

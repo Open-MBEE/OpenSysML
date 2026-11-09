@@ -29,12 +29,14 @@ n4: "«constraint»\namplify" {
 }
 n5: "«constraint»\nmix" {
   class: usage
-  "n5.0": "^a" { class: pin }
-  "n5.1": "^b" { class: pin }
-  "n5.2": "^total" { class: pin }
+  "n5.0": "a" { class: pin }
+  "n5.1": "b" { class: pin }
+  "n5.2": "total" { class: pin }
 }
 n0 -- n4."n4.0": "=" { class: edge }
 n1 -- n4."n4.1": "=" { class: edge }
 n4."n4.2" -- n5."n5.0": "=" { class: edge }
 n2 -- n5."n5.1": "=" { class: edge }
 n5."n5.2" -- n3: "=" { class: edge }
+frame_name: "«view» ParametricViews::placedView" { shape: text; near: top-left }
+frame_tr: "expose Parametrics::Amplifier::signal\nexpose Parametrics::Amplifier::gain\nexpose Parametrics::Amplifier::noise\nexpose Parametrics::Amplifier::output\nexpose Parametrics::Amplifier::amplify\nexpose Parametrics::Amplifier::mix\nexpose Parametrics::Amplify::input\nexpose Parametrics::Amplify::gain\nexpose Parametrics::Amplify::output\nexpose Parametrics::Mix::a\nexpose Parametrics::Mix::b\nexpose Parametrics::Mix::total\nexpose Parametrics::Amplifier::mix::weight\nexpose Parametrics::Amplifier::signalIn\nexpose Parametrics::Amplifier::gainIn\nexpose Parametrics::Amplifier::amplified\nexpose Parametrics::Amplifier::noiseIn\nexpose Parametrics::Amplifier::mixed" { shape: text; near: top-right }

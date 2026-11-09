@@ -7,6 +7,7 @@ package export
 import (
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"math"
 	"math/big"
 	"slices"
@@ -188,7 +189,7 @@ func (e *encoder) expressionOperands(subject rdf.Term, owner string, node ast.No
 
 	case *ast.OperatorExpr:
 		e.graph.Add(subject, e.sysml(pOperator), rdf.String(n.Operator.String()))
-		if err := e.arguments(subject, owner, n.Operands); err != nil {
+		if err := e.arguments(subject, owner, n.Operands, true); err != nil {
 			return err
 		}
 		if n.TypeRef != nil {
@@ -203,7 +204,7 @@ func (e *encoder) expressionOperands(subject rdf.Term, owner string, node ast.No
 		return e.multiplicity(subject, owner, n.Multiplicity)
 
 	case *ast.FeatureChainExpr:
-		if err := e.arguments(subject, owner, []ast.Node{n.Operand}); err != nil {
+		if err := e.arguments(subject, owner, []ast.Node{n.Operand}, true); err != nil {
 			return err
 		}
 		if qualifiedNameHasChain(n.Member) {
@@ -232,23 +233,23 @@ func (e *encoder) expressionOperands(subject rdf.Term, owner string, node ast.No
 			operator = opIndex
 		}
 		e.graph.Add(subject, e.sysml(pOperator), rdf.String(operator))
-		return e.arguments(subject, owner, []ast.Node{n.Operand, n.Index})
+		return e.arguments(subject, owner, []ast.Node{n.Operand, n.Index}, true)
 
 	case *ast.InvocationExpr:
-		return e.invocation(subject, owner, n.Type, n.Operand, n.Args, n.NamedArgs)
+		return e.invocation(subject, owner, n.Type, n.Operand, n.Args, n.NamedArgs, n.BareArgument)
 
 	case *ast.ConstructorExpr:
-		return e.invocation(subject, owner, n.Type, nil, n.Args, n.NamedArgs)
+		return e.invocation(subject, owner, n.Type, nil, n.Args, n.NamedArgs, false)
 
 	case *ast.CollectExpr:
-		return e.arguments(subject, owner, []ast.Node{n.Operand, n.Body})
+		return e.arguments(subject, owner, []ast.Node{n.Operand, n.Body}, true)
 
 	case *ast.SelectExpr:
-		return e.arguments(subject, owner, []ast.Node{n.Operand, n.Body})
+		return e.arguments(subject, owner, []ast.Node{n.Operand, n.Body}, true)
 
 	case *ast.SequenceExpr:
 		e.graph.Add(subject, e.sysml(pOperator), rdf.String(opSequence))
-		return e.arguments(subject, owner, n.Elements)
+		return e.arguments(subject, owner, n.Elements, true)
 
 	case *ast.MetadataAccessExpr:
 		// The element read is the memberElement of a Membership the expression owns
@@ -267,7 +268,7 @@ func (e *encoder) expressionOperands(subject rdf.Term, owner string, node ast.No
 			kind = "at"
 		}
 		e.graph.Add(subject, e.sysml(pKind), rdf.String(kind))
-		return e.arguments(subject, owner, []ast.Node{n.Duration})
+		return e.arguments(subject, owner, []ast.Node{n.Duration}, false)
 
 	case *ast.ChangeEvent:
 		e.graph.Add(subject, e.sysml(pKind), rdf.String("when"))
@@ -295,7 +296,7 @@ func (e *encoder) changeArgument(subject rdf.Term, owner string, condition ast.N
 	e.bodyMembership(argument, target, mFeatureMembership)
 	e.resultParameter(argument)
 	e.graph.Add(subject, e.sysml(pArgument), argument)
-	return e.expressionOperandOwnership(subject, argument, 0)
+	return e.expressionOperandOwnership(subject, argument, 0, false)
 }
 
 // bodyExpression emits `{ in x; ... result }` as the pilot does (KerMLExpressions
@@ -513,7 +514,7 @@ func (e *encoder) bodyParameter(subject, base rdf.Term, owner string, body *ast.
 // bodyMember emits one declaration of an expression body as the member it is:
 // positioned by the body, with no qualified name or namespace of its own.
 func (e *encoder) bodyMember(subject, base rdf.Term, owner string, index int, member ast.Node) error {
-	node, visibility := unwrapMember(member)
+	node, visibility := naming.UnwrapMember(member)
 	if node == nil {
 		return &UnsupportedError{
 			What: fmt.Sprintf("the empty member at %s", e.where(member)),
@@ -540,13 +541,15 @@ func (e *encoder) bodyMember(subject, base rdf.Term, owner string, index int, me
 }
 
 // arguments emits the operands of an expression, each carrying the position it
-// was written in: RDF states no order between the objects of one property.
-func (e *encoder) arguments(subject rdf.Term, owner string, args []ast.Node) error {
-	return e.argumentsFrom(subject, owner, args, 0)
+// was written in: RDF states no order between the objects of one property. An
+// operator's operand is a private parameter, an invocation's argument a public one
+// (the pilot's OperandEList states the first; its ArgumentMember leaves the second).
+func (e *encoder) arguments(subject rdf.Term, owner string, args []ast.Node, private bool) error {
+	return e.argumentsFrom(subject, owner, args, 0, private)
 }
 
 // argumentsFrom emits args as the operands numbered from first onwards.
-func (e *encoder) argumentsFrom(subject rdf.Term, owner string, args []ast.Node, first int) error {
+func (e *encoder) argumentsFrom(subject rdf.Term, owner string, args []ast.Node, first int, private bool) error {
 	for i, arg := range args {
 		if arg == nil {
 			continue
@@ -556,7 +559,7 @@ func (e *encoder) argumentsFrom(subject rdf.Term, owner string, args []ast.Node,
 		if err := e.expressionNode(child, owner, arg); err != nil {
 			return err
 		}
-		if err := e.expressionOperandOwnership(subject, child, first+i); err != nil {
+		if err := e.expressionOperandOwnership(subject, child, first+i, private); err != nil {
 			return err
 		}
 	}
@@ -594,7 +597,7 @@ func (e *encoder) typeArgument(subject rdf.Term, typeRef *ast.QualifiedName, ind
 // invoked, the receiver of a `->` form, and the arguments. The receiver is the
 // first argument (KerML 8.2.5.8.4: `x->f(a)` is `f(x, a)`), kept apart as
 // sysml:operand so the arrow spelling survives.
-func (e *encoder) invocation(subject rdf.Term, owner string, function *ast.QualifiedName, operand ast.Node, args []ast.Node, named []ast.NamedArg) error {
+func (e *encoder) invocation(subject rdf.Term, owner string, function *ast.QualifiedName, operand ast.Node, args []ast.Node, named []ast.NamedArg, bare bool) error {
 	if function != nil {
 		e.graph.Add(subject, e.sysml(pFunction), e.calleeReference(function))
 		e.calleeMembership(subject, function)
@@ -612,13 +615,15 @@ func (e *encoder) invocation(subject rdf.Term, owner string, function *ast.Quali
 			return err
 		}
 		if function != nil {
-			if err := e.expressionOperandOwnership(subject, receiver, 0); err != nil {
+			// The receiver of `x->f(…)` is an operand (KerMLExpressions.xtext
+			// `InvocationExpression.operand += current`), private like an operator's.
+			if err := e.expressionOperandOwnership(subject, receiver, 0, true); err != nil {
 				return err
 			}
 			first = 1
 		}
 	}
-	if err := e.argumentsFrom(subject, owner, args, first); err != nil {
+	if err := e.argumentsFrom(subject, owner, args, first, bare); err != nil {
 		return err
 	}
 	first += len(args)
@@ -631,7 +636,7 @@ func (e *encoder) invocation(subject rdf.Term, owner string, function *ast.Quali
 		if err := e.expressionNode(child, owner, arg.Value); err != nil {
 			return err
 		}
-		if err := e.expressionOperandOwnership(subject, child, first+i); err != nil {
+		if err := e.expressionOperandOwnership(subject, child, first+i, false); err != nil {
 			return err
 		}
 		e.graph.Add(child, e.sysx(xArgumentName), rdf.String(qualifiedText(arg.Name)))
@@ -947,7 +952,7 @@ func (e *encoder) expressionOwnership(node, owner rdf.Term, metaclass string) er
 }
 
 // expressionOperandOwnership models an operand as an input parameter and value.
-func (e *encoder) expressionOperandOwnership(node, operand rdf.Term, index int) error {
+func (e *encoder) expressionOperandOwnership(node, operand rdf.Term, index int, private bool) error {
 	parameter := e.ids.mintedNode(rdf.ExpressionIRI(node, fmt.Sprintf("in%d", index)), node, fmt.Sprintf("in%d", index))
 	membership := e.ids.minted(rdf.OwningMembershipIRIOf(parameter), parameter, rdf.OwningMembershipSuffix)
 	valueMembership := e.ids.minted(rdf.OwningMembershipIRIOf(operand), operand, rdf.OwningMembershipSuffix)
@@ -955,6 +960,9 @@ func (e *encoder) expressionOperandOwnership(node, operand rdf.Term, index int) 
 	e.graph.Add(parameter, e.sysml(pElementID), rdf.String(rdf.LocalName(parameter.Value)))
 	e.graph.Add(parameter, e.sysml(pDirection), rdf.String("in"))
 	e.emitMembershipCore(membership, parameter, node, mParameterMembership, true)
+	if private {
+		e.graph.Add(membership, e.sysml(pVisibility), rdf.String("private"))
+	}
 	e.graph.Add(node, e.sysml(pOwnedRelationship), membership)
 	e.graph.Add(node, e.sysml(pOwnedMembership), membership)
 	e.graph.Add(node, e.sysml(pOwnedFeatureMembership), membership)
@@ -986,7 +994,7 @@ var expressionMetaclasses = map[string]bool{
 	// A MultiplicityRange is a part of the feature's declaration, and a
 	// Membership relates an expression to its referent: both are minted in the
 	// expression namespace under the element they belong to.
-	mMultiplicityRange: true, mMembership: true,
+	mMultiplicityRange: true, mMultiplicityClass: true, mMembership: true,
 }
 
 // isExpressionRoot reports whether the encoder mints an expr: node of this
@@ -1132,6 +1140,16 @@ func (d *decoder) valueOwner(triple rdf.Triple, valueTargets map[string]string, 
 	return feature, false, nil
 }
 
+// derivedConnectorFeature reports a connector's relatedFeature, sourceFeature or
+// targetFeature, which restate what its ends reference and carry no notation of their own.
+func (d *decoder) derivedConnectorFeature(triple rdf.Triple) bool {
+	switch triple.Predicate.Value {
+	case rdf.SysML + pRelatedFeature, rdf.SysML + pSourceFeature, rdf.SysML + pTargetFeature:
+		return ontology.IsAncestorOrSelf(d.metaclass(triple.Subject), "Connector")
+	}
+	return false
+}
+
 // resolveExpression renders one triple's expression-valued property as notation
 // on the element it belongs to.
 func (d *decoder) resolveExpression(triple rdf.Triple, parents map[string][]rdf.Term, valueTargets map[string]string, directValues map[string]rdf.Term) error {
@@ -1149,6 +1167,9 @@ func (d *decoder) resolveExpression(triple rdf.Triple, parents map[string][]rdf.
 	}
 	if triple.Predicate.Value == rdf.SysML+pReferences &&
 		d.graph.BoolValue(triple.Subject, rdf.SysML+pIsEnd) {
+		return nil
+	}
+	if d.derivedConnectorFeature(triple) {
 		return nil
 	}
 	if !d.isExpressionNode(triple.Object) {
@@ -2056,6 +2077,11 @@ func (d *decoder) invocationText(node rdf.Term, in *element) (string, error) {
 		return "", err
 	}
 	arguments := "(" + joinOperands(operands, bindConditional) + ")"
+	if hasFunction && len(terms) == 1 && terms[0].private && terms[0].name == "" {
+		// `xs->forAll {…}`, `xs->reduce '+'`, `F {…}`: the one operand written
+		// without parentheses is private, unlike an argument list's.
+		arguments = " " + operands[0].text
+	}
 	if !hasFunction {
 		// `chain(args)`: the invoked type is the feature chain the operand reaches.
 		if !hasReceiver || d.metaclass(receiver) != mFeatureChain || constructor {
@@ -2339,10 +2365,12 @@ func (d *decoder) expressionOperandTerms(node rdf.Term) ([]expressionOperandTerm
 	return standard, true, nil
 }
 
-// expressionOperandTerm identifies an operand and its optional named binding.
+// expressionOperandTerm identifies an operand, its optional named binding, and
+// whether its ParameterMembership is private (an operand, not an argument list's).
 type expressionOperandTerm struct {
-	term rdf.Term
-	name string
+	term    rdf.Term
+	name    string
+	private bool
 }
 
 // standardExpressionOperandTerms reads operand identities through parameter memberships.
@@ -2393,7 +2421,8 @@ func (d *decoder) standardExpressionOperandTerms(node rdf.Term) ([]expressionOpe
 			}
 		}
 		name, _ := d.graph.Lexical(value, rdf.OpenSysML+xArgumentName)
-		out = append(out, expressionOperandTerm{term: value, name: name})
+		visibility, _ := d.graph.Lexical(membership, rdf.SysML+pVisibility)
+		out = append(out, expressionOperandTerm{term: value, name: name, private: visibility == "private"})
 	}
 	return out, true, nil
 }

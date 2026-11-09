@@ -632,7 +632,10 @@ pub struct Function {
 /// null, read as [`Error::UnsupportedValue`], in its place.
 #[derive(Clone, Debug, Eq)]
 pub struct Metaobject {
-    /// FQN of the element reflected on (`Vehicle::seatBelt`).
+    /// The id a client keeps for the element reflected on: its FQN
+    /// (`Vehicle::seatBelt`), the positional id of an unnamed member
+    /// (`Vehicle::@2`), or the element form's `@id` of an element the model
+    /// synthesizes, such as a send's or accept's argument.
     pub element_id: String,
     /// FQN of the element's own reflective metaclass
     /// (`SysML::Systems::PartUsage`), not the type it was cast to.
@@ -1166,6 +1169,45 @@ pub(crate) fn quantity_from_wire(v: wire::Quantity) -> Result<Quantity, Error> {
     })
 }
 
+/// Options for looking a symbol up.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct SymbolOptions {
+    /// List the members inherited from standard-library content too, which are
+    /// otherwise only counted by [`Symbol::withheld_library_members`]. Needs the
+    /// `symbol_members` capability.
+    pub include_library_members: bool,
+}
+
+/// One member of a symbol, own or inherited.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Member {
+    /// Fully qualified identifier.
+    pub id: String,
+    /// Short name.
+    pub name: String,
+    /// Service symbol kind.
+    pub kind: String,
+    /// Whether the member is inherited rather than declared by the symbol.
+    pub inherited: bool,
+    /// The type the member is inherited from, when it is.
+    pub inherited_from: Option<String>,
+    /// Whether the member is declared in standard-library content.
+    pub library: bool,
+}
+
+impl Member {
+    fn from_wire(wire: &wire::MemberInfo) -> Self {
+        Self {
+            id: wire.id.clone(),
+            name: wire.name.clone(),
+            kind: wire.kind.clone(),
+            inherited: wire.inherited,
+            inherited_from: (!wire.inherited_from.is_empty()).then(|| wire.inherited_from.clone()),
+            library: wire.library,
+        }
+    }
+}
+
 /// A symbol in a parsed model.
 #[derive(Clone, Debug)]
 pub struct Symbol {
@@ -1212,11 +1254,34 @@ impl Symbol {
             inner: self.connection.clone(),
         }
     }
+    /// Every member, own then inherited, as the service enumerated them; standard-library
+    /// members appear only when the symbol was looked up with `include_library_members`.
+    pub fn members(&self) -> Vec<Member> {
+        self.wire.members.iter().map(Member::from_wire).collect()
+    }
+    /// The members declared by the symbol itself.
+    pub fn own_members(&self) -> Vec<Member> {
+        self.members()
+            .into_iter()
+            .filter(|m| !m.inherited)
+            .collect()
+    }
+    /// The members inherited from the symbol's supertypes.
+    pub fn inherited_members(&self) -> Vec<Member> {
+        self.members().into_iter().filter(|m| m.inherited).collect()
+    }
+    /// How many standard-library members were left out of [`Self::members`].
+    pub fn withheld_library_members(&self) -> i32 {
+        self.wire.withheld_library_members
+    }
     /// Child symbols, fetched lazily from the service; one it cannot resolve is left out.
     pub fn children(&self) -> Result<Vec<Symbol>, Error> {
         let mut children = Vec::with_capacity(self.wire.child_ids.len());
         for id in &self.wire.child_ids {
-            match self.connection().get_symbol(&self.model_hash, id) {
+            match self
+                .connection()
+                .get_symbol(&self.model_hash, id, &SymbolOptions::default())
+            {
                 Ok(child) => children.push(child),
                 Err(Error::Model(_)) => {}
                 Err(error) => return Err(error),
@@ -1544,7 +1609,11 @@ impl Model {
     }
     /// Look up a fully qualified symbol.
     pub fn symbol(&self, fqn: &str) -> Result<Symbol, Error> {
-        self.connection.get_symbol(self.hash(), fqn)
+        self.symbol_with(fqn, &SymbolOptions::default())
+    }
+    /// Look up a fully qualified symbol, choosing what the service lists for it.
+    pub fn symbol_with(&self, fqn: &str, options: &SymbolOptions) -> Result<Symbol, Error> {
+        self.connection.get_symbol(self.hash(), fqn, options)
     }
     /// Instantiate a part or usage.
     pub fn instantiate(&self, fqn: &str) -> Result<Instantiation, Error> {

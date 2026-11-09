@@ -34,6 +34,11 @@ type Evaluator struct {
 	reasons                      map[propertyKey]Reason
 	internedStrings              map[string]string
 	structureQualifiedNames      map[ElementKey]structureQualifiedNameCacheEntry
+	structureInherited           map[ElementKey]structureInheritedCacheEntry
+	structureEffective           map[ElementKey]structureValueCacheEntry
+	structureNamespace           map[ElementKey]structureValueCacheEntry
+	structureValueLists          map[structureValueListKey]structureInheritedCacheEntry
+	structureRedefined           map[ElementKey]structureElementsCacheEntry
 	structureQualifiedNameBases  map[ElementKey]structureQualifiedNameCacheEntry
 	qualifiedNameNamespaceCaches map[ElementKey]structureQualifiedNameNamespaceCache
 	structureOwnedFilters        map[structureOwnedFilterKey]structureMemoEntry
@@ -55,6 +60,11 @@ func New(res *resolve.Resolver, model *semantics.Model, options ...Options) *Eva
 		reasons:                      make(map[propertyKey]Reason),
 		internedStrings:              make(map[string]string),
 		structureQualifiedNames:      make(map[ElementKey]structureQualifiedNameCacheEntry),
+		structureInherited:           make(map[ElementKey]structureInheritedCacheEntry),
+		structureEffective:           make(map[ElementKey]structureValueCacheEntry),
+		structureNamespace:           make(map[ElementKey]structureValueCacheEntry),
+		structureValueLists:          make(map[structureValueListKey]structureInheritedCacheEntry),
+		structureRedefined:           make(map[ElementKey]structureElementsCacheEntry),
 		structureQualifiedNameBases:  make(map[ElementKey]structureQualifiedNameCacheEntry),
 		qualifiedNameNamespaceCaches: make(map[ElementKey]structureQualifiedNameNamespaceCache),
 		structureOwnedFilters:        make(map[structureOwnedFilterKey]structureMemoEntry),
@@ -834,66 +844,15 @@ func (e *Evaluator) completeMembers(sym *symbols.Symbol) bool {
 }
 
 func (e *Evaluator) featureTypes(sym *symbols.Symbol) ([]*symbols.Symbol, bool) {
-	if !e.completeFeatureTypeInputs(sym) {
-		return nil, false
-	}
-	types := e.model.FeatureTypeSet(sym)
-	if len(types) == 0 {
-		if _, hasBase := e.model.FeatureBaseFQN(sym); hasBase {
-			return nil, false
-		}
-	}
-	return types, true
+	return e.model.ReflectiveFeatureTypes(sym)
 }
 
 func (e *Evaluator) completeFeatureTypeInputs(sym *symbols.Symbol) bool {
-	if sym == nil {
-		return false
-	}
-	seen := make(map[*symbols.Symbol]bool)
-	queue := []*symbols.Symbol{sym}
-	for len(queue) > 0 {
-		candidate := queue[0]
-		queue = queue[1:]
-		if candidate == nil || seen[candidate] {
-			continue
-		}
-		seen[candidate] = true
-		if e.model.SupertypesProvisional(candidate) ||
-			e.model.HasSpecializationCycle(candidate) ||
-			!e.completeRelationships(candidate) {
-			return false
-		}
-		for _, relationship := range semantics.RelationshipsOf(candidate) {
-			if relationship == nil || relationship.Kind == ast.RelTyping ||
-				!semantics.GeneralizationKind(relationship.Kind) {
-				continue
-			}
-			target := e.model.RelationshipTarget(candidate, relationship)
-			if target == nil {
-				return false
-			}
-			if target.IsFeature() {
-				queue = append(queue, target)
-			}
-		}
-	}
-	return true
+	return e.model.FeatureTypeInputsComplete(sym)
 }
 
 func (e *Evaluator) completeRelationships(sym *symbols.Symbol) bool {
-	for _, rel := range semantics.RelationshipsOf(sym) {
-		if rel == nil {
-			return false
-		}
-		if !semantics.GeneralizationKind(rel.Kind) && !rel.Kind.ReferenceSubsets() {
-			continue
-		}
-		if rel.Target == nil || e.model.RelationshipTarget(sym, rel) == nil {
-			return false
-		}
-	}
-	return true
+	return e.model.GeneralizationsResolve(sym)
 }
 
 func (e *Evaluator) featureDirection(element Element) (ast.FeatureDirection, bool) {

@@ -61,6 +61,10 @@ bound predicate that is not in this table:
 | `sysml:shortName` | `shortName` |
 | `sysml:declaredShortName` | `declaredShortName` |
 | `sysml:documentation` | `documentation` |
+| `sysml:textualRepresentation` | `textualRepresentation` |
+| `sysml:body` | `body` |
+| `sysml:locale` | `locale` |
+| `sysml:language` | `language` |
 | `sysml:owner` | `owner` |
 | `sysml:isAbstract` | `isAbstract` |
 | `sysml:isIndividual` | `isIndividual` |
@@ -69,6 +73,9 @@ bound predicate that is not in this table:
 | `sysml:multiplicityUpper` | `multiplicityUpper` |
 | `sysml:satisfiedRequirement` | `satisfiedRequirement` |
 | `sysml:satisfyingFeature` | `satisfyingFeature` |
+| `sysml:payloadArgument` | `payloadArgument` |
+| `sysml:senderArgument` | `senderArgument` |
+| `sysml:receiverArgument` | `receiverArgument` |
 
 Unknown properties fail the query instead of silently returning no matches, and
 the diagnostic lists the OSLC predicates of the left column, since the query

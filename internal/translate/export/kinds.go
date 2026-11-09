@@ -1,6 +1,7 @@
 package export
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 )
@@ -17,7 +18,7 @@ var definitionMetaclass = map[ast.DefinitionKind]string{
 	ast.DefAttribute:        "AttributeDefinition",
 	ast.DefItem:             "ItemDefinition",
 	ast.DefOccurrence:       "OccurrenceDefinition",
-	ast.DefIndividual:       "IndividualDefinition",
+	ast.DefIndividual:       "OccurrenceDefinition",
 	ast.DefMetaclass:        "Metaclass",
 	ast.DefMetadata:         "MetadataDefinition",
 	ast.DefEnumeration:      "EnumerationDefinition",
@@ -54,7 +55,7 @@ var usageMetaclass = map[ast.UsageKind]string{
 	ast.UsageAttribute:     "AttributeUsage",
 	ast.UsageItem:          "ItemUsage",
 	ast.UsageOccurrence:    "OccurrenceUsage",
-	ast.UsageIndividual:    "IndividualUsage",
+	ast.UsageIndividual:    "OccurrenceUsage",
 	ast.UsageMetadata:      "MetadataUsage",
 	ast.UsageEnumeration:   "EnumerationUsage",
 	ast.UsageView:          "ViewUsage",
@@ -209,11 +210,21 @@ func usageMetaclassOf(n *ast.Usage, inMetadataBody bool) (string, bool) {
 	case acceptPayload(n) != nil:
 		return mAcceptAction, true
 	}
-	switch nodeStatement(n).(type) {
+	switch s := naming.NodeStatement(n).(type) {
 	case *ast.SendStatement:
 		return mSend, true
 	case *ast.AssignmentActionNode:
 		return mAssignment, true
+	case *ast.IfActionNode:
+		return mIfAction, true
+	case *ast.WhileLoopActionNode:
+		if s.Kind == ast.LoopFor {
+			return mForLoop, true
+		}
+		return mWhileLoop, true
+	}
+	if n.IsSuccessionFlow() {
+		return mSuccessionFlowUsage, true
 	}
 	if n.Keyword == "" && (n.Kind == ast.UsageAttribute || inMetadataBody && n.Kind == ast.UsageEnumeration || n.Ident.Name == "" && n.Kind < ast.UsageConnection) {
 		// A kindless usage is a DefaultReferenceUsage; an unnamed one is too,
@@ -240,43 +251,6 @@ func acceptPayload(n *ast.Usage) *ast.Usage {
 		return payload
 	}
 	return nil
-}
-
-// nodeStatement is the statement an action node is written as, which the node
-// is (`action s send x to r;` is one SendActionUsage named s, SysML.xtext
-// SendNode; `action a assign x := y;` one AssignmentActionUsage,
-// AssignmentNode), or nil for any other usage: a node chaining further
-// statements with `then`, or one whose declaration says more than its
-// visibility and name (`#M action a : A assign …`), which the statement's
-// notation cannot write back and so keeps the action it is declared as.
-func nodeStatement(n *ast.Usage) ast.Node {
-	if n.Kind != ast.UsageAction || !n.IsActionNode || len(n.Members) != 1 || !plainNodeHead(n) {
-		return nil
-	}
-	statement := n.Members[0]
-	if m, ok := statement.(*ast.Membership); ok {
-		statement = m.Member
-	}
-	switch s := statement.(type) {
-	case *ast.SendStatement:
-		if !s.HasBody {
-			return s
-		}
-	case *ast.AssignmentActionNode:
-		return s
-	}
-	return nil
-}
-
-// plainNodeHead reports whether an action node declares nothing but its
-// visibility and name: no prefix, modifier, specialization, multiplicity or
-// value.
-func plainNodeHead(n *ast.Usage) bool {
-	return len(n.Prefixes) == 0 && n.PrefixKeyword == "" && len(n.Relationships) == 0 &&
-		n.Multiplicity == nil && n.CrossFeature == nil && n.Value == nil &&
-		!n.IsAbstract && !n.IsVariation && !n.IsVariant && !n.IsReference && !n.IsVariable &&
-		!n.IsIndividual && n.Portion == ast.PortionNone && !n.IsPortion && n.Direction == ast.DirNone &&
-		!n.IsEnd && !n.IsConstant && !n.IsDerived && !n.IsOrdered && !n.IsNonunique && !n.IsParallel
 }
 
 // eventOccurrence reports an occurrence declared with `event`, whether as its
@@ -318,6 +292,7 @@ var metaclassKeywordUsage = map[string]ast.UsageKind{
 	mTerminate:             ast.UsageAction,
 	mPerform:               ast.UsageAction,
 	mAcceptAction:          ast.UsageAction, // an accept node, its payload the accept parameter
+	mSuccessionFlowUsage:   ast.UsageFlow,
 	mExhibitStateUsage:     ast.UsageState,
 	mIncludeUseCaseUsage:   ast.UsageUseCase,
 	// PartUsage types actor and stakeholder members too, RequirementUsage an
@@ -351,6 +326,23 @@ func definitionKeyword(kind ast.DefinitionKind) string {
 		return "verification"
 	}
 	return kind.String()
+}
+
+// metaclassDefinitionKeyword is the keyword the decoder writes for kind's metaclass:
+// `individual def` is an OccurrenceDefinition, so its own keyword is a written one.
+func metaclassDefinitionKeyword(kind ast.DefinitionKind) string {
+	if kind == ast.DefIndividual {
+		return definitionKeyword(ast.DefOccurrence)
+	}
+	return definitionKeyword(kind)
+}
+
+// metaclassUsageKeyword is metaclassDefinitionKeyword for a usage kind.
+func metaclassUsageKeyword(kind ast.UsageKind) string {
+	if kind == ast.UsageIndividual {
+		return usageKeyword(ast.UsageOccurrence)
+	}
+	return usageKeyword(kind)
 }
 
 func usageKeyword(kind ast.UsageKind) string {
@@ -470,15 +462,31 @@ var (
 )
 
 func init() {
+	// `individual` is an OccurrenceDefinition/OccurrenceUsage with isIndividual (SysML.xtext
+	// IndividualDefinition, IndividualUsage); the metaclass reads back as the occurrence kind.
 	for kind, name := range definitionMetaclass {
-		metaclassDefinition[name] = kind
+		if kind != ast.DefIndividual {
+			metaclassDefinition[name] = kind
+		}
 	}
 	for kind, name := range usageMetaclass {
-		metaclassUsage[name] = kind
+		if kind != ast.UsageIndividual {
+			metaclassUsage[name] = kind
+		}
 	}
 	for name, kind := range metaclassKeywordUsage {
 		metaclassUsage[name] = kind
 	}
+	// Turtle this conversion wrote before it typed them so.
+	metaclassDefinition["IndividualDefinition"] = ast.DefIndividual
+	metaclassUsage["IndividualUsage"] = ast.UsageIndividual
+}
+
+// legacyMetaclasses maps the metaclass names earlier releases wrote for an `individual`
+// to the standard ones; a graph typed so is read as the standard metaclass with isIndividual.
+var legacyMetaclasses = map[string]string{
+	"IndividualDefinition": "OccurrenceDefinition",
+	"IndividualUsage":      "OccurrenceUsage",
 }
 
 // relationshipOrder is the canonical order of a head's relationships, in the

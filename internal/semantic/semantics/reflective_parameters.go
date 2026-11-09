@@ -1,6 +1,8 @@
 package semantics
 
 import (
+	"slices"
+
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -36,13 +38,32 @@ func (m *Model) inputElements(sym *symbols.Symbol) ([]*symbols.Symbol, bool) {
 	}
 	if behaviorLike(sym) {
 		out := m.InputParametersOf(sym)
-		return includeSubjectParameterInOrder(m, sym, out), true
+		return m.withNodeParameters(sym, includeSubjectParameterInOrder(m, sym, out)), true
 	}
 	out := m.directedFeatures(sym, ast.DirIn, ast.DirInOut)
 	if m.reflectiveMetaclassConforms(sym, "RequirementUsage") {
 		out = includeSubjectParameterInOrder(m, sym, out)
 	}
-	return out, true
+	return m.withNodeParameters(sym, out), true
+}
+
+// withNodeParameters puts the parameters an accept or send action owns beyond
+// its declared members before the ones its own body declares, which follow them
+// in the notation (SysML.xtext AcceptNode, SendNode: the arguments, then the
+// body), listing a parameter declared among both once.
+func (m *Model) withNodeParameters(sym *symbols.Symbol, declared []*symbols.Symbol) []*symbols.Symbol {
+	params := m.nodeParameters(sym)
+	if params == nil {
+		return declared
+	}
+	out := slices.Clone(params)
+	owned := ownedMembersOf(sym)
+	for _, member := range declared {
+		if slices.Contains(owned, member) && !slices.Contains(out, member) {
+			out = append(out, member)
+		}
+	}
+	return out
 }
 
 func (m *Model) outputElements(sym *symbols.Symbol) ([]*symbols.Symbol, bool) {
@@ -85,7 +106,7 @@ func (m *Model) parameterListElements(sym *symbols.Symbol) ([]*symbols.Symbol, b
 			out = append(out, parameter.Symbol)
 		}
 	}
-	return includeSubjectParameterInOrder(m, sym, out), true
+	return m.withNodeParameters(sym, includeSubjectParameterInOrder(m, sym, out)), true
 }
 
 func (m *Model) directedFeatureElements(sym *symbols.Symbol) ([]*symbols.Symbol, bool) {
@@ -95,7 +116,7 @@ func (m *Model) directedFeatureElements(sym *symbols.Symbol) ([]*symbols.Symbol,
 	if isExpressionSymbol(sym) {
 		return m.expressionParameterParts(sym), true
 	}
-	return m.directedFeatures(sym, ast.DirIn, ast.DirInOut, ast.DirOut), true
+	return m.withNodeParameters(sym, m.directedFeatures(sym, ast.DirIn, ast.DirInOut, ast.DirOut)), true
 }
 
 func (m *Model) subjectParameterElements(sym *symbols.Symbol) ([]*symbols.Symbol, bool) {

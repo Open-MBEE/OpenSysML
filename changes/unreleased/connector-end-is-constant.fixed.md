@@ -1,1 +1,0 @@
-- The RDF export states `isConstant = true` for an end usage that varies in time — a declared `end` of a connection, flow, interface or allocation definition, or a connector's implied end inside an Occurrence — as SysML v2.1 §8.2.2.6.1 derives it and as the reflective read already did; every `isConstant` row of the API-JSON differential that was different is now equal.

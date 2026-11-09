@@ -290,10 +290,9 @@ step, so those gates are required rather than skipped.
 **The quick tier** is what a draft pull request gets — an opt-in for work the author does not
 yet want reviewed — on every push to it, within about a third of the runner time: the binaries,
 the same Go suite without `-race` in three shards (`make test-quick`), the download-free static
-checks (gofmt, vet, the production build, the library snapshot, grpc imports, proto lint and
-breaking), the WebAssembly, Xpect and conformance gates, and only the clients and docs whose
-own paths changed. The lint, the corpus and solver gates, the PDF toolchain, the coverage merge
-and the fan-out from a service change to every client wait for the full tier. Open a pull
+checks (gofmt, vet, the production build, grpc imports, proto lint and breaking), the WebAssembly, Xpect and conformance gates, and only the clients and docs whose
+own paths changed. The lint, the corpus and solver gates, the PDF toolchain and the fan-out
+from a service change to every client wait for the full tier. Open a pull
 request ready for review rather than as a draft: marking a draft ready starts a second full run
 on a head the quick tier already ran, and a draft is not considered until it is marked ready.
 The full tier is what a pull request has to pass to merge.
@@ -458,7 +457,8 @@ When a change needs documenting:
   `TestRuntimeRobustness*` and `TestGRPCRobustness*` function, so two branches adding cases never
   edit one registry.
 - **The compliance-row census is counted at build time, never committed.** Adding or changing a
-  `✅`/`⚠️`/`❌`/`⛔` row in [docs/project/spec-compliance.md](docs/project/spec-compliance.md) is the
+  `✅`/`⚠️`/`❌`/`⛔` row in the area's source under
+  [docs/project/spec-compliance/](docs/project/spec-compliance/) is the
   whole change: no header, `README.md` line or `docs/internals/architecture.md` line restates the
   count, so two branches that both add rows cannot conflict on one. The site build
   (`scripts/mkdocs_census.py`, run by `make docs`) counts the rows into the
@@ -515,7 +515,7 @@ See [ARCHITECTURE.md](docs/internals/architecture.md) for detailed design.
   something other than what it documents), a **spec conformance gap** (it disagrees with SysML v2
   or KerML, so name the clause), or an **objection to a ruling** (the behavior is deliberate and
   the report argues that the interpretation is wrong). Check
-  [spec-compliance.md](docs/project/spec-compliance.md) and
+  [spec compliance](https://runtime.opensysml.org/project/spec-compliance/) and
   [omg-issues.md](docs/project/omg-issues.md) first: a known divergence is usually already a row
   there with the reasoning behind it.
 - **Discussions:** questions, ideas, feature requests

@@ -85,7 +85,7 @@ func TestSelfCheckReportsViolationsAndUnevaluatedConstraints(t *testing.T) {
 			}
 			constraint def inspectTypeSpecializations {
 				in element : KerML::Type;
-				element.multiplicity->isEmpty();
+				element.ownedIntersecting->isEmpty();
 			}
 			part def P { part c; }
 		}
@@ -139,7 +139,7 @@ func TestSelfCheckUnevaluatedOnlyDoesNotFailSummary(t *testing.T) {
 			private import SequenceFunctions::*;
 			constraint def inspectTypeSpecializations {
 				in element : KerML::Type;
-				element.multiplicity->isEmpty();
+				element.ownedIntersecting->isEmpty();
 			}
 			part def P;
 		}
@@ -436,8 +436,8 @@ func TestSelfCheckPartUsageDefinitionForObjectivesAndVariants(t *testing.T) {
 	if stats.Checks == 0 || stats.Violations != 0 || stats.EvaluationErrors != 0 {
 		t.Fatalf("self-check counts = %+v; verdicts = %+v", stats, verdicts)
 	}
-	if got := stats.Applications["SysMLValidation::validatePartUsagePartDefinition"]; got != 2 {
-		t.Errorf("part-definition constraint applications = %d, want 2 (subject and part, not objective or variant reference)", got)
+	if got := stats.Applications["SysMLValidation::validatePartUsagePartDefinition"]; got != 1 {
+		t.Errorf("part-definition constraint applications = %d, want 1 (the part; not the subject, a ReferenceUsage, the objective or the variant reference)", got)
 	}
 }
 

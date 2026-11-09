@@ -52,7 +52,7 @@ and OpenSysML reports no error, yet its calculations and its mission action each
 defect only execution reaches — see [the showcase's Apollo 11 section](examples/runtime-showcase/README.md#apollo-11).
 
 The basis for these claims, and their limits, are documented in
-[spec compliance](docs/project/spec-compliance.md) and the
+[spec compliance](docs/project/spec-compliance/) and the
 [pilot differential](docs/project/pilot-differential.md): every diagnostic is compared against the
 pinned OMG pilot implementation over that implementation's own corpora, and no conformance
 certification is claimed.
@@ -98,7 +98,7 @@ brew install Open-MBEE/tap/opensysml
 go install github.com/Open-MBEE/OpenSysML/cmd/sysml@latest
 go install github.com/Open-MBEE/OpenSysML/cmd/sysml-lsp@latest
 ```
-`sysml -version` then reports the release it was built from (`sysml v0.11.0`), or the commit when
+`sysml -version` then reports the release it was built from (`sysml v0.12.1`), or the commit when
 installed from a checkout.
 
 **Or build from source:**
@@ -283,7 +283,7 @@ The project provides the tooling familiar from the Python, Rust and Go ecosystem
 SysML v2:
 
 - **Execution Runtime** — More than a validator: instantiate parts, evaluate constraints against concrete values and execute calc and analysis cases. Actions and state machines run for the subset the compliance map lists (activity fork/join parallelism, decision guards, hierarchical/orthogonal states, choice/junction pseudostates, TimeEvent/ChangeEvent/AcceptEvent, sourceless transitions); every conformance case passes, self-assessed against the Kernel Semantic Library, since no external referee executes behavior. A default run is one tool-chosen linearization of the order the model states, and `explore`/`check` show the whole set, up to their budgets (a result that hit one says so). See [spec compliance](docs/project/spec-compliance.md) for the measured behavioral coverage and the [runtime showcase](examples/runtime-showcase/README.md) for what running a model finds that validating it cannot.
-- **Language Server** — A standard LSP server (`sysml-lsp`) with live diagnostics, semantic hover, go-to-definition, find references, completion, signature help, workspace-wide symbol search, formatting, rename, semantic tokens, quick fixes, code lenses and inlay hints. A VS Code extension with TextMate grammars for `.sysml` and `.kerml` ships in [editors/vscode](editors/vscode) — its diagram panel draws the model beside the editor with zoom, pan and fit, click-to-select highlighting, show/hide of relationship kinds, drag-to-layout and an ELK auto layout that writes nothing — and any editor with a generic LSP client can drive the server directly — [guide chapter 8](docs/guide/08-editors.md) walks through both. *Not yet:* the extension is not on a marketplace — install the nightly `opensysml-sysml.vsix` or build it from source — and the server answers no semantic token delta requests.
+- **Language Server** — A standard LSP server (`sysml-lsp`) with live diagnostics, semantic hover, go-to-definition, find references, completion, signature help, workspace-wide symbol search, formatting, rename, semantic tokens, quick fixes, code lenses and inlay hints. A VS Code extension with TextMate grammars for `.sysml` and `.kerml` ships in [editors/vscode](editors/vscode) — its diagram panel draws the model beside the editor with zoom, pan and fit, click-to-select highlighting, show/hide of relationship kinds, drag-to-layout and an ELK auto layout that writes nothing — an Emacs package in [editors/emacs](editors/emacs) pairs `sysml-mode` and `kerml-mode` with an lsp-mode client and a text view of the model — and any editor with a generic LSP client can drive the server directly — [guide chapter 8](docs/guide/08-editors.md) walks through all of them. *Not yet:* the extension is not on a marketplace — install the nightly `opensysml-sysml.vsix` or build it from source — and the server answers no semantic token delta requests.
 - **Interactive REPL** — An exploratory modeling environment: define models incrementally, evaluate expressions interactively, instantiate parts, run calculations and inspect runtime state, comparable to IPython or Jupyter for systems engineering.
 - **Jupyter Kernel** — `sysml-jupyter-kernel` runs the REPL session behind the Jupyter protocol, so notebook cells hold SysML: declarations accumulate across cells, expressions evaluate, every `%` command works as at the prompt, and views and documents render as Mermaid, SVG, Markdown, tables, HTML or JSON. `pip install jupyter-opensysml-kernel && python -m jupyter_opensysml_kernel install` registers it ([guide chapter 12](docs/guide/12-jupyter.md)).
 - **MCP Server for Coding Agents** — `sysml-mcp` serves the toolchain to OpenCode, Claude Code, Cursor, Codex, VS Code Copilot, Gemini CLI, Devin and any other Model Context Protocol host over stdio: the language server's workspace, the runtime's one-shot service and persistent REPL sessions as tools an agent calls. `npx -y @openmbee/sysml-mcp` (or `npx -y @openmbee/opensysml-mcp`, the same runner under the name the other npm packages share) runs it with nothing preinstalled, `sysml-mcp -http 8765` serves one long-lived server over Streamable HTTP for remote agents or several agents over one workspace (loopback as it is, any other address behind a bearer token), and `sysml-mcp -print-config <host>` writes the host's configuration block, in URL form with `-http` ([MCP server reference](docs/reference/sysml-mcp.md)).
@@ -687,7 +687,7 @@ artifact is on Maven Central at the core's version (`org.openmbee:opensysml`).
 - **[Client libraries](docs/reference/clients.md)** — the Go, Python, Node, Java, Rust, Julia and MATLAB surfaces, and how to choose between them
 - **[Reference](docs/reference/)** — CLI flags, REPL commands, environment, each client's API, service transports, RDF mapping
 - **[Internals](docs/internals/architecture.md)** — the pipeline, the tiers, testing and performance
-- **[Project status](docs/project/spec-compliance.md)** — spec compliance, roadmap and releasing
+- **[Project status](docs/project/README.md)** — spec compliance, roadmap and releasing
 - **[Examples](examples/)** — runtime demonstrations and behavioral model examples
 - **[Agent skills](packaging/agent-skills/)** — skills an LLM coding agent can load to write, check and run models with OpenSysML
 

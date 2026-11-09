@@ -196,7 +196,8 @@ commands:
             echo "dcdbfada0ce493ee98259c0816e0daafc561c223aadb3af298c2968e73ea39c6  /tmp/cvc5.zip" | sha256sum --check --strict
             unzip -p /tmp/cvc5.zip '*/bin/cvc5' > /tmp/cvc5-bin
             sudo install -m 0755 /tmp/cvc5-bin /usr/local/bin/cvc5
-            cvc5 --version | head -1
+            cvc5_version="$(cvc5 --version)"
+            echo "${cvc5_version%%$'\n'*}"
 
   # The FMI gate runs `python3` over FMPy; the executor's python3 has no pip and is
   # externally managed, so FMPy goes in a venv that later steps put first on PATH.
@@ -550,6 +551,18 @@ jobs:
           name: Check changelog fragments
           command: python3 scripts/changelog-test.py && python3 scripts/changelog.py check
 
+      # The compliance map is combined from docs/project/spec-compliance/ when the site is
+      # built; a release tag (or its rehearsal) must carry the combined page, current.
+      - run:
+          name: Check the compliance-map sources and the combined page
+          command: |
+            python3 scripts/spec_compliance-test.py
+            if [ -n "${CIRCLE_TAG:-}" ]; then
+              python3 scripts/spec_compliance.py check --require-page
+            else
+              python3 scripts/spec_compliance.py check
+            fi
+
       - run:
           name: Check the release provenance writer
           command: python3 scripts/release-provenance-test.py
@@ -640,12 +653,12 @@ jobs:
           command: make vulncheck
 
   # The race-enabled suite. It is the longest single step in the pipeline, so
-  # it gets the larger class and ten executors, one scripts/race-shard.sh shard each,
+  # it gets the larger class and twelve executors of one or two scripts/race-shard.sh shards,
   # sized so that no node runs much over 25 minutes (the slowest ran 45 with six).
   go-race-test:
     executor: go-executor
     resource_class: large
-    parallelism: 10
+    parallelism: 12
     steps:
       - checkout
       - rehearsal-checkout-tag
@@ -657,45 +670,55 @@ jobs:
 
       - install-fmpy
 
-      # One scripts/race-shard.sh shard per node. internal/exec/runtime ran 31-57 minutes whole
-      # and nears 8.5 GB under -race, so it is two nodes, split by test name as make test-shard does.
+      # internal/exec/runtime (31-57 minutes whole, near 8.5 GB under -race) is three shards split by
+      # test name as make test-shard does, the exploration one on the migrate node; tests/export is three too.
       - run:
           name: Run Go race tests
           command: |
             set -o pipefail
-            shards=(runtime runtime-corpus model export graph codegen tools rest migrate cli)
+            # One entry per node; a quoted entry runs its shards in turn (tests/hygiene keeps
+            # the entries the shard list of scripts/race-shard.sh).
+            shards=(runtime runtime-corpus model export export-corpus export-settled graph codegen tools rest "migrate runtime-exploration" cli)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
-              echo "error: parallelism is $CIRCLE_NODE_TOTAL, but scripts/race-shard.sh has ${#shards[@]} shards" >&2
+              echo "error: parallelism is $CIRCLE_NODE_TOTAL, but the shard array has ${#shards[@]} nodes" >&2
               exit 1
             fi
-            shard=${shards[$CIRCLE_NODE_INDEX]}
+            for shard in ${shards[$CIRCLE_NODE_INDEX]}; do
             pkgs=$(scripts/race-shard.sh "$shard")
             echo "shard $shard:"; echo "$pkgs"
             # -v over several packages is held back until each finishes, which the
             # no_output_timeout below reads as a hang; -json streams, the script re-emits -v.
             stream() { python3 scripts/go-test-stream.py; }
             # The Makefile's RACE_RUNTIME_CORPUS; tests/hygiene keeps the two the same.
+            exploration='^TestExploreWithIsExploreOverTheConformanceCorpus$'
             corpus='^Test(ExploreWithIsExploreOverTheConformanceCorpus|CheckAgreesWithExploreOverTheConformanceCorpus|CheckWitnessesReplayOverTheConformanceCorpus|ExecutionConformance|ExecutionConformanceUnderPolicies)$'
+            exportcorpus='^TestAPIJSONWritersNeverEmitNameReferences$'
+            exportsettled='^TestSettledCollectionsAreWhatReconcilingWouldFind$'
             case "$shard" in
-              runtime-corpus)
-                # Two processes: the exploration alone nears 5 GB and the five suites together
-                # 9 GB under -race, over this class's 8 GB (the race detector's memory is per process).
-                exploration='^TestExploreWithIsExploreOverTheConformanceCorpus$'
-                go test -json -race -pgo=off -timeout 30m -run "$exploration" $pkgs | stream
-                go test -json -race -pgo=off -timeout 30m -run "$corpus" -skip "$exploration" $pkgs | stream
-                ;;
+              # Its own shard and process: alone it nears 5 GB, the five suites together 9 GB under -race,
+              # over this class's 8 GB. The Makefile's RACE_RUNTIME_EXPLORATION; tests/hygiene keeps the two the same.
+              runtime-exploration) go test -json -race -pgo=off -timeout 30m -run "$exploration" $pkgs | stream ;;
+              runtime-corpus) go test -json -race -pgo=off -timeout 30m -run "$corpus" -skip "$exploration" $pkgs | stream ;;
               runtime) go test -json -race -pgo=off -timeout 30m -skip "$corpus" $pkgs | stream ;;
+              # The Makefile's RACE_EXPORT_CORPUS and RACE_EXPORT_SETTLED; tests/hygiene keeps them the same. tests/export
+              # whole passed 55 minutes under -race once the element form completed inheritance.
+              export-corpus) go test -json -race -pgo=off -timeout 55m -run "$exportcorpus" $pkgs | stream ;;
+              # Four settled models at once peak at 8.2-8.4 GB under -race, this class's 8 GB (killed on
+              # develop at #2014); two at once peak at 6.5 GB for a tenth more wall time.
+              export-settled) go test -json -race -pgo=off -timeout 55m -parallel 2 -run "$exportsettled" $pkgs | stream ;;
+              export) go test -json -race -pgo=off -timeout 55m -skip "$exportcorpus|$exportsettled" $pkgs | stream ;;
               tools)
                 go test -json -race -pgo=off -timeout 30m $pkgs | stream
                 go test -C tools -json -race -pgo=off -timeout 30m ./... | stream
                 ;;
               *)
-                # tests/migrate ran 23-32 minutes under -race on this class, tests/export and
-                # tests/model about 30 each: those shards get the Makefile's timeout (make test-shard).
-                timeout=30m; case "$shard" in migrate|export|graph) timeout=55m ;; esac
+                # tests/migrate ran 23-32 minutes under -race on this class, tests/model about 30 and
+                # tests/corpus 30 by seconds either way: those shards get the Makefile's timeout (make test-shard).
+                timeout=30m; case "$shard" in migrate|graph|model) timeout=55m ;; esac
                 go test -json -race -pgo=off -timeout "$timeout" $pkgs | stream
                 ;;
             esac
+            done
           no_output_timeout: 30m
           environment:
             # Turns "corpus absent" into a failure rather than a skip, as the
@@ -716,17 +739,13 @@ jobs:
             # the FMI gate runs rather than skips (tests/fmi).
             OPENSYSML_REQUIRE_REFERENCE_FMUS: "1"
 
-  # A second, race-free pass, because the profile the scan reads is written
-  # with -coverpkg, which is too slow to instrument under -race. Serially the
-  # instrumented suite overran the 60-minute job limit even on large, so it runs
-  # as the race test's package shards but runtime-corpus (the Makefile's COVERAGE_SHARDS;
-  # without -race the runtime runs whole in about 19 minutes), and go-coverage-merge joins them.
-  # cmd/sysml's exploration budgets alone took 23-30 of the 30 minutes while sharing
-  # the rest node under -coverpkg=./..., so the command has a node of its own.
+  # A race-free pass for the scan's -coverpkg profile, too slow under -race; serially it
+  # overran the 60-minute limit, so it runs sharded and go-coverage-merge joins the shards.
   go-coverage:
     executor: go-executor
     resource_class: large
-    parallelism: 9
+    # The race test's shards but runtime-corpus: without -race the runtime runs whole in about 19 minutes.
+    parallelism: 11
     steps:
       - checkout
       - rehearsal-checkout-tag
@@ -741,7 +760,9 @@ jobs:
       - run:
           name: Write this shard's coverage profile
           command: |
-            shards=(runtime model export graph codegen tools rest migrate cli)
+            # tests/export whole overran 30 minutes, so make coverage-shard splits it by test name.
+            # cmd/sysml has its own node: its exploration budgets took 23-30 minutes on the rest node.
+            shards=(runtime model export export-corpus export-settled graph codegen tools rest migrate cli)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
               echo "error: parallelism is $CIRCLE_NODE_TOTAL, but the Makefile's COVERAGE_SHARDS has ${#shards[@]} shards" >&2
               exit 1
@@ -1579,7 +1600,8 @@ jobs:
           command: |
             apt-get update
             apt-get install -y --no-install-recommends make
-            make --version | head -1
+            make_version="$(make --version)"
+            echo "${make_version%%$'\n'*}"
 
       - install-go
 
@@ -2183,7 +2205,7 @@ jobs:
       # extension every distribution ships (make jupyterlab-build).
       - run:
           name: Install build tooling
-          command: python -m pip install --upgrade pip build twine packaging jupyterlab==4.6.4
+          command: python -m pip install --upgrade pip build twine packaging jupyterlab==4.6.5
 
       - run:
           name: Resolve the version from the tag

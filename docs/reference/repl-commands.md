@@ -105,10 +105,10 @@ in the subsetted collection.
 | `%requirement <name>[(<args>)] [<object>]` | Evaluate requirement (subject/assume/require/actor), reporting beside its verdict the `VerdictKind` the body of every verification case verifying it produced. Arguments for its `in` parameters and an object as its subject are written as for `%constraint` (`%requirement Pkg::Under(limit = 5) Pkg::part`) |
 | `%satisfy [name]` | Evaluate satisfaction assertions of the model, or of one element, reporting beside each verdict the `VerdictKind` the body of every verification case verifying the requirement produced |
 | `%validate <object>` | Evaluate every assertion about an object the session holds and the objects it holds in turn, given as an [object reference](#object-references) (`%validate car`, `%validate #3`, `%validate car.wheels[2]`): each `assert constraint` the carrier's type declares or inherits, each requirement usage it carries, and each `satisfy` assertion whose subject is in the tree — one verdict per assertion per object, root first and then each held object as the walk reaches it, each naming its object by the path from the one validated (`Demo::car.wheels[2]`, indexes counted from 1; an object a subsetting usage declares is named by that usage, `Demo::assembly.small`, as `%constraint` and `%satisfy` name it, not by its position in the collection it subsets), then one verdict about the object as a whole with its `standing:`. An assertion that could not be evaluated is `?` undecided with the reason, not `✗`; the object is valid only when every assertion holds and every held object was reached, so an undecided assertion, or a walk cut short by an object graph without end, leaves it `not shown valid` rather than valid, and an object no assertion is about `states no assertion to validate` and is not shown valid either. A constraint declared without `assert` is not swept; `%constraint` checks it by name. Verifying verification cases are reported beside a requirement's verdict as `%requirement` reports them. Refuses a name no object is held under (`no instance of "car" (use %instantiate first)`) |
-| `%check <name>` | **Experimental.** Ask an external SMT solver whether a constraint, requirement or satisfaction assertion *can* be satisfied, and on `sat` print an assignment. Reports `sat`, `unsat` or `unknown`, kept distinct. A declared value is not asserted — the question is what the conditions permit — except a *derived* one, an expression over other features of the same element (`attribute volume : VolumeValue = height * width * length;`), which is asserted as the defining equation of its variable and listed under `Defined by the model:`, so the assignment's `volume` is the product of the `height`, `width` and `length` it chose; a literal default is not asserted, so the answers over one do not move. A feature read as one value that declares and inherits no multiplicity — the usual default `0..*` governs it (KerML 1.1 §7.4.12), as it does a bare `in x : Real` parameter, which SysML v2 §7.6.3 leaves out of the implicit `[1..1]` — is listed under `Assuming … holds one value`: the verdict is about the case where it holds one, and no count is asserted; a feature whose stated, inherited or implicit multiplicity admits several values is refused. Needs `z3` or `cvc5` on `PATH` (or `OPENSYSML_SMT`; see [installing a solver](../guide/01-install.md#installing-a-solver-optional)) and reports an error rather than a verdict when none is installed. Satisfiability is not evaluation: use `%constraint`/`%satisfy` to find out what holds for an object |
-| `%explain <name>` | **Experimental.** When `%check` answers `unsat`, ask the solver *which* conditions conflict. Prints an unsat core, reduced to a minimal one, as the role, the condition as written, the declaring element and `file:line:col`, in the query's order. A declared domain (a `Natural` being non-negative), a division well-definedness guard, a fixed value or the defining equation of a derived declared value (`defining equation: \`Box::Crate::volume == height * width * length, declared by the model\``, at the declaration's position) can be one of the conflicting conditions. On `sat` there is no conflict to explain and `%check` gives the assignment; on `unknown` no explanation is available. Same solver requirements as `%check` ([installing a solver](../guide/01-install.md#installing-a-solver-optional)); `OPENSYSML_SMT_CORE_BUDGET` bounds the reduction |
-| `%solve <name>` | **Experimental.** Ask the solver for values that satisfy a constraint, requirement or satisfaction assertion, keeping what is already fixed: the values an object holds, or failing that the literal values the model declares, stay fixed and the rest are synthesised. A *derived* declared value — an expression over other features of the same element, `attribute volume : VolumeValue = height * width * length;` — is neither fixed nor free: its defining equation is asserted, listed under `Defined by the model:`, so the `volume` synthesised is the product of the `height`, `width` and `length` synthesised with it; once the object has materialized the value, it is fixed as held like any other. A declared value that could not be read (a feature it reads holds nothing and no equation can state it) is listed under `Left free, since their declared value could not be read:` with the reason. Prints what was fixed (and by what), what is defined by the model, the values chosen, and a reminder that they are *one* witness of possibly many. `unsat` here means no values exist that are consistent with what is fixed, and names the fixed values and the conditions — a defining equation among them — that conflict. Same solver requirements as `%check` |
-| `%configure <name> [<variation>=<variant>...] [all [<count>]]` | **Experimental.** Ask which variants a constraint, requirement or satisfaction assertion permits — or, named a part or definition (a variation family or one of its configurations), which variants every assertion about its objects permits together: its owned and inherited asserted constraints, carried requirements and satisfactions, the collection `%validate` checks, with the literal values its own features declare fixed and a derived declared value (`volume = height * width * length`) asserted as its defining equation. With no argument, one consistent selection is synthesised. With `<variation>=<variant>`, the chosen selection is checked and the conflict is named when it is not consistent. With `all`, the consistent selections are enumerated up to `OPENSYSML_SMT_MAX_CONFIGURATIONS` (`all <count>` for a smaller bound), and the report says whether the list is complete or was cut short, either at the bound or because the solver stopped deciding or ran out of time; the selections found so far are still reported. An element that reads no variation point is an error pointing at `%check`; a part or definition asserting nothing about its objects is an error too. A carried requirement applies its required conditions only where its assumptions hold (SysML v2 §7.21.2), and a satisfaction's requirement reads the feature `by` names as its subject, so the values that part declares are fixed too. What a nested part's own objects assert — through the feature, its type or a variant of either — is in the query too, read through the holding feature (`engine.autoPort`), a variant's assertion applying only where the holding variation selects that variant (`engine == '6cylEngine' implies …`), as deep as `%validate` reaches. A variation point declared for one variant alone (`'6cylEngine'`'s `variation port :>> autoPort`) exists only where that variant is selected: it is enumerated and listed under that variant only, and choosing it selects the variant that has it — choosing it against a variant that lacks it is an error naming the selection it needs; a nested part the query cannot read as one object (one that may hold several or none, whose type recurs, or whose assertion is outside the solver's subset) is refused by name with the reason — `%instantiate` and `%validate` an object to check it. A refused selection names the assertion refusing it and where it is declared. Every name in the report — a variation point, the variant fixed or chosen for it, the values in a conflict and the condition as written — is written as the notation does, quoted where it needs quoting (`'Cfg Space'::'Engine Choices'::'4cyl'`). Same solver requirements as `%check` |
+| `%check <name>` | **Experimental.** Ask an external SMT solver whether a constraint, requirement or satisfaction assertion *can* be satisfied, and on `sat` print an assignment. Reports `sat`, `unsat` or `unknown`, kept distinct. A value bound with `=` (`attribute limit : Real = 1.0;`) is fixed as declared, since the feature holds it at all times (KerML 1.1 §7.3.4.5), and a *derived* one, an expression over other features of the same element (`attribute volume : VolumeValue = height * width * length;`), is asserted as the defining equation of its variable and listed under `Defined by the model:`, so the assignment's `volume` is the product of the `height`, `width` and `length` it chose — on a part, a constraint or a requirement alike, an equation a redefinition supplies for an inherited feature included. A `default` value (`attribute limit : Real default 1.0;`) or an initial one (`:=`) is not asserted — the question is what the conditions permit where it is overridden — so the answers over one do not move. A value declared through a chain rooted in one of the element's own features (`attribute :>> ok = s.amount > 2.0;` with `s` the requirement's subject, a parameter of it by SysML v2 §7.21.2) is derived too when no object is held for the root, so `=` binds it to the expression's result (KerML 1.1 §7.3.4.5); when an object is held for the root, the chain is read through it and the value it gives is fixed. A feature read as one value that declares and inherits no multiplicity — the usual default `0..*` governs it (KerML 1.1 §7.4.12), as it does a bare `in x : Real` parameter, which SysML v2 §7.6.3 leaves out of the implicit `[1..1]` — is listed under `Assuming … holds one value`: the verdict is about the case where it holds one, and no count is asserted; a feature whose stated, inherited or implicit multiplicity admits several values is refused. Needs `z3` or `cvc5` on `PATH` (or `OPENSYSML_SMT`; see [installing a solver](../guide/01-install.md#installing-a-solver-optional)) and reports an error rather than a verdict when none is installed. Satisfiability is not evaluation: use `%constraint`/`%satisfy` to find out what holds for an object |
+| `%explain <name>` | **Experimental.** When `%check` answers `unsat`, ask the solver *which* conditions conflict. Prints an unsat core, reduced to a minimal one, as the role, the condition (printed as the tree that was checked, an operand parenthesised only where its operator binds looser than the enclosing one: `x > 1.0 and (x < 0.0 or x > 5.0)`), the declaring element and `file:line:col`, in the query's order. A declared domain (a `Natural` being non-negative), a division well-definedness guard, a value bound with `=` (`fixed value: \`BoundLiteral::bound::limit == 1.0, declared by the model\``) or the defining equation of a derived declared value (`defining equation: \`Box::Crate::volume == height * width * length, declared by the model\``, at the declaration's position) can be one of the conflicting conditions. On `sat` there is no conflict to explain and `%check` gives the assignment; on `unknown` no explanation is available. Same solver requirements as `%check` ([installing a solver](../guide/01-install.md#installing-a-solver-optional)); `OPENSYSML_SMT_CORE_BUDGET` bounds the reduction |
+| `%solve <name>` | **Experimental.** Ask the solver for values that satisfy a constraint, requirement or satisfaction assertion, keeping what is already fixed: the values an object holds, or failing that the literal values the model declares — bound with `=` or given as a `default`, since a declared `default` is the value the object would hold — stay fixed and the rest are synthesised. A *derived* declared value — an expression over other features of the same element, `attribute volume : VolumeValue = height * width * length;` — is neither fixed nor free: its defining equation is asserted, listed under `Defined by the model:`, so the `volume` synthesised is the product of the `height`, `width` and `length` synthesised with it; once the object has materialized the value, it is fixed as held like any other. A declared value that could not be read (a feature it reads holds nothing and no equation can state it) is listed under `Left free, since their declared value could not be read:` with the reason. Prints what was fixed (and by what), what is defined by the model, the values chosen, and a reminder that they are *one* witness of possibly many. `unsat` here means no values exist that are consistent with what is fixed, and names the fixed values and the conditions — a defining equation among them — that conflict. Same solver requirements as `%check` |
+| `%configure <name> [<variation>=<variant>...] [all [<count>]]` | **Experimental.** Ask which variants a constraint, requirement or satisfaction assertion permits — or, named a part or definition (a variation family or one of its configurations), which variants every assertion about its objects permits together: its owned and inherited asserted constraints, carried requirements and satisfactions, the collection `%validate` checks, with the values its own features bind with `=` fixed, a `default` left to what the assertions permit, and a derived declared value (`volume = height * width * length`) asserted as its defining equation. With no argument, one consistent selection is synthesised. With `<variation>=<variant>`, the chosen selection is checked and the conflict is named when it is not consistent. With `all`, the consistent selections are enumerated up to `OPENSYSML_SMT_MAX_CONFIGURATIONS` (`all <count>` for a smaller bound), and the report says whether the list is complete or was cut short, either at the bound or because the solver stopped deciding or ran out of time; the selections found so far are still reported. An element that reads no variation point is an error pointing at `%check`; a part or definition asserting nothing about its objects is an error too. A carried requirement applies its required conditions only where its assumptions hold (SysML v2 §7.21.2), and a satisfaction's requirement reads the feature `by` names as its subject, so the values that part declares are fixed too. What a nested part's own objects assert — through the feature, its type or a variant of either — is in the query too, read through the holding feature (`engine.autoPort`), a variant's assertion applying only where the holding variation selects that variant (`engine == '6cylEngine' implies …`), as deep as `%validate` reaches. A variation point declared for one variant alone (`'6cylEngine'`'s `variation port :>> autoPort`) exists only where that variant is selected: it is enumerated and listed under that variant only, and choosing it selects the variant that has it — choosing it against a variant that lacks it is an error naming the selection it needs; a nested part the query cannot read as one object (one that may hold several or none, whose type recurs, or whose assertion is outside the solver's subset) is refused by name with the reason — `%instantiate` and `%validate` an object to check it. A refused selection names the assertion refusing it and where it is declared. Every name in the report — a variation point, the variant fixed or chosen for it, the values in a conflict and the condition, grouped as it was evaluated — is written as the notation does, quoted where it needs quoting (`'Cfg Space'::'Engine Choices'::'4cyl'`). Same solver requirements as `%check` |
 | `%optimize <name>` | **Experimental.** Ask the solver for the best values an `analysis def` (or an analysis usage) admits. Each `objective` is improved as the trade-study definition typing it says (`TradeStudies::MinimizeObjective` or `MaximizeObjective`), over the value its redefinition of the library's `eval` calculation returns (`subject :>> selectedAlternative; in calc :>> eval { expression }`), within the conditions the case requires or assumes and the ones the objective states itself. An objective that instead gives the library's bound `best` a value of its own (`attribute :>> best = expression;`, the spelling earlier releases read) is a validation error, and `%optimize` refuses it pointing at the `eval` spelling. A case states one objective, so a further one to improve lexicographically is the objective of an analysis nested in the case (`analysis thenMargin { objective widest : MaximizeObjective { ... } }`): the case's own objective first, then each nested analysis's in declaration order, inherited ones first; an objective or nested analysis restating an inherited one (by name or `:>>`) stands in its place with the value stated there. A nested analysis is performed as part of the case, so what it asserts holds for the case: every nested analysis's conditions bound the one region all the objectives are improved within, and its own attributes are values of its own, shadowing the case's for its conditions and objective. Prints each optimum with its declared unit and the assignment that attains it. An objective that improves without limit, or a bound no assignment attains, is reported as such and never as a number, and every optimum is verified before it is reported. **Needs `z3`**: optimization is a z3 extension, and a backend without it (cvc5) is an error rather than a plain satisfiability check presented as an optimum. Otherwise the same solver requirements as `%check`. `%optimize` answers a different question from running the case: it finds the best *values* the case's conditions admit over a continuous domain, where `%analysis` executes what the model says over the alternatives it lists. A `TradeStudies::TradeStudy` whose objective applies the case's `evaluationFunction` to listed alternatives is therefore refused, pointing at `%analysis`/`-analysis`/`RunAnalysis`, which evaluate every alternative and report the one selected ([Trade studies](../guide/06-behavior.md#trade-studies)) |
 | **Action debugging** ([guide chapter 6](../guide/06-behavior.md)) | |
 | `%action <name> [<object>]` | Start an action debugging session, optionally performed by an instantiated object, given as an [object reference](#object-references) (`%action tally car`, `%action tally #3`). `%action <action> <object>` first looks at what the object already performs: naming an action it performs — one that *is* or is *typed by* `<action>` (`%action Robot::run robot`, `%action Run robot`) — attaches to that running performance, with a note saying so, rather than performing it a second time against the same feature values, so the object never runs two of them; `%step`, `%continue` and `%advance` then drive that performance, and `%features` shows what it wrote. A definition the object performs as the body of several usages names no one performance, so `%action` refuses and names the performed usages to name instead. Only an action the object does not perform is started as a fresh performance on it. Under `%engine check`, or `%engine all` with a `%check-*` setting made, the action is checked instead of stepped ([Checking every schedule](#checking-every-schedule-of-an-action-or-a-state-machine)) |
@@ -197,12 +197,12 @@ engine: check
 sysml> %check-witness witnesses
 check-witness: witnesses
 sysml> %check-bounds depth=3
-check-bounds: depth=3, states=1000000 (default), timeout=off
+check-bounds: depth=3, states=1000000 (default), unroll=4 (default), timeout=off
 sysml> %action Mission::race
 ? Action Mission::race: no violation within bounds (5 states, 4 moves, depth 3; bounds hit: depth)
   standing: outcomes (bounded over schedules: 5 states, 4 moves searched, depth=3 (reached))
 sysml> %check-bounds off
-check-bounds: depth=10000 (default), states=1000000 (default), timeout=off
+check-bounds: depth=10000 (default), states=1000000 (default), unroll=4 (default), timeout=off
 sysml> %action Mission::race
 ✗ Action Mission::race: divergent (11 states, 10 moves, depth 6)
   divergent: x ends as 1 or 2
@@ -452,13 +452,17 @@ Demo::summary - tree rendering (the view states no rendering; a tree is the defa
 part def Vehicle
   attribute mass
   part wheel
-    attribute diameter
+    attribute ^diameter
 view detail
   part def Wheel
     attribute diameter
 
 relationships:
-  Vehicle *-- Wheel: wheel
+  Vehicle o-- mass
+  Vehicle *-- wheel
+  wheel --:|> Wheel
+  wheel o-- diameter
+  Wheel o-- diameter
 
 sysml> %render Demo::summary mermaid
 ---
@@ -490,22 +494,22 @@ flowchart TD
 **Vehicle**`"]
     n1("`*«attribute»*
 **mass**`")
-  n0 --- n1
     n2("`*«part»*
 **wheel**`")
       n3("`*«attribute»*
-**diameter**`")
-  n2 --- n3
-  n0 --- n2
+**^diameter**`")
   n4("`*«view»*
 **detail**`")
     n5["`*«part def»*
 **Wheel**`"]
       n6("`*«attribute»*
 **diameter**`")
-  n5 --- n6
   n4 --- n5
-  n0 ---|"◆ wheel"| n5
+  n0 ---|"◇"| n1
+  n0 ---|"◆"| n2
+  n2 -->|"typing"| n5
+  n2 ---|"◇"| n3
+  n5 ---|"◇"| n6
 ```
 
 A diagram node's label leads with the kind in guillemets and puts the element's name on the next
@@ -567,17 +571,17 @@ digraph "Demo::summary" {
   edge [color="#181818", fontname="Helvetica", fontsize=13, penwidth=1];
   "n0" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Vehicle</b>>];
   "n1" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>mass</b>>];
-  "n0" -> "n1" [arrowhead=none];
   "n2" [style="rounded,filled", label=<<font point-size="10"><i>«part»</i></font><br/><b>wheel</b>>];
-  "n3" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>diameter</b>>];
-  "n2" -> "n3" [arrowhead=none];
-  "n0" -> "n2" [arrowhead=none];
+  "n3" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>^diameter</b>>];
   "n4" [style="rounded,filled", label=<<font point-size="10"><i>«view»</i></font><br/><b>detail</b>>];
   "n5" [label=<<font point-size="10"><i>«part def»</i></font><br/><b>Wheel</b>>];
   "n6" [style="rounded,filled", label=<<font point-size="10"><i>«attribute»</i></font><br/><b>diameter</b>>];
-  "n5" -> "n6" [arrowhead=none];
   "n4" -> "n5" [arrowhead=none];
-  "n0" -> "n5" [headlabel="wheel", dir=back, arrowtail=diamond];
+  "n0" -> "n1" [dir=back, arrowtail=odiamond];
+  "n0" -> "n2" [dir=back, arrowtail=diamond];
+  "n2" -> "n5" [arrowhead=onormaldotdot];
+  "n2" -> "n3" [dir=back, arrowtail=odiamond];
+  "n5" -> "n6" [dir=back, arrowtail=odiamond];
 }
 ```
 
@@ -608,7 +612,7 @@ style, once, and completes beside them.
 
 A word `show=<elements>`, on `%render` and `%viz` alike, names the notation elements the SysML v2 notation makes optional that the
 rendering draws besides the ones its view's rendering shows, comma-separated: `parameter-symbols`,
-`port-symbols`, `compartments`, `edge-labels`, `keywords`, `multiplicities`, `typings`, `qualifiers`,
+`port-symbols`, `compartments`, `edge-labels`, `keywords`, `multiplicities`, `typings`, `qualifiers`, `annotations`,
 or `all` (`%render Lab::useCases dot show=parameter-symbols,edge-labels`); port symbols and
 compartments are drawn without it, as are an action's or calculation's parameter pins. It is accepted once, in any order with the other words, with or
 without a form before it (`%render Lab::useCases show=edge-labels` draws the text form), and a
@@ -664,7 +668,7 @@ hide circle
 hide empty members
 class "<size:10>//«part def»//</size>\n**Vehicle**" as n0 <<part def>>
 class "<size:10>//«attribute»//</size>\n**mass**" as n1 <<attribute>> <<usage>>
-n0 -- n1
+n0 o-- n1
 …
 @enduml
 ```
@@ -689,10 +693,15 @@ classes: {
   definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
   usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
   edge: { style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  specialization: { target-arrowhead: { shape: triangle; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  composition: { source-arrowhead: { shape: diamond; style: { filled: true } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
+  reference: { source-arrowhead: { shape: diamond; style: { filled: false } }; style: { stroke: "#181818"; font-size: 13; font-color: black; stroke-width: 1 } }
 }
 n0: "«part def»\nVehicle" { class: definition }
 n1: "«attribute»\nmass" { class: usage }
-n0 -- n1: { class: edge }
+…
+n0 <- n1: { class: reference }
+n0 <- n2: { class: composition }
 …
 ```
 

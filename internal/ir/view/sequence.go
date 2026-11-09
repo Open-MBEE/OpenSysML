@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -647,7 +648,9 @@ func sequenceRows(messages []message, successions []succession, orders []order, 
 		// After its source's row and the successions already there, in declaration order.
 		place := ahead
 		if after >= 0 {
-			for place = after + 1; place < ahead && rows[place].succession; place++ {
+			place = after + 1
+			for place < ahead && rows[place].succession {
+				place++
 			}
 		}
 		rows = slices.Insert(rows, place, row{edge: s.edge, events: []*symbols.Symbol{o.from, o.to}, succession: true})
@@ -840,6 +843,9 @@ func isSuccessionUsage(sym *symbols.Symbol) bool {
 // an interaction in its body, in which case those are the lifelines and the
 // container itself is not one.
 func occurrenceContainer(sym *symbols.Symbol) bool {
+	if semantics.IsSubjectUsage(sym) {
+		return true
+	}
 	switch sym.Kind {
 	case symbols.SymbolOccurrenceDef, symbols.SymbolOccurrenceUsage,
 		symbols.SymbolIndividualDef, symbols.SymbolIndividualUsage,
@@ -856,25 +862,27 @@ func occurrenceContainer(sym *symbols.Symbol) bool {
 // rather than a participant in it, whose flows are its own action flow.
 func behaviorLike(sym *symbols.Symbol) bool {
 	switch sym.Kind {
-	case symbols.SymbolActionDef, symbols.SymbolActionUsage,
-		symbols.SymbolStateDef, symbols.SymbolStateUsage:
+	case symbols.SymbolActionDef, symbols.SymbolStateDef, symbols.SymbolStateUsage:
 		return true
 	}
-	return false
+	return sym.Kind.IsActionUsage()
 }
 
 // lifelineLike reports whether an element can hold an occurrence, which is what
 // a sequence rendering draws a lifeline for. An attribute, a port, a package or
 // a view holds none, and is reported rather than drawn.
 func lifelineLike(sym *symbols.Symbol) bool {
+	if semantics.IsSubjectUsage(sym) {
+		// A case's subject holds events as the part it refers to does.
+		return true
+	}
 	switch sym.Kind {
 	case symbols.SymbolPartDef, symbols.SymbolPartUsage,
 		symbols.SymbolItemDef, symbols.SymbolItemUsage,
 		symbols.SymbolOccurrenceDef, symbols.SymbolOccurrenceUsage,
 		symbols.SymbolIndividualDef, symbols.SymbolIndividualUsage,
-		symbols.SymbolActionDef, symbols.SymbolActionUsage,
-		symbols.SymbolStateDef, symbols.SymbolStateUsage:
+		symbols.SymbolActionDef, symbols.SymbolStateDef, symbols.SymbolStateUsage:
 		return true
 	}
-	return false
+	return sym.Kind.IsActionUsage()
 }

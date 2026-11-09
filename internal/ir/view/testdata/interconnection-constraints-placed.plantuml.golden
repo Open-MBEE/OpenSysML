@@ -1,6 +1,7 @@
 @startuml
 ' ParametricViews::placedView — interconnection rendering (render asInterconnectionDiagram)
 ' not represented: 6 positioned node(s) and 5 route(s) kept as comments; PlantUML pins no position, the dot form does
+mainframe <size:10>//«view»//</size> **ParametricViews::placedView**\n<size:10>expose Parametrics::Amplifier::signal</size>\n<size:10>expose Parametrics::Amplifier::gain</size>\n<size:10>expose Parametrics::Amplifier::noise</size>\n<size:10>expose Parametrics::Amplifier::output</size>\n<size:10>expose Parametrics::Amplifier::amplify</size>\n<size:10>expose Parametrics::Amplifier::mix</size>\n<size:10>expose Parametrics::Amplify::input</size>\n<size:10>expose Parametrics::Amplify::gain</size>\n<size:10>expose Parametrics::Amplify::output</size>\n<size:10>expose Parametrics::Mix::a</size>\n<size:10>expose Parametrics::Mix::b</size>\n<size:10>expose Parametrics::Mix::total</size>\n<size:10>expose Parametrics::Amplifier::mix::weight</size>\n<size:10>expose Parametrics::Amplifier::signalIn</size>\n<size:10>expose Parametrics::Amplifier::gainIn</size>\n<size:10>expose Parametrics::Amplifier::amplified</size>\n<size:10>expose Parametrics::Amplifier::noiseIn</size>\n<size:10>expose Parametrics::Amplifier::mixed</size>
 <style>
 root {
   BackGroundColor white
@@ -63,9 +64,9 @@ rectangle "<size:10>//«constraint»//</size>\n**amplify**" as n4 <<constraint>>
   port "^output" as n4.2
 }
 rectangle "<size:10>//«constraint»//</size>\n**mix**" as n5 <<constraint>> <<usage>> {
-  port "^a" as n5.0
-  port "^b" as n5.1
-  port "^total" as n5.2
+  port "a" as n5.0
+  port "b" as n5.1
+  port "total" as n5.2
 }
 n0 -- n4.0 : =
 n1 -- n4.1 : =

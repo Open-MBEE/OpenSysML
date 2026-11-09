@@ -23,6 +23,7 @@ config:
   flowchart:
     subGraphTitleMargin:
       bottom: 72
+title: "«view» ActionFormViews::monitorView : ActionFlowView"
 ---
 %% ActionFormViews::monitorView — action rendering (render asInterconnectionDiagram, view def ActionFlowView)
 flowchart TD
@@ -37,7 +38,6 @@ out alarm`"]
 reading : Reading
 parameters
 out reading
-inout ^payload
 in ^receiver`")
     n3("`⭓ *«send action»*
 **sendAlarm**

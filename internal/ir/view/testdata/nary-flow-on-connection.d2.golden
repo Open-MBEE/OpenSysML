@@ -1,4 +1,5 @@
 # NaryViews::carLinks — interconnection rendering (render asInterconnectionDiagram)
+# not represented: 4 note(s); the dot form draws notes
 classes: {
   definition: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14 } }
   usage: { style: { fill: white; stroke: "#181818"; stroke-width: 1; font-color: black; font-size: 14; border-radius: 8 } }
@@ -30,3 +31,5 @@ n0.n4 -- n0.n5: { class: connection }
 n0.n5 -- n0.n6: { class: connection }
 n0.n6 -- n0.n2."n2.0": { class: connection }
 n0.n1."n1.0" -> n0.n3."n3.0": { class: edge }
+frame_name: "«view» NaryViews::carLinks" { shape: text; near: top-left }
+frame_tr: "expose Nary::Car" { shape: text; near: top-right }

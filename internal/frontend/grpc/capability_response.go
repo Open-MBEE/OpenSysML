@@ -12,9 +12,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
-func (s *Service) symbolToProto(sym *symbols.Symbol, sc *symbolfacts.Context) *pb.SymbolInfo {
-	info := SymbolToProtoIn(sym, sc)
-	return s.filterSymbolInfo(info)
+func (s *Service) symbolToProtoWith(sym *symbols.Symbol, sc *symbolfacts.Context, opts symbolfacts.Options) *pb.SymbolInfo {
+	return s.filterSymbolInfo(SymbolToProtoWith(sym, sc, opts))
 }
 
 func (s *Service) symbolInfoToProto(info *symbolfacts.Info, idx *symbols.Index) *pb.SymbolInfo {
@@ -27,6 +26,10 @@ func (s *Service) filterSymbolInfo(info *pb.SymbolInfo) *pb.SymbolInfo {
 		info.Multiplicity = nil
 		info.Specializations = nil
 	}
+	if !s.capabilities.has(CapabilitySymbolMembers) {
+		info.Members = nil
+		info.WithheldLibraryMembers = 0
+	}
 	if !s.capabilities.has(CapabilitySymbolAttributes) {
 		info.Attributes = nil
 		info.WithheldLibraryAttributes = 0
@@ -38,22 +41,24 @@ func (s *Service) filterSymbolInfo(info *pb.SymbolInfo) *pb.SymbolInfo {
 	return info
 }
 
-func (s *Service) valueToProto(rt *runtime.Context, value runtime.Value, idx *symbols.Index) *pb.Value {
-	out := protoconv.ValueToProtoIn(rt, value, idx)
+// valueToProto converts a value of cached's model, naming a metaobject's
+// element by the id the model's symbol context gives it.
+func (s *Service) valueToProto(rt *runtime.Context, value runtime.Value, cached *CachedModel) *pb.Value {
+	out := protoconv.ValueToProtoWith(rt, value, cached.Index, cached.SymbolContext())
 	s.filterValueCapabilities(out)
 	return out
 }
 
-func (s *Service) valuesToProto(rt *runtime.Context, values map[string]runtime.Value, idx *symbols.Index) map[string]*pb.Value {
+func (s *Service) valuesToProto(rt *runtime.Context, values map[string]runtime.Value, cached *CachedModel) map[string]*pb.Value {
 	out := make(map[string]*pb.Value, len(values))
 	for name, value := range values {
-		out[name] = s.valueToProto(rt, value, idx)
+		out[name] = s.valueToProto(rt, value, cached)
 	}
 	return out
 }
 
-func (s *Service) instanceGraphToProto(rt *runtime.Context, inst *runtime.Instance, idx *symbols.Index) protoconv.InstanceGraph {
-	graph := protoconv.InstanceGraphToProtoWithin(rt, inst, idx, protoconv.DefaultGraphBounds())
+func (s *Service) instanceGraphToProto(rt *runtime.Context, inst *runtime.Instance, cached *CachedModel) protoconv.InstanceGraph {
+	graph := protoconv.InstanceGraphToProtoWithin(rt, inst, cached.Index, protoconv.DefaultGraphBounds(), cached.SymbolContext())
 	for _, instance := range graph.All {
 		s.filterInstanceCapabilities(instance)
 	}
@@ -63,6 +68,9 @@ func (s *Service) instanceGraphToProto(rt *runtime.Context, inst *runtime.Instan
 func (s *Service) filterInstanceCapabilities(instance *pb.Instance) {
 	if instance == nil {
 		return
+	}
+	if !s.capabilities.has(CapabilityInstancePaths) {
+		instance.ReachedBy = nil
 	}
 	if !s.capabilities.has(CapabilityFeatureValues) {
 		instance.FeatureValues = nil

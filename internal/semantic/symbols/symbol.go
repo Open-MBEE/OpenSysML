@@ -71,11 +71,23 @@ const (
 	// (SysML v2 §8.3.13.7), a ConnectorAsUsage that is not a ConnectionUsage.
 	SymbolSuccessionUsage
 	SymbolFlowUsage
+	// SymbolSuccessionFlowUsage classifies a `succession flow`: a flow usage that
+	// is also a succession (SysML v2 §8.2.2.14 SuccessionFlowUsage).
+	SymbolSuccessionFlowUsage
 	SymbolPortUsage
 	SymbolInterfaceUsage
 	SymbolAllocationUsage
 	// Tier C usages.
 	SymbolActionUsage
+	// An action node is an action usage of its own metaclass, classified by the
+	// statement it is written with (SysML v2 §8.2.2.17 ActionNode).
+	SymbolAcceptActionUsage
+	SymbolAssignmentActionUsage
+	SymbolPerformActionUsage
+	SymbolIfActionUsage
+	SymbolWhileLoopActionUsage
+	SymbolForLoopActionUsage
+	SymbolTerminateActionUsage
 	SymbolStateUsage
 	SymbolCalcUsage
 	SymbolConstraintUsage
@@ -118,6 +130,10 @@ const (
 	// SymbolKerMLFeature classifies a KerML Feature the reflective layer
 	// synthesizes without a declaration: an expression's parameter.
 	SymbolKerMLFeature
+	// SymbolSendActionUsage classifies a send action (`send x via p;`,
+	// `action a send x to q;`): an action usage whose payload, sender and
+	// receiver are its parameters (SysML v2 §8.3.17.15 SendActionUsage).
+	SymbolSendActionUsage
 )
 
 var symbolKindNames = map[SymbolKind]string{
@@ -174,10 +190,18 @@ var symbolKindNames = map[SymbolKind]string{
 	SymbolBindingUsage:            "bindingUsage",
 	SymbolSuccessionUsage:         "successionUsage",
 	SymbolFlowUsage:               "flowUsage",
+	SymbolSuccessionFlowUsage:     "successionFlowUsage",
 	SymbolPortUsage:               "portUsage",
 	SymbolInterfaceUsage:          "interfaceUsage",
 	SymbolAllocationUsage:         "allocationUsage",
 	SymbolActionUsage:             "actionUsage",
+	SymbolAcceptActionUsage:       "acceptActionUsage",
+	SymbolAssignmentActionUsage:   "assignmentActionUsage",
+	SymbolPerformActionUsage:      "performActionUsage",
+	SymbolIfActionUsage:           "ifActionUsage",
+	SymbolWhileLoopActionUsage:    "whileLoopActionUsage",
+	SymbolForLoopActionUsage:      "forLoopActionUsage",
+	SymbolTerminateActionUsage:    "terminateActionUsage",
 	SymbolStateUsage:              "stateUsage",
 	SymbolCalcUsage:               "calcUsage",
 	SymbolConstraintUsage:         "constraintUsage",
@@ -191,6 +215,7 @@ var symbolKindNames = map[SymbolKind]string{
 	SymbolCrossFeature:            "crossFeature",
 	SymbolKerMLType:               "kermlType",
 	SymbolReferenceUsage:          "referenceUsage",
+	SymbolSendActionUsage:         "sendActionUsage",
 }
 
 // String returns the display name of the kind.
@@ -201,9 +226,15 @@ func (k SymbolKind) String() string {
 	return "unknown"
 }
 
-// Family names the kind without its def/usage distinction, in the notation's words:
-// SymbolActionDef and SymbolActionUsage are both "action", SymbolUseCaseDef "use case".
+// Family names the kind by its keyword, without the def/usage distinction: SymbolActionDef, SymbolActionUsage
+// and every action-node kind are "action", SymbolUseCaseDef "use case", SymbolSuccessionFlowUsage "flow".
 func (k SymbolKind) Family() string {
+	switch {
+	case k.IsActionUsage():
+		return "action"
+	case k == SymbolSuccessionFlowUsage:
+		return "flow"
+	}
 	name := k.String()
 	name = strings.TrimSuffix(strings.TrimSuffix(name, "Def"), "Usage")
 	return spacedWords(name)
@@ -212,12 +243,15 @@ func (k SymbolKind) Family() string {
 // IsFeature reports whether k classifies a KerML Feature (KerML 1.0 §8.3.3): a
 // usage of any kind, a connector end or a multiplicity, never a type or a namespace.
 func (k SymbolKind) IsFeature() bool {
+	if k.IsActionUsage() {
+		return true
+	}
 	switch k {
 	case SymbolPartUsage, SymbolAttributeUsage, SymbolItemUsage, SymbolOccurrenceUsage,
 		SymbolIndividualUsage, SymbolMetadataUsage, SymbolEnumerationUsage, SymbolViewUsage,
 		SymbolViewpointUsage, SymbolRenderingUsage, SymbolConcernUsage, SymbolConnectionUsage,
-		SymbolBindingUsage, SymbolSuccessionUsage, SymbolFlowUsage, SymbolPortUsage, SymbolInterfaceUsage,
-		SymbolAllocationUsage, SymbolActionUsage, SymbolStateUsage, SymbolCalcUsage,
+		SymbolBindingUsage, SymbolSuccessionUsage, SymbolFlowUsage, SymbolSuccessionFlowUsage, SymbolPortUsage,
+		SymbolInterfaceUsage, SymbolAllocationUsage, SymbolStateUsage, SymbolCalcUsage,
 		SymbolConstraintUsage, SymbolRequirementUsage, SymbolSatisfyRequirementUsage,
 		SymbolCaseUsage, SymbolAnalysisCaseUsage, SymbolVerificationCaseUsage, SymbolUseCaseUsage,
 		SymbolConnectorEnd, SymbolCrossFeature, SymbolMultiplicity, SymbolReferenceUsage,
@@ -233,10 +267,26 @@ func (k SymbolKind) IsFeature() bool {
 // the calculation it is.
 func (k SymbolKind) IsAction() bool {
 	switch k {
-	case SymbolActionDef, SymbolActionUsage, SymbolUseCaseDef, SymbolUseCaseUsage:
+	case SymbolActionDef, SymbolUseCaseDef, SymbolUseCaseUsage:
+		return true
+	}
+	return k.IsActionUsage()
+}
+
+// IsActionUsage reports whether k classifies an action usage: a plain one or an action
+// node (a send included), which is an ActionUsage of its own metaclass (SysML v2 §8.2.2.17).
+func (k SymbolKind) IsActionUsage() bool {
+	switch k {
+	case SymbolActionUsage, SymbolSendActionUsage, SymbolAcceptActionUsage, SymbolAssignmentActionUsage, SymbolPerformActionUsage,
+		SymbolIfActionUsage, SymbolWhileLoopActionUsage, SymbolForLoopActionUsage, SymbolTerminateActionUsage:
 		return true
 	}
 	return false
+}
+
+// IsFlowUsage reports whether k classifies a flow usage, a succession flow included.
+func (k SymbolKind) IsFlowUsage() bool {
+	return k == SymbolFlowUsage || k == SymbolSuccessionFlowUsage
 }
 
 // IsAttributeLike reports whether k classifies a usage carrying attribute
@@ -409,6 +459,10 @@ const (
 	// NamedByRedefinition: Name is the name of the feature the declaration
 	// redefines (`part :>> p;`), which it replaces in its owner.
 	NamedByRedefinition
+
+	// NamedByRole: Name is the role the declaration takes under its owner (a
+	// transition's `effect`), under which it resolves while declaring no identifier.
+	NamedByRole
 )
 
 // EffectiveName reports whether Name was derived from a naming feature

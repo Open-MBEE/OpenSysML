@@ -308,7 +308,7 @@ func (v *verifyContext) instanceGraph(inst *runtime.Instance) []*pb.Instance {
 	if inst == nil {
 		return nil
 	}
-	return v.service.instanceGraphToProto(v.runtime, inst, v.cached.Index).All
+	return v.service.instanceGraphToProto(v.runtime, inst, v.cached).All
 }
 
 // VerifyConstraint evaluates a constraint definition or usage, as the REPL's
@@ -711,7 +711,7 @@ func (s *Service) EvaluateCalc(ctx context.Context, req *pb.EvaluateCalcRequest)
 		if err := s.requireValueCapabilities(arg); err != nil {
 			return nil, err
 		}
-		val, cerr := protoconv.ProtoToRuntimeValue(v.runtime, arg, v.cached.Index, v.sem())
+		val, cerr := protoconv.ProtoToRuntimeValueWith(v.runtime, arg, v.cached.Index, v.sem(), v.cached.SymbolContext())
 		if cerr != nil {
 			return &pb.EvaluateCalcResponse{
 				Error:         fmt.Sprintf("calc argument could not be read: %v", cerr),
@@ -736,7 +736,7 @@ func (s *Service) EvaluateCalc(ctx context.Context, req *pb.EvaluateCalcRequest)
 			FailureReason: failureReason(err),
 		}, st), nil
 	}
-	return calcResponse(&pb.EvaluateCalcResponse{Result: v.service.valueToProto(v.runtime, result, v.cached.Index)}, st), nil
+	return calcResponse(&pb.EvaluateCalcResponse{Result: v.service.valueToProto(v.runtime, result, v.cached)}, st), nil
 }
 
 // calcResponse writes on a calc's response the standing of the plan that answered it.
@@ -768,7 +768,7 @@ func (v *verifyContext) calcUsageOutputs(ctx context.Context, subject string, sy
 	for _, out := range outputs {
 		pbOutputs = append(pbOutputs, &pb.CalcOutput{
 			Name:  out.Name,
-			Value: v.service.valueToProto(v.runtime, out.Value, v.cached.Index),
+			Value: v.service.valueToProto(v.runtime, out.Value, v.cached),
 		})
 	}
 	return pbOutputs, true, plan, nil

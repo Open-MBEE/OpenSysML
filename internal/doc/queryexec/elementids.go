@@ -32,6 +32,23 @@ type ElementIDReader interface {
 	ReadExpressionPart(doc string, node ast.Node, slot string) (element, membership string, err error)
 }
 
+// defaultMultiplicitySlot is the slot the conversion mints a usage's default
+// Multiplicity under: the property it states, as the declared range is.
+const defaultMultiplicitySlot = "multiplicity"
+
+// defaultMultiplicityOwner is the node of the usage whose implicit [1..1] sym
+// states (semantics.DefaultMultiplicityMember), by its span when the usage is a record.
+func defaultMultiplicityOwner(sym *symbols.Symbol) (ast.Node, bool) {
+	decl, ok := symbols.ImpliedDeclOf(sym)
+	if !ok || (decl.Form != symbols.ImpliedDefaultMultiplicity && decl.Form != symbols.ImpliedMultiplicityRange) {
+		return nil, false
+	}
+	if decl.Of != nil {
+		return decl.Of, true
+	}
+	return spanNode{sym.DeclSpan}, true
+}
+
 // expressionPartSlot is the slot the conversion names a synthesized
 // expression parameter by: `in%d` for an operand's or type argument's
 // parameter, `out` for the result.
@@ -96,6 +113,11 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 		element, _, err := read.ReadExpressionPart(sym.DocName, sym.Expr.Owner.Decl, slot)
 		return element, err
 	}
+	if owner, ok := defaultMultiplicityOwner(sym); ok {
+		// The Multiplicity stating a usage's implicit [1..1] is minted under the usage (defaultMultiplicity).
+		element, _, err := read.ReadExpressionPart(sym.DocName, owner, defaultMultiplicitySlot)
+		return element, err
+	}
 	if end, ok := connectorEndChain(sym); ok {
 		// The chain Feature a connector end's ReferenceSubsetting owns is minted under the end.
 		element, _, err := read.ReadExpressionPart(sym.DocName, end, "chain")
@@ -126,6 +148,10 @@ func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbo
 			_, membership, err := read.ReadExpressionPart(rel.Member.DocName, spanNode{span}, slot)
 			return membership, true, err
 		}
+		if owner, ok := defaultMultiplicityOwner(rel.Member); ok {
+			_, membership, err := read.ReadExpressionPart(rel.Member.DocName, owner, defaultMultiplicitySlot)
+			return membership, true, err
+		}
 		if rel.Member != nil {
 			id, err = read.ReadOwningMembership(rel.Member.DocName, rel.Member.Decl, query.QualifiedIdentity(idx, rel.Member))
 			return id, true, err
@@ -150,6 +176,11 @@ func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbo
 		}
 		return "", true, nil
 	case symbols.ImplicitReferenceMembership:
+		if rel.Decl != nil {
+			// A `first x;` marker is the Membership itself, identified as the conversion mints it.
+			id, err = read.Read(sym.DocName, rel.Decl, "")
+			return id, true, err
+		}
 		if rel.Owner != nil && rel.Owner.Decl != nil {
 			_, membership, err := read.ReadExpressionPart(rel.Owner.DocName, rel.Owner.Decl, rel.Slot)
 			return membership, true, err
@@ -167,7 +198,14 @@ func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbo
 			return id, true, err
 		}
 		return "", true, nil
-	case symbols.ImplicitPortConjugation:
+	case symbols.ImplicitAnnotatingRelationship:
+		if node := aboutClauseNode(rel.Owner, rel.Ordinal); node != nil {
+			id, err = read.ReadRelationship(rel.Owner.DocName, node)
+			return id, true, err
+		}
+		return "", true, nil
+	case symbols.ImplicitPortConjugation, symbols.ImplicitMetadataBodyRedefinition:
+		// The conversion keys a relationship the declaration states without a clause by the declaration.
 		if rel.Owner != nil && rel.Owner.Decl != nil {
 			id, err = read.ReadRelationship(rel.Owner.DocName, rel.Owner.Decl)
 			return id, true, err
@@ -267,3 +305,11 @@ type spanNode struct{ span source.Span }
 func (n spanNode) Span() source.Span            { return n.span }
 func (n spanNode) LeadingTrivia() []ast.Trivia  { return nil }
 func (n spanNode) TrailingTrivia() []ast.Trivia { return nil }
+
+// aboutClauseNode is the node the conversion keys owner's i-th `about` Annotation by.
+func aboutClauseNode(owner *symbols.Symbol, i int) ast.Node {
+	if owner == nil {
+		return nil
+	}
+	return ast.AboutClauseNode(owner.Decl, i)
+}

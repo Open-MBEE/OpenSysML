@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -363,8 +364,7 @@ func casePin(owner, member *symbols.Symbol) bool {
 	case symbols.SymbolAttributeUsage, symbols.SymbolReferenceUsage:
 		return true
 	}
-	usage, ok := member.Decl.(*ast.Usage)
-	return ok && (usage.Kind == ast.UsageSubject || usage.Kind == ast.UsageActor || usage.Kind == ast.UsageStakeholder)
+	return semantics.IsSubjectUsage(member) || semantics.IsActorUsage(member)
 }
 
 // constraintParameter reports whether member is a parameter of the constraint owner —
@@ -477,7 +477,19 @@ func (w *featureWalk) nestedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 			out = append(out, member)
 		}
 	}
-	return append(out, w.r.typedParameters(sym)...)
+	out = append(out, w.r.typedParameters(sym)...)
+	// A def parameter an own parameter redefines, by clause or by position, is that parameter's pin.
+	for _, member := range w.walkMembers(sym) {
+		if member.Owner() != sym || !isParameterKind(member) {
+			continue
+		}
+		for _, base := range w.r.model.MaskingRedefinedFeatures(member) {
+			if isParameterKind(base) && !w.r.libraryDeclared(base) {
+				out = append(out, base)
+			}
+		}
+	}
+	return out
 }
 
 // connectionEdges adds the edges one connector or flow contributes. A binary
@@ -511,11 +523,18 @@ func (w *featureWalk) connectionEdges(connector *symbols.Symbol, within *Node) {
 		}
 		resolved = append(resolved, at)
 	}
-	route, style := r.routeOf(w.view, connector, out), r.edgeDress(w.view, connector, resolved[0].node.ID, resolved[1].node.ID, out)
+	notes := len(out.Notes)
+	style := r.edgeDress(w.view, connector, resolved[0].node.ID, resolved[1].node.ID, out)
+	noteEnd := len(out.Notes)
 	if kind == EdgeConnection && nary(len(resolved)) {
-		w.naryConnection(connector, within, ends, resolved, route, style)
+		w.naryConnection(connector, within, ends, resolved, r.unsteeredRoute(w.view, connector, out), style)
+		// The connection's notes, anchored on its first two ends by edgeDress, sit at the dot.
+		for i := notes; i < len(out.Notes); i++ {
+			out.Notes[i].Anchor, out.Notes[i].EdgeFrom, out.Notes[i].EdgeTo = w.nodes[connector][len(w.nodes[connector])-1].ID, "", ""
+		}
 		return
 	}
+	route := r.routeOf(w.view, connector, out)
 	for i := 0; i < len(resolved); i++ {
 		for j := i + 1; j < len(resolved); j++ {
 			out.Edges = append(out.Edges, Edge{
@@ -525,7 +544,7 @@ func (w *featureWalk) connectionEdges(connector *symbols.Symbol, within *Node) {
 		}
 	}
 	if kind == EdgeFlow || kind == EdgeSuccessionFlow {
-		w.flows = append(w.flows, flowSite{index: len(out.Edges) - 1, sym: connector, within: within})
+		w.flows = append(w.flows, flowSite{index: len(out.Edges) - 1, sym: connector, within: within, notes: [2]int{notes, noteEnd}})
 	}
 }
 

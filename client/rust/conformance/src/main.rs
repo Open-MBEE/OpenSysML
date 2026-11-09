@@ -18,7 +18,7 @@ use opensysml::{
     EditError, Error, EvalOptions, ExploredResponse, FailureReason, IdForm, Language, Layout,
     MigrateOptions, MigrateSource, Model, ModelResponse, ParseOptions, Query, RecordOptions,
     RenderViewPorts, RunOptions, RunsOptions, SourceDocument, SourcesOptions, Status, SweepOptions,
-    SweepRange, Value as SysmlValue, VerifyOptions,
+    SweepRange, SymbolOptions, Value as SysmlValue, VerifyOptions,
 };
 use prost::Message;
 use prost_reflect::{DescriptorPool, DeserializeOptions, DynamicMessage, SerializeOptions};
@@ -418,6 +418,7 @@ impl Runner {
             "Migrate" => self.migrate(request),
             "ApplyEdits" => self.apply_edits(request, model),
             "Query" => self.query(request),
+            "GetElementProperties" => self.get_element_properties(request),
             "RunDocumentQuery" => self.run_document_query(request),
             "RenderDocument" => self.render_document(request),
             "RenderView" => self.render_view(request),
@@ -514,7 +515,13 @@ impl Runner {
             Ok(value) => value,
             Err(error) => return Answer::Other(error),
         };
-        match self.model_for(&hash, model).symbol(&symbol_id) {
+        let options = SymbolOptions {
+            include_library_members: bool_field(request, "include_library_members"),
+        };
+        match self
+            .model_for(&hash, model)
+            .symbol_with(&symbol_id, &options)
+        {
             Ok(symbol) => {
                 let response = opensysml::wire::SymbolResponse {
                     symbol: Some(symbol.wire().clone()),
@@ -796,6 +803,31 @@ impl Runner {
                     elements: elements.into_iter().map(Into::into).collect(),
                 },
             )),
+            Err(error) => classify_error(error),
+        }
+    }
+
+    fn get_element_properties(&self, request: &DynamicMessage) -> Answer {
+        let request: wire::GetElementPropertiesRequest = match decode(request) {
+            Ok(request) => request,
+            Err(answer) => return answer,
+        };
+        let properties: Vec<&str> = request.properties.iter().map(String::as_str).collect();
+        match self.connection.element_properties(
+            &request.model_hash,
+            &request.element_id,
+            &properties,
+        ) {
+            Ok(read) => Answer::Response(self.wire_json(
+                "sysml.GetElementPropertiesResponse",
+                &element_properties_wire(read),
+            )),
+            Err(Error::SymbolNotFound { name, .. }) => {
+                Answer::InBand(serde_json::json!({ "error": format!("element not found: {name}") }))
+            }
+            Err(Error::Conversion { message, .. }) => {
+                Answer::InBand(serde_json::json!({ "error": message }))
+            }
             Err(error) => classify_error(error),
         }
     }
@@ -1639,6 +1671,50 @@ impl Runner {
     }
 }
 
+fn element_identity_wire(identity: opensysml::ElementIdentity) -> wire::ElementRef {
+    wire::ElementRef {
+        id: identity.id,
+        qualified_name: identity.qualified_name,
+        metaclass: identity.metaclass,
+    }
+}
+
+fn element_properties_wire(
+    read: opensysml::ElementProperties,
+) -> wire::GetElementPropertiesResponse {
+    use opensysml::PropertyValue;
+    use wire::element_property_value::Value;
+    wire::GetElementPropertiesResponse {
+        element: Some(element_identity_wire(read.element)),
+        properties: read
+            .properties
+            .into_iter()
+            .map(|property| wire::ElementProperty {
+                name: property.name,
+                defining_class: property.defining_class,
+                many: property.many,
+                derived: property.derived,
+                values: property
+                    .values
+                    .into_iter()
+                    .map(|value| wire::ElementPropertyValue {
+                        value: Some(match value {
+                            PropertyValue::Element(e) => Value::Element(element_identity_wire(e)),
+                            PropertyValue::String(s) => Value::StringValue(s),
+                            PropertyValue::Bool(b) => Value::BoolValue(b),
+                            PropertyValue::Int(i) => Value::IntValue(i),
+                            PropertyValue::Real(r) => Value::RealValue(r),
+                            PropertyValue::Number(n) => Value::Number(n),
+                        }),
+                    })
+                    .collect(),
+                unsupported: property.unsupported,
+            })
+            .collect(),
+        error: String::new(),
+    }
+}
+
 fn classify_error(error: Error) -> Answer {
     match error {
         Error::Service { status, message } => Answer::Transport(status, message),
@@ -1830,6 +1906,13 @@ fn string_list_field(request: &DynamicMessage, name: &str) -> Vec<String> {
             })
         })
         .unwrap_or_default()
+}
+
+fn bool_field(request: &DynamicMessage, name: &str) -> bool {
+    request
+        .get_field_by_name(name)
+        .and_then(|value| value.as_ref().as_bool())
+        .unwrap_or(false)
 }
 
 fn string_or_none(request: &DynamicMessage, name: &str) -> Option<String> {

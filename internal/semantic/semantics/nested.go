@@ -78,7 +78,7 @@ func (m *Model) nestedSubsettingFQN(sym *symbols.Symbol) string {
 		u.Assumed = d.IsAssumedConstraint()
 		u.Event = d.IsEvent
 		u.Accept = hasAcceptPayload(d)
-		u.Send = d.IsActionNode && hasSendStatement(d)
+		u.Send = isSendNode(d)
 		u.Terminate = d.IsTerminate
 		u.Verified = d.IsVerifiedRequirement()
 	case *ast.SubstateMember, *ast.TransitionMember:
@@ -654,4 +654,71 @@ func (m *Model) kermlFeatureNestedFQN(sym, owner *symbols.Symbol, usage *ast.Usa
 		return "Occurrences::Occurrence::suboccurrences"
 	}
 	return ""
+}
+
+// ImpliedSubsettingFQNForMetaclass is nestedSubsettingFQN for a graph element known by its
+// metaclasses (its own, its owning type's and its owning membership's with that membership's kind).
+func (m *Model) ImpliedSubsettingFQNForMetaclass(metaclass, ownerMetaclass, membershipMetaclass, membershipKind string, composite bool, portion ast.PortionKind, owner *symbols.Symbol) string {
+	u, ok := nestedUsageOfMetaclass(metaclass)
+	if !ok {
+		return ""
+	}
+	u.Composite = composite
+	u.Portion = portion
+	switch membershipMetaclass {
+	case "VariantMembership":
+		return ""
+	case "ActorMembership":
+		u.Kind = ast.UsageActor
+	case "StakeholderMembership":
+		u.Kind = ast.UsageStakeholder
+	case "RequirementConstraintMembership":
+		u.RequirementConstraint, u.Assumed = true, membershipKind == "assumption"
+	case "StateSubactionMembership":
+		u.EntryExitAction = membershipKind != "do"
+	}
+	o, ok := nestedOwnerOfMetaclass(ownerMetaclass)
+	if !ok {
+		return ""
+	}
+	fqn, step := nestedRuleFQN(u, o)
+	if step {
+		if owner == nil {
+			return ""
+		}
+		return m.stepNestedFQN(owner, composite)
+	}
+	return fqn
+}
+
+// nestedUsageOfMetaclass is what a usage's metaclass alone says of it to the implicit
+// subsetting rules: its kind, and the perform/exhibit/include forms, metaclasses of their own.
+func nestedUsageOfMetaclass(metaclass string) (NestedUsage, bool) {
+	switch metaclass {
+	case "PerformActionUsage":
+		return NestedUsage{Kind: ast.UsageAction, Performed: true}, true
+	case "ExhibitStateUsage":
+		return NestedUsage{Kind: ast.UsageState, Exhibited: true}, true
+	case "IncludeUseCaseUsage":
+		return NestedUsage{Kind: ast.UsageUseCase, Included: true}, true
+	case "AssertConstraintUsage":
+		return NestedUsage{Kind: ast.UsageConstraint}, true
+	case "SatisfyRequirementUsage":
+		return NestedUsage{Kind: ast.UsageSatisfy}, true
+	}
+	if kind, ok := impliedUsageKinds[metaclass]; ok {
+		return NestedUsage{Kind: kind}, true
+	}
+	return NestedUsage{}, false
+}
+
+// nestedOwnerOfMetaclass is nestedOwnerOf for an owning type known by metaclass.
+func nestedOwnerOfMetaclass(metaclass string) (NestedOwner, bool) {
+	if u, ok := nestedUsageOfMetaclass(metaclass); ok {
+		return NestedOwner{Usage: u.Kind}, true
+	}
+	if d, ok := impliedDefinitionKinds[metaclass]; ok {
+		return NestedOwner{Def: d, IsDef: true}, true
+	}
+	return NestedOwner{}, false
 }

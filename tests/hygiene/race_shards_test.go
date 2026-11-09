@@ -14,22 +14,29 @@ import (
 )
 
 // The race shards are named in five places that must agree: scripts/race-shard.sh,
-// the Makefile (test-shard, RACE_RUNTIME_CORPUS, COVERAGE_SHARDS), the two CircleCI
-// jobs' shard arrays and parallelism, and the PR workflow's matrices.
+// the Makefile (test-shard, RACE_RUNTIME_CORPUS, RACE_EXPORT_CORPUS, RACE_EXPORT_SETTLED, COVERAGE_SHARDS),
+// the two CircleCI jobs' shard arrays and parallelism, and the PR workflow's matrices.
 
-const raceRuntimeDir = "../../internal/exec/runtime"
+const (
+	raceRuntimeDir = "../../internal/exec/runtime"
+	raceExportDir  = "../../tests/export"
+)
 
 var (
 	shardScriptList    = regexp.MustCompile(`(?m)^shards='([^']+)'$`)
 	makefileCorpus     = regexp.MustCompile(`(?m)^RACE_RUNTIME_CORPUS := (.+)$`)
+	makefileExport     = regexp.MustCompile(`(?m)^RACE_EXPORT_CORPUS := (.+)$`)
+	circleExport       = regexp.MustCompile(`(?m)^\s*exportcorpus='([^']+)'$`)
+	makefileSettled    = regexp.MustCompile(`(?m)^RACE_EXPORT_SETTLED := (.+)$`)
+	circleSettled      = regexp.MustCompile(`(?m)^\s*exportsettled='([^']+)'$`)
 	makefileCoverage   = regexp.MustCompile(`(?m)^COVERAGE_SHARDS := (.+)$`)
 	circleShardArrays  = regexp.MustCompile(`(?m)^\s*shards=\(([^)]+)\)$`)
+	shardArrayEntry    = regexp.MustCompile(`"([^"]*)"|(\S+)`)
 	circleParallelism  = regexp.MustCompile(`(?m)^  (go-race-test|go-coverage):\n(?:    .*\n)*?    parallelism: (\d+)$`)
 	circleCorpus       = regexp.MustCompile(`(?m)^\s*corpus='([^']+)'$`)
 	makefileExplore    = regexp.MustCompile(`(?m)^RACE_RUNTIME_EXPLORATION := (.+)$`)
 	circleExplore      = regexp.MustCompile(`(?m)^\s*exploration='([^']+)'$`)
 	workflowShards     = regexp.MustCompile(`go_shards=\[([^\]]+)\]`)
-	workflowProfiles   = regexp.MustCompile(`-ne (\d+) \]; then echo "error: expected (\d+) shard profiles`)
 	workflowQuoted     = regexp.MustCompile(`"([^"]+)"`)
 	workflowQuickGroup = regexp.MustCompile(`\s+`)
 )
@@ -61,26 +68,49 @@ func TestCircleCIShardArraysMatchTheRaceShards(t *testing.T) {
 	if len(arrays) != 2 {
 		t.Fatalf(".circleci/config.yml: expected the race and coverage shard arrays, found %d", len(arrays))
 	}
-	race := strings.Fields(arrays[0][1])
+	raceNodes := shardArrayEntries(arrays[0][1])
 	coverage := strings.Fields(arrays[1][1])
 
-	if !slices.Equal(race, shards) {
-		t.Errorf("race job shards %v, scripts/race-shard.sh %v", race, shards)
+	// A race node runs one shard, or the shards of one quoted entry in turn; together the
+	// nodes run every shard once, in whatever order.
+	var race []string
+	for _, node := range raceNodes {
+		race = append(race, strings.Fields(node)...)
 	}
-	wantCoverage := slices.DeleteFunc(slices.Clone(shards), func(s string) bool { return s == "runtime-corpus" })
+	slices.Sort(race)
+	if !slices.Equal(race, slices.Sorted(slices.Values(shards))) {
+		t.Errorf("race job nodes %q run shards %v, scripts/race-shard.sh %v", raceNodes, race, shards)
+	}
+	// The coverage job has no corpus shards of the runtime: without -race the package runs
+	// whole in its runtime shard.
+	wantCoverage := slices.DeleteFunc(slices.Clone(shards), func(s string) bool {
+		return s == "runtime-corpus" || s == "runtime-exploration"
+	})
 	if !slices.Equal(coverage, wantCoverage) {
-		t.Errorf("coverage job shards %v, want the race shards but runtime-corpus %v", coverage, wantCoverage)
+		t.Errorf("coverage job shards %v, want the race shards but the runtime's corpus shards %v", coverage, wantCoverage)
 	}
 	makeCoverage := strings.Fields(firstSubmatch(t, makefileCoverage, makefile, "Makefile COVERAGE_SHARDS"))
 	if !slices.Equal(coverage, makeCoverage) {
 		t.Errorf("coverage job shards %v, Makefile COVERAGE_SHARDS %v", coverage, makeCoverage)
+	}
+	// A by-test-name shard and the package shard it is cut from each select their tests in
+	// make coverage-shard; without that both would write the whole package's profile.
+	for _, shard := range coverage {
+		if !isCorpusShard(shard) {
+			continue
+		}
+		for _, s := range []string{shard, strings.SplitN(shard, "-", 2)[0]} {
+			if !strings.Contains(makefile, "\nCOVERAGE_SELECT_"+s+" = ") {
+				t.Errorf("coverage shard %s: the Makefile has no COVERAGE_SELECT_%s", shard, s)
+			}
+		}
 	}
 
 	parallelism := map[string]string{}
 	for _, m := range circleParallelism.FindAllStringSubmatch(config, -1) {
 		parallelism[m[1]] = m[2]
 	}
-	if got, want := parallelism["go-race-test"], len(race); got != itoa(want) {
+	if got, want := parallelism["go-race-test"], len(raceNodes); got != itoa(want) {
 		t.Errorf("go-race-test parallelism %q, its shard array has %d entries", got, want)
 	}
 	if got, want := parallelism["go-coverage"], len(coverage); got != itoa(want) {
@@ -88,10 +118,28 @@ func TestCircleCIShardArraysMatchTheRaceShards(t *testing.T) {
 	}
 }
 
+// shardArrayEntries splits the body of a bash array literal into its entries: words, and
+// double-quoted strings (which may hold several words) as one entry each.
+func shardArrayEntries(body string) []string {
+	var entries []string
+	for _, m := range shardArrayEntry.FindAllStringSubmatch(body, -1) {
+		if m[1] != "" {
+			entries = append(entries, m[1])
+		} else {
+			entries = append(entries, m[2])
+		}
+	}
+	return entries
+}
+
 // TestPRWorkflowMatricesCoverTheRaceShards: the full tier runs every race shard but
 // tools (tests/wasm is the WebAssembly gate job there, the tools module rides with
-// rest), expects one coverage profile per shard, and the quick tier's groups together
-// name every package shard once (runtime covers both runtime shards' package).
+// rest), and the quick tier's groups together name every package shard once (runtime and
+// export cover their -corpus shards' package).
+
+// isCorpusShard says whether a shard is a by-test-name part of another shard's package
+// (runtime-corpus, export-corpus, export-settled): the hyphenated names.
+func isCorpusShard(shard string) bool { return strings.Contains(shard, "-") }
 func TestPRWorkflowMatricesCoverTheRaceShards(t *testing.T) {
 	shards := raceShards(t)
 	workflow := readRepoFile(t, ".github/workflows/pr.yml")
@@ -111,17 +159,13 @@ func TestPRWorkflowMatricesCoverTheRaceShards(t *testing.T) {
 	if !slices.Equal(full, wantFull) {
 		t.Errorf("full tier go_shards %v, want the race shards but tools %v", full, wantFull)
 	}
-	m := workflowProfiles.FindStringSubmatch(workflow)
-	if m == nil || m[1] != itoa(len(full)) || m[2] != itoa(len(full)) {
-		t.Errorf("race-coverage expects %v shard profiles, the full tier has %d shards", m, len(full))
-	}
 
 	var quick []string
 	for _, group := range quoted(matrices[1][1]) {
 		quick = append(quick, workflowQuickGroup.Split(strings.TrimSpace(group), -1)...)
 	}
 	slices.Sort(quick)
-	wantQuick := slices.DeleteFunc(slices.Clone(wantFull), func(s string) bool { return s == "runtime-corpus" })
+	wantQuick := slices.DeleteFunc(slices.Clone(wantFull), isCorpusShard)
 	slices.Sort(wantQuick)
 	if !slices.Equal(quick, wantQuick) {
 		t.Errorf("quick tier groups name %v, want each package shard once %v", quick, wantQuick)
@@ -135,48 +179,7 @@ func TestPRWorkflowMatricesCoverTheRaceShards(t *testing.T) {
 // leave the corpus shard smaller), and each test must fall to exactly one shard.
 func TestRuntimeCorpusPatternPartitionsTheRuntimeTests(t *testing.T) {
 	makefile := readRepoFile(t, "Makefile")
-	pattern := strings.ReplaceAll(firstSubmatch(t, makefileCorpus, makefile, "Makefile RACE_RUNTIME_CORPUS"), "$$", "$")
-	if circle := firstSubmatch(t, circleCorpus, readRepoFile(t, ".circleci/config.yml"), ".circleci/config.yml corpus="); circle != pattern {
-		t.Errorf(".circleci/config.yml corpus pattern %q, Makefile RACE_RUNTIME_CORPUS %q", circle, pattern)
-	}
-	if !strings.HasPrefix(pattern, "^") || !strings.HasSuffix(pattern, "$") {
-		t.Fatalf("RACE_RUNTIME_CORPUS %q is not anchored, so it could match more tests than it names", pattern)
-	}
-	corpus, err := regexp.Compile(pattern)
-	if err != nil {
-		t.Fatalf("RACE_RUNTIME_CORPUS %q: %v", pattern, err)
-	}
-
-	tests := topLevelTests(t, raceRuntimeDir)
-	if len(tests) < 100 {
-		t.Fatalf("found only %d top-level tests under %s", len(tests), raceRuntimeDir)
-	}
-	var named []string
-	for _, name := range strings.Split(strings.TrimSuffix(strings.TrimPrefix(pattern, "^Test("), ")$"), "|") {
-		named = append(named, "Test"+name)
-	}
-	if len(named) < 2 {
-		t.Fatalf("RACE_RUNTIME_CORPUS %q names fewer than two tests", pattern)
-	}
-	for _, name := range named {
-		if !slices.Contains(tests, name) {
-			t.Errorf("RACE_RUNTIME_CORPUS names %s, which is not a test of %s", name, raceRuntimeDir)
-		}
-	}
-	var matched int
-	for _, name := range tests {
-		// go test -run and -skip apply the pattern to the top-level name; a test matched by
-		// -run is the corpus shard's, every other the runtime shard's, so the shards partition.
-		if corpus.MatchString(name) {
-			matched++
-			if !slices.Contains(named, name) {
-				t.Errorf("RACE_RUNTIME_CORPUS matches %s, which it does not name", name)
-			}
-		}
-	}
-	if matched != len(named) {
-		t.Errorf("RACE_RUNTIME_CORPUS matches %d tests, names %d", matched, len(named))
-	}
+	corpus, tests := corpusPatternPartitions(t, "RACE_RUNTIME_CORPUS", makefileCorpus, circleCorpus, "corpus=", raceRuntimeDir, 100)
 
 	// The corpus shard runs the exploration suite as its own process (race memory is per
 	// process); its pattern must name one real test that the corpus pattern also matches.
@@ -191,6 +194,69 @@ func TestRuntimeCorpusPatternPartitionsTheRuntimeTests(t *testing.T) {
 	if !corpus.MatchString(name) {
 		t.Errorf("RACE_RUNTIME_EXPLORATION names %s, which RACE_RUNTIME_CORPUS does not match", name)
 	}
+}
+
+// TestExportCorpusPatternsPartitionTheExportTests: the export, export-corpus and
+// export-settled shards are tests/export split the same way by RACE_EXPORT_CORPUS and
+// RACE_EXPORT_SETTLED, which no test may match both of.
+func TestExportCorpusPatternsPartitionTheExportTests(t *testing.T) {
+	corpus, tests := corpusPatternPartitions(t, "RACE_EXPORT_CORPUS", makefileExport, circleExport, "exportcorpus=", raceExportDir, 50)
+	settled, _ := corpusPatternPartitions(t, "RACE_EXPORT_SETTLED", makefileSettled, circleSettled, "exportsettled=", raceExportDir, 50)
+	for _, name := range tests {
+		if corpus.MatchString(name) && settled.MatchString(name) {
+			t.Errorf("%s falls to both export-corpus and export-settled", name)
+		}
+	}
+}
+
+// corpusPatternPartitions checks one by-test-name split: the Makefile variable and the
+// CircleCI job spell the same anchored pattern, every name it lists is a test of dir, and
+// it matches exactly the tests it names, so -run and -skip over it partition the package.
+func corpusPatternPartitions(t *testing.T, variable string, makefileRe, circleRe *regexp.Regexp, circleWhat, dir string, minTests int) (*regexp.Regexp, []string) {
+	t.Helper()
+	pattern := strings.ReplaceAll(firstSubmatch(t, makefileRe, readRepoFile(t, "Makefile"), "Makefile "+variable), "$$", "$")
+	if circle := firstSubmatch(t, circleRe, readRepoFile(t, ".circleci/config.yml"), ".circleci/config.yml "+circleWhat); circle != pattern {
+		t.Errorf(".circleci/config.yml %s pattern %q, Makefile %s %q", circleWhat, circle, variable, pattern)
+	}
+	if !strings.HasPrefix(pattern, "^") || !strings.HasSuffix(pattern, "$") {
+		t.Fatalf("%s %q is not anchored, so it could match more tests than it names", variable, pattern)
+	}
+	corpus, err := regexp.Compile(pattern)
+	if err != nil {
+		t.Fatalf("%s %q: %v", variable, pattern, err)
+	}
+
+	tests := topLevelTests(t, dir)
+	if len(tests) < minTests {
+		t.Fatalf("found only %d top-level tests under %s", len(tests), dir)
+	}
+	named := []string{strings.TrimSuffix(strings.TrimPrefix(pattern, "^"), "$")}
+	if group := named[0]; strings.HasPrefix(group, "Test(") && strings.HasSuffix(group, ")") {
+		named = nil
+		for _, name := range strings.Split(strings.TrimSuffix(strings.TrimPrefix(group, "Test("), ")"), "|") {
+			named = append(named, "Test"+name)
+		}
+	}
+	for _, name := range named {
+		if !slices.Contains(tests, name) {
+			t.Errorf("%s names %s, which is not a test of %s", variable, name, dir)
+		}
+	}
+	var matched int
+	for _, name := range tests {
+		// go test -run and -skip apply the pattern to the top-level name; a test matched by
+		// -run is the corpus shard's, every other the package shard's, so the shards partition.
+		if corpus.MatchString(name) {
+			matched++
+			if !slices.Contains(named, name) {
+				t.Errorf("%s matches %s, which it does not name", variable, name)
+			}
+		}
+	}
+	if matched != len(named) {
+		t.Errorf("%s matches %d tests, names %d", variable, matched, len(named))
+	}
+	return corpus, tests
 }
 
 // topLevelTests lists the Test functions declared in the package directory's test files.

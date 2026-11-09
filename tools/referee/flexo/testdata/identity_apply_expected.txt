@@ -54,13 +54,13 @@ create	IdentityInterop__Rover_om	OwningMembership
 
 [apply.revision]
 base	yes
-diff	creates=6	updates=3	deletes=9	conflicts=0
+diff	creates=6	updates=4	deletes=9	conflicts=0
 uncarried	sysx:hasBody,sysx:memberIndex,sysx:sourceColumn,sysx:sourceEndColumn,sysx:sourceEndLine,sysx:sourceLanguage,sysx:sourceLine,sysx:sourceTail,sysx:sourceText
 refused	9 delete(s) need explicit confirmation before this change set can be applied
 applied	yes
 commits	2
 state.advanced	yes
-elements.readable	9
+elements.readable	10
 deleted.absent	0
 deleted.emptied	9
 deleted.present	0
@@ -68,6 +68,7 @@ rediff	creates=0	updates=0	deletes=0	conflicts=0
 
 [apply.revision.changes]
 update	8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90	PartDefinition
+update	8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_om	OwningMembership
 update	IdentityInterop	Package
 delete	IdentityInterop__Battery__capacity	AttributeUsage
 delete	IdentityInterop__Battery__capacity_om	FeatureMembership
@@ -92,8 +93,9 @@ create	IdentityInterop__Wheel_om	OwningMembership
 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90	ownedFeatureMembership={"@id":"IdentityInterop__Cell__capacity_om"}
 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90	ownedMember={"@id":"IdentityInterop__Cell__capacity"}
 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90	ownedMembership={"@id":"IdentityInterop__Cell__capacity_om"}
-8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90	ownedRelationship=[{"@id":"IdentityInterop__Cell__capacity_om"},{"@id":"8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_sc0"}]
+8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90	ownedRelationship=[{"@id":"8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_sc0"},{"@id":"IdentityInterop__Cell__capacity_om"}]
 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90	qualifiedName="IdentityInterop::Cell"
+8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_om	memberName="Cell"
 IdentityInterop	ownedMember=[{"@id":"0b6e3c1a-4d2f-4e8b-9a7c-5d1f0e9b2a7c"},{"@id":"8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90"},{"@id":"IdentityInterop__Wheel"}]
 IdentityInterop	ownedMembership=[{"@id":"0b6e3c1a-4d2f-4e8b-9a7c-5d1f0e9b2a7c_om"},{"@id":"8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_om"},{"@id":"IdentityInterop__Wheel_om"}]
 IdentityInterop	ownedRelationship=[{"@id":"0b6e3c1a-4d2f-4e8b-9a7c-5d1f0e9b2a7c_om"},{"@id":"8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_om"},{"@id":"IdentityInterop__Wheel_om"}]
@@ -118,7 +120,7 @@ conflict	8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90	PartDefinition
 
 [findings]
 initial: 19 create(s), 0 update(s), 0 delete(s) reached the stack as one commit; 19 written element(s) read back at it; rediff creates=0 updates=0 deletes=0 conflicts=0
-revision: 6 create(s), 3 update(s), 9 delete(s) reached the stack as one commit; 9 written element(s) read back at it; rediff creates=0 updates=0 deletes=0 conflicts=0
+revision: 6 create(s), 4 update(s), 9 delete(s) reached the stack as one commit; 10 written element(s) read back at it; rediff creates=0 updates=0 deletes=0 conflicts=0
 revision: of 9 deleted element(s), 0 read as 404, 9 as an id with a null type and no properties, 0 still with content
 revision: the first apply was refused before any write: 9 delete(s) need explicit confirmation before this change set can be applied
 revision: 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90 declaredName="Cell" reads back under its retained id
@@ -126,8 +128,9 @@ revision: 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90 ownedFeature={"@id":"IdentityInte
 revision: 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90 ownedFeatureMembership={"@id":"IdentityInterop__Cell__capacity_om"} reads back under its retained id
 revision: 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90 ownedMember={"@id":"IdentityInterop__Cell__capacity"} reads back under its retained id
 revision: 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90 ownedMembership={"@id":"IdentityInterop__Cell__capacity_om"} reads back under its retained id
-revision: 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90 ownedRelationship=[{"@id":"IdentityInterop__Cell__capacity_om"},{"@id":"8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_sc0"}] reads back under its retained id
+revision: 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90 ownedRelationship=[{"@id":"8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_sc0"},{"@id":"IdentityInterop__Cell__capacity_om"}] reads back under its retained id
 revision: 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90 qualifiedName="IdentityInterop::Cell" reads back under its retained id
+revision: 8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_om memberName="Cell" reads back under its retained id
 revision: IdentityInterop ownedMember=[{"@id":"0b6e3c1a-4d2f-4e8b-9a7c-5d1f0e9b2a7c"},{"@id":"8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90"},{"@id":"IdentityInterop__Wheel"}] reads back under its retained id
 revision: IdentityInterop ownedMembership=[{"@id":"0b6e3c1a-4d2f-4e8b-9a7c-5d1f0e9b2a7c_om"},{"@id":"8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_om"},{"@id":"IdentityInterop__Wheel_om"}] reads back under its retained id
 revision: IdentityInterop ownedRelationship=[{"@id":"0b6e3c1a-4d2f-4e8b-9a7c-5d1f0e9b2a7c_om"},{"@id":"8f3a41d0-0d3e-4c2a-9c3f-2f6a1b5c7d90_om"},{"@id":"IdentityInterop__Wheel_om"}] reads back under its retained id

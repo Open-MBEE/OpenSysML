@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -104,7 +105,7 @@ func TestAnonymousKeywordsComeBackFromTheTypedFactsAlone(t *testing.T) {
 	}}
 	for _, tc := range cases {
 		t.Run(tc.fixture, func(t *testing.T) {
-			name, _ := fixtureName(tc.fixture)
+			name, ext := fixtureName(tc.fixture)
 			first := anonymousFixture(t, tc.fixture)
 			typedOnly := withoutTriples(t, withoutSourceText(t, first), "sysx:declaredKeyword")
 			back, err := convert.Convert(name+".ttl", typedOnly, convert.FormatTurtle, convert.FormatSysML)
@@ -120,7 +121,13 @@ func TestAnonymousKeywordsComeBackFromTheTypedFactsAlone(t *testing.T) {
 			if err != nil {
 				t.Fatalf("to turtle again: %v", err)
 			}
-			if lost, gained := tripleSetDiff(t, typedOnly, withoutTriples(t, withoutSourceText(t, again), "sysx:declaredKeyword")); len(lost)+len(gained) > 0 {
+			lost, gained := tripleSetDiff(t, typedOnly, withoutTriples(t, withoutSourceText(t, again), "sysx:declaredKeyword"))
+			if ext == ".kerml" {
+				// Read as SysML, a usage states its implied default Multiplicity (SysML v2 7.6.3) and the
+				// Base::naturals stubs its base reaches (KerML 8.3.3.1.9); KerML implies none.
+				gained = withoutDefaultMultiplicityGains(gained)
+			}
+			if len(lost)+len(gained) > 0 {
 				t.Errorf("the typed facts alone changed the graph\n--- notation ---\n%s\n--- lost ---\n%s\n--- gained ---\n%s",
 					back, strings.Join(lost, "\n"), strings.Join(gained, "\n"))
 			}
@@ -196,4 +203,24 @@ func TestContradictoryKeywordGraphsAreRefused(t *testing.T) {
 			}
 		})
 	}
+}
+
+// withoutDefaultMultiplicityGains drops a default Multiplicity's triples and those of the
+// Base::naturals library stubs, with their memberships, that only its implied base reaches.
+func withoutDefaultMultiplicityGains(gained []string) []string {
+	subject := func(triple string) string { s, _, _ := strings.Cut(triple, " "); return s }
+	stubs := map[string]bool{}
+	for _, triple := range gained {
+		if strings.Contains(triple, `"Base::naturals/`) || strings.Contains(triple, `"Base::naturals"`) {
+			stubs[subject(triple)] = true
+		}
+	}
+	for _, triple := range gained {
+		if fields := strings.Fields(triple); len(fields) >= 3 && strings.HasSuffix(fields[1], "#memberElement>") && stubs[fields[2]] {
+			stubs[fields[0]] = true
+		}
+	}
+	return slices.DeleteFunc(gained, func(triple string) bool {
+		return strings.Contains(triple, "_pmultiplicity") || stubs[subject(triple)]
+	})
 }

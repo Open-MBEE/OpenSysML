@@ -9,7 +9,7 @@ classes: {
 n0: "«action def»\nMonitor\nparameters\nin sensor\nout alarm" {
   class: definition
   n1: "" { class: initial }
-  n2: "«accept action»\nacceptReading\nreading : Reading\nparameters\nout reading\ninout ^payload\nin ^receiver" { class: usage }
+  n2: "«accept action»\nacceptReading\nreading : Reading\nparameters\nout reading\nin ^receiver" { class: usage }
   n3: "«send action»\nsendAlarm\nAlarm to sensor\nparameters\nin ^payload\nin ^sender\nin ^receiver" { class: usage }
   n4: "«assign»\ntally\ncount := count + 1" { class: usage }
   n5: "«loop»\nwait\nwhile condition\ncount < 10" {
@@ -48,3 +48,5 @@ n0.n4 -> n0.n3: { class: succession }
 n0.n5 -> n0.n10: { class: succession }
 n0.n10 -> n0.n14: { class: succession }
 n0.n14 -> n0.n20: { class: succession }
+frame_name: "«view» ActionFormViews::monitorView : ActionFlowView" { shape: text; near: top-left }
+frame_tr: "expose ActionForms::Monitor" { shape: text; near: top-right }

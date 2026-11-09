@@ -60,16 +60,15 @@ func notShown(r *Renderer, elem *symbols.Symbol, what, rendering string) string 
 	return fmt.Sprintf("%s %s is no %s; %s %s rendering does not show it", declKind(elem), r.notationName(elem), what, article(rendering), rendering)
 }
 
-// rootsByOwner groups the roots of kind rootKind by the nearest owner of one of
-// ownerKinds declaring them, keeping only owners with two or more such roots
-// and not drawn themselves, whose body the roots are then drawn apart from.
-func rootsByOwner(roots map[*symbols.Symbol]*Node, rootKind symbols.SymbolKind, ownerKinds ...symbols.SymbolKind) map[*symbols.Symbol]map[*symbols.Symbol]*Node {
+// rootsByOwner groups the roots whose kind isRoot by the nearest owner (kind isOwner) declaring
+// them, keeping only undrawn owners of two or more such roots, whose body the roots are drawn apart from.
+func rootsByOwner(roots map[*symbols.Symbol]*Node, isRoot, isOwner func(symbols.SymbolKind) bool) map[*symbols.Symbol]map[*symbols.Symbol]*Node {
 	out := map[*symbols.Symbol]map[*symbols.Symbol]*Node{}
 	for sym, node := range roots {
-		if sym.Kind != rootKind {
+		if !isRoot(sym.Kind) {
 			continue
 		}
-		owner := behaviorOwnerOf(sym, ownerKinds...)
+		owner := behaviorOwnerWhere(sym, isOwner)
 		if owner == nil || roots[owner] != nil {
 			continue
 		}
@@ -706,7 +705,7 @@ func (r *Renderer) renderActions(view *symbols.Symbol, exposed []*symbols.Symbol
 // it exposed as roots of their own, read from the action's lowered graph and
 // labelled as actionEdges labels them within the action.
 func (r *Renderer) rootSuccessionEdges(view *symbols.Symbol, roots map[*symbols.Symbol]*Node, out *Rendering) {
-	for owner, actions := range rootsByOwner(roots, symbols.SymbolActionUsage, symbols.SymbolActionDef, symbols.SymbolActionUsage) {
+	for owner, actions := range rootsByOwner(roots, symbols.SymbolKind.IsActionUsage, actionOwnerKind) {
 		graph, err := lower.ToActionGraphWith(owner.Decl, declScope(owner), r.resolver)
 		if err != nil {
 			continue
@@ -741,15 +740,21 @@ func (r *Renderer) rootSuccessionEdges(view *symbols.Symbol, roots map[*symbols.
 	}
 }
 
+// actionOwnerKind reports whether an element of the kind owns the successions of the actions
+// in its body: an action def or an action usage of any node kind, whose body the ActionGraph orders.
+func actionOwnerKind(kind symbols.SymbolKind) bool {
+	return kind == symbols.SymbolActionDef || kind.IsActionUsage()
+}
+
 // behaviorKind reports whether an element of the kind is drawn by an action
 // rendering: an action def or usage, or a calculation def or usage — an action
 // declared with the keyword `calc` (SysML v2 §7.19.2), drawn the same way.
 func behaviorKind(kind symbols.SymbolKind) bool {
 	switch kind {
-	case symbols.SymbolActionDef, symbols.SymbolActionUsage, symbols.SymbolCalcDef, symbols.SymbolCalcUsage:
+	case symbols.SymbolActionDef, symbols.SymbolCalcDef, symbols.SymbolCalcUsage:
 		return true
 	}
-	return false
+	return kind.IsActionUsage()
 }
 
 // renderAction builds one action graph with shared IDs.
@@ -826,7 +831,7 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 		}
 		root.Children = append(root.Children, start)
 	}
-	r.flowNodes(subject, graph, root, owner, ids, out, lowered, drawn, depth, record)
+	r.flowNodes(subject, graph, root, owner, flowDrawing{ids, out, lowered, drawn, record}, depth)
 	if subject.frame == nil && len(graph.Nodes) == 0 {
 		root.Detail = detailWith(root.Detail, "declares no nodes")
 	}
@@ -834,11 +839,21 @@ func (r *Renderer) actionNode(subject actionSubject, ids *nodeIDs, out *Renderin
 	return root, true
 }
 
+// A flowDrawing is the state a behavior's nested flows share: the id supply,
+// the rendering, the lowered declarations, the drawn nodes and the symbol recorder.
+type flowDrawing struct {
+	ids     *nodeIDs
+	out     *Rendering
+	lowered map[ast.Node]bool
+	drawn   map[ast.Node]*Node
+	record  func(*symbols.Symbol, *Node)
+}
+
 // flowNodes draws a lowered flow's nodes under frame, each statement node in
 // the form its figure gives it, then the flow's successions, object flows and
 // bindings as edges; owner is the symbol the nodes are placed under.
-func (r *Renderer) flowNodes(subject actionSubject, graph *lower.ActionGraph, frame *Node, owner *symbols.Symbol, ids *nodeIDs,
-	out *Rendering, lowered map[ast.Node]bool, drawn map[ast.Node]*Node, depth int, record func(*symbols.Symbol, *Node)) {
+func (r *Renderer) flowNodes(subject actionSubject, graph *lower.ActionGraph, frame *Node, owner *symbols.Symbol, d flowDrawing, depth int) {
+	ids, out, lowered, drawn, record := d.ids, d.out, d.lowered, d.drawn, d.record
 	scope, doc := subject.scope, subject.doc
 	nodes := map[ast.Node]*Node{}
 	for _, node := range graph.Nodes {
@@ -885,7 +900,7 @@ func (r *Renderer) flowNodes(subject actionSubject, graph *lower.ActionGraph, fr
 			child.Children = append(child.Children, section)
 			bodySubject := actionSubject{decl: body.block.Node, kind: section.Kind, name: child.Name, scope: body.block.Scope,
 				doc: nodeDoc, view: subject.view, elem: subject.elem, frame: section}
-			r.flowNodes(bodySubject, body.block.Graph, section, r.declaredSymbol(subject.elem, node), ids, out, lowered, drawn, depth+1, record)
+			r.flowNodes(bodySubject, body.block.Graph, section, r.declaredSymbol(subject.elem, node), d, depth+1)
 		}
 	}
 	r.actionEdges(subject, graph, nodes, out)
