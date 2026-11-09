@@ -21,11 +21,27 @@ func (m *Model) statementNodes(sym *symbols.Symbol) []*symbols.Symbol {
 		lookup = sym.OwnerScope
 	}
 	var out []*symbols.Symbol
-	for _, member := range statementBodyOf(sym.Decl) {
+	body := statementBodyOf(sym.Decl)
+	if statement := nodeStatementOf(sym.Decl); statement != nil {
+		// A node written as its statement (`action a if c … else …`, `action a
+		// while c { … }`) owns the statement's branches and body as its own.
+		body = statementBodyOf(statement)
+		if lookup != nil {
+			if child := lookup.ChildFor(statement); child != nil {
+				lookup = child
+				if m.statementScopes == nil {
+					m.statementOwners = make(map[*symbols.Symbol]*symbols.Symbol)
+					m.statementScopes = make(map[*symbols.Scope]*symbols.Symbol)
+				}
+				m.statementScopes[child] = sym
+			}
+		}
+	}
+	for _, member := range body {
 		if wrapper, ok := member.(*ast.Membership); ok {
 			member = wrapper.Member
 		}
-		if !IsStatementNode(member) || nodeStatementOf(sym.Decl) == member {
+		if !IsStatementNode(member) {
 			continue
 		}
 		kind := symbols.SymbolActionUsage
@@ -199,9 +215,6 @@ func (m *Model) statementOperands(sym *symbols.Symbol) []*symbols.Symbol {
 	case *ast.AssignmentActionNode:
 		add("target", d.Target)
 		add("value", d.Value)
-	case *ast.SendStatement:
-		add("payload", d.Message)
-		add("receiver", d.Target)
 	case *ast.TerminateStatement:
 		add("expression", d.Target)
 	case *ast.PerformActionNode:
@@ -220,22 +233,15 @@ func (m *Model) statementOperands(sym *symbols.Symbol) []*symbols.Symbol {
 	return out
 }
 
-// NodeStatementOf is the send or assignment a plain-headed action node is (`action a assign x := y;`,
-// SysML.xtext SendNode/AssignmentNode); nil for any other usage, which keeps the action it declares.
+// NodeStatementOf is the statement a plain-headed action node is written as
+// (`action a assign …`, `action a if …`, `action a while …`, `action a send …`;
+// SysML v2 §8.2.2.17 ActionNode): the rule the conversion reads (naming.NodeStatement).
 func NodeStatementOf(n *ast.Usage) ast.Node {
-	if n == nil || n.Kind != ast.UsageAction || !n.IsActionNode || len(n.Members) != 1 || !PlainNodeHead(n) {
+	if n == nil || !PlainNodeHead(n) {
 		return nil
 	}
-	statement := n.Members[0]
-	if m, ok := statement.(*ast.Membership); ok {
-		statement = m.Member
-	}
-	switch s := statement.(type) {
-	case *ast.SendStatement:
-		if !s.HasBody {
-			return s
-		}
-	case *ast.AssignmentActionNode:
+	switch s := symbols.ActionNodeStatementOf(n).(type) {
+	case *ast.SendStatement, *ast.AssignmentActionNode, *ast.IfActionNode, *ast.WhileLoopActionNode:
 		return s
 	}
 	return nil

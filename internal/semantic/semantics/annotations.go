@@ -1141,6 +1141,10 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 	case *ast.IfBranchNode:
 		return "ActionUsage"
 	case *ast.WhileLoopActionNode:
+		if sym.Kind == symbols.SymbolReferenceUsage {
+			// The loop variable shares the loop's node (SysML 8.3.16.7 loopVariable).
+			return "ReferenceUsage"
+		}
 		if decl.Kind == ast.LoopFor {
 			return "ForLoopActionUsage"
 		}
