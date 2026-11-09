@@ -127,6 +127,20 @@ test("rendered view decoder preserves wire fields and message presence", () => {
   assert.equal(sparse.notes[0]?.origin, undefined);
 });
 
+test("a query expression runs in place of a named query", async () => {
+  await using connection = await connect();
+  const model = await connection.loads(readFileSync(REPORT_FIXTURE, "utf8"));
+  const rows = await model.runInlineDocumentQuery(
+    'Project(WhereType(Descendants(Observatory::telescope), "PartUsage"), ("name", "mass"))',
+  );
+  assert.deepEqual(rows.columns, ["name", "mass"]);
+  assert.equal(rows.length, 4);
+  await assert.rejects(
+    model.runInlineDocumentQuery('Project(Named("Observatory") ("name"))'),
+    (error: Error) => error.message.includes("inline query 1:"),
+  );
+});
+
 test("states and events over the object instantiate built", async () => {
   await using connection = await connect();
   const model = await connection.loads(readFileSync(STATE_FIXTURE, "utf8"));

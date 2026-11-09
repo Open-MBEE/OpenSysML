@@ -33,6 +33,7 @@ from opensysml.typefacts import (
 )
 from opensysml.capabilities import (
     CAPABILITY_ELEMENT_PROPERTIES,
+    CAPABILITY_INLINE_DOCUMENT_QUERY,
     CAPABILITY_RECORD_RUN,
     CAPABILITY_RUNS,
     CAPABILITY_SELF_CHECK,
@@ -150,7 +151,7 @@ __all__ = [
     "Exploration", "Outcome", "ActionOutputs", "Coverage", "CoverageEntry",
     "Bound", "EngineInfo", "Standing",
     "QueryElement", "QueryError",
-    "ElementIdentity", "ElementProperties", "ElementProperty", "CAPABILITY_ELEMENT_PROPERTIES",
+    "ElementIdentity", "ElementProperties", "ElementProperty", "CAPABILITY_ELEMENT_PROPERTIES", "CAPABILITY_INLINE_DOCUMENT_QUERY",
     "SourceDocument",
     "DocumentEvent", "DocumentQueryError", "DocumentQueryResult", "DocumentRow",
     "DocumentState", "DocumentVerdict", "ElementRef", "INFINITY", "ObjectRef",

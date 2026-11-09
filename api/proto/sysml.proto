@@ -123,7 +123,8 @@ service SysMLService {
 
   // Run a named document query with parameter bindings, the answer the REPL's
   // %run-query gives, as typed rows rather than formatted lines. Reported as
-  // the "document_query" capability.
+  // the "document_query" capability; a query expression written in place of a
+  // name (inline_query) as the "inline_document_query" capability.
   rpc RunDocumentQuery(RunDocumentQueryRequest) returns (RunDocumentQueryResponse);
 
   // Render a named document to Markdown, as the CLI's -render-document does.
@@ -3012,20 +3013,31 @@ message RunRunsResponse {
 }
 
 
-// RunDocumentQueryRequest runs a named document query — a calc def
-// specializing DocumentQueries::Query — against a model the service already
-// parsed, binding its entry parameters. It answers as %run-query does, but with
-// typed rows rather than formatted lines. The query runs over the objects
+// RunDocumentQueryRequest runs a document query — a calc def specializing
+// DocumentQueries::Query the model declares, named by query_id, or the body of
+// one written in inline_query — against a model the service already parsed,
+// binding its entry parameters. It answers as %run-query does, but with typed
+// rows rather than formatted lines. The query runs over the objects
 // Instantiate created for the model, which a binding may name (DocumentObject)
 // and `DocumentQueries::Objects` and `Verdicts` reach.
 message RunDocumentQueryRequest {
   string model_hash = 1;  // from ParseFile response
   // FQN of the document query to run. Fails with NOT_FOUND when the model does
   // not declare it, and INVALID_ARGUMENT when it declares something else.
+  // Exactly one of query_id and inline_query is given.
   string query_id = 2;
   // Entry-parameter bindings. Repeating a parameter appends to its binding, so
   // a nonscalar parameter can be given several values.
   repeated DocumentQueryBinding bindings = 3;
+  // A query expression to run in place of a named query — the result
+  // expression of a `calc def` specializing DocumentQueries::Query, such as
+  // `Project(WhereType(Descendants(Named("Vehicles")), "PartUsage"), ("name",
+  // "mass"))` — compiled in the model's context with the DocumentQueries
+  // library in scope and the model's own names reachable. A fault in the
+  // expression fails with INVALID_ARGUMENT positioned within it (`inline query
+  // <line>:<column>`); a path or model error carries a QueryOutcome detail as a
+  // named query's does. Reported as the "inline_document_query" capability.
+  string inline_query = 4;
 }
 
 // DocumentQueryBinding binds one entry parameter of a document query.

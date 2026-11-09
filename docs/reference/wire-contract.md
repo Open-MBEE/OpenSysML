@@ -2600,7 +2600,8 @@ selected, filtered and bound — are on the Go API page and are not repeated her
 [SysML v2 API & Services `Query`](api.md#sysml-v2-api--services-query) and
 [Native document queries and rendering over gRPC](api.md#native-documents-and-views-over-grpc).
 Each is its own capability: `Query` needs `query` (and `oslc_query` when the request uses
-`oslcQuery`); `RunDocumentQuery` needs `document_query`; `RenderDocument` needs
+`oslcQuery`); `RunDocumentQuery` needs `document_query`, and `inline_document_query` too when the
+request writes the query in `inlineQuery`; `RenderDocument` needs
 `render_document`, and `render_document_html` too when its `form` is `html`; its `file_name` (the
 file a rendered set writes the document to, which the other documents' links to it name) is
 populated under `render_document_file_name`.
@@ -2635,7 +2636,8 @@ property simply lacks the key. No matches is `{}` (captured for `"property":"nam
 ### `RunDocumentQuery`
 
 A document query is a `calc def` in the model specializing `DocumentQueries::Query`; the request
-names it by `queryId` and supplies `bindings` for its `in` parameters. Each binding is a
+names it by `queryId`, or writes one in `inlineQuery` (below), and supplies `bindings` for its
+`in` parameters. Each binding is a
 `parameter` name and a list of `values`, and each value is a `DocumentValue` — a `oneof` whose
 arm says what was bound:
 
@@ -2658,6 +2660,21 @@ arm says what was bound:
   how a parameter of type `Element` is bound to an object rather than to its declaration*;
   the query then reads the object's current values. The answer-side `element` of a
   `DocumentObject` is ignored in a request.
+
+`inlineQuery` carries the result expression such a `calc def` would hold, planned and run as a
+named query is, in the model's context (the `DocumentQueries` library imported, the model's names
+reachable, held objects behind `Objects`/`Verdicts`/`States`/`Events`); exactly one of `queryId`
+and `inlineQuery` is set, and both or neither is `invalid_argument`. The field needs the
+`inline_document_query` capability, refused with `unimplemented` otherwise. Text that does not
+parse or plan is `invalid_argument` with the position within the expression —
+`inline query 1:30: expected ')'` — and a failure while running keeps the named form's status
+and `QueryOutcome` detail:
+
+```console
+$ … /RunDocumentQuery -d '{"modelHash":"7e6a…a687","inlineQuery":"Project(WhereType(Descendants(Observatory::telescope), \"PartUsage\"), (\"name\", \"mass\"))"}'
+```
+
+answers the same `columns` and `rows` shape as a named query, in document order.
 
 Model `7e6a…a687` is `conformance/fixtures/document.sysml`; `HeavySubsystemNames` takes
 `root : Element` and `threshold : String`:
