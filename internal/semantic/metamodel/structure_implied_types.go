@@ -6,9 +6,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// structureImpliedFeatureTypes returns the types an expression declaring none takes
-// from what it implicitly specializes (KerML 1.1 §8.4.4.7): the function it invokes
-// (§8.4.4.7.3), then the types of the evaluations feature its metaclass implies.
+// structureImpliedFeatureTypes types an expression declaring none by the function it
+// invokes, else by the evaluations feature its metaclass implies (KerML 1.1 §8.4.4.7).
 func (e *Evaluator) structureImpliedFeatureTypes(element Element) ([]Value, bool) {
 	if e.model == nil || e.resolver == nil || e.resolver.Index() == nil {
 		return nil, true
@@ -49,14 +48,15 @@ func (e *Evaluator) structureImpliedFeatureTypes(element Element) ([]Value, bool
 	return values, true
 }
 
-// structureExpressionFunction resolves the function an expression invokes: an
-// operator's from its node or the operator a graph-only element states, an
-// invocation's or a chain's from the callee the graph states.
+// structureExpressionFunction resolves the function an expression invokes: an operator's
+// from its node or stated operator, an invocation's or chain's from the stated callee.
 func (e *Evaluator) structureExpressionFunction(element Element) ([]Value, bool) {
 	var function *symbols.Symbol
 	switch node := expressionNodeOf(element).(type) {
 	case *ast.OperatorExpr:
 		function = e.model.OperatorFunction(node.Operator)
+	case *ast.CastExpr:
+		function = e.model.OperatorFunction(ast.OpAs)
 	case *ast.IndexExpr:
 		function = e.model.IndexFunction(node)
 	case *ast.SequenceExpr:

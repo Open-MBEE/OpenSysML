@@ -67,10 +67,8 @@ var implicitUsageBases = map[ast.UsageKind]string{
 	ast.UsageUseCase:          "UseCases::useCases",
 }
 
-// impliedExpressionBases maps each expression metaclass to the library feature it
-// implicitly subsets (KerML 1.1 §8.4.4.7, §8.4.4.8): an Expression evaluations, a
-// literal the evaluations of its literal kind, a constructor, null or metadata access
-// its own; BooleanExpression and Invariant the boolean and true evaluations.
+// impliedExpressionBases maps each expression metaclass to the evaluations feature it
+// implicitly subsets (KerML 1.1 §8.4.4.7, §8.4.4.8): a literal's, constructor's, null's, …
 var impliedExpressionBases = map[string]string{
 	"Expression":                  evaluationsFQN,
 	"OperatorExpression":          evaluationsFQN,
@@ -552,7 +550,7 @@ func (m *Model) kindBaseFQN(sym *symbols.Symbol, isKerML bool) (string, bool) {
 	case *ast.DecisionNode:
 		return "Actions::DecisionAction", true
 	}
-	if sym.Expr != nil {
+	if sym.Expr != nil && sym.Kind == symbols.SymbolExpression {
 		fqn, ok := impliedExpressionBases[expressionMetaclassName(sym.Decl)]
 		return fqn, ok
 	}

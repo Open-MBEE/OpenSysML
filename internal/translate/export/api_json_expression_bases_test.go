@@ -8,9 +8,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
-// An expression implicitly subsets the evaluations of its kind (KerML 8.4.4.7,
-// 8.4.4.8), so the element form types it by its function or evaluation kind and
-// completes the inherited family from it, with or without the notation.
+// An expression subsets the evaluations of its kind (KerML 8.4.4.7, 8.4.4.8): the element
+// form types it by its function or evaluation kind and inherits from it, graph or notation.
 func TestAPIJSONExpressionsInheritThroughTheirImpliedBase(t *testing.T) {
 	graph := duplicateGraph(t, `package Probe {
 		part def V {
