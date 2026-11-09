@@ -29,10 +29,10 @@ func TestBuildRequirementMemberShortNameKeys(t *testing.T) {
 		short, name string
 		kind        SymbolKind
 	}{
-		{"s", "x", SymbolPartUsage},
+		{"s", "x", SymbolReferenceUsage},
 		{"a", "ac", SymbolConstraintUsage},
 		{"r", "rc", SymbolConstraintUsage},
-		{"t", "", SymbolPartUsage},
+		{"t", "", SymbolReferenceUsage},
 		{"b", "", SymbolConstraintUsage},
 		{"q", "", SymbolConstraintUsage},
 	}

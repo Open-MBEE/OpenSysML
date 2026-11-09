@@ -1463,6 +1463,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	if elems, ok := m.transitionElements(sym, feature); ok {
 		return elems, true
 	}
+	if elems, ok := m.sendElements(sym, feature); ok {
+		return elems, true
+	}
 	switch feature {
 	case "owningNamespace":
 		if !m.reflectiveMetaclassConforms(sym, "Element") {
@@ -1694,7 +1697,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return nil, true
 	case "ownedMember":
-		return m.withDefaultMultiplicityMember(sym, append(m.acceptParameters(sym), m.withTransitionParts(sym, ownedMembersOf(sym))...)), true
+		return m.withDefaultMultiplicityMember(sym, append(m.nodeParameters(sym), m.withTransitionParts(sym, ownedMembersOf(sym))...)), true
 	case "multiplicity":
 		if !m.reflectiveMetaclassConforms(sym, "Type") {
 			return nil, false
@@ -1703,9 +1706,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "ownedElement":
 		return m.ownedElementsOf(sym), true
 	case "member":
-		return m.withDefaultMultiplicityMember(sym, append(m.acceptParameters(sym), m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))...)), true
+		return m.withDefaultMultiplicityMember(sym, append(m.nodeParameters(sym), m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))...)), true
 	case "feature":
-		features := m.acceptParameters(sym)
+		features := m.nodeParameters(sym)
 		for _, member := range m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)) {
 			if member.IsFeature() || isExpressionSymbol(member) {
 				features = append(features, member)
@@ -1774,6 +1777,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		return []*symbols.Symbol{}, true
 	case "ownedFeature":
 		features := append([]*symbols.Symbol(nil), m.expressionOwnedParts(sym)...)
+		features = append(features, m.sendParameters(sym)...)
 		for _, member := range m.withTransitionParts(sym, ownedMembersOf(sym)) {
 			if member.IsFeature() || isExpressionSymbol(member) {
 				features = append(features, member)
@@ -1990,6 +1994,7 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 		members = append(members, value)
 	}
 	members = append(members, m.expressionOwnedElements(sym)...)
+	members = append(members, m.nodeParameters(sym)...)
 	members = append(members, m.withTransitionParts(sym, ownedMembersOf(sym))...)
 	seen := make(map[*symbols.Symbol]bool, len(members))
 	for _, member := range members {
@@ -2258,7 +2263,7 @@ func ReflectiveDirection(sym *symbols.Symbol) (ast.FeatureDirection, bool) {
 		if !sym.IsFeature() {
 			return ast.DirNone, false
 		}
-		if sym.Facts.Node == symbols.NodeSubject {
+		if sym.Facts.Direction == ast.DirNone && hasDefaultInputParameterDirection(sym) {
 			return ast.DirIn, true
 		}
 		return sym.Facts.Direction, true
@@ -2270,6 +2275,10 @@ func ReflectiveDirection(sym *symbols.Symbol) (ast.FeatureDirection, bool) {
 		return ast.DirIn, true
 	}
 	traits, ok := featureTraitsOf(sym)
+	if ok && traits.Direction == ast.DirNone && hasDefaultInputParameterDirection(sym) {
+		// A subject, actor or stakeholder parameter is `in` without writing it.
+		return ast.DirIn, true
+	}
 	if ok {
 		return traits.Direction, true
 	}
@@ -2378,7 +2387,7 @@ func (m *Model) reflectiveFeatureValue(sym *symbols.Symbol, feature string) (sym
 		}
 		return boolValue(len(m.ownedImplicitRelationships(sym, conjugationMetaclass)) > 0), true
 	case "declaredName":
-		return stringOrEmpty(declaredSymbolName(sym)), true
+		return stringOrEmpty(m.declaredSymbolName(sym)), true
 	case "name":
 		return stringOrEmpty(m.reflectiveName(sym)), true
 	case "shortName":
@@ -2606,7 +2615,8 @@ func (m *Model) reflectiveFeatureFlags(sym *symbols.Symbol) (reflectiveFeatureFl
 		flags.isOrdered = mods.Has(symbols.ModOrdered)
 		flags.isUnique = !mods.Has(symbols.ModNonunique)
 		if isUsage {
-			flags.isComposite = mods.Has(symbols.ModComposite) || !recordedUsageIsReferential(sym)
+			flags.isComposite = mods.Has(symbols.ModComposite) ||
+				(!recordedUsageIsReferential(sym) && !hasDefaultInputParameterDirection(sym))
 		} else {
 			flags.isComposite = mods.Has(symbols.ModComposite)
 		}
@@ -2620,7 +2630,8 @@ func (m *Model) reflectiveFeatureFlags(sym *symbols.Symbol) (reflectiveFeatureFl
 			flags.isOrdered = d.IsOrdered
 			flags.isUnique = !d.IsNonunique
 			if isUsage {
-				flags.isComposite = d.IsComposite || !usageIsReferential(d)
+				flags.isComposite = d.IsComposite ||
+					(!usageIsReferential(d) && !hasDefaultInputParameterDirection(sym))
 			} else {
 				flags.isComposite = d.IsComposite
 			}
@@ -2810,6 +2821,7 @@ var metaclassNames = map[symbols.SymbolKind]string{
 	symbols.SymbolSuccessionUsage:         "SuccessionAsUsage",
 	symbols.SymbolFlowDef:                 "FlowDefinition",
 	symbols.SymbolFlowUsage:               "FlowUsage",
+	symbols.SymbolSuccessionFlowUsage:     "SuccessionFlowUsage",
 	symbols.SymbolPortDef:                 "PortDefinition",
 	symbols.SymbolPortUsage:               "PortUsage",
 	symbols.SymbolInterfaceDef:            "InterfaceDefinition",
@@ -2818,6 +2830,14 @@ var metaclassNames = map[symbols.SymbolKind]string{
 	symbols.SymbolAllocationUsage:         "AllocationUsage",
 	symbols.SymbolActionDef:               "ActionDefinition",
 	symbols.SymbolActionUsage:             "ActionUsage",
+	symbols.SymbolAcceptActionUsage:       "AcceptActionUsage",
+	symbols.SymbolAssignmentActionUsage:   "AssignmentActionUsage",
+	symbols.SymbolPerformActionUsage:      "PerformActionUsage",
+	symbols.SymbolIfActionUsage:           "IfActionUsage",
+	symbols.SymbolWhileLoopActionUsage:    "WhileLoopActionUsage",
+	symbols.SymbolForLoopActionUsage:      "ForLoopActionUsage",
+	symbols.SymbolTerminateActionUsage:    "TerminateActionUsage",
+	symbols.SymbolSendActionUsage:         "SendActionUsage",
 	symbols.SymbolStateDef:                "StateDefinition",
 	symbols.SymbolStateUsage:              "StateUsage",
 	symbols.SymbolCalcDef:                 "CalculationDefinition",
@@ -2848,16 +2868,20 @@ func metaclassName(kind symbols.SymbolKind) string {
 // nameless feature takes from the feature it redefines (KerML 1.1 §8.3.3.3) — a
 // positional parameter from its behavior's, a connector end from the end it occupies.
 func (m *Model) reflectiveName(sym *symbols.Symbol) string {
-	if name := declaredSymbolName(sym); name != "" {
+	if name := m.declaredSymbolName(sym); name != "" {
 		return name
 	}
 	return m.EffectiveNameOf(sym)
 }
 
 // declaredSymbolName is the symbol's name as its declaration states it; a name the
-// symbol table gave it for the role it takes (a transition's `effect`) is none.
-func declaredSymbolName(sym *symbols.Symbol) string {
+// symbol table gave it for the role it takes (a transition's `effect`) is none, and
+// a metadata body feature's `mission = …` names the feature it redefines, not itself.
+func (m *Model) declaredSymbolName(sym *symbols.Symbol) string {
 	if sym == nil || sym.Naming == symbols.NamedByRole {
+		return ""
+	}
+	if m.RestatesMetadataBodyFeature(sym) {
 		return ""
 	}
 	return SimpleSymbolName(sym)

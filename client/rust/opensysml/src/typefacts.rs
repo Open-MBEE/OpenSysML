@@ -277,10 +277,11 @@ impl Symbol {
             if specialization.target_id.is_empty() || visited.contains(&specialization.target_id) {
                 continue;
             }
-            let supertype = match self
-                .connection()
-                .get_symbol(self.model_hash(), &specialization.target_id)
-            {
+            let supertype = match self.connection().get_symbol(
+                self.model_hash(),
+                &specialization.target_id,
+                &crate::domain::SymbolOptions::default(),
+            ) {
                 Ok(symbol) => symbol,
                 Err(Error::Model(_)) => continue,
                 Err(error) => return Err(error),

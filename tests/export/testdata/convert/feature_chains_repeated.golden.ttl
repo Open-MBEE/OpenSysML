@@ -2377,6 +2377,18 @@ elmt:c91ad911-9e73-52fe-b252-f5baeb6064ee
     sysml:memberElement elmt:faf13619-5fb6-5a19-871e-e14767f89a28 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+elmt:db0b2590-1035-512c-b067-686a67c7d430
+    a sysml:Comment ;
+    sysml:elementId "db0b2590-1035-512c-b067-686a67c7d430" ;
+    sysx:libraryPath "Occurrences::Occurrence/Comment[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:cd6c9495-be14-578e-9065-28c9dbe6b52c
+    a sysml:OwningMembership ;
+    sysml:elementId "cd6c9495-be14-578e-9065-28c9dbe6b52c" ;
+    sysml:memberElement elmt:db0b2590-1035-512c-b067-686a67c7d430 ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 elmt:d0cefcb9-9a11-5ac1-a47b-3f70c117bd08
     a sysml:FeatureMembership ;
     sysml:elementId "d0cefcb9-9a11-5ac1-a47b-3f70c117bd08" ;

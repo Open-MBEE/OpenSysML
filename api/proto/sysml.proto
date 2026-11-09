@@ -2224,7 +2224,8 @@ message Rational {
 // exactly when element_id is, whatever type each was cast to. Its features
 // (`declaredName`, `ownedFeature`, ...) are read in the model, not carried.
 message Metaobject {
-  // FQN of the element reflected on ("Vehicle::seatBelt"). Its identity.
+  // The id a client keeps for the element: its FQN ("Vehicle::seatBelt"), an unnamed member's
+  // positional id ("Vehicle::@2") or a synthesized element's form @id ("Vehicle__send___400_pvalue").
   string element_id = 1;
   // FQN of the element's own reflective metaclass ("SysML::Systems::PartUsage"),
   // the most specific metaclass of the KerML or SysML library classifying it;

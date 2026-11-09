@@ -6,8 +6,13 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.openmbee.opensysml.ElementProperties;
+import org.openmbee.opensysml.ElementRef;
 import org.openmbee.opensysml.Instance;
+import org.openmbee.opensysml.InstancePaths;
+import org.openmbee.opensysml.Instantiation;
 import org.openmbee.opensysml.Quantity;
+import org.openmbee.opensysml.Symbol;
 import org.openmbee.opensysml.TransportException;
 import org.openmbee.opensysml.Value;
 import org.openmbee.opensysml.proto.Array;
@@ -842,5 +847,216 @@ class ProtosTest {
     assertEquals(new Value.NullValue(), plain);
     assertFalse(((Value.NullValue) plain).isUnsupported());
     assertEquals("", Protos.proto(plain).getNull());
+  }
+
+  @Test
+  void aSymbolCarriesItsMembersWithTheirProvenance() {
+    SymbolInfo info =
+        SymbolInfo.newBuilder()
+            .setId("Demo::m")
+            .setName("m")
+            .setKind("partUsage")
+            .addMembers(
+                org.openmbee.opensysml.proto.MemberInfo.newBuilder()
+                    .setId("Demo::Base::p")
+                    .setName("p")
+                    .setKind("partUsage")
+                    .setInherited(true)
+                    .setInheritedFrom("Demo::Base"))
+            .addMembers(
+                org.openmbee.opensysml.proto.MemberInfo.newBuilder()
+                    .setId("Parts::Part::ownedPorts")
+                    .setName("ownedPorts")
+                    .setKind("portUsage")
+                    .setInherited(true)
+                    .setInheritedFrom("Parts::Part")
+                    .setLibrary(true))
+            .setWithheldLibraryMembers(3)
+            .build();
+    Symbol symbol = Protos.symbol(info);
+    assertEquals(
+        List.of(
+            new Symbol.Member(
+                "Demo::Base::p", "p", "partUsage", true, Optional.of("Demo::Base"), false),
+            new Symbol.Member(
+                "Parts::Part::ownedPorts",
+                "ownedPorts",
+                "portUsage",
+                true,
+                Optional.of("Parts::Part"),
+                true)),
+        symbol.members());
+    assertEquals(List.of(), symbol.ownMembers());
+    assertEquals(2, symbol.inheritedMembers().size());
+    assertEquals(3, symbol.withheldLibraryMembers());
+    Symbol own =
+        Protos.symbol(
+            SymbolInfo.newBuilder()
+                .setId("Demo::Base")
+                .setName("Base")
+                .setKind("partDef")
+                .addChildIds("Demo::Base::p")
+                .addMembers(
+                    org.openmbee.opensysml.proto.MemberInfo.newBuilder()
+                        .setId("Demo::Base::p")
+                        .setName("p")
+                        .setKind("partUsage"))
+                .build());
+    assertEquals(Optional.empty(), own.members().get(0).inheritedFrom());
+    assertEquals(own.members(), own.ownMembers());
+    assertEquals(List.of(), own.inheritedMembers());
+  }
+
+  @Test
+  void anInstanceCarriesHowTheTraversalReachedIt() {
+    org.openmbee.opensysml.proto.Instance root =
+        org.openmbee.opensysml.proto.Instance.newBuilder().setId(1).setTypeSymbolId("D::car").build();
+    org.openmbee.opensysml.proto.Instance wheel =
+        org.openmbee.opensysml.proto.Instance.newBuilder()
+            .setId(3)
+            .setTypeSymbolId("D::Wheel")
+            .setReachedBy(
+                org.openmbee.opensysml.proto.InstanceReach.newBuilder()
+                    .setInstanceId(1)
+                    .setFeatureName("wheels")
+                    .setFeatureSymbolId("D::Car::wheels")
+                    .setIndex(2)
+                    .setPath("wheels[2]"))
+            .build();
+    Instance rootInstance = Protos.instance(root);
+    Instance wheelInstance = Protos.instance(wheel);
+    assertEquals(Optional.empty(), rootInstance.reachedBy());
+    assertEquals(Optional.empty(), rootInstance.owner());
+    assertEquals("", rootInstance.path());
+    assertEquals(
+        Optional.of(new Instance.Reach(1, "wheels", "D::Car::wheels", 2, "wheels[2]")),
+        wheelInstance.reachedBy());
+    assertEquals(Optional.of(new Value.InstanceReference(1)), wheelInstance.owner());
+    assertEquals("wheels[2]", wheelInstance.path());
+    Instantiation instantiation =
+        new Instantiation(rootInstance, List.of(rootInstance, wheelInstance), List.of());
+    assertEquals(Optional.of(rootInstance), instantiation.owner(wheelInstance));
+    assertEquals(Optional.empty(), instantiation.owner(rootInstance));
+  }
+
+  @Test
+  void elementPropertiesReadEveryValueArmAndTheReasonForNone() {
+    var response =
+        org.openmbee.opensysml.proto.GetElementPropertiesResponse.newBuilder()
+            .setElement(
+                org.openmbee.opensysml.proto.ElementRef.newBuilder()
+                    .setId("e1")
+                    .setQualifiedName("Demo::Pair")
+                    .setMetaclass("PartDefinition"))
+            .addProperties(
+                org.openmbee.opensysml.proto.ElementProperty.newBuilder()
+                    .setName("inheritedFeature")
+                    .setDefiningClass("Type")
+                    .setMany(true)
+                    .setDerived(true)
+                    .addValues(
+                        org.openmbee.opensysml.proto.ElementPropertyValue.newBuilder()
+                            .setElement(
+                                org.openmbee.opensysml.proto.ElementRef.newBuilder()
+                                    .setId("e2")
+                                    .setQualifiedName("Demo::Unit::p")
+                                    .setMetaclass("PortUsage")))
+                    .addValues(
+                        org.openmbee.opensysml.proto.ElementPropertyValue.newBuilder()
+                            .setStringValue("in"))
+                    .addValues(
+                        org.openmbee.opensysml.proto.ElementPropertyValue.newBuilder()
+                            .setBoolValue(true))
+                    .addValues(
+                        org.openmbee.opensysml.proto.ElementPropertyValue.newBuilder()
+                            .setIntValue(7))
+                    .addValues(
+                        org.openmbee.opensysml.proto.ElementPropertyValue.newBuilder()
+                            .setRealValue(1.5))
+                    .addValues(
+                        org.openmbee.opensysml.proto.ElementPropertyValue.newBuilder()
+                            .setNumber("123456789012345678901234567890")))
+            .addProperties(
+                org.openmbee.opensysml.proto.ElementProperty.newBuilder()
+                    .setName("connectorEnd")
+                    .setUnsupported("PartDefinition declares no property connectorEnd"))
+            .build();
+    ElementProperties read = Protos.elementProperties(response);
+    assertEquals(new ElementRef("e1", "Demo::Pair", "PartDefinition"), read.element());
+    assertEquals("Demo::Pair", read.element().toString());
+    ElementProperties.Property inherited = read.get("inheritedFeature").orElseThrow();
+    assertTrue(inherited.many() && inherited.derived() && inherited.supported());
+    assertEquals("Type", inherited.definingClass());
+    ElementRef port = new ElementRef("e2", "Demo::Unit::p", "PortUsage");
+    assertEquals(
+        List.of(
+            new ElementProperties.PropertyValue.Element(port),
+            new ElementProperties.PropertyValue.Text("in"),
+            new ElementProperties.PropertyValue.Bool(true),
+            new ElementProperties.PropertyValue.Integer(7),
+            new ElementProperties.PropertyValue.Real(1.5),
+            new ElementProperties.PropertyValue.Number("123456789012345678901234567890")),
+        inherited.values());
+    assertEquals(List.of(port), inherited.elements());
+    assertEquals(
+        Optional.of(new ElementProperties.PropertyValue.Element(port)), inherited.value());
+    ElementProperties.Property none = read.get("connectorEnd").orElseThrow();
+    assertFalse(none.supported());
+    assertEquals(
+        Optional.of("PartDefinition declares no property connectorEnd"), none.unsupported());
+    assertEquals(Optional.empty(), none.value());
+    assertTrue(read.has("connectorEnd"));
+    assertFalse(read.has("name"));
+    var noValue =
+        org.openmbee.opensysml.proto.GetElementPropertiesResponse.newBuilder()
+            .addProperties(
+                org.openmbee.opensysml.proto.ElementProperty.newBuilder()
+                    .setName("x")
+                    .addValues(org.openmbee.opensysml.proto.ElementPropertyValue.newBuilder()))
+            .build();
+    assertThrows(IllegalArgumentException.class, () -> Protos.elementProperties(noValue));
+  }
+
+  @Test
+  void instancePathsReadEveryRootAndStep() {
+    var response =
+        org.openmbee.opensysml.proto.InstancePathsResponse.newBuilder()
+            .setTruncated(true)
+            .addPaths(
+                org.openmbee.opensysml.proto.InstancePath.newBuilder()
+                    .setRoot(
+                        org.openmbee.opensysml.proto.InstanceRoot.newBuilder()
+                            .setInstanceId(1)
+                            .setSymbolId("D::car"))
+                    .setPath("wheels[2].hub")
+                    .addSteps(
+                        org.openmbee.opensysml.proto.InstancePathStep.newBuilder()
+                            .setFeatureName("wheels")
+                            .setFeatureSymbolId("D::Car::wheels")
+                            .setIndex(2)
+                            .setInstanceId(3))
+                    .addSteps(
+                        org.openmbee.opensysml.proto.InstancePathStep.newBuilder()
+                            .setFeatureName("hub")
+                            .setFeatureSymbolId("D::Wheel::hub")
+                            .setInstanceId(5)))
+            .addPaths(
+                org.openmbee.opensysml.proto.InstancePath.newBuilder()
+                    .setRoot(
+                        org.openmbee.opensysml.proto.InstanceRoot.newBuilder().setInstanceId(5)))
+            .build();
+    InstancePaths paths = Protos.instancePaths(response);
+    assertTrue(paths.truncated());
+    assertEquals(
+        new InstancePaths.Path(
+            1,
+            Optional.of("D::car"),
+            "wheels[2].hub",
+            List.of(
+                new InstancePaths.Step("wheels", "D::Car::wheels", 2, 3),
+                new InstancePaths.Step("hub", "D::Wheel::hub", 0, 5))),
+        paths.paths().get(0));
+    assertEquals(
+        new InstancePaths.Path(5, Optional.empty(), "", List.of()), paths.paths().get(1));
   }
 }

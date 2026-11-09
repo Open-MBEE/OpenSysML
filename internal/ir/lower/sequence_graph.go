@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -208,6 +209,9 @@ func (l *sequenceLowerer) generals(sym *symbols.Symbol) []*symbols.Symbol {
 // sequenceLifeline reports whether a member of the occurrence can hold the events
 // of a lifeline: a part, item, port, occurrence or individual usage.
 func sequenceLifeline(sym *symbols.Symbol) bool {
+	if semantics.IsSubjectUsage(sym) {
+		return sym.Scope != nil
+	}
 	switch sym.Kind {
 	case symbols.SymbolPartUsage, symbols.SymbolItemUsage, symbols.SymbolPortUsage,
 		symbols.SymbolOccurrenceUsage, symbols.SymbolIndividualUsage:
@@ -230,7 +234,7 @@ func (l *sequenceLowerer) lifeline(line *symbols.Symbol) bool {
 			for _, nested := range member.Scope.AllMembers() {
 				switch u, ok := nested.Decl.(*ast.Usage); {
 				case !ok:
-				case nested.Kind == symbols.SymbolActionUsage:
+				case nested.Kind.IsActionUsage():
 					ev.Performs = append(ev.Performs, nested)
 				case resolve.IsAssertion(u):
 					ev.Asserts = append(ev.Asserts, Assert{Node: u, Sym: nested, Scope: member.Scope})
