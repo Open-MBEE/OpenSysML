@@ -16,6 +16,7 @@ procedure for applying it. Run it on the exact head you are about to push, after
 These produce findings on GitHub only when skipped locally. Every one must be clean:
 
 ```bash
+git fetch -q origin develop                                 # a stale origin/develop puts merged work in every diff below
 gofmt -l .                                                  # prints nothing
 go vet ./... && make lint                                   # staticcheck + gosec; dead helpers fail here
 git diff --merge-base origin/develop -- '*.go' \
