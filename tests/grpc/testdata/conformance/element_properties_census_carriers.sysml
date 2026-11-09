@@ -1,6 +1,5 @@
-// Carriers of the metaclasses the census finds in no other fixture: cases, concerns,
-// viewpoints, views, use cases, allocations, flows, renderings, annotations and
-// terminations, so the census settles over the fixtures without reading every example.
+// Carriers of the metaclasses no other fixture reaches (cases, concerns, viewpoints, views, use
+// cases, allocations, flows, renderings, annotations, terminate), so the census settles here.
 package CensusCarriers {
 
     metadata def Tag;

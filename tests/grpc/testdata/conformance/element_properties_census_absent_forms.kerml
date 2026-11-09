@@ -1,6 +1,5 @@
-// The relationships the API element form states as text of their owner — unioning,
-// intersecting, differencing, cross subsetting, type featuring — so the census can see
-// the day the form states them as elements.
+// The relationships the API element form states as owner text (unioning, intersecting,
+// differencing, cross subsetting, type featuring), so the census sees them become elements.
 package CensusAbsentForms {
     classifier Adult;
     classifier Child;

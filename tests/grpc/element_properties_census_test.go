@@ -224,9 +224,8 @@ func TestElementPropertiesServeEveryRuleAndExplainEveryOmission(t *testing.T) {
 	t.Logf("%d served rules and %d omissions witnessed over %d models", len(rules), len(omissions), read)
 }
 
-// elementFormAbsentMetaclasses are the relationship metaclasses the API element form states as
-// text of their owner rather than as elements; element_properties_census_absent_forms.kerml
-// writes each, and the census fails the day the form states one of them as an element.
+// elementFormAbsentMetaclasses are the relationships the API element form states as owner text,
+// not elements; the absent-forms fixture writes each, and the census fails once one is an element.
 var elementFormAbsentMetaclasses = map[string]string{
 	"Unioning":        "a type's `unions` is a text property of the type in the element form",
 	"Intersecting":    "a type's `intersects` is a text property of the type in the element form",
