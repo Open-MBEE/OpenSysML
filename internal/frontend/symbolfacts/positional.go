@@ -89,7 +89,13 @@ func (sc *Context) Lookup(id string) []*symbols.Symbol {
 	if syms := LookupNamed(sc.Index, id); len(syms) > 0 {
 		return syms
 	}
-	if sym, _ := MemberChain(sc.Index, sc.Semantics, id); sym != nil && sc.Semantics.PositionallyNamed(sym) && sc.Semantics.QualifiedNameOf(sym) == id {
+	// The chain is walked in the unquoted spelling the index records, which is
+	// also the one QualifiedNameOf answers, whatever spelling the id uses.
+	name := id
+	if plain, ok := UnquotedName(id); ok {
+		name = plain
+	}
+	if sym, _ := MemberChain(sc.Index, sc.Semantics, name); sym != nil && sc.Semantics.PositionallyNamed(sym) && sc.Semantics.QualifiedNameOf(sym) == name {
 		return []*symbols.Symbol{sym}
 	}
 	if sym := sc.Positional.Symbol(id); sym != nil {

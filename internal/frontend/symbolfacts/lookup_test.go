@@ -108,3 +108,18 @@ package Demo {
 		t.Errorf("MemberChain resolved Demo::Part::run through the package to %q", fqn)
 	}
 }
+
+// A return parameter named by the one its position redefines is looked up under
+// its qualified name in either spelling: the unquoted one Identity answers and
+// the notation's quoted one.
+func TestLookupFindsAPositionallyNamedReturnInEitherSpelling(t *testing.T) {
+	_, sc := modelWithLibrary(t, "package M;")
+	plain := sc.Lookup("BaseFunctions::@::result")
+	if len(plain) != 1 || sc.Identity(plain[0]) != "BaseFunctions::@::result" {
+		t.Fatalf("Lookup(BaseFunctions::@::result) = %v, want the return of @", plain)
+	}
+	quoted := sc.Lookup("BaseFunctions::'@'::result")
+	if len(quoted) != 1 || quoted[0] != plain[0] {
+		t.Fatalf("Lookup(BaseFunctions::'@'::result) = %v, want the same return", quoted)
+	}
+}
