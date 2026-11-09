@@ -25,8 +25,9 @@ import (
 
 // coreGzipBudget bounds the gzipped js build of sysml-core: raised to 6,800,000 on 2026-10-24 when Markdown
 // bodies brought in goldmark (6,302,493 -> 6,601,115 bytes), to 7,300,000 on 2026-10-27 when go1.27.3 linked it at 7,069,278,
-// to 7,400,000 on 2026-11-08 when bare comments entered the library snapshot (7,328,201).
-const coreGzipBudget = 7400000
+// to 7,400,000 on 2026-11-08 when bare comments entered the library snapshot (7,328,201), to 7,410,000 on
+// 2026-11-09 when the shared library-member rule and the effective-name identity entered (7,408,662-7,408,664).
+const coreGzipBudget = 7410000
 
 const cleanCoreModel = `
 package Demo {
