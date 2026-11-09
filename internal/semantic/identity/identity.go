@@ -249,7 +249,7 @@ func newBuilder(model *semantics.Model, res *resolve.Resolver) *builder {
 		idx:    res.Index(),
 		scopes: make(map[*symbols.Symbol]*Scope),
 		known:  make(map[*symbols.Symbol]bool),
-		norm:   newQualifier(res.Index()),
+		norm:   newQualifier(res.Index(), model),
 	}
 }
 
@@ -315,7 +315,7 @@ func fixedSource(lang Language) Source {
 // anonymousMember is the id this implementation mints for sym, an unnamed member
 // of a catalogued library element (AnonymousMemberOf); ok is false for any other symbol.
 func (b *builder) anonymousMember(sym *symbols.Symbol) (AnonymousMember, Language, bool) {
-	if sym.Name != "" {
+	if b.model.QualifiedNameOf(sym) != "" {
 		return AnonymousMember{}, 0, false
 	}
 	lang, ok := LibraryLanguage(b.idx.LibraryTier(sym))
@@ -435,6 +435,9 @@ func (b *builder) qualifiedName(sym *symbols.Symbol) string {
 		if fqn := b.metadataBodyFQN(sym); fqn != "" {
 			return fqn
 		}
+	}
+	if fqn := b.model.QualifiedNameOf(sym); sym.Name == "" && fqn != "" {
+		return fqn
 	}
 	return b.idx.GetFQN(sym)
 }

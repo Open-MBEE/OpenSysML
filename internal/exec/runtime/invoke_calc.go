@@ -300,6 +300,10 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 		shape.ResultDecl = out.Decl
 	} else if inherited := ctx.model.semantics.ResultParameterOf(sym); inherited != nil {
 		shape.ResultDecl = ctx.calcMemberDeclFor(sym, inherited, resultOutputName)
+		if ctx.model.semantics.IsKindBaseParameter(sym, inherited) {
+			// The kind base's result (`Evaluation::result : Anything`) types nothing.
+			shape.ResultDecl.Target.typ = nil
+		}
 	} else {
 		// Nothing to inherit (no library): the effective default is `[0..*]`.
 		shape.ResultDecl = calcMemberDecl{Target: &writeTarget{name: resultOutputName, mult: semantics.UnboundedRange()}, Owner: sym, effective: true}

@@ -1977,7 +1977,12 @@ func (ctx *Context) qualifiedMemberOf(self *Instance, scope *symbols.Scope, expr
 	if !ok || feature == nil || !ctx.model.semantics.Conforms(self.Type, ctx.findOwnerType(feature)) {
 		return Value{}, false, nil
 	}
-	fv, err := self.MemberValue(ctx, feature.Name)
+	// The object holds the feature under its redefiner's name where one redefines it.
+	name := feature.Name
+	if denoted, ok := ctx.denotedFeature(self.Type, feature); ok {
+		name = denoted
+	}
+	fv, err := self.MemberValue(ctx, name)
 	if err != nil {
 		return Value{}, true, err
 	}

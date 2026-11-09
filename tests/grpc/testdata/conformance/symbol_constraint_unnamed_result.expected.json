@@ -1,0 +1,10 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "P::Cons",
+	"expected_kind": "constraintDef",
+	"min_withheld_library_members": 1,
+	"expected_members": [
+		{"id": "P::Cons::x", "kind": "referenceUsage"},
+		{"id": "Performances::BooleanEvaluation::result", "kind": "referenceUsage", "inherited": true, "inherited_from": "Performances::BooleanEvaluation"}
+	]
+}

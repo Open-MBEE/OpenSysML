@@ -251,10 +251,12 @@ func (m *CachedModel) positionalDocuments() []symbolfacts.PositionalDocument {
 	return docs
 }
 
-// LookupSymbol resolves a symbol id in either form the service reports one: a
-// qualified name, or the positional identity of an unnamed declaration.
+// LookupSymbol resolves a symbol id in either form the service reports one, under
+// the symbol context's lock: the member walk memoizes into the shared semantic model.
 func (m *CachedModel) LookupSymbol(id string) []*symbols.Symbol {
-	return m.SymbolContext().Lookup(id)
+	sc := m.SymbolContext()
+	defer sc.Lock()()
+	return sc.Lookup(id)
 }
 
 // LookupNamedMember resolves a symbol id, a member a subtype inherits included

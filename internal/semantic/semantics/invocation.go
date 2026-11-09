@@ -22,7 +22,16 @@ type Argument struct {
 
 // known reports whether the checker knows anything about the argument's type.
 func (a Argument) known() bool {
-	return a.Prim != PrimUnknown || a.Type != nil || a.Empty
+	return a.Prim != PrimUnknown || a.typed() != nil || a.Empty
+}
+
+// typed is the declared type when it says what the value may be: Base::Anything
+// alone says any value, which is nothing.
+func (a Argument) typed() *symbols.Symbol {
+	if a.Type == nil || (IsAnything(a.Type) && len(a.Also) == 0) {
+		return nil
+	}
+	return a.Type
 }
 
 // types lists every type the argument is known to be of, Type first.
@@ -721,7 +730,7 @@ func (m *Model) parameterIndex(scope *symbols.Scope, sig invocationSignature, na
 // alone; loosely a non-literal's type only bounds its values, so either direction fits, but
 // unrelated declared types never bind, except to a Collection or to Element, which every element is.
 func (m *Model) argumentBinds(arg Argument, p signatureParameter, mode bindMode) (bindFit, bool) {
-	if arg.Type != nil && p.typ != nil {
+	if arg.typed() != nil && p.typ != nil {
 		switch {
 		case m.anyConforms(arg.types(), p.typ):
 			return fitExact, true
