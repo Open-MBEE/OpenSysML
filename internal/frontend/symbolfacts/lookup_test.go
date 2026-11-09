@@ -109,9 +109,8 @@ package Demo {
 	}
 }
 
-// A return parameter named by the one its position redefines is looked up under
-// its qualified name in either spelling: the unquoted one Identity answers and
-// the notation's quoted one.
+// A return named by the parameter its position redefines is looked up under its
+// qualified name in either spelling: the unquoted one Identity answers or the quoted one.
 func TestLookupFindsAPositionallyNamedReturnInEitherSpelling(t *testing.T) {
 	_, sc := modelWithLibrary(t, "package M;")
 	plain := sc.Lookup("BaseFunctions::@::result")
