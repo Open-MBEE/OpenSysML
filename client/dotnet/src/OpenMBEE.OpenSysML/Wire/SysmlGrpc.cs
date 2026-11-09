@@ -77,6 +77,10 @@ namespace OpenMBEE.OpenSysML.Wire {
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::OpenMBEE.OpenSysML.Wire.InstantiateResponse> __Marshaller_sysml_InstantiateResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::OpenMBEE.OpenSysML.Wire.InstantiateResponse.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::OpenMBEE.OpenSysML.Wire.InstancePathsRequest> __Marshaller_sysml_InstancePathsRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::OpenMBEE.OpenSysML.Wire.InstancePathsRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::OpenMBEE.OpenSysML.Wire.InstancePathsResponse> __Marshaller_sysml_InstancePathsResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::OpenMBEE.OpenSysML.Wire.InstancePathsResponse.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::OpenMBEE.OpenSysML.Wire.ExecuteActionRequest> __Marshaller_sysml_ExecuteActionRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::OpenMBEE.OpenSysML.Wire.ExecuteActionRequest.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::OpenMBEE.OpenSysML.Wire.ExecuteActionResponse> __Marshaller_sysml_ExecuteActionResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::OpenMBEE.OpenSysML.Wire.ExecuteActionResponse.Parser));
@@ -148,6 +152,10 @@ namespace OpenMBEE.OpenSysML.Wire {
     static readonly grpc::Marshaller<global::OpenMBEE.OpenSysML.Wire.QueryRequest> __Marshaller_sysml_QueryRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::OpenMBEE.OpenSysML.Wire.QueryRequest.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::OpenMBEE.OpenSysML.Wire.QueryResponse> __Marshaller_sysml_QueryResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::OpenMBEE.OpenSysML.Wire.QueryResponse.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::OpenMBEE.OpenSysML.Wire.GetElementPropertiesRequest> __Marshaller_sysml_GetElementPropertiesRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::OpenMBEE.OpenSysML.Wire.GetElementPropertiesRequest.Parser));
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Marshaller<global::OpenMBEE.OpenSysML.Wire.GetElementPropertiesResponse> __Marshaller_sysml_GetElementPropertiesResponse = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::OpenMBEE.OpenSysML.Wire.GetElementPropertiesResponse.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Marshaller<global::OpenMBEE.OpenSysML.Wire.RunDocumentQueryRequest> __Marshaller_sysml_RunDocumentQueryRequest = grpc::Marshallers.Create(__Helper_SerializeMessage, context => __Helper_DeserializeMessage(context, global::OpenMBEE.OpenSysML.Wire.RunDocumentQueryRequest.Parser));
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
@@ -228,6 +236,14 @@ namespace OpenMBEE.OpenSysML.Wire {
         "Instantiate",
         __Marshaller_sysml_InstantiateRequest,
         __Marshaller_sysml_InstantiateResponse);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::OpenMBEE.OpenSysML.Wire.InstancePathsRequest, global::OpenMBEE.OpenSysML.Wire.InstancePathsResponse> __Method_InstancePaths = new grpc::Method<global::OpenMBEE.OpenSysML.Wire.InstancePathsRequest, global::OpenMBEE.OpenSysML.Wire.InstancePathsResponse>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "InstancePaths",
+        __Marshaller_sysml_InstancePathsRequest,
+        __Marshaller_sysml_InstancePathsResponse);
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Method<global::OpenMBEE.OpenSysML.Wire.ExecuteActionRequest, global::OpenMBEE.OpenSysML.Wire.ExecuteActionResponse> __Method_ExecuteAction = new grpc::Method<global::OpenMBEE.OpenSysML.Wire.ExecuteActionRequest, global::OpenMBEE.OpenSysML.Wire.ExecuteActionResponse>(
@@ -372,6 +388,14 @@ namespace OpenMBEE.OpenSysML.Wire {
         "Query",
         __Marshaller_sysml_QueryRequest,
         __Marshaller_sysml_QueryResponse);
+
+    [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+    static readonly grpc::Method<global::OpenMBEE.OpenSysML.Wire.GetElementPropertiesRequest, global::OpenMBEE.OpenSysML.Wire.GetElementPropertiesResponse> __Method_GetElementProperties = new grpc::Method<global::OpenMBEE.OpenSysML.Wire.GetElementPropertiesRequest, global::OpenMBEE.OpenSysML.Wire.GetElementPropertiesResponse>(
+        grpc::MethodType.Unary,
+        __ServiceName,
+        "GetElementProperties",
+        __Marshaller_sysml_GetElementPropertiesRequest,
+        __Marshaller_sysml_GetElementPropertiesResponse);
 
     [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
     static readonly grpc::Method<global::OpenMBEE.OpenSysML.Wire.RunDocumentQueryRequest, global::OpenMBEE.OpenSysML.Wire.RunDocumentQueryResponse> __Method_RunDocumentQuery = new grpc::Method<global::OpenMBEE.OpenSysML.Wire.RunDocumentQueryRequest, global::OpenMBEE.OpenSysML.Wire.RunDocumentQueryResponse>(
@@ -777,6 +801,62 @@ namespace OpenMBEE.OpenSysML.Wire {
       public virtual grpc::AsyncUnaryCall<global::OpenMBEE.OpenSysML.Wire.InstantiateResponse> InstantiateAsync(global::OpenMBEE.OpenSysML.Wire.InstantiateRequest request, grpc::CallOptions options)
       {
         return CallInvoker.AsyncUnaryCall(__Method_Instantiate, null, options, request);
+      }
+      /// <summary>
+      /// List every root-relative usage path that reaches one object the model's
+      /// population holds, aliases through connector ends and references included.
+      /// Reported as the "instance_paths" capability.
+      /// </summary>
+      /// <param name="request">The request to send to the server.</param>
+      /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
+      /// <param name="deadline">An optional deadline for the call. The call will be cancelled if deadline is hit.</param>
+      /// <param name="cancellationToken">An optional token for canceling the call.</param>
+      /// <returns>The response received from the server.</returns>
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::OpenMBEE.OpenSysML.Wire.InstancePathsResponse InstancePaths(global::OpenMBEE.OpenSysML.Wire.InstancePathsRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return InstancePaths(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      /// <summary>
+      /// List every root-relative usage path that reaches one object the model's
+      /// population holds, aliases through connector ends and references included.
+      /// Reported as the "instance_paths" capability.
+      /// </summary>
+      /// <param name="request">The request to send to the server.</param>
+      /// <param name="options">The options for the call.</param>
+      /// <returns>The response received from the server.</returns>
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::OpenMBEE.OpenSysML.Wire.InstancePathsResponse InstancePaths(global::OpenMBEE.OpenSysML.Wire.InstancePathsRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_InstancePaths, null, options, request);
+      }
+      /// <summary>
+      /// List every root-relative usage path that reaches one object the model's
+      /// population holds, aliases through connector ends and references included.
+      /// Reported as the "instance_paths" capability.
+      /// </summary>
+      /// <param name="request">The request to send to the server.</param>
+      /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
+      /// <param name="deadline">An optional deadline for the call. The call will be cancelled if deadline is hit.</param>
+      /// <param name="cancellationToken">An optional token for canceling the call.</param>
+      /// <returns>The call object.</returns>
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::OpenMBEE.OpenSysML.Wire.InstancePathsResponse> InstancePathsAsync(global::OpenMBEE.OpenSysML.Wire.InstancePathsRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return InstancePathsAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      /// <summary>
+      /// List every root-relative usage path that reaches one object the model's
+      /// population holds, aliases through connector ends and references included.
+      /// Reported as the "instance_paths" capability.
+      /// </summary>
+      /// <param name="request">The request to send to the server.</param>
+      /// <param name="options">The options for the call.</param>
+      /// <returns>The call object.</returns>
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::OpenMBEE.OpenSysML.Wire.InstancePathsResponse> InstancePathsAsync(global::OpenMBEE.OpenSysML.Wire.InstancePathsRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_InstancePaths, null, options, request);
       }
       [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
       public virtual global::OpenMBEE.OpenSysML.Wire.ExecuteActionResponse ExecuteAction(global::OpenMBEE.OpenSysML.Wire.ExecuteActionRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
@@ -1645,6 +1725,70 @@ namespace OpenMBEE.OpenSysML.Wire {
       public virtual grpc::AsyncUnaryCall<global::OpenMBEE.OpenSysML.Wire.QueryResponse> QueryAsync(global::OpenMBEE.OpenSysML.Wire.QueryRequest request, grpc::CallOptions options)
       {
         return CallInvoker.AsyncUnaryCall(__Method_Query, null, options, request);
+      }
+      /// <summary>
+      /// Read the metamodel properties of one element by their specification
+      /// names (KerML 1.1 and SysML 2.1 abstract syntax: inheritedFeature,
+      /// connectorEnd, directedFeature, payloadType, ...), as the model's API
+      /// element form (Convert to api-json) spells them, without converting the
+      /// whole model. Reported as the "element_properties" capability.
+      /// </summary>
+      /// <param name="request">The request to send to the server.</param>
+      /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
+      /// <param name="deadline">An optional deadline for the call. The call will be cancelled if deadline is hit.</param>
+      /// <param name="cancellationToken">An optional token for canceling the call.</param>
+      /// <returns>The response received from the server.</returns>
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::OpenMBEE.OpenSysML.Wire.GetElementPropertiesResponse GetElementProperties(global::OpenMBEE.OpenSysML.Wire.GetElementPropertiesRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return GetElementProperties(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      /// <summary>
+      /// Read the metamodel properties of one element by their specification
+      /// names (KerML 1.1 and SysML 2.1 abstract syntax: inheritedFeature,
+      /// connectorEnd, directedFeature, payloadType, ...), as the model's API
+      /// element form (Convert to api-json) spells them, without converting the
+      /// whole model. Reported as the "element_properties" capability.
+      /// </summary>
+      /// <param name="request">The request to send to the server.</param>
+      /// <param name="options">The options for the call.</param>
+      /// <returns>The response received from the server.</returns>
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual global::OpenMBEE.OpenSysML.Wire.GetElementPropertiesResponse GetElementProperties(global::OpenMBEE.OpenSysML.Wire.GetElementPropertiesRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.BlockingUnaryCall(__Method_GetElementProperties, null, options, request);
+      }
+      /// <summary>
+      /// Read the metamodel properties of one element by their specification
+      /// names (KerML 1.1 and SysML 2.1 abstract syntax: inheritedFeature,
+      /// connectorEnd, directedFeature, payloadType, ...), as the model's API
+      /// element form (Convert to api-json) spells them, without converting the
+      /// whole model. Reported as the "element_properties" capability.
+      /// </summary>
+      /// <param name="request">The request to send to the server.</param>
+      /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
+      /// <param name="deadline">An optional deadline for the call. The call will be cancelled if deadline is hit.</param>
+      /// <param name="cancellationToken">An optional token for canceling the call.</param>
+      /// <returns>The call object.</returns>
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::OpenMBEE.OpenSysML.Wire.GetElementPropertiesResponse> GetElementPropertiesAsync(global::OpenMBEE.OpenSysML.Wire.GetElementPropertiesRequest request, grpc::Metadata headers = null, global::System.DateTime? deadline = null, global::System.Threading.CancellationToken cancellationToken = default(global::System.Threading.CancellationToken))
+      {
+        return GetElementPropertiesAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
+      }
+      /// <summary>
+      /// Read the metamodel properties of one element by their specification
+      /// names (KerML 1.1 and SysML 2.1 abstract syntax: inheritedFeature,
+      /// connectorEnd, directedFeature, payloadType, ...), as the model's API
+      /// element form (Convert to api-json) spells them, without converting the
+      /// whole model. Reported as the "element_properties" capability.
+      /// </summary>
+      /// <param name="request">The request to send to the server.</param>
+      /// <param name="options">The options for the call.</param>
+      /// <returns>The call object.</returns>
+      [global::System.CodeDom.Compiler.GeneratedCode("grpc_csharp_plugin", null)]
+      public virtual grpc::AsyncUnaryCall<global::OpenMBEE.OpenSysML.Wire.GetElementPropertiesResponse> GetElementPropertiesAsync(global::OpenMBEE.OpenSysML.Wire.GetElementPropertiesRequest request, grpc::CallOptions options)
+      {
+        return CallInvoker.AsyncUnaryCall(__Method_GetElementProperties, null, options, request);
       }
       /// <summary>
       /// Run a named document query with parameter bindings, the answer the REPL's
