@@ -929,6 +929,10 @@ rebuilt from the graph — the note that was written above it put back from its
 `sysx:Note` node, see [Notes](#notes) — and every other line is kept, the blank
 line after it included, since that belongs to `Vehicle`. Rebuilt lines end the way most of the elements' text does, CRLF or
 LF; an expression's text lies inside its element's and is not counted again.
+The notes are compared by their text: a `sysx:Note` whose text the element's
+text holds in order agrees with it, whatever its `sysx:noteToken` or
+`sysx:noteOwnLine` say, so a position edited alone takes effect once the element
+is rebuilt for another reason or its text is set aside.
 Text that no longer parses, or whose disagreement cannot be placed on one
 element, demotes every element to canonical notation rather than writing an
 invalid or contradictory file; one that lands on notation already rebuilt is
