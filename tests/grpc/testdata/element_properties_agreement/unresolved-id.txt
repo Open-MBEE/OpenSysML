@@ -21,7 +21,7 @@ ForkNode::@id	2	export-49
 LiteralBoolean::@id	1	export-46
 LiteralInteger::@id	2	export-49
 Membership::@id	76	export-53
-Multiplicity::@id	4	export-51
+Multiplicity::@id	4	symbol-55
 Namespace::@id	1	export-39
 OperatorExpression::@id	9	export-42
 OwningMembership::@id	17	export-50

@@ -549,7 +549,7 @@ ReferenceUsage::isVariable	229	export-33
 ReferenceUsage::mayTimeVary	590	export-33
 ReferenceUsage::member	162	symbol-51
 ReferenceUsage::membership	165	symbol-51
-ReferenceUsage::multiplicity	4	export-57
+ReferenceUsage::multiplicity	4	symbol-55
 ReferenceUsage::name	3	export-56
 ReferenceUsage::nestedUsage	1	symbol-53
 ReferenceUsage::ownedElement	15	symbol-02

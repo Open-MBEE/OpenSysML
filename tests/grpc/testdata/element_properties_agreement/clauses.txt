@@ -53,7 +53,6 @@ export-47	export	the form writes an element of this metaclass the structure has 
 export-48	export	the form writes an element of this metaclass the structure has no symbol for (_ss0); the structure does not resolve its id
 export-49	export	the form writes an element of this metaclass the structure has no symbol for (id); the structure does not resolve its id
 export-50	export	the form writes the OwningMembership of an element the structure has no symbol for (_om); the structure does not resolve its id
-export-51	export	the form writes the multiplicity of a connector end (KerML 8.3.4.11 Multiplicity; 8.3.3.3.5 Feature::multiplicity) (_pmultiplicity); the structure does not resolve its id
 export-52	export	the form writes the parameter of a filter condition (KerML 8.3.4.8.2 Expression::parameter) (_pin0); the structure does not resolve its id
 export-53	export	the form writes the referent Membership of a feature reference expression in a feature value (KerML 8.3.4.8.5 FeatureReferenceExpression::referent) (_preferent); the structure does not resolve its id
 export-54	export	the form writes the result parameter of a filter condition (SysML 8.3.11.x ElementFilterMembership; KerML 8.3.4.8.2 Expression::result) (_pout); the structure does not resolve its id
@@ -115,3 +114,4 @@ symbol-51	symbol	inherited and implied memberships the export omits (KerML 8.3.2
 symbol-52	symbol	the collection includes the implied and inherited members the structure reflects and the export omits (KerML 8.3.3.1.10 Type derived collections)
 symbol-53	symbol	the implied members (parameters, ends, multiplicities) the structure reflects and the export omits (SysML 8.3.16.15 checkTransitionUsageParameters, KerML 8.3.3.1.10 Type::directedFeature)
 symbol-54	symbol	the implied members and library definitions the structure reflects and the export omits (KerML 8.3.3.3.5 Feature::type incl. implied typing; SysML 8.3.16.15 implied parameters)
+symbol-55	symbol	SysML v2 §7.6.3 (implicit [1..1] of attribute, enumeration, item, part, port, view and rendering usages; UsageParserPostProcessor): a ReferenceUsage states no implied Multiplicity, and the form writes none for any other ReferenceUsage; a trigger's declared payload parameter (SysML.xtext PayloadParameter) gets one because the form reads the rule for the recorded item usage, not the ReferenceUsage it writes (exporter follow-up)
