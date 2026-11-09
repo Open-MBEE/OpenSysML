@@ -137,6 +137,8 @@ elmt:Documented___402
     sysml:owningMembership elmt:Documented___402_om ;
     sysml:annotatedElement elmt:Documented__Wheel ;
     sysml:body "a note on wheels " ;
+    sysml:ownedAnnotatingRelationship elmt:Documented___402_an0 ;
+    sysml:ownedRelationship elmt:Documented___402_an0 ;
     sysx:sourceText "    comment about Wheel /* a note on wheels */\n" .
 
 elmt:Documented___402_om
@@ -185,6 +187,19 @@ elmt:Documented__asJava_om
     sysml:relatedElement elmt:Documented, elmt:Documented__asJava ;
     sysml:memberName "asJava" ;
     json:relatedElement "[{\"@id\":\"Documented\"},{\"@id\":\"Documented__asJava\"}]" .
+
+elmt:Documented___402_an0
+    a sysml:Annotation ;
+    sysml:elementId "Documented___402_an0" ;
+    sysml:annotatingElement elmt:Documented___402 ;
+    sysml:owningAnnotatingElement elmt:Documented___402 ;
+    sysml:source elmt:Documented___402 ;
+    sysml:owningRelatedElement elmt:Documented___402 ;
+    sysml:annotatedElement elmt:Documented__Wheel ;
+    sysml:target elmt:Documented__Wheel ;
+    sysml:owner elmt:Documented___402 ;
+    sysml:relatedElement elmt:Documented___402, elmt:Documented__Wheel ;
+    json:relatedElement "[{\"@id\":\"Documented___402\"},{\"@id\":\"Documented__Wheel\"}]" .
 
 elmt:f9e920cc-2ec4-56b3-9920-8e5dbbc50a5a
     a sysml:Feature ;
@@ -1280,6 +1295,18 @@ elmt:c91ad911-9e73-52fe-b252-f5baeb6064ee
     a sysml:FeatureMembership ;
     sysml:elementId "c91ad911-9e73-52fe-b252-f5baeb6064ee" ;
     sysml:memberElement elmt:faf13619-5fb6-5a19-871e-e14767f89a28 ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:db0b2590-1035-512c-b067-686a67c7d430
+    a sysml:Comment ;
+    sysml:elementId "db0b2590-1035-512c-b067-686a67c7d430" ;
+    sysx:libraryPath "Occurrences::Occurrence/Comment[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:cd6c9495-be14-578e-9065-28c9dbe6b52c
+    a sysml:OwningMembership ;
+    sysml:elementId "cd6c9495-be14-578e-9065-28c9dbe6b52c" ;
+    sysml:memberElement elmt:db0b2590-1035-512c-b067-686a67c7d430 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:d0cefcb9-9a11-5ac1-a47b-3f70c117bd08

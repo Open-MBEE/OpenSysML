@@ -300,7 +300,7 @@ elmt:Conjugation__Ground__spacePort
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:conjugatedTyping "true"^^xsd:boolean ;
-    sysml:type elmt:Conjugation__CommunicationPort ;
+    sysml:type elmt:Conjugation__CommunicationPort_conjugated ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:multiplicity expr:Conjugation__Ground__spacePort_pmultiplicity ;
     sysml:ownedRelationship elmt:Conjugation__Ground__spacePort_ft0, expr:Conjugation__Ground__spacePort_pmultiplicity_om ;
@@ -482,7 +482,7 @@ elmt:Conjugation__Link__b
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:conjugatedTyping "true"^^xsd:boolean ;
-    sysml:type elmt:Conjugation__CommunicationPort ;
+    sysml:type elmt:Conjugation__CommunicationPort_conjugated ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:multiplicity expr:Conjugation__Link__b_pmultiplicity ;
     sysml:ownedRelationship elmt:Conjugation__Link__b_ft0, expr:Conjugation__Link__b_pmultiplicity_om ;
@@ -2025,6 +2025,18 @@ elmt:c997ad00-60d6-590a-a92c-650dd6f917a1
     a sysml:OwningMembership ;
     sysml:elementId "c997ad00-60d6-590a-a92c-650dd6f917a1" ;
     sysml:memberElement <urn:sysmlv2:element:24f984dc-78af-5ede-bc7a-4a641dccff28> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:db0b2590-1035-512c-b067-686a67c7d430
+    a sysml:Comment ;
+    sysml:elementId "db0b2590-1035-512c-b067-686a67c7d430" ;
+    sysx:libraryPath "Occurrences::Occurrence/Comment[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:cd6c9495-be14-578e-9065-28c9dbe6b52c
+    a sysml:OwningMembership ;
+    sysml:elementId "cd6c9495-be14-578e-9065-28c9dbe6b52c" ;
+    sysml:memberElement elmt:db0b2590-1035-512c-b067-686a67c7d430 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:d0cefcb9-9a11-5ac1-a47b-3f70c117bd08

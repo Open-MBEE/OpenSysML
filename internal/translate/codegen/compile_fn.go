@@ -270,7 +270,10 @@ func (fc *funcCompiler) functionValueOf(sym *symbols.Symbol, where string) (func
 		switch owner.Kind {
 		case symbols.SymbolPackage, symbols.SymbolNamespace:
 			continue
-		case symbols.SymbolCalcDef, symbols.SymbolCalcUsage, symbols.SymbolActionDef, symbols.SymbolActionUsage:
+		case symbols.SymbolCalcDef, symbols.SymbolCalcUsage, symbols.SymbolActionDef,
+			symbols.SymbolAcceptActionUsage, symbols.SymbolAssignmentActionUsage, symbols.SymbolPerformActionUsage,
+			symbols.SymbolIfActionUsage, symbols.SymbolWhileLoopActionUsage, symbols.SymbolForLoopActionUsage,
+			symbols.SymbolTerminateActionUsage, symbols.SymbolSendActionUsage, symbols.SymbolActionUsage:
 			if owner == sym.Owner() {
 				return fc.closureValue(sym)
 			}

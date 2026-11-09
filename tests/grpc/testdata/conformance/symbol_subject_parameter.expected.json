@@ -1,0 +1,6 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "P::Req::s",
+	"expected_kind": "referenceUsage",
+	"expected_metadata": {"direction": "in", "type": "Thing"}
+}

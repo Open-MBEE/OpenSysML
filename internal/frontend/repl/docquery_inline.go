@@ -72,7 +72,7 @@ func (s *Session) runInlineQuery(text string) ([]string, []NamedValue, *VerdictT
 	if err != nil {
 		return nil, nil, nil, inlineQueryError(queryexec.LocateInline(inline, err))
 	}
-	lines, values, table := renderRows(inlineQueryHeading, result, context.ElementID)
+	lines, values, table := renderRows(inlineQueryHeading, result, inline.Index, context.ElementID)
 	return lines, values, table, nil
 }
 

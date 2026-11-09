@@ -2040,19 +2040,36 @@ enum EditFailure {
 }
 
 // SymbolInfo represents any SysML element
+// SymbolInfo is the symbol table's summary of an element. Several fields
+// restate metamodel properties that GetElementProperties derives in full; each
+// such field names the property it summarises, and element_properties is the
+// surface whose answer the specification defines.
 message SymbolInfo {
   string id = 1;             // Unique identifier (fully qualified name)
   string name = 2;
-  string kind = 3;           // "PartDefinition", "AttributeUsage", etc
-  map<string, string> metadata = 4;  // multiplicity, type, etc
+  // Declaration keyword kind ("partDef", "attributeUsage", "actionUsage", ...):
+  // the written syntax, not the element's metaclass. GetElementProperties
+  // reports the metaclass and every property that classifies the element.
+  string kind = 3;
+  // Summary entries: "type" and "specializes" (the first written edge of each,
+  // kept for compatibility; `specializations` has them all), "multiplicity",
+  // "direction" (the direction written on the feature; the derived
+  // Feature::direction is GetElementProperties' `direction`), "abstract",
+  // "variation", "variant" and the like.
+  map<string, string> metadata = 4;
   repeated string child_ids = 5;     // References to children
   repeated AttributeInfo attributes = 6;
-  // Static type facts; unset when the element is not a def/usage.
+  // Static type facts; unset when the element is not a def/usage. `declared`
+  // is the written typing and `types` the derived Feature::type, the `type`
+  // property of GetElementProperties.
   TypeInfo type_info = 7;
   // Declared multiplicity; unset when none is declared.
   MultiplicityInfo multiplicity = 8;
-  // Every generalization edge declared, in declaration order. metadata["type"]
-  // and metadata["specializes"] report only the first, kept for compatibility.
+  // Every generalization edge declared, in declaration order: the written
+  // relationships Type::ownedSpecialization of GetElementProperties reflects
+  // (typing, subsetting, reference subsetting, redefinition, specialization),
+  // but not the implied ones the metamodel adds. metadata["type"] and
+  // metadata["specializes"] report only the first, kept for compatibility.
   repeated Specialization specializations = 9;
   // Attributes inherited from standard-library content, which `attributes`
   // leaves out. Their absence is stated here rather than silent.
@@ -2088,7 +2105,8 @@ message MemberInfo {
 
 // Specialization is one generalization edge an element declares.
 message Specialization {
-  // Relationship kind: "specializes", "subsets", "redefines" or "typing".
+  // Relationship kind: "specializes", "subsets", "redefines", "typing" or
+  // "references" (reference subsetting, `::>` and `include`).
   string kind = 1;
   // The target as written in the source ("Engine", "Demo::Engine").
   string declared = 2;
@@ -2100,12 +2118,17 @@ message Specialization {
 
 // TypeInfo is the static type of a usage, or the classification of a
 // definition, as far as the service derives it without running the model.
+// TypeInfo summarises an element's typing. `declared`, `resolved_id` and
+// `resolved_kind` are the typing the declaration writes (`: T`); `types` is
+// the feature's semantic type as the metamodel derives it, the `type` property
+// of GetElementProperties (KerML Feature::type), which the typing of every
+// feature it subsets, references or redefines contributes to.
 message TypeInfo {
   // Type name as written; empty when none is declared.
   string declared = 1;
-  // FQN of the resolved type; empty when unresolved or undeclared.
+  // FQN of the resolved written type; empty when unresolved or undeclared.
   string resolved_id = 2;
-  // Symbol kind of the resolved type ("partDef", "attributeDef", ...).
+  // Symbol kind of the resolved written type ("partDef", "attributeDef", ...).
   string resolved_kind = 3;
   // Library scalar the type reduces to ("Boolean", "Integer", "Real", ...);
   // empty when it is not a scalar value type.
@@ -2117,6 +2140,18 @@ message TypeInfo {
   bool quantity = 6;
   // Unit as written when the default value names one ("m/s"), else empty.
   string unit = 7;
+  // The feature's derived types (Feature::type), most specific first, with the
+  // redundant supertypes removed: `part pBoth : V :> q` with `q : T` reports V
+  // and T. Empty when the element is not a feature or none derives.
+  repeated TypeRef types = 8;
+}
+
+// TypeRef names one derived type of a feature.
+message TypeRef {
+  // FQN of the type.
+  string id = 1;
+  // Symbol kind of the type ("partDef", "attributeDef", ...).
+  string kind = 2;
 }
 
 // MultiplicityInfo is a declared multiplicity range. A bound the service cannot
@@ -2190,7 +2225,8 @@ message Rational {
 // exactly when element_id is, whatever type each was cast to. Its features
 // (`declaredName`, `ownedFeature`, ...) are read in the model, not carried.
 message Metaobject {
-  // FQN of the element reflected on ("Vehicle::seatBelt"). Its identity.
+  // The id a client keeps for the element: its FQN ("Vehicle::seatBelt"), an unnamed member's
+  // positional id ("Vehicle::@2") or a synthesized element's form @id ("Vehicle__send___400_pvalue").
   string element_id = 1;
   // FQN of the element's own reflective metaclass ("SysML::Systems::PartUsage"),
   // the most specific metaclass of the KerML or SysML library classifying it;

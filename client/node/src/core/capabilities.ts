@@ -15,6 +15,8 @@ export const CAPABILITY_SYMBOL_MEMBERS = "symbol_members";
 export const CAPABILITY_ELEMENT_PROPERTIES = "element_properties";
 /** `RunDocumentQueryRequest.inline_query`: a query expression run in place of a named query. */
 export const CAPABILITY_INLINE_DOCUMENT_QUERY = "inline_document_query";
+/** The `InstancePaths` RPC, and `Instance.reached_by` on every instantiated object. */
+export const CAPABILITY_INSTANCE_PATHS = "instance_paths";
 /** Evaluating an expression against an instantiated subject. */
 export const CAPABILITY_EVALUATE_SUBJECT = "evaluate_subject";
 /** An object's values as `Instance.feature_values`. */

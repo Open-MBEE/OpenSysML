@@ -39,8 +39,9 @@ func (e *Evaluator) structureRedefinitionTargets(feature Element) ([]Element, bo
 	return out, true
 }
 
-// structureBehaviorGenerals returns the behaviors and steps owner specializes by its
-// stated generalizations; the kind's implied base owns no parameters and is left out.
+// structureBehaviorGenerals returns the behaviors and steps owner specializes, its
+// kind's implied base definition included; the base feature a kind implies owns no
+// parameters (those of its type are reached through the base definition) and is left out.
 func (e *Evaluator) structureBehaviorGenerals(owner Element) ([]Element, bool) {
 	supertypes, ok := e.structureOwnedSupertypes(owner)
 	if !ok {
@@ -53,7 +54,9 @@ func (e *Evaluator) structureBehaviorGenerals(owner Element) ([]Element, bool) {
 	implied := make(map[ElementKey]bool)
 	for _, fqn := range impliedBases {
 		for _, symbol := range e.resolver.Index().LookupQualified(fqn) {
-			implied[ElementOf(symbol).Key()] = true
+			if symbol.IsFeature() {
+				implied[ElementOf(symbol).Key()] = true
+			}
 		}
 	}
 	var generals []Element
@@ -77,7 +80,7 @@ func (e *Evaluator) structureBehaviorGenerals(owner Element) ([]Element, bool) {
 }
 
 // structureParameterTable mirrors the semantic parameter table: owner's own positional
-// parameters, then what a lone general leaves unclaimed by clause or position, and the result.
+// parameters, then what each general leaves unclaimed by clause or position, and the result.
 func (e *Evaluator) structureParameterTable(owner Element, visiting map[ElementKey]bool) ([]structureParameter, *structureParameter, bool) {
 	if symbol := e.structureElementSymbol(owner); symbol != nil && !e.structureKnows(owner) {
 		var positional []structureParameter
@@ -134,50 +137,93 @@ func (e *Evaluator) structureParameterTable(owner Element, visiting map[ElementK
 	if !ok {
 		return nil, nil, false
 	}
-	if len(generals) != 1 {
-		return positional, result, true
-	}
-	inherited, inheritedResult, ok := e.structureParameterTable(generals[0], visiting)
-	if !ok {
-		return nil, nil, false
-	}
-	claimed := make(map[ElementKey]bool)
-	for i, p := range positional {
-		explicit, ok := e.structureRedefinitionTargets(p.element)
+	declared := positional
+	for _, general := range generals {
+		inherited, inheritedResult, ok := e.structureParameterTable(general, visiting)
 		if !ok {
 			return nil, nil, false
 		}
-		if len(explicit) > 0 {
+		claimed := make(map[ElementKey]bool)
+		for i, p := range declared {
+			explicit, ok := e.structureRedefinitionTargets(p.element)
+			if !ok {
+				return nil, nil, false
+			}
+			if len(explicit) > 0 {
+				for _, target := range explicit {
+					claimed[target.Key()] = true
+				}
+				continue
+			}
+			if i < len(inherited) && inherited[i].direction == p.direction {
+				claimed[inherited[i].element.Key()] = true
+			}
+		}
+		if result != nil {
+			explicit, ok := e.structureRedefinitionTargets(result.element)
+			if !ok {
+				return nil, nil, false
+			}
 			for _, target := range explicit {
 				claimed[target.Key()] = true
 			}
-			continue
+			if inheritedResult != nil {
+				claimed[inheritedResult.element.Key()] = true
+			}
 		}
-		if i < len(inherited) && inherited[i].direction == p.direction {
-			claimed[inherited[i].element.Key()] = true
+		for _, p := range inherited {
+			if claimed[p.element.Key()] {
+				continue
+			}
+			listed, ok := e.structureListsParameter(positional[len(declared):], p.element)
+			if !ok {
+				return nil, nil, false
+			}
+			if !listed {
+				positional = append(positional, p)
+			}
 		}
-	}
-	if result != nil {
-		explicit, ok := e.structureRedefinitionTargets(result.element)
-		if !ok {
-			return nil, nil, false
+		if result == nil && inheritedResult != nil && !claimed[inheritedResult.element.Key()] {
+			result = inheritedResult
 		}
-		for _, target := range explicit {
-			claimed[target.Key()] = true
-		}
-		if inheritedResult != nil {
-			claimed[inheritedResult.element.Key()] = true
-		}
-	}
-	for _, p := range inherited {
-		if !claimed[p.element.Key()] {
-			positional = append(positional, p)
-		}
-	}
-	if result == nil && inheritedResult != nil && !claimed[inheritedResult.element.Key()] {
-		result = inheritedResult
 	}
 	return positional, result, true
+}
+
+// structureListsParameter reports whether the parameters inherited so far carry feature, as
+// itself or as one redefining it, directly or transitively; the owned ones claim by position.
+func (e *Evaluator) structureListsParameter(inherited []structureParameter, feature Element) (bool, bool) {
+	visited := make(map[ElementKey]bool)
+	var redefines func(Element) (bool, bool)
+	redefines = func(p Element) (bool, bool) {
+		if p.Key() == feature.Key() {
+			return true, true
+		}
+		if visited[p.Key()] {
+			return false, true
+		}
+		visited[p.Key()] = true
+		targets, ok := e.structureRedefinitionTargets(p)
+		if !ok {
+			return false, false
+		}
+		implicit, ok := e.structureImplicitParameterRedefinitions(p, false)
+		if !ok {
+			return false, false
+		}
+		for _, target := range append(targets, implicit...) {
+			if found, ok := redefines(target); !ok || found {
+				return found, ok
+			}
+		}
+		return false, true
+	}
+	for _, p := range inherited {
+		if found, ok := redefines(p.element); !ok || found {
+			return found, ok
+		}
+	}
+	return false, true
 }
 
 // structureImplicitParameterRedefinitions is the parameter at feature's position (or the result)
@@ -185,6 +231,12 @@ func (e *Evaluator) structureParameterTable(owner Element, visiting map[ElementK
 func (e *Evaluator) structureImplicitParameterRedefinitions(feature Element, matchDirection bool) ([]Element, bool) {
 	if e.model == nil {
 		return nil, true
+	}
+	if symbol := e.structureElementSymbol(feature); symbol != nil && !e.structureKnows(feature) {
+		if matchDirection {
+			return elementsOf(e.model.ImplicitParameterRedefinitions(symbol)), true
+		}
+		return elementsOf(e.model.MaskedParameterRedefinitions(symbol)), true
 	}
 	owner, handled, ok := e.structureOwningType(feature)
 	if !handled || !ok {

@@ -1274,7 +1274,7 @@ func (s *Service) Evaluate(ctx context.Context, req *pb.EvaluateRequest) (*pb.Ev
 	}
 
 	return &pb.EvaluateResponse{
-		Result: s.valueToProto(runtimeCtx, result, cached.Index),
+		Result: s.valueToProto(runtimeCtx, result, cached),
 	}, nil
 }
 
@@ -1321,7 +1321,7 @@ func (s *Service) Instantiate(ctx context.Context, req *pb.InstantiateRequest) (
 	// part of the creation: past the held-objects bound, none of them stays.
 	var graph protoconv.InstanceGraph
 	inst, err := runtimeCtx.InstantiateRead(sym, func(inst *runtime.Instance) error {
-		graph = s.instanceGraphToProto(runtimeCtx, inst, cached.Index)
+		graph = s.instanceGraphToProto(runtimeCtx, inst, cached)
 		for _, err := range graph.Errors {
 			if errors.Is(err, runtime.ErrInstanceLimitExceeded) {
 				return err
@@ -1412,7 +1412,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 			if err := s.requireValueCapabilities(pv); err != nil {
 				return nil, nil, err
 			}
-			val, cerr := protoconv.ProtoToRuntimeValue(ctx, pv, cached.Index, ctx.Semantics())
+			val, cerr := protoconv.ProtoToRuntimeValueWith(ctx, pv, cached.Index, ctx.Semantics(), cached.SymbolContext())
 			if cerr != nil {
 				return nil, &pb.ExecuteActionResponse{
 					Error: fmt.Sprintf("input %q could not be read: %v", name, cerr),
@@ -1461,12 +1461,12 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	}
 	self, err := s.performer(cached, runtimeCtx, req.PerformerSymbolId)
 	if err != nil {
-		trace, dropped := s.traceToProto(runtimeCtx, cached.Index, traceRecorder)
+		trace, dropped := s.traceToProto(runtimeCtx, cached, traceRecorder)
 		return &pb.ExecuteActionResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped}, nil
 	}
 	events, err := eventMessages(cached, runtimeCtx, action, req.Events, self)
 	if err != nil {
-		trace, dropped := s.traceToProto(runtimeCtx, cached.Index, traceRecorder)
+		trace, dropped := s.traceToProto(runtimeCtx, cached, traceRecorder)
 		return &pb.ExecuteActionResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped}, nil
 	}
 
@@ -1480,7 +1480,7 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	// The choices the run made are reported with its outcome, failed or not: a
 	// failure may hang on the order taken.
 	diags := s.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(runtimeCtx.Notes(), cached))
-	trace, dropped := s.traceToProto(runtimeCtx, cached.Index, traceRecorder)
+	trace, dropped := s.traceToProto(runtimeCtx, cached, traceRecorder)
 	if err != nil {
 		return &pb.ExecuteActionResponse{
 			Error:        fmt.Sprintf("action execution failed: %v", err),
@@ -1492,10 +1492,10 @@ func (s *Service) ExecuteAction(ctx context.Context, req *pb.ExecuteActionReques
 	}
 
 	return &pb.ExecuteActionResponse{
-		Outputs:             s.valuesToProto(runtimeCtx, ran.outputs, cached.Index),
+		Outputs:             s.valuesToProto(runtimeCtx, ran.outputs, cached),
 		Diagnostics:         diags,
 		FinalTime:           s.finalTime(runtimeCtx),
-		PerformerAttributes: s.valuesToProto(runtimeCtx, ran.performer, cached.Index),
+		PerformerAttributes: s.valuesToProto(runtimeCtx, ran.performer, cached),
 		OrderDependent:      s.orderDependent(runtimeCtx, ran.outputs),
 		Trace:               trace,
 		TraceDropped:        dropped,
@@ -1628,7 +1628,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	}
 	self, err := s.performer(cached, runtimeCtx, req.PerformerSymbolId)
 	if err != nil {
-		trace, dropped := s.traceToProto(runtimeCtx, cached.Index, traceRecorder)
+		trace, dropped := s.traceToProto(runtimeCtx, cached, traceRecorder)
 		return &pb.ExecuteStateResponse{Error: err.Error(), Trace: trace, TraceDropped: dropped}, nil
 	}
 
@@ -1643,7 +1643,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	}
 	finalContext, statesVisited := ran.final, ran.visited
 	diags := s.filterDiagnosticCapabilities(RunNoteDiagnosticsToProto(runtimeCtx.Notes(), cached))
-	trace, dropped := s.traceToProto(runtimeCtx, cached.Index, traceRecorder)
+	trace, dropped := s.traceToProto(runtimeCtx, cached, traceRecorder)
 	if err != nil {
 		return &pb.ExecuteStateResponse{
 			Error:        fmt.Sprintf("state machine execution failed: %v", err),
@@ -1657,7 +1657,7 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	// Convert final context to protobuf
 	pbContext := make(map[string]*pb.Value)
 	for name, val := range finalContext {
-		pbContext[name] = s.valueToProto(runtimeCtx, val, cached.Index)
+		pbContext[name] = s.valueToProto(runtimeCtx, val, cached)
 	}
 
 	return &pb.ExecuteStateResponse{
@@ -1671,16 +1671,16 @@ func (s *Service) ExecuteState(ctx context.Context, req *pb.ExecuteStateRequest)
 	}, nil
 }
 
-func (s *Service) traceToProto(rt *runtime.Context, idx *symbols.Index, recorder *runtime.TraceRecorder) ([]*pb.DocumentEvent, int32) {
+func (s *Service) traceToProto(rt *runtime.Context, cached *CachedModel, recorder *runtime.TraceRecorder) ([]*pb.DocumentEvent, int32) {
 	if recorder == nil {
 		return nil, 0
 	}
 	events := queryexec.EventsFromTrace(rt, recorder.Records())
 	trace := make([]*pb.DocumentEvent, len(events))
 	for i, event := range events {
-		trace[i] = documentEvent(idx, event)
+		trace[i] = documentEvent(cached.Index, event)
 		if _, value, ok := event.Assigned(); ok {
-			trace[i].Value = s.valueToProto(rt, value, idx)
+			trace[i].Value = s.valueToProto(rt, value, cached)
 		}
 	}
 	dropped, _ := recorder.Dropped()

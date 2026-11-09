@@ -388,7 +388,7 @@ func TestMetadataAnnotatedElementOnRequirementMembers(t *testing.T) {
 
 	bad := findingsWithCode(metadataDiagsNamed(t, "<t>.sysml", fmt.Sprintf(body, "OnDef")), "metadata-annotated-element")
 	want := []string{
-		msgCannotAnnotate + "PartUsage",
+		msgCannotAnnotate + "ReferenceUsage",
 		msgCannotAnnotate + "ConstraintUsage",
 		msgCannotAnnotate + "ConstraintUsage",
 		msgCannotAnnotate + "PartUsage",

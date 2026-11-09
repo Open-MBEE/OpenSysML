@@ -40,6 +40,7 @@ import {
   CAPABILITY_EXPORT_GRAPHS,
   CAPABILITY_IMPORT_DATA,
   CAPABILITY_COMPARE_RESULTS,
+  CAPABILITY_INSTANCE_PATHS,
   CAPABILITY_SCHEDULE,
   CAPABILITY_SCHEDULE_EXPLORE,
   CAPABILITY_STRICT_CONFORMANCE,
@@ -58,6 +59,7 @@ import {
 import {
   ClosedConnectionError,
   ConversionError,
+  EvaluationError,
   SymbolNotFoundError,
   ExecutionError,
   InvalidRequestError,
@@ -76,6 +78,7 @@ import {
   ParseSourcesRequestSchema,
   QueryRequestSchema,
   GetElementPropertiesRequestSchema,
+  InstancePathsRequestSchema,
   RenderDocumentRequestSchema,
   RenderViewRequestSchema,
   CheckBehaviorRequestSchema,
@@ -134,6 +137,7 @@ import {
 } from "./conversion.js";
 import type { ConvertOptions, MigrateOptions } from "./conversion.js";
 import { type ElementProperties, elementPropertiesOf } from "./element-properties.js";
+import { type InstancePaths, instancePathsOf } from "./instance-paths.js";
 import {
   buildQuery,
   elementsOf,
@@ -694,6 +698,34 @@ export class Connection {
       throw new ConversionError(response.error);
     }
     return elementPropertiesOf(response);
+  }
+
+  /**
+   * Lists every root-relative path that reaches one object the service holds
+   * for the model, named by the id `Instantiate` answered or by path (the
+   * qualified name it was instantiated as, its id `#2`, or a path through
+   * feature values from either, `Garage::car.wheels[2]`).
+   */
+  async instancePaths(
+    modelHash: string,
+    object: { instanceId: bigint } | { path: string },
+  ): Promise<InstancePaths> {
+    requireCapability(this.info, CAPABILITY_INSTANCE_PATHS, upgradeRemedy(CAPABILITY_INSTANCE_PATHS));
+    const response = await callRpc(
+      this.rpc.instancePaths(
+        create(InstancePathsRequestSchema, {
+          modelHash,
+          object: "instanceId" in object ? { instanceId: object.instanceId } : { path: object.path },
+        }),
+        this.callOptions(),
+      ),
+      "model",
+      capabilityRefusal(this.info, [CAPABILITY_INSTANCE_PATHS]),
+    );
+    if (response.error !== "") {
+      throw new EvaluationError(response.error, "unspecified", response.diagnostics.map(decodeDiagnostic));
+    }
+    return instancePathsOf(response);
   }
 
   /** Runs a named document query and answers its typed rows. */

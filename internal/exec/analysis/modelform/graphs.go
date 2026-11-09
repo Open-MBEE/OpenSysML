@@ -103,8 +103,8 @@ type graphsExporter struct {
 // action nor a state machine or whose lowering fails.
 func (x *graphsExporter) lowerSubject(out *Graphs, sym *symbols.Symbol) error {
 	x.lowered[symbols.FQNOf(sym)] = true
-	switch sym.Kind {
-	case symbols.SymbolActionDef, symbols.SymbolActionUsage:
+	switch {
+	case sym.Kind == symbols.SymbolActionDef || sym.Kind.IsActionUsage():
 		graph, err := lower.ToActionGraphWith(sym.Decl, runtime.DeclScope(sym), x.model.Resolver())
 		if err != nil {
 			return fmt.Errorf("%w: %s: %w", ErrGraphsSubject, symbols.FQNOf(sym), err)
@@ -114,7 +114,7 @@ func (x *graphsExporter) lowerSubject(out *Graphs, sym *symbols.Symbol) error {
 			return err
 		}
 		out.Actions = append(out.Actions, form)
-	case symbols.SymbolStateDef, symbols.SymbolStateUsage:
+	case sym.Kind == symbols.SymbolStateDef || sym.Kind == symbols.SymbolStateUsage:
 		graph, err := lower.ToStateGraphWithEndpoints(sym.Decl, runtime.DeclScope(sym),
 			lower.NewLibraryStateTypes(x.model.Resolver()))
 		if err != nil {
@@ -172,11 +172,13 @@ func (x *graphsExporter) perform(scope *symbols.Scope, node ast.Node) []string {
 		}
 		machine := false
 		switch sym.Kind {
-		case symbols.SymbolActionDef, symbols.SymbolActionUsage:
 		case symbols.SymbolStateDef, symbols.SymbolStateUsage:
 			machine = true
+		case symbols.SymbolActionDef:
 		default:
-			continue
+			if !sym.Kind.IsActionUsage() {
+				continue
+			}
 		}
 		fqn := symbols.FQNOf(sym)
 		names = append(names, fqn)

@@ -91,6 +91,12 @@ func declMembers(sym *symbols.Symbol) []ast.Node {
 	case *ast.Definition:
 		return d.Members
 	case *ast.Usage:
+		// A send node's body is the send statement's (SysML.xtext SendNode).
+		if send := symbols.SendStatementOf(d); send != nil {
+			return send.Members
+		}
+		return d.Members
+	case *ast.SendStatement:
 		return d.Members
 	case *ast.AssumeMember:
 		return d.Body
@@ -172,33 +178,41 @@ func (m *Model) parametersOf(sym *symbols.Symbol) behaviorParameters {
 	defer delete(m.computingParams, sym)
 
 	owned := ownedParameters(sym)
+	// A send's payload, sender and receiver parameters precede the ones its body
+	// declares (SysML v2 §8.3.17.15; SysML.xtext SendNode).
+	if sendParams := m.sendParameters(sym); len(sendParams) > 0 {
+		arguments := make([]parameter, 0, len(sendParams)+len(owned))
+		for _, param := range sendParams {
+			arguments = append(arguments, parameter{sym: param, direction: ast.DirIn})
+		}
+		owned = append(arguments, owned...)
+	}
 	out := behaviorParameters{positional: positionalParameters(owned), result: resultParameter(owned)}
 
-	// Only a single general behavior or step may leave parameters inherited;
-	// with more than one, every parameter has to be redefined by an owned one.
-	// The kind's implicit base beside a declared general does not count as one.
-	var generals []*symbols.Symbol
-	for _, sup := range m.DirectSupertypes(sym) {
-		if behaviorLike(sup) {
-			generals = append(generals, sup)
-		}
-	}
-	if len(generals) > 1 {
-		bases := m.ImplicitGenerals(sym)
-		generals = slices.DeleteFunc(generals, func(sup *symbols.Symbol) bool { return slices.Contains(bases, sup) })
-	}
-	if len(generals) == 1 {
-		general := m.parametersOf(generals[0])
-		claimed := claimedParameters(out, general)
+	// What no owned parameter redefines, by clause or by position, is inherited
+	// from each general in turn (KerML 8.3.3.1), ordered after the owned ones; a
+	// general's parameter redefining one an earlier general lent takes its place.
+	declared := out
+	m.forBehaviorGenerals(sym, func(sup *symbols.Symbol) {
+		general := m.parametersOf(sup)
+		claimed := claimedParameters(declared, general)
 		for _, p := range general.positional {
-			if !claimed[p.sym] {
-				out.positional = append(out.positional, p)
+			if claimed[p.sym] || m.listsParameter(out.positional, p.sym) {
+				continue
 			}
+			if i := m.redefinedIndex(out.positional[len(declared.positional):], p.sym); i >= 0 {
+				out.positional[len(declared.positional)+i] = p
+				continue
+			}
+			out.positional = append(out.positional, p)
 		}
-		if out.result.sym == nil && !claimed[general.result.sym] {
+		if general.result.sym == nil || claimed[general.result.sym] {
+			return
+		}
+		if out.result.sym == nil || (declared.result.sym == nil && m.redefines(general.result.sym, out.result.sym)) {
 			out.result = general.result
 		}
-	}
+	})
 
 	// A list derived while a guard cut a query short may have missed a
 	// parameter, so it is recomputed on the next query, not memoized.
@@ -208,6 +222,59 @@ func (m *Model) parametersOf(sym *symbols.Symbol) behaviorParameters {
 	}
 	m.params[sym] = out
 	return out
+}
+
+// listsParameter reports whether params already carries general's parameter sym,
+
+// forBehaviorGenerals calls fn for each behavior or step whose parameters sym's
+// redefine by position and inherit: its direct behavior-like generals, less the base
+// feature its kind implies, whose parameters are its type's, and less the base type
+// it implies beside a declared general, which reaches that base already (KerML 7.4.7.2).
+func (m *Model) forBehaviorGenerals(sym *symbols.Symbol, fn func(sup *symbols.Symbol)) {
+	bases := m.ImplicitGenerals(sym)
+	supertypes := m.DirectSupertypes(sym)
+	declared := false
+	for _, sup := range supertypes {
+		if behaviorLike(sup) && !slices.Contains(bases, sup) {
+			declared = true
+			break
+		}
+	}
+	for _, sup := range supertypes {
+		if !behaviorLike(sup) {
+			continue
+		}
+		if slices.Contains(bases, sup) && (declared || sup.IsFeature()) {
+			continue
+		}
+		fn(sup)
+	}
+}
+
+// as itself or as a parameter inherited through another general that redefines it.
+func (m *Model) listsParameter(params []parameter, sym *symbols.Symbol) bool {
+	for _, p := range params {
+		if p.sym == sym || m.redefines(p.sym, sym) {
+			return true
+		}
+	}
+	return false
+}
+
+// redefinedIndex is the index of the parameter in params that sym redefines, or -1.
+func (m *Model) redefinedIndex(params []parameter, sym *symbols.Symbol) int {
+	for i, p := range params {
+		if m.redefines(sym, p.sym) {
+			return i
+		}
+	}
+	return -1
+}
+
+// redefines reports whether sym redefines target, directly or through the
+// parameters it redefines.
+func (m *Model) redefines(sym, target *symbols.Symbol) bool {
+	return slices.Contains(m.AllRedefinedFeatures(sym), target)
 }
 
 // PositionalParameter returns the parameter at position of a behavior or step —
@@ -429,33 +496,27 @@ func (m *Model) implicitParameterTargets(sym *symbols.Symbol, skipExplicit, matc
 	}
 
 	var out []*symbols.Symbol
-	// The base feature a kind implies owns no parameters; those of its type are
-	// reached through the kind's base definition or the declared chain already.
-	baseFeatures := m.ImpliedBaseFeatures(owner)
-	for _, sup := range m.DirectSupertypes(owner) {
-		if !behaviorLike(sup) || slices.Contains(baseFeatures, sup) {
-			continue
-		}
+	m.forBehaviorGenerals(owner, func(sup *symbols.Symbol) {
 		supParams := m.parametersOf(sup)
 		var target parameter
 		if isResult {
 			target = supParams.result
 		} else {
 			if position >= len(supParams.positional) {
-				continue
+				return
 			}
 			target = supParams.positional[position]
 		}
 		if target.sym == nil || target.sym == sym {
-			continue
+			return
 		}
 		// A redefining parameter has the same direction as the parameter it
 		// redefines; a position whose directions disagree is not a redefinition.
 		if matchDirection && target.direction != direction {
-			continue
+			return
 		}
 		out = append(out, target.sym)
-	}
+	})
 	return out
 }
 

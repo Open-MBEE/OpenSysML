@@ -671,13 +671,13 @@ elmt:Annotated__car___401
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Annotated__car___401__level ;
     sysml:ownedMembership elmt:Annotated__car___401__level_om ;
-    sysml:ownedRelationship elmt:Annotated__car___401__level_om, elmt:Annotated__car___401_ft0 ;
+    sysml:ownedRelationship elmt:Annotated__car___401_ft0, elmt:Annotated__car___401__level_om ;
     sysml:ownedFeature elmt:Annotated__car___401__level ;
     sysml:ownedFeatureMembership elmt:Annotated__car___401__level_om ;
     sysml:ownedTyping elmt:Annotated__car___401_ft0 ;
     sysml:ownedSpecialization elmt:Annotated__car___401_ft0 ;
     sysx:sourceText "        @Safety { level = 2; }\n" ;
-    json:ownedRelationship "[{\"@id\":\"Annotated__car___401__level_om\"},{\"@id\":\"Annotated__car___401_ft0\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Annotated__car___401_ft0\"},{\"@id\":\"Annotated__car___401__level_om\"}]" .
 
 elmt:Annotated__car___401_om
     a sysml:OwningMembership ;
@@ -783,7 +783,7 @@ elmt:Annotated__car___402
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Annotated__car___402__level, elmt:Annotated__car___402__reviewer, elmt:Annotated__car___402__isSet, elmt:Annotated__car___402__audit ;
     sysml:ownedMembership elmt:Annotated__car___402__level_om, elmt:Annotated__car___402__reviewer_om, elmt:Annotated__car___402__isSet_om, elmt:Annotated__car___402__audit_om ;
-    sysml:ownedRelationship elmt:Annotated__car___402__level_om, elmt:Annotated__car___402__reviewer_om, elmt:Annotated__car___402__isSet_om, elmt:Annotated__car___402__audit_om, elmt:Annotated__car___402_ft0 ;
+    sysml:ownedRelationship elmt:Annotated__car___402_ft0, elmt:Annotated__car___402__level_om, elmt:Annotated__car___402__reviewer_om, elmt:Annotated__car___402__isSet_om, elmt:Annotated__car___402__audit_om ;
     sysml:ownedFeature elmt:Annotated__car___402__level, elmt:Annotated__car___402__reviewer, elmt:Annotated__car___402__isSet, elmt:Annotated__car___402__audit ;
     sysml:ownedFeatureMembership elmt:Annotated__car___402__level_om, elmt:Annotated__car___402__reviewer_om, elmt:Annotated__car___402__isSet_om, elmt:Annotated__car___402__audit_om ;
     sysml:ownedTyping elmt:Annotated__car___402_ft0 ;
@@ -792,7 +792,7 @@ elmt:Annotated__car___402
     sysx:sourceTail "        }\n" ;
     json:ownedMember "[{\"@id\":\"Annotated__car___402__level\"},{\"@id\":\"Annotated__car___402__reviewer\"},{\"@id\":\"Annotated__car___402__isSet\"},{\"@id\":\"Annotated__car___402__audit\"}]" ;
     json:ownedMembership "[{\"@id\":\"Annotated__car___402__level_om\"},{\"@id\":\"Annotated__car___402__reviewer_om\"},{\"@id\":\"Annotated__car___402__isSet_om\"},{\"@id\":\"Annotated__car___402__audit_om\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Annotated__car___402__level_om\"},{\"@id\":\"Annotated__car___402__reviewer_om\"},{\"@id\":\"Annotated__car___402__isSet_om\"},{\"@id\":\"Annotated__car___402__audit_om\"},{\"@id\":\"Annotated__car___402_ft0\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Annotated__car___402_ft0\"},{\"@id\":\"Annotated__car___402__level_om\"},{\"@id\":\"Annotated__car___402__reviewer_om\"},{\"@id\":\"Annotated__car___402__isSet_om\"},{\"@id\":\"Annotated__car___402__audit_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Annotated__car___402__level\"},{\"@id\":\"Annotated__car___402__reviewer\"},{\"@id\":\"Annotated__car___402__isSet\"},{\"@id\":\"Annotated__car___402__audit\"}]" ;
     json:ownedFeatureMembership "[{\"@id\":\"Annotated__car___402__level_om\"},{\"@id\":\"Annotated__car___402__reviewer_om\"},{\"@id\":\"Annotated__car___402__isSet_om\"},{\"@id\":\"Annotated__car___402__audit_om\"}]" .
 
@@ -1239,19 +1239,21 @@ elmt:Annotated___403
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Annotated___403__level, elmt:Annotated___403__reviewer ;
     sysml:ownedMembership elmt:Annotated___403__level_om, elmt:Annotated___403__reviewer_om ;
-    sysml:ownedRelationship elmt:Annotated___403__level_om, elmt:Annotated___403__reviewer_om, elmt:Annotated___403_ft0 ;
+    sysml:ownedRelationship elmt:Annotated___403_ft0, elmt:Annotated___403_an0, elmt:Annotated___403_an1, elmt:Annotated___403__level_om, elmt:Annotated___403__reviewer_om ;
     sysml:ownedFeature elmt:Annotated___403__level, elmt:Annotated___403__reviewer ;
     sysml:ownedFeatureMembership elmt:Annotated___403__level_om, elmt:Annotated___403__reviewer_om ;
     sysml:ownedTyping elmt:Annotated___403_ft0 ;
     sysml:ownedSpecialization elmt:Annotated___403_ft0 ;
+    sysml:ownedAnnotatingRelationship elmt:Annotated___403_an0, elmt:Annotated___403_an1 ;
     sysx:sourceText "    @Safety about Car, car {\n" ;
     sysx:sourceTail "    }\n" ;
     json:annotatedElement "[{\"@id\":\"Annotated__Car\"},{\"@id\":\"Annotated__car\"}]" ;
     json:ownedMember "[{\"@id\":\"Annotated___403__level\"},{\"@id\":\"Annotated___403__reviewer\"}]" ;
     json:ownedMembership "[{\"@id\":\"Annotated___403__level_om\"},{\"@id\":\"Annotated___403__reviewer_om\"}]" ;
-    json:ownedRelationship "[{\"@id\":\"Annotated___403__level_om\"},{\"@id\":\"Annotated___403__reviewer_om\"},{\"@id\":\"Annotated___403_ft0\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Annotated___403_ft0\"},{\"@id\":\"Annotated___403_an0\"},{\"@id\":\"Annotated___403_an1\"},{\"@id\":\"Annotated___403__level_om\"},{\"@id\":\"Annotated___403__reviewer_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Annotated___403__level\"},{\"@id\":\"Annotated___403__reviewer\"}]" ;
-    json:ownedFeatureMembership "[{\"@id\":\"Annotated___403__level_om\"},{\"@id\":\"Annotated___403__reviewer_om\"}]" .
+    json:ownedFeatureMembership "[{\"@id\":\"Annotated___403__level_om\"},{\"@id\":\"Annotated___403__reviewer_om\"}]" ;
+    json:ownedAnnotatingRelationship "[{\"@id\":\"Annotated___403_an0\"},{\"@id\":\"Annotated___403_an1\"}]" .
 
 elmt:Annotated___403_om
     a sysml:OwningMembership ;
@@ -1622,8 +1624,10 @@ elmt:Annotated__tagged
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Annotated__tagged_ft0 ;
     sysml:ownedSpecialization elmt:Annotated__tagged_ft0 ;
-    sysml:ownedRelationship elmt:Annotated__tagged_ft0 ;
-    sysx:sourceText "    metadata tagged : Safety about Car;\n" .
+    sysml:ownedRelationship elmt:Annotated__tagged_ft0, elmt:Annotated__tagged_an0 ;
+    sysml:ownedAnnotatingRelationship elmt:Annotated__tagged_an0 ;
+    sysx:sourceText "    metadata tagged : Safety about Car;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Annotated__tagged_ft0\"},{\"@id\":\"Annotated__tagged_an0\"}]" .
 
 elmt:Annotated__tagged_om
     a sysml:OwningMembership ;
@@ -1659,8 +1663,10 @@ elmt:Annotated___405
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:ownedTyping elmt:Annotated___405_ft0 ;
     sysml:ownedSpecialization elmt:Annotated___405_ft0 ;
-    sysml:ownedRelationship elmt:Annotated___405_ft0 ;
-    sysx:sourceText "    metadata Safety about car;\n" .
+    sysml:ownedRelationship elmt:Annotated___405_ft0, elmt:Annotated___405_an0 ;
+    sysml:ownedAnnotatingRelationship elmt:Annotated___405_an0 ;
+    sysx:sourceText "    metadata Safety about car;\n" ;
+    json:ownedRelationship "[{\"@id\":\"Annotated___405_ft0\"},{\"@id\":\"Annotated___405_an0\"}]" .
 
 elmt:Annotated___405_om
     a sysml:OwningMembership ;
@@ -1695,14 +1701,15 @@ elmt:Annotated___406
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Annotated___406__level ;
     sysml:ownedMembership elmt:Annotated___406__level_om ;
-    sysml:ownedRelationship elmt:Annotated___406_ft0, elmt:Annotated___406__level_om ;
+    sysml:ownedRelationship elmt:Annotated___406_ft0, elmt:Annotated___406_an0, elmt:Annotated___406__level_om ;
     sysml:ownedFeature elmt:Annotated___406__level ;
     sysml:ownedFeatureMembership elmt:Annotated___406__level_om ;
     sysml:ownedTyping elmt:Annotated___406_ft0 ;
     sysml:ownedSpecialization elmt:Annotated___406_ft0 ;
+    sysml:ownedAnnotatingRelationship elmt:Annotated___406_an0 ;
     sysx:sourceText "    metadata $::Annotated::Safety about Car {\n" ;
     sysx:sourceTail "    }\n" ;
-    json:ownedRelationship "[{\"@id\":\"Annotated___406_ft0\"},{\"@id\":\"Annotated___406__level_om\"}]" .
+    json:ownedRelationship "[{\"@id\":\"Annotated___406_ft0\"},{\"@id\":\"Annotated___406_an0\"},{\"@id\":\"Annotated___406__level_om\"}]" .
 
 elmt:Annotated___406_om
     a sysml:OwningMembership ;
@@ -2072,6 +2079,32 @@ elmt:Annotated___403_ft0
     sysml:relatedElement elmt:Annotated___403, elmt:Annotated__Safety ;
     json:relatedElement "[{\"@id\":\"Annotated___403\"},{\"@id\":\"Annotated__Safety\"}]" .
 
+elmt:Annotated___403_an0
+    a sysml:Annotation ;
+    sysml:elementId "Annotated___403_an0" ;
+    sysml:annotatingElement elmt:Annotated___403 ;
+    sysml:owningAnnotatingElement elmt:Annotated___403 ;
+    sysml:source elmt:Annotated___403 ;
+    sysml:owningRelatedElement elmt:Annotated___403 ;
+    sysml:annotatedElement elmt:Annotated__Car ;
+    sysml:target elmt:Annotated__Car ;
+    sysml:owner elmt:Annotated___403 ;
+    sysml:relatedElement elmt:Annotated___403, elmt:Annotated__Car ;
+    json:relatedElement "[{\"@id\":\"Annotated___403\"},{\"@id\":\"Annotated__Car\"}]" .
+
+elmt:Annotated___403_an1
+    a sysml:Annotation ;
+    sysml:elementId "Annotated___403_an1" ;
+    sysml:annotatingElement elmt:Annotated___403 ;
+    sysml:owningAnnotatingElement elmt:Annotated___403 ;
+    sysml:source elmt:Annotated___403 ;
+    sysml:owningRelatedElement elmt:Annotated___403 ;
+    sysml:annotatedElement elmt:Annotated__car ;
+    sysml:target elmt:Annotated__car ;
+    sysml:owner elmt:Annotated___403 ;
+    sysml:relatedElement elmt:Annotated___403, elmt:Annotated__car ;
+    json:relatedElement "[{\"@id\":\"Annotated___403\"},{\"@id\":\"Annotated__car\"}]" .
+
 elmt:Annotated___403__level_rd0
     a sysml:Redefinition ;
     sysml:elementId "Annotated___403__level_rd0" ;
@@ -2121,6 +2154,19 @@ elmt:Annotated__tagged_ft0
     sysml:relatedElement elmt:Annotated__tagged, elmt:Annotated__Safety ;
     json:relatedElement "[{\"@id\":\"Annotated__tagged\"},{\"@id\":\"Annotated__Safety\"}]" .
 
+elmt:Annotated__tagged_an0
+    a sysml:Annotation ;
+    sysml:elementId "Annotated__tagged_an0" ;
+    sysml:annotatingElement elmt:Annotated__tagged ;
+    sysml:owningAnnotatingElement elmt:Annotated__tagged ;
+    sysml:source elmt:Annotated__tagged ;
+    sysml:owningRelatedElement elmt:Annotated__tagged ;
+    sysml:annotatedElement elmt:Annotated__Car ;
+    sysml:target elmt:Annotated__Car ;
+    sysml:owner elmt:Annotated__tagged ;
+    sysml:relatedElement elmt:Annotated__tagged, elmt:Annotated__Car ;
+    json:relatedElement "[{\"@id\":\"Annotated__tagged\"},{\"@id\":\"Annotated__Car\"}]" .
+
 elmt:Annotated___405_ft0
     a sysml:FeatureTyping ;
     sysml:elementId "Annotated___405_ft0" ;
@@ -2136,6 +2182,19 @@ elmt:Annotated___405_ft0
     sysml:relatedElement elmt:Annotated___405, elmt:Annotated__Safety ;
     json:relatedElement "[{\"@id\":\"Annotated___405\"},{\"@id\":\"Annotated__Safety\"}]" .
 
+elmt:Annotated___405_an0
+    a sysml:Annotation ;
+    sysml:elementId "Annotated___405_an0" ;
+    sysml:annotatingElement elmt:Annotated___405 ;
+    sysml:owningAnnotatingElement elmt:Annotated___405 ;
+    sysml:source elmt:Annotated___405 ;
+    sysml:owningRelatedElement elmt:Annotated___405 ;
+    sysml:annotatedElement elmt:Annotated__car ;
+    sysml:target elmt:Annotated__car ;
+    sysml:owner elmt:Annotated___405 ;
+    sysml:relatedElement elmt:Annotated___405, elmt:Annotated__car ;
+    json:relatedElement "[{\"@id\":\"Annotated___405\"},{\"@id\":\"Annotated__car\"}]" .
+
 elmt:Annotated___406_ft0
     a sysml:FeatureTyping ;
     sysml:elementId "Annotated___406_ft0" ;
@@ -2150,6 +2209,19 @@ elmt:Annotated___406_ft0
     sysml:owner elmt:Annotated___406 ;
     sysml:relatedElement elmt:Annotated___406, elmt:Annotated__Safety ;
     json:relatedElement "[{\"@id\":\"Annotated___406\"},{\"@id\":\"Annotated__Safety\"}]" .
+
+elmt:Annotated___406_an0
+    a sysml:Annotation ;
+    sysml:elementId "Annotated___406_an0" ;
+    sysml:annotatingElement elmt:Annotated___406 ;
+    sysml:owningAnnotatingElement elmt:Annotated___406 ;
+    sysml:source elmt:Annotated___406 ;
+    sysml:owningRelatedElement elmt:Annotated___406 ;
+    sysml:annotatedElement elmt:Annotated__Car ;
+    sysml:target elmt:Annotated__Car ;
+    sysml:owner elmt:Annotated___406 ;
+    sysml:relatedElement elmt:Annotated___406, elmt:Annotated__Car ;
+    json:relatedElement "[{\"@id\":\"Annotated___406\"},{\"@id\":\"Annotated__Car\"}]" .
 
 elmt:Annotated___406__level_rd0
     a sysml:Redefinition ;
@@ -3513,6 +3585,18 @@ elmt:bd909aa8-dcdb-59fb-a116-8670f6db05b1
     sysml:memberElement <urn:sysmlv2:element:869fa262-b0df-570b-b2ed-3ad85f5460aa> ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
+elmt:e136df36-5c36-5d25-a069-7a5142749b90
+    a sysml:Comment ;
+    sysml:elementId "e136df36-5c36-5d25-a069-7a5142749b90" ;
+    sysx:libraryPath "Metaobjects::metaobjects/Comment[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:be162454-cd6f-5ba7-9ded-d1887bc443ae
+    a sysml:OwningMembership ;
+    sysml:elementId "be162454-cd6f-5ba7-9ded-d1887bc443ae" ;
+    sysml:memberElement elmt:e136df36-5c36-5d25-a069-7a5142749b90 ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
 elmt:bffacdad-6769-575f-be46-e30433a5af4d
     a sysml:Feature ;
     sysml:elementId "bffacdad-6769-575f-be46-e30433a5af4d" ;
@@ -3568,6 +3652,18 @@ elmt:c91ad911-9e73-52fe-b252-f5baeb6064ee
     a sysml:FeatureMembership ;
     sysml:elementId "c91ad911-9e73-52fe-b252-f5baeb6064ee" ;
     sysml:memberElement elmt:faf13619-5fb6-5a19-871e-e14767f89a28 ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:db0b2590-1035-512c-b067-686a67c7d430
+    a sysml:Comment ;
+    sysml:elementId "db0b2590-1035-512c-b067-686a67c7d430" ;
+    sysx:libraryPath "Occurrences::Occurrence/Comment[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:cd6c9495-be14-578e-9065-28c9dbe6b52c
+    a sysml:OwningMembership ;
+    sysml:elementId "cd6c9495-be14-578e-9065-28c9dbe6b52c" ;
+    sysml:memberElement elmt:db0b2590-1035-512c-b067-686a67c7d430 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:d0cefcb9-9a11-5ac1-a47b-3f70c117bd08

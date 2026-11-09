@@ -8,6 +8,8 @@ export {
   type PropertyValue,
   elementPropertiesOf,
 } from "./element-properties.js";
+export { InstancePaths, instancePathsOf } from "./instance-paths.js";
+export type { InstancePath, PathStep } from "./instance-paths.js";
 export type {
   ConnectionBackend,
   Encoding,
@@ -22,10 +24,13 @@ export type {
   AttributeFacts,
   EvalOptions,
   FeatureValue,
+  InstanceReach,
+  MemberFacts,
   Multiplicity,
   ParseOptions,
   ParseSourcesOptions,
   SpecializationFacts,
+  SymbolOptions,
   TypeFacts,
 } from "./model.js";
 export { LANGUAGES, SourceDocument, sourceDocuments } from "./sources.js";
@@ -228,6 +233,7 @@ export {
   CAPABILITY_SYMBOL_MEMBERS,
   CAPABILITY_ELEMENT_PROPERTIES,
   CAPABILITY_INLINE_DOCUMENT_QUERY,
+  CAPABILITY_INSTANCE_PATHS,
   CAPABILITY_TENSOR_VALUES,
   CAPABILITY_TYPE_FACTS,
   CAPABILITY_UNSET_VALUE,

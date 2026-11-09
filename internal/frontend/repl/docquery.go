@@ -13,6 +13,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -201,7 +202,7 @@ func (s *Session) runDocumentQuery(name string, args []string) ([]string, []Name
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	lines, values, table := renderRowSet(notationName(fqn), result, context.ElementID)
+	lines, values, table := renderRowSet(notationName(fqn), result, idx, context.ElementID)
 	return lines, values, table, nil
 }
 
@@ -437,12 +438,12 @@ func (s *Session) queryValueList(ctx *runtime.Context, elements []runtime.Value)
 
 // renderRowSet reports an executed query's rows as the prompt prints them, the row and
 // column counts as values, and the table as data (nameless elements by elementId there).
-func renderRowSet(name string, result *queryexec.RowSet, elementID func(*symbols.Symbol) (string, error)) ([]string, []NamedValue, *VerdictTable) {
-	return renderRows("Query "+name, result, elementID)
+func renderRowSet(name string, result *queryexec.RowSet, index *symbols.Index, elementID func(*symbols.Symbol) (string, error)) ([]string, []NamedValue, *VerdictTable) {
+	return renderRows("Query "+name, result, index, elementID)
 }
 
 // renderRows is renderRowSet under the heading the rows are reported as.
-func renderRows(heading string, result *queryexec.RowSet, elementID func(*symbols.Symbol) (string, error)) ([]string, []NamedValue, *VerdictTable) {
+func renderRows(heading string, result *queryexec.RowSet, index *symbols.Index, elementID func(*symbols.Symbol) (string, error)) ([]string, []NamedValue, *VerdictTable) {
 	rows := result.Rows()
 	columns := result.Columns()
 	lines := []string{fmt.Sprintf("✓ %s returned %s", heading, countOf(len(rows), "row", "rows"))}
@@ -463,9 +464,9 @@ func renderRows(heading string, result *queryexec.RowSet, elementID func(*symbol
 				break
 			}
 			lines = append(lines, fmt.Sprintf("    %s = %s", names[j], formatQueryCell(cell)))
-			cells[j] = queryCellValues(cell, elementID)
+			cells[j] = queryCellValues(cell, index, elementID)
 		}
-		table.Rows = append(table.Rows, VerdictTableRow{Element: tableValue(row.Element(), elementID), Cells: cells})
+		table.Rows = append(table.Rows, VerdictTableRow{Element: tableValue(row.Element(), index, elementID), Cells: cells})
 	}
 	values := []NamedValue{{Name: "rows", Value: strconv.Itoa(len(rows))}}
 	if len(names) > 0 {
@@ -475,19 +476,19 @@ func renderRows(heading string, result *queryexec.RowSet, elementID func(*symbol
 }
 
 // queryCellValues is a cell's values as the table spells each; empty for an empty cell.
-func queryCellValues(cell queryexec.Cell, elementID func(*symbols.Symbol) (string, error)) []string {
+func queryCellValues(cell queryexec.Cell, index *symbols.Index, elementID func(*symbols.Symbol) (string, error)) []string {
 	values := cell.Values()
 	out := make([]string, len(values))
 	for i, value := range values {
-		out[i] = tableValue(value, elementID)
+		out[i] = tableValue(value, index, elementID)
 	}
 	return out
 }
 
-// tableValue spells a value as the prompt does, except an element without a name
-// (printed blank or as ”), which the table spells by its elementId when one is read.
-func tableValue(value queryexec.Value, elementID func(*symbols.Symbol) (string, error)) string {
-	if sym, ok := value.Element(); ok && sym.Name == "" && elementID != nil {
+// tableValue spells a value as the prompt does, except an element no qualified name identifies
+// (nameless, or owned by an anonymous element), which the table spells by its elementId when one is read.
+func tableValue(value queryexec.Value, index *symbols.Index, elementID func(*symbols.Symbol) (string, error)) string {
+	if sym, ok := value.Element(); ok && elementID != nil && query.QualifiedIdentity(index, sym) == "" {
 		if id, err := elementID(sym); err == nil && id != "" {
 			return id
 		}

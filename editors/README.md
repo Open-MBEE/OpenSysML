@@ -14,6 +14,14 @@ directory here with its own build.
   ([`client/jupyter-kernel`](../client/jupyter-kernel)) ships the build in every wheel and the
   sdist (`make jupyterlab-build`); see [`docs/guide/12-jupyter.md`](../docs/guide/12-jupyter.md).
 
+- **[Emacs](emacs/)** — `sysml-mode` and `kerml-mode` for `.sysml`/`.kerml` files
+  (highlighting, indentation, comments, imenu), an [lsp-mode](https://emacs-lsp.github.io/lsp-mode/)
+  client that runs `sysml-lsp`, and `M-x sysml-diagram-show`, a buffer showing a view of the
+  model that follows the cursor and redraws as the model changes. Its keyword lists are
+  generated from the lexer by `make emacs-keywords`, from the same grouping
+  ([`editors/internal/keywords`](internal/keywords/)) as the VS Code and JupyterLab grammars;
+  see [`docs/guide/08-editors.md`](../docs/guide/08-editors.md#emacs).
+
 <!-- mdk: begin -->
 - **[Magic MDK](mdk/)** — a plugin for Cameo Systems Modeler and MagicDraw 2026x Refresh1 (the
   2024x line as the minimum; SysML v2 export needs 2026x), positioned as the successor to OpenMBEE's Model Development Kit

@@ -18,7 +18,7 @@ use opensysml::{
     EditError, Error, EvalOptions, ExploredResponse, FailureReason, IdForm, Language, Layout,
     MigrateOptions, MigrateSource, Model, ModelResponse, ParseOptions, Query, RecordOptions,
     RenderViewPorts, RunOptions, RunsOptions, SourceDocument, SourcesOptions, Status, SweepOptions,
-    SweepRange, Value as SysmlValue, VerifyOptions,
+    SweepRange, SymbolOptions, Value as SysmlValue, VerifyOptions,
 };
 use prost::Message;
 use prost_reflect::{DescriptorPool, DeserializeOptions, DynamicMessage, SerializeOptions};
@@ -515,7 +515,13 @@ impl Runner {
             Ok(value) => value,
             Err(error) => return Answer::Other(error),
         };
-        match self.model_for(&hash, model).symbol(&symbol_id) {
+        let options = SymbolOptions {
+            include_library_members: bool_field(request, "include_library_members"),
+        };
+        match self
+            .model_for(&hash, model)
+            .symbol_with(&symbol_id, &options)
+        {
             Ok(symbol) => {
                 let response = opensysml::wire::SymbolResponse {
                     symbol: Some(symbol.wire().clone()),
@@ -1907,6 +1913,13 @@ fn string_list_field(request: &DynamicMessage, name: &str) -> Vec<String> {
             })
         })
         .unwrap_or_default()
+}
+
+fn bool_field(request: &DynamicMessage, name: &str) -> bool {
+    request
+        .get_field_by_name(name)
+        .and_then(|value| value.as_ref().as_bool())
+        .unwrap_or(false)
 }
 
 fn string_or_none(request: &DynamicMessage, name: &str) -> Option<String> {
