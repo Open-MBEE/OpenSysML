@@ -143,7 +143,7 @@ func OfWith(sym *symbols.Symbol, sc *Context, opts Options) *Info {
 	defer sc.Lock()()
 	info := &Info{
 		Id:       sc.identityOrFQN(sym),
-		Name:     sym.Name,
+		Name:     sc.Semantics.EffectiveNameOf(sym),
 		Kind:     sym.Kind.String(),
 		Metadata: make(map[string]string),
 	}

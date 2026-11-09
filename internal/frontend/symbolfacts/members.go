@@ -42,7 +42,7 @@ func (sc *Context) membersOf(sym *symbols.Symbol, includeLibrary bool) ([]*Membe
 				continue
 			}
 			own[member] = true
-			out = append(out, &Member{Id: id, Name: member.Name, Kind: member.Kind.String(), Library: sc.libraryDeclared(sym)})
+			out = append(out, &Member{Id: id, Name: sc.Semantics.EffectiveNameOf(member), Kind: member.Kind.String(), Library: sc.libraryDeclared(sym)})
 		}
 	}
 	for _, member := range sc.Semantics.Members(sym) {
@@ -67,7 +67,7 @@ func (sc *Context) membersOf(sym *symbols.Symbol, includeLibrary bool) ([]*Membe
 		}
 		info := &Member{
 			Id:            id,
-			Name:          member.Symbol.Name,
+			Name:          sc.Semantics.EffectiveNameOf(member.Symbol),
 			Kind:          member.Symbol.Kind.String(),
 			Inherited:     true,
 			InheritedFrom: sc.Index.GetFQN(source),
