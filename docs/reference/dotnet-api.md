@@ -98,7 +98,7 @@ borrows it. Each method below is one RPC:
 | Editing | `Edit()`, `ApplyEditsAsync` | an `Editor`; `EditResult` |
 | Graphs and data | `ExportGraphsAsync`, `ImportDataAsync`, `CompareResultsAsync` | `Graphs`, `ImportResult`, `Comparison` |
 
-Each takes its own options record (`EvalOptions`, `RunOptions`, `CheckOptions`, `VerifyOptions`,
+Each takes its own options class (`EvalOptions`, `RunOptions`, `CheckOptions`, `VerifyOptions`,
 `AnalysisOptions`, `SweepOptions`, `ConvertOptions`, `EditOptions`, …), so a call accepts only
 what its RPC can use; a combination its RPC cannot answer, such as an exploring schedule passed to
 `ExecuteActionAsync`, is refused before anything is sent. A false verdict, a failed sweep row and
@@ -407,4 +407,4 @@ make conformance-dotnet-check    # the same run beside the reference runner's, s
 ```
 
 The scenario counts, the reviewed skips and the runner's flags are in
-[client/dotnet/README.md](../../client/dotnet/README.md#conformance).
+[client/dotnet/DEVELOPING.md](../../client/dotnet/DEVELOPING.md#conformance).

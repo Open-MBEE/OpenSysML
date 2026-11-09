@@ -5,7 +5,7 @@ description: How to test the OpenMBEE.OpenSysML .NET client (client/dotnet) end 
 
 # Testing the .NET client
 
-Read `client/dotnet/README.md` (Building and testing, Conformance) first; every rule it states is a
+Read `client/dotnet/DEVELOPING.md` (Building and testing, Conformance) first; every rule it states is a
 test somewhere. Run every command from the repository root, since `global.json` there selects the SDK
 and the Microsoft.Testing.Platform runner.
 
