@@ -227,7 +227,7 @@ Feature::owner	5	export-56
 Feature::owningNamespace	5	export-03
 Feature::owningType	5	export-56
 Feature::type	203	export-01
-FeatureChainExpression::argument	306	export-11
+FeatureChainExpression::argument	308	export-11
 FeatureChainExpression::member	7	symbol-51
 FeatureChainExpression::membership	9	symbol-51
 FeatureChainExpression::ownedMembership	9	symbol-09

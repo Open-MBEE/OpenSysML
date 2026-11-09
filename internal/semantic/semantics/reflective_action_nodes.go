@@ -185,9 +185,14 @@ func (m *Model) statementOperands(sym *symbols.Symbol) []*symbols.Symbol {
 	case *ast.IfActionNode:
 		add("condition", d.Condition)
 	case *ast.WhileLoopActionNode:
-		if d.Kind == ast.LoopFor {
+		switch d.Kind {
+		case ast.LoopFor:
 			add("collection", d.Collection)
-		} else {
+		case ast.LoopUntil:
+			// `loop { … } until c;` tests its condition after each iteration: it is the
+			// until condition, and the loop has no while condition (encodeLoop).
+			add("untilCondition", d.Condition)
+		default:
 			add("whileCondition", d.Condition)
 			add("untilCondition", d.Until)
 		}
