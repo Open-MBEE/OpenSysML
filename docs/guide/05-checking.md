@@ -740,7 +740,11 @@ bound to it at all times (KerML 1.1 §7.3.4.5) — so it is fixed as declared; a
 written as an expression over other features of the same element, is asserted as the defining
 equation of its variable: the model states not a value but how the value follows from the
 others. Both hold whether the element checked is a part, a constraint or a requirement, and an
-equation a redefinition supplies for an inherited feature counts too.
+equation a redefinition supplies for an inherited feature counts too. A value written through a
+chain rooted in one of the element's own features is derived too when no object is held for the
+root — `attribute :>> ok = s.amount > 2.0 and s.amount < 1.0;` over the requirement's subject
+`s`, a parameter of the requirement (SysML v2 §7.21.2), binds `ok` to the expression's result
+(KerML 1.1 §7.3.4.5), so the requirement answers as one stating the condition directly does.
 
 ```sysml
 sysml> package Box {
@@ -804,8 +808,10 @@ sysml> %solve Box::Crate::fits
 
 A literal bound with `=` (`attribute height = 0.1 [m]`) stays a fixed value, so `%check`'s
 answers over one do not move; a derived value the object has already materialized is fixed as
-held; and one read through another object (`crate.volume` from a part that holds a `Crate`) is
-the value that object derives, since the equation is over the held object's features. Where
+held; and one read through another object (`crate.volume` from a part that holds a `Crate`, or
+`s.amount` once an object is held for the subject `s`) is the value that object derives, since
+the equation is over the held object's features. A qualified or imported name (`test::scale * r`)
+stays a value the evaluator derives, as does a chain whose leaf the solver cannot carry. Where
 nothing can state the equation — the expression is outside the solver's subset and a feature it
 reads holds nothing — the value is left free and listed under `Left free, since their declared
 value could not be read:` with the reason.
