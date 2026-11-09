@@ -323,6 +323,14 @@ empty segment, and a library element the converted document itself holds by the 
 move from ours-only/pilot-only to matched (103,370 → 104,414); present-equal +23,637, ours-missing −4,470,
 present-different +6,278 (the inherited lists those members sit in now compare by id), pilot-missing +695.
 
+**A subject that takes its name from its role** (re-recorded after develop began to qualify a nameless
+feature by the name its role takes — `FunctionalRequirementCheck`'s `subject : Action;` is
+`Requirements::FunctionalRequirementCheck::subj` — while the library catalog still catalogues an unnamed
+member only where that qualified name is empty): the member is unrepresented, so the five `RequirementUsage`s
+typed by it in `HSUVRequirements.sysml` omit `member`, `membership` and `usage` (present-different 361 → 356,
+ours-missing 9 → 14; develop records 28). Catalogue the role-named member — a develop follow-up, not widened
+here.
+
 **Every multiplicity specializes `Base::naturals`, an `individual` definition's its own `Base::zeroOrOne`**
 (re-recorded with the implied specializations of KerML 8.3.3.1.9 `checkMultiplicitySpecialization` and
 SysML 8.3.9.3 `checkOccurrenceDefinitionMultiplicitySpecialization`, on the writer of #1950, #1990, #1970 and #1932 — develop's
