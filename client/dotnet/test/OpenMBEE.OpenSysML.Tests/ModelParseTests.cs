@@ -63,6 +63,7 @@ public sealed class ModelParseTests
             handler.RequestsFor("ParseFile").Select(sent => sent.Message(Wire.ParseFileRequest.Parser)));
         Assert.True(plain.Documents.IsEmpty);
         Assert.False(plain.HasErrors);
+        Assert.Equal("model h2 (1 root, 0 errors)", plain.ToString());
         Assert.Same(plain, plain.RequireNoErrors());
     }
 

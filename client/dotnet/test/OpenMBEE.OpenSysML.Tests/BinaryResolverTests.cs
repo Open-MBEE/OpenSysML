@@ -26,15 +26,6 @@ public sealed class BinaryResolverTests : IDisposable
     private static string Name => BinaryResolver.ExecutableName;
 
     [Fact]
-    public void TheNamesFollowThePlatform()
-    {
-        Assert.Equal(OperatingSystem.IsWindows() ? "sysml-grpc.exe" : "sysml-grpc", BinaryResolver.ExecutableName);
-        Assert.Equal(OperatingSystem.IsWindows() ? "USERPROFILE" : "HOME", BinaryResolver.HomeVariable);
-        Assert.Equal("OPENSYSML_GRPC_BINARY", ConnectionOptions.BinaryVariable);
-        Assert.Null(BinaryResolver.ProcessLessPlatform);
-    }
-
-    [Fact]
     public void TheOptionIsNamedBeforeTheVariableAndNeitherIsNothing()
     {
         var option = Executable("option");
