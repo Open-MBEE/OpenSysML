@@ -37,10 +37,8 @@ func apiJSONElementOfType(t *testing.T, exported []byte, metaclass string) map[s
 	return found[0]
 }
 
-// A ConjugatedPortTyping's conjugatedPortDefinition is the ConjugatedPortDefinition typing
-// its feature, the element its type names (SysML v2 8.3.12.3), and its portDefinition that
-// conjugate's original; the PortConjugation's originalPortDefinition is the same original
-// (8.3.12.4). The export and GetElementProperties agree on every one of them.
+// The export and GetElementProperties agree that a ConjugatedPortTyping's conjugatedPortDefinition is the element
+// its type names (SysML v2 8.3.12.3) and its portDefinition the conjugate's original, as is the PortConjugation's.
 func TestGRPCConjugatedPortTypingDefinitions(t *testing.T) {
 	srv, err := grpc.NewService(4, "test")
 	if err != nil {

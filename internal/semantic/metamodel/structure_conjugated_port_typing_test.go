@@ -37,10 +37,8 @@ func ownedRelationshipOf(t *testing.T, e *Evaluator, element Element, expected s
 	return found[0]
 }
 
-// A ConjugatedPortTyping's conjugatedPortDefinition is the ConjugatedPortDefinition that
-// types its typedFeature — the implied Cmd::'~Cmd' its typing target names (SysML v2
-// 8.3.12.3) — and its portDefinition that conjugate's original; the PortConjugation the
-// conjugate owns keeps answering the conjugate, its owning type (8.3.12.4).
+// A ConjugatedPortTyping's conjugatedPortDefinition is its target, the implied Cmd::'~Cmd' (SysML v2
+// 8.3.12.3), its portDefinition that conjugate's original; a PortConjugation's is its owning type (8.3.12.4).
 func TestSymbolStructureConjugatedPortTypingDefinitions(t *testing.T) {
 	evaluator, _ := newTestEvaluatorWithIndex(t, libs.NewModelIndex(), "conjugated.sysml", conjugatedPortTypingModel)
 	structure := NewSymbolStructure(evaluator.resolver, evaluator.model)
