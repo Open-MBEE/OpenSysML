@@ -299,7 +299,7 @@ func (g *treeGraph) associationLine(node *Node, site treeSite) (line association
 		if !slices.Contains(members, end) || g.endHasContent(end) {
 			return line, false
 		}
-		types := g.r.model.DeclaredTypes(end)
+		types := g.r.drawnTypes(end)
 		if len(types) != 1 {
 			return line, false
 		}
@@ -319,7 +319,7 @@ func (g *treeGraph) associationLine(node *Node, site treeSite) (line association
 	}
 	for i, end := range line.ends {
 		p := g.r.model.CrossFeature(end)
-		if p == nil || !structuralUsage(p) || g.node(p.Owner()) != typed[1-i] || !slices.Contains(g.r.model.DeclaredTypes(p), line.types[i]) {
+		if p == nil || !structuralUsage(p) || g.node(p.Owner()) != typed[1-i] || !slices.Contains(g.r.drawnTypes(p), line.types[i]) {
 			continue
 		}
 		line.crossed[i] = p

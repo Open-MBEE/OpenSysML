@@ -22,13 +22,34 @@ func NormativeSubject(id, qualifiedName string) bool {
 	catalog := identity.LibraryCatalog(libs.NewModelIndex())
 	el, ok := catalog.Element(id)
 	if !ok {
-		_, om := catalog.OwningMembership(id)
-		return om && qualifiedName == ""
+		return anonymousSubject(id, qualifiedName)
 	}
 	if el.FQN == qualifiedName {
 		return true
 	}
 	written, err := libraryGraphName(el)
+	return err == nil && written == qualifiedName
+}
+
+// anonymousSubject reports whether id is a library owning membership's, which names
+// nothing, or an unnamed library member's, which the graph names under its catalogued
+// owner by its position (`Owner::@3`) or its effective name, or not at all.
+func anonymousSubject(id, qualifiedName string) bool {
+	index := sharedLibraryIndex()
+	if _, om := index.catalog.OwningMembership(id); om {
+		return qualifiedName == ""
+	}
+	if _, ok := index.anonymous.OwningMembership(id); ok {
+		return qualifiedName == ""
+	}
+	member, ok := index.anonymous.Element(id)
+	if !ok {
+		return false
+	}
+	if qualifiedName == "" {
+		return true
+	}
+	written, err := writtenLibraryName(member.Symbol.DocName, id)
 	return err == nil && written == qualifiedName
 }
 
@@ -66,17 +87,22 @@ var libraryGraphNames sync.Map // document name → map[string]string, or error
 // libraryGraphName is the qualified name the encoder writes el under, which
 // positions an effectively named member (`@n`) where the symbol table names it.
 func libraryGraphName(el *identity.LibraryElement) (string, error) {
-	doc := el.Symbol.DocName
+	return writtenLibraryName(el.Symbol.DocName, el.ID)
+}
+
+// writtenLibraryName is the qualified name the encoder writes the element of a
+// bundled library document with the fixed id under: a declared or effective name, or `Owner::@n`.
+func writtenLibraryName(doc, id string) (string, error) {
 	cached, ok := libraryGraphNames.Load(doc)
 	if !ok {
 		cached, _ = libraryGraphNames.LoadOrStore(doc, encodeLibraryNames(doc))
 	}
 	switch names := cached.(type) {
 	case map[string]string:
-		if name, ok := names[el.ID]; ok {
+		if name, ok := names[id]; ok {
 			return name, nil
 		}
-		return "", fmt.Errorf("library element %s is not written by %s", el.FQN, doc)
+		return "", fmt.Errorf("library element %s is not written by %s", id, doc)
 	case error:
 		return "", names
 	}
@@ -111,7 +137,7 @@ func encodeLibraryNames(doc string) any {
 		if !el.source.Fixed() {
 			continue
 		}
-		if fqn, ok := e.fqn[node]; ok {
+		if fqn, ok := e.names.FQN[node]; ok {
 			names[el.id] = fqn
 		}
 	}

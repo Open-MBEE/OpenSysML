@@ -73,6 +73,9 @@ bound predicate that is not in this table:
 | `sysml:multiplicityUpper` | `multiplicityUpper` |
 | `sysml:satisfiedRequirement` | `satisfiedRequirement` |
 | `sysml:satisfyingFeature` | `satisfyingFeature` |
+| `sysml:payloadArgument` | `payloadArgument` |
+| `sysml:senderArgument` | `senderArgument` |
+| `sysml:receiverArgument` | `receiverArgument` |
 
 Unknown properties fail the query instead of silently returning no matches, and
 the diagnostic lists the OSLC predicates of the left column, since the query

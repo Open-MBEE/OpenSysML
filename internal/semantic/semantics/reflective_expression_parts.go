@@ -414,6 +414,8 @@ func (m *Model) expressionMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		out = m.plainExpressionMemberships(sym)
 	} else if value := m.expressionParameterValue(sym); value != nil {
 		out = appendOwningMembership(out, sym, value)
+	} else if value := m.sendParameterValue(sym); value != nil {
+		out = appendOwningMembership(out, sym, value)
 	}
 	m.memberships[sym] = out
 	return out
@@ -681,8 +683,14 @@ func referenceMembershipElements(sym *symbols.Symbol, feature string) ([]*symbol
 	case "source", "membershipOwningNamespace", "owningRelatedElement", "owner":
 		return []*symbols.Symbol{rel.Owner}, true
 	case "target", "memberElement":
+		if rel.Member == nil {
+			return nil, false
+		}
 		return []*symbols.Symbol{rel.Member}, true
 	case "relatedElement":
+		if rel.Member == nil {
+			return nil, false
+		}
 		return []*symbols.Symbol{rel.Owner, rel.Member}, true
 	case "ownedRelatedElement", "ownedRelationship", "ownedElement", "ownedAnnotation", "owningRelationship",
 		"owningMembership", "owningNamespace", "documentation", "textualRepresentation", "ownedImport", "ownedMembership":

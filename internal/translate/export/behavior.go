@@ -8,9 +8,9 @@ package export
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
@@ -87,8 +87,6 @@ const (
 	xBodyMember       = "bodyMember"
 	xAssignOperator   = "assignmentOperator"
 	xPayload          = "payload"
-	xReceiver         = "receiver"
-	xIsVia            = "isVia"
 	xTarget           = "target"
 )
 
@@ -166,16 +164,12 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 
 	case *ast.SendStatement:
 		head(rdf.SysMLTerm(mSend))
-		if err := e.expression(subject, e.sysx(xPayload), xPayload, owner, n.Message); err != nil {
+		if err := e.encodeSendArguments(n, subject, fqn); err != nil {
 			return true, err
 		}
-		if err := e.expression(subject, e.sysx(xReceiver), xReceiver, owner, n.Target); err != nil {
-			return true, err
-		}
-		if n.IsVia {
-			e.graph.Add(subject, e.sysx(xIsVia), rdf.Bool(true))
-		}
-		return true, nil
+		// The body SendNode ends in declares the send's own members, after its arguments.
+		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(n.HasBody))
+		return true, e.encode(n.Members, fqn, subject)
 
 	case *ast.TerminateStatement:
 		head(rdf.SysMLTerm(mTerminate))
@@ -226,7 +220,7 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 		// A state of a state machine.
 		head(rdf.SysMLTerm(mStateUsage))
 		e.name(subject, n.Name)
-		members := stateBody(n)
+		members := naming.StateBody(n)
 		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(len(members) > 0))
 		return true, e.encode(members, fqn, subject)
 
@@ -373,7 +367,7 @@ func (e *encoder) encodeSuccessionEdge(n *ast.SuccessionEdge, head func(rdf.Term
 			// same end `succession first x then done;` states outright.
 			target.targetTerm = e.libraryReference(libraryDone)
 		} else if n.TargetMember != nil {
-			if fqn, ok := e.fqn[n.TargetMember]; ok {
+			if fqn, ok := e.names.FQN[n.TargetMember]; ok {
 				target.targetTerm = e.ids.subjectForNode(n.TargetMember, fqn)
 			}
 		}
@@ -439,7 +433,7 @@ func (e *encoder) encodeSubaction(n ast.Node, actions []ast.Node, kind string, h
 	e.markPerformed(actions)
 	// `entry do { … }` states the subaction's own keyword and `do` as well, with
 	// or without a space or a comment between them and the body.
-	if written := strings.Fields(withoutComments(e.text(n))); len(written) > 1 && bareWord(written[1]) == "do" && kind != "do" {
+	if written := strings.Fields(naming.WithoutComments(e.text(n))); len(written) > 1 && bareWord(written[1]) == "do" && kind != "do" {
 		e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String(kind+" do"))
 	}
 	return e.encode(actions, fqn, subject)
@@ -448,7 +442,7 @@ func (e *encoder) encodeSubaction(n ast.Node, actions []ast.Node, kind string, h
 // markPerformed records the action usages among members as performed actions.
 func (e *encoder) markPerformed(members []ast.Node) {
 	for _, member := range members {
-		if node, _ := unwrapMember(member); node != nil {
+		if node, _ := naming.UnwrapMember(member); node != nil {
 			if usage, ok := node.(*ast.Usage); ok && usage.Kind == ast.UsageAction {
 				e.performed[usage] = true
 			}
@@ -482,7 +476,7 @@ func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term),
 	}
 	if n.Trigger != nil && !structural {
 		e.graph.Add(subject, e.sysx(xTrigger), rdf.String(e.text(n.Trigger)))
-		e.graph.Add(subject, e.sysx(xTriggerKeyword), rdf.String(e.introducer(n, n.Trigger)))
+		e.graph.Add(subject, e.sysx(xTriggerKeyword), rdf.String(naming.Introducer(e.file, n, n.Trigger)))
 	}
 	if n.Via != nil && !structural {
 		e.graph.Add(subject, e.sysml(relationshipProperty[ast.RelVia]), e.reference(n.Via))
@@ -496,8 +490,8 @@ func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term),
 		e.graph.Add(subject, e.sysx(xHasEffect), rdf.Bool(true))
 	}
 	e.markPerformed(n.Effect)
-	for _, member := range e.kept(n.Effect) {
-		if node, _ := unwrapMember(member); node != nil {
+	for _, member := range e.names.Kept(n.Effect) {
+		if node, _ := naming.UnwrapMember(member); node != nil {
 			e.effects[node] = true
 		}
 	}
@@ -525,7 +519,7 @@ func (e *encoder) encodeTransition(n *ast.TransitionMember, head func(rdf.Term),
 			return err
 		}
 		ownSuccession()
-		encoded = e.encodeInlineAt(n.Members, len(e.kept(n.Effect)), fqn, subject)
+		encoded = e.encodeInlineAt(n.Members, len(e.names.Kept(n.Effect)), fqn, subject)
 	} else {
 		if err := e.encode(n.Effect, fqn, subject); err != nil {
 			return err
@@ -569,11 +563,11 @@ func (e *encoder) encodeGuardedTarget(n *ast.ControlFlowEdge, head func(rdf.Term
 	e.emitMembershipCore(membership, succession, subject, mOwningMembership, true)
 	switch stands := e.preceding[n]; {
 	case qualifiedText(n.Source) == "":
-		if fqn, ok := e.fqn[n.SourceMember]; ok {
+		if fqn, ok := e.names.FQN[n.SourceMember]; ok {
 			e.graph.Add(subject, e.sysml(pSource), e.ids.subjectForNode(n.SourceMember, fqn))
 		}
 	case impliedSource(n, n.Source) && answersToFeature(stands):
-		if fqn, ok := e.fqn[stands]; ok {
+		if fqn, ok := e.names.FQN[stands]; ok {
 			e.graph.Add(subject, e.sysml(pSource), e.ids.subjectForNode(stands, fqn))
 		}
 	default:
@@ -682,7 +676,7 @@ func (e *encoder) transitionHeadMembers(subject rdf.Term, n *ast.TransitionMembe
 		e.transitionSourceMember(subject, n.Source)
 	}
 	e.emptyParameterMember(subject, "linkparam", e.ids.declSym[n])
-	if e.triggerPayload(n) != nil {
+	if naming.TriggerPayload(e.file, n) != nil {
 		e.emptyParameterMember(subject, "triggerparam", e.ids.declSym[n])
 	}
 }
@@ -743,10 +737,6 @@ func (e *encoder) emptyParameterMember(subject rdf.Term, slot string, owner *sym
 	e.graph.Add(membership, e.sysml(pOwnedMemberParameter), feature)
 }
 
-// triggerSegment is the qualified-name segment of a transition's trigger
-// action, which declares no name of its own.
-const triggerSegment = "@trigger"
-
 // encodeTrigger emits a transition's trigger as the AcceptActionUsage its
 // TransitionFeatureMembership of kind trigger owns (SysML v2 8.3.18.9
 // TransitionUsage::triggerAction; SysML.xtext TriggerActionMember): the payload
@@ -754,11 +744,11 @@ const triggerSegment = "@trigger"
 // the receiver parameter whose value is the `via` port. It reports false for a
 // trigger that has no such form, which the extension predicates carry instead.
 func (e *encoder) encodeTrigger(n *ast.TransitionMember, subject rdf.Term, fqn string) (bool, error) {
-	payload := e.triggerPayload(n)
+	payload := naming.TriggerPayload(e.file, n)
 	if payload == nil {
 		return false, nil
 	}
-	accepterFQN := fqn + "::" + triggerSegment
+	accepterFQN := fqn + "::" + naming.TriggerSegment
 	stub := &ast.Usage{Kind: ast.UsageAction}
 	stub.NodeSpan = n.TriggerSpan
 	accepter, err := e.mint(stub, accepterFQN)
@@ -776,7 +766,7 @@ func (e *encoder) encodeTrigger(n *ast.TransitionMember, subject rdf.Term, fqn s
 		e.graph.Add(membership, e.sysml(pTransitionFeature), accepter)
 		e.graph.Add(subject, e.sysml(pTriggerAction), accepter)
 	})
-	if keyword := e.introducer(n, n.Trigger); keyword != "accept" {
+	if keyword := naming.Introducer(e.file, n, n.Trigger); keyword != "accept" {
 		e.graph.Add(subject, e.sysx(xTriggerKeyword), rdf.String(keyword))
 	}
 	params := []ast.Node{payload}
@@ -794,7 +784,7 @@ func (e *encoder) encodeTrigger(n *ast.TransitionMember, subject rdf.Term, fqn s
 	}
 	links := []string{pPayloadArgument, pReceiverArgument}
 	for i := range params {
-		param := e.ids.subjectFor(qualify(accepterFQN, paramName(params[i]), i))
+		param := e.ids.subjectFor(naming.Qualify(accepterFQN, naming.ParamName(params[i]), i))
 		if value, ok := e.graph.Object(param, rdf.SysML+pValue); ok {
 			e.graph.Add(accepter, e.sysml(links[i]), value)
 		}
@@ -802,56 +792,79 @@ func (e *encoder) encodeTrigger(n *ast.TransitionMember, subject rdf.Term, fqn s
 	return true, nil
 }
 
-// paramName is the name a trigger parameter declares, if any.
-func paramName(node ast.Node) string {
-	name, _ := declaredNameAndMembers(node)
-	return name
-}
+// sendArgumentLinks are the properties naming a send's arguments, in parameter order.
+var sendArgumentLinks = [...]string{pPayloadArgument, pSenderArgument, pReceiverArgument}
 
-// triggerPayload is the payload parameter a transition's trigger declares, nil
-// for a trigger with no AcceptActionUsage form: a call event, and the
-// OpenSysML `when <name>` spelling, which names an injected signal. A time or
-// change event is the value of an unnamed payload (SysML.xtext TriggerValuePart).
-func (e *encoder) triggerPayload(n *ast.TransitionMember) *ast.Usage {
-	if n.Trigger == nil {
-		return nil
-	}
-	valued := func(event ast.Node, span source.Span) *ast.Usage {
-		payload := &ast.Usage{Kind: ast.UsageAttribute, IsReference: true, Direction: ast.DirOut, IsAccept: true, Value: event}
-		payload.NodeSpan = span
-		return payload
-	}
-	switch e.introducer(n, n.Trigger) {
-	case "accept":
-		switch t := n.Trigger.(type) {
-		case *ast.Usage:
-			if t.IsAccept {
-				return t
-			}
-		case *ast.TimeEvent, *ast.ChangeEvent:
-			return valued(t, t.Span())
+// encodeSendArguments emits a send's payload, sender and receiver as the `in`
+// parameters it owns, each valued by its expression (SysML v2 8.3.17.15
+// SendActionUsage; SysML.xtext SendNode, NodeParameterMember): the payload
+// first, then the `via` sender, then the `to` receiver, an EmptyParameterMember
+// standing in for a sender a `to` alone leaves out, or a payload left out. The
+// send names each value as its payloadArgument, senderArgument or receiverArgument.
+func (e *encoder) encodeSendArguments(n *ast.SendStatement, subject rdf.Term, fqn string) error {
+	var arguments [3]ast.Node
+	written := [3]bool{true}
+	arguments[0] = n.Message
+	switch {
+	case n.IsVia:
+		arguments[1], written[1] = n.Target, true
+		if n.Receiver != nil {
+			arguments[2], written[2] = n.Receiver, true
 		}
-	case "when":
-		switch n.Trigger.(type) {
-		case *ast.FeatureReference, *ast.QualifiedName, *ast.ErrorNode:
-			return nil
+	case n.Target != nil:
+		written[1] = true
+		arguments[2], written[2] = n.Target, true
+	}
+	var params []ast.Node
+	for i, argument := range arguments {
+		if !written[i] {
+			continue
 		}
-		change := &ast.ChangeEvent{Condition: n.Trigger}
-		change.NodeSpan = n.TriggerSpan
-		return valued(change, n.TriggerSpan)
+		param := &ast.Usage{Kind: ast.UsageAttribute, IsReference: true, Direction: ast.DirIn, Value: argument}
+		param.NodeSpan = sendParameterSpan(n, arguments, i)
+		e.triggerParams[param] = ""
+		params = append(params, param)
+	}
+	if err := e.encodeInline(params, fqn, subject); err != nil {
+		return err
+	}
+	index := 0
+	for i := range arguments {
+		if !written[i] {
+			continue
+		}
+		param := e.ids.subjectFor(naming.Qualify(fqn, "", index))
+		index++
+		if value, ok := e.graph.Object(param, rdf.SysML+pValue); ok {
+			e.graph.Add(subject, e.sysml(sendArgumentLinks[i]), value)
+		}
 	}
 	return nil
+}
+
+// sendParameterSpan places parameter i of send: at its argument, or, for one
+// written empty, where the next written argument begins.
+func sendParameterSpan(send *ast.SendStatement, arguments [3]ast.Node, i int) source.Span {
+	if arguments[i] != nil {
+		return arguments[i].Span()
+	}
+	for _, next := range arguments[i+1:] {
+		if next != nil {
+			return source.Span{Offset: next.Span().Offset}
+		}
+	}
+	return source.Span{Offset: send.Span().End()}
 }
 
 // transitionMemberLinks marks each member of a transition's effect or body as
 // such, so a reader can tell the two apart.
 func (e *encoder) transitionMemberLinks(n *ast.TransitionMember, subject rdf.Term, property string, members []ast.Node) error {
-	for _, member := range e.kept(members) {
-		node, _ := unwrapMember(member)
+	for _, member := range e.names.Kept(members) {
+		node, _ := naming.UnwrapMember(member)
 		if node == nil {
 			continue
 		}
-		memberFQN, ok := e.fqn[node]
+		memberFQN, ok := e.names.FQN[node]
 		if !ok {
 			return &UnsupportedError{
 				What: fmt.Sprintf("the transition at %s", e.where(n)),
@@ -861,17 +874,6 @@ func (e *encoder) transitionMemberLinks(n *ast.TransitionMember, subject rdf.Ter
 		e.graph.Add(subject, e.sysx(property), e.ids.subjectForNode(node, memberFQN))
 	}
 	return nil
-}
-
-// transitionMembers lists what a transition owns in written order: the actions
-// of its `do` effect, then the members of its body.
-func transitionMembers(n *ast.TransitionMember) []ast.Node {
-	if len(n.Effect) == 0 {
-		return n.Members
-	}
-	members := make([]ast.Node, 0, len(n.Effect)+len(n.Members))
-	members = append(members, n.Effect...)
-	return append(members, n.Members...)
 }
 
 // impliedSource reports whether the source name came from the member before the
@@ -918,7 +920,7 @@ func (e *encoder) edgeEnds(subject rdf.Term, node ast.Node, owner string, src, t
 				e.graph.Add(subject, e.sysml(end.feature), e.libraryReference(libraryDone))
 				continue
 			}
-			fqn, ok := e.fqn[end.end.member]
+			fqn, ok := e.names.FQN[end.end.member]
 			if !ok {
 				return &UnsupportedError{
 					What: fmt.Sprintf("the succession at %s", e.where(node)),
@@ -931,7 +933,7 @@ func (e *encoder) edgeEnds(subject rdf.Term, node ast.Node, owner string, src, t
 		// A name the parser took from an unnamed member is its naming feature's,
 		// which another member may share: the end is that member itself.
 		if end.end.implied && answersToFeature(end.end.stands) {
-			if fqn, ok := e.fqn[end.end.stands]; ok {
+			if fqn, ok := e.names.FQN[end.end.stands]; ok {
 				e.graph.Add(subject, e.sysml(end.feature), e.ids.subjectForNode(end.end.stands, fqn))
 				continue
 			}
@@ -941,7 +943,7 @@ func (e *encoder) edgeEnds(subject rdf.Term, node ast.Node, owner string, src, t
 		// A name the parser took from the member before that links no element
 		// still binds that member: the graph states it by position as well.
 		if before, ok := e.preceding[node]; ok && end.end.implied && term.IsLiteral() {
-			if fqn, ok := e.fqn[before]; ok {
+			if fqn, ok := e.names.FQN[before]; ok {
 				e.graph.Add(subject, e.sysx(end.member), e.ids.subjectForNode(before, fqn))
 			}
 		}
@@ -988,7 +990,7 @@ func (e *encoder) transitionSyntax(n *ast.TransitionMember) string {
 		return "accept"
 	}
 	// The source is the node the AST places right after an optional `first`.
-	if head := words(e.before(n, n.Source)); len(head) > 0 && head[len(head)-1] == "first" {
+	if head := words(naming.Before(e.file, n, n.Source)); len(head) > 0 && head[len(head)-1] == "first" {
 		return "first"
 	}
 	return "source"
@@ -1000,7 +1002,7 @@ func (e *encoder) transitionKeyword(subject rdf.Term, n *ast.TransitionMember) {
 	if n.Source == nil {
 		return
 	}
-	for _, word := range words(e.before(n, n.Source)) {
+	for _, word := range words(naming.Before(e.file, n, n.Source)) {
 		switch word {
 		case "succession":
 			e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String(word))
@@ -1017,11 +1019,11 @@ func (e *encoder) bracedBody(node ast.Node, body []ast.Node) bool {
 	if len(body) == 0 {
 		return strings.Contains(e.text(node), "{")
 	}
-	first, _ := unwrapMember(body[0])
+	first, _ := naming.UnwrapMember(body[0])
 	if first == nil {
 		return false
 	}
-	return strings.HasSuffix(e.before(node, first), "{")
+	return strings.HasSuffix(naming.Before(e.file, node, first), "{")
 }
 
 // bracedBranch reports whether a branch of a conditional was written with
@@ -1029,15 +1031,6 @@ func (e *encoder) bracedBody(node ast.Node, body []ast.Node) bool {
 func (e *encoder) bracedBranch(n *ast.IfBranchNode) bool {
 	text := strings.TrimSpace(strings.TrimPrefix(e.text(n), "else"))
 	return strings.HasPrefix(text, "{")
-}
-
-// before returns the text between the start of node and the start of inner.
-func (e *encoder) before(node, inner ast.Node) string {
-	start, end := node.Span().Offset, inner.Span().Offset
-	if end <= start {
-		return ""
-	}
-	return strings.TrimSpace(e.file.Text(source.Span{Offset: start, Len: end - start}))
 }
 
 // between returns the text between two nodes, which is the operator or keyword
@@ -1051,16 +1044,6 @@ func (e *encoder) between(from, to ast.Node) string {
 		return ""
 	}
 	return strings.TrimSpace(strings.TrimRight(e.file.Text(source.Span{Offset: start, Len: end - start}), "( \t\r\n"))
-}
-
-// introducer returns the keyword written immediately before inner, which is
-// what the clause inner belongs to was introduced with.
-func (e *encoder) introducer(node, inner ast.Node) string {
-	fields := strings.Fields(withoutComments(e.before(node, inner)))
-	if len(fields) == 0 {
-		return ""
-	}
-	return fields[len(fields)-1]
 }
 
 func firstWord(text string) string {
@@ -1095,72 +1078,6 @@ func bareAcceptNode(n *ast.Usage, text string) bool {
 		}
 	}
 	return false
-}
-
-// stateBody gathers the members of a state, which the AST holds in one bucket
-// per kind, back into the order they were written in.
-func stateBody(n *ast.StateNode) []ast.Node {
-	members := make([]ast.Node, 0,
-		len(n.Entry)+len(n.Do)+len(n.Exit)+len(n.Substates)+len(n.Regions))
-	for _, bucket := range [][]ast.Node{n.Entry, n.Do, n.Exit, n.Substates} {
-		members = append(members, bucket...)
-	}
-	for _, region := range n.Regions {
-		members = append(members, region)
-	}
-	sort.SliceStable(members, func(i, j int) bool {
-		return members[i].Span().Offset < members[j].Span().Offset
-	})
-	return members
-}
-
-// behaviorNameAndMembers returns the name a behavioral node declares and the
-// members it owns, for the nodes declaredNameAndMembers does not cover.
-func behaviorNameAndMembers(node ast.Node) (string, []ast.Node, bool) {
-	switch n := node.(type) {
-	case *ast.InitialNode:
-		// Its name references the starting member, so it declares none.
-		return "", n.Members, true
-	case *ast.SuccessionEdge:
-		return "", n.Members, true
-	case *ast.FinalNode:
-		return "", nil, true
-	case *ast.ForkNode:
-		return n.Name, nil, true
-	case *ast.JoinNode:
-		return n.Name, nil, true
-	case *ast.MergeNode:
-		return n.Name, nil, true
-	case *ast.DecisionNode:
-		return n.Name, nil, true
-	case *ast.ActionExecutionNode:
-		return n.Name, nil, true
-	case *ast.WhileLoopActionNode:
-		return "", n.Body, true
-	case *ast.IfActionNode:
-		branches := make([]ast.Node, 0, 2)
-		for _, branch := range n.Branches() {
-			branches = append(branches, branch)
-		}
-		return "", branches, true
-	case *ast.IfBranchNode:
-		return "", n.Body, true
-	case *ast.StateNode:
-		return n.Name, stateBody(n), true
-	case *ast.SubstateMember:
-		return n.Name, nil, true
-	case *ast.PseudostateNode:
-		return n.Name, nil, true
-	case *ast.EntryMember:
-		return "", n.Actions, true
-	case *ast.DoMember:
-		return "", n.Actions, true
-	case *ast.ExitMember:
-		return "", n.Actions, true
-	case *ast.TransitionMember:
-		return n.Name, transitionMembers(n), true
-	}
-	return "", nil, false
 }
 
 // behaviorHead builds the declaration text of a behavioral element whose
@@ -1229,16 +1146,29 @@ func (d *decoder) behaviorHead(el *element) (string, bool, error) {
 		return strings.Join(words, " "), true, nil
 
 	case mSend:
-		payload, hasPayload := d.stringOf(el, rdf.OpenSysML+xPayload)
-		receiver, hasReceiver := d.stringOf(el, rdf.OpenSysML+xReceiver)
-		if !hasPayload || !hasReceiver {
-			return "", true, d.missing(el, "sysx:"+xPayload+" and sysx:"+xReceiver, "a send states what it sends and where")
+		var texts [3]string
+		for i, property := range sendArgumentLinks {
+			text, err := d.sendArgument(el, property, i)
+			if err != nil {
+				return "", true, err
+			}
+			texts[i] = text
 		}
-		keyword := "to"
-		if d.boolOf(el, rdf.OpenSysML+xIsVia) {
-			keyword = "via"
+		// A head whose parameters all stand empty is a bare `send`: its body
+		// declares the parameters (`action snd send { in :>> payload = s; }`).
+		if texts == [3]string{} && len(d.sendArgumentParams(el)) == 0 {
+			return "", true, d.missing(el, "sysml:"+pPayloadArgument+", sysml:"+pSenderArgument+" or sysml:"+pReceiverArgument, "a send states what it sends or where")
 		}
-		words := append(nodeDeclaration(d, el), "send", payload, keyword, receiver)
+		words := append(nodeDeclaration(d, el), "send")
+		if texts[0] != "" {
+			words = append(words, texts[0])
+		}
+		if texts[1] != "" {
+			words = append(words, "via", texts[1])
+		}
+		if texts[2] != "" {
+			words = append(words, "to", texts[2])
+		}
 		return strings.Join(words, " "), true, nil
 
 	case mTerminate:
@@ -1949,7 +1879,7 @@ func (d *decoder) loopText(el *element, depth int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	text := head + " " + body
+	text := strings.Join(append(nodeDeclaration(d, el), head), " ") + " " + body
 	// An `until` clause states the condition tested after each iteration, and
 	// terminates the loop; so does a body written without braces.
 	if until, ok := d.stringOf(el, rdf.OpenSysML+xUntilCondition); ok {
@@ -1990,7 +1920,7 @@ func (d *decoder) conditionalText(el *element, depth int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	text := "if " + condition + " " + thenText
+	text := strings.Join(append(nodeDeclaration(d, el), "if", condition), " ") + " " + thenText
 	if otherwise == nil {
 		return text, nil
 	}
@@ -2395,7 +2325,7 @@ func (d *decoder) lookupName(name, scope string, absolute bool) (string, bool) {
 			return qname, true
 		}
 	}
-	segments := identitySegments(scope)
+	segments := naming.Segments(scope)
 	for n := len(segments); n >= 0; n-- {
 		qname := name
 		if prefix := strings.Join(segments[:n], "::"); prefix != "" {
@@ -2430,7 +2360,7 @@ func (d *decoder) declaredName(qname string) (string, bool) {
 
 // canonicalQName spells each segment of qname as its name alone, unquoted.
 func canonicalQName(qname string) string {
-	segments := identitySegments(qname)
+	segments := naming.Segments(qname)
 	for i, segment := range segments {
 		segments[i] = identityName(segment)
 	}
@@ -2546,6 +2476,80 @@ func (d *decoder) payloadArgumentAgrees(accepter, payload *element) error {
 		}
 	}
 	return nil
+}
+
+// sendArgument is the notation of the argument a send names at property
+// (payloadArgument, senderArgument or receiverArgument): the value of the
+// parameter at position among those it owns (SysML v2 §8.3.17.15 argument(n)),
+// or the stated expression itself where no parameter holds it; "" for an
+// argument the send states none of. A stated argument that is not the
+// parameter's value is refused, since writing one would drop the other.
+func (d *decoder) sendArgument(el *element, property string, position int) (string, error) {
+	refuse := func(note string) (string, error) {
+		return "", &UnsupportedError{What: fmt.Sprintf("the send action <%s>", el.iri), Note: note}
+	}
+	stated := d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+property)
+	if len(stated) > 1 {
+		return refuse(fmt.Sprintf("it states more than one sysml:%s, and the notation writes one", property))
+	}
+	var param *element
+	if params := d.sendArgumentParams(el); position < len(params) {
+		param = params[position]
+	}
+	if param == nil {
+		if len(stated) == 0 {
+			return "", nil
+		}
+		return d.expressionNodeText(stated[0], el)
+	}
+	value, valued := d.graph.Object(rdf.IRI(param.iri), rdf.SysML+pValue)
+	switch {
+	case !valued && len(stated) == 0:
+		return "", nil
+	case !valued:
+		return refuse(fmt.Sprintf("its sysml:%s <%s> is not the value of its parameter <%s>, which holds none, and writing one would drop the other", property, stated[0].Value, param.iri))
+	case len(stated) == 1 && stated[0] != value:
+		return refuse(fmt.Sprintf("its sysml:%s <%s> is not the value of its parameter <%s>, and writing one would drop the other", property, stated[0].Value, param.iri))
+	}
+	if text, ok := d.stringOf(param, rdf.SysML+pValue); ok {
+		return text, nil
+	}
+	return d.expressionNodeText(value, el)
+}
+
+// sendArgumentParams are the parameters a send's head writes, in argument
+// order: the unnamed ones leading its parameters (SysML.xtext NodeParameterMember,
+// EmptyParameterMember), before any its body declares.
+func (d *decoder) sendArgumentParams(el *element) []*element {
+	params := d.parameterChildren(el)
+	for i, param := range params {
+		if len(d.identWords(param)) > 0 || d.statesRelationship(param) {
+			return params[:i]
+		}
+	}
+	return params
+}
+
+// statesRelationship reports whether el types, specializes, subsets or redefines anything;
+// a send's head parameters state only a value, so a body's `in :>> payload = s;` is the body's.
+func (d *decoder) statesRelationship(el *element) bool {
+	for _, kind := range []ast.RelationshipKind{ast.RelTyping, ast.RelSpecializes, ast.RelSubsets, ast.RelRedefines, ast.RelReferences} {
+		if refs, err := d.referenceList(el, rdf.SysML+relationshipProperty[kind]); err == nil && len(refs) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// parameterChildren are the children el owns through a ParameterMembership, in order.
+func (d *decoder) parameterChildren(el *element) []*element {
+	var params []*element
+	for _, child := range el.children {
+		if m, ok := d.owningMembership[child.iri]; ok && d.metaclass(rdf.IRI(m.iri)) == mParameterMembership {
+			params = append(params, child)
+		}
+	}
+	return params
 }
 
 // receiverParams are the parameters of a trigger action other than its

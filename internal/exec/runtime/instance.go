@@ -1862,8 +1862,10 @@ func (ctx *Context) bindsAFeature(sym *symbols.Symbol) bool {
 // feature, not a behavior, a constraint or a parameter, whose values bind no field.
 func holdsRecordField(sym *symbols.Symbol) bool {
 	switch sym.Kind {
-	case symbols.SymbolActionUsage, symbols.SymbolStateUsage,
-		symbols.SymbolConstraintUsage, symbols.SymbolRequirementUsage:
+	case symbols.SymbolStateUsage, symbols.SymbolConstraintUsage, symbols.SymbolRequirementUsage:
+		return false
+	}
+	if sym.Kind.IsActionUsage() {
 		return false
 	}
 	return semantics.IsShapeFeature(sym) && !semantics.IsParameter(sym)

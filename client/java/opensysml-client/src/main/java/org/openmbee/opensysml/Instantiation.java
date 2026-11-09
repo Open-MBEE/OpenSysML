@@ -39,6 +39,18 @@ public record Instantiation(Instance root, List<Instance> reachable, List<Diagno
   }
 
   /**
+   * The object holding another along the path the traversal reached it by.
+   *
+   * @param instance an object of this instantiation
+   * @return its {@link Instance#owner()} as an object, absent for the root and for a holder that is
+   *     not among the objects built
+   */
+  public Optional<Instance> owner(Instance instance) {
+    Objects.requireNonNull(instance, "instance");
+    return instance.owner().flatMap(this::resolve);
+  }
+
+  /**
    * The object of an id.
    *
    * @param instanceId the id the service gave the object

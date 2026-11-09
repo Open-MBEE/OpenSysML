@@ -149,7 +149,10 @@ not resolve), or when OpenSysML does not derive the property at all; a property 
 derived and empty answers no values and no reason. A standard-library element — one an `element`
 value references, or a library qualified name such as `Parts::Part` — is read from the form of the
 bundled library document declaring it, converted once per process, so a walk from a model into the
-library continues. A missing element is an in-band `error`; a model whose document the parser could
+library continues; a library member no name catalogues — the documentation, invariants and
+connectors a part inherits from `Occurrences::Occurrence`, a declared multiplicity range — and its
+owning membership read back under the ids an answer carried them by, so every id an answer returns
+is accepted back. A missing element is an in-band `error`; a model whose document the parser could
 not read whole has no element form and reports that the same way. The `element_properties`
 capability advertises the RPC.
 
@@ -311,7 +314,7 @@ arms, each captured from `Evaluate` against the model at the end of this section
 | `function` | object | `{"result":{"function":{"calcId":"F::Sq"}}}` | A calc held as a value: the calc it names and, when it was read off an object, that object |
 | `set` | object | `{"result":{"set":{"elements":[{"intValue":"1"},{"intValue":"2"},{"intValue":"3"}]}}}` | Unordered collection without duplicates; `elements` are `Value`s, listed in canonical order |
 | `tensorQuantity` | object | `{"result":{"tensorQuantity":{"dimensions":["2","2","2"],"components":[{"realMagnitude":1,"unit":"m","unitTerm":{…}},…]}}}` | Tensor of quantities of any rank; one `quantity` body per component, row-major |
-| `metaobject` | object | `{"result":{"metaobject":{"elementId":"Meta::seatBelt","metaclassId":"SysML::Systems::PartUsage"}}}` | An element of the model held as an instance of its metaclass (`x meta T`, the last member of `x.metadata`): the element it reflects on and the metaclass that classifies it |
+| `metaobject` | object | `{"result":{"metaobject":{"elementId":"Meta::seatBelt","metaclassId":"SysML::Systems::PartUsage"}}}` | An element of the model held as an instance of its metaclass (`x meta T`, the last member of `x.metadata`): the element it reflects on, by the id a client keeps for any element (qualified name, positional id `Owner::@2`, or the element form's `@id`), and the metaclass that classifies it |
 | `undetermined` | object | `{"result":{"undetermined":{"reason":"P::Q::d has no value in the model","count":{"lower":"1","upper":"1"}}}}` | A model-level result the model leaves open: a read of a feature with no value, or of one whose count is not fixed, or an operation over such a read. `count` bounds the values it would hold |
 
 The `array`, `vector` and `vectorQuantity` rows were captured against
@@ -400,7 +403,8 @@ decode(v):
                  components := map the quantity rule over v.tensorQuantity.components;
                  require len(components) == product(dimensions), else an error
   metaobject   → element := v.metaobject.elementId, require it non-empty, else an error;
-                 metaclass := v.metaobject.metaclassId; the element is the identity
+                 metaclass := v.metaobject.metaclassId; the element is the identity, in
+                 whichever id form it arrived (qualified name, positional id, form @id)
   undetermined → the language's "undetermined" sentinel carrying v.undetermined.reason (a
                  string) and v.undetermined.count (lower and upper as strings, upper "*"
                  when unbounded); distinct from unset, from null and from false. Never
@@ -768,9 +772,25 @@ $ … /Evaluate -d '{"modelHash":"07a0…b5ca","expression":"Meta::notADefinitio
 {"result":{"sequence":{}}}
 ```
 
-- `elementId` is the fully qualified name of the element, and is the identity a client keeps
-  to send the same metaobject back. It is never empty: a `metaobject` with no `elementId` is
-  malformed, and a decoder refuses it rather than reading it as "no element".
+- `elementId` is the identity a client keeps to send the same metaobject back, and is one of
+  the ids the tree already addresses an element by — the same ids `GetElementProperties`
+  accepts and reports in its `ElementRef`s, so a client hands a metaobject's `elementId` to
+  `GetElementProperties` or `GetSymbol` and hands back what those report:
+    - the fully qualified name, for an element one identifies (`Meta::seatBelt`);
+    - the positional id of an unnamed member (`Meta::outer::@0`, the `@N` segment
+      [`GetElementProperties`](#getelementproperties) and `GetSymbol` address one by), for an
+      unnamed declaration;
+    - the element form's `@id` (the `convert` to `api-json`), for an element the semantic side
+      tables synthesize and no scope declares: a send's or accept's parameter and its argument
+      value (`Meta__Monitor__sm__relay___40trigger___401_pvalue` is the `receiverArgument` of
+      the accept of `Meta::Monitor::sm::relay`), a transition's guard, an expression's
+      operands and parameters, a feature-chain Feature at a connector end
+      (`Meta__holder___402_pend0_pchain`).
+  It is never empty: a `metaobject` with no `elementId` is malformed, and a decoder refuses it
+  rather than reading it as "no element". A decoder keeps the id opaque; it never parses one.
+  The WebAssembly engine, whose size budget excludes the exporter and the positional naming,
+  names an element by its qualified name only and sends a metaobject of one with none as the
+  unsupported null below.
 - `metaclassId` is the fully qualified name of the reflective metaclass that classifies the
   element — a part usage is a `SysML::Systems::PartUsage` however it was cast — so a client
   learns what the element is, not what the model asked for. A cast to a metaclass the element
@@ -784,13 +804,15 @@ $ … /Evaluate -d '{"modelHash":"07a0…b5ca","expression":"Meta::notADefinitio
   `(Meta::seatBelt meta KerML::Feature)#(1).qualifiedName` is `{"stringValue":"Meta::seatBelt"}` —
   and a feature the engine does not derive is an evaluation failure naming the feature, not a
   guess.
-- A metaobject of an anonymous element — one with no qualified name to send, such as an
-  unnamed part among a type's `ownedFeature` — is the unsupported null
-  `{"null":"unsupported: metaobject of an element with no qualified name"}`, under the `null`
-  arm's rule. A named element nested in an anonymous one keeps its name (`Mid::inner`).
+- A metaobject of an element none of those ids reaches (the implied `Multiplicity` a usage
+  owns) is the unsupported null `{"null":"unsupported: metaobject of an element with no
+  identity"}`, under the `null` arm's rule. A named element nested in an anonymous one keeps
+  its name (`Mid::inner`).
 - An `element_id` sent that two declarations of the model share (the same qualified name in two
   documents) identifies neither and is refused in band as ambiguous, never bound to whichever the
-  index lists first.
+  index lists first. A form `@id` is resolved under the nearest element a qualified or
+  positional id reaches, among what it owns; one that reaches nothing is unbound, and one a
+  declaration's qualified name also spells (`package D__outer___400`) is ambiguous between the two.
 - The arm is gated by the `metaobject_values` capability (see [Capabilities, and what an absent one does](service-transports.md#capabilities-and-what-an-absent-one-does)).
   A service without it sends every metaobject, at any depth, as
   `{"null":"unsupported: metaobject Meta::seatBelt : SysML::Systems::PartUsage"}` and refuses a
@@ -946,7 +968,7 @@ HTTP/1.1 400 Bad Request
 
 $ … /Query -d '{"modelHash":"2af5…dea2","query":{"where":{"primitive":{"property":"colour","operator":"PRIMITIVE_OPERATOR_EQUAL","value":["red"]}}}}'
 HTTP/1.1 400 Bad Request
-{"code":"invalid_argument","message":"unknown query property \"colour\"; queryable properties are @id, @type, body, declaredName, declaredShortName, documentation, elementId, general, isAbstract, isIndividual, language, locale, multiplicityLower, multiplicityUpper, name, owner, qualifiedName, satisfiedRequirement, satisfyingFeature, shortName, textualRepresentation, type"}
+{"code":"invalid_argument","message":"unknown query property \"colour\"; queryable properties are @id, @type, body, declaredName, declaredShortName, documentation, elementId, general, isAbstract, isIndividual, language, locale, multiplicityLower, multiplicityUpper, name, owner, payloadArgument, qualifiedName, receiverArgument, satisfiedRequirement, satisfyingFeature, senderArgument, shortName, textualRepresentation, type"}
 
 $ … /ApplyEdits -d '{"modelHash":"997e…6134","acceptDocuments":true,"document":"nope.sysml","operations":[{"rename":{"target":"EngineUser::Car","newName":"Automobile"}}]}'
 HTTP/1.1 400 Bad Request
