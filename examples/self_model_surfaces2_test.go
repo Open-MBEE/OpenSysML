@@ -20,12 +20,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/project"
 )
 
-// The surfaces the first two self-model tests do not reach: the service's
-// access control, the language server's notebook and settings, the rendering
-// forms and the draw.io round trip, the CLI's verbs, project discovery, the
-// clients' token options, the editors beyond VS Code, the MCP npm package
-// and the oracles the toolchain gained. Each fact is read from the analysed
-// model and compared with the code, the build files or the documents.
+// The surfaces the first two self-model tests do not reach; each fact is read
+// from the analysed model and compared with the code, build files or documents.
 
 // readRepoFile returns the text of one file of the repository.
 func readRepoFile(t *testing.T, path string) string {
