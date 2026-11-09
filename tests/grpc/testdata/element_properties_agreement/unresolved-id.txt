@@ -9,8 +9,8 @@ Annotation::@id	2	export-35
 DecisionNode::@id	6	export-49
 Documentation::@id	4	export-49
 Feature::@id	2	export-54
-FeatureMembership::@id	29	export-50
-FeatureTyping::@id	19	export-55
+FeatureMembership::@id	12	export-50
+FeatureTyping::@id	5	export-55
 ForkNode::@id	2	export-49
 Membership::@id	11	export-53
 Multiplicity::@id	4	symbol-55
@@ -23,4 +23,4 @@ ResultExpressionMembership::@id	1	export-50
 ReturnParameterMembership::@id	2	export-50
 SendActionUsage::@id	1	export-49
 Subclassification::@id	2	export-47
-Subsetting::@id	7	export-48
+Subsetting::@id	5	export-48

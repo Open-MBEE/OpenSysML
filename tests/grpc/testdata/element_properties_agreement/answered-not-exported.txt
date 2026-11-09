@@ -421,7 +421,7 @@ FeatureChaining::relatedElement	248	symbol-10
 FeatureInverting::documentation	1	symbol-50
 FeatureInverting::ownedAnnotation	1	symbol-05
 FeatureInverting::ownedElement	1	symbol-50
-FeatureMembership::memberName	197	symbol-06
+FeatureMembership::memberName	214	symbol-06
 FeatureMembership::memberShortName	1	symbol-47
 FeatureMembership::ownedMemberFeature	150	symbol-16
 FeatureMembership::ownedMemberName	5	symbol-47

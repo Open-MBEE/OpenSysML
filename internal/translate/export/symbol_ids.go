@@ -273,6 +273,12 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 			// An action a subaction performs is owned through the member written as the membership.
 			return s.ids.OfDeclaration(doc, node, "")
 		}
+		if body, ok := rel.Member.Decl.(*ast.BodyExpr); ok && rel.Member.Name != "" {
+			// A body's parameter is keyed by its body; its FeatureMembership is minted
+			// off the parameter (bodyParameter), not off the body's own membership.
+			_, membership, ok := s.ids.OfBodyParameter(doc, body, rel.Member.Name)
+			return membership, ok
+		}
 		if id, ok := s.ids.OwningMembershipOfDeclaration(doc, rel.Member.Decl, s.fqn(rel.Member)); ok && rel.Member.Expr == nil {
 			return id, true
 		}
@@ -291,6 +297,11 @@ func (s *SymbolIDs) implicitID(rel *symbols.ImplicitRelationship) (string, bool)
 	case symbols.ImplicitWritten:
 		if rel.Node == nil {
 			return "", false
+		}
+		if _, ok := rel.Owner.Decl.(*ast.BodyExpr); ok && rel.Owner.Name != "" {
+			// A body parameter's head clauses are materialized off the parameter, in
+			// the order written per kind (bodyParameter, materializeRelationships).
+			return s.bodyParameterRelationshipID(rel)
 		}
 		if rel.Owner != nil && isConnectorEnd(rel.Owner) && rel.Kind.ReferenceSubsets() {
 			// An end's reference subsetting is minted off the end (connectorEnd).
@@ -513,4 +524,28 @@ func encodedSegment(segment string) string {
 // isConnectorEnd reports whether sym is a connector's end, declared or synthesized.
 func isConnectorEnd(sym *symbols.Symbol) bool {
 	return sym.Kind == symbols.SymbolConnectorEnd || sym.Expr != nil && sym.Expr.Role == symbols.ExpressionConnectorEnd
+}
+
+// bodyParameterRelationshipID spells the relationship rel a body parameter's head
+// clause writes (`in a : T :> f`): the parameter's id and the suffix the conversion
+// mints for the clause's kind at its position among the clauses of that kind.
+func (s *SymbolIDs) bodyParameterRelationshipID(rel *symbols.ImplicitRelationship) (string, bool) {
+	element, ok := s.of(rel.Owner)
+	if !ok {
+		return "", false
+	}
+	count, index, ordinal := 0, 0, 0
+	for _, written := range semantics.RelationshipsOf(rel.Owner) {
+		if written == nil {
+			continue
+		}
+		if written.Kind == rel.Kind {
+			if ordinal < rel.Ordinal {
+				index++
+			}
+			count++
+		}
+		ordinal++
+	}
+	return element + relationshipSuffix(rel.Kind, false, rel.Kind.ReferenceSubsets(), count, index), true
 }
