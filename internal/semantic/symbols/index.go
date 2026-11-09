@@ -1059,7 +1059,11 @@ func (idx *Index) LibraryTier(sym *Symbol) LibraryTier {
 	if sym == nil {
 		return TierNone
 	}
-	return idx.librarySyms.at(sym)
+	if tier := idx.librarySyms.at(sym); tier != TierNone || sym.Name != "" {
+		return tier
+	}
+	// An unnamed member contributes no name, so its tier is its document's.
+	return idx.libraryDocs.at(sym.DocName).Tier
 }
 
 // DocumentLibraryTier reports the tier the named document was marked with,
@@ -2307,4 +2311,25 @@ func NewIndexFromDoc(name string, root *ast.RootNamespace) *Index {
 	idx := NewIndex()
 	idx.AddDocument(name, root)
 	return idx
+}
+
+// QualifiedIdentity is the qualified name identifying sym alone, "" when an
+// owner or sym is unnamed or the name resolves to more than one symbol.
+func (idx *Index) QualifiedIdentity(sym *Symbol) string {
+	if idx == nil || sym == nil {
+		return ""
+	}
+	fqn := idx.GetFQN(sym)
+	if fqn == "" {
+		return ""
+	}
+	for _, segment := range strings.Split(fqn, "::") {
+		if segment == "" {
+			return ""
+		}
+	}
+	if !slices.Contains(idx.LookupQualified(fqn), sym) {
+		return ""
+	}
+	return fqn
 }

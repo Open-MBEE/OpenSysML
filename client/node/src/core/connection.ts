@@ -28,6 +28,7 @@ import {
   CAPABILITY_STATE_TRACE,
   CAPABILITY_ACTION_TRACE,
   CAPABILITY_QUERY,
+  CAPABILITY_ELEMENT_PROPERTIES,
   CAPABILITY_QUERY_ORDER_BY,
   CAPABILITY_OSLC_QUERY,
   CAPABILITY_RENDER_DOCUMENT,
@@ -38,6 +39,7 @@ import {
   CAPABILITY_EXPORT_GRAPHS,
   CAPABILITY_IMPORT_DATA,
   CAPABILITY_COMPARE_RESULTS,
+  CAPABILITY_INSTANCE_PATHS,
   CAPABILITY_SCHEDULE,
   CAPABILITY_SCHEDULE_EXPLORE,
   CAPABILITY_STRICT_CONFORMANCE,
@@ -56,6 +58,8 @@ import {
 import {
   ClosedConnectionError,
   ConversionError,
+  EvaluationError,
+  SymbolNotFoundError,
   ExecutionError,
   InvalidRequestError,
   MigrationError,
@@ -72,6 +76,8 @@ import {
   MigrateRequestSchema,
   ParseSourcesRequestSchema,
   QueryRequestSchema,
+  GetElementPropertiesRequestSchema,
+  InstancePathsRequestSchema,
   RenderDocumentRequestSchema,
   RenderViewRequestSchema,
   CheckBehaviorRequestSchema,
@@ -129,6 +135,8 @@ import {
   pathIsV1,
 } from "./conversion.js";
 import type { ConvertOptions, MigrateOptions } from "./conversion.js";
+import { type ElementProperties, elementPropertiesOf } from "./element-properties.js";
+import { type InstancePaths, instancePathsOf } from "./instance-paths.js";
 import {
   buildQuery,
   elementsOf,
@@ -651,6 +659,72 @@ export class Connection {
       capabilityRefusal(this.info, needed),
     );
     return elementsOf(response);
+  }
+
+  /**
+   * Reads the metamodel properties of one element by their specification names
+   * (`inheritedFeature`, `connectorEnd`, ...), as the model's API element form
+   * spells them; every property the element carries when none is named. The
+   * element is a qualified name, the positional id of an unnamed member
+   * (`Owner::@2`) or an element form id.
+   */
+  async elementProperties(
+    modelHash: string,
+    element: string,
+    properties: readonly string[] = [],
+  ): Promise<ElementProperties> {
+    requireCapability(
+      this.info,
+      CAPABILITY_ELEMENT_PROPERTIES,
+      upgradeRemedy(CAPABILITY_ELEMENT_PROPERTIES),
+    );
+    const response = await callRpc(
+      this.rpc.getElementProperties(
+        create(GetElementPropertiesRequestSchema, {
+          modelHash,
+          elementId: element,
+          properties: [...properties],
+        }),
+        this.callOptions(),
+      ),
+      "model",
+      capabilityRefusal(this.info, [CAPABILITY_ELEMENT_PROPERTIES]),
+    );
+    if (response.error !== "") {
+      if (response.error.startsWith("element not found")) {
+        throw new SymbolNotFoundError(element);
+      }
+      throw new ConversionError(response.error);
+    }
+    return elementPropertiesOf(response);
+  }
+
+  /**
+   * Lists every root-relative path that reaches one object the service holds
+   * for the model, named by the id `Instantiate` answered or by path (the
+   * qualified name it was instantiated as, its id `#2`, or a path through
+   * feature values from either, `Garage::car.wheels[2]`).
+   */
+  async instancePaths(
+    modelHash: string,
+    object: { instanceId: bigint } | { path: string },
+  ): Promise<InstancePaths> {
+    requireCapability(this.info, CAPABILITY_INSTANCE_PATHS, upgradeRemedy(CAPABILITY_INSTANCE_PATHS));
+    const response = await callRpc(
+      this.rpc.instancePaths(
+        create(InstancePathsRequestSchema, {
+          modelHash,
+          object: "instanceId" in object ? { instanceId: object.instanceId } : { path: object.path },
+        }),
+        this.callOptions(),
+      ),
+      "model",
+      capabilityRefusal(this.info, [CAPABILITY_INSTANCE_PATHS]),
+    );
+    if (response.error !== "") {
+      throw new EvaluationError(response.error, "unspecified", response.diagnostics.map(decodeDiagnostic));
+    }
+    return instancePathsOf(response);
   }
 
   /** Runs a named document query and answers its typed rows. */

@@ -172,6 +172,25 @@ func TestSequenceRenderingOrdersMessagesByTheirLifelines(t *testing.T) {
 	}
 }
 
+// A case's subject exposed on its own is drawn as a part exposed on its own is —
+// by the events it holds — and its messages with it, not reported as misplaced.
+func TestSequenceRenderingDrawsASubjectLifeline(t *testing.T) {
+	rendering := render(t, "sequence-lifelines.sysml", "LifelineViews::servedView")
+	var lifelines []string
+	for _, root := range rendering.Roots {
+		lifelines = append(lifelines, root.Name)
+	}
+	if !slices.Equal(lifelines, []string{"askSent", "replyTaken", "askTaken", "replySent"}) {
+		t.Errorf("lifelines = %v, want the subject's events before the part's", lifelines)
+	}
+	if got := messageLabels(rendering); !slices.Equal(got, []string{"ask of A", "reply of B"}) {
+		t.Errorf("messages = %v, want ask then reply", got)
+	}
+	if len(rendering.Notices) != 0 {
+		t.Errorf("notices = %v, want none: the subject is drawn, not reported", rendering.Notices)
+	}
+}
+
 // An order carried through an event no message attaches to still orders the
 // messages on either side of it.
 func TestSequenceRenderingFollowsOrdersThroughUnmessagedEvents(t *testing.T) {

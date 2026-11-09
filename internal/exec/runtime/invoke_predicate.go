@@ -248,7 +248,7 @@ func (ctx *Context) objectResult(inst *Instance) (Value, error) {
 		if !resultParameter(m) {
 			continue
 		}
-		fv, err := inst.MemberValue(ctx, m.Name)
+		fv, err := inst.MemberValue(ctx, ctx.model.semantics.EffectiveNameOf(m))
 		if err != nil {
 			return Value{}, err
 		}

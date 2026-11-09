@@ -9,8 +9,9 @@ use crate::conversion::{
     FORMAT_TURTLE,
 };
 use crate::document::{DocumentForm, DocumentQueryResult, DocumentValue};
-use crate::domain::{Model, Symbol, Value};
+use crate::domain::{Model, Symbol, SymbolOptions, Value};
 use crate::edit::Editor;
+use crate::element_properties::ElementProperties;
 use crate::error::Error;
 use crate::operations::{
     AnalysisOptions, RecordOptions, RunOptions, RunsOptions, SweepOptions, VerifyOptions,
@@ -116,6 +117,15 @@ impl Model {
     /// Run a SysML v2 API & Services query over the model.
     pub fn query(&self, query: &Query) -> Result<Vec<QueryElement>, Error> {
         self.connection.query(self.hash(), query)
+    }
+    /// Read the metamodel properties of one element by their specification names.
+    pub fn element_properties(
+        &self,
+        element: &str,
+        properties: &[&str],
+    ) -> Result<ElementProperties, Error> {
+        self.connection
+            .element_properties(self.hash(), element, properties)
     }
     /// Select elements with OSLC Query 3.0 parameter text.
     pub fn query_oslc(&self, oslc: &str) -> Result<Vec<QueryElement>, Error> {
@@ -280,7 +290,10 @@ impl Model {
     }
 
     fn symbol_by_id(&self, fqn: &str) -> Result<Option<Symbol>, Error> {
-        match self.connection.get_symbol(self.hash(), fqn) {
+        match self
+            .connection
+            .get_symbol(self.hash(), fqn, &SymbolOptions::default())
+        {
             Ok(symbol) if symbol.id() == fqn => Ok(Some(symbol)),
             Ok(_) | Err(Error::Model(_)) => Ok(None),
             Err(error) => Err(error),

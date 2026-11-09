@@ -4,6 +4,7 @@ package replext
 
 import (
 	"context"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
@@ -45,10 +46,12 @@ type GraphWriter interface {
 	Write(ctx *runtime.Context, inst *runtime.Instance, index *symbols.Index, depth, instances int, warning func() string) (out []byte, failures []error, err error)
 }
 
-// PositionalDocument pairs a session document with the scope holding its symbols.
+// PositionalDocument pairs a session document's source and tree with the
+// scope holding its symbols.
 type PositionalDocument struct {
-	File *source.SourceFile
-	Root *symbols.Scope
+	File  *source.SourceFile
+	Root  *ast.RootNamespace
+	Scope *symbols.Scope
 }
 
 // PositionalNamer names the symbols identifies refuses as the RDF export names

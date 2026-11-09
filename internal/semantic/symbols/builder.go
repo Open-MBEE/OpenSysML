@@ -53,13 +53,11 @@ func unwrapMember(m ast.Node) (ast.Node, ast.Visibility) {
 // declaration node. trivia is the leading trivia captured from the member
 // wrapper before unwrap.
 func buildDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia []ast.Trivia) {
-	if prefixes := prefixMetadataOf(decl); len(prefixes) > 0 {
-		buildMetadataBodyScopes(scope, decl, prefixes)
-	}
 	switch {
 	case buildNamespaceDecl(scope, decl, vis, trivia):
 	case buildBehaviorDecl(scope, decl, vis, trivia):
 	}
+	buildPrefixMetadata(scope, decl)
 }
 
 // buildNamespaceDecl registers a namespace, definition or usage
@@ -153,11 +151,11 @@ func buildNamespaceDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia 
 		scope.AddChild(child)
 		return true
 	case *ast.SubjectMember:
-		// SubjectMember represents requirement subject: subject <name> : <Type>;
-		// Create a part usage symbol (subject is structural usage like part)
+		// A requirement's `subject <name> : <Type>;` is the ReferenceUsage its
+		// SubjectMembership declares (SysML.xtext SubjectMember).
 		id, naming := namingIdent(d.Ident, d.NamingFeature())
 		child := NewScope(scope, d)
-		sym := newSymbol(id, SymbolPartUsage, d, vis, child, scope, trivia)
+		sym := newSymbol(id, SymbolReferenceUsage, d, vis, child, scope, trivia)
 		naming.apply(sym)
 		defineIdent(scope, id, sym)
 		scope.AddChild(child)
@@ -215,7 +213,7 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 			buildMembers(scope, d.Members)
 			return true
 		}
-		buildAnonymousNode(scope, d, SymbolActionUsage, d.Members, vis, trivia)
+		buildAnonymousNode(scope, d, SymbolSendActionUsage, d.Members, vis, trivia)
 		return true
 	case *ast.SuccessionEdge:
 		// A succession with a body is a SuccessionAsUsage whose body declares its
@@ -360,13 +358,32 @@ func prefixMetadataOf(decl ast.Node) []*ast.PrefixMetadata {
 	return prefixes
 }
 
-// buildMetadataBodyScopes builds the body scopes of the annotations written on
-// decl, a member of scope.
-func buildMetadataBodyScopes(scope *Scope, decl ast.Node, prefixes []*ast.PrefixMetadata) {
+// buildPrefixMetadata registers each `#M` prefix of decl as a metadata usage the
+// annotated element owns (PrefixMetadataMember), after its body members.
+func buildPrefixMetadata(scope *Scope, decl ast.Node) {
+	prefixes := prefixMetadataOf(decl)
+	if len(prefixes) == 0 {
+		return
+	}
+	var owned *Scope
+	if annotated := scope.MemberDeclaring(decl); annotated != nil {
+		owned = annotated.Scope
+	}
 	for _, prefix := range prefixes {
-		if prefix != nil && len(prefix.Body) > 0 {
-			buildMetadataBodyScope(scope, decl, prefix)
+		if prefix == nil {
+			continue
 		}
+		body := buildMetadataBodyScope(scope, decl, prefix)
+		if owned == nil {
+			continue
+		}
+		if body == nil {
+			body = NewScope(scope, prefix)
+			body.annotated = decl
+			scope.AddChild(body)
+		}
+		sym := newSymbol(prefix.Ident, SymbolMetadataUsage, prefix, ast.VisibilityDefault, body, owned, nil)
+		defineIdent(owned, prefix.Ident, sym)
 	}
 }
 
@@ -391,7 +408,9 @@ func buildMetadataBodyScope(parent *Scope, annotated ast.Node, prefix *ast.Prefi
 func buildControlNode(scope *Scope, decl ast.Node, name string, nameSpan source.Span, vis ast.Visibility, trivia []ast.Trivia) {
 	body := ast.NodeBodyMembers(decl)
 	if name == "" {
-		if len(body) > 0 {
+		// An unnamed node declares an element once its body or a prefix gives it
+		// something to own.
+		if len(body) > 0 || len(prefixMetadataOf(decl)) > 0 {
 			buildAnonymousNode(scope, decl, SymbolActionUsage, body, vis, trivia)
 		}
 		return
@@ -530,10 +549,17 @@ func defineTransitionEffect(scope *Scope, trans *ast.TransitionMember) {
 	// A statement (`do send x to y`) declares no member of its own, so the
 	// action it performs is named here, its members staying the transition's.
 	statement := NewScope(scope, effect)
+	kind := SymbolActionUsage
+	if SendStatementOf(effect) != nil {
+		kind = SymbolSendActionUsage
+	}
 	sym := newSymbol(
 		ast.Identification{Name: transitionEffectName, NameSpan: effect.Span()},
-		SymbolActionUsage, effect, ast.VisibilityDefault, statement, scope, nil,
+		kind, effect, ast.VisibilityDefault, statement, scope, nil,
 	)
+	// The statement's action subsets TransitionAction::effect (SysML v2.1 §8.4.11.x
+	// checkTransitionUsageTransitionFeatureSpecialization) and declares no name.
+	sym.Naming = NamedByRole
 	scope.Define(transitionEffectName, sym)
 	scope.AddChild(statement)
 }
@@ -786,8 +812,8 @@ var usageSymbolKinds = map[ast.UsageKind]SymbolKind{
 	ast.UsageAnalysisCase:     SymbolAnalysisCaseUsage,
 	ast.UsageVerificationCase: SymbolVerificationCaseUsage,
 	ast.UsageUseCase:          SymbolUseCaseUsage,
-	// Subject is a requirement parameter - treat as a part usage for structural purposes.
-	ast.UsageSubject: SymbolPartUsage,
+	// A subject is the ReferenceUsage its SubjectMembership declares (SysML.xtext SubjectMember).
+	ast.UsageSubject: SymbolReferenceUsage,
 	// Objective is a requirement usage (SysML v2 §8.3.20).
 	ast.UsageObjective: SymbolRequirementUsage,
 	// An actor and a stakeholder are part usages (SysML v2 §8.3.19).
@@ -829,6 +855,12 @@ func classifyUsage(u *ast.Usage) SymbolKind {
 	if u.Keyword == "function" {
 		return SymbolCalcDef
 	}
+	if kind := classifyActionNode(u); kind != SymbolUnknown {
+		return kind
+	}
+	if u.IsSuccessionFlow() {
+		return SymbolSuccessionFlowUsage
+	}
 	// Only classify attribute usages (datatype, attribute, feature keywords)
 	if u.Kind != ast.UsageAttribute {
 		return UsageSymbolKind(u.Kind)
@@ -865,4 +897,38 @@ func classifyUsage(u *ast.Usage) SymbolKind {
 
 	// Default: treat as usage
 	return SymbolAttributeUsage
+}
+
+// classifyActionNode is the kind of the node an action usage is written as
+// (SysML v2 §8.2.2.17 ActionNode); SymbolUnknown for a plain action usage.
+func classifyActionNode(u *ast.Usage) SymbolKind {
+	if u.Kind != ast.UsageAction {
+		return SymbolUnknown
+	}
+	switch {
+	case u.IsTerminate:
+		return SymbolTerminateActionUsage
+	case u.IsPerformedAction():
+		return SymbolPerformActionUsage
+	case AcceptPayloadOf(u) != nil:
+		return SymbolAcceptActionUsage
+	}
+	switch statement := ActionNodeStatementOf(u).(type) {
+	case *ast.SendStatement:
+		return SymbolSendActionUsage
+	case *ast.AssignmentActionNode:
+		return SymbolAssignmentActionUsage
+	case *ast.PerformActionNode:
+		return SymbolPerformActionUsage
+	case *ast.IfActionNode:
+		return SymbolIfActionUsage
+	case *ast.WhileLoopActionNode:
+		if statement.Kind == ast.LoopFor {
+			return SymbolForLoopActionUsage
+		}
+		return SymbolWhileLoopActionUsage
+	case *ast.TerminateStatement:
+		return SymbolTerminateActionUsage
+	}
+	return SymbolUnknown
 }

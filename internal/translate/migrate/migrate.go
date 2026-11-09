@@ -1761,6 +1761,15 @@ func (m *migration) constraintBody(e *sysmlv1.Element) {
 	saved := m.scope
 	m.scope = e
 	m.comments(e)
+	// A parameter e owns under a general's name takes that position itself; one that
+	// feature skips as tool content leaves the position to the restatement.
+	seen := make(map[string]bool)
+	for _, c := range e.Children {
+		if (c.Type == "Property" || c.Type == "Port") && c.Name != "" && toolContent(c) == "" {
+			seen[c.Name] = true
+		}
+	}
+	m.restateInheritedConstraintParameters(e, seen)
 	f := m.constraintRule(e)
 	for _, c := range e.Children {
 		if c != f.rule {
@@ -1783,6 +1792,29 @@ func (m *migration) constraintBody(e *sysmlv1.Element) {
 		m.unmappedExpr(f.rule, f.spec, f.note)
 	}
 	m.scope = saved
+}
+
+// restateInheritedConstraintParameters redefines the generals' parameters by clause, in their
+// kind and order, before e's own: an own parameter would redefine one by position (KerML 8.4.4.6).
+func (m *migration) restateInheritedConstraintParameters(e *sysmlv1.Element, seen map[string]bool) {
+	for _, g := range e.Owned("generalization") {
+		general := m.model.Ref(g, "general")
+		if general == nil {
+			continue
+		}
+		m.restateInheritedConstraintParameters(general, seen)
+		for _, p := range general.Children {
+			if p.Type != "Property" || p.Name == "" || seen[p.Name] || toolContent(p) != "" {
+				continue
+			}
+			kw, prefix, _ := m.featureKeyword(p, catConstraintDef)
+			if kw == "constraint" {
+				continue
+			}
+			seen[p.Name] = true
+			m.w.line("in " + prefix + kw + " :>> " + writeName(p.Name) + ";")
+		}
+	}
 }
 
 func verdictFor(note string) Verdict {

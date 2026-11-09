@@ -1,0 +1,41 @@
+sha256 0aef5f7f4a5206d7b9120b2aed749216ada001310b1252e12f911877012dda48 bytes 213270 lines 4316
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:Annotated
+    a sysml:Package ;
+    sysml:qualifiedName "Annotated" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "34"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
+    sysml:elementId "Annotated" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "Annotated" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Annotated__Safety, elmt:Annotated__Car, elmt:Annotated__car, elmt:Annotated___403, elmt:Annotated__tagged, elmt:Annotated___405, elmt:Annotated___406 ;
+    sysml:ownedMembership elmt:Annotated__Safety_om, elmt:Annotated__Car_om, elmt:Annotated__car_om, elmt:Annotated___403_om, elmt:Annotated__tagged_om, elmt:Annotated___405_om, elmt:Annotated___406_om ;
+    sysml:ownedRelationship elmt:Annotated__Safety_om, elmt:Annotated__Car_om, elmt:Annotated__car_om, elmt:Annotated___403_om, elmt:Annotated__tagged_om, elmt:Annotated___405_om, elmt:Annotated___406_om ;
+    sysx:sourceText "package Annotated {\n" ;
+    sysx:sourceTail "}\n" ;
+    json:ownedMember "[{\"@id\":\"Annotated__Safety\"},{\"@id\":\"Annotated__Car\"},{\"@id\":\"Annotated__car\"},{\"@id\":\"Annotated___403\"},{\"@id\":\"Annotated__tagged\"},{\"@id\":\"Annotated___405\"},{\"@id\":\"Annotated___406\"}]" ;
+    json:ownedMembership "[{\"@id\":\"Annotated__Safety_om\"},{\"@id\":\"Annotated__Car_om\"},{\"@id\":\"Annotated__car_om\"},{\"@id\":\"Annotated___403_om\"},{\"@id\":\"Annotated__tagged_om\"},{\"@id\":\"Annotated___405_om\"},{\"@id\":\"Annotated___406_om\"}]" ;
+    json:ownedRelationship "[{\"@id\":\"Annotated__Safety_om\"},{\"@id\":\"Annotated__Car_om\"},{\"@id\":\"Annotated__car_om\"},{\"@id\":\"Annotated___403_om\"},{\"@id\":\"Annotated__tagged_om\"},{\"@id\":\"Annotated___405_om\"},{\"@id\":\"Annotated___406_om\"}]" .
+
+elmt:Annotated__Safety
+    a sysml:MetadataDefinition ;
+    sysml:qualifiedName "Annotated::Safety" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "9"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
+    sysml:elementId "Annotated__Safety" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Annotated ;
+    sysml:owner elmt:Annotated ;

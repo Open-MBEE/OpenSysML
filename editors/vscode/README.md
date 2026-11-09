@@ -217,9 +217,11 @@ then on `PATH`; a warning says how to build it when none is found.
 
 `syntaxes/*.tmLanguage.json` are generated — do not edit them by hand. The
 keyword list comes from `internal/syntax/source.Keywords()`, and the contextual
-words the parser reads as syntax without the lexer reserving them (`point`,
-`initial`, `var` in `.kerml`, …) from `lexer.ContextualWords()`, so highlighting
-cannot drift from either. Generation fails if a word is in both lists, and the
+words the parser reads as syntax without the lexer reserving them (`chain`,
+`done`, `var` in `.kerml`, …) from `lexer.ContextualWords()`, so highlighting
+cannot drift from either. Keywords are grouped by `editors/internal/keywords`,
+which the Emacs package's keyword lists are generated from too. Generation
+fails if a word is in both lists, and the
 two languages differ where the grammars do — `var` is KerML notation only:
 
 ```bash

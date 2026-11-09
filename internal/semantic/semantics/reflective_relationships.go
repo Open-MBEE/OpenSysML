@@ -60,6 +60,20 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 		}
 		ordinal++
 	}
+	// A metadata body feature without a `:>>` clause redefines the metadata
+	// type's feature its name restates (KerML 7.4.7; SysML.xtext MetadataBodyUsage).
+	for _, target := range m.implicitMetadataBodyRedefinitions(owner) {
+		out = append(out, &symbols.Symbol{
+			Kind:     symbols.SymbolRelationship,
+			DocName:  owner.DocName,
+			DeclSpan: owner.DeclSpan,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: owner, Ordinal: ordinal, Kind: ast.RelRedefines,
+				Form: symbols.ImplicitMetadataBodyRedefinition, Member: target,
+			},
+		})
+		ordinal++
+	}
 	// A connector end reference-subsets the feature it attaches to whether or
 	// not a clause of its own says so (SysML v2 8.2.2.13.1).
 	if end, ok := owner.Decl.(*ast.ConnectorEnd); ok {
@@ -169,6 +183,8 @@ func (m *Model) implicitMetaclassName(sym *symbols.Symbol) string {
 		return m.importMetaclassName(sym)
 	case symbols.ImplicitPortConjugation:
 		return "PortConjugation"
+	case symbols.ImplicitMetadataBodyRedefinition:
+		return "Redefinition"
 	case symbols.ImplicitReferenceMembership:
 		return "Membership"
 	case symbols.ImplicitFeatureChaining:
@@ -247,8 +263,7 @@ var featureTypingMetaclassNames = map[string]bool{
 }
 
 // relationshipEndFeature reports whether feature is the source- or target-side
-// end the relationship metaclass meta declares. ConjugatedPortTyping answers
-// only its `portDefinition`; its general end stays unimplemented.
+// end meta declares; a ConjugatedPortTyping's `portDefinition` is read apart.
 func relationshipEndFeature(meta, feature string) (sourceSide, targetSide bool) {
 	switch feature {
 	case "subclassifier":
@@ -292,8 +307,8 @@ func relationshipEndFeature(meta, feature string) (sourceSide, targetSide bool) 
 	case "superclassifier":
 		targetSide = meta == "Subclassification"
 	case "type":
-		targetSide = meta == "FeatureTyping"
-	case "portDefinition":
+		targetSide = featureTypingMetaclassNames[meta]
+	case "conjugatedPortDefinition":
 		targetSide = meta == "ConjugatedPortTyping"
 	case "subsettedFeature":
 		targetSide = subsettingMetaclassNames[meta]
@@ -316,6 +331,9 @@ func relationshipEndFeature(meta, feature string) (sourceSide, targetSide bool) 
 func (m *Model) implicitRelationshipEnds(sym *symbols.Symbol) (src, tgt *symbols.Symbol, tgtOK bool) {
 	rel := sym.Implicit
 	src = rel.Owner
+	if rel.Form == symbols.ImplicitMetadataBodyRedefinition {
+		return src, rel.Member, rel.Member != nil
+	}
 	if rel.Node != nil {
 		// A chain target's general is the implicit chaining feature the chain
 		// denotes as a whole (KerML 8.3.3.3.9), never the chain's final feature.
@@ -408,15 +426,24 @@ func (m *Model) implicitRelationshipElements(sym *symbols.Symbol, feature string
 	case "source":
 		return source, true
 	case "target":
-		if tgtOK && meta != "ConjugatedPortTyping" {
+		if tgtOK {
 			return []*symbols.Symbol{tgt}, true
 		}
 		return nil, false
 	case "relatedElement":
-		if tgtOK && meta != "ConjugatedPortTyping" {
+		if tgtOK {
 			return []*symbols.Symbol{src, tgt}, true
 		}
 		return nil, false
+	case "portDefinition":
+		// The original the conjugate is of (SysML v2 8.3.12.3); the target itself when it implies no conjugate.
+		if meta != "ConjugatedPortTyping" || !tgtOK {
+			return nil, false
+		}
+		if original := OriginalPortDefinitionOf(tgt); original != nil {
+			return []*symbols.Symbol{original}, true
+		}
+		return []*symbols.Symbol{tgt}, true
 	case "owningRelatedElement", "owner":
 		return source, true
 	case "ownedRelatedElement":
@@ -440,7 +467,7 @@ func (m *Model) implicitRelationshipElements(sym *symbols.Symbol, feature string
 	switch {
 	case feature == "specific" && specializationMetaclassNames[meta]:
 		return source, true
-	case feature == "general" && specializationMetaclassNames[meta] && meta != "ConjugatedPortTyping", tgtEnd:
+	case feature == "general" && specializationMetaclassNames[meta], tgtEnd:
 		if tgtOK {
 			return []*symbols.Symbol{tgt}, true
 		}
@@ -596,11 +623,13 @@ func (m *Model) ownedImplicitRelationships(sym *symbols.Symbol, kinds map[string
 }
 
 var (
-	conjugationMetaclass   = map[string]bool{"Conjugation": true, "PortConjugation": true}
-	redefinitionMetaclass  = map[string]bool{"Redefinition": true}
-	referenceSubsetting    = map[string]bool{"ReferenceSubsetting": true}
-	crossSubsetting        = map[string]bool{"CrossSubsetting": true}
-	subclassificationKinds = map[string]bool{"Subclassification": true}
+	conjugationMetaclass      = map[string]bool{"Conjugation": true, "PortConjugation": true}
+	redefinitionMetaclass     = map[string]bool{"Redefinition": true}
+	referenceSubsetting       = map[string]bool{"ReferenceSubsetting": true}
+	crossSubsetting           = map[string]bool{"CrossSubsetting": true}
+	typeFeaturingMetaclass    = map[string]bool{"TypeFeaturing": true}
+	featureInvertingMetaclass = map[string]bool{"FeatureInverting": true}
+	subclassificationKinds    = map[string]bool{"Subclassification": true}
 )
 
 // implicitOwnerElements reads an owner-side element feature: the relationship

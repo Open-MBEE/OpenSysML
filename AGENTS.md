@@ -29,7 +29,7 @@ make build            # build bin/sysml and bin/sysml-lsp (with version ldflags)
 make build-sysml      # REPL binary only
 make build-lsp        # LSP binary only
 make test             # full suite: go test -race -coverprofile ... ./...
-make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|runtime-corpus|model|export|export-corpus|export-settled|graph|codegen|tools|rest|migrate|cli)
+make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|runtime-corpus|runtime-exploration|model|export-corpus|export-settled|graph|codegen|tools|rest|migrate|cli)
 make test-short       # faster, no race detector
 make clean            # remove build artifacts
 ```
@@ -211,16 +211,20 @@ the full CI tier is expensive, so run them locally before the PR, every time the
    into `docs/project/pilot-differential.md` / `api-json-differential.md`, then re-record with
    `-update` and run `make docs-counts`. A library change that adds declarations always moves
    `pilotLibraryElements`; anything else moving is an implementation difference to explain.
-### 6.2 Changing `internal/translate/export`: the api-json writer provenance
+### 6.2 Changing `internal/translate/export`: the api-json differential
 
-The api-json baseline's `api-json-writer` provenance digests **every non-test `.go` file of
-`internal/translate/export`** — the RDF/api-json writer *and* the reverse converter
-(`rdf_in*.go`), element ids, names, addresses — so any commit touching that package, however
-small, moves the digest and turns the `rest` shard red on `TestCommittedBaselineStatesThisRepositorysProvenance`.
-Before pushing such a commit (including a review fix pushed after a re-record): run
-`go run -C tools ./cmd/pilot-apijson-diff -update` over the real corpus directories, confirm that
-only `sourceDigest` moved (account for anything else in `docs/project/api-json-differential.md`),
-and run `go test -C tools -count=1 ./referee/apijson` as the pre-push check.
+The api-json baseline (`docs/project/api-json-differential-baseline.json`) records the pinned
+pilot's side and the compared inputs only — no digest of this repository's writer and no
+recording date — so a commit under `internal/translate/export` moves it only where it moves a
+verdict, one bucket line at a time, and two branches re-recording it conflict only where their
+verdicts differ. What proves the figures current is the differential itself: the pull-request
+workflow's `apijson-differential` job runs `go run -C tools ./cmd/pilot-apijson-diff -check` on
+every change under the writer, the referee, the bridge, the pin or the baseline. Before pushing
+such a commit, run `go run -C tools ./cmd/pilot-apijson-diff` over the real corpus directories
+(`-check` to confirm the baseline reproduces); if a bucket moved, adjudicate it in
+`docs/project/api-json-differential.md`, re-record with `-update` and run `make docs-counts`.
+Never re-record a baseline whose figures did not move: its provenance lines change only on a pin
+bump, an errata change or an edit to a compared input.
 
 ### 6.3 Keeping the agent skills current
 

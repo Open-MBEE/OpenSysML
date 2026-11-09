@@ -28,8 +28,9 @@ const (
 	apiJSONMappingValuesKey        = "sysx:mappingValues"
 )
 
-// APIJSONOmission describes an object-property value omitted because its target
-// could not be resolved.
+// APIJSONOmission describes a property value an element object omits: an
+// object property whose target could not be resolved, or a completed derived
+// property the metamodel evaluator could not derive for that subject.
 type APIJSONOmission struct {
 	Subject   string
 	Metaclass string
@@ -87,7 +88,7 @@ func apiJSONElementsWithOptions(graph *rdf.Graph, options APIJSONOptions) ([]api
 		return nil, err
 	}
 	settled, err := rdf.ReconcileCollectionsWithPolicy(wrapped, func(subject rdf.Term, key string) bool {
-		metaclass := strings.TrimPrefix(wrapped.Type(subject), rdf.SysML)
+		metaclass := apiJSONOntologyMetaclass(strings.TrimPrefix(wrapped.Type(subject), rdf.SysML))
 		property, ok := ontology.PropertyOf(metaclass, key)
 		return ok && property.Nonunique
 	})
@@ -212,8 +213,8 @@ func (o apiJSONObject) MarshalJSON() ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-// apiJSONReference is the {"@id": <id>} spelling of a reference value.
-type apiJSONReference struct {
+// APIJSONReference is the {"@id": <id>} spelling of a reference value.
+type APIJSONReference struct {
 	ID string `json:"@id"`
 }
 
@@ -385,7 +386,7 @@ func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) 
 				}
 				continue
 			}
-			property, propertyKnown := ontology.PropertyOf(metaclass, key)
+			property, propertyKnown := ontology.PropertyOf(apiJSONOntologyMetaclass(metaclass), key)
 			objectProperty := propertyKnown && property.Kind == ontology.ObjectProperty
 			value, err := apiJSONSysMLValue(
 				w.graph, subject, predicate, key, metaclass, property, propertyKnown, objectProperty, w.nameIndex,
@@ -826,7 +827,7 @@ func (state *apiJSONPropertyComparisonState) exactTermAt(position int) (rdf.Term
 
 func (state *apiJSONPropertyComparisonState) compareValue(value any) error {
 	switch v := value.(type) {
-	case apiJSONReference:
+	case APIJSONReference:
 		return state.compareReference(v.ID)
 	case apiJSONNameReference:
 		return state.compareTerm(rdf.String(v.name))
@@ -1006,7 +1007,7 @@ func apiJSONMappingValueForTerm(subject, term rdf.Term) (any, error) {
 		if id == "" {
 			return nil, fmt.Errorf("reference %s has no API id", term)
 		}
-		return apiJSONReference{ID: id}, nil
+		return APIJSONReference{ID: id}, nil
 	}
 	if term.IsLiteral() {
 		return term.Value, nil
@@ -1112,7 +1113,7 @@ func apiJSONSysMLValue(
 		values := make([]any, 0, len(objects))
 		for _, object := range objects {
 			if object.IsIRI() {
-				values = append(values, apiJSONReference{ID: rdf.ReferenceID(subject, object)})
+				values = append(values, APIJSONReference{ID: rdf.ReferenceID(subject, object)})
 				continue
 			}
 			value, err := apiJSONScalar(subject, key, object, objectProperty)
@@ -1142,7 +1143,7 @@ func apiJSONSysMLValue(
 		values := make([]any, 0, len(members))
 		for _, member := range members {
 			if member.ID != "" {
-				values = append(values, apiJSONReference{ID: member.ID})
+				values = append(values, APIJSONReference{ID: member.ID})
 				continue
 			}
 			object, err := collectionObject(subject, objects, member)
@@ -1198,7 +1199,7 @@ func apiJSONResolveUnresolvedProperty(
 	if len(names) == 0 {
 		return value, true
 	}
-	property, known := ontology.PropertyOf(metaclass, key)
+	property, known := ontology.PropertyOf(apiJSONOntologyMetaclass(metaclass), key)
 	subjectID, _ := rdf.SubjectID(subject)
 	if options.Omitted != nil || options.Diagnostic != nil {
 		for _, name := range names {
@@ -1253,7 +1254,7 @@ func apiJSONValues(subject rdf.Term, key string, objects []rdf.Term, objectPrope
 // datatype to spell it in.
 func apiJSONScalar(subject rdf.Term, key string, object rdf.Term, objectProperty bool) (any, error) {
 	if object.IsIRI() {
-		return apiJSONReference{ID: rdf.ReferenceID(subject, object)}, nil
+		return APIJSONReference{ID: rdf.ReferenceID(subject, object)}, nil
 	}
 	if object.Lang != "" {
 		return nil, &UnsupportedError{

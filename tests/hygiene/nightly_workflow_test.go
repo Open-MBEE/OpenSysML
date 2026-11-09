@@ -19,6 +19,7 @@ import (
 // gets a dist-tag that is not latest, and old nights are pruned by age.
 
 type actionsWorkflow struct {
+	RunName     string                `yaml:"run-name"`
 	Permissions map[string]string     `yaml:"permissions"`
 	Env         map[string]string     `yaml:"env"`
 	Jobs        map[string]actionsJob `yaml:"jobs"`
@@ -26,6 +27,7 @@ type actionsWorkflow struct {
 
 type actionsJob struct {
 	Needs       yaml.Node         `yaml:"needs"`
+	If          string            `yaml:"if"`
 	Environment string            `yaml:"environment"`
 	Permissions map[string]string `yaml:"permissions"`
 	Outputs     map[string]string `yaml:"outputs"`
@@ -222,7 +224,7 @@ func TestNightlyPythonSnapshotIsStampedBeforeItIsBuiltAndCheckedAfter(t *testing
 // TestNightlyJupyterKernelSnapshotIsStampedBeforeItIsBuiltAndCheckedAfter
 // holds the kernel's distribution to the same order as the client's: stamped
 // from the kernels the build script wrote, built, checked against every
-// kernel asset, listed in the manifest, and published to its own PyPI project.
+// kernel asset, and listed in the manifest release-pypi.yml publishes it from.
 func TestNightlyJupyterKernelSnapshotIsStampedBeforeItIsBuiltAndCheckedAfter(t *testing.T) {
 	workflow, _ := loadNightlyWorkflow(t)
 	steps := nightlyJob(t, workflow, "publish").runSteps()
@@ -280,12 +282,6 @@ func TestNightlyJupyterKernelSnapshotIsStampedBeforeItIsBuiltAndCheckedAfter(t *
 			t.Errorf("the kernel distribution check does not require %s", asset)
 		}
 	}
-
-	pypi := nightlyJob(t, workflow, "pypi")
-	pypiSteps := pypi.runSteps()
-	if stepIndex(pypiSteps, "${KERNEL_PYPI_PROJECT}", "pypi.org") < 0 {
-		t.Error("the pypi job does not check PyPI for the kernel's version before publishing it")
-	}
 }
 
 func TestNightlyClientsReachTheRegistriesThroughTrustedPublishing(t *testing.T) {
@@ -295,7 +291,7 @@ func TestNightlyClientsReachTheRegistriesThroughTrustedPublishing(t *testing.T) 
 			t.Errorf("nightly.yml mentions %s; the registries are reached with the workflow's OIDC identity, never a stored token", forbidden)
 		}
 	}
-	for _, name := range []string{"pypi", "npm"} {
+	for _, name := range []string{"npm"} {
 		job := nightlyJob(t, workflow, name)
 		if needs := job.needs(); len(needs) != 1 || needs[0] != "publish" {
 			t.Errorf("the %s job needs %v, not the publish job that built and released the snapshot", name, needs)
@@ -309,26 +305,6 @@ func TestNightlyClientsReachTheRegistriesThroughTrustedPublishing(t *testing.T) 
 		if job.Permissions["contents"] != "read" {
 			t.Errorf("the %s job's contents permission is %q; publishing to a registry needs none", name, job.Permissions["contents"])
 		}
-	}
-
-	pypi := nightlyJob(t, workflow, "pypi")
-	published := false
-	for _, step := range pypi.Steps {
-		if strings.HasPrefix(step.Uses, "pypa/gh-action-pypi-publish@") {
-			published = true
-			if _, ok := step.With["password"]; ok {
-				t.Error("the PyPI publish step passes a password; trusted publishing needs none")
-			}
-			if step.If == "" {
-				t.Error("the PyPI publish step is unconditional; a version the index has must be skipped, not re-uploaded")
-			}
-		}
-	}
-	if !published {
-		t.Error("the pypi job does not use pypa/gh-action-pypi-publish")
-	}
-	if stepIndex(pypi.runSteps(), "pypi.org/pypi/", "/json", "publish=false") < 0 {
-		t.Error("the pypi job does not look the version up on the index before publishing")
 	}
 
 	npm := nightlyJob(t, workflow, "npm")
@@ -347,6 +323,54 @@ func TestNightlyClientsReachTheRegistriesThroughTrustedPublishing(t *testing.T) 
 	}
 	if stepIndex(npm.runSteps(), "dist-tags.latest", `"$latest" = "$NPM_VERSION"`) <= publish {
 		t.Error("the npm job does not check, after publishing, that latest still names the stable release")
+	}
+}
+
+// A night's Python distributions reach PyPI through release-pypi.yml, run on its tag and
+// watched to its end, so a snapshot and a release name one publisher and a lost upload fails the night.
+func TestNightlyHandsThePythonClientToTheReleaseWorkflow(t *testing.T) {
+	workflow, raw := loadNightlyWorkflow(t)
+	if strings.Contains(raw, "pypa/gh-action-pypi-publish") {
+		t.Error("nightly.yml uploads to PyPI itself; release-pypi.yml is the one trusted publisher")
+	}
+	pypi := nightlyJob(t, workflow, "pypi")
+	if needs := pypi.needs(); len(needs) != 1 || needs[0] != "publish" {
+		t.Errorf("the pypi job needs %v, not the publish job whose release the distributions are taken from", needs)
+	}
+	if pypi.Permissions["actions"] != "write" {
+		t.Errorf("the pypi job cannot dispatch a workflow (actions: %q)", pypi.Permissions["actions"])
+	}
+	if pypi.Permissions["contents"] != "read" {
+		t.Errorf("the pypi job's contents permission is %q; dispatching a workflow needs none", pypi.Permissions["contents"])
+	}
+	if pypi.Permissions["id-token"] != "" {
+		t.Error("the pypi job mints an OIDC token; release-pypi.yml is the publisher, not this job")
+	}
+	steps := pypi.runSteps()
+	dispatch := stepIndex(steps, "gh workflow run release-pypi.yml", `--ref "$BRANCH"`, `--field "tag=$VERSION"`,
+		`--created ">=$started"`, `Release to PyPI $VERSION`, "gh run watch", "--exit-status")
+	if dispatch < 0 {
+		t.Error("the pypi job does not dispatch release-pypi.yml on develop with the night's tag, find the run by its name and watch it to its end")
+	}
+	for _, step := range pypi.Steps {
+		if strings.Contains(step.Run, "gh workflow run release-pypi.yml") && step.If != "" {
+			t.Error("the dispatch of release-pypi.yml is conditional; every published night goes to PyPI")
+		}
+	}
+	for _, step := range nightlyJob(t, workflow, "publish").Steps {
+		if strings.HasPrefix(step.Uses, "actions/upload-artifact@") && strings.Contains(step.With["path"], "client/") {
+			t.Errorf("the publish job keeps %s for a PyPI upload the nightly no longer makes", step.With["name"])
+		}
+	}
+
+	releasePyPI, _ := loadReleasePyPIWorkflow(t)
+	if releasePyPI.RunName != "Release to PyPI ${{ inputs.tag || github.ref_name }}" {
+		t.Errorf("release-pypi.yml runs are named %q; the pypi job finds its run as `Release to PyPI <tag>`", releasePyPI.RunName)
+	}
+	version := stepIndex(releasePyPIJob(t, releasePyPI, "fetch").runSteps(), "nightly-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9a-f]*)",
+		`gh release view "$TAG" --json assets`, `opensysml-\(.*\)-py3-none-any\.whl`, `*.dev"$date")`, `IDENTITY_REGEXP="$SNAPSHOT_IDENTITY_REGEXP"`)
+	if version < 0 {
+		t.Error("release-pypi.yml does not take a night's version from the wheel its release carries, under the nightly's signing identity")
 	}
 }
 

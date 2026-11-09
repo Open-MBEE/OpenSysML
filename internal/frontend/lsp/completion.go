@@ -202,7 +202,8 @@ func completionDetail(sym *symbols.Symbol) string {
 	return detail
 }
 
-// declaredTypeText returns the qualified name a usage declares as its type, or
+// declaredTypeText returns the qualified name a usage declares as its type,
+// with the `~` of a conjugated typing (SysML v2 8.3.12.3), or
 // "" for anything else — a definition, or an untyped usage.
 func declaredTypeText(sym *symbols.Symbol) string {
 	var rels []*ast.Relationship
@@ -223,6 +224,9 @@ func declaredTypeText(sym *symbols.Symbol) string {
 			target = fr.Name
 		}
 		if qn, ok := target.(*ast.QualifiedName); ok {
+			if rel.Conjugated {
+				return "~" + qn.Text()
+			}
 			return qn.Text()
 		}
 	}
@@ -261,7 +265,9 @@ func completionKind(k symbols.SymbolKind) protocol.CompletionItemKind {
 	// Usages name features of an enclosing element.
 	case symbols.SymbolEnumerationUsage:
 		return protocol.CompletionItemKindEnumMember
-	case symbols.SymbolActionUsage, symbols.SymbolCalcUsage,
+	case symbols.SymbolActionUsage, symbols.SymbolAcceptActionUsage, symbols.SymbolAssignmentActionUsage,
+		symbols.SymbolPerformActionUsage, symbols.SymbolIfActionUsage, symbols.SymbolWhileLoopActionUsage,
+		symbols.SymbolForLoopActionUsage, symbols.SymbolTerminateActionUsage, symbols.SymbolSendActionUsage, symbols.SymbolCalcUsage,
 		symbols.SymbolConstraintUsage, symbols.SymbolRequirementUsage,
 		symbols.SymbolCaseUsage, symbols.SymbolAnalysisCaseUsage,
 		symbols.SymbolVerificationCaseUsage, symbols.SymbolUseCaseUsage:

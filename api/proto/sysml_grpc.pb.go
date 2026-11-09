@@ -19,37 +19,39 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	SysMLService_GetServerInfo_FullMethodName      = "/sysml.SysMLService/GetServerInfo"
-	SysMLService_ParseFile_FullMethodName          = "/sysml.SysMLService/ParseFile"
-	SysMLService_ParseSources_FullMethodName       = "/sysml.SysMLService/ParseSources"
-	SysMLService_GetSymbol_FullMethodName          = "/sysml.SysMLService/GetSymbol"
-	SysMLService_GetDiagnostics_FullMethodName     = "/sysml.SysMLService/GetDiagnostics"
-	SysMLService_Evaluate_FullMethodName           = "/sysml.SysMLService/Evaluate"
-	SysMLService_Instantiate_FullMethodName        = "/sysml.SysMLService/Instantiate"
-	SysMLService_ExecuteAction_FullMethodName      = "/sysml.SysMLService/ExecuteAction"
-	SysMLService_ExecuteState_FullMethodName       = "/sysml.SysMLService/ExecuteState"
-	SysMLService_Convert_FullMethodName            = "/sysml.SysMLService/Convert"
-	SysMLService_Migrate_FullMethodName            = "/sysml.SysMLService/Migrate"
-	SysMLService_ApplyEdits_FullMethodName         = "/sysml.SysMLService/ApplyEdits"
-	SysMLService_VerifyConstraint_FullMethodName   = "/sysml.SysMLService/VerifyConstraint"
-	SysMLService_VerifyRequirement_FullMethodName  = "/sysml.SysMLService/VerifyRequirement"
-	SysMLService_VerifySatisfaction_FullMethodName = "/sysml.SysMLService/VerifySatisfaction"
-	SysMLService_ValidateInstance_FullMethodName   = "/sysml.SysMLService/ValidateInstance"
-	SysMLService_EvaluateCalc_FullMethodName       = "/sysml.SysMLService/EvaluateCalc"
-	SysMLService_RunAnalysis_FullMethodName        = "/sysml.SysMLService/RunAnalysis"
-	SysMLService_CheckBehavior_FullMethodName      = "/sysml.SysMLService/CheckBehavior"
-	SysMLService_RunSweep_FullMethodName           = "/sysml.SysMLService/RunSweep"
-	SysMLService_RunRuns_FullMethodName            = "/sysml.SysMLService/RunRuns"
-	SysMLService_SelfCheck_FullMethodName          = "/sysml.SysMLService/SelfCheck"
-	SysMLService_RecordRun_FullMethodName          = "/sysml.SysMLService/RecordRun"
-	SysMLService_ListEngines_FullMethodName        = "/sysml.SysMLService/ListEngines"
-	SysMLService_Query_FullMethodName              = "/sysml.SysMLService/Query"
-	SysMLService_RunDocumentQuery_FullMethodName   = "/sysml.SysMLService/RunDocumentQuery"
-	SysMLService_RenderDocument_FullMethodName     = "/sysml.SysMLService/RenderDocument"
-	SysMLService_RenderView_FullMethodName         = "/sysml.SysMLService/RenderView"
-	SysMLService_ExportGraphs_FullMethodName       = "/sysml.SysMLService/ExportGraphs"
-	SysMLService_ImportData_FullMethodName         = "/sysml.SysMLService/ImportData"
-	SysMLService_CompareResults_FullMethodName     = "/sysml.SysMLService/CompareResults"
+	SysMLService_GetServerInfo_FullMethodName        = "/sysml.SysMLService/GetServerInfo"
+	SysMLService_ParseFile_FullMethodName            = "/sysml.SysMLService/ParseFile"
+	SysMLService_ParseSources_FullMethodName         = "/sysml.SysMLService/ParseSources"
+	SysMLService_GetSymbol_FullMethodName            = "/sysml.SysMLService/GetSymbol"
+	SysMLService_GetDiagnostics_FullMethodName       = "/sysml.SysMLService/GetDiagnostics"
+	SysMLService_Evaluate_FullMethodName             = "/sysml.SysMLService/Evaluate"
+	SysMLService_Instantiate_FullMethodName          = "/sysml.SysMLService/Instantiate"
+	SysMLService_InstancePaths_FullMethodName        = "/sysml.SysMLService/InstancePaths"
+	SysMLService_ExecuteAction_FullMethodName        = "/sysml.SysMLService/ExecuteAction"
+	SysMLService_ExecuteState_FullMethodName         = "/sysml.SysMLService/ExecuteState"
+	SysMLService_Convert_FullMethodName              = "/sysml.SysMLService/Convert"
+	SysMLService_Migrate_FullMethodName              = "/sysml.SysMLService/Migrate"
+	SysMLService_ApplyEdits_FullMethodName           = "/sysml.SysMLService/ApplyEdits"
+	SysMLService_VerifyConstraint_FullMethodName     = "/sysml.SysMLService/VerifyConstraint"
+	SysMLService_VerifyRequirement_FullMethodName    = "/sysml.SysMLService/VerifyRequirement"
+	SysMLService_VerifySatisfaction_FullMethodName   = "/sysml.SysMLService/VerifySatisfaction"
+	SysMLService_ValidateInstance_FullMethodName     = "/sysml.SysMLService/ValidateInstance"
+	SysMLService_EvaluateCalc_FullMethodName         = "/sysml.SysMLService/EvaluateCalc"
+	SysMLService_RunAnalysis_FullMethodName          = "/sysml.SysMLService/RunAnalysis"
+	SysMLService_CheckBehavior_FullMethodName        = "/sysml.SysMLService/CheckBehavior"
+	SysMLService_RunSweep_FullMethodName             = "/sysml.SysMLService/RunSweep"
+	SysMLService_RunRuns_FullMethodName              = "/sysml.SysMLService/RunRuns"
+	SysMLService_SelfCheck_FullMethodName            = "/sysml.SysMLService/SelfCheck"
+	SysMLService_RecordRun_FullMethodName            = "/sysml.SysMLService/RecordRun"
+	SysMLService_ListEngines_FullMethodName          = "/sysml.SysMLService/ListEngines"
+	SysMLService_Query_FullMethodName                = "/sysml.SysMLService/Query"
+	SysMLService_GetElementProperties_FullMethodName = "/sysml.SysMLService/GetElementProperties"
+	SysMLService_RunDocumentQuery_FullMethodName     = "/sysml.SysMLService/RunDocumentQuery"
+	SysMLService_RenderDocument_FullMethodName       = "/sysml.SysMLService/RenderDocument"
+	SysMLService_RenderView_FullMethodName           = "/sysml.SysMLService/RenderView"
+	SysMLService_ExportGraphs_FullMethodName         = "/sysml.SysMLService/ExportGraphs"
+	SysMLService_ImportData_FullMethodName           = "/sysml.SysMLService/ImportData"
+	SysMLService_CompareResults_FullMethodName       = "/sysml.SysMLService/CompareResults"
 )
 
 // SysMLServiceClient is the client API for SysMLService service.
@@ -73,6 +75,10 @@ type SysMLServiceClient interface {
 	// Runtime operations (Phase 4)
 	Evaluate(ctx context.Context, in *EvaluateRequest, opts ...grpc.CallOption) (*EvaluateResponse, error)
 	Instantiate(ctx context.Context, in *InstantiateRequest, opts ...grpc.CallOption) (*InstantiateResponse, error)
+	// List every root-relative usage path that reaches one object the model's
+	// population holds, aliases through connector ends and references included.
+	// Reported as the "instance_paths" capability.
+	InstancePaths(ctx context.Context, in *InstancePathsRequest, opts ...grpc.CallOption) (*InstancePathsResponse, error)
 	ExecuteAction(ctx context.Context, in *ExecuteActionRequest, opts ...grpc.CallOption) (*ExecuteActionResponse, error)
 	ExecuteState(ctx context.Context, in *ExecuteStateRequest, opts ...grpc.CallOption) (*ExecuteStateResponse, error)
 	// Convert a model between the representations OpenSysML writes — SysML
@@ -146,6 +152,12 @@ type SysMLServiceClient interface {
 	// as the standard defines them, so a client that speaks that API can filter a
 	// model here. Reported as the "query" capability.
 	Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error)
+	// Read the metamodel properties of one element by their specification
+	// names (KerML 1.1 and SysML 2.1 abstract syntax: inheritedFeature,
+	// connectorEnd, directedFeature, payloadType, ...), as the model's API
+	// element form (Convert to api-json) spells them, without converting the
+	// whole model. Reported as the "element_properties" capability.
+	GetElementProperties(ctx context.Context, in *GetElementPropertiesRequest, opts ...grpc.CallOption) (*GetElementPropertiesResponse, error)
 	// Run a named document query with parameter bindings, the answer the REPL's
 	// %run-query gives, as typed rows rather than formatted lines. Reported as
 	// the "document_query" capability.
@@ -237,6 +249,15 @@ func (c *sysMLServiceClient) Evaluate(ctx context.Context, in *EvaluateRequest, 
 func (c *sysMLServiceClient) Instantiate(ctx context.Context, in *InstantiateRequest, opts ...grpc.CallOption) (*InstantiateResponse, error) {
 	out := new(InstantiateResponse)
 	err := c.cc.Invoke(ctx, SysMLService_Instantiate_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sysMLServiceClient) InstancePaths(ctx context.Context, in *InstancePathsRequest, opts ...grpc.CallOption) (*InstancePathsResponse, error) {
+	out := new(InstancePathsResponse)
+	err := c.cc.Invoke(ctx, SysMLService_InstancePaths_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -405,6 +426,15 @@ func (c *sysMLServiceClient) Query(ctx context.Context, in *QueryRequest, opts .
 	return out, nil
 }
 
+func (c *sysMLServiceClient) GetElementProperties(ctx context.Context, in *GetElementPropertiesRequest, opts ...grpc.CallOption) (*GetElementPropertiesResponse, error) {
+	out := new(GetElementPropertiesResponse)
+	err := c.cc.Invoke(ctx, SysMLService_GetElementProperties_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *sysMLServiceClient) RunDocumentQuery(ctx context.Context, in *RunDocumentQueryRequest, opts ...grpc.CallOption) (*RunDocumentQueryResponse, error) {
 	out := new(RunDocumentQueryResponse)
 	err := c.cc.Invoke(ctx, SysMLService_RunDocumentQuery_FullMethodName, in, out, opts...)
@@ -480,6 +510,10 @@ type SysMLServiceServer interface {
 	// Runtime operations (Phase 4)
 	Evaluate(context.Context, *EvaluateRequest) (*EvaluateResponse, error)
 	Instantiate(context.Context, *InstantiateRequest) (*InstantiateResponse, error)
+	// List every root-relative usage path that reaches one object the model's
+	// population holds, aliases through connector ends and references included.
+	// Reported as the "instance_paths" capability.
+	InstancePaths(context.Context, *InstancePathsRequest) (*InstancePathsResponse, error)
 	ExecuteAction(context.Context, *ExecuteActionRequest) (*ExecuteActionResponse, error)
 	ExecuteState(context.Context, *ExecuteStateRequest) (*ExecuteStateResponse, error)
 	// Convert a model between the representations OpenSysML writes — SysML
@@ -553,6 +587,12 @@ type SysMLServiceServer interface {
 	// as the standard defines them, so a client that speaks that API can filter a
 	// model here. Reported as the "query" capability.
 	Query(context.Context, *QueryRequest) (*QueryResponse, error)
+	// Read the metamodel properties of one element by their specification
+	// names (KerML 1.1 and SysML 2.1 abstract syntax: inheritedFeature,
+	// connectorEnd, directedFeature, payloadType, ...), as the model's API
+	// element form (Convert to api-json) spells them, without converting the
+	// whole model. Reported as the "element_properties" capability.
+	GetElementProperties(context.Context, *GetElementPropertiesRequest) (*GetElementPropertiesResponse, error)
 	// Run a named document query with parameter bindings, the answer the REPL's
 	// %run-query gives, as typed rows rather than formatted lines. Reported as
 	// the "document_query" capability.
@@ -604,6 +644,9 @@ func (UnimplementedSysMLServiceServer) Evaluate(context.Context, *EvaluateReques
 }
 func (UnimplementedSysMLServiceServer) Instantiate(context.Context, *InstantiateRequest) (*InstantiateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Instantiate not implemented")
+}
+func (UnimplementedSysMLServiceServer) InstancePaths(context.Context, *InstancePathsRequest) (*InstancePathsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InstancePaths not implemented")
 }
 func (UnimplementedSysMLServiceServer) ExecuteAction(context.Context, *ExecuteActionRequest) (*ExecuteActionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExecuteAction not implemented")
@@ -658,6 +701,9 @@ func (UnimplementedSysMLServiceServer) ListEngines(context.Context, *ListEngines
 }
 func (UnimplementedSysMLServiceServer) Query(context.Context, *QueryRequest) (*QueryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Query not implemented")
+}
+func (UnimplementedSysMLServiceServer) GetElementProperties(context.Context, *GetElementPropertiesRequest) (*GetElementPropertiesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetElementProperties not implemented")
 }
 func (UnimplementedSysMLServiceServer) RunDocumentQuery(context.Context, *RunDocumentQueryRequest) (*RunDocumentQueryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RunDocumentQuery not implemented")
@@ -812,6 +858,24 @@ func _SysMLService_Instantiate_Handler(srv interface{}, ctx context.Context, dec
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SysMLServiceServer).Instantiate(ctx, req.(*InstantiateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SysMLService_InstancePaths_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InstancePathsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SysMLServiceServer).InstancePaths(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SysMLService_InstancePaths_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SysMLServiceServer).InstancePaths(ctx, req.(*InstancePathsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1140,6 +1204,24 @@ func _SysMLService_Query_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SysMLService_GetElementProperties_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetElementPropertiesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SysMLServiceServer).GetElementProperties(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SysMLService_GetElementProperties_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SysMLServiceServer).GetElementProperties(ctx, req.(*GetElementPropertiesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _SysMLService_RunDocumentQuery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RunDocumentQueryRequest)
 	if err := dec(in); err != nil {
@@ -1284,6 +1366,10 @@ var SysMLService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _SysMLService_Instantiate_Handler,
 		},
 		{
+			MethodName: "InstancePaths",
+			Handler:    _SysMLService_InstancePaths_Handler,
+		},
+		{
 			MethodName: "ExecuteAction",
 			Handler:    _SysMLService_ExecuteAction_Handler,
 		},
@@ -1354,6 +1440,10 @@ var SysMLService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Query",
 			Handler:    _SysMLService_Query_Handler,
+		},
+		{
+			MethodName: "GetElementProperties",
+			Handler:    _SysMLService_GetElementProperties_Handler,
 		},
 		{
 			MethodName: "RunDocumentQuery",

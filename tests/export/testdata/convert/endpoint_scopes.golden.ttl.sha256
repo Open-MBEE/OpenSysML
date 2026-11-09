@@ -1,0 +1,41 @@
+sha256 21fb10418f04beeca348004cb92522a3ac7aaa7e724c6829df5d27301199a4d0 bytes 206558 lines 3903
+@prefix elmt: <urn:sysmlv2:element:> .
+@prefix expr: <urn:opensysml:expr:> .
+@prefix json: <urn:sysmlv2:annotation:json:> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix sysml: <https://www.omg.org/spec/SysML#> .
+@prefix sysx: <urn:opensysml:sysml:> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+elmt:Machines
+    a sysml:Package ;
+    sysml:qualifiedName "Machines" ;
+    sysx:sourceLine "1"^^xsd:integer ;
+    sysx:sourceColumn "1"^^xsd:integer ;
+    sysx:sourceEndLine "24"^^xsd:integer ;
+    sysx:sourceEndColumn "2"^^xsd:integer ;
+    sysml:elementId "Machines" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysx:sourceLanguage "sysml" ;
+    sysml:declaredName "Machines" ;
+    sysx:hasBody "true"^^xsd:boolean ;
+    sysml:ownedMember elmt:Machines__Lamp ;
+    sysml:ownedMembership elmt:Machines__Lamp_om ;
+    sysml:ownedRelationship elmt:Machines__Lamp_om ;
+    sysx:sourceText "package Machines {\n" ;
+    sysx:sourceTail "}\n" .
+
+elmt:Machines__Lamp
+    a sysml:StateDefinition ;
+    sysml:qualifiedName "Machines::Lamp" ;
+    sysx:sourceLine "2"^^xsd:integer ;
+    sysx:sourceColumn "5"^^xsd:integer ;
+    sysx:sourceEndLine "23"^^xsd:integer ;
+    sysx:sourceEndColumn "6"^^xsd:integer ;
+    sysml:elementId "Machines__Lamp" ;
+    sysx:memberIndex "0"^^xsd:integer ;
+    sysml:owningNamespace elmt:Machines ;
+    sysml:owner elmt:Machines ;
+    sysml:owningRelationship elmt:Machines__Lamp_om ;
+    sysml:owningMembership elmt:Machines__Lamp_om ;
+    sysml:declaredName "Lamp" ;

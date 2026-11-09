@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -363,8 +364,7 @@ func casePin(owner, member *symbols.Symbol) bool {
 	case symbols.SymbolAttributeUsage, symbols.SymbolReferenceUsage:
 		return true
 	}
-	usage, ok := member.Decl.(*ast.Usage)
-	return ok && (usage.Kind == ast.UsageSubject || usage.Kind == ast.UsageActor || usage.Kind == ast.UsageStakeholder)
+	return semantics.IsSubjectUsage(member) || semantics.IsActorUsage(member)
 }
 
 // constraintParameter reports whether member is a parameter of the constraint owner —
@@ -477,7 +477,19 @@ func (w *featureWalk) nestedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 			out = append(out, member)
 		}
 	}
-	return append(out, w.r.typedParameters(sym)...)
+	out = append(out, w.r.typedParameters(sym)...)
+	// A def parameter an own parameter redefines, by clause or by position, is that parameter's pin.
+	for _, member := range w.walkMembers(sym) {
+		if member.Owner() != sym || !isParameterKind(member) {
+			continue
+		}
+		for _, base := range w.r.model.MaskingRedefinedFeatures(member) {
+			if isParameterKind(base) && !w.r.libraryDeclared(base) {
+				out = append(out, base)
+			}
+		}
+	}
+	return out
 }
 
 // connectionEdges adds the edges one connector or flow contributes. A binary

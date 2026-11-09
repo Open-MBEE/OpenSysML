@@ -337,7 +337,6 @@ func TestReflectiveFeatureFlagsForWrapperDeclarations(t *testing.T) {
 	paths := []string{
 		"P::Owner::child", "P::Owner::borrowed",
 		"P::Flow::f", "P::Flow::j", "P::Flow::m", "P::Flow::d",
-		"P::Flow::start",
 		"P::Req::subject",
 		"P::Marked::annotation",
 		"P::machine::running", "P::machine::running::idle", "P::machine::t",
@@ -820,10 +819,14 @@ func TestReflectivePartUsageIncludesImplicitPartDefinition(t *testing.T) {
 		}
 	}`
 	for _, fixture := range reflectiveFixtures(t, "part-usage-types.sysml", source.KindSysML, src) {
-		for _, path := range []string{"P::actual", "P::Case::subject"} {
-			usage := nestedSym(t, fixture.root, path)
-			assertReflectiveElements(t, fixture.model, usage, "type", "P::ItemType", "Parts::Part")
-			assertReflectiveElements(t, fixture.model, usage, "partDefinition", "Parts::Part")
+		usage := nestedSym(t, fixture.root, "P::actual")
+		assertReflectiveElements(t, fixture.model, usage, "type", "P::ItemType", "Parts::Part")
+		assertReflectiveElements(t, fixture.model, usage, "partDefinition", "Parts::Part")
+		// A subject is a ReferenceUsage: no part kind, no implicit Parts::Part.
+		subject := nestedSym(t, fixture.root, "P::Case::subject")
+		assertReflectiveElements(t, fixture.model, subject, "type", "P::ItemType")
+		if _, ok := fixture.model.ReflectiveElements(subject, "partDefinition"); ok {
+			t.Errorf("P::Case::subject.partDefinition is derived; a ReferenceUsage has none")
 		}
 	}
 }
@@ -987,6 +990,15 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 	if model.IsFlowPayload(sym) {
 		facts.Modifiers |= symbols.ModPayloadFeature
 	}
+	if AcceptPayload(sym) {
+		facts.Modifiers |= symbols.ModAcceptPayload
+	}
+	if symbols.IsFirstMarker(sym) {
+		facts.Modifiers |= symbols.ModFirstMarker
+	}
+	if sym.IsPrefixMetadata() {
+		facts.Modifiers |= symbols.ModPrefixMetadata
+	}
 	if model.UsageMayTimeVary(sym) {
 		facts.Modifiers |= symbols.ModMayTimeVary
 	}
@@ -1019,9 +1031,12 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 			}
 		}
 	}
-	if related, ok := model.ReflectiveElements(sym, "relatedFeature"); ok {
+	if related := model.ConnectorRelatedFeaturesByEnd(sym); len(related) > 0 {
 		facts.RelatedFeatures = make([]symbols.ElementRef, len(related))
 		for i, feature := range related {
+			if feature == nil {
+				continue
+			}
 			if ref, found := idx.RefTo(feature); found {
 				facts.RelatedFeatures[i] = ref
 			} else {

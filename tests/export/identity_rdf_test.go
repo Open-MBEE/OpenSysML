@@ -762,8 +762,10 @@ func TestBehavioralLibraryMemberKeepsNormativeIDWithoutSourceText(t *testing.T) 
 	}
 }
 `)
-	encoded := `sysml:elementId "` + rdf.EncodeElementID(qname) + `" ;`
-	stale := strings.Replace(string(turtle), encoded, `sysml:elementId "`+want+`" ;`, 1)
+	// Its succession and their ends are identified from the transition's id, so
+	// the graph states them from the normative one too.
+	encoded := rdf.EncodeElementID(qname)
+	stale := strings.ReplaceAll(string(turtle), encoded, want)
 	if stale == string(turtle) {
 		t.Fatalf("the transition's id is not where expected:\n%s", turtle)
 	}
@@ -886,6 +888,58 @@ func TestNormativeSubjectNamesTheLibraryElementExactly(t *testing.T) {
 		{pyramidEdges, "ShapeItems::RectangularPyramid::@1::@3", false},
 		{pyramidEdges, "ShapeItems::RectangularPyramid::@3::@1", false},
 		{pyramidEdges, "ShapeItems::RectangularPyramid::base::@0", false},
+	}
+	for _, c := range cases {
+		if got := export.NormativeSubject(c.id, c.qname); got != c.want {
+			t.Errorf("NormativeSubject(%s, %q) = %v, want %v", c.id, c.qname, got, c.want)
+		}
+	}
+}
+
+// An unnamed library member's minted id is the library's on the subject written
+// as the encoder writes it — at its position under its owner — and its owning
+// membership's id names nothing; a return parameter named by the result it
+// redefines is catalogued under that name (KerML 8.3.3.3), so no positional id
+// is it; another position, another owner's member or a named element is not it.
+func TestNormativeSubjectPlacesAnonymousLibraryMembers(t *testing.T) {
+	base := libs.SharedBase()
+	catalog := identity.LibraryCatalogWithOpenSysML(base)
+	part, _ := catalog.ElementNamed("Parts::Part")
+	deg, _ := catalog.ElementNamed("TrigFunctions::deg")
+	at, _ := catalog.ElementNamed("BaseFunctions::@")
+	if part == nil || deg == nil || at == nil {
+		t.Fatal("Parts::Part, TrigFunctions::deg or BaseFunctions::@ is not catalogued")
+	}
+	documentation := identity.AnonymousMemberID(part.ID, "Documentation", 0)
+	membership := identity.AnonymousMemberOwningMembershipID(part.ID, "Documentation", 0)
+	degResult, _ := catalog.ElementNamed("TrigFunctions::deg::result")
+	atResult, _ := catalog.ElementNamed("BaseFunctions::@::result")
+	if degResult == nil || atResult == nil {
+		t.Fatal("the returns of TrigFunctions::deg and BaseFunctions::@ are not catalogued under result")
+	}
+	result := degResult.ID
+	quotedOwner := atResult.ID
+	positional := identity.AnonymousMemberID(deg.ID, "Feature", 0)
+	cases := []struct {
+		id, qname string
+		want      bool
+	}{
+		{documentation, "", true},
+		{documentation, "Parts::Part::@0", true},
+		{documentation, "Parts::Part::@7", false},
+		{documentation, "Parts::Part", false},
+		{documentation, "Parts::Part::ownedPorts", false},
+		{documentation, "Items::Item::@0", false},
+		{documentation, "P::Part::@0", false},
+		{membership, "", true},
+		{membership, "Parts::Part::@0", false},
+		{result, "TrigFunctions::deg::result", true},
+		{result, "TrigFunctions::deg::@2", false},
+		{result, "TrigFunctions::deg::theta_rad", false},
+		{positional, "TrigFunctions::deg::result", false},
+		{positional, "TrigFunctions::deg::@0", false},
+		{quotedOwner, "BaseFunctions::'@'::result", true},
+		{quotedOwner, "BaseFunctions::'@'::@0", false},
 	}
 	for _, c := range cases {
 		if got := export.NormativeSubject(c.id, c.qname); got != c.want {
