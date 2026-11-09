@@ -630,7 +630,6 @@ SuccessionAsUsage::featureMembership	12	symbol-51
 SuccessionAsUsage::featuringType	1	symbol-52
 SuccessionAsUsage::inheritedFeature	8	symbol-51
 SuccessionAsUsage::inheritedMembership	8	symbol-51
-SuccessionAsUsage::isComposite	213	export-33
 SuccessionAsUsage::member	12	symbol-51
 SuccessionAsUsage::membership	12	symbol-51
 SuccessionAsUsage::ownedReferenceSubsetting	1	export-57

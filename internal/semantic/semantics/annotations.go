@@ -2861,7 +2861,9 @@ func (m *Model) reflectiveUsageHasFeaturingType(sym *symbols.Symbol) bool {
 func defaultUsageComposite(kind symbols.SymbolKind) bool {
 	switch kind {
 	case symbols.SymbolAttributeUsage, symbols.SymbolReferenceUsage,
-		symbols.SymbolEnumerationUsage, symbols.SymbolConnectorEnd:
+		symbols.SymbolEnumerationUsage, symbols.SymbolConnectorEnd,
+		symbols.SymbolSuccessionUsage, symbols.SymbolBindingUsage:
+		// A succession or binding is referential (usageIsAlwaysReferential).
 		return false
 	default:
 		return true
