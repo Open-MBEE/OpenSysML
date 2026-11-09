@@ -117,6 +117,7 @@ var packageLayer = map[string]string{
 	"internal/semantic/query":           "semantic",
 	"internal/doc/queryexec":            "doc",
 	"internal/doc/queryexec/elementids": "doc",
+	"internal/doc/querytranslate":       "doc",
 	"internal/doc/docir":                "doc",
 	"internal/doc/docrender":            "doc",
 	"internal/doc/docpdf":               "doc",
