@@ -1062,7 +1062,15 @@ func (c *pkgClient) runDocumentQuery(ctx context.Context, request protoreflect.M
 		}
 		bindings = append(bindings, converted)
 	}
-	rows, err := c.api.RunDocumentQuery(ctx, c.model(req.ModelHash), req.QueryId, bindings...)
+	var (
+		rows *opensysml.Rows
+		err  error
+	)
+	if req.InlineQuery != "" {
+		rows, err = c.api.RunInlineDocumentQuery(ctx, c.model(req.ModelHash), req.InlineQuery, bindings...)
+	} else {
+		rows, err = c.api.RunDocumentQuery(ctx, c.model(req.ModelHash), req.QueryId, bindings...)
+	}
 	if err != nil {
 		return nil, apiError(err)
 	}

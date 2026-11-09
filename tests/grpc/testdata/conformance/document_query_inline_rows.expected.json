@@ -1,0 +1,11 @@
+{
+  "rpc": "RunDocumentQuery",
+  "inline_query": "Project(WhereType(Descendants(Garage::Car), \"PartUsage\"), (\"name\"))",
+  "expected_columns": ["name"],
+  "expected_rows": [
+    {
+      "element": {"kind": "element_id", "value": "Garage::Car::wheels (PartUsage)"},
+      "cells": [[{"kind": "string_value", "value": "wheels"}]]
+    }
+  ]
+}

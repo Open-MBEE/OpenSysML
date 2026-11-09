@@ -3743,10 +3743,11 @@ pub struct RunRunsResponse {
     #[prost(uint64, optional, tag="15")]
     pub seed: ::core::option::Option<u64>,
 }
-/// RunDocumentQueryRequest runs a named document query — a calc def
-/// specializing DocumentQueries::Query — against a model the service already
-/// parsed, binding its entry parameters. It answers as %run-query does, but with
-/// typed rows rather than formatted lines. The query runs over the objects
+/// RunDocumentQueryRequest runs a document query — a calc def specializing
+/// DocumentQueries::Query the model declares, named by query_id, or the body of
+/// one written in inline_query — against a model the service already parsed,
+/// binding its entry parameters. It answers as %run-query does, but with typed
+/// rows rather than formatted lines. The query runs over the objects
 /// Instantiate created for the model, which a binding may name (DocumentObject)
 /// and `DocumentQueries::Objects` and `Verdicts` reach.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -3756,12 +3757,23 @@ pub struct RunDocumentQueryRequest {
     pub model_hash: ::prost::alloc::string::String,
     /// FQN of the document query to run. Fails with NOT_FOUND when the model does
     /// not declare it, and INVALID_ARGUMENT when it declares something else.
+    /// Exactly one of query_id and inline_query is given.
     #[prost(string, tag="2")]
     pub query_id: ::prost::alloc::string::String,
     /// Entry-parameter bindings. Repeating a parameter appends to its binding, so
     /// a nonscalar parameter can be given several values.
     #[prost(message, repeated, tag="3")]
     pub bindings: ::prost::alloc::vec::Vec<DocumentQueryBinding>,
+    /// A query expression to run in place of a named query — the result
+    /// expression of a `calc def` specializing DocumentQueries::Query, such as
+    /// `Project(WhereType(Descendants(Named("Vehicles")), "PartUsage"), ("name",
+    /// "mass"))` — compiled in the model's context with the DocumentQueries
+    /// library in scope and the model's own names reachable. A fault in the
+    /// expression fails with INVALID_ARGUMENT positioned within it (`inline query
+    /// <line>:<column>`); a path or model error carries a QueryOutcome detail as a
+    /// named query's does. Reported as the "inline_document_query" capability.
+    #[prost(string, tag="4")]
+    pub inline_query: ::prost::alloc::string::String,
 }
 /// DocumentQueryBinding binds one entry parameter of a document query.
 #[derive(Clone, PartialEq, ::prost::Message)]
