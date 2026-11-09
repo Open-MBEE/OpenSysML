@@ -687,7 +687,7 @@
       }
     },
     {
-      "id": "3",
+      "id": "4",
       "typeSymbolId": "MissionSequence::LunarMission::ascent",
       "featureValues": {
         "acceptSubactions": {
@@ -763,7 +763,7 @@
       }
     },
     {
-      "id": "4",
+      "id": "3",
       "typeSymbolId": "MissionSequence::LunarMission::awaitGo",
       "featureValues": {
         "aState": {
@@ -971,7 +971,7 @@
         }
       },
       "reachedBy": {
-        "instanceId": "4",
+        "instanceId": "3",
         "featureName": "aState",
         "featureSymbolId": "Actions::AcceptAction::aState",
         "path": "mission.awaitGo.aState"
@@ -1203,76 +1203,6 @@
         "featureName": "exitAction",
         "featureSymbolId": "States::StateAction::exitAction",
         "path": "mission.awaitGo.aState.exitAction"
-      }
-    },
-    {
-      "id": "4",
-      "typeSymbolId": "MissionSequence::LunarMission::ascent",
-      "featureValues": {
-        "acceptSubactions": {
-          "featureName": "acceptSubactions",
-          "materialized": true
-        },
-        "assignments": {
-          "featureName": "assignments",
-          "materialized": true
-        },
-        "controls": {
-          "featureName": "controls",
-          "materialized": true
-        },
-        "decisionTransitions": {
-          "featureName": "decisionTransitions",
-          "materialized": true
-        },
-        "decisions": {
-          "featureName": "decisions",
-          "materialized": true
-        },
-        "forLoops": {
-          "featureName": "forLoops",
-          "materialized": true
-        },
-        "forks": {
-          "featureName": "forks",
-          "materialized": true
-        },
-        "ifSubactions": {
-          "featureName": "ifSubactions",
-          "materialized": true
-        },
-        "joins": {
-          "featureName": "joins",
-          "materialized": true
-        },
-        "loops": {
-          "featureName": "loops",
-          "materialized": true
-        },
-        "merges": {
-          "featureName": "merges",
-          "materialized": true
-        },
-        "sendSubactions": {
-          "featureName": "sendSubactions",
-          "materialized": true
-        },
-        "subactions": {
-          "featureName": "subactions",
-          "materialized": true
-        },
-        "terminateSubactions": {
-          "featureName": "terminateSubactions",
-          "materialized": true
-        },
-        "transitions": {
-          "featureName": "transitions",
-          "materialized": true
-        },
-        "whileLoops": {
-          "featureName": "whileLoops",
-          "materialized": true
-        }
       }
     },
     {
