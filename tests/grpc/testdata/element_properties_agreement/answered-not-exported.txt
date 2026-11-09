@@ -551,7 +551,6 @@ MergeNode::occurrenceDefinition	18	symbol-41
 MergeNode::type	18	symbol-19
 MetadataUsage::isReference	285	symbol-38
 MetadataUsage::ownedAnnotation	10	symbol-05
-MetadataUsage::type	7	symbol-19
 Multiplicity::type	2581	symbol-19
 MultiplicityRange::featuringType	37	symbol-17
 MultiplicityRange::type	536	symbol-19

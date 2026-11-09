@@ -2057,18 +2057,33 @@ func (m *Model) reflectiveFeatureTypes(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil {
 		return nil
 	}
-	if sym.Recorded() && sym.Facts.Node == symbols.NodePrefixMetadata {
-		if typ := m.recordedElement(sym.Facts.MetadataType); typ != nil {
+	if typ, annotation := m.annotationMetadataType(sym); annotation {
+		if typ != nil {
 			return []*symbols.Symbol{typ}
 		}
-		return nil
-	}
-	if prefix, ok := sym.Decl.(*ast.PrefixMetadata); ok {
-		if annot, resolved := m.prefixAnnotation(sym.OwnerScope, prefix); resolved && annot.typ != nil {
-			return []*symbols.Symbol{annot.typ}
+		if sym.Recorded() {
+			return nil
 		}
 	}
 	return m.FeatureTypeSetWithImplied(sym)
+}
+
+// annotationMetadataType is the one type of a metadata feature written as an
+// annotation (`#M part p`, `@M { … }`): the metadata definition it names
+// (SysML 8.3.19.3; KerML.xtext PrefixMetadataAnnotation, AnnotatingMember),
+// nil while that does not resolve. annotation is false for any other symbol.
+func (m *Model) annotationMetadataType(sym *symbols.Symbol) (typ *symbols.Symbol, annotation bool) {
+	if sym.Recorded() && sym.Facts.Node == symbols.NodePrefixMetadata {
+		return m.recordedElement(sym.Facts.MetadataType), true
+	}
+	prefix, ok := sym.Decl.(*ast.PrefixMetadata)
+	if !ok {
+		return nil, false
+	}
+	if annot, resolved := m.prefixAnnotation(sym.OwnerScope, prefix); resolved {
+		return annot.typ, true
+	}
+	return nil, true
 }
 
 // FunctionTypes: the Functions among a feature's effective types (declared, inherited, or implied

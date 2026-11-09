@@ -316,7 +316,6 @@ ItemUsage::ownedMember	13	symbol-08
 ItemUsage::ownedRelationship	11	symbol-03
 ItemUsage::type	5	export-01
 ItemUsage::usage	1	symbol-51
-LiteralRational::value	222	export-12
 Membership::memberElement	40	export-56
 Membership::ownedRelatedElement	4	export-06
 Membership::owningNamespace	52	symbol-69
@@ -329,14 +328,10 @@ MembershipImport::target	4	export-14
 MembershipImport::visibility	1	export-05
 MetadataAccessExpression::referencedElement	5	export-57
 MetadataUsage::annotation	2	export-57
-MetadataUsage::definition	222	symbol-54
-MetadataUsage::itemDefinition	222	export-16
 MetadataUsage::mayTimeVary	3	symbol-68
-MetadataUsage::metadataDefinition	222	export-18
-MetadataUsage::occurrenceDefinition	222	symbol-54
 MetadataUsage::ownedAnnotatingRelationship	7	export-57
 MetadataUsage::owningRelationship	2	export-04
-MetadataUsage::type	247	export-01
+MetadataUsage::type	25	symbol-71
 Multiplicity::ownedRelationship	3	symbol-03
 Multiplicity::ownedSpecialization	3	export-07
 Multiplicity::ownedSubsetting	3	export-57
