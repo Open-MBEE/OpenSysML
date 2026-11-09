@@ -536,17 +536,32 @@ func withQueryOutcome(status error, outcome *queryexec.Outcome) error {
 func queryOutcomeMessage(outcome queryexec.Outcome) *pb.QueryOutcome {
 	out := &pb.QueryOutcome{Kind: outcome.Kind(), Step: outcome.Step().Label()}
 	if outcome.Path != nil {
-		out.Failures = queryFailures(outcome.Path.Failures)
+		out.Failures = queryFailures(firstOf(outcome.Path.Failures, failureLimit))
+		out.FailuresTotal = int32Clamp(len(outcome.Path.Failures))
 	}
 	if outcome.Model != nil {
-		for _, f := range outcome.Model.Findings {
+		for _, f := range firstOf(outcome.Model.Findings, failureLimit) {
 			out.Findings = append(out.Findings, &pb.QueryFinding{
 				Step: f.Step.Label(), Element: f.Element, Constraint: string(f.Constraint), Observed: f.Observed,
 			})
 		}
-		out.PathFailures = queryFailures(outcome.Model.PathFailures)
+		out.FindingsTotal = int32Clamp(len(outcome.Model.Findings))
+		out.PathFailures = queryFailures(firstOf(outcome.Model.PathFailures, failureLimit))
+		out.PathFailuresTotal = int32Clamp(len(outcome.Model.PathFailures))
 	}
 	return out
+}
+
+// failureLimit bounds the failures and findings a QueryOutcome carries on the
+// wire: a fan-out records one per failing element, and the detail rides in a
+// status trailer gRPC caps at 8 KiB.
+const failureLimit = 8
+
+func firstOf[T any](items []T, limit int) []T {
+	if len(items) > limit {
+		return items[:limit]
+	}
+	return items
 }
 
 // frontierLimit bounds each list a QueryFrontier carries on the wire: the
@@ -564,19 +579,11 @@ func queryFailures(failures []queryexec.Failure) []*pb.QueryFailure {
 			At: f.Frontier.At, Nearest: f.Frontier.Nearest,
 			MembersTotal: int32Clamp(len(f.Frontier.Members)), FeaturesTotal: int32Clamp(len(f.Frontier.Features)), KindsTotal: int32Clamp(len(f.Frontier.Kinds)),
 		}
-		members := map[string]queryexec.Member{}
-		for _, m := range f.Frontier.Members {
-			members[m.Name] = m
+		for _, m := range nearestItems(f.Step.Argument, f.Frontier.Members, func(m queryexec.Member) string { return m.Name }) {
+			frontier.Members = append(frontier.Members, &pb.QueryFrontierMember{Name: m.Name, Metaclass: m.Metaclass})
 		}
-		for _, name := range nearestFirst(f.Step.Argument, mapKeys(f.Frontier.Members, func(m queryexec.Member) string { return m.Name })) {
-			frontier.Members = append(frontier.Members, &pb.QueryFrontierMember{Name: name, Metaclass: members[name].Metaclass})
-		}
-		features := map[string]queryexec.FeatureRef{}
-		for _, r := range f.Frontier.Features {
-			features[r.Name] = r
-		}
-		for _, name := range nearestFirst(f.Step.Argument, mapKeys(f.Frontier.Features, func(r queryexec.FeatureRef) string { return r.Name })) {
-			frontier.Features = append(frontier.Features, &pb.QueryFrontierFeature{Name: name, Type: features[name].Type})
+		for _, r := range nearestItems(f.Step.Argument, f.Frontier.Features, func(r queryexec.FeatureRef) string { return r.Name }) {
+			frontier.Features = append(frontier.Features, &pb.QueryFrontierFeature{Name: r.Name, Type: r.Type})
 		}
 		frontier.Kinds = nearestFirst(f.Step.Argument, f.Frontier.Kinds)
 		out = append(out, &pb.QueryFailure{Step: f.Step.Label(), Expected: f.Expected, Frontier: frontier})
@@ -613,12 +620,26 @@ func nearestFirst(word string, names []string) []string {
 	return out
 }
 
-func mapKeys[T any](items []T, key func(T) string) []string {
-	out := make([]string, 0, len(items))
+// nearestItems is at most frontierLimit of items, those whose name is nearest
+// word first; items sharing a name (a member declared under several
+// metaclasses) are kept together, in their given order.
+func nearestItems[T any](word string, items []T, name func(T) string) []T {
+	names := make([]string, 0, len(items))
 	for _, item := range items {
-		out = append(out, key(item))
+		names = append(names, name(item))
 	}
-	return out
+	rank := map[string]int{}
+	for i, n := range nearestFirst(word, names) {
+		rank[n] = i + 1
+	}
+	out := make([]T, 0, frontierLimit)
+	for _, item := range items {
+		if rank[name(item)] > 0 {
+			out = append(out, item)
+		}
+	}
+	slices.SortStableFunc(out, func(a, b T) int { return rank[name(a)] - rank[name(b)] })
+	return firstOf(out, frontierLimit)
 }
 
 // statusWithOrigin fails with the engine's message, naming the source

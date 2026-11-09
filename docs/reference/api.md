@@ -1108,7 +1108,9 @@ not in this table of the commonly asked-for ones. A property no metaclass
 declares is an `INVALID_ARGUMENT` error naming the nearest spelling, carrying the
 [query outcome](../internals/design/query-outcomes.md) as a `QueryOutcome` status
 detail — never a silently empty answer. The detail is bounded to fit a status
-trailer: each frontier lists at most eight members, features or kinds, the
+trailer: it carries the first eight failures, findings and path failures of a
+fan-out (`failuresTotal`, `findingsTotal`, `pathFailuresTotal` count them all),
+and each frontier lists at most eight members, features or kinds, the
 spellings nearest the step's argument first, with the whole count in
 `membersTotal`, `featuresTotal` and `kindsTotal`. Properties nest by `.`
 (`owner.name`, `wheels.diameter`), reading the property of the related element
