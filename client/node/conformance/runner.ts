@@ -453,10 +453,15 @@ export class Runner {
         ...stringOption(call.request, "oslc_query", "oslc"),
       }),
     RunDocumentQuery: (call) =>
-      this.model(call).runDocumentQuery(
-        String(call.request["query_id"]),
-        documentBindings(call.request["bindings"]),
-      ),
+      typeof call.request["inline_query"] === "string" && call.request["inline_query"] !== ""
+        ? this.model(call).runInlineDocumentQuery(
+            call.request["inline_query"],
+            documentBindings(call.request["bindings"]),
+          )
+        : this.model(call).runDocumentQuery(
+            String(call.request["query_id"]),
+            documentBindings(call.request["bindings"]),
+          ),
     RenderDocument: (call) => this.model(call).renderDocument(String(call.request["document_id"])),
     RenderView: (call) =>
       this.model(call).renderView(String(call.request["view"]), {
