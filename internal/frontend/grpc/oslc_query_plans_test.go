@@ -243,7 +243,7 @@ func TestQueryWalksASendActionsArguments(t *testing.T) {
 			part display;
 			action supervise {
 				action notifyVia send new Alarm(3) via alarmPort;
-				action notifyTo send new Alarm(5) to display;
+				action notifyTo send new Demo::Alarm(5) to display;
 			}
 		}
 	}`)
@@ -262,13 +262,15 @@ func TestQueryWalksASendActionsArguments(t *testing.T) {
 			t.Errorf("%s = %q, want %q (%v)", property, got, value, resp.Elements[0].Properties)
 		}
 	}
-	resp = oslcQuery(t, srv, hash, `oslc.where=rdf:type=sysml:SendActionUsage and sysml:payloadArgument="new Alarm(5)"&oslc.select=sysml:payloadArgument,sysml:receiverArgument{sysml:referent{sysml:qualifiedName}}`)
-	if len(resp.Elements) != 1 || resp.Elements[0].Properties["payloadArgument"] != "new Alarm(5)" ||
+	// A qualified name inside the written text is still text, not an
+	// element's qualified name to match.
+	resp = oslcQuery(t, srv, hash, `oslc.where=rdf:type=sysml:SendActionUsage and sysml:payloadArgument="new Demo::Alarm(5)"&oslc.select=sysml:payloadArgument,sysml:receiverArgument{sysml:referent{sysml:qualifiedName}}`)
+	if len(resp.Elements) != 1 || resp.Elements[0].Properties["payloadArgument"] != "new Demo::Alarm(5)" ||
 		resp.Elements[0].Properties["receiverArgument.referent.qualifiedName"] != "Demo::Monitor::display" {
 		t.Fatalf("payload as written = %v", resp.Elements)
 	}
 	resp = oslcQuery(t, srv, hash, `oslc.where=rdf:type=sysml:SendActionUsage&oslc.select=sysml:payloadArgument&oslc.orderBy=-sysml:payloadArgument`)
-	if len(resp.Elements) != 2 || resp.Elements[0].Properties["payloadArgument"] != "new Alarm(5)" {
+	if len(resp.Elements) != 2 || resp.Elements[0].Properties["payloadArgument"] != "new Demo::Alarm(5)" {
 		t.Fatalf("ordered by the payload as written = %v", resp.Elements)
 	}
 }

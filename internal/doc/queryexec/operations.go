@@ -1315,9 +1315,10 @@ func (*comparisonError) Error() string { return "unsupported comparison" }
 
 // compareValue compares one value as WhereFeature does: an element by the name
 // a cell prints it by, or by its qualified name when the value written is
-// qualified.
+// qualified; an expression element, which has neither, by its written text,
+// qualified names in it included (`new Demo::Alarm(3)`).
 func (e *executor) compareValue(actual Value, operator, expected string) (bool, error) {
-	if _, ok := actual.Element(); ok && !strings.Contains(expected, "::") {
+	if sym, ok := actual.Element(); ok && (sym.Expr != nil || !strings.Contains(expected, "::")) {
 		return compareText(e.valueText(actual), operator, expected)
 	}
 	return compareValue(actual, operator, expected)
