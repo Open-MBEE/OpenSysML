@@ -179,11 +179,7 @@ func expressionValue(sym *symbols.Symbol, feature string) (symbols.FilterValue, 
 		}
 	case *ast.IndexExpr:
 		if feature == "operator" {
-			operator := "#"
-			if n.Bracket {
-				operator = "["
-			}
-			return symbols.FilterValue{Kind: symbols.FilterValueString, Str: operator}, true
+			return symbols.FilterValue{Kind: symbols.FilterValueString, Str: n.OperatorSpelling()}, true
 		}
 	case *ast.SequenceExpr:
 		if feature == "operator" {

@@ -1,6 +1,7 @@
 package metamodel
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 
@@ -553,7 +554,7 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 				}
 				return elementValue(ElementOf(function)), true, true
 			}
-			if index, ok := expressionNode.(*ast.IndexExpr); ok && index.Bracket {
+			if index, ok := expressionNode.(*ast.IndexExpr); ok {
 				if e.model == nil {
 					e.recordUnsupportedReason(
 						element, "Expression", name,
@@ -564,13 +565,13 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 					)
 					return Value{}, true, false
 				}
-				function := e.model.OperatorFunction(ast.OpIndex)
+				function := e.model.IndexFunction(index)
 				if function == nil {
 					e.recordUnsupportedReason(
 						element, "Expression", name,
 						Reason{
 							Category: ReasonUnresolvedOperatorFunction,
-							Detail:   "Expression::function operator '[' has no resolved library function",
+							Detail:   fmt.Sprintf("Expression::function operator '%s' has no resolved library function", index.OperatorSpelling()),
 						},
 					)
 					return Value{}, true, false

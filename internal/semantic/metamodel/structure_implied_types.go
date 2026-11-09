@@ -58,9 +58,7 @@ func (e *Evaluator) structureExpressionFunction(element Element) ([]Value, bool)
 	case *ast.OperatorExpr:
 		function = e.model.OperatorFunction(node.Operator)
 	case *ast.IndexExpr:
-		if node.Bracket {
-			function = e.model.OperatorFunction(ast.OpIndex)
-		}
+		function = e.model.IndexFunction(node)
 	case *ast.SequenceExpr:
 		function = e.model.OperatorFunctionNamed(",")
 	case *ast.FeatureChainExpr:
@@ -115,7 +113,7 @@ func (e *Evaluator) statedExpressionFunction(element Element) *symbols.Symbol {
 		return e.librarySymbol("ControlFunctions::select")
 	case "CollectExpression":
 		return e.librarySymbol("ControlFunctions::collect")
-	case "OperatorExpression":
+	case "OperatorExpression", "IndexExpression":
 		if stated, ok := e.options.Structure.Attribute(element, "operator"); ok && stated.Kind == StringValue && stated.String != "" {
 			return e.model.OperatorFunctionNamed(stated.String)
 		}

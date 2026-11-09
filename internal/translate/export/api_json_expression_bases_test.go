@@ -16,6 +16,7 @@ func TestAPIJSONExpressionsInheritThroughTheirImpliedBase(t *testing.T) {
 		part def V {
 			attribute x : ScalarValues::Integer = 1 + 2;
 			attribute n = null;
+			attribute s = x#(1);
 		}
 	}`, IDQualifiedName)
 	document, err := WriteAPIJSON(graph)
@@ -44,6 +45,7 @@ func TestAPIJSONExpressionsInheritThroughTheirImpliedBase(t *testing.T) {
 		"OperatorExpression": "DataFunctions::+",
 		"LiteralInteger":     "Performances::LiteralIntegerEvaluation",
 		"NullExpression":     "Performances::NullEvaluation",
+		"IndexExpression":    "BaseFunctions::#",
 	} {
 		element := byType[metaclass]
 		if element == nil {

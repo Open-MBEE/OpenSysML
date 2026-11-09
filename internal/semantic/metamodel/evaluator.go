@@ -1050,16 +1050,16 @@ func (e *Evaluator) instantiationExpressionProperty(element Element, name string
 		}
 		return elementValue(ElementOf(function)), true
 	}
-	if index, ok := expressionNode.(*ast.IndexExpr); ok && index.Bracket {
+	if index, ok := expressionNode.(*ast.IndexExpr); ok {
 		if e.model == nil {
 			return unsupported(Reason{
 				Category: ReasonMissingSemanticModel,
 				Detail:   "operator function lookup requires a semantic model",
 			})
 		}
-		function := e.model.OperatorFunction(ast.OpIndex)
+		function := e.model.IndexFunction(index)
 		if function == nil || !semantics.IsType(function) {
-			return e.unresolvedInstantiationOperator(element, "[")
+			return e.unresolvedInstantiationOperator(element, index.OperatorSpelling())
 		}
 		return elementValue(ElementOf(function)), true
 	}

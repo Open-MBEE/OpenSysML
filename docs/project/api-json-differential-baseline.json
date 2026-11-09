@@ -114,8 +114,8 @@
       "typeMismatch": 1815
     },
     "properties": {
-      "presentEqual": 2050084,
-      "presentDifferent": 187894,
+      "presentEqual": 2050225,
+      "presentDifferent": 187753,
       "oursMissing": 235432,
       "pilotMissing": 80902,
       "absentBoth": 2220458,
@@ -155,8 +155,8 @@
         "typeMismatch": 6
       },
       "properties": {
-        "presentEqual": 165591,
-        "presentDifferent": 15324,
+        "presentEqual": 165615,
+        "presentDifferent": 15300,
         "oursMissing": 16719,
         "pilotMissing": 5844,
         "absentBoth": 184380,
@@ -191,8 +191,8 @@
         "typeMismatch": 27
       },
       "properties": {
-        "presentEqual": 581898,
-        "presentDifferent": 54602,
+        "presentEqual": 581931,
+        "presentDifferent": 54569,
         "oursMissing": 66418,
         "pilotMissing": 21647,
         "absentBoth": 633528,
@@ -227,8 +227,8 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 205376,
-        "presentDifferent": 18694,
+        "presentEqual": 205412,
+        "presentDifferent": 18658,
         "oursMissing": 21052,
         "pilotMissing": 7710,
         "absentBoth": 225786,
@@ -264,8 +264,8 @@
         "typeMismatch": 1136
       },
       "properties": {
-        "presentEqual": 124419,
-        "presentDifferent": 12254,
+        "presentEqual": 124449,
+        "presentDifferent": 12224,
         "oursMissing": 13167,
         "pilotMissing": 8269,
         "absentBoth": 112366,
@@ -374,8 +374,8 @@
         "typeMismatch": 199
       },
       "properties": {
-        "presentEqual": 650052,
-        "presentDifferent": 61201,
+        "presentEqual": 650070,
+        "presentDifferent": 61183,
         "oursMissing": 72976,
         "pilotMissing": 24381,
         "absentBoth": 717722,
@@ -48222,8 +48222,8 @@
       0
     ],
     "IndexExpression.behavior": [
-      0,
       47,
+      0,
       0,
       0,
       0,
@@ -48339,8 +48339,8 @@
       0
     ],
     "IndexExpression.function": [
-      0,
       47,
+      0,
       0,
       0,
       0,
@@ -48816,8 +48816,8 @@
       0
     ],
     "IndexExpression.type": [
-      0,
       47,
+      0,
       0,
       0,
       0,
