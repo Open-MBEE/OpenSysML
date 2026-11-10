@@ -341,9 +341,19 @@ func TestNoteInsideAnExpressionMovedInTheGraphIsWritten(t *testing.T) {
 	}
 }
 
-// An expression's comment the graph does not state is the text's: it stays as
-// written when another note of the declaration is edited and the declaration rebuilt.
-func TestUnstatedExpressionCommentOutlivesAnotherNoteEdit(t *testing.T) {
+// A note's text edited in the graph is written in the expression that held the
+// note, in place of the text it had; the old text is not kept beside it.
+func TestNoteInsideAnExpressionReworded(t *testing.T) {
+	edited := editTurtle(t, idTurtle(t, noted), `sysx:noteText "/* one */"`, `sysx:noteText "/* uno */"`)
+	want := strings.Replace(noted, "        attribute x = 1 /* one */ + 2; // sum\n", "        attribute x = 1 /* uno */ + 2; // sum\n", 1)
+	if back := toNotation(t, edited); back != want {
+		t.Errorf("the reworded note was not written:\n--- want ---\n%s--- got ---\n%s", want, back)
+	}
+}
+
+// A rebuilt declaration holds the graph's notes and no other, in its expressions as
+// in its head: a note dropped from the graph goes when another's edit rebuilds it.
+func TestNoteDroppedFromTheGraphGoesWithTheRebuiltExpression(t *testing.T) {
 	turtle := string(idTurtle(t, noted))
 	const one = "expr:Rover__Vehicle__x_pnote0\n    a sysx:Note ;\n    sysx:noteText \"/* one */\" ;\n    sysx:noteToken \"4\"^^xsd:integer ;\n    sysx:noteOwnLine \"false\"^^xsd:boolean .\n\n"
 	if !strings.Contains(turtle, one) || !strings.Contains(turtle, "sysx:note expr:Rover__Vehicle__x_pnote0, expr:Rover__Vehicle__x_pnote1") {
@@ -353,9 +363,9 @@ func TestUnstatedExpressionCommentOutlivesAnotherNoteEdit(t *testing.T) {
 	turtle = strings.Replace(turtle, "sysx:note expr:Rover__Vehicle__x_pnote0, expr:Rover__Vehicle__x_pnote1", "sysx:note expr:Rover__Vehicle__x_pnote1", 1)
 	const sum = "    sysx:noteText \"// sum\" ;\n    sysx:noteTrailing \"true\"^^xsd:boolean ;\n    sysx:noteOwnLine \"false\"^^xsd:boolean ."
 	edited := editTurtle(t, []byte(turtle), sum, strings.Replace(sum, `sysx:noteOwnLine "false"`, `sysx:noteOwnLine "true"`, 1))
-	want := strings.Replace(noted, "        attribute x = 1 /* one */ + 2; // sum\n", "        attribute x = 1 /* one */ + 2;\n        // sum\n", 1)
+	want := strings.Replace(noted, "        attribute x = 1 /* one */ + 2; // sum\n", "        attribute x = 1 + 2;\n        // sum\n", 1)
 	if back := toNotation(t, edited); back != want {
-		t.Errorf("the expression's comment did not outlive the edit:\n--- want ---\n%s--- got ---\n%s", want, back)
+		t.Errorf("the dropped note did not go:\n--- want ---\n%s--- got ---\n%s", want, back)
 	}
 }
 

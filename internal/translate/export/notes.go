@@ -172,16 +172,18 @@ func notedSubjects(g *rdf.Graph) []rdf.Term {
 	return out
 }
 
-// staleNotes lists the notes stated that are not derived in order, each in every
-// field (text, token, line, head or tail); one derived and not stated is passed over.
-func staleNotes(stated, derived []note) []note {
+// compareNotes matches the notes stated to those derived in order, each in every field
+// (text, token, line, head or tail), and lists the stated and the derived left unmatched.
+func compareNotes(stated, derived []note) (stale, unstated []note) {
 	i := 0
 	for _, m := range derived {
 		if i < len(stated) && m == stated[i] {
 			i++
+		} else {
+			unstated = append(unstated, m)
 		}
 	}
-	return stated[i:]
+	return stated[i:], unstated
 }
 
 // notesWritten lists the notes written with an element: those of a succession

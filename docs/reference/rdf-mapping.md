@@ -1011,9 +1011,10 @@ form drops) follows the last of them, and none is dropped. The graph is
 authoritative here too: a note edited in the graph — in its text or in its
 position, the token it follows, its line, head or tail — or added there demotes
 the text that does not state it, and the element is rebuilt with the graph's
-notes — the text of an expression of its that holds the edited note too, since
-the note would otherwise stay where that text had it; a comment the graph does
-not state is left to the text, since it may be a body or another subject's note
+notes and no other — the text of an expression of its that holds a note the
+graph does not state as written is rebuilt too, or the note would stay as that
+text had it beside the graph's. While the text stands, a comment the graph does
+not state is left to it, since it may be a body or another subject's note
 written inside this text (a filter's, a `then`'s). Two notes at one token are
 told apart by their order alone, so their texts swapped in the graph are an edit.
 The `Comment` elements the grammar does admit — a bare `/* */` before a
