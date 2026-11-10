@@ -108,6 +108,7 @@ public sealed class ConformanceAdapterTests
         { "ExecuteState", """{"model_hash": "h", "schedule": "explore", "trace": true}""", "RunOptions.Trace asks for one run's trace, which an exploration describes none of; leave it false." },
         { "CheckBehavior", """{"model_hash": "h", "action_symbol_id": "A", "state_machine_symbol_id": "S"}""", "the public API checks one behavior, so it cannot name both an action and a state machine" },
         { "CheckBehavior", """{"model_hash": "h", "state_machine_symbol_id": "S", "inputs": {"x": {"int_value": 1}}}""", "the public API binds inputs only to an action it checks, so it cannot send them with a state machine" },
+        { "CheckBehavior", """{"model_hash": "h", "action_symbol_id": "A", "check_timeout": 1e-9}""", "the public API holds a check timeout as a TimeSpan, which has none of 1E-09 s" },
         { "RunRuns", """{"model_hash": "h", "action_symbol_id": "A", "analysis_symbol_id": "C"}""", "the public API runs one behavior, so it cannot name both an action and a Monte Carlo case" },
         { "RunRuns", """{"model_hash": "h", "action_symbol_id": "A", "subject_symbol_id": "S"}""", "the public API binds a subject and arguments only to a Monte Carlo case it runs, so it cannot send them with an action" },
         { "RunRuns", """{"model_hash": "h", "named_arguments": {"x": {"int_value": 1}}}""", "the public API binds a subject and arguments only to a Monte Carlo case it runs, so it cannot send them with an action" },

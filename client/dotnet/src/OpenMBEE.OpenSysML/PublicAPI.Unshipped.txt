@@ -1143,7 +1143,7 @@
 [OSML0001]OpenMBEE.OpenSysML.CheckOptions.Properties.init -> void
 [OSML0001]OpenMBEE.OpenSysML.CheckOptions.States.get -> int
 [OSML0001]OpenMBEE.OpenSysML.CheckOptions.States.init -> void
-[OSML0001]OpenMBEE.OpenSysML.CheckOptions.Timeout.get -> double
+[OSML0001]OpenMBEE.OpenSysML.CheckOptions.Timeout.get -> System.TimeSpan
 [OSML0001]OpenMBEE.OpenSysML.CheckOptions.Timeout.init -> void
 [OSML0001]OpenMBEE.OpenSysML.CheckOptions.Unroll.get -> int
 [OSML0001]OpenMBEE.OpenSysML.CheckOptions.Unroll.init -> void

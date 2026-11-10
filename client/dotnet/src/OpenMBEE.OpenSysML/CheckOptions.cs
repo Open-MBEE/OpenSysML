@@ -76,8 +76,11 @@ public sealed class CheckOptions
     /// <summary>The bound on loop unrollings (<c>-check-unroll</c>); 0 for the engine's default.</summary>
     public int Unroll { get; init; }
 
-    /// <summary>The seconds the search, and each solver query, may take (<c>-check-timeout</c>); 0 for none.</summary>
-    public double Timeout { get; init; }
+    /// <summary>
+    /// How long the search, and each solver query, may take (<c>-check-timeout</c>), sent in seconds;
+    /// <see cref="TimeSpan.Zero"/>, the default, for no limit.
+    /// </summary>
+    public TimeSpan Timeout { get; init; }
 
     /// <summary>
     /// The engine that answers: <c>check</c>, the service's default, <c>smt</c>, or another engine the service

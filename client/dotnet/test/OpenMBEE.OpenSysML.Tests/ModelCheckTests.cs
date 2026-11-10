@@ -35,7 +35,7 @@ public sealed class ModelCheckTests
             Depth = 6,
             States = 100,
             Unroll = 2,
-            Timeout = 1.5,
+            Timeout = TimeSpan.FromSeconds(1.5),
             Engine = "smt",
             PerformerSymbolId = "Plant::tank",
         };

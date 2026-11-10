@@ -354,7 +354,7 @@ public sealed partial class Model
         request.CheckDepth = options.Depth;
         request.CheckStates = options.States;
         request.CheckUnroll = options.Unroll;
-        request.CheckTimeout = options.Timeout;
+        request.CheckTimeout = options.Timeout.TotalSeconds;
         request.Engine = options.Engine ?? string.Empty;
         var response = await Connection.ModelCallAsync<Wire.CheckBehaviorRequest, Wire.CheckBehaviorResponse>(CheckBehaviorMethod, request, cancellationToken).ConfigureAwait(false);
         var result = ExecutionWire.Check(response);
