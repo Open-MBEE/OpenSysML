@@ -89,7 +89,7 @@ And one a stable release does not ship:
   night above the `0.9.2` it builds on, and ranks the stable `0.9.3` above them all when it
   ships. It is in `SHA256SUMS.txt` with the rest.
 
-The npm packages are not release assets: the seven tarballs go to the registry, where npm
+The npm packages are not release assets: the fourteen tarballs go to the registry, where npm
 verifies them against the registry's integrity hashes and the provenance the workflow signs.
 
 Two more are workflow artifacts of the night's run rather than release assets, kept for the
@@ -262,7 +262,7 @@ it just built under the night's tag in the wheel's table with
 `pin_release_checksums.py --from-binaries`, builds the wheel and sdist, and checks the
 installed wheel reports the snapshot version, names the night's release as the one it was
 built against and pins all five digests, as the release pipeline checks a release's wheel;
-builds the platform and WASM packages from the same binaries and packs all seven npm
+builds the platform and WASM packages from the same binaries and packs all fourteen npm
 tarballs; signs the manifest, which now lists the wheel, with its own GitHub OIDC
 identity; keeps the tarballs as workflow artifacts; and publishes the per-night release
 with the repository's own `GITHUB_TOKEN`. A second job recreates the
@@ -277,10 +277,11 @@ checks them against the manifest and publishes them to PyPI as it does a stable 
 ([Releasing opensysml to PyPI](releasing.md#releasing-opensysml-to-pypi)) — so a snapshot
 and a release name one publisher, PyPI marks no *Change of provenance* between them, and
 an upload that fails fails the night. The other, in the `nightly` GitHub environment,
-publishes the seven tarballs to npm under the `nightly` dist-tag — platform and WASM
-packages first, the client last, as the release does — and checks afterwards that
-`latest` still names the stable release. It skips a version the registry already has
-rather than fail, since a version can never be replaced; the PyPI workflow does the same
+publishes the fourteen tarballs to npm under the `nightly` dist-tag — platform and WASM
+packages first, then the client, `@openmbee/sysml-mcp` and its alias, as the release does —
+and checks afterwards that `latest` still names the stable release. It skips a version the
+registry already has rather than fail, since a version can never be replaced; the PyPI
+workflow does the same
 for a day's second snapshot, whose version is the first's. The release notes are generated: the commit, the count since
 the last `v*` tag, the install lines for the packages, the verification commands, and one
 line per unreleased changelog entry (`python3 scripts/changelog.py summary`) — the lead
@@ -295,12 +296,16 @@ registered once by a maintainer:
   (see [Releasing](releasing.md#what-the-publication-needs)). An entry for `nightly.yml`,
   environment `nightly`, left from when the nightly uploaded them itself, is unused and
   can be removed.
-- **npm** — for each of `@openmbee/opensysml`, the five `@openmbee/opensysml-sysml-grpc-*`
-  packages and `@openmbee/opensysml-wasm`, open the package's settings on npmjs.com,
-  choose GitHub Actions under *Trusted Publisher*, and enter organization `Open-MBEE`,
-  repository `OpenSysML`, workflow filename `nightly.yml` and environment `nightly`. A
-  package configured for trusted publishing still accepts the release's token publish from
-  CircleCI.
+- **npm** — for each of the fourteen packages — `@openmbee/opensysml`, the five
+  `@openmbee/opensysml-sysml-grpc-*` packages, `@openmbee/opensysml-wasm`,
+  `@openmbee/sysml-mcp`, the five `@openmbee/sysml-mcp-*` packages and
+  `@openmbee/opensysml-mcp` — open the package's settings on npmjs.com, choose GitHub
+  Actions under *Trusted Publisher*, and enter organization `Open-MBEE`, repository
+  `OpenSysML`, workflow filename `nightly.yml` and environment `nightly`. A package
+  configured for trusted publishing still accepts the release's token publish from
+  CircleCI. A package the job adds later needs the same entry once the release has created
+  it: trusted publishing cannot create a package, and until the entry exists the job stops
+  at that package with `404 Not Found - PUT`, after publishing the ones before it.
 - **GitHub** — the `nightly` environment is created on the workflow's first run; nothing
   need be added to it. Protection rules on it (required reviewers, a wait timer) gate the
   two registry jobs without affecting the GitHub release.
