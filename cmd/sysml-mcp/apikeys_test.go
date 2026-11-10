@@ -113,7 +113,7 @@ func TestAPIKeyFlagsMisused(t *testing.T) {
 		usage  bool
 		stderr string
 	}{
-		{"-api-keys alone", []string{"-api-keys", path}, true, "-api-keys applies to -mint-api-key and -revoke-api-key; give one"},
+		{"-api-keys alone", []string{"-api-keys", path}, true, "-api-keys applies to -http, -mint-api-key and -revoke-api-key; give one"},
 		{"-subject alone", []string{"-subject", "alice"}, true, "-subject applies to -mint-api-key; give it"},
 		{"-scopes alone", []string{"-scopes", "a"}, true, "-scopes applies to -mint-api-key; give it"},
 		{"-expires alone", []string{"-expires", "1h"}, true, "-expires applies to -mint-api-key; give it"},
@@ -125,6 +125,8 @@ func TestAPIKeyFlagsMisused(t *testing.T) {
 		{"a mint with -http", []string{"-mint-api-key", "-api-keys", path, "-subject", "a", "-scopes", "b", "-http", "8765"}, true, "-mint-api-key edits the key file and exits; it is not given with -http"},
 		{"a revoke with -stdio", []string{"-revoke-api-key", "x", "-api-keys", path, "-stdio"}, true, "-revoke-api-key edits the key file and exits; it is not given with -stdio"},
 		{"a mint with -print-config", []string{"-mint-api-key", "-api-keys", path, "-subject", "a", "-scopes", "b", "-print-config", "cursor"}, true, "-mint-api-key edits the key file and exits; it is not given with -print-config"},
+		{"a mint with -token", []string{"-mint-api-key", "-api-keys", path, "-subject", "a", "-scopes", "b", "-token", "t"}, true, "-mint-api-key edits the key file and exits; it is not given with -token"},
+		{"a revoke with -token-file", []string{"-revoke-api-key", "x", "-api-keys", path, "-token-file", path}, true, "-revoke-api-key edits the key file and exits; it is not given with -token-file"},
 		{"a mint without the file", []string{"-mint-api-key", "-subject", "a", "-scopes", "b"}, true, "-mint-api-key needs the key file; name it with -api-keys"},
 		{"a revoke without the file", []string{"-revoke-api-key", "x"}, true, "-revoke-api-key needs the key file; name it with -api-keys"},
 		{"a mint without a subject", []string{"-mint-api-key", "-api-keys", path, "-scopes", "b"}, true, "-mint-api-key needs the key's subject; name it with -subject"},

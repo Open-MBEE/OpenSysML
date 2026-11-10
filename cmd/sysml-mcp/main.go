@@ -24,6 +24,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/buildinfo"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard/flags"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp"
 	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/all" // registers every REPL extension
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
@@ -188,6 +189,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 		printUsage(stderr, fs)
 		return exitUnservable
 	}
+	logger := slog.New(slog.NewTextHandler(stderr, &slog.HandlerOptions{Level: level}))
+	slog.SetDefault(logger)
+	opts.auth.Logger = logger
 	httpOpts, err := readHTTPOptions(opts)
 	if err == nil {
 		err = httpOpts.loadTLS()
@@ -198,8 +202,6 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return exitUnservable
 	}
 
-	logger := slog.New(slog.NewTextHandler(stderr, &slog.HandlerOptions{Level: level}))
-	slog.SetDefault(logger)
 	cache, err := libs.OpenRecordCache(opts.noRecordCache)
 	if err != nil {
 		fmt.Fprintf(stderr, "%srecord cache unavailable, holding every document loaded: %v\n", commandPrefix, err)
@@ -227,7 +229,7 @@ func printUsage(w io.Writer, fs *flag.FlagSet) {
 
 // serve speaks the protocol over stdin/stdout until the client ends it or the
 // process is told to stop, or with http over that address until the process is
-// told to stop, and reports how the session ended.
+// told to stop (a SIGHUP there reloads the credentials), and reports how the session ended.
 func serve(stderr io.Writer, cfg mcp.Config, over *httpOptions) int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -244,6 +246,7 @@ func serve(stderr io.Writer, cfg mcp.Config, over *httpOptions) int {
 			fmt.Fprintf(stderr, "%s-http %s binds an address other machines reach: %v\n", commandPrefix, over.addr, mcp.ErrNoToken)
 			return exitUnservable
 		}
+		go reloadOnHangup(ctx, over.auth, cfg.Logger)
 	}
 	srv, err := mcp.New(ctx, cfg)
 	if err != nil {
@@ -267,6 +270,26 @@ func serve(stderr io.Writer, cfg mcp.Config, over *httpOptions) int {
 		return exitProtocol
 	}
 	return exitServed
+}
+
+// reloadOnHangup has the credentials re-read on each SIGHUP until ctx ends, so
+// a key file edited by hand takes effect at once; a file that fails keeps what it held.
+func reloadOnHangup(ctx context.Context, auth flags.Authenticators, logger *slog.Logger) {
+	hangup := make(chan os.Signal, 1)
+	signal.Notify(hangup, syscall.SIGHUP)
+	defer signal.Stop(hangup)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-hangup:
+			if err := auth.Reload(); err != nil {
+				logger.Error("credentials not reloaded on SIGHUP, keeping those held", "err", err)
+				continue
+			}
+			logger.Info("credentials reloaded on SIGHUP", "auth", auth.String())
+		}
+	}
 }
 
 // endedWithTheStream reports whether err is only the client's end of the stream:

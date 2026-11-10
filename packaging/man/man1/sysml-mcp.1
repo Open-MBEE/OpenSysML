@@ -30,9 +30,9 @@ needs); loopback origins and requests with no Origin header are admitted
 without a grant, any other origin is refused
 .TP
 .BI \-api\-keys " string"
-File of API keys, one JSON record per line holding the SHA\-256 of a key with
-its subject, scopes, expiry and whether it is disabled, never the key;
-\-mint\-api\-key appends to it and \-revoke\-api\-key edits it
+File of API keys accepted besides the bearer token, one JSON record per line
+holding the SHA\-256 of a key with its subject, scopes, expiry and whether it
+is disabled; re\-read when it changes
 .TP
 .BI \-cache\-size " int"
 Maximum number of parsed models the runtime tools hold; at least 1. The
@@ -52,8 +52,9 @@ Show this help and exit
 Serve over Streamable HTTP at the path /mcp of this address instead of
 stdin/stdout, as host:port or a port alone, which binds loopback; every client
 shares the one workspace, runtime cache and set of REPL sessions. An address
-other machines reach is served only with a bearer token (\-token\-file,
-\-token or OPENSYSML_MCP_TOKEN)
+other machines reach is served only with a credential: a bearer token
+(\-token\-file, \-token or OPENSYSML_MCP_TOKEN), API keys (\-api\-keys) or
+both
 .TP
 .BI \-log\-level " string"
 Lowest level logged to stderr: debug, info, warn or error. The default is

@@ -438,6 +438,7 @@ interleave rather than collide; agents that want sessions of their own give them
 sysml-mcp -http 8765                                              # http://localhost:8765/mcp, this machine only
 sysml-mcp -http 0.0.0.0:8765 -token-file mcp.token -tls-cert server.crt -tls-key server.key
 sysml-mcp -http 0.0.0.0:8765 -token-file mcp.token -allow-origin https://agents.example.org
+sysml-mcp -http 0.0.0.0:8765 -api-keys keys.jsonl -tls-cert server.crt -tls-key server.key  # a key per caller
 ```
 
 The stance is the one [`sysml-grpc`](service-transports.md) takes for TLS and origins, with the
@@ -456,6 +457,8 @@ authentication the Model Context Protocol asks of a server on a network:
   flag is given. Starting on an address other machines reach (`0.0.0.0:8765`, a host name) with no
   token is refused with exit status 2 and a message naming the flags — not served with a warning.
   A token given for a loopback address is enforced the same way, for a machine shared with others.
+  A file of [API keys](#api-keys) (`-api-keys FILE`) is a credential as well, alone or beside the
+  token: a key is tried first, by its `osk_` prefix, and any other bearer token against the token.
 - **Every request carries the token** as `Authorization: Bearer TOKEN` (RFC 6750 § 2.1, the only
   form the protocol allows; a token in the query string is never read). The comparison is
   constant-time. A request without it is refused with `401 Unauthorized` and a
@@ -552,9 +555,11 @@ Bearer osk_…` with the record's subject, scopes and expiry as the request's pr
 record up by id and comparing the secret's hash in constant time, and refuses a disabled, expired or
 unknown key with the RFC 6750 § 3.1 answer; a bearer token that is not a key is left to the server's
 other authenticators (its static token last). The file is read again when its modification time
-moves, at most once a second and only on a request, and on SIGHUP; a file that no longer reads
-keeps the keys already held and logs the failure once. The `-http` transport of this release does
-not yet read the file: it serves the one bearer token above.
+moves, at most once a second and only on a request, and on `SIGHUP`; a file that no longer reads
+keeps the keys already held and logs the failure once. `sysml-mcp -http ADDR -api-keys FILE` serves
+the file this way, alone or beside `-token-file`/`-token`, and satisfies the rule that an address
+other machines reach needs a credential; `kill -HUP` the server after editing the file by hand to
+have it read at once rather than at the next request.
 
 ## Command line
 
@@ -567,13 +572,13 @@ not yet read the file: it serves the one bearer token above.
 | `-cache-size N` | `100` | Parsed models the runtime tools hold, at least 1 |
 | `-log-level LEVEL` | `warn` | Lowest level logged to stderr: `debug`, `info`, `warn` or `error` |
 | `-stdio` | — | Serve over stdin/stdout; the default transport, accepted for hosts that name it; not with `-http` |
-| `-http ADDR` | — | Serve over Streamable HTTP at `/mcp` of `host:port`, or of loopback for a port alone; every client shares the workspace and runtime cache, and the REPL sessions of its principal |
+| `-http ADDR` | — | Serve over Streamable HTTP at `/mcp` of `host:port`, or of loopback for a port alone; every client shares the workspace and runtime cache, and the REPL sessions of its principal; an address other machines reach needs `-token-file`, `-token` or `-api-keys` |
 | `-allow-origin ORIGINS` | — | Origins (`scheme://host[:port]`, comma-separated) granted cross-origin access; loopback origins and requests with no `Origin` are admitted without a grant, others are refused |
 | `-token-file FILE` | — | File holding the bearer token every request must carry as `Authorization: Bearer TOKEN`; required for an address other machines reach, enforced on loopback too when given |
 | `-token TOKEN` | — | The token itself; `OPENSYSML_MCP_TOKEN` is read when neither flag names one |
 | `-public-url URL` | the request's scheme and `Host` | The URL clients reach the endpoint at behind a proxy that terminates TLS or rewrites the path; named as the resource, in the bearer challenge and by the `-print-config` block |
 | `-tls-cert FILE`, `-tls-key FILE` | — | Serve `https`; both or neither |
-| `-api-keys FILE` | — | File of API keys, one JSON record per line holding the SHA-256 of a key with its subject, scopes, expiry and whether it is disabled; appended to by `-mint-api-key`, edited by `-revoke-api-key` |
+| `-api-keys FILE` | — | File of API keys, one JSON record per line holding the SHA-256 of a key with its subject, scopes, expiry and whether it is disabled; read by `-http` as a credential ahead of the token, re-read when it changes and on `SIGHUP`; appended to by `-mint-api-key`, edited by `-revoke-api-key` |
 | `-mint-api-key` | — | Mint a key `osk_<id>.<secret>` for `-subject NAME` with `-scopes a,b`, expiring after `-expires DUR` when given; print it once to stdout, append its record to the `-api-keys` file and exit |
 | `-revoke-api-key ID` | — | Mark the key of this id disabled in the `-api-keys` file and exit |
 | `-print-config [HOST]` | — | Write a host's configuration block to stdout and exit; alone, list the hosts |

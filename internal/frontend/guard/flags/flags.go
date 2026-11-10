@@ -38,7 +38,7 @@ func Register(fs *flag.FlagSet, env string) *Options {
 			"it out of the process list, and "+env+" is read when neither flag names one")
 	fs.StringVar(&o.APIKeys, "api-keys", "",
 		"File of API keys accepted besides the bearer token, one JSON record per line holding the SHA-256 of a key "+
-			"with its subject, scopes, expiry and whether it is disabled; re-read when it changes and on SIGHUP")
+			"with its subject, scopes, expiry and whether it is disabled; re-read when it changes")
 	return &o
 }
 

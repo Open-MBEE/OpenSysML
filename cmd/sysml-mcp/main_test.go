@@ -242,7 +242,7 @@ func TestReadToken(t *testing.T) {
 			if tc.opts.auth == nil {
 				tc.opts.auth = &flags.Options{}
 			}
-			token, text, err := readToken(&tc.opts)
+			token, auth, err := readToken(&tc.opts)
 			if tc.err != "" {
 				if err == nil || !strings.Contains(err.Error(), tc.err) {
 					t.Fatalf("readToken: %v, want %q", err, tc.err)
@@ -252,7 +252,7 @@ func TestReadToken(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if text != tc.value || token.Set() != (tc.value != "") {
+			if text := auth.TokenText(); text != tc.value || token.Set() != (tc.value != "") {
 				t.Errorf("readToken = %q (set %v), want %q", text, token.Set(), tc.value)
 			}
 		})

@@ -23,7 +23,8 @@ type keyCommand struct {
 }
 
 // readKeyCommand validates the key flags together: nil when neither command
-// was asked for, and then -api-keys, -subject, -scopes and -expires are refused.
+// was asked for, and then -subject, -scopes and -expires are refused, as is
+// -api-keys without the -http transport that reads the file.
 func readKeyCommand(o *options, fs *flag.FlagSet) (*keyCommand, error) {
 	revoke := false
 	fs.Visit(func(f *flag.Flag) { revoke = revoke || f.Name == "revoke-api-key" })
@@ -31,8 +32,8 @@ func readKeyCommand(o *options, fs *flag.FlagSet) (*keyCommand, error) {
 		return nil, errors.New("-revoke-api-key needs the id of the key to disable; an empty id names none")
 	}
 	if !o.mintAPIKey && !revoke {
-		if o.apiKeys != "" {
-			return nil, errors.New("-api-keys applies to -mint-api-key and -revoke-api-key; give one")
+		if o.auth.APIKeys != "" && o.http == "" {
+			return nil, errors.New("-api-keys applies to -http, -mint-api-key and -revoke-api-key; give one")
 		}
 		return nil, mintQualifiers(o, "-mint-api-key; give it")
 	}
@@ -46,15 +47,15 @@ func readKeyCommand(o *options, fs *flag.FlagSet) (*keyCommand, error) {
 	for _, f := range []struct {
 		name string
 		set  bool
-	}{{"-http", o.http != ""}, {"-stdio", o.stdio}, {"-print-config", o.printConfig.set}} {
+	}{{"-http", o.http != ""}, {"-stdio", o.stdio}, {"-print-config", o.printConfig.set}, {"-token", o.auth.Token != ""}, {"-token-file", o.auth.TokenFile != ""}} {
 		if f.set {
 			return nil, fmt.Errorf("%s edits the key file and exits; it is not given with %s", which, f.name)
 		}
 	}
-	if o.apiKeys == "" {
+	if o.auth.APIKeys == "" {
 		return nil, fmt.Errorf("%s needs the key file; name it with -api-keys", which)
 	}
-	cmd := &keyCommand{file: o.apiKeys}
+	cmd := &keyCommand{file: o.auth.APIKeys}
 	if !o.mintAPIKey {
 		cmd.revoke = o.revokeAPIKey
 		return cmd, mintQualifiers(o, "-mint-api-key, not -revoke-api-key")
