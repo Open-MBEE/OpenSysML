@@ -111,9 +111,8 @@ func (ctx *Context) noteCoverage(object *Instance, machine *symbols.Symbol, stat
 	ctx.coverage[key] = ctx.spellCoverage(object, machine, state, to)
 }
 
-// spellCoverage names an entry by the instance path of the object running the
-// machine, its names as written, and by the machine's declaration, each name quoted
-// on its own as a qualified name is.
+// spellCoverage names an entry by the object's instance path with the names as
+// written, and by the machine's declaration with each name quoted on its own.
 func (ctx *Context) spellCoverage(object *Instance, machine *symbols.Symbol, state, to []string) CoverageEntry {
 	what, declared := strings.Join(state, "."), source.QualifiedNameOf(state)
 	if len(to) > 0 {
