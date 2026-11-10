@@ -196,6 +196,9 @@ public final class Capabilities {
   /** The {@code RunDocumentQuery} RPC runs a named document query. */
   public static final String DOCUMENT_QUERY = "document_query";
 
+  /** {@code RunDocumentQueryRequest.inline_query}: a query expression run in place of a name. */
+  public static final String INLINE_DOCUMENT_QUERY = "inline_document_query";
+
   /** The {@code RenderDocument} RPC renders a named document to Markdown. */
   public static final String RENDER_DOCUMENT = "render_document";
 

@@ -734,3 +734,71 @@ elmt:Lander__lander__cabin
 ```
 
 Exit status: 0
+
+
+## 10. Write the query inline
+
+`-run-inline-query` takes the body of a query — the expression a `calc def`
+specializing `DocumentQueries::Query` would hold — and runs it through the same
+compiler and executor as a named query, so this is `MassTable` without a file:
+
+```console
+$ bin/sysml examples/qvts/lander.sysml -run-inline-query 'Project(WhereType(Descendants(Named("Lander::lander")), "PartUsage", true), ("qualifiedName", "mass"))'
+```
+
+```text
+✓ package Lander
+✓ Inline query returned 3 rows
+  Columns: qualifiedName, mass
+  Row 1: Lander::lander::cabin
+    qualifiedName = "Lander::lander::cabin"
+    mass = 320.0
+  Row 2: Lander::lander::engine
+    qualifiedName = "Lander::lander::engine"
+    mass = 145.0
+  Row 3: Lander::lander::scienceBay
+    qualifiedName = "Lander::lander::scienceBay"
+    mass = (none)
+```
+
+Exit status: 0
+
+Text that does not parse or plan is reported at its line and column within the
+expression, never as a diagnostic of the model:
+
+```console
+$ bin/sysml examples/qvts/lander.sysml -run-inline-query 'Project(Named("Lander") ("qualifiedName"))'
+```
+
+```text
+✓ package Lander
+sysml: inline query 1:25: expected ')'
+Project(Named("Lander") ("qualifiedName"))
+                        ^
+```
+
+Exit status: 2
+
+The REPL spells the same expression `%run-query inline <expression>`:
+
+```console
+$ printf '%s\n' '%run-query inline Project(WhereType(Descendants(Named("Lander::lander")), "PartUsage", true), ("qualifiedName", "mass"))' | bin/sysml examples/qvts/lander.sysml
+```
+
+```text
+✓ package Lander
+SysML v2 REPL — %help for commands, Ctrl-D to exit
+✓ Inline query returned 3 rows
+  Columns: qualifiedName, mass
+  Row 1: Lander::lander::cabin
+    qualifiedName = "Lander::lander::cabin"
+    mass = 320.0
+  Row 2: Lander::lander::engine
+    qualifiedName = "Lander::lander::engine"
+    mass = 145.0
+  Row 3: Lander::lander::scienceBay
+    qualifiedName = "Lander::lander::scienceBay"
+    mass = (none)
+```
+
+Exit status: 0

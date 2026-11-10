@@ -1,0 +1,4 @@
+✓ package Lander
+sysml: inline query 1:25: expected ')'
+Project(Named("Lander") ("qualifiedName"))
+                        ^
