@@ -87,7 +87,7 @@ func TestBearer(t *testing.T) {
 // one subject under two authenticators is two principals, and rides a context.
 func TestPrincipalIdentity(t *testing.T) {
 	key := Principal{Subject: "alice", Source: "api-key"}
-	oidc := Principal{Subject: "alice", Source: "oidc", Name: "alice@example.org", Scopes: []string{"model:read"}}
+	oidc := Principal{Subject: "alice", Source: "oidc", Name: "alice@example.org", Scopes: []string{"model:read"}, Expires: time.Unix(1, 0)}
 	if key.ID() != "api-key:alice" || oidc.ID() != "oidc:alice" {
 		t.Errorf("IDs = %q, %q; want the source before the subject", key.ID(), oidc.ID())
 	}
@@ -105,11 +105,14 @@ func TestPrincipalIdentity(t *testing.T) {
 		t.Errorf("PrincipalFrom of a bare context = %+v, %v; want none", p, ok)
 	}
 	ctx := WithPrincipal(context.Background(), oidc)
-	if p, ok := PrincipalFrom(ctx); !ok || p.ID() != oidc.ID() || p.Name != oidc.Name || !slices.Equal(p.Scopes, oidc.Scopes) {
+	if p, ok := PrincipalFrom(ctx); !ok || p.ID() != oidc.ID() || p.Name != oidc.Name || !slices.Equal(p.Scopes, oidc.Scopes) || !p.Expires.Equal(oidc.Expires) {
 		t.Errorf("PrincipalFrom = %+v, %v; want %+v", p, ok, oidc)
 	}
 	if p, _ := PrincipalFrom(WithPrincipal(ctx, key)); p.ID() != key.ID() {
 		t.Errorf("PrincipalFrom after a second WithPrincipal = %+v; want the later one", p)
+	}
+	if p, ok := PrincipalFrom(context.WithValue(ctx, principalKey{}, "not a principal")); ok || p.Subject != "" {
+		t.Errorf("PrincipalFrom of a value of another type under the key = %+v, %v; want none", p, ok)
 	}
 }
 
