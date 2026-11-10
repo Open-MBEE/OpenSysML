@@ -12,7 +12,7 @@ and the Microsoft.Testing.Platform runner.
 ## Setup
 
 - **The SDK must be in the feature band `global.json` pins, at or above its patch** (10.0.402 admits
-  10.0.403, not 10.0.401 or 10.0.5xx). `make dotnet-preflight` refuses anything else, because another
+  10.0.403, not 10.0.401 or 10.0.5xx). `global.json`'s `latestPatch` roll-forward refuses anything else, because another
   band ships another compiler and analyzers; `AnalysisLevel` is fixed at `10.0` so a servicing patch
   cannot add rules that fail the `-warnaserror` build. CI builds with the exact pin, so to reproduce a
   CI-only failure install it privately and put it first:

@@ -6,7 +6,7 @@ using it.
 ## Building and testing
 
 ```bash
-make dotnet-test       # preflight, locked restore, build, format check, tests under coverlet, samples
+make dotnet-test       # locked restore, build, format check, tests under coverlet, samples
 make conformance-dotnet conformance-dotnet-check   # the conformance suite; see Conformance
 ```
 
@@ -53,7 +53,8 @@ client's multi-file model and [`test/testdata/generate/cases`](test/testdata/gen
 [`goldens.json`](test/testdata/generate/goldens.json) records, are compiled by
 [`test/OpenMBEE.OpenSysML.Generate.Consumer`](test/OpenMBEE.OpenSysML.Generate.Consumer/), which
 references the library alone under its build policy and reads live instances through them. `make
-dotnet-generate-goldens` regenerates them and `make dotnet-generate-check` checks them.
+dotnet-generate-goldens` regenerates them and `make dotnet-generate-check` checks them; CI checks them
+through `GoldenTests`, which regenerates each golden over every wire as part of the suite.
 
 The metamodel's tests, in [`test/OpenMBEE.OpenSysML.Metamodel.Tests`](test/OpenMBEE.OpenSysML.Metamodel.Tests/),
 reference the metamodel project alone. They hold every interface's ancestry against the committed
@@ -146,7 +147,7 @@ the conformance comparison with the reference runner, and, in the full tier, nat
 and Windows against a
 `sysml-grpc` built on that runner, with the same minimum test count. Every one of those jobs
 installs the Python, Java and Rust toolchains and requires the interop tests.
-The Python gates use ASCII success markers so preflight, sample and coverage reports
+The Python gates use ASCII success markers so sample and coverage reports
 also work with legacy Windows console encodings.
 
 ## Protocol code

@@ -41,10 +41,10 @@ For a task-oriented walkthrough, see the [.NET client guide](../../docs/clients/
 
 - The .NET SDK that the repository-root [`global.json`](../../global.json) pins (10.0.402) or a
   later patch in its 10.0.4xx feature band, with its .NET 10 runtime. Run every `dotnet` command
-  from the repository root so that file selects the SDK; `make dotnet-preflight` checks both, and
-  refuses another feature band, whose compiler and analyzers may differ. CI builds with the pinned
-  SDK exactly.
-- Python 3, for the preflight and coverage checks the Make targets run.
+  from the repository root so that file selects the SDK: its `latestPatch` roll-forward refuses
+  another feature band, whose compiler and analyzers may differ. CI builds with the pinned SDK
+  exactly.
+- Python 3, for the coverage and sample checks the Make targets run.
 - For the integration tests, a `sysml-grpc` binary: `make build-grpc` writes `bin/sysml-grpc`.
 
 The library, tests and sample target `net10.0` only. Native AOT and trimming are not

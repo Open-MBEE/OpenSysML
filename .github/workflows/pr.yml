@@ -1580,7 +1580,7 @@ jobs:
 
   # The .NET client on Linux, against the service the build job made. The SDK is
   # installed alone in its own directory, so root global.json can select nothing
-  # else and CI builds with the exact pin; make dotnet-preflight checks its band.
+  # else and CI builds with the exact pin.
   dotnet-test:
     name: .NET client tests
     needs: [changes, build]
@@ -1593,20 +1593,19 @@ jobs:
       DOTNET_NOLOGO: "1"
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Install the .NET SDK root global.json pins
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         env:
           DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
         with:
           global-json-file: global.json
 
-      - name: Check the SDK and runtime
+      - name: Show the SDK and runtime
         run: |
           dotnet --version
           dotnet --list-runtimes
-          make dotnet-preflight
 
       # Pinned by digest, as in the other client jobs, so a substituted asset is not run.
       - name: Install buf
@@ -1625,7 +1624,7 @@ jobs:
           git add -N client/dotnet/src/OpenMBEE.OpenSysML/Wire
           git diff --exit-code client/dotnet/src/OpenMBEE.OpenSysML/Wire
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: binaries
           path: bin
@@ -1637,7 +1636,7 @@ jobs:
       # The interop tests hold the shared cache's lock against the Java and Rust
       # clients' own calls; Python is the runner's. Rust is the Rust client job's pin.
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
         with:
           distribution: temurin
           java-version: '21'
@@ -1667,7 +1666,7 @@ jobs:
 
       # The reference runner is Go, which this job otherwise does not need.
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: go.mod
           cache: true
@@ -1680,7 +1679,7 @@ jobs:
 
       - name: Upload .NET client reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dotnet-reports
           path: |
@@ -1716,10 +1715,10 @@ jobs:
       - name: Keep line endings as committed
         run: git config --global core.autocrlf false
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: go.mod
           cache: true
@@ -1737,14 +1736,14 @@ jobs:
           echo "OPENSYSML_GRPC_BINARY=$binary" >> "$GITHUB_ENV"
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: '3.12'
 
       # The interop tests hold the shared cache's lock against the Python, Java and
       # Rust clients' own calls, natively here too.
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
         with:
           distribution: temurin
           java-version: '21'
@@ -1756,17 +1755,16 @@ jobs:
           cargo --version
 
       - name: Install the .NET SDK root global.json pins
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         env:
           DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
         with:
           global-json-file: global.json
 
-      - name: Check the SDK and runtime
+      - name: Show the SDK and runtime
         run: |
           dotnet --version
           dotnet --list-runtimes
-          python client/dotnet/scripts/dotnet-gates.py preflight --dotnet dotnet
 
       - name: Restore and build the .NET client
         run: |
@@ -1786,7 +1784,7 @@ jobs:
 
       - name: Upload .NET client reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dotnet-reports-${{ matrix.os }}
           path: bin/dotnet/

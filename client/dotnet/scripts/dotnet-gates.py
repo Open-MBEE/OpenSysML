@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-"""The .NET client's environment and coverage gates, which MSBuild cannot express.
+"""The .NET client's coverage, sample, API and golden gates, which MSBuild cannot express.
 
-    python3 client/dotnet/scripts/dotnet-gates.py preflight [--dotnet DOTNET]
     python3 client/dotnet/scripts/dotnet-gates.py coverage RESULTS_DIR [--generated PATH ...]
     python3 client/dotnet/scripts/dotnet-gates.py sample --expect LINE [--dotnet DOTNET] [--binary PATH]
     python3 client/dotnet/scripts/dotnet-gates.py metamodel-sample --expect LINE [--dotnet DOTNET]
@@ -9,11 +8,6 @@
         --reference-report RR --reference-log RL --expected-skips E
     python3 client/dotnet/scripts/dotnet-gates.py promote-api [--check]
     python3 client/dotnet/scripts/dotnet-gates.py goldens [--check] [--dotnet DOTNET]
-
-`preflight` fails unless `dotnet`, invoked from the repository root, is an SDK in the
-feature band root global.json pins, at or above its patch, and a .NET 10 runtime is
-installed beside it: another band ships another compiler and analyzers, and the tests
-must execute on net10, not merely compile for it.
 
 `coverage` fails unless RESULTS_DIR holds at least one coverlet Cobertura report,
 each measuring some handwritten library code under client/dotnet/src and none of
@@ -68,8 +62,6 @@ import xml.etree.ElementTree as ET
 REPO_ROOT = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 )
-GLOBAL_JSON = os.path.join(REPO_ROOT, "global.json")
-RUNTIME_MAJOR = 10
 HANDWRITTEN_ROOT = "client/dotnet/src/"
 SAMPLE_PROJECT = "client/dotnet/samples/Vehicle"
 SERVICE_VARIABLE = "OPENSYSML_SERVICE"
@@ -100,97 +92,6 @@ METAMODEL_SAMPLE_LINES = (
 
 class GateError(Exception):
     """A gate's condition does not hold."""
-
-
-def pinned_sdk(global_json=GLOBAL_JSON):
-    """The SDK version root global.json pins.
-
-    Args:
-        global_json (str): Path to global.json
-
-    Returns:
-        str: The pinned version, e.g. '10.0.402'
-
-    Raises:
-        GateError: If the file pins no SDK version
-    """
-    with open(global_json, encoding="utf-8") as f:
-        version = json.load(f).get("sdk", {}).get("version")
-    if not isinstance(version, str):
-        raise GateError(f"{global_json} pins no sdk.version")
-    return version
-
-
-def _dotnet(dotnet, *args):
-    try:
-        result = subprocess.run(
-            [dotnet, *args], cwd=REPO_ROOT, capture_output=True, text=True, check=False
-        )
-    except OSError as e:
-        raise GateError(f"cannot run {dotnet}: {e}") from e
-    if result.returncode != 0:
-        raise GateError(
-            f"`{dotnet} {' '.join(args)}` exited {result.returncode} from the repository root; "
-            f"is the SDK root global.json pins installed?\n{(result.stdout + result.stderr).strip()}"
-        )
-    return result.stdout
-
-
-def sdk_band(version):
-    """Split an SDK version into its feature band and patch.
-
-    Args:
-        version (str): A release SDK version, e.g. '10.0.403'
-
-    Returns:
-        tuple[tuple[int, int, int], int]: (major, minor, feature band) and patch, e.g. ((10, 0, 4), 3)
-
-    Raises:
-        GateError: If the version is not a release SDK version
-    """
-    m = re.fullmatch(r"(\d+)\.(\d+)\.(\d)(\d\d)", version)
-    if not m:
-        raise GateError(f"{version!r} is not a release .NET SDK version (major.minor.Bpp)")
-    return (int(m[1]), int(m[2]), int(m[3])), int(m[4])
-
-
-def preflight(dotnet="dotnet", global_json=GLOBAL_JSON):
-    """Check the SDK and runtime the repository root selects.
-
-    The SDK must be in the pinned feature band at or above the pinned patch, which is
-    what global.json's latestPatch roll-forward admits; a servicing patch does not change
-    the compiler or the fixed AnalysisLevel's rules, while another band may.
-
-    Args:
-        dotnet (str): The dotnet host to run
-        global_json (str): Path to the root global.json
-
-    Returns:
-        tuple[str, list[str]]: The SDK version and the .NET 10 runtime versions
-
-    Raises:
-        GateError: If the SDK is outside the pinned band or no .NET 10 runtime is installed
-    """
-    pinned = pinned_sdk(global_json)
-    pinned_band, pinned_patch = sdk_band(pinned)
-    sdk = _dotnet(dotnet, "--version").strip()
-    band, patch = sdk_band(sdk)
-    if band != pinned_band or patch < pinned_patch:
-        raise GateError(
-            f"dotnet from the repository root is SDK {sdk!r}, but global.json pins {pinned!r}; "
-            f"install SDK {pinned} or a later {'.'.join(map(str, pinned_band))}xx patch."
-        )
-    runtimes = re.findall(
-        rf"^Microsoft\.NETCore\.App ({RUNTIME_MAJOR}\.\d+\.\d+)\s",
-        _dotnet(dotnet, "--list-runtimes"),
-        re.MULTILINE,
-    )
-    if not runtimes:
-        raise GateError(
-            f"no .NET {RUNTIME_MAJOR} runtime (Microsoft.NETCore.App {RUNTIME_MAJOR}.x) is installed "
-            f"beside SDK {sdk}; the tests must execute on net{RUNTIME_MAJOR}.0."
-        )
-    return sdk, runtimes
 
 
 def _normalized(path):
@@ -892,8 +793,6 @@ def goldens(dotnet="dotnet", check=False, manifest=GOLDENS_MANIFEST, environ=Non
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     commands = parser.add_subparsers(dest="command", required=True)
-    pre = commands.add_parser("preflight", help="check the SDK and runtime the repository root selects")
-    pre.add_argument("--dotnet", default="dotnet", help="the dotnet host (default: dotnet on PATH)")
     cov = commands.add_parser("coverage", help="check a coverage run's Cobertura reports")
     cov.add_argument("results_dir")
     cov.add_argument("--generated", nargs="*", default=[], help="generated file path suffixes the run excludes")
@@ -919,10 +818,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     try:
-        if args.command == "preflight":
-            sdk, runtimes = preflight(args.dotnet)
-            print(f"OK .NET SDK {sdk}, runtime {', '.join(runtimes)}")
-        elif args.command == "promote-api":
+        if args.command == "promote-api":
             for project, added, removed in promote_api(check=args.check):
                 print(f"OK {project}: nothing unshipped" if args.check else f"OK {project}: shipped {added} entries, removed {removed}")
         elif args.command == "sample":

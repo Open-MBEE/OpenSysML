@@ -1,8 +1,5 @@
 version: 2.1
 
-orbs:
-  go: circleci/go@1.10.0
-
 parameters:
   release_rehearsal:
     type: boolean
@@ -1596,7 +1593,7 @@ jobs:
           destination: conformance-report-rust.json
 
   # The .NET client: locked restore, format, build and tests against a service
-  # built here (the orb installs Go, as for the Rust job), then coverage.
+  # built here (install-go adds Go, as for the Rust job), then coverage.
   dotnet-test:
     executor: dotnet-executor
     environment:
@@ -1635,14 +1632,12 @@ jobs:
             git diff --exit-code client/dotnet/src/OpenMBEE.OpenSysML/Wire
 
       - run:
-          name: Check the SDK and runtime
+          name: Show the SDK and runtime
           command: |
             dotnet --version
             dotnet --list-runtimes
-            make dotnet-preflight
 
-      - go/install:
-          version: "1.25.0"
+      - install-go
 
       - run:
           name: Build sysml-grpc
