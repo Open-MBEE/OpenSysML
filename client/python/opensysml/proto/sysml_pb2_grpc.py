@@ -444,7 +444,8 @@ class SysMLServiceServicer:
     def RunDocumentQuery(self, request, context):
         """Run a named document query with parameter bindings, the answer the REPL's
         %run-query gives, as typed rows rather than formatted lines. Reported as
-        the "document_query" capability.
+        the "document_query" capability; a query expression written in place of a
+        name (inline_query) as the "inline_document_query" capability.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

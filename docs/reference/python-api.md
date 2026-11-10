@@ -40,6 +40,10 @@ connecting to models.
     options:
       heading_level: 3
 
+::: opensysml.CAPABILITY_INLINE_DOCUMENT_QUERY
+    options:
+      heading_level: 3
+
 ::: opensysml.CAPABILITY_CONSTRAINT_BODY_AUTHORING
     options:
       heading_level: 3

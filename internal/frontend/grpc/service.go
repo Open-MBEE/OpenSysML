@@ -88,6 +88,10 @@ const CapabilityQueryOrderBy = "query_order_by"
 // which runs a named document query and answers with typed rows.
 const CapabilityDocumentQuery = "document_query"
 
+// CapabilityInlineDocumentQuery names RunDocumentQueryRequest.inline_query: a
+// query expression run in place of a named query, planned by the same compiler.
+const CapabilityInlineDocumentQuery = "inline_document_query"
+
 // CapabilityRenderDocument names the capability of the RenderDocument RPC,
 // which renders a named document to Markdown.
 const CapabilityRenderDocument = "render_document"
@@ -427,6 +431,7 @@ var capabilities = []string{
 	CapabilityOrderDependence,
 	CapabilityVerdictNotes,
 	CapabilityElementProperties,
+	CapabilityInlineDocumentQuery,
 }
 
 type capabilityAvailability struct {

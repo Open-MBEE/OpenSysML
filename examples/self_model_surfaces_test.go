@@ -23,9 +23,9 @@ import (
 // the analysed model and compared with the code or the build files.
 
 // flagDefinitionPattern matches the definition of one flag in a command's
-// usage, whether the variable it binds is a field or a local.
+// usage, whether it binds a field, a local or a flag.Value built in place.
 func flagDefinitionPattern(flag string) *regexp.Regexp {
-	return regexp.MustCompile(`\w+\.\w*Var\(&[\w.]+, "` + regexp.QuoteMeta(strings.TrimPrefix(flag, "-")) + `"`)
+	return regexp.MustCompile(`\w+\.\w*Var\([^"\n]*, "` + regexp.QuoteMeta(strings.TrimPrefix(flag, "-")) + `"`)
 }
 
 // requireFlag fails unless the command at entrypoint defines the flag the

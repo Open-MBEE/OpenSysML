@@ -92,3 +92,43 @@ func TestQueryReadsASendsArgumentAsWritten(t *testing.T) {
 		t.Fatalf("send =\n%s\nwant\n%s", strings.Join(lines, "\n"), want)
 	}
 }
+
+// A property the metamodel declares that no row carries is absent, not a refusal,
+// and `-` ordering puts the rows lacking the key last.
+func TestQueryAnswersAbsentPropertiesAndOrdersMissingKeysLastDescending(t *testing.T) {
+	s := NewSession()
+	if result := s.Submit(planQueryModel + "\npackage Notes { comment about Garage /*A note*/ }"); len(result.Diagnostics) != 0 {
+		t.Fatalf("Submit diagnostics = %v", result.Diagnostics)
+	}
+	lines, err := s.Query("oslc.where=rdf:type=sysml:PartUsage&oslc.select=sysml:body,sysml:payloadArgument")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(lines, "\n") != "Garage::Car::wheels  PartUsage\nGarage::car  PartUsage\nGarage::spare  PartUsage" {
+		t.Fatalf("parts =\n%s", strings.Join(lines, "\n"))
+	}
+	lines, err = s.Query("oslc.select=sysml:body")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var bodies []string
+	for _, line := range lines {
+		if strings.Contains(line, "sysml:body=") {
+			bodies = append(bodies, line)
+		}
+	}
+	if len(bodies) != 1 || !strings.HasSuffix(bodies[0], "Comment  sysml:body=A note") {
+		t.Fatalf("bodies = %v, want the comment's alone among %d rows", bodies, len(lines))
+	}
+	lines, err = s.Query("oslc.select=sysml:name&oslc.orderBy=-sysml:name")
+	if err != nil {
+		t.Fatal(err)
+	}
+	last := lines[len(lines)-1]
+	if strings.Contains(last, "sysml:name=") || !strings.Contains(last, "Comment") {
+		t.Fatalf("descending order ends with %q, want the nameless comment", last)
+	}
+	if !strings.HasSuffix(lines[0], "sysml:name=wheels") {
+		t.Fatalf("descending order starts with %q, want wheels", lines[0])
+	}
+}

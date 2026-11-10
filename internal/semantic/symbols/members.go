@@ -91,7 +91,9 @@ func DocNameOf(scope *Scope) string {
 // Recursion follows the child links, so scopes no symbol owns — loop bodies and
 // body-expression parameters — are stamped too.
 func SetDocName(scope *Scope, name string) {
-	if scope == nil {
+	// A tree already stamped with the name is left as it is, so an index built
+	// over another's trees writes nothing the other's readers are reading.
+	if scope == nil || scope.docName == name {
 		return
 	}
 	scope.docName = name

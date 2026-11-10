@@ -1490,6 +1490,21 @@ class ApiIntegrationTest {
   }
 
   @Test
+  void runInlineDocumentQueryAnswersTypedRows() {
+    Model model = connection.load(fixture("document.sysml"));
+    DocumentQueryResult result =
+        model.runInlineDocumentQuery(
+            "Project(WhereType(Descendants(Observatory::telescope), \"PartUsage\"), (\"name\", \"mass\"))");
+    assertEquals(List.of("name", "mass"), result.columns());
+    assertEquals(4, result.rows().size());
+    ServiceException failed =
+        assertThrows(
+            ServiceException.class,
+            () -> model.runInlineDocumentQuery("Project(Named(\"Observatory\") (\"name\"))"));
+    assertTrue(failed.getMessage().contains("inline query 1:"), failed.getMessage());
+  }
+
+  @Test
   void renderDocumentRendersTheNamedDocument() {
     Model model = connection.load(fixture("document.sysml"));
     RenderedDocument rendered = model.renderDocument("Observatory::MassReport");

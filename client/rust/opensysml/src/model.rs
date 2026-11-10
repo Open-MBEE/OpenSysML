@@ -140,6 +140,15 @@ impl Model {
         self.connection
             .run_document_query(self.hash(), query_id, bindings)
     }
+    /// Run a query expression written in place of a named query.
+    pub fn run_inline_document_query<K: AsRef<str>>(
+        &self,
+        expression: &str,
+        bindings: &[(K, Vec<DocumentValue>)],
+    ) -> Result<DocumentQueryResult, Error> {
+        self.connection
+            .run_inline_document_query(self.hash(), expression, bindings)
+    }
     /// Render a named document the model declares.
     pub fn render_document(&self, document_id: &str, form: DocumentForm) -> Result<String, Error> {
         self.connection

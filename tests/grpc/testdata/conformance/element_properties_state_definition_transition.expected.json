@@ -1,0 +1,46 @@
+{
+  "rpc": "GetElementProperties",
+  "model": "element_properties_state_definition.sysml",
+  "element_id": "StateFamily::Engine::off_to_running",
+  "properties": [
+    "source",
+    "target",
+    "triggerAction",
+    "succession"
+  ],
+  "expected_properties": [
+    {
+      "name": "source",
+      "defining_class": "TransitionUsage",
+      "derived": true,
+      "values": [
+        "StateFamily::Engine::off"
+      ]
+    },
+    {
+      "name": "target",
+      "defining_class": "TransitionUsage",
+      "derived": true,
+      "values": [
+        "StateFamily::Engine::running"
+      ]
+    },
+    {
+      "name": "triggerAction",
+      "defining_class": "TransitionUsage",
+      "many": true,
+      "derived": true,
+      "values": [
+        "StateFamily__Engine__off_5fto_5frunning___40trigger"
+      ]
+    },
+    {
+      "name": "succession",
+      "defining_class": "TransitionUsage",
+      "derived": true,
+      "values": [
+        "StateFamily__Engine__off_5fto_5frunning_succession"
+      ]
+    }
+  ]
+}

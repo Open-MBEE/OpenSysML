@@ -177,6 +177,7 @@ type conformanceCase struct {
 	// of first, in order, so the request is about the objects the model holds.
 	Instantiate     []string          `json:"instantiate,omitempty"`
 	QueryID         string            `json:"query_id,omitempty"`
+	InlineQuery     string            `json:"inline_query,omitempty"`
 	Bindings        []expectedBinding `json:"bindings,omitempty"`
 	ExpectedColumns []string          `json:"expected_columns,omitempty"`
 	ExpectedRows    []expectedRow     `json:"expected_rows,omitempty"`
@@ -235,12 +236,33 @@ type conformanceCase struct {
 	ExpectedElementIDs []string       `json:"expected_element_ids,omitempty"`
 	ExpectedQueryError string         `json:"expected_query_error,omitempty"`
 
+	// Model names the fixture parsed instead of <case>.sysml, so cases reading
+	// different elements of one model share it.
+	Model string `json:"model,omitempty"`
+
+	// GetElementProperties: the element read, the properties asked for (empty reads every
+	// property the element form carries) and the answer expected per property.
+	ElementID          string                    `json:"element_id,omitempty"`
+	Properties         []string                  `json:"properties,omitempty"`
+	ExpectedProperties []expectedElementProperty `json:"expected_properties,omitempty"`
+
 	// ExpectedError, when set, requires the RPC to report an in-band error
 	// containing this substring (a status error, for RunDocumentQuery).
 	ExpectedError string `json:"expected_error,omitempty"`
 
 	// ExecuteAction: the simulation clock the run ended at, checked when set.
 	ExpectedFinalTime *float64 `json:"expected_final_time,omitempty"`
+}
+
+// expectedElementProperty is one answer of a GetElementProperties case: the property's
+// facts, its values as conformanceValueText spells them, or the text of its unsupported reason.
+type expectedElementProperty struct {
+	Name                string   `json:"name"`
+	DefiningClass       string   `json:"defining_class,omitempty"`
+	Many                bool     `json:"many,omitempty"`
+	Derived             bool     `json:"derived,omitempty"`
+	Values              []string `json:"values"`
+	UnsupportedContains string   `json:"unsupported_contains,omitempty"`
 }
 
 // conformanceImport is one ImportData import: a name whose extension selects
@@ -387,7 +409,11 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 		t.Fatalf("parse expectation: %v", err)
 	}
 
-	modelData, err := os.ReadFile(filepath.Join(dir, caseName+".sysml"))
+	modelFile := caseName + ".sysml"
+	if tc.Model != "" {
+		modelFile = tc.Model
+	}
+	modelData, err := os.ReadFile(filepath.Join(dir, modelFile))
 	if err != nil {
 		t.Fatalf("read model: %v", err)
 	}
@@ -457,6 +483,8 @@ func runGRPCConformanceCase(t *testing.T, dir, caseName string) {
 		runVerifyRequirementCase(t, srv, ctx, parseResp.ModelHash, tc)
 	case "InstancePaths":
 		runInstancePathsCase(t, srv, ctx, parseResp.ModelHash, tc)
+	case "GetElementProperties":
+		runGetElementPropertiesCase(t, srv, ctx, parseResp.ModelHash, tc)
 	default:
 		t.Fatalf("unknown rpc %q", tc.RPC)
 	}
@@ -1302,6 +1330,82 @@ func runQueryCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHas
 	if !slices.Equal(ids, tc.ExpectedElementIDs) {
 		t.Errorf("elements = %v, want %v", ids, tc.ExpectedElementIDs)
 	}
+}
+
+func runGetElementPropertiesCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
+	t.Helper()
+	resp, err := srv.GetElementProperties(ctx, &pb.GetElementPropertiesRequest{
+		ModelHash: modelHash, ElementId: tc.ElementID, Properties: tc.Properties,
+	})
+	if err != nil {
+		t.Fatalf("GetElementProperties: %v", err)
+	}
+	if tc.ExpectedError != "" {
+		if !strings.Contains(resp.Error, tc.ExpectedError) {
+			t.Fatalf("error = %q, want one containing %q", resp.Error, tc.ExpectedError)
+		}
+		return
+	}
+	if resp.Error != "" {
+		t.Fatalf("GetElementProperties: %s", resp.Error)
+	}
+	if resp.Element == nil || resp.Element.Id == "" {
+		t.Fatalf("the answer names no element: %v", resp.Element)
+	}
+	if len(resp.Properties) != len(tc.ExpectedProperties) {
+		names := make([]string, 0, len(resp.Properties))
+		for _, property := range resp.Properties {
+			names = append(names, property.Name)
+		}
+		t.Fatalf("%d properties answered (%v), %d expected", len(resp.Properties), names, len(tc.ExpectedProperties))
+	}
+	for i, want := range tc.ExpectedProperties {
+		got := resp.Properties[i]
+		if got.Name != want.Name {
+			t.Errorf("property %d = %s, want %s", i, got.Name, want.Name)
+			continue
+		}
+		if got.DefiningClass != want.DefiningClass || got.Many != want.Many || got.Derived != want.Derived {
+			t.Errorf("%s: defining_class %q many %t derived %t, want %q %t %t",
+				want.Name, got.DefiningClass, got.Many, got.Derived, want.DefiningClass, want.Many, want.Derived)
+		}
+		values := make([]string, 0, len(got.Values))
+		for _, value := range got.Values {
+			values = append(values, conformanceValueText(value))
+		}
+		if !slices.Equal(values, want.Values) {
+			t.Errorf("%s = %q, want %q", want.Name, values, want.Values)
+		}
+		switch {
+		case want.UnsupportedContains == "" && got.Unsupported != "":
+			t.Errorf("%s is unsupported: %s", want.Name, got.Unsupported)
+		case want.UnsupportedContains != "" && !strings.Contains(got.Unsupported, want.UnsupportedContains):
+			t.Errorf("%s unsupported = %q, want one containing %q", want.Name, got.Unsupported, want.UnsupportedContains)
+		}
+	}
+}
+
+// conformanceValueText spells one ElementPropertyValue: an element by its
+// qualified name, or by its id when it has none; a literal as its text.
+func conformanceValueText(value *pb.ElementPropertyValue) string {
+	switch v := value.Value.(type) {
+	case *pb.ElementPropertyValue_Element:
+		if v.Element.QualifiedName != "" {
+			return v.Element.QualifiedName
+		}
+		return v.Element.Id
+	case *pb.ElementPropertyValue_StringValue:
+		return v.StringValue
+	case *pb.ElementPropertyValue_BoolValue:
+		return strconv.FormatBool(v.BoolValue)
+	case *pb.ElementPropertyValue_IntValue:
+		return strconv.FormatInt(v.IntValue, 10)
+	case *pb.ElementPropertyValue_RealValue:
+		return strconv.FormatFloat(v.RealValue, 'g', -1, 64)
+	case *pb.ElementPropertyValue_Number:
+		return v.Number
+	}
+	return fmt.Sprintf("%v", value)
 }
 
 func runSelfCheckCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {

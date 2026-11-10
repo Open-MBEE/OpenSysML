@@ -5,6 +5,8 @@ import com.google.protobuf.Message;
 import org.openmbee.opensysml.Encoding;
 import org.openmbee.opensysml.ModelFileNotFoundException;
 import org.openmbee.opensysml.ModelNotFoundException;
+import org.openmbee.opensysml.QueryOutcome;
+import org.openmbee.opensysml.QueryOutcomeException;
 import org.openmbee.opensysml.StatusCode;
 import org.openmbee.opensysml.ServiceException;
 import org.openmbee.opensysml.TransportException;
@@ -17,6 +19,8 @@ import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Base64;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
@@ -148,6 +152,7 @@ public final class ConnectTransport implements AutoCloseable {
     String text = new String(response.body(), StandardCharsets.UTF_8);
     StatusCode status = StatusCode.fromHttpStatus(response.statusCode());
     String message = text;
+    Optional<QueryOutcome> outcome = Optional.empty();
     try {
       Object error = Json.parse(text);
       String code = Json.stringMember(error, "code");
@@ -158,10 +163,44 @@ public final class ConnectTransport implements AutoCloseable {
       if (!reported.isEmpty()) {
         message = reported;
       }
+      outcome = queryOutcome(Json.listMember(error, "details"));
     } catch (IllegalArgumentException e) {
       // Not a Connect error body; the HTTP status and the text are the whole answer.
     }
+    if (outcome.isPresent()) {
+      return new QueryOutcomeException(status, method + ": " + message, outcome.get());
+    }
     return serviceException(status, method + ": " + message);
+  }
+
+  /**
+   * The {@code QueryOutcome} among a Connect error's details, if one is there. A detail is the
+   * message's type name and its bytes in base64; one whose type is not the outcome's is another
+   * detail, and one whose bytes are not an outcome with a kind is not one this client can read.
+   */
+  private static Optional<QueryOutcome> queryOutcome(List<Object> details) {
+    String type = org.openmbee.opensysml.proto.QueryOutcome.getDescriptor().getFullName();
+    for (Object detail : details) {
+      if (!type.equals(Json.stringMember(detail, "type"))) {
+        continue;
+      }
+      try {
+        byte[] bytes = Base64.getDecoder().decode(padded(Json.stringMember(detail, "value")));
+        org.openmbee.opensysml.proto.QueryOutcome decoded =
+            org.openmbee.opensysml.proto.QueryOutcome.parseFrom(bytes);
+        if (!decoded.getKind().isEmpty()) {
+          return Optional.of(Protos.queryOutcome(decoded));
+        }
+      } catch (IllegalArgumentException | InvalidProtocolBufferException e) {
+        // Not an outcome; a later detail may be one.
+      }
+    }
+    return Optional.empty();
+  }
+
+  private static String padded(String base64) {
+    int remainder = base64.length() % 4;
+    return remainder == 0 ? base64 : base64 + "====".substring(remainder);
   }
 
   static ServiceException serviceException(StatusCode status, String message) {

@@ -22,13 +22,16 @@ import (
 
 // runQueryUsage is what %run-query accepts: a document query's name and its
 // entry bindings.
-const runQueryUsage = "usage: %run-query <name> [<parameter>=<expression> ...]"
+const runQueryUsage = "usage: %run-query <name> [<parameter>=<expression> ...] | %run-query inline <query expression>"
 
 // RunDocumentQuery compiles the named document query, binds its entry
 // parameters and executes it. invocation is what `%run-query` takes: a name
-// followed by `<parameter>=<expression>` bindings.
+// followed by `<parameter>=<expression>` bindings, or `inline` and a query expression.
 func (s *Session) RunDocumentQuery(invocation string) Verdict {
 	defer s.enter()()
+	if text, ok := inlineInvocation(strings.TrimSpace(invocation)); ok {
+		return s.withTrace(s.inlineQueryVerdict(text))
+	}
 	fields := splitQueryArgs(strings.TrimSpace(invocation))
 	if len(fields) == 0 {
 		return s.withTrace(unresolvedVerdict(invocation, "a document query to run must be named"))
@@ -47,6 +50,13 @@ func (s *Session) RunDocumentQuery(invocation string) Verdict {
 // doRunQuery carries out %run-query, reporting a query that could not be run
 // the way the prompt reports any command it cannot carry out.
 func (s *Session) doRunQuery(invocation string) ([]string, bool, error) {
+	if text, ok := inlineInvocation(strings.TrimSpace(invocation)); ok {
+		lines, _, _, err := s.runInlineQuery(text)
+		if err != nil {
+			return append([]string{errPrefix + err.Error()}, queryexec.OutcomeLines(err)...), false, nil
+		}
+		return lines, false, nil
+	}
 	fields := splitQueryArgs(strings.TrimSpace(invocation))
 	if len(fields) == 0 {
 		return []string{runQueryUsage}, false, nil
@@ -431,10 +441,15 @@ func (s *Session) queryValueList(ctx *runtime.Context, elements []runtime.Value)
 // renderRowSet reports an executed query's rows as the prompt prints them, the row and
 // column counts as values, and the table as data (positionally addressed elements by elementId there).
 func renderRowSet(name string, result *queryexec.RowSet, context queryexec.Context) ([]string, []NamedValue, *VerdictTable) {
+	return renderRows("Query "+name, result, context)
+}
+
+// renderRows is renderRowSet under the heading the rows are reported as.
+func renderRows(heading string, result *queryexec.RowSet, context queryexec.Context) ([]string, []NamedValue, *VerdictTable) {
 	spell := tableSpelling(context.Index, context.ElementID, context.ElementAddress)
 	rows := result.Rows()
 	columns := result.Columns()
-	lines := []string{fmt.Sprintf("✓ Query %s returned %s", name, countOf(len(rows), "row", "rows"))}
+	lines := []string{fmt.Sprintf("✓ %s returned %s", heading, countOf(len(rows), "row", "rows"))}
 	names := make([]string, len(columns))
 	for i, column := range columns {
 		names[i] = column.Name()

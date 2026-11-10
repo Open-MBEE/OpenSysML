@@ -66,6 +66,7 @@ from the clients and a gap is a stated gap rather than a silent one.
 | `inline_language` | bound | bound | bound | bound | bound | bound | bound |
 | `strict_conformance` | bound | bound | bound | bound | bound | bound | bound |
 | `document_query` | bound | bound | bound | bound | bound | bound | bound |
+| `inline_document_query` | bound | bound | bound | bound | bound | bound | bound |
 | `render_document` | bound | bound | bound | bound | bound | bound | bound |
 | `parse_sources` | bound | bound | bound | bound | bound | bound | bound |
 | `complex_values` | bound | bound | bound | bound | bound | bound | bound |
@@ -132,7 +133,7 @@ from the clients and a gap is a stated gap rather than a silent one.
 | `render_document_file_name` | bound | bound | bound | bound | bound | bound | not bound |
 | `order_dependence` | bound | not bound | bound | not bound | not bound | not bound | not bound |
 | `verdict_notes` | bound | not bound | bound | bound | bound | bound | bound |
-| `element_properties` | bound | not bound | bound | bound | bound | not bound | not bound |
+| `element_properties` | bound | bound | bound | bound | bound | bound | bound |
 
 
 ## Request options

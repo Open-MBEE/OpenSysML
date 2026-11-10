@@ -391,6 +391,10 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 				return e.structureOwnedFilter(element, rangeClass, false)
 			}
 		}
+	case "Documentation":
+		if name == "documentedElement" {
+			return e.structureDocumentedElement(element)
+		}
 	case "AnnotatingElement":
 		switch name {
 		case "annotation":
@@ -517,6 +521,10 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 	case "FeatureReferenceExpression":
 		if name == "referent" {
 			return e.structureFeatureReferenceReferent(element)
+		}
+	case "MetadataAccessExpression":
+		if name == "referencedElement" {
+			return e.structureMetadataAccessReferencedElement(element)
 		}
 	case "FeatureChainExpression":
 		switch name {
@@ -777,16 +785,11 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 			return structurePropertyCardinality(filtered, true)
 		}
 	case "ConjugatedPortTyping":
-		if name == "portDefinition" {
-			targets, ok := e.relationshipEndpoints(element, "conjugatedPortDefinition")
-			if !ok {
-				return Value{}, true, false
-			}
-			filtered, ok := e.structureFilterValues(targets, "ConjugatedPortDefinition")
-			if !ok {
-				return Value{}, true, false
-			}
-			conjugated, handled, ok := structurePropertyCardinality(filtered, true)
+		switch name {
+		case "conjugatedPortDefinition":
+			return e.structureConjugatedPortTypingTarget(element)
+		case "portDefinition":
+			conjugated, handled, ok := e.structureConjugatedPortTypingTarget(element)
 			if !handled || !ok || conjugated.Kind == NullValue {
 				return conjugated, true, ok
 			}
@@ -795,6 +798,10 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 			}
 			value, ok := e.Property(conjugated.Element, "ConjugatedPortDefinition", "originalPortDefinition")
 			return value, true, ok
+		}
+	case "PortConjugation":
+		if name == "conjugatedPortDefinition" {
+			return e.structureRelationshipOwner(element, "ConjugatedPortDefinition")
 		}
 	case "MultiplicityRange":
 		switch name {
@@ -6849,8 +6856,6 @@ func (e *Evaluator) structureRelationshipProperty(element Element, class, name s
 		return sequence(endpoints...), true, true
 	case "owningType":
 		return e.structureRelationshipOwner(element, "Type")
-	case "conjugatedPortDefinition":
-		return e.structureRelationshipOwner(element, "ConjugatedPortDefinition")
 	case "owningFeature":
 		return e.structureRelationshipOwner(element, "Feature")
 	case "importOwningNamespace":
@@ -6862,14 +6867,7 @@ func (e *Evaluator) structureRelationshipProperty(element Element, class, name s
 		}
 		return structureRelationshipValues(endpoints, class, name), true, true
 	case "documentedElement":
-		value, handled, ok := e.structureRelationshipOwner(element, "")
-		if !handled || !ok {
-			e.recordUnsupportedReason(
-				element, class, name,
-				Reason{Category: ReasonUnrepresentedEndpoint, Detail: "Documentation::documentedElement has no represented owning related element"},
-			)
-		}
-		return value, handled, ok
+		return e.structureDocumentedElement(element)
 	case "owningClassifier":
 		return e.structureRelationshipOwner(element, "Classifier")
 	case "owningFeatureOfType":
@@ -6969,6 +6967,53 @@ func (e *Evaluator) structureFeatureReferenceReferent(element Element) (Value, b
 		}
 		if !isFeature {
 			return unsupported(Reason{Category: ReasonUnrepresentedEndpoint, Detail: "first non-parameter owned member is not a Feature"})
+		}
+		return elementValue(members[0]), true, true
+	}
+	return nullValue(), true, true
+}
+
+// structureDocumentedElement derives Documentation::documentedElement, which subsets
+// owner (KerML 1.1 §8.3.2.3.5): always the element owning the documentation (§7.2.4.2).
+func (e *Evaluator) structureDocumentedElement(element Element) (Value, bool, bool) {
+	owner, handled, ok := e.structureOwner(element)
+	if !handled || !ok {
+		e.recordUnsupportedReason(element, "Documentation", "documentedElement",
+			Reason{Category: ReasonUnrepresentedEndpoint, Detail: "Documentation::documentedElement has no represented owner"})
+		return Value{}, true, false
+	}
+	return owner, true, true
+}
+
+// structureMetadataAccessReferencedElement derives MetadataAccessExpression::referencedElement
+// (KerML 1.1 §8.3.4.8.15): the first non-FeatureMembership owned membership's memberElement.
+func (e *Evaluator) structureMetadataAccessReferencedElement(element Element) (Value, bool, bool) {
+	unsupported := func(reason Reason) (Value, bool, bool) {
+		e.recordUnsupportedReason(element, "MetadataAccessExpression", "referencedElement", reason)
+		return Value{}, true, false
+	}
+	memberships, handled, ok := e.structureOwnedFilter(element, "Membership", true)
+	if !handled || !ok {
+		return unsupported(Reason{Category: ReasonUnrepresentedEndpoint, Detail: "owned membership elements are unavailable"})
+	}
+	for _, value := range memberships.Values {
+		if value.Kind != MembershipValue {
+			return unsupported(Reason{Category: ReasonUnrepresentedElement, Detail: "owned membership is not a Membership"})
+		}
+		membership := MembershipElement(value.Membership)
+		isFeatureMembership, known := e.isMetaclass(membership, "FeatureMembership")
+		if !known {
+			return unsupported(Reason{Category: ReasonUnrepresentedElement, Detail: "owned membership metaclass is unavailable"})
+		}
+		if isFeatureMembership {
+			continue
+		}
+		members, ok := e.structureMembershipMembers(membership)
+		if !ok {
+			return unsupported(Reason{Category: ReasonUnresolvedReference, Detail: "owned membership member is unresolved"})
+		}
+		if len(members) == 0 {
+			return unsupported(Reason{Category: ReasonUnrepresentedEndpoint, Detail: "owned membership has no member"})
 		}
 		return elementValue(members[0]), true, true
 	}
@@ -7169,6 +7214,20 @@ func (e *Evaluator) structureRelationshipOwner(element Element, expected string)
 		}
 	}
 	return elementValue(owner), true, true
+}
+
+// structureConjugatedPortTypingTarget is the ConjugatedPortDefinition a ConjugatedPortTyping
+// types its feature by: its target (SysML v2 8.3.12.3, conjugatedPortDefinition redefines type).
+func (e *Evaluator) structureConjugatedPortTypingTarget(element Element) (Value, bool, bool) {
+	targets, ok := e.relationshipEndpoints(element, "conjugatedPortDefinition")
+	if !ok {
+		return Value{}, true, false
+	}
+	filtered, ok := e.structureFilterValues(targets, "ConjugatedPortDefinition")
+	if !ok {
+		return Value{}, true, false
+	}
+	return structurePropertyCardinality(filtered, true)
 }
 
 func (e *Evaluator) relationshipEndpoints(element Element, property string) ([]Value, bool) {

@@ -675,6 +675,8 @@ func TestStructureBackedMembershipAndRelationshipProjections(t *testing.T) {
 		owningRelatedElements: map[ElementKey]testOptionalElement{
 			subclassification.Key(): {element: classifier, present: true},
 			portMembership.Key():    {element: portDefinition, present: true},
+			portConjugation.Key():   {element: conjugatedPortDefinition, present: true},
+			conjugatedTyping.Key():  {element: portFeature, present: true},
 		},
 		relatedElements: map[testRelatedKey][]Element{
 			{element: parameterMembership.Key(), property: "memberElement"}:         {Element{Aspect: "parameter"}},
@@ -737,6 +739,14 @@ func TestStructureBackedMembershipAndRelationshipProjections(t *testing.T) {
 	filteredTypingTargets, filterOK := evaluator.structureFilterValues(typingTargets, "ConjugatedPortDefinition")
 	if !filterOK || len(filteredTypingTargets) != 1 {
 		t.Fatalf("ConjugatedPortTyping filtered definition endpoints = %#v, %t", filteredTypingTargets, filterOK)
+	}
+	if got := testProperty(t, evaluator, conjugatedTyping, "ConjugatedPortTyping", "conjugatedPortDefinition"); got.Kind != ElementValue ||
+		got.Element.Key() != conjugatedPortDefinition.Key() {
+		t.Fatalf("ConjugatedPortTyping::conjugatedPortDefinition = %#v; want the typing target, not the typing's owner", got)
+	}
+	if got := testProperty(t, evaluator, portConjugation, "PortConjugation", "conjugatedPortDefinition"); got.Kind != ElementValue ||
+		got.Element.Key() != conjugatedPortDefinition.Key() {
+		t.Fatalf("PortConjugation::conjugatedPortDefinition = %#v; want the owning ConjugatedPortDefinition", got)
 	}
 	if got := testProperty(t, evaluator, conjugatedTyping, "ConjugatedPortTyping", "portDefinition"); got.Kind != ElementValue ||
 		got.Element.Key() != portDefinition.Key() {

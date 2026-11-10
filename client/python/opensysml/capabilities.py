@@ -68,6 +68,11 @@ CAPABILITY_OSLC_QUERY = "oslc_query"
 #: typed rows. Without it the service refuses with ``UNIMPLEMENTED``.
 CAPABILITY_DOCUMENT_QUERY = "document_query"
 
+#: ``RunDocumentQueryRequest.inline_query``: a query expression run in place of
+#: a named query, planned by the same compiler. Without it the service refuses
+#: the field with ``UNIMPLEMENTED``.
+CAPABILITY_INLINE_DOCUMENT_QUERY = "inline_document_query"
+
 #: The ``RenderDocument`` RPC, which renders a named document to Markdown.
 #: Without it the service refuses with ``UNIMPLEMENTED``.
 CAPABILITY_RENDER_DOCUMENT = "render_document"

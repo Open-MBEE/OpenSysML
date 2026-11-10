@@ -1104,10 +1104,18 @@ The properties are the ones the document-query `Project` reads
 declarations plus the evaluator-derived properties below), so a property the
 metamodel declares for some metaclass — `body`, `satisfiedRequirement`,
 `general`, `elementType` — is queryable by its KerML/SysML name even when it is
-not in this table of the commonly asked-for ones. A property no metaclass
+not in this table of the commonly asked-for ones, and is absent on the elements
+whose metaclass lacks it, even when no answered element carries it; one the
+metamodel declares but OpenSysML does not derive yet (an accept's
+`payloadArgument`) is absent too. A property no metaclass
 declares is an `INVALID_ARGUMENT` error naming the nearest spelling, carrying the
 [query outcome](../internals/design/query-outcomes.md) as a `QueryOutcome` status
-detail — never a silently empty answer. Properties nest by `.`
+detail — never a silently empty answer. The detail is bounded to fit a status
+trailer: it carries the first eight failures, findings and path failures of a
+fan-out (`failuresTotal`, `findingsTotal`, `pathFailuresTotal` count them all),
+and each frontier lists at most eight members, features or kinds, the
+spellings nearest the step's argument first, with the whole count in
+`membersTotal`, `featuresTotal` and `kindsTotal`. Properties nest by `.`
 (`owner.name`, `wheels.diameter`), reading the property of the related element
 or the member of the held object the first segment names. An element-valued
 property reports the element's `@id`; an expression element the metamodel
@@ -1293,7 +1301,8 @@ rpc CheckBehavior(CheckBehaviorRequest) returns (CheckBehaviorResponse);
 
 **Implementation:** `internal/frontend/grpc/docquery.go` (`Service.RunDocumentQuery`,
 `Service.RenderDocument`), reported from `GetServerInfo` as the
-`document_query` and `render_document` capabilities. Python:
+`document_query` and `render_document` capabilities, and `inline_document_query`
+for a query written in the request. Python:
 `model.run_document_query(...)` and `model.render_document(...)`
 (`client/python/opensysml/document.py`). The JSON shape of a binding and of the
 result table, captured, is on [the wire contract](wire-contract.md#rundocumentquery).
@@ -1310,6 +1319,26 @@ a list of these for a multi-valued parameter — and answers the projected colum
 names and typed rows: each row's element and each cell's values, an element
 carried as its qualified name plus its metamodel type (the `@type` mapping
 above), an object as its id, its path and the usage it stands for.
+
+The query is named in `query_id` or written in `inline_query` — never both, and
+one is required. An inline query is the result expression a `calc def`
+specializing `DocumentQueries::Query` would hold,
+`Project(WhereType(Descendants(Named("Vehicles")), "PartUsage"), ("name", "mass"))`,
+parsed as the body of an anonymous query definition beside the model and planned
+by the same `queryplan` compiler: the `DocumentQueries` library is imported, the
+model's own names resolve, and the objects the service holds for the model stand
+behind `Objects`, `Verdicts`, `States` and `Events`. The field is additive (`4`)
+and needs the `inline_document_query` capability; a service without it refuses the
+field with `UNIMPLEMENTED`. Text that does not parse or plan is `INVALID_ARGUMENT`,
+its message positioned within the expression (`inline query 1:30: expected ')'`)
+and never a diagnostic of the model; a failure while running maps as a named
+query's does, with the same `QueryOutcome` detail, so a path or model fault is
+never an empty table. The clients spell it `Client.RunInlineDocumentQuery` (Go),
+`Model.run_document_query(inline_query=…)` (Python),
+`Model.runInlineDocumentQuery` (Node, Java), `Model::run_inline_document_query`
+(Rust), `run_document_query(model; inline_query=…)` (Julia) and
+`runDocumentQuery(model, '', 'inlineQuery', …)` (MATLAB), each checking the
+capability before sending.
 `RenderDocument` takes no bindings, because a document binds its queries'
 parameters in the model; it answers the rendered CommonMark Markdown,
 byte-identical to `-render-document` on the same model. Its `form` field
