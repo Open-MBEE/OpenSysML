@@ -119,7 +119,7 @@ func TestVerifyAcceptsTheProvidersToken(t *testing.T) {
 	if !slices.Equal(p.Scopes, []string{"sysml:read", "sysml:write"}) {
 		t.Errorf("scopes = %q", p.Scopes)
 	}
-	if want := time.Unix(c["exp"].(int64), 0); !p.Expires.Equal(want) {
+	if want := time.Unix(c["exp"].(int64), 0).Add(oidc.DefaultClockSkew); !p.Expires.Equal(want) {
 		t.Errorf("expires = %v, want %v", p.Expires, want)
 	}
 	if hits := is.jwksHits.Load(); hits != 1 {
@@ -212,13 +212,17 @@ func TestVerifyToleratesClockSkew(t *testing.T) {
 		c    claims
 		want guard.Refusal
 	}{
-		{"expired within skew", good.with("exp", time.Now().Add(-30*time.Second).Unix()), guard.Accepted},
+		{"expired within skew, accepted until the skew ends", good.with("exp", time.Now().Add(-30*time.Second).Unix()), guard.Accepted},
 		{"expired beyond skew", good.with("exp", time.Now().Add(-90*time.Second).Unix()), guard.Expired},
 		{"nbf within skew", good.with("nbf", time.Now().Add(30*time.Second).Unix()), guard.Accepted},
 		{"nbf beyond skew", good.with("nbf", time.Now().Add(90*time.Second).Unix()), guard.Mismatch},
 	} {
-		if _, refusal := a.Verify(context.Background(), bearer(is.token(t, tc.c)), nil); refusal != tc.want {
+		p, refusal := a.Verify(context.Background(), bearer(is.token(t, tc.c)), nil)
+		if refusal != tc.want {
 			t.Errorf("%s: refusal = %v, want %v", tc.name, refusal, tc.want)
+		}
+		if refusal == guard.Accepted && !p.Expires.After(time.Now()) {
+			t.Errorf("%s: Expires = %v, in the past while accepted", tc.name, p.Expires)
 		}
 	}
 	// The default skew holds the expiry check at least as close as a few seconds.

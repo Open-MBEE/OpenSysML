@@ -203,7 +203,9 @@ func (a *Authenticator) Verify(ctx context.Context, authorization string, _ *htt
 		return guard.Principal{}, guard.Mismatch
 	}
 	now := a.cfg.Now()
-	if idToken.Expiry.Add(a.cfg.ClockSkew).Before(now) {
+	// The credential is accepted until exp plus the skew, which is what Expires says.
+	expires := idToken.Expiry.Add(a.cfg.ClockSkew)
+	if expires.Before(now) {
 		return guard.Principal{}, guard.Expired
 	}
 	if nbf := c.NotBefore.time(); !nbf.IsZero() && nbf.Add(-a.cfg.ClockSkew).After(now) {
@@ -216,7 +218,7 @@ func (a *Authenticator) Verify(ctx context.Context, authorization string, _ *htt
 		Subject: c.Subject,
 		Name:    c.name(),
 		Scopes:  a.scopes(c),
-		Expires: idToken.Expiry,
+		Expires: expires,
 		Source:  Source,
 	}, guard.Accepted
 }
