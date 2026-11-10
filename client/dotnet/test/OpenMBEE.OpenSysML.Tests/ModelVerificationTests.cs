@@ -325,16 +325,16 @@ public sealed class ModelVerificationTests
         var model = connection.ModelByHash(Hash);
         var token = TestContext.Current.CancellationToken;
 
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.VerifyConstraintAsync("C", new VerifyOptions { Question = string.Empty }, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.VerifyRequirementAsync("R", new VerifyOptions { SubjectSymbolId = string.Empty }, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.VerifyConstraintAsync("C", new VerifyOptions { Engine = string.Empty }, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.VerifySatisfactionAsync(string.Empty, cancellationToken: token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.VerifySatisfactionAsync(options: new VerifyOptions { SubjectSymbolId = "Demo::sedan" }, cancellationToken: token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.VerifySatisfactionAsync(options: new VerifyOptions { Arguments = [new Value.IntegerValue(1)] }, cancellationToken: token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.ValidateInstanceAsync("P", new ValidateOptions { Engine = string.Empty }, token));
-        var unset = await Assert.ThrowsAsync<InvalidRequestException>(() =>
+        await Assert.ThrowsAsync<ArgumentException>(() => model.VerifyConstraintAsync("C", new VerifyOptions { Question = string.Empty }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.VerifyRequirementAsync("R", new VerifyOptions { SubjectSymbolId = string.Empty }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.VerifyConstraintAsync("C", new VerifyOptions { Engine = string.Empty }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.VerifySatisfactionAsync(string.Empty, cancellationToken: token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.VerifySatisfactionAsync(options: new VerifyOptions { SubjectSymbolId = "Demo::sedan" }, cancellationToken: token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.VerifySatisfactionAsync(options: new VerifyOptions { Arguments = [new Value.IntegerValue(1)] }, cancellationToken: token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.ValidateInstanceAsync("P", new ValidateOptions { Engine = string.Empty }, token));
+        var unset = await Assert.ThrowsAsync<ArgumentException>(() =>
             model.VerifyConstraintAsync("C", new VerifyOptions { NamedArguments = new Dictionary<string, Value> { ["x"] = new Value.UnsetValue() } }, token));
-        var undetermined = await Assert.ThrowsAsync<InvalidRequestException>(() =>
+        var undetermined = await Assert.ThrowsAsync<ArgumentException>(() =>
             model.VerifyRequirementAsync("R", new VerifyOptions { Arguments = [new Value.IntegerValue(1), new Value.UndeterminedValue("open", string.Empty, string.Empty)] }, token));
         await Assert.ThrowsAsync<ArgumentNullException>(() => model.VerifyConstraintAsync(null!, cancellationToken: token));
         await Assert.ThrowsAsync<ArgumentNullException>(() => model.VerifyRequirementAsync(null!, cancellationToken: token));

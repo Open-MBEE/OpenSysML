@@ -28,8 +28,7 @@ public sealed partial class Model
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>What each file set, the edited notation and the imported model; on a dry run, what each file would set alone.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="imports"/> is null.</exception>
-    /// <exception cref="ArgumentException">A data file is null.</exception>
-    /// <exception cref="InvalidRequestException">A data file's format or mapping, or the import form, is empty text; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">A data file is null. A data file's format or mapping, or the import form, is empty text; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The service lacks <see cref="Capabilities.ImportData"/>; nothing was sent.</exception>
     /// <exception cref="ModelException">The model refused an import: a row naming no element or feature, a value that does not read, or values that make the model invalid, with the diagnostics they raised. Nothing was changed.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
@@ -78,8 +77,7 @@ public sealed partial class Model
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>One comparison per configuration, in the order the results index them.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="results"/> is null.</exception>
-    /// <exception cref="ArgumentException"><paramref name="results"/> is empty, which indexes nothing.</exception>
-    /// <exception cref="InvalidRequestException">An option names an empty draw policy, engine or feature; nothing was sent.</exception>
+    /// <exception cref="ArgumentException"><paramref name="results"/> is empty, which indexes nothing. An option names an empty draw policy, engine or feature; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The service lacks <see cref="Capabilities.CompareResults"/>, <see cref="Capabilities.Engines"/> for an engine, or <see cref="Capabilities.ScheduleExplore"/> for the explore engine, checked in that order; nothing was sent.</exception>
     /// <exception cref="CompareException">The service could compare nothing, saying why; it keeps what the answer reported beside.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>

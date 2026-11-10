@@ -280,7 +280,7 @@ public sealed class RawCallTests
         using var handler = new FakeServiceHandler(wire);
         await using var connection = await FakeConnection.OpenAsync(handler);
 
-        var error = await Assert.ThrowsAsync<InvalidRequestException>(() =>
+        var error = await Assert.ThrowsAsync<ArgumentException>(() =>
             connection.CallAsync<Wire.GetSymbolRequest, Wire.SymbolResponse>(method, new Wire.GetSymbolRequest(), TestContext.Current.CancellationToken));
 
         Assert.Contains("is not a method of sysml.SysMLService", error.Message, StringComparison.Ordinal);
@@ -294,9 +294,9 @@ public sealed class RawCallTests
         using var handler = new FakeServiceHandler(wire);
         await using var connection = await FakeConnection.OpenAsync(handler);
 
-        var request = await Assert.ThrowsAsync<InvalidRequestException>(() =>
+        var request = await Assert.ThrowsAsync<ArgumentException>(() =>
             connection.CallAsync<Wire.GetSymbolRequest, Wire.ParseFileResponse>("ParseFile", new Wire.GetSymbolRequest(), TestContext.Current.CancellationToken));
-        var response = await Assert.ThrowsAsync<InvalidRequestException>(() =>
+        var response = await Assert.ThrowsAsync<ArgumentException>(() =>
             connection.CallAsync<Wire.GetSymbolRequest, Wire.ParseFileResponse>("GetSymbol", new Wire.GetSymbolRequest(), TestContext.Current.CancellationToken));
 
         Assert.Contains("sysml.SysMLService/ParseFile takes OpenMBEE.OpenSysML.Wire.ParseFileRequest", request.Message, StringComparison.Ordinal);

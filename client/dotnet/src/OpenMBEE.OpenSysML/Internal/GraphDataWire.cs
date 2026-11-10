@@ -12,19 +12,19 @@ namespace OpenMBEE.OpenSysML.Internal;
 internal static class GraphDataWire
 {
     /// <summary>Refuses an import whose optional parts are empty text, which the service reads as none.</summary>
-    /// <exception cref="InvalidRequestException">A format, a mapping or the import form is empty; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">A format, a mapping or the import form is empty; nothing was sent.</exception>
     internal static void Validate(IReadOnlyList<DataImport> imports, ImportOptions options)
     {
         if (options.As is { Length: 0 })
         {
-            throw new InvalidRequestException("ImportOptions.As is empty, which the service reads as none; leave it null for the default, values.");
+            throw new ArgumentException("ImportOptions.As is empty, which the service reads as none; leave it null for the default, values.");
         }
 
         for (var i = 0; i < imports.Count; i++)
         {
             if (imports[i].Format is { Length: 0 } || imports[i].Map is { Length: 0 })
             {
-                throw new InvalidRequestException(
+                throw new ArgumentException(
                     $"The data file at imports[{i}] sets its Format or Map to empty text, which the service reads as none; leave it null to read the content as its name and header say.");
             }
         }
@@ -41,19 +41,19 @@ internal static class GraphDataWire
         });
 
     /// <summary>Refuses comparison options naming empty text, which the service reads as none.</summary>
-    /// <exception cref="InvalidRequestException">The draws, the engine or an observable's feature is empty; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">The draws, the engine or an observable's feature is empty; nothing was sent.</exception>
     internal static void Validate(CompareOptions options)
     {
         if (options.Draws is { Length: 0 } || options.Engine is { Length: 0 })
         {
-            throw new InvalidRequestException("CompareOptions names an empty draw policy or engine; leave Draws or Engine null for the default.");
+            throw new ArgumentException("CompareOptions names an empty draw policy or engine; leave Draws or Engine null for the default.");
         }
 
         for (var i = 0; i < options.Observe.Count; i++)
         {
             if (options.Observe[i].Feature is { Length: 0 })
             {
-                throw new InvalidRequestException(
+                throw new ArgumentException(
                     $"The observable at CompareOptions.Observe[{i}] names an empty feature, which the service reads as none; leave it null for the target's feature of the observable's own name.");
             }
         }

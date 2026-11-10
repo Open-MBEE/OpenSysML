@@ -224,16 +224,16 @@ public sealed class ModelRunsTests
         using var handler = Serving(wire);
         await using var connection = await FakeConnection.OpenAsync(handler);
         var model = connection.ModelByHash(Hash);
-        var unset = await Assert.ThrowsAsync<InvalidRequestException>(() =>
+        var unset = await Assert.ThrowsAsync<ArgumentException>(() =>
             model.RunActionRunsAsync("A", 1, new Dictionary<string, Value> { ["x"] = new Value.UnsetValue() }, cancellationToken: token));
-        var argument = await Assert.ThrowsAsync<InvalidRequestException>(() =>
+        var argument = await Assert.ThrowsAsync<ArgumentException>(() =>
             model.RunAnalysisRunsAsync("C", 1, new AnalysisRunsOptions { Arguments = [new Value.UnsetValue()] }, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.RunActionRunsAsync("A", 1, options: new ActionRunsOptions { PerformerSymbolId = string.Empty }, cancellationToken: token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.RunActionRunsAsync("A", 1, options: new ActionRunsOptions { Draws = string.Empty }, cancellationToken: token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.RunActionRunsAsync("A", 1, options: new ActionRunsOptions { Engine = string.Empty }, cancellationToken: token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.RunAnalysisRunsAsync("C", 1, new AnalysisRunsOptions { SubjectSymbolId = string.Empty }, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.RunAnalysisRunsAsync("C", 1, new AnalysisRunsOptions { Draws = string.Empty }, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.RunAnalysisRunsAsync("C", 1, new AnalysisRunsOptions { Engine = string.Empty }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RunActionRunsAsync("A", 1, options: new ActionRunsOptions { PerformerSymbolId = string.Empty }, cancellationToken: token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RunActionRunsAsync("A", 1, options: new ActionRunsOptions { Draws = string.Empty }, cancellationToken: token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RunActionRunsAsync("A", 1, options: new ActionRunsOptions { Engine = string.Empty }, cancellationToken: token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RunAnalysisRunsAsync("C", 1, new AnalysisRunsOptions { SubjectSymbolId = string.Empty }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RunAnalysisRunsAsync("C", 1, new AnalysisRunsOptions { Draws = string.Empty }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RunAnalysisRunsAsync("C", 1, new AnalysisRunsOptions { Engine = string.Empty }, token));
         await Assert.ThrowsAsync<ArgumentNullException>(() => model.RunActionRunsAsync(null!, 1, cancellationToken: token));
         await Assert.ThrowsAsync<ArgumentNullException>(() => model.RunAnalysisRunsAsync(null!, 1, cancellationToken: token));
         await Assert.ThrowsAsync<ArgumentException>(() => model.RunActionRunsAsync("A", 1, new Dictionary<string, Value> { ["x"] = null! }, cancellationToken: token));
@@ -512,11 +512,11 @@ public sealed class ModelRunsTests
         using var handler = Serving(wire);
         await using var connection = await FakeConnection.OpenAsync(handler);
         var model = connection.ModelByHash(Hash);
-        var step = await Assert.ThrowsAsync<InvalidRequestException>(() =>
+        var step = await Assert.ThrowsAsync<ArgumentException>(() =>
             model.RecordRunAsync("C", new RecordOptions { Ranges = [new SweepRange("x", new Value.IntegerValue(0), new Value.IntegerValue(1), new Value.UnsetValue())] }, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.RecordRunAsync("C", new RecordOptions { SubjectSymbolId = string.Empty }, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.RecordRunAsync("C", new RecordOptions { Engine = string.Empty }, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.RecordRunAsync("C", new RecordOptions { RecordInto = string.Empty }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RecordRunAsync("C", new RecordOptions { SubjectSymbolId = string.Empty }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RecordRunAsync("C", new RecordOptions { Engine = string.Empty }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RecordRunAsync("C", new RecordOptions { RecordInto = string.Empty }, token));
         await Assert.ThrowsAsync<ArgumentNullException>(() => model.RecordRunAsync(null!, cancellationToken: token));
         Assert.Contains("ranges[0].step", step.Message, StringComparison.Ordinal);
         Assert.Equal(["GetServerInfo"], handler.Requests.Select(request => request.Method));

@@ -18,7 +18,7 @@ namespace OpenMBEE.OpenSysML.Internal;
 /// kind this client knows is an <see cref="UnsupportedValueException"/>, never a null. Every arm is
 /// read whatever the service advertises.</para>
 /// <para>Writing is two steps, so a request can order its checks: <see cref="ToWire(Value, string)"/>
-/// refuses what no service accepts as an argument, as <see cref="InvalidRequestException"/>, and
+/// refuses what no service accepts as an argument, as <see cref="ArgumentException"/>, and
 /// <see cref="Fit"/> then holds the message to what one service advertises, applying the service's
 /// own predicates in the service's own order.</para>
 /// </remarks>
@@ -93,7 +93,7 @@ internal static class ValueWire
     /// <param name="value">The value.</param>
     /// <param name="path">Where the value is in the request, as <c>named_arguments["x"]</c>, for the error.</param>
     /// <returns>A message of the caller's own.</returns>
-    /// <exception cref="InvalidRequestException">The value, or one nested in it, cannot be sent.</exception>
+    /// <exception cref="ArgumentException">The value, or one nested in it, cannot be sent.</exception>
     internal static Wire.Value ToWire(Value value, string path)
     {
         ArgumentNullException.ThrowIfNull(value);
@@ -101,7 +101,7 @@ internal static class ValueWire
     }
 
     /// <summary>Writes a quantity another message carries by the rules a value's quantity is written by.</summary>
-    /// <exception cref="InvalidRequestException">The quantity cannot be sent.</exception>
+    /// <exception cref="ArgumentException">The quantity cannot be sent.</exception>
     internal static Wire.Quantity ToWire(Quantity quantity, string path)
     {
         ArgumentNullException.ThrowIfNull(quantity);
@@ -561,7 +561,7 @@ internal static class ValueWire
         return new UnsupportedValueException($"The service answered a value at {path} that {what}.", method, path, bytes);
     }
 
-    private static InvalidRequestException Refused(string path, string reason) => new($"The value at {path} {reason}.");
+    private static ArgumentException Refused(string path, string reason) => new($"The value at {path} {reason}.");
 
     // A domain refusal's message without the parameter name .NET appends to it.
     private static string Reason(ArgumentException invalid) =>

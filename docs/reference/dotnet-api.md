@@ -55,7 +55,7 @@ service; it is idempotent and never throws.
 | `DownloadVersion`, `GithubRepo` | The release to download, a tag or `latest`, and its repository |
 
 The private-service options are refused alongside `Address` or with `AutoStart` false. Every
-option is checked before anything is sent; an invalid one is an `InvalidRequestException`.
+option is checked before anything is sent; an invalid one is an `ArgumentException`.
 `ConnectionOptions` also names the environment variables as constants: `ServiceVariable`,
 `BinaryVariable`, `VersionVariable`, `GithubRepoVariable`, `AllowUnpinnedDownloadVariable` and
 `TokenVariable`. A private service is started without `OPENSYSML_GRPC_TOKEN`, and requires no
@@ -315,11 +315,11 @@ elements it does not include. The compact form is not read.
 
 ## Exceptions
 
-Every failure derives from `OpenSysMLException`, except cancellation and use after disposal:
+Every failure derives from `OpenSysMLException`, except cancellation, use after disposal, and an argument or option
+the client refuses before anything is sent, which is an `ArgumentException` (`ArgumentNullException` for a null):
 
 ```text
 OpenSysMLException
-├── InvalidRequestException        refused before anything was sent
 ├── CapabilityException            the service lacks a capability, or refused a call for one; Capability, Remedy
 ├── ServiceStartException          no service could be started or reached
 │   ├── BinaryNotFoundException       SearchedLocations

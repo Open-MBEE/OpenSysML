@@ -141,8 +141,8 @@ public sealed class ServiceValueTests(ServiceFixture services) : IClassFixture<S
             new Wire.EvaluateCalcRequest { ModelHash = hash, SymbolId = "Echo::same", Arguments = { new Wire.Value { Unset = true } } },
             TestContext.Current.CancellationToken);
 
-        Assert.Throws<InvalidRequestException>(() => ValueWire.ToWire(new Value.FunctionValue("Echo::Sq", 3), "arguments[0]"));
-        Assert.Throws<InvalidRequestException>(() => ValueWire.ToWire(new Value.UnsetValue(), "arguments[0]"));
+        Assert.Throws<System.ArgumentException>(() => ValueWire.ToWire(new Value.FunctionValue("Echo::Sq", 3), "arguments[0]"));
+        Assert.Throws<System.ArgumentException>(() => ValueWire.ToWire(new Value.UnsetValue(), "arguments[0]"));
         Assert.Contains("self_id 3", closing.Error, System.StringComparison.Ordinal);
         Assert.Null(closing.Result);
         Assert.NotEmpty(unset.Error);

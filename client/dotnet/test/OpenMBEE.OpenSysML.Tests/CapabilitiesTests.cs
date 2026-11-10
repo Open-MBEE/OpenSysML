@@ -148,7 +148,7 @@ public sealed class StatusCodeTests
         Assert.All(
             new OpenSysMLException[]
             {
-                new(), new("m"), new("m", cause), new InvalidRequestException("m"), new InvalidRequestException("m", cause),
+                new(), new("m"), new("m", cause),
                 new ServiceStartException("m"), new ServiceStartException("m", cause),
             },
             error => Assert.IsAssignableFrom<Exception>(error));

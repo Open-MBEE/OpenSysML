@@ -39,7 +39,7 @@ internal static class EditWire
     private static readonly HashSet<string> StatementKinds = new(["accept", "send", "assign", "if", "while", "loop", "for", "terminate"], StringComparer.Ordinal);
 
     /// <summary>Refuses an optional part set to empty text, which the service would read as absent, naming where it is.</summary>
-    /// <exception cref="InvalidRequestException">An optional part is empty.</exception>
+    /// <exception cref="ArgumentException">An optional part is empty.</exception>
     internal static void Validate(IReadOnlyList<Edit> edits)
     {
         for (var i = 0; i < edits.Count; i++)
@@ -406,7 +406,7 @@ internal static class EditWire
     {
         if (value is { Length: 0 })
         {
-            throw new InvalidRequestException(
+            throw new ArgumentException(
                 $"The {edit.GetType().Name} at {at} sets {property} to empty text, which the service reads as none; leave it null to write none.");
         }
     }

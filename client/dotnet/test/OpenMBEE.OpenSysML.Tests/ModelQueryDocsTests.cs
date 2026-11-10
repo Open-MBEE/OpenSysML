@@ -380,7 +380,7 @@ public sealed class ModelQueryDocsTests
         var unreduced = new DocumentValue.QuantityValue(new Quantity(new Value.IntegerValue(2), "kg", null));
 
         await Run(connection.ModelByHash(Hash), quarter, quarterMass);
-        await Assert.ThrowsAsync<InvalidRequestException>(() => Run(connection.ModelByHash(Hash), unreduced));
+        await Assert.ThrowsAsync<ArgumentException>(() => Run(connection.ModelByHash(Hash), unreduced));
         await Assert.ThrowsAsync<ArgumentException>(() => connection.ModelByHash(Hash).RunDocumentQueryAsync(string.Empty, cancellationToken: token));
         await Assert.ThrowsAsync<ArgumentException>(() => connection.ModelByHash(Hash).RunDocumentQueryAsync("Q", [null!], token));
 
@@ -505,7 +505,7 @@ public sealed class ModelQueryDocsTests
         var unnamed = await model.RenderDocumentAsync("unnamed", DocumentForm.Markdown, token);
         var both = await Assert.ThrowsAsync<TransportException>(() => model.RenderDocumentAsync("both", DocumentForm.Html, token));
         var also = await Assert.ThrowsAsync<TransportException>(() => model.RenderDocumentAsync("also", DocumentForm.AsciiDoc, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.RenderDocumentAsync("Observatory::MassReport", (DocumentForm)3, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RenderDocumentAsync("Observatory::MassReport", (DocumentForm)3, token));
         await Assert.ThrowsAsync<ArgumentException>(() => model.RenderDocumentAsync(string.Empty, cancellationToken: token));
 
         Assert.Equal(
@@ -640,10 +640,10 @@ public sealed class ModelQueryDocsTests
         var model = connection.ModelByHash(Hash);
         var token = TestContext.Current.CancellationToken;
 
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.RenderViewAsync("V", new RenderViewOptions { Depth = 0 }, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.RenderViewAsync("V", new RenderViewOptions { Depth = -1 }, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.RenderViewAsync("V", new RenderViewOptions { Ports = (RenderViewPorts)2 }, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.RenderViewAsync("V", new RenderViewOptions { Compartments = (RenderViewCompartments)3 }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RenderViewAsync("V", new RenderViewOptions { Depth = 0 }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RenderViewAsync("V", new RenderViewOptions { Depth = -1 }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RenderViewAsync("V", new RenderViewOptions { Ports = (RenderViewPorts)2 }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RenderViewAsync("V", new RenderViewOptions { Compartments = (RenderViewCompartments)3 }, token));
         await Assert.ThrowsAsync<ArgumentException>(() => model.RenderViewAsync(string.Empty, cancellationToken: token));
         Assert.Throws<ArgumentException>(() => new RenderViewOptions { Show = [null!] });
         Assert.Throws<ArgumentNullException>(() => new ViewFrame(null!, string.Empty, [], [], []));

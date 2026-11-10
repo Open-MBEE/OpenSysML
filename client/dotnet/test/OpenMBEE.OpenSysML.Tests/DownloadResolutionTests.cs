@@ -541,8 +541,8 @@ public sealed class DownloadResolutionTests : IAsyncLifetime
     [Fact]
     public async Task AnInvalidVariableIsRefusedBeforeAnythingIsFetched()
     {
-        await Assert.ThrowsAsync<InvalidRequestException>(() => Resolve(new ConnectionOptions(), server.Source(), Environment(new() { [ConnectionOptions.GithubRepoVariable] = "../x" })));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => Resolve(new ConnectionOptions(), server.Source(), Environment(new() { [ConnectionOptions.VersionVariable] = "v1/../x" })));
+        await Assert.ThrowsAsync<ArgumentException>(() => Resolve(new ConnectionOptions(), server.Source(), Environment(new() { [ConnectionOptions.GithubRepoVariable] = "../x" })));
+        await Assert.ThrowsAsync<ArgumentException>(() => Resolve(new ConnectionOptions(), server.Source(), Environment(new() { [ConnectionOptions.VersionVariable] = "v1/../x" })));
 
         Assert.Empty(server.Requested);
         Assert.False(Directory.Exists(Layout.Directory));

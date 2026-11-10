@@ -73,9 +73,9 @@ public sealed class ModelParseTests
         using var handler = new FakeServiceHandler { Capabilities = FakeModels.ModelCapabilities };
         await using var connection = await FakeConnection.OpenAsync(handler);
 
-        var file = await Assert.ThrowsAsync<InvalidRequestException>(() =>
+        var file = await Assert.ThrowsAsync<ArgumentException>(() =>
             connection.LoadAsync("a.kerml", new ParseOptions { Language = SourceLanguage.KerML }, TestContext.Current.CancellationToken));
-        await Assert.ThrowsAsync<InvalidRequestException>(() =>
+        await Assert.ThrowsAsync<ArgumentException>(() =>
             connection.LoadContentAsync("x", new ParseOptions { Language = (SourceLanguage)7 }, TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<ArgumentException>(() => connection.LoadAsync(string.Empty, cancellationToken: TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<ArgumentNullException>(() => connection.LoadContentAsync(null!, cancellationToken: TestContext.Current.CancellationToken));
@@ -177,7 +177,7 @@ public sealed class ModelParseTests
             .Refusing("ParseSources", StatusCode.InvalidArgument, "documents must name at least one document");
         await using var connection = await FakeConnection.OpenAsync(handler);
 
-        await Assert.ThrowsAsync<InvalidRequestException>(() =>
+        await Assert.ThrowsAsync<ArgumentException>(() =>
             connection.ParseSourcesAsync([SourceDocument.Inline("x")], new SourcesOptions { BaseModelHash = string.Empty }, TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<ArgumentException>(() => connection.ParseSourcesAsync([null!], cancellationToken: TestContext.Current.CancellationToken));
         Assert.Throws<ArgumentException>(() => SourceDocument.Inline("x", string.Empty));

@@ -111,7 +111,7 @@ it opened.
 `ConnectionOptions` also holds the request timeout (60 seconds by default), headers sent with
 every call, the largest request and response messages (512 MiB each by default), a logger
 (`NullLogger` by default) and an HTTP handler to borrow. Every option is checked when the
-connection opens, which refuses an invalid one with `InvalidRequestException` before it sends
+connection opens, which refuses an invalid one with `ArgumentException` before it sends
 anything. Headers carry authorization and custom metadata only: a header the protocol
 controls (content type and encoding, timeouts, host, any `grpc-` or `connect-` header) is
 refused, and header values are never logged. A handler given as `HttpMessageHandler` is
@@ -124,7 +124,7 @@ A service serving an address other machines reach requires a bearer token on eve
 over each protocol; when it is null, the `OPENSYSML_GRPC_TOKEN` environment variable
 (`ConnectionOptions.TokenVariable`) names it, trimmed, a blank value being none. A token is
 what the service accepts, RFC 6750's `b64token`: letters, digits and `-._~+/` with trailing `=`
-only; anything else, from the option or the variable, is refused with `InvalidRequestException`
+only; anything else, from the option or the variable, is refused with `ArgumentException`
 before anything is sent. An `authorization` entry in `Headers` takes the place of the variable,
 and is refused beside `Token`, since a call carries one set of credentials. A token is never
 logged nor written into a message. Credentials sent over cleartext `http` to a host other than
@@ -305,7 +305,7 @@ the shared cache:
 
 A release is a tag, as `v0.10.1`, or `latest`, which the GitHub releases API resolves once for
 each open. A tag or repository that is not one URL path segment (or `owner/repo` of two) is
-refused, from an option or a variable, with `InvalidRequestException` before anything is
+refused, from an option or a variable, with `ArgumentException` before anything is
 fetched. The whole decision is made with the cache's lock held:
 
 | The cache holds | What happens |
@@ -400,18 +400,19 @@ value's number, and JSON keeps one the service sends as a number; the service se
 with the generated `OpenMBEE.OpenSysML.Wire` messages, under the connection's headers, timeout,
 size limits, error mapping and disposal checks. The method is named bare (`GetSymbol`) or
 qualified (`sysml.SysMLService/GetSymbol`); a name the schema does not have, or messages it
-does not pair with the method, fails with `InvalidRequestException` and sends nothing. It is
+does not pair with the method, fails with `ArgumentException` and sends nothing. It is
 the escape hatch below the typed API: it checks no capability and interprets no result, so
 a failure the service reports inside an answer comes back as an ordinary response.
 
 ### Failures
 
-Everything the client reports derives from `OpenSysMLException`, except cancellation and
-use after disposal, which are the standard exceptions:
+Everything the client reports derives from `OpenSysMLException`, except cancellation, use after
+disposal, and an argument or option refused before anything is sent, which are the standard
+exceptions:
 
 | What happened | Exception |
 | --- | --- |
-| An option, address, header or raw method/message pairing is invalid, or `OPENSYSML_GRPC_VERSION`, `OPENSYSML_GITHUB_REPO` or `OPENSYSML_GRPC_TOKEN` names no release, repository or bearer token | `InvalidRequestException`, before anything is sent |
+| An option, address, header or raw method/message pairing is invalid, or `OPENSYSML_GRPC_VERSION`, `OPENSYSML_GITHUB_REPO` or `OPENSYSML_GRPC_TOKEN` names no release, repository or bearer token | `ArgumentException`, before anything is sent |
 | No service is named and `AutoStart` is false, or the private service did not start | `ServiceStartException` |
 | The shared cache stayed locked by another client or process for two minutes | `ServiceStartException` naming the lock |
 | A release asked for could not be downloaded or installed, or `latest` could not be resolved | `ServiceStartException`, with the cause as `InnerException` |
@@ -550,7 +551,7 @@ inline notation, `parse_sources`, `parse_sources_affected` for `SourcesOptions.B
 `evaluate_subject` for a subject, `symbol_members` for `SymbolOptions.IncludeLibraryMembers`,
 `element_properties` for `ElementPropertiesAsync` and `instance_paths` for `InstancePathsAsync`
 and `InstancePathsAtAsync`. A file's notation comes from its extension, so loading
-one with `ParseOptions.Language` set is refused with `InvalidRequestException`.
+one with `ParseOptions.Language` set is refused with `ArgumentException`.
 
 A model loaded through a connection borrows it: disposing the model does nothing, and the
 connection's owner closes it. `OpenSysMLClient.LoadAsync` and `LoadContentAsync` open a
@@ -596,7 +597,7 @@ action run posts to its performer in order, as the REPL's `%send` does, and the 
 `Seed`, `Draws` and `ClockStep`. A run and an exploration answer differently, so each call takes
 only its own kind of schedule: an exploring schedule passed to `ExecuteActionAsync`, a single-run
 schedule passed to an explore call, or a trace or events asked of an exploration is an
-`InvalidRequestException` before anything is sent. So are `Events` with no `PerformerSymbolId`
+`ArgumentException` before anything is sent. So are `Events` with no `PerformerSymbolId`
 to post them to, and `Events` given to a state run, which takes its events as an argument. An explore
 call naming no schedule explores under the service's default budget. `CheckOptions` carries
 the `-check-*` flags: the properties held at every stable state, the features allowed to
@@ -679,7 +680,7 @@ the service answers its one value as a one-element `Value.SequenceValue`; declar
 `SweepOptions` the subject, the arguments every row binds, `Samples` and `Seed`. A run and an
 exploration of a case answer differently, so `RunAnalysisAsync` refuses an exploring schedule
 and the `explore` engine, and `ExploreAnalysisAsync` a schedule that runs once and a tool dry
-run, with `InvalidRequestException` before anything is sent; an exploration naming neither
+run, with `ArgumentException` before anything is sent; an exploration naming neither
 explores under the service's default budget. A question, schedule or engine the service does
 not know, and arguments with a solver question, are the service's to refuse, with
 `InvalidArgument`; a negative sample count and a range no values follow from it refuses in its
@@ -1110,7 +1111,7 @@ advertises. Over Connect JSON a value of an unknown kind arrives with no kind at
 the parser drops fields it does not know.
 
 Sending refuses what no service accepts as an argument, before anything is sent, with
-`InvalidRequestException`: `UnsetValue` and `UndeterminedValue`, which are answers only; a
+`ArgumentException`: `UnsetValue` and `UndeterminedValue`, which are answers only; a
 null standing for a value the service could not send; a function closing over an instance,
 which lives only within the response that held it; and a quantity in a named unit without its
 reduction. A kind the service gates needs its capability wherever the service looks for it:

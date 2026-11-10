@@ -12,7 +12,7 @@ internal static class ServiceAddress
     /// <param name="text">The address as given.</param>
     /// <param name="source">Where it was given, as ConnectionOptions.Address, for the refusal.</param>
     /// <returns>The base URL, as <c>http://host:port/</c>.</returns>
-    /// <exception cref="InvalidRequestException">The address is not one this client can connect to.</exception>
+    /// <exception cref="ArgumentException">The address is not one this client can connect to.</exception>
     internal static Uri Parse(string text, string source)
     {
         var address = text.Trim();
@@ -68,6 +68,6 @@ internal static class ServiceAddress
         return colon > address.LastIndexOf(']') && colon < address.Length - 1;
     }
 
-    private static InvalidRequestException Invalid(string text, string source, string why) =>
+    private static ArgumentException Invalid(string text, string source, string why) =>
         new($"{source} is \"{text}\", which is not a service address: {why}. Name one as host:port or as an http or https URL.");
 }

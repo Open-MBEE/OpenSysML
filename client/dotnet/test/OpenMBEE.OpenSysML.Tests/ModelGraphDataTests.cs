@@ -354,9 +354,9 @@ public sealed class ModelGraphDataTests : IDisposable
 
         await Assert.ThrowsAsync<ArgumentNullException>(() => model.ImportDataAsync(null!, cancellationToken: Token));
         await Assert.ThrowsAsync<ArgumentException>(() => model.ImportDataAsync([file, null!], cancellationToken: Token));
-        var format = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ImportDataAsync([file, file with { Format = string.Empty }], cancellationToken: Token));
-        var map = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ImportDataAsync([file with { Map = string.Empty }], cancellationToken: Token));
-        var form = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ImportDataAsync([file], new ImportOptions { As = string.Empty }, Token));
+        var format = await Assert.ThrowsAsync<ArgumentException>(() => model.ImportDataAsync([file, file with { Format = string.Empty }], cancellationToken: Token));
+        var map = await Assert.ThrowsAsync<ArgumentException>(() => model.ImportDataAsync([file with { Map = string.Empty }], cancellationToken: Token));
+        var form = await Assert.ThrowsAsync<ArgumentException>(() => model.ImportDataAsync([file], new ImportOptions { As = string.Empty }, Token));
         var gate = await Assert.ThrowsAsync<CapabilityException>(() => old.ModelByHash(Hash).ImportDataAsync([file], cancellationToken: Token));
 
         Assert.Contains("imports[1]", format.Message, StringComparison.Ordinal);
@@ -563,9 +563,9 @@ public sealed class ModelGraphDataTests : IDisposable
 
         await Assert.ThrowsAsync<ArgumentNullException>(() => model.CompareResultsAsync(null!, cancellationToken: Token));
         await Assert.ThrowsAsync<ArgumentException>(() => model.CompareResultsAsync(string.Empty, cancellationToken: Token));
-        var draws = await Assert.ThrowsAsync<InvalidRequestException>(() => model.CompareResultsAsync("{}", new CompareOptions { Draws = string.Empty }, Token));
-        var engine = await Assert.ThrowsAsync<InvalidRequestException>(() => model.CompareResultsAsync("{}", new CompareOptions { Engine = string.Empty }, Token));
-        var feature = await Assert.ThrowsAsync<InvalidRequestException>(
+        var draws = await Assert.ThrowsAsync<ArgumentException>(() => model.CompareResultsAsync("{}", new CompareOptions { Draws = string.Empty }, Token));
+        var engine = await Assert.ThrowsAsync<ArgumentException>(() => model.CompareResultsAsync("{}", new CompareOptions { Engine = string.Empty }, Token));
+        var feature = await Assert.ThrowsAsync<ArgumentException>(
             () => model.CompareResultsAsync("{}", new CompareOptions { Observe = [new ObservablePair("total"), new ObservablePair("mass", string.Empty)] }, Token));
 
         Assert.Contains("Draws or Engine", draws.Message, StringComparison.Ordinal);

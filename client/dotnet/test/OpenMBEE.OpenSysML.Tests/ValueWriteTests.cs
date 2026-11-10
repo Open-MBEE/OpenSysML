@@ -40,8 +40,8 @@ public sealed class ValueWriteTests
     [MemberData(nameof(Unsendable))]
     public void AValueNoServiceReadsAsAnArgumentIsRefusedAtAnyDepth(Value value, string why)
     {
-        var alone = Assert.Throws<InvalidRequestException>(() => ValueWire.ToWire(value, "arguments[0]"));
-        var nested = Assert.Throws<InvalidRequestException>(() => ValueWire.ToWire(
+        var alone = Assert.Throws<ArgumentException>(() => ValueWire.ToWire(value, "arguments[0]"));
+        var nested = Assert.Throws<ArgumentException>(() => ValueWire.ToWire(
             new Value.SequenceValue([new Value.IntegerValue(1), new Value.SetValue([new Value.ArrayValue([], [value])])]),
             "arguments[0]"));
 
@@ -54,7 +54,7 @@ public sealed class ValueWriteTests
     [Fact]
     public void AnUnsendableScalarOfAnEnumerationLiteralIsRefusedAtItsPath()
     {
-        var refused = Assert.Throws<InvalidRequestException>(() => ValueWire.ToWire(new Value.EnumLiteralValue("D::C::x", "D::C", "C::x", new Value.UnsetValue()), "v"));
+        var refused = Assert.Throws<ArgumentException>(() => ValueWire.ToWire(new Value.EnumLiteralValue("D::C::x", "D::C", "C::x", new Value.UnsetValue()), "v"));
 
         Assert.StartsWith("The value at v.enum_literal.value is unset", refused.Message, StringComparison.Ordinal);
     }
@@ -248,7 +248,7 @@ public sealed class ValueWriteTests
         }
 
         Assert.Equal(ValueReadTests.Nest(ValueWire.MaxDepth), ValueWire.ToWire(Nest(ValueWire.MaxDepth), "v"));
-        Assert.Contains($"nests deeper than {ValueWire.MaxDepth} values", Assert.Throws<InvalidRequestException>(() => ValueWire.ToWire(Nest(ValueWire.MaxDepth + 1), "v")).Message, StringComparison.Ordinal);
+        Assert.Contains($"nests deeper than {ValueWire.MaxDepth} values", Assert.Throws<ArgumentException>(() => ValueWire.ToWire(Nest(ValueWire.MaxDepth + 1), "v")).Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -287,9 +287,9 @@ public sealed class ValueWriteTests
 
         Assert.Equal(["a", "b"], ValueWire.ToWire(map, "inputs").Select(entry => entry.Key));
         Assert.Equal([1L, 2L], ValueWire.ToWire(new ValueList<Value>([new Value.IntegerValue(1), new Value.IntegerValue(2)]), "arguments").Select(value => value.IntValue));
-        Assert.StartsWith("The value at inputs[\"z\"] is unset", Assert.Throws<InvalidRequestException>(() => ValueWire.ToWire(
+        Assert.StartsWith("The value at inputs[\"z\"] is unset", Assert.Throws<ArgumentException>(() => ValueWire.ToWire(
             new ValueDictionary<Value>([KeyValuePair.Create<string, Value>("z", new Value.UnsetValue())]), "inputs")).Message, StringComparison.Ordinal);
-        Assert.StartsWith("The value at arguments[1] is unset", Assert.Throws<InvalidRequestException>(() => ValueWire.ToWire(
+        Assert.StartsWith("The value at arguments[1] is unset", Assert.Throws<ArgumentException>(() => ValueWire.ToWire(
             new ValueList<Value>([new Value.IntegerValue(1), new Value.UnsetValue()]), "arguments")).Message, StringComparison.Ordinal);
     }
 

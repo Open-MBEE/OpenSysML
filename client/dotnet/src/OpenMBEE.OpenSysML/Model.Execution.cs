@@ -19,8 +19,7 @@ public sealed partial class Model
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The run's outputs, the performer's attributes, the trace when asked for, and what the service reported about the run.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="actionSymbolId"/> is null.</exception>
-    /// <exception cref="ArgumentException">An input or an event is null.</exception>
-    /// <exception cref="InvalidRequestException">An option names an empty string, the schedule explores, which <see cref="ExploreActionAsync"/> answers, events are posted with no performer to post them to, or an input is a value no service reads as an argument; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">An input or an event is null. An option names an empty string, the schedule explores, which <see cref="ExploreActionAsync"/> answers, events are posted with no performer to post them to, or an input is a value no service reads as an argument; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The service lacks <see cref="Capabilities.Schedule"/> for a schedule, <see cref="Capabilities.ActionTrace"/> for a trace, <see cref="Capabilities.Performer"/> for a performer, or a capability an input needs; nothing was sent.</exception>
     /// <exception cref="ExecutionException">The action could not be run, or did not complete within its advance; a traced run's failure keeps its trace up to the failure.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
@@ -47,8 +46,7 @@ public sealed partial class Model
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>Every distinct outcome reached, and how the exploration ended.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="actionSymbolId"/> is null.</exception>
-    /// <exception cref="ArgumentException">An input or an event is null.</exception>
-    /// <exception cref="InvalidRequestException">An option names an empty string, the schedule runs once, which <see cref="ExecuteActionAsync"/> answers, a trace or events are asked for, which only one run has, or an input is a value no service reads as an argument; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">An input or an event is null. An option names an empty string, the schedule runs once, which <see cref="ExecuteActionAsync"/> answers, a trace or events are asked for, which only one run has, or an input is a value no service reads as an argument; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The service lacks <see cref="Capabilities.Schedule"/> or <see cref="Capabilities.ScheduleExplore"/>, <see cref="Capabilities.Performer"/> for a performer, or a capability an input needs; nothing was sent.</exception>
     /// <exception cref="ExecutionException">The action could not be explored at all.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
@@ -72,8 +70,7 @@ public sealed partial class Model
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The states visited, the final context, the trace when asked for, and what the service reported about the run.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="stateMachineSymbolId"/> is null.</exception>
-    /// <exception cref="ArgumentException">An event is null.</exception>
-    /// <exception cref="InvalidRequestException">An option names an empty string, the schedule explores, which <see cref="ExploreStateAsync"/> answers, or <see cref="RunOptions.Events"/> is set, where a state run takes <paramref name="events"/>; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">An event is null. An option names an empty string, the schedule explores, which <see cref="ExploreStateAsync"/> answers, or <see cref="RunOptions.Events"/> is set, where a state run takes <paramref name="events"/>; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The service lacks <see cref="Capabilities.Schedule"/> for a schedule, <see cref="Capabilities.StateTrace"/> for a trace, or <see cref="Capabilities.Performer"/> for a performer; nothing was sent.</exception>
     /// <exception cref="ExecutionException">The machine could not be run; a traced run's failure keeps its trace up to the failure.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
@@ -100,8 +97,7 @@ public sealed partial class Model
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>Every distinct outcome reached, and how the exploration ended.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="stateMachineSymbolId"/> is null.</exception>
-    /// <exception cref="ArgumentException">An event is null.</exception>
-    /// <exception cref="InvalidRequestException">An option names an empty string, the schedule runs once, which <see cref="ExecuteStateAsync"/> answers, a trace is asked for, which an exploration has none of, or <see cref="RunOptions.Events"/> is set, where a state machine takes <paramref name="events"/>; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">An event is null. An option names an empty string, the schedule runs once, which <see cref="ExecuteStateAsync"/> answers, a trace is asked for, which an exploration has none of, or <see cref="RunOptions.Events"/> is set, where a state machine takes <paramref name="events"/>; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The service lacks <see cref="Capabilities.Schedule"/> or <see cref="Capabilities.ScheduleExplore"/>, or <see cref="Capabilities.Performer"/> for a performer; nothing was sent.</exception>
     /// <exception cref="ExecutionException">The machine could not be explored at all.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
@@ -128,8 +124,7 @@ public sealed partial class Model
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The verdict, with every violation, divergence and final outcome witnessed; a failing property is a verdict, not an exception.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="actionSymbolId"/> is null.</exception>
-    /// <exception cref="ArgumentException">An input is null.</exception>
-    /// <exception cref="InvalidRequestException">An option names an empty string, or an input is a value no service reads as an argument; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">An input is null. An option names an empty string, or an input is a value no service reads as an argument; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The service lacks <see cref="Capabilities.Check"/>, <see cref="Capabilities.Performer"/> for a performer, <see cref="Capabilities.Engines"/> for an engine, <see cref="Capabilities.ScheduleExplore"/> for the explore engine, or a capability an input needs; nothing was sent.</exception>
     /// <exception cref="CheckException">The service refused the check in its answer: the behavior, a property or the performer does not resolve.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
@@ -154,7 +149,7 @@ public sealed partial class Model
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The verdict, with every violation, divergence and final outcome witnessed.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="stateMachineSymbolId"/> is null.</exception>
-    /// <exception cref="InvalidRequestException">An option names an empty string; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">An option names an empty string; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The service lacks <see cref="Capabilities.Check"/>, <see cref="Capabilities.Performer"/> for a performer, <see cref="Capabilities.Engines"/> for an engine, or <see cref="Capabilities.ScheduleExplore"/> for the explore engine; nothing was sent.</exception>
     /// <exception cref="CheckException">The service refused the check in its answer: the behavior, a property or the performer does not resolve.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
@@ -179,18 +174,18 @@ public sealed partial class Model
         var schedule = Schedule(options, explore, explore ? nameof(ExecuteActionAsync) : nameof(ExploreActionAsync));
         if (options.Trace && explore)
         {
-            throw new InvalidRequestException("RunOptions.Trace asks for one run's trace, which an exploration describes none of; leave it false.");
+            throw new ArgumentException("RunOptions.Trace asks for one run's trace, which an exploration describes none of; leave it false.");
         }
 
         var events = new ValueList<string>(options.Events ?? []);
         if (events.Count > 0 && explore)
         {
-            throw new InvalidRequestException("RunOptions.Events posts to one run, which an exploration does not make; leave it null.");
+            throw new ArgumentException("RunOptions.Events posts to one run, which an exploration does not make; leave it null.");
         }
 
         if (events.Count > 0 && options.PerformerSymbolId is null)
         {
-            throw new InvalidRequestException("RunOptions.Events are posted to the object performing the action; name one in PerformerSymbolId.");
+            throw new ArgumentException("RunOptions.Events are posted to the object performing the action; name one in PerformerSymbolId.");
         }
 
         var sent = Inputs(inputs);
@@ -259,12 +254,12 @@ public sealed partial class Model
         var schedule = Schedule(options, explore, explore ? nameof(ExecuteStateAsync) : nameof(ExploreStateAsync));
         if (options.Trace && explore)
         {
-            throw new InvalidRequestException("RunOptions.Trace asks for one run's trace, which an exploration describes none of; leave it false.");
+            throw new ArgumentException("RunOptions.Trace asks for one run's trace, which an exploration describes none of; leave it false.");
         }
 
         if (options.Events is { Count: > 0 })
         {
-            throw new InvalidRequestException("RunOptions.Events posts to an action's performer; a state machine takes its events as the events argument.");
+            throw new ArgumentException("RunOptions.Events posts to an action's performer; a state machine takes its events as the events argument.");
         }
 
         RequireRun(schedule, options, Capabilities.StateTrace);
@@ -326,7 +321,7 @@ public sealed partial class Model
         options ??= CheckOptions.Default;
         if (options.Engine is { Length: 0 } || options.PerformerSymbolId is { Length: 0 })
         {
-            throw new InvalidRequestException("CheckOptions names an empty engine or performer; leave Engine or PerformerSymbolId null to name none.");
+            throw new ArgumentException("CheckOptions names an empty engine or performer; leave Engine or PerformerSymbolId null to name none.");
         }
 
         var sent = Inputs(inputs);
@@ -382,17 +377,17 @@ public sealed partial class Model
     {
         if (options.Schedule is { Length: 0 } || options.PerformerSymbolId is { Length: 0 } || options.Draws is { Length: 0 })
         {
-            throw new InvalidRequestException("RunOptions names an empty schedule, performer or draw policy; leave Schedule, PerformerSymbolId or Draws null for the default.");
+            throw new ArgumentException("RunOptions names an empty schedule, performer or draw policy; leave Schedule, PerformerSymbolId or Draws null for the default.");
         }
 
         if (explore && options.Schedule is { } once && !options.Explores)
         {
-            throw new InvalidRequestException($"The schedule {once} runs once, which {other} answers; an exploration takes {RunOptions.Explore} or {RunOptions.Explore}:runs=<n>,depth=<d>.");
+            throw new ArgumentException($"The schedule {once} runs once, which {other} answers; an exploration takes {RunOptions.Explore} or {RunOptions.Explore}:runs=<n>,depth=<d>.");
         }
 
         if (!explore && options.Explores)
         {
-            throw new InvalidRequestException($"The schedule {options.Schedule} explores every order, which {other} answers; a run takes one order.");
+            throw new ArgumentException($"The schedule {options.Schedule} explores every order, which {other} answers; a run takes one order.");
         }
 
         return explore ? options.Schedule ?? RunOptions.Explore : options.Schedule;

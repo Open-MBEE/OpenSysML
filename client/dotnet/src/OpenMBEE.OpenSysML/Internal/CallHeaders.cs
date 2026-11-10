@@ -47,7 +47,7 @@ internal sealed class CallHeaders
     /// <param name="options">The connection's options, already validated.</param>
     /// <param name="environment">Reads an environment variable; null when it is unset.</param>
     /// <returns>The headers.</returns>
-    /// <exception cref="InvalidRequestException"><see cref="ConnectionOptions.TokenVariable"/> names something that is not a bearer token.</exception>
+    /// <exception cref="ArgumentException"><see cref="ConnectionOptions.TokenVariable"/> names something that is not a bearer token.</exception>
     internal static CallHeaders Resolve(ConnectionOptions options, Func<string, string?> environment)
     {
         List<KeyValuePair<string, string>> entries = [.. options.Headers.Select(header => KeyValuePair.Create(header.Key.ToLowerInvariant(), header.Value))];
@@ -61,7 +61,7 @@ internal sealed class CallHeaders
         {
             if (!BearerToken.IsValid(named))
             {
-                throw new InvalidRequestException(
+                throw new ArgumentException(
                     $"${ConnectionOptions.TokenVariable} does not name a bearer token: {BearerToken.Rule}. Correct it, or unset it if no service needs one.");
             }
 

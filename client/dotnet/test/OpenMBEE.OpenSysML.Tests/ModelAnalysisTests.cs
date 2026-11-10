@@ -207,14 +207,14 @@ public sealed class ModelAnalysisTests
         var model = connection.ModelByHash(Hash);
         var token = TestContext.Current.CancellationToken;
 
-        var schedule = await Assert.ThrowsAsync<InvalidRequestException>(() => model.RunAnalysisAsync("A", new AnalysisOptions { Schedule = "explore" }, token));
-        var engine = await Assert.ThrowsAsync<InvalidRequestException>(() => model.RunAnalysisAsync("A", new AnalysisOptions { Engine = "explore" }, token));
-        var once = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ExploreAnalysisAsync("A", new AnalysisOptions { Schedule = "seed:3" }, token));
-        var dryRun = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ExploreAnalysisAsync("A", new AnalysisOptions { ToolDryRun = true }, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.RunAnalysisAsync("A", new AnalysisOptions { SubjectSymbolId = string.Empty }, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.ExploreAnalysisAsync("A", new AnalysisOptions { Schedule = string.Empty }, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.RunAnalysisAsync("A", new AnalysisOptions { Engine = string.Empty }, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() =>
+        var schedule = await Assert.ThrowsAsync<ArgumentException>(() => model.RunAnalysisAsync("A", new AnalysisOptions { Schedule = "explore" }, token));
+        var engine = await Assert.ThrowsAsync<ArgumentException>(() => model.RunAnalysisAsync("A", new AnalysisOptions { Engine = "explore" }, token));
+        var once = await Assert.ThrowsAsync<ArgumentException>(() => model.ExploreAnalysisAsync("A", new AnalysisOptions { Schedule = "seed:3" }, token));
+        var dryRun = await Assert.ThrowsAsync<ArgumentException>(() => model.ExploreAnalysisAsync("A", new AnalysisOptions { ToolDryRun = true }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RunAnalysisAsync("A", new AnalysisOptions { SubjectSymbolId = string.Empty }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.ExploreAnalysisAsync("A", new AnalysisOptions { Schedule = string.Empty }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RunAnalysisAsync("A", new AnalysisOptions { Engine = string.Empty }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() =>
             model.RunAnalysisAsync("A", new AnalysisOptions { Arguments = [new Value.FunctionValue("F::f", 3)] }, token));
         await Assert.ThrowsAsync<ArgumentNullException>(() => model.RunAnalysisAsync(null!, cancellationToken: token));
         await Assert.ThrowsAsync<ArgumentNullException>(() => model.ExploreAnalysisAsync(null!, cancellationToken: token));
@@ -394,10 +394,10 @@ public sealed class ModelAnalysisTests
         using var handler = Serving(wire);
         await using var connection = await FakeConnection.OpenAsync(handler);
         var model = connection.ModelByHash(Hash);
-        var step = await Assert.ThrowsAsync<InvalidRequestException>(() =>
+        var step = await Assert.ThrowsAsync<ArgumentException>(() =>
             model.RunSweepAsync("S", [new SweepRange("x", new Value.IntegerValue(0), new Value.IntegerValue(1), new Value.UnsetValue())], cancellationToken: token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.RunSweepAsync("S", [], new SweepOptions { Engine = string.Empty }, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.RunSweepAsync("S", [], new SweepOptions { SubjectSymbolId = string.Empty }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RunSweepAsync("S", [], new SweepOptions { Engine = string.Empty }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RunSweepAsync("S", [], new SweepOptions { SubjectSymbolId = string.Empty }, token));
         await Assert.ThrowsAsync<ArgumentException>(() => model.RunSweepAsync("S", [null!], cancellationToken: token));
         await Assert.ThrowsAsync<ArgumentNullException>(() => model.RunSweepAsync("S", null!, cancellationToken: token));
         await Assert.ThrowsAsync<ArgumentNullException>(() => model.RunSweepAsync(null!, [], cancellationToken: token));

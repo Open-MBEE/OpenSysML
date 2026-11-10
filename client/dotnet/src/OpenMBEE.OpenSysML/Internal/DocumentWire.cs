@@ -41,7 +41,7 @@ internal static class DocumentWire
                 row.Cells.Select((cell, j) => cell.Values.Select((value, k) => Value(value, method, $"rows[{i}].cells[{j}].values[{k}]"))))));
 
     /// <summary>Writes a document query's bindings, in the order given, each value as it is held.</summary>
-    /// <exception cref="InvalidRequestException">A quantity cannot be sent.</exception>
+    /// <exception cref="ArgumentException">A quantity cannot be sent.</exception>
     internal static IEnumerable<Wire.DocumentQueryBinding> ToWire(IEnumerable<DocumentBinding> bindings) =>
         bindings.Select((binding, i) => new Wire.DocumentQueryBinding
         {

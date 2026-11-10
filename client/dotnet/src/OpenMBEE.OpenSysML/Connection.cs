@@ -80,7 +80,7 @@ public sealed partial class Connection : IAsyncDisposable
     /// <param name="options">How to reach the service; null for <see cref="ConnectionOptions.Default"/>.</param>
     /// <param name="cancellationToken">Cancels the open, and the start of a private service no other open waits for.</param>
     /// <returns>The open connection, which the caller disposes.</returns>
-    /// <exception cref="InvalidRequestException">An option is invalid, or <see cref="ConnectionOptions.TokenVariable"/> names no bearer token.</exception>
+    /// <exception cref="ArgumentException">An option is invalid, or <see cref="ConnectionOptions.TokenVariable"/> names no bearer token.</exception>
     /// <exception cref="BinaryNotFoundException">No service is named, no binary was found to start one, and no release could be downloaded.</exception>
     /// <exception cref="ChecksumMismatchException">
     /// The binary does not have <see cref="ConnectionOptions.ExpectedBinarySha256"/>, or a release does not have the digest pinned or required for it.
@@ -128,7 +128,7 @@ public sealed partial class Connection : IAsyncDisposable
     /// <param name="request">The request; the call does not change it.</param>
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The response.</returns>
-    /// <exception cref="InvalidRequestException">The service has no such method, or not with these messages; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">The service has no such method, or not with these messages; nothing was sent.</exception>
     /// <exception cref="ServiceException">The service refused the call.</exception>
     /// <exception cref="TransportException">The call failed in transport.</exception>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled.</exception>
@@ -142,7 +142,7 @@ public sealed partial class Connection : IAsyncDisposable
         ObjectDisposedException.ThrowIf(Volatile.Read(ref disposing) != 0, this);
         if (!RpcMethods.TryResolve<TRequest, TResponse>(method, out var resolved, out var problem))
         {
-            throw new InvalidRequestException(problem);
+            throw new ArgumentException(problem);
         }
 
         return InvokeAsync(resolved, request, cancellationToken);

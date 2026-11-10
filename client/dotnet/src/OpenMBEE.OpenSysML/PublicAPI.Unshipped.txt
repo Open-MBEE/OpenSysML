@@ -500,9 +500,6 @@ OpenMBEE.OpenSysML.Instantiation.Instantiation(OpenMBEE.OpenSysML.Instance! root
 OpenMBEE.OpenSysML.Instantiation.Reachable.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.Instance!>
 OpenMBEE.OpenSysML.Instantiation.Resolve(OpenMBEE.OpenSysML.Value.InstanceRefValue! reference) -> OpenMBEE.OpenSysML.Instance?
 OpenMBEE.OpenSysML.Instantiation.Root.get -> OpenMBEE.OpenSysML.Instance!
-OpenMBEE.OpenSysML.InvalidRequestException
-OpenMBEE.OpenSysML.InvalidRequestException.InvalidRequestException(string! message) -> void
-OpenMBEE.OpenSysML.InvalidRequestException.InvalidRequestException(string! message, System.Exception? innerException) -> void
 OpenMBEE.OpenSysML.MessageEncoding
 OpenMBEE.OpenSysML.MessageEncoding.Json = 1 -> OpenMBEE.OpenSysML.MessageEncoding
 OpenMBEE.OpenSysML.MessageEncoding.Protobuf = 0 -> OpenMBEE.OpenSysML.MessageEncoding

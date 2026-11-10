@@ -33,7 +33,7 @@ internal sealed partial record ReleaseRequest(string Repo, string Version, bool 
     /// <param name="options">The connection's options, already validated.</param>
     /// <param name="environment">Reads an environment variable; null when it is unset.</param>
     /// <returns>The request.</returns>
-    /// <exception cref="InvalidRequestException">A variable names no repository or tag.</exception>
+    /// <exception cref="ArgumentException">A variable names no repository or tag.</exception>
     internal static ReleaseRequest From(ConnectionOptions options, Func<string, string?> environment)
     {
         var repo = RepoOf(options, environment);
@@ -44,13 +44,13 @@ internal sealed partial record ReleaseRequest(string Repo, string Version, bool 
     /// <summary>The release <see cref="ConnectionOptions.VersionVariable"/> names, or null when it is unset or blank.</summary>
     /// <param name="environment">Reads an environment variable; null when it is unset.</param>
     /// <returns>The tag, or <see cref="Latest"/>.</returns>
-    /// <exception cref="InvalidRequestException">The variable names no tag.</exception>
+    /// <exception cref="ArgumentException">The variable names no tag.</exception>
     internal static string? Named(Func<string, string?> environment)
     {
         var version = Variable(environment, ConnectionOptions.VersionVariable);
         if (version is not null && !IsVersion(version))
         {
-            throw new InvalidRequestException(
+            throw new ArgumentException(
                 $"${ConnectionOptions.VersionVariable} is \"{version}\", which is neither \"{Latest}\" nor a release tag of letters, digits, '.', '-', '_' and '+'.");
         }
 
@@ -61,13 +61,13 @@ internal sealed partial record ReleaseRequest(string Repo, string Version, bool 
     /// <param name="options">The connection's options, already validated.</param>
     /// <param name="environment">Reads an environment variable; null when it is unset.</param>
     /// <returns>The repository, <c>owner/repo</c>.</returns>
-    /// <exception cref="InvalidRequestException">The variable names no repository.</exception>
+    /// <exception cref="ArgumentException">The variable names no repository.</exception>
     internal static string RepoOf(ConnectionOptions options, Func<string, string?> environment)
     {
         var repo = options.GithubRepo ?? Variable(environment, ConnectionOptions.GithubRepoVariable) ?? ConnectionOptions.DefaultGithubRepo;
         if (!IsRepo(repo))
         {
-            throw new InvalidRequestException($"${ConnectionOptions.GithubRepoVariable} is \"{repo}\", which is not an owner/repo of letters, digits, '.', '-' and '_'.");
+            throw new ArgumentException($"${ConnectionOptions.GithubRepoVariable} is \"{repo}\", which is not an owner/repo of letters, digits, '.', '-' and '_'.");
         }
 
         return repo;

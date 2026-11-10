@@ -23,8 +23,7 @@ public sealed partial class Model
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The projected columns and the rows, in the engine's order.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="queryId"/> is null.</exception>
-    /// <exception cref="ArgumentException"><paramref name="queryId"/> is empty, or a binding is null.</exception>
-    /// <exception cref="InvalidRequestException">A bound quantity cannot be sent; nothing was sent.</exception>
+    /// <exception cref="ArgumentException"><paramref name="queryId"/> is empty, or a binding is null. A bound quantity cannot be sent; nothing was sent.</exception>
     /// <exception cref="CapabilityException">
     /// The service lacks <see cref="Capabilities.DocumentQuery"/>, or <see cref="Capabilities.BigIntValues"/> or
     /// <see cref="Capabilities.RationalValues"/> for a bound Integer beyond <see cref="long"/> or exact Rational, checked
@@ -63,8 +62,7 @@ public sealed partial class Model
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The rendered document, and the file a rendered set writes it to when the service names one.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="documentId"/> is null.</exception>
-    /// <exception cref="ArgumentException"><paramref name="documentId"/> is empty.</exception>
-    /// <exception cref="InvalidRequestException"><paramref name="form"/> is not a <see cref="DocumentForm"/>; nothing was sent.</exception>
+    /// <exception cref="ArgumentException"><paramref name="documentId"/> is empty. <paramref name="form"/> is not a <see cref="DocumentForm"/>; nothing was sent.</exception>
     /// <exception cref="CapabilityException">
     /// The service lacks <see cref="Capabilities.RenderDocument"/>, or <see cref="Capabilities.RenderDocumentHtml"/> for
     /// HTML or <see cref="Capabilities.RenderDocumentAsciidoc"/> for AsciiDoc, checked in that order; nothing was sent.
@@ -82,7 +80,7 @@ public sealed partial class Model
         Connection.ThrowIfDisposed();
         if (!Enum.IsDefined(form))
         {
-            throw new InvalidRequestException($"The form is {form}, which is not a DocumentForm.");
+            throw new ArgumentException($"The form is {form}, which is not a DocumentForm.");
         }
 
         var capabilities = Connection.Capabilities;

@@ -89,8 +89,8 @@ public sealed class ModelEvaluateTests
 
         var gated = await Assert.ThrowsAsync<CapabilityException>(() =>
             model.EvalAsync("mass", new EvalOptions { SubjectSymbolId = "Demo::sedan" }, TestContext.Current.CancellationToken));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.EvalAsync("mass", new EvalOptions { ContextSymbolId = string.Empty }, TestContext.Current.CancellationToken));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.EvalAsync("mass", new EvalOptions { SubjectSymbolId = string.Empty }, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.EvalAsync("mass", new EvalOptions { ContextSymbolId = string.Empty }, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.EvalAsync("mass", new EvalOptions { SubjectSymbolId = string.Empty }, TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<ArgumentNullException>(() => model.EvalAsync(null!, cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Equal(Capabilities.EvaluateSubject, gated.Capability);

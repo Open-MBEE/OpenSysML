@@ -146,7 +146,7 @@ public sealed class ReleaseRequestTests
     [InlineData(ConnectionOptions.VersionVariable, "-v1", "$OPENSYSML_GRPC_VERSION is \"-v1\"")]
     public void AVariableNamingNoRepositoryOrTagIsRefusedNamingIt(string variable, string value, string message)
     {
-        var error = Assert.Throws<InvalidRequestException>(() => ReleaseRequest.From(new ConnectionOptions(), Environment(new() { [variable] = value })));
+        var error = Assert.Throws<ArgumentException>(() => ReleaseRequest.From(new ConnectionOptions(), Environment(new() { [variable] = value })));
 
         Assert.StartsWith(message, error.Message, StringComparison.Ordinal);
     }

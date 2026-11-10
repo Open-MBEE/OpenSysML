@@ -60,7 +60,7 @@ internal static partial class BinaryResolver
     /// <exception cref="BinaryNotFoundException">No executable binary was found where it was looked for, and none could be downloaded.</exception>
     /// <exception cref="ChecksumMismatchException">The binary, or a release, does not have the digest required of it.</exception>
     /// <exception cref="UnpinnedReleaseException">The release asked for is one nothing this client trusts vouches for.</exception>
-    /// <exception cref="InvalidRequestException">A variable names no repository or release.</exception>
+    /// <exception cref="ArgumentException">A variable names no repository or release.</exception>
     /// <exception cref="ServiceStartException">
     /// The binary could not be read, the shared cache stayed locked, or the release asked for could not be downloaded.
     /// </exception>

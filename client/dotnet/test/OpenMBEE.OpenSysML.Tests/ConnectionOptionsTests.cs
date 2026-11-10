@@ -124,7 +124,7 @@ public sealed class ConnectionOptionsTests
     {
         using var handler = new FakeServiceHandler();
 
-        var error = await Assert.ThrowsAsync<InvalidRequestException>(() => FakeConnection.OpenAsync(handler, options(handler)));
+        var error = await Assert.ThrowsAsync<ArgumentException>(() => FakeConnection.OpenAsync(handler, options(handler)));
 
         Assert.Contains(option, error.Message, StringComparison.Ordinal);
         Assert.Empty(handler.Requests);
@@ -137,7 +137,7 @@ public sealed class ConnectionOptionsTests
         using var handler = new FakeServiceHandler();
         var options = new ConnectionOptions { Address = FakeServiceHandler.Address, HttpMessageHandler = handler, Protocol = Protocol.Grpc, Encoding = MessageEncoding.Json };
 
-        var error = await Assert.ThrowsAsync<InvalidRequestException>(() => FakeConnection.OpenAsync(handler, options));
+        var error = await Assert.ThrowsAsync<ArgumentException>(() => FakeConnection.OpenAsync(handler, options));
 
         Assert.Contains("use Protocol.Connect for Json, or MessageEncoding.Protobuf over gRPC", error.Message, StringComparison.Ordinal);
         Assert.Empty(handler.Requests);
@@ -183,7 +183,7 @@ public sealed class RequestHeadersTests
     [InlineData("Connect-Protocol-Version")]
     public void AHeaderTheProtocolControlsIsRefused(string name)
     {
-        var error = Assert.Throws<InvalidRequestException>(() => RequestHeaders.Validate(new Dictionary<string, string> { [name] = "x" }));
+        var error = Assert.Throws<ArgumentException>(() => RequestHeaders.Validate(new Dictionary<string, string> { [name] = "x" }));
 
         Assert.Contains("controlled by the protocol", error.Message, StringComparison.Ordinal);
     }
@@ -196,7 +196,7 @@ public sealed class RequestHeadersTests
     [InlineData("é")]
     public void AnInvalidNameIsRefused(string name)
     {
-        Assert.Throws<InvalidRequestException>(() => RequestHeaders.Validate(new Dictionary<string, string> { [name] = "x" }));
+        Assert.Throws<ArgumentException>(() => RequestHeaders.Validate(new Dictionary<string, string> { [name] = "x" }));
     }
 
     [Theory]
@@ -207,7 +207,7 @@ public sealed class RequestHeadersTests
     [InlineData("\u007f")]
     public void AValueThatIsNotPrintableAsciiIsRefused(string value)
     {
-        var error = Assert.Throws<InvalidRequestException>(() => RequestHeaders.Validate(new Dictionary<string, string> { ["x-custom"] = value }));
+        var error = Assert.Throws<ArgumentException>(() => RequestHeaders.Validate(new Dictionary<string, string> { ["x-custom"] = value }));
 
         Assert.DoesNotContain(value, error.Message, StringComparison.Ordinal);
     }
@@ -215,8 +215,8 @@ public sealed class RequestHeadersTests
     [Fact]
     public void BinaryMetadataAndCaseInsensitiveRepeatsAreRefused()
     {
-        Assert.Throws<InvalidRequestException>(() => RequestHeaders.Validate(new Dictionary<string, string> { ["x-trace-bin"] = "x" }));
-        Assert.Throws<InvalidRequestException>(() => RequestHeaders.Validate(new Dictionary<string, string> { ["X-Custom"] = "a", ["x-custom"] = "b" }));
+        Assert.Throws<ArgumentException>(() => RequestHeaders.Validate(new Dictionary<string, string> { ["x-trace-bin"] = "x" }));
+        Assert.Throws<ArgumentException>(() => RequestHeaders.Validate(new Dictionary<string, string> { ["X-Custom"] = "a", ["x-custom"] = "b" }));
     }
 
     [Fact]
@@ -271,7 +271,7 @@ public sealed class ServiceAddressTests
     [InlineData("http:///path")]
     public void AnythingElseIsRefusedNamingWhereItCameFrom(string text)
     {
-        var error = Assert.Throws<InvalidRequestException>(() => ServiceAddress.Parse(text, "$OPENSYSML_SERVICE"));
+        var error = Assert.Throws<ArgumentException>(() => ServiceAddress.Parse(text, "$OPENSYSML_SERVICE"));
 
         Assert.StartsWith("$OPENSYSML_SERVICE is", error.Message, StringComparison.Ordinal);
     }
@@ -282,9 +282,9 @@ public sealed class ServiceAddressTests
         var named = new ConnectionOptions { Address = "option:1" };
         Assert.Equal(new Uri("http://option:1/"), Connection.ResolveAddress(named, _ => "environment:2"));
         Assert.Equal(new Uri("http://environment:2/"), Connection.ResolveAddress(new ConnectionOptions(), Environment(" environment:2 ")));
-        Assert.Throws<InvalidRequestException>(() => Connection.ResolveAddress(new ConnectionOptions { Address = string.Empty }, _ => "environment:2"));
+        Assert.Throws<ArgumentException>(() => Connection.ResolveAddress(new ConnectionOptions { Address = string.Empty }, _ => "environment:2"));
 
-        var invalid = Assert.Throws<InvalidRequestException>(() => Connection.ResolveAddress(new ConnectionOptions(), Environment("nope")));
+        var invalid = Assert.Throws<ArgumentException>(() => Connection.ResolveAddress(new ConnectionOptions(), Environment("nope")));
         Assert.Contains("$OPENSYSML_SERVICE", invalid.Message, StringComparison.Ordinal);
     }
 

@@ -93,7 +93,8 @@ second is the version and capability count the service reports. With nothing nam
 `Connection.OpenAsync` starts a private `sysml-grpc` as a child of the program and stops it when
 the connection is disposed. A source with errors still parses into a `Model`, whose `Errors`
 say what is wrong; `RequireNoErrors` turns them into an exception instead. Every failure the
-client reports derives from `OpenSysMLException`, while a false verdict is an answer, not an
+client reports derives from `OpenSysMLException`, except an argument or option it refuses before
+sending anything, which is an `ArgumentException`; a false verdict is an answer, not an
 exception.
 
 ## Connections and protocols

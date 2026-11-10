@@ -264,7 +264,7 @@ internal sealed partial class PrivateService : IServiceProcess
         {
             address = ServiceAddress.Parse(line, "The address sysml-grpc reported");
         }
-        catch (InvalidRequestException)
+        catch (ArgumentException)
         {
             return $"reported \"{line}\" where the address it listens on belongs, and was stopped";
         }

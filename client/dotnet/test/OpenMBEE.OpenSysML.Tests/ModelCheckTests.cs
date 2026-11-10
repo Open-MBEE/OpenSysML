@@ -197,9 +197,9 @@ public sealed class ModelCheckTests
         var model = connection.ModelByHash(Hash);
         var token = TestContext.Current.CancellationToken;
 
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.CheckActionAsync("A", options: new CheckOptions { Engine = string.Empty }, cancellationToken: token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.CheckStateAsync("S", new CheckOptions { PerformerSymbolId = string.Empty }, token));
-        var undetermined = await Assert.ThrowsAsync<InvalidRequestException>(() =>
+        await Assert.ThrowsAsync<ArgumentException>(() => model.CheckActionAsync("A", options: new CheckOptions { Engine = string.Empty }, cancellationToken: token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.CheckStateAsync("S", new CheckOptions { PerformerSymbolId = string.Empty }, token));
+        var undetermined = await Assert.ThrowsAsync<ArgumentException>(() =>
             model.CheckActionAsync("A", new Dictionary<string, Value> { ["u"] = new Value.UndeterminedValue("open", string.Empty, string.Empty) }, cancellationToken: token));
         await Assert.ThrowsAsync<ArgumentNullException>(() => model.CheckActionAsync(null!, cancellationToken: token));
         await Assert.ThrowsAsync<ArgumentNullException>(() => model.CheckStateAsync(null!, cancellationToken: token));

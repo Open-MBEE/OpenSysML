@@ -31,7 +31,7 @@ internal static class RequestHeaders
 
     /// <summary>Refuses a header set that cannot be sent as given.</summary>
     /// <param name="headers">The headers, by name.</param>
-    /// <exception cref="InvalidRequestException">A header is malformed, reserved or repeated.</exception>
+    /// <exception cref="ArgumentException">A header is malformed, reserved or repeated.</exception>
     internal static void Validate(IReadOnlyDictionary<string, string> headers)
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -39,31 +39,31 @@ internal static class RequestHeaders
         {
             if (name.Length == 0 || !name.AsSpan().ContainsOnlyNameCharacters())
             {
-                throw new InvalidRequestException(
+                throw new ArgumentException(
                     $"Header \"{name}\" is not a valid name: use ASCII letters, digits, '-', '_' and '.'.");
             }
 
             if (IsReserved(name))
             {
-                throw new InvalidRequestException(
+                throw new ArgumentException(
                     $"Header \"{name}\" is controlled by the protocol and cannot be set; add only authorization and custom metadata.");
             }
 
             if (name.EndsWith("-bin", StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidRequestException($"Header \"{name}\" names binary metadata, which a text header cannot carry.");
+                throw new ArgumentException($"Header \"{name}\" names binary metadata, which a text header cannot carry.");
             }
 
             if (!seen.Add(name))
             {
-                throw new InvalidRequestException($"Header \"{name}\" is given more than once, in different cases.");
+                throw new ArgumentException($"Header \"{name}\" is given more than once, in different cases.");
             }
 
             foreach (var c in value)
             {
                 if (c is < ' ' or > '~')
                 {
-                    throw new InvalidRequestException($"The value of header \"{name}\" holds a character that is not printable ASCII.");
+                    throw new ArgumentException($"The value of header \"{name}\" holds a character that is not printable ASCII.");
                 }
             }
         }

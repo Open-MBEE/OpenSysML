@@ -41,7 +41,7 @@ public sealed partial class Model
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>What it evaluated to.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="expression"/> is null.</exception>
-    /// <exception cref="InvalidRequestException">An option names an empty symbol; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">An option names an empty symbol; nothing was sent.</exception>
     /// <exception cref="CapabilityException">A subject is named and the service lacks <see cref="Capabilities.EvaluateSubject"/>; nothing was sent.</exception>
     /// <exception cref="ModelException">The expression did not parse or evaluate, or the subject is unknown or could not be built.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
@@ -57,7 +57,7 @@ public sealed partial class Model
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The value and the diagnostics reported with it.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="expression"/> is null.</exception>
-    /// <exception cref="InvalidRequestException">An option names an empty symbol; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">An option names an empty symbol; nothing was sent.</exception>
     /// <exception cref="CapabilityException">A subject is named and the service lacks <see cref="Capabilities.EvaluateSubject"/>; nothing was sent.</exception>
     /// <exception cref="ModelException">The expression did not parse or evaluate, or the subject is unknown or could not be built.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
@@ -71,7 +71,7 @@ public sealed partial class Model
         options ??= EvalOptions.Default;
         if (options.ContextSymbolId is { Length: 0 } || options.SubjectSymbolId is { Length: 0 })
         {
-            throw new InvalidRequestException("EvalOptions names an empty symbol; leave ContextSymbolId or SubjectSymbolId null to name none.");
+            throw new ArgumentException("EvalOptions names an empty symbol; leave ContextSymbolId or SubjectSymbolId null to name none.");
         }
 
         if (options.SubjectSymbolId is not null)

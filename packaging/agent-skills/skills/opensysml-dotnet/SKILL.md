@@ -116,8 +116,8 @@ element carries.
 
 ## Errors
 
-Everything derives from `OpenSysMLException`, except `OperationCanceledException` and
-`ObjectDisposedException`:
+Everything derives from `OpenSysMLException`, except `OperationCanceledException`,
+`ObjectDisposedException`, and the `ArgumentException` an argument or option refused before sending is:
 
 - `ServiceException` — the service refused the call with a status (`StatusCode`, `ServiceMessage`);
   `ModelFileNotFoundException` for an unreadable file, `ModelNotFoundException` for a model it no
@@ -127,7 +127,7 @@ Everything derives from `OpenSysMLException`, except `OperationCanceledException
   `ExecutionException`, `VerificationException` (`Reason`), `AnalysisException` (`Partial`),
   `EditException`, `ConversionException`, `QueryException`.
 - `CapabilityException` (service too old: raised before sending, or for a call the service refuses
-  for a capability it does not have), `InvalidRequestException`,
+  for a capability it does not have), `ArgumentException` (an option refused before sending),
   `ServiceStartException` and its `BinaryNotFoundException`, `ChecksumMismatchException` (and
   `UnpinnedReleaseException`, one of them), `TransportException`, `UnsupportedValueException`.
 

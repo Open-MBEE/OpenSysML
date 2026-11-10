@@ -286,7 +286,7 @@ capability the client refuses for before sending is `UNIMPLEMENTED`, which the s
 answer; a transport failure is its status. Nothing is sent raw: a test reads the runner's IL
 and fails on any call to `Connection.CallAsync` or the generated stub. A request setting a field
 the adapter cannot send, or one the API has no way to express, is skipped for a stated reason;
-so is one the API itself refuses with `InvalidRequestException`, for that exception's message.
+so is one the API itself refuses with `ArgumentException`, for that exception's message.
 
 Skips are accounted exactly. `expected-skips.json` lists the RPCs no adapter covers, today none,
 and the scenarios whose request the API cannot express, each with the reason its adapter gives.

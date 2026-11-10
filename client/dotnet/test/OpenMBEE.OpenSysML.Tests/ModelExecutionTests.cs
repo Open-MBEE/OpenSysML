@@ -230,22 +230,22 @@ public sealed class ModelExecutionTests
         var model = connection.ModelByHash(Hash);
         var token = TestContext.Current.CancellationToken;
 
-        var exploring = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ExecuteActionAsync("A", options: new RunOptions { Schedule = "explore:runs=2" }, cancellationToken: token));
-        var once = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ExploreActionAsync("A", options: new RunOptions { Schedule = "declared" }, cancellationToken: token));
-        var stateExploring = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ExecuteStateAsync("S", options: new RunOptions { Schedule = "explore" }, cancellationToken: token));
-        var stateOnce = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ExploreStateAsync("S", options: new RunOptions { Schedule = "reverse" }, cancellationToken: token));
-        var actionTrace = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ExploreActionAsync("A", options: new RunOptions { Trace = true }, cancellationToken: token));
-        var exploredEvents = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ExploreActionAsync("A", options: new RunOptions { PerformerSymbolId = "P::p", Events = ["Go"] }, cancellationToken: token));
-        var noPerformer = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ExecuteActionAsync("A", options: new RunOptions { Events = ["Go"] }, cancellationToken: token));
-        var stateEvents = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ExecuteStateAsync("S", options: new RunOptions { Events = ["Go"] }, cancellationToken: token));
-        var stateEventsWithArgument = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ExecuteStateAsync("S", ["Go"], new RunOptions { Events = ["Go"] }, token));
-        var exploredStateEvents = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ExploreStateAsync("S", options: new RunOptions { Events = ["Go"] }, cancellationToken: token));
-        var exploredTrace = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ExploreStateAsync("S", options: new RunOptions { Trace = true }, cancellationToken: token));
-        var unset = await Assert.ThrowsAsync<InvalidRequestException>(() =>
+        var exploring = await Assert.ThrowsAsync<ArgumentException>(() => model.ExecuteActionAsync("A", options: new RunOptions { Schedule = "explore:runs=2" }, cancellationToken: token));
+        var once = await Assert.ThrowsAsync<ArgumentException>(() => model.ExploreActionAsync("A", options: new RunOptions { Schedule = "declared" }, cancellationToken: token));
+        var stateExploring = await Assert.ThrowsAsync<ArgumentException>(() => model.ExecuteStateAsync("S", options: new RunOptions { Schedule = "explore" }, cancellationToken: token));
+        var stateOnce = await Assert.ThrowsAsync<ArgumentException>(() => model.ExploreStateAsync("S", options: new RunOptions { Schedule = "reverse" }, cancellationToken: token));
+        var actionTrace = await Assert.ThrowsAsync<ArgumentException>(() => model.ExploreActionAsync("A", options: new RunOptions { Trace = true }, cancellationToken: token));
+        var exploredEvents = await Assert.ThrowsAsync<ArgumentException>(() => model.ExploreActionAsync("A", options: new RunOptions { PerformerSymbolId = "P::p", Events = ["Go"] }, cancellationToken: token));
+        var noPerformer = await Assert.ThrowsAsync<ArgumentException>(() => model.ExecuteActionAsync("A", options: new RunOptions { Events = ["Go"] }, cancellationToken: token));
+        var stateEvents = await Assert.ThrowsAsync<ArgumentException>(() => model.ExecuteStateAsync("S", options: new RunOptions { Events = ["Go"] }, cancellationToken: token));
+        var stateEventsWithArgument = await Assert.ThrowsAsync<ArgumentException>(() => model.ExecuteStateAsync("S", ["Go"], new RunOptions { Events = ["Go"] }, token));
+        var exploredStateEvents = await Assert.ThrowsAsync<ArgumentException>(() => model.ExploreStateAsync("S", options: new RunOptions { Events = ["Go"] }, cancellationToken: token));
+        var exploredTrace = await Assert.ThrowsAsync<ArgumentException>(() => model.ExploreStateAsync("S", options: new RunOptions { Trace = true }, cancellationToken: token));
+        var unset = await Assert.ThrowsAsync<ArgumentException>(() =>
             model.ExecuteActionAsync("A", new Dictionary<string, Value> { ["x"] = new Value.UnsetValue() }, cancellationToken: token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.ExecuteActionAsync("A", options: new RunOptions { Schedule = string.Empty }, cancellationToken: token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.ExecuteStateAsync("S", options: new RunOptions { PerformerSymbolId = string.Empty }, cancellationToken: token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.ExploreActionAsync("A", options: new RunOptions { Draws = string.Empty }, cancellationToken: token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.ExecuteActionAsync("A", options: new RunOptions { Schedule = string.Empty }, cancellationToken: token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.ExecuteStateAsync("S", options: new RunOptions { PerformerSymbolId = string.Empty }, cancellationToken: token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.ExploreActionAsync("A", options: new RunOptions { Draws = string.Empty }, cancellationToken: token));
         await Assert.ThrowsAsync<ArgumentException>(() => model.ExecuteActionAsync("A", new Dictionary<string, Value> { ["x"] = null! }, cancellationToken: token));
         await Assert.ThrowsAsync<ArgumentException>(() => model.ExecuteStateAsync("S", [null!], cancellationToken: token));
         await Assert.ThrowsAsync<ArgumentException>(() => model.ExecuteActionAsync("A", options: new RunOptions { PerformerSymbolId = "P::p", Events = [null!] }, cancellationToken: token));

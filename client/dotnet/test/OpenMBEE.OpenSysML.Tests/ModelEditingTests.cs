@@ -421,9 +421,9 @@ public sealed class ModelEditingTests : IDisposable
         var model = connection.ModelByHash(Hash);
         var nested = Edit.AddSequence.If("A", "c", [Edit.AddSequence.Then(string.Empty, "x")], [Edit.AddSequence.Assign(string.Empty, "x", "1") with { Via = string.Empty }]);
 
-        var member = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ApplyEditsAsync([new Edit.SetValue("A", "1"), new Edit.AddMember("A", "part", "p") { Type = string.Empty }], cancellationToken: Token));
-        var deep = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ApplyEditsAsync([nested], cancellationToken: Token));
-        var document = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ApplyEditsAsync([], new EditOptions { InDocument = string.Empty }, Token));
+        var member = await Assert.ThrowsAsync<ArgumentException>(() => model.ApplyEditsAsync([new Edit.SetValue("A", "1"), new Edit.AddMember("A", "part", "p") { Type = string.Empty }], cancellationToken: Token));
+        var deep = await Assert.ThrowsAsync<ArgumentException>(() => model.ApplyEditsAsync([nested], cancellationToken: Token));
+        var document = await Assert.ThrowsAsync<ArgumentException>(() => model.ApplyEditsAsync([], new EditOptions { InDocument = string.Empty }, Token));
         Edit[] empties =
         [
             new Edit.AddMember("A", "part", "p") { Multiplicity = string.Empty },
@@ -449,7 +449,7 @@ public sealed class ModelEditingTests : IDisposable
         ];
         foreach (var empty in empties)
         {
-            await Assert.ThrowsAsync<InvalidRequestException>(() => model.ApplyEditsAsync([empty], cancellationToken: Token));
+            await Assert.ThrowsAsync<ArgumentException>(() => model.ApplyEditsAsync([empty], cancellationToken: Token));
         }
 
         await Assert.ThrowsAsync<ArgumentNullException>(() => model.ApplyEditsAsync(null!, cancellationToken: Token));
