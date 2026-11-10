@@ -113,7 +113,7 @@ func TestImplicitSubsettings(t *testing.T) {
 		{"P::vehicle::drive::steer", "Actions::Action::subactions"},
 		{"P::vehicle::drive", "Parts::Part::ownedActions"},
 		{"P::vehicle::cruise", "Parts::Part::performedActions"},
-		{"P::vehicle::engineState::idle", "States::StateAction::substates"},
+		{"P::vehicle::engineState::idle", "States::StateAction::exclusiveStates"},
 		{"P::vehicle::engineState", "Parts::Part::ownedStates"},
 		{"P::vehicle::parked", "Parts::Part::exhibitedStates"},
 		{"P::vehicle::compute", "Parts::Part::ownedActions"},

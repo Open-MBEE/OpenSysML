@@ -544,18 +544,23 @@ func TestImplicitKerMLAssocStructBaseIsLinkObject(t *testing.T) {
 	}
 }
 
-// A control node is an action usage of its control action, so its members
-// are the action's (SysML v2 §8.3.17) and the variability rules see an occurrence.
-func TestControlNodeBaseIsItsControlAction(t *testing.T) {
-	m, root := buildModelNamed(t, "t.sysml", `package Actions { action def Action; action def ForkAction :> Action; action def JoinAction :> Action; action def MergeAction :> Action; action def DecisionAction :> Action; }
+// A control node subsets the control feature of its kind, Actions::Action::forks
+// and the like (SysML v2 §8.4 checkForkNode/JoinNode/MergeNode/DecisionNodeSpecialization),
+// so its members are that feature's control action's.
+func TestControlNodeBaseIsItsControlFeature(t *testing.T) {
+	m, root := buildModelNamed(t, "t.sysml", `package Actions {
+		action def Action { action forks : ForkAction[0..*]; action joins : JoinAction[0..*]; action merges : MergeAction[0..*]; action decisions : DecisionAction[0..*]; }
+		action def ForkAction :> Action; action def JoinAction :> Action; action def MergeAction :> Action; action def DecisionAction :> Action; }
 		action def A { fork f; join j; merge m; decide d; }`)
 	actions := sym(t, root, "Actions").Scope
+	action := sym(t, actions, "Action").Scope
 	a := sym(t, root, "A").Scope
-	for node, base := range map[string]string{"f": "ForkAction", "j": "JoinAction", "m": "MergeAction", "d": "DecisionAction"} {
-		want, _ := actions.LookupLocal(base)
+	for node, base := range map[string][2]string{"f": {"forks", "ForkAction"}, "j": {"joins", "JoinAction"}, "m": {"merges", "MergeAction"}, "d": {"decisions", "DecisionAction"}} {
+		feature, _ := action.LookupLocal(base[0])
+		def, _ := actions.LookupLocal(base[1])
 		n, _ := a.LookupLocal(node)
-		if supers := m.DirectSupertypes(n); len(supers) != 1 || supers[0] != want {
-			t.Errorf("DirectSupertypes(%s) = %v, want [Actions::%s]", node, supers, base)
+		if supers := m.DirectSupertypes(n); len(supers) != 2 || supers[0] != def || supers[1] != feature {
+			t.Errorf("DirectSupertypes(%s) = %v, want [Actions::%s Actions::Action::%s]", node, supers, base[1], base[0])
 		}
 	}
 }

@@ -53,12 +53,13 @@ func TestImpliedBaseFQNsForMetaclassCoversExpressions(t *testing.T) {
 func TestImpliedBaseFQNsForMetaclassCoversActionNodesAndSuccessionFlows(t *testing.T) {
 	model := &Model{}
 	for metaclass, want := range map[string]string{
-		"AcceptActionUsage":     "Actions::actions",
+		"AcceptActionUsage":     "Actions::acceptActions",
 		"AssignmentActionUsage": "Actions::actions",
 		"IfActionUsage":         "Actions::actions",
 		"WhileLoopActionUsage":  "Actions::actions",
 		"ForLoopActionUsage":    "Actions::actions",
-		"TerminateActionUsage":  "Actions::actions",
+		"SendActionUsage":       "Actions::sendActions",
+		"TerminateActionUsage":  "Actions::terminateActions",
 		"FlowUsage":             "Flows::flows",
 		"SuccessionFlowUsage":   "Flows::successionFlows",
 	} {

@@ -173,6 +173,41 @@ against the metaclass the position requires, which is a cross-cutting change to 
 
 ## Conformance policy we keep
 
+### Implied generalizations follow §8.4 where the pilot's map differs
+
+The pilot's `ImplicitGeneralizationMap` (commit `38665073`) is a convenient oracle for the implied
+generalizations, but the normative tables are KerML 1.1 §8.4 and SysML v2 1.1 §8.4, and the two
+differ in a few places. The row-by-row audit is
+[implicit-specialization-audit.md](implicit-specialization-audit.md); the divergences kept are:
+
+- **Adjudicated divergence — a flow usage without ends is a message, not a flow.** The pilot gives
+  every `FlowUsage` `Flows::flows`; `checkFlowUsageSpecialization` asks for `Flows::messages` of
+  every flow usage and `checkFlowUsageFlowSpecialization` for `flows` only when it has
+  `ownedEndFeatures`. We imply `messages` always and `flows` when the usage has end features —
+  `from`/`to` or owned `end` members (`semantics/implicit.go` `flowDeclaresEnds`); the KerML `flow` is treated the same way
+  (`Transfers::transfers`, `flowTransfers` with ends). A flow typed by a flow definition still
+  reaches `Flow` through its type.
+- **Our defect, closed — a definition where the specification names a feature.** Control nodes
+  specialized `Actions::ForkAction` and the like directly, accept and send actions
+  `Actions::AcceptAction`/`SendAction`, every flow usage `Flows::Message`, and an `individual`
+  usage `Occurrences::Life`. The clauses name the features (`Actions::Action::forks`,
+  `Actions::acceptActions`, `Flows::messages`) and `Life` only for an individual *definition*; the
+  features are implied now and their types arrive as types.
+- **Pilot limitation — role entries no clause requires.** `Multiplicity feature → Base::exactlyOne`
+  and `classifier → Base::zeroOrOne` (the spec names `Base::naturals`, and `zeroOrOne` only for an
+  individual occurrence definition), `Step incomingTransfer`/`featureWrite`, `Feature
+  startingAt`/`accessedFeature` (the spec places these on `AssignmentActionUsage`), and
+  `IncludeUseCaseUsage performedAction → Parts::Part::performedActions` (the spec's
+  `checkPerformActionUsageSpecialization` is about `PerformActionUsage`). None is implied here; the
+  audit lists each with the clause it approximates.
+- **Unimplemented obligation — elements that are not symbols.** Expressions (literal, null,
+  constructor, metadata-access and invocation evaluations and their result redefinitions),
+  multiplicities (`Base::naturals`), the `assign`/`if`/`while`/`for`/bare `terminate` statements and
+  their `Action::assignments`/`ifSubactions`/`loops`/`terminateSubactions`, a transition's trigger,
+  guard and effect (`TransitionAction::accepter`/`guard`/`effect`), and the chain subsettings of
+  decision/merge successions and transition payloads have no symbol to carry a general. The audit
+  carries a reproducer for each; the type checker and lowering handle their semantics directly.
+
 ### A redefinition's declared types were checked for direct conformance
 
 ```kerml
