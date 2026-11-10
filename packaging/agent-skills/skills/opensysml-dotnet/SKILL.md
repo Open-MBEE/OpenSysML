@@ -87,6 +87,33 @@ var all = await model.SatisfiedAsync();   // every `assert satisfy R by x;` deci
 
 `VerifyConstraintAsync` takes the same options; `VerifySatisfactionAsync` returns every verdict.
 
+## Members, element properties and object paths
+
+```csharp
+var sedan = await model.SymbolAsync("Demo::sedan");
+_ = sedan.Members;                 // own then inherited: SymbolMember(Id, Name, Kind, IsInherited, InheritedFrom, IsLibrary)
+_ = sedan.InheritedMembers;        // InheritedFrom names the declaring type
+_ = sedan.WithheldLibraryMembers;  // standard-library members counted, not listed, until:
+var withLibrary = await model.SymbolAsync("Demo::sedan", new SymbolOptions { IncludeLibraryMembers = true });
+
+var read = await model.ElementPropertiesAsync("Demo::Vehicle", ["inheritedFeature", "isAbstract", "connectorEnd"]);
+_ = read.Find("inheritedFeature")?.Elements;   // ElementRefs; their Id is accepted back
+_ = read.Find("isAbstract")?.Value;            // an ElementPropertyValue arm, a BooleanValue here
+_ = read.Find("connectorEnd")?.Unsupported;    // why there are no values: "PartDefinition declares no property connectorEnd"
+
+var engine = built.Reachable[1];
+_ = engine.ReachedBy;              // InstanceReach: InstanceId, FeatureName, Index, Path; null for the root
+_ = engine.Path;                   // "engine"
+_ = built.FindOwner(engine);       // the holding object
+var paths = await model.InstancePathsAsync(engine.Id);   // every root-relative InstancePath, aliases included
+```
+
+`Members` is empty from a service without `symbol_members` (`ChildIds` still names the owned ones);
+`IncludeLibraryMembers`, `ElementPropertiesAsync` and `InstancePathsAsync`/`InstancePathsAtAsync`
+throw `CapabilityException` before sending when the service lacks `symbol_members`,
+`element_properties` or `instance_paths`. Omit the property names to read every property the
+element carries.
+
 ## Errors
 
 Everything derives from `OpenSysMLException`, except `OperationCanceledException` and
