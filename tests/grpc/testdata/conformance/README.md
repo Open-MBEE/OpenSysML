@@ -63,6 +63,9 @@ empty else blocks are not authorable.
 | `question` | VerifyConstraint | `evaluate`, `holds` or `satisfiable`; a solver question skips when no SMT solver is installed unless `OPENSYSML_REQUIRE_SMT` is set |
 | `expected_status`, `expected_notes` | VerifyConstraint | the verdict's `status`, and the notes its answer rests on, in order: `kind` (`assumed_one` or `uncovered`), `subject`, `text` |
 | `query` | Query | the standard's `Query` as protojson writes it (`scope`, `select`, `where`, `orderBy`) |
+| `model` | all | the fixture parsed instead of `<name>.sysml`, so cases reading different elements of one model share it |
+| `element_id`, `properties` | GetElementProperties | the element read — a qualified name, a positional id (`Owner::@2`) or an id an earlier answer carried — and the specification names of the properties asked for, in order; empty reads every property the element form carries |
+| `expected_properties` | GetElementProperties | per property asked for, in order: `name`, `defining_class`, `many`, `derived`, the `values` as text — an element by its qualified name (its id when it has none), a literal as its text — and `unsupported_contains`, the text the reason must contain when the property has no answer; `expected_error` the in-band error instead |
 | `expected_element_ids`, `expected_query_error` | Query | the ids the answer reports, in order; or text the refusal's status message must contain |
 | `expected_reach_paths` | Instantiate | the path each instance of the graph says the traversal reached it by (`reached_by.path`), in graph order, the root's being empty; each holder must hold the instance under the feature and index the path ends with |
 | `object_path` | InstancePaths | the object whose paths to list, as `DocumentObject.path`: the name a root was instantiated as, or a path through feature values from it (`Fuel::vehicle.wheels[2]`) |

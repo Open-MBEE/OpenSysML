@@ -164,14 +164,54 @@ func TestExploreCoverageHoldsForkBranchesAndJoinSegments(t *testing.T) {
 	}
 	for _, want := range []string{
 		"test::Run::ready -> split",
-		"test::Run::split -> lwork",
-		"test::Run::split -> rwork",
-		"test::Run::lwork -> sync",
-		"test::Run::rwork -> sync",
+		"test::Run::split -> working::left::lwork",
+		"test::Run::split -> working::right::rwork",
+		"test::Run::working::left::lwork -> sync",
+		"test::Run::working::right::rwork -> sync",
 		"test::Run::working -> fin",
 	} {
 		if !slices.Contains(taken, want) {
 			t.Errorf("transitions taken %q lack %q", taken, want)
 		}
+	}
+}
+
+// Two regions reusing the same local state names take transitions of their own:
+// the coverage keys a transition by the paths of its states, as it keys states.
+func TestExploreCoverageTellsRegionsReusingNamesApart(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		part def M;
+		state def Run {
+			entry; then working;
+			state working parallel {
+				state left {
+					entry; then s0;
+					state s0;
+					state s1;
+					transition first s0 then s1;
+				}
+				state right {
+					entry; then s0;
+					state s0;
+					state s1;
+					transition first s0 then s1;
+				}
+			}
+		}
+	}`)
+	x := exploreMachine(t, m, "test::M", "test::Run")
+	if !x.Complete() {
+		t.Fatalf("status %q, want complete", x.Status())
+	}
+	var taken []string
+	for _, entry := range x.Coverage.Transitions {
+		taken = append(taken, entry.Path+" ("+entry.Declaration+")")
+	}
+	want := []string{
+		"test::M#1.Run: working.left.s0 -> working.left.s1 (test::Run::working::left::s0 -> working::left::s1)",
+		"test::M#1.Run: working.right.s0 -> working.right.s1 (test::Run::working::right::s0 -> working::right::s1)",
+	}
+	if !slices.Equal(taken, want) {
+		t.Errorf("transitions taken %q\nwant %q", taken, want)
 	}
 }

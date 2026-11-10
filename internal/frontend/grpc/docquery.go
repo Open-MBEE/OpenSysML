@@ -19,6 +19,7 @@ import (
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/suggest"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
@@ -600,32 +601,110 @@ func withQueryOutcome(status error, outcome *queryexec.Outcome) error {
 func queryOutcomeMessage(outcome queryexec.Outcome) *pb.QueryOutcome {
 	out := &pb.QueryOutcome{Kind: outcome.Kind(), Step: outcome.Step().Label()}
 	if outcome.Path != nil {
-		out.Failures = queryFailures(outcome.Path.Failures)
+		out.Failures = queryFailures(firstOf(outcome.Path.Failures, failureLimit))
+		out.FailuresTotal = int32Clamp(len(outcome.Path.Failures))
 	}
 	if outcome.Model != nil {
-		for _, f := range outcome.Model.Findings {
+		for _, f := range firstOf(outcome.Model.Findings, failureLimit) {
 			out.Findings = append(out.Findings, &pb.QueryFinding{
 				Step: f.Step.Label(), Element: f.Element, Constraint: string(f.Constraint), Observed: f.Observed,
 			})
 		}
-		out.PathFailures = queryFailures(outcome.Model.PathFailures)
+		out.FindingsTotal = int32Clamp(len(outcome.Model.Findings))
+		out.PathFailures = queryFailures(firstOf(outcome.Model.PathFailures, failureLimit))
+		out.PathFailuresTotal = int32Clamp(len(outcome.Model.PathFailures))
 	}
 	return out
 }
 
+// failureLimit bounds the failures and findings a QueryOutcome carries on the
+// wire: a fan-out records one per failing element, and the detail rides in a
+// status trailer gRPC caps at 8 KiB.
+const failureLimit = 8
+
+func firstOf[T any](items []T, limit int) []T {
+	if len(items) > limit {
+		return items[:limit]
+	}
+	return items
+}
+
+// frontierLimit bounds each list a QueryFrontier carries on the wire: the
+// detail rides in a status trailer, which gRPC caps at 8 KiB, and a
+// metamodel-wide frontier names hundreds of properties.
+const frontierLimit = 8
+
+// queryFailures converts the failures field for field, each frontier list
+// bounded to the spellings nearest the step's argument with the whole count
+// recorded, so the detail stays a status trailer whatever the model's size.
 func queryFailures(failures []queryexec.Failure) []*pb.QueryFailure {
 	out := make([]*pb.QueryFailure, 0, len(failures))
 	for _, f := range failures {
-		frontier := &pb.QueryFrontier{At: f.Frontier.At, Kinds: f.Frontier.Kinds, Nearest: f.Frontier.Nearest}
-		for _, m := range f.Frontier.Members {
+		frontier := &pb.QueryFrontier{
+			At: f.Frontier.At, Nearest: f.Frontier.Nearest,
+			MembersTotal: int32Clamp(len(f.Frontier.Members)), FeaturesTotal: int32Clamp(len(f.Frontier.Features)), KindsTotal: int32Clamp(len(f.Frontier.Kinds)),
+		}
+		for _, m := range nearestItems(f.Step.Argument, f.Frontier.Members, func(m queryexec.Member) string { return m.Name }) {
 			frontier.Members = append(frontier.Members, &pb.QueryFrontierMember{Name: m.Name, Metaclass: m.Metaclass})
 		}
-		for _, r := range f.Frontier.Features {
+		for _, r := range nearestItems(f.Step.Argument, f.Frontier.Features, func(r queryexec.FeatureRef) string { return r.Name }) {
 			frontier.Features = append(frontier.Features, &pb.QueryFrontierFeature{Name: r.Name, Type: r.Type})
 		}
+		frontier.Kinds = nearestFirst(f.Step.Argument, f.Frontier.Kinds)
 		out = append(out, &pb.QueryFailure{Step: f.Step.Label(), Expected: f.Expected, Frontier: frontier})
 	}
 	return out
+}
+
+// nearestFirst is at most frontierLimit of names: the spellings nearest word
+// first, then the rest in their given order; nil for none.
+func nearestFirst(word string, names []string) []string {
+	if len(names) == 0 {
+		return nil
+	}
+	out := make([]string, 0, frontierLimit)
+	seen := map[string]bool{}
+	for _, name := range suggest.Nearest(word, names) {
+		if len(out) == frontierLimit {
+			return out
+		}
+		if !seen[name] {
+			seen[name] = true
+			out = append(out, name)
+		}
+	}
+	for _, name := range names {
+		if len(out) == frontierLimit {
+			break
+		}
+		if !seen[name] {
+			seen[name] = true
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
+// nearestItems is at most frontierLimit of items, those whose name is nearest
+// word first; items sharing a name (a member declared under several
+// metaclasses) are kept together, in their given order.
+func nearestItems[T any](word string, items []T, name func(T) string) []T {
+	names := make([]string, 0, len(items))
+	for _, item := range items {
+		names = append(names, name(item))
+	}
+	rank := map[string]int{}
+	for i, n := range nearestFirst(word, names) {
+		rank[n] = i + 1
+	}
+	out := make([]T, 0, frontierLimit)
+	for _, item := range items {
+		if rank[name(item)] > 0 {
+			out = append(out, item)
+		}
+	}
+	slices.SortStableFunc(out, func(a, b T) int { return rank[name(a)] - rank[name(b)] })
+	return firstOf(out, frontierLimit)
 }
 
 // statusWithOrigin fails with the engine's message, naming the source

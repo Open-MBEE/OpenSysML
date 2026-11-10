@@ -102,7 +102,7 @@ func (e *StateExecutor) enterForkBranches(fork *ast.PseudostateNode, plan *lower
 					if err := e.runBranchEffect(branch); err != nil {
 						return err
 					}
-					e.ctx.noteTransitionTaken(e.self, e.stateMachine, fork.Name, entry.target.Name)
+					e.ctx.noteTransitionTaken(e.self, e.stateMachine, e.vertexPath(fork), e.statePath(entry.target))
 				}
 				if err := e.enterShared(above); err != nil {
 					return err

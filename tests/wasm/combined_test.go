@@ -19,9 +19,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/jsonrpc"
 )
 
-// combinedGzipBudget bounds the gzipped js build of sysml-wasm: raised to 10,500,000 on
-// 2026-11-09 when develop 227e88ee3b measured 10,397,368 bytes, the condition-printer branch
-// alone 10,294,659 and their merge 10,400,077 (10,400,000 since 2026-10-27, at 10,008,006).
+// combinedGzipBudget bounds the gzipped js sysml-wasm the gate links and `make build-release-wasm` ships (-trimpath, stripped,
+// the library snapshot embedded): 10,413,317 bytes under go1.27.3 on 2026-11-09 at develop ddc4a547fe, 8,726,216 without the snapshot.
 const combinedGzipBudget = 10500000
 
 const combinedModel = `package Demo { part def Item; }`

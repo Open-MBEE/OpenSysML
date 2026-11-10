@@ -1,0 +1,47 @@
+{
+  "rpc": "GetElementProperties",
+  "model": "element_properties_connector.sysml",
+  "element_id": "ConnectorFamily::Station::@5",
+  "properties": [
+    "relatedFeature",
+    "sourceFeature",
+    "targetFeature",
+    "isImplied"
+  ],
+  "expected_properties": [
+    {
+      "name": "relatedFeature",
+      "defining_class": "Connector",
+      "many": true,
+      "derived": true,
+      "values": [
+        "ConnectorFamily::Station::level",
+        "ConnectorFamily::Station::shown"
+      ]
+    },
+    {
+      "name": "sourceFeature",
+      "defining_class": "Connector",
+      "derived": true,
+      "values": [
+        "ConnectorFamily::Station::level"
+      ]
+    },
+    {
+      "name": "targetFeature",
+      "defining_class": "Connector",
+      "many": true,
+      "derived": true,
+      "values": [
+        "ConnectorFamily::Station::shown"
+      ]
+    },
+    {
+      "name": "isImplied",
+      "defining_class": "Relationship",
+      "values": [
+        "false"
+      ]
+    }
+  ]
+}
