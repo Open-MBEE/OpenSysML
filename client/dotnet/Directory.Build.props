@@ -5,7 +5,7 @@
     lockstep with; client/python/scripts/check_version.py enforces that.
   -->
   <PropertyGroup>
-    <Version>0.12.0</Version>
+    <Version>0.12.1</Version>
     <Authors>OpenMBEE</Authors>
     <Copyright>Copyright (c) OpenMBEE contributors</Copyright>
     <TargetFramework>net10.0</TargetFramework>
