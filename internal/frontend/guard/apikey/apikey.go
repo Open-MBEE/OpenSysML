@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -121,6 +122,11 @@ func Hash(secret string) string {
 // Mint issues a key for subject with scopes, expiring at expires (zero for never), and appends
 // its record to the file at path, created if absent; the key is returned once, the file never holds it.
 func Mint(path, subject string, scopes []string, expires time.Time) (string, Record, error) {
+	unlock, err := lock(path)
+	if err != nil {
+		return "", Record{}, err
+	}
+	defer unlock()
 	records, err := ReadFile(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return "", Record{}, err
@@ -136,7 +142,11 @@ func Mint(path, subject string, scopes []string, expires time.Time) (string, Rec
 	secret := random(secretBytes)
 	record := Record{ID: id, SHA256: Hash(secret), Subject: subject, Scopes: append([]string(nil), scopes...)}
 	if !expires.IsZero() {
+		// Whole seconds in the file, rounded up so the lifetime is never cut short.
 		record.Expires = expires.UTC().Truncate(time.Second)
+		if record.Expires.Before(expires) {
+			record.Expires = record.Expires.Add(time.Second)
+		}
 	}
 	if err := record.validate(); err != nil {
 		return "", Record{}, err
@@ -154,8 +164,8 @@ func random(n int) string {
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
-// appendRecord writes one record as one line at the end of the file, which
-// only the owner may read.
+// appendRecord writes one record as one line at the end of the file, which is
+// made the owner's alone to read if it was not.
 func appendRecord(path string, record Record) error {
 	line, err := json.Marshal(record)
 	if err != nil {
@@ -163,6 +173,10 @@ func appendRecord(path string, record Record) error {
 	}
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o600) // #nosec G304 -- the operator names the file with -api-keys
 	if err != nil {
+		return err
+	}
+	if err = f.Chmod(0o600); err != nil {
+		_ = f.Close()
 		return err
 	}
 	if _, err = f.Write(append(line, '\n')); err != nil {
@@ -175,6 +189,11 @@ func appendRecord(path string, record Record) error {
 // Revoke marks the record of id disabled in the file at path, which is
 // rewritten whole; a key that is not there, or is disabled already, is an error.
 func Revoke(path, id string) error {
+	unlock, err := lock(path)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	records, err := ReadFile(path)
 	if err != nil {
 		return err
@@ -249,6 +268,9 @@ func ReadFile(path string) ([]Record, error) {
 		dec.DisallowUnknownFields()
 		if err := dec.Decode(&r); err != nil {
 			return nil, fmt.Errorf("%s:%d: not a key record: %w", path, n, err)
+		}
+		if _, err := dec.Token(); err != io.EOF {
+			return nil, fmt.Errorf("%s:%d: more than one record on the line", path, n)
 		}
 		if err := r.validate(); err != nil {
 			return nil, fmt.Errorf("%s:%d: %w", path, n, err)
