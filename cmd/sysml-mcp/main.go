@@ -64,10 +64,10 @@ func main() {
 
 // printConfig answers -print-config: the list of hosts when none is named, or
 // the block for the host named with it.
-func printConfig(opts *options, fs *flag.FlagSet, stdout, stderr io.Writer) int {
+func printConfig(opts *options, fs *flag.FlagSet, extra string, stdout, stderr io.Writer) int {
 	name := opts.printConfig.host
-	if fs.NArg() > 0 {
-		fmt.Fprintf(stderr, "%sunexpected argument %q after -print-config %s\n", commandPrefix, fs.Arg(0), name)
+	if extra != "" {
+		fmt.Fprintf(stderr, "%sunexpected argument %q after -print-config %s\n", commandPrefix, extra, name)
 		printUsage(stderr, fs)
 		return exitUnservable
 	}
@@ -114,11 +114,17 @@ func run(args []string, stdout, stderr io.Writer) int {
 		// Parse has already reported the flag and printed the usage on stderr.
 		return exitUnservable
 	}
+	// The first argument is the host of a bare -print-config; the flags after it
+	// are read now, before the environment, so every flag wins over its variable.
+	var positional string
+	if fs.NArg() > 0 {
+		positional = fs.Arg(0)
+		if err := fs.Parse(fs.Args()[1:]); err != nil {
+			return exitUnservable
+		}
+	}
 	// The command line's own output flags are answered before the environment
 	// is read, so a bad variable never hides the help or the version.
-	if err := readPrintConfigHost(opts, fs); err != nil {
-		return exitUnservable
-	}
 	if code, done := printOutput(opts, fs, stdout); done {
 		return code
 	}
@@ -127,20 +133,23 @@ func run(args []string, stdout, stderr io.Writer) int {
 		printUsage(stderr, fs)
 		return exitUnservable
 	}
-	if err := readPrintConfigHost(opts, fs); err != nil {
-		return exitUnservable
-	}
 	if code, done := printOutput(opts, fs, stdout); done {
 		return code
 	}
 	opts.given = map[string]bool{}
 	fs.Visit(func(f *flag.Flag) { opts.given[f.Name] = true })
 
-	if opts.printConfig.set {
-		return printConfig(opts, fs, stdout, stderr)
+	if opts.printConfig.set && opts.printConfig.host == "" {
+		opts.printConfig.host, positional = positional, ""
 	}
-	if fs.NArg() > 0 {
-		fmt.Fprintf(stderr, "%sunexpected argument %q; %s\n", commandPrefix, fs.Arg(0), protocolMessage)
+	if positional == "" && fs.NArg() > 0 {
+		positional = fs.Arg(0)
+	}
+	if opts.printConfig.set {
+		return printConfig(opts, fs, positional, stdout, stderr)
+	}
+	if positional != "" {
+		fmt.Fprintf(stderr, "%sunexpected argument %q; %s\n", commandPrefix, positional, protocolMessage)
 		printUsage(stderr, fs)
 		return exitUnservable
 	}
@@ -207,16 +216,6 @@ func run(args []string, stdout, stderr io.Writer) int {
 // a result, while help over a misuse belongs with the error.
 func printUsage(w io.Writer, fs *flag.FlagSet) {
 	doc().WriteText(w, fs)
-}
-
-// readPrintConfigHost takes the host that follows a bare -print-config from the
-// arguments, reading the flags after it as well.
-func readPrintConfigHost(opts *options, fs *flag.FlagSet) error {
-	if !opts.printConfig.set || opts.printConfig.host != "" || fs.NArg() == 0 {
-		return nil
-	}
-	opts.printConfig.host = fs.Arg(0)
-	return fs.Parse(fs.Args()[1:])
 }
 
 // printOutput answers -help, -man or -version on stdout, reporting whether one
