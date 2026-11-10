@@ -104,6 +104,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		Version:    cfg.Version,
 		WebsiteURL: "https://github.com/Open-MBEE/OpenSysML",
 	}, &sdk.ServerOptions{Logger: cfg.Logger, Instructions: cfg.Instructions}), logger: cfg.Logger}
+	s.sdk.AddReceivingMiddleware(s.authorize)
 
 	for _, g := range groups {
 		switch g {

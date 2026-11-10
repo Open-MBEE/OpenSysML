@@ -13,6 +13,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/catalog"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/toolkit"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/notebook"
@@ -35,12 +36,12 @@ type SessionOpenInput struct {
 // sessionNamer is a tool input naming the session it addresses.
 type sessionNamer interface{ sessionName() string }
 
-// handler adapts a function over a session to a tool handler: the session named
-// is used one call at a time, and the call's context interrupts a long run.
+// handler adapts a function over a session to a tool handler: the caller's own
+// session of that name is used one call at a time, and the call's context interrupts a long run.
 func handler[In sessionNamer, Out any](m *Manager, fn func(context.Context, *repl.Session, In) (Out, error)) func(context.Context, *mcp.CallToolRequest, In) (*mcp.CallToolResult, Out, error) {
 	return func(ctx context.Context, _ *mcp.CallToolRequest, in In) (*mcp.CallToolResult, Out, error) {
 		var out Out
-		err := m.Use(ctx, in.sessionName(), func(s *repl.Session) error {
+		err := m.Use(ctx, owner(ctx), in.sessionName(), func(s *repl.Session) error {
 			var err error
 			out, err = fn(ctx, s, in)
 			return err
@@ -54,6 +55,9 @@ func handler[In sessionNamer, Out any](m *Manager, fn func(context.Context, *rep
 	}
 }
 
+// owner is the identity the caller's sessions are keyed by.
+func owner(ctx context.Context) string { return toolkit.Caller(ctx).ID() }
+
 // failed is an error carrying the lines the prompt printed before or with it,
 // so a client reads what the session reported, not only that it failed.
 func failed(err error, lines []string) error {
@@ -66,9 +70,17 @@ func failed(err error, lines []string) error {
 // text joins the prompt's lines as one block.
 func text(lines []string) string { return strings.Join(lines, "\n") }
 
+// SessionCloseInput names the session to close: the caller's own, or with
+// owner, another principal's, which takes sysml:admin.
+type SessionCloseInput struct {
+	SessionName
+	Owner string `json:"owner,omitempty" jsonschema:"the principal whose session to close, as session_list's all names it; needs the sysml:admin scope; omit for one of your own"`
+}
+
 // SessionOpened reports the session a call opened or closed.
 type SessionOpened struct {
 	Session string `json:"session" jsonschema:"the session's name"`
+	Owner   string `json:"owner,omitempty" jsonschema:"the principal the session belongs to, when it is not the caller"`
 }
 
 // SessionListInput takes no arguments.
@@ -76,7 +88,14 @@ type SessionListInput struct{}
 
 // SessionList is the open sessions.
 type SessionList struct {
-	Sessions []string `json:"sessions" jsonschema:"names of the open sessions, sorted"`
+	Sessions []string       `json:"sessions" jsonschema:"names of the caller's open sessions, sorted"`
+	All      []OwnedSession `json:"all,omitempty" jsonschema:"every principal's open sessions with their owners, sorted by owner then name; answered only to a caller with the sysml:admin scope"`
+}
+
+// OwnedSession is one open session with the principal it belongs to.
+type OwnedSession struct {
+	Owner   string `json:"owner" jsonschema:"the principal's identity, source:subject"`
+	Session string `json:"session" jsonschema:"the session's name"`
 }
 
 // Diagnostic is one finding about the session's model, placed in the file it
@@ -193,26 +212,41 @@ func Register(s *mcp.Server, m *Manager) {
 		Description: "Open a named REPL session: an empty model that declarations, instances and runs accumulate into across calls. The default session opens itself on first use, so this is only needed for a second, independent session, or for one with a root: a directory under the workspace root whose model files load on demand, as %load would load them, when a submission imports or qualifies a root namespace that neither the session nor the library declares.",
 		Annotations: toolkit.Mutating("Open session", false),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in SessionOpenInput) (*mcp.CallToolResult, SessionOpened, error) {
-		name, err := m.OpenIn(in.Session, in.Root)
+		name, err := m.OpenIn(owner(ctx), in.Session, in.Root)
 		return nil, SessionOpened{Session: name}, err
 	})
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "session_close",
-		Description: "Close a REPL session, discarding its model, instances and any run in progress.",
+		Description: "Close a REPL session of your own, discarding its model, instances and any run in progress; with owner, another principal's session, which takes the sysml:admin scope.",
 		Annotations: toolkit.Mutating("Close session", false),
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, in SessionName) (*mcp.CallToolResult, SessionOpened, error) {
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, in SessionCloseInput) (*mcp.CallToolResult, SessionOpened, error) {
 		name := in.Session
 		if name == "" {
 			name = DefaultSession
 		}
-		return nil, SessionOpened{Session: name}, m.Close(in.Session)
+		caller := toolkit.Caller(ctx)
+		target, other := caller.ID(), ""
+		if in.Owner != "" && in.Owner != target {
+			if !toolkit.HasScope(caller, catalog.ScopeAdmin) {
+				return nil, SessionOpened{}, fmt.Errorf("closing another principal's session takes the scope %s, which this credential does not grant", catalog.ScopeAdmin)
+			}
+			target, other = in.Owner, in.Owner
+		}
+		return nil, SessionOpened{Session: name, Owner: other}, m.Close(target, in.Session)
 	})
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "session_list",
-		Description: "List the open REPL sessions.",
+		Description: "List your open REPL sessions; with the sysml:admin scope, every principal's as well, each with its owner.",
 		Annotations: toolkit.ReadOnly("List sessions"),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ SessionListInput) (*mcp.CallToolResult, SessionList, error) {
-		return nil, SessionList{Sessions: m.Names()}, nil
+		caller := toolkit.Caller(ctx)
+		out := SessionList{Sessions: m.Names(caller.ID())}
+		if toolkit.HasScope(caller, catalog.ScopeAdmin) {
+			for _, key := range m.Keys() {
+				out.All = append(out.All, OwnedSession{Owner: key.Owner, Session: key.Name})
+			}
+		}
+		return nil, out, nil
 	})
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "session_load",

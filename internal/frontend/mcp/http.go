@@ -167,7 +167,7 @@ func IsLoopbackAddr(addr net.Addr) bool { return guard.IsLoopbackAddr(addr) }
 func (s *Server) Handler(origins OriginPolicy, token BearerToken) http.Handler {
 	streamable := sdk.NewStreamableHTTPHandler(func(*http.Request) *sdk.Server { return s.sdk }, &sdk.StreamableHTTPOptions{Logger: s.logger})
 	mux := http.NewServeMux()
-	mux.Handle(HTTPPath, origins.Handler(token.Handler(streamable)))
+	mux.Handle(HTTPPath, origins.Handler(token.Handler(stampRemoteAddr(streamable))))
 	if token.Set() {
 		for _, path := range token.MetadataPaths() {
 			mux.Handle(path, origins.Handler(http.HandlerFunc(token.ServeMetadata)))
