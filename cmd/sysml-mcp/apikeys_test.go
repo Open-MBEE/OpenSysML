@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -157,5 +158,30 @@ func TestAPIKeyFlagsMisused(t *testing.T) {
 	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Errorf("a refused mint created the file: %v", err)
+	}
+}
+
+// failingWriter fails every write, as a closed or full stdout does.
+type failingWriter struct{}
+
+func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("no space left on device") }
+
+// TestMintWithoutStdout: a key that could not be written to stdout is not
+// left good in the file, since nobody has it; the failure is reported with exit status 2.
+func TestMintWithoutStdout(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "keys.jsonl")
+	var stderr bytes.Buffer
+	if status := run([]string{"-mint-api-key", "-api-keys", path, "-subject", "alice", "-scopes", "sysml:read"}, failingWriter{}, &stderr); status != exitUnservable {
+		t.Errorf("exit status %d, want %d\n%s", status, exitUnservable, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "sysml-mcp: -mint-api-key: the key was not written to stdout, so its record ") || !strings.Contains(stderr.String(), "no space left on device") {
+		t.Errorf("stderr:\n%s", stderr.String())
+	}
+	if strings.Contains(stderr.String(), "appended to") {
+		t.Errorf("stderr reports the mint as done:\n%s", stderr.String())
+	}
+	records, err := apikey.ReadFile(path)
+	if err != nil || len(records) != 1 || !records[0].Disabled {
+		t.Errorf("the file holds %+v, %v; want the one record disabled", records, err)
 	}
 }

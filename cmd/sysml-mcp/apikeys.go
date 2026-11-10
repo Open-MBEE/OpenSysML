@@ -112,7 +112,13 @@ func (c *keyCommand) run(stdout, stderr io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("-mint-api-key: %w", err)
 	}
-	fmt.Fprintln(stdout, key)
+	if _, err := fmt.Fprintln(stdout, key); err != nil {
+		// A key nobody received must not stay good: the record is disabled again.
+		if rerr := apikey.Revoke(c.file, record.ID); rerr != nil {
+			return fmt.Errorf("-mint-api-key: the key was not written to stdout (%v) and its record %s could not be disabled: %w", err, record.ID, rerr)
+		}
+		return fmt.Errorf("-mint-api-key: the key was not written to stdout, so its record %s was disabled: %w", record.ID, err)
+	}
 	lifetime := "does not expire"
 	if !record.Expires.IsZero() {
 		lifetime = "expires " + record.Expires.Format(time.RFC3339)
