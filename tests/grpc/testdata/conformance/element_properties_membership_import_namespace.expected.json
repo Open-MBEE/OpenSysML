@@ -1,0 +1,33 @@
+{
+  "rpc": "GetElementProperties",
+  "model": "element_properties_membership_import.sysml",
+  "element_id": "Plant___401",
+  "properties": [
+    "importedNamespace",
+    "visibility",
+    "isRecursive"
+  ],
+  "expected_properties": [
+    {
+      "name": "importedNamespace",
+      "defining_class": "NamespaceImport",
+      "values": [
+        "Shared"
+      ]
+    },
+    {
+      "name": "visibility",
+      "defining_class": "Import",
+      "values": [
+        "private"
+      ]
+    },
+    {
+      "name": "isRecursive",
+      "defining_class": "Import",
+      "values": [
+        "false"
+      ]
+    }
+  ]
+}
