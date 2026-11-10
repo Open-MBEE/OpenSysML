@@ -182,6 +182,9 @@ type Context struct {
 	// coverageGaps holds the constructs this run performed in one order without
 	// a choice point, recorded once each (coverage_gap.go).
 	coverageGaps map[CoverageGap]bool
+	// coverage holds the states this run entered and the transitions it took,
+	// qualified by the object running the machine, whether or not it is traced.
+	coverage map[coverageKey]CoverageEntry
 
 	// heldBehaviors are the behaviors already holding work when the outermost
 	// start under way began: a driver put it in flight, and dispatches it.

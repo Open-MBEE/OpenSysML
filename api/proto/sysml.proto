@@ -718,6 +718,27 @@ message ExplorationStatus {
   // without a choice point, by identifier; `complete` is false while any is
   // listed, since fewer orders were run than the library admits.
   repeated string unenumerated = 8;
+  // Every state entered and transition taken over all the runs, not only the
+  // witness of each outcome, with how many runs did so.
+  Coverage coverage = 9;
+}
+
+// Coverage is what every run of an exploration, or every schedule of a check,
+// entered and took, with how many did so.
+message Coverage {
+  repeated CoverageEntry states = 1;
+  repeated CoverageEntry transitions = 2;
+}
+
+// CoverageEntry is one state entered or one transition taken.
+message CoverageEntry {
+  // Qualified by the instance running the machine: `Cov::Sys#1.m.run: viaA`,
+  // `Cov::Sys#1.m.run: s0 -> viaB`.
+  string path = 1;
+  // Qualified by the declaration: `Cov::M::run::viaA`, `Cov::M::run::s0 -> viaB`.
+  string declaration = 2;
+  // How many runs (schedules, under the check engine) entered or took it.
+  int32 runs = 3;
 }
 
 // CheckBehaviorRequest searches every schedule of a behavior, as the `sysml`
@@ -832,6 +853,9 @@ message CheckSearch {
   repeated string scope = 9;
   // How the search ended, as `sysml` reports it.
   string status = 10;
+  // Every state entered and transition taken over all the searched schedules,
+  // not only the witness of each final, with how many schedules did so.
+  Coverage coverage = 11;
 }
 
 // CheckBehaviorResponse is what the search found.
