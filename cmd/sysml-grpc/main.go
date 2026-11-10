@@ -68,12 +68,12 @@ func main() {
 		os.Exit(2)
 	}
 
-	token, _, err := guard.Read(opts.tokenFile, opts.token, tokenEnv)
+	auth, err := opts.auth.Resolve(tokenEnv)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "sysml-grpc: %v\n", err)
 		os.Exit(2)
 	}
-	if token.Set() && opts.allowUnauthenticated {
+	if auth.Configured() && opts.allowUnauthenticated {
 		fmt.Fprintln(os.Stderr, "sysml-grpc: -allow-unauthenticated and a bearer token contradict each other; give one")
 		os.Exit(2)
 	}
@@ -137,7 +137,7 @@ func main() {
 		// for readiness, and the client's exit closes stdin, which ends this.
 		os.Exit(runStdio(svc))
 	}
-	if opts.allowInsecureToken && !token.Set() {
+	if opts.allowInsecureToken && !auth.Configured() {
 		fmt.Fprintln(os.Stderr, "sysml-grpc: -allow-insecure-token-transport is for a bearer token served without TLS; there is no token")
 		os.Exit(2)
 	}
@@ -160,7 +160,7 @@ func main() {
 	// Refused before anything is served or reported: an address other machines
 	// reach is not offered open by accident.
 	if !guard.IsLoopbackAddr(lis.Addr()) {
-		if msg := openAddressRefusal(lis.Addr(), token, opts); msg != "" {
+		if msg := openAddressRefusal(lis.Addr(), auth.Configured(), opts); msg != "" {
 			_ = lis.Close()
 			fmt.Fprintln(os.Stderr, msg)
 			os.Exit(2)
@@ -194,7 +194,7 @@ func main() {
 		serveCtx, cancelServe := context.WithCancel(context.Background())
 		served := make(chan error, 1)
 		go func() {
-			served <- serveConnect(serveCtx, lis, svc, info.Version, origins, token, certificateFiles{opts.tlsCert, opts.tlsKey})
+			served <- serveConnect(serveCtx, lis, svc, info.Version, origins, auth, certificateFiles{opts.tlsCert, opts.tlsKey})
 		}()
 
 		select {
@@ -218,17 +218,18 @@ func main() {
 		return
 	}
 
-	runGRPC(lis, svc, token, shutdown)
+	runGRPC(lis, svc, auth, shutdown)
 	stopHealthServer(healthSrv)
 }
 
 // stdioRefusal names the first flag that is not for -transport stdio, which
 // binds no address, or is empty when every flag given fits it.
 func stdioRefusal(opts *options) string {
-	for _, f := range []struct{ name, value string }{{"-host", opts.host}, {"-token", opts.token}, {"-token-file", opts.tokenFile}} {
-		if f.value != "" {
-			return fmt.Sprintf("sysml-grpc: %s is not for -transport stdio, which binds no address", f.name)
-		}
+	if opts.host != "" {
+		return "sysml-grpc: -host is not for -transport stdio, which binds no address"
+	}
+	if name := opts.auth.Given(); name != "" {
+		return fmt.Sprintf("sysml-grpc: %s is not for -transport stdio, which binds no address", name)
 	}
 	switch {
 	case opts.allowUnauthenticated:
@@ -260,12 +261,12 @@ func logLevel(name string) slog.Level {
 }
 
 // openAddressRefusal says why an address other machines reach may not be served
-// as configured, or is empty when the configuration guards it.
-func openAddressRefusal(addr net.Addr, token guard.Token, opts *options) string {
-	if !token.Set() && !opts.allowUnauthenticated {
+// as configured (guarded says whether an authenticator is), or is empty when the configuration guards it.
+func openAddressRefusal(addr net.Addr, guarded bool, opts *options) string {
+	if !guarded && !opts.allowUnauthenticated {
 		return fmt.Sprintf("sysml-grpc: %s is an address other machines reach: %v; -allow-unauthenticated serves it open", addr, guard.NoToken(tokenEnv))
 	}
-	if token.Set() && opts.tlsCert == "" && !opts.allowInsecureToken {
+	if guarded && opts.tlsCert == "" && !opts.allowInsecureToken {
 		return fmt.Sprintf("sysml-grpc: %s is an address other machines reach and the bearer token would cross it in clear: serve TLS with -tls-cert and -tls-key, or -allow-insecure-token-transport behind a proxy that terminates TLS", addr)
 	}
 	return ""
@@ -307,14 +308,6 @@ func startHealthServer(opts *options, ver string) (*http.Server, error) {
 			"health_port", opts.healthPort)
 	}
 	return healthSrv, nil
-}
-
-// authDescription says in a startup line what guards the service.
-func authDescription(token guard.Token) string {
-	if token.Set() {
-		return "bearer token"
-	}
-	return "none"
 }
 
 // dialAddress renders a listening address as one a client can dial: a wildcard

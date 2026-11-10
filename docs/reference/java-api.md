@@ -187,7 +187,11 @@ A failed traced run remains a `ModelException`; its `trace()` and
 `explore:runs=N,depth=M`; a non-exploring schedule is an `IllegalArgumentException`)
 and answer an `Exploration` of `Outcome`s, each a distinct end state with the
 `witness` order that reached it and how many `linearizations` do, plus whether the
-search was `complete`, how many `runs` it made and which `budgetsHit`.
+search was `complete`, how many `runs` it made and which `budgetsHit`. Its `coverage()`
+is the `Coverage` of every run, not only each outcome's witness: the states entered and
+transitions taken as `Coverage.Entry`s (`path` under the running instance, `declaration`
+under the machine, `runs` that did); `CheckResult.Search.coverage()` carries the same
+over every schedule of a check.
 
 ### Verification
 
