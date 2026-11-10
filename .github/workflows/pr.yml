@@ -475,6 +475,19 @@ jobs:
             exit 1
           fi
 
+      # The two element-form differentials walk every corpus against the pilot's export; they run
+      # here race-free (the race rest shard skips them, see RACE_SHARD_SKIP) so the shard keeps to its hour.
+      - name: Run element-form differential gates
+        if: needs.changes.outputs.tier == 'full'
+        run: |
+          set -o pipefail
+          go test -count=1 -v ./internal/translate/export -run 'TestSymbolStructureMatchesGraphStructure$' | tee structure-differential-gate.log
+          go test -count=1 -v ./tests/grpc -run 'TestElementPropertiesAgreeWithTheAPIJSONExport$' | tee element-agreement-gate.log
+          if grep -qE '^\s*--- SKIP' structure-differential-gate.log element-agreement-gate.log; then
+            echo "error: an element-form differential gate skipped" >&2
+            exit 1
+          fi
+
       # Re-run the solver gate on its own, as the corpus gate is, so a skip
       # cannot hide behind a green suite.
       - name: Run solver gate (Z3)
