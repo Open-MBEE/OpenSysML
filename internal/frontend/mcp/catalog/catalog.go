@@ -221,7 +221,7 @@ var Tools = []Entry{
 	{Name: "instances", Group: GroupSession, Scope: ScopeRead, Summary: "List the runtime instances the session holds."},
 	{Name: "optimize", Group: GroupSession, Scope: ScopeExecute, Summary: "Optimize an analysis case's objective with the solver and answer the optimum."},
 	{Name: "render_run", Group: GroupSession, Scope: ScopeRead, Summary: "Render a run's trace as a timeline or a sequence diagram."},
-	{Name: "repl_command", Group: GroupSession, Scope: ScopeWrite, Summary: "Run one % meta command of the REPL and answer its output lines."},
+	{Name: "repl_command", Group: GroupSession, Scope: ScopeRead, Summary: "Run one % meta command of the REPL and answer its output lines; the command takes the scope of the typed tool doing the same."},
 	{Name: "runs", Group: GroupSession, Scope: ScopeExecute, Summary: "Run an action repeatedly, or a Monte Carlo case, and table the outcomes."},
 	{Name: "send", Group: GroupSession, Scope: ScopeExecute, Summary: "Send a signal to the debugged state machine."},
 	{Name: "session_clear", Group: GroupSession, Scope: ScopeSession, Summary: "Clear a session's declarations, instances and debuggers."},

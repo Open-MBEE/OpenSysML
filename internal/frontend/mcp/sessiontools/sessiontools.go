@@ -365,41 +365,71 @@ func Register(s *mcp.Server, m *Manager) {
 		Name: "repl_command",
 		Description: "Run one sysml prompt command (a % line) in a session and return what it printed. Prefer the typed tools, which return the same data structured: session_load/session_submit/session_eval/session_print/session_save/session_clear, session_run, debug_*, send, advance, features, instances, check/explain/solve/configure/optimize, sweep, runs, render_run. " +
 			"This tool reaches everything else the prompt can do — %instantiate, %invoke, %constraint, %requirement, %satisfy, %validate, %calc, %analysis, %record, %import, %run-query, %render, %viz, %render-document, %trace, %schedule, %seed, %engine, %jobs, %budget, %verbosity, %strict, %lint, %search, %views, %documents, %list, the %check-* settings and the repository commands. " +
-			"Discover the commands with `%help` (every command with its arguments) and the settings with the command alone (`%schedule`, `%engine`). A command that reports an error fails the call with its output.",
+			"Discover the commands with `%help` (every command with its arguments) and the settings with the command alone (`%schedule`, `%engine`). A command that reports an error fails the call with its output. " +
+			"Each command takes the scope of the typed tool doing the same: sysml:read to show or list, sysml:session to load, clear or set the session up, sysml:write to %save or %publish, sysml:execute to instantiate, evaluate, run, solve or debug; a command the caller's credential lacks the scope for is refused naming it.",
 		Annotations: toolkit.Mutating("Run prompt command", false),
-	}, handler(m, func(_ context.Context, sess *repl.Session, in CommandInput) (CommandResult, error) {
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in CommandInput) (*mcp.CallToolResult, CommandResult, error) {
 		line := strings.TrimSpace(in.Line)
 		if line == "" {
-			return CommandResult{}, errors.New("line is required: a % command, see %help")
+			return nil, CommandResult{}, errors.New("line is required: a % command, see %help")
 		}
 		if !notebook.IsCommand(line) {
-			return CommandResult{}, fmt.Errorf("%q is no %% command; declarations go to session_submit and expressions to session_eval", line)
+			return nil, CommandResult{}, fmt.Errorf("%q is no %% command; declarations go to session_submit and expressions to session_eval", line)
 		}
-		lines, quit, err := sess.RunMeta(line)
-		if fields := repl.MetaArgs(line); len(fields) > 0 && !repl.KnownMeta(fields[0]) {
-			return CommandResult{}, failed(fmt.Errorf("%q is no command this build serves", fields[0]), lines)
-		}
-		if err != nil {
-			var usage *repl.UsageError
-			if errors.As(err, &usage) {
-				return CommandResult{}, failed(err, usage.Lines)
-			}
-			return CommandResult{}, failed(err, lines)
-		}
-		out := CommandResult{Output: text(lines), Quit: quit}
-		if quit {
-			out.Output = text(append(lines, "a session is closed with session_close"))
-		}
-		for _, l := range lines {
-			if strings.HasPrefix(l, "error: ") {
-				return out, failed(errors.New(strings.TrimPrefix(l, "error: ")), lines)
+		// A command takes the scope of the typed tool doing the same; one this
+		// build does not serve only prints guidance, which runCommand reports.
+		if fields := repl.MetaArgs(line); len(fields) > 0 && repl.KnownMeta(fields[0]) {
+			if err := toolkit.RequireScope(ctx, "repl_command "+fields[0], commandScope(fields[0])); err != nil {
+				return nil, CommandResult{}, err
 			}
 		}
-		return out, nil
-	}))
+		return handler(m, func(_ context.Context, sess *repl.Session, in CommandInput) (CommandResult, error) {
+			return runCommand(sess, line)
+		})(ctx, req, in)
+	})
 	registerRuns(s, m)
 	registerDebug(s, m)
 	registerSolve(s, m)
+}
+
+// commandScope is the scope a known meta command takes: that of the typed
+// tool doing the same, by what the command does.
+func commandScope(name string) catalog.Scope {
+	effect, _ := repl.CommandEffect(name)
+	switch effect {
+	case repl.Shapes:
+		return catalog.ScopeSession
+	case repl.Writes:
+		return catalog.ScopeWrite
+	case repl.Executes:
+		return catalog.ScopeExecute
+	}
+	return catalog.ScopeRead
+}
+
+// runCommand runs one known meta command line in sess and reports what it printed.
+func runCommand(sess *repl.Session, line string) (CommandResult, error) {
+	lines, quit, err := sess.RunMeta(line)
+	if fields := repl.MetaArgs(line); len(fields) > 0 && !repl.KnownMeta(fields[0]) {
+		return CommandResult{}, failed(fmt.Errorf("%q is no command this build serves", fields[0]), lines)
+	}
+	if err != nil {
+		var usage *repl.UsageError
+		if errors.As(err, &usage) {
+			return CommandResult{}, failed(err, usage.Lines)
+		}
+		return CommandResult{}, failed(err, lines)
+	}
+	out := CommandResult{Output: text(lines), Quit: quit}
+	if quit {
+		out.Output = text(append(lines, "a session is closed with session_close"))
+	}
+	for _, l := range lines {
+		if strings.HasPrefix(l, "error: ") {
+			return out, failed(errors.New(strings.TrimPrefix(l, "error: ")), lines)
+		}
+	}
+	return out, nil
 }
 
 // orEmpty is lines as a JSON array that is never null.

@@ -2,24 +2,20 @@ package mcp
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/auth"
-	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
-	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/catalog"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/toolkit"
 )
 
-// CodeInsufficientScope refuses a tools/call by a principal without the tool's
-// scope: implementation-defined (JSON-RPC 2.0 § 5.1), after RFC 6750 § 3.1's insufficient_scope.
-const CodeInsufficientScope = -32030
+// CodeInsufficientScope is the JSON-RPC error code of a tools/call refused for
+// a scope the principal lacks.
+const CodeInsufficientScope = toolkit.CodeInsufficientScope
 
 // methodCallTool is the request the scopes gate.
 const methodCallTool = "tools/call"
@@ -88,7 +84,8 @@ func (s *Server) authorize(next sdk.MethodHandler) sdk.MethodHandler {
 		if params != nil {
 			tool = params.Name
 		}
-		entry, known := catalog.Tool(tool)
+		// A tool this server does not serve is the SDK's to answer (unknown tool).
+		entry, served := s.served[tool]
 		start := time.Now()
 		var (
 			res     sdk.Result
@@ -96,40 +93,29 @@ func (s *Server) authorize(next sdk.MethodHandler) sdk.MethodHandler {
 			outcome = "ok"
 		)
 		switch {
-		case known && !toolkit.HasScope(p, entry.Scope):
-			outcome = "refused"
-			err = &jsonrpc.Error{
-				Code:    CodeInsufficientScope,
-				Message: fmt.Sprintf("insufficient_scope: %s requires the scope %s, which this credential does not grant", tool, entry.Scope),
-				Data:    refusalData(tool, entry.Scope),
-			}
+		case served && !toolkit.HasScope(p, entry.Scope):
+			err = toolkit.InsufficientScope(tool, entry.Scope)
 		default:
 			res, err = next(ctx, method, req)
-			if err != nil || failed(res) {
-				outcome = "error"
-			}
+		}
+		scope := entry.Scope
+		if refused, ok := toolkit.RefusedScope(err); ok {
+			// A handler refuses too, for a command needing more than its tool's floor.
+			outcome, scope = "refused", refused
+		} else if err != nil || failed(res) {
+			outcome = "error"
 		}
 		s.log().LogAttrs(ctx, slog.LevelInfo, "tools/call",
 			slog.String("principal", p.Subject),
 			slog.String("source", p.Source),
 			slog.String("remote", remoteOf(req)),
 			slog.String("tool", tool),
-			slog.String("scope", string(entry.Scope)),
+			slog.String("scope", string(scope)),
 			slog.String("outcome", outcome),
 			slog.Duration("duration", time.Since(start)),
 		)
 		return res, err
 	}
-}
-
-// refusalData names the tool and the scope it needs in the error's data, so a
-// client can ask for the scope without parsing the message.
-func refusalData(tool string, scope catalog.Scope) json.RawMessage {
-	data, err := json.Marshal(map[string]string{"tool": tool, "scope": string(scope)})
-	if err != nil {
-		return nil
-	}
-	return data
 }
 
 // failed reports a tools/call the tool answered with an error result.

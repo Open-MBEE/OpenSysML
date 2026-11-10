@@ -20,16 +20,17 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/catalog"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/toolkit"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
+	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/all" // links %save, which the matrix refuses
 )
 
 // representative is one tool of each scope a principal can be granted, with
-// arguments that succeed on an empty session group.
+// arguments that succeed over an empty workspace.
 var representative = map[catalog.Scope]struct {
 	tool string
 	args map[string]any
 }{
 	catalog.ScopeRead:    {"tool_catalog", map[string]any{}},
-	catalog.ScopeWrite:   {"repl_command", map[string]any{"line": "%list"}},
+	catalog.ScopeWrite:   {"open_document", map[string]any{"path": "probe.sysml", "text": "package P;"}},
 	catalog.ScopeExecute: {"session_eval", map[string]any{"expression": "1 + 1"}},
 	catalog.ScopeSession: {"session_list", map[string]any{}},
 }
@@ -132,11 +133,11 @@ func TestEachScopeAdmitsExactlyItsTools(t *testing.T) {
 	for _, s := range catalog.Scopes() {
 		principals[string(s)] = principalOnly("test", "holder-of-"+string(s), s)
 	}
-	url, _ := serveAuthenticated(t, Config{Root: t.TempDir(), Groups: []Group{GroupSession}, Version: "test"}, principals)
+	url, _ := serveAuthenticated(t, Config{Root: t.TempDir(), Groups: []Group{GroupLSP, GroupSession}, Version: "test"}, principals)
 	for _, held := range catalog.Scopes() {
 		cs := connectAs(t, url, string(held))
-		if got := toolNames(t, cs); !slices.Equal(got, catalog.Names(GroupSession)) {
-			t.Errorf("%s: tools/list answers %v, want the whole group", held, got)
+		if got := toolNames(t, cs); !slices.Equal(got, catalog.Names(GroupLSP, GroupSession)) {
+			t.Errorf("%s: tools/list answers %v, want both groups whole", held, got)
 		}
 		for _, scope := range slices.Sorted(func(yield func(catalog.Scope) bool) {
 			for s := range representative {
@@ -173,7 +174,7 @@ func TestEachScopeAdmitsExactlyItsTools(t *testing.T) {
 // A principal holding every scope, as the static token does, is refused nothing.
 func TestEveryScopeAdmitsEveryTool(t *testing.T) {
 	all := guard.Principal{Subject: guard.StaticTokenSubject, Scopes: catalog.ScopeNames(), Source: guard.SourceStaticToken}
-	url, _ := serveAuthenticated(t, Config{Root: t.TempDir(), Groups: []Group{GroupSession}, Version: "test"}, map[string]guard.Principal{"all": all})
+	url, _ := serveAuthenticated(t, Config{Root: t.TempDir(), Groups: []Group{GroupLSP, GroupSession}, Version: "test"}, map[string]guard.Principal{"all": all})
 	cs := connectAs(t, url, "all")
 	for _, rep := range representative {
 		res, err := cs.CallTool(context.Background(), &sdk.CallToolParams{Name: rep.tool, Arguments: rep.args})
@@ -322,7 +323,7 @@ func TestEveryToolCallIsAudited(t *testing.T) {
 // with every scope, its sessions are the server's, and the audit line says so.
 func TestStdioHasOneLocalPrincipalWithEveryScope(t *testing.T) {
 	var logs bytes.Buffer
-	cfg := Config{Root: t.TempDir(), Groups: []Group{GroupSession}, Version: "test", Logger: slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelInfo}))}
+	cfg := Config{Root: t.TempDir(), Groups: []Group{GroupLSP, GroupSession}, Version: "test", Logger: slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelInfo}))}
 	cs := connect(t, cfg)
 	for _, rep := range representative {
 		res, err := cs.CallTool(context.Background(), &sdk.CallToolParams{Name: rep.tool, Arguments: rep.args})
@@ -375,7 +376,7 @@ func TestPrincipalOfReadsTheTransportsVerdict(t *testing.T) {
 func TestTheStaticTokenIsAPrincipalWithEveryScope(t *testing.T) {
 	var logs bytes.Buffer
 	tok, _ := NewBearerToken("s3cret-token")
-	url, stop := serveHTTPWith(t, Config{Root: t.TempDir(), Groups: []Group{GroupSession}, Version: "test"}, &logs, "127.0.0.1:0", tok)
+	url, stop := serveHTTPWith(t, Config{Root: t.TempDir(), Groups: []Group{GroupLSP, GroupSession}, Version: "test"}, &logs, "127.0.0.1:0", tok)
 	cs := connectAs(t, url, "s3cret-token")
 	for _, rep := range representative {
 		res, err := cs.CallTool(context.Background(), &sdk.CallToolParams{Name: rep.tool, Arguments: rep.args})
@@ -397,5 +398,66 @@ func TestTheStaticTokenIsAPrincipalWithEveryScope(t *testing.T) {
 	}
 	if strings.Contains(log, "s3cret") {
 		t.Errorf("the token was logged:\n%s", log)
+	}
+}
+
+// repl_command's gate is the read scope; each command then takes the scope of
+// the typed tool doing the same, refused before the session is touched.
+func TestReplCommandTakesTheScopeOfItsCommand(t *testing.T) {
+	principals := map[string]guard.Principal{
+		"reader":   principalOnly("oidc", "reader", catalog.ScopeRead),
+		"executor": principalOnly("oidc", "executor", catalog.ScopeRead, catalog.ScopeExecute, catalog.ScopeSession),
+	}
+	url, logs := serveAuthenticated(t, Config{Root: t.TempDir(), Groups: []Group{GroupSession}, Version: "test"}, principals)
+	reader, executor := connectAs(t, url, "reader"), connectAs(t, url, "executor")
+	run := func(cs *sdk.ClientSession, line string) (*sdk.CallToolResult, error) {
+		return cs.CallTool(context.Background(), &sdk.CallToolParams{Name: "repl_command", Arguments: map[string]any{"line": line}})
+	}
+	if res, err := run(reader, "%list"); err != nil || res.IsError {
+		t.Errorf("reader %%list: err %v, result %q", err, resultText(res))
+	}
+	for line, scope := range map[string]catalog.Scope{"%eval 1 + 1": catalog.ScopeExecute, "%action A": catalog.ScopeExecute, "%solve X": catalog.ScopeExecute, "%load a.sysml": catalog.ScopeSession, "%save out.sysml": catalog.ScopeWrite} {
+		_, err := run(reader, line)
+		jerr := refusal(err)
+		if jerr == nil {
+			t.Errorf("reader %s: %v, want the insufficient_scope refusal", line, err)
+			continue
+		}
+		if refused, _ := toolkit.RefusedScope(jerr); refused != scope || !strings.Contains(jerr.Message, string(scope)) {
+			t.Errorf("reader %s: refused for %s (%s), want %s", line, refused, jerr.Message, scope)
+		}
+	}
+	if res, err := run(executor, "%eval 1 + 1"); err != nil || res.IsError || !strings.Contains(resultText(res), "2") {
+		t.Errorf("executor %%eval: err %v, result %q", err, resultText(res))
+	}
+	if _, err := run(executor, "%save out.sysml"); refusal(err) == nil {
+		t.Errorf("executor %%save: %v, want the insufficient_scope refusal", err)
+	}
+	// A command this build does not know has no effect and is reported, not refused.
+	if res, err := run(reader, "%nothing"); err != nil || !res.IsError || !strings.Contains(resultText(res), "no command") {
+		t.Errorf("reader %%nothing: err %v, result %q", err, resultText(res))
+	}
+	// The reader's refusals opened no session for it.
+	if list := listSessions(t, executor); len(list.Sessions) != 1 {
+		t.Errorf("executor lists %v, want only the default its %%eval opened", list.Sessions)
+	}
+	if log := logs.String(); !strings.Contains(log, "principal=reader source=oidc remote=127.0.0.1:") || !strings.Contains(log, "tool=repl_command scope=sysml:execute outcome=refused") || !strings.Contains(log, "tool=repl_command scope=sysml:write outcome=refused") {
+		t.Errorf("audit log:\n%s", log)
+	}
+}
+
+// A tool this server does not serve is answered as unknown by the SDK, not
+// refused for a scope the caller lacks, so no credential is sought for it.
+func TestAnUnservedToolIsUnknownNotRefused(t *testing.T) {
+	principals := map[string]guard.Principal{"reader": principalOnly("oidc", "reader", catalog.ScopeSession)}
+	url, logs := serveAuthenticated(t, Config{Root: t.TempDir(), Groups: []Group{GroupSession}, Version: "test"}, principals)
+	cs := connectAs(t, url, "reader")
+	_, err := cs.CallTool(context.Background(), &sdk.CallToolParams{Name: "hover", Arguments: map[string]any{}})
+	var jerr *jsonrpc.Error
+	if !errors.As(err, &jerr) || jerr.Code == CodeInsufficientScope || !strings.Contains(jerr.Message, "unknown tool") {
+		t.Errorf("hover over the session group: %v, want the SDK's unknown tool error", err)
+	}
+	if log := logs.String(); !strings.Contains(log, `tool=hover scope="" outcome=error`) {
+		t.Errorf("audit log:\n%s", log)
 	}
 }
