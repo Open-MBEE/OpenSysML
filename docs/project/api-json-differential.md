@@ -233,7 +233,7 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 104414 elements matched (18080 ours-only, 26900 pilot-only, 0 of them implied); properties: 2024651 present-equal, 142934 present-different, 306433 ours-missing, 80902 pilot-missing, 2220458 absent-both, 35107 indeterminate, 534 pilot-nondeterministic.
+**Scorecard:** 935 files; 104414 elements matched (18080 ours-only, 26900 pilot-only, 0 of them implied); properties: 2028092 present-equal, 172510 present-different, 271776 ours-missing, 81085 pilot-missing, 2220408 absent-both, 36747 indeterminate, 534 pilot-nondeterministic.
 
 Re-recorded on the source-notes change (a `//` or `//* */` note, or a `/* */` comment written where the grammar admits no `Comment` element, is kept as a `sysx:Note` node of the element whose lines hold it, an entry of its own in the element form; see `docs/reference/rdf-mapping.md` § Notes): 2858 more ours-only elements (15222 → 18080), every one a `sysx:Note` entry the pilot has no counterpart for, as it has none for the `sysx:` behavioral nodes; the matched and pilot-only elements and every property figure are unchanged, the notes being entries beside the elements rather than properties of them, while the extension properties grow by their `sysx:note` references and `sysx:noteText`/`sysx:noteToken`/`sysx:noteOwnLine`/`sysx:noteTail`/`sysx:noteTrailing` fields (271250 → 272781).
 
@@ -337,6 +337,17 @@ The merge of develop e074d3f40c (#2071, `sysx:Note` export nodes; #2027, OSLC qu
 row: the record re-made over the merged tree equals the branch's previous record property for
 property, and its difference from develop's own record is the branch's export movement adjudicated
 above.
+
+The merge of develop c010f23d7a (#2073, `Documentation::documentedElement` derived by the shared
+rule) and the `Function::result` fallback to the one inherited output feature (KerML 8.3.4.7.4) moved
+14 rows, every one a `result` or `documentedElement` row from ours-missing to present-equal
+(`Documentation.documentedElement` 387, `RequirementUsage.result` 362, `ConstraintUsage.result` 204,
+`SatisfyRequirementUsage.result` 57, `AssertConstraintUsage.result` 55, `CalculationUsage.result` 31
+more, the rest smaller); present-equal 2026843 → 2028092, ours-missing 273104 → 271776. One row is
+newly present-different: `CalculationUsage.result` on the pilot-validation `10c-Fuel Economy
+Analysis` model, where the pilot answers the `result` the `NominalScenario` calculation declares and
+we answer the inherited `Performances::Evaluation::result` — our gap (the nearest redefinition is the
+result), a known limitation of this record.
 
 **Every multiplicity specializes `Base::naturals`, an `individual` definition's its own `Base::zeroOrOne`**
 (re-recorded with the implied specializations of KerML 8.3.3.1.9 `checkMultiplicitySpecialization` and
