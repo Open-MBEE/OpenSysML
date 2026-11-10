@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -108,6 +109,8 @@ func New(ctx context.Context, cfg Config) (*Authenticator, error) {
 	if err := provider.Claims(&endpoints); err != nil || endpoints.JWKSURI == "" {
 		return nil, fmt.Errorf("oidc: discovery of %s names no jwks_uri", cfg.Issuer)
 	}
+	// The advertised scopes are those configured at New, whatever the caller does with its slice.
+	cfg.Scopes = slices.Clone(cfg.Scopes)
 	a := &Authenticator{cfg: cfg}
 	// Expiry is checked here, with the configured skew, rather than by the library.
 	a.verifier = gooidc.NewVerifier(cfg.Issuer, keySet{gooidc.NewRemoteKeySet(keys, endpoints.JWKSURI)}, &gooidc.Config{

@@ -195,6 +195,7 @@ func TestVerifyExtractsScopes(t *testing.T) {
 		{"scope claim", nil, good.with("scope", "openid sysml:read  sysml:read"), []string{"openid", "sysml:read"}},
 		{"scp array", nil, good.with("scp", []string{"sysml:read", "sysml:write"}), []string{"sysml:read", "sysml:write"}},
 		{"scope wins over scp", nil, good.with("scope", "a").with("scp", []string{"b"}), []string{"a"}},
+		{"an empty scope is a grant of nothing, not a fall through to scp", nil, good.with("scope", "").with("scp", []string{"b"}), nil},
 		{"no scopes", nil, good, nil},
 		{"configured claim", func(c *oidc.Config) { c.ScopeClaim = "permissions" }, good.with("permissions", []string{"x"}).with("scope", "ignored"), []string{"x"}},
 		{"configured claim absent", func(c *oidc.Config) { c.ScopeClaim = "permissions" }, good.with("scope", "ignored"), nil},
@@ -273,6 +274,13 @@ func TestMetadataAdvertisesTheIssuer(t *testing.T) {
 	md.ScopesSupported[0] = "changed"
 	if a.Metadata().ScopesSupported[0] != "sysml:read" {
 		t.Error("Metadata shares its slice with the caller")
+	}
+	// Nor does New keep the caller's slice: the scopes are those configured at New.
+	var configured []string
+	kept := newAuthenticator(t, is, func(c *oidc.Config) { configured = c.Scopes })
+	configured[0] = "changed"
+	if kept.Metadata().ScopesSupported[0] != "sysml:read" {
+		t.Error("New keeps the caller's Scopes slice")
 	}
 	static, _ := guard.New("0123456789abcdef0123456789abcdef")
 	chained := guard.Chain{a, guard.NewStaticToken(static)}.Metadata()
