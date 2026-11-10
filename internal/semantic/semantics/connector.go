@@ -927,3 +927,27 @@ func (m *Model) generalEndAt(sym *symbols.Symbol, i int) *symbols.Symbol {
 	}
 	return nil
 }
+
+const linkParticipantFQN = "Links::Link::participant"
+
+// implicitEndParticipant is Links::Link::participant for an end feature of an
+// association or connector no end redefinition places (KerML 1.1 §8.4 checkFeatureEndSpecialization).
+func (m *Model) implicitEndParticipant(sym *symbols.Symbol, redefinesEnd bool) *symbols.Symbol {
+	if redefinesEnd || !declaresEnd(sym) || sym.OwnerScope == nil {
+		return nil
+	}
+	owner := sym.OwnerScope.Owner()
+	if owner == nil || !m.IsAssociationOrConnector(owner) && !m.isConnectorLike(owner) {
+		return nil
+	}
+	return m.symbolByFQN(linkParticipantFQN)
+}
+
+func declaresRedefinition(sym *symbols.Symbol) bool {
+	for _, rel := range RelationshipsOf(sym) {
+		if rel != nil && rel.Kind == ast.RelRedefines {
+			return true
+		}
+	}
+	return false
+}

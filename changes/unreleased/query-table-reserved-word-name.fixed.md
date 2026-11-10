@@ -1,0 +1,1 @@
+- `-run-query -json` and the document-query verdict table spell a reserved-word name as the conversion's `qualifiedName` does — an allocation end `'function'` reads `P::FunctionToPart::function`, bare, as the pilot spells it — where the notation's quoting (`…::'function'`) was written before; the address is the conversion's, not re-spelled.

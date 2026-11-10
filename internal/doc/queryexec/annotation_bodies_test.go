@@ -91,9 +91,8 @@ part msg : Message;
 part blank;
 `
 
-// TestExecuteAnnotationPropertiesDoNotShadowFeatures verifies a feature named
-// body, locale or language is still read on an element that is no annotation,
-// and that one lacking it is the missing-feature error it was.
+// A feature named body, locale or language is still read on an element that is no
+// annotation; one lacking it is the missing-feature error, whether or not another row has it.
 func TestExecuteAnnotationPropertiesDoNotShadowFeatures(t *testing.T) {
 	fixture := loadExecutionFixture(t, featureNamedBody+`
 calc def Q :> Query {
@@ -123,8 +122,8 @@ calc def NoRowHasIt :> Query {
 		t.Fatalf("body of a part without one: err = %v, want ErrorMissingFeature at Observatory::blank", err)
 	}
 	_, err = fixture.execute(t, "NoRowHasIt", Bindings{}, Options{})
-	if !errors.As(err, &executionError) || executionError.Kind != ErrorUnknownProperty {
-		t.Fatalf("body no row has: err = %v, want ErrorUnknownProperty", err)
+	if !errors.As(err, &executionError) || executionError.Kind != ErrorMissingFeature || executionError.Target != "Observatory::blank" {
+		t.Fatalf("body no row has: err = %v, want ErrorMissingFeature at Observatory::blank", err)
 	}
 }
 
