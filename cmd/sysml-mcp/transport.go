@@ -69,7 +69,10 @@ func readToken(o *options) (mcp.BearerToken, flags.Authenticators, error) {
 	if o.auth.OIDCIssuer != "" && o.auth.OIDCAudience == "" && o.publicURL == "" {
 		return mcp.BearerToken{}, flags.Authenticators{}, errors.New("-oidc-issuer needs the audience a token is issued for: name the endpoint with -public-url, or give -oidc-audience")
 	}
-	o.auth.Resource = o.publicURL
+	// The audience is the endpoint as At names it: an origin alone means its /mcp.
+	if public, err := (mcp.BearerToken{}).At(o.publicURL); err == nil {
+		o.auth.Resource = public.PublicURL()
+	}
 	resolved, err := o.auth.Resolve(mcp.TokenEnv, catalog.ScopeNames()...)
 	if err != nil {
 		return mcp.BearerToken{}, flags.Authenticators{}, err
