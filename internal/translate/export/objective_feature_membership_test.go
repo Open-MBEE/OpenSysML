@@ -1,6 +1,7 @@
 package export
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
@@ -58,5 +59,28 @@ func TestObjectiveIsAnUndirectedCompositeAndTheRequireBodyVaries(t *testing.T) {
 	}
 	if constraints != 1 {
 		t.Fatalf("require body constraints = %d, want 1", constraints)
+	}
+	// The structural graph reads back to the objective as written; a graph stating a direction on the objective
+	// reads it back explicitly (`in composite`, a directed usage being referential by default) — no `in` default.
+	structural := rdf.NewGraph()
+	for _, triple := range graph.Triples() {
+		if triple.Predicate.Value != rdf.OpenSysML+xSourceText {
+			structural.AddTriple(triple)
+		}
+	}
+	back, err := ToSysML(structural)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(back), "objective {") || strings.Contains(string(back), "in objective") {
+		t.Errorf("notation of the undirected objective:\n%s", back)
+	}
+	structural.Add(objective, rdf.IRI(rdf.SysML+pDirection), rdf.String("in"))
+	back, err = ToSysML(structural)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(back), "in composite objective {") {
+		t.Errorf("notation lost the objective's stated direction:\n%s", back)
 	}
 }
