@@ -19,11 +19,22 @@ final class ServiceBinary {
    * @return the binary path
    */
   static Optional<Path> find() {
+    return repositoryRoot()
+        .map(root -> root.resolve("bin").resolve("sysml-grpc"))
+        .filter(Files::isExecutable);
+  }
+
+  /**
+   * The repository's root, the nearest ancestor of the working directory that holds a {@code
+   * go.mod}, if there is one.
+   *
+   * @return the root
+   */
+  static Optional<Path> repositoryRoot() {
     Path directory = Path.of("").toAbsolutePath();
     while (directory != null) {
       if (Files.isRegularFile(directory.resolve("go.mod"))) {
-        Path binary = directory.resolve("bin").resolve("sysml-grpc");
-        return Files.isExecutable(binary) ? Optional.of(binary) : Optional.empty();
+        return Optional.of(directory);
       }
       directory = directory.getParent();
     }
