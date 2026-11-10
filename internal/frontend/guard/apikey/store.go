@@ -33,6 +33,8 @@ type Store struct {
 	size    int64
 	// checked is when the file was last looked at.
 	checked time.Time
+	// failure is the last reload error logged, so the same one is not logged again.
+	failure string
 }
 
 // entry is a record with its hash decoded, compared on every request.
@@ -95,7 +97,7 @@ func (s *Store) load(info os.FileInfo) error {
 		copy(e.sum[:], sum)
 		entries[r.ID] = e
 	}
-	s.entries = entries
+	s.entries, s.failure = entries, ""
 	return nil
 }
 
@@ -122,9 +124,13 @@ func (s *Store) refresh() {
 	s.logger.Info("api keys reloaded", "path", s.path, "keys", len(s.entries))
 }
 
-// logFailure reports a reload that failed; refresh asks again only when the
-// file moves, so one failing version of it is logged once.
+// logFailure reports a reload that failed, once per failure: a file that stays
+// missing or broken is not logged again at every interval.
 func (s *Store) logFailure(err error) {
+	if err.Error() == s.failure {
+		return
+	}
+	s.failure = err.Error()
 	s.logger.Error("api keys not reloaded, keeping the keys held", "path", s.path, "err", err)
 }
 

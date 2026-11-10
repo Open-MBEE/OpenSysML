@@ -179,3 +179,54 @@ func TestReloadReadsTheFileOnce(t *testing.T) {
 		t.Errorf("an unchanged file was reloaded:\n%s", log.String())
 	}
 }
+
+// TestReloadLogsAMissingFileOnce: a file that stays missing is not logged at
+// every interval, and its return is read and logged once.
+func TestReloadLogsAMissingFileOnce(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "keys.jsonl")
+	key, _, err := Mint(path, "alice", []string{"sysml:read"}, time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var log bytes.Buffer
+	store, err := Open(path, slog.New(slog.NewTextHandler(&log, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := &clock{t: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}
+	store.now = c.now
+	store.checked = c.t
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 5; i++ {
+		c.advance(RefreshInterval)
+		if _, refusal := store.Verify(context.Background(), "Bearer "+key, nil); refusal != guard.Accepted {
+			t.Errorf("round %d: the key is %v while the file is missing, want accepted", i, refusal)
+		}
+	}
+	if n := strings.Count(log.String(), "api keys not reloaded"); n != 1 {
+		t.Errorf("the missing file was logged %d times, want once:\n%s", n, log.String())
+	}
+	if _, _, err := Mint(path, "bob", []string{"sysml:read"}, time.Time{}); err != nil {
+		t.Fatal(err)
+	}
+	c.advance(RefreshInterval)
+	if _, refusal := store.Verify(context.Background(), "Bearer "+key, nil); refusal != guard.Mismatch {
+		t.Errorf("the old key is %v after the file came back, want a mismatch", refusal)
+	}
+	if n := strings.Count(log.String(), "api keys reloaded"); n != 1 {
+		t.Errorf("the file's return was logged %d times, want once:\n%s", n, log.String())
+	}
+	// The file gone again is a new failure, logged once more.
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	c.advance(RefreshInterval)
+	store.Verify(context.Background(), "Bearer "+key, nil)
+	c.advance(RefreshInterval)
+	store.Verify(context.Background(), "Bearer "+key, nil)
+	if n := strings.Count(log.String(), "api keys not reloaded"); n != 2 {
+		t.Errorf("the failures were logged %d times, want twice:\n%s", n, log.String())
+	}
+}
