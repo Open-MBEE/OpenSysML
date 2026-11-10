@@ -6,9 +6,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
-// An objective is the RequirementUsage its ObjectiveMembership — a FeatureMembership, no
-// ParameterMembership (SysML 8.3.19) — owns: composite, undirected, no ownedMemberParameter.
-// A `require constraint` body is a feature of an Occurrence, so it varies (isVariable, mayTimeVary).
+// An objective is the RequirementUsage its ObjectiveMembership — a FeatureMembership (SysML 8.3.19) —
+// owns: composite, undirected, no parameter end; a `require constraint` body varies (isVariable, mayTimeVary).
 func TestObjectiveIsAnUndirectedCompositeAndTheRequireBodyVaries(t *testing.T) {
 	graph := normativeGraph(t, `package O {
 		requirement def Light { attribute mass : ScalarValues::Real; require constraint { mass < 10.0 } }

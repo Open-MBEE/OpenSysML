@@ -1526,9 +1526,8 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if !ok {
 			return &UnsupportedError{What: fmt.Sprintf("usage kind %q at %s", n.Kind, e.where(n))}
 		}
-		// An actor or stakeholder member is a parameter its membership owns
-		// (SysML.xtext ActorMember & co.): the parameter kind is the
-		// membership's metaclass, and the parameter itself is a usage.
+		// An actor or stakeholder member is a parameter its membership owns (SysML.xtext
+		// ActorMember & co.): the membership's metaclass is the parameter kind, the parameter a usage.
 		parameterClass, parameterEnd := parameterMembership(n.Kind)
 		if n.IsResult {
 			// A `return` member is the result parameter its ReturnParameterMembership
