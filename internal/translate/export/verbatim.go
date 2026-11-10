@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -218,8 +219,8 @@ func (d *decoder) restatesAnotherDisagreement(t rdf.Triple, check *encoder) bool
 	return ok && el.implied && impliedRelationshipMetaclasses[el.metaclass]
 }
 
-// legacyBareComment reports whether term is an anonymous Comment, or the membership owning one,
-// that only the re-parsed text states: a bare `/* … */` a graph stored before such comments were elements.
+// legacyBareComment reports whether term is a bare `/* … */` Comment, or the membership owning one,
+// that only the re-parsed text states: a graph stored before such comments were elements lacks it.
 func (d *decoder) legacyBareComment(term rdf.Term, check *encoder) bool {
 	if !term.IsIRI() || d.graph.HasProperty(term, rdf.RDFType) {
 		return false
@@ -227,8 +228,9 @@ func (d *decoder) legacyBareComment(term rdf.Term, check *encoder) bool {
 	for _, object := range check.graph.Objects(term, rdf.RDFType) {
 		switch rdf.LocalName(object.Value) {
 		case "Comment":
-			return !check.graph.HasProperty(term, rdf.SysML+pDeclaredName) &&
-				!check.graph.HasProperty(term, rdf.SysML+pDeclaredShortName)
+			// A `comment` keyword was always recorded, so text spelling one is stale, not legacy.
+			text, _ := check.graph.Lexical(term, rdf.OpenSysML+xSourceText)
+			return strings.TrimSpace(naming.WithoutComments(text)) == ""
 		case mOwningMembership:
 			if member, ok := check.graph.Object(term, rdf.SysML+pMemberElement); ok {
 				return d.legacyBareComment(member, check)

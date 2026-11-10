@@ -27,3 +27,15 @@ func TestLegacyBareCommentComesBackFromTheText(t *testing.T) {
 		t.Errorf("an edit elsewhere lost the legacy graph's bare comment:\n--- want ---\n%s--- got ---\n%s", want, back)
 	}
 }
+
+// A `comment` keyword never went unrecorded, so one the stored text states and
+// the graph lacks is stale text, not a legacy bare comment, and the graph wins.
+func TestStaleTextDoesNotResurrectAnExplicitComment(t *testing.T) {
+	src := "package P {\n    /* c */\n    part def A;\n    part def B;\n}\n"
+	legacy := withoutMember(t, idTurtle(t, src), "elmt:P___400")
+	stale := editTurtle(t, legacy, `sysx:sourceText "    part def A;\n"`, `sysx:sourceText "    comment /* c */\n    part def A;\n"`)
+	want := "package P {\n    part def A;\n    part def B;\n}\n"
+	if back := toNotation(t, stale); back != want {
+		t.Errorf("stale text added a Comment the graph lacks:\n--- want ---\n%s--- got ---\n%s", want, back)
+	}
+}
