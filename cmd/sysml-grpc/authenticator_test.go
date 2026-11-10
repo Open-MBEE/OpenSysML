@@ -214,10 +214,8 @@ type serverStream struct {
 func (s serverStream) Context() context.Context { return s.ctx }
 func (s serverStream) SetTrailer(metadata.MD)   {}
 
-// A chain of several kinds answers each credential as its own authenticator
-// does: a key is accepted, one lacking a scope is permission denied (HTTP
-// 403, insufficient_scope), the static token is accepted, and a stranger is
-// invalid_token; the access log names the principal and never the token.
+// A chain of two kinds answers each credential as its own authenticator does,
+// a key lacking a scope with 403 permission_denied; the log never carries a token.
 func TestAuthenticatorChainOverConnect(t *testing.T) {
 	url, logs := chainedServer(t)
 	client := protoconnect.NewSysMLServiceClient(http.DefaultClient, url)

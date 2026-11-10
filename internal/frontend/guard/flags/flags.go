@@ -42,9 +42,8 @@ func (o *Options) Given() string {
 	return ""
 }
 
-// Resolve reads the credentials the flags (or env) name and builds the chain a
-// service verifies through, each kind of authenticator ahead of the static
-// token, which claims every bearer token; scopes are the static token's.
+// Resolve reads the credentials the flags (or env) name into the chain a service
+// verifies through: each kind ahead of the static token, whose scopes these are.
 func (o *Options) Resolve(env string, scopes ...string) (Authenticators, error) {
 	var a Authenticators
 	token, text, err := guard.Read(o.TokenFile, o.Token, env)
