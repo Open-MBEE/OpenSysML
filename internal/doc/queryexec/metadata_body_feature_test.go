@@ -5,9 +5,8 @@ import (
 	"testing"
 )
 
-// A metadata body's `mission = "Hubble"` on the query leg: a ReferenceUsage declaring no
-// name (its implied Redefinition names it) that may time-vary under its MetadataUsage, an
-// occurrence typed by the metadata definition — as reflection and the pilot answer it.
+// A metadata body's `mission = "Hubble"` on the query leg: a ReferenceUsage declaring no name (its
+// implied Redefinition names it), variable under its MetadataUsage, an occurrence — as reflection answers.
 func TestMetadataBodyFeatureRowAnswersReflection(t *testing.T) {
 	fixture := loadExecutionFixture(t, `
 package M {
