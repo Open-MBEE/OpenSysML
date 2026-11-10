@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"context"
 	"slices"
 	"strings"
 	"testing"
@@ -74,8 +75,8 @@ func TestRegisteredToolsMatchTheCatalog(t *testing.T) {
 }
 
 // Every entry of the catalog is well formed: unique name, a group the server
-// serves (or none, for tool_catalog), a one-line summary, no RPC or flag named
-// twice.
+// serves (or none, for tool_catalog), a scope of the vocabulary, a one-line
+// summary, no RPC or flag named twice.
 func TestTheCatalogIsWellFormed(t *testing.T) {
 	seenName := map[string]bool{}
 	seenRPC := map[string]string{}
@@ -86,6 +87,12 @@ func TestTheCatalogIsWellFormed(t *testing.T) {
 		seenName[e.Name] = true
 		if e.Group != "" && !slices.Contains(catalog.Groups(), e.Group) {
 			t.Errorf("tool %s names group %q, which the server does not serve", e.Name, e.Group)
+		}
+		if !e.Scope.Known() {
+			t.Errorf("tool %s has scope %q; every tool needs one of %v", e.Name, e.Scope, catalog.Scopes())
+		}
+		if e.Scope == catalog.ScopeAdmin {
+			t.Errorf("tool %s requires %s; admin widens session_list and session_close rather than gating a tool", e.Name, catalog.ScopeAdmin)
 		}
 		if strings.TrimSpace(e.Summary) == "" || strings.Contains(e.Summary, "\n") || !strings.HasSuffix(e.Summary, ".") {
 			t.Errorf("tool %s needs a one-line summary ending in a period: %q", e.Name, e.Summary)
@@ -110,6 +117,39 @@ func TestTheCatalogIsWellFormed(t *testing.T) {
 	for flag := range catalog.CLIOnly {
 		if _, err := catalog.ClassifyFlag(flag); err != nil {
 			t.Error(err)
+		}
+	}
+	for _, s := range catalog.Scopes() {
+		if !s.Known() {
+			t.Errorf("scope %s is not known to itself", s)
+		}
+	}
+	if (catalog.Scope("sysml:root")).Known() {
+		t.Error("a scope outside the vocabulary counts as known")
+	}
+}
+
+// A tool's scope agrees with what it tells clients about itself: a tool that
+// writes the workspace is never annotated read-only, and a read-only tool
+// never requires the write scope.
+func TestScopesAgreeWithToolAnnotations(t *testing.T) {
+	root := t.TempDir()
+	cs := connect(t, Config{Root: root, Groups: catalog.Groups()})
+	res, err := cs.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("ListTools: %v", err)
+	}
+	for _, tool := range res.Tools {
+		e, ok := catalog.Tool(tool.Name)
+		if !ok {
+			t.Errorf("tool %s is served but not in the catalog", tool.Name)
+			continue
+		}
+		if tool.Annotations == nil {
+			continue
+		}
+		if e.Scope == catalog.ScopeWrite && tool.Annotations.ReadOnlyHint {
+			t.Errorf("tool %s requires %s but is annotated read-only", tool.Name, e.Scope)
 		}
 	}
 }
