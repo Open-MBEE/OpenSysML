@@ -28,7 +28,7 @@ GNU-format diagnostics **relative to `--root`**. Consequences for testing:
   (`passes/literal_infinity.sysml`: `*` bound to a Boolean, a String, a part and an enumeration is
   our `binding-connector-type-conformance` error where the pilot warns, four severity-only pairs, and
   its `Integer[2] = *` count error is one only-ours row), then the expose-only collisions round
-  (the `general-views-demo/vehicle.sysml:102` duplicate-imported-name warning retired): `924 file(s), 524 fully agreeing; 1102 agreed,
+  (the `general-views-demo/vehicle.sysml:102` duplicate-imported-name warning retired): `935 file(s), 535 fully agreeing; 1102 agreed,
   122 only ours, 2462 only the pilot's`, JSON totals `openSysMLDiagnostics 1235 / pilotDiagnostics 3575 /
   severityMismatch 11`; the two only-ours rows the multiplicity rule added are the expected `action-step-multiplicity-not-fixed`
   warnings on `training/18. Action Performance/Action Performance Example.sysml:10` and
@@ -154,7 +154,7 @@ warning (the `[1]` `RocketEquation` inputs still produce the warning at
 `takePicture[*]` in `Camera Example/Camera.sysml`, and the view concern framing round retired the
 six view-body `frame` `syntax` rows on `examples`, and the unbounded-literal typing round added
 `passes/literal_infinity.sysml` (four severity-only pairs, one only-ours count error), and the expose-only collisions round retired
-the `general-views-demo/vehicle.sysml:102` warning; a live run gives `924 file(s), 524 fully
+the `general-views-demo/vehicle.sysml:102` warning; a live run gives `935 file(s), 535 fully
 agreeing; 1102 agreed, 122 only ours, 2462 only the pilot's`, byte-identical to the committed baseline, and
 `docs/project/pilot-differential.md`'s "Results" table matches. The prior rebaseline, when the
 Legend of the Red Dragon example left for its own repository, gave
