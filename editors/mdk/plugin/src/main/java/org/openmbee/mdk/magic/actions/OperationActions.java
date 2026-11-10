@@ -21,6 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 import javax.swing.JFileChooser;
@@ -28,12 +29,14 @@ import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import org.openmbee.opensysml.Diagnostic;
+import org.openmbee.opensysml.DocumentValue;
 import org.openmbee.opensysml.Value;
 import org.openmbee.mdk.magic.annotations.AnnotationPlanner;
 import org.openmbee.mdk.magic.annotations.Annotations;
 import org.openmbee.mdk.magic.docgen.DocGenExtensions;
 import org.openmbee.mdk.magic.engine.Engine;
 import org.openmbee.mdk.magic.engine.Operation;
+import org.openmbee.mdk.magic.engine.QueryPlan;
 import org.openmbee.mdk.magic.engine.RunRequest;
 import org.openmbee.mdk.magic.export.ModelExport;
 import org.openmbee.mdk.magic.identity.IdentityResolver;
@@ -326,8 +329,56 @@ public final class OperationActions implements BrowserContextAMConfigurator, Dia
         return;
       }
       RunRequest request = new RunRequest(operation, source, selection.subject().qualifiedName(), args);
+      if (operation == Operation.RUN_QUERY) {
+        ProgressStatusRunner.runWithProgressStatus(
+            status -> planQuery(request, index, status), "Magic MDK: " + operation.label(), true, 0);
+        return;
+      }
       ProgressStatusRunner.runWithProgressStatus(
           status -> run(request, index, status), "Magic MDK: " + operation.label(), true, 0);
+    }
+
+    /** Runs off the EDT: resolves the queries, runs at once when nothing needs binding, else asks on the EDT and runs again. */
+    private void planQuery(RunRequest request, IdentityResolver index, ProgressStatus status) {
+      status.setDescription("Resolving " + request.subjectQualifiedName());
+      Optional<QueryPlan> plan;
+      try {
+        plan = engine.get().plan(request, status::isCancel);
+      } catch (RuntimeException failure) {
+        closeQuietly(request.source(), failure);
+        ResultsWindow.onEdt(() -> JOptionPane.showMessageDialog(
+            Application.getInstance().getMainFrame(), failure.getMessage(),
+            QueryBindingsDialog.TITLE, JOptionPane.ERROR_MESSAGE));
+        return;
+      }
+      if (plan.isEmpty()) {
+        request.source().close();
+        return;
+      }
+      if (plan.get().parameters().isEmpty()) {
+        run(request, index, status);
+        return;
+      }
+      QueryPlan resolved = plan.get();
+      ResultsWindow.onEdt(() -> {
+        Optional<Map<String, List<DocumentValue>>> bindings = QueryBindingsDialog.ask(
+            Application.getInstance().getMainFrame(), resolved, request.subjectQualifiedName());
+        if (bindings.isEmpty()) {
+          request.source().close();
+          return;
+        }
+        RunRequest bound = request.withQueryBindings(bindings.get());
+        ProgressStatusRunner.runWithProgressStatus(
+            progress -> run(bound, index, progress), "Magic MDK: " + operation.label(), true, 0);
+      });
+    }
+
+    private static void closeQuietly(ModelSource source, RuntimeException failure) {
+      try {
+        source.close();
+      } catch (RuntimeException closeFailure) {
+        failure.addSuppressed(closeFailure);
+      }
     }
 
     /** Runs off the EDT under the progress dialog; only the final display hops back onto it. */

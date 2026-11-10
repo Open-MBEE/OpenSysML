@@ -5,7 +5,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Predicate;
@@ -13,6 +15,7 @@ import java.util.function.Supplier;
 import org.openmbee.opensysml.Connection;
 import org.openmbee.opensysml.ConnectionOptions;
 import org.openmbee.opensysml.Diagnostic;
+import org.openmbee.opensysml.DocumentValue;
 import org.openmbee.opensysml.Model;
 import org.openmbee.opensysml.ServiceException;
 import org.openmbee.opensysml.SourceDocument;
@@ -20,6 +23,7 @@ import org.openmbee.opensysml.StatusCode;
 import org.openmbee.opensysml.Symbol;
 import org.openmbee.mdk.magic.bin.HostBinary;
 import org.openmbee.mdk.magic.export.ModelExport;
+import org.openmbee.mdk.magic.results.QueryAnswer;
 import org.openmbee.mdk.magic.results.ResultsMapper;
 import org.openmbee.mdk.magic.results.RunResult;
 import org.openmbee.mdk.magic.source.ModelSource;
@@ -92,6 +96,28 @@ public final class Engine implements AutoCloseable {
       if (cancellation.requested()) return RunResult.cancelled(request);
       if (current != null && isUnavailable(exception)) dropConnection(current);
       return RunResult.error(request, exception, elapsed(started));
+    } finally {
+      stop(watcher);
+    }
+  }
+
+  /** The queries a "Run query" of {@code request} runs and their parameters, so the bindings can be asked for first; empty when cancelled. */
+  public Optional<QueryPlan> plan(RunRequest request, Cancellation cancellation) {
+    Objects.requireNonNull(request);
+    Objects.requireNonNull(cancellation);
+    if (cancellation.requested()) return Optional.empty();
+    Thread watcher = null;
+    Connection current = null;
+    try {
+      current = connection();
+      watcher = watcher(cancellation, current);
+      Model model = current.parseSources(request.source().sources(current));
+      if (cancellation.requested()) return Optional.empty();
+      return Optional.of(QueryResolver.plan(request, model));
+    } catch (RuntimeException exception) {
+      if (cancellation.requested()) return Optional.empty();
+      if (current != null && isUnavailable(exception)) dropConnection(current);
+      throw exception;
     } finally {
       stop(watcher);
     }
@@ -199,7 +225,39 @@ public final class Engine implements AutoCloseable {
           ResultsMapper.map(request, model.evaluateCalc(subject, request.calcArgs()), elapsed);
       case RUN_ANALYSIS -> ResultsMapper.map(request, model.runAnalysis(subject), elapsed);
       case VERIFY -> verify(request, model);
+      case RUN_QUERY -> runQuery(request, model);
     };
+  }
+
+  /** Runs every query the subject stands for; a query's own failure is an outcome, so the others still answer. */
+  private static RunResult runQuery(RunRequest request, Model model) {
+    QueryPlan plan = QueryResolver.plan(request, model);
+    Map<String, Map<String, List<DocumentValue>>> bindings = new LinkedHashMap<>();
+    for (String query : plan.queries()) bindings.put(query, new LinkedHashMap<>());
+    request.queryBindings().forEach((key, values) -> {
+      QueryParameter parameter = plan.parameter(key).orElseThrow(() -> new IllegalArgumentException(
+          "no parameter named " + key + " on " + String.join(", ", plan.queries())));
+      bindings.get(parameter.query()).put(
+          parameter.name(), values.stream().map(value -> serviceName(request.source(), value)).toList());
+    });
+    List<QueryAnswer> answers = new ArrayList<>();
+    for (String query : plan.queries()) {
+      try {
+        answers.add(QueryAnswer.rows(query, model.runDocumentQuery(query, bindings.get(query))));
+      } catch (ServiceException failure) {
+        if (failure.status() == StatusCode.UNAVAILABLE || failure.status() == StatusCode.CANCELLED) throw failure;
+        answers.add(QueryAnswer.failed(query, failure));
+      }
+    }
+    return ResultsMapper.map(request, answers, Duration.ZERO);
+  }
+
+  /** An element the host named is bound by the name the service knows it under. */
+  private static DocumentValue serviceName(ModelSource source, DocumentValue value) {
+    if (value instanceof DocumentValue.ElementRef ref) {
+      return new DocumentValue.ElementRef(source.subjectName(ref.id()), ref.type());
+    }
+    return value;
   }
 
   /** Picks the verification RPC from the symbol's kind so the user need not know it. */

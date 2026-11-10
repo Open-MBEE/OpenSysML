@@ -20,11 +20,48 @@ public record BridgeResult(
     Optional<String> finalTime,
     List<Outcome> outcomes,
     List<Diagnostic> diagnostics,
-    List<String> schedule) {
+    List<String> schedule,
+    List<Table> tables) {
 
   public record Outcome(String label, String detail, String status, Optional<String> elementId) {}
 
   public record Diagnostic(String severity, String code, String message, Optional<String> location) {}
+
+  /** The rows one query answered; a cell's {@code elementId} names the element its value stands for. */
+  public record Table(String query, List<String> columns, List<Row> rows) {
+    public Table {
+      Objects.requireNonNull(query);
+      columns = List.copyOf(columns);
+      rows = List.copyOf(rows);
+    }
+  }
+
+  public record Row(Optional<String> elementId, List<Cell> cells) {
+    public Row {
+      Objects.requireNonNull(elementId);
+      cells = List.copyOf(cells);
+    }
+  }
+
+  public record Cell(String text, Optional<String> elementId) {
+    public Cell {
+      Objects.requireNonNull(text);
+      Objects.requireNonNull(elementId);
+    }
+  }
+
+  public BridgeResult(
+      String operation,
+      String operationLabel,
+      String subject,
+      String status,
+      long elapsedMillis,
+      Optional<String> finalTime,
+      List<Outcome> outcomes,
+      List<Diagnostic> diagnostics,
+      List<String> schedule) {
+    this(operation, operationLabel, subject, status, elapsedMillis, finalTime, outcomes, diagnostics, schedule, List.of());
+  }
 
   public BridgeResult {
     Objects.requireNonNull(operation);
@@ -35,6 +72,7 @@ public record BridgeResult(
     outcomes = List.copyOf(outcomes);
     diagnostics = List.copyOf(diagnostics);
     schedule = List.copyOf(schedule);
+    tables = List.copyOf(tables);
   }
 
   public static BridgeResult from(Map<String, Object> flat) {
@@ -58,7 +96,46 @@ public record BridgeResult(
         text(flat, "operation"), text(flat, "operationLabel"), text(flat, "subject"), text(flat, "status"),
         elapsed instanceof Number number ? number.longValue() : 0L,
         Optional.ofNullable(flat.get("finalTime")).map(String::valueOf),
-        outcomes, diagnostics, schedule);
+        outcomes, diagnostics, schedule, tables(flat.get("tables")));
+  }
+
+  private static List<Table> tables(Object value) {
+    List<Table> tables = new ArrayList<>();
+    if (!(value instanceof List<?> list)) return tables;
+    for (Object item : list) {
+      if (!(item instanceof Map<?, ?> table)) continue;
+      List<Row> rows = new ArrayList<>();
+      if (table.get("rows") instanceof List<?> flatRows) {
+        for (Object flatRow : flatRows) {
+          if (!(flatRow instanceof Map<?, ?> row)) continue;
+          List<Cell> cells = new ArrayList<>();
+          if (row.get("cells") instanceof List<?> flatCells) {
+            for (Object flatCell : flatCells) {
+              if (flatCell instanceof Map<?, ?> cell) {
+                cells.add(new Cell(String.valueOf(cell.get("text")), optionalText(cell.get("elementId"))));
+              }
+            }
+          }
+          rows.add(new Row(optionalText(row.get("elementId")), cells));
+        }
+      }
+      Object query = table.get("query");
+      if (query == null) throw new IllegalArgumentException("bridge result table lacks query");
+      tables.add(new Table(String.valueOf(query), strings(table.get("columns")), rows));
+    }
+    return tables;
+  }
+
+  private static List<String> strings(Object value) {
+    List<String> strings = new ArrayList<>();
+    if (value instanceof List<?> list) {
+      for (Object item : list) strings.add(String.valueOf(item));
+    }
+    return strings;
+  }
+
+  private static Optional<String> optionalText(Object value) {
+    return value == null ? Optional.empty() : Optional.of(String.valueOf(value));
   }
 
   private static List<Map<String, String>> rows(Map<String, Object> flat, String key) {
