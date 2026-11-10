@@ -45,12 +45,16 @@ func TestRefusalOfAnAuthenticator(t *testing.T) {
 	}{
 		{Expired, http.StatusUnauthorized, "invalid_token", "Unauthorized: the bearer token has expired", "expired token"},
 		{InsufficientScope, http.StatusForbidden, "insufficient_scope", "Forbidden: the bearer token lacks a scope this server requires", "insufficient scope"},
+		{Unavailable, http.StatusServiceUnavailable, "", "Service Unavailable: the bearer token cannot be verified for now", "token cannot be verified for now"},
 	}
 	for _, c := range cases {
 		if c.refusal.HTTPStatus() != c.status || c.refusal.Code() != c.code || c.refusal.Message() != c.message || c.refusal.String() != c.label {
 			t.Errorf("%v: status %d code %q message %q, want %d %q %q", c.refusal, c.refusal.HTTPStatus(), c.refusal.Code(), c.refusal.Message(), c.status, c.code, c.message)
 		}
-		want := `Bearer realm="svc", error="` + c.code + `", error_description="` + c.refusal.Description() + `"`
+		want := `Bearer realm="svc"`
+		if c.code != "" {
+			want += `, error="` + c.code + `", error_description="` + c.refusal.Description() + `"`
+		}
 		if got := c.refusal.Challenge("svc"); got != want {
 			t.Errorf("%v.Challenge = %q, want %q", c.refusal, got, want)
 		}
