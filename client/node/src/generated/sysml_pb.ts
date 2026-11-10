@@ -7122,9 +7122,8 @@ export type QueryRequest = Message<"sysml.QueryRequest"> & {
   oslcQuery: string;
 
   /**
-   * Also write the answer as a QVTS::QueryResult view, in result_view; a path or
-   * model error carries its view as a QueryResultView detail. Under the
-   * "query_result_view" capability.
+   * Also write the answer as a QVTS::QueryResult view, in result_view or a failure's
+   * QueryResultView detail. Under the "query_result_view" capability.
    *
    * @generated from field: bool as_view = 4;
    */
@@ -8495,9 +8494,8 @@ export type RunDocumentQueryRequest = Message<"sysml.RunDocumentQueryRequest"> &
   inlineQuery: string;
 
   /**
-   * Also write the answer as a QVTS::QueryResult view, in result_view; a path or
-   * model error carries its view as a QueryResultView detail. Under the
-   * "query_result_view" capability.
+   * Also write the answer as a QVTS::QueryResult view, in result_view or a failure's
+   * QueryResultView detail. Under the "query_result_view" capability.
    *
    * @generated from field: bool as_view = 5;
    */
@@ -9501,10 +9499,8 @@ export type RenderViewRequest = Message<"sysml.RenderViewRequest"> & {
   compartments: string;
 
   /**
-   * A document form to also render a QVTS::QueryResult view in — "markdown",
-   * "html" or "asciidoc", as RenderDocumentRequest.form — answered in the
-   * response's field of that name. Fails with INVALID_ARGUMENT for any other
-   * view. Under the "query_result_view" capability.
+   * Also render a QVTS::QueryResult view as a document in this RenderDocumentRequest.form;
+   * INVALID_ARGUMENT for any other view. Under the "query_result_view" capability.
    *
    * @generated from field: string form = 7;
    */

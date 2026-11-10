@@ -2602,9 +2602,8 @@ message QueryRequest {
   Query query = 2;
   // OSLC Query 3.0 parameter text, mutually exclusive with query.
   string oslc_query = 3;
-  // Also write the answer as a QVTS::QueryResult view, in result_view; a path or
-  // model error carries its view as a QueryResultView detail. Under the
-  // "query_result_view" capability.
+  // Also write the answer as a QVTS::QueryResult view, in result_view or a failure's
+  // QueryResultView detail. Under the "query_result_view" capability.
   bool as_view = 4;
 }
 
@@ -3044,9 +3043,8 @@ message RunDocumentQueryRequest {
   // <line>:<column>`); a path or model error carries a QueryOutcome detail as a
   // named query's does. Reported as the "inline_document_query" capability.
   string inline_query = 4;
-  // Also write the answer as a QVTS::QueryResult view, in result_view; a path or
-  // model error carries its view as a QueryResultView detail. Under the
-  // "query_result_view" capability.
+  // Also write the answer as a QVTS::QueryResult view, in result_view or a failure's
+  // QueryResultView detail. Under the "query_result_view" capability.
   bool as_view = 5;
 }
 
@@ -3353,10 +3351,8 @@ message RenderViewRequest {
   // owned usage no Layout, nested definition or package keeps a node) or
   // "ports" (the port usages with the ports nested under them).
   string compartments = 6;
-  // A document form to also render a QVTS::QueryResult view in — "markdown",
-  // "html" or "asciidoc", as RenderDocumentRequest.form — answered in the
-  // response's field of that name. Fails with INVALID_ARGUMENT for any other
-  // view. Under the "query_result_view" capability.
+  // Also render a QVTS::QueryResult view as a document in this RenderDocumentRequest.form;
+  // INVALID_ARGUMENT for any other view. Under the "query_result_view" capability.
   string form = 7;
 }
 

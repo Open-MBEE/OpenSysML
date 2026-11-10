@@ -3216,9 +3216,8 @@ pub struct QueryRequest {
     /// OSLC Query 3.0 parameter text, mutually exclusive with query.
     #[prost(string, tag="3")]
     pub oslc_query: ::prost::alloc::string::String,
-    /// Also write the answer as a QVTS::QueryResult view, in result_view; a path or
-    /// model error carries its view as a QueryResultView detail. Under the
-    /// "query_result_view" capability.
+    /// Also write the answer as a QVTS::QueryResult view, in result_view or a failure's
+    /// QueryResultView detail. Under the "query_result_view" capability.
     #[prost(bool, tag="4")]
     pub as_view: bool,
 }
@@ -3815,9 +3814,8 @@ pub struct RunDocumentQueryRequest {
     /// named query's does. Reported as the "inline_document_query" capability.
     #[prost(string, tag="4")]
     pub inline_query: ::prost::alloc::string::String,
-    /// Also write the answer as a QVTS::QueryResult view, in result_view; a path or
-    /// model error carries its view as a QueryResultView detail. Under the
-    /// "query_result_view" capability.
+    /// Also write the answer as a QVTS::QueryResult view, in result_view or a failure's
+    /// QueryResultView detail. Under the "query_result_view" capability.
     #[prost(bool, tag="5")]
     pub as_view: bool,
 }
@@ -4248,10 +4246,8 @@ pub struct RenderViewRequest {
     /// "ports" (the port usages with the ports nested under them).
     #[prost(string, tag="6")]
     pub compartments: ::prost::alloc::string::String,
-    /// A document form to also render a QVTS::QueryResult view in — "markdown",
-    /// "html" or "asciidoc", as RenderDocumentRequest.form — answered in the
-    /// response's field of that name. Fails with INVALID_ARGUMENT for any other
-    /// view. Under the "query_result_view" capability.
+    /// Also render a QVTS::QueryResult view as a document in this RenderDocumentRequest.form;
+    /// INVALID_ARGUMENT for any other view. Under the "query_result_view" capability.
     #[prost(string, tag="7")]
     pub form: ::prost::alloc::string::String,
 }

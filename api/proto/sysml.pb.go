@@ -12388,9 +12388,8 @@ type QueryRequest struct {
 	Query     *Query                 `protobuf:"bytes,2,opt,name=query,proto3" json:"query,omitempty"`
 	// OSLC Query 3.0 parameter text, mutually exclusive with query.
 	OslcQuery string `protobuf:"bytes,3,opt,name=oslc_query,json=oslcQuery,proto3" json:"oslc_query,omitempty"`
-	// Also write the answer as a QVTS::QueryResult view, in result_view; a path or
-	// model error carries its view as a QueryResultView detail. Under the
-	// "query_result_view" capability.
+	// Also write the answer as a QVTS::QueryResult view, in result_view or a failure's
+	// QueryResultView detail. Under the "query_result_view" capability.
 	AsView        bool `protobuf:"varint,4,opt,name=as_view,json=asView,proto3" json:"as_view,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -14628,9 +14627,8 @@ type RunDocumentQueryRequest struct {
 	// <line>:<column>`); a path or model error carries a QueryOutcome detail as a
 	// named query's does. Reported as the "inline_document_query" capability.
 	InlineQuery string `protobuf:"bytes,4,opt,name=inline_query,json=inlineQuery,proto3" json:"inline_query,omitempty"`
-	// Also write the answer as a QVTS::QueryResult view, in result_view; a path or
-	// model error carries its view as a QueryResultView detail. Under the
-	// "query_result_view" capability.
+	// Also write the answer as a QVTS::QueryResult view, in result_view or a failure's
+	// QueryResultView detail. Under the "query_result_view" capability.
 	AsView        bool `protobuf:"varint,5,opt,name=as_view,json=asView,proto3" json:"as_view,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -16399,10 +16397,8 @@ type RenderViewRequest struct {
 	// owned usage no Layout, nested definition or package keeps a node) or
 	// "ports" (the port usages with the ports nested under them).
 	Compartments string `protobuf:"bytes,6,opt,name=compartments,proto3" json:"compartments,omitempty"`
-	// A document form to also render a QVTS::QueryResult view in — "markdown",
-	// "html" or "asciidoc", as RenderDocumentRequest.form — answered in the
-	// response's field of that name. Fails with INVALID_ARGUMENT for any other
-	// view. Under the "query_result_view" capability.
+	// Also render a QVTS::QueryResult view as a document in this RenderDocumentRequest.form;
+	// INVALID_ARGUMENT for any other view. Under the "query_result_view" capability.
 	Form          string `protobuf:"bytes,7,opt,name=form,proto3" json:"form,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

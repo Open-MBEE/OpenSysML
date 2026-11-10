@@ -7,7 +7,7 @@ per-prefix conformance breakdown and the trace, fixture, negative and robustness
 there, and every other page links here rather than restating them (CONTRIBUTING.md).
 
 **Quality Gates:**
-- Parser: 110/110 stdlib files clean (94 vendored OMG, 16 OpenSysML extensions)
+- Parser: 111/111 stdlib files clean (94 vendored OMG, 17 OpenSysML extensions)
 - Execution conformance: every case passing, with `known_failures.txt` empty
 - Training examples: 100/100 files report no semantic errors (the error-only gate records no per-file errors in `tests/corpus/testdata/training_examples_expected.txt`)
 - No regressions: All tests pass on every commit

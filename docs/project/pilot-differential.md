@@ -1108,7 +1108,8 @@ goes from 56 files, 49 fully agreeing to 67 and 60, the totals from 924 and 524 
 every diagnostic count stays as recorded (1102 agreed, 122 only ours, 2462 only the pilot's). The
 pilot, given the library through `--extension-library`, reads each view's `expose` and attribute
 redefinitions as this repository does and reports nothing on any of the eleven, so the baseline is
-re-recorded for the `examples` and `opensysml-libraries` digests and those file counts alone.
+re-recorded for the `examples` and `opensysml-libraries` digests and those file counts alone. The
+`examples` digest also carries the self-model's `bundledFileCount`, 110 → 111, a literal no diagnostic reads.
 
 ### Step 2 resolver round
 

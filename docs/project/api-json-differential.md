@@ -515,7 +515,8 @@ and three more colliding keys of ours (45 → 48). No file is newly refused or f
 59 as before), no scorecard row is added or removed (11771), and the other roots read as recorded. The new
 files' properties fall in the buckets their metaclasses already had — the view usages, `expose` imports and
 attribute redefinitions of the result views, and the parts, actions and attributes of `observatory.sysml` —
-so the counts of existing rows grow by what the new files add; no existing example imports `QVTS`.
+so the counts of existing rows grow by what the new files add; no existing example imports `QVTS`. The
+self-model's `bundledFileCount` literal moves 110 → 111 with the library, changing the digest and no count.
 
 **An invocation lists the parameters no argument binds** (re-recorded when the writer began listing
 under `InvocationExpression.parameter` the invoked behavior's parameters that no argument binds and no

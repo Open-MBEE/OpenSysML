@@ -1,0 +1,1 @@
+- **The MCP `query` and `run_document_query` tools write their answer as a `QVTS::QueryResult` view.** `asView` fills `resultView` in the result, and `render_model_view` takes `form` to render such a view as a Markdown, HTML or AsciiDoc document.

@@ -122,7 +122,7 @@ var Tools = []Entry{
 		Summary: "Migrate a SysML v1 model to SysML v2 and report what moved."},
 	{Name: "parse", Group: GroupRuntime, RPCs: []string{"ParseFile", "ParseSources"}, Flags: []string{"strict"},
 		Summary: "Parse files or inline sources and answer the roots, diagnostics and a model hash."},
-	{Name: "query", Group: GroupRuntime, RPCs: []string{"Query"}, Flags: []string{"query"},
+	{Name: "query", Group: GroupRuntime, RPCs: []string{"Query"}, Flags: []string{"query", "as-view"},
 		Summary: "Run an OSLC query against a parsed model."},
 	{Name: "render_model_document", Group: GroupRuntime, RPCs: []string{"RenderDocument"}, Flags: []string{"render-document", "doc-form"},
 		Summary: "Render a document definition as Markdown or HTML."},

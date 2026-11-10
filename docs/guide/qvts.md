@@ -287,6 +287,7 @@ the same query write the same bytes.
 | `sysml -run-query`, `-run-inline-query`, `-query` | `-as-view <file>` writes the view to the file beside the usual report; `-as-view -` prints it in place of the rows. A failed query still writes its view and still exits 2. |
 | REPL `%run-query`, `%query` | A leading `-as-view` (`%run-query -as-view QVTSDemo::CabinMass`, also before `inline …`) prints the view in place of the rows. |
 | gRPC `RunDocumentQuery`, `Query` | `as_view` in the request fills `result_view.text` in the response; a failed query carries a `QueryResultView` status detail beside its `QueryOutcome`. Needs the `query_result_view` capability. |
+| MCP `run_document_query`, `query` | `asView` fills `resultView` in the result; `render_model_view` takes `form` to render such a view as a document. |
 | Go client | `RunDocumentQueryAsView`, `RunInlineDocumentQueryAsView`, `QueryAsView`, `QueryOSLCAsView`; `StatusError.ResultView` on a failure. |
 | Python client | `as_view=True` on `run_document_query` and `query`; `.result_view` on the result and on the error. |
 | Java client | `runDocumentQueryAsView`, `runInlineDocumentQueryAsView`, `queryAsView`, `queryOslcAsView`; `QueryOutcomeException.resultView()` on a failure. |
