@@ -869,3 +869,102 @@ func TestNotesAreNoElementsOfTheRepository(t *testing.T) {
 		t.Errorf("the note left out of the comparison is not reported:\n%s", set.Text())
 	}
 }
+
+// withExtensionNode adds to the graph a node typed in the sysx: namespace that
+// only a sysx: property of Vehicle references, as a note is referenced.
+func withExtensionNode(t *testing.T, g *rdf.Graph) (node string) {
+	t.Helper()
+	for _, subject := range g.Subjects() {
+		if name, _ := g.Lexical(subject, rdf.SysML+"qualifiedName"); name != "P::Vehicle" {
+			continue
+		}
+		marker := rdf.ExpressionIRI(subject, "marker0")
+		g.Add(subject, rdf.OpenSysMLTerm("marker"), marker)
+		g.Add(marker, rdf.IRI(rdf.RDFType), rdf.OpenSysMLTerm("Marker"))
+		g.Add(marker, rdf.OpenSysMLTerm("markerText"), rdf.String("x"))
+		return marker.Value
+	}
+	t.Fatal("the fixture does not state P::Vehicle")
+	return ""
+}
+
+func TestExtensionTypedNodesAreNoElementsOfTheRepository(t *testing.T) {
+	local := graphOf(t, scoped(vehicle))
+	node := withExtensionNode(t, local)
+	set, err := reposync.Diff(local, graphOf(t, scoped(vehicle)), reposync.Options{Representation: sysmlapi.Representation{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, change := range set.Changes {
+		if change.Subject == node {
+			t.Errorf("the sysx:Marker node is written as an element of the repository:\n%s", set.Text())
+		}
+	}
+	var left bool
+	for _, uncarried := range set.Uncarried {
+		if strings.HasSuffix(uncarried.Property, "Marker") {
+			left = true
+			if uncarried.Triples != 2 {
+				t.Errorf("the node's %d triple(s) are tallied under its class, want 2", uncarried.Triples)
+			}
+		}
+	}
+	if !left {
+		t.Errorf("the node left out of the comparison is not reported under its class:\n%s", set.Text())
+	}
+	// Compared as written, the node is an element like any other.
+	set, err = reposync.Diff(local, graphOf(t, scoped(vehicle)), reposync.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if creates := byKind(set, reposync.KindCreate); len(creates) != 1 || creates[0].Subject != node {
+		t.Errorf("without a representation the node is not the one create:\n%s", set.Text())
+	}
+}
+
+// pseudostate is a state body whose `choice` is a sysx:Pseudostate: an element
+// the SysML metamodel has no metaclass for, which the memberships and
+// transitions around it reference through sysml: properties.
+const pseudostate = `	state def S {
+		state a;
+		choice c;
+		transition first a then c;
+	}
+`
+
+func TestReferenceToAnExtensionTypedElementIsRefused(t *testing.T) {
+	local := graphOf(t, scoped(vehicle+pseudostate))
+	_, err := reposync.Diff(local, graphOf(t, scoped(vehicle)), reposync.Options{Representation: sysmlapi.Representation{}})
+	var unheld *reposync.UnheldReferenceError
+	if !errors.As(err, &unheld) {
+		t.Fatalf("a reference to a sysx:Pseudostate was not refused as an UnheldReferenceError: %v", err)
+	}
+	if unheld.Subject != "P::S::c" || !strings.HasSuffix(unheld.Class, "Pseudostate") {
+		t.Errorf("the refusal names %s (%s), want P::S::c (…Pseudostate)", unheld.Subject, unheld.Class)
+	}
+	if unheld.Referrer == "" || unheld.Property == "" {
+		t.Errorf("the refusal does not say who references it: %+v", unheld)
+	}
+	for _, want := range []string{"P::S::c", "Pseudostate", unheld.Referrer, unheld.Property, "no metaclass"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("the message does not state %q: %v", want, err)
+		}
+	}
+	// The repository side is held to the same rule.
+	_, err = reposync.Diff(graphOf(t, scoped(vehicle)), local, reposync.Options{Representation: sysmlapi.Representation{}})
+	if !errors.As(err, &unheld) || !strings.HasPrefix(err.Error(), "repository graph: ") {
+		t.Errorf("a repository graph stating the pseudostate is not refused the same way: %v", err)
+	}
+	// Compared as written, the pseudostate is an element like any other.
+	set, err := reposync.Diff(local, graphOf(t, scoped(vehicle)), reposync.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var created bool
+	for _, change := range byKind(set, reposync.KindCreate) {
+		created = created || change.QualifiedName == "P::S::c"
+	}
+	if !created {
+		t.Errorf("without a representation the pseudostate is not a create:\n%s", set.Text())
+	}
+}
