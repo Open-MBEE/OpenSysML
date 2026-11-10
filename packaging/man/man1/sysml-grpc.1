@@ -28,6 +28,11 @@ can open the port may parse, run and edit models here, and the log shows peers
 but never who they are. Only for a trusted network behind a proxy that
 authenticates for this service; never implied
 .TP
+.BI \-api\-keys " string"
+File of API keys accepted besides the bearer token, one JSON record per line
+holding the SHA\-256 of a key with its subject, scopes, expiry and whether it
+is disabled; re\-read when it changes and on SIGHUP
+.TP
 .BI \-cache\-size " int"
 Maximum number of cached parsed files. The default is 100.
 .TP
