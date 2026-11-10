@@ -30,8 +30,8 @@ type HTTPConfig struct {
 	Listener net.Listener
 	// Origins decides which Origin headers are admitted.
 	Origins OriginPolicy
-	// Token is the bearer token every request must carry; the zero value
-	// requires none, which only a loopback listener may serve.
+	// Token is whose bearer credentials a request must carry, a token's or an authenticator's;
+	// the zero value requires none, which only a loopback listener may serve.
 	Token BearerToken
 	// CertFile and KeyFile, both set, serve TLS; neither serves cleartext.
 	CertFile, KeyFile string

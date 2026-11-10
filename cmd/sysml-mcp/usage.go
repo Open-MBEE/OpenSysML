@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard/flags"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/catalog"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
@@ -22,8 +23,7 @@ type options struct {
 	logLevel      string
 	http          string
 	allowOrigin   string
-	token         string
-	tokenFile     string
+	auth          *flags.Options
 	publicURL     string
 	stdio         bool
 	tlsCert       string
@@ -60,11 +60,7 @@ func registerFlags(fs *flag.FlagSet) *options {
 	fs.StringVar(&o.allowOrigin, "allow-origin", "",
 		"Origins, comma-separated as scheme://host[:port], granted cross-origin access to the HTTP transport (the CORS headers and preflight answer a browser needs); "+
 			"loopback origins and requests with no Origin header are admitted without a grant, any other origin is refused")
-	fs.StringVar(&o.tokenFile, "token-file", "",
-		"File holding the bearer token every HTTP request must carry as Authorization: Bearer TOKEN (a trailing line break is not part of it); "+
-			"required for an address other machines reach, enforced on loopback too when given")
-	fs.StringVar(&o.token, "token", "",
-		"The bearer token itself, for a shell whose command line is private; -token-file keeps it out of the process list, and "+mcp.TokenEnv+" is read when neither flag names one")
+	o.auth = flags.Register(fs, mcp.TokenEnv)
 	fs.StringVar(&o.publicURL, "public-url", "",
 		"URL clients reach the HTTP transport at when a proxy in front terminates TLS or rewrites the path, as https://models.example.org/mcp (a plain path, no query); "+
 			"named as the protected resource and in the bearer challenge, and by the -print-config block; default each request's own scheme and Host")

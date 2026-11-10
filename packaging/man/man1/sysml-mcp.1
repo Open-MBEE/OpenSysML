@@ -103,9 +103,9 @@ The bearer token itself, for a shell whose command line is private;
 read when neither flag names one
 .TP
 .BI \-token\-file " string"
-File holding the bearer token every HTTP request must carry as Authorization:
-Bearer TOKEN (a trailing line break is not part of it); required for an
-address other machines reach, enforced on loopback too when given
+File holding the bearer token every call must carry as Authorization: Bearer
+TOKEN (one trailing line break is dropped); with it the token stays out of the
+process list
 .TP
 .BI \-tools " string"
 Tool groups to serve, comma\-separated: lsp (diagnostics, navigation, editing,

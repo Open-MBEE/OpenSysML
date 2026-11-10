@@ -7,6 +7,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/catalog"
 )
 
 // httpOptions is what -http and its qualifiers (-allow-origin, -token,
@@ -26,7 +27,8 @@ type httpOptions struct {
 // loadTLS loads the pair.
 func readHTTPOptions(o *options) (*httpOptions, error) {
 	if o.http == "" {
-		for _, f := range []struct{ name, value string }{{"-allow-origin", o.allowOrigin}, {"-token", o.token}, {"-token-file", o.tokenFile}, {"-public-url", o.publicURL}, {"-tls-cert", o.tlsCert}, {"-tls-key", o.tlsKey}} {
+		auth := o.auth.Given()
+		for _, f := range []struct{ name, value string }{{"-allow-origin", o.allowOrigin}, {auth, auth}, {"-public-url", o.publicURL}, {"-tls-cert", o.tlsCert}, {"-tls-key", o.tlsKey}} {
 			if f.value != "" {
 				return nil, fmt.Errorf("%s applies to the HTTP transport; name its address with -http", f.name)
 			}
@@ -61,13 +63,13 @@ func readHTTPOptions(o *options) (*httpOptions, error) {
 func (h *httpOptions) tokenValue() string { return h.tokenText }
 
 // readToken reads the token from -token-file (one trailing line break dropped),
-// -token or the environment, in that order; both flags together are refused.
+// -token or the environment, in that order, as a principal of every scope; both flags are refused.
 func readToken(o *options) (mcp.BearerToken, string, error) {
-	token, text, err := guard.Read(o.tokenFile, o.token, mcp.TokenEnv)
+	resolved, err := o.auth.Resolve(mcp.TokenEnv, catalog.ScopeNames()...)
 	if err != nil {
 		return mcp.BearerToken{}, "", err
 	}
-	return mcp.BearerToken{Token: token}, text, nil
+	return mcp.BearerToken{Authenticator: resolved.Chain()}, resolved.TokenText(), nil
 }
 
 // loadTLS proves the TLS pair loads before anything is served; nothing to
