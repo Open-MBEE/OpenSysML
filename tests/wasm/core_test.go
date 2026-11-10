@@ -22,7 +22,7 @@ import (
 )
 
 // coreGzipBudget bounds the gzipped js sysml-core the gate links (-trimpath, stripped, the library snapshot embedded, as
-// every Makefile build target does): 7,358,267 bytes under go1.27.3 on 2026-11-09 at develop 8de845591f, 5,674,539 without the snapshot.
+// every Makefile build target does): 7,357,861 bytes under go1.27.3 on 2026-11-09 at develop ddc4a547fe, 5,674,863 without the snapshot.
 const coreGzipBudget = 7400000
 
 const cleanCoreModel = `
