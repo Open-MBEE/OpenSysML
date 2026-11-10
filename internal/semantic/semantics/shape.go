@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -89,7 +90,72 @@ func (m *Model) shapeFeatures(typ *symbols.Symbol, keep func(*symbols.Symbol) bo
 	for _, name := range order {
 		out = append(out, m.inheritedNamesake(typ, *byName[name], keep))
 	}
+	return append(out, m.anonymousShapeFeatures(typ, keep, byName)...)
+}
+
+// anonymousShapeFeatures is the shape of typ's unnamed constraint usages, own then inherited,
+// each under its positional address `Owner::@N`; anonymous usages of other kinds stay out.
+func (m *Model) anonymousShapeFeatures(typ *symbols.Symbol, keep func(*symbols.Symbol) bool, byName map[string]*ShapeFeature) []ShapeFeature {
+	var out []ShapeFeature
+	collect := func(source *symbols.Symbol, inherited bool) {
+		if source.Scope == nil {
+			return
+		}
+		for _, member := range source.Scope.AnonymousMembers() {
+			if !AnonymousShapeMember(member) || !keep(member) || m.VariationPointOwning(member) != nil ||
+				ownedThroughAnnotation(source, member) || (inherited && !Inheritable(member)) {
+				continue
+			}
+			name := m.PositionalNameOf(member)
+			if _, taken := byName[name]; name == "" || taken {
+				continue
+			}
+			byName[name] = &ShapeFeature{Name: name, Symbol: member, Declared: member}
+			out = append(out, *byName[name])
+		}
+	}
+	collect(typ, false)
+	for _, src := range m.MemberSources(typ) {
+		collect(src, true)
+	}
 	return out
+}
+
+// AnonymousShapeMember reports a constraint usage declared without a name, which its
+// owner's shape holds as it holds a named one (`require constraint { … }`, `constraint { … }`).
+func AnonymousShapeMember(sym *symbols.Symbol) bool {
+	return sym != nil && sym.Kind == symbols.SymbolConstraintUsage && sym.Name == "" && sym.ShortName == "" &&
+		sym.Naming == symbols.NamedByDeclaration && !sym.Implied()
+}
+
+// PositionalNameOf is the address of a member no name reaches, `Owner::@N` (0-based, the
+// RDF mapping's sysx:positionalName spelling); "" for a named member or a bodiless owner.
+func (m *Model) PositionalNameOf(sym *symbols.Symbol) string {
+	if m == nil || sym == nil || sym.Decl == nil || m.QualifiedNameOf(sym) != "" {
+		return ""
+	}
+	owner := sym.Owner()
+	if owner == nil {
+		return ""
+	}
+	index := -1
+	for i, member := range ast.DeclMembers(owner.Decl) {
+		if ms, ok := member.(*ast.Membership); ok {
+			member = ms.Member
+		}
+		if member == sym.Decl {
+			index = i
+			break
+		}
+	}
+	if index < 0 {
+		return ""
+	}
+	name := "@" + strconv.Itoa(index)
+	if ownerName := m.QualifiedNameOf(owner); ownerName != "" {
+		return ownerName + "::" + name
+	}
+	return symbols.FQNOf(owner) + "::" + name
 }
 
 // inheritedNamesake is f, or the namesake typ still inherits under f.Name when
@@ -148,7 +214,8 @@ func (m *Model) computeConstructorSlots(typ *symbols.Symbol) constructorSlots {
 	tier := m.libraryTier(typ)
 	var declared []*symbols.Symbol
 	for _, f := range m.shapeFeatures(typ, func(member *symbols.Symbol) bool { return m.libraryTier(member) == tier }) {
-		if f.Declared.DeclaresUsage() {
+		// A positional argument binds a feature a name reaches, never an anonymous one.
+		if f.Declared.DeclaresUsage() && !AnonymousShapeMember(f.Declared) {
 			declared = append(declared, f.Declared)
 		}
 	}

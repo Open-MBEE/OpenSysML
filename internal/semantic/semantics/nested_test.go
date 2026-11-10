@@ -379,6 +379,77 @@ func TestImplicitSubsettingsRequirementConstraints(t *testing.T) {
 	}
 }
 
+// An anonymous `assume`/`require` constraint is a shape feature under its positional name
+// and subsets the collection its membership kind names (SysML v2 §8.3.20.4), as a named one.
+func TestImplicitSubsettingsAnonymousRequirementConstraints(t *testing.T) {
+	m, root := buildModelWithStdlib(t, `package P {
+		private import ScalarValues::Integer;
+		part def Vehicle { attribute fuelMass : Integer; }
+		requirement def FuelRequirement {
+			subject vehicle : Vehicle;
+			assume constraint { vehicle.fuelMass >= 0 }
+			require constraint { vehicle.fuelMass <= 2000 }
+			constraint { vehicle.fuelMass > -1 }
+			part : Vehicle;
+		}
+		requirement fullTank : FuelRequirement {
+			require constraint { vehicle.fuelMass > 0 }
+			assume constraint { vehicle.fuelMass == 2000 }
+		}
+		verification case def Check {
+			require constraint { 1 > 0 }
+		}
+	}`)
+	const assumptions, constraints = "Requirements::RequirementCheck::assumptions", "Requirements::RequirementCheck::constraints"
+	cases := []struct {
+		owner, feature string
+		want           string
+	}{
+		{"P::FuelRequirement", "P::FuelRequirement::@1", assumptions},
+		{"P::FuelRequirement", "P::FuelRequirement::@2", constraints},
+		{"P::FuelRequirement", "P::FuelRequirement::@3", "Occurrences::Occurrence::suboccurrences"},
+		{"P::fullTank", "P::fullTank::@0", constraints},
+		{"P::fullTank", "P::fullTank::@1", assumptions},
+		{"P::fullTank", "P::FuelRequirement::@1", assumptions},
+		{"P::fullTank", "P::FuelRequirement::@2", constraints},
+		{"P::fullTank", "P::FuelRequirement::@3", "Occurrences::Occurrence::suboccurrences"},
+		{"P::Check", "P::Check::@0", ""},
+	}
+	for _, tc := range cases {
+		owner := nestedSym(t, root, tc.owner)
+		var feat *ShapeFeature
+		for _, f := range m.ShapeFeatures(owner) {
+			if f.Name == tc.feature {
+				feat = &f
+				break
+			}
+		}
+		if feat == nil {
+			t.Errorf("ShapeFeatures(%s) lacks %s", tc.owner, tc.feature)
+			continue
+		}
+		if !AnonymousShapeMember(feat.Symbol) || m.PositionalNameOf(feat.Symbol) != tc.feature {
+			t.Errorf("%s: anonymous = %v, positional name = %q, want an anonymous member named %s",
+				tc.feature, AnonymousShapeMember(feat.Symbol), m.PositionalNameOf(feat.Symbol), tc.feature)
+		}
+		got := m.ImplicitSubsettings(feat.Symbol)
+		if tc.want == "" {
+			if len(got) != 0 {
+				t.Errorf("ImplicitSubsettings(%s) = %v, want none", tc.feature, fqns(got))
+			}
+			continue
+		}
+		if len(got) != 1 || symbols.FQNOf(got[0]) != tc.want {
+			t.Errorf("ImplicitSubsettings(%s) = %v, want [%s]", tc.feature, fqns(got), tc.want)
+		}
+	}
+	for _, f := range m.ShapeFeatures(nestedSym(t, root, "P::FuelRequirement")) {
+		if f.Name == "P::FuelRequirement::@4" {
+			t.Errorf("ShapeFeatures(P::FuelRequirement) holds the anonymous part as %s", f.Name)
+		}
+	}
+}
+
 // ImplicitSubsettingCandidates answers the same for the declaration kinds alone.
 func TestImplicitSubsettingCandidatesRequirementConstraint(t *testing.T) {
 	owner := NestedOwner{Def: ast.DefRequirement, IsDef: true}
