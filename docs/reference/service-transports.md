@@ -246,6 +246,11 @@ Poll the main port. Nothing in this repository polls 8081: the Python client's r
 is its `GetServerInfo` handshake over gRPC, not an HTTP GET, so it is unaffected by every row of
 that table.
 
+[`sysml-mcp -http`](sysml-mcp.md#transports) takes the same stance on its own port: `GET /health`
+answers open, naming `sysml-mcp` and the build, and `GET /ready` answers 200 only once the
+workspace is indexed and the runtime prewarmed, both outside the token and the origin check that
+guard `/mcp`. [Running sysml-mcp as a service](../guide/sysml-mcp-service.md) has the details.
+
 ## `-transport stdio`, and why not to build on it
 
 `-transport stdio` serves one client over stdin/stdout with `Content-Length` framing. It is
@@ -269,7 +274,9 @@ takes — loopback unless the address says otherwise, an address other machines 
 with a bearer token (`-token-file`, `-token`, `OPENSYSML_MCP_TOKEN` there) or a file of API keys
 (`-api-keys`, which this service's flag set declares as well), TLS from a
 certificate and key pair, an origin allow-list that is not authentication; the two commands
-share one implementation of the token and of the loopback rule.
+share one implementation of the token and of the loopback rule, and `sysml-mcp` adds API keys and
+OpenID tokens on the same chain; [Running sysml-mcp as a service](../guide/sysml-mcp-service.md)
+is the operator's page for it.
 
 ## Every protocol is tested, not merely served
 

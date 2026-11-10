@@ -226,6 +226,133 @@ custom*): paste the `mcpServers` block, with the command resolving on the machin
 — a path under the repository checkout after `make build-mcp`, or `sysml-mcp` once the
 environment's setup installs it on `PATH`.
 
+### A served instance over HTTP
+
+A host can also connect to a `sysml-mcp -http` already serving — on this machine, or
+[run as a service](../guide/sysml-mcp-service.md) behind TLS — instead of starting one.
+`-print-config HOST -http ADDR` (with `-public-url` for the URL a proxy presents, `-tls-cert`
+for `https`) writes the host's block in its URL form; a host it does not know takes the same URL
+by hand. How the host authenticates depends on what the server was given:
+
+- **Single sign-on** (`-oidc-issuer`): the block names the URL and nothing else. The host's
+  first request is answered `401` with `resource_metadata`, the metadata names the provider,
+  and the host signs the user in with Authorization Code + PKCE on its own.
+- **An API key** (`-api-keys`): the block carries `Authorization: Bearer osk_…`. Each host has a
+  place for a header, and most a way to keep the key out of the file.
+- **The static token**: as an API key, with the token; `-token-file` on the `-print-config`
+  command line fills the header in.
+
+```bash
+sysml-mcp -print-config claude-code -http 8765 -public-url https://models.example.org/mcp
+sysml-mcp -print-config claude-code -http 8765 -token-file mcp.token -public-url https://models.example.org/mcp
+```
+
+**Claude Code** — `claude mcp add --transport http` takes the URL, and `--header` a fixed
+credential; `--scope user` keeps it out of the project. The same block goes in `.mcp.json` as
+`"type": "http"` with `"url"` (an entry with a `url` and no `type` is a configuration error
+there) and, for a key, `"headers"`:
+
+```bash
+claude mcp add --transport http sysml https://models.example.org/mcp
+claude mcp add --transport http --scope user sysml https://models.example.org/mcp \
+  --header "Authorization: Bearer osk_Z7oataRyhNcR.JZ6jEZ2P9iyCr49nJH75GgVbGOSrEXImZKFRLFbDkGo"
+```
+
+```json
+{
+  "mcpServers": {
+    "sysml": {
+      "type": "http",
+      "url": "https://models.example.org/mcp",
+      "headers": {
+        "Authorization": "Bearer osk_Z7oataRyhNcR.JZ6jEZ2P9iyCr49nJH75GgVbGOSrEXImZKFRLFbDkGo"
+      }
+    }
+  }
+}
+```
+
+With single sign-on, leave `headers` out: `/mcp` in Claude Code shows the server and
+*Authenticate* runs the flow; `"oauth": {"scopes": "sysml:read sysml:write"}` beside the URL
+pins the scopes it requests.
+
+**Claude Desktop** reaches a served instance as a *custom connector*, from Anthropic's servers
+rather than from the desktop (so the URL must be reachable from the internet, over `https`):
+*Customize → Connectors → Add custom connector*, the server URL
+`https://models.example.org/mcp`, then under *Authentication* either *Sign in now* for single
+sign-on (*OAuth client*: *Register automatically*, which the provider must allow, or *Use your
+own OAuth client* with a client registered for Claude's redirect URI) or *No sign-in* with the
+API key added under *Request headers* as `Authorization` = `Bearer osk_…`.
+`claude_desktop_config.json` declares local stdio servers only.
+
+**VS Code** — `.vscode/mcp.json`, `"type": "http"`; an input variable keeps the key out of the
+file and VS Code asks for it once, storing it as a secret:
+
+```json
+{
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "sysml-api-key",
+      "description": "sysml-mcp API key (osk_…)",
+      "password": true
+    }
+  ],
+  "servers": {
+    "sysml": {
+      "type": "http",
+      "url": "https://models.example.org/mcp",
+      "headers": {
+        "Authorization": "Bearer ${input:sysml-api-key}"
+      }
+    }
+  }
+}
+```
+
+With single sign-on the `servers` entry is the URL alone (what `-print-config vscode -http …`
+writes); VS Code follows the `401` to the provider and opens the browser on first use. A
+provider that does not register clients dynamically takes `"oauth": {"clientId": "…"}` in the
+entry.
+
+**Cursor** — `.cursor/mcp.json` (or `~/.cursor/mcp.json` for every project) takes `"url"` with
+no `type`, and `"headers"` may read the key from the environment:
+
+```json
+{
+  "mcpServers": {
+    "sysml": {
+      "url": "https://models.example.org/mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:SYSML_MCP_KEY}"
+      }
+    }
+  }
+}
+```
+
+Without `headers` Cursor reads the RFC 9728 metadata from the `401`, finds the provider and
+signs in with PKCE, registering itself as a public client; a provider without dynamic
+registration takes `"auth": {"CLIENT_ID": "…"}` in the entry.
+
+**MCP Inspector** connects from the command line, in its web form or its scripted `--cli`:
+
+```bash
+npx @modelcontextprotocol/inspector --server-url https://models.example.org/mcp --transport http
+npx @modelcontextprotocol/inspector --cli --transport http --server-url https://models.example.org/mcp \
+  --header "Authorization: Bearer osk_Z7oataRyhNcR.JZ6jEZ2P9iyCr49nJH75GgVbGOSrEXImZKFRLFbDkGo" \
+  --method tools/list
+```
+
+In the web form, connecting to a server with single sign-on runs the OAuth flow in the browser
+(the provider needs the Inspector's redirect URI, `http://localhost:6274/oauth/callback`);
+`--cli` without a header and without a stored token exits 3 (`auth_required`), as a CI job
+should.
+
+The key in these blocks is the one minted for the caller, printed once by `-mint-api-key`; the
+blocks belong in files the host reads privately, not in version control, which is what the
+input variable and the environment reference are for.
+
 ## The tools
 
 The server offers three groups, chosen with `-tools lsp,runtime,session` (every group by
@@ -681,6 +808,9 @@ once the manual page from the archive is installed.
   directory should pass `-root DIR` instead.
 - **A tool is missing.** `-tools` left its group out, or the host caches the catalogue: restart
   the server from the host after changing its arguments.
+- **`401`, `403` or `503` from a served instance.** [Running sysml-mcp as a
+  service](../guide/sysml-mcp-service.md#troubleshooting) reads each challenge: which credential
+  was missing, wrong, expired or out of scope, and what to change.
 - **A tool answered a budget error.** Raise the `OPENSYSML_MAX_*` variable it names in the host's
   environment for the server (the `env` key most hosts accept beside `command`), not in your
   shell.
