@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.openmbee.mdk.magic.engine.Operation;
 
 /**
@@ -43,7 +44,10 @@ public final class DocGenExtensions {
       Operation.EXECUTE_STATE, "ExecuteState",
       Operation.VERIFY, "Verify",
       Operation.EVALUATE_CALC, "EvaluateCalc",
-      Operation.RUN_ANALYSIS, "RunAnalysis");
+      Operation.RUN_ANALYSIS, "RunAnalysis",
+      Operation.RUN_QUERY, "RunQuery");
+  /** The operations whose stereotype carries the {@code arguments} tag: calc arguments, query bindings. */
+  static final Set<Operation> WITH_ARGUMENTS = Set.of(Operation.EVALUATE_CALC, Operation.RUN_QUERY);
 
   /** What one install did; {@code notes} carries anything the user should know about. */
   public record Report(List<String> created, List<String> existing, List<String> notes) {
@@ -131,7 +135,7 @@ public final class DocGenExtensions {
       generalization.setGeneral(base);
       generalization.setSpecific(stereotype);
       elements.addElement(generalization, stereotype);
-      if (operation == Operation.EVALUATE_CALC) {
+      if (WITH_ARGUMENTS.contains(operation)) {
         Property arguments = factory.createPropertyInstance();
         arguments.setName(ARGUMENTS_TAG);
         if (string != null) arguments.setType(string);
