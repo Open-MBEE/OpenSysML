@@ -182,6 +182,21 @@ ordered `AbstractVector` of pairs, or an `AbstractDict` with no more than one
 entry. Multi-entry dictionaries are rejected because iteration order is not a
 stable parameter order.
 
+## Element properties by specification name
+
+`element_properties(model, element, names...)` reads an element's metamodel properties
+by their KerML/SysML specification names (`inheritedFeature`, `connectorEnd`,
+`isComposite`, …), as the model's api-json export spells them; with no names it reads
+every property the element form carries. The element is a qualified name, the positional
+id of an unnamed member (`Owner::@2`) or the id an earlier answer carried. The answer is an
+`ElementProperties` — its `element` (an `ElementIdentity`: `id`, `qualified_name`,
+`metaclass`) and its `ElementProperty` records by name (`read["inheritedFeature"]`), each
+with `defining_class`, `many`, `derived`, `values` (an `ElementIdentity`, a `String`, a
+`Bool`, an `Int64`, a `Float64` or the decimal text of a wider number) and `unsupported`,
+the reason when the property has no answer. `property_elements`, `property_value` and
+`is_answered` read one record. Requires the `element_properties` capability
+(`CAPABILITY_ELEMENT_PROPERTIES`); a service without it is refused before the call.
+
 ## Queries, documents, and conversion
 
 `build_query(; scope, select, where, order_by)` constructs a standard query

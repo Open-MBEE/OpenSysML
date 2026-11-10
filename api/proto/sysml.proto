@@ -3201,6 +3201,11 @@ message QueryOutcome {
   repeated QueryFailure failures = 3;        // a pathError's failures, one per failing element
   repeated QueryFinding findings = 4;        // a modelError's findings
   repeated QueryFailure path_failures = 5;   // a modelError's path failures from the same fan-out
+  // The detail is bounded to fit a status trailer: the lists above hold the first
+  // few of a fan-out, and these count how many there were in all (the CLI's -json record carries every one).
+  int32 failures_total = 6;
+  int32 findings_total = 7;
+  int32 path_failures_total = 8;
 }
 
 // QueryFailure is one failure of one step on one element: what the step
@@ -3219,6 +3224,11 @@ message QueryFrontier {
   repeated QueryFrontierFeature features = 3;  // its features, when a feature was expected
   repeated string kinds = 4;                   // the relationship kinds there are, when a kind was expected
   string nearest = 5;                          // the closest spelling, when a name was expected
+  // Bounded to fit a status trailer: members, features and kinds hold the nearest spellings
+  // only, and these count how many there were in all (the CLI's -json record carries every one).
+  int32 members_total = 6;
+  int32 features_total = 7;
+  int32 kinds_total = 8;
 }
 
 message QueryFrontierMember {

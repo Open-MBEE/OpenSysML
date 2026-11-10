@@ -15556,14 +15556,19 @@ func (x *RunDocumentQueryResponse) GetRows() []*DocumentQueryRow {
 // QueryOutcome is the record behind a document query that could not be run, an error
 // detail of the failed call: a pathError or modelError at its step, as -json's checks[].outcome.
 type QueryOutcome struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Kind          string                 `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`                                     // "pathError" or "modelError"
-	Step          string                 `protobuf:"bytes,2,opt,name=step,proto3" json:"step,omitempty"`                                     // the step the outcome is reported at, as "Named(Observatory::x)"
-	Failures      []*QueryFailure        `protobuf:"bytes,3,rep,name=failures,proto3" json:"failures,omitempty"`                             // a pathError's failures, one per failing element
-	Findings      []*QueryFinding        `protobuf:"bytes,4,rep,name=findings,proto3" json:"findings,omitempty"`                             // a modelError's findings
-	PathFailures  []*QueryFailure        `protobuf:"bytes,5,rep,name=path_failures,json=pathFailures,proto3" json:"path_failures,omitempty"` // a modelError's path failures from the same fan-out
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Kind         string                 `protobuf:"bytes,1,opt,name=kind,proto3" json:"kind,omitempty"`                                     // "pathError" or "modelError"
+	Step         string                 `protobuf:"bytes,2,opt,name=step,proto3" json:"step,omitempty"`                                     // the step the outcome is reported at, as "Named(Observatory::x)"
+	Failures     []*QueryFailure        `protobuf:"bytes,3,rep,name=failures,proto3" json:"failures,omitempty"`                             // a pathError's failures, one per failing element
+	Findings     []*QueryFinding        `protobuf:"bytes,4,rep,name=findings,proto3" json:"findings,omitempty"`                             // a modelError's findings
+	PathFailures []*QueryFailure        `protobuf:"bytes,5,rep,name=path_failures,json=pathFailures,proto3" json:"path_failures,omitempty"` // a modelError's path failures from the same fan-out
+	// The detail is bounded to fit a status trailer: the lists above hold the first
+	// few of a fan-out, and these count how many there were in all (the CLI's -json record carries every one).
+	FailuresTotal     int32 `protobuf:"varint,6,opt,name=failures_total,json=failuresTotal,proto3" json:"failures_total,omitempty"`
+	FindingsTotal     int32 `protobuf:"varint,7,opt,name=findings_total,json=findingsTotal,proto3" json:"findings_total,omitempty"`
+	PathFailuresTotal int32 `protobuf:"varint,8,opt,name=path_failures_total,json=pathFailuresTotal,proto3" json:"path_failures_total,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *QueryOutcome) Reset() {
@@ -15631,6 +15636,27 @@ func (x *QueryOutcome) GetPathFailures() []*QueryFailure {
 	return nil
 }
 
+func (x *QueryOutcome) GetFailuresTotal() int32 {
+	if x != nil {
+		return x.FailuresTotal
+	}
+	return 0
+}
+
+func (x *QueryOutcome) GetFindingsTotal() int32 {
+	if x != nil {
+		return x.FindingsTotal
+	}
+	return 0
+}
+
+func (x *QueryOutcome) GetPathFailuresTotal() int32 {
+	if x != nil {
+		return x.PathFailuresTotal
+	}
+	return 0
+}
+
 // QueryFailure is one failure of one step on one element: what the step
 // expected, and what the model holds where the path stopped resolving.
 type QueryFailure struct {
@@ -15696,12 +15722,17 @@ func (x *QueryFailure) GetFrontier() *QueryFrontier {
 // QueryFrontier is what the model holds where the path stopped: the last
 // element that resolved and what it offers in place of what was asked.
 type QueryFrontier struct {
-	state         protoimpl.MessageState  `protogen:"open.v1"`
-	At            string                  `protobuf:"bytes,1,opt,name=at,proto3" json:"at,omitempty"`             // empty when nothing on the path resolved
-	Members       []*QueryFrontierMember  `protobuf:"bytes,2,rep,name=members,proto3" json:"members,omitempty"`   // its members, when a name was expected
-	Features      []*QueryFrontierFeature `protobuf:"bytes,3,rep,name=features,proto3" json:"features,omitempty"` // its features, when a feature was expected
-	Kinds         []string                `protobuf:"bytes,4,rep,name=kinds,proto3" json:"kinds,omitempty"`       // the relationship kinds there are, when a kind was expected
-	Nearest       string                  `protobuf:"bytes,5,opt,name=nearest,proto3" json:"nearest,omitempty"`   // the closest spelling, when a name was expected
+	state    protoimpl.MessageState  `protogen:"open.v1"`
+	At       string                  `protobuf:"bytes,1,opt,name=at,proto3" json:"at,omitempty"`             // empty when nothing on the path resolved
+	Members  []*QueryFrontierMember  `protobuf:"bytes,2,rep,name=members,proto3" json:"members,omitempty"`   // its members, when a name was expected
+	Features []*QueryFrontierFeature `protobuf:"bytes,3,rep,name=features,proto3" json:"features,omitempty"` // its features, when a feature was expected
+	Kinds    []string                `protobuf:"bytes,4,rep,name=kinds,proto3" json:"kinds,omitempty"`       // the relationship kinds there are, when a kind was expected
+	Nearest  string                  `protobuf:"bytes,5,opt,name=nearest,proto3" json:"nearest,omitempty"`   // the closest spelling, when a name was expected
+	// Bounded to fit a status trailer: members, features and kinds hold the nearest spellings
+	// only, and these count how many there were in all (the CLI's -json record carries every one).
+	MembersTotal  int32 `protobuf:"varint,6,opt,name=members_total,json=membersTotal,proto3" json:"members_total,omitempty"`
+	FeaturesTotal int32 `protobuf:"varint,7,opt,name=features_total,json=featuresTotal,proto3" json:"features_total,omitempty"`
+	KindsTotal    int32 `protobuf:"varint,8,opt,name=kinds_total,json=kindsTotal,proto3" json:"kinds_total,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -15769,6 +15800,27 @@ func (x *QueryFrontier) GetNearest() string {
 		return x.Nearest
 	}
 	return ""
+}
+
+func (x *QueryFrontier) GetMembersTotal() int32 {
+	if x != nil {
+		return x.MembersTotal
+	}
+	return 0
+}
+
+func (x *QueryFrontier) GetFeaturesTotal() int32 {
+	if x != nil {
+		return x.FeaturesTotal
+	}
+	return 0
+}
+
+func (x *QueryFrontier) GetKindsTotal() int32 {
+	if x != nil {
+		return x.KindsTotal
+	}
+	return 0
 }
 
 type QueryFrontierMember struct {
@@ -20048,23 +20100,30 @@ const file_sysml_proto_rawDesc = "" +
 	"\x05cells\x18\x02 \x03(\v2\x18.sysml.DocumentQueryCellR\x05cells\"}\n" +
 	"\x18RunDocumentQueryResponse\x124\n" +
 	"\acolumns\x18\x01 \x03(\v2\x1a.sysml.DocumentQueryColumnR\acolumns\x12+\n" +
-	"\x04rows\x18\x02 \x03(\v2\x17.sysml.DocumentQueryRowR\x04rows\"\xd2\x01\n" +
+	"\x04rows\x18\x02 \x03(\v2\x17.sysml.DocumentQueryRowR\x04rows\"\xd0\x02\n" +
 	"\fQueryOutcome\x12\x12\n" +
 	"\x04kind\x18\x01 \x01(\tR\x04kind\x12\x12\n" +
 	"\x04step\x18\x02 \x01(\tR\x04step\x12/\n" +
 	"\bfailures\x18\x03 \x03(\v2\x13.sysml.QueryFailureR\bfailures\x12/\n" +
 	"\bfindings\x18\x04 \x03(\v2\x13.sysml.QueryFindingR\bfindings\x128\n" +
-	"\rpath_failures\x18\x05 \x03(\v2\x13.sysml.QueryFailureR\fpathFailures\"p\n" +
+	"\rpath_failures\x18\x05 \x03(\v2\x13.sysml.QueryFailureR\fpathFailures\x12%\n" +
+	"\x0efailures_total\x18\x06 \x01(\x05R\rfailuresTotal\x12%\n" +
+	"\x0efindings_total\x18\a \x01(\x05R\rfindingsTotal\x12.\n" +
+	"\x13path_failures_total\x18\b \x01(\x05R\x11pathFailuresTotal\"p\n" +
 	"\fQueryFailure\x12\x12\n" +
 	"\x04step\x18\x01 \x01(\tR\x04step\x12\x1a\n" +
 	"\bexpected\x18\x02 \x01(\tR\bexpected\x120\n" +
-	"\bfrontier\x18\x03 \x01(\v2\x14.sysml.QueryFrontierR\bfrontier\"\xbe\x01\n" +
+	"\bfrontier\x18\x03 \x01(\v2\x14.sysml.QueryFrontierR\bfrontier\"\xab\x02\n" +
 	"\rQueryFrontier\x12\x0e\n" +
 	"\x02at\x18\x01 \x01(\tR\x02at\x124\n" +
 	"\amembers\x18\x02 \x03(\v2\x1a.sysml.QueryFrontierMemberR\amembers\x127\n" +
 	"\bfeatures\x18\x03 \x03(\v2\x1b.sysml.QueryFrontierFeatureR\bfeatures\x12\x14\n" +
 	"\x05kinds\x18\x04 \x03(\tR\x05kinds\x12\x18\n" +
-	"\anearest\x18\x05 \x01(\tR\anearest\"G\n" +
+	"\anearest\x18\x05 \x01(\tR\anearest\x12#\n" +
+	"\rmembers_total\x18\x06 \x01(\x05R\fmembersTotal\x12%\n" +
+	"\x0efeatures_total\x18\a \x01(\x05R\rfeaturesTotal\x12\x1f\n" +
+	"\vkinds_total\x18\b \x01(\x05R\n" +
+	"kindsTotal\"G\n" +
 	"\x13QueryFrontierMember\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1c\n" +
 	"\tmetaclass\x18\x02 \x01(\tR\tmetaclass\">\n" +
