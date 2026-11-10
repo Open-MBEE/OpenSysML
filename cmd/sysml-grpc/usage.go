@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard/flags"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
 )
 
@@ -13,8 +14,7 @@ type options struct {
 	host                 string
 	port                 int
 	healthPort           int
-	tokenFile            string
-	token                string
+	auth                 *flags.Options
 	allowUnauthenticated bool
 	allowInsecureToken   bool
 	cacheSize            int
@@ -41,12 +41,7 @@ func registerFlags(fs *flag.FlagSet) *options {
 			"or -allow-unauthenticated")
 	fs.IntVar(&o.port, "port", 50051, "gRPC server port")
 	fs.IntVar(&o.healthPort, "health-port", 8081, "Health check HTTP port")
-	fs.StringVar(&o.tokenFile, "token-file", "",
-		"File holding the bearer token every call must carry as Authorization: Bearer TOKEN "+
-			"(one trailing line break is dropped); with it the token stays out of the process list")
-	fs.StringVar(&o.token, "token", "",
-		"The bearer token itself, for a shell whose command line is private; -token-file keeps "+
-			"it out of the process list, and "+tokenEnv+" is read when neither flag names one")
+	o.auth = flags.Register(fs, tokenEnv)
 	fs.BoolVar(&o.allowUnauthenticated, "allow-unauthenticated", false,
 		"Serve an address other machines reach with no token at all: every host that can "+
 			"open the port may parse, run and edit models here, and the log shows peers but "+

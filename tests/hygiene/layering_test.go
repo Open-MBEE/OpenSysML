@@ -156,6 +156,7 @@ var packageLayer = map[string]string{
 	"internal/frontend/usage":                   "frontend",
 	"internal/frontend/buildinfo":               "frontend",
 	"internal/frontend/guard":                   "frontend",
+	"internal/frontend/guard/flags":             "frontend",
 	"internal/frontend/guard/oidc":              "frontend",
 	"internal/frontend/mcp":                     "frontend",
 	"internal/frontend/mcp/catalog":             "frontend",
