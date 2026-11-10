@@ -161,6 +161,14 @@ class PipelineEndToEndTest {
         new QueryParameter("Demo::NoPorts", "root", "KerML::Root::Element", QueryParameter.Kind.ELEMENT, false, false)),
         plan.parameters(), "the redefinition takes its type from the parameter it redefines; the inherited one follows");
     assertEquals("root", plan.soleElementParameter().orElseThrow().name());
+    QueryPlan typed = engine.plan(new RunRequest(Operation.RUN_QUERY, source, "Demo::UnderPackages", List.of()), () -> false).orElseThrow();
+    assertEquals(List.of(new QueryParameter("Demo::UnderPackages", "roots", "KerML::Root::Element", QueryParameter.Kind.ELEMENT, true, false)),
+        typed.parameters(), "a redefinition that types the parameter anew keeps the multiplicity it inherits");
+    RunResult many = engine.run(new RunRequest(Operation.RUN_QUERY, source, "Demo::UnderPackages", List.of(), Map.of(
+        "roots", List.of(new DocumentValue.ElementRef("Demo::Vehicle", ""), new DocumentValue.ElementRef("Demo::Lifecycle", "")))), () -> false);
+    assertEquals(Status.PASSED, many.status(), many.toString());
+    assertTrue(many.tables().get(0).rows().stream().map(RunResult.Row::elementId).toList().containsAll(
+        List.of("Demo::Vehicle::wheel", "Demo::Lifecycle::off")), many.toString());
 
     RunResult none = engine.run(new RunRequest(Operation.RUN_QUERY, source, "Demo::NoPorts", List.of(),
         Map.of("root", List.of(new DocumentValue.ElementRef("Demo", "")))), () -> false);

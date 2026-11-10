@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import org.openmbee.mdk.magic.identity.QualifiedNames;
@@ -13,14 +14,9 @@ import org.openmbee.opensysml.ElementProperties;
 import org.openmbee.opensysml.Model;
 import org.openmbee.opensysml.Symbol;
 
-/**
- * Finds the {@code DocumentQueries::Query} definitions a subject stands for: the subject itself
- * when it is one, else — on a migrated project — the queries behind what the migration wrote for
- * it: a Document, a section or a table whose rows a {@code calc} member computes.
- */
+/** Finds the {@code DocumentQueries::Query} definitions a subject stands for: itself, or those behind what the migration wrote for it. */
 public final class QueryResolver {
   static final String QUERY = "DocumentQueries::Query";
-  private static final int MEMBER_DEPTH = 12;
 
   private QueryResolver() {}
 
@@ -44,10 +40,10 @@ public final class QueryResolver {
   static List<String> queries(ModelSource source, Model model, String subjectQualifiedName) {
     Set<String> found = new LinkedHashSet<>();
     model.findSymbol(source.subjectName(subjectQualifiedName))
-        .ifPresent(symbol -> collect(model, symbol, new HashSet<>(), found, 0));
+        .ifPresent(symbol -> collect(model, symbol, new HashSet<>(), found));
     for (String target : source.mappedTargets(subjectQualifiedName)) {
       model.findSymbol(targetName(target))
-          .ifPresent(symbol -> collect(model, symbol, new HashSet<>(), found, 0));
+          .ifPresent(symbol -> collect(model, symbol, new HashSet<>(), found));
     }
     return List.copyOf(found);
   }
@@ -63,8 +59,8 @@ public final class QueryResolver {
     return QualifiedNames.normalize(rest);
   }
 
-  private static void collect(Model model, Symbol symbol, Set<String> visited, Set<String> found, int depth) {
-    if (!visited.add(symbol.id()) || depth > MEMBER_DEPTH) return;
+  private static void collect(Model model, Symbol symbol, Set<String> visited, Set<String> found) {
+    if (!visited.add(symbol.id())) return;
     if (isQuery(model, symbol)) {
       found.add(symbol.id());
       return;
@@ -78,7 +74,7 @@ public final class QueryResolver {
     }
     for (Symbol.Member member : symbol.members()) {
       if (member.library() || !member.kind().endsWith("Usage")) continue;
-      model.findSymbol(member.id()).ifPresent(child -> collect(model, child, visited, found, depth + 1));
+      model.findSymbol(member.id()).ifPresent(child -> collect(model, child, visited, found));
     }
   }
 
@@ -108,10 +104,7 @@ public final class QueryResolver {
     return false;
   }
 
-  /**
-   * The {@code in} parameters of {@code query}, declared or inherited, in declaration order; a
-   * redefinition stands for the parameter it redefines.
-   */
+  /** The {@code in} parameters of {@code query}, inherited ones included, in declaration order; a redefinition stands for what it redefines. */
   static List<QueryParameter> parameters(Model model, String query) {
     List<QueryParameter> parameters = new ArrayList<>();
     Optional<Symbol> definition = model.findSymbol(query);
@@ -128,28 +121,41 @@ public final class QueryResolver {
     return parameters;
   }
 
+  /** Type and multiplicity come from the first declaration along the redefinition chain that states them. */
   private static QueryParameter parameter(Model model, String query, Symbol symbol) {
-    Symbol typed = typed(model, symbol, new HashSet<>());
-    Optional<Symbol.TypeFacts> facts = typed.typeFacts();
-    String type = facts.flatMap(Symbol.TypeFacts::resolvedId).filter(id -> !id.isBlank())
-        .or(() -> Optional.ofNullable(typed.metadata().get("type")))
+    List<Symbol> chain = chain(model, symbol);
+    Optional<Symbol.TypeFacts> facts = chain.stream()
+        .map(Symbol::typeFacts)
+        .filter(item -> item.flatMap(Symbol.TypeFacts::resolvedId).filter(id -> !id.isBlank()).isPresent())
+        .findFirst()
+        .orElse(Optional.empty());
+    String type = facts.flatMap(Symbol.TypeFacts::resolvedId)
+        .or(() -> chain.stream().map(item -> item.metadata().get("type")).filter(Objects::nonNull).findFirst())
         .orElse("");
     QueryParameter.Kind kind = QueryParameter.kindOf(facts.flatMap(Symbol.TypeFacts::primitive).orElse(""));
-    boolean many = typed.multiplicity().map(bounds -> !"1".equals(bounds.upper().orElse("1"))).orElse(false);
+    boolean many = chain.stream()
+        .map(Symbol::multiplicity)
+        .flatMap(Optional::stream)
+        .findFirst()
+        .map(bounds -> !"1".equals(bounds.upper().orElse("1")))
+        .orElse(false);
     return new QueryParameter(query, symbol.name(), type, kind, many, hasValue(model, symbol.id()));
   }
 
-  /** The symbol whose declaration types the parameter: itself, or the one it redefines or subsets. */
-  private static Symbol typed(Model model, Symbol symbol, Set<String> visited) {
-    boolean typedHere = symbol.typeFacts().flatMap(Symbol.TypeFacts::resolvedId).filter(id -> !id.isBlank()).isPresent()
-        || symbol.metadata().containsKey("type");
-    if (typedHere || !visited.add(symbol.id())) return symbol;
-    for (Symbol.Specialization general : symbol.specializations()) {
-      if (general.targetId().isEmpty() || !(general.kind().startsWith("redefin") || general.kind().startsWith("subset"))) continue;
-      Optional<Symbol> target = model.findSymbol(general.targetId().get());
-      if (target.isPresent()) return typed(model, target.get(), visited);
+  /** The symbol, then what it redefines or subsets, outward. */
+  private static List<Symbol> chain(Model model, Symbol symbol) {
+    List<Symbol> chain = new ArrayList<>();
+    Set<String> visited = new HashSet<>();
+    Optional<Symbol> current = Optional.of(symbol);
+    while (current.isPresent() && visited.add(current.get().id())) {
+      chain.add(current.get());
+      current = current.get().specializations().stream()
+          .filter(general -> general.kind().startsWith("redefin") || general.kind().startsWith("subset"))
+          .flatMap(general -> general.targetId().stream())
+          .findFirst()
+          .flatMap(model::findSymbol);
     }
-    return symbol;
+    return chain;
   }
 
   private static boolean hasValue(Model model, String parameter) {

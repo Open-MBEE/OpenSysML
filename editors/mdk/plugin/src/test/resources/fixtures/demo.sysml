@@ -38,6 +38,15 @@ package Demo {
     in redefines kind = "PortDefinition";
   }
 
+  calc def Under :> DocumentQueries::Query {
+    in roots : KerML::Root::Element[0..*];
+    DocumentQueries::Project(source = DocumentQueries::Descendants(source = roots), properties = ("qualifiedName"))
+  }
+
+  calc def UnderPackages :> Under {
+    in redefines roots : KerML::Root::Element;
+  }
+
   calc def Unresolved :> DocumentQueries::Query {
     DocumentQueries::Project(source = DocumentQueries::Named(qualifiedName = "Demo::Nope"), properties = ("name"))
   }
