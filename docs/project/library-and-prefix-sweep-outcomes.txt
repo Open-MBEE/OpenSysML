@@ -1316,7 +1316,7 @@ read	new Probe::If1().ownedPorts	systems	Parts::Part::ownedPorts	empty
 read	new Probe::If1().ownedStates	systems	Parts::Part::ownedStates	empty
 read	new Probe::If1().p1	model	Probe::If1::p1	object:Probe::Pt
 read	new Probe::If1().p2	model	Probe::If1::p2	object:Probe::Pt
-read	new Probe::If1().participant	systems	Interfaces::BinaryInterface::participant	collection(2) [object:Probe::Pt#1, object:Probe::Pt#2]
+read	new Probe::If1().participant	systems	Interfaces::BinaryInterface::participant	error uninitialized feature value: participant
 read	new Probe::If1().performedActions	systems	Parts::Part::performedActions	empty
 read	new Probe::If1().self	systemsFRAME	Parts::Part::self	object:Probe::If1
 read	new Probe::If1().shape	systems	Items::Item::shape	empty

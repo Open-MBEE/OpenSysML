@@ -1309,11 +1309,23 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 	return inst.materializeReferentialCollection(ctx, fv, name, open)
 }
 
+func hasNonEndSubsetter(subsetters []EffectiveFeature) bool {
+	for _, feat := range subsetters {
+		if feat.Symbol == nil {
+			return true
+		}
+		if usage, ok := feat.Symbol.Decl.(*ast.Usage); !ok || !usage.IsEnd {
+			return true
+		}
+	}
+	return false
+}
+
 // materializeReferentialCollection holds, in a referential collection, what the features
 // subsetting it hold (KerML 1.1 §7.3.4.5): a requirement's `actors` is its actor parameters.
 func (inst *Instance) materializeReferentialCollection(ctx *Context, fv *FeatureValue, name string, open *openPopulation) (*FeatureValue, error) {
-	// A connector object's collections (`participant`) are answered by its ends, not gathered here.
-	if fv.Feature.Scalar() || len(inst.Ends) > 0 || len(ctx.subsettingFeaturesOf(inst, name)) == 0 {
+	// A collection only connector ends subset (`participant`) is answered by the ends, not gathered here.
+	if fv.Feature.Scalar() || !hasNonEndSubsetter(ctx.subsettingFeaturesOf(inst, name)) {
 		return fv, nil
 	}
 	// A subsetter without a value yet (`otherParticipants` of a port no interface connects)
