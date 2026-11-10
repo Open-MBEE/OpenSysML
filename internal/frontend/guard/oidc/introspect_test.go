@@ -41,7 +41,7 @@ func TestIntrospectionAcceptsAnActiveToken(t *testing.T) {
 	if refusal != guard.Accepted {
 		t.Fatalf("refusal = %v", refusal)
 	}
-	if p.Subject != "bob" || p.Name != "bob@example.org" || p.Source != oidc.Source || !p.Expires.Equal(time.Unix(exp, 0)) {
+	if p.Subject != "bob" || p.Name != "bob@example.org" || p.Source != oidc.Source || !p.Expires.Equal(time.Unix(exp, 0).Add(oidc.DefaultClockSkew)) {
 		t.Errorf("principal = %+v", p)
 	}
 	if !slices.Equal(p.Scopes, []string{"sysml:read"}) {
@@ -57,7 +57,7 @@ func TestIntrospectionAcceptsAnActiveToken(t *testing.T) {
 	// Once exp passes, the cached answer is dropped and the provider asked anew.
 	now = now.Add(2 * time.Hour)
 	is.answer(t, &hits, http.StatusOK, map[string]any{"active": false})
-	if _, refusal := a.Verify(context.Background(), opaque, nil); refusal != guard.Mismatch {
+	if _, refusal := a.Verify(context.Background(), opaque, nil); refusal != guard.NothingPresented {
 		t.Errorf("after expiry: %v", refusal)
 	}
 	if hits.Load() != 2 {
@@ -76,7 +76,7 @@ func TestIntrospectionRefusals(t *testing.T) {
 		body   map[string]any
 		want   guard.Refusal
 	}{
-		{"inactive", http.StatusOK, map[string]any{"active": false}, guard.Mismatch},
+		{"inactive", http.StatusOK, map[string]any{"active": false}, guard.NothingPresented},
 		{"no subject", http.StatusOK, map[string]any{"active": true, "aud": resource}, guard.Mismatch},
 		{"no audience", http.StatusOK, without(active, "aud"), guard.Mismatch},
 		{"other issuer", http.StatusOK, with(active, "iss", "https://other.example.org"), guard.Mismatch},
@@ -95,6 +95,26 @@ func TestIntrospectionRefusals(t *testing.T) {
 	is.Close()
 	if _, refusal := a.Verify(context.Background(), opaque, nil); refusal != guard.Unavailable {
 		t.Errorf("endpoint down: %v", refusal)
+	}
+}
+
+// A static token behind an introspecting provider is still the static token's:
+// the provider does not know it, so the chain asks on.
+func TestIntrospectionLeavesUnknownTokensToTheChain(t *testing.T) {
+	is := newIssuer(t)
+	a := introspecting(t, is, nil)
+	var hits atomic.Int32
+	is.answer(t, &hits, http.StatusOK, map[string]any{"active": false})
+	static, err := guard.New("0123456789abcdef0123456789abcdef")
+	if err != nil {
+		t.Fatal(err)
+	}
+	chain := guard.Chain{a, guard.NewStaticToken(static, "sysml:read")}
+	if p, refusal := chain.Verify(context.Background(), "Bearer 0123456789abcdef0123456789abcdef", nil); refusal != guard.Accepted || p.Source != guard.SourceStaticToken {
+		t.Errorf("the static token behind introspection: %+v, %v", p, refusal)
+	}
+	if _, refusal := chain.Verify(context.Background(), opaque, nil); refusal != guard.Mismatch {
+		t.Errorf("a token nobody knows: %v, want Mismatch from the chain", refusal)
 	}
 }
 
