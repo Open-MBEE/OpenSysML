@@ -24,8 +24,7 @@ import (
 
 // engineGzipBudget bounds the gzipped js sysml-engine the gate links (-trimpath, stripped, the library snapshot embedded, as
 // every Makefile build target does): 9,451,750 bytes under go1.27.3 on 2026-11-09 at develop ddc4a547fe, 7,764,359 without the snapshot.
-// engineGzipBudget was raised to 9510000 on the develop bd58fde160 merge, where this branch's symbol-backed
-// element reader (constructor, metadata and served-rule structure paths) measures 9,502,209 bytes.
+// engineGzipBudget is 9510000 since the develop bd58fde160 merge; the symbol-backed element reader measures 9,502,209 bytes.
 const engineGzipBudget = 9510000
 
 func TestEngineDependencies(t *testing.T) {
