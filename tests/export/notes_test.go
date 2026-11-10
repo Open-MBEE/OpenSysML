@@ -242,3 +242,90 @@ func TestNoteWithoutTextIsRefused(t *testing.T) {
 		t.Fatalf("a note without text was not refused: %v", err)
 	}
 }
+
+// A model whose notes lie at positions a graph edit can move: inside a head
+// outside any expression, trailing a declaration, and in a body's tail.
+const positioned = `package Fleet {
+    part def Axle /* the shaft */ :> Part;
+    part def Truck {
+        part axles : Axle[2]; // two of them
+        attribute load : Real;
+        // closing
+    }
+    part def Trailer;
+}
+`
+
+// positionEdited converts positioned to Turtle, applies one edit to a note's
+// position, converts back and compares to the notation expected.
+func positionEdited(t *testing.T, old, replacement, want string) {
+	t.Helper()
+	turtle := idTurtle(t, positioned)
+	back := toNotation(t, editTurtle(t, turtle, old, replacement))
+	if back != want {
+		t.Errorf("the position edit was not honored:\n--- want ---\n%s--- got ---\n%s", want, back)
+	}
+	// The rebuilt notation states the graph's notes, so a second conversion keeps it.
+	if again := toNotation(t, idTurtle(t, back)); again != back {
+		t.Errorf("the rebuilt notation does not stand:\n--- want ---\n%s--- got ---\n%s", back, again)
+	}
+}
+
+// A note's position edited alone (token, trailing, line, head or tail) demotes the
+// element's text, which is rebuilt with the note where the graph puts it; neighbours stand.
+func TestNotePositionEditedInTheGraphIsWritten(t *testing.T) {
+	const axle = "expr:Fleet__Axle_pnote0\n    a sysx:Note ;\n    sysx:noteText \"/* the shaft */\" ;\n    sysx:noteToken \"3\"^^xsd:integer ;"
+	const axles = "expr:Fleet__Truck__axles_pnote0\n    a sysx:Note ;\n    sysx:noteText \"// two of them\" ;\n    sysx:noteTrailing \"true\"^^xsd:boolean ;\n    sysx:noteOwnLine \"false\"^^xsd:boolean ."
+	const closing = "expr:Fleet__Truck_pnote0\n    a sysx:Note ;\n    sysx:noteText \"// closing\" ;\n    sysx:noteToken \"0\"^^xsd:integer ;\n    sysx:noteOwnLine \"true\"^^xsd:boolean ;\n    sysx:noteTail \"true\"^^xsd:boolean ."
+	t.Run("token", func(t *testing.T) {
+		// An inline note moved to another of the element's own tokens.
+		positionEdited(t, axle, strings.Replace(axle, `"3"^^xsd:integer`, `"2"^^xsd:integer`, 1),
+			strings.Replace(positioned, "    part def Axle /* the shaft */ :> Part;\n", "    part def /* the shaft */ Axle specializes Part;\n", 1))
+	})
+	t.Run("trailing", func(t *testing.T) {
+		// A trailing note given a token count follows that token instead.
+		positionEdited(t, axles, strings.Replace(axles, `sysx:noteTrailing "true"^^xsd:boolean`, `sysx:noteToken "2"^^xsd:integer`, 1),
+			strings.Replace(positioned, "        part axles : Axle[2]; // two of them\n", "        part axles // two of them\n            : Axle[2];\n", 1))
+	})
+	t.Run("own line", func(t *testing.T) {
+		// An inline note put on its own line, after the declaration it trails.
+		positionEdited(t, axles, strings.Replace(axles, `sysx:noteOwnLine "false"`, `sysx:noteOwnLine "true"`, 1),
+			strings.Replace(positioned, "        part axles : Axle[2]; // two of them\n", "        part axles : Axle[2];\n        // two of them\n", 1))
+	})
+	t.Run("inline", func(t *testing.T) {
+		// A note on its own line put inline, ahead of the token it preceded.
+		positionEdited(t, axle, strings.Replace(axle, `sysx:noteToken "3"^^xsd:integer ;`, `sysx:noteToken "0"^^xsd:integer ;`, 1),
+			strings.Replace(positioned, "    part def Axle /* the shaft */ :> Part;\n", "    /* the shaft */ part def Axle specializes Part;\n", 1))
+	})
+	t.Run("tail", func(t *testing.T) {
+		// A tail note moved to the head goes above the declaration; the body's
+		// members and its `}` stand.
+		positionEdited(t, closing, strings.Replace(closing, " ;\n    sysx:noteTail \"true\"^^xsd:boolean .", " .", 1),
+			strings.Replace(strings.Replace(positioned, "        // closing\n    }\n", "    }\n", 1), "    part def Truck {\n", "    // closing\n    part def Truck {\n", 1))
+	})
+}
+
+// A `//` note the graph puts inline ahead of a declaration's first token would run
+// on over the declaration, so it takes its own line, where it reads as the note it is.
+func TestLineNoteAheadOfTheDeclarationKeepsItsLine(t *testing.T) {
+	turtle := idTurtle(t, noted)
+	const hub = "    sysx:noteText \"// connected at the hub\" ;\n    sysx:noteToken \"0\"^^xsd:integer ;\n    sysx:noteOwnLine \"true\"^^xsd:boolean ."
+	edited := editTurtle(t, turtle, hub, strings.Replace(hub, `"true"`, `"false"`, 1))
+	if back := toNotation(t, edited); back != noted {
+		t.Errorf("the note did not keep its line:\n--- want ---\n%s--- got ---\n%s", noted, back)
+	}
+}
+
+// A graph whose notes state what the text holds, position included, writes the
+// text byte for byte; one edited elsewhere rebuilds that element alone.
+func TestAgreeingNotesKeepTheText(t *testing.T) {
+	turtle := idTurtle(t, positioned)
+	if back := toNotation(t, turtle); back != positioned {
+		t.Errorf("the unchanged graph did not write the text as it was:\n--- want ---\n%s--- got ---\n%s", positioned, back)
+	}
+	edited := editTurtle(t, turtle, "elmt:Fleet__Trailer\n    a sysml:PartDefinition ;\n", "elmt:Fleet__Trailer\n    a sysml:ItemDefinition ;\n")
+	want := strings.Replace(positioned, "    part def Trailer;\n", "    item def Trailer;\n", 1)
+	if back := toNotation(t, edited); back != want {
+		t.Errorf("the neighbours of the rebuilt element did not keep their text:\n--- want ---\n%s--- got ---\n%s", want, back)
+	}
+}

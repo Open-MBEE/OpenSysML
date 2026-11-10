@@ -73,20 +73,6 @@ func (d *decoder) verbatim(el *element) (string, bool) {
 	return d.graph.Lexical(rdf.IRI(el.iri), rdf.OpenSysML+xSourceText)
 }
 
-// verbatimWithNotes is verbatim for an element whose text holds the notes the
-// graph states; one stating others is demoted, since the graph is authoritative.
-func (d *decoder) verbatimWithNotes(el *element) (string, bool) {
-	text, ok := d.verbatim(el)
-	if !ok {
-		return "", false
-	}
-	if d.statesNotes() && !d.notesAgree(el, text) {
-		d.demoted[el] = true
-		return "", false
-	}
-	return text, true
-}
-
 // expressionText returns the source text an expression node is written as, if
 // it carries one it has not been demoted from; an Expression element's text is
 // its lines, which verbatim prints, so its structure is rebuilt here.
@@ -167,6 +153,21 @@ func (d *decoder) demoteStale(notation string, roots []*element) {
 		case el == nil:
 			d.demoteAll()
 			return
+		}
+	}
+	d.demoteStaleNotes(check)
+}
+
+// demoteStaleNotes demotes the text of each printed element whose notes the candidate
+// derives otherwise than the graph states them in any field, or not at all.
+func (d *decoder) demoteStaleNotes(check *encoder) {
+	// A comment the graph does not state is the text's, and a graph stating no note trusts it.
+	for _, subject := range notedSubjects(d.graph) {
+		if statesEveryNote(notesIn(d.graph, subject), notesIn(check.graph, subject)) {
+			continue
+		}
+		if el, _ := d.blame(subject.Value, check); el != nil && d.printed[el] {
+			d.demoted[el] = true
 		}
 	}
 }
