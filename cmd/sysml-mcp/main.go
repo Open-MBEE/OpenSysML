@@ -122,6 +122,14 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 
+	if err := usage.ApplyEnvironment(fs, envPrefix, "token", "token-file"); err != nil {
+		fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)
+		printUsage(stderr, fs)
+		return exitUnservable
+	}
+	opts.given = map[string]bool{}
+	fs.Visit(func(f *flag.Flag) { opts.given[f.Name] = true })
+
 	if opts.showHelp {
 		printUsage(stdout, fs)
 		return exitServed
@@ -134,13 +142,6 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprint(stdout, build().Report(mcpCommand))
 		return exitServed
 	}
-	if err := usage.ApplyEnvironment(fs, envPrefix, "token", "token-file"); err != nil {
-		fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)
-		printUsage(stderr, fs)
-		return exitUnservable
-	}
-	opts.given = map[string]bool{}
-	fs.Visit(func(f *flag.Flag) { opts.given[f.Name] = true })
 	if opts.printConfig.set {
 		return printConfig(opts, fs, stdout, stderr)
 	}

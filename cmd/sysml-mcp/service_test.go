@@ -71,9 +71,8 @@ func TestTheHTTPTransportBoundsTheRequestBody(t *testing.T) {
 	s.stop(t)
 }
 
-// TestFlagsReadTheEnvironment checks every flag is read from
-// OPENSYSML_MCP_<FLAG>, the flag wins over the variable, and a variable the flag
-// refuses exits 2 with the flag's own message.
+// TestFlagsReadTheEnvironment checks every flag is read from OPENSYSML_MCP_<FLAG>,
+// the flag wins over the variable, and a refused variable exits 2 with the flag's message.
 func TestFlagsReadTheEnvironment(t *testing.T) {
 	dir := t.TempDir()
 	tokenFile := filepath.Join(dir, "mcp.token")
@@ -89,6 +88,8 @@ func TestFlagsReadTheEnvironment(t *testing.T) {
 		stdout []string
 		stderr []string
 	}{
+		{name: "an output flag from the environment", env: map[string]string{"OPENSYSML_MCP_VERSION": "true"},
+			args: nil, status: exitServed, stdout: []string{"sysml-mcp"}},
 		{name: "a variable sets the flag", env: map[string]string{"OPENSYSML_MCP_HTTP": "127.0.0.1:9999"},
 			args: []string{"-print-config", host}, status: exitServed, stdout: []string{"http://127.0.0.1:9999/mcp"}},
 		{name: "the flag wins", env: map[string]string{"OPENSYSML_MCP_HTTP": "127.0.0.1:9999"},
