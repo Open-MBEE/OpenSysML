@@ -546,6 +546,17 @@ const GRPC_BINARY = get(ENV, "OPENSYSML_GRPC_BINARY",
             rows = query(qmodel, "oslc.where=rdf:type=\"PartUsage\"&oslc.select=sysml:name")
             @test length(get(rows, "elements", Any[])) == 3
 
+            @test has_capability(conn, CAPABILITY_ELEMENT_PROPERTIES)
+            pmodel = parse_source(conn, read(joinpath(FIXTURES, "element_properties.sysml"), String);
+                                  name="element_properties.sysml")
+            pair = element_properties(pmodel, "Demo::Pair", "inheritedFeature", "isAbstract")
+            @test pair.element.metaclass == "PartDefinition"
+            @test "Demo::Unit::p" in [e.qualified_name for e in property_elements(pair["inheritedFeature"])]
+            @test property_value(pair["isAbstract"]) === false
+            walked = element_properties(pmodel, property_elements(pair["inheritedFeature"])[1].id, "owner")
+            @test property_value(walked["owner"]) isa ElementIdentity
+            @test !is_answered(element_properties(pmodel, "Demo::Pair", "connectorEnd")["connectorEnd"])
+
             @test_throws DiagnosticError evaluate(model, "1 +")
             @test_throws ConnectError symbol(Model(conn, "0"^64, Diagnostic[]), "X")
             @test_throws TransportError call(conn, "NoSuchMethod", Dict{String,Any}())

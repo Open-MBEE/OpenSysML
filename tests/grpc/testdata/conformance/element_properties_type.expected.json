@@ -1,0 +1,54 @@
+{
+  "rpc": "GetElementProperties",
+  "model": "element_properties_type.sysml",
+  "element_id": "TypeFamily::Car",
+  "properties": [
+    "isAbstract",
+    "ownedSubclassification",
+    "ownedSpecialization",
+    "ownedFeature",
+    "connectorEnd"
+  ],
+  "expected_properties": [
+    {
+      "name": "isAbstract",
+      "defining_class": "Type",
+      "values": [
+        "false"
+      ]
+    },
+    {
+      "name": "ownedSubclassification",
+      "defining_class": "Classifier",
+      "many": true,
+      "derived": true,
+      "values": [
+        "TypeFamily__Car_sc0"
+      ]
+    },
+    {
+      "name": "ownedSpecialization",
+      "defining_class": "Type",
+      "many": true,
+      "derived": true,
+      "values": [
+        "TypeFamily__Car_sc0"
+      ]
+    },
+    {
+      "name": "ownedFeature",
+      "defining_class": "Type",
+      "many": true,
+      "derived": true,
+      "values": [
+        "TypeFamily::Car::reply",
+        "TypeFamily::Car::wheel"
+      ]
+    },
+    {
+      "name": "connectorEnd",
+      "values": [],
+      "unsupported_contains": "PartDefinition declares no property connectorEnd"
+    }
+  ]
+}
