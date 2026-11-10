@@ -45,12 +45,16 @@ func TestRefusalOfAnAuthenticator(t *testing.T) {
 	}{
 		{Expired, http.StatusUnauthorized, "invalid_token", "Unauthorized: the bearer token has expired", "expired token"},
 		{InsufficientScope, http.StatusForbidden, "insufficient_scope", "Forbidden: the bearer token lacks a scope this server requires", "insufficient scope"},
+		{Unavailable, http.StatusServiceUnavailable, "", "Service Unavailable: the bearer token cannot be verified for now", "token cannot be verified for now"},
 	}
 	for _, c := range cases {
 		if c.refusal.HTTPStatus() != c.status || c.refusal.Code() != c.code || c.refusal.Message() != c.message || c.refusal.String() != c.label {
 			t.Errorf("%v: status %d code %q message %q, want %d %q %q", c.refusal, c.refusal.HTTPStatus(), c.refusal.Code(), c.refusal.Message(), c.status, c.code, c.message)
 		}
-		want := `Bearer realm="svc", error="` + c.code + `", error_description="` + c.refusal.Description() + `"`
+		want := `Bearer realm="svc"`
+		if c.code != "" {
+			want += `, error="` + c.code + `", error_description="` + c.refusal.Description() + `"`
+		}
 		if got := c.refusal.Challenge("svc"); got != want {
 			t.Errorf("%v.Challenge = %q, want %q", c.refusal, got, want)
 		}
@@ -76,6 +80,36 @@ func TestBearer(t *testing.T) {
 		if token, refusal := Bearer(c.header); token != c.token || refusal != c.want {
 			t.Errorf("Bearer(%q) = %q, %v; want %q, %v", c.header, token, refusal, c.token, c.want)
 		}
+	}
+}
+
+// TestPrincipalIdentity checks the identity is the source with the subject, so
+// one subject under two authenticators is two principals, and rides a context.
+func TestPrincipalIdentity(t *testing.T) {
+	key := Principal{Subject: "alice", Source: "api-key"}
+	oidc := Principal{Subject: "alice", Source: "oidc", Name: "alice@example.org", Scopes: []string{"model:read"}}
+	if key.ID() != "api-key:alice" || oidc.ID() != "oidc:alice" {
+		t.Errorf("IDs = %q, %q; want the source before the subject", key.ID(), oidc.ID())
+	}
+	urn := Principal{Subject: "urn:example:alice", Source: "oidc"}
+	if urn.ID() != "oidc:urn:example:alice" {
+		t.Errorf("ID() = %q; a subject is kept as it is", urn.ID())
+	}
+	token, _ := New("right")
+	static, _ := NewStaticToken(token).Verify(context.Background(), "Bearer right", nil)
+	if static.ID() != "static-token:token" {
+		t.Errorf("the static token's ID() = %q", static.ID())
+	}
+
+	if p, ok := PrincipalFrom(context.Background()); ok || p.Subject != "" {
+		t.Errorf("PrincipalFrom of a bare context = %+v, %v; want none", p, ok)
+	}
+	ctx := WithPrincipal(context.Background(), oidc)
+	if p, ok := PrincipalFrom(ctx); !ok || p.ID() != oidc.ID() || p.Name != oidc.Name || !slices.Equal(p.Scopes, oidc.Scopes) {
+		t.Errorf("PrincipalFrom = %+v, %v; want %+v", p, ok, oidc)
+	}
+	if p, _ := PrincipalFrom(WithPrincipal(ctx, key)); p.ID() != key.ID() {
+		t.Errorf("PrincipalFrom after a second WithPrincipal = %+v; want the later one", p)
 	}
 }
 
