@@ -758,8 +758,10 @@ ours-missing):
    `OperatorExpression` 26/25/52, `InvocationExpression` 1 each — which with the 291 `InvocationExpression`
    `type`/`behavior` and the 6 `OperatorExpression` boolean positions is the indeterminate +2171): the pilot's lists
    also carry the documentation memberships and the `self` feature of the typing function, and ours carry
-   `Performances::Evaluation::result`, which the expression's own result parameter redefines (§8.4.4.7.1) — a
-   redefinition structure mode does not derive yet (the positional parameter redefinition rules). For an expression owning a result parameter `output` and `directedFeature` do not move (develop's record
+   the typing behavior's own `result` (`Performances::LiteralIntegerEvaluation::result`, `BooleanEvaluation::result`, …),
+   which redefines `Evaluation::result` (§8.4.4.7.1) and masks it now that the implied-generalization audit lets a direct
+   implied base feature's behavior stand in for it (KerML 1.1 §8.4.4.6); `Evaluation::result` itself appears only where
+   no behavior of its own redefines it. For an expression owning a result parameter `output` and `directedFeature` do not move (develop's record
    already carries the inherited `result` beside the own one in both lists); for a literal, which owns no result
    parameter, the two rows move ours-missing → equal (`LiteralInteger` 2036, `LiteralString` 1228, `LiteralBoolean`
    400, `LiteralRational` 334, `LiteralInfinity` 317, `NullExpression` 14, `MetadataAccessExpression` 6), the
