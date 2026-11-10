@@ -801,6 +801,62 @@ view's body, so the file round-trips into any conforming tool with its diagrams 
 v2 project the text is the vendor's and carries none; how a v2 diagram's geometry would be read
 is the open decision of [mdk-mtip.md](mdk-mtip.md) §6.
 
+### 10.7 The "Run query" sequence
+
+QVTS document queries (`calc def … :> DocumentQueries::Query`, [qvts.md](../../guide/qvts.md))
+are the one operation whose subject is not always the element selected: a v2 project selects
+the query definition itself, but a migrated v1 project has no query element — the migrator
+writes a DocGen «Document» as a `DocumentQueries::Document` definition whose tables and lists
+compute their rows with `calc rows : '<Document> <Title> Rows'` members, each typed by a query
+definition it also writes ([sysml-v1-migration.md](../../reference/sysml-v1-migration.md),
+`internal/translate/migrate/documents.go`). The resolution therefore runs on the service's
+symbols after the parse, and the run has two phases so the parameters can be asked for:
+
+```
+user: right-click an element ▸ OpenSysML ▸ Run query
+  1  on the EDT:  Selection.export() as for every operation
+  2  under ProgressStatusRunner:  Engine.plan(request)
+       parse:     as §10.4 (V1MdzipSource migrates once and keeps the text for the run)
+       resolve:   QueryResolver — the subject's own symbol when it is a calc def specializing
+                  DocumentQueries::Query (transitively, through other calc defs); else, on the
+                  v1 path, every report entry whose Name is the Cameo element's qualified name
+                  (ModelSource.mappedTargets) gives a target ("part def Model::'Docs'::'Handbook
+                  Document'", "part Model::…::Introduction::table"), whose symbol is walked
+                  through its usage members to the calc usages typed by query definitions
+       parameters: each query's members with direction `in` (inherited ones too; a redefinition
+                  takes the redefined parameter's type), their primitive deciding the kind the
+                  binding is read as (element unless String/Integer/Real/Boolean), and
+                  GetElementProperties `value` saying whether the declaration binds one already
+  3  on the EDT:  QueryBindingsDialog when any parameter was declared — one field per parameter
+                  name; the sole element parameter without a value starts as the selected element;
+                  QueryArguments reads each field by the parameter's kind
+  4  under ProgressStatusRunner:  Engine.run(request with bindings)
+       run:       Model.runDocumentQuery(query, bindings) per query; element references are
+                  mapped to the service's names (subjectName); a ServiceException other than
+                  UNAVAILABLE/CANCELLED becomes that query's QueryAnswer.failed so the others
+                  still answer
+       map:       ResultsMapper → RunResult.tables (one Table per query: columns, rows, each row
+                  naming its element, each cell naming the element it holds or the qualifiedName
+                  it projects) and one outcome per query; no rows at all is INFO, any failure
+                  ERROR, else PASSED; a subject that is not the single query gets a leading
+                  outcome of its own
+  5  results:  the rows table of the results window (double-click on a cell or row selects the
+               element it names), one INFO annotation per row element with the row's values
+```
+
+The DocGen bridge runs the same sequence without the dialog: `DocGenBridge.run` plans, reads the
+`arguments` tag against the plan with `QueryArguments` (`name = value; name = value, value`, or
+positional), then runs; `RunResult.tables` crosses the classloader boundary as lists of maps
+(`tables → {query, columns, rows → {elementId?, cells → {text, elementId?}}}`) and
+`DocBookRenderer` lays each out as a `DBTable` headed by the projected properties, shown even
+when empty.
+
+`results/QueryFailure` is the one place a query's failure becomes an outcome. The service answers
+a `ServiceException` whose message holds the path or model error today; the Java client's typed
+query outcome (kind, step, failures with frontier elements, findings), once it lands, is mapped
+there — to a FAILED outcome per finding with its frontier elements as element ids — without
+touching the engine or the window.
+
 ## 11. Phased plan
 
 | Phase | Delivers | Prerequisites in OpenSysML |
@@ -830,10 +886,11 @@ The implementation under `editors/mdk/` follows §10 with these deviations:
   and annotated; a name the migration synthesized (`unnamed2`, renamed duplicates) is shown in
   the results window without an element link. The `Entry.kind` preference of §10.5 waits for
   the report.
-- **Actions per operation, not a Run dialog.** The context menu group holds six actions
+- **Actions per operation, not a Run dialog.** The context menu group holds seven actions
   (Instantiate, Execute action, Execute state machine, Verify requirement/constraint, Evaluate
-  calc, Run analysis), enabled for exactly one selected element; Verify picks
-  `verifyRequirement`, `verifySatisfaction` or `verifyConstraint` from the symbol's kind. Sweep,
+  calc, Run analysis, Run query), enabled for exactly one selected element; Verify picks
+  `verifyRequirement`, `verifySatisfaction` or `verifyConstraint` from the symbol's kind, and
+  Run query resolves the subject to its query definitions (§10.7). Sweep,
   the schedule dialog and *Reveal migrated model* are deferred with phase 2's remaining items.
 - **Whole-project export.** `exportModule` is given the primary model, since a selected element
   alone loses the references the conversion needs; a saved, unmodified `.mdzip` is read in place.
@@ -976,9 +1033,10 @@ as a module would pin a profile `.mdzip` into the distribution; instead the plug
 in the project on demand (*OpenSysML ▸ Add MDK DocGen extension stereotypes* on the model root):
 a `Profile` named `Magic MDK DocGen` under the primary model, applied to it with
 `StereotypesHelper.applyProfile` so its stereotypes are applicable, with stereotypes
-`org.openmbee.mdk.magic.docgen.{Instantiate,ExecuteAction,ExecuteState,Verify,EvaluateCalc,RunAnalysis}`,
+`org.openmbee.mdk.magic.docgen.{Instantiate,ExecuteAction,ExecuteState,Verify,EvaluateCalc,RunAnalysis,RunQuery}`,
 each extending `Activity` and `CallBehaviorAction` with a generalization to `«JavaExtension»`;
-`EvaluateCalc` adds a `String` tag `arguments`. The action is idempotent and runs inside one
+`EvaluateCalc` and `RunQuery` add a `String` tag `arguments` (the calc's argument list; the
+query's parameter bindings, §10.7). The action is idempotent and runs inside one
 `SessionManager` session so it is a single undo step.
 
 ### 14.4 Build and packaging
