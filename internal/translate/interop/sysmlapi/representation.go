@@ -31,6 +31,12 @@ func (e *UnrepresentableError) Error() string {
 	return fmt.Sprintf("%s cannot be written through the SysML v2 API: %s", e.Term, e.Reason)
 }
 
+// Holds reports whether the server has a metaclass for subjects of the class:
+// the SysML vocabulary's classes, and no other.
+func (Representation) Holds(class string) bool {
+	return strings.HasPrefix(class, rdf.SysML)
+}
+
 // Carry keeps sysml: properties in the form the server stores them and drops
 // every other predicate: it has no place for them.
 func (Representation) Carry(triple rdf.Triple) (rdf.Triple, bool, error) {

@@ -262,7 +262,12 @@ those ids lands, and is refused before any write when a minted element has no na
 annotation to address — an id the notation cannot keep would be lost to the next parse. Both
 sides of a diff are compared under the repository's *representation* — what its commit path
 can store of a graph — so what it has no place for is reported as not compared rather than
-reapplied on every run.
+reapplied on every run: every `sysx:` property, and every node of a class the repository has no
+metaclass for that nothing kept references (a `sysx:Note`), tallied under its class. An element
+of such a class that a kept `sysml:` property does reference (`sysx:Pseudostate`,
+`sysx:ActionExecutionNode`) is refused before anything is written, naming the element, its class
+and the referencing property: left out, the reference would dangle; sent, the API would refuse
+it (`reposync.UnheldReferenceError`).
 
 This subsumes the notation side of what the Flexo interoperability target needs: the
 graph OpenSysML writes can stand in for the one `flexo-mms-sysmlv2` produces *for the
