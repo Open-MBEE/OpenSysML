@@ -22,33 +22,41 @@ const tokenEnv = "OPENSYSML_GRPC_TOKEN" // #nosec G101 -- a variable name, not a
 // realm names this service in a WWW-Authenticate challenge.
 const realm = "sysml-grpc"
 
-// access is the door every call passes: the bearer token it must carry, when
-// one is configured, and the log line each call leaves.
+// access is the door every call passes: the authenticators a call's credential
+// must satisfy, when any is configured, and the log line each call leaves.
 type access struct {
-	token guard.Token
+	chain guard.Chain
 }
 
-// admit classifies a call's Authorization value: whether it is let in and was
-// authenticated doing so, or why it is refused.
-func (a access) admit(authorization string) (authenticated bool, refusal guard.Refusal) {
-	if !a.token.Set() {
-		return false, guard.Accepted
+// admit classifies a call's Authorization value: the context to serve it in,
+// carrying the principal it was authenticated as, or why it is refused.
+func (a access) admit(ctx context.Context, authorization string) (context.Context, guard.Refusal) {
+	if len(a.chain) == 0 {
+		return ctx, guard.Accepted
 	}
-	refusal = a.token.Check(authorization)
-	return refusal == guard.Accepted, refusal
+	principal, refusal := a.chain.Verify(ctx, authorization, nil)
+	if refusal != guard.Accepted {
+		return ctx, refusal
+	}
+	return guard.WithPrincipal(ctx, principal), guard.Accepted
 }
 
 // logCall writes the one line a call leaves: who called what over which
-// protocol, how it ended, how long it took, and whether it was authenticated.
-func logCall(protocol, peer, method, code string, dur time.Duration, authenticated bool) {
-	slog.Info("call",
+// protocol, how it ended, how long it took, and who it was authenticated as.
+func logCall(ctx context.Context, protocol, peer, method, code string, dur time.Duration) {
+	attrs := []any{
 		"peer", peer,
 		"method", method,
 		"protocol", protocol,
 		"code", code,
 		"duration_ms", dur.Milliseconds(),
-		"authenticated", authenticated,
-	)
+	}
+	if principal, ok := guard.PrincipalFrom(ctx); ok {
+		attrs = append(attrs, "authenticated", true, "subject", principal.Subject, "source", principal.Source)
+	} else {
+		attrs = append(attrs, "authenticated", false)
+	}
+	slog.Info("call", attrs...)
 }
 
 // logRefusal records a call turned away at the door and who knocked; what
@@ -58,16 +66,25 @@ func logRefusal(protocol, peer, method string, refusal guard.Refusal, dur time.D
 		"peer", peer,
 		"method", method,
 		"protocol", protocol,
-		"code", connect.CodeUnauthenticated.String(),
+		"code", codeFor(refusal).String(),
 		"duration_ms", dur.Milliseconds(),
 		"authenticated", false,
 	)
 }
 
-// unauthenticated is the error a refused call is answered with: the code the
-// wire contract reserves, carrying the RFC 6750 challenge.
-func unauthenticated(refusal guard.Refusal) *connect.Error {
-	err := connect.NewError(connect.CodeUnauthenticated, errors.New(refusal.Message()))
+// codeFor is the code a refusal is answered with: permission denied for a
+// credential lacking a scope (RFC 6750 § 3.1, 403), unauthenticated otherwise.
+func codeFor(refusal guard.Refusal) connect.Code {
+	if refusal == guard.InsufficientScope {
+		return connect.CodePermissionDenied
+	}
+	return connect.CodeUnauthenticated
+}
+
+// refused is the error a refused call is answered with: the code the wire
+// contract reserves for it, carrying the RFC 6750 challenge.
+func refused(refusal guard.Refusal) *connect.Error {
+	err := connect.NewError(codeFor(refusal), errors.New(refusal.Message()))
 	err.Meta().Set("WWW-Authenticate", refusal.Challenge(realm))
 	return err
 }
@@ -88,16 +105,16 @@ func (i connectAccess) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		start := time.Now()
 		peer, procedure, protocol := req.Peer().Addr, req.Spec().Procedure, req.Peer().Protocol
-		authenticated, refusal := i.admit(req.Header().Get("Authorization"))
+		ctx, refusal := i.admit(ctx, req.Header().Get("Authorization"))
 		if refusal != guard.Accepted {
 			logRefusal(protocol, peer, procedure, refusal, time.Since(start))
-			return nil, unauthenticated(refusal)
+			return nil, refused(refusal)
 		}
 		res, err := next(ctx, req)
 		if err == nil {
 			warnLargeJSON(req, res)
 		}
-		logCall(protocol, peer, procedure, codeOf(err), time.Since(start), authenticated)
+		logCall(ctx, protocol, peer, procedure, codeOf(err), time.Since(start))
 		return res, err
 	}
 }
@@ -110,13 +127,13 @@ func (i connectAccess) WrapStreamingHandler(next connect.StreamingHandlerFunc) c
 	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
 		start := time.Now()
 		peer, procedure, protocol := conn.Peer().Addr, conn.Spec().Procedure, conn.Peer().Protocol
-		authenticated, refusal := i.admit(conn.RequestHeader().Get("Authorization"))
+		ctx, refusal := i.admit(ctx, conn.RequestHeader().Get("Authorization"))
 		if refusal != guard.Accepted {
 			logRefusal(protocol, peer, procedure, refusal, time.Since(start))
-			return unauthenticated(refusal)
+			return refused(refusal)
 		}
 		err := next(ctx, conn)
-		logCall(protocol, peer, procedure, codeOf(err), time.Since(start), authenticated)
+		logCall(ctx, protocol, peer, procedure, codeOf(err), time.Since(start))
 		return err
 	}
 }

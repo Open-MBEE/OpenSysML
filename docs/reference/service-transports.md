@@ -178,10 +178,15 @@ reach (`-host 0.0.0.0`, `-host ::`, a hostname or address of the machine) is ser
 a bearer token — `-token-file <path>` (one line; the file should be readable by the service user
 only), `-token <value>`, or `OPENSYSML_GRPC_TOKEN` in the environment — and every call on every
 protocol must then carry it: `Authorization: Bearer <token>` on Connect, gRPC-Web and
-Connect-HTTP, the `authorization` metadata on grpc-go, compared in constant time. A call without
-it is answered `unauthenticated` (HTTP 401 with `WWW-Authenticate: Bearer realm="sysml-grpc"`;
-the grpc-go trailer carries the same), and the [wire contract](wire-contract.md#connect-errors-the-code-table)
-says what each client raises. `GET /health` is answered without a token so that liveness
+Connect-HTTP, the `authorization` metadata on grpc-go, compared in constant time. The credential
+is verified by the authenticator chain [`sysml-mcp`](sysml-mcp.md#transports) verifies through,
+shared so the two commands read the same flags and refuse alike; today the chain holds the static
+token alone, and a call it admits is served knowing its principal (the subject and the kind of
+authenticator that accepted it), which the access log names. A call without a credential is
+answered `unauthenticated` (HTTP 401 with `WWW-Authenticate: Bearer realm="sysml-grpc"`; the
+grpc-go trailer carries the same), one whose credential lacks a scope the service requires
+`permission_denied` (HTTP 403, `error="insufficient_scope"`), and the
+[wire contract](wire-contract.md#connect-errors-the-code-table) says what each client raises. `GET /health` is answered without a token so that liveness
 probes need no secret; it says the version, nothing about any model. Starting non-loopback
 without a token fails at once naming the three ways to supply one and the one way to decline:
 `-allow-unauthenticated` serves every caller that can reach the port, which is only
@@ -192,8 +197,9 @@ without the pair fails at once unless `-allow-insecure-token-transport` accepts 
 transport, which is right only behind a proxy that terminates TLS in front of the service and
 is, like the other opt-out, never implied; the service warns at startup when it is given. Every call is
 logged on one line at `INFO` with the peer address, method, protocol, status code, duration and
-whether it was authenticated; a refused call is logged at `WARN` with the peer. The token
-itself is never logged. The private child a client starts for itself (`-port 0
+whether it was authenticated — and, when it was, the principal's `subject` and `source`
+(`token` from `static-token` for the bearer token); a refused call is logged at `WARN` with the
+peer. The token itself is never logged. The private child a client starts for itself (`-port 0
 -exit-with-parent`) is unaffected: it binds loopback and needs no token, and the client starts
 it without `OPENSYSML_GRPC_TOKEN` in its environment, so a token set for a remote service is
 never one the child demands.
