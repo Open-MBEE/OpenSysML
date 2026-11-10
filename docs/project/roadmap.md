@@ -2509,7 +2509,8 @@ engine. The Node client defaults to a worker thread over the module and the brow
 through `connectWasm` over `sysml-wasm.wasm.gz` built from the tree (#1230). The gate is
 `tests/wasm`: both targets compile and vet the whole tree (`OPENSYSML_REQUIRE_WASM=1`), the
 gzipped sizes are bounded against gross growth (#970, #975; `sysml-core`'s budget #1278 and
-`sysml-syntax`'s #1283), the `-tags sysml_re` build drops the optional features for the
+`sysml-syntax`'s #1283) over the build embedding the library snapshot, which the gate
+generates for its own run rather than inheriting from the tree (#2058), the `-tags sysml_re` build drops the optional features for the
 production module (`CHANGELOG.md` **0.10.0**), and the gate's own timeout fits a slow runner
 (#1334). `v0.10.1` was cut for the budget alone (#1185). What remains is in *Scaling to very
 large models* under *Proposed*: the module's size against a browser's patience.
