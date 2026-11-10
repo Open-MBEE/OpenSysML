@@ -89,4 +89,5 @@ emit jupyterlab "$( { [[ "$fanout" = true ]] || matches "$jupyterlab_pattern"; }
 emit emacs "$( { [[ "$fanout" = true ]] || matches "$emacs_pattern"; } && echo true || echo false)"
 # The MDK plugin builds on the Java client, so a client change re-runs it too.
 emit mdk "$( { [[ "$fanout" = true ]] || matches "$mdk_pattern" || matches "$java_pattern"; } && echo true || echo false)"
-emit syson "$( { [[ "$fanout" = true ]] || matches "$syson_pattern"; } && echo true || echo false)"
+# The SysON backend builds on the Java client too, so a client change re-runs it.
+emit syson "$( { [[ "$fanout" = true ]] || matches "$syson_pattern" || matches "$java_pattern"; } && echo true || echo false)"
