@@ -502,6 +502,11 @@ func (r *elementReader) qualifiedName(sym *symbols.Symbol) string {
 		}
 		return r.model.Index.GetFQN(sym)
 	}
+	// Spelled by the metamodel's own Element::qualifiedName (KerML 8.2.4), the rule the export
+	// writes too: a segment that is no identifier is quoted (Cmd's conjugate is P::Cmd::'~Cmd').
+	if value, ok := r.evaluator.PropertyReadOnly(r.structure.ElementFor(sym), "Element", "qualifiedName"); ok && value.Kind == metamodel.StringValue {
+		return value.String
+	}
 	return r.model.Index.QualifiedIdentity(sym)
 }
 
