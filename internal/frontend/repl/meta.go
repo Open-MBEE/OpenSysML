@@ -245,7 +245,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%check-property", effect: Shapes, group: groupChecks, args: "[<name>...|off]", desc: "show or set the constraints and requirements the check engine evaluates at every stable state of an action"},
 	{name: "%check-input", effect: Shapes, group: groupChecks, args: "[<feature>...|off]", desc: "show or set the features the smt engine leaves free in their declared domains although the model binds them; off frees only the inputs the model leaves unbound"},
 	{name: "%check-assume", effect: Shapes, group: groupChecks, args: "[<name>...|off]", desc: "show or set the constraints and requirements the smt engine assumes over the initial state of an action"},
-	{name: "%check-witness", effect: Shapes, group: groupChecks, args: "[<dir>|off]", desc: "show or set the directory the check and smt engines write a witness to for each violation and divergent value"},
+	{name: "%check-witness", effect: Writes, group: groupChecks, args: "[<dir>|off]", desc: "show or set the directory the check and smt engines write a witness to for each violation and divergent value"},
 	{name: "%check-bounds", effect: Shapes, group: groupChecks, args: "[depth=<n>] [states=<n>] [unroll=<n>] [timeout=<duration>] | off", desc: "show or set the bounds the check and smt engines search within: the moves of one schedule, the distinct states, the iterations of a loop the smt engine unrolls, and the clock; off restores their defaults"},
 	{name: "%replay", effect: Shapes, group: groupChecks, args: "<witness>", desc: "install the schedule a witness file fixes, so the next %action or %state steps the run it records"},
 
@@ -2012,6 +2012,10 @@ func featureVerdict(ctx *runtime.Context, feat *runtime.EffectiveFeature, inst *
 		kind = "constraint"
 		passed, err = ctx.EvaluateConstraintOn(feat.Symbol, feat.DeclScope(), inst)
 	case symbols.SymbolRequirementUsage:
+		// An objective's `verify r;` references a requirement, stating none: no verdict of its own.
+		if usage, ok := feat.Symbol.Decl.(*ast.Usage); ok && usage.IsVerifiedRequirement() {
+			return "", false
+		}
 		kind = "requirement"
 		passed, err = ctx.EvaluateRequirementOn(feat.Symbol, feat.DeclScope(), inst)
 	default:

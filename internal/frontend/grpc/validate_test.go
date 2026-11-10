@@ -145,10 +145,10 @@ func TestValidateInstanceReportsEveryAssertionOnEveryObject(t *testing.T) {
 	if resp.Bounded {
 		t.Error("a finite object tree was reported bounded")
 	}
-	// The car, the engine, the injector, three wheels and the requirement the
-	// car carries.
-	if len(resp.Instances) != 7 {
-		t.Errorf("got %d instances, want 7", len(resp.Instances))
+	// The car, the engine, the injector, three wheels, the requirement the car
+	// carries and that requirement's anonymous required constraint.
+	if len(resp.Instances) != 8 {
+		t.Errorf("got %d instances, want 8", len(resp.Instances))
 	}
 }
 

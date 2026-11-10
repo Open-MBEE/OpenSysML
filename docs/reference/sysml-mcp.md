@@ -405,7 +405,7 @@ even without it, as the scope says what the tool can do. `repl_command` is admit
 `sysml:read` and then requires, for the `%` command it is given, the scope of the typed tool doing
 the same — `sysml:read` to show or list (`%list`, `%print`, `%tokens`, …), `sysml:session` to load,
 clear or set the session up (`%load`, `%clear`, `%seed`, the `%check-*` settings, …), `sysml:write`
-to `%save` or `%publish`, `sysml:execute` to instantiate, evaluate, run, solve or debug (`%eval`,
+to `%save`, `%publish` or `%check-witness` (which names where checks write, under the root), `sysml:execute` to instantiate, evaluate, run, solve or debug (`%eval`,
 `%action`, `%solve`, …) — refusing a command the credential lacks the scope for before the session
 is touched; the refusal names the command.
 
@@ -423,7 +423,7 @@ written to stdout; logs go to stderr.
 With `-http ADDR` the server is started once and speaks the **Streamable HTTP** transport at the
 path `/mcp` of that address to every client that connects — remote agents, or several agents over
 one project — until it is told to stop with SIGINT or SIGTERM. Stopping closes the clients'
-sessions, so their event streams end, and gives the connections up to 30 seconds to drain. The
+sessions, so their event streams end, and gives the connections up to `-shutdown-timeout` (30 seconds) to drain. The
 clients share one workspace and one runtime cache. REPL sessions belong to the **principal** that
 opened them — the identity of the credential, `source:subject`, or the one local principal when the
 server authenticates nobody — so a `session_*` name one client opens is the session every other
@@ -532,9 +532,20 @@ version control — or is edited to the host's own reference to a secret where i
 | `-token TOKEN` | — | The token itself; `OPENSYSML_MCP_TOKEN` is read when neither flag names one |
 | `-public-url URL` | the request's scheme and `Host` | The URL clients reach the endpoint at behind a proxy that terminates TLS or rewrites the path; named as the resource, in the bearer challenge and by the `-print-config` block |
 | `-tls-cert FILE`, `-tls-key FILE` | — | Serve `https`; both or neither |
+| `-shutdown-timeout DURATION` | `30s` | How long a stopping HTTP server waits for its connections to drain after closing the sessions |
+| `-max-body-bytes N` | `4194304` | Largest request body the HTTP transport reads at `/mcp`; a larger one is refused with 413 |
 | `-print-config [HOST]` | — | Write a host's configuration block to stdout and exit; alone, list the hosts |
 | `-print-config-command CMD` | the binary's path | The command the block names; with `-http ADDR` (and `-tls-cert` for `https`) the block names the server's URL instead, with the `Authorization` header when a token is given |
 | `-version`, `-help`, `-man` | — | The build, this table, the manual page |
+
+Every flag is also read from the environment as `OPENSYSML_MCP_<FLAG>` — the flag's name in upper
+case with each dash an underscore, `OPENSYSML_MCP_LOG_LEVEL` for `-log-level` — when the command
+line leaves it unset; a flag given wins over its variable, an empty variable is as good as unset,
+and a value the flag would refuse is refused the same way, with exit status 2. `OPENSYSML_MCP_TOKEN`
+is the variable of `-token` and `OPENSYSML_MCP_TOKEN_FILE` that of `-token-file`, each read only
+when neither token flag is given, the file first. With `-http` the server also answers `GET /health`
+and `GET /ready` without a token; [Running sysml-mcp as a service](../guide/sysml-mcp-service.md)
+covers them, the environment, the container image and the systemd unit.
 
 The exit status is 0 when the protocol was served to its end (the client closed the stream or the
 process was told to stop), 1 when the server could not start (the `-http` address in use, say) or

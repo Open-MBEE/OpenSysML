@@ -3954,7 +3954,7 @@ jobs:
               --build-arg COMMIT="${CIRCLE_SHA1}" \
               --build-arg BUILD_TIME="${BUILD_TIME}" \
               -t openmbee/opensysml:check .
-            for binary in sysml-grpc sysml sysml-lsp; do
+            for binary in sysml-grpc sysml sysml-lsp sysml-mcp; do
               output=$(docker run --rm --entrypoint "$binary" openmbee/opensysml:check -version)
               reported="${output%%$'\n'*}"
               echo "$reported"
@@ -4002,6 +4002,36 @@ jobs:
               *) fail "GetServerInfo answered '${info}', not version ${CIRCLE_TAG}." ;;
             esac
             docker rm -f opensysml-check >/dev/null
+            # sysml-mcp from the same image: /health open, /ready 200 once it is
+            # serving, and the protocol refused without the token.
+            OPENSYSML_MCP_TOKEN="$token" docker run -d --name opensysml-mcp-check -e OPENSYSML_MCP_TOKEN \
+              --entrypoint sysml-mcp openmbee/opensysml:check -http 0.0.0.0:8765 -root /tmp
+            curl() {
+              docker run --rm --network container:opensysml-mcp-check curlimages/curl:8.11.1 \
+                -sS --retry 10 --retry-connrefused --retry-delay 1 "$@"
+            }
+            fail() {
+              echo "Error: $1"
+              echo "--- opensysml-mcp-check logs:"
+              docker logs opensysml-mcp-check 2>&1 | tail -n 20 || true
+              exit 1
+            }
+            health=$(curl -f http://localhost:8765/health) || fail "sysml-mcp /health did not answer."
+            echo "$health"
+            case "$health" in
+              *'"status":"ok"'*"\"version\":\"${CIRCLE_TAG}\""*|*"\"version\":\"${CIRCLE_TAG}\""*'"status":"ok"'*) ;;
+              *) fail "sysml-mcp /health did not answer ok with version ${CIRCLE_TAG}: '${health}'." ;;
+            esac
+            ready=$(curl -f --retry-all-errors http://localhost:8765/ready) || fail "sysml-mcp /ready did not turn 200."
+            echo "$ready"
+            denied=$(curl -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+              -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"check","version":"0"}}}' \
+              http://localhost:8765/mcp) || fail "sysml-mcp /mcp without a token did not answer."
+            case "$denied" in
+              401) echo "ok: /mcp without a token is refused (401)" ;;
+              *) fail "/mcp without a token answered HTTP ${denied}, not 401." ;;
+            esac
+            docker rm -f opensysml-mcp-check >/dev/null
 
       - unless:
           condition: << pipeline.parameters.release_rehearsal >>

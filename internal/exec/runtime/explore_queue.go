@@ -96,6 +96,7 @@ type explorePrefix struct {
 	outcome  Outcome
 	identity string
 	gaps     []CoverageGap // the coverage gaps the run left on its context
+	coverage Coverage      // the states the run entered and the transitions it took
 	err      error         // fresh failed, or the run diverged
 }
 
@@ -148,6 +149,7 @@ func (q *exploreQueue) work(stop context.Context, job int, fresh func(int) (*Con
 			outcome = Outcome{Err: runErr, ctx: ctx}
 		}
 		p.gaps = ctx.gaps()
+		p.coverage = ctx.runCoverage()
 		q.finish(p, replay, outcome, nil)
 	}
 }
@@ -328,6 +330,7 @@ func (q *exploreQueue) fold() {
 		}
 		q.depthHit = q.depthHit || p.replay.depthHit
 		q.result.Unenumerated = mergeGaps(q.result.Unenumerated, p.gaps)
+		q.result.Coverage.merge(p.coverage)
 		if errors.Is(p.outcome.Err, errStatementOrderSweepLimit) &&
 			!slices.Contains(q.result.BudgetsHit, boundStatementOrders) {
 			q.result.BudgetsHit = append(q.result.BudgetsHit, boundStatementOrders)
@@ -356,6 +359,7 @@ func (q *exploreQueue) fold() {
 // has what it keeps of it.
 func (p *explorePrefix) release() {
 	p.replay, p.outcome, p.err = nil, Outcome{}, nil
+	p.coverage = Coverage{}
 }
 
 // forget takes a prefix off the pending list.
