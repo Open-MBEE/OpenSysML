@@ -178,7 +178,8 @@ Error typing: every client distinguishes the statuses the Python client's `error
 distinguishes (`NOT_FOUND` by subject, `INVALID_ARGUMENT`/`FAILED_PRECONDITION`/`OUT_OF_RANGE`,
 `DEADLINE_EXCEEDED`/`CANCELLED`, `UNAVAILABLE`, `UNIMPLEMENTED`, `UNAUTHENTICATED`) and
 carries structured details (diagnostics, symbol suggestions, capability names). The .NET client
-gives `NOT_FOUND` by subject, `UNAUTHENTICATED` and a missing capability exceptions of their own;
+gives `NOT_FOUND` by subject, `UNAUTHENTICATED` and a missing capability, whether the advertised list
+or the service's own `UNIMPLEMENTED` shows it, exceptions of their own;
 any other status is a `ServiceException`, or a `TransportException` for a deadline or a network
 failure, carrying its `StatusCode`, rather than an exception type per status.
 

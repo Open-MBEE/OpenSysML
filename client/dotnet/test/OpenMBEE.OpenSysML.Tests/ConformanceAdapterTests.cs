@@ -715,7 +715,8 @@ public sealed class ConformanceAdapterTests
         using var handler = new FakeServiceHandler(wire) { Capabilities = FakeModels.ModelCapabilities }
             .Refusing("Evaluate", StatusCode.NotFound, "model not found: h")
             .Refusing("GetDiagnostics", StatusCode.InvalidArgument, "unknown lint code no-such-lint")
-            .Refusing("ParseFile", StatusCode.NotFound, "open /nonexistent: no such file");
+            .Refusing("ParseFile", StatusCode.NotFound, "open /nonexistent: no such file")
+            .Refusing("GetSymbol", StatusCode.Unimplemented, "capability \"symbol_members\" is unavailable");
         await using var connection = await FakeConnection.OpenAsync(handler);
         var client = Client(connection);
         var token = TestContext.Current.CancellationToken;
@@ -723,10 +724,12 @@ public sealed class ConformanceAdapterTests
         var evaluate = await client.CallAsync(ScenarioRequests.Method("Evaluate"), new Wire.EvaluateRequest { ModelHash = Hash, Expression = "1" }, token);
         var lint = await client.CallAsync(ScenarioRequests.Method("GetDiagnostics"), new Wire.DiagnosticsRequest { ModelHash = Hash, DisableLint = { "no-such-lint" } }, token);
         var file = await client.CallAsync(ScenarioRequests.Method("ParseFile"), new Wire.ParseFileRequest { FilePath = "/nonexistent" }, token);
+        var capability = await client.CallAsync(ScenarioRequests.Method("GetSymbol"), new Wire.GetSymbolRequest { ModelHash = Hash, SymbolId = "Demo::m" }, token);
 
         Assert.Equal(new ScenarioAnswer.Refused(StatusCode.NotFound, "model not found: h"), evaluate);
         Assert.Equal(new ScenarioAnswer.Refused(StatusCode.InvalidArgument, "unknown lint code no-such-lint"), lint);
         Assert.Equal(new ScenarioAnswer.Refused(StatusCode.NotFound, "open /nonexistent: no such file"), file);
+        Assert.Equal(new ScenarioAnswer.Refused(StatusCode.Unimplemented, "capability \"symbol_members\" is unavailable"), capability);
     }
 
     [Theory]

@@ -371,11 +371,13 @@ OpenMBEE.OpenSysML.Capabilities.Require(string! capability) -> void
 OpenMBEE.OpenSysML.CapabilityException
 OpenMBEE.OpenSysML.CapabilityException.Capability.get -> string!
 OpenMBEE.OpenSysML.CapabilityException.CapabilityException(string! capability, string! message, string! remedy) -> void
+OpenMBEE.OpenSysML.CapabilityException.CapabilityException(string! capability, string! message, string! remedy, System.Exception? innerException) -> void
 OpenMBEE.OpenSysML.CapabilityException.Remedy.get -> string!
 OpenMBEE.OpenSysML.ChecksumMismatchException
 OpenMBEE.OpenSysML.ChecksumMismatchException.ActualSha256.get -> string!
 OpenMBEE.OpenSysML.ChecksumMismatchException.BinaryPath.get -> string!
 OpenMBEE.OpenSysML.ChecksumMismatchException.ChecksumMismatchException(string! binaryPath, string! expectedSha256, string! actualSha256, string! remedy) -> void
+OpenMBEE.OpenSysML.ChecksumMismatchException.ChecksumMismatchException(string! message) -> void
 OpenMBEE.OpenSysML.ChecksumMismatchException.ExpectedSha256.get -> string!
 OpenMBEE.OpenSysML.Connection
 OpenMBEE.OpenSysML.Connection.Address.get -> System.Uri!

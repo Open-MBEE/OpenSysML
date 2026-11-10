@@ -126,9 +126,10 @@ Everything derives from `OpenSysMLException`, except `OperationCanceledException
   `ModelErrorsException` (`RequireNoErrors`), `SymbolNotFoundException` (`Name`, `Suggestions`),
   `ExecutionException`, `VerificationException` (`Reason`), `AnalysisException` (`Partial`),
   `EditException`, `ConversionException`, `QueryException`.
-- `CapabilityException` (service too old, raised before sending), `InvalidRequestException`,
-  `ServiceStartException` and its `BinaryNotFoundException`, `ChecksumMismatchException`,
-  `UnpinnedReleaseException`, `TransportException`, `UnsupportedValueException`.
+- `CapabilityException` (service too old: raised before sending, or for a call the service refuses
+  for a capability it does not have), `InvalidRequestException`,
+  `ServiceStartException` and its `BinaryNotFoundException`, `ChecksumMismatchException` (and
+  `UnpinnedReleaseException`, one of them), `TransportException`, `UnsupportedValueException`.
 
 ## Pitfalls
 

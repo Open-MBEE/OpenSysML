@@ -48,6 +48,23 @@ public sealed class TransportContractTests
 
     [Theory]
     [MemberData(nameof(ClientWires.All), MemberType = typeof(ClientWires))]
+    public async Task UnimplementedNamingACapabilityIsACapabilityExceptionCarryingTheRefusal(ClientWire wire)
+    {
+        const string Said = "capability \"element_properties\" is unavailable";
+        using var handler = new FakeServiceHandler(wire);
+        await using var connection = await FakeConnection.OpenAsync(handler);
+        handler.Respond = (_, _) => Task.FromResult(handler.Refuse(StatusCode.Unimplemented, Said));
+
+        var error = await Assert.ThrowsAsync<CapabilityException>(() => connection.GetSymbolAsync());
+
+        Assert.Equal(("element_properties", Capabilities.UpgradeRemedy("element_properties")), (error.Capability, error.Remedy));
+        Assert.StartsWith($"{GetSymbol} was refused by the service, which does not have the element_properties capability: {Said}", error.Message, StringComparison.Ordinal);
+        var refusal = Assert.IsType<ServiceException>(error.InnerException);
+        Assert.Equal((StatusCode.Unimplemented, Said, GetSymbol), (refusal.StatusCode, refusal.ServiceMessage, refusal.Method));
+    }
+
+    [Theory]
+    [MemberData(nameof(ClientWires.All), MemberType = typeof(ClientWires))]
     public async Task UnavailableFromTheServiceIsNotUnavailableFromTheNetwork(ClientWire wire)
     {
         using var handler = new FakeServiceHandler(wire);

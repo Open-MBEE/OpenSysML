@@ -27,8 +27,11 @@ public sealed class ConnectionOptions
     public const string BinaryVariable = "OPENSYSML_GRPC_BINARY";
 
     /// <summary>
-    /// The environment variable naming the release to download for a private service when
-    /// <see cref="DownloadVersion"/> does not: a tag, as <c>v0.10.1</c>, or <c>latest</c>.
+    /// The environment variable naming a release of <c>sysml-grpc</c>: a tag, as <c>v0.10.1</c>, or <c>latest</c>.
+    /// It is the release downloaded for a private service when <see cref="DownloadVersion"/> names none, and, as in
+    /// the other clients, the version any service must report when <see cref="Version"/> is null: a service that
+    /// reports another, or does not answer, fails the open with <see cref="StaleServiceException"/>. <c>latest</c>
+    /// is resolved once per open, and requires nothing when the releases API cannot resolve it.
     /// </summary>
     public const string VersionVariable = "OPENSYSML_GRPC_VERSION";
 
@@ -235,8 +238,9 @@ public sealed class ConnectionOptions
     }
 
     /// <summary>
-    /// The exact build version the service must report, or null to accept any. A service that
-    /// reports another, or does not answer, fails the open with <see cref="StaleServiceException"/>.
+    /// The exact build version the service must report, or null for the release <see cref="VersionVariable"/>
+    /// names, if any. A service that reports another, or does not answer, fails the open with
+    /// <see cref="StaleServiceException"/>.
     /// </summary>
     public string? Version { get; init; }
 

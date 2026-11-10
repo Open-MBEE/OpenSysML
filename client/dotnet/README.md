@@ -101,8 +101,10 @@ Opening asks the service `GetServerInfo` once. `ServerInfo` keeps the answer: th
 version, informational only, and its `Capabilities`, which `Capabilities` has a constant for
 each of. Decide what to do on capability names, never on the version. A service too old to
 have `GetServerInfo` answers it `Unimplemented`; `ServerInfo.Answered` is then false and no
-capability is claimed. `ConnectionOptions.Version` requires an exact version, failing with
-`StaleServiceException`, and `RequireCapabilities` requires capabilities, failing with
+capability is claimed. `ConnectionOptions.Version` requires an exact version, and when it is null
+the release `OPENSYSML_GRPC_VERSION` names is required instead, as in the other clients (`latest`
+is resolved once, and requires nothing when it cannot be); either fails with
+`StaleServiceException`. `RequireCapabilities` requires capabilities, failing with
 `CapabilityException`; both are checked after that one call, and a failed open closes what
 it opened.
 
@@ -415,12 +417,12 @@ use after disposal, which are the standard exceptions:
 | A release asked for could not be downloaded or installed, or `latest` could not be resolved | `ServiceStartException`, with the cause as `InnerException` |
 | No service is named, no binary was found to start, and the release this client was built with could not be had | `BinaryNotFoundException`, a `ServiceStartException` with `SearchedLocations` and why no release could be had as `InnerException` |
 | The binary does not have `ExpectedBinarySha256`; or a release's served checksum, its bytes or `ExpectedBinarySha256` contradict its pin, or the checksum it serves under same-origin trust | `ChecksumMismatchException`, a `ServiceStartException` with `BinaryPath` (the release's URL for a release not downloaded), `ExpectedSha256` and `ActualSha256` |
-| A release asked for is one this checkout pins no digest for, and same-origin trust was not granted | `UnpinnedReleaseException`, a `ServiceStartException` with `Repository`, `Version` and `Asset` |
+| A release asked for is one this checkout pins no digest for, and same-origin trust was not granted | `UnpinnedReleaseException`, a `ChecksumMismatchException` with `Repository`, `Version` and `Asset`, and no digests |
 | This platform cannot start a process, or no release is published for it and one was asked for | `UnsupportedPlatformException`, a `ServiceStartException` with `Platform` |
 | The private service exited on its own, or was stopped by `StopSharedServicesAsync` | `TransportException` with `Unavailable`, saying which |
 | `StopSharedServicesAsync` could not stop some services cleanly | `ServiceStopException`, with one of `Failures` for each |
-| The service is not the `Version` asked for | `StaleServiceException` |
-| The service lacks a required capability | `CapabilityException`, with `Capability` and `Remedy` |
+| The service is not the `Version` asked for, or, with none asked for, the release `OPENSYSML_GRPC_VERSION` names | `StaleServiceException` |
+| The service lacks a required capability, or refuses a call for one it does not have | `CapabilityException`, with `Capability` and `Remedy`; a refusal carries the `ServiceException` it was read as in `InnerException` |
 | The service answered with a status other than OK, `Unavailable` included | `ServiceException`, with `StatusCode`, `ServiceMessage` and `Method` |
 | The service wants a bearer token the call did not carry, or refused the one it carried | `AuthenticationException`, a `ServiceException` with `Unauthenticated`, `CredentialsSent` and the `Remedy` its message ends with |
 | The service no longer holds the model a call named | `ModelNotFoundException`, a `ServiceException` with `NotFound` |

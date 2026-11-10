@@ -104,6 +104,11 @@ internal sealed class ApiScenarioClient : IScenarioClient
             // The API refuses to send it, so it is a request the API cannot express.
             return new ScenarioAnswer.Unexpressible(refused.Message);
         }
+        catch (CapabilityException refused) when (refused.InnerException is ServiceException sent)
+        {
+            // The service refused it for a capability it does not have.
+            return new ScenarioAnswer.Refused(sent.StatusCode, sent.ServiceMessage);
+        }
         catch (CapabilityException refused)
         {
             // The client refuses before sending what the service, lacking the capability, would refuse.

@@ -102,7 +102,8 @@ public sealed class BinaryDownloaderTests : IAsyncLifetime
         Assert.Equal((Repo, Tag, ReleaseServer.Asset), (error.Repository, error.Version, error.Asset));
         Assert.StartsWith($"sysml-grpc {Tag} of {Repo} was not downloaded: this client pins no SHA-256 digest for {ReleaseServer.Asset} of it, and it does not verify the signature on a release's SHA256SUMS.txt", error.Message, StringComparison.Ordinal);
         Assert.Contains($"$OPENSYSML_ALLOW_UNPINNED_DOWNLOAD={Repo} (or =1 for any repository)", error.Message, StringComparison.Ordinal);
-        Assert.IsAssignableFrom<ServiceStartException>(error);
+        Assert.Equal((string.Empty, string.Empty, string.Empty), (error.BinaryPath, error.ExpectedSha256, error.ActualSha256));
+        Assert.IsAssignableFrom<ChecksumMismatchException>(error);
         Assert.Empty(server.Requested);
     }
 

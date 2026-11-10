@@ -1,13 +1,16 @@
 using System;
+using System.Text.RegularExpressions;
 
 namespace OpenMBEE.OpenSysML.Internal;
 
 /// <summary>The exception for a status the service sent, made the same way by every transport.</summary>
-internal static class ServiceErrors
+internal static partial class ServiceErrors
 {
     /// <summary>
     /// The exception for a status the service sent: <see cref="AuthenticationException"/> for
-    /// <see cref="StatusCode.Unauthenticated"/>, saying what the call carried, else <see cref="ServiceException"/>.
+    /// <see cref="StatusCode.Unauthenticated"/>, saying what the call carried; <see cref="CapabilityException"/>
+    /// for <see cref="StatusCode.Unimplemented"/> naming the capability the service does not have, as it refuses a
+    /// request needing one; else <see cref="ServiceException"/>.
     /// </summary>
     /// <param name="status">The status; never <see cref="StatusCode.Ok"/>.</param>
     /// <param name="message">What the service said with it.</param>
@@ -15,10 +18,27 @@ internal static class ServiceErrors
     /// <param name="credentials">Where the credentials the call carried came from.</param>
     /// <param name="innerException">The protocol library's report of the status, if any.</param>
     /// <returns>The exception to raise.</returns>
-    internal static ServiceException FromService(StatusCode status, string message, string method, CredentialSource credentials, Exception? innerException = null) =>
-        status == StatusCode.Unauthenticated
-            ? new AuthenticationException(message, method, credentials != CredentialSource.None, Remedy(credentials), innerException)
-            : new ServiceException(status, message, method, innerException);
+    internal static OpenSysMLException FromService(StatusCode status, string message, string method, CredentialSource credentials, Exception? innerException = null)
+    {
+        if (status == StatusCode.Unauthenticated)
+        {
+            return new AuthenticationException(message, method, credentials != CredentialSource.None, Remedy(credentials), innerException);
+        }
+
+        var refusal = new ServiceException(status, message, method, innerException);
+        if (status != StatusCode.Unimplemented || UnavailableCapability().Match(message) is not { Success: true } named)
+        {
+            return refusal;
+        }
+
+        var capability = named.Groups["capability"].Value;
+        var remedy = Capabilities.UpgradeRemedy(capability);
+        return new CapabilityException(
+            capability,
+            $"{method} was refused by the service, which does not have the {capability} capability: {message}\n  fix: {remedy}",
+            remedy,
+            refusal);
+    }
 
     private static string Remedy(CredentialSource credentials)
     {
@@ -31,4 +51,8 @@ internal static class ServiceErrors
             _ => $"the service requires a bearer token and none was sent: give the token it was started with, by {supply}",
         };
     }
+
+    // How the service words a request it refuses for a capability it does not have.
+    [GeneratedRegex(@"capability ""(?<capability>[a-z][a-z0-9_]*)"" is unavailable", RegexOptions.CultureInvariant)]
+    private static partial Regex UnavailableCapability();
 }

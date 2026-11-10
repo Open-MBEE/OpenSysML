@@ -322,7 +322,7 @@ internal static partial class BinaryResolver
         }
     }
 
-    // Integrity failures are thrown; anything else that leaves the release unavailable is returned.
+    // Integrity failures are thrown; anything else that leaves the release unavailable, an unpinned one included, is returned.
     private static async Task<ServiceStartException?> InstallAsync(
         CacheTransaction transaction,
         BinaryDownloader downloader,
@@ -337,7 +337,7 @@ internal static partial class BinaryResolver
             await downloader.InstallAsync(transaction, asset, cancellationToken).ConfigureAwait(false);
             return null;
         }
-        catch (ChecksumMismatchException)
+        catch (ChecksumMismatchException error) when (error is not UnpinnedReleaseException)
         {
             throw;
         }

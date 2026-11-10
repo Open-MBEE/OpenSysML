@@ -7,9 +7,11 @@ namespace OpenMBEE.OpenSysML;
 /// checkout pins no SHA-256 digest for the asset, and this client does not verify the signature on a release's
 /// checksum manifest, so the only digest left is the one the release serves beside the binary, which a
 /// compromised release would serve too. Ask for a release this checkout pins, or accept that same-origin trust
-/// for the repository with <see cref="ConnectionOptions.AllowUnpinnedDownloadVariable"/>.
+/// for the repository with <see cref="ConnectionOptions.AllowUnpinnedDownloadVariable"/>. It is a
+/// <see cref="ChecksumMismatchException"/>, as in the other clients, but contradicts nothing: no download is under
+/// suspicion, so a working cached binary may still be used in its place.
 /// </summary>
-public class UnpinnedReleaseException : ServiceStartException
+public class UnpinnedReleaseException : ChecksumMismatchException
 {
     /// <summary>Creates the exception.</summary>
     /// <param name="repository">The repository, <c>owner/repo</c>.</param>

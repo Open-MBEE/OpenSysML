@@ -47,7 +47,7 @@ service; it is idempotent and never throws.
 | `MaxRequestSize`, `MaxResponseSize` | 512 MiB each by default, a response measured after decompression |
 | `Logger` | An `ILogger`, `NullLogger` by default |
 | `HttpMessageHandler` | A handler to borrow, never disposed by the connection |
-| `Version`, `RequireCapabilities` | An exact service version (`StaleServiceException`) and required capabilities (`CapabilityException`) |
+| `Version`, `RequireCapabilities` | An exact service version, else the release `OPENSYSML_GRPC_VERSION` names (`StaleServiceException`), and required capabilities (`CapabilityException`) |
 | `AutoStart` | Whether a connection naming no service starts a private one; true by default |
 | `BinaryPath`, `ExpectedBinarySha256` | The private service's binary, and the digest it must have |
 | `IsolatedService` | A private service of this connection's own rather than a shared one |
@@ -320,11 +320,11 @@ Every failure derives from `OpenSysMLException`, except cancellation and use aft
 ```text
 OpenSysMLException
 ├── InvalidRequestException        refused before anything was sent
-├── CapabilityException            the service lacks a capability; Capability, Remedy
+├── CapabilityException            the service lacks a capability, or refused a call for one; Capability, Remedy
 ├── ServiceStartException          no service could be started or reached
 │   ├── BinaryNotFoundException       SearchedLocations
 │   ├── ChecksumMismatchException     BinaryPath, ExpectedSha256, ActualSha256
-│   ├── UnpinnedReleaseException      Repository, Version, Asset
+│   │   └── UnpinnedReleaseException     Repository, Version, Asset; no digests
 │   ├── UnsupportedPlatformException  Platform
 │   └── StaleServiceException
 ├── ServiceStopException           Failures
@@ -368,7 +368,9 @@ A failure that kept a partial result carries it: a check's or an analysis's `Par
 `Capabilities` holds a constant for each capability name the service can advertise. Decide on
 those names, never on the version. Before sending, every typed call checks the capabilities its
 arguments need, in the order the service checks them, and raises `CapabilityException` naming the
-first one missing, so a gated option is never sent to a service that would ignore it. Response
+first one missing, so a gated option is never sent to a service that would ignore it. A call the
+service refuses with `Unimplemented` for a capability it does not have raises `CapabilityException`
+too, carrying the `ServiceException` it was read as in `InnerException`. Response
 fields a service fills only under a capability read as empty or null, never invented, from a
 service without it. `CallAsync` is the escape hatch below this and checks nothing.
 

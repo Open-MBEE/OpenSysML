@@ -73,9 +73,9 @@ public sealed partial class Connection : IAsyncDisposable
     /// <summary>
     /// Opens a connection: to the service named, or else to a private one, started unless one the
     /// connection can share is running; asks the service for its <see cref="ServerInfo"/>, then checks
-    /// <see cref="ConnectionOptions.Version"/> and <see cref="ConnectionOptions.RequireCapabilities"/>
-    /// against the answer. A failure after the channel was made closes it again, and gives up its hold
-    /// on a private service, which stops when nothing else holds it.
+    /// <see cref="ConnectionOptions.Version"/>, or the release <see cref="ConnectionOptions.VersionVariable"/> names,
+    /// and <see cref="ConnectionOptions.RequireCapabilities"/> against the answer. A failure after the channel was
+    /// made closes it again, and gives up its hold on a private service, which stops when nothing else holds it.
     /// </summary>
     /// <param name="options">How to reach the service; null for <see cref="ConnectionOptions.Default"/>.</param>
     /// <param name="cancellationToken">Cancels the open, and the start of a private service no other open waits for.</param>
@@ -91,7 +91,10 @@ public sealed partial class Connection : IAsyncDisposable
     /// No service is named and <see cref="ConnectionOptions.AutoStart"/> is false, the release asked for could not be downloaded,
     /// or the private service did not start.
     /// </exception>
-    /// <exception cref="StaleServiceException">The service is not the <see cref="ConnectionOptions.Version"/> asked for.</exception>
+    /// <exception cref="StaleServiceException">
+    /// The service is not the <see cref="ConnectionOptions.Version"/> asked for, or, with none asked for, the release
+    /// <see cref="ConnectionOptions.VersionVariable"/> names.
+    /// </exception>
     /// <exception cref="CapabilityException">The service lacks a required capability.</exception>
     /// <exception cref="TransportException">The service could not be reached.</exception>
     /// <exception cref="AuthenticationException">The service requires a bearer token the connection does not carry, or refused the one it carries.</exception>
@@ -242,6 +245,7 @@ public sealed partial class Connection : IAsyncDisposable
         var address = ResolveAddress(options, environment);
         cancellationToken.ThrowIfCancellationRequested();
         var headers = CallHeaders.Resolve(options, environment);
+        var release = options.Version is null ? await RequiredReleaseAsync(options, environment, releases, cancellationToken).ConfigureAwait(false) : null;
         if (address is not null)
         {
             if (options.BinaryPath is not null || options.ExpectedBinarySha256 is not null || options.IsolatedService
@@ -255,7 +259,7 @@ public sealed partial class Connection : IAsyncDisposable
                 LogCleartextCredentials(options.Logger, address);
             }
 
-            return await OpenAsync(CreateTransport(address, options, headers), address, options, null, cancellationToken).ConfigureAwait(false);
+            return await OpenAsync(CreateTransport(address, options, headers), address, options, null, release, cancellationToken).ConfigureAwait(false);
         }
 
         var binary = await BinaryResolver.ResolveAsync(options, environment, releases, cancellationToken).ConfigureAwait(false);
@@ -271,7 +275,7 @@ public sealed partial class Connection : IAsyncDisposable
             throw;
         }
 
-        return await OpenAsync(transport, lease.Address, options, lease, cancellationToken).ConfigureAwait(false);
+        return await OpenAsync(transport, lease.Address, options, lease, release, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -284,18 +288,38 @@ public sealed partial class Connection : IAsyncDisposable
     /// <param name="lease">The hold on the private service, or null for a named one.</param>
     /// <param name="cancellationToken">Cancels the open.</param>
     /// <returns>The open connection.</returns>
+    internal static Task<Connection> OpenAsync(
+        ITransport transport,
+        Uri address,
+        ConnectionOptions options,
+        ServiceRegistry.Lease? lease,
+        CancellationToken cancellationToken) =>
+        OpenAsync(transport, address, options, lease, null, cancellationToken);
+
+    /// <summary>
+    /// Opens a connection over a transport, which the connection then owns, with a lease it then holds,
+    /// even when the open fails, to a service that must be a release.
+    /// </summary>
+    /// <param name="transport">The transport.</param>
+    /// <param name="address">The service's base URL.</param>
+    /// <param name="options">The connection's options, already validated.</param>
+    /// <param name="lease">The hold on the private service, or null for a named one.</param>
+    /// <param name="release">The release <see cref="ConnectionOptions.VersionVariable"/> requires the service to be, or null for none.</param>
+    /// <param name="cancellationToken">Cancels the open.</param>
+    /// <returns>The open connection.</returns>
     internal static async Task<Connection> OpenAsync(
         ITransport transport,
         Uri address,
         ConnectionOptions options,
         ServiceRegistry.Lease? lease,
+        string? release,
         CancellationToken cancellationToken)
     {
         var connection = new Connection(transport, address, options, lease);
         try
         {
             connection.serverInfo = await connection.AskServerInfoAsync(cancellationToken).ConfigureAwait(false);
-            connection.RequireOptions(options);
+            connection.RequireOptions(options, release);
         }
         catch
         {
@@ -305,6 +329,29 @@ public sealed partial class Connection : IAsyncDisposable
 
         LogOpened(connection.logger, address, connection.Protocol, connection.Encoding, connection.serverInfo);
         return connection;
+    }
+
+    // The release the variable names, which any service must be, as in the other clients; latest is resolved once,
+    // and requires nothing when it cannot be.
+    private static async Task<string?> RequiredReleaseAsync(ConnectionOptions options, Func<string, string?> environment, ReleaseSource releases, CancellationToken cancellationToken)
+    {
+        var named = ReleaseRequest.Named(environment);
+        if (named != ReleaseRequest.Latest)
+        {
+            return named;
+        }
+
+        var repo = ReleaseRequest.RepoOf(options, environment);
+        using var downloader = new BinaryDownloader(releases, options.Logger);
+        try
+        {
+            return await downloader.LatestAsync(repo, cancellationToken).ConfigureAwait(false);
+        }
+        catch (ServiceStartException error)
+        {
+            LogLatestRequiresNothing(options.Logger, repo, error.Message);
+            return null;
+        }
     }
 
     /// <summary>The address options name, null for a private service, or the refusal of a connection that names none and starts none.</summary>
@@ -356,11 +403,13 @@ public sealed partial class Connection : IAsyncDisposable
         }
     }
 
-    private void RequireOptions(ConnectionOptions options)
+    private void RequireOptions(ConnectionOptions options, string? release)
     {
         var info = ServerInfo;
-        if (options.Version is { } version)
+        var variable = options.Version is null;
+        if ((options.Version ?? release) is { } version)
         {
+            var asker = variable ? $"${ConnectionOptions.VersionVariable} asks for {version}" : $"{version} was asked for";
             string? reason = null;
             if (!info.Answered)
             {
@@ -368,19 +417,12 @@ public sealed partial class Connection : IAsyncDisposable
             }
             else if (!string.Equals(info.Version, version, StringComparison.Ordinal))
             {
-                reason = $"it reports version {(info.Version.Length == 0 ? "(unknown)" : info.Version)}, but {version} was asked for";
+                reason = $"it reports version {(info.Version.Length == 0 ? "(unknown)" : info.Version)}, but {asker}";
             }
 
             if (reason is not null)
             {
-                throw new StaleServiceException(
-                    Address.ToString(),
-                    reason,
-                    lease is null
-                        ? $"connect to a service of version {version}, or accept the one at {Address} by leaving ConnectionOptions.Version null"
-                        : $"start a sysml-grpc of version {version}, named by ConnectionOptions.BinaryPath or ${ConnectionOptions.BinaryVariable}, "
-                            + "or accept the one found by leaving ConnectionOptions.Version null",
-                    info.Version);
+                throw new StaleServiceException(Address.ToString(), reason, StaleRemedy(version, variable), info.Version);
             }
         }
 
@@ -389,6 +431,16 @@ public sealed partial class Connection : IAsyncDisposable
             info.Capabilities.Require(capability);
         }
     }
+
+    private string StaleRemedy(string version, bool variable) => (variable, lease is null) switch
+    {
+        (false, true) => $"connect to a service of version {version}, or accept the one at {Address} by leaving ConnectionOptions.Version null",
+        (false, false) => $"start a sysml-grpc of version {version}, named by ConnectionOptions.BinaryPath or ${ConnectionOptions.BinaryVariable}, "
+            + "or accept the one found by leaving ConnectionOptions.Version null",
+        (true, true) => $"stop the service at {Address} and let this client start a {version} one, or accept the one running by unsetting ${ConnectionOptions.VersionVariable}",
+        (true, false) => $"name a sysml-grpc of version {version} with ConnectionOptions.BinaryPath or ${ConnectionOptions.BinaryVariable}, or name none and let "
+            + $"this client download it, or accept the one found by unsetting ${ConnectionOptions.VersionVariable}",
+    };
 
     private async Task<TResponse> InvokeAsync<TRequest, TResponse>(RpcMethod<TRequest, TResponse> method, TRequest request, CancellationToken cancellationToken)
         where TRequest : class, IMessage<TRequest>
@@ -468,6 +520,9 @@ public sealed partial class Connection : IAsyncDisposable
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Connecting to {Address}, which ${Variable} names: the options describing a private service are not used")]
     private static partial void LogPrivateOptionsUnused(ILogger logger, Uri address, string variable = ConnectionOptions.ServiceVariable);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "${Variable} asks for the latest release of {Repo}, which could not be resolved, so the service is required to be no release: {Reason}")]
+    private static partial void LogLatestRequiresNothing(ILogger logger, string repo, string reason, string variable = ConnectionOptions.VersionVariable);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Calls to {Address} carry credentials over cleartext HTTP to another machine: they cross the network unencrypted unless the network itself is protected; reach the service over https to keep them private")]
     private static partial void LogCleartextCredentials(ILogger logger, Uri address);
