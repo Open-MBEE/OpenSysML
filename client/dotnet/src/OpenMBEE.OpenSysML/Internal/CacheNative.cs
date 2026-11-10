@@ -33,10 +33,14 @@ internal static partial class CacheNative
     /// </summary>
     /// <param name="path">The file, which must exist.</param>
     /// <returns>The descriptor, owned by the handle.</returns>
-    /// <exception cref="IOException">It could not be opened.</exception>
+    /// <exception cref="IOException">
+    /// It could not be opened, or this is a POSIX system other than Linux and macOS, whose <c>O_CLOEXEC</c> is not
+    /// known here; the caller then reads the cache unlocked, as when the lock file cannot be opened.
+    /// </exception>
     internal static SafeFileHandle OpenDescriptor(string path)
     {
-        var flags = ReadWrite | CloseOnExec;
+        var flags = ReadWrite | (CloseOnExec ?? throw new IOException(
+            $"open {path}: the shared cache is locked on Linux, macOS and Windows only, not on {RuntimeInformation.OSDescription}"));
         while (true)
         {
             var descriptor = Open(path, flags);
@@ -129,10 +133,10 @@ internal static partial class CacheNative
     }
 
     // Linux and macOS number O_CLOEXEC differently; other systems are not claimed.
-    private static int CloseOnExec =>
+    private static int? CloseOnExec =>
         OperatingSystem.IsLinux() ? 0x80000
         : OperatingSystem.IsMacOS() ? 0x1000000
-        : throw new PlatformNotSupportedException("The shared cache is locked on Linux, macOS and Windows only.");
+        : null;
 
     // EWOULDBLOCK is EAGAIN on both; POSIX lets lockf report a held lock as either it or EACCES.
     private static int WouldBlock => OperatingSystem.IsMacOS() ? 35 : 11;
