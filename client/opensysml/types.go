@@ -20,6 +20,7 @@ const (
 	CapabilityQuery                          = sysmlgrpc.CapabilityQuery
 	CapabilityOSLCQuery                      = sysmlgrpc.CapabilityOSLCQuery
 	CapabilityDocumentQuery                  = sysmlgrpc.CapabilityDocumentQuery
+	CapabilityInlineDocumentQuery            = sysmlgrpc.CapabilityInlineDocumentQuery
 	CapabilityRenderDocument                 = sysmlgrpc.CapabilityRenderDocument
 	CapabilityRenderView                     = sysmlgrpc.CapabilityRenderView
 	CapabilityExportGraphs                   = sysmlgrpc.CapabilityExportGraphs

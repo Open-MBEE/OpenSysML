@@ -265,7 +265,7 @@ var servedRules = []Rule{
 	{DefiningClass: "Flow", Property: "targetInputFeature", Constraint: "deriveFlowTargetInputFeature"},
 	{DefiningClass: "Flow", Property: "interaction", Basis: "Interaction-valued typing of the Flow"},
 	{DefiningClass: "ConjugatedPortTyping", Property: "portDefinition", Constraint: "deriveConjugatedPortTypingPortDefinition"},
-	{DefiningClass: "ConjugatedPortTyping", Property: "conjugatedPortDefinition", Basis: "redefines FeatureTyping::type as a ConjugatedPortDefinition"},
+	{DefiningClass: "ConjugatedPortTyping", Property: "conjugatedPortDefinition", Basis: "target of the ConjugatedPortTyping, the ConjugatedPortDefinition typing its feature (redefines FeatureTyping::type)"},
 	{DefiningClass: "PortDefinition", Property: "conjugatedPortDefinition", Constraint: "derivePortDefinitionConjugatedPortDefinition"},
 	{DefiningClass: "ConjugatedPortDefinition", Property: "originalPortDefinition", Basis: "owningNamespace of the ConjugatedPortDefinition"},
 	{DefiningClass: "PortConjugation", Property: "originalPortDefinition", Basis: "source endpoint of PortConjugation"},

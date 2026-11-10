@@ -1313,10 +1313,8 @@ type comparisonError struct{}
 
 func (*comparisonError) Error() string { return "unsupported comparison" }
 
-// compareValue compares one value as WhereFeature does: an element by the name
-// a cell prints it by, or by its qualified name when the value written is
-// qualified; an expression element, which has neither, by its written text,
-// qualified names in it included (`new Demo::Alarm(3)`).
+// compareValue compares one value as WhereFeature does: an element by its cell name or,
+// when the written value is qualified, its qualified name; an expression by its written text.
 func (e *executor) compareValue(actual Value, operator, expected string) (bool, error) {
 	if sym, ok := actual.Element(); ok && (sym.Expr != nil || !strings.Contains(expected, "::")) {
 		return compareText(e.valueText(actual), operator, expected)

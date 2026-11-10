@@ -529,8 +529,8 @@
         "ConjugatedPortTyping::conjugatedPortDefinition": {
           "ours": {
             "carriers": 1,
-            "value": 0,
-            "empty": 1,
+            "value": 1,
+            "empty": 0,
             "notDerived": 0
           },
           "pilot": {
@@ -4575,8 +4575,8 @@
         "ConjugatedPortTyping::conjugatedPortDefinition": {
           "ours": {
             "carriers": 46,
-            "value": 0,
-            "empty": 46,
+            "value": 46,
+            "empty": 0,
             "notDerived": 0
           },
           "pilot": {
@@ -8649,8 +8649,8 @@
         "ConjugatedPortTyping::conjugatedPortDefinition": {
           "ours": {
             "carriers": 5,
-            "value": 0,
-            "empty": 5,
+            "value": 5,
+            "empty": 0,
             "notDerived": 0
           },
           "pilot": {
@@ -14641,9 +14641,9 @@
         "ConjugatedPortTyping::conjugatedPortDefinition": {
           "ours": {
             "carriers": 4,
-            "value": 0,
-            "empty": 4,
-            "notDerived": 0
+            "value": 1,
+            "empty": 0,
+            "notDerived": 3
           },
           "pilot": {
             "carriers": 4,
@@ -18589,8 +18589,8 @@
         "ConjugatedPortTyping::conjugatedPortDefinition": {
           "ours": {
             "carriers": 4,
-            "value": 0,
-            "empty": 4,
+            "value": 4,
+            "empty": 0,
             "notDerived": 0
           },
           "pilot": {
@@ -22159,8 +22159,8 @@
         "ConjugatedPortTyping::conjugatedPortDefinition": {
           "ours": {
             "carriers": 4,
-            "value": 0,
-            "empty": 4,
+            "value": 4,
+            "empty": 0,
             "notDerived": 0
           },
           "pilot": {
@@ -32271,9 +32271,9 @@
     "ConjugatedPortTyping::conjugatedPortDefinition": {
       "ours": {
         "carriers": 64,
-        "value": 0,
-        "empty": 64,
-        "notDerived": 0
+        "value": 61,
+        "empty": 0,
+        "notDerived": 3
       },
       "pilot": {
         "carriers": 64,
@@ -35953,15 +35953,14 @@
   },
   "summary": {
     "served": 293,
-    "answering": 274,
-    "empty": 11,
+    "answering": 275,
+    "empty": 10,
     "notDerived": 7,
     "uncarried": 1,
-    "silent": 17,
+    "silent": 16,
     "pilotAnswering": 289
   },
   "silent": [
-    "ConjugatedPortTyping::conjugatedPortDefinition",
     "Flow::flowEnd",
     "Flow::sourceOutputFeature",
     "Flow::targetInputFeature",

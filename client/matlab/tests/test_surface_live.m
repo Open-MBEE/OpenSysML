@@ -216,6 +216,9 @@ function test_surface_live()
     assert_equal(iscell(documentQuery.columns), true, 'document query columns');
     assert_equal(numel(documentQuery.rows) > 0, true, 'document query rows');
     assert_equal(numel(methodQuery.rows), numel(documentQuery.rows), 'Model.runDocumentQuery');
+    inlineQuery = documentModel.runDocumentQuery('', 'inlineQuery', ...
+        'Project(WhereType(Descendants(Observatory::telescope), "PartUsage"), ("name", "mass"))');
+    assert_equal(numel(inlineQuery.rows), numel(documentQuery.rows), 'inline runDocumentQuery');
     statePath = fullfile(repo, 'internal', 'doc', 'docrender', ...
         'testdata', 'state_report.sysml');
     stateModel = opensysml.parseSource(conn, fileread(statePath), ...

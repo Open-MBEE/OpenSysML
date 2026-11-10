@@ -910,6 +910,18 @@ end
                     bindings=Dict("root" => ElementRef("Observatory::telescope")))
                 @test rows.columns == ["name", "mass"]
                 @test length(rows) == 4
+                inline_rows = run_document_query(document_model;
+                    inline_query="Project(WhereType(Descendants(Observatory::telescope), \"PartUsage\"), (\"name\", \"mass\"))")
+                @test inline_rows.columns == ["name", "mass"]
+                @test length(inline_rows) == 4
+                inline_fault = try
+                    run_document_query(document_model; inline_query="Project(Named(\"Observatory\") (\"name\"))")
+                    nothing
+                catch error
+                    error
+                end
+                @test inline_fault isa InvalidRequestError
+                @test occursin("inline query 1:", sprint(showerror, inline_fault))
                 @test !isempty(render_document(document_model, "Observatory::MassReport"))
                 @test !isempty(render_document(document_model, "Observatory::MassReport"; form="html"))
                 @test startswith(render_document(document_model, "Observatory::MassReport"; form="asciidoc"), "= ")

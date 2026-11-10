@@ -66,6 +66,7 @@ func doc() usage.Doc {
 				usage.Ex(`sysml -analysis "CostAnalysis ship" model.sysml`, "...on an object as its subject"),
 				usage.Ex("sysml -analysis speedCheck model.sysml", "Run a verification case for its verdict"),
 				usage.Ex(`sysml -run-query "Heavy root=scope" model.sysml`, "Execute a document query"),
+				usage.Ex(`sysml -run-inline-query 'Project(Descendants(Named("Lander")), ("name"))' m.sysml`, "...or a query expression written in place"),
 				usage.Ex("sysml -action Drive model.sysml", "Run an action to completion"),
 				usage.Ex("sysml -state Mission -advance 10 model.sysml", "Run a state machine for 10 time units"),
 				usage.Ex("sysml -action Ping -state Sm -advance 5 m.sysml", "...an action and a machine on one clock"),
@@ -686,7 +687,8 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.Var(&modelChecks.toolDryRuns, "tool-dry-run", "Show what the external tool the case's or action's ToolExecution names would be given — manifest, executable, argv, environment, standard input and reply mapping — without starting it, and discards what the run did; repeatable")
 	fs.Var(&modelChecks.records, "record-run", "Run this analysis case as -analysis does and record the run into the model as AnalysisRecords elements, one record per -sweep value or -runs run (repeatable)")
 	fs.StringVar(&modelChecks.recordInto, "record-into", "", "Record -record-run runs into this package instead of a Records package beside the case's")
-	fs.Var(&modelChecks.queries, "run-query", "Execute this document query and report its rows, as -run-query \"Heavy root=telescope\" (repeatable)")
+	fs.Var(queryFlag{queries: &modelChecks.queries}, "run-query", "Execute this document query and report its rows, as -run-query \"Heavy root=telescope\" (repeatable)")
+	fs.Var(queryFlag{queries: &modelChecks.queries, inline: true}, "run-inline-query", "Execute this query expression — the body of a document query, written in place — and report its rows, as -run-inline-query 'Project(WhereType(Descendants(Named(\"Vehicles\")), \"PartUsage\"), (\"name\", \"mass\"))' (repeatable)")
 	fs.Var(&modelChecks.instantiate, "instantiate", "Create an object of this definition or usage before the checks, so a verdict is about it (repeatable)")
 	fs.BoolVar(&modelChecks.jsonOut, "json", false, "Report checks as one JSON document rather than as lines")
 	fs.StringVar(&modelChecks.format, "format", "", "Report checks as text, json, sarif or junit; json is -json, and sarif (SARIF 2.1.0) and junit (JUnit XML) carry -validate's diagnostics to a CI service")
@@ -814,6 +816,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("record-run", callArg),
 			usage.Opt("record-into", "<package>"),
 			usage.Opt("run-query", "<query>"),
+			usage.Opt("run-inline-query", "<expression>"),
 			usage.Opt("instantiate", nameArg),
 			usage.Opt("json", ""),
 			usage.Opt("format", "<format>"),
