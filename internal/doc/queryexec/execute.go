@@ -112,6 +112,8 @@ type executor struct {
 	metadataTypes map[string]*symbols.Symbol
 	// metaclassFeatures memoizes each metaclass's properties (metaclassProperties).
 	metaclassFeatures map[*symbols.Symbol]map[string]metaclassProperty
+	// metamodelProperties memoizes every property some metaclass declares (metamodelDeclares).
+	metamodelProperties map[string]bool
 	// elementIDErr is why the model has no elementIds, once a read asked for
 	// one: the conversion that writes them refused the model.
 	elementIDErr error

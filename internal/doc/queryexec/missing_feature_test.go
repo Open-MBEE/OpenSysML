@@ -6,9 +6,8 @@ import (
 	"testing"
 )
 
-// TestExecuteMissingFeatureIsAPathErrorUnlessTolerated: reading a feature an
-// element lacks names that element and the features it has; tolerate = true
-// keeps the empty cell, and only a property no row carries is then unknown.
+// Reading a feature an element lacks names that element and the features it has; tolerate = true
+// keeps the empty cell, and only a property no metaclass declares is then unknown.
 func TestExecuteMissingFeatureIsAPathErrorUnlessTolerated(t *testing.T) {
 	fixture := loadExecutionFixture(t, `
 part def Heavy { attribute mass : ScalarValues::Real; }

@@ -84,15 +84,17 @@ func Translate(q Query, ctx Context, name string) (*Plan, error) {
 		arg("tolerate", queryplan.BooleanLiteral(true, origin)))
 	for i := len(q.OrderBy) - 1; i >= 0; i-- {
 		term := q.OrderBy[i]
-		direction := "ascending"
+		// A row lacking the key sorts as the smallest value would: first
+		// ascending, last descending.
+		direction, missing := "ascending", "first"
 		if term.Desc {
-			direction = "descending"
+			direction, missing = "descending", "last"
 		}
 		expression = operate(queryplan.OperationOrderBy,
 			arg("source", expression),
 			arg("property", str(term.Property)),
 			arg("direction", str(direction)),
-			arg("missing", str("first")),
+			arg("missing", str(missing)),
 			arg("multiple", str("first")))
 	}
 	elements := queryplan.Multiplicity{Lower: 0, UpperInfinite: true, Known: true}

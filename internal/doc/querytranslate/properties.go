@@ -4,29 +4,16 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
-// metaclassPackages are the library packages declaring the abstract syntax
-// metaclasses, whose features are the metamodel properties.
-var metaclassPackages = []string{"KerML::Root", "KerML::Core", "KerML::Kernel", "SysML::Systems"}
-
 // derivedProperties are the properties the evaluator derives that no metaclass
 // declares, spelled in the OpenSysML namespace by OSLC query text.
 var derivedProperties = []string{
 	query.PropertyID, query.PropertyType, query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper,
-}
-
-// universalProperties are the properties the evaluator serves for every element
-// row, so a projection of them never reads a property no row carries.
-var universalProperties = []string{
-	query.PropertyID, query.PropertyType, query.PropertyName, query.PropertyDeclaredName,
-	query.PropertyShortName, query.PropertyDeclaredShortName, query.PropertyDocumentation,
-	query.PropertyTextualRepresentation, query.PropertyQualifiedName, query.PropertyOwner,
-	query.PropertyElementType, query.PropertyGeneral, query.PropertyIsAbstract, query.PropertyIsIndividual,
-	query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper,
 }
 
 // textProperties are the universal properties whose values are text, which
@@ -79,7 +66,7 @@ func NewTable(index *symbols.Index, model *semantics.Model) *Table {
 	}
 	number := index.LookupUnique("ScalarValues::Number")
 	boolean := index.LookupUnique("ScalarValues::Boolean")
-	for _, pkg := range metaclassPackages {
+	for _, pkg := range queryexec.MetaclassPackages {
 		for _, owner := range index.LookupQualified(pkg) {
 			if owner.Scope == nil {
 				continue
@@ -217,9 +204,14 @@ func (t *Table) DerivedNames() []string {
 	return names
 }
 
-// DefaultProjection is what a query selecting nothing reports: the properties
-// every element carries. The properties of particular metaclasses — body,
-// satisfiedRequirement, … — and elementId are reported when selected.
+// DefaultProjection is what a query selecting nothing reports: every queryable property
+// but elementId, read from a conversion of the whole model and so reported only when named.
 func DefaultProjection() []string {
-	return append([]string(nil), universalProperties...)
+	out := make([]string, 0, len(query.PropertyNames()))
+	for _, name := range query.PropertyNames() {
+		if name != query.PropertyElementID {
+			out = append(out, name)
+		}
+	}
+	return out
 }

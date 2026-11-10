@@ -72,10 +72,14 @@ func TestOSLCQuerySelectsHeldObjects(t *testing.T) {
 		t.Fatalf("wheels of a car with a strong engine = %v, want the car's two", resp.Elements)
 	}
 	// The owner compares and orders by the path it is held under; an object
-	// without one (the spare) orders first, as a missing key does.
+	// without one (the spare) orders last descending, as a missing key does.
 	resp = oslcQuery(t, srv, hash, "oslc.where="+wheel+`&oslc.select=sysml:owner&oslc.orderBy=-sysml:owner`)
-	if len(resp.Elements) != 3 || resp.Elements[0].Path != "Garage::spare" || resp.Elements[1].Properties["owner"] != "Garage::car" || resp.Elements[2].Properties["owner"] != "Garage::car" {
-		t.Fatalf("wheels by owner = %v, want the unowned spare then the car's", resp.Elements)
+	if len(resp.Elements) != 3 || resp.Elements[2].Path != "Garage::spare" || resp.Elements[0].Properties["owner"] != "Garage::car" || resp.Elements[1].Properties["owner"] != "Garage::car" {
+		t.Fatalf("wheels by owner = %v, want the car's then the unowned spare", resp.Elements)
+	}
+	resp = oslcQuery(t, srv, hash, "oslc.where="+wheel+`&oslc.select=sysml:owner&oslc.orderBy=%2Bsysml:owner`)
+	if len(resp.Elements) != 3 || resp.Elements[0].Path != "Garage::spare" {
+		t.Fatalf("wheels by owner ascending = %v, want the unowned spare first", resp.Elements)
 	}
 	resp = oslcQuery(t, srv, hash, "oslc.where="+wheel+` and sysml:owner="Garage::car"`)
 	if len(resp.Elements) != 2 {
@@ -144,11 +148,17 @@ func TestOSLCQueryScopedTermsNestedSelectionAndSearch(t *testing.T) {
 func TestQueryFailureCarriesTheQueryOutcome(t *testing.T) {
 	srv := mustNewService(t, 10)
 	hash := parseFixture(t, srv, objectFixture)
-	// The evaluator's refusal: a property no row carries.
-	_, err := srv.Query(context.Background(), &pb.QueryRequest{ModelHash: hash, OslcQuery: `oslc.where=rdf:type=sysml:Package&oslc.select=sysml:isComposite`})
+	holdObject(t, srv, hash, "Garage::spare")
+	// The evaluator's refusal: a feature no object row carries. (A metamodel
+	// property no element row carries is absent, not refused.)
+	_, err := srv.Query(context.Background(), &pb.QueryRequest{ModelHash: hash, OslcQuery: "oslc.where=rdf:type=elmt:" + rdf.EncodeElementID("Garage::Wheel") + "&oslc.select=sysx:tread"})
 	assertQueryError(t, err, QueryErrUnknownProperty)
 	if outcome := queryOutcomeOf(t, err); outcome.Kind != "pathError" {
 		t.Fatalf("outcome = %v, want a path error", outcome)
+	}
+	resp := oslcQuery(t, srv, hash, `oslc.where=rdf:type=sysml:Package&oslc.select=sysml:isComposite`)
+	if len(resp.Elements) == 0 || len(resp.Elements[0].Properties) != 0 {
+		t.Fatalf("isComposite of packages = %v, want the packages with the property absent", resp.Elements)
 	}
 	// The translator's: a property the metamodel does not define, with the
 	// nearest spelling on the frontier — in OSLC text and the structured form.
