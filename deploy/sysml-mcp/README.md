@@ -18,4 +18,13 @@ Two ways to run the MCP server as a service; the guide page
   port (default `8443`), `OPENSYSML_IMAGE` the image (default `openmbee/opensysml:latest`).
 
 - `systemd/sysml-mcp.service` and `systemd/sysml-mcp.env` run the binary under its own user,
-  every flag read from the environment file; the unit's header lists the steps.
+  every flag read from the environment file. Install the binary at `/usr/local/bin/sysml-mcp`, then:
+
+  ```bash
+  useradd --system --home /var/lib/sysml-mcp --create-home sysml-mcp
+  install -d -o sysml-mcp -g sysml-mcp -m 0750 /etc/sysml-mcp
+  openssl rand -base64 32 > /etc/sysml-mcp/mcp.token
+  chmod 0640 /etc/sysml-mcp/mcp.token && chown sysml-mcp /etc/sysml-mcp/mcp.token
+  cp systemd/sysml-mcp.service /etc/systemd/system/ && cp systemd/sysml-mcp.env /etc/sysml-mcp/
+  systemctl enable --now sysml-mcp
+  ```

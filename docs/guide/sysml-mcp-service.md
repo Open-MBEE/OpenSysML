@@ -85,8 +85,8 @@ docker run --rm -p 8765:8765 -v "$PWD:/models:ro" -e OPENSYSML_MCP_TOKEN="$(cat 
 private network behind [Caddy](https://caddyserver.com/), which terminates TLS and forwards
 `/mcp`, `/health` and `/ready`; the token as a Docker secret read from `secrets/mcp.token` through
 `OPENSYSML_MCP_TOKEN_FILE`; the models mounted read-only from `./models`; the root filesystem
-read-only with every capability dropped; `OPENSYSML_MCP_PUBLIC_URL` naming the proxied URL so the
-bearer challenge and the resource metadata name what clients see.
+read-only with every capability dropped; `OPENSYSML_MCP_PUBLIC_URL` naming the proxied URL, host
+and published port, so the bearer challenge and the resource metadata name what clients see.
 
 ```bash
 cd deploy/sysml-mcp
@@ -106,8 +106,9 @@ hardening systemd offers (`ProtectSystem=strict`, no new privileges, an empty ca
 private `/tmp`), reading every setting from `/etc/sysml-mcp/sysml-mcp.env` — the example
 `sysml-mcp.env` beside it names the address, the token file, the public URL, the workspace and
 the log level, with the TLS pair, the origins and the bounds commented out. The unit's
-`TimeoutStopSec` allows for `-shutdown-timeout` before SIGKILL; raise both together. The header of
-the unit lists the installation steps.
+`TimeoutStopSec` allows for `-shutdown-timeout` before SIGKILL; raise both together. The record
+cache lands in the unit's own `/var/cache/sysml-mcp`. `deploy/sysml-mcp/README.md` lists the
+installation steps.
 
 ```bash
 systemctl status sysml-mcp

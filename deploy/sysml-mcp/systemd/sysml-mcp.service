@@ -1,11 +1,5 @@
 # sysml-mcp as a systemd service, configured from /etc/sysml-mcp/sysml-mcp.env
-# (see sysml-mcp.env beside this unit) and reading its token from a file only
-# its user reads. Install the binary at /usr/local/bin/sysml-mcp, then:
-#   useradd --system --home /var/lib/sysml-mcp --create-home sysml-mcp
-#   install -d -o sysml-mcp -g sysml-mcp -m 0750 /etc/sysml-mcp
-#   openssl rand -base64 32 > /etc/sysml-mcp/mcp.token && chmod 0640 /etc/sysml-mcp/mcp.token && chown sysml-mcp /etc/sysml-mcp/mcp.token
-#   cp sysml-mcp.service /etc/systemd/system/ && cp sysml-mcp.env /etc/sysml-mcp/
-#   systemctl enable --now sysml-mcp
+# (beside this unit); deploy/sysml-mcp/README.md lists the installation steps.
 [Unit]
 Description=OpenSysML Model Context Protocol server
 Documentation=man:sysml-mcp(1) https://open-mbee.github.io/OpenSysML/guide/sysml-mcp-service/
@@ -25,10 +19,11 @@ TimeoutStopSec=45
 Restart=on-failure
 RestartSec=2
 
-# The record cache under $XDG_CACHE_HOME is the one path the server writes.
+# The record cache, $XDG_CACHE_HOME/sysml-ls/libs, is the one path the server
+# writes; it lands inside the unit's own /var/cache/sysml-mcp.
 StateDirectory=sysml-mcp
 CacheDirectory=sysml-mcp
-Environment=XDG_CACHE_HOME=/var/cache
+Environment=XDG_CACHE_HOME=/var/cache/sysml-mcp
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
