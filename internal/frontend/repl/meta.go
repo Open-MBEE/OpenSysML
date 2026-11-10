@@ -1682,21 +1682,11 @@ func (w *featureValueWalk) rows(inst *runtime.Instance, indent string, depth int
 	return append(append(lines, w.behaviorLines(inst, behaviors, indent, depth)...), connectors...)
 }
 
-// impliedCollectionLine is the row of a collection populated only through subsetting implied by
-// nesting: its value when read or when every feature filling it is held, else unexpanded or empty.
+// impliedCollectionLine is the row of a collection populated only through
+// subsetting implied by nesting: its value when read, else unexpanded or empty.
 func (w *featureValueWalk) impliedCollectionLine(inst *runtime.Instance, of runtime.ObjectFeature, indent string, depth int) string {
 	if fv := inst.FeatureValues[of.Name]; fv != nil && fv.Materialized {
 		return fmt.Sprintf("%s%s = %s", indent, of.Name, formatFeatureValue(w.ctx, fv))
-	}
-	if w.ctx.ImpliedCollectionHeld(inst, of.Name) {
-		fv, err := inst.GetFeatureValue(w.ctx, of.Name)
-		if err != nil {
-			w.errs = append(w.errs, err)
-			return fmt.Sprintf("%s%s: <error: %v>", indent, of.Name, err)
-		}
-		if fv.Materialized {
-			return fmt.Sprintf("%s%s = %s", indent, of.Name, formatFeatureValue(w.ctx, fv))
-		}
 	}
 	if held, elided := w.elided(of.Feature, depth); elided {
 		return fmt.Sprintf("%s%s : %s (not expanded: %s)", indent, of.Name, held, w.elisionReason(depth))
