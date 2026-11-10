@@ -376,7 +376,7 @@ func (r *remote) close() error {
 func connectToError(err error) error {
 	var connectErr *connect.Error
 	if errors.As(err, &connectErr) {
-		return &StatusError{Code: Code(connectErr.Code()), Message: connectErr.Message()}
+		return &StatusError{Code: Code(connectErr.Code()), Message: connectErr.Message(), ResultView: resultViewOf(connectErr)}
 	}
 	return &StatusError{Code: CodeUnavailable, Message: err.Error()}
 }

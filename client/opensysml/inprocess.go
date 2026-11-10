@@ -293,7 +293,7 @@ func statusToError(err error) error {
 	}
 	var ce *connect.Error
 	if errors.As(err, &ce) {
-		return &StatusError{Code: Code(ce.Code()), Message: ce.Message()}
+		return &StatusError{Code: Code(ce.Code()), Message: ce.Message(), ResultView: resultViewOf(ce)}
 	}
 	return &StatusError{Code: CodeUnknown, Message: err.Error()}
 }

@@ -1448,10 +1448,53 @@ public final class Model {
     return selected(QueryRequest.newBuilder().setModelHash(hash).setOslcQuery(oslcQuery));
   }
 
+  /**
+   * Selects elements as {@link #query(Query)} does, answering the selection with its {@code
+   * QVTS::QueryResult} view. A query that ends in a path error throws a {@link
+   * QueryOutcomeException} whose {@link QueryOutcomeException#resultView()} is the view of it.
+   *
+   * @param query the elements considered, the properties reported and the filter applied
+   * @return the elements selected and the view exposing them
+   * @throws ServiceException as {@link #query(Query)} throws
+   * @throws CapabilityException if the service does not advertise {@code query_result_view}
+   */
+  public QuerySelection queryAsView(Query query) {
+    Objects.requireNonNull(query, "query");
+    connection.capabilities().require(Capabilities.QUERY);
+    if (!query.orderBy().isEmpty()) {
+      connection.capabilities().require(Capabilities.QUERY_ORDER_BY);
+    }
+    connection.capabilities().require(Capabilities.QUERY_RESULT_VIEW);
+    return selection(
+        QueryRequest.newBuilder().setModelHash(hash).setQuery(Protos.proto(query)).setAsView(true));
+  }
+
+  /**
+   * Selects elements as {@link #queryOslc(String)} does, answering as {@link #queryAsView(Query)}
+   * does; a property the metamodel does not define is a path error, thrown with its view.
+   *
+   * @param oslcQuery the query, as OSLC Query Syntax spells it
+   * @return the elements selected and the view exposing them
+   * @throws ServiceException as {@link #queryOslc(String)} throws
+   * @throws CapabilityException if the service does not advertise {@code query_result_view}
+   */
+  public QuerySelection queryOslcAsView(String oslcQuery) {
+    Objects.requireNonNull(oslcQuery, "oslcQuery");
+    connection.capabilities().require(Capabilities.OSLC_QUERY);
+    connection.capabilities().require(Capabilities.QUERY_RESULT_VIEW);
+    return selection(
+        QueryRequest.newBuilder().setModelHash(hash).setOslcQuery(oslcQuery).setAsView(true));
+  }
+
   private List<QueryElement> selected(QueryRequest.Builder request) {
+    return selection(request).elements();
+  }
+
+  private QuerySelection selection(QueryRequest.Builder request) {
     QueryResponse response =
         connection.call("Query", request.build(), QueryResponse.getDefaultInstance());
-    return Protos.queryElements(response.getElementsList());
+    return new QuerySelection(
+        Protos.queryElements(response.getElementsList()), response.getResultView());
   }
 
   /**
@@ -1944,6 +1987,50 @@ public final class Model {
         bindings);
   }
 
+  /**
+   * Runs a document query as {@link #runDocumentQuery(String, Map)} does, the result also carrying
+   * the answer as a {@code QVTS::QueryResult} view. A query that ends in a path or model error
+   * throws a {@link QueryOutcomeException} whose {@link QueryOutcomeException#resultView()} is the
+   * view of that outcome.
+   *
+   * @param queryId qualified name of the document query
+   * @param bindings the entry parameters' values, by parameter name
+   * @return the projected columns and rows, and the view exposing the selected elements
+   * @throws ServiceException as {@link #runDocumentQuery(String, Map)} throws
+   * @throws CapabilityException if the service does not advertise {@code query_result_view}
+   */
+  public DocumentQueryResult runDocumentQueryAsView(
+      String queryId, Map<String, List<DocumentValue>> bindings) {
+    Objects.requireNonNull(queryId, "queryId");
+    connection.capabilities().require(Capabilities.QUERY_RESULT_VIEW);
+    return runDocumentQuery(
+        RunDocumentQueryRequest.newBuilder().setModelHash(hash).setQueryId(queryId).setAsView(true),
+        bindings);
+  }
+
+  /**
+   * Runs a query expression as {@link #runInlineDocumentQuery(String, Map)} does, with the view as
+   * {@link #runDocumentQueryAsView(String, Map)} carries it.
+   *
+   * @param expression the query expression
+   * @param bindings the entry parameters' values, by parameter name
+   * @return the projected columns and rows, and the view exposing the selected elements
+   * @throws ServiceException as {@link #runInlineDocumentQuery(String, Map)} throws
+   * @throws CapabilityException if the service does not advertise {@code query_result_view}
+   */
+  public DocumentQueryResult runInlineDocumentQueryAsView(
+      String expression, Map<String, List<DocumentValue>> bindings) {
+    Objects.requireNonNull(expression, "expression");
+    connection.capabilities().require(Capabilities.INLINE_DOCUMENT_QUERY);
+    connection.capabilities().require(Capabilities.QUERY_RESULT_VIEW);
+    return runDocumentQuery(
+        RunDocumentQueryRequest.newBuilder()
+            .setModelHash(hash)
+            .setInlineQuery(expression)
+            .setAsView(true),
+        bindings);
+  }
+
   private DocumentQueryResult runDocumentQuery(
       RunDocumentQueryRequest.Builder request, Map<String, List<DocumentValue>> bindings) {
     Objects.requireNonNull(bindings, "bindings");
@@ -2076,6 +2163,33 @@ public final class Model {
    */
   public RenderedView renderView(
       String viewName, RenderViewPorts ports, List<String> show, int depth, String compartments) {
+    return renderView(viewName, ports, show, depth, compartments, "");
+  }
+
+  /**
+   * Renders a {@code QVTS::QueryResult} view as a document too: its {@link RenderedView#header()}
+   * is the view's query, source, outcome and provenance, its rows the exposed elements, and its
+   * {@link RenderedView#document()} the same in {@code form}.
+   *
+   * @param viewName qualified name of the view
+   * @param form the document form
+   * @return the rendering, with the document
+   * @throws ServiceException if the view is not a {@code QVTS::QueryResult} view
+   * @throws CapabilityException if the service does not advertise {@code query_result_view}
+   */
+  public RenderedView renderView(String viewName, DocumentForm form) {
+    Objects.requireNonNull(form, "form");
+    connection.capabilities().require(Capabilities.QUERY_RESULT_VIEW);
+    return renderView(viewName, RenderViewPorts.MINIMAL, List.of(), 0, "", form.wireName());
+  }
+
+  private RenderedView renderView(
+      String viewName,
+      RenderViewPorts ports,
+      List<String> show,
+      int depth,
+      String compartments,
+      String form) {
     Objects.requireNonNull(viewName, "viewName");
     Objects.requireNonNull(compartments, "compartments");
     Objects.requireNonNull(ports, "ports");
@@ -2094,6 +2208,7 @@ public final class Model {
                 .addAllShow(show)
                 .setDepth(depth)
                 .setCompartments(compartments)
+                .setForm(form)
                 .build(),
             RenderViewResponse.getDefaultInstance());
     return RenderedView.from(response);

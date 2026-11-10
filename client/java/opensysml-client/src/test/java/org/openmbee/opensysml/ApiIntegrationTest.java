@@ -1504,6 +1504,64 @@ class ApiIntegrationTest {
     assertTrue(failed.getMessage().contains("inline query 1:"), failed.getMessage());
   }
 
+  private static Path resultViewFixture() {
+    return Path.of(System.getProperty("user.dir"))
+        .resolve("../../../tests/grpc/testdata/conformance/query_result_view.sysml")
+        .normalize();
+  }
+
+  @Test
+  void queriesAnswerAsResultViews() {
+    Model model = connection.load(resultViewFixture());
+    DocumentQueryResult named =
+        model.runDocumentQueryAsView(
+            "Probe::Self",
+            Map.of("root", List.of(new DocumentValue.ElementRef("Probe::probe::antenna", ""))));
+    assertTrue(named.resultView().contains("view self : QueryResult"), named.resultView());
+    assertTrue(named.resultView().contains("expose Probe::probe::antenna;"), named.resultView());
+    assertEquals("", model.runDocumentQuery("Probe::NoStates").resultView());
+
+    QuerySelection selected = model.queryOslcAsView("oslc.where=sysml:name=\"camera\"");
+    assertEquals(1, selected.elements().size());
+    assertTrue(selected.resultView().contains("expose Probe::probe::camera;"), selected.resultView());
+
+    QueryOutcomeException unknown =
+        assertThrows(
+            QueryOutcomeException.class,
+            () -> model.queryOslcAsView("oslc.where=sysml:nme=\"camera\""));
+    assertTrue(unknown.resultView().contains("Outcome::pathError"), unknown.resultView());
+    QueryOutcomeException twin =
+        assertThrows(
+            QueryOutcomeException.class,
+            () -> model.runDocumentQueryAsView("Probe::Twin", Map.of()));
+    assertTrue(twin.resultView().contains("Outcome::modelError"), twin.resultView());
+    QueryOutcomeException unasked =
+        assertThrows(QueryOutcomeException.class, () -> model.runDocumentQuery("Probe::Twin"));
+    assertEquals("", unasked.resultView());
+  }
+
+  @Test
+  void renderViewRendersAResultViewAsADocument() {
+    Model model = connection.load(resultViewFixture());
+    RenderedView rendered = model.renderView("Probe::heavy", DocumentForm.MARKDOWN);
+    assertEquals(
+        List.of(
+            new RenderedView.HeaderField("query", "Probe::Self root=Probe::probe::antenna"),
+            new RenderedView.HeaderField("source", "probe.sysml"),
+            new RenderedView.HeaderField("outcome", "established"),
+            new RenderedView.HeaderField("provenance", "urn:prov:bundle:heavy")),
+        rendered.header());
+    assertEquals("Probe::probe::antenna", rendered.rows().get(0).cells().get(0));
+    assertTrue(
+        rendered.document().contains("| Probe::probe::antenna | part | Payload | Probe::probe |"),
+        rendered.document());
+    assertEquals("", model.renderView("Probe::heavy").document());
+    ServiceException refused =
+        assertThrows(
+            ServiceException.class, () -> model.renderView("Probe::plain", DocumentForm.HTML));
+    assertTrue(refused.getMessage().contains("is not a QVTS::QueryResult view"));
+  }
+
   @Test
   void renderDocumentRendersTheNamedDocument() {
     Model model = connection.load(fixture("document.sysml"));

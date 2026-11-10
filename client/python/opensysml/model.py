@@ -433,7 +433,7 @@ class Model:
         return self._client.get_element_properties(self._hash, element, properties)
 
     def query(self, payload=None, scope=None, select=None, where=None, order_by=None,
-              oslc=None):
+              oslc=None, as_view=False):
         """Run a SysML v2 API & Services Query over this model.
 
         Takes the standard's ``Query`` JSON, so a payload written for the
@@ -453,9 +453,13 @@ class Model:
                 ``sysml:name="vehicle"``, evaluated in place of the standard's
                 Query; not combined with the others. An empty string is no
                 OSLC at all, so the structured query is sent instead
+            as_view (bool): Also answer the selection as a ``QVTS::QueryResult``
+                view, the answer's ``result_view``; a path error then raises
+                with the view as the error's ``result_view``. Needs the
+                ``query_result_view`` capability
 
         Returns:
-            list[QueryElement]: The elements selected, in ``order_by`` order,
+            QueryElements: The elements selected, a list in ``order_by`` order,
             or declaration order without one
 
         Raises:
@@ -474,10 +478,10 @@ class Model:
         """
         return self.connection.query(
             self._hash, payload, scope=scope, select=select, where=where, order_by=order_by,
-            oslc=oslc,
+            oslc=oslc, as_view=as_view,
         )
 
-    def run_document_query(self, query_id=None, bindings=None, inline_query=None):
+    def run_document_query(self, query_id=None, bindings=None, inline_query=None, as_view=False):
         """Run one of this model's named document queries, or a query expression.
 
         The query is the model's own — a calc def specializing
@@ -496,6 +500,10 @@ class Model:
                 Named("Vehicles")), "PartUsage"), ("name", "mass"))`` — with
                 the ``DocumentQueries`` library in scope; needs the
                 ``inline_document_query`` capability
+            as_view (bool): Also answer as a ``QVTS::QueryResult`` view, the
+                result's ``result_view``; a path or model error then raises
+                with the view as the error's ``result_view``. Needs the
+                ``query_result_view`` capability
 
         Returns:
             DocumentQueryResult: Projected columns and typed rows, in the
@@ -520,7 +528,7 @@ class Model:
             ('name',)
         """
         return self.connection.run_document_query(
-            self._hash, query_id, bindings=bindings, inline_query=inline_query,
+            self._hash, query_id, bindings=bindings, inline_query=inline_query, as_view=as_view,
         )
 
     def render_document(self, document_id, form="markdown"):
@@ -558,7 +566,7 @@ class Model:
         return self.connection.render_document(self._hash, document_id, form=form)
 
     def render_view(self, view_name, ports="minimal", show=None, depth=0,
-                    compartments="positioned") -> RenderedView:
+                    compartments="positioned", form=None) -> RenderedView:
         """Render one named view as typed diagram data.
 
         Args:
@@ -580,6 +588,10 @@ class Model:
                 definition or package keeps a node, ``"ports"`` the port usages
                 with the ports nested under them; a row is a node whose
                 ``compartment`` names the compartment of its ``parent``
+            form (str | None): ``"markdown"``, ``"html"`` or ``"asciidoc"`` to
+                have a ``QVTS::QueryResult`` view as a document too, the
+                result's ``document``; another view is refused. Needs the
+                ``query_result_view`` capability
 
         Returns:
             RenderedView: Ordered nodes, edges, table data and optional layout
@@ -594,7 +606,7 @@ class Model:
             ModelNotFoundError: If the service no longer holds this model
         """
         return self.connection.render_view(self._hash, view_name, ports=ports, show=show, depth=depth,
-                                           compartments=compartments)
+                                           compartments=compartments, form=form)
 
 
     def check_action(self, action_symbol_id, inputs=None, performer=None, properties=(), diverge=(),

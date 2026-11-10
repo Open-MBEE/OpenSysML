@@ -73,6 +73,11 @@ CAPABILITY_DOCUMENT_QUERY = "document_query"
 #: the field with ``UNIMPLEMENTED``.
 CAPABILITY_INLINE_DOCUMENT_QUERY = "inline_document_query"
 
+#: ``as_view`` of the two query requests and ``form`` of ``RenderViewRequest``:
+#: a query's answer written as a ``QVTS::QueryResult`` view, and such a view
+#: rendered as a document. Without it the service ignores the fields.
+CAPABILITY_QUERY_RESULT_VIEW = "query_result_view"
+
 #: The ``RenderDocument`` RPC, which renders a named document to Markdown.
 #: Without it the service refuses with ``UNIMPLEMENTED``.
 CAPABILITY_RENDER_DOCUMENT = "render_document"

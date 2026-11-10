@@ -153,6 +153,7 @@ public final class ConnectTransport implements AutoCloseable {
     StatusCode status = StatusCode.fromHttpStatus(response.statusCode());
     String message = text;
     Optional<QueryOutcome> outcome = Optional.empty();
+    String resultView = "";
     try {
       Object error = Json.parse(text);
       String code = Json.stringMember(error, "code");
@@ -164,11 +165,12 @@ public final class ConnectTransport implements AutoCloseable {
         message = reported;
       }
       outcome = queryOutcome(Json.listMember(error, "details"));
+      resultView = queryResultView(Json.listMember(error, "details"));
     } catch (IllegalArgumentException e) {
       // Not a Connect error body; the HTTP status and the text are the whole answer.
     }
     if (outcome.isPresent()) {
-      return new QueryOutcomeException(status, method + ": " + message, outcome.get());
+      return new QueryOutcomeException(status, method + ": " + message, outcome.get(), resultView);
     }
     return serviceException(status, method + ": " + message);
   }
@@ -196,6 +198,23 @@ public final class ConnectTransport implements AutoCloseable {
       }
     }
     return Optional.empty();
+  }
+
+  /** The text of the {@code QueryResultView} among a Connect error's details, or empty. */
+  private static String queryResultView(List<Object> details) {
+    String type = org.openmbee.opensysml.proto.QueryResultView.getDescriptor().getFullName();
+    for (Object detail : details) {
+      if (!type.equals(Json.stringMember(detail, "type"))) {
+        continue;
+      }
+      try {
+        byte[] bytes = Base64.getDecoder().decode(padded(Json.stringMember(detail, "value")));
+        return org.openmbee.opensysml.proto.QueryResultView.parseFrom(bytes).getText();
+      } catch (IllegalArgumentException | InvalidProtocolBufferException e) {
+        // Not a view; a later detail may be one.
+      }
+    }
+    return "";
   }
 
   private static String padded(String base64) {

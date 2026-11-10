@@ -16,6 +16,14 @@ type renderViewOptions struct {
 	show         []string
 	depth        int
 	compartments string
+	form         string
+}
+
+// WithDocumentForm asks for a QVTS::QueryResult view as a document too, in
+// "markdown", "html" or "asciidoc": RenderedView.Document. Another view, or
+// another form, is refused as an invalid request. Requires query_result_view.
+func WithDocumentForm(form string) RenderViewOption {
+	return func(options *renderViewOptions) { options.form = form }
 }
 
 // WithCompartments folds a tree rendering's owned members into compartment
@@ -68,6 +76,17 @@ type RenderedView struct {
 	Shown []string
 	// Frame is the view frame round a graph-shaped rendering; nil when frameless.
 	Frame *RenderFrame
+	// Header is a QVTS::QueryResult view's query, source, outcome and provenance,
+	// in that order; empty for any other view.
+	Header []RenderHeaderField
+	// Document is the view as the document WithDocumentForm asked for.
+	Document string
+}
+
+// RenderHeaderField is one attribute a QVTS::QueryResult view binds.
+type RenderHeaderField struct {
+	Name  string
+	Value string
 }
 
 // RenderFrame is the view frame of SysML v2 §8.2.3.26: the name compartment's
@@ -197,6 +216,11 @@ func (c *client) RenderView(ctx context.Context, model *Model, viewName string, 
 	for _, opt := range opts {
 		opt(&options)
 	}
+	if options.form != "" {
+		if err := c.requireCapabilities(ctx, CapabilityQueryResultView); err != nil {
+			return nil, err
+		}
+	}
 	if options.depth < 0 || options.depth > math.MaxInt32 {
 		return nil, &StatusError{Code: CodeInvalidArgument, Message: fmt.Sprintf("depth must be between 0 and %d, got %d", math.MaxInt32, options.depth)}
 	}
@@ -207,6 +231,7 @@ func (c *client) RenderView(ctx context.Context, model *Model, viewName string, 
 		Show:         append([]string(nil), options.show...),
 		Depth:        int32(options.depth),
 		Compartments: options.compartments,
+		Form:         options.form,
 	})
 	if err != nil {
 		return nil, err
@@ -218,7 +243,11 @@ func renderedViewFromProto(response *pb.RenderViewResponse) *RenderedView {
 	result := &RenderedView{
 		View: response.View, Kind: response.Kind, Stated: response.Stated,
 		Columns: append([]string(nil), response.Columns...), Notices: append([]string(nil), response.Notices...),
-		Shown: append([]string(nil), response.Shown...),
+		Shown:    append([]string(nil), response.Shown...),
+		Document: response.Markdown + response.Html + response.Asciidoc,
+	}
+	for _, field := range response.Header {
+		result.Header = append(result.Header, RenderHeaderField{Name: field.Name, Value: field.Value})
 	}
 	for _, node := range response.Nodes {
 		converted := RenderNode{
