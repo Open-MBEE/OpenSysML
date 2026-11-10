@@ -922,9 +922,8 @@ func TestExtensionTypedNodesAreNoElementsOfTheRepository(t *testing.T) {
 	}
 }
 
-// pseudostate is a state body whose `choice` is a sysx:Pseudostate: an element
-// the SysML metamodel has no metaclass for, which the memberships and
-// transitions around it reference through sysml: properties.
+// pseudostate states a `choice`, a sysx:Pseudostate: no SysML metaclass, yet
+// referenced through sysml: properties by the memberships and transitions around it.
 const pseudostate = `	state def S {
 		state a;
 		choice c;

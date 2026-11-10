@@ -84,16 +84,13 @@ type Carrier interface {
 	// Carry maps a triple onto the form the repository stores: ok false when it
 	// has no place for the predicate, err when it cannot represent the value.
 	Carry(triple rdf.Triple) (carried rdf.Triple, ok bool, err error)
-	// Holds reports whether the repository has a metaclass for a subject of
-	// the class (an rdf:type IRI): a subject of one it has none for is no
-	// element of the repository.
+	// Holds reports whether the repository has a metaclass for subjects of the
+	// class (an rdf:type IRI); a subject of one it has none for is no element of it.
 	Holds(class string) bool
 }
 
-// UnheldReferenceError refuses a diff: a carried property of an element
-// references a subject whose class the repository has no metaclass for. Left
-// out, the reference would dangle; written, the repository would refuse the
-// subject. Neither is a sync, so neither is attempted.
+// UnheldReferenceError refuses a diff: a carried property references a subject the
+// repository has no metaclass for — left out it would dangle, sent it would be refused.
 type UnheldReferenceError struct {
 	Subject  string // the referenced subject, by qualified name or id
 	Class    string // its class, rendered as the uncarried report renders it
@@ -375,10 +372,8 @@ func viewOf(g *rdf.Graph, rep Carrier) (map[string]*subjectView, []UncarriedProp
 	// the standard library, not an element of the model: it is never created,
 	// changed or deleted in a repository.
 	library := map[string]bool{}
-	// A subject of a class the repository has no metaclass for — a note, part
-	// of an element's lines; a behavioral node of this mapping's extension — is
-	// no element it can hold: left out of the comparison, as the element's
-	// layout properties are, and tallied under its class. Keyed by subject IRI.
+	// A subject of a class the repository has no metaclass for (a note, a sysx:
+	// behavioral node) is left out as layout properties are, tallied under its class.
 	unheld := map[string]string{}
 	for _, subject := range g.Subjects() {
 		if export.LibraryReference(g, subject) {
@@ -454,10 +449,8 @@ func viewOf(g *rdf.Graph, rep Carrier) (map[string]*subjectView, []UncarriedProp
 	return views, left, nil
 }
 
-// unheldReference finds the first carried property, in id order, that
-// references a subject the repository has no metaclass for: a subject left out
-// of the comparison must be one nothing kept refers to, or leaving it out would
-// write a dangling reference.
+// unheldReference finds the first carried property, in id order, that references a
+// subject the repository has no metaclass for: left out, it would dangle.
 func unheldReference(g *rdf.Graph, views map[string]*subjectView, unheld map[string]string) error {
 	if len(unheld) == 0 {
 		return nil
