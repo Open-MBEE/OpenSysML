@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
 )
@@ -44,13 +45,18 @@ func ReadClientFile(path string) (Client, error) {
 // introspector asks the provider about tokens that are not JWTs (RFC 7662) and
 // keeps each active answer until the token expires.
 type introspector struct {
-	cfg   Config
-	mu    sync.Mutex
-	cache map[[sha256.Size]byte]guard.Principal
+	cfg     Config
+	mu      sync.Mutex
+	cache   map[[sha256.Size]byte]guard.Principal
+	sweepAt int
 }
 
+// sweepFloor is the cache size below which expired entries are only dropped
+// when their token is presented again.
+const sweepFloor = 64
+
 func newIntrospector(cfg Config) *introspector {
-	return &introspector{cfg: cfg, cache: map[[sha256.Size]byte]guard.Principal{}}
+	return &introspector{cfg: cfg, cache: map[[sha256.Size]byte]guard.Principal{}, sweepAt: sweepFloor}
 }
 
 // introspection is the provider's answer (RFC 7662 § 2.2).
@@ -87,7 +93,8 @@ func (i *introspector) verify(ctx context.Context, token string) (guard.Principa
 	if answer.Issuer != "" && answer.Issuer != i.cfg.Issuer {
 		return guard.Principal{}, guard.Mismatch
 	}
-	if aud := scopeList(answer.Audience); len(aud) > 0 && !slices.Contains(aud, i.cfg.Audience) {
+	// The token must have been issued for this resource (RFC 8707 § 2).
+	if !slices.Contains(scopeList(answer.Audience), i.cfg.Audience) {
 		return guard.Principal{}, guard.Mismatch
 	}
 	if answer.Subject == "" {
@@ -106,11 +113,26 @@ func (i *introspector) verify(ctx context.Context, token string) (guard.Principa
 	}
 	// An answer with no exp is not kept: nothing would ever let it go.
 	if !expires.IsZero() {
-		i.mu.Lock()
-		i.cache[key] = p
-		i.mu.Unlock()
+		i.keep(key, p, now)
 	}
 	return p, guard.Accepted
+}
+
+// keep caches p; each time the cache has doubled since the last sweep, the
+// entries whose tokens expired are dropped, so it holds only live tokens.
+func (i *introspector) keep(key [sha256.Size]byte, p guard.Principal, now time.Time) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	i.cache[key] = p
+	if len(i.cache) < i.sweepAt {
+		return
+	}
+	for k, cached := range i.cache {
+		if !cached.Expires.After(now) {
+			delete(i.cache, k)
+		}
+	}
+	i.sweepAt = max(2*len(i.cache), sweepFloor)
 }
 
 // ask posts the token to the introspection endpoint as the client (RFC 7662

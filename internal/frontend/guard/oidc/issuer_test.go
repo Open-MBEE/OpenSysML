@@ -2,6 +2,8 @@ package oidc_test
 
 import (
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -24,6 +26,7 @@ type issuer struct {
 	*httptest.Server
 	key        *rsa.PrivateKey
 	kid        string
+	ecKey      *ecdsa.PrivateKey
 	jwksHits   atomic.Int32
 	introspect func(w http.ResponseWriter, r *http.Request)
 }
@@ -34,7 +37,11 @@ func newIssuer(t *testing.T) *issuer {
 	if err != nil {
 		t.Fatal(err)
 	}
-	is := &issuer{key: key, kid: "k1"}
+	ecKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	is := &issuer{key: key, kid: "k1", ecKey: ecKey}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -49,7 +56,7 @@ func newIssuer(t *testing.T) *issuer {
 	mux.HandleFunc("/keys", func(w http.ResponseWriter, r *http.Request) {
 		is.jwksHits.Add(1)
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []any{jwk(&is.key.PublicKey, is.kid)}})
+		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []any{jwk(&is.key.PublicKey, is.kid), ecJWK(t, &is.ecKey.PublicKey)}})
 	})
 	mux.HandleFunc("/introspect", func(w http.ResponseWriter, r *http.Request) {
 		if is.introspect == nil {
@@ -69,6 +76,32 @@ func jwk(pub *rsa.PublicKey, kid string) map[string]any {
 		"n": base64.RawURLEncoding.EncodeToString(pub.N.Bytes()),
 		"e": base64.RawURLEncoding.EncodeToString(big.NewInt(int64(pub.E)).Bytes()),
 	}
+}
+
+func ecJWK(t *testing.T, pub *ecdsa.PublicKey) map[string]any {
+	t.Helper()
+	point, err := pub.Bytes() // uncompressed: 0x04, x, y (SEC 1 § 2.3.3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return map[string]any{
+		"kty": "EC", "use": "sig", "alg": "ES256", "crv": "P-256", "kid": "ec1",
+		"x": base64.RawURLEncoding.EncodeToString(point[1:33]),
+		"y": base64.RawURLEncoding.EncodeToString(point[33:65]),
+	}
+}
+
+// signES256 is the ES256 compact JWS of c under the issuer's EC key (RFC 7518 § 3.4).
+func (is *issuer) signES256(t *testing.T, c claims) string {
+	t.Helper()
+	signingInput := signingInput(t, "ES256", "ec1", c)
+	digest := sha256.Sum256([]byte(signingInput))
+	r, s, err := ecdsa.Sign(rand.Reader, is.ecKey, digest[:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	sig := append(r.FillBytes(make([]byte, 32)), s.FillBytes(make([]byte, 32))...)
+	return signingInput + "." + base64.RawURLEncoding.EncodeToString(sig)
 }
 
 // rotate replaces the signing key, as a provider does; tokens signed before
@@ -110,18 +143,24 @@ func (c claims) with(k string, v any) claims {
 // sign is the RS256 compact JWS of c under key (RFC 7515 § 7.1, RFC 7518 § 3.3).
 func sign(t *testing.T, key *rsa.PrivateKey, kid string, c claims) string {
 	t.Helper()
-	header, _ := json.Marshal(map[string]string{"alg": "RS256", "typ": "JWT", "kid": kid})
-	payload, err := json.Marshal(c)
-	if err != nil {
-		t.Fatal(err)
-	}
-	signingInput := base64.RawURLEncoding.EncodeToString(header) + "." + base64.RawURLEncoding.EncodeToString(payload)
+	signingInput := signingInput(t, "RS256", kid, c)
 	digest := sha256.Sum256([]byte(signingInput))
 	sig, err := rsa.SignPKCS1v15(rand.Reader, key, crypto.SHA256, digest[:])
 	if err != nil {
 		t.Fatal(err)
 	}
 	return signingInput + "." + base64.RawURLEncoding.EncodeToString(sig)
+}
+
+// signingInput is the header and payload of a JWS (RFC 7515 § 5.1).
+func signingInput(t *testing.T, alg, kid string, c claims) string {
+	t.Helper()
+	header, _ := json.Marshal(map[string]string{"alg": alg, "typ": "JWT", "kid": kid})
+	payload, err := json.Marshal(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return base64.RawURLEncoding.EncodeToString(header) + "." + base64.RawURLEncoding.EncodeToString(payload)
 }
 
 func (is *issuer) token(t *testing.T, c claims) string {

@@ -8,9 +8,8 @@ import (
 	"time"
 )
 
-// claims are the registered and profile claims a principal is built from (RFC
-// 9068 § 2.2, OpenID Connect Core 1.0 § 5.1); the rest stay raw for the scope
-// claim, which is named by configuration.
+// claims are what a principal is built from (RFC 9068 § 2.2, OpenID Connect
+// Core 1.0 § 5.1); raw keeps every claim for the configured scope claim.
 type claims struct {
 	Subject           string   `json:"sub"`
 	PreferredUsername string   `json:"preferred_username"`

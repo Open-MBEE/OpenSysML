@@ -37,6 +37,10 @@ func TestNewRefusesIncompleteConfig(t *testing.T) {
 		"introspect, no client": {Issuer: is.URL, Audience: resource, Introspect: is.URL + "/introspect"},
 		"client, no introspect": {Issuer: is.URL, Audience: resource, Client: oidc.Client{ID: "a", Secret: "b"}},
 		"introspect not a URL":  {Issuer: is.URL, Audience: resource, Introspect: "introspect", Client: oidc.Client{ID: "a", Secret: "b"}},
+		"introspect over http":  {Issuer: is.URL, Audience: resource, Introspect: "http://idp.example.org/introspect", Client: oidc.Client{ID: "a", Secret: "b"}},
+		"client without secret": {Issuer: is.URL, Audience: resource, Introspect: is.URL + "/introspect", Client: oidc.Client{ID: "a"}},
+		"client without id":     {Issuer: is.URL, Audience: resource, Introspect: is.URL + "/introspect", Client: oidc.Client{Secret: "b"}},
+		"issuer over http":      {Issuer: "http://idp.example.org", Audience: resource},
 		"unreachable issuer":    {Issuer: "http://127.0.0.1:1", Audience: resource},
 	} {
 		if _, err := oidc.New(context.Background(), cfg); err == nil {
@@ -85,6 +89,19 @@ func TestVerifyAcceptsTheProvidersToken(t *testing.T) {
 	}
 }
 
+func TestVerifyAcceptsAnECDSASignature(t *testing.T) {
+	is := newIssuer(t)
+	a := newAuthenticator(t, is, nil)
+	p, refusal := a.Verify(context.Background(), bearer(is.signES256(t, is.standard(resource))), nil)
+	if refusal != guard.Accepted || p.Subject != "alice" {
+		t.Fatalf("ES256 token: %+v, %v", p, refusal)
+	}
+	other := newIssuer(t)
+	if _, refusal := a.Verify(context.Background(), bearer(other.signES256(t, is.standard(resource))), nil); refusal != guard.Mismatch {
+		t.Errorf("ES256 token under another key: %v", refusal)
+	}
+}
+
 func TestVerifyNamesThePrincipal(t *testing.T) {
 	is := newIssuer(t)
 	a := newAuthenticator(t, is, nil)
@@ -123,6 +140,7 @@ func TestVerifyRefusesForeignTokens(t *testing.T) {
 		{"expired", is.token(t, good.with("exp", time.Now().Add(-time.Minute).Unix())), guard.Expired},
 		{"not yet valid", is.token(t, good.with("nbf", time.Now().Add(time.Minute).Unix())), guard.Mismatch},
 		{"no subject", is.token(t, good.with("sub", nil)), guard.Mismatch},
+		{"no expiry", is.token(t, good.with("exp", nil)), guard.Mismatch},
 		{"unsigned", strings.Join(strings.Split(is.token(t, good), ".")[:2], ".") + ".", guard.Mismatch},
 		{"garbage payload", strings.Split(is.token(t, good), ".")[0] + ".bm90anNvbg.c2ln", guard.Mismatch},
 	} {

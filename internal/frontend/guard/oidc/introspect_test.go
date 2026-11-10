@@ -69,7 +69,7 @@ func TestIntrospectionRefusals(t *testing.T) {
 	is := newIssuer(t)
 	now := time.Now()
 	a := introspecting(t, is, &now)
-	active := map[string]any{"active": true, "sub": "bob", "exp": now.Add(time.Hour).Unix()}
+	active := map[string]any{"active": true, "sub": "bob", "exp": now.Add(time.Hour).Unix(), "aud": resource}
 	for _, tc := range []struct {
 		name   string
 		status int
@@ -77,7 +77,8 @@ func TestIntrospectionRefusals(t *testing.T) {
 		want   guard.Refusal
 	}{
 		{"inactive", http.StatusOK, map[string]any{"active": false}, guard.Mismatch},
-		{"no subject", http.StatusOK, map[string]any{"active": true}, guard.Mismatch},
+		{"no subject", http.StatusOK, map[string]any{"active": true, "aud": resource}, guard.Mismatch},
+		{"no audience", http.StatusOK, without(active, "aud"), guard.Mismatch},
 		{"other issuer", http.StatusOK, with(active, "iss", "https://other.example.org"), guard.Mismatch},
 		{"other audience", http.StatusOK, with(active, "aud", "https://other.example.org/"), guard.Mismatch},
 		{"expired", http.StatusOK, with(active, "exp", now.Add(-time.Hour).Unix()), guard.Expired},
@@ -101,7 +102,7 @@ func TestIntrospectionKeepsNoAnswerWithoutExpiry(t *testing.T) {
 	is := newIssuer(t)
 	a := introspecting(t, is, nil)
 	var hits atomic.Int32
-	is.answer(t, &hits, http.StatusOK, map[string]any{"active": true, "sub": "bob"})
+	is.answer(t, &hits, http.StatusOK, map[string]any{"active": true, "sub": "bob", "aud": resource})
 	for i := 0; i < 2; i++ {
 		p, refusal := a.Verify(context.Background(), opaque, nil)
 		if refusal != guard.Accepted || !p.Expires.IsZero() || p.Name != "bob" {
@@ -117,7 +118,7 @@ func TestIntrospectionLeavesJWTsToTheVerifier(t *testing.T) {
 	is := newIssuer(t)
 	a := introspecting(t, is, nil)
 	var hits atomic.Int32
-	is.answer(t, &hits, http.StatusOK, map[string]any{"active": true, "sub": "bob"})
+	is.answer(t, &hits, http.StatusOK, map[string]any{"active": true, "sub": "bob", "aud": resource})
 	if _, refusal := a.Verify(context.Background(), bearer(is.token(t, is.standard("other"))), nil); refusal != guard.Mismatch {
 		t.Errorf("foreign JWT: %v", refusal)
 	}
@@ -151,6 +152,12 @@ func TestReadClientFile(t *testing.T) {
 	if _, err := oidc.ReadClientFile(filepath.Join(dir, "missing.json")); err == nil {
 		t.Error("missing file accepted")
 	}
+}
+
+func without(m map[string]any, k string) map[string]any {
+	out := with(m, k, nil)
+	delete(out, k)
+	return out
 }
 
 func with(m map[string]any, k string, v any) map[string]any {
