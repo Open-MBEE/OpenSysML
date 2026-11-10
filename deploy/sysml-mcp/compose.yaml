@@ -1,18 +1,16 @@
-# sysml-mcp as a service: the MCP server from the openmbee/opensysml image
-# behind Caddy, which terminates TLS and forwards /mcp, /health and /ready.
-# The token comes from a secret file, the root filesystem is read-only, and
-# the only writable paths are a tmpfs and the standard library's record cache.
-# docs/guide/sysml-mcp-service.md walks through it.
+# sysml-mcp from the openmbee/opensysml image behind Caddy, which terminates TLS:
+# token from a secret file, read-only root; docs/guide/sysml-mcp-service.md explains.
 services:
   sysml-mcp:
     image: ${OPENSYSML_IMAGE:-openmbee/opensysml:latest}
     entrypoint: ["/usr/local/bin/sysml-mcp"]
-    # 0.0.0.0 is reachable from the proxy's network only; the port is not
-    # published, so every client comes through Caddy and its TLS.
+    # 8765 is reachable from the proxy's network only, not published: every
+    # client comes through Caddy and its TLS.
     command: ["-http", "0.0.0.0:8765", "-root", "/models"]
     environment:
       OPENSYSML_MCP_TOKEN_FILE: /run/secrets/mcp_token
-      OPENSYSML_MCP_PUBLIC_URL: https://${MCP_HOST:-localhost}/mcp
+      # The URL clients see: the proxy's host and published port.
+      OPENSYSML_MCP_PUBLIC_URL: https://${MCP_HOST:-localhost}:${MCP_HTTPS_PORT:-8443}/mcp
       OPENSYSML_MCP_LOG_LEVEL: ${MCP_LOG_LEVEL:-info}
     secrets:
       - mcp_token
