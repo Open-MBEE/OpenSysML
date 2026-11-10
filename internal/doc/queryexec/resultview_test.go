@@ -94,3 +94,30 @@ package Outcome { part x; }
 		}
 	}
 }
+
+func TestResultViewExposesEachNameAsTheModelSpellsIt(t *testing.T) {
+	fixture := loadExecutionSource(t, "package Observatory {"+executionImports+`
+calc def Quoted :> Query { Descendants(Named(qualifiedName = "Shop::Mid")) }
+}
+package Shop {
+	part def Mid {
+		part { part inner; }
+		part 'a::b' { part c; }
+	}
+}
+`)
+	result, err := fixture.execute(t, "Quoted", nil, Options{})
+	text, _ := ResultView{Name: "Quoted"}.Write(fixture.context(), result, err)
+	for _, want := range []string{
+		"\t\t// 2 selected elements have no qualified name to expose them by.\n",
+		"\t\texpose Shop::Mid::'a::b';\n",
+		"\t\texpose Shop::Mid::'a::b'::c;\n",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("want %q in:\n%s", want, text)
+		}
+	}
+	if got := strings.Count(text, "\t\texpose "); got != 2 {
+		t.Errorf("the view exposes %d elements, want the 2 a qualified name reaches:\n%s", got, text)
+	}
+}

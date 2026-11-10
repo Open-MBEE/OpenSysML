@@ -1,6 +1,7 @@
 package queryexec
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -63,7 +64,7 @@ func (v ResultView) WriteOutcome(context Context, failed Outcome) string {
 
 func (v ResultView) write(context Context, result *RowSet, failed *Outcome) string {
 	outcome, provenance := OutcomeEstablished, v.Provenance
-	var exposed []string
+	var exposed [][]string
 	unnamed := 0
 	if failed != nil {
 		outcome = failed.Kind()
@@ -71,12 +72,12 @@ func (v ResultView) write(context Context, result *RowSet, failed *Outcome) stri
 		exposed = outcomeElements(context.Index, *failed)
 	} else if result != nil {
 		for _, row := range result.Rows() {
-			name := symbols.FQNOf(row.Element().Declaration())
-			if name == "" {
+			path, named := namePath(row.Element().Declaration())
+			if !named {
 				unnamed++
 				continue
 			}
-			exposed = appendDistinct(exposed, name)
+			exposed = appendDistinct(exposed, path)
 		}
 	}
 	name := v.Name
@@ -113,12 +114,26 @@ func (v ResultView) ResultViewQualifiedName() string {
 
 // exposedName writes element for the view's body, from the root (`$::`) where
 // the view, the library or an inherited feature would capture its first segment.
-func exposedName(context Context, view, element string) string {
-	text := source.QualifiedNameText(element)
-	if segments := symbols.SegmentsOf(element); len(segments) > 0 && capturesName(context, view, segments[0]) {
+func exposedName(context Context, view string, element []string) string {
+	text := source.QualifiedNameOf(element)
+	if capturesName(context, view, element[0]) {
 		return "$::" + text
 	}
 	return text
+}
+
+// namePath is the names a qualified name of sym is written from, outermost first;
+// false when sym or an owner has no name, so no qualified name reaches it.
+func namePath(sym *symbols.Symbol) ([]string, bool) {
+	var path []string
+	for at := sym; at != nil; at = at.Owner() {
+		if at.Name == "" {
+			return nil, false
+		}
+		path = append(path, at.Name)
+	}
+	slices.Reverse(path)
+	return path, len(path) > 0
 }
 
 func capturesName(context Context, view, name string) bool {
@@ -158,11 +173,16 @@ func joinProvenance(base, step string) string {
 
 // outcomeElements is what a failed run exposes: where each path failure stopped
 // and what each finding is about, those the model declares, in record order.
-func outcomeElements(index *symbols.Index, outcome Outcome) []string {
-	var out []string
+func outcomeElements(index *symbols.Index, outcome Outcome) [][]string {
+	var out [][]string
 	add := func(name string) {
-		if name != "" && index != nil && len(index.LookupQualified(name)) > 0 {
-			out = appendDistinct(out, name)
+		if name == "" || index == nil {
+			return
+		}
+		if found := index.LookupQualified(name); len(found) > 0 {
+			if path, named := namePath(found[0]); named {
+				out = appendDistinct(out, path)
+			}
 		}
 	}
 	if outcome.Model != nil {
@@ -181,9 +201,9 @@ func outcomeElements(index *symbols.Index, outcome Outcome) []string {
 	return out
 }
 
-func appendDistinct(xs []string, x string) []string {
+func appendDistinct(xs [][]string, x []string) [][]string {
 	for _, have := range xs {
-		if have == x {
+		if slices.Equal(have, x) {
 			return xs
 		}
 	}
