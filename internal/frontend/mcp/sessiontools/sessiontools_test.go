@@ -19,9 +19,14 @@ import (
 
 	engineset "github.com/Open-MBEE/OpenSysML/internal/exec/engines"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/toolkit"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/repl"
 	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/all" // the notation and graph writers the tools use
 )
+
+// local is the owner of the sessions a caller the transport did not
+// authenticate opens, as every test client here is.
+var local = toolkit.LocalPrincipal().ID()
 
 // connect serves the session tools over root to an in-memory client.
 func connect(t *testing.T, root string) *sdk.ClientSession {
@@ -618,12 +623,12 @@ func TestConcurrentCallsOnOneSessionAreSerialized(t *testing.T) {
 func TestACloseRacingAQueuedCallRunsItFirstOrFailsIt(t *testing.T) {
 	for range 25 {
 		m := mustManager(t, t.TempDir(), func() (*repl.Session, error) { return repl.NewSession(), nil })
-		if _, err := m.Open("raced"); err != nil {
+		if _, err := m.Open(local, "raced"); err != nil {
 			t.Fatal(err)
 		}
 		running, release := make(chan struct{}), make(chan struct{})
 		go func() {
-			_ = m.Use(context.Background(), "raced", func(*repl.Session) error {
+			_ = m.Use(context.Background(), local, "raced", func(*repl.Session) error {
 				close(running)
 				<-release
 				return nil
@@ -633,7 +638,7 @@ func TestACloseRacingAQueuedCallRunsItFirstOrFailsIt(t *testing.T) {
 		var closed atomic.Bool
 		queued, closing := make(chan error, 1), make(chan error, 1)
 		go func() {
-			queued <- m.Use(context.Background(), "raced", func(sess *repl.Session) error {
+			queued <- m.Use(context.Background(), local, "raced", func(sess *repl.Session) error {
 				if closed.Load() {
 					return errors.New("the call ran on the closed session")
 				}
@@ -641,13 +646,13 @@ func TestACloseRacingAQueuedCallRunsItFirstOrFailsIt(t *testing.T) {
 			})
 		}()
 		go func() {
-			err := m.Close("raced")
+			err := m.Close(local, "raced")
 			closed.Store(true)
 			closing <- err
 		}()
 		// Close drops the session from the list before it waits on the lock, so
 		// the list emptying is the close having reached the lock the call holds.
-		for slices.Contains(m.Names(), "raced") {
+		for slices.Contains(m.Names(local), "raced") {
 			time.Sleep(100 * time.Microsecond)
 		}
 		close(release)
@@ -657,10 +662,10 @@ func TestACloseRacingAQueuedCallRunsItFirstOrFailsIt(t *testing.T) {
 		if err := <-closing; err != nil {
 			t.Fatal(err)
 		}
-		if slices.Contains(m.Names(), "raced") {
+		if slices.Contains(m.Names(local), "raced") {
 			t.Fatal("the closed session is still listed")
 		}
-		if _, err := m.Get("raced"); !errors.Is(err, ErrNoSession) {
+		if _, err := m.Get(local, "raced"); !errors.Is(err, ErrNoSession) {
 			t.Fatalf("Get after close = %v", err)
 		}
 	}
@@ -670,8 +675,8 @@ func TestGetAnswersFromInsideACallOnTheSameSession(t *testing.T) {
 	m := mustManager(t, t.TempDir(), func() (*repl.Session, error) { return repl.NewSession(), nil })
 	done := make(chan error, 1)
 	go func() {
-		done <- m.Use(context.Background(), "", func(sess *repl.Session) error {
-			got, err := m.Get("")
+		done <- m.Use(context.Background(), local, "", func(sess *repl.Session) error {
+			got, err := m.Get(local, "")
 			if err != nil {
 				return err
 			}
@@ -777,7 +782,7 @@ func TestALibraryRootOutsideTheWorkspaceIsReadButNotWritten(t *testing.T) {
 		t.Skip(err)
 	}
 	m := mustManager(t, root, func() (*repl.Session, error) { return repl.NewSession(), nil })
-	sess, err := m.Get("")
+	sess, err := m.Get(local, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -806,14 +811,14 @@ func TestResolveExpandsHomeWhenItLiesUnderTheRoot(t *testing.T) {
 
 func TestACancellationBeforeTheCommandBeginsStillStopsIt(t *testing.T) {
 	m := mustManager(t, t.TempDir(), func() (*repl.Session, error) { return repl.NewSession(), nil })
-	sess, err := m.Get("")
+	sess, err := m.Get(local, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	sess.Submit(actionModel)
 	ctx, cancel := context.WithCancel(context.Background())
 	var v repl.Verdict
-	_ = m.Use(ctx, "", func(sess *repl.Session) error {
+	_ = m.Use(ctx, local, "", func(sess *repl.Session) error {
 		// The client leaves before the command enters the session.
 		cancel()
 		time.Sleep(20 * time.Millisecond)
@@ -823,7 +828,7 @@ func TestACancellationBeforeTheCommandBeginsStillStopsIt(t *testing.T) {
 	if joined := strings.Join(v.Lines, "\n"); !strings.Contains(joined, "interrupted") || strings.Contains(joined, "total = ") {
 		t.Errorf("the run went on after the cancellation: %q", joined)
 	}
-	err = m.Use(context.Background(), "", func(sess *repl.Session) error {
+	err = m.Use(context.Background(), local, "", func(sess *repl.Session) error {
 		ev, err := sess.Evaluate("1 + 1")
 		if err == nil && ev.Text != "2" {
 			err = errors.New("the next call answered " + ev.Text)
@@ -964,7 +969,7 @@ func TestASaveThroughALinkRepointedAfterTheGuardWritesNothingOutsideTheRoot(t *t
 				t.Skip(err)
 			}
 			m := mustManager(t, root, func() (*repl.Session, error) { return repl.NewSession(), nil })
-			sess, err := m.Get("")
+			sess, err := m.Get(local, "")
 			if err != nil {
 				t.Fatal(err)
 			}

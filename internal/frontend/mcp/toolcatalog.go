@@ -21,6 +21,7 @@ type CatalogInput struct {
 type CatalogTool struct {
 	Name      string `json:"name"`
 	Group     string `json:"group,omitempty"`
+	Scope     string `json:"scope"`
 	Operation string `json:"operation"`
 	Summary   string `json:"summary"`
 }
@@ -37,9 +38,9 @@ type CatalogOutput struct {
 func registerCatalog(s *sdk.Server, groups []Group) {
 	sdk.AddTool(s, &sdk.Tool{
 		Name: "tool_catalog",
-		Description: "List the tools this server serves: each tool's name, group, the sysml-grpc RPC or `sysml` CLI flag it " +
-			"stands for, and a one-line summary. Pass `group` (lsp, runtime, session) to narrow the list. The same catalog " +
-			"generates the Tools section of the sysml-mcp manual page.",
+		Description: "List the tools this server serves: each tool's name, group, the scope a caller needs to call it, the " +
+			"sysml-grpc RPC or `sysml` CLI flag it stands for, and a one-line summary. Pass `group` (lsp, runtime, session) " +
+			"to narrow the list. The same catalog generates the Tools section of the sysml-mcp manual page.",
 		Annotations: toolkit.ReadOnly("Tool catalog"),
 	}, func(_ context.Context, _ *sdk.CallToolRequest, in CatalogInput) (*sdk.CallToolResult, CatalogOutput, error) {
 		served := groups
@@ -60,8 +61,8 @@ func registerCatalog(s *sdk.Server, groups []Group) {
 		}
 		var text strings.Builder
 		for _, e := range catalog.Entries(served...) {
-			out.Tools = append(out.Tools, CatalogTool{Name: e.Name, Group: string(e.Group), Operation: e.Operation(), Summary: e.Summary})
-			fmt.Fprintf(&text, "%s (%s): %s\n", e.Name, e.Operation(), e.Summary)
+			out.Tools = append(out.Tools, CatalogTool{Name: e.Name, Group: string(e.Group), Scope: string(e.Scope), Operation: e.Operation(), Summary: e.Summary})
+			fmt.Fprintf(&text, "%s [%s] (%s): %s\n", e.Name, e.Scope, e.Operation(), e.Summary)
 		}
 		return &sdk.CallToolResult{Content: []sdk.Content{&sdk.TextContent{Text: strings.TrimRight(text.String(), "\n")}}}, out, nil
 	})

@@ -1,9 +1,13 @@
 package toolkit
 
 import (
+	"context"
 	"testing"
 
 	"go.lsp.dev/protocol"
+
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/catalog"
 )
 
 func TestPositionRoundTripsThroughUTF16(t *testing.T) {
@@ -55,5 +59,25 @@ func TestAnnotationsSayWhatAToolDoes(t *testing.T) {
 	}
 	if a := Mutating("Rename", true); a.ReadOnlyHint || !a.IdempotentHint || !*a.DestructiveHint {
 		t.Errorf("Mutating = %+v", a)
+	}
+}
+
+// The caller of a request is the principal the server put in the context, or
+// the local principal, which holds every scope, when it put none.
+func TestCallerIsThePrincipalInContextOrLocal(t *testing.T) {
+	ctx := context.Background()
+	local := Caller(ctx)
+	if local.Source != LocalSource || local.Subject != LocalSubject || local.ID() != "local:local" {
+		t.Errorf("Caller of a bare context = %+v", local)
+	}
+	for _, s := range catalog.Scopes() {
+		if !HasScope(local, s) {
+			t.Errorf("the local principal lacks %s", s)
+		}
+	}
+	ann := guard.Principal{Subject: "ann", Source: "oidc", Scopes: []string{"sysml:read"}}
+	got := Caller(guard.WithPrincipal(ctx, ann))
+	if got.ID() != "oidc:ann" || !HasScope(got, catalog.ScopeRead) || HasScope(got, catalog.ScopeWrite) {
+		t.Errorf("Caller of ann's context = %+v", got)
 	}
 }

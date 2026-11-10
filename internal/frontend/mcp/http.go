@@ -174,7 +174,7 @@ func IsLoopbackAddr(addr net.Addr) bool { return guard.IsLoopbackAddr(addr) }
 func (s *Server) protocolHandler(over HTTPConfig) http.Handler {
 	streamable := sdk.NewStreamableHTTPHandler(func(*http.Request) *sdk.Server { return s.sdk },
 		&sdk.StreamableHTTPOptions{Logger: s.logger, MaxRequestBodyBytes: over.MaxBodyBytes})
-	return over.Token.Handler(streamable)
+	return over.Token.Handler(stampRemoteAddr(streamable))
 }
 
 // ErrNoToken is why a listener other machines reach is refused with no token.
