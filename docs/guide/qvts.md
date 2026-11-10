@@ -23,7 +23,10 @@ not satisfy.
 For a step that visits several elements, one path failure fails the whole query. The record keeps
 every failing element; a partial set of rows is not presented as a complete answer. `tolerate =
 true` is an explicit alternative for `Project` and `WhereFeature`: `Project` can keep an empty
-cell, while `WhereFeature` can drop the element it cannot compare. The current output does not
+cell, while `WhereFeature` can drop the element it cannot compare — for a feature the element
+lacks and for a metamodel property OpenSysML does not derive yet alike. A property the metamodel
+declares is never unknown, even when no row read carries it; only a name no metaclass declares and
+no row has is. The current output does not
 mark which cells or rows were tolerated; see [Current limits](#current-limits).
 
 ## Run a query
@@ -230,10 +233,13 @@ by it, so those surfaces fail with the same `QueryOutcome` detail (an unknown pr
 error naming the nearest spelling) and compare values by type as a `query def` does. See
 [OSLC Query text](../reference/oslc-query.md) for the plan each construct becomes.
 
-No shipped client—Go (`client/opensysml`), Java, Julia, MATLAB, Node, Python, Rust, or the Jupyter
-kernel—decodes this status detail today. Clients can read the status message, but currently do not
-expose the structured `QueryOutcome` record as a client-level result. The wire message is defined
-in `api/proto/sysml.proto`.
+The Java client decodes this status detail: a failed `runDocumentQuery`, `query` or `queryOslc`
+throws a `QueryOutcomeException` (a `ServiceException`) whose `outcome()` is the record above as a
+`QueryOutcome` — kind, step, each failure's step, expectation and frontier, each finding's element,
+constraint and observation (see [Java API](../reference/java-api.md#document-queries-and-rendering)).
+The other shipped clients—Go (`client/opensysml`), Julia, MATLAB, Node, Python, Rust, and the
+Jupyter kernel—read the status message but do not yet expose the structured `QueryOutcome` record
+as a client-level result. The wire message is defined in `api/proto/sysml.proto`.
 
 ## Current limits
 

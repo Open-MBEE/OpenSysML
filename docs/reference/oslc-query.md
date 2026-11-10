@@ -57,16 +57,16 @@ both take nested properties: `oslc.select=sysml:name,sysml:owner{sysml:name}`
 reports the owner's name as the column `owner.name`, and
 `oslc.orderBy=-sysml:owner{sysml:name}` orders by it. `*` in `oslc.select`,
 alone or inside a nested selection, is every property the selected rows could
-name, read of the reflective table `Project` reads (see
-[query kinds](../manual/query-kinds.md)): the properties of the element rows'
+name, read of the reflective table `Project` reads (see [query
+kinds](../manual/query-kinds.md)): the properties of the element rows'
 metaclasses the evaluator serves (`isComposite` and `portionKind` of a
 `PartUsage`, `body` of a `Comment`) with the evaluator's own (`rdf:type`,
 `sysx:multiplicityUpper`), or the features an object row's model declares; a
 column no row carries is left out, and a nested `sysml:owner{*}` reads the
-related element's. A query that selects nothing reports the properties every
-element carries. `oslc.searchTerms="wheel","axle"`
-keeps the elements whose text properties contain any of the quoted terms,
-case-insensitively, as `WhereText` matches.
+related element's. A query that selects nothing reports every property but
+`sysml:elementId`, the ones of particular metaclasses absent on the other rows.
+`oslc.searchTerms="wheel","axle"` keeps the elements whose text properties
+contain any of the quoted terms, case-insensitively, as `WhereText` matches.
 
 A parameter this implementation does not recognize is a typed error, not something
 to ignore, because ignoring it would answer a different question than the one asked:
@@ -102,15 +102,19 @@ and orders as written (`new Alarm(3)`), while a path through it reaches what
 it refers to: `sysml:senderArgument{rdf:type}` is `FeatureReferenceExpression`,
 `sysml:senderArgument{sysml:referent{sysml:name}}` the port it names.
 
-A `sysml:` spelling of a property the metamodel does not declare is refused
-before any element is read, as a QVTS path failure whose diagnostic lists the
-nearest spellings under the query's own `oslc.prefix` bindings, so they are
-always writable as they read: `sysml:multiplicityUpper` names
-`sysx:multiplicityUpper`, `sysml:nmae` names `sysml:name`. A `sysx:` feature
-the rows do not carry is refused by the evaluator the same way, naming the
-features the rows do have. `@type` and `@id` are not OSLC query text: the
-first is written `rdf:type`, and identity is reported for every result rather
-than asked for.
+A property the metamodel declares for some metaclass is never unknown: selected
+of rows none of which carry it (`oslc.select=sysml:body` over a model without
+comments), it is absent on every row; compared, it keeps no row; ordered by, it
+leaves the order. So is a metamodel property OpenSysML does not derive yet,
+such as an accept's `sysml:payloadArgument`. A `sysml:` spelling of a property
+the metamodel does not declare is refused before any element is read, as a QVTS
+path failure whose diagnostic lists the nearest spellings under the query's own
+`oslc.prefix` bindings, so they are always writable as they read:
+`sysml:multiplicityUpper` names `sysx:multiplicityUpper`, `sysml:nmae` names
+`sysml:name`. A `sysx:` feature the rows do not carry is refused by the
+evaluator the same way, naming the features the rows do have. `@type` and `@id`
+are not OSLC query text: the first is written `rdf:type`, and identity is
+reported for every result rather than asked for.
 
 ## Elements and objects
 
@@ -160,8 +164,9 @@ Results keep declaration order, with parents before their children, unless
 metamodel type are always present on every result. `oslc.orderBy=+a,-b` is a
 nested `OrderBy` per term, applied in reverse precedence so the stable sort
 keeps `b` within equal `a`; it compares values as the evaluator orders them
-(numbers numerically, `*` as positive infinity, text lexically), and rows
-missing the property keep their existing order.
+(numbers numerically, `*` as positive infinity, text lexically); rows missing
+the property sort as the smallest value would — first ascending, last
+descending — and keep their existing order among themselves.
 
 OSLC compound terms have no `or`, so OSLC text and the structured API Query
 are deliberately not interchangeable: an `or` in OSLC text is refused with a

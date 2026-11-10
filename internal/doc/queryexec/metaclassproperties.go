@@ -2,6 +2,7 @@ package queryexec
 
 import (
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
@@ -11,6 +12,10 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
+
+// MetaclassPackages are the library packages declaring the abstract syntax
+// metaclasses, whose features are the metamodel properties.
+var MetaclassPackages = []string{"KerML::Root", "KerML::Core", "KerML::Kernel", "SysML::Systems"}
 
 // ownProperties are the evaluator's properties of every element row beyond
 // the metamodel's: a wildcard projects them and a misspelling is matched
@@ -79,6 +84,49 @@ var unservedReasons = sync.OnceValue(func() map[string]string {
 	}
 	return reasons
 })
+
+// metamodelDeclares reports a property some metaclass of the loaded library declares,
+// or one of the evaluator's own (each segment of a dotted path): known even when no row has it.
+func (e *executor) metamodelDeclares(property string) bool {
+	if e.metamodelProperties == nil {
+		e.metamodelProperties = map[string]bool{}
+		for _, name := range ownProperties {
+			e.metamodelProperties[name] = true
+		}
+		if e.context.Index != nil {
+			for _, pkg := range MetaclassPackages {
+				for _, owner := range e.context.Index.LookupQualified(pkg) {
+					if owner.Scope == nil {
+						continue
+					}
+					for _, metaclass := range owner.Scope.Members() {
+						if !isMetaclass(metaclass) {
+							continue
+						}
+						for name := range e.metaclassProperties(metaclass) {
+							e.metamodelProperties[name] = true
+						}
+					}
+				}
+			}
+		}
+	}
+	for _, segment := range strings.Split(property, ".") {
+		if !e.metamodelProperties[segment] {
+			return false
+		}
+	}
+	return true
+}
+
+// unknownUnlessDeclared is the verdict on a property no row read carried: unknown when no
+// metaclass declares it or no row is an element, nil when element rows merely lack it.
+func (e *executor) unknownUnlessDeclared(expression queryplan.Expression, property string, seen *candidates) error {
+	if len(seen.metaclasses) > 0 && e.metamodelDeclares(property) {
+		return nil
+	}
+	return e.unknownPropertyAmong(expression, property, e.names(seen))
+}
 
 // metaclassPropertyOf is the property so named of the row's own metaclass,
 // when it has one.

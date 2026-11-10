@@ -1,7 +1,9 @@
 package querytranslate
 
 import (
+	"maps"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 
@@ -414,4 +416,49 @@ func operations(expression queryplan.Expression) []string {
 		out = append(out, operations(*source)...)
 	}
 	return out
+}
+
+// A row lacking the sort key sorts first ascending and last descending, as the
+// lexical evaluator ordered.
+func TestTranslateOrdersAMissingKeyAsTheSmallestValue(t *testing.T) {
+	plan, err := Translate(mustParse(t, "oslc.orderBy=+sysml:name,-sysml:body"), Context{}, "Test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for expression := plan.Program.Definitions()[0].Expression(); expression.Operation() == queryplan.OperationOrderBy; {
+		var property, missing string
+		var source queryplan.Expression
+		for _, argument := range expression.Arguments() {
+			switch argument.Name {
+			case "property":
+				_, property = argument.Value.Literal()
+			case "missing":
+				_, missing = argument.Value.Literal()
+			case "source":
+				source = argument.Value
+			}
+		}
+		got[property] = missing
+		expression = source
+	}
+	if want := map[string]string{"name": "first", "body": "last"}; !maps.Equal(got, want) {
+		t.Fatalf("missing keys sort = %v, want %v", got, want)
+	}
+}
+
+// A query selecting nothing reports the properties of particular metaclasses too,
+// absent on the rows without them; elementId alone waits to be named.
+func TestDefaultProjectionReportsEveryPropertyButElementID(t *testing.T) {
+	got := DefaultProjection()
+	for _, name := range []string{query.PropertyName, query.PropertyBody, query.PropertyLocale, query.PropertyLanguage,
+		query.PropertySatisfiedRequirement, query.PropertySatisfyingFeature, query.PropertyPayloadArgument,
+		query.PropertySenderArgument, query.PropertyReceiverArgument, query.PropertyMultiplicityUpper} {
+		if !slices.Contains(got, name) {
+			t.Errorf("DefaultProjection lacks %s: %v", name, got)
+		}
+	}
+	if slices.Contains(got, query.PropertyElementID) {
+		t.Errorf("DefaultProjection reads elementId: %v", got)
+	}
 }

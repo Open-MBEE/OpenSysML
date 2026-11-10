@@ -15,6 +15,8 @@ import java.net.InetSocketAddress;
 import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Base64;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
@@ -79,6 +81,91 @@ class TransportFailureTest {
           assertThrows(TransportException.class, () -> Connection.open(options));
       assertEquals(StatusCode.UNAVAILABLE, failed.status());
       assertTrue(failed.getMessage().contains("could not be decoded"), failed.getMessage());
+    }
+  }
+
+  @Test
+  void aQueryOutcomeDetailBecomesATypedException() throws Exception {
+    // The detail is the wire message in base64, which Connect writes without padding; a null, a
+    // detail of another type or one that will not decode beside it is not the outcome.
+    org.openmbee.opensysml.proto.QueryOutcome outcome =
+        org.openmbee.opensysml.proto.QueryOutcome.newBuilder()
+            .setKind("pathError")
+            .setStep("Feature(mass)")
+            .addFailures(
+                org.openmbee.opensysml.proto.QueryFailure.newBuilder()
+                    .setStep("Feature(mass)")
+                    .setExpected("a feature named mass on the element")
+                    .setFrontier(
+                        org.openmbee.opensysml.proto.QueryFrontier.newBuilder()
+                            .setAt("Lander::lander::cabinEngine")
+                            .addFeatures(
+                                org.openmbee.opensysml.proto.QueryFrontierFeature.newBuilder()
+                                    .setName("length")
+                                    .setType("LengthValue"))
+                            .addKinds("connect")
+                            .setNearest("length")))
+            .build();
+    String value = Base64.getEncoder().withoutPadding().encodeToString(outcome.toByteArray());
+    String body =
+        "{\"code\":\"failed_precondition\",\"message\":\"query reads feature mass\","
+            + "\"details\":[null,{\"type\":\"google.protobuf.Empty\",\"value\":\"\"},"
+            + "{\"type\":\"sysml.QueryOutcome\",\"value\":\"!!\"},"
+            + "{\"type\":\"sysml.QueryOutcome\",\"value\":\""
+            + value
+            + "\"}]}";
+    try (Stub refusing =
+        Stub.serving(
+            exchange -> {
+              drain(exchange);
+              respond(exchange, 412, "application/json", body);
+            })) {
+      ConnectionOptions options =
+          ConnectionOptions.builder().service("127.0.0.1", refusing.port()).build();
+      QueryOutcomeException refused =
+          assertThrows(QueryOutcomeException.class, () -> Connection.open(options));
+      assertEquals(StatusCode.FAILED_PRECONDITION, refused.status());
+      assertTrue(refused.serviceMessage().endsWith("query reads feature mass"), refused.getMessage());
+      assertEquals(
+          new QueryOutcome(
+              "pathError",
+              "Feature(mass)",
+              List.of(
+                  new QueryOutcome.Failure(
+                      "Feature(mass)",
+                      "a feature named mass on the element",
+                      new QueryOutcome.Frontier(
+                          "Lander::lander::cabinEngine",
+                          List.of(),
+                          List.of(new QueryOutcome.Frontier.Feature("length", "LengthValue")),
+                          List.of("connect"),
+                          "length"))),
+              List.of(),
+              List.of()),
+          refused.outcome());
+    }
+  }
+
+  @Test
+  void anOutcomeDetailThatWillNotDecodeLeavesTheStatusToTheCaller() throws Exception {
+    // The status is the service's answer; a detail this client cannot read does not hide it, and
+    // an empty one is not an outcome either: it has no kind.
+    String body =
+        "{\"code\":\"failed_precondition\",\"message\":\"query reads feature mass\","
+            + "\"details\":[{\"type\":\"sysml.QueryOutcome\",\"value\":\"\"},"
+            + "{\"type\":\"sysml.QueryOutcome\",\"value\":\"!!\"}]}";
+    try (Stub refusing =
+        Stub.serving(
+            exchange -> {
+              drain(exchange);
+              respond(exchange, 412, "application/json", body);
+            })) {
+      ConnectionOptions options =
+          ConnectionOptions.builder().service("127.0.0.1", refusing.port()).build();
+      ServiceException refused = assertThrows(ServiceException.class, () -> Connection.open(options));
+      assertEquals(ServiceException.class, refused.getClass());
+      assertEquals(StatusCode.FAILED_PRECONDITION, refused.status());
+      assertTrue(refused.getMessage().contains("query reads feature mass"), refused.getMessage());
     }
   }
 
