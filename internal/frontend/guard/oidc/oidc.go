@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -78,6 +79,8 @@ func New(cfg Config) (*Authenticator, error) {
 	if cfg.ClockSkew == 0 {
 		cfg.ClockSkew = DefaultClockSkew
 	}
+	// The advertised scopes are those configured at New, whatever the caller does with its slice.
+	cfg.Scopes = slices.Clone(cfg.Scopes)
 	a := &Authenticator{cfg: cfg}
 	if cfg.Introspect != "" {
 		a.introspec = newIntrospector(cfg)
