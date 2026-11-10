@@ -1927,7 +1927,9 @@ per entry, in run order) and, for a failed run, its `error` — and how the expl
 the witness of each outcome: `states[]` and `transitions[]`, each entry's `path` qualified by the
 instance that ran the machine (`Cov::sys#1.m.run: s0 -> viaB`, so one definition instantiated
 many times is told apart), its `declaration` (`Cov::M::run::s0 -> viaB`) and the number of
-`runs` that did so. The text verdict prints the same after the table, as
+`runs` that did so. A transition's entry carries its own name and its trigger when it has them
+(`idle -> busy (wake, event: accept Go)`), so two transitions between the same two states stay
+apart. The text verdict prints the same after the table, as
 `coverage over all runs: 5 states entered, 4 transitions taken` followed by one `state …` or
 `transition …` line each:
 

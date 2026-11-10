@@ -551,7 +551,7 @@ func (e *StateExecutor) recordTransitionTrace(trans *lower.Transition, source, t
 	if source != nil {
 		from, fromPath = source.Name, e.statePathNames(source)
 	}
-	e.ctx.noteTransitionTaken(e.self, e.stateMachine, fromPath, e.statePathNames(target))
+	e.ctx.noteTransitionTaken(e.self, e.stateMachine, fromPath, e.statePathNames(target), trans)
 	if e.trace() == nil {
 		return
 	}

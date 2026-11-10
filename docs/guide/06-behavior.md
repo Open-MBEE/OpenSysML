@@ -900,6 +900,8 @@ only the subject machine's final state is observed — so the table is followed 
 every run: `coverage over all runs: 5 states entered, 4 transitions taken`, then one line per
 state entered and transition taken, qualified by the instance that ran the machine and by its
 declaration, with how many runs did so (`state Cov::sys#1.m.run: viaB (Cov::M::run::viaB): 1 run`).
+A transition between the same two states as another is told apart by its own name and its
+trigger (`transition … : idle -> busy (wake, event: accept Go)`).
 The same list follows an `-engine check` verdict, counting schedules. With `-json`, each check
 carries `outcomes` (values, `linearizations`, optional exact `probability`, optional
 `probabilityRange`, `witness`) and `exploration` (`complete`, `runs`, `budgetsHit`, optional

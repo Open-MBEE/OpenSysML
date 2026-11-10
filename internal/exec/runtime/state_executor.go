@@ -2706,7 +2706,7 @@ func (e *StateExecutor) routeEntryFrontEffects(
 // enterBelow finishes a move whose exits and effects are done: it enters the
 // states below lca down to targetState, then the target's own start.
 func (e *StateExecutor) enterBelow(trans *lower.Transition, fromName string, lca, targetState *ast.StateNode, branches map[*ast.StateRegion]*ast.StateNode) error {
-	e.ctx.noteTransitionTaken(e.self, e.stateMachine, e.sourcePathNames(trans, fromName), e.statePathNames(targetState))
+	e.ctx.noteTransitionTaken(e.self, e.stateMachine, e.sourcePathNames(trans, fromName), e.statePathNames(targetState), trans)
 	_, leaf, err := e.enterToward(lca, targetState, branches)
 	if err != nil {
 		return err
@@ -2766,13 +2766,17 @@ func (e *StateExecutor) completeMachine() error {
 // terminateMachine ends the machine's performance at the terminate action a
 // transition reached (SysML v2 §7.18.3): no state is exited and no exit behavior
 // runs; the do behaviors under way are abandoned, and no state stays active.
-func (e *StateExecutor) terminateMachine(fromName string, trigger ast.Node, stop *ast.Usage) error {
+func (e *StateExecutor) terminateMachine(fromName string, trans *lower.Transition, stop *ast.Usage) error {
 	if err := e.ctx.freezeBodyCells(e.stateCells); err != nil {
 		return err
 	}
 	name, _ := ast.EffectiveName(stop)
-	e.ctx.noteTransitionTaken(e.self, e.stateMachine, []string{fromName}, []string{name})
+	e.ctx.noteTransitionTaken(e.self, e.stateMachine, []string{fromName}, []string{name}, trans)
 	if e.trace() != nil {
+		var trigger ast.Node
+		if trans != nil {
+			trigger = trans.Trigger
+		}
 		e.trace().RecordStateTransition(e.traceOrigin(), fromName, name, triggerName(trigger))
 	}
 	abandoned := e.abandonMachine()
@@ -2894,7 +2898,7 @@ func (e *StateExecutor) completeInto(trans *lower.Transition, fromName string, t
 			return fmt.Errorf("schedule completion of state %s: %w", target.Name, err)
 		}
 	}
-	e.ctx.noteTransitionTaken(e.self, e.stateMachine, e.sourcePathNames(trans, fromName), e.statePathNames(target))
+	e.ctx.noteTransitionTaken(e.self, e.stateMachine, e.sourcePathNames(trans, fromName), e.statePathNames(target), trans)
 	if e.trace() != nil {
 		e.trace().RecordStateTransition(e.traceOrigin(), fromName, target.Name, triggerName(trans.Trigger))
 	}
@@ -3369,7 +3373,7 @@ func (e *StateExecutor) fireForkTransition(trans *lower.Transition, fork *ast.Ps
 	if err := e.completeIfDone(owner); err != nil {
 		return fmt.Errorf("complete state machine: %w", err)
 	}
-	e.ctx.noteTransitionTaken(e.self, e.stateMachine, e.vertexPathNames(trans.Source), e.vertexPathNames(fork))
+	e.ctx.noteTransitionTaken(e.self, e.stateMachine, e.vertexPathNames(trans.Source), e.vertexPathNames(fork), trans)
 	if e.trace() != nil {
 		e.trace().RecordStateTransition(e.traceOrigin(), StateVertexName(trans.Source), fork.Name, "")
 	}
@@ -3629,7 +3633,7 @@ func (e *StateExecutor) fireJoinSegment(trans *lower.Transition, plan *lower.Joi
 		return err
 	}
 	e.noteFired(trans)
-	e.ctx.noteTransitionTaken(e.self, e.stateMachine, e.statePathNames(source), e.vertexPathNames(trans.Target))
+	e.ctx.noteTransitionTaken(e.self, e.stateMachine, e.statePathNames(source), e.vertexPathNames(trans.Target), trans)
 	return nil
 }
 
