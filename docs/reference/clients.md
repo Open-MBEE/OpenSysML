@@ -183,9 +183,11 @@ If no binary can be found or downloaded, the result is an error naming every way
 ## Every client runs the same conformance suite
 
 The scenarios in [`conformance/`](https://github.com/Open-MBEE/OpenSysML/tree/main/conformance)
-are the service contract, and each client runs them **through its own public API** rather than
-through generated stubs, so conformance with `sysml-grpc` is measured per language, over the same
-scenarios and comparing the same results:
+are the service contract. The Go, Node, Java, Rust and .NET runners drive them **through the
+client's own public API** rather than through generated stubs, so conformance with `sysml-grpc` is
+measured per language, over the same scenarios and comparing the same results. The Julia and MATLAB
+runners send each scenario's request as written over the client's Connect transport, which checks
+the transport and its encoding but not the typed calls, and the Python client has no runner:
 
 ```bash
 make conformance             # the reference runner: gRPC, Connect, Connect-JSON
@@ -204,7 +206,8 @@ The reference runner also takes `-junit <file>`, writing the same run as JUnit X
 configuration and protocol, one case per scenario). That is what `make conformance` stores beside
 the JSON report and what CI renders as its test report. The JSON report stays the source of truth.
 
-Each runner writes the report format produced by `tools/cmd/conformance`, and each is checked against
-deliberate corruption (a mutated response must fail a scenario), so a runner that asserts nothing
-cannot pass. Current per-client scenario counts are given in each client's README; they change as
-v1 gaps close, which is why they are maintained beside the code rather than here.
+Each runner writes the report format produced by `tools/cmd/conformance`. The Node, Java and .NET
+runners are also checked against deliberate corruption (a mutated response must fail a scenario),
+so a runner that asserts nothing cannot pass. Current per-client scenario counts are given in each
+client's README; they change as v1 gaps close, which is why they are maintained beside the code
+rather than here.
