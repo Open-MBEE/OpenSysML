@@ -55,9 +55,10 @@ case_ docs-only docs docs/guide/index.md
 case_ overrides-only docs overrides/home.html
 case_ changelog-only docs CHANGELOG.md
 case_ changelog-fragment docs changes/unreleased/repl-thing.added.md
-case_ java-module java,mdk client/java/opensysml-client/pom.xml
-case_ java-manifest java,mdk,python client/java/pom.xml
-case_ java-readme docs,java,mdk,python client/java/README.md
+case_ java-module java,mdk,syson client/java/opensysml-client/pom.xml
+case_ java-source java,mdk,syson client/java/opensysml-client/src/main/java/org/openmbee/opensysml/Exploration.java
+case_ java-manifest java,mdk,python,syson client/java/pom.xml
+case_ java-readme docs,java,mdk,python,syson client/java/README.md
 case_ java-reference docs,python docs/reference/java-api.md
 case_ java-skill docs,python packaging/agent-skills/skills/opensysml-java/SKILL.md
 case_ node-only node client/node/src/node/binary.ts
@@ -93,8 +94,8 @@ case_ vscode-syntaxes docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python
 case_ jupyterlab-syntax docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode editors/jupyterlab/src/syntax.json
 # Any markdown counts as documentation: the site links out to repository files.
 case_ man-page docs packaging/man/man1/sysml.1
-case_ two-client-readmes docs,java,mdk,node,python client/java/README.md client/node/README.md
-case_ two-clients java,mdk,node,python client/java/pom.xml client/node/tsconfig.json
+case_ two-client-readmes docs,java,mdk,node,python,syson client/java/README.md client/node/README.md
+case_ two-clients java,mdk,node,python,syson client/java/pom.xml client/node/tsconfig.json
 case_ go-source docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/syntax/parser/parser.go
 # The derived-property differential runs on what can move its baseline (the writer, the referee,
 # the bridge, the pin, the baseline itself) and on unclaimed paths, like every area; not on a parser change.
@@ -140,7 +141,7 @@ quick_case_ go-and-node go,node internal/syntax/parser/parser.go client/node/src
 quick_case_ go-and-docs docs,go internal/syntax/parser/parser.go docs/guide/index.md
 quick_case_ docs-only docs docs/guide/index.md
 quick_case_ project-baseline docs,go docs/project/pilot-differential-baseline.json
-quick_case_ java-manifest java,mdk,python client/java/pom.xml
+quick_case_ java-manifest java,mdk,python,syson client/java/pom.xml
 quick_case_ node-only node client/node/src/node/binary.ts
 quick_case_ vscode-grammar go,vscode editors/vscode/tools/gengrammar/grammar.go
 

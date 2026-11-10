@@ -17,6 +17,8 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
 import {
+  GQLOpenSysMLCoverage,
+  GQLOpenSysMLCoverageEntry,
   GQLOpenSysMLDocument,
   GQLOpenSysMLRunOutcome,
   GQLOpenSysMLRunResult,
@@ -79,6 +81,18 @@ const outcomeKeys = (outcomes: GQLOpenSysMLRunOutcome[]): string[] => {
     return count === 0 ? base : `${base}#${count}`;
   });
 };
+
+const count = (n: number, noun: string): string => `${n} ${noun}${n === 1 ? '' : 's'}`;
+
+// Mirrors the CLI's coverage lines: a summary, then every state entered and transition taken.
+const coverageSummary = (coverage: GQLOpenSysMLCoverage): string =>
+  `coverage over all runs: ${count(coverage.states.length, 'state')} entered, ${count(
+    coverage.transitions.length,
+    'transition'
+  )} taken`;
+
+const coverageLine = (kind: 'state' | 'transition', entry: GQLOpenSysMLCoverageEntry): string =>
+  `${kind} ${entry.path} (${entry.declaration}): ${count(entry.runs, 'run')}`;
 
 const verdictIcon = (verdict: GQLOpenSysMLRunResult['verdicts'][number]) => {
   if (!verdict.decided) {
@@ -167,6 +181,25 @@ export const RunResultsPanel = ({ result, onSelectElement }: RunResultsPanelProp
               <Typography variant="body2">linearizations: {outcome.linearizations}</Typography>
             </div>
           ))}
+        </section>
+      )}
+
+      {result.coverage && (result.coverage.states.length > 0 || result.coverage.transitions.length > 0) && (
+        <section data-testid="opensysml-coverage">
+          <Typography variant="subtitle2">Coverage</Typography>
+          <Typography variant="body2">{coverageSummary(result.coverage)}</Typography>
+          <List dense>
+            {result.coverage.states.map((entry) => (
+              <ListItem key={`state-${entry.path}`}>
+                <ListItemText primary={coverageLine('state', entry)} />
+              </ListItem>
+            ))}
+            {result.coverage.transitions.map((entry) => (
+              <ListItem key={`transition-${entry.path}`}>
+                <ListItemText primary={coverageLine('transition', entry)} />
+              </ListItem>
+            ))}
+          </List>
         </section>
       )}
 
