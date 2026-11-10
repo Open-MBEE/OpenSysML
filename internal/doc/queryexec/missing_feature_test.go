@@ -147,3 +147,28 @@ calc def Runs :> Query {
 		t.Fatalf("nearest = %q, want runa", nearest)
 	}
 }
+
+// TestMissingFeatureMessageCountsTheRest: a fan-out over many elements names
+// the first alsoLimit of them and counts the rest, so the message stays a
+// status trailer; the record still carries every failure.
+func TestMissingFeatureMessageCountsTheRest(t *testing.T) {
+	errs := make([]*Error, 0, 12)
+	for i := 0; i < 12; i++ {
+		target := "P::part" + string(rune('a'+i))
+		errs = append(errs, &Error{
+			Kind: ErrorMissingFeature, Query: "Q", Operation: "Project", Property: "mass", Target: target,
+			Outcome: &Outcome{Path: &PathError{Failures: []Failure{{Step: Step{Kind: StepFeature, Argument: "mass"}, Frontier: Frontier{At: target}}}}},
+		})
+	}
+	var joined *Error
+	if !errors.As(joinMissing(errs), &joined) {
+		t.Fatal("joinMissing did not return an *Error")
+	}
+	msg := joined.Error()
+	if !strings.HasSuffix(msg, "(also absent on P::partb, P::partc, P::partd, P::parte, P::partf, P::partg, P::parth, P::parti, and 3 others)") {
+		t.Fatalf("message = %q", msg)
+	}
+	if len(joined.Outcome.Path.Failures) != 12 {
+		t.Fatalf("record keeps %d failures, want 12", len(joined.Outcome.Path.Failures))
+	}
+}
