@@ -25,9 +25,8 @@ const reservedNameQueryModel = `package Observatory {
 	}
 }`
 
-// TestRunQueryTableSpellsAReservedWordNameAsTheQualifiedNameDoes: the table spells the end
-// `function` as `Observatory::FunctionToPart::function`, the qualifiedName the conversion states,
-// not the notation's `'function'`.
+// TestRunQueryTableSpellsAReservedWordNameAsTheQualifiedNameDoes: the end `function` reads
+// `Observatory::FunctionToPart::function`, the conversion's qualifiedName, not the notation's `'function'`.
 func TestRunQueryTableSpellsAReservedWordNameAsTheQualifiedNameDoes(t *testing.T) {
 	s := NewSession()
 	if res := s.Submit(reservedNameQueryModel); len(errorDiagnostics(res.Diagnostics)) > 0 {
