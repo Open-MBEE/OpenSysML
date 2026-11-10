@@ -64,10 +64,10 @@ func main() {
 
 // printConfig answers -print-config: the list of hosts when none is named, or
 // the block for the host named with it.
-func printConfig(opts *options, fs *flag.FlagSet, extra string, stdout, stderr io.Writer) int {
+func printConfig(opts *options, fs *flag.FlagSet, extra []string, stdout, stderr io.Writer) int {
 	name := opts.printConfig.host
-	if extra != "" {
-		fmt.Fprintf(stderr, "%sunexpected argument %q after -print-config %s\n", commandPrefix, extra, name)
+	if len(extra) > 0 {
+		fmt.Fprintf(stderr, "%sunexpected argument %q after -print-config %s\n", commandPrefix, extra[0], name)
 		printUsage(stderr, fs)
 		return exitUnservable
 	}
@@ -116,9 +116,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	// The first argument is the host of a bare -print-config; the flags after it
 	// are read now, before the environment, so every flag wins over its variable.
-	var positional string
+	var positional []string
 	if fs.NArg() > 0 {
-		positional = fs.Arg(0)
+		positional = []string{fs.Arg(0)}
 		if err := fs.Parse(fs.Args()[1:]); err != nil {
 			return exitUnservable
 		}
@@ -139,17 +139,15 @@ func run(args []string, stdout, stderr io.Writer) int {
 	opts.given = map[string]bool{}
 	fs.Visit(func(f *flag.Flag) { opts.given[f.Name] = true })
 
-	if opts.printConfig.set && opts.printConfig.host == "" {
-		opts.printConfig.host, positional = positional, ""
+	if opts.printConfig.set && opts.printConfig.host == "" && len(positional) > 0 && positional[0] != "" {
+		opts.printConfig.host, positional = positional[0], nil
 	}
-	if positional == "" && fs.NArg() > 0 {
-		positional = fs.Arg(0)
-	}
+	positional = append(positional, fs.Args()...)
 	if opts.printConfig.set {
 		return printConfig(opts, fs, positional, stdout, stderr)
 	}
-	if positional != "" {
-		fmt.Fprintf(stderr, "%sunexpected argument %q; %s\n", commandPrefix, positional, protocolMessage)
+	if len(positional) > 0 {
+		fmt.Fprintf(stderr, "%sunexpected argument %q; %s\n", commandPrefix, positional[0], protocolMessage)
 		printUsage(stderr, fs)
 		return exitUnservable
 	}
