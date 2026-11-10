@@ -114,19 +114,25 @@ calc def Ends :> Query {
 		{"ActionUsage", 0, ""},
 		{"TransitionUsage", 1, ""},
 	} {
-		query := "Kind"
+		queryName := "Kind"
 		if tc.isEnd != "" {
-			query = "Ends"
+			queryName = "Ends"
 		}
-		result, err := fixture.execute(t, query, Bindings{
+		result, err := fixture.execute(t, queryName, Bindings{
 			"root": {ElementValue(fixture.symbol(t, "Probe"))},
 			"type": {StringValue(tc.metaclass)},
 		}, Options{})
 		if err != nil {
-			t.Fatalf("execute %s(%s): %v", query, tc.metaclass, err)
+			t.Fatalf("execute %s(%s): %v", queryName, tc.metaclass, err)
 		}
 		if got := len(result.Rows()); got != tc.want {
 			t.Errorf("exact %s rows = %d, want %d", tc.metaclass, got, tc.want)
+		}
+		// Each row's own @type is the metaclass it was kept under.
+		for _, row := range result.Rows() {
+			if got := query.MetamodelTypeNameOf(row.Element().Declaration()); got != tc.metaclass {
+				t.Errorf("exact %s row %v @type = %q, want %s", tc.metaclass, row.Element(), got, tc.metaclass)
+			}
 		}
 		if tc.isEnd == "" {
 			continue
@@ -135,12 +141,6 @@ calc def Ends :> Query {
 		for _, row := range metaclassPropertyCells(t, result) {
 			if !strings.HasSuffix(row, " "+tc.isEnd) {
 				t.Errorf("exact %s row %q, want isEnd %s", tc.metaclass, row, tc.isEnd)
-			}
-		}
-		// Each row's own @type is the metaclass it was kept under.
-		for _, row := range result.Rows() {
-			if got := query.MetamodelTypeNameOf(row.Element().Declaration()); got != tc.metaclass {
-				t.Errorf("exact %s row %v @type = %q, want %s", tc.metaclass, row.Element(), got, tc.metaclass)
 			}
 		}
 	}
