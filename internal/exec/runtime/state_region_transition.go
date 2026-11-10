@@ -546,11 +546,12 @@ func (e *StateExecutor) rootToLeaf(state *ast.StateNode) []*ast.StateNode {
 // recordTransitionTrace notes one transition as coverage and records it in the
 // trace, naming the state left and the state entered.
 func (e *StateExecutor) recordTransitionTrace(trans *lower.Transition, source, target *ast.StateNode) {
-	from, fromPath := "", ""
+	var from string
+	var fromPath []string
 	if source != nil {
-		from, fromPath = source.Name, e.statePath(source)
+		from, fromPath = source.Name, e.statePathNames(source)
 	}
-	e.ctx.noteTransitionTaken(e.self, e.stateMachine, fromPath, e.statePath(target))
+	e.ctx.noteTransitionTaken(e.self, e.stateMachine, fromPath, e.statePathNames(target))
 	if e.trace() == nil {
 		return
 	}

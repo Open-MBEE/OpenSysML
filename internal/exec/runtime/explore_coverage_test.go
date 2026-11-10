@@ -215,3 +215,36 @@ func TestExploreCoverageTellsRegionsReusingNamesApart(t *testing.T) {
 		t.Errorf("transitions taken %q\nwant %q", taken, want)
 	}
 }
+
+// A name that is no basic name is quoted in the declaration, as in any qualified
+// name, so a dot inside it does not read as nesting.
+func TestExploreCoverageQuotesNamesThatAreNoBasicNames(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		part def M;
+		state def Run {
+			entry; then s0;
+			state s0;
+			state 'ready.now';
+			transition first s0 then 'ready.now';
+		}
+	}`)
+	x := exploreMachine(t, m, "test::M", "test::Run")
+	if !x.Complete() {
+		t.Fatalf("status %q, want complete", x.Status())
+	}
+	var lines []string
+	for _, entry := range x.Coverage.States {
+		lines = append(lines, entry.Path+" ("+entry.Declaration+")")
+	}
+	for _, entry := range x.Coverage.Transitions {
+		lines = append(lines, entry.Path+" ("+entry.Declaration+")")
+	}
+	want := []string{
+		"test::M#1.Run: ready.now (test::Run::'ready.now')",
+		"test::M#1.Run: s0 (test::Run::s0)",
+		"test::M#1.Run: s0 -> ready.now (test::Run::s0 -> 'ready.now')",
+	}
+	if !slices.Equal(lines, want) {
+		t.Errorf("coverage %q\nwant %q", lines, want)
+	}
+}
