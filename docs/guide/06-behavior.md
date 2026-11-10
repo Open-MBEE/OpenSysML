@@ -894,9 +894,19 @@ fails under some order is an outcome of its own (`error: …`), not the end of t
 behavior with no choice point explores in exactly one run (`no choice points`
 in the witness column); the same model explores to the same table every time. With `-trace`, the
 table is followed by the trace of each outcome's witness run (`trace of outcome 1's witness
-(run 4):`). With `-json`, each check carries `outcomes` (values, `linearizations`, optional exact
-`probability`, optional `probabilityRange`, `witness`) and `exploration` (`complete`, `runs`,
-`budgetsHit`, optional `failedLinearizations`, `probabilitiesLowerBound`) beside the table's lines.
+(run 4):`). The table shows one witness per outcome, but the other runs of an outcome may have
+entered other states — two orders through `viaA` and through `viaB` collapse into one outcome when
+only the subject machine's final state is observed — so the table is followed by the coverage of
+every run: `coverage over all runs: 5 states entered, 4 transitions taken`, then one line per
+state entered and transition taken, qualified by the instance that ran the machine and by its
+declaration, with how many runs did so (`state Cov::sys#1.m.run: viaB (Cov::M::run::viaB): 1 run`).
+A transition between the same two states as another is told apart by its own name and its
+trigger (`transition … : idle -> busy (wake, event: accept Go)`).
+The same list follows an `-engine check` verdict, counting schedules. With `-json`, each check
+carries `outcomes` (values, `linearizations`, optional exact `probability`, optional
+`probabilityRange`, `witness`) and `exploration` (`complete`, `runs`, `budgetsHit`, optional
+`failedLinearizations`, `probabilitiesLowerBound`, `coverage` with its `states` and
+`transitions`) beside the table's lines.
 
 If the runtime context or root executor cannot be created, or a pure structural start check fails
 before root model behavior runs, no schedule ran: the exploration fails with no outcome. Failures

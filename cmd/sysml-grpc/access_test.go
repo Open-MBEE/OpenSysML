@@ -49,7 +49,7 @@ func guardedServer(t *testing.T) (string, *bytes.Buffer) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := httptest.NewUnstartedServer(connectHandler(svc, "test", nil, token))
+	srv := httptest.NewUnstartedServer(connectHandler(svc, "test", nil, guard.Chain{guard.NewStaticToken(token)}))
 	srv.Config.Protocols = new(http.Protocols)
 	srv.Config.Protocols.SetHTTP1(true)
 	srv.Config.Protocols.SetUnencryptedHTTP2(true)

@@ -434,9 +434,19 @@ package OpenSysMLDocument {
              * and Connect from one protobuf schema; the Go, Python, Node, Rust
              * and Java clients are hand-written over stubs generated from that
              * schema, the Julia and MATLAB clients speak Connect-JSON over HTTP
-             * by the published wire contract, and the Cameo plugin and SysON
-             * integration reach the service through the Java client — so a rule
-             * fixed in the engine is fixed everywhere at once.
+             * by the published wire contract, and
+             * [](sysml:value:OpenSysMLSurfaces::opensysml.mdk.pluginName) in Cameo
+             * and [](sysml:value:OpenSysMLSurfaces::opensysml.syson.pluginName)
+             * reach the service through the Java client — so a rule fixed in
+             * the engine is fixed everywhere at once. The service binds
+             * loopback unless -host names another address, and then only
+             * behind the bearer token in
+             * [](sysml:value:OpenSysMLSurfaces::opensysml.service.bearerTokenEnv),
+             * which every client reads the same way. The language server
+             * serves VS Code, Emacs and the notebook's cells alike, and the
+             * view engine writes
+             * [](sysml:value:OpenSysMLSurfaces::opensysml.forms.formCount)
+             * rendering forms, of which draw.io is read back as edits.
              */
 
             part toolchain : Diagram {
