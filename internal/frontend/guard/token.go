@@ -73,6 +73,9 @@ const (
 	Expired
 	// InsufficientScope is a valid bearer token without a scope the server requires.
 	InsufficientScope
+	// Unavailable is a bearer token the server cannot verify for now, what issued
+	// it being out of reach; RFC 6750 § 3.1 has no error code for it.
+	Unavailable
 )
 
 // Bearer reads the bearer token of an Authorization header (RFC 6750 § 2.1):
@@ -100,19 +103,22 @@ func (t Token) Check(authorization string) Refusal {
 	return refusal
 }
 
-// HTTPStatus is the status a refusal is answered with: 400 for a header the
-// server cannot read, 403 for a missing scope, 401 otherwise (RFC 6750 § 3.1).
+// HTTPStatus is the status a refusal is answered with (RFC 6750 § 3.1): 400 for an
+// unreadable header, 403 for a missing scope, 503 for Unavailable, 401 otherwise.
 func (r Refusal) HTTPStatus() int {
 	switch r {
 	case Malformed:
 		return http.StatusBadRequest
 	case InsufficientScope:
 		return http.StatusForbidden
+	case Unavailable:
+		return http.StatusServiceUnavailable
 	}
 	return http.StatusUnauthorized
 }
 
-// Code is the RFC 6750 § 3.1 error code, empty when nothing was presented.
+// Code is the RFC 6750 § 3.1 error code, empty when nothing was presented and
+// for Unavailable, which is not the client's error.
 func (r Refusal) Code() string {
 	switch r {
 	case NotBearer, Malformed:
@@ -138,12 +144,14 @@ func (r Refusal) Description() string {
 		return "the bearer token has expired"
 	case InsufficientScope:
 		return "the bearer token lacks a scope this server requires"
+	case Unavailable:
+		return "the bearer token cannot be verified for now"
 	}
 	return ""
 }
 
 // ChallengeParams are the error parameters of a WWW-Authenticate challenge,
-// none when nothing was presented.
+// none for a refusal with no error code.
 func (r Refusal) ChallengeParams() []string {
 	if r.Code() == "" {
 		return nil
@@ -181,6 +189,8 @@ func (r Refusal) String() string {
 		return "expired token"
 	case InsufficientScope:
 		return "insufficient scope"
+	case Unavailable:
+		return "token cannot be verified for now"
 	}
 	return fmt.Sprintf("refusal(%d)", int(r))
 }
