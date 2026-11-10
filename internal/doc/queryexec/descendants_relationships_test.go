@@ -63,9 +63,8 @@ func TestDescendantsRelationshipsReachOwnedRelationships(t *testing.T) {
 	}
 }
 
-// An exact walk keeps an element under the metaclass reflection derives for it (Model.MetaclassOf):
-// a chain end's chain Feature is a Feature, a conjugated port definition a ConjugatedPortDefinition,
-// a transition a TransitionUsage — not under the kind the symbol carries.
+// An exact walk keeps an element under the metaclass reflection derives for it (Model.MetaclassOf): a chain
+// end's chain Feature is a Feature, a conjugated port definition a ConjugatedPortDefinition, a transition a TransitionUsage.
 func TestDescendantsRelationshipsExactKeepsTheReflectiveMetaclass(t *testing.T) {
 	fixture := loadExecutionFixture(t, `
 package Probe {
