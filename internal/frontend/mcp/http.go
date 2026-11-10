@@ -1,7 +1,6 @@
 package mcp
 
 import (
-	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -37,7 +36,15 @@ type HTTPConfig struct {
 	CertFile, KeyFile string
 	// ShutdownTimeout bounds the graceful shutdown; 0 is DefaultShutdownTimeout.
 	ShutdownTimeout time.Duration
+	// MaxBodyBytes bounds a request body on the protocol path, answered 413
+	// past it; 0 is the SDK's DefaultMaxBodyBytes, and a negative value no bound.
+	MaxBodyBytes int64
+	// Logger, if set, receives the transport's log; nil logs to the default.
+	Logger *slog.Logger
 }
+
+// DefaultMaxBodyBytes is the request body bound when none is configured.
+const DefaultMaxBodyBytes = sdk.DefaultMaxRequestBodyBytes
 
 // OriginPolicy admits a request with no Origin, a loopback origin or one allowed
 // by name, and refuses any other, so a rebound DNS name is not a way in.
@@ -162,93 +169,35 @@ func normalizeOrigin(s string) (string, bool) {
 // machine only; an address on every interface cannot.
 func IsLoopbackAddr(addr net.Addr) bool { return guard.IsLoopbackAddr(addr) }
 
-// Handler is the Streamable HTTP transport of this server, mounted at HTTPPath
-// behind origins and token, with the token's resource metadata served open.
-func (s *Server) Handler(origins OriginPolicy, token BearerToken) http.Handler {
-	streamable := sdk.NewStreamableHTTPHandler(func(*http.Request) *sdk.Server { return s.sdk }, &sdk.StreamableHTTPOptions{Logger: s.logger})
-	mux := http.NewServeMux()
-	mux.Handle(HTTPPath, origins.Handler(token.Handler(stampRemoteAddr(streamable))))
-	if token.Set() {
-		for _, path := range token.MetadataPaths() {
-			mux.Handle(path, origins.Handler(http.HandlerFunc(token.ServeMetadata)))
-		}
-	}
-	return mux
+// protocolHandler is the Streamable HTTP transport of this server behind the
+// token, with the request body bounded as over asks.
+func (s *Server) protocolHandler(over HTTPConfig) http.Handler {
+	streamable := sdk.NewStreamableHTTPHandler(func(*http.Request) *sdk.Server { return s.sdk },
+		&sdk.StreamableHTTPOptions{Logger: s.logger, MaxRequestBodyBytes: over.MaxBodyBytes})
+	return over.Token.Handler(stampRemoteAddr(streamable))
 }
 
 // ErrNoToken is why a listener other machines reach is refused with no token.
 var ErrNoToken = guard.NoToken(TokenEnv)
 
-// ServeStreamableHTTP serves clients over cfg.Listener until ctx ends, then
-// closes the live sessions and drains the connections within the timeout.
-func (s *Server) ServeStreamableHTTP(ctx context.Context, cfg HTTPConfig) error {
-	if (cfg.CertFile == "") != (cfg.KeyFile == "") {
-		return errors.New("a certificate file and a key file are both needed for TLS")
-	}
-	addr := cfg.Listener.Addr()
-	if !IsLoopbackAddr(addr) && !cfg.Token.Set() {
-		return fmt.Errorf("%s is an address other machines reach: %w", addr, ErrNoToken)
-	}
-	srv := &http.Server{Handler: s.Handler(cfg.Origins, cfg.Token), ReadHeaderTimeout: 10 * time.Second}
-	security := "cleartext"
-	if cfg.CertFile != "" {
+// describe names the transport's security and authentication for the log,
+// warning when a token is about to cross the network in the clear.
+func (c HTTPConfig) describe(addr net.Addr, logger *slog.Logger) (security, auth string) {
+	security, auth = "cleartext", "none"
+	if c.CertFile != "" {
 		security = "TLS"
-		srv.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12, NextProtos: []string{"h2", "http/1.1"}}
 	}
-	auth := "none"
-	if cfg.Token.Set() {
+	if c.Token.Set() {
 		auth = "bearer"
-		if cfg.CertFile == "" && !IsLoopbackAddr(addr) {
-			s.log().Warn("serving the bearer token over cleartext on an address other machines reach: a network observer can read and reuse it; serve TLS with -tls-cert and -tls-key, or terminate TLS in front",
+		if c.CertFile == "" && !IsLoopbackAddr(addr) {
+			logger.Warn("serving the bearer token over cleartext on an address other machines reach: a network observer can read and reuse it; serve TLS with -tls-cert and -tls-key, or terminate TLS in front",
 				"addr", addr.String())
 		}
 	}
-	s.log().Info("serving the Model Context Protocol over Streamable HTTP",
-		"addr", addr.String(), "path", HTTPPath, "security", security, "auth", auth, "allowed_origins", cfg.Origins.Allowed())
-
-	errs := make(chan error, 1)
-	go func() {
-		if cfg.CertFile != "" {
-			errs <- srv.ServeTLS(cfg.Listener, cfg.CertFile, cfg.KeyFile)
-			return
-		}
-		errs <- srv.Serve(cfg.Listener)
-	}()
-
-	select {
-	case err := <-errs:
-		if errors.Is(err, http.ErrServerClosed) {
-			return nil
-		}
-		return err
-	case <-ctx.Done():
-	}
-
-	timeout := cfg.ShutdownTimeout
-	if timeout == 0 {
-		timeout = DefaultShutdownTimeout
-	}
-	shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), timeout)
-	defer cancel()
-	done := make(chan error, 1)
-	go func() { done <- srv.Shutdown(shutdownCtx) }()
-	// A client's event stream stays open until its session ends, so the
-	// sessions are closed for the shutdown to see the connections idle.
-	for sess := range s.sdk.Sessions() {
-		_ = sess.Close()
-	}
-	if err := <-done; err != nil {
-		_ = srv.Close()
-		return fmt.Errorf("stopping the HTTP server: %w", err)
-	}
-	s.log().Info("stopped serving over Streamable HTTP")
-	return nil
+	return security, auth
 }
 
-// log is the server's logger, or the default when the config set none.
-func (s *Server) log() *slog.Logger {
-	if s.logger != nil {
-		return s.logger
-	}
-	return slog.Default()
+// tlsConfig is the TLS the transport serves: 1.2 or later, with HTTP/2.
+func tlsConfig() *tls.Config {
+	return &tls.Config{MinVersion: tls.VersionTLS12, NextProtos: []string{"h2", "http/1.1"}}
 }

@@ -2012,6 +2012,10 @@ func featureVerdict(ctx *runtime.Context, feat *runtime.EffectiveFeature, inst *
 		kind = "constraint"
 		passed, err = ctx.EvaluateConstraintOn(feat.Symbol, feat.DeclScope(), inst)
 	case symbols.SymbolRequirementUsage:
+		// An objective's `verify r;` references a requirement, stating none: no verdict of its own.
+		if usage, ok := feat.Symbol.Decl.(*ast.Usage); ok && usage.IsVerifiedRequirement() {
+			return "", false
+		}
 		kind = "requirement"
 		passed, err = ctx.EvaluateRequirementOn(feat.Symbol, feat.DeclScope(), inst)
 	default:

@@ -66,7 +66,7 @@ func serveAuthenticated(t *testing.T, cfg Config, principals map[string]guard.Pr
 		return TokenInfoFor(p), nil
 	}
 	require := auth.RequireBearerToken(verify, &auth.RequireBearerTokenOptions{AllowMissingExpiration: true})
-	hs := httptest.NewServer(require(srv.Handler(OriginPolicy{}, BearerToken{})))
+	hs := httptest.NewServer(require(srv.protocolHandler(HTTPConfig{})))
 	t.Cleanup(hs.Close)
 	return hs.URL + HTTPPath, &logs
 }

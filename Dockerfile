@@ -32,7 +32,7 @@ COPY . .
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     GOOS="$TARGETOS" GOARCH="$TARGETARCH" \
-    make build-sysml build-lsp build-grpc \
+    make build-sysml build-lsp build-grpc build-mcp \
         VERSION="$VERSION" COMMIT="$COMMIT" BUILD_TIME="$BUILD_TIME"
 
 # The binaries are static (CGO_ENABLED=0), so the runtime stage needs no libc,
@@ -45,7 +45,7 @@ ARG VERSION=dev
 ARG COMMIT=unknown
 ARG BUILD_TIME=unknown
 LABEL org.opencontainers.image.title="OpenSysML" \
-      org.opencontainers.image.description="SysML v2 / KerML runtime: sysml-grpc service with the sysml and sysml-lsp binaries" \
+      org.opencontainers.image.description="SysML v2 / KerML runtime: sysml-grpc service with the sysml, sysml-lsp and sysml-mcp binaries" \
       org.opencontainers.image.source="https://github.com/Open-MBEE/OpenSysML" \
       org.opencontainers.image.documentation="https://open-mbee.github.io/OpenSysML/guide/01-install/" \
       org.opencontainers.image.licenses="Apache-2.0" \
@@ -53,7 +53,7 @@ LABEL org.opencontainers.image.title="OpenSysML" \
       org.opencontainers.image.revision="$COMMIT" \
       org.opencontainers.image.created="$BUILD_TIME"
 
-COPY --from=build /src/bin/sysml /src/bin/sysml-lsp /src/bin/sysml-grpc /usr/local/bin/
+COPY --from=build /src/bin/sysml /src/bin/sysml-lsp /src/bin/sysml-grpc /src/bin/sysml-mcp /usr/local/bin/
 
 # The standard library's symbol cache; a read-only root filesystem mounts a
 # writable volume here, or the service runs uncached and says so once.
@@ -66,5 +66,8 @@ EXPOSE 50051 8081
 # flags below are defaults a deployer overrides by naming new ones. Binding
 # 0.0.0.0 needs a token (OPENSYSML_GRPC_TOKEN or -token-file) with -tls-cert
 # and -tls-key, or -allow-insecure-token-transport, or -allow-unauthenticated.
+
+# `docker run --entrypoint sysml-mcp … openmbee/opensysml -http 0.0.0.0:8765`
+# serves the Model Context Protocol on 8765 instead; see deploy/sysml-mcp/.
 ENTRYPOINT ["/usr/local/bin/sysml-grpc"]
 CMD ["-host", "0.0.0.0", "-port", "50051", "-health-port", "8081"]

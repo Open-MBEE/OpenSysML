@@ -118,11 +118,30 @@ element the query selected. Every row names the element it was computed for, and
 holds one element reference or the `qualifiedName` a column projects names that element, so a
 double-click selects it in the containment tree and each row annotates its element with the
 row's values. No rows is an informational success — in QVTS an empty selection is a value — so
-the run is `INFO`, never a failure. A query the service refuses (a misspelled `Named` source, a
-property no element has, a binding the parameter's type rejects) arrives today as a
-`ServiceException` whose message holds the path or model error; `results/QueryFailure` turns it
-into one `ERROR` outcome carrying the message, and is the one place to change when the Java
-client's typed query outcome (kind, step, frontier elements, findings) lands.
+the run is `INFO`, never a failure.
+
+A query the model has no answer for — a misspelled `Named` source, a feature some selected
+element lacks, a name two elements share — ran and reported, so it is `FAILED`, not `ERROR`. The
+Java client throws a `QueryOutcomeException` carrying the service's structured outcome, and
+`results/QueryFailure` maps it to the query's own outcome (the service's message) followed by
+one outcome per path failure and per model finding, worded as the CLI words them
+([the QVTS guide](../../docs/guide/qvts.md)):
+
+```text
+path error at Named(Lander::lander::cabni): expected exactly one element with that qualified name; at Lander::lander; members: [cabin (PartUsage), cabinEngine (ConnectionUsage), engine (PartUsage), engineBay (ConnectionUsage), scienceBay (PartUsage)]; nearest: cabin
+path error at Feature(mass): expected a feature named mass on the element; at Lander::lander::cabinEngine
+model error at Named(Duplicates::repeated): Duplicates violates ambiguousName: Duplicates::repeated (declared 2 times)
+```
+
+Each of those outcomes names the element the path stopped at (the frontier's `at`) or the
+element the finding is about, so the element is annotated as an error and selected from the
+results window; on the v1 path the name is mapped back to the Cameo element the same way a
+row's is. The service sends at most eight candidates per list and eight failures per step: a
+list that was cut ends `… and N more`, and failures that were left out are counted in a last
+outcome (`… and 3 more path errors at Feature(mass)`). A candidate list with nothing in it is
+left out. The queries beside a failed one still answer and keep their tables. A refusal that
+carries no outcome — a parameter left unbound, say — stays one `ERROR` outcome carrying the
+service's message, and outranks `FAILED` for the run's status.
 
 Not in scope here: rendering a whole `Document` from Cameo (`RenderDocument`), writing an answer
 back as a `QVTS::QueryResult` view, and transformations or proposals, which OpenSysML has no
@@ -160,7 +179,8 @@ To use one in a document:
 For every target the generated section gets a one-line summary (operation, element, status,
 elapsed time, final time), a table of outcomes with their status, for `RunQuery` one table per
 query answered (its columns the properties projected, one row per element selected, shown even
-when empty), a table of diagnostics with
+when empty) and, for a query that reported a path or model error, the same failure text the
+results window shows as rows of the outcome table, a table of diagnostics with
 their source locations, and the state schedule when the operation produced one. A target that
 fails to run yields an error paragraph in its place; the rest of the document is unaffected.
 
