@@ -1,1 +1,0 @@
-- Reading Turtle back, an `about` clause keeps the owner's own spelling of a target it states by name alone: an `Annotation` matched to that name through a namesake's declared name orders the entries but no longer respells `about A` as the namesake's qualified name.

@@ -1,1 +1,0 @@
-- An `expose` written with a `public`, `private` or `protected` indicator is now reported (`expose-visibility`, a notation error): SysML v2 `validateExposeVisibility` fixes an Expose at protected visibility and the grammar admits no prefix, so `view v : VD { public expose P::*; }`, which the pilot rejects, no longer passes silently.

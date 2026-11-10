@@ -1,1 +1,0 @@
-- The derived-property census (`go run -C tools ./cmd/derived-census`) builds again: its baseline's provenance names the pilot bridge, the roots and the libraries, no longer a digest of the metamodel package linked into the tool — the input the API-JSON baseline stopped recording so branches never conflict on it.

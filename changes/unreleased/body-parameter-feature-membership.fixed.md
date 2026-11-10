@@ -1,1 +1,0 @@
-- Reflection owns a behavior body's `in`/`out` feature (`action def Act { in p; out q; }`, and a usage's) through a `FeatureMembership` carrying the direction, as the pilot exports it and the RDF/API-JSON writers already stated; only `return r` is a `ReturnParameterMembership`. `ownedMemberParameter` is answered on the return membership alone.

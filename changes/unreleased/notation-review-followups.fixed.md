@@ -1,4 +1,0 @@
-- A compartment row is greyed only when the edge folded to its owner is drawn: a member whose type the Layout leaves unplaced keeps a plain row, and a nested port's copied row (`input.tick : Clock`) is greyed with the edge at it.
-- Mermaid keeps the greyed rows in italics (`<i>`) when a label needs escaping and is written as plain text.
-- `showAttributes = false` hides an `end attribute` listed under `ends`, and the other `show…` switches hide the rows a modifier moves to `ends` or `individuals` the same way.
-- A quoted user-defined keyword (`#'Safety Level' part`) stays one word of the kind, so its rows list under `parts`, and a global one keeps its `$::`.

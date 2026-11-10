@@ -1,1 +1,0 @@
-- The Node client's `runInlineDocumentQuery` now refuses a service without the `inline_document_query` capability by rejecting the returned promise, as every other refused call does, rather than by throwing before the promise exists.

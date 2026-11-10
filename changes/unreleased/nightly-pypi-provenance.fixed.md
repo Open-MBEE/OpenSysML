@@ -1,1 +1,0 @@
-- The nightly snapshot's Python client and Jupyter kernel reach PyPI through `release-pypi.yml`, the release's own trusted publisher, dispatched with the night's tag; while the nightly uploaded them under its own workflow, PyPI marked a *Change of provenance* on every release after a snapshot and every snapshot after a release.
