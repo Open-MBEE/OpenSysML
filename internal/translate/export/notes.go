@@ -172,23 +172,16 @@ func notedSubjects(g *rdf.Graph) []rdf.Term {
 	return out
 }
 
-// statesEveryNote reports whether each note stated is one derived, in every field
-// (text, token, line, head or tail); one derived and not stated is passed over.
+// statesEveryNote reports whether the notes stated are derived in order, each in every
+// field (text, token, line, head or tail); one derived and not stated is passed over.
 func statesEveryNote(stated, derived []note) bool {
-	matched := make([]bool, len(derived))
-	for _, n := range stated {
-		found := false
-		for j, m := range derived {
-			if !matched[j] && m == n {
-				matched[j], found = true, true
-				break
-			}
-		}
-		if !found {
-			return false
+	i := 0
+	for _, m := range derived {
+		if i < len(stated) && m == stated[i] {
+			i++
 		}
 	}
-	return true
+	return i == len(stated)
 }
 
 // notesWritten lists the notes written with an element: those of a succession

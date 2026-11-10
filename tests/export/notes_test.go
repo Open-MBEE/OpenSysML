@@ -305,6 +305,27 @@ func TestNotePositionEditedInTheGraphIsWritten(t *testing.T) {
 	})
 }
 
+// Two notes at one token are told apart by their order alone, so their texts swapped
+// in the graph demote the text as any other edit does, and both are written swapped.
+func TestNotesAtOneTokenSwappedInTheGraphAreWritten(t *testing.T) {
+	const twice = `package Fleet {
+    part def Truck {
+        // first
+        // second
+        part axles : Axle[2];
+    }
+}
+`
+	turtle := idTurtle(t, twice)
+	edited := editTurtle(t, turtle, `sysx:noteText "// first"`, `sysx:noteText "// swapped"`)
+	edited = editTurtle(t, edited, `sysx:noteText "// second"`, `sysx:noteText "// first"`)
+	edited = editTurtle(t, edited, `sysx:noteText "// swapped"`, `sysx:noteText "// second"`)
+	want := strings.Replace(twice, "        // first\n        // second\n", "        // second\n        // first\n", 1)
+	if back := toNotation(t, edited); back != want {
+		t.Errorf("the swapped notes were not written:\n--- want ---\n%s--- got ---\n%s", want, back)
+	}
+}
+
 // A `//` note the graph puts inline ahead of a declaration's first token would run
 // on over the declaration, so it takes its own line, where it reads as the note it is.
 func TestLineNoteAheadOfTheDeclarationKeepsItsLine(t *testing.T) {
