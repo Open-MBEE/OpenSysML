@@ -506,6 +506,9 @@ func TestTheHTTPTransportRequiresTheToken(t *testing.T) {
 // TestTheHTTPTransportServesAPIKeys checks a key file guards an address alone or beside
 // the token, a revoked key is refused once SIGHUP re-reads the file, and no secret is logged.
 func TestTheHTTPTransportServesAPIKeys(t *testing.T) {
+	if len(hangup) == 0 {
+		t.Skip("this platform delivers no SIGHUP")
+	}
 	dir := t.TempDir()
 	keyFile := filepath.Join(dir, "keys.jsonl")
 	var stdout, stderr bytes.Buffer
@@ -581,7 +584,7 @@ func TestTheHTTPTransportServesAPIKeys(t *testing.T) {
 			if status := run([]string{"-revoke-api-key", records[0].ID, "-api-keys", keyFile}, &out, &errs); status != exitServed {
 				t.Fatalf("revoke: status %d\n%s", status, &errs)
 			}
-			if err := s.cmd.Process.Signal(syscall.SIGHUP); err != nil {
+			if err := s.cmd.Process.Signal(hangup[0]); err != nil {
 				t.Fatal(err)
 			}
 			deadline := time.Now().Add(time.Minute)

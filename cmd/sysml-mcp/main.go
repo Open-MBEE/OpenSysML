@@ -274,14 +274,17 @@ func serve(stderr io.Writer, cfg mcp.Config, over *httpOptions) int {
 // reloadOnHangup has the credentials re-read on each SIGHUP until ctx ends, so
 // a key file edited by hand takes effect at once; a file that fails keeps what it held.
 func reloadOnHangup(ctx context.Context, auth flags.Authenticators, logger *slog.Logger) {
-	hangup := make(chan os.Signal, 1)
-	signal.Notify(hangup, syscall.SIGHUP)
-	defer signal.Stop(hangup)
+	if len(hangup) == 0 {
+		return
+	}
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, hangup...)
+	defer signal.Stop(signals)
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-hangup:
+		case <-signals:
 			if err := auth.Reload(); err != nil {
 				logger.Error("credentials not reloaded on SIGHUP, keeping those held", "err", err)
 				continue
