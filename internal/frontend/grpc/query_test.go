@@ -942,11 +942,24 @@ func TestQueryVerifyIsARequirementUsage(t *testing.T) {
 		t.Fatalf("satisfy elements = %d, want none: %v", len(satisfies.Elements), satisfies.Elements)
 	}
 	_, _, requirements := runQueryOnSource(t, model, &pb.Query{
-		Where: primitive(QueryPropType, opEqual, false, "RequirementUsage"),
+		Where:  primitive(QueryPropType, opEqual, false, "RequirementUsage"),
+		Select: []string{QueryPropOwner, QueryPropName},
 	})
-	// `r`, the objective and the verify member are the model's requirement usages.
-	if len(requirements.Elements) != 3 {
-		t.Fatalf("requirement usages = %d, want 3 (r, the objective, the verify): %v", len(requirements.Elements), requirements.Elements)
+	// The verify is the RequirementUsage the objective owns, named by the requirement it references.
+	var verify *pb.QueryResultElement
+	for _, element := range requirements.Elements {
+		if element.Properties[QueryPropOwner] == "Demo::Check::obj" {
+			if verify != nil {
+				t.Fatalf("two requirement usages under the objective: %v and %v", verify, element)
+			}
+			verify = element
+		}
+	}
+	if verify == nil {
+		t.Fatalf("no RequirementUsage owned by the objective Demo::Check::obj: %v", requirements.Elements)
+	}
+	if verify.Id != "Demo::Check::obj::r" || verify.Properties[QueryPropName] != "r" {
+		t.Errorf("verify = %q named %q, want Demo::Check::obj::r named r (by the requirement it references)", verify.Id, verify.Properties[QueryPropName])
 	}
 }
 
