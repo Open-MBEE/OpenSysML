@@ -343,7 +343,8 @@ func (r *elementReader) property(element metamodel.Element, class, name string) 
 	out.DefiningClass = definition.DefiningClass
 	out.Many = definition.Many
 	out.Derived = definition.Derived
-	if value, ok := r.evaluator.PropertyReadOnly(element, definition.DefiningClass, name); ok {
+	ruleClass := ruleDefiningClass(class, definition)
+	if value, ok := r.evaluator.PropertyReadOnly(element, ruleClass, name); ok {
 		out.Values = r.values(value)
 		return out
 	}
@@ -351,15 +352,36 @@ func (r *elementReader) property(element metamodel.Element, class, name string) 
 		out.Values = r.values(value)
 		return out
 	}
-	if reason, explained := r.evaluator.Explain(element, definition.DefiningClass, name); explained {
-		out.Unsupported = fmt.Sprintf("%s is not derived for this element: %s", definition.QualifiedName(), reason)
-		return out
-	}
 	if reason, omitted := omittedPropertyReasons()[definition.QualifiedName()]; omitted {
 		out.Unsupported = fmt.Sprintf("%s is not derived by OpenSysML: %s", definition.QualifiedName(), reason)
+		return out
+	}
+	if reason, explained := r.evaluator.Explain(element, ruleClass, name); explained {
+		out.Unsupported = fmt.Sprintf("%s is not derived for this element: %s", definition.QualifiedName(), reason)
 	}
 	return out
 }
+
+// ruleDefiningClass is the class the evaluator keys the property's rule by: the most specific
+// served rule the metaclass specializes (FeatureChainExpression::operator), else the ontology's.
+func ruleDefiningClass(metaclass string, definition ontology.Property) string {
+	chosen := definition.DefiningClass
+	for _, class := range ruleClassesByProperty()[definition.Name] {
+		if class != chosen && ontology.IsAncestorOrSelf(metaclass, class) && ontology.IsAncestorOrSelf(class, chosen) {
+			chosen = class
+		}
+	}
+	return chosen
+}
+
+// ruleClassesByProperty lists, per property name, the classes the served rules are keyed by.
+var ruleClassesByProperty = sync.OnceValue(func() map[string][]string {
+	classes := map[string][]string{}
+	for _, rule := range metamodel.Rules() {
+		classes[rule.Property] = append(classes[rule.Property], rule.DefiningClass)
+	}
+	return classes
+})
 
 // statedProperty reads a property the evaluator has no rule for straight from the notation:
 // the element's identity, a stated attribute, or a stated relationship end.

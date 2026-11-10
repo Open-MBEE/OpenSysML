@@ -522,6 +522,10 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 		if name == "referent" {
 			return e.structureFeatureReferenceReferent(element)
 		}
+	case "UseCaseDefinition":
+		if name == "includedUseCase" {
+			return e.structureIncludedUseCases(element, class)
+		}
 	case "MetadataAccessExpression":
 		if name == "referencedElement" {
 			return e.structureMetadataAccessReferencedElement(element)
@@ -1792,10 +1796,11 @@ func (e *Evaluator) structureFlowProperty(element Element, property string) (Val
 }
 
 func (e *Evaluator) structureFlowAttachment(element Element, index int) (Value, bool, bool) {
-	if element.Symbol == nil || element.Symbol.Scope == nil || e.model == nil || e.resolver == nil {
+	sym, ok := e.structureSymbolOf(element)
+	if !ok || sym.Scope == nil || e.model == nil || e.resolver == nil {
 		return Value{}, true, false
 	}
-	attachments := e.model.FlowEndAttachments(element.Symbol)
+	attachments := e.model.FlowEndAttachments(sym)
 	if index >= len(attachments) {
 		return nullValue(), true, true
 	}
@@ -1803,7 +1808,7 @@ func (e *Evaluator) structureFlowAttachment(element Element, index int) (Value, 
 	if !handled || !ok || len(ends.Values) != len(attachments) {
 		return Value{}, true, false
 	}
-	target, ok := e.resolver.ResolveTarget(element.Symbol.Scope, attachments[index].Attachment)
+	target, ok := e.resolver.ResolveTarget(sym.Scope, attachments[index].Attachment)
 	if !ok || target == nil {
 		return Value{}, true, false
 	}
@@ -6756,6 +6761,45 @@ func (e *Evaluator) structureReferencedFeature(element Element) (Element, bool, 
 	return targets[0].Element, true, true
 }
 
+// structureIncludedUseCases derives UseCaseDefinition::includedUseCase (SysML 8.3.25.3): the
+// useCaseIncluded of each owned IncludeUseCaseUsage — the use case it references, else itself.
+func (e *Evaluator) structureIncludedUseCases(element Element, class string) (Value, bool, bool) {
+	unsupported := func(category ReasonCategory, detail string) (Value, bool, bool) {
+		e.recordUnsupportedReason(element, class, "includedUseCase", Reason{Category: category, Detail: class + "::includedUseCase " + detail})
+		return Value{}, true, false
+	}
+	features, handled, ok := e.structureOwnedFeatures(element)
+	if !handled || !ok {
+		return unsupported(ReasonUnrepresentedEndpoint, "owned features are unavailable")
+	}
+	includes, ok := e.structureFilterValues(features.Values, "IncludeUseCaseUsage")
+	if !ok {
+		return unsupported(ReasonUnrepresentedElement, "an owned feature has no represented metaclass")
+	}
+	included := make([]Value, 0, len(includes))
+	for _, include := range includes {
+		if include.Kind != ElementValue {
+			return unsupported(ReasonUnrepresentedElement, "owned include is not an element")
+		}
+		referenced, handled, ok := e.structureReferencedFeature(include.Element)
+		if !handled || !ok {
+			return unsupported(ReasonUnresolvedReference, "an include's referenced use case is unresolved")
+		}
+		useCase := include.Element
+		if referenced != (Element{}) {
+			isUseCase, known := e.isMetaclass(referenced, "UseCaseUsage")
+			if !known {
+				return unsupported(ReasonUnrepresentedElement, "an include's referenced feature has no represented metaclass")
+			}
+			if isUseCase {
+				useCase = referenced
+			}
+		}
+		included = append(included, elementValue(useCase))
+	}
+	return sequence(included...), true, true
+}
+
 func (e *Evaluator) structureActionArgument(element Element, property string, oneBasedIndex int) (Value, bool, bool) {
 	parameters, handled, ok := e.structureOwnedFilter(element, "ParameterMembership", true)
 	if !handled || !ok {
@@ -7713,7 +7757,7 @@ func (e *Evaluator) structureResultFeatures(element Element, class, property str
 		}
 		features = append(features, filtered...)
 	}
-	if len(features) == 0 && element.Symbol != nil {
+	if len(features) == 0 {
 		outputs, handled, ok := e.structureDirectedFeatures(element, "output")
 		if !handled || !ok {
 			e.recordUnsupportedReason(
@@ -8116,6 +8160,11 @@ func (e *Evaluator) structureRelatedElements(element Element, properties ...stri
 }
 
 func (e *Evaluator) structureMembershipMembers(membership Element) ([]Element, bool) {
+	// A library member's membership stays the model's to answer, as the member itself does.
+	if member := membership.Membership.Member; membership.IsMembership && member != nil &&
+		e.resolver != nil && e.resolver.Index() != nil && e.resolver.Index().Library(member) {
+		return []Element{ElementOf(member)}, true
+	}
 	if e.hasUnresolvedRelatedElement(membership, "memberElement") ||
 		e.hasUnresolvedRelatedElement(membership, "ownedRelatedElement") {
 		return nil, false

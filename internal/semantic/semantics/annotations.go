@@ -1166,6 +1166,12 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 		if decl.IsEvent {
 			return "EventOccurrenceUsage"
 		}
+		if decl.IsExhibitedState() {
+			return "ExhibitStateUsage"
+		}
+		if decl.IsIncludedUseCase() {
+			return "IncludeUseCaseUsage"
+		}
 	}
 	switch sym.Kind {
 	case symbols.SymbolConnectorEnd:

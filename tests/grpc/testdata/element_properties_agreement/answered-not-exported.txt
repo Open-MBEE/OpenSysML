@@ -13,6 +13,7 @@ AcceptActionUsage::occurrenceDefinition	103	symbol-41
 AcceptActionUsage::type	103	symbol-19
 ActionDefinition::ownedFlow	9	symbol-45
 ActionDefinition::ownedTransition	16	symbol-45
+ActionDefinition::parameter	67	symbol-73
 ActionDefinition::step	132	symbol-24
 ActionUsage::actionDefinition	272	symbol-35
 ActionUsage::behavior	272	symbol-26
@@ -42,7 +43,8 @@ AllocationUsage::type	68	symbol-19
 AnalysisCaseDefinition::expression	13	symbol-28
 AnalysisCaseDefinition::objectiveRequirement	12	symbol-45
 AnalysisCaseDefinition::ownedRequirement	12	symbol-45
-AnalysisCaseDefinition::result	6	symbol-45
+AnalysisCaseDefinition::parameter	13	symbol-73
+AnalysisCaseDefinition::result	12	symbol-45
 AnalysisCaseDefinition::step	13	symbol-24
 AnalysisCaseUsage::actionDefinition	2	symbol-35
 AnalysisCaseUsage::analysisCaseDefinition	13	symbol-45
@@ -216,10 +218,11 @@ BooleanUsage::owningRelationship	4	symbol-47
 BooleanUsage::owningType	1	symbol-45
 BooleanUsage::parameter	2	symbol-27
 BooleanUsage::qualifiedName	4	symbol-47
-BooleanUsage::result	1	symbol-45
+BooleanUsage::result	2	symbol-45
 BooleanUsage::type	3	symbol-19
 CalculationDefinition::expression	75	symbol-28
-CalculationDefinition::result	34	symbol-45
+CalculationDefinition::parameter	75	symbol-73
+CalculationDefinition::result	75	symbol-45
 CalculationDefinition::step	75	symbol-24
 CalculationUsage::actionDefinition	26	symbol-35
 CalculationUsage::behavior	26	symbol-26
@@ -233,7 +236,8 @@ CalculationUsage::type	26	symbol-19
 CaseDefinition::expression	2	symbol-28
 CaseDefinition::objectiveRequirement	2	symbol-45
 CaseDefinition::ownedRequirement	2	symbol-45
-CaseDefinition::result	1	symbol-45
+CaseDefinition::parameter	2	symbol-73
+CaseDefinition::result	2	symbol-45
 CaseDefinition::step	2	symbol-24
 CaseUsage::actionDefinition	1	symbol-35
 CaseUsage::behavior	1	symbol-26
@@ -294,6 +298,8 @@ Comment::annotation	3	symbol-61
 Comment::ownedAnnotation	6	symbol-05
 ConcernDefinition::expression	7	symbol-28
 ConcernDefinition::input	2	symbol-53
+ConcernDefinition::parameter	7	symbol-73
+ConcernDefinition::result	7	symbol-74
 ConcernDefinition::step	7	symbol-24
 ConcernUsage::behavior	6	symbol-26
 ConcernUsage::concernDefinition	8	symbol-45
@@ -341,6 +347,8 @@ Connector::target	12	symbol-12
 Connector::targetFeature	3	symbol-23
 Connector::type	5	symbol-19
 ConstraintDefinition::expression	11	symbol-28
+ConstraintDefinition::parameter	11	symbol-73
+ConstraintDefinition::result	11	symbol-74
 ConstraintDefinition::step	11	symbol-24
 ConstraintUsage::behavior	125	symbol-26
 ConstraintUsage::constraintDefinition	125	symbol-32
@@ -359,6 +367,7 @@ ConstraintUsage::occurrenceDefinition	125	symbol-41
 ConstraintUsage::output	2	symbol-51
 ConstraintUsage::parameter	4	symbol-27
 ConstraintUsage::qualifiedName	2	symbol-47
+ConstraintUsage::result	2	symbol-74
 ConstraintUsage::type	125	symbol-19
 ConstraintUsage::usage	2	symbol-50
 ConstructorExpression::instantiatedType	18	symbol-29
@@ -379,6 +388,7 @@ Disjoining::ownedAnnotation	1	symbol-05
 Disjoining::ownedElement	1	symbol-50
 Documentation::annotatedElement	9	symbol-45
 Documentation::annotation	9	symbol-04
+Documentation::documentedElement	9	symbol-78
 EndFeatureMembership::ownedMemberFeature	1775	symbol-16
 EnumerationDefinition::ownedEnumeration	9	symbol-45
 EnumerationUsage::attributeDefinition	27	symbol-40
@@ -428,6 +438,7 @@ Feature::owningType	12	symbol-45
 Feature::type	278	symbol-19
 FeatureChainExpression::instantiatedType	304	symbol-29
 FeatureChainExpression::operand	495	symbol-30
+FeatureChainExpression::operator	495	symbol-77
 FeatureChaining::relatedElement	248	symbol-10
 FeatureInverting::documentation	1	symbol-50
 FeatureInverting::ownedAnnotation	1	symbol-05
@@ -440,6 +451,7 @@ FeatureTyping::documentation	1	symbol-50
 FeatureTyping::ownedAnnotation	1	symbol-05
 FeatureTyping::ownedElement	1	symbol-50
 FlowDefinition::endFeature	4	symbol-13
+FlowDefinition::parameter	2	symbol-73
 FlowDefinition::step	6	symbol-24
 FlowEnd::directedFeature	3	symbol-51
 FlowEnd::feature	3	symbol-14
@@ -463,7 +475,9 @@ FlowUsage::isReference	110	symbol-38
 FlowUsage::occurrenceDefinition	96	symbol-41
 FlowUsage::parameter	1	symbol-27
 FlowUsage::relatedElement	66	symbol-10
+FlowUsage::sourceOutputFeature	61	symbol-76
 FlowUsage::target	66	symbol-12
+FlowUsage::targetInputFeature	61	symbol-76
 FlowUsage::type	102	symbol-19
 ForLoopActionUsage::actionDefinition	2	symbol-35
 ForLoopActionUsage::behavior	2	symbol-26
@@ -568,7 +582,9 @@ Membership::membershipOwningNamespace	2485	symbol-07
 Membership::relatedElement	475	symbol-10
 Membership::source	475	symbol-11
 Membership::target	33	symbol-12
+MembershipExpose::importedElement	36	symbol-75
 MembershipExpose::relatedElement	71	symbol-10
+MembershipImport::importedElement	155	symbol-75
 MembershipImport::relatedElement	188	symbol-10
 MergeNode::actionDefinition	18	symbol-35
 MergeNode::behavior	18	symbol-26
@@ -581,8 +597,10 @@ MetadataUsage::ownedAnnotation	10	symbol-05
 Multiplicity::type	2581	symbol-19
 MultiplicityRange::featuringType	37	symbol-17
 MultiplicityRange::type	536	symbol-19
+NamespaceExpose::importedElement	14	symbol-75
 NamespaceExpose::relatedElement	24	symbol-10
 NamespaceImport::importOwningNamespace	2	symbol-45
+NamespaceImport::importedElement	207	symbol-75
 NamespaceImport::relatedElement	279	symbol-10
 NamespaceImport::source	2	symbol-11
 OccurrenceDefinition::ownedFlow	4	symbol-45
@@ -734,7 +752,9 @@ RequirementDefinition::expression	67	symbol-28
 RequirementDefinition::input	10	symbol-51
 RequirementDefinition::ownedConcern	1	symbol-45
 RequirementDefinition::ownedRequirement	3	symbol-45
+RequirementDefinition::parameter	67	symbol-73
 RequirementDefinition::reqId	8	symbol-45
+RequirementDefinition::result	67	symbol-74
 RequirementDefinition::step	67	symbol-24
 RequirementUsage::behavior	55	symbol-26
 RequirementUsage::constraintDefinition	55	symbol-32
@@ -775,6 +795,7 @@ Specialization::subclassifier	14	symbol-45
 Specialization::superclassifier	8	symbol-45
 Specialization::target	2	symbol-12
 StateDefinition::ownedTransition	21	symbol-45
+StateDefinition::parameter	3	symbol-73
 StateDefinition::state	36	symbol-45
 StateDefinition::step	36	symbol-24
 StateSubactionMembership::action	46	symbol-45
@@ -864,7 +885,9 @@ SuccessionFlowUsage::interaction	4	symbol-31
 SuccessionFlowUsage::isReference	4	symbol-38
 SuccessionFlowUsage::occurrenceDefinition	4	symbol-41
 SuccessionFlowUsage::relatedElement	2	symbol-10
+SuccessionFlowUsage::sourceOutputFeature	2	symbol-76
 SuccessionFlowUsage::target	2	symbol-12
+SuccessionFlowUsage::targetInputFeature	2	symbol-76
 SuccessionFlowUsage::type	4	symbol-19
 TerminateActionUsage::actionDefinition	6	symbol-35
 TerminateActionUsage::behavior	6	symbol-26
@@ -890,7 +913,8 @@ UseCaseDefinition::ownedCase	1	symbol-45
 UseCaseDefinition::ownedFlow	1	symbol-45
 UseCaseDefinition::ownedRequirement	8	symbol-45
 UseCaseDefinition::ownedUseCase	1	symbol-45
-UseCaseDefinition::result	1	symbol-45
+UseCaseDefinition::parameter	12	symbol-73
+UseCaseDefinition::result	12	symbol-45
 UseCaseDefinition::step	12	symbol-24
 UseCaseUsage::actionDefinition	10	symbol-35
 UseCaseUsage::behavior	10	symbol-26
@@ -911,7 +935,8 @@ VerificationCaseDefinition::expression	20	symbol-28
 VerificationCaseDefinition::input	1	symbol-51
 VerificationCaseDefinition::objectiveRequirement	19	symbol-45
 VerificationCaseDefinition::ownedRequirement	19	symbol-45
-VerificationCaseDefinition::result	12	symbol-45
+VerificationCaseDefinition::parameter	20	symbol-73
+VerificationCaseDefinition::result	20	symbol-45
 VerificationCaseDefinition::step	20	symbol-24
 VerificationCaseUsage::actionDefinition	3	symbol-35
 VerificationCaseUsage::behavior	3	symbol-26
@@ -946,6 +971,8 @@ ViewpointDefinition::expression	4	symbol-28
 ViewpointDefinition::input	4	symbol-51
 ViewpointDefinition::ownedConcern	4	symbol-45
 ViewpointDefinition::ownedRequirement	4	symbol-45
+ViewpointDefinition::parameter	4	symbol-73
+ViewpointDefinition::result	4	symbol-74
 ViewpointDefinition::step	4	symbol-24
 ViewpointUsage::behavior	1	symbol-26
 ViewpointUsage::constraintDefinition	1	symbol-32

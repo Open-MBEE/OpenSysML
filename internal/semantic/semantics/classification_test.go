@@ -446,3 +446,40 @@ func bodyLocalMember(t *testing.T, owner *symbols.Symbol, name string) *symbols.
 	t.Fatalf("no body-local %q under %s", name, owner.Name)
 	return nil
 }
+
+func TestMetaclassOfExhibitAndIncludeUsages(t *testing.T) {
+	const src = `
+		package N {
+			state def S;
+			use case def U;
+			part def P {
+				exhibit state s1 : S;
+				state s2 : S;
+				exhibit s2;
+			}
+			use case def D {
+				include use case u1 : U;
+				use case u2 : U;
+				include u2;
+			}
+		}
+	`
+	m, root := buildModelWithStdlib(t, src)
+	n := sym(t, root, "N")
+	p := sym(t, n.Scope, "P")
+	d := sym(t, n.Scope, "D")
+	for _, tc := range []struct {
+		sym  *symbols.Symbol
+		want string
+	}{
+		{sym(t, p.Scope, "s1"), "ExhibitStateUsage"},
+		{sym(t, p.Scope, "s2"), "StateUsage"},
+		{sym(t, d.Scope, "u1"), "IncludeUseCaseUsage"},
+		{sym(t, d.Scope, "u2"), "UseCaseUsage"},
+	} {
+		meta := m.MetaclassOf(tc.sym)
+		if meta == nil || meta.Name != tc.want {
+			t.Errorf("%s metaclass = %v, want SysML::%s", tc.sym.Name, meta, tc.want)
+		}
+	}
+}

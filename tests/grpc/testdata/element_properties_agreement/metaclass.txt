@@ -12,10 +12,8 @@ BindingConnectorAsUsage::@type	16	symbol-44
 BooleanUsage::@type	4	symbol-44
 Class::@type	55	symbol-44
 ClassUsage::@type	37	symbol-44
-ExhibitStateUsage::@type	18	export-21
 FeatureMembership::@type	178	symbol-49
 FlowUsage::@type	6	symbol-44
-IncludeUseCaseUsage::@type	11	export-24
 InteractionUsage::@type	1	symbol-44
 LibraryPackage::@type	2	export-25
 MetadataUsage::@type	10	symbol-44
