@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 
@@ -1311,16 +1312,26 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 // materializeReferentialCollection holds, in a referential collection, what the features
 // subsetting it hold (KerML 1.1 §7.3.4.5): a requirement's `actors` is its actor parameters.
 func (inst *Instance) materializeReferentialCollection(ctx *Context, fv *FeatureValue, name string, open *openPopulation) (*FeatureValue, error) {
-	if fv.Feature.Scalar() || len(ctx.subsettingFeaturesOf(inst, name)) == 0 {
+	// A connector object's collections (`participant`) are answered by its ends, not gathered here.
+	if fv.Feature.Scalar() || len(inst.Ends) > 0 || len(ctx.subsettingFeaturesOf(inst, name)) == 0 {
 		return fv, nil
 	}
+	// A subsetter without a value yet (`otherParticipants` of a port no interface connects)
+	// leaves the collection unread rather than failing it.
 	if open == nil {
-		return inst.holdContributions(ctx, fv, name)
+		held, err := inst.holdContributions(ctx, fv, name)
+		if errors.Is(err, ErrNoValue) {
+			return fv, nil
+		}
+		return held, err
 	}
 	// A model-level read holds what the subsetters certainly hold and stops where one is open.
 	release := ctx.elementScope()
 	contributed, atLeast, err := ctx.openSubsettingContributions(inst, name)
 	release()
+	if errors.Is(err, ErrNoValue) {
+		return fv, nil
+	}
 	if err != nil {
 		return nil, err
 	}
