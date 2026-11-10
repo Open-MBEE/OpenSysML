@@ -1,0 +1,42 @@
+{
+  "rpc": "GetElementProperties",
+  "model": "element_properties_membership_import.sysml",
+  "element_id": "Plant___400",
+  "properties": [
+    "importedMembership",
+    "visibility",
+    "isImportAll",
+    "importOwningNamespace"
+  ],
+  "expected_properties": [
+    {
+      "name": "importedMembership",
+      "defining_class": "MembershipImport",
+      "values": [
+        "Shared__Pump_om"
+      ]
+    },
+    {
+      "name": "visibility",
+      "defining_class": "Import",
+      "values": [
+        "public"
+      ]
+    },
+    {
+      "name": "isImportAll",
+      "defining_class": "Import",
+      "values": [
+        "false"
+      ]
+    },
+    {
+      "name": "importOwningNamespace",
+      "defining_class": "Import",
+      "derived": true,
+      "values": [
+        "Plant"
+      ]
+    }
+  ]
+}

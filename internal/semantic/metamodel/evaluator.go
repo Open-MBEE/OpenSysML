@@ -643,6 +643,7 @@ func structurePropertyRequired(class, name string) bool {
 		"ownedRelatedElement", "owningRelatedElement", "action", "ownedConstraint",
 		"chainingFeature", "featureTarget", "featuringType", "crossFeature", "annotation",
 		"annotatedElement", "annotatingElement", "documentedElement", "expression",
+		"referencedElement",
 		"parameter", "step", "connectorEnd", "relatedFeature", "sourceFeature",
 		"targetFeature", "isModelLevelEvaluable", "isVariable",
 		"lowerBound", "upperBound", "bound", "triggerAction", "guardExpression",

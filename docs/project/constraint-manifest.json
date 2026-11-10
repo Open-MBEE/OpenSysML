@@ -10950,13 +10950,12 @@
       },
       "checks": "The referencedElement of a MetadataAccessExpression is the memberElement of its first ownedMembership that is not a FeatureMembership.",
       "ocl": "referencedElement =\n    let elements : Sequence(Element) = ownedMembership->\n        reject(oclIsKindOf(FeatureMembership)).memberElement in\n    if elements->isEmpty() then null\n    else elements->first()\n    endif",
-      "implementation": "internal/semantic/metamodel/rules.go:Omitted",
-      "message": "not computed: no side table derives `MetadataAccessExpression::referencedElement`; API-JSON differential scorecard `*.referencedElement`: 5 equal, 0 different, 1 ours-missing",
+      "implementation": "internal/semantic/metamodel/rules.go:Rules; internal/semantic/metamodel/structure_rules.go:Evaluator.structureMetadataAccessReferencedElement",
+      "message": "computed: the metamodel evaluator serves `MetadataAccessExpression::referencedElement` as the memberElement of the first owned membership that is no FeatureMembership; API-JSON differential scorecard `*.referencedElement`: 5 equal, 0 different, 1 ours-missing",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "not-implemented",
-      "rationale": "`MetadataAccessExpression::referencedElement` is listed among the metamodel's omitted properties: no semantic side table or exporter derives it"
+      "status": "faithful"
     },
     {
       "name": "deriveMetadataFeatureMetaclass",
