@@ -114,34 +114,28 @@ func run(args []string, stdout, stderr io.Writer) int {
 		// Parse has already reported the flag and printed the usage on stderr.
 		return exitUnservable
 	}
-	if opts.printConfig.set && opts.printConfig.host == "" && fs.NArg() > 0 {
-		// The host follows the bare flag; flags after it are read as well.
-		opts.printConfig.host = fs.Arg(0)
-		if err := fs.Parse(fs.Args()[1:]); err != nil {
-			return exitUnservable
-		}
+	// The command line's own output flags are answered before the environment
+	// is read, so a bad variable never hides the help or the version.
+	if err := readPrintConfigHost(opts, fs); err != nil {
+		return exitUnservable
 	}
-
+	if code, done := printOutput(opts, fs, stdout); done {
+		return code
+	}
 	if err := usage.ApplyEnvironment(fs, envPrefix, "token", "token-file"); err != nil {
 		fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)
 		printUsage(stderr, fs)
 		return exitUnservable
 	}
+	if err := readPrintConfigHost(opts, fs); err != nil {
+		return exitUnservable
+	}
+	if code, done := printOutput(opts, fs, stdout); done {
+		return code
+	}
 	opts.given = map[string]bool{}
 	fs.Visit(func(f *flag.Flag) { opts.given[f.Name] = true })
 
-	if opts.showHelp {
-		printUsage(stdout, fs)
-		return exitServed
-	}
-	if opts.showMan {
-		doc().WriteRoff(stdout, fs, usage.DefaultManMeta())
-		return exitServed
-	}
-	if opts.showVersion {
-		fmt.Fprint(stdout, build().Report(mcpCommand))
-		return exitServed
-	}
 	if opts.printConfig.set {
 		return printConfig(opts, fs, stdout, stderr)
 	}
@@ -213,6 +207,32 @@ func run(args []string, stdout, stderr io.Writer) int {
 // a result, while help over a misuse belongs with the error.
 func printUsage(w io.Writer, fs *flag.FlagSet) {
 	doc().WriteText(w, fs)
+}
+
+// readPrintConfigHost takes the host that follows a bare -print-config from the
+// arguments, reading the flags after it as well.
+func readPrintConfigHost(opts *options, fs *flag.FlagSet) error {
+	if !opts.printConfig.set || opts.printConfig.host != "" || fs.NArg() == 0 {
+		return nil
+	}
+	opts.printConfig.host = fs.Arg(0)
+	return fs.Parse(fs.Args()[1:])
+}
+
+// printOutput answers -help, -man or -version on stdout, reporting whether one
+// was asked for; help asked for is a result, so it exits 0.
+func printOutput(opts *options, fs *flag.FlagSet, stdout io.Writer) (int, bool) {
+	switch {
+	case opts.showHelp:
+		printUsage(stdout, fs)
+	case opts.showMan:
+		doc().WriteRoff(stdout, fs, usage.DefaultManMeta())
+	case opts.showVersion:
+		fmt.Fprint(stdout, build().Report(mcpCommand))
+	default:
+		return 0, false
+	}
+	return exitServed, true
 }
 
 // serve speaks the protocol over stdin/stdout until the client ends it or the

@@ -90,6 +90,12 @@ func TestFlagsReadTheEnvironment(t *testing.T) {
 	}{
 		{name: "an output flag from the environment", env: map[string]string{"OPENSYSML_MCP_VERSION": "true"},
 			args: nil, status: exitServed, stdout: []string{"sysml-mcp"}},
+		{name: "an output flag on the command line beats a refused variable", env: map[string]string{"OPENSYSML_MCP_CACHE_SIZE": "many"},
+			args: []string{"-version"}, status: exitServed, stdout: []string{"sysml-mcp"}},
+		{name: "-print-config from the environment takes the host that follows", env: map[string]string{"OPENSYSML_MCP_PRINT_CONFIG": "true", "OPENSYSML_MCP_HTTP": "127.0.0.1:9999"},
+			args: []string{host}, status: exitServed, stdout: []string{"http://127.0.0.1:9999/mcp"}},
+		{name: "a flag after the host wins over the variable", env: map[string]string{"OPENSYSML_MCP_HTTP": "127.0.0.1:9999"},
+			args: []string{"-print-config", host, "-http", "127.0.0.1:8888"}, status: exitServed, stdout: []string{"http://127.0.0.1:8888/mcp"}},
 		{name: "a variable sets the flag", env: map[string]string{"OPENSYSML_MCP_HTTP": "127.0.0.1:9999"},
 			args: []string{"-print-config", host}, status: exitServed, stdout: []string{"http://127.0.0.1:9999/mcp"}},
 		{name: "the flag wins", env: map[string]string{"OPENSYSML_MCP_HTTP": "127.0.0.1:9999"},
