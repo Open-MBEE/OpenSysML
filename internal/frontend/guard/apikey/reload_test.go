@@ -3,6 +3,7 @@ package apikey
 import (
 	"bytes"
 	"context"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -86,6 +87,53 @@ func TestReloadOnModificationTime(t *testing.T) {
 	}
 	if _, refusal := store.Verify(context.Background(), "Bearer "+second, nil); refusal != guard.Accepted {
 		t.Errorf("the other key is %v after the reload, want accepted", refusal)
+	}
+}
+
+// TestReloadOnTheSameSizeAndTime: a file replaced by one of the same size with
+// its modification time kept, as cp -p does, is still read again.
+func TestReloadOnTheSameSizeAndTime(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "keys.jsonl")
+	first, _, err := Mint(path, "alice", []string{"sysml:read"}, time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := Open(path, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := &clock{t: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}
+	store.now = c.now
+	store.checked = c.t
+
+	other := filepath.Join(t.TempDir(), "keys.jsonl")
+	second, _, err := Mint(other, "bobby", []string{"sysml:read"}, time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replacement, err := os.ReadFile(other)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if int64(len(replacement)) != before.Size() {
+		t.Fatalf("the replacement is %d bytes, the file %d; the test needs them equal", len(replacement), before.Size())
+	}
+	if err := os.WriteFile(path, replacement, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(path, before.ModTime(), before.ModTime()); err != nil {
+		t.Fatal(err)
+	}
+	c.advance(RefreshInterval)
+	if _, refusal := store.Verify(context.Background(), "Bearer "+first, nil); refusal != guard.Mismatch {
+		t.Errorf("the key the replacement dropped is %v, want a mismatch", refusal)
+	}
+	if p, refusal := store.Verify(context.Background(), "Bearer "+second, nil); refusal != guard.Accepted || p.Subject != "bobby" {
+		t.Errorf("the key the replacement holds is %v (%+v), want accepted for bobby", refusal, p)
 	}
 }
 

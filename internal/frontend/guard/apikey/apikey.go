@@ -4,6 +4,7 @@ package apikey
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -269,14 +270,19 @@ func writeFile(path string, records []Record) error {
 // ReadFile reads the records of the file at path, one JSON object per line with blank lines
 // allowed; a line that is not a valid record, or an id held twice, fails the file with its line number.
 func ReadFile(path string) ([]Record, error) {
-	f, err := os.Open(path) // #nosec G304 -- the operator names the file with -api-keys
+	data, err := os.ReadFile(path) // #nosec G304 -- the operator names the file with -api-keys
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	return parse(path, data)
+}
+
+// parse reads the records of data, the content of the file at path, which
+// names the file in each error.
+func parse(path string, data []byte) ([]Record, error) {
 	var records []Record
 	ids := map[string]int{}
-	scanner := bufio.NewScanner(f)
+	scanner := bufio.NewScanner(bytes.NewReader(data))
 	scanner.Buffer(nil, 1<<20)
 	for n := 1; scanner.Scan(); n++ {
 		line := strings.TrimSpace(scanner.Text())

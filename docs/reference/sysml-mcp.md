@@ -554,8 +554,8 @@ A server given such a file (`internal/frontend/guard/apikey`) accepts a key as `
 Bearer osk_…` with the record's subject, scopes and expiry as the request's principal, looking the
 record up by id and comparing the secret's hash in constant time, and refuses a disabled, expired or
 unknown key with the RFC 6750 § 3.1 answer; a bearer token that is not a key is left to the server's
-other authenticators (its static token last). The file is read again when its modification time
-moves, at most once a second and only on a request, and on `SIGHUP`; a file that no longer reads
+other authenticators (its static token last). The file is read again when its content has changed
+(looked at, at most once a second, on a request) and on `SIGHUP`; a file that no longer reads
 keeps the keys already held and logs the failure once. `sysml-mcp -http ADDR -api-keys FILE` serves
 the file this way, alone or beside `-token-file`/`-token`, and satisfies the rule that an address
 other machines reach needs a credential; `kill -HUP` the server after editing the file by hand to
