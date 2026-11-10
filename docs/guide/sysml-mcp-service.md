@@ -117,10 +117,18 @@ root, so the first start says once that the record cache is unavailable and hold
 document loaded instead, which is slower to start but otherwise the same server.
 
 ```bash
-docker run --rm -p 8765:8765 -v "$PWD:/models:ro" -e OPENSYSML_MCP_TOKEN="$(cat mcp.token)" \
+docker run --rm -p 127.0.0.1:8765:8765 -v "$PWD:/models:ro" -e OPENSYSML_MCP_TOKEN="$(cat mcp.token)" \
     --read-only --tmpfs /tmp -v opensysml-cache:/home/nonroot/.cache \
     --entrypoint sysml-mcp openmbee/opensysml -http 0.0.0.0:8765 -root /models
 ```
+
+Inside the container the server must bind `0.0.0.0` to be reached through Docker's port mapping
+at all, so the mapping is what decides who reaches it: `-p 127.0.0.1:8765:8765` publishes the
+cleartext port to this machine only, for trying the image out. Publishing it on every interface
+(`-p 8765:8765`) would send the token in clear across the network — the server logs that as a
+warning — so a server other machines reach gets TLS, either from a proxy in front as the Compose
+example below does, or from a certificate pair mounted into the container and named with
+`-tls-cert` and `-tls-key`.
 
 `deploy/sysml-mcp/compose.yaml` in the repository is the complete example: `sysml-mcp` on a
 private network behind [Caddy](https://caddyserver.com/), which terminates TLS and forwards
