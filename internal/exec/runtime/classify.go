@@ -186,6 +186,32 @@ func (ctx *Context) ImpliedCollection(inst *Instance, name string) bool {
 	return false
 }
 
+// ImpliedCollectionHeld reports whether every feature subsetting the named collection of inst
+// already holds its value, itself or through the collections it subsets: the read makes up nothing.
+func (ctx *Context) ImpliedCollectionHeld(inst *Instance, name string) bool {
+	return ctx.impliedCollectionHeld(inst, name, map[string]bool{name: true})
+}
+
+func (ctx *Context) impliedCollectionHeld(inst *Instance, name string, seen map[string]bool) bool {
+	subsetters := ctx.subsettingFeaturesOf(inst, name)
+	if len(subsetters) == 0 {
+		return false
+	}
+	for _, feat := range subsetters {
+		if fv := inst.FeatureValues[feat.Name]; fv != nil && fv.Materialized {
+			continue
+		}
+		if feat.Scalar() || seen[feat.Name] {
+			return false
+		}
+		seen[feat.Name] = true
+		if !ctx.impliedCollectionHeld(inst, feat.Name, seen) {
+			return false
+		}
+	}
+	return true
+}
+
 // ImpliedCollectionOfType is ImpliedCollection for a type alone, over the
 // features its instances would hold.
 func (ctx *Context) ImpliedCollectionOfType(typ *symbols.Symbol, name string) bool {

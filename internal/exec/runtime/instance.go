@@ -1302,10 +1302,33 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 	}
 
 	// A feature holding values rather than objects holds values of what it subsets, as an object feature does.
-	if _, err := inst.materializeFromSubsetted(ctx, fv, name, nil); err != nil {
+	if held, err := inst.materializeFromSubsetted(ctx, fv, name, nil); err != nil || held {
+		return fv, err
+	}
+	return inst.materializeReferentialCollection(ctx, fv, name, open)
+}
+
+// materializeReferentialCollection holds, in a referential collection, what the features
+// subsetting it hold (KerML 1.1 §7.3.4.5): a requirement's `actors` is its actor parameters.
+func (inst *Instance) materializeReferentialCollection(ctx *Context, fv *FeatureValue, name string, open *openPopulation) (*FeatureValue, error) {
+	if fv.Feature.Scalar() || len(ctx.subsettingFeaturesOf(inst, name)) == 0 {
+		return fv, nil
+	}
+	if open == nil {
+		return inst.holdContributions(ctx, fv, name)
+	}
+	// A model-level read holds what the subsetters certainly hold and stops where one is open.
+	release := ctx.elementScope()
+	contributed, atLeast, err := ctx.openSubsettingContributions(inst, name)
+	release()
+	if err != nil {
 		return nil, err
 	}
-	return fv, nil
+	if max(atLeast, fewestOf(fv.Feature.Multiplicity)) > int64(len(contributed)) {
+		open.Stopped, open.Contributed, open.AtLeast = true, contributed, atLeast
+		return fv, nil
+	}
+	return inst.holdContributed(ctx, fv, name, contributed)
 }
 
 // materializeVariation binds a variation to the variant its default selects.

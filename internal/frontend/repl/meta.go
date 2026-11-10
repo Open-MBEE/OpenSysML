@@ -1683,10 +1683,16 @@ func (w *featureValueWalk) rows(inst *runtime.Instance, indent string, depth int
 }
 
 // impliedCollectionLine is the row of a collection populated only through
-// subsetting implied by nesting: its value when read, else unexpanded or empty.
+// subsetting implied by nesting: its value when read, or when every feature filling
+// it is already held (a requirement's actors), else unexpanded or empty.
 func (w *featureValueWalk) impliedCollectionLine(inst *runtime.Instance, of runtime.ObjectFeature, indent string, depth int) string {
 	if fv := inst.FeatureValues[of.Name]; fv != nil && fv.Materialized {
 		return fmt.Sprintf("%s%s = %s", indent, of.Name, formatFeatureValue(w.ctx, fv))
+	}
+	if w.ctx.ImpliedCollectionHeld(inst, of.Name) {
+		if fv, err := inst.GetFeatureValue(w.ctx, of.Name); err == nil && fv.Materialized {
+			return fmt.Sprintf("%s%s = %s", indent, of.Name, formatFeatureValue(w.ctx, fv))
+		}
 	}
 	if held, elided := w.elided(of.Feature, depth); elided {
 		return fmt.Sprintf("%s%s : %s (not expanded: %s)", indent, of.Name, held, w.elisionReason(depth))
