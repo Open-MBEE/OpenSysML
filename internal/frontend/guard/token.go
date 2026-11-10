@@ -1,6 +1,5 @@
-// Package guard is what a service that other machines may reach shares with
-// the others: who a bearer credential speaks for (RFC 6750), where the static
-// token is read from, and the rule that a listener off loopback requires one.
+// Package guard is what the services other machines may reach share: who a bearer
+// credential speaks for (RFC 6750), and that a listener off loopback requires one.
 package guard
 
 import (
