@@ -1,0 +1,42 @@
+{
+  "rpc": "GetElementProperties",
+  "model": "element_properties_connector.sysml",
+  "element_id": "ConnectorFamily::Station::@2",
+  "properties": [
+    "connectorEnd",
+    "relatedFeature",
+    "ownedEndFeature"
+  ],
+  "expected_properties": [
+    {
+      "name": "connectorEnd",
+      "defining_class": "Connector",
+      "many": true,
+      "derived": true,
+      "values": [
+        "ConnectorFamily__Station___402_pend0",
+        "ConnectorFamily__Station___402_pend1"
+      ]
+    },
+    {
+      "name": "relatedFeature",
+      "defining_class": "Connector",
+      "many": true,
+      "derived": true,
+      "values": [
+        "ConnectorFamily__Station___402_pend0_pchain",
+        "ConnectorFamily__Station___402_pend1_pchain"
+      ]
+    },
+    {
+      "name": "ownedEndFeature",
+      "defining_class": "Type",
+      "many": true,
+      "derived": true,
+      "values": [
+        "ConnectorFamily__Station___402_pend0",
+        "ConnectorFamily__Station___402_pend1"
+      ]
+    }
+  ]
+}
