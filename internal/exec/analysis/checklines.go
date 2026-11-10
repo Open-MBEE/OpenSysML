@@ -78,6 +78,9 @@ func CheckLines(label string, result Result) (CheckStatus, []string, bool) {
 	for _, final := range report.Finals {
 		lines = append(lines, "  outcome: "+final.Outcome)
 	}
+	for _, line := range report.Coverage.Lines("schedule") {
+		lines = append(lines, "  "+line)
+	}
 	return status, lines, false
 }
 

@@ -3,6 +3,7 @@ package export
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
@@ -72,20 +73,6 @@ func (d *decoder) verbatim(el *element) (string, bool) {
 		return "", false
 	}
 	return d.graph.Lexical(rdf.IRI(el.iri), rdf.OpenSysML+xSourceText)
-}
-
-// verbatimWithNotes is verbatim for an element whose text holds the notes the
-// graph states; one stating others is demoted, since the graph is authoritative.
-func (d *decoder) verbatimWithNotes(el *element) (string, bool) {
-	text, ok := d.verbatim(el)
-	if !ok {
-		return "", false
-	}
-	if d.statesNotes() && !d.notesAgree(el, text) {
-		d.demoted[el] = true
-		return "", false
-	}
-	return text, true
 }
 
 // expressionText returns the source text an expression node is written as, if
@@ -170,6 +157,47 @@ func (d *decoder) demoteStale(notation string, roots []*element) {
 			return
 		}
 	}
+	d.demoteStaleNotes(check)
+}
+
+// demoteStaleNotes demotes the text of each printed element whose notes the candidate
+// derives otherwise than the graph states them in any field, or not at all.
+func (d *decoder) demoteStaleNotes(check *encoder) {
+	// A comment the graph does not state is the text's, and a graph stating no note trusts it.
+	for _, subject := range notedSubjects(d.graph) {
+		stale, unstated := compareNotes(notesIn(d.graph, subject), notesIn(check.graph, subject))
+		if len(stale) == 0 {
+			continue
+		}
+		if el, _ := d.blame(subject.Value, check); el != nil && d.printed[el] {
+			d.demoted[el] = true
+			d.demoteHoldingExpressions(el, unstated, check)
+		}
+	}
+}
+
+// demoteHoldingExpressions demotes the text of each expression written inside el's
+// that holds a note of el the graph does not state, which it would otherwise keep.
+func (d *decoder) demoteHoldingExpressions(el *element, unstated []note, check *encoder) {
+	for iri := range d.usedExpr {
+		text, _ := d.graph.Lexical(rdf.IRI(iri), rdf.OpenSysML+xSourceText)
+		if !holdsAny(commentTexts(text), unstated) {
+			continue
+		}
+		if owner, _ := d.blame(iri, check); owner == el {
+			d.demotedExpr[iri] = true
+		}
+	}
+}
+
+// holdsAny reports whether one of the comments is the text of one of the notes.
+func holdsAny(comments []string, notes []note) bool {
+	for _, n := range notes {
+		if slices.Contains(comments, n.text) {
+			return true
+		}
+	}
+	return false
 }
 
 // rebuildCandidate encodes the candidate in the id form the document follows, so both

@@ -176,7 +176,7 @@ object	Probe::an1	error no value: calc usage Probe::an1 computes output features
 object	Probe::v1	error no value: calc usage Probe::v1 computes output features (no output feature); read one of them
 object	Probe::u1	object:Probe::u1
 read	Probe::u1.acceptSubactions	systems	Actions::Action::acceptSubactions	empty
-read	Probe::u1.actors	systems	Cases::Case::actors	empty
+read	Probe::u1.actors	systems	Cases::Case::actors	collection(1) [object:Probe::P2#1]
 read	Probe::u1.assignments	systems	Actions::Action::assignments	empty
 read	Probe::u1.controls	systems	Actions::Action::controls	empty
 read	Probe::u1.decisionTransitions	systems	Actions::Action::decisionTransitions	empty
@@ -244,7 +244,7 @@ read	Probe::con1.constraints	systems	Requirements::RequirementCheck::constraints
 read	Probe::con1.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	constant true
 read	Probe::con1.self	systemsFRAME	Requirements::ConcernCheck::self	object:Probe::con1
 read	Probe::con1.sh	model	Probe::Con1::sh	object:Probe::P2
-read	Probe::con1.stakeholders	systems	Requirements::RequirementCheck::stakeholders	empty
+read	Probe::con1.stakeholders	systems	Requirements::RequirementCheck::stakeholders	collection(1) [object:Probe::P2#1]
 read	Probe::con1.subj	systems	Requirements::RequirementCheck::subj	undetermined <undetermined>
 read	Probe::con1.subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
 object	Probe::rd1	object:Probe::rd1
@@ -578,7 +578,7 @@ object	Probe::p1.other	undetermined <undetermined>
 object	Probe::p1.otherItem	undetermined <undetermined>
 object	Probe::p1.others	empty
 object	Probe::p1.rq	object:Probe::P1::rq
-read	Probe::p1.rq.actors	systems	Requirements::RequirementCheck::actors	empty
+read	Probe::p1.rq.actors	systems	Requirements::RequirementCheck::actors	collection(1) [object:Probe::P2#1]
 read	Probe::p1.rq.assumptions	systems	Requirements::RequirementCheck::assumptions	empty
 read	Probe::p1.rq.concerns	systems	Requirements::RequirementCheck::concerns	empty
 read	Probe::p1.rq.constraints	systems	Requirements::RequirementCheck::constraints	empty
@@ -587,7 +587,7 @@ read	Probe::p1.rq.result	systemsFRAME	Requirements::RequirementConstraintCheck::
 read	Probe::p1.rq.s	model	Probe::P1::rq::s	object:Probe::P2
 read	Probe::p1.rq.self	systemsFRAME	Requirements::RequirementCheck::self	object:Probe::P1::rq
 read	Probe::p1.rq.sh	model	Probe::R1::sh	object:Probe::P2
-read	Probe::p1.rq.stakeholders	systems	Requirements::RequirementCheck::stakeholders	empty
+read	Probe::p1.rq.stakeholders	systems	Requirements::RequirementCheck::stakeholders	collection(1) [object:Probe::P2#1]
 read	Probe::p1.rq.subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
 read	Probe::p1.rq.who	model	Probe::R1::who	object:Probe::P2
 object	Probe::p1.cq	object:Probe::P1::cq
@@ -625,7 +625,7 @@ object	Probe::p1.anq	error no value: calc usage anq computes output features (no
 object	Probe::p1.vq	error no value: calc usage vq computes output features (no output feature); read one of them
 object	Probe::p1.uq	object:Probe::U1
 read	Probe::p1.uq.acceptSubactions	systems	Actions::Action::acceptSubactions	empty
-read	Probe::p1.uq.actors	systems	Cases::Case::actors	empty
+read	Probe::p1.uq.actors	systems	Cases::Case::actors	collection(1) [object:Probe::P2#1]
 read	Probe::p1.uq.assignments	systems	Actions::Action::assignments	empty
 read	Probe::p1.uq.controls	systems	Actions::Action::controls	empty
 read	Probe::p1.uq.decisionTransitions	systems	Actions::Action::decisionTransitions	empty
@@ -693,7 +693,7 @@ read	Probe::p1.conq.constraints	systems	Requirements::RequirementCheck::constrai
 read	Probe::p1.conq.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	constant true
 read	Probe::p1.conq.self	systemsFRAME	Requirements::ConcernCheck::self	object:Probe::Con1
 read	Probe::p1.conq.sh	model	Probe::Con1::sh	object:Probe::P2
-read	Probe::p1.conq.stakeholders	systems	Requirements::RequirementCheck::stakeholders	empty
+read	Probe::p1.conq.stakeholders	systems	Requirements::RequirementCheck::stakeholders	collection(1) [object:Probe::P2#1]
 read	Probe::p1.conq.subj	systems	Requirements::RequirementCheck::subj	undetermined <undetermined>
 read	Probe::p1.conq.subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
 object	Probe::p1.rdq	object:Probe::Rd1
@@ -862,7 +862,7 @@ read	Probe::p1.es.terminateSubactions	systems	Actions::Action::terminateSubactio
 read	Probe::p1.es.transitions	systems	Actions::Action::transitions	empty
 read	Probe::p1.es.whileLoops	systems	Actions::Action::whileLoops	empty
 object	Probe::p1.sr	object:Probe::P1::sr
-read	Probe::p1.sr.actors	systems	Requirements::RequirementCheck::actors	empty
+read	Probe::p1.sr.actors	systems	Requirements::RequirementCheck::actors	collection(1) [object:Probe::P2#1]
 read	Probe::p1.sr.assumptions	systems	Requirements::RequirementCheck::assumptions	empty
 read	Probe::p1.sr.concerns	systems	Requirements::RequirementCheck::concerns	empty
 read	Probe::p1.sr.constraints	systems	Requirements::RequirementCheck::constraints	empty
@@ -870,11 +870,11 @@ read	Probe::p1.sr.lim	model	Probe::R1::lim	constant 5.0
 read	Probe::p1.sr.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	error requirement sr: subject binding: multiplicity violation: 2 value(s) bound to a feature with multiplicity upper bound 1
 read	Probe::p1.sr.self	systemsFRAME	Requirements::RequirementCheck::self	object:Probe::P1::sr
 read	Probe::p1.sr.sh	model	Probe::R1::sh	object:Probe::P2
-read	Probe::p1.sr.stakeholders	systems	Requirements::RequirementCheck::stakeholders	empty
+read	Probe::p1.sr.stakeholders	systems	Requirements::RequirementCheck::stakeholders	collection(1) [object:Probe::P2#1]
 read	Probe::p1.sr.subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
 read	Probe::p1.sr.who	model	Probe::R1::who	object:Probe::P2
 object	Probe::p1.srOne	object:Probe::P1::srOne
-read	Probe::p1.srOne.actors	systems	Requirements::RequirementCheck::actors	empty
+read	Probe::p1.srOne.actors	systems	Requirements::RequirementCheck::actors	collection(1) [object:Probe::P2#1]
 read	Probe::p1.srOne.assumptions	systems	Requirements::RequirementCheck::assumptions	empty
 read	Probe::p1.srOne.concerns	systems	Requirements::RequirementCheck::concerns	empty
 read	Probe::p1.srOne.constraints	systems	Requirements::RequirementCheck::constraints	empty
@@ -882,7 +882,7 @@ read	Probe::p1.srOne.lim	model	Probe::R1::lim	constant 5.0
 read	Probe::p1.srOne.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	constant true
 read	Probe::p1.srOne.self	systemsFRAME	Requirements::RequirementCheck::self	object:Probe::P1::srOne
 read	Probe::p1.srOne.sh	model	Probe::R1::sh	object:Probe::P2
-read	Probe::p1.srOne.stakeholders	systems	Requirements::RequirementCheck::stakeholders	empty
+read	Probe::p1.srOne.stakeholders	systems	Requirements::RequirementCheck::stakeholders	collection(1) [object:Probe::P2#1]
 read	Probe::p1.srOne.subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
 read	Probe::p1.srOne.who	model	Probe::R1::who	object:Probe::P2
 object	Probe::p1.ac	object:Probe::P1::ac
@@ -891,7 +891,7 @@ read	Probe::p1.ac.x	model	Probe::P1::ac::x	collection(1) [constant 1.0]
 read	Probe::p1.ac.y	model	Probe::P1::ac::y	collection(1) [constant 2.0]
 object	Probe::p1.iu	object:Probe::U1
 read	Probe::p1.iu.acceptSubactions	systems	Actions::Action::acceptSubactions	empty
-read	Probe::p1.iu.actors	systems	Cases::Case::actors	empty
+read	Probe::p1.iu.actors	systems	Cases::Case::actors	collection(1) [object:Probe::P2#1]
 read	Probe::p1.iu.assignments	systems	Actions::Action::assignments	empty
 read	Probe::p1.iu.controls	systems	Actions::Action::controls	empty
 read	Probe::p1.iu.decisionTransitions	systems	Actions::Action::decisionTransitions	empty
@@ -1071,7 +1071,7 @@ read	new Probe::S1().terminateSubactions	systems	Actions::Action::terminateSubac
 read	new Probe::S1().transitions	systems	Actions::Action::transitions	empty
 read	new Probe::S1().whileLoops	systems	Actions::Action::whileLoops	empty
 object	new Probe::R1()	object:Probe::R1
-read	new Probe::R1().actors	systems	Requirements::RequirementCheck::actors	empty
+read	new Probe::R1().actors	systems	Requirements::RequirementCheck::actors	collection(1) [object:Probe::P2#1]
 read	new Probe::R1().assumptions	systems	Requirements::RequirementCheck::assumptions	empty
 read	new Probe::R1().concerns	systems	Requirements::RequirementCheck::concerns	empty
 read	new Probe::R1().constraints	systems	Requirements::RequirementCheck::constraints	empty
@@ -1080,7 +1080,7 @@ read	new Probe::R1().result	systemsFRAME	Requirements::RequirementConstraintChec
 read	new Probe::R1().s	model	Probe::R1::s	error uninitialized feature value: s
 read	new Probe::R1().self	systemsFRAME	Requirements::RequirementCheck::self	object:Probe::R1
 read	new Probe::R1().sh	model	Probe::R1::sh	object:Probe::P2
-read	new Probe::R1().stakeholders	systems	Requirements::RequirementCheck::stakeholders	empty
+read	new Probe::R1().stakeholders	systems	Requirements::RequirementCheck::stakeholders	collection(1) [object:Probe::P2#1]
 read	new Probe::R1().subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
 read	new Probe::R1().who	model	Probe::R1::who	object:Probe::P2
 object	new Probe::C1()	object:Probe::C1
@@ -1194,7 +1194,7 @@ read	new Probe::V1().verdict	systemsFRAME	VerificationCases::VerificationCase::v
 read	new Probe::V1().whileLoops	systems	Actions::Action::whileLoops	empty
 object	new Probe::U1()	object:Probe::U1
 read	new Probe::U1().acceptSubactions	systems	Actions::Action::acceptSubactions	empty
-read	new Probe::U1().actors	systems	Cases::Case::actors	empty
+read	new Probe::U1().actors	systems	Cases::Case::actors	collection(1) [object:Probe::P2#1]
 read	new Probe::U1().assignments	systems	Actions::Action::assignments	empty
 read	new Probe::U1().controls	systems	Actions::Action::controls	empty
 read	new Probe::U1().decisionTransitions	systems	Actions::Action::decisionTransitions	empty
@@ -1262,7 +1262,7 @@ read	new Probe::Con1().constraints	systems	Requirements::RequirementCheck::const
 read	new Probe::Con1().result	systemsFRAME	Requirements::RequirementConstraintCheck::result	constant true
 read	new Probe::Con1().self	systemsFRAME	Requirements::ConcernCheck::self	object:Probe::Con1
 read	new Probe::Con1().sh	model	Probe::Con1::sh	object:Probe::P2
-read	new Probe::Con1().stakeholders	systems	Requirements::RequirementCheck::stakeholders	empty
+read	new Probe::Con1().stakeholders	systems	Requirements::RequirementCheck::stakeholders	collection(1) [object:Probe::P2#1]
 read	new Probe::Con1().subj	systems	Requirements::RequirementCheck::subj	error uninitialized feature value: subj
 read	new Probe::Con1().subrequirements	systems	Requirements::RequirementCheck::subrequirements	empty
 object	new Probe::Rd1()	object:Probe::Rd1

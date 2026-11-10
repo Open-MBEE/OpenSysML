@@ -399,3 +399,116 @@ func TestImplicitSubsettingCandidatesRequirementConstraint(t *testing.T) {
 		}
 	}
 }
+
+// An actor, stakeholder, framed concern and an objective's verified requirement subset their owner's
+// role collections (SysML v2 §8.3.11.3, §8.3.21.4, §8.3.21.9 check*Specialization), on a definition or usage.
+func TestImplicitSubsettingsRequirementRoles(t *testing.T) {
+	m, root := buildModelWithStdlib(t, `package P {
+		part def Person;
+		concern def Safety;
+		requirement def R {
+			subject s : Person;
+			actor driver : Person;
+			stakeholder owner : Person;
+			frame concern sf : Safety;
+			concern plain : Safety;
+			part spare : Person;
+		}
+		requirement r : R {
+			actor passenger : Person;
+			stakeholder regulator : Person;
+			frame concern sf2 : Safety;
+		}
+		viewpoint def VP { stakeholder reviewer : Person; frame concern vc : Safety; }
+		verification def VD { subject s : Person; actor tester : Person; objective { verify r; } }
+		verification v : VD { actor observer : Person; objective { verify requirement vr : R; } }
+		analysis def AD { actor analyst : Person; }
+		use case def UC { actor user : Person; }
+		case c { actor party : Person; }
+	}`)
+	const (
+		reqActors    = "Requirements::RequirementCheck::actors"
+		caseActors   = "Cases::Case::actors"
+		stakeholders = "Requirements::RequirementCheck::stakeholders"
+		concerns     = "Requirements::RequirementCheck::concerns"
+	)
+	cases := []struct {
+		path string
+		want string
+	}{
+		{"P::R::driver", reqActors},
+		{"P::R::owner", stakeholders},
+		{"P::R::sf", concerns},
+		{"P::R::plain", "Requirements::RequirementCheck::subrequirements"},
+		{"P::R::spare", "Occurrences::Occurrence::suboccurrences"}, // a requirement is no item: no subparts
+		{"P::r::passenger", reqActors},
+		{"P::r::regulator", stakeholders},
+		{"P::r::sf2", concerns},
+		{"P::VP::reviewer", stakeholders},
+		{"P::VP::vc", concerns},
+		{"P::VD::tester", caseActors},
+		{"P::v::observer", caseActors},
+		{"P::AD::analyst", caseActors},
+		{"P::UC::user", caseActors},
+		{"P::c::party", caseActors},
+	}
+	for _, tc := range cases {
+		sym := nestedSym(t, root, tc.path)
+		if got := m.ImplicitSubsettings(sym); len(got) != 1 || symbols.FQNOf(got[0]) != tc.want {
+			t.Errorf("ImplicitSubsettings(%s) = %v, want [%s]", tc.path, fqns(got), tc.want)
+		}
+	}
+	const verifications = "VerificationCases::VerificationCase::obj::requirementVerifications"
+	for _, path := range []string{"P::VD", "P::v"} {
+		for _, verified := range verifiedRequirementsOf(t, nestedSym(t, root, path)) {
+			if got := m.ImplicitSubsettings(verified); len(got) != 1 || symbols.FQNOf(got[0]) != verifications {
+				t.Errorf("ImplicitSubsettings(%s verify %s) = %v, want [%s]", path, verified.Name, fqns(got), verifications)
+			}
+		}
+	}
+}
+
+// verifiedRequirementsOf is the `verify` members of the objective a case owns.
+func verifiedRequirementsOf(t *testing.T, caseSym *symbols.Symbol) []*symbols.Symbol {
+	t.Helper()
+	var out []*symbols.Symbol
+	for _, obj := range caseSym.Scope.AllMembers() {
+		u, ok := obj.Decl.(*ast.Usage)
+		if !ok || u.Kind != ast.UsageObjective || obj.Scope == nil {
+			continue
+		}
+		for _, member := range obj.Scope.AllMembers() {
+			if v, ok := member.Decl.(*ast.Usage); ok && v.IsVerifiedRequirement() {
+				out = append(out, member)
+			}
+		}
+	}
+	if len(out) == 0 {
+		t.Fatalf("%s: no verified requirement under its objective", caseSym.Name)
+	}
+	return out
+}
+
+// ImplicitSubsettingCandidates answers the role rules for the declaration kinds alone.
+func TestImplicitSubsettingCandidatesRequirementRoles(t *testing.T) {
+	requirement := NestedOwner{Def: ast.DefRequirement, IsDef: true}
+	verification := NestedOwner{Usage: ast.UsageVerificationCase}
+	objective := NestedOwner{Usage: ast.UsageObjective}
+	cases := []struct {
+		u     NestedUsage
+		owner NestedOwner
+		want  []string
+	}{
+		{NestedUsage{Kind: ast.UsageActor, Composite: true}, requirement, []string{"Requirements::RequirementCheck::actors"}},
+		{NestedUsage{Kind: ast.UsageActor, Composite: true}, verification, []string{"Cases::Case::actors"}},
+		{NestedUsage{Kind: ast.UsageStakeholder, Composite: true}, requirement, []string{"Requirements::RequirementCheck::stakeholders"}},
+		{NestedUsage{Kind: ast.UsageFramedConcern, Composite: true}, requirement, []string{"Requirements::RequirementCheck::concerns"}},
+		{NestedUsage{Kind: ast.UsageSatisfy, Composite: true, Verified: true}, objective, []string{"VerificationCases::VerificationCase::obj::requirementVerifications"}},
+		{NestedUsage{Kind: ast.UsageSatisfy, Composite: true}, requirement, []string{"Requirements::RequirementCheck::subrequirements"}},
+	}
+	for _, tc := range cases {
+		if got := ImplicitSubsettingCandidates(tc.u, tc.owner); !slices.Equal(got, tc.want) {
+			t.Errorf("ImplicitSubsettingCandidates(%+v, %+v) = %v, want %v", tc.u, tc.owner, got, tc.want)
+		}
+	}
+}

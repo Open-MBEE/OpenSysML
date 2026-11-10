@@ -4,21 +4,26 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"os"
+	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
 )
 
-// httpOptions is what -http and its qualifiers (-allow-origin, -token,
-// -token-file, -public-url, -tls-cert, -tls-key) resolve to; nil without -http.
+// httpOptions is what -http and its qualifiers (-allow-origin, the token flags,
+// -public-url, the TLS pair, -shutdown-timeout, -max-body-bytes) resolve to; nil without -http.
 type httpOptions struct {
 	addr    string
 	origins mcp.OriginPolicy
 	token   mcp.BearerToken
 	// tokenText is the token as given, for the -print-config block alone.
-	tokenText string
-	certFile  string
-	keyFile   string
+	tokenText       string
+	certFile        string
+	keyFile         string
+	shutdownTimeout time.Duration
+	maxBodyBytes    int64
 }
 
 // readHTTPOptions validates the transport flags together (qualifiers without
@@ -31,7 +36,18 @@ func readHTTPOptions(o *options) (*httpOptions, error) {
 				return nil, fmt.Errorf("%s applies to the HTTP transport; name its address with -http", f.name)
 			}
 		}
+		for _, name := range []string{"shutdown-timeout", "max-body-bytes"} {
+			if o.given[name] {
+				return nil, fmt.Errorf("-%s applies to the HTTP transport; name its address with -http", name)
+			}
+		}
 		return nil, nil
+	}
+	if o.shutdownTimeout <= 0 {
+		return nil, fmt.Errorf("-shutdown-timeout %s: a stopping server needs a positive time to drain in", o.shutdownTimeout)
+	}
+	if o.maxBodyBytes < 1 {
+		return nil, fmt.Errorf("-max-body-bytes %d: a request needs room for at least one byte", o.maxBodyBytes)
 	}
 	if o.stdio {
 		return nil, errors.New("-stdio and -http name different transports; give one")
@@ -54,17 +70,29 @@ func readHTTPOptions(o *options) (*httpOptions, error) {
 	if (o.tlsCert == "") != (o.tlsKey == "") {
 		return nil, errors.New("-tls-cert and -tls-key must be supplied together")
 	}
-	return &httpOptions{addr: addr, origins: origins, token: token, tokenText: text, certFile: o.tlsCert, keyFile: o.tlsKey}, nil
+	return &httpOptions{addr: addr, origins: origins, token: token, tokenText: text, certFile: o.tlsCert, keyFile: o.tlsKey,
+		shutdownTimeout: o.shutdownTimeout, maxBodyBytes: o.maxBodyBytes}, nil
 }
 
 // tokenValue is the token a -print-config block carries; empty without one.
 func (h *httpOptions) tokenValue() string { return h.tokenText }
 
+// tokenFileEnv names the token file when neither token flag is given, as
+// mcp.TokenEnv names the token itself; the file wins, as -token-file does.
+var tokenFileEnv = usage.EnvName(envPrefix, "token-file")
+
 // readToken reads the token from -token-file (one trailing line break dropped),
 // -token or the environment, in that order; both flags together are refused.
 func readToken(o *options) (mcp.BearerToken, string, error) {
-	token, text, err := guard.Read(o.tokenFile, o.token, mcp.TokenEnv)
+	tokenFile, fromEnv := o.tokenFile, false
+	if tokenFile == "" && o.token == "" {
+		tokenFile, fromEnv = os.Getenv(tokenFileEnv), true
+	}
+	token, text, err := guard.Read(tokenFile, o.token, mcp.TokenEnv)
 	if err != nil {
+		if fromEnv && tokenFile != "" {
+			err = fmt.Errorf("%s: %w", tokenFileEnv, err)
+		}
 		return mcp.BearerToken{}, "", err
 	}
 	return mcp.BearerToken{Token: token}, text, nil

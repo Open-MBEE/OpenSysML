@@ -64,10 +64,10 @@ func main() {
 
 // printConfig answers -print-config: the list of hosts when none is named, or
 // the block for the host named with it.
-func printConfig(opts *options, fs *flag.FlagSet, stdout, stderr io.Writer) int {
+func printConfig(opts *options, fs *flag.FlagSet, extra []string, stdout, stderr io.Writer) int {
 	name := opts.printConfig.host
-	if fs.NArg() > 0 {
-		fmt.Fprintf(stderr, "%sunexpected argument %q after -print-config %s\n", commandPrefix, fs.Arg(0), name)
+	if len(extra) > 0 {
+		fmt.Fprintf(stderr, "%sunexpected argument %q after -print-config %s\n", commandPrefix, extra[0], name)
 		printUsage(stderr, fs)
 		return exitUnservable
 	}
@@ -114,31 +114,40 @@ func run(args []string, stdout, stderr io.Writer) int {
 		// Parse has already reported the flag and printed the usage on stderr.
 		return exitUnservable
 	}
-	if opts.printConfig.set && opts.printConfig.host == "" && fs.NArg() > 0 {
-		// The host follows the bare flag; flags after it are read as well.
-		opts.printConfig.host = fs.Arg(0)
+	// The first argument is the host of a bare -print-config; the flags after it
+	// are read now, before the environment, so every flag wins over its variable.
+	var positional []string
+	if fs.NArg() > 0 {
+		positional = []string{fs.Arg(0)}
 		if err := fs.Parse(fs.Args()[1:]); err != nil {
 			return exitUnservable
 		}
 	}
+	// The command line's own output flags are answered before the environment
+	// is read, so a bad variable never hides the help or the version.
+	if code, done := printOutput(opts, fs, stdout); done {
+		return code
+	}
+	if err := usage.ApplyEnvironment(fs, envPrefix, "token", "token-file"); err != nil {
+		fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)
+		printUsage(stderr, fs)
+		return exitUnservable
+	}
+	if code, done := printOutput(opts, fs, stdout); done {
+		return code
+	}
+	opts.given = map[string]bool{}
+	fs.Visit(func(f *flag.Flag) { opts.given[f.Name] = true })
 
-	if opts.showHelp {
-		printUsage(stdout, fs)
-		return exitServed
+	if opts.printConfig.set && opts.printConfig.host == "" && len(positional) > 0 && positional[0] != "" {
+		opts.printConfig.host, positional = positional[0], nil
 	}
-	if opts.showMan {
-		doc().WriteRoff(stdout, fs, usage.DefaultManMeta())
-		return exitServed
-	}
-	if opts.showVersion {
-		fmt.Fprint(stdout, build().Report(mcpCommand))
-		return exitServed
-	}
+	positional = append(positional, fs.Args()...)
 	if opts.printConfig.set {
-		return printConfig(opts, fs, stdout, stderr)
+		return printConfig(opts, fs, positional, stdout, stderr)
 	}
-	if fs.NArg() > 0 {
-		fmt.Fprintf(stderr, "%sunexpected argument %q; %s\n", commandPrefix, fs.Arg(0), protocolMessage)
+	if len(positional) > 0 {
+		fmt.Fprintf(stderr, "%sunexpected argument %q; %s\n", commandPrefix, positional[0], protocolMessage)
 		printUsage(stderr, fs)
 		return exitUnservable
 	}
@@ -207,6 +216,22 @@ func printUsage(w io.Writer, fs *flag.FlagSet) {
 	doc().WriteText(w, fs)
 }
 
+// printOutput answers -help, -man or -version on stdout, reporting whether one
+// was asked for; help asked for is a result, so it exits 0.
+func printOutput(opts *options, fs *flag.FlagSet, stdout io.Writer) (int, bool) {
+	switch {
+	case opts.showHelp:
+		printUsage(stdout, fs)
+	case opts.showMan:
+		doc().WriteRoff(stdout, fs, usage.DefaultManMeta())
+	case opts.showVersion:
+		fmt.Fprint(stdout, build().Report(mcpCommand))
+	default:
+		return 0, false
+	}
+	return exitServed, true
+}
+
 // serve speaks the protocol over stdin/stdout until the client ends it or the
 // process is told to stop, or with http over that address until the process is
 // told to stop, and reports how the session ended.
@@ -227,15 +252,9 @@ func serve(stderr io.Writer, cfg mcp.Config, over *httpOptions) int {
 			return exitUnservable
 		}
 	}
-	srv, err := mcp.New(ctx, cfg)
-	if err != nil {
-		fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)
-		return exitProtocol
-	}
-	defer srv.Close(context.Background())
-
 	if lis != nil {
-		err = srv.ServeStreamableHTTP(ctx, mcp.HTTPConfig{Listener: lis, Origins: over.origins, Token: over.token, CertFile: over.certFile, KeyFile: over.keyFile})
+		err := mcp.ServeHTTP(ctx, cfg, mcp.HTTPConfig{Listener: lis, Origins: over.origins, Token: over.token, CertFile: over.certFile, KeyFile: over.keyFile,
+			ShutdownTimeout: over.shutdownTimeout, MaxBodyBytes: over.maxBodyBytes, Logger: cfg.Logger})
 		if err != nil {
 			fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)
 			return exitProtocol
@@ -243,6 +262,12 @@ func serve(stderr io.Writer, cfg mcp.Config, over *httpOptions) int {
 		return exitServed
 	}
 
+	srv, err := mcp.New(ctx, cfg)
+	if err != nil {
+		fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)
+		return exitProtocol
+	}
+	defer srv.Close(context.Background())
 	err = srv.Run(ctx, &sdk.StdioTransport{})
 	if err != nil && !endedWithTheStream(err) && ctx.Err() == nil {
 		fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)

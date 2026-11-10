@@ -185,9 +185,22 @@ func elementKind(sym *symbols.Symbol) string {
 		if kind, ok := sym.UsageKind(); ok && kind == ast.UsageObjective {
 			return ""
 		}
+		if usage, ok := sym.Decl.(*ast.Usage); ok && usage.IsVerifiedRequirement() {
+			return ""
+		}
 		return "requirement"
 	}
 	return ""
+}
+
+func TestElementKindExcludesVerifyMembers(t *testing.T) {
+	verify := &symbols.Symbol{
+		Kind: symbols.SymbolRequirementUsage,
+		Decl: &ast.Usage{Kind: ast.UsageSatisfy, Keyword: "verify"},
+	}
+	if got := elementKind(verify); got != "" {
+		t.Errorf("elementKind(verify) = %q, want no solver condition: it references a requirement, stating none", got)
+	}
 }
 
 func TestElementKindExcludesObjectiveUsages(t *testing.T) {
