@@ -64,28 +64,8 @@ type Authenticator struct {
 // New reads the provider's discovery document and prepares the verifier; its
 // JWKS is fetched on first use and re-fetched when a token names an unknown key.
 func New(ctx context.Context, cfg Config) (*Authenticator, error) {
-	if cfg.Issuer == "" {
-		return nil, errors.New("oidc: no issuer")
-	}
-	if err := secure("issuer", cfg.Issuer); err != nil {
-		return nil, err
-	}
-	if cfg.Audience == "" {
-		return nil, errors.New("oidc: no audience")
-	}
-	if cfg.ClockSkew < 0 {
-		return nil, fmt.Errorf("oidc: negative clock skew %v", cfg.ClockSkew)
-	}
-	if (cfg.Introspect == "") != (cfg.Client == Client{}) {
-		return nil, errors.New("oidc: introspection needs both an endpoint and a client")
-	}
-	if cfg.Introspect != "" {
-		if err := secure("introspection endpoint", cfg.Introspect); err != nil {
-			return nil, err
-		}
-		if cfg.Client.ID == "" || cfg.Client.Secret == "" {
-			return nil, errors.New("oidc: the introspection client needs both an id and a secret")
-		}
+	if err := cfg.Check(); err != nil {
+		return nil, fmt.Errorf("oidc: %w", err)
 	}
 	if cfg.HTTPClient == nil {
 		cfg.HTTPClient = http.DefaultClient
@@ -122,6 +102,35 @@ func New(ctx context.Context, cfg Config) (*Authenticator, error) {
 	return a, nil
 }
 
+// Check reports what makes cfg unusable before any provider is contacted: no
+// issuer or audience, a cleartext URL off loopback, half an introspection pair.
+func (cfg Config) Check() error {
+	if cfg.Issuer == "" {
+		return errors.New("no issuer")
+	}
+	if err := secure("issuer", cfg.Issuer); err != nil {
+		return err
+	}
+	if cfg.Audience == "" {
+		return errors.New("no audience")
+	}
+	if cfg.ClockSkew < 0 {
+		return fmt.Errorf("negative clock skew %v", cfg.ClockSkew)
+	}
+	if (cfg.Introspect == "") != (cfg.Client == Client{}) {
+		return errors.New("introspection needs both an endpoint and a client")
+	}
+	if cfg.Introspect != "" {
+		if err := secure("introspection endpoint", cfg.Introspect); err != nil {
+			return err
+		}
+		if cfg.Client.ID == "" || cfg.Client.Secret == "" {
+			return errors.New("the introspection client needs both an id and a secret")
+		}
+	}
+	return nil
+}
+
 // signingAlgorithms are the asymmetric JWS algorithms a token may be signed
 // with (RFC 7518 § 3.1, RFC 8037 § 3.1); a shared-secret or unsigned one is refused.
 var signingAlgorithms = []string{
@@ -136,7 +145,7 @@ var signingAlgorithms = []string{
 func secure(what, raw string) error {
 	u, err := url.Parse(raw)
 	if err != nil || u.Host == "" {
-		return fmt.Errorf("oidc: %s %q is not a URL", what, raw)
+		return fmt.Errorf("the %s %q is not a URL", what, raw)
 	}
 	switch {
 	case u.Scheme == "https":
@@ -144,7 +153,7 @@ func secure(what, raw string) error {
 	case u.Scheme == "http" && guard.IsLoopbackHost(u.Hostname()):
 		return nil
 	}
-	return fmt.Errorf("oidc: %s %q must be https (or http at a loopback host)", what, raw)
+	return fmt.Errorf("the %s %q must be https (or http at a loopback host)", what, raw)
 }
 
 // Verify accepts a JWT the provider signed for this audience within its validity

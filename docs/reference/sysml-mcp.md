@@ -428,7 +428,7 @@ authentication the Model Context Protocol asks of a server on a network:
   client reached it and `bearer_methods_supported: ["header"]`, with no `authorization_servers`
   to list — so a client following the challenge learns that the token is preconfigured rather
   than obtained by a flow. An authorization server that issues tokens by OAuth 2.1 (user consent,
-  scopes, expiry) is a proxy's job in front of the server, as it is for `sysml-grpc`. Behind a
+  scopes, expiry) is named with `-oidc-issuer`, under [Single sign-on](#single-sign-on). Behind a
   proxy that terminates TLS or rewrites the path, a request no longer shows the URL the client
   used, so `-public-url https://models.example.org/mcp` names it: the challenge, the metadata
   and the `-print-config` block then carry that URL rather than the request's own scheme and
@@ -471,6 +471,76 @@ server already running rather than starting one, and with the server's token (`-
 in a file the host reads privately — a user-level configuration, or a project file kept out of
 version control — or is edited to the host's own reference to a secret where it has one.
 
+## Single sign-on
+
+With `-oidc-issuer URL`, the server accepts the access tokens an OpenID provider issues, next to
+(or instead of) the preconfigured token. The host runs Authorization Code + PKCE against the
+provider; the server verifies what comes back and never sees a password.
+
+- **Discovery.** The provider's `/.well-known/openid-configuration` is read at startup (the issuer
+  must be `https`, or `http` on a loopback host for a provider run beside the server); its signing
+  keys are fetched on first use and again when a token names a key the server has not seen.
+- **What a token must hold** (RFC 9068): a signature under one of the provider's keys (RS, ES, PS or
+  EdDSA), `iss` equal to the issuer, `aud` holding this server's resource URL, `exp` in the future
+  and `nbf` in the past (30 seconds of clock skew allowed either way), and a `sub`. `-oidc-audience
+  AUD` names the audience when it is not the resource URL named by `-public-url` (RFC 8707).
+- **Who the caller is.** The principal's subject is `sub`, its name `preferred_username`, else
+  `email`, else `name`; its scopes come from the `scope` claim (space separated) or `scp` (array),
+  or from the claim `-oidc-scope-claim NAME` names.
+- **Refusals** follow RFC 6750: an expired token is `401` with `error="invalid_token"` and
+  `error_description="the bearer token has expired"`; one for another audience or issuer, or with a
+  bad signature, is `invalid_token` too; and a token the provider cannot be reached to verify is
+  `503 Service Unavailable`, so the host retries rather than re-authenticating.
+- **Resource metadata.** The RFC 9728 document at `/.well-known/oauth-protected-resource/mcp`
+  names the issuer in `authorization_servers` and the server's scopes in `scopes_supported`, which
+  is how an MCP host (Claude Code, VS Code, Cursor, the MCP Inspector) finds the provider from the
+  `401` challenge's `resource_metadata` and starts the flow.
+- **Opaque tokens.** A provider that issues tokens that are not JWTs is asked about them through
+  RFC 7662 introspection: `-oidc-introspect URL` with `-oidc-client-file FILE`, a JSON file holding
+  the `client_id` and `client_secret` of a confidential client the provider lets introspect. An
+  active answer is kept until the token's `exp`. Without these flags, a bearer token that is not a
+  JWT goes to the next authenticator (the preconfigured token).
+
+### Keycloak walkthrough
+
+A development Keycloak with a realm the repository ships (`deploy/keycloak/opensysml-realm.json`:
+realm `opensysml`, scopes `sysml:read` and `sysml:write`, a public client `mcp-inspector` with
+PKCE, an audience mapper adding `http://localhost:8765/mcp`, and a user `alice`/`alice`):
+
+```bash
+docker run --rm -p 8080:8080 \
+  -e KC_BOOTSTRAP_ADMIN_USERNAME=admin -e KC_BOOTSTRAP_ADMIN_PASSWORD=admin \
+  -v "$PWD/deploy/keycloak:/opt/keycloak/data/import:ro" \
+  quay.io/keycloak/keycloak:26.4 start-dev --import-realm
+
+sysml-mcp -root . -http 127.0.0.1:8765 -public-url http://localhost:8765/mcp \
+  -oidc-issuer http://localhost:8080/realms/opensysml
+
+npx @modelcontextprotocol/inspector
+```
+
+In the Inspector choose *Streamable HTTP*, URL `http://localhost:8765/mcp`, and connect: the
+`401` leads it to the metadata, the metadata to Keycloak, and Keycloak's login page (alice /
+alice) back to the Inspector with a token the server accepts. For your own realm, the client
+needs the Inspector's redirect URIs (`http://localhost:6274/oauth/callback` and
+`.../callback/debug`), an *Audience* mapper putting the server's `-public-url` into the access
+token, and client scopes named after the server's scopes with *Include in token scope* on.
+
+### Other providers
+
+- **Microsoft Entra ID.** Register the server as an application exposing an API; its
+  *Application ID URI* (`api://<client-id>`) is what Entra puts in `aud`, so pass it as
+  `-oidc-audience`. Scopes are in the `scp` claim (space separated), which the server reads by
+  default; app roles arrive in `roles`. Tokens for the Microsoft Graph audience cannot be verified
+  by anyone else, so the host must request the API's scopes, not Graph's.
+- **Okta.** Use a custom authorization server (the org server's tokens are not verifiable by third
+  parties); its *Audience* setting is the `aud` value, set it to the server's resource URL. Scopes
+  come in `scp` as an array, read by default; the issuer is
+  `https://<org>.okta.com/oauth2/<server-id>`.
+- **Ping (PingFederate / PingOne).** Add the resource URL to the access token's audience through the
+  access token manager (PingFederate) or the resource's audience (PingOne); scopes are in `scope`,
+  space separated. If a deployment maps them into another claim, name it with `-oidc-scope-claim`.
+
 ## Command line
 
 | Flag | Default | Meaning |
@@ -488,6 +558,10 @@ version control — or is edited to the host's own reference to a secret where i
 | `-token TOKEN` | — | The token itself; `OPENSYSML_MCP_TOKEN` is read when neither flag names one |
 | `-public-url URL` | the request's scheme and `Host` | The URL clients reach the endpoint at behind a proxy that terminates TLS or rewrites the path; named as the resource, in the bearer challenge and by the `-print-config` block |
 | `-tls-cert FILE`, `-tls-key FILE` | — | Serve `https`; both or neither |
+| `-oidc-issuer URL` | — | Accept the access tokens of this OpenID provider (its issuer URL; `https`, or `http` on loopback): discovery and signing keys are read from it, tokens verified against it, and it is advertised as the authorization server |
+| `-oidc-audience AUD` | the `-public-url` endpoint | The `aud` a token must name; one of the two flags must name it |
+| `-oidc-scope-claim NAME` | `scope`, then `scp` | The claim a token's scopes are read from |
+| `-oidc-introspect URL`, `-oidc-client-file FILE` | — | Ask this RFC 7662 endpoint, as the client whose `client_id` and `client_secret` the JSON file holds, about bearer tokens that are not JWTs; both or neither |
 | `-print-config [HOST]` | — | Write a host's configuration block to stdout and exit; alone, list the hosts |
 | `-print-config-command CMD` | the binary's path | The command the block names; with `-http ADDR` (and `-tls-cert` for `https`) the block names the server's URL instead, with the `Authorization` header when a token is given |
 | `-version`, `-help`, `-man` | — | The build, this table, the manual page |

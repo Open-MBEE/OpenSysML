@@ -49,6 +49,22 @@ func TestNewRefusesIncompleteConfig(t *testing.T) {
 	}
 }
 
+func TestCheckNamesWhatIsMissing(t *testing.T) {
+	for want, cfg := range map[string]oidc.Config{
+		"no issuer":   {Audience: resource},
+		"no audience": {Issuer: "https://idp.example.org"},
+		`the issuer "http://idp.example.org" must be https (or http at a loopback host)`: {Issuer: "http://idp.example.org", Audience: resource},
+		`the introspection endpoint "introspect" is not a URL`:                           {Issuer: "https://idp.example.org", Audience: resource, Introspect: "introspect", Client: oidc.Client{ID: "a", Secret: "b"}},
+	} {
+		if err := cfg.Check(); err == nil || err.Error() != want {
+			t.Errorf("Check(%+v) = %v, want %q", cfg, err, want)
+		}
+	}
+	if err := (oidc.Config{Issuer: "http://localhost:8080/realms/x", Audience: resource}).Check(); err != nil {
+		t.Errorf("Check of a loopback issuer: %v", err)
+	}
+}
+
 func TestNewNeedsJWKSURI(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
