@@ -61,6 +61,7 @@ internal static class Rendering
             Kind = symbol.Kind,
             ChildIds = { symbol.ChildIds },
             WithheldLibraryAttributes = symbol.WithheldLibraryAttributes,
+            WithheldLibraryMembers = symbol.WithheldLibraryMembers,
         };
         foreach (var (name, fact) in symbol.Metadata)
         {
@@ -89,6 +90,7 @@ internal static class Rendering
                 PrimitiveSource = type.PrimitiveSource,
                 Quantity = type.IsQuantity,
                 Unit = type.Unit,
+                Types_ = { type.Types.Select(derived => new Wire.TypeRef { Id = derived.Id, Kind = derived.Kind }) },
             };
         }
 
@@ -105,6 +107,19 @@ internal static class Rendering
                 Declared = edge.Declared,
                 TargetId = edge.TargetId,
                 TargetKind = edge.TargetKind,
+            });
+        }
+
+        foreach (var member in symbol.Members)
+        {
+            rendered.Members.Add(new Wire.MemberInfo
+            {
+                Id = member.Id,
+                Name = member.Name,
+                Kind = member.Kind,
+                Inherited = member.IsInherited,
+                InheritedFrom = member.InheritedFrom,
+                Library = member.IsLibrary,
             });
         }
 
@@ -138,8 +153,82 @@ internal static class Rendering
             rendered.FeatureValues.Add(name, held);
         }
 
+        if (instance.ReachedBy is { } reach)
+        {
+            rendered.ReachedBy = new Wire.InstanceReach
+            {
+                InstanceId = reach.InstanceId,
+                FeatureName = reach.FeatureName,
+                FeatureSymbolId = reach.FeatureSymbolId,
+                Index = reach.Index,
+                Path = reach.Path,
+            };
+        }
+
         return rendered;
     }
+
+    /// <summary>An element's metamodel properties, each value in its arm.</summary>
+    internal static Wire.GetElementPropertiesResponse ElementProperties(ElementProperties read)
+    {
+        ArgumentNullException.ThrowIfNull(read);
+        var rendered = new Wire.GetElementPropertiesResponse { Element = ElementRef(read.Element) };
+        foreach (var property in read.Properties)
+        {
+            rendered.Properties.Add(new Wire.ElementProperty
+            {
+                Name = property.Name,
+                DefiningClass = property.DefiningClass,
+                Many = property.IsMany,
+                Derived = property.IsDerived,
+                Values = { property.Values.Select(PropertyValue) },
+                Unsupported = property.Unsupported,
+            });
+        }
+
+        return rendered;
+    }
+
+    /// <summary>Every path to an object, each from its root.</summary>
+    internal static Wire.InstancePathsResponse InstancePaths(InstancePaths paths)
+    {
+        ArgumentNullException.ThrowIfNull(paths);
+        var rendered = new Wire.InstancePathsResponse { Truncated = paths.IsTruncated };
+        foreach (var path in paths.Paths)
+        {
+            rendered.Paths.Add(new Wire.InstancePath
+            {
+                Root = new Wire.InstanceRoot { InstanceId = path.RootInstanceId, SymbolId = path.RootSymbolId },
+                Path = path.Path,
+                Steps =
+                {
+                    path.Steps.Select(step => new Wire.InstancePathStep
+                    {
+                        FeatureName = step.FeatureName,
+                        FeatureSymbolId = step.FeatureSymbolId,
+                        Index = step.Index,
+                        InstanceId = step.InstanceId,
+                    }),
+                },
+            });
+        }
+
+        return rendered;
+    }
+
+    private static Wire.ElementRef ElementRef(ElementRef element) =>
+        new() { Id = element.Id, QualifiedName = element.QualifiedName, Metaclass = element.Metaclass };
+
+    private static Wire.ElementPropertyValue PropertyValue(ElementPropertyValue value) => value switch
+    {
+        ElementPropertyValue.ElementValue element => new Wire.ElementPropertyValue { Element = ElementRef(element.Element) },
+        ElementPropertyValue.TextValue text => new Wire.ElementPropertyValue { StringValue = text.Text },
+        ElementPropertyValue.BooleanValue boolean => new Wire.ElementPropertyValue { BoolValue = boolean.Value },
+        ElementPropertyValue.IntegerValue integer => new Wire.ElementPropertyValue { IntValue = integer.Value },
+        ElementPropertyValue.RealValue real => new Wire.ElementPropertyValue { RealValue = real.Value },
+        ElementPropertyValue.NumberValue number => new Wire.ElementPropertyValue { Number = number.Digits },
+        _ => throw new InvalidOperationException($"no rendering of a {value.GetType().FullName}"),
+    };
 
     /// <summary>One run of an action, with its trace and everything else the API reports of it.</summary>
     internal static Wire.ExecuteActionResponse ActionRun(ActionRun run)

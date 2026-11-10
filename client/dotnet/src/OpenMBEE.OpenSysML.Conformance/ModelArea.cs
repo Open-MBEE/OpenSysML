@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Google.Protobuf.Collections;
@@ -7,9 +8,9 @@ namespace OpenMBEE.OpenSysML.Conformance;
 
 /// <summary>
 /// Parsing and reading a model: ParseFile and ParseSources through <see cref="Connection"/>, and
-/// GetSymbol, GetDiagnostics, Evaluate and Instantiate through the <see cref="Model"/> a hash names.
-/// A failure the service reports in its answer reaches the caller as a <see cref="ModelException"/>,
-/// which is rendered back into the response's error and diagnostics.
+/// GetSymbol, GetElementProperties, GetDiagnostics, Evaluate, Instantiate and InstancePaths through the
+/// <see cref="Model"/> a hash names. A failure the service reports in its answer reaches the caller as a
+/// <see cref="ModelException"/>, which is rendered back into the response's error and diagnostics.
 /// </summary>
 internal static class ModelArea
 {
@@ -18,10 +19,12 @@ internal static class ModelArea
     [
         RpcAdapter.Of<Wire.ParseFileRequest>("ParseFile", ["file_path", "content", "language", "strict_conformance"], ParseFileAsync),
         RpcAdapter.Of<Wire.ParseSourcesRequest>("ParseSources", ["documents", "strict_conformance", "base_model_hash"], ParseSourcesAsync),
-        RpcAdapter.Of<Wire.GetSymbolRequest>("GetSymbol", ["model_hash", "symbol_id"], GetSymbolAsync),
+        RpcAdapter.Of<Wire.GetSymbolRequest>("GetSymbol", ["model_hash", "symbol_id", "include_library_members"], GetSymbolAsync),
+        RpcAdapter.Of<Wire.GetElementPropertiesRequest>("GetElementProperties", ["model_hash", "element_id", "properties"], GetElementPropertiesAsync),
         RpcAdapter.Of<Wire.DiagnosticsRequest>("GetDiagnostics", ["model_hash", "disable_lint", "enable_lint"], GetDiagnosticsAsync),
         RpcAdapter.Of<Wire.EvaluateRequest>("Evaluate", ["model_hash", "expression", "context_symbol_id", "subject_symbol_id"], EvaluateAsync),
         RpcAdapter.Of<Wire.InstantiateRequest>("Instantiate", ["model_hash", "symbol_id"], InstantiateAsync),
+        RpcAdapter.Of<Wire.InstancePathsRequest>("InstancePaths", ["model_hash", "object"], InstancePathsAsync),
     ];
 
     /// <summary>The language a request names, as the public API names it; null for none.</summary>
@@ -120,10 +123,11 @@ internal static class ModelArea
     private static async Task<ScenarioAnswer> GetSymbolAsync(Connection connection, Wire.GetSymbolRequest request, CancellationToken cancellationToken)
     {
         var model = ApiAdapters.ModelOf(connection, request.ModelHash);
+        var options = new SymbolOptions { IncludeLibraryMembers = request.IncludeLibraryMembers };
         var response = new Wire.SymbolResponse();
         try
         {
-            response.Symbol = Rendering.Symbol(await model.SymbolAsync(request.SymbolId, cancellationToken).ConfigureAwait(false));
+            response.Symbol = Rendering.Symbol(await model.SymbolAsync(request.SymbolId, options, cancellationToken).ConfigureAwait(false));
         }
         catch (ModelException failure)
         {
@@ -131,6 +135,31 @@ internal static class ModelArea
         }
 
         return new ScenarioAnswer.Answered(response);
+    }
+
+    private static async Task<ScenarioAnswer> GetElementPropertiesAsync(Connection connection, Wire.GetElementPropertiesRequest request, CancellationToken cancellationToken)
+    {
+        var model = ApiAdapters.ModelOf(connection, request.ModelHash);
+        if (string.IsNullOrWhiteSpace(request.ElementId))
+        {
+            throw new UnexpressibleRequestException("the public API names an element by an id that is not blank");
+        }
+
+        if (request.Properties.Any(string.IsNullOrWhiteSpace))
+        {
+            throw new UnexpressibleRequestException("the public API names each property by a specification name that is not blank");
+        }
+
+        try
+        {
+            return new ScenarioAnswer.Answered(Rendering.ElementProperties(
+                await model.ElementPropertiesAsync(request.ElementId, request.Properties, cancellationToken).ConfigureAwait(false)));
+        }
+        catch (ModelException failure)
+        {
+            // An element the form does not know, or a model with no form, is reported in band, in the service's words.
+            return new ScenarioAnswer.Answered(new Wire.GetElementPropertiesResponse { Error = failure.Message });
+        }
     }
 
     private static async Task<ScenarioAnswer> GetDiagnosticsAsync(Connection connection, Wire.DiagnosticsRequest request, CancellationToken cancellationToken)
@@ -187,6 +216,31 @@ internal static class ModelArea
             }
 
             response.Diagnostics.AddRange(Rendering.Diagnostics(instantiation.Diagnostics));
+        }
+        catch (ModelException failure)
+        {
+            response.Error = InBand(failure, response.Diagnostics);
+        }
+
+        return new ScenarioAnswer.Answered(response);
+    }
+
+    private static async Task<ScenarioAnswer> InstancePathsAsync(Connection connection, Wire.InstancePathsRequest request, CancellationToken cancellationToken)
+    {
+        var model = ApiAdapters.ModelOf(connection, request.ModelHash);
+        var paths = request.Object switch
+        {
+            null => throw new UnexpressibleRequestException("the public API always names the object, by id or by path, so it cannot send a request naming none"),
+            { Element: not null } => throw new UnexpressibleRequestException("the public API names an object by id or by path alone, so it cannot send the element it is held under"),
+            { Path.Length: > 0, InstanceId: not 0 } => throw new UnexpressibleRequestException("the public API names an object by id or by path, so it cannot send both"),
+            { Path.Length: > 0 } target => model.InstancePathsAtAsync(target.Path, cancellationToken),
+            { InstanceId: > 0 } target => model.InstancePathsAsync(target.InstanceId, cancellationToken),
+            _ => throw new UnexpressibleRequestException("the public API names an object by a positive id or by a path, which object does neither"),
+        };
+        var response = new Wire.InstancePathsResponse();
+        try
+        {
+            response = Rendering.InstancePaths(await paths.ConfigureAwait(false));
         }
         catch (ModelException failure)
         {

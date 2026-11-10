@@ -161,8 +161,8 @@ public sealed class ServiceSamplingTests(ServiceFixture services) : IClassFixtur
         Assert.Equal(new EditedDocument("Records.sysml", once.Source), Assert.Single(once.Documents));
         Assert.NotEqual(model.Hash, once.Model.Hash);
         Assert.Same(connection, once.Model.Connection);
-        Assert.Equal("Records::Cost_run1", (await once.Model.SymbolAsync("Records::Cost_run1", Token)).Id);
-        await Assert.ThrowsAsync<SymbolNotFoundException>(() => model.SymbolAsync("Records::Cost_run1", Token));
+        Assert.Equal("Records::Cost_run1", (await once.Model.SymbolAsync("Records::Cost_run1", cancellationToken: Token)).Id);
+        await Assert.ThrowsAsync<SymbolNotFoundException>(() => model.SymbolAsync("Records::Cost_run1", cancellationToken: Token));
         Assert.Equal(3, swept.Sweep!.Rows.Count);
         Assert.Equal(["Records::CostAnalysis_run1", "Records::CostAnalysis_run2", "Records::CostAnalysis_run3"], swept.Records);
         Assert.Equal(0, swept.Skipped);

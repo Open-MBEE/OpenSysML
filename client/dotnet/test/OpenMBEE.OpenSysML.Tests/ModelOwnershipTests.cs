@@ -49,7 +49,7 @@ public sealed class ModelOwnershipTests
         Assert.Same(opened, model.Connection);
         Assert.Equal("h", model.Hash);
         Assert.Single(logger.Entries, entry => entry.Message.StartsWith("Closed the connection", StringComparison.Ordinal));
-        await Assert.ThrowsAsync<ObjectDisposedException>(() => model.SymbolAsync("P", TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ObjectDisposedException>(() => model.SymbolAsync("P", cancellationToken: TestContext.Current.CancellationToken));
         Assert.Equal(0, handler.Disposals);
     }
 

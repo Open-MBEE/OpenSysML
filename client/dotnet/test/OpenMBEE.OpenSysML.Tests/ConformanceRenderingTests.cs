@@ -99,10 +99,18 @@ internal static class CompleteWire
             PrimitiveSource = "ScalarValues::Real",
             Quantity = true,
             Unit = "kg",
+            Types_ = { new Wire.TypeRef { Id = "ISQ::MassValue", Kind = "attributeDef" }, new Wire.TypeRef { Id = "Demo::Heavy" } },
         },
         Multiplicity = new Wire.MultiplicityInfo { Lower = "0", Upper = "*" },
         Specializations = { new Wire.Specialization { Kind = "subclassification", Declared = "Base", TargetId = "Demo::Base", TargetKind = "partDef" } },
         WithheldLibraryAttributes = 3,
+        Members =
+        {
+            new Wire.MemberInfo { Id = "Demo::Vehicle::mass", Name = "mass", Kind = "attributeUsage" },
+            new Wire.MemberInfo { Id = "Demo::Base::engine", Name = "engine", Kind = "partUsage", Inherited = true, InheritedFrom = "Demo::Base" },
+            new Wire.MemberInfo { Id = "Parts::Part::ownedPorts", Name = "ownedPorts", Kind = "portUsage", Inherited = true, InheritedFrom = "Parts::Part", Library = true },
+        },
+        WithheldLibraryMembers = 12,
     };
 
     /// <summary>An object whose feature holds every fact a feature value has.</summary>
@@ -123,6 +131,63 @@ internal static class CompleteWire
             },
             ["engine"] = new Wire.FeatureValue { FeatureName = "engine", Value = new Wire.Value { InstanceId = 10 } },
         },
+        ReachedBy = new Wire.InstanceReach { InstanceId = 8, FeatureName = "vehicles", FeatureSymbolId = "Demo::Fleet::vehicles", Index = 2, Path = "vehicles[2]" },
+    };
+
+    /// <summary>An element's properties with every fact set, a value of every arm among them.</summary>
+    internal static Wire.GetElementPropertiesResponse ElementProperties { get; } = new()
+    {
+        Element = new Wire.ElementRef { Id = "e-pair", QualifiedName = "Demo::Pair", Metaclass = "PartDefinition" },
+        Properties =
+        {
+            new Wire.ElementProperty
+            {
+                Name = "inheritedFeature",
+                DefiningClass = "Type",
+                Many = true,
+                Derived = true,
+                Values =
+                {
+                    new Wire.ElementPropertyValue { Element = new Wire.ElementRef { Id = "e-p", QualifiedName = "Demo::Unit::p", Metaclass = "PortUsage" } },
+                    new Wire.ElementPropertyValue { Element = new Wire.ElementRef { Id = "lib-7" } },
+                },
+            },
+            new Wire.ElementProperty
+            {
+                Name = "literals",
+                DefiningClass = "Element",
+                Many = true,
+                Values =
+                {
+                    new Wire.ElementPropertyValue { StringValue = "in" },
+                    new Wire.ElementPropertyValue { BoolValue = true },
+                    new Wire.ElementPropertyValue { IntValue = -3 },
+                    new Wire.ElementPropertyValue { RealValue = 2.5 },
+                    new Wire.ElementPropertyValue { Number = "123456789012345678901234567890" },
+                },
+            },
+            new Wire.ElementProperty { Name = "connectorEnd", Unsupported = "PartDefinition declares no property connectorEnd" },
+        },
+    };
+
+    /// <summary>The paths to an object, a root without a name and a step into a multi-valued feature among them.</summary>
+    internal static Wire.InstancePathsResponse InstancePaths { get; } = new()
+    {
+        Paths =
+        {
+            new Wire.InstancePath
+            {
+                Root = new Wire.InstanceRoot { InstanceId = 1, SymbolId = "Fuel::vehicle" },
+                Path = "wheels[2].hub",
+                Steps =
+                {
+                    new Wire.InstancePathStep { FeatureName = "wheels", FeatureSymbolId = "Fuel::vehicle::wheels", Index = 2, InstanceId = 4 },
+                    new Wire.InstancePathStep { FeatureName = "hub", FeatureSymbolId = "Fuel::Wheel::hub", InstanceId = 6 },
+                },
+            },
+            new Wire.InstancePath { Root = new Wire.InstanceRoot { InstanceId = 9 } },
+        },
+        Truncated = true,
     };
 
     /// <summary>A diagnostic with every fact set.</summary>
@@ -230,8 +295,24 @@ public sealed class ConformanceRenderingTests
     [Fact]
     public void TheSamplesSetEveryFieldTheModelResponsesReach()
     {
-        var reachable = CompleteWire.ReachableFields(Wire.SymbolInfo.Descriptor, Wire.Instance.Descriptor, Wire.Diagnostic.Descriptor, Wire.Value.Descriptor);
-        var set = CompleteWire.SetFields([.. CompleteWire.Values, CompleteWire.Symbol, CompleteWire.Instance, CompleteWire.Diagnostic]);
+        var reachable = CompleteWire.ReachableFields(
+            Wire.SymbolInfo.Descriptor,
+            Wire.Instance.Descriptor,
+            Wire.Diagnostic.Descriptor,
+            Wire.Value.Descriptor,
+            Wire.GetElementPropertiesResponse.Descriptor,
+            Wire.InstancePathsResponse.Descriptor);
+        var set = CompleteWire.SetFields(
+        [
+            .. CompleteWire.Values,
+            CompleteWire.Symbol,
+            CompleteWire.Instance,
+            CompleteWire.Diagnostic,
+            CompleteWire.ElementProperties,
+            CompleteWire.InstancePaths,
+            new Wire.GetElementPropertiesResponse { Error = "e" },
+            new Wire.InstancePathsResponse { Error = "e", Diagnostics = { CompleteWire.Diagnostic } },
+        ]);
 
         Assert.Equal([], reachable.Except(set, StringComparer.Ordinal).ToArray());
     }
@@ -269,6 +350,27 @@ public sealed class ConformanceRenderingTests
 
         Assert.Equal(CompleteWire.Instance, Rendering.Instance(ModelWire.Instance(CompleteWire.Instance, CompleteWire.Method, "instance")));
         Assert.Equal(bare, Rendering.Instance(ModelWire.Instance(bare, CompleteWire.Method, "instance")));
+    }
+
+    [Fact]
+    public void AnElementsPropertiesAreRenderedWithEveryArmOfEveryValue()
+    {
+        var bare = new Wire.GetElementPropertiesResponse { Element = new Wire.ElementRef { Id = "x" } };
+
+        Assert.Equal(CompleteWire.ElementProperties, Rendering.ElementProperties(ModelWire.ElementProperties(CompleteWire.ElementProperties, CompleteWire.Method)));
+        Assert.Equal(bare, Rendering.ElementProperties(ModelWire.ElementProperties(bare, CompleteWire.Method)));
+        Assert.Equal(
+            Wire.ElementPropertyValue.Descriptor.Oneofs.Single().Fields.Select(field => field.Name).Order(StringComparer.Ordinal),
+            CompleteWire.ElementProperties.Properties.SelectMany(property => property.Values).Select(value => Wire.ElementPropertyValue.Descriptor.Oneofs.Single().Accessor.GetCaseFieldDescriptor(value).Name).Distinct().Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void ThePathsToAnObjectAreRenderedWithTheirRootsAndSteps()
+    {
+        var none = new Wire.InstancePathsResponse();
+
+        Assert.Equal(CompleteWire.InstancePaths, Rendering.InstancePaths(ModelWire.InstancePaths(CompleteWire.InstancePaths, CompleteWire.Method)));
+        Assert.Equal(none, Rendering.InstancePaths(ModelWire.InstancePaths(none, CompleteWire.Method)));
     }
 
     [Fact]

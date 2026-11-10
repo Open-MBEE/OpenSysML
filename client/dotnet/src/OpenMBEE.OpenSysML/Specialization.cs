@@ -2,11 +2,14 @@ using System;
 
 namespace OpenMBEE.OpenSysML;
 
-/// <summary>One generalization edge an element declares.</summary>
+/// <summary>
+/// One generalization edge an element declares, as written: the relationships <see cref="Model.ElementPropertiesAsync"/>
+/// reflects under <c>ownedSpecialization</c>, without the implied ones the metamodel adds.
+/// </summary>
 public sealed record Specialization
 {
     /// <summary>Creates a specialization.</summary>
-    /// <param name="kind">The relationship: <c>specializes</c>, <c>subsets</c>, <c>redefines</c> or <c>typing</c>.</param>
+    /// <param name="kind">The relationship: <c>specializes</c>, <c>subsets</c>, <c>redefines</c>, <c>typing</c> or <c>references</c> (reference subsetting, <c>::&gt;</c> and <c>include</c>).</param>
     /// <param name="declared">The target as written in the source (<c>Engine</c>, <c>Demo::Engine</c>).</param>
     /// <param name="targetId">The qualified name of the resolved target; empty when the name does not resolve.</param>
     /// <param name="targetKind">The symbol kind of the resolved target (<c>partDef</c>, …); empty when unresolved.</param>
@@ -23,7 +26,7 @@ public sealed record Specialization
         TargetKind = targetKind;
     }
 
-    /// <summary>The relationship: <c>specializes</c>, <c>subsets</c>, <c>redefines</c> or <c>typing</c>.</summary>
+    /// <summary>The relationship: <c>specializes</c>, <c>subsets</c>, <c>redefines</c>, <c>typing</c> or <c>references</c> (reference subsetting, <c>::&gt;</c> and <c>include</c>).</summary>
     public string Kind { get; }
 
     /// <summary>The target as written in the source (<c>Engine</c>, <c>Demo::Engine</c>).</summary>

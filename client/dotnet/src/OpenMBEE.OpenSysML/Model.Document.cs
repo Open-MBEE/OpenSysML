@@ -116,7 +116,7 @@ public sealed partial class Model
         return new RenderedDocument(form, answered.Single(each => each.Form == form).Content, response.FileName.Length > 0 ? response.FileName : null);
     }
 
-    // A call naming a declaration of the model answers NotFound for the model or for that declaration; the model's is
+    // A call naming a declaration or an object of the model answers NotFound for the model or for that one; the model's is
     // told by the message the service words for this model's hash. With modelFaults, a failed precondition is a fault in
     // the model's own document or query declarations.
     private async Task<TResponse> DeclarationCallAsync<TRequest, TResponse>(string method, TRequest request, bool modelFaults, CancellationToken cancellationToken)

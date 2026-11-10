@@ -25,18 +25,32 @@ public sealed class ModelSymbolTests
         info.Metadata["specializes"] = "Base";
         info.Attributes.Add(new Wire.AttributeInfo { Name = "mass", Type = "Real", Value = new Wire.Value { RealValue = 1500.0 }, Unit = "kg" });
         info.Attributes.Add(new Wire.AttributeInfo { Name = "label" });
-        info.TypeInfo = new Wire.TypeInfo { Declared = "Base", ResolvedId = "Demo::Base", ResolvedKind = "partDef", Primitive = "Real", PrimitiveSource = "value", Quantity = true, Unit = "kg" };
+        info.TypeInfo = new Wire.TypeInfo
+        {
+            Declared = "Base",
+            ResolvedId = "Demo::Base",
+            ResolvedKind = "partDef",
+            Primitive = "Real",
+            PrimitiveSource = "value",
+            Quantity = true,
+            Unit = "kg",
+            Types_ = { new Wire.TypeRef { Id = "Demo::Base", Kind = "partDef" }, new Wire.TypeRef { Id = "Demo::Heavy" } },
+        };
         info.Multiplicity = new Wire.MultiplicityInfo { Lower = "0", Upper = "*" };
         info.Specializations.Add(new Wire.Specialization { Kind = "specializes", Declared = "Base", TargetId = "Demo::Base", TargetKind = "partDef" });
         info.Specializations.Add(new Wire.Specialization { Kind = "subsets", Declared = "nowhere" });
         info.WithheldLibraryAttributes = 4;
+        info.Members.Add(new Wire.MemberInfo { Id = "Demo::Vehicle::mass", Name = "mass", Kind = "attributeUsage" });
+        info.Members.Add(new Wire.MemberInfo { Id = "Demo::Base::wheel", Name = "wheel", Kind = "partUsage", Inherited = true, InheritedFrom = "Demo::Base" });
+        info.Members.Add(new Wire.MemberInfo { Id = "Demo::Vehicle::@2", Kind = "bindingUsage" });
+        info.WithheldLibraryMembers = 9;
         using var handler = new FakeServiceHandler(wire) { Capabilities = FakeModels.ModelCapabilities }
             .Parsing("h", FakeModels.Symbol("r", string.Empty, "RootNamespace"))
             .On("GetSymbol", Wire.GetSymbolRequest.Parser, _ => new Wire.SymbolResponse { Symbol = info });
         await using var connection = await FakeConnection.OpenAsync(handler);
         var model = await connection.LoadAsync();
 
-        var symbol = await model.SymbolAsync("Demo::Vehicle", TestContext.Current.CancellationToken);
+        var symbol = await model.SymbolAsync("Demo::Vehicle", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(new Wire.GetSymbolRequest { ModelHash = "h", SymbolId = "Demo::Vehicle" }, Assert.Single(handler.RequestsFor("GetSymbol")).Message(Wire.GetSymbolRequest.Parser));
         Assert.Equal(
@@ -47,11 +61,22 @@ public sealed class ModelSymbolTests
                 new Dictionary<string, string> { ["specializes"] = "Base", ["type"] = "Base" },
                 ["Demo::Vehicle::mass", "Demo::Vehicle::engine"],
                 [new AttributeInfo("mass", "Real", new Value.RealValue(1500.0), "kg"), new AttributeInfo("label", string.Empty, null, string.Empty)],
-                new TypeFacts("Base", "Demo::Base", "partDef", "Real", "value", true, "kg"),
+                new TypeFacts("Base", "Demo::Base", "partDef", "Real", "value", true, "kg", [new TypeRef("Demo::Base", "partDef"), new TypeRef("Demo::Heavy", string.Empty)]),
                 new Multiplicity("0", "*"),
                 [new Specialization("specializes", "Base", "Demo::Base", "partDef"), new Specialization("subsets", "nowhere", string.Empty, string.Empty)],
-                4),
+                4,
+                [
+                    new SymbolMember("Demo::Vehicle::mass", "mass", "attributeUsage", false, string.Empty, false),
+                    new SymbolMember("Demo::Base::wheel", "wheel", "partUsage", true, "Demo::Base", false),
+                    new SymbolMember("Demo::Vehicle::@2", string.Empty, "bindingUsage", false, string.Empty, false),
+                ],
+                9),
             symbol);
+        Assert.Equal(["Demo::Vehicle::mass", "Demo::Vehicle::@2"], symbol.OwnMembers.Select(member => member.Id));
+        Assert.Equal([new SymbolMember("Demo::Base::wheel", "wheel", "partUsage", true, "Demo::Base", false)], symbol.InheritedMembers);
+        Assert.Equal("Demo::Base::wheel (partUsage)", symbol.InheritedMembers[0].ToString());
+        Assert.Equal("Demo::Heavy", symbol.TypeFacts!.Types[1].ToString());
+        Assert.NotEqual(symbol, new Symbol(symbol.Id, symbol.Name, symbol.Kind, symbol.Metadata, symbol.ChildIds, symbol.Attributes, symbol.TypeFacts, symbol.Multiplicity, symbol.Specializations, 4));
         Assert.Equal("Demo::Vehicle (partDef)", symbol.ToString());
         Assert.Equal("[0..*]", symbol.Multiplicity!.ToString());
         Assert.Equal("[?..1]", new Multiplicity(string.Empty, "1").ToString());
@@ -69,9 +94,9 @@ public sealed class ModelSymbolTests
         await using var connection = await FakeConnection.OpenAsync(handler);
         var model = await connection.LoadAsync();
 
-        var missing = await Assert.ThrowsAsync<SymbolNotFoundException>(() => model.SymbolAsync("Demo::Nope", TestContext.Current.CancellationToken));
-        var found = await model.FindSymbolAsync("Demo::Nope", TestContext.Current.CancellationToken);
-        var malformed = await Assert.ThrowsAsync<TransportException>(() => model.FindSymbolAsync("Demo::Empty", TestContext.Current.CancellationToken));
+        var missing = await Assert.ThrowsAsync<SymbolNotFoundException>(() => model.SymbolAsync("Demo::Nope", cancellationToken: TestContext.Current.CancellationToken));
+        var found = await model.FindSymbolAsync("Demo::Nope", cancellationToken: TestContext.Current.CancellationToken);
+        var malformed = await Assert.ThrowsAsync<TransportException>(() => model.FindSymbolAsync("Demo::Empty", cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Equal("Demo::Nope", missing.Name);
         Assert.True(missing.Suggestions.IsEmpty);
@@ -81,12 +106,44 @@ public sealed class ModelSymbolTests
         Assert.Equal(StatusCode.Internal, malformed.StatusCode);
     }
 
+    [Theory]
+    [MemberData(nameof(Wires))]
+    public async Task LibraryMembersAreAskedForOnlyOfAServiceThatListsMembers(ClientWire wire)
+    {
+        var info = FakeModels.Symbol("Demo::m", "m", "partUsage");
+        info.Members.Add(new Wire.MemberInfo { Id = "Parts::Part::ownedPorts", Name = "ownedPorts", Kind = "portUsage", Inherited = true, InheritedFrom = "Parts::Part", Library = true });
+        using var handler = new FakeServiceHandler(wire) { Capabilities = FakeModels.ModelCapabilities }
+            .Parsing("h", FakeModels.Symbol("r", string.Empty, "RootNamespace"))
+            .On("GetSymbol", Wire.GetSymbolRequest.Parser, _ => new Wire.SymbolResponse { Symbol = info });
+        await using var connection = await FakeConnection.OpenAsync(handler);
+        var model = await connection.LoadAsync();
+        using var older = new FakeServiceHandler(wire) { Capabilities = [.. FakeModels.ModelCapabilities.Where(name => name != Capabilities.SymbolMembers)] };
+        await using var olderConnection = await FakeConnection.OpenAsync(older);
+
+        var listed = await model.SymbolAsync("Demo::m", new SymbolOptions { IncludeLibraryMembers = true }, TestContext.Current.CancellationToken);
+        var found = await model.FindSymbolAsync("Demo::m", new SymbolOptions { IncludeLibraryMembers = true }, TestContext.Current.CancellationToken);
+        var refused = await Assert.ThrowsAsync<CapabilityException>(() => olderConnection.ModelByHash("h").SymbolAsync("Demo::m", new SymbolOptions { IncludeLibraryMembers = true }, TestContext.Current.CancellationToken));
+        var refusedFind = await Assert.ThrowsAsync<CapabilityException>(() => olderConnection.ModelByHash("h").FindSymbolAsync("Demo::m", new SymbolOptions { IncludeLibraryMembers = true }, TestContext.Current.CancellationToken));
+
+        Assert.Equal(
+            [
+                new Wire.GetSymbolRequest { ModelHash = "h", SymbolId = "Demo::m", IncludeLibraryMembers = true },
+                new Wire.GetSymbolRequest { ModelHash = "h", SymbolId = "Demo::m", IncludeLibraryMembers = true },
+            ],
+            handler.RequestsFor("GetSymbol").Select(request => request.Message(Wire.GetSymbolRequest.Parser)));
+        Assert.True(Assert.Single(listed.Members).IsLibrary);
+        Assert.Equal(listed, found);
+        Assert.False(SymbolOptions.Default.IncludeLibraryMembers);
+        Assert.All([refused, refusedFind], error => Assert.Equal(Capabilities.SymbolMembers, error.Capability));
+        Assert.Equal(["GetServerInfo"], older.Requests.Select(request => request.Method));
+    }
+
     public static TheoryData<ClientWire, string> UnheldModelCalls()
     {
         var data = new TheoryData<ClientWire, string>();
         foreach (var wire in new[] { ClientWire.Grpc, ClientWire.ConnectProto, ClientWire.ConnectJson })
         {
-            foreach (var method in new[] { "GetSymbol", "GetDiagnostics", "Evaluate", "Instantiate", "Query" })
+            foreach (var method in new[] { "GetSymbol", "GetDiagnostics", "Evaluate", "Instantiate", "Query", "GetElementProperties", "InstancePaths" })
             {
                 data.Add(wire, method);
             }
@@ -104,10 +161,12 @@ public sealed class ModelSymbolTests
         var model = connection.ModelByHash("gone");
         Func<Task> call = method switch
         {
-            "GetSymbol" => () => model.SymbolAsync("A", TestContext.Current.CancellationToken),
+            "GetSymbol" => () => model.SymbolAsync("A", cancellationToken: TestContext.Current.CancellationToken),
             "GetDiagnostics" => () => model.GetDiagnosticsAsync(cancellationToken: TestContext.Current.CancellationToken),
             "Evaluate" => () => model.EvalAsync("1", cancellationToken: TestContext.Current.CancellationToken),
             "Instantiate" => () => model.InstantiateAsync("A", TestContext.Current.CancellationToken),
+            "GetElementProperties" => () => model.ElementPropertiesAsync("A", cancellationToken: TestContext.Current.CancellationToken),
+            "InstancePaths" => () => model.InstancePathsAsync(1, TestContext.Current.CancellationToken),
             _ => () => model.FindAsync("A", TestContext.Current.CancellationToken),
         };
 
@@ -265,7 +324,7 @@ public sealed class ModelSymbolTests
         var model = await connection.LoadAsync();
         var hash = model.Hash;
 
-        var symbols = await Task.WhenAll(Enumerable.Range(0, 32).Select(i => model.SymbolAsync($"S{i}", TestContext.Current.CancellationToken)));
+        var symbols = await Task.WhenAll(Enumerable.Range(0, 32).Select(i => model.SymbolAsync($"S{i}", cancellationToken: TestContext.Current.CancellationToken)));
         var values = await Task.WhenAll(Enumerable.Range(0, 32).Select(i => model.EvalAsync($"e{i}", cancellationToken: TestContext.Current.CancellationToken)));
 
         Assert.Equal(Enumerable.Range(0, 32).Select(i => $"S{i}"), symbols.Select(symbol => symbol.Id));

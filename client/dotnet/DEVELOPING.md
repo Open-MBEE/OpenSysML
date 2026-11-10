@@ -268,14 +268,17 @@ into the response. The values a request sends are read into public `Value`s by p
 constructors, so the typed call writes them itself. ExecuteAction and ExecuteState call the
 explore method when the schedule explores, and RunAnalysis when its schedule or engine does,
 and the run method otherwise; RunRuns calls the action or the Monte Carlo case method by which
-the request names. ApplyEdits reads each operation as the `Edit` of its arm, an empty field
+the request names; InstancePaths calls the method naming the object by id or the one naming it by
+path, as the request names it. ApplyEdits reads each operation as the `Edit` of its arm, an empty field
 an optional part left null. A failure the service reported in band is rendered as the
 response's `error`, failure reason and diagnostics, with what the exception kept of the answer:
 a run's clock and trace, a check's or an analysis's partial result, a verification's objects,
 verification verdicts and engine standing, the table runs made, the run, sweep or sample a
 recording made, with its own failure where it reported one, a conversion's or migration's
 formats, notice and diagnostics, a refused edit's kind, diagnostics and referrers, a refused
-import's diagnostics, and a comparison's kind, source and engine standing; a refusal keeps the service's status and message, as does a
+import's diagnostics, a comparison's kind, source and engine standing, and the service's own words
+for an element GetElementProperties does not know, which the API raises as a
+`SymbolNotFoundException`; a refusal keeps the service's status and message, as does a
 document query or document the model declares wrongly, which the API raises as a
 `QueryException`; a
 capability the client refuses for before sending is `UNIMPLEMENTED`, which the service would
@@ -291,15 +294,17 @@ skip given another reason, and a listed skip that ran, whether or not `-allow-sk
 passed; in a configuration withholding capabilities, a skip is accounted only by a withheld
 capability, the service must advertise exactly the default set without them, and each must
 have its without-capability expectation executed, or, when every such scenario is a listed
-skip, the run says so. Per protocol, of 194 scenarios:
+skip, the run says so. Per protocol, of 206 scenarios:
 
 | Configuration | ran | passed | skipped as uncovered | skipped as unexpressible |
 | --- | --: | --: | --: | --: |
-| default | 188 | 188 | 0 | 6 |
-| `strict_conformance` and `oslc_query` withheld | 187 | 187 | 0 | 6 |
+| default | 199 | 199 | 0 | 7 |
+| `strict_conformance` and `oslc_query` withheld | 198 | 198 | 0 | 7 |
 
 The unexpressible requests send what the public types refuse to hold or send:
-`parse/naming_no_source_is_invalid` names no source, which the API always does; three
+`parse/naming_no_source_is_invalid` names no source, which the API always does, and
+`instance_paths/a_request_naming_no_object_is_invalid` names no object, which the API names by a
+positive id or a path as a document binding does; three
 EvaluateCalc scenarios send a measurement reference without its reduction, a vector with a
 string component, and a function closing over an object of another call; and two Query
 scenarios send a comparison with no operator, and a structured query together with OSLC text,
@@ -312,8 +317,8 @@ test asserts it fails the run:
 | `-mutate` | What it does to every answer | Scenarios that fail, per protocol |
 | --- | --- | --: |
 | `perturb-reals` | Moves each real by a millionth | 28 |
-| `truncate-lists` | Drops the last entry of each list | 74 |
-| `rewrite-strings` | Replaces each non-empty string but no map key | 104 |
+| `truncate-lists` | Drops the last entry of each list | 87 |
+| `rewrite-strings` | Replaces each non-empty string but no map key | 113 |
 
 `make conformance-dotnet-check` also runs the reference runner against the same binary, both
 with `-v`, and `dotnet-gates.py conformance-check` holds the two runs together: both reports

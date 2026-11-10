@@ -315,7 +315,7 @@ public sealed class ModelParseTests
         await Assert.ThrowsAsync<ObjectDisposedException>(() => connection.LoadAsync("a.sysml", cancellationToken: TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<ObjectDisposedException>(() => connection.ParseSourcesAsync([SourceDocument.Inline("x")], cancellationToken: TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<ObjectDisposedException>(() => model.EvalAsync("1", new EvalOptions { SubjectSymbolId = "P::a" }, TestContext.Current.CancellationToken));
-        await Assert.ThrowsAsync<ObjectDisposedException>(() => model.SymbolAsync("P", TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ObjectDisposedException>(() => model.SymbolAsync("P", cancellationToken: TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<ObjectDisposedException>(() => model.FindAsync("P", TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<ObjectDisposedException>(() => model.GetDiagnosticsAsync(cancellationToken: TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<ObjectDisposedException>(() => model.InstantiateAsync("P::A", TestContext.Current.CancellationToken));

@@ -53,6 +53,19 @@ public sealed record Instantiation
         return null;
     }
 
+    /// <summary>
+    /// The object holding another along the path the traversal reached it by: the <see cref="InstanceReach.InstanceId"/>
+    /// of its <see cref="Instance.ReachedBy"/>, as an object.
+    /// </summary>
+    /// <param name="instance">An object of this instantiation.</param>
+    /// <returns>The holder; null for the root, for an object the service did not say how it reached, and for a holder not among the objects built.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="instance"/> is null.</exception>
+    public Instance? FindOwner(Instance instance)
+    {
+        ArgumentNullException.ThrowIfNull(instance);
+        return instance.ReachedBy is { } reach ? FindInstance(reach.InstanceId) : null;
+    }
+
     /// <summary>The object a reference refers to.</summary>
     /// <param name="reference">A reference among this instantiation's feature values.</param>
     /// <returns>The object; null when it is not among the objects built.</returns>

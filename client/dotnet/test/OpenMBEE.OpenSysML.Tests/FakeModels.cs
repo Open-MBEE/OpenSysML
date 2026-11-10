@@ -50,6 +50,9 @@ internal static class FakeModels
         Capabilities.ExportGraphs,
         Capabilities.ImportData,
         Capabilities.CompareResults,
+        Capabilities.SymbolMembers,
+        Capabilities.ElementProperties,
+        Capabilities.InstancePaths,
         .. Internal.EditWire.GateOrder,
         .. Internal.ValueWire.SendGateOrder,
     ];

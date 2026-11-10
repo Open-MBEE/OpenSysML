@@ -11,8 +11,9 @@ using Xunit;
 namespace OpenMBEE.OpenSysML.Tests;
 
 /// <summary>
-/// <see cref="Value"/> and <see cref="Edit"/> are closed: one sealed arm class and one arm test per value kind, one
-/// sealed record per arm of <c>EditOperation</c> written as that arm, and no derivation from outside the library.
+/// <see cref="Value"/>, <see cref="Edit"/> and <see cref="ElementPropertyValue"/> are closed: one sealed arm class and one
+/// arm test per value kind, one sealed record per arm of <c>EditOperation</c> written as that arm, one per arm of
+/// <c>ElementPropertyValue</c> read as that arm, and no derivation from outside the library.
 /// </summary>
 [Trait(Category.Name, Category.Unit)]
 public sealed class SealedHierarchyTests
@@ -97,6 +98,36 @@ public sealed class SealedHierarchyTests
         foreach (var arm in typeof(Edit).GetNestedTypes().Where(type => type.IsSubclassOf(typeof(Edit))))
         {
             Assert.Contains("CS0509", Errors($"public sealed record Outside : Edit.{arm.Name};"));
+        }
+    }
+
+    [Fact]
+    public void EveryArmOfAnElementPropertyValueHasOneSealedRecordReadAsThatArm()
+    {
+        var oneof = Wire.ElementPropertyValue.Descriptor.Oneofs.Single(oneof => oneof.Name == "value");
+        var records = typeof(ElementPropertyValue).GetNestedTypes().Where(type => type.IsSubclassOf(typeof(ElementPropertyValue))).ToList();
+        var read = CompleteWire.ElementProperties.Properties.SelectMany(property => property.Values)
+            .Select(value => (Sent: oneof.Accessor.GetCaseFieldDescriptor(value).Name, Read: ModelWire.ElementProperties(
+                new Wire.GetElementPropertiesResponse { Element = new Wire.ElementRef(), Properties = { new Wire.ElementProperty { Values = { value } } } },
+                CompleteWire.Method).Properties[0].Values[0]))
+            .ToList();
+
+        Assert.All(records, type => Assert.True(type.IsSealed, type.Name));
+        Assert.Equal(oneof.Fields.Count, records.Count);
+        Assert.Equal(records.Select(type => type.Name).Order(StringComparer.Ordinal), read.Select(each => each.Read.GetType().Name).Distinct().Order(StringComparer.Ordinal));
+        Assert.All(read, each => Assert.Equal(each.Sent, each.Read.Arm));
+    }
+
+    [Fact]
+    public void ACompilationOutsideTheLibraryCannotDeriveFromAnElementPropertyValue()
+    {
+        Assert.Empty(Errors("public static class Use { public static ElementPropertyValue Make() => new ElementPropertyValue.IntegerValue(1) with { }; }"));
+        Assert.Contains("CS0534", Errors("public sealed record Outside : ElementPropertyValue;"));
+        Assert.Contains("CS0534", Errors("public sealed record Outside : ElementPropertyValue { public Outside(ElementPropertyValue value) : base(value) { } }"));
+        Assert.Contains("CS0534", Errors("public sealed record Outside : ElementPropertyValue;", MetadataImportOptions.All));
+        foreach (var arm in typeof(ElementPropertyValue).GetNestedTypes().Where(type => type.IsSubclassOf(typeof(ElementPropertyValue))))
+        {
+            Assert.Contains("CS0509", Errors($"public sealed record Outside : ElementPropertyValue.{arm.Name};"));
         }
     }
 
