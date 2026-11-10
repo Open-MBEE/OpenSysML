@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"testing"
 )
@@ -246,5 +247,65 @@ func TestExploreCoverageQuotesNamesThatAreNoBasicNames(t *testing.T) {
 	}
 	if !slices.Equal(lines, want) {
 		t.Errorf("coverage %q\nwant %q", lines, want)
+	}
+}
+
+// Two transitions between the same two states are told apart by the transition's
+// own name and by its trigger, so a run's coverage says which one it took.
+func TestExploreCoverageTellsTransitionsBetweenTheSameStatesApart(t *testing.T) {
+	m := parseExploreModel(t, `package test {
+		part def M;
+		state def Run {
+			entry; then idle;
+			state idle;
+			state left;
+			state fin;
+			transition viaName first idle accept go then left;
+			transition viaOther first idle accept go then left;
+			transition first left accept halt then fin;
+			transition first left accept stop then fin;
+		}
+	}`)
+	policy, err := ParseSchedulePolicy("explore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	machine, stateSym := oneSymbol(t, m.idx, "test::M"), oneSymbol(t, m.idx, "test::Run")
+	x, err := Explore(context.Background(), policy, m.fresh, func(ctx *Context) (Outcome, error) {
+		self, err := ctx.Instantiate(machine)
+		if err != nil {
+			return Outcome{}, err
+		}
+		exec, err := newStateExecutor(ctx, stateSym, self)
+		if err != nil {
+			return Outcome{}, err
+		}
+		if err := exec.initialize(); err != nil {
+			return Outcome{}, err
+		}
+		exec.SendSignal("go", nil)
+		exec.SendSignal("halt", nil)
+		if err := exec.RunToCompletion(); err != nil {
+			return Outcome{}, err
+		}
+		return Outcome{FinalState: StateVertexName(exec.CurrentState()), ctx: ctx}, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !x.Complete() || x.Runs != 2 {
+		t.Fatalf("status %q after %d runs, want complete after 2", x.Status(), x.Runs)
+	}
+	var taken []string
+	for _, entry := range x.Coverage.Transitions {
+		taken = append(taken, fmt.Sprintf("%s (%s): %d", entry.Path, entry.Declaration, entry.Runs))
+	}
+	want := []string{
+		"test::M#1.Run: idle -> left (viaName, event: accept go) (test::Run::idle -> left (viaName, event: accept go)): 1",
+		"test::M#1.Run: idle -> left (viaOther, event: accept go) (test::Run::idle -> left (viaOther, event: accept go)): 1",
+		"test::M#1.Run: left -> fin (event: accept halt) (test::Run::left -> fin (event: accept halt)): 2",
+	}
+	if !slices.Equal(taken, want) {
+		t.Errorf("transitions taken %q\nwant %q", taken, want)
 	}
 }

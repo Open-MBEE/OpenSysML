@@ -6,7 +6,9 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -71,29 +73,49 @@ func compareCoverageEntries(a, b CoverageEntry) int {
 }
 
 // coverageKey is a state entered, or with `to` set a transition taken, by the object
-// running the machine, the machine and the states' qualified paths: noted once per run.
+// running the machine, the machine, the states' paths and the transition's declaration.
 type coverageKey struct {
 	object    int64
 	behavior  *symbols.Symbol
 	state, to string
+	decl      ast.Node
 }
 
 // noteStateEntered records that the object's machine entered the state at the path,
 // its names outermost first, independently of tracing; its spelling is settled once.
 func (ctx *Context) noteStateEntered(object *Instance, machine *symbols.Symbol, path []string) {
-	ctx.noteCoverage(object, machine, path, nil)
+	ctx.noteCoverage(object, machine, path, nil, nil)
 }
 
 // noteTransitionTaken records that the object's machine took the transition
 // between the states at the two paths, each its names outermost first.
-func (ctx *Context) noteTransitionTaken(object *Instance, machine *symbols.Symbol, from, to []string) {
+func (ctx *Context) noteTransitionTaken(object *Instance, machine *symbols.Symbol, from, to []string, trans *lower.Transition) {
 	if len(to) == 0 {
 		return
 	}
-	ctx.noteCoverage(object, machine, from, to)
+	ctx.noteCoverage(object, machine, from, to, trans)
 }
 
-func (ctx *Context) noteCoverage(object *Instance, machine *symbols.Symbol, state, to []string) {
+// transitionLabel tells a transition from the others between the same two states
+// by its own name and its trigger, spelled as the trace spells the trigger.
+func transitionLabel(trans *lower.Transition) string {
+	if trans == nil {
+		return ""
+	}
+	var parts []string
+	if trans.Name != "" {
+		parts = append(parts, source.NameText(trans.Name))
+	}
+	if event := triggerName(trans.Trigger); event != "" {
+		parts = append(parts, "event: "+event)
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return " (" + strings.Join(parts, ", ") + ")"
+}
+
+func (ctx *Context) noteCoverage(object *Instance, machine *symbols.Symbol, state, to []string, trans *lower.Transition) {
 	// A probe's work is rolled back: what it entered, the run never did.
 	if ctx.probes > 0 {
 		return
@@ -102,22 +124,25 @@ func (ctx *Context) noteCoverage(object *Instance, machine *symbols.Symbol, stat
 	if object != nil {
 		key.object = object.ID
 	}
+	if trans != nil {
+		key.decl = trans.Decl
+	}
 	if _, noted := ctx.coverage[key]; noted {
 		return
 	}
 	if ctx.coverage == nil {
 		ctx.coverage = make(map[coverageKey]CoverageEntry)
 	}
-	ctx.coverage[key] = ctx.spellCoverage(object, machine, state, to)
+	ctx.coverage[key] = ctx.spellCoverage(object, machine, state, to, transitionLabel(trans))
 }
 
 // spellCoverage names an entry by the object's instance path with the names as
 // written, and by the machine's declaration with each name quoted on its own.
-func (ctx *Context) spellCoverage(object *Instance, machine *symbols.Symbol, state, to []string) CoverageEntry {
+func (ctx *Context) spellCoverage(object *Instance, machine *symbols.Symbol, state, to []string, label string) CoverageEntry {
 	what, declared := strings.Join(state, "."), source.QualifiedNameOf(state)
 	if len(to) > 0 {
-		what += " -> " + strings.Join(to, ".")
-		declared += " -> " + source.QualifiedNameOf(to)
+		what += " -> " + strings.Join(to, ".") + label
+		declared += " -> " + source.QualifiedNameOf(to) + label
 	}
 	var owner, declaration string
 	if object != nil {
@@ -150,6 +175,8 @@ func (ctx *Context) runCoverage() Coverage {
 	}
 	slices.SortFunc(out.States, compareCoverageEntries)
 	slices.SortFunc(out.Transitions, compareCoverageEntries)
+	// Transitions written alike, told apart only by what they do, read as one.
+	out.Transitions = slices.CompactFunc(out.Transitions, func(a, b CoverageEntry) bool { return compareCoverageEntries(a, b) == 0 })
 	return out
 }
 
