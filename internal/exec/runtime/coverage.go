@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // Coverage is what the runs of an exploration, or the schedules of a check,
@@ -70,7 +71,7 @@ func compareCoverageEntries(a, b CoverageEntry) int {
 }
 
 // coverageKey is a state entered, or with `to` set a transition taken, by the object
-// running the machine, the machine and the state paths: noted once per run.
+// running the machine, the machine and the states' qualified paths: noted once per run.
 type coverageKey struct {
 	object    int64
 	behavior  *symbols.Symbol
@@ -78,26 +79,26 @@ type coverageKey struct {
 }
 
 // noteStateEntered records that the object's machine entered the state at the path,
-// independently of tracing; the spelling is settled once, when first noted.
-func (ctx *Context) noteStateEntered(object *Instance, machine *symbols.Symbol, path string) {
-	ctx.noteCoverage(object, machine, path, "")
+// its names outermost first, independently of tracing; its spelling is settled once.
+func (ctx *Context) noteStateEntered(object *Instance, machine *symbols.Symbol, path []string) {
+	ctx.noteCoverage(object, machine, path, nil)
 }
 
 // noteTransitionTaken records that the object's machine took the transition
-// between the states at the two paths.
-func (ctx *Context) noteTransitionTaken(object *Instance, machine *symbols.Symbol, from, to string) {
-	if to == "" {
+// between the states at the two paths, each its names outermost first.
+func (ctx *Context) noteTransitionTaken(object *Instance, machine *symbols.Symbol, from, to []string) {
+	if len(to) == 0 {
 		return
 	}
 	ctx.noteCoverage(object, machine, from, to)
 }
 
-func (ctx *Context) noteCoverage(object *Instance, machine *symbols.Symbol, state, to string) {
+func (ctx *Context) noteCoverage(object *Instance, machine *symbols.Symbol, state, to []string) {
 	// A probe's work is rolled back: what it entered, the run never did.
 	if ctx.probes > 0 {
 		return
 	}
-	key := coverageKey{behavior: machine, state: state, to: to}
+	key := coverageKey{behavior: machine, state: source.QualifiedNameOf(state), to: source.QualifiedNameOf(to)}
 	if object != nil {
 		key.object = object.ID
 	}
@@ -111,13 +112,14 @@ func (ctx *Context) noteCoverage(object *Instance, machine *symbols.Symbol, stat
 }
 
 // spellCoverage names an entry by the instance path of the object running the
-// machine and by the machine's declaration.
-func (ctx *Context) spellCoverage(object *Instance, machine *symbols.Symbol, state, to string) CoverageEntry {
-	what := state
-	if to != "" {
-		what = state + " -> " + to
+// machine, its names as written, and by the machine's declaration, each name quoted
+// on its own as a qualified name is.
+func (ctx *Context) spellCoverage(object *Instance, machine *symbols.Symbol, state, to []string) CoverageEntry {
+	what, declared := strings.Join(state, "."), source.QualifiedNameOf(state)
+	if len(to) > 0 {
+		what += " -> " + strings.Join(to, ".")
+		declared += " -> " + source.QualifiedNameOf(to)
 	}
-	declared := strings.ReplaceAll(what, ".", "::")
 	var owner, declaration string
 	if object != nil {
 		owner = ctx.objectPath(object.ID)

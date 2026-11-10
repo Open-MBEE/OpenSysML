@@ -2706,7 +2706,7 @@ func (e *StateExecutor) routeEntryFrontEffects(
 // enterBelow finishes a move whose exits and effects are done: it enters the
 // states below lca down to targetState, then the target's own start.
 func (e *StateExecutor) enterBelow(trans *lower.Transition, fromName string, lca, targetState *ast.StateNode, branches map[*ast.StateRegion]*ast.StateNode) error {
-	e.ctx.noteTransitionTaken(e.self, e.stateMachine, e.sourcePath(trans, fromName), e.statePath(targetState))
+	e.ctx.noteTransitionTaken(e.self, e.stateMachine, e.sourcePathNames(trans, fromName), e.statePathNames(targetState))
 	_, leaf, err := e.enterToward(lca, targetState, branches)
 	if err != nil {
 		return err
@@ -2771,7 +2771,7 @@ func (e *StateExecutor) terminateMachine(fromName string, trigger ast.Node, stop
 		return err
 	}
 	name, _ := ast.EffectiveName(stop)
-	e.ctx.noteTransitionTaken(e.self, e.stateMachine, fromName, name)
+	e.ctx.noteTransitionTaken(e.self, e.stateMachine, []string{fromName}, []string{name})
 	if e.trace() != nil {
 		e.trace().RecordStateTransition(e.traceOrigin(), fromName, name, triggerName(trigger))
 	}
@@ -2894,7 +2894,7 @@ func (e *StateExecutor) completeInto(trans *lower.Transition, fromName string, t
 			return fmt.Errorf("schedule completion of state %s: %w", target.Name, err)
 		}
 	}
-	e.ctx.noteTransitionTaken(e.self, e.stateMachine, e.sourcePath(trans, fromName), e.statePath(target))
+	e.ctx.noteTransitionTaken(e.self, e.stateMachine, e.sourcePathNames(trans, fromName), e.statePathNames(target))
 	if e.trace() != nil {
 		e.trace().RecordStateTransition(e.traceOrigin(), fromName, target.Name, triggerName(trans.Trigger))
 	}
@@ -3369,7 +3369,7 @@ func (e *StateExecutor) fireForkTransition(trans *lower.Transition, fork *ast.Ps
 	if err := e.completeIfDone(owner); err != nil {
 		return fmt.Errorf("complete state machine: %w", err)
 	}
-	e.ctx.noteTransitionTaken(e.self, e.stateMachine, e.vertexPath(trans.Source), e.vertexPath(fork))
+	e.ctx.noteTransitionTaken(e.self, e.stateMachine, e.vertexPathNames(trans.Source), e.vertexPathNames(fork))
 	if e.trace() != nil {
 		e.trace().RecordStateTransition(e.traceOrigin(), StateVertexName(trans.Source), fork.Name, "")
 	}
@@ -3629,7 +3629,7 @@ func (e *StateExecutor) fireJoinSegment(trans *lower.Transition, plan *lower.Joi
 		return err
 	}
 	e.noteFired(trans)
-	e.ctx.noteTransitionTaken(e.self, e.stateMachine, e.statePath(source), e.vertexPath(trans.Target))
+	e.ctx.noteTransitionTaken(e.self, e.stateMachine, e.statePathNames(source), e.vertexPathNames(trans.Target))
 	return nil
 }
 
@@ -6016,7 +6016,7 @@ func (e *StateExecutor) performEntry(state *ast.StateNode) error {
 	if !e.graph.HiddenStates[state] {
 		// Track state visit
 		e.stateVisits = append(e.stateVisits, state.Name)
-		e.ctx.noteStateEntered(e.self, e.stateMachine, e.statePath(state))
+		e.ctx.noteStateEntered(e.self, e.stateMachine, e.statePathNames(state))
 
 		// Record trace
 		if trace := e.trace(); trace != nil {
@@ -6397,12 +6397,17 @@ func copyStateValuesInto(target, values map[string]Value, cells *bodyCells, pref
 
 // statePath is a state's name qualified by the states enclosing it.
 func (e *StateExecutor) statePath(state *ast.StateNode) string {
+	return strings.Join(e.statePathNames(state), ".")
+}
+
+// statePathNames is the statePath of state as its names, outermost first.
+func (e *StateExecutor) statePathNames(state *ast.StateNode) []string {
 	chain := e.getParentChain(state)
 	parts := make([]string, 0, len(chain))
 	for i := len(chain) - 1; i >= 0; i-- {
 		parts = append(parts, chain[i].Name)
 	}
-	return strings.Join(parts, ".")
+	return parts
 }
 
 // EnclosingStates returns the states written around state, outermost first;
@@ -6429,28 +6434,28 @@ func (e *StateExecutor) StatePath(state *ast.StateNode) string {
 	return strings.Join(append(parts, state.Name), ".")
 }
 
-// vertexPath is a state's statePath and, for a pseudostate, its name under the
-// path of the state that owns it; any other vertex keeps its bare name.
-func (e *StateExecutor) vertexPath(node ast.Node) string {
+// vertexPathNames is a state's statePathNames and, for a pseudostate, its name under
+// those of the state that owns it; any other vertex keeps its bare name.
+func (e *StateExecutor) vertexPathNames(node ast.Node) []string {
 	switch n := node.(type) {
 	case *ast.StateNode:
-		return e.statePath(n)
+		return e.statePathNames(n)
 	case *ast.PseudostateNode:
 		if owner := e.graph.PseudostateOwner[n]; owner != nil {
-			return e.statePath(owner) + "." + n.Name
+			return append(e.statePathNames(owner), n.Name)
 		}
-		return n.Name
+		return []string{n.Name}
 	}
-	return StateVertexName(node)
+	return []string{StateVertexName(node)}
 }
 
-// sourcePath is the coverage path of the vertex a transition left, named fromName
+// sourcePathNames is the coverage path of the vertex a transition left, named fromName
 // as the trace spells it: the source's own path when that is the vertex named.
-func (e *StateExecutor) sourcePath(trans *lower.Transition, fromName string) string {
+func (e *StateExecutor) sourcePathNames(trans *lower.Transition, fromName string) []string {
 	if StateVertexName(trans.Source) == fromName {
-		return e.vertexPath(trans.Source)
+		return e.vertexPathNames(trans.Source)
 	}
-	return fromName
+	return []string{fromName}
 }
 
 func (e *StateExecutor) stateSourceOrigin(state *ast.StateNode) symbols.Origin {
