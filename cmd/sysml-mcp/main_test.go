@@ -59,7 +59,7 @@ func TestCommandLine(t *testing.T) {
 		name:   "the help asked for is a result on stdout",
 		args:   []string{"-h"},
 		status: exitServed,
-		stdout: []string{"Usage: sysml-mcp [options]", "-tools", "-root", "-stdio", "-http", "-allow-origin", "-token", "-token-file", "-tls-cert", "-tls-key", "/mcp", "OPENSYSML_MCP_TOKEN"},
+		stdout: []string{"Usage: sysml-mcp [options]", "-tools", "-root", "-stdio", "-http", "-allow-origin", "-token", "-token-file", "-tls-cert", "-tls-key", "-api-keys", "-mint-api-key", "-subject", "-scopes", "-expires", "-revoke-api-key", "/mcp", "OPENSYSML_MCP_TOKEN"},
 	}, {
 		name:   "a flag that is not defined is reported with the usage",
 		args:   []string{"-nosuchflag"},

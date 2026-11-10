@@ -134,6 +134,24 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprint(stdout, build().Report(mcpCommand))
 		return exitServed
 	}
+	keys, err := readKeyCommand(opts)
+	if err != nil {
+		fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)
+		printUsage(stderr, fs)
+		return exitUnservable
+	}
+	if keys != nil {
+		if fs.NArg() > 0 {
+			fmt.Fprintf(stderr, "%sunexpected argument %q after a key command\n", commandPrefix, fs.Arg(0))
+			printUsage(stderr, fs)
+			return exitUnservable
+		}
+		if err := keys.run(stdout, stderr); err != nil {
+			fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)
+			return exitUnservable
+		}
+		return exitServed
+	}
 	if opts.printConfig.set {
 		return printConfig(opts, fs, stdout, stderr)
 	}
