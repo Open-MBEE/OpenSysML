@@ -30,8 +30,8 @@ type HTTPConfig struct {
 	Listener net.Listener
 	// Origins decides which Origin headers are admitted.
 	Origins OriginPolicy
-	// Token is the bearer token every request must carry; the zero value
-	// requires none, which only a loopback listener may serve.
+	// Token is whose bearer credentials a request must carry, a token's or an authenticator's;
+	// the zero value requires none, which only a loopback listener may serve.
 	Token BearerToken
 	// CertFile and KeyFile, both set, serve TLS; neither serves cleartext.
 	CertFile, KeyFile string
@@ -167,7 +167,7 @@ func IsLoopbackAddr(addr net.Addr) bool { return guard.IsLoopbackAddr(addr) }
 func (s *Server) Handler(origins OriginPolicy, token BearerToken) http.Handler {
 	streamable := sdk.NewStreamableHTTPHandler(func(*http.Request) *sdk.Server { return s.sdk }, &sdk.StreamableHTTPOptions{Logger: s.logger})
 	mux := http.NewServeMux()
-	mux.Handle(HTTPPath, origins.Handler(token.Handler(streamable)))
+	mux.Handle(HTTPPath, origins.Handler(token.Handler(stampRemoteAddr(streamable))))
 	if token.Set() {
 		for _, path := range token.MetadataPaths() {
 			mux.Handle(path, origins.Handler(http.HandlerFunc(token.ServeMetadata)))
