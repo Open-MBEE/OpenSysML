@@ -326,6 +326,21 @@ func TestNotesAtOneTokenSwappedInTheGraphAreWritten(t *testing.T) {
 	}
 }
 
+// A note inside an expression moved in the graph is written where the graph puts
+// it: the expression's text, which would hold it where it was, is rebuilt too.
+func TestNoteInsideAnExpressionMovedInTheGraphIsWritten(t *testing.T) {
+	const one = "    sysx:noteText \"/* one */\" ;\n    sysx:noteToken \"4\"^^xsd:integer ;"
+	edited := editTurtle(t, idTurtle(t, noted), one, strings.Replace(one, `"4"`, `"3"`, 1))
+	want := strings.Replace(noted, "        attribute x = 1 /* one */ + 2; // sum\n", "        attribute x = /* one */ 1 + 2; // sum\n", 1)
+	back := toNotation(t, edited)
+	if back != want {
+		t.Errorf("the moved note was not written:\n--- want ---\n%s--- got ---\n%s", want, back)
+	}
+	if again := toNotation(t, idTurtle(t, back)); again != back {
+		t.Errorf("the rebuilt notation does not stand:\n--- want ---\n%s--- got ---\n%s", back, again)
+	}
+}
+
 // A `//` note the graph puts inline ahead of a declaration's first token would run
 // on over the declaration, so it takes its own line, where it reads as the note it is.
 func TestLineNoteAheadOfTheDeclarationKeepsItsLine(t *testing.T) {

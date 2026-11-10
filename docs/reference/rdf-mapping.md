@@ -1011,8 +1011,11 @@ form drops) follows the last of them, and none is dropped. The graph is
 authoritative here too: a note edited in the graph — in its text or in its
 position, the token it follows, its line, head or tail — or added there demotes
 the text that does not state it, and the element is rebuilt with the graph's
-notes; a comment the graph does not state is left to the text, since it may be a
-body or another subject's note written inside this text (a filter's, a `then`'s).
+notes — the text of an expression of its that holds a comment too, since the
+comment would otherwise stay where that text had it; a comment the graph does
+not state is left to the text, since it may be a body or another subject's note
+written inside this text (a filter's, a `then`'s). Two notes at one token are
+told apart by their order alone, so their texts swapped in the graph are an edit.
 The `Comment` elements the grammar does admit — a bare `/* */` before a
 member, at the close of a body, at either end of a file — are elements, not notes.
 

@@ -168,6 +168,20 @@ func (d *decoder) demoteStaleNotes(check *encoder) {
 		}
 		if el, _ := d.blame(subject.Value, check); el != nil && d.printed[el] {
 			d.demoted[el] = true
+			d.demoteCommentedExpressions(el, check)
+		}
+	}
+}
+
+// demoteCommentedExpressions demotes the text of each expression written inside el's
+// that holds a comment, which would otherwise keep a note where the text had it.
+func (d *decoder) demoteCommentedExpressions(el *element, check *encoder) {
+	for iri := range d.usedExpr {
+		if text, _ := d.graph.Lexical(rdf.IRI(iri), rdf.OpenSysML+xSourceText); len(commentTexts(text)) == 0 {
+			continue
+		}
+		if owner, _ := d.blame(iri, check); owner == el {
+			d.demotedExpr[iri] = true
 		}
 	}
 }
