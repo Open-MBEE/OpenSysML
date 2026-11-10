@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/auth"
@@ -46,13 +47,37 @@ func principalOnly(source, subject string, scopes ...catalog.Scope) guard.Princi
 	return p
 }
 
+// logSink collects the log of a server whose goroutines still write it (the
+// SDK logs a session's end) while a test reads it, so both sides lock.
+type logSink struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (l *logSink) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.buf.Write(p)
+}
+
+func (l *logSink) String() string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.buf.String()
+}
+
+// infoLogger logs at info and above into sink.
+func infoLogger(sink *logSink) *slog.Logger {
+	return slog.New(slog.NewTextHandler(sink, &slog.HandlerOptions{Level: slog.LevelInfo}))
+}
+
 // serveAuthenticated serves cfg over HTTP to the holders of the given bearer
 // tokens, each verified to its principal, and answers the endpoint and the log.
-func serveAuthenticated(t *testing.T, cfg Config, principals map[string]guard.Principal) (string, *bytes.Buffer) {
+func serveAuthenticated(t *testing.T, cfg Config, principals map[string]guard.Principal) (string, *logSink) {
 	t.Helper()
-	var logs bytes.Buffer
+	logs := new(logSink)
 	cfg.NewSession = func() (*repl.Session, error) { return repl.NewSession(), nil }
-	cfg.Logger = slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	cfg.Logger = infoLogger(logs)
 	srv, err := New(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -68,7 +93,7 @@ func serveAuthenticated(t *testing.T, cfg Config, principals map[string]guard.Pr
 	require := auth.RequireBearerToken(verify, &auth.RequireBearerTokenOptions{AllowMissingExpiration: true})
 	hs := httptest.NewServer(require(srv.protocolHandler(HTTPConfig{})))
 	t.Cleanup(hs.Close)
-	return hs.URL + HTTPPath, &logs
+	return hs.URL + HTTPPath, logs
 }
 
 // bearer sends every request with the token.
@@ -324,8 +349,8 @@ func TestEveryToolCallIsAudited(t *testing.T) {
 // Over stdio nothing is authenticated: the one caller is the local principal
 // with every scope, its sessions are the server's, and the audit line says so.
 func TestStdioHasOneLocalPrincipalWithEveryScope(t *testing.T) {
-	var logs bytes.Buffer
-	cfg := Config{Root: t.TempDir(), Groups: []Group{GroupLSP, GroupSession}, Version: "test", Logger: slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelInfo}))}
+	logs := new(logSink)
+	cfg := Config{Root: t.TempDir(), Groups: []Group{GroupLSP, GroupSession}, Version: "test", Logger: infoLogger(logs)}
 	cs := connect(t, cfg)
 	for _, rep := range representative {
 		res, err := cs.CallTool(context.Background(), &sdk.CallToolParams{Name: rep.tool, Arguments: rep.args})
