@@ -50,12 +50,17 @@ const (
 type Table struct {
 	metamodel map[string]valueKind
 	derived   map[string]valueKind
+	// features are the metaclass features not yet classified, by name; a
+	// query classifies the ones it names, not the metamodel's thousands.
+	features        map[string][]*symbols.Symbol
+	model           *semantics.Model
+	number, boolean *symbols.Symbol
 }
 
 // NewTable reads the metaclass declarations of the model's library. A model
 // loaded without the library knows the evaluator's queryable properties alone.
 func NewTable(index *symbols.Index, model *semantics.Model) *Table {
-	t := &Table{metamodel: map[string]valueKind{}, derived: map[string]valueKind{}}
+	t := &Table{metamodel: map[string]valueKind{}, derived: map[string]valueKind{}, features: map[string][]*symbols.Symbol{}}
 	for _, name := range query.PropertyNames() {
 		t.metamodel[name] = kindText
 	}
@@ -74,72 +79,55 @@ func NewTable(index *symbols.Index, model *semantics.Model) *Table {
 	if index == nil || model == nil {
 		return t
 	}
-	number := index.LookupUnique("ScalarValues::Number")
-	boolean := index.LookupUnique("ScalarValues::Boolean")
-	for _, pkg := range queryexec.MetaclassPackages {
-		for _, owner := range index.LookupQualified(pkg) {
-			if owner.Scope == nil {
-				continue
-			}
-			for _, metaclass := range owner.Scope.Members() {
-				if !isMetaclass(metaclass) {
-					continue
-				}
-				t.addMetaclass(model, metaclass, number, boolean)
-			}
-		}
-	}
+	t.model = model
+	t.number = index.LookupUnique("ScalarValues::Number")
+	t.boolean = index.LookupUnique("ScalarValues::Boolean")
+	t.features = queryexec.DeclaredMetaclassFeatures(index)
 	return t
 }
 
-// isMetaclass reports a declaration of the abstract syntax: KerML's
-// `metaclass`, or the `metadata def` the SysML library declares its own with.
-func isMetaclass(sym *symbols.Symbol) bool {
-	return sym != nil && (sym.Kind == symbols.SymbolMetaclass || sym.Kind == symbols.SymbolMetadataDef)
-}
-
-// addMetaclass records the metaclass's features, its own and inherited from
-// other metaclasses; one inherited from the library's occurrences and objects
-// (dispatchScope, portionOf) is no property of the metamodel's.
-func (t *Table) addMetaclass(model *semantics.Model, metaclass, number, boolean *symbols.Symbol) {
-	for _, member := range model.MembersOfIncludingRedefined(metaclass) {
-		if member == nil || !member.IsFeature() {
-			continue
+// classify settles the kind of a metaclass property from its declarations'
+// types; a name typed differently by two metaclasses is compared as the row's value is.
+func (t *Table) classify(name string) valueKind {
+	members := t.features[name]
+	delete(t.features, name)
+	kind, seen := t.metamodel[name]
+	for _, member := range members {
+		declared := kindUnknown
+		for _, typ := range t.model.FeatureTypes(member) {
+			declared = t.kindOf(typ)
 		}
-		if member.OwnerScope != nil && !isMetaclass(member.OwnerScope.Owner()) {
-			continue
-		}
-		name := symbols.LastSegment(member.Name)
-		if name == "" {
-			continue
-		}
-		kind := kindUnknown
-		for _, typ := range model.FeatureTypes(member) {
-			switch {
-			case number != nil && (symbols.SameElement(typ, number) || model.Conforms(typ, number)):
-				kind = kindNumber
-			case boolean != nil && symbols.SameElement(typ, boolean):
-				kind = kindBoolean
-			case strings.HasSuffix(symbols.FQNOf(typ), "::String"):
-				kind = kindText
-			case model.IsDataType(typ):
-				kind = kindText
-			default:
-				kind = kindElement
-			}
-		}
-		if known, seen := t.metamodel[name]; seen && known != kindUnknown && known != kind {
-			// A name typed differently by two metaclasses is compared as the row's value is.
+		switch {
+		case !seen:
+			kind, seen = declared, true
+		case kind != declared:
 			kind = kindUnknown
 		}
-		t.metamodel[name] = kind
+	}
+	t.metamodel[name] = kind
+	return kind
+}
+
+// kindOf is what values of a declared type are: numbers, booleans, text for
+// strings and other data, elements otherwise.
+func (t *Table) kindOf(typ *symbols.Symbol) valueKind {
+	switch {
+	case t.number != nil && (symbols.SameElement(typ, t.number) || t.model.Conforms(typ, t.number)):
+		return kindNumber
+	case t.boolean != nil && symbols.SameElement(typ, t.boolean):
+		return kindBoolean
+	case strings.HasSuffix(symbols.FQNOf(typ), "::String"), t.model.IsDataType(typ):
+		return kindText
+	default:
+		return kindElement
 	}
 }
 
 // Metamodel reports whether the metamodel declares a property so named.
 func (t *Table) Metamodel(name string) bool {
 	_, ok := t.metamodel[name]
-	return ok
+	_, declared := t.features[name]
+	return ok || declared
 }
 
 // Derived reports whether name is a property of the evaluator's own.
@@ -172,6 +160,9 @@ func (t *Table) kind(name string) valueKind {
 	if kind, ok := t.derived[name]; ok {
 		return kind
 	}
+	if _, ok := t.features[name]; ok {
+		return t.classify(name)
+	}
 	if kind, ok := t.metamodel[name]; ok {
 		return kind
 	}
@@ -183,10 +174,7 @@ func (t *Table) kind(name string) valueKind {
 
 // Names lists every property the table knows, sorted.
 func (t *Table) Names() []string {
-	names := make([]string, 0, len(t.metamodel)+len(t.derived))
-	for name := range t.metamodel {
-		names = append(names, name)
-	}
+	names := t.MetamodelNames()
 	for name := range t.derived {
 		names = append(names, name)
 	}
@@ -196,9 +184,14 @@ func (t *Table) Names() []string {
 
 // MetamodelNames lists the metamodel's properties, sorted.
 func (t *Table) MetamodelNames() []string {
-	names := make([]string, 0, len(t.metamodel))
+	names := make([]string, 0, len(t.metamodel)+len(t.features))
 	for name := range t.metamodel {
 		names = append(names, name)
+	}
+	for name := range t.features {
+		if _, seen := t.metamodel[name]; !seen {
+			names = append(names, name)
+		}
 	}
 	sort.Strings(names)
 	return names
