@@ -2477,7 +2477,10 @@ public final class Protos {
         outcome.getStep(),
         queryFailures(outcome.getFailuresList()),
         findings,
-        queryFailures(outcome.getPathFailuresList()));
+        queryFailures(outcome.getPathFailuresList()),
+        outcome.getFailuresTotal(),
+        outcome.getFindingsTotal(),
+        outcome.getPathFailuresTotal());
   }
 
   private static List<QueryOutcome.Failure> queryFailures(
@@ -2502,7 +2505,10 @@ public final class Protos {
                   members,
                   features,
                   frontier.getKindsList(),
-                  frontier.getNearest())));
+                  frontier.getNearest(),
+                  frontier.getMembersTotal(),
+                  frontier.getFeaturesTotal(),
+                  frontier.getKindsTotal())));
     }
     return out;
   }

@@ -1,0 +1,45 @@
+# sysml-mcp from the openmbee/opensysml image behind Caddy, which terminates TLS:
+# token from a secret file, read-only root; docs/guide/sysml-mcp-service.md explains.
+services:
+  sysml-mcp:
+    image: ${OPENSYSML_IMAGE:-openmbee/opensysml:latest}
+    entrypoint: ["/usr/local/bin/sysml-mcp"]
+    # 8765 is reachable from the proxy's network only, not published: every
+    # client comes through Caddy and its TLS.
+    command: ["-http", "0.0.0.0:8765", "-root", "/models"]
+    environment:
+      OPENSYSML_MCP_TOKEN_FILE: /run/secrets/mcp_token
+      # The URL clients see: the proxy's host and published port.
+      OPENSYSML_MCP_PUBLIC_URL: https://${MCP_HOST:-localhost}:${MCP_HTTPS_PORT:-8443}/mcp
+      OPENSYSML_MCP_LOG_LEVEL: ${MCP_LOG_LEVEL:-info}
+    secrets:
+      - mcp_token
+    volumes:
+      - ./models:/models:ro
+      - record-cache:/home/nonroot/.cache
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+  proxy:
+    image: caddy:2.9-alpine
+    ports:
+      - "${MCP_HTTPS_PORT:-8443}:443"
+    environment:
+      MCP_HOST: ${MCP_HOST:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - sysml-mcp
+    restart: unless-stopped
+secrets:
+  mcp_token:
+    file: ./secrets/mcp.token
+volumes:
+  record-cache:
+  caddy-data:
+  caddy-config:

@@ -767,8 +767,6 @@ type decoder struct {
 	// bodyAt records where a rebuilt element's body members landed in its own
 	// notation, for its notes to be put back around them.
 	bodyAt map[*element]region
-	// notesStated caches statesNotes.
-	notesStated *bool
 	// nl is the line ending rebuilt notation is written with.
 	nl string
 }
@@ -1907,7 +1905,7 @@ func (d *decoder) print(b *strings.Builder, el *element, depth int) error {
 func (d *decoder) printElement(b *strings.Builder, el *element, depth int) error {
 	indent := strings.Repeat("    ", depth)
 	lead := indent + el.prefix
-	if text, ok := d.verbatimWithNotes(el); ok {
+	if text, ok := d.verbatim(el); ok {
 		// The text writes the `#` prefixes itself, so they are only checked here;
 		// one disagreeing with the graph demotes the text like any other triple.
 		if _, err := d.prefixWords(el); err != nil {
