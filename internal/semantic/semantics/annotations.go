@@ -1933,18 +1933,29 @@ func (m *Model) reflectiveFeatureTypes(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil {
 		return nil
 	}
-	if sym.Recorded() && sym.Facts.Node == symbols.NodePrefixMetadata {
-		if typ := m.recordedElement(sym.Facts.MetadataType); typ != nil {
-			return []*symbols.Symbol{typ}
-		}
-		return nil
-	}
-	if prefix, ok := sym.Decl.(*ast.PrefixMetadata); ok {
-		if annot, resolved := m.prefixAnnotation(sym.OwnerScope, prefix); resolved && annot.typ != nil {
-			return []*symbols.Symbol{annot.typ}
-		}
+	if types, isAnnotation := m.prefixMetadataTypes(sym); isAnnotation {
+		return types
 	}
 	return m.FeatureTypeSetWithImplied(sym)
+}
+
+// prefixMetadataTypes is the metadata type a `#M` / `@M {…}` annotation names: the one
+// FeatureTyping of the MetadataUsage it declares (SysML v2 8.3.15.3); isAnnotation is false for any other symbol.
+func (m *Model) prefixMetadataTypes(sym *symbols.Symbol) (types []*symbols.Symbol, isAnnotation bool) {
+	if sym.Recorded() && sym.Facts.Node == symbols.NodePrefixMetadata {
+		if typ := m.recordedElement(sym.Facts.MetadataType); typ != nil {
+			return []*symbols.Symbol{typ}, true
+		}
+		return nil, true
+	}
+	prefix, ok := sym.Decl.(*ast.PrefixMetadata)
+	if !ok {
+		return nil, false
+	}
+	if annot, resolved := m.prefixAnnotation(sym.OwnerScope, prefix); resolved && annot.typ != nil {
+		return []*symbols.Symbol{annot.typ}, true
+	}
+	return nil, true
 }
 
 // FunctionTypes: the Functions among a feature's effective types (declared, inherited, or implied
