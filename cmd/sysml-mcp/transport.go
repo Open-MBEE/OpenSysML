@@ -12,9 +12,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
 )
 
-// httpOptions is what -http and its qualifiers (-allow-origin, -token,
-// -token-file, -public-url, -tls-cert, -tls-key, -shutdown-timeout,
-// -max-body-bytes) resolve to; nil without -http.
+// httpOptions is what -http and its qualifiers (-allow-origin, the token flags,
+// -public-url, the TLS pair, -shutdown-timeout, -max-body-bytes) resolve to; nil without -http.
 type httpOptions struct {
 	addr    string
 	origins mcp.OriginPolicy

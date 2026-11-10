@@ -100,10 +100,8 @@ var nothingToWait = func() <-chan struct{} {
 	return done
 }()
 
-// Prewarmed returns the channel that closes once the runtime's standard
-// library index is built, which is when a first runtime call is answered
-// without paying for the library; it is closed from the start without the
-// runtime group.
+// Prewarmed returns the channel that closes once the runtime's library index is
+// built, when a first runtime call does not pay for it; closed without the runtime group.
 func (s *Server) Prewarmed() <-chan struct{} { return s.prewarmed }
 
 // New builds a server from cfg, indexing the workspace and preparing the

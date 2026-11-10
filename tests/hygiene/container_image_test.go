@@ -106,9 +106,8 @@ func TestContainerImageIsVerifiedBeforeItIsPushed(t *testing.T) {
 	requireAll(t, "Publish openmbee/opensysml to Docker Hub", requiresOf(t, release, "Publish openmbee/opensysml to Docker Hub"), "Publish GitHub release")
 }
 
-// TestContainerImageCarriesEveryBinary holds the Dockerfile, the release's
-// image check and the compose example to the same four binaries, so a binary
-// added to one surface is built, shipped and verified on the others.
+// TestContainerImageCarriesEveryBinary holds the Dockerfile, the release's image
+// check and the compose example to the same four binaries.
 func TestContainerImageCarriesEveryBinary(t *testing.T) {
 	dockerfile, err := os.ReadFile("../../Dockerfile")
 	if err != nil {

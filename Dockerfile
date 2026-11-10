@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 #
-# The openmbee/opensysml image: sysml-grpc as the entrypoint, with sysml,
-# sysml-lsp and sysml-mcp beside it in /usr/local/bin. `make docker` builds it locally and
+# The openmbee/opensysml image: sysml-grpc as the entrypoint, with sysml and
+# sysml-lsp beside it in /usr/local/bin. `make docker` builds it locally and
 # the release's publish-docker job pushes it for linux/amd64 and linux/arm64.
 #
 # The build stage runs the Go toolchain go.mod pins (`toolchain go1.27.3`),
@@ -59,16 +59,15 @@ COPY --from=build /src/bin/sysml /src/bin/sysml-lsp /src/bin/sysml-grpc /src/bin
 # writable volume here, or the service runs uncached and says so once.
 ENV XDG_CACHE_HOME=/home/nonroot/.cache
 
-# 50051 serves gRPC, Connect and gRPC-Web; 8081 answers GET /health. The MCP
-# server, run with --entrypoint sysml-mcp, serves /mcp, /health and /ready on
-# the port -http names (deploy/sysml-mcp/ serves 8765).
+# 50051 serves gRPC, Connect and gRPC-Web; 8081 answers GET /health.
 EXPOSE 50051 8081
 
 # `docker run … openmbee/opensysml -port 9000` replaces the CMD, so the
 # flags below are defaults a deployer overrides by naming new ones. Binding
 # 0.0.0.0 needs a token (OPENSYSML_GRPC_TOKEN or -token-file) with -tls-cert
 # and -tls-key, or -allow-insecure-token-transport, or -allow-unauthenticated.
+
 # `docker run --entrypoint sysml-mcp … openmbee/opensysml -http 0.0.0.0:8765`
-# serves the Model Context Protocol instead; see deploy/sysml-mcp/.
+# serves the Model Context Protocol on 8765 instead; see deploy/sysml-mcp/.
 ENTRYPOINT ["/usr/local/bin/sysml-grpc"]
 CMD ["-host", "0.0.0.0", "-port", "50051", "-health-port", "8081"]

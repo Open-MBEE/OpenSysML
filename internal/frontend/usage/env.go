@@ -8,20 +8,14 @@ import (
 	"strings"
 )
 
-// EnvName is the environment variable a command reading its flags from the
-// environment under prefix reads for the flag name: the name in upper case with
-// each dash an underscore, after the prefix, as OPENSYSML_MCP_LOG_LEVEL for
-// -log-level under OPENSYSML_MCP_.
+// EnvName is the variable of flag name under prefix: the name in upper case with
+// each dash an underscore, as OPENSYSML_MCP_LOG_LEVEL for -log-level.
 func EnvName(prefix, name string) string {
 	return prefix + strings.ToUpper(strings.ReplaceAll(name, "-", "_"))
 }
 
-// ApplyEnvironment sets every flag of fs the command line left unset from its
-// variable EnvName(prefix, name), where that is set and not empty; the flags
-// named in except have readers of their own and are left alone. It runs after
-// fs.Parse, so a flag given wins over its variable. A value the flag refuses
-// is an error naming the variable and the flag's own complaint, for the caller
-// to report as it reports a bad argument.
+// ApplyEnvironment sets each flag fs.Parse left unset from its non-empty EnvName
+// variable, except the named flags; a value the flag refuses is the error, naming both.
 func ApplyEnvironment(fs *flag.FlagSet, prefix string, except ...string) error {
 	given := map[string]bool{}
 	fs.Visit(func(f *flag.Flag) { given[f.Name] = true })

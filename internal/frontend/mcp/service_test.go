@@ -15,9 +15,8 @@ import (
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// TestServeHTTPAnswersProbesWhileTheServerBuilds checks the listener answers
-// /health from the start, /ready and /mcp with 503 until the server is built,
-// and the protocol from then on, each probe open of the token.
+// TestServeHTTPAnswersProbesWhileTheServerBuilds checks /health answers from the
+// start, /ready and /mcp 503 until the server is built, then the protocol.
 func TestServeHTTPAnswersProbesWhileTheServerBuilds(t *testing.T) {
 	var logs bytes.Buffer
 	ctx, cancel := context.WithCancel(context.Background())

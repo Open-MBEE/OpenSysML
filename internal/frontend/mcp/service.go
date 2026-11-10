@@ -11,9 +11,8 @@ import (
 	"time"
 )
 
-// The service endpoints a deployment probes, served open on the same listener
-// as HTTPPath: liveness, which answers as soon as the listener is bound, and
-// readiness, which answers 200 only once the server is built and prewarmed.
+// The open service endpoints beside HTTPPath: liveness answers once the
+// listener is bound, readiness 200 once the server is built and prewarmed.
 const (
 	HealthPath = "/health"
 	ReadyPath  = "/ready"
@@ -22,9 +21,8 @@ const (
 // serviceName is what the service endpoints report themselves as.
 const serviceName = "sysml-mcp"
 
-// readiness is the gate between the service endpoints, which answer from the
-// moment the listener is bound, and the protocol, which answers once the
-// server behind it is built and prewarmed.
+// readiness gates the protocol behind the server's build and prewarm, and
+// answers the service endpoints from the moment the listener is bound.
 type readiness struct {
 	version  string
 	ready    atomic.Bool
@@ -43,9 +41,8 @@ func (r *readiness) ServeHealth(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "service": serviceName, "version": r.version})
 }
 
-// ServeReady answers GET with 200 once the server is built and prewarmed, and
-// 503 before that and again while it drains, so a balancer routes to it only
-// while a client's first call would be answered in full.
+// ServeReady answers GET with 200 once the server is built and prewarmed, 503
+// before that and while draining, so a balancer routes only to a server that answers.
 func (r *readiness) ServeReady(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodGet && req.Method != http.MethodHead {
 		w.Header().Set("Allow", "GET, HEAD")
@@ -67,8 +64,7 @@ func (r *readiness) ServeReady(w http.ResponseWriter, req *http.Request) {
 }
 
 // ServeProtocol hands a request to the protocol once the server is built, and
-// answers 503 with Retry-After before that, so a client arriving during the
-// workspace index is told to come back rather than answered partially.
+// before that answers 503 with Retry-After rather than partially.
 func (r *readiness) ServeProtocol(w http.ResponseWriter, req *http.Request) {
 	if h := r.protocol.Load(); h != nil {
 		(*h).ServeHTTP(w, req)
@@ -98,12 +94,8 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 	}
 }
 
-// ServeHTTP binds the service endpoints and the protocol path on over.Listener,
-// then builds the server from cfg behind them: GET HealthPath answers from the
-// start, GET ReadyPath and HTTPPath answer 503 until the workspace is indexed
-// and the runtime prewarmed, and the protocol is served from then until ctx
-// ends, when the live sessions are closed and the connections drained within
-// the timeout.
+// ServeHTTP serves the service endpoints on over.Listener while the server is
+// built from cfg, then the protocol until ctx ends and the connections drain.
 func ServeHTTP(ctx context.Context, cfg Config, over HTTPConfig) error {
 	return serveGated(ctx, over, cfg.Version, func(ctx context.Context) (*Server, error) {
 		srv, err := New(ctx, cfg)
@@ -191,9 +183,8 @@ func serveGated(ctx context.Context, over HTTPConfig, version string, build func
 	return shutdown(ctx, over, httpSrv, srv, logger)
 }
 
-// serviceMux routes one listener: the service endpoints open, the protocol at
-// HTTPPath behind the origin policy and gate, and the token's resource
-// metadata open behind the origin policy when a token is required.
+// serviceMux routes one listener: the service endpoints open, the protocol and
+// the token's resource metadata behind the origin policy, the protocol gated.
 func serviceMux(gate *readiness, over HTTPConfig) *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc(HealthPath, gate.ServeHealth)
