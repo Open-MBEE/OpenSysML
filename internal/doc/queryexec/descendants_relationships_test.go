@@ -2,6 +2,7 @@ package queryexec
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -90,27 +91,49 @@ calc def Kind :> Query {
 		properties = ("elementId")
 	)
 }
+calc def Ends :> Query {
+	in root : Element;
+	in type : String;
+	Project(
+		source = WhereType(source = Descendants(source = root, relationships = true), type = type, exact = true),
+		properties = ("elementId", "isEnd")
+	)
+}
 `)
 	for _, tc := range []struct {
 		metaclass string
 		want      int
+		isEnd     string
 	}{
-		{"ReferenceUsage", 2},
-		{"Feature", 2},
-		{"PortDefinition", 1},
-		{"ConjugatedPortDefinition", 1},
-		{"ActionUsage", 0},
-		{"TransitionUsage", 1},
+		{"ReferenceUsage", 2, "true"},
+		{"Feature", 2, "false"},
+		{"PortDefinition", 1, ""},
+		{"ConjugatedPortDefinition", 1, ""},
+		{"ActionUsage", 0, ""},
+		{"TransitionUsage", 1, ""},
 	} {
-		result, err := fixture.execute(t, "Kind", Bindings{
+		query := "Kind"
+		if tc.isEnd != "" {
+			query = "Ends"
+		}
+		result, err := fixture.execute(t, query, Bindings{
 			"root": {ElementValue(fixture.symbol(t, "Probe"))},
 			"type": {StringValue(tc.metaclass)},
 		}, Options{})
 		if err != nil {
-			t.Fatalf("execute Kind(%s): %v", tc.metaclass, err)
+			t.Fatalf("execute %s(%s): %v", query, tc.metaclass, err)
 		}
 		if got := len(result.Rows()); got != tc.want {
 			t.Errorf("exact %s rows = %d, want %d", tc.metaclass, got, tc.want)
+		}
+		if tc.isEnd == "" {
+			continue
+		}
+		// The two ends are end features, the two chain Features they reference are not.
+		for _, row := range metaclassPropertyCells(t, result) {
+			if !strings.HasSuffix(row, " "+tc.isEnd) {
+				t.Errorf("exact %s row %q, want isEnd %s", tc.metaclass, row, tc.isEnd)
+			}
 		}
 	}
 }
