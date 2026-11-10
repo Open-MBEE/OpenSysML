@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 )
 
 // The ownership walk of Descendants(relationships = true): KerML 8.3.2.1 ownedRelationship and
@@ -133,6 +135,12 @@ calc def Ends :> Query {
 		for _, row := range metaclassPropertyCells(t, result) {
 			if !strings.HasSuffix(row, " "+tc.isEnd) {
 				t.Errorf("exact %s row %q, want isEnd %s", tc.metaclass, row, tc.isEnd)
+			}
+		}
+		// Each row's own @type is the metaclass it was kept under.
+		for _, row := range result.Rows() {
+			if got := query.MetamodelTypeNameOf(row.Element().Declaration()); got != tc.metaclass {
+				t.Errorf("exact %s row %v @type = %q, want %s", tc.metaclass, row.Element(), got, tc.metaclass)
 			}
 		}
 	}
