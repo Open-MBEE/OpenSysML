@@ -329,9 +329,8 @@ package OpenSysMLPipeline {
         port requests : RequestPort;
     }
 
-    // The project interchange format: a directory holding .project.json is a project, and
-    // what a package manager installs beside it — a plain lib/ or sysand's .sysand/lib —
-    // is read as installed projects rather than the workspace's own files.
+    // A directory holding .project.json is a project; what a package manager installs beside it
+    // (a plain lib/ or sysand's .sysand/lib) is read as installed projects, not workspace files.
     part def ProjectDiscovery :> CodeUnit {
         attribute :>> goPackage = "internal/workspace/project";
         attribute projectFile : String = ".project.json";
@@ -340,9 +339,8 @@ package OpenSysMLPipeline {
         attribute archiveExtension : String = ".kpar";
     }
 
-    // Checks of the workspace as a whole, which no document's own analysis sees: a
-    // `library package` two documents declare is reported once, on the copy references
-    // do not resolve to.
+    // Checks of the workspace as a whole, which no document's own analysis sees: a `library
+    // package` two documents declare is reported once, on the copy references do not resolve to.
     part def WorkspaceChecks :> CodeUnit {
         attribute :>> goPackage = "internal/check/workspace";
         attribute source : String = "workspace";
@@ -547,10 +545,8 @@ package OpenSysMLPipeline {
         port requests : RequestPort;
     }
 
-    // Discharges constraint sets through an external SMT solver.
-    // A constraint posed to an SMT solver: the features it reads are the unknowns, their
-    // held or declared values pins, and a derived declared value a defining equation
-    // rather than a pin, so the solver may move what it is computed from.
+    // Discharges constraint sets through an external SMT solver: the features read are unknowns,
+    // held or declared values pins, and a derived declared value a defining equation, not a pin.
     #Backend part def Solver :> Stage {
         attribute :>> goPackage = "internal/exec/solve";
         attribute engines : String = "z3, cvc5";

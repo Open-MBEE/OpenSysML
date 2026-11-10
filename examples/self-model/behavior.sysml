@@ -356,10 +356,8 @@ package OpenSysMLBehavior {
         transition first behavioralModel then behavioralExecution;
     }
 
-    // Token flow: a step moves every enabled token, and a round with no movement is a
-    // deadlock rather than a hang — unless a token is parked at an accept, when the executor
-    // waits for a message or the clock instead. A terminate ends it short of its final node.
-    // The budget is the action-step one; the states are the executor's (runtime.ExecutionState).
+    // Token flow: a step moves every enabled token; a still round is a deadlock unless a token is
+    // parked at an accept, and a terminate ends the run early. States: runtime.ExecutionState.
     state def TokenFlow {
         attribute progressed : Boolean = true;
         attribute parked : Boolean = false;

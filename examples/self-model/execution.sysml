@@ -166,9 +166,8 @@ package OpenSysMLExecution {
 
     // --- Around the layer ------------------------------------------------------
 
-    // runtime.Model: what every run of a worker shares and no run writes — the schema,
-    // the lowered action graphs, the feature-chain declarations, each statement's
-    // footprint and the subsetting walks, each resolved once per model.
+    // runtime.Model: what every run of a worker shares and no run writes — lowered action
+    // graphs, feature-chain declarations, footprints and subsetting walks, resolved once per model.
     part def SharedModel :> CodeUnit {
         attribute :>> goPackage = "internal/exec/runtime";
         attribute :>> memoized = true;

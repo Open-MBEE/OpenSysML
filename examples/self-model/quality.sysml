@@ -363,9 +363,8 @@ package OpenSysMLGates {
         subject runtime = opensysml.pipeline.runtime;
     }
 
-    // The contributor's loop, and who takes part in it: a branch cut from develop, a pull
-    // request opened ready for review against it, the full tier on every push and once more
-    // in the merge queue, and a maintainer's merge.
+    // The contributor's loop: a branch cut from develop, a pull request opened ready for review
+    // against it, the full tier on every push and once more in the merge queue, a maintainer's merge.
     use case def LandAChange {
         attribute baseBranch : String = "develop";
         attribute opensReadyForReview : Boolean = true;
