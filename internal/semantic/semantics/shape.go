@@ -94,8 +94,14 @@ func (m *Model) shapeFeatures(typ *symbols.Symbol, keep func(*symbols.Symbol) bo
 }
 
 // withAnonymousShapeFeatures adds typ's unnamed constraint usages, own and inherited, each
-// under its positional address `Owner::@N` in declaration order among its owner's features.
+// under its positional address `Owner::@N` where its owner's features sit in the shape.
 func (m *Model) withAnonymousShapeFeatures(typ *symbols.Symbol, out []ShapeFeature, keep func(*symbols.Symbol) bool, byName map[string]*ShapeFeature) []ShapeFeature {
+	sources := m.MemberSources(typ)
+	rank := make(map[*symbols.Symbol]int, len(sources)+1)
+	rank[typ] = 0
+	for i, src := range sources {
+		rank[src] = i + 1
+	}
 	collect := func(source *symbols.Symbol, inherited bool) {
 		if source.Scope == nil {
 			return
@@ -110,41 +116,29 @@ func (m *Model) withAnonymousShapeFeatures(typ *symbols.Symbol, out []ShapeFeatu
 				continue
 			}
 			byName[name] = &ShapeFeature{Name: name, Symbol: member, Declared: member}
-			out = insertByDeclaration(out, *byName[name], source, inherited)
+			out = insertByDeclaration(out, *byName[name], source, rank)
 		}
 	}
 	collect(typ, false)
-	for _, src := range m.MemberSources(typ) {
+	for _, src := range sources {
 		collect(src, true)
 	}
 	return out
 }
 
-// insertByDeclaration places f after the last feature source declares before it; with none,
-// before source's first feature, else first for typ's own member and last for an inherited one.
-func insertByDeclaration(out []ShapeFeature, f ShapeFeature, source *symbols.Symbol, inherited bool) []ShapeFeature {
+// insertByDeclaration places f after the last feature that precedes it in shape order: one
+// an earlier source (typ, then its member sources in order) owns, or one source declares before it.
+func insertByDeclaration(out []ShapeFeature, f ShapeFeature, source *symbols.Symbol, rank map[*symbols.Symbol]int) []ShapeFeature {
 	index := declarationIndex(source, f.Declared)
-	at := -1
-	first := -1
+	at := 0
 	for i, g := range out {
-		if g.Declared == nil || g.Declared.Owner() != source {
+		if g.Declared == nil {
 			continue
 		}
-		if first < 0 {
-			first = i
-		}
-		if declarationIndex(source, g.Declared) < index {
+		owner := g.Declared.Owner()
+		if r, ok := rank[owner]; ok && (r < rank[source] || (owner == source && declarationIndex(source, g.Declared) < index)) {
 			at = i + 1
 		}
-	}
-	switch {
-	case at >= 0:
-	case first >= 0:
-		at = first
-	case inherited:
-		at = len(out)
-	default:
-		at = 0
 	}
 	out = append(out, ShapeFeature{})
 	copy(out[at+1:], out[at:])

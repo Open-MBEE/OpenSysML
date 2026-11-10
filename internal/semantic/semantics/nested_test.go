@@ -401,6 +401,10 @@ func TestImplicitSubsettingsAnonymousRequirementConstraints(t *testing.T) {
 		verification case def Check {
 			require constraint { 1 > 0 }
 		}
+		requirement def Unnamed {
+			require constraint { 1 > 0 }
+		}
+		requirement def Combined :> Unnamed, FuelRequirement;
 	}`)
 	const assumptions, constraints = "Requirements::RequirementCheck::assumptions", "Requirements::RequirementCheck::constraints"
 	cases := []struct {
@@ -450,16 +454,24 @@ func TestImplicitSubsettingsAnonymousRequirementConstraints(t *testing.T) {
 			t.Errorf("ShapeFeatures(P::FuelRequirement) holds the anonymous part as %s", f.Name)
 		}
 	}
-	// Declaration order, own then inherited: an anonymous constraint sits where it is written.
-	var names []string
-	for _, f := range m.ShapeFeatures(nestedSym(t, root, "P::fullTank")) {
-		if f.Symbol.Kind == symbols.SymbolConstraintUsage && strings.HasPrefix(symbols.FQNOf(f.Declared.Owner()), "P::") {
-			names = append(names, f.Name)
+	// Shape order: an anonymous constraint sits where it is written, own before inherited and
+	// the sources in order, even when a source declares no named feature at all.
+	for _, tc := range []struct {
+		owner string
+		want  []string
+	}{
+		{"P::fullTank", []string{"P::fullTank::@0", "full", "P::fullTank::@2", "P::FuelRequirement::@1", "P::FuelRequirement::@2", "P::FuelRequirement::@3"}},
+		{"P::Combined", []string{"P::Unnamed::@0", "P::FuelRequirement::@1", "P::FuelRequirement::@2", "P::FuelRequirement::@3"}},
+	} {
+		var names []string
+		for _, f := range m.ShapeFeatures(nestedSym(t, root, tc.owner)) {
+			if f.Symbol.Kind == symbols.SymbolConstraintUsage && strings.HasPrefix(symbols.FQNOf(f.Declared.Owner()), "P::") {
+				names = append(names, f.Name)
+			}
 		}
-	}
-	want := []string{"P::fullTank::@0", "full", "P::fullTank::@2", "P::FuelRequirement::@1", "P::FuelRequirement::@2", "P::FuelRequirement::@3"}
-	if strings.Join(names, " ") != strings.Join(want, " ") {
-		t.Errorf("ShapeFeatures(P::fullTank) constraints = %v, want %v", names, want)
+		if strings.Join(names, " ") != strings.Join(tc.want, " ") {
+			t.Errorf("ShapeFeatures(%s) constraints = %v, want %v", tc.owner, names, tc.want)
+		}
 	}
 }
 
