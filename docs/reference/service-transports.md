@@ -180,9 +180,11 @@ only), `-token <value>`, or `OPENSYSML_GRPC_TOKEN` in the environment — and ev
 protocol must then carry it: `Authorization: Bearer <token>` on Connect, gRPC-Web and
 Connect-HTTP, the `authorization` metadata on grpc-go, compared in constant time. The credential
 is verified by the authenticator chain [`sysml-mcp`](sysml-mcp.md#transports) verifies through,
-shared so the two commands read the same flags and refuse alike; today the chain holds the static
-token alone, and a call it admits is served knowing its principal (the subject and the kind of
-authenticator that accepted it), which the access log names. A call without a credential is
+shared so the two commands read the same flags and refuse alike: the static token, and with
+`-oidc-issuer` the access tokens of an OpenID provider as [`sysml-mcp`](sysml-mcp.md#single-sign-on)
+describes, `-oidc-audience` naming what their `aud` must hold since this service has no resource
+URL of its own. A call the chain admits is served knowing its principal (the subject and the
+kind of authenticator that accepted it), which the access log names. A call without a credential is
 answered `unauthenticated` (HTTP 401 with `WWW-Authenticate: Bearer realm="sysml-grpc"`; the
 grpc-go trailer carries the same), one whose credential lacks a scope the service requires
 `permission_denied` (HTTP 403, `error="insufficient_scope"`), one whose credential cannot be
