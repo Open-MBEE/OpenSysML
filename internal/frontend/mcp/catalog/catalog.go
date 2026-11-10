@@ -31,9 +31,8 @@ type Scope string
 
 // The scopes, from the least to the most privileged.
 const (
-	// ScopeRead answers questions about the workspace and the model: queries,
-	// diagnostics, hover, conversions and edits answered as text. It changes
-	// nothing a second caller sees.
+	// ScopeRead asks about the workspace and the model (queries, diagnostics,
+	// hover, conversions, edits answered as text); nothing another caller sees changes.
 	ScopeRead Scope = "sysml:read"
 	// ScopeWrite writes the workspace: a file replaced with apply, a document
 	// held open or released, a prompt command that may save.
@@ -44,9 +43,8 @@ const (
 	// ScopeSession opens, loads, lists, clears and closes the caller's own
 	// REPL sessions.
 	ScopeSession Scope = "sysml:session"
-	// ScopeAdmin reaches across principals: it sees and closes every
-	// caller's sessions. No tool requires it; it widens session_list and
-	// session_close.
+	// ScopeAdmin reaches across principals: session_list and session_close
+	// see and close every caller's sessions. No tool requires it.
 	ScopeAdmin Scope = "sysml:admin"
 )
 

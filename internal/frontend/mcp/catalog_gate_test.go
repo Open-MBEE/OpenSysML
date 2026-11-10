@@ -74,9 +74,8 @@ func TestRegisteredToolsMatchTheCatalog(t *testing.T) {
 	}
 }
 
-// Every entry of the catalog is well formed: unique name, a group the server
-// serves (or none, for tool_catalog), a scope of the vocabulary, a one-line
-// summary, no RPC or flag named twice.
+// Every entry of the catalog is well formed: unique name, a served group (or
+// none, for tool_catalog), a known scope, a one-line summary, no RPC or flag twice.
 func TestTheCatalogIsWellFormed(t *testing.T) {
 	seenName := map[string]bool{}
 	seenRPC := map[string]string{}
@@ -129,9 +128,8 @@ func TestTheCatalogIsWellFormed(t *testing.T) {
 	}
 }
 
-// A tool's scope agrees with what it tells clients about itself: a tool that
-// writes the workspace is never annotated read-only, and a read-only tool
-// never requires the write scope.
+// A tool's scope agrees with its annotations: a tool requiring the write
+// scope is never annotated read-only.
 func TestScopesAgreeWithToolAnnotations(t *testing.T) {
 	root := t.TempDir()
 	cs := connect(t, Config{Root: root, Groups: catalog.Groups()})
