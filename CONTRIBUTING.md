@@ -351,6 +351,12 @@ by hand. A security update Dependabot opens outside the weekly schedule follows 
 The one dependency it leaves alone is `editors/vscode`'s `@types/vscode`, pinned at the
 extension's `engines.vscode` floor because `vsce package` refuses a newer typing: raise the two
 together, and `tests/hygiene` fails when the typing exceeds the floor or the ignore rule is gone.
+The npm entry updates with `versioning-strategy: increase-if-necessary`, so a `package.json`
+requirement is rewritten only when the new version falls outside it: the exact pins of
+`client/node`, `editors/vscode`, `editors/syson/frontend` and `scripts/asciidoc` still move with
+every update, while `editors/jupyterlab`'s `^4.0.0` ranges on `@jupyterlab/application` and
+`@jupyterlab/codemirror` — the JupyterLab 4 hosts the extension supports, not what it is built
+against; the lockfile and the `jupyterlab==` pins of the workflows decide that — stay as written.
 Dependabot alerts and security updates are repository settings a maintainer switches on; the
 configuration file only schedules version updates.
 

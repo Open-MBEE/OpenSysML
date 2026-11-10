@@ -73,6 +73,7 @@ type runCapture struct {
 	nextID               int64
 	activations, runs    int64
 	coverageGaps         mapState[CoverageGap, bool]
+	coverage             mapState[coverageKey, CoverageEntry]
 	run                  *runState
 	trace                *TraceRecorder
 	traced               traceCapture
@@ -447,6 +448,7 @@ func (ctx *Context) captureRun() runCapture {
 		draws:                ctx.draws,
 		evaluations:          ctx.evaluations,
 		coverageGaps:         captureMap(ctx.coverageGaps),
+		coverage:             captureMap(ctx.coverage),
 		pendingBehaviors:     slices.Clone(ctx.pendingBehaviors),
 		heldBehaviors:        captureMap(ctx.heldBehaviors),
 		successionOrderNotes: captureMap(ctx.successionOrderNotes),
@@ -472,6 +474,7 @@ func (c runCapture) restore(ctx *Context) {
 	ctx.choices, ctx.draws = c.choices, c.draws
 	ctx.evaluations = c.evaluations
 	ctx.coverageGaps = c.coverageGaps.restore()
+	ctx.coverage = c.coverage.restore()
 	ctx.pendingBehaviors = slices.Clone(c.pendingBehaviors)
 	ctx.heldBehaviors = c.heldBehaviors.restore()
 	ctx.successionOrderNotes = c.successionOrderNotes.restore()

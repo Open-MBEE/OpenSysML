@@ -929,10 +929,12 @@ rebuilt from the graph — the note that was written above it put back from its
 `sysx:Note` node, see [Notes](#notes) — and every other line is kept, the blank
 line after it included, since that belongs to `Vehicle`. Rebuilt lines end the way most of the elements' text does, CRLF or
 LF; an expression's text lies inside its element's and is not counted again.
-The notes are compared by their text: a `sysx:Note` whose text the element's
-text holds in order agrees with it, whatever its `sysx:noteToken` or
-`sysx:noteOwnLine` say, so a position edited alone takes effect once the element
-is rebuilt for another reason or its text is set aside.
+The notes are compared in every field: the notes the element's text states are
+derived from it exactly as they were minted, and a `sysx:Note` that differs
+from the one so derived in its `sysx:noteText`, its `sysx:noteToken` or
+`sysx:noteTrailing`, its `sysx:noteOwnLine` or its `sysx:noteTail` demotes the
+text as an edited flag does, so a position edited alone is written back at once
+with the element rebuilt around it.
 Text that no longer parses, or whose disagreement cannot be placed on one
 element, demotes every element to canonical notation rather than writing an
 invalid or contradictory file; one that lands on notation already rebuilt is
@@ -1009,10 +1011,16 @@ carried, as in a graph another tool wrote — each note is put back after the
 token it followed, on its own line or inline as it was written; one past the
 tokens the canonical head has (a synonym spelled out, a clause the canonical
 form drops) follows the last of them, and none is dropped. The graph is
-authoritative here too: a note edited or added in the graph demotes the text
-that does not state it, and the element is rebuilt with the graph's notes; a
-comment the graph does not state is left to the text, since it may be a body or
-another subject's note written inside this text (a filter's, a `then`'s). The `Comment` elements the grammar does admit — a bare `/* */` before a
+authoritative here too: a note edited in the graph — in its text or in its
+position, the token it follows, its line, head or tail — or added there demotes
+the text that does not state it, and the element is rebuilt with the graph's
+notes and no other — the text of an expression of its that holds a note the
+graph does not state as written is rebuilt too, or the note would stay as that
+text had it beside the graph's. While the text stands, a comment the graph does
+not state is left to it, since it may be a body or another subject's note
+written inside this text (a filter's, a `then`'s). Two notes at one token are
+told apart by their order alone, so their texts swapped in the graph are an edit.
+The `Comment` elements the grammar does admit — a bare `/* */` before a
 member, at the close of a body, at either end of a file — are elements, not notes.
 
 ### Ownership

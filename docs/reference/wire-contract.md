@@ -1271,7 +1271,11 @@ in either order and either alone — `runs` bounds how many runs the search make
 `budgetsHit` (`"runs"` before `"depth"` when both), the outcomes reached so far still listed and
 `probabilitiesLowerBound` true only when the exploration is incomplete and has a weighted model
 choice, since unexplored runs can only add to those model probabilities;
-`runsBudget` and `depthBudget` echo the budget the search ran under. A budget hit is never an
+`runsBudget` and `depthBudget` echo the budget the search ran under. `coverage` (`Coverage`) is
+what every run entered and took, not only the witness of each outcome: `states` and
+`transitions`, each a `CoverageEntry` whose `path` is qualified by the instance that ran the
+machine (`Cov::sys#1.m.run: s0 -> viaB`), whose `declaration` is qualified by the declaration
+(`Cov::M::run::s0 -> viaB`), and whose `runs` counts the runs that did so. A budget hit is never an
 error and never silent:
 
 ```console
@@ -2580,7 +2584,8 @@ as data. `CheckBehaviorRequest` names the behavior by exactly one of `action_sym
 `check_diverge`, `check_input`, `check_assume` (repeated strings), `check_witness` (bool),
 `check_depth`, `check_states`, `check_unroll` (int32 counts, 0 for the engine's default),
 `check_timeout` (double seconds, 0 for none) and `engine`. `CheckBehaviorResponse` carries
-`verdict`, `lines`, `search` (`CheckSearch`), `violations` (`CheckViolation`), `divergences`
+`verdict`, `lines`, `search` (`CheckSearch`, whose `coverage` is the `Coverage` every searched
+schedule entered and took, `runs` counting schedules), `violations` (`CheckViolation`), `divergences`
 (`CheckDivergence`, each value a `CheckDivergentValue`), `finals` (`CheckFinal`), `claim`,
 `free_inputs`, `assumptions`, `witness`, `contrast`, `engine`, `strength`, `bounds`, `reason`
 and `error`; every witness is a `CheckWitness` whose `schedule` any run replays.

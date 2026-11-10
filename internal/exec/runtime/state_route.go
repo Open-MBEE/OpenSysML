@@ -983,7 +983,7 @@ func (e *StateExecutor) terminateAt(trans *lower.Transition, fromName string, r 
 	}
 	// The machine ends here: the entries made ahead are the move's own.
 	clear(e.enteredAhead)
-	return e.terminateMachine(fromName, trans.Trigger, r.terminate)
+	return e.terminateMachine(fromName, trans, r.terminate)
 }
 
 // runBehaviors performs a transition's effects, in order.
