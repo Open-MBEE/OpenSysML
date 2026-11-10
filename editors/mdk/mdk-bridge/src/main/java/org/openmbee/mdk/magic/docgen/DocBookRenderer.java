@@ -24,6 +24,9 @@ public final class DocBookRenderer {
     for (BridgeResult.Table answered : result.tables()) {
       elements.add(rows(answered));
     }
+    for (BridgeResult.View view : result.views()) {
+      elements.addAll(view(view));
+    }
     if (!result.diagnostics().isEmpty()) {
       DBTable table = table("Diagnostics: " + result.subject(), List.of("Severity", "Code", "Message", "Location"));
       for (BridgeResult.Diagnostic diagnostic : result.diagnostics()) {
@@ -55,6 +58,26 @@ public final class DocBookRenderer {
       table.getBody().add(row(cells.toArray(String[]::new)));
     }
     return table;
+  }
+
+  /**
+   * A result view: rendered, the attributes it binds as one table and the elements it exposes as
+   * another, row for row what {@code RenderView} lays out; otherwise its SysML text.
+   */
+  static List<DocumentElement> view(BridgeResult.View view) {
+    if (!view.rendered()) {
+      return List.of(new DBParagraph("Query result view " + view.name() + ":"), new DBParagraph(view.text()));
+    }
+    DBTable header = table("Query result view " + view.name(), List.of("Attribute", "Value"));
+    for (BridgeResult.Field field : view.header()) {
+      header.getBody().add(row(field.name(), field.value()));
+    }
+    DBTable exposed = table(view.name() + ": " + rowCount(view.rows().size()), view.columns());
+    exposed.setShowIfEmpty(true);
+    for (List<String> cells : view.rows()) {
+      exposed.getBody().add(row(cells.toArray(String[]::new)));
+    }
+    return List.of(header, exposed);
   }
 
   private static String rowCount(int rows) {

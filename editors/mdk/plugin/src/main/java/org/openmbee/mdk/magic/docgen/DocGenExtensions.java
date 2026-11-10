@@ -33,6 +33,7 @@ public final class DocGenExtensions {
   public static final String BASE_STEREOTYPE = "JavaExtension";
   public static final String PROFILE_NAME = "Magic MDK DocGen";
   public static final String ARGUMENTS_TAG = "arguments";
+  public static final String VIEW_TAG = "view";
   static final String EXTENSION_PACKAGE = "org.openmbee.mdk.magic.docgen";
   static final String STRING_TYPE = "UML Standard Profile::UML2 Metamodel::PrimitiveTypes::String";
   private static final List<String> METACLASSES = List.of("Activity", "CallBehaviorAction");
@@ -122,12 +123,19 @@ public final class DocGenExtensions {
     }
     Type string = Finder.byQualifiedName().find(project, STRING_TYPE);
     if (string == null) {
-      notes.add("The UML String type was not found; the \"" + ARGUMENTS_TAG + "\" tag is untyped.");
+      notes.add("The UML String type was not found; the \"" + ARGUMENTS_TAG + "\" and \"" + VIEW_TAG
+          + "\" tags are untyped.");
     }
     for (Operation operation : Operation.values()) {
       String name = stereotypeName(operation);
-      if (child(container, Stereotype.class, name).isPresent()) {
+      Optional<Stereotype> present = child(container, Stereotype.class, name);
+      if (present.isPresent()) {
         existing.add("«" + name + "»");
+        // A stereotype an earlier release created has no view tag yet.
+        if (operation == Operation.RUN_QUERY && child(present.get(), Property.class, VIEW_TAG).isEmpty()) {
+          addTag(factory, elements, present.get(), VIEW_TAG, string);
+          created.add("tag " + VIEW_TAG + " of «" + name + "»");
+        }
         continue;
       }
       Stereotype stereotype = StereotypesHelper.createStereotype(container, name, metaclasses);
@@ -135,12 +143,8 @@ public final class DocGenExtensions {
       generalization.setGeneral(base);
       generalization.setSpecific(stereotype);
       elements.addElement(generalization, stereotype);
-      if (WITH_ARGUMENTS.contains(operation)) {
-        Property arguments = factory.createPropertyInstance();
-        arguments.setName(ARGUMENTS_TAG);
-        if (string != null) arguments.setType(string);
-        elements.addElement(arguments, stereotype);
-      }
+      if (WITH_ARGUMENTS.contains(operation)) addTag(factory, elements, stereotype, ARGUMENTS_TAG, string);
+      if (operation == Operation.RUN_QUERY) addTag(factory, elements, stereotype, VIEW_TAG, string);
       created.add("«" + name + "»");
     }
     if (!StereotypesHelper.getAppliedProfiles(root).contains(container)) {
@@ -148,6 +152,15 @@ public final class DocGenExtensions {
       created.add("application of " + PROFILE_NAME + " to " + root.getName());
     }
     return new Report(created, existing, notes);
+  }
+
+  private static void addTag(
+      ElementsFactory factory, ModelElementsManager elements, Stereotype stereotype, String name, Type string)
+      throws ReadOnlyElementException {
+    Property tag = factory.createPropertyInstance();
+    tag.setName(name);
+    if (string != null) tag.setType(string);
+    elements.addElement(tag, stereotype);
   }
 
   /** The owned element of {@code type} named {@code name}, skipping same-named elements of other kinds. */

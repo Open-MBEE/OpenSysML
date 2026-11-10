@@ -22,6 +22,7 @@ public record RunResult(
     Optional<String> finalTime,
     List<String> schedule,
     List<Table> tables,
+    List<View> views,
     Duration elapsed) {
   public enum Status {
     PASSED,
@@ -64,6 +65,49 @@ public record RunResult(
     }
   }
 
+  /**
+   * A query's answer as a {@code QVTS::QueryResult} view: {@code name} is the view's qualified
+   * name and {@code text} the SysML declaring it. {@code header}, {@code columns} and {@code rows}
+   * are the view as {@code RenderView} lays it out, empty until it was rendered.
+   */
+  public record View(
+      String query, String name, String text, List<Field> header, List<String> columns, List<List<String>> rows) {
+    public View {
+      Objects.requireNonNull(query);
+      Objects.requireNonNull(name);
+      Objects.requireNonNull(text);
+      header = List.copyOf(header);
+      columns = List.copyOf(columns);
+      rows = rows.stream().map(List::copyOf).toList();
+    }
+
+    public View(String query, String name, String text) {
+      this(query, name, text, List.of(), List.of(), List.of());
+    }
+  }
+
+  /** One attribute a result view binds: query, source, outcome or provenance. */
+  public record Field(String name, String value) {
+    public Field {
+      Objects.requireNonNull(name);
+      Objects.requireNonNull(value);
+    }
+  }
+
+  public RunResult(
+      Operation operation,
+      ModelPath path,
+      String subject,
+      Status status,
+      List<Outcome> outcomes,
+      List<Diagnostic> diagnostics,
+      Optional<String> finalTime,
+      List<String> schedule,
+      List<Table> tables,
+      Duration elapsed) {
+    this(operation, path, subject, status, outcomes, diagnostics, finalTime, schedule, tables, List.of(), elapsed);
+  }
+
   public RunResult(
       Operation operation,
       ModelPath path,
@@ -87,6 +131,7 @@ public record RunResult(
     finalTime = Objects.requireNonNull(finalTime);
     schedule = List.copyOf(schedule);
     tables = List.copyOf(tables);
+    views = List.copyOf(views);
     Objects.requireNonNull(elapsed);
   }
 
@@ -106,7 +151,7 @@ public record RunResult(
             table.rows().stream().map(row -> rename(row, rename)).toList()))
         .toList();
     return new RunResult(
-        operation, path, subject, status, renamed, diagnostics, finalTime, schedule, renamedTables, elapsed);
+        operation, path, subject, status, renamed, diagnostics, finalTime, schedule, renamedTables, views, elapsed);
   }
 
   private static Row rename(Row row, UnaryOperator<String> rename) {
@@ -122,12 +167,28 @@ public record RunResult(
     if (leading.isEmpty()) return this;
     List<Diagnostic> merged = new ArrayList<>(leading);
     merged.addAll(diagnostics);
-    return new RunResult(operation, path, subject, status, outcomes, merged, finalTime, schedule, tables, elapsed);
+    return new RunResult(
+        operation, path, subject, status, outcomes, merged, finalTime, schedule, tables, views, elapsed);
+  }
+
+  /** The result with {@code trailing} after its diagnostics. */
+  public RunResult withDiagnostics(List<Diagnostic> trailing) {
+    if (trailing.isEmpty()) return this;
+    List<Diagnostic> merged = new ArrayList<>(diagnostics);
+    merged.addAll(trailing);
+    return new RunResult(
+        operation, path, subject, status, outcomes, merged, finalTime, schedule, tables, views, elapsed);
+  }
+
+  /** The result with {@code rendered} in place of its views. */
+  public RunResult withViews(List<View> rendered) {
+    return new RunResult(
+        operation, path, subject, status, outcomes, diagnostics, finalTime, schedule, tables, rendered, elapsed);
   }
 
   public RunResult withElapsed(Duration total) {
     return new RunResult(
-        operation, path, subject, status, outcomes, diagnostics, finalTime, schedule, tables, total);
+        operation, path, subject, status, outcomes, diagnostics, finalTime, schedule, tables, views, total);
   }
 
   public static RunResult cancelled(RunRequest request) {

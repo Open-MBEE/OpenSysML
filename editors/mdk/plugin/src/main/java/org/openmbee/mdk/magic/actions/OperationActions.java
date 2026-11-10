@@ -14,8 +14,10 @@ import com.nomagic.magicdraw.uml.symbols.PresentationElement;
 import com.nomagic.task.ProgressStatus;
 import com.nomagic.ui.ProgressStatusRunner;
 import com.nomagic.utils.PriorityProvider;
+import java.awt.Desktop;
 import java.awt.event.ActionEvent;
 import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -39,6 +41,7 @@ import org.openmbee.mdk.magic.engine.Operation;
 import org.openmbee.mdk.magic.engine.QueryPlan;
 import org.openmbee.mdk.magic.engine.RunRequest;
 import org.openmbee.mdk.magic.export.ModelExport;
+import org.openmbee.mdk.magic.export.ResultViewFiles;
 import org.openmbee.mdk.magic.identity.IdentityResolver;
 import org.openmbee.mdk.magic.results.RunResult;
 import org.openmbee.mdk.magic.selection.Selection;
@@ -95,6 +98,7 @@ public final class OperationActions implements BrowserContextAMConfigurator, Dia
     for (Operation operation : Operation.values()) {
       if (selection.isPresent()) category.addAction(new OperationAction(operation, project, selection.get()));
     }
+    if (selection.isPresent()) category.addAction(new RenderAction(project, selection.get()));
     if (selection.isPresent()) category.addAction(new ExportAction(project, selection.get()));
     if (root) category.addAction(new InstallDocGenExtensionsAction(project));
     manager.addCategory(category);
@@ -272,10 +276,121 @@ public final class OperationActions implements BrowserContextAMConfigurator, Dia
       }
       if (result.isEmpty()) return;
       ModelExport.Result written = result.get();
+      ResultViewFiles.exported(project.getFileName(), written.model());
       ResultsWindow.onEdt(() -> JOptionPane.showMessageDialog(
           Application.getInstance().getMainFrame(), written.describe(), TITLE,
           written.errorCount() > 0 ? JOptionPane.WARNING_MESSAGE : JOptionPane.INFORMATION_MESSAGE));
     }
+  }
+
+  /**
+   * Renders the selected document — a {@code DocumentQueries::Document}, or the one a v1 DocGen
+   * «Document» migrates to — or {@code QVTS::QueryResult} view as Markdown and HTML into a folder
+   * the user picks, then opens the folder.
+   */
+  private final class RenderAction extends MDAction {
+    static final String TITLE = "Magic MDK: Render document";
+    private final Project project;
+    private final Selection selection;
+
+    RenderAction(Project project, Selection selection) {
+      super(CATEGORY_ID + ".render", "Render document...", null, null);
+      this.project = project;
+      this.selection = selection;
+    }
+
+    /** Runs on the EDT: asks for the folder, exports the model, then hands the rendering to the progress runner. */
+    @Override
+    public void actionPerformed(ActionEvent event) {
+      JFileChooser chooser = new JFileChooser();
+      chooser.setDialogTitle(TITLE);
+      chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+      String projectFile = project.getFileName();
+      if (projectFile != null && !projectFile.isBlank()) {
+        chooser.setCurrentDirectory(new File(projectFile).getAbsoluteFile().getParentFile());
+      }
+      if (chooser.showSaveDialog(Application.getInstance().getMainFrame()) != JFileChooser.APPROVE_OPTION) return;
+      Path directory = chooser.getSelectedFile().toPath();
+      ModelSource source;
+      try {
+        source = selection.export().get();
+      } catch (RuntimeException exception) {
+        JOptionPane.showMessageDialog(
+            Application.getInstance().getMainFrame(), exception.getMessage(), TITLE, JOptionPane.ERROR_MESSAGE);
+        return;
+      }
+      ProgressStatusRunner.runWithProgressStatus(status -> render(source, directory, status), TITLE, true, 0);
+    }
+
+    /** Runs off the EDT under the progress dialog; only the dialogs hop back onto it. */
+    private void render(ModelSource source, Path directory, ProgressStatus status) {
+      status.setDescription("Rendering " + selection.subject().qualifiedName());
+      Optional<List<Path>> written;
+      try {
+        written = engine.get().render(source, selection.subject().qualifiedName(), directory, status::isCancel);
+      } catch (RuntimeException failure) {
+        try {
+          source.close();
+        } catch (RuntimeException closeFailure) {
+          failure.addSuppressed(closeFailure);
+        }
+        String message = failure.getMessage() == null ? failure.getClass().getName() : failure.getMessage();
+        ResultsWindow.onEdt(() -> JOptionPane.showMessageDialog(
+            Application.getInstance().getMainFrame(), "Rendering failed: " + message, TITLE, JOptionPane.ERROR_MESSAGE));
+        return;
+      }
+      String cleanup = "";
+      try {
+        source.close();
+      } catch (RuntimeException closeFailure) {
+        cleanup = "\n\nTemporary export not removed: " + closeFailure.getMessage();
+      }
+      if (written.isEmpty()) return;
+      StringBuilder message = new StringBuilder("Wrote:\n");
+      written.get().forEach(path -> message.append("  ").append(path).append('\n'));
+      String account = message.toString().strip() + cleanup;
+      ResultsWindow.onEdt(() -> {
+        JOptionPane.showMessageDialog(
+            Application.getInstance().getMainFrame(), account, TITLE, JOptionPane.INFORMATION_MESSAGE);
+        openFolder(directory);
+      });
+    }
+
+    /** Shows the folder in the desktop's file manager where there is one; the dialog already named the files. */
+    private void openFolder(Path directory) {
+      if (!Desktop.isDesktopSupported() || !Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) return;
+      try {
+        Desktop.getDesktop().open(directory.toFile());
+      } catch (IOException | RuntimeException unopened) {
+        JOptionPane.showMessageDialog(
+            Application.getInstance().getMainFrame(), "Could not open " + directory + ": " + unopened.getMessage(),
+            TITLE, JOptionPane.WARNING_MESSAGE);
+      }
+    }
+  }
+
+  /**
+   * Writes the views a "Run query" answered with and says where, one diagnostic per file; a
+   * project with no file to write beside, or a file that cannot be written, is a warning.
+   */
+  static List<Diagnostic> writeViews(RunResult result, String projectFile) {
+    if (result.views().isEmpty()) return List.of();
+    Optional<Path> anchor = ResultViewFiles.anchor(result.path(), projectFile);
+    if (anchor.isEmpty()) {
+      return List.of(viewDiagnostic(
+          Diagnostic.Severity.WARNING, "query result view not written: save the project first, the view goes beside it"));
+    }
+    try {
+      return ResultViewFiles.write(anchor.get(), result.views()).stream()
+          .map(path -> viewDiagnostic(Diagnostic.Severity.INFO, "query result view written to " + path))
+          .toList();
+    } catch (RuntimeException failure) {
+      return List.of(viewDiagnostic(Diagnostic.Severity.WARNING, failure.getMessage()));
+    }
+  }
+
+  private static Diagnostic viewDiagnostic(Diagnostic.Severity severity, String message) {
+    return new Diagnostic(severity, message, "query-result-view", Optional.empty());
   }
 
   private final class OperationAction extends MDAction {
@@ -409,7 +524,7 @@ public final class OperationActions implements BrowserContextAMConfigurator, Dia
             Optional.empty())));
       }
       if (result.status() == RunResult.Status.CANCELLED) return;
-      RunResult completed = result;
+      RunResult completed = result.withDiagnostics(writeViews(result, project.getFileName()));
       IdentityResolver completedIndex = index;
       ResultsWindow.onEdt(() -> {
         ResultsWindow.forProject(project).show(completed, completedIndex);

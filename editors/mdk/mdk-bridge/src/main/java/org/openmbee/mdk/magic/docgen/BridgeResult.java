@@ -21,7 +21,8 @@ public record BridgeResult(
     List<Outcome> outcomes,
     List<Diagnostic> diagnostics,
     List<String> schedule,
-    List<Table> tables) {
+    List<Table> tables,
+    List<View> views) {
 
   public record Outcome(String label, String detail, String status, Optional<String> elementId) {}
 
@@ -50,6 +51,43 @@ public record BridgeResult(
     }
   }
 
+  /**
+   * A query's answer as a {@code QVTS::QueryResult} view: its qualified name and SysML text, and,
+   * when the plugin rendered it, the four attributes it binds and the rows it exposes.
+   */
+  public record View(
+      String query, String name, String text, List<Field> header, List<String> columns, List<List<String>> rows) {
+    public View {
+      Objects.requireNonNull(query);
+      Objects.requireNonNull(name);
+      Objects.requireNonNull(text);
+      header = List.copyOf(header);
+      columns = List.copyOf(columns);
+      rows = rows.stream().map(List::copyOf).toList();
+    }
+
+    /** Whether the plugin laid the view out, so it has a header to show. */
+    public boolean rendered() {
+      return !header.isEmpty();
+    }
+  }
+
+  public record Field(String name, String value) {}
+
+  public BridgeResult(
+      String operation,
+      String operationLabel,
+      String subject,
+      String status,
+      long elapsedMillis,
+      Optional<String> finalTime,
+      List<Outcome> outcomes,
+      List<Diagnostic> diagnostics,
+      List<String> schedule,
+      List<Table> tables) {
+    this(operation, operationLabel, subject, status, elapsedMillis, finalTime, outcomes, diagnostics, schedule, tables, List.of());
+  }
+
   public BridgeResult(
       String operation,
       String operationLabel,
@@ -73,6 +111,7 @@ public record BridgeResult(
     diagnostics = List.copyOf(diagnostics);
     schedule = List.copyOf(schedule);
     tables = List.copyOf(tables);
+    views = List.copyOf(views);
   }
 
   public static BridgeResult from(Map<String, Object> flat) {
@@ -96,7 +135,34 @@ public record BridgeResult(
         text(flat, "operation"), text(flat, "operationLabel"), text(flat, "subject"), text(flat, "status"),
         elapsed instanceof Number number ? number.longValue() : 0L,
         Optional.ofNullable(flat.get("finalTime")).map(String::valueOf),
-        outcomes, diagnostics, schedule, tables(flat.get("tables")));
+        outcomes, diagnostics, schedule, tables(flat.get("tables")), views(flat.get("views")));
+  }
+
+  private static List<View> views(Object value) {
+    List<View> views = new ArrayList<>();
+    if (!(value instanceof List<?> list)) return views;
+    for (Object item : list) {
+      if (!(item instanceof Map<?, ?> view)) continue;
+      for (String key : List.of("query", "name", "text")) {
+        if (view.get(key) == null) throw new IllegalArgumentException("bridge result view lacks " + key);
+      }
+      List<Field> header = new ArrayList<>();
+      if (view.get("header") instanceof List<?> fields) {
+        for (Object field : fields) {
+          if (field instanceof Map<?, ?> pair) {
+            header.add(new Field(String.valueOf(pair.get("name")), String.valueOf(pair.get("value"))));
+          }
+        }
+      }
+      List<List<String>> rows = new ArrayList<>();
+      if (view.get("rows") instanceof List<?> flatRows) {
+        for (Object row : flatRows) rows.add(strings(row));
+      }
+      views.add(new View(
+          String.valueOf(view.get("query")), String.valueOf(view.get("name")), String.valueOf(view.get("text")),
+          header, strings(view.get("columns")), rows));
+    }
+    return views;
   }
 
   private static List<Table> tables(Object value) {
