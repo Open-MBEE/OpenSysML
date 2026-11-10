@@ -109,44 +109,51 @@ the [API-JSON differential](api-json-differential.md)'s measurement.
 
 ## Results (pilot `2026-09`)
 
-The baseline recorded on the pinned pilot over 424 files, every root present. The figures below
-are that recording, not the current baseline — `internal/semantic/metamodel/derived_census_baseline.json`
-is, and `build/derived-census/derived-census.txt` renders a run.
+The baseline recorded on the pinned pilot over 935 files, every root present (38 of the
+`spec-examples` files are rejected). The figures below are that recording, not the current baseline —
+`internal/semantic/metamodel/derived_census_baseline.json` is, and
+`build/derived-census/derived-census.txt` renders a run.
 
 | Root | Files | Elements (implied) | Pilot elements (copies dropped, files failed) |
 |---|---:|---:|---:|
-| `training` | 100 | 7750 (4515) | 11906 (5797, 0) |
-| `pilot-examples` | 99 | 30330 (17779) | 40642 (10940, 3) |
-| `pilot-validation` | 56 | 10299 (6059) | 14222 (3066, 0) |
-| `kerml-examples` | 58 | 6834 (4230) | 8762 (1105, 0) |
-| `testdata` | 40 | 1523 (828) | 2284 (52, 4) |
-| `examples` | 56 | 31319 (18188) | 50715 (76235, 0) |
+| `training` | 100 | 7926 (4622) | 11906 (5797, 0) |
+| `pilot-examples` | 99 | 31138 (18262) | 40642 (10940, 3) |
+| `pilot-validation` | 56 | 10692 (6273) | 14222 (3066, 0) |
+| `kerml-examples` | 58 | 6906 (4269) | 8762 (1105, 0) |
+| `spec-examples` | 511 | 8329 (4729) | 12233 (37, 52) |
+| `testdata` | 40 | 1528 (832) | 2284 (52, 4) |
+| `examples` | 56 | 31524 (18354) | 50715 (76235, 0) |
 | `probes` | 4 | 45 (26) | 53 (0, 0) |
 | `manual-examples` | 11 | 3963 (2393) | 9379 (0, 0) |
 
-Of the 297 served rules, **272 answer a value** on at least one element, **12 are empty
-everywhere** they apply, **9 are never derived** and 4 apply to no element of any root; the pilot
-answers a value for 286. **17 rules are silent** — ours never a value, the pilot a value somewhere:
+Of the 297 served rules, **277 answer a value** on at least one element, **10 are empty
+everywhere** they apply, **9 are never derived** and 1 applies to no element of any root; the pilot
+answers a value for 288. **17 rules are silent** — ours never a value, the pilot a value somewhere:
 
 | Silent rule | Ours: empty / not derived / carriers | Pilot: values / carriers |
 |---|---:|---:|
-| `ConjugatedPortTyping::conjugatedPortDefinition` | 60 / 0 / 60 | 60 / 60 |
-| `Documentation::documentedElement` | 0 / 387 / 387 | 388 / 388 |
-| `Flow::flowEnd` | 208 / 0 / 208 | 144 / 211 |
-| `Flow::sourceOutputFeature` | 0 / 208 / 208 | 145 / 211 |
-| `Flow::targetInputFeature` | 0 / 208 / 208 | 145 / 211 |
-| `Import::importedElement` | 0 / 1105 / 1105 | 1116 / 1117 |
-| `MultiplicityRange::bound` | 1007 / 0 / 1007 | 1165 / 1165 |
-| `MultiplicityRange::lowerBound` | 1007 / 0 / 1007 | 274 / 1165 |
-| `MultiplicityRange::upperBound` | 1007 / 0 / 1007 | 1165 / 1165 |
-| `Namespace::importedMembership` | 36910 / 555 / 37465 | 576 / 57391 |
-| `PortConjugation::originalPortDefinition` | 0 / 131 / 131 | 124 / 124 |
-| `RequirementDefinition::text` | 56 / 65 / 121 | 65 / 118 |
-| `RequirementUsage::text` | 363 / 100 / 463 | 99 / 459 |
-| `TransitionUsage::source` | 0 / 224 / 224 | 336 / 336 |
-| `TransitionUsage::succession` | 224 / 0 / 224 | 336 / 336 |
-| `TransitionUsage::target` | 0 / 224 / 224 | 336 / 336 |
-| `UseCaseDefinition::includedUseCase` | 0 / 16 / 16 | 2 / 16 |
+| `Documentation::documentedElement` | 0 / 407 / 407 | 420 / 420 |
+| `Flow::flowEnd` | 234 / 0 / 234 | 158 / 236 |
+| `Flow::sourceOutputFeature` | 0 / 234 / 234 | 161 / 236 |
+| `Flow::targetInputFeature` | 0 / 234 / 234 | 161 / 236 |
+| `Import::importedElement` | 0 / 1221 / 1221 | 1193 / 1202 |
+| `MultiplicityRange::bound` | 1186 / 0 / 1186 | 1426 / 1426 |
+| `MultiplicityRange::lowerBound` | 1186 / 0 / 1186 | 368 / 1426 |
+| `MultiplicityRange::upperBound` | 1186 / 0 / 1186 | 1426 / 1426 |
+| `Namespace::importedMembership` | 40806 / 637 / 41443 | 634 / 63157 |
+| `PortConjugation::originalPortDefinition` | 0 / 134 / 134 | 127 / 127 |
+| `RequirementDefinition::text` | 71 / 66 / 137 | 66 / 134 |
+| `RequirementUsage::text` | 402 / 104 / 506 | 103 / 492 |
+| `TransitionUsage::source` | 0 / 243 / 243 | 343 / 343 |
+| `TransitionUsage::succession` | 243 / 0 / 243 | 343 / 343 |
+| `TransitionUsage::target` | 0 / 243 / 243 | 343 / 343 |
+| `Usage::nestedViewpoint` | 14425 / 0 / 14425 | 1 / 18777 |
+| `UseCaseDefinition::includedUseCase` | 0 / 19 / 19 | 3 / 19 |
+
+`ConjugatedPortTyping::conjugatedPortDefinition` left the list when the Structure began deriving it
+as the typing's target rather than as the owner a `PortConjugation` has: it answers 61 of its 64
+carriers, the three it declines typing a port by the conjugate of a port definition the fragment
+never declares (`port p : ~Pd;`), which the pilot still answers.
 
 Three of the seventeen are one derivation stated three ways (`TransitionUsage::source`, `::target`
 and `::succession`; `Flow::flowEnd`, `::sourceOutputFeature` and `::targetInputFeature`). The rules
