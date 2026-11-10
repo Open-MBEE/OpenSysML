@@ -7,7 +7,7 @@ import org.openmbee.mdk.docgen.docbook.DBTable;
 import org.openmbee.mdk.docgen.docbook.DBText;
 import org.openmbee.mdk.docgen.docbook.DocumentElement;
 
-/** Lays one run out as DocBook: a summary line, the outcome table, then diagnostics and schedule. */
+/** Lays one run out as DocBook: a summary line, the outcome table, the rows each query answered, then diagnostics and schedule. */
 public final class DocBookRenderer {
   private DocBookRenderer() {}
 
@@ -20,6 +20,9 @@ public final class DocBookRenderer {
         table.getBody().add(row(outcome.label(), outcome.detail(), outcome.status()));
       }
       elements.add(table);
+    }
+    for (BridgeResult.Table answered : result.tables()) {
+      elements.add(rows(answered));
     }
     if (!result.diagnostics().isEmpty()) {
       DBTable table = table("Diagnostics: " + result.subject(), List.of("Severity", "Code", "Message", "Location"));
@@ -38,6 +41,24 @@ public final class DocBookRenderer {
   public static DocumentElement failure(String operationLabel, String subject, Throwable failure) {
     String message = failure.getMessage() == null ? failure.getClass().getName() : failure.getMessage();
     return new DBParagraph("[ERROR] OpenSysML " + operationLabel + " of " + subject + " failed: " + message);
+  }
+
+  /** A query's rows as a table headed by the properties it projects; an empty one still says so by its title. */
+  static DBTable rows(BridgeResult.Table answered) {
+    DBTable table = table(answered.query() + ": " + rowCount(answered.rows().size()), answered.columns());
+    table.setShowIfEmpty(true);
+    for (BridgeResult.Row row : answered.rows()) {
+      List<String> cells = new ArrayList<>();
+      for (int i = 0; i < answered.columns().size(); i++) {
+        cells.add(i < row.cells().size() ? row.cells().get(i).text() : "");
+      }
+      table.getBody().add(row(cells.toArray(String[]::new)));
+    }
+    return table;
+  }
+
+  private static String rowCount(int rows) {
+    return rows == 0 ? "no rows" : rows + (rows == 1 ? " row" : " rows");
   }
 
   static String summary(BridgeResult result) {
