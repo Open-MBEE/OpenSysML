@@ -339,7 +339,9 @@ nullable reference types, deterministic builds, warnings as errors, the recommen
 analyzers, and generated XML documentation, with a public member that has no XML comment
 failing the build. The library and the metamodel each track their handwritten public API in
 `PublicAPI.Shipped.txt` and `PublicAPI.Unshipped.txt`; a public symbol missing from them fails the
-build.
+build. Both are marked `[Experimental("OSML0001")]` in their project files, so each entry carries
+an `[OSML0001]` prefix, and every project here suppresses OSML0001 in `Directory.Build.props`, as a
+consumer's project must.
 
 Package versions are pinned once, in [`Directory.Packages.props`](Directory.Packages.props),
 and each project's `packages.lock.json` records the resolved graph: a locked restore
@@ -358,6 +360,8 @@ Nothing publishes the client: its release is the checkout of the core `v<version
 release branch, `python3 client/dotnet/scripts/dotnet-gates.py promote-api` moves every entry of
 `PublicAPI.Unshipped.txt` into `PublicAPI.Shipped.txt`, and the release workflow refuses a tag
 whose public API is still unshipped (`promote-api --check`) or whose `Version` is not the tag's.
+While the two assemblies are experimental, a promotion records what a release had without
+promising it to the next.
 [Releasing OpenSysML](../../docs/project/releasing.md#releasing-the-net-client-as-the-tags-checkout)
 describes the procedure.
 

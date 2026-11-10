@@ -8,9 +8,9 @@ using Microsoft.CodeAnalysis.CSharp;
 namespace OpenMBEE.OpenSysML.Generate.Tests;
 
 /// <summary>
-/// Compiles a generated file in memory against the client library, as a consumer that requires a documentation
-/// comment on every public member would. A quick check of cases no committed golden holds; the goldens are
-/// compiled for real by the consumer project's build.
+/// Compiles a generated file in memory against the client library, as a consumer that opts into the experimental
+/// client and requires a documentation comment on every public member would. A quick check of cases no committed
+/// golden holds; the goldens are compiled for real by the consumer project's build.
 /// </summary>
 internal static class Compiler
 {
@@ -29,7 +29,7 @@ internal static class Compiler
             [CSharpSyntaxTree.ParseText(source, parse)],
             references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithSpecificDiagnosticOptions(
-                new Dictionary<string, ReportDiagnostic> { ["CS1591"] = ReportDiagnostic.Error }));
+                new Dictionary<string, ReportDiagnostic> { ["CS1591"] = ReportDiagnostic.Error, ["OSML0001"] = ReportDiagnostic.Suppress }));
 
         return compilation.GetDiagnostics()
             .Where(diagnostic => diagnostic.Severity >= Microsoft.CodeAnalysis.DiagnosticSeverity.Warning)

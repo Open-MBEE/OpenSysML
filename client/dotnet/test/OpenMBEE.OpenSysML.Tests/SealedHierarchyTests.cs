@@ -131,7 +131,8 @@ public sealed class SealedHierarchyTests
         }
     }
 
-    // A consumer imports only what the library makes visible; importing all of it shows why a constructor is unusable.
+    // A consumer imports only what the library makes visible, and opts into the experimental client as its project
+    // must; importing all of it shows why a constructor is unusable.
     private static List<string> Errors(string source, MetadataImportOptions imported = MetadataImportOptions.Public)
     {
         var library = typeof(Value).Assembly.Location;
@@ -144,7 +145,9 @@ public sealed class SealedHierarchyTests
             "Consumer",
             [CSharpSyntaxTree.ParseText($"#nullable enable\nusing OpenMBEE.OpenSysML;\n{source}", new CSharpParseOptions(LanguageVersion.Latest))],
             references,
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary).WithMetadataImportOptions(imported));
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary)
+                .WithMetadataImportOptions(imported)
+                .WithSpecificDiagnosticOptions(new Dictionary<string, ReportDiagnostic> { ["OSML0001"] = ReportDiagnostic.Suppress }));
 
         return compilation.GetDiagnostics()
             .Where(diagnostic => diagnostic.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error)

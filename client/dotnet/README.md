@@ -52,13 +52,21 @@ supported: the assembly makes no `IsAotCompatible` or `IsTrimmable` claim.
 
 ## Using it from a checkout
 
-Reference the project from your own:
+Reference the project from your own, and opt into its experimental API:
 
 ```xml
+<PropertyGroup>
+  <NoWarn>$(NoWarn);OSML0001</NoWarn>
+</PropertyGroup>
 <ItemGroup>
   <ProjectReference Include="path/to/OpenSysML/client/dotnet/src/OpenMBEE.OpenSysML/OpenMBEE.OpenSysML.csproj" />
 </ItemGroup>
 ```
+
+The client is experimental until it is declared stable: a release may change or remove any of its
+API. Both assemblies, this one and the [metamodel](#metamodel-types), are marked
+`[Experimental("OSML0001")]`, so without the `NoWarn` every use of them is error OSML0001.
+Every project in this directory opts in through [`Directory.Build.props`](Directory.Build.props).
 
 [`samples/Vehicle`](samples/Vehicle/) is such a consumer, and the program the
 [.NET client guide](../../docs/clients/dotnet.md) walks through: a test holds the guide's code to

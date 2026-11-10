@@ -12,6 +12,10 @@ The client is consumed from a checkout by `ProjectReference`, never from NuGet:
 <ProjectReference Include="path/to/OpenSysML/client/dotnet/src/OpenMBEE.OpenSysML/OpenMBEE.OpenSysML.csproj" />
 ```
 
+It is experimental until declared stable, and a release may change any of what this page lists:
+the assembly is marked `[Experimental("OSML0001")]`, which a consuming project suppresses
+(`<NoWarn>$(NoWarn);OSML0001</NoWarn>`) to use it; see [Experimental](../clients/dotnet.md#experimental).
+
 It targets **`net10.0`** alone, built with the SDK the repository-root `global.json` pins. Every
 call is asynchronous, returns a `Task` and takes an optional `CancellationToken`; a cancelled call
 throws `OperationCanceledException` carrying the caller's token. Results are immutable and safe
@@ -243,6 +247,8 @@ at run time, needs no service, and is consumed by its own `ProjectReference`:
 ```xml
 <ProjectReference Include="path/to/OpenSysML/client/dotnet/src/OpenMBEE.OpenSysML.Metamodel/OpenMBEE.OpenSysML.Metamodel.csproj" />
 ```
+
+It is experimental too, under the same OSML0001.
 
 `tools/gen/csmetamodel` generates its types from the repository's metamodel table (`make
 dotnet-metamodel`; `make dotnet-metamodel-check` fails when they are stale):

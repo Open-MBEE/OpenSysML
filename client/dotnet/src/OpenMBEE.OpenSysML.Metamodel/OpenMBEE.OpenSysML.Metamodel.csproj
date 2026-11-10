@@ -16,6 +16,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Experimental until the client is declared stable: a release may change its API, and a project opts in by suppressing OSML0001. -->
+    <AssemblyAttribute Include="System.Diagnostics.CodeAnalysis.ExperimentalAttribute">
+      <_Parameter1>OSML0001</_Parameter1>
+      <UrlFormat>https://runtime.opensysml.org/clients/dotnet/#experimental</UrlFormat>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="OpenMBEE.OpenSysML.Metamodel.Tests" />
   </ItemGroup>
 </Project>

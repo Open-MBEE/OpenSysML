@@ -41,8 +41,9 @@ The protocols and what the service serves on a single port are described in
   dependency tree, and safe to call from inside one.
 - **In a .NET 10 application: `OpenMBEE.OpenSysML`.** Asynchronous and typed over every RPC, with
   gRPC through `Grpc.Net.Client` by default, or the Connect protocol over .NET's own HTTP stack
-  when a proxy does not carry HTTP/2. It is referenced from a checkout rather
-  than installed from NuGet, and makes no Native AOT, trimming or browser claim.
+  when a proxy does not carry HTTP/2. It is experimental, with an API a release may change, is
+  referenced from a checkout rather than installed from NuGet, and makes no Native AOT, trimming
+  or browser claim.
 - **In a Julia session or script: `OpenSysML`.** A thin JSON-over-HTTP client — `HTTP.jl` and
   `JSON.jl` are its only dependencies — that parses, evaluates, instantiates, executes and
   queries, with `call` as the escape hatch for anything not wrapped.

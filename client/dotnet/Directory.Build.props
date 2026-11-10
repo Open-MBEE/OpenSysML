@@ -28,6 +28,8 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!-- A public member without an XML comment fails the build rather than warning. -->
     <WarningsAsErrors>$(WarningsAsErrors);CS1591</WarningsAsErrors>
+    <!-- The two libraries are experimental (OSML0001), which every project here uses knowingly. -->
+    <NoWarn>$(NoWarn);OSML0001</NoWarn>
 
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>

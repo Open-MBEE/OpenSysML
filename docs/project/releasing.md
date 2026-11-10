@@ -2362,7 +2362,10 @@ shipped and a removal of something never shipped. `build-python-package` runs
 `promote-api --check`, which fails the release before anything is built while anything is
 unshipped; a [rehearsal](#rehearsing-the-release) catches a missed promotion before the tag. A
 later removal from the shipped API is a `*REMOVED*` line in the unshipped file and a breaking
-change for the changelog.
+change for the changelog. While the library and the metamodel are marked
+`[Experimental("OSML0001")]`, which a consumer suppresses to use them at all, a promotion records
+what the release had without promising it to the next; declaring the client stable removes the
+attribute and the `[OSML0001]` prefix of every entry.
 
 ### Release digests
 

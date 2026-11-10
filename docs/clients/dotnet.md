@@ -22,6 +22,19 @@ so that pin applies; `dotnet` refuses an SDK of another feature band there.
 Its version is the core version of the checkout, and the release of a version is the checkout of
 the core `v<version>` tag.
 
+### Experimental
+
+The client is experimental until it is declared stable: a release may change or remove any of its
+API. `OpenMBEE.OpenSysML` and the standalone `OpenMBEE.OpenSysML.Metamodel` are marked
+`[Experimental("OSML0001")]`, so every use of either is error OSML0001 until the project that
+uses it opts in:
+
+```xml
+<PropertyGroup>
+  <NoWarn>$(NoWarn);OSML0001</NoWarn>
+</PropertyGroup>
+```
+
 ## First model
 
 This program is the checkout's
@@ -168,7 +181,8 @@ Commit the file and gate it with `--check`, which exits 1 when the model has cha
 ## Reading exported JSON
 
 The checkout's `OpenMBEE.OpenSysML.Metamodel` project holds the SysML metamodel as C# types, one
-interface per metaclass, and reads an exported model into them without a service. Reference it alone:
+interface per metaclass, and reads an exported model into them without a service. Reference it alone,
+with the same [OSML0001 opt-in](#experimental):
 
 ```xml
 <ProjectReference Include="path/to/OpenSysML/client/dotnet/src/OpenMBEE.OpenSysML.Metamodel/OpenMBEE.OpenSysML.Metamodel.csproj" />

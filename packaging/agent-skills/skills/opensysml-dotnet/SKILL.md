@@ -12,9 +12,13 @@ NuGet. Reference: `docs/clients/dotnet.md`, `docs/reference/dotnet-api.md` and
 
 ## Install and get the service binary
 
-Reference the project from a checkout of OpenSysML, built with the SDK its `global.json` pins:
+Reference the project from a checkout of OpenSysML, built with the SDK its `global.json` pins, and
+opt into its experimental API; without the `NoWarn`, every use of the client is error OSML0001:
 
 ```xml
+<PropertyGroup>
+  <NoWarn>$(NoWarn);OSML0001</NoWarn>
+</PropertyGroup>
 <ItemGroup>
   <ProjectReference Include="path/to/OpenSysML/client/dotnet/src/OpenMBEE.OpenSysML/OpenMBEE.OpenSysML.csproj" />
 </ItemGroup>
