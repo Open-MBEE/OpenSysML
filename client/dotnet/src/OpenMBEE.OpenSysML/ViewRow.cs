@@ -11,7 +11,7 @@ public sealed record ViewRow
     /// <param name="origin">Where the element the row reports is declared; null when the service located it nowhere.</param>
     /// <exception cref="ArgumentNullException"><paramref name="cells"/> is null.</exception>
     /// <exception cref="ArgumentException">A cell is null.</exception>
-    public ViewRow(IEnumerable<string> cells, SourceSpan? origin)
+    internal ViewRow(IEnumerable<string> cells, SourceSpan? origin)
     {
         Cells = new ValueList<string>(cells);
         Origin = origin;

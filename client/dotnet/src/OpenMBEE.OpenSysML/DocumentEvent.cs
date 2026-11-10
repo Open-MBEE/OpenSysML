@@ -29,7 +29,7 @@ public sealed record DocumentEvent
     /// <param name="value">The value an assign record's feature holds since; null otherwise.</param>
     /// <exception cref="ArgumentNullException">A string or a list is null.</exception>
     /// <exception cref="ArgumentException">A payload entry or an alternative is null.</exception>
-    public DocumentEvent(
+    internal DocumentEvent(
         string kind,
         DocumentValue? time,
         DocumentObject? subject,

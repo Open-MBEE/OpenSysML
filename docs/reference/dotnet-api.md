@@ -19,7 +19,10 @@ the assembly is marked `[Experimental("OSML0001")]`, which a consuming project s
 It targets **`net10.0`** alone, built with the SDK the repository-root `global.json` pins. Every
 call is asynchronous, returns a `Task` and takes an optional `CancellationToken`; a cancelled call
 throws `OperationCanceledException` carrying the caller's token. Results are immutable and safe
-to share between threads. The assembly makes no `IsAotCompatible` or `IsTrimmable` claim.
+to share between threads, and have no public constructors: only the service answers with them, so a
+release can add to them. What a call takes is built by the caller: options, edits, values, document
+bindings, query constraints, and the instances the typed classes read. The assembly makes no
+`IsAotCompatible` or `IsTrimmable` claim.
 
 ## Connection
 

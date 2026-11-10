@@ -448,7 +448,7 @@ public sealed class Capabilities : IEquatable<Capabilities>
     /// <summary>Creates a capability set.</summary>
     /// <param name="names">The capability names; a repeated name counts once.</param>
     /// <exception cref="ArgumentException">A name is null.</exception>
-    public Capabilities(IEnumerable<string> names)
+    internal Capabilities(IEnumerable<string> names)
         : this(names, string.Empty)
     {
     }

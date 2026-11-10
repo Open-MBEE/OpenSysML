@@ -15,7 +15,7 @@ public sealed record Diagnostic
     /// <param name="independent">On a <c>choice-point</c>, whether the alternatives commute.</param>
     /// <exception cref="ArgumentNullException">A string or list is null.</exception>
     /// <exception cref="ArgumentException">An entry of <paramref name="orderDependent"/> is null.</exception>
-    public Diagnostic(string severityName, string message, string code, SourceSpan? span, IEnumerable<string> orderDependent, bool independent)
+    internal Diagnostic(string severityName, string message, string code, SourceSpan? span, IEnumerable<string> orderDependent, bool independent)
     {
         ArgumentNullException.ThrowIfNull(severityName);
         ArgumentNullException.ThrowIfNull(message);

@@ -10,7 +10,7 @@ public sealed record RunHistogramBin
     /// <param name="high">The bin's upper edge; equal to <paramref name="low"/> for a single distinct value.</param>
     /// <param name="count">The completed runs whose value fell in the bin.</param>
     /// <exception cref="ArgumentNullException"><paramref name="low"/> or <paramref name="high"/> is null.</exception>
-    public RunHistogramBin(Value low, Value high, long count)
+    internal RunHistogramBin(Value low, Value high, long count)
     {
         ArgumentNullException.ThrowIfNull(low);
         ArgumentNullException.ThrowIfNull(high);

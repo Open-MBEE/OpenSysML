@@ -14,7 +14,7 @@ public sealed record LibraryReference
     /// <param name="type">The element's metaclass, as the API's JSON <c>@type</c> spells it.</param>
     /// <param name="libraryPath">The positional path <c>owner/Metaclass[i]</c> of an unnamed member, which has no qualified name; empty for a named element.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    public LibraryReference(string id, string qualifiedName, string type, string libraryPath)
+    internal LibraryReference(string id, string qualifiedName, string type, string libraryPath)
     {
         ArgumentNullException.ThrowIfNull(id);
         ArgumentNullException.ThrowIfNull(qualifiedName);

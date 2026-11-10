@@ -14,7 +14,7 @@ public sealed record SelfCheckFinding
     /// <param name="message">The reason, for a warning or an error.</param>
     /// <param name="line">The finding as <c>sysml -self-check</c> prints it.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    public SelfCheckFinding(string status, string subject, string location, string constraint, string element, string message, string line)
+    internal SelfCheckFinding(string status, string subject, string location, string constraint, string element, string message, string line)
     {
         ArgumentNullException.ThrowIfNull(status);
         ArgumentNullException.ThrowIfNull(subject);

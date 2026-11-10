@@ -27,7 +27,7 @@ public sealed record EngineInfo
     /// <param name="served">Whether the service runs it for a request that reaches it.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null.</exception>
-    public EngineInfo(
+    internal EngineInfo(
         string name,
         string authority,
         IEnumerable<string> answers,

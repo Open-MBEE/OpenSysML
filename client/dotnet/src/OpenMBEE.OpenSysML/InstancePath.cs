@@ -17,7 +17,7 @@ public sealed record InstancePath
     /// <param name="steps">The steps, one per feature walked.</param>
     /// <exception cref="ArgumentNullException">A string or <paramref name="steps"/> is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="steps"/> holds a null.</exception>
-    public InstancePath(long rootInstanceId, string rootSymbolId, string path, IEnumerable<InstancePathStep> steps)
+    internal InstancePath(long rootInstanceId, string rootSymbolId, string path, IEnumerable<InstancePathStep> steps)
     {
         ArgumentNullException.ThrowIfNull(rootSymbolId);
         ArgumentNullException.ThrowIfNull(path);

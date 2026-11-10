@@ -11,7 +11,7 @@ public sealed record Evaluation
     /// <param name="diagnostics">What the service reported with it.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentException">A diagnostic is null.</exception>
-    public Evaluation(Value result, IEnumerable<Diagnostic> diagnostics)
+    internal Evaluation(Value result, IEnumerable<Diagnostic> diagnostics)
     {
         ArgumentNullException.ThrowIfNull(result);
         Result = result;

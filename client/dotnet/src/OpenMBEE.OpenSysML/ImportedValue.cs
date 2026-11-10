@@ -13,7 +13,7 @@ public sealed record ImportedValue
     /// <param name="where">Where in the data the value came from.</param>
     /// <param name="description">The line <c>sysml -import</c> reports the assignment as.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    public ImportedValue(string element, string feature, string value, string redefines, string where, string description)
+    internal ImportedValue(string element, string feature, string value, string redefines, string where, string description)
     {
         ArgumentNullException.ThrowIfNull(element);
         ArgumentNullException.ThrowIfNull(feature);

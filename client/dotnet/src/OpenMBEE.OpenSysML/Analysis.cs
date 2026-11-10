@@ -24,7 +24,7 @@ public sealed record Analysis
     /// <param name="toolDryRun">What an external tool would have been given; null unless a dry run reached one.</param>
     /// <exception cref="ArgumentNullException">A collection or <paramref name="standing"/> is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null.</exception>
-    public Analysis(
+    internal Analysis(
         IEnumerable<CalcOutput> outputs,
         IEnumerable<Verdict> verdicts,
         IEnumerable<VerificationVerdict> verifications,

@@ -352,8 +352,8 @@ public sealed class ServiceQueryDocsTests(ServiceFixture services) : IClassFixtu
         Assert.Equal(new ViewCanvas("px", 1200, 800, hasSize: true), placed.Canvas);
         var pump = placed.Nodes.Single(node => node.Name == "pump");
         var tank = placed.Nodes.Single(node => node.Name == "tank");
-        Assert.Equal(new ViewGeometry(300, 40, 0, 0, HasSize: false, Collapsed: true, Unplaced: false), pump.Geometry);
-        Assert.Equal(new ViewGeometry(500, 40, 120, 60, HasSize: true, Collapsed: false, Unplaced: false), tank.Geometry);
+        Assert.Equal(new ViewGeometry(300, 40, 0, 0, hasSize: false, collapsed: true, unplaced: false), pump.Geometry);
+        Assert.Equal(new ViewGeometry(500, 40, 120, 60, hasSize: true, collapsed: false, unplaced: false), tank.Geometry);
         Assert.Equal(new ViewStyle("#FFE8BD", "#333333", string.Empty, "Arial", 11, bold: true, italic: false), pump.Style);
         Assert.Null(tank.Style);
         Assert.Equal([pump, tank], placed.ChildrenOf(Assert.Single(placed.Roots)));
@@ -370,7 +370,7 @@ public sealed class ServiceQueryDocsTests(ServiceFixture services) : IClassFixtu
         Assert.Empty(placed.Notices);
 
         Assert.Null(plain.Canvas);
-        Assert.Equal(new ViewGeometry(10, 20, 100, 50, HasSize: true, Collapsed: false, Unplaced: false), plain.Nodes.Single(node => node.Name == "pump").Geometry);
+        Assert.Equal(new ViewGeometry(10, 20, 100, 50, hasSize: true, collapsed: false, unplaced: false), plain.Nodes.Single(node => node.Name == "pump").Geometry);
         Assert.Equal("#FFFFDC", plain.Nodes.Single(node => node.Name == "pump").Style!.Fill);
         Assert.Equal((null, null), (plain.Nodes.Single(node => node.Name == "tank").Geometry, plain.Nodes.Single(node => node.Name == "tank").Style));
 
@@ -382,7 +382,7 @@ public sealed class ServiceQueryDocsTests(ServiceFixture services) : IClassFixtu
         Assert.Empty(table.Nodes);
 
         var engine = foldOnly.Nodes.Single(node => node.Name == "engine");
-        Assert.Equal(new ViewGeometry(0, 0, 0, 0, HasSize: false, Collapsed: true, Unplaced: true), engine.Geometry);
+        Assert.Equal(new ViewGeometry(0, 0, 0, 0, hasSize: false, collapsed: true, unplaced: true), engine.Geometry);
         var wheel = foldOnly.Nodes.Single(node => node.Name == "wheel");
         Assert.Equal(["hub"], foldOnly.ChildrenOf(wheel).Select(node => node.Name));
         Assert.Equal(wheel.Id, foldOnly.Node(foldOnly.ChildrenOf(wheel).Single().Parent)!.Id);

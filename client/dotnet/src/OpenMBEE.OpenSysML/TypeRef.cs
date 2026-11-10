@@ -9,7 +9,7 @@ public sealed record TypeRef
     /// <param name="id">The type's qualified name.</param>
     /// <param name="kind">The type's symbol kind (<c>partDef</c>, <c>attributeDef</c>, …); empty when the service reported none.</param>
     /// <exception cref="ArgumentNullException">A string is null.</exception>
-    public TypeRef(string id, string kind)
+    internal TypeRef(string id, string kind)
     {
         ArgumentNullException.ThrowIfNull(id);
         ArgumentNullException.ThrowIfNull(kind);

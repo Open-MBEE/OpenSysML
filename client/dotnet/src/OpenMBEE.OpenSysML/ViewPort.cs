@@ -12,7 +12,7 @@ public sealed record ViewPort
     /// <param name="direction">The port's direction, as the service spells it.</param>
     /// <param name="inherited">Whether the node's owner has the port from its type rather than declares it.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    public ViewPort(string id, string name, string type, string direction, bool inherited)
+    internal ViewPort(string id, string name, string type, string direction, bool inherited)
     {
         ArgumentNullException.ThrowIfNull(id);
         ArgumentNullException.ThrowIfNull(name);

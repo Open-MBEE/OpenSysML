@@ -11,7 +11,7 @@ public sealed record CheckDivergence
     /// <param name="values">Every final value some complete schedule leaves it with, in canonical order.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentException">A value is null.</exception>
-    public CheckDivergence(string feature, IEnumerable<CheckDivergentValue> values)
+    internal CheckDivergence(string feature, IEnumerable<CheckDivergentValue> values)
     {
         ArgumentNullException.ThrowIfNull(feature);
         Feature = feature;

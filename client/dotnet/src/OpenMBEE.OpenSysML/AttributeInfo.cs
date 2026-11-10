@@ -11,7 +11,7 @@ public sealed record AttributeInfo
     /// <param name="value">The value resolved for it; null when the service resolved none.</param>
     /// <param name="unit">The unit as written; empty when the value carries none.</param>
     /// <exception cref="ArgumentNullException"><paramref name="name"/>, <paramref name="type"/> or <paramref name="unit"/> is null.</exception>
-    public AttributeInfo(string name, string type, Value? value, string unit)
+    internal AttributeInfo(string name, string type, Value? value, string unit)
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(type);

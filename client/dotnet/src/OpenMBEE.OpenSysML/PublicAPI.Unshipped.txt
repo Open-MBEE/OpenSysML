@@ -6,7 +6,6 @@
 [OSML0001]OpenMBEE.OpenSysML.ComparisonOperator.In = 6 -> OpenMBEE.OpenSysML.ComparisonOperator
 [OSML0001]OpenMBEE.OpenSysML.ComparisonOperator.InstanceOf = 7 -> OpenMBEE.OpenSysML.ComparisonOperator
 [OSML0001]OpenMBEE.OpenSysML.ComparisonOperator.LessOrEqual = 4 -> OpenMBEE.OpenSysML.ComparisonOperator
-[OSML0001]OpenMBEE.OpenSysML.Conversion.Conversion(string! content, string! fromFormat, string! toFormat, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Diagnostic!>! diagnostics, bool experimental, string! experimentalNotice, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.LibraryReference!>! libraryReferences) -> void
 [OSML0001]OpenMBEE.OpenSysML.Conversion.LibraryReferences.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.LibraryReference!>
 [OSML0001]OpenMBEE.OpenSysML.ConvertOptions.IncludeLibraryStubs.get -> bool
 [OSML0001]OpenMBEE.OpenSysML.ConvertOptions.IncludeLibraryStubs.init -> void
@@ -14,7 +13,6 @@
 [OSML0001]OpenMBEE.OpenSysML.ElementProperties
 [OSML0001]OpenMBEE.OpenSysML.ElementProperties.<Clone>$() -> OpenMBEE.OpenSysML.ElementProperties!
 [OSML0001]OpenMBEE.OpenSysML.ElementProperties.Element.get -> OpenMBEE.OpenSysML.ElementRef!
-[OSML0001]OpenMBEE.OpenSysML.ElementProperties.ElementProperties(OpenMBEE.OpenSysML.ElementRef! element, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.ElementProperty!>! properties) -> void
 [OSML0001]OpenMBEE.OpenSysML.ElementProperties.Equals(OpenMBEE.OpenSysML.ElementProperties? other) -> bool
 [OSML0001]override OpenMBEE.OpenSysML.ElementProperties.Equals(object? obj) -> bool
 [OSML0001]OpenMBEE.OpenSysML.ElementProperties.Find(string! name) -> OpenMBEE.OpenSysML.ElementProperty?
@@ -26,7 +24,6 @@
 [OSML0001]OpenMBEE.OpenSysML.ElementProperty
 [OSML0001]OpenMBEE.OpenSysML.ElementProperty.<Clone>$() -> OpenMBEE.OpenSysML.ElementProperty!
 [OSML0001]OpenMBEE.OpenSysML.ElementProperty.DefiningClass.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.ElementProperty.ElementProperty(string! name, string! definingClass, bool isMany, bool isDerived, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.ElementPropertyValue!>! values, string! unsupported) -> void
 [OSML0001]OpenMBEE.OpenSysML.ElementProperty.Elements.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.ElementRef!>
 [OSML0001]OpenMBEE.OpenSysML.ElementProperty.Equals(OpenMBEE.OpenSysML.ElementProperty? other) -> bool
 [OSML0001]override OpenMBEE.OpenSysML.ElementProperty.Equals(object? obj) -> bool
@@ -120,7 +117,6 @@
 [OSML0001]static OpenMBEE.OpenSysML.ElementPropertyValue.operator ==(OpenMBEE.OpenSysML.ElementPropertyValue? left, OpenMBEE.OpenSysML.ElementPropertyValue? right) -> bool
 [OSML0001]OpenMBEE.OpenSysML.ElementRef
 [OSML0001]OpenMBEE.OpenSysML.ElementRef.<Clone>$() -> OpenMBEE.OpenSysML.ElementRef!
-[OSML0001]OpenMBEE.OpenSysML.ElementRef.ElementRef(string! id, string! qualifiedName, string! metaclass) -> void
 [OSML0001]OpenMBEE.OpenSysML.ElementRef.Equals(OpenMBEE.OpenSysML.ElementRef? other) -> bool
 [OSML0001]override OpenMBEE.OpenSysML.ElementRef.Equals(object? obj) -> bool
 [OSML0001]override OpenMBEE.OpenSysML.ElementRef.GetHashCode() -> int
@@ -138,7 +134,6 @@
 [OSML0001]OpenMBEE.OpenSysML.InstancePath.Equals(OpenMBEE.OpenSysML.InstancePath? other) -> bool
 [OSML0001]override OpenMBEE.OpenSysML.InstancePath.Equals(object? obj) -> bool
 [OSML0001]override OpenMBEE.OpenSysML.InstancePath.GetHashCode() -> int
-[OSML0001]OpenMBEE.OpenSysML.InstancePath.InstancePath(long rootInstanceId, string! rootSymbolId, string! path, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.InstancePathStep!>! steps) -> void
 [OSML0001]OpenMBEE.OpenSysML.InstancePath.Path.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.InstancePath.RootInstanceId.get -> long
 [OSML0001]OpenMBEE.OpenSysML.InstancePath.RootSymbolId.get -> string!
@@ -155,7 +150,6 @@
 [OSML0001]override OpenMBEE.OpenSysML.InstancePathStep.GetHashCode() -> int
 [OSML0001]OpenMBEE.OpenSysML.InstancePathStep.Index.get -> int
 [OSML0001]OpenMBEE.OpenSysML.InstancePathStep.InstanceId.get -> long
-[OSML0001]OpenMBEE.OpenSysML.InstancePathStep.InstancePathStep(string! featureName, string! featureSymbolId, int index, long instanceId) -> void
 [OSML0001]override OpenMBEE.OpenSysML.InstancePathStep.ToString() -> string!
 [OSML0001]static OpenMBEE.OpenSysML.InstancePathStep.operator !=(OpenMBEE.OpenSysML.InstancePathStep? left, OpenMBEE.OpenSysML.InstancePathStep? right) -> bool
 [OSML0001]static OpenMBEE.OpenSysML.InstancePathStep.operator ==(OpenMBEE.OpenSysML.InstancePathStep? left, OpenMBEE.OpenSysML.InstancePathStep? right) -> bool
@@ -164,7 +158,6 @@
 [OSML0001]OpenMBEE.OpenSysML.InstancePaths.Equals(OpenMBEE.OpenSysML.InstancePaths? other) -> bool
 [OSML0001]override OpenMBEE.OpenSysML.InstancePaths.Equals(object? obj) -> bool
 [OSML0001]override OpenMBEE.OpenSysML.InstancePaths.GetHashCode() -> int
-[OSML0001]OpenMBEE.OpenSysML.InstancePaths.InstancePaths(System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.InstancePath!>! paths, bool isTruncated) -> void
 [OSML0001]OpenMBEE.OpenSysML.InstancePaths.IsTruncated.get -> bool
 [OSML0001]OpenMBEE.OpenSysML.InstancePaths.Paths.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.InstancePath!>
 [OSML0001]override OpenMBEE.OpenSysML.InstancePaths.ToString() -> string!
@@ -179,7 +172,6 @@
 [OSML0001]override OpenMBEE.OpenSysML.InstanceReach.GetHashCode() -> int
 [OSML0001]OpenMBEE.OpenSysML.InstanceReach.Index.get -> int
 [OSML0001]OpenMBEE.OpenSysML.InstanceReach.InstanceId.get -> long
-[OSML0001]OpenMBEE.OpenSysML.InstanceReach.InstanceReach(long instanceId, string! featureName, string! featureSymbolId, int index, string! path) -> void
 [OSML0001]OpenMBEE.OpenSysML.InstanceReach.Path.get -> string!
 [OSML0001]override OpenMBEE.OpenSysML.InstanceReach.ToString() -> string!
 [OSML0001]static OpenMBEE.OpenSysML.InstanceReach.operator !=(OpenMBEE.OpenSysML.InstanceReach? left, OpenMBEE.OpenSysML.InstanceReach? right) -> bool
@@ -189,7 +181,6 @@
 [OSML0001]OpenMBEE.OpenSysML.LibraryReference.<Clone>$() -> OpenMBEE.OpenSysML.LibraryReference!
 [OSML0001]OpenMBEE.OpenSysML.LibraryReference.Equals(OpenMBEE.OpenSysML.LibraryReference? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.LibraryReference.Id.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.LibraryReference.LibraryReference(string! id, string! qualifiedName, string! type, string! libraryPath) -> void
 [OSML0001]OpenMBEE.OpenSysML.LibraryReference.QualifiedName.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.LibraryReference.Type.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.Model.ElementPropertiesAsync(string! element, System.Collections.Generic.IEnumerable<string!>? properties = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<OpenMBEE.OpenSysML.ElementProperties!>!
@@ -208,7 +199,6 @@
 [OSML0001]OpenMBEE.OpenSysML.Symbol.InheritedMembers.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.SymbolMember!>
 [OSML0001]OpenMBEE.OpenSysML.Symbol.Members.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.SymbolMember!>
 [OSML0001]OpenMBEE.OpenSysML.Symbol.OwnMembers.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.SymbolMember!>
-[OSML0001]OpenMBEE.OpenSysML.Symbol.Symbol(string! id, string! name, string! kind, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string!>>! metadata, System.Collections.Generic.IEnumerable<string!>! childIds, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.AttributeInfo!>! attributes, OpenMBEE.OpenSysML.TypeFacts? typeFacts, OpenMBEE.OpenSysML.Multiplicity? multiplicity, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Specialization!>! specializations, int withheldLibraryAttributes, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.SymbolMember!>? members = null, int withheldLibraryMembers = 0) -> void
 [OSML0001]OpenMBEE.OpenSysML.Symbol.WithheldLibraryMembers.get -> int
 [OSML0001]OpenMBEE.OpenSysML.SymbolMember
 [OSML0001]OpenMBEE.OpenSysML.SymbolMember.<Clone>$() -> OpenMBEE.OpenSysML.SymbolMember!
@@ -221,7 +211,6 @@
 [OSML0001]OpenMBEE.OpenSysML.SymbolMember.IsLibrary.get -> bool
 [OSML0001]OpenMBEE.OpenSysML.SymbolMember.Kind.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.SymbolMember.Name.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.SymbolMember.SymbolMember(string! id, string! name, string! kind, bool isInherited, string! inheritedFrom, bool isLibrary) -> void
 [OSML0001]override OpenMBEE.OpenSysML.SymbolMember.ToString() -> string!
 [OSML0001]static OpenMBEE.OpenSysML.SymbolMember.operator !=(OpenMBEE.OpenSysML.SymbolMember? left, OpenMBEE.OpenSysML.SymbolMember? right) -> bool
 [OSML0001]static OpenMBEE.OpenSysML.SymbolMember.operator ==(OpenMBEE.OpenSysML.SymbolMember? left, OpenMBEE.OpenSysML.SymbolMember? right) -> bool
@@ -230,7 +219,6 @@
 [OSML0001]OpenMBEE.OpenSysML.SymbolOptions.IncludeLibraryMembers.get -> bool
 [OSML0001]OpenMBEE.OpenSysML.SymbolOptions.IncludeLibraryMembers.init -> void
 [OSML0001]OpenMBEE.OpenSysML.SymbolOptions.SymbolOptions() -> void
-[OSML0001]OpenMBEE.OpenSysML.TypeFacts.TypeFacts(string! declared, string! resolvedId, string! resolvedKind, string! primitive, string! primitiveSource, bool isQuantity, string! unit, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.TypeRef!>? types = null) -> void
 [OSML0001]OpenMBEE.OpenSysML.TypeFacts.Types.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.TypeRef!>
 [OSML0001]OpenMBEE.OpenSysML.TypeRef
 [OSML0001]OpenMBEE.OpenSysML.TypeRef.<Clone>$() -> OpenMBEE.OpenSysML.TypeRef!
@@ -240,23 +228,18 @@
 [OSML0001]OpenMBEE.OpenSysML.TypeRef.Id.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.TypeRef.Kind.get -> string!
 [OSML0001]override OpenMBEE.OpenSysML.TypeRef.ToString() -> string!
-[OSML0001]OpenMBEE.OpenSysML.TypeRef.TypeRef(string! id, string! kind) -> void
 [OSML0001]static OpenMBEE.OpenSysML.TypeRef.operator !=(OpenMBEE.OpenSysML.TypeRef? left, OpenMBEE.OpenSysML.TypeRef? right) -> bool
 [OSML0001]static OpenMBEE.OpenSysML.TypeRef.operator ==(OpenMBEE.OpenSysML.TypeRef? left, OpenMBEE.OpenSysML.TypeRef? right) -> bool
 [OSML0001]OpenMBEE.OpenSysML.Verdict.Notes.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.VerdictNote!>
-[OSML0001]OpenMBEE.OpenSysML.Verdict.Verdict(string! kind, string! elementId, string! element, bool holds, string! condition, long instanceId, string! instanceTypeId, string! error, OpenMBEE.OpenSysML.FailureReason failureReason, string! requirementId, OpenMBEE.OpenSysML.Standing! standing, string! instancePath, string! question, string! status, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.WitnessAssignment!>! witness, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.VerdictNote!>! notes) -> void
 [OSML0001]OpenMBEE.OpenSysML.VerdictNote
 [OSML0001]OpenMBEE.OpenSysML.VerdictNote.<Clone>$() -> OpenMBEE.OpenSysML.VerdictNote!
 [OSML0001]OpenMBEE.OpenSysML.VerdictNote.Equals(OpenMBEE.OpenSysML.VerdictNote? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.VerdictNote.Kind.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.VerdictNote.Subject.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.VerdictNote.Text.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.VerdictNote.VerdictNote(string! kind, string! subject, string! text) -> void
 [OSML0001]OpenMBEE.OpenSysML.ViewNode.Compartment.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.ViewNode.Inherited.get -> bool
-[OSML0001]OpenMBEE.OpenSysML.ViewNode.ViewNode(string! id, string! kind, string! name, bool nameSynthesized, string! type, string! detail, string! text, bool standIn, string! parent, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.ViewPort!>! ports, OpenMBEE.OpenSysML.SourceSpan? origin, OpenMBEE.OpenSysML.ViewGeometry? geometry, OpenMBEE.OpenSysML.ViewStyle? style, string! compartment, bool inherited, string! arrow, bool parallel) -> void
 [OSML0001]OpenMBEE.OpenSysML.ViewPort.Inherited.get -> bool
-[OSML0001]OpenMBEE.OpenSysML.ViewPort.ViewPort(string! id, string! name, string! type, string! direction, bool inherited) -> void
 [OSML0001]abstract OpenMBEE.OpenSysML.Value.Equals(OpenMBEE.OpenSysML.Value? other) -> bool
 [OSML0001]abstract OpenMBEE.OpenSysML.Value.Kind.get -> OpenMBEE.OpenSysML.ValueKind
 [OSML0001]abstract OpenMBEE.OpenSysML.Value.NumberValue.ToDouble() -> double
@@ -348,7 +331,6 @@
 [OSML0001]const OpenMBEE.OpenSysML.ConnectionOptions.VersionVariable = "OPENSYSML_GRPC_VERSION" -> string!
 [OSML0001]OpenMBEE.OpenSysML.AttributeInfo
 [OSML0001]OpenMBEE.OpenSysML.AttributeInfo.<Clone>$() -> OpenMBEE.OpenSysML.AttributeInfo!
-[OSML0001]OpenMBEE.OpenSysML.AttributeInfo.AttributeInfo(string! name, string! type, OpenMBEE.OpenSysML.Value? value, string! unit) -> void
 [OSML0001]OpenMBEE.OpenSysML.AttributeInfo.Equals(OpenMBEE.OpenSysML.AttributeInfo? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.AttributeInfo.Name.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.AttributeInfo.Type.get -> string!
@@ -363,7 +345,6 @@
 [OSML0001]OpenMBEE.OpenSysML.BinaryNotFoundException.BinaryNotFoundException(string! message, System.Collections.Generic.IEnumerable<string!>! searchedLocations, System.Exception? innerException) -> void
 [OSML0001]OpenMBEE.OpenSysML.BinaryNotFoundException.SearchedLocations.get -> OpenMBEE.OpenSysML.ValueList<string!>
 [OSML0001]OpenMBEE.OpenSysML.Capabilities
-[OSML0001]OpenMBEE.OpenSysML.Capabilities.Capabilities(System.Collections.Generic.IEnumerable<string!>! names) -> void
 [OSML0001]OpenMBEE.OpenSysML.Capabilities.Equals(OpenMBEE.OpenSysML.Capabilities? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.Capabilities.Has(string! capability) -> bool
 [OSML0001]OpenMBEE.OpenSysML.Capabilities.Names.get -> System.Collections.Generic.IReadOnlySet<string!>!
@@ -436,7 +417,6 @@
 [OSML0001]OpenMBEE.OpenSysML.Diagnostic
 [OSML0001]OpenMBEE.OpenSysML.Diagnostic.<Clone>$() -> OpenMBEE.OpenSysML.Diagnostic!
 [OSML0001]OpenMBEE.OpenSysML.Diagnostic.Code.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.Diagnostic.Diagnostic(string! severityName, string! message, string! code, OpenMBEE.OpenSysML.SourceSpan? span, System.Collections.Generic.IEnumerable<string!>! orderDependent, bool independent) -> void
 [OSML0001]OpenMBEE.OpenSysML.Diagnostic.Equals(OpenMBEE.OpenSysML.Diagnostic? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.Diagnostic.Independent.get -> bool
 [OSML0001]OpenMBEE.OpenSysML.Diagnostic.Message.get -> string!
@@ -465,7 +445,6 @@
 [OSML0001]OpenMBEE.OpenSysML.Evaluation.<Clone>$() -> OpenMBEE.OpenSysML.Evaluation!
 [OSML0001]OpenMBEE.OpenSysML.Evaluation.Diagnostics.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.Diagnostic!>
 [OSML0001]OpenMBEE.OpenSysML.Evaluation.Equals(OpenMBEE.OpenSysML.Evaluation? other) -> bool
-[OSML0001]OpenMBEE.OpenSysML.Evaluation.Evaluation(OpenMBEE.OpenSysML.Value! result, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Diagnostic!>! diagnostics) -> void
 [OSML0001]OpenMBEE.OpenSysML.Evaluation.Result.get -> OpenMBEE.OpenSysML.Value!
 [OSML0001]OpenMBEE.OpenSysML.FeatureValue
 [OSML0001]OpenMBEE.OpenSysML.FeatureValue.<Clone>$() -> OpenMBEE.OpenSysML.FeatureValue!
@@ -537,7 +516,6 @@
 [OSML0001]OpenMBEE.OpenSysML.Multiplicity.<Clone>$() -> OpenMBEE.OpenSysML.Multiplicity!
 [OSML0001]OpenMBEE.OpenSysML.Multiplicity.Equals(OpenMBEE.OpenSysML.Multiplicity? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.Multiplicity.Lower.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.Multiplicity.Multiplicity(string! lower, string! upper) -> void
 [OSML0001]OpenMBEE.OpenSysML.Multiplicity.Upper.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.OpenSysMLClient
 [OSML0001]OpenMBEE.OpenSysML.OpenSysMLException
@@ -575,7 +553,6 @@
 [OSML0001]OpenMBEE.OpenSysML.ServerInfo.Answered.get -> bool
 [OSML0001]OpenMBEE.OpenSysML.ServerInfo.Capabilities.get -> OpenMBEE.OpenSysML.Capabilities!
 [OSML0001]OpenMBEE.OpenSysML.ServerInfo.Equals(OpenMBEE.OpenSysML.ServerInfo? other) -> bool
-[OSML0001]OpenMBEE.OpenSysML.ServerInfo.ServerInfo(string! version, OpenMBEE.OpenSysML.Capabilities! capabilities, bool answered) -> void
 [OSML0001]OpenMBEE.OpenSysML.ServerInfo.Version.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.ServiceException
 [OSML0001]OpenMBEE.OpenSysML.ServiceException.Method.get -> string!
@@ -610,7 +587,6 @@
 [OSML0001]OpenMBEE.OpenSysML.SourceSpan.EndLine.get -> int
 [OSML0001]OpenMBEE.OpenSysML.SourceSpan.Equals(OpenMBEE.OpenSysML.SourceSpan? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.SourceSpan.File.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.SourceSpan.SourceSpan(string! file, int startLine, int startColumn, int endLine, int endColumn) -> void
 [OSML0001]OpenMBEE.OpenSysML.SourceSpan.StartColumn.get -> int
 [OSML0001]OpenMBEE.OpenSysML.SourceSpan.StartLine.get -> int
 [OSML0001]OpenMBEE.OpenSysML.Specialization
@@ -618,7 +594,6 @@
 [OSML0001]OpenMBEE.OpenSysML.Specialization.Declared.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.Specialization.Equals(OpenMBEE.OpenSysML.Specialization? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.Specialization.Kind.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.Specialization.Specialization(string! kind, string! declared, string! targetId, string! targetKind) -> void
 [OSML0001]OpenMBEE.OpenSysML.Specialization.TargetId.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.Specialization.TargetKind.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.StaleServiceException
@@ -1119,7 +1094,6 @@
 [OSML0001]static OpenMBEE.OpenSysML.ValueList<T>.operator ==(OpenMBEE.OpenSysML.ValueList<T> left, OpenMBEE.OpenSysML.ValueList<T> right) -> bool
 [OSML0001]OpenMBEE.OpenSysML.ActionRun
 [OSML0001]OpenMBEE.OpenSysML.ActionRun.<Clone>$() -> OpenMBEE.OpenSysML.ActionRun!
-[OSML0001]OpenMBEE.OpenSysML.ActionRun.ActionRun(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, OpenMBEE.OpenSysML.Value!>>! outputs, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Diagnostic!>! diagnostics, double finalTime, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, OpenMBEE.OpenSysML.Value!>>! performerAttributes, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, int>>! orderDependent, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.DocumentEvent!>! trace, int traceDropped) -> void
 [OSML0001]OpenMBEE.OpenSysML.ActionRun.Diagnostics.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.Diagnostic!>
 [OSML0001]OpenMBEE.OpenSysML.ActionRun.Equals(OpenMBEE.OpenSysML.ActionRun? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.ActionRun.FinalTime.get -> double
@@ -1128,20 +1102,17 @@
 [OSML0001]OpenMBEE.OpenSysML.ActionRun.PerformerAttributes.get -> OpenMBEE.OpenSysML.ValueDictionary<OpenMBEE.OpenSysML.Value!>
 [OSML0001]OpenMBEE.OpenSysML.Bound
 [OSML0001]OpenMBEE.OpenSysML.Bound.<Clone>$() -> OpenMBEE.OpenSysML.Bound!
-[OSML0001]OpenMBEE.OpenSysML.Bound.Bound(string! name, long limit, bool reached) -> void
 [OSML0001]OpenMBEE.OpenSysML.Bound.Equals(OpenMBEE.OpenSysML.Bound? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.Bound.Limit.get -> long
 [OSML0001]OpenMBEE.OpenSysML.Bound.Name.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.Bound.Reached.get -> bool
 [OSML0001]OpenMBEE.OpenSysML.CheckDivergence
 [OSML0001]OpenMBEE.OpenSysML.CheckDivergence.<Clone>$() -> OpenMBEE.OpenSysML.CheckDivergence!
-[OSML0001]OpenMBEE.OpenSysML.CheckDivergence.CheckDivergence(string! feature, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.CheckDivergentValue!>! values) -> void
 [OSML0001]OpenMBEE.OpenSysML.CheckDivergence.Equals(OpenMBEE.OpenSysML.CheckDivergence? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.CheckDivergence.Feature.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.CheckDivergence.Values.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.CheckDivergentValue!>
 [OSML0001]OpenMBEE.OpenSysML.CheckDivergentValue
 [OSML0001]OpenMBEE.OpenSysML.CheckDivergentValue.<Clone>$() -> OpenMBEE.OpenSysML.CheckDivergentValue!
-[OSML0001]OpenMBEE.OpenSysML.CheckDivergentValue.CheckDivergentValue(string! value, OpenMBEE.OpenSysML.CheckWitness? witness) -> void
 [OSML0001]OpenMBEE.OpenSysML.CheckDivergentValue.Equals(OpenMBEE.OpenSysML.CheckDivergentValue? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.CheckDivergentValue.Value.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.CheckDivergentValue.Witness.get -> OpenMBEE.OpenSysML.CheckWitness?
@@ -1150,7 +1121,6 @@
 [OSML0001]OpenMBEE.OpenSysML.CheckException.Partial.get -> OpenMBEE.OpenSysML.CheckResult!
 [OSML0001]OpenMBEE.OpenSysML.CheckFinal
 [OSML0001]OpenMBEE.OpenSysML.CheckFinal.<Clone>$() -> OpenMBEE.OpenSysML.CheckFinal!
-[OSML0001]OpenMBEE.OpenSysML.CheckFinal.CheckFinal(string! outcome, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string!>>! values, OpenMBEE.OpenSysML.CheckWitness? witness) -> void
 [OSML0001]OpenMBEE.OpenSysML.CheckFinal.Equals(OpenMBEE.OpenSysML.CheckFinal? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.CheckFinal.Outcome.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.CheckFinal.Values.get -> OpenMBEE.OpenSysML.ValueDictionary<string!>
@@ -1182,7 +1152,6 @@
 [OSML0001]OpenMBEE.OpenSysML.CheckResult
 [OSML0001]OpenMBEE.OpenSysML.CheckResult.<Clone>$() -> OpenMBEE.OpenSysML.CheckResult!
 [OSML0001]OpenMBEE.OpenSysML.CheckResult.Assumptions.get -> OpenMBEE.OpenSysML.ValueList<string!>
-[OSML0001]OpenMBEE.OpenSysML.CheckResult.CheckResult(string! verdict, System.Collections.Generic.IEnumerable<string!>! lines, OpenMBEE.OpenSysML.CheckSearch? search, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.CheckViolation!>! violations, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.CheckDivergence!>! divergences, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.CheckFinal!>! finals, string! claim, System.Collections.Generic.IEnumerable<string!>! freeInputs, System.Collections.Generic.IEnumerable<string!>! assumptions, OpenMBEE.OpenSysML.CheckWitness? witness, OpenMBEE.OpenSysML.CheckWitness? contrast, OpenMBEE.OpenSysML.Standing! standing, string! reason) -> void
 [OSML0001]OpenMBEE.OpenSysML.CheckResult.Claim.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.CheckResult.Contrast.get -> OpenMBEE.OpenSysML.CheckWitness?
 [OSML0001]OpenMBEE.OpenSysML.CheckResult.Divergences.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.CheckDivergence!>
@@ -1200,7 +1169,6 @@
 [OSML0001]OpenMBEE.OpenSysML.CheckSearch
 [OSML0001]OpenMBEE.OpenSysML.CheckSearch.<Clone>$() -> OpenMBEE.OpenSysML.CheckSearch!
 [OSML0001]OpenMBEE.OpenSysML.CheckSearch.BoundsHit.get -> OpenMBEE.OpenSysML.ValueList<string!>
-[OSML0001]OpenMBEE.OpenSysML.CheckSearch.CheckSearch(int states, int moves, int maxDepth, System.Collections.Generic.IEnumerable<string!>! boundsHit, double horizon, bool horizonSet, bool massBounded, System.Collections.Generic.IEnumerable<string!>! notes, System.Collections.Generic.IEnumerable<string!>! scope, string! status) -> void
 [OSML0001]OpenMBEE.OpenSysML.CheckSearch.Equals(OpenMBEE.OpenSysML.CheckSearch? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.CheckSearch.Horizon.get -> double
 [OSML0001]OpenMBEE.OpenSysML.CheckSearch.HorizonSet.get -> bool
@@ -1213,7 +1181,6 @@
 [OSML0001]OpenMBEE.OpenSysML.CheckSearch.Status.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.CheckViolation
 [OSML0001]OpenMBEE.OpenSysML.CheckViolation.<Clone>$() -> OpenMBEE.OpenSysML.CheckViolation!
-[OSML0001]OpenMBEE.OpenSysML.CheckViolation.CheckViolation(string! kind, string! property, string! error, int depth, double probability, OpenMBEE.OpenSysML.CheckWitness? witness, string! text) -> void
 [OSML0001]OpenMBEE.OpenSysML.CheckViolation.Depth.get -> int
 [OSML0001]OpenMBEE.OpenSysML.CheckViolation.Equals(OpenMBEE.OpenSysML.CheckViolation? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.CheckViolation.Error.get -> string!
@@ -1224,7 +1191,6 @@
 [OSML0001]OpenMBEE.OpenSysML.CheckViolation.Witness.get -> OpenMBEE.OpenSysML.CheckWitness?
 [OSML0001]OpenMBEE.OpenSysML.CheckWitness
 [OSML0001]OpenMBEE.OpenSysML.CheckWitness.<Clone>$() -> OpenMBEE.OpenSysML.CheckWitness!
-[OSML0001]OpenMBEE.OpenSysML.CheckWitness.CheckWitness(string! schedule, System.Collections.Generic.IEnumerable<string!>! draws, System.Collections.Generic.IEnumerable<string!>! choices, System.Collections.Generic.IEnumerable<string!>! inputs, string! fileName, string! fileContent) -> void
 [OSML0001]OpenMBEE.OpenSysML.CheckWitness.Choices.get -> OpenMBEE.OpenSysML.ValueList<string!>
 [OSML0001]OpenMBEE.OpenSysML.CheckWitness.Draws.get -> OpenMBEE.OpenSysML.ValueList<string!>
 [OSML0001]OpenMBEE.OpenSysML.CheckWitness.Equals(OpenMBEE.OpenSysML.CheckWitness? other) -> bool
@@ -1235,7 +1201,6 @@
 [OSML0001]OpenMBEE.OpenSysML.DocumentEvent
 [OSML0001]OpenMBEE.OpenSysML.DocumentEvent.<Clone>$() -> OpenMBEE.OpenSysML.DocumentEvent!
 [OSML0001]OpenMBEE.OpenSysML.DocumentEvent.Alternatives.get -> OpenMBEE.OpenSysML.ValueList<string!>
-[OSML0001]OpenMBEE.OpenSysML.DocumentEvent.DocumentEvent(string! kind, OpenMBEE.OpenSysML.DocumentValue? time, OpenMBEE.OpenSysML.DocumentObject? subject, string! machine, string! state, string! from, string! to, OpenMBEE.OpenSysML.DocumentObject? target, string! signal, System.Collections.Generic.IEnumerable<string!>! payload, System.Collections.Generic.IEnumerable<string!>! alternatives, string! taken, string! text, long token, int step, string! feature, OpenMBEE.OpenSysML.Value? value) -> void
 [OSML0001]OpenMBEE.OpenSysML.DocumentEvent.Equals(OpenMBEE.OpenSysML.DocumentEvent? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.DocumentEvent.Event.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.DocumentEvent.From.get -> string!
@@ -1258,7 +1223,6 @@
 [OSML0001]OpenMBEE.OpenSysML.DocumentObject.Path.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.DocumentState
 [OSML0001]OpenMBEE.OpenSysML.DocumentState.<Clone>$() -> OpenMBEE.OpenSysML.DocumentState!
-[OSML0001]OpenMBEE.OpenSysML.DocumentState.DocumentState(OpenMBEE.OpenSysML.DocumentObject? subject, string! machine, string! name, string! statePath, OpenMBEE.OpenSysML.DocumentValue.ElementValue? state, string! region, System.Collections.Generic.IEnumerable<string!>! enclosing) -> void
 [OSML0001]OpenMBEE.OpenSysML.DocumentState.Enclosing.get -> OpenMBEE.OpenSysML.ValueList<string!>
 [OSML0001]OpenMBEE.OpenSysML.DocumentState.Equals(OpenMBEE.OpenSysML.DocumentState? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.DocumentState.Machine.get -> string!
@@ -1302,7 +1266,6 @@
 [OSML0001]OpenMBEE.OpenSysML.DocumentVerdict.<Clone>$() -> OpenMBEE.OpenSysML.DocumentVerdict!
 [OSML0001]OpenMBEE.OpenSysML.DocumentVerdict.Assertion.get -> OpenMBEE.OpenSysML.DocumentValue.ElementValue?
 [OSML0001]OpenMBEE.OpenSysML.DocumentVerdict.Condition.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.DocumentVerdict.DocumentVerdict(OpenMBEE.OpenSysML.DocumentValue.ElementValue? assertion, string! kind, string! text, string! path, string! verdict, string! condition, string! reason, System.Collections.Generic.IEnumerable<string!>! verification) -> void
 [OSML0001]OpenMBEE.OpenSysML.DocumentVerdict.Equals(OpenMBEE.OpenSysML.DocumentVerdict? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.DocumentVerdict.Kind.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.DocumentVerdict.Path.get -> string!
@@ -1341,7 +1304,6 @@
 [OSML0001]OpenMBEE.OpenSysML.Outcome.Error.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.Outcome.FinalState.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.Outcome.Linearizations.get -> int
-[OSML0001]OpenMBEE.OpenSysML.Outcome.Outcome(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, OpenMBEE.OpenSysML.Value!>>! outputs, string! finalState, System.Collections.Generic.IEnumerable<string!>! statesVisited, string! error, int linearizations, System.Collections.Generic.IEnumerable<string!>! witness, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Diagnostic!>! diagnostics, double probability, OpenMBEE.OpenSysML.ProbabilityRange? probabilityRange) -> void
 [OSML0001]OpenMBEE.OpenSysML.Outcome.Outputs.get -> OpenMBEE.OpenSysML.ValueDictionary<OpenMBEE.OpenSysML.Value!>
 [OSML0001]OpenMBEE.OpenSysML.Outcome.Probability.get -> double
 [OSML0001]OpenMBEE.OpenSysML.Outcome.ProbabilityRange.get -> OpenMBEE.OpenSysML.ProbabilityRange?
@@ -1349,13 +1311,9 @@
 [OSML0001]OpenMBEE.OpenSysML.Outcome.Witness.get -> OpenMBEE.OpenSysML.ValueList<string!>
 [OSML0001]OpenMBEE.OpenSysML.ProbabilityRange
 [OSML0001]OpenMBEE.OpenSysML.ProbabilityRange.<Clone>$() -> OpenMBEE.OpenSysML.ProbabilityRange!
-[OSML0001]OpenMBEE.OpenSysML.ProbabilityRange.Deconstruct(out double Min, out double Max) -> void
 [OSML0001]OpenMBEE.OpenSysML.ProbabilityRange.Equals(OpenMBEE.OpenSysML.ProbabilityRange? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.ProbabilityRange.Max.get -> double
-[OSML0001]OpenMBEE.OpenSysML.ProbabilityRange.Max.init -> void
 [OSML0001]OpenMBEE.OpenSysML.ProbabilityRange.Min.get -> double
-[OSML0001]OpenMBEE.OpenSysML.ProbabilityRange.Min.init -> void
-[OSML0001]OpenMBEE.OpenSysML.ProbabilityRange.ProbabilityRange(double Min, double Max) -> void
 [OSML0001]OpenMBEE.OpenSysML.RunOptions
 [OSML0001]OpenMBEE.OpenSysML.RunOptions.Advance.get -> double?
 [OSML0001]OpenMBEE.OpenSysML.RunOptions.Advance.init -> void
@@ -1379,7 +1337,6 @@
 [OSML0001]OpenMBEE.OpenSysML.Standing.Engine.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.Standing.Equals(OpenMBEE.OpenSysML.Standing? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.Standing.IsReported.get -> bool
-[OSML0001]OpenMBEE.OpenSysML.Standing.Standing(string! engine, string! strength, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Bound!>! bounds) -> void
 [OSML0001]OpenMBEE.OpenSysML.Standing.Strength.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.StateRun
 [OSML0001]OpenMBEE.OpenSysML.StateRun.<Clone>$() -> OpenMBEE.OpenSysML.StateRun!
@@ -1388,7 +1345,6 @@
 [OSML0001]OpenMBEE.OpenSysML.StateRun.FinalContext.get -> OpenMBEE.OpenSysML.ValueDictionary<OpenMBEE.OpenSysML.Value!>
 [OSML0001]OpenMBEE.OpenSysML.StateRun.FinalTime.get -> double
 [OSML0001]OpenMBEE.OpenSysML.StateRun.OrderDependent.get -> OpenMBEE.OpenSysML.ValueDictionary<int>
-[OSML0001]OpenMBEE.OpenSysML.StateRun.StateRun(System.Collections.Generic.IEnumerable<string!>! statesVisited, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, OpenMBEE.OpenSysML.Value!>>! finalContext, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Diagnostic!>! diagnostics, double finalTime, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.DocumentEvent!>! trace, int traceDropped, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, int>>! orderDependent) -> void
 [OSML0001]OpenMBEE.OpenSysML.StateRun.StatesVisited.get -> OpenMBEE.OpenSysML.ValueList<string!>
 [OSML0001]OpenMBEE.OpenSysML.StateRun.Trace.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.DocumentEvent!>
 [OSML0001]OpenMBEE.OpenSysML.StateRun.TraceDropped.get -> int
@@ -1534,7 +1490,6 @@
 [OSML0001]const OpenMBEE.OpenSysML.VerifyOptions.Satisfiable = "satisfiable" -> string!
 [OSML0001]OpenMBEE.OpenSysML.Analysis
 [OSML0001]OpenMBEE.OpenSysML.Analysis.<Clone>$() -> OpenMBEE.OpenSysML.Analysis!
-[OSML0001]OpenMBEE.OpenSysML.Analysis.Analysis(System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.CalcOutput!>! outputs, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Verdict!>! verdicts, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.VerificationVerdict!>! verifications, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.CaseEvaluation!>! evaluations, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Instance!>! instances, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Diagnostic!>! diagnostics, OpenMBEE.OpenSysML.Standing! standing, OpenMBEE.OpenSysML.ToolDryRun? toolDryRun) -> void
 [OSML0001]OpenMBEE.OpenSysML.Analysis.Diagnostics.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.Diagnostic!>
 [OSML0001]OpenMBEE.OpenSysML.Analysis.Equals(OpenMBEE.OpenSysML.Analysis? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.Analysis.Evaluations.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.CaseEvaluation!>
@@ -1573,13 +1528,11 @@
 [OSML0001]OpenMBEE.OpenSysML.CalcOptions.Engine.init -> void
 [OSML0001]OpenMBEE.OpenSysML.CalcOutput
 [OSML0001]OpenMBEE.OpenSysML.CalcOutput.<Clone>$() -> OpenMBEE.OpenSysML.CalcOutput!
-[OSML0001]OpenMBEE.OpenSysML.CalcOutput.CalcOutput(string! name, OpenMBEE.OpenSysML.Value! value) -> void
 [OSML0001]OpenMBEE.OpenSysML.CalcOutput.Equals(OpenMBEE.OpenSysML.CalcOutput? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.CalcOutput.Name.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.CalcOutput.Value.get -> OpenMBEE.OpenSysML.Value!
 [OSML0001]OpenMBEE.OpenSysML.Calculation
 [OSML0001]OpenMBEE.OpenSysML.Calculation.<Clone>$() -> OpenMBEE.OpenSysML.Calculation!
-[OSML0001]OpenMBEE.OpenSysML.Calculation.Calculation(OpenMBEE.OpenSysML.Value? result, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.CalcOutput!>! outputs, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Diagnostic!>! diagnostics, OpenMBEE.OpenSysML.Standing! standing) -> void
 [OSML0001]OpenMBEE.OpenSysML.Calculation.Diagnostics.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.Diagnostic!>
 [OSML0001]OpenMBEE.OpenSysML.Calculation.Equals(OpenMBEE.OpenSysML.Calculation? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.Calculation.Outputs.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.CalcOutput!>
@@ -1589,7 +1542,6 @@
 [OSML0001]OpenMBEE.OpenSysML.CaseEvaluation
 [OSML0001]OpenMBEE.OpenSysML.CaseEvaluation.<Clone>$() -> OpenMBEE.OpenSysML.CaseEvaluation!
 [OSML0001]OpenMBEE.OpenSysML.CaseEvaluation.Arguments.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.Value!>
-[OSML0001]OpenMBEE.OpenSysML.CaseEvaluation.CaseEvaluation(string! functionId, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Value!>! arguments, OpenMBEE.OpenSysML.Value? result, string! error, bool selected, bool tied) -> void
 [OSML0001]OpenMBEE.OpenSysML.CaseEvaluation.Equals(OpenMBEE.OpenSysML.CaseEvaluation? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.CaseEvaluation.Error.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.CaseEvaluation.FunctionId.get -> string!
@@ -1603,7 +1555,6 @@
 [OSML0001]OpenMBEE.OpenSysML.EngineInfo.Authority.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.EngineInfo.Bounds.get -> OpenMBEE.OpenSysML.ValueList<string!>
 [OSML0001]OpenMBEE.OpenSysML.EngineInfo.Command.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.EngineInfo.EngineInfo(string! name, string! authority, System.Collections.Generic.IEnumerable<string!>! answers, System.Collections.Generic.IEnumerable<string!>! bounds, string! process, string! processFound, bool ready, string! unavailable, string! kind, string! protocol, string! source, string! command, string! version, bool served) -> void
 [OSML0001]OpenMBEE.OpenSysML.EngineInfo.Equals(OpenMBEE.OpenSysML.EngineInfo? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.EngineInfo.Kind.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.EngineInfo.Name.get -> string!
@@ -1615,7 +1566,6 @@
 [OSML0001]OpenMBEE.OpenSysML.EngineInfo.Source.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.EngineInfo.Unavailable.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.EngineInfo.Version.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.Exploration.Exploration(System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Outcome!>! outcomes, bool complete, int runs, System.Collections.Generic.IEnumerable<string!>! budgetsHit, int runsBudget, int depthBudget, bool probabilitiesLowerBound, int failedLinearizations, System.Collections.Generic.IEnumerable<string!>! unenumerated, OpenMBEE.OpenSysML.Standing! standing) -> void
 [OSML0001]OpenMBEE.OpenSysML.Exploration.Standing.get -> OpenMBEE.OpenSysML.Standing!
 [OSML0001]OpenMBEE.OpenSysML.FailureReason
 [OSML0001]OpenMBEE.OpenSysML.FailureReason.AmbiguousSubject = 3 -> OpenMBEE.OpenSysML.FailureReason
@@ -1643,7 +1593,6 @@
 [OSML0001]OpenMBEE.OpenSysML.Satisfaction.FindInstance(long instanceId) -> OpenMBEE.OpenSysML.Instance?
 [OSML0001]OpenMBEE.OpenSysML.Satisfaction.Holds.get -> bool
 [OSML0001]OpenMBEE.OpenSysML.Satisfaction.Instances.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.Instance!>
-[OSML0001]OpenMBEE.OpenSysML.Satisfaction.Satisfaction(System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Verdict!>! verdicts, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.VerificationVerdict!>! verifications, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Instance!>! instances, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Diagnostic!>! diagnostics) -> void
 [OSML0001]OpenMBEE.OpenSysML.Satisfaction.Verdicts.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.Verdict!>
 [OSML0001]OpenMBEE.OpenSysML.Satisfaction.Verifications.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.VerificationVerdict!>
 [OSML0001]OpenMBEE.OpenSysML.Sweep
@@ -1660,7 +1609,6 @@
 [OSML0001]OpenMBEE.OpenSysML.Sweep.Sampled.get -> bool
 [OSML0001]OpenMBEE.OpenSysML.Sweep.Seed.get -> ulong
 [OSML0001]OpenMBEE.OpenSysML.Sweep.Standing.get -> OpenMBEE.OpenSysML.Standing!
-[OSML0001]OpenMBEE.OpenSysML.Sweep.Sweep(System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.SweepRow!>! rows, System.Collections.Generic.IEnumerable<string!>! parameters, bool sampled, ulong seed, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Instance!>! instances, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Diagnostic!>! diagnostics, OpenMBEE.OpenSysML.Standing! standing) -> void
 [OSML0001]OpenMBEE.OpenSysML.SweepOptions
 [OSML0001]OpenMBEE.OpenSysML.SweepOptions.Arguments.get -> System.Collections.Generic.IReadOnlyList<OpenMBEE.OpenSysML.Value!>!
 [OSML0001]OpenMBEE.OpenSysML.SweepOptions.Arguments.init -> void
@@ -1694,7 +1642,6 @@
 [OSML0001]OpenMBEE.OpenSysML.SweepRow.Holds.get -> bool
 [OSML0001]OpenMBEE.OpenSysML.SweepRow.Inputs.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.CalcOutput!>
 [OSML0001]OpenMBEE.OpenSysML.SweepRow.Outputs.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.CalcOutput!>
-[OSML0001]OpenMBEE.OpenSysML.SweepRow.SweepRow(System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.CalcOutput!>! inputs, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.CalcOutput!>! outputs, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Verdict!>! verdicts, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.CaseEvaluation!>! evaluations, long elapsedMicroseconds, string! error, OpenMBEE.OpenSysML.FailureReason failureReason) -> void
 [OSML0001]OpenMBEE.OpenSysML.SweepRow.Verdicts.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.Verdict!>
 [OSML0001]OpenMBEE.OpenSysML.ToolDryRun
 [OSML0001]OpenMBEE.OpenSysML.ToolDryRun.<Clone>$() -> OpenMBEE.OpenSysML.ToolDryRun!
@@ -1714,7 +1661,6 @@
 [OSML0001]OpenMBEE.OpenSysML.ToolDryRun.Stdin.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.ToolDryRun.StdinData.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.ToolDryRun.Tool.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.ToolDryRun.ToolDryRun(string! action, string! tool, string! version, string! manifest, string! executable, string! protocol, System.Collections.Generic.IEnumerable<string!>! args, System.Collections.Generic.IEnumerable<string!>! environment, string! workingDirectory, string! stdin, string! stdinData, OpenMBEE.OpenSysML.ToolDryRunFile? inputFile, bool outputDirectory, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.ToolDryRunInput!>! inputs, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.ToolDryRunOutput!>! outputs, string! replySource, System.Collections.Generic.IEnumerable<string!>! lines) -> void
 [OSML0001]OpenMBEE.OpenSysML.ToolDryRun.Version.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.ToolDryRun.WorkingDirectory.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.ToolDryRunFile
@@ -1723,12 +1669,10 @@
 [OSML0001]OpenMBEE.OpenSysML.ToolDryRunFile.Equals(OpenMBEE.OpenSysML.ToolDryRunFile? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.ToolDryRunFile.Format.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.ToolDryRunFile.Name.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.ToolDryRunFile.ToolDryRunFile(string! name, string! format, string! data) -> void
 [OSML0001]OpenMBEE.OpenSysML.ToolDryRunInput
 [OSML0001]OpenMBEE.OpenSysML.ToolDryRunInput.<Clone>$() -> OpenMBEE.OpenSysML.ToolDryRunInput!
 [OSML0001]OpenMBEE.OpenSysML.ToolDryRunInput.Equals(OpenMBEE.OpenSysML.ToolDryRunInput? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.ToolDryRunInput.Parameter.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.ToolDryRunInput.ToolDryRunInput(string! variable, string! parameter, string! value, string! unit) -> void
 [OSML0001]OpenMBEE.OpenSysML.ToolDryRunInput.Unit.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.ToolDryRunInput.Value.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.ToolDryRunInput.Variable.get -> string!
@@ -1736,7 +1680,6 @@
 [OSML0001]OpenMBEE.OpenSysML.ToolDryRunOutput.<Clone>$() -> OpenMBEE.OpenSysML.ToolDryRunOutput!
 [OSML0001]OpenMBEE.OpenSysML.ToolDryRunOutput.Equals(OpenMBEE.OpenSysML.ToolDryRunOutput? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.ToolDryRunOutput.Parameter.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.ToolDryRunOutput.ToolDryRunOutput(string! variable, string! parameter) -> void
 [OSML0001]OpenMBEE.OpenSysML.ToolDryRunOutput.Variable.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.ValidateOptions
 [OSML0001]OpenMBEE.OpenSysML.ValidateOptions.Engine.get -> string?
@@ -1752,7 +1695,6 @@
 [OSML0001]OpenMBEE.OpenSysML.Validation.Instances.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.Instance!>
 [OSML0001]OpenMBEE.OpenSysML.Validation.Root.get -> OpenMBEE.OpenSysML.Instance?
 [OSML0001]OpenMBEE.OpenSysML.Validation.Summary.get -> OpenMBEE.OpenSysML.Verdict!
-[OSML0001]OpenMBEE.OpenSysML.Validation.Validation(OpenMBEE.OpenSysML.Verdict! summary, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Verdict!>! verdicts, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.VerificationVerdict!>! verifications, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Instance!>! instances, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Diagnostic!>! diagnostics, bool bounded) -> void
 [OSML0001]OpenMBEE.OpenSysML.Validation.Verdicts.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.Verdict!>
 [OSML0001]OpenMBEE.OpenSysML.Validation.Verifications.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.VerificationVerdict!>
 [OSML0001]OpenMBEE.OpenSysML.Verdict
@@ -1784,7 +1726,6 @@
 [OSML0001]OpenMBEE.OpenSysML.Verification.Instances.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.Instance!>
 [OSML0001]OpenMBEE.OpenSysML.Verification.Subject.get -> OpenMBEE.OpenSysML.Instance?
 [OSML0001]OpenMBEE.OpenSysML.Verification.Verdict.get -> OpenMBEE.OpenSysML.Verdict!
-[OSML0001]OpenMBEE.OpenSysML.Verification.Verification(OpenMBEE.OpenSysML.Verdict! verdict, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.VerificationVerdict!>! verifications, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Instance!>! instances, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Diagnostic!>! diagnostics) -> void
 [OSML0001]OpenMBEE.OpenSysML.Verification.Verifications.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.VerificationVerdict!>
 [OSML0001]OpenMBEE.OpenSysML.VerificationException
 [OSML0001]OpenMBEE.OpenSysML.VerificationException.Instances.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.Instance!>
@@ -1803,7 +1744,6 @@
 [OSML0001]OpenMBEE.OpenSysML.VerificationVerdict.Passed.get -> bool
 [OSML0001]OpenMBEE.OpenSysML.VerificationVerdict.RequirementId.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.VerificationVerdict.Subcase.get -> bool
-[OSML0001]OpenMBEE.OpenSysML.VerificationVerdict.VerificationVerdict(string! caseId, string! kind, string! detail, bool subcase, string! requirementId, long instanceId, string! instanceTypeId) -> void
 [OSML0001]OpenMBEE.OpenSysML.VerifyOptions
 [OSML0001]OpenMBEE.OpenSysML.VerifyOptions.Arguments.get -> System.Collections.Generic.IReadOnlyList<OpenMBEE.OpenSysML.Value!>!
 [OSML0001]OpenMBEE.OpenSysML.VerifyOptions.Arguments.init -> void
@@ -1823,7 +1763,6 @@
 [OSML0001]OpenMBEE.OpenSysML.WitnessAssignment.Feature.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.WitnessAssignment.Unit.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.WitnessAssignment.Value.get -> OpenMBEE.OpenSysML.Value?
-[OSML0001]OpenMBEE.OpenSysML.WitnessAssignment.WitnessAssignment(string! feature, OpenMBEE.OpenSysML.Value? value, string! unit, string! exact) -> void
 [OSML0001]override OpenMBEE.OpenSysML.Analysis.Equals(object? obj) -> bool
 [OSML0001]override OpenMBEE.OpenSysML.Analysis.GetHashCode() -> int
 [OSML0001]override OpenMBEE.OpenSysML.Analysis.ToString() -> string!
@@ -1956,7 +1895,6 @@
 [OSML0001]OpenMBEE.OpenSysML.EditedDocument
 [OSML0001]OpenMBEE.OpenSysML.EditedDocument.<Clone>$() -> OpenMBEE.OpenSysML.EditedDocument!
 [OSML0001]OpenMBEE.OpenSysML.EditedDocument.Content.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.EditedDocument.EditedDocument(string! name, string! content) -> void
 [OSML0001]OpenMBEE.OpenSysML.EditedDocument.Equals(OpenMBEE.OpenSysML.EditedDocument? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.EditedDocument.Name.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.Model.RecordRunAsync(string! analysisSymbolId, OpenMBEE.OpenSysML.RecordOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<OpenMBEE.OpenSysML.Recording!>!
@@ -2002,7 +1940,6 @@
 [OSML0001]OpenMBEE.OpenSysML.Recording.Equals(OpenMBEE.OpenSysML.Recording? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.Recording.Model.get -> OpenMBEE.OpenSysML.Model!
 [OSML0001]OpenMBEE.OpenSysML.Recording.Package.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.Recording.Recording(OpenMBEE.OpenSysML.Analysis? run, OpenMBEE.OpenSysML.Sweep? sweep, OpenMBEE.OpenSysML.Runs? sample, string! package, string! definition, System.Collections.Generic.IEnumerable<string!>! records, string! source, string! content, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.EditedDocument!>! documents, long skipped, System.Collections.Generic.IEnumerable<string!>! skipReasons, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Diagnostic!>! diagnostics, OpenMBEE.OpenSysML.Model! model) -> void
 [OSML0001]OpenMBEE.OpenSysML.Recording.Records.get -> OpenMBEE.OpenSysML.ValueList<string!>
 [OSML0001]OpenMBEE.OpenSysML.Recording.Run.get -> OpenMBEE.OpenSysML.Analysis?
 [OSML0001]OpenMBEE.OpenSysML.Recording.Sample.get -> OpenMBEE.OpenSysML.Runs?
@@ -2014,7 +1951,6 @@
 [OSML0001]OpenMBEE.OpenSysML.RunCountedValue.<Clone>$() -> OpenMBEE.OpenSysML.RunCountedValue!
 [OSML0001]OpenMBEE.OpenSysML.RunCountedValue.Count.get -> long
 [OSML0001]OpenMBEE.OpenSysML.RunCountedValue.Equals(OpenMBEE.OpenSysML.RunCountedValue? other) -> bool
-[OSML0001]OpenMBEE.OpenSysML.RunCountedValue.RunCountedValue(OpenMBEE.OpenSysML.Value! value, long count) -> void
 [OSML0001]OpenMBEE.OpenSysML.RunCountedValue.Value.get -> OpenMBEE.OpenSysML.Value!
 [OSML0001]OpenMBEE.OpenSysML.RunDistribution
 [OSML0001]OpenMBEE.OpenSysML.RunDistribution.<Clone>$() -> OpenMBEE.OpenSysML.RunDistribution!
@@ -2028,7 +1964,6 @@
 [OSML0001]OpenMBEE.OpenSysML.RunDistribution.Name.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.RunDistribution.Numeric.get -> bool
 [OSML0001]OpenMBEE.OpenSysML.RunDistribution.Percentiles.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.RunPercentile!>
-[OSML0001]OpenMBEE.OpenSysML.RunDistribution.RunDistribution(string! name, string! unit, long count, bool numeric, OpenMBEE.OpenSysML.Value? min, OpenMBEE.OpenSysML.Value? max, OpenMBEE.OpenSysML.Value? mean, double deviation, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.RunPercentile!>! percentiles, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.RunHistogramBin!>! histogram, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.RunCountedValue!>! values) -> void
 [OSML0001]OpenMBEE.OpenSysML.RunDistribution.Unit.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.RunDistribution.Values.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.RunCountedValue!>
 [OSML0001]OpenMBEE.OpenSysML.RunHistogramBin
@@ -2037,12 +1972,10 @@
 [OSML0001]OpenMBEE.OpenSysML.RunHistogramBin.Equals(OpenMBEE.OpenSysML.RunHistogramBin? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.RunHistogramBin.High.get -> OpenMBEE.OpenSysML.Value!
 [OSML0001]OpenMBEE.OpenSysML.RunHistogramBin.Low.get -> OpenMBEE.OpenSysML.Value!
-[OSML0001]OpenMBEE.OpenSysML.RunHistogramBin.RunHistogramBin(OpenMBEE.OpenSysML.Value! low, OpenMBEE.OpenSysML.Value! high, long count) -> void
 [OSML0001]OpenMBEE.OpenSysML.RunPercentile
 [OSML0001]OpenMBEE.OpenSysML.RunPercentile.<Clone>$() -> OpenMBEE.OpenSysML.RunPercentile!
 [OSML0001]OpenMBEE.OpenSysML.RunPercentile.Equals(OpenMBEE.OpenSysML.RunPercentile? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.RunPercentile.Percentile.get -> double
-[OSML0001]OpenMBEE.OpenSysML.RunPercentile.RunPercentile(double percentile, OpenMBEE.OpenSysML.Value! value) -> void
 [OSML0001]OpenMBEE.OpenSysML.RunPercentile.Value.get -> OpenMBEE.OpenSysML.Value!
 [OSML0001]OpenMBEE.OpenSysML.Runs
 [OSML0001]OpenMBEE.OpenSysML.Runs.<Clone>$() -> OpenMBEE.OpenSysML.Runs!
@@ -2058,7 +1991,6 @@
 [OSML0001]OpenMBEE.OpenSysML.Runs.Outputs.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.CalcOutput!>
 [OSML0001]OpenMBEE.OpenSysML.Runs.Resolve(OpenMBEE.OpenSysML.Value.InstanceRefValue! reference) -> OpenMBEE.OpenSysML.Instance?
 [OSML0001]OpenMBEE.OpenSysML.Runs.Rows.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.SweepRow!>
-[OSML0001]OpenMBEE.OpenSysML.Runs.Runs(System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.SweepRow!>! rows, System.Collections.Generic.IEnumerable<string!>! observables, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.RunDistribution!>! distributions, System.Collections.Generic.IEnumerable<string!>! lines, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.CalcOutput!>! outputs, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Verdict!>! verdicts, string! unconcluded, ulong? seed, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Instance!>! instances, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Diagnostic!>! diagnostics, OpenMBEE.OpenSysML.Standing! standing) -> void
 [OSML0001]OpenMBEE.OpenSysML.Runs.Seed.get -> ulong?
 [OSML0001]OpenMBEE.OpenSysML.Runs.Standing.get -> OpenMBEE.OpenSysML.Standing!
 [OSML0001]OpenMBEE.OpenSysML.Runs.Unconcluded.get -> string!
@@ -2076,7 +2008,6 @@
 [OSML0001]OpenMBEE.OpenSysML.SelfCheck.EvaluationErrors.get -> long
 [OSML0001]OpenMBEE.OpenSysML.SelfCheck.Findings.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.SelfCheckFinding!>
 [OSML0001]OpenMBEE.OpenSysML.SelfCheck.Holds.get -> bool
-[OSML0001]OpenMBEE.OpenSysML.SelfCheck.SelfCheck(string! status, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.SelfCheckFinding!>! findings, long elements, long checks, long violations, long unevaluated, long evaluationErrors, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.SelfCheckApplication!>! applications, string! summary, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Diagnostic!>! diagnostics) -> void
 [OSML0001]OpenMBEE.OpenSysML.SelfCheck.Status.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.SelfCheck.Summary.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.SelfCheck.Unevaluated.get -> long
@@ -2086,7 +2017,6 @@
 [OSML0001]OpenMBEE.OpenSysML.SelfCheckApplication.Constraint.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.SelfCheckApplication.Count.get -> long
 [OSML0001]OpenMBEE.OpenSysML.SelfCheckApplication.Equals(OpenMBEE.OpenSysML.SelfCheckApplication? other) -> bool
-[OSML0001]OpenMBEE.OpenSysML.SelfCheckApplication.SelfCheckApplication(string! constraint, long count) -> void
 [OSML0001]OpenMBEE.OpenSysML.SelfCheckFinding
 [OSML0001]OpenMBEE.OpenSysML.SelfCheckFinding.<Clone>$() -> OpenMBEE.OpenSysML.SelfCheckFinding!
 [OSML0001]OpenMBEE.OpenSysML.SelfCheckFinding.Constraint.get -> string!
@@ -2095,7 +2025,6 @@
 [OSML0001]OpenMBEE.OpenSysML.SelfCheckFinding.Line.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.SelfCheckFinding.Location.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.SelfCheckFinding.Message.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.SelfCheckFinding.SelfCheckFinding(string! status, string! subject, string! location, string! constraint, string! element, string! message, string! line) -> void
 [OSML0001]OpenMBEE.OpenSysML.SelfCheckFinding.Status.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.SelfCheckFinding.Subject.get -> string!
 [OSML0001]const OpenMBEE.OpenSysML.SelfCheck.FailsStatus = "fails" -> string!
@@ -2227,7 +2156,6 @@
 [OSML0001]OpenMBEE.OpenSysML.Migration.ExperimentalNotice.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.Migration.Files.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.MigrationFile!>
 [OSML0001]OpenMBEE.OpenSysML.Migration.FromFormat.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.Migration.Migration(string! content, string! fromFormat, string! toFormat, OpenMBEE.OpenSysML.MigrationReport! report, string! results, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.MigrationFile!>! files, bool experimental, string! experimentalNotice, string? sourcePath) -> void
 [OSML0001]OpenMBEE.OpenSysML.Migration.Report.get -> OpenMBEE.OpenSysML.MigrationReport!
 [OSML0001]OpenMBEE.OpenSysML.Migration.Results.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.Migration.SourcePath.get -> string?
@@ -2238,7 +2166,6 @@
 [OSML0001]OpenMBEE.OpenSysML.MigrationEntry.Equals(OpenMBEE.OpenSysML.MigrationEntry? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.MigrationEntry.Id.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.MigrationEntry.Kind.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.MigrationEntry.MigrationEntry(string! id, string! kind, string! name, string! target, string! verdict, string! note) -> void
 [OSML0001]OpenMBEE.OpenSysML.MigrationEntry.Name.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.MigrationEntry.Note.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.MigrationEntry.Target.get -> string!
@@ -2252,7 +2179,6 @@
 [OSML0001]OpenMBEE.OpenSysML.MigrationFile
 [OSML0001]OpenMBEE.OpenSysML.MigrationFile.Content.get -> System.ReadOnlyMemory<byte>
 [OSML0001]OpenMBEE.OpenSysML.MigrationFile.Equals(OpenMBEE.OpenSysML.MigrationFile? other) -> bool
-[OSML0001]OpenMBEE.OpenSysML.MigrationFile.MigrationFile(string! path, System.ReadOnlySpan<byte> content) -> void
 [OSML0001]OpenMBEE.OpenSysML.MigrationFile.Path.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.MigrationReport
 [OSML0001]OpenMBEE.OpenSysML.MigrationReport.<Clone>$() -> OpenMBEE.OpenSysML.MigrationReport!
@@ -2262,7 +2188,6 @@
 [OSML0001]OpenMBEE.OpenSysML.MigrationReport.Equals(OpenMBEE.OpenSysML.MigrationReport? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.MigrationReport.Exporter.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.MigrationReport.Mapped.get -> int
-[OSML0001]OpenMBEE.OpenSysML.MigrationReport.MigrationReport(string! source, string! exporter, string! summary, int mapped, int approximated, int unmapped, int skipped, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.MigrationEntry!>! entries, string! text) -> void
 [OSML0001]OpenMBEE.OpenSysML.MigrationReport.Skipped.get -> int
 [OSML0001]OpenMBEE.OpenSysML.MigrationReport.Source.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.MigrationReport.Summary.get -> string!
@@ -2344,13 +2269,11 @@
 [OSML0001]OpenMBEE.OpenSysML.DocumentQueryResult
 [OSML0001]OpenMBEE.OpenSysML.DocumentQueryResult.<Clone>$() -> OpenMBEE.OpenSysML.DocumentQueryResult!
 [OSML0001]OpenMBEE.OpenSysML.DocumentQueryResult.Columns.get -> OpenMBEE.OpenSysML.ValueList<string!>
-[OSML0001]OpenMBEE.OpenSysML.DocumentQueryResult.DocumentQueryResult(System.Collections.Generic.IEnumerable<string!>! columns, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.DocumentRow!>! rows) -> void
 [OSML0001]OpenMBEE.OpenSysML.DocumentQueryResult.Equals(OpenMBEE.OpenSysML.DocumentQueryResult? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.DocumentQueryResult.Rows.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.DocumentRow!>
 [OSML0001]OpenMBEE.OpenSysML.DocumentRow
 [OSML0001]OpenMBEE.OpenSysML.DocumentRow.<Clone>$() -> OpenMBEE.OpenSysML.DocumentRow!
 [OSML0001]OpenMBEE.OpenSysML.DocumentRow.Cells.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.DocumentValue!>>
-[OSML0001]OpenMBEE.OpenSysML.DocumentRow.DocumentRow(OpenMBEE.OpenSysML.DocumentValue! element, System.Collections.Generic.IEnumerable<System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.DocumentValue!>!>! cells) -> void
 [OSML0001]OpenMBEE.OpenSysML.DocumentRow.Element.get -> OpenMBEE.OpenSysML.DocumentValue!
 [OSML0001]OpenMBEE.OpenSysML.DocumentRow.Equals(OpenMBEE.OpenSysML.DocumentRow? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.Model.QueryAsync(OpenMBEE.OpenSysML.Query! query, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<OpenMBEE.OpenSysML.QueryResult!>!
@@ -2386,7 +2309,6 @@
 [OSML0001]OpenMBEE.OpenSysML.QueryElement.Equals(OpenMBEE.OpenSysML.QueryElement? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.QueryElement.Id.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.QueryElement.Properties.get -> OpenMBEE.OpenSysML.ValueDictionary<string!>
-[OSML0001]OpenMBEE.OpenSysML.QueryElement.QueryElement(string! id, string! type, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string!, string!>>! properties) -> void
 [OSML0001]OpenMBEE.OpenSysML.QueryElement.Type.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.QueryException
 [OSML0001]OpenMBEE.OpenSysML.QueryException.QueryException(OpenMBEE.OpenSysML.StatusCode statusCode, string! serviceMessage, string! method, System.Exception? innerException = null) -> void
@@ -2396,7 +2318,6 @@
 [OSML0001]OpenMBEE.OpenSysML.QueryResult.<Clone>$() -> OpenMBEE.OpenSysML.QueryResult!
 [OSML0001]OpenMBEE.OpenSysML.QueryResult.Elements.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.QueryElement!>
 [OSML0001]OpenMBEE.OpenSysML.QueryResult.Equals(OpenMBEE.OpenSysML.QueryResult? other) -> bool
-[OSML0001]OpenMBEE.OpenSysML.QueryResult.QueryResult(System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.QueryElement!>! elements) -> void
 [OSML0001]OpenMBEE.OpenSysML.RenderViewOptions
 [OSML0001]OpenMBEE.OpenSysML.RenderViewOptions.Depth.get -> int?
 [OSML0001]OpenMBEE.OpenSysML.RenderViewOptions.Depth.init -> void
@@ -2414,7 +2335,6 @@
 [OSML0001]OpenMBEE.OpenSysML.RenderedDocument.Equals(OpenMBEE.OpenSysML.RenderedDocument? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.RenderedDocument.FileName.get -> string?
 [OSML0001]OpenMBEE.OpenSysML.RenderedDocument.Form.get -> OpenMBEE.OpenSysML.DocumentForm
-[OSML0001]OpenMBEE.OpenSysML.RenderedDocument.RenderedDocument(OpenMBEE.OpenSysML.DocumentForm form, string! content, string? fileName) -> void
 [OSML0001]OpenMBEE.OpenSysML.RenderedView
 [OSML0001]OpenMBEE.OpenSysML.RenderedView.<Clone>$() -> OpenMBEE.OpenSysML.RenderedView!
 [OSML0001]OpenMBEE.OpenSysML.RenderedView.Canvas.get -> OpenMBEE.OpenSysML.ViewCanvas?
@@ -2427,7 +2347,6 @@
 [OSML0001]OpenMBEE.OpenSysML.RenderedView.Nodes.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.ViewNode!>
 [OSML0001]OpenMBEE.OpenSysML.RenderedView.Notes.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.ViewNote!>
 [OSML0001]OpenMBEE.OpenSysML.RenderedView.Notices.get -> OpenMBEE.OpenSysML.ValueList<string!>
-[OSML0001]OpenMBEE.OpenSysML.RenderedView.RenderedView(string! view, string! kind, string! stated, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.ViewNode!>! nodes, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.ViewEdge!>! edges, System.Collections.Generic.IEnumerable<string!>! columns, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.ViewRow!>! rows, OpenMBEE.OpenSysML.ViewCanvas? canvas, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.ViewNote!>! notes, System.Collections.Generic.IEnumerable<string!>! notices, System.Collections.Generic.IEnumerable<string!>! shown, OpenMBEE.OpenSysML.ViewFrame? frame) -> void
 [OSML0001]OpenMBEE.OpenSysML.RenderedView.Roots.get -> System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.ViewNode!>!
 [OSML0001]OpenMBEE.OpenSysML.RenderedView.Rows.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.ViewRow!>
 [OSML0001]OpenMBEE.OpenSysML.RenderedView.Shown.get -> OpenMBEE.OpenSysML.ValueList<string!>
@@ -2439,7 +2358,6 @@
 [OSML0001]OpenMBEE.OpenSysML.ViewCanvas.HasSize.get -> bool
 [OSML0001]OpenMBEE.OpenSysML.ViewCanvas.Height.get -> double
 [OSML0001]OpenMBEE.OpenSysML.ViewCanvas.Unit.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.ViewCanvas.ViewCanvas(string! unit, double width, double height, bool hasSize) -> void
 [OSML0001]OpenMBEE.OpenSysML.ViewCanvas.Width.get -> double
 [OSML0001]OpenMBEE.OpenSysML.ViewEdge
 [OSML0001]OpenMBEE.OpenSysML.ViewEdge.<Clone>$() -> OpenMBEE.OpenSysML.ViewEdge!
@@ -2454,26 +2372,16 @@
 [OSML0001]OpenMBEE.OpenSysML.ViewEdge.Style.get -> OpenMBEE.OpenSysML.ViewStyle?
 [OSML0001]OpenMBEE.OpenSysML.ViewEdge.To.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.ViewEdge.ToPort.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.ViewEdge.ViewEdge(string! from, string! to, string! fromPort, string! toPort, string! label, string! name, string! kind, OpenMBEE.OpenSysML.SourceSpan? origin, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.ViewPoint!>! route, OpenMBEE.OpenSysML.ViewStyle? style) -> void
 [OSML0001]OpenMBEE.OpenSysML.ViewGeometry
 [OSML0001]OpenMBEE.OpenSysML.ViewGeometry.<Clone>$() -> OpenMBEE.OpenSysML.ViewGeometry!
 [OSML0001]OpenMBEE.OpenSysML.ViewGeometry.Collapsed.get -> bool
-[OSML0001]OpenMBEE.OpenSysML.ViewGeometry.Collapsed.init -> void
-[OSML0001]OpenMBEE.OpenSysML.ViewGeometry.Deconstruct(out double X, out double Y, out double Width, out double Height, out bool HasSize, out bool Collapsed, out bool Unplaced) -> void
 [OSML0001]OpenMBEE.OpenSysML.ViewGeometry.Equals(OpenMBEE.OpenSysML.ViewGeometry? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.ViewGeometry.HasSize.get -> bool
-[OSML0001]OpenMBEE.OpenSysML.ViewGeometry.HasSize.init -> void
 [OSML0001]OpenMBEE.OpenSysML.ViewGeometry.Height.get -> double
-[OSML0001]OpenMBEE.OpenSysML.ViewGeometry.Height.init -> void
 [OSML0001]OpenMBEE.OpenSysML.ViewGeometry.Unplaced.get -> bool
-[OSML0001]OpenMBEE.OpenSysML.ViewGeometry.Unplaced.init -> void
-[OSML0001]OpenMBEE.OpenSysML.ViewGeometry.ViewGeometry(double X, double Y, double Width, double Height, bool HasSize, bool Collapsed, bool Unplaced) -> void
 [OSML0001]OpenMBEE.OpenSysML.ViewGeometry.Width.get -> double
-[OSML0001]OpenMBEE.OpenSysML.ViewGeometry.Width.init -> void
 [OSML0001]OpenMBEE.OpenSysML.ViewGeometry.X.get -> double
-[OSML0001]OpenMBEE.OpenSysML.ViewGeometry.X.init -> void
 [OSML0001]OpenMBEE.OpenSysML.ViewGeometry.Y.get -> double
-[OSML0001]OpenMBEE.OpenSysML.ViewGeometry.Y.init -> void
 [OSML0001]OpenMBEE.OpenSysML.ViewNode
 [OSML0001]OpenMBEE.OpenSysML.ViewNode.<Clone>$() -> OpenMBEE.OpenSysML.ViewNode!
 [OSML0001]OpenMBEE.OpenSysML.ViewNode.Detail.get -> string!
@@ -2501,19 +2409,14 @@
 [OSML0001]OpenMBEE.OpenSysML.ViewNote.Height.get -> double
 [OSML0001]OpenMBEE.OpenSysML.ViewNote.Origin.get -> OpenMBEE.OpenSysML.SourceSpan?
 [OSML0001]OpenMBEE.OpenSysML.ViewNote.Text.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.ViewNote.ViewNote(string! text, string! anchor, string! edgeFrom, string! edgeTo, double x, double y, double width, double height, bool hasSize, OpenMBEE.OpenSysML.SourceSpan? origin) -> void
 [OSML0001]OpenMBEE.OpenSysML.ViewNote.Width.get -> double
 [OSML0001]OpenMBEE.OpenSysML.ViewNote.X.get -> double
 [OSML0001]OpenMBEE.OpenSysML.ViewNote.Y.get -> double
 [OSML0001]OpenMBEE.OpenSysML.ViewPoint
 [OSML0001]OpenMBEE.OpenSysML.ViewPoint.<Clone>$() -> OpenMBEE.OpenSysML.ViewPoint!
-[OSML0001]OpenMBEE.OpenSysML.ViewPoint.Deconstruct(out double X, out double Y) -> void
 [OSML0001]OpenMBEE.OpenSysML.ViewPoint.Equals(OpenMBEE.OpenSysML.ViewPoint? other) -> bool
-[OSML0001]OpenMBEE.OpenSysML.ViewPoint.ViewPoint(double X, double Y) -> void
 [OSML0001]OpenMBEE.OpenSysML.ViewPoint.X.get -> double
-[OSML0001]OpenMBEE.OpenSysML.ViewPoint.X.init -> void
 [OSML0001]OpenMBEE.OpenSysML.ViewPoint.Y.get -> double
-[OSML0001]OpenMBEE.OpenSysML.ViewPoint.Y.init -> void
 [OSML0001]OpenMBEE.OpenSysML.ViewPort
 [OSML0001]OpenMBEE.OpenSysML.ViewPort.<Clone>$() -> OpenMBEE.OpenSysML.ViewPort!
 [OSML0001]OpenMBEE.OpenSysML.ViewPort.Direction.get -> string!
@@ -2526,7 +2429,6 @@
 [OSML0001]OpenMBEE.OpenSysML.ViewRow.Cells.get -> OpenMBEE.OpenSysML.ValueList<string!>
 [OSML0001]OpenMBEE.OpenSysML.ViewRow.Equals(OpenMBEE.OpenSysML.ViewRow? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.ViewRow.Origin.get -> OpenMBEE.OpenSysML.SourceSpan?
-[OSML0001]OpenMBEE.OpenSysML.ViewRow.ViewRow(System.Collections.Generic.IEnumerable<string!>! cells, OpenMBEE.OpenSysML.SourceSpan? origin) -> void
 [OSML0001]OpenMBEE.OpenSysML.ViewStyle
 [OSML0001]OpenMBEE.OpenSysML.ViewStyle.<Clone>$() -> OpenMBEE.OpenSysML.ViewStyle!
 [OSML0001]OpenMBEE.OpenSysML.ViewStyle.Bold.get -> bool
@@ -2537,7 +2439,6 @@
 [OSML0001]OpenMBEE.OpenSysML.ViewStyle.Italic.get -> bool
 [OSML0001]OpenMBEE.OpenSysML.ViewStyle.Line.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.ViewStyle.Text.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.ViewStyle.ViewStyle(string! fill, string! line, string! text, string! font, double fontSize, bool bold, bool italic) -> void
 [OSML0001]abstract OpenMBEE.OpenSysML.QueryConstraint.Equals(OpenMBEE.OpenSysML.QueryConstraint? other) -> bool
 [OSML0001]const OpenMBEE.OpenSysML.ViewNotation.All = "all" -> string!
 [OSML0001]const OpenMBEE.OpenSysML.ViewNotation.Compartments = "compartments" -> string!
@@ -2659,7 +2560,6 @@
 [OSML0001]static OpenMBEE.OpenSysML.ViewStyle.operator ==(OpenMBEE.OpenSysML.ViewStyle? left, OpenMBEE.OpenSysML.ViewStyle? right) -> bool
 [OSML0001]OpenMBEE.OpenSysML.AppliedEdit
 [OSML0001]OpenMBEE.OpenSysML.AppliedEdit.<Clone>$() -> OpenMBEE.OpenSysML.AppliedEdit!
-[OSML0001]OpenMBEE.OpenSysML.AppliedEdit.AppliedEdit(int operationIndex, string! target, int offset, int length, string! oldText, string! newText, string? document) -> void
 [OSML0001]OpenMBEE.OpenSysML.AppliedEdit.Document.get -> string?
 [OSML0001]OpenMBEE.OpenSysML.AppliedEdit.Equals(OpenMBEE.OpenSysML.AppliedEdit? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.AppliedEdit.Length.get -> int
@@ -2937,7 +2837,6 @@
 [OSML0001]OpenMBEE.OpenSysML.EditResult.Content.get -> string?
 [OSML0001]OpenMBEE.OpenSysML.EditResult.Diagnostics.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.Diagnostic!>
 [OSML0001]OpenMBEE.OpenSysML.EditResult.Documents.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.EditedDocument!>
-[OSML0001]OpenMBEE.OpenSysML.EditResult.EditResult(string? content, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.AppliedEdit!>! applied, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.EditedDocument!>! documents, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Diagnostic!>! diagnostics) -> void
 [OSML0001]OpenMBEE.OpenSysML.EditResult.Equals(OpenMBEE.OpenSysML.EditResult? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.EditResult.HasSeveralDocuments.get -> bool
 [OSML0001]OpenMBEE.OpenSysML.EditResult.SaveAsync(string! path, OpenMBEE.OpenSysML.SaveOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string!>!
@@ -3010,7 +2909,6 @@
 [OSML0001]OpenMBEE.OpenSysML.Referrer.Document.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.Referrer.Equals(OpenMBEE.OpenSysML.Referrer? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.Referrer.Name.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.Referrer.Referrer(string! name, string! document) -> void
 [OSML0001]abstract OpenMBEE.OpenSysML.Edit.<Clone>$() -> OpenMBEE.OpenSysML.Edit!
 [OSML0001]const OpenMBEE.OpenSysML.Edit.AddSequence.MaxDepth = 128 -> int
 [OSML0001]override OpenMBEE.OpenSysML.AppliedEdit.Equals(object? obj) -> bool
@@ -3178,7 +3076,6 @@
 [OSML0001]virtual OpenMBEE.OpenSysML.Edit.PrintMembers(System.Text.StringBuilder! builder) -> bool
 [OSML0001]OpenMBEE.OpenSysML.CaseStatistic
 [OSML0001]OpenMBEE.OpenSysML.CaseStatistic.<Clone>$() -> OpenMBEE.OpenSysML.CaseStatistic!
-[OSML0001]OpenMBEE.OpenSysML.CaseStatistic.CaseStatistic(string! statistic, string! of, string! tool, string! run, string! difference) -> void
 [OSML0001]OpenMBEE.OpenSysML.CaseStatistic.Difference.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.CaseStatistic.Equals(OpenMBEE.OpenSysML.CaseStatistic? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.CaseStatistic.Of.get -> string!
@@ -3188,7 +3085,6 @@
 [OSML0001]OpenMBEE.OpenSysML.CaseStatistics
 [OSML0001]OpenMBEE.OpenSysML.CaseStatistics.<Clone>$() -> OpenMBEE.OpenSysML.CaseStatistics!
 [OSML0001]OpenMBEE.OpenSysML.CaseStatistics.Analysis.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.CaseStatistics.CaseStatistics(string! analysis, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.CaseStatistic!>! rows, System.Collections.Generic.IEnumerable<string!>! notes) -> void
 [OSML0001]OpenMBEE.OpenSysML.CaseStatistics.Equals(OpenMBEE.OpenSysML.CaseStatistics? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.CaseStatistics.Notes.get -> OpenMBEE.OpenSysML.ValueList<string!>
 [OSML0001]OpenMBEE.OpenSysML.CaseStatistics.Rows.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.CaseStatistic!>
@@ -3213,26 +3109,16 @@
 [OSML0001]OpenMBEE.OpenSysML.CompareOptions.Seed.init -> void
 [OSML0001]OpenMBEE.OpenSysML.ComparedDistribution
 [OSML0001]OpenMBEE.OpenSysML.ComparedDistribution.<Clone>$() -> OpenMBEE.OpenSysML.ComparedDistribution!
-[OSML0001]OpenMBEE.OpenSysML.ComparedDistribution.ComparedDistribution(long Count, double Min, double Mean, double P50, double P90, double Max, double Deviation) -> void
 [OSML0001]OpenMBEE.OpenSysML.ComparedDistribution.Count.get -> long
-[OSML0001]OpenMBEE.OpenSysML.ComparedDistribution.Count.init -> void
-[OSML0001]OpenMBEE.OpenSysML.ComparedDistribution.Deconstruct(out long Count, out double Min, out double Mean, out double P50, out double P90, out double Max, out double Deviation) -> void
 [OSML0001]OpenMBEE.OpenSysML.ComparedDistribution.Deviation.get -> double
-[OSML0001]OpenMBEE.OpenSysML.ComparedDistribution.Deviation.init -> void
 [OSML0001]OpenMBEE.OpenSysML.ComparedDistribution.Equals(OpenMBEE.OpenSysML.ComparedDistribution? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.ComparedDistribution.Max.get -> double
-[OSML0001]OpenMBEE.OpenSysML.ComparedDistribution.Max.init -> void
 [OSML0001]OpenMBEE.OpenSysML.ComparedDistribution.Mean.get -> double
-[OSML0001]OpenMBEE.OpenSysML.ComparedDistribution.Mean.init -> void
 [OSML0001]OpenMBEE.OpenSysML.ComparedDistribution.Min.get -> double
-[OSML0001]OpenMBEE.OpenSysML.ComparedDistribution.Min.init -> void
 [OSML0001]OpenMBEE.OpenSysML.ComparedDistribution.P50.get -> double
-[OSML0001]OpenMBEE.OpenSysML.ComparedDistribution.P50.init -> void
 [OSML0001]OpenMBEE.OpenSysML.ComparedDistribution.P90.get -> double
-[OSML0001]OpenMBEE.OpenSysML.ComparedDistribution.P90.init -> void
 [OSML0001]OpenMBEE.OpenSysML.Comparison
 [OSML0001]OpenMBEE.OpenSysML.Comparison.<Clone>$() -> OpenMBEE.OpenSysML.Comparison!
-[OSML0001]OpenMBEE.OpenSysML.Comparison.Comparison(string! source, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.ConfigurationComparison!>! configurations, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Diagnostic!>! diagnostics, OpenMBEE.OpenSysML.Standing! standing) -> void
 [OSML0001]OpenMBEE.OpenSysML.Comparison.Configurations.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.ConfigurationComparison!>
 [OSML0001]OpenMBEE.OpenSysML.Comparison.Diagnostics.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.Diagnostic!>
 [OSML0001]OpenMBEE.OpenSysML.Comparison.Equals(OpenMBEE.OpenSysML.Comparison? other) -> bool
@@ -3244,7 +3130,6 @@
 [OSML0001]OpenMBEE.OpenSysML.ConfigurationComparison.Behavior.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.ConfigurationComparison.ClockStep.get -> double
 [OSML0001]OpenMBEE.OpenSysML.ConfigurationComparison.Completed.get -> long
-[OSML0001]OpenMBEE.OpenSysML.ConfigurationComparison.ConfigurationComparison(string! id, string! name, string! behavior, string! target, string! resultLocation, string! status, string! unresolved, long storedRuns, long storedSnapshots, long runs, long completed, string! draws, ulong? seed, double clockStep, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.SweepRow!>! rows, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Instance!>! instances, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.ObservableComparison!>! observables, System.Collections.Generic.IEnumerable<string!>! errors, System.Collections.Generic.IEnumerable<string!>! notes, System.Collections.Generic.IEnumerable<string!>! lines) -> void
 [OSML0001]OpenMBEE.OpenSysML.ConfigurationComparison.Draws.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.ConfigurationComparison.Equals(OpenMBEE.OpenSysML.ConfigurationComparison? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.ConfigurationComparison.Errors.get -> OpenMBEE.OpenSysML.ValueList<string!>
@@ -3282,7 +3167,6 @@
 [OSML0001]OpenMBEE.OpenSysML.Graphs.<Clone>$() -> OpenMBEE.OpenSysML.Graphs!
 [OSML0001]OpenMBEE.OpenSysML.Graphs.Content.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.Graphs.Equals(OpenMBEE.OpenSysML.Graphs? other) -> bool
-[OSML0001]OpenMBEE.OpenSysML.Graphs.Graphs(string! content, int version, string! subject) -> void
 [OSML0001]OpenMBEE.OpenSysML.Graphs.Subject.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.Graphs.Version.get -> int
 [OSML0001]OpenMBEE.OpenSysML.ImportOptions
@@ -3300,7 +3184,6 @@
 [OSML0001]OpenMBEE.OpenSysML.ImportResult.Documents.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.EditedDocument!>
 [OSML0001]OpenMBEE.OpenSysML.ImportResult.Equals(OpenMBEE.OpenSysML.ImportResult? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.ImportResult.Files.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.ImportedFile!>
-[OSML0001]OpenMBEE.OpenSysML.ImportResult.ImportResult(System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.ImportedFile!>! files, string? content, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.EditedDocument!>! documents, OpenMBEE.OpenSysML.Model? model, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Diagnostic!>! diagnostics) -> void
 [OSML0001]OpenMBEE.OpenSysML.ImportResult.IsDryRun.get -> bool
 [OSML0001]OpenMBEE.OpenSysML.ImportResult.Model.get -> OpenMBEE.OpenSysML.Model?
 [OSML0001]OpenMBEE.OpenSysML.ImportResult.SaveAsync(string! path, OpenMBEE.OpenSysML.SaveOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<string!>!
@@ -3310,7 +3193,6 @@
 [OSML0001]OpenMBEE.OpenSysML.ImportedFile.Assignments.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.ImportedValue!>
 [OSML0001]OpenMBEE.OpenSysML.ImportedFile.Elements.get -> long
 [OSML0001]OpenMBEE.OpenSysML.ImportedFile.Equals(OpenMBEE.OpenSysML.ImportedFile? other) -> bool
-[OSML0001]OpenMBEE.OpenSysML.ImportedFile.ImportedFile(string! name, long values, long elements, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.ImportedValue!>! assignments) -> void
 [OSML0001]OpenMBEE.OpenSysML.ImportedFile.Name.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.ImportedFile.Values.get -> long
 [OSML0001]OpenMBEE.OpenSysML.ImportedValue
@@ -3319,7 +3201,6 @@
 [OSML0001]OpenMBEE.OpenSysML.ImportedValue.Element.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.ImportedValue.Equals(OpenMBEE.OpenSysML.ImportedValue? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.ImportedValue.Feature.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.ImportedValue.ImportedValue(string! element, string! feature, string! value, string! redefines, string! where, string! description) -> void
 [OSML0001]OpenMBEE.OpenSysML.ImportedValue.Redefines.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.ImportedValue.Value.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.ImportedValue.Where.get -> string!
@@ -3334,7 +3215,6 @@
 [OSML0001]OpenMBEE.OpenSysML.ObservableComparison.Equals(OpenMBEE.OpenSysML.ObservableComparison? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.ObservableComparison.Feature.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.ObservableComparison.Notes.get -> OpenMBEE.OpenSysML.ValueList<string!>
-[OSML0001]OpenMBEE.OpenSysML.ObservableComparison.ObservableComparison(string! stored, string! feature, string! unit, OpenMBEE.OpenSysML.ComparedDistribution? tool, bool pooled, bool unstored, OpenMBEE.OpenSysML.ComparedDistribution? run, long produced, bool compared, OpenMBEE.OpenSysML.StatisticDifference? difference, OpenMBEE.OpenSysML.CaseStatistics? declared, System.Collections.Generic.IEnumerable<string!>! notes) -> void
 [OSML0001]OpenMBEE.OpenSysML.ObservableComparison.Pooled.get -> bool
 [OSML0001]OpenMBEE.OpenSysML.ObservableComparison.Produced.get -> long
 [OSML0001]OpenMBEE.OpenSysML.ObservableComparison.Run.get -> OpenMBEE.OpenSysML.ComparedDistribution?
@@ -3358,7 +3238,6 @@
 [OSML0001]OpenMBEE.OpenSysML.StatisticDifference.Min.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.StatisticDifference.P50.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.StatisticDifference.P90.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.StatisticDifference.StatisticDifference(string! min, string! mean, string! p50, string! p90, string! max) -> void
 [OSML0001]override OpenMBEE.OpenSysML.CaseStatistic.Equals(object? obj) -> bool
 [OSML0001]override OpenMBEE.OpenSysML.CaseStatistic.GetHashCode() -> int
 [OSML0001]override OpenMBEE.OpenSysML.CaseStatistic.ToString() -> string!
@@ -3436,7 +3315,6 @@
 [OSML0001]OpenMBEE.OpenSysML.ViewFrame.Filters.get -> OpenMBEE.OpenSysML.ValueList<string!>
 [OSML0001]OpenMBEE.OpenSysML.ViewFrame.Name.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.ViewFrame.Type.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.ViewFrame.ViewFrame(string! name, string! type, System.Collections.Generic.IEnumerable<string!>! exposes, System.Collections.Generic.IEnumerable<string!>! filters, System.Collections.Generic.IEnumerable<string!>! annotations) -> void
 [OSML0001]override OpenMBEE.OpenSysML.ViewFrame.Equals(object? obj) -> bool
 [OSML0001]override OpenMBEE.OpenSysML.ViewFrame.GetHashCode() -> int
 [OSML0001]override OpenMBEE.OpenSysML.ViewFrame.ToString() -> string!

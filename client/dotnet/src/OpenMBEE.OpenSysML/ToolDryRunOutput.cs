@@ -9,7 +9,7 @@ public sealed record ToolDryRunOutput
     /// <param name="variable">The tool variable it is read from.</param>
     /// <param name="parameter">The parameter it binds.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    public ToolDryRunOutput(string variable, string parameter)
+    internal ToolDryRunOutput(string variable, string parameter)
     {
         ArgumentNullException.ThrowIfNull(variable);
         ArgumentNullException.ThrowIfNull(parameter);

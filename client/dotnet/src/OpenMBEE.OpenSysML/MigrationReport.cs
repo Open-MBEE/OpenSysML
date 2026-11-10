@@ -24,7 +24,7 @@ public sealed record MigrationReport
     /// <param name="text">The report as <c>-migration-report</c> writes it, when asked for.</param>
     /// <exception cref="ArgumentNullException">A string or <paramref name="entries"/> is null.</exception>
     /// <exception cref="ArgumentException">An entry is null.</exception>
-    public MigrationReport(
+    internal MigrationReport(
         string source,
         string exporter,
         string summary,

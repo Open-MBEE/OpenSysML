@@ -15,7 +15,7 @@ public sealed record CaseStatistic
     /// <param name="run">The runs' value.</param>
     /// <param name="difference">Their relative difference; empty where it is not compared.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    public CaseStatistic(string statistic, string of, string tool, string run, string difference)
+    internal CaseStatistic(string statistic, string of, string tool, string run, string difference)
     {
         ArgumentNullException.ThrowIfNull(statistic);
         ArgumentNullException.ThrowIfNull(of);

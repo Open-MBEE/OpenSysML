@@ -14,7 +14,7 @@ public sealed record InstancePaths
     /// <param name="isTruncated">Whether the service bounded its search short of every path.</param>
     /// <exception cref="ArgumentNullException"><paramref name="paths"/> is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="paths"/> holds a null.</exception>
-    public InstancePaths(IEnumerable<InstancePath> paths, bool isTruncated)
+    internal InstancePaths(IEnumerable<InstancePath> paths, bool isTruncated)
     {
         Paths = new ValueList<InstancePath>(paths);
         IsTruncated = isTruncated;

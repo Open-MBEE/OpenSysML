@@ -569,12 +569,12 @@ public sealed class ModelQueryDocsTests
         Assert.Null(view.Node("n9"));
         Assert.Equal(("n1", "part def", "Plant::Loop", false, "already shown", string.Empty), (loop.Id, loop.Kind, loop.Name, loop.NameSynthesized, loop.Detail, loop.Parent));
         Assert.Equal(new SourceSpan("views.sysml", 10, 3, 11, 9), loop.Origin);
-        Assert.Equal(new ViewGeometry(300, 40, 120, 60.5, HasSize: true, Collapsed: true, Unplaced: false), loop.Geometry);
+        Assert.Equal(new ViewGeometry(300, 40, 120, 60.5, hasSize: true, collapsed: true, unplaced: false), loop.Geometry);
         Assert.Equal(new ViewStyle("#FFE8BD", "#333333", "#000000", "Arial", 11, bold: true, italic: true), loop.Style);
         Assert.Equal((true, "Pump", "pump : Pump", true, "n1"), (pump.NameSynthesized, pump.Type, pump.Text, pump.StandIn, pump.Parent));
         Assert.Equal([new ViewPort("n2.0", "outlet", "FluidPort", "out", inherited: false), new ViewPort("n2.1", "vent", string.Empty, string.Empty, inherited: true)], pump.Ports);
         Assert.Equal(new SourceSpan("lib.sysml", 0, 0, 0, 0), pump.Origin);
-        Assert.Equal(new ViewGeometry(0, 0, 0, 0, HasSize: false, Collapsed: true, Unplaced: true), pump.Geometry);
+        Assert.Equal(new ViewGeometry(0, 0, 0, 0, hasSize: false, collapsed: true, unplaced: true), pump.Geometry);
         Assert.Null(pump.Style);
         Assert.Equal((null, null, null), (tank.Origin, tank.Geometry, tank.Style));
         var supply = view.Edges[0];

@@ -10,7 +10,7 @@ public sealed record ToolDryRunFile
     /// <param name="format">Its format: <c>json</c> or <c>csv</c>.</param>
     /// <param name="data">What it would hold.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    public ToolDryRunFile(string name, string format, string data)
+    internal ToolDryRunFile(string name, string format, string data)
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(format);

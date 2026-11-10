@@ -13,7 +13,7 @@ public sealed record MigrationEntry
     /// <param name="verdict"><c>mapped</c>, <c>approximated</c>, <c>unmapped</c> or <c>skipped</c>.</param>
     /// <param name="note">Why it was approximated, left unmapped or skipped.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    public MigrationEntry(string id, string kind, string name, string target, string verdict, string note)
+    internal MigrationEntry(string id, string kind, string name, string target, string verdict, string note)
     {
         ArgumentNullException.ThrowIfNull(id);
         ArgumentNullException.ThrowIfNull(kind);

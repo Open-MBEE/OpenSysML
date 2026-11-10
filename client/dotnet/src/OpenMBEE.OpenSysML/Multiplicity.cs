@@ -9,7 +9,7 @@ public sealed record Multiplicity
     /// <param name="lower">The lower bound (<c>0</c>, <c>1</c>, … or <c>*</c>); empty when not static.</param>
     /// <param name="upper">The upper bound (<c>1</c>, <c>*</c>, …); empty when not static.</param>
     /// <exception cref="ArgumentNullException">A bound is null.</exception>
-    public Multiplicity(string lower, string upper)
+    internal Multiplicity(string lower, string upper)
     {
         ArgumentNullException.ThrowIfNull(lower);
         ArgumentNullException.ThrowIfNull(upper);

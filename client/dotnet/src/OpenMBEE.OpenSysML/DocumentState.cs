@@ -19,7 +19,7 @@ public sealed record DocumentState
     /// <param name="enclosing">The composite states enclosing the leaf, outermost first.</param>
     /// <exception cref="ArgumentNullException">A string or the list is null.</exception>
     /// <exception cref="ArgumentException">An enclosing state is null.</exception>
-    public DocumentState(
+    internal DocumentState(
         DocumentObject? subject,
         string machine,
         string name,

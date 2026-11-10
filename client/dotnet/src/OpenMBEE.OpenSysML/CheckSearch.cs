@@ -19,7 +19,7 @@ public sealed record CheckSearch
     /// <param name="status">How the search ended, as <c>sysml</c> reports it.</param>
     /// <exception cref="ArgumentNullException">A list or <paramref name="status"/> is null.</exception>
     /// <exception cref="ArgumentException">A list holds a null.</exception>
-    public CheckSearch(
+    internal CheckSearch(
         int states,
         int moves,
         int maxDepth,

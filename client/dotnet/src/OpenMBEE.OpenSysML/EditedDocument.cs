@@ -12,7 +12,7 @@ public sealed record EditedDocument
     /// <param name="name">The document's name as the parse named it, or the name the service gave a document it made.</param>
     /// <param name="content">The document's notation, byte-identical to the source outside what the operation changed.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    public EditedDocument(string name, string content)
+    internal EditedDocument(string name, string content)
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(content);

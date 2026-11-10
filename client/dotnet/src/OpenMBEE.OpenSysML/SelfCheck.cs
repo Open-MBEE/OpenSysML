@@ -32,7 +32,7 @@ public sealed record SelfCheck
     /// <param name="diagnostics">What the service reported.</param>
     /// <exception cref="ArgumentNullException"><paramref name="status"/>, <paramref name="summary"/> or a collection is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null.</exception>
-    public SelfCheck(
+    internal SelfCheck(
         string status,
         IEnumerable<SelfCheckFinding> findings,
         long elements,

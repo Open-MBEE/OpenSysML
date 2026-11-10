@@ -20,7 +20,7 @@ public sealed record DocumentVerdict
     /// <param name="verification">The verdict kinds of the verification cases verifying the requirement the row is about.</param>
     /// <exception cref="ArgumentNullException">A string or the list is null.</exception>
     /// <exception cref="ArgumentException">A verification kind is null.</exception>
-    public DocumentVerdict(
+    internal DocumentVerdict(
         DocumentValue.ElementValue? assertion,
         string kind,
         string text,

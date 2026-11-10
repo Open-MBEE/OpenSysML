@@ -23,7 +23,7 @@ public sealed record Conversion
     /// <param name="libraryReferences">The standard-library elements an <c>api-json</c> conversion refers to.</param>
     /// <exception cref="ArgumentNullException">A string, <paramref name="diagnostics"/> or <paramref name="libraryReferences"/> is null.</exception>
     /// <exception cref="ArgumentException">A diagnostic or a library reference is null.</exception>
-    public Conversion(
+    internal Conversion(
         string content,
         string fromFormat,
         string toFormat,

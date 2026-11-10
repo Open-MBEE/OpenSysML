@@ -13,7 +13,7 @@ public sealed record ImportedFile
     /// <param name="assignments">Each assignment, in data order.</param>
     /// <exception cref="ArgumentNullException"><paramref name="name"/> or <paramref name="assignments"/> is null.</exception>
     /// <exception cref="ArgumentException">An assignment is null.</exception>
-    public ImportedFile(string name, long values, long elements, IEnumerable<ImportedValue> assignments)
+    internal ImportedFile(string name, long values, long elements, IEnumerable<ImportedValue> assignments)
     {
         ArgumentNullException.ThrowIfNull(name);
         Name = name;

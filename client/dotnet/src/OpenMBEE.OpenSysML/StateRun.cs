@@ -16,7 +16,7 @@ public sealed record StateRun
     /// <param name="orderDependent">For each context entry an unresolved choice point touched, how many did.</param>
     /// <exception cref="ArgumentNullException">A collection is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null or repeats a name.</exception>
-    public StateRun(
+    internal StateRun(
         IEnumerable<string> statesVisited,
         IEnumerable<KeyValuePair<string, Value>> finalContext,
         IEnumerable<Diagnostic> diagnostics,

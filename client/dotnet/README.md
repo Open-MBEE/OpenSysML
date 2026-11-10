@@ -68,6 +68,11 @@ API. Both assemblies, this one and the [metamodel](#metamodel-types), are marked
 `[Experimental("OSML0001")]`, so without the `NoWarn` every use of them is error OSML0001.
 Every project in this directory opts in through [`Directory.Build.props`](Directory.Build.props).
 
+What the service answers with, a `Symbol`, a `Verdict` or a `RenderedView`, has no public
+constructor, so a release can add to it without breaking a caller. What a caller passes has public
+ones: options, `Edit`s, `Value`s, `DocumentBinding`s, query constraints, and the `Instance`s the
+[typed classes](#typed-model-classes) read, which a test of code over them builds without a service.
+
 [`samples/Vehicle`](samples/Vehicle/) is such a consumer, and the program the
 [.NET client guide](../../docs/clients/dotnet.md) walks through: a test holds the guide's code to
 the sample's walkthrough region and requires its complete run command, including the service-binary

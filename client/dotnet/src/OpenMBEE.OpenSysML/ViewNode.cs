@@ -26,7 +26,7 @@ public sealed record ViewNode
     /// <param name="parallel">Whether the state's substates run in parallel.</param>
     /// <exception cref="ArgumentNullException">An argument other than the origin, geometry or style is null.</exception>
     /// <exception cref="ArgumentException">A port is null.</exception>
-    public ViewNode(
+    internal ViewNode(
         string id,
         string kind,
         string name,

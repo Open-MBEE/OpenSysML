@@ -9,7 +9,7 @@ public sealed record CheckDivergentValue
     /// <param name="value">The final value, as the report prints it.</param>
     /// <param name="witness">A schedule reaching it; null when the service reported none.</param>
     /// <exception cref="ArgumentNullException"><paramref name="value"/> is null.</exception>
-    public CheckDivergentValue(string value, CheckWitness? witness)
+    internal CheckDivergentValue(string value, CheckWitness? witness)
     {
         ArgumentNullException.ThrowIfNull(value);
         Value = value;

@@ -14,7 +14,7 @@ public sealed record WitnessAssignment
     /// <param name="unit">The base units a magnitude is expressed in; empty when dimensionless.</param>
     /// <param name="exact">The solver's exact value as text: a rational for a real, a literal's name for an enumeration.</param>
     /// <exception cref="ArgumentNullException"><paramref name="feature"/>, <paramref name="unit"/> or <paramref name="exact"/> is null.</exception>
-    public WitnessAssignment(string feature, Value? value, string unit, string exact)
+    internal WitnessAssignment(string feature, Value? value, string unit, string exact)
     {
         ArgumentNullException.ThrowIfNull(feature);
         ArgumentNullException.ThrowIfNull(unit);

@@ -4,6 +4,17 @@ namespace OpenMBEE.OpenSysML;
 /// The least and the greatest model-draw probability of an <see cref="Outcome"/> over the schedulers
 /// resolving its scheduling choices: bounds over schedulers, not shares of the schedules enumerated.
 /// </summary>
-/// <param name="Min">The least probability.</param>
-/// <param name="Max">The greatest probability.</param>
-public sealed record ProbabilityRange(double Min, double Max);
+public sealed record ProbabilityRange
+{
+    internal ProbabilityRange(double min, double max)
+    {
+        Min = min;
+        Max = max;
+    }
+
+    /// <summary>The least probability.</summary>
+    public double Min { get; }
+
+    /// <summary>The greatest probability.</summary>
+    public double Max { get; }
+}

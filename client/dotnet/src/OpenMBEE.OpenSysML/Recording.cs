@@ -26,7 +26,7 @@ public sealed record Recording
     /// <param name="model">The model with the records in it.</param>
     /// <exception cref="ArgumentNullException">A string, a collection or <paramref name="model"/> is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null, or not exactly one of <paramref name="run"/>, <paramref name="sweep"/> and <paramref name="sample"/> is given.</exception>
-    public Recording(
+    internal Recording(
         Analysis? run,
         Sweep? sweep,
         Runs? sample,

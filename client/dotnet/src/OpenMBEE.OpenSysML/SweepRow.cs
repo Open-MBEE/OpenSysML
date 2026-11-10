@@ -21,7 +21,7 @@ public sealed record SweepRow
     /// <param name="failureReason">What kind of failure <paramref name="error"/> reports.</param>
     /// <exception cref="ArgumentNullException">A collection or <paramref name="error"/> is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null.</exception>
-    public SweepRow(
+    internal SweepRow(
         IEnumerable<CalcOutput> inputs,
         IEnumerable<CalcOutput> outputs,
         IEnumerable<Verdict> verdicts,

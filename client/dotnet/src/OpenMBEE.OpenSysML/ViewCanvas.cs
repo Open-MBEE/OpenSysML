@@ -11,7 +11,7 @@ public sealed record ViewCanvas
     /// <param name="height">The surface's height, when <paramref name="hasSize"/>.</param>
     /// <param name="hasSize">Whether the view states the surface's size.</param>
     /// <exception cref="ArgumentNullException"><paramref name="unit"/> is null.</exception>
-    public ViewCanvas(string unit, double width, double height, bool hasSize)
+    internal ViewCanvas(string unit, double width, double height, bool hasSize)
     {
         ArgumentNullException.ThrowIfNull(unit);
         Unit = unit;

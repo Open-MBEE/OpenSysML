@@ -16,7 +16,7 @@ public sealed record ActionRun
     /// <param name="traceDropped">How many of the oldest trace records the service discarded.</param>
     /// <exception cref="ArgumentNullException">A collection is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null or repeats a name.</exception>
-    public ActionRun(
+    internal ActionRun(
         IEnumerable<KeyValuePair<string, Value>> outputs,
         IEnumerable<Diagnostic> diagnostics,
         double finalTime,

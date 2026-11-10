@@ -374,7 +374,7 @@ internal static class Planner
             return new Shape(kind, definition, CardinalityOf(multiplicity), note);
         }
 
-        private (ElementKind Kind, DefinitionPlan? Definition, string? Note) ElementOf(TypeFacts? type)
+        private (ElementKind Kind, DefinitionPlan? Definition, string? Note) ElementOf(ResolvedTyping? type)
         {
             if (type is null)
             {
@@ -415,7 +415,7 @@ internal static class Planner
                 : (ElementKind.Value, null, "the feature is untyped");
         }
 
-        private static Cardinality CardinalityOf(Multiplicity? multiplicity)
+        private static Cardinality CardinalityOf(ResolvedRange? multiplicity)
         {
             if (multiplicity is null)
             {
@@ -438,12 +438,12 @@ internal static class Planner
         // A type the feature does not write is the service's derived Feature::type, whose facts are those of the feature
         // declaring it when the walk over what the feature generalizes reaches one; a service that derives no type
         // leaves the walk to find it.
-        private TypeFacts? ResolvedType(Symbol symbol)
+        private ResolvedTyping? ResolvedType(Symbol symbol)
         {
             var own = symbol.TypeFacts;
             if (NamesType(own))
             {
-                return own;
+                return ResolvedTyping.Of(own!);
             }
 
             var providers = Inherited(symbol, other => NamesType(other.TypeFacts));
@@ -451,47 +451,44 @@ internal static class Planner
             {
                 var declaring = providers.FirstOrDefault(provider => provider.TypeFacts!.ResolvedId == derived.Id);
                 return declaring is null
-                    ? new TypeFacts(own.Declared, derived.Id, derived.Kind, own.Primitive, own.PrimitiveSource, own.IsQuantity, own.Unit, own.Types)
+                    ? new ResolvedTyping(derived.Id, derived.Kind, own.Primitive, own.IsQuantity, own.Unit)
                     : Merged(own, declaring.TypeFacts!);
             }
 
             if (providers.Count == 0)
             {
-                return own;
+                return ResolvedTyping.OfOptional(own);
             }
 
             var choices = providers.Select(provider =>
             {
-                var (kind, definition, note) = ElementOf(provider.TypeFacts);
+                var (kind, definition, note) = ElementOf(ResolvedTyping.Of(provider.TypeFacts!));
                 return (Type: provider.TypeFacts!, Shape: new Shape(kind, definition, Cardinality.Required, note));
             }).ToList();
             var inherited = choices.FirstOrDefault(candidate => choices.All(other => Reads(other.Shape, candidate.Shape))).Type;
             if (inherited is null)
             {
                 problems.Add($"{symbol.Id} inherits incompatible types from {string.Join(" and ", providers.Select(provider => provider.Id))}");
-                return own;
+                return ResolvedTyping.OfOptional(own);
             }
 
-            return own is null ? inherited : Merged(own, inherited);
+            return own is null ? ResolvedTyping.Of(inherited) : Merged(own, inherited);
         }
 
         // The type a feature inherits, with the quantity and unit its own value states.
-        private static TypeFacts Merged(TypeFacts own, TypeFacts inherited) =>
+        private static ResolvedTyping Merged(TypeFacts own, TypeFacts inherited) =>
             new(
-                inherited.Declared,
                 inherited.ResolvedId,
                 inherited.ResolvedKind,
                 inherited.Primitive,
-                inherited.PrimitiveSource,
                 own.IsQuantity || inherited.IsQuantity,
-                own.Unit.Length > 0 ? own.Unit : inherited.Unit,
-                own.Types);
+                own.Unit.Length > 0 ? own.Unit : inherited.Unit);
 
-        private Multiplicity? ResolvedMultiplicity(Symbol symbol)
+        private ResolvedRange? ResolvedMultiplicity(Symbol symbol)
         {
             if (symbol.Multiplicity is { } own)
             {
-                return own;
+                return new ResolvedRange(own.Lower, own.Upper);
             }
 
             var providers = Inherited(symbol, other => other.Multiplicity is not null);
@@ -523,7 +520,7 @@ internal static class Planner
 
             var upperText = upper?.ToString(CultureInfo.InvariantCulture)
                 ?? (providers.All(provider => provider.Multiplicity!.Upper == "*") ? "*" : string.Empty);
-            return new Multiplicity(lower?.ToString(CultureInfo.InvariantCulture) ?? string.Empty, upperText);
+            return new ResolvedRange(lower?.ToString(CultureInfo.InvariantCulture) ?? string.Empty, upperText);
         }
 
         private static bool NamesType(TypeFacts? type) => type is not null && (type.ResolvedId.Length > 0 || type.Declared.Length > 0);
@@ -706,5 +703,16 @@ internal static class Planner
 
             return types;
         }
+
+        // The type facts a feature resolves to, its own or merged with those it inherits: what ElementOf reads.
+        private sealed record ResolvedTyping(string ResolvedId, string ResolvedKind, string Primitive, bool IsQuantity, string Unit)
+        {
+            internal static ResolvedTyping Of(TypeFacts type) => new(type.ResolvedId, type.ResolvedKind, type.Primitive, type.IsQuantity, type.Unit);
+
+            internal static ResolvedTyping? OfOptional(TypeFacts? type) => type is null ? null : Of(type);
+        }
+
+        // The multiplicity a feature declares, or the narrowest its inherited ones allow, as written.
+        private sealed record ResolvedRange(string Lower, string Upper);
     }
 }

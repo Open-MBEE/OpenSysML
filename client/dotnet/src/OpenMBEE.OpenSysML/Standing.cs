@@ -18,7 +18,7 @@ public sealed record Standing
     /// <param name="bounds">The bounds it ran under.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentException">A bound is null.</exception>
-    public Standing(string engine, string strength, IEnumerable<Bound> bounds)
+    internal Standing(string engine, string strength, IEnumerable<Bound> bounds)
     {
         ArgumentNullException.ThrowIfNull(engine);
         ArgumentNullException.ThrowIfNull(strength);

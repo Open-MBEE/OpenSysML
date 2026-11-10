@@ -16,7 +16,7 @@ public sealed record AppliedEdit
     /// <exception cref="ArgumentNullException">A string other than <paramref name="document"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The index, offset or length is negative.</exception>
     /// <exception cref="ArgumentException"><paramref name="document"/> is empty.</exception>
-    public AppliedEdit(int operationIndex, string target, int offset, int length, string oldText, string newText, string? document)
+    internal AppliedEdit(int operationIndex, string target, int offset, int length, string oldText, string newText, string? document)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(operationIndex);
         ArgumentNullException.ThrowIfNull(target);

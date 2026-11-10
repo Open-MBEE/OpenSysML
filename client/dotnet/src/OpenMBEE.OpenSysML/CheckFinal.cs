@@ -12,7 +12,7 @@ public sealed record CheckFinal
     /// <param name="witness">A schedule reaching it; null when the service reported none.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentException">A value is null or a feature repeats.</exception>
-    public CheckFinal(string outcome, IEnumerable<KeyValuePair<string, string>> values, CheckWitness? witness)
+    internal CheckFinal(string outcome, IEnumerable<KeyValuePair<string, string>> values, CheckWitness? witness)
     {
         ArgumentNullException.ThrowIfNull(outcome);
         Outcome = outcome;

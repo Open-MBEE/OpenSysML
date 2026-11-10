@@ -17,7 +17,7 @@ public sealed record ViewStyle
     /// <param name="bold">Whether text is bold.</param>
     /// <param name="italic">Whether text is italic.</param>
     /// <exception cref="ArgumentNullException">A text argument is null.</exception>
-    public ViewStyle(string fill, string line, string text, string font, double fontSize, bool bold, bool italic)
+    internal ViewStyle(string fill, string line, string text, string font, double fontSize, bool bold, bool italic)
     {
         ArgumentNullException.ThrowIfNull(fill);
         ArgumentNullException.ThrowIfNull(line);

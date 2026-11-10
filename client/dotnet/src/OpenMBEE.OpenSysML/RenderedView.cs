@@ -26,7 +26,7 @@ public sealed record RenderedView
     /// <param name="frame">The view frame drawn round a graph-shaped rendering; null for a frameless one.</param>
     /// <exception cref="ArgumentNullException">An argument other than the canvas or the frame is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null.</exception>
-    public RenderedView(
+    internal RenderedView(
         string view,
         string kind,
         string stated,

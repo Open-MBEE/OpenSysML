@@ -11,7 +11,7 @@ public sealed record ToolDryRunInput
     /// <param name="value">The value as the protocol spells it.</param>
     /// <param name="unit">The unit it is sent in; empty when none.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    public ToolDryRunInput(string variable, string parameter, string value, string unit)
+    internal ToolDryRunInput(string variable, string parameter, string value, string unit)
     {
         ArgumentNullException.ThrowIfNull(variable);
         ArgumentNullException.ThrowIfNull(parameter);

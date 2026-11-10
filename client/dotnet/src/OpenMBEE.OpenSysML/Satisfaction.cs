@@ -19,7 +19,7 @@ public sealed record Satisfaction
     /// <param name="diagnostics">What the service reported.</param>
     /// <exception cref="ArgumentNullException">A collection is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null.</exception>
-    public Satisfaction(IEnumerable<Verdict> verdicts, IEnumerable<VerificationVerdict> verifications, IEnumerable<Instance> instances, IEnumerable<Diagnostic> diagnostics)
+    internal Satisfaction(IEnumerable<Verdict> verdicts, IEnumerable<VerificationVerdict> verifications, IEnumerable<Instance> instances, IEnumerable<Diagnostic> diagnostics)
     {
         Verdicts = new ValueList<Verdict>(verdicts);
         Verifications = new ValueList<VerificationVerdict>(verifications);

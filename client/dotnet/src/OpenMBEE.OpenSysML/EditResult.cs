@@ -19,7 +19,7 @@ public sealed record EditResult
     /// <param name="diagnostics">What the service reported while editing.</param>
     /// <exception cref="ArgumentNullException">A collection is null.</exception>
     /// <exception cref="ArgumentException">An element of a collection is null.</exception>
-    public EditResult(string? content, IEnumerable<AppliedEdit> applied, IEnumerable<EditedDocument> documents, IEnumerable<Diagnostic> diagnostics)
+    internal EditResult(string? content, IEnumerable<AppliedEdit> applied, IEnumerable<EditedDocument> documents, IEnumerable<Diagnostic> diagnostics)
     {
         Content = content;
         Applied = new ValueList<AppliedEdit>(applied);

@@ -29,7 +29,7 @@ public sealed record ToolDryRun
     /// <param name="lines">The preview as the command prints it, one line each.</param>
     /// <exception cref="ArgumentNullException">An argument other than <paramref name="inputFile"/> is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null.</exception>
-    public ToolDryRun(
+    internal ToolDryRun(
         string action,
         string tool,
         string version,

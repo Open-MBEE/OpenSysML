@@ -34,7 +34,7 @@ public sealed record ConfigurationComparison
     /// <param name="lines">The comparison as <c>sysml -compare-results</c> prints it.</param>
     /// <exception cref="ArgumentNullException">A string or a collection is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null.</exception>
-    public ConfigurationComparison(
+    internal ConfigurationComparison(
         string id,
         string name,
         string behavior,
