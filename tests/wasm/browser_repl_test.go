@@ -11,7 +11,7 @@ import (
 )
 
 // replGzipBudget bounds the gzipped RE (sysml_re) js build the CLI page downloads for its in-browser REPL,
-// last raised to 16,100,000 on 2026-11-09 when the -trimpath link measured 16,008,627 bytes (this branch measures 16,050,610).
+// last raised to 16,100,000 on 2026-11-09 when the -trimpath link measured 16,008,627 bytes (this branch measures 16,057,546 on the develop ddc4a547fe merge).
 const replGzipBudget = 16100000
 
 // TestBrowserREPLWalkthroughs runs every walkthrough the CLI page offers
