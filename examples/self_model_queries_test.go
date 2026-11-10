@@ -5,7 +5,9 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -14,13 +16,13 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
+	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/modeldoc"
 )
 
-// TestSelfModelQueryLibraryMatchesImplementation reads the library's calc defs
-// from the library file and the compiler's bindings from its source, and checks
-// the query path the model declares against both.
+// TestSelfModelQueryLibraryMatchesImplementation checks the modelled library
+// against the library file and the compiler's bindings.
 func TestSelfModelQueryLibraryMatchesImplementation(t *testing.T) {
 	text := readModelFile(t, "queries.sysml")
 	idx, ctx := analyseSelfModel(t)
@@ -130,8 +132,8 @@ func TestSelfModelQueryCompilerMatchesImplementation(t *testing.T) {
 	}
 }
 
-// TestSelfModelQueryOutcomesMatchImplementation checks the step kinds, the
-// constraints, the outcome kinds and the record's fields against queryexec.
+// TestSelfModelQueryOutcomesMatchImplementation checks the step kinds,
+// constraints, outcome kinds and record fields against queryexec.
 func TestSelfModelQueryOutcomesMatchImplementation(t *testing.T) {
 	text := readModelFile(t, "queries.sysml")
 	idx, ctx := analyseSelfModel(t)
@@ -174,23 +176,20 @@ func TestSelfModelQueryOutcomesMatchImplementation(t *testing.T) {
 		t.Error("StepOutcome must go to modelError whenever a constraint is violated")
 	}
 
-	for name, record := range map[string]any{
-		"Step":       queryexec.Step{},
-		"Frontier":   queryexec.Frontier{},
-		"Failure":    queryexec.Failure{},
-		"Finding":    queryexec.Finding{},
-		"PathError":  queryexec.PathError{},
-		"ModelError": queryexec.ModelError{},
-		"Outcome":    queryexec.Outcome{},
-	} {
-		typ := reflect.TypeOf(record)
-		var fields []string
+	records := map[string]reflect.Type{}
+	collectRecordTypes(reflect.TypeOf(queryexec.Outcome{}), records)
+	for name, typ := range records {
+		var fields, typed []string
 		for i := 0; i < typ.NumField(); i++ {
 			f := typ.Field(i)
 			fields = append(fields, strings.ToLower(f.Name[:1])+f.Name[1:])
+			typed = append(typed, attributeTyping(f.Type))
 		}
 		if got := attributeNames(text, name); !reflect.DeepEqual(got, fields) {
 			t.Errorf("attribute def %s has %v, queryexec.%s has %v", name, got, name, fields)
+		}
+		if got := attributeTypings(text, name); !reflect.DeepEqual(got, typed) {
+			t.Errorf("attribute def %s types its attributes %v, queryexec.%s has %v", name, got, name, typed)
 		}
 	}
 
@@ -241,17 +240,74 @@ func enumMembers(text, name string) []string {
 	return out
 }
 
+// collectRecordTypes gathers a struct type and every struct type its fields
+// reach, by name, as the model's attribute defs mirror them.
+func collectRecordTypes(typ reflect.Type, into map[string]reflect.Type) {
+	for typ.Kind() == reflect.Pointer || typ.Kind() == reflect.Slice {
+		typ = typ.Elem()
+	}
+	if typ.Kind() != reflect.Struct || into[typ.Name()] != nil {
+		return
+	}
+	into[typ.Name()] = typ
+	for i := 0; i < typ.NumField(); i++ {
+		collectRecordTypes(typ.Field(i).Type, into)
+	}
+}
+
+// attributeTyping is the model's typing of a Go field: the element type's name
+// (String for a string kind) and a multiplicity when the field is a slice or pointer.
+func attributeTyping(typ reflect.Type) string {
+	switch typ.Kind() {
+	case reflect.Slice:
+		return attributeTyping(typ.Elem()) + "[0..*]"
+	case reflect.Pointer:
+		return attributeTyping(typ.Elem()) + "[0..1]"
+	case reflect.String:
+		if typ.Name() != "string" {
+			return typ.Name()
+		}
+		return "String"
+	}
+	return typ.Name()
+}
+
 // attributeNames are the attributes of an attribute def of the model text, in order.
 func attributeNames(text, name string) []string {
+	var out []string
+	for _, m := range attributeDeclarations(text, name) {
+		out = append(out, m[1])
+	}
+	return out
+}
+
+// attributeTypings are the attributes' types and multiplicities, in order, as
+// a Go field states them: a non-empty list is a slice, an optional scalar a string.
+func attributeTypings(text, name string) []string {
+	var out []string
+	for _, m := range attributeDeclarations(text, name) {
+		typing := m[2] + strings.ReplaceAll(m[3], "[1..*]", "[0..*]")
+		if m[3] == "[0..1]" && m[2] == "String" {
+			typing = "String"
+		}
+		out = append(out, modelTypeToGo(typing))
+	}
+	return out
+}
+
+// attributeDeclarations are the `attribute 'name' : Type[mult]` declarations
+// of an attribute def, as name, type and multiplicity.
+func attributeDeclarations(text, name string) [][]string {
 	body := regexp.MustCompile(`attribute def ` + name + ` \{([^}]*)\}`).FindStringSubmatch(text)
 	if body == nil {
 		return nil
 	}
-	var out []string
-	for _, m := range regexp.MustCompile(`attribute '?(\w+)'? :`).FindAllStringSubmatch(body[1], -1) {
-		out = append(out, m[1])
-	}
-	return out
+	return regexp.MustCompile(`attribute '?(\w+)'? : (\w+)(\[[^\]]*\])?`).FindAllStringSubmatch(body[1], -1)
+}
+
+// modelTypeToGo renames the model's enum defs to the Go types they stand for.
+func modelTypeToGo(typing string) string {
+	return strings.NewReplacer("ModelConstraint", "Constraint").Replace(typing)
 }
 
 // TestSelfModelQuerySurfacesMatchImplementation checks the flag, the meta
@@ -266,8 +322,10 @@ func TestSelfModelQuerySurfacesMatchImplementation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read the CLI usage: %v", err)
 	}
-	if !strings.Contains(string(usage), `"`+strings.TrimPrefix(cli.str("command"), "-")+`"`) {
-		t.Errorf("cmd/sysml defines no %s flag", cli.str("command"))
+	for _, flag := range []string{cli.str("command"), cli.str("inlineCommand")} {
+		if !strings.Contains(string(usage), `"`+strings.TrimPrefix(flag, "-")+`"`) {
+			t.Errorf("cmd/sysml defines no %s flag", flag)
+		}
 	}
 	if cliText := readGoPackage(t, filepath.Join("..", cli.str("goPackage"))); !strings.Contains(cliText, "queryexec.") || !strings.Contains(cliText, "outcome") {
 		t.Error("cmd/sysml does not report the query outcome")
@@ -293,6 +351,9 @@ func TestSelfModelQuerySurfacesMatchImplementation(t *testing.T) {
 	if !regexp.MustCompile(`cmdRunQuery\s+= "` + regexp.QuoteMeta(repl.str("command")) + `"`).MatchString(string(meta)) {
 		t.Errorf("the REPL defines no %s command", repl.str("command"))
 	}
+	if !regexp.MustCompile(`name: cmdRunQuery,[^\n]*args: "[^"]*\| ` + regexp.QuoteMeta(repl.str("inlineCommand")) + ` <expr>`).MatchString(string(meta)) {
+		t.Errorf("the REPL's %s does not take %s <expr>", repl.str("command"), repl.str("inlineCommand"))
+	}
 
 	service := surfaces["service"]
 	if got, want := service.str("goPackage"), "internal/frontend/grpc"; got != want {
@@ -308,15 +369,62 @@ func TestSelfModelQuerySurfacesMatchImplementation(t *testing.T) {
 	if rpc == nil {
 		t.Errorf("the schema declares no %s RPC", service.str("command"))
 	}
-	if pb.File_sysml_proto.Messages().ByName(protoreflect.Name(service.str("outcomeShown"))) == nil {
-		t.Errorf("the schema declares no %s message", service.str("outcomeShown"))
+	outcome := pb.File_sysml_proto.Messages().ByName(protoreflect.Name(service.str("outcomeShown")))
+	if outcome == nil {
+		t.Fatalf("the schema declares no %s message", service.str("outcomeShown"))
 	}
-	if _, err := os.Stat(filepath.Join("..", service.str("schema"))); err != nil {
-		t.Errorf("queries.sysml points at %s, which does not exist", service.str("schema"))
+	if rpc != nil && rpc.Input().Fields().ByName(protoreflect.Name(service.str("inlineCommand"))) == nil {
+		t.Errorf("%s takes no %s", service.str("command"), service.str("inlineCommand"))
+	}
+	for _, capability := range []string{service.str("capability"), service.str("inlineCapability")} {
+		if !slices.Contains(sysmlgrpc.Capabilities(), capability) {
+			t.Errorf("the service declares no %s capability", capability)
+		}
 	}
 	docquery, err := os.ReadFile(filepath.Join("..", service.str("goPackage"), "docquery.go"))
 	if err != nil {
 		t.Fatalf("read the service's query handler: %v", err)
+	}
+	for _, limit := range []string{"failureLimit", "frontierLimit"} {
+		m := regexp.MustCompile(`const ` + limit + ` = (\d+)`).FindStringSubmatch(string(docquery))
+		if m == nil {
+			t.Errorf("docquery.go declares no %s", limit)
+			continue
+		}
+		if got, want := strconv.Itoa(service.integer(limit)), m[1]; got != want {
+			t.Errorf("queries.sysml says %s = %s, docquery.go says %s", limit, got, want)
+		}
+	}
+	totals := 0
+	for _, message := range []protoreflect.MessageDescriptor{outcome, pb.File_sysml_proto.Messages().ByName("QueryFrontier")} {
+		if message == nil {
+			continue
+		}
+		for i := 0; i < message.Fields().Len(); i++ {
+			if strings.HasSuffix(string(message.Fields().Get(i).Name()), "_total") {
+				totals++
+			}
+		}
+	}
+	if service.boolean("reportsTotals") != (totals > 0) {
+		t.Errorf("queries.sysml says reportsTotals = %v, the schema has %d *_total fields", service.boolean("reportsTotals"), totals)
+	}
+	catalog, err := os.ReadFile(filepath.Join("..", "internal", "frontend", "mcp", "catalog", "catalog.go"))
+	if err != nil {
+		t.Fatalf("read the MCP tool catalog: %v", err)
+	}
+	if !regexp.MustCompile(`Name: "` + service.str("mcpTool") + `",[^\n]*RPCs: \[\]string\{"` + service.str("command") + `"\}`).Match(catalog) {
+		t.Errorf("the MCP catalog has no %s tool over %s", service.str("mcpTool"), service.str("command"))
+	}
+	docgen, err := os.ReadFile(filepath.Join("..", "editors", "mdk", "plugin", "src", "main", "java", "org", "openmbee", "mdk", "magic", "docgen", "DocGenExtensions.java"))
+	if err != nil {
+		t.Fatalf("read the MDK docgen extensions: %v", err)
+	}
+	if !strings.Contains(string(docgen), `Operation.RUN_QUERY, "`+service.str("mdkOperation")+`"`) {
+		t.Errorf("the MDK plugin registers no %s docgen operation", service.str("mdkOperation"))
+	}
+	if _, err := os.Stat(filepath.Join("..", service.str("schema"))); err != nil {
+		t.Errorf("queries.sysml points at %s, which does not exist", service.str("schema"))
 	}
 	if !strings.Contains(string(docquery), "pb."+service.str("outcomeShown")) {
 		t.Errorf("the service does not attach a %s detail", service.str("outcomeShown"))

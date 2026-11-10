@@ -127,13 +127,26 @@ package OpenSysMLQueries {
         attribute argument : String;
     }
 
-    // Where a path error stopped: the element reached and what it offers.
+    // A member the frontier offers, by name and metaclass.
+    attribute def Member {
+        attribute name : String;
+        attribute metaclass : String;
+    }
+
+    // A feature the frontier offers, by name and type (none for an untyped one).
+    attribute def FeatureRef {
+        attribute name : String;
+        attribute 'type' : String[0..1];
+    }
+
+    // Where a path error stopped: the element reached, what it offers, and
+    // the closest spelling to what was asked for.
     attribute def Frontier {
         attribute 'at' : String;
-        attribute members : String[0..*] ordered;
-        attribute features : String[0..*] ordered;
+        attribute members : Member[0..*] ordered;
+        attribute features : FeatureRef[0..*] ordered;
         attribute kinds : String[0..*] ordered;
-        attribute nearest : String[0..*] ordered;
+        attribute nearest : String[0..1];
     }
 
     attribute def Failure {
@@ -185,9 +198,11 @@ package OpenSysMLQueries {
 
     // --- The surfaces a query is run from ----------------------------------
 
-    // Each surface runs a query and shows its outcome in its own form.
+    // Each surface runs a query — named, or written inline as the body of one —
+    // and shows its outcome in its own form.
     abstract part def QuerySurface :> CodeUnit {
         attribute command : String;
+        attribute inlineCommand : String;
         attribute outcomeShown : String;
         in item rows : QueryRows;
         in item outcome : QueryOutcome;
@@ -198,6 +213,7 @@ package OpenSysMLQueries {
     part def CliQuerySurface :> QuerySurface {
         attribute :>> goPackage = "cmd/sysml";
         attribute :>> command = "-run-query";
+        attribute :>> inlineCommand = "-run-inline-query";
         attribute :>> outcomeShown = "checks[].outcome";
         attribute jsonFlag : String = "-json";
         attribute failureExitStatus : Integer = 2;
@@ -206,21 +222,32 @@ package OpenSysMLQueries {
     part def ReplQuerySurface :> QuerySurface {
         attribute :>> goPackage = "internal/frontend/repl";
         attribute :>> command = "%run-query";
+        attribute :>> inlineCommand = "inline";
         attribute :>> outcomeShown = "outcome lines";
     }
 
-    // The RPC answers rows, or fails the call with the outcome as an error detail.
+    // The RPC answers rows, or fails the call with the outcome as a detail bounded
+    // for the wire; the MCP tool and the MDK plugin's docgen operation call it.
     part def ServiceQuerySurface :> QuerySurface {
         attribute :>> goPackage = "internal/frontend/grpc";
         attribute :>> command = "RunDocumentQuery";
+        attribute :>> inlineCommand = "inline_query";
         attribute :>> outcomeShown = "QueryOutcome";
         attribute schema : String = "api/proto/sysml.proto";
+        attribute capability : String = "document_query";
+        attribute inlineCapability : String = "inline_document_query";
+        attribute mcpTool : String = "run_document_query";
+        attribute mdkOperation : String = "RunQuery";
+        attribute failureLimit : Integer = 8;
+        attribute frontierLimit : Integer = 8;
+        attribute reportsTotals : Boolean = true;
     }
 
     // A document table is a query too; one that fails fails the render.
     part def TableQuerySurface :> QuerySurface {
         attribute :>> goPackage = "internal/ir/docplan";
         attribute :>> command = "Table";
+        attribute :>> inlineCommand = "Table";
         attribute :>> outcomeShown = "render error";
     }
 
@@ -236,7 +263,7 @@ package OpenSysMLQueries {
         attribute examples : String = "examples/qvts";
         attribute guide : String = "docs/guide/qvts.md";
         attribute designNote : String = "docs/internals/design/query-outcomes.md";
-        attribute recordingCount : Integer = 24;
+        attribute recordingCount : Integer = 27;
     }
 
     // --- The whole path ----------------------------------------------------

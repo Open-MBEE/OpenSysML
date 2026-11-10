@@ -675,11 +675,14 @@ package OpenSysMLDocument {
              * a miss. [The operations table](sysml:operations) is the library as
              * the compiler binds it, [the step kinds](sysml:steps) are where an
              * outcome is reported, and [the surfaces table](sysml:surfaces) is
-             * where a query is run from: the command line exits
-             * [](sysml:value:queryPath.cli.failureExitStatus) and writes the
-             * outcome at [](sysml:value:queryPath.cli.outcomeShown) under
-             * [](sysml:value:queryPath.cli.jsonFlag), the service fails the call
-             * with a [](sysml:value:queryPath.service.outcomeShown) detail. The
+             * where a query is run from, named or written inline as the body
+             * of one ([](sysml:value:queryPath.cli.inlineCommand)): the command
+             * line exits [](sysml:value:queryPath.cli.failureExitStatus) and
+             * writes the outcome at [](sysml:value:queryPath.cli.outcomeShown)
+             * under [](sysml:value:queryPath.cli.jsonFlag), the service fails
+             * the call with a [](sysml:value:queryPath.service.outcomeShown)
+             * detail bounded to [](sysml:value:queryPath.service.failureLimit)
+             * failures or findings, each list carrying its whole count. The
              * recorded examples under [](sysml:value:queryPath.oracle.examples)
              * pin that behaviour against the guide; their reference is
              * [](sysml:value:queryPath.oracle.reference).
