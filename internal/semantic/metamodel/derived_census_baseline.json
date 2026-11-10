@@ -1355,9 +1355,9 @@
         "Expression::function": {
           "ours": {
             "carriers": 470,
-            "value": 42,
-            "empty": 410,
-            "notDerived": 18
+            "value": 416,
+            "empty": 30,
+            "notDerived": 24
           },
           "pilot": {
             "carriers": 838,
@@ -1663,9 +1663,9 @@
         "Feature::type": {
           "ours": {
             "carriers": 2813,
-            "value": 725,
-            "empty": 1900,
-            "notDerived": 188
+            "value": 1125,
+            "empty": 1494,
+            "notDerived": 194
           },
           "pilot": {
             "carriers": 4506,
@@ -2209,8 +2209,8 @@
         "Namespace::member": {
           "ours": {
             "carriers": 3268,
-            "value": 2713,
-            "empty": 479,
+            "value": 2769,
+            "empty": 423,
             "notDerived": 76
           },
           "pilot": {
@@ -2223,8 +2223,8 @@
         "Namespace::membership": {
           "ours": {
             "carriers": 3268,
-            "value": 2713,
-            "empty": 479,
+            "value": 2769,
+            "empty": 423,
             "notDerived": 76
           },
           "pilot": {
@@ -3063,9 +3063,9 @@
         "Step::behavior": {
           "ours": {
             "carriers": 706,
-            "value": 82,
-            "empty": 602,
-            "notDerived": 22
+            "value": 482,
+            "empty": 196,
+            "notDerived": 28
           },
           "pilot": {
             "carriers": 1098,
@@ -3245,8 +3245,8 @@
         "Type::directedFeature": {
           "ours": {
             "carriers": 3159,
-            "value": 671,
-            "empty": 2484,
+            "value": 727,
+            "empty": 2428,
             "notDerived": 4
           },
           "pilot": {
@@ -3260,8 +3260,8 @@
           "ours": {
             "carriers": 3159,
             "value": 0,
-            "empty": 1051,
-            "notDerived": 2108
+            "empty": 646,
+            "notDerived": 2513
           },
           "pilot": {
             "carriers": 4842,
@@ -3273,8 +3273,8 @@
         "Type::feature": {
           "ours": {
             "carriers": 3159,
-            "value": 2461,
-            "empty": 694,
+            "value": 2517,
+            "empty": 638,
             "notDerived": 4
           },
           "pilot": {
@@ -3287,8 +3287,8 @@
         "Type::featureMembership": {
           "ours": {
             "carriers": 3159,
-            "value": 2461,
-            "empty": 694,
+            "value": 2517,
+            "empty": 638,
             "notDerived": 4
           },
           "pilot": {
@@ -3301,8 +3301,8 @@
         "Type::inheritedFeature": {
           "ours": {
             "carriers": 3159,
-            "value": 2104,
-            "empty": 1051,
+            "value": 2509,
+            "empty": 646,
             "notDerived": 4
           },
           "pilot": {
@@ -3315,8 +3315,8 @@
         "Type::inheritedMembership": {
           "ours": {
             "carriers": 3159,
-            "value": 2104,
-            "empty": 1051,
+            "value": 2509,
+            "empty": 646,
             "notDerived": 4
           },
           "pilot": {
@@ -3385,8 +3385,8 @@
         "Type::output": {
           "ours": {
             "carriers": 3159,
-            "value": 544,
-            "empty": 2611,
+            "value": 600,
+            "empty": 2555,
             "notDerived": 4
           },
           "pilot": {
@@ -5443,9 +5443,9 @@
         "Expression::function": {
           "ours": {
             "carriers": 2512,
-            "value": 153,
-            "empty": 2231,
-            "notDerived": 128
+            "value": 2241,
+            "empty": 119,
+            "notDerived": 152
           },
           "pilot": {
             "carriers": 3608,
@@ -5751,9 +5751,9 @@
         "Feature::type": {
           "ours": {
             "carriers": 11686,
-            "value": 2082,
-            "empty": 8363,
-            "notDerived": 1241
+            "value": 4283,
+            "empty": 6138,
+            "notDerived": 1265
           },
           "pilot": {
             "carriers": 15863,
@@ -6297,8 +6297,8 @@
         "Namespace::member": {
           "ours": {
             "carriers": 12683,
-            "value": 9759,
-            "empty": 2694,
+            "value": 10195,
+            "empty": 2258,
             "notDerived": 230
           },
           "pilot": {
@@ -6311,8 +6311,8 @@
         "Namespace::membership": {
           "ours": {
             "carriers": 12683,
-            "value": 9759,
-            "empty": 2694,
+            "value": 10195,
+            "empty": 2258,
             "notDerived": 230
           },
           "pilot": {
@@ -7151,9 +7151,9 @@
         "Step::behavior": {
           "ours": {
             "carriers": 3103,
-            "value": 211,
-            "empty": 2764,
-            "notDerived": 128
+            "value": 2412,
+            "empty": 539,
+            "notDerived": 152
           },
           "pilot": {
             "carriers": 4248,
@@ -7333,8 +7333,8 @@
         "Type::directedFeature": {
           "ours": {
             "carriers": 12414,
-            "value": 2622,
-            "empty": 9683,
+            "value": 3058,
+            "empty": 9247,
             "notDerived": 109
           },
           "pilot": {
@@ -7348,8 +7348,8 @@
           "ours": {
             "carriers": 12414,
             "value": 0,
-            "empty": 5986,
-            "notDerived": 6428
+            "empty": 3762,
+            "notDerived": 8652
           },
           "pilot": {
             "carriers": 16557,
@@ -7361,8 +7361,8 @@
         "Type::feature": {
           "ours": {
             "carriers": 12414,
-            "value": 8138,
-            "empty": 4167,
+            "value": 8574,
+            "empty": 3731,
             "notDerived": 109
           },
           "pilot": {
@@ -7375,8 +7375,8 @@
         "Type::featureMembership": {
           "ours": {
             "carriers": 12414,
-            "value": 8138,
-            "empty": 4167,
+            "value": 8574,
+            "empty": 3731,
             "notDerived": 109
           },
           "pilot": {
@@ -7389,8 +7389,8 @@
         "Type::inheritedFeature": {
           "ours": {
             "carriers": 12414,
-            "value": 6319,
-            "empty": 5986,
+            "value": 8543,
+            "empty": 3762,
             "notDerived": 109
           },
           "pilot": {
@@ -7403,8 +7403,8 @@
         "Type::inheritedMembership": {
           "ours": {
             "carriers": 12414,
-            "value": 6319,
-            "empty": 5986,
+            "value": 8543,
+            "empty": 3762,
             "notDerived": 109
           },
           "pilot": {
@@ -7473,8 +7473,8 @@
         "Type::output": {
           "ours": {
             "carriers": 12414,
-            "value": 2354,
-            "empty": 9951,
+            "value": 2790,
+            "empty": 9515,
             "notDerived": 109
           },
           "pilot": {
@@ -9517,9 +9517,9 @@
         "Expression::function": {
           "ours": {
             "carriers": 742,
-            "value": 43,
-            "empty": 681,
-            "notDerived": 18
+            "value": 660,
+            "empty": 60,
+            "notDerived": 22
           },
           "pilot": {
             "carriers": 1124,
@@ -9825,9 +9825,9 @@
         "Feature::type": {
           "ours": {
             "carriers": 3700,
-            "value": 929,
-            "empty": 2544,
-            "notDerived": 227
+            "value": 1565,
+            "empty": 1904,
+            "notDerived": 231
           },
           "pilot": {
             "carriers": 5259,
@@ -10371,8 +10371,8 @@
         "Namespace::member": {
           "ours": {
             "carriers": 4239,
-            "value": 3381,
-            "empty": 741,
+            "value": 3499,
+            "empty": 623,
             "notDerived": 117
           },
           "pilot": {
@@ -10385,8 +10385,8 @@
         "Namespace::membership": {
           "ours": {
             "carriers": 4239,
-            "value": 3381,
-            "empty": 741,
+            "value": 3499,
+            "empty": 623,
             "notDerived": 117
           },
           "pilot": {
@@ -11225,9 +11225,9 @@
         "Step::behavior": {
           "ours": {
             "carriers": 985,
-            "value": 102,
-            "empty": 863,
-            "notDerived": 20
+            "value": 738,
+            "empty": 223,
+            "notDerived": 24
           },
           "pilot": {
             "carriers": 1394,
@@ -11407,8 +11407,8 @@
         "Type::directedFeature": {
           "ours": {
             "carriers": 4086,
-            "value": 812,
-            "empty": 3246,
+            "value": 930,
+            "empty": 3128,
             "notDerived": 28
           },
           "pilot": {
@@ -11422,8 +11422,8 @@
           "ours": {
             "carriers": 4086,
             "value": 0,
-            "empty": 1625,
-            "notDerived": 2461
+            "empty": 985,
+            "notDerived": 3101
           },
           "pilot": {
             "carriers": 5619,
@@ -11435,8 +11435,8 @@
         "Type::feature": {
           "ours": {
             "carriers": 4086,
-            "value": 2962,
-            "empty": 1096,
+            "value": 3080,
+            "empty": 978,
             "notDerived": 28
           },
           "pilot": {
@@ -11449,8 +11449,8 @@
         "Type::featureMembership": {
           "ours": {
             "carriers": 4086,
-            "value": 2962,
-            "empty": 1096,
+            "value": 3080,
+            "empty": 978,
             "notDerived": 28
           },
           "pilot": {
@@ -11463,8 +11463,8 @@
         "Type::inheritedFeature": {
           "ours": {
             "carriers": 4086,
-            "value": 2433,
-            "empty": 1625,
+            "value": 3073,
+            "empty": 985,
             "notDerived": 28
           },
           "pilot": {
@@ -11477,8 +11477,8 @@
         "Type::inheritedMembership": {
           "ours": {
             "carriers": 4086,
-            "value": 2434,
-            "empty": 1624,
+            "value": 3074,
+            "empty": 984,
             "notDerived": 28
           },
           "pilot": {
@@ -11547,8 +11547,8 @@
         "Type::output": {
           "ours": {
             "carriers": 4086,
-            "value": 717,
-            "empty": 3341,
+            "value": 835,
+            "empty": 3223,
             "notDerived": 28
           },
           "pilot": {
@@ -12849,8 +12849,8 @@
         "Expression::function": {
           "ours": {
             "carriers": 299,
-            "value": 12,
-            "empty": 285,
+            "value": 297,
+            "empty": 0,
             "notDerived": 2
           },
           "pilot": {
@@ -13157,9 +13157,9 @@
         "Feature::type": {
           "ours": {
             "carriers": 2109,
-            "value": 539,
-            "empty": 1188,
-            "notDerived": 382
+            "value": 838,
+            "empty": 890,
+            "notDerived": 381
           },
           "pilot": {
             "carriers": 2884,
@@ -13647,8 +13647,8 @@
         "Namespace::member": {
           "ours": {
             "carriers": 2527,
-            "value": 1620,
-            "empty": 731,
+            "value": 1712,
+            "empty": 639,
             "notDerived": 176
           },
           "pilot": {
@@ -13661,8 +13661,8 @@
         "Namespace::membership": {
           "ours": {
             "carriers": 2527,
-            "value": 1620,
-            "empty": 731,
+            "value": 1712,
+            "empty": 639,
             "notDerived": 176
           },
           "pilot": {
@@ -13927,8 +13927,8 @@
         "Step::behavior": {
           "ours": {
             "carriers": 348,
-            "value": 28,
-            "empty": 305,
+            "value": 326,
+            "empty": 7,
             "notDerived": 15
           },
           "pilot": {
@@ -13997,8 +13997,8 @@
         "Type::directedFeature": {
           "ours": {
             "carriers": 2432,
-            "value": 264,
-            "empty": 2052,
+            "value": 357,
+            "empty": 1959,
             "notDerived": 116
           },
           "pilot": {
@@ -14012,8 +14012,8 @@
           "ours": {
             "carriers": 2432,
             "value": 124,
-            "empty": 1562,
-            "notDerived": 746
+            "empty": 1274,
+            "notDerived": 1034
           },
           "pilot": {
             "carriers": 3204,
@@ -14025,8 +14025,8 @@
         "Type::feature": {
           "ours": {
             "carriers": 2432,
-            "value": 1285,
-            "empty": 1031,
+            "value": 1378,
+            "empty": 938,
             "notDerived": 116
           },
           "pilot": {
@@ -14039,8 +14039,8 @@
         "Type::featureMembership": {
           "ours": {
             "carriers": 2432,
-            "value": 1285,
-            "empty": 1031,
+            "value": 1378,
+            "empty": 938,
             "notDerived": 116
           },
           "pilot": {
@@ -14053,8 +14053,8 @@
         "Type::inheritedFeature": {
           "ours": {
             "carriers": 2432,
-            "value": 836,
-            "empty": 1480,
+            "value": 1124,
+            "empty": 1192,
             "notDerived": 116
           },
           "pilot": {
@@ -14067,8 +14067,8 @@
         "Type::inheritedMembership": {
           "ours": {
             "carriers": 2432,
-            "value": 888,
-            "empty": 1428,
+            "value": 1176,
+            "empty": 1140,
             "notDerived": 116
           },
           "pilot": {
@@ -14137,8 +14137,8 @@
         "Type::output": {
           "ours": {
             "carriers": 2432,
-            "value": 229,
-            "empty": 2087,
+            "value": 322,
+            "empty": 1994,
             "notDerived": 116
           },
           "pilot": {
@@ -15621,8 +15621,8 @@
         "Expression::function": {
           "ours": {
             "carriers": 428,
-            "value": 19,
-            "empty": 316,
+            "value": 310,
+            "empty": 25,
             "notDerived": 93
           },
           "pilot": {
@@ -15929,9 +15929,9 @@
         "Feature::type": {
           "ours": {
             "carriers": 2647,
-            "value": 195,
-            "empty": 1630,
-            "notDerived": 822
+            "value": 508,
+            "empty": 1318,
+            "notDerived": 821
           },
           "pilot": {
             "carriers": 3953,
@@ -16503,8 +16503,8 @@
         "Namespace::member": {
           "ours": {
             "carriers": 3518,
-            "value": 2355,
-            "empty": 452,
+            "value": 2406,
+            "empty": 401,
             "notDerived": 711
           },
           "pilot": {
@@ -16517,8 +16517,8 @@
         "Namespace::membership": {
           "ours": {
             "carriers": 3518,
-            "value": 2355,
-            "empty": 452,
+            "value": 2406,
+            "empty": 401,
             "notDerived": 711
           },
           "pilot": {
@@ -17357,8 +17357,8 @@
         "Step::behavior": {
           "ours": {
             "carriers": 702,
-            "value": 8,
-            "empty": 504,
+            "value": 320,
+            "empty": 192,
             "notDerived": 190
           },
           "pilot": {
@@ -17539,8 +17539,8 @@
         "Type::directedFeature": {
           "ours": {
             "carriers": 3025,
-            "value": 497,
-            "empty": 1897,
+            "value": 548,
+            "empty": 1846,
             "notDerived": 631
           },
           "pilot": {
@@ -17554,8 +17554,8 @@
           "ours": {
             "carriers": 3025,
             "value": 27,
-            "empty": 993,
-            "notDerived": 2005
+            "empty": 686,
+            "notDerived": 2312
           },
           "pilot": {
             "carriers": 4821,
@@ -17567,8 +17567,8 @@
         "Type::feature": {
           "ours": {
             "carriers": 3025,
-            "value": 1782,
-            "empty": 612,
+            "value": 1833,
+            "empty": 561,
             "notDerived": 631
           },
           "pilot": {
@@ -17581,8 +17581,8 @@
         "Type::featureMembership": {
           "ours": {
             "carriers": 3025,
-            "value": 1782,
-            "empty": 612,
+            "value": 1833,
+            "empty": 561,
             "notDerived": 631
           },
           "pilot": {
@@ -17595,8 +17595,8 @@
         "Type::inheritedFeature": {
           "ours": {
             "carriers": 3025,
-            "value": 1400,
-            "empty": 994,
+            "value": 1707,
+            "empty": 687,
             "notDerived": 631
           },
           "pilot": {
@@ -17609,8 +17609,8 @@
         "Type::inheritedMembership": {
           "ours": {
             "carriers": 3025,
-            "value": 1400,
-            "empty": 994,
+            "value": 1707,
+            "empty": 687,
             "notDerived": 631
           },
           "pilot": {
@@ -17679,8 +17679,8 @@
         "Type::output": {
           "ours": {
             "carriers": 3025,
-            "value": 407,
-            "empty": 1987,
+            "value": 458,
+            "empty": 1936,
             "notDerived": 631
           },
           "pilot": {
@@ -19569,9 +19569,9 @@
         "Expression::function": {
           "ours": {
             "carriers": 121,
-            "value": 7,
-            "empty": 114,
-            "notDerived": 0
+            "value": 120,
+            "empty": 0,
+            "notDerived": 1
           },
           "pilot": {
             "carriers": 198,
@@ -19877,9 +19877,9 @@
         "Feature::type": {
           "ours": {
             "carriers": 472,
-            "value": 107,
-            "empty": 341,
-            "notDerived": 24
+            "value": 227,
+            "empty": 220,
+            "notDerived": 25
           },
           "pilot": {
             "carriers": 777,
@@ -20381,8 +20381,8 @@
         "Namespace::member": {
           "ours": {
             "carriers": 680,
-            "value": 492,
-            "empty": 142,
+            "value": 572,
+            "empty": 62,
             "notDerived": 46
           },
           "pilot": {
@@ -20395,8 +20395,8 @@
         "Namespace::membership": {
           "ours": {
             "carriers": 680,
-            "value": 493,
-            "empty": 141,
+            "value": 573,
+            "empty": 61,
             "notDerived": 46
           },
           "pilot": {
@@ -20913,9 +20913,9 @@
         "Step::behavior": {
           "ours": {
             "carriers": 154,
-            "value": 0,
-            "empty": 153,
-            "notDerived": 1
+            "value": 120,
+            "empty": 32,
+            "notDerived": 2
           },
           "pilot": {
             "carriers": 244,
@@ -21081,8 +21081,8 @@
         "Type::directedFeature": {
           "ours": {
             "carriers": 589,
-            "value": 69,
-            "empty": 510,
+            "value": 149,
+            "empty": 430,
             "notDerived": 10
           },
           "pilot": {
@@ -21096,8 +21096,8 @@
           "ours": {
             "carriers": 589,
             "value": 2,
-            "empty": 262,
-            "notDerived": 325
+            "empty": 141,
+            "notDerived": 446
           },
           "pilot": {
             "carriers": 893,
@@ -21109,8 +21109,8 @@
         "Type::feature": {
           "ours": {
             "carriers": 589,
-            "value": 370,
-            "empty": 209,
+            "value": 450,
+            "empty": 129,
             "notDerived": 10
           },
           "pilot": {
@@ -21123,8 +21123,8 @@
         "Type::featureMembership": {
           "ours": {
             "carriers": 589,
-            "value": 370,
-            "empty": 209,
+            "value": 450,
+            "empty": 129,
             "notDerived": 10
           },
           "pilot": {
@@ -21137,8 +21137,8 @@
         "Type::inheritedFeature": {
           "ours": {
             "carriers": 589,
-            "value": 322,
-            "empty": 257,
+            "value": 443,
+            "empty": 136,
             "notDerived": 10
           },
           "pilot": {
@@ -21151,8 +21151,8 @@
         "Type::inheritedMembership": {
           "ours": {
             "carriers": 589,
-            "value": 322,
-            "empty": 257,
+            "value": 443,
+            "empty": 136,
             "notDerived": 10
           },
           "pilot": {
@@ -21221,8 +21221,8 @@
         "Type::output": {
           "ours": {
             "carriers": 589,
-            "value": 54,
-            "empty": 525,
+            "value": 134,
+            "empty": 445,
             "notDerived": 10
           },
           "pilot": {
@@ -23195,9 +23195,9 @@
         "Expression::function": {
           "ours": {
             "carriers": 2887,
-            "value": 243,
-            "empty": 2628,
-            "notDerived": 16
+            "value": 2697,
+            "empty": 162,
+            "notDerived": 28
           },
           "pilot": {
             "carriers": 5095,
@@ -23503,9 +23503,9 @@
         "Feature::type": {
           "ours": {
             "carriers": 12218,
-            "value": 3062,
-            "empty": 8307,
-            "notDerived": 849
+            "value": 5592,
+            "empty": 5765,
+            "notDerived": 861
           },
           "pilot": {
             "carriers": 20608,
@@ -24063,8 +24063,8 @@
         "Namespace::member": {
           "ours": {
             "carriers": 12995,
-            "value": 9858,
-            "empty": 2925,
+            "value": 11317,
+            "empty": 1466,
             "notDerived": 212
           },
           "pilot": {
@@ -24077,8 +24077,8 @@
         "Namespace::membership": {
           "ours": {
             "carriers": 12995,
-            "value": 9858,
-            "empty": 2925,
+            "value": 11317,
+            "empty": 1466,
             "notDerived": 212
           },
           "pilot": {
@@ -24917,9 +24917,9 @@
         "Step::behavior": {
           "ours": {
             "carriers": 3559,
-            "value": 187,
-            "empty": 3360,
-            "notDerived": 12
+            "value": 2717,
+            "empty": 818,
+            "notDerived": 24
           },
           "pilot": {
             "carriers": 5982,
@@ -25099,8 +25099,8 @@
         "Type::directedFeature": {
           "ours": {
             "carriers": 12895,
-            "value": 2073,
-            "empty": 10769,
+            "value": 3537,
+            "empty": 9305,
             "notDerived": 53
           },
           "pilot": {
@@ -25114,8 +25114,8 @@
           "ours": {
             "carriers": 12895,
             "value": 17,
-            "empty": 4906,
-            "notDerived": 7972
+            "empty": 2374,
+            "notDerived": 10504
           },
           "pilot": {
             "carriers": 21285,
@@ -25127,8 +25127,8 @@
         "Type::feature": {
           "ours": {
             "carriers": 12895,
-            "value": 9069,
-            "empty": 3773,
+            "value": 10533,
+            "empty": 2309,
             "notDerived": 53
           },
           "pilot": {
@@ -25141,8 +25141,8 @@
         "Type::featureMembership": {
           "ours": {
             "carriers": 12895,
-            "value": 9069,
-            "empty": 3773,
+            "value": 10533,
+            "empty": 2309,
             "notDerived": 53
           },
           "pilot": {
@@ -25155,8 +25155,8 @@
         "Type::inheritedFeature": {
           "ours": {
             "carriers": 12895,
-            "value": 7925,
-            "empty": 4917,
+            "value": 10457,
+            "empty": 2385,
             "notDerived": 53
           },
           "pilot": {
@@ -25169,8 +25169,8 @@
         "Type::inheritedMembership": {
           "ours": {
             "carriers": 12895,
-            "value": 7941,
-            "empty": 4901,
+            "value": 10473,
+            "empty": 2369,
             "notDerived": 53
           },
           "pilot": {
@@ -25239,8 +25239,8 @@
         "Type::output": {
           "ours": {
             "carriers": 12895,
-            "value": 1804,
-            "empty": 11038,
+            "value": 3269,
+            "empty": 9573,
             "notDerived": 53
           },
           "pilot": {
@@ -26695,8 +26695,8 @@
         "Expression::function": {
           "ours": {
             "carriers": 3,
-            "value": 0,
-            "empty": 3,
+            "value": 3,
+            "empty": 0,
             "notDerived": 0
           },
           "pilot": {
@@ -27003,8 +27003,8 @@
         "Feature::type": {
           "ours": {
             "carriers": 8,
-            "value": 0,
-            "empty": 7,
+            "value": 3,
+            "empty": 4,
             "notDerived": 1
           },
           "pilot": {
@@ -27241,8 +27241,8 @@
         "Namespace::member": {
           "ours": {
             "carriers": 19,
-            "value": 15,
-            "empty": 3,
+            "value": 16,
+            "empty": 2,
             "notDerived": 1
           },
           "pilot": {
@@ -27255,8 +27255,8 @@
         "Namespace::membership": {
           "ours": {
             "carriers": 19,
-            "value": 15,
-            "empty": 3,
+            "value": 16,
+            "empty": 2,
             "notDerived": 1
           },
           "pilot": {
@@ -27479,8 +27479,8 @@
         "Step::behavior": {
           "ours": {
             "carriers": 3,
-            "value": 0,
-            "empty": 3,
+            "value": 3,
+            "empty": 0,
             "notDerived": 0
           },
           "pilot": {
@@ -27549,8 +27549,8 @@
         "Type::directedFeature": {
           "ours": {
             "carriers": 15,
-            "value": 2,
-            "empty": 13,
+            "value": 3,
+            "empty": 12,
             "notDerived": 0
           },
           "pilot": {
@@ -27564,8 +27564,8 @@
           "ours": {
             "carriers": 15,
             "value": 0,
-            "empty": 7,
-            "notDerived": 8
+            "empty": 4,
+            "notDerived": 11
           },
           "pilot": {
             "carriers": 15,
@@ -27577,8 +27577,8 @@
         "Type::feature": {
           "ours": {
             "carriers": 15,
-            "value": 10,
-            "empty": 5,
+            "value": 11,
+            "empty": 4,
             "notDerived": 0
           },
           "pilot": {
@@ -27591,8 +27591,8 @@
         "Type::featureMembership": {
           "ours": {
             "carriers": 15,
-            "value": 10,
-            "empty": 5,
+            "value": 11,
+            "empty": 4,
             "notDerived": 0
           },
           "pilot": {
@@ -27605,8 +27605,8 @@
         "Type::inheritedFeature": {
           "ours": {
             "carriers": 15,
-            "value": 8,
-            "empty": 7,
+            "value": 11,
+            "empty": 4,
             "notDerived": 0
           },
           "pilot": {
@@ -27619,8 +27619,8 @@
         "Type::inheritedMembership": {
           "ours": {
             "carriers": 15,
-            "value": 8,
-            "empty": 7,
+            "value": 11,
+            "empty": 4,
             "notDerived": 0
           },
           "pilot": {
@@ -27689,8 +27689,8 @@
         "Type::output": {
           "ours": {
             "carriers": 15,
-            "value": 2,
-            "empty": 13,
+            "value": 3,
+            "empty": 12,
             "notDerived": 0
           },
           "pilot": {
@@ -29537,8 +29537,8 @@
         "Expression::function": {
           "ours": {
             "carriers": 411,
-            "value": 78,
-            "empty": 294,
+            "value": 314,
+            "empty": 58,
             "notDerived": 39
           },
           "pilot": {
@@ -29845,8 +29845,8 @@
         "Feature::type": {
           "ours": {
             "carriers": 1333,
-            "value": 411,
-            "empty": 758,
+            "value": 648,
+            "empty": 521,
             "notDerived": 164
           },
           "pilot": {
@@ -30251,8 +30251,8 @@
         "Namespace::member": {
           "ours": {
             "carriers": 1514,
-            "value": 1103,
-            "empty": 274,
+            "value": 1248,
+            "empty": 129,
             "notDerived": 137
           },
           "pilot": {
@@ -30265,8 +30265,8 @@
         "Namespace::membership": {
           "ours": {
             "carriers": 1514,
-            "value": 1103,
-            "empty": 274,
+            "value": 1248,
+            "empty": 129,
             "notDerived": 137
           },
           "pilot": {
@@ -31049,8 +31049,8 @@
         "Step::behavior": {
           "ours": {
             "carriers": 429,
-            "value": 78,
-            "empty": 312,
+            "value": 315,
+            "empty": 75,
             "notDerived": 39
           },
           "pilot": {
@@ -31231,8 +31231,8 @@
         "Type::directedFeature": {
           "ours": {
             "carriers": 1497,
-            "value": 272,
-            "empty": 1105,
+            "value": 417,
+            "empty": 960,
             "notDerived": 120
           },
           "pilot": {
@@ -31246,8 +31246,8 @@
           "ours": {
             "carriers": 1497,
             "value": 0,
-            "empty": 393,
-            "notDerived": 1104
+            "empty": 156,
+            "notDerived": 1341
           },
           "pilot": {
             "carriers": 3710,
@@ -31259,8 +31259,8 @@
         "Type::feature": {
           "ours": {
             "carriers": 1497,
-            "value": 1076,
-            "empty": 301,
+            "value": 1221,
+            "empty": 156,
             "notDerived": 120
           },
           "pilot": {
@@ -31273,8 +31273,8 @@
         "Type::featureMembership": {
           "ours": {
             "carriers": 1497,
-            "value": 1076,
-            "empty": 301,
+            "value": 1221,
+            "empty": 156,
             "notDerived": 120
           },
           "pilot": {
@@ -31287,8 +31287,8 @@
         "Type::inheritedFeature": {
           "ours": {
             "carriers": 1497,
-            "value": 984,
-            "empty": 393,
+            "value": 1221,
+            "empty": 156,
             "notDerived": 120
           },
           "pilot": {
@@ -31301,8 +31301,8 @@
         "Type::inheritedMembership": {
           "ours": {
             "carriers": 1497,
-            "value": 984,
-            "empty": 393,
+            "value": 1221,
+            "empty": 156,
             "notDerived": 120
           },
           "pilot": {
@@ -31371,8 +31371,8 @@
         "Type::output": {
           "ours": {
             "carriers": 1497,
-            "value": 265,
-            "empty": 1112,
+            "value": 410,
+            "empty": 967,
             "notDerived": 120
           },
           "pilot": {
@@ -33405,9 +33405,9 @@
     "Expression::function": {
       "ours": {
         "carriers": 7873,
-        "value": 597,
-        "empty": 6962,
-        "notDerived": 314
+        "value": 7058,
+        "empty": 454,
+        "notDerived": 361
       },
       "pilot": {
         "carriers": 13654,
@@ -33713,9 +33713,9 @@
     "Feature::type": {
       "ours": {
         "carriers": 36986,
-        "value": 8050,
-        "empty": 25038,
-        "notDerived": 3898
+        "value": 14789,
+        "empty": 18254,
+        "notDerived": 3943
       },
       "pilot": {
         "carriers": 57404,
@@ -34287,8 +34287,8 @@
     "Namespace::member": {
       "ours": {
         "carriers": 41443,
-        "value": 31296,
-        "empty": 8441,
+        "value": 33734,
+        "empty": 6003,
         "notDerived": 1706
       },
       "pilot": {
@@ -34301,8 +34301,8 @@
     "Namespace::membership": {
       "ours": {
         "carriers": 41443,
-        "value": 31297,
-        "empty": 8440,
+        "value": 33735,
+        "empty": 6002,
         "notDerived": 1706
       },
       "pilot": {
@@ -35141,9 +35141,9 @@
     "Step::behavior": {
       "ours": {
         "carriers": 9989,
-        "value": 696,
-        "empty": 8866,
-        "notDerived": 427
+        "value": 7433,
+        "empty": 2082,
+        "notDerived": 474
       },
       "pilot": {
         "carriers": 16149,
@@ -35323,8 +35323,8 @@
     "Type::directedFeature": {
       "ours": {
         "carriers": 40112,
-        "value": 7282,
-        "empty": 31759,
+        "value": 9726,
+        "empty": 29315,
         "notDerived": 1071
       },
       "pilot": {
@@ -35338,8 +35338,8 @@
       "ours": {
         "carriers": 40112,
         "value": 170,
-        "empty": 16785,
-        "notDerived": 23157
+        "empty": 10028,
+        "notDerived": 29914
       },
       "pilot": {
         "carriers": 60946,
@@ -35351,8 +35351,8 @@
     "Type::feature": {
       "ours": {
         "carriers": 40112,
-        "value": 27153,
-        "empty": 11888,
+        "value": 29597,
+        "empty": 9444,
         "notDerived": 1071
       },
       "pilot": {
@@ -35365,8 +35365,8 @@
     "Type::featureMembership": {
       "ours": {
         "carriers": 40112,
-        "value": 27153,
-        "empty": 11888,
+        "value": 29597,
+        "empty": 9444,
         "notDerived": 1071
       },
       "pilot": {
@@ -35379,8 +35379,8 @@
     "Type::inheritedFeature": {
       "ours": {
         "carriers": 40112,
-        "value": 22331,
-        "empty": 16710,
+        "value": 29088,
+        "empty": 9953,
         "notDerived": 1071
       },
       "pilot": {
@@ -35393,8 +35393,8 @@
     "Type::inheritedMembership": {
       "ours": {
         "carriers": 40112,
-        "value": 22400,
-        "empty": 16641,
+        "value": 29157,
+        "empty": 9884,
         "notDerived": 1071
       },
       "pilot": {
@@ -35463,8 +35463,8 @@
     "Type::output": {
       "ours": {
         "carriers": 40112,
-        "value": 6376,
-        "empty": 32665,
+        "value": 8821,
+        "empty": 30220,
         "notDerived": 1071
       },
       "pilot": {

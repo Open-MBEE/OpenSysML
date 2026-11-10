@@ -126,6 +126,14 @@ type IndexExpr struct {
 	Bracket bool // written `operand [ seq ]`
 }
 
+// OperatorSpelling is the operator the form invokes: `[` for the bracket form, `#` otherwise.
+func (e *IndexExpr) OperatorSpelling() string {
+	if e.Bracket {
+		return "["
+	}
+	return "#"
+}
+
 // InvocationExpr is `Type ( args )` or `operand -> Type ( args | body | funcref )`.
 type InvocationExpr struct {
 	NodeBase

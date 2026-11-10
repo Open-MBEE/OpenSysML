@@ -25,6 +25,12 @@ func (m *Model) OperatorFunction(op ast.OperatorKind) *symbols.Symbol {
 	return nil
 }
 
+// IndexFunction is the library function an index expression invokes: BaseFunctions::'['
+// for the bracket form, BaseFunctions::'#' for `operand # (seq)` (KerML 8.3.4.8.3).
+func (m *Model) IndexFunction(index *ast.IndexExpr) *symbols.Symbol {
+	return m.OperatorFunctionNamed(index.OperatorSpelling())
+}
+
 func operatorFunctionName(op ast.OperatorKind) string {
 	if op == ast.OpIndex {
 		return "["
