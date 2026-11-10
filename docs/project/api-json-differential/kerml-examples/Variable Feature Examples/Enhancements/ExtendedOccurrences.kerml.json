@@ -11,8 +11,8 @@
       "typeMismatch": 22
     },
     "properties": {
-      "presentEqual": 1995,
-      "presentDifferent": 77,
+      "presentEqual": 1999,
+      "presentDifferent": 73,
       "oursMissing": 292,
       "pilotMissing": 129,
       "absentBoth": 1755,
@@ -87,7 +87,7 @@
     "Expression.declaredName": [2,0,0,0,0,0,0],
     "Expression.declaredShortName": [0,0,0,0,2,0,0],
     "Expression.differencingType": [0,0,0,0,2,0,0],
-    "Expression.directedFeature": [0,2,0,0,0,0,0],
+    "Expression.directedFeature": [2,0,0,0,0,0,0],
     "Expression.direction": [0,0,0,0,2,0,0],
     "Expression.documentation": [0,0,0,0,2,0,0],
     "Expression.endFeature": [0,0,0,0,2,0,0],
@@ -118,7 +118,7 @@
     "Expression.member": [0,2,0,0,0,0,0],
     "Expression.membership": [0,2,0,0,0,0,0],
     "Expression.name": [2,0,0,0,0,0,0],
-    "Expression.output": [0,2,0,0,0,0,0],
+    "Expression.output": [2,0,0,0,0,0,0],
     "Expression.ownedAnnotation": [0,0,0,0,2,0,0],
     "Expression.ownedDifferencing": [0,0,0,0,2,0,0],
     "Expression.ownedDisjoining": [0,0,0,0,2,0,0],

@@ -11,8 +11,8 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 4211,
-      "presentDifferent": 215,
+      "presentEqual": 4213,
+      "presentDifferent": 213,
       "oursMissing": 669,
       "pilotMissing": 133,
       "absentBoth": 4239,
@@ -227,7 +227,7 @@
     "CalculationUsage.declaredShortName": [0,0,0,0,1,0,0],
     "CalculationUsage.definition": [0,0,1,0,0,0,0],
     "CalculationUsage.differencingType": [0,0,0,0,1,0,0],
-    "CalculationUsage.directedFeature": [0,1,0,0,0,0,0],
+    "CalculationUsage.directedFeature": [1,0,0,0,0,0,0],
     "CalculationUsage.directedUsage": [1,0,0,0,0,0,0],
     "CalculationUsage.direction": [0,0,0,0,1,0,0],
     "CalculationUsage.documentation": [0,0,0,0,1,0,0],
@@ -291,7 +291,7 @@
     "CalculationUsage.nestedView": [0,0,0,0,1,0,0],
     "CalculationUsage.nestedViewpoint": [0,0,0,0,1,0,0],
     "CalculationUsage.occurrenceDefinition": [0,0,1,0,0,0,0],
-    "CalculationUsage.output": [0,1,0,0,0,0,0],
+    "CalculationUsage.output": [1,0,0,0,0,0,0],
     "CalculationUsage.ownedAnnotation": [0,0,0,0,1,0,0],
     "CalculationUsage.ownedDifferencing": [0,0,0,0,1,0,0],
     "CalculationUsage.ownedDisjoining": [0,0,0,0,1,0,0],

@@ -11,15 +11,15 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 33658,
+      "presentEqual": 33659,
       "presentDifferent": 2503,
-      "oursMissing": 5262,
-      "pilotMissing": 1115,
-      "absentBoth": 37265,
+      "oursMissing": 5261,
+      "pilotMissing": 1118,
+      "absentBoth": 37262,
       "indeterminate": 451,
       "pilotNondeterministic": 13
     },
-    "unkeyedReferences": 2453,
+    "unkeyedReferences": 2441,
     "extensionProperties": 4081,
     "duplicateElements": {
       "ours": 0,
@@ -5209,7 +5209,7 @@
     "TransitionUsage.nestedView": [0,0,0,0,4,0,0],
     "TransitionUsage.nestedViewpoint": [0,0,0,0,4,0,0],
     "TransitionUsage.occurrenceDefinition": [0,0,4,0,0,0,0],
-    "TransitionUsage.output": [0,0,1,0,3,0,0],
+    "TransitionUsage.output": [1,0,0,3,0,0,0],
     "TransitionUsage.ownedAnnotation": [0,0,0,0,4,0,0],
     "TransitionUsage.ownedDifferencing": [0,0,0,0,4,0,0],
     "TransitionUsage.ownedDisjoining": [0,0,0,0,4,0,0],

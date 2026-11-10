@@ -12,15 +12,15 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 1535,
+      "presentEqual": 1537,
       "presentDifferent": 253,
-      "oursMissing": 169,
+      "oursMissing": 167,
       "pilotMissing": 55,
       "absentBoth": 1860,
       "indeterminate": 52,
       "pilotNondeterministic": 1
     },
-    "unkeyedReferences": 215,
+    "unkeyedReferences": 218,
     "extensionProperties": 215,
     "duplicateElements": {
       "ours": 40,
@@ -1215,7 +1215,7 @@
     "SendActionUsage.declaredShortName": [0,0,0,0,1,0,0],
     "SendActionUsage.definition": [0,0,1,0,0,0,0],
     "SendActionUsage.differencingType": [0,0,0,0,1,0,0],
-    "SendActionUsage.directedFeature": [0,1,0,0,0,0,0],
+    "SendActionUsage.directedFeature": [1,0,0,0,0,0,0],
     "SendActionUsage.directedUsage": [1,0,0,0,0,0,0],
     "SendActionUsage.direction": [0,0,0,0,1,0,0],
     "SendActionUsage.documentation": [0,0,0,0,1,0,0],
@@ -1225,8 +1225,8 @@
     "SendActionUsage.featureTarget": [1,0,0,0,0,0,0],
     "SendActionUsage.featuringType": [1,0,0,0,0,0,0],
     "SendActionUsage.importedMembership": [0,0,0,0,1,0,0],
-    "SendActionUsage.inheritedFeature": [0,0,1,0,0,0,0],
-    "SendActionUsage.inheritedMembership": [0,0,1,0,0,0,0],
+    "SendActionUsage.inheritedFeature": [0,1,0,0,0,0,0],
+    "SendActionUsage.inheritedMembership": [0,1,0,0,0,0,0],
     "SendActionUsage.input": [0,1,0,0,0,0,0],
     "SendActionUsage.intersectingType": [0,0,0,0,1,0,0],
     "SendActionUsage.isAbstract": [1,0,0,0,0,0,0],
@@ -1311,7 +1311,7 @@
     "SendActionUsage.textualRepresentation": [0,0,0,0,1,0,0],
     "SendActionUsage.type": [0,0,1,0,0,0,0],
     "SendActionUsage.unioningType": [0,0,0,0,1,0,0],
-    "SendActionUsage.usage": [0,1,0,0,0,0,0],
+    "SendActionUsage.usage": [1,0,0,0,0,0,0],
     "SendActionUsage.variant": [0,0,0,0,1,0,0],
     "SendActionUsage.variantMembership": [0,0,0,0,1,0,0]
   }

@@ -12,11 +12,11 @@
     },
     "properties": {
       "presentEqual": 509,
-      "presentDifferent": 59,
+      "presentDifferent": 58,
       "oursMissing": 75,
       "pilotMissing": 19,
       "absentBoth": 615,
-      "indeterminate": 3,
+      "indeterminate": 4,
       "pilotNondeterministic": 0
     },
     "unkeyedReferences": 49,
@@ -141,7 +141,7 @@
     "AcceptActionUsage.textualRepresentation": [0,0,0,0,2,0,0],
     "AcceptActionUsage.type": [0,0,2,0,0,0,0],
     "AcceptActionUsage.unioningType": [0,0,0,0,2,0,0],
-    "AcceptActionUsage.usage": [0,2,0,0,0,0,0],
+    "AcceptActionUsage.usage": [0,1,0,0,0,1,0],
     "AcceptActionUsage.variant": [0,0,0,0,2,0,0],
     "AcceptActionUsage.variantMembership": [0,0,0,0,2,0,0],
     "ActionUsage.actionDefinition": [0,0,1,0,0,0,0],

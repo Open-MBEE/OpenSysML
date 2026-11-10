@@ -11,8 +11,8 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 529,
-      "presentDifferent": 34,
+      "presentEqual": 530,
+      "presentDifferent": 33,
       "oursMissing": 62,
       "pilotMissing": 15,
       "absentBoth": 640,
@@ -925,7 +925,7 @@
     "TerminateActionUsage.textualRepresentation": [0,0,0,0,1,0,0],
     "TerminateActionUsage.type": [0,0,1,0,0,0,0],
     "TerminateActionUsage.unioningType": [0,0,0,0,1,0,0],
-    "TerminateActionUsage.usage": [0,1,0,0,0,0,0],
+    "TerminateActionUsage.usage": [1,0,0,0,0,0,0],
     "TerminateActionUsage.variant": [0,0,0,0,1,0,0],
     "TerminateActionUsage.variantMembership": [0,0,0,0,1,0,0]
   }
