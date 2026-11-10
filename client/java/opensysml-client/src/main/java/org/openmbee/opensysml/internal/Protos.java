@@ -22,6 +22,7 @@ import org.openmbee.opensysml.EditResult;
 import org.openmbee.opensysml.EditedDocument;
 import org.openmbee.opensysml.EngineInfo;
 import org.openmbee.opensysml.EnumLiteral;
+import org.openmbee.opensysml.Coverage;
 import org.openmbee.opensysml.Exploration;
 import org.openmbee.opensysml.FailureReason;
 import org.openmbee.opensysml.Instance;
@@ -1095,7 +1096,27 @@ public final class Protos {
         s.getMassBounded(),
         s.getNotesList(),
         s.getScopeList(),
-        s.getStatus());
+        s.getStatus(),
+        s.hasCoverage() ? coverage(s.getCoverage()) : Coverage.NONE);
+  }
+
+  /**
+   * The states entered and transitions taken across every run or schedule.
+   *
+   * @param c the generated coverage
+   * @return the immutable coverage
+   */
+  public static Coverage coverage(org.openmbee.opensysml.proto.Coverage c) {
+    return new Coverage(coverageEntries(c.getStatesList()), coverageEntries(c.getTransitionsList()));
+  }
+
+  private static List<Coverage.Entry> coverageEntries(
+      List<org.openmbee.opensysml.proto.CoverageEntry> entries) {
+    List<Coverage.Entry> out = new ArrayList<>(entries.size());
+    for (org.openmbee.opensysml.proto.CoverageEntry e : entries) {
+      out.add(new Coverage.Entry(e.getPath(), e.getDeclaration(), e.getRuns()));
+    }
+    return out;
   }
 
   private static CheckResult.Witness checkWitness(org.openmbee.opensysml.proto.CheckWitness w) {
@@ -1503,7 +1524,8 @@ public final class Protos {
         status.getRunsBudget(),
         status.getDepthBudget(),
         status.getFailedLinearizations(),
-        status.getProbabilitiesLowerBound());
+        status.getProbabilitiesLowerBound(),
+        status.hasCoverage() ? coverage(status.getCoverage()) : Coverage.NONE);
   }
 
   /**
