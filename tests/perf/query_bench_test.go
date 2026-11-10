@@ -8,8 +8,7 @@ import (
 	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/positional" // the CLI's positional namer
 )
 
-// oslcQueryModels are the models BenchmarkOSLCQuery runs over: the largest
-// self-model package (pipeline loads execution too) and a small fixture, so a
+// oslcQueryModels are the largest self-model package and a small fixture, so a
 // cost fixed per query shows apart from one growing with the model.
 var oslcQueryModels = []struct{ name, path string }{
 	{"pipeline", "../../examples/self-model/pipeline.sysml"},
@@ -25,8 +24,7 @@ var oslcQueries = []struct{ name, text string }{
 }
 
 // BenchmarkOSLCQuery times Session.Query alone, as `sysml -query` runs it: a
-// fresh session per iteration, loaded outside the timer, so nothing a query
-// memoizes survives into the next.
+// fresh session per iteration, loaded outside the timer, memoizes nothing across queries.
 func BenchmarkOSLCQuery(b *testing.B) {
 	for _, m := range oslcQueryModels {
 		for _, q := range oslcQueries {
