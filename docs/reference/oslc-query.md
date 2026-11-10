@@ -213,6 +213,14 @@ A refused query carries the [query outcome](../internals/design/query-outcomes.m
 as a `QueryOutcome` status detail on every transport, as `RunDocumentQuery`
 does, so a client reads the failing step, the frontier and the nearest spelling
 rather than parsing prose.
+
+The answer can be written as a `QVTS::QueryResult` view instead
+([Write the answer as a view](../guide/qvts.md#write-the-answer-as-a-view)): `-query … -as-view
+<file|->`, `%query -as-view …`, and `as_view` on the `Query` RPC, which fills
+`QueryResponse.result_view` under the `query_result_view` capability. The view's `query`
+attribute is the OSLC text as given, its exposed elements are the matched ones, and a refused
+query — an unknown property — still yields a view, with `outcome = Outcome::pathError`, carried
+as a `QueryResultView` status detail beside the `QueryOutcome`.
 The REPL's `%query` and `sysml -query` identify unnamed elements with the same
 positional `@N` IDs as the service query; see [the query model](api.md#the-query-model).
 A query that matches nothing says so: the REPL prints `no

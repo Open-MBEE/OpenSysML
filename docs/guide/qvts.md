@@ -241,6 +241,66 @@ The other shipped clients—Go (`client/opensysml`), Julia, MATLAB, Node, Python
 Jupyter kernel—read the status message but do not yet expose the structured `QueryOutcome` record
 as a client-level result. The wire message is defined in `api/proto/sysml.proto`.
 
+## Write the answer as a view
+
+Every query surface can also write what it answered as a model element: one view typed by
+`QVTS::QueryResult`, the shape the [QVTS](https://github.com/Open-MBEE/qvts) library gives a
+query result. The library ships with OpenSysML (`OpenSysML Libraries/QVTS.sysml`), so the text
+parses against any workspace.
+
+```console
+$ bin/sysml examples/qvts/lander.sysml examples/qvts/queries.sysml -run-query QVTSDemo::CabinMass -as-view -
+```
+
+```sysml
+package CabinMassResult {
+	private import QVTS::*;
+
+	view cabinMass : QueryResult {
+		expose Lander::lander::cabin;
+		attribute :>> query = "QVTSDemo::CabinMass";
+		attribute :>> source = "examples/qvts/lander.sysml examples/qvts/queries.sysml";
+		attribute :>> outcome = Outcome::established;
+		attribute :>> provenance = "sha256:110e03c52250fab7b72729f2c70e2cf09f2d1777290be6e30270b523b26e12dd";
+	}
+}
+```
+
+The view exposes each selected element once, by qualified name, in the order the rows came.
+Projected cells are not copied into it: a cell is a value of the exposed element, which a
+document over the view reads again. The four attributes are
+
+| Attribute | Value |
+|:--|:--|
+| `query` | A named query's qualified name followed by its bindings; an inline query's expression; the SysML v2 API query or OSLC Query text given to `Query`. |
+| `source` | The files the model was read from, as the surface knows them; the model hash over the service. |
+| `outcome` | `established` for a value — an empty selection included, which exposes nothing — and `pathError` or `modelError` for a query the model has no answer for. |
+| `provenance` | The hash of the model the query read, followed by `; step <step>` naming the step a failed query stopped at. |
+
+A failed query has no selection, so its view exposes the elements the failure is about instead:
+each frontier's `at` for a path error, each finding's element for a model error. A failure
+about no element — an OSLC property no element type has — exposes nothing. The same model and
+the same query write the same bytes.
+
+| Surface | How to ask |
+|:--|:--|
+| `sysml -run-query`, `-run-inline-query`, `-query` | `-as-view <file>` writes the view to the file beside the usual report; `-as-view -` prints it in place of the rows. A failed query still writes its view and still exits 2. |
+| REPL `%run-query`, `%query` | A leading `-as-view` (`%run-query -as-view QVTSDemo::CabinMass`, also before `inline …`) prints the view in place of the rows. |
+| gRPC `RunDocumentQuery`, `Query` | `as_view` in the request fills `result_view.text` in the response; a failed query carries a `QueryResultView` status detail beside its `QueryOutcome`. Needs the `query_result_view` capability. |
+| Go client | `RunDocumentQueryAsView`, `RunInlineDocumentQueryAsView`, `QueryAsView`, `QueryOSLCAsView`; `StatusError.ResultView` on a failure. |
+| Python client | `as_view=True` on `run_document_query` and `query`; `.result_view` on the result and on the error. |
+| Java client | `runDocumentQueryAsView`, `runInlineDocumentQueryAsView`, `queryAsView`, `queryOslcAsView`; `QueryOutcomeException.resultView()` on a failure. |
+| Magic MDK | *Run query* writes the view beside the project; see [the plugin's README](https://github.com/Open-MBEE/OpenSysML/blob/develop/editors/mdk/README.md). |
+
+A result view is a view like any other, so it renders once its text is part of the model:
+`sysml … -render CabinMassResult::cabinMass` draws it as `RenderView` does, and
+`-render-document CabinMassResult::cabinMass -doc-form markdown` (or `html`, `asciidoc`, `pdf`;
+`form` on the `RenderView` RPC) writes it as a document, the four attributes as the header and
+the exposed elements as the rows of one table. The RPC refuses a document form for a view that
+is not a `QVTS::QueryResult`. `examples/qvts/expected/views/` records the view and each
+rendered form for the queries of this guide, for an OSLC query and its unknown-property path
+error, and for the QVTS repository's own `result.sysml`.
+
 ## Current limits
 
 The native query surface has known gaps; the examples record current output rather than changing

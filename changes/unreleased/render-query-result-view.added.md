@@ -1,0 +1,1 @@
+- `RenderView` renders a `QVTS::QueryResult` view as a document — its four attributes as the header, the exposed elements as the rows — in Markdown, HTML and AsciiDoc through the request's `form`, and `sysml -render-document` accepts such a view for every document form.
