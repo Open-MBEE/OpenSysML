@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net/http"
 	"strings"
 	"time"
 
@@ -72,11 +73,14 @@ func logRefusal(protocol, peer, method string, refusal guard.Refusal, dur time.D
 	)
 }
 
-// codeFor is the code a refusal is answered with: permission denied for a
-// credential lacking a scope (RFC 6750 § 3.1, 403), unauthenticated otherwise.
+// codeFor is the code a refusal is answered with, as its HTTP status says: 403 is
+// permission denied, 503 unavailable (RFC 6750 § 3.1), the rest unauthenticated.
 func codeFor(refusal guard.Refusal) connect.Code {
-	if refusal == guard.InsufficientScope {
+	switch refusal.HTTPStatus() {
+	case http.StatusForbidden:
 		return connect.CodePermissionDenied
+	case http.StatusServiceUnavailable:
+		return connect.CodeUnavailable
 	}
 	return connect.CodeUnauthenticated
 }

@@ -28,7 +28,7 @@ import (
 )
 
 // scoped is an authenticator of the tokens with its prefix: it accepts the one
-// named good as its principal and refuses its others for a missing scope.
+// named good, cannot verify osk_down for now, and refuses its others for a scope.
 type scoped struct {
 	prefix, good string
 	principal    guard.Principal
@@ -41,6 +41,8 @@ func (s scoped) Verify(_ context.Context, authorization string, _ *http.Request)
 		return guard.Principal{}, refusal
 	case !strings.HasPrefix(token, s.prefix):
 		return guard.Principal{}, guard.NothingPresented
+	case token == "osk_down":
+		return guard.Principal{}, guard.Unavailable
 	case token != s.good:
 		return guard.Principal{}, guard.InsufficientScope
 	}
@@ -203,6 +205,14 @@ func TestAuthenticatorPrincipalInGRPCHandler(t *testing.T) {
 	if status.Code(err) != codes.PermissionDenied {
 		t.Errorf("a token lacking a scope over grpc-go: %v, want PermissionDenied", err)
 	}
+	downCtx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("authorization", "Bearer osk_down"))
+	_, err = unaryAccessInterceptor(door)(downCtx, "request", info, func(ctx context.Context, req interface{}) (interface{}, error) {
+		t.Fatal("an unverifiable call reached the handler")
+		return nil, nil
+	})
+	if status.Code(err) != codes.Unavailable {
+		t.Errorf("a token the verifier cannot reach over grpc-go: %v, want Unavailable", err)
+	}
 }
 
 // serverStream is the least of a grpc-go server stream: a context.
@@ -226,6 +236,7 @@ func TestAuthenticatorChainOverConnect(t *testing.T) {
 		{"api key", "Bearer osk_good", "", "k1", "api-key", 0},
 		{"static token", "Bearer " + testToken, "", guard.StaticTokenSubject, guard.SourceStaticToken, 0},
 		{"key lacking a scope", "Bearer osk_other", `error="insufficient_scope"`, "", "", connect.CodePermissionDenied},
+		{"key the verifier cannot reach", "Bearer osk_down", `Bearer realm="sysml-grpc"`, "", "", connect.CodeUnavailable},
 		{"stranger", "Bearer stranger", `error="invalid_token"`, "", "", connect.CodeUnauthenticated},
 		{"nothing", "", `Bearer realm="sysml-grpc"`, "", "", connect.CodeUnauthenticated},
 	} {

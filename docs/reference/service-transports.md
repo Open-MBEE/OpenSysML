@@ -185,7 +185,8 @@ token alone, and a call it admits is served knowing its principal (the subject a
 authenticator that accepted it), which the access log names. A call without a credential is
 answered `unauthenticated` (HTTP 401 with `WWW-Authenticate: Bearer realm="sysml-grpc"`; the
 grpc-go trailer carries the same), one whose credential lacks a scope the service requires
-`permission_denied` (HTTP 403, `error="insufficient_scope"`), and the
+`permission_denied` (HTTP 403, `error="insufficient_scope"`), one whose credential cannot be
+verified for now `unavailable` (HTTP 503), and the
 [wire contract](wire-contract.md#connect-errors-the-code-table) says what each client raises. `GET /health` is answered without a token so that liveness
 probes need no secret; it says the version, nothing about any model. Starting non-loopback
 without a token fails at once naming the three ways to supply one and the one way to decline:
