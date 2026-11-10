@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -236,10 +237,35 @@ func (d *decoder) restatesAnotherDisagreement(t rdf.Triple, check *encoder) bool
 	if LibraryReference(d.graph, t.Subject) || LibraryReference(check.graph, t.Subject) {
 		return true
 	}
+	// A bare comment the stored graph predates is stated by the text alone.
+	if d.legacyBareComment(t.Subject, check) || d.legacyBareComment(t.Object, check) {
+		return true
+	}
 	// An implied relationship element's ends restate the owner's collapsed
 	// edge, whose disagreement already falls on the target's text.
 	el, ok := d.byIRI[t.Subject.Value]
 	return ok && el.implied && impliedRelationshipMetaclasses[el.metaclass]
+}
+
+// legacyBareComment reports whether term is a bare `/* … */` Comment, or the membership owning one,
+// that only the re-parsed text states: a graph stored before such comments were elements lacks it.
+func (d *decoder) legacyBareComment(term rdf.Term, check *encoder) bool {
+	if !term.IsIRI() || d.graph.HasProperty(term, rdf.RDFType) {
+		return false
+	}
+	for _, object := range check.graph.Objects(term, rdf.RDFType) {
+		switch rdf.LocalName(object.Value) {
+		case "Comment":
+			// A `comment` keyword was always recorded, so text spelling one is stale, not legacy.
+			text, _ := check.graph.Lexical(term, rdf.OpenSysML+xSourceText)
+			return strings.TrimSpace(naming.WithoutComments(text)) == ""
+		case mOwningMembership:
+			if member, ok := check.graph.Object(term, rdf.SysML+pMemberElement); ok {
+				return d.legacyBareComment(member, check)
+			}
+		}
+	}
+	return false
 }
 
 // candidateName names the candidate notation for the grammar the roots record
