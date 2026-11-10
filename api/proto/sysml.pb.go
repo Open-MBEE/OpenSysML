@@ -14580,13 +14580,8 @@ func (x *RunRunsResponse) GetSeed() uint64 {
 	return 0
 }
 
-// RunDocumentQueryRequest runs a document query — a calc def specializing
-// DocumentQueries::Query the model declares, named by query_id, or the body of
-// one written in inline_query — against a model the service already parsed,
-// binding its entry parameters. It answers as %run-query does, but with typed
-// rows rather than formatted lines. The query runs over the objects
-// Instantiate created for the model, which a binding may name (DocumentObject)
-// and `DocumentQueries::Objects` and `Verdicts` reach.
+// RunDocumentQueryRequest runs a DocumentQueries::Query the model declares (query_id) or one
+// written in inline_query over a parsed model and its Instantiate objects, binding its parameters.
 type RunDocumentQueryRequest struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	ModelHash string                 `protobuf:"bytes,1,opt,name=model_hash,json=modelHash,proto3" json:"model_hash,omitempty"` // from ParseFile response
