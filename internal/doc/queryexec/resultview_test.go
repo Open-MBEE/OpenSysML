@@ -121,3 +121,35 @@ package Shop {
 		t.Errorf("the view exposes %d elements, want the 2 a qualified name reaches:\n%s", got, text)
 	}
 }
+
+func TestResultViewExposesTheFrontierElementAmongSharedNames(t *testing.T) {
+	fixture := loadExecutionSource(t, "package Observatory {"+executionImports+`
+calc def Features :> Query {
+	Project(source = WhereType(source = Descendants(source = Named(qualifiedName = "Shop")), type = "PartUsage"), properties = ("mass"))
+}
+calc def QuotedMember :> Query { Named(qualifiedName = "Shop::'a::b'::missing") }
+calc def NestedMember :> Query { Named(qualifiedName = "Shop::a::b::missing") }
+}
+package Shop {
+	part 'a::b';
+	part a { part b; }
+	part c { attribute mass = 1; }
+}
+`)
+	for name, want := range map[string][]string{
+		"Features":     {"expose Shop::'a::b';", "expose Shop::a;", "expose Shop::a::b;"},
+		"QuotedMember": {"expose Shop::'a::b';"},
+		"NestedMember": {"expose Shop::a::b;"},
+	} {
+		result, err := fixture.execute(t, name, nil, Options{})
+		text, ok := ResultView{Name: name}.Write(fixture.context(), result, err)
+		if !ok || strings.Count(text, "\t\texpose ") != len(want) {
+			t.Errorf("%s: want only %q in:\n%s", name, want, text)
+		}
+		for _, line := range want {
+			if !strings.Contains(text, "\t\t"+line+"\n") {
+				t.Errorf("%s: want %q in:\n%s", name, line, text)
+			}
+		}
+	}
+}

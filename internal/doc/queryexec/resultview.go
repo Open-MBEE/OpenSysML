@@ -176,13 +176,15 @@ func joinProvenance(base, step string) string {
 func outcomeElements(index *symbols.Index, outcome Outcome) [][]string {
 	var out [][]string
 	add := func(name string) {
-		if name == "" || index == nil {
-			return
+		if path, named := declaredPath(index, name); named {
+			out = appendDistinct(out, path)
 		}
-		if found := index.LookupQualified(name); len(found) > 0 {
-			if path, named := namePath(found[0]); named {
-				out = appendDistinct(out, path)
-			}
+	}
+	at := func(frontier Frontier) {
+		if frontier.element == nil {
+			add(frontier.At)
+		} else if path, named := namePath(frontier.element); named {
+			out = appendDistinct(out, path)
 		}
 	}
 	if outcome.Model != nil {
@@ -190,15 +192,39 @@ func outcomeElements(index *symbols.Index, outcome Outcome) [][]string {
 			add(finding.Element)
 		}
 		for _, failure := range outcome.Model.PathFailures {
-			add(failure.Frontier.At)
+			at(failure.Frontier)
 		}
 	}
 	if outcome.Path != nil {
 		for _, failure := range outcome.Path.Failures {
-			add(failure.Frontier.At)
+			at(failure.Frontier)
 		}
 	}
 	return out
+}
+
+// declaredPath is the names of the one element name denotes: the element spelt
+// exactly so where a quoted name makes several share it, none where that is undecided.
+func declaredPath(index *symbols.Index, name string) ([]string, bool) {
+	if name == "" || index == nil {
+		return nil, false
+	}
+	var paths [][]string
+	for _, sym := range index.LookupQualified(name) {
+		if path, named := namePath(sym); named {
+			paths = appendDistinct(paths, path)
+		}
+	}
+	spelt := symbols.SegmentsOf(name)
+	for _, path := range paths {
+		if slices.Equal(path, spelt) {
+			return path, true
+		}
+	}
+	if len(paths) == 1 {
+		return paths[0], true
+	}
+	return nil, false
 }
 
 func appendDistinct(xs [][]string, x []string) [][]string {
