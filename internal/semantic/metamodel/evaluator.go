@@ -252,6 +252,19 @@ func (e *Evaluator) derive(el Element, class, name string) (Value, bool) {
 		}
 	case "Feature":
 		switch name {
+		case "isEnd":
+			if sym == nil {
+				return e.unsupported(el, class, name, Reason{
+					Category: ReasonUnrepresentedElement,
+					Detail:   "Feature has no semantic symbol",
+				})
+			}
+			if meta := e.model.MetaclassOf(sym); meta != nil && e.options.Structure != nil &&
+				e.options.Structure.Specializes(meta.Name, "Multiplicity") {
+				return booleanValue(false), true
+			}
+			value, ok := e.model.ReflectiveFeatureValue(sym, "isEnd")
+			return booleanValue(ok && value.Kind == symbols.FilterValueBool && value.Bool), true
 		case "direction":
 			if sym == nil {
 				return e.unsupported(el, class, name, Reason{
@@ -667,13 +680,26 @@ func (e *Evaluator) importProperty(el Element, name string) (Value, bool) {
 		})
 	}
 	imp, ok := el.Node.(*ast.Import)
+	var scope *symbols.Scope
+	if el.Container != nil {
+		scope = el.Container.Scope
+	}
+	if !ok {
+		// A structure's handle carries no node: the import is the symbol it projects.
+		if sym, found := e.structureSymbolOf(el); found && sym.Implicit != nil && sym.Implicit.Form == symbols.ImplicitImport {
+			imp, ok = sym.Implicit.Decl.(*ast.Import)
+			if owner := sym.Implicit.Owner; owner != nil {
+				scope = owner.Scope
+			}
+		}
+	}
 	if !ok || imp == nil {
 		return e.unsupported(el, "Import", name, Reason{
 			Category: ReasonUnrepresentedElement,
 			Detail:   "Import::importedElement has no syntax-backed import",
 		})
 	}
-	if el.Container == nil || el.Container.Scope == nil {
+	if scope == nil {
 		return e.unsupported(el, "Import", name, Reason{
 			Category: ReasonMissingStructure,
 			Detail:   "Import::importedElement has no containing namespace",
@@ -685,7 +711,7 @@ func (e *Evaluator) importProperty(el Element, name string) (Value, bool) {
 			Detail:   "Import::importedElement requires a resolver",
 		})
 	}
-	imported, ok := e.resolver.ImportTarget(el.Container.Scope, imp)
+	imported, ok := e.resolver.ImportTarget(scope, imp)
 	if !ok || imported == nil ||
 		!e.importTreeComplete(imported, imp, make(map[*symbols.Scope]bool)) {
 		return e.unsupported(el, "Import", name, Reason{

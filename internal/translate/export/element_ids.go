@@ -125,6 +125,11 @@ func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[
 		ids.conjugateBySpan[spanKey{e.file.Name(), node.Span()}] = conjugate
 	}
 	ids.recordValuePart(e, node, subject)
+	if member, ok := node.(*ast.ConstraintMember); ok && member.Keyword == "" && member.Name == "" && member.Body == nil && member.Expression != nil {
+		// A bare body expression is written as the expression itself (ConstraintMember
+		// case of the walk), so its parts are minted off the member's subject.
+		e.registerExpressionIDs(ids, subject, member.Expression)
+	}
 	ids.recordDefaultMultiplicity(e, node, subject)
 	ids.recordConnectorEnds(e, node, subject)
 	ids.recordSatisfySubjects(e, node, subject)
@@ -194,6 +199,30 @@ func (ids *ElementIDs) recordConnectorEnds(e *encoder, node ast.Node, subject rd
 				ids.partBySpan[spanPartKey{spanKey{e.file.Name(), end.Span()}, "chain." + position}] = recorded
 			}
 		}
+	}
+	// A flow's `from`/`to` ends are minted off the flow at their position (connectorEnd, messageEnd), each
+	// owned through a membership beside it; a flow end owns the flow feature redefining its last segment.
+	usage, ok := node.(*ast.Usage)
+	if !ok || usage.FlowEnds == nil {
+		return
+	}
+	for i, end := range []ast.Node{usage.FlowEnds.From, usage.FlowEnds.To} {
+		if end == nil {
+			continue
+		}
+		slot := fmt.Sprintf("end%d", i)
+		feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+		ids.byNode[end] = rdf.LocalName(feature.Value)
+		ids.bySpan[spanKey{e.file.Name(), end.Span()}] = ids.byNode[end]
+		membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix).Value)
+		ids.membershipByNode[end] = membership
+		ids.membershipBySpan[spanKey{e.file.Name(), end.Span()}] = membership
+		if usage.Keyword == "message" {
+			continue
+		}
+		flowFeature := rdf.LocalName(e.ids.mintedNode(rdf.ExpressionIRI(feature, "ff"), feature, "ff").Value)
+		ids.partByNode[partKey{end, "ff"}] = partIDs{element: flowFeature}
+		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), end.Span()}, "ff"}] = partIDs{element: flowFeature}
 	}
 }
 
@@ -402,6 +431,26 @@ func (e *encoder) writtenBoundEndReferences(node ast.Node, subject rdf.Term, out
 			if rel != nil && rel.Kind == ast.RelReferences && rel.Target == end.AttachedTarget() {
 				out[rel] = out[end]
 			}
+		}
+	}
+	// A flow end's ReferenceSubsetting is written for its name's prefix, a message end's for the whole
+	// name (flowEndReferences, messageEnd); the flow feature's redefinition is a property, no element.
+	usage, ok := node.(*ast.Usage)
+	if !ok || usage.FlowEnds == nil {
+		return
+	}
+	for i, end := range []ast.Node{usage.FlowEnds.From, usage.FlowEnds.To} {
+		if end == nil {
+			continue
+		}
+		slot := fmt.Sprintf("end%d", i)
+		feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+		if usage.Keyword == "message" {
+			out[ast.EndTarget(end)] = e.referenceSubsettingID(feature)
+			continue
+		}
+		if prefix, _ := ast.FlowEndSegments(end); prefix != nil {
+			out[prefix] = e.referenceSubsettingID(feature)
 		}
 	}
 }

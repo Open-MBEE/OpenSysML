@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 
@@ -49,6 +50,20 @@ func parseForElementProperties(t *testing.T, content string) *elementPropertiesR
 		if d.Severity == "error" {
 			t.Fatalf("unexpected diagnostic: %s", d.Message)
 		}
+	}
+	return &elementPropertiesReader{t: t, srv: srv, hash: parsed.ModelHash}
+}
+
+// parseForElementPropertiesWithErrors parses a model whose validation errors
+// are the point: a reference the model does not resolve.
+func parseForElementPropertiesWithErrors(t *testing.T, content string) *elementPropertiesReader {
+	t.Helper()
+	srv := mustNewService(t, 10)
+	parsed, err := srv.ParseFile(context.Background(), &pb.ParseFileRequest{
+		Source: &pb.ParseFileRequest_Content{Content: content},
+	})
+	if err != nil {
+		t.Fatalf("ParseFile: %v", err)
 	}
 	return &elementPropertiesReader{t: t, srv: srv, hash: parsed.ModelHash}
 }
@@ -132,9 +147,18 @@ func TestElementPropertiesReadsDerivedPropertiesBySpecName(t *testing.T) {
 		t.Errorf("EP::Pair::u1.isComposite = %v", composite.Values)
 	}
 
-	value := r.property("EP::Pair::x", "value")
+	var valuation string
+	for _, rel := range r.property("EP::Pair::x", "ownedRelationship").Values {
+		if rel.GetElement().GetMetaclass() == "FeatureValue" {
+			valuation = rel.GetElement().GetId()
+		}
+	}
+	if valuation == "" {
+		t.Fatalf("EP::Pair::x owns no FeatureValue")
+	}
+	value := r.property(valuation, "value")
 	if len(value.Values) != 1 || value.Values[0].GetElement().GetMetaclass() != "OperatorExpression" {
-		t.Fatalf("EP::Pair::x.value = %v", value.Values)
+		t.Fatalf("%s.value = %v", valuation, value.Values)
 	}
 	expression := value.Values[0].GetElement().GetId()
 	if operator := r.property(expression, "operator"); len(operator.Values) != 1 || operator.Values[0].GetStringValue() != "+" {
@@ -260,12 +284,17 @@ func TestElementPropertiesReportsWhyAPropertyHasNoAnswer(t *testing.T) {
 	if none.Unsupported != "" || len(none.Values) != 0 {
 		t.Errorf("EP::Unit.ownedSubclassification = %+v, want declared and empty", none)
 	}
-	perElement := r.property("EP::CmdPort::cmd", "inheritedFeature")
-	if len(perElement.Values) != 0 || !strings.Contains(perElement.Unsupported, "Type::inheritedFeature is not derived for this element") {
-		t.Errorf("a property the evaluator could not derive for one element answers %+v", perElement)
-	}
 	if inherited := r.property("EP::Pair", "inheritedFeature"); inherited.Unsupported != "" || len(inherited.Values) == 0 {
 		t.Errorf("EP::Pair.inheritedFeature = %+v, want derived", inherited)
+	}
+	cmdInherited := r.property("EP::CmdPort::cmd", "inheritedFeature")
+	if cmdInherited.Unsupported != "" || len(cmdInherited.Values) == 0 {
+		t.Errorf("EP::CmdPort::cmd.inheritedFeature = %+v, want the features its library type inherits", cmdInherited)
+	}
+	unresolved := parseForElementPropertiesWithErrors(t, "package EU { part def Lone { part broken : Missing; } }")
+	perElement := unresolved.property("EU::Lone::broken", "type")
+	if len(perElement.Values) != 0 || !strings.Contains(perElement.Unsupported, "Feature::type is not derived for this element") {
+		t.Errorf("a property the evaluator could not derive for one element answers %+v", perElement)
 	}
 	omitted := r.property("EP::Pair", "ownedDisjoining")
 	if omitted.Unsupported != "" && !strings.Contains(omitted.Unsupported, "not derived by OpenSysML") {
@@ -366,6 +395,75 @@ func TestElementPropertiesReadsBackEveryIdAnAnswerCarries(t *testing.T) {
 		feature := value.GetElement()
 		if read := r.read(feature.Id, "name"); read.Error != "" {
 			t.Errorf("inheritedFeature %s (%s) does not read back: %s", feature.Id, feature.Metaclass, read.Error)
+		}
+	}
+}
+
+// flowEndsModel declares a flow and a message whose ends and payload the `of`,
+// `from` and `to` clauses state without declaring features for them.
+const flowEndsModel = `package P {
+	item def Sig;
+	part def Tank { out item fuelOut : Sig; }
+	part def Engine { in item fuelIn : Sig; }
+	part def V {
+		part tank : Tank;
+		part engine : Engine;
+		flow f1 of Sig from tank.fuelOut to engine.fuelIn;
+		message msg of Sig from tank to engine;
+	}
+}`
+
+func TestElementPropertiesAnswerFlowAndMessageEnds(t *testing.T) {
+	r := parseForElementProperties(t, flowEndsModel)
+	metaclasses := func(property *pb.ElementProperty) []string {
+		var out []string
+		for _, value := range property.Values {
+			element := value.GetElement()
+			if element.Id == "" {
+				t.Errorf("%s lists an element without an id: %+v", property.Name, element)
+			}
+			out = append(out, element.Metaclass)
+		}
+		return out
+	}
+	for _, tc := range []struct {
+		element, property string
+		want              []string
+	}{
+		{"P::V::f1", "ownedFeature", []string{"PayloadFeature", "FlowEnd", "FlowEnd"}},
+		{"P::V::f1", "connectorEnd", []string{"FlowEnd", "FlowEnd"}},
+		{"P::V::f1", "flowEnd", []string{"FlowEnd", "FlowEnd"}},
+		// A flow end references the occurrence its name's prefix reaches; its flow
+		// feature redefines the item the last segment names.
+		{"P::V::f1", "relatedFeature", []string{"PartUsage", "PartUsage"}},
+		{"P::V::f1", "sourceFeature", []string{"PartUsage"}},
+		{"P::V::f1", "targetFeature", []string{"PartUsage"}},
+		{"P::V::msg", "ownedFeature", []string{"PayloadFeature", "EventOccurrenceUsage", "EventOccurrenceUsage"}},
+		// A message's event ends are parameters, not ends: its connector ends stay
+		// the library's source and target (SysML.xtext MessageEventMember).
+		{"P::V::msg", "connectorEnd", []string{"OccurrenceUsage", "OccurrenceUsage"}},
+	} {
+		property := r.property(tc.element, tc.property)
+		if property.Unsupported != "" {
+			t.Errorf("%s.%s: %s", tc.element, tc.property, property.Unsupported)
+			continue
+		}
+		if got := metaclasses(property); !slices.Equal(got, tc.want) {
+			t.Errorf("%s.%s = %v, want %v", tc.element, tc.property, got, tc.want)
+		}
+	}
+	for _, value := range r.property("P::V::f1", "connectorEnd").Values {
+		end := value.GetElement()
+		read := r.read(end.Id, "isEnd", "owner")
+		if read.Error != "" {
+			t.Errorf("flow end %s does not read back: %s", end.Id, read.Error)
+			continue
+		}
+		if isEnd := read.Properties[0].Values; len(isEnd) != 1 || !isEnd[0].GetBoolValue() {
+			t.Errorf("%s.isEnd = %+v, want true", end.Id, read.Properties[0])
+		}
+		if owner := read.Properties[1].Values; len(owner) != 1 || owner[0].GetElement().GetQualifiedName() != "P::V::f1" {
+			t.Errorf("%s.owner = %+v, want P::V::f1", end.Id, read.Properties[1])
 		}
 	}
 }

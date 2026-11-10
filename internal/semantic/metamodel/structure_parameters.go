@@ -13,7 +13,7 @@ type structureParameter struct {
 
 // structureRedefinitionTargets returns the features feature's owned Redefinitions name.
 func (e *Evaluator) structureRedefinitionTargets(feature Element) ([]Element, bool) {
-	if symbol := e.structureElementSymbol(feature); symbol != nil && e.model != nil && !e.structureKnows(feature) {
+	if symbol := e.structureElementSymbol(feature); symbol != nil && e.model != nil && e.structureDefersToModel(feature) {
 		return elementsOf(e.model.RedefinedFeatures(symbol)), true
 	}
 	redefinitions, handled, ok := e.structureOwnedFilter(feature, "Redefinition", false)
@@ -34,6 +34,11 @@ func (e *Evaluator) structureRedefinitionTargets(feature Element) ([]Element, bo
 				return nil, false
 			}
 			out = append(out, target.Element)
+		}
+	}
+	if implied, ok := e.options.Structure.(ImpliedRedefinitionStructure); ok {
+		if targets, stated := implied.ImpliedRedefinedFeatures(feature); stated {
+			out = append(out, targets...)
 		}
 	}
 	return out, true
@@ -82,7 +87,7 @@ func (e *Evaluator) structureBehaviorGenerals(owner Element) ([]Element, bool) {
 // structureParameterTable mirrors the semantic parameter table: owner's own positional
 // parameters, then what each general leaves unclaimed by clause or position, and the result.
 func (e *Evaluator) structureParameterTable(owner Element, visiting map[ElementKey]bool) ([]structureParameter, *structureParameter, bool) {
-	if symbol := e.structureElementSymbol(owner); symbol != nil && !e.structureKnows(owner) {
+	if symbol := e.structureElementSymbol(owner); symbol != nil && e.structureDefersToModel(owner) {
 		var positional []structureParameter
 		for i := 0; ; i++ {
 			sym, direction := e.model.PositionalParameter(symbol, i, false)
@@ -138,6 +143,7 @@ func (e *Evaluator) structureParameterTable(owner Element, visiting map[ElementK
 		return nil, nil, false
 	}
 	declared := positional
+	declaredResult := result
 	for _, general := range generals {
 		inherited, inheritedResult, ok := e.structureParameterTable(general, visiting)
 		if !ok {
@@ -179,15 +185,84 @@ func (e *Evaluator) structureParameterTable(owner Element, visiting map[ElementK
 			if !ok {
 				return nil, nil, false
 			}
-			if !listed {
-				positional = append(positional, p)
+			if listed {
+				continue
 			}
+			// A general's parameter redefining one an earlier general lent takes its place.
+			i, ok := e.structureRedefinedParameterIndex(positional[len(declared):], p.element)
+			if !ok {
+				return nil, nil, false
+			}
+			if i >= 0 {
+				positional[len(declared)+i] = p
+				continue
+			}
+			positional = append(positional, p)
 		}
-		if result == nil && inheritedResult != nil && !claimed[inheritedResult.element.Key()] {
+		if inheritedResult == nil || claimed[inheritedResult.element.Key()] {
+			continue
+		}
+		if result == nil {
 			result = inheritedResult
+			continue
+		}
+		if declaredResult == nil {
+			supersedes, ok := e.structureParameterRedefines(inheritedResult.element, result.element)
+			if !ok {
+				return nil, nil, false
+			}
+			if supersedes {
+				result = inheritedResult
+			}
 		}
 	}
 	return positional, result, true
+}
+
+// structureRedefinedParameterIndex is the index of the inherited parameter that feature
+// redefines, directly or transitively, or -1 when it redefines none of them.
+func (e *Evaluator) structureRedefinedParameterIndex(inherited []structureParameter, feature Element) (int, bool) {
+	for i, p := range inherited {
+		found, ok := e.structureParameterRedefines(feature, p.element)
+		if !ok {
+			return -1, false
+		}
+		if found {
+			return i, true
+		}
+	}
+	return -1, true
+}
+
+// structureParameterRedefines reports whether feature redefines target, directly or
+// transitively, by clause or by position with an agreeing direction (KerML 8.4.4.6).
+func (e *Evaluator) structureParameterRedefines(feature, target Element) (bool, bool) {
+	visited := make(map[ElementKey]bool)
+	var redefines func(Element) (bool, bool)
+	redefines = func(p Element) (bool, bool) {
+		if visited[p.Key()] {
+			return false, true
+		}
+		visited[p.Key()] = true
+		targets, ok := e.structureRedefinitionTargets(p)
+		if !ok {
+			return false, false
+		}
+		implicit, ok := e.structureImplicitParameterRedefinitions(p, true)
+		if !ok {
+			return false, false
+		}
+		for _, t := range append(targets, implicit...) {
+			if t.Key() == target.Key() {
+				return true, true
+			}
+			if found, ok := redefines(t); !ok || found {
+				return found, ok
+			}
+		}
+		return false, true
+	}
+	return redefines(feature)
 }
 
 // structureListsParameter reports whether the parameters inherited so far carry feature, as
@@ -308,7 +383,7 @@ func (e *Evaluator) structureImplicitParameterRedefinitions(feature Element, mat
 // structureMaskedParameterRedefinitions is what a parameter without a clause masks for its
 // owner: the general parameters at its position whatever their direction, as the semantic masking.
 func (e *Evaluator) structureMaskedParameterRedefinitions(feature Element) ([]Element, bool) {
-	if symbol := e.structureElementSymbol(feature); symbol != nil && e.model != nil && !e.structureKnows(feature) {
+	if symbol := e.structureElementSymbol(feature); symbol != nil && e.model != nil && e.structureDefersToModel(feature) {
 		return elementsOf(e.model.MaskedParameterRedefinitions(symbol)), true
 	}
 	explicit, ok := e.structureRedefinitionTargets(feature)

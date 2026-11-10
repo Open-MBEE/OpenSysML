@@ -37,6 +37,8 @@ type ExpressionOperand struct {
 	Slot     string
 	Index    int
 	Argument bool
+	// Name is the parameter a named argument (`f(x = 1)`) binds; nil for a positional one.
+	Name *QualifiedName
 }
 
 // ExpressionOperands are an expression's operands in the order the RDF conversion
@@ -66,7 +68,7 @@ func ExpressionOperands(node Node) (operands []ExpressionOperand, typeArgument i
 		first += len(args)
 		for i, arg := range named {
 			if arg.Value != nil {
-				operands = append(operands, ExpressionOperand{Node: arg.Value, Slot: fmt.Sprintf("n%d", i), Index: first + i, Argument: true})
+				operands = append(operands, ExpressionOperand{Node: arg.Value, Slot: fmt.Sprintf("n%d", i), Index: first + i, Argument: true, Name: arg.Name})
 			}
 		}
 	}

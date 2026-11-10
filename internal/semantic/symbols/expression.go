@@ -42,6 +42,22 @@ const (
 	// ExpressionPayload is a parameter of that accept: its payload, valued by a time or change
 	// event's TriggerInvocationExpression, or its `via` receiver; Owner is the accept.
 	ExpressionPayload
+	// ExpressionOperand is an expression an action node statement writes at a slot of its own
+	// (the `if` condition, an assignment's target and value, `send` payload and receiver, ...).
+	ExpressionOperand
+	// ExpressionTransitionSuccession is the succession a transition's `then` clause owns (SysML.xtext
+	// TransitionSuccessionMember); ExpressionConnectorEnd its ends, Index 0 the empty source, 1 the target.
+	ExpressionTransitionSuccession
+	ExpressionConnectorEnd
+	// ExpressionTransitionParameter is an implied transition parameter (SysML v2 §8.3.16.15): Slot
+	// "linkparam" for the transitionLinkSource parameter, "triggerparam" for the trigger payload's.
+	ExpressionTransitionParameter
+	// ExpressionBound is a bound of a written MultiplicityRange, owned by the
+	// range through an OwningMembership: Slot "lowerBound" or "upperBound".
+	ExpressionBound
+	// ExpressionFilterPackage is the Package an import with a filter, `import X::*[c]`,
+	// imports and owns (SysML.xtext FilterPackage); Owner is the importing namespace.
+	ExpressionFilterPackage
 )
 
 // ExpressionElement is the side record of a symbol the reflective layer

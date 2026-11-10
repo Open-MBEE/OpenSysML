@@ -37,6 +37,12 @@ const (
 	// ImplicitMetadataBodyRedefinition reflects the Redefinition a metadata body
 	// feature Owner implies to the Member its name restates (SysML.xtext MetadataBodyUsage).
 	ImplicitMetadataBodyRedefinition
+	// ImplicitTypeArgumentTyping reflects the FeatureTyping a classification or cast expression's
+	// type-argument parameter Owner has to the type Member it names (SysML.xtext TypeReferenceMember).
+	ImplicitTypeArgumentTyping
+	// ImplicitParameterRedefinition reflects the Redefinition a constructor's named argument feature
+	// Owner has to the instantiated type's feature Member it names (KerML 8.3.4.8.3 ConstructorExpression).
+	ImplicitParameterRedefinition
 )
 
 // ImplicitRelationship is a relationship the abstract syntax holds as an

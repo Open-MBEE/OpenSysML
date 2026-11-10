@@ -116,39 +116,27 @@ The baseline recorded on the pinned pilot over 935 files, every root present (38
 
 | Root | Files | Elements (implied) | Pilot elements (copies dropped, files failed) |
 |---|---:|---:|---:|
-| `training` | 100 | 7926 (4622) | 11906 (5797, 0) |
-| `pilot-examples` | 99 | 31138 (18262) | 40642 (10940, 3) |
-| `pilot-validation` | 56 | 10692 (6273) | 14222 (3066, 0) |
-| `kerml-examples` | 58 | 6906 (4269) | 8762 (1105, 0) |
-| `spec-examples` | 511 | 8329 (4729) | 12233 (37, 52) |
-| `testdata` | 40 | 1528 (832) | 2284 (52, 4) |
-| `examples` | 56 | 31524 (18354) | 50715 (76235, 0) |
+| `training` | 100 | 11093 (6419) | 11906 (5797, 0) |
+| `pilot-examples` | 99 | 39101 (22833) | 40642 (10940, 3) |
+| `pilot-validation` | 56 | 13618 (7933) | 14222 (3066, 0) |
+| `kerml-examples` | 58 | 8331 (5037) | 8762 (1105, 0) |
+| `spec-examples` | 511 | 11636 (6630) | 12233 (37, 52) |
+| `testdata` | 40 | 2079 (1143) | 2284 (52, 4) |
+| `examples` | 56 | 46437 (26750) | 50715 (76235, 0) |
 | `probes` | 4 | 45 (26) | 53 (0, 0) |
-| `manual-examples` | 11 | 3963 (2393) | 9379 (0, 0) |
+| `manual-examples` | 11 | 8390 (4803) | 9379 (0, 0) |
 
-Of the 297 served rules, **277 answer a value** on at least one element, **10 are empty
-everywhere** they apply, **9 are never derived** and 1 applies to no element of any root; the pilot
-answers a value for 288. **17 rules are silent** — ours never a value, the pilot a value somewhere:
+Of the 293 served rules, **287 answer a value** on at least one element, **5 are empty
+everywhere** they apply and **1 is never derived**; every rule applies to some element, and the pilot
+answers a value for 289. **5 rules are silent** — ours never a value, the pilot a value somewhere:
 
 | Silent rule | Ours: empty / not derived / carriers | Pilot: values / carriers |
 |---|---:|---:|
-| `Documentation::documentedElement` | 0 / 407 / 407 | 420 / 420 |
-| `Flow::flowEnd` | 234 / 0 / 234 | 158 / 236 |
-| `Flow::sourceOutputFeature` | 0 / 234 / 234 | 161 / 236 |
-| `Flow::targetInputFeature` | 0 / 234 / 234 | 161 / 236 |
-| `Import::importedElement` | 0 / 1221 / 1221 | 1193 / 1202 |
-| `MultiplicityRange::bound` | 1186 / 0 / 1186 | 1426 / 1426 |
-| `MultiplicityRange::lowerBound` | 1186 / 0 / 1186 | 368 / 1426 |
-| `MultiplicityRange::upperBound` | 1186 / 0 / 1186 | 1426 / 1426 |
-| `Namespace::importedMembership` | 40806 / 637 / 41443 | 634 / 63157 |
+| `Namespace::importedMembership` | 57636 / 672 / 58308 | 634 / 63157 |
 | `PortConjugation::originalPortDefinition` | 0 / 134 / 134 | 127 / 127 |
 | `RequirementDefinition::text` | 71 / 66 / 137 | 66 / 134 |
 | `RequirementUsage::text` | 402 / 104 / 506 | 103 / 492 |
-| `TransitionUsage::source` | 0 / 243 / 243 | 343 / 343 |
-| `TransitionUsage::succession` | 243 / 0 / 243 | 343 / 343 |
-| `TransitionUsage::target` | 0 / 243 / 243 | 343 / 343 |
-| `Usage::nestedViewpoint` | 14425 / 0 / 14425 | 1 / 18777 |
-| `UseCaseDefinition::includedUseCase` | 0 / 19 / 19 | 3 / 19 |
+| `Usage::nestedViewpoint` | 17706 / 0 / 17706 | 1 / 18777 |
 
 `ConjugatedPortTyping::conjugatedPortDefinition` left the list when the Structure began deriving it
 as the typing's target rather than as the owner a `PortConjugation` has: it answers 61 of its 64
@@ -168,18 +156,18 @@ our side: the symbol-backed structure classifies the `send` actions of these cor
 
 | Rule | Ours: value / empty / not derived / carriers | Pilot: value / empty / not derived / carriers |
 |---|---:|---:|
-| `Function::result` | 92 / 0 / 331 / 423 | 419 / 0 / 0 / 419 |
-| `Expression::result` | 3968 / 0 / 3331 / 7299 | 12942 / 0 / 0 / 12942 |
-| `Behavior::step` | 497 / 28 / 124 / 649 | 645 / 0 / 0 / 645 |
-| `Import::importedElement` | 0 / 0 / 1105 / 1105 | 1116 / 0 / 1 / 1117 |
-| `Connector::association` | 165 / 704 / 17 / 886 | 1579 / 0 / 0 / 1579 |
-| `InstantiationExpression::instantiatedType` | 772 / 0 / 1069 / 1841 | 3662 / 0 / 0 / 3662 |
-| `Feature::ownedTypeFeaturing` | 72 / 33807 / 0 / 33879 | 72 / 53379 / 0 / 53451 |
-| `Usage::isReference` | 13192 / 0 / 15 / 13207 | 17358 / 0 / 0 / 17358 |
-| `Step::behavior` | 688 / 8216 / 237 / 9141 | 15115 / 0 / 0 / 15115 |
-| `Expression::function` | 578 / 6542 / 179 / 7299 | 12942 / 0 / 0 / 12942 |
-| `SendActionUsage::payloadArgument` | 0 / 0 / 0 / 0 | 53 / 0 / 1 / 54 |
-| `Type::endFeature` | 143 / 15455 / 21029 / 36627 | 2223 / 53902 / 0 / 56125 |
+| `Function::result` | 458 / 0 / 8 / 466 | 466 / 0 / 0 / 466 |
+| `Expression::result` | 8582 / 0 / 5317 / 13899 | 13654 / 0 / 0 / 13654 |
+| `Behavior::step` | 739 / 43 / 10 / 792 | 790 / 0 / 0 / 790 |
+| `Import::importedElement` | 1191 / 0 / 65 / 1256 | 1193 / 0 / 9 / 1202 |
+| `Connector::association` | 953 / 773 / 22 / 1748 | 1741 / 0 / 0 / 1741 |
+| `InstantiationExpression::instantiatedType` | 1684 / 0 / 2212 / 3896 | 3764 / 0 / 0 / 3764 |
+| `Feature::ownedTypeFeaturing` | 80 / 53736 / 0 / 53816 | 78 / 57326 / 0 / 57404 |
+| `Usage::isReference` | 17706 / 0 / 0 / 17706 | 18777 / 0 / 0 / 18777 |
+| `Step::behavior` | 3082 / 13128 / 121 / 16331 | 16083 / 66 / 0 / 16149 |
+| `Expression::function` | 1628 / 12108 / 163 / 13899 | 13654 / 0 / 0 / 13654 |
+| `SendActionUsage::payloadArgument` | 64 / 3 / 0 / 67 | 55 / 0 / 1 / 56 |
+| `Type::endFeature` | 1992 / 54187 / 763 / 56942 | 2440 / 58506 / 0 / 60946 |
 
 The pilot's `Feature::ownedTypeFeaturing` is empty on all but 72 of its carriers as well: the
 property holds the `TypeFeaturing` relationships a feature *owns*, which only a `featured by`

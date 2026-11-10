@@ -11,7 +11,6 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
@@ -22,10 +21,9 @@ import (
 type structureDifferential struct {
 	graph    *apiJSONGraphStructure
 	symbolic *metamodel.SymbolStructure
-	ids      *ElementIDs
-	index    *symbols.Index
-	doc      string
-	symbolID map[*symbols.Symbol]string
+	// symbolIDs spells each symbol by the id the conversion wrote for its element.
+	symbolIDs *SymbolIDs
+	index     *symbols.Index
 	// identityToGraph maps the symbol structure's element identities to the
 	// ids the conversion wrote, so id-valued strings compare across structures.
 	identityToGraph map[string]string
@@ -322,6 +320,11 @@ func differentialOf(path string, data []byte) (*structureDifferential, bool) {
 	if err != nil {
 		return nil, false
 	}
+	// The graph is read as the API element form writes it: under the document's
+	// root Namespace, which the symbol structure reflects too.
+	if graph, err = withRootNamespace(graph); err != nil {
+		return nil, false
+	}
 	model := encoders[0].ids.model
 	index := newAPIJSONWriteIndex(graph)
 	graphEvaluation := newAPIJSONEvaluationWithIndex(index)
@@ -330,39 +333,17 @@ func differentialOf(path string, data []byte) (*structureDifferential, bool) {
 	diff := &structureDifferential{
 		graph:           graphEvaluation.structure,
 		symbolic:        symbolic,
-		ids:             ids,
+		symbolIDs:       NewSymbolIDs(ids, res, model),
 		index:           res.Index(),
-		doc:             sf.Name(),
-		symbolID:        map[*symbols.Symbol]string{},
 		identityToGraph: map[string]string{},
 		graphIDs:        map[string]bool{},
 		counts:          map[string]*differentialCounts{},
 		samples:         map[string][]string{},
 	}
-	// Reach every symbol from the document root through ownership.
-	var symbolsSeen []*symbols.Symbol
-	seen := map[*symbols.Symbol]bool{}
-	var visit func(sym *symbols.Symbol)
-	visit = func(sym *symbols.Symbol) {
-		if sym == nil || seen[sym] {
-			return
-		}
-		seen[sym] = true
-		symbolsSeen = append(symbolsSeen, sym)
-		for _, rel := range model.OwnedRelationships(sym) {
-			visit(rel)
-			if related, ok := model.ReflectiveElements(rel, "ownedRelatedElement"); ok {
-				for _, owned := range related {
-					visit(owned)
-				}
-			}
-		}
-	}
-	if scope := res.Index().DocumentRoot(sf.Name()); scope != nil {
-		for _, member := range scope.Members() {
-			visit(member)
-		}
-	}
+	// The structure spells its elements as the served structure does (elementReader).
+	symbolic.SetIdentities(diff.symbolIDs.Of)
+	// Every symbol reachable from the document's root namespace through ownership.
+	symbolsSeen := diff.symbolIDs.Reachable()
 	graphByID := map[string]metamodel.Element{}
 	for position, subject := range index.subjects {
 		if position >= index.settled {
@@ -382,7 +363,7 @@ func differentialOf(path string, data []byte) (*structureDifferential, bool) {
 	matchedIDs := map[string]bool{}
 	var matched []*symbols.Symbol
 	for _, sym := range symbolsSeen {
-		id, ok := diff.graphID(sym)
+		id, ok := diff.symbolIDs.Of(sym)
 		if !ok {
 			continue
 		}
@@ -403,177 +384,10 @@ func differentialOf(path string, data []byte) (*structureDifferential, bool) {
 	}
 	diff.matched = len(matched)
 	for _, sym := range matched {
-		id, _ := diff.graphID(sym)
+		id, _ := diff.symbolIDs.Of(sym)
 		diff.compare(graphEvaluation.evaluator, graphByID[id], symbolEvaluator, symbolic.ElementFor(sym))
 	}
 	return diff, true
-}
-
-// graphID is the elementId the conversion wrote for the element sym reflects.
-func (d *structureDifferential) graphID(sym *symbols.Symbol) (string, bool) {
-	if id, ok := d.symbolID[sym]; ok {
-		return id, id != ""
-	}
-	id, ok := d.computeGraphID(sym)
-	if !ok {
-		id = ""
-	}
-	d.symbolID[sym] = id
-	return id, ok
-}
-
-func (d *structureDifferential) computeGraphID(sym *symbols.Symbol) (string, bool) {
-	switch {
-	case sym.Implicit != nil:
-		return d.implicitGraphID(sym.Implicit)
-	case sym.Expr != nil:
-		return d.expressionGraphID(sym)
-	}
-	// A body's parameter declares no node of its own: its symbol is keyed by the
-	// body, which the conversion writes as the reference the parameter is in<i> of.
-	if body, ok := sym.Decl.(*ast.BodyExpr); ok && sym.Name != "" {
-		element, _, ok := d.ids.OfBodyParameter(d.doc, body, sym.Name)
-		return element, ok
-	}
-	// A chained end's target is the chain Feature its ReferenceSubsetting owns, minted
-	// off the end (chainFeature), which the chain's own node is not written as.
-	if sym.Kind == symbols.SymbolReferenceUsage && sym.OwnerScope != nil {
-		if end, ok := sym.OwnerScope.Node().(*ast.ConnectorEnd); ok && end.AttachedTarget() == sym.Decl {
-			element, _, ok := d.ids.OfExpressionPart(d.doc, end, "chain")
-			return element, ok
-		}
-	}
-	if implied, ok := symbols.ImpliedDeclOf(sym); ok && implied.Form == symbols.ImpliedDefaultMultiplicity {
-		if element, _, ok := d.ids.OfExpressionPart(d.doc, implied.Of, "multiplicity"); ok {
-			return element, true
-		}
-		owner, ok := d.ids.OfDeclaration(d.doc, implied.Of, "")
-		if !ok {
-			return "", false
-		}
-		return rdf.ExpressionNodeID(owner, "multiplicity"), true
-	}
-	return d.ids.OfDeclaration(d.doc, sym.Decl, d.fqn(sym))
-}
-
-// implicitGraphID mirrors how the conversion mints a relationship it writes for
-// the notation: a membership from its member, a written clause from its node.
-func (d *structureDifferential) implicitGraphID(rel *symbols.ImplicitRelationship) (string, bool) {
-	switch rel.Form {
-	case symbols.ImplicitMembership:
-		if rel.Member == nil {
-			return "", false
-		}
-		if id, ok := d.ids.OwningMembershipOfDeclaration(d.doc, rel.Member.Decl, d.fqn(rel.Member)); ok && rel.Member.Expr == nil {
-			return id, true
-		}
-		member, ok := d.graphID(rel.Member)
-		if !ok {
-			return "", false
-		}
-		return member + rdf.OwningMembershipSuffix, true
-	case symbols.ImplicitWritten:
-		if rel.Node == nil {
-			return "", false
-		}
-		if rel.Node.Span().Len == 0 && rel.Node.Target != nil {
-			return d.ids.RelationshipOf(d.doc, rel.Node.Target)
-		}
-		return d.ids.RelationshipOf(d.doc, rel.Node)
-	case symbols.ImplicitImport:
-		return d.ids.OfDeclaration(d.doc, rel.Decl, "")
-	case symbols.ImplicitAnnotatingRelationship:
-		if rel.Owner == nil {
-			return "", false
-		}
-		node := ast.AboutClauseNode(rel.Owner.Decl, rel.Ordinal)
-		if node == nil {
-			return "", false
-		}
-		return d.ids.RelationshipOf(d.doc, node)
-	case symbols.ImplicitReferenceMembership:
-		if rel.Decl != nil {
-			// A `first x;` marker's Membership is minted from the marker itself.
-			return d.ids.OfDeclaration(d.doc, rel.Decl, "")
-		}
-		if rel.Owner == nil || rel.Slot == "" {
-			return "", false
-		}
-		_, membership, ok := d.ids.OfExpressionPart(d.doc, rel.Owner.Decl, rel.Slot)
-		if !ok && rel.Owner.Expr != nil {
-			return d.expressionPartID(rel.Owner, rel.Slot)
-		}
-		return membership, ok
-	case symbols.ImplicitFeatureChaining:
-		if rel.Owner == nil || rel.Slot == "" {
-			return "", false
-		}
-		return d.expressionPartID(rel.Owner, rel.Slot)
-	}
-	return "", false
-}
-
-// expressionGraphID mirrors the conversion's expression ids: a node of the
-// notation by its node, a part it mints (parameters, results) by its slot.
-func (d *structureDifferential) expressionGraphID(sym *symbols.Symbol) (string, bool) {
-	owner := sym.Expr.Owner
-	if owner == nil {
-		return "", false
-	}
-	switch sym.Expr.Role {
-	case symbols.ExpressionParameter:
-		return d.expressionPartID(owner, fmt.Sprintf("in%d", sym.Expr.Index))
-	case symbols.ExpressionResult:
-		return d.expressionPartID(owner, "out")
-	case symbols.ExpressionBody:
-		if id, ok := d.ids.OfDeclaration(d.doc, sym.Decl, ""); ok {
-			return id, true
-		}
-		return d.expressionPartID(owner, "body")
-	case symbols.ExpressionBodyResult:
-		return d.expressionPartID(owner, "result")
-	case symbols.ExpressionChangeWrapper:
-		if owner.Expr == nil || owner.Expr.Owner == nil {
-			return "", false
-		}
-		return d.expressionPartID(owner.Expr.Owner, "a0")
-	case symbols.ExpressionChainFeature:
-		return d.expressionPartID(owner, sym.Expr.Slot)
-	case symbols.ExpressionPayload:
-		// A send's argument parameter is written as the send's unnamed member at
-		// its argument position (encodeSendArguments: qualify(fqn, "", i)).
-		if owner.Kind == symbols.SymbolSendActionUsage {
-			base, ok := d.graphID(owner)
-			if !ok {
-				return "", false
-			}
-			return base + rdf.EncodeElementID(fmt.Sprintf("::@%d", sym.Expr.Index)), true
-		}
-	case symbols.ExpressionValue:
-		// The value of a send's argument parameter is the parameter's `value` part.
-		if owner.Expr != nil && owner.Expr.Role == symbols.ExpressionPayload && owner.Expr.Owner != nil &&
-			owner.Expr.Owner.Kind == symbols.SymbolSendActionUsage {
-			return d.expressionPartID(owner, pValue)
-		}
-	}
-	if sym.Decl != nil && sym.Decl != owner.Decl {
-		if id, ok := d.ids.OfDeclaration(d.doc, sym.Decl, ""); ok {
-			return id, true
-		}
-	}
-	return "", false
-}
-
-// expressionPartID is the id of the part the conversion mints at slot under owner.
-func (d *structureDifferential) expressionPartID(owner *symbols.Symbol, slot string) (string, bool) {
-	if element, _, ok := d.ids.OfExpressionPart(d.doc, owner.Decl, slot); ok && element != "" {
-		return element, true
-	}
-	base, ok := d.graphID(owner)
-	if !ok {
-		return "", false
-	}
-	return rdf.ExpressionNodeID(base, slot), true
 }
 
 func (d *structureDifferential) compare(graphEvaluator *metamodel.Evaluator, graphElement metamodel.Element,
@@ -672,27 +486,31 @@ func (d *structureDifferential) spellElement(element metamodel.Element, fromGrap
 	}
 	if element.IsMembership {
 		if members, ok := structure.RelatedElements(element, "memberElement"); ok && len(members) == 1 {
+			member := d.spellElement(members[0], fromGraph)
+			if strings.HasPrefix(member, "lib ") {
+				return "membership of " + member
+			}
 			if id, ok := d.elementID(element, fromGraph); ok {
 				return "#" + id
 			}
-			return "membership of " + d.spellElement(members[0], fromGraph)
+			return "membership of " + member
 		}
 	}
 	if fromGraph {
+		if sym, ok := d.graph.LibrarySymbol(element); ok && d.fqn(sym) != "" {
+			return "lib " + d.fqn(sym)
+		}
 		if id, ok := d.graph.ElementIdentity(element); ok {
 			return "#" + id
-		}
-		if sym, ok := d.graph.LibrarySymbol(element); ok {
-			return "lib " + d.fqn(sym)
 		}
 		return "element?"
 	}
 	if sym, ok := d.symbolic.SymbolOf(element); ok {
-		if id, ok := d.graphID(sym); ok {
-			return "#" + id
-		}
-		if d.index.Library(sym) {
+		if d.index.Library(sym) && d.fqn(sym) != "" {
 			return "lib " + d.fqn(sym)
+		}
+		if id, ok := d.symbolIDs.Of(sym); ok {
+			return "#" + id
 		}
 		return "unmapped " + d.fqn(sym)
 	}
@@ -712,7 +530,7 @@ func (d *structureDifferential) elementID(element metamodel.Element, fromGraph b
 		return d.graph.ElementIdentity(element)
 	}
 	if sym, ok := d.symbolic.SymbolOf(element); ok {
-		return d.graphID(sym)
+		return d.symbolIDs.Of(sym)
 	}
 	return "", false
 }

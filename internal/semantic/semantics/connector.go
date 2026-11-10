@@ -54,7 +54,14 @@ func (m *Model) IsAssociationOrConnector(sym *symbols.Symbol) bool {
 // its position, reported as a nil entry. A recorded connector reads its ends
 // from its record, which carries no entry for an end with no name of its own.
 func (m *Model) ownedEnds(sym *symbols.Symbol) []*symbols.Symbol {
-	if sym == nil || sym.Scope == nil {
+	if sym == nil {
+		return nil
+	}
+	if ends := m.successionEnds(sym); len(ends) > 0 {
+		// A synthesized succession (`then b;`, `first a then b;`, a transition's) owns the ends synthesized for it.
+		return ends
+	}
+	if sym.Scope == nil {
 		return nil
 	}
 	if sym.Recorded() {
@@ -73,6 +80,13 @@ func (m *Model) ownedEnds(sym *symbols.Symbol) []*symbols.Symbol {
 				continue
 			}
 			out = append(out, memberSymbol(sym.Scope, end))
+		}
+		if u.FlowEnds != nil && u.Keyword != "message" {
+			for _, end := range []ast.Node{u.FlowEnds.From, u.FlowEnds.To} {
+				if end != nil {
+					out = append(out, memberSymbol(sym.Scope, end))
+				}
+			}
 		}
 	}
 	for _, member := range declMembers(sym) {
@@ -376,7 +390,9 @@ func declaresEnd(sym *symbols.Symbol) bool {
 	case *ast.Usage:
 		return d.IsEnd
 	}
-	return false
+	// A flow's `from`/`to` end, declared by the node naming what it attaches to;
+	// a message's event ends are parameters, not ends (SysML.xtext MessageEventMember).
+	return sym.Kind == symbols.SymbolConnectorEnd && !IsMessageEnd(sym)
 }
 
 // UnmatchedConnectorEnds returns the ends the connector sym declares that
@@ -542,8 +558,10 @@ func endReferencesFeature(end connectorEnd) bool {
 			return referencesFeature(d.Relationships)
 		case *ast.ConnectorEnd:
 			return d.AttachedTarget() != nil
+		default:
+			// A flow end is declared by the node naming the feature it attaches to.
+			return d != nil && FlowEndReference(end.feature) != nil
 		}
-		return false
 	}
 	if end.owner.Recorded() {
 		// A clause end without a symbol of its own is attached to a feature.
@@ -806,6 +824,31 @@ func (m *Model) attachmentPath(scope *symbols.Scope, node ast.Node) []*symbols.S
 // chainPath resolves each prefix of a feature chain with resolve, outermost
 // first; nil as soon as one resolves to nothing.
 func chainPath(node ast.Node, resolve func(ast.Node) (*symbols.Symbol, bool)) []*symbols.Symbol {
+	prefixes := chainPrefixes(node)
+	path := chainPrefix(node, resolve)
+	if len(path) != len(prefixes) {
+		return nil
+	}
+	return path
+}
+
+// chainPrefix resolves the prefixes of a feature chain with resolve, outermost
+// first, stopping at the first that resolves to nothing.
+func chainPrefix(node ast.Node, resolve func(ast.Node) (*symbols.Symbol, bool)) []*symbols.Symbol {
+	prefixes := chainPrefixes(node)
+	path := make([]*symbols.Symbol, 0, len(prefixes))
+	for i := len(prefixes) - 1; i >= 0; i-- {
+		target, ok := resolve(prefixes[i])
+		if !ok || target == nil {
+			break
+		}
+		path = append(path, target)
+	}
+	return path
+}
+
+// chainPrefixes are the prefixes of a feature chain, innermost (the whole chain) first.
+func chainPrefixes(node ast.Node) []ast.Node {
 	var prefixes []ast.Node
 	for n := node; n != nil; {
 		prefixes = append(prefixes, n)
@@ -815,15 +858,7 @@ func chainPath(node ast.Node, resolve func(ast.Node) (*symbols.Symbol, bool)) []
 		}
 		n = chain.Operand
 	}
-	path := make([]*symbols.Symbol, 0, len(prefixes))
-	for i := len(prefixes) - 1; i >= 0; i-- {
-		target, ok := resolve(prefixes[i])
-		if !ok || target == nil {
-			return nil
-		}
-		path = append(path, target)
-	}
-	return path
+	return prefixes
 }
 
 type connectorEndInput struct {

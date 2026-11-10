@@ -11,6 +11,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // symbolAspectPrefix marks an element handle a SymbolStructure hands out; the
@@ -28,6 +29,9 @@ type SymbolStructure struct {
 	res    *resolve.Resolver
 	model  *semantics.Model
 	prefix string
+	// identities, when set, spells every element by the API element form's id (SetIdentities);
+	// else a named declared element carries its identity-table id and an anonymous one none.
+	identities func(*symbols.Symbol) (string, bool)
 
 	mu        sync.Mutex
 	elements  []symbolElement
@@ -52,6 +56,7 @@ type symbolKey struct {
 	implicit symbols.ImplicitRelationship
 	expr     symbols.ExpressionElement
 	node     ast.Node
+	span     source.Span
 	chain    *symbols.ChainingFeature
 	sym      *symbols.Symbol
 	kind     symbols.SymbolKind
@@ -98,7 +103,9 @@ func keyOf(sym *symbols.Symbol) symbolKey {
 	case sym.Expr != nil:
 		return symbolKey{expr: *sym.Expr, form: 2}
 	case sym.Decl != nil:
-		return symbolKey{node: sym.Decl, chain: sym.Chain, kind: sym.Kind, form: 3}
+		// A body's parameters (`{ in a; in b; … }`) are declared against the one
+		// body node: the span tells them apart.
+		return symbolKey{node: sym.Decl, span: sym.DeclSpan, chain: sym.Chain, kind: sym.Kind, form: 3}
 	}
 	return symbolKey{sym: sym, form: 4}
 }
@@ -170,6 +177,12 @@ func (s *SymbolStructure) row(element Element) (symbolElement, bool) {
 		aspect = element.Membership.Aspect
 	}
 	if !strings.HasPrefix(aspect, s.prefix) {
+		// A handle the evaluator made from a model symbol (ElementOf) is that
+		// symbol's row; a library symbol's handle stays the model's to answer.
+		if !element.IsMembership && element.Symbol != nil && aspect == "" &&
+			!(s.res != nil && s.res.Index() != nil && s.res.Index().Library(element.Symbol)) {
+			return s.place(element.Symbol), true
+		}
 		return symbolElement{}, false
 	}
 	position, err := strconv.Atoi(strings.TrimPrefix(aspect, s.prefix))
@@ -424,7 +437,10 @@ func (s *SymbolStructure) hasStatedRelatedElementLocked(element Element, propert
 // notation names but the model does not resolve.
 func (s *SymbolStructure) hasUnresolvedRelatedElementLocked(element Element, property string) bool {
 	row, ok := s.row(element)
-	if !ok || row.sym.Implicit == nil || row.sym.Implicit.Form != symbols.ImplicitWritten {
+	if !ok {
+		return false
+	}
+	if row.sym.Implicit == nil || row.sym.Implicit.Form != symbols.ImplicitWritten {
 		return false
 	}
 	feature := s.feature(row.class, property)
@@ -439,6 +455,9 @@ func (s *SymbolStructure) hasUnresolvedRelatedElementLocked(element Element, pro
 // notation, at the metamodel default where the notation states nothing.
 func (s *SymbolStructure) attributeLocked(element Element, property string) (Value, bool) {
 	row, ok := s.row(element)
+	if !ok && !element.IsMembership && element.Symbol != nil && element.Aspect == "" {
+		row, ok = s.place(element.Symbol), true
+	}
 	if !ok || !row.known || strings.HasPrefix(row.class, ExtensionMetaclassPrefix) {
 		return Value{}, false
 	}
@@ -488,6 +507,9 @@ func (s *SymbolStructure) attributeValue(value symbols.FilterValue, feature *met
 		return Value{Kind: IntegerValue, Integer: value.Int, Success: true}, true
 	case symbols.FilterValueReal:
 		return Value{Kind: RealValue, Real: value.Real, Success: true}, true
+	case symbols.FilterValueRational:
+		real, _ := value.Rat.Float64()
+		return Value{Kind: RealValue, Real: real, Success: true}, true
 	case symbols.FilterValueString:
 		return Value{Kind: StringValue, String: value.Str, Success: true}, true
 	case symbols.FilterValueRef:
@@ -529,6 +551,26 @@ func symbolAttributeName(property string) string {
 	return property
 }
 
+// impliedRedefinedFeaturesLocked is the features the element's symbol redefines by
+// its role without a written clause: the same role of each general it specializes.
+func (s *SymbolStructure) impliedRedefinedFeaturesLocked(element Element) ([]Element, bool) {
+	row, ok := s.row(element)
+	if !ok || !row.known || row.sym.Implicit != nil || row.sym.Expr != nil {
+		return nil, false
+	}
+	var implied []*symbols.Symbol
+	candidates := s.model.ImplicitRoleRedefinitions(row.sym)
+	for _, general := range candidates {
+		if general == nil || general == row.sym {
+			continue
+		}
+		if meta := s.model.MetaclassOf(general); meta != nil && s.specializes(meta.Name, "Feature") {
+			implied = append(implied, general)
+		}
+	}
+	return s.elementsOf(implied), true
+}
+
 // DerivedName is the effective name of the element's symbol.
 func (s *SymbolStructure) derivedNameLocked(element Element) (string, bool) {
 	row, ok := s.row(element)
@@ -564,10 +606,27 @@ func (s *SymbolStructure) qualifiedNameLocked(element Element) (string, bool) {
 	return fqn, fqn != ""
 }
 
-// ElementIdentity is the stable id of a named declared element (identity package).
+// SetIdentities makes the structure spell its elements by identities, the one id scheme the API
+// element form writes for named and anonymous elements alike.
+func (s *SymbolStructure) SetIdentities(identities func(*symbols.Symbol) (string, bool)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.identities = identities
+}
+
+// ElementIdentity is the stable id of an element: the injected identities'
+// (SetIdentities), else a named declared element's identity-table id.
 func (s *SymbolStructure) elementIdentityLocked(element Element) (string, bool) {
 	row, ok := s.row(element)
-	if !ok || row.sym.Implicit != nil || row.sym.Expr != nil || row.sym.Name == "" {
+	if !ok {
+		return "", false
+	}
+	if s.identities != nil {
+		if id, ok := s.identities(row.sym); ok {
+			return id, true
+		}
+	}
+	if row.sym.Implicit != nil || row.sym.Expr != nil || row.sym.Name == "" {
 		return "", false
 	}
 	info, ok := identity.Of(s.model, s.res, row.sym)
@@ -684,6 +743,12 @@ func (s *SymbolStructure) StatedAttribute(element Element, property string) (Val
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.statedAttributeLocked(element, property)
+}
+
+func (s *SymbolStructure) ImpliedRedefinedFeatures(element Element) ([]Element, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.impliedRedefinedFeaturesLocked(element)
 }
 
 func (s *SymbolStructure) DerivedName(element Element) (string, bool) {

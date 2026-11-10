@@ -213,26 +213,11 @@ func (t *Table) PayloadOf(u *ast.Usage) *ast.Usage {
 	}
 	payload := u.FlowEnds.PayloadDecl
 	if payload == nil {
-		span := u.FlowEnds.Payload.Span()
-		if mult := u.FlowEnds.PayloadMultiplicity; mult != nil {
-			span = spanUnion(span, mult.Span())
-		}
-		payload = &ast.Usage{
-			NodeBase:      ast.NodeBase{NodeSpan: span},
-			Kind:          ast.UsageAttribute,
-			Relationships: []*ast.Relationship{{NodeBase: ast.NodeBase{NodeSpan: u.FlowEnds.Payload.Span()}, Kind: ast.RelTyping, Target: u.FlowEnds.Payload}},
-			Multiplicity:  u.FlowEnds.PayloadMultiplicity,
-		}
+		payload = u.FlowEnds.ImpliedPayload()
 	}
 	t.Payloads[u] = payload
 	t.PayloadFeatures[payload] = true
 	return payload
-}
-
-func spanUnion(a, b source.Span) source.Span {
-	start := min(a.Offset, b.Offset)
-	end := max(a.Offset+a.Len, b.Offset+b.Len)
-	return source.Span{Offset: start, Len: end - start}
 }
 
 // collectCrossFeature names the cross feature an end declares ahead of itself

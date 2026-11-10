@@ -480,6 +480,10 @@ func (r *Renderer) contentKind(sym *symbols.Symbol) bool {
 // structure: documentation, comments, aliases and the ends of a connect clause,
 // which are shown as the connection itself.
 func containedKind(sym *symbols.Symbol) bool {
+	if sym.Name == "" && semantics.IsFlowPayload(sym) {
+		// The payload an `of T` clause implies is the flow's typing, not a nested member.
+		return false
+	}
 	switch sym.Kind {
 	case symbols.SymbolComment, symbols.SymbolDocumentation, symbols.SymbolTextualRepresentation,
 		symbols.SymbolAlias, symbols.SymbolDependency, symbols.SymbolRelationship,

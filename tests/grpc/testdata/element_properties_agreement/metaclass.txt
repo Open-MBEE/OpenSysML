@@ -1,0 +1,31 @@
+# metaclass disagreements between the api-json export and GetElementProperties over the
+# committed examples, counted per metamodel property (Metaclass::property, the
+# export's metaclass). Tab-separated: class, count, key of the clause in clauses.txt
+# (the side that is correct and the KerML/SysML clause it rests on).
+# TestElementPropertiesAgreeWithTheAPIJSONExport fails on a row not here, on a count
+# above the one here, on a row here the run no longer produces, and on a ? key; a count
+# that fell is re-recorded with -update-agreement-ratchet.
+AssociationUsage::@type	12	symbol-44
+AttributeUsage::@type	333	symbol-44
+BehaviorUsage::@type	24	symbol-44
+BindingConnectorAsUsage::@type	16	symbol-44
+BooleanUsage::@type	4	symbol-44
+Class::@type	55	symbol-44
+ClassUsage::@type	37	symbol-44
+FeatureMembership::@type	178	symbol-49
+FlowUsage::@type	6	symbol-44
+InteractionUsage::@type	1	symbol-44
+LibraryPackage::@type	2	export-25
+MetadataUsage::@type	10	symbol-44
+OwningMembership::@type	44	symbol-46
+ParameterMembership::@type	14	symbol-72
+PerformActionUsage::@type	47	export-26
+PredicateUsage::@type	5	symbol-44
+ReferenceSubsetting::@type	9	export-19
+ReferenceUsage::@type	174	symbol-44
+RequirementUsage::@type	24	symbol-42
+Specialization::@type	17	export-58
+StructureUsage::@type	31	symbol-44
+Subclassification::@type	1	export-28
+Subsetting::@type	1	export-20
+SuccessionAsUsage::@type	9	symbol-44

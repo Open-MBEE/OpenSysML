@@ -44,7 +44,7 @@ calc def Guards :> Query {
 	in root : Element;
 	Project(
 		source = WhereFeature(source = Descendants(source = root, maxDepth = 1, relationships = true),
-			feature = "kind", operator = "=", value = "guard"),
+			feature = "kind", operator = "=", value = "guard", tolerate = true),
 		properties = ("name")
 	)
 }

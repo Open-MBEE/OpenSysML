@@ -344,8 +344,9 @@ test: stdlib-snapshot ## Run Go tests with race detection and coverage
 	go test -v -race -pgo=off -timeout 45m -coverprofile=coverage.txt -covermode=atomic ./...
 	go test -C $(TOOLS_DIR) -v -race -pgo=off -timeout 45m ./...
 
-# Run race-free by their own gate steps in the PR workflow's static-and-integrity job.
-RACE_SHARD_SKIP := ^(TestTrainingExamplesSemanticErrors|TestCorpusGatesCacheStateIndependent|TestPilotCorporaDiagnostics|TestPilotLibraryXMI|TestPSSMSuiteMigration|TestDifferentialRandomizedAssignments|TestDifferentialConformanceCorpus|TestDifferentialStandardLibrary|TestDifferentialTrainingCorpus|TestPortability|TestPortabilityGateIsRequired)$$
+# Run race-free by their own gate steps in the PR workflow's static-and-integrity job; the two element-form
+# differentials are there as each takes 24-26 minutes under -race, more than the rest shard's hour holds.
+RACE_SHARD_SKIP := ^(TestTrainingExamplesSemanticErrors|TestSymbolStructureMatchesGraphStructure|TestElementPropertiesAgreeWithTheAPIJSONExport|TestCorpusGatesCacheStateIndependent|TestPilotCorporaDiagnostics|TestPilotLibraryXMI|TestPSSMSuiteMigration|TestDifferentialRandomizedAssignments|TestDifferentialConformanceCorpus|TestDifferentialStandardLibrary|TestDifferentialTrainingCorpus|TestPortability|TestPortabilityGateIsRequired)$$
 # The runtime-corpus shard runs the four suites that walk the conformance corpus; the exploration
 # suite is as long as those four together, so runtime-exploration runs it as a shard of its own.
 RACE_RUNTIME_EXPLORATION := ^TestExploreWithIsExploreOverTheConformanceCorpus$$

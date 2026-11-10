@@ -177,14 +177,27 @@ type Model struct {
 	// memberships, ownedAnnotations, annotatingRels and ownedImports memoize
 	// the Membership, Annotation and Import objects each element implies
 	// (see reflective_memberships.go, reflective_annotations.go).
-	memberships      map[*symbols.Symbol][]*symbols.Symbol
-	valueExpressions map[*symbols.Symbol]*symbols.Symbol
-	expressionParts  map[*symbols.Symbol]*expressionParts
-	transitionParts  map[*symbols.Symbol]*transitionParts
-	sendParts        map[*symbols.Symbol]*sendParts
-	ownedAnnotations map[*symbols.Symbol][]*symbols.Symbol
-	annotatingRels   map[*symbols.Symbol][]*symbols.Symbol
-	ownedImports     map[*symbols.Symbol][]*symbols.Symbol
+	memberships             map[*symbols.Symbol][]*symbols.Symbol
+	valueExpressions        map[*symbols.Symbol]*symbols.Symbol
+	multiplicityBounds      map[*symbols.Symbol][]*symbols.Symbol
+	statementSymbols        map[*symbols.Symbol][]*symbols.Symbol
+	resultExpressionSymbols map[*symbols.Symbol][]*symbols.Symbol
+	filterMembershipSymbols map[*symbols.Symbol][]*symbols.Symbol
+	filterPackages          map[*symbols.Symbol]*symbols.Symbol
+	filterPackageImports    map[*symbols.Symbol]*symbols.Symbol
+	filterPackageMembers    map[*symbols.Symbol]filterPackageParts
+	statementOwners         map[*symbols.Symbol]*symbols.Symbol
+	statementScopes         map[*symbols.Scope]*symbols.Symbol
+	statementOperandSymbols map[*symbols.Symbol][]*symbols.Symbol
+	expressionParts         map[*symbols.Symbol]*expressionParts
+	transitionParts         map[*symbols.Symbol]*transitionParts
+	sendParts               map[*symbols.Symbol]*sendParts
+	edgeEnds                map[*symbols.Symbol][]*symbols.Symbol
+	ownedAnnotations        map[*symbols.Symbol][]*symbols.Symbol
+	annotatingRels          map[*symbols.Symbol][]*symbols.Symbol
+	ownedImports            map[*symbols.Symbol][]*symbols.Symbol
+	// rootNamespaces memoizes each document's reflected RootNamespace (see reflective_root.go).
+	rootNamespaces map[string]*symbols.Symbol
 }
 
 // NewModel creates a semantic model backed by the given name resolver. The
@@ -272,6 +285,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		ownedAnnotations:      make(map[*symbols.Symbol][]*symbols.Symbol),
 		annotatingRels:        make(map[*symbols.Symbol][]*symbols.Symbol),
 		ownedImports:          make(map[*symbols.Symbol][]*symbols.Symbol),
+		rootNamespaces:        make(map[string]*symbols.Symbol),
 	}
 	if resolver != nil {
 		resolver.SetModel(m)

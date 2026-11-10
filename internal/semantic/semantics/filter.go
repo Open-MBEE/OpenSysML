@@ -1554,6 +1554,9 @@ func ownerSymbol(sym *symbols.Symbol) *symbols.Symbol {
 // symbol restored from a cache record, which carries no scope — the namespace its
 // indexed name names.
 func (m *Model) ownerOf(sym *symbols.Symbol) *symbols.Symbol {
+	if owner := m.statementOwner(sym); owner != nil {
+		return owner
+	}
 	if owner := ownerSymbol(sym); owner != nil {
 		if usage := m.metadataBodyOwner(sym, owner); usage != nil {
 			return usage

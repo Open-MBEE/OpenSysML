@@ -205,7 +205,9 @@ class TestElementPropertiesAgainstTheService:
         assert again["ownedReferenceSubsetting"].value.metaclass == "ReferenceSubsetting"
 
     def test_a_bound_expression_is_walked_to_its_operator(self):
-        value = self.model["EP::Pair::x"].property("value").value
+        owned = self.model["EP::Pair::x"].property("ownedRelationship").elements
+        valuation = [e for e in owned if e.metaclass == "FeatureValue"][0]
+        value = self.model.element_properties(valuation.id, "value")["value"].value
         assert value.metaclass == "OperatorExpression"
         assert self.model.element_properties(value.id, "operator")["operator"].value == "+"
 
