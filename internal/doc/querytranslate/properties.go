@@ -87,11 +87,11 @@ func NewTable(index *symbols.Index, model *semantics.Model) *Table {
 }
 
 // classify settles the kind of a metaclass property from its declarations'
-// types; a name typed differently by two metaclasses is compared as the row's value is.
+// types, over the evaluator's default for the name (documentation holds elements).
 func (t *Table) classify(name string) valueKind {
 	members := t.features[name]
 	delete(t.features, name)
-	kind, seen := t.metamodel[name]
+	kind, seen := kindUnknown, false
 	for _, member := range members {
 		declared := kindUnknown
 		for _, typ := range t.model.FeatureTypes(member) {
@@ -101,6 +101,7 @@ func (t *Table) classify(name string) valueKind {
 		case !seen:
 			kind, seen = declared, true
 		case kind != declared:
+			// A name typed differently by two metaclasses is compared as the row's value is.
 			kind = kindUnknown
 		}
 	}

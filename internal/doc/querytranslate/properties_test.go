@@ -68,8 +68,11 @@ func TestTableAgreesWithInheritedMemberWalk(t *testing.T) {
 			t.Errorf("%s: kind %d, the inherited-member walk says %d", name, got, want)
 		}
 	}
+	// A declaration decides over the evaluator's default for the name: documentation
+	// and payloadArgument hold elements, so a query selects into them and cannot order by them.
 	for name, kind := range map[string]valueKind{"isAbstract": kindBoolean, "name": kindText, "owner": kindElement,
-		"ownedRelationship": kindElement, "elementId": kindText} {
+		"documentation": kindElement, "payloadArgument": kindElement, "ownedRelationship": kindElement,
+		"isComposite": kindBoolean, "aliasIds": kindText, "elementId": kindText} {
 		if got := table.kind(name); got != kind {
 			t.Errorf("kind(%s) = %d, want %d", name, got, kind)
 		}
