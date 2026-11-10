@@ -135,7 +135,7 @@ package OpenSysMLSurfaces {
         attribute reportSetting : String = "-format";
         attribute reportFormats : String = "text, json, sarif, junit";
         attribute reportPackages : String = "internal/frontend/report";
-        attribute verbs : String = "-convert, -migrate, -compile, -render, -render-all, -render-document, -render-documents, -graphs, -metaclass-graph, -metamodel-table, -run-query, -list, -sync-diff, -sync-apply, -import-diagram";
+        attribute verbs : String = "-convert, -migrate, -compile, -render, -render-all, -render-document, -render-documents, -graphs, -metaclass-graph, -metamodel-table, -run-query, -run-inline-query, -list, -sync-diff, -sync-apply, -import-diagram";
         attribute importDiagramSetting : String = "-import-diagram";
     }
 
