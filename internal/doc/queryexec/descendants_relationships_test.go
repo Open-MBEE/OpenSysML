@@ -62,3 +62,43 @@ func TestDescendantsRelationshipsReachOwnedRelationships(t *testing.T) {
 		}
 	}
 }
+
+// A chain end's ReferenceSubsetting owns the chain Feature (`connect a.o to b.i`): a KerML Feature
+// in either language, as the pilot exports it — an exact ReferenceUsage walk keeps only the two ends.
+func TestDescendantsRelationshipsClassifyAChainEndFeatureAsAFeature(t *testing.T) {
+	fixture := loadExecutionFixture(t, `
+part def A { port o; }
+part def B { port i; }
+part telescope {
+	part a : A;
+	part b : B;
+	connection c connect a.o to b.i;
+}
+calc def Kind :> Query {
+	in root : Element;
+	in type : String;
+	Project(
+		source = WhereType(source = Descendants(source = root, relationships = true), type = type, exact = true),
+		properties = ("elementId", "isEnd")
+	)
+}
+`)
+	for _, tc := range []struct {
+		metaclass string
+		want      int
+	}{
+		{"ReferenceUsage", 2},
+		{"Feature", 2},
+	} {
+		result, err := fixture.execute(t, "Kind", Bindings{
+			"root": {ElementValue(fixture.symbol(t, "telescope"))},
+			"type": {StringValue(tc.metaclass)},
+		}, Options{})
+		if err != nil {
+			t.Fatalf("execute Kind(%s): %v", tc.metaclass, err)
+		}
+		if got := len(result.Rows()); got != tc.want {
+			t.Errorf("exact %s rows = %d, want %d", tc.metaclass, got, tc.want)
+		}
+	}
+}

@@ -73,6 +73,11 @@ func MetamodelTypeNameOf(sym *symbols.Symbol) string {
 	if sym == nil {
 		return ""
 	}
+	// The feature a relationship's chain target denotes is a KerML Feature in either language
+	// (Model.MetaclassOf), whatever kind the symbol that stands for it carries.
+	if sym.Chain != nil {
+		return "Feature"
+	}
 	switch sym.Kind {
 	case symbols.SymbolMultiplicity:
 		return semantics.MultiplicityMetaclassName(sym)

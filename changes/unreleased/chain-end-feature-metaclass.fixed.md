@@ -1,0 +1,1 @@
+- The query leg classifies the chain Feature a relationship's chain target denotes (`connect a.o to b.i`, `part b :> a.x`) as a KerML `Feature`, as `Model.MetaclassOf` and the pilot do — an exact `WhereType` over `ReferenceUsage` no longer keeps it beside the end that references it, and its `@type` reads `Feature`.
