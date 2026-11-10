@@ -316,18 +316,23 @@ func (e *executor) valueIsExactly(value Value, test typeTest) bool {
 	meta := e.exactMetaclass(test)
 	if inst, _, isObject := value.Object(); isObject {
 		for _, typ := range objectTypes(inst) {
-			if query.MetamodelTypeNameOf(typ) == test.name || (meta != nil && symbols.SameElement(e.context.Model.MetaclassOf(typ), meta)) {
+			if e.isExactly(typ, test, meta) {
 				return true
 			}
 		}
 		return false
 	}
 	sym := value.Declaration()
-	if sym == nil {
-		return false
+	return sym != nil && e.isExactly(sym, test, meta)
+}
+
+// isExactly: the metaclass reflection derives for sym (a chain Feature, a conjugated port
+// definition) decides where the library states it; the kind's @type decides only where it does not.
+func (e *executor) isExactly(sym *symbols.Symbol, test typeTest, meta *symbols.Symbol) bool {
+	if meta != nil {
+		return symbols.SameElement(e.context.Model.MetaclassOf(sym), meta)
 	}
-	// The metaclass a row reports as its type is its own, whichever the library derives.
-	return query.MetamodelTypeNameOf(sym) == test.name || (meta != nil && symbols.SameElement(e.context.Model.MetaclassOf(sym), meta))
+	return query.MetamodelTypeNameOf(sym) == test.name
 }
 
 // exactMetaclass is the metaclass a WhereType name denotes — simple or qualified — and nil

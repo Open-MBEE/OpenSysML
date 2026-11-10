@@ -63,23 +63,32 @@ func TestDescendantsRelationshipsReachOwnedRelationships(t *testing.T) {
 	}
 }
 
-// A chain end's ReferenceSubsetting owns the chain Feature (`connect a.o to b.i`): a KerML Feature
-// in either language, as the pilot exports it — an exact ReferenceUsage walk keeps only the two ends.
-func TestDescendantsRelationshipsClassifyAChainEndFeatureAsAFeature(t *testing.T) {
+// An exact walk keeps an element under the metaclass reflection derives for it (Model.MetaclassOf):
+// a chain end's chain Feature is a Feature, a conjugated port definition a ConjugatedPortDefinition,
+// a transition a TransitionUsage — not under the kind the symbol carries.
+func TestDescendantsRelationshipsExactKeepsTheReflectiveMetaclass(t *testing.T) {
 	fixture := loadExecutionFixture(t, `
-part def A { port o; }
-part def B { port i; }
-part telescope {
-	part a : A;
-	part b : B;
-	connection c connect a.o to b.i;
+package Probe {
+	part def A { port o; }
+	part def B { port i; }
+	port def Optical;
+	state def Machine {
+		state idle;
+		state busy;
+		transition idle_to_busy first idle then busy;
+	}
+	part telescope {
+		part a : A;
+		part b : B;
+		connection c connect a.o to b.i;
+	}
 }
 calc def Kind :> Query {
 	in root : Element;
 	in type : String;
 	Project(
 		source = WhereType(source = Descendants(source = root, relationships = true), type = type, exact = true),
-		properties = ("elementId", "isEnd")
+		properties = ("elementId")
 	)
 }
 `)
@@ -89,9 +98,13 @@ calc def Kind :> Query {
 	}{
 		{"ReferenceUsage", 2},
 		{"Feature", 2},
+		{"PortDefinition", 1},
+		{"ConjugatedPortDefinition", 1},
+		{"ActionUsage", 0},
+		{"TransitionUsage", 1},
 	} {
 		result, err := fixture.execute(t, "Kind", Bindings{
-			"root": {ElementValue(fixture.symbol(t, "telescope"))},
+			"root": {ElementValue(fixture.symbol(t, "Probe"))},
 			"type": {StringValue(tc.metaclass)},
 		}, Options{})
 		if err != nil {
