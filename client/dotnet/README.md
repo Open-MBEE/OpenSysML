@@ -1141,9 +1141,12 @@ class describes is viewed as a `Vehicle`. `Vehicle.Unchecked` views any instance
 Multiplicity `1` (or none stated) reads one value, `0..1` a nullable one, and more a
 `ValueList<T>`. An upper bound the service cannot determine statically also produces a list, never
 an assumption that only one value is possible. With an upper bound of one, an unknown lower bound
-produces a nullable property. Inherited facts are followed without a depth limit: when several
-features are redefined, their ranges are intersected and their most specific compatible type is
-used; incompatible facts are refused naming their providers.
+produces a nullable property. A feature that writes no type takes the one the service derives,
+`TypeFacts.Types` (KerML `Feature::type`), with the facts of the feature declaring it; from a service
+that derives none, and for multiplicity, inherited facts are followed through what the feature
+subsets, references and redefines, without a depth limit: when several features are redefined,
+their ranges are intersected and their most specific compatible type is used; incompatible facts
+are refused naming their providers.
 A feature's identity is its qualified name, never its property's name: an inherited
 property is read, in each class, from the feature that redefines it there, under whatever name, and
 a redefinition narrowing its type under the same name hides the inherited property with `new`.

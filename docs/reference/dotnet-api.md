@@ -172,10 +172,12 @@ input document declaring that package, including nested packages.
 | anything else | `Value`, the property's remarks saying why |
 | multiplicity `1` or none, `0..1`, more or an unknown upper bound | `T`, `T?`, `ValueList<T>` |
 
-With an upper bound of one and an unknown lower bound, a property is nullable. Inherited type and
-multiplicity facts have no fixed depth limit. Several redefined features contribute intersected
-ranges and the most specific type that every inherited property can read; incompatible types or
-disjoint ranges are refused with the providers' names.
+With an upper bound of one and an unknown lower bound, a property is nullable. A feature that writes
+no type takes the type the service derives (`TypeFacts.Types`, KerML `Feature::type`). Otherwise, and
+for multiplicity, inherited facts are followed through subsetting, reference subsetting and
+redefinition with no fixed depth limit. Several redefined features contribute intersected ranges and
+the most specific type that every inherited property can read; incompatible types or disjoint ranges
+are refused with the providers' names.
 
 Every property is an explicit interface implementation. A class implements its own interface and
 every inherited property whose value it reads from another feature than its base class does: an
