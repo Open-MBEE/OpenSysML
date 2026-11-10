@@ -101,14 +101,7 @@ public final class Engine implements AutoCloseable {
     }
   }
 
-  /**
-   * Resolves the queries a "Run query" of {@code request} would run and the parameters they
-   * declare, so the bindings can be asked for before the run.
-   *
-   * @return the plan, or empty when cancelled
-   * @throws IllegalArgumentException when the subject stands for no query
-   * @throws RuntimeException when the service fails; the caller reports it
-   */
+  /** The queries a "Run query" of {@code request} runs and their parameters, so the bindings can be asked for first; empty when cancelled. */
   public Optional<QueryPlan> plan(RunRequest request, Cancellation cancellation) {
     Objects.requireNonNull(request);
     Objects.requireNonNull(cancellation);
@@ -236,28 +229,21 @@ public final class Engine implements AutoCloseable {
     };
   }
 
-  /**
-   * Runs every query the subject stands for with the bindings named for its parameters; a
-   * query's own failure is an outcome, so the other queries still answer.
-   */
+  /** Runs every query the subject stands for; a query's own failure is an outcome, so the others still answer. */
   private static RunResult runQuery(RunRequest request, Model model) {
     QueryPlan plan = QueryResolver.plan(request, model);
-    for (String name : request.queryBindings().keySet()) {
-      if (plan.parameter(name).isEmpty()) {
-        throw new IllegalArgumentException(
-            "no parameter named " + name + " on " + String.join(", ", plan.queries()));
-      }
-    }
+    Map<String, Map<String, List<DocumentValue>>> bindings = new LinkedHashMap<>();
+    for (String query : plan.queries()) bindings.put(query, new LinkedHashMap<>());
+    request.queryBindings().forEach((key, values) -> {
+      QueryParameter parameter = plan.parameter(key).orElseThrow(() -> new IllegalArgumentException(
+          "no parameter named " + key + " on " + String.join(", ", plan.queries())));
+      bindings.get(parameter.query()).put(
+          parameter.name(), values.stream().map(value -> serviceName(request.source(), value)).toList());
+    });
     List<QueryAnswer> answers = new ArrayList<>();
     for (String query : plan.queries()) {
-      Map<String, List<DocumentValue>> bindings = new LinkedHashMap<>();
-      for (QueryParameter parameter : plan.parameters()) {
-        List<DocumentValue> values = request.queryBindings().get(parameter.name());
-        if (!parameter.query().equals(query) || values == null) continue;
-        bindings.put(parameter.name(), values.stream().map(value -> serviceName(request.source(), value)).toList());
-      }
       try {
-        answers.add(QueryAnswer.rows(query, model.runDocumentQuery(query, bindings)));
+        answers.add(QueryAnswer.rows(query, model.runDocumentQuery(query, bindings.get(query))));
       } catch (ServiceException failure) {
         if (failure.status() == StatusCode.UNAVAILABLE || failure.status() == StatusCode.CANCELLED) throw failure;
         answers.add(QueryAnswer.failed(query, failure));

@@ -210,6 +210,26 @@ class QueryRunTest {
   }
 
   @Test
+  void parametersSharedByQueriesAreNamedByTheirQuery() {
+    QueryParameter first = new QueryParameter("A::Q", "root", "KerML::Root::Element", QueryParameter.Kind.ELEMENT, false, false);
+    QueryParameter second = new QueryParameter("A::R", "root", "ScalarValues::String", QueryParameter.Kind.STRING, false, false);
+    QueryPlan plan = new QueryPlan(List.of("A::Q", "A::R"), List.of(first, second, KIND));
+    assertEquals("A::Q::root", plan.key(first));
+    assertEquals("A::R::root", plan.key(second));
+    assertEquals("kind", plan.key(KIND));
+    assertEquals(Optional.of(second), plan.parameter("A::R::root"));
+    assertEquals(Optional.of(KIND), plan.parameter("kind"));
+    assertEquals(Optional.empty(), plan.parameter("depth"));
+    assertEquals("root is a parameter of several queries; name it as one of A::Q::root, A::R::root",
+        assertThrows(IllegalArgumentException.class, () -> plan.parameter("root")).getMessage());
+    Map<String, List<DocumentValue>> named = QueryArguments.parse("A::R::root = \"x\"; A::Q::root = Demo::a", plan);
+    assertEquals(List.of(new DocumentValue.StringValue("x")), named.get("A::R::root"));
+    assertEquals(List.of(new DocumentValue.ElementRef("Demo::a", "")), named.get("A::Q::root"));
+    assertEquals(List.of("A::Q::root", "A::R::root"), List.copyOf(QueryArguments.parse("Demo::a; x", plan).keySet()),
+        "positional bindings take the key the dialog and the engine use");
+  }
+
+  @Test
   void migrationTargetsDropTheirKeywordsAndQuotes() {
     assertEquals("Model::Fleet Documents::Fleet Brief Document",
         QueryResolver.targetName("part def Model::'Fleet Documents'::'Fleet Brief Document'"));

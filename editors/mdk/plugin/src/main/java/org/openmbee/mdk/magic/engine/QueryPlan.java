@@ -22,7 +22,27 @@ public record QueryPlan(List<String> queries, List<QueryParameter> parameters) {
     return elements.size() == 1 ? Optional.of(elements.get(0)) : Optional.empty();
   }
 
-  public Optional<QueryParameter> parameter(String name) {
-    return parameters.stream().filter(parameter -> parameter.name().equals(name)).findFirst();
+  /** The parameter {@code key} names: its name when one query declares it, else {@code query::name}. */
+  public Optional<QueryParameter> parameter(String key) {
+    List<QueryParameter> named = parameters.stream()
+        .filter(parameter -> parameter.name().equals(key) || qualified(parameter).equals(key))
+        .toList();
+    if (named.size() > 1 && named.stream().noneMatch(parameter -> qualified(parameter).equals(key))) {
+      throw new IllegalArgumentException(key + " is a parameter of several queries; name it as one of "
+          + String.join(", ", named.stream().map(QueryPlan::qualified).toList()));
+    }
+    return named.stream().filter(parameter -> qualified(parameter).equals(key)).findFirst()
+        .or(() -> named.stream().findFirst());
+  }
+
+  /** How a binding names {@code parameter}: by name alone unless another query declares the name too. */
+  public String key(QueryParameter parameter) {
+    boolean shared = parameters.stream()
+        .anyMatch(other -> other.name().equals(parameter.name()) && !other.query().equals(parameter.query()));
+    return shared ? qualified(parameter) : parameter.name();
+  }
+
+  private static String qualified(QueryParameter parameter) {
+    return parameter.query() + "::" + parameter.name();
   }
 }

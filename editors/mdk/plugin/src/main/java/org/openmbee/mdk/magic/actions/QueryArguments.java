@@ -11,20 +11,11 @@ import org.openmbee.mdk.magic.identity.QualifiedNames;
 import org.openmbee.opensysml.DocumentValue;
 import org.openmbee.opensysml.Value;
 
-/**
- * Reads the bindings typed for "Run query": parameters separated by {@code ;}, each {@code name =
- * value} or, in declaration order, just the value; a parameter of many takes values separated by
- * {@code ,}. A value is read by the parameter's type — an element parameter takes the qualified
- * name of an element as the host names it, a String a quoted or bare text, the numbers and
- * Booleans their literals.
- */
+/** Reads the bindings typed for "Run query": {@code name = value, value; …} or positional, each value by the parameter's type. */
 public final class QueryArguments {
   private QueryArguments() {}
 
-  /**
-   * @throws IllegalArgumentException when a name matches no parameter, a position has none, or a
-   *     value does not read as the parameter's type
-   */
+  /** Throws {@code IllegalArgumentException} when a name or position has no parameter, or a value does not read as its type. */
   public static Map<String, List<DocumentValue>> parse(String text, QueryPlan plan) {
     Map<String, List<DocumentValue>> bindings = new LinkedHashMap<>();
     List<String> assignments = CalcArguments.split(text, ';', "query arguments");
@@ -47,7 +38,7 @@ public final class QueryArguments {
         parameter = plan.parameters().get(position);
         value = assignment;
       }
-      bindings.put(parameter.name(), values(value, parameter));
+      bindings.put(plan.key(parameter), values(value, parameter));
     }
     return bindings;
   }

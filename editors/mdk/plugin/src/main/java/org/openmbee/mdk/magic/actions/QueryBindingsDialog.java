@@ -17,11 +17,7 @@ import org.openmbee.mdk.magic.engine.QueryParameter;
 import org.openmbee.mdk.magic.engine.QueryPlan;
 import org.openmbee.opensysml.DocumentValue;
 
-/**
- * Asks for the bindings of a query's {@code in} parameters: one field per parameter, read by its
- * type ({@link QueryArguments}); a parameter with a value of its own may stay blank, and the sole
- * element parameter without one starts out naming the selected element.
- */
+/** Asks for the bindings of the queries' {@code in} parameters, one field each, read by type ({@link QueryArguments}). */
 final class QueryBindingsDialog {
   static final String TITLE = "Magic MDK: Run query";
 
@@ -42,15 +38,14 @@ final class QueryBindingsDialog {
     }
   }
 
-  /** The fields by parameter name; parameters of the same name over several queries share one. */
+  /** The fields by binding key; the sole element parameter without a value starts out as the selected element. */
   static Map<String, JTextField> fields(QueryPlan plan, String selected) {
     Map<String, JTextField> fields = new LinkedHashMap<>();
     Optional<QueryParameter> sole = plan.soleElementParameter();
     for (QueryParameter parameter : plan.parameters()) {
-      if (fields.containsKey(parameter.name())) continue;
       JTextField field = new JTextField(32);
-      if (sole.isPresent() && sole.get().name().equals(parameter.name())) field.setText(selected);
-      fields.put(parameter.name(), field);
+      if (sole.isPresent() && sole.get().equals(parameter)) field.setText(selected);
+      fields.put(plan.key(parameter), field);
     }
     return fields;
   }
@@ -63,10 +58,10 @@ final class QueryBindingsDialog {
       QueryParameter parameter = plan.parameter(entry.getKey()).orElseThrow();
       String text = entry.getValue().getText().trim();
       if (text.isEmpty()) {
-        if (parameter.required()) missing.add(parameter.name());
+        if (parameter.required()) missing.add(entry.getKey());
         continue;
       }
-      bindings.put(parameter.name(), QueryArguments.values(text, parameter));
+      bindings.put(entry.getKey(), QueryArguments.values(text, parameter));
     }
     if (!missing.isEmpty()) {
       throw new IllegalArgumentException("a value is needed for " + String.join(", ", missing));
@@ -88,7 +83,7 @@ final class QueryBindingsDialog {
       QueryParameter parameter = plan.parameter(entry.getKey()).orElseThrow();
       at.gridy++;
       at.gridx = 0;
-      form.add(new JLabel(label(parameter)), at);
+      form.add(new JLabel(label(entry.getKey(), parameter)), at);
       at.gridx = 1;
       at.fill = GridBagConstraints.HORIZONTAL;
       at.weightx = 1;
@@ -101,8 +96,8 @@ final class QueryBindingsDialog {
     return form;
   }
 
-  static String label(QueryParameter parameter) {
+  static String label(String key, QueryParameter parameter) {
     String type = parameter.type().isBlank() ? "" : " : " + parameter.type();
-    return parameter.name() + type + (parameter.many() ? " [0..*]" : "");
+    return key + type + (parameter.many() ? " [0..*]" : "");
   }
 }
