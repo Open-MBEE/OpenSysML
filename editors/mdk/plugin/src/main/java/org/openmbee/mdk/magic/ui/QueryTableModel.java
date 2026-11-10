@@ -7,11 +7,7 @@ import org.openmbee.mdk.magic.results.RunResult.Cell;
 import org.openmbee.mdk.magic.results.RunResult.Row;
 import org.openmbee.mdk.magic.results.RunResult.Table;
 
-/**
- * Read-only rows of the tables a run answered, one block per query: a leading column names the
- * query, then one column per projected property. Tables of different shapes share the widest
- * header, so a run over several queries still shows as one grid.
- */
+/** Read-only rows of every table a run answered as one grid: a Query column, then the union of the projected properties. */
 public final class QueryTableModel extends AbstractTableModel {
   static final String QUERY_COLUMN = "Query";
   private List<Table> tables = List.of();

@@ -338,11 +338,7 @@ public final class OperationActions implements BrowserContextAMConfigurator, Dia
           status -> run(request, index, status), "Magic MDK: " + operation.label(), true, 0);
     }
 
-    /**
-     * Runs off the EDT: resolves the queries and their parameters, then runs at once when there is
-     * nothing to bind, else asks for the bindings on the EDT and runs under a progress dialog of
-     * its own.
-     */
+    /** Runs off the EDT: resolves the queries, runs at once when nothing needs binding, else asks on the EDT and runs again. */
     private void planQuery(RunRequest request, IdentityResolver index, ProgressStatus status) {
       status.setDescription("Resolving " + request.subjectQualifiedName());
       Optional<QueryPlan> plan;

@@ -3,10 +3,7 @@ package org.openmbee.mdk.magic.engine;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * The query definitions one subject stands for, by the service's names, and every {@code in}
- * parameter they declare; the bindings a run needs are asked for from this.
- */
+/** The query definitions one subject stands for, by the service's names, and every {@code in} parameter they declare. */
 public record QueryPlan(List<String> queries, List<QueryParameter> parameters) {
   public QueryPlan {
     queries = List.copyOf(queries);

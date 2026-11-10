@@ -47,8 +47,7 @@ public final class DocGenBridge {
    * path or a SysML v2 element on the textual path — and flattens the result.
    *
    * @throws IllegalArgumentException when the operation is unknown, the element is not a model
-   *     element OpenSysML can run, or the arguments do not parse (calc arguments, or the query
-   *     bindings read against the parameters the queries declare)
+   *     element OpenSysML can run, or the calc arguments or query bindings do not parse
    */
   public Map<String, Object> run(Project project, BaseElement element, String operation, String calcArguments) {
     Operation parsed = operation(operation);

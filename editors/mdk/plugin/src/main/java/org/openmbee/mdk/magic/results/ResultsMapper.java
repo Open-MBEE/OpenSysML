@@ -99,11 +99,7 @@ public final class ResultsMapper {
     return result(request, status, outcomes, value.diagnostics(), Optional.empty(), List.of(), elapsed);
   }
 
-  /**
-   * The answers of the queries a subject stands for: one table and one outcome per query that
-   * answered, one error outcome per query that failed. No rows is a value, so a run that answered
-   * only empty tables is {@link Status#INFO}; any failure makes the run {@link Status#ERROR}.
-   */
+  /** One table and outcome per query that answered, an error outcome per query that failed; no rows at all is INFO, any failure ERROR. */
   public static RunResult map(RunRequest request, List<QueryAnswer> answers, Duration elapsed) {
     List<Outcome> outcomes = new ArrayList<>();
     List<Table> tables = new ArrayList<>();
@@ -133,11 +129,7 @@ public final class ResultsMapper {
     return table.rows().size() + (table.rows().size() == 1 ? " row" : " rows") + " of " + String.join(", ", table.columns());
   }
 
-  /**
-   * A query's answer as a table. A cell names an element when its one value is an element
-   * reference, an object held under one, or the qualified name a {@code qualifiedName} column
-   * projects; the row names the element it was computed for.
-   */
+  /** A query's answer as a table; a cell names an element when its one value is a reference, an object held under one, or a {@code qualifiedName}. */
   static Table table(String query, DocumentQueryResult result) {
     List<Row> rows = new ArrayList<>();
     for (DocumentRow row : result.rows()) {

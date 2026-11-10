@@ -2,10 +2,7 @@ package org.openmbee.mdk.magic.engine;
 
 import java.util.Objects;
 
-/**
- * One {@code in} parameter of a query definition, as the service declares it. {@code hasValue}
- * says the declaration binds a value of its own, so running without a binding is fine.
- */
+/** One {@code in} parameter of a query definition; {@code hasValue} says the declaration binds a value, so it may run unbound. */
 public record QueryParameter(
     String query, String name, String type, Kind kind, boolean many, boolean hasValue) {
   /** How a typed-in binding is read: anything but a scalar names an element. */

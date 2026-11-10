@@ -95,10 +95,7 @@ public record RunResult(
     return tables.stream().mapToInt(table -> table.rows().size()).sum();
   }
 
-  /**
-   * The result with every outcome's label and element id, and every table's query and element
-   * ids, renamed by {@code rename}; a cell whose text is the element it names follows along.
-   */
+  /** The result with every outcome label and element id, and every table's query and element ids, renamed by {@code rename}. */
   public RunResult withOutcomeNames(UnaryOperator<String> rename) {
     List<Outcome> renamed = outcomes.stream()
         .map(outcome -> new Outcome(rename.apply(outcome.label()), outcome.detail(), outcome.status(),

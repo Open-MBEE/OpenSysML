@@ -34,10 +34,7 @@ public interface ModelSource extends AutoCloseable {
     return subjectName;
   }
 
-  /**
-   * The declarations the export wrote for the element the host names {@code qualifiedName}, as the
-   * migration report targets them (keywords, then the qualified name); known after {@link #sources}.
-   */
+  /** The migration report targets (keywords, then qualified name) written for the element the host names {@code qualifiedName}; known after {@link #sources}. */
   default List<String> mappedTargets(String qualifiedName) {
     return List.of();
   }

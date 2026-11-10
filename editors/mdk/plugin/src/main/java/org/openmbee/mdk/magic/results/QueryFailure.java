@@ -4,11 +4,7 @@ import org.openmbee.mdk.magic.results.RunResult.Outcome;
 import org.openmbee.mdk.magic.results.RunResult.Status;
 import org.openmbee.opensysml.ServiceException;
 
-/**
- * The one place a query's failure becomes an outcome. Today the service answers a {@code
- * ServiceException} whose message holds the path or model error; a typed query outcome (kind,
- * step, frontier elements, findings) is mapped here once the Java client carries it.
- */
+/** The one place a query's failure becomes an outcome: today the service message of a {@code ServiceException}, later the client's typed query outcome. */
 public final class QueryFailure {
   private QueryFailure() {}
 

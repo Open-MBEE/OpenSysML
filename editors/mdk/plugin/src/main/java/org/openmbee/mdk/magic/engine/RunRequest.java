@@ -8,11 +8,7 @@ import org.openmbee.mdk.magic.source.ModelSource;
 import org.openmbee.opensysml.DocumentValue;
 import org.openmbee.opensysml.Value;
 
-/**
- * One operation to run on one subject. {@code calcArgs} feed "Evaluate calc"; {@code
- * queryBindings} feed "Run query", by parameter name, with element references naming elements the
- * way the host does (the engine maps them to the service's names).
- */
+/** One operation on one subject; {@code calcArgs} feed "Evaluate calc", {@code queryBindings} (by binding key, element names as the host spells them) feed "Run query". */
 public record RunRequest(
     Operation operation,
     ModelSource source,

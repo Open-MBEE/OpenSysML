@@ -201,10 +201,7 @@ class PipelineEndToEndTest {
     assertEquals("no parameter named depth on Demo::Parts", unknown.outcomes().get(0).detail());
   }
 
-  /**
-   * Run query on the v1 path: a DocGen table structure is not a query, but the migration writes
-   * its rows as one, which the report maps the element to; its rows name the Cameo elements.
-   */
+  /** Run query on the v1 path: the migration report leads from a DocGen table structure to the query written for its rows. */
   @Test
   void v1MdzipRunQueryOfADocGenTable() throws Exception {
     Path directory = Files.createTempDirectory("magic-mdk-test");
