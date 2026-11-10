@@ -276,7 +276,7 @@ disagreement, which `-check` then shows as that row moving out of the column.
 
 ## Results (pilot `2026-09`, 935 files)
 
-**Scorecard:** 935 files; 104414 elements matched (18080 ours-only, 26900 pilot-only, 0 of them implied); properties: 2024264 present-equal, 142934 present-different, 306820 ours-missing, 80902 pilot-missing, 2220458 absent-both, 35107 indeterminate, 534 pilot-nondeterministic.
+**Scorecard:** 935 files; 104414 elements matched (18080 ours-only, 26900 pilot-only, 0 of them implied); properties: 2024651 present-equal, 142934 present-different, 306433 ours-missing, 80902 pilot-missing, 2220458 absent-both, 35107 indeterminate, 534 pilot-nondeterministic.
 
 Re-recorded on the source-notes change (a `//` or `//* */` note, or a `/* */` comment written where the grammar admits no `Comment` element, is kept as a `sysx:Note` node of the element whose lines hold it, an entry of its own in the element form; see `docs/reference/rdf-mapping.md` § Notes): 2858 more ours-only elements (15222 → 18080), every one a `sysx:Note` entry the pilot has no counterpart for, as it has none for the `sysx:` behavioral nodes; the matched and pilot-only elements and every property figure are unchanged, the notes being entries beside the elements rather than properties of them, while the extension properties grow by their `sysx:note` references and `sysx:noteText`/`sysx:noteToken`/`sysx:noteOwnLine`/`sysx:noteTail`/`sysx:noteTrailing` fields (271250 → 272781).
 

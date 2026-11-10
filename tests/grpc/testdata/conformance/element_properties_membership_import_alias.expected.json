@@ -1,0 +1,34 @@
+{
+  "rpc": "GetElementProperties",
+  "model": "element_properties_membership_import.sysml",
+  "element_id": "Plant::mainPump",
+  "properties": [
+    "memberElement",
+    "memberName",
+    "memberElementId"
+  ],
+  "expected_properties": [
+    {
+      "name": "memberElement",
+      "defining_class": "Membership",
+      "values": [
+        "Plant::pump"
+      ]
+    },
+    {
+      "name": "memberName",
+      "defining_class": "Membership",
+      "values": [
+        "mainPump"
+      ]
+    },
+    {
+      "name": "memberElementId",
+      "defining_class": "Membership",
+      "derived": true,
+      "values": [
+        "Plant__pump"
+      ]
+    }
+  ]
+}

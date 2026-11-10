@@ -1,0 +1,56 @@
+{
+  "rpc": "GetElementProperties",
+  "model": "element_properties_feature.sysml",
+  "element_id": "FeatureFamily::Derived::mass",
+  "properties": [
+    "type",
+    "owningType",
+    "featuringType",
+    "ownedRedefinition",
+    "isComposite"
+  ],
+  "expected_properties": [
+    {
+      "name": "type",
+      "defining_class": "Feature",
+      "many": true,
+      "derived": true,
+      "values": [
+        "ScalarValues::Real"
+      ]
+    },
+    {
+      "name": "owningType",
+      "defining_class": "Feature",
+      "derived": true,
+      "values": [
+        "FeatureFamily::Derived"
+      ]
+    },
+    {
+      "name": "featuringType",
+      "defining_class": "Feature",
+      "many": true,
+      "derived": true,
+      "values": [
+        "FeatureFamily::Derived"
+      ]
+    },
+    {
+      "name": "ownedRedefinition",
+      "defining_class": "Feature",
+      "many": true,
+      "derived": true,
+      "values": [
+        "FeatureFamily__Derived__mass_rd0"
+      ]
+    },
+    {
+      "name": "isComposite",
+      "defining_class": "Feature",
+      "values": [
+        "false"
+      ]
+    }
+  ]
+}
