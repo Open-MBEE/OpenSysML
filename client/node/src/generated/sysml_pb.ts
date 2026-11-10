@@ -8350,13 +8350,8 @@ export const RunRunsResponseSchema: GenMessage<RunRunsResponse> = /*@__PURE__*/
   messageDesc(file_sysml, 149);
 
 /**
- * RunDocumentQueryRequest runs a document query — a calc def specializing
- * DocumentQueries::Query the model declares, named by query_id, or the body of
- * one written in inline_query — against a model the service already parsed,
- * binding its entry parameters. It answers as %run-query does, but with typed
- * rows rather than formatted lines. The query runs over the objects
- * Instantiate created for the model, which a binding may name (DocumentObject)
- * and `DocumentQueries::Objects` and `Verdicts` reach.
+ * RunDocumentQueryRequest runs a DocumentQueries::Query the model declares (query_id) or one
+ * written in inline_query over a parsed model and its Instantiate objects, binding its parameters.
  *
  * @generated from message sysml.RunDocumentQueryRequest
  */
@@ -11433,10 +11428,8 @@ export const SysMLService: GenService<{
     output: typeof GetElementPropertiesResponseSchema;
   },
   /**
-   * Run a named document query with parameter bindings, the answer the REPL's
-   * %run-query gives, as typed rows rather than formatted lines. Reported as
-   * the "document_query" capability; a query expression written in place of a
-   * name (inline_query) as the "inline_document_query" capability.
+   * Run a document query named by query_id or written in inline_query as typed rows, the answer
+   * the REPL's %run-query gives; capabilities "document_query" and "inline_document_query".
    *
    * @generated from rpc sysml.SysMLService.RunDocumentQuery
    */

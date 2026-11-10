@@ -740,7 +740,7 @@ export class Connection {
   /** Runs a query expression written in place of a named query — the result
    * expression of a `calc def` specializing `DocumentQueries::Query` — as
    * {@link runDocumentQuery} runs a named one; needs `inline_document_query`. */
-  runInlineDocumentQuery(
+  async runInlineDocumentQuery(
     modelHash: string,
     expression: string,
     bindings?: Readonly<Record<string, BindingValues>>,
