@@ -503,9 +503,8 @@ func TestTheHTTPTransportRequiresTheToken(t *testing.T) {
 	}
 }
 
-// TestTheHTTPTransportServesAPIKeys checks a key file guards an address other
-// machines reach on its own or beside the token, a revoked key is refused once
-// SIGHUP has the file read again, and neither the key nor its hash is logged.
+// TestTheHTTPTransportServesAPIKeys checks a key file guards an address alone or beside
+// the token, a revoked key is refused once SIGHUP re-reads the file, and no secret is logged.
 func TestTheHTTPTransportServesAPIKeys(t *testing.T) {
 	dir := t.TempDir()
 	keyFile := filepath.Join(dir, "keys.jsonl")

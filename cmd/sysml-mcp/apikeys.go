@@ -22,9 +22,8 @@ type keyCommand struct {
 	revoke  string
 }
 
-// readKeyCommand validates the key flags together: nil when neither command
-// was asked for, and then -subject, -scopes and -expires are refused, as is
-// -api-keys without the -http transport that reads the file.
+// readKeyCommand validates the key flags together: nil when neither command was
+// asked for, and then -subject, -scopes, -expires and -api-keys without -http are refused.
 func readKeyCommand(o *options, fs *flag.FlagSet) (*keyCommand, error) {
 	revoke := false
 	fs.Visit(func(f *flag.Flag) { revoke = revoke || f.Name == "revoke-api-key" })

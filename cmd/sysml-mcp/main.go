@@ -227,9 +227,8 @@ func printUsage(w io.Writer, fs *flag.FlagSet) {
 	doc().WriteText(w, fs)
 }
 
-// serve speaks the protocol over stdin/stdout until the client ends it or the
-// process is told to stop, or with http over that address until the process is
-// told to stop (a SIGHUP there reloads the credentials), and reports how the session ended.
+// serve speaks the protocol over stdin/stdout until the client ends it or the process is told
+// to stop, or with http over that address (where SIGHUP reloads the credentials), and reports how it ended.
 func serve(stderr io.Writer, cfg mcp.Config, over *httpOptions) int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
