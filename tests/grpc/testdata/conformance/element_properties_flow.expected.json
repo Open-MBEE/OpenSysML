@@ -1,0 +1,58 @@
+{
+  "rpc": "GetElementProperties",
+  "model": "element_properties_flow.sysml",
+  "element_id": "FlowFamily::Vehicle::@2",
+  "properties": [
+    "payloadType",
+    "payloadFeature",
+    "flowEnd",
+    "sourceFeature",
+    "targetFeature"
+  ],
+  "expected_properties": [
+    {
+      "name": "payloadType",
+      "defining_class": "Flow",
+      "many": true,
+      "derived": true,
+      "values": [
+        "FlowFamily::Fuel"
+      ]
+    },
+    {
+      "name": "payloadFeature",
+      "defining_class": "Flow",
+      "derived": true,
+      "values": [
+        "FlowFamily__Vehicle___402___400"
+      ]
+    },
+    {
+      "name": "flowEnd",
+      "defining_class": "Flow",
+      "many": true,
+      "derived": true,
+      "values": [
+        "FlowFamily__Vehicle___402_pend0",
+        "FlowFamily__Vehicle___402_pend1"
+      ]
+    },
+    {
+      "name": "sourceFeature",
+      "defining_class": "Connector",
+      "derived": true,
+      "values": [
+        "FlowFamily__Vehicle___402_pend0_pchain"
+      ]
+    },
+    {
+      "name": "targetFeature",
+      "defining_class": "Connector",
+      "many": true,
+      "derived": true,
+      "values": [
+        "FlowFamily__Vehicle___402_pend1_pchain"
+      ]
+    }
+  ]
+}
