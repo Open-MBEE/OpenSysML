@@ -134,6 +134,13 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprint(stdout, build().Report(mcpCommand))
 		return exitServed
 	}
+	if err := usage.ApplyEnvironment(fs, envPrefix, "token", "token-file"); err != nil {
+		fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)
+		printUsage(stderr, fs)
+		return exitUnservable
+	}
+	opts.given = map[string]bool{}
+	fs.Visit(func(f *flag.Flag) { opts.given[f.Name] = true })
 	if opts.printConfig.set {
 		return printConfig(opts, fs, stdout, stderr)
 	}
@@ -227,15 +234,9 @@ func serve(stderr io.Writer, cfg mcp.Config, over *httpOptions) int {
 			return exitUnservable
 		}
 	}
-	srv, err := mcp.New(ctx, cfg)
-	if err != nil {
-		fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)
-		return exitProtocol
-	}
-	defer srv.Close(context.Background())
-
 	if lis != nil {
-		err = srv.ServeStreamableHTTP(ctx, mcp.HTTPConfig{Listener: lis, Origins: over.origins, Token: over.token, CertFile: over.certFile, KeyFile: over.keyFile})
+		err := mcp.ServeHTTP(ctx, cfg, mcp.HTTPConfig{Listener: lis, Origins: over.origins, Token: over.token, CertFile: over.certFile, KeyFile: over.keyFile,
+			ShutdownTimeout: over.shutdownTimeout, MaxBodyBytes: over.maxBodyBytes, Logger: cfg.Logger})
 		if err != nil {
 			fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)
 			return exitProtocol
@@ -243,6 +244,12 @@ func serve(stderr io.Writer, cfg mcp.Config, over *httpOptions) int {
 		return exitServed
 	}
 
+	srv, err := mcp.New(ctx, cfg)
+	if err != nil {
+		fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)
+		return exitProtocol
+	}
+	defer srv.Close(context.Background())
 	err = srv.Run(ctx, &sdk.StdioTransport{})
 	if err != nil && !endedWithTheStream(err) && ctx.Err() == nil {
 		fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)

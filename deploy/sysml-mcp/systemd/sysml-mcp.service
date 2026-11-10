@@ -1,0 +1,47 @@
+# sysml-mcp as a systemd service, configured from /etc/sysml-mcp/sysml-mcp.env
+# (see sysml-mcp.env beside this unit) and reading its token from a file only
+# its user reads. Install the binary at /usr/local/bin/sysml-mcp, then:
+#   useradd --system --home /var/lib/sysml-mcp --create-home sysml-mcp
+#   install -d -o sysml-mcp -g sysml-mcp -m 0750 /etc/sysml-mcp
+#   openssl rand -base64 32 > /etc/sysml-mcp/mcp.token && chmod 0640 /etc/sysml-mcp/mcp.token && chown sysml-mcp /etc/sysml-mcp/mcp.token
+#   cp sysml-mcp.service /etc/systemd/system/ && cp sysml-mcp.env /etc/sysml-mcp/
+#   systemctl enable --now sysml-mcp
+[Unit]
+Description=OpenSysML Model Context Protocol server
+Documentation=man:sysml-mcp(1) https://open-mbee.github.io/OpenSysML/guide/sysml-mcp-service/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=sysml-mcp
+Group=sysml-mcp
+EnvironmentFile=/etc/sysml-mcp/sysml-mcp.env
+ExecStart=/usr/local/bin/sysml-mcp
+# Stopping closes the sessions and drains the connections within
+# OPENSYSML_MCP_SHUTDOWN_TIMEOUT (30s); the unit allows for it before SIGKILL.
+KillSignal=SIGTERM
+TimeoutStopSec=45
+Restart=on-failure
+RestartSec=2
+
+# The record cache under $XDG_CACHE_HOME is the one path the server writes.
+StateDirectory=sysml-mcp
+CacheDirectory=sysml-mcp
+Environment=XDG_CACHE_HOME=/var/cache
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+NoNewPrivileges=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,10 @@
+# TLS in front of sysml-mcp. `tls internal` signs with Caddy's own CA for a
+# host name public CAs cannot issue for (localhost, a LAN name); for a public
+# name, remove the line and Caddy obtains a certificate from Let's Encrypt.
+{$MCP_HOST}:443 {
+	tls internal
+	reverse_proxy sysml-mcp:8765 {
+		# Event streams stay open as long as a session does.
+		flush_interval -1
+	}
+}

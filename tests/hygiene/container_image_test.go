@@ -105,3 +105,53 @@ func TestContainerImageIsVerifiedBeforeItIsPushed(t *testing.T) {
 	release := config.workflow(t, "release")
 	requireAll(t, "Publish openmbee/opensysml to Docker Hub", requiresOf(t, release, "Publish openmbee/opensysml to Docker Hub"), "Publish GitHub release")
 }
+
+// TestContainerImageCarriesEveryBinary holds the Dockerfile, the release's
+// image check and the compose example to the same four binaries, so a binary
+// added to one surface is built, shipped and verified on the others.
+func TestContainerImageCarriesEveryBinary(t *testing.T) {
+	dockerfile, err := os.ReadFile("../../Dockerfile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, fragment := range []string{
+		"make build-sysml build-lsp build-grpc build-mcp",
+		"COPY --from=build /src/bin/sysml /src/bin/sysml-lsp /src/bin/sysml-grpc /src/bin/sysml-mcp /usr/local/bin/",
+	} {
+		if !strings.Contains(string(dockerfile), fragment) {
+			t.Errorf("Dockerfile lacks %q", fragment)
+		}
+	}
+
+	config := loadCircleConfig(t)
+	runs := runSteps(t, config.Jobs["publish-docker"].Steps)
+	check := stepIndex(runs, "--platform linux/amd64 --load", "-version", "/health", "GetServerInfo")
+	if check < 0 {
+		t.Fatal("publish-docker does not check the image")
+	}
+	for _, fragment := range []string{
+		"for binary in sysml-grpc sysml sysml-lsp sysml-mcp; do",
+		"--entrypoint sysml-mcp openmbee/opensysml:check -http 0.0.0.0:8765",
+		"http://localhost:8765/health", "http://localhost:8765/ready", "http://localhost:8765/mcp",
+	} {
+		if !strings.Contains(runs[check].Command, fragment) {
+			t.Errorf("the image check does not run %q", fragment)
+		}
+	}
+
+	compose, err := os.ReadFile("../../deploy/sysml-mcp/compose.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, fragment := range []string{
+		`entrypoint: ["/usr/local/bin/sysml-mcp"]`, "read_only: true",
+		"OPENSYSML_MCP_TOKEN_FILE: /run/secrets/mcp_token", "reverse_proxy", "tls internal",
+	} {
+		if !strings.Contains(string(compose), fragment) {
+			caddy, _ := os.ReadFile("../../deploy/sysml-mcp/Caddyfile")
+			if !strings.Contains(string(caddy), fragment) {
+				t.Errorf("deploy/sysml-mcp lacks %q", fragment)
+			}
+		}
+	}
+}

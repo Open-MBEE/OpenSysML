@@ -82,21 +82,25 @@ func indexPrewarmFromEnv() (int, error) {
 }
 
 // prewarm builds the library index in the background, so the first model to
-// arrive is not the one that pays for it. It returns immediately.
-func (b *libraryBase) prewarm() {
+// arrive is not the one that pays for it. It returns immediately, with the
+// channel that closes when the index is built.
+func (b *libraryBase) prewarm() <-chan struct{} {
 	b.mu.Lock()
-	if b.base != nil || b.building != nil {
-		b.mu.Unlock()
-		return
+	defer b.mu.Unlock()
+	if b.building != nil {
+		return b.building
 	}
 	done := make(chan struct{})
 	b.building = done
-	b.mu.Unlock()
-
+	if b.base != nil {
+		close(done)
+		return done
+	}
 	go func() {
 		defer close(done)
 		b.ensure()
 	}()
+	return done
 }
 
 // ready reports whether the library index is built.

@@ -158,8 +158,9 @@ build-grpc: stdlib-snapshot ## Build sysml-grpc binary
 	$(GO_BUILD) -o $(BIN_DIR)/sysml-grpc ./cmd/sysml-grpc
 	@echo "✓ Built $(BIN_DIR)/sysml-grpc ($(VERSION))"
 
-# Container image: sysml-grpc as the entrypoint with sysml and sysml-lsp beside
-# it, built by the Dockerfile with the same -ldflags metadata as the binaries.
+# Container image: sysml-grpc as the entrypoint with sysml, sysml-lsp and
+# sysml-mcp beside it, built by the Dockerfile with the same -ldflags metadata
+# as the binaries.
 IMAGE ?= openmbee/opensysml
 IMAGE_TAG ?= dev
 
