@@ -10,8 +10,8 @@ import (
 	"testing"
 )
 
-// replGzipBudget bounds the gzipped RE (sysml_re) js build the CLI page downloads for its in-browser REPL,
-// last raised to 16,100,000 on 2026-11-09 when the -trimpath link measured 16,008,627 bytes (this branch measures 16,057,546 on the develop ddc4a547fe merge).
+// replGzipBudget bounds the gzipped RE (-tags sysml_re) js sysml the CLI page downloads for its in-browser REPL, as the gate links and
+// `make build-release-wasm` ships it (-trimpath, stripped, library snapshot embedded): 16,009,964 bytes under go1.27.3 on 2026-11-09 at develop ddc4a547fe, 14,324,422 without the snapshot.
 const replGzipBudget = 16100000
 
 // TestBrowserREPLWalkthroughs runs every walkthrough the CLI page offers
@@ -135,6 +135,8 @@ func TestBrowserREPLWalkthroughs(t *testing.T) {
 		}
 		if size := compressed.Len(); size > replGzipBudget {
 			t.Errorf("gzipped RE sysml.wasm is %d bytes, over the %d-byte budget the CLI page downloads", size, replGzipBudget)
+		} else {
+			t.Logf("gzipped RE sysml.wasm is %d bytes, under the %d-byte budget", size, replGzipBudget)
 		}
 	})
 }

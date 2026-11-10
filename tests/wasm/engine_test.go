@@ -22,9 +22,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// engineGzipBudget bounds the gzipped js build of sysml-engine, last raised to 9,510,000 on 2026-11-09 for the reflective
-// constructor/metadata paths and the shared library-member rule (9,502,192-9,502,250); TestEngineDependencies catches a forbidden dependency.
-const engineGzipBudget = 9510000
+// engineGzipBudget bounds the gzipped js sysml-engine the gate links (-trimpath, stripped, the library snapshot embedded, as
+// every Makefile build target does): 9,451,750 bytes under go1.27.3 on 2026-11-09 at develop ddc4a547fe, 7,764,359 without the snapshot.
+const engineGzipBudget = 9500000
 
 func TestEngineDependencies(t *testing.T) {
 	const module = "github.com/Open-MBEE/OpenSysML"
