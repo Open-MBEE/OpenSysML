@@ -266,7 +266,8 @@ right shape. Its `runtime` tool group is this service's RPC surface, one tool pe
 RPC's request and response, so an agent gets the same contract the clients on this page do. Its
 `-http` flag serves the same protocol over a port to many agents, with the stance this page
 takes — loopback unless the address says otherwise, an address other machines reach served only
-with a bearer token (`-token-file`, `-token`, `OPENSYSML_MCP_TOKEN` there), TLS from a
+with a bearer token (`-token-file`, `-token`, `OPENSYSML_MCP_TOKEN` there) or a file of API keys
+(`-api-keys`, which this service's flag set declares as well), TLS from a
 certificate and key pair, an origin allow-list that is not authentication; the two commands
 share one implementation of the token and of the loopback rule.
 

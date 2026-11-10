@@ -6,20 +6,21 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard/flags"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/catalog"
 )
 
 // httpOptions is what -http and its qualifiers (-allow-origin, -token,
-// -token-file, -public-url, -tls-cert, -tls-key) resolve to; nil without -http.
+// -token-file, -api-keys, -public-url, -tls-cert, -tls-key) resolve to; nil without -http.
 type httpOptions struct {
 	addr    string
 	origins mcp.OriginPolicy
 	token   mcp.BearerToken
-	// tokenText is the token as given, for the -print-config block alone.
-	tokenText string
-	certFile  string
-	keyFile   string
+	// auth is the chain the token verifies through, for a SIGHUP to reload.
+	auth     flags.Authenticators
+	certFile string
+	keyFile  string
 }
 
 // readHTTPOptions validates the transport flags together (qualifiers without
@@ -46,7 +47,7 @@ func readHTTPOptions(o *options) (*httpOptions, error) {
 	if err != nil {
 		return nil, fmt.Errorf("-allow-origin: %w", err)
 	}
-	token, text, err := readToken(o)
+	token, auth, err := readToken(o)
 	if err != nil {
 		return nil, err
 	}
@@ -56,25 +57,24 @@ func readHTTPOptions(o *options) (*httpOptions, error) {
 	if (o.tlsCert == "") != (o.tlsKey == "") {
 		return nil, errors.New("-tls-cert and -tls-key must be supplied together")
 	}
-	return &httpOptions{addr: addr, origins: origins, token: token, tokenText: text, certFile: o.tlsCert, keyFile: o.tlsKey}, nil
+	return &httpOptions{addr: addr, origins: origins, token: token, auth: auth, certFile: o.tlsCert, keyFile: o.tlsKey}, nil
 }
 
 // tokenValue is the token a -print-config block carries; empty without one.
-func (h *httpOptions) tokenValue() string { return h.tokenText }
+func (h *httpOptions) tokenValue() string { return h.auth.TokenText() }
 
-// readToken resolves the authenticators: the token of -token-file, -token or the
-// environment as a principal of every scope, and the provider of -oidc-issuer,
-// whose tokens name the -public-url endpoint unless -oidc-audience says otherwise.
-func readToken(o *options) (mcp.BearerToken, string, error) {
+// readToken resolves the credentials: the API keys of -api-keys, the provider of
+// -oidc-issuer (audience the -public-url endpoint unless -oidc-audience), then the token.
+func readToken(o *options) (mcp.BearerToken, flags.Authenticators, error) {
 	if o.auth.OIDCIssuer != "" && o.auth.OIDCAudience == "" && o.publicURL == "" {
-		return mcp.BearerToken{}, "", errors.New("-oidc-issuer needs the audience a token is issued for: name the endpoint with -public-url, or give -oidc-audience")
+		return mcp.BearerToken{}, flags.Authenticators{}, errors.New("-oidc-issuer needs the audience a token is issued for: name the endpoint with -public-url, or give -oidc-audience")
 	}
 	o.auth.Resource = o.publicURL
 	resolved, err := o.auth.Resolve(mcp.TokenEnv, catalog.ScopeNames()...)
 	if err != nil {
-		return mcp.BearerToken{}, "", err
+		return mcp.BearerToken{}, flags.Authenticators{}, err
 	}
-	return mcp.BearerToken{Authenticator: resolved.Chain()}, resolved.TokenText(), nil
+	return mcp.BearerToken{Authenticator: resolved.Chain()}, resolved, nil
 }
 
 // loadTLS proves the TLS pair loads before anything is served; nothing to

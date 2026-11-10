@@ -6,9 +6,11 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard/apikey"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard/oidc"
 )
 
@@ -19,6 +21,10 @@ type Options struct {
 	TokenFile string
 	// Token is -token, the static bearer token itself.
 	Token string
+	// APIKeys is -api-keys, the file of hashed API key records.
+	APIKeys string
+	// Logger hears the API key store's reloads; nil is the default logger.
+	Logger *slog.Logger
 	// OIDCIssuer is -oidc-issuer, the OpenID provider whose access tokens are accepted.
 	OIDCIssuer string
 	// OIDCAudience is -oidc-audience, what a token's aud must name; "" is Resource.
@@ -44,6 +50,9 @@ func Register(fs *flag.FlagSet, env string) *Options {
 	fs.StringVar(&o.Token, "token", "",
 		"The bearer token itself, for a shell whose command line is private; -token-file keeps "+
 			"it out of the process list, and "+env+" is read when neither flag names one")
+	fs.StringVar(&o.APIKeys, "api-keys", "",
+		"File of API keys accepted besides the bearer token, one JSON record per line holding the SHA-256 of a key "+
+			"with its subject, scopes, expiry and whether it is disabled; re-read when it changes")
 	fs.StringVar(&o.OIDCIssuer, "oidc-issuer", "",
 		"Accept the access tokens of this OpenID provider, given as its issuer URL (https, or http on loopback): its discovery "+
 			"document and signing keys are read, a token's signature, iss, aud, exp and nbf verified, and the issuer advertised "+
@@ -63,7 +72,7 @@ func Register(fs *flag.FlagSet, env string) *Options {
 // Given names the first authenticator flag given, so a transport they are not
 // for can refuse it by name; empty when none is.
 func (o *Options) Given() string {
-	for _, f := range []struct{ name, value string }{{"-token", o.Token}, {"-token-file", o.TokenFile}, {"-oidc-issuer", o.OIDCIssuer}, {"-oidc-audience", o.OIDCAudience}, {"-oidc-scope-claim", o.OIDCScopeClaim}, {"-oidc-introspect", o.OIDCIntrospect}, {"-oidc-client-file", o.OIDCClientFile}} {
+	for _, f := range []struct{ name, value string }{{"-token", o.Token}, {"-token-file", o.TokenFile}, {"-api-keys", o.APIKeys}, {"-oidc-issuer", o.OIDCIssuer}, {"-oidc-audience", o.OIDCAudience}, {"-oidc-scope-claim", o.OIDCScopeClaim}, {"-oidc-introspect", o.OIDCIntrospect}, {"-oidc-client-file", o.OIDCClientFile}} {
 		if f.value != "" {
 			return f.name
 		}
@@ -75,6 +84,14 @@ func (o *Options) Given() string {
 // verifies through: each kind ahead of the static token, whose scopes these are.
 func (o *Options) Resolve(env string, scopes ...string) (Authenticators, error) {
 	var a Authenticators
+	if o.APIKeys != "" {
+		store, err := apikey.Open(o.APIKeys, o.Logger)
+		if err != nil {
+			return Authenticators{}, fmt.Errorf("-api-keys: %w", err)
+		}
+		a.add(store, "api keys")
+		a.reloaders = append(a.reloaders, store)
+	}
 	provider, err := o.provider(scopes)
 	if err != nil {
 		return Authenticators{}, err
@@ -133,7 +150,12 @@ type Authenticators struct {
 	chain     guard.Chain
 	kinds     []string
 	tokenText string
+	reloaders []reloader
 }
+
+// reloader is an authenticator that re-reads its credentials on demand, as the
+// API key store does on SIGHUP.
+type reloader interface{ Reload() error }
 
 // add appends an authenticator and the words a startup line names it by.
 func (a *Authenticators) add(authenticator guard.Authenticator, kind string) {
@@ -144,6 +166,16 @@ func (a *Authenticators) add(authenticator guard.Authenticator, kind string) {
 // Chain is the authenticators in the order a request is asked of them; nil
 // when none is configured, which a service serves open where it may.
 func (a Authenticators) Chain() guard.Chain { return a.chain }
+
+// Reload has every authenticator that reads a file read it again, as on SIGHUP;
+// the errors are joined, each file that fails keeping what it held.
+func (a Authenticators) Reload() error {
+	var errs []error
+	for _, r := range a.reloaders {
+		errs = append(errs, r.Reload())
+	}
+	return errors.Join(errs...)
+}
 
 // Configured reports whether any authenticator guards the service.
 func (a Authenticators) Configured() bool { return len(a.chain) > 0 }

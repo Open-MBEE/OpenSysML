@@ -438,6 +438,7 @@ interleave rather than collide; agents that want sessions of their own give them
 sysml-mcp -http 8765                                              # http://localhost:8765/mcp, this machine only
 sysml-mcp -http 0.0.0.0:8765 -token-file mcp.token -tls-cert server.crt -tls-key server.key
 sysml-mcp -http 0.0.0.0:8765 -token-file mcp.token -allow-origin https://agents.example.org
+sysml-mcp -http 0.0.0.0:8765 -api-keys keys.jsonl -tls-cert server.crt -tls-key server.key  # a key per caller
 ```
 
 The stance is the one [`sysml-grpc`](service-transports.md) takes for TLS and origins, with the
@@ -456,6 +457,8 @@ authentication the Model Context Protocol asks of a server on a network:
   flag is given. Starting on an address other machines reach (`0.0.0.0:8765`, a host name) with no
   token is refused with exit status 2 and a message naming the flags — not served with a warning.
   A token given for a loopback address is enforced the same way, for a machine shared with others.
+  A file of [API keys](#api-keys) (`-api-keys FILE`) is a credential as well, alone or beside the
+  token: a key is tried first, by its `osk_` prefix, and any other bearer token against the token.
 - **Every request carries the token** as `Authorization: Bearer TOKEN` (RFC 6750 § 2.1, the only
   form the protocol allows; a token in the query string is never read). The comparison is
   constant-time. A request without it is refused with `401 Unauthorized` and a
@@ -514,6 +517,49 @@ server already running rather than starting one, and with the server's token (`-
 ([Configuring a host](#configuring-a-host)). The token is written in clear, so such a block belongs
 in a file the host reads privately — a user-level configuration, or a project file kept out of
 version control — or is edited to the host's own reference to a secret where it has one.
+
+## API keys
+
+A service with several callers — people, CI jobs, other agents — needs a credential per caller that
+can be revoked alone, which one shared token is not. `sysml-mcp` mints and revokes **API keys** in a
+file; the file is the server's key store.
+
+```bash
+sysml-mcp -mint-api-key -api-keys keys.jsonl -subject alice@example.org -scopes sysml:read,sysml:write -expires 720h
+sysml-mcp -revoke-api-key Jf3kQ9pLmN2x -api-keys keys.jsonl
+```
+
+- **The key** is `osk_<id>.<secret>`: the `osk_` prefix tells it from any other bearer token, the id
+  (12 characters) names its record, and the secret is 32 random bytes in base64url. It is printed
+  **once**, to stdout alone, when minted; store it where a token belongs (a secret store, a CI
+  variable, a file only its user reads). The file never holds it, so a copy of the file does not
+  give a key away, and a key that is lost is minted again rather than recovered.
+- **The file** is one JSON object per line (JSON Lines), `{"id", "sha256", "subject", "scopes",
+  "expires", "disabled"}`: the SHA-256 of the secret in hex, the subject the key speaks for, the
+  scopes it grants, its expiry (RFC 3339, whole seconds, absent for a key that does not expire)
+  and whether it is disabled. Minting appends a line; the file is created with mode `0600` and
+  kept so. A line that is not a record, a scope that is not an RFC 6749 scope token, or an id
+  held twice fails the file at that line, and the file is not edited.
+- **Rotation and revocation.** `-revoke-api-key ID` marks the record disabled — the line stays,
+  so the subject and the history are kept — and a server reading the file refuses the key from
+  its next look at the file. To rotate, mint the subject a new key, move the caller to it, then
+  revoke the old id. A key past its `expires` is refused as expired without being revoked. Two
+  edits at once wait for each other through a `keys.jsonl.lock` beside the file; one left by a
+  process that died is named for removal.
+- **Scopes** are the RFC 6749 § 3.3 scope tokens the key grants (printable ASCII without spaces,
+  quotes or backslashes), comma-separated at `-scopes`; a key has at least one. What each scope
+  admits is the server's to say when it reads the file.
+
+A server given such a file (`internal/frontend/guard/apikey`) accepts a key as `Authorization:
+Bearer osk_…` with the record's subject, scopes and expiry as the request's principal, looking the
+record up by id and comparing the secret's hash in constant time, and refuses a disabled, expired or
+unknown key with the RFC 6750 § 3.1 answer; a bearer token that is not a key is left to the server's
+other authenticators (its static token last). The file is read again when its modification time
+moves, at most once a second and only on a request, and on `SIGHUP`; a file that no longer reads
+keeps the keys already held and logs the failure once. `sysml-mcp -http ADDR -api-keys FILE` serves
+the file this way, alone or beside `-token-file`/`-token`, and satisfies the rule that an address
+other machines reach needs a credential; `kill -HUP` the server after editing the file by hand to
+have it read at once rather than at the next request.
 
 ## Single sign-on
 
@@ -596,12 +642,15 @@ token, and client scopes named after the server's scopes with *Include in token 
 | `-cache-size N` | `100` | Parsed models the runtime tools hold, at least 1 |
 | `-log-level LEVEL` | `warn` | Lowest level logged to stderr: `debug`, `info`, `warn` or `error` |
 | `-stdio` | — | Serve over stdin/stdout; the default transport, accepted for hosts that name it; not with `-http` |
-| `-http ADDR` | — | Serve over Streamable HTTP at `/mcp` of `host:port`, or of loopback for a port alone; every client shares the workspace and runtime cache, and the REPL sessions of its principal |
+| `-http ADDR` | — | Serve over Streamable HTTP at `/mcp` of `host:port`, or of loopback for a port alone; every client shares the workspace and runtime cache, and the REPL sessions of its principal; an address other machines reach needs `-token-file`, `-token` or `-api-keys` |
 | `-allow-origin ORIGINS` | — | Origins (`scheme://host[:port]`, comma-separated) granted cross-origin access; loopback origins and requests with no `Origin` are admitted without a grant, others are refused |
 | `-token-file FILE` | — | File holding the bearer token every request must carry as `Authorization: Bearer TOKEN`; required for an address other machines reach, enforced on loopback too when given |
 | `-token TOKEN` | — | The token itself; `OPENSYSML_MCP_TOKEN` is read when neither flag names one |
 | `-public-url URL` | the request's scheme and `Host` | The URL clients reach the endpoint at behind a proxy that terminates TLS or rewrites the path; named as the resource, in the bearer challenge and by the `-print-config` block |
 | `-tls-cert FILE`, `-tls-key FILE` | — | Serve `https`; both or neither |
+| `-api-keys FILE` | — | File of API keys, one JSON record per line holding the SHA-256 of a key with its subject, scopes, expiry and whether it is disabled; read by `-http` as a credential ahead of the token, re-read when it changes and on `SIGHUP`; appended to by `-mint-api-key`, edited by `-revoke-api-key` |
+| `-mint-api-key` | — | Mint a key `osk_<id>.<secret>` for `-subject NAME` with `-scopes a,b`, expiring after `-expires DUR` when given; print it once to stdout, append its record to the `-api-keys` file and exit |
+| `-revoke-api-key ID` | — | Mark the key of this id disabled in the `-api-keys` file and exit |
 | `-oidc-issuer URL` | — | Accept the access tokens of this OpenID provider (its issuer URL; `https`, or `http` on loopback): discovery and signing keys are read from it, tokens verified against it, and it is advertised as the authorization server |
 | `-oidc-audience AUD` | the `-public-url` endpoint | The `aud` a token must name; one of the two flags must name it |
 | `-oidc-scope-claim NAME` | `scope`, then `scp` | The claim a token's scopes are read from |
