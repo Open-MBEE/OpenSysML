@@ -105,7 +105,7 @@ origin in `-allow-origin` as well.
 hardening systemd offers (`ProtectSystem=strict`, no new privileges, an empty capability set, a
 private `/tmp`), reading every setting from `/etc/sysml-mcp/sysml-mcp.env` — the example
 `sysml-mcp.env` beside it names the address, the token file, the public URL, the workspace and
-the log level, with the TLS pair, the origins and the bounds commented out. The unit's
+the log level and the bounds, and leaves the TLS pair and the origins empty, which is unset. The unit's
 `TimeoutStopSec` allows for `-shutdown-timeout` before SIGKILL; raise both together. The record
 cache lands in the unit's own `/var/cache/sysml-mcp`. `deploy/sysml-mcp/README.md` lists the
 installation steps.
