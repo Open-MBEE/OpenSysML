@@ -184,6 +184,20 @@ function test_surface_live()
     optionRows = queryModel.query('where', filter);
     builtRows = queryModel.query(opensysml.buildQuery([], 'where', filter));
     assert_equal(isstruct(textRows) && ~isempty(textRows.elements), true, 'OSLC query');
+
+    assert_equal(conn.hasCapability('element_properties'), true, 'element_properties advertised');
+    pairModel = opensysml.parseSource(conn, fileread(fullfile(fixtures, 'element_properties.sysml')), ...
+        'name', 'element_properties.sysml');
+    pair = pairModel.elementProperties('Demo::Pair', 'inheritedFeature', 'isAbstract');
+    assert_equal(pair.element.metaclass, 'PartDefinition', 'element properties metaclass');
+    inheritedNames = cellfun(@(v) v.qualifiedName, pair.byName('inheritedFeature').values, ...
+        'UniformOutput', false);
+    assert_equal(any(strcmp(inheritedNames, 'Demo::Unit::p')), true, 'inherited feature by spec name');
+    assert_equal(pair.byName('isAbstract').values{1}, false, 'isAbstract literal');
+    walked = opensysml.elementProperties(pairModel, pair.byName('inheritedFeature').values{1}.id, 'owner');
+    assert_equal(isstruct(walked.byName('owner').values{1}), true, 'an answered id reads back');
+    assert_equal(~isempty(pairModel.elementProperties('Demo::Pair', 'connectorEnd').byName('connectorEnd').unsupported), ...
+        true, 'undeclared property says why');
     assert_equal(iscell(structuredRows), true, 'structured Model.query');
     assert_equal(~isempty(optionRows), true, 'structured query where rows');
     optionIds = cellfun(@(item) item.id, optionRows, 'UniformOutput', false);

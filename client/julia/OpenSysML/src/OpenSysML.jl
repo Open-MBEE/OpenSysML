@@ -23,6 +23,8 @@ export Connection, Model, Diagnostic, Instance, InstanceRef, Quantity,
        QueryError, DocumentQueryError, UnsupportedValueError, FeatureValueError,
        TypeMismatchError, InstanceTypeError, IncommensurableUnitsError,
        QueryElement, build_query, as_dict,
+       ElementIdentity, ElementProperty, ElementProperties, element_properties,
+       property_elements, property_value, is_answered,
        TypeFacts, Multiplicity, Specialization, AttributeFacts, SymbolFacts, SymbolInfo,
        Bound, Standing, EngineInfo, VerificationVerdict, WitnessAssignment, VerdictNote, Verdict,
        Validation, CalcResult, CaseEvaluation, AnalysisResult, ToolDryRun, ToolDryRunFile,
@@ -73,6 +75,7 @@ include("connection.jl")
 include("model.jl")
 include("typed.jl")
 include("query.jl")
+include("element_properties.jl")
 include("typefacts.jl")
 include("symbol.jl")
 include("generate.jl")
@@ -111,7 +114,7 @@ end
 for capability in (
     :CAPABILITY_TYPE_FACTS, :CAPABILITY_CONVERT, :CAPABILITY_MIGRATE, :CAPABILITY_VERIFICATION,
     :CAPABILITY_VERIFICATION_QUESTIONS, :CAPABILITY_VERIFICATION_ARGUMENTS, :CAPABILITY_VERDICT_NOTES, :CAPABILITY_QUERY, :CAPABILITY_QUERY_ORDER_BY, :CAPABILITY_OSLC_QUERY,
-    :CAPABILITY_DOCUMENT_QUERY, :CAPABILITY_INLINE_DOCUMENT_QUERY,
+    :CAPABILITY_DOCUMENT_QUERY, :CAPABILITY_INLINE_DOCUMENT_QUERY, :CAPABILITY_ELEMENT_PROPERTIES,
     :CAPABILITY_RENDER_DOCUMENT, :CAPABILITY_RENDER_DOCUMENT_HTML,
     :CAPABILITY_RENDER_DOCUMENT_ASCIIDOC, :CAPABILITY_RENDER_VIEW,
     :CAPABILITY_EXPORT_GRAPHS, :CAPABILITY_RUNS, :CAPABILITY_SELF_CHECK, :CAPABILITY_RECORD_RUN,

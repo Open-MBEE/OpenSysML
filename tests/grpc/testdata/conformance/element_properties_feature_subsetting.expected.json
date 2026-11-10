@@ -1,0 +1,54 @@
+{
+  "rpc": "GetElementProperties",
+  "model": "element_properties_feature.sysml",
+  "element_id": "FeatureFamily::Derived::primary",
+  "properties": [
+    "type",
+    "isOrdered",
+    "isComposite",
+    "multiplicity",
+    "ownedSubsetting"
+  ],
+  "expected_properties": [
+    {
+      "name": "type",
+      "defining_class": "Feature",
+      "many": true,
+      "derived": true,
+      "values": [
+        "FeatureFamily::Item"
+      ]
+    },
+    {
+      "name": "isOrdered",
+      "defining_class": "Feature",
+      "values": [
+        "true"
+      ]
+    },
+    {
+      "name": "isComposite",
+      "defining_class": "Feature",
+      "values": [
+        "true"
+      ]
+    },
+    {
+      "name": "multiplicity",
+      "defining_class": "Type",
+      "derived": true,
+      "values": [
+        "FeatureFamily__Derived__primary_pmultiplicity"
+      ]
+    },
+    {
+      "name": "ownedSubsetting",
+      "defining_class": "Feature",
+      "many": true,
+      "derived": true,
+      "values": [
+        "FeatureFamily__Derived__primary_ss0"
+      ]
+    }
+  ]
+}
