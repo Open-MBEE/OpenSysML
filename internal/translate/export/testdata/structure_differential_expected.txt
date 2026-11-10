@@ -415,8 +415,8 @@ root examples/pilot-corpora: models 213, skipped 0, matched 45006, unmatched 160
   Membership::memberShortName: equal 19284, different 10, symbol-missing 0, symbol-extra 196
   Membership::membershipOwningNamespace: equal 19403, different 87, symbol-missing 0, symbol-extra 0
   MetadataUsage::metadataDefinition: equal 10, different 131, symbol-missing 0, symbol-extra 98
-  Namespace::member: equal 14306, different 1776, symbol-missing 54, symbol-extra 1992
-  Namespace::membership: equal 14225, different 1857, symbol-missing 54, symbol-extra 1992
+  Namespace::member: equal 14308, different 1774, symbol-missing 54, symbol-extra 1992
+  Namespace::membership: equal 14227, different 1855, symbol-missing 54, symbol-extra 1992
   Namespace::ownedMember: equal 16635, different 1493, symbol-missing 0, symbol-extra 0
   Namespace::ownedMembership: equal 16507, different 1621, symbol-missing 0, symbol-extra 0
   OccurrenceUsage::individualDefinition: equal 3097, different 0, symbol-missing 1, symbol-extra 119
@@ -450,10 +450,10 @@ root examples/pilot-corpora: models 213, skipped 0, matched 45006, unmatched 160
   Type::differencingType: equal 17606, different 5, symbol-missing 0, symbol-extra 0
   Type::directedFeature: equal 15334, different 223, symbol-missing 54, symbol-extra 2000
   Type::endFeature: equal 16971, different 0, symbol-missing 38, symbol-extra 602
-  Type::feature: equal 14395, different 1162, symbol-missing 54, symbol-extra 2000
-  Type::featureMembership: equal 14434, different 1123, symbol-missing 54, symbol-extra 2000
-  Type::inheritedFeature: equal 14758, different 799, symbol-missing 54, symbol-extra 2000
-  Type::inheritedMembership: equal 14618, different 939, symbol-missing 54, symbol-extra 2000
+  Type::feature: equal 14397, different 1160, symbol-missing 54, symbol-extra 2000
+  Type::featureMembership: equal 14436, different 1121, symbol-missing 54, symbol-extra 2000
+  Type::inheritedFeature: equal 14760, different 797, symbol-missing 54, symbol-extra 2000
+  Type::inheritedMembership: equal 14620, different 937, symbol-missing 54, symbol-extra 2000
   Type::input: equal 15353, different 204, symbol-missing 54, symbol-extra 2000
   Type::intersectingType: equal 17607, different 4, symbol-missing 0, symbol-extra 0
   Type::isConjugated: equal 17605, different 6, symbol-missing 0, symbol-extra 0

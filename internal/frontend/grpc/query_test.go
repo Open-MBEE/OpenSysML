@@ -928,28 +928,25 @@ func TestQueryOmitsSatisfyingFeatureWithoutQueryIdentity(t *testing.T) {
 	}
 }
 
-// TestQueryVerifyReadsSatisfyEndsReflectively verifies a verify reported as a
-// SatisfyRequirementUsage carries the metaclass property its model states.
-func TestQueryVerifyReadsSatisfyEndsReflectively(t *testing.T) {
+// TestQueryVerifyIsARequirementUsage: an objective's `verify r;` is the RequirementUsage its
+// RequirementVerificationMembership owns (SysML 8.3.19), not a SatisfyRequirementUsage.
+func TestQueryVerifyIsARequirementUsage(t *testing.T) {
 	model := `package Demo {
 		requirement r;
 		verification def Check {
 			objective { verify r; }
 		}
 	}`
-	_, _, resp := runQueryOnSource(t, model, satisfyUsageQuery(
-		QueryPropSatisfiedRequirement, QueryPropSatisfyingFeature,
-	))
-	if len(resp.Elements) != 1 {
-		t.Fatalf("verify elements = %d, want 1: %v", len(resp.Elements), resp.Elements)
+	_, _, satisfies := runQueryOnSource(t, model, satisfyUsageQuery(QueryPropSatisfiedRequirement))
+	if len(satisfies.Elements) != 0 {
+		t.Fatalf("satisfy elements = %d, want none: %v", len(satisfies.Elements), satisfies.Elements)
 	}
-	// The metamodel's satisfiedRequirement is read reflectively of the element
-	// the service reports as a SatisfyRequirementUsage; it is satisfied by nothing.
-	if got := resp.Elements[0].Properties[QueryPropSatisfiedRequirement]; got != "Demo::r" {
-		t.Errorf("verify properties[%q] = %q, want Demo::r", QueryPropSatisfiedRequirement, got)
-	}
-	if got, ok := resp.Elements[0].Properties[QueryPropSatisfyingFeature]; ok {
-		t.Errorf("verify properties[%q] = %q, want absent", QueryPropSatisfyingFeature, got)
+	_, _, requirements := runQueryOnSource(t, model, &pb.Query{
+		Where: primitive(QueryPropType, opEqual, false, "RequirementUsage"),
+	})
+	// `r`, the objective and the verify member are the model's requirement usages.
+	if len(requirements.Elements) != 3 {
+		t.Fatalf("requirement usages = %d, want 3 (r, the objective, the verify): %v", len(requirements.Elements), requirements.Elements)
 	}
 }
 
