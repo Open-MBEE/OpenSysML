@@ -508,8 +508,8 @@ func tableSpelling(index *symbols.Index, elementID func(*symbols.Symbol) (string
 				if naming.IsPositionalIdentity(address) {
 					return id
 				}
-				// The address as the conversion states it: a reserved-word name (`function`) is bare
-				// in a qualifiedName, as the pilot spells it, where the notation would quote it.
+				// Spell the address exactly as the conversion wrote it: a qualifiedName never quotes
+				// a reserved word (`P::FunctionToPart::function`), unlike the notation (`…::'function'`).
 				return address
 			}
 		}
