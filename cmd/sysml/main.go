@@ -128,6 +128,7 @@ var (
 	bundleDir                   string
 	unbundleFile                string
 	queryText                   string
+	asViewPath                  string
 	outputPath                  string
 	fromFormat                  string
 	idForm                      string
@@ -408,6 +409,10 @@ func runCLI() int {
 	// would otherwise silently run the REPL instead of the query.
 	if flagGiven("query") && queryText == "" {
 		fmt.Fprintln(os.Stderr, `sysml: -query is empty; give it OSLC Query text, as -query 'sysml:name="battery"'`)
+		return 2
+	}
+	if flagGiven("as-view") && (asViewPath == "" || queryText == "" && len(modelChecks.queries) == 0) {
+		fmt.Fprintln(os.Stderr, "sysml: -as-view names the file the answer of -run-query, -run-inline-query or -query is written to as a QVTS::QueryResult view, or - to print it in place of the rows, as -run-query Heavy -as-view heavy.sysml")
 		return 2
 	}
 	if flagGiven("graphs") && graphsSubject == "" {

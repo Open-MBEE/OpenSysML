@@ -41,6 +41,12 @@ func (s *Service) RenderView(ctx context.Context, req *pb.RenderViewRequest) (*p
 		return nil, statusError(connect.CodeInvalidArgument, (&view.UnknownCompartmentsError{Name: req.Compartments}).Error())
 	}
 
+	if req.Form != "" {
+		if err := s.requireCapability(CapabilityQueryResultView); err != nil {
+			return nil, err
+		}
+	}
+
 	worker, release := cached.worker()
 	defer release()
 	renderer := view.NewRenderer(worker.Model.Semantics(), worker.Model.Resolver(), cachedSourceText(cached))
@@ -55,7 +61,20 @@ func (s *Service) RenderView(ctx context.Context, req *pb.RenderViewRequest) (*p
 		}
 		return nil, statusError(connect.CodeInvalidArgument, err.Error())
 	}
-	return renderViewData(cached, rendering.DataWith(view.Options{Ports: ports, Show: shown, Compartments: compartments})), nil
+	response := renderViewData(cached, rendering.DataWith(view.Options{Ports: ports, Show: shown, Compartments: compartments}))
+	if !s.capabilities.has(CapabilityQueryResultView) {
+		response.Header = nil
+	}
+	if req.Form != "" {
+		if len(rendering.Header) == 0 {
+			return nil, statusErrorf(connect.CodeInvalidArgument,
+				"%s is not a QVTS::QueryResult view: form renders one as a document", req.View)
+		}
+		if err := queryResultForm(response, rendering, req.Form); err != nil {
+			return nil, err
+		}
+	}
+	return response, nil
 }
 
 type renderViewOrigins struct {
@@ -103,6 +122,9 @@ func renderViewData(model *CachedModel, data view.Data) *pb.RenderViewResponse {
 		Edges:   make([]*pb.RenderEdge, 0, len(data.Edges)),
 		Rows:    make([]*pb.RenderRow, 0, len(data.Rows)),
 		Notes:   make([]*pb.RenderNote, 0, len(data.Notes)),
+	}
+	for _, field := range data.Header {
+		response.Header = append(response.Header, &pb.RenderHeaderField{Name: field.Name, Value: field.Value})
 	}
 	if data.Canvas != nil {
 		response.Canvas = &pb.RenderCanvas{

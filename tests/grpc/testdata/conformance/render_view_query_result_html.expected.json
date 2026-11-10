@@ -1,0 +1,18 @@
+{
+  "rpc": "RenderView",
+  "model": "query_result_view.sysml",
+  "view": "Probe::heavy",
+  "form": "html",
+  "expected_header": [
+    "query: Probe::Self root=Probe::probe::antenna",
+    "source: probe.sysml",
+    "outcome: established",
+    "provenance: urn:prov:bundle:heavy"
+  ],
+  "expected_document_parts": [
+    "<!DOCTYPE html>",
+    "Probe::heavy",
+    "urn:prov:bundle:heavy",
+    "Probe::probe::antenna"
+  ]
+}

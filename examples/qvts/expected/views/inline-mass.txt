@@ -1,0 +1,12 @@
+AnswerResult::answer - table rendering (view def QueryResult)
+
+query: Project(WhereType(Descendants(Named("Lander::lander")), "PartUsage", true), ("qualifiedName", "mass"))
+source: examples/qvts/lander.sysml
+outcome: established
+provenance: sha256:8afb8c8cac1d730f946612f6face4667b32a0e0ef1feeb0c44d44ed6d924e206
+
+Element                     Kind  Type     Declared in
+--------------------------  ----  -------  --------------
+Lander::lander::cabin       part  Payload  Lander::lander
+Lander::lander::engine      part  Payload  Lander::lander
+Lander::lander::scienceBay  part  Payload  Lander::lander

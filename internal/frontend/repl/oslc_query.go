@@ -18,6 +18,15 @@ import (
 // line for the interactive frontend.
 func (s *Session) Query(text string) ([]string, error) {
 	defer s.enter()()
+	lines, _, err := s.query(text)
+	return lines, err
+}
+
+// QueryAsView is Query with the answer also written as a QVTS::QueryResult
+// view, which a path or model error has too; empty when the run has no outcome.
+func (s *Session) QueryAsView(text string) (lines []string, view string, err error) {
+	defer s.enter()()
+	defer s.writingResultViews()()
 	return s.query(text)
 }
 
@@ -27,20 +36,20 @@ var errQueryNotLinked = errors.New("OSLC query is not linked into this build")
 // errNoQueryModel is Query's answer while the session holds no model to query.
 var errNoQueryModel = &querytranslate.Error{Kind: querytranslate.ErrNoModel, Message: "no model loaded"}
 
-func (s *Session) query(text string) ([]string, error) {
+func (s *Session) query(text string) ([]string, string, error) {
 	if replext.Positional() == nil {
-		return nil, errQueryNotLinked
+		return nil, "", errQueryNotLinked
 	}
 	if len(s.sessionMembers()) == 0 || s.hasAnalysisErrors() {
-		return nil, errNoQueryModel
+		return nil, "", errNoQueryModel
 	}
 	idx := s.browseIndex()
 	if idx == nil {
-		return nil, errNoQueryModel
+		return nil, "", errNoQueryModel
 	}
 	ctx, err := s.getOrCreateRuntime()
 	if err != nil {
-		return nil, fmt.Errorf("runtime init: %w", err)
+		return nil, "", fmt.Errorf("runtime init: %w", err)
 	}
 	context := s.queryContext(ctx)
 	namer := &replQueryModel{session: s, index: idx}
@@ -48,17 +57,17 @@ func (s *Session) query(text string) ([]string, error) {
 	table := querytranslate.NewTable(context.Index, context.Model)
 	q, err := querytranslate.ParseOSLC(text, table)
 	if err != nil {
-		return nil, err
+		return nil, s.refusedQueryView(text, context.Index, err), err
 	}
 	plan, err := querytranslate.Translate(q, querytranslate.Context{Index: context.Index, Model: context.Model, Table: table}, "%query")
 	if err != nil {
-		return nil, err
+		return nil, s.refusedQueryView(text, context.Index, err), err
 	}
 	bindings := queryexec.Bindings{}
 	if !plan.Objects {
 		candidates, err := namer.Candidates(q.Scope)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 		values := make([]queryexec.Value, len(candidates))
 		for i, sym := range candidates {
@@ -67,8 +76,9 @@ func (s *Session) query(text string) ([]string, error) {
 		bindings[querytranslate.SourceParameter] = values
 	}
 	result, err := queryexec.Execute(plan.Program, context, bindings, queryexec.Options{})
+	written := s.resultView(queryexec.DefaultResultViewName, text, context.Index, result, err)
 	if err != nil {
-		return nil, err
+		return nil, written, err
 	}
 	rows := result.Rows()
 	columns := result.Columns()
@@ -98,7 +108,7 @@ func (s *Session) query(text string) ([]string, error) {
 		}
 		lines = append(lines, line.String())
 	}
-	return lines, nil
+	return lines, written, nil
 }
 
 // replQueryModel names the session's elements as %query reports them — by

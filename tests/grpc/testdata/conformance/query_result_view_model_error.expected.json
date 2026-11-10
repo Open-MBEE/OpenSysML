@@ -1,0 +1,8 @@
+{
+  "rpc": "RunDocumentQuery",
+  "model": "query_result_view.sysml",
+  "query_id": "Probe::Twin",
+  "as_view": true,
+  "expected_error": "twin",
+  "expected_result_view": "package TwinResult {\n\tprivate import QVTS::*;\n\n\tview twin : QueryResult {\n\t\texpose Probe::probe;\n\t\tattribute :>> query = \"Probe::Twin\";\n\t\tattribute :>> source = \"model:<model>\";\n\t\tattribute :>> outcome = Outcome::modelError;\n\t\tattribute :>> provenance = \"model:<model>; step Named(Probe::probe::twin)\";\n\t}\n}\n"
+}

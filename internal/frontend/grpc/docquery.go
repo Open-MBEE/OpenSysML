@@ -52,6 +52,11 @@ func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQuery
 			return nil, err
 		}
 	}
+	if req.AsView {
+		if err := s.requireCapability(CapabilityQueryResultView); err != nil {
+			return nil, err
+		}
+	}
 	// The query runs over the model's runtime and the objects it holds, as
 	// %run-query runs over the session's; Objects answers no rows while none are held.
 	held := s.objects(cached)
@@ -63,6 +68,7 @@ func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQuery
 		err     error
 	)
 	queryName := req.QueryId
+	spec := resultViewSpec(cached, req.ModelHash, queryexec.DefaultResultViewName, req.InlineQuery)
 	if req.InlineQuery != "" {
 		queryName = "the inline query"
 		inline, program, qctx, err = cached.inlineQuery(qctx, req.InlineQuery)
@@ -70,10 +76,12 @@ func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQuery
 			return nil, documentStatus(err)
 		}
 	} else {
-		program, err = namedQuery(qctx, req.QueryId)
+		var fqn string
+		program, fqn, err = namedQuery(qctx, req.QueryId)
 		if err != nil {
 			return nil, err
 		}
+		spec = resultViewSpec(cached, req.ModelHash, queryexec.ResultViewName(fqn), bindingsText(fqn, req.Bindings))
 	}
 	if slices.ContainsFunc(req.Bindings, bindingHoldsBigInt) {
 		if err := s.requireCapability(CapabilityBigIntValues); err != nil {
@@ -91,9 +99,16 @@ func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQuery
 	}
 	result, err := queryexec.Execute(program, qctx, bindings, queryexec.Options{})
 	if err != nil {
-		return nil, held.documentStatus(queryexec.LocateInline(inline, err))
+		status := held.documentStatus(queryexec.LocateInline(inline, err))
+		if req.AsView {
+			status = withResultView(status, failedResultView(spec, qctx, err))
+		}
+		return nil, status
 	}
 	response := rowSetResponse(qctx.Index, result)
+	if req.AsView {
+		response.ResultView, _ = spec.Write(qctx.Index, result, nil)
+	}
 	if !s.capabilities.has(CapabilityBigIntValues) && slices.ContainsFunc(response.Rows, rowHoldsBigInt) {
 		// DocumentValue has no unsupported arm to stand in for a wide Integer.
 		return nil, statusErrorf(connect.CodeUnimplemented,
@@ -106,21 +121,21 @@ func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQuery
 	return response, nil
 }
 
-// namedQuery plans the document query the model declares under id.
-func namedQuery(qctx queryexec.Context, id string) (*queryplan.Program, error) {
+// namedQuery plans the document query the model declares under id, and answers its qualified name.
+func namedQuery(qctx queryexec.Context, id string) (*queryplan.Program, string, error) {
 	sym, err := documentSymbol(qctx.Index, id)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	if !queryplan.IsQueryDefinition(qctx.Index, qctx.Model, sym) {
-		return nil, statusErrorf(connect.CodeInvalidArgument,
+		return nil, "", statusErrorf(connect.CodeInvalidArgument,
 			"%s is not a document query: one is a calc def specializing DocumentQueries::Query", id)
 	}
 	program, err := queryplan.Compile(qctx.Index, qctx.Model, qctx.Resolver, sym)
 	if err != nil {
-		return nil, documentStatus(err)
+		return nil, "", documentStatus(err)
 	}
-	return program, nil
+	return program, symbols.FQNOf(sym), nil
 }
 
 // inlineQuery plans text as a query definition of its own over the model, in an

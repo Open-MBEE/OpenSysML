@@ -30,6 +30,15 @@ func (r *Rendering) MarkdownCells(escape func(string) string) string {
 	for _, notice := range r.Notices {
 		fmt.Fprintf(&b, "<!-- not represented: %s -->\n", markdownComment(notice))
 	}
+	if len(r.Header) > 0 {
+		b.WriteString("\n")
+		for _, field := range r.Header {
+			fmt.Fprintf(&b, "- **%s**: %s\n", field.Name, markdownText(field.Value))
+		}
+		if !r.Empty() {
+			b.WriteString("\n")
+		}
+	}
 	if r.Empty() {
 		fmt.Fprintf(&b, "\n%s\n", r.EmptyReason())
 		return b.String()

@@ -888,13 +888,51 @@ func runChecks(files []string, exprs []string, c checks) int {
 // after the behaviors named have run, so a query over the session's states or
 // trace reads what the run did.
 func (c *checks) runQueries(sess *repl.Session, rep *reporter) {
-	for _, query := range c.queries {
-		if query.inline {
-			rep.verdict(sess.RunInlineDocumentQuery(query.text))
-			continue
-		}
-		rep.verdict(sess.RunDocumentQuery(query.text))
+	if len(c.queries) == 0 {
+		return
 	}
+	sess.SetResultViews(asViewPath != "")
+	var views []string
+	for _, query := range c.queries {
+		var verdict repl.Verdict
+		if query.inline {
+			verdict = sess.RunInlineDocumentQuery(query.text)
+		} else {
+			verdict = sess.RunDocumentQuery(query.text)
+		}
+		if verdict.ResultView != "" {
+			views = append(views, verdict.ResultView)
+			// -json reports the view in the check's resultView beside its rows.
+			if asViewPath == stdoutPath && !rep.machine {
+				view := resultViewLines(verdict.ResultView, len(views) > 1)
+				// A failed query's view is printed before its error, which keeps the exit status.
+				if verdict.Status == repl.VerdictUnresolved {
+					rep.info(view)
+				} else {
+					verdict.Lines = view
+				}
+			}
+		}
+		rep.verdict(verdict)
+	}
+	if asViewPath == "" || asViewPath == stdoutPath || len(views) == 0 {
+		return
+	}
+	if err := writeOutputFile(asViewPath, []byte(strings.Join(views, "\n")), "QueryResult view"); err != nil {
+		rep.verdict(repl.Verdict{Subject: "-as-view", Status: repl.VerdictUnresolved, Lines: []string{"error: " + err.Error()}})
+	}
+}
+
+// stdoutPath is the -as-view argument that prints the view in place of the rows.
+const stdoutPath = "-"
+
+// resultViewLines are a view's lines, after a blank one when it follows another.
+func resultViewLines(view string, follows bool) []string {
+	lines := strings.Split(strings.TrimRight(view, "\n"), "\n")
+	if follows {
+		return append([]string{""}, lines...)
+	}
+	return lines
 }
 
 // queryInvocation is one query to run: a named query with its bindings, as

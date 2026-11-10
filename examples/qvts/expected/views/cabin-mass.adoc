@@ -1,0 +1,12 @@
+= CabinMassResult:&#58;cabinMass
+
+query:: QVTSDemo:&#58;CabinMass
+source:: examples/qvts/lander.sysml examples/qvts/queries.sysml
+outcome:: established
+provenance:: sha256:110e03c52250fab7b72729f2c70e2cf09f2d1777290be6e30270b523b26e12dd
+
+[options="header"]
+|===
+| Element | Kind | Type | Declared in
+| Lander:&#58;lander:&#58;cabin | part | Payload | Lander:&#58;lander
+|===

@@ -98,6 +98,9 @@ func (s *Session) evaluateDocument(invocation, extension string) (*docir.Documen
 	}
 	idx := s.browseIndex()
 	sem, resolver := ctx.Semantics(), ctx.Resolver()
+	if result, ok, err := s.queryResultDocument(sym); ok || err != nil {
+		return result, nil, err
+	}
 	if !docplan.IsDocumentDefinition(idx, sem, sym) {
 		return nil, nil, fmt.Errorf("%s is not a document: one is a part def specializing DocumentQueries::Document", notationName(fqn))
 	}
@@ -339,4 +342,24 @@ func (s *Session) renderDocumentHTMLFragment(name string, opts docrender.Markdow
 		Drawer:          opts.Drawer,
 		Files:           files,
 	})
+}
+
+// queryResultDocument is the document a view typed by QVTS::QueryResult is
+// written as; false for any other element.
+func (s *Session) queryResultDocument(sym *symbols.Symbol) (*docir.Document, bool, error) {
+	if !semantics.IsView(sym) {
+		return nil, false, nil
+	}
+	renderer, err := s.overlaidRenderer("", 0)
+	if err != nil {
+		return nil, false, err
+	}
+	if !renderer.IsQueryResult(sym) {
+		return nil, false, nil
+	}
+	rendering, err := renderer.Render(sym)
+	if err != nil {
+		return nil, true, err
+	}
+	return docir.QueryResult(rendering), true, nil
 }

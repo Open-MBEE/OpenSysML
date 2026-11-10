@@ -2080,20 +2080,24 @@ class ServerInfoResponse(_message.Message):
     def __init__(self, version: _Optional[str] = ..., capabilities: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class QueryRequest(_message.Message):
-    __slots__ = ("model_hash", "query", "oslc_query")
+    __slots__ = ("model_hash", "query", "oslc_query", "as_view")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     QUERY_FIELD_NUMBER: _ClassVar[int]
     OSLC_QUERY_FIELD_NUMBER: _ClassVar[int]
+    AS_VIEW_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     query: Query
     oslc_query: str
-    def __init__(self, model_hash: _Optional[str] = ..., query: _Optional[_Union[Query, _Mapping]] = ..., oslc_query: _Optional[str] = ...) -> None: ...
+    as_view: bool
+    def __init__(self, model_hash: _Optional[str] = ..., query: _Optional[_Union[Query, _Mapping]] = ..., oslc_query: _Optional[str] = ..., as_view: _Optional[bool] = ...) -> None: ...
 
 class QueryResponse(_message.Message):
-    __slots__ = ("elements",)
+    __slots__ = ("elements", "result_view")
     ELEMENTS_FIELD_NUMBER: _ClassVar[int]
+    RESULT_VIEW_FIELD_NUMBER: _ClassVar[int]
     elements: _containers.RepeatedCompositeFieldContainer[QueryResultElement]
-    def __init__(self, elements: _Optional[_Iterable[_Union[QueryResultElement, _Mapping]]] = ...) -> None: ...
+    result_view: str
+    def __init__(self, elements: _Optional[_Iterable[_Union[QueryResultElement, _Mapping]]] = ..., result_view: _Optional[str] = ...) -> None: ...
 
 class Query(_message.Message):
     __slots__ = ("scope", "select", "where", "order_by")
@@ -2499,16 +2503,18 @@ class RunRunsResponse(_message.Message):
     def __init__(self, rows: _Optional[_Iterable[_Union[SweepRow, _Mapping]]] = ..., observables: _Optional[_Iterable[str]] = ..., distributions: _Optional[_Iterable[_Union[RunDistribution, _Mapping]]] = ..., lines: _Optional[_Iterable[str]] = ..., outputs: _Optional[_Iterable[_Union[CalcOutput, _Mapping]]] = ..., verdicts: _Optional[_Iterable[_Union[Verdict, _Mapping]]] = ..., unconcluded: _Optional[str] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ..., instances: _Optional[_Iterable[_Union[Instance, _Mapping]]] = ..., engine: _Optional[str] = ..., strength: _Optional[str] = ..., bounds: _Optional[_Iterable[_Union[Bound, _Mapping]]] = ..., seed: _Optional[int] = ...) -> None: ...
 
 class RunDocumentQueryRequest(_message.Message):
-    __slots__ = ("model_hash", "query_id", "bindings", "inline_query")
+    __slots__ = ("model_hash", "query_id", "bindings", "inline_query", "as_view")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     QUERY_ID_FIELD_NUMBER: _ClassVar[int]
     BINDINGS_FIELD_NUMBER: _ClassVar[int]
     INLINE_QUERY_FIELD_NUMBER: _ClassVar[int]
+    AS_VIEW_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     query_id: str
     bindings: _containers.RepeatedCompositeFieldContainer[DocumentQueryBinding]
     inline_query: str
-    def __init__(self, model_hash: _Optional[str] = ..., query_id: _Optional[str] = ..., bindings: _Optional[_Iterable[_Union[DocumentQueryBinding, _Mapping]]] = ..., inline_query: _Optional[str] = ...) -> None: ...
+    as_view: bool
+    def __init__(self, model_hash: _Optional[str] = ..., query_id: _Optional[str] = ..., bindings: _Optional[_Iterable[_Union[DocumentQueryBinding, _Mapping]]] = ..., inline_query: _Optional[str] = ..., as_view: _Optional[bool] = ...) -> None: ...
 
 class DocumentQueryBinding(_message.Message):
     __slots__ = ("parameter", "values")
@@ -2656,12 +2662,20 @@ class DocumentQueryRow(_message.Message):
     def __init__(self, element: _Optional[_Union[DocumentValue, _Mapping]] = ..., cells: _Optional[_Iterable[_Union[DocumentQueryCell, _Mapping]]] = ...) -> None: ...
 
 class RunDocumentQueryResponse(_message.Message):
-    __slots__ = ("columns", "rows")
+    __slots__ = ("columns", "rows", "result_view")
     COLUMNS_FIELD_NUMBER: _ClassVar[int]
     ROWS_FIELD_NUMBER: _ClassVar[int]
+    RESULT_VIEW_FIELD_NUMBER: _ClassVar[int]
     columns: _containers.RepeatedCompositeFieldContainer[DocumentQueryColumn]
     rows: _containers.RepeatedCompositeFieldContainer[DocumentQueryRow]
-    def __init__(self, columns: _Optional[_Iterable[_Union[DocumentQueryColumn, _Mapping]]] = ..., rows: _Optional[_Iterable[_Union[DocumentQueryRow, _Mapping]]] = ...) -> None: ...
+    result_view: str
+    def __init__(self, columns: _Optional[_Iterable[_Union[DocumentQueryColumn, _Mapping]]] = ..., rows: _Optional[_Iterable[_Union[DocumentQueryRow, _Mapping]]] = ..., result_view: _Optional[str] = ...) -> None: ...
+
+class QueryResultView(_message.Message):
+    __slots__ = ("text",)
+    TEXT_FIELD_NUMBER: _ClassVar[int]
+    text: str
+    def __init__(self, text: _Optional[str] = ...) -> None: ...
 
 class QueryOutcome(_message.Message):
     __slots__ = ("kind", "step", "failures", "findings", "path_failures", "failures_total", "findings_total", "path_failures_total")
@@ -2764,23 +2778,25 @@ class RenderDocumentResponse(_message.Message):
     def __init__(self, markdown: _Optional[str] = ..., html: _Optional[str] = ..., asciidoc: _Optional[str] = ..., file_name: _Optional[str] = ...) -> None: ...
 
 class RenderViewRequest(_message.Message):
-    __slots__ = ("model_hash", "view", "ports", "show", "depth", "compartments")
+    __slots__ = ("model_hash", "view", "ports", "show", "depth", "compartments", "form")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     VIEW_FIELD_NUMBER: _ClassVar[int]
     PORTS_FIELD_NUMBER: _ClassVar[int]
     SHOW_FIELD_NUMBER: _ClassVar[int]
     DEPTH_FIELD_NUMBER: _ClassVar[int]
     COMPARTMENTS_FIELD_NUMBER: _ClassVar[int]
+    FORM_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     view: str
     ports: str
     show: _containers.RepeatedScalarFieldContainer[str]
     depth: int
     compartments: str
-    def __init__(self, model_hash: _Optional[str] = ..., view: _Optional[str] = ..., ports: _Optional[str] = ..., show: _Optional[_Iterable[str]] = ..., depth: _Optional[int] = ..., compartments: _Optional[str] = ...) -> None: ...
+    form: str
+    def __init__(self, model_hash: _Optional[str] = ..., view: _Optional[str] = ..., ports: _Optional[str] = ..., show: _Optional[_Iterable[str]] = ..., depth: _Optional[int] = ..., compartments: _Optional[str] = ..., form: _Optional[str] = ...) -> None: ...
 
 class RenderViewResponse(_message.Message):
-    __slots__ = ("view", "kind", "stated", "nodes", "edges", "columns", "rows", "canvas", "notes", "notices", "shown", "frame")
+    __slots__ = ("view", "kind", "stated", "nodes", "edges", "columns", "rows", "canvas", "notes", "notices", "shown", "frame", "header", "markdown", "html", "asciidoc")
     VIEW_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]
     STATED_FIELD_NUMBER: _ClassVar[int]
@@ -2793,6 +2809,10 @@ class RenderViewResponse(_message.Message):
     NOTICES_FIELD_NUMBER: _ClassVar[int]
     SHOWN_FIELD_NUMBER: _ClassVar[int]
     FRAME_FIELD_NUMBER: _ClassVar[int]
+    HEADER_FIELD_NUMBER: _ClassVar[int]
+    MARKDOWN_FIELD_NUMBER: _ClassVar[int]
+    HTML_FIELD_NUMBER: _ClassVar[int]
+    ASCIIDOC_FIELD_NUMBER: _ClassVar[int]
     view: str
     kind: str
     stated: str
@@ -2805,7 +2825,19 @@ class RenderViewResponse(_message.Message):
     notices: _containers.RepeatedScalarFieldContainer[str]
     shown: _containers.RepeatedScalarFieldContainer[str]
     frame: RenderFrame
-    def __init__(self, view: _Optional[str] = ..., kind: _Optional[str] = ..., stated: _Optional[str] = ..., nodes: _Optional[_Iterable[_Union[RenderNode, _Mapping]]] = ..., edges: _Optional[_Iterable[_Union[RenderEdge, _Mapping]]] = ..., columns: _Optional[_Iterable[str]] = ..., rows: _Optional[_Iterable[_Union[RenderRow, _Mapping]]] = ..., canvas: _Optional[_Union[RenderCanvas, _Mapping]] = ..., notes: _Optional[_Iterable[_Union[RenderNote, _Mapping]]] = ..., notices: _Optional[_Iterable[str]] = ..., shown: _Optional[_Iterable[str]] = ..., frame: _Optional[_Union[RenderFrame, _Mapping]] = ...) -> None: ...
+    header: _containers.RepeatedCompositeFieldContainer[RenderHeaderField]
+    markdown: str
+    html: str
+    asciidoc: str
+    def __init__(self, view: _Optional[str] = ..., kind: _Optional[str] = ..., stated: _Optional[str] = ..., nodes: _Optional[_Iterable[_Union[RenderNode, _Mapping]]] = ..., edges: _Optional[_Iterable[_Union[RenderEdge, _Mapping]]] = ..., columns: _Optional[_Iterable[str]] = ..., rows: _Optional[_Iterable[_Union[RenderRow, _Mapping]]] = ..., canvas: _Optional[_Union[RenderCanvas, _Mapping]] = ..., notes: _Optional[_Iterable[_Union[RenderNote, _Mapping]]] = ..., notices: _Optional[_Iterable[str]] = ..., shown: _Optional[_Iterable[str]] = ..., frame: _Optional[_Union[RenderFrame, _Mapping]] = ..., header: _Optional[_Iterable[_Union[RenderHeaderField, _Mapping]]] = ..., markdown: _Optional[str] = ..., html: _Optional[str] = ..., asciidoc: _Optional[str] = ...) -> None: ...
+
+class RenderHeaderField(_message.Message):
+    __slots__ = ("name", "value")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    value: str
+    def __init__(self, name: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
 class RenderFrame(_message.Message):
     __slots__ = ("name", "type", "exposes", "filters", "annotations")

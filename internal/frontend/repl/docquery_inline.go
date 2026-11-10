@@ -26,14 +26,15 @@ func (s *Session) RunInlineDocumentQuery(text string) Verdict {
 }
 
 func (s *Session) inlineQueryVerdict(text string) Verdict {
-	lines, values, table, err := s.runInlineQuery(text)
+	answer, err := s.runInlineQuery(text)
 	if err != nil {
 		verdict := unresolvedVerdict(text, err.Error())
 		verdict.Lines = append(verdict.Lines, queryexec.OutcomeLines(err)...)
 		verdict.Outcome = queryOutcome(err)
+		verdict.ResultView = answer.view
 		return verdict
 	}
-	return Verdict{Subject: text, Status: VerdictHolds, Lines: lines, Values: values, Table: table}
+	return Verdict{Subject: text, Status: VerdictHolds, Lines: answer.lines, Values: answer.values, Table: answer.table, ResultView: answer.view}
 }
 
 // inlineInvocation reads `inline <expression>` out of a %run-query invocation;
@@ -59,14 +60,14 @@ func isBindingArg(arg string) bool {
 
 // runInlineQuery plans text over the session's declarations, in an index of its
 // own beside them, and executes it against the session's model and objects.
-func (s *Session) runInlineQuery(text string) ([]string, []NamedValue, *VerdictTable, error) {
+func (s *Session) runInlineQuery(text string) (queryAnswer, error) {
 	ctx, err := s.getOrCreateRuntime()
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("runtime init: %w", err)
+		return queryAnswer{}, fmt.Errorf("runtime init: %w", err)
 	}
 	inline, err := queryplan.ParseInline(s.browseIndex(), text)
 	if err != nil {
-		return nil, nil, nil, inlineQueryError(err)
+		return queryAnswer{}, inlineQueryError(err)
 	}
 	resolver := resolve.New(inline.Index)
 	sem := passes.NewTypedModel(resolver)
@@ -75,16 +76,17 @@ func (s *Session) runInlineQuery(text string) ([]string, []NamedValue, *VerdictT
 	sem.ShareAbout(s.about)
 	program, err := queryplan.Compile(inline.Index, sem, resolver, inline.Entry)
 	if err != nil {
-		return nil, nil, nil, inlineQueryError(queryexec.LocateInline(inline, err))
+		return queryAnswer{}, inlineQueryError(queryexec.LocateInline(inline, err))
 	}
 	context := s.queryContext(ctx)
 	context.Index, context.Resolver, context.Model = inline.Index, resolver, sem
 	result, err := queryexec.Execute(program, context, nil, queryexec.Options{})
+	view := s.resultView(queryexec.DefaultResultViewName, text, s.browseIndex(), result, err)
 	if err != nil {
-		return nil, nil, nil, inlineQueryError(queryexec.LocateInline(inline, err))
+		return queryAnswer{view: view}, inlineQueryError(queryexec.LocateInline(inline, err))
 	}
 	lines, values, table := renderRows(inlineQueryHeading, result, context)
-	return lines, values, table, nil
+	return queryAnswer{lines: lines, values: values, table: table, view: view}, nil
 }
 
 // inlineQueryError reports a fault located in the inline text with the line it
