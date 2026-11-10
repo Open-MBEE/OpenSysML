@@ -92,8 +92,9 @@ func TestUsageSubsetsTheBaseUsageOfItsKind(t *testing.T) {
 		{"file:///base.sysml", sysml, "P", "u_viewpoint", "Views::viewpointChecks", "Views::ViewpointCheck"},
 		// A declared type displaces the base definition, not the base usage.
 		{"file:///base.sysml", sysml, "P", "typed", "Parts::parts", "P::D"},
-		// An individual occurrence is a Life and still an occurrence usage.
-		{"file:///base.sysml", sysml, "P", "life", "Occurrences::occurrences", "Occurrences::Life"},
+		// An individual occurrence usage is an occurrence usage; only an individual
+		// definition is a Life (SysML v2 §8.4 checkOccurrenceDefinitionIndividualSpecialization).
+		{"file:///base.sysml", sysml, "P", "life", "Occurrences::occurrences", "Occurrences::Occurrence"},
 		// A usage of no kind subsets Base::things, the most general base usage.
 		{"file:///base.sysml", sysml, "P", "plain", "Base::things", "Base::Anything"},
 		{"file:///base.kerml", kerml, "K", "cx", "Links::binaryLinks", "K::As"},

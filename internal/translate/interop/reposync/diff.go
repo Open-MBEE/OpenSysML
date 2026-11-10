@@ -84,6 +84,35 @@ type Carrier interface {
 	// Carry maps a triple onto the form the repository stores: ok false when it
 	// has no place for the predicate, err when it cannot represent the value.
 	Carry(triple rdf.Triple) (carried rdf.Triple, ok bool, err error)
+	// Holds reports whether the repository has a metaclass for subjects of the
+	// class (an rdf:type IRI); a subject of one it has none for is no element of it.
+	Holds(class string) bool
+}
+
+// UnheldReferenceError refuses a diff: a carried property references a subject the
+// repository has no metaclass for — left out it would dangle, sent it would be refused.
+type UnheldReferenceError struct {
+	Subject  string // the referenced subject, by qualified name or id
+	Class    string // its class, rendered as the uncarried report renders it
+	Referrer string // the element whose property references it
+	Property string
+}
+
+func (e *UnheldReferenceError) Error() string {
+	return fmt.Sprintf("%s is a %s, which the repository has no metaclass for, and %s references it through %s: the repository can hold neither the element nor a reference to it, so the model cannot be synced while it states one",
+		e.Subject, e.Class, e.Referrer, e.Property)
+}
+
+// AmbiguousMetaclassError refuses a diff: a subject states more than one class
+// the repository holds, and the repository stores an element under one metaclass.
+type AmbiguousMetaclassError struct {
+	Subject string
+	Classes []string
+}
+
+func (e *AmbiguousMetaclassError) Error() string {
+	return fmt.Sprintf("%s states the classes %s, and the repository holds an element under one SysML metaclass only",
+		e.Subject, strings.Join(e.Classes, " and "))
 }
 
 // Options steer a diff. Deletes and id minting are explicit opt-ins; neither
@@ -311,6 +340,7 @@ type subjectView struct {
 	id            string // effective id: the IRI's local name
 	qualifiedName string
 	metaclass     string
+	classes       []string // every class stated, metaclass being the last
 	declared      bool
 	// normative marks the id the norm fixes for a standard-library element:
 	// implied by the name, so neither declared nor minted for.
@@ -355,23 +385,23 @@ func viewOf(g *rdf.Graph, rep Carrier) (map[string]*subjectView, []UncarriedProp
 	// the standard library, not an element of the model: it is never created,
 	// changed or deleted in a repository.
 	library := map[string]bool{}
-	// A note is part of an element's lines, no element the repository can hold:
-	// left out of the comparison, as the element's layout properties are.
-	notes := map[string]bool{}
+	// A subject of a class the repository has no metaclass for (a note, a sysx:
+	// behavioral node) is left out as layout properties are, tallied under its class.
+	unheld := map[string]string{}
 	for _, subject := range g.Subjects() {
 		if export.LibraryReference(g, subject) {
 			library[subject.Value] = true
 		}
-		if rep != nil && g.Type(subject) == export.NoteClass {
-			notes[subject.Value] = true
+		if class, ok := unheldClass(g, subject, rep); ok {
+			unheld[subject.Value] = class
 		}
 	}
 	for _, triple := range g.Triples() {
 		if !triple.Subject.IsIRI() || library[triple.Subject.Value] {
 			continue
 		}
-		if notes[triple.Subject.Value] {
-			uncarried[export.NoteClass]++
+		if class, ok := unheld[triple.Subject.Value]; ok {
+			uncarried[class]++
 			continue
 		}
 		id := rdf.LocalName(triple.Subject.Value)
@@ -388,7 +418,12 @@ func viewOf(g *rdf.Graph, rep Carrier) (map[string]*subjectView, []UncarriedProp
 			views[id] = view
 		}
 		if triple.Predicate.Value == rdf.RDFType {
+			if rep != nil && triple.Object.IsIRI() && !rep.Holds(triple.Object.Value) {
+				uncarried[triple.Object.Value]++
+				continue
+			}
 			view.metaclass = rdf.LocalName(triple.Object.Value)
+			view.classes = append(view.classes, view.metaclass)
 			view.content = append(view.content, triple)
 			continue
 		}
@@ -418,15 +453,70 @@ func viewOf(g *rdf.Graph, rep Carrier) (map[string]*subjectView, []UncarriedProp
 		if names := view.props[rdf.SysML+"qualifiedName"]; len(names) > 0 {
 			view.qualifiedName = strings.Trim(names[0], `"`)
 		}
+		if rep != nil && len(view.classes) > 1 {
+			return nil, nil, &AmbiguousMetaclassError{Subject: view.name(), Classes: view.classes}
+		}
 		view.normative = export.NormativeSubject(view.id, view.qualifiedName)
 		view.declared = declaredID(g, view)
 		view.mintable = mintable(view)
+	}
+	if err := unheldReference(g, views, unheld); err != nil {
+		return nil, nil, err
 	}
 	var left []UncarriedProperty
 	for _, iri := range slices.Sorted(maps.Keys(uncarried)) {
 		left = append(left, UncarriedProperty{Property: propertyLabel(iri), Triples: uncarried[iri]})
 	}
 	return views, left, nil
+}
+
+// unheldClass reports the class a subject is tallied under when the
+// representation holds none of its classes; a subject stating one it holds stays.
+func unheldClass(g *rdf.Graph, subject rdf.Term, rep Carrier) (string, bool) {
+	if rep == nil {
+		return "", false
+	}
+	classes := g.ObjectsView(subject, rdf.RDFType)
+	for _, class := range classes {
+		if !class.IsIRI() || rep.Holds(class.Value) {
+			return "", false
+		}
+	}
+	if len(classes) == 0 {
+		return "", false
+	}
+	return classes[0].Value, true
+}
+
+// unheldReference finds the first carried property, in id order, that references a
+// subject the repository has no metaclass for: left out, it would dangle.
+func unheldReference(g *rdf.Graph, views map[string]*subjectView, unheld map[string]string) error {
+	if len(unheld) == 0 {
+		return nil
+	}
+	for _, id := range slices.Sorted(maps.Keys(views)) {
+		view := views[id]
+		for _, triple := range view.content {
+			if triple.Predicate.Value == rdf.RDFType || !triple.Object.IsIRI() {
+				continue
+			}
+			class, ok := unheld[triple.Object.Value]
+			if !ok {
+				continue
+			}
+			subject := rdf.LocalName(triple.Object.Value)
+			if name, ok := g.Lexical(triple.Object, rdf.SysML+"qualifiedName"); ok && name != "" {
+				subject = name
+			}
+			return &UnheldReferenceError{
+				Subject:  subject,
+				Class:    propertyLabel(class),
+				Referrer: view.name(),
+				Property: propertyLabel(triple.Predicate.Value),
+			}
+		}
+	}
+	return nil
 }
 
 // declaredID mirrors the RDF reader: an explicit declaredId marker, or an id
