@@ -394,14 +394,20 @@ authorization server issues carries the scopes it was granted.
 
 | Scope | Grants | Tools |
 |---|---|---|
-| `sysml:read` | Ask about the workspace and the model: queries, diagnostics, hover, conversions and edits answered as text; nothing another caller sees changes | `apply_edits`, `code_actions`, `completion`, `convert`, `debug_current`, `definition`, `diagnostics`, `document_symbols`, `documents`, `element_properties`, `evaluate`, `evaluate_calc`, `explain_diagnostic`, `export_graphs`, `features`, `hover`, `import_data`, `inlay_hints`, `instances`, `list_engines`, `migrate`, `parse`, `query`, `references`, `render_document`, `render_model_document`, `render_model_view`, `render_run`, `render_view`, `run_document_query`, `self_check`, `server_info`, `session_print`, `signature_help`, `symbol`, `tool_catalog`, `verify_constraint`, `verify_requirement`, `verify_satisfaction`, `views`, `workspace_diagnostics`, `workspace_info`, `workspace_symbols` |
-| `sysml:write` | Write the workspace: files replaced with `apply`, documents held open or released, prompt commands that may save | `apply_model_edit`, `close_document`, `format`, `import_diagram`, `open_document`, `rename`, `repl_command`, `session_save`, `update_document` |
+| `sysml:read` | Ask about the workspace and the model: queries, diagnostics, hover, conversions and edits answered as text; nothing another caller sees changes | `apply_edits`, `code_actions`, `completion`, `convert`, `debug_current`, `definition`, `diagnostics`, `document_symbols`, `documents`, `element_properties`, `evaluate`, `evaluate_calc`, `explain_diagnostic`, `export_graphs`, `features`, `hover`, `import_data`, `inlay_hints`, `instances`, `list_engines`, `migrate`, `parse`, `query`, `references`, `render_document`, `render_model_document`, `render_model_view`, `render_run`, `render_view`, `repl_command`, `run_document_query`, `self_check`, `server_info`, `session_print`, `signature_help`, `symbol`, `tool_catalog`, `verify_constraint`, `verify_requirement`, `verify_satisfaction`, `views`, `workspace_diagnostics`, `workspace_info`, `workspace_symbols` |
+| `sysml:write` | Write the workspace: files replaced with `apply`, documents held open or released, prompt commands that may save | `apply_model_edit`, `close_document`, `format`, `import_diagram`, `open_document`, `rename`, `session_save`, `update_document` |
 | `sysml:execute` | Execute the model: actions, state machines, analyses, solving, debugging and REPL evaluation in a session | `advance`, `check`, `check_behavior`, `compare_results`, `configure`, `debug_breakpoints`, `debug_continue`, `debug_start`, `debug_step`, `debug_stop`, `execute_action`, `execute_state`, `explain`, `instance_paths`, `instantiate`, `optimize`, `record_run`, `run_analysis`, `run_runs`, `run_sweep`, `runs`, `send`, `session_eval`, `session_run`, `solve`, `sweep`, `validate_instance` |
 | `sysml:session` | Open, load, list, clear and close your own REPL sessions; a session name is private to the principal that opened it | `session_clear`, `session_close`, `session_list`, `session_load`, `session_open`, `session_submit` |
 `sysml:admin` reaches across principals and is no tool's scope: it widens `session_list` to every
 principal's sessions, each with its owner, and lets `session_close` close another principal's
 session by `owner`. A write-scoped tool that writes only with `"apply": true` requires the scope
-even without it, as the scope says what the tool can do.
+even without it, as the scope says what the tool can do. `repl_command` is admitted with
+`sysml:read` and then requires, for the `%` command it is given, the scope of the typed tool doing
+the same — `sysml:read` to show or list (`%list`, `%print`, `%tokens`, …), `sysml:session` to load,
+clear or set the session up (`%load`, `%clear`, `%seed`, the `%check-*` settings, …), `sysml:write`
+to `%save` or `%publish`, `sysml:execute` to instantiate, evaluate, run, solve or debug (`%eval`,
+`%action`, `%solve`, …) — refusing a command the credential lacks the scope for before the session
+is touched; the refusal names the command.
 
 Every `tools/call` is recorded on the log at level `info` (`-log-level info`), one line per call
 with the principal (its subject and source: `local`, `static-token`, or the kind of credential),

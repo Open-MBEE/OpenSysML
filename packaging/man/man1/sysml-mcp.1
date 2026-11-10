@@ -186,13 +186,14 @@ is refused with 400.
 .SH SCOPES
 Every tool requires one scope (RFC 6749 \(sc 3.3), named in the Tools section
 and by tool_catalog, and a tools/call by a principal whose credential lacks it
-is refused with an error naming the scope; tools/list is not narrowed. Over
-stdin and stdout, and over \-http without a token, the one local caller holds
-every scope. The bearer token named by \-token\-file, \-token or
-OPENSYSML_MCP_TOKEN holds every scope. Each call is recorded on the log
-(\-log\-level info) with the principal, its source, the remote address, the
-tool, its scope, the outcome and the duration, and never the credential or the
-arguments.
+is refused with an error naming the scope; tools/list is not narrowed;
+repl_command is admitted with sysml:read and then requires, for the % command
+given, the scope of the typed tool doing the same. Over stdin and stdout, and
+over \-http without a token, the one local caller holds every scope. The
+bearer token named by \-token\-file, \-token or OPENSYSML_MCP_TOKEN holds
+every scope. Each call is recorded on the log (\-log\-level info) with the
+principal, its source, the remote address, the tool, its scope, the outcome
+and the duration, and never the credential or the arguments.
 .TP
 .B sysml:read
 Ask about the workspace and the model: queries, diagnostics, hover,
@@ -548,8 +549,8 @@ and answer the optimum.
 session, sysml:read: Render a run's trace as a timeline or a sequence diagram.
 .TP
 .B repl_command
-session, sysml:write: Run one % meta command of the REPL and answer its output
-lines.
+session, sysml:read: Run one % meta command of the REPL and answer its output
+lines; the command takes the scope of the typed tool doing the same.
 .TP
 .B runs
 session, sysml:execute: Run an action repeatedly, or a Monte Carlo case, and

@@ -244,7 +244,9 @@ func scopesSection() usage.Section {
 			"Every tool requires one scope (RFC 6749 § 3.3), named in the Tools " +
 				"section and by tool_catalog, and a tools/call by a principal whose " +
 				"credential lacks it is refused with an error naming the scope; " +
-				"tools/list is not narrowed. Over stdin and stdout, and over -http " +
+				"tools/list is not narrowed; repl_command is admitted with sysml:read " +
+				"and then requires, for the % command given, the scope of the typed " +
+				"tool doing the same. Over stdin and stdout, and over -http " +
 				"without a token, the one local caller holds every scope. The bearer " +
 				"token named by -token-file, -token or " + mcp.TokenEnv + " holds " +
 				"every scope. Each call is recorded on the log (-log-level info) with " +
