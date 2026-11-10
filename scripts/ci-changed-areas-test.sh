@@ -102,7 +102,8 @@ case_ apijson-writer apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node
 case_ apijson-referee apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode tools/referee/apijson/provenance.go
 case_ apijson-bridge apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode scripts/pilot-json-exporter/ExportJSON.java
 case_ apijson-pin apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode scripts/pilot-pin.sh
-case_ apijson-baseline apijson,docs,go docs/project/api-json-differential-baseline.json
+case_ apijson-baseline apijson,docs,go docs/project/api-json-differential/index.json
+case_ apijson-fragment apijson,docs,go docs/project/api-json-differential/probes/probe.sysml.json
 case_ go-client docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode client/opensysml/client.go
 case_ release-digests docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode client/release-digests.json
 case_ go-tools docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode tools/gen/snapshot/main.go

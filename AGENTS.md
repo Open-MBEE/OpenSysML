@@ -215,11 +215,17 @@ the full CI tier is expensive, so run them locally before the PR, every time the
    `pilotLibraryElements`; anything else moving is an implementation difference to explain.
 ### 6.2 Changing `internal/translate/export`: the api-json differential
 
-The api-json baseline (`docs/project/api-json-differential-baseline.json`) records the pinned
-pilot's side and the compared inputs only — no digest of this repository's writer and no
-recording date — so a commit under `internal/translate/export` moves it only where it moves a
-verdict, one bucket line at a time, and two branches re-recording it conflict only where their
-verdicts differ. What proves the figures current is the differential itself: the pull-request
+The api-json baseline is the directory `docs/project/api-json-differential/`: one fragment per
+compared source file (`<root>/<relative path>.json`) beside an `index.json` that carries the
+provenance and the aggregate figures (the shared layout of `tools/referee/baseline`). The
+provenance records the pinned pilot's side and the compared inputs only — no digest of this
+repository's writer and no recording date — so a commit under `internal/translate/export` moves
+the baseline only in the fragments of the files whose verdicts it moves, one bucket line at a
+time, and two branches re-recording it conflict only on a fragment they both moved. When they both
+moved `index.json`, take either side and run `go run -C tools ./cmd/pilot-apijson-diff -reindex`
+on the merged tree (no pilot needed) to fold the merged fragments; when a fragment conflicts,
+re-record its root on the merged tree (`-update -roots <root>`) and adjudicate what moved. What
+proves the figures current is the differential itself: the pull-request
 workflow's `apijson-differential` job runs `go run -C tools ./cmd/pilot-apijson-diff -check` on
 every change under the writer, the referee, the bridge, the pin or the baseline. Before pushing
 such a commit, run `go run -C tools ./cmd/pilot-apijson-diff` over the real corpus directories

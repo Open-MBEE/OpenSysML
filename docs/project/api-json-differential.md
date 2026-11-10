@@ -27,12 +27,16 @@ validators use (`scripts/pilot-pin.sh`).
 ./scripts/download-training-examples.sh && ./scripts/download-pilot-corpora.sh
 go run -C tools ./cmd/pilot-apijson-diff          # writes build/pilot-apijson-diff/
 go run -C tools ./cmd/pilot-apijson-diff -check   # fails unless the committed baseline reproduces
-go run -C tools ./cmd/pilot-apijson-diff -update  # re-records docs/project/api-json-differential-baseline.json
+go run -C tools ./cmd/pilot-apijson-diff -update  # re-records docs/project/api-json-differential/
+go run -C tools ./cmd/pilot-apijson-diff -reindex # rebuilds its index.json from the committed fragments, without the pilot
 ```
 
-`-roots training,probes` restricts a run to named roots (never with `-update`); `-exporter`, `-out`
-and `-timeout` override the launcher, the output directory and the per-root time allowed to the
-pilot. A run writes `pilot-apijson-diff.json` (the baseline's shape), `pilot-apijson-diff.txt`
+`-roots training,probes` restricts a run to named roots (with `-update`, re-records those roots'
+fragments alone and refolds the index; with `-check`, holds those roots' fragments and, with the
+other roots' committed fragments, the index figures — the full `-check` is CI's); `-exporter`,
+`-out` and `-timeout` override the launcher, the output directory and the per-root time allowed to
+the pilot. A run writes `pilot-apijson-diff.json` (the whole run's figures and scorecard in one
+document, the shape the baseline had before it was split), `pilot-apijson-diff.txt`
 (the ranked scorecard with one concrete example per differing row, the unmatched elements by
 metaclass and the pilot's diagnostics), `pilot-apijson-diff-examples.json` and
 `pilot-apijson-diff-matches.json`, the run's inventory of every key per root under the fate the
@@ -41,6 +45,45 @@ then names, in `pilot-apijson-diff-movements.txt` and `.json`, each element the 
 and this one does not (*lost*) and the reverse (*gained*), grouped by root and metaclass, each with
 the key's fate in the run that does not match it; a change to either side's naming is read from
 that list rather than from a moved total.
+
+### The committed baseline
+
+The baseline is the directory `docs/project/api-json-differential/`, laid out by the shared
+`tools/referee/baseline` package (`tools/referee/baseline/doc.go`), which the other referee
+baselines can migrate onto: only the storage and the comparison are shared, the rows and the ratchet
+policy stay this referee's.
+
+- **One fragment per compared source file**, at `<root>/<relative path>.json` (`probes/alias-supertype-lru.sysml.json`,
+  `spec-examples/kerml/…​.kerml.json`): the file's `summary` — what each side did with it (refused,
+  unconvertible, colliding, converted separately; the pilot failed, its library elements) and the
+  figures of the elements attributed to it (matched, ours-only, pilot-only, the seven property
+  buckets, unkeyed references, extension properties, duplicate, ambiguous and unkeyable elements per
+  side) — and its `rows`, one line per `Metaclass.property` in key order holding the seven buckets in
+  scorecard order. A matched pair is attributed to the file our writer declares the element in (the
+  pilot writes an element into every file whose traversal reaches it), a pilot-only element to the
+  pilot's file, an ours-only one to ours; an ownerless tree that states no document (a `sysx:Note`,
+  an unowned expression) to the file of the element outside it that refers into it. A writer change therefore touches the fragments of the files whose
+  verdicts it moves and nothing else.
+- **`index.json`**, the one file every re-recording may touch: the `provenance` block described
+  below, the recorded `files` per root, and the `summary` — the exporter, the normalizations, the
+  declared nondeterminism, the totals and one report per root — every figure of which is a fold
+  over the fragments. It is shared because provenance and totals are whole-corpus facts; it moves
+  only when a provenance line or an aggregate figure moves, and it is never hand-merged: `-reindex`
+  rebuilds it from the committed fragments with this checkout's provenance and no pilot run, and
+  `TestCommittedIndexSumsItsFragments` holds the committed index to the committed fragments without
+  Java. This record stays shared for the same reason: it states the aggregate figures
+  (`make docs-counts`).
+- **`-check`** holds the run to the directory and names what moved: a provenance line, a fragment
+  the index lists that is not on disk (missing) or one on disk the index does not list (orphaned), a file's summary, every added, removed or moved row of every fragment, and every
+  stale index figure — with the refresh command, or `-reindex` when only the index lags its
+  fragments. The run also holds its own directly summed figures to the fold of its fragments
+  (`sameFigures`), so no figure can enter the totals without a fragment carrying it.
+- **Re-recording and conflicts.** `-update` re-records the whole directory (removing the fragments
+  of files no longer in a root); `-update -roots <roots>` re-records the named roots alone and
+  refolds the index. Two branches that moved different files' verdicts merge without conflict except
+  possibly in `index.json`, which is resolved by taking either side and running `-reindex` on the
+  merged tree; a fragment both branches moved is resolved by re-recording its root on the merged tree
+  and adjudicating the result here. Never re-record a baseline whose figures did not move.
 
 ### The pilot's exporter
 
@@ -167,7 +210,7 @@ named by the pilot's metaclass when the two sides disagree on the metaclass (`ty
   in which one derived collection of `Derived Probe::Vehicle` is emptied (`ownedUsage` → exactly one
   ours-missing in that row, nowhere else) and one in which one attribute is flipped (`isAbstract` →
   exactly one present-different), each with one example naming the element.
-- **Provenance.** The baseline's `provenance` block names the reference side of the comparison
+- **Provenance.** The `provenance` block of the baseline's `index.json` names the reference side of the comparison
   and the inputs: the pilot pin (`pilotTag`, `pilotCommit`, `pilotArtifact`), the errata-registry
   digest, the `pilot-json-exporter` tool — the bridge source `scripts/pilot-json-exporter/ExportJSON.java`
   digested against the pinned release — every root's file digest and, as the `opensysml-libraries`

@@ -77,7 +77,7 @@ func TestChangedAreasClaimWhatMovesTheAPIJSONBaseline(t *testing.T) {
 		"tools/referee/apijson/",
 		"scripts/pilot-json-exporter/",
 		`scripts/pilot-pin\.sh$`,
-		`docs/project/api-json-differential-baseline\.json$`,
+		"docs/project/api-json-differential/",
 	} {
 		if !strings.Contains(script, claimed) {
 			t.Errorf("scripts/ci-changed-areas.sh's apijson area does not claim %s", claimed)
