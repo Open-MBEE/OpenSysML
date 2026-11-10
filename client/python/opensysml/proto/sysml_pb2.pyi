@@ -2642,18 +2642,24 @@ class RunDocumentQueryResponse(_message.Message):
     def __init__(self, columns: _Optional[_Iterable[_Union[DocumentQueryColumn, _Mapping]]] = ..., rows: _Optional[_Iterable[_Union[DocumentQueryRow, _Mapping]]] = ...) -> None: ...
 
 class QueryOutcome(_message.Message):
-    __slots__ = ("kind", "step", "failures", "findings", "path_failures")
+    __slots__ = ("kind", "step", "failures", "findings", "path_failures", "failures_total", "findings_total", "path_failures_total")
     KIND_FIELD_NUMBER: _ClassVar[int]
     STEP_FIELD_NUMBER: _ClassVar[int]
     FAILURES_FIELD_NUMBER: _ClassVar[int]
     FINDINGS_FIELD_NUMBER: _ClassVar[int]
     PATH_FAILURES_FIELD_NUMBER: _ClassVar[int]
+    FAILURES_TOTAL_FIELD_NUMBER: _ClassVar[int]
+    FINDINGS_TOTAL_FIELD_NUMBER: _ClassVar[int]
+    PATH_FAILURES_TOTAL_FIELD_NUMBER: _ClassVar[int]
     kind: str
     step: str
     failures: _containers.RepeatedCompositeFieldContainer[QueryFailure]
     findings: _containers.RepeatedCompositeFieldContainer[QueryFinding]
     path_failures: _containers.RepeatedCompositeFieldContainer[QueryFailure]
-    def __init__(self, kind: _Optional[str] = ..., step: _Optional[str] = ..., failures: _Optional[_Iterable[_Union[QueryFailure, _Mapping]]] = ..., findings: _Optional[_Iterable[_Union[QueryFinding, _Mapping]]] = ..., path_failures: _Optional[_Iterable[_Union[QueryFailure, _Mapping]]] = ...) -> None: ...
+    failures_total: int
+    findings_total: int
+    path_failures_total: int
+    def __init__(self, kind: _Optional[str] = ..., step: _Optional[str] = ..., failures: _Optional[_Iterable[_Union[QueryFailure, _Mapping]]] = ..., findings: _Optional[_Iterable[_Union[QueryFinding, _Mapping]]] = ..., path_failures: _Optional[_Iterable[_Union[QueryFailure, _Mapping]]] = ..., failures_total: _Optional[int] = ..., findings_total: _Optional[int] = ..., path_failures_total: _Optional[int] = ...) -> None: ...
 
 class QueryFailure(_message.Message):
     __slots__ = ("step", "expected", "frontier")
@@ -2666,18 +2672,24 @@ class QueryFailure(_message.Message):
     def __init__(self, step: _Optional[str] = ..., expected: _Optional[str] = ..., frontier: _Optional[_Union[QueryFrontier, _Mapping]] = ...) -> None: ...
 
 class QueryFrontier(_message.Message):
-    __slots__ = ("at", "members", "features", "kinds", "nearest")
+    __slots__ = ("at", "members", "features", "kinds", "nearest", "members_total", "features_total", "kinds_total")
     AT_FIELD_NUMBER: _ClassVar[int]
     MEMBERS_FIELD_NUMBER: _ClassVar[int]
     FEATURES_FIELD_NUMBER: _ClassVar[int]
     KINDS_FIELD_NUMBER: _ClassVar[int]
     NEAREST_FIELD_NUMBER: _ClassVar[int]
+    MEMBERS_TOTAL_FIELD_NUMBER: _ClassVar[int]
+    FEATURES_TOTAL_FIELD_NUMBER: _ClassVar[int]
+    KINDS_TOTAL_FIELD_NUMBER: _ClassVar[int]
     at: str
     members: _containers.RepeatedCompositeFieldContainer[QueryFrontierMember]
     features: _containers.RepeatedCompositeFieldContainer[QueryFrontierFeature]
     kinds: _containers.RepeatedScalarFieldContainer[str]
     nearest: str
-    def __init__(self, at: _Optional[str] = ..., members: _Optional[_Iterable[_Union[QueryFrontierMember, _Mapping]]] = ..., features: _Optional[_Iterable[_Union[QueryFrontierFeature, _Mapping]]] = ..., kinds: _Optional[_Iterable[str]] = ..., nearest: _Optional[str] = ...) -> None: ...
+    members_total: int
+    features_total: int
+    kinds_total: int
+    def __init__(self, at: _Optional[str] = ..., members: _Optional[_Iterable[_Union[QueryFrontierMember, _Mapping]]] = ..., features: _Optional[_Iterable[_Union[QueryFrontierFeature, _Mapping]]] = ..., kinds: _Optional[_Iterable[str]] = ..., nearest: _Optional[str] = ..., members_total: _Optional[int] = ..., features_total: _Optional[int] = ..., kinds_total: _Optional[int] = ...) -> None: ...
 
 class QueryFrontierMember(_message.Message):
     __slots__ = ("name", "metaclass")
