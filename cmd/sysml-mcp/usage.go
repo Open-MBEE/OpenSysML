@@ -146,9 +146,11 @@ func doc() usage.Doc {
 					"Streamable HTTP transport, at the path /mcp, until it is told to " +
 					"stop with SIGINT or SIGTERM; stopping closes the sessions and " +
 					"waits up to 30 seconds for the connections to drain. The clients " +
-					"share one workspace, one runtime cache and one set of REPL " +
-					"sessions, so a session_* name opened by one is the session every " +
-					"other sees under that name.",
+					"share one workspace and one runtime cache; REPL sessions belong " +
+					"to the principal that opened them (see Scopes), so a session_* " +
+					"name opened by one client is the session every other client of " +
+					"the same principal sees under that name, and no other principal " +
+					"does.",
 			},
 			Examples: []usage.Example{
 				usage.Ex("sysml-mcp -http 8765", "Serve http://localhost:8765/mcp to this machine"),
@@ -183,7 +185,7 @@ func doc() usage.Doc {
 					"MCP-Protocol-Version header names a version the server does not " +
 					"speak is refused with 400.",
 			},
-		}, {
+		}, scopesSection(), {
 			Title: "Configuring a host",
 			Lead: []string{
 				"-print-config writes the block a host reads, naming this binary by " +
@@ -233,6 +235,41 @@ func doc() usage.Doc {
 	}
 }
 
+// scopesSection names the scopes a caller needs, from the catalog that also
+// assigns them to the tools, so the manual page cannot drift from the server.
+func scopesSection() usage.Section {
+	sec := usage.Section{
+		Title: "Scopes",
+		Lead: []string{
+			"Every tool requires one scope (RFC 6749 § 3.3), named in the Tools " +
+				"section and by tool_catalog, and a tools/call by a principal whose " +
+				"credential lacks it is refused with an error naming the scope; " +
+				"tools/list is not narrowed; repl_command is admitted with sysml:read " +
+				"and then requires, for the % command given, the scope of the typed " +
+				"tool doing the same. Over stdin and stdout, and over -http " +
+				"without a token, the one local caller holds every scope. The bearer " +
+				"token named by -token-file, -token or " + mcp.TokenEnv + " holds " +
+				"every scope. Each call is recorded on the log (-log-level info) with " +
+				"the principal, its source, the remote address, the tool, its scope, " +
+				"the outcome and the duration, and never the credential or the " +
+				"arguments.",
+		},
+	}
+	for _, s := range catalog.Scopes() {
+		sec.Items = append(sec.Items, usage.Entry(string(s), scopeMeaning[s]))
+	}
+	return sec
+}
+
+// scopeMeaning is what the manual page says each scope grants.
+var scopeMeaning = map[catalog.Scope]string{
+	catalog.ScopeRead:    "Ask about the workspace and the model: queries, diagnostics, hover, conversions and edits answered as text, nothing another caller sees changed.",
+	catalog.ScopeWrite:   "Write the workspace: files replaced with apply, documents held open or released, prompt commands that may save.",
+	catalog.ScopeExecute: "Execute the model: actions, state machines, analyses, solving, debugging and REPL evaluation in a session.",
+	catalog.ScopeSession: "Open, load, list, clear and close the caller's own REPL sessions; session names are private to the principal.",
+	catalog.ScopeAdmin:   "See and close every principal's sessions through session_list and session_close; no tool requires it.",
+}
+
 // toolsSection lists every tool the server can serve, from the catalog that
 // also drives registration and the tool_catalog tool, so the manual page
 // cannot drift from the tools (`make man` regenerates it, `make man-check`
@@ -242,8 +279,9 @@ func toolsSection() usage.Section {
 		Title: "Tools",
 		Lead: []string{
 			"The tools, by the group that serves them (-tools), each with the " +
-				"sysml-grpc RPC or sysml flag it stands for. The tool_catalog tool " +
-				"answers this list to the client, narrowed to the groups served.",
+				"scope a caller needs (see Scopes) and the sysml-grpc RPC or sysml " +
+				"flag it stands for. The tool_catalog tool answers this list to the " +
+				"client, narrowed to the groups served.",
 		},
 	}
 	for _, e := range catalog.Entries(catalog.Groups()...) {
@@ -251,9 +289,9 @@ func toolsSection() usage.Section {
 		if group == "" {
 			group = "every group"
 		}
-		text := fmt.Sprintf("%s: %s", group, e.Summary)
+		text := fmt.Sprintf("%s, %s: %s", group, e.Scope, e.Summary)
 		if op := e.Operation(); op != "none" {
-			text = fmt.Sprintf("%s: %s (%s).", group, strings.TrimSuffix(e.Summary, "."), op)
+			text = fmt.Sprintf("%s, %s: %s (%s).", group, e.Scope, strings.TrimSuffix(e.Summary, "."), op)
 		}
 		sec.Items = append(sec.Items, usage.Entry(e.Name, text))
 	}
