@@ -118,9 +118,8 @@ func Hash(secret string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// Mint issues a key for subject with scopes, expiring at expires (zero for
-// never), and appends its record to the file at path, created if absent; the
-// key is returned once and is not recoverable from the file.
+// Mint issues a key for subject with scopes, expiring at expires (zero for never), and appends
+// its record to the file at path, created if absent; the key is returned once, the file never holds it.
 func Mint(path, subject string, scopes []string, expires time.Time) (string, Record, error) {
 	records, err := ReadFile(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
@@ -228,9 +227,8 @@ func writeFile(path string, records []Record) error {
 	return err
 }
 
-// ReadFile reads the records of the file at path, one JSON object per line
-// with blank lines allowed; a line that is not a valid record, or an id held
-// twice, fails the whole file with its line number.
+// ReadFile reads the records of the file at path, one JSON object per line with blank lines
+// allowed; a line that is not a valid record, or an id held twice, fails the file with its line number.
 func ReadFile(path string) ([]Record, error) {
 	f, err := os.Open(path) // #nosec G304 -- the operator names the file with -api-keys
 	if err != nil {

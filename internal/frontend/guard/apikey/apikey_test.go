@@ -86,9 +86,8 @@ func TestMintAndVerify(t *testing.T) {
 	}
 }
 
-// TestVerifyRefusals: a wrong secret, an unknown id, a disabled key and a key
-// of the right prefix but no shape are Mismatch; an expired key Expired; a
-// token that is no key is NothingPresented; a header that is no bearer token is read as such.
+// TestVerifyRefusals: a wrong secret, an unknown id, a disabled key and a key of the right prefix
+// but no shape are Mismatch; an expired key Expired; a token that is no key is NothingPresented.
 func TestVerifyRefusals(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "keys.jsonl")
 	key, _ := mint(t, path, "alice", []string{"sysml:read"}, time.Time{})
