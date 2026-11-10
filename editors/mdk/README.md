@@ -151,7 +151,8 @@ exposed, and the query, the source, the outcome and the provenance as its four a
 query that reported a path or model error has a view too, of that outcome, exposing the
 elements the failure is about. After *Run query* the plugin writes each view to a file named by
 the query, `<model>.<Query.Qualified.Name>.result.sysml`, replacing the one an earlier run of
-that query wrote:
+that query wrote (a query whose name or text holds more than plain names also carries a short
+digest of it, `…~1a2b3c4d.result.sysml`, so two queries never share a file):
 
 - **v2 project** — next to the project file, so `lander.mdzip` gets
   `lander.QVTSDemo.CabinMass.result.sysml`.

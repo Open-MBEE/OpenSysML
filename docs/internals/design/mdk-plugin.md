@@ -892,7 +892,9 @@ v1 path it names elements as the migrated model does, which is what it is writte
 `OperationActions.writeViews` runs after a run that was not cancelled and hands the views to
 `export/ResultViewFiles`: `anchor` is the model file to write beside — the last export of a v1
 project in this session (`ResultViewFiles.exported`, recorded by the export action), else the
-project file — and `write` puts each view in `<anchor stem>.<query>.result.sysml`. The files
+project file — and `write` puts each view in `<anchor stem>.<query>.result.sysml`
+(`ResultViews.fileName`: `::` flattened, and a digest of the query added when its text is not
+plain names, so distinct queries have distinct files). The files
 are reported as `query-result-view` diagnostics, `INFO` when written and `WARNING` when not.
 
 *Render document…* (`OperationActions.RenderAction`) asks for a folder on the EDT, exports as
