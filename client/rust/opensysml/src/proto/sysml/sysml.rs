@@ -3743,13 +3743,8 @@ pub struct RunRunsResponse {
     #[prost(uint64, optional, tag="15")]
     pub seed: ::core::option::Option<u64>,
 }
-/// RunDocumentQueryRequest runs a document query — a calc def specializing
-/// DocumentQueries::Query the model declares, named by query_id, or the body of
-/// one written in inline_query — against a model the service already parsed,
-/// binding its entry parameters. It answers as %run-query does, but with typed
-/// rows rather than formatted lines. The query runs over the objects
-/// Instantiate created for the model, which a binding may name (DocumentObject)
-/// and `DocumentQueries::Objects` and `Verdicts` reach.
+/// RunDocumentQueryRequest runs a DocumentQueries::Query the model declares (query_id) or one
+/// written in inline_query over a parsed model and its Instantiate objects, binding its parameters.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RunDocumentQueryRequest {
     /// from ParseFile response
