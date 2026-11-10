@@ -1104,7 +1104,10 @@ The properties are the ones the document-query `Project` reads
 declarations plus the evaluator-derived properties below), so a property the
 metamodel declares for some metaclass — `body`, `satisfiedRequirement`,
 `general`, `elementType` — is queryable by its KerML/SysML name even when it is
-not in this table of the commonly asked-for ones. A property no metaclass
+not in this table of the commonly asked-for ones, and is absent on the elements
+whose metaclass lacks it, even when no answered element carries it; one the
+metamodel declares but OpenSysML does not derive yet (an accept's
+`payloadArgument`) is absent too. A property no metaclass
 declares is an `INVALID_ARGUMENT` error naming the nearest spelling, carrying the
 [query outcome](../internals/design/query-outcomes.md) as a `QueryOutcome` status
 detail — never a silently empty answer. The detail is bounded to fit a status

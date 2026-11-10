@@ -487,7 +487,11 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 		e.note(seen, source.values[i])
 		values, present, valueErr := e.featureValues(expression, source, i, property, columnIndex)
 		if valueErr != nil {
-			return sequence{}, valueErr
+			if !tolerate || !unserved(valueErr) {
+				return sequence{}, valueErr
+			}
+			// A property the evaluator does not derive is absent, as tolerated.
+			values, present = nil, false
 		}
 		if !present && !tolerate {
 			if m := e.missingFeature(expression, property, source.values[i]); m != nil {
@@ -510,7 +514,9 @@ func (e *executor) evaluateWhereFeature(expression queryplan.Expression) (sequen
 		}
 	}
 	if !known {
-		return sequence{}, e.unknownPropertyAmong(expression, property, e.names(seen))
+		if err := e.unknownUnlessDeclared(expression, property, seen); err != nil {
+			return sequence{}, err
+		}
 	}
 	if err := joinMissing(missing); err != nil {
 		return sequence{}, err
@@ -567,7 +573,11 @@ func (e *executor) evaluateOrderBy(expression queryplan.Expression) (sequence, e
 		e.note(seen, value)
 		values, present, valueErr := e.featureValues(expression, source, i, property, columnIndex)
 		if valueErr != nil {
-			return sequence{}, valueErr
+			if missing == "error" || !unserved(valueErr) {
+				return sequence{}, valueErr
+			}
+			// A property the evaluator does not derive is a missing key.
+			values, present = nil, false
 		}
 		known = known || present
 		items[i].value = value
@@ -603,7 +613,9 @@ func (e *executor) evaluateOrderBy(expression queryplan.Expression) (sequence, e
 		}
 	}
 	if !known {
-		return sequence{}, e.unknownPropertyAmong(expression, property, e.names(seen))
+		if err := e.unknownUnlessDeclared(expression, property, seen); err != nil {
+			return sequence{}, err
+		}
 	}
 	var sortErr error
 	var sortKeys [2]Value
@@ -898,8 +910,9 @@ func (p *projection) cells(value Value) ([]Cell, error) {
 	for column, property := range p.properties {
 		values, present, err := p.e.propertyValues(value, property)
 		if err != nil {
-			if p.wildcard != nil && p.wildcard[column] && unserved(err) {
-				// A wildcard projects what the evaluator serves.
+			if (p.tolerate || (p.wildcard != nil && p.wildcard[column])) && unserved(err) {
+				// A wildcard projects what the evaluator serves; tolerated, an
+				// unserved property is an empty cell.
 				values, present, err = nil, false, nil
 			} else {
 				return nil, p.e.unevaluable(p.expression, property, value, err)
@@ -931,11 +944,13 @@ func unserved(err error) bool {
 }
 
 // checkProperties reports, once every row is read, a property no row carried
-// as unknown, then the rows that lacked one others carry.
+// and no metaclass declares as unknown, then the rows that lacked one.
 func (p *projection) checkProperties() error {
 	for i, property := range p.properties {
 		if !p.known[i] {
-			return p.e.unknownPropertyAmong(p.expression, property, p.e.names(p.seen))
+			if err := p.e.unknownUnlessDeclared(p.expression, property, p.seen); err != nil {
+				return err
+			}
 		}
 	}
 	// A property some rows carry and an element row lacks is a path error
