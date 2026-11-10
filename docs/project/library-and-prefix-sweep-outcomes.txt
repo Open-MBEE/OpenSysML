@@ -579,9 +579,9 @@ object	Probe::p1.otherItem	undetermined <undetermined>
 object	Probe::p1.others	empty
 object	Probe::p1.rq	object:Probe::P1::rq
 read	Probe::p1.rq.actors	systems	Requirements::RequirementCheck::actors	collection(1) [object:Probe::P2#1]
-read	Probe::p1.rq.assumptions	systems	Requirements::RequirementCheck::assumptions	empty
+read	Probe::p1.rq.assumptions	systems	Requirements::RequirementCheck::assumptions	collection(1) [object:Probe::R1::#1]
 read	Probe::p1.rq.concerns	systems	Requirements::RequirementCheck::concerns	empty
-read	Probe::p1.rq.constraints	systems	Requirements::RequirementCheck::constraints	empty
+read	Probe::p1.rq.constraints	systems	Requirements::RequirementCheck::constraints	collection(1) [object:Probe::R1::#1]
 read	Probe::p1.rq.lim	model	Probe::R1::lim	constant 5.0
 read	Probe::p1.rq.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	constant true
 read	Probe::p1.rq.s	model	Probe::P1::rq::s	object:Probe::P2
@@ -863,9 +863,9 @@ read	Probe::p1.es.transitions	systems	Actions::Action::transitions	empty
 read	Probe::p1.es.whileLoops	systems	Actions::Action::whileLoops	empty
 object	Probe::p1.sr	object:Probe::P1::sr
 read	Probe::p1.sr.actors	systems	Requirements::RequirementCheck::actors	collection(1) [object:Probe::P2#1]
-read	Probe::p1.sr.assumptions	systems	Requirements::RequirementCheck::assumptions	empty
+read	Probe::p1.sr.assumptions	systems	Requirements::RequirementCheck::assumptions	collection(1) [object:Probe::R1::#1]
 read	Probe::p1.sr.concerns	systems	Requirements::RequirementCheck::concerns	empty
-read	Probe::p1.sr.constraints	systems	Requirements::RequirementCheck::constraints	empty
+read	Probe::p1.sr.constraints	systems	Requirements::RequirementCheck::constraints	collection(1) [object:Probe::R1::#1]
 read	Probe::p1.sr.lim	model	Probe::R1::lim	constant 5.0
 read	Probe::p1.sr.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	error requirement sr: subject binding: multiplicity violation: 2 value(s) bound to a feature with multiplicity upper bound 1
 read	Probe::p1.sr.self	systemsFRAME	Requirements::RequirementCheck::self	object:Probe::P1::sr
@@ -875,9 +875,9 @@ read	Probe::p1.sr.subrequirements	systems	Requirements::RequirementCheck::subreq
 read	Probe::p1.sr.who	model	Probe::R1::who	object:Probe::P2
 object	Probe::p1.srOne	object:Probe::P1::srOne
 read	Probe::p1.srOne.actors	systems	Requirements::RequirementCheck::actors	collection(1) [object:Probe::P2#1]
-read	Probe::p1.srOne.assumptions	systems	Requirements::RequirementCheck::assumptions	empty
+read	Probe::p1.srOne.assumptions	systems	Requirements::RequirementCheck::assumptions	collection(1) [object:Probe::R1::#1]
 read	Probe::p1.srOne.concerns	systems	Requirements::RequirementCheck::concerns	empty
-read	Probe::p1.srOne.constraints	systems	Requirements::RequirementCheck::constraints	empty
+read	Probe::p1.srOne.constraints	systems	Requirements::RequirementCheck::constraints	collection(1) [object:Probe::R1::#1]
 read	Probe::p1.srOne.lim	model	Probe::R1::lim	constant 5.0
 read	Probe::p1.srOne.result	systemsFRAME	Requirements::RequirementConstraintCheck::result	constant true
 read	Probe::p1.srOne.self	systemsFRAME	Requirements::RequirementCheck::self	object:Probe::P1::srOne
@@ -1072,9 +1072,9 @@ read	new Probe::S1().transitions	systems	Actions::Action::transitions	empty
 read	new Probe::S1().whileLoops	systems	Actions::Action::whileLoops	empty
 object	new Probe::R1()	object:Probe::R1
 read	new Probe::R1().actors	systems	Requirements::RequirementCheck::actors	collection(1) [object:Probe::P2#1]
-read	new Probe::R1().assumptions	systems	Requirements::RequirementCheck::assumptions	empty
+read	new Probe::R1().assumptions	systems	Requirements::RequirementCheck::assumptions	collection(1) [object:Probe::R1::#1]
 read	new Probe::R1().concerns	systems	Requirements::RequirementCheck::concerns	empty
-read	new Probe::R1().constraints	systems	Requirements::RequirementCheck::constraints	empty
+read	new Probe::R1().constraints	systems	Requirements::RequirementCheck::constraints	collection(1) [object:Probe::R1::#1]
 read	new Probe::R1().lim	model	Probe::R1::lim	constant 5.0
 read	new Probe::R1().result	systemsFRAME	Requirements::RequirementConstraintCheck::result	constant true
 read	new Probe::R1().s	model	Probe::R1::s	error uninitialized feature value: s
