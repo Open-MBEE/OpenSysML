@@ -508,10 +508,8 @@ func (d *decoder) coverTargets(child *element, stated map[ast.RelationshipKind]m
 	}
 }
 
-// parameterMember reports whether el is owned through a kind-carrying ParameterMembership (subject,
-// actor, stakeholder): its `in` direction is the default a member never spells out. A bare
-// ParameterMembership declares no parameter kind, and an ObjectiveMembership is a FeatureMembership
-// (SysML 8.3.19), so a direction either states is written explicitly.
+// parameterMember: el is owned through a subject, actor or stakeholder membership, whose `in` is the default never
+// spelled out; a bare ParameterMembership or an ObjectiveMembership (a FeatureMembership) states a direction explicitly.
 func (d *decoder) parameterMember(el *element) bool {
 	kind, ok := d.parameterMembershipKind(el)
 	return ok && kind != ast.UsageObjective
