@@ -114,15 +114,15 @@
       "typeMismatch": 1815
     },
     "properties": {
-      "presentEqual": 2024651,
-      "presentDifferent": 142934,
-      "oursMissing": 306433,
-      "pilotMissing": 80902,
-      "absentBoth": 2220458,
+      "presentEqual": 2025444,
+      "presentDifferent": 142134,
+      "oursMissing": 306440,
+      "pilotMissing": 80728,
+      "absentBoth": 2220544,
       "indeterminate": 35107,
       "pilotNondeterministic": 534
     },
-    "rows": 11771,
+    "rows": 11770,
     "unkeyedReferences": 158684,
     "extensionProperties": 272781,
     "duplicateElements": {
@@ -155,11 +155,11 @@
         "typeMismatch": 6
       },
       "properties": {
-        "presentEqual": 164400,
-        "presentDifferent": 12638,
+        "presentEqual": 164454,
+        "presentDifferent": 12584,
         "oursMissing": 20596,
-        "pilotMissing": 5844,
-        "absentBoth": 184380,
+        "pilotMissing": 5836,
+        "absentBoth": 184384,
         "indeterminate": 2893,
         "pilotNondeterministic": 64
       },
@@ -191,11 +191,11 @@
         "typeMismatch": 27
       },
       "properties": {
-        "presentEqual": 576363,
-        "presentDifferent": 43459,
-        "oursMissing": 83096,
-        "pilotMissing": 21647,
-        "absentBoth": 633528,
+        "presentEqual": 576578,
+        "presentDifferent": 43250,
+        "oursMissing": 83090,
+        "pilotMissing": 21609,
+        "absentBoth": 633547,
         "indeterminate": 8156,
         "pilotNondeterministic": 176
       },
@@ -227,11 +227,11 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 203678,
-        "presentDifferent": 15126,
-        "oursMissing": 26327,
-        "pilotMissing": 7710,
-        "absentBoth": 225786,
+        "presentEqual": 203743,
+        "presentDifferent": 15060,
+        "oursMissing": 26328,
+        "pilotMissing": 7696,
+        "absentBoth": 225793,
         "indeterminate": 2987,
         "pilotNondeterministic": 66
       },
@@ -300,11 +300,11 @@
         "typeMismatch": 419
       },
       "properties": {
-        "presentEqual": 134031,
-        "presentDifferent": 7273,
+        "presentEqual": 134074,
+        "presentDifferent": 7230,
         "oursMissing": 22218,
-        "pilotMissing": 6442,
-        "absentBoth": 146251,
+        "pilotMissing": 6430,
+        "absentBoth": 146257,
         "indeterminate": 2465,
         "pilotNondeterministic": 7
       },
@@ -374,11 +374,11 @@
         "typeMismatch": 199
       },
       "properties": {
-        "presentEqual": 639433,
-        "presentDifferent": 44208,
-        "oursMissing": 100871,
-        "pilotMissing": 24381,
-        "absentBoth": 717722,
+        "presentEqual": 639773,
+        "presentDifferent": 43862,
+        "oursMissing": 100877,
+        "pilotMissing": 24315,
+        "absentBoth": 717754,
         "indeterminate": 14123,
         "pilotNondeterministic": 176
       },
@@ -446,11 +446,11 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 155504,
-        "presentDifferent": 9330,
-        "oursMissing": 30262,
-        "pilotMissing": 5367,
-        "absentBoth": 166481,
+        "presentEqual": 155580,
+        "presentDifferent": 9248,
+        "oursMissing": 30268,
+        "pilotMissing": 5331,
+        "absentBoth": 166499,
         "indeterminate": 3458,
         "pilotNondeterministic": 36
       },
@@ -2295,8 +2295,8 @@
       0
     ],
     "ActionUsage.directedFeature": [
-      143,
-      2,
+      145,
+      0,
       22,
       3,
       347,
@@ -2304,8 +2304,8 @@
       0
     ],
     "ActionUsage.directedUsage": [
-      143,
-      2,
+      145,
+      0,
       22,
       3,
       347,
@@ -2412,8 +2412,8 @@
       0
     ],
     "ActionUsage.input": [
-      117,
-      2,
+      119,
+      0,
       19,
       3,
       376,
@@ -5517,8 +5517,8 @@
       0
     ],
     "AnalysisCaseDefinition.directedFeature": [
-      6,
-      24,
+      22,
+      8,
       0,
       0,
       0,
@@ -5526,8 +5526,8 @@
       0
     ],
     "AnalysisCaseDefinition.directedUsage": [
-      6,
-      24,
+      22,
+      8,
       0,
       0,
       0,
@@ -5607,9 +5607,9 @@
       0
     ],
     "AnalysisCaseDefinition.input": [
-      6,
-      21,
-      3,
+      22,
+      0,
+      8,
       0,
       0,
       0,
@@ -6219,9 +6219,9 @@
       0
     ],
     "AnalysisCaseDefinition.subjectParameter": [
-      16,
+      22,
       0,
-      14,
+      8,
       0,
       0,
       0,
@@ -6381,8 +6381,8 @@
       0
     ],
     "AnalysisCaseUsage.directedFeature": [
-      10,
-      25,
+      32,
+      3,
       6,
       0,
       0,
@@ -6390,8 +6390,8 @@
       0
     ],
     "AnalysisCaseUsage.directedUsage": [
-      10,
-      25,
+      32,
+      3,
       6,
       0,
       0,
@@ -6507,8 +6507,8 @@
       0
     ],
     "AnalysisCaseUsage.input": [
-      10,
-      24,
+      34,
+      0,
       7,
       0,
       0,
@@ -17172,8 +17172,8 @@
       0
     ],
     "CaseDefinition.directedFeature": [
-      0,
       1,
+      0,
       2,
       0,
       0,
@@ -17181,8 +17181,8 @@
       0
     ],
     "CaseDefinition.directedUsage": [
-      0,
       1,
+      0,
       2,
       0,
       0,
@@ -17262,8 +17262,8 @@
       0
     ],
     "CaseDefinition.input": [
-      0,
       1,
+      0,
       2,
       0,
       0,
@@ -27612,8 +27612,8 @@
       0
     ],
     "ConstraintUsage.isVariable": [
-      33,
-      174,
+      207,
+      0,
       0,
       0,
       0,
@@ -27639,8 +27639,8 @@
       0
     ],
     "ConstraintUsage.mayTimeVary": [
-      33,
-      174,
+      207,
+      0,
       0,
       0,
       0,
@@ -47160,8 +47160,8 @@
       0
     ],
     "IncludeUseCaseUsage.directedFeature": [
-      9,
-      7,
+      10,
+      6,
       3,
       0,
       0,
@@ -47169,8 +47169,8 @@
       0
     ],
     "IncludeUseCaseUsage.directedUsage": [
-      9,
-      7,
+      10,
+      6,
       3,
       0,
       0,
@@ -47295,8 +47295,8 @@
       0
     ],
     "IncludeUseCaseUsage.input": [
-      9,
-      4,
+      10,
+      3,
       6,
       0,
       0,
@@ -65969,15 +65969,6 @@
       0,
       0
     ],
-    "ObjectiveMembership.ownedMemberParameter": [
-      0,
-      0,
-      0,
-      88,
-      0,
-      0,
-      0
-    ],
     "ObjectiveMembership.ownedObjectiveRequirement": [
       88,
       0,
@@ -71721,8 +71712,8 @@
       0
     ],
     "PerformActionUsage.directedFeature": [
-      33,
-      7,
+      38,
+      2,
       28,
       0,
       168,
@@ -71730,8 +71721,8 @@
       0
     ],
     "PerformActionUsage.directedUsage": [
-      33,
-      7,
+      38,
+      2,
       28,
       0,
       168,
@@ -71838,8 +71829,8 @@
       0
     ],
     "PerformActionUsage.input": [
-      23,
-      5,
+      28,
+      0,
       24,
       0,
       184,
@@ -79698,8 +79689,8 @@
       6,
       0,
       0,
-      86,
-      278,
+      0,
+      364,
       0,
       0
     ],
@@ -79830,8 +79821,8 @@
       0
     ],
     "RequirementUsage.isComposite": [
-      284,
-      86,
+      370,
+      0,
       0,
       0,
       0,
@@ -97443,8 +97434,8 @@
       0
     ],
     "UseCaseDefinition.directedFeature": [
-      7,
-      10,
+      16,
+      1,
       2,
       0,
       0,
@@ -97452,8 +97443,8 @@
       0
     ],
     "UseCaseDefinition.directedUsage": [
-      7,
-      10,
+      16,
+      1,
       2,
       0,
       0,
@@ -97542,8 +97533,8 @@
       0
     ],
     "UseCaseDefinition.input": [
-      7,
-      9,
+      16,
+      0,
       3,
       0,
       0,
@@ -98289,8 +98280,8 @@
       0
     ],
     "UseCaseUsage.directedFeature": [
-      8,
       15,
+      8,
       4,
       0,
       0,
@@ -98298,8 +98289,8 @@
       0
     ],
     "UseCaseUsage.directedUsage": [
-      8,
       15,
+      8,
       4,
       0,
       0,
@@ -98415,8 +98406,8 @@
       0
     ],
     "UseCaseUsage.input": [
-      8,
-      7,
+      15,
+      0,
       12,
       0,
       0,
@@ -99594,8 +99585,8 @@
       0
     ],
     "VerificationCaseDefinition.directedFeature": [
-      10,
       30,
+      10,
       0,
       0,
       0,
@@ -99603,8 +99594,8 @@
       0
     ],
     "VerificationCaseDefinition.directedUsage": [
-      10,
       30,
+      10,
       0,
       0,
       0,
@@ -99684,9 +99675,9 @@
       0
     ],
     "VerificationCaseDefinition.input": [
-      10,
-      22,
-      8,
+      30,
+      1,
+      9,
       0,
       0,
       0,
@@ -100431,8 +100422,8 @@
       0
     ],
     "VerificationCaseUsage.directedFeature": [
-      0,
-      42,
+      34,
+      8,
       1,
       0,
       0,
@@ -100440,8 +100431,8 @@
       0
     ],
     "VerificationCaseUsage.directedUsage": [
-      0,
-      42,
+      34,
+      8,
       1,
       0,
       0,
@@ -100548,9 +100539,9 @@
       0
     ],
     "VerificationCaseUsage.input": [
+      34,
       0,
-      41,
-      2,
+      9,
       0,
       0,
       0,

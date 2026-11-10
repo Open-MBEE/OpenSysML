@@ -1526,9 +1526,9 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if !ok {
 			return &UnsupportedError{What: fmt.Sprintf("usage kind %q at %s", n.Kind, e.where(n))}
 		}
-		// An actor, stakeholder or objective member is a parameter its
-		// membership owns (SysML.xtext ActorMember & co.): the parameter kind
-		// is the membership's metaclass, and the parameter itself is a usage.
+		// An actor or stakeholder member is a parameter its membership owns
+		// (SysML.xtext ActorMember & co.): the parameter kind is the
+		// membership's metaclass, and the parameter itself is a usage.
 		parameterClass, parameterEnd := parameterMembership(n.Kind)
 		if n.IsResult {
 			// A `return` member is the result parameter its ReturnParameterMembership
@@ -1909,6 +1909,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			e.graph.Add(membership, e.sysml(pOwnedConstraint), subject)
 		}
 		head(rdf.SysMLTerm(mConstraintUsage))
+		e.constraintBodyVariability(subject, n)
 		return e.requirementCondition(subject, fqn, within, requirementConditionDecl{
 			prefixes: n.Prefixes, ident: n.Ident, relationships: n.Relationships, multiplicity: n.Multiplicity,
 			value: n.Value, isDefault: n.ValueIsDefault, isInitial: n.ValueIsInitial,
@@ -1922,6 +1923,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			e.graph.Add(membership, e.sysml(pOwnedConstraint), subject)
 		}
 		head(rdf.SysMLTerm(mConstraintUsage))
+		e.constraintBodyVariability(subject, n)
 		return e.requirementCondition(subject, fqn, within, requirementConditionDecl{
 			prefixes: n.Prefixes, ident: n.Ident, relationships: n.Relationships, multiplicity: n.Multiplicity,
 			value: n.Value, isDefault: n.ValueIsDefault, isInitial: n.ValueIsInitial,
@@ -2248,6 +2250,19 @@ func (e *encoder) variantMember(node ast.Node, ownerTerm rdf.Term) bool {
 func (e *encoder) usageIsVariable(n *ast.Usage) bool {
 	sym := e.ids.declSym[n]
 	return sym != nil && e.ids.model.FeatureIsVariable(sym)
+}
+
+// constraintBodyVariability writes isVariable and mayTimeVary for a `require`/`assume`
+// body constraint as the model derives them: a feature of an Occurrence varies (deriveUsageMayTimeVary).
+func (e *encoder) constraintBodyVariability(subject rdf.Term, member ast.Node) {
+	sym := e.ids.declSym[member]
+	if sym == nil {
+		return
+	}
+	e.flags(subject, []boolProperty{
+		{"isVariable", e.ids.model.FeatureIsVariable(sym)},
+		{"mayTimeVary", e.ids.model.UsageMayTimeVary(sym)},
+	})
 }
 
 // usageMayTimeVary derives Usage::mayTimeVary (deriveUsageMayTimeVary); a KerML
@@ -3313,8 +3328,6 @@ func parameterMembership(kind ast.UsageKind) (class, end string) {
 		return mActorMembership, "ownedActorParameter"
 	case ast.UsageStakeholder:
 		return mStakeholderMembership, "ownedStakeholderParameter"
-	case ast.UsageObjective:
-		return mObjectiveMembership, "ownedObjectiveRequirement"
 	}
 	return "", ""
 }
@@ -3328,6 +3341,10 @@ func memberOwnedUsage(kind ast.UsageKind) (class, end, constraintKind string) {
 		return mViewRenderingMembership, pOwnedRendering, ""
 	case ast.UsageFramedConcern:
 		return mFramedConcernMembership, pOwnedConcern, "requirement"
+	case ast.UsageObjective:
+		// An objective is a RequirementUsage its ObjectiveMembership, a FeatureMembership, owns
+		// (SysML 8.3.19): no parameter, so composite and undirected, as the pilot exports it.
+		return mObjectiveMembership, "ownedObjectiveRequirement", ""
 	}
 	return "", "", ""
 }
