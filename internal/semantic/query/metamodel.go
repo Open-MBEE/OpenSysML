@@ -63,9 +63,9 @@ var kermlUsageTypeNames = map[ast.UsageKind]string{
 	ast.UsageInteraction: "Interaction",
 }
 
-// refinedTypeNames are the metamodel type names MetamodelTypeNameOf reports for
-// a symbol kind that spans several metaclasses, beyond the kind's own name.
-var refinedTypeNames = []string{"MultiplicityRange"}
+// refinedTypeNames are the metamodel type names MetamodelTypeNameOf reports beyond a kind's
+// own name: a symbol kind spanning several metaclasses, or a chain Feature's KerML Feature.
+var refinedTypeNames = []string{"MultiplicityRange", "Feature"}
 
 // MetamodelTypeNameOf returns the metamodel type name an element reports as
 // @type, refining symbol kinds that span several metaclasses.
