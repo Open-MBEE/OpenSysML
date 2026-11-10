@@ -176,7 +176,7 @@ public final class ConnectTransport implements AutoCloseable {
   /**
    * The {@code QueryOutcome} among a Connect error's details, if one is there. A detail is the
    * message's type name and its bytes in base64; one whose type is not the outcome's is another
-   * detail, and one whose bytes are not an outcome is not a detail this client can read.
+   * detail, and one whose bytes are not an outcome with a kind is not one this client can read.
    */
   private static Optional<QueryOutcome> queryOutcome(List<Object> details) {
     String type = org.openmbee.opensysml.proto.QueryOutcome.getDescriptor().getFullName();
@@ -186,10 +186,13 @@ public final class ConnectTransport implements AutoCloseable {
       }
       try {
         byte[] bytes = Base64.getDecoder().decode(padded(Json.stringMember(detail, "value")));
-        return Optional.of(
-            Protos.queryOutcome(org.openmbee.opensysml.proto.QueryOutcome.parseFrom(bytes)));
+        org.openmbee.opensysml.proto.QueryOutcome decoded =
+            org.openmbee.opensysml.proto.QueryOutcome.parseFrom(bytes);
+        if (!decoded.getKind().isEmpty()) {
+          return Optional.of(Protos.queryOutcome(decoded));
+        }
       } catch (IllegalArgumentException | InvalidProtocolBufferException e) {
-        return Optional.empty();
+        // Not an outcome; a later detail may be one.
       }
     }
     return Optional.empty();

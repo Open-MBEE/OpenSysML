@@ -86,8 +86,8 @@ class TransportFailureTest {
 
   @Test
   void aQueryOutcomeDetailBecomesATypedException() throws Exception {
-    // The detail is the wire message in base64, which Connect writes without padding; a null or a
-    // detail of another type beside it is not the outcome.
+    // The detail is the wire message in base64, which Connect writes without padding; a null, a
+    // detail of another type or one that will not decode beside it is not the outcome.
     org.openmbee.opensysml.proto.QueryOutcome outcome =
         org.openmbee.opensysml.proto.QueryOutcome.newBuilder()
             .setKind("pathError")
@@ -110,6 +110,7 @@ class TransportFailureTest {
     String body =
         "{\"code\":\"failed_precondition\",\"message\":\"query reads feature mass\","
             + "\"details\":[null,{\"type\":\"google.protobuf.Empty\",\"value\":\"\"},"
+            + "{\"type\":\"sysml.QueryOutcome\",\"value\":\"!!\"},"
             + "{\"type\":\"sysml.QueryOutcome\",\"value\":\""
             + value
             + "\"}]}";
@@ -147,10 +148,12 @@ class TransportFailureTest {
 
   @Test
   void anOutcomeDetailThatWillNotDecodeLeavesTheStatusToTheCaller() throws Exception {
-    // The status is the service's answer; a detail this client cannot read does not hide it.
+    // The status is the service's answer; a detail this client cannot read does not hide it, and
+    // an empty one is not an outcome either: it has no kind.
     String body =
         "{\"code\":\"failed_precondition\",\"message\":\"query reads feature mass\","
-            + "\"details\":[{\"type\":\"sysml.QueryOutcome\",\"value\":\"!!\"}]}";
+            + "\"details\":[{\"type\":\"sysml.QueryOutcome\",\"value\":\"\"},"
+            + "{\"type\":\"sysml.QueryOutcome\",\"value\":\"!!\"}]}";
     try (Stub refusing =
         Stub.serving(
             exchange -> {
