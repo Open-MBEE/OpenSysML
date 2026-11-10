@@ -18,8 +18,29 @@ type Principal struct {
 	Scopes []string
 	// Expires is when the credential stops being accepted; zero is never.
 	Expires time.Time
-	// Source names the kind of authenticator that accepted the credential.
+	// Source names the kind of authenticator that accepted the credential and
+	// holds no colon, so that ID reads one way.
 	Source string
+}
+
+// ID identifies the principal across authenticators as "<source>:<subject>", a
+// subject being unique only within its source; a service keys what a caller owns by it.
+func (p Principal) ID() string { return p.Source + ":" + p.Subject }
+
+// principalKey is the context key of the principal a request was accepted for.
+type principalKey struct{}
+
+// WithPrincipal is ctx carrying p, the principal a transport accepted the
+// request for, to the request's handlers.
+func WithPrincipal(ctx context.Context, p Principal) context.Context {
+	return context.WithValue(ctx, principalKey{}, p)
+}
+
+// PrincipalFrom is the principal the request of ctx was accepted for, to key what
+// its caller owns by ID; there is none on a transport that authenticates nobody.
+func PrincipalFrom(ctx context.Context) (Principal, bool) {
+	p, ok := ctx.Value(principalKey{}).(Principal)
+	return p, ok
 }
 
 // ResourceMetadata is what an authenticator has the resource advertise in its

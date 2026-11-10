@@ -83,6 +83,36 @@ func TestBearer(t *testing.T) {
 	}
 }
 
+// TestPrincipalIdentity checks the identity is the source with the subject, so
+// one subject under two authenticators is two principals, and rides a context.
+func TestPrincipalIdentity(t *testing.T) {
+	key := Principal{Subject: "alice", Source: "api-key"}
+	oidc := Principal{Subject: "alice", Source: "oidc", Name: "alice@example.org", Scopes: []string{"model:read"}}
+	if key.ID() != "api-key:alice" || oidc.ID() != "oidc:alice" {
+		t.Errorf("IDs = %q, %q; want the source before the subject", key.ID(), oidc.ID())
+	}
+	urn := Principal{Subject: "urn:example:alice", Source: "oidc"}
+	if urn.ID() != "oidc:urn:example:alice" {
+		t.Errorf("ID() = %q; a subject is kept as it is", urn.ID())
+	}
+	token, _ := New("right")
+	static, _ := NewStaticToken(token).Verify(context.Background(), "Bearer right", nil)
+	if static.ID() != "static-token:token" {
+		t.Errorf("the static token's ID() = %q", static.ID())
+	}
+
+	if p, ok := PrincipalFrom(context.Background()); ok || p.Subject != "" {
+		t.Errorf("PrincipalFrom of a bare context = %+v, %v; want none", p, ok)
+	}
+	ctx := WithPrincipal(context.Background(), oidc)
+	if p, ok := PrincipalFrom(ctx); !ok || p.ID() != oidc.ID() || p.Name != oidc.Name || !slices.Equal(p.Scopes, oidc.Scopes) {
+		t.Errorf("PrincipalFrom = %+v, %v; want %+v", p, ok, oidc)
+	}
+	if p, _ := PrincipalFrom(WithPrincipal(ctx, key)); p.ID() != key.ID() {
+		t.Errorf("PrincipalFrom after a second WithPrincipal = %+v; want the later one", p)
+	}
+}
+
 func TestStaticToken(t *testing.T) {
 	token, _ := New("right")
 	scopes := []string{"model:read", "model:write"}
