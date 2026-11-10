@@ -3,6 +3,7 @@ package export
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -163,27 +164,39 @@ func (d *decoder) demoteStale(notation string, roots []*element) {
 func (d *decoder) demoteStaleNotes(check *encoder) {
 	// A comment the graph does not state is the text's, and a graph stating no note trusts it.
 	for _, subject := range notedSubjects(d.graph) {
-		if statesEveryNote(notesIn(d.graph, subject), notesIn(check.graph, subject)) {
+		stale := staleNotes(notesIn(d.graph, subject), notesIn(check.graph, subject))
+		if len(stale) == 0 {
 			continue
 		}
 		if el, _ := d.blame(subject.Value, check); el != nil && d.printed[el] {
 			d.demoted[el] = true
-			d.demoteCommentedExpressions(el, check)
+			d.demoteHoldingExpressions(el, stale, check)
 		}
 	}
 }
 
-// demoteCommentedExpressions demotes the text of each expression written inside el's
-// that holds a comment, which would otherwise keep a note where the text had it.
-func (d *decoder) demoteCommentedExpressions(el *element, check *encoder) {
+// demoteHoldingExpressions demotes the text of each expression written inside el's
+// that holds a stale note, which it would otherwise keep where the text had it.
+func (d *decoder) demoteHoldingExpressions(el *element, stale []note, check *encoder) {
 	for iri := range d.usedExpr {
-		if text, _ := d.graph.Lexical(rdf.IRI(iri), rdf.OpenSysML+xSourceText); len(commentTexts(text)) == 0 {
+		text, _ := d.graph.Lexical(rdf.IRI(iri), rdf.OpenSysML+xSourceText)
+		if !holdsAny(commentTexts(text), stale) {
 			continue
 		}
 		if owner, _ := d.blame(iri, check); owner == el {
 			d.demotedExpr[iri] = true
 		}
 	}
+}
+
+// holdsAny reports whether one of the comments is the text of one of the notes.
+func holdsAny(comments []string, notes []note) bool {
+	for _, n := range notes {
+		if slices.Contains(comments, n.text) {
+			return true
+		}
+	}
+	return false
 }
 
 // rebuildCandidate encodes the candidate in the id form the document follows, so both

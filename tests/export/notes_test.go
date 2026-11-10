@@ -341,6 +341,24 @@ func TestNoteInsideAnExpressionMovedInTheGraphIsWritten(t *testing.T) {
 	}
 }
 
+// An expression's comment the graph does not state is the text's: it stays as
+// written when another note of the declaration is edited and the declaration rebuilt.
+func TestUnstatedExpressionCommentOutlivesAnotherNoteEdit(t *testing.T) {
+	turtle := string(idTurtle(t, noted))
+	const one = "expr:Rover__Vehicle__x_pnote0\n    a sysx:Note ;\n    sysx:noteText \"/* one */\" ;\n    sysx:noteToken \"4\"^^xsd:integer ;\n    sysx:noteOwnLine \"false\"^^xsd:boolean .\n\n"
+	if !strings.Contains(turtle, one) || !strings.Contains(turtle, "sysx:note expr:Rover__Vehicle__x_pnote0, expr:Rover__Vehicle__x_pnote1") {
+		t.Fatalf("the expression's note is not stated as expected:\n%s", turtle)
+	}
+	turtle = strings.Replace(turtle, one, "", 1)
+	turtle = strings.Replace(turtle, "sysx:note expr:Rover__Vehicle__x_pnote0, expr:Rover__Vehicle__x_pnote1", "sysx:note expr:Rover__Vehicle__x_pnote1", 1)
+	const sum = "    sysx:noteText \"// sum\" ;\n    sysx:noteTrailing \"true\"^^xsd:boolean ;\n    sysx:noteOwnLine \"false\"^^xsd:boolean ."
+	edited := editTurtle(t, []byte(turtle), sum, strings.Replace(sum, `sysx:noteOwnLine "false"`, `sysx:noteOwnLine "true"`, 1))
+	want := strings.Replace(noted, "        attribute x = 1 /* one */ + 2; // sum\n", "        attribute x = 1 /* one */ + 2;\n        // sum\n", 1)
+	if back := toNotation(t, edited); back != want {
+		t.Errorf("the expression's comment did not outlive the edit:\n--- want ---\n%s--- got ---\n%s", want, back)
+	}
+}
+
 // A `//` note the graph puts inline ahead of a declaration's first token would run
 // on over the declaration, so it takes its own line, where it reads as the note it is.
 func TestLineNoteAheadOfTheDeclarationKeepsItsLine(t *testing.T) {
