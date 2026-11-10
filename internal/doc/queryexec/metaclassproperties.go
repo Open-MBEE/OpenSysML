@@ -119,10 +119,10 @@ func (e *executor) metamodelDeclares(property string) bool {
 	return true
 }
 
-// unknownUnlessDeclared is the verdict on a property no row read carried: unknown
-// when no metaclass declares it, nil when the metamodel does and the rows merely lack it.
+// unknownUnlessDeclared is the verdict on a property no row read carried: unknown when no
+// metaclass declares it or no row is an element, nil when element rows merely lack it.
 func (e *executor) unknownUnlessDeclared(expression queryplan.Expression, property string, seen *candidates) error {
-	if e.metamodelDeclares(property) {
+	if len(seen.metaclasses) > 0 && e.metamodelDeclares(property) {
 		return nil
 	}
 	return e.unknownPropertyAmong(expression, property, e.names(seen))

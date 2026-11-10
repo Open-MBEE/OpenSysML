@@ -16,6 +16,16 @@ var derivedProperties = []string{
 	query.PropertyID, query.PropertyType, query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper,
 }
 
+// objectProjection is what a query over held objects reports when it selects
+// nothing: the properties the evaluator serves for every row, none a metaclass's.
+var objectProjection = []string{
+	query.PropertyID, query.PropertyType, query.PropertyName, query.PropertyDeclaredName,
+	query.PropertyShortName, query.PropertyDeclaredShortName, query.PropertyDocumentation,
+	query.PropertyTextualRepresentation, query.PropertyQualifiedName, query.PropertyOwner,
+	query.PropertyElementType, query.PropertyGeneral, query.PropertyIsAbstract, query.PropertyIsIndividual,
+	query.PropertyMultiplicityLower, query.PropertyMultiplicityUpper,
+}
+
 // textProperties are the universal properties whose values are text, which
 // free-text search reads.
 var textProperties = []string{
@@ -204,8 +214,8 @@ func (t *Table) DerivedNames() []string {
 	return names
 }
 
-// DefaultProjection is what a query selecting nothing reports: every queryable property
-// but elementId, read from a conversion of the whole model and so reported only when named.
+// DefaultProjection is what a query over elements selecting nothing reports: every queryable
+// property but elementId, read from a conversion of the whole model and so reported only when named.
 func DefaultProjection() []string {
 	out := make([]string, 0, len(query.PropertyNames()))
 	for _, name := range query.PropertyNames() {

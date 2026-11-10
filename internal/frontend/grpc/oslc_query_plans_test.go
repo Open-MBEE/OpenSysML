@@ -156,6 +156,9 @@ func TestQueryFailureCarriesTheQueryOutcome(t *testing.T) {
 	if outcome := queryOutcomeOf(t, err); outcome.Kind != "pathError" {
 		t.Fatalf("outcome = %v, want a path error", outcome)
 	}
+	// A metamodel property's name is no feature of an object: unknown there too.
+	_, err = srv.Query(context.Background(), &pb.QueryRequest{ModelHash: hash, OslcQuery: "oslc.where=rdf:type=elmt:" + rdf.EncodeElementID("Garage::Wheel") + "&oslc.select=sysx:body"})
+	assertQueryError(t, err, QueryErrUnknownProperty)
 	resp := oslcQuery(t, srv, hash, `oslc.where=rdf:type=sysml:Package&oslc.select=sysml:isComposite`)
 	if len(resp.Elements) == 0 || len(resp.Elements[0].Properties) != 0 {
 		t.Fatalf("isComposite of packages = %v, want the packages with the property absent", resp.Elements)

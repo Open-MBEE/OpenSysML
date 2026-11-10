@@ -121,6 +121,9 @@ type translator struct {
 // there carry — for `*`.
 func (t *translator) columns(selections []Selection) ([]string, error) {
 	if len(selections) == 0 {
+		if t.objects {
+			return append([]string(nil), objectProjection...), nil
+		}
 		return DefaultProjection(), nil
 	}
 	var out []string
