@@ -589,6 +589,48 @@ class PublicTypesTest {
   }
 
   @Test
+  void aQueryOutcomeExceptionPreservesItsOutcomeWhenSerialized() throws Exception {
+    QueryOutcome outcome =
+        new QueryOutcome(
+            QueryOutcome.MODEL_ERROR,
+            "Named(Duplicates::repeated)",
+            List.of(),
+            List.of(
+                new QueryOutcome.Finding(
+                    "Named(Duplicates::repeated)",
+                    "Duplicates",
+                    "ambiguousName",
+                    "Duplicates::repeated (declared 2 times)")),
+            List.of(
+                new QueryOutcome.Failure(
+                    "Feature(mass)",
+                    "a feature named mass on the element",
+                    new QueryOutcome.Frontier(
+                        "Duplicates::repeated",
+                        List.of(new QueryOutcome.Frontier.Member("mass", "AttributeUsage")),
+                        List.of(new QueryOutcome.Frontier.Feature("mass", "")),
+                        List.of("connect"),
+                        "mass"))));
+    QueryOutcomeException original =
+        new QueryOutcomeException(StatusCode.FAILED_PRECONDITION, "names 2 elements", outcome);
+
+    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+    try (ObjectOutputStream output = new ObjectOutputStream(bytes)) {
+      output.writeObject(original);
+    }
+    try (ObjectInputStream input =
+        new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
+      QueryOutcomeException restored = (QueryOutcomeException) input.readObject();
+      assertEquals(original.getMessage(), restored.getMessage());
+      assertEquals(StatusCode.FAILED_PRECONDITION, restored.status());
+      assertEquals(outcome, restored.outcome());
+      List<QueryOutcome.Finding> findings = restored.outcome().findings();
+      QueryOutcome.Finding first = findings.get(0);
+      assertThrows(UnsupportedOperationException.class, () -> findings.add(first));
+    }
+  }
+
+  @Test
   void aModelExceptionPreservesDiagnosticsWhenSerialized() throws Exception {
     List<Diagnostic> diagnostics =
         List.of(
