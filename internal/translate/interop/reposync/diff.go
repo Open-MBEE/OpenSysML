@@ -103,6 +103,18 @@ func (e *UnheldReferenceError) Error() string {
 		e.Subject, e.Class, e.Referrer, e.Property)
 }
 
+// AmbiguousMetaclassError refuses a diff: a subject states more than one class
+// the repository holds, and the repository stores an element under one metaclass.
+type AmbiguousMetaclassError struct {
+	Subject string
+	Classes []string
+}
+
+func (e *AmbiguousMetaclassError) Error() string {
+	return fmt.Sprintf("%s states the classes %s, and the repository holds an element under one SysML metaclass only",
+		e.Subject, strings.Join(e.Classes, " and "))
+}
+
 // Options steer a diff. Deletes and id minting are explicit opt-ins; neither
 // ever happens silently.
 type Options struct {
@@ -328,6 +340,7 @@ type subjectView struct {
 	id            string // effective id: the IRI's local name
 	qualifiedName string
 	metaclass     string
+	classes       []string // every class stated, metaclass being the last
 	declared      bool
 	// normative marks the id the norm fixes for a standard-library element:
 	// implied by the name, so neither declared nor minted for.
@@ -405,7 +418,12 @@ func viewOf(g *rdf.Graph, rep Carrier) (map[string]*subjectView, []UncarriedProp
 			views[id] = view
 		}
 		if triple.Predicate.Value == rdf.RDFType {
+			if rep != nil && triple.Object.IsIRI() && !rep.Holds(triple.Object.Value) {
+				uncarried[triple.Object.Value]++
+				continue
+			}
 			view.metaclass = rdf.LocalName(triple.Object.Value)
+			view.classes = append(view.classes, view.metaclass)
 			view.content = append(view.content, triple)
 			continue
 		}
@@ -434,6 +452,9 @@ func viewOf(g *rdf.Graph, rep Carrier) (map[string]*subjectView, []UncarriedProp
 		}
 		if names := view.props[rdf.SysML+"qualifiedName"]; len(names) > 0 {
 			view.qualifiedName = strings.Trim(names[0], `"`)
+		}
+		if rep != nil && len(view.classes) > 1 {
+			return nil, nil, &AmbiguousMetaclassError{Subject: view.name(), Classes: view.classes}
 		}
 		view.normative = export.NormativeSubject(view.id, view.qualifiedName)
 		view.declared = declaredID(g, view)

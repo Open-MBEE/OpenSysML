@@ -979,12 +979,34 @@ func TestSubjectStatingAHeldClassStaysWhateverElseItStates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n := len(byKind(set, reposync.KindDelete)); n != 0 {
-		t.Errorf("an element stating a sysx: class beside its metaclass was dropped, so its repository copy is a delete:\n%s", set.Text())
+	if len(set.Changes) != 0 {
+		t.Errorf("an element stating a sysx: class beside its metaclass is not the element the repository holds:\n%s", set.Text())
 	}
+	var left bool
 	for _, uncarried := range set.Uncarried {
 		if strings.HasSuffix(uncarried.Property, "Marker") {
-			t.Errorf("the element was tallied as not carried:\n%s", set.Text())
+			left = left || uncarried.Triples == 1
 		}
+	}
+	if !left {
+		t.Errorf("the class the repository has no place for is not reported as not carried:\n%s", set.Text())
+	}
+}
+
+func TestSubjectStatingTwoMetaclassesIsRefused(t *testing.T) {
+	local := graphOf(t, scoped(vehicle))
+	for _, subject := range local.Subjects() {
+		if name, _ := local.Lexical(subject, rdf.SysML+"qualifiedName"); name == "P::Vehicle" {
+			local.Add(subject, rdf.IRI(rdf.RDFType), rdf.SysMLTerm("ItemDefinition"))
+		}
+	}
+	_, err := reposync.Diff(local, graphOf(t, scoped(vehicle)), reposync.Options{Representation: sysmlapi.Representation{}})
+	var ambiguous *reposync.AmbiguousMetaclassError
+	if !errors.As(err, &ambiguous) || ambiguous.Subject != "P::Vehicle" || len(ambiguous.Classes) != 2 {
+		t.Fatalf("two metaclasses were not refused naming the element and both: %v", err)
+	}
+	// Compared as written, the graphs still diff.
+	if _, err := reposync.Diff(local, graphOf(t, scoped(vehicle)), reposync.Options{}); err != nil {
+		t.Errorf("without a representation the diff is refused: %v", err)
 	}
 }
