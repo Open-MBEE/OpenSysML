@@ -243,9 +243,9 @@ No two groups share a tool name: the `lsp` group's `workspace_diagnostics`, `ren
 `render_document` work on a document of the workspace, the `runtime` group's `diagnostics`,
 `render_model_view` and `render_model_document` on a model given as `paths`, inline `sources` or
 a `modelHash`. Every server also serves `tool_catalog`, which
-answers this catalogue — each tool's group, the `sysml-grpc` RPC or `sysml` flag it stands for
-and a one-line summary — narrowed to the groups served, so an agent can discover the surface
-without this page.
+answers this catalogue — each tool's group, the [scope](#scopes) a caller needs, the `sysml-grpc`
+RPC or `sysml` flag it stands for and a one-line summary — narrowed to the groups served, so an
+agent can discover the surface without this page.
 
 ### `lsp`
 
@@ -380,6 +380,34 @@ without this page.
   host starts the server with; a run that exhausts one is reported as a runaway, with the budget
   named.
 
+## Scopes
+
+Every tool requires one scope — an OAuth 2.0 scope token (RFC 6749 § 3.3) — named by
+`tool_catalog` and in the `Tools` section of the manual page. A `tools/call` by a principal whose
+credential does not grant the tool's scope is refused with a JSON-RPC error (code `-32030`,
+`insufficient_scope`) whose message and `data` name the tool and the scope, so an agent can ask for
+the scope rather than guess; `tools/list` is never narrowed, so the agent still sees what the server
+has. Over stdin and stdout, and over `-http` without a token, the one caller is the local principal
+and holds every scope, so a host that starts the server itself loses nothing. The bearer token
+named by `-token-file`, `-token` or `OPENSYSML_MCP_TOKEN` holds every scope as well; a credential an
+authorization server issues carries the scopes it was granted.
+
+| Scope | Grants | Tools |
+|---|---|---|
+| `sysml:read` | Ask about the workspace and the model: queries, diagnostics, hover, conversions and edits answered as text; nothing another caller sees changes | `apply_edits`, `code_actions`, `completion`, `convert`, `debug_current`, `definition`, `diagnostics`, `document_symbols`, `documents`, `element_properties`, `evaluate`, `evaluate_calc`, `explain_diagnostic`, `export_graphs`, `features`, `hover`, `import_data`, `inlay_hints`, `instances`, `list_engines`, `migrate`, `parse`, `query`, `references`, `render_document`, `render_model_document`, `render_model_view`, `render_run`, `render_view`, `run_document_query`, `self_check`, `server_info`, `session_print`, `signature_help`, `symbol`, `tool_catalog`, `verify_constraint`, `verify_requirement`, `verify_satisfaction`, `views`, `workspace_diagnostics`, `workspace_info`, `workspace_symbols` |
+| `sysml:write` | Write the workspace: files replaced with `apply`, documents held open or released, prompt commands that may save | `apply_model_edit`, `close_document`, `format`, `import_diagram`, `open_document`, `rename`, `repl_command`, `session_save`, `update_document` |
+| `sysml:execute` | Execute the model: actions, state machines, analyses, solving, debugging and REPL evaluation in a session | `advance`, `check`, `check_behavior`, `compare_results`, `configure`, `debug_breakpoints`, `debug_continue`, `debug_start`, `debug_step`, `debug_stop`, `execute_action`, `execute_state`, `explain`, `instance_paths`, `instantiate`, `optimize`, `record_run`, `run_analysis`, `run_runs`, `run_sweep`, `runs`, `send`, `session_eval`, `session_run`, `solve`, `sweep`, `validate_instance` |
+| `sysml:session` | Open, load, list, clear and close your own REPL sessions; a session name is private to the principal that opened it | `session_clear`, `session_close`, `session_list`, `session_load`, `session_open`, `session_submit` |
+`sysml:admin` reaches across principals and is no tool's scope: it widens `session_list` to every
+principal's sessions, each with its owner, and lets `session_close` close another principal's
+session by `owner`. A write-scoped tool that writes only with `"apply": true` requires the scope
+even without it, as the scope says what the tool can do.
+
+Every `tools/call` is recorded on the log at level `info` (`-log-level info`), one line per call
+with the principal (its subject and source: `local`, `static-token`, or the kind of credential),
+the remote address, the tool, its scope, the outcome (`ok`, `refused`, `error`) and the duration —
+never the credential, and never the arguments.
+
 ## Transports
 
 Without `-http` the protocol is spoken over **stdin and stdout**: the host starts the server,
@@ -390,10 +418,15 @@ With `-http ADDR` the server is started once and speaks the **Streamable HTTP** 
 path `/mcp` of that address to every client that connects — remote agents, or several agents over
 one project — until it is told to stop with SIGINT or SIGTERM. Stopping closes the clients'
 sessions, so their event streams end, and gives the connections up to 30 seconds to drain. The
-clients share one workspace, one runtime cache and one set of REPL sessions: a `session_*` name one
-client opens is the session every other client sees under that name, and `session_list` lists them
-all. A session's calls are served in turn, so two agents using one session interleave rather than
-collide; agents that want sessions of their own give them different names.
+clients share one workspace and one runtime cache. REPL sessions belong to the **principal** that
+opened them — the identity of the credential, `source:subject`, or the one local principal when the
+server authenticates nobody — so a `session_*` name one client opens is the session every other
+client *of the same principal* sees under that name, `session_list` lists that principal's sessions
+and `session_close` closes one of them; another principal's `default` or `work` is a different
+session, and neither sees nor closes the other's. Only a credential with the `sysml:admin`
+[scope](#scopes) lists every principal's sessions, each with its owner, and closes another's by
+`owner`. A session's calls are served in turn, so two agents of one principal using one session
+interleave rather than collide; agents that want sessions of their own give them different names.
 
 ```bash
 sysml-mcp -http 8765                                              # http://localhost:8765/mcp, this machine only
@@ -405,8 +438,9 @@ The stance is the one [`sysml-grpc`](service-transports.md) takes for TLS and or
 authentication the Model Context Protocol asks of a server on a network:
 
 - **Loopback needs no token.** A port alone, or an address with no host, binds loopback, which
-  only this machine reaches, and is served as it is: every local client may read and edit the
-  workspace, as the stdio transport lets the host that starts the server do.
+  only this machine reaches, and is served as it is: every local client is the local principal,
+  holds every [scope](#scopes) and may read and edit the workspace, as the stdio transport lets
+  the host that starts the server do.
 - **Any other address needs a bearer token.** The protocol's authorization specification makes
   an HTTP server an OAuth 2.1 resource server; this server is one in the minimal form, with one
   access token issued out of band by whoever runs it rather than by an authorization server,
@@ -482,7 +516,7 @@ version control — or is edited to the host's own reference to a secret where i
 | `-cache-size N` | `100` | Parsed models the runtime tools hold, at least 1 |
 | `-log-level LEVEL` | `warn` | Lowest level logged to stderr: `debug`, `info`, `warn` or `error` |
 | `-stdio` | — | Serve over stdin/stdout; the default transport, accepted for hosts that name it; not with `-http` |
-| `-http ADDR` | — | Serve over Streamable HTTP at `/mcp` of `host:port`, or of loopback for a port alone; every client shares the workspace, runtime cache and REPL sessions |
+| `-http ADDR` | — | Serve over Streamable HTTP at `/mcp` of `host:port`, or of loopback for a port alone; every client shares the workspace and runtime cache, and the REPL sessions of its principal |
 | `-allow-origin ORIGINS` | — | Origins (`scheme://host[:port]`, comma-separated) granted cross-origin access; loopback origins and requests with no `Origin` are admitted without a grant, others are refused |
 | `-token-file FILE` | — | File holding the bearer token every request must carry as `Authorization: Bearer TOKEN`; required for an address other machines reach, enforced on loopback too when given |
 | `-token TOKEN` | — | The token itself; `OPENSYSML_MCP_TOKEN` is read when neither flag names one |
