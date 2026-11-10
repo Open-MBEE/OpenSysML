@@ -967,3 +967,24 @@ func TestReferenceToAnExtensionTypedElementIsRefused(t *testing.T) {
 		t.Errorf("without a representation the pseudostate is not a create:\n%s", set.Text())
 	}
 }
+
+func TestSubjectStatingAHeldClassStaysWhateverElseItStates(t *testing.T) {
+	local := graphOf(t, scoped(vehicle))
+	for _, subject := range local.Subjects() {
+		if name, _ := local.Lexical(subject, rdf.SysML+"qualifiedName"); name == "P::Vehicle" {
+			local.Add(subject, rdf.IRI(rdf.RDFType), rdf.OpenSysMLTerm("Marker"))
+		}
+	}
+	set, err := reposync.Diff(local, graphOf(t, scoped(vehicle)), reposync.Options{Representation: sysmlapi.Representation{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := len(byKind(set, reposync.KindDelete)); n != 0 {
+		t.Errorf("an element stating a sysx: class beside its metaclass was dropped, so its repository copy is a delete:\n%s", set.Text())
+	}
+	for _, uncarried := range set.Uncarried {
+		if strings.HasSuffix(uncarried.Property, "Marker") {
+			t.Errorf("the element was tallied as not carried:\n%s", set.Text())
+		}
+	}
+}

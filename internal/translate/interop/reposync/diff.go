@@ -379,7 +379,7 @@ func viewOf(g *rdf.Graph, rep Carrier) (map[string]*subjectView, []UncarriedProp
 		if export.LibraryReference(g, subject) {
 			library[subject.Value] = true
 		}
-		if class := g.Type(subject); rep != nil && class != "" && !rep.Holds(class) {
+		if class, ok := unheldClass(g, subject, rep); ok {
 			unheld[subject.Value] = class
 		}
 	}
@@ -447,6 +447,24 @@ func viewOf(g *rdf.Graph, rep Carrier) (map[string]*subjectView, []UncarriedProp
 		left = append(left, UncarriedProperty{Property: propertyLabel(iri), Triples: uncarried[iri]})
 	}
 	return views, left, nil
+}
+
+// unheldClass reports the class a subject is tallied under when the
+// representation holds none of its classes; a subject stating one it holds stays.
+func unheldClass(g *rdf.Graph, subject rdf.Term, rep Carrier) (string, bool) {
+	if rep == nil {
+		return "", false
+	}
+	classes := g.ObjectsView(subject, rdf.RDFType)
+	for _, class := range classes {
+		if !class.IsIRI() || rep.Holds(class.Value) {
+			return "", false
+		}
+	}
+	if len(classes) == 0 {
+		return "", false
+	}
+	return classes[0].Value, true
 }
 
 // unheldReference finds the first carried property, in id order, that references a
