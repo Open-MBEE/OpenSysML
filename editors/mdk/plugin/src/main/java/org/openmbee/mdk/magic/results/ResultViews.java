@@ -24,11 +24,7 @@ public final class ResultViews {
     return Optional.of(owner.group(1) + "::" + view.group(1));
   }
 
-  /**
-   * The file a view is written to beside {@code stem}'s model: named by the query, {@code ::}
-   * flattened. A query whose text holds anything else a file name cannot keep also carries a digest
-   * of the text, so two queries never share a file.
-   */
+  /** The file of a view beside {@code stem}'s model: the query, {@code ::} flattened, and a digest of a query that is not plain names. */
   public static String fileName(String stem, String query) {
     String flat = query.replace("::", ".");
     String name = PLAIN.matcher(query).matches() ? flat : flat.replaceAll("[^A-Za-z0-9._-]", "_") + "~" + digest(query);
