@@ -11,8 +11,8 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 301,
-      "presentDifferent": 4,
+      "presentEqual": 305,
+      "presentDifferent": 0,
       "oursMissing": 82,
       "pilotMissing": 14,
       "absentBoth": 346,
@@ -73,9 +73,9 @@
     "ConstraintUsage.isReference": [0,0,2,0,0,0,0],
     "ConstraintUsage.isSufficient": [2,0,0,0,0,0,0],
     "ConstraintUsage.isUnique": [2,0,0,0,0,0,0],
-    "ConstraintUsage.isVariable": [0,2,0,0,0,0,0],
+    "ConstraintUsage.isVariable": [2,0,0,0,0,0,0],
     "ConstraintUsage.isVariation": [2,0,0,0,0,0,0],
-    "ConstraintUsage.mayTimeVary": [0,2,0,0,0,0,0],
+    "ConstraintUsage.mayTimeVary": [2,0,0,0,0,0,0],
     "ConstraintUsage.member": [0,0,2,0,0,0,0],
     "ConstraintUsage.membership": [0,0,2,0,0,0,0],
     "ConstraintUsage.name": [2,0,0,0,0,0,0],
