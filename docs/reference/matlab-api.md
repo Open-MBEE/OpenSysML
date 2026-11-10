@@ -139,7 +139,11 @@ and include `inputs`, `events`, `schedule`, `performer`, `trace`, `subject`, `ar
 `namedArguments`, `engine`, and `question`. Explore schedules return an `Exploration`; a normal
 `executeAction`, `executeState`, or `runAnalysis` request answers one run. Exploration entry
 points are `opensysml.exploreAction`, `opensysml.exploreState`, and
-`opensysml.exploreAnalysis`.
+`opensysml.exploreAnalysis`. An `Exploration`'s `coverage` holds the states entered and
+transitions taken across every run, not only each outcome's witness, as cell arrays
+`states` and `transitions` of structs with `path` (under the running instance),
+`declaration` (under the machine) and `runs`; a check result's `search.coverage` holds the
+same over every schedule.
 
 `executeState(..., 'trace', true)` returns typed `DocumentEvent` entries in
 `trace` and the discarded-record count in `traceDropped`; it checks the
