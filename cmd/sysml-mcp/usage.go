@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard/flags"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp"
@@ -28,6 +29,12 @@ type options struct {
 	stdio         bool
 	tlsCert       string
 	tlsKey        string
+	apiKeys       string
+	mintAPIKey    bool
+	subject       string
+	scopes        string
+	expires       time.Duration
+	revokeAPIKey  string
 	showVersion   bool
 	showHelp      bool
 	showMan       bool
@@ -66,6 +73,14 @@ func registerFlags(fs *flag.FlagSet) *options {
 			"named as the protected resource and in the bearer challenge, and by the -print-config block; default each request's own scheme and Host")
 	fs.StringVar(&o.tlsCert, "tls-cert", "", "TLS certificate file for the HTTP transport; with -tls-key, the transport serves https")
 	fs.StringVar(&o.tlsKey, "tls-key", "", "TLS private key file for the HTTP transport")
+	fs.StringVar(&o.apiKeys, "api-keys", "",
+		"File of API keys, one JSON record per line holding the SHA-256 of a key with its subject, scopes, expiry and whether it is disabled, never the key; -mint-api-key appends to it and -revoke-api-key edits it")
+	fs.BoolVar(&o.mintAPIKey, "mint-api-key", false,
+		"Mint an API key osk_<id>.<secret> for -subject with -scopes, print it once to stdout, append its record to the -api-keys file (created when absent) and exit")
+	fs.StringVar(&o.subject, "subject", "", "Who the key minted with -mint-api-key speaks for: a user name, an e-mail address, a CI job")
+	fs.StringVar(&o.scopes, "scopes", "", "Scopes the key minted with -mint-api-key grants, comma-separated (RFC 6749 scope tokens)")
+	fs.DurationVar(&o.expires, "expires", 0, "Lifetime of the key minted with -mint-api-key, as 720h or 90m; none by default, a key that does not expire")
+	fs.StringVar(&o.revokeAPIKey, "revoke-api-key", "", "Mark the key of this id disabled in the -api-keys file and exit")
 	fs.Var(&o.printConfig, "print-config",
 		"Write the configuration block declaring this server to an agent host — "+strings.Join(hostNames(), ", ")+" — to stdout and exit; alone, list the hosts")
 	fs.StringVar(&o.configCommand, "print-config-command", "",

@@ -515,6 +515,47 @@ server already running rather than starting one, and with the server's token (`-
 in a file the host reads privately — a user-level configuration, or a project file kept out of
 version control — or is edited to the host's own reference to a secret where it has one.
 
+## API keys
+
+A service with several callers — people, CI jobs, other agents — needs a credential per caller that
+can be revoked alone, which one shared token is not. `sysml-mcp` mints and revokes **API keys** in a
+file; the file is the server's key store.
+
+```bash
+sysml-mcp -mint-api-key -api-keys keys.jsonl -subject alice@example.org -scopes sysml:read,sysml:write -expires 720h
+sysml-mcp -revoke-api-key Jf3kQ9pLmN2x -api-keys keys.jsonl
+```
+
+- **The key** is `osk_<id>.<secret>`: the `osk_` prefix tells it from any other bearer token, the id
+  (12 characters) names its record, and the secret is 32 random bytes in base64url. It is printed
+  **once**, to stdout alone, when minted; store it where a token belongs (a secret store, a CI
+  variable, a file only its user reads). The file never holds it, so a copy of the file does not
+  give a key away, and a key that is lost is minted again rather than recovered.
+- **The file** is one JSON object per line (JSON Lines), `{"id", "sha256", "subject", "scopes",
+  "expires", "disabled"}`: the SHA-256 of the secret in hex, the subject the key speaks for, the
+  scopes it grants, its expiry (RFC 3339, whole seconds, absent for a key that does not expire)
+  and whether it is disabled. Minting appends a line; the file is created with mode `0600` and
+  kept so. A line that is not a record, a scope that is not an RFC 6749 scope token, or an id
+  held twice fails the file at that line, and the file is not edited.
+- **Rotation and revocation.** `-revoke-api-key ID` marks the record disabled — the line stays,
+  so the subject and the history are kept — and a server reading the file refuses the key from
+  its next look at the file. To rotate, mint the subject a new key, move the caller to it, then
+  revoke the old id. A key past its `expires` is refused as expired without being revoked. Two
+  edits at once wait for each other through a `keys.jsonl.lock` beside the file; one left by a
+  process that died is named for removal.
+- **Scopes** are the RFC 6749 § 3.3 scope tokens the key grants (printable ASCII without spaces,
+  quotes or backslashes), comma-separated at `-scopes`; a key has at least one. What each scope
+  admits is the server's to say when it reads the file.
+
+A server given such a file (`internal/frontend/guard/apikey`) accepts a key as `Authorization:
+Bearer osk_…` with the record's subject, scopes and expiry as the request's principal, looking the
+record up by id and comparing the secret's hash in constant time, and refuses a disabled, expired or
+unknown key with the RFC 6750 § 3.1 answer; a bearer token that is not a key is left to the server's
+other authenticators (its static token last). The file is read again when its modification time
+moves, at most once a second and only on a request, and on SIGHUP; a file that no longer reads
+keeps the keys already held and logs the failure once. The `-http` transport of this release does
+not yet read the file: it serves the one bearer token above.
+
 ## Command line
 
 | Flag | Default | Meaning |
@@ -532,6 +573,9 @@ version control — or is edited to the host's own reference to a secret where i
 | `-token TOKEN` | — | The token itself; `OPENSYSML_MCP_TOKEN` is read when neither flag names one |
 | `-public-url URL` | the request's scheme and `Host` | The URL clients reach the endpoint at behind a proxy that terminates TLS or rewrites the path; named as the resource, in the bearer challenge and by the `-print-config` block |
 | `-tls-cert FILE`, `-tls-key FILE` | — | Serve `https`; both or neither |
+| `-api-keys FILE` | — | File of API keys, one JSON record per line holding the SHA-256 of a key with its subject, scopes, expiry and whether it is disabled; appended to by `-mint-api-key`, edited by `-revoke-api-key` |
+| `-mint-api-key` | — | Mint a key `osk_<id>.<secret>` for `-subject NAME` with `-scopes a,b`, expiring after `-expires DUR` when given; print it once to stdout, append its record to the `-api-keys` file and exit |
+| `-revoke-api-key ID` | — | Mark the key of this id disabled in the `-api-keys` file and exit |
 | `-print-config [HOST]` | — | Write a host's configuration block to stdout and exit; alone, list the hosts |
 | `-print-config-command CMD` | the binary's path | The command the block names; with `-http ADDR` (and `-tls-cert` for `https`) the block names the server's URL instead, with the `Authorization` header when a token is given |
 | `-version`, `-help`, `-man` | — | The build, this table, the manual page |
