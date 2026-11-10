@@ -302,6 +302,15 @@
       ]
     },
     {
+      "name": "offline_access",
+      "description": "OpenID Connect built-in scope: offline_access",
+      "protocol": "openid-connect",
+      "attributes": {
+        "consent.screen.text": "${offlineAccessScopeConsentText}",
+        "display.on.consent.screen": "true"
+      }
+    },
+    {
       "name": "sysml:read",
       "description": "Read models through sysml-mcp",
       "protocol": "openid-connect",
@@ -318,13 +327,40 @@
         "include.in.token.scope": "true",
         "display.on.consent.screen": "true"
       }
+    },
+    {
+      "name": "sysml:execute",
+      "description": "Execute and evaluate models through sysml-mcp",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      }
+    },
+    {
+      "name": "sysml:session",
+      "description": "Open and drive REPL sessions through sysml-mcp",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      }
+    },
+    {
+      "name": "sysml:admin",
+      "description": "Administer the sysml-mcp service",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      }
     }
   ],
   "clients": [
     {
       "clientId": "mcp-inspector",
       "name": "MCP Inspector",
-      "description": "Public client for an MCP host running Authorization Code + PKCE on the developer's machine",
+      "description": "Public client for an MCP host running Authorization Code + PKCE on the developer's machine; it may ask for every sysml-mcp scope",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": true,
@@ -350,7 +386,11 @@
       ],
       "optionalClientScopes": [
         "sysml:read",
-        "sysml:write"
+        "sysml:write",
+        "sysml:execute",
+        "sysml:session",
+        "sysml:admin",
+        "offline_access"
       ],
       "protocolMappers": [
         {
@@ -381,6 +421,10 @@
           "value": "alice",
           "temporary": false
         }
+      ],
+      "realmRoles": [
+        "default-roles-opensysml",
+        "offline_access"
       ]
     }
   ]

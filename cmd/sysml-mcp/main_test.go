@@ -127,6 +127,36 @@ func TestCommandLine(t *testing.T) {
 		status: exitUnservable,
 		stderr: []string{"sysml-mcp: -allow-origin applies to the HTTP transport; name its address with -http", "Usage: sysml-mcp [options]"},
 	}, {
+		name:   "-oidc-issuer without -http is reported with the usage",
+		args:   []string{"-oidc-issuer", "https://sso.example.org/realms/models"},
+		status: exitUnservable,
+		stderr: []string{"sysml-mcp: -oidc-issuer applies to the HTTP transport; name its address with -http", "Usage: sysml-mcp [options]"},
+	}, {
+		name:   "an -oidc qualifier without -oidc-issuer is reported with the usage",
+		args:   []string{"-http", "8765", "-oidc-audience", "https://models.example.org/mcp"},
+		status: exitUnservable,
+		stderr: []string{"sysml-mcp: -oidc-audience applies to single sign-on; name the provider with -oidc-issuer", "Usage: sysml-mcp [options]"},
+	}, {
+		name:   "-oidc-issuer without an audience is reported with the usage",
+		args:   []string{"-http", "8765", "-oidc-issuer", "https://sso.example.org/realms/models"},
+		status: exitUnservable,
+		stderr: []string{"sysml-mcp: -oidc-issuer needs the audience a token is issued for: name the endpoint with -public-url, or give -oidc-audience", "Usage: sysml-mcp [options]"},
+	}, {
+		name:   "a cleartext issuer off loopback is reported with the usage",
+		args:   []string{"-http", "8765", "-public-url", "https://models.example.org/mcp", "-oidc-issuer", "http://sso.example.org/realms/models"},
+		status: exitUnservable,
+		stderr: []string{`sysml-mcp: -oidc-issuer: the issuer "http://sso.example.org/realms/models" must be https (or http at a loopback host)`, "Usage: sysml-mcp [options]"},
+	}, {
+		name:   "-oidc-introspect without its client file is reported with the usage",
+		args:   []string{"-http", "8765", "-public-url", "https://models.example.org/mcp", "-oidc-issuer", "https://sso.example.org/realms/models", "-oidc-introspect", "https://sso.example.org/realms/models/introspect"},
+		status: exitUnservable,
+		stderr: []string{"sysml-mcp: -oidc-introspect and -oidc-client-file must be supplied together", "Usage: sysml-mcp [options]"},
+	}, {
+		name:   "an unreadable -oidc-client-file is reported with the usage",
+		args:   []string{"-http", "8765", "-public-url", "https://models.example.org/mcp", "-oidc-issuer", "https://sso.example.org/realms/models", "-oidc-introspect", "https://sso.example.org/realms/models/introspect", "-oidc-client-file", "nosuch.json"},
+		status: exitUnservable,
+		stderr: []string{"sysml-mcp: -oidc-client-file: open nosuch.json: ", "Usage: sysml-mcp [options]"},
+	}, {
 		name:   "-token without -http is reported with the usage",
 		args:   []string{"-token", "s3cret"},
 		status: exitUnservable,

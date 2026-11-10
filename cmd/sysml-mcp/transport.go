@@ -62,9 +62,14 @@ func readHTTPOptions(o *options) (*httpOptions, error) {
 // tokenValue is the token a -print-config block carries; empty without one.
 func (h *httpOptions) tokenValue() string { return h.tokenText }
 
-// readToken reads the token from -token-file (one trailing line break dropped),
-// -token or the environment, in that order, as a principal of every scope; both flags are refused.
+// readToken resolves the authenticators: the token of -token-file, -token or the
+// environment as a principal of every scope, and the provider of -oidc-issuer,
+// whose tokens name the -public-url endpoint unless -oidc-audience says otherwise.
 func readToken(o *options) (mcp.BearerToken, string, error) {
+	if o.auth.OIDCIssuer != "" && o.auth.OIDCAudience == "" && o.publicURL == "" {
+		return mcp.BearerToken{}, "", errors.New("-oidc-issuer needs the audience a token is issued for: name the endpoint with -public-url, or give -oidc-audience")
+	}
+	o.auth.Resource = o.publicURL
 	resolved, err := o.auth.Resolve(mcp.TokenEnv, catalog.ScopeNames()...)
 	if err != nil {
 		return mcp.BearerToken{}, "", err

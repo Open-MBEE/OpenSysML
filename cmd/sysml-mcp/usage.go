@@ -153,6 +153,7 @@ func doc() usage.Doc {
 				usage.Ex("sysml-mcp -http 0.0.0.0:8765 -token-file mcp.token -tls-cert server.crt -tls-key server.key", "Serve every interface over https to clients that hold the token"),
 				usage.Ex("sysml-mcp -http 0.0.0.0:8765 -token-file mcp.token -allow-origin https://agents.example.org", "Answer one browser origin besides loopback"),
 				usage.Ex("sysml-mcp -http 8765 -token-file mcp.token -public-url https://models.example.org/mcp", "Serve loopback behind a proxy that terminates TLS at that URL"),
+				usage.Ex("sysml-mcp -http 0.0.0.0:8765 -public-url https://models.example.org/mcp -oidc-issuer https://sso.example.org/realms/models -tls-cert server.crt -tls-key server.key", "Serve clients that sign on at that provider"),
 			},
 			Paragraphs: []string{
 				"An address with no host, or a port alone, binds loopback, which only " +
@@ -180,6 +181,25 @@ func doc() usage.Doc {
 					"machine. The wildcard origin is not accepted. A request whose " +
 					"MCP-Protocol-Version header names a version the server does not " +
 					"speak is refused with 400.",
+				"-oidc-issuer URL has the server accept the access tokens an OpenID " +
+					"provider issues, beside the token above or in its place: the " +
+					"provider's discovery document is read when the first token arrives, " +
+					"its signing keys when a token needs them, and a token is accepted " +
+					"when its signature verifies and its iss is the issuer, its aud names " +
+					"this endpoint (-public-url, or -oidc-audience when the provider puts " +
+					"another value there), and its exp and nbf admit the moment, 30 " +
+					"seconds of clock skew allowed. The caller is the token's sub, named " +
+					"by preferred_username, email or name, with the scopes of its scope " +
+					"or scp claim, or of the claim -oidc-scope-claim names. An expired " +
+					"token is refused with 401 and error=\"invalid_token\", a token the " +
+					"provider cannot be reached to verify with 503, and the resource " +
+					"metadata names the issuer under authorization_servers and the " +
+					"tools' scopes under scopes_supported, which is how a host finds the " +
+					"provider from the challenge and asks it for a token. A provider " +
+					"whose tokens are not JWTs is asked about them at -oidc-introspect " +
+					"URL (RFC 7662) as the client -oidc-client-file holds, a JSON file " +
+					"with client_id and client_secret; without it, a bearer token that " +
+					"is not a JWT is checked against the token above.",
 			},
 		}, scopesSection(), {
 			Title: "Configuring a host",
