@@ -134,7 +134,6 @@ ConcernUsage::input	2	symbol-53
 ConcernUsage::member	6	symbol-51
 ConcernUsage::membership	6	symbol-51
 ConcernUsage::usage	6	symbol-51
-ConjugatedPortTyping::conjugatedPortDefinition	6	export-57
 Conjugation::ownedRelatedElement	1	export-06
 Conjugation::ownedRelationship	1	symbol-03
 ConnectionDefinition::isSufficient	23	export-56

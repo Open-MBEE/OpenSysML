@@ -116,38 +116,31 @@ The baseline recorded on the pinned pilot over 935 files, every root present (38
 
 | Root | Files | Elements (implied) | Pilot elements (copies dropped, files failed) |
 |---|---:|---:|---:|
-| `training` | 100 | 7926 (4622) | 11906 (5797, 0) |
-| `pilot-examples` | 99 | 31138 (18262) | 40642 (10940, 3) |
-| `pilot-validation` | 56 | 10692 (6273) | 14222 (3066, 0) |
-| `kerml-examples` | 58 | 6906 (4269) | 8762 (1105, 0) |
-| `spec-examples` | 511 | 8329 (4729) | 12233 (37, 52) |
-| `testdata` | 40 | 1528 (832) | 2284 (52, 4) |
-| `examples` | 56 | 31524 (18354) | 50715 (76235, 0) |
+| `training` | 100 | 11093 (6419) | 11906 (5797, 0) |
+| `pilot-examples` | 99 | 39101 (22833) | 40642 (10940, 3) |
+| `pilot-validation` | 56 | 13618 (7933) | 14222 (3066, 0) |
+| `kerml-examples` | 58 | 8331 (5037) | 8762 (1105, 0) |
+| `spec-examples` | 511 | 11636 (6630) | 12233 (37, 52) |
+| `testdata` | 40 | 2079 (1143) | 2284 (52, 4) |
+| `examples` | 56 | 46437 (26750) | 50715 (76235, 0) |
 | `probes` | 4 | 45 (26) | 53 (0, 0) |
-| `manual-examples` | 11 | 3963 (2393) | 9379 (0, 0) |
+| `manual-examples` | 11 | 8390 (4803) | 9379 (0, 0) |
 
-Of the 297 served rules, **277 answer a value** on at least one element, **10 are empty
-everywhere** they apply, **9 are never derived** and 1 applies to no element of any root; the pilot
-answers a value for 288. **17 rules are silent** — ours never a value, the pilot a value somewhere:
+Of the 297 served rules, **285 answer a value** on at least one element, **5 are empty
+everywhere** they apply and **7 are never derived**; every rule applies to some element, and the pilot
+answers a value for 288. **10 rules are silent** — ours never a value, the pilot a value somewhere:
 
 | Silent rule | Ours: empty / not derived / carriers | Pilot: values / carriers |
 |---|---:|---:|
 | `Documentation::documentedElement` | 0 / 407 / 407 | 420 / 420 |
-| `Flow::flowEnd` | 234 / 0 / 234 | 158 / 236 |
-| `Flow::sourceOutputFeature` | 0 / 234 / 234 | 161 / 236 |
-| `Flow::targetInputFeature` | 0 / 234 / 234 | 161 / 236 |
-| `Import::importedElement` | 0 / 1221 / 1221 | 1193 / 1202 |
-| `MultiplicityRange::bound` | 1186 / 0 / 1186 | 1426 / 1426 |
-| `MultiplicityRange::lowerBound` | 1186 / 0 / 1186 | 368 / 1426 |
-| `MultiplicityRange::upperBound` | 1186 / 0 / 1186 | 1426 / 1426 |
-| `Namespace::importedMembership` | 40806 / 637 / 41443 | 634 / 63157 |
+| `Flow::sourceOutputFeature` | 0 / 237 / 237 | 161 / 236 |
+| `Flow::targetInputFeature` | 0 / 237 / 237 | 161 / 236 |
+| `Import::importedElement` | 0 / 1256 / 1256 | 1193 / 1202 |
+| `Namespace::importedMembership` | 57636 / 672 / 58308 | 634 / 63157 |
 | `PortConjugation::originalPortDefinition` | 0 / 134 / 134 | 127 / 127 |
 | `RequirementDefinition::text` | 71 / 66 / 137 | 66 / 134 |
 | `RequirementUsage::text` | 402 / 104 / 506 | 103 / 492 |
-| `TransitionUsage::source` | 0 / 243 / 243 | 343 / 343 |
-| `TransitionUsage::succession` | 243 / 0 / 243 | 343 / 343 |
-| `TransitionUsage::target` | 0 / 243 / 243 | 343 / 343 |
-| `Usage::nestedViewpoint` | 14425 / 0 / 14425 | 1 / 18777 |
+| `Usage::nestedViewpoint` | 17706 / 0 / 17706 | 1 / 18777 |
 | `UseCaseDefinition::includedUseCase` | 0 / 19 / 19 | 3 / 19 |
 
 `ConjugatedPortTyping::conjugatedPortDefinition` left the list when the Structure began deriving it
