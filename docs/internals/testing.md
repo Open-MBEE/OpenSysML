@@ -192,9 +192,13 @@ go test -v -run TestRuntimeRobustness -timeout 60s ./internal/exec/runtime
 - **Test fixtures:** `testdata/*.sysml`, `testdata/*.kerml`
 - **Golden files:** Expected parse/resolve/diagnostic outputs
 - **WebAssembly gate:** `tests/wasm` compiles and vets the whole tree for both WebAssembly
-  targets, links each command and runs it under Node — `make wasm-check`, where
-  `OPENSYSML_REQUIRE_WASM=1` (which both CI systems set) turns an absent runtime into a failure
-  rather than a skip
+  targets, links each command and runs it under Node — `make wasm-check`, which both CI
+  systems run and where `OPENSYSML_REQUIRE_WASM=1` turns an absent runtime into a failure
+  rather than a skip. The gate generates the bundled library's snapshot for its own run and
+  builds everything through a `go build -overlay` embedding it, so the gzipped size budgets
+  in `tests/wasm/*_test.go` bound the with-snapshot artifact every Makefile build target and
+  `make build-release-wasm` produce, whether or not the tree holds
+  `internal/workspace/libs/stdlib.snapshot` (a build without it is about 1.6 MB smaller gzipped)
 
 **Run all tests:**
 ```bash
