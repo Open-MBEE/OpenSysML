@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	gooidc "github.com/coreos/go-oidc/v3/oidc"
@@ -57,13 +58,14 @@ type Config struct {
 // introspect its opaque tokens); build one with New.
 type Authenticator struct {
 	cfg       Config
-	verifier  *gooidc.IDTokenVerifier
 	introspec *introspector
+	mu        sync.Mutex
+	verifier  *gooidc.IDTokenVerifier
 }
 
-// New reads the provider's discovery document and prepares the verifier; its
-// JWKS is fetched on first use and re-fetched when a token names an unknown key.
-func New(ctx context.Context, cfg Config) (*Authenticator, error) {
+// New prepares the authenticator; the provider's discovery document is read when
+// the first token arrives (every token Unavailable until it is), so a provider that is down stops nobody starting.
+func New(cfg Config) (*Authenticator, error) {
 	if err := cfg.Check(); err != nil {
 		return nil, fmt.Errorf("oidc: %w", err)
 	}
@@ -76,30 +78,41 @@ func New(ctx context.Context, cfg Config) (*Authenticator, error) {
 	if cfg.ClockSkew == 0 {
 		cfg.ClockSkew = DefaultClockSkew
 	}
-	// The key set outlives New's ctx: it is fetched during later requests.
-	keys := gooidc.ClientContext(context.WithoutCancel(ctx), cfg.HTTPClient)
-	provider, err := gooidc.NewProvider(gooidc.ClientContext(ctx, cfg.HTTPClient), cfg.Issuer)
+	a := &Authenticator{cfg: cfg}
+	if cfg.Introspect != "" {
+		a.introspec = newIntrospector(cfg)
+	}
+	return a, nil
+}
+
+// discover reads the provider's discovery document once and keeps the
+// verifier it names; a read that fails is retried by the next token.
+func (a *Authenticator) discover(ctx context.Context) (*gooidc.IDTokenVerifier, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.verifier != nil {
+		return a.verifier, nil
+	}
+	provider, err := gooidc.NewProvider(gooidc.ClientContext(ctx, a.cfg.HTTPClient), a.cfg.Issuer)
 	if err != nil {
-		return nil, fmt.Errorf("oidc: discovery of %s: %w", cfg.Issuer, err)
+		return nil, fmt.Errorf("oidc: discovery of %s: %w", a.cfg.Issuer, err)
 	}
 	var endpoints struct {
 		JWKSURI string `json:"jwks_uri"`
 	}
 	if err := provider.Claims(&endpoints); err != nil || endpoints.JWKSURI == "" {
-		return nil, fmt.Errorf("oidc: discovery of %s names no jwks_uri", cfg.Issuer)
+		return nil, fmt.Errorf("oidc: discovery of %s names no jwks_uri", a.cfg.Issuer)
 	}
-	a := &Authenticator{cfg: cfg}
-	// Expiry is checked here, with the configured skew, rather than by the library.
-	a.verifier = gooidc.NewVerifier(cfg.Issuer, keySet{gooidc.NewRemoteKeySet(keys, endpoints.JWKSURI)}, &gooidc.Config{
-		ClientID:             cfg.Audience,
+	// The key set outlives this request: it is fetched during later ones.
+	keys := gooidc.ClientContext(context.WithoutCancel(ctx), a.cfg.HTTPClient)
+	// Expiry is checked by Verify, with the configured skew, not by the library.
+	a.verifier = gooidc.NewVerifier(a.cfg.Issuer, keySet{gooidc.NewRemoteKeySet(keys, endpoints.JWKSURI)}, &gooidc.Config{
+		ClientID:             a.cfg.Audience,
 		SupportedSigningAlgs: signingAlgorithms,
 		SkipExpiryCheck:      true,
-		Now:                  cfg.Now,
+		Now:                  a.cfg.Now,
 	})
-	if cfg.Introspect != "" {
-		a.introspec = newIntrospector(cfg)
-	}
-	return a, nil
+	return a.verifier, nil
 }
 
 // Check reports what makes cfg unusable before any provider is contacted: no
@@ -169,8 +182,12 @@ func (a *Authenticator) Verify(ctx context.Context, authorization string, _ *htt
 		}
 		return a.introspec.verify(ctx, token)
 	}
+	verifier, err := a.discover(ctx)
+	if err != nil {
+		return guard.Principal{}, guard.Unavailable
+	}
 	var outage bool
-	idToken, err := a.verifier.Verify(context.WithValue(ctx, outageKey{}, &outage), token)
+	idToken, err := verifier.Verify(context.WithValue(ctx, outageKey{}, &outage), token)
 	switch {
 	case outage:
 		return guard.Principal{}, guard.Unavailable

@@ -53,6 +53,30 @@ Log level (debug, info, warn, error). The default is info.
 .B \-man
 Write this command's manual page, in roff, to stdout and exit
 .TP
+.BI \-oidc\-audience " string"
+Audience (aud) a token must name to be accepted; default the URL the service
+is reached at
+.TP
+.BI \-oidc\-client\-file " string"
+JSON file holding the client_id and client_secret of the provider's client the
+introspection requests are made as
+.TP
+.BI \-oidc\-introspect " string"
+Introspection endpoint (RFC 7662) asked about a bearer token that is not a
+JWT, with \-oidc\-client\-file; an active answer is kept until the token
+expires
+.TP
+.BI \-oidc\-issuer " string"
+Accept the access tokens of this OpenID provider, given as its issuer URL
+(https, or http on loopback): its discovery document and signing keys are
+read, a token's signature, iss, aud, exp and nbf verified, and the issuer
+advertised in the resource metadata so a host runs Authorization Code with
+PKCE against it
+.TP
+.BI \-oidc\-scope\-claim " string"
+Claim a token's scopes are read from, a space\-separated string or an array;
+default scope, then scp
+.TP
 .BI \-port " int"
 gRPC server port. The default is 50051.
 .TP

@@ -29,6 +29,8 @@ type issuer struct {
 	ecKey      *ecdsa.PrivateKey
 	jwksHits   atomic.Int32
 	introspect func(w http.ResponseWriter, r *http.Request)
+	// down has every endpoint answer 503, as a provider being restarted does.
+	down atomic.Bool
 }
 
 func newIssuer(t *testing.T) *issuer {
@@ -65,7 +67,13 @@ func newIssuer(t *testing.T) *issuer {
 		}
 		is.introspect(w, r)
 	})
-	is.Server = httptest.NewServer(mux)
+	is.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if is.down.Load() {
+			http.Error(w, "restarting", http.StatusServiceUnavailable)
+			return
+		}
+		mux.ServeHTTP(w, r)
+	}))
 	t.Cleanup(is.Close)
 	return is
 }

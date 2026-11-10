@@ -29,7 +29,7 @@ func parse(t *testing.T, args ...string) *Options {
 func TestRegisterAndGiven(t *testing.T) {
 	fs := flag.NewFlagSet("test", flag.ContinueOnError)
 	Register(fs, env)
-	for _, name := range []string{"token", "token-file"} {
+	for _, name := range []string{"token", "token-file", "oidc-issuer", "oidc-audience", "oidc-scope-claim", "oidc-introspect", "oidc-client-file"} {
 		if fs.Lookup(name) == nil {
 			t.Errorf("-%s is not declared", name)
 		}
@@ -128,5 +128,70 @@ func TestResolveRefusals(t *testing.T) {
 				t.Errorf("error = %v, want it to say %q", err, test.want)
 			}
 		})
+	}
+}
+
+// -oidc-issuer adds the provider's authenticator ahead of the static token,
+// advertising the scopes given; nothing is read from the provider to resolve.
+func TestResolveOpenIDProvider(t *testing.T) {
+	t.Setenv(env, "")
+	o := parse(t, "-oidc-issuer", "https://sso.example.org/realms/models", "-token", "from-flag")
+	o.Resource = "https://models.example.org/mcp"
+	a, err := o.Resolve(env, "sysml:read", "sysml:write")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(a.Chain()) != 2 || a.String() != "openid provider https://sso.example.org/realms/models, bearer token" {
+		t.Fatalf("resolved to %+v (%s), want the provider then the token", a, a)
+	}
+	md := a.Chain().Metadata()
+	if strings.Join(md.AuthorizationServers, " ") != "https://sso.example.org/realms/models" || strings.Join(md.ScopesSupported, " ") != "sysml:read sysml:write" {
+		t.Errorf("metadata = %+v", md)
+	}
+	// The static token, not being a JWT, passes the provider to the token behind it.
+	if principal, refusal := a.Chain().Verify(context.Background(), "Bearer from-flag", nil); refusal != guard.Accepted || principal.Source != guard.SourceStaticToken {
+		t.Errorf("the static token through the chain: %+v, %v", principal, refusal)
+	}
+	// A provider alone guards the service too.
+	o = parse(t, "-oidc-issuer", "http://localhost:8080/realms/models", "-oidc-audience", "api://models")
+	if a, err := o.Resolve(env); err != nil || !a.Configured() || len(a.Chain()) != 1 || a.TokenText() != "" {
+		t.Errorf("a provider alone resolved to %+v, %v", a, err)
+	}
+	if got := o.Given(); got != "-oidc-issuer" {
+		t.Errorf("Given() = %q, want -oidc-issuer", got)
+	}
+}
+
+// The -oidc-* flags are refused when they cannot name a usable provider.
+func TestResolveOpenIDProviderRefusals(t *testing.T) {
+	t.Setenv(env, "")
+	issuer := []string{"-oidc-issuer", "https://sso.example.org/realms/models", "-oidc-audience", "api://models"}
+	for _, test := range []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"qualifier alone", []string{"-oidc-audience", "api://models"}, "-oidc-audience applies to single sign-on; name the provider with -oidc-issuer"},
+		{"scope claim alone", []string{"-oidc-scope-claim", "scp"}, "-oidc-scope-claim applies to single sign-on"},
+		{"no audience", []string{"-oidc-issuer", "https://sso.example.org/realms/models"}, "-oidc-issuer needs the audience a token is issued for"},
+		{"cleartext issuer", []string{"-oidc-issuer", "http://sso.example.org/realms/models", "-oidc-audience", "api://models"}, `the issuer "http://sso.example.org/realms/models" must be https (or http at a loopback host)`},
+		{"half an introspection pair", append(issuer, "-oidc-introspect", "https://sso.example.org/introspect"), "-oidc-introspect and -oidc-client-file must be supplied together"},
+		{"client file alone", append(issuer, "-oidc-client-file", "client.json"), "must be supplied together"},
+		{"missing client file", append(issuer, "-oidc-introspect", "https://sso.example.org/introspect", "-oidc-client-file", filepath.Join(t.TempDir(), "none.json")), "-oidc-client-file: open "},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := parse(t, test.args...).Resolve(env)
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Errorf("error = %v, want it to say %q", err, test.want)
+			}
+		})
+	}
+	file := filepath.Join(t.TempDir(), "client.json")
+	if err := os.WriteFile(file, []byte(`{"client_id":"svc","client_secret":"s3cret"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	a, err := parse(t, append(issuer, "-oidc-introspect", "https://sso.example.org/introspect", "-oidc-client-file", file)...).Resolve(env)
+	if err != nil || len(a.Chain()) != 1 {
+		t.Errorf("a complete introspection pair resolved to %+v, %v", a, err)
 	}
 }

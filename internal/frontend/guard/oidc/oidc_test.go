@@ -21,7 +21,7 @@ func newAuthenticator(t *testing.T, is *issuer, mutate func(*oidc.Config)) *oidc
 	if mutate != nil {
 		mutate(&cfg)
 	}
-	a, err := oidc.New(context.Background(), cfg)
+	a, err := oidc.New(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,9 +41,8 @@ func TestNewRefusesIncompleteConfig(t *testing.T) {
 		"client without secret": {Issuer: is.URL, Audience: resource, Introspect: is.URL + "/introspect", Client: oidc.Client{ID: "a"}},
 		"client without id":     {Issuer: is.URL, Audience: resource, Introspect: is.URL + "/introspect", Client: oidc.Client{Secret: "b"}},
 		"issuer over http":      {Issuer: "http://idp.example.org", Audience: resource},
-		"unreachable issuer":    {Issuer: "http://127.0.0.1:1", Audience: resource},
 	} {
-		if _, err := oidc.New(context.Background(), cfg); err == nil {
+		if _, err := oidc.New(cfg); err == nil {
 			t.Errorf("%s: New accepted %+v", name, cfg)
 		}
 	}
@@ -65,14 +64,44 @@ func TestCheckNamesWhatIsMissing(t *testing.T) {
 	}
 }
 
-func TestNewNeedsJWKSURI(t *testing.T) {
+func TestVerifyIsUnavailableUntilTheProviderIsRead(t *testing.T) {
+	is := newIssuer(t)
+	is.down.Store(true)
+	a := newAuthenticator(t, is, nil)
+	token := bearer(is.token(t, is.standard(resource)))
+	if p, refusal := a.Verify(context.Background(), token, nil); refusal != guard.Unavailable || !zero(p) {
+		t.Fatalf("with discovery failing: %+v, %v", p, refusal)
+	}
+	// A bearer token that is not a JWT needs no provider.
+	if _, refusal := a.Verify(context.Background(), "Bearer osk_abc.def", nil); refusal != guard.NothingPresented {
+		t.Errorf("an API key with discovery failing: %v", refusal)
+	}
+	is.down.Store(false)
+	if _, refusal := a.Verify(context.Background(), token, nil); refusal != guard.Accepted {
+		t.Fatalf("once the provider answers: %v", refusal)
+	}
+	unreachable, err := oidc.New(oidc.Config{Issuer: "http://127.0.0.1:1", Audience: resource})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, refusal := unreachable.Verify(context.Background(), token, nil); refusal != guard.Unavailable {
+		t.Errorf("with nothing at the issuer: %v", refusal)
+	}
+}
+
+func TestVerifyNeedsJWKSURI(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"issuer":"` + "http://" + r.Host + `"}`))
 	}))
 	defer srv.Close()
-	if _, err := oidc.New(context.Background(), oidc.Config{Issuer: srv.URL, Audience: resource}); err == nil || !strings.Contains(err.Error(), "jwks_uri") {
-		t.Fatalf("New without jwks_uri: %v", err)
+	a, err := oidc.New(oidc.Config{Issuer: srv.URL, Audience: resource})
+	if err != nil {
+		t.Fatal(err)
+	}
+	is := newIssuer(t)
+	if _, refusal := a.Verify(context.Background(), bearer(is.token(t, is.standard(resource))), nil); refusal != guard.Unavailable {
+		t.Errorf("without jwks_uri: %v", refusal)
 	}
 }
 
