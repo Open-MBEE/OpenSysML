@@ -23,7 +23,10 @@ not satisfy.
 For a step that visits several elements, one path failure fails the whole query. The record keeps
 every failing element; a partial set of rows is not presented as a complete answer. `tolerate =
 true` is an explicit alternative for `Project` and `WhereFeature`: `Project` can keep an empty
-cell, while `WhereFeature` can drop the element it cannot compare. The current output does not
+cell, while `WhereFeature` can drop the element it cannot compare — for a feature the element
+lacks and for a metamodel property OpenSysML does not derive yet alike. A property the metamodel
+declares is never unknown, even when no row read carries it; only a name no metaclass declares and
+no row has is. The current output does not
 mark which cells or rows were tolerated; see [Current limits](#current-limits).
 
 ## Run a query
