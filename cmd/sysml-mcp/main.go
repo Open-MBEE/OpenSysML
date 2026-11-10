@@ -134,7 +134,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprint(stdout, build().Report(mcpCommand))
 		return exitServed
 	}
-	keys, err := readKeyCommand(opts)
+	keys, err := readKeyCommand(opts, fs)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)
 		printUsage(stderr, fs)

@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"strings"
@@ -23,14 +24,19 @@ type keyCommand struct {
 
 // readKeyCommand validates the key flags together: nil when neither command
 // was asked for, and then -api-keys, -subject, -scopes and -expires are refused.
-func readKeyCommand(o *options) (*keyCommand, error) {
-	if !o.mintAPIKey && o.revokeAPIKey == "" {
+func readKeyCommand(o *options, fs *flag.FlagSet) (*keyCommand, error) {
+	revoke := false
+	fs.Visit(func(f *flag.Flag) { revoke = revoke || f.Name == "revoke-api-key" })
+	if revoke && o.revokeAPIKey == "" {
+		return nil, errors.New("-revoke-api-key needs the id of the key to disable; an empty id names none")
+	}
+	if !o.mintAPIKey && !revoke {
 		if o.apiKeys != "" {
 			return nil, errors.New("-api-keys applies to -mint-api-key and -revoke-api-key; give one")
 		}
 		return nil, mintQualifiers(o, "-mint-api-key; give it")
 	}
-	if o.mintAPIKey && o.revokeAPIKey != "" {
+	if o.mintAPIKey && revoke {
 		return nil, errors.New("-mint-api-key and -revoke-api-key ask for different things; give one")
 	}
 	which := "-mint-api-key"
