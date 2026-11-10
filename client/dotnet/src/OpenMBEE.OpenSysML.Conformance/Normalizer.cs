@@ -37,7 +37,10 @@ internal sealed class Normalizer
         "sysml.Value.instance_id",
         "sysml.Verdict.instance_id",
         "sysml.Function.self_id",
-        "sysml.DocumentObject.instance_id");
+        "sysml.DocumentObject.instance_id",
+        "sysml.InstanceReach.instance_id",
+        "sysml.InstanceRoot.instance_id",
+        "sysml.InstancePathStep.instance_id");
 
     private readonly string modelHash;
     private readonly Dictionary<long, string> labels = [];

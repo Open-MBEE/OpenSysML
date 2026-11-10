@@ -86,9 +86,10 @@ borrows it. Each method below is one RPC:
 | Area | Methods | Result |
 | --- | --- | --- |
 | Symbols | `SymbolAsync`, `FindSymbolAsync`, `FindAsync`, `LookupAsync` | `Symbol`, or null from the `Find` forms |
+| Element properties | `ElementPropertiesAsync` | `ElementProperties` |
 | Diagnostics | `GetDiagnosticsAsync` | `ValueList<Diagnostic>`, under a lint selection |
 | Expressions | `EvalAsync`, `EvaluateAsync` | `Value`; `Evaluation` keeps its diagnostics |
-| Objects | `InstantiateAsync` | `Instantiation` |
+| Objects | `InstantiateAsync`, `InstancePathsAsync`, `InstancePathsAtAsync` | `Instantiation`, `InstancePaths` |
 | Behavior | `ExecuteActionAsync`, `ExecuteStateAsync`, `ExploreActionAsync`, `ExploreStateAsync`, `CheckActionAsync`, `CheckStateAsync` | `ActionRun`, `StateRun`, `Exploration`, `CheckResult` |
 | Verification | `VerifyConstraintAsync`, `VerifyRequirementAsync`, `VerifySatisfactionAsync`, `SatisfiedAsync`, `ValidateInstanceAsync` | `Verification`, `Satisfaction`, `bool`, `Validation` |
 | Calculation and analysis | `CalcAsync`, `RunAnalysisAsync`, `ExploreAnalysisAsync`, `RunSweepAsync` | `Calculation`, `Analysis`, `Exploration`, `Sweep` |
@@ -97,6 +98,15 @@ borrows it. Each method below is one RPC:
 | Queries and documents | `QueryAsync`, `QueryOslcAsync`, `RunDocumentQueryAsync`, `RenderDocumentAsync`, `RenderViewAsync` | `QueryResult`, `DocumentQueryResult`, `RenderedDocument`, `RenderedView` |
 | Editing | `Edit()`, `ApplyEditsAsync` | an `Editor`; `EditResult` |
 | Graphs and data | `ExportGraphsAsync`, `ImportDataAsync`, `CompareResultsAsync` | `Graphs`, `ImportResult`, `Comparison` |
+
+A `Symbol`'s `Members` are its `SymbolMember`s, own then inherited, each naming the type it is
+`InheritedFrom` (`symbol_members`); `SymbolOptions.IncludeLibraryMembers` lists the standard-library
+ones `WithheldLibraryMembers` otherwise counts. `TypeFacts.Types` are a feature's derived types
+(`Feature::type`), beside the typing as written. `ElementPropertiesAsync` reads an element's
+metamodel properties by specification name (`element_properties`), each an `ElementProperty` whose
+`Values` are `ElementPropertyValue` arms, an element among them an `ElementRef` whose `Id` it accepts
+back. An instantiated `Instance` says how it was reached, `ReachedBy`, and `InstancePathsAsync` (by
+id) or `InstancePathsAtAsync` (by object path) lists every `InstancePath` to it (`instance_paths`).
 
 Each takes its own options class (`EvalOptions`, `RunOptions`, `CheckOptions`, `VerifyOptions`,
 `AnalysisOptions`, `SweepOptions`, `ConvertOptions`, `EditOptions`, …), so a call accepts only
@@ -172,10 +182,12 @@ input document declaring that package, including nested packages.
 | anything else | `Value`, the property's remarks saying why |
 | multiplicity `1` or none, `0..1`, more or an unknown upper bound | `T`, `T?`, `ValueList<T>` |
 
-With an upper bound of one and an unknown lower bound, a property is nullable. Inherited type and
-multiplicity facts have no fixed depth limit. Several redefined features contribute intersected
-ranges and the most specific type that every inherited property can read; incompatible types or
-disjoint ranges are refused with the providers' names.
+With an upper bound of one and an unknown lower bound, a property is nullable. A feature that writes
+no type takes the type the service derives (`TypeFacts.Types`, KerML `Feature::type`). Otherwise, and
+for multiplicity, inherited facts are followed through subsetting, reference subsetting and
+redefinition with no fixed depth limit. Several redefined features contribute intersected ranges and
+the most specific type that every inherited property can read; incompatible types or disjoint ranges
+are refused with the providers' names.
 
 Every property is an explicit interface implementation. A class implements its own interface and
 every inherited property whose value it reads from another feature than its base class does: an

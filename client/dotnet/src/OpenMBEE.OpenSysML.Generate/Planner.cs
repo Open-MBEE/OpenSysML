@@ -32,7 +32,7 @@ internal static class Planner
     internal const string RegistryName = "SysmlTypes";
 
     // The edges that make one element a kind of another; a typing edge names the element's type instead.
-    private static readonly FrozenSet<string> GeneralizationKinds = FrozenSet.ToFrozenSet(["specializes", "subsets", "redefines"], StringComparer.Ordinal);
+    private static readonly FrozenSet<string> GeneralizationKinds = FrozenSet.ToFrozenSet(["specializes", "subsets", "redefines", "references"], StringComparer.Ordinal);
 
     // The usages that are an instance's feature values. Behavioral and connector usages are not, and get no property.
     private static readonly FrozenSet<string> FeatureKinds = FrozenSet.ToFrozenSet(
@@ -435,6 +435,9 @@ internal static class Planner
         private static bool TryBound(string text, out BigInteger bound) =>
             BigInteger.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out bound);
 
+        // A type the feature does not write is the service's derived Feature::type, whose facts are those of the feature
+        // declaring it when the walk over what the feature generalizes reaches one; a service that derives no type
+        // leaves the walk to find it.
         private TypeFacts? ResolvedType(Symbol symbol)
         {
             var own = symbol.TypeFacts;
@@ -444,6 +447,14 @@ internal static class Planner
             }
 
             var providers = Inherited(symbol, other => NamesType(other.TypeFacts));
+            if (own is { Types: [var derived, ..] })
+            {
+                var declaring = providers.FirstOrDefault(provider => provider.TypeFacts!.ResolvedId == derived.Id);
+                return declaring is null
+                    ? new TypeFacts(own.Declared, derived.Id, derived.Kind, own.Primitive, own.PrimitiveSource, own.IsQuantity, own.Unit, own.Types)
+                    : Merged(own, declaring.TypeFacts!);
+            }
+
             if (providers.Count == 0)
             {
                 return own;
@@ -461,17 +472,20 @@ internal static class Planner
                 return own;
             }
 
-            return own is null
-                ? inherited
-                : new TypeFacts(
-                    inherited.Declared,
-                    inherited.ResolvedId,
-                    inherited.ResolvedKind,
-                    inherited.Primitive,
-                    inherited.PrimitiveSource,
-                    own.IsQuantity || inherited.IsQuantity,
-                    own.Unit.Length > 0 ? own.Unit : inherited.Unit);
+            return own is null ? inherited : Merged(own, inherited);
         }
+
+        // The type a feature inherits, with the quantity and unit its own value states.
+        private static TypeFacts Merged(TypeFacts own, TypeFacts inherited) =>
+            new(
+                inherited.Declared,
+                inherited.ResolvedId,
+                inherited.ResolvedKind,
+                inherited.Primitive,
+                inherited.PrimitiveSource,
+                own.IsQuantity || inherited.IsQuantity,
+                own.Unit.Length > 0 ? own.Unit : inherited.Unit,
+                own.Types);
 
         private Multiplicity? ResolvedMultiplicity(Symbol symbol)
         {

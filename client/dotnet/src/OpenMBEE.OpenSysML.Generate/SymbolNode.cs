@@ -31,7 +31,7 @@ internal sealed record SymbolNode(Symbol Symbol, IReadOnlyList<SymbolNode> Child
         var children = new List<SymbolNode>();
         foreach (var childId in symbol.ChildIds)
         {
-            var child = await model.FindSymbolAsync(childId, cancellationToken).ConfigureAwait(false);
+            var child = await model.FindSymbolAsync(childId, cancellationToken: cancellationToken).ConfigureAwait(false);
 
             // An unnamed member is listed under its owner's name and "::", which names nothing the service can look up.
             if (child is null && childId.EndsWith("::", StringComparison.Ordinal))

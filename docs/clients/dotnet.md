@@ -1,9 +1,10 @@
 # .NET
 
 `OpenMBEE.OpenSysML` is the C# client for the service. Choose it when a .NET 10 application
-needs typed, asynchronous access to the whole service surface: models and symbols, execution and
-behavior checks, verification and analysis, conversion and migration, queries and documents,
-source edits, data import and result comparison.
+needs typed, asynchronous access to the whole service surface: models, symbols and their metamodel
+properties, instantiated objects and every path to them, execution and behavior checks,
+verification and analysis, conversion and migration, queries and documents, source edits, data
+import and result comparison.
 
 ## Install
 

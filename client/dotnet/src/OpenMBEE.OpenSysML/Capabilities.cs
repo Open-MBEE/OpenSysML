@@ -125,6 +125,12 @@ public sealed class Capabilities : IEquatable<Capabilities>
     public const string EditDocuments = "edit_documents";
 
     /// <summary>
+    /// Names the capability of the GetElementProperties RPC, which reads the metamodel properties of one element
+    /// by their specification names, as the model's API element form spells them.
+    /// </summary>
+    public const string ElementProperties = "element_properties";
+
+    /// <summary>
     /// Names the ListEngines RPC, the <c>engine</c> field of the verification and sweep requests, and the
     /// <c>engine</c>, <c>strength</c> and <c>bounds</c> fields of their responses and of every Verdict.
     /// </summary>
@@ -192,6 +198,12 @@ public sealed class Capabilities : IEquatable<Capabilities>
 
     /// <summary>Names explicit language selection for inline content.</summary>
     public const string InlineLanguage = "inline_language";
+
+    /// <summary>
+    /// Names the capability of the InstancePaths RPC, which lists every root-relative path to one object the model's
+    /// population holds, and of populating Instance.reached_by on every object an instantiation built.
+    /// </summary>
+    public const string InstancePaths = "instance_paths";
 
     /// <summary>
     /// Names the capability of carrying a bare measurement reference as Value.measurement_ref, rather than
@@ -362,6 +374,13 @@ public sealed class Capabilities : IEquatable<Capabilities>
 
     /// <summary>Names the capability of populating SymbolInfo.attributes, rather than always reporting none.</summary>
     public const string SymbolAttributes = "symbol_attributes";
+
+    /// <summary>
+    /// Names the capability of populating SymbolInfo.members, every member of a symbol, own and inherited, with its
+    /// provenance, and of honouring GetSymbolRequest.include_library_members. Without it only the owned members'
+    /// ids, SymbolInfo.child_ids, are reported.
+    /// </summary>
+    public const string SymbolMembers = "symbol_members";
 
     /// <summary>
     /// Names the capability of carrying a tensor quantity of any rank as Value.tensor_quantity, rather than

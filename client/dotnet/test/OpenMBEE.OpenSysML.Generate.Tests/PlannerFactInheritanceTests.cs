@@ -27,6 +27,42 @@ public sealed class PlannerFactInheritanceTests
     }
 
     [Fact]
+    public void AFeatureWritingNoTypeTakesTheTypeTheServiceDerivesBeforeWalkingWhatItReferences()
+    {
+        var references = new Specialization("references", "engine", "P::Car::engine", "partUsage");
+        var derived = new TypeFacts("", "", "", "", "", false, "", [new TypeRef("P::Turbo", "partDef"), new TypeRef("P::Engine", "partDef")]);
+        var plan = Plan(Root(Package(
+            "P",
+            Definition("P::Engine"),
+            Definition("P::Turbo", "partDef", [Specializes("P::Engine")]),
+            Definition(
+                "P::Car",
+                Feature("P::Car::engine", TypedBy("P::Engine"), kind: "partUsage"),
+                Feature("P::Car::spare", derived, kind: "partUsage", edges: references),
+                Feature("P::Car::walked", kind: "partUsage", edges: references)))));
+
+        var features = Find(plan, "P::Car").Features.Select(feature => (feature.Shape.Kind, feature.Shape.Definition?.Id)).ToList();
+        Assert.Equal([(ElementKind.Generated, "P::Engine"), (ElementKind.Generated, "P::Turbo"), (ElementKind.Generated, "P::Engine")], features);
+        Assert.Empty(Compiler.Diagnostics(Emitter.Render(plan)));
+    }
+
+    [Fact]
+    public void ADerivedTypeTakesTheFactsOfTheFeatureDeclaringIt()
+    {
+        var narrowest = new TypeFacts("", "", "", "Real", "declared", false, "", [new TypeRef("ScalarValues::Integer", "attributeDef")]);
+        var plan = Plan(Root(Package(
+            "P",
+            Definition("P::A", Feature("P::A::x", Scalar("Real"), Range("0", "*"))),
+            Definition("P::B", "partDef", [Specializes("P::A")], Feature("P::B::x", Scalar("Integer"), Range("0", "1"), "attributeUsage", Redefines("P::A::x"))),
+            Definition("P::C", "partDef", [Specializes("P::A"), Specializes("P::B")],
+                Feature("P::C::x", narrowest, null, "attributeUsage", Redefines("P::A::x"), Redefines("P::B::x"))))));
+
+        var shape = Assert.Single(Find(plan, "P::C").Features).Shape;
+        Assert.Equal((ElementKind.Integer, Cardinality.Optional), (shape.Kind, shape.Cardinality));
+        Assert.Empty(Compiler.Diagnostics(Emitter.Render(plan)));
+    }
+
+    [Fact]
     public void IndependentInheritedRangesAreIntersectedRatherThanChosenByOrder()
     {
         var plan = Plan(Root(Package(

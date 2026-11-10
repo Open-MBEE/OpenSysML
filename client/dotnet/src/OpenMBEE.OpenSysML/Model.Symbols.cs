@@ -21,29 +21,33 @@ public sealed partial class Model
     /// notation does, so the symbol answered may carry another <see cref="Symbol.Id"/>.
     /// </summary>
     /// <param name="symbolId">A qualified name, such as <c>Demo::Vehicle</c>.</param>
+    /// <param name="options">What the lookup asks for beyond the symbol; null for <see cref="SymbolOptions.Default"/>.</param>
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The symbol.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="symbolId"/> is null.</exception>
+    /// <exception cref="CapabilityException">The options ask for the library members and the service lacks <see cref="Capabilities.SymbolMembers"/>, so it would ignore them; nothing was sent.</exception>
     /// <exception cref="SymbolNotFoundException">The model declares no such symbol, as the service worded it; no suggestion is sought.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
     /// <exception cref="ServiceException">The service refused the call.</exception>
     /// <exception cref="TransportException">The call failed in transport, or the answer was malformed.</exception>
-    public async Task<Symbol> SymbolAsync(string symbolId, CancellationToken cancellationToken = default)
+    public async Task<Symbol> SymbolAsync(string symbolId, SymbolOptions? options = null, CancellationToken cancellationToken = default)
     {
-        var (symbol, error) = await ReadSymbolAsync(symbolId, cancellationToken).ConfigureAwait(false);
+        var (symbol, error) = await ReadSymbolAsync(symbolId, options, cancellationToken).ConfigureAwait(false);
         return symbol ?? throw new SymbolNotFoundException(symbolId, error, GetSymbolMethod);
     }
 
     /// <summary>A symbol by qualified name, as the service resolves it, or null when the model declares no such symbol.</summary>
     /// <param name="symbolId">A qualified name, such as <c>Demo::Vehicle</c>.</param>
+    /// <param name="options">What the lookup asks for beyond the symbol; null for <see cref="SymbolOptions.Default"/>.</param>
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The symbol, or null.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="symbolId"/> is null.</exception>
+    /// <exception cref="CapabilityException">The options ask for the library members and the service lacks <see cref="Capabilities.SymbolMembers"/>, so it would ignore them; nothing was sent.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
     /// <exception cref="ServiceException">The service refused the call.</exception>
     /// <exception cref="TransportException">The call failed in transport, or the answer was malformed.</exception>
-    public async Task<Symbol?> FindSymbolAsync(string symbolId, CancellationToken cancellationToken = default) =>
-        (await ReadSymbolAsync(symbolId, cancellationToken).ConfigureAwait(false)).Symbol;
+    public async Task<Symbol?> FindSymbolAsync(string symbolId, SymbolOptions? options = null, CancellationToken cancellationToken = default) =>
+        (await ReadSymbolAsync(symbolId, options, cancellationToken).ConfigureAwait(false)).Symbol;
 
     /// <summary>
     /// A symbol by short name (<c>Vehicle</c>) or by its own <see cref="Symbol.Id"/> (<c>Demo::Vehicle</c>),
@@ -106,11 +110,17 @@ public sealed partial class Model
             ?? throw new SymbolNotFoundException(name, await NearNamesAsync(name, cancellationToken).ConfigureAwait(false), GetSymbolMethod);
 
     // The symbol, or the one failure the service reports in band: a name that resolves to no symbol.
-    private async Task<(Symbol? Symbol, string Error)> ReadSymbolAsync(string symbolId, CancellationToken cancellationToken)
+    private async Task<(Symbol? Symbol, string Error)> ReadSymbolAsync(string symbolId, SymbolOptions? options, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(symbolId);
         Connection.ThrowIfDisposed();
-        var request = new Wire.GetSymbolRequest { ModelHash = Hash, SymbolId = symbolId };
+        options ??= SymbolOptions.Default;
+        if (options.IncludeLibraryMembers)
+        {
+            Connection.Capabilities.Require(Capabilities.SymbolMembers);
+        }
+
+        var request = new Wire.GetSymbolRequest { ModelHash = Hash, SymbolId = symbolId, IncludeLibraryMembers = options.IncludeLibraryMembers };
         var response = await Connection.ModelCallAsync<Wire.GetSymbolRequest, Wire.SymbolResponse>(GetSymbolMethod, request, cancellationToken).ConfigureAwait(false);
         if (response.Error.Length > 0)
         {
@@ -128,7 +138,7 @@ public sealed partial class Model
     // The symbol whose own id is this one: the service also resolves a name through imports and aliases.
     private async Task<Symbol?> SymbolWithIdAsync(string id, CancellationToken cancellationToken)
     {
-        var symbol = await FindSymbolAsync(id, cancellationToken).ConfigureAwait(false);
+        var symbol = await FindSymbolAsync(id, cancellationToken: cancellationToken).ConfigureAwait(false);
         return symbol is not null && symbol.Id == id ? symbol : null;
     }
 
@@ -248,7 +258,7 @@ public sealed partial class Model
 
             foreach (var childId in current.Symbol.ChildIds)
             {
-                if (!seen.Add(childId) || await FindSymbolAsync(childId, cancellationToken).ConfigureAwait(false) is not { } child)
+                if (!seen.Add(childId) || await FindSymbolAsync(childId, cancellationToken: cancellationToken).ConfigureAwait(false) is not { } child)
                 {
                     continue;
                 }

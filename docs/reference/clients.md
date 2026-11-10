@@ -59,7 +59,9 @@ out of reach — and so do the Python, Node's Connect transport, Rust and .NET c
 ## What the newer surfaces cover
 
 The per-option and per-feature comparison, each cell linked to its proving test, is
-[Client feature parity](client-parity.md).
+[Client feature parity](client-parity.md). It also checks every capability the service
+announces against every client, .NET included, and `TestClientCapabilityChecklist` holds that
+table to each client's capabilities module.
 
 The Node client's Connect transport covers everything the Python one does, the whole service
 surface included. Its `connectWasm()` adapter instead exposes the combined module's supported
@@ -94,7 +96,10 @@ The Rust client covers the same service surface as typed results — `parse_sour
 [Rust API](rust-api.md) describes.
 
 The .NET client covers the same service surface as typed immutable results, every RPC called by
-a public method; the [.NET API](dotnet-api.md) lists them by area.
+a public method. That includes an element's metamodel properties (`Model.ElementPropertiesAsync`),
+every path to an object (`Model.InstancePathsAsync`, `InstancePathsAtAsync`, beside
+`Instance.ReachedBy`) and a symbol's own and inherited members (`Symbol.Members`). The
+[.NET API](dotnet-api.md) lists them by area.
 
 Those RPCs exist and are served. `ApplyEdits` also edits a model of several documents, parsed
 together by `ParseSources`, as one atomic batch — every document the edits reach is answered in

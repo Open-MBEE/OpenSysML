@@ -10,6 +10,7 @@ public sealed partial class Model
     internal const string GetDiagnosticsMethod = "sysml.SysMLService/GetDiagnostics";
     internal const string EvaluateMethod = "sysml.SysMLService/Evaluate";
     internal const string InstantiateMethod = "sysml.SysMLService/Instantiate";
+    internal const string InstancePathsMethod = "sysml.SysMLService/InstancePaths";
 
     /// <summary>Asks the service for the model's diagnostics, under a lint selection.</summary>
     /// <param name="options">The lints left out and the opt-in lints kept; null for <see cref="DiagnosticsOptions.Default"/>.</param>
@@ -135,5 +136,63 @@ public sealed partial class Model
         }
 
         return new Instantiation(root, reachable, diagnostics);
+    }
+
+    /// <summary>
+    /// Every root-relative usage path that reaches the object of an id, from each object
+    /// <see cref="InstantiateAsync"/> created in this model: the paths by which a client can address it, and so the
+    /// parts that share it, aliases through connector ends and reference usages included. An object's
+    /// <see cref="Instance.ReachedBy"/> is one of them.
+    /// </summary>
+    /// <param name="instanceId">The object's id, as an instantiation answered it (<see cref="Instance.Id"/>); ids count up from 1.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The paths in traversal order, and whether the service bounded its search.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="instanceId"/> is not positive; nothing was sent.</exception>
+    /// <exception cref="CapabilityException">The service lacks <see cref="Capabilities.InstancePaths"/>; nothing was sent.</exception>
+    /// <exception cref="ModelException">The service could not list the paths.</exception>
+    /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
+    /// <exception cref="ServiceException">The service refused the call, with <see cref="StatusCode.NotFound"/> when the model's population holds no object of the id.</exception>
+    /// <exception cref="TransportException">The call failed in transport, or the answer was malformed.</exception>
+    public Task<InstancePaths> InstancePathsAsync(long instanceId, CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(instanceId);
+        return ReadInstancePathsAsync(new Wire.DocumentObject { InstanceId = instanceId }, cancellationToken);
+    }
+
+    /// <summary>
+    /// Every root-relative usage path that reaches the object at an object path, as <see cref="InstancePathsAsync"/>
+    /// answers for an id.
+    /// </summary>
+    /// <param name="objectPath">The qualified name the object was instantiated as (<c>Garage::car</c>), its id (<c>#2</c>), or a path through feature values from either (<c>Garage::car.wheels[2]</c>; indexes count from 1), as <see cref="InstancePath.ToString"/> writes one.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The paths in traversal order, and whether the service bounded its search.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="objectPath"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="objectPath"/> is empty; nothing was sent.</exception>
+    /// <exception cref="CapabilityException">The service lacks <see cref="Capabilities.InstancePaths"/>; nothing was sent.</exception>
+    /// <exception cref="ModelException">The service could not list the paths.</exception>
+    /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
+    /// <exception cref="ServiceException">
+    /// The service refused the call: <see cref="StatusCode.NotFound"/> when the model's population holds no object of
+    /// the name or id, <see cref="StatusCode.InvalidArgument"/> when the path does not read or reaches no object.
+    /// </exception>
+    /// <exception cref="TransportException">The call failed in transport, or the answer was malformed.</exception>
+    public Task<InstancePaths> InstancePathsAtAsync(string objectPath, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(objectPath);
+        return ReadInstancePathsAsync(new Wire.DocumentObject { Path = objectPath }, cancellationToken);
+    }
+
+    private async Task<InstancePaths> ReadInstancePathsAsync(Wire.DocumentObject target, CancellationToken cancellationToken)
+    {
+        Connection.ThrowIfDisposed();
+        Connection.Capabilities.Require(Capabilities.InstancePaths);
+        var request = new Wire.InstancePathsRequest { ModelHash = Hash, Object = target };
+        var response = await DeclarationCallAsync<Wire.InstancePathsRequest, Wire.InstancePathsResponse>(InstancePathsMethod, request, modelFaults: false, cancellationToken).ConfigureAwait(false);
+        if (response.Error.Length > 0)
+        {
+            throw new ModelException(response.Error, InstancePathsMethod, ModelWire.Diagnostics(response.Diagnostics));
+        }
+
+        return ModelWire.InstancePaths(response, InstancePathsMethod);
     }
 }

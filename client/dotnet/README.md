@@ -478,6 +478,9 @@ var vehicle = await model.LookupAsync("Vehicle");                       // Demo:
 var mass = await model.EvalAsync("mass", new EvalOptions { ContextSymbolId = vehicle.Id });
 var car = await model.InstantiateAsync("Demo::Vehicle");
 var engine = car.Resolve((Value.InstanceRefValue)car.Root.FeatureValues["engine"].Value!);
+var reached = engine!.Path;                                             // engine
+var paths = await model.InstancePathsAsync(engine.Id);                  // Paths[0]: Demo::Vehicle.engine
+var typing = await model.ElementPropertiesAsync("Demo::Vehicle::engine", ["type", "isComposite"]);
 ```
 
 `Connection.LoadAsync` parses a file the service reads, in its own file system and with the
@@ -493,16 +496,45 @@ into a model; `HasErrors` says so, and `RequireNoErrors` turns it into a
 
 | Method | Answers |
 | --- | --- |
-| `SymbolAsync` / `FindSymbolAsync` | The `Symbol` of a qualified name as the service resolves it, through imports and aliases; not found raises `SymbolNotFoundException`, its message the service's own, or answers null |
+| `SymbolAsync` / `FindSymbolAsync` | The `Symbol` of a qualified name as the service resolves it, through imports and aliases; not found raises `SymbolNotFoundException`, its message the service's own, or answers null. `SymbolOptions.IncludeLibraryMembers` lists the members inherited from standard-library content too |
 | `FindAsync` / `LookupAsync` | The symbol of a short name or of its own id, the outermost first; not found answers null or raises `SymbolNotFoundException` naming at most three near names |
 | `GetDiagnosticsAsync` | The diagnostics again, under a `DiagnosticsOptions` lint selection |
 | `EvalAsync` / `EvaluateAsync` | The `Value` of an expression, in `EvalOptions.ContextSymbolId`'s scope or against an object of `SubjectSymbolId`; `EvaluateAsync` keeps the diagnostics with it |
-| `InstantiateAsync` | An `Instantiation`: the object built, every object reachable from it, and `Resolve` for the references among their `FeatureValues` |
+| `ElementPropertiesAsync` | `ElementProperties`: the metamodel properties of one element by their specification names (`inheritedFeature`, `connectorEnd`, …), as the `api-json` element form spells them, or every property the form carries when none is named |
+| `InstantiateAsync` | An `Instantiation`: the object built, every object reachable from it, `Resolve` for the references among their `FeatureValues`, and `FindOwner` for the object holding one |
+| `InstancePathsAsync` / `InstancePathsAtAsync` | `InstancePaths`: every root-relative path that reaches the object of an id, or at an object path, aliases through connector ends and reference usages included, and whether the service cut the list short |
 
-A `Symbol` carries everything the service reports of an element: its kind, metadata, child
-ids, attributes with their values, `TypeFacts`, `Multiplicity` and every `Specialization`.
+A `Symbol` carries everything the service reports of an element: its declaration keyword kind,
+metadata, child ids (an unnamed member under its positional id, `Demo::Pair::@2`), attributes
+with their values, `TypeFacts`, `Multiplicity`, every written `Specialization` (`references` for
+`::>` and `include`) and its `Members`. `TypeFacts` keeps the typing as written beside `Types`,
+the feature's derived types (KerML `Feature::type`), most specific first. `Members` (under
+`symbol_members`) lists every member, own then inherited, each a `SymbolMember` naming whether it
+is inherited, the type it is `InheritedFrom` and whether it is library content; those inherited
+from the standard library are counted in `WithheldLibraryMembers` unless asked for, and
+`OwnMembers` and `InheritedMembers` split the list. Several of these facts summarise a metamodel
+property that `ElementPropertiesAsync` answers in full, the surface the specification defines.
 Each fact is read whatever the service advertises, and one the service did not report is
-empty or null, never invented. `FindAsync` and `LookupAsync` ask the service which elements
+empty or null, never invented.
+
+`ElementPropertiesAsync` names an element by qualified name, by the positional id of an unnamed
+member, or by the element form's `@id`, which every `ElementRef` in an answer carries, so the
+element graph is walked with one vocabulary. Each `ElementProperty` has its `DefiningClass`,
+whether it `IsMany` and `IsDerived`, its `Values` in order, each an `ElementPropertyValue` arm
+(an element, a string, a boolean, an integer, a real, or a number beyond both as its digits),
+and, for one the element's metaclass does not declare or OpenSysML does not derive yet,
+`Unsupported` saying why; `Find` picks one by name. An element the form does not know raises
+`SymbolNotFoundException` in the service's words, and a model with a document the parser could not
+read whole has no form and raises `ModelException`.
+
+Every object an instantiation built but the root says how the traversal reached it,
+`Instance.ReachedBy` (under `instance_paths`): the holder's id, its feature and the index within a
+multi-valued one, and the `Path` from the root (`powertrain.engine.fuelIn`, `wheels[2]`). One
+object is often a value of several features, a port and the connector end referencing it are one
+object, and `InstancePathsAsync` lists every `InstancePath` to it, in traversal order, each from
+its root with its `Steps`; its `ToString`, `Garage::car.wheels[2]`, is the object path
+`InstancePathsAtAsync` and `DocumentValue.ObjectRef` take. An id must be positive and a path not
+empty; an object the model's population does not hold is a `ServiceException` with `NotFound`. `FindAsync` and `LookupAsync` ask the service which elements
 carry a name when it advertises `query`, in one or two calls whatever the model's size, and
 otherwise walk the model from its roots, one call per symbol; a model named by hash alone has
 no roots to walk and needs `query`. Their near names are those Python's `difflib` would
@@ -513,7 +545,9 @@ Options a service would silently ignore without its capability are refused first
 `CapabilityException` and before anything is sent, in the order the service checks them:
 `strict_conformance` for `StrictConformance`, `inline_language` for a language named for
 inline notation, `parse_sources`, `parse_sources_affected` for `SourcesOptions.BaseModelHash`,
-and `evaluate_subject` for a subject. A file's notation comes from its extension, so loading
+`evaluate_subject` for a subject, `symbol_members` for `SymbolOptions.IncludeLibraryMembers`,
+`element_properties` for `ElementPropertiesAsync` and `instance_paths` for `InstancePathsAsync`
+and `InstancePathsAtAsync`. A file's notation comes from its extension, so loading
 one with `ParseOptions.Language` set is refused with `InvalidRequestException`.
 
 A model loaded through a connection borrows it: disposing the model does nothing, and the
@@ -1141,9 +1175,12 @@ class describes is viewed as a `Vehicle`. `Vehicle.Unchecked` views any instance
 Multiplicity `1` (or none stated) reads one value, `0..1` a nullable one, and more a
 `ValueList<T>`. An upper bound the service cannot determine statically also produces a list, never
 an assumption that only one value is possible. With an upper bound of one, an unknown lower bound
-produces a nullable property. Inherited facts are followed without a depth limit: when several
-features are redefined, their ranges are intersected and their most specific compatible type is
-used; incompatible facts are refused naming their providers.
+produces a nullable property. A feature that writes no type takes the one the service derives,
+`TypeFacts.Types` (KerML `Feature::type`), with the facts of the feature declaring it; from a service
+that derives none, and for multiplicity, inherited facts are followed through what the feature
+subsets, references and redefines, without a depth limit: when several features are redefined,
+their ranges are intersected and their most specific compatible type is used; incompatible facts
+are refused naming their providers.
 A feature's identity is its qualified name, never its property's name: an inherited
 property is read, in each class, from the feature that redefines it there, under whatever name, and
 a redefinition narrowing its type under the same name hides the inherited property with `new`.

@@ -90,7 +90,7 @@ public sealed class ServiceModelTests(ServiceFixture services) : IClassFixture<S
         Assert.Equal(["RootNamespace", "RootNamespace"], model.Roots.Select(root => root.Kind));
         Assert.True(model.ParseDiagnostics.IsEmpty);
         Assert.Equal(["engine_library.sysml", "engine_user.sysml"], model.Documents);
-        Assert.Equal("EngineUser::Car::motor", (await model.SymbolAsync("EngineUser::Car::motor", Token)).Id);
+        Assert.Equal("EngineUser::Car::motor", (await model.SymbolAsync("EngineUser::Car::motor", cancellationToken: Token)).Id);
         Assert.Equal(model.Hash, unchanged.Hash);
         Assert.Subset(unchanged.Documents.ToHashSet(), unchanged.Affected.ToHashSet());
         Assert.Equal(model.Hash, edited.BaseModelHash);
@@ -107,11 +107,11 @@ public sealed class ServiceModelTests(ServiceFixture services) : IClassFixture<S
         await using var connection = await OpenAsync(wire);
         var model = await LoadAsync(connection, "vehicle.sysml");
 
-        var vehicle = await model.SymbolAsync("Demo::Vehicle", Token);
-        var mass = await model.SymbolAsync("Demo::Vehicle::mass", Token);
+        var vehicle = await model.SymbolAsync("Demo::Vehicle", cancellationToken: Token);
+        var mass = await model.SymbolAsync("Demo::Vehicle::mass", cancellationToken: Token);
         var found = await model.FindAsync("Vehicle", Token);
         var typo = await Assert.ThrowsAsync<SymbolNotFoundException>(() => model.LookupAsync("Vehicel", Token));
-        var missing = await Assert.ThrowsAsync<SymbolNotFoundException>(() => model.SymbolAsync("Demo::Nope", Token));
+        var missing = await Assert.ThrowsAsync<SymbolNotFoundException>(() => model.SymbolAsync("Demo::Nope", cancellationToken: Token));
 
         Assert.Equal(("Demo::Vehicle", "Vehicle", "partDef"), (vehicle.Id, vehicle.Name, vehicle.Kind));
         Assert.Contains("Demo::Vehicle::engine", vehicle.ChildIds);
@@ -120,7 +120,7 @@ public sealed class ServiceModelTests(ServiceFixture services) : IClassFixture<S
         Assert.Equal(vehicle, found);
         Assert.Equal(vehicle, await model.LookupAsync("Demo::Vehicle", Token));
         Assert.Contains("Vehicle", typo.Suggestions);
-        Assert.Null(await model.FindSymbolAsync("Demo::Nope", Token));
+        Assert.Null(await model.FindSymbolAsync("Demo::Nope", cancellationToken: Token));
         Assert.Equal("Demo::Nope", missing.Name);
         Assert.Contains("symbol not found", missing.Message, StringComparison.Ordinal);
     }
@@ -132,7 +132,7 @@ public sealed class ServiceModelTests(ServiceFixture services) : IClassFixture<S
         await using var connection = await OpenAsync(wire);
         var model = connection.ModelByHash("no-such-model");
 
-        var symbol = await Assert.ThrowsAsync<ModelNotFoundException>(() => model.SymbolAsync("Demo::Vehicle", Token));
+        var symbol = await Assert.ThrowsAsync<ModelNotFoundException>(() => model.SymbolAsync("Demo::Vehicle", cancellationToken: Token));
         var diagnostics = await Assert.ThrowsAsync<ModelNotFoundException>(() => model.GetDiagnosticsAsync(cancellationToken: Token));
         var evaluation = await Assert.ThrowsAsync<ModelNotFoundException>(() => model.EvalAsync("2 + 2", cancellationToken: Token));
         var instance = await Assert.ThrowsAsync<ModelNotFoundException>(() => model.InstantiateAsync("Demo::Vehicle", Token));
@@ -218,16 +218,16 @@ public sealed class ServiceModelTests(ServiceFixture services) : IClassFixture<S
         var model = await OpenSysMLClient.LoadContentAsync(File.ReadAllText(Fixture("vehicle.sysml")), wire.To(service.Address), cancellationToken: Token);
         var ids = new[] { "Demo::Vehicle", "Demo::Engine", "Demo::sedan", "Demo::Vehicle::mass" };
 
-        var sequential = (await Task.WhenAll(ids.Select(id => model.SymbolAsync(id, Token)))).ToList();
-        var concurrent = await Task.WhenAll(Enumerable.Range(0, 24).Select(i => model.SymbolAsync(ids[i % ids.Length], Token)));
+        var sequential = (await Task.WhenAll(ids.Select(id => model.SymbolAsync(id, cancellationToken: Token)))).ToList();
+        var concurrent = await Task.WhenAll(Enumerable.Range(0, 24).Select(i => model.SymbolAsync(ids[i % ids.Length], cancellationToken: Token)));
         await model.DisposeAsync();
 
         Assert.True(model.OwnsConnection);
         Assert.Equal(Enumerable.Range(0, 24).Select(i => sequential[i % ids.Length]), concurrent);
-        await Assert.ThrowsAsync<ObjectDisposedException>(() => model.SymbolAsync("Demo::Vehicle", Token));
+        await Assert.ThrowsAsync<ObjectDisposedException>(() => model.SymbolAsync("Demo::Vehicle", cancellationToken: Token));
         Assert.False(service.HasExited);
         await using var again = await OpenAsync(wire);
-        Assert.Equal("Demo::Vehicle", (await again.ModelByHash(model.Hash).SymbolAsync("Demo::Vehicle", Token)).Id);
+        Assert.Equal("Demo::Vehicle", (await again.ModelByHash(model.Hash).SymbolAsync("Demo::Vehicle", cancellationToken: Token)).Id);
     }
 
     [Theory]
