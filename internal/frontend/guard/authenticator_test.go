@@ -173,13 +173,18 @@ func TestChainOrder(t *testing.T) {
 	if _, refusal := (Chain{key, scoped}).Verify(context.Background(), "Bearer jwt_bob", nil); refusal != InsufficientScope {
 		t.Errorf("a claimed token lacking a scope: %v, want InsufficientScope", refusal)
 	}
-	// A chain within a chain passes what it does not claim to the next.
-	nested := Chain{Chain{key}, Chain{Chain{}, jwt}}
-	for header, want := range map[string]Refusal{"Bearer jwt_bob": Accepted, "Bearer key_mallory": Mismatch, "Bearer other": Mismatch, "": NothingPresented} {
-		asked = nil
-		p, refusal := nested.Verify(context.Background(), header, nil)
-		if refusal != want || (refusal == Accepted) != (p.Subject == "bob") || (header != "Bearer key_mallory") != (len(asked) == 2) {
-			t.Errorf("a chain of chains, Verify(%q) = %q, %v after asking %v; want %v", header, p.Subject, refusal, asked, want)
+	// A chain within a chain, by value or by pointer, passes what it does not claim to the next.
+	for name, nested := range map[string]Authenticator{
+		"values":   Chain{Chain{key}, Chain{Chain{}, jwt}},
+		"pointers": &Chain{&Chain{key}, &Chain{&Chain{}, jwt}},
+		"mixed":    Chain{&Chain{key}, jwt},
+	} {
+		for header, want := range map[string]Refusal{"Bearer jwt_bob": Accepted, "Bearer key_mallory": Mismatch, "Bearer other": Mismatch, "": NothingPresented} {
+			asked = nil
+			p, refusal := nested.Verify(context.Background(), header, nil)
+			if refusal != want || (refusal == Accepted) != (p.Subject == "bob") || (header != "Bearer key_mallory") != (len(asked) == 2) {
+				t.Errorf("a chain of chains (%s), Verify(%q) = %q, %v after asking %v; want %v", name, header, p.Subject, refusal, asked, want)
+			}
 		}
 	}
 }

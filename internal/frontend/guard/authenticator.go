@@ -90,13 +90,19 @@ func (c Chain) Verify(ctx context.Context, authorization string, r *http.Request
 	return Principal{}, refusal
 }
 
+// claimer is a Chain as another holds it, by value or by pointer: asked for
+// its claim, it leaves a credential none of its own claims to the next.
+type claimer interface {
+	claim(ctx context.Context, authorization string, r *http.Request) (Principal, Refusal)
+}
+
 // claim is the first verdict that is not NothingPresented, which is the answer
 // when none claims; a chain within asks its own in turn rather than deciding.
 func (c Chain) claim(ctx context.Context, authorization string, r *http.Request) (Principal, Refusal) {
 	for _, a := range c {
 		var principal Principal
 		var refusal Refusal
-		if inner, ok := a.(Chain); ok {
+		if inner, ok := a.(claimer); ok {
 			principal, refusal = inner.claim(ctx, authorization, r)
 		} else {
 			principal, refusal = a.Verify(ctx, authorization, r)
