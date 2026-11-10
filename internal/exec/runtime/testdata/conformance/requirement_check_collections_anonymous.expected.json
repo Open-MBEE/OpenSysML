@@ -33,6 +33,10 @@
         },
         {
           "type": "Boolean",
+          "value": true
+        },
+        {
+          "type": "Boolean",
           "value": false
         }
       ]

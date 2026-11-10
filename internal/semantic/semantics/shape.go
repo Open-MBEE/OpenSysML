@@ -90,13 +90,12 @@ func (m *Model) shapeFeatures(typ *symbols.Symbol, keep func(*symbols.Symbol) bo
 	for _, name := range order {
 		out = append(out, m.inheritedNamesake(typ, *byName[name], keep))
 	}
-	return append(out, m.anonymousShapeFeatures(typ, keep, byName)...)
+	return m.withAnonymousShapeFeatures(typ, out, keep, byName)
 }
 
-// anonymousShapeFeatures is the shape of typ's unnamed constraint usages, own then inherited,
-// each under its positional address `Owner::@N`; anonymous usages of other kinds stay out.
-func (m *Model) anonymousShapeFeatures(typ *symbols.Symbol, keep func(*symbols.Symbol) bool, byName map[string]*ShapeFeature) []ShapeFeature {
-	var out []ShapeFeature
+// withAnonymousShapeFeatures adds typ's unnamed constraint usages, own and inherited, each
+// under its positional address `Owner::@N` in declaration order among its owner's features.
+func (m *Model) withAnonymousShapeFeatures(typ *symbols.Symbol, out []ShapeFeature, keep func(*symbols.Symbol) bool, byName map[string]*ShapeFeature) []ShapeFeature {
 	collect := func(source *symbols.Symbol, inherited bool) {
 		if source.Scope == nil {
 			return
@@ -111,7 +110,7 @@ func (m *Model) anonymousShapeFeatures(typ *symbols.Symbol, keep func(*symbols.S
 				continue
 			}
 			byName[name] = &ShapeFeature{Name: name, Symbol: member, Declared: member}
-			out = append(out, *byName[name])
+			out = insertByDeclaration(out, *byName[name], source, inherited)
 		}
 	}
 	collect(typ, false)
@@ -121,11 +120,63 @@ func (m *Model) anonymousShapeFeatures(typ *symbols.Symbol, keep func(*symbols.S
 	return out
 }
 
-// AnonymousShapeMember reports a constraint usage declared without a name, which its
-// owner's shape holds as it holds a named one (`require constraint { … }`, `constraint { … }`).
+// insertByDeclaration places f after the last feature source declares before it; with none,
+// before source's first feature, else first for typ's own member and last for an inherited one.
+func insertByDeclaration(out []ShapeFeature, f ShapeFeature, source *symbols.Symbol, inherited bool) []ShapeFeature {
+	index := declarationIndex(source, f.Declared)
+	at := -1
+	first := -1
+	for i, g := range out {
+		if g.Declared == nil || g.Declared.Owner() != source {
+			continue
+		}
+		if first < 0 {
+			first = i
+		}
+		if declarationIndex(source, g.Declared) < index {
+			at = i + 1
+		}
+	}
+	switch {
+	case at >= 0:
+	case first >= 0:
+		at = first
+	case inherited:
+		at = len(out)
+	default:
+		at = 0
+	}
+	out = append(out, ShapeFeature{})
+	copy(out[at+1:], out[at:])
+	out[at] = f
+	return out
+}
+
+// declarationIndex is sym's position among owner's body members, -1 when owner declares none.
+func declarationIndex(owner, sym *symbols.Symbol) int {
+	if owner == nil || sym == nil || sym.Decl == nil {
+		return -1
+	}
+	for i, member := range ast.DeclMembers(owner.Decl) {
+		if ms, ok := member.(*ast.Membership); ok {
+			member = ms.Member
+		}
+		if member == sym.Decl {
+			return i
+		}
+	}
+	return -1
+}
+
+// AnonymousShapeMember reports a held constraint usage declared without a name (`require
+// constraint { … }`, `constraint { … }`); an `assert`ed one or an `inv` is checked, not held.
 func AnonymousShapeMember(sym *symbols.Symbol) bool {
-	return sym != nil && sym.Kind == symbols.SymbolConstraintUsage && sym.Name == "" && sym.ShortName == "" &&
-		sym.Naming == symbols.NamedByDeclaration && !sym.Implied()
+	if sym == nil || sym.Kind != symbols.SymbolConstraintUsage || sym.Name != "" || sym.ShortName != "" ||
+		sym.Naming != symbols.NamedByDeclaration || sym.Implied() || isAssertedConstraint(sym) {
+		return false
+	}
+	usage, ok := sym.Decl.(*ast.Usage)
+	return !ok || usage.Keyword != "inv"
 }
 
 // PositionalNameOf is the address of a member no name reaches, `Owner::@N` (0-based, the
@@ -135,19 +186,7 @@ func (m *Model) PositionalNameOf(sym *symbols.Symbol) string {
 		return ""
 	}
 	owner := sym.Owner()
-	if owner == nil {
-		return ""
-	}
-	index := -1
-	for i, member := range ast.DeclMembers(owner.Decl) {
-		if ms, ok := member.(*ast.Membership); ok {
-			member = ms.Member
-		}
-		if member == sym.Decl {
-			index = i
-			break
-		}
-	}
+	index := declarationIndex(owner, sym)
 	if index < 0 {
 		return ""
 	}

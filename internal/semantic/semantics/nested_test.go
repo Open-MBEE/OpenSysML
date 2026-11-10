@@ -2,6 +2,7 @@ package semantics
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -394,6 +395,7 @@ func TestImplicitSubsettingsAnonymousRequirementConstraints(t *testing.T) {
 		}
 		requirement fullTank : FuelRequirement {
 			require constraint { vehicle.fuelMass > 0 }
+			assume constraint full { vehicle.fuelMass == 2000 }
 			assume constraint { vehicle.fuelMass == 2000 }
 		}
 		verification case def Check {
@@ -409,7 +411,7 @@ func TestImplicitSubsettingsAnonymousRequirementConstraints(t *testing.T) {
 		{"P::FuelRequirement", "P::FuelRequirement::@2", constraints},
 		{"P::FuelRequirement", "P::FuelRequirement::@3", "Occurrences::Occurrence::suboccurrences"},
 		{"P::fullTank", "P::fullTank::@0", constraints},
-		{"P::fullTank", "P::fullTank::@1", assumptions},
+		{"P::fullTank", "P::fullTank::@2", assumptions},
 		{"P::fullTank", "P::FuelRequirement::@1", assumptions},
 		{"P::fullTank", "P::FuelRequirement::@2", constraints},
 		{"P::fullTank", "P::FuelRequirement::@3", "Occurrences::Occurrence::suboccurrences"},
@@ -447,6 +449,17 @@ func TestImplicitSubsettingsAnonymousRequirementConstraints(t *testing.T) {
 		if f.Name == "P::FuelRequirement::@4" {
 			t.Errorf("ShapeFeatures(P::FuelRequirement) holds the anonymous part as %s", f.Name)
 		}
+	}
+	// Declaration order, own then inherited: an anonymous constraint sits where it is written.
+	var names []string
+	for _, f := range m.ShapeFeatures(nestedSym(t, root, "P::fullTank")) {
+		if f.Symbol.Kind == symbols.SymbolConstraintUsage && strings.HasPrefix(symbols.FQNOf(f.Declared.Owner()), "P::") {
+			names = append(names, f.Name)
+		}
+	}
+	want := []string{"P::fullTank::@0", "full", "P::fullTank::@2", "P::FuelRequirement::@1", "P::FuelRequirement::@2", "P::FuelRequirement::@3"}
+	if strings.Join(names, " ") != strings.Join(want, " ") {
+		t.Errorf("ShapeFeatures(P::fullTank) constraints = %v, want %v", names, want)
 	}
 }
 

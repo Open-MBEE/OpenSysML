@@ -2,8 +2,8 @@
 // `Requirements::RequirementCheck::assumptions` or `constraints` exactly as a named one is
 // (SysML v2 §8.3.20.4 checkConstraintUsageRequirementConstraintSpecialization): the
 // collections hold the requirement usage's own anonymous constraints and the ones it
-// inherits from its definition, so `allTrue(constraints())` reads the violated inherited
-// `fuelMass <= 2000` rather than a vacuous empty sequence.
+// inherits from its definition, in declaration order beside the named ones, so
+// `allTrue(constraints())` reads the violated `fuelLimit` rather than a vacuous sequence.
 package test {
 	private import ScalarValues::Integer;
 	private import ScalarValues::Boolean;
@@ -16,7 +16,8 @@ package test {
 	requirement def FuelRequirement {
 		subject vehicle : Vehicle;
 		assume constraint { vehicle.fuelMass >= 0 }
-		require constraint { vehicle.fuelMass <= 2000 }
+		require constraint { vehicle.fuelMass < 3000 }
+		require constraint fuelLimit { vehicle.fuelMass <= 2000 }
 	}
 	part sys {
 		requirement fullTankRequirement : FuelRequirement {
@@ -28,7 +29,7 @@ package test {
 
 	attribute assumptionResults : Boolean[0..*] nonunique = sys.fullTankRequirement.assumptions.result; // the usage's own assumption, then the inherited one
 	attribute assumptionsAllTrue : Boolean = allTrue(sys.fullTankRequirement.assumptions());
-	attribute constraintResults : Boolean[0..*] = sys.fullTankRequirement.constraints.result; // the usage's own constraint, then the inherited one
+	attribute constraintResults : Boolean[0..*] nonunique = sys.fullTankRequirement.constraints.result; // the usage's own constraint, then the inherited ones in declaration order: anonymous, then fuelLimit
 	attribute constraintsAllTrue : Boolean = allTrue(sys.fullTankRequirement.constraints());
 	attribute requirementResult : Boolean = sys.fullTankRequirement.result;
 
