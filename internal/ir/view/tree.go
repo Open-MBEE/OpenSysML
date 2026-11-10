@@ -266,16 +266,35 @@ func (r *Renderer) treeNodeShallow(walk treeWalk, sym, owner *symbols.Symbol, qu
 // successionText is the `first a then b` a succession row of a compartment
 // reads (SysML v2.1 §8.2.3.18, the successions compartment); "" for anything else.
 func (r *Renderer) successionText(sym *symbols.Symbol) string {
-	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok || usage.Kind != ast.UsageSuccession || len(usage.ConnectorEnds) != 2 {
-		return ""
-	}
 	doc := symbolOrigin(sym).Doc
-	first, then := r.nodeText(doc, usage.ConnectorEnds[0].Target), r.nodeText(doc, usage.ConnectorEnds[1].Target)
-	if first == "" || then == "" {
-		return ""
+	switch decl := sym.Decl.(type) {
+	case *ast.Usage:
+		if decl.Kind != ast.UsageSuccession || len(decl.ConnectorEnds) != 2 {
+			return ""
+		}
+		first, then := r.nodeText(doc, decl.ConnectorEnds[0].Target), r.nodeText(doc, decl.ConnectorEnds[1].Target)
+		if first == "" || then == "" {
+			return ""
+		}
+		return "first " + first + " then " + then
+	case *ast.SuccessionEdge:
+		// A `then b` edge reads as written: its source only where the author named one; a
+		// member-attached `then action b` names the member it sequences to.
+		then := endName(decl.Target)
+		if then == "" && decl.TargetMember != nil && sym.OwnerScope != nil {
+			if member := sym.OwnerScope.MemberDeclaring(decl.TargetMember); member != nil {
+				then = localName(member)
+			}
+		}
+		if then == "" {
+			return ""
+		}
+		if decl.SourceImplied || decl.Source == nil {
+			return "then " + then
+		}
+		return "first " + endName(decl.Source) + " then " + then
 	}
-	return "first " + first + " then " + then
+	return ""
 }
 
 // expansion is what a walk is drawing above the element at hand: each element
