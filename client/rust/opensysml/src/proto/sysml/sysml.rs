@@ -694,7 +694,7 @@ pub struct Outcome {
 }
 /// ExplorationStatus is how an exploration ended: whether every linearization
 /// within the budget was run, and which budget stopped it when not.
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ExplorationStatus {
     /// True when every linearization the library admits was run, so `outcomes`
     /// is the whole set: no budget was hit and nothing was left unenumerated.
@@ -724,6 +724,33 @@ pub struct ExplorationStatus {
     /// listed, since fewer orders were run than the library admits.
     #[prost(string, repeated, tag="8")]
     pub unenumerated: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Every state entered and transition taken over all the runs, not only the
+    /// witness of each outcome, with how many runs did so.
+    #[prost(message, optional, tag="9")]
+    pub coverage: ::core::option::Option<Coverage>,
+}
+/// Coverage is what every run of an exploration, or every schedule of a check,
+/// entered and took, with how many did so.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Coverage {
+    #[prost(message, repeated, tag="1")]
+    pub states: ::prost::alloc::vec::Vec<CoverageEntry>,
+    #[prost(message, repeated, tag="2")]
+    pub transitions: ::prost::alloc::vec::Vec<CoverageEntry>,
+}
+/// CoverageEntry is one state entered or one transition taken.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CoverageEntry {
+    /// Qualified by the instance running the machine: `Cov::Sys#1.m.run: viaA`,
+    /// `Cov::Sys#1.m.run: s0 -> viaB`.
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    /// Qualified by the declaration: `Cov::M::run::viaA`, `Cov::M::run::s0 -> viaB`.
+    #[prost(string, tag="2")]
+    pub declaration: ::prost::alloc::string::String,
+    /// How many runs (schedules, under the check engine) entered or took it.
+    #[prost(int32, tag="3")]
+    pub runs: i32,
 }
 /// CheckBehaviorRequest searches every schedule of a behavior, as the `sysml`
 /// command's -check-* flags do about `-action`/`-state`.
@@ -883,6 +910,10 @@ pub struct CheckSearch {
     /// How the search ended, as `sysml` reports it.
     #[prost(string, tag="10")]
     pub status: ::prost::alloc::string::String,
+    /// Every state entered and transition taken over all the searched schedules,
+    /// not only the witness of each final, with how many schedules did so.
+    #[prost(message, optional, tag="11")]
+    pub coverage: ::core::option::Option<Coverage>,
 }
 /// CheckBehaviorResponse is what the search found.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -3743,13 +3774,8 @@ pub struct RunRunsResponse {
     #[prost(uint64, optional, tag="15")]
     pub seed: ::core::option::Option<u64>,
 }
-/// RunDocumentQueryRequest runs a document query — a calc def specializing
-/// DocumentQueries::Query the model declares, named by query_id, or the body of
-/// one written in inline_query — against a model the service already parsed,
-/// binding its entry parameters. It answers as %run-query does, but with typed
-/// rows rather than formatted lines. The query runs over the objects
-/// Instantiate created for the model, which a binding may name (DocumentObject)
-/// and `DocumentQueries::Objects` and `Verdicts` reach.
+/// RunDocumentQueryRequest runs a DocumentQueries::Query the model declares (query_id) or one
+/// written in inline_query over a parsed model and its Instantiate objects, binding its parameters.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RunDocumentQueryRequest {
     /// from ParseFile response

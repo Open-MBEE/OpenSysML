@@ -237,6 +237,11 @@ Poll the main port. Nothing in this repository polls 8081: the Python client's r
 is its `GetServerInfo` handshake over gRPC, not an HTTP GET, so it is unaffected by every row of
 that table.
 
+[`sysml-mcp -http`](sysml-mcp.md#transports) takes the same stance on its own port: `GET /health`
+answers open, naming `sysml-mcp` and the build, and `GET /ready` answers 200 only once the
+workspace is indexed and the runtime prewarmed, both outside the token and the origin check that
+guard `/mcp`. [Running sysml-mcp as a service](../guide/sysml-mcp-service.md) has the details.
+
 ## `-transport stdio`, and why not to build on it
 
 `-transport stdio` serves one client over stdin/stdout with `Content-Length` framing. It is

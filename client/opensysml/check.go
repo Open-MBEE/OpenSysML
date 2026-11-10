@@ -46,6 +46,9 @@ type CheckSearch struct {
 	MassBounded             bool
 	Notes, Scope            []string
 	Status                  string
+	// Coverage is every state entered and transition taken over all the
+	// searched schedules, with how many schedules did so.
+	Coverage Coverage
 }
 
 // CheckViolation is one witnessed violation: Kind is "property", "deadlock" or
@@ -228,7 +231,7 @@ func checkFromProto(resp *pb.CheckBehaviorResponse) *Check {
 			States: int(s.States), Moves: int(s.Moves), MaxDepth: int(s.MaxDepth),
 			BoundsHit: append([]string(nil), s.BoundsHit...), Horizon: s.Horizon, HorizonSet: s.HorizonSet,
 			MassBounded: s.MassBounded, Notes: append([]string(nil), s.Notes...), Scope: append([]string(nil), s.Scope...),
-			Status: s.Status,
+			Status: s.Status, Coverage: coverageFromProto(s.Coverage),
 		}
 	}
 	for _, v := range resp.Violations {

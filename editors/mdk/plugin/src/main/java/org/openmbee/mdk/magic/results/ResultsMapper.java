@@ -99,13 +99,13 @@ public final class ResultsMapper {
     return result(request, status, outcomes, value.diagnostics(), Optional.empty(), List.of(), elapsed);
   }
 
-  /** One table and outcome per query that answered, an error outcome per query that failed; no rows at all is INFO, any failure ERROR. */
+  /** One table and outcome per query that answered, {@link QueryFailure}'s per query that failed; a refusal is ERROR, else a reported error FAILED, else rows PASSED, none INFO. */
   public static RunResult map(RunRequest request, List<QueryAnswer> answers, Duration elapsed) {
     List<Outcome> outcomes = new ArrayList<>();
     List<Table> tables = new ArrayList<>();
     for (QueryAnswer answer : answers) {
       if (answer.failure().isPresent()) {
-        outcomes.add(QueryFailure.outcome(answer.query(), answer.failure().get()));
+        outcomes.addAll(QueryFailure.outcomes(answer.query(), answer.failure().get(), request.source()::elementName));
         continue;
       }
       Table table = table(answer.query(), answer.result().orElseThrow());
@@ -114,6 +114,7 @@ public final class ResultsMapper {
     }
     Status status = Status.INFO;
     if (outcomes.stream().anyMatch(item -> item.status() == Status.ERROR)) status = Status.ERROR;
+    else if (outcomes.stream().anyMatch(item -> item.status() == Status.FAILED)) status = Status.FAILED;
     else if (tables.stream().anyMatch(table -> !table.rows().isEmpty())) status = Status.PASSED;
     String subject = request.source().subjectName(request.subjectQualifiedName());
     if (answers.size() != 1 || !answers.get(0).query().equals(subject)) {
