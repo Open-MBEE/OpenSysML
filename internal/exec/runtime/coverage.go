@@ -17,11 +17,8 @@ type Coverage struct {
 	Transitions []CoverageEntry
 }
 
-// CoverageEntry is one state entered or one transition taken. Path qualifies it
-// by the instance that ran the machine — `Cov::Sys#1.m.run: viaA`,
-// `Cov::Sys#1.m.run: s0 -> viaB` — so one definition instantiated many times is
-// told apart; Declaration qualifies it by the declaration — `Cov::M::run::viaA`,
-// `Cov::M::run::s0 -> viaB`. Runs counts the runs that entered or took it.
+// CoverageEntry is one state entered or transition taken, under the instance that ran
+// the machine (`Cov::Sys#1.m.run: s0 -> viaB`) and its declaration (`Cov::M::run::s0 -> viaB`).
 type CoverageEntry struct {
 	Path        string
 	Declaration string
@@ -72,25 +69,22 @@ func compareCoverageEntries(a, b CoverageEntry) int {
 	return cmp.Or(cmp.Compare(a.Path, b.Path), cmp.Compare(a.Declaration, b.Declaration))
 }
 
-// coverageKey identifies a state entered, or with `to` set a transition taken,
-// by the object running the machine, the machine and the state path, so a run
-// notes each once however often it enters or takes it.
+// coverageKey is a state entered, or with `to` set a transition taken, by the object
+// running the machine, the machine and the state paths: noted once per run.
 type coverageKey struct {
 	object    int64
 	behavior  *symbols.Symbol
 	state, to string
 }
 
-// noteStateEntered records that the object's machine entered the state at the
-// path, independently of tracing; the spelling is settled when first noted and
-// the key kept cheap, since a run enters states far more often than it covers
-// new ones.
+// noteStateEntered records that the object's machine entered the state at the path,
+// independently of tracing; the spelling is settled once, when first noted.
 func (ctx *Context) noteStateEntered(object *Instance, machine *symbols.Symbol, path string) {
 	ctx.noteCoverage(object, machine, path, "")
 }
 
 // noteTransitionTaken records that the object's machine took the transition
-// between the named states, as the trace spells them.
+// between the states at the two paths.
 func (ctx *Context) noteTransitionTaken(object *Instance, machine *symbols.Symbol, from, to string) {
 	if to == "" {
 		return
@@ -120,11 +114,10 @@ func (ctx *Context) noteCoverage(object *Instance, machine *symbols.Symbol, stat
 // machine and by the machine's declaration.
 func (ctx *Context) spellCoverage(object *Instance, machine *symbols.Symbol, state, to string) CoverageEntry {
 	what := state
-	declared := strings.ReplaceAll(state, ".", "::")
 	if to != "" {
 		what = state + " -> " + to
-		declared = what
 	}
+	declared := strings.ReplaceAll(what, ".", "::")
 	var owner, declaration string
 	if object != nil {
 		owner = ctx.objectPath(object.ID)
@@ -178,9 +171,8 @@ func machineName(object *Instance, behavior *symbols.Symbol) string {
 	return behavior.Name
 }
 
-// Lines renders the coverage for a text verdict: a summary, then one line per
-// state entered and transition taken naming the instance path, the declaration
-// and how many runs — or schedules, as `did` names what the engine counted — did so.
+// Lines renders the coverage for a text verdict: a summary, then one line per entry
+// with its instance path, declaration and how many runs (or `did`, e.g. schedules) did so.
 func (c Coverage) Lines(did string) []string {
 	if c.Empty() {
 		return nil
