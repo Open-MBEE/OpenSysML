@@ -1,0 +1,49 @@
+{
+  "rpc": "GetElementProperties",
+  "model": "element_properties_type.sysml",
+  "element_id": "TypeFamily::Cmd",
+  "properties": [
+    "directedFeature",
+    "input",
+    "output",
+    "conjugatedPortDefinition"
+  ],
+  "expected_properties": [
+    {
+      "name": "directedFeature",
+      "defining_class": "Type",
+      "many": true,
+      "derived": true,
+      "values": [
+        "TypeFamily::Cmd::level",
+        "TypeFamily::Cmd::ack"
+      ]
+    },
+    {
+      "name": "input",
+      "defining_class": "Type",
+      "many": true,
+      "derived": true,
+      "values": [
+        "TypeFamily::Cmd::level"
+      ]
+    },
+    {
+      "name": "output",
+      "defining_class": "Type",
+      "many": true,
+      "derived": true,
+      "values": [
+        "TypeFamily::Cmd::ack"
+      ]
+    },
+    {
+      "name": "conjugatedPortDefinition",
+      "defining_class": "PortDefinition",
+      "derived": true,
+      "values": [
+        "TypeFamily::Cmd::'~Cmd'"
+      ]
+    }
+  ]
+}

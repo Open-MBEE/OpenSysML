@@ -517,6 +517,7 @@ root examples/spec-examples: models 473, skipped 38, matched 7609, unmatched 392
   Definition::ownedTransition: equal 222, different 2, symbol-missing 0, symbol-extra 0
   Definition::ownedUsage: equal 190, different 34, symbol-missing 0, symbol-extra 0
   Definition::usage: equal 146, different 33, symbol-missing 0, symbol-extra 45
+  Documentation::documentedElement: equal 11, different 9, symbol-missing 0, symbol-extra 0
   Element::documentation: equal 7598, different 11, symbol-missing 0, symbol-extra 0
   Element::name: equal 7606, different 1, symbol-missing 0, symbol-extra 2
   Element::ownedAnnotation: equal 7590, different 19, symbol-missing 0, symbol-extra 0
@@ -565,6 +566,7 @@ root examples/spec-examples: models 473, skipped 38, matched 7609, unmatched 392
   Membership::memberName: equal 2886, different 3, symbol-missing 0, symbol-extra 2
   Membership::memberShortName: equal 2846, different 0, symbol-missing 0, symbol-extra 45
   Membership::membershipOwningNamespace: equal 2874, different 17, symbol-missing 0, symbol-extra 0
+  MetadataAccessExpression::referencedElement: equal 0, different 0, symbol-missing 0, symbol-extra 1
   MetadataUsage::metadataDefinition: equal 8, different 0, symbol-missing 0, symbol-extra 16
   MultiplicityRange::bound: equal 0, different 2, symbol-missing 0, symbol-extra 0
   MultiplicityRange::lowerBound: equal 0, different 2, symbol-missing 0, symbol-extra 0
