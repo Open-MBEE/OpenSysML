@@ -5,6 +5,7 @@
 # TestElementPropertiesAgreeWithTheAPIJSONExport fails on a row not here, on a count
 # above the one here, on a row here the run no longer produces, and on a ? key; a count
 # that fell is re-recorded with -update-agreement-ratchet.
+AcceptActionUsage::input	65	symbol-53
 ActionDefinition::feature	12	symbol-51
 ActionDefinition::featureMembership	12	symbol-51
 ActionDefinition::member	12	symbol-51
@@ -482,15 +483,15 @@ ReferenceSubsetting::subsettedFeature	7	export-08
 ReferenceSubsetting::target	7	export-14
 ReferenceUsage::declaredName	6	symbol-01
 ReferenceUsage::definition	55	symbol-54
-ReferenceUsage::directedFeature	6	symbol-53
-ReferenceUsage::directedUsage	6	symbol-53
+ReferenceUsage::directedFeature	8	symbol-53
+ReferenceUsage::directedUsage	8	symbol-53
 ReferenceUsage::direction	17	export-57
 ReferenceUsage::feature	181	symbol-51
 ReferenceUsage::featureMembership	181	symbol-51
 ReferenceUsage::featuringType	4	export-57
 ReferenceUsage::inheritedFeature	179	symbol-51
 ReferenceUsage::inheritedMembership	179	symbol-51
-ReferenceUsage::input	3	symbol-53
+ReferenceUsage::input	5	symbol-53
 ReferenceUsage::isEnd	23	export-56
 ReferenceUsage::member	183	symbol-51
 ReferenceUsage::membership	183	symbol-51
@@ -536,14 +537,14 @@ RequirementUsage::declaredName	22	symbol-01
 RequirementUsage::directedFeature	54	symbol-53
 RequirementUsage::directedUsage	54	symbol-53
 RequirementUsage::direction	53	export-57
-RequirementUsage::feature	126	symbol-51
-RequirementUsage::featureMembership	126	symbol-51
-RequirementUsage::inheritedFeature	126	symbol-51
-RequirementUsage::inheritedMembership	126	symbol-51
+RequirementUsage::feature	77	symbol-51
+RequirementUsage::featureMembership	77	symbol-51
+RequirementUsage::inheritedFeature	77	symbol-51
+RequirementUsage::inheritedMembership	77	symbol-51
 RequirementUsage::input	5	symbol-53
 RequirementUsage::isComposite	53	symbol-66
-RequirementUsage::member	126	symbol-51
-RequirementUsage::membership	126	symbol-51
+RequirementUsage::member	77	symbol-51
+RequirementUsage::membership	77	symbol-51
 RequirementUsage::ownedRelationship	13	symbol-03
 RequirementUsage::ownedSpecialization	2	export-07
 RequirementUsage::ownedSubsetting	2	export-56
