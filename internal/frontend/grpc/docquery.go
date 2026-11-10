@@ -107,7 +107,7 @@ func (s *Service) RunDocumentQuery(ctx context.Context, req *pb.RunDocumentQuery
 	}
 	response := rowSetResponse(qctx.Index, result)
 	if req.AsView {
-		response.ResultView, _ = spec.Write(qctx.Index, result, nil)
+		response.ResultView, _ = spec.Write(qctx, result, nil)
 	}
 	if !s.capabilities.has(CapabilityBigIntValues) && slices.ContainsFunc(response.Rows, rowHoldsBigInt) {
 		// DocumentValue has no unsupported arm to stand in for a wide Integer.

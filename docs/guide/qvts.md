@@ -267,6 +267,8 @@ package CabinMassResult {
 ```
 
 The view exposes each selected element once, by qualified name, in the order the rows came.
+A name whose first segment the view would read as its own — the view's name, `Outcome`, or a
+feature such as `source` — is written from the root, `expose $::source::cabin;`.
 Projected cells are not copied into it: a cell is a value of the exposed element, which a
 document over the view reads again. The four attributes are
 

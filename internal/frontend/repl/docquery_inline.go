@@ -81,7 +81,7 @@ func (s *Session) runInlineQuery(text string) (queryAnswer, error) {
 	context := s.queryContext(ctx)
 	context.Index, context.Resolver, context.Model = inline.Index, resolver, sem
 	result, err := queryexec.Execute(program, context, nil, queryexec.Options{})
-	view := s.resultView(queryexec.DefaultResultViewName, text, s.browseIndex(), result, err)
+	view := s.resultView(queryexec.DefaultResultViewName, text, context, result, err)
 	if err != nil {
 		return queryAnswer{view: view}, inlineQueryError(queryexec.LocateInline(inline, err))
 	}

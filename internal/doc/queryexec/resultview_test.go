@@ -2,6 +2,7 @@ package queryexec
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -22,11 +23,11 @@ calc def RootMiss :> Query { Named(qualifiedName = "Observatry") }
 	write := func(name string) string {
 		t.Helper()
 		result, err := fixture.execute(t, name, nil, Options{})
-		text, ok := spec(name).Write(fixture.index, result, err)
+		text, ok := spec(name).Write(fixture.context(), result, err)
 		if !ok {
 			t.Fatalf("%s: no view written for result %v, error %v", name, result, err)
 		}
-		again, _ := spec(name).Write(fixture.index, result, err)
+		again, _ := spec(name).Write(fixture.context(), result, err)
 		if again != text {
 			t.Errorf("%s: two writes of one run differ", name)
 		}
@@ -56,7 +57,7 @@ calc def RootMiss :> Query { Named(qualifiedName = "Observatry") }
 			t.Errorf("%s:\n got:\n%s\nwant:\n%s", c.name, got, want)
 		}
 	}
-	if text, ok := (ResultView{}).Write(fixture.index, nil, errors.New("no record")); ok {
+	if text, ok := (ResultView{}).Write(fixture.context(), nil, errors.New("no record")); ok {
 		t.Errorf("an error carrying no QVTS record wrote a view:\n%s", text)
 	}
 	if got, want := spec("Parts").ResultViewQualifiedName(), "PartsResult::parts"; got != want {
@@ -65,6 +66,31 @@ calc def RootMiss :> Query { Named(qualifiedName = "Observatry") }
 	for query, want := range map[string]string{"A::B::CabinMass": "CabinMass", "": DefaultResultViewName, "A::'two words'": DefaultResultViewName} {
 		if got := ResultViewName(query); got != want {
 			t.Errorf("ResultViewName(%q) = %q, want %q", query, got, want)
+		}
+	}
+}
+
+func TestResultViewExposesFromTheRootWhatItsScopeWouldCapture(t *testing.T) {
+	fixture := loadExecutionSource(t, "package Observatory {"+executionImports+`
+calc def Mass :> Query { Named(qualifiedName = "mass::m") }
+calc def Inherited :> Query { Named(qualifiedName = "source::cabin") }
+calc def Imported :> Query { Named(qualifiedName = "Outcome::x") }
+calc def Plain :> Query { Named(qualifiedName = "Observatory::Mass") }
+}
+package mass { part m; }
+package source { part cabin; }
+package Outcome { part x; }
+`)
+	for name, want := range map[string]string{
+		"Mass":      "expose $::mass::m;",
+		"Inherited": "expose $::source::cabin;",
+		"Imported":  "expose $::Outcome::x;",
+		"Plain":     "expose Observatory::Mass;",
+	} {
+		result, err := fixture.execute(t, name, nil, Options{})
+		text, _ := ResultView{Name: name}.Write(fixture.context(), result, err)
+		if !strings.Contains(text, "\t\t"+want+"\n") {
+			t.Errorf("%s: want %q in:\n%s", name, want, text)
 		}
 	}
 }

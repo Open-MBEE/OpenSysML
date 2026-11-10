@@ -45,30 +45,30 @@ func ResultViewName(query string) string {
 
 // Write is the run as one view typed by QVTS::QueryResult exposing the selection, or a failed
 // run's frontier and finding elements; false for an error carrying no QVTS record.
-func (v ResultView) Write(index *symbols.Index, result *RowSet, err error) (string, bool) {
+func (v ResultView) Write(context Context, result *RowSet, err error) (string, bool) {
 	if err != nil {
 		var typed *Error
 		if !asError(err, &typed) || typed.Outcome == nil {
 			return "", false
 		}
-		return v.WriteOutcome(index, *typed.Outcome), true
+		return v.WriteOutcome(context, *typed.Outcome), true
 	}
-	return v.write(index, result, nil), true
+	return v.write(context, result, nil), true
 }
 
 // WriteOutcome is a failed run as its view: failed is its path or model error.
-func (v ResultView) WriteOutcome(index *symbols.Index, failed Outcome) string {
-	return v.write(index, nil, &failed)
+func (v ResultView) WriteOutcome(context Context, failed Outcome) string {
+	return v.write(context, nil, &failed)
 }
 
-func (v ResultView) write(index *symbols.Index, result *RowSet, failed *Outcome) string {
+func (v ResultView) write(context Context, result *RowSet, failed *Outcome) string {
 	outcome, provenance := OutcomeEstablished, v.Provenance
 	var exposed []string
 	unnamed := 0
 	if failed != nil {
 		outcome = failed.Kind()
 		provenance = joinProvenance(provenance, "step "+failed.Step().Label())
-		exposed = outcomeElements(index, *failed)
+		exposed = outcomeElements(context.Index, *failed)
 	} else if result != nil {
 		for _, row := range result.Rows() {
 			name := symbols.FQNOf(row.Element().Declaration())
@@ -86,12 +86,13 @@ func (v ResultView) write(index *symbols.Index, result *RowSet, failed *Outcome)
 	var b strings.Builder
 	b.WriteString("package " + source.NameText(upperFirst(name)+"Result") + " {\n")
 	b.WriteString("\tprivate import " + ResultViewLibrary + "::*;\n\n")
-	b.WriteString("\tview " + source.NameText(lowerFirst(name)) + " : QueryResult {\n")
+	view := lowerFirst(name)
+	b.WriteString("\tview " + source.NameText(view) + " : QueryResult {\n")
 	if unnamed > 0 {
 		b.WriteString("\t\t// " + unnamedNote(unnamed) + "\n")
 	}
 	for _, element := range exposed {
-		b.WriteString("\t\texpose " + source.QualifiedNameText(element) + ";\n")
+		b.WriteString("\t\texpose " + exposedName(context, view, element) + ";\n")
 	}
 	b.WriteString("\t\tattribute :>> query = " + source.StringText(v.Query) + ";\n")
 	b.WriteString("\t\tattribute :>> source = " + source.StringText(v.Source) + ";\n")
@@ -108,6 +109,37 @@ func (v ResultView) ResultViewQualifiedName() string {
 		name = DefaultResultViewName
 	}
 	return source.QualifiedNameOf([]string{upperFirst(name) + "Result", lowerFirst(name)})
+}
+
+// exposedName writes element for the view's body, from the root (`$::`) where
+// the view, the library or an inherited feature would capture its first segment.
+func exposedName(context Context, view, element string) string {
+	text := source.QualifiedNameText(element)
+	if segments := symbols.SegmentsOf(element); len(segments) > 0 && capturesName(context, view, segments[0]) {
+		return "$::" + text
+	}
+	return text
+}
+
+func capturesName(context Context, view, name string) bool {
+	if name == view {
+		return true
+	}
+	if context.Index == nil {
+		return false
+	}
+	if len(context.Index.LookupQualified(ResultViewLibrary+"::"+name)) > 0 {
+		return true
+	}
+	for _, definition := range context.Index.LookupQualified(ResultViewDefinition) {
+		if context.Model == nil {
+			break
+		}
+		if _, inherited := context.Model.LookupMember(definition, name); inherited {
+			return true
+		}
+	}
+	return false
 }
 
 func unnamedNote(n int) string {

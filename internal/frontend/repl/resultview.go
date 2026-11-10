@@ -9,7 +9,6 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/querytranslate"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // asViewOption is what %run-query and %query take before the query to print
@@ -60,22 +59,22 @@ func viewLines(text string) []string {
 
 // resultView writes one run as a view named name; empty when the session writes
 // none or the run has no outcome.
-func (s *Session) resultView(name, query string, index *symbols.Index, result *queryexec.RowSet, err error) string {
+func (s *Session) resultView(name, query string, context queryexec.Context, result *queryexec.RowSet, err error) string {
 	if !s.resultViews {
 		return ""
 	}
-	text, _ := s.resultViewSpec(name, query).Write(index, result, err)
+	text, _ := s.resultViewSpec(name, query).Write(context, result, err)
 	return text
 }
 
 // refusedQueryView is the view of query text the translator refused with a QVTS
 // record, an unknown property being a path error; empty for any other refusal.
-func (s *Session) refusedQueryView(query string, index *symbols.Index, err error) string {
+func (s *Session) refusedQueryView(query string, context queryexec.Context, err error) string {
 	outcome := querytranslate.OutcomeOf(err)
 	if !s.resultViews || outcome == nil {
 		return ""
 	}
-	return s.resultViewSpec(queryexec.DefaultResultViewName, query).WriteOutcome(index, *outcome)
+	return s.resultViewSpec(queryexec.DefaultResultViewName, query).WriteOutcome(context, *outcome)
 }
 
 // resultViewSpec states a run over the files the session loaded, identified by

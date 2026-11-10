@@ -58,7 +58,7 @@ func withResultView(status error, text string) error {
 // failedResultView is the view of a run that failed with err, empty when err
 // carries no path or model error.
 func failedResultView(spec queryexec.ResultView, qctx queryexec.Context, err error) string {
-	text, _ := spec.Write(qctx.Index, nil, err)
+	text, _ := spec.Write(qctx, nil, err)
 	return text
 }
 

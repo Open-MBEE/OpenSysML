@@ -143,7 +143,7 @@ func (s *Service) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryRes
 	refused := func(err error) error {
 		status := queryStatus(err)
 		if outcome := querytranslate.OutcomeOf(err); req.AsView && outcome != nil {
-			status = withResultView(status, spec.WriteOutcome(qctx.Index, *outcome))
+			status = withResultView(status, spec.WriteOutcome(qctx, *outcome))
 		}
 		return status
 	}
@@ -183,7 +183,7 @@ func (s *Service) Query(ctx context.Context, req *pb.QueryRequest) (*pb.QueryRes
 	}
 	response := &pb.QueryResponse{Elements: eval.resultElements(qctx, result)}
 	if req.AsView {
-		response.ResultView, _ = spec.Write(qctx.Index, result, nil)
+		response.ResultView, _ = spec.Write(qctx, result, nil)
 	}
 	return response, nil
 }

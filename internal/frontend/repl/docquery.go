@@ -208,7 +208,7 @@ func (s *Session) runDocumentQuery(name string, args []string) (queryAnswer, err
 	context := s.queryContext(ctx)
 	result, err := queryexec.Execute(program, context, bindings, queryexec.Options{})
 	written := strings.Join(append([]string{fqn}, regroupBindings(args)...), " ")
-	view := s.resultView(queryexec.ResultViewName(fqn), written, context.Index, result, err)
+	view := s.resultView(queryexec.ResultViewName(fqn), written, context, result, err)
 	if err != nil {
 		return queryAnswer{view: view}, err
 	}

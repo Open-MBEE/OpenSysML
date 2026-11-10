@@ -57,11 +57,11 @@ func (s *Session) query(text string) ([]string, string, error) {
 	table := querytranslate.NewTable(context.Index, context.Model)
 	q, err := querytranslate.ParseOSLC(text, table)
 	if err != nil {
-		return nil, s.refusedQueryView(text, context.Index, err), err
+		return nil, s.refusedQueryView(text, context, err), err
 	}
 	plan, err := querytranslate.Translate(q, querytranslate.Context{Index: context.Index, Model: context.Model, Table: table}, "%query")
 	if err != nil {
-		return nil, s.refusedQueryView(text, context.Index, err), err
+		return nil, s.refusedQueryView(text, context, err), err
 	}
 	bindings := queryexec.Bindings{}
 	if !plan.Objects {
@@ -76,7 +76,7 @@ func (s *Session) query(text string) ([]string, string, error) {
 		bindings[querytranslate.SourceParameter] = values
 	}
 	result, err := queryexec.Execute(plan.Program, context, bindings, queryexec.Options{})
-	written := s.resultView(queryexec.DefaultResultViewName, text, context.Index, result, err)
+	written := s.resultView(queryexec.DefaultResultViewName, text, context, result, err)
 	if err != nil {
 		return nil, written, err
 	}
