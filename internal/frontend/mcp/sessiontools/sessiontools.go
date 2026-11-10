@@ -227,8 +227,8 @@ func Register(s *mcp.Server, m *Manager) {
 		caller := toolkit.Caller(ctx)
 		target, other := caller.ID(), ""
 		if in.Owner != "" && in.Owner != target {
-			if !toolkit.HasScope(caller, catalog.ScopeAdmin) {
-				return nil, SessionOpened{}, fmt.Errorf("closing another principal's session takes the scope %s, which this credential does not grant", catalog.ScopeAdmin)
+			if err := toolkit.RequireScope(ctx, "session_close of another principal's session", catalog.ScopeAdmin); err != nil {
+				return nil, SessionOpened{}, err
 			}
 			target, other = in.Owner, in.Owner
 		}

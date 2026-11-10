@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -226,8 +227,9 @@ func TestSessionsBelongToThePrincipalThatOpenedThem(t *testing.T) {
 	if list := listSessions(t, ann); !slices.Equal(list.Sessions, []string{"default", "work"}) {
 		t.Errorf("after bob closed his work, ann lists %v, want hers untouched", list.Sessions)
 	}
-	if res := call(t, bob, "session_close", map[string]any{"session": "work", "owner": "oidc:ann"}, nil); !res.IsError || !strings.Contains(resultText(res), string(catalog.ScopeAdmin)) {
-		t.Errorf("bob closing ann's work: %q, want a refusal naming %s", resultText(res), catalog.ScopeAdmin)
+	_, err := bob.CallTool(context.Background(), &sdk.CallToolParams{Name: "session_close", Arguments: map[string]any{"session": "work", "owner": "oidc:ann"}})
+	if refused, ok := toolkit.RefusedScope(err); !ok || refused != catalog.ScopeAdmin {
+		t.Errorf("bob closing ann's work: %v, want the insufficient_scope refusal naming %s", err, catalog.ScopeAdmin)
 	}
 	if list := listSessions(t, ann); !slices.Equal(list.Sessions, []string{"default", "work"}) {
 		t.Errorf("after bob was refused, ann lists %v, want hers untouched", list.Sessions)
@@ -459,5 +461,35 @@ func TestAnUnservedToolIsUnknownNotRefused(t *testing.T) {
 	}
 	if log := logs.String(); !strings.Contains(log, `tool=hover scope="" outcome=error`) {
 		t.Errorf("audit log:\n%s", log)
+	}
+}
+
+// %check-witness names where checks write files, so it takes sysml:write, and
+// a directory outside the workspace root is refused by the session's guard.
+func TestCheckWitnessTakesWriteAndStaysUnderTheRoot(t *testing.T) {
+	principals := map[string]guard.Principal{
+		"runner": principalOnly("oidc", "runner", catalog.ScopeRead, catalog.ScopeSession, catalog.ScopeExecute),
+		"writer": principalOnly("oidc", "writer", catalog.ScopeRead, catalog.ScopeSession, catalog.ScopeExecute, catalog.ScopeWrite),
+	}
+	root := t.TempDir()
+	url, _ := serveAuthenticated(t, Config{Root: root, Groups: []Group{GroupSession}, Version: "test"}, principals)
+	run := func(cs *sdk.ClientSession, line string) (*sdk.CallToolResult, error) {
+		return cs.CallTool(context.Background(), &sdk.CallToolParams{Name: "repl_command", Arguments: map[string]any{"line": line}})
+	}
+	inside := filepath.Join(root, "witnesses")
+	_, err := run(connectAs(t, url, "runner"), "%check-witness "+inside)
+	if refused, ok := toolkit.RefusedScope(err); !ok || refused != catalog.ScopeWrite {
+		t.Errorf("runner %%check-witness: %v, want the refusal naming %s", err, catalog.ScopeWrite)
+	}
+	writer := connectAs(t, url, "writer")
+	if res, err := run(writer, "%check-witness "+inside); err != nil || res.IsError {
+		t.Errorf("writer %%check-witness under the root: err %v, result %q", err, resultText(res))
+	}
+	outside := t.TempDir()
+	if res, err := run(writer, "%check-witness "+outside); err != nil || !res.IsError || !strings.Contains(resultText(res), "root") {
+		t.Errorf("writer %%check-witness outside the root: err %v, result %q, want a refusal naming the root", err, resultText(res))
+	}
+	if res, err := run(writer, "%check-witness"); err != nil || res.IsError || !strings.Contains(resultText(res), inside) {
+		t.Errorf("after the refusal, %%check-witness reports %q, want %s kept", resultText(res), inside)
 	}
 }

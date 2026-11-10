@@ -405,7 +405,7 @@ even without it, as the scope says what the tool can do. `repl_command` is admit
 `sysml:read` and then requires, for the `%` command it is given, the scope of the typed tool doing
 the same — `sysml:read` to show or list (`%list`, `%print`, `%tokens`, …), `sysml:session` to load,
 clear or set the session up (`%load`, `%clear`, `%seed`, the `%check-*` settings, …), `sysml:write`
-to `%save` or `%publish`, `sysml:execute` to instantiate, evaluate, run, solve or debug (`%eval`,
+to `%save`, `%publish` or `%check-witness` (which names where checks write, under the root), `sysml:execute` to instantiate, evaluate, run, solve or debug (`%eval`,
 `%action`, `%solve`, …) — refusing a command the credential lacks the scope for before the session
 is touched; the refusal names the command.
 
