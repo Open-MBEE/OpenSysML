@@ -279,7 +279,8 @@ List<QueryElement> same = model.queryOslc("oslc.where=rdf:type=\"PartUsage\"&osl
 `any`, of at least two conditions), so the query is a value a caller can build and
 inspect; `Query.orderBy(List.of("@type", "name"))` sorts the answer by each property
 in turn, ascending. `queryOslc` needs the `oslc_query` capability; a scope naming
-no element is refused as `INVALID_ARGUMENT`.
+no element is refused as `INVALID_ARGUMENT`, and an unknown property as a
+`QueryOutcomeException` (see [Document queries](#document-queries-and-rendering)).
 
 ### Several documents, and conversion
 
@@ -480,6 +481,40 @@ cells. `runDocumentQuery` needs the `document_query` capability and
 besides for `DocumentForm.HTML`; an unknown query or document
 id is a `ServiceException` `NOT_FOUND`.
 
+A query the model has no answer for fails with a `QueryOutcomeException`, a
+`ServiceException` whose `outcome()` is the structured record the service attaches
+to the status — the one the CLI's `-json` prints and the [QVTS guide](../guide/qvts.md)
+describes:
+
+```java
+try {
+  model.runDocumentQuery("QVTSDemo::MissingMassProject");
+} catch (QueryOutcomeException e) {
+  e.serviceMessage();                       // "... reads feature mass of Lander::lander::cabinEngine ..."
+  QueryOutcome outcome = e.outcome();
+  outcome.kind();                           // "pathError" (QueryOutcome.PATH_ERROR) or "modelError"
+  outcome.step();                           // "Feature(mass)": the step the outcome is reported at
+  for (QueryOutcome.Failure failure : outcome.failures()) {   // a path error, one per failing element
+    failure.step();                         // "Feature(mass)"
+    failure.expected();                     // "a feature named mass on the element"
+    failure.frontier().at();                // "Lander::lander::cabinEngine", "" when nothing resolved
+    failure.frontier().members();           // the candidates there, when a name was expected
+    failure.frontier().features();          //   … when a feature was expected
+    failure.frontier().kinds();             //   … when a relationship kind was expected
+    failure.frontier().nearest();           // the closest spelling, "" when none
+  }
+  for (QueryOutcome.Finding finding : outcome.findings()) {   // a model error
+    finding.element(); finding.constraint(); finding.observed();
+  }
+  outcome.pathFailures();                   // a model error's path failures from the same step
+}
+```
+
+`QueryOutcome` and its nested `Failure`, `Frontier` (with `Member` and `Feature`)
+and `Finding` are serializable records. `query` and `queryOslc` fail the same way
+when they name an unknown property: a path error whose frontier lists the properties
+the query could have named, with the nearest spelling.
+
 ## Values and the rest of the domain
 
 Every answer is immutable, and no generated protobuf message or builder appears in
@@ -535,6 +570,7 @@ throws nothing.
 | --- | --- |
 | `ServiceException` | the call was refused, carrying a `StatusCode` (`NOT_FOUND`, …) |
 | `ModelNotFoundException` / `ModelFileNotFoundException` | a `ServiceException` `NOT_FOUND`: the service holds no model of that hash, or cannot read the named file |
+| `QueryOutcomeException` | a `ServiceException` from a query the model has no answer for; `outcome()` is the decoded `QueryOutcome` (kind, step, failures with their frontiers, findings) |
 | `SymbolNotFoundException` | a `ModelException` from `Model.lookup` naming the missing `name()` and near `suggestions()` |
 | `StaleServiceException` | a `ServiceStartException`: the service is not the release asked for |
 | `ModelException` | the call succeeded and the answer reports a model failure; `failureReason()` classifies it and `diagnostics()` carry what the service said |
