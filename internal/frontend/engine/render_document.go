@@ -84,7 +84,7 @@ func faultCode(fault docset.Fault) uint32 {
 }
 
 // elementIDs reads the elementId a conversion writes for each element through the registered
-// converter, as the service does; nil when the binary links none (the js build), and elementId is absent.
+// converter, as the service does; nil when the binary links none (sysml-engine and sysml-wasm do not).
 func (m *cachedModel) elementIDs() func(*symbols.Symbol) (string, error) {
 	documents := make([]queryexec.ElementIDDocument, 0, len(m.Documents))
 	for _, doc := range m.Documents {

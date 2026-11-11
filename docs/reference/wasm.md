@@ -191,8 +191,8 @@ definition's qualified name and, optionally, the form:
 service renders; `pdf` or any other spelling is refused with InvalidArgument naming those
 three, since the PDF backend drives converters no WebAssembly build can run. The engine
 holds no objects, so a document reads the model alone, as the service does before an
-`Instantiate`; a query's `elementId` column is empty in the `js` build, which links no
-converter to read ids from; and no Graphviz draws for it, so a diagram block whose view carries layout
+`Instantiate`; a query's `elementId` column is empty, since neither `sysml-engine` nor
+`sysml-wasm` links the converter the service reads ids from; and no Graphviz draws for it, so a diagram block whose view carries layout
 positions is written as Mermaid with the renderer's notice (`drawn as Mermaid, not at its
 stated positions: Graphviz (dot) is not installed`) where the service writes DOT. A document
 that is not one — a part def not specializing `DocumentQueries::Document` — is InvalidArgument,
