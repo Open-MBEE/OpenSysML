@@ -349,6 +349,10 @@
 [OSML0001]OpenMBEE.OpenSysML.Capabilities.Has(string! capability) -> bool
 [OSML0001]OpenMBEE.OpenSysML.Capabilities.Names.get -> System.Collections.Generic.IReadOnlySet<string!>!
 [OSML0001]OpenMBEE.OpenSysML.Capabilities.Require(string! capability) -> void
+[OSML0001]OpenMBEE.OpenSysML.CallException
+[OSML0001]OpenMBEE.OpenSysML.CallException.CallException(OpenMBEE.OpenSysML.StatusCode statusCode, string! message, string! method, System.Exception? innerException) -> void
+[OSML0001]OpenMBEE.OpenSysML.CallException.Method.get -> string!
+[OSML0001]OpenMBEE.OpenSysML.CallException.StatusCode.get -> OpenMBEE.OpenSysML.StatusCode
 [OSML0001]OpenMBEE.OpenSysML.CapabilityException
 [OSML0001]OpenMBEE.OpenSysML.CapabilityException.Capability.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.CapabilityException.CapabilityException(string! capability, string! message, string! remedy) -> void
@@ -555,10 +559,8 @@
 [OSML0001]OpenMBEE.OpenSysML.ServerInfo.Equals(OpenMBEE.OpenSysML.ServerInfo? other) -> bool
 [OSML0001]OpenMBEE.OpenSysML.ServerInfo.Version.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.ServiceException
-[OSML0001]OpenMBEE.OpenSysML.ServiceException.Method.get -> string!
 [OSML0001]OpenMBEE.OpenSysML.ServiceException.ServiceException(OpenMBEE.OpenSysML.StatusCode statusCode, string! serviceMessage, string! method, System.Exception? innerException = null) -> void
 [OSML0001]OpenMBEE.OpenSysML.ServiceException.ServiceMessage.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.ServiceException.StatusCode.get -> OpenMBEE.OpenSysML.StatusCode
 [OSML0001]OpenMBEE.OpenSysML.ServiceStartException
 [OSML0001]OpenMBEE.OpenSysML.ServiceStartException.ServiceStartException(string! message) -> void
 [OSML0001]OpenMBEE.OpenSysML.ServiceStartException.ServiceStartException(string! message, System.Exception? innerException) -> void
@@ -639,8 +641,6 @@
 [OSML0001]OpenMBEE.OpenSysML.SymbolNotFoundException.SymbolNotFoundException(string! name, System.Collections.Generic.IEnumerable<string!>! suggestions, string! method) -> void
 [OSML0001]OpenMBEE.OpenSysML.SymbolNotFoundException.SymbolNotFoundException(string! name, string! message, string! method) -> void
 [OSML0001]OpenMBEE.OpenSysML.TransportException
-[OSML0001]OpenMBEE.OpenSysML.TransportException.Method.get -> string!
-[OSML0001]OpenMBEE.OpenSysML.TransportException.StatusCode.get -> OpenMBEE.OpenSysML.StatusCode
 [OSML0001]OpenMBEE.OpenSysML.TransportException.TransportException(OpenMBEE.OpenSysML.StatusCode statusCode, string! message, string! method, System.Exception? innerException = null) -> void
 [OSML0001]OpenMBEE.OpenSysML.Typed.FeatureDecoder<T>
 [OSML0001]OpenMBEE.OpenSysML.Typed.FeatureDecoders

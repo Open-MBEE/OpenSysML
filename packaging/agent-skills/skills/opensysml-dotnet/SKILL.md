@@ -125,7 +125,9 @@ Everything derives from `OpenSysMLException`, except `OperationCanceledException
 
 - `ServiceException` — the service refused the call with a status (`StatusCode`, `ServiceMessage`);
   `ModelFileNotFoundException` for an unreadable file, `ModelNotFoundException` for a model it no
-  longer holds.
+  longer holds. It and `TransportException` (no well-formed answer: unreachable, malformed, past its
+  deadline) are both `CallException`s, so `catch (CallException e)` reads `e.StatusCode` of any
+  failed call.
 - `ModelException` — the call was answered and reports a model failure, with `Diagnostics`:
   `ModelErrorsException` (`RequireNoErrors`), `SymbolNotFoundException` (`Name`, `Suggestions`),
   `ExecutionException`, `VerificationException` (`Reason`), `AnalysisException` (`Partial`),

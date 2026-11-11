@@ -337,16 +337,17 @@ OpenSysMLException
 │   ├── UnsupportedPlatformException  Platform
 │   └── StaleServiceException
 ├── ServiceStopException           Failures
-├── ServiceException               a status the service sent; StatusCode, ServiceMessage, Method
-│   ├── AuthenticationException       Unauthenticated: no token, or a refused one; CredentialsSent, Remedy
-│   ├── ModelNotFoundException
-│   └── ModelFileNotFoundException
+├── CallException                  a call failed with a status rather than an answer; StatusCode, Method
+│   ├── ServiceException              a status the service sent; ServiceMessage
+│   │   ├── AuthenticationException      Unauthenticated: no token, or a refused one; CredentialsSent, Remedy
+│   │   ├── ModelNotFoundException
+│   │   └── ModelFileNotFoundException
+│   └── TransportException            no well-formed answer was read
 ├── ModelException                 the service answered a failure about the model; Diagnostics
 │   ├── ModelErrorsException, SymbolNotFoundException, ExecutionException, CheckException
 │   ├── QueryException, ConversionException, MigrationException, EditException
 │   └── VerificationException
 │       └── AnalysisException, RunsException, RecordException, CompareException
-├── TransportException             no well-formed answer was read; StatusCode, Method
 ├── UnsupportedValueException      a value of a kind this client does not know
 ├── UnwritableException            a destination that cannot be written safely
 ├── FeatureValueException          a typed property's feature failed or was never materialized; FeatureName, Reason
@@ -368,7 +369,9 @@ MetamodelException
 
 A `ServiceException` is only ever a status the service itself sent. A status the transport made
 up, a malformed answer, an over-limit response and a passed deadline are `TransportException`s;
-so is a proxy's HTTP 401 page, which is not an `AuthenticationException`.
+so is a proxy's HTTP 401 page, which is not an `AuthenticationException`. Both are
+`CallException`s, so one `catch` reads any failed call's `StatusCode` and `Method`; a
+`QueryException` keeps the status the service sent too, as the model fault it is.
 A failure that kept a partial result carries it: a check's or an analysis's `Partial`, a run's
 `Trace`, a refused edit's `Referrers`.
 

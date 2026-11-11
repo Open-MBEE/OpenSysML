@@ -453,7 +453,10 @@ exceptions:
 | The caller's token was cancelled | `OperationCanceledException` carrying that token |
 | The connection was disposed before or during the call | `ObjectDisposedException` |
 
-A status is the service's only when the service sent it. Over gRPC, that is when the response
+A status is the service's only when the service sent it, and a `ServiceException`; a status this
+client gives a call that read no well-formed answer is a `TransportException`. Both are
+`CallException`s, with the `StatusCode` and `Method`, so one `catch` reads the status of any
+failed call. Over gRPC, a status is the service's when the response
 carried it and the gRPC library raised it unchanged; a status the library made up for a broken
 connection or a malformed answer is a `TransportException`. Over Connect, it is when the body
 of a refusal is a Connect error, `{"code": …, "message": …}` with one of the protocol's codes,

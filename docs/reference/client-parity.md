@@ -181,7 +181,7 @@ carries structured details (diagnostics, symbol suggestions, capability names). 
 gives `NOT_FOUND` by subject, `UNAUTHENTICATED` and a missing capability, whether the advertised list
 or the service's own `UNIMPLEMENTED` shows it, exceptions of their own;
 any other status is a `ServiceException`, or a `TransportException` for a deadline or a network
-failure, carrying its `StatusCode`, rather than an exception type per status.
+failure, both `CallException`s carrying its `StatusCode`, rather than an exception type per status.
 
 ## Open gaps
 

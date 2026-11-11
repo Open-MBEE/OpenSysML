@@ -4,8 +4,9 @@ namespace OpenMBEE.OpenSysML;
 
 /// <summary>
 /// The base of every failure this client reports. Cancellation by the caller's token is the
-/// standard <see cref="OperationCanceledException"/>, and a call on a disposed connection the
-/// standard <see cref="ObjectDisposedException"/>; neither derives from this class.
+/// standard <see cref="OperationCanceledException"/>, a call on a disposed connection the
+/// standard <see cref="ObjectDisposedException"/>, and an argument or option refused before
+/// anything is sent the standard <see cref="ArgumentException"/>; none derives from this class.
 /// </summary>
 public class OpenSysMLException : Exception
 {
