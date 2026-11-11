@@ -78,10 +78,8 @@ func decodeRecords(data []byte, r *Report) error {
 	return nil
 }
 
-// header is the committed JSON: the provenance and every root's figures, without
-// the rules the records carry or the totals derived from them.
-// headerView is the committed header: the report without the records, totals and
-// summary the records file carries or the reader derives.
+// headerView is the committed header: the report without the rules the records
+// carry and the totals, summary and silent list the reader derives.
 type headerView struct {
 	Provenance baseline.Record `json:"provenance"`
 	Structure  string          `json:"structure"`
