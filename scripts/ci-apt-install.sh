@@ -3,14 +3,10 @@
 # step within minutes instead of holding it until the job's limit cancels it.
 #
 # Usage: scripts/ci-apt-install.sh [apt-get install options] <package>...
-# Options come first, one argument each. CI_APT_TIMEOUT_SECONDS bounds one apt-get update,
-# CI_APT_FETCH_SECONDS one fetch of the archives, CI_APT_DEADLINE_SECONDS all fetching.
-# CI_APT_ARCHIVES names a directory holding the .deb set an earlier run installed from: it seeds
-# apt's cache, is rewritten to this run's set, and is installed offline when no mirror answers.
-# CI_APT_CACHE_DIR relocates apt's archive cache and CI_APT_MIRRORS the runner's mirror list.
 set -euo pipefail
 
 usage() { echo "usage: $0 [apt-get install options] <package>..." >&2; exit 2; }
+# The apt-get install options come first, one argument each; the packages follow.
 options=()
 while [[ $# -gt 0 && $1 == -* ]]; do
   options+=("$1")
@@ -22,16 +18,18 @@ packages=("$@")
 # A fetch that sends nothing for 30 s is abandoned and retried by apt itself; each
 # command is bounded too, so a trickling mirror cannot hold it either.
 acquire=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
+# CI_APT_CACHE_DIR relocates apt's archive cache; the tests point it at a directory of their own.
 archives=${CI_APT_CACHE_DIR:-/var/cache/apt/archives}
 cache=(-o "Dir::Cache::Archives=$archives/")
+# CI_APT_TIMEOUT_SECONDS bounds one apt-get update and CI_APT_FETCH_SECONDS one fetch of the archives.
 budget=${CI_APT_TIMEOUT_SECONDS:-180}
 fetch=${CI_APT_FETCH_SECONDS:-300}
-# Fetching ends inside the steps' ten-minute timeout-minutes with time to spare for
-# unpacking, so a slow update cannot starve the download of its attempts.
+# All fetching ends (CI_APT_DEADLINE_SECONDS) inside the steps' ten-minute timeout-minutes with time
+# to spare for unpacking, so a slow update cannot starve the download of its attempts.
 deadline=$((SECONDS + ${CI_APT_DEADLINE_SECONDS:-480}))
 
-# GitHub's runners list their mirrors by priority; a mirror that failed an attempt is
-# dropped from the list so the next attempt asks the next one rather than retrying it.
+# GitHub's runners list their mirrors by priority (CI_APT_MIRRORS names the list); a mirror that
+# failed an attempt is dropped from it so the next attempt asks the next one rather than retrying it.
 mirrors=${CI_APT_MIRRORS:-/etc/apt/apt-mirrors.txt}
 demote_mirror() {
   [[ -f $mirrors ]] && (($(grep -c . "$mirrors") > 1)) || return 0
@@ -59,8 +57,8 @@ run_apt() {
   return 1
 }
 
-# The set kept from an earlier run spares the mirror: apt re-fetches only an archive
-# whose hash no longer matches the index, so a stale copy costs nothing but its download.
+# CI_APT_ARCHIVES holds the .deb set an earlier run installed from. Seeding apt's cache with it
+# spares the mirror, which re-fetches only an archive whose hash no longer matches the index.
 seeded=()
 if [[ -n ${CI_APT_ARCHIVES:-} ]]; then
   mkdir -p "$CI_APT_ARCHIVES"

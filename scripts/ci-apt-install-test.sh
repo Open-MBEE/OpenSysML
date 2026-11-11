@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 # Checks scripts/ci-apt-install.sh against a stand-in apt that plays a mirror outage, so
 # the offline path a real outage takes is exercised on every pull request.
 set -euo pipefail
@@ -32,6 +33,7 @@ fi
 STUB
 cat >"$stubs/apt-get" <<'STUB'
 #!/usr/bin/env bash
+
 # FAKE_APT_UPDATE and FAKE_APT_FETCH (ok|fail) say whether the mirror answers; FAKE_APT_SET
 # names the archives (<package>_<version>_<arch>.deb) the request needs, space separated.
 printf '%s\n' "$*" >>"$FAKE_APT_LOG"
