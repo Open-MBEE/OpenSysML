@@ -23,9 +23,8 @@ func (k VertexKind) String() string {
 	return "none"
 }
 
-// VertexRef names a vertex of a lowered state graph: a StateID, a PseudoID or a
-// terminate action's 1-based ordinal in the graph's terminate table. The zero
-// VertexRef names no vertex.
+// VertexRef names a vertex of a lowered state graph: a StateID, a PseudoID or a terminate
+// action's 1-based ordinal in the graph's terminate table; the zero VertexRef names no vertex.
 type VertexRef struct {
 	Kind  VertexKind
 	Index uint32

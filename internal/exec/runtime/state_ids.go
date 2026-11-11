@@ -8,9 +8,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// The executor's own records name the graph's states, regions, pseudostates and
-// transitions by the graph-local ids lowering assigns; these translate between
-// an id and the declaration the graph's tables are still keyed by.
+// The executor's own records name states, regions, pseudostates and transitions by
+// the graph-local ids lowering assigns; these translate to the declarations the graph's tables key.
 
 // machineID is the id the executor gives the machine state, which lowering keeps
 // out of the state table: one past the last numbered state.
