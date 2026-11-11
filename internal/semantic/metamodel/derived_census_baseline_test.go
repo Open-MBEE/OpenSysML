@@ -3,50 +3,66 @@ package metamodel
 import (
 	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 )
 
 // TestDerivedCensusBaselineKeysServedRules holds the recorded census to the
-// rules it measures: every rule it counts or names silent is served, and no
-// served rule is missing from it. tools/cmd/derived-census -update re-records it.
+// rules it measures: every rule its records count is served, every root the
+// records name is in the header, and the header names the Structure read.
+// tools/cmd/derived-census -update re-records both files.
 func TestDerivedCensusBaselineKeysServedRules(t *testing.T) {
 	content, err := os.ReadFile("derived_census_baseline.json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	var baseline struct {
-		Structure string                     `json:"structure"`
-		Totals    map[string]json.RawMessage `json:"totals"`
-		Silent    []string                   `json:"silent"`
-		Summary   struct {
-			Served int `json:"served"`
-		} `json:"summary"`
+		Structure string `json:"structure"`
+		Roots     []struct {
+			Name string `json:"name"`
+		} `json:"roots"`
 	}
 	if err := json.Unmarshal(content, &baseline); err != nil {
 		t.Fatal(err)
+	}
+	if baseline.Structure == "" {
+		t.Error("baseline does not name the Structure the evaluator read")
+	}
+	roots := map[string]int{}
+	for i, root := range baseline.Roots {
+		roots[root.Name] = i + 1
 	}
 	served := map[string]bool{}
 	for _, rule := range Rules() {
 		served[rule.DefiningClass+"::"+rule.Property] = true
 	}
-	if baseline.Summary.Served != len(served) {
-		t.Errorf("baseline records %d served rules, rules.go serves %d; re-record with go run -C tools ./cmd/derived-census -update",
-			baseline.Summary.Served, len(served))
+	records, err := os.ReadFile("derived_census_records.tsv")
+	if err != nil {
+		t.Fatal(err)
 	}
-	for name := range baseline.Totals {
-		if !served[name] {
-			t.Errorf("baseline counts %s, which rules.go does not serve", name)
+	counted := map[string]bool{}
+	previousRule, previousRoot := "", 0
+	for number, line := range strings.Split(string(records), "\n") {
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
 		}
+		fields := strings.Split(line, "\t")
+		if len(fields) != 10 {
+			t.Fatalf("derived_census_records.tsv:%d: want 10 fields, got %d", number+1, len(fields))
+		}
+		if !served[fields[0]] {
+			t.Errorf("derived_census_records.tsv:%d: counts %s, which rules.go does not serve", number+1, fields[0])
+		}
+		if roots[fields[1]] == 0 {
+			t.Errorf("derived_census_records.tsv:%d: names root %s, which the baseline header does not", number+1, fields[1])
+		}
+		if fields[0] < previousRule || fields[0] == previousRule && roots[fields[1]] <= previousRoot {
+			t.Errorf("derived_census_records.tsv:%d: %s %s is out of order; records are sorted by rule, then by the header's root order", number+1, fields[0], fields[1])
+		}
+		previousRule, previousRoot = fields[0], roots[fields[1]]
+		counted[fields[0]] = true
 	}
-	for _, name := range baseline.Silent {
-		if !served[name] {
-			t.Errorf("baseline names %s silent, which rules.go does not serve", name)
-		}
-		if _, counted := baseline.Totals[name]; !counted {
-			t.Errorf("baseline names %s silent without counting it", name)
-		}
-	}
-	if baseline.Structure == "" {
-		t.Error("baseline does not name the Structure the evaluator read")
+	if len(counted) == 0 {
+		t.Fatal("derived_census_records.tsv holds no records")
 	}
 }
