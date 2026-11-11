@@ -43,7 +43,7 @@ hygiene_pattern='(^|/)testdata/|\.golden\.|_test\.go$'
 project_inputs_pattern='^docs/project/.*\.(json|md)$'
 # The derived-property differential needs Java and the pinned pilot jar, so it runs only on what can
 # move its baseline (which records no writer digest): writer, referee, bridge, pin, baseline, this job.
-apijson_pattern='^(internal/translate/export/|tools/referee/apijson/|tools/referee/diff/|tools/oracle/baseline/|scripts/pilot-json-exporter/|scripts/pilot-pin\.sh$|scripts/download-pilot-validator\.sh$|scripts/download-pilot-json-exporter\.sh$|docs/project/api-json-differential/|\.github/workflows/pr\.yml$|\.github/actions/corpora/)'
+apijson_pattern='^(internal/translate/export/|tools/referee/apijson/|tools/referee/baseline/|tools/referee/diff/|tools/oracle/baseline/|scripts/pilot-json-exporter/|scripts/pilot-pin\.sh$|scripts/download-pilot-validator\.sh$|scripts/download-pilot-json-exporter\.sh$|docs/project/api-json-differential/|\.github/workflows/pr\.yml$|\.github/actions/corpora/)'
 
 known_pattern="$service_pattern|$docs_pattern|$node_pattern|$python_pattern|$java_pattern|$rust_pattern|$julia_pattern|$matlab_pattern|$vscode_pattern|$jupyterlab_pattern|$emacs_pattern|$mdk_pattern|$syson_pattern|^\.agents/|^\.gitignore$|^\.gitattributes$|^LICENSE|^packaging/"
 

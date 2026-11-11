@@ -134,28 +134,57 @@ func Write[S, R, A any](dir string, b Baseline[S, R, A], log io.Writer) error {
 	return nil
 }
 
-// Rewrite re-records the replaced roots' fragments beside the other roots' committed
-// ones and refolds the index; with nothing replaced it rebuilds the index alone.
-func Rewrite[S, R, A any](dir string, replaced []string, fresh []Fragment[S, R], provenance oracle.Record, fold Fold[S, R, A], log io.Writer) error {
+// Rewrite re-records the replaced roots' fragments beside the other roots' committed ones
+// and refolds the index (with nothing replaced, the index alone); vouches bounds the provenance.
+func Rewrite[S, R, A any](dir string, replaced []string, fresh []Fragment[S, R], provenance oracle.Record, fold Fold[S, R, A], commands Commands, log io.Writer) error {
 	for _, f := range fresh {
 		if !slices.Contains(replaced, f.Root) {
 			return fmt.Errorf("fragment %s/%s is not of a replaced root", f.Root, f.File)
 		}
 	}
-	committed, err := Read[S, R, A](dir)
+	committed, err := read[S, R, A](dir, replaced)
 	if err != nil {
 		return err
 	}
-	fragments := slices.Clone(fresh)
-	for _, f := range committed.Fragments {
-		if !slices.Contains(replaced, f.Root) {
-			fragments = append(fragments, f)
-		}
+	if err := vouches(dir, committed.Provenance, provenance, replaced, commands); err != nil {
+		return err
 	}
+	fragments := append(slices.Clone(fresh), committed.Fragments...)
 	if err := sortFragments(fragments); err != nil {
 		return err
 	}
 	return Write(dir, Baseline[S, R, A]{Provenance: provenance, Summary: fold(fragments), Fragments: fragments}, log)
+}
+
+// vouches refuses a provenance movement the replaced roots cannot account for: a moved
+// pin, tool, errata digest or other input changes what every fragment would measure.
+func vouches(dir string, recorded, current oracle.Record, replaced []string, commands Commands) error {
+	var stale []oracle.Mismatch
+	for _, m := range oracle.Compare(recorded, current) {
+		if input, ok := inputOf(m.Field); ok && slices.Contains(replaced, input) {
+			continue
+		}
+		stale = append(stale, m)
+	}
+	if len(stale) == 0 {
+		return nil
+	}
+	scope := "the index alone"
+	if len(replaced) > 0 {
+		scope = "root(s) " + strings.Join(replaced, ", ")
+	}
+	explained := oracle.Explain(filepath.Join(dir, IndexFile), commands.Refresh, stale)
+	return fmt.Errorf("re-recording %s cannot vouch for the moved provenance, which only a run over every root can:\n%s", scope, strings.TrimRight(explained, "\n"))
+}
+
+// inputOf names the input a provenance mismatch is about (inputs[<name>]...), if any.
+func inputOf(field string) (string, bool) {
+	rest, ok := strings.CutPrefix(field, "inputs[")
+	if !ok {
+		return "", false
+	}
+	name, _, ok := strings.Cut(rest, "]")
+	return name, ok
 }
 
 // removeOthers deletes every .json file under dir that is not kept, then the
@@ -248,6 +277,13 @@ func mustMarshal(v any) []byte {
 // Read loads index.json and every fragment it lists, each checked to be the file
 // it is filed under, and refuses a directory holding a fragment the index does not list.
 func Read[S, R, A any](dir string) (Baseline[S, R, A], error) {
+	return read[S, R, A](dir, nil)
+}
+
+// read is Read less the replaced roots, which are about to be re-recorded whole: their
+// listed fragments are skipped and their directories may hold fragments the index does
+// not list (two branches that each added a file of one root merge that way).
+func read[S, R, A any](dir string, replaced []string) (Baseline[S, R, A], error) {
 	var out Baseline[S, R, A]
 	index, err := readIndex[A](dir)
 	if err != nil {
@@ -256,6 +292,9 @@ func Read[S, R, A any](dir string) (Baseline[S, R, A], error) {
 	out.Provenance, out.Summary = index.Provenance, index.Summary
 	listed := make(map[string]bool)
 	for _, root := range sortedRoots(index.Files) {
+		if slices.Contains(replaced, root) {
+			continue
+		}
 		for _, file := range index.Files[root] {
 			path := FragmentPath(dir, root, file)
 			listed[path] = true
@@ -274,11 +313,21 @@ func Read[S, R, A any](dir string) (Baseline[S, R, A], error) {
 		return out, err
 	}
 	for _, path := range unlisted {
-		if !listed[path] {
+		if !listed[path] && !slices.Contains(replaced, rootOf(dir, path)) {
 			return out, fmt.Errorf("%s is not listed in %s: a fragment of a file the baseline no longer compares; remove it or re-record", path, filepath.Join(dir, IndexFile))
 		}
 	}
 	return out, nil
+}
+
+// rootOf is the root directory a path under dir is filed in.
+func rootOf(dir, path string) string {
+	rel, err := filepath.Rel(dir, path)
+	if err != nil {
+		return ""
+	}
+	root, _, _ := strings.Cut(rel, string(filepath.Separator))
+	return root
 }
 
 func readIndex[A any](dir string) (Index[A], error) {

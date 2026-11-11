@@ -101,6 +101,7 @@ case_ go-source docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,
 # the bridge, the pin, the baseline itself) and on unclaimed paths, like every area; not on a parser change.
 case_ apijson-writer apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/translate/export/api_json_absence.go
 case_ apijson-referee apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode tools/referee/apijson/provenance.go
+case_ apijson-store apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode tools/referee/baseline/store.go
 case_ apijson-bridge apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode scripts/pilot-json-exporter/ExportJSON.java
 case_ apijson-pin apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode scripts/pilot-pin.sh
 case_ apijson-baseline apijson,docs,go docs/project/api-json-differential/index.json

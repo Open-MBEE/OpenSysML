@@ -205,7 +205,7 @@ func run(opts options) error {
 	committed := committedDir(opts.repo)
 	switch {
 	case opts.update && len(opts.roots) > 0:
-		return baseline.Rewrite(committed, opts.roots, fragments, record, fold, opts.log)
+		return baseline.Rewrite(committed, opts.roots, fragments, record, fold, commands, opts.log)
 	case opts.update:
 		return baseline.Write(committed, Committed{Provenance: record, Summary: fold(fragments), Fragments: fragments}, opts.log)
 	case opts.check && len(opts.roots) > 0:

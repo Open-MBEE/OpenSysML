@@ -231,14 +231,14 @@ func readCommitted(checkout string) (Committed, error) {
 	return baseline.Read[FileSummary, Counts, Summary](committedDir(checkout))
 }
 
-// reindex rebuilds index.json from the committed fragments with this checkout's
-// provenance, without the pilot: the mend for an index two branches both moved.
+// reindex rebuilds index.json from the committed fragments, without the pilot: the
+// mend for an index two branches both moved while no input, pin or tool moved.
 func reindex(checkout, libraries string, log io.Writer) error {
 	record, err := provenance(checkout, libraries)
 	if err != nil {
 		return err
 	}
-	return baseline.Rewrite[FileSummary, Counts, Summary](committedDir(checkout), nil, nil, record, fold, log)
+	return baseline.Rewrite[FileSummary, Counts, Summary](committedDir(checkout), nil, nil, record, fold, commands, log)
 }
 
 // sameFigures holds the run's directly summed figures to the fold of its

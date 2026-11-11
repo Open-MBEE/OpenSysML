@@ -28,7 +28,7 @@ validators use (`scripts/pilot-pin.sh`).
 go run -C tools ./cmd/pilot-apijson-diff          # writes build/pilot-apijson-diff/
 go run -C tools ./cmd/pilot-apijson-diff -check   # fails unless the committed baseline reproduces
 go run -C tools ./cmd/pilot-apijson-diff -update  # re-records docs/project/api-json-differential/
-go run -C tools ./cmd/pilot-apijson-diff -reindex # rebuilds its index.json from the committed fragments, without the pilot
+go run -C tools ./cmd/pilot-apijson-diff -reindex # rebuilds its index.json from the committed fragments, without the pilot (no input, pin or tool may have moved)
 ```
 
 `-roots training,probes` restricts a run to named roots (with `-update`, re-records those roots'
@@ -69,7 +69,8 @@ policy stay this referee's.
   declared nondeterminism, the totals and one report per root — every figure of which is a fold
   over the fragments. It is shared because provenance and totals are whole-corpus facts; it moves
   only when a provenance line or an aggregate figure moves, and it is never hand-merged: `-reindex`
-  rebuilds it from the committed fragments with this checkout's provenance and no pilot run, and
+  rebuilds it from the committed fragments with no pilot run — refusing when a provenance line
+  moved, since it re-measured nothing — and
   `TestCommittedIndexSumsItsFragments` holds the committed index to the committed fragments without
   Java. This record stays shared for the same reason: it states the aggregate figures
   (`make docs-counts`).
@@ -80,10 +81,15 @@ policy stay this referee's.
   (`sameFigures`), so no figure can enter the totals without a fragment carrying it.
 - **Re-recording and conflicts.** `-update` re-records the whole directory (removing the fragments
   of files no longer in a root); `-update -roots <roots>` re-records the named roots alone and
-  refolds the index. Two branches that moved different files' verdicts merge without conflict except
-  possibly in `index.json`, which is resolved by taking either side and running `-reindex` on the
-  merged tree; a fragment both branches moved is resolved by re-recording its root on the merged tree
-  and adjudicating the result here. Never re-record a baseline whose figures did not move.
+  refolds the index. A partial re-record vouches only for what it re-measured: `-update -roots`
+  may move the named roots' input digests and nothing else, `-reindex` nothing at all — a moved
+  pilot pin, bridge, errata digest or library needs the full `-update`. Two branches that moved
+  different files' verdicts merge without conflict except possibly in `index.json`, which is
+  resolved by taking either side and running `-reindex` on the merged tree; a fragment both
+  branches moved, or a root both branches added files to or removed files from (its index entry and
+  its directory then disagree, and its digest moved), is resolved by re-recording that root on the
+  merged tree (`-update -roots <root>`, which reads the other roots strictly and that root not at
+  all) and adjudicating the result here. Never re-record a baseline whose figures did not move.
 
 ### The pilot's exporter
 

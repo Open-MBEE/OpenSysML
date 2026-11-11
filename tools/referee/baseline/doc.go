@@ -22,7 +22,12 @@
 // verdict does. Two branches that both move a verdict therefore still meet in
 // index.json, but the conflict is mechanical: the fragments merge on their own
 // and Rewrite with no replaced roots re-folds the index from them without the
-// reference toolchain.
+// reference toolchain. Rewrite vouches only for what it re-measured: of the
+// committed provenance, the inputs named like the replaced roots may move and
+// nothing else, so a moved pin, tool, errata digest or other input needs a run
+// over every root. Inside a replaced root the index and the files need not
+// agree — two branches that each added a file of one root merge that way, and
+// the root's digest having moved, re-recording that root is the resolution.
 //
 // Only storage and comparison are shared. A referee keeps its own row type R,
 // its per-file summary S and its aggregate A, and its own policy on what a

@@ -223,8 +223,10 @@ repository's writer and no recording date — so a commit under `internal/transl
 the baseline only in the fragments of the files whose verdicts it moves, one bucket line at a
 time, and two branches re-recording it conflict only on a fragment they both moved. When they both
 moved `index.json`, take either side and run `go run -C tools ./cmd/pilot-apijson-diff -reindex`
-on the merged tree (no pilot needed) to fold the merged fragments; when a fragment conflicts,
-re-record its root on the merged tree (`-update -roots <root>`) and adjudicate what moved. What
+on the merged tree (no pilot needed) to fold the merged fragments; when a fragment conflicts, or
+both branches added or removed files of one root, re-record that root on the merged tree
+(`-update -roots <root>`) and adjudicate what moved. Neither command vouches for a moved pilot
+pin, bridge, errata digest or library: those need the full `-update`. What
 proves the figures current is the differential itself: the pull-request
 workflow's `apijson-differential` job runs `go run -C tools ./cmd/pilot-apijson-diff -check` on
 every change under the writer, the referee, the bridge, the pin or the baseline. Before pushing

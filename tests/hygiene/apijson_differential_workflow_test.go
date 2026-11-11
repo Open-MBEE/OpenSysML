@@ -76,6 +76,7 @@ func TestChangedAreasClaimWhatMovesTheAPIJSONBaseline(t *testing.T) {
 	for _, claimed := range []string{
 		"internal/translate/export/",
 		"tools/referee/apijson/",
+		"tools/referee/baseline/",
 		"scripts/pilot-json-exporter/",
 		`scripts/pilot-pin\.sh$`,
 		"docs/project/api-json-differential/",
