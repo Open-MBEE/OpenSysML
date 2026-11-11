@@ -128,14 +128,6 @@ func (ctx *Context) boundMemberDecl(owner *symbols.Symbol, features []*symbols.S
 	return decl
 }
 
-// calcMemberDeclOf resolves what a member of link declares for a value bound to it.
-func (ctx *Context) calcMemberDeclOf(link *symbols.Symbol, sym *symbols.Symbol, name string) calcMemberDecl {
-	if sym == nil {
-		return calcMemberDecl{}
-	}
-	return ctx.calcMemberDeclFor(link, sym, name)
-}
-
 // calcMemberDeclFor is what the member sym of link declares for a value bound to it.
 func (ctx *Context) calcMemberDeclFor(link, sym *symbols.Symbol, name string) calcMemberDecl {
 	mult, stated := ctx.extractMultiplicity(sym)
