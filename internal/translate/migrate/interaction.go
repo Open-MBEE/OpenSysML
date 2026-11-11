@@ -905,7 +905,7 @@ func (s *scenario) pairArguments(args, targets []*sysmlv1.Element) []*sysmlv1.El
 			continue
 		}
 		for _, t := range targets {
-			if s.m.nameOf(t) == arg.Name {
+			if t.Name == arg.Name {
 				paired[i], named[t] = t, true
 				break
 			}
