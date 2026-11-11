@@ -2120,13 +2120,6 @@ func (d *decoder) identityOf(el *element) []identityAnnotation {
 // for qname: uuid5(NamespaceURL, the root's element IRI) for the root itself
 // and uuid5(pkg, the qualified-name-derived id) under it — so an id that form
 // minted stays implied, and only a differing one is declared.
-// subactionMembershipID reports a StateSubactionMembership whose id derives from the one action it owns —
-// the pilot's shape for a bare `entry;` — so its position implies it and no annotation states it.
-func (d *decoder) subactionMembershipID(el *element) bool {
-	return el.metaclass == mSubaction && len(el.children) == 1 &&
-		el.elementID == el.children[0].elementID+rdf.OwningMembershipSuffix
-}
-
 func (d *decoder) modeDerivedUUID(id, qname, root string) bool {
 	if qname == "" || root == "" {
 		return false
@@ -2137,6 +2130,13 @@ func (d *decoder) modeDerivedUUID(id, qname, root string) bool {
 		expected = identity.DerivedID(pkg, rdf.EncodeElementID(qname))
 	}
 	return id == expected
+}
+
+// subactionMembershipID reports a StateSubactionMembership whose id derives from the one action it owns —
+// the writer's shape for a bare `entry;` — so its position implies it and no annotation states it.
+func (d *decoder) subactionMembershipID(el *element) bool {
+	return el.metaclass == mSubaction && len(el.children) == 1 &&
+		el.elementID == el.children[0].elementID+rdf.OwningMembershipSuffix
 }
 
 // rootQNameOf is the qualified name of the document root el sits under — the
