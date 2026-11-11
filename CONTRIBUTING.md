@@ -277,9 +277,21 @@ decision is recorded through the Release Checklist item above.
 `Build and test` job aggregates whichever tier ran, so that is the one check branch protection
 needs to require.
 
-**The full tier** is the default: it runs on every push to a pull request that is ready for
-review, when a draft is marked ready, and on any pull request carrying the label `ci:full`. It
-gates: gofmt, `go vet`, `make lint`, the race-enabled test suite (nine shards,
+**The quick tier** is what every push to a pull request gets, draft or ready, in about half the
+runner time of the full tier and a third of its wall time: the binaries, the same Go suite without
+`-race` in ten groups of the race shards (`make test-quick`), the download-free static checks
+(gofmt, vet, the production build, grpc imports, proto lint and breaking), the WebAssembly, Xpect
+and conformance gates, and only the clients, editors and docs whose own paths changed. The lint,
+the corpus and solver gates, the PDF toolchain and the fan-out from a service change to every
+client wait for the full tier. A push whose diff touches a package where `-race` has found bugs
+(`internal/exec/runtime`, `internal/exec/smt`, the gRPC server and its suites, the REPL, the LSP,
+`internal/workspace`, the export writer, the symbol index — the list is `race_pattern` in
+`scripts/ci-changed-areas.sh`, and its test pins it) escalates itself to the full tier, as does
+one touching a path no area claims.
+
+**The full tier** runs on the merge queue's commit (below), on any pull request carrying the
+label `ci:full` (adding it re-runs the current head), and on those escalated pushes. It
+gates: gofmt, `go vet`, `make lint`, the race-enabled test suite (twenty shards,
 `make test-shard`), the binaries, the client suites, the conformance suite over each transport,
 the protobuf lint and wire-compatibility checks, the documentation hygiene checks
 (`make docs-check`, `make man-check` and the census check), the site build, and in each
@@ -287,15 +299,10 @@ client's job the release-digest copy it ships and the stubs it commits (regenera
 pinned buf and diffed). It downloads the OMG corpora before the suite and runs each corpus gate as its own
 step, so those gates are required rather than skipped.
 
-**The quick tier** is what a draft pull request gets — an opt-in for work the author does not
-yet want reviewed — on every push to it, within about a third of the runner time: the binaries,
-the same Go suite without `-race` in three shards (`make test-quick`), the download-free static
-checks (gofmt, vet, the production build, grpc imports, proto lint and breaking), the WebAssembly, Xpect and conformance gates, and only the clients and docs whose
-own paths changed. The lint, the corpus and solver gates, the PDF toolchain and the fan-out
-from a service change to every client wait for the full tier. Open a pull
-request ready for review rather than as a draft: marking a draft ready starts a second full run
-on a head the quick tier already ran, and a draft is not considered until it is marked ready.
-The full tier is what a pull request has to pass to merge.
+Open a pull request ready for review rather than as a draft: both run the same tier, and a draft
+is not considered until it is marked ready. The full tier is what a pull request has to pass to
+merge: the merge queue runs it, and `ci:full` runs it early when a change warrants it (a new
+goroutine, a shared cache, anything the race detector should see before the queue does).
 
 **The merge queue**, when the `develop` ruleset has one, runs the full tier once more on the
 commit it builds for each queued pull request (`refs/heads/gh-readonly-queue/develop/...`,
@@ -452,7 +459,13 @@ When a change needs documenting:
   (`scripts/mkdocs_suite_figures.py`, run by `make docs`) splices in the figures from
   `go run -C tools ./cmd/doc-counts -site-blocks`, which counts the tree the way the gates enumerate it.
   `go run -C tools ./cmd/doc-counts -check` refuses a figure typed into one of those blocks, so adding a
-  test or a fixture is the whole change and two branches cannot conflict on a count. `README.md`
+  test or a fixture is the whole change and two branches cannot conflict on a count. The api-json
+  differential record (`docs/project/api-json-differential.md`) carries its scorecard headline,
+  per-root table and the figure columns of its gap tables the same way, as `apijson-…` blocks the
+  hook fills from `go run -C tools ./cmd/pilot-apijson-diff -site-blocks` (the committed baseline);
+  the committed rows hold only the (metaclass, property) key and the adjudication, so re-recording
+  the baseline never rewrites the page, and `TestRecordStatesTheBaselinesFigures` (`tools/referee/apijson`)
+  refuses a figure typed into a block. `README.md`
   names the gates without their counts; the one suite figure still committed there is whether
   every conformance case passes, which moves with `known_failures.txt` alone.
 - **Robustness cases are registered per feature.** A runtime failure-mode subtest goes in
@@ -472,6 +485,20 @@ When a change needs documenting:
   `go test -C tools ./referee/diff`. `make docs-counts` still restates the externally refereed oracle
   numbers from the baseline JSONs (and the README's conformance-passing sentence); run it only
   when a baseline or `known_failures.txt` moved.
+- **A baseline conflict with `develop` is re-recorded by a label, not by hand.** When a
+  branch and `develop` both re-recorded a generated baseline (the api-json differential, the
+  derived census, the structure differential, the library/prefix sweep, the corpus and round-trip
+  expectations, the conversion and parser goldens, the proto stubs), apply the `ci:rebaseline`
+  label to the pull request. [.github/workflows/rebaseline.yml](.github/workflows/rebaseline.yml)
+  merges `origin/develop` into the branch taking `develop`'s side of the conflicts confined to the
+  generated paths it lists (a conflict anywhere else fails the run), re-runs every recorder on the
+  merged tree, refuses a movement the merge does not explain
+  (`scripts/rebaseline-movement.py`: a verdict that moved for a record neither side moved), commits
+  the result with the movement in its message, pushes to the branch, removes the label and
+  comments the movement for adjudication. It never touches
+  `tests/corpus/testdata/training_examples_expected.txt`, which is asserted clean rather than
+  ratcheted, and it needs the label applied to the branch's current head (a push after the label
+  stops it). Only a branch of this repository can be re-recorded, not a fork's.
 - **Changelog entries are fragments, not edits to `CHANGELOG.md`.** A change that a user
   should read about adds one file, `changes/unreleased/<slug>.<section>.md`, holding the list
   item(s) for that section (`added`, `changed`, `fixed`, …); see the README there. Two branches

@@ -91,6 +91,16 @@ func (k DefinitionKind) IsAction() bool {
 	return k == DefAction || k == DefUseCase
 }
 
+// HasActionBodyItems reports whether a definition of the kind owns ActionBodyItems, so a `then` among its members
+// may carry a body: an action or occurrence body, and a calculation, constraint or case body, which carry them too.
+func (k DefinitionKind) HasActionBodyItems() bool {
+	switch k {
+	case DefAction, DefOccurrence, DefCalc, DefConstraint, DefCase, DefAnalysisCase, DefVerificationCase, DefUseCase:
+		return true
+	}
+	return false
+}
+
 func (k DefinitionKind) String() string {
 	if int(k) < 0 || int(k) >= len(definitionKindNames) {
 		return "unknown"
@@ -244,6 +254,17 @@ func (k UsageKind) String() string {
 		return "unknown"
 	}
 	return usageKindNames[k]
+}
+
+// HasActionBodyItems reports whether a usage of the kind owns ActionBodyItems, as the parser reads its body: an action
+// body, or a calculation, constraint or case body (SysML.xtext CalculationBodyItem, CaseBodyItem); a step's is a feature body.
+func (k UsageKind) HasActionBodyItems() bool {
+	switch k {
+	case UsageAction, UsageCalc, UsageExpr, UsageConstraint, UsagePredicate, UsageBool,
+		UsageCase, UsageAnalysisCase, UsageVerificationCase, UsageUseCase:
+		return true
+	}
+	return false
 }
 
 // IsAction reports whether a usage of the kind is an action usage: an action, or a
