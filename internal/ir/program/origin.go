@@ -19,7 +19,7 @@ type Origin struct {
 	Kind string
 	// Name is the declaration's name as messages use it, "" when it has none.
 	Name string
-	// Docs is the declaration's documentation prose, "" when it has none.
+	// Docs is the declaration's documentation prose; "" when it has none or the lowering read no source text.
 	Docs string
 }
 
