@@ -89,6 +89,17 @@ def parse_census(text: str) -> dict[str, str]:
     return records
 
 
+def parse_census_records(text: str) -> dict[str, str]:
+    """derived_census_records.tsv: `<rule>\t<root>\t<counts...>` lines keyed like parse_census."""
+    records = {}
+    for line in text.splitlines():
+        fields = line.split("\t")
+        if not line or line.startswith("#") or len(fields) < 2:
+            continue
+        records[f"{fields[1]}\t{fields[0]}"] = "\t".join(fields[2:])
+    return records
+
+
 def parse_apijson(text: str) -> dict[str, str]:
     """api-json-differential-baseline.json: a record per scorecard row and per root."""
     report = json.loads(text)
@@ -103,6 +114,7 @@ PARSERS = (
     (re.compile(r"structure_differential_expected\.txt$"), parse_structure),
     (re.compile(r"library-and-prefix-sweep-outcomes\.txt$"), parse_sweep),
     (re.compile(r"derived_census_baseline\.json$"), parse_census),
+    (re.compile(r"derived_census_records\.tsv$"), parse_census_records),
     (re.compile(r"api-json-differential-baseline\.json$"), parse_apijson),
 )
 
@@ -138,8 +150,27 @@ def apijson_figures(text: str | None) -> dict[str, int]:
 def census_figures(text: str | None) -> dict[str, int]:
     if not text:
         return {}
-    summary = json.loads(text).get("summary", {})
+    summary = json.loads(text).get("summary")
+    if summary is None:
+        return {}
     return {name: summary.get(name, 0) for name in ("served", "answering", "empty", "notDerived", "uncarried", "silent", "pilotAnswering")}
+
+
+def census_records_figures(text: str | None) -> dict[str, int]:
+    """The column totals of derived_census_records.tsv, named by its `# rule\troot\t...` header."""
+    columns: list[str] = []
+    figures: dict[str, int] = {}
+    for line in (text or "").splitlines():
+        fields = line.split("\t")
+        if line.startswith("# rule\troot\t"):
+            columns = [name.strip() for name in fields[2:]]
+            continue
+        if not line or line.startswith("#") or len(fields) != len(columns) + 2:
+            continue
+        for name, value in zip(columns, fields[2:]):
+            if value.isdigit():
+                figures[name] = figures.get(name, 0) + int(value)
+    return figures
 
 
 def structure_figures(text: str | None) -> dict[str, int]:
@@ -164,6 +195,7 @@ def verdict_figures(text: str | None) -> dict[str, int]:
 FIGURES = (
     (re.compile(r"api-json-differential-baseline\.json$"), apijson_figures),
     (re.compile(r"derived_census_baseline\.json$"), census_figures),
+    (re.compile(r"derived_census_records\.tsv$"), census_records_figures),
     (re.compile(r"structure_differential_expected\.txt$"), structure_figures),
     (re.compile(r"^tests/corpus/testdata/[a-z_]+_expected\.txt$"), verdict_figures),
 )
