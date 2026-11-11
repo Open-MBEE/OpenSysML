@@ -448,6 +448,10 @@ func (s *SymbolStructure) attributeLocked(element Element, property string) (Val
 		return Value{}, false
 	}
 	if value, ok := s.model.ReflectiveFeatureValue(row.sym, name); ok && s.reflectsAttribute(row.sym, name) {
+		if name == "isComposite" && value.Kind == symbols.FilterValueBool {
+			// The declaration's flag is not yet the feature's: a perform is referential, a framed concern composite.
+			return Value{Kind: BooleanValue, Boolean: s.model.EffectiveIsComposite(row.sym), Success: true}, true
+		}
 		if name == "direction" && value.Kind == symbols.FilterValueEmpty && semantics.DefaultsToInputDirection(row.sym) {
 			return Value{Kind: StringValue, String: "in", Success: true}, true
 		}

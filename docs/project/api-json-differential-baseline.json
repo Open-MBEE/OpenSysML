@@ -114,15 +114,15 @@
       "typeMismatch": 1815
     },
     "properties": {
-      "presentEqual": 2045864,
-      "presentDifferent": 143898,
-      "oursMissing": 308343,
-      "pilotMissing": 81606,
+      "presentEqual": 2057503,
+      "presentDifferent": 143918,
+      "oursMissing": 296684,
+      "pilotMissing": 82886,
       "absentBoth": 2244653,
       "indeterminate": 35440,
       "pilotNondeterministic": 534
     },
-    "rows": 11770,
+    "rows": 11777,
     "unkeyedReferences": 160644,
     "extensionProperties": 275215,
     "duplicateElements": {
@@ -155,9 +155,9 @@
         "typeMismatch": 6
       },
       "properties": {
-        "presentEqual": 164466,
-        "presentDifferent": 12726,
-        "oursMissing": 20441,
+        "presentEqual": 165538,
+        "presentDifferent": 12731,
+        "oursMissing": 19364,
         "pilotMissing": 5839,
         "absentBoth": 184381,
         "indeterminate": 2894,
@@ -191,9 +191,9 @@
         "typeMismatch": 27
       },
       "properties": {
-        "presentEqual": 576602,
-        "presentDifferent": 43688,
-        "oursMissing": 82622,
+        "presentEqual": 580152,
+        "presentDifferent": 43700,
+        "oursMissing": 79060,
         "pilotMissing": 21631,
         "absentBoth": 633525,
         "indeterminate": 8162,
@@ -227,9 +227,9 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 203755,
-        "presentDifferent": 15120,
-        "oursMissing": 26252,
+        "presentEqual": 205051,
+        "presentDifferent": 15121,
+        "oursMissing": 24955,
         "pilotMissing": 7714,
         "absentBoth": 225775,
         "indeterminate": 2991,
@@ -267,7 +267,7 @@
         "presentEqual": 122139,
         "presentDifferent": 8930,
         "oursMissing": 18771,
-        "pilotMissing": 8269,
+        "pilotMissing": 9090,
         "absentBoth": 112366,
         "indeterminate": 568,
         "pilotNondeterministic": 9
@@ -300,10 +300,10 @@
         "typeMismatch": 419
       },
       "properties": {
-        "presentEqual": 134234,
+        "presentEqual": 134870,
         "presentDifferent": 7268,
-        "oursMissing": 22163,
-        "pilotMissing": 6437,
+        "oursMissing": 21527,
+        "pilotMissing": 6712,
         "absentBoth": 146407,
         "indeterminate": 2479,
         "pilotNondeterministic": 7
@@ -337,10 +337,10 @@
         "typeMismatch": 28
       },
       "properties": {
-        "presentEqual": 28211,
+        "presentEqual": 28363,
         "presentDifferent": 1950,
-        "oursMissing": 4199,
-        "pilotMissing": 1201,
+        "oursMissing": 4047,
+        "pilotMissing": 1216,
         "absentBoth": 32951,
         "indeterminate": 439,
         "pilotNondeterministic": 0
@@ -374,10 +374,10 @@
         "typeMismatch": 199
       },
       "properties": {
-        "presentEqual": 659978,
-        "presentDifferent": 44955,
-        "oursMissing": 103537,
-        "pilotMissing": 25139,
+        "presentEqual": 664173,
+        "presentDifferent": 44957,
+        "oursMissing": 99340,
+        "pilotMissing": 25308,
         "absentBoth": 741760,
         "indeterminate": 14428,
         "pilotNondeterministic": 176
@@ -410,9 +410,9 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 899,
+        "presentEqual": 900,
         "presentDifferent": 13,
-        "oursMissing": 90,
+        "oursMissing": 89,
         "pilotMissing": 41,
         "absentBoth": 993,
         "indeterminate": 21,
@@ -446,9 +446,9 @@
         "typeMismatch": 0
       },
       "properties": {
-        "presentEqual": 155580,
+        "presentEqual": 156317,
         "presentDifferent": 9248,
-        "oursMissing": 30268,
+        "oursMissing": 29531,
         "pilotMissing": 5335,
         "absentBoth": 166495,
         "indeterminate": 3458,
@@ -774,9 +774,9 @@
       0
     ],
     "AcceptActionUsage.isReference": [
-      0,
-      0,
       47,
+      0,
+      0,
       0,
       0,
       0,
@@ -2529,9 +2529,9 @@
       0
     ],
     "ActionUsage.isReference": [
-      4,
+      510,
+      7,
       0,
-      513,
       0,
       0,
       0,
@@ -4725,9 +4725,9 @@
       0
     ],
     "AllocationUsage.isReference": [
-      0,
-      0,
       10,
+      0,
+      0,
       0,
       0,
       0,
@@ -6633,9 +6633,9 @@
       0
     ],
     "AnalysisCaseUsage.isReference": [
-      0,
-      0,
       41,
+      0,
+      0,
       0,
       0,
       0,
@@ -7893,9 +7893,9 @@
       0
     ],
     "AssertConstraintUsage.isReference": [
-      0,
-      0,
       79,
+      0,
+      0,
       0,
       0,
       0,
@@ -8910,9 +8910,9 @@
       0
     ],
     "AssignmentActionUsage.isReference": [
-      0,
-      0,
       111,
+      0,
+      0,
       0,
       0,
       0,
@@ -11646,9 +11646,9 @@
       0
     ],
     "AttributeUsage.isReference": [
-      4,
+      2686,
       0,
-      2682,
+      0,
       0,
       0,
       0,
@@ -13139,6 +13139,15 @@
       0,
       0
     ],
+    "BindingConnector.isReference": [
+      0,
+      0,
+      0,
+      8,
+      0,
+      0,
+      0
+    ],
     "BindingConnector.isSufficient": [
       8,
       0,
@@ -13923,9 +13932,9 @@
       0
     ],
     "BindingConnectorAsUsage.isReference": [
-      0,
-      0,
       3,
+      0,
+      0,
       0,
       0,
       0,
@@ -16398,9 +16407,9 @@
       0
     ],
     "CalculationUsage.isReference": [
-      0,
-      0,
       118,
+      0,
+      0,
       0,
       0,
       0,
@@ -18252,9 +18261,9 @@
       0
     ],
     "CaseUsage.isReference": [
-      0,
-      0,
       5,
+      0,
+      0,
       0,
       0,
       0,
@@ -21879,9 +21888,9 @@
       0
     ],
     "ConcernUsage.isReference": [
-      0,
-      0,
       21,
+      0,
+      0,
       0,
       0,
       0,
@@ -24993,9 +25002,9 @@
       0
     ],
     "ConnectionUsage.isReference": [
-      0,
-      0,
       91,
+      0,
+      0,
       0,
       0,
       0,
@@ -27585,9 +27594,9 @@
       0
     ],
     "ConstraintUsage.isReference": [
-      0,
-      0,
       207,
+      0,
+      0,
       0,
       0,
       0,
@@ -29691,9 +29700,9 @@
       0
     ],
     "DecisionNode.isReference": [
-      0,
-      0,
       51,
+      0,
+      0,
       0,
       0,
       0,
@@ -33174,9 +33183,9 @@
       0
     ],
     "EnumerationUsage.isReference": [
-      0,
-      0,
       69,
+      0,
+      0,
       0,
       0,
       0,
@@ -34092,9 +34101,9 @@
       0
     ],
     "EventOccurrenceUsage.isReference": [
-      0,
-      0,
       179,
+      0,
+      0,
       0,
       0,
       0,
@@ -35154,9 +35163,9 @@
       0
     ],
     "ExhibitStateUsage.isReference": [
-      0,
-      0,
       50,
+      0,
+      0,
       0,
       0,
       0,
@@ -36886,6 +36895,15 @@
       0,
       0,
       0,
+      0,
+      0,
+      0
+    ],
+    "Feature.isReference": [
+      0,
+      0,
+      0,
+      1240,
       0,
       0,
       0
@@ -40256,6 +40274,15 @@
       0,
       0
     ],
+    "Flow.isReference": [
+      0,
+      0,
+      0,
+      3,
+      0,
+      0,
+      0
+    ],
     "Flow.isSufficient": [
       3,
       0,
@@ -42552,9 +42579,9 @@
       0
     ],
     "FlowUsage.isReference": [
-      0,
-      0,
       106,
+      0,
+      0,
       0,
       0,
       0,
@@ -43686,9 +43713,9 @@
       0
     ],
     "ForLoopActionUsage.isReference": [
-      0,
-      0,
       5,
+      0,
+      0,
       0,
       0,
       0,
@@ -44658,9 +44685,9 @@
       0
     ],
     "ForkNode.isReference": [
-      0,
-      0,
       17,
+      0,
+      0,
       0,
       0,
       0,
@@ -46404,9 +46431,9 @@
       0
     ],
     "IfActionUsage.isReference": [
-      0,
-      0,
       4,
+      0,
+      0,
       0,
       0,
       0,
@@ -47421,9 +47448,9 @@
       0
     ],
     "IncludeUseCaseUsage.isReference": [
-      0,
-      0,
       19,
+      0,
+      0,
       0,
       0,
       0,
@@ -50499,9 +50526,9 @@
       0
     ],
     "InterfaceUsage.isReference": [
-      0,
-      0,
       43,
+      0,
+      0,
       0,
       0,
       0,
@@ -51592,6 +51619,15 @@
       0,
       0,
       0,
+      0,
+      0,
+      0
+    ],
+    "Invariant.isReference": [
+      0,
+      0,
+      0,
+      1,
       0,
       0,
       0
@@ -53667,9 +53703,9 @@
       0
     ],
     "ItemUsage.isReference": [
-      25,
+      374,
       0,
-      349,
+      0,
       0,
       0,
       0,
@@ -54702,9 +54738,9 @@
       0
     ],
     "JoinNode.isReference": [
-      0,
-      0,
       16,
+      0,
+      0,
       0,
       0,
       0,
@@ -59355,9 +59391,9 @@
       0
     ],
     "MergeNode.isReference": [
-      0,
-      0,
       24,
+      0,
+      0,
       0,
       0,
       0,
@@ -62054,6 +62090,15 @@
       0,
       0
     ],
+    "MetadataFeature.isReference": [
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0
+    ],
     "MetadataFeature.isSufficient": [
       1,
       0,
@@ -62712,9 +62757,9 @@
       0
     ],
     "MetadataUsage.isReference": [
-      0,
-      0,
       392,
+      0,
+      0,
       0,
       0,
       0,
@@ -67086,9 +67131,9 @@
       0
     ],
     "OccurrenceUsage.isReference": [
-      6,
+      149,
       0,
-      143,
+      0,
       0,
       0,
       0,
@@ -70245,9 +70290,9 @@
       0
     ],
     "PartUsage.isReference": [
-      45,
+      2014,
       0,
-      1969,
+      0,
       0,
       0,
       0,
@@ -71946,9 +71991,9 @@
       0
     ],
     "PerformActionUsage.isReference": [
-      0,
-      0,
       236,
+      0,
+      0,
       0,
       0,
       0,
@@ -73926,9 +73971,9 @@
       0
     ],
     "PortUsage.isReference": [
-      3,
+      557,
       0,
-      554,
+      0,
       0,
       0,
       0,
@@ -75942,9 +75987,9 @@
       0
     ],
     "ReferenceUsage.isReference": [
-      252,
+      2643,
       0,
-      2391,
+      0,
       0,
       0,
       0,
@@ -77697,9 +77742,9 @@
       0
     ],
     "RenderingUsage.isReference": [
-      1,
+      37,
       0,
-      36,
+      0,
       0,
       0,
       0,
@@ -79920,9 +79965,9 @@
       0
     ],
     "RequirementUsage.isReference": [
-      1,
+      370,
       0,
-      369,
+      0,
       0,
       0,
       0,
@@ -81909,9 +81954,9 @@
       0
     ],
     "SatisfyRequirementUsage.isReference": [
-      0,
-      0,
       81,
+      0,
+      0,
       0,
       0,
       0,
@@ -83628,9 +83673,9 @@
       0
     ],
     "SendActionUsage.isReference": [
-      0,
-      0,
       26,
+      0,
+      0,
       0,
       0,
       0,
@@ -86211,9 +86256,9 @@
       0
     ],
     "StateUsage.isReference": [
-      1,
+      306,
       0,
-      305,
+      0,
       0,
       0,
       0,
@@ -89081,6 +89126,15 @@
       0,
       0
     ],
+    "Succession.isReference": [
+      0,
+      0,
+      0,
+      26,
+      0,
+      0,
+      0
+    ],
     "Succession.isSufficient": [
       26,
       0,
@@ -89910,9 +89964,9 @@
       0
     ],
     "SuccessionAsUsage.isReference": [
-      0,
-      0,
       12,
+      0,
+      0,
       0,
       0,
       0,
@@ -90980,6 +91034,15 @@
       0,
       0
     ],
+    "SuccessionFlow.isReference": [
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0
+    ],
     "SuccessionFlow.isSufficient": [
       1,
       0,
@@ -91845,9 +91908,9 @@
       0
     ],
     "SuccessionFlowUsage.isReference": [
-      0,
-      0,
       2,
+      0,
+      0,
       0,
       0,
       0,
@@ -92907,9 +92970,9 @@
       0
     ],
     "TerminateActionUsage.isReference": [
-      0,
-      0,
       11,
+      0,
+      0,
       0,
       0,
       0,
@@ -94374,9 +94437,9 @@
       0
     ],
     "TransitionUsage.isReference": [
-      0,
-      0,
       60,
+      0,
+      0,
       0,
       0,
       0,
@@ -96687,9 +96750,9 @@
       0
     ],
     "Usage.isReference": [
-      1,
+      17,
+      13,
       0,
-      29,
       0,
       0,
       0,
@@ -98532,9 +98595,9 @@
       0
     ],
     "UseCaseUsage.isReference": [
-      1,
+      27,
       0,
-      26,
+      0,
       0,
       0,
       0,
@@ -100665,9 +100728,9 @@
       0
     ],
     "VerificationCaseUsage.isReference": [
-      0,
-      0,
       43,
+      0,
+      0,
       0,
       0,
       0,
@@ -102699,9 +102762,9 @@
       0
     ],
     "ViewUsage.isReference": [
-      1,
+      101,
       0,
-      100,
+      0,
       0,
       0,
       0,
@@ -104643,9 +104706,9 @@
       0
     ],
     "ViewpointUsage.isReference": [
-      0,
-      0,
       9,
+      0,
+      0,
       0,
       0,
       0,
@@ -105714,9 +105777,9 @@
       0
     ],
     "WhileLoopActionUsage.isReference": [
-      0,
-      0,
       5,
+      0,
+      0,
       0,
       0,
       0,

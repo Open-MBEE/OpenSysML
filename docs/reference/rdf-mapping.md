@@ -2294,7 +2294,8 @@ implies — the metaclass default from the ontology table (`isUnique` true, ever
 other flag false), or the flag another spelling of the graph carries:
 `isVariable` from `sysx:declaredPrefix "var"`, `isSufficient` from `sysml:isAll`.
 Derived booleans (`isReference`, `isLibraryElement`, `mayTimeVary`, …) are not
-completed; they are written as the graph states them — nor is a boolean whose
+completed here; they are written as the graph states them or as their `derive*`
+constraint defines them (below) — nor is a boolean whose
 redefinition in the metaclass is derived (`isVariable` on a usage, redefined by
 the derived `Usage::mayTimeVary`; the pilot implementation computes it there). The root element objects of
 the document (the root `Namespace`, or the unowned roots when it is transparent)
@@ -2326,6 +2327,7 @@ feature memberships, features and conjugator (8.3.3.1.10), a feature's
 `type` and owned typings, subsettings, redefinitions, chainings (8.3.3.3.4), a
 step's `behavior` and an expression's `function` and `result` (8.3.4.6.3,
 8.3.4.7.3), a multiplicity range's `bound` (8.3.4.11.2), and in SysML a usage's
+`isReference` (`not isComposite`, 8.3.6.4, so a composite usage states `false`), a usage's
 and definition's owning, defining and nested/owned usage collections, the
 requirement, case, state, send/accept and flow properties their §8.4
 constraints derive — and lists the keys it completed on the element in
