@@ -1,7 +1,6 @@
 package view
 
 import (
-	"math/bits"
 	"slices"
 	"strconv"
 	"strings"
@@ -22,9 +21,41 @@ type treeQuery struct {
 
 type treeQueryGraph struct {
 	component map[*symbols.Symbol]int
-	reachable [][]uint64
+	children  [][]int
+	local     [][]int
+	// sources lists each token's components in increasing condensation order.
+	sources   [][]int
+	reachable map[treeReachKey]bool
 	ids       map[*symbols.Symbol]int
 	keys      map[symbols.ElementKey][]int
+}
+
+type treeReachKey struct{ component, token int }
+
+// reaches answers only requested component/token pairs; SCC edges point to lower components.
+func (g *treeQueryGraph) reaches(component, token int) bool {
+	sources := g.sources[token]
+	if component < sources[0] {
+		return false
+	}
+	if _, ok := slices.BinarySearch(sources, component); ok {
+		return true
+	}
+	if len(g.children[component]) == 0 {
+		return false
+	}
+	key := treeReachKey{component, token}
+	if reached, ok := g.reachable[key]; ok {
+		return reached
+	}
+	for _, child := range g.children[component] {
+		if g.reaches(child, token) {
+			g.reachable[key] = true
+			return true
+		}
+	}
+	g.reachable[key] = false
+	return false
 }
 
 func (g *treeQueryGraph) covers(roots []*symbols.Symbol) bool {
@@ -105,8 +136,8 @@ func (q *treeQuery) members(sym *symbols.Symbol) []*symbols.Symbol {
 	return members
 }
 
-// prepare condenses member cycles and computes reachable expansion tokens as
-// bit sets. Types are tokens enter tests, not additional member walks.
+// prepare condenses member cycles and indexes local expansion tokens and edges.
+// Types are tokens enter tests, not additional member walks.
 func (q *treeQuery) prepare(roots []*symbols.Symbol) {
 	order, low := map[*symbols.Symbol]int{}, map[*symbols.Symbol]int{}
 	active := map[*symbols.Symbol]bool{}
@@ -158,23 +189,28 @@ func (q *treeQuery) prepare(roots []*symbols.Symbol) {
 			}
 		}
 	}
-	q.reachable = make([][]uint64, len(components))
+	q.children = make([][]int, len(components))
+	q.local = make([][]int, len(components))
+	q.sources = make([][]int, len(q.ids))
+	q.reachable = map[treeReachKey]bool{}
 	for component, syms := range components {
-		bits := make([]uint64, (len(q.ids)+63)/64)
 		for _, sym := range syms {
 			for _, token := range q.tokens(sym, types[sym]) {
-				id := q.ids[token]
-				bits[id/64] |= 1 << (id % 64)
+				q.local[component] = append(q.local[component], q.ids[token])
 			}
 			for _, member := range q.members(sym) {
 				if child := q.component[member]; child != component {
-					for word, value := range q.reachable[child] {
-						bits[word] |= value
-					}
+					q.children[component] = append(q.children[component], child)
 				}
 			}
 		}
-		q.reachable[component] = bits
+		slices.Sort(q.children[component])
+		q.children[component] = slices.Compact(q.children[component])
+		slices.Sort(q.local[component])
+		q.local[component] = slices.Compact(q.local[component])
+		for _, token := range q.local[component] {
+			q.sources[token] = append(q.sources[token], component)
+		}
 	}
 }
 
@@ -195,6 +231,7 @@ func (q *treeQuery) exposedDescendants(exposed []*symbols.Symbol, annotations bo
 		}
 	}
 	containers := make([][]int, len(exposed))
+	visited := make([]int, len(q.children))
 	for j, sym := range exposed {
 		seen := map[int]bool{}
 		add := func(id int) {
@@ -205,22 +242,20 @@ func (q *treeQuery) exposedDescendants(exposed []*symbols.Symbol, annotations bo
 				}
 			}
 		}
-		reached := q.reachable[q.component[sym]]
-		if len(targets) < len(reached) {
-			for id := range targets {
-				if reached[id/64]&(1<<(id%64)) != 0 {
-					add(id)
-				}
+		var visit func(int)
+		visit = func(component int) {
+			if visited[component] == j+1 {
+				return
 			}
-			continue
-		}
-		for word, value := range reached {
-			for value != 0 {
-				id := word*64 + bits.TrailingZeros64(value)
-				value &= value - 1
-				add(id)
+			visited[component] = j + 1
+			for _, token := range q.local[component] {
+				add(token)
+			}
+			for _, child := range q.children[component] {
+				visit(child)
 			}
 		}
+		visit(q.component[sym])
 	}
 	by := make([]map[symbols.ElementKey]bool, len(exposed))
 	members := func(sym *symbols.Symbol) []*symbols.Symbol {
@@ -266,10 +301,9 @@ func (q *treeQuery) exposedDescendants(exposed []*symbols.Symbol, annotations bo
 // key retains exactly the ancestors reachable below sym; unrelated siblings cannot affect its walk.
 func (q *treeQuery) key(sym, owner *symbols.Symbol, path expansion, qualified bool) treeQueryKey {
 	var active []int
-	reached := q.reachable[q.component[sym]]
 	for ancestor := range path {
 		id, ok := q.ids[ancestor]
-		if !ok || reached[id/64]&(1<<(id%64)) == 0 {
+		if !ok || !q.reaches(q.component[sym], id) {
 			continue
 		}
 		active = append(active, id)
