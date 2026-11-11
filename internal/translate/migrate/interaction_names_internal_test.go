@@ -24,4 +24,7 @@ func TestInheritedOccurrenceNames(t *testing.T) {
 	if !inheritedOccurrenceNames()["self"] || inheritedOccurrenceNames()["self2"] {
 		t.Error("callers must receive independent name sets")
 	}
+	if !occurrenceNames()["self"] || occurrenceNames()["self2"] {
+		t.Error("fresh names must not mutate the shared set")
+	}
 }

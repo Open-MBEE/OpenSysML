@@ -1,10 +1,12 @@
 package migrate
 
 import (
+	"maps"
 	"slices"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
@@ -16,7 +18,7 @@ const (
 	refersToWord            = "refers to "
 )
 
-func inheritedOccurrenceNames() map[string]bool {
+var occurrenceNames = sync.OnceValue(func() map[string]bool {
 	idx := libs.SharedBase()
 	names, seen := map[string]bool{}, map[string]bool{}
 	queue := []string{"Occurrences::Occurrence"}
@@ -35,6 +37,11 @@ func inheritedOccurrenceNames() map[string]bool {
 		queue = append(queue, librarySupers(idx, t)...)
 	}
 	return names
+})
+
+// inheritedOccurrenceNames returns a mutable copy of the cached inherited occurrence names.
+func inheritedOccurrenceNames() map[string]bool {
+	return maps.Clone(occurrenceNames())
 }
 
 // scenario is an interaction resolved to the steps its v2 form performs in
