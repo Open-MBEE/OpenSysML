@@ -256,10 +256,6 @@ func (k UsageKind) String() string {
 	return usageKindNames[k]
 }
 
-// IsAction reports whether a usage of the kind is an action usage: an action, or a
-// use case, which is a case, a calculation and so an action usage (SysML v2 §7.17,
-// §7.19) whose body is an action body. An analysis or verification case is run as
-// the calculation it is, not as an action.
 // HasActionBodyItems reports whether a usage of the kind owns ActionBodyItems, as the parser reads its body: an action
 // body, or a calculation, constraint or case body (SysML.xtext CalculationBodyItem, CaseBodyItem); a step's is a feature body.
 func (k UsageKind) HasActionBodyItems() bool {
@@ -271,6 +267,11 @@ func (k UsageKind) HasActionBodyItems() bool {
 	return false
 }
 
+
+// IsAction reports whether a usage of the kind is an action usage: an action, or a
+// use case, which is a case, a calculation and so an action usage (SysML v2 §7.17,
+// §7.19) whose body is an action body. An analysis or verification case is run as
+// the calculation it is, not as an action.
 func (k UsageKind) IsAction() bool {
 	return k == UsageAction || k == UsageUseCase
 }
