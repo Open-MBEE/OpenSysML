@@ -2764,23 +2764,37 @@ class RenderDocumentResponse(_message.Message):
     def __init__(self, markdown: _Optional[str] = ..., html: _Optional[str] = ..., asciidoc: _Optional[str] = ..., file_name: _Optional[str] = ...) -> None: ...
 
 class RenderViewRequest(_message.Message):
-    __slots__ = ("model_hash", "view", "ports", "show", "depth", "compartments")
+    __slots__ = ("model_hash", "view", "ports", "show", "depth", "compartments", "form", "palette", "style", "lines", "direction", "link", "unplaced")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     VIEW_FIELD_NUMBER: _ClassVar[int]
     PORTS_FIELD_NUMBER: _ClassVar[int]
     SHOW_FIELD_NUMBER: _ClassVar[int]
     DEPTH_FIELD_NUMBER: _ClassVar[int]
     COMPARTMENTS_FIELD_NUMBER: _ClassVar[int]
+    FORM_FIELD_NUMBER: _ClassVar[int]
+    PALETTE_FIELD_NUMBER: _ClassVar[int]
+    STYLE_FIELD_NUMBER: _ClassVar[int]
+    LINES_FIELD_NUMBER: _ClassVar[int]
+    DIRECTION_FIELD_NUMBER: _ClassVar[int]
+    LINK_FIELD_NUMBER: _ClassVar[int]
+    UNPLACED_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     view: str
     ports: str
     show: _containers.RepeatedScalarFieldContainer[str]
     depth: int
     compartments: str
-    def __init__(self, model_hash: _Optional[str] = ..., view: _Optional[str] = ..., ports: _Optional[str] = ..., show: _Optional[_Iterable[str]] = ..., depth: _Optional[int] = ..., compartments: _Optional[str] = ...) -> None: ...
+    form: str
+    palette: str
+    style: str
+    lines: str
+    direction: str
+    link: str
+    unplaced: str
+    def __init__(self, model_hash: _Optional[str] = ..., view: _Optional[str] = ..., ports: _Optional[str] = ..., show: _Optional[_Iterable[str]] = ..., depth: _Optional[int] = ..., compartments: _Optional[str] = ..., form: _Optional[str] = ..., palette: _Optional[str] = ..., style: _Optional[str] = ..., lines: _Optional[str] = ..., direction: _Optional[str] = ..., link: _Optional[str] = ..., unplaced: _Optional[str] = ...) -> None: ...
 
 class RenderViewResponse(_message.Message):
-    __slots__ = ("view", "kind", "stated", "nodes", "edges", "columns", "rows", "canvas", "notes", "notices", "shown", "frame")
+    __slots__ = ("view", "kind", "stated", "nodes", "edges", "columns", "rows", "canvas", "notes", "notices", "shown", "frame", "text")
     VIEW_FIELD_NUMBER: _ClassVar[int]
     KIND_FIELD_NUMBER: _ClassVar[int]
     STATED_FIELD_NUMBER: _ClassVar[int]
@@ -2793,6 +2807,7 @@ class RenderViewResponse(_message.Message):
     NOTICES_FIELD_NUMBER: _ClassVar[int]
     SHOWN_FIELD_NUMBER: _ClassVar[int]
     FRAME_FIELD_NUMBER: _ClassVar[int]
+    TEXT_FIELD_NUMBER: _ClassVar[int]
     view: str
     kind: str
     stated: str
@@ -2805,7 +2820,8 @@ class RenderViewResponse(_message.Message):
     notices: _containers.RepeatedScalarFieldContainer[str]
     shown: _containers.RepeatedScalarFieldContainer[str]
     frame: RenderFrame
-    def __init__(self, view: _Optional[str] = ..., kind: _Optional[str] = ..., stated: _Optional[str] = ..., nodes: _Optional[_Iterable[_Union[RenderNode, _Mapping]]] = ..., edges: _Optional[_Iterable[_Union[RenderEdge, _Mapping]]] = ..., columns: _Optional[_Iterable[str]] = ..., rows: _Optional[_Iterable[_Union[RenderRow, _Mapping]]] = ..., canvas: _Optional[_Union[RenderCanvas, _Mapping]] = ..., notes: _Optional[_Iterable[_Union[RenderNote, _Mapping]]] = ..., notices: _Optional[_Iterable[str]] = ..., shown: _Optional[_Iterable[str]] = ..., frame: _Optional[_Union[RenderFrame, _Mapping]] = ...) -> None: ...
+    text: str
+    def __init__(self, view: _Optional[str] = ..., kind: _Optional[str] = ..., stated: _Optional[str] = ..., nodes: _Optional[_Iterable[_Union[RenderNode, _Mapping]]] = ..., edges: _Optional[_Iterable[_Union[RenderEdge, _Mapping]]] = ..., columns: _Optional[_Iterable[str]] = ..., rows: _Optional[_Iterable[_Union[RenderRow, _Mapping]]] = ..., canvas: _Optional[_Union[RenderCanvas, _Mapping]] = ..., notes: _Optional[_Iterable[_Union[RenderNote, _Mapping]]] = ..., notices: _Optional[_Iterable[str]] = ..., shown: _Optional[_Iterable[str]] = ..., frame: _Optional[_Union[RenderFrame, _Mapping]] = ..., text: _Optional[str] = ...) -> None: ...
 
 class RenderFrame(_message.Message):
     __slots__ = ("name", "type", "exposes", "filters", "annotations")

@@ -22,6 +22,7 @@ from opensysml.capabilities import (
     CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
     CAPABILITY_RENDER_DOCUMENT_HTML,
     CAPABILITY_RENDER_VIEW,
+    CAPABILITY_RENDER_VIEW_FORM,
     CAPABILITY_EXPORT_GRAPHS,
     MissingCapabilityError,
 )
@@ -458,6 +459,9 @@ def test_render_view_decodes_all_fields_and_optional_messages():
     assert sparse.rows[0].origin is None
     assert sparse.notes[0].origin is None
 
+    assert rendered.text == ""
+    assert render_view_result(sysml_pb2.RenderViewResponse(text="graph\n")).text == "graph\n"
+
     empty = render_view_result(sysml_pb2.RenderViewResponse())
     assert empty.canvas is None
     assert empty.frame is None
@@ -492,6 +496,107 @@ def test_render_view_sends_the_compartment_folding(fake_service):
         with pytest.raises(ValueError, match="compartments"):
             model.render_view("Demo::View", compartments="rows")
     assert [request.compartments for request in service.requests] == ["", "", "most", "ports"]
+
+
+def test_render_view_sends_the_form_and_decodes_its_text(fake_service):
+    response = sysml_pb2.RenderViewResponse(view="Demo::View", text="digraph {}\n")
+    port, service = fake_service(
+        capabilities=(CAPABILITY_RENDER_VIEW, CAPABILITY_RENDER_VIEW_FORM), response=response,
+    )
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content("package Demo;")
+        rendered = model.render_view(
+            "Demo::View", form="dot", palette="okabe-ito", style="cameo", lines="ortho",
+            direction="LR", link="https://example.test/{file}#L{line}", unplaced="strip",
+        )
+        model.render_view("Demo::View")
+    assert rendered.text == "digraph {}\n"
+    written, data = service.requests
+    assert (
+        written.form, written.palette, written.style, written.lines,
+        written.direction, written.link, written.unplaced,
+    ) == ("dot", "okabe-ito", "cameo", "ortho", "LR", "https://example.test/{file}#L{line}", "strip")
+    assert (
+        data.form, data.palette, data.style, data.lines, data.direction, data.link, data.unplaced,
+    ) == ("", "", "", "", "", "", "")
+
+
+@pytest.mark.parametrize(
+    "option",
+    [
+        {"form": "dot"}, {"palette": "okabe-ito"}, {"style": "cameo"}, {"lines": "ortho"},
+        {"direction": "LR"}, {"link": "{file}"}, {"unplaced": "strip"},
+    ],
+)
+def test_render_view_form_requires_its_own_capability(fake_service, option):
+    """A service that would drop the form unanswered is not asked for one; the data still is."""
+    response = sysml_pb2.RenderViewResponse(view="Demo::View")
+    port, service = fake_service(capabilities=(CAPABILITY_RENDER_VIEW,), response=response)
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content("package Demo;")
+        with pytest.raises(MissingCapabilityError) as excinfo:
+            model.render_view("Demo::View", **option)
+        assert excinfo.value.capability == CAPABILITY_RENDER_VIEW_FORM
+        assert service.requests == []
+        assert model.render_view("Demo::View").text == ""
+    assert len(service.requests) == 1
+
+
+VIEW_FORM_SOURCE = """package FormDemo {
+    private import Views::*;
+    part def Wheel;
+    part def Vehicle {
+        part wheel : Wheel;
+    }
+    view structure {
+        expose Vehicle;
+        expose Wheel;
+        render asTreeDiagram;
+    }
+    view parts {
+        expose Vehicle;
+        render asElementTable;
+    }
+}
+"""
+
+
+def test_render_view_writes_every_form_the_service_has(real_service):
+    forms = {
+        "text": ("FormDemo::structure", "FormDemo::structure - tree rendering (render asTreeDiagram)\n"),
+        "mermaid": ("FormDemo::structure", "flowchart TD\n"),
+        "dot": ("FormDemo::structure", 'digraph "FormDemo::structure" {\n'),
+        "plantuml": ("FormDemo::structure", "@startuml\n"),
+        "d2": ("FormDemo::structure", "n0 <- n1: { class: composition }\n"),
+        "drawio": ("FormDemo::structure", '<mxfile host="OpenSysML"'),
+        "markdown": ("FormDemo::parts", "| wheel | part | Wheel | FormDemo::Vehicle |\n"),
+        "csv": ("FormDemo::parts", "wheel,part,Wheel,FormDemo::Vehicle\n"),
+        "tsv": ("FormDemo::parts", "wheel\tpart\tWheel\tFormDemo::Vehicle\n"),
+    }
+    with Connection(port=real_service, auto_start=False) as conn:
+        model = conn.load_from_content(VIEW_FORM_SOURCE)
+        for form, (view, want) in forms.items():
+            rendered = model.render_view(view, form=form)
+            assert want in rendered.text, form
+            assert rendered.text.endswith("\n") and not rendered.text.endswith("\n\n"), form
+            assert rendered.view == view and (rendered.nodes or rendered.rows), form
+        assert model.render_view("FormDemo::structure").text == ""
+        styled = model.render_view(
+            "FormDemo::structure", form="dot", palette="okabe-ito", lines="ortho", direction="LR",
+        )
+        assert "rankdir=LR, splines=ortho" in styled.text
+        assert 'fillcolor="#E69F00"' in styled.text
+
+
+def test_render_view_refuses_a_form_the_service_cannot_write(real_service):
+    with Connection(port=real_service, auto_start=False) as conn:
+        model = conn.load_from_content(VIEW_FORM_SOURCE)
+        with pytest.raises(InvalidRequestError, match='unknown rendering form "svg"; the forms are text,'):
+            model.render_view("FormDemo::structure", form="svg")
+        with pytest.raises(InvalidRequestError, match="a table rendering is not written as dot"):
+            model.render_view("FormDemo::parts", form="dot")
+        with pytest.raises(InvalidRequestError, match='unknown palette "neon"'):
+            model.render_view("FormDemo::structure", palette="neon")
 
 
 def test_the_request_names_the_model_query_and_bindings(fake_service):

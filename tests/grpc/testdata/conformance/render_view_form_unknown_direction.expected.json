@@ -1,0 +1,9 @@
+{
+  "rpc": "RenderView",
+  "model": "render_view_form.sysml",
+  "view": "FormDemo::structure",
+  "form": "dot",
+  "direction": "sideways",
+  "expected_error": "unknown direction \"sideways\"; the directions are TB, LR, RL, BT",
+  "expected_error_code": "invalid_argument"
+}

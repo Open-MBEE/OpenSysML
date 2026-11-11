@@ -1,0 +1,20 @@
+{
+  "rpc": "RenderView",
+  "model": "render_view_form.sysml",
+  "view": "FormDemo::structure",
+  "form": "dot",
+  "expected_text_contains": [
+    "// view: FormDemo::structure\n// kind: tree\n",
+    "digraph \"FormDemo::structure\" {\n  graph [fontname=\"Helvetica\"];\n",
+    "  \"n0\" -> \"n1\" [dir=back, arrowtail=diamond];\n  \"n1\" -> \"n2\" [arrowhead=onormaldotdot];\n}\n"
+  ],
+  "expected_node_names": [
+    "FormDemo::Vehicle",
+    "wheel",
+    "FormDemo::Wheel"
+  ],
+  "expected_edge_labels": [
+    "",
+    ""
+  ]
+}

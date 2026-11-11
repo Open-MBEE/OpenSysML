@@ -46,6 +46,7 @@ var capabilities = []string{
 	"state_trace",
 	"action_trace",
 	"symbol_members",
+	"render_view_form",
 }
 
 // Server combines the parsing/validation and execution JSON surfaces.

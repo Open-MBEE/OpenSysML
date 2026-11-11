@@ -35,6 +35,8 @@ pub const CAPABILITY_RENDER_DOCUMENT_HTML: &str = "render_document_html";
 pub const CAPABILITY_RENDER_DOCUMENT_ASCIIDOC: &str = "render_document_asciidoc";
 /// The `RenderView` RPC, rendering named views as machine-readable diagram data.
 pub const CAPABILITY_RENDER_VIEW: &str = "render_view";
+/// `form` and the writer options on `RenderViewRequest`, answered in `text`.
+pub const CAPABILITY_RENDER_VIEW_FORM: &str = "render_view_form";
 /// The `ExportGraphs` RPC, exporting a behavior's lowered graph as `graphs:1` JSON.
 pub const CAPABILITY_EXPORT_GRAPHS: &str = "export_graphs";
 /// The ImportData RPC, which sets the feature values data files assign.

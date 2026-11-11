@@ -18,6 +18,12 @@ func (s *Service) RenderView(ctx context.Context, req *pb.RenderViewRequest) (*p
 	if err := s.requireCapability(CapabilityRenderView); err != nil {
 		return nil, err
 	}
+	stated := renderViewRequest(req)
+	if stated.Written() {
+		if err := s.requireCapability(CapabilityRenderViewForm); err != nil {
+			return nil, err
+		}
+	}
 	cached, ok := s.cache.Get(req.ModelHash)
 	if !ok {
 		return nil, statusErrorf(connect.CodeNotFound, msgModelNotFound, req.ModelHash)
@@ -25,20 +31,12 @@ func (s *Service) RenderView(ctx context.Context, req *pb.RenderViewRequest) (*p
 	if req.View == "" {
 		return nil, statusError(connect.CodeInvalidArgument, "view is required")
 	}
-	ports, ok := view.ParsePorts(req.Ports)
-	if !ok {
-		return nil, statusError(connect.CodeInvalidArgument, (&view.UnknownPortsError{Name: req.Ports}).Error())
-	}
-	shown, err := view.ShownOf(req.Show)
-	if err != nil {
-		return nil, statusError(connect.CodeInvalidArgument, err.Error())
-	}
 	if req.Depth < 0 {
 		return nil, statusError(connect.CodeInvalidArgument, (&view.DepthError{Value: fmt.Sprint(req.Depth)}).Error())
 	}
-	compartments, ok := view.ParseCompartments(req.Compartments)
-	if !ok {
-		return nil, statusError(connect.CodeInvalidArgument, (&view.UnknownCompartmentsError{Name: req.Compartments}).Error())
+	form, options, err := stated.Options()
+	if err != nil {
+		return nil, statusError(connect.CodeInvalidArgument, err.Error())
 	}
 
 	worker, release := cached.worker()
@@ -55,7 +53,33 @@ func (s *Service) RenderView(ctx context.Context, req *pb.RenderViewRequest) (*p
 		}
 		return nil, statusError(connect.CodeInvalidArgument, err.Error())
 	}
-	return renderViewData(cached, rendering.DataWith(view.Options{Ports: ports, Show: shown, Compartments: compartments})), nil
+	response := renderViewData(cached, rendering.DataWith(options))
+	if form == "" {
+		return response, nil
+	}
+	if options.NeedsSites(form) {
+		options.Links.Sites = renderer.Sites(view.FileLocator(worker.Model.Semantics(), func(doc string) *source.LineIndex {
+			if sf := cached.document(doc); sf != nil {
+				return sf.Lines()
+			}
+			return nil
+		}))
+	}
+	written, err := rendering.WriteWith(form, options)
+	if err != nil {
+		return nil, statusError(connect.CodeInvalidArgument, err.Error())
+	}
+	response.Text = view.Artifact(written)
+	return response, nil
+}
+
+// renderViewRequest is the form and the options req states by name.
+func renderViewRequest(req *pb.RenderViewRequest) view.Request {
+	return view.Request{
+		Form: req.Form, Palette: req.Palette, Style: req.Style, Lines: req.Lines,
+		Direction: req.Direction, Link: req.Link, Unplaced: req.Unplaced,
+		Ports: req.Ports, Compartments: req.Compartments, Show: req.Show,
+	}
 }
 
 type renderViewOrigins struct {

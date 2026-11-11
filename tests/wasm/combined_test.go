@@ -20,8 +20,8 @@ import (
 )
 
 // combinedGzipBudget bounds the gzipped js sysml-wasm the gate links and `make build-release-wasm` ships (-trimpath, stripped,
-// the library snapshot embedded): 10,413,317 bytes under go1.27.3 on 2026-11-09 at develop ddc4a547fe, 8,726,216 without the snapshot.
-const combinedGzipBudget = 10500000
+// the library snapshot embedded): 10,982,768 bytes under go1.27.4 on 2026-11-10 with the view writers RenderView's form reaches, 9,227,128 without the snapshot.
+const combinedGzipBudget = 11100000
 
 const combinedModel = `package Demo { part def Item; }`
 
@@ -367,7 +367,7 @@ func TestCombinedWireParity(t *testing.T) {
 		"diagnostic_codes", "schedule", "final_time", "metaobject_values",
 		"undetermined_value", "performer", "big_int_values", "render_view", "state_trace",
 		"action_trace",
-		"symbol_members",
+		"symbol_members", "render_view_form",
 	}
 	if info.Version != "combined-wire-test" {
 		t.Errorf("GetServerInfo version = %q", info.Version)

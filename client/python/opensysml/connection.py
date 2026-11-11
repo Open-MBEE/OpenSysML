@@ -70,6 +70,7 @@ from opensysml.capabilities import (
     CAPABILITY_RENDER_DOCUMENT_HTML,
     CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
     CAPABILITY_RENDER_VIEW,
+    CAPABILITY_RENDER_VIEW_FORM,
     CAPABILITY_CHECK,
     CAPABILITY_EXPORT_GRAPHS,
     CAPABILITY_SCHEDULE,
@@ -2203,15 +2204,25 @@ class Connection:
         return [Diagnostic(d) for d in response.diagnostics]
 
     def render_view(self, model_hash, view_name, ports="minimal", show=None, depth=0,
-                    compartments="positioned"):
-        """Render a named view with minimal or full ports, the optional notation elements named, above 0 a depth bound and the compartment folding named."""
+                    compartments="positioned", form=None, palette=None, style=None,
+                    lines=None, direction=None, link=None, unplaced=None):
+        """Render a named view with minimal or full ports, the optional notation elements named, above 0 a depth bound and the compartment folding named; ``form`` also writes it as text with the writer options named."""
         if ports not in ("minimal", "full"):
             raise ValueError("ports must be 'minimal' or 'full'")
         if compartments not in ("positioned", "most", "ports"):
             raise ValueError("compartments must be 'positioned', 'most' or 'ports'")
         if not isinstance(depth, int) or isinstance(depth, bool) or depth < 0:
             raise ValueError("depth must be a non-negative integer")
-        require(self.server_info(), CAPABILITY_RENDER_VIEW, upgrade_remedy(CAPABILITY_RENDER_VIEW))
+        written = {
+            "form": form, "palette": palette, "style": style, "lines": lines,
+            "direction": direction, "link": link, "unplaced": unplaced,
+        }
+        written = {name: value for name, value in written.items() if value}
+        capabilities = [CAPABILITY_RENDER_VIEW]
+        if written:
+            capabilities.append(CAPABILITY_RENDER_VIEW_FORM)
+        for capability in capabilities:
+            require(self.server_info(), capability, upgrade_remedy(capability))
         request = sysml_pb2.RenderViewRequest(
             model_hash=model_hash,
             view=view_name,
@@ -2219,12 +2230,13 @@ class Connection:
             show=list(show or ()),
             depth=depth,
             compartments="" if compartments == "positioned" else compartments,
+            **written,
         )
         with translate_rpc_errors(
             not_found=lambda message, code: ViewNotFoundError(
                 view_name, message, code=code
             ),
-            unimplemented=self._capability_refusal((CAPABILITY_RENDER_VIEW,)),
+            unimplemented=self._capability_refusal(tuple(capabilities)),
         ):
             response = self._stub.RenderView(request)
         return render_view_result(response)

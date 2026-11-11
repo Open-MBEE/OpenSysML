@@ -2551,6 +2551,8 @@ message ServerInfoResponse {
   //                  and the response carries the document in `asciidoc`.
   //   "render_view" - the RenderView RPC renders a declared view or targeted
   //                  pseudo-view as machine-readable diagram data.
+  //   "render_view_form" - RenderViewRequest.form and its writer options, answered
+  //                  in RenderViewResponse.text; an older service ignores them.
   //   "export_graphs" - the ExportGraphs RPC exports the lowered graph of an
   //                  action or state machine as canonical graphs:1 JSON.
   //   "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
@@ -3326,6 +3328,27 @@ message RenderViewRequest {
   // owned usage no Layout, nested definition or package keeps a node) or
   // "ports" (the port usages with the ports nested under them).
   string compartments = 6;
+  // Form to also write into RenderViewResponse.text: "text", "mermaid", "markdown", "dot", "plantuml", "d2",
+  // "drawio", "csv" or "tsv"; an unknown or wrong-kind form is INVALID_ARGUMENT. Needs render_view_form.
+  string form = 7;
+  // Palette the dot, mermaid, plantuml, d2 or drawio form fills nodes from,
+  // as -render-palette names them; empty draws in black and white.
+  string palette = 8;
+  // Drawing style of the dot or mermaid form, as -render-style names them:
+  // "" or "pilot" (the default), or "cameo".
+  string style = 9;
+  // How the dot or plantuml form routes its edges, as -render-lines names
+  // them: "" or "splines" (the default), "ortho" or "polyline".
+  string lines = 10;
+  // Flow direction of a graph-shaped form: "TB", "LR", "RL" or "BT"; empty
+  // leaves each kind's default, which is what the CLI writes.
+  string direction = 11;
+  // Source link template of each node and edge, as -render-link takes it:
+  // placeholders {file}, {line}, {col}, {qname} and {id}; empty writes no links.
+  string link = 12;
+  // Where a graph form of a positioned view puts the nodes no layout places,
+  // as -render-unplaced names them: "" or "omit" (the default), or "strip".
+  string unplaced = 13;
 }
 
 // RenderViewResponse carries all machine-readable fields of the rendering.
@@ -3347,6 +3370,9 @@ message RenderViewResponse {
   repeated string shown = 11;
   // The view frame round a graph-shaped rendering; unset for a frameless one.
   RenderFrame frame = 12;
+  // The rendering written in RenderViewRequest.form, byte for byte what the CLI's
+  // -render writes at no particular width; empty when the request names no form.
+  string text = 13;
 }
 
 // RenderFrame is the view frame of SysML v2 §8.2.3.26: the name compartment's

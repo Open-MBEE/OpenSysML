@@ -548,6 +548,7 @@ for (const thread of ["worker", "inline"] as const) {
       "state_trace",
       "action_trace",
       "symbol_members",
+      "render_view_form",
     ]);
 
     const wasmModel = await wasm.loads(SAMPLE);

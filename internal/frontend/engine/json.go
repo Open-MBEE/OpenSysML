@@ -346,6 +346,15 @@ type JRenderViewRequest struct {
 	// Compartments is the folding of a tree's owned members into compartment rows:
 	// "" or "positioned" (the default), "most" or "ports".
 	Compartments string `json:"compartments,omitempty"`
+	// Form is the form to write into the reply's text beside its data, one of
+	// view.ViewForms; the rest are the options that form is written with.
+	Form      string `json:"form,omitempty"`
+	Palette   string `json:"palette,omitempty"`
+	Style     string `json:"style,omitempty"`
+	Lines     string `json:"lines,omitempty"`
+	Direction string `json:"direction,omitempty"`
+	Link      string `json:"link,omitempty"`
+	Unplaced  string `json:"unplaced,omitempty"`
 }
 
 // The RenderView reply, shaped as protojson writes the service's RenderViewResponse
@@ -364,6 +373,7 @@ type JRenderViewResponse struct {
 	Notes   []JRenderNote  `json:"notes,omitempty"`
 	Notices []string       `json:"notices,omitempty"`
 	Shown   []string       `json:"shown,omitempty"`
+	Text    string         `json:"text,omitempty"`
 }
 
 // JRenderFrame is the view frame round a diagram: its name compartment and

@@ -108,6 +108,10 @@ const CapabilityRenderDocumentAsciiDoc = "render_document_asciidoc"
 // renders a declared or targeted pseudo-view as machine-readable diagram data.
 const CapabilityRenderView = "render_view"
 
+// CapabilityRenderViewForm names the capability of RenderViewRequest's form
+// field and writer options, answered in RenderViewResponse.text.
+const CapabilityRenderViewForm = "render_view_form"
+
 // CapabilityExportGraphs names the capability of the ExportGraphs RPC, which
 // exports the lowered graph of an action or state machine as `graphs:1` JSON.
 const CapabilityExportGraphs = "export_graphs"
@@ -432,6 +436,7 @@ var capabilities = []string{
 	CapabilityVerdictNotes,
 	CapabilityElementProperties,
 	CapabilityInlineDocumentQuery,
+	CapabilityRenderViewForm,
 }
 
 type capabilityAvailability struct {

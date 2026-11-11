@@ -23,6 +23,7 @@ const (
 	CapabilityInlineDocumentQuery            = sysmlgrpc.CapabilityInlineDocumentQuery
 	CapabilityRenderDocument                 = sysmlgrpc.CapabilityRenderDocument
 	CapabilityRenderView                     = sysmlgrpc.CapabilityRenderView
+	CapabilityRenderViewForm                 = sysmlgrpc.CapabilityRenderViewForm
 	CapabilityExportGraphs                   = sysmlgrpc.CapabilityExportGraphs
 	CapabilityInstancePaths                  = sysmlgrpc.CapabilityInstancePaths
 	CapabilitySymbolMembers                  = sysmlgrpc.CapabilitySymbolMembers
@@ -87,6 +88,8 @@ const (
 	CapabilityConvertLibraryStubs            = sysmlgrpc.CapabilityConvertLibraryStubs
 	CapabilityParseSourcesAffected           = sysmlgrpc.CapabilityParseSourcesAffected
 	CapabilityRenderDocumentFileName         = sysmlgrpc.CapabilityRenderDocumentFileName
+	CapabilityRenderDocumentHTML             = sysmlgrpc.CapabilityRenderDocumentHTML
+	CapabilityRenderDocumentAsciiDoc         = sysmlgrpc.CapabilityRenderDocumentAsciiDoc
 )
 
 // ServerInfo describes the implementation answering a Client's calls.

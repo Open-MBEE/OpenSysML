@@ -21,6 +21,9 @@ in this directory, so adding a case is a data-only change.
 | `view`, `compartments` | RenderView | the view or `#<kind>:<name>` pseudo-view to render and the compartment folding (`positioned`, `most` or `ports`; empty is `positioned`) |
 | `expected_node_names`, `expected_compartments`, `expected_edge_labels` | RenderView | the nodes drawn in order, the compartment each row is drawn in by the row's name, and the edge labels in order; `expected_error` a refusal instead |
 | `expected_parallel` | RenderView | the names of the nodes drawn «parallel», in order; omit when none is |
+| `form`, `palette`, `style`, `lines`, `direction`, `link`, `unplaced` | RenderView | the form to write the rendering in and the writer options it is written under; no `form` writes none and the response's `text` must be empty |
+| `expected_text`, `expected_text_contains` | RenderView | the text written, whole or as the parts it must hold; a case stating a `form` states one of them |
+| `expected_error_code` | RenderView | the status code a refusal stated by `expected_error` carries, as Connect names it (`invalid_argument`) |
 | `rpc` | all | `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`, `ExecuteState`, `ApplyEdits`, `RunDocumentQuery`, `EvaluateCalc`, `ImportData` or `CompareResults` |
 | `imports`, `import_dry_run` | ImportData | the imports (`name`, `content`, optional `import_format` and `import_map`), in order, and whether to report without changing the model |
 | `expected_assignments` | ImportData | the assignments' descriptions over every import, in order; `expected_content` is the edited model, `expected_error` a refusal that leaves it unchanged |

@@ -12290,6 +12290,8 @@ type ServerInfoResponse struct {
 	//                  and the response carries the document in `asciidoc`.
 	//   "render_view" - the RenderView RPC renders a declared view or targeted
 	//                  pseudo-view as machine-readable diagram data.
+	//   "render_view_form" - RenderViewRequest.form and its writer options, answered
+	//                  in RenderViewResponse.text; an older service ignores them.
 	//   "export_graphs" - the ExportGraphs RPC exports the lowered graph of an
 	//                  action or state machine as canonical graphs:1 JSON.
 	//   "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
@@ -16303,7 +16305,28 @@ type RenderViewRequest struct {
 	// the layout-less members of a tree some Layout positions), "most" (every
 	// owned usage no Layout, nested definition or package keeps a node) or
 	// "ports" (the port usages with the ports nested under them).
-	Compartments  string `protobuf:"bytes,6,opt,name=compartments,proto3" json:"compartments,omitempty"`
+	Compartments string `protobuf:"bytes,6,opt,name=compartments,proto3" json:"compartments,omitempty"`
+	// Form to also write into RenderViewResponse.text: "text", "mermaid", "markdown", "dot", "plantuml", "d2",
+	// "drawio", "csv" or "tsv"; an unknown or wrong-kind form is INVALID_ARGUMENT. Needs render_view_form.
+	Form string `protobuf:"bytes,7,opt,name=form,proto3" json:"form,omitempty"`
+	// Palette the dot, mermaid, plantuml, d2 or drawio form fills nodes from,
+	// as -render-palette names them; empty draws in black and white.
+	Palette string `protobuf:"bytes,8,opt,name=palette,proto3" json:"palette,omitempty"`
+	// Drawing style of the dot or mermaid form, as -render-style names them:
+	// "" or "pilot" (the default), or "cameo".
+	Style string `protobuf:"bytes,9,opt,name=style,proto3" json:"style,omitempty"`
+	// How the dot or plantuml form routes its edges, as -render-lines names
+	// them: "" or "splines" (the default), "ortho" or "polyline".
+	Lines string `protobuf:"bytes,10,opt,name=lines,proto3" json:"lines,omitempty"`
+	// Flow direction of a graph-shaped form: "TB", "LR", "RL" or "BT"; empty
+	// leaves each kind's default, which is what the CLI writes.
+	Direction string `protobuf:"bytes,11,opt,name=direction,proto3" json:"direction,omitempty"`
+	// Source link template of each node and edge, as -render-link takes it:
+	// placeholders {file}, {line}, {col}, {qname} and {id}; empty writes no links.
+	Link string `protobuf:"bytes,12,opt,name=link,proto3" json:"link,omitempty"`
+	// Where a graph form of a positioned view puts the nodes no layout places,
+	// as -render-unplaced names them: "" or "omit" (the default), or "strip".
+	Unplaced      string `protobuf:"bytes,13,opt,name=unplaced,proto3" json:"unplaced,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -16380,6 +16403,55 @@ func (x *RenderViewRequest) GetCompartments() string {
 	return ""
 }
 
+func (x *RenderViewRequest) GetForm() string {
+	if x != nil {
+		return x.Form
+	}
+	return ""
+}
+
+func (x *RenderViewRequest) GetPalette() string {
+	if x != nil {
+		return x.Palette
+	}
+	return ""
+}
+
+func (x *RenderViewRequest) GetStyle() string {
+	if x != nil {
+		return x.Style
+	}
+	return ""
+}
+
+func (x *RenderViewRequest) GetLines() string {
+	if x != nil {
+		return x.Lines
+	}
+	return ""
+}
+
+func (x *RenderViewRequest) GetDirection() string {
+	if x != nil {
+		return x.Direction
+	}
+	return ""
+}
+
+func (x *RenderViewRequest) GetLink() string {
+	if x != nil {
+		return x.Link
+	}
+	return ""
+}
+
+func (x *RenderViewRequest) GetUnplaced() string {
+	if x != nil {
+		return x.Unplaced
+	}
+	return ""
+}
+
 // RenderViewResponse carries all machine-readable fields of the rendering.
 type RenderViewResponse struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
@@ -16399,7 +16471,10 @@ type RenderViewResponse struct {
 	// The optional notation elements drawn, in registry order.
 	Shown []string `protobuf:"bytes,11,rep,name=shown,proto3" json:"shown,omitempty"`
 	// The view frame round a graph-shaped rendering; unset for a frameless one.
-	Frame         *RenderFrame `protobuf:"bytes,12,opt,name=frame,proto3" json:"frame,omitempty"`
+	Frame *RenderFrame `protobuf:"bytes,12,opt,name=frame,proto3" json:"frame,omitempty"`
+	// The rendering written in RenderViewRequest.form, byte for byte what the CLI's
+	// -render writes at no particular width; empty when the request names no form.
+	Text          string `protobuf:"bytes,13,opt,name=text,proto3" json:"text,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -16516,6 +16591,13 @@ func (x *RenderViewResponse) GetFrame() *RenderFrame {
 		return x.Frame
 	}
 	return nil
+}
+
+func (x *RenderViewResponse) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
 }
 
 // RenderFrame is the view frame of SysML v2 §8.2.3.26: the name compartment's
@@ -20295,7 +20377,7 @@ const file_sysml_proto_rawDesc = "" +
 	"\bmarkdown\x18\x01 \x01(\tR\bmarkdown\x12\x12\n" +
 	"\x04html\x18\x02 \x01(\tR\x04html\x12\x1a\n" +
 	"\basciidoc\x18\x04 \x01(\tR\basciidoc\x12\x1b\n" +
-	"\tfile_name\x18\x03 \x01(\tR\bfileName\"\xaa\x01\n" +
+	"\tfile_name\x18\x03 \x01(\tR\bfileName\"\xd2\x02\n" +
 	"\x11RenderViewRequest\x12\x1d\n" +
 	"\n" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x12\x12\n" +
@@ -20303,7 +20385,15 @@ const file_sysml_proto_rawDesc = "" +
 	"\x05ports\x18\x03 \x01(\tR\x05ports\x12\x12\n" +
 	"\x04show\x18\x04 \x03(\tR\x04show\x12\x14\n" +
 	"\x05depth\x18\x05 \x01(\x05R\x05depth\x12\"\n" +
-	"\fcompartments\x18\x06 \x01(\tR\fcompartments\"\x96\x03\n" +
+	"\fcompartments\x18\x06 \x01(\tR\fcompartments\x12\x12\n" +
+	"\x04form\x18\a \x01(\tR\x04form\x12\x18\n" +
+	"\apalette\x18\b \x01(\tR\apalette\x12\x14\n" +
+	"\x05style\x18\t \x01(\tR\x05style\x12\x14\n" +
+	"\x05lines\x18\n" +
+	" \x01(\tR\x05lines\x12\x1c\n" +
+	"\tdirection\x18\v \x01(\tR\tdirection\x12\x12\n" +
+	"\x04link\x18\f \x01(\tR\x04link\x12\x1a\n" +
+	"\bunplaced\x18\r \x01(\tR\bunplaced\"\xaa\x03\n" +
 	"\x12RenderViewResponse\x12\x12\n" +
 	"\x04view\x18\x01 \x01(\tR\x04view\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12\x16\n" +
@@ -20317,7 +20407,8 @@ const file_sysml_proto_rawDesc = "" +
 	"\anotices\x18\n" +
 	" \x03(\tR\anotices\x12\x14\n" +
 	"\x05shown\x18\v \x03(\tR\x05shown\x12(\n" +
-	"\x05frame\x18\f \x01(\v2\x12.sysml.RenderFrameR\x05frame\"\x8b\x01\n" +
+	"\x05frame\x18\f \x01(\v2\x12.sysml.RenderFrameR\x05frame\x12\x12\n" +
+	"\x04text\x18\r \x01(\tR\x04text\"\x8b\x01\n" +
 	"\vRenderFrame\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\x18\n" +

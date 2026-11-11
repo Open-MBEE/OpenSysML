@@ -1,0 +1,12 @@
+{
+  "rpc": "RenderView",
+  "model": "render_view_form.sysml",
+  "view": "FormDemo::parts",
+  "form": "text",
+  "expected_text_contains": [
+    "FormDemo::parts - table rendering (render asElementTable)\n",
+    "wheel              part      Wheel  FormDemo::Vehicle\n"
+  ],
+  "expected_node_names": [],
+  "expected_edge_labels": []
+}

@@ -686,6 +686,22 @@ func TestQueriesAndRenderings(t *testing.T) {
 	if !slices.Contains(view.GetShown(), "edge-labels") {
 		t.Errorf("show edge-labels: shown = %v", view.GetShown())
 	}
+	_, out = h.ok("render_model_view", map[string]any{
+		"modelHash": hash, "view": "#tree:Demo", "form": "dot", "palette": "okabe-ito", "lines": "ortho", "direction": "LR",
+	}, &view)
+	if !strings.Contains(view.GetText(), "\ndigraph {\n") || !strings.Contains(view.GetText(), "rankdir=LR, splines=ortho") ||
+		!strings.Contains(view.GetText(), `fillcolor="#`) || len(view.GetNodes()) == 0 || !strings.Contains(out, strings.TrimRight(view.GetText(), "\n")) {
+		t.Errorf("dot form: text %q\n%s", view.GetText(), out)
+	}
+	for form, args := range map[string]map[string]any{
+		"png": {"modelHash": hash, "view": "#tree:Demo", "form": "png"},
+		"svg": {"modelHash": hash, "view": "#tree:Demo", "form": "svg"},
+		"csv": {"modelHash": hash, "view": "#tree:Demo", "form": "csv"},
+	} {
+		if msg := h.fails("render_model_view", args); !strings.Contains(msg, "INVALID_ARGUMENT") {
+			t.Errorf("%s form: %s", form, msg)
+		}
+	}
 
 	var graphs pb.ExportGraphsResponse
 	_, out = h.ok("export_graphs", map[string]any{"modelHash": hash, "subject": "Demo::Lamp"}, &graphs)

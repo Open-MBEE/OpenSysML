@@ -3,6 +3,7 @@ package view
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 )
@@ -301,5 +302,33 @@ func (r *Rendering) WriteWith(form Form, options Options) (string, error) {
 		}
 		return r.MermaidWith(options), nil
 	}
-	return "", fmt.Errorf("unknown rendering form %q; the forms are %s", form, joinForms(Forms(), "and"))
+	return "", &UnknownFormError{Name: string(form), Forms: Forms()}
+}
+
+// Artifact is a written form as a file or a stream holds it: ending in one newline.
+func Artifact(written string) string { return strings.TrimRight(written, "\n") + "\n" }
+
+// ErrUnknownForm is a form name that names none. UnknownFormError wraps it.
+var ErrUnknownForm = errors.New("unknown rendering form")
+
+// UnknownFormError is a rendering asked for in a form none of Forms is; it
+// names the forms there are.
+type UnknownFormError struct {
+	Name  string
+	Forms []Form
+}
+
+func (e *UnknownFormError) Error() string {
+	return fmt.Sprintf("unknown rendering form %q; the forms are %s", e.Name, joinForms(e.Forms, "and"))
+}
+
+func (e *UnknownFormError) Unwrap() error { return ErrUnknownForm }
+
+// ParseViewForm is the model-view form name names: one of ViewForms, or an
+// *UnknownFormError naming them, which the run-only SVG forms are too.
+func ParseViewForm(name string) (Form, error) {
+	if form := Form(name); slices.Contains(ViewForms(), form) {
+		return form, nil
+	}
+	return "", &UnknownFormError{Name: name, Forms: ViewForms()}
 }
