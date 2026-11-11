@@ -66,13 +66,17 @@ class SpliceTest(unittest.TestCase):
 
     def test_a_missing_or_failing_go_is_an_error(self):
         with self.assertRaises(ValueError):
-            figures.render_site_blocks(command=("no-such-go-toolchain",))
+            figures.render_site_blocks(commands=(("no-such-go-toolchain",),))
         with self.assertRaises(ValueError):
-            figures.render_site_blocks(command=figures.COMMAND + ("-root", str(HERE / "no-such-tree")))
+            figures.render_site_blocks(commands=(figures.COMMANDS[0] + ("-root", str(HERE / "no-such-tree")),))
+        with self.assertRaises(ValueError):
+            figures.render_site_blocks(commands=(figures.COMMANDS[1] + ("-repo", str(HERE / "no-such-tree")),))
+        with self.assertRaises(ValueError):
+            figures.render_site_blocks(commands=(figures.COMMANDS[0], figures.COMMANDS[0]))
 
     def test_real_tree_renders_into_the_real_page(self):
         rendered = figures.render_site_blocks()
-        self.assertEqual(list(rendered), ["docs/project/spec-compliance.md"])
+        self.assertEqual(sorted(rendered), ["docs/project/api-json-differential.md", "docs/project/spec-compliance.md"])
         text = combined_page()
         out = figures.splice(text, "project/spec-compliance.md", rendered["docs/project/spec-compliance.md"])
         self.assertRegex(out, r"- Runtime robustness: [1-9][0-9,]* runtime robustness cases \(first-level subtests across the `TestRuntimeRobustness\*` functions\)")
@@ -83,6 +87,28 @@ class SpliceTest(unittest.TestCase):
         for line in text.splitlines():
             if "doc-counts:begin inventory-" in line or "doc-counts:begin lsp-tests" in line:
                 self.assertIsNone(re.search(r"-->[^<]*[0-9][^<]*<!-- doc-counts:end", line), f"a figure is committed: {line[:120]}")
+
+    def test_real_baseline_renders_into_the_real_record(self):
+        rendered = figures.render_site_blocks(commands=(figures.COMMANDS[1],))
+        page = "docs/project/api-json-differential.md"
+        self.assertEqual(list(rendered), [page])
+        text = (HERE.parent / page).read_text()
+        self.assertNotRegex(text, r"\*\*Scorecard:\*\* [0-9]")
+        out = figures.splice(text, "project/api-json-differential.md", rendered[page])
+        self.assertRegex(out, r"\*\*Scorecard:\*\* [1-9][0-9]* files; [1-9][0-9]* elements matched ")
+        self.assertRegex(out, r"\n\| 1 \| `[A-Za-z]+` \| `[A-Za-z]+` \| [0-9]+ \| [0-9]+ \| ")
+        self.assertNotIn("doc-counts:begin apijson-", out)
+
+    def test_a_failing_generator_loses_only_its_own_blocks(self):
+        commands = figures.COMMANDS
+        figures.COMMANDS = (commands[0], ("no-such-go-toolchain",))
+        try:
+            with self.assertLogs("mkdocs.hooks.suite_figures", level="WARNING"):
+                figures.on_pre_build()
+            self.assertEqual(list(figures._rendered), ["docs/project/spec-compliance.md"])
+        finally:
+            figures.COMMANDS = commands
+            figures._rendered = None
 
     def test_hooks_leave_other_pages_alone(self):
         class File:

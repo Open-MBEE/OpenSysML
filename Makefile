@@ -98,12 +98,14 @@ COVERAGE_PROFILE ?= coverage.txt
 COVERAGE_SHARD ?=
 # The coverage job's nodes: the race shards but the runtime's corpus ones, since without -race internal/exec/runtime
 # runs whole in about 19 minutes under -coverpkg; tests/export and tests/corpus whole overran 30 (see .circleci/config.yml).
-COVERAGE_SHARDS := runtime model smt corpus corpus-roundtrip corpus-apijson export export-corpus export-settled graph codegen translate grpc tools rest migrate cli
+COVERAGE_SHARDS := runtime model smt corpus corpus-roundtrip corpus-apijson export export-library export-examples export-corpus export-settled graph codegen translate grpc tools rest migrate cli
 # coverage-shard's splits of tests/corpus and tests/export by test name, test-shard's; empty for every other shard.
 COVERAGE_SELECT_corpus = -skip '$(RACE_CORPUS_ROUNDTRIP)|$(RACE_CORPUS_APIJSON)'
 COVERAGE_SELECT_corpus-roundtrip = -run '$(RACE_CORPUS_ROUNDTRIP)'
 COVERAGE_SELECT_corpus-apijson = -run '$(RACE_CORPUS_APIJSON)'
-COVERAGE_SELECT_export = -skip '$(RACE_EXPORT_CORPUS)|$(RACE_EXPORT_SETTLED)'
+COVERAGE_SELECT_export = -skip '$(RACE_EXPORT_CORPUS)|$(RACE_EXPORT_SETTLED)|$(RACE_EXPORT_LIBRARY)|$(RACE_EXPORT_EXAMPLES)'
+COVERAGE_SELECT_export-library = -run '$(RACE_EXPORT_LIBRARY)'
+COVERAGE_SELECT_export-examples = -run '$(RACE_EXPORT_EXAMPLES)'
 COVERAGE_SELECT_export-corpus = -run '$(RACE_EXPORT_CORPUS)'
 COVERAGE_SELECT_export-settled = -run '$(RACE_EXPORT_SETTLED)'
 
@@ -357,6 +359,9 @@ RACE_RUNTIME_CORPUS := ^Test(ExploreWithIsExploreOverTheConformanceCorpus|CheckA
 # model, each about as long as the rest of the package under -race (the element form completes the family).
 RACE_EXPORT_CORPUS := ^TestAPIJSONWritersNeverEmitNameReferences$$
 RACE_EXPORT_SETTLED := ^TestSettledCollectionsAreWhatReconcilingWouldFind$$
+# tests/export's two parallel per-file sweeps: 60 and 27 of the remainder's 103 CPU-minutes under -race (37 minutes wall), so a shard each.
+RACE_EXPORT_LIBRARY := ^TestLibraryFilesComeBackFromTheGraphAlone$$
+RACE_EXPORT_EXAMPLES := ^TestExamplesCorpusInvariants$$
 # The corpus-roundtrip and corpus-apijson shards: tests/corpus's two round trips over every example
 # model, about 20 minutes each under -race, one after the other; corpus is the rest of the package.
 RACE_CORPUS_ROUNDTRIP := ^TestCorpusRoundTrip$$
@@ -373,15 +378,17 @@ SHARD_SELECT_corpus-apijson = -run '$(RACE_CORPUS_APIJSON)' -skip '$(RACE_SHARD_
 SHARD_SELECT_corpus = -skip '$(RACE_SHARD_SKIP)|$(RACE_CORPUS_ROUNDTRIP)|$(RACE_CORPUS_APIJSON)'
 SHARD_SELECT_export-corpus = -run '$(RACE_EXPORT_CORPUS)' -skip '$(RACE_SHARD_SKIP)'
 SHARD_SELECT_export-settled = -run '$(RACE_EXPORT_SETTLED)' -skip '$(RACE_SHARD_SKIP)'
-SHARD_SELECT_export = -skip '$(RACE_SHARD_SKIP)|$(RACE_EXPORT_CORPUS)|$(RACE_EXPORT_SETTLED)'
+SHARD_SELECT_export-library = -run '$(RACE_EXPORT_LIBRARY)' -skip '$(RACE_SHARD_SKIP)'
+SHARD_SELECT_export-examples = -run '$(RACE_EXPORT_EXAMPLES)' -skip '$(RACE_SHARD_SKIP)'
+SHARD_SELECT_export = -skip '$(RACE_SHARD_SKIP)|$(RACE_EXPORT_CORPUS)|$(RACE_EXPORT_SETTLED)|$(RACE_EXPORT_LIBRARY)|$(RACE_EXPORT_EXAMPLES)'
 SHARD_SELECT = $(or $(SHARD_SELECT_$(SHARD)),-skip '$(RACE_SHARD_SKIP)')
 # -race for the race suite (test-shard); test-quick runs the same shards with it empty.
 TEST_SHARD_RACE ?= -race
 
-test-shard: stdlib-snapshot ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli)
+test-shard: stdlib-snapshot ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-library|export-examples|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli)
 	@echo "Running Go $(if $(TEST_SHARD_RACE),race ,)tests, shard $(SHARD)..."
 	@# 55m per package; its job's ceiling is 60. internal/exec/runtime (31-57 minutes whole under -race), tests/export
-	@# (past 55) and tests/corpus (about 40) run as three shards each, split by test name above.
+	@# (past 55; five shards) and tests/corpus (about 40; three) run split by test name above.
 	pkgs=$$(scripts/race-shard.sh $(SHARD)) && go test $(SHARD_SELECT) -v $(TEST_SHARD_RACE) -pgo=off -timeout 55m $$pkgs
 	@# The tools module runs with tools (tests/wasm) on CircleCI and, as the PR workflow has no
 	@# tools shard (tests/wasm is its WebAssembly gate job there), with rest on GitHub Actions.
@@ -390,7 +397,7 @@ test-shard: stdlib-snapshot ## Run one CI shard of the race suite (SHARD=runtime
 test-quick: stdlib-snapshot ## Run the race-free quick tier over one or more race shards, in turn (SHARDS="graph" | "export-corpus export-settled" | "rest grpc" | ...)
 	@echo "Running Go tests without race detection, shards $(SHARDS)..."
 	@# Every pull-request push runs this instead of test-shard: the same shards, selections and skips, no -race.
-	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime runtime-corpus runtime-exploration model smt corpus corpus-roundtrip corpus-apijson export export-corpus export-settled graph codegen translate grpc tools rest migrate cli"; exit 1; }
+	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime runtime-corpus runtime-exploration model smt corpus corpus-roundtrip corpus-apijson export export-library export-examples export-corpus export-settled graph codegen translate grpc tools rest migrate cli"; exit 1; }
 	for shard in $(SHARDS); do $(MAKE) --no-print-directory test-shard SHARD=$$shard TEST_SHARD_RACE= || exit 1; done
 
 coverage: stdlib-snapshot ## Write the coverage profile the SonarCloud scan reads
@@ -665,6 +672,7 @@ scripts-coverage: ## Run the repository scripts and their tests under coverage a
 	$(SCRIPTS_COVERAGE) scripts/mkdocs_security-test.py
 	$(SCRIPTS_COVERAGE) scripts/dedupe-coverage-test.py
 	$(SCRIPTS_COVERAGE) scripts/go-test-stream-test.py
+	$(SCRIPTS_COVERAGE) scripts/rebaseline-movement-test.py
 	$(SCRIPTS_COVERAGE) scripts/check-doc-links.py
 	$(SCRIPTS_COVERAGE) scripts/check-doc-ids.py
 	$(SCRIPTS_COVERAGE) scripts/check-doc-figures.py
