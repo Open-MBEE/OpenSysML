@@ -165,6 +165,9 @@ func (g *ActionGraph) nodeKind(node ast.Node) program.NodeKind {
 		if _, ok := g.Accepts[node]; ok || n.IsAccept {
 			return program.NodeAccept
 		}
+		if n.IsTerminate {
+			return program.NodeTerminate
+		}
 		return program.NodeExecution
 	}
 	return program.NodeStatement
@@ -272,6 +275,9 @@ func (g *StateGraph) assignRegionIDs(paths originPaths) {
 		g.RegionID[region] = program.RegionID(tableIndex(len(g.Provenance.regions)))
 		g.Provenance.regions = append(g.Provenance.regions, region)
 		scope := g.regionScopeOf[region]
+		if scope == nil {
+			scope = g.declaredIn[region]
+		}
 		g.RegionOrigins = append(g.RegionOrigins, program.Origin{
 			Doc:  symbols.DocNameOf(scope),
 			Span: region.Span(),
