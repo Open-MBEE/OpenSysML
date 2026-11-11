@@ -2,6 +2,7 @@ package lower
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
@@ -301,6 +302,63 @@ func TestAssignIDs_StateHiddenRegionOwnersNumbered(t *testing.T) {
 	for region, owner := range graph.RegionState {
 		if graph.ID[owner] == 0 {
 			t.Errorf("region %s owner %s has no id", region.Name, owner.Name)
+		}
+	}
+}
+
+func TestAssignIDs_CaseFlowCoversNodesAddedAfterLowering(t *testing.T) {
+	body := caseBodyOf(t, `
+		analysis def Among {
+			subject s : S;
+			if s.ready {
+				assign s.x := 1;
+				out r : Integer = s.x;
+			}
+			perform action p : P;
+			return r : Integer = s.x;
+		}
+	`)
+	flow, ok := body[0].(Block)
+	if !ok || flow.Graph == nil || len(flow.Graph.Nodes) != 2 {
+		t.Fatalf("body[0] = %#v, want the case flow of two nodes", body[0])
+	}
+	graph := flow.Graph
+	if len(graph.ID) != len(graph.Nodes) || len(graph.Origins) != len(graph.Nodes)+1 {
+		t.Fatalf("%d ids and %d origins for %d nodes", len(graph.ID), len(graph.Origins), len(graph.Nodes))
+	}
+	for i, node := range graph.Nodes {
+		if graph.ID[node] != program.NodeID(i+1) {
+			t.Errorf("node %d has id %d", i, graph.ID[node])
+		}
+	}
+	if graph.Kinds[1] != program.NodeIf || graph.Kinds[2] != program.NodeExecution {
+		t.Errorf("kinds = %v, want the branch then the performed action", graph.Kinds[1:])
+	}
+}
+
+func TestAssignIDs_RegionOriginsCarryDocumentAndOwner(t *testing.T) {
+	src := forkMachine(`state a;`, `state c;`, `transition first split then a; transition first split then c;`)
+	p := parser.New(source.New("test.sysml", []byte(src)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) > 0 {
+		t.Fatalf("parse errors: %v", p.Diagnostics)
+	}
+	idx := symbols.NewIndexFromDoc("test.sysml", root)
+	machine := idx.LookupQualified("test::Machine")
+	if len(machine) != 1 || machine[0].Scope == nil {
+		t.Fatalf("test::Machine resolves to %d symbols", len(machine))
+	}
+	graph, err := ToStateGraph(machine[0].Decl, machine[0].Scope)
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
+	}
+	if len(graph.RegionOrigins) < 3 {
+		t.Fatalf("%d region origins, want the two regions of work", len(graph.RegionOrigins)-1)
+	}
+	for id := 1; id < len(graph.RegionOrigins); id++ {
+		origin := graph.RegionOrigins[id]
+		if origin.Doc != "test.sysml" || !strings.HasPrefix(origin.Path, "test::Machine") {
+			t.Errorf("region %d origin = %#v", id, origin)
 		}
 	}
 }
