@@ -161,7 +161,7 @@ func EndValueBindings(decl ast.Node, scope *symbols.Scope) []Binding {
 					{Path: endName + "." + name, Expr: u.Value},
 					{Expr: u.Value, Default: u.ValueIsDefault},
 				},
-				Scope: endScope, Decl: u,
+				Scope: endScope, Decl: u, Origin: bindingOrigin(u, endScope),
 			})
 		}
 	}
