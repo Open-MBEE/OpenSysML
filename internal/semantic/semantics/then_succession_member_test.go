@@ -43,9 +43,8 @@ func TestThenSuccessionIsAnOwnedMember(t *testing.T) {
 	}
 }
 
-// A `then done;` relates the member before it to the library's done the action inherits; a
-// `then assign …;` reaches a statement no element stands for yet, so its relatedFeature is unanswered
-// rather than one feature short — the self-check leaves validateConnectorRelatedFeatures unevaluated.
+// A `then done;` relates the member before it to the library's done the action inherits; a `then assign …;`
+// reaches a statement no element stands for yet, so its relatedFeature is unanswered rather than one short.
 func TestThenSuccessionRelatedFeatures(t *testing.T) {
 	const src = `package P {
 		action def Settle { out t : Real; first start; then assign t := 1.0; then done; }

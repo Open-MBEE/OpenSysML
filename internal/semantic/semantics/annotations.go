@@ -2176,9 +2176,8 @@ func (m *Model) connectorSuccessionRelatedFeatures(sym *symbols.Symbol) (related
 	return related, unrepresented
 }
 
-// successionEndUnrepresented reports whether an end of the succession sym names a member the
-// symbol model has no element for (a statement, an entry action): its relatedFeature is
-// unanswered. A record keeps such an end as a zero position.
+// successionEndUnrepresented reports whether an end of the succession sym names a member the symbol
+// model has no element for (a statement, an entry action), a zero position in a record: relatedFeature is unanswered.
 func (m *Model) successionEndUnrepresented(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
