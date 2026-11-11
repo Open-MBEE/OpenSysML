@@ -8,9 +8,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// A connector's Relationship::relatedElement, source and target are the features its relatedFeature,
-// sourceFeature and targetFeature redefine them as (KerML 8.3.4.5.1) — a `then` succession's and a flow's
-// alike — and unanswered where an end names a member no element stands for.
+// A connector's relatedElement, source and target are the features its relatedFeature, sourceFeature and
+// targetFeature redefine them as (KerML 8.3.4.5.1); unanswered where an end names a member no element stands for.
 func TestConnectorRelationshipEndsAreItsRelatedFeatures(t *testing.T) {
 	const src = `package P {
 		action observe {
