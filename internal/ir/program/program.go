@@ -1,11 +1,5 @@
-// Package program is the execution-owned intermediate representation: the
-// identity every lowered record carries, independent of the syntax tree it
-// was lowered from. Ids are indices into the owning graph's tables, dense and
-// assigned in declaration order, so two lowerings of one model agree on them;
-// zero is "none". A graph's ids are local to it, and a GraphID tells graphs apart.
-//
-// The package reads no syntax: lower is the one package that reads the tree and
-// writes these records, and executors consume them.
+// Package program is the execution-owned IR: the identity every lowered record
+// carries independent of the syntax tree, assigned by lower and read by executors.
 package program
 
 import "encoding/hex"
@@ -34,9 +28,8 @@ type PseudoID uint32
 // TransID indexes a transition of a state machine graph.
 type TransID uint32
 
-// GraphID identifies a lowered graph by the digest of its canonical encoding, so
-// two lowerings of one model yield one id and an edit to the model moves it. The
-// encoder that computes it is not written yet; a zero GraphID is "not computed".
+// GraphID is the digest of a graph's canonical encoding, the same for two lowerings
+// of one model; its encoder is not written yet, and a zero GraphID is "not computed".
 type GraphID [16]byte
 
 // IsZero reports whether the id was never computed.

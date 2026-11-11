@@ -2,17 +2,15 @@ package program
 
 import "github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 
-// Origin is where a lowered record came from: what a message, a trace or a hover
-// needs to say about it, carried as plain data so that the record outlives the
-// syntax tree it was lowered from.
+// Origin is where a lowered record came from, as plain data: what a message, a
+// trace or a hover says about it once the syntax tree is gone.
 type Origin struct {
 	// Doc is the name of the document the declaration was written in, "" outside any.
 	Doc string
 	// Span is the declaration's extent in Doc.
 	Span source.Span
-	// Path is the declaration's path from the root, unique within its graph:
-	// its qualified name when it has one, else its owner's with the position
-	// among the owner's unnamed members of its kind (`A::b`, `A#if[2]`).
+	// Path is unique within the graph: the declaration's qualified name, else its
+	// owner's and its position among the owner's unnamed members of its kind (`A#if[2]`).
 	Path string
 	// Element is the declaration's element id when one is known, else "".
 	Element string
