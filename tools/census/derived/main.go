@@ -289,6 +289,9 @@ func recordLines(data []byte) map[string]string {
 			continue
 		}
 		fields := strings.SplitN(line, "\t", 3)
+		if len(fields) < 3 {
+			continue
+		}
 		lines[fields[0]+"\t"+fields[1]] = line
 	}
 	return lines
