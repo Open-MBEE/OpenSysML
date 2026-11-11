@@ -135,4 +135,10 @@ func TestImportAllCycleTerminates(t *testing.T) {
 	`
 	wantUnresolved(t, model+`package Use { private import all A::*; part x : AH; part y : BH; }`)
 	wantUnresolved(t, model+`package Use { private import A::*; part x : AH; part y : BH; }`, "AH", "BH")
+	wantUnresolved(t, `
+		package C1 { public import all C2::*; private part def InC1; }
+		package C2 { public import all C1::*; private part def InC2; }
+		package Use { private import C1::*; part x : InC2; }
+		package Use2 { private import C2::*; part y : InC1; part z : C2::InC1; }
+	`)
 }
