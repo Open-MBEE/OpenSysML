@@ -102,6 +102,35 @@ func containsPlace(places []lower.Place, name string) bool {
 	return false
 }
 
+func TestAddFootprintIsTheUnionAndLeavesItsArgumentAlone(t *testing.T) {
+	a := lower.Footprint{
+		Reads:   []lower.Place{{Name: "a"}},
+		Writes:  []lower.Place{{Name: "b"}},
+		Sends:   []lower.Channel{{Port: "out"}},
+		Flows:   []lower.Flow{{Reads: []lower.Place{{Name: "a"}}, Writes: []lower.Place{{Name: "b"}}}},
+		Creates: true,
+	}
+	b := lower.Footprint{
+		Reads:      make([]lower.Place, 1, 8),
+		Accepts:    []lower.Channel{{Port: "in"}},
+		Completion: true,
+		Routes:     true,
+	}
+	b.Reads[0] = lower.Place{Name: "c"}
+	c := lower.Footprint{Writes: []lower.Place{{Name: "d"}}, Dynamic: true}
+
+	var sum lower.Footprint
+	for _, fp := range []lower.Footprint{b, a, c} {
+		addFootprint(&sum, fp)
+	}
+	if want := unionFootprints(unionFootprints(b, a), c); !reflect.DeepEqual(sum, want) {
+		t.Fatalf("added %+v, want the union %+v", sum, want)
+	}
+	if spare := b.Reads[:2][1]; spare.Name != "" {
+		t.Fatalf("adding wrote %q into the spare room of a footprint added from", spare.Name)
+	}
+}
+
 func TestGateReadsNoFutureTheLastGateKept(t *testing.T) {
 	m := reductionModel(t, "por_two_machines", false)
 	ci := startCheckedInvocation(t, m, nil, []string{"turner", "router", "loner"})

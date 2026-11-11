@@ -157,7 +157,7 @@ func (f *futureFootprints) executorFuture(w clockWaiter) lower.Footprint {
 func (f *futureFootprints) actionFuture(exec *ActionExecutor) lower.Footprint {
 	var future lower.Footprint
 	for _, t := range exec.tokens {
-		future = unionFootprints(future, f.tokenFuture(exec, t))
+		addFootprint(&future, f.tokenFuture(exec, t))
 	}
 	return future
 }
@@ -221,13 +221,13 @@ func (f *futureFootprints) reach(graph *lower.ActionGraph, node ast.Node) lower.
 			continue
 		}
 		seen[n] = true
-		future = unionFootprints(future, graph.Footprints()[n])
+		addFootprint(&future, graph.Footprints()[n])
 		if sub, owns := graph.Subflows[n]; owns {
 			if sub == nil || sub.Graph == nil {
 				future.Dynamic = true
 			} else {
 				for _, start := range sub.Graph.Starts() {
-					future = unionFootprints(future, f.reach(sub.Graph, start))
+					addFootprint(&future, f.reach(sub.Graph, start))
 				}
 			}
 		}
@@ -282,7 +282,7 @@ func (f *futureFootprints) machineFuture(e *StateExecutor) lower.Footprint {
 		}
 	}
 	for _, act := range e.doActions {
-		future = unionFootprints(future, f.doFuture(e, act))
+		addFootprint(&future, f.doFuture(e, act))
 	}
 	steps := e.graph.TransitionSteps()
 	seen := make(map[*ast.StateNode]bool)
@@ -301,12 +301,12 @@ func (f *futureFootprints) machineFuture(e *StateExecutor) lower.Footprint {
 			if !ok {
 				return withDrop(e, f.wholeMachine(e))
 			}
-			future = unionFootprints(future, step.Footprint)
+			addFootprint(&future, step.Footprint)
 			if channel, takes := triggerChannel(trans); takes {
 				future.Accepts = append(future.Accepts, channel)
 			}
 			for _, entered := range step.Enters {
-				future = unionFootprints(future, f.startedDo(e, entered))
+				addFootprint(&future, f.startedDo(e, entered))
 				work = append(work, entered)
 			}
 		}
@@ -337,7 +337,7 @@ func (f *futureFootprints) startedDo(e *StateExecutor, state *ast.StateNode) low
 	var future lower.Footprint
 	if behaviors := e.graph.Behaviors[state]; behaviors != nil {
 		for _, behavior := range behaviors.Do {
-			future = unionFootprints(future, f.behaviorFuture(e, behavior))
+			addFootprint(&future, f.behaviorFuture(e, behavior))
 		}
 	}
 	return future
@@ -355,7 +355,7 @@ func (f *futureFootprints) behaviorFuture(e *StateExecutor, behavior lower.State
 		future.Reads = []lower.Place{{Name: behavior.Owner.Name, State: behavior.Owner}}
 	}
 	for _, start := range graph.Starts() {
-		future = unionFootprints(future, f.reach(graph, start))
+		addFootprint(&future, f.reach(graph, start))
 	}
 	return future
 }
@@ -380,13 +380,13 @@ func (f *futureFootprints) wholeMachine(e *StateExecutor) lower.Footprint {
 	}
 	var future lower.Footprint
 	for trans, fp := range e.graph.TransitionFootprints() {
-		future = unionFootprints(future, fp)
+		addFootprint(&future, fp)
 		if channel, takes := triggerChannel(trans); takes {
 			future.Accepts = append(future.Accepts, channel)
 		}
 	}
 	for _, fp := range e.graph.BehaviorFootprints() {
-		future = unionFootprints(future, fp)
+		addFootprint(&future, fp)
 	}
 	f.machines[e.graph] = future
 	return future
