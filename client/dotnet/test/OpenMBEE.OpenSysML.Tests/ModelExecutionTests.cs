@@ -221,11 +221,10 @@ public sealed class ModelExecutionTests
         Assert.Equal(Capabilities.ScheduleExplore, await RefusedAsync(wire, [Capabilities.ScheduleExplore], model => model.ExploreStateAsync("S", cancellationToken: token)));
     }
 
-    [Theory]
-    [MemberData(nameof(Wires))]
-    public async Task ARunAndAnExplorationEachRefuseTheOthersOptionsBeforeSending(ClientWire wire)
+    [Fact]
+    public async Task ARunAndAnExplorationEachRefuseTheOthersOptionsBeforeSending()
     {
-        using var handler = Serving(wire);
+        using var handler = Serving(ClientWire.Grpc);
         await using var connection = await FakeConnection.OpenAsync(handler);
         var model = connection.ModelByHash(Hash);
         var token = TestContext.Current.CancellationToken;

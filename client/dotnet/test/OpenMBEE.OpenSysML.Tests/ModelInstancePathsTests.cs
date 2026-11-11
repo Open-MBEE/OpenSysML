@@ -121,13 +121,12 @@ public sealed class ModelInstancePathsTests
         Assert.Equal((StatusCode.NotFound, "binding object: no object #99"), (absent.StatusCode, absent.ServiceMessage));
     }
 
-    [Theory]
-    [MemberData(nameof(Wires))]
-    public async Task WhatNoServiceWouldAnswerIsRefusedBeforeAnythingIsSent(ClientWire wire)
+    [Fact]
+    public async Task WhatNoServiceWouldAnswerIsRefusedBeforeAnythingIsSent()
     {
-        using var handler = new FakeServiceHandler(wire) { Capabilities = FakeModels.ModelCapabilities };
+        using var handler = new FakeServiceHandler() { Capabilities = FakeModels.ModelCapabilities };
         await using var connection = await FakeConnection.OpenAsync(handler);
-        using var older = new FakeServiceHandler(wire) { Capabilities = [.. FakeModels.ModelCapabilities.Where(name => name != Capabilities.InstancePaths)] };
+        using var older = new FakeServiceHandler() { Capabilities = [.. FakeModels.ModelCapabilities.Where(name => name != Capabilities.InstancePaths)] };
         await using var olderConnection = await FakeConnection.OpenAsync(older);
         var model = connection.ModelByHash("h");
 

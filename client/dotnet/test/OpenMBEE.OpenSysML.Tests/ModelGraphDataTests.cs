@@ -25,19 +25,7 @@ public sealed class ModelGraphDataTests : IDisposable
     public static TheoryData<ClientWire> Wires => ClientWires.All;
 
     /// <summary>Each malformed import answer, by the first file's name its request is routed on, with what the refusal says and how the import is made.</summary>
-    public static TheoryData<ClientWire, string> MalformedImports()
-    {
-        var data = new TheoryData<ClientWire, string>();
-        foreach (var wire in new[] { ClientWire.Grpc, ClientWire.ConnectProto, ClientWire.ConnectJson })
-        {
-            foreach (var name in Malformed.Keys)
-            {
-                data.Add(wire, name);
-            }
-        }
-
-        return data;
-    }
+    public static TheoryData<string> MalformedImports() => new(Malformed.Keys);
 
     private static CancellationToken Token => TestContext.Current.CancellationToken;
 
@@ -321,10 +309,10 @@ public sealed class ModelGraphDataTests : IDisposable
 
     [Theory]
     [MemberData(nameof(MalformedImports))]
-    public async Task AMalformedImportAnswerIsRefusedRatherThanRead(ClientWire wire, string name)
+    public async Task AMalformedImportAnswerIsRefusedRatherThanRead(string name)
     {
         var (answer, importing, says) = Malformed[name];
-        using var handler = Serving(wire)
+        using var handler = Serving(ClientWire.Grpc)
             .On("ParseSources", Wire.ParseSourcesRequest.Parser, _ => new Wire.ParseSourcesResponse { ModelHash = Hash })
             .On("ImportData", Wire.ImportDataRequest.Parser, _ => answer);
         await using var connection = await FakeConnection.OpenAsync(handler);

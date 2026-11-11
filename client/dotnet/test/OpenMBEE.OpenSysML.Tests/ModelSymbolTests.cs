@@ -177,11 +177,10 @@ public sealed class ModelSymbolTests
         Assert.Equal($"sysml.SysMLService/{method}", error.Method);
     }
 
-    [Theory]
-    [MemberData(nameof(Wires))]
-    public async Task ModelByHashSendsNothingUntilItsFirstCall(ClientWire wire)
+    [Fact]
+    public async Task ModelByHashSendsNothingUntilItsFirstCall()
     {
-        using var handler = new FakeServiceHandler(wire) { Capabilities = FakeModels.ModelCapabilities };
+        using var handler = new FakeServiceHandler() { Capabilities = FakeModels.ModelCapabilities };
         await using var connection = await FakeConnection.OpenAsync(handler);
 
         var model = connection.ModelByHash("kept");

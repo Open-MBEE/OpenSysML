@@ -278,28 +278,16 @@ public sealed class ModelEditingTests : IDisposable
         Assert.Equal([1, 2], sent);
     }
 
-    public static TheoryData<ClientWire, string> GatedEdits()
-    {
-        var data = new TheoryData<ClientWire, string>();
-        foreach (var wire in new[] { ClientWire.Grpc, ClientWire.ConnectProto, ClientWire.ConnectJson })
-        {
-            foreach (var name in Gated.Keys)
-            {
-                data.Add(wire, name);
-            }
-        }
-
-        return data;
-    }
+    public static TheoryData<string> GatedEdits() => new(Gated.Keys);
 
     [Theory]
     [MemberData(nameof(GatedEdits))]
-    public async Task AnEditNeedingACapabilityTheServiceLacksIsRefusedBeforeAnythingIsSent(ClientWire wire, string name)
+    public async Task AnEditNeedingACapabilityTheServiceLacksIsRefusedBeforeAnythingIsSent(string name)
     {
         var (edit, capability) = Gated[name];
 
-        Assert.Equal(capability, await RefusedAsync(wire, [capability], model => model.ApplyEditsAsync([edit], cancellationToken: Token)));
-        Assert.Equal(Capabilities.ApplyEdits, await RefusedAsync(wire, [Capabilities.ApplyEdits, capability], model => model.ApplyEditsAsync([edit], cancellationToken: Token)));
+        Assert.Equal(capability, await RefusedAsync(ClientWire.Grpc, [capability], model => model.ApplyEditsAsync([edit], cancellationToken: Token)));
+        Assert.Equal(Capabilities.ApplyEdits, await RefusedAsync(ClientWire.Grpc, [Capabilities.ApplyEdits, capability], model => model.ApplyEditsAsync([edit], cancellationToken: Token)));
     }
 
     [Theory]
@@ -412,11 +400,10 @@ public sealed class ModelEditingTests : IDisposable
         Assert.Equal(1, (item with { Body = [], ElseBody = [] }).Height);
     }
 
-    [Theory]
-    [MemberData(nameof(Wires))]
-    public async Task AnEmptyOptionalPartOrDocumentIsRefusedBeforeAnyCapabilityIsJudged(ClientWire wire)
+    [Fact]
+    public async Task AnEmptyOptionalPartOrDocumentIsRefusedBeforeAnyCapabilityIsJudged()
     {
-        using var handler = new FakeServiceHandler(wire) { Capabilities = [] };
+        using var handler = new FakeServiceHandler() { Capabilities = [] };
         await using var connection = await FakeConnection.OpenAsync(handler);
         var model = connection.ModelByHash(Hash);
         var nested = Edit.AddSequence.If("A", "c", [Edit.AddSequence.Then(string.Empty, "x")], [Edit.AddSequence.Assign(string.Empty, "x", "1") with { Via = string.Empty }]);

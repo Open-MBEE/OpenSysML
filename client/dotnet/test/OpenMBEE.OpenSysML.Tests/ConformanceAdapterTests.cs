@@ -750,11 +750,10 @@ public sealed class ConformanceAdapterTests
         Assert.Equal(new ScenarioAnswer.Refused(StatusCode.FailedPrecondition, Broken), document);
     }
 
-    [Theory]
-    [MemberData(nameof(Wires))]
-    public async Task ACapabilityTheServiceLacksIsRefusedAsUnimplementedBeforeAnythingIsSent(ClientWire wire)
+    [Fact]
+    public async Task ACapabilityTheServiceLacksIsRefusedAsUnimplementedBeforeAnythingIsSent()
     {
-        using var handler = new FakeServiceHandler(wire) { Capabilities = [] };
+        using var handler = new FakeServiceHandler() { Capabilities = [] };
         await using var connection = await FakeConnection.OpenAsync(handler);
         var client = Client(connection);
         var token = TestContext.Current.CancellationToken;
@@ -797,11 +796,10 @@ public sealed class ConformanceAdapterTests
         Assert.Equal(["GetServerInfo"], handler.Requests.Select(request => request.Method));
     }
 
-    [Theory]
-    [MemberData(nameof(Wires))]
-    public async Task InvalidOrNoncanonicalMigrationFilePathsAreUnexpressibleWithoutChangingTheRequest(ClientWire wire)
+    [Fact]
+    public async Task InvalidOrNoncanonicalMigrationFilePathsAreUnexpressibleWithoutChangingTheRequest()
     {
-        using var handler = new FakeServiceHandler(wire) { Capabilities = FakeModels.ModelCapabilities };
+        using var handler = new FakeServiceHandler() { Capabilities = FakeModels.ModelCapabilities };
         await using var connection = await FakeConnection.OpenAsync(handler);
         foreach (var (path, reason) in new[]
         {

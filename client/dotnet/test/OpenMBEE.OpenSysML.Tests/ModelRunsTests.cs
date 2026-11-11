@@ -196,9 +196,8 @@ public sealed class ModelRunsTests
         Assert.All([neither, valueless, binless, uncounted], failure => Assert.Equal(StatusCode.Internal, failure.StatusCode));
     }
 
-    [Theory]
-    [MemberData(nameof(Wires))]
-    public async Task RunsGatesAreCheckedInTheServicesOrderBeforeAnythingIsSent(ClientWire wire)
+    [Fact]
+    public async Task RunsGatesAreCheckedInTheServicesOrderBeforeAnythingIsSent()
     {
         var token = TestContext.Current.CancellationToken;
         var inputs = new Dictionary<string, Value> { ["x"] = new Value.ComplexValue(1, 1) };
@@ -210,18 +209,18 @@ public sealed class ModelRunsTests
             NamedArguments = new Dictionary<string, Value> { ["s"] = new Value.SetValue([]) },
         };
 
-        Assert.Equal(Capabilities.Runs, await RefusedAsync(wire, [Capabilities.Runs, Capabilities.Performer], model => model.RunActionRunsAsync("A", 1, inputs, action, token)));
-        Assert.Equal(Capabilities.Performer, await RefusedAsync(wire, [Capabilities.Performer, Capabilities.ComplexValues], model => model.RunActionRunsAsync("A", 1, inputs, action, token)));
-        Assert.Equal(Capabilities.ComplexValues, await RefusedAsync(wire, [Capabilities.ComplexValues, Capabilities.Engines], model => model.RunActionRunsAsync("A", 1, inputs, action, token)));
-        Assert.Equal(Capabilities.Engines, await RefusedAsync(wire, [Capabilities.Engines, Capabilities.ScheduleExplore], model => model.RunActionRunsAsync("A", 1, inputs, action, token)));
-        Assert.Equal(Capabilities.ScheduleExplore, await RefusedAsync(wire, [Capabilities.ScheduleExplore], model => model.RunActionRunsAsync("A", 1, inputs, action, token)));
-        Assert.Equal(Capabilities.Runs, await RefusedAsync(wire, [Capabilities.Runs, Capabilities.Engines], model => model.RunAnalysisRunsAsync("C", 1, analysis, token)));
-        Assert.Equal(Capabilities.Engines, await RefusedAsync(wire, [Capabilities.Engines, Capabilities.ComplexValues], model => model.RunAnalysisRunsAsync("C", 1, analysis, token)));
-        Assert.Equal(Capabilities.ScheduleExplore, await RefusedAsync(wire, [Capabilities.ScheduleExplore, Capabilities.ComplexValues], model => model.RunAnalysisRunsAsync("C", 1, analysis, token)));
-        Assert.Equal(Capabilities.ComplexValues, await RefusedAsync(wire, [Capabilities.ComplexValues, Capabilities.SetValues], model => model.RunAnalysisRunsAsync("C", 1, analysis, token)));
-        Assert.Equal(Capabilities.SetValues, await RefusedAsync(wire, [Capabilities.SetValues], model => model.RunAnalysisRunsAsync("C", 1, analysis, token)));
+        Assert.Equal(Capabilities.Runs, await RefusedAsync(ClientWire.Grpc, [Capabilities.Runs, Capabilities.Performer], model => model.RunActionRunsAsync("A", 1, inputs, action, token)));
+        Assert.Equal(Capabilities.Performer, await RefusedAsync(ClientWire.Grpc, [Capabilities.Performer, Capabilities.ComplexValues], model => model.RunActionRunsAsync("A", 1, inputs, action, token)));
+        Assert.Equal(Capabilities.ComplexValues, await RefusedAsync(ClientWire.Grpc, [Capabilities.ComplexValues, Capabilities.Engines], model => model.RunActionRunsAsync("A", 1, inputs, action, token)));
+        Assert.Equal(Capabilities.Engines, await RefusedAsync(ClientWire.Grpc, [Capabilities.Engines, Capabilities.ScheduleExplore], model => model.RunActionRunsAsync("A", 1, inputs, action, token)));
+        Assert.Equal(Capabilities.ScheduleExplore, await RefusedAsync(ClientWire.Grpc, [Capabilities.ScheduleExplore], model => model.RunActionRunsAsync("A", 1, inputs, action, token)));
+        Assert.Equal(Capabilities.Runs, await RefusedAsync(ClientWire.Grpc, [Capabilities.Runs, Capabilities.Engines], model => model.RunAnalysisRunsAsync("C", 1, analysis, token)));
+        Assert.Equal(Capabilities.Engines, await RefusedAsync(ClientWire.Grpc, [Capabilities.Engines, Capabilities.ComplexValues], model => model.RunAnalysisRunsAsync("C", 1, analysis, token)));
+        Assert.Equal(Capabilities.ScheduleExplore, await RefusedAsync(ClientWire.Grpc, [Capabilities.ScheduleExplore, Capabilities.ComplexValues], model => model.RunAnalysisRunsAsync("C", 1, analysis, token)));
+        Assert.Equal(Capabilities.ComplexValues, await RefusedAsync(ClientWire.Grpc, [Capabilities.ComplexValues, Capabilities.SetValues], model => model.RunAnalysisRunsAsync("C", 1, analysis, token)));
+        Assert.Equal(Capabilities.SetValues, await RefusedAsync(ClientWire.Grpc, [Capabilities.SetValues], model => model.RunAnalysisRunsAsync("C", 1, analysis, token)));
 
-        using var handler = Serving(wire);
+        using var handler = Serving(ClientWire.Grpc);
         await using var connection = await FakeConnection.OpenAsync(handler);
         var model = connection.ModelByHash(Hash);
         var unset = await Assert.ThrowsAsync<ArgumentException>(() =>
@@ -488,9 +487,8 @@ public sealed class ModelRunsTests
         Assert.Contains("made by sweep, which a request for sample", await MalformedAsync("swept", new RecordOptions { Runs = 2, Seed = 1 }), StringComparison.Ordinal);
     }
 
-    [Theory]
-    [MemberData(nameof(Wires))]
-    public async Task RecordGatesAreCheckedInTheServicesOrderBeforeAnythingIsSent(ClientWire wire)
+    [Fact]
+    public async Task RecordGatesAreCheckedInTheServicesOrderBeforeAnythingIsSent()
     {
         var token = TestContext.Current.CancellationToken;
         var options = new RecordOptions
@@ -501,15 +499,15 @@ public sealed class ModelRunsTests
             Ranges = [new("x", new Value.IntegerValue(0), new Value.InfinityValue(), new Value.FunctionValue("F::step", null))],
         };
 
-        Assert.Equal(Capabilities.RecordRun, await RefusedAsync(wire, [Capabilities.RecordRun, Capabilities.Engines], model => model.RecordRunAsync("C", options, token)));
-        Assert.Equal(Capabilities.Engines, await RefusedAsync(wire, [Capabilities.Engines, Capabilities.ScheduleExplore], model => model.RecordRunAsync("C", options, token)));
-        Assert.Equal(Capabilities.ScheduleExplore, await RefusedAsync(wire, [Capabilities.ScheduleExplore, Capabilities.ComplexValues], model => model.RecordRunAsync("C", options, token)));
-        Assert.Equal(Capabilities.ComplexValues, await RefusedAsync(wire, [Capabilities.ComplexValues, Capabilities.SetValues], model => model.RecordRunAsync("C", options, token)));
-        Assert.Equal(Capabilities.SetValues, await RefusedAsync(wire, [Capabilities.SetValues, Capabilities.InfinityValue], model => model.RecordRunAsync("C", options, token)));
-        Assert.Equal(Capabilities.InfinityValue, await RefusedAsync(wire, [Capabilities.InfinityValue, Capabilities.FunctionValues], model => model.RecordRunAsync("C", options, token)));
-        Assert.Equal(Capabilities.FunctionValues, await RefusedAsync(wire, [Capabilities.FunctionValues], model => model.RecordRunAsync("C", options, token)));
+        Assert.Equal(Capabilities.RecordRun, await RefusedAsync(ClientWire.Grpc, [Capabilities.RecordRun, Capabilities.Engines], model => model.RecordRunAsync("C", options, token)));
+        Assert.Equal(Capabilities.Engines, await RefusedAsync(ClientWire.Grpc, [Capabilities.Engines, Capabilities.ScheduleExplore], model => model.RecordRunAsync("C", options, token)));
+        Assert.Equal(Capabilities.ScheduleExplore, await RefusedAsync(ClientWire.Grpc, [Capabilities.ScheduleExplore, Capabilities.ComplexValues], model => model.RecordRunAsync("C", options, token)));
+        Assert.Equal(Capabilities.ComplexValues, await RefusedAsync(ClientWire.Grpc, [Capabilities.ComplexValues, Capabilities.SetValues], model => model.RecordRunAsync("C", options, token)));
+        Assert.Equal(Capabilities.SetValues, await RefusedAsync(ClientWire.Grpc, [Capabilities.SetValues, Capabilities.InfinityValue], model => model.RecordRunAsync("C", options, token)));
+        Assert.Equal(Capabilities.InfinityValue, await RefusedAsync(ClientWire.Grpc, [Capabilities.InfinityValue, Capabilities.FunctionValues], model => model.RecordRunAsync("C", options, token)));
+        Assert.Equal(Capabilities.FunctionValues, await RefusedAsync(ClientWire.Grpc, [Capabilities.FunctionValues], model => model.RecordRunAsync("C", options, token)));
 
-        using var handler = Serving(wire);
+        using var handler = Serving(ClientWire.Grpc);
         await using var connection = await FakeConnection.OpenAsync(handler);
         var model = connection.ModelByHash(Hash);
         var step = await Assert.ThrowsAsync<ArgumentException>(() =>

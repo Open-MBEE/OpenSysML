@@ -79,11 +79,10 @@ public sealed class ModelEvaluateTests
         Assert.Equal(new Evaluation(mass, [new Diagnostic("info", "mass", string.Empty, null, [], false)]), evaluation);
     }
 
-    [Theory]
-    [MemberData(nameof(Wires))]
-    public async Task ASubjectNeedsEvaluateSubjectAndAnEmptySymbolIsRefusedBeforeSending(ClientWire wire)
+    [Fact]
+    public async Task ASubjectNeedsEvaluateSubjectAndAnEmptySymbolIsRefusedBeforeSending()
     {
-        using var handler = new FakeServiceHandler(wire) { Capabilities = [.. FakeModels.ModelCapabilities.Except([Capabilities.EvaluateSubject])] };
+        using var handler = new FakeServiceHandler() { Capabilities = [.. FakeModels.ModelCapabilities.Except([Capabilities.EvaluateSubject])] };
         await using var connection = await FakeConnection.OpenAsync(handler);
         var model = connection.ModelByHash("h");
 

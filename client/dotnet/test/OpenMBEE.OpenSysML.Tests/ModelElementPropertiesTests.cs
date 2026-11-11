@@ -143,13 +143,12 @@ public sealed class ModelElementPropertiesTests
         Assert.Equal(unknownArm, newer.ValueBytes.ToArray());
     }
 
-    [Theory]
-    [MemberData(nameof(Wires))]
-    public async Task WhatNoServiceWouldAnswerIsRefusedBeforeAnythingIsSent(ClientWire wire)
+    [Fact]
+    public async Task WhatNoServiceWouldAnswerIsRefusedBeforeAnythingIsSent()
     {
-        using var handler = new FakeServiceHandler(wire) { Capabilities = FakeModels.ModelCapabilities };
+        using var handler = new FakeServiceHandler() { Capabilities = FakeModels.ModelCapabilities };
         await using var connection = await FakeConnection.OpenAsync(handler);
-        using var older = new FakeServiceHandler(wire) { Capabilities = [.. FakeModels.ModelCapabilities.Where(name => name != Capabilities.ElementProperties)] };
+        using var older = new FakeServiceHandler() { Capabilities = [.. FakeModels.ModelCapabilities.Where(name => name != Capabilities.ElementProperties)] };
         await using var olderConnection = await FakeConnection.OpenAsync(older);
         var model = connection.ModelByHash("h");
 

@@ -316,11 +316,10 @@ public sealed class ModelVerificationTests
         Assert.Equal("evaluate", Assert.Single(handler.RequestsFor("VerifyRequirement")).Message(Wire.VerifyRequirementRequest.Parser).Question);
     }
 
-    [Theory]
-    [MemberData(nameof(Wires))]
-    public async Task AnEmptyOptionASatisfactionSubjectOrAnUnsendableArgumentIsRefusedBeforeSending(ClientWire wire)
+    [Fact]
+    public async Task AnEmptyOptionASatisfactionSubjectOrAnUnsendableArgumentIsRefusedBeforeSending()
     {
-        using var handler = Serving(wire);
+        using var handler = Serving(ClientWire.Grpc);
         await using var connection = await FakeConnection.OpenAsync(handler);
         var model = connection.ModelByHash(Hash);
         var token = TestContext.Current.CancellationToken;

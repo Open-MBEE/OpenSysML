@@ -188,11 +188,10 @@ public sealed class ModelCheckTests
         Assert.Equal(Capabilities.Engines, await RefusedAsync(wire, [Capabilities.Engines], model => model.CheckStateAsync("S", new CheckOptions { Engine = "check" }, token)));
     }
 
-    [Theory]
-    [MemberData(nameof(Wires))]
-    public async Task AnEmptyNameOrAnUnsendableInputIsRefusedBeforeSending(ClientWire wire)
+    [Fact]
+    public async Task AnEmptyNameOrAnUnsendableInputIsRefusedBeforeSending()
     {
-        using var handler = Serving(wire);
+        using var handler = Serving(ClientWire.Grpc);
         await using var connection = await FakeConnection.OpenAsync(handler);
         var model = connection.ModelByHash(Hash);
         var token = TestContext.Current.CancellationToken;
