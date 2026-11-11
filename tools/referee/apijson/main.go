@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Open-MBEE/OpenSysML/tools/oracle/baseline"
 	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
+	"github.com/Open-MBEE/OpenSysML/tools/referee/baseline"
 	"github.com/Open-MBEE/OpenSysML/tools/referee/diff"
 )
 
@@ -23,6 +23,7 @@ type options struct {
 	roots               []string
 	timeout             time.Duration
 	update, check       bool
+	reindex             bool
 	lostAgainst         string
 	libraries           string
 	log                 io.Writer
@@ -37,8 +38,9 @@ func Main(args []string, stderr io.Writer) int {
 	outFlag := flags.String("out", "", "output directory (default: <repo>/build/"+toolName+")")
 	rootsFlag := flags.String("roots", "", "comma-separated subset of the corpus roots to compare (default: all)")
 	timeoutFlag := flags.Duration("timeout", 30*time.Minute, "time allowed for the pilot's export of one root")
-	updateFlag := flags.Bool("update", false, "re-record "+committedBaseline+" from this run")
-	checkFlag := flags.Bool("check", false, "fail unless this run reproduces "+committedBaseline)
+	updateFlag := flags.Bool("update", false, "re-record "+committedBaseline+" from this run (with -roots, those roots' fragments only)")
+	checkFlag := flags.Bool("check", false, "fail unless this run reproduces "+committedBaseline+" (with -roots, those roots' fragments and the index)")
+	reindexFlag := flags.Bool("reindex", false, "rebuild "+committedBaseline+"/"+baseline.IndexFile+" from the committed fragments, without the pilot")
 	lostAgainstFlag := flags.String("lost-against", "", "an earlier run's "+toolName+"-matches.json; list the element matches this run lost and gained against it")
 	if err := flags.Parse(args); err != nil {
 		if err == flag.ErrHelp {
@@ -51,7 +53,7 @@ func Main(args []string, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "%s: %v\n", toolName, err)
 		return 1
 	}
-	opts := options{repo: root, timeout: *timeoutFlag, update: *updateFlag, check: *checkFlag, lostAgainst: repo.Resolve(root, *lostAgainstFlag), log: os.Stdout}
+	opts := options{repo: root, timeout: *timeoutFlag, update: *updateFlag, check: *checkFlag, reindex: *reindexFlag, lostAgainst: repo.Resolve(root, *lostAgainstFlag), log: os.Stdout}
 	opts.launcher = repo.Resolve(root, *launcherFlag)
 	if opts.launcher == "" {
 		opts.launcher = filepath.Join(root, "build", "pilot-json-exporter", "export-json")
@@ -66,6 +68,17 @@ func Main(args []string, stderr io.Writer) int {
 	if opts.libraries, err = diff.LibrariesHandedOver(root); err != nil {
 		fmt.Fprintf(stderr, "%s: %v\n", toolName, err)
 		return 1
+	}
+	if opts.reindex {
+		if opts.update || opts.check || len(opts.roots) > 0 {
+			fmt.Fprintf(stderr, "%s: -reindex rebuilds the index alone; drop -update, -check and -roots\n", toolName)
+			return 2
+		}
+		if err := reindex(root, opts.libraries, opts.log); err != nil {
+			fmt.Fprintf(stderr, "%s: %v\n", toolName, err)
+			return 1
+		}
+		return 0
 	}
 	if _, err := os.Stat(opts.launcher); os.IsNotExist(err) {
 		message := fmt.Sprintf("pilot JSON exporter is absent at %s; run ./scripts/download-pilot-json-exporter.sh to provision it", opts.launcher)
@@ -93,6 +106,7 @@ func run(opts options) error {
 	}
 	report := &Report{Provenance: record, Exporter: exporterDescription, Normalizations: normalizations, PilotNondeterministic: pilotNondeterminism}
 	result := newComparison()
+	var fragments []Fragment
 	logs := make(map[string]string)
 	unkeyed := map[string]map[string]int{"ours": {}, "pilot": {}}
 	shared := make(map[string]map[string][]string)
@@ -130,6 +144,11 @@ func run(opts options) error {
 			return err
 		}
 		elements, buckets := result.compareRoot(root.Name, ours.Elements, pilot.Elements)
+		rootFragments, err := fragmentsOf(root.Name, files, ours, pilot, result)
+		if err != nil {
+			return err
+		}
+		fragments = append(fragments, rootFragments...)
 		report.Roots = append(report.Roots, RootReport{
 			Name: root.Name, Dir: root.Dir, Files: len(files),
 			OursRefused: ours.Refused, PilotFailed: len(pilot.Failed),
@@ -173,28 +192,28 @@ func run(opts options) error {
 	rows := result.scorecard()
 	report.setScorecard(rows)
 	report.Totals.Rows = len(rows)
+	if err := sameFigures(report, fragments); err != nil {
+		return err
+	}
 	examples := Examples{Examples: result.exampleList(rows), Unmatched: result.unmatchedList(), Unkeyed: unkeyed, Shared: shared}
-	fresh, err := writeReports(opts.out, report, examples, logs, opts.log)
-	if err != nil {
+	if _, err := writeReports(opts.out, report, examples, logs, opts.log); err != nil {
 		return err
 	}
 	if err := writeMatches(opts, Matches{Roots: result.matches}); err != nil {
 		return err
 	}
-	committed := filepath.Join(opts.repo, filepath.FromSlash(committedBaseline))
-	if opts.update {
-		if len(opts.roots) > 0 {
-			return fmt.Errorf("-update records every root; drop -roots")
-		}
-		return baseline.Write(committed, fresh, opts.log)
-	}
-	if opts.check {
-		// The provenance guard names what moved (a pin, the errata, a tool's
-		// source, a root) and whose it is before the counts are held to the baseline.
-		if err := baseline.CheckCommitted(committed, refreshCommand, record); err != nil {
-			return err
-		}
-		return baseline.Reproduces(committed, fresh)
+	committed := committedDir(opts.repo)
+	switch {
+	case opts.update && len(opts.roots) > 0:
+		return baseline.Rewrite(committed, opts.roots, fragments, record, fold, commands, opts.log)
+	case opts.update:
+		return baseline.Write(committed, Committed{Provenance: record, Summary: fold(fragments), Fragments: fragments}, opts.log)
+	case opts.check && len(opts.roots) > 0:
+		return baseline.CheckRoots(committed, fragments, record, opts.roots, fold, commands)
+	case opts.check:
+		// The provenance guard names what moved (a pin, the errata, a tool's source,
+		// a root) and whose it is before the fragments are held to the baseline.
+		return baseline.Check(committed, Committed{Provenance: record, Summary: fold(fragments), Fragments: fragments}, commands)
 	}
 	return nil
 }
