@@ -65,6 +65,30 @@ the document model. It returns Markdown by default or standalone HTML with
 converter toolchain. The service must advertise `document_query`,
 `render_document`, and `render_document_html` for their corresponding calls.
 
+## The answer as a view
+
+`as_view=True` on `query` and `run_document_query` also answers the selection
+as a `QVTS::QueryResult` view: SysML text that exposes each selected element and
+states the query, its source, the outcome and the provenance. A query that ends
+in a path or model error still raises, with the view of that outcome as the
+error's `result_view`.
+
+```python
+result = model.run_document_query("Observatory::SubsystemTable", as_view=True)
+print(result.result_view)
+
+selected = model.query(oslc='sysml:name="mount"', as_view=True)
+print(selected.result_view)
+
+rendered = model.render_view("Answers::subsystems", form="markdown")
+rendered.header      # query, source, outcome, provenance
+rendered.document    # the view as a Markdown document
+```
+
+`render_view` renders such a view, loaded beside its model, as a table of the
+exposed elements under the four attributes; `form` is `"markdown"`, `"html"` or
+`"asciidoc"`. The service must advertise `query_result_view`.
+
 For the full supported property and query surface, see the
 [Go API reference](../../reference/api.md) and
 [Python API reference](../../reference/python-api.md).

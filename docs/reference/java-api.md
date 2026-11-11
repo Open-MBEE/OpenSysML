@@ -286,6 +286,10 @@ in turn, ascending. `queryOslc` needs the `oslc_query` capability; a scope namin
 no element is refused as `INVALID_ARGUMENT`, and an unknown property as a
 `QueryOutcomeException` (see [Document queries](#document-queries-and-rendering)).
 
+`queryAsView(query)` and `queryOslcAsView(text)` return a `QuerySelection`: the same
+`elements()` and, in `resultView()`, the answer written as a `QVTS::QueryResult` view (see
+[The answer as a view](#the-answer-as-a-view)).
+
 ### Several documents, and conversion
 
 `Connection.parseSources` reads a list of `SourceDocument`s — `file(Path)` for
@@ -471,6 +475,27 @@ besides the ones the view's rendering shows (`"all"` for every one); the
 `compartments`, how a tree rendering folds owned members into compartment rows
 (`"positioned"`, the default, `"most"` or `"ports"`), each folded node naming
 its `compartment`. This call requires the `render_view` capability.
+
+#### The answer as a view
+
+```java
+DocumentQueryResult cabin = model.runDocumentQueryAsView("QVTSDemo::CabinMass", Map.of());
+cabin.resultView();          // "package CabinMassResult { … view cabinMass : QueryResult { … } }"
+QuerySelection found = model.queryOslcAsView("oslc.where=sysml:name=\"cabin\"");
+found.elements(); found.resultView();
+```
+
+`runDocumentQueryAsView`, `runInlineDocumentQueryAsView`, `queryAsView` and `queryOslcAsView`
+ask the service to write the answer as one view typed by `QVTS::QueryResult`
+([QVTS guide](../guide/qvts.md#write-the-answer-as-a-view)); `resultView()` is its SysML text,
+and `""` from the calls that did not ask. A query the model has no answer for still has a
+view, of its path or model error: `QueryOutcomeException.resultView()`. These calls need the
+`query_result_view` capability (`Capabilities.QUERY_RESULT_VIEW`).
+
+`model.renderView(name, DocumentForm.MARKDOWN)` (or `HTML`, `ASCIIDOC`) renders a result view
+that is part of the model as a document: `RenderedView.header()` holds its four attributes as
+`HeaderField`s, `rows()` the exposed elements, and `document()` the rendered text. A view that
+is not a `QVTS::QueryResult` is refused as `INVALID_ARGUMENT`.
 
 `DocumentValue` is sealed over `ElementRef`, `ObjectRef` (an object the service
 holds, by id or by path, with the `ElementRef` it is held under), `DocumentVerdict`,

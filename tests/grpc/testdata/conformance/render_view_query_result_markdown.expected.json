@@ -1,0 +1,13 @@
+{
+  "rpc": "RenderView",
+  "model": "query_result_view.sysml",
+  "view": "Probe::heavy",
+  "form": "markdown",
+  "expected_header": [
+    "query: Probe::Self root=Probe::probe::antenna",
+    "source: probe.sysml",
+    "outcome: established",
+    "provenance: urn:prov:bundle:heavy"
+  ],
+  "expected_document": "# Probe::heavy\n\n**query** — Probe::Self root=Probe::probe::antenna\n\n**source** — probe.sysml\n\n**outcome** — established\n\n**provenance** — urn:prov:bundle:heavy\n\n| Element | Kind | Type | Declared in |\n| --- | --- | --- | --- |\n| Probe::probe::antenna | part | Payload | Probe::probe |\n"
+}

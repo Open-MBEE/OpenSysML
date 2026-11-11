@@ -1307,6 +1307,17 @@ for a query written in the request. Python:
 (`client/python/opensysml/document.py`). The JSON shape of a binding and of the
 result table, captured, is on [the wire contract](wire-contract.md#rundocumentquery).
 
+`RunDocumentQueryRequest.as_view` and `QueryRequest.as_view` ask for the answer written as a
+`QVTS::QueryResult` view as well ([QVTS guide](../guide/qvts.md#write-the-answer-as-a-view)):
+the response's `result_view` is a `QueryResultView` whose `text` is the SysML declaring it,
+absent when the request did not ask, and a query that fails with a `QueryOutcome` detail
+carries a `QueryResultView` detail beside it. `RenderViewRequest.form` (`markdown`, `html` or
+`asciidoc`) renders such a view as a document: `RenderViewResponse.header` holds its four
+attributes as `RenderHeaderField`s and `markdown`, `html` or `asciidoc` the text; a view of
+another definition is refused with `INVALID_ARGUMENT`. All of it is advertised as
+`query_result_view`; a service without the capability does not know the fields, so a client
+checks the capability before asking.
+
 Both name a loaded model by its hash and a definition by qualified name, and
 compose the engine packages the REPL and CLI compose — `queryplan` →
 `queryexec` for a query, `docplan` → `docir` → `docrender` for a document — so

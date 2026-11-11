@@ -25,6 +25,23 @@ final class Flat {
     return flat;
   }
 
+  /** A run whose one query answered with a view; {@code rendered} adds the header and rows RenderView lays out. */
+  static Map<String, Object> view(boolean rendered) {
+    Map<String, Object> flat = verify("A::Q", "PASSED");
+    Map<String, Object> view = new LinkedHashMap<>();
+    view.put("query", "A::Q");
+    view.put("name", "QResult::q");
+    view.put("text", "package QResult {\n\tview q : QueryResult {\n\t\texpose A::a;\n\t}\n}\n");
+    view.put("header", rendered
+        ? List.of(row("name", "query", "value", "A::Q"), row("name", "source", "value", "a.sysml"),
+            row("name", "outcome", "value", "established"), row("name", "provenance", "value", "sha256:1"))
+        : List.of());
+    view.put("columns", rendered ? List.of("element", "kind", "type", "owner") : List.of());
+    view.put("rows", rendered ? List.of(List.of("A::a", "part", "", "A")) : List.of());
+    flat.put("views", List.of(view));
+    return flat;
+  }
+
   static Map<String, String> row(String... pairs) {
     Map<String, String> row = new LinkedHashMap<>();
     for (int i = 0; i < pairs.length; i += 2) row.put(pairs[i], pairs[i + 1]);

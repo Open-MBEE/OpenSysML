@@ -1,0 +1,13 @@
+{
+  "rpc": "RenderView",
+  "model": "query_result_view.sysml",
+  "view": "Probe::nothing",
+  "form": "asciidoc",
+  "expected_header": [
+    "query: Probe::NoStates",
+    "source: probe.sysml",
+    "outcome: established",
+    "provenance: urn:prov:bundle:nothing"
+  ],
+  "expected_document": "= Probe:&#58;nothing\n\nquery:: Probe:&#58;NoStates\nsource:: probe.sysml\noutcome:: established\nprovenance:: urn:prov:bundle:nothing\n\nthe query result exposes no element\n"
+}

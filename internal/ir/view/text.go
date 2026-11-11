@@ -52,6 +52,7 @@ func (r *Rendering) textWith(options Options) string {
 		writeNotices(&b, r.Notices)
 		return b.String()
 	}
+	writeHeaderText(&b, r.Header)
 	if r.Empty() {
 		b.WriteString("\n" + r.EmptyReason() + "\n")
 		writeNotices(&b, slices.Concat(r.Notices, pictureNotices))

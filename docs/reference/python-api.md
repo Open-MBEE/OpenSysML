@@ -44,6 +44,10 @@ connecting to models.
     options:
       heading_level: 3
 
+::: opensysml.CAPABILITY_QUERY_RESULT_VIEW
+    options:
+      heading_level: 3
+
 ::: opensysml.CAPABILITY_CONSTRAINT_BODY_AUTHORING
     options:
       heading_level: 3
@@ -853,6 +857,10 @@ Results and errors from the standard query model.
     options:
       heading_level: 3
 
+::: opensysml.QueryElements
+    options:
+      heading_level: 3
+
 ::: opensysml.QueryError
     options:
       heading_level: 3
@@ -919,6 +927,10 @@ Typed query rows, document values, and document and view render results.
       heading_level: 3
 
 ::: opensysml.RenderFrame
+    options:
+      heading_level: 3
+
+::: opensysml.RenderHeaderField
     options:
       heading_level: 3
 

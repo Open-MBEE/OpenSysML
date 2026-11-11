@@ -2551,6 +2551,11 @@ message ServerInfoResponse {
   //                  and the response carries the document in `asciidoc`.
   //   "render_view" - the RenderView RPC renders a declared view or targeted
   //                  pseudo-view as machine-readable diagram data.
+  //   "query_result_view" - RunDocumentQueryRequest.as_view and
+  //                  QueryRequest.as_view write the answer as a
+  //                  QVTS::QueryResult view in result_view (a failed query's as
+  //                  a QueryResultView detail), and RenderView answers such a
+  //                  view's header and, for RenderViewRequest.form, a document.
   //   "export_graphs" - the ExportGraphs RPC exports the lowered graph of an
   //                  action or state machine as canonical graphs:1 JSON.
   //   "diagnostic_codes" - Diagnostic.code is populated, so an empty code is a
@@ -2597,6 +2602,9 @@ message QueryRequest {
   Query query = 2;
   // OSLC Query 3.0 parameter text, mutually exclusive with query.
   string oslc_query = 3;
+  // Also write the answer as a QVTS::QueryResult view, in result_view or a failure's
+  // QueryResultView detail. Under the "query_result_view" capability.
+  bool as_view = 4;
 }
 
 // QueryResponse contains the elements the query selected, in the order they are
@@ -2605,6 +2613,10 @@ message QueryRequest {
 // rather than answering empty.
 message QueryResponse {
   repeated QueryResultElement elements = 1;
+  // The answer as SysML text when the request set as_view, as
+  // RunDocumentQueryResponse.result_view; its query is the OSLC text, or the
+  // API query written as `scope=…; select=…; where=…; orderBy=…`.
+  string result_view = 2;
 }
 
 // Query is the standard's Query resource (SysML v2 API & Services). Its `@type`
@@ -3031,6 +3043,9 @@ message RunDocumentQueryRequest {
   // <line>:<column>`); a path or model error carries a QueryOutcome detail as a
   // named query's does. Reported as the "inline_document_query" capability.
   string inline_query = 4;
+  // Also write the answer as a QVTS::QueryResult view, in result_view or a failure's
+  // QueryResultView detail. Under the "query_result_view" capability.
+  bool as_view = 5;
 }
 
 // DocumentQueryBinding binds one entry parameter of a document query.
@@ -3215,6 +3230,16 @@ message DocumentQueryRow {
 message RunDocumentQueryResponse {
   repeated DocumentQueryColumn columns = 1;
   repeated DocumentQueryRow rows = 2;
+  // The answer as SysML text when the request set as_view: a package holding one
+  // `view : QVTS::QueryResult` that exposes each selected element and states the
+  // query with its bindings, the source, the outcome and the provenance.
+  string result_view = 3;
+}
+
+// QueryResultView is a failed query written as a QVTS::QueryResult view, an error
+// detail beside QueryOutcome when the request set as_view: it exposes the frontier and finding elements.
+message QueryResultView {
+  string text = 1;
 }
 
 // QueryOutcome is the record behind a document query that could not be run, an error
@@ -3326,6 +3351,9 @@ message RenderViewRequest {
   // owned usage no Layout, nested definition or package keeps a node) or
   // "ports" (the port usages with the ports nested under them).
   string compartments = 6;
+  // Also render a QVTS::QueryResult view as a document in this RenderDocumentRequest.form;
+  // INVALID_ARGUMENT for any other view. Under the "query_result_view" capability.
+  string form = 7;
 }
 
 // RenderViewResponse carries all machine-readable fields of the rendering.
@@ -3347,6 +3375,19 @@ message RenderViewResponse {
   repeated string shown = 11;
   // The view frame round a graph-shaped rendering; unset for a frameless one.
   RenderFrame frame = 12;
+  // A QVTS::QueryResult view's query, source, outcome and provenance, in that
+  // order, above its rows; empty for any other view.
+  repeated RenderHeaderField header = 13;
+  // The view as a document in the form the request asked for, the others empty.
+  string markdown = 14;
+  string html = 15;
+  string asciidoc = 16;
+}
+
+// RenderHeaderField is one stated attribute of a QVTS::QueryResult view.
+message RenderHeaderField {
+  string name = 1;
+  string value = 2;
 }
 
 // RenderFrame is the view frame of SysML v2 §8.2.3.26: the name compartment's

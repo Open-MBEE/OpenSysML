@@ -71,6 +71,9 @@ type Verdict struct {
 	// Outcome is the QVTS record behind a document query that could not be run
 	// (queryexec.Outcome); nil for every other verdict.
 	Outcome *queryexec.Outcome
+	// ResultView is a document query's answer written as a QVTS::QueryResult view,
+	// when the session writes them (SetResultViews); empty otherwise.
+	ResultView string
 	// Plan is how the engines answered: the selection made, each engine put to
 	// the question and what it answered, and the composed result whose standing
 	// the last line reports. Nil for a verdict decided before any engine was asked.

@@ -143,9 +143,45 @@ left out. The queries beside a failed one still answer and keep their tables. A 
 carries no outcome — a parameter left unbound, say — stays one `ERROR` outcome carrying the
 service's message, and outranks `FAILED` for the run's status.
 
-Not in scope here: rendering a whole `Document` from Cameo (`RenderDocument`), writing an answer
-back as a `QVTS::QueryResult` view, and transformations or proposals, which OpenSysML has no
-evaluator for yet.
+### The answer as a view
+
+Every query that ran also comes back as a `QVTS::QueryResult` view
+([the QVTS guide](../../docs/guide/qvts.md#write-the-answer-as-a-view)): the selected elements
+exposed, and the query, the source, the outcome and the provenance as its four attributes. A
+query that reported a path or model error has a view too, of that outcome, exposing the
+elements the failure is about. After *Run query* the plugin writes each view to a file named by
+the query, `<model>.<Query.Qualified.Name>.result.sysml`, replacing the one an earlier run of
+that query wrote (a query whose name or text holds more than plain names also carries a short
+digest of it, `…~1a2b3c4d.result.sysml`, so two queries never share a file):
+
+- **v2 project** — next to the project file, so `lander.mdzip` gets
+  `lander.QVTSDemo.CabinMass.result.sysml`.
+- **v1 project** — beside the `.sysml` the project was last written to by *Export as SysML
+  v2…* in this Cameo session, which is where the migration report is, so the view parses with
+  the migrated model it names; before any export, next to the project file.
+
+The results window lists each file as an informational diagnostic. A project that was never
+saved has nowhere to write, which is a warning, as is a file that cannot be written; neither
+changes the run's status.
+
+## Render document
+
+*OpenSysML ▸ Render document…* renders what the selected element stands for as Markdown and
+HTML into a folder you choose, then opens the folder:
+
+- a `part def` specializing `DocumentQueries::Document` (v2), through the service's
+  `RenderDocument`;
+- a v1 DocGen `«Document»`, through the `Document` definition the migration wrote for it,
+  found by the migration report as *Run query* finds a query;
+- a view typed by `QVTS::QueryResult`, through `RenderView`: its four attributes as the header
+  and the elements it exposes as the rows. Add a written `.result.sysml` to the project's
+  model to render it.
+
+The files are named by what was rendered (`QVTSDemo.MassReport.md`, `.html`). An element that
+is none of these is reported as such, and nothing is written.
+
+Not in scope here: PDF from Cameo (the converters are the CLI's, `sysml -render-document
+-doc-form pdf`), and transformations or proposals, which OpenSysML has no evaluator for yet.
 
 ## Results window and annotations
 

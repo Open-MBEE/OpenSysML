@@ -103,7 +103,9 @@ public final class ResultsMapper {
   public static RunResult map(RunRequest request, List<QueryAnswer> answers, Duration elapsed) {
     List<Outcome> outcomes = new ArrayList<>();
     List<Table> tables = new ArrayList<>();
+    List<RunResult.View> views = new ArrayList<>();
     for (QueryAnswer answer : answers) {
+      answer.view().ifPresent(views::add);
       if (answer.failure().isPresent()) {
         outcomes.addAll(QueryFailure.outcomes(answer.query(), answer.failure().get(), request.source()::elementName));
         continue;
@@ -122,7 +124,7 @@ public final class ResultsMapper {
     }
     return new RunResult(
         request.operation(), request.source().path(), request.subjectQualifiedName(),
-        status, outcomes, List.of(), Optional.empty(), List.of(), tables, elapsed);
+        status, outcomes, List.of(), Optional.empty(), List.of(), tables, views, elapsed);
   }
 
   static String describe(Table table) {

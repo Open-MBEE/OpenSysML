@@ -262,7 +262,7 @@ func (e *executor) unservedProperty(declared metaclassProperty, sym *symbols.Sym
 		Outcome: &Outcome{Path: &PathError{Failures: []Failure{{
 			Step:     Step{Kind: StepFeature, Argument: declared.Name},
 			Expected: key + " derived by OpenSysML",
-			Frontier: Frontier{At: symbols.FQNOf(sym)},
+			Frontier: Frontier{At: symbols.FQNOf(sym), element: sym},
 		}}}},
 	}
 }

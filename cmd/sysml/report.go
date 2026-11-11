@@ -154,6 +154,8 @@ type checkResult struct {
 	// Outcome is the QVTS record behind a document query that could not be run:
 	// `pathError` or `modelError` with its step and frontier; absent otherwise.
 	Outcome *queryexec.Outcome `json:"outcome,omitempty"`
+	// ResultView is a document query's answer as a QVTS::QueryResult view, under -as-view.
+	ResultView string `json:"resultView,omitempty"`
 	// Verifications are the verdicts the bodies of the verification cases
 	// verifying the requirement produced, reported beside its own.
 	Verifications []verificationVerdict `json:"verifications,omitempty"`
@@ -921,6 +923,7 @@ func (r *reporter) finish() int {
 			Values:        namedValues(v.Values),
 			Lines:         v.Lines,
 			Outcome:       v.Outcome,
+			ResultView:    v.ResultView,
 			Verifications: verificationVerdicts(v.Verifications),
 			Evaluations:   caseEvaluations(v.Evaluations),
 			Rows:          checkRows(v.Rows),

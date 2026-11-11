@@ -25,6 +25,7 @@ func (r *Rendering) Clone() *Rendering {
 	for i, row := range r.Rows {
 		out.Rows[i] = append([]string(nil), row...)
 	}
+	out.Header = append([]HeaderField(nil), r.Header...)
 	out.RowOrigins = append([]Origin(nil), r.RowOrigins...)
 	out.Notices = append([]string(nil), r.Notices...)
 	out.Frame = cloneFrame(r.Frame)

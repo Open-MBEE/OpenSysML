@@ -199,6 +199,12 @@ public final class Capabilities {
   /** {@code RunDocumentQueryRequest.inline_query}: a query expression run in place of a name. */
   public static final String INLINE_DOCUMENT_QUERY = "inline_document_query";
 
+  /**
+   * {@code as_view} of the two query requests and {@code form} of {@code RenderViewRequest}: an
+   * answer written as a {@code QVTS::QueryResult} view, and such a view rendered as a document.
+   */
+  public static final String QUERY_RESULT_VIEW = "query_result_view";
+
   /** The {@code RenderDocument} RPC renders a named document to Markdown. */
   public static final String RENDER_DOCUMENT = "render_document";
 

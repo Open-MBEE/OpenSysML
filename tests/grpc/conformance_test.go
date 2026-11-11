@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"sync"
 	"testing"
 
+	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/analysis"
 	"github.com/Open-MBEE/OpenSysML/internal/exec/solve"
@@ -235,6 +237,20 @@ type conformanceCase struct {
 	Query              map[string]any `json:"query,omitempty"`
 	ExpectedElementIDs []string       `json:"expected_element_ids,omitempty"`
 	ExpectedQueryError string         `json:"expected_query_error,omitempty"`
+	// OslcQuery is OSLC Query text asked in place of Query. AsView asks the query RPCs for
+	// the answer as a QVTS::QueryResult view too: ExpectedResultView is its text, a failed
+	// query's read off the QueryResultView detail, with the model hash written <model>.
+	OslcQuery          string `json:"oslc_query,omitempty"`
+	AsView             bool   `json:"as_view,omitempty"`
+	ExpectedResultView string `json:"expected_result_view,omitempty"`
+	// RenderView: Form is the document form asked for, ExpectedHeader the view's header as
+	// "name: value" lines, ExpectedRows its rows joined by " | ", ExpectedDocument the document.
+	// ExpectedDocumentParts are what an HTML page must contain, in place of the whole page.
+	Form                  string   `json:"form,omitempty"`
+	ExpectedHeader        []string `json:"expected_header,omitempty"`
+	ExpectedViewRows      []string `json:"expected_view_rows,omitempty"`
+	ExpectedDocument      string   `json:"expected_document,omitempty"`
+	ExpectedDocumentParts []string `json:"expected_document_parts,omitempty"`
 
 	// Model names the fixture parsed instead of <case>.sysml, so cases reading
 	// different elements of one model share it.
@@ -1111,7 +1127,7 @@ func runExecuteActionCase(t *testing.T, srv *grpc.Service, ctx context.Context, 
 // checks the nodes drawn, the compartment each row is drawn in and the edges.
 func runRenderViewCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
 	t.Helper()
-	resp, err := srv.RenderView(ctx, &pb.RenderViewRequest{ModelHash: modelHash, View: tc.View, Compartments: tc.Compartments})
+	resp, err := srv.RenderView(ctx, &pb.RenderViewRequest{ModelHash: modelHash, View: tc.View, Compartments: tc.Compartments, Form: tc.Form})
 	if tc.ExpectedError != "" {
 		if err == nil || !strings.Contains(err.Error(), tc.ExpectedError) {
 			t.Fatalf("RenderView error = %v, want %q", err, tc.ExpectedError)
@@ -1148,6 +1164,30 @@ func runRenderViewCase(t *testing.T, srv *grpc.Service, ctx context.Context, mod
 	}
 	if !slices.Equal(labels, tc.ExpectedEdgeLabels) {
 		t.Errorf("edge labels = %v, want %v", labels, tc.ExpectedEdgeLabels)
+	}
+	var header, rows []string
+	for _, field := range resp.Header {
+		header = append(header, field.GetName()+": "+field.GetValue())
+	}
+	if !slices.Equal(header, tc.ExpectedHeader) {
+		t.Errorf("header = %q, want %q", header, tc.ExpectedHeader)
+	}
+	if tc.ExpectedViewRows != nil {
+		for _, row := range resp.Rows {
+			rows = append(rows, strings.Join(row.GetCells(), " | "))
+		}
+		if !slices.Equal(rows, tc.ExpectedViewRows) {
+			t.Errorf("rows = %q, want %q", rows, tc.ExpectedViewRows)
+		}
+	}
+	document := resp.Markdown + resp.Html + resp.Asciidoc
+	if tc.ExpectedDocumentParts == nil && document != tc.ExpectedDocument {
+		t.Errorf("document:\n%s\nwant:\n%s", document, tc.ExpectedDocument)
+	}
+	for _, part := range tc.ExpectedDocumentParts {
+		if !strings.Contains(resp.Html, part) {
+			t.Errorf("html has no %q", part)
+		}
 	}
 }
 
@@ -1305,19 +1345,23 @@ func runRunRunsCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelH
 
 func runQueryCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHash string, tc conformanceCase) {
 	t.Helper()
-	encoded, err := json.Marshal(tc.Query)
-	if err != nil {
-		t.Fatalf("query: %v", err)
+	req := &pb.QueryRequest{ModelHash: modelHash, OslcQuery: tc.OslcQuery, AsView: tc.AsView}
+	if tc.OslcQuery == "" {
+		encoded, err := json.Marshal(tc.Query)
+		if err != nil {
+			t.Fatalf("query: %v", err)
+		}
+		req.Query = &pb.Query{}
+		if err := protojson.Unmarshal(encoded, req.Query); err != nil {
+			t.Fatalf("query is not a protojson Query: %v", err)
+		}
 	}
-	query := &pb.Query{}
-	if err := protojson.Unmarshal(encoded, query); err != nil {
-		t.Fatalf("query is not a protojson Query: %v", err)
-	}
-	resp, err := srv.Query(ctx, &pb.QueryRequest{ModelHash: modelHash, Query: query})
+	resp, err := srv.Query(ctx, req)
 	if tc.ExpectedQueryError != "" {
 		if err == nil || !strings.Contains(err.Error(), tc.ExpectedQueryError) {
 			t.Fatalf("Query err = %v, want one containing %q", err, tc.ExpectedQueryError)
 		}
+		checkResultView(t, modelHash, tc, failedResultView(err))
 		return
 	}
 	if err != nil {
@@ -1329,6 +1373,32 @@ func runQueryCase(t *testing.T, srv *grpc.Service, ctx context.Context, modelHas
 	}
 	if !slices.Equal(ids, tc.ExpectedElementIDs) {
 		t.Errorf("elements = %v, want %v", ids, tc.ExpectedElementIDs)
+	}
+	checkResultView(t, modelHash, tc, resp.ResultView)
+}
+
+// failedResultView is the view a failed query carries as a QueryResultView detail.
+func failedResultView(err error) string {
+	var connErr *connect.Error
+	if !errors.As(err, &connErr) {
+		return ""
+	}
+	for _, detail := range connErr.Details() {
+		if msg, derr := detail.Value(); derr == nil {
+			if view, ok := msg.(*pb.QueryResultView); ok {
+				return view.Text
+			}
+		}
+	}
+	return ""
+}
+
+// checkResultView compares a query's view with the case's, the model hash written <model>.
+func checkResultView(t *testing.T, modelHash string, tc conformanceCase, got string) {
+	t.Helper()
+	got = strings.ReplaceAll(got, modelHash, "<model>")
+	if got != tc.ExpectedResultView {
+		t.Errorf("result view:\n%s\nwant:\n%s", got, tc.ExpectedResultView)
 	}
 }
 

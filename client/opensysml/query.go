@@ -138,31 +138,59 @@ type QueryElement struct {
 	Properties map[string]string
 }
 
+// QueryAnswer is a selection with the QVTS::QueryResult view of it.
+type QueryAnswer struct {
+	// Elements are the selected elements, as Query answers them.
+	Elements []QueryElement
+	// ResultView is the selection as SysML text: one view exposing each element.
+	ResultView string
+}
+
 func (c *client) Query(ctx context.Context, model *Model, query Query) ([]QueryElement, error) {
-	hash, err := c.call(model)
+	answer, err := c.selectElements(ctx, model, &pb.QueryRequest{Query: queryToProto(query)})
 	if err != nil {
 		return nil, err
 	}
-	return c.selectElements(ctx, &pb.QueryRequest{
-		ModelHash: hash,
-		Query: &pb.Query{
-			Scope:   append([]string(nil), query.Scope...),
-			Select:  append([]string(nil), query.Select...),
-			Where:   conditionToProto(query.Where),
-			OrderBy: append([]string(nil), query.OrderBy...),
-		},
-	})
+	return answer.Elements, nil
 }
 
 func (c *client) QueryOSLC(ctx context.Context, model *Model, oslc string) ([]QueryElement, error) {
+	answer, err := c.selectElements(ctx, model, &pb.QueryRequest{OslcQuery: oslc})
+	if err != nil {
+		return nil, err
+	}
+	return answer.Elements, nil
+}
+
+func (c *client) QueryAsView(ctx context.Context, model *Model, query Query) (*QueryAnswer, error) {
+	if err := c.requireCapabilities(ctx, CapabilityQueryResultView); err != nil {
+		return nil, err
+	}
+	return c.selectElements(ctx, model, &pb.QueryRequest{Query: queryToProto(query), AsView: true})
+}
+
+func (c *client) QueryOSLCAsView(ctx context.Context, model *Model, oslc string) (*QueryAnswer, error) {
+	if err := c.requireCapabilities(ctx, CapabilityQueryResultView); err != nil {
+		return nil, err
+	}
+	return c.selectElements(ctx, model, &pb.QueryRequest{OslcQuery: oslc, AsView: true})
+}
+
+func queryToProto(query Query) *pb.Query {
+	return &pb.Query{
+		Scope:   append([]string(nil), query.Scope...),
+		Select:  append([]string(nil), query.Select...),
+		Where:   conditionToProto(query.Where),
+		OrderBy: append([]string(nil), query.OrderBy...),
+	}
+}
+
+func (c *client) selectElements(ctx context.Context, model *Model, req *pb.QueryRequest) (*QueryAnswer, error) {
 	hash, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
-	return c.selectElements(ctx, &pb.QueryRequest{ModelHash: hash, OslcQuery: oslc})
-}
-
-func (c *client) selectElements(ctx context.Context, req *pb.QueryRequest) ([]QueryElement, error) {
+	req.ModelHash = hash
 	resp, err := c.caller.query(ctx, req)
 	if err != nil {
 		return nil, err
@@ -178,7 +206,7 @@ func (c *client) selectElements(ctx context.Context, req *pb.QueryRequest) ([]Qu
 		}
 		elements = append(elements, converted)
 	}
-	return elements, nil
+	return &QueryAnswer{Elements: elements, ResultView: resp.ResultView}, nil
 }
 
 func conditionToProto(condition *Condition) *pb.Constraint {

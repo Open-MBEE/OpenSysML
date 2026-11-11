@@ -17,7 +17,9 @@ public record RenderedView(
     Optional<Canvas> canvas,
     List<Note> notes,
     List<String> notices,
-    List<String> shown) {
+    List<String> shown,
+    List<HeaderField> header,
+    String document) {
 
   public RenderedView {
     Objects.requireNonNull(view, "view");
@@ -31,6 +33,20 @@ public record RenderedView(
     notes = List.copyOf(notes);
     notices = List.copyOf(notices);
     shown = List.copyOf(shown);
+    header = List.copyOf(header);
+    Objects.requireNonNull(document, "document");
+  }
+
+  /**
+   * One attribute a {@code QVTS::QueryResult} view binds: its query, source, outcome or
+   * provenance. {@link RenderedView#header()} holds the four in that order, and is empty for any
+   * other view; {@link RenderedView#document()} is the view in the document form asked for.
+   */
+  public record HeaderField(String name, String value) {
+    public HeaderField {
+      Objects.requireNonNull(name, "name");
+      Objects.requireNonNull(value, "value");
+    }
   }
 
   /**
@@ -235,7 +251,11 @@ public record RenderedView(
                         note.hasOrigin() ? Optional.of(span(note.getOrigin())) : Optional.empty()))
             .toList(),
         response.getNoticesList(),
-        response.getShownList());
+        response.getShownList(),
+        response.getHeaderList().stream()
+            .map(field -> new HeaderField(field.getName(), field.getValue()))
+            .toList(),
+        response.getMarkdown() + response.getHtml() + response.getAsciidoc());
   }
 
   private static Span span(org.openmbee.opensysml.proto.Span span) {

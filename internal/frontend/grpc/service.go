@@ -432,6 +432,7 @@ var capabilities = []string{
 	CapabilityVerdictNotes,
 	CapabilityElementProperties,
 	CapabilityInlineDocumentQuery,
+	CapabilityQueryResultView,
 }
 
 type capabilityAvailability struct {

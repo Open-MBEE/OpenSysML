@@ -18,7 +18,25 @@ func runQuery(files []string, text string) int {
 	if status != exitHolds {
 		return status
 	}
-	lines, err := sess.Query(text)
+	var lines []string
+	if asViewPath == "" {
+		lines, err = sess.Query(text)
+	} else {
+		var written string
+		lines, written, err = sess.QueryAsView(text)
+		// A path or model error is an outcome too: its view is written before the error is reported.
+		switch {
+		case written == "":
+		case asViewPath != stdoutPath:
+			if werr := writeOutputFile(asViewPath, []byte(written), "QueryResult view"); werr != nil {
+				return fail(werr)
+			}
+		case err != nil:
+			writeLines(os.Stdout, resultViewLines(written, false))
+		default:
+			lines = resultViewLines(written, false)
+		}
+	}
 	if err != nil {
 		return fail(err)
 	}

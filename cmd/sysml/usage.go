@@ -689,6 +689,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.StringVar(&modelChecks.recordInto, "record-into", "", "Record -record-run runs into this package instead of a Records package beside the case's")
 	fs.Var(queryFlag{queries: &modelChecks.queries}, "run-query", "Execute this document query and report its rows, as -run-query \"Heavy root=telescope\" (repeatable)")
 	fs.Var(queryFlag{queries: &modelChecks.queries, inline: true}, "run-inline-query", "Execute this query expression — the body of a document query, written in place — and report its rows, as -run-inline-query 'Project(WhereType(Descendants(Named(\"Vehicles\")), \"PartUsage\"), (\"name\", \"mass\"))' (repeatable)")
+	fs.StringVar(&asViewPath, "as-view", "", "Write the answer of each -run-query, -run-inline-query or -query into this file as a QVTS::QueryResult view, or with - print it in place of the rows: the selected elements exposed, or a path or model error's frontier and finding elements, with the query, source, outcome and provenance")
 	fs.Var(&modelChecks.instantiate, "instantiate", "Create an object of this definition or usage before the checks, so a verdict is about it (repeatable)")
 	fs.BoolVar(&modelChecks.jsonOut, "json", false, "Report checks as one JSON document rather than as lines")
 	fs.StringVar(&modelChecks.format, "format", "", "Report checks as text, json, sarif or junit; json is -json, and sarif (SARIF 2.1.0) and junit (JUnit XML) carry -validate's diagnostics to a CI service")
@@ -817,6 +818,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("record-into", "<package>"),
 			usage.Opt("run-query", "<query>"),
 			usage.Opt("run-inline-query", "<expression>"),
+			usage.Opt("as-view", fileArg),
 			usage.Opt("instantiate", nameArg),
 			usage.Opt("json", ""),
 			usage.Opt("format", "<format>"),

@@ -186,7 +186,7 @@ gate's own helpers are package-private but reusable (`pilotCorporaGate.files(t)`
 
 `actionlint`, `shellcheck`, `python3 scripts/check-doc-links.py`, `gofmt`, `go vet`,
 `go run -C tools ./cmd/pilot-diff` (validators pre-downloaded; ~4min, prints e.g.
-the headline the committed baseline holds — `924 file(s), 524 fully agreeing; 1102 agreed
+the headline the committed baseline holds — `935 file(s), 535 fully agreeing; 1102 agreed
 diagnostic(s), 122 only ours, 2462 only the pilot's` at the `2026-09` pin, so read it from
 `docs/project/pilot-differential-baseline.json` rather than from this line)
 and `make lint` (staticcheck+gosec, ~2min) all work. There is **no** `yamllint` and **no**

@@ -1,0 +1,7 @@
+{
+  "rpc": "RenderView",
+  "model": "query_result_view.sysml",
+  "view": "Probe::plain",
+  "form": "markdown",
+  "expected_error": "is not a QVTS::QueryResult view"
+}

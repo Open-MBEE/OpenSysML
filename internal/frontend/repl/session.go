@@ -97,6 +97,8 @@ type Session struct {
 	// while it runs (exploreVerdict). Lower-case helpers assume the caller holds both.
 	mu    sync.Mutex
 	state sync.Mutex
+	// resultViews makes each document query write its answer as a QVTS::QueryResult view.
+	resultViews bool
 	// elementIDs is the reader the session's queries share (elementIDReader).
 	elementIDs sessionElementIDs
 

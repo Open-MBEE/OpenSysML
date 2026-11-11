@@ -8,7 +8,7 @@ Rational, and that is all. The vendored OMG files stay byte-identical, so the mi
 declared in a clearly non-normative OpenSysML extension instead:
 `internal/workspace/libs/stdlib/OpenSysML Libraries/OpenSysMLMathFunctions.kerml`. It
 is bundled by the same `embed.FS` as the vendored tree and enters the same
-gates — the current bundled-library gate reports 110/110 clean, including this, the
+gates — the current bundled-library gate reports 111/111 clean, including this, the
 `DocumentQueries`, `IdentityMetadata`, `DiagramLayout`, `OOSEM`, `MOSA`, `StateSpaceIntegration`,
 `Stochastic`, `RandomFunctions`, `Simulation`, `AnalysisRecords`, `MigrationMetadata`,
 `OpenSysMLRenderings`, `StateMachines`, `SysMLValidation` and `StateActivity` extensions. It is OpenSysML code under

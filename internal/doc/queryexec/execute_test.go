@@ -39,6 +39,10 @@ func (f executionFixture) symbol(t *testing.T, name string) *symbols.Symbol {
 	return matches[0]
 }
 
+func (f executionFixture) context() Context {
+	return Context{Index: f.index, Resolver: f.resolver, Model: f.model}
+}
+
 func (f executionFixture) program(t *testing.T, name string) *queryplan.Program {
 	t.Helper()
 	program, err := queryplan.Compile(f.index, f.model, f.resolver, f.symbol(t, name))
@@ -57,7 +61,7 @@ func (f executionFixture) execute(
 	t.Helper()
 	return Execute(
 		f.program(t, queryName),
-		Context{Index: f.index, Resolver: f.resolver, Model: f.model},
+		f.context(),
 		bindings,
 		options,
 	)

@@ -28,7 +28,8 @@ operations (JSON export/import, reference tree), and a headless command line.
 | --- | --- | --- | --- | --- |
 | Execution and verification | — (MDK executes nothing; the Cameo Simulation Toolkit does) | Instantiate, Execute action, Execute state, Verify, Evaluate calc, Run analysis from the browser and diagram context menus; results window; validation annotations on the elements | **Implemented** | — |
 | DocGen «JavaExtension» queries | user-written `Query` classes loaded from `extensions/` into a document | one query per OpenSysML operation, rendered as DocBook summary, outcome and diagnostic tables and schedules; stereotypes created on demand | **Bridged** | — |
-| DocGen documents from views and viewpoints | SysML v1 views/viewpoints with the DocGen expression library (sections, paragraphs, tables, images, filters) → DocBook → PDF, and View Editor | SysML v2 views, viewpoints and renderings → Markdown, HTML and PDF in the engine (`internal/doc`, `sysml -render-document`); the queries behind them run from Cameo — *Run query* on a `DocumentQueries::Query` definition of a v2 project, or on the DocGen table, list or «Document» of a v1 project the migration wrote over one, with the bindings asked for and the rows shown as a table, selectable and annotated, and a query's path or model error shown per failure and annotated on the element the path stopped at — and the `RunQuery` DocGen extension renders those rows as a DocBook table, and those failures in its outcome table, inside an MDK document; rendering a whole document from Cameo is not reachable | **Partial** (queries **Implemented**, the `RunQuery` extension **Bridged**, whole documents not reachable) | 1 |
+| DocGen documents from views and viewpoints | SysML v1 views/viewpoints with the DocGen expression library (sections, paragraphs, tables, images, filters) → DocBook → PDF, and View Editor | SysML v2 views, viewpoints and renderings → Markdown, HTML and PDF in the engine (`internal/doc`, `sysml -render-document`); the queries behind them run from Cameo — *Run query* on a `DocumentQueries::Query` definition of a v2 project, or on the DocGen table, list or «Document» of a v1 project the migration wrote over one, with the bindings asked for and the rows shown as a table, selectable and annotated, and a query's path or model error shown per failure and annotated on the element the path stopped at — and the `RunQuery` DocGen extension renders those rows as a DocBook table, and those failures in its outcome table, inside an MDK document; *Render document…* on a v2 `DocumentQueries::Document`, or on a v1 DocGen «Document» through the definition the migration wrote for it, writes Markdown and HTML and opens the folder; PDF and View Editor are not reachable from Cameo | **Partial** (queries and Markdown/HTML documents **Implemented**, the `RunQuery` extension **Bridged**, PDF not reachable) | 1 |
+| Query answers as model elements | — (a DocGen query's result exists only in the generated document) | every *Run query* answer written as a `QVTS::QueryResult` view in a `.result.sysml` file beside the project or its export — selected elements exposed, query, source, outcome and provenance as attributes, path and model errors included; *Render document…* renders such a view; the `RunQuery` extension's `view` tag adds it to an MDK document as text or as rendered tables | **Implemented** (the extension **Bridged**) | — |
 | Publish the model to MMS/Flexo | *Commit* of the project's elements as MMS JSON, per project and per branch | RDF export of a v2 model that loads into Flexo MMS (`internal/translate/export`; measured by `TestFlexoInterop`); one-way, not reachable from Cameo | **Partial** | 2 |
 | Validate the model against MMS and fix | element-by-element diff between Cameo and MMS, listed in a validation window with *Commit*/*Update* fixes | nothing: no element-level diff, no update from Flexo into Cameo | **Not yet** | 4 |
 | Branches, tags and project mounts in MMS | create/switch MMS branches and tags, keep mounted modules in sync | nothing | **Not yet** | 4 |
@@ -44,12 +45,11 @@ operations (JSON export/import, reference tree), and a headless command line.
 
 ## The order, and why
 
-1. **SysML v2 documents in Cameo.** A *Generate document* action on a v2 project's view or
-   viewpoint that runs the engine's document renderer and opens the result. The engine already
-   produces Markdown, HTML and PDF from v2 views, and *Run query* now runs the queries those
-   documents are built from, from Cameo and from MDK DocGen; what is missing is the export of the
-   selected document and the file handoff, both of which the existing `ModelSource`/`Engine` path
-   provides. This is DocGen's purpose for v2 models and needs nothing from MMS. One session.
+1. **SysML v2 documents in Cameo.** *Render document…* renders a v2 document, a migrated v1
+   DocGen «Document» or a `QVTS::QueryResult` view as Markdown and HTML and opens the folder,
+   and *Run query* writes each answer as such a view. What is left is PDF, whose converters the
+   plugin does not ship, and rendering a v2 view or viewpoint that is not a
+   `DocumentQueries::Document`. This is DocGen's purpose for v2 models and needs nothing from MMS.
 2. **Publish to Flexo.** A *Publish to Flexo MMS* action that runs the RDF export and loads it
    into a configured Flexo repository and branch. The export and its Flexo compatibility are
    measured already (`docs/project/rdf-corpus-roundtrip.md`, `TestFlexoInterop`); the work is

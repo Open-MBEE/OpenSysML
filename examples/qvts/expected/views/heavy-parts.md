@@ -1,0 +1,14 @@
+# HeavyPartsResult::heavyParts
+
+**query** — QVTSExamples::HeavyParts threshold=10.0
+
+**source** — examples/observatory.sysml
+
+**outcome** — established
+
+**provenance** — urn:prov:bundle:heavyParts
+
+| Element | Kind | Type | Declared in |
+| --- | --- | --- | --- |
+| Observatory::telescope::mountControl | part | Subsystem | Observatory::telescope |
+| Observatory::telescope::primaryMirror | part | MirrorAssembly | Observatory::telescope |

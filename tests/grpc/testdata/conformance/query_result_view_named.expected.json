@@ -1,0 +1,37 @@
+{
+  "rpc": "RunDocumentQuery",
+  "model": "query_result_view.sysml",
+  "query_id": "Probe::Self",
+  "bindings": [
+    {
+      "parameter": "root",
+      "values": [
+        {
+          "kind": "element_id",
+          "value": "Probe::probe::antenna"
+        }
+      ]
+    }
+  ],
+  "as_view": true,
+  "expected_columns": [
+    "name"
+  ],
+  "expected_rows": [
+    {
+      "element": {
+        "kind": "element_id",
+        "value": "Probe::probe::antenna (PartUsage)"
+      },
+      "cells": [
+        [
+          {
+            "kind": "string_value",
+            "value": "antenna"
+          }
+        ]
+      ]
+    }
+  ],
+  "expected_result_view": "package SelfResult {\n\tprivate import QVTS::*;\n\n\tview self : QueryResult {\n\t\texpose Probe::probe::antenna;\n\t\tattribute :>> query = \"Probe::Self root=Probe::probe::antenna\";\n\t\tattribute :>> source = \"model:<model>\";\n\t\tattribute :>> outcome = Outcome::established;\n\t\tattribute :>> provenance = \"model:<model>\";\n\t}\n}\n"
+}

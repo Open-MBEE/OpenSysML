@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // StepKind is the operation a QVTS outcome points at, one per constructor of
@@ -67,7 +69,10 @@ func (f FeatureRef) MarshalJSON() ([]byte, error) {
 // Frontier is what the model holds where the path stopped resolving: the last
 // element that did resolve (At) and what it offers in place of what was asked.
 type Frontier struct {
-	At       string
+	At string
+	// element is the element At names, where the step held it: At alone cannot
+	// tell P::a::b from P::'a::b'.
+	element  *symbols.Symbol
 	Members  []Member
 	Features []FeatureRef
 	Kinds    []string

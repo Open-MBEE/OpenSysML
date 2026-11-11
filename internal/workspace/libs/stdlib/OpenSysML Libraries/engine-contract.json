@@ -913,6 +913,21 @@
       ]
     },
     {
+      "name": "QVTS",
+      "kind": "package",
+      "consumers": [
+        "internal/doc/queryexec/resultview.go"
+      ]
+    },
+    {
+      "name": "QVTS::QueryResult",
+      "kind": "element",
+      "consumers": [
+        "internal/doc/queryexec/resultview.go",
+        "internal/ir/view/queryresult.go"
+      ]
+    },
+    {
       "name": "RandomFunctions",
       "kind": "package",
       "consumers": []

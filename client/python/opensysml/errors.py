@@ -639,6 +639,43 @@ def from_rpc_error(exc, not_found=ModelNotFoundError, unimplemented=None):
     return cls(message, code=code)
 
 
+_RESULT_VIEW_TYPE = "type.googleapis.com/sysml.QueryResultView"
+
+
+def result_view_of(exc):
+    """The ``QVTS::QueryResult`` view a refused query carries, or ``""``.
+
+    The service attaches it as a ``QueryResultView`` status detail when the
+    call asked for the view and the query ended in a path or model error.
+    """
+    from google.protobuf import any_pb2
+    from google.protobuf.internal.decoder import _DecodeVarint
+
+    from opensysml.proto import sysml_pb2
+
+    if not isinstance(exc, grpc.Call):
+        return ""
+    status = next(
+        (value for key, value in exc.trailing_metadata() or () if key == "grpc-status-details-bin"), b""
+    )
+    # google.rpc.Status: details are field 3, each a length-delimited Any.
+    position = 0
+    while position < len(status):
+        tag, position = _DecodeVarint(status, position)
+        if tag & 7 == 0:
+            _, position = _DecodeVarint(status, position)
+            continue
+        if tag & 7 != 2:
+            return ""
+        size, position = _DecodeVarint(status, position)
+        if tag >> 3 == 3:
+            detail = any_pb2.Any.FromString(status[position:position + size])
+            if detail.type_url == _RESULT_VIEW_TYPE:
+                return sysml_pb2.QueryResultView.FromString(detail.value).text
+        position += size
+    return ""
+
+
 @contextmanager
 def translate_rpc_errors(not_found=ModelNotFoundError, unimplemented=None):
     """Re-raise any ``grpc.RpcError`` raised in the block as a OpenSysMLError.
@@ -657,9 +694,12 @@ def translate_rpc_errors(not_found=ModelNotFoundError, unimplemented=None):
     try:
         yield
     except grpc.RpcError as exc:
-        raise from_rpc_error(
-            exc, not_found=not_found, unimplemented=unimplemented
-        ) from exc
+        error = from_rpc_error(exc, not_found=not_found, unimplemented=unimplemented)
+        view = result_view_of(exc)
+        if view:
+            # A query that ended in a path or model error, asked for as a view.
+            error.result_view = view
+        raise error from exc
 
 
 __all__ = [

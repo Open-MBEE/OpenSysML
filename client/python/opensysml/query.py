@@ -292,9 +292,22 @@ def _value(value):
     raise QueryError(f"cannot compare against {value!r}")
 
 
+class QueryElements(list):
+    """The elements a query selected, a list of :class:`QueryElement`.
+
+    Attributes:
+        result_view: The selection as a ``QVTS::QueryResult`` view, SysML text
+            exposing each element; ``""`` unless the call asked ``as_view``.
+    """
+
+    result_view: str = ""
+
+
 def elements_of(response):
     """The elements a ``QueryResponse`` reports, as :class:`QueryElement` records."""
-    return [
+    elements = QueryElements(
         QueryElement(id=e.id, type=e.type, properties=dict(e.properties), path=e.path)
         for e in response.elements
-    ]
+    )
+    elements.result_view = response.result_view
+    return elements

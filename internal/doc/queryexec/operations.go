@@ -1643,7 +1643,7 @@ func (e *executor) missingFeature(expression queryplan.Expression, property stri
 		Outcome: &Outcome{Path: &PathError{Failures: []Failure{{
 			Step:     Step{Kind: StepFeature, Argument: segment},
 			Expected: "a feature named " + segment + " on the element",
-			Frontier: Frontier{At: symbols.FQNOf(reached), Features: features, Nearest: first(suggest.Nearest(segment, names))},
+			Frontier: Frontier{At: symbols.FQNOf(reached), element: reached, Features: features, Nearest: first(suggest.Nearest(segment, names))},
 		}}}},
 	}
 }
