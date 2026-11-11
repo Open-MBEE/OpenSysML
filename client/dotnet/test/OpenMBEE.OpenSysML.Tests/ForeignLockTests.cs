@@ -40,8 +40,7 @@ public sealed class ForeignLockTests
         {
             var error = await Record.ExceptionAsync(async () =>
             {
-                await using var holder = await ForeignLock.HoldAsync(
-                    ForeignClient.Python, "unused", Start, TimeSpan.FromSeconds(failure == "timeout" ? 1 : 10));
+                await using var holder = await ForeignLock.HoldAsync("unused", Start, TimeSpan.FromSeconds(failure == "timeout" ? 1 : 10));
             });
 
             Assert.NotNull(error);

@@ -20,8 +20,7 @@ and the Microsoft.Testing.Platform runner.
   then `export DOTNET_ROOT=$HOME/.dotnet PATH=$HOME/.dotnet:$PATH` in every shell that runs `make`.
 - Build the real service: `make build-grpc`. A stale `bin/sysml-grpc` from before a schema change
   fails the service and conformance tests in confusing ways; rebuild after every merge.
-- Interop needs Python 3, a JDK with `javac` (`JAVA_HOME` or `PATH`) and Cargo. On macOS set
-  `JAVA_HOME=$(/usr/libexec/java_home)`.
+- Interop needs Python 3: the one `PYTHON` names, else `python3` or `python` on `PATH`.
 - `dotnet test <solution>` (the VSTest form) does not work; use `dotnet test --solution ...` or the
   Make targets.
 
@@ -50,9 +49,9 @@ test declares `Category` `Unit`, `Integration` or `Interop`; focus with
   copies, each with its own service, each collected after unloading. A copy that is not collected
   usually means a static, timer or thread still roots it.
 - **Cache lock interop.** `CacheInteropTests` and `ForeignLockTests` hold `~/.opensysml/bin/sysml-grpc.lock`
-  against the Python, Java and Rust holders in `test/interop`, both directions, including a killed
-  holder. The Rust holder builds into `bin/dotnet/interop`. Never test against your real
-  `~/.opensysml`; the tests use caches of their own.
+  against `test/interop/lock_holder.py`, which makes the Python client's calls and stands for the Java
+  and Rust clients' identical lock, both directions, including a killed holder. Never test against
+  your real `~/.opensysml`; the tests use caches of their own.
 - **Release trust.** `DownloadResolutionTests` and `BinaryDownloaderTests` serve releases from the loopback
   `ReleaseServer`: every unpinned one must be refused as `UnpinnedReleaseException` with nothing fetched,
   and they cover pins, stalls, redirects and size limits.

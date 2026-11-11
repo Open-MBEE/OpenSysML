@@ -3,7 +3,8 @@
 The .NET client's interoperability tests run this beside it. The open and the lock
 calls are those of _locked_once and _file_locked in client/python/opensysml/binary.py:
 fcntl.lockf over the whole file on POSIX, msvcrt.locking over its first byte on
-Windows, on a descriptor from os.open.
+Windows, on a descriptor from os.open. The Java and Rust clients take the same lock,
+so it stands for them too.
 
 Usage:
     lock_holder.py hold <lock-file>   take the lock as the client does, waiting for it;

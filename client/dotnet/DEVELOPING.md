@@ -24,7 +24,7 @@ dotnet test --solution client/dotnet/OpenSysML.slnx -c Release --no-build
 form `dotnet test <solution>` is not supported. Every test declares a `Category` trait,
 `Unit`, `Integration` or `Interop`, and a test enforces that, so a filter never silently
 drops one. `Unit` tests need only the checkout and the runtime; `Integration` tests need the
-service binary; `Interop` tests need the other clients' toolchains.
+service binary; `Interop` tests need Python, which runs a holder of the other clients' lock.
 
 Integration tests run against the binary `OPENSYSML_GRPC_BINARY` names, which they start
 themselves on ports the kernel chooses and reach by address: once serving its default
@@ -115,16 +115,17 @@ cross-client lock alone with its own system calls, as another client would, so t
 to how the client locks cannot also change what checks it. It also loads two copies of the
 client into collectible load contexts, which must shut each other out and be collected, and
 runs a cache transaction that stops at a chosen step to be killed, after which the lock must
-be free and nothing torn trusted. Interop tests run holders that take the lock with the
-Python, Java and Rust clients' exact calls, in [`test/interop`](test/interop/): each client
-must shut the other out both ways, wait for and see the other's release, and take the lock of
-a killed holder of the other, and the Python client must read and write the cache's record
-byte for byte as this one does. A failed holder acquisition stops and awaits its process
-before reporting the failure, including when it times out or receives unexpected output.
-They need Python, a JDK (`JAVA_HOME` or `PATH`, with
-`javac`) and Cargo, which builds the Rust holder from its locked manifest into
-`bin/dotnet/interop`; each test whose toolchain is missing skips naming it, and with
-`OPENSYSML_REQUIRE_INTEROP=1`, as CI sets, fails instead:
+be free and nothing torn trusted. Interop tests run a holder that takes the lock with the
+Python client's exact calls, [`test/interop/lock_holder.py`](test/interop/lock_holder.py): the
+two clients must shut each other out both ways, wait for and see each other's release, and take
+the lock of a killed holder of the other, and the Python client must read and write the cache's
+record byte for byte as this one does. The Java and Rust clients take the same lock, an `fcntl`
+lock over the whole file on POSIX and a byte-range lock from its start on Windows, so the
+holder stands for them too, as the Python client's calls do in the Rust client's own test of
+its lock. A failed holder acquisition stops and awaits its process before reporting the
+failure, including when it times out or receives unexpected output. They need Python, which
+`PYTHON` names or else `python3` or `python` on `PATH`; each skips naming what is missing, and
+with `OPENSYSML_REQUIRE_INTEROP=1`, as CI sets, fails instead:
 
 ```bash
 OPENSYSML_REQUIRE_INTEROP=1 OPENSYSML_GRPC_BINARY="$PWD/bin/sysml-grpc" OPENSYSML_REQUIRE_SERVICE=1 make dotnet-test

@@ -12,9 +12,11 @@ using Xunit;
 namespace OpenMBEE.OpenSysML.Tests;
 
 /// <summary>
-/// The shared cache's lock against the Python, Java and Rust clients' own, each taken by a holder making that
-/// client's exact calls (test/interop): each shuts the other out, in both directions, waits for the other's
-/// release, and is released by the kernel when its holder is killed.
+/// The shared cache's lock against the Python client's, taken by a holder making that client's exact calls
+/// (test/interop/lock_holder.py): each shuts the other out, in both directions, waits for the other's release, and
+/// is released by the kernel when its holder is killed. The Java and Rust clients take the same lock, an
+/// <c>fcntl</c> lock over the whole file on POSIX and a byte-range lock from its start on Windows, so the Python
+/// client's calls stand for theirs, as they do in the Rust client's own test of its lock.
 /// </summary>
 [Trait(Category.Name, Category.Interop)]
 public sealed class CacheInteropTests : IDisposable
@@ -27,55 +29,51 @@ public sealed class CacheInteropTests : IDisposable
 
     private CacheLayout Layout => cache.Layout;
 
-    [Theory]
-    [MemberData(nameof(InteropGate.All), MemberType = typeof(InteropGate))]
-    public async Task WhileThisClientHoldsTheLockTheOtherCannotTakeItUntilItIsReleased(ForeignClient client)
+    [Fact]
+    public async Task WhileThisClientHoldsTheLockTheOtherCannotTakeItUntilItIsReleased()
     {
         await using (await Acquire(TimeSpan.Zero))
         {
-            Assert.False(await ForeignLock.IsFreeAsync(client, Layout.Lock), $"the {client} client took the lock the .NET client held");
+            Assert.False(await ForeignLock.IsFreeAsync(Layout.Lock), $"the Python client took the lock the .NET client held");
         }
 
-        Assert.True(await ForeignLock.IsFreeAsync(client, Layout.Lock), $"the {client} client could not take the lock once the .NET client released it");
+        Assert.True(await ForeignLock.IsFreeAsync(Layout.Lock), $"the Python client could not take the lock once the .NET client released it");
     }
 
-    [Theory]
-    [MemberData(nameof(InteropGate.All), MemberType = typeof(InteropGate))]
-    public async Task WhileTheOtherHoldsTheLockThisClientWaitsAndTakesItPromptlyOnRelease(ForeignClient client)
+    [Fact]
+    public async Task WhileTheOtherHoldsTheLockThisClientWaitsAndTakesItPromptlyOnRelease()
     {
-        await using var holder = await ForeignLock.HoldAsync(client, Layout.Lock);
+        await using var holder = await ForeignLock.HoldAsync(Layout.Lock);
 
         var error = await Assert.ThrowsAsync<ServiceStartException>(() => Acquire(TimeSpan.Zero));
         Assert.Contains("is locked by another process", error.Message, StringComparison.Ordinal);
         var waiting = Acquire(TimeSpan.FromSeconds(30));
         await Task.Delay(500, Token);
-        Assert.False(waiting.IsCompleted, $"the .NET client took the lock the {client} client held");
+        Assert.False(waiting.IsCompleted, $"the .NET client took the lock the Python client held");
 
         var released = Stopwatch.StartNew();
         await holder.ReleaseAsync();
         await using var taken = await waiting.WaitAsync(TimeSpan.FromSeconds(10), Token);
-        Assert.True(released.Elapsed < TimeSpan.FromSeconds(3), $"the .NET client saw the {client} client's release after {released.Elapsed}");
+        Assert.True(released.Elapsed < TimeSpan.FromSeconds(3), $"the .NET client saw the Python client's release after {released.Elapsed}");
     }
 
-    [Theory]
-    [MemberData(nameof(InteropGate.All), MemberType = typeof(InteropGate))]
-    public async Task TheOtherClientWaitingForThisOneTakesTheLockOnceItIsReleased(ForeignClient client)
+    [Fact]
+    public async Task TheOtherClientWaitingForThisOneTakesTheLockOnceItIsReleased()
     {
         await using var held = await Acquire(TimeSpan.Zero);
-        await using var waiting = await ForeignLock.StartAsync(client, Layout.Lock);
-        Assert.False(await waiting.HeldWithinAsync(TimeSpan.FromMilliseconds(1500)), $"the {client} client took the lock the .NET client held");
+        await using var waiting = ForeignLock.Start(Layout.Lock);
+        Assert.False(await waiting.HeldWithinAsync(TimeSpan.FromMilliseconds(1500)), $"the Python client took the lock the .NET client held");
 
         await held.DisposeAsync();
-        Assert.True(await waiting.HeldWithinAsync(TimeSpan.FromSeconds(30)), $"the {client} client did not take the lock once the .NET client released it");
-        Assert.False(await ForeignLock.IsFreeAsync(client, Layout.Lock));
+        Assert.True(await waiting.HeldWithinAsync(TimeSpan.FromSeconds(30)), $"the Python client did not take the lock once the .NET client released it");
+        Assert.False(await ForeignLock.IsFreeAsync(Layout.Lock));
         await waiting.ReleaseAsync();
     }
 
-    [Theory]
-    [MemberData(nameof(InteropGate.All), MemberType = typeof(InteropGate))]
-    public async Task AKilledHolderOfEitherClientReleasesTheLockToTheOther(ForeignClient client)
+    [Fact]
+    public async Task AKilledHolderOfEitherClientReleasesTheLockToTheOther()
     {
-        var foreign = await ForeignLock.HoldAsync(client, Layout.Lock);
+        var foreign = await ForeignLock.HoldAsync(Layout.Lock);
         await using (foreign)
         {
             foreign.Kill();
@@ -88,23 +86,22 @@ public sealed class CacheInteropTests : IDisposable
         var dotnet = await cache.HeldByAnotherProcessAsync();
         await using (dotnet)
         {
-            Assert.False(await ForeignLock.IsFreeAsync(client, Layout.Lock));
+            Assert.False(await ForeignLock.IsFreeAsync(Layout.Lock));
             dotnet.KillProbe();
         }
 
-        Assert.True(await ForeignLock.IsFreeAsync(client, Layout.Lock), $"the {client} client could not take the lock of a killed .NET holder");
+        Assert.True(await ForeignLock.IsFreeAsync(Layout.Lock), $"the Python client could not take the lock of a killed .NET holder");
     }
 
-    [Theory]
-    [MemberData(nameof(InteropGate.All), MemberType = typeof(InteropGate))]
-    public async Task ATransactionHoldsTheLockAgainstTheOtherClientAtEveryStep(ForeignClient client)
+    [Fact]
+    public async Task ATransactionHoldsTheLockAgainstTheOtherClientAtEveryStep()
     {
         var checkedSteps = new List<CacheStep>();
         var seams = new CacheSeams
         {
             Reached = async (step, _) =>
             {
-                Assert.False(await ForeignLock.IsFreeAsync(client, Layout.Lock), $"the {client} client took the lock at {step}");
+                Assert.False(await ForeignLock.IsFreeAsync(Layout.Lock), $"the Python client took the lock at {step}");
                 checkedSteps.Add(step);
             },
         };
@@ -117,28 +114,27 @@ public sealed class CacheInteropTests : IDisposable
         }
 
         Assert.Equal(Enum.GetValues<CacheStep>(), checkedSteps);
-        Assert.True(await ForeignLock.IsFreeAsync(client, Layout.Lock));
+        Assert.True(await ForeignLock.IsFreeAsync(Layout.Lock));
     }
 
-    [Theory]
-    [MemberData(nameof(InteropGate.All), MemberType = typeof(InteropGate))]
-    public async Task ACopyOfThisClientInAnotherLoadContextHoldsTheLockAgainstTheOtherClient(ForeignClient client)
+    [Fact]
+    public async Task ACopyOfThisClientInAnotherLoadContextHoldsTheLockAgainstTheOtherClient()
     {
         await using var probe = ProbeRun.Start(ProbeRun.Cache, "copies", Layout.Directory);
         Assert.Equal("held", (await probe.ReadAsync()).GetProperty("event").GetString());
 
-        Assert.False(await ForeignLock.IsFreeAsync(client, Layout.Lock), $"the {client} client took the lock a collectible copy of the .NET client held");
+        Assert.False(await ForeignLock.IsFreeAsync(Layout.Lock), $"the Python client took the lock a collectible copy of the .NET client held");
 
         await probe.SendLineAsync();
         var events = await probe.ReadToExitAsync();
         Assert.False(events[0].GetProperty("free").GetBoolean());
-        Assert.True(await ForeignLock.IsFreeAsync(client, Layout.Lock));
+        Assert.True(await ForeignLock.IsFreeAsync(Layout.Lock));
     }
 
     [Fact]
     public async Task TheRecordIsReadAndWrittenAsThePythonClientReadsAndWritesIt()
     {
-        var python = InteropGate.FromProcess.Require(ForeignClient.Python);
+        var python = InteropGate.FromProcess.Require();
         await cache.InstallAsync(Release, "v1.2.3", "Open-MBEE/OpenSysML");
 
         // cached_release reads with json.load; write_metadata writes with json.dump.
