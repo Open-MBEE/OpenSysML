@@ -419,7 +419,7 @@ func MappingMembershipEdgeSubject(graph *rdf.Graph, subject rdf.Term) bool {
 	return mappingTypeConforms(graph, subject, "Membership") && !MappingElementSubject(graph, subject)
 }
 
-// mappingBareSubaction reports a subaction membership whose one action declares no name: a bare `entry;`.
+// mappingBareSubaction reports a subaction membership of the bare `entry;` shape, minted from its action.
 func mappingBareSubaction(graph *rdf.Graph, subject rdf.Term) bool {
 	if !slices.ContainsFunc(graph.ObjectsView(subject, rdf.RDFType), func(t rdf.Term) bool {
 		return ontology.LocalName(t.Value) == mSubaction
@@ -427,5 +427,5 @@ func mappingBareSubaction(graph *rdf.Graph, subject rdf.Term) bool {
 		return false
 	}
 	member := firstIRI(graph, subject, pOwnedMemberElement, pMemberElement)
-	return member.IsIRI() && unnamed(graph, member)
+	return member.IsIRI() && bareSubactionMembership(graph, subject, member)
 }

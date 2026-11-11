@@ -71,3 +71,29 @@ func TestBareStateSubactionStatesItsEmptyAction(t *testing.T) {
 		t.Errorf("api-json round trip:\n%s", back)
 	}
 }
+
+// An anonymous subaction written with a body, `entry action { }`, keeps its own declaration: the membership is
+// the positioned element and both readers write the braced form back, not the bare keyword.
+func TestBracedEmptySubactionKeepsItsDeclaration(t *testing.T) {
+	const model = "package P {\n    action def A;\n    state def S {\n        entry action { }\n        do action : A;\n        exit;\n    }\n}\n"
+	turtle, err := convert.Convert("p.sysml", []byte(model), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	if !strings.Contains(string(turtle), "sysx:positionalName \"P::S::@0\"") {
+		t.Fatalf("the braced subaction's membership should take the position:\n%s", turtle)
+	}
+	for name, format := range map[string]convert.Format{"p.ttl": convert.FormatTurtle, "p.json": convert.FormatAPIJSON} {
+		document, err := convert.Convert("p.sysml", []byte(model), convert.FormatSysML, format)
+		if err != nil {
+			t.Fatalf("to %s: %v", name, err)
+		}
+		back, err := convert.Convert(name, document, format, convert.FormatSysML)
+		if err != nil {
+			t.Fatalf("%s back to notation: %v", name, err)
+		}
+		if string(back) != model {
+			t.Fatalf("%s round trip:\n%s", name, back)
+		}
+	}
+}
