@@ -1,0 +1,1 @@
+- Layout validation reuses shared definition expansions instead of materializing every inherited occurrence, avoiding exponential tree walks while preserving typed features, placement diagnostics and rendered diagrams.
