@@ -100,6 +100,19 @@ commands:
                   git tag --force "$tag" HEAD
                   echo "REHEARSAL: tagged $(git rev-parse --short HEAD) as ${tag} locally"
 
+  # Ends the job green when verify-tree proved CIRCLE_SHA1 already passed the full suite
+  # (verified-tree.txt, attached from the workspace); otherwise the job runs as it always has.
+  halt-if-verified:
+    steps:
+      - run:
+          name: Skip when the tree is already verified
+          command: |
+            if [ -r verified-tree.txt ] && head -n 1 verified-tree.txt | grep -q '^verified: '; then
+              echo "Skipping: $(head -n 1 verified-tree.txt)"
+              circleci-agent step halt
+            fi
+            echo "Not verified elsewhere ($(head -n 1 verified-tree.txt 2>/dev/null || echo 'no verified-tree.txt')): running."
+
   # Names the irreversible step a rehearsal leaves out.
   rehearsal-skip:
     parameters:
@@ -468,14 +481,55 @@ jobs:
             print(f"{cancelled} superseded pipeline(s) cancelled on {branch}; {examined} pipeline(s) from the last 24 hours examined.")
             PY
 
+  # Asks GitHub (and, for a tag, CircleCI) whether this commit already passed the full suite and
+  # persists the verdict; scripts/ci-verified-tree.py reports any API failure as unverified.
+  verify-tree:
+    docker:
+      - image: cimg/base:current
+    resource_class: small
+    steps:
+      - checkout
+      - run:
+          name: Look for a green full-tier run of this tree
+          environment:
+            RELEASE_REHEARSAL: << pipeline.parameters.release_rehearsal >>
+          command: |
+            set -- --sha "$CIRCLE_SHA1"
+            if [ -n "${CIRCLE_TAG:-}" ]; then set -- "$@" --tag "$CIRCLE_TAG"; fi
+            if [ "$RELEASE_REHEARSAL" = "true" ]; then set -- "$@" --rehearsal; fi
+            python3 scripts/ci-verified-tree.py "$@" > verified-tree.txt
+            cat verified-tree.txt
+      - persist_to_workspace:
+          root: .
+          paths:
+            - verified-tree.txt
+
   go-static:
     executor: go-executor
     steps:
       - checkout
       - rehearsal-checkout-tag
+      - attach_workspace:
+          at: .
       - go/load-cache
       - go/mod-download
       - go/save-cache
+
+      # The third-party notices link the licence text this bundle copies into
+      # docs/assets/landing, which is generated rather than tracked.
+      - run:
+          name: Build the landing-page diagram
+          command: make docs-landing-assets
+
+      # python-test runs the same link check under coverage (make scripts-coverage)
+      # on an executor without Node, so it reads the bundle built here instead.
+      - persist_to_workspace:
+          root: .
+          paths:
+            - docs/assets/landing
+
+      # Everything below re-checks what the full tier already proved on a verified tree.
+      - halt-if-verified
 
       - run:
           name: Check Go formatting
@@ -493,22 +547,9 @@ jobs:
             go vet ./...
             go vet -C tools ./...
 
-      # The third-party notices link the licence text this bundle copies into
-      # docs/assets/landing, which is generated rather than tracked.
-      - run:
-          name: Build the landing-page diagram
-          command: make docs-landing-assets
-
       - run:
           name: Check documentation links
           command: python3 scripts/check-doc-links.py
-
-      # python-test runs the same link check under coverage (make scripts-coverage)
-      # on an executor without Node, so it reads the bundle built here instead.
-      - persist_to_workspace:
-          root: .
-          paths:
-            - docs/assets/landing
 
       # The shipped pages are generated from each command's description, so a
       # flag added without regenerating them would ship a page for a command
@@ -644,6 +685,9 @@ jobs:
     steps:
       - checkout
       - rehearsal-checkout-tag
+      - attach_workspace:
+          at: .
+      - halt-if-verified
       - go/load-cache
       - go/mod-download
       - go/save-cache
@@ -662,6 +706,9 @@ jobs:
     steps:
       - checkout
       - rehearsal-checkout-tag
+      - attach_workspace:
+          at: .
+      - halt-if-verified
       - go/load-cache
       - go/mod-download
       - go/save-cache
@@ -742,6 +789,11 @@ jobs:
   # A race-free pass for the scan's -coverpkg profile, too slow under -race; serially it
   # overran the 60-minute limit, so it runs sharded and go-coverage-merge joins the shards.
   go-coverage:
+    parameters:
+      skip_when_verified:
+        type: boolean
+        default: false
+        description: Halt on a verified tree; set only where nothing downstream reads this job's output.
     executor: go-executor
     resource_class: large
     # The race test's shards but runtime-corpus: without -race the runtime runs whole in about 19 minutes.
@@ -749,6 +801,12 @@ jobs:
     steps:
       - checkout
       - rehearsal-checkout-tag
+      - attach_workspace:
+          at: .
+      - when:
+          condition: << parameters.skip_when_verified >>
+          steps:
+            - halt-if-verified
       - go/load-cache
       - go/mod-download
       - go/save-cache
@@ -801,6 +859,11 @@ jobs:
 
   # Joins the shards' profiles into the one the scan reads.
   go-coverage-merge:
+    parameters:
+      skip_when_verified:
+        type: boolean
+        default: false
+        description: Halt on a verified tree; set only where nothing downstream reads this job's output.
     executor: go-executor
     steps:
       - checkout
@@ -809,6 +872,10 @@ jobs:
 
       - attach_workspace:
           at: .
+      - when:
+          condition: << parameters.skip_when_verified >>
+          steps:
+            - halt-if-verified
 
       - run:
           name: Write the coverage profile the scan reads
@@ -866,6 +933,9 @@ jobs:
     steps:
       - checkout
       - rehearsal-checkout-tag
+      - attach_workspace:
+          at: .
+      - halt-if-verified
       - go/load-cache
       - go/mod-download
       - go/save-cache
@@ -1386,12 +1456,21 @@ jobs:
             echo "docs/project/releasing.md for the one-time maintainer step."
 
   python-test:
+    parameters:
+      skip_when_verified:
+        type: boolean
+        default: false
+        description: Halt on a verified tree; set only where nothing downstream reads this job's output.
     executor: python-executor
     steps:
       - checkout
 
       - attach_workspace:
           at: .
+      - when:
+          condition: << parameters.skip_when_verified >>
+          steps:
+            - halt-if-verified
 
       # make scripts-coverage runs the test-suite figures test, which renders the figures with go run.
       - install-go
@@ -1516,6 +1595,10 @@ jobs:
     steps:
       - checkout
 
+      - attach_workspace:
+          at: .
+      - halt-if-verified
+
       - run:
           name: Verify Rust 1.83
           command: |
@@ -1591,6 +1674,10 @@ jobs:
     steps:
       - checkout
 
+      - attach_workspace:
+          at: .
+      - halt-if-verified
+
       # The julia image carries no make, which the build and conformance steps
       # run; it runs as root, so apt needs no sudo.
       - run:
@@ -1631,6 +1718,10 @@ jobs:
     executor: octave-executor
     steps:
       - checkout
+
+      - attach_workspace:
+          at: .
+      - halt-if-verified
 
       - install-go
 
@@ -1677,12 +1768,21 @@ jobs:
   # The Java client: unit tests, the conformance suite over both Connect
   # encodings, and the committed stubs checked against what buf generates.
   java-test:
+    parameters:
+      skip_when_verified:
+        type: boolean
+        default: false
+        description: Halt on a verified tree; set only where nothing downstream reads this job's output.
     executor: java-executor
     steps:
       - checkout
 
       - attach_workspace:
           at: .
+      - when:
+          condition: << parameters.skip_when_verified >>
+          steps:
+            - halt-if-verified
 
       - run:
           name: Make the service binary executable
@@ -1764,12 +1864,21 @@ jobs:
   # this executor has no Go toolchain to build one with, and both the tests and
   # the conformance run start private children from it.
   node-test:
+    parameters:
+      skip_when_verified:
+        type: boolean
+        default: false
+        description: Halt on a verified tree; set only where nothing downstream reads this job's output.
     executor: node-executor
     steps:
       - checkout
 
       - attach_workspace:
           at: .
+      - when:
+          condition: << parameters.skip_when_verified >>
+          steps:
+            - halt-if-verified
 
       # `npm install`, not `npm ci`: a release branch pins platform packages npm 11.6+'s `npm ci`
       # refuses to miss from the lock until the tag publishes them; the lock must not change by it.
@@ -4427,10 +4536,16 @@ workflows:
               only: [main, develop]
             tags:
               ignore: /.*/
+      # Every job below attaches its verdict; a tree the pull-request workflow (or the merge
+      # queue) proved runs only the coverage shards, the scan and what they consume.
+      - verify-tree:
+          name: Verified tree check
+          filters: *integration-branches
       - go-static:
           name: Go static checks
           requires: &after-cancellation
             - Cancel superseded pipelines
+            - Verified tree check
           filters: *integration-branches
       - go-vulncheck:
           name: Go vulnerability check
@@ -4528,34 +4643,49 @@ workflows:
         - << pipeline.parameters.release_rehearsal >>
         - matches: {pattern: "^v.*", value: << pipeline.git.tag >>}
     jobs:
-      - go-static:
-          name: Go static checks
+      # A tag on a commit main's build-test (or the merge queue) proved skips the suite and client
+      # tests, which nothing here reads; a rehearsal or an unverified commit runs everything.
+      - verify-tree:
+          name: Verified tree check
           filters: &release-tags
             tags:
               only: /^v.*/
+      - go-static:
+          name: Go static checks
+          requires: &after-verification
+            - Verified tree check
+          filters: *release-tags
       - go-vulncheck:
           name: Go vulnerability check
+          requires: *after-verification
           filters: *release-tags
       - go-race-test:
           name: Go race tests
+          requires: *after-verification
           filters: *release-tags
       - go-coverage:
           name: Go coverage shards
+          skip_when_verified: true
+          requires: *after-verification
           filters: *release-tags
       - go-coverage-merge:
           name: Go coverage profile
+          skip_when_verified: true
           requires:
             - Go coverage shards
           filters: *release-tags
       - go-build:
           name: Go binaries
+          requires: *after-verification
           filters: *release-tags
       - go-gates:
           name: Go gates
+          requires: *after-verification
           filters: *release-tags
 
       - python-test:
           name: Python client tests
+          skip_when_verified: true
           requires: &go-suite
             - Go static checks
             - Go vulnerability check
@@ -4567,11 +4697,13 @@ workflows:
 
       - node-test:
           name: Node client tests
+          skip_when_verified: true
           requires: *go-suite
           filters: *release-tags
 
       - java-test:
           name: Java client tests
+          skip_when_verified: true
           requires: *go-suite
           filters: *release-tags
 
