@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Prints the root-module package paths assigned to one race-test shard.
-# Usage: scripts/race-shard.sh runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli
+# Usage: scripts/race-shard.sh runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-fixtures|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli
 # A hyphenated shard is a by-test-name part of its package (runtime, corpus and export are each split
 # that way in make test-shard); the other shards are whole packages, rest everything not named here.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-shards='runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli'
+shards='runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-fixtures|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli'
 
 if [[ $# -ne 1 ]]; then
   echo "usage: scripts/race-shard.sh $shards" >&2
@@ -47,7 +47,7 @@ cli="$module/cmd/sysml"
 named_packages=("$runtime" "$workspace_model" "$corpus" "$smt" "$export" "$model" "$translate" "$grpc_tests" "$grpc_frontend" "$passes" "$migrate" "$codegen" "$wasm" "$cli")
 
 case "$shard" in
-  runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli) ;;
+  runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-fixtures|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli) ;;
   *)
     echo "usage: scripts/race-shard.sh $shards" >&2
     exit 2
@@ -75,7 +75,7 @@ case "$shard" in
   corpus|corpus-roundtrip|corpus-apijson)
     printf '%s\n' "$corpus"
     ;;
-  export|export-corpus|export-settled)
+  export|export-fixtures|export-corpus|export-settled)
     printf '%s\n' "$export"
     ;;
   graph)

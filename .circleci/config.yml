@@ -657,7 +657,7 @@ jobs:
   go-race-test:
     executor: go-executor
     resource_class: large
-    parallelism: 17
+    parallelism: 18
     steps:
       - checkout
       - rehearsal-checkout-tag
@@ -670,14 +670,14 @@ jobs:
       - install-fmpy
 
       # internal/exec/runtime (31-57 minutes whole, near 8.5 GB under -race), tests/export and tests/corpus
-      # (about 40 minutes whole) are three shards each, split by test name as make test-shard does.
+      # (about 40 minutes whole) are split by test name as make test-shard does: four and three shards.
       - run:
           name: Run Go race tests
           command: |
             set -o pipefail
             # One entry per node; a quoted entry runs its shards in turn (tests/hygiene keeps
             # the entries the shard list of scripts/race-shard.sh).
-            shards=(runtime runtime-corpus model smt "corpus codegen" corpus-roundtrip corpus-apijson export export-corpus export-settled graph translate grpc tools rest "migrate runtime-exploration" cli)
+            shards=(runtime runtime-corpus model smt "corpus codegen" corpus-roundtrip corpus-apijson export export-fixtures export-corpus export-settled graph translate grpc tools rest "migrate runtime-exploration" cli)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
               echo "error: parallelism is $CIRCLE_NODE_TOTAL, but the shard array has ${#shards[@]} nodes" >&2
               exit 1
@@ -693,6 +693,7 @@ jobs:
             corpus='^Test(ExploreWithIsExploreOverTheConformanceCorpus|CheckAgreesWithExploreOverTheConformanceCorpus|CheckWitnessesReplayOverTheConformanceCorpus|ExecutionConformance|ExecutionConformanceUnderPolicies)$'
             exportcorpus='^TestAPIJSONWritersNeverEmitNameReferences$'
             exportsettled='^TestSettledCollectionsAreWhatReconcilingWouldFind$'
+            exportfixtures='^Test(RoundTripIsLossless|APIJSONWriteReadWriteIsByteIdenticalForConvertFixtures|ModelWritesOnlyItsUnreferencedDocuments|APIJSONInverseOverAllFixtures|GoldenConversions)$'
             # The Makefile's RACE_CORPUS_ROUNDTRIP and RACE_CORPUS_APIJSON; tests/hygiene keeps them the same.
             corpusroundtrip='^TestCorpusRoundTrip$'
             corpusapijson='^TestCorpusAPIJSONRoundTrip$'
@@ -702,13 +703,14 @@ jobs:
               runtime-exploration) go test -json -race -pgo=off -timeout 30m -run "$exploration" $pkgs | stream ;;
               runtime-corpus) go test -json -race -pgo=off -timeout 30m -run "$corpus" -skip "$exploration" $pkgs | stream ;;
               runtime) go test -json -race -pgo=off -timeout 30m -skip "$corpus" $pkgs | stream ;;
-              # The Makefile's RACE_EXPORT_CORPUS and RACE_EXPORT_SETTLED; tests/hygiene keeps them the same. tests/export
-              # whole passed 55 minutes under -race once the element form completed inheritance.
+              # The Makefile's RACE_EXPORT_CORPUS, RACE_EXPORT_SETTLED and RACE_EXPORT_FIXTURES; tests/hygiene keeps them
+              # the same. tests/export whole passed 55 minutes under -race; its remainder alone ran 37, so the fourth split.
               export-corpus) go test -json -race -pgo=off -timeout 55m -run "$exportcorpus" $pkgs | stream ;;
               # Four settled models at once peak at 8.2-8.4 GB under -race, this class's 8 GB (killed on
               # develop at #2014); two at once peak at 6.5 GB for a tenth more wall time.
               export-settled) go test -json -race -pgo=off -timeout 55m -parallel 2 -run "$exportsettled" $pkgs | stream ;;
-              export) go test -json -race -pgo=off -timeout 55m -skip "$exportcorpus|$exportsettled" $pkgs | stream ;;
+              export-fixtures) go test -json -race -pgo=off -timeout 55m -run "$exportfixtures" $pkgs | stream ;;
+              export) go test -json -race -pgo=off -timeout 55m -skip "$exportcorpus|$exportsettled|$exportfixtures" $pkgs | stream ;;
               # tests/corpus's two round trips over every example ran about 20 minutes each under -race.
               corpus-roundtrip) go test -json -race -pgo=off -timeout 55m -run "$corpusroundtrip" $pkgs | stream ;;
               corpus-apijson) go test -json -race -pgo=off -timeout 55m -run "$corpusapijson" $pkgs | stream ;;
@@ -751,7 +753,7 @@ jobs:
     executor: go-executor
     resource_class: large
     # The race test's shards but the runtime's corpus ones: without -race the runtime runs whole in about 19 minutes.
-    parallelism: 17
+    parallelism: 18
     steps:
       - checkout
       - rehearsal-checkout-tag
@@ -768,7 +770,7 @@ jobs:
           command: |
             # tests/export and tests/corpus whole overran 30 minutes, so make coverage-shard splits them by test name.
             # cmd/sysml has its own node: its exploration budgets took 23-30 minutes on the rest node.
-            shards=(runtime model smt corpus corpus-roundtrip corpus-apijson export export-corpus export-settled graph codegen translate grpc tools rest migrate cli)
+            shards=(runtime model smt corpus corpus-roundtrip corpus-apijson export export-fixtures export-corpus export-settled graph codegen translate grpc tools rest migrate cli)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
               echo "error: parallelism is $CIRCLE_NODE_TOTAL, but the Makefile's COVERAGE_SHARDS has ${#shards[@]} shards" >&2
               exit 1

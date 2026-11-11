@@ -4,7 +4,7 @@ name: PR
 # by the CircleCI config; this workflow mirrors its build-test workflow, not release.
 #
 # Two tiers, decided by the Changed areas job (scripts/ci-changed-areas.sh). A push to a pull
-# request, draft or ready, runs the quick tier: the binaries, the race-free Go suite in nine
+# request, draft or ready, runs the quick tier: the binaries, the race-free Go suite in ten
 # groups of the race shards (make test-quick), the download-free static checks, the WebAssembly,
 # Xpect and conformance gates, the derived-property differential when its paths change, and only
 # the clients, editors and docs whose own paths changed. The full tier is the whole suite. It runs
@@ -106,16 +106,16 @@ jobs:
         run: scripts/ci-changed-areas.sh "$DIFF_BASE" "$DIFF_HEAD" | tee -a "$GITHUB_OUTPUT"
 
       # go_shards is the Go test job's matrix: the race shards under the full tier (make test-shard),
-      # nine race-free groups of them under quick (make test-quick); tests/hygiene keeps both whole.
+      # ten race-free groups of them under quick (make test-quick); tests/hygiene keeps both whole.
       - name: Pick the Go shards
         id: shards
         env:
           TIER: ${{ steps.areas.outputs.tier }}
         run: |
           if [ "$TIER" = full ]; then
-            echo 'go_shards=["runtime","runtime-corpus","runtime-exploration","model","smt","corpus","corpus-roundtrip","corpus-apijson","export","export-corpus","export-settled","graph","codegen","translate","grpc","rest","migrate","cli"]'
+            echo 'go_shards=["runtime","runtime-corpus","runtime-exploration","model","smt","corpus","corpus-roundtrip","corpus-apijson","export","export-fixtures","export-corpus","export-settled","graph","codegen","translate","grpc","rest","migrate","cli"]'
           else
-            echo 'go_shards=["runtime runtime-corpus runtime-exploration model","codegen migrate","cli translate","graph","smt","corpus corpus-roundtrip corpus-apijson","export","export-corpus export-settled","rest grpc"]'
+            echo 'go_shards=["runtime runtime-corpus runtime-exploration model","codegen migrate","cli translate","graph","smt","corpus corpus-roundtrip corpus-apijson","export","export-fixtures export-settled","export-corpus","rest grpc"]'
           fi | tee -a "$GITHUB_OUTPUT"
 
       # The vendored copy is checked in this job, not static-and-integrity: the
