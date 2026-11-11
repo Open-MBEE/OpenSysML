@@ -1,8 +1,10 @@
 package semantics
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -36,6 +38,47 @@ func TestThenSuccessionIsAnOwnedMember(t *testing.T) {
 		for i := range want {
 			if kinds[i] != want[i] {
 				t.Errorf("observe ownedRelationship[%d] = %s, want %s (all %v)", i, kinds[i], want[i], kinds)
+			}
+		}
+	}
+}
+
+// A `then done;` relates the member before it to the library's done the action inherits; a
+// `then assign …;` reaches a statement no element stands for yet, so its relatedFeature is unanswered
+// rather than one feature short — the self-check leaves validateConnectorRelatedFeatures unevaluated.
+func TestThenSuccessionRelatedFeatures(t *testing.T) {
+	const src = `package P {
+		action def Settle { out t : Real; first start; then assign t := 1.0; then done; }
+		action observe { first start; then action acquire; then done; }
+	}`
+	for _, fixture := range reflectiveFixtures(t, "then-related.sysml", source.KindSysML, src) {
+		model := fixture.model
+		var successions []*symbols.Symbol
+		for _, owner := range []string{"P::Settle", "P::observe"} {
+			for _, rel := range model.OwnedRelationships(nestedSym(t, fixture.root, owner)) {
+				if member := rel.Implicit.Member; member != nil && model.MetaclassOf(member) != nil && model.MetaclassOf(member).Name == "SuccessionAsUsage" {
+					successions = append(successions, member)
+				}
+			}
+		}
+		if len(successions) != 4 {
+			t.Fatalf("%d successions, want 4", len(successions))
+		}
+		names := func(sym *symbols.Symbol) (string, bool) {
+			related, ok := model.ReflectiveElements(sym, "relatedFeature")
+			var out []string
+			for _, r := range related {
+				out = append(out, r.Name)
+			}
+			return strings.Join(out, " "), ok
+		}
+		for i, want := range []struct {
+			related string
+			ok      bool
+		}{{"", false}, {"", false}, {"start acquire", true}, {"acquire done", true}} {
+			got, ok := names(successions[i])
+			if ok != want.ok || ok && got != want.related {
+				t.Errorf("succession %d relatedFeature = %q, %v; want %q, %v", i, got, ok, want.related, want.ok)
 			}
 		}
 	}

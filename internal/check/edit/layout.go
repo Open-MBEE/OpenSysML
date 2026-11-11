@@ -11,7 +11,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -372,7 +371,7 @@ func inlineAnnotationAdmitted(sym *symbols.Symbol) bool {
 	if !isEdge || sym.OwnerScope == nil || sym.OwnerScope.Node() == nil {
 		return true
 	}
-	return parser.SuccessionAdmitsBody(sym.OwnerScope.Node(), edge)
+	return ast.SuccessionAdmitsBody(sym.OwnerScope.Node(), edge)
 }
 
 // annotationDeclared reports whether the operation reaches a Note or Picture

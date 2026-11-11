@@ -26,7 +26,7 @@ func TestSuccessionAdmitsBody(t *testing.T) {
 		var got []bool
 		for _, m := range def.Members {
 			if edge, ok := m.(*ast.SuccessionEdge); ok {
-				got = append(got, SuccessionAdmitsBody(def, edge))
+				got = append(got, ast.SuccessionAdmitsBody(def, edge))
 			}
 		}
 		if len(got) != len(want[def.Ident.Name]) {
