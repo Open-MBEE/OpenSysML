@@ -1,7 +1,7 @@
 # Developing the OpenSysML .NET client
 
 How the client in this directory is built, tested and versioned; [README.md](README.md) covers
-using it.
+using it, and [the design note](../../docs/internals/design/dotnet-client.md) why it is built so.
 
 ## Building and testing
 
