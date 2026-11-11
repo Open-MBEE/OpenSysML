@@ -2,6 +2,8 @@ package runtime
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -11,7 +13,7 @@ import (
 // the environment it was read in, which an invocation of the value runs it against.
 // A library calc the runtime implements natively carries that implementation instead.
 type functionValue struct {
-	shape   *calcShape
+	shape   *loadedCalc
 	library *libraryFunction
 	scope   *symbols.Scope // names the calc's defaults and body resolve against
 	self    *Instance      // object the calc's feature names resolve against, nil for none
@@ -27,9 +29,9 @@ func (fn *functionValue) arity() (low, high int) {
 	if fn.library != nil {
 		return fn.library.leastPositional(), len(fn.library.params)
 	}
-	indexes := fn.shape.positionalIndexes()
+	indexes := fn.shape.PositionalIndexes()
 	for k := len(indexes) - 1; k >= 0; k-- {
-		if fn.shape.Params[indexes[k]].Default == nil {
+		if fn.shape.Params[indexes[k]].Default == 0 {
 			return k + 1, len(indexes)
 		}
 	}
@@ -122,7 +124,7 @@ func (ctx *Context) readsAsFunction(sym *symbols.Symbol) bool {
 	if isCalcDefSymbol(sym) {
 		return true
 	}
-	if !isCalcUsageSymbol(sym) {
+	if !lower.IsCalcUsageSymbol(sym) {
 		return false
 	}
 	shape, err := ctx.calcInterfaceOf(sym)
@@ -131,10 +133,10 @@ func (ctx *Context) readsAsFunction(sym *symbols.Symbol) bool {
 
 // hasUnsuppliedInput reports an input parameter no read of the calc could bind:
 // neither an argument, a default nor the enclosing case supplies one.
-func (shape *calcShape) hasUnsuppliedInput() bool {
+func (shape *loadedCalc) hasUnsuppliedInput() bool {
 	for i := range shape.Params {
 		param := &shape.Params[i]
-		if param.Default == nil && !param.IsSubject && !param.IsActor && !param.declaredOptional() {
+		if param.Default == 0 && !param.IsSubject && !param.IsActor && !shape.declaredOptional(i) {
 			return true
 		}
 	}
@@ -166,7 +168,7 @@ func (ec *EvalContext) calcAsValue(sym *symbols.Symbol) (Value, bool, error) {
 // environment — a parameter bound by argument, or a feature of the bound object —
 // which an invocation of callee applies; false when nothing here binds it.
 func (ec *EvalContext) boundFunction(callee *symbols.Symbol, qn *ast.QualifiedName) (Value, bool, error) {
-	if qn == nil || len(qn.Parts) == 0 || !isCalcUsageSymbol(callee) {
+	if qn == nil || len(qn.Parts) == 0 || !lower.IsCalcUsageSymbol(callee) {
 		return Value{}, false, nil
 	}
 	if len(qn.Parts) > 1 {
@@ -211,7 +213,7 @@ func (ec *EvalContext) declaredFunction(callee *symbols.Symbol) (Value, bool, er
 		return Value{}, false, nil
 	}
 	named, ok := ec.ctx.model.resolver.ResolveQualified(callee.OwnerScope, ref.Name)
-	if !ok || named == nil || !isCalcDecl(named.Decl) {
+	if !ok || named == nil || !lower.IsCalcDecl(named.Decl) {
 		return Value{}, false, nil
 	}
 	val, err := ec.declaredValue(callee, ref)
@@ -238,7 +240,7 @@ func (ec *EvalContext) qualifiedBoundFunction(callee *symbols.Symbol, qn *ast.Qu
 
 // checkFunction refuses a value bound to a calc usage parameter that is no
 // function; an omitted optional parameter holds null.
-func (param *calcParameter) checkFunction(value *Value, what func() string) error {
+func checkFunction(param *program.CalcParam, value *Value, what func() string) error {
 	held := soleElement(*value)
 	if !param.IsCalc || held.Kind == ValFunction || held.Kind == ValNull {
 		return nil

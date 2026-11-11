@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
@@ -36,7 +37,7 @@ func kindSamples() map[ValueKind][2]Value {
 	}
 	spatial, temporal := frameOf("spatial", metre, metre), frameOf("temporal", second, second)
 	functionOf := func(name string, sym *symbols.Symbol) Value {
-		return Value{Kind: ValFunction, ref: &functionValue{shape: &calcShape{Sym: sym, Name: name}}}
+		return Value{Kind: ValFunction, ref: &functionValue{shape: &loadedCalc{Calc: &program.Calc{Sym: sym, Name: name}}}}
 	}
 	placementOf := func(source, target *CoordinateFrame, origin int64) *CoordinateTransformation {
 		return &CoordinateTransformation{Source: source, Target: target, Placement: &FramePlacement{
@@ -86,7 +87,7 @@ func kindSamples() map[ValueKind][2]Value {
 // two runs bind the names it closes over differently.
 func TestFunctionValueIdentity(t *testing.T) {
 	sym := &symbols.Symbol{Name: "inner"}
-	shape := &calcShape{Sym: sym, Name: "inner"}
+	shape := &loadedCalc{Calc: &program.Calc{Sym: sym, Name: "inner"}}
 	self := &Instance{ID: 7}
 	bare := func() Value { return Value{Kind: ValFunction, ref: &functionValue{shape: shape, self: self}} }
 	closing := func(run int64) Value {

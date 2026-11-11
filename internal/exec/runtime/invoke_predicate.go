@@ -3,10 +3,10 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // A constraint or requirement is a predicate (KerML §7.4.9; SysML v2 §7.19, §7.21):
@@ -14,26 +14,11 @@ import (
 // arguments bound to its subject and input parameters. A parameter left unbound
 // takes its default, evaluated where the predicate is declared.
 
-// isPredicateDecl reports a declaration an invocation applies as a predicate: a
-// constraint or requirement definition or usage, an objective among the latter.
-func isPredicateDecl(decl ast.Node) bool {
-	if _, ok := ast.OwnedConstraintOf(decl); ok {
-		return true
-	}
-	switch d := decl.(type) {
-	case *ast.Definition:
-		return d.Kind == ast.DefConstraint || d.Kind == ast.DefRequirement
-	case *ast.Usage:
-		return d.Kind == ast.UsageConstraint || d.Kind == ast.UsageRequirement || d.Kind == ast.UsageObjective
-	}
-	return false
-}
-
 // InvokePredicate applies a constraint or requirement to positional arguments
 // and reports whether its conditions hold.
 func (ctx *Context) InvokePredicate(sym *symbols.Symbol, args []Value, scope *symbols.Scope) (bool, error) {
 	defer ctx.beginRun()()
-	if sym == nil || !isPredicateDecl(sym.Decl) {
+	if sym == nil || !lower.IsPredicateDecl(sym.Decl) {
 		name := "<nil>"
 		if sym != nil {
 			name = ctx.QualifiedName(sym)
@@ -51,49 +36,14 @@ func (ctx *Context) InvokePredicate(sym *symbols.Symbol, args []Value, scope *sy
 	return result.Const.Bool, nil
 }
 
-// predicateKind names the kind of predicate sym declares, as verdicts name it.
-func predicateKind(sym *symbols.Symbol) string {
-	switch d := sym.Decl.(type) {
-	case *ast.Definition:
-		if d.Kind == ast.DefConstraint {
-			return "constraint"
-		}
-	case *ast.Usage:
-		switch d.Kind {
-		case ast.UsageConstraint:
-			return "constraint"
-		case ast.UsageObjective:
-			return "objective"
-		}
-	}
-	return "requirement"
-}
-
 // predicateShapeOf is the memoized invocation interface of the predicate sym:
 // its parameters, the subject first; its conditions stand for a body.
-func (ctx *Context) predicateShapeOf(sym *symbols.Symbol) *calcShape {
+func (ctx *Context) predicateShapeOf(sym *symbols.Symbol) *loadedCalc {
 	if cached, ok := ctx.model.predicateShapes[sym]; ok {
 		return cached
 	}
-	supers := ctx.model.semantics.MemberSources(sym)
-	chain := make([]*symbols.Symbol, 0, len(supers)+1)
-	for i := len(supers) - 1; i >= 0; i-- {
-		if supers[i] != nil && isPredicateDecl(supers[i].Decl) && !ctx.frameDeclared(supers[i]) {
-			chain = append(chain, supers[i])
-		}
-	}
-	chain = append(chain, sym)
-	name := ctx.QualifiedName(sym)
-	if sym.Name == "" {
-		// An anonymous usage answers to the name it redefines (`objective : MinimizeObjective;`).
-		name += ctx.model.semantics.EffectiveNameOf(sym)
-	}
-	shape := &calcShape{Sym: sym, Name: name, Kind: predicateKind(sym), Label: predicateKind(sym) + " " + name}
-	shape.Params = ctx.calcParameters(chain, &shape.Aliases)
-	shape.ParamNames = make([]string, len(shape.Params))
-	for i, param := range shape.Params {
-		shape.ParamNames[i] = param.Name
-	}
+	calc, trees := lower.ToPredicate(sym, ctx.calcEnv())
+	shape := ctx.loadCalc(calc, trees)
 	ctx.model.predicateShapes[sym] = shape
 	return shape
 }

@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"maps"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
@@ -107,7 +108,7 @@ func (ctx *Context) ObserveMonteCarlo(sym *symbols.Symbol, args AnalysisArgs, sc
 	if err != nil {
 		return nil, err
 	}
-	asUsage := args.Subject == nil && len(args.Positional) == 0 && len(args.Named) == 0 && isCalcUsageSymbol(sym)
+	asUsage := args.Subject == nil && len(args.Positional) == 0 && len(args.Named) == 0 && lower.IsCalcUsageSymbol(sym)
 	var calcArgs calcArgs
 	if !asUsage {
 		if calcArgs, err = shape.analysisArgs(args); err != nil {
@@ -242,7 +243,7 @@ func (ctx *Context) monteCarloObserved(run *calcRun) (Value, error) {
 }
 
 // monteCarloMember is the name the case's run binds the library feature under.
-func (ctx *Context) monteCarloMember(shape *calcShape, feature string) (string, bool) {
+func (ctx *Context) monteCarloMember(shape *loadedCalc, feature string) (string, bool) {
 	if ctx.model.resolver == nil || ctx.model.resolver.Index() == nil {
 		return "", false
 	}
@@ -546,10 +547,10 @@ func (r *MonteCarloRun) returnResults() error {
 	if !returned {
 		return nil
 	}
-	if out := run.shape.resultOutput(); out != nil && out.Name != "" {
+	if out := run.shape.ResultOutput(); out != nil && out.Name != "" {
 		run.outputs[out.Name] = result
 	} else if _, anonymous := run.shape.anonymousResult(); anonymous {
-		run.outputs[resultOutputName] = result
+		run.outputs[program.ResultOutputName] = result
 	}
 	run.result, run.returned = result, true
 	return nil

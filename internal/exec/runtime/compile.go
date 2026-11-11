@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
@@ -197,7 +198,7 @@ func (c *scalarCheck) refuse(ctx *Context, v scalar, what func() string) error {
 
 // compiledCalcOf answers the compiled body of shape, compiling it and every
 // calc it invokes on first ask, or nil when the shape is ineligible.
-func (ctx *Context) compiledCalcOf(shape *calcShape) *compiledCalc {
+func (ctx *Context) compiledCalcOf(shape *loadedCalc) *compiledCalc {
 	switch shape.compileState {
 	case compileEligible:
 		return shape.compiled
@@ -218,12 +219,15 @@ func (ctx *Context) compiledCalcOf(shape *calcShape) *compiledCalc {
 // trust, so the batch settles every call once each shape has an answer.
 type compileBatch struct {
 	ctx *Context
-	// callees records the shapes each member compiled a call to.
-	callees map[*calcShape][]*calcShape
+	// callees records the calcs each member compiled a call to; held is the
+	// runtime's record of every calc the batch decided or called.
+	callees map[*program.Calc][]*program.Calc
+	held    map[*program.Calc]*loadedCalc
 }
 
 // compile decides shape, compiling its callees first.
-func (b *compileBatch) compile(shape *calcShape) {
+func (b *compileBatch) compile(shape *loadedCalc) {
+	b.hold(shape)
 	// A tool-computed calc has no body to compile; callers settle to the evaluator.
 	if shape.Tool != nil {
 		shape.withdraw("computed by tool " + shape.Tool.tool)
@@ -240,18 +244,28 @@ func (b *compileBatch) compile(shape *calcShape) {
 }
 
 // withdraw keeps shape on the evaluator for good, for the reason given.
-func (shape *calcShape) withdraw(why string) {
+func (shape *loadedCalc) withdraw(why string) {
 	shape.compileState = compileIneligible
 	shape.compiled = nil
 	shape.ineligibleWhy = why
 }
 
-// call records that member compiled a call to callee.
-func (b *compileBatch) call(member, callee *calcShape) {
-	if b.callees == nil {
-		b.callees = map[*calcShape][]*calcShape{}
+// hold records the runtime's record of a calc the batch decides or calls.
+func (b *compileBatch) hold(shape *loadedCalc) {
+	if b.held == nil {
+		b.held = map[*program.Calc]*loadedCalc{}
 	}
-	b.callees[member] = append(b.callees[member], callee)
+	b.held[shape.Calc] = shape
+}
+
+// call records that member compiled a call to callee.
+func (b *compileBatch) call(member, callee *loadedCalc) {
+	if b.callees == nil {
+		b.callees = map[*program.Calc][]*program.Calc{}
+	}
+	b.hold(member)
+	b.hold(callee)
+	b.callees[member.Calc] = append(b.callees[member.Calc], callee.Calc)
 }
 
 // settle withdraws eligibility from every member calling an ineligible shape,
@@ -259,11 +273,13 @@ func (b *compileBatch) call(member, callee *calcShape) {
 func (b *compileBatch) settle() {
 	for changed := true; changed; {
 		changed = false
-		for member, callees := range b.callees {
+		for calc, callees := range b.callees {
+			member := b.held[calc]
 			if member.compileState != compileEligible {
 				continue
 			}
-			for _, callee := range callees {
+			for _, called := range callees {
+				callee := b.held[called]
 				if callee.compileState != compileEligible {
 					member.withdraw("callee " + callee.Name + " is ineligible")
 					changed = true
@@ -286,7 +302,7 @@ func ineligible(why string) error { return errors.New(why) }
 type calcCompiler struct {
 	batch *compileBatch
 	ctx   *Context
-	shape *calcShape
+	shape *loadedCalc
 	cell  *compiledCalc
 }
 
@@ -312,20 +328,20 @@ func (c *calcCompiler) compile(cell *compiledCalc) error {
 		if param.IsActor {
 			return ineligible(fmt.Sprintf("parameter %q is an actor, bound by name only", param.Name))
 		}
-		if param.Decl.statesCollection() {
+		if shape.paramDecls[i].statesCollection() {
 			return ineligible(fmt.Sprintf("parameter %q declares a multiplicity above one", param.Name))
 		}
-		check, ok := c.scalarCheckFor(&param.Decl)
+		check, ok := c.scalarCheckFor(&shape.paramDecls[i])
 		if !ok {
 			return ineligible(fmt.Sprintf("parameter %q declares a type outside the scalar lattice", param.Name))
 		}
 		cell.params[i] = compiledParam{name: param.Name, check: check}
-		if param.Default == nil {
+		if param.Default == 0 {
 			cell.required.add(i)
 			continue
 		}
 		scope := c.ctx.calcScope(param.Owner, shape.Sym, nil)
-		dflt, err := c.compileNode(param.Default, scope, newFrameLayout(shape.ParamNames, shape.Aliases, i))
+		dflt, err := c.compileNode(shape.Expr(param.Default), scope, newFrameLayout(shape.ParamNames, shape.Aliases, i))
 		if err != nil {
 			return err
 		}
@@ -335,11 +351,11 @@ func (c *calcCompiler) compile(cell *compiledCalc) error {
 		cell.params[i].dflt = dflt.expr()
 	}
 	var result *scalarCheck
-	if out := shape.resultOutput(); out != nil {
-		if out.Decl.statesCollection() {
+	if at := shape.ResultOutputIndex(); at >= 0 {
+		if shape.outputDecls[at].statesCollection() {
 			return ineligible("result declares a multiplicity above one")
 		}
-		check, ok := c.scalarCheckFor(&out.Decl)
+		check, ok := c.scalarCheckFor(&shape.outputDecls[at])
 		if !ok {
 			return ineligible("result declares a type outside the scalar lattice")
 		}
@@ -364,14 +380,14 @@ func (c *calcCompiler) compile(cell *compiledCalc) error {
 // the result parameter, whose errors the evaluator words as an output feature's.
 func (c *calcCompiler) compileResultBinding(cell *compiledCalc, layout *frameLayout, result *scalarCheck) error {
 	shape := c.shape
-	if shape.ResultExpr == nil {
+	if shape.resultExpr() == nil {
 		return ineligible("body without a result expression")
 	}
 	scope := c.ctx.calcScope(shape.Sym, shape.Sym, nil)
 	if err := plainScope(scope); err != nil {
 		return err
 	}
-	body, err := c.compileNode(shape.ResultExpr, scope, layout)
+	body, err := c.compileNode(shape.resultExpr(), scope, layout)
 	if err != nil {
 		return err
 	}
@@ -563,7 +579,7 @@ func (c *calcCompiler) compileQualifiedName(qn *ast.QualifiedName, scope *symbol
 		return nil, ineligible(fmt.Sprintf("qualified name %s does not resolve", qualifiedNameToString(qn)))
 	}
 	for _, part := range qn.Parts[1:] {
-		if isCalcUsageSymbol(sym) {
+		if lower.IsCalcUsageSymbol(sym) {
 			return nil, ineligible(fmt.Sprintf("qualified name %s reads a calc usage", qualifiedNameToString(qn)))
 		}
 		next, found := c.ctx.model.semantics.LookupMember(sym, part.Text)
@@ -780,7 +796,7 @@ func (c *calcCompiler) compileInvocation(n *ast.InvocationExpr, scope *symbols.S
 
 // compileCalcCall compiles a call of another eligible calc, the arguments
 // placed in its slots and its arity checked here rather than per call.
-func (c *calcCompiler) compileCalcCall(callee *calcShape, args *callArguments, scope *symbols.Scope, layout *frameLayout) (*cnode, error) {
+func (c *calcCompiler) compileCalcCall(callee *loadedCalc, args *callArguments, scope *symbols.Scope, layout *frameLayout) (*cnode, error) {
 	if callee.compileState == compileUndecided {
 		c.batch.compile(callee)
 	}
@@ -796,7 +812,7 @@ func (c *calcCompiler) compileCalcCall(callee *calcShape, args *callArguments, s
 		return nil, ineligible(fmt.Sprintf("%s: %v", callee.Name, err))
 	}
 	for i := range callee.Params {
-		if !bound.has(i) && callee.Params[i].Default == nil {
+		if !bound.has(i) && callee.Params[i].Default == 0 {
 			return nil, ineligible(fmt.Sprintf("%s called without an argument for %q", callee.Name, callee.Params[i].Name))
 		}
 	}

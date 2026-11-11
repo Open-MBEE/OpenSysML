@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -238,7 +239,7 @@ func (ctx *Context) declaredAlongAll(inst *Instance, paths [][]string) bool {
 // the requirement it references when the assertion states nothing of its own, so
 // two assertions of it about objects of one shape share; else the assertion.
 func sharedElement(a *SatisfyAssertion) *symbols.Symbol {
-	if a.Requirement != nil && !a.Negated && len(unwrappedDeclMembers(a.Symbol.Decl)) == 0 {
+	if a.Requirement != nil && !a.Negated && len(lower.UnwrappedDeclMembers(a.Symbol.Decl)) == 0 {
 		return a.Requirement
 	}
 	return a.Symbol

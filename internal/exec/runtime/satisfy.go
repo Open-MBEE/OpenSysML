@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"maps"
 	"slices"
 	"strings"
@@ -683,7 +684,7 @@ func (ctx *Context) chainSubject(a *SatisfyAssertion) (*Instance, error) {
 // which is how a `satisfy requirement r by p { require ... }` form carries one
 // without referencing another requirement.
 func (ctx *Context) declaresConditions(sym *symbols.Symbol) bool {
-	for _, node := range unwrappedDeclMembers(sym.Decl) {
+	for _, node := range lower.UnwrappedDeclMembers(sym.Decl) {
 		if len(ctx.appendConditions(nil, node, nil, true, false, nil)) > 0 {
 			return true
 		}

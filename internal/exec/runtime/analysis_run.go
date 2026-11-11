@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
@@ -10,85 +11,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// subjectDecl is a case's subject as its body declares it: the object the case
-// is about, which binds as the case's first input parameter (SysML v2 §7.21).
-type subjectDecl struct {
-	Name  string
-	Value ast.Node
-	Node  ast.Node
-}
-
-// subjectDeclaration reads a subject declaration, written as a subject member
-// (`subject s : T;`, `subject = expr;`) or a subject-kind usage.
-func subjectDeclaration(member ast.Node) (subjectDecl, bool) {
-	switch m := member.(type) {
-	case *ast.SubjectMember:
-		name, _ := m.EffectiveName()
-		return subjectDecl{Name: name, Value: m.BindingExpr, Node: m}, true
-	case *ast.Usage:
-		if m.Kind != ast.UsageSubject {
-			return subjectDecl{}, false
-		}
-		name, _ := ast.EffectiveName(m)
-		return subjectDecl{Name: name, Value: m.Value, Node: m}, true
-	}
-	return subjectDecl{}, false
-}
-
-// subjectParameter records link's subject among params: refining the subject an
-// earlier link declared, else inserting it first, the position a subject binds by.
-func (ctx *Context) subjectParameter(
-	params []calcParameter, index map[string]int, aliases *map[string]string,
-	link *symbols.Symbol, member ast.Node, subject subjectDecl,
-) []calcParameter {
-	sym := memberSymbol(DeclScope(link), member)
-	param := calcParameter{
-		Name: subject.Name, Default: subject.Value, Owner: link, IsSubject: true,
-		Sym:  sym,
-		Decl: ctx.calcMemberDeclOf(link, sym, subject.Name),
-	}
-	at := -1
-	for i := range params {
-		if params[i].IsSubject {
-			at = i
-			break
-		}
-	}
-	if at < 0 {
-		if seen, ok := ctx.redeclaredIndex(index, sym, subject.Name); ok {
-			at = seen
-		}
-	}
-	if at >= 0 {
-		// A redeclaration binding no value keeps the inherited binding; one
-		// declaring no name keeps the inherited name.
-		if param.Default == nil {
-			param.Default, param.Owner = params[at].Default, params[at].Owner
-		}
-		if param.Name == "" {
-			param.Name = params[at].Name
-		}
-		param.Decl = param.Decl.redeclaring(params[at].Decl)
-		if params[at].Name != param.Name {
-			*aliases = aliasRedefined(*aliases, params[at].Name, param.Name)
-			delete(index, params[at].Name)
-		}
-		params[at] = param
-		index[param.Name] = at
-		return params
-	}
-	if param.Name == "" {
-		param.Name = "subject"
-	}
-	for name, i := range index {
-		index[name] = i + 1
-	}
-	index[param.Name] = 0
-	return append([]calcParameter{param}, params...)
-}
-
 // subjectParameter is the parameter the case's subject binds to, if it declares one.
-func (shape *calcShape) subjectParameter() (*calcParameter, bool) {
+func (shape *loadedCalc) subjectParameter() (*program.CalcParam, bool) {
 	for i := range shape.Params {
 		if shape.Params[i].IsSubject {
 			return &shape.Params[i], true
@@ -100,7 +24,7 @@ func (shape *calcShape) subjectParameter() (*calcParameter, bool) {
 // enclosingSubject is the subject of the case whose body declares shape's usage,
 // which a nested case binding no subject of its own takes (SysML v2 §7.21.2):
 // read from the environment of the evaluation reading the usage.
-func (ctx *Context) enclosingSubject(shape *calcShape, enclosing *EvalContext) (Value, bool, error) {
+func (ctx *Context) enclosingSubject(shape *loadedCalc, enclosing *EvalContext) (Value, bool, error) {
 	if enclosing == nil {
 		return Value{}, false, nil
 	}
@@ -137,7 +61,7 @@ func enclosingBehavior(sym *symbols.Symbol) *symbols.Symbol {
 }
 
 // unboundSubject reports a case run with no object as its subject.
-func (shape *calcShape) unboundSubject(param *calcParameter) error {
+func (shape *loadedCalc) unboundSubject(param *program.CalcParam) error {
 	return &subjectUnboundError{Kind: shape.Kind, Element: shape.Name, Subject: param.Name}
 }
 
@@ -293,7 +217,7 @@ func (ctx *Context) runCase(sym *symbols.Symbol, args AnalysisArgs, scope *symbo
 	}
 	// Arguments the case cannot take refuse the request before anything runs:
 	// the case established nothing, so there is no partial run to report.
-	asUsage := args.Subject == nil && len(args.Positional) == 0 && len(args.Named) == 0 && isCalcUsageSymbol(sym)
+	asUsage := args.Subject == nil && len(args.Positional) == 0 && len(args.Named) == 0 && lower.IsCalcUsageSymbol(sym)
 	var calcArgs calcArgs
 	if !asUsage {
 		if calcArgs, err = shape.analysisArgs(args); err != nil {
@@ -342,13 +266,13 @@ func (ctx *Context) runCase(sym *symbols.Symbol, args AnalysisArgs, scope *symbo
 // it); otherwise it is the owner (over one found for the type), binding such a subject too. Given
 // none, the single object carrying the case, as a type-owned constraint is checked; a definition
 // with no object at all cannot run its case (ErrNeedsObject), the case being a feature of one.
-func (ctx *Context) casePerformer(shape *calcShape, args AnalysisArgs, self *Instance) (*Instance, AnalysisArgs, error) {
+func (ctx *Context) casePerformer(shape *loadedCalc, args AnalysisArgs, self *Instance) (*Instance, AnalysisArgs, error) {
 	owner := declaringType(shape.Sym)
 	if owner == nil {
 		return self, args, nil
 	}
-	subject, declared := shape.subjectParameter()
-	unbound := declared && subject.Default == nil
+	subject, declared := shape.SubjectParameter()
+	unbound := declared && subject.Default == 0
 	if unbound {
 		_, named := args.Named[subject.Name]
 		unbound = !named
@@ -410,7 +334,7 @@ func (ctx *Context) undecidedVerdicts(sym *symbols.Symbol, scope *symbols.Scope,
 // body once, unmemoized: arguments make it an invocation of its own, not the
 // evaluation the case's outputs answer from when read as features. deferResults
 // leaves the results ending the body for a Monte Carlo to evaluate over its sample.
-func (ctx *Context) analysisRun(shape *calcShape, reader *EvalContext, calcArgs calcArgs, deferResults bool) (*calcRun, error) {
+func (ctx *Context) analysisRun(shape *loadedCalc, reader *EvalContext, calcArgs calcArgs, deferResults bool) (*calcRun, error) {
 	key := calcUsageKey{sym: shape.Sym}
 	if reader.self != nil {
 		key.instance = reader.self.ID
@@ -428,23 +352,23 @@ func (ctx *Context) analysisRun(shape *calcShape, reader *EvalContext, calcArgs 
 // the inputs in declaration order — a defaulted one included, as a calc
 // invocation binds them; the subject is an object, so only Subject or a named
 // argument binds it.
-func (shape *calcShape) analysisArgs(args AnalysisArgs) (calcArgs, error) {
+func (shape *loadedCalc) analysisArgs(args AnalysisArgs) (calcArgs, error) {
 	named := make(map[string]Value, len(args.Named)+len(args.Positional)+1)
 	for name, value := range args.Named {
-		if !shape.hasParameter(name) {
+		if !shape.HasParameter(name) {
 			return calcArgs{}, fmt.Errorf("%w: %s has no input parameter %q", errUnknownParameter, shape.Label, name)
 		}
 		named[name] = value
 	}
 	if args.Subject != nil {
-		subject, ok := shape.subjectParameter()
+		subject, ok := shape.SubjectParameter()
 		if !ok {
 			return calcArgs{}, fmt.Errorf("%w: %s declares no subject to bind an object to",
 				errUnknownParameter, shape.Label)
 		}
 		named[subject.Name] = Value{Kind: ValInstance, Instance: args.Subject.ID}
 	}
-	open := make([]*calcParameter, 0, len(shape.Params))
+	open := make([]*program.CalcParam, 0, len(shape.Params))
 	for i := range shape.Params {
 		param := &shape.Params[i]
 		if _, bound := named[param.Name]; bound || param.IsSubject || param.IsActor {
@@ -465,7 +389,7 @@ func (shape *calcShape) analysisArgs(args AnalysisArgs) (calcArgs, error) {
 // boundSubject is the object the run's subject parameter holds, nil when the
 // case declares none or the binding names no object.
 func (run *calcRun) boundSubject(ctx *Context) *Instance {
-	param, ok := run.shape.subjectParameter()
+	param, ok := run.shape.SubjectParameter()
 	if !ok {
 		return nil
 	}
@@ -487,7 +411,7 @@ func (run *calcRun) outputValues(ctx *Context) ([]CalcOutputValue, error) {
 	for _, out := range run.shape.Outputs {
 		if out.Name == "" {
 			if run.returned {
-				values = append(values, CalcOutputValue{Name: resultOutputName, Value: run.result})
+				values = append(values, CalcOutputValue{Name: program.ResultOutputName, Value: run.result})
 			}
 			continue
 		}
@@ -498,7 +422,7 @@ func (run *calcRun) outputValues(ctx *Context) ([]CalcOutputValue, error) {
 		values = append(values, CalcOutputValue{Name: out.Name, Value: value})
 	}
 	if len(run.shape.Outputs) == 0 && run.returned {
-		values = append(values, CalcOutputValue{Name: resultOutputName, Value: run.result})
+		values = append(values, CalcOutputValue{Name: program.ResultOutputName, Value: run.result})
 	}
 	return values, nil
 }
@@ -584,7 +508,7 @@ func (ctx *Context) unboundObjectiveSubject(obj *symbols.Symbol, members []scope
 	var stated scopedExpr
 	unbound := make(map[string]bool)
 	for _, member := range members {
-		declared, ok := subjectDeclaration(member.node)
+		declared, ok := lower.SubjectDeclaration(member.node)
 		if !ok {
 			continue
 		}
@@ -666,8 +590,8 @@ func statedAsDefault(decl *symbols.Symbol) bool {
 
 // memberRole says what the run's member of that name is to the case, as a diagnostic
 // names it: its result, its subject, or the member by name.
-func (shape *calcShape) memberRole(name string) string {
-	if out := shape.resultOutput(); (out != nil && out.Name == name) || (out == nil && name == resultOutputName) {
+func (shape *loadedCalc) memberRole(name string) string {
+	if out := shape.ResultOutput(); (out != nil && out.Name == name) || (out == nil && name == program.ResultOutputName) {
 		return "result"
 	}
 	for _, param := range shape.Params {
@@ -687,10 +611,10 @@ func (run *calcRun) caseResult(bindings map[string]Value) (Value, bool) {
 // resultName is the name the run's result reads under: the one the case's result
 // parameter declares, or `result` for a result it leaves unnamed.
 func (run *calcRun) resultName() string {
-	if out := run.shape.resultOutput(); out != nil && out.Name != "" {
+	if out := run.shape.ResultOutput(); out != nil && out.Name != "" {
 		return out.Name
 	}
-	return resultOutputName
+	return program.ResultOutputName
 }
 
 // analysisChecks reports whether the case states an objective or asserts a
@@ -755,7 +679,7 @@ func (run *calcRun) bindingsFrame(ctx *Context) frame {
 	f := frame{vars: vars, perf: run.perf, owner: run.shape, run: run.env.run}
 	for _, body := range run.bodyFrames {
 		for name := range body.unvalued {
-			name = canonical(body.aliases, name)
+			name = program.Canonical(body.aliases, name)
 			if _, bound := vars[name]; !bound {
 				f.markUnvalued(name)
 			}
@@ -772,10 +696,10 @@ func (run *calcRun) bindings(ctx *Context) map[string]Value {
 	run.env.each(func(name string, value Value) { bindings[name] = value })
 	for _, body := range run.bodyFrames {
 		for name := range body.unvalued {
-			delete(bindings, canonical(body.aliases, name))
+			delete(bindings, program.Canonical(body.aliases, name))
 		}
 		for name, value := range body.vars {
-			bindings[canonical(body.aliases, name)] = value
+			bindings[program.Canonical(body.aliases, name)] = value
 		}
 	}
 	for _, out := range run.shape.Outputs {
@@ -788,7 +712,7 @@ func (run *calcRun) bindings(ctx *Context) map[string]Value {
 	}
 	if run.returned {
 		if out, err := run.shape.designatedOutput(); err != nil || out.Name == "" {
-			bindings[resultOutputName] = run.result
+			bindings[program.ResultOutputName] = run.result
 		}
 	}
 	return bindings

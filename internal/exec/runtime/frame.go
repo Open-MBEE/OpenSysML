@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"maps"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
@@ -32,7 +33,7 @@ type frame struct {
 	perf *actionFrame
 	// owner is the calc whose parameters, locals and outputs the frame binds, so a
 	// qualified name of one of its members (`MassCase::result`) reads the binding.
-	owner *calcShape
+	owner *loadedCalc
 	// lexical marks local statement bindings, which are not qualified members.
 	lexical bool
 	// write is the run's own write path for a feature the frame binds — checked
@@ -65,40 +66,13 @@ type firing struct {
 	payload map[string]Value
 }
 
-// canonical is the name aliases bind name under: its redefinition's, else its own.
-func canonical(aliases map[string]string, name string) string {
-	if alias, ok := aliases[name]; ok {
-		return alias
-	}
-	return name
-}
-
-// aliasRedefined records that name now binds the feature redefined was known by.
-// Aliases already pointing at redefined follow it to name.
-func aliasRedefined(aliases map[string]string, redefined, name string) map[string]string {
-	if redefined == "" || name == "" || redefined == name {
-		return aliases
-	}
-	if aliases == nil {
-		aliases = make(map[string]string)
-	}
-	for alias, target := range aliases {
-		if target == redefined {
-			aliases[alias] = name
-		}
-	}
-	aliases[redefined] = name
-	delete(aliases, name)
-	return aliases
-}
-
 // mapFrame is a frame holding vars alone.
 func mapFrame(vars map[string]Value) frame {
 	return frame{vars: vars}
 }
 
 // ownedFrame is a frame holding the values a run of owner bound, by name.
-func ownedFrame(owner *calcShape, vars map[string]Value) frame {
+func ownedFrame(owner *loadedCalc, vars map[string]Value) frame {
 	return frame{vars: vars, owner: owner}
 }
 
@@ -146,7 +120,7 @@ func (f frame) withVars(vars map[string]Value) frame {
 
 // lookup finds name in the frame: a slot binding it, else the map.
 func (f *frame) lookup(name string) (Value, bool) {
-	name = canonical(f.aliases, name)
+	name = program.Canonical(f.aliases, name)
 	if f.visible != nil && !f.visible[name] {
 		return Value{}, false
 	}
@@ -164,7 +138,7 @@ func (f *frame) lookup(name string) (Value, bool) {
 
 // read resolves a name and derives its body cell when the stored value is stale.
 func (f frame) read(ctx *Context, name string) (Value, bool, error) {
-	name = canonical(f.aliases, name)
+	name = program.Canonical(f.aliases, name)
 	if f.masked[name] || (f.visible != nil && !f.visible[name]) {
 		return Value{}, false, nil
 	}
@@ -230,7 +204,7 @@ func (f *frame) occurrenceValue(name string, valued bool) (Value, bool) {
 // hides reports whether the frame masks name or keeps it out of sight, so a read
 // of it passes to the frames outside.
 func (f *frame) hides(name string) bool {
-	name = canonical(f.aliases, name)
+	name = program.Canonical(f.aliases, name)
 	return f.masked[name] || (f.visible != nil && !f.visible[name])
 }
 
@@ -254,7 +228,7 @@ func (f *frame) markUnvalued(name string) {
 
 // set binds name: in its slot when the frame has one for it, else in the map.
 func (f frame) set(name string, value Value) {
-	name = canonical(f.aliases, name)
+	name = program.Canonical(f.aliases, name)
 	delete(f.unvalued, name)
 	if f.slots != nil && f.slots.set(name, value) {
 		return
@@ -264,7 +238,7 @@ func (f frame) set(name string, value Value) {
 
 // setBody writes through the frame's dependency cell when one is present.
 func (f frame) setBody(ctx *Context, name string, value Value) {
-	name = canonical(f.aliases, name)
+	name = program.Canonical(f.aliases, name)
 	delete(f.unvalued, name)
 	if f.slots != nil && f.slots.set(name, value) {
 		return
@@ -278,7 +252,7 @@ func (f frame) setBody(ctx *Context, name string, value Value) {
 
 // bindParam binds parameter i, named name: by position in the slots, else by name.
 func (f frame) bindParam(i int, name string, value Value) {
-	name = canonical(f.aliases, name)
+	name = program.Canonical(f.aliases, name)
 	delete(f.unvalued, name)
 	if f.slots != nil {
 		f.slots.bind(i, value)
@@ -291,14 +265,14 @@ func (f frame) bindParam(i int, name string, value Value) {
 func (f frame) each(fn func(name string, value Value)) {
 	if f.slots != nil {
 		f.slots.each(func(name string, value Value) {
-			name = canonical(f.aliases, name)
+			name = program.Canonical(f.aliases, name)
 			if !f.unvalued[name] && (f.visible == nil || f.visible[name]) {
 				fn(name, value)
 			}
 		})
 	}
 	for name, value := range f.vars {
-		name = canonical(f.aliases, name)
+		name = program.Canonical(f.aliases, name)
 		if !f.unvalued[name] && (f.visible == nil || f.visible[name]) {
 			fn(name, value)
 		}
@@ -308,14 +282,14 @@ func (f frame) each(fn func(name string, value Value)) {
 // visibleNames returns the visible names bound by the frame and its cells.
 func (f frame) visibleNames() map[string]bool {
 	names := make(map[string]bool, len(f.vars))
-	f.each(func(name string, _ Value) { names[canonical(f.aliases, name)] = true })
+	f.each(func(name string, _ Value) { names[program.Canonical(f.aliases, name)] = true })
 	if f.cells != nil {
 		for _, name := range f.cells.order {
-			names[canonical(f.aliases, name)] = true
+			names[program.Canonical(f.aliases, name)] = true
 		}
 	}
 	for name := range f.unvalued {
-		name = canonical(f.aliases, name)
+		name = program.Canonical(f.aliases, name)
 		if f.visible == nil || f.visible[name] {
 			names[name] = true
 		}

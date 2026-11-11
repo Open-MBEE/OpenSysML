@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"maps"
 	"slices"
 	"strings"
@@ -1100,7 +1101,7 @@ func TestHeldImageRefusesWhatItCannotCarry(t *testing.T) {
 
 	// A value closed over the run that made it names what no other context holds.
 	inBody := Value{Kind: ValFunction, ref: &functionValue{
-		shape:     &calcShape{Sym: &symbols.Symbol{Name: "inBody"}, Name: "inBody"},
+		shape:     &loadedCalc{Calc: &program.Calc{Sym: &symbols.Symbol{Name: "inBody"}, Name: "inBody"}},
 		enclosing: []frame{{vars: map[string]Value{"k": integerValue(1)}, run: 1}},
 	}}
 	src.instances[bulb.ID].FeatureValues["lamp"].Value = inBody
@@ -1163,7 +1164,7 @@ func TestHeldImageOfABehaviorlessClosureLeavesTheBusBe(t *testing.T) {
 		t.Fatalf("Instantiate(Plain): %v", err)
 	}
 	inBody := Value{Kind: ValFunction, ref: &functionValue{
-		shape:     &calcShape{Sym: &symbols.Symbol{Name: "inBody"}, Name: "inBody"},
+		shape:     &loadedCalc{Calc: &program.Calc{Sym: &symbols.Symbol{Name: "inBody"}, Name: "inBody"}},
 		enclosing: []frame{{vars: map[string]Value{"k": integerValue(1)}, run: 1}},
 	}}
 	src.PostMessage(Message{SignalType: "go", Payload: map[string]Value{"k": inBody}})
@@ -1208,7 +1209,7 @@ func TestHeldImageMaterializeFailsWhole(t *testing.T) {
 	}
 	sound := img.messages
 	inBody := Value{Kind: ValFunction, ref: &functionValue{
-		shape:     &calcShape{Sym: &symbols.Symbol{Name: "inBody"}, Name: "inBody"},
+		shape:     &loadedCalc{Calc: &program.Calc{Sym: &symbols.Symbol{Name: "inBody"}, Name: "inBody"}},
 		enclosing: []frame{{vars: map[string]Value{"k": integerValue(1)}, run: 1}},
 	}}
 	img.messages = append(slices.Clone(sound), Message{Object: bulb.ID, SignalType: "go", Payload: map[string]Value{"k": inBody}})

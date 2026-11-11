@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"math"
 	"testing"
 
@@ -466,9 +467,9 @@ func TestSetIsNotASequenceAsAMember(t *testing.T) {
 // runs, or two declarations of one name — take one position each, so equal
 // sets of functions enumerate alike whatever order they were written in.
 func TestFunctionsRenderedAlikeOrderByIdentity(t *testing.T) {
-	shape := &calcShape{Sym: &symbols.Symbol{Name: "scale"}, Name: "P::scale"}
-	twin := &calcShape{Sym: &symbols.Symbol{Name: "scale", DocName: "other"}, Name: "P::scale"}
-	fn := func(shape *calcShape, self *Instance, run int64) Value {
+	shape := &loadedCalc{Calc: &program.Calc{Sym: &symbols.Symbol{Name: "scale"}, Name: "P::scale"}}
+	twin := &loadedCalc{Calc: &program.Calc{Sym: &symbols.Symbol{Name: "scale", DocName: "other"}, Name: "P::scale"}}
+	fn := func(shape *loadedCalc, self *Instance, run int64) Value {
 		f := &functionValue{shape: shape, self: self}
 		if run != 0 {
 			f.enclosing = []frame{{vars: map[string]Value{"k": integerValue(1)}, run: run}}

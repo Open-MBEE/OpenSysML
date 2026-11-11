@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"maps"
 	"slices"
 	"sort"
@@ -447,7 +448,7 @@ func (ctx *Context) aliasRedefinitions(aliases *map[string]string, sym *symbols.
 				continue
 			}
 			seen[redefined] = true
-			*aliases = aliasRedefined(*aliases, redefined.Name, name)
+			*aliases = program.AliasRedefined(*aliases, redefined.Name, name)
 			visit(redefined)
 		}
 	}
@@ -469,7 +470,7 @@ func (f *actionFrame) declareUnvalued(name string, dir ast.FeatureDirection, isR
 
 // key is the name the performance holds name under: its redefinition's, else its own.
 func (f *actionFrame) key(name string) string {
-	return canonical(f.aliases, name)
+	return program.Canonical(f.aliases, name)
 }
 
 // beginPerformance starts a performance of node (of parent's flow, or a block's with locals bound),
@@ -777,14 +778,14 @@ type nodePins struct {
 
 // declares reports whether the pins hold name, under its own name or as a redefinition.
 func (p nodePins) declares(name string) bool {
-	_, ok := p.directions[canonical(p.aliases, name)]
+	_, ok := p.directions[program.Canonical(p.aliases, name)]
 	return ok
 }
 
 // admitsNoValueAt reports whether the performance's pin admits no value at all: a
 // flow out of it then carries nothing when the performance wrote it none.
 func (perf *actionFrame) admitsNoValueAt(pin string) bool {
-	return perf != nil && perf.optional[canonical(perf.aliases, pin)]
+	return perf != nil && perf.optional[program.Canonical(perf.aliases, pin)]
 }
 
 // nodePins returns the pins a performance of node holds. A call its arguments' values
@@ -1154,7 +1155,7 @@ func (e *performances) deliver(f *actionFrame, flow *lower.ActionGraph, node ast
 	if err := e.ctx.checkNamedWriteAs(flow.Scopes[node], func() string { return nodeDescription(node) }, pin, &value); err != nil {
 		return err
 	}
-	f.queue(node, canonical(pins.aliases, pin), value)
+	f.queue(node, program.Canonical(pins.aliases, pin), value)
 	return nil
 }
 
@@ -1362,7 +1363,7 @@ func (e *performances) streamFlow(
 		if err := e.ctx.checkNamedWriteAs(graph.Scopes[flow.Target], func() string { return nodeDescription(flow.Target) }, flow.TargetPin, &value); err != nil {
 			return fmt.Errorf("%s: %w", flowDescription(flow), err)
 		}
-		pin := canonical(pins.aliases, flow.TargetPin)
+		pin := program.Canonical(pins.aliases, flow.TargetPin)
 		from := flow.SourcePin
 		if perf != nil {
 			from = perf.key(from)

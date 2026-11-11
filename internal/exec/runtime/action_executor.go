@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"maps"
 	"slices"
 	"sort"
@@ -3758,7 +3759,7 @@ func (h Held) Features() []lower.Attribute {
 
 // Value is the value held under name: its redefinition's when name is redefined.
 func (h Held) Value(name string) (Value, bool) {
-	v, ok := h.data[canonical(h.aliases, name)]
+	v, ok := h.data[program.Canonical(h.aliases, name)]
 	return v, ok
 }
 
