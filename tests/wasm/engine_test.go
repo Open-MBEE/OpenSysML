@@ -77,11 +77,12 @@ func forbiddenEngineDependency(module, dependency string) bool {
 			return true
 		}
 	}
-	// ExecuteState's trace events come from queryexec; the document IR and backends stay out.
-	if hasDependencyPrefix(dependency, module+"/internal/doc") && dependency != module+"/internal/doc/queryexec" {
+	// RenderDocument writes Markdown, HTML and AsciiDoc; PDF drives converters the engine cannot run.
+	if hasDependencyPrefix(dependency, module+"/internal/doc/docpdf") {
 		return true
 	}
-	// The workspace pipeline belongs to the LSP and REPL.
+	// The workspace pipeline belongs to the LSP and REPL; the engine renders a
+	// document through internal/doc/docset, as the service does.
 	for _, prefix := range []string{
 		module + "/internal/workspace/model",
 		module + "/internal/workspace/modeldoc",
@@ -91,9 +92,10 @@ func forbiddenEngineDependency(module, dependency string) bool {
 			return true
 		}
 	}
-	// RDF is the only converter shared with the engine.
+	// RDF is the only converter shared with the engine; filename plans the
+	// files a rendered document set writes, which RenderDocument links by.
 	translate := module + "/internal/translate"
-	return hasDependencyPrefix(dependency, translate) && dependency != translate+"/rdf"
+	return hasDependencyPrefix(dependency, translate) && dependency != translate+"/rdf" && dependency != translate+"/filename"
 }
 
 func hasDependencyPrefix(dependency, prefix string) bool {
