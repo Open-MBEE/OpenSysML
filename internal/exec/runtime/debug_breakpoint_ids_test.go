@@ -53,3 +53,65 @@ func TestBreakpointAtResolvesNodesInTheirFlows(t *testing.T) {
 		t.Errorf("tokens = %v, want the one at choose, keyed by its id", tokens)
 	}
 }
+
+// A node of a deferred flow, the typed body of a step nested in its own type, is one a
+// breakpoint can name: the path unfolds the flow, as the performance running it does.
+func TestBreakpointAtUnfoldsADeferredFlow(t *testing.T) {
+	ctx, sym := loadAction(t, `package test {
+	action def Walk {
+		in depth = 3;
+		out reached = 0;
+		attribute visited = 1;
+		if depth > 0 {
+			action step : Walk { in depth = depth - 1; assign visited := visited + 1; }
+			then assign reached := step.reached + 1;
+		} else {
+			assign reached := 1;
+		}
+	}
+}`, "Walk")
+	exec, err := ctx.CreateActionExecutor(sym)
+	if err != nil {
+		t.Fatalf("CreateActionExecutor: %v", err)
+	}
+	graph := exec.Graph()
+	var step ast.Node
+	for _, node := range graph.Nodes {
+		for _, nested := range graph.BlockNodes[node] {
+			if ActionNodeName(nested) == "step" {
+				step = nested
+			}
+		}
+	}
+	if step == nil {
+		t.Fatalf("Walk's flow declares no step: %v", exec.NodeNames())
+	}
+	block, ok := locateNode(graph, step)
+	if !ok {
+		t.Fatalf("step is not located in a block flow of Walk's")
+	}
+	if inner := block.Graph.Subflows[step]; inner == nil || inner.Deferred == nil || inner.Graph != nil {
+		t.Fatalf("step's flow is not deferred: %+v", inner)
+	}
+
+	at := breakpointAt(t, exec, []ast.Node{step}, step)
+	if len(at.Within) != 1 || at.Within[0].Node() != step || at.Node.Node() != step || at.Node.Graph == at.Within[0].Graph {
+		t.Fatalf("BreakpointAt = %+v, want step by id in the block flow of the unfolded body, under step in Walk's", at)
+	}
+	exec.ReplaceBreakpointsAt([]NodeBreakpoint{at})
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("RunToCompletion: %v", err)
+	}
+	if got := exec.PausedAt(); got != "step" {
+		t.Fatalf("PausedAt() = %q, want step one level down", got)
+	}
+	if bp, ok := exec.PausedBreakpoint(); !ok || bp.Node != at.Node || !slices.Equal(bp.Within, at.Within) {
+		t.Errorf("PausedBreakpoint() = %+v, %v, want the breakpoint set, by the same ids", bp, ok)
+	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("RunToCompletion after the pause: %v", err)
+	}
+	if got := exec.PausedAt(); got != "" || !exec.State().Ended() {
+		t.Errorf("after resuming: PausedAt() = %q, state %v; want the run ended, the breakpoint firing once", got, exec.State())
+	}
+}

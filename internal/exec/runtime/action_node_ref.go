@@ -73,12 +73,14 @@ func (e *ActionExecutor) BreakpointAt(within []ast.Node, node ast.Node) (NodeBre
 	return NodeBreakpoint{Within: refs[:len(within)], Node: refs[len(within)]}, true
 }
 
-// nestedRef references node among those a performance of owner, a node of flow, holds
-// as its own: the nodes of the flow owner owns, or of the block flows of its body.
+// nestedRef references node among those a performance of owner, a node of flow, holds as
+// its own: the nodes of the flow owner owns (a deferred one unfolded), or of its body's block flows.
 func nestedRef(flow *lower.ActionGraph, owner, node ast.Node) (NodeRef, bool) {
-	if sub := flow.Subflows[owner]; sub != nil && sub.Graph != nil {
-		if ref, ok := locateNode(sub.Graph, node); ok {
-			return ref, true
+	if sub := flow.Subflows[owner]; sub != nil {
+		if graph, err := sub.Unfold(); err == nil {
+			if ref, ok := locateNode(graph, node); ok {
+				return ref, true
+			}
 		}
 	}
 	if block := lower.NestedFlow(flow, owner, node); block != nil {
