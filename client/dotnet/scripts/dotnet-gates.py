@@ -14,17 +14,16 @@ each measuring some handwritten library code under client/dotnet/src and none of
 the generated files named by --generated, which the run must exclude by path.
 There is no percentage threshold.
 
-`sample` runs the built Vehicle sample three times: with neither a service nor a binary named,
-when it must print exactly the --expect line; with $OPENSYSML_SERVICE naming a sysml-grpc the
-gate starts on a port the kernel chooses; and with $OPENSYSML_GRPC_BINARY alone naming the
-binary, which the sample starts as its private service. Each of the last two must also print
-the version that binary reports and its capability count, then the sedan it parsed, looked up
-and evaluated the redefined mass of. The binary is --binary or $OPENSYSML_GRPC_BINARY; without one the last two runs
-are skipped, unless $OPENSYSML_REQUIRE_SERVICE is set, which makes it a failure.
+`sample` runs the built Vehicle sample twice: with $OPENSYSML_SERVICE naming a sysml-grpc the
+gate starts on a port the kernel chooses, and with $OPENSYSML_GRPC_BINARY alone naming the
+binary, which the sample starts as its private service. Each run must print exactly the version
+that binary reports and its capability count, then the sedan it parsed, looked up and evaluated
+the redefined mass of. The binary is --binary or $OPENSYSML_GRPC_BINARY; without one the sample
+is not run, unless $OPENSYSML_REQUIRE_SERVICE is set, which makes it a failure.
 
 `metamodel-sample` runs the built MetamodelReader sample over the sysml-toolkit export the metamodel
 reader's tests read, with neither a service nor a binary named: it references the metamodel alone and
-needs neither. It must print exactly the --expect line, its metamodel identity, then what it read.
+needs neither. It must print exactly what it read.
 
 `conformance-check` holds a run of the .NET conformance runner to the reference runner's run of
 the same suite against the same service. Both reports must have the reference report's members in
@@ -80,7 +79,7 @@ GOLDENS_MANIFEST = os.path.join(REPO_ROOT, "client", "dotnet", "test", "testdata
 GENERATE_PROJECT = "client/dotnet/src/OpenMBEE.OpenSysML.Generate"
 METAMODEL_SAMPLE_PROJECT = "client/dotnet/samples/MetamodelReader"
 METAMODEL_SAMPLE_INPUT = "client/python/tests/fixtures/metamodel/bigger.full.json"
-# What the sample prints after its identity, each line a pattern: the metamodel release may change.
+# What the sample prints, each line a pattern: the metamodel release may change.
 METAMODEL_SAMPLE_LINES = (
     r"87 elements, 1 root namespace\(s\), metamodel [0-9]{8}",
     r"part def Base owns mass",
@@ -200,20 +199,16 @@ def _read_line(stream, timeout):
     return line[0] if line else None
 
 
-def _check_served(lines, expect, version, how):
+def _check_served(lines, version, how):
     pattern = rf"sysml-grpc {re.escape(version)}, [1-9][0-9]* capabilities"
-    if len(lines) != 3 or lines[0] != expect or not re.fullmatch(pattern, lines[1]) or lines[2] != SAMPLE_MODEL_LINE:
-        raise GateError(
-            f"{how}, the sample printed {lines!r}, not {expect!r}, "
-            f"a line matching {pattern!r} and {SAMPLE_MODEL_LINE!r}"
-        )
+    if len(lines) != 2 or not re.fullmatch(pattern, lines[0]) or lines[1] != SAMPLE_MODEL_LINE:
+        raise GateError(f"{how}, the sample printed {lines!r}, not a line matching {pattern!r} and {SAMPLE_MODEL_LINE!r}")
 
 
-def sample(expect, dotnet="dotnet", binary=None, project=SAMPLE_PROJECT, environ=None):
-    """Run the sample without a service, against one the gate starts, and against one it starts privately.
+def sample(dotnet="dotnet", binary=None, project=SAMPLE_PROJECT, environ=None):
+    """Run the sample against a service the gate starts, and against one it starts privately.
 
     Args:
-        expect (str): The line the sample prints first, its client identity
         dotnet (str): The dotnet host to run
         binary (str): The sysml-grpc binary; $OPENSYSML_GRPC_BINARY when None
         project (str): The sample project, relative to the repository root
@@ -229,10 +224,6 @@ def sample(expect, dotnet="dotnet", binary=None, project=SAMPLE_PROJECT, environ
     environ.pop(SERVICE_VARIABLE, None)
     binary = binary or environ.get(BINARY_VARIABLE)
     environ.pop(BINARY_VARIABLE, None)
-    lines = _run_sample(dotnet, project, environ)
-    if lines != [expect]:
-        raise GateError(f"with no service named, the sample printed {lines!r}, not {[expect]!r}")
-
     if not binary:
         if _required(environ):
             raise GateError(f"${REQUIRE_VARIABLE} is set, but ${BINARY_VARIABLE} names no sysml-grpc for the sample")
@@ -264,20 +255,19 @@ def sample(expect, dotnet="dotnet", binary=None, project=SAMPLE_PROJECT, environ
             service.wait()
         service.stdout.close()
 
-    _check_served(lines, expect, version, f"connected to sysml-grpc {version}")
+    _check_served(lines, version, f"connected to sysml-grpc {version}")
 
     private = dict(environ)
     private[BINARY_VARIABLE] = binary
     lines = _run_sample(dotnet, project, private)
-    _check_served(lines, expect, version, f"starting sysml-grpc {version} privately")
-    return lines[1]
+    _check_served(lines, version, f"starting sysml-grpc {version} privately")
+    return lines[0]
 
 
-def metamodel_sample(expect, dotnet="dotnet", project=METAMODEL_SAMPLE_PROJECT, environ=None):
+def metamodel_sample(dotnet="dotnet", project=METAMODEL_SAMPLE_PROJECT, environ=None):
     """Run the metamodel sample over the toolkit fixture, with no service or binary named.
 
     Args:
-        expect (str): The line the sample prints first, its metamodel identity
         dotnet (str): The dotnet host to run
         project (str): The sample project, relative to the repository root
         environ (dict): The environment to run in; this process's when None
@@ -286,13 +276,13 @@ def metamodel_sample(expect, dotnet="dotnet", project=METAMODEL_SAMPLE_PROJECT, 
         list[str]: The lines the sample printed
 
     Raises:
-        GateError: If the sample fails or prints anything but its identity and what the fixture holds
+        GateError: If the sample fails or prints anything but what the fixture holds
     """
     environ = dict(os.environ if environ is None else environ)
     environ.pop(SERVICE_VARIABLE, None)
     environ.pop(BINARY_VARIABLE, None)
     lines = _run_sample(dotnet, project, environ, [os.path.join(REPO_ROOT, METAMODEL_SAMPLE_INPUT)])
-    patterns = (re.escape(expect), *METAMODEL_SAMPLE_LINES)
+    patterns = METAMODEL_SAMPLE_LINES
     if len(lines) != len(patterns) or not all(re.fullmatch(p, line) for p, line in zip(patterns, lines)):
         raise GateError(f"reading {METAMODEL_SAMPLE_INPUT}, the sample printed {lines!r}, not lines matching {list(patterns)!r}")
     return lines
@@ -796,12 +786,10 @@ def main(argv=None):
     cov = commands.add_parser("coverage", help="check a coverage run's Cobertura reports")
     cov.add_argument("results_dir")
     cov.add_argument("--generated", nargs="*", default=[], help="generated file path suffixes the run excludes")
-    smp = commands.add_parser("sample", help="run the Vehicle sample without a service and against one")
-    smp.add_argument("--expect", required=True, help="the identity line the sample prints first")
+    smp = commands.add_parser("sample", help="run the Vehicle sample against a service the gate starts and a private one")
     smp.add_argument("--dotnet", default="dotnet", help="the dotnet host (default: dotnet on PATH)")
     smp.add_argument("--binary", help=f"the sysml-grpc binary (default: ${BINARY_VARIABLE})")
     mms = commands.add_parser("metamodel-sample", help="run the MetamodelReader sample over the toolkit fixture, without a service")
-    mms.add_argument("--expect", required=True, help="the identity line the sample prints first")
     mms.add_argument("--dotnet", default="dotnet", help="the dotnet host (default: dotnet on PATH)")
     chk = commands.add_parser("conformance-check", help="compare a .NET conformance run with the reference runner's")
     chk.add_argument("--report", required=True, help="the .NET runner's -report")
@@ -822,12 +810,11 @@ def main(argv=None):
             for project, added, removed in promote_api(check=args.check):
                 print(f"OK {project}: nothing unshipped" if args.check else f"OK {project}: shipped {added} entries, removed {removed}")
         elif args.command == "sample":
-            served = sample(args.expect, args.dotnet, args.binary)
-            print(f"OK {args.expect}")
-            print(f"OK {served}" if served else f"- no sysml-grpc configured (${BINARY_VARIABLE}); skipped the service run")
+            served = sample(args.dotnet, args.binary)
+            print(f"OK {served}" if served else f"- no sysml-grpc configured (${BINARY_VARIABLE}); skipped the sample")
         elif args.command == "metamodel-sample":
-            lines = metamodel_sample(args.expect, args.dotnet)
-            print(f"OK {lines[0]}: {lines[1]}")
+            lines = metamodel_sample(args.dotnet)
+            print(f"OK {lines[0]}")
         elif args.command == "goldens":
             for output in goldens(args.dotnet, args.check):
                 print(f"OK {output} {'is current' if args.check else 'regenerated'}")

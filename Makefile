@@ -88,7 +88,6 @@ DOTNET_DIR := client/dotnet
 DOTNET_SLN := $(DOTNET_DIR)/OpenSysML.slnx
 DOTNET_REPORTS := $(BIN_DIR)/dotnet
 DOTNET_MIN_TESTS := 3366
-DOTNET_CLIENT_VERSION = $(shell sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' $(DOTNET_DIR)/Directory.Build.props)
 # The typed-code generator, run from its Release build with the arguments a user gives it.
 DOTNET_GENERATE = $(DOTNET) run --project $(DOTNET_DIR)/src/OpenMBEE.OpenSysML.Generate -c Release --no-build --
 # The committed generated code, the buf output and the metamodel types, excluded from coverage by path and refused by its check.
@@ -749,10 +748,8 @@ dotnet-test: dotnet-build ## Check formatting, run the .NET client tests under c
 	mkdir -p $(DOTNET_REPORTS)/coverage
 	mv $(DOTNET_REPORTS)/test/*.cobertura*.xml $(DOTNET_REPORTS)/coverage/
 	$(PYTHON) $(DOTNET_DIR)/scripts/dotnet-gates.py coverage $(DOTNET_REPORTS)/coverage --generated $(DOTNET_GENERATED)
-	$(PYTHON) $(DOTNET_DIR)/scripts/dotnet-gates.py sample --dotnet "$(DOTNET)" \
-		--expect "OpenMBEE.OpenSysML $(DOTNET_CLIENT_VERSION) (.NETCoreApp,Version=v10.0)"
-	$(PYTHON) $(DOTNET_DIR)/scripts/dotnet-gates.py metamodel-sample --dotnet "$(DOTNET)" \
-		--expect "OpenMBEE.OpenSysML.Metamodel $(DOTNET_CLIENT_VERSION) (.NETCoreApp,Version=v10.0)"
+	$(PYTHON) $(DOTNET_DIR)/scripts/dotnet-gates.py sample --dotnet "$(DOTNET)"
+	$(PYTHON) $(DOTNET_DIR)/scripts/dotnet-gates.py metamodel-sample --dotnet "$(DOTNET)"
 	$(PYTHON) $(DOTNET_DIR)/scripts/dotnet-gates-test.py
 	$(PYTHON) scripts/sync-release-digests.py --check
 	@echo "✓ .NET client tests passed"

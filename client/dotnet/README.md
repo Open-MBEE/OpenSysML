@@ -76,15 +76,13 @@ ones: options, `Edit`s, `Value`s, `DocumentBinding`s, query constraints, and the
 [`samples/Vehicle`](samples/Vehicle/) is such a consumer, and the program the
 [.NET client guide](../../docs/clients/dotnet.md) walks through: a test holds the guide's code to
 the sample's walkthrough region and requires its complete run command, including the service-binary
-assignment. It prints the referenced assembly's version and target framework
-and, when `OPENSYSML_SERVICE` names a running service or `OPENSYSML_GRPC_BINARY` names a binary
-to start privately, what that service reports, then parses a vehicle model, checks its
-diagnostics, looks the sedan up and evaluates its redefined mass:
+assignment. It connects to the service `OPENSYSML_SERVICE` names, or starts the binary
+`OPENSYSML_GRPC_BINARY` names as a private service, prints what that service reports, then parses
+a vehicle model, checks its diagnostics, looks the sedan up and evaluates its redefined mass:
 
 ```bash
 make build-grpc
 OPENSYSML_GRPC_BINARY="$PWD/bin/sysml-grpc" dotnet run --project client/dotnet/samples/Vehicle -c Release
-# OpenMBEE.OpenSysML <version> (.NETCoreApp,Version=v10.0)
 # sysml-grpc <version>, <count> capabilities
 # Demo::sedan (partUsage): mass = 1800.0
 ```
@@ -1279,7 +1277,6 @@ foreach (var definition in graph.All<IPartDefinition>())
 
 ```bash
 dotnet run --project client/dotnet/samples/MetamodelReader -c Release -- client/python/tests/fixtures/metamodel/bigger.full.json
-# OpenMBEE.OpenSysML.Metamodel <version> (.NETCoreApp,Version=v10.0)
 # 87 elements, 1 root namespace(s), metamodel 20250201
 # part def Base owns mass
 # part def Vehicle owns mass2, wheel, p, cargo, a, c, s

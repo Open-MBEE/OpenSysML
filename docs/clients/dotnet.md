@@ -92,17 +92,15 @@ OPENSYSML_GRPC_BINARY="$PWD/bin/sysml-grpc" dotnet run --project client/dotnet/s
 ```
 
 Keep the binary setting when running the sample: with neither `OPENSYSML_SERVICE` nor
-`OPENSYSML_GRPC_BINARY` set, it prints only the assembly identity and exits without running the
-walkthrough.
+`OPENSYSML_GRPC_BINARY` set, the client looks for a `sysml-grpc` in the shared cache and on `PATH`,
+as [Connections and protocols](#connections-and-protocols) describes, and a checkout may have none.
 
 ```text
-OpenMBEE.OpenSysML <version> (.NETCoreApp,Version=v10.0)
 sysml-grpc <version>, <count> capabilities
 Demo::sedan (partUsage): mass = 1800.0
 ```
 
-The first line is the referenced assembly's version, the checkout's, and its target framework; the
-second is the version and capability count the service reports. With nothing named,
+The first line is the version and capability count the service reports. With nothing named,
 `Connection.OpenAsync` starts a private `sysml-grpc` as a child of the program and stops it when
 the connection is disposed. A source with errors still parses into a `Model`, whose `Errors`
 say what is wrong; `RequireNoErrors` turns them into an exception instead. Every failure the
