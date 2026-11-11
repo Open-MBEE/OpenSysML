@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -1343,7 +1344,7 @@ func (e *ActionExecutor) breakpointNameOf(within []NodeRef, node NodeRef) string
 		if name := ActionNodeName(node.Node()); name != "" {
 			return name
 		}
-		return nodeDescription(node.Node())
+		return node.Origin().String()
 	}
 	for _, name := range actionNodeNames(node.Node()) {
 		if e.breakpoints[name] {
@@ -2322,7 +2323,7 @@ func (e *ActionExecutor) enabledSuccessions(frame *actionFrame, node ast.Node) (
 
 	enabled := make([]lower.ActionEdge, 0, len(declared))
 	for _, edge := range declared {
-		holds, err := e.guardHolds(ec.evalIn(graph.DeclScope(edge.Decl)), node, edge.Guard)
+		holds, err := e.guardHolds(ec.evalIn(graph.DeclScope(edge.Decl)), graph, node, edge.Guard)
 		if err != nil {
 			return nil, err
 		}
@@ -2358,18 +2359,18 @@ func (e *ActionExecutor) falseGuardLeavesRepeated(graph *lower.ActionGraph, edge
 
 // guardHolds evaluates the guard a succession out of node carries; none is unconditional, and
 // one reading a feature with no value is not true, so it does not assert it (SysML v2 7.17.5).
-func (e *ActionExecutor) guardHolds(ec *EvalContext, node, guard ast.Node) (bool, error) {
+func (e *ActionExecutor) guardHolds(ec *EvalContext, graph *lower.ActionGraph, node, guard ast.Node) (bool, error) {
 	return e.ctx.guardUnderStatementOrders(guard, e.stepCount+1, ec.scope, func() (bool, error) {
 		result, err := guardResult(ec, guard)
 		if readsNoValue(err) {
 			return false, nil
 		}
 		if err != nil {
-			return false, fmt.Errorf("eval guard of %s: %w", nodeDescription(node), err)
+			return false, fmt.Errorf("eval guard of %s: %w", describeNode(graph, node), err)
 		}
 		if !result.isBool() {
 			return false, fmt.Errorf("%w: %s: guard must evaluate to boolean, got %v",
-				ErrTypeMismatch, nodeDescription(node), result.Kind)
+				ErrTypeMismatch, describeNode(graph, node), result.Kind)
 		}
 		return result.Const.Bool, nil
 	})
@@ -2822,7 +2823,7 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 			}
 		} else {
 			var err error
-			if holds, err = e.guardHolds(ec.evalIn(graph.DeclScope(edge.Decl)), decisionNode, edge.Guard); err != nil {
+			if holds, err = e.guardHolds(ec.evalIn(graph.DeclScope(edge.Decl)), graph, decisionNode, edge.Guard); err != nil {
 				return err
 			}
 		}
@@ -2843,7 +2844,7 @@ func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 		// is the run's own, so the run holds what evaluating it did.
 		if pick > 0 && successors[holding[pick]].Guard != nil {
 			picked := successors[holding[pick]]
-			holds, err := e.guardHolds(ec.evalIn(graph.DeclScope(picked.Decl)), decisionNode, picked.Guard)
+			holds, err := e.guardHolds(ec.evalIn(graph.DeclScope(picked.Decl)), graph, decisionNode, picked.Guard)
 			if err != nil {
 				return err
 			}
@@ -3508,7 +3509,7 @@ func (e *performances) applyDataFlows(
 			}
 			return fmt.Errorf(
 				"%w: %s: %s produced no value at %s",
-				errFlowSource, flowDescription(flow), nodeDescription(sourceNode), orAnyPin(flow.SourcePin),
+				errFlowSource, flowDescription(flow), describeNode(graph, sourceNode), orAnyPin(flow.SourcePin),
 			)
 		}
 		var err error
@@ -3572,13 +3573,12 @@ func orAnyPin(pin string) string {
 	return pin
 }
 
-// nodeDescription names an action node for a diagnostic, falling back to the
-// kind of node it is when the notation gave it no name.
-func nodeDescription(node ast.Node) string {
-	if name := ActionNodeName(node); name != "" {
-		return "node " + name
+// describeNode names a node of graph for a diagnostic, by its origin: `node a`, else `the if action`.
+func describeNode(graph *lower.ActionGraph, node ast.Node) string {
+	if graph == nil {
+		return program.Origin{}.String()
 	}
-	return fmt.Sprintf("the %T", node)
+	return graph.OriginOf(node).String()
 }
 
 // --- Public accessor methods for REPL debugging ---

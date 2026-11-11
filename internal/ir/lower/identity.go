@@ -1,11 +1,13 @@
 package lower
 
 import (
-	"fmt"
 	"sort"
 	"strconv"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -182,6 +184,7 @@ func (g *ActionGraph) assignIDs() {
 	g.Kinds = make([]program.NodeKind, 1, n)
 	g.Provenance.nodes = make([]ast.Node, 1, n)
 	paths := originPaths{}
+	elements := newElementIDs(g.Semantics(), g.resolver)
 	for _, node := range g.Nodes {
 		if _, seen := g.ID[node]; seen {
 			continue
@@ -191,11 +194,11 @@ func (g *ActionGraph) assignIDs() {
 		g.Provenance.nodes = append(g.Provenance.nodes, node)
 		kind := g.nodeKind(node)
 		g.Kinds = append(g.Kinds, kind)
-		g.Origins = append(g.Origins, g.nodeOrigin(node, kind, paths))
+		g.Origins = append(g.Origins, g.nodeOrigin(node, kind, paths, elements))
 	}
 }
 
-func (g *ActionGraph) nodeOrigin(node ast.Node, kind program.NodeKind, paths originPaths) program.Origin {
+func (g *ActionGraph) nodeOrigin(node ast.Node, kind program.NodeKind, paths originPaths, elements *elementIDs) program.Origin {
 	scope := g.DeclScope(node)
 	var sym *symbols.Symbol
 	if scope != nil {
@@ -203,22 +206,70 @@ func (g *ActionGraph) nodeOrigin(node ast.Node, kind program.NodeKind, paths ori
 	}
 	name := originName(node)
 	return program.Origin{
-		Doc:  symbols.DocNameOf(scope),
-		Span: node.Span(),
-		Path: paths.unique(originPath(scope, sym, name, kind.String())),
-		Kind: fmt.Sprintf("%T", node),
-		Name: name,
+		Doc:     symbols.DocNameOf(scope),
+		Span:    node.Span(),
+		Path:    paths.unique(originPath(scope, sym, name, kind.String())),
+		Element: elements.of(sym),
+		Kind:    kind.Word(),
+		Name:    name,
 	}
+}
+
+// OriginOf is the origin of a node of the graph; the zero Origin for one the graph does not index.
+func (g *ActionGraph) OriginOf(node ast.Node) program.Origin {
+	if id, ok := g.ID[node]; ok {
+		return g.Origins[id]
+	}
+	return program.Origin{}
+}
+
+// elementIDs derives the element ids of a graph's declarations; nil derives none,
+// for a graph lowered without the name-resolution tier's resolver.
+type elementIDs struct {
+	lookup *identity.Lookup
+}
+
+func newElementIDs(sem *semantics.Model, res *resolve.Resolver) *elementIDs {
+	if sem == nil || res == nil {
+		return nil
+	}
+	return &elementIDs{lookup: identity.NewLookup(sem, res)}
+}
+
+// of is the element id of the declaration sym stands for, "" when none is known.
+func (e *elementIDs) of(sym *symbols.Symbol) string {
+	if e == nil || sym == nil {
+		return ""
+	}
+	if info, ok := e.lookup.Of(sym); ok {
+		return info.EffectiveID
+	}
+	return ""
 }
 
 // assignIDs gives every state, region, pseudostate and transition of the graph
 // its id, dense from 1 in declaration order, and the origin beside it.
 func (g *StateGraph) assignIDs() {
 	paths := originPaths{}
-	g.assignStateIDs(paths)
+	elements := newElementIDs(g.Semantics(), g.resolver)
+	g.assignStateIDs(paths, elements)
 	g.assignRegionIDs(paths)
-	g.assignPseudoIDs(paths)
+	g.assignPseudoIDs(paths, elements)
 	g.assignTransIDs(paths)
+	g.assignEntryOrigins()
+}
+
+// assignEntryOrigins gives each entry transition its origin and the text of the
+// source it was written from, so a run names it without its declaration.
+func (g *StateGraph) assignEntryOrigins() {
+	for _, transitions := range g.EntryTransitions {
+		for _, entry := range transitions {
+			entry.Origin = program.Origin{Doc: g.DocOf(entry.Decl), Span: entry.Decl.Span(), Kind: "entry transition"}
+			if member, ok := entry.Decl.(*ast.TransitionMember); ok && member.Source != nil {
+				entry.SourceText = EndpointText(member.Source)
+			}
+		}
+	}
 }
 
 // statesInOrder lists the graph's states once each: States in order, then the
@@ -249,7 +300,7 @@ func (g *StateGraph) statesInOrder() []*ast.StateNode {
 	return out
 }
 
-func (g *StateGraph) assignStateIDs(paths originPaths) {
+func (g *StateGraph) assignStateIDs(paths originPaths, elements *elementIDs) {
 	states := g.statesInOrder()
 	n := len(states) + 1
 	g.ID = make(map[*ast.StateNode]program.StateID, len(states))
@@ -271,7 +322,7 @@ func (g *StateGraph) assignStateIDs(paths originPaths) {
 				scope, sym = declared, declared.MemberDeclaring(state)
 			}
 		}
-		g.Origins = append(g.Origins, g.vertexOrigin(state, scope, sym, state.Name, paths))
+		g.Origins = append(g.Origins, g.vertexOrigin(state, scope, sym, state.Name, paths, elements))
 	}
 }
 
@@ -317,7 +368,7 @@ func (g *StateGraph) assignRegionIDs(paths originPaths) {
 	}
 }
 
-func (g *StateGraph) assignPseudoIDs(paths originPaths) {
+func (g *StateGraph) assignPseudoIDs(paths originPaths, elements *elementIDs) {
 	n := len(g.Pseudostates) + 1
 	g.PseudoID = make(map[*ast.PseudostateNode]program.PseudoID, len(g.Pseudostates))
 	g.PseudoOrigins = make([]program.Origin, 1, n)
@@ -333,18 +384,19 @@ func (g *StateGraph) assignPseudoIDs(paths originPaths) {
 		if scope != nil {
 			sym = scope.MemberDeclaring(ps)
 		}
-		g.PseudoOrigins = append(g.PseudoOrigins, g.vertexOrigin(ps, scope, sym, ps.Name, paths))
+		g.PseudoOrigins = append(g.PseudoOrigins, g.vertexOrigin(ps, scope, sym, ps.Name, paths, elements))
 	}
 }
 
-func (g *StateGraph) vertexOrigin(decl ast.Node, scope *symbols.Scope, sym *symbols.Symbol, name string, paths originPaths) program.Origin {
+func (g *StateGraph) vertexOrigin(decl ast.Node, scope *symbols.Scope, sym *symbols.Symbol, name string, paths originPaths, elements *elementIDs) program.Origin {
 	kind := VertexKind(decl)
 	return program.Origin{
-		Doc:  g.DocOf(decl),
-		Span: decl.Span(),
-		Path: paths.unique(originPath(scope, sym, name, kind)),
-		Kind: kind,
-		Name: name,
+		Doc:     g.DocOf(decl),
+		Span:    decl.Span(),
+		Path:    paths.unique(originPath(scope, sym, name, kind)),
+		Element: elements.of(sym),
+		Kind:    kind,
+		Name:    name,
 	}
 }
 

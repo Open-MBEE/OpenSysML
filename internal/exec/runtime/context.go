@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -137,7 +138,7 @@ type Context struct {
 	// resolvingBindings guards binding endpoint resolution for one instance
 	// feature, so a valueless binding cycle is reported rather than recursed.
 	resolvingBindings map[featureValueRef]bool
-	bindingOwners     map[featureValueRef]*ast.Usage
+	bindingOwners     map[featureValueRef]program.Origin
 
 	// pendingBehaviors are the object behaviors attached but not yet run, drained
 	// by the outermost materialization so a start reached from inside a running
@@ -464,7 +465,7 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		materializingConnectors: make(map[connectorRef]bool),
 		derivingFeatureValues:   make(map[featureValueRef]bool),
 		resolvingBindings:       make(map[featureValueRef]bool),
-		bindingOwners:           make(map[featureValueRef]*ast.Usage),
+		bindingOwners:           make(map[featureValueRef]program.Origin),
 		collectingSubsets:       make(map[featureValueRef]bool),
 		readingSubsetted:        make(map[featureValueRef]bool),
 		drawingSubsetters:       make(map[featureValueRef]bool),
@@ -494,11 +495,11 @@ func (ctx *Context) declaredSymbol(sym *symbols.Symbol) *symbols.Symbol {
 	return ctx.model.declaredSymbol(sym)
 }
 
-// collectDeclared records the symbol declared by each node under scope.
-func collectDeclared(scope *symbols.Scope, into map[ast.Node]*symbols.Symbol) {
+// collectDeclared records the symbol declaring each element under scope, by the element's key.
+func collectDeclared(scope *symbols.Scope, into map[symbols.ElementKey]*symbols.Symbol) {
 	scope.ForEachMember(func(sym *symbols.Symbol) bool {
 		if sym.Decl != nil {
-			into[sym.Decl] = sym
+			into[symbols.KeyOf(sym)] = sym
 		}
 		return true
 	})

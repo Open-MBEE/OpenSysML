@@ -213,8 +213,24 @@ func Build(model *semantics.Model, res *resolve.Resolver, roots ...*symbols.Scop
 // Of computes the identity of one symbol without building a whole table; ok
 // is false for a symbol that has no qualified name to derive an id from.
 func Of(model *semantics.Model, res *resolve.Resolver, sym *symbols.Symbol) (*Info, bool) {
-	b := newBuilder(model, res)
-	info := b.infoOf(sym)
+	return NewLookup(model, res).Of(sym)
+}
+
+// Lookup computes identities one symbol at a time, sharing between them what Of
+// would rebuild per call (the library catalog); for a graph's worth of symbols.
+type Lookup struct {
+	b *builder
+}
+
+// NewLookup is a Lookup over the model and resolver.
+func NewLookup(model *semantics.Model, res *resolve.Resolver) *Lookup {
+	return &Lookup{b: newBuilder(model, res)}
+}
+
+// Of is the identity of one symbol; ok is false for a symbol that has no
+// qualified name to derive an id from.
+func (l *Lookup) Of(sym *symbols.Symbol) (*Info, bool) {
+	info := l.b.infoOf(sym)
 	return info, info != nil
 }
 

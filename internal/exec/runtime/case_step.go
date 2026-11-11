@@ -34,7 +34,7 @@ func stepSymbol(flow *lower.ActionGraph, node ast.Node) (*symbols.Symbol, *symbo
 func caseStepSymbol(flow *lower.ActionGraph, node ast.Node) (*symbols.Symbol, *symbols.Scope, error) {
 	sym, declaring := stepSymbol(flow, node)
 	if sym == nil || !isCalcUsageSymbol(sym) {
-		return nil, nil, fmt.Errorf("%w: %s is not resolved to a case", errNotACalcUsage, nodeDescription(node))
+		return nil, nil, fmt.Errorf("%w: %s is not resolved to a case", errNotACalcUsage, describeNode(flow, node))
 	}
 	return sym, declaring, nil
 }
@@ -75,7 +75,7 @@ func (e *performances) performCase(perf *actionFrame) error {
 		f = &caseStepFrame{endStep: endStep}
 		if f.start, f.run, err = e.ctx.beginCalcUsage(reader, sym); err != nil {
 			endStep()
-			return fmt.Errorf("%s: %w", nodeDescription(perf.node), err)
+			return fmt.Errorf("%s: %w", describeNode(perf.flow, perf.node), err)
 		}
 	}
 	if f.run == nil {
@@ -87,7 +87,7 @@ func (e *performances) performCase(perf *actionFrame) error {
 		}
 		if err != nil {
 			f.endStep()
-			return fmt.Errorf("%s: %w", nodeDescription(perf.node), err)
+			return fmt.Errorf("%s: %w", describeNode(perf.flow, perf.node), err)
 		}
 		f.run = run
 	}
@@ -95,7 +95,7 @@ func (e *performances) performCase(perf *actionFrame) error {
 	run := f.run
 	outputs, err := run.outputValues(e.ctx)
 	if err != nil {
-		return fmt.Errorf("%s: %w", nodeDescription(perf.node), err)
+		return fmt.Errorf("%s: %w", describeNode(perf.flow, perf.node), err)
 	}
 	for _, out := range outputs {
 		perf.features[out.Name] = ast.DirOut
