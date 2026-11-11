@@ -89,3 +89,59 @@ func unwrapped(node ast.Node) ast.Node {
 	}
 	return node
 }
+
+// The predicate agrees with the parser for every definition and usage kind: a bodied `then` parses clean
+// exactly where SuccessionAdmitsBody says its owner admits one — a case or calculation body as an action's.
+func TestSuccessionAdmitsBodyAgreesWithTheParser(t *testing.T) {
+	check := func(t *testing.T, label, src string) {
+		t.Helper()
+		p := New(source.New("p.sysml", []byte(src)))
+		edge, owner := firstBodiedThen(p.ParseFile().Members)
+		if edge == nil {
+			return // the kind's body has no `then` member at all
+		}
+		if got, want := ast.SuccessionAdmitsBody(owner, edge), len(p.Diagnostics) == 0 && edge.HasBody; got != want {
+			t.Errorf("%s: SuccessionAdmitsBody = %v, the parser reads the body clean = %v", label, got, want)
+		}
+	}
+	member := func(kw string) string {
+		if kw == "state" || kw == "exhibit" {
+			return "state"
+		}
+		return "item"
+	}
+	for kw := range definitionKindKeywords {
+		m := member(kw)
+		check(t, kw+" def", "package P { "+kw+" def X { "+m+" a; then b { doc /* d */ } "+m+" b; } }")
+	}
+	for kw := range usageKindKeywords {
+		m := member(kw)
+		check(t, kw+" usage", "package P { part def H { "+kw+" x { "+m+" a; then b { doc /* d */ } "+m+" b; } } }")
+	}
+}
+
+// firstBodiedThen is the first `then` edge among a definition's or usage's members, with that owner.
+func firstBodiedThen(nodes []ast.Node) (*ast.SuccessionEdge, ast.Node) {
+	for _, n := range nodes {
+		var members []ast.Node
+		switch d := unwrapped(n).(type) {
+		case *ast.Package:
+			return firstBodiedThen(d.Members)
+		case *ast.Definition:
+			members = d.Members
+		case *ast.Usage:
+			members = d.Members
+		default:
+			continue
+		}
+		for _, m := range members {
+			if edge, ok := m.(*ast.SuccessionEdge); ok {
+				return edge, unwrapped(n)
+			}
+		}
+		if edge, owner := firstBodiedThen(members); edge != nil {
+			return edge, owner
+		}
+	}
+	return nil, nil
+}

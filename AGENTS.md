@@ -29,7 +29,7 @@ make build            # build bin/sysml and bin/sysml-lsp (with version ldflags)
 make build-sysml      # REPL binary only
 make build-lsp        # LSP binary only
 make test             # full suite: go test -race -coverprofile ... ./...
-make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-fixtures|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli)
+make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-library|export-examples|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli)
 make test-quick SHARDS="rest grpc"  # the same shards without -race, in turn: what a pull-request push runs
 make test-short       # faster, no race detector
 make clean            # remove build artifacts
@@ -216,6 +216,11 @@ the full CI tier is expensive, so run them locally before the PR, every time the
    into `docs/project/pilot-differential.md` / `api-json-differential.md`, then re-record with
    `-update` and run `make docs-counts`. A library change that adds declarations always moves
    `pilotLibraryElements`; anything else moving is an implementation difference to explain.
+   The api-json record's figures (the scorecard headline, the per-root table and the figure
+   columns of its gap tables) are `<!-- doc-counts:begin apijson-… -->` blocks the site build
+   renders from the baseline (`go run -C tools ./cmd/pilot-apijson-diff -site-blocks`), so the
+   page is edited only for the adjudication; `TestRecordStatesTheBaselinesFigures` refuses a
+   figure typed into one.
 ### 6.2 Changing `internal/translate/export`: the api-json differential
 
 The api-json baseline is the directory `docs/project/api-json-differential/`: one fragment per
@@ -235,7 +240,8 @@ workflow's `apijson-differential` job runs `go run -C tools ./cmd/pilot-apijson-
 every change under the writer, the referee, the bridge, the pin or the baseline. Before pushing
 such a commit, run `go run -C tools ./cmd/pilot-apijson-diff` over the real corpus directories
 (`-check` to confirm the baseline reproduces); if a bucket moved, adjudicate it in
-`docs/project/api-json-differential.md`, re-record with `-update` and run `make docs-counts`.
+`docs/project/api-json-differential.md` (prose and the keyed rows of its gap tables; the figures
+render from the baseline when the site builds), re-record with `-update` and run `make docs-counts`.
 Never re-record a baseline whose figures did not move: its provenance lines change only on a pin
 bump, an errata change or an edit to a compared input.
 

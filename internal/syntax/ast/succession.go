@@ -28,19 +28,15 @@ func SuccessionAdmitsBody(owner, edge Node) bool {
 	case *SuccessionEdge:
 		return true
 	case *Definition:
-		switch d.Kind {
-		case DefAction, DefBehavior:
-			return true
-		case DefState:
+		if d.Kind == DefState {
 			return IsStateTargetTransition(owner, edge)
 		}
+		return d.Kind.HasActionBodyItems()
 	case *Usage:
-		switch d.Kind {
-		case UsageAction, UsageTransition, UsageStep, UsageBehavior:
-			return true
-		case UsageState:
+		if d.Kind == UsageState {
 			return IsStateTargetTransition(owner, edge)
 		}
+		return d.Kind.HasActionBodyItems()
 	}
 	return false
 }
