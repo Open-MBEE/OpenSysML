@@ -1,14 +1,18 @@
 package mcp
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
+	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/oauthex"
+
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/catalog"
 )
 
 // wellKnownPrefix heads the protected resource metadata path (RFC 9728 § 3):
@@ -84,20 +88,33 @@ func (t BearerToken) PublicURL() string {
 	return t.public.String()
 }
 
-// Handler requires Authorization: Bearer TOKEN of every request (RFC 6750
-// § 2.1), answering 401 with a challenge or 400 otherwise; no token serves next.
+// Handler requires Authorization: Bearer TOKEN of every request (RFC 6750 § 2.1),
+// 401 or 400 otherwise, and serves next as the token's all-scopes principal; no token serves next.
 func (t BearerToken) Handler(next http.Handler) http.Handler {
 	if !t.Set() {
 		return next
 	}
+	chain := guard.Chain{guard.NewStaticToken(t.Token, catalog.ScopeNames()...)}
+	next = carryPrincipal(next)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if refusal := t.Check(r.Header.Get("Authorization")); refusal != guard.Accepted {
+		p, refusal := chain.Verify(r.Context(), r.Header.Get("Authorization"), r)
+		if refusal != guard.Accepted {
 			t.challenge(w, r, refusal)
 			return
 		}
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(w, r.WithContext(guard.WithPrincipal(r.Context(), p)))
 	})
 }
+
+// carryPrincipal is the SDK's bearer middleware over a request already verified:
+// it lifts the context's principal into the TokenInfo the SDK binds the session to.
+var carryPrincipal = auth.RequireBearerToken(func(ctx context.Context, _ string, _ *http.Request) (*auth.TokenInfo, error) {
+	p, ok := guard.PrincipalFrom(ctx)
+	if !ok {
+		return nil, auth.ErrInvalidToken
+	}
+	return TokenInfoFor(p), nil
+}, &auth.RequireBearerTokenOptions{AllowMissingExpiration: true})
 
 // challenge writes the refusal with the WWW-Authenticate header naming the
 // metadata and the RFC 6750 § 3.1 error code (none when nothing was presented).
