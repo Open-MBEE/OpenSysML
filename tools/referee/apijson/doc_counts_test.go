@@ -14,15 +14,12 @@ import (
 
 var (
 	docHeadlinePattern = regexp.MustCompile(`^\*\*Scorecard:\*\* ([0-9]+) files; ([0-9]+) elements matched \(([0-9]+) ours-only, ([0-9]+) pilot-only, ([0-9]+) of them implied\); properties: ([0-9]+) present-equal, ([0-9]+) present-different, ([0-9]+) ours-missing, ([0-9]+) pilot-missing, ([0-9]+) absent-both, ([0-9]+) indeterminate, ([0-9]+) pilot-nondeterministic\.$`)
-	// docGapRowPattern matches a launch-ready gap row: rank, metaclass,
-	// property, ours-missing, present-different, then the adjudication.
+	// docGapRowPattern matches a launch-ready gap row up to its two figures.
 	docGapRowPattern = regexp.MustCompile("^\\| ([0-9]+) \\| `([A-Za-z]+)` \\| `([A-Za-z]+)` \\| ([0-9]+) \\| ([0-9]+) \\| ")
 )
 
-// TestRecordStatesTheBaselinesFigures holds the record to the committed baseline
-// through the generator: the committed page states no headline and no gap
-// figure, and the page as the site renders it states the baseline's totals,
-// every root's row and the launch-ready gaps ranked by ours-missing.
+// TestRecordStatesTheBaselinesFigures holds the record to the baseline through the
+// generator: the tree states no figure, the rendered page states the baseline's.
 func TestRecordStatesTheBaselinesFigures(t *testing.T) {
 	root, err := repo.Choose("")
 	if err != nil {
@@ -101,9 +98,8 @@ func TestRecordStatesTheBaselinesFigures(t *testing.T) {
 	}
 }
 
-// TestRenderBlocksFillsTheFiguresAndRefusesACommittedOne pins the generator on
-// a small report: figure columns come from the baseline, the ranked table is
-// sorted and numbered, and a figure or an unknown row in the tree is an error.
+// TestRenderBlocksFillsTheFiguresAndRefusesACommittedOne pins the rendering on a
+// small report and the refusals: a figure in the tree, an unknown row, bad markers.
 func TestRenderBlocksFillsTheFiguresAndRefusesACommittedOne(t *testing.T) {
 	report := Report{Roots: []RootReport{{Dir: "examples", Files: 2}}}
 	report.Totals.Files = 2

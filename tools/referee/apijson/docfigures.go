@@ -11,16 +11,12 @@ import (
 	"strings"
 )
 
-// recordPath is the page that adjudicates the differential. Its figures are
-// not committed: the page carries doc-counts blocks naming what each states,
-// and the documentation build renders them from the committed baseline, so a
-// re-recording moves the baseline alone and two branches re-recording it never
-// conflict on a restated number.
+// recordPath is the page adjudicating the differential; its figures are doc-counts
+// blocks the documentation build renders from the baseline, never committed.
 const recordPath = "docs/project/api-json-differential.md"
 
-// The record's blocks. The scorecard and roots blocks hold a sentence in the
-// tree; the table blocks hold the hand-written adjudication rows, keyed by
-// (metaclass, property), whose figure columns the build fills in.
+// The record's blocks: a sentence in the tree for the scorecard and the roots,
+// the hand-written rows keyed by (metaclass, property) for the tables.
 const (
 	scorecardBlock        = "apijson-scorecard"
 	rootsBlock            = "apijson-roots"
@@ -35,9 +31,8 @@ var bucketColumns = map[string]int{
 	"absent-both": 4, "indeterminate": 5, "pilot-nondeterministic": 6,
 }
 
-// tableBlock is a keyed table: the committed rows carry the key and the
-// hand-written columns, the figure columns are rendered after the key, and a
-// ranked table is sorted by one of them and numbered.
+// tableBlock is a keyed table: committed rows carry the key and the written
+// columns; figures render after the key, and a ranked table is sorted and numbered.
 type tableBlock struct {
 	name    string
 	written []string
@@ -71,8 +66,7 @@ func readCommittedReport(checkout string) (Report, error) {
 }
 
 // RenderSiteBlocks renders the record's blocks from the committed baseline and
-// the record's own adjudication rows, by page and then by block name, the way
-// doc-counts -site-blocks prints the blocks it renders.
+// the record's own rows, by page then block name, as doc-counts -site-blocks does.
 func RenderSiteBlocks(checkout string) (map[string]map[string]string, error) {
 	report, err := readCommittedReport(checkout)
 	if err != nil {
