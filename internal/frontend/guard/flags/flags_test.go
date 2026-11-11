@@ -201,7 +201,7 @@ func TestResolveAPIKeysRefusals(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, test := range []struct{ name, path, want string }{
-		{"missing", filepath.Join(dir, "none.jsonl"), "-api-keys: stat "},
+		{"missing", filepath.Join(dir, "none.jsonl"), "-api-keys: open "},
 		{"not records", bad, "-api-keys: " + bad + ":1: not a key record"},
 	} {
 		t.Run(test.name, func(t *testing.T) {

@@ -2,6 +2,7 @@ package querytranslate
 
 import (
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -358,8 +359,8 @@ func (t *translator) validateTypes(names []string, exact bool) error {
 	return nil
 }
 
-// numeric reports whether text is a number a comparison can take: as the
-// evaluator reads one, `*` for the unbounded upper multiplicity included.
+// numeric reports whether text is a number a comparison can take, as the evaluator
+// reads one: `*` for the unbounded upper bound; no infinity, NaN or hexadecimal.
 func numeric(text string) bool {
 	if text == "*" {
 		return true
@@ -371,8 +372,8 @@ func numeric(text string) bool {
 	if _, err := semantics.ParseRational(text, semantics.DefaultMaxIntegerBits); err == nil {
 		return true
 	}
-	_, err := strconv.ParseFloat(text, 64)
-	return err == nil
+	f, err := strconv.ParseFloat(text, 64)
+	return err == nil && !math.IsInf(f, 0) && !math.IsNaN(f) && !strings.Contains(strings.ToLower(text), "0x")
 }
 
 // constraint translates a filter over source into the operations that keep

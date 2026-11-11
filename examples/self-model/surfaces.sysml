@@ -65,6 +65,14 @@ package OpenSysMLSurfaces {
         attribute experimentalRenderPalette : Boolean = true;
         attribute experimentalRenderForms : Boolean = true;
         attribute experimentalRenderStyles : Boolean = true;
+        attribute notebookCells : Boolean = true;
+        attribute notebookCellLanguages : String = "sysml, kerml";
+        attribute settingsSection : String = "sysml";
+        attribute keepLineBreaksSetting : String = "keepLineBreaks";
+        attribute keepLineBreaksFlag : String = "-keep-line-breaks";
+        attribute strictFlag : String = "-strict";
+        attribute libraryRootsSetting : String = "libraryRoots";
+        attribute importDiagramMethod : String = "opensysml/importDiagram";
         in item findings : Diagnostic;
         out item tokens : SemanticToken;
         out item fixes : QuickFix;
@@ -96,6 +104,14 @@ package OpenSysMLSurfaces {
         attribute handWrittenService : Boolean = true;
         attribute connectAdapter : String = "internal/frontend/grpc/connect.go";
         attribute stdioTransport : String = "internal/frontend/stdiorpc";
+        attribute hostSetting : String = "-host";
+        attribute loopbackByDefault : Boolean = true;
+        attribute tokenSettings : String = "-token, -token-file";
+        attribute bearerTokenEnv : String = "OPENSYSML_GRPC_TOKEN";
+        attribute unauthenticatedSetting : String = "-allow-unauthenticated";
+        attribute insecureTokenSetting : String = "-allow-insecure-token-transport";
+        attribute accessControl : String = "cmd/sysml-grpc/access.go";
+        attribute logsEveryCall : Boolean = true;
         part schema : ApiSchema;
     }
 
@@ -119,6 +135,8 @@ package OpenSysMLSurfaces {
         attribute reportSetting : String = "-format";
         attribute reportFormats : String = "text, json, sarif, junit";
         attribute reportPackages : String = "internal/frontend/report";
+        attribute verbs : String = "-convert, -migrate, -compile, -render, -render-all, -render-document, -render-documents, -graphs, -metaclass-graph, -metamodel-table, -run-query, -run-inline-query, -list, -sync-diff, -sync-apply, -import-diagram";
+        attribute importDiagramSetting : String = "-import-diagram";
     }
 
     // Coding agents reach the toolchain over the Model Context Protocol: one
@@ -137,6 +155,7 @@ package OpenSysMLSurfaces {
         attribute tokenEnv : String = "OPENSYSML_MCP_TOKEN";
         attribute conformanceTarget : String = "conformance-mcp";
         attribute registryManifest : String = "packaging/mcp/server.json";
+        attribute importDiagramTool : String = "import_diagram";
     }
 
     // A notebook kernel over the REPL: the Jupyter wire protocol on ZeroMQ
@@ -203,6 +222,9 @@ package OpenSysMLSurfaces {
         attribute generatedFrom : String = "api/proto";
         attribute generatedStubs : String;
         attribute generatedCode : Boolean default = true;
+        attribute connectionCode : String;
+        attribute tokenOption : String;
+        attribute bearerTokenEnv : String = "OPENSYSML_GRPC_TOKEN";
         port service : RequestPort;
     }
 
@@ -210,18 +232,24 @@ package OpenSysMLSurfaces {
         attribute :>> goPackage = "client/python";
         attribute :>> implementationLanguage = "python";
         attribute :>> generatedStubs = "client/python/opensysml/proto";
+        attribute :>> connectionCode = "client/python/opensysml/connection.py";
+        attribute :>> tokenOption = "token";
     }
 
     part def NodeClient :> Client {
         attribute :>> goPackage = "client/node";
         attribute :>> implementationLanguage = "typescript";
         attribute :>> generatedStubs = "client/node/src/generated";
+        attribute :>> connectionCode = "client/node/src/node/service.ts";
+        attribute :>> tokenOption = "token";
     }
 
     part def RustClient :> Client {
         attribute :>> goPackage = "client/rust";
         attribute :>> implementationLanguage = "rust";
         attribute :>> generatedStubs = "client/rust/opensysml/src/proto";
+        attribute :>> connectionCode = "client/rust/opensysml/src/connection.rs";
+        attribute :>> tokenOption = "token";
     }
 
     part def JavaClient :> Client {
@@ -229,6 +257,8 @@ package OpenSysMLSurfaces {
         attribute :>> implementationLanguage = "java";
         // The Maven build generates the message classes under target/.
         attribute :>> generatedStubs = "client/java/opensysml-client/pom.xml";
+        attribute :>> connectionCode = "client/java/opensysml-client/src/main/java/org/openmbee/opensysml/ConnectionOptions.java";
+        attribute :>> tokenOption = "token";
     }
 
     part def JuliaClient :> Client {
@@ -236,6 +266,8 @@ package OpenSysMLSurfaces {
         attribute :>> implementationLanguage = "julia";
         attribute :>> generatedStubs = "docs/reference/wire-contract.md";
         attribute :>> generatedCode = false;
+        attribute :>> connectionCode = "client/julia/OpenSysML/src/connection.jl";
+        attribute :>> tokenOption = "token";
     }
 
     // Runs in MATLAB and in GNU Octave.
@@ -244,6 +276,8 @@ package OpenSysMLSurfaces {
         attribute :>> implementationLanguage = "matlab";
         attribute :>> generatedStubs = "docs/reference/wire-contract.md";
         attribute :>> generatedCode = false;
+        attribute :>> connectionCode = "client/matlab/+opensysml/external.m";
+        attribute :>> tokenOption = "token";
     }
 
     // In the same process by default, over the wire on request: the Go client
@@ -253,6 +287,8 @@ package OpenSysMLSurfaces {
         attribute :>> goPackage = "client/opensysml";
         attribute :>> implementationLanguage = "go";
         attribute :>> generatedStubs = "api/proto";
+        attribute :>> connectionCode = "client/opensysml/remote.go";
+        attribute :>> tokenOption = "WithToken";
         attribute inProcess : Boolean = true;
         attribute buildsForWasm : Boolean = true;
     }
@@ -272,21 +308,53 @@ package OpenSysMLSurfaces {
         port languageClient : RequestPort;
     }
 
-    // A modelling tool reaching the service through the Java client: Cameo as
-    // a plugin, SysON as a backend over its Spring and GraphQL APIs with the
-    // explorer action, operation dialog and mapped run results in its frontend.
+    // The Emacs package: a major mode over keyword lists a generator writes
+    // from the lexer, an lsp-mode client and a diagram buffer, under ERT.
+    part def EmacsMode :> CodeUnit {
+        attribute :>> goPackage = "editors/emacs";
+        attribute speaksTo : String = "sysml-lsp";
+        attribute languages : String = "sysml, kerml";
+        attribute lispFiles : String = "sysml-mode.el, sysml-lsp.el, sysml-diagram.el";
+        attribute lspClient : String = "lsp-mode";
+        attribute keywordTable : String = "editors/emacs/sysml-mode-keywords.el";
+        attribute keywordGenerator : String = "editors/emacs/tools/genkeywords";
+        attribute keywordTarget : String = "emacs-keywords";
+        attribute compileTarget : String = "emacs-compile";
+        attribute testTarget : String = "emacs-test";
+        port languageClient : RequestPort;
+    }
+
+    // Helix, Neovim and Zed highlight through Tree-sitter grammars kept in a
+    // sibling repository; the editors' guide wires each to the language server.
+    part def TreeSitterGrammars {
+        attribute repository : String = "https://github.com/Open-MBEE/tree-sitter-sysml";
+        attribute editors : String = "Helix, Neovim, Zed";
+        attribute guide : String = "docs/guide/08-editors.md";
+        attribute speaksTo : String = "sysml-lsp";
+    }
+
+    // A modelling tool reaching the service through the Java client — Magic MDK
+    // as a Cameo plugin, SysON MDK as a SysON backend; each pom names the plugin.
     abstract part def ToolIntegration :> CodeUnit {
         attribute speaksTo : String = "sysml-grpc";
         attribute overClient : String = "client/java";
+        attribute pluginName : String;
+        attribute groupId : String = "org.openmbee";
+        attribute artifactId : String;
         port serviceClient : RequestPort;
     }
 
-    part def OpenSysMLMDK :> ToolIntegration {
+    part def MagicMDK :> ToolIntegration {
         attribute :>> goPackage = "editors/mdk";
+        attribute :>> pluginName = "Magic MDK";
+        attribute :>> artifactId = "magic-mdk-parent";
+        attribute javaPackage : String = "org.openmbee.mdk.magic";
     }
 
-    part def SysonIntegration :> ToolIntegration {
+    part def SysonMDK :> ToolIntegration {
         attribute :>> goPackage = "editors/syson";
+        attribute :>> pluginName = "SysON MDK";
+        attribute :>> artifactId = "syson-mdk";
     }
 
     // The kernel as a pip package: the binary and the JupyterLab extension
@@ -309,6 +377,25 @@ package OpenSysMLSurfaces {
         attribute buildTarget : String = "jupyterlab-build";
         attribute testTarget : String = "jupyterlab-test";
         port notebook : RequestPort;
+    }
+
+    // The MCP server as an npm package: a runner that fetches the released
+    // binary for its platform, published under two names.
+    part def McpNpmPackage :> CodeUnit {
+        attribute :>> goPackage = "packaging/npm/sysml-mcp";
+        attribute packageName : String = "@openmbee/sysml-mcp";
+        attribute npmAlias : String = "@openmbee/opensysml-mcp";
+        attribute coverageTarget : String = "mcp-npm-coverage";
+        port server : RequestPort;
+    }
+
+    // What every surface finds beside a model: the package manager's project
+    // file, the well-known library directories and the override variable.
+    part def ProjectDiscovery :> CodeUnit {
+        attribute :>> goPackage = "internal/workspace/project";
+        attribute projectFile : String = ".project.json";
+        attribute wellKnownLibraryDirs : String = "lib, .sysand/lib";
+        attribute libraryRootsEnv : String = "OPENSYSML_LIBRARY_ROOTS";
     }
 
     // --- What an editor reaches ------------------------------------------
@@ -385,6 +472,34 @@ package OpenSysMLSurfaces {
     part def RenderingKind {
         attribute kind : String;
         attribute supported : Boolean default = true;
+    }
+
+    // A rendering form: the notation a rendering is written in; diagram forms
+    // feed -diagram-form, run-only ones render runs, editable ones import back.
+    part def RenderingForm {
+        attribute form : String;
+        attribute diagram : Boolean default = false;
+        attribute runOnly : Boolean default = false;
+        attribute editable : Boolean default = false;
+    }
+
+    // Every rendering form the view package writes, held apart from the
+    // engine's kinds so each is a table of its own.
+    part def RenderingForms :> CodeUnit {
+        attribute :>> goPackage = "internal/ir/view";
+        attribute formCount : Integer = 11;
+        attribute viewFormCount : Integer = 9;
+        part textForm : RenderingForm { attribute :>> form = "text"; }
+        part mermaidForm : RenderingForm { attribute :>> form = "mermaid"; attribute :>> diagram = true; }
+        part markdownForm : RenderingForm { attribute :>> form = "markdown"; }
+        part dotForm : RenderingForm { attribute :>> form = "dot"; attribute :>> diagram = true; }
+        part plantumlForm : RenderingForm { attribute :>> form = "plantuml"; attribute :>> diagram = true; }
+        part d2Form : RenderingForm { attribute :>> form = "d2"; attribute :>> diagram = true; }
+        part drawioForm : RenderingForm { attribute :>> form = "drawio"; attribute :>> editable = true; }
+        part csvForm : RenderingForm { attribute :>> form = "csv"; }
+        part tsvForm : RenderingForm { attribute :>> form = "tsv"; }
+        part svgForm : RenderingForm { attribute :>> form = "svg"; attribute :>> runOnly = true; }
+        part svgAnimatedForm : RenderingForm { attribute :>> form = "svg-animated"; attribute :>> runOnly = true; }
     }
 
     // Every rendering kind the implementation recognizes is modelled here.
@@ -694,10 +809,15 @@ package OpenSysMLSurfaces {
         attribute :>> baseline = "docs/project/grammar-coverage-baseline.json";
     }
 
+    // The status figures, counted from the tree into the compliance map's
+    // sources; the site build combines those into one page, never committed.
     #Oracle part def DocCounts :> ConformanceOracle {
         attribute :>> goPackage = "tools/census/doccounts";
         attribute :>> reference = "the measured repository";
-        attribute :>> baseline = "docs/project/spec-compliance.md";
+        attribute :>> baseline = "docs/project/spec-compliance";
+        attribute combinedPage : String = "docs/project/spec-compliance.md";
+        attribute combinedPageTracked : Boolean = false;
+        attribute combiner : String = "scripts/spec_compliance.py";
     }
 
     // The bundled standard library must parse clean; the gate is in the suite.
@@ -708,13 +828,14 @@ package OpenSysMLSurfaces {
         attribute :>> gating = true;
     }
 
-    // A snapshot the test build embeds must be the one a fresh build writes;
-    // the suite generates it first, so the gate runs over a current one.
+    // The embedded snapshot must be what a fresh build writes; it is generated
+    // and gitignored, the suite writes it first, and a build without one skips.
     #Oracle part def StdlibSnapshotGate :> ConformanceOracle {
         attribute :>> goPackage = "internal/workspace/libs";
         attribute :>> reference = "the bundled library files";
         attribute :>> baseline = "internal/workspace/libs/stdlib.snapshot";
         attribute :>> gating = true;
+        attribute skipsWithoutSnapshot : Boolean = true;
     }
 
     // The language-independent contract between the service and its clients:
@@ -737,6 +858,69 @@ package OpenSysMLSurfaces {
         attribute :>> baseline = "scripts/download-reference-fmus.sh";
         attribute :>> gating = true;
         attribute requireEnv : String = "OPENSYSML_REQUIRE_REFERENCE_FMUS";
+    }
+
+    // The derived-property differential: every corpus model as the API's
+    // element JSON through this writer and the pilot's, bucketed per property.
+    #Oracle part def ApiJsonDifferential :> ConformanceOracle {
+        attribute :>> goPackage = "tools/referee/apijson";
+        attribute :>> reference = "pilot JSON exporter";
+        attribute :>> baseline = "docs/project/api-json-differential";
+        attribute report : String = "docs/project/api-json-differential.md";
+    }
+    // What the RDF export survives when loaded into a Flexo MMS stack; opt-in
+    // by an environment variable, since the stack must be running.
+    #Oracle part def FlexoInterop :> ConformanceOracle {
+        attribute :>> goPackage = "tools/referee/flexo";
+        attribute :>> reference = "Flexo MMS";
+        attribute :>> baseline = "tools/referee/flexo/testdata/interop_expected.txt";
+        attribute gateEnv : String = "FLEXO_INTEROP";
+    }
+    // The censuses over OMG material beyond the validator: the v1-to-v2 mapping,
+    // the formal constraints, the notation clause and the grammars' shapes.
+    #Oracle part def TransformationCensus :> ConformanceOracle {
+        attribute :>> goPackage = "tools/census/transformation";
+        attribute :>> reference = "OMG SysML v1 to v2 transformation model";
+        attribute :>> baseline = "docs/project/sysml-v1-transformation-census-baseline.json";
+        attribute report : String = "docs/project/sysml-v1-transformation-census.md";
+    }
+    #Oracle part def FormalConstraintCensus :> ConformanceOracle {
+        attribute :>> goPackage = "tools/census/formal";
+        attribute :>> reference = "KerML and SysML specification constraints";
+        attribute :>> baseline = "docs/project/constraint-manifest.json";
+    }
+    #Oracle part def NotationCensus :> ConformanceOracle {
+        attribute :>> goPackage = "tools/census/notation";
+        attribute :>> reference = "SysML graphical notation clause";
+        attribute :>> baseline = "docs/project/graphical-notation-census-baseline.json";
+        attribute report : String = "docs/project/graphical-notation-census.md";
+    }
+    #Oracle part def MetaclassMap :> ConformanceOracle {
+        attribute :>> goPackage = "tools/census/metaclassmap";
+        attribute :>> reference = "OMG Xtext grammars";
+        attribute :>> baseline = "docs/project/grammar-metaclass-map-baseline.json";
+        attribute report : String = "docs/project/grammar-metaclass-map.md";
+        attribute command : String = "tools/cmd/grammar-metaclass-map";
+    }
+    // The specifications' own textual examples, extracted from the pinned
+    // PDFs: a per-file ratchet the corpus gate holds and CI requires.
+    #Oracle part def SpecExamplesGate :> ConformanceOracle {
+        attribute :>> goPackage = "tools/oracle/specexamples";
+        attribute :>> reference = "KerML and SysML specification examples";
+        attribute :>> baseline = "tests/corpus/testdata/spec_examples_expected.txt";
+        attribute :>> gating = true;
+        attribute extractor : String = "tools/cmd/spec-examples";
+        attribute fetchScript : String = "scripts/download-spec-examples.sh";
+        attribute requireEnv : String = "OPENSYSML_REQUIRE_SPEC_EXAMPLES";
+    }
+    // The API JSON's structure held against the symbol table it was exported
+    // from, over every model in the tree.
+    #Oracle part def StructureDifferential :> ConformanceOracle {
+        attribute :>> goPackage = "internal/translate/export";
+        attribute :>> reference = "the symbol table";
+        attribute :>> baseline = "internal/translate/export/testdata/structure_differential_expected.txt";
+        attribute :>> gating = true;
+        attribute testName : String = "TestSymbolStructureMatchesGraphStructure";
     }
 
     // What the oracles lean on: a pinned reference, an errata overlay for the
@@ -774,6 +958,7 @@ package OpenSysMLSurfaces {
         part pipeline : AnalysisPipeline;
         part documents : DocumentPipeline;
         part editing : EditorPipeline;
+        part forms : RenderingForms;
 
         part repl : Repl;
         part lsp : LanguageServer;
@@ -795,10 +980,14 @@ package OpenSysMLSurfaces {
         part julia : JuliaClient;
         part matlab : MatlabClient;
         part vscode : VsCodeExtension;
-        part mdk : OpenSysMLMDK;
-        part syson : SysonIntegration;
+        part emacs : EmacsMode;
+        part treeSitter : TreeSitterGrammars;
+        part mdk : MagicMDK;
+        part syson : SysonMDK;
         part kernelPackage : JupyterKernelPackage;
         part jupyterlab : JupyterLabExtension;
+        part mcpPackage : McpNpmPackage;
+        part projects : ProjectDiscovery;
 
         part exporter : Exporter;
         part migrator : Migrator;
@@ -818,6 +1007,14 @@ package OpenSysMLSurfaces {
         part snapshotGate : StdlibSnapshotGate;
         part suite : ConformanceSuite;
         part fmuGate : ReferenceFmuGate;
+        part apiJson : ApiJsonDifferential;
+        part flexo : FlexoInterop;
+        part transformation : TransformationCensus;
+        part formal : FormalConstraintCensus;
+        part notation : NotationCensus;
+        part metaclassMap : MetaclassMap;
+        part specExamples : SpecExamplesGate;
+        part structure : StructureDifferential;
         part conformance : ConformanceInfrastructure;
 
         connection replDrives : ArtifactChannel connect repl.pipeline to pipeline.textIn;
@@ -843,6 +1040,8 @@ package OpenSysMLSurfaces {
         connection juliaCalls : ArtifactChannel connect julia.service to service.pipeline;
         connection matlabCalls : ArtifactChannel connect matlab.service to service.pipeline;
         connection editorSpeaksLsp : ArtifactChannel connect vscode.languageClient to lsp.pipeline;
+        connection emacsSpeaksLsp : ArtifactChannel connect emacs.languageClient to lsp.pipeline;
+        connection packageShipsMcp : ArtifactChannel connect mcpPackage.server to mcp.pipeline;
         connection mdkUsesJava : ArtifactChannel connect mdk.serviceClient to java.service;
         connection sysonUsesJava : ArtifactChannel connect syson.serviceClient to java.service;
         connection packageShipsKernel : ArtifactChannel connect kernelPackage.kernel to jupyter.pipeline;

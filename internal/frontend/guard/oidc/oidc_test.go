@@ -119,7 +119,7 @@ func TestVerifyAcceptsTheProvidersToken(t *testing.T) {
 	if !slices.Equal(p.Scopes, []string{"sysml:read", "sysml:write"}) {
 		t.Errorf("scopes = %q", p.Scopes)
 	}
-	if want := time.Unix(c["exp"].(int64), 0); !p.Expires.Equal(want) {
+	if want := time.Unix(c["exp"].(int64), 0).Add(oidc.DefaultClockSkew); !p.Expires.Equal(want) {
 		t.Errorf("expires = %v, want %v", p.Expires, want)
 	}
 	if hits := is.jwksHits.Load(); hits != 1 {
@@ -212,13 +212,17 @@ func TestVerifyToleratesClockSkew(t *testing.T) {
 		c    claims
 		want guard.Refusal
 	}{
-		{"expired within skew", good.with("exp", time.Now().Add(-30*time.Second).Unix()), guard.Accepted},
+		{"expired within skew, accepted until the skew ends", good.with("exp", time.Now().Add(-30*time.Second).Unix()), guard.Accepted},
 		{"expired beyond skew", good.with("exp", time.Now().Add(-90*time.Second).Unix()), guard.Expired},
 		{"nbf within skew", good.with("nbf", time.Now().Add(30*time.Second).Unix()), guard.Accepted},
 		{"nbf beyond skew", good.with("nbf", time.Now().Add(90*time.Second).Unix()), guard.Mismatch},
 	} {
-		if _, refusal := a.Verify(context.Background(), bearer(is.token(t, tc.c)), nil); refusal != tc.want {
+		p, refusal := a.Verify(context.Background(), bearer(is.token(t, tc.c)), nil)
+		if refusal != tc.want {
 			t.Errorf("%s: refusal = %v, want %v", tc.name, refusal, tc.want)
+		}
+		if refusal == guard.Accepted && !p.Expires.After(time.Now()) {
+			t.Errorf("%s: Expires = %v, in the past while accepted", tc.name, p.Expires)
 		}
 	}
 	// The default skew holds the expiry check at least as close as a few seconds.
@@ -240,6 +244,7 @@ func TestVerifyExtractsScopes(t *testing.T) {
 		{"scope claim", nil, good.with("scope", "openid sysml:read  sysml:read"), []string{"openid", "sysml:read"}},
 		{"scp array", nil, good.with("scp", []string{"sysml:read", "sysml:write"}), []string{"sysml:read", "sysml:write"}},
 		{"scope wins over scp", nil, good.with("scope", "a").with("scp", []string{"b"}), []string{"a"}},
+		{"an empty scope is a grant of nothing, not a fall through to scp", nil, good.with("scope", "").with("scp", []string{"b"}), nil},
 		{"no scopes", nil, good, nil},
 		{"configured claim", func(c *oidc.Config) { c.ScopeClaim = "permissions" }, good.with("permissions", []string{"x"}).with("scope", "ignored"), []string{"x"}},
 		{"configured claim absent", func(c *oidc.Config) { c.ScopeClaim = "permissions" }, good.with("scope", "ignored"), nil},
@@ -318,6 +323,13 @@ func TestMetadataAdvertisesTheIssuer(t *testing.T) {
 	md.ScopesSupported[0] = "changed"
 	if a.Metadata().ScopesSupported[0] != "sysml:read" {
 		t.Error("Metadata shares its slice with the caller")
+	}
+	// Nor does New keep the caller's slice: the scopes are those configured at New.
+	var configured []string
+	kept := newAuthenticator(t, is, func(c *oidc.Config) { configured = c.Scopes })
+	configured[0] = "changed"
+	if kept.Metadata().ScopesSupported[0] != "sysml:read" {
+		t.Error("New keeps the caller's Scopes slice")
 	}
 	static, _ := guard.New("0123456789abcdef0123456789abcdef")
 	chained := guard.Chain{a, guard.NewStaticToken(static)}.Metadata()

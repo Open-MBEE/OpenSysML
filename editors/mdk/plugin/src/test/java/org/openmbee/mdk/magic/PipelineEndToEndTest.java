@@ -187,8 +187,9 @@ class PipelineEndToEndTest {
     assertTrue(unbound.outcomes().get(0).detail().contains("requires binding root"), unbound.toString());
 
     RunResult unresolved = run(Operation.RUN_QUERY, source, "Demo::Unresolved");
-    assertEquals(Status.ERROR, unresolved.status(), unresolved.toString());
+    assertEquals(Status.FAILED, unresolved.status(), "a name the model lacks is reported, not refused: " + unresolved);
     assertTrue(unresolved.outcomes().get(0).detail().contains("Demo::Nope"), unresolved.toString());
+    assertEquals("Demo", unresolved.outcomes().get(1).elementId(), unresolved.toString());
     assertTrue(unresolved.tables().isEmpty());
 
     RunResult notAQuery = run(Operation.RUN_QUERY, source, "Demo::Vehicle");
@@ -199,6 +200,61 @@ class PipelineEndToEndTest {
         Map.of("depth", List.of(new DocumentValue.IntegerValue(2)))), () -> false);
     assertEquals(Status.ERROR, unknown.status(), unknown.toString());
     assertEquals("no parameter named depth on Demo::Parts", unknown.outcomes().get(0).detail());
+  }
+
+  /** Run query over examples/qvts: a path or model error a query reports is FAILED outcomes at the elements the path stopped at. */
+  @Test
+  void v2TextualRunQueryMapsReportedFailuresToTheirElements() throws Exception {
+    Path examples = ServiceBinary.repository().resolve("examples/qvts");
+    StringBuilder text = new StringBuilder();
+    for (String file : List.of("lander.sysml", "duplicates.sysml", "queries.sysml")) {
+      text.append(Files.readString(examples.resolve(file))).append('\n');
+    }
+    V2TextualSource source = new V2TextualSource(text.toString());
+    var index = IdentityIndex.of(List.of(
+        new SimpleElement("l", "Lander::lander", "lander", "lander"),
+        new SimpleElement("c", "Lander::lander::cabinEngine", "cabinEngine", "cabinEngine"),
+        new SimpleElement("e", "Lander::lander::engineBay", "engineBay", "engineBay"),
+        new SimpleElement("d", "Duplicates", "Duplicates", "duplicates"),
+        new SimpleElement("q", "QVTSDemo::MissingMassProject", "MissingMassProject", "query")));
+
+    RunResult missing = run(Operation.RUN_QUERY, source, "QVTSDemo::MissingMassProject");
+    assertEquals(Status.FAILED, missing.status(), missing.toString());
+    assertTrue(missing.tables().isEmpty(), missing.toString());
+    String query = "QVTSDemo::MissingMassProject";
+    assertEquals(new RunResult.Outcome(query, "path error at Feature(mass): expected a feature named mass on the element;"
+        + " at Lander::lander::cabinEngine", Status.FAILED, "Lander::lander::cabinEngine"), missing.outcomes().get(1));
+    assertEquals(new RunResult.Outcome(query, "path error at Feature(mass): expected a feature named mass on the element;"
+        + " at Lander::lander::engineBay", Status.FAILED, "Lander::lander::engineBay"), missing.outcomes().get(2));
+    assertEquals(3, missing.outcomes().size(), missing.toString());
+    RunResult.Outcome summary = missing.outcomes().get(0);
+    assertEquals(query, summary.elementId());
+    assertEquals(Status.FAILED, summary.status());
+    assertTrue(summary.detail().contains("reads feature mass of Lander::lander::cabinEngine, which has no such feature"
+        + " (also absent on Lander::lander::engineBay)"), summary.detail());
+    List<AnnotationPlan> plans = AnnotationPlanner.plan(missing, index);
+    assertEquals(List.of("query", "cabinEngine", "engineBay"), plans.stream().map(plan -> plan.target().handle()).toList());
+    assertTrue(plans.stream().allMatch(plan -> plan.severity() == AnnotationPlan.Severity.ERROR), plans.toString());
+
+    RunResult misspelled = run(Operation.RUN_QUERY, source, "QVTSDemo::MisspelledName");
+    assertEquals(Status.FAILED, misspelled.status(), misspelled.toString());
+    assertEquals(new RunResult.Outcome("QVTSDemo::MisspelledName",
+        "path error at Named(Lander::lander::cabni): expected exactly one element with that qualified name;"
+            + " at Lander::lander; members: [cabin (PartUsage), cabinEngine (ConnectionUsage), engine (PartUsage),"
+            + " engineBay (ConnectionUsage), scienceBay (PartUsage)]; nearest: cabin",
+        Status.FAILED, "Lander::lander"), misspelled.outcomes().get(1));
+    assertEquals(List.of("lander"), AnnotationPlanner.plan(misspelled, index).stream().map(plan -> plan.target().handle()).toList(),
+        "the query is not in the index, so only the element the path stopped at is annotated");
+
+    RunResult ambiguous = run(Operation.RUN_QUERY, source, "QVTSDemo::AmbiguousPart");
+    assertEquals(Status.FAILED, ambiguous.status(), ambiguous.toString());
+    assertEquals(new RunResult.Outcome("QVTSDemo::AmbiguousPart",
+        "model error at Named(Duplicates::repeated): Duplicates violates ambiguousName: Duplicates::repeated (declared 2 times)",
+        Status.FAILED, "Duplicates"), ambiguous.outcomes().get(1));
+    assertEquals(List.of("duplicates"), AnnotationPlanner.plan(ambiguous, index).stream().map(plan -> plan.target().handle()).toList());
+
+    RunResult answered = run(Operation.RUN_QUERY, source, "QVTSDemo::CabinMass");
+    assertEquals(Status.PASSED, answered.status(), "the queries beside the failing ones still answer: " + answered);
   }
 
   /** Run query on the v1 path: the migration report leads from a DocGen table structure to the query written for its rows. */

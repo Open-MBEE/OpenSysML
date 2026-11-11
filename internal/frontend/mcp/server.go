@@ -89,7 +89,21 @@ type Server struct {
 	lsp      *lsptools.Host
 	runtime  *sysmlgrpc.Service
 	sessions *sessiontools.Manager
+	// prewarmed closes when the runtime's library index is built; closed from
+	// the start when there is no runtime group.
+	prewarmed <-chan struct{}
 }
+
+// nothingToWait is Prewarmed for a server without the runtime group.
+var nothingToWait = func() <-chan struct{} {
+	done := make(chan struct{})
+	close(done)
+	return done
+}()
+
+// Prewarmed returns the channel that closes once the runtime's library index is
+// built, when a first runtime call does not pay for it; closed without the runtime group.
+func (s *Server) Prewarmed() <-chan struct{} { return s.prewarmed }
 
 // New builds a server from cfg, indexing the workspace and preparing the
 // runtime before it returns, so a client's first call is answered in full.
@@ -104,7 +118,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		Title:      "OpenSysML",
 		Version:    cfg.Version,
 		WebsiteURL: "https://github.com/Open-MBEE/OpenSysML",
-	}, &sdk.ServerOptions{Logger: cfg.Logger, Instructions: cfg.Instructions}), logger: cfg.Logger}
+	}, &sdk.ServerOptions{Logger: cfg.Logger, Instructions: cfg.Instructions}), logger: cfg.Logger, prewarmed: nothingToWait}
 	s.served = map[string]catalog.Entry{}
 	for _, e := range catalog.Entries(groups...) {
 		s.served[e.Name] = e
@@ -141,7 +155,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 				s.Close(ctx)
 				return nil, fmt.Errorf("starting the runtime service: %w", err)
 			}
-			svc.Prewarm()
+			s.prewarmed = svc.Prewarm()
 			s.runtime = svc
 			if err := runtimetools.Register(s.sdk, svc, cfg.Root); err != nil {
 				s.Close(ctx)
@@ -169,7 +183,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 }
 
 // Run serves one client over t until the client ends the session or ctx is
-// cancelled; ServeStreamableHTTP serves many over a listener.
+// cancelled; ServeHTTP serves many over a listener.
 func (s *Server) Run(ctx context.Context, t sdk.Transport) error {
 	return s.sdk.Run(ctx, t)
 }

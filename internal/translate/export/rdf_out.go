@@ -1526,9 +1526,8 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if !ok {
 			return &UnsupportedError{What: fmt.Sprintf("usage kind %q at %s", n.Kind, e.where(n))}
 		}
-		// An actor, stakeholder or objective member is a parameter its
-		// membership owns (SysML.xtext ActorMember & co.): the parameter kind
-		// is the membership's metaclass, and the parameter itself is a usage.
+		// An actor or stakeholder member is a parameter its membership owns (SysML.xtext
+		// ActorMember & co.): the membership's metaclass is the parameter kind, the parameter a usage.
 		parameterClass, parameterEnd := parameterMembership(n.Kind)
 		if n.IsResult {
 			// A `return` member is the result parameter its ReturnParameterMembership
@@ -1909,6 +1908,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			e.graph.Add(membership, e.sysml(pOwnedConstraint), subject)
 		}
 		head(rdf.SysMLTerm(mConstraintUsage))
+		e.constraintBodyVariability(subject, n)
 		return e.requirementCondition(subject, fqn, within, requirementConditionDecl{
 			prefixes: n.Prefixes, ident: n.Ident, relationships: n.Relationships, multiplicity: n.Multiplicity,
 			value: n.Value, isDefault: n.ValueIsDefault, isInitial: n.ValueIsInitial,
@@ -1922,6 +1922,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			e.graph.Add(membership, e.sysml(pOwnedConstraint), subject)
 		}
 		head(rdf.SysMLTerm(mConstraintUsage))
+		e.constraintBodyVariability(subject, n)
 		return e.requirementCondition(subject, fqn, within, requirementConditionDecl{
 			prefixes: n.Prefixes, ident: n.Ident, relationships: n.Relationships, multiplicity: n.Multiplicity,
 			value: n.Value, isDefault: n.ValueIsDefault, isInitial: n.ValueIsInitial,
@@ -2250,6 +2251,19 @@ func (e *encoder) usageIsVariable(n *ast.Usage) bool {
 	return sym != nil && e.ids.model.FeatureIsVariable(sym)
 }
 
+// constraintBodyVariability writes isVariable and mayTimeVary for a `require`/`assume`
+// body constraint as the model derives them: a feature of an Occurrence varies (deriveUsageMayTimeVary).
+func (e *encoder) constraintBodyVariability(subject rdf.Term, member ast.Node) {
+	sym := e.ids.declSym[member]
+	if sym == nil {
+		return
+	}
+	e.flags(subject, []boolProperty{
+		{"isVariable", e.ids.model.FeatureIsVariable(sym)},
+		{"mayTimeVary", e.ids.model.UsageMayTimeVary(sym)},
+	})
+}
+
 // usageMayTimeVary derives Usage::mayTimeVary (deriveUsageMayTimeVary); a KerML
 // feature has no such property.
 func (e *encoder) usageMayTimeVary(n *ast.Usage) bool {
@@ -2481,22 +2495,31 @@ func (e *encoder) messageEnd(subject rdf.Term, index int, target ast.Node) error
 		return err
 	}
 	if name, ok := target.(*ast.QualifiedName); ok && !qualifiedNameHasChain(name) {
-		e.connectorRelatedFeature(subject, reference, index, 2)
+		e.connectorRelatedFeature(subject, reference, index, 2, true)
 	}
 	return nil
 }
 
-// connectorRelatedFeature states Connector::relatedFeature as the feature the end's
-// ReferenceSubsetting references (KerML 8.3.4.5.3); a binary connector's ends are source and target.
-func (e *encoder) connectorRelatedFeature(subject, reference rdf.Term, index, ends int) {
+// connectorRelatedFeature states Connector::relatedFeature as the feature the end's ReferenceSubsetting references
+// (KerML 8.3.4.5.3) and, for a plain end, the Relationship::relatedElement, source and target the three redefine.
+func (e *encoder) connectorRelatedFeature(subject, reference rdf.Term, index, ends int, plain bool) {
 	if reference.Value == "" || !reference.IsIRI() {
 		return
 	}
 	e.graph.Add(subject, e.sysml(pRelatedFeature), reference)
+	if plain {
+		e.graph.Add(subject, e.sysml(pRelatedElement), reference)
+	}
 	if ends == 2 && index == 0 {
 		e.graph.Add(subject, e.sysml(pSourceFeature), reference)
+		if plain {
+			e.graph.Add(subject, e.sysml(pSource), reference)
+		}
 	} else if ends == 2 && index == 1 {
 		e.graph.Add(subject, e.sysml(pTargetFeature), reference)
+		if plain {
+			e.graph.Add(subject, e.sysml(pTarget), reference)
+		}
 	}
 }
 
@@ -2624,7 +2647,9 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 			}
 		}
 		if !end.noCollapse {
-			e.connectorRelatedFeature(subject, reference, end.index, end.ends)
+			name, named := end.target.(*ast.QualifiedName)
+			plain := len(flowSegments) == 0 && end.targetTerm.Value == "" && named && !qualifiedNameHasChain(name)
+			e.connectorRelatedFeature(subject, reference, end.index, end.ends, plain)
 		}
 	}
 	if err := e.multiplicity(feature, end.owner, end.mult); err != nil {
@@ -3313,8 +3338,6 @@ func parameterMembership(kind ast.UsageKind) (class, end string) {
 		return mActorMembership, "ownedActorParameter"
 	case ast.UsageStakeholder:
 		return mStakeholderMembership, "ownedStakeholderParameter"
-	case ast.UsageObjective:
-		return mObjectiveMembership, "ownedObjectiveRequirement"
 	}
 	return "", ""
 }
@@ -3328,6 +3351,10 @@ func memberOwnedUsage(kind ast.UsageKind) (class, end, constraintKind string) {
 		return mViewRenderingMembership, pOwnedRendering, ""
 	case ast.UsageFramedConcern:
 		return mFramedConcernMembership, pOwnedConcern, "requirement"
+	case ast.UsageObjective:
+		// An objective is a RequirementUsage its ObjectiveMembership, a FeatureMembership, owns
+		// (SysML 8.3.19): no parameter, so composite and undirected, as the pilot exports it.
+		return mObjectiveMembership, "ownedObjectiveRequirement", ""
 	}
 	return "", "", ""
 }

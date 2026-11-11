@@ -40,13 +40,15 @@ func (c claims) name() string {
 	return c.Subject
 }
 
-// scopes are what the token grants: the configured scope claim (or scope,
-// then scp), plus what its roles map to, each once in order of appearance.
+// scopes are what the token grants: the configured scope claim (or scope when
+// present, else scp), plus what its roles map to, each once in order of appearance.
 func (a *Authenticator) scopes(c claims) []string {
 	var scopes []string
 	if a.cfg.ScopeClaim != "" {
 		scopes = scopeList(c.raw[a.cfg.ScopeClaim])
-	} else if scopes = scopeList(c.raw["scope"]); scopes == nil {
+	} else if raw, ok := c.raw["scope"]; ok {
+		scopes = scopeList(raw)
+	} else {
 		scopes = scopeList(c.raw["scp"])
 	}
 	for _, role := range scopeList(c.raw["roles"]) {

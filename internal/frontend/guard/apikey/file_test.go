@@ -1,7 +1,10 @@
 package apikey_test
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -82,6 +85,65 @@ func TestConcurrentMints(t *testing.T) {
 		if _, refusal := store.Verify(context.Background(), "Bearer "+key, nil); refusal != guard.Accepted {
 			t.Errorf("a key minted alongside others is %v", refusal)
 		}
+	}
+}
+
+// TestEditsThroughASymlink: a mint or revoke named through a symlink edits the
+// file the link names, which a server reads, and leaves the link a link.
+func TestEditsThroughASymlink(t *testing.T) {
+	dir := t.TempDir()
+	real := filepath.Join(dir, "real.jsonl")
+	link := filepath.Join(dir, "keys.jsonl")
+	if _, _, err := apikey.Mint(real, "alice", []string{"sysml:read"}, time.Time{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(real, link); err != nil {
+		t.Skipf("no symlinks here: %v", err)
+	}
+	if _, _, err := apikey.Mint(link, "bob", []string{"sysml:read"}, time.Time{}); err != nil {
+		t.Fatal(err)
+	}
+	records, err := apikey.ReadFile(real)
+	if err != nil || len(records) != 2 {
+		t.Fatalf("the file the link names holds %+v, %v; want alice and bob", records, err)
+	}
+	if err := apikey.Revoke(link, records[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	if records, err = apikey.ReadFile(real); err != nil || !records[0].Disabled || records[1].Disabled {
+		t.Errorf("after the revoke the file the link names holds %+v, %v; want alice disabled alone", records, err)
+	}
+	if info, err := os.Lstat(link); err != nil || info.Mode()&os.ModeSymlink == 0 {
+		t.Errorf("the link is %v (%v); want it still a symlink", info, err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "keys.jsonl.lock")); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("a lock was left beside the link: %v", err)
+	}
+}
+
+// TestMintAfterAMissingLineBreak: a record appended to a file whose last line
+// was left unended, as by an editor, starts a line of its own.
+func TestMintAfterAMissingLineBreak(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "keys.jsonl")
+	if _, _, err := apikey.Mint(path, "alice", []string{"sysml:read"}, time.Time{}); err != nil {
+		t.Fatal(err)
+	}
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, bytes.TrimSuffix(content, []byte("\n")), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := apikey.Mint(path, "bob", []string{"sysml:read"}, time.Time{}); err != nil {
+		t.Fatal(err)
+	}
+	records, err := apikey.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(records) != 2 || records[0].Subject != "alice" || records[1].Subject != "bob" {
+		t.Errorf("records %+v, want alice then bob", records)
 	}
 }
 

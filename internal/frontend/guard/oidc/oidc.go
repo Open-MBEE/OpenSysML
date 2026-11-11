@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -78,6 +79,8 @@ func New(cfg Config) (*Authenticator, error) {
 	if cfg.ClockSkew == 0 {
 		cfg.ClockSkew = DefaultClockSkew
 	}
+	// The advertised scopes are those configured at New, whatever the caller does with its slice.
+	cfg.Scopes = slices.Clone(cfg.Scopes)
 	a := &Authenticator{cfg: cfg}
 	if cfg.Introspect != "" {
 		a.introspec = newIntrospector(cfg)
@@ -203,7 +206,9 @@ func (a *Authenticator) Verify(ctx context.Context, authorization string, _ *htt
 		return guard.Principal{}, guard.Mismatch
 	}
 	now := a.cfg.Now()
-	if idToken.Expiry.Add(a.cfg.ClockSkew).Before(now) {
+	// The credential is accepted until exp plus the skew, which is what Expires says.
+	expires := idToken.Expiry.Add(a.cfg.ClockSkew)
+	if expires.Before(now) {
 		return guard.Principal{}, guard.Expired
 	}
 	if nbf := c.NotBefore.time(); !nbf.IsZero() && nbf.Add(-a.cfg.ClockSkew).After(now) {
@@ -216,7 +221,7 @@ func (a *Authenticator) Verify(ctx context.Context, authorization string, _ *htt
 		Subject: c.Subject,
 		Name:    c.name(),
 		Scopes:  a.scopes(c),
-		Expires: idToken.Expiry,
+		Expires: expires,
 		Source:  Source,
 	}, guard.Accepted
 }

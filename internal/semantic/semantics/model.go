@@ -417,6 +417,15 @@ func (m *Model) DirectSupertypes(sym *symbols.Symbol) []*symbols.Symbol {
 		seen[target] = true
 		out = append(out, target)
 	}
+	// A `#M` / `@M {…}` annotation is the MetadataUsage its metadata type M types.
+	if types, isAnnotation := m.prefixMetadataTypes(sym); isAnnotation {
+		for _, typ := range types {
+			if typ != nil && typ != sym && !seen[typ] {
+				seen[typ] = true
+				out = append(out, typ)
+			}
+		}
+	}
 	// A multiplicity member's `subsets` is a Subsetting written on the declaration (KerML 8.3.3.3.1).
 	if target := m.SubsettedMultiplicity(sym); target != nil && target != sym && !seen[target] {
 		seen[target] = true

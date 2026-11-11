@@ -2584,16 +2584,9 @@ func (p *Parser) parseStateBody() []ast.Node {
 	return body.finish()
 }
 
-// successionBodyAllowed reports whether a `then` after member may carry a body: only a
-// TargetTransitionUsage does (SysML.xtext:1764), not an EntryTransitionMember (:1796-1801).
+// successionBodyAllowed is ast.ThenBodyAllowedAfter: whether a `then` after member may carry a body.
 func successionBodyAllowed(member ast.Node, allowed bool) bool {
-	switch member.(type) {
-	case *ast.EntryMember, *ast.DoMember, *ast.ExitMember:
-		return false
-	case *ast.SuccessionEdge, *ast.ControlFlowEdge:
-		return allowed
-	}
-	return true
+	return ast.ThenBodyAllowedAfter(member, allowed)
 }
 
 // parseStateMember parses one state member: entry/do/exit/state/transition, or general body member.

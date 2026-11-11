@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"os"
 	"path/filepath"
 	"strings"
@@ -290,3 +291,24 @@ func TestReadToken(t *testing.T) {
 }
 
 func ptr(s string) *string { return &s }
+
+// -public-url as an origin alone names the /mcp endpoint, and that is the audience a
+// provider's token must carry, as the metadata advertises the resource.
+func TestOIDCAudienceIsTheAdvertisedResource(t *testing.T) {
+	for _, tc := range []struct{ public, want string }{
+		{"https://models.example.org", "https://models.example.org/mcp"},
+		{"https://models.example.org/agents/mcp", "https://models.example.org/agents/mcp"},
+	} {
+		fs := flag.NewFlagSet(mcpCommand, flag.ContinueOnError)
+		o := registerFlags(fs)
+		if err := fs.Parse([]string{"-http", "8765", "-public-url", tc.public, "-oidc-issuer", "https://sso.example.org/realms/models"}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := readHTTPOptions(o); err != nil {
+			t.Fatalf("%s: %v", tc.public, err)
+		}
+		if o.auth.Resource != tc.want {
+			t.Errorf("%s: audience = %q, want %q", tc.public, o.auth.Resource, tc.want)
+		}
+	}
+}

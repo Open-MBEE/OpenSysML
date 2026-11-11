@@ -87,8 +87,9 @@ func (i *introspector) verify(ctx context.Context, token string) (guard.Principa
 	if err != nil {
 		return guard.Principal{}, guard.Unavailable
 	}
+	// A token the provider does not know is not its: the next authenticator may know it.
 	if !answer.Active {
-		return guard.Principal{}, guard.Mismatch
+		return guard.Principal{}, guard.NothingPresented
 	}
 	if answer.Issuer != "" && answer.Issuer != i.cfg.Issuer {
 		return guard.Principal{}, guard.Mismatch
@@ -101,8 +102,10 @@ func (i *introspector) verify(ctx context.Context, token string) (guard.Principa
 		return guard.Principal{}, guard.Mismatch
 	}
 	expires := answer.Expires.time()
-	if !expires.IsZero() && expires.Add(i.cfg.ClockSkew).Before(now) {
-		return guard.Principal{}, guard.Expired
+	if !expires.IsZero() {
+		if expires = expires.Add(i.cfg.ClockSkew); expires.Before(now) {
+			return guard.Principal{}, guard.Expired
+		}
 	}
 	p = guard.Principal{
 		Subject: answer.Subject,
