@@ -1297,11 +1297,7 @@ func firedNames(exec *StateExecutor) []string {
 	out := make([]string, 0, exec.FiredCount())
 	for _, fired := range exec.FiredTransitions() {
 		_, from, to, _ := exec.FiredNodes(fired)
-		source := ""
-		if from != nil {
-			source = StateVertexName(from)
-		}
-		out = append(out, source+"->"+StateVertexName(to))
+		out = append(out, StateVertexName(from)+"->"+StateVertexName(to))
 	}
 	return out
 }
