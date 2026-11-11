@@ -10,6 +10,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docset"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // renderDocument renders a document as the service does, over a run holding no objects (the
@@ -35,10 +36,11 @@ func (e *Engine) renderDocument(ctx context.Context, req *JRenderDocumentRequest
 	}
 	sem := cached.typedModel()
 	qctx := queryexec.Context{
-		Index:    cached.Index,
-		Resolver: cached.resolver,
-		Model:    sem,
-		Runtime:  e.newRuntime(ctx, cached),
+		Index:     cached.Index,
+		Resolver:  cached.resolver,
+		Model:     sem,
+		Runtime:   e.newRuntime(ctx, cached),
+		ElementID: cached.elementIDs(),
 	}
 	rendered, err := docset.Render(qctx, syms[0], cached.sourceText(), docset.Options{Form: form, WithoutGraphviz: true})
 	if err != nil {
@@ -78,5 +80,21 @@ func faultCode(fault docset.Fault) uint32 {
 		return codeResourceExhausted
 	default:
 		return codeInternal
+	}
+}
+
+// elementIDs reads the elementId a conversion writes for each element through the registered
+// converter, as the service does; nil when the binary links none (the js build), and elementId is absent.
+func (m *cachedModel) elementIDs() func(*symbols.Symbol) (string, error) {
+	documents := make([]queryexec.ElementIDDocument, 0, len(m.Documents))
+	for _, doc := range m.Documents {
+		documents = append(documents, queryexec.ElementIDDocument{File: doc.Source, Root: doc.Root, ParseDiags: doc.Errors})
+	}
+	read := queryexec.OpenElementIDs(documents)
+	if read == nil {
+		return nil
+	}
+	return func(sym *symbols.Symbol) (string, error) {
+		return queryexec.ElementIDOf(read, m.Index, sym)
 	}
 }
