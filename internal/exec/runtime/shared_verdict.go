@@ -1,9 +1,9 @@
 package runtime
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 

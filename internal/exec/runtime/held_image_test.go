@@ -3,13 +3,13 @@ package runtime
 import (
 	"errors"
 	"fmt"
-	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"maps"
 	"slices"
 	"strings"
 	"sync"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"

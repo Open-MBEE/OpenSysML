@@ -2,12 +2,12 @@ package runtime
 
 import (
 	"errors"
-	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"slices"
 	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 

@@ -2,10 +2,10 @@ package runtime
 
 import (
 	"errors"
-	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"math"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )

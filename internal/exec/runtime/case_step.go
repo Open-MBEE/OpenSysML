@@ -2,9 +2,9 @@ package runtime
 
 import (
 	"fmt"
-	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
