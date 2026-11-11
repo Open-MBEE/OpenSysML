@@ -291,7 +291,7 @@ one touching a path no area claims.
 
 **The full tier** runs on the merge queue's commit (below), on any pull request carrying the
 label `ci:full` (adding it re-runs the current head), and on those escalated pushes. It
-gates: gofmt, `go vet`, `make lint`, the race-enabled test suite (nineteen shards,
+gates: gofmt, `go vet`, `make lint`, the race-enabled test suite (twenty shards,
 `make test-shard`), the binaries, the client suites, the conformance suite over each transport,
 the protobuf lint and wire-compatibility checks, the documentation hygiene checks
 (`make docs-check`, `make man-check` and the census check), the site build, and in each
