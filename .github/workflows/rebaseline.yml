@@ -100,9 +100,9 @@ jobs:
             while IFS= read -r file; do
               ok=0
               while IFS= read -r path; do
-                case "$file" in "$path"|"$path"/*) ok=1 ;; esac
+                case "$file" in "$path"|"$path"/*) ok=1 ;; *) ;; esac  # another generated path may still claim the file
               done <<< "$generated"
-              case "$file" in */testdata/*.golden|*/testdata/*.golden.*|*/testdata/*.sha256) ;; */testdata/*.sysml|*/testdata/*.kerml|*/testdata/*.ttl) ok=0 ;; esac
+              case "$file" in */testdata/*.golden|*/testdata/*.golden.*|*/testdata/*.sha256) ;; */testdata/*.sysml|*/testdata/*.kerml|*/testdata/*.ttl) ok=0 ;; *) ;; esac  # any other file keeps the generated-paths verdict
               [ "$ok" = 1 ] || other="$other$file"$'\n'
             done <<< "$conflicts"
             if [ -n "$other" ]; then
@@ -214,9 +214,9 @@ jobs:
             fi
             ok=0
             while IFS= read -r path; do
-              case "$file" in "$path"|"$path"/*) ok=1 ;; esac
+              case "$file" in "$path"|"$path"/*) ok=1 ;; *) ;; esac  # another generated path may still claim the file
             done <<< "$allowed"
-            case "$file" in */testdata/*.golden|*/testdata/*.golden.*|*/testdata/*.sha256) ;; */testdata/*.sysml|*/testdata/*.kerml|*/testdata/*.ttl) ok=0 ;; esac
+            case "$file" in */testdata/*.golden|*/testdata/*.golden.*|*/testdata/*.sha256) ;; */testdata/*.sysml|*/testdata/*.kerml|*/testdata/*.ttl) ok=0 ;; *) ;; esac  # any other file keeps the generated-paths verdict
             [ "$ok" = 1 ] || other="$other$file"$'\n'
           done <<< "$changed"
           if [ -n "$other" ]; then

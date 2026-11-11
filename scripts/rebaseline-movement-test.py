@@ -10,7 +10,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 
 HERE = pathlib.Path(__file__).resolve().parent
 spec = importlib.util.spec_from_file_location("rebaseline_movement", HERE / "rebaseline-movement.py")
@@ -165,6 +165,18 @@ class RepositoryTest(unittest.TestCase):
         with open(path, encoding="utf-8") as handle:
             self.assertEqual(handle.read(), out.getvalue())
 
+    def test_arguments_git_could_read_as_options_or_paths_outside_the_tree_are_refused(self):
+        revs = ["--base", self.base, "--ours", self.ours, "--theirs", self.theirs, "--merged", self.merged, "--tree", self.tmp.name]
+        for argv in (
+            ["--base", "HEAD", "--ours", self.ours, "--theirs", self.theirs, "--merged", self.merged, "--tree", self.tmp.name, CORPUS],
+            ["--base", "--output=x", "--ours", self.ours, "--theirs", self.theirs, "--merged", self.merged, "--tree", self.tmp.name, CORPUS],
+            [*revs, "../outside.txt"],
+            [*revs, os.path.join(self.tmp.name, CORPUS)],
+            [*revs, "--summary", os.path.join(os.path.dirname(self.tmp.name), "summary.md"), CORPUS],
+        ):
+            with self.subTest(argv=argv), redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as raised:
+                movement.main(argv)
+            self.assertEqual(raised.exception.code, 2)
 
 if __name__ == "__main__":
     unittest.main()
