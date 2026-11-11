@@ -3,8 +3,10 @@ package export
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 	"regexp"
+	"slices"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -71,20 +73,6 @@ func (d *decoder) verbatim(el *element) (string, bool) {
 		return "", false
 	}
 	return d.graph.Lexical(rdf.IRI(el.iri), rdf.OpenSysML+xSourceText)
-}
-
-// verbatimWithNotes is verbatim for an element whose text holds the notes the
-// graph states; one stating others is demoted, since the graph is authoritative.
-func (d *decoder) verbatimWithNotes(el *element) (string, bool) {
-	text, ok := d.verbatim(el)
-	if !ok {
-		return "", false
-	}
-	if d.statesNotes() && !d.notesAgree(el, text) {
-		d.demoted[el] = true
-		return "", false
-	}
-	return text, true
 }
 
 // expressionText returns the source text an expression node is written as, if
@@ -169,6 +157,47 @@ func (d *decoder) demoteStale(notation string, roots []*element) {
 			return
 		}
 	}
+	d.demoteStaleNotes(check)
+}
+
+// demoteStaleNotes demotes the text of each printed element whose notes the candidate
+// derives otherwise than the graph states them in any field, or not at all.
+func (d *decoder) demoteStaleNotes(check *encoder) {
+	// A comment the graph does not state is the text's, and a graph stating no note trusts it.
+	for _, subject := range notedSubjects(d.graph) {
+		stale, unstated := compareNotes(notesIn(d.graph, subject), notesIn(check.graph, subject))
+		if len(stale) == 0 {
+			continue
+		}
+		if el, _ := d.blame(subject.Value, check); el != nil && d.printed[el] {
+			d.demoted[el] = true
+			d.demoteHoldingExpressions(el, unstated, check)
+		}
+	}
+}
+
+// demoteHoldingExpressions demotes the text of each expression written inside el's
+// that holds a note of el the graph does not state, which it would otherwise keep.
+func (d *decoder) demoteHoldingExpressions(el *element, unstated []note, check *encoder) {
+	for iri := range d.usedExpr {
+		text, _ := d.graph.Lexical(rdf.IRI(iri), rdf.OpenSysML+xSourceText)
+		if !holdsAny(commentTexts(text), unstated) {
+			continue
+		}
+		if owner, _ := d.blame(iri, check); owner == el {
+			d.demotedExpr[iri] = true
+		}
+	}
+}
+
+// holdsAny reports whether one of the comments is the text of one of the notes.
+func holdsAny(comments []string, notes []note) bool {
+	for _, n := range notes {
+		if slices.Contains(comments, n.text) {
+			return true
+		}
+	}
+	return false
 }
 
 // rebuildCandidate encodes the candidate in the id form the document follows, so both
@@ -208,10 +237,35 @@ func (d *decoder) restatesAnotherDisagreement(t rdf.Triple, check *encoder) bool
 	if LibraryReference(d.graph, t.Subject) || LibraryReference(check.graph, t.Subject) {
 		return true
 	}
+	// A bare comment the stored graph predates is stated by the text alone.
+	if d.legacyBareComment(t.Subject, check) || d.legacyBareComment(t.Object, check) {
+		return true
+	}
 	// An implied relationship element's ends restate the owner's collapsed
 	// edge, whose disagreement already falls on the target's text.
 	el, ok := d.byIRI[t.Subject.Value]
 	return ok && el.implied && impliedRelationshipMetaclasses[el.metaclass]
+}
+
+// legacyBareComment reports whether term is a bare `/* … */` Comment, or the membership owning one,
+// that only the re-parsed text states: a graph stored before such comments were elements lacks it.
+func (d *decoder) legacyBareComment(term rdf.Term, check *encoder) bool {
+	if !term.IsIRI() || d.graph.HasProperty(term, rdf.RDFType) {
+		return false
+	}
+	for _, object := range check.graph.Objects(term, rdf.RDFType) {
+		switch rdf.LocalName(object.Value) {
+		case "Comment":
+			// A `comment` keyword was always recorded, so text spelling one is stale, not legacy.
+			text, _ := check.graph.Lexical(term, rdf.OpenSysML+xSourceText)
+			return strings.TrimSpace(naming.WithoutComments(text)) == ""
+		case mOwningMembership:
+			if member, ok := check.graph.Object(term, rdf.SysML+pMemberElement); ok {
+				return d.legacyBareComment(member, check)
+			}
+		}
+	}
+	return false
 }
 
 // candidateName names the candidate notation for the grammar the roots record

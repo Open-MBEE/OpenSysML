@@ -15,7 +15,7 @@ func TestEveryMetaCommandHasAnEffect(t *testing.T) {
 	for name, want := range map[string]Effect{
 		"%help": Reads, "%list": Reads, "%print": Reads, "%tokens": Reads, "%tool": Reads,
 		"%load": Shapes, "%clear": Shapes, "%seed": Shapes, cmdImport: Shapes,
-		"%save": Writes, "%publish": Writes,
+		"%save": Writes, "%publish": Writes, "%check-witness": Writes,
 		"%eval": Executes, "%instantiate": Executes, "%action": Executes, "%solve": Executes, "%advance": Executes,
 	} {
 		if byName[name] != want {

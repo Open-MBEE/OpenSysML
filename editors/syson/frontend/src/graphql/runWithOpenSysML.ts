@@ -89,6 +89,17 @@ export interface GQLOpenSysMLRunOutcome {
   witness: string[];
 }
 
+export interface GQLOpenSysMLCoverageEntry {
+  path: string;
+  declaration: string;
+  runs: number;
+}
+
+export interface GQLOpenSysMLCoverage {
+  states: GQLOpenSysMLCoverageEntry[];
+  transitions: GQLOpenSysMLCoverageEntry[];
+}
+
 export interface GQLOpenSysMLDocument {
   form: GQLRunDocumentForm;
   content: string;
@@ -117,6 +128,7 @@ export interface GQLOpenSysMLRunResult {
   outputs: GQLOpenSysMLNamedValue[];
   trace: string[];
   outcomes: GQLOpenSysMLRunOutcome[];
+  coverage: GQLOpenSysMLCoverage | null;
   resultText: string | null;
   diagnostics: GQLOpenSysMLDiagnostic[];
   verdicts: GQLOpenSysMLVerdict[];
@@ -177,6 +189,18 @@ export const runWithOpenSysMLMutation = gql`
             error
             linearizations
             witness
+          }
+          coverage {
+            states {
+              path
+              declaration
+              runs
+            }
+            transitions {
+              path
+              declaration
+              runs
+            }
           }
           resultText
           diagnostics {

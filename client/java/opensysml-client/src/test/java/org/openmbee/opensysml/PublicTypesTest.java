@@ -610,7 +610,13 @@ class PublicTypesTest {
                         List.of(new QueryOutcome.Frontier.Member("mass", "AttributeUsage")),
                         List.of(new QueryOutcome.Frontier.Feature("mass", "")),
                         List.of("connect"),
-                        "mass"))));
+                        "mass",
+                        14,
+                        203,
+                        1))),
+            0,
+            9,
+            17);
     QueryOutcomeException original =
         new QueryOutcomeException(StatusCode.FAILED_PRECONDITION, "names 2 elements", outcome);
 
@@ -624,10 +630,77 @@ class PublicTypesTest {
       assertEquals(original.getMessage(), restored.getMessage());
       assertEquals(StatusCode.FAILED_PRECONDITION, restored.status());
       assertEquals(outcome, restored.outcome());
+      QueryOutcome.Frontier frontier = restored.outcome().pathFailures().get(0).frontier();
+      assertEquals(
+          List.of(14, 203, 1),
+          List.of(frontier.membersTotal(), frontier.featuresTotal(), frontier.kindsTotal()));
+      assertEquals(
+          List.of(0, 9, 17),
+          List.of(
+              restored.outcome().failuresTotal(),
+              restored.outcome().findingsTotal(),
+              restored.outcome().pathFailuresTotal()));
       List<QueryOutcome.Finding> findings = restored.outcome().findings();
       QueryOutcome.Finding first = findings.get(0);
       assertThrows(UnsupportedOperationException.class, () -> findings.add(first));
     }
+  }
+
+  @Test
+  void aQueryOutcomeTotalIsNeverBelowTheListItCounts() {
+    QueryOutcome.Frontier.Member member = new QueryOutcome.Frontier.Member("cab", "PartUsage");
+    QueryOutcome.Frontier.Feature feature = new QueryOutcome.Frontier.Feature("mass", "");
+    QueryOutcome.Frontier whole =
+        new QueryOutcome.Frontier(
+            "Fleet::truck", List.of(member, member), List.of(feature), List.of("connect"), "");
+    assertEquals(
+        List.of(2, 1, 1),
+        List.of(whole.membersTotal(), whole.featuresTotal(), whole.kindsTotal()),
+        "a frontier given no totals holds every candidate");
+    QueryOutcome.Frontier cut =
+        new QueryOutcome.Frontier(
+            "Fleet::truck", List.of(member, member), List.of(feature), List.of(), "", 1, 30, -4);
+    assertEquals(
+        List.of(2, 30, 0),
+        List.of(cut.membersTotal(), cut.featuresTotal(), cut.kindsTotal()),
+        "a total below the list's size is that size");
+    assertEquals(
+        whole,
+        new QueryOutcome.Frontier(
+            whole.at(), whole.members(), whole.features(), whole.kinds(), "", 2, 1, 1));
+
+    QueryOutcome.Failure failure = new QueryOutcome.Failure("Feature(mass)", "a feature", whole);
+    QueryOutcome.Finding finding =
+        new QueryOutcome.Finding("Named(x)", "Fleet", "ambiguousName", "x");
+    QueryOutcome all =
+        new QueryOutcome(
+            QueryOutcome.MODEL_ERROR, "Named(x)", List.of(), List.of(finding), List.of(failure));
+    assertEquals(
+        List.of(0, 1, 1),
+        List.of(all.failuresTotal(), all.findingsTotal(), all.pathFailuresTotal()));
+    QueryOutcome bounded =
+        new QueryOutcome(
+            QueryOutcome.PATH_ERROR,
+            "Feature(mass)",
+            List.of(failure, failure),
+            List.of(),
+            List.of(),
+            1,
+            0,
+            0);
+    assertEquals(2, bounded.failuresTotal());
+    assertEquals(
+        40,
+        new QueryOutcome(
+                QueryOutcome.PATH_ERROR,
+                "Feature(mass)",
+                List.of(failure),
+                List.of(),
+                List.of(),
+                40,
+                0,
+                0)
+            .failuresTotal());
   }
 
   @Test

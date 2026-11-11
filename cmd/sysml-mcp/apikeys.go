@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"strings"
@@ -24,9 +23,8 @@ type keyCommand struct {
 
 // readKeyCommand validates the key flags together: nil when neither command was
 // asked for, and then -subject, -scopes, -expires and -api-keys without -http are refused.
-func readKeyCommand(o *options, fs *flag.FlagSet) (*keyCommand, error) {
-	revoke := false
-	fs.Visit(func(f *flag.Flag) { revoke = revoke || f.Name == "revoke-api-key" })
+func readKeyCommand(o *options) (*keyCommand, error) {
+	revoke := o.given["revoke-api-key"]
 	if revoke && o.revokeAPIKey == "" {
 		return nil, errors.New("-revoke-api-key needs the id of the key to disable; an empty id names none")
 	}

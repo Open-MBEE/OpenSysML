@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 
@@ -1302,10 +1303,55 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 	}
 
 	// A feature holding values rather than objects holds values of what it subsets, as an object feature does.
-	if _, err := inst.materializeFromSubsetted(ctx, fv, name, nil); err != nil {
+	if held, err := inst.materializeFromSubsetted(ctx, fv, name, nil); err != nil || held {
+		return fv, err
+	}
+	return inst.materializeReferentialCollection(ctx, fv, name, open)
+}
+
+func hasNonEndSubsetter(subsetters []EffectiveFeature) bool {
+	for _, feat := range subsetters {
+		if feat.Symbol == nil {
+			return true
+		}
+		if usage, ok := feat.Symbol.Decl.(*ast.Usage); !ok || !usage.IsEnd {
+			return true
+		}
+	}
+	return false
+}
+
+// materializeReferentialCollection holds, in a referential collection, what the features
+// subsetting it hold (KerML 1.1 §7.3.4.5): a requirement's `actors` is its actor parameters.
+func (inst *Instance) materializeReferentialCollection(ctx *Context, fv *FeatureValue, name string, open *openPopulation) (*FeatureValue, error) {
+	// A collection only connector ends subset (`participant`) is answered by the ends, not gathered here.
+	if fv.Feature.Scalar() || !hasNonEndSubsetter(ctx.subsettingFeaturesOf(inst, name)) {
+		return fv, nil
+	}
+	// A subsetter without a value yet (`otherParticipants` of a port no interface connects)
+	// leaves the collection unread rather than failing it.
+	if open == nil {
+		held, err := inst.holdContributions(ctx, fv, name)
+		if errors.Is(err, ErrNoValue) {
+			return fv, nil
+		}
+		return held, err
+	}
+	// A model-level read holds what the subsetters certainly hold and stops where one is open.
+	release := ctx.elementScope()
+	contributed, atLeast, err := ctx.openSubsettingContributions(inst, name)
+	release()
+	if errors.Is(err, ErrNoValue) {
+		return fv, nil
+	}
+	if err != nil {
 		return nil, err
 	}
-	return fv, nil
+	if max(atLeast, fewestOf(fv.Feature.Multiplicity)) > int64(len(contributed)) {
+		open.Stopped, open.Contributed, open.AtLeast = true, contributed, atLeast
+		return fv, nil
+	}
+	return inst.holdContributed(ctx, fv, name, contributed)
 }
 
 // materializeVariation binds a variation to the variant its default selects.

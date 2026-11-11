@@ -29,18 +29,29 @@ type options struct {
 	stdio         bool
 	tlsCert       string
 	tlsKey        string
-	mintAPIKey    bool
-	subject       string
-	scopes        string
-	expires       time.Duration
-	revokeAPIKey  string
-	showVersion   bool
-	showHelp      bool
-	showMan       bool
-	printConfig   hostFlag
-	configCommand string
-	configNpx     bool
+	// shutdownTimeout and maxBodyBytes bound the HTTP transport's stop and
+	// its requests.
+	shutdownTimeout time.Duration
+	maxBodyBytes    int64
+	mintAPIKey      bool
+	subject         string
+	scopes          string
+	expires         time.Duration
+	revokeAPIKey    string
+	showVersion     bool
+	showHelp        bool
+	showMan         bool
+	printConfig     hostFlag
+	configCommand   string
+	configNpx       bool
+	// given names the flags set on the command line or from the environment,
+	// for the checks that ask whether a flag was used rather than what it holds.
+	given map[string]bool
 }
+
+// envPrefix starts the environment variable each flag is read from when the
+// command line leaves it unset: OPENSYSML_MCP_LOG_LEVEL for -log-level.
+const envPrefix = "OPENSYSML_MCP_"
 
 // registerFlags declares the server's flags on fs, so a run, the help and the
 // man page all read one declaration of each. -h/-help are flags rather than the
@@ -72,6 +83,10 @@ func registerFlags(fs *flag.FlagSet) *options {
 			"named as the protected resource and in the bearer challenge, and by the -print-config block; default each request's own scheme and Host")
 	fs.StringVar(&o.tlsCert, "tls-cert", "", "TLS certificate file for the HTTP transport; with -tls-key, the transport serves https")
 	fs.StringVar(&o.tlsKey, "tls-key", "", "TLS private key file for the HTTP transport")
+	fs.DurationVar(&o.shutdownTimeout, "shutdown-timeout", mcp.DefaultShutdownTimeout,
+		"How long a stopping HTTP server waits for its connections to drain after closing the sessions, as a Go duration; default 30s")
+	fs.Int64Var(&o.maxBodyBytes, "max-body-bytes", mcp.DefaultMaxBodyBytes,
+		"Largest request body, in bytes, the HTTP transport reads at /mcp; a larger one is refused with 413. Default 4194304 (4 MiB)")
 	fs.BoolVar(&o.mintAPIKey, "mint-api-key", false,
 		"Mint an API key osk_<id>.<secret> for -subject with -scopes, print it once to stdout, append its record to the -api-keys file (created when absent) and exit")
 	fs.StringVar(&o.subject, "subject", "", "Who the key minted with -mint-api-key speaks for: a user name, an e-mail address, a CI job")
@@ -153,12 +168,12 @@ func doc() usage.Doc {
 					"serves every client that connects to its address over the " +
 					"Streamable HTTP transport, at the path /mcp, until it is told to " +
 					"stop with SIGINT or SIGTERM; stopping closes the sessions and " +
-					"waits up to 30 seconds for the connections to drain. The clients " +
-					"share one workspace and one runtime cache; REPL sessions belong " +
-					"to the principal that opened them (see Scopes), so a session_* " +
-					"name opened by one client is the session every other client of " +
-					"the same principal sees under that name, and no other principal " +
-					"does.",
+					"waits up to -shutdown-timeout (30 seconds) for the connections to " +
+					"drain. The clients share one workspace and one runtime cache; " +
+					"REPL sessions belong to the principal that opened them (see " +
+					"Scopes), so a session_* name opened by one client is the session " +
+					"every other client of the same principal sees under that name, " +
+					"and no other principal does.",
 			},
 			Examples: []usage.Example{
 				usage.Ex("sysml-mcp -http 8765", "Serve http://localhost:8765/mcp to this machine"),
@@ -194,6 +209,36 @@ func doc() usage.Doc {
 					"speak is refused with 400.",
 			},
 		}, scopesSection(), {
+			Title: "Running as a service",
+			Lead: []string{
+				"With -http the server also answers two open endpoints on the same " +
+					"address, outside the origin check and the token, for the probes " +
+					"a deployment makes: GET /health answers 200 as soon as the address " +
+					"is bound, naming the service and its version, and says the process " +
+					"is alive; GET /ready answers 503 while the workspace is being " +
+					"indexed and the runtime's standard library prepared, 200 once a " +
+					"client's first call would be answered in full, and 503 again while " +
+					"a stopping server drains. A protocol request arriving before the " +
+					"server is ready is answered 503 with Retry-After rather than served " +
+					"partially. A request body over -max-body-bytes is refused with 413.",
+				"Every flag is also read from the environment, for a unit file or a " +
+					"container that cannot edit a command line: the variable " + envPrefix +
+					"<FLAG> holds the flag's value, with the flag's name in upper case and " +
+					"each dash an underscore, as " + usage.EnvName(envPrefix, "log-level") +
+					" for -log-level and " + usage.EnvName(envPrefix, "http") + " for -http. " +
+					"A flag on the command line wins over its variable, a variable set to " +
+					"nothing is as good as unset, and a value the flag would refuse is " +
+					"refused the same way, with exit status 2. " + mcp.TokenEnv + " is the " +
+					"variable of -token, read as it always was, and " +
+					usage.EnvName(envPrefix, "token-file") + " that of -token-file, each " +
+					"consulted only when neither token flag is given.",
+			},
+			Examples: []usage.Example{
+				usage.Ex("curl -s http://localhost:8765/health", "Ask whether the process is alive"),
+				usage.Ex("curl -s -o /dev/null -w '%{http_code}' http://localhost:8765/ready", "200 once the server is ready for its first call"),
+				usage.Ex(usage.EnvName(envPrefix, "http")+"=0.0.0.0:8765 "+usage.EnvName(envPrefix, "token-file")+"=/run/secrets/mcp.token sysml-mcp", "Configure the transport from the environment"),
+			},
+		}, {
 			Title: "Configuring a host",
 			Lead: []string{
 				"-print-config writes the block a host reads, naming this binary by " +
@@ -228,8 +273,13 @@ func doc() usage.Doc {
 				usage.Entry("2", "The command line could not be acted on."),
 			},
 		}, {
-			Title:      "Environment",
-			ManOnly:    true,
+			Title:   "Environment",
+			ManOnly: true,
+			Lead: []string{
+				"Each flag above is read from " + envPrefix + "<FLAG> when the command " +
+					"line leaves it unset, as the Running as a service section says. " +
+					"The run bounds every binary reads are:",
+			},
 			Items:      usage.BudgetEnvironment(),
 			Paragraphs: []string{usage.LegacyPrefixNote, usage.BudgetScopeNote},
 		}, {

@@ -105,7 +105,11 @@ func (s *Server) authorize(next sdk.MethodHandler) sdk.MethodHandler {
 		} else if err != nil || failed(res) {
 			outcome = "error"
 		}
-		s.log().LogAttrs(ctx, slog.LevelInfo, "tools/call",
+		logger := s.logger
+		if logger == nil {
+			logger = slog.Default()
+		}
+		logger.LogAttrs(ctx, slog.LevelInfo, "tools/call",
 			slog.String("principal", p.Subject),
 			slog.String("source", p.Source),
 			slog.String("remote", remoteOf(req)),
