@@ -8,11 +8,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// In a state body, a `then x;` after a state is a TargetTransitionUsage (SysML v2.1 §8.2.2.18.1 StateBodyItem,
-// §8.2.2.18.3 TargetTransitionUsage): a TransitionUsage the state owns through a FeatureMembership, which owns the
-// SuccessionAsUsage to its target through an OwningMembership, as the pilot exports it. A `then` after `entry`
-// (EntryTransitionMember) and a member-attached `then state s;` (SourceSuccessionMember) are successions the state
-// owns itself.
+// A state body's `then x;` after a state is a TargetTransitionUsage (SysML v2.1 §8.2.2.18.1, §8.2.2.18.3): a
+// TransitionUsage the state owns, owning the SuccessionAsUsage; `entry; then x;` and `then state s;` stay successions.
 func TestStateBodyThenAfterStateIsATransitionUsage(t *testing.T) {
 	const src = `package P {
 		state def Mach {
