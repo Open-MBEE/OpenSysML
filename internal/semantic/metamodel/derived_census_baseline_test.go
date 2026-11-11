@@ -7,10 +7,8 @@ import (
 	"testing"
 )
 
-// TestDerivedCensusBaselineKeysServedRules holds the recorded census to the
-// rules it measures: every rule its records count is served, every root the
-// records name is in the header, and the header names the Structure read.
-// tools/cmd/derived-census -update re-records both files.
+// TestDerivedCensusBaselineKeysServedRules holds the recorded census to the rules it
+// measures: the records count every served rule and only those, under header roots.
 func TestDerivedCensusBaselineKeysServedRules(t *testing.T) {
 	content, err := os.ReadFile("derived_census_baseline.json")
 	if err != nil {
@@ -64,5 +62,10 @@ func TestDerivedCensusBaselineKeysServedRules(t *testing.T) {
 	}
 	if len(counted) == 0 {
 		t.Fatal("derived_census_records.tsv holds no records")
+	}
+	for name := range served {
+		if !counted[name] {
+			t.Errorf("derived_census_records.tsv does not count %s, which rules.go serves; re-record with go run -C tools ./cmd/derived-census -update", name)
+		}
 	}
 }
