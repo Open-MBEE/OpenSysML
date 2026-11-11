@@ -1,7 +1,6 @@
 package apijson
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -30,14 +29,7 @@ func TestRecordStatesTheBaselinesFigures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	content, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(committedBaseline)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var recorded Report
-	if err := json.Unmarshal(content, &recorded); err != nil {
-		t.Fatal(err)
-	}
+	recorded := committedFigures(t)
 	record, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(recordPath)))
 	if err != nil {
 		t.Fatal(err)
@@ -75,7 +67,7 @@ func TestRecordStatesTheBaselinesFigures(t *testing.T) {
 	if gapRows < 10 {
 		t.Errorf("%s lists %d launch-ready gap rows, want at least 10", recordPath, gapRows)
 	}
-	for _, launch := range launchReadyGaps(recorded, 25) {
+	for _, launch := range launchReadyGaps(*recorded, 25) {
 		if !strings.Contains(string(record), fmt.Sprintf("| `%s` | `%s` |", launch.Metaclass, launch.Property)) {
 			t.Errorf("%s does not list the gap (%s, %s), %d elements ours-missing", recordPath, launch.Metaclass, launch.Property, launch.OursMissing)
 		}
