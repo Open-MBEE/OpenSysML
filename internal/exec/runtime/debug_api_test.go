@@ -1296,11 +1296,8 @@ func activeStateNames(exec *StateExecutor) string {
 func firedNames(exec *StateExecutor) []string {
 	out := make([]string, 0, exec.FiredCount())
 	for _, fired := range exec.FiredTransitions() {
-		source := ""
-		if fired.Source != nil {
-			source = StateVertexName(fired.Source)
-		}
-		out = append(out, source+"->"+StateVertexName(fired.Target))
+		_, from, to, _ := exec.FiredNodes(fired)
+		out = append(out, StateVertexName(from)+"->"+StateVertexName(to))
 	}
 	return out
 }
@@ -1365,7 +1362,7 @@ func TestFiredSinceReleasesTheFiringsRead(t *testing.T) {
 	if got := exec.FiredSince(0); len(got) != 2 || got[0].Target != exec.FiredTransitions()[0].Target {
 		t.Errorf("FiredSince(0) = %v, want the two kept firings, the released one gone", got)
 	}
-	if got := exec.FiredSince(2); len(got) != 1 || StateVertexName(got[0].Target) != "working" {
+	if got := exec.FiredSince(2); len(got) != 1 || StateVertexName(exec.vertexDecl(got[0].Target)) != "working" {
 		t.Errorf("FiredSince(2) = %v, want waiting->working alone", got)
 	}
 	if got := firedNames(exec); !slices.Equal(got, []string{"waiting->working"}) || exec.FiredCount() != 3 {
@@ -1380,7 +1377,7 @@ func TestFiredSinceReleasesTheFiringsRead(t *testing.T) {
 	if err := exec.ProcessNextEvent(); err != nil {
 		t.Fatalf("ProcessNextEvent: %v", err)
 	}
-	if got := exec.FiredSince(3); len(got) != 1 || StateVertexName(got[0].Target) != "done" || exec.FiredCount() != 4 {
+	if got := exec.FiredSince(3); len(got) != 1 || StateVertexName(exec.vertexDecl(got[0].Target)) != "done" || exec.FiredCount() != 4 {
 		t.Errorf("FiredSince(3) = %v of %d, want working->done of 4", got, exec.FiredCount())
 	}
 	exec.KeepFired(false)

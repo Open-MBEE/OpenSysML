@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -74,12 +75,12 @@ func (e *StateExecutor) executeEntryBehaviors(state *ast.StateNode, behaviors []
 		return nil, nil, nil
 	}
 	if e.performing == nil {
-		e.performing = make(map[*ast.StateNode]int)
+		e.performing = make(map[program.StateID]int)
 	}
-	e.performing[state]++
+	e.performing[e.stateID(state)]++
 	defer func() {
-		if e.performing[state]--; e.performing[state] == 0 {
-			delete(e.performing, state)
+		if e.performing[e.stateID(state)]--; e.performing[e.stateID(state)] == 0 {
+			delete(e.performing, e.stateID(state))
 		}
 	}()
 	var ended []ast.Node
@@ -483,8 +484,8 @@ func (h *stateStmtHost) assignStateAttribute(name string, value Value) (bool, er
 	declared := name
 	if h.exec.holdsShadowed() {
 		for _, ancestor := range h.exec.getParentChain(h.behavior.Owner) {
-			if _, held := h.exec.stateAttrs[ancestor]; held {
-				_, declared = declarationHeldUnder(h.exec.stateAttrIndex[ancestor], scope, name)
+			if _, held := h.exec.stateAttrs[h.exec.stateID(ancestor)]; held {
+				_, declared = declarationHeldUnder(h.exec.stateAttrIndex[h.exec.stateID(ancestor)], scope, name)
 				if declared != name {
 					break
 				}
