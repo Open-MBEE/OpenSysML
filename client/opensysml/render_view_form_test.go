@@ -167,8 +167,9 @@ func TestRenderDocumentAnswersTheFormAsked(t *testing.T) {
 	}
 	_, err := client.RenderDocument(ctx, model, "Observatory::MassReport", opensysml.WithDocumentForm("pdf"))
 	var status *opensysml.StatusError
-	if !errors.As(err, &status) || status.Code != opensysml.CodeInvalidArgument {
-		t.Errorf("RenderDocument as pdf: err = %v, want CodeInvalidArgument", err)
+	if !errors.As(err, &status) || status.Code != opensysml.CodeInvalidArgument ||
+		!strings.Contains(status.Message, "is not one RenderDocument renders") {
+		t.Errorf("RenderDocument as pdf: err = %v, want the client's CodeInvalidArgument", err)
 	}
 }
 

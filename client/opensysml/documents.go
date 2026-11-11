@@ -2,6 +2,7 @@ package opensysml
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"slices"
 	"strconv"
@@ -384,10 +385,16 @@ func (c *client) RenderDocument(ctx context.Context, model *Model, documentID st
 		opt(&options)
 	}
 	switch options.form {
+	case "", DocumentFormMarkdown:
 	case DocumentFormHTML:
 		err = c.requireCapabilities(ctx, CapabilityRenderDocumentHTML)
 	case DocumentFormAsciiDoc:
 		err = c.requireCapabilities(ctx, CapabilityRenderDocumentAsciiDoc)
+	default:
+		err = &StatusError{
+			Code:    CodeInvalidArgument,
+			Message: fmt.Sprintf("form %q is not one RenderDocument renders: markdown, html or asciidoc", options.form),
+		}
 	}
 	if err != nil {
 		return "", err
