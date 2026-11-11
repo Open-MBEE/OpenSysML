@@ -17,13 +17,16 @@ type futureKey struct {
 // a token's by its node in its flow, a delay by whether it ends the instant; both
 // are dropped once the clock moves. A machine's whole graph is kept by graph.
 // Once gated, senders are the sends any executor may make at this instant, and
-// anySender marks an executor that may send anything.
+// anySender marks an executor that may send anything; executors keeps each
+// executor's future from the gate until the footprints are next asked for, the
+// span in which no executor moves and one contention query reads each many times.
 type futureFootprints struct {
 	ctx       *Context
 	now       float64
 	nodes     map[futureKey]lower.Footprint
 	ends      map[*ast.TimeEvent]bool
 	machines  map[*lower.StateGraph]lower.Footprint
+	executors map[clockWaiter]lower.Footprint
 	gated     bool
 	senders   []futureSend
 	anySender bool
@@ -42,7 +45,13 @@ func newFutureFootprints(ctx *Context) *futureFootprints {
 
 // bind reads the clock of ctx from now on.
 func (f *futureFootprints) bind(ctx *Context) {
-	f.ctx, f.nodes = ctx, nil
+	f.ctx, f.nodes, f.executors = ctx, nil, nil
+}
+
+// forget drops the executors' futures a gate kept: an executor may have moved
+// or a message come or gone since they were read.
+func (f *futureFootprints) forget() {
+	f.executors = nil
 }
 
 // at drops what was memoized for an instant the clock has left.
@@ -79,6 +88,7 @@ func (f *futureFootprints) endsInstant(trigger ast.Node, scope *symbols.Scope) b
 // a transition no message queued or sendable at this instant can fire.
 func (f *futureFootprints) gate() {
 	f.at()
+	f.forget()
 	f.gated, f.senders, f.anySender = false, f.senders[:0], len(f.ctx.pendingBehaviors) > 0
 	for _, w := range f.ctx.clock.waiters {
 		if f.anySender {
@@ -93,7 +103,7 @@ func (f *futureFootprints) gate() {
 			f.senders = append(f.senders, futureSend{channel: c, from: executorSelf(w)})
 		}
 	}
-	f.gated = true
+	f.gated, f.executors = true, make(map[clockWaiter]lower.Footprint)
 }
 
 // cannotFire reports whether no message the transition's accept takes is queued
@@ -123,16 +133,25 @@ func (f *futureFootprints) cannotFire(e *StateExecutor, trans *lower.Transition)
 
 // executorFuture is what the executor may still touch at this instant: every
 // token's future for an action, the machine's for a state machine, everything
-// for any other.
+// for any other. The footprint is shared with later reads and is not to be written.
 func (f *futureFootprints) executorFuture(w clockWaiter) lower.Footprint {
 	f.at()
+	if fp, ok := f.executors[w]; ok {
+		return fp
+	}
+	var future lower.Footprint
 	switch exec := w.(type) {
 	case *ActionExecutor:
-		return f.actionFuture(exec)
+		future = f.actionFuture(exec)
 	case *StateExecutor:
-		return f.machineFuture(exec)
+		future = f.machineFuture(exec)
+	default:
+		future = lower.Footprint{Dynamic: true}
 	}
-	return lower.Footprint{Dynamic: true}
+	if f.executors != nil {
+		f.executors[w] = future
+	}
+	return future
 }
 
 func (f *futureFootprints) actionFuture(exec *ActionExecutor) lower.Footprint {
