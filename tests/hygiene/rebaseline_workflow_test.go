@@ -59,8 +59,9 @@ func TestRebaselineRunsOnTheLabelOfARepositoryBranchOnly(t *testing.T) {
 	if err := workflow.On.Decode(&triggers); err != nil {
 		t.Fatalf("decode on: %v", err)
 	}
-	if len(triggers) != 1 || len(triggers["pull_request"].Types) != 1 || triggers["pull_request"].Types[0] != "labeled" {
-		t.Fatalf("rebaseline.yml triggers on %v, want pull_request [labeled] alone", triggers)
+	// pull_request_target: GitHub creates no pull_request run for a pull request in conflict with develop.
+	if len(triggers) != 1 || len(triggers["pull_request_target"].Types) != 1 || triggers["pull_request_target"].Types[0] != "labeled" {
+		t.Fatalf("rebaseline.yml triggers on %v, want pull_request_target [labeled] alone", triggers)
 	}
 	if !strings.Contains(job.If, "github.event.label.name == 'ci:rebaseline'") {
 		t.Errorf("the job does not guard on the ci:rebaseline label: %q", job.If)
@@ -108,6 +109,9 @@ func TestRebaselineConflictAllowlistIsGeneratedPathsOnly(t *testing.T) {
 		}
 	}
 	runs := rebaselineRuns(job)
+	if strings.Count(runs, "*/testdata/*.sysml|*/testdata/*.kerml|*/testdata/*.ttl) ok=0") != 2 {
+		t.Error("the merge and the change check do not refuse to treat a source fixture under a golden directory as generated")
+	}
 	if !strings.Contains(runs, trainingExpectation) || !strings.Contains(runs, "never re-recorded") {
 		t.Error("no step fails the run when the recorders change the training expectation")
 	}
