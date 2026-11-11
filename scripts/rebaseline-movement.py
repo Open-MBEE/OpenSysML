@@ -85,6 +85,7 @@ def parse_census(text: str) -> dict[str, str]:
     for root in report.get("roots", []):
         for rule, counts in root.get("rules", {}).items():
             records[f"{root['name']}\t{rule}"] = json.dumps(counts, sort_keys=True)
+        records[f"root\t{root['name']}"] = json.dumps({k: v for k, v in root.items() if k not in ("name", "rules")}, sort_keys=True)
     return records
 
 
@@ -93,7 +94,7 @@ def parse_apijson(text: str) -> dict[str, str]:
     report = json.loads(text)
     records = {f"row\t{key}": json.dumps(counts) for key, counts in report.get("scorecard", {}).items()}
     for root in report.get("roots", []):
-        records[f"root\t{root['name']}"] = json.dumps({k: v for k, v in root.items() if k in ("files", "elements", "properties")}, sort_keys=True)
+        records[f"root\t{root['name']}"] = json.dumps({k: v for k, v in root.items() if k != "name"}, sort_keys=True)
     return records
 
 

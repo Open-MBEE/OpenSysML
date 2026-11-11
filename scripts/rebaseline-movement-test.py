@@ -89,7 +89,7 @@ class AttributionTest(unittest.TestCase):
         })
         self.assertEqual(movement.structure_figures(structure), {"examples models": 2, "examples skipped": 0, "examples matched": 10, "examples unmatched": 1, "tests/testdata models": 1, "tests/testdata skipped": 0, "tests/testdata matched": 3, "tests/testdata unmatched": 0})
         self.assertEqual(movement.parse_sweep("# h\nread\tProbe::p1.a\tmodel\tP1::a\tconstant 2.5\n"), {"read\tProbe::p1.a\tmodel\tP1::a": "constant 2.5"})
-        self.assertEqual(list(movement.parse_census(census(**{"A::b": {"ours": 1}}))), ["training\tA::b"])
+        self.assertEqual(sorted(movement.parse_census(census(**{"A::b": {"ours": 1}}))), ["root\ttraining", "training\tA::b"])
         apijson = json.dumps({"totals": {"files": 3, "elements": {"matched": 5}, "properties": {"oursMissing": 7, "presentDifferent": 2}},
                               "roots": [{"name": "training", "dir": "x", "files": 3, "elements": {}, "properties": {}}],
                               "scorecard": {"Feature.type": [1, 2, 3, 4, 5, 6, 7]}})
