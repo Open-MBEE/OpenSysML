@@ -461,8 +461,14 @@ func (m *Model) implicitRelationshipElements(sym *symbols.Symbol, feature string
 			return nil, false
 		}
 	}
-	// Per-metaclass ends: the source end answers the owning element, the
-	// target end what the edge resolves to.
+	return m.implicitRelationshipEndElements(meta, feature, src, tgt, tgtOK)
+}
+
+// implicitRelationshipEndElements answers the ends a reflected relationship's metaclass
+// declares: the source end is the owning element, the target end what the edge resolves to.
+func (m *Model) implicitRelationshipEndElements(meta, feature string, src, tgt *symbols.Symbol, tgtOK bool) ([]*symbols.Symbol, bool) {
+	source := []*symbols.Symbol{src}
+	empty := []*symbols.Symbol{}
 	srcEnd, tgtEnd := relationshipEndFeature(meta, feature)
 	switch {
 	case feature == "specific" && specializationMetaclassNames[meta]:
