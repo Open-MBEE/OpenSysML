@@ -99,18 +99,18 @@ fail() {
 # run_case <name> <expected exit> [VAR=value ...] -- <script arguments...>: runs the script
 # with the stand-ins, CI_APT_CACHE_DIR at $work/<name>/cache and two mirrors listed.
 run_case() {
-  local name=$1 expected=$2 dir=$work/$1
+  local name=$1 expected=$2
   shift 2
-  local vars=()
-  while [[ $1 != -- ]]; do
-    vars+=("$1")
+  local dir=$work/$name vars=() arg
+  for arg in "$@"; do
     shift
+    [[ $arg == -- ]] && break
+    vars+=("$arg")
   done
-  shift
   mkdir -p "$dir/cache"
   : >"$dir/apt.log"
   : >"$dir/dpkg.status"
-  printf 'http://mirror.one/ubuntu\tpriority:1\nhttp://mirror.two/ubuntu\tpriority:2\n' >"$dir/mirrors"
+  printf 'https://mirror.one/ubuntu\tpriority:1\nhttps://mirror.two/ubuntu\tpriority:2\n' >"$dir/mirrors"
   local actual=0
   env PATH="$stubs:$PATH" FAKE_APT_LOG="$dir/apt.log" FAKE_DPKG_STATUS="$dir/dpkg.status" \
     CI_APT_CACHE_DIR="$dir/cache" CI_APT_MIRRORS="$dir/mirrors" "${vars[@]}" \
@@ -131,11 +131,27 @@ seed() {
   for deb in "$@"; do echo seeded >"$dir/$deb"; done
 }
 
-calls() { grep -c -e "$2" "$work/$1/apt.log" || true; }
+# The install options under which the script lists the set and fetches the archives.
+readonly list_option=--print-uris fetch_option=--download-only
+
+# calls <name> <pattern>: how many apt-get calls of the run matched the pattern.
+calls() {
+  local name=$1 pattern=$2
+  grep -c -e "$pattern" "$work/$name/apt.log" || true
+}
 # installs <name>: the apt-get install calls that install (neither fetch nor list).
-installs() { grep -- ' install ' "$work/$1/apt.log" | grep -v -e '--download-only' -e '--print-uris' || true; }
-mentions() { grep -q -- "$2" "$work/$1/out" || fail "$1: output lacks \"$2\""; }
-installed() { grep -qx "$2" "$work/$1/dpkg.status" || fail "$1: $2 was not installed"; }
+installs() {
+  local name=$1
+  grep -- ' install ' "$work/$name/apt.log" | grep -v -e "$fetch_option" -e "$list_option" || true
+}
+mentions() {
+  local name=$1 text=$2
+  grep -q -- "$text" "$work/$name/out" || fail "$name: output lacks \"$text\""
+}
+installed() {
+  local name=$1 package=$2
+  grep -qx "$package" "$work/$name/dpkg.status" || fail "$name: $package was not installed"
+}
 set_holds() {
   local name=$1 actual
   shift
@@ -148,8 +164,8 @@ z3=(z3_4.13.3-1_amd64.deb libz3-4_4.13.3-1_amd64.deb)
 # Online, no set kept: update, one fetch, one install, the mirrors untouched.
 if run_case online 0 FAKE_APT_SET="${z3[*]}" -- z3; then
   [[ $(calls online '^-o .* update ') == 1 ]] || fail "online: update called $(calls online ' update ') times"
-  [[ $(calls online '--download-only') == 1 ]] || fail "online: fetched $(calls online '--download-only') times"
-  [[ $(calls online '--print-uris') == 0 ]] || fail "online: listed the set without a directory to keep it in"
+  [[ $(calls online "$fetch_option") == 1 ]] || fail "online: fetched $(calls online "$fetch_option") times"
+  [[ $(calls online "$list_option") == 0 ]] || fail "online: listed the set without a directory to keep it in"
   [[ $(installs online | wc -l) == 1 ]] || fail "online: $(installs online | wc -l) installs"
   installs online | grep -q -- ' install -y z3$' || fail "online: install was not 'install -y z3': $(installs online)"
   installed online z3
@@ -164,9 +180,9 @@ if run_case online-refill 0 FAKE_APT_SET="${z3[*]}" CI_APT_ARCHIVES="$work/onlin
   set_holds online-refill libz3-4_4.13.3-1_amd64.deb z3_4.13.3-1_amd64.deb
   [[ $(cat "$work/online-refill/cache/libz3-4_4.13.3-1_amd64.deb") == seeded ]] || fail "online-refill: the seeded archive was fetched again"
   [[ $(cat "$work/online-refill/set/libz3-4_4.13.3-1_amd64.deb") == seeded ]] || fail "online-refill: the kept archive is not the seeded one"
-  [[ $(calls online-refill '--print-uris') == 1 ]] || fail "online-refill: listed the set $(calls online-refill '--print-uris') times"
-  grep -- '--print-uris' "$work/online-refill/apt.log" | grep -q "Dir::Cache::Archives=$work/online-refill/cache/" && fail "online-refill: the set was listed against the seeded cache, which hides what it holds"
-  grep -- '--print-uris' "$work/online-refill/apt.log" | grep -q -- '--no-install-recommends z3$' || fail "online-refill: the listing did not carry the install options"
+  [[ $(calls online-refill "$list_option") == 1 ]] || fail "online-refill: listed the set $(calls online-refill "$list_option") times"
+  grep -- "$list_option" "$work/online-refill/apt.log" | grep -q "Dir::Cache::Archives=$work/online-refill/cache/" && fail "online-refill: the set was listed against the seeded cache, which hides what it holds"
+  grep -- "$list_option" "$work/online-refill/apt.log" | grep -q -- '--no-install-recommends z3$' || fail "online-refill: the listing did not carry the install options"
   installs online-refill | grep -q -- ' install -y --no-install-recommends z3$' || fail "online-refill: install was $(installs online-refill)"
   [[ -O "$work/online-refill/set/z3_4.13.3-1_amd64.deb" ]] || fail "online-refill: the kept archive is not owned by the caller"
   mentions online-refill 'kept the 2 archives'
@@ -177,7 +193,7 @@ fi
 seed offline "${z3[@]}"
 if run_case offline 0 FAKE_APT_SET="${z3[*]}" FAKE_APT_UPDATE=fail CI_APT_ARCHIVES="$work/offline/set" -- --no-install-recommends z3; then
   [[ $(calls offline ' update ') == 3 ]] || fail "offline: update attempted $(calls offline ' update ') times, expected 3"
-  [[ $(cat "$work/offline/mirrors") == $'http://mirror.two/ubuntu\tpriority:2' ]] || fail "offline: mirrors left: $(cat "$work/offline/mirrors")"
+  [[ $(cat "$work/offline/mirrors") == $'https://mirror.two/ubuntu\tpriority:2' ]] || fail "offline: mirrors left: $(cat "$work/offline/mirrors")"
   [[ $(installs offline | wc -l) == 1 ]] || fail "offline: $(installs offline | wc -l) installs"
   installs offline | grep -q -- "install -y --no-download --no-install-recommends $work/offline/set/libz3-4_4.13.3-1_amd64.deb $work/offline/set/z3_4.13.3-1_amd64.deb$" || fail "offline: install was $(installs offline)"
   installed offline z3
@@ -209,7 +225,7 @@ run_case offline-missing-package 1 FAKE_APT_SET=libz3-4_4.13.3-1_amd64.deb FAKE_
 # The mirror answers update and then stops: the fetch's attempts fail and the set is installed offline.
 seed fetch-fails "${z3[@]}"
 if run_case fetch-fails 0 FAKE_APT_SET="${z3[*]}" FAKE_APT_FETCH=fail CI_APT_ARCHIVES="$work/fetch-fails/set" -- z3; then
-  [[ $(calls fetch-fails '--download-only') == 3 ]] || fail "fetch-fails: fetched $(calls fetch-fails '--download-only') times, expected 3"
+  [[ $(calls fetch-fails "$fetch_option") == 3 ]] || fail "fetch-fails: fetched $(calls fetch-fails "$fetch_option") times, expected 3"
   installs fetch-fails | grep -q -- '--no-download' || fail "fetch-fails: install was $(installs fetch-fails)"
   installed fetch-fails z3
 fi
