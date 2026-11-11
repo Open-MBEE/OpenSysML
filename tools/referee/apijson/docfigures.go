@@ -51,17 +51,16 @@ var (
 	keyCellPattern        = regexp.MustCompile("^`([A-Za-z]+)`$")
 )
 
-// readCommittedReport reads the committed baseline.
+// readCommittedReport folds the committed directory into the report the
+// monolithic baseline once stated: totals, roots and one scorecard.
 func readCommittedReport(checkout string) (Report, error) {
-	path := filepath.Join(checkout, filepath.FromSlash(committedBaseline))
-	content, err := os.ReadFile(path) // #nosec G304 -- the committed baseline in this repository
+	committed, err := readCommitted(checkout)
 	if err != nil {
 		return Report{}, err
 	}
-	var report Report
-	if err := json.Unmarshal(content, &report); err != nil {
-		return Report{}, fmt.Errorf("parse %s: %w", committedBaseline, err)
-	}
+	report := Report{Provenance: committed.Provenance, Exporter: committed.Summary.Exporter, Normalizations: committed.Summary.Normalizations,
+		PilotNondeterministic: committed.Summary.PilotNondeterministic, Totals: committed.Summary.Totals, Roots: committed.Summary.Roots}
+	report.setScorecard(scorecardOf(committed.Fragments))
 	return report, nil
 }
 

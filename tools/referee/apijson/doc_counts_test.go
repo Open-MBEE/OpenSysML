@@ -25,10 +25,7 @@ func TestRecordStatesTheBaselinesFigures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	recorded, err := readCommittedReport(root)
-	if err != nil {
-		t.Fatal(err)
-	}
+	recorded := *committedFigures(t)
 	committed, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(recordPath)))
 	if err != nil {
 		t.Fatal(err)
