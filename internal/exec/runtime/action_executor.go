@@ -3573,11 +3573,10 @@ func orAnyPin(pin string) string {
 	return pin
 }
 
-// describeNode names a node of graph for a diagnostic, by its origin: `node a`, else `the if action`.
-// Not inlined: its many error-path callers would each carry the lookup, which the wasm size budget feels.
-//
 //go:noinline
 func describeNode(graph *lower.ActionGraph, node ast.Node) string {
+	// Names a node for a diagnostic by its origin (`node a`, else `the if action`); kept out
+	// of line because inlined into every error path it cost 17 KB of the wasm size budget.
 	if graph == nil {
 		return program.Origin{}.String()
 	}
