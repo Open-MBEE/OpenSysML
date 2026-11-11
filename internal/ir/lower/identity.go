@@ -5,9 +5,6 @@ import (
 	"strconv"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -184,7 +181,6 @@ func (g *ActionGraph) assignIDs() {
 	g.Kinds = make([]program.NodeKind, 1, n)
 	g.Provenance.nodes = make([]ast.Node, 1, n)
 	paths := originPaths{}
-	elements := newElementIDs(g.Semantics(), g.resolver)
 	for _, node := range g.Nodes {
 		if _, seen := g.ID[node]; seen {
 			continue
@@ -194,11 +190,11 @@ func (g *ActionGraph) assignIDs() {
 		g.Provenance.nodes = append(g.Provenance.nodes, node)
 		kind := g.nodeKind(node)
 		g.Kinds = append(g.Kinds, kind)
-		g.Origins = append(g.Origins, g.nodeOrigin(node, kind, paths, elements))
+		g.Origins = append(g.Origins, g.nodeOrigin(node, kind, paths))
 	}
 }
 
-func (g *ActionGraph) nodeOrigin(node ast.Node, kind program.NodeKind, paths originPaths, elements *elementIDs) program.Origin {
+func (g *ActionGraph) nodeOrigin(node ast.Node, kind program.NodeKind, paths originPaths) program.Origin {
 	scope := g.DeclScope(node)
 	var sym *symbols.Symbol
 	if scope != nil {
@@ -206,12 +202,11 @@ func (g *ActionGraph) nodeOrigin(node ast.Node, kind program.NodeKind, paths ori
 	}
 	name := originName(node)
 	return program.Origin{
-		Doc:     symbols.DocNameOf(scope),
-		Span:    node.Span(),
-		Path:    paths.unique(originPath(scope, sym, name, kind.String())),
-		Element: elements.of(sym),
-		Kind:    kind.Word(),
-		Name:    name,
+		Doc:  symbols.DocNameOf(scope),
+		Span: node.Span(),
+		Path: paths.unique(originPath(scope, sym, name, kind.String())),
+		Kind: kind.Word(),
+		Name: name,
 	}
 }
 
@@ -223,38 +218,11 @@ func (g *ActionGraph) OriginOf(node ast.Node) program.Origin {
 	return program.Origin{}
 }
 
-// elementIDs derives the element ids of a graph's declarations; nil derives none,
-// for a graph lowered without the name-resolution tier's resolver.
-type elementIDs struct {
-	lookup *identity.Lookup
-}
-
-func newElementIDs(sem *semantics.Model, res *resolve.Resolver) *elementIDs {
-	if sem == nil || res == nil {
-		return nil
-	}
-	return &elementIDs{lookup: identity.NewLookup(sem, res)}
-}
-
-// of is the element id of the declaration sym stands for, "" when none is known.
-func (e *elementIDs) of(sym *symbols.Symbol) string {
-	if e == nil || sym == nil {
-		return ""
-	}
-	if info, ok := e.lookup.Of(sym); ok {
-		return info.EffectiveID
-	}
-	return ""
-}
-
-// assignIDs gives every state, region, pseudostate and transition of the graph
-// its id, dense from 1 in declaration order, and the origin beside it.
 func (g *StateGraph) assignIDs() {
 	paths := originPaths{}
-	elements := newElementIDs(g.Semantics(), g.resolver)
-	g.assignStateIDs(paths, elements)
+	g.assignStateIDs(paths)
 	g.assignRegionIDs(paths)
-	g.assignPseudoIDs(paths, elements)
+	g.assignPseudoIDs(paths)
 	g.assignTransIDs(paths)
 	g.assignEntryOrigins()
 }
@@ -300,7 +268,7 @@ func (g *StateGraph) statesInOrder() []*ast.StateNode {
 	return out
 }
 
-func (g *StateGraph) assignStateIDs(paths originPaths, elements *elementIDs) {
+func (g *StateGraph) assignStateIDs(paths originPaths) {
 	states := g.statesInOrder()
 	n := len(states) + 1
 	g.ID = make(map[*ast.StateNode]program.StateID, len(states))
@@ -322,7 +290,7 @@ func (g *StateGraph) assignStateIDs(paths originPaths, elements *elementIDs) {
 				scope, sym = declared, declared.MemberDeclaring(state)
 			}
 		}
-		g.Origins = append(g.Origins, g.vertexOrigin(state, scope, sym, state.Name, paths, elements))
+		g.Origins = append(g.Origins, g.vertexOrigin(state, scope, sym, state.Name, paths))
 	}
 }
 
@@ -368,7 +336,7 @@ func (g *StateGraph) assignRegionIDs(paths originPaths) {
 	}
 }
 
-func (g *StateGraph) assignPseudoIDs(paths originPaths, elements *elementIDs) {
+func (g *StateGraph) assignPseudoIDs(paths originPaths) {
 	n := len(g.Pseudostates) + 1
 	g.PseudoID = make(map[*ast.PseudostateNode]program.PseudoID, len(g.Pseudostates))
 	g.PseudoOrigins = make([]program.Origin, 1, n)
@@ -384,19 +352,18 @@ func (g *StateGraph) assignPseudoIDs(paths originPaths, elements *elementIDs) {
 		if scope != nil {
 			sym = scope.MemberDeclaring(ps)
 		}
-		g.PseudoOrigins = append(g.PseudoOrigins, g.vertexOrigin(ps, scope, sym, ps.Name, paths, elements))
+		g.PseudoOrigins = append(g.PseudoOrigins, g.vertexOrigin(ps, scope, sym, ps.Name, paths))
 	}
 }
 
-func (g *StateGraph) vertexOrigin(decl ast.Node, scope *symbols.Scope, sym *symbols.Symbol, name string, paths originPaths, elements *elementIDs) program.Origin {
+func (g *StateGraph) vertexOrigin(decl ast.Node, scope *symbols.Scope, sym *symbols.Symbol, name string, paths originPaths) program.Origin {
 	kind := VertexKind(decl)
 	return program.Origin{
-		Doc:     g.DocOf(decl),
-		Span:    decl.Span(),
-		Path:    paths.unique(originPath(scope, sym, name, kind)),
-		Element: elements.of(sym),
-		Kind:    kind,
-		Name:    name,
+		Doc:  g.DocOf(decl),
+		Span: decl.Span(),
+		Path: paths.unique(originPath(scope, sym, name, kind)),
+		Kind: kind,
+		Name: name,
 	}
 }
 

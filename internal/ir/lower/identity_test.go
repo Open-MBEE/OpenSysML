@@ -104,9 +104,6 @@ func TestAssignIDs_ActionOriginsNameWhatMessagesName(t *testing.T) {
 	if grind.String() != "node grind" || grind.Kind != program.NodeExecution.Word() || grind.Path != "brew::grind" || grind.Doc != "test.sysml" {
 		t.Errorf("grind origin = %#v", grind)
 	}
-	if grind.Element == "" {
-		t.Errorf("grind origin has no element id: %#v", grind)
-	}
 	if graph.Kinds[1] != program.NodeInitial || graph.Kinds[byName["f"]] != program.NodeFork || graph.Kinds[byName["grind"]] != program.NodeExecution {
 		t.Errorf("kinds: initial %v, fork %v, grind %v", graph.Kinds[1], graph.Kinds[byName["f"]], graph.Kinds[byName["grind"]])
 	}
