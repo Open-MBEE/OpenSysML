@@ -23,12 +23,12 @@
     "enumLiteralsFound": 24,
     "enumLiteralsMissing": 0,
     "differential": {
-      "agree": 63,
-      "disagree": 9,
-      "undecided": 655
+      "agree": 68,
+      "disagree": 1,
+      "undecided": 658
     },
     "undecidedByReason": {
-      "anchor-shared": 35,
+      "anchor-shared": 38,
       "no-anchor": 62,
       "no-element": 229,
       "no-element-at-anchor": 79,
@@ -65,11 +65,11 @@
         "enumLiteralsMissing": 0,
         "differential": {
           "agree": 27,
-          "disagree": 2,
-          "undecided": 147
+          "disagree": 1,
+          "undecided": 148
         },
         "undecidedByReason": {
-          "anchor-shared": 4,
+          "anchor-shared": 5,
           "no-anchor": 12,
           "no-element": 48,
           "no-element-at-anchor": 22,
@@ -146,12 +146,12 @@
         "enumLiteralsFound": 17,
         "enumLiteralsMissing": 0,
         "differential": {
-          "agree": 36,
-          "disagree": 7,
-          "undecided": 400
+          "agree": 41,
+          "disagree": 0,
+          "undecided": 402
         },
         "undecidedByReason": {
-          "anchor-shared": 31,
+          "anchor-shared": 33,
           "no-anchor": 45,
           "no-element": 157,
           "no-element-at-anchor": 47,
@@ -557,20 +557,6 @@
   "disagreements": [
     {
       "grammar": "KerML.xtext",
-      "production": "LibraryPackage",
-      "location": {
-        "file": "internal/workspace/libs/stdlib/Domain Libraries/Analysis/AnalysisTooling.sysml",
-        "line": 1,
-        "column": 10
-      },
-      "symbolFqn": "AnalysisTooling",
-      "metaclass": "KerML::Kernel::Package",
-      "creates": [
-        "SysML::LibraryPackage"
-      ]
-    },
-    {
-      "grammar": "KerML.xtext",
       "production": "Subclassification",
       "location": {
         "file": "internal/workspace/libs/stdlib/Kernel Libraries/Kernel Semantic Library/Occurrences.kerml",
@@ -581,104 +567,6 @@
       "metaclass": "KerML::Core::Specialization",
       "creates": [
         "SysML::Subclassification"
-      ]
-    },
-    {
-      "grammar": "SysML.xtext",
-      "production": "LibraryPackage",
-      "location": {
-        "file": "internal/workspace/libs/stdlib/Domain Libraries/Analysis/AnalysisTooling.sysml",
-        "line": 1,
-        "column": 10
-      },
-      "symbolFqn": "AnalysisTooling",
-      "metaclass": "KerML::Kernel::Package",
-      "creates": [
-        "SysML::LibraryPackage"
-      ]
-    },
-    {
-      "grammar": "SysML.xtext",
-      "production": "PerformActionUsage",
-      "location": {
-        "file": "internal/workspace/libs/stdlib/Systems Library/Actions.sysml",
-        "line": 538,
-        "column": 10
-      },
-      "symbolFqn": "body",
-      "metaclass": "SysML::Systems::ActionUsage",
-      "creates": [
-        "SysML::PerformActionUsage"
-      ]
-    },
-    {
-      "grammar": "SysML.xtext",
-      "production": "SendNode",
-      "location": {
-        "file": "examples/sysml-v2-training/21. Asynchronous Messaging/Messaging Example.sysml",
-        "line": 31,
-        "column": 8
-      },
-      "symbolFqn": "Messaging Example::takePicture::",
-      "metaclass": "SysML::Systems::ActionUsage",
-      "creates": [
-        "SysML::SendActionUsage"
-      ]
-    },
-    {
-      "grammar": "SysML.xtext",
-      "production": "ExhibitStateUsage",
-      "location": {
-        "file": "examples/sysml-v2-training/26. State Exhibition/State Exhibition Example.sysml",
-        "line": 8,
-        "column": 3
-      },
-      "symbolFqn": "State Exhibition Example::vehicle::vehicleStates",
-      "metaclass": "SysML::Systems::StateUsage",
-      "creates": [
-        "SysML::ExhibitStateUsage"
-      ]
-    },
-    {
-      "grammar": "SysML.xtext",
-      "production": "AssertConstraintUsage",
-      "location": {
-        "file": "internal/workspace/libs/stdlib/Domain Libraries/Analysis/SampledFunctions.sysml",
-        "line": 40,
-        "column": 3
-      },
-      "symbolFqn": "SampledFunctions::SampledFunction::",
-      "metaclass": "SysML::Systems::ConstraintUsage",
-      "creates": [
-        "SysML::AssertConstraintUsage"
-      ]
-    },
-    {
-      "grammar": "SysML.xtext",
-      "production": "SubjectUsage",
-      "location": {
-        "file": "internal/workspace/libs/stdlib/Domain Libraries/Analysis/TradeStudies.sysml",
-        "line": 45,
-        "column": 3
-      },
-      "symbolFqn": "TradeStudies::TradeStudyObjective::selectedAlternative",
-      "metaclass": "SysML::Systems::PartUsage",
-      "creates": [
-        "SysML::ReferenceUsage"
-      ]
-    },
-    {
-      "grammar": "SysML.xtext",
-      "production": "IncludeUseCaseUsage",
-      "location": {
-        "file": "examples/sysml-v2-training/35. Use Cases/Use Case Usage Example.sysml",
-        "line": 12,
-        "column": 8
-      },
-      "symbolFqn": "Use Case Usage Example::provide transportation::enter vehicle",
-      "metaclass": "SysML::Systems::UseCaseUsage",
-      "creates": [
-        "SysML::IncludeUseCaseUsage"
       ]
     }
   ]

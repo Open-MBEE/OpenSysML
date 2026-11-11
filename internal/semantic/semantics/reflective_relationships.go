@@ -81,6 +81,10 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 			out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelReferences, false, connectorEndAttachment(target)))
 		}
 	}
+	// So does a flow's end (SysML.xtext FlowEnd: `OwnedReferenceSubsetting`).
+	if isFlowEndSymbol(owner) {
+		out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelReferences, false, connectorEndAttachment(ast.EndTarget(owner.Decl))))
+	}
 	// A multiplicity member's `subsets` is its one written relationship, held on
 	// the declaration rather than in a Relationships list.
 	if decl, ok := owner.Decl.(*ast.MultiplicityDecl); ok && decl.Subsets != nil {
@@ -341,7 +345,7 @@ func (m *Model) implicitRelationshipEnds(sym *symbols.Symbol) (src, tgt *symbols
 			tgt = m.chainTargetFeature(sym)
 			return src, tgt, tgt != nil
 		}
-		if _, isEnd := rel.Owner.Decl.(*ast.ConnectorEnd); isEnd && rel.Kind.ReferenceSubsets() {
+		if attachesEnd(rel.Owner) && rel.Kind.ReferenceSubsets() {
 			tgt = m.ReferencedFeature(rel.Owner)
 			return src, tgt, tgt != nil
 		}

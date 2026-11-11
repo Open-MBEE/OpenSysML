@@ -64,6 +64,9 @@ func (m *Model) ReferencedFeature(sym *symbols.Symbol) *symbols.Symbol {
 // that clause outside its relationship list when it is written with the
 // `references` keyword, so it is asked for its own.
 func referenceSubsettingTarget(sym *symbols.Symbol) ast.Node {
+	if isFlowEndSymbol(sym) {
+		return ast.EndTarget(sym.Decl)
+	}
 	switch decl := sym.Decl.(type) {
 	case *ast.ConnectorEnd:
 		return decl.AttachedTarget()
@@ -89,10 +92,20 @@ func referenceSubsettingTarget(sym *symbols.Symbol) ast.Node {
 // feature of the connector's owner, so it resolves one scope out — the same
 // scope the document walk uses (resolve/document.go).
 func referenceScope(sym *symbols.Symbol) *symbols.Scope {
+	if isFlowEndSymbol(sym) {
+		return sym.Expr.Owner.OwnerScope
+	}
 	if _, ok := sym.Decl.(*ast.ConnectorEnd); ok && sym.OwnerScope != nil {
 		return sym.OwnerScope.Parent()
 	}
 	return sym.OwnerScope
+}
+
+// attachesEnd reports whether sym is a connector end, written (`connect a to b`)
+// or a flow's, whose target is what it reference-subsets.
+func attachesEnd(sym *symbols.Symbol) bool {
+	_, ok := sym.Decl.(*ast.ConnectorEnd)
+	return ok || isFlowEndSymbol(sym)
 }
 
 // MemberSources returns the symbols whose scopes contribute members to sym, in

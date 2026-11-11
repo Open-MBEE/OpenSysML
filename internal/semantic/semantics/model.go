@@ -178,6 +178,7 @@ type Model struct {
 	// the Membership, Annotation and Import objects each element implies
 	// (see reflective_memberships.go, reflective_annotations.go).
 	memberships      map[*symbols.Symbol][]*symbols.Symbol
+	synthesized      map[*symbols.Symbol][]*symbols.Symbol
 	valueExpressions map[*symbols.Symbol]*symbols.Symbol
 	expressionParts  map[*symbols.Symbol]*expressionParts
 	transitionParts  map[*symbols.Symbol]*transitionParts
@@ -269,6 +270,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		assumedSupers:         make(map[*symbols.Symbol]assumedSupertypes),
 		implicitRels:          make(map[*symbols.Symbol][]*symbols.Symbol),
 		memberships:           make(map[*symbols.Symbol][]*symbols.Symbol),
+		synthesized:           make(map[*symbols.Symbol][]*symbols.Symbol),
 		ownedAnnotations:      make(map[*symbols.Symbol][]*symbols.Symbol),
 		annotatingRels:        make(map[*symbols.Symbol][]*symbols.Symbol),
 		ownedImports:          make(map[*symbols.Symbol][]*symbols.Symbol),

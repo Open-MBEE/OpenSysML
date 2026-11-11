@@ -237,6 +237,9 @@ func (m *Model) namingFeature(sym *symbols.Symbol) *symbols.Symbol {
 	if m == nil || sym == nil {
 		return nil
 	}
+	if isFlowEndSymbol(sym) {
+		return m.flowEndRedefinedEnd(sym)
+	}
 	if byReference, referenceOnly := ast.DeclNamedByReference(sym.Decl); byReference {
 		if ref := m.ReferencedFeature(sym); ref != nil {
 			return ref
@@ -252,6 +255,16 @@ func (m *Model) namingFeature(sym *symbols.Symbol) *symbols.Symbol {
 		if candidate != nil && candidate != sym {
 			return candidate
 		}
+	}
+	return nil
+}
+
+// flowEndRedefinedEnd is the Transfer end (`source`, `target`) a FlowEnd redefines
+// by position and takes its name from (KerML 8.3.4.8.4 checkFlowEndRedefinition).
+func (m *Model) flowEndRedefinedEnd(end *symbols.Symbol) *symbols.Symbol {
+	ends := m.EndFeatures(end.Expr.Owner)
+	if end.Expr.Index < len(ends) {
+		return ends[end.Expr.Index]
 	}
 	return nil
 }

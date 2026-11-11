@@ -47,13 +47,13 @@ baseline. The current figures are in [the baseline JSON](grammar-metaclass-map-b
 
 | Grammar | Agree | Disagree | Undecided |
 |---|---:|---:|---:|
-| `KerML.xtext` | 27 | 2 | 147 |
+| `KerML.xtext` | 27 | 1 | 148 |
 | `KerMLExpressions.xtext` | 0 | 0 | 108 |
-| `SysML.xtext` | 36 | 7 | 400 |
-| **Total** | **63** | **9** | **655** |
+| `SysML.xtext` | 41 | 0 | 402 |
+| **Total** | **68** | **1** | **658** |
 
 Undecided reasons: `no-input` 244, `no-element` 229, `no-element-at-anchor` 79,
-`no-anchor` 62, `anchor-shared` 35, `no-reflective-metaclass` 0,
+`no-anchor` 62, `anchor-shared` 38, `no-reflective-metaclass` 0,
 `relationship-not-reified` 6, `unlocated` 0.
 Reflective type statuses are 123 Ecore, 1,137 KerML, 412 SysML and 0 missing.
 
@@ -74,15 +74,7 @@ grammar's possible create. These are observations, not fixes.
 
 | Production | Evidence location | OpenSysML metaclass | Grammar metaclass |
 |---|---|---|---|
-| `KerML.xtext::LibraryPackage` | `internal/workspace/libs/stdlib/Domain Libraries/Analysis/AnalysisTooling.sysml:1` | `KerML::Kernel::Package` | `SysML::LibraryPackage` |
 | `KerML.xtext::Subclassification` | `internal/workspace/libs/stdlib/Kernel Libraries/Kernel Semantic Library/Occurrences.kerml:729` | `KerML::Core::Specialization` | `SysML::Subclassification` |
-| `SysML.xtext::LibraryPackage` | `internal/workspace/libs/stdlib/Domain Libraries/Analysis/AnalysisTooling.sysml:1` | `KerML::Kernel::Package` | `SysML::LibraryPackage` |
-| `SysML.xtext::PerformActionUsage` | `internal/workspace/libs/stdlib/Systems Library/Actions.sysml:538` | `SysML::Systems::ActionUsage` | `SysML::PerformActionUsage` |
-| `SysML.xtext::SendNode` | `examples/sysml-v2-training/21. Asynchronous Messaging/Messaging Example.sysml:31` | `SysML::Systems::ActionUsage` | `SysML::SendActionUsage` |
-| `SysML.xtext::ExhibitStateUsage` | `examples/sysml-v2-training/26. State Exhibition/State Exhibition Example.sysml:8` | `SysML::Systems::StateUsage` | `SysML::ExhibitStateUsage` |
-| `SysML.xtext::AssertConstraintUsage` | `internal/workspace/libs/stdlib/Domain Libraries/Analysis/SampledFunctions.sysml:40` | `SysML::Systems::ConstraintUsage` | `SysML::AssertConstraintUsage` |
-| `SysML.xtext::SubjectUsage` | `internal/workspace/libs/stdlib/Domain Libraries/Analysis/TradeStudies.sysml:45` | `SysML::Systems::PartUsage` | `SysML::ReferenceUsage` |
-| `SysML.xtext::IncludeUseCaseUsage` | `examples/sysml-v2-training/35. Use Cases/Use Case Usage Example.sysml:12` | `SysML::Systems::UseCaseUsage` | `SysML::IncludeUseCaseUsage` |
 
 ## Reproducing
 

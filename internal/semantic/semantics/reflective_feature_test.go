@@ -999,6 +999,22 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 	if sym.IsPrefixMetadata() {
 		facts.Modifiers |= symbols.ModPrefixMetadata
 	}
+	facts.LibraryPackage = symbols.IsLibraryPackage(sym)
+	if usage, ok := sym.Decl.(*ast.Usage); ok {
+		for _, mod := range []struct {
+			set bool
+			mod symbols.Modifiers
+		}{
+			{usage.IsEvent, symbols.ModEvent},
+			{usage.IsExhibitedState(), symbols.ModExhibitedState},
+			{usage.IsIncludedUseCase(), symbols.ModIncludedUseCase},
+			{usage.IsExtendedUsage(), symbols.ModExtendedUsage},
+		} {
+			if mod.set {
+				facts.Modifiers |= mod.mod
+			}
+		}
+	}
 	if model.UsageMayTimeVary(sym) {
 		facts.Modifiers |= symbols.ModMayTimeVary
 	}

@@ -247,7 +247,7 @@ func (m *Model) ImpliedBaseFQNsForMetaclass(metaclass string, kind source.Kind) 
 	if base, ok := impliedMultiplicityBases[metaclass]; ok {
 		return []string{base}
 	}
-	if metaclass == "ReferenceUsage" && kind != source.KindKerML {
+	if (metaclass == "ReferenceUsage" || metaclass == "Usage") && kind != source.KindKerML {
 		// A reference usage has no kind base: it subsets only Base::things (SysML v2 §7.6.2).
 		return []string{baseUsageFQN}
 	}

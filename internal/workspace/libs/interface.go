@@ -358,6 +358,9 @@ func declaredTraits(decl ast.Node) (ast.FeatureDirection, symbols.Modifiers) {
 		set(d.IsAll, symbols.ModAll)
 		set(d.IsChain, symbols.ModChain)
 		set(d.IsEvent, symbols.ModEvent)
+		set(d.IsExhibitedState(), symbols.ModExhibitedState)
+		set(d.IsIncludedUseCase(), symbols.ModIncludedUseCase)
+		set(d.IsExtendedUsage(), symbols.ModExtendedUsage)
 		return d.Direction, mods
 	case *ast.CrossFeatureMember:
 		set(d.IsDerived, symbols.ModDerived)
