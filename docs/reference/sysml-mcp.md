@@ -463,6 +463,10 @@ authentication the Model Context Protocol asks of a server on a network:
   RFC 9728 § 5.1); one with a wrong token adds `error="invalid_token"`, one with another scheme
   `error="invalid_request"`, and a malformed `Bearer` header is `400 Bad Request`. The refusal
   never repeats the token, and the token is logged nowhere.
+- **A protocol session belongs to who opened it.** An `Mcp-Session-Id` is answered only to the
+  principal whose `initialize` created it, `403 Forbidden` to any other. Every holder of the one
+  token is the same principal, `static-token:token`, so clients that share the token may still
+  share a session.
 - **Resource metadata.** With a token, the protected resource metadata of RFC 9728 is served at
   `/.well-known/oauth-protected-resource/mcp` — the endpoint's `resource` identifier as the
   client reached it and `bearer_methods_supported: ["header"]`, with no `authorization_servers`

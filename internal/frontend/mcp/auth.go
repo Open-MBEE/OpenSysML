@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/oauthex"
@@ -26,11 +27,13 @@ const ProtectedResourceMetadataPath = wellKnownPrefix + HTTPPath
 // flag names one.
 const TokenEnv = "OPENSYSML_MCP_TOKEN" // #nosec G101 -- a variable name, not a credential
 
-// BearerToken is the one access token the HTTP transport accepts (RFC 6750),
-// issued out of band by whoever runs the server, with the endpoint it
-// protects; the zero value is no token.
+// BearerToken is whose bearer credentials the HTTP transport accepts (RFC 6750): a token
+// issued out of band, an Authenticator's, or both, with the endpoint it protects.
 type BearerToken struct {
 	guard.Token
+	// Authenticator, if set, names the principals of the credentials it reads, ahead of
+	// the token; a guard.Chain of none, as flags resolve to with none given, is not set.
+	Authenticator guard.Authenticator
 	// public is the endpoint's URL as clients reach it; nil reads each request.
 	public *url.URL
 }
@@ -88,16 +91,43 @@ func (t BearerToken) PublicURL() string {
 	return t.public.String()
 }
 
-// Handler requires Authorization: Bearer TOKEN of every request (RFC 6750 § 2.1),
-// 401 or 400 otherwise, and serves next as the token's all-scopes principal; no token serves next.
+// Set reports whether a request has to authenticate, with the token or to the Authenticator.
+func (t BearerToken) Set() bool { return len(t.authenticators()) > 0 }
+
+// authenticators are who a request authenticates to, in the order asked: the Authenticator,
+// then the token as an all-scopes guard.StaticToken, which claims every bearer token.
+func (t BearerToken) authenticators() guard.Chain {
+	var chain guard.Chain
+	switch a := t.Authenticator.(type) {
+	case nil:
+	case guard.Chain:
+		chain = append(chain, a...)
+	case *guard.Chain:
+		if a != nil {
+			chain = append(chain, *a...)
+		}
+	default:
+		chain = append(chain, a)
+	}
+	if t.Token.Set() {
+		chain = append(chain, guard.NewStaticToken(t.Token, catalog.ScopeNames()...))
+	}
+	return chain
+}
+
+// Handler serves next the requests an authenticator accepts (RFC 6750 § 2.1), as their
+// principal, and answers a refusal as § 3.1 has it; with nothing set it serves every request.
 func (t BearerToken) Handler(next http.Handler) http.Handler {
 	if !t.Set() {
 		return next
 	}
-	chain := guard.Chain{guard.NewStaticToken(t.Token, catalog.ScopeNames()...)}
+	chain := t.authenticators()
 	next = carryPrincipal(next)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p, refusal := chain.Verify(r.Context(), r.Header.Get("Authorization"), r)
+		if refusal == guard.Accepted && !p.Expires.IsZero() && !p.Expires.After(time.Now()) {
+			refusal = guard.Expired
+		}
 		if refusal != guard.Accepted {
 			t.challenge(w, r, refusal)
 			return
@@ -117,7 +147,7 @@ var carryPrincipal = auth.RequireBearerToken(func(ctx context.Context, _ string,
 }, &auth.RequireBearerTokenOptions{AllowMissingExpiration: true})
 
 // challenge writes the refusal with the WWW-Authenticate header naming the
-// metadata and the RFC 6750 § 3.1 error code (none when nothing was presented).
+// metadata and the RFC 6750 § 3.1 error code, when the refusal has one.
 func (t BearerToken) challenge(w http.ResponseWriter, r *http.Request, refusal guard.Refusal) {
 	params := []string{`realm="sysml-mcp"`, fmt.Sprintf("resource_metadata=%q", t.resourceMetadataURL(r))}
 	params = append(params, refusal.ChallengeParams()...)
@@ -126,8 +156,8 @@ func (t BearerToken) challenge(w http.ResponseWriter, r *http.Request, refusal g
 	http.Error(w, refusal.Message(), refusal.HTTPStatus())
 }
 
-// ServeMetadata answers the endpoint's protected resource metadata (RFC 9728
-// § 3.2); there is no authorization server to list, the token being out of band.
+// ServeMetadata answers the endpoint's protected resource metadata (RFC 9728 § 3.2), with
+// the authorization servers and scopes the Authenticator advertises; the token has none.
 func (t BearerToken) ServeMetadata(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		w.Header().Set("Allow", "GET, HEAD")
@@ -136,8 +166,11 @@ func (t BearerToken) ServeMetadata(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
+	advertised := t.authenticators().Metadata()
 	_ = json.NewEncoder(w).Encode(&oauthex.ProtectedResourceMetadata{
 		Resource:               t.resourceURL(r),
+		AuthorizationServers:   advertised.AuthorizationServers,
+		ScopesSupported:        advertised.ScopesSupported,
 		BearerMethodsSupported: []string{"header"},
 		ResourceName:           "sysml-mcp",
 		ResourceDocumentation:  "https://github.com/Open-MBEE/OpenSysML/blob/main/docs/reference/sysml-mcp.md",
