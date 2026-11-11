@@ -112,6 +112,21 @@ func TestConnectorRelationshipEnds(t *testing.T) {
 	})
 }
 
+// A connector with an end that references nothing answers no source, target or relatedElement:
+// the resolved end is not read as the source.
+func TestConnectorRelationshipEndsUnresolved(t *testing.T) {
+	m, root := buildModelWithStdlibNamedKind(t, "connector-unresolved.kerml", source.KindKerML, `package K {
+	feature g;
+	connector cn from Missing to g;
+}`)
+	cn := nestedSym(t, root, "K::cn")
+	for _, feature := range []string{"source", "target", "relatedElement"} {
+		if got, ok := m.ReflectiveElements(cn, feature); ok {
+			t.Errorf("K::cn.%s = %v, want underived", feature, fqns(got))
+		}
+	}
+}
+
 // A dependency's source and target are its clients and suppliers, which redefine them (KerML 8.3.2.2.2).
 func TestDependencyRelationshipEnds(t *testing.T) {
 	m, root := buildModelWithStdlib(t, `package S {

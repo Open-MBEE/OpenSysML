@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"slices"
 )
 
 // ImplicitRelationships returns the specialization-family relationship objects
@@ -573,6 +574,10 @@ func (m *Model) declaredRelationshipEnds(sym *symbols.Symbol, feature string) ([
 		return append(m.dependencyEnds(sym, dep.Clients), m.dependencyEnds(sym, dep.Suppliers)...), true
 	}
 	if m.reflectiveMetaclassConforms(sym, "Connector") {
+		// An end that references nothing would shift the ends after it: no answer at all.
+		if slices.Contains(m.ConnectorRelatedFeaturesByEnd(sym), nil) {
+			return nil, false
+		}
 		return m.ReflectiveElements(sym, connectorEndFeatures[feature])
 	}
 	return nil, false
