@@ -2506,22 +2506,31 @@ func (e *encoder) messageEnd(subject rdf.Term, index int, target ast.Node) error
 		return err
 	}
 	if name, ok := target.(*ast.QualifiedName); ok && !qualifiedNameHasChain(name) {
-		e.connectorRelatedFeature(subject, reference, index, 2)
+		e.connectorRelatedFeature(subject, reference, index, 2, true)
 	}
 	return nil
 }
 
-// connectorRelatedFeature states Connector::relatedFeature as the feature the end's
-// ReferenceSubsetting references (KerML 8.3.4.5.3); a binary connector's ends are source and target.
-func (e *encoder) connectorRelatedFeature(subject, reference rdf.Term, index, ends int) {
+// connectorRelatedFeature states Connector::relatedFeature as the feature the end's ReferenceSubsetting references
+// (KerML 8.3.4.5.3) and, for a plain end, the Relationship::relatedElement, source and target the three redefine.
+func (e *encoder) connectorRelatedFeature(subject, reference rdf.Term, index, ends int, plain bool) {
 	if reference.Value == "" || !reference.IsIRI() {
 		return
 	}
 	e.graph.Add(subject, e.sysml(pRelatedFeature), reference)
+	if plain {
+		e.graph.Add(subject, e.sysml(pRelatedElement), reference)
+	}
 	if ends == 2 && index == 0 {
 		e.graph.Add(subject, e.sysml(pSourceFeature), reference)
+		if plain {
+			e.graph.Add(subject, e.sysml(pSource), reference)
+		}
 	} else if ends == 2 && index == 1 {
 		e.graph.Add(subject, e.sysml(pTargetFeature), reference)
+		if plain {
+			e.graph.Add(subject, e.sysml(pTarget), reference)
+		}
 	}
 }
 
@@ -2649,7 +2658,9 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 			}
 		}
 		if !end.noCollapse {
-			e.connectorRelatedFeature(subject, reference, end.index, end.ends)
+			name, named := end.target.(*ast.QualifiedName)
+			plain := len(flowSegments) == 0 && end.targetTerm.Value == "" && named && !qualifiedNameHasChain(name)
+			e.connectorRelatedFeature(subject, reference, end.index, end.ends, plain)
 		}
 	}
 	if err := e.multiplicity(feature, end.owner, end.mult); err != nil {
