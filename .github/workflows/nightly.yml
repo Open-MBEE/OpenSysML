@@ -287,14 +287,20 @@ jobs:
         run: |
           expected="${CORE}-${VERSION}"
           (cd editors/vscode && npm ci --ignore-scripts && npm run package -- "$expected" --no-update-package-json)
-          unzip -q -o editors/vscode/opensysml.vsix extension/package.json -d /tmp/vsix
-          stamped=$(node -p "require('/tmp/vsix/extension/package.json').version")
-          if [ "$stamped" != "$expected" ]; then
-            echo "::error::opensysml.vsix carries version '$stamped', not the '$expected' it is being published as."
+          # The selected commit's script names the file (an older one differently); the asset has one name.
+          vsixes=(editors/vscode/*.vsix)
+          if [[ "${#vsixes[@]}" -ne 1 || ! -f "${vsixes[0]}" ]]; then
+            echo "::error::Expected one packaged extension under editors/vscode, found: ${vsixes[*]}"
             exit 1
           fi
-          echo "ok: opensysml.vsix carries $stamped"
-          cp editors/vscode/opensysml.vsix dist/
+          unzip -q -o "${vsixes[0]}" extension/package.json -d /tmp/vsix
+          stamped=$(node -p "require('/tmp/vsix/extension/package.json').version")
+          if [ "$stamped" != "$expected" ]; then
+            echo "::error::${vsixes[0]} carries version '$stamped', not the '$expected' it is being published as."
+            exit 1
+          fi
+          echo "ok: ${vsixes[0]} carries $stamped"
+          cp "${vsixes[0]}" dist/opensysml.vsix
           (cd dist && sha256sum opensysml.vsix >> SHA256SUMS.txt && cat SHA256SUMS.txt)
 
       # The wheel installs this night's `sysml-grpc` on its own only through the digests

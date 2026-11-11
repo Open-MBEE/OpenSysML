@@ -496,6 +496,10 @@ func TestNightlyVSIXIsVersionedAsTheSnapshotCoreNotTheManifest(t *testing.T) {
 	if strings.Contains(packaged.Run, "editors/vscode/package.json').version") {
 		t.Errorf("the vsix step still versions the extension from its manifest, which names the release already made:\n%s", packaged.Run)
 	}
+	// The selected commit's own script names the packed file, and an older commit names it differently.
+	if !containsAll(packaged.Run, "vsixes=(editors/vscode/*.vsix)", `cp "${vsixes[0]}" dist/opensysml.vsix`) {
+		t.Errorf("the vsix step does not take whatever the commit packed and publish it as opensysml.vsix:\n%s", packaged.Run)
+	}
 }
 
 // An append whose glob matched the bundles once listed them twice and broke every nightly
