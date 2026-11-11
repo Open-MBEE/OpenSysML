@@ -342,7 +342,7 @@ public sealed class ModelEditingTests : IDisposable
         Edit[] batch = [new Edit.AddNote("A::B", "n"), new Edit.AddConnection("A", "flow", "a", "b"), new Edit.AddMember("A", "part", "p") { IsAbstract = true }, new Edit.Delete("A::B")];
         var named = new EditOptions { InDocument = "b.sysml" };
 
-        Assert.Equal(Capabilities.Authoring, await RefusedAsync(wire, [.. Internal.EditWire.GateOrder], model => model.ApplyEditsAsync(batch, cancellationToken: Token)));
+        Assert.Equal(Capabilities.Authoring, await RefusedAsync(wire, [.. Internal.Mapping.EditWire.GateOrder], model => model.ApplyEditsAsync(batch, cancellationToken: Token)));
         Assert.Equal(
             Capabilities.ConnectionAuthoring,
             await RefusedAsync(wire, [Capabilities.CommentAuthoring, Capabilities.MemberModifiers, Capabilities.ConnectionAuthoring], model => model.ApplyEditsAsync(batch, cancellationToken: Token)));
@@ -796,7 +796,7 @@ public sealed class ModelEditingTests : IDisposable
         return Wire.ApplyEditsRequest.Parser.ParseFrom(CodedInputStream.CreateWithLimits(new MemoryStream(sent.MessageBytes), int.MaxValue, 1000));
     }
 
-    private static Diagnostic ModelWireDiagnostic() => Internal.ModelWire.Diagnostic(CompleteWire.Diagnostic);
+    private static Diagnostic ModelWireDiagnostic() => Internal.Mapping.ModelWire.Diagnostic(CompleteWire.Diagnostic);
 
     // The capability an edit is refused for when the service lacks the given ones, after checking nothing was sent.
     private static async Task<string> RefusedAsync(ClientWire wire, string[] withheld, Func<Model, Task> call)

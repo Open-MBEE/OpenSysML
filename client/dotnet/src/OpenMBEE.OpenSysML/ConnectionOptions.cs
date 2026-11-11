@@ -5,7 +5,8 @@ using System.Linq;
 using System.Net.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Provisioning;
+using OpenMBEE.OpenSysML.Internal.Transport;
 
 namespace OpenMBEE.OpenSysML;
 

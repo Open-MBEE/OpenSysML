@@ -14,7 +14,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Google.Protobuf;
-using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Transport;
 
 namespace OpenMBEE.OpenSysML.Tests;
 

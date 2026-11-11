@@ -309,7 +309,7 @@ public sealed class ModelQueryDocsTests
         Assert.Equal(new DocumentValue.ElementValue("Garage::car", "PartUsage"), first.Element);
         Assert.Equal([new DocumentValue.TextValue("car")], first.Cells[0]);
         Assert.Equal(
-            CompleteExecutionWire.DocumentValues.Select((value, i) => Internal.DocumentWire.Value(value, Model.RunDocumentQueryMethod, $"v{i}")),
+            CompleteExecutionWire.DocumentValues.Select((value, i) => Internal.Mapping.DocumentWire.Value(value, Model.RunDocumentQueryMethod, $"v{i}")),
             first.Cells[1]);
         Assert.Equal(new DocumentObject(2, "Garage::car", new DocumentValue.ElementValue("Garage::car", "PartUsage")), Assert.IsType<DocumentValue.ObjectValue>(result.Rows[1].Element).Value);
         Assert.Equal(2, result.Rows[1].Cells.Count);

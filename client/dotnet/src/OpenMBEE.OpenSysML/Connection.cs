@@ -3,7 +3,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Google.Protobuf;
 using Microsoft.Extensions.Logging;
-using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Lifecycle;
+using OpenMBEE.OpenSysML.Internal.Provisioning;
+using OpenMBEE.OpenSysML.Internal.Transport;
 
 namespace OpenMBEE.OpenSysML;
 

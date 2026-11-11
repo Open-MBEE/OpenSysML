@@ -4,7 +4,8 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Lifecycle;
+using OpenMBEE.OpenSysML.Internal.Transport;
 using Xunit;
 
 namespace OpenMBEE.OpenSysML.Tests;

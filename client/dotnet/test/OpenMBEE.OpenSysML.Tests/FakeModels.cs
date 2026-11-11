@@ -53,8 +53,8 @@ internal static class FakeModels
         Capabilities.SymbolMembers,
         Capabilities.ElementProperties,
         Capabilities.InstancePaths,
-        .. Internal.EditWire.GateOrder,
-        .. Internal.ValueWire.SendGateOrder,
+        .. Internal.Mapping.EditWire.GateOrder,
+        .. Internal.Mapping.ValueWire.SendGateOrder,
     ];
 
     /// <summary>Answers a method from its request; methods answered before keep their answers.</summary>

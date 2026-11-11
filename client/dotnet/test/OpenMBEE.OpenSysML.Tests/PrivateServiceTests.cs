@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
-using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Lifecycle;
 using Xunit;
 
 namespace OpenMBEE.OpenSysML.Tests;

@@ -4,7 +4,7 @@ using System.IO.Compression;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Transport;
 using Xunit;
 
 namespace OpenMBEE.OpenSysML.Tests;

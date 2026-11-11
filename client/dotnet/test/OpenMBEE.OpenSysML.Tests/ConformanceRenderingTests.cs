@@ -5,7 +5,7 @@ using System.Linq;
 using Google.Protobuf;
 using Google.Protobuf.Reflection;
 using OpenMBEE.OpenSysML.Conformance;
-using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Mapping;
 using Xunit;
 
 namespace OpenMBEE.OpenSysML.Tests;

@@ -3,7 +3,7 @@
     <AssemblyName>OpenMBEE.OpenSysML</AssemblyName>
     <RootNamespace>OpenMBEE.OpenSysML</RootNamespace>
     <Description>C# client for the OpenSysML sysml-grpc service.</Description>
-    <!-- LibraryImport: the shared cache's lock and links call libc and kernel32 (Internal/CacheNative.cs). -->
+    <!-- LibraryImport: the shared cache's lock and links call libc and kernel32 (Internal/Provisioning/CacheNative.cs). -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 

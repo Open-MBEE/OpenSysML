@@ -1,7 +1,8 @@
 using System;
 using System.Linq;
 using System.Text;
-using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Mapping;
+using OpenMBEE.OpenSysML.Internal.Transport;
 using Xunit;
 
 namespace OpenMBEE.OpenSysML.Tests;

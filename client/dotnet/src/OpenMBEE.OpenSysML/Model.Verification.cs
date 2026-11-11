@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Mapping;
 
 namespace OpenMBEE.OpenSysML;
 

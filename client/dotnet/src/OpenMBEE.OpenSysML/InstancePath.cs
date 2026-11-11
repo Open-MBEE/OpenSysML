@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Mapping;
 
 namespace OpenMBEE.OpenSysML;
 

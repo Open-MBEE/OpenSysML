@@ -11,7 +11,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
-using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Provisioning;
 using OpenMBEE.OpenSysML.LoadContextProbe;
 
 namespace OpenMBEE.OpenSysML.CacheProbe;

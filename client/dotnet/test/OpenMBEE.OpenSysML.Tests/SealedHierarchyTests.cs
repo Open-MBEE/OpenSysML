@@ -5,7 +5,7 @@ using System.Linq;
 using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Mapping;
 using Xunit;
 
 namespace OpenMBEE.OpenSysML.Tests;

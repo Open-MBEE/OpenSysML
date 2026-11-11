@@ -36,5 +36,5 @@ public sealed record DocumentObject
 
     /// <summary>The object as its path, or <c>#2</c> by id when it has none.</summary>
     /// <returns>The object's text.</returns>
-    public override string ToString() => Path.Length > 0 ? Path : $"#{Internal.ValueText.Whole(InstanceId)}";
+    public override string ToString() => Path.Length > 0 ? Path : $"#{Internal.Mapping.ValueText.Whole(InstanceId)}";
 }
