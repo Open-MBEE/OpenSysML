@@ -3318,3 +3318,27 @@
 [OSML0001]override OpenMBEE.OpenSysML.ViewFrame.ToString() -> string!
 [OSML0001]static OpenMBEE.OpenSysML.ViewFrame.operator !=(OpenMBEE.OpenSysML.ViewFrame? left, OpenMBEE.OpenSysML.ViewFrame? right) -> bool
 [OSML0001]static OpenMBEE.OpenSysML.ViewFrame.operator ==(OpenMBEE.OpenSysML.ViewFrame? left, OpenMBEE.OpenSysML.ViewFrame? right) -> bool
+[OSML0001]OpenMBEE.OpenSysML.CheckSearch.Coverage.get -> OpenMBEE.OpenSysML.Coverage?
+[OSML0001]OpenMBEE.OpenSysML.Coverage
+[OSML0001]OpenMBEE.OpenSysML.Coverage.<Clone>$() -> OpenMBEE.OpenSysML.Coverage!
+[OSML0001]OpenMBEE.OpenSysML.Coverage.Equals(OpenMBEE.OpenSysML.Coverage? other) -> bool
+[OSML0001]OpenMBEE.OpenSysML.Coverage.States.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.CoverageEntry!>
+[OSML0001]OpenMBEE.OpenSysML.Coverage.Transitions.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.CoverageEntry!>
+[OSML0001]OpenMBEE.OpenSysML.CoverageEntry
+[OSML0001]OpenMBEE.OpenSysML.CoverageEntry.<Clone>$() -> OpenMBEE.OpenSysML.CoverageEntry!
+[OSML0001]OpenMBEE.OpenSysML.CoverageEntry.Declaration.get -> string!
+[OSML0001]OpenMBEE.OpenSysML.CoverageEntry.Equals(OpenMBEE.OpenSysML.CoverageEntry? other) -> bool
+[OSML0001]OpenMBEE.OpenSysML.CoverageEntry.Path.get -> string!
+[OSML0001]OpenMBEE.OpenSysML.CoverageEntry.Runs.get -> int
+[OSML0001]OpenMBEE.OpenSysML.Exploration.Coverage.get -> OpenMBEE.OpenSysML.Coverage?
+[OSML0001]OpenMBEE.OpenSysML.QueryElement.Path.get -> string!
+[OSML0001]override OpenMBEE.OpenSysML.Coverage.Equals(object? obj) -> bool
+[OSML0001]override OpenMBEE.OpenSysML.Coverage.GetHashCode() -> int
+[OSML0001]override OpenMBEE.OpenSysML.Coverage.ToString() -> string!
+[OSML0001]override OpenMBEE.OpenSysML.CoverageEntry.Equals(object? obj) -> bool
+[OSML0001]override OpenMBEE.OpenSysML.CoverageEntry.GetHashCode() -> int
+[OSML0001]override OpenMBEE.OpenSysML.CoverageEntry.ToString() -> string!
+[OSML0001]static OpenMBEE.OpenSysML.Coverage.operator !=(OpenMBEE.OpenSysML.Coverage? left, OpenMBEE.OpenSysML.Coverage? right) -> bool
+[OSML0001]static OpenMBEE.OpenSysML.Coverage.operator ==(OpenMBEE.OpenSysML.Coverage? left, OpenMBEE.OpenSysML.Coverage? right) -> bool
+[OSML0001]static OpenMBEE.OpenSysML.CoverageEntry.operator !=(OpenMBEE.OpenSysML.CoverageEntry? left, OpenMBEE.OpenSysML.CoverageEntry? right) -> bool
+[OSML0001]static OpenMBEE.OpenSysML.CoverageEntry.operator ==(OpenMBEE.OpenSysML.CoverageEntry? left, OpenMBEE.OpenSysML.CoverageEntry? right) -> bool

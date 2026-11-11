@@ -253,9 +253,13 @@ RPC: the properties of one element by their KerML/SysML specification names (`in
 `connectorEnd`, `isComposite`, …), spelled as the model's api-json export spells them. The element is
 a qualified name, the positional id of an unnamed member (`Owner::@2`) or the id an earlier answer
 carried — every id an answer returns reads back, a standard-library element or an unnamed library
-member included, so a client walks from the model into the library. The Go, Python, Rust, Node and
-.NET clients and the MCP server expose it (`client.ElementProperties`, `Model.element_properties`,
-`Model.ElementPropertiesAsync`, `element_properties`); the WASM build serves neither it nor `Convert`.
+member included, so a client walks from the model into the library. Every client binds it under the
+`element_properties` capability — Go `client.ElementProperties`, Python `Model.element_properties`,
+Node `model.elementProperties`, Java `ElementProperties`, Rust `element_properties`, Julia
+`element_properties(model, element, names...)`, MATLAB `model.elementProperties(element, names...)`,
+.NET `Model.ElementPropertiesAsync` — as does the MCP server (`element_properties`); each refuses the
+call before it is sent when the service does not advertise the capability. The WASM build serves
+neither it nor `Convert`.
 
 === "Go"
 
@@ -285,6 +289,24 @@ member included, so a client walks from the model into the library. The Go, Pyth
         Console.WriteLine($"{feature.QualifiedName} {feature.Metaclass}");
         await model.ElementPropertiesAsync(feature.Id, ["owner"]); // the id reads back
     }
+    ```
+
+=== "Julia"
+
+    ```julia
+    read = element_properties(model, "Demo::sedan", "inheritedFeature")
+    for feature in property_elements(read["inheritedFeature"])
+        println(feature.qualified_name, " ", feature.metaclass)
+    end
+    ```
+
+=== "MATLAB"
+
+    ```matlab
+    read = model.elementProperties('Demo::sedan', 'inheritedFeature');
+    for feature = read.byName('inheritedFeature').values
+        disp(feature{1}.qualifiedName);
+    end
     ```
 
 See the [wire contract](../reference/wire-contract.md#getelementproperties) for the value arms and

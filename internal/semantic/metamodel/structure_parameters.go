@@ -59,9 +59,10 @@ func (e *Evaluator) structureBehaviorGenerals(owner Element) ([]Element, bool) {
 			}
 		}
 	}
-	var generals []Element
+	var generals, impliedFeatures []Element
 	for _, general := range supertypes {
 		if implied[general.Key()] {
+			impliedFeatures = append(impliedFeatures, general)
 			continue
 		}
 		isBehavior, known := e.isMetaclass(general, "Behavior")
@@ -76,7 +77,32 @@ func (e *Evaluator) structureBehaviorGenerals(owner Element) ([]Element, bool) {
 			generals = append(generals, general)
 		}
 	}
-	return generals, true
+	if len(generals) > 0 {
+		return generals, true
+	}
+	// A direct implied base feature's behavior types stand in for it, as the semantic
+	// model's implied generals name them (forBehaviorGenerals); a nested subsetting's do not.
+	nested, ok := e.structureNestedSubsettingFQN(owner)
+	if !ok {
+		return nil, false
+	}
+	for _, base := range impliedFeatures {
+		symbol := e.structureElementSymbol(base)
+		if symbol == nil || (nested != "" && e.model.QualifiedNameOf(symbol) == nested) {
+			continue
+		}
+		for _, typ := range e.model.FeatureTypes(symbol) {
+			element := ElementOf(typ)
+			isBehavior, known := e.isMetaclass(element, "Behavior")
+			if !known {
+				return nil, false
+			}
+			if isBehavior {
+				generals = append(generals, element)
+			}
+		}
+	}
+	return uniqueStructureElements(generals, e.options.Structure), true
 }
 
 // structureParameterTable mirrors the semantic parameter table: owner's own positional

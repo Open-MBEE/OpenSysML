@@ -33,6 +33,7 @@ from opensysml.typefacts import (
 )
 from opensysml.capabilities import (
     CAPABILITY_ELEMENT_PROPERTIES,
+    CAPABILITY_INLINE_DOCUMENT_QUERY,
     CAPABILITY_RECORD_RUN,
     CAPABILITY_RUNS,
     CAPABILITY_SELF_CHECK,
@@ -64,7 +65,7 @@ from opensysml.verdict import (
     AnalysisResult, CalcResult, CaseEvaluation, SweepRow, SweepTable, ToolDryRun, Validation,
     Verdict, VerificationVerdict,
 )
-from opensysml.exploration import Exploration, Outcome
+from opensysml.exploration import Coverage, CoverageEntry, Exploration, Outcome
 from opensysml.action_run import ActionOutputs
 from opensysml.engines import Bound, EngineInfo, Standing
 from opensysml.runs import (
@@ -147,10 +148,10 @@ __all__ = [
     "Verdict", "CalcResult", "AnalysisResult", "CaseEvaluation", "SweepRow", "SweepTable",
     "ToolDryRun",
     "Validation", "VerificationVerdict",
-    "Exploration", "Outcome", "ActionOutputs",
+    "Exploration", "Outcome", "ActionOutputs", "Coverage", "CoverageEntry",
     "Bound", "EngineInfo", "Standing",
     "QueryElement", "QueryError",
-    "ElementIdentity", "ElementProperties", "ElementProperty", "CAPABILITY_ELEMENT_PROPERTIES",
+    "ElementIdentity", "ElementProperties", "ElementProperty", "CAPABILITY_ELEMENT_PROPERTIES", "CAPABILITY_INLINE_DOCUMENT_QUERY",
     "SourceDocument",
     "DocumentEvent", "DocumentQueryError", "DocumentQueryResult", "DocumentRow",
     "DocumentState", "DocumentVerdict", "ElementRef", "INFINITY", "ObjectRef",

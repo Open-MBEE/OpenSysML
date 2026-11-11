@@ -97,12 +97,14 @@ not_in_nav: |
   internals/execution-ir-design.md
   project/README.md
   project/spec-compliance.md
+  project/implicit-specialization-audit.md
   project/exact-rational-evaluation.md
   project/expansion-regions.md
   project/bitwise-complement.md
   project/constraint-body-steps.md
   project/exception-handlers.md
   project/pilot-differential.md
+  project/api-json-differential.md
   project/spec-pilot-gap-register.md
   project/library-and-prefix-sweep.md
   project/roadmap.md
@@ -166,6 +168,7 @@ exclude_docs: |
   internals/design/**
   internals/notes/**
   project/*.json
+  project/api-json-differential/**
   project/omg-issues.md
   project/performance-release-0.10.1-vs-0.10.0.md
   project/performance-release-0.11.0-vs-0.10.1.md
@@ -187,7 +190,6 @@ exclude_docs: |
   project/pilot-xpect.md
   project/pilot-rejection.md
   project/pilot-execution-referee.md
-  project/api-json-differential.md
   project/derived-property-census.md
   project/pssm-referee.md
   project/llm-benchmark.md
@@ -242,6 +244,7 @@ nav:
       - guide/README.md
       - guide/01-install.md
       - Security: guide/security.md
+      - Running sysml-mcp as a service: guide/sysml-mcp-service.md
       - guide/02-first-model.md
       - guide/03-command-line.md
       - guide/04-repl.md

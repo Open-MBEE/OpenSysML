@@ -5,13 +5,14 @@ namespace OpenMBEE.OpenSysML.Tests;
 /// <summary>Answers that set every field the query, document query, document and view responses can reach.</summary>
 internal static class CompleteQueryDocsWire
 {
-    /// <summary>Two selected elements, one reporting properties and one none.</summary>
+    /// <summary>Three selected elements: one reporting properties, one none, and a held object an OSLC query selected by its type.</summary>
     internal static Wire.QueryResponse Query => new()
     {
         Elements =
         {
             new Wire.QueryResultElement { Id = "Demo::vehicle::wheels", Type = "PartUsage", Properties = { ["name"] = "wheels", ["owner"] = "Demo::vehicle", ["documentation"] = string.Empty } },
             new Wire.QueryResultElement { Id = "Demo::Vehicle", Type = "PartDefinition" },
+            new Wire.QueryResultElement { Id = "Demo::Wheel", Type = "PartDefinition", Path = "car.wheels[2]" },
         },
     };
 

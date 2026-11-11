@@ -26,6 +26,9 @@ type Context struct {
 	// ElementID reads the elementId a conversion of the model writes for an
 	// element, or why the model has none; without one, elementId is absent.
 	ElementID func(sym *symbols.Symbol) (string, error)
+	// Identity names an element where a frontend reports it under another
+	// identity than its qualified name; nil keeps the qualified name.
+	Identity func(sym *symbols.Symbol) string
 	// ElementAddress is the address the conversion stated for an elementId it wrote (ElementIDReader.ReadAddress).
 	ElementAddress func(id string) (string, bool)
 	// Runtime holds the objects the query may read; nil makes object bindings
@@ -109,6 +112,8 @@ type executor struct {
 	metadataTypes map[string]*symbols.Symbol
 	// metaclassFeatures memoizes each metaclass's properties (metaclassProperties).
 	metaclassFeatures map[*symbols.Symbol]map[string]metaclassProperty
+	// metamodelProperties memoizes every property some metaclass declares (metamodelDeclares).
+	metamodelProperties map[string]bool
 	// elementIDErr is why the model has no elementIds, once a read asked for
 	// one: the conversion that writes them refused the model.
 	elementIDErr error
@@ -171,6 +176,9 @@ func Execute(program *queryplan.Program, context Context, bindings Bindings, opt
 		stack:             []string{definition.Name()},
 	}
 	execution.reader.WithElementID(execution.elementID)
+	if context.Identity != nil {
+		execution.reader.WithIdentity(context.Identity)
+	}
 	if err := execution.bind(bindings); err != nil {
 		return nil, err
 	}

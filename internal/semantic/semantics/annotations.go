@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"slices"
 	"sort"
 	"sync"
 
@@ -1721,7 +1722,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		if feature == "targetFeature" && isExpressionSymbol(sym) {
 			return m.expressionReferencedElements(sym, feature), true
 		}
-		if !m.reflectiveMetaclassConforms(sym, "Connector") {
+		if !m.reflectiveMetaclassConforms(sym, "Connector") || m.successionEndUnrepresented(sym) {
 			return nil, false
 		}
 		return m.connectorRelatedFeatures(sym, feature), true
@@ -1933,18 +1934,29 @@ func (m *Model) reflectiveFeatureTypes(sym *symbols.Symbol) []*symbols.Symbol {
 	if sym == nil {
 		return nil
 	}
-	if sym.Recorded() && sym.Facts.Node == symbols.NodePrefixMetadata {
-		if typ := m.recordedElement(sym.Facts.MetadataType); typ != nil {
-			return []*symbols.Symbol{typ}
-		}
-		return nil
-	}
-	if prefix, ok := sym.Decl.(*ast.PrefixMetadata); ok {
-		if annot, resolved := m.prefixAnnotation(sym.OwnerScope, prefix); resolved && annot.typ != nil {
-			return []*symbols.Symbol{annot.typ}
-		}
+	if types, isAnnotation := m.prefixMetadataTypes(sym); isAnnotation {
+		return types
 	}
 	return m.FeatureTypeSetWithImplied(sym)
+}
+
+// prefixMetadataTypes is the metadata type a `#M` / `@M {…}` annotation names: the one
+// FeatureTyping of the MetadataUsage it declares (SysML v2 8.3.15.3); isAnnotation is false for any other symbol.
+func (m *Model) prefixMetadataTypes(sym *symbols.Symbol) (types []*symbols.Symbol, isAnnotation bool) {
+	if sym.Recorded() && sym.Facts.Node == symbols.NodePrefixMetadata {
+		if typ := m.recordedElement(sym.Facts.MetadataType); typ != nil {
+			return []*symbols.Symbol{typ}, true
+		}
+		return nil, true
+	}
+	prefix, ok := sym.Decl.(*ast.PrefixMetadata)
+	if !ok {
+		return nil, false
+	}
+	if annot, resolved := m.prefixAnnotation(sym.OwnerScope, prefix); resolved && annot.typ != nil {
+		return []*symbols.Symbol{annot.typ}, true
+	}
+	return nil, true
 }
 
 // FunctionTypes: the Functions among a feature's effective types (declared, inherited, or implied
@@ -2065,7 +2077,7 @@ func (m *Model) ConnectorRelatedFeaturesByEnd(sym *symbols.Symbol) []*symbols.Sy
 		recorded = m.recordedPositions(sym.Facts.RelatedFeatures)
 	} else {
 		paths = m.reflectiveConnectorEndPaths(sym)
-		successionEnds = m.connectorSuccessionRelatedFeatures(sym)
+		successionEnds, _ = m.connectorSuccessionRelatedFeatures(sym)
 	}
 	count := max(len(ends), len(paths), len(successionEnds), len(recorded))
 	if count == 0 {
@@ -2119,22 +2131,22 @@ func (m *Model) reflectiveConnectorEndPaths(sym *symbols.Symbol) []ConnectorEndP
 	return m.ConnectorEndPaths(sym)
 }
 
-func (m *Model) connectorSuccessionRelatedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
+func (m *Model) connectorSuccessionRelatedFeatures(sym *symbols.Symbol) (related []*symbols.Symbol, unrepresented bool) {
 	if sym == nil || sym.Recorded() || sym.Decl == nil || sym.OwnerScope == nil {
-		return nil
+		return nil, false
 	}
 	switch decl := sym.Decl.(type) {
 	case *ast.Usage:
 		if decl.Kind != ast.UsageSuccession && !decl.IsSuccessionFlow() {
-			return nil
+			return nil, false
 		}
 	case *ast.SuccessionEdge, *ast.InitialNode, *ast.ControlFlowEdge, *ast.TransitionMember:
 	default:
-		return nil
+		return nil, false
 	}
 	owner := m.ownerOf(sym)
 	if owner == nil {
-		return nil
+		return nil, false
 	}
 	var ends []ActionSuccessionEnd
 	found := false
@@ -2154,17 +2166,41 @@ func (m *Model) connectorSuccessionRelatedFeatures(sym *symbols.Symbol) []*symbo
 			}
 		}
 	}
-	var related []*symbols.Symbol
 	for _, end := range ends {
 		target := end.Symbol
 		if target == nil && end.Node != nil {
 			target = memberSymbol(sym.OwnerScope, end.Node)
 		}
-		if target != nil {
-			related = append(related, target)
+		if target == nil && end.Node != nil {
+			// `then done;` and `first start;` reach the library's done and start the
+			// action inherits; a member no element stands for yet leaves its position nil.
+			switch node := end.Node.(type) {
+			case *ast.FinalNode:
+				target = m.actionSymbolNamed(sym.OwnerScope, owner, "done")
+			case *ast.InitialNode:
+				target = m.actionSymbolNamed(sym.OwnerScope, owner, node.Name())
+			}
+			unrepresented = unrepresented || target == nil
 		}
+		related = append(related, target)
 	}
-	return related
+	return related, unrepresented
+}
+
+// successionEndUnrepresented reports whether an end of the succession sym names a member the symbol
+// model has no element for (a statement, an entry action), a zero position in a record: relatedFeature is unanswered.
+func (m *Model) successionEndUnrepresented(sym *symbols.Symbol) bool {
+	if sym == nil {
+		return false
+	}
+	if sym.Recorded() {
+		if sym.Kind != symbols.SymbolSuccessionUsage || sym.Facts == nil {
+			return false
+		}
+		return slices.ContainsFunc(sym.Facts.RelatedFeatures, symbols.ElementRef.IsZero)
+	}
+	_, unrepresented := m.connectorSuccessionRelatedFeatures(sym)
+	return unrepresented
 }
 
 // ownedMembersOf is every element sym's own body declares, in declaration order:

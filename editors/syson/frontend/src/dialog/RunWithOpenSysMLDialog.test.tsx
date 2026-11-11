@@ -16,6 +16,7 @@ const successResult = {
   outputs: [{ name: 'y', value: '42' }],
   trace: [],
   outcomes: [],
+  coverage: null,
   resultText: null,
   diagnostics: [],
   verdicts: [],

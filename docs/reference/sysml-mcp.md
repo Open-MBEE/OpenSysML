@@ -243,9 +243,9 @@ No two groups share a tool name: the `lsp` group's `workspace_diagnostics`, `ren
 `render_document` work on a document of the workspace, the `runtime` group's `diagnostics`,
 `render_model_view` and `render_model_document` on a model given as `paths`, inline `sources` or
 a `modelHash`. Every server also serves `tool_catalog`, which
-answers this catalogue — each tool's group, the `sysml-grpc` RPC or `sysml` flag it stands for
-and a one-line summary — narrowed to the groups served, so an agent can discover the surface
-without this page.
+answers this catalogue — each tool's group, the [scope](#scopes) a caller needs, the `sysml-grpc`
+RPC or `sysml` flag it stands for and a one-line summary — narrowed to the groups served, so an
+agent can discover the surface without this page.
 
 ### `lsp`
 
@@ -295,12 +295,12 @@ without this page.
 | `list_engines` | List the analysis engines this build registers (the ListEngines RPC, as the CLI's -engines does): each with the questions it answers (evaluate, outcomes, holds, sensitive, satisfiable, sweep, compute), the strongest evidence it can produce, the bounds it takes, and whether it can run here. | no |
 | `migrate` | Migrate a SysML v1 model — UML XMI with the SysML profile, an Eclipse UML2 .uml file or a Cameo/MagicDraw .mdzip archive — to SysML v2 in one of the representations convert writes (the Migrate RPC, the CLI's -migrate). | no |
 | `parse` | Parse SysML v2 / KerML documents as one model and return its modelHash, the root namespace of each document and every diagnostic (the ParseSources RPC). | no |
-| `query` | Select elements of a parsed model with a SysML v2 API & Services Query — scope, select, where — or OSLC query text (the Query RPC). | no |
+| `query` | Select elements of a parsed model with a SysML v2 API & Services Query — scope, select, where, orderBy — or OSLC query text (the Query RPC), run as a document-query plan over the model's elements, or over the objects `instantiate` created when `@type` names an element (`rdf:type=elmt:<id>`); an object answers its path too. | no |
 | `record_run` | Run an analysis case — once, over the rows of a sweep (`ranges`), or as a Monte Carlo sample (`runs`) — and record the runs into the model as AnalysisRecords declarations (the RecordRun RPC, the CLI's -record-run/-record-into, the REPL's %record). | no |
 | `render_model_document` | Render a named document of a model given by modelHash, paths or sources (the workspace group's render_document renders by name over the root) — a part def specializing DocumentQueries::Document — to Markdown or HTML (the RenderDocument RPC, the CLI's -render-document), byte for byte what the CLI writes. | no |
 | `render_model_view` | Render a declared view or a targeted pseudo-view of a model given by modelHash, paths or sources as diagram data (the RenderView RPC; the workspace group's render_view renders by name over the root): nodes flattened parents first, edges with their ports, table columns and rows, canvas, notes and notices. | no |
 | `run_analysis` | Run an analysis case (the RunAnalysis RPC, the REPL's %analysis): its subject and inputs bound from the arguments and its own declarations, its body run, every declared output answered with the verdict of its objective and of each assertion in its body; a verification case also answers its own verdict. | no |
-| `run_document_query` | Run a named document query with parameter bindings and answer its typed rows (the RunDocumentQuery RPC, the REPL's %run-query). | no |
+| `run_document_query` | Run a named document query with parameter bindings, or a query expression written in place of a name (`inlineQuery`, planned by the same compiler in the model's context; needs the `inline_document_query` capability), and answer its typed rows (the RunDocumentQuery RPC, the REPL's %run-query). | no |
 | `run_runs` | Run an action, or a Simulation::MonteCarlo analysis case, a number of times (the RunRuns RPC, the CLI's -runs/-observe, the REPL's %runs): every run is an ordinary run in a context of its own, drawing its modeled randomness from a seed derived from `seed`. | no |
 | `run_sweep` | Run an analysis case or calc once per row of a parameter sweep (the RunSweep RPC, the CLI's -sweep): each row an ordinary run with the swept parameters bound to that row's values, stepped through the ranges' cartesian product or drawn with samples and seed. | no |
 | `self_check` | Apply the SysMLValidation constraints, and those of any rule packages named, reflectively to every element of a model (the SelfCheck RPC, the CLI's -self-check and -self-check-package): each element is handed to every constraint whose input its metaclass conforms to. | no |
@@ -380,6 +380,40 @@ without this page.
   host starts the server with; a run that exhausts one is reported as a runaway, with the budget
   named.
 
+## Scopes
+
+Every tool requires one scope — an OAuth 2.0 scope token (RFC 6749 § 3.3) — named by
+`tool_catalog` and in the `Tools` section of the manual page. A `tools/call` by a principal whose
+credential does not grant the tool's scope is refused with a JSON-RPC error (code `-32030`,
+`insufficient_scope`) whose message and `data` name the tool and the scope, so an agent can ask for
+the scope rather than guess; `tools/list` is never narrowed, so the agent still sees what the server
+has. Over stdin and stdout, and over `-http` without a token, the one caller is the local principal
+and holds every scope, so a host that starts the server itself loses nothing. The bearer token
+named by `-token-file`, `-token` or `OPENSYSML_MCP_TOKEN` holds every scope as well; a credential an
+authorization server issues carries the scopes it was granted.
+
+| Scope | Grants | Tools |
+|---|---|---|
+| `sysml:read` | Ask about the workspace and the model: queries, diagnostics, hover, conversions and edits answered as text; nothing another caller sees changes | `apply_edits`, `code_actions`, `completion`, `convert`, `debug_current`, `definition`, `diagnostics`, `document_symbols`, `documents`, `element_properties`, `evaluate`, `evaluate_calc`, `explain_diagnostic`, `export_graphs`, `features`, `hover`, `import_data`, `inlay_hints`, `instances`, `list_engines`, `migrate`, `parse`, `query`, `references`, `render_document`, `render_model_document`, `render_model_view`, `render_run`, `render_view`, `repl_command`, `run_document_query`, `self_check`, `server_info`, `session_print`, `signature_help`, `symbol`, `tool_catalog`, `verify_constraint`, `verify_requirement`, `verify_satisfaction`, `views`, `workspace_diagnostics`, `workspace_info`, `workspace_symbols` |
+| `sysml:write` | Write the workspace: files replaced with `apply`, documents held open or released, prompt commands that may save | `apply_model_edit`, `close_document`, `format`, `import_diagram`, `open_document`, `rename`, `session_save`, `update_document` |
+| `sysml:execute` | Execute the model: actions, state machines, analyses, solving, debugging and REPL evaluation in a session | `advance`, `check`, `check_behavior`, `compare_results`, `configure`, `debug_breakpoints`, `debug_continue`, `debug_start`, `debug_step`, `debug_stop`, `execute_action`, `execute_state`, `explain`, `instance_paths`, `instantiate`, `optimize`, `record_run`, `run_analysis`, `run_runs`, `run_sweep`, `runs`, `send`, `session_eval`, `session_run`, `solve`, `sweep`, `validate_instance` |
+| `sysml:session` | Open, load, list, clear and close your own REPL sessions; a session name is private to the principal that opened it | `session_clear`, `session_close`, `session_list`, `session_load`, `session_open`, `session_submit` |
+`sysml:admin` reaches across principals and is no tool's scope: it widens `session_list` to every
+principal's sessions, each with its owner, and lets `session_close` close another principal's
+session by `owner`. A write-scoped tool that writes only with `"apply": true` requires the scope
+even without it, as the scope says what the tool can do. `repl_command` is admitted with
+`sysml:read` and then requires, for the `%` command it is given, the scope of the typed tool doing
+the same — `sysml:read` to show or list (`%list`, `%print`, `%tokens`, …), `sysml:session` to load,
+clear or set the session up (`%load`, `%clear`, `%seed`, the `%check-*` settings, …), `sysml:write`
+to `%save`, `%publish` or `%check-witness` (which names where checks write, under the root), `sysml:execute` to instantiate, evaluate, run, solve or debug (`%eval`,
+`%action`, `%solve`, …) — refusing a command the credential lacks the scope for before the session
+is touched; the refusal names the command.
+
+Every `tools/call` is recorded on the log at level `info` (`-log-level info`), one line per call
+with the principal (its subject and source: `local`, `static-token`, or the kind of credential),
+the remote address, the tool, its scope, the outcome (`ok`, `refused`, `error`) and the duration —
+never the credential, and never the arguments.
+
 ## Transports
 
 Without `-http` the protocol is spoken over **stdin and stdout**: the host starts the server,
@@ -389,24 +423,31 @@ written to stdout; logs go to stderr.
 With `-http ADDR` the server is started once and speaks the **Streamable HTTP** transport at the
 path `/mcp` of that address to every client that connects — remote agents, or several agents over
 one project — until it is told to stop with SIGINT or SIGTERM. Stopping closes the clients'
-sessions, so their event streams end, and gives the connections up to 30 seconds to drain. The
-clients share one workspace, one runtime cache and one set of REPL sessions: a `session_*` name one
-client opens is the session every other client sees under that name, and `session_list` lists them
-all. A session's calls are served in turn, so two agents using one session interleave rather than
-collide; agents that want sessions of their own give them different names.
+sessions, so their event streams end, and gives the connections up to `-shutdown-timeout` (30 seconds) to drain. The
+clients share one workspace and one runtime cache. REPL sessions belong to the **principal** that
+opened them — the identity of the credential, `source:subject`, or the one local principal when the
+server authenticates nobody — so a `session_*` name one client opens is the session every other
+client *of the same principal* sees under that name, `session_list` lists that principal's sessions
+and `session_close` closes one of them; another principal's `default` or `work` is a different
+session, and neither sees nor closes the other's. Only a credential with the `sysml:admin`
+[scope](#scopes) lists every principal's sessions, each with its owner, and closes another's by
+`owner`. A session's calls are served in turn, so two agents of one principal using one session
+interleave rather than collide; agents that want sessions of their own give them different names.
 
 ```bash
 sysml-mcp -http 8765                                              # http://localhost:8765/mcp, this machine only
 sysml-mcp -http 0.0.0.0:8765 -token-file mcp.token -tls-cert server.crt -tls-key server.key
 sysml-mcp -http 0.0.0.0:8765 -token-file mcp.token -allow-origin https://agents.example.org
+sysml-mcp -http 0.0.0.0:8765 -api-keys keys.jsonl -tls-cert server.crt -tls-key server.key  # a key per caller
 ```
 
 The stance is the one [`sysml-grpc`](service-transports.md) takes for TLS and origins, with the
 authentication the Model Context Protocol asks of a server on a network:
 
 - **Loopback needs no token.** A port alone, or an address with no host, binds loopback, which
-  only this machine reaches, and is served as it is: every local client may read and edit the
-  workspace, as the stdio transport lets the host that starts the server do.
+  only this machine reaches, and is served as it is: every local client is the local principal,
+  holds every [scope](#scopes) and may read and edit the workspace, as the stdio transport lets
+  the host that starts the server do.
 - **Any other address needs a bearer token.** The protocol's authorization specification makes
   an HTTP server an OAuth 2.1 resource server; this server is one in the minimal form, with one
   access token issued out of band by whoever runs it rather than by an authorization server,
@@ -416,6 +457,8 @@ authentication the Model Context Protocol asks of a server on a network:
   flag is given. Starting on an address other machines reach (`0.0.0.0:8765`, a host name) with no
   token is refused with exit status 2 and a message naming the flags — not served with a warning.
   A token given for a loopback address is enforced the same way, for a machine shared with others.
+  A file of [API keys](#api-keys) (`-api-keys FILE`) is a credential as well, alone or beside the
+  token: a key is tried first, by its `osk_` prefix, and any other bearer token against the token.
 - **Every request carries the token** as `Authorization: Bearer TOKEN` (RFC 6750 § 2.1, the only
   form the protocol allows; a token in the query string is never read). The comparison is
   constant-time. A request without it is refused with `401 Unauthorized` and a
@@ -423,6 +466,10 @@ authentication the Model Context Protocol asks of a server on a network:
   RFC 9728 § 5.1); one with a wrong token adds `error="invalid_token"`, one with another scheme
   `error="invalid_request"`, and a malformed `Bearer` header is `400 Bad Request`. The refusal
   never repeats the token, and the token is logged nowhere.
+- **A protocol session belongs to who opened it.** An `Mcp-Session-Id` is answered only to the
+  principal whose `initialize` created it, `403 Forbidden` to any other. Every holder of the one
+  token is the same principal, `static-token:token`, so clients that share the token may still
+  share a session.
 - **Resource metadata.** With a token, the protected resource metadata of RFC 9728 is served at
   `/.well-known/oauth-protected-resource/mcp` — the endpoint's `resource` identifier as the
   client reached it and `bearer_methods_supported: ["header"]`, with no `authorization_servers`
@@ -471,6 +518,49 @@ server already running rather than starting one, and with the server's token (`-
 in a file the host reads privately — a user-level configuration, or a project file kept out of
 version control — or is edited to the host's own reference to a secret where it has one.
 
+## API keys
+
+A service with several callers — people, CI jobs, other agents — needs a credential per caller that
+can be revoked alone, which one shared token is not. `sysml-mcp` mints and revokes **API keys** in a
+file; the file is the server's key store.
+
+```bash
+sysml-mcp -mint-api-key -api-keys keys.jsonl -subject alice@example.org -scopes sysml:read,sysml:write -expires 720h
+sysml-mcp -revoke-api-key Jf3kQ9pLmN2x -api-keys keys.jsonl
+```
+
+- **The key** is `osk_<id>.<secret>`: the `osk_` prefix tells it from any other bearer token, the id
+  (12 characters) names its record, and the secret is 32 random bytes in base64url. It is printed
+  **once**, to stdout alone, when minted; store it where a token belongs (a secret store, a CI
+  variable, a file only its user reads). The file never holds it, so a copy of the file does not
+  give a key away, and a key that is lost is minted again rather than recovered.
+- **The file** is one JSON object per line (JSON Lines), `{"id", "sha256", "subject", "scopes",
+  "expires", "disabled"}`: the SHA-256 of the secret in hex, the subject the key speaks for, the
+  scopes it grants, its expiry (RFC 3339, whole seconds, absent for a key that does not expire)
+  and whether it is disabled. Minting appends a line; the file is created with mode `0600` and
+  kept so. A line that is not a record, a scope that is not an RFC 6749 scope token, or an id
+  held twice fails the file at that line, and the file is not edited.
+- **Rotation and revocation.** `-revoke-api-key ID` marks the record disabled — the line stays,
+  so the subject and the history are kept — and a server reading the file refuses the key from
+  its next look at the file. To rotate, mint the subject a new key, move the caller to it, then
+  revoke the old id. A key past its `expires` is refused as expired without being revoked. Two
+  edits at once wait for each other through a `keys.jsonl.lock` beside the file; one left by a
+  process that died is named for removal.
+- **Scopes** are the RFC 6749 § 3.3 scope tokens the key grants (printable ASCII without spaces,
+  quotes or backslashes), comma-separated at `-scopes`; a key has at least one. What each scope
+  admits is the server's to say when it reads the file.
+
+A server given such a file (`internal/frontend/guard/apikey`) accepts a key as `Authorization:
+Bearer osk_…` with the record's subject, scopes and expiry as the request's principal, looking the
+record up by id and comparing the secret's hash in constant time, and refuses a disabled, expired or
+unknown key with the RFC 6750 § 3.1 answer; a bearer token that is not a key is left to the server's
+other authenticators (its static token last). The file is read again when its content has changed
+(looked at, at most once a second, on a request) and on `SIGHUP`; a file that no longer reads
+keeps the keys already held and logs the failure once. `sysml-mcp -http ADDR -api-keys FILE` serves
+the file this way, alone or beside `-token-file`/`-token`, and satisfies the rule that an address
+other machines reach needs a credential; `kill -HUP` the server after editing the file by hand to
+have it read at once rather than at the next request.
+
 ## Command line
 
 | Flag | Default | Meaning |
@@ -482,15 +572,29 @@ version control — or is edited to the host's own reference to a secret where i
 | `-cache-size N` | `100` | Parsed models the runtime tools hold, at least 1 |
 | `-log-level LEVEL` | `warn` | Lowest level logged to stderr: `debug`, `info`, `warn` or `error` |
 | `-stdio` | — | Serve over stdin/stdout; the default transport, accepted for hosts that name it; not with `-http` |
-| `-http ADDR` | — | Serve over Streamable HTTP at `/mcp` of `host:port`, or of loopback for a port alone; every client shares the workspace, runtime cache and REPL sessions |
+| `-http ADDR` | — | Serve over Streamable HTTP at `/mcp` of `host:port`, or of loopback for a port alone; every client shares the workspace and runtime cache, and the REPL sessions of its principal; an address other machines reach needs `-token-file`, `-token` or `-api-keys` |
 | `-allow-origin ORIGINS` | — | Origins (`scheme://host[:port]`, comma-separated) granted cross-origin access; loopback origins and requests with no `Origin` are admitted without a grant, others are refused |
 | `-token-file FILE` | — | File holding the bearer token every request must carry as `Authorization: Bearer TOKEN`; required for an address other machines reach, enforced on loopback too when given |
 | `-token TOKEN` | — | The token itself; `OPENSYSML_MCP_TOKEN` is read when neither flag names one |
 | `-public-url URL` | the request's scheme and `Host` | The URL clients reach the endpoint at behind a proxy that terminates TLS or rewrites the path; named as the resource, in the bearer challenge and by the `-print-config` block |
 | `-tls-cert FILE`, `-tls-key FILE` | — | Serve `https`; both or neither |
+| `-shutdown-timeout DURATION` | `30s` | How long a stopping HTTP server waits for its connections to drain after closing the sessions |
+| `-max-body-bytes N` | `4194304` | Largest request body the HTTP transport reads at `/mcp`; a larger one is refused with 413 |
+| `-api-keys FILE` | — | File of API keys, one JSON record per line holding the SHA-256 of a key with its subject, scopes, expiry and whether it is disabled; read by `-http` as a credential ahead of the token, re-read when it changes and on `SIGHUP`; appended to by `-mint-api-key`, edited by `-revoke-api-key` |
+| `-mint-api-key` | — | Mint a key `osk_<id>.<secret>` for `-subject NAME` with `-scopes a,b`, expiring after `-expires DUR` when given; print it once to stdout, append its record to the `-api-keys` file and exit |
+| `-revoke-api-key ID` | — | Mark the key of this id disabled in the `-api-keys` file and exit |
 | `-print-config [HOST]` | — | Write a host's configuration block to stdout and exit; alone, list the hosts |
 | `-print-config-command CMD` | the binary's path | The command the block names; with `-http ADDR` (and `-tls-cert` for `https`) the block names the server's URL instead, with the `Authorization` header when a token is given |
 | `-version`, `-help`, `-man` | — | The build, this table, the manual page |
+
+Every flag is also read from the environment as `OPENSYSML_MCP_<FLAG>` — the flag's name in upper
+case with each dash an underscore, `OPENSYSML_MCP_LOG_LEVEL` for `-log-level` — when the command
+line leaves it unset; a flag given wins over its variable, an empty variable is as good as unset,
+and a value the flag would refuse is refused the same way, with exit status 2. `OPENSYSML_MCP_TOKEN`
+is the variable of `-token` and `OPENSYSML_MCP_TOKEN_FILE` that of `-token-file`, each read only
+when neither token flag is given, the file first. With `-http` the server also answers `GET /health`
+and `GET /ready` without a token; [Running sysml-mcp as a service](../guide/sysml-mcp-service.md)
+covers them, the environment, the container image and the systemd unit.
 
 The exit status is 0 when the protocol was served to its end (the client closed the stream or the
 process was told to stop), 1 when the server could not start (the `-http` address in use, say) or

@@ -534,7 +534,7 @@ class Outcome(_message.Message):
     def __init__(self, outputs: _Optional[_Mapping[str, Value]] = ..., final_state: _Optional[str] = ..., states_visited: _Optional[_Iterable[str]] = ..., error: _Optional[str] = ..., linearizations: _Optional[int] = ..., witness: _Optional[_Iterable[str]] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., probability: _Optional[float] = ..., probability_range: _Optional[_Union[ProbabilityRange, _Mapping]] = ...) -> None: ...
 
 class ExplorationStatus(_message.Message):
-    __slots__ = ("complete", "runs", "budgets_hit", "runs_budget", "depth_budget", "probabilities_lower_bound", "failed_linearizations", "unenumerated")
+    __slots__ = ("complete", "runs", "budgets_hit", "runs_budget", "depth_budget", "probabilities_lower_bound", "failed_linearizations", "unenumerated", "coverage")
     COMPLETE_FIELD_NUMBER: _ClassVar[int]
     RUNS_FIELD_NUMBER: _ClassVar[int]
     BUDGETS_HIT_FIELD_NUMBER: _ClassVar[int]
@@ -543,6 +543,7 @@ class ExplorationStatus(_message.Message):
     PROBABILITIES_LOWER_BOUND_FIELD_NUMBER: _ClassVar[int]
     FAILED_LINEARIZATIONS_FIELD_NUMBER: _ClassVar[int]
     UNENUMERATED_FIELD_NUMBER: _ClassVar[int]
+    COVERAGE_FIELD_NUMBER: _ClassVar[int]
     complete: bool
     runs: int
     budgets_hit: _containers.RepeatedScalarFieldContainer[str]
@@ -551,7 +552,26 @@ class ExplorationStatus(_message.Message):
     probabilities_lower_bound: bool
     failed_linearizations: int
     unenumerated: _containers.RepeatedScalarFieldContainer[str]
-    def __init__(self, complete: _Optional[bool] = ..., runs: _Optional[int] = ..., budgets_hit: _Optional[_Iterable[str]] = ..., runs_budget: _Optional[int] = ..., depth_budget: _Optional[int] = ..., probabilities_lower_bound: _Optional[bool] = ..., failed_linearizations: _Optional[int] = ..., unenumerated: _Optional[_Iterable[str]] = ...) -> None: ...
+    coverage: Coverage
+    def __init__(self, complete: _Optional[bool] = ..., runs: _Optional[int] = ..., budgets_hit: _Optional[_Iterable[str]] = ..., runs_budget: _Optional[int] = ..., depth_budget: _Optional[int] = ..., probabilities_lower_bound: _Optional[bool] = ..., failed_linearizations: _Optional[int] = ..., unenumerated: _Optional[_Iterable[str]] = ..., coverage: _Optional[_Union[Coverage, _Mapping]] = ...) -> None: ...
+
+class Coverage(_message.Message):
+    __slots__ = ("states", "transitions")
+    STATES_FIELD_NUMBER: _ClassVar[int]
+    TRANSITIONS_FIELD_NUMBER: _ClassVar[int]
+    states: _containers.RepeatedCompositeFieldContainer[CoverageEntry]
+    transitions: _containers.RepeatedCompositeFieldContainer[CoverageEntry]
+    def __init__(self, states: _Optional[_Iterable[_Union[CoverageEntry, _Mapping]]] = ..., transitions: _Optional[_Iterable[_Union[CoverageEntry, _Mapping]]] = ...) -> None: ...
+
+class CoverageEntry(_message.Message):
+    __slots__ = ("path", "declaration", "runs")
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    DECLARATION_FIELD_NUMBER: _ClassVar[int]
+    RUNS_FIELD_NUMBER: _ClassVar[int]
+    path: str
+    declaration: str
+    runs: int
+    def __init__(self, path: _Optional[str] = ..., declaration: _Optional[str] = ..., runs: _Optional[int] = ...) -> None: ...
 
 class CheckBehaviorRequest(_message.Message):
     __slots__ = ("model_hash", "action_symbol_id", "state_machine_symbol_id", "inputs", "performer_symbol_id", "check_property", "check_diverge", "check_input", "check_assume", "check_witness", "check_depth", "check_states", "check_unroll", "check_timeout", "engine")
@@ -662,7 +682,7 @@ class CheckFinal(_message.Message):
     def __init__(self, outcome: _Optional[str] = ..., values: _Optional[_Mapping[str, str]] = ..., witness: _Optional[_Union[CheckWitness, _Mapping]] = ...) -> None: ...
 
 class CheckSearch(_message.Message):
-    __slots__ = ("states", "moves", "max_depth", "bounds_hit", "horizon", "horizon_set", "mass_bounded", "notes", "scope", "status")
+    __slots__ = ("states", "moves", "max_depth", "bounds_hit", "horizon", "horizon_set", "mass_bounded", "notes", "scope", "status", "coverage")
     STATES_FIELD_NUMBER: _ClassVar[int]
     MOVES_FIELD_NUMBER: _ClassVar[int]
     MAX_DEPTH_FIELD_NUMBER: _ClassVar[int]
@@ -673,6 +693,7 @@ class CheckSearch(_message.Message):
     NOTES_FIELD_NUMBER: _ClassVar[int]
     SCOPE_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
+    COVERAGE_FIELD_NUMBER: _ClassVar[int]
     states: int
     moves: int
     max_depth: int
@@ -683,7 +704,8 @@ class CheckSearch(_message.Message):
     notes: _containers.RepeatedScalarFieldContainer[str]
     scope: _containers.RepeatedScalarFieldContainer[str]
     status: str
-    def __init__(self, states: _Optional[int] = ..., moves: _Optional[int] = ..., max_depth: _Optional[int] = ..., bounds_hit: _Optional[_Iterable[str]] = ..., horizon: _Optional[float] = ..., horizon_set: _Optional[bool] = ..., mass_bounded: _Optional[bool] = ..., notes: _Optional[_Iterable[str]] = ..., scope: _Optional[_Iterable[str]] = ..., status: _Optional[str] = ...) -> None: ...
+    coverage: Coverage
+    def __init__(self, states: _Optional[int] = ..., moves: _Optional[int] = ..., max_depth: _Optional[int] = ..., bounds_hit: _Optional[_Iterable[str]] = ..., horizon: _Optional[float] = ..., horizon_set: _Optional[bool] = ..., mass_bounded: _Optional[bool] = ..., notes: _Optional[_Iterable[str]] = ..., scope: _Optional[_Iterable[str]] = ..., status: _Optional[str] = ..., coverage: _Optional[_Union[Coverage, _Mapping]] = ...) -> None: ...
 
 class CheckBehaviorResponse(_message.Message):
     __slots__ = ("verdict", "lines", "search", "violations", "divergences", "finals", "claim", "free_inputs", "assumptions", "witness", "contrast", "engine", "strength", "bounds", "reason", "error")
@@ -2114,7 +2136,7 @@ class CompositeConstraint(_message.Message):
     def __init__(self, operator: _Optional[_Union[CompositeOperator, str]] = ..., constraint: _Optional[_Iterable[_Union[Constraint, _Mapping]]] = ...) -> None: ...
 
 class QueryResultElement(_message.Message):
-    __slots__ = ("id", "type", "properties")
+    __slots__ = ("id", "type", "properties", "path")
     class PropertiesEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -2125,10 +2147,12 @@ class QueryResultElement(_message.Message):
     ID_FIELD_NUMBER: _ClassVar[int]
     TYPE_FIELD_NUMBER: _ClassVar[int]
     PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    PATH_FIELD_NUMBER: _ClassVar[int]
     id: str
     type: str
     properties: _containers.ScalarMap[str, str]
-    def __init__(self, id: _Optional[str] = ..., type: _Optional[str] = ..., properties: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    path: str
+    def __init__(self, id: _Optional[str] = ..., type: _Optional[str] = ..., properties: _Optional[_Mapping[str, str]] = ..., path: _Optional[str] = ...) -> None: ...
 
 class SweepRange(_message.Message):
     __slots__ = ("parameter", "start", "end", "step")
@@ -2475,14 +2499,16 @@ class RunRunsResponse(_message.Message):
     def __init__(self, rows: _Optional[_Iterable[_Union[SweepRow, _Mapping]]] = ..., observables: _Optional[_Iterable[str]] = ..., distributions: _Optional[_Iterable[_Union[RunDistribution, _Mapping]]] = ..., lines: _Optional[_Iterable[str]] = ..., outputs: _Optional[_Iterable[_Union[CalcOutput, _Mapping]]] = ..., verdicts: _Optional[_Iterable[_Union[Verdict, _Mapping]]] = ..., unconcluded: _Optional[str] = ..., error: _Optional[str] = ..., diagnostics: _Optional[_Iterable[_Union[Diagnostic, _Mapping]]] = ..., failure_reason: _Optional[_Union[FailureReason, str]] = ..., instances: _Optional[_Iterable[_Union[Instance, _Mapping]]] = ..., engine: _Optional[str] = ..., strength: _Optional[str] = ..., bounds: _Optional[_Iterable[_Union[Bound, _Mapping]]] = ..., seed: _Optional[int] = ...) -> None: ...
 
 class RunDocumentQueryRequest(_message.Message):
-    __slots__ = ("model_hash", "query_id", "bindings")
+    __slots__ = ("model_hash", "query_id", "bindings", "inline_query")
     MODEL_HASH_FIELD_NUMBER: _ClassVar[int]
     QUERY_ID_FIELD_NUMBER: _ClassVar[int]
     BINDINGS_FIELD_NUMBER: _ClassVar[int]
+    INLINE_QUERY_FIELD_NUMBER: _ClassVar[int]
     model_hash: str
     query_id: str
     bindings: _containers.RepeatedCompositeFieldContainer[DocumentQueryBinding]
-    def __init__(self, model_hash: _Optional[str] = ..., query_id: _Optional[str] = ..., bindings: _Optional[_Iterable[_Union[DocumentQueryBinding, _Mapping]]] = ...) -> None: ...
+    inline_query: str
+    def __init__(self, model_hash: _Optional[str] = ..., query_id: _Optional[str] = ..., bindings: _Optional[_Iterable[_Union[DocumentQueryBinding, _Mapping]]] = ..., inline_query: _Optional[str] = ...) -> None: ...
 
 class DocumentQueryBinding(_message.Message):
     __slots__ = ("parameter", "values")
@@ -2638,18 +2664,24 @@ class RunDocumentQueryResponse(_message.Message):
     def __init__(self, columns: _Optional[_Iterable[_Union[DocumentQueryColumn, _Mapping]]] = ..., rows: _Optional[_Iterable[_Union[DocumentQueryRow, _Mapping]]] = ...) -> None: ...
 
 class QueryOutcome(_message.Message):
-    __slots__ = ("kind", "step", "failures", "findings", "path_failures")
+    __slots__ = ("kind", "step", "failures", "findings", "path_failures", "failures_total", "findings_total", "path_failures_total")
     KIND_FIELD_NUMBER: _ClassVar[int]
     STEP_FIELD_NUMBER: _ClassVar[int]
     FAILURES_FIELD_NUMBER: _ClassVar[int]
     FINDINGS_FIELD_NUMBER: _ClassVar[int]
     PATH_FAILURES_FIELD_NUMBER: _ClassVar[int]
+    FAILURES_TOTAL_FIELD_NUMBER: _ClassVar[int]
+    FINDINGS_TOTAL_FIELD_NUMBER: _ClassVar[int]
+    PATH_FAILURES_TOTAL_FIELD_NUMBER: _ClassVar[int]
     kind: str
     step: str
     failures: _containers.RepeatedCompositeFieldContainer[QueryFailure]
     findings: _containers.RepeatedCompositeFieldContainer[QueryFinding]
     path_failures: _containers.RepeatedCompositeFieldContainer[QueryFailure]
-    def __init__(self, kind: _Optional[str] = ..., step: _Optional[str] = ..., failures: _Optional[_Iterable[_Union[QueryFailure, _Mapping]]] = ..., findings: _Optional[_Iterable[_Union[QueryFinding, _Mapping]]] = ..., path_failures: _Optional[_Iterable[_Union[QueryFailure, _Mapping]]] = ...) -> None: ...
+    failures_total: int
+    findings_total: int
+    path_failures_total: int
+    def __init__(self, kind: _Optional[str] = ..., step: _Optional[str] = ..., failures: _Optional[_Iterable[_Union[QueryFailure, _Mapping]]] = ..., findings: _Optional[_Iterable[_Union[QueryFinding, _Mapping]]] = ..., path_failures: _Optional[_Iterable[_Union[QueryFailure, _Mapping]]] = ..., failures_total: _Optional[int] = ..., findings_total: _Optional[int] = ..., path_failures_total: _Optional[int] = ...) -> None: ...
 
 class QueryFailure(_message.Message):
     __slots__ = ("step", "expected", "frontier")
@@ -2662,18 +2694,24 @@ class QueryFailure(_message.Message):
     def __init__(self, step: _Optional[str] = ..., expected: _Optional[str] = ..., frontier: _Optional[_Union[QueryFrontier, _Mapping]] = ...) -> None: ...
 
 class QueryFrontier(_message.Message):
-    __slots__ = ("at", "members", "features", "kinds", "nearest")
+    __slots__ = ("at", "members", "features", "kinds", "nearest", "members_total", "features_total", "kinds_total")
     AT_FIELD_NUMBER: _ClassVar[int]
     MEMBERS_FIELD_NUMBER: _ClassVar[int]
     FEATURES_FIELD_NUMBER: _ClassVar[int]
     KINDS_FIELD_NUMBER: _ClassVar[int]
     NEAREST_FIELD_NUMBER: _ClassVar[int]
+    MEMBERS_TOTAL_FIELD_NUMBER: _ClassVar[int]
+    FEATURES_TOTAL_FIELD_NUMBER: _ClassVar[int]
+    KINDS_TOTAL_FIELD_NUMBER: _ClassVar[int]
     at: str
     members: _containers.RepeatedCompositeFieldContainer[QueryFrontierMember]
     features: _containers.RepeatedCompositeFieldContainer[QueryFrontierFeature]
     kinds: _containers.RepeatedScalarFieldContainer[str]
     nearest: str
-    def __init__(self, at: _Optional[str] = ..., members: _Optional[_Iterable[_Union[QueryFrontierMember, _Mapping]]] = ..., features: _Optional[_Iterable[_Union[QueryFrontierFeature, _Mapping]]] = ..., kinds: _Optional[_Iterable[str]] = ..., nearest: _Optional[str] = ...) -> None: ...
+    members_total: int
+    features_total: int
+    kinds_total: int
+    def __init__(self, at: _Optional[str] = ..., members: _Optional[_Iterable[_Union[QueryFrontierMember, _Mapping]]] = ..., features: _Optional[_Iterable[_Union[QueryFrontierFeature, _Mapping]]] = ..., kinds: _Optional[_Iterable[str]] = ..., nearest: _Optional[str] = ..., members_total: _Optional[int] = ..., features_total: _Optional[int] = ..., kinds_total: _Optional[int] = ...) -> None: ...
 
 class QueryFrontierMember(_message.Message):
     __slots__ = ("name", "metaclass")

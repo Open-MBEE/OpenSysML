@@ -1011,7 +1011,7 @@ func isExpressionRoot(metaclass string) bool {
 // isExpressionNode reports whether a subject is part of a declaration (an expression
 // node or a body declaration): unowned, in the expression namespace or an unnamed expression class.
 func (d *decoder) isExpressionNode(subject rdf.Term) bool {
-	if !subject.IsIRI() {
+	if !subject.IsIRI() || d.isNote(subject) {
 		return false
 	}
 	if mappingExpressionBodyMemberSubject(d.graph, subject) {

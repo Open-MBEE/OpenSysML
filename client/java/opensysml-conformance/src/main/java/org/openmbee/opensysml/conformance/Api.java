@@ -1260,7 +1260,10 @@ final class Api {
           binding.getParameter(),
           binding.getValuesList().stream().map(Protos::documentValue).toList());
     }
-    DocumentQueryResult result = model.runDocumentQuery(request.getQueryId(), bindings);
+    DocumentQueryResult result =
+        request.getInlineQuery().isEmpty()
+            ? model.runDocumentQuery(request.getQueryId(), bindings)
+            : model.runInlineDocumentQuery(request.getInlineQuery(), bindings);
     return Rendering.documentQueryResult(result);
   }
 

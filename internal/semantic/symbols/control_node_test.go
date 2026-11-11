@@ -84,16 +84,21 @@ func TestSuccessionBodyScope(t *testing.T) {
 	if _, ok := scope.LookupLocal("wait"); ok {
 		t.Error("wait is a member of the action body, want a member of the succession body only")
 	}
+	// Each `then` succession is an anonymous succession usage with a scope of its own;
+	// only the one written with a body has a member in it.
 	var bodies []*Scope
 	for _, child := range scope.Children() {
 		if _, ok := child.Node().(*ast.SuccessionEdge); ok {
 			bodies = append(bodies, child)
 		}
 	}
-	if len(bodies) != 1 {
-		t.Fatalf("succession body scopes = %d, want 1 (a bodiless succession owns none)", len(bodies))
+	if len(bodies) != 2 {
+		t.Fatalf("succession scopes = %d, want 2 (one per `then`)", len(bodies))
 	}
-	body := bodies[0]
+	if n := len(bodies[0].Members()); n != 0 {
+		t.Errorf("bodiless succession members = %d, want 0", n)
+	}
+	body := bodies[1]
 	if owner := body.Owner(); owner == nil || owner.Kind != SymbolSuccessionUsage || owner.OwnerScope != scope {
 		t.Errorf("succession body scope owner = %v, want an anonymous succession usage of the action", owner)
 	}

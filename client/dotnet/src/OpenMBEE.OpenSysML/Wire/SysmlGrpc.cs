@@ -1791,9 +1791,8 @@ namespace OpenMBEE.OpenSysML.Wire {
         return CallInvoker.AsyncUnaryCall(__Method_GetElementProperties, null, options, request);
       }
       /// <summary>
-      /// Run a named document query with parameter bindings, the answer the REPL's
-      /// %run-query gives, as typed rows rather than formatted lines. Reported as
-      /// the "document_query" capability.
+      /// Run a document query named by query_id or written in inline_query as typed rows, the answer
+      /// the REPL's %run-query gives; capabilities "document_query" and "inline_document_query".
       /// </summary>
       /// <param name="request">The request to send to the server.</param>
       /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
@@ -1806,9 +1805,8 @@ namespace OpenMBEE.OpenSysML.Wire {
         return RunDocumentQuery(request, new grpc::CallOptions(headers, deadline, cancellationToken));
       }
       /// <summary>
-      /// Run a named document query with parameter bindings, the answer the REPL's
-      /// %run-query gives, as typed rows rather than formatted lines. Reported as
-      /// the "document_query" capability.
+      /// Run a document query named by query_id or written in inline_query as typed rows, the answer
+      /// the REPL's %run-query gives; capabilities "document_query" and "inline_document_query".
       /// </summary>
       /// <param name="request">The request to send to the server.</param>
       /// <param name="options">The options for the call.</param>
@@ -1819,9 +1817,8 @@ namespace OpenMBEE.OpenSysML.Wire {
         return CallInvoker.BlockingUnaryCall(__Method_RunDocumentQuery, null, options, request);
       }
       /// <summary>
-      /// Run a named document query with parameter bindings, the answer the REPL's
-      /// %run-query gives, as typed rows rather than formatted lines. Reported as
-      /// the "document_query" capability.
+      /// Run a document query named by query_id or written in inline_query as typed rows, the answer
+      /// the REPL's %run-query gives; capabilities "document_query" and "inline_document_query".
       /// </summary>
       /// <param name="request">The request to send to the server.</param>
       /// <param name="headers">The initial metadata to send with the call. This parameter is optional.</param>
@@ -1834,9 +1831,8 @@ namespace OpenMBEE.OpenSysML.Wire {
         return RunDocumentQueryAsync(request, new grpc::CallOptions(headers, deadline, cancellationToken));
       }
       /// <summary>
-      /// Run a named document query with parameter bindings, the answer the REPL's
-      /// %run-query gives, as typed rows rather than formatted lines. Reported as
-      /// the "document_query" capability.
+      /// Run a document query named by query_id or written in inline_query as typed rows, the answer
+      /// the REPL's %run-query gives; capabilities "document_query" and "inline_document_query".
       /// </summary>
       /// <param name="request">The request to send to the server.</param>
       /// <param name="options">The options for the call.</param>

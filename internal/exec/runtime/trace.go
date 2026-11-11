@@ -204,21 +204,7 @@ func (r TraceRecord) Text() string {
 // Machine names the behavior a record came from as its object exhibits it, or
 // as declared when it is anonymous or the record has no object.
 func (r TraceRecord) Machine() string {
-	behavior := r.Origin.Behavior
-	if behavior == nil {
-		return ""
-	}
-	if r.Origin.Object != nil {
-		for _, b := range r.Origin.Object.Behaviors() {
-			if b.Symbol == behavior || (b.State != nil && b.State.StateMachineSymbol() == behavior) {
-				if b.Name != "" {
-					return b.Name
-				}
-				break
-			}
-		}
-	}
-	return behavior.Name
+	return machineName(r.Origin.Object, r.Origin.Behavior)
 }
 
 // PayloadTexts renders a message payload as `name = value` entries in name order.

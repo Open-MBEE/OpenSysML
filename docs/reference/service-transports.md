@@ -57,7 +57,7 @@ capability's definition rather than something a client has to guess:
 
 | The capability describes | A request that needs it | What a client should do |
 |---|---|---|
-| what the service can be *asked*: `strict_conformance`, `inline_language`, `parse_sources`, `evaluate_subject`, `verification`, `convert`, `convert_library_stubs`, `element_properties`, `apply_edits`, `authoring`, `connection_authoring`, `edit_documents`, `query`, `query_order_by`, `runs`, `self_check`, `record_run`, `oslc_query`, `document_query`, `render_document`, `render_document_html`, `render_document_asciidoc`, `render_view`, `export_graphs`, `import_data`, `compare_results`, `schedule`, `performer`, `state_trace`, `action_trace`, `satisfy_authoring`, `requirement_constraint_authoring`, `member_modifiers`, `transition_authoring`, `verification_objective_authoring`, `metadata_authoring`, `metadata_prefix_authoring`, `sequence_authoring`, `implicit_parameters`, `action_body_statement_authoring`, `constraint_body_authoring`, `state_action_authoring`, `import_authoring`, `documentation_authoring`, `comment_authoring`, `migrate`, `convert_documents`, `convert_compact`, `convert_check_diagnostics`, `parse_sources_affected`, `schedule_explore`, `verification_questions`, `verification_arguments`, `engines_external`, `check`, `set_values`, `tensor_values` | is **refused** with `UNIMPLEMENTED`, naming the capability | check the advertised list first, and report the missing capability locally rather than spending a round trip |
+| what the service can be *asked*: `strict_conformance`, `inline_language`, `parse_sources`, `evaluate_subject`, `verification`, `convert`, `convert_library_stubs`, `element_properties`, `apply_edits`, `authoring`, `connection_authoring`, `edit_documents`, `query`, `query_order_by`, `runs`, `self_check`, `record_run`, `oslc_query`, `document_query`, `inline_document_query`, `render_document`, `render_document_html`, `render_document_asciidoc`, `render_view`, `export_graphs`, `import_data`, `compare_results`, `schedule`, `performer`, `state_trace`, `action_trace`, `satisfy_authoring`, `requirement_constraint_authoring`, `member_modifiers`, `transition_authoring`, `verification_objective_authoring`, `metadata_authoring`, `metadata_prefix_authoring`, `sequence_authoring`, `implicit_parameters`, `action_body_statement_authoring`, `constraint_body_authoring`, `state_action_authoring`, `import_authoring`, `documentation_authoring`, `comment_authoring`, `migrate`, `convert_documents`, `convert_compact`, `convert_check_diagnostics`, `parse_sources_affected`, `schedule_explore`, `verification_questions`, `verification_arguments`, `engines_external`, `check`, `set_values`, `tensor_values` | is **refused** with `UNIMPLEMENTED`, naming the capability | check the advertised list first, and report the missing capability locally rather than spending a round trip |
 | how a response is *populated*: `type_facts`, `convert_library_references`, `symbol_attributes`, `symbol_members`, `feature_values`, `enum_values`, `unset_value`, `undetermined_value`, `complex_values`, `structured_values`, `measurement_refs`, `function_values`, `metaobject_values`, `set_values`, `tensor_values`, `big_int_values`, `rational_values`, `verification_verdicts`, `case_evaluations`, `infinity_value`, `diagnostic_codes`, `final_time`, `order_dependence`, `engines`, `edit_documents`, `render_document_file_name`, `verdict_notes` | is answered with those fields **omitted** | check before reading the fields; an omitted field is not an error |
 
 `edit_documents` sits in both rows: without it `ApplyEdits` still edits a model of one document
@@ -179,10 +179,16 @@ reach (`-host 0.0.0.0`, `-host ::`, a hostname or address of the machine) is ser
 a bearer token — `-token-file <path>` (one line; the file should be readable by the service user
 only), `-token <value>`, or `OPENSYSML_GRPC_TOKEN` in the environment — and every call on every
 protocol must then carry it: `Authorization: Bearer <token>` on Connect, gRPC-Web and
-Connect-HTTP, the `authorization` metadata on grpc-go, compared in constant time. A call without
-it is answered `unauthenticated` (HTTP 401 with `WWW-Authenticate: Bearer realm="sysml-grpc"`;
-the grpc-go trailer carries the same), and the [wire contract](wire-contract.md#connect-errors-the-code-table)
-says what each client raises. `GET /health` is answered without a token so that liveness
+Connect-HTTP, the `authorization` metadata on grpc-go, compared in constant time. The credential
+is verified by the authenticator chain [`sysml-mcp`](sysml-mcp.md#transports) verifies through,
+shared so the two commands read the same flags and refuse alike; today the chain holds the static
+token alone, and a call it admits is served knowing its principal (the subject and the kind of
+authenticator that accepted it), which the access log names. A call without a credential is
+answered `unauthenticated` (HTTP 401 with `WWW-Authenticate: Bearer realm="sysml-grpc"`; the
+grpc-go trailer carries the same), one whose credential lacks a scope the service requires
+`permission_denied` (HTTP 403, `error="insufficient_scope"`), one whose credential cannot be
+verified for now `unavailable` (HTTP 503), and the
+[wire contract](wire-contract.md#connect-errors-the-code-table) says what each client raises. `GET /health` is answered without a token so that liveness
 probes need no secret; it says the version, nothing about any model. Starting non-loopback
 without a token fails at once naming the three ways to supply one and the one way to decline:
 `-allow-unauthenticated` serves every caller that can reach the port, which is only
@@ -193,8 +199,9 @@ without the pair fails at once unless `-allow-insecure-token-transport` accepts 
 transport, which is right only behind a proxy that terminates TLS in front of the service and
 is, like the other opt-out, never implied; the service warns at startup when it is given. Every call is
 logged on one line at `INFO` with the peer address, method, protocol, status code, duration and
-whether it was authenticated; a refused call is logged at `WARN` with the peer. The token
-itself is never logged. The private child a client starts for itself (`-port 0
+whether it was authenticated — and, when it was, the principal's `subject` and `source`
+(`token` from `static-token` for the bearer token); a refused call is logged at `WARN` with the
+peer. The token itself is never logged. The private child a client starts for itself (`-port 0
 -exit-with-parent`) is unaffected: it binds loopback and needs no token, and the client starts
 it without `OPENSYSML_GRPC_TOKEN` in its environment, so a token set for a remote service is
 never one the child demands.
@@ -238,6 +245,11 @@ Poll the main port. Nothing in this repository polls 8081: the Python client's r
 is its `GetServerInfo` handshake over gRPC, not an HTTP GET, so it is unaffected by every row of
 that table.
 
+[`sysml-mcp -http`](sysml-mcp.md#transports) takes the same stance on its own port: `GET /health`
+answers open, naming `sysml-mcp` and the build, and `GET /ready` answers 200 only once the
+workspace is indexed and the runtime prewarmed, both outside the token and the origin check that
+guard `/mcp`. [Running sysml-mcp as a service](../guide/sysml-mcp-service.md) has the details.
+
 ## `-transport stdio`, and why not to build on it
 
 `-transport stdio` serves one client over stdin/stdout with `Content-Length` framing. It is
@@ -258,7 +270,9 @@ right shape. Its `runtime` tool group is this service's RPC surface, one tool pe
 RPC's request and response, so an agent gets the same contract the clients on this page do. Its
 `-http` flag serves the same protocol over a port to many agents, with the stance this page
 takes — loopback unless the address says otherwise, an address other machines reach served only
-with a bearer token (`-token-file`, `-token`, `OPENSYSML_MCP_TOKEN` there), TLS from a
+with a bearer token (`-token-file`, `-token`, `OPENSYSML_MCP_TOKEN` there) or a file of API keys
+(`-api-keys`; this service declares the flag with the shared ones but refuses it, gating no call
+by scope yet), TLS from a
 certificate and key pair, an origin allow-list that is not authentication; the two commands
 share one implementation of the token and of the loopback rule.
 

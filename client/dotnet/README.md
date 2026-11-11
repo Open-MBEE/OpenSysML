@@ -601,8 +601,8 @@ var check = await tank.CheckActionAsync("Plant::Tank::fill", options: new CheckO
 | --- | --- |
 | `ExecuteActionAsync` | An `ActionRun`: the action's `Outputs`, the `PerformerAttributes` of the object it ran on (`this.level`), its `Diagnostics` (choice points, unevaluable guards), the `FinalTime` of its clock, the outputs each `OrderDependent` choice touched, and, when `RunOptions.Trace` asks for it, the run's `Trace` of `DocumentEvent`s (token steps, waits, accepts, sends, decisions, assignments and completion) and how many records the service dropped |
 | `ExecuteStateAsync` | A `StateRun`: the `StatesVisited` in the order the run entered them, the `FinalContext`, and, when `RunOptions.Trace` asks for it, the run's `Trace` of `DocumentEvent`s and how many records the service dropped |
-| `ExploreActionAsync` / `ExploreStateAsync` | An `Exploration`: each distinct `Outcome` with its linearizations, witness choices and model-draw probability, whether the exploration was `Complete`, and the budgets that cut it short |
-| `CheckActionAsync` / `CheckStateAsync` | A `CheckResult`: the verdict (`holds`, `fails`, `undecided`), the report's lines, the search's statistics, each violation, divergence and final outcome with a `CheckWitness` that replays it, the symbolic engine's claim, and the `Standing` of the engine that answered |
+| `ExploreActionAsync` / `ExploreStateAsync` | An `Exploration`: each distinct `Outcome` with its linearizations, witness choices and model-draw probability, whether the exploration was `Complete`, the budgets that cut it short, and the `Coverage` of every state entered and transition taken over all the runs, each a `CoverageEntry` with how many runs did so |
+| `CheckActionAsync` / `CheckStateAsync` | A `CheckResult`: the verdict (`holds`, `fails`, `undecided`), the report's lines, the search's statistics and the `Coverage` of every state entered and transition taken over the searched schedules, each violation, divergence and final outcome with a `CheckWitness` that replays it, the symbolic engine's claim, and the `Standing` of the engine that answered |
 
 `RunOptions` carries what the `sysml` command's run flags do: the `Schedule` (`declared`,
 `reverse`, `seed:<n>`, or `explore[:runs=<n>,depth=<d>]` for an exploration), the
@@ -850,7 +850,7 @@ var tree = await plant.RenderViewAsync("#tree:Plant::Loop", new RenderViewOption
 
 | Method | Answers |
 | --- | --- |
-| `QueryAsync` | A `QueryResult` of a SysML v2 API & Services `Query`: the `Elements` in its `Scope` (the whole model when empty, nested elements included) that its `Where` constraint matches, in the order its `OrderBy` sorts them or else in declaration order, each a `QueryElement` with its `Id`, its metamodel `Type` and the `Properties` its `Select` asked for, a property the element does not have absent |
+| `QueryAsync` | A `QueryResult` of a SysML v2 API & Services `Query`: the `Elements` in its `Scope` (the whole model when empty, nested elements included) that its `Where` constraint matches, in the order its `OrderBy` sorts them or else in declaration order, each a `QueryElement` with its `Id`, its metamodel `Type` and the `Properties` its `Select` asked for, a property the element does not have absent; an OSLC query selecting held objects (`rdf:type=elmt:<id>`) answers one per object, with the `Path` the session holds it under |
 | `QueryOslcAsync` | The same for OSLC Query 3.0 parameter text |
 | `RunDocumentQueryAsync` | A `DocumentQueryResult` of a document query the model declares, with its entry parameters bound: the projected `Columns` and the `Rows`, each a `DocumentRow` with the `Element` it selects and a cell of `DocumentValue`s per column |
 | `RenderDocumentAsync` | A `RenderedDocument` the model declares, byte-for-byte what `sysml -render-document` writes, in Markdown, `DocumentForm.Html` or `DocumentForm.AsciiDoc`, with the `FileName` a rendered set writes it to, null from a service that names none |

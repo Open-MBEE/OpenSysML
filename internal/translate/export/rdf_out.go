@@ -544,6 +544,7 @@ func (e *encoder) encodeDocument(root *ast.RootNamespace) error {
 	e.mintedComposites()
 	e.libraryNames()
 	e.sourceText()
+	e.notes()
 	if err := rdf.AnnotateCollections(e.graph); err != nil {
 		return err
 	}
@@ -614,6 +615,8 @@ func newEncoderOver(file *source.SourceFile, root *ast.RootNamespace, form IDFor
 		ids:                ids,
 		subjects:           map[string]string{},
 		regions:            map[rdf.Term]region{},
+		noteRegions:        map[rdf.Term]region{},
+		noteBodies:         map[rdf.Term]region{},
 		verifiedReferences: map[rdf.Term]bool{},
 		heads:              map[rdf.Term]*declarationHead{},
 		conjugateOriginals: map[string]rdf.Term{},
@@ -699,6 +702,10 @@ type encoder struct {
 	// regions holds each element's lines, bodies the lines its members tile.
 	regions map[rdf.Term]region
 	bodies  map[rdf.Term]region
+	// noteRegions and noteBodies are the same, bounded by tokens rather than
+	// lines where members share a line, for the notes of each (see notes).
+	noteRegions map[rdf.Term]region
+	noteBodies  map[rdf.Term]region
 	// offsets holds where in file each element's declaration starts.
 	offsets map[string]int
 	// verifiedReferences holds the `verify` members written as a reference
@@ -1084,7 +1091,15 @@ func (e *encoder) encode(members []ast.Node, owner string, ownerTerm rdf.Term) e
 		}
 		e.bodies[ownerTerm] = body
 	}
-	return e.encodeMembers(kept, regions, inline, owner, ownerTerm, 0)
+	noteRegions := e.src.tokenBounded(regions, spans)
+	if len(regions) > 0 && ownerTerm.Value != "" {
+		body := region{noteRegions[0].start, noteRegions[len(noteRegions)-1].end}
+		if prior, ok := e.noteBodies[ownerTerm]; ok {
+			body = region{min(prior.start, body.start), max(prior.end, body.end)}
+		}
+		e.noteBodies[ownerTerm] = body
+	}
+	return e.encodeMembers(kept, regions, noteRegions, inline, owner, ownerTerm, 0)
 }
 
 // encodeInline walks members whose lines interleave with their owner's own
@@ -1097,10 +1112,10 @@ func (e *encoder) encodeInline(members []ast.Node, owner string, ownerTerm rdf.T
 // member group's: a transition's body members index after its effect's.
 func (e *encoder) encodeInlineAt(members []ast.Node, indexOffset int, owner string, ownerTerm rdf.Term) error {
 	kept := e.names.Kept(members)
-	return e.encodeMembers(kept, make([]region, len(kept)), true, owner, ownerTerm, indexOffset)
+	return e.encodeMembers(kept, make([]region, len(kept)), make([]region, len(kept)), true, owner, ownerTerm, indexOffset)
 }
 
-func (e *encoder) encodeMembers(kept []ast.Node, regions []region, inline bool, owner string, ownerTerm rdf.Term, indexOffset int) error {
+func (e *encoder) encodeMembers(kept []ast.Node, regions, noteRegions []region, inline bool, owner string, ownerTerm rdf.Term, indexOffset int) error {
 	// last and beforeLast are the latest members a `then` sequences from; a
 	// member-attached `then` follows its target prev, so its source is the
 	// latest of them before prev.
@@ -1127,10 +1142,11 @@ func (e *encoder) encodeMembers(kept []ast.Node, regions []region, inline bool, 
 		encodes := !e.names.Absorbed[node]
 		if !encodes {
 			regions[i+1] = regions[i]
+			noteRegions[i+1] = noteRegions[i]
 		}
 		if encodes {
 			h := memberHead{node: node, visibility: visibility, owner: ownerTerm, index: i + indexOffset,
-				lines: regions[i], inline: inline, typeFeature: isTypeFeatureMember(member), last: i == len(kept)-1}
+				lines: regions[i], noteLines: noteRegions[i], inline: inline, typeFeature: isTypeFeatureMember(member), last: i == len(kept)-1}
 			if err := e.encodeMember(h, owner); err != nil {
 				return err
 			}
@@ -1258,6 +1274,7 @@ type memberHead struct {
 	index      int
 	metaclass  rdf.Term
 	lines      region
+	noteLines  region
 	inline     bool
 	// typeFeature marks a KerML `member` (TypeFeatureMember): a feature its type
 	// owns through a plain OwningMembership rather than a FeatureMembership.
@@ -1311,6 +1328,9 @@ func (e *encoder) head(subject rdf.Term, h memberHead) {
 	e.graph.Add(subject, e.sysx(xMemberIndex), rdf.Int(index))
 	if !inline {
 		e.regions[subject] = lines
+	}
+	if h.noteLines != (region{}) {
+		e.noteRegions[subject] = h.noteLines
 	}
 	if language := languageName(e.file.Kind()); ownerTerm.Value == "" && h.local.Value == "" && language != "" {
 		e.graph.Add(subject, e.sysx(xSourceLanguage), rdf.String(language))
@@ -1506,9 +1526,8 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if !ok {
 			return &UnsupportedError{What: fmt.Sprintf("usage kind %q at %s", n.Kind, e.where(n))}
 		}
-		// An actor, stakeholder or objective member is a parameter its
-		// membership owns (SysML.xtext ActorMember & co.): the parameter kind
-		// is the membership's metaclass, and the parameter itself is a usage.
+		// An actor or stakeholder member is a parameter its membership owns (SysML.xtext
+		// ActorMember & co.): the membership's metaclass is the parameter kind, the parameter a usage.
 		parameterClass, parameterEnd := parameterMembership(n.Kind)
 		if n.IsResult {
 			// A `return` member is the result parameter its ReturnParameterMembership
@@ -1889,6 +1908,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			e.graph.Add(membership, e.sysml(pOwnedConstraint), subject)
 		}
 		head(rdf.SysMLTerm(mConstraintUsage))
+		e.constraintBodyVariability(subject, n)
 		return e.requirementCondition(subject, fqn, within, requirementConditionDecl{
 			prefixes: n.Prefixes, ident: n.Ident, relationships: n.Relationships, multiplicity: n.Multiplicity,
 			value: n.Value, isDefault: n.ValueIsDefault, isInitial: n.ValueIsInitial,
@@ -1902,6 +1922,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			e.graph.Add(membership, e.sysml(pOwnedConstraint), subject)
 		}
 		head(rdf.SysMLTerm(mConstraintUsage))
+		e.constraintBodyVariability(subject, n)
 		return e.requirementCondition(subject, fqn, within, requirementConditionDecl{
 			prefixes: n.Prefixes, ident: n.Ident, relationships: n.Relationships, multiplicity: n.Multiplicity,
 			value: n.Value, isDefault: n.ValueIsDefault, isInitial: n.ValueIsInitial,
@@ -2228,6 +2249,19 @@ func (e *encoder) variantMember(node ast.Node, ownerTerm rdf.Term) bool {
 func (e *encoder) usageIsVariable(n *ast.Usage) bool {
 	sym := e.ids.declSym[n]
 	return sym != nil && e.ids.model.FeatureIsVariable(sym)
+}
+
+// constraintBodyVariability writes isVariable and mayTimeVary for a `require`/`assume`
+// body constraint as the model derives them: a feature of an Occurrence varies (deriveUsageMayTimeVary).
+func (e *encoder) constraintBodyVariability(subject rdf.Term, member ast.Node) {
+	sym := e.ids.declSym[member]
+	if sym == nil {
+		return
+	}
+	e.flags(subject, []boolProperty{
+		{"isVariable", e.ids.model.FeatureIsVariable(sym)},
+		{"mayTimeVary", e.ids.model.UsageMayTimeVary(sym)},
+	})
 }
 
 // usageMayTimeVary derives Usage::mayTimeVary (deriveUsageMayTimeVary); a KerML
@@ -3293,8 +3327,6 @@ func parameterMembership(kind ast.UsageKind) (class, end string) {
 		return mActorMembership, "ownedActorParameter"
 	case ast.UsageStakeholder:
 		return mStakeholderMembership, "ownedStakeholderParameter"
-	case ast.UsageObjective:
-		return mObjectiveMembership, "ownedObjectiveRequirement"
 	}
 	return "", ""
 }
@@ -3308,6 +3340,10 @@ func memberOwnedUsage(kind ast.UsageKind) (class, end, constraintKind string) {
 		return mViewRenderingMembership, pOwnedRendering, ""
 	case ast.UsageFramedConcern:
 		return mFramedConcernMembership, pOwnedConcern, "requirement"
+	case ast.UsageObjective:
+		// An objective is a RequirementUsage its ObjectiveMembership, a FeatureMembership, owns
+		// (SysML 8.3.19): no parameter, so composite and undirected, as the pilot exports it.
+		return mObjectiveMembership, "ownedObjectiveRequirement", ""
 	}
 	return "", "", ""
 }

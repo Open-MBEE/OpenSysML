@@ -25,7 +25,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/api/proto/protoconnect"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
-	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard/flags"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -44,7 +44,7 @@ func connectServer(t *testing.T) string {
 	}
 	t.Cleanup(svc.Close)
 
-	srv := httptest.NewUnstartedServer(connectHandler(svc, "test", nil, guard.Token{}))
+	srv := httptest.NewUnstartedServer(connectHandler(svc, "test", nil, nil))
 	srv.Config.Protocols = new(http.Protocols)
 	srv.Config.Protocols.SetHTTP1(true)
 	srv.Config.Protocols.SetUnencryptedHTTP2(true)
@@ -236,7 +236,7 @@ func TestServeConnectTLS(t *testing.T) {
 	t.Cleanup(cancel)
 	served := make(chan error, 1)
 	go func() {
-		served <- serveConnect(ctx, lis, svc, "test", nil, guard.Token{}, certificateFiles{certFile, keyFile})
+		served <- serveConnect(ctx, lis, svc, "test", nil, flags.Authenticators{}, certificateFiles{certFile, keyFile})
 	}()
 
 	address := lis.Addr().String()

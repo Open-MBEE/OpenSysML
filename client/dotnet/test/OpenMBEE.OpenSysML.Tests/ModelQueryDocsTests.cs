@@ -79,13 +79,14 @@ public sealed class ModelQueryDocsTests
                 new Wire.QueryRequest { ModelHash = Hash, Query = new Wire.Query() },
             ],
             handler.RequestsFor("Query").Select(sent => sent.Message(Wire.QueryRequest.Parser)));
-        Assert.Equal(2, result.Elements.Count);
+        Assert.Equal(3, result.Elements.Count);
         var wheels = result.Elements[0];
-        Assert.Equal(("Demo::vehicle::wheels", "PartUsage"), (wheels.Id, wheels.Type));
+        Assert.Equal(("Demo::vehicle::wheels", "PartUsage", string.Empty), (wheels.Id, wheels.Type, wheels.Path));
         Assert.Equal(new ValueDictionary<string>(new Dictionary<string, string> { ["documentation"] = string.Empty, ["name"] = "wheels", ["owner"] = "Demo::vehicle" }), wheels.Properties);
         Assert.Equal("Demo::vehicle::wheels (PartUsage)", wheels.ToString());
         Assert.Empty(result.Elements[1].Properties);
         Assert.Equal(new QueryResult([new QueryElement("Demo::Vehicle", "PartDefinition", [])]), new QueryResult([result.Elements[1]]));
+        Assert.Equal(new QueryElement("Demo::Wheel", "PartDefinition", [], "car.wheels[2]"), result.Elements[2]);
     }
 
     [Theory]

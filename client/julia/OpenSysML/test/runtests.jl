@@ -84,6 +84,27 @@ end
     @test AnalysisResult(Dict{String,Any}(), []; tool_dry_run=bare).tool_dry_run === bare
 end
 
+@testset "coverage decoders read every run's states and transitions" begin
+    entry = Dict{String,Any}("path" => "Cov::sys#1.m.run: viaB",
+        "declaration" => "Cov::M::run::viaB", "runs" => 1)
+    edge = Dict{String,Any}("path" => "Cov::sys#1.m.run: s0 -> viaB",
+        "declaration" => "Cov::M::run::s0 -> viaB", "runs" => 1)
+    exploration = Exploration(Dict{String,Any}("outcomes" => Any[],
+        "exploration" => Dict{String,Any}("complete" => true, "runs" => 2,
+            "coverage" => Dict{String,Any}("states" => Any[entry], "transitions" => Any[edge]))))
+    @test exploration.coverage.states == [CoverageEntry("Cov::sys#1.m.run: viaB", "Cov::M::run::viaB", 1)]
+    @test exploration.coverage.transitions ==
+        [CoverageEntry("Cov::sys#1.m.run: s0 -> viaB", "Cov::M::run::s0 -> viaB", 1)]
+    bare = Exploration(Dict{String,Any}("exploration" => Dict{String,Any}("complete" => true)))
+    @test isempty(bare.coverage.states) && isempty(bare.coverage.transitions)
+    search = CheckSearch(Dict{String,Any}("states" => 5,
+        "coverage" => Dict{String,Any}("states" => Any[entry])))
+    @test search.states == 5
+    @test search.coverage.states == [CoverageEntry("Cov::sys#1.m.run: viaB", "Cov::M::run::viaB", 1)]
+    @test isempty(search.coverage.transitions)
+    @test isempty(CheckSearch(Dict{String,Any}("states" => 1)).coverage.states)
+end
+
 @testset "run options are encoded as the service reads them" begin
     request = OpenSysML._run_options!(Dict{String,Any}())
     @test isempty(request)
@@ -545,6 +566,17 @@ const GRPC_BINARY = get(ENV, "OPENSYSML_GRPC_BINARY",
 
             rows = query(qmodel, "oslc.where=rdf:type=\"PartUsage\"&oslc.select=sysml:name")
             @test length(get(rows, "elements", Any[])) == 3
+
+            @test has_capability(conn, CAPABILITY_ELEMENT_PROPERTIES)
+            pmodel = parse_source(conn, read(joinpath(FIXTURES, "element_properties.sysml"), String);
+                                  name="element_properties.sysml")
+            pair = element_properties(pmodel, "Demo::Pair", "inheritedFeature", "isAbstract")
+            @test pair.element.metaclass == "PartDefinition"
+            @test "Demo::Unit::p" in [e.qualified_name for e in property_elements(pair["inheritedFeature"])]
+            @test property_value(pair["isAbstract"]) === false
+            walked = element_properties(pmodel, property_elements(pair["inheritedFeature"])[1].id, "owner")
+            @test property_value(walked["owner"]) isa ElementIdentity
+            @test !is_answered(element_properties(pmodel, "Demo::Pair", "connectorEnd")["connectorEnd"])
 
             @test_throws DiagnosticError evaluate(model, "1 +")
             @test_throws ConnectError symbol(Model(conn, "0"^64, Diagnostic[]), "X")
