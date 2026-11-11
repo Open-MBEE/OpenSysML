@@ -84,9 +84,8 @@ func (h *httpOptions) tokenValue() string { return h.auth.TokenText() }
 // mcp.TokenEnv names the token itself; the file wins, as -token-file does.
 var tokenFileEnv = usage.EnvName(envPrefix, "token-file")
 
-// readToken resolves the credentials: the API keys of -api-keys, the provider of -oidc-issuer
-// (audience the -public-url endpoint unless -oidc-audience), then the token of -token-file,
-// -token or the environment (the file first), a principal of every scope.
+// readToken resolves the credentials: -api-keys, then -oidc-issuer (audience the -public-url
+// endpoint unless -oidc-audience), then the token of -token-file, -token or the environment.
 func readToken(o *options) (mcp.BearerToken, flags.Authenticators, error) {
 	if o.auth.OIDCIssuer != "" && o.auth.OIDCAudience == "" && o.publicURL == "" {
 		return mcp.BearerToken{}, flags.Authenticators{}, errors.New("-oidc-issuer needs the audience a token is issued for: name the endpoint with -public-url, or give -oidc-audience")
