@@ -13,6 +13,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The runner reaches the service through the typed API alone; BannedSymbols.txt refuses the raw ways in. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" PrivateAssets="all" />
+    <AdditionalFiles Include="BannedSymbols.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="OpenMBEE.OpenSysML.Conformance.Tests" />
     <!-- Its adapters and renderings are tested over the client's fake service, in the client's test project. -->
     <InternalsVisibleTo Include="OpenMBEE.OpenSysML.Tests" />

@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
-using System.Reflection.Emit;
 using System.Text;
 using System.Threading.Tasks;
 using Google.Protobuf;
@@ -910,37 +908,6 @@ public sealed class ConformanceAdapterTests
             Assert.Single(handler.RequestsFor("ParseSources")).Message(Wire.ParseSourcesRequest.Parser));
     }
 
-    [Fact]
-    public void NothingInTheRunnerReachesTheServiceRaw()
-    {
-        var raw = new HashSet<MethodBase>(typeof(Connection).GetMethods().Where(method => method.Name == nameof(Connection.CallAsync)));
-        var stub = typeof(Wire.SysMLService.SysMLServiceClient);
-        var calls = new List<string>();
-        foreach (var type in typeof(ApiScenarioClient).Assembly.GetTypes())
-        {
-            foreach (var method in type.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
-                .Cast<MethodBase>()
-                .Concat(type.GetConstructors(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)))
-            {
-                foreach (var called in Called(method))
-                {
-                    var definition = called is MethodInfo { IsGenericMethod: true } generic ? generic.GetGenericMethodDefinition() : called;
-                    if (raw.Contains(definition) || called.DeclaringType == stub)
-                    {
-                        calls.Add($"{type.FullName}.{method.Name} calls {called.DeclaringType}.{called.Name}");
-                    }
-                }
-            }
-        }
-
-        Assert.Empty(calls);
-        // The scan is not blind: it finds the typed call an adapter does make.
-        var evaluate = typeof(ModelArea).GetMethod("EvaluateAsync", BindingFlags.Static | BindingFlags.NonPublic)!
-            .GetCustomAttribute<System.Runtime.CompilerServices.AsyncStateMachineAttribute>()!.StateMachineType
-            .GetMethod("MoveNext", BindingFlags.Instance | BindingFlags.NonPublic)!;
-        Assert.Contains(Called(evaluate), called => called.DeclaringType == typeof(Model) && called.Name == nameof(Model.EvaluateAsync));
-    }
-
     private static ApiScenarioClient Client(Connection connection) => new("test", "fake", connection);
 
     private static FakeServiceHandler Serving(ClientWire wire, string method, IMessage response)
@@ -954,56 +921,4 @@ public sealed class ConformanceAdapterTests
         sent.Wire == ClientWire.ConnectJson
             ? JsonParser.Default.Parse(Encoding.UTF8.GetString(sent.Body), type)
             : type.Parser.ParseFrom(sent.MessageBytes);
-
-    // The methods a method's IL calls, constructs or loads a pointer to.
-    private static IEnumerable<MethodBase> Called(MethodBase method)
-    {
-        var il = method.GetMethodBody()?.GetILAsByteArray();
-        if (il is null)
-        {
-            yield break;
-        }
-
-        for (var at = 0; at < il.Length;)
-        {
-            var code = il[at] == 0xFE ? Codes[0x100 | il[at + 1]] : Codes[il[at]];
-            at += code.Size;
-            var operand = Operand(code.OperandType, il, at);
-            if (code.OperandType == OperandType.InlineMethod)
-            {
-                MethodBase? called = null;
-                try
-                {
-                    called = method.Module.ResolveMethod(
-                        BitConverter.ToInt32(il, at),
-                        method.DeclaringType?.IsGenericType == true ? method.DeclaringType.GetGenericArguments() : null,
-                        method.IsGenericMethod ? method.GetGenericArguments() : null);
-                }
-                catch (ArgumentException)
-                {
-                }
-
-                if (called is not null)
-                {
-                    yield return called;
-                }
-            }
-
-            at += operand;
-        }
-    }
-
-    private static int Operand(OperandType type, byte[] il, int at) => type switch
-    {
-        OperandType.InlineNone => 0,
-        OperandType.ShortInlineBrTarget or OperandType.ShortInlineI or OperandType.ShortInlineVar => 1,
-        OperandType.InlineVar => 2,
-        OperandType.InlineI8 or OperandType.InlineR => 8,
-        OperandType.InlineSwitch => 4 + (4 * BitConverter.ToInt32(il, at)),
-        _ => 4,
-    };
-
-    private static readonly Dictionary<int, OpCode> Codes = typeof(OpCodes).GetFields(BindingFlags.Public | BindingFlags.Static)
-        .Select(field => (OpCode)field.GetValue(null)!)
-        .ToDictionary(code => code.Size == 1 ? code.Value & 0xFF : 0x100 | (code.Value & 0xFF));
 }

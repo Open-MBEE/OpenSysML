@@ -283,8 +283,9 @@ for an element GetElementProperties does not know, which the API raises as a
 document query or document the model declares wrongly, which the API raises as a
 `QueryException`; a
 capability the client refuses for before sending is `UNIMPLEMENTED`, which the service would
-answer; a transport failure is its status. Nothing is sent raw: a test reads the runner's IL
-and fails on any call to `Connection.CallAsync` or the generated stub. A request setting a field
+answer; a transport failure is its status. Nothing is sent raw: the runner's
+[`BannedSymbols.txt`](src/OpenMBEE.OpenSysML.Conformance/BannedSymbols.txt) makes any use of
+`Connection.CallAsync` or the generated stub a build error (RS0030). A request setting a field
 the adapter cannot send, or one the API has no way to express, is skipped for a stated reason;
 so is one the API itself refuses with `ArgumentException`, for that exception's message.
 
