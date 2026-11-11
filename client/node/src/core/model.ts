@@ -461,6 +461,14 @@ export class Model {
     return this.connection.runDocumentQuery(this.hash, queryId, bindings);
   }
 
+  /** Runs a query expression written in place of a named query against this model. */
+  runInlineDocumentQuery(
+    expression: string,
+    bindings?: Readonly<Record<string, BindingValues>>,
+  ): Promise<DocumentQueryResult> {
+    return this.connection.runInlineDocumentQuery(this.hash, expression, bindings);
+  }
+
   /** Renders a named document of this model to Markdown, HTML or AsciiDoc. */
   renderDocument(
     documentId: string,

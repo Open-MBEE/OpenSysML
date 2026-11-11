@@ -121,9 +121,8 @@ service SysMLService {
   // whole model. Reported as the "element_properties" capability.
   rpc GetElementProperties(GetElementPropertiesRequest) returns (GetElementPropertiesResponse);
 
-  // Run a named document query with parameter bindings, the answer the REPL's
-  // %run-query gives, as typed rows rather than formatted lines. Reported as
-  // the "document_query" capability.
+  // Run a document query named by query_id or written in inline_query as typed rows, the answer
+  // the REPL's %run-query gives; capabilities "document_query" and "inline_document_query".
   rpc RunDocumentQuery(RunDocumentQueryRequest) returns (RunDocumentQueryResponse);
 
   // Render a named document to Markdown, as the CLI's -render-document does.
@@ -719,6 +718,27 @@ message ExplorationStatus {
   // without a choice point, by identifier; `complete` is false while any is
   // listed, since fewer orders were run than the library admits.
   repeated string unenumerated = 8;
+  // Every state entered and transition taken over all the runs, not only the
+  // witness of each outcome, with how many runs did so.
+  Coverage coverage = 9;
+}
+
+// Coverage is what every run of an exploration, or every schedule of a check,
+// entered and took, with how many did so.
+message Coverage {
+  repeated CoverageEntry states = 1;
+  repeated CoverageEntry transitions = 2;
+}
+
+// CoverageEntry is one state entered or one transition taken.
+message CoverageEntry {
+  // Qualified by the instance running the machine: `Cov::Sys#1.m.run: viaA`,
+  // `Cov::Sys#1.m.run: s0 -> viaB`.
+  string path = 1;
+  // Qualified by the declaration: `Cov::M::run::viaA`, `Cov::M::run::s0 -> viaB`.
+  string declaration = 2;
+  // How many runs (schedules, under the check engine) entered or took it.
+  int32 runs = 3;
 }
 
 // CheckBehaviorRequest searches every schedule of a behavior, as the `sysml`
@@ -833,6 +853,9 @@ message CheckSearch {
   repeated string scope = 9;
   // How the search ended, as `sysml` reports it.
   string status = 10;
+  // Every state entered and transition taken over all the searched schedules,
+  // not only the witness of each final, with how many schedules did so.
+  Coverage coverage = 11;
 }
 
 // CheckBehaviorResponse is what the search found.
@@ -2660,12 +2683,17 @@ enum CompositeOperator {
 
 // QueryResultElement is one matched element. `id` and `type` are always
 // reported, since an element record is not usable without them; `properties`
-// carries what `select` asked for, omitting a property the element does not
-// have.
+// carries what `select` asked for, omitting a property the element has no
+// value of. An OSLC query selecting held objects (`rdf:type=elmt:<id>`) answers
+// one record per object: `id` and `type` name the element the object is an
+// instance of, and `path` the object itself.
 message QueryResultElement {
   string id = 1;    // qualified name, the identity this service reports
   string type = 2;  // metamodel type name ("PartUsage", "PartDefinition", ...)
   map<string, string> properties = 3;
+  // The path the session holds an object under (`car.wheels[2]`, `#7`); empty
+  // for a model element.
+  string path = 4;
 }
 
 // SweepRange is one parameter's range: the endpoints a swept run advances
@@ -2983,20 +3011,26 @@ message RunRunsResponse {
 }
 
 
-// RunDocumentQueryRequest runs a named document query — a calc def
-// specializing DocumentQueries::Query — against a model the service already
-// parsed, binding its entry parameters. It answers as %run-query does, but with
-// typed rows rather than formatted lines. The query runs over the objects
-// Instantiate created for the model, which a binding may name (DocumentObject)
-// and `DocumentQueries::Objects` and `Verdicts` reach.
+// RunDocumentQueryRequest runs a DocumentQueries::Query the model declares (query_id) or one
+// written in inline_query over a parsed model and its Instantiate objects, binding its parameters.
 message RunDocumentQueryRequest {
   string model_hash = 1;  // from ParseFile response
   // FQN of the document query to run. Fails with NOT_FOUND when the model does
   // not declare it, and INVALID_ARGUMENT when it declares something else.
+  // Exactly one of query_id and inline_query is given.
   string query_id = 2;
   // Entry-parameter bindings. Repeating a parameter appends to its binding, so
   // a nonscalar parameter can be given several values.
   repeated DocumentQueryBinding bindings = 3;
+  // A query expression to run in place of a named query — the result
+  // expression of a `calc def` specializing DocumentQueries::Query, such as
+  // `Project(WhereType(Descendants(Named("Vehicles")), "PartUsage"), ("name",
+  // "mass"))` — compiled in the model's context with the DocumentQueries
+  // library in scope and the model's own names reachable. A fault in the
+  // expression fails with INVALID_ARGUMENT positioned within it (`inline query
+  // <line>:<column>`); a path or model error carries a QueryOutcome detail as a
+  // named query's does. Reported as the "inline_document_query" capability.
+  string inline_query = 4;
 }
 
 // DocumentQueryBinding binds one entry parameter of a document query.
@@ -3191,6 +3225,11 @@ message QueryOutcome {
   repeated QueryFailure failures = 3;        // a pathError's failures, one per failing element
   repeated QueryFinding findings = 4;        // a modelError's findings
   repeated QueryFailure path_failures = 5;   // a modelError's path failures from the same fan-out
+  // The detail is bounded to fit a status trailer: the lists above hold the first
+  // few of a fan-out, and these count how many there were in all (the CLI's -json record carries every one).
+  int32 failures_total = 6;
+  int32 findings_total = 7;
+  int32 path_failures_total = 8;
 }
 
 // QueryFailure is one failure of one step on one element: what the step
@@ -3209,6 +3248,11 @@ message QueryFrontier {
   repeated QueryFrontierFeature features = 3;  // its features, when a feature was expected
   repeated string kinds = 4;                   // the relationship kinds there are, when a kind was expected
   string nearest = 5;                          // the closest spelling, when a name was expected
+  // Bounded to fit a status trailer: members, features and kinds hold the nearest spellings
+  // only, and these count how many there were in all (the CLI's -json record carries every one).
+  int32 members_total = 6;
+  int32 features_total = 7;
+  int32 kinds_total = 8;
 }
 
 message QueryFrontierMember {

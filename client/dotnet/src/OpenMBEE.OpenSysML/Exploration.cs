@@ -20,6 +20,7 @@ public sealed record Exploration
     /// <param name="probabilitiesLowerBound">Whether weighted probabilities are lower bounds.</param>
     /// <param name="failedLinearizations">How many linearizations ended in runtime errors.</param>
     /// <param name="unenumerated">The constructs whose unordered alternatives the runs took in one order.</param>
+    /// <param name="coverage">Every state entered and transition taken over all the runs; null when the service reported none.</param>
     /// <param name="standing">The engine that answered, the strength of its evidence and its bounds; <see cref="Standing.None"/> when none was named.</param>
     /// <exception cref="ArgumentNullException">A collection or <paramref name="standing"/> is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null.</exception>
@@ -33,6 +34,7 @@ public sealed record Exploration
         bool probabilitiesLowerBound,
         int failedLinearizations,
         IEnumerable<string> unenumerated,
+        Coverage? coverage,
         Standing standing)
     {
         ArgumentNullException.ThrowIfNull(standing);
@@ -45,6 +47,7 @@ public sealed record Exploration
         ProbabilitiesLowerBound = probabilitiesLowerBound;
         FailedLinearizations = failedLinearizations;
         Unenumerated = new ValueList<string>(unenumerated);
+        Coverage = coverage;
         Standing = standing;
     }
 
@@ -80,6 +83,12 @@ public sealed record Exploration
     /// identifier; <see cref="Complete"/> is false while any is listed.
     /// </summary>
     public ValueList<string> Unenumerated { get; }
+
+    /// <summary>
+    /// Every state entered and transition taken over all the runs, not only the witness of each outcome, with how many
+    /// runs did so; null when the service reported none.
+    /// </summary>
+    public Coverage? Coverage { get; }
 
     /// <summary>
     /// The engine that answered an analysis case's exploration, the strength of its evidence and the bounds it ran

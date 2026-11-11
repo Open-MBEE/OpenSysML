@@ -1,0 +1,28 @@
+{
+  "rpc": "GetElementProperties",
+  "model": "element_properties_state_definition.sysml",
+  "element_id": "StateFamily::Engine",
+  "properties": [
+    "ownedState",
+    "isParallel"
+  ],
+  "expected_properties": [
+    {
+      "name": "ownedState",
+      "defining_class": "Definition",
+      "many": true,
+      "derived": true,
+      "values": [
+        "StateFamily::Engine::off",
+        "StateFamily::Engine::running"
+      ]
+    },
+    {
+      "name": "isParallel",
+      "defining_class": "StateDefinition",
+      "values": [
+        "false"
+      ]
+    }
+  ]
+}

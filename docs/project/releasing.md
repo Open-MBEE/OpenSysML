@@ -144,7 +144,10 @@ previous release rather than the branch's first parent, the binaries are built
 with the tag as their version, and the hygiene test that requires every
 released version to have its digests pinned exempts the release being built
 (a local tag with no `CIRCLE_TAG` on a commit past the tagged one reads as a
-release that is already out).
+release that is already out). A rehearsal never skips the suite: `verify-tree`
+records the commit as unverified whenever `release_rehearsal` is set, however
+green the branch head already is, because proving the suite passes under the
+tag is what the rehearsal is for (see [Tagging](#tagging) for what a real tag skips).
 
 Trigger it from the CircleCI UI with *Trigger pipeline*: choose the release
 branch for both the config and the checkout source, then add the boolean
@@ -267,7 +270,16 @@ branch that moves the integration state onto `main`:
 
 3. Open a pull request from `release/x.y.z` to `main` and merge it once the
    pull-request workflow is green. Merging into `main` runs CircleCI's
-   `build-test` workflow over the merged tree.
+   `build-test` workflow over the merged tree. Its first job, `verify-tree`
+   (`scripts/ci-verified-tree.py`), asks GitHub whether that exact commit already
+   has a green full-tier `Build and test` check — the merge queue's commit does, a
+   plain merge commit does not — and when it has, the suite jobs (`go-static` past
+   its landing bundle and the two checks whose verdict depends on `CIRCLE_TAG`,
+   `go-vulncheck`, `go-race-test`, `go-gates`, the Rust, Julia and MATLAB clients)
+   halt green with the evidence as their one line of output;
+   the coverage shards, the clients whose reports the scan reads, and the scan
+   itself still run. An unverified commit, or any failure to read the evidence,
+   runs everything.
 
 4. Tag `main` as [Tagging](#tagging) describes.
 
@@ -356,6 +368,22 @@ fails the suite fails the release workflow before anything is published, and so
 does a tag whose version `client/python/opensysml/_version.py`,
 `client/node/package.json`, `client/java/pom.xml` or
 `client/rust/opensysml/Cargo.toml` or an editor manifest does not declare.
+
+The suite does not run twice over a tree it has already passed. The `release`
+workflow starts with `verify-tree`, which accepts either a green full-tier
+`Build and test` check run on the tagged commit (GitHub Actions, as the merge
+queue leaves on `main`'s head) or a green `build-test` CircleCI workflow of a
+`main` pipeline on the same commit (read with `CIRCLECI_API_TOKEN`, the project
+variable `cancel-superseded` uses; without it only the GitHub evidence counts).
+On a verified tag the suite jobs, the coverage jobs and the client tests halt
+green with the evidence as their one line of output — after `go-static` has run
+the checks only a tag decides, the combined compliance page and the protobuf
+schema against the previous release — and `build-release-binaries`
+starts as soon as the binaries are built; nothing it or the publish jobs read
+comes from the halted jobs. A tag on an unverified commit — one pushed to `main`
+directly, or whose `build-test` is still running or red — and any error reading
+the evidence run the whole suite, exactly as before. Check what it decided in the
+*Verified tree check* job of the tag's pipeline.
 
 ## What CircleCI publishes
 

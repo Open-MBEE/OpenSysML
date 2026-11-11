@@ -29,6 +29,7 @@ import {
   CAPABILITY_ACTION_TRACE,
   CAPABILITY_QUERY,
   CAPABILITY_ELEMENT_PROPERTIES,
+  CAPABILITY_INLINE_DOCUMENT_QUERY,
   CAPABILITY_QUERY_ORDER_BY,
   CAPABILITY_OSLC_QUERY,
   CAPABILITY_RENDER_DOCUMENT,
@@ -164,7 +165,7 @@ import {
   ENGINE_AUTO,
   type EngineInfo,
 } from "./engines.js";
-import { Exploration, Outcome } from "./exploration.js";
+import { coverageOf, Exploration, Outcome } from "./exploration.js";
 import {
   analysisResultOf,
   decodeVerificationVerdict,
@@ -728,9 +729,33 @@ export class Connection {
   }
 
   /** Runs a named document query and answers its typed rows. */
-  async runDocumentQuery(
+  runDocumentQuery(
     modelHash: string,
     queryId: string,
+    bindings?: Readonly<Record<string, BindingValues>>,
+  ): Promise<DocumentQueryResult> {
+    return this.documentQuery(modelHash, { queryId }, bindings);
+  }
+
+  /** Runs a query expression written in place of a named query — the result
+   * expression of a `calc def` specializing `DocumentQueries::Query` — as
+   * {@link runDocumentQuery} runs a named one; needs `inline_document_query`. */
+  async runInlineDocumentQuery(
+    modelHash: string,
+    expression: string,
+    bindings?: Readonly<Record<string, BindingValues>>,
+  ): Promise<DocumentQueryResult> {
+    requireCapability(
+      this.info,
+      CAPABILITY_INLINE_DOCUMENT_QUERY,
+      upgradeRemedy(CAPABILITY_INLINE_DOCUMENT_QUERY),
+    );
+    return this.documentQuery(modelHash, { inlineQuery: expression }, bindings);
+  }
+
+  private async documentQuery(
+    modelHash: string,
+    query: { queryId?: string; inlineQuery?: string },
     bindings?: Readonly<Record<string, BindingValues>>,
   ): Promise<DocumentQueryResult> {
     requireCapability(
@@ -752,13 +777,13 @@ export class Connection {
       this.rpc.runDocumentQuery(
         create(RunDocumentQueryRequestSchema, {
           modelHash,
-          queryId,
+          ...query,
           bindings: wire,
         }),
         this.callOptions(),
       ),
       "model",
-      capabilityRefusal(this.info, [CAPABILITY_DOCUMENT_QUERY]),
+      capabilityRefusal(this.info, [CAPABILITY_DOCUMENT_QUERY, CAPABILITY_INLINE_DOCUMENT_QUERY]),
     );
     return documentResult(response);
   }
@@ -1250,6 +1275,7 @@ export class Connection {
       depthBudget: status?.depthBudget ?? 0,
       probabilitiesLowerBound: status?.probabilitiesLowerBound ?? false,
       unenumerated: status?.unenumerated ?? [],
+      coverage: coverageOf(status?.coverage),
     });
   }
 

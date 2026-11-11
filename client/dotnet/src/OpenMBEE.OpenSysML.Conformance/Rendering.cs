@@ -295,8 +295,18 @@ internal static class Rendering
             ProbabilitiesLowerBound = exploration.ProbabilitiesLowerBound,
             FailedLinearizations = exploration.FailedLinearizations,
             Unenumerated = { exploration.Unenumerated },
+            Coverage = Coverage(exploration.Coverage),
         };
     }
+
+    /// <summary>What every run or searched schedule entered and took; null when the service reported none.</summary>
+    private static Wire.Coverage? Coverage(Coverage? coverage) =>
+        coverage is null
+            ? null
+            : new Wire.Coverage { States = { coverage.States.Select(CoverageEntry) }, Transitions = { coverage.Transitions.Select(CoverageEntry) } };
+
+    private static Wire.CoverageEntry CoverageEntry(CoverageEntry entry) =>
+        new() { Path = entry.Path, Declaration = entry.Declaration, Runs = entry.Runs };
 
     /// <summary>What a check found, with every witness the API reports.</summary>
     internal static Wire.CheckBehaviorResponse CheckResult(CheckResult result)
@@ -329,6 +339,7 @@ internal static class Rendering
                 Notes = { search.Notes },
                 Scope = { search.Scope },
                 Status = search.Status,
+                Coverage = Coverage(search.Coverage),
             };
         }
 
@@ -945,6 +956,7 @@ internal static class Rendering
                     Id = element.Id,
                     Type = element.Type,
                     Properties = { element.Properties.ToDictionary(StringComparer.Ordinal) },
+                    Path = element.Path,
                 }),
             },
         };

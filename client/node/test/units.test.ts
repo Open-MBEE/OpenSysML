@@ -6,10 +6,12 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { create, toJsonString } from "@bufbuild/protobuf";
 import {
+  CoverageSchema,
   DocumentValueSchema,
   ValueSchema,
   VerdictSchema,
 } from "../src/generated/sysml_pb.js";
+import { coverageOf } from "../src/core/exploration.js";
 import {
   CAPABILITY_BIG_INT_VALUES,
   CAPABILITY_PARSE_SOURCES,
@@ -740,4 +742,36 @@ test("an exploration with a construct left unenumerated is incomplete and says w
     depthBudget: 64,
   });
   assert.deepEqual(whole.unenumerated, []);
+});
+
+test("an exploration carries the coverage of every run, an absent one covering nothing", () => {
+  const coverage = coverageOf(
+    create(CoverageSchema, {
+      states: [
+        { path: "Cov::sys#1.m.run: viaA", declaration: "Cov::M::run::viaA", runs: 1 },
+        { path: "Cov::sys#1.m.run: viaB", declaration: "Cov::M::run::viaB", runs: 1 },
+      ],
+      transitions: [{ path: "Cov::sys#1.m.run: s0 -> viaB", declaration: "Cov::M::run::s0 -> viaB", runs: 1 }],
+    }),
+  );
+  assert.deepEqual(coverage, {
+    states: [
+      { path: "Cov::sys#1.m.run: viaA", declaration: "Cov::M::run::viaA", runs: 1 },
+      { path: "Cov::sys#1.m.run: viaB", declaration: "Cov::M::run::viaB", runs: 1 },
+    ],
+    transitions: [{ path: "Cov::sys#1.m.run: s0 -> viaB", declaration: "Cov::M::run::s0 -> viaB", runs: 1 }],
+  });
+  const explored = new Exploration({
+    outcomes: [],
+    complete: true,
+    runs: 2,
+    budgetsHit: [],
+    runsBudget: 1024,
+    depthBudget: 64,
+    coverage,
+  });
+  assert.equal(explored.coverage, coverage);
+  const bare = new Exploration({ outcomes: [], complete: true, runs: 1, budgetsHit: [], runsBudget: 1024, depthBudget: 64 });
+  assert.deepEqual(bare.coverage, { states: [], transitions: [] });
+  assert.deepEqual(coverageOf(undefined), { states: [], transitions: [] });
 });

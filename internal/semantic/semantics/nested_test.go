@@ -2,6 +2,7 @@ package semantics
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
@@ -113,7 +114,7 @@ func TestImplicitSubsettings(t *testing.T) {
 		{"P::vehicle::drive::steer", "Actions::Action::subactions"},
 		{"P::vehicle::drive", "Parts::Part::ownedActions"},
 		{"P::vehicle::cruise", "Parts::Part::performedActions"},
-		{"P::vehicle::engineState::idle", "States::StateAction::substates"},
+		{"P::vehicle::engineState::idle", "States::StateAction::exclusiveStates"},
 		{"P::vehicle::engineState", "Parts::Part::ownedStates"},
 		{"P::vehicle::parked", "Parts::Part::exhibitedStates"},
 		{"P::vehicle::compute", "Parts::Part::ownedActions"},
@@ -379,6 +380,101 @@ func TestImplicitSubsettingsRequirementConstraints(t *testing.T) {
 	}
 }
 
+// An anonymous `assume`/`require` constraint is a shape feature under its positional name
+// and subsets the collection its membership kind names (SysML v2 §8.3.20.4), as a named one.
+func TestImplicitSubsettingsAnonymousRequirementConstraints(t *testing.T) {
+	m, root := buildModelWithStdlib(t, `package P {
+		private import ScalarValues::Integer;
+		part def Vehicle { attribute fuelMass : Integer; }
+		requirement def FuelRequirement {
+			subject vehicle : Vehicle;
+			assume constraint { vehicle.fuelMass >= 0 }
+			require constraint { vehicle.fuelMass <= 2000 }
+			constraint { vehicle.fuelMass > -1 }
+			part : Vehicle;
+		}
+		requirement fullTank : FuelRequirement {
+			require constraint { vehicle.fuelMass > 0 }
+			assume constraint full { vehicle.fuelMass == 2000 }
+			assume constraint { vehicle.fuelMass == 2000 }
+		}
+		verification case def Check {
+			require constraint { 1 > 0 }
+		}
+		requirement def Unnamed {
+			require constraint { 1 > 0 }
+		}
+		requirement def Combined :> Unnamed, FuelRequirement;
+	}`)
+	const assumptions, constraints = "Requirements::RequirementCheck::assumptions", "Requirements::RequirementCheck::constraints"
+	cases := []struct {
+		owner, feature string
+		want           string
+	}{
+		{"P::FuelRequirement", "P::FuelRequirement::@1", assumptions},
+		{"P::FuelRequirement", "P::FuelRequirement::@2", constraints},
+		{"P::FuelRequirement", "P::FuelRequirement::@3", "Occurrences::Occurrence::suboccurrences"},
+		{"P::fullTank", "P::fullTank::@0", constraints},
+		{"P::fullTank", "P::fullTank::@2", assumptions},
+		{"P::fullTank", "P::FuelRequirement::@1", assumptions},
+		{"P::fullTank", "P::FuelRequirement::@2", constraints},
+		{"P::fullTank", "P::FuelRequirement::@3", "Occurrences::Occurrence::suboccurrences"},
+		{"P::Check", "P::Check::@0", ""},
+	}
+	for _, tc := range cases {
+		owner := nestedSym(t, root, tc.owner)
+		var feat *ShapeFeature
+		for _, f := range m.ShapeFeatures(owner) {
+			if f.Name == tc.feature {
+				feat = &f
+				break
+			}
+		}
+		if feat == nil {
+			t.Errorf("ShapeFeatures(%s) lacks %s", tc.owner, tc.feature)
+			continue
+		}
+		if !AnonymousShapeMember(feat.Symbol) || m.PositionalNameOf(feat.Symbol) != tc.feature {
+			t.Errorf("%s: anonymous = %v, positional name = %q, want an anonymous member named %s",
+				tc.feature, AnonymousShapeMember(feat.Symbol), m.PositionalNameOf(feat.Symbol), tc.feature)
+		}
+		got := m.ImplicitSubsettings(feat.Symbol)
+		if tc.want == "" {
+			if len(got) != 0 {
+				t.Errorf("ImplicitSubsettings(%s) = %v, want none", tc.feature, fqns(got))
+			}
+			continue
+		}
+		if len(got) != 1 || symbols.FQNOf(got[0]) != tc.want {
+			t.Errorf("ImplicitSubsettings(%s) = %v, want [%s]", tc.feature, fqns(got), tc.want)
+		}
+	}
+	for _, f := range m.ShapeFeatures(nestedSym(t, root, "P::FuelRequirement")) {
+		if f.Name == "P::FuelRequirement::@4" {
+			t.Errorf("ShapeFeatures(P::FuelRequirement) holds the anonymous part as %s", f.Name)
+		}
+	}
+	// Shape order: an anonymous constraint sits where it is written, own before inherited and
+	// the sources in order, even when a source declares no named feature at all.
+	for _, tc := range []struct {
+		owner string
+		want  []string
+	}{
+		{"P::fullTank", []string{"P::fullTank::@0", "full", "P::fullTank::@2", "P::FuelRequirement::@1", "P::FuelRequirement::@2", "P::FuelRequirement::@3"}},
+		{"P::Combined", []string{"P::Unnamed::@0", "P::FuelRequirement::@1", "P::FuelRequirement::@2", "P::FuelRequirement::@3"}},
+	} {
+		var names []string
+		for _, f := range m.ShapeFeatures(nestedSym(t, root, tc.owner)) {
+			if f.Symbol.Kind == symbols.SymbolConstraintUsage && strings.HasPrefix(symbols.FQNOf(f.Declared.Owner()), "P::") {
+				names = append(names, f.Name)
+			}
+		}
+		if strings.Join(names, " ") != strings.Join(tc.want, " ") {
+			t.Errorf("ShapeFeatures(%s) constraints = %v, want %v", tc.owner, names, tc.want)
+		}
+	}
+}
+
 // ImplicitSubsettingCandidates answers the same for the declaration kinds alone.
 func TestImplicitSubsettingCandidatesRequirementConstraint(t *testing.T) {
 	owner := NestedOwner{Def: ast.DefRequirement, IsDef: true}
@@ -392,6 +488,119 @@ func TestImplicitSubsettingCandidatesRequirementConstraint(t *testing.T) {
 		{NestedUsage{Kind: ast.UsageConstraint, Composite: true, RequirementConstraint: true}, NestedOwner{Usage: ast.UsageSatisfy}, []string{"Requirements::RequirementCheck::constraints"}},
 		{NestedUsage{Kind: ast.UsageConstraint, RequirementConstraint: true}, owner, nil},
 		{NestedUsage{Kind: ast.UsageConstraint, Composite: true, RequirementConstraint: true}, NestedOwner{Def: ast.DefVerificationCase, IsDef: true}, nil},
+	}
+	for _, tc := range cases {
+		if got := ImplicitSubsettingCandidates(tc.u, tc.owner); !slices.Equal(got, tc.want) {
+			t.Errorf("ImplicitSubsettingCandidates(%+v, %+v) = %v, want %v", tc.u, tc.owner, got, tc.want)
+		}
+	}
+}
+
+// An actor, stakeholder, framed concern and an objective's verified requirement subset their owner's
+// role collections (SysML v2 §8.3.11.3, §8.3.21.4, §8.3.21.9 check*Specialization), on a definition or usage.
+func TestImplicitSubsettingsRequirementRoles(t *testing.T) {
+	m, root := buildModelWithStdlib(t, `package P {
+		part def Person;
+		concern def Safety;
+		requirement def R {
+			subject s : Person;
+			actor driver : Person;
+			stakeholder owner : Person;
+			frame concern sf : Safety;
+			concern plain : Safety;
+			part spare : Person;
+		}
+		requirement r : R {
+			actor passenger : Person;
+			stakeholder regulator : Person;
+			frame concern sf2 : Safety;
+		}
+		viewpoint def VP { stakeholder reviewer : Person; frame concern vc : Safety; }
+		verification def VD { subject s : Person; actor tester : Person; objective { verify r; } }
+		verification v : VD { actor observer : Person; objective { verify requirement vr : R; } }
+		analysis def AD { actor analyst : Person; }
+		use case def UC { actor user : Person; }
+		case c { actor party : Person; }
+	}`)
+	const (
+		reqActors    = "Requirements::RequirementCheck::actors"
+		caseActors   = "Cases::Case::actors"
+		stakeholders = "Requirements::RequirementCheck::stakeholders"
+		concerns     = "Requirements::RequirementCheck::concerns"
+	)
+	cases := []struct {
+		path string
+		want string
+	}{
+		{"P::R::driver", reqActors},
+		{"P::R::owner", stakeholders},
+		{"P::R::sf", concerns},
+		{"P::R::plain", "Requirements::RequirementCheck::subrequirements"},
+		{"P::R::spare", "Occurrences::Occurrence::suboccurrences"}, // a requirement is no item: no subparts
+		{"P::r::passenger", reqActors},
+		{"P::r::regulator", stakeholders},
+		{"P::r::sf2", concerns},
+		{"P::VP::reviewer", stakeholders},
+		{"P::VP::vc", concerns},
+		{"P::VD::tester", caseActors},
+		{"P::v::observer", caseActors},
+		{"P::AD::analyst", caseActors},
+		{"P::UC::user", caseActors},
+		{"P::c::party", caseActors},
+	}
+	for _, tc := range cases {
+		sym := nestedSym(t, root, tc.path)
+		if got := m.ImplicitSubsettings(sym); len(got) != 1 || symbols.FQNOf(got[0]) != tc.want {
+			t.Errorf("ImplicitSubsettings(%s) = %v, want [%s]", tc.path, fqns(got), tc.want)
+		}
+	}
+	const verifications = "VerificationCases::VerificationCase::obj::requirementVerifications"
+	for _, path := range []string{"P::VD", "P::v"} {
+		for _, verified := range verifiedRequirementsOf(t, nestedSym(t, root, path)) {
+			if got := m.ImplicitSubsettings(verified); len(got) != 1 || symbols.FQNOf(got[0]) != verifications {
+				t.Errorf("ImplicitSubsettings(%s verify %s) = %v, want [%s]", path, verified.Name, fqns(got), verifications)
+			}
+		}
+	}
+}
+
+// verifiedRequirementsOf is the `verify` members of the objective a case owns.
+func verifiedRequirementsOf(t *testing.T, caseSym *symbols.Symbol) []*symbols.Symbol {
+	t.Helper()
+	var out []*symbols.Symbol
+	for _, obj := range caseSym.Scope.AllMembers() {
+		u, ok := obj.Decl.(*ast.Usage)
+		if !ok || u.Kind != ast.UsageObjective || obj.Scope == nil {
+			continue
+		}
+		for _, member := range obj.Scope.AllMembers() {
+			if v, ok := member.Decl.(*ast.Usage); ok && v.IsVerifiedRequirement() {
+				out = append(out, member)
+			}
+		}
+	}
+	if len(out) == 0 {
+		t.Fatalf("%s: no verified requirement under its objective", caseSym.Name)
+	}
+	return out
+}
+
+// ImplicitSubsettingCandidates answers the role rules for the declaration kinds alone.
+func TestImplicitSubsettingCandidatesRequirementRoles(t *testing.T) {
+	requirement := NestedOwner{Def: ast.DefRequirement, IsDef: true}
+	verification := NestedOwner{Usage: ast.UsageVerificationCase}
+	objective := NestedOwner{Usage: ast.UsageObjective}
+	cases := []struct {
+		u     NestedUsage
+		owner NestedOwner
+		want  []string
+	}{
+		{NestedUsage{Kind: ast.UsageActor, Composite: true}, requirement, []string{"Requirements::RequirementCheck::actors"}},
+		{NestedUsage{Kind: ast.UsageActor, Composite: true}, verification, []string{"Cases::Case::actors"}},
+		{NestedUsage{Kind: ast.UsageStakeholder, Composite: true}, requirement, []string{"Requirements::RequirementCheck::stakeholders"}},
+		{NestedUsage{Kind: ast.UsageFramedConcern, Composite: true}, requirement, []string{"Requirements::RequirementCheck::concerns"}},
+		{NestedUsage{Kind: ast.UsageSatisfy, Composite: true, Verified: true}, objective, []string{"VerificationCases::VerificationCase::obj::requirementVerifications"}},
+		{NestedUsage{Kind: ast.UsageSatisfy, Composite: true}, requirement, []string{"Requirements::RequirementCheck::subrequirements"}},
 	}
 	for _, tc := range cases {
 		if got := ImplicitSubsettingCandidates(tc.u, tc.owner); !slices.Equal(got, tc.want) {

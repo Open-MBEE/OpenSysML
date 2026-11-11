@@ -23,7 +23,10 @@ not satisfy.
 For a step that visits several elements, one path failure fails the whole query. The record keeps
 every failing element; a partial set of rows is not presented as a complete answer. `tolerate =
 true` is an explicit alternative for `Project` and `WhereFeature`: `Project` can keep an empty
-cell, while `WhereFeature` can drop the element it cannot compare. The current output does not
+cell, while `WhereFeature` can drop the element it cannot compare — for a feature the element
+lacks and for a metamodel property OpenSysML does not derive yet alike. A property the metamodel
+declares is never unknown, even when no row read carries it; only a name no metaclass declares and
+no row has is. The current output does not
 mark which cells or rows were tolerated; see [Current limits](#current-limits).
 
 ## Run a query
@@ -110,10 +113,60 @@ $ bin/sysml examples/qvts/lander.sysml examples/qvts/queries.sysml -run-query QV
 The CLI uses exit status 2 when the query cannot be evaluated. See the recordings for the full
 tables and error messages, including fan-out failures and the JSON model-error case.
 
+## Write the query inline
+
+A query need not be authored in a file first. `-run-inline-query` takes the body of one — the
+result expression a `calc def` specializing `DocumentQueries::Query` would hold — and runs it
+through the same compiler and executor, so the rows, the JSON, the outcome record on failure
+and the exit status are what the named form gives. This is `MassTable` without a file:
+
+```console
+$ bin/sysml examples/qvts/lander.sysml -run-inline-query 'Project(WhereType(Descendants(Named("Lander::lander")), "PartUsage", true), ("qualifiedName", "mass"))'
+```
+
+```text
+✓ package Lander
+✓ Inline query returned 3 rows
+  Columns: qualifiedName, mass
+  Row 1: Lander::lander::cabin
+    qualifiedName = "Lander::lander::cabin"
+    mass = 320.0
+  Row 2: Lander::lander::engine
+    qualifiedName = "Lander::lander::engine"
+    mass = 145.0
+  Row 3: Lander::lander::scienceBay
+    qualifiedName = "Lander::lander::scienceBay"
+    mass = (none)
+```
+
+The expression is planned in the loaded model's context: the `DocumentQueries` library is
+imported, the model's own names are reachable (`Descendants(Lander::lander)` as well as
+`Named("Lander::lander")`), and the objects `-instantiate` created stand behind `Objects`,
+`Verdicts`, `States` and `Events`. Text that does not parse or plan is reported at its line and
+column within the expression, with a caret, and is never a diagnostic of the model:
+
+```console
+$ bin/sysml examples/qvts/lander.sysml -run-inline-query 'Project(Named("Lander") ("qualifiedName"))'
+```
+
+```text
+✓ package Lander
+sysml: inline query 1:25: expected ')'
+Project(Named("Lander") ("qualifiedName"))
+                        ^
+```
+
+A path or model fault in the inline expression keeps its QVTS outcome record exactly as a named
+query's does; it does not collapse to an empty table. `-run-query` and `-run-inline-query` may
+repeat and interleave, and run in the order written.
+
 ## Run the same query in the REPL
 
-The REPL command is `%run-query <qualified-query-name>`. Loading the model files first makes
-their query definitions available in the session:
+The REPL command is `%run-query <qualified-query-name>`, or `%run-query inline <expression>`
+for an expression written in place of a name (a query that is itself named `inline` is run
+by its qualified name, or with its `<parameter>=<expression>` bindings, which no query
+expression begins with). Loading the model files first makes their query definitions
+available in the session:
 
 ```console
 $ printf '%s\n' '%run-query QVTSDemo::CabinMass' | bin/sysml examples/qvts/lander.sysml examples/qvts/queries.sysml
@@ -133,21 +186,60 @@ SysML v2 REPL — %help for commands, Ctrl-D to exit
     mass = 320.0
 ```
 
-The result is reported as query rows with projected cells. The
+The result is reported as query rows with projected cells. An inline expression is reported as
+`Inline query` instead of the query's name, and its faults are positioned within the expression
+as on the command line:
+
+```console
+$ printf '%s\n' '%run-query inline Project(WhereType(Descendants(Named("Lander::lander")), "PartUsage", true), ("qualifiedName", "mass"))' | bin/sysml examples/qvts/lander.sysml
+```
+
+```text
+✓ package Lander
+SysML v2 REPL — %help for commands, Ctrl-D to exit
+✓ Inline query returned 3 rows
+  Columns: qualifiedName, mass
+  Row 1: Lander::lander::cabin
+    qualifiedName = "Lander::lander::cabin"
+    mass = 320.0
+  Row 2: Lander::lander::engine
+    qualifiedName = "Lander::lander::engine"
+    mass = 145.0
+  Row 3: Lander::lander::scienceBay
+    qualifiedName = "Lander::lander::scienceBay"
+    mass = (none)
+```
+
+The
 [QVTS examples](../../examples/qvts/README.md#1-value-and-empty-selection) include both a nonempty selection and a
 successful empty selection.
 
 ## Use the service
 
-The gRPC `RunDocumentQuery` RPC returns typed columns and rows for a successful query. If a query
+The gRPC `RunDocumentQuery` RPC returns typed columns and rows for a successful query, named in
+`query_id` or written in `inline_query` (one or the other; a service advertising the
+`inline_document_query` capability accepts the latter, and text that does not parse or plan is
+`INVALID_ARGUMENT`, positioned within the expression). The MCP `run_document_query` tool takes
+the same choice as `queryId` or `inlineQuery`. If a query
 fails with a recorded path or model outcome, the failed RPC status carries a `QueryOutcome` error
-detail. It contains the outcome kind and step, the path failures and their frontiers, or the model
+detail, for an inline expression as for a named query. It contains the outcome kind and step, the path failures and their frontiers, or the model
 findings and any path failures from the same fan-out.
 
-No shipped client—Go (`client/opensysml`), Java, Julia, MATLAB, Node, Python, Rust, or the Jupyter
-kernel—decodes this status detail today. Clients can read the status message, but currently do not
-expose the structured `QueryOutcome` record as a client-level result. The wire message is defined
-in `api/proto/sysml.proto`.
+The same engine answers the `Query` RPC: a SysML v2 API & Services `Query` or OSLC Query text
+(`-query`, `%query`, `oslc_query`, the MCP `query` tool) is translated into a document-query plan —
+`WhereType`, `WhereName`, `WhereFeature`, `WhereText`, `Project`, `OrderBy` over the model's
+elements, or `Objects` over the held objects when `rdf:type=elmt:<id>` names an element — and run
+by it, so those surfaces fail with the same `QueryOutcome` detail (an unknown property is a path
+error naming the nearest spelling) and compare values by type as a `query def` does. See
+[OSLC Query text](../reference/oslc-query.md) for the plan each construct becomes.
+
+The Java client decodes this status detail: a failed `runDocumentQuery`, `query` or `queryOslc`
+throws a `QueryOutcomeException` (a `ServiceException`) whose `outcome()` is the record above as a
+`QueryOutcome` — kind, step, each failure's step, expectation and frontier, each finding's element,
+constraint and observation (see [Java API](../reference/java-api.md#document-queries-and-rendering)).
+The other shipped clients—Go (`client/opensysml`), Julia, MATLAB, Node, Python, Rust, and the
+Jupyter kernel—read the status message but do not yet expose the structured `QueryOutcome` record
+as a client-level result. The wire message is defined in `api/proto/sysml.proto`.
 
 ## Current limits
 
@@ -156,7 +248,7 @@ query-engine behavior:
 
 | Case | Current behavior |
 |:--|:--|
-| Unknown metaclass, property, relationship kind or direction | The command exits 2 with a message but no outcome record. |
+| Unknown metaclass, relationship kind or direction | The command exits 2 with a message but no outcome record (an unknown property is a path error naming the nearest spelling). |
 | Several missing names in one `Named` call | Only the first missing name is reported. |
 | `OrderBy(missing = "error")` | Reports “cannot evaluate” without an outcome record. |
 | Successful `-json` query check | No `outcome: value` field is emitted. |

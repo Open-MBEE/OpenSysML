@@ -51,13 +51,37 @@ quick_case_() {
   CI_TIER=quick case_ "$@"
 }
 
+# tier_case_ <name> <expected tier> <files...>: the tier the script decides with CI_TIER unset.
+tier_case_() {
+  local name=$1 expected=$2
+  shift 2
+  git -C "$work" -c advice.detachedHead=false checkout -q "$base"
+  git -C "$work" checkout -q -B "tier-$name"
+  for file in "$@"; do
+    mkdir -p "$work/$(dirname "$file")"
+    echo change >>"$work/$file"
+    git -C "$work" add "$file"
+  done
+  git -C "$work" -c commit.gpgsign=false commit -qm "$name"
+
+  local actual
+  actual=$(cd "$work" && env -u CI_TIER bash scripts/ci-changed-areas.sh "$base" HEAD 2>/dev/null | sed -n 's/^tier=//p')
+  if [[ "$actual" != "$expected" ]]; then
+    echo "FAIL tier $name: expected $expected, got $actual" >&2
+    failures=$((failures + 1))
+  else
+    echo "ok   tier $name: $actual"
+  fi
+}
+
 case_ docs-only docs docs/guide/index.md
 case_ overrides-only docs overrides/home.html
 case_ changelog-only docs CHANGELOG.md
 case_ changelog-fragment docs changes/unreleased/repl-thing.added.md
-case_ java-module java,mdk client/java/opensysml-client/pom.xml
-case_ java-manifest java,mdk,python client/java/pom.xml
-case_ java-readme docs,java,mdk,python client/java/README.md
+case_ java-module java,mdk,syson client/java/opensysml-client/pom.xml
+case_ java-source java,mdk,syson client/java/opensysml-client/src/main/java/org/openmbee/opensysml/Exploration.java
+case_ java-manifest java,mdk,python,syson client/java/pom.xml
+case_ java-readme docs,java,mdk,python,syson client/java/README.md
 case_ java-reference docs,python docs/reference/java-api.md
 case_ java-skill docs,python packaging/agent-skills/skills/opensysml-java/SKILL.md
 case_ node-only node client/node/src/node/binary.ts
@@ -106,16 +130,18 @@ case_ vscode-syntaxes docs,dotnet,emacs,go,java,julia,jupyterlab,matlab,mdk,node
 case_ jupyterlab-syntax docs,dotnet,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode editors/jupyterlab/src/syntax.json
 # Any markdown counts as documentation: the site links out to repository files.
 case_ man-page docs packaging/man/man1/sysml.1
-case_ two-client-readmes docs,java,mdk,node,python client/java/README.md client/node/README.md
-case_ two-clients java,mdk,node,python client/java/pom.xml client/node/tsconfig.json
+case_ two-client-readmes docs,java,mdk,node,python,syson client/java/README.md client/node/README.md
+case_ two-clients java,mdk,node,python,syson client/java/pom.xml client/node/tsconfig.json
 case_ go-source docs,dotnet,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/syntax/parser/parser.go
 # The derived-property differential runs on what can move its baseline (the writer, the referee,
 # the bridge, the pin, the baseline itself) and on unclaimed paths, like every area; not on a parser change.
 case_ apijson-writer apijson,docs,dotnet,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/translate/export/api_json_absence.go
 case_ apijson-referee apijson,docs,dotnet,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode tools/referee/apijson/provenance.go
+case_ apijson-store apijson,docs,dotnet,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode tools/referee/baseline/store.go
 case_ apijson-bridge apijson,docs,dotnet,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode scripts/pilot-json-exporter/ExportJSON.java
 case_ apijson-pin apijson,docs,dotnet,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode scripts/pilot-pin.sh
-case_ apijson-baseline apijson,docs,go docs/project/api-json-differential-baseline.json
+case_ apijson-baseline apijson,docs,go docs/project/api-json-differential/index.json
+case_ apijson-fragment apijson,docs,go docs/project/api-json-differential/probes/probe.sysml.json
 case_ go-client docs,dotnet,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode client/opensysml/client.go
 case_ release-digests docs,dotnet,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode client/release-digests.json
 case_ go-tools docs,dotnet,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode tools/gen/snapshot/main.go
@@ -153,7 +179,7 @@ quick_case_ go-and-node go,node internal/syntax/parser/parser.go client/node/src
 quick_case_ go-and-docs docs,go internal/syntax/parser/parser.go docs/guide/index.md
 quick_case_ docs-only docs docs/guide/index.md
 quick_case_ project-baseline docs,go docs/project/pilot-differential-baseline.json
-quick_case_ java-manifest java,mdk,python client/java/pom.xml
+quick_case_ java-manifest java,mdk,python,syson client/java/pom.xml
 quick_case_ node-only node client/node/src/node/binary.ts
 quick_case_ dotnet-props dotnet,python client/dotnet/Directory.Build.props
 # A draft touching only the .NET client, its gates or its SDK pin still runs the .NET
@@ -169,6 +195,43 @@ quick_case_ metamodel-table dotnet,go internal/translate/rdf/ontology/table.go
 quick_case_ metamodel-hierarchy dotnet,go internal/translate/rdf/ontology/sysml-metaclasses.ttl
 quick_case_ conformance go conformance/scenarios/01-server-info.json
 quick_case_ vscode-grammar go,vscode editors/vscode/tools/gengrammar/grammar.go
+
+
+# The tier: quick for a pull-request push, full once it touches a package -race has caught out
+# (scripts/ci-changed-areas.sh race_pattern) or a path no area claims; CI_TIER forces it.
+tier_case_ docs-only quick docs/guide/index.md
+tier_case_ parser quick internal/syntax/parser/parser.go
+tier_case_ node-only quick client/node/src/node/binary.ts
+tier_case_ workflow quick .github/workflows/pr.yml
+tier_case_ race-shards quick scripts/race-shard.sh Makefile
+tier_case_ runtime full internal/exec/runtime/executor.go
+tier_case_ runtime-test full internal/exec/runtime/robustness_test.go
+tier_case_ smt full internal/exec/smt/referee.go
+tier_case_ grpc-frontend full internal/frontend/grpc/cache.go
+tier_case_ grpc-tests full tests/grpc/conformance_test.go
+tier_case_ grpc-command full cmd/sysml-grpc/main.go
+tier_case_ repl full internal/frontend/repl/session.go
+tier_case_ lsp full internal/frontend/lsp/server.go
+tier_case_ workspace full internal/workspace/model/index.go
+tier_case_ libs full internal/workspace/libs/bundle.go
+tier_case_ export-writer full internal/translate/export/writer.go
+tier_case_ symbols full internal/semantic/symbols/index.go
+tier_case_ unclaimed full some-new-top-level/thing.txt
+tier_case_ parser-and-runtime full internal/syntax/parser/parser.go internal/exec/runtime/executor.go
+forced_case_() {
+  local expected=$1
+  shift
+  local actual
+  actual=$(cd "$work" && CI_TIER="$expected" bash scripts/ci-changed-areas.sh "$base" HEAD 2>/dev/null | sed -n 's/^tier=//p')
+  if [[ "$actual" != "$expected" ]]; then
+    echo "FAIL forced tier $expected: got $actual" >&2
+    failures=$((failures + 1))
+  else
+    echo "ok   forced tier $expected (on the last case's head)"
+  fi
+}
+forced_case_ full
+forced_case_ quick
 
 if [[ "$failures" -ne 0 ]]; then
   echo "$failures case(s) failed" >&2

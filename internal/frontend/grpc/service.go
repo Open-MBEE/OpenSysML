@@ -88,6 +88,10 @@ const CapabilityQueryOrderBy = "query_order_by"
 // which runs a named document query and answers with typed rows.
 const CapabilityDocumentQuery = "document_query"
 
+// CapabilityInlineDocumentQuery names RunDocumentQueryRequest.inline_query: a
+// query expression run in place of a named query, planned by the same compiler.
+const CapabilityInlineDocumentQuery = "inline_document_query"
+
 // CapabilityRenderDocument names the capability of the RenderDocument RPC,
 // which renders a named document to Markdown.
 const CapabilityRenderDocument = "render_document"
@@ -427,6 +431,7 @@ var capabilities = []string{
 	CapabilityOrderDependence,
 	CapabilityVerdictNotes,
 	CapabilityElementProperties,
+	CapabilityInlineDocumentQuery,
 }
 
 type capabilityAvailability struct {
@@ -614,12 +619,19 @@ func newService(cacheSize int, version string, opts []Option) (*Service, error) 
 // Prewarm starts building the service's standard library index in the
 // background, so the first model to arrive is not the one that pays for the
 // library. It returns immediately and is safe to call more than once.
-func (s *Service) Prewarm() {
+func (s *Service) Prewarm() <-chan struct{} {
 	if !s.prewarm {
-		return
+		return closedChannel
 	}
-	s.libIndexes.prewarm()
+	return s.libIndexes.prewarm()
 }
+
+// closedChannel is what Prewarm answers when there is nothing to wait for.
+var closedChannel = func() chan struct{} {
+	done := make(chan struct{})
+	close(done)
+	return done
+}()
 
 // Close waits for a background library build in flight and releases the
 // service's reference to the shared index. The service still answers

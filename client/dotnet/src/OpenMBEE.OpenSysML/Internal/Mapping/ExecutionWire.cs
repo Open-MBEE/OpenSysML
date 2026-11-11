@@ -49,6 +49,7 @@ internal static class ExecutionWire
             status.ProbabilitiesLowerBound,
             status.FailedLinearizations,
             status.Unenumerated,
+            Coverage(status.Coverage),
             standing);
 
     /// <summary>Reads what a check found; the failure an answer reports is the caller's to raise.</summary>
@@ -67,7 +68,8 @@ internal static class ExecutionWire
                     search.MassBounded,
                     search.Notes,
                     search.Scope,
-                    search.Status)
+                    search.Status,
+                    Coverage(search.Coverage))
                 : null,
             response.Violations.Select(violation => new CheckViolation(
                 violation.Kind,
@@ -106,6 +108,11 @@ internal static class ExecutionWire
             ModelWire.Diagnostics(outcome.Diagnostics),
             outcome.Probability,
             outcome.ProbabilityRange is { } range ? new ProbabilityRange(range.Min, range.Max) : null);
+
+    private static Coverage? Coverage(Wire.Coverage? coverage) =>
+        coverage is null ? null : new Coverage(coverage.States.Select(Entry), coverage.Transitions.Select(Entry));
+
+    private static CoverageEntry Entry(Wire.CoverageEntry entry) => new(entry.Path, entry.Declaration, entry.Runs);
 
     private static CheckWitness? Witness(Wire.CheckWitness? witness) =>
         witness is null ? null : new CheckWitness(witness.Schedule, witness.Draws, witness.Choices, witness.Inputs, witness.FileName, witness.FileContent);

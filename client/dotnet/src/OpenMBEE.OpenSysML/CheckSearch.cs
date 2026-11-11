@@ -17,6 +17,7 @@ public sealed record CheckSearch
     /// <param name="notes">Why the searched runs' coverage is narrower than their schedules.</param>
     /// <param name="scope">Why the finals were observed short of quiescence.</param>
     /// <param name="status">How the search ended, as <c>sysml</c> reports it.</param>
+    /// <param name="coverage">Every state entered and transition taken over all the searched schedules; null when the service reported none.</param>
     /// <exception cref="ArgumentNullException">A list or <paramref name="status"/> is null.</exception>
     /// <exception cref="ArgumentException">A list holds a null.</exception>
     internal CheckSearch(
@@ -29,7 +30,8 @@ public sealed record CheckSearch
         bool massBounded,
         IEnumerable<string> notes,
         IEnumerable<string> scope,
-        string status)
+        string status,
+        Coverage? coverage)
     {
         ArgumentNullException.ThrowIfNull(status);
         States = states;
@@ -42,6 +44,7 @@ public sealed record CheckSearch
         Notes = new ValueList<string>(notes);
         Scope = new ValueList<string>(scope);
         Status = status;
+        Coverage = coverage;
     }
 
     /// <summary>Distinct states visited.</summary>
@@ -73,4 +76,10 @@ public sealed record CheckSearch
 
     /// <summary>How the search ended, as <c>sysml</c> reports it.</summary>
     public string Status { get; }
+
+    /// <summary>
+    /// Every state entered and transition taken over all the searched schedules, not only the witness of each final,
+    /// with how many schedules did so; null when the service reported none.
+    /// </summary>
+    public Coverage? Coverage { get; }
 }

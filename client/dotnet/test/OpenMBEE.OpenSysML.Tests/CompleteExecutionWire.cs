@@ -160,6 +160,17 @@ internal static class CompleteExecutionWire
         ProbabilityRange = new Wire.ProbabilityRange { Min = 0.25, Max = 0.75 },
     };
 
+    /// <summary>What the runs entered and took: two states and a transition.</summary>
+    internal static Wire.Coverage Coverage { get; } = new()
+    {
+        States =
+        {
+            new Wire.CoverageEntry { Path = "Cov::Sys#1.m.run: viaA", Declaration = "Cov::M::run::viaA", Runs = 2 },
+            new Wire.CoverageEntry { Path = "Cov::Sys#1.m.run: viaB", Declaration = "Cov::M::run::viaB", Runs = 1 },
+        },
+        Transitions = { new Wire.CoverageEntry { Path = "Cov::Sys#1.m.run: s0 -> viaB", Declaration = "Cov::M::run::s0 -> viaB", Runs = 1 } },
+    };
+
     /// <summary>How an exploration ended, every field set.</summary>
     internal static Wire.ExplorationStatus Status { get; } = new()
     {
@@ -171,6 +182,7 @@ internal static class CompleteExecutionWire
         ProbabilitiesLowerBound = true,
         FailedLinearizations = 1,
         Unenumerated = { "Test::race::split" },
+        Coverage = Coverage,
     };
 
     /// <summary>An exploration of an action: a complete outcome and a bare one.</summary>
@@ -215,6 +227,7 @@ internal static class CompleteExecutionWire
             Notes = { "clock stopped at the horizon" },
             Scope = { "horizon" },
             Status = "bounded",
+            Coverage = Coverage,
         },
         Violations =
         {

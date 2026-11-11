@@ -217,11 +217,13 @@ re-baseline `tests/corpus/testdata/training_examples_expected.txt`: adjudicate e
 drifted file and record the verdict in `docs/project/training-examples.md`.
 
 A tag cannot be cut over a corpus regression. Pull requests run one CI, the GitHub Actions
-workflow `.github/workflows/pr.yml`. Its `changes` job decides the tier — *quick* for a draft, *full*
-for a ready pull request or one labelled `ci:full` — and which of the client, editor and
-documentation jobs the diff touches; the Go suite runs sharded (`runtime`, `model export graph`
-and `rest migrate cli codegen` in the quick tier; `runtime`, `runtime-corpus`, `model`, `export`,
-`export-corpus`, `export-settled`, `graph`, `codegen`, `rest`, `migrate` and `cli` in the full tier, #1440) with every corpus
+workflow `.github/workflows/pr.yml`. Its `changes` job decides the tier — *quick* for a push to a pull
+request, draft or ready; *full* for a merge-queue commit, a pull request labelled `ci:full`, or a push
+touching a package where `-race` has found bugs (`scripts/ci-changed-areas.sh`) — and which of the
+client, editor and documentation jobs the diff touches; the Go suite runs sharded (twenty race
+shards in the full tier — `runtime`, `runtime-corpus`, `runtime-exploration`, `model`, `smt`, `corpus`,
+`corpus-roundtrip`, `corpus-apijson`, `export`, `export-library`, `export-examples`, `export-corpus`, `export-settled`, `graph`, `codegen`,
+`translate`, `grpc`, `rest`, `migrate` and `cli`, #1440 — and ten race-free groups of them in the quick tier) with every corpus
 required — `OPENSYSML_REQUIRE_TRAINING_CORPUS`, `_PILOT_CORPORA`, `_SPEC_EXAMPLES`, `_PSSM_SUITE`,
 `_SYSML_V1TOV2`, `_FUML_SUITE`, `_PILOT_LIBRARY_XMI`, `_SMT`, `_WASM` and `_REFERENCE_FMUS` set to
 `1`, the LLM-benchmark and PDF toolchains required where their jobs run — beside the
@@ -2510,7 +2512,8 @@ engine. The Node client defaults to a worker thread over the module and the brow
 through `connectWasm` over `sysml-wasm.wasm.gz` built from the tree (#1230). The gate is
 `tests/wasm`: both targets compile and vet the whole tree (`OPENSYSML_REQUIRE_WASM=1`), the
 gzipped sizes are bounded against gross growth (#970, #975; `sysml-core`'s budget #1278 and
-`sysml-syntax`'s #1283), the `-tags sysml_re` build drops the optional features for the
+`sysml-syntax`'s #1283) over the build embedding the library snapshot, which the gate
+generates for its own run rather than inheriting from the tree (#2058), the `-tags sysml_re` build drops the optional features for the
 production module (`CHANGELOG.md` **0.10.0**), and the gate's own timeout fits a slow runner
 (#1334). `v0.10.1` was cut for the budget alone (#1185). What remains is in *Scaling to very
 large models* under *Proposed*: the module's size against a browser's patience.

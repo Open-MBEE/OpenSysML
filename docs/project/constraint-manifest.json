@@ -5399,13 +5399,12 @@
       },
       "checks": "If a ConcernUsage is owned via a FramedConcernMembership, then it must directly or indirectly specialize the ConcernUsage Requirements::RequirementCheck::concerns from the Systems Model Library.",
       "ocl": "owningFeatureMembership <> null and\nowningFeatureMembership.oclIsKindOf(FramedConcernMembership) implies\n    specializesFromLibrary('Requirements::RequirementCheck::concerns')",
-      "implementation": "internal/semantic/semantics/implicit.go:Model.implicitBaseFeatures; internal/semantic/semantics/nested.go:Model.nestedSubsettingFQN",
-      "message": "not computed: the implied-relationship side tables give a declared `ConcernUsage` no implied specialization of `Requirements::RequirementCheck::concerns`, and the api-json export writes no implied specializations",
+      "implementation": "internal/semantic/semantics/nested.go:Model.nestedSubsettingFQN, familyNestedFQN",
+      "message": "derived at model level: a `frame concern` of a requirement definition or usage (a viewpoint among them) implicitly subsets `Requirements::RequirementCheck::concerns` beside its kind's `Requirements::concernChecks`, as the pilot's `ImplicitGeneralizationMap` (ConcernUsage concern) derives it; a plain `concern` member falls to `subrequirements`; the runtime reads `concerns` as the objects the framed concerns hold (internal/semantic/semantics/nested_test.go:TestImplicitSubsettingsRequirementRoles, internal/exec/runtime/requirement_role_subsetting_test.go, conformance `requirement_role_collections`, `requirement_role_collections_reads`)",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "not-implemented",
-      "rationale": "no implied-relationship side table (implicit.go kind tables, nested.go nested-feature table) computes this specialization"
+      "status": "faithful"
     },
     {
       "name": "checkConcernUsageSpecialization",
@@ -5650,8 +5649,8 @@
       },
       "checks": "A composite ConstraintUsage whose owningFeatureMembership is a RequirementConstraintMembership must directly or indirectly specialize on the ConstraintUsages assumptions or constraints from the ConstraintDefinition Requirements::RequirementCheck in the Systems Model Library, depending on whether the kind of the RequirementConstraintMembership is assumption or requirement, respectively.",
       "ocl": "isComposite and\nowningFeatureMembership <> null and\nowningFeatureMembership.oclIsKindOf(RequirementConstraintMembership) implies\n    if owningFeatureMembership.oclAsType(RequirementConstraintMembership).kind =\n         RequirementConstraintKind::assumption then\n         specializesFromLibrary('Requirements::RequirementCheck::assumptions')\n    else\n         specializesFromLibrary('Requirements::RequirementCheck::constraints')\n    endif",
-      "implementation": "internal/semantic/semantics/nested.go:Model.nestedSubsettingFQN, requirementConstraintFQN",
-      "message": "derived at model level: the composite constraint an `assume` or `require` member owns, written with `constraint` or in the reference form, implicitly subsets `Requirements::RequirementCheck::assumptions` or `constraints` by the membership kind, as the pilot's `ConstraintUsageAdapter.addRequirementConstraintSubsetting` derives it; a `ref` constraint and one no requirement owns derive nothing (internal/semantic/semantics/nested_test.go:TestImplicitSubsettingsRequirementConstraints, internal/exec/runtime/requirement_constraint_subsetting_test.go)",
+      "implementation": "internal/semantic/semantics/nested.go:Model.nestedSubsettingFQN, requirementConstraintFQN; internal/semantic/semantics/shape.go:Model.withAnonymousShapeFeatures, Model.PositionalNameOf",
+      "message": "derived at model level: the composite constraint an `assume` or `require` member owns, written with `constraint` or in the reference form, named or anonymous (`require constraint { … }`, a feature of the owner's shape under its positional name), implicitly subsets `Requirements::RequirementCheck::assumptions` or `constraints` by the membership kind, as the pilot's `ConstraintUsageAdapter.addRequirementConstraintSubsetting` derives it; a `ref` constraint and one no requirement owns derive nothing (internal/semantic/semantics/nested_test.go:TestImplicitSubsettingsRequirementConstraints, TestImplicitSubsettingsAnonymousRequirementConstraints, internal/exec/runtime/requirement_constraint_subsetting_test.go, internal/exec/runtime/testdata/conformance/requirement_check_collections_anonymous.sysml)",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
@@ -7476,13 +7475,12 @@
       },
       "checks": "If a PartUsage is owned via an ActorMembership, then it must directly or indirectly specialize either Requirements::RequirementCheck::actors (if its owningType is a RequirementDefinition or RequirementUsage or Cases::Case::actors (otherwise).",
       "ocl": "owningFeatureMembership <> null and\nowningFeatureMembership.oclIsKindOf(ActorMembership) implies\n    if owningType.oclIsKindOf(RequirementDefinition) or\n       owningType.oclIsKindOf(RequirementUsage)\n    then specializesFromLibrary('Requirements::RequirementCheck::actors')\n    else specializesFromLibrary('Cases::Case::actors')",
-      "implementation": "internal/semantic/semantics/implicit.go:Model.implicitBaseFeatures; internal/semantic/semantics/nested.go:Model.nestedSubsettingFQN",
-      "message": "not computed: the implied-relationship side tables give a declared `PartUsage` no implied specialization of `Requirements::RequirementCheck::actors, Cases::Case::actors`, and the api-json export writes no implied specializations",
+      "implementation": "internal/semantic/semantics/nested.go:Model.nestedSubsettingFQN, familyNestedFQN",
+      "message": "derived at model level: an `actor` of a requirement definition or usage (a viewpoint among them) implicitly subsets `Requirements::RequirementCheck::actors`, an `actor` of a case definition or usage `Cases::Case::actors`, beside its kind's `Parts::parts`, as the pilot's `ImplicitGeneralizationMap` (PartUsage requirementActor/caseActor) derives it; the runtime reads the referential `actors` collection as the objects those actor parameters hold (internal/semantic/semantics/nested_test.go:TestImplicitSubsettingsRequirementRoles, internal/exec/runtime/requirement_role_subsetting_test.go, conformance `requirement_role_collections`, `requirement_role_collections_reads`)",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "not-implemented",
-      "rationale": "no implied-relationship side table (implicit.go kind tables, nested.go nested-feature table) computes this specialization"
+      "status": "faithful"
     },
     {
       "name": "checkPartUsageSpecialization",
@@ -7515,13 +7513,12 @@
       },
       "checks": "If a PartUsage is owned via a StakeholderMembership, then it must directly or indirectly specialize Requirements::RequirementCheck::stakeholders.",
       "ocl": "owningFeatureMembership <> null and\nowningFeatureMembership.oclIsKindOf(StakeholderMembership) implies\n    specializesFromLibrary('Requirements::RequirementCheck::stakeholders')",
-      "implementation": "internal/semantic/semantics/implicit.go:Model.implicitBaseFeatures; internal/semantic/semantics/nested.go:Model.nestedSubsettingFQN",
-      "message": "not computed: the implied-relationship side tables give a declared `PartUsage` no implied specialization of `Requirements::RequirementCheck::stakeholders`, and the api-json export writes no implied specializations",
+      "implementation": "internal/semantic/semantics/nested.go:Model.nestedSubsettingFQN, familyNestedFQN",
+      "message": "derived at model level: a `stakeholder` of a requirement definition or usage (a viewpoint among them) implicitly subsets `Requirements::RequirementCheck::stakeholders` beside its kind's `Parts::parts`, as the pilot's `ImplicitGeneralizationMap` (PartUsage requirementStakeholder) derives it; the runtime reads the referential `stakeholders` collection as the objects those stakeholder parameters hold (internal/semantic/semantics/nested_test.go:TestImplicitSubsettingsRequirementRoles, internal/exec/runtime/requirement_role_subsetting_test.go, conformance `requirement_role_collections`, `requirement_role_collections_reads`)",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "not-implemented",
-      "rationale": "no implied-relationship side table (implicit.go kind tables, nested.go nested-feature table) computes this specialization"
+      "status": "faithful"
     },
     {
       "name": "checkPartUsageSubpartSpecialization",
@@ -7802,13 +7799,12 @@
       },
       "checks": "A RequirementUsage whose owningFeatureMembership is a RequirementVerificationMembership must directly or indirectly specialize the RequirementUsage VerificationCases::VerificationCase::obj::requirementVerifications.",
       "ocl": "owningFeatureMembership <> null and\nowningFeatureMembership.oclIsKindOf(RequirementVerificationMembership) implies\n    specializesFromLibrary('VerificationCases::VerificationCase::obj::requirementVerifications')",
-      "implementation": "internal/semantic/semantics/implicit.go:Model.implicitBaseFeatures; internal/semantic/semantics/nested.go:Model.nestedSubsettingFQN",
-      "message": "not computed: the implied-relationship side tables give a declared `RequirementUsage` no implied specialization of `VerificationCases::VerificationCase::obj::requirementVerifications`, and the api-json export writes no implied specializations",
+      "implementation": "internal/semantic/semantics/nested.go:Model.nestedSubsettingFQN, familyNestedFQN",
+      "message": "derived at model level: the requirement an objective's `verify` member owns — on a verification definition or usage — implicitly subsets `VerificationCases::VerificationCase::obj::requirementVerifications`, as the pilot's `ImplicitGeneralizationMap` (RequirementUsage verification) derives it, beside its kind's `Requirements::requirementChecks`; a `verify` outside an objective derives nothing (internal/semantic/semantics/nested_test.go:TestImplicitSubsettingsRequirementRoles, nested_metaclass_test.go, implicit_audit_test.go:TestImpliedSpecializationAuditRows)",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "not-implemented",
-      "rationale": "no implied-relationship side table (implicit.go kind tables, nested.go nested-feature table) computes this specialization"
+      "status": "faithful"
     },
     {
       "name": "checkRequirementUsageSpecialization",
@@ -7880,13 +7876,12 @@
       },
       "checks": "If a SatisfyRequirementUsage is negated, then it must directly or indirectly specialize the RequirementUsage Requirements::notSatisfiedRequirementChecks. Otherwise, it must directly or indirectly specialize the RequirementUsage Requirements::satisfiedRequirementChecks.",
       "ocl": "if isNegated then\n     specializesFromLibrary('Requirements::notSatisfiedRequirementChecks')\nelse\n     specializesFromLibrary('Requirements::satisfiedRequirementChecks')\nendif",
-      "implementation": "internal/semantic/semantics/implicit.go:Model.implicitBaseFeatures; internal/semantic/semantics/nested.go:Model.nestedSubsettingFQN",
-      "message": "not computed: the implied-relationship side tables give a declared `SatisfyRequirementUsage` no implied specialization of `Requirements::notSatisfiedRequirementChecks, Requirements::satisfiedRequirementChecks`, and the api-json export writes no implied specializations",
+      "implementation": "internal/semantic/semantics/implicit.go:Model.implicitBaseFeatures, usageRoleBaseFQN",
+      "message": "derived at model level: a `satisfy` usage implicitly subsets `Requirements::satisfiedRequirementChecks`, a negated one (`assert not satisfy`) `Requirements::notSatisfiedRequirementChecks`, in place of its kind's `Requirements::requirementChecks`, which both library usages subset, as the pilot's `ImplicitGeneralizationMap` (SatisfyRequirementUsage base/negated) derives it; an objective's `verify` is no satisfy and keeps `requirementChecks` (internal/semantic/semantics/implicit_audit_test.go:TestImpliedSpecializationAuditRows, rows `P::psat::sq`, `P::psat::nsq`)",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "not-implemented",
-      "rationale": "no implied-relationship side table (implicit.go kind tables, nested.go nested-feature table) computes this specialization"
+      "status": "faithful"
     },
     {
       "name": "checkSelectExpressionResultSpecialization",
@@ -10950,13 +10945,12 @@
       },
       "checks": "The referencedElement of a MetadataAccessExpression is the memberElement of its first ownedMembership that is not a FeatureMembership.",
       "ocl": "referencedElement =\n    let elements : Sequence(Element) = ownedMembership->\n        reject(oclIsKindOf(FeatureMembership)).memberElement in\n    if elements->isEmpty() then null\n    else elements->first()\n    endif",
-      "implementation": "internal/semantic/metamodel/rules.go:Omitted",
-      "message": "not computed: no side table derives `MetadataAccessExpression::referencedElement`; API-JSON differential scorecard `*.referencedElement`: 5 equal, 0 different, 1 ours-missing",
+      "implementation": "internal/semantic/metamodel/rules.go:Rules; internal/semantic/metamodel/structure_rules.go:Evaluator.structureMetadataAccessReferencedElement",
+      "message": "computed: the metamodel evaluator serves `MetadataAccessExpression::referencedElement` as the memberElement of the first owned membership that is no FeatureMembership; API-JSON differential scorecard `*.referencedElement`: 5 equal, 0 different, 1 ours-missing",
       "negativeCase": "none",
       "codes": [],
       "passes": [],
-      "status": "not-implemented",
-      "rationale": "`MetadataAccessExpression::referencedElement` is listed among the metamodel's omitted properties: no semantic side table or exporter derives it"
+      "status": "faithful"
     },
     {
       "name": "deriveMetadataFeatureMetaclass",

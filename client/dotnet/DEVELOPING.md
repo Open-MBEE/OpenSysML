@@ -297,12 +297,12 @@ skip given another reason, and a listed skip that ran, whether or not `-allow-sk
 passed; in a configuration withholding capabilities, a skip is accounted only by a withheld
 capability, the service must advertise exactly the default set without them, and each must
 have its without-capability expectation executed, or, when every such scenario is a listed
-skip, the run says so. Per protocol, of 206 scenarios:
+skip, the run says so. Per protocol, of 208 scenarios:
 
 | Configuration | ran | passed | skipped as uncovered | skipped as unexpressible |
 | --- | --: | --: | --: | --: |
-| default | 199 | 199 | 0 | 7 |
-| `strict_conformance` and `oslc_query` withheld | 198 | 198 | 0 | 7 |
+| default | 199 | 199 | 0 | 9 |
+| `strict_conformance` and `oslc_query` withheld | 198 | 198 | 0 | 9 |
 
 The unexpressible requests send what the public types refuse to hold or send:
 `parse/naming_no_source_is_invalid` names no source, which the API always does, and
@@ -311,7 +311,9 @@ positive id or a path as a document binding does; three
 EvaluateCalc scenarios send a measurement reference without its reduction, a vector with a
 string component, and a function closing over an object of another call; and two Query
 scenarios send a comparison with no operator, and a structured query together with OSLC text,
-which `QueryConstraint` and the two query calls cannot express. Withheld, the fallbacks of
+which `QueryConstraint` and the two query calls cannot express; and two RunDocumentQuery
+scenarios send a query expression in `inline_query`, which `RunDocumentQueryAsync`, naming a
+declared query only, has no way to send. Withheld, the fallbacks of
 `strict_conformance` and `oslc_query` run and are refused before sending.
 
 `-mutate` shows the comparison catches what each corruption breaks, on every protocol, and a

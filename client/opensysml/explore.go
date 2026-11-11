@@ -59,6 +59,41 @@ type Exploration struct {
 	// ProbabilitiesLowerBound reports the outcomes' probabilities are lower
 	// bounds: a budget kept some linearizations unexplored.
 	ProbabilitiesLowerBound bool
+	// Coverage is every state entered and transition taken over all the runs,
+	// not only the witness of each outcome, with how many runs did so.
+	Coverage Coverage
+}
+
+// Coverage is what every run of an exploration, or every schedule of a check,
+// entered and took, with how many did so.
+type Coverage struct {
+	States      []CoverageEntry
+	Transitions []CoverageEntry
+}
+
+// CoverageEntry is one state entered or one transition taken. Path qualifies
+// it by the instance running the machine (`Cov::Sys#1.m.run: s0 -> viaB`),
+// Declaration by its declaration (`Cov::M::run::s0 -> viaB`), and Runs counts
+// the runs (schedules, under the check engine) that did so.
+type CoverageEntry struct {
+	Path        string
+	Declaration string
+	Runs        int
+}
+
+func coverageFromProto(c *pb.Coverage) Coverage {
+	if c == nil {
+		return Coverage{}
+	}
+	return Coverage{States: coverageEntriesFromProto(c.States), Transitions: coverageEntriesFromProto(c.Transitions)}
+}
+
+func coverageEntriesFromProto(entries []*pb.CoverageEntry) []CoverageEntry {
+	out := make([]CoverageEntry, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, CoverageEntry{Path: e.Path, Declaration: e.Declaration, Runs: int(e.Runs)})
+	}
+	return out
 }
 
 // Status renders how the exploration ended as the sysml command does:
@@ -302,6 +337,7 @@ func explorationFromProto(outcomes []*pb.Outcome, status *pb.ExplorationStatus) 
 		out.DepthBudget = int(status.DepthBudget)
 		out.ProbabilitiesLowerBound = status.ProbabilitiesLowerBound
 		out.FailedLinearizations = int(status.FailedLinearizations)
+		out.Coverage = coverageFromProto(status.Coverage)
 	}
 	return out
 }

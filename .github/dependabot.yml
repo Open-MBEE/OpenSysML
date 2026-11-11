@@ -46,6 +46,9 @@ updates:
       npm-minor-and-patch:
         patterns: ["*"]
         update-types: [minor, patch]
+    # Rewrite a package.json requirement only when the new version falls outside it: exact pins still
+    # move; editors/jupyterlab's ^4.0.0 host ranges stay while its lockfile does (CONTRIBUTING.md).
+    versioning-strategy: increase-if-necessary
     ignore:
       # editors/vscode's typing must not exceed its engines.vscode floor (vsce refuses it); bump both together when the floor moves.
       - dependency-name: "@types/vscode"

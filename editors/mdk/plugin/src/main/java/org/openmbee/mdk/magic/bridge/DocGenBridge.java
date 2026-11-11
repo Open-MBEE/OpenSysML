@@ -11,8 +11,10 @@ import java.util.function.Supplier;
 import org.openmbee.opensysml.Diagnostic;
 import org.openmbee.opensysml.Value;
 import org.openmbee.mdk.magic.actions.CalcArguments;
+import org.openmbee.mdk.magic.actions.QueryArguments;
 import org.openmbee.mdk.magic.engine.Engine;
 import org.openmbee.mdk.magic.engine.Operation;
+import org.openmbee.mdk.magic.engine.QueryPlan;
 import org.openmbee.mdk.magic.engine.RunRequest;
 import org.openmbee.mdk.magic.results.RunResult;
 import org.openmbee.mdk.magic.selection.Selection;
@@ -45,7 +47,7 @@ public final class DocGenBridge {
    * path or a SysML v2 element on the textual path — and flattens the result.
    *
    * @throws IllegalArgumentException when the operation is unknown, the element is not a model
-   *     element OpenSysML can run, or the calc arguments do not parse
+   *     element OpenSysML can run, or the calc arguments or query bindings do not parse
    */
   public Map<String, Object> run(Project project, BaseElement element, String operation, String calcArguments) {
     Operation parsed = operation(operation);
@@ -55,8 +57,12 @@ public final class DocGenBridge {
     ModelSource source = selection.export().get();
     RunResult result;
     try {
-      result = engine.get().run(
-          new RunRequest(parsed, source, selection.subject().qualifiedName(), args), () -> false);
+      RunRequest request = new RunRequest(parsed, source, selection.subject().qualifiedName(), args);
+      if (parsed == Operation.RUN_QUERY && calcArguments != null && !calcArguments.isBlank()) {
+        QueryPlan plan = engine.get().plan(request, () -> false).orElseThrow();
+        request = request.withQueryBindings(QueryArguments.parse(calcArguments, plan));
+      }
+      result = engine.get().run(request, () -> false);
     } catch (RuntimeException failure) {
       try {
         source.close();
@@ -116,6 +122,29 @@ public final class DocGenBridge {
     }
     flat.put("diagnostics", diagnostics);
     flat.put("schedule", List.copyOf(result.schedule()));
+    List<Map<String, Object>> tables = new ArrayList<>();
+    for (RunResult.Table table : result.tables()) {
+      Map<String, Object> flatTable = new LinkedHashMap<>();
+      flatTable.put("query", table.query());
+      flatTable.put("columns", List.copyOf(table.columns()));
+      List<Map<String, Object>> rows = new ArrayList<>();
+      for (RunResult.Row row : table.rows()) {
+        Map<String, Object> flatRow = new LinkedHashMap<>();
+        if (row.elementId() != null) flatRow.put("elementId", row.elementId());
+        List<Map<String, String>> cells = new ArrayList<>();
+        for (RunResult.Cell cell : row.cells()) {
+          Map<String, String> flatCell = new LinkedHashMap<>();
+          flatCell.put("text", cell.text());
+          if (cell.elementId() != null) flatCell.put("elementId", cell.elementId());
+          cells.add(flatCell);
+        }
+        flatRow.put("cells", cells);
+        rows.add(flatRow);
+      }
+      flatTable.put("rows", rows);
+      tables.add(flatTable);
+    }
+    flat.put("tables", tables);
     return flat;
   }
 }

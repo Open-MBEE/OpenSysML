@@ -40,6 +40,10 @@ connecting to models.
     options:
       heading_level: 3
 
+::: opensysml.CAPABILITY_INLINE_DOCUMENT_QUERY
+    options:
+      heading_level: 3
+
 ::: opensysml.CAPABILITY_CONSTRAINT_BODY_AUTHORING
     options:
       heading_level: 3
@@ -806,6 +810,14 @@ Outcomes and search metadata returned by behavior exploration.
       heading_level: 3
 
 ::: opensysml.Outcome
+    options:
+      heading_level: 3
+
+::: opensysml.Coverage
+    options:
+      heading_level: 3
+
+::: opensysml.CoverageEntry
     options:
       heading_level: 3
 

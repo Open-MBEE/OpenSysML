@@ -62,10 +62,13 @@ The gate is class-level: a member that 2026x added to a class 2024x also has is 
 The v1 path exports a clean existing `.mdzip` directly; otherwise it exports the whole project so
 cross-references survive. This whole-project export is intentional because a selected-element-only
 export can omit required references. V1 identity is qualified-name-only: the plugin does not yet
-read the per-element `id → target` entries of the migration report `Connection.migrateFile`
-returns, so there is no source-ID mapping; ambiguous candidates are retained rather than silently
-discarded. The report's summary line is surfaced as a diagnostic of the run. V2 textual export is used only
-when both the textual service and a v2 selection are available.
+map results through the per-element `id → target` entries of the migration report
+`Connection.migrateFile` returns, so there is no source-ID mapping; ambiguous candidates are
+retained rather than silently discarded. The report's entries are read in one direction only,
+from the selected element's name to the declarations written for it, which is how *Run query*
+finds a migrated DocGen table's query (below). The report's summary line is surfaced as a
+diagnostic of the run. V2 textual export is used only when both the textual service and a v2
+selection are available.
 
 ## Export as SysML v2
 
@@ -84,10 +87,70 @@ vendor keeps outside the text (`docs/internals/design/mdk-mtip.md` §6). The com
 counts the service's diagnostics on the written text: a v1 model that migrates but does not parse
 clean is a migration finding, and the report says what was approximated.
 
+## Run query
+
+*OpenSysML ▸ Run query* runs the QVTS document queries a selected element stands for through the
+service's `RunDocumentQuery` ([the QVTS guide](../../docs/guide/qvts.md)). On the v2 path the
+element is a `calc def` specializing `DocumentQueries::Query`, directly or through other
+query definitions. On the v1 path the SysML v1 migrator writes a project's DocGen documents as
+`DocumentQueries::Document` definitions whose tables and lists compute their rows with
+`calc rows : '<Document> <Title> Rows'` members typed by query definitions of its own
+([SysML v1 migration](../../docs/reference/sysml-v1-migration.md) § DocGen documents); the
+plugin follows the migration report from the selected element to what was written for it (a
+`«TableStructure»` node to its `part … table`, a `«Document»` class to its Document definition)
+and runs every query found below that declaration, so a DocGen table runs as one query and a
+Document as all of its. An element that stands for no query — a v1 `«View»` whose document
+section holds no table, say — is reported as an error naming what was looked for.
+
+A query's `in` parameters are asked for first, one field per parameter, read by the declared
+type: an element parameter (`KerML::Root::Element`, or any non-scalar type) takes the qualified
+name of a Cameo element and starts out as the selected element when it is the only element
+parameter without a value of its own; a `String` takes quoted or bare text, the numeric and
+`Boolean` types their literals, and a parameter of many values a `,`-separated list. A parameter
+with a value in its declaration may stay blank. The service checks the bindings against the
+declarations, so a missing or mistyped one is reported in its own words. The same bindings are
+written for the DocGen bridge as `name = value; name = value, value` (or positionally, in
+declaration order) in the `arguments` tag.
+
+The answer is the query's columns and rows, shown as a table under the outcomes in the results
+window: one outcome per query (`n rows of qualifiedName, mass`, or `no rows`), one row per
+element the query selected. Every row names the element it was computed for, and every cell that
+holds one element reference or the `qualifiedName` a column projects names that element, so a
+double-click selects it in the containment tree and each row annotates its element with the
+row's values. No rows is an informational success — in QVTS an empty selection is a value — so
+the run is `INFO`, never a failure.
+
+A query the model has no answer for — a misspelled `Named` source, a feature some selected
+element lacks, a name two elements share — ran and reported, so it is `FAILED`, not `ERROR`. The
+Java client throws a `QueryOutcomeException` carrying the service's structured outcome, and
+`results/QueryFailure` maps it to the query's own outcome (the service's message) followed by
+one outcome per path failure and per model finding, worded as the CLI words them
+([the QVTS guide](../../docs/guide/qvts.md)):
+
+```text
+path error at Named(Lander::lander::cabni): expected exactly one element with that qualified name; at Lander::lander; members: [cabin (PartUsage), cabinEngine (ConnectionUsage), engine (PartUsage), engineBay (ConnectionUsage), scienceBay (PartUsage)]; nearest: cabin
+path error at Feature(mass): expected a feature named mass on the element; at Lander::lander::cabinEngine
+model error at Named(Duplicates::repeated): Duplicates violates ambiguousName: Duplicates::repeated (declared 2 times)
+```
+
+Each of those outcomes names the element the path stopped at (the frontier's `at`) or the
+element the finding is about, so the element is annotated as an error and selected from the
+results window; on the v1 path the name is mapped back to the Cameo element the same way a
+row's is. The service sends at most eight candidates per list and eight failures per step: a
+list that was cut ends `… and N more`, and failures that were left out are counted in a last
+outcome (`… and 3 more path errors at Feature(mass)`). A candidate list with nothing in it is
+left out. The queries beside a failed one still answer and keep their tables. A refusal that
+carries no outcome — a parameter left unbound, say — stays one `ERROR` outcome carrying the
+service's message, and outranks `FAILED` for the run's status.
+
+Not in scope here: rendering a whole `Document` from Cameo (`RenderDocument`), writing an answer
+back as a `QVTS::QueryResult` view, and transformations or proposals, which OpenSysML has no
+evaluator for yet.
+
 ## Results window and annotations
 
 Each project has one OpenSysML results window. It displays operation metadata, outcomes,
-diagnostics, and state schedules. Result outcomes are mapped to Cameo annotations with passed,
+diagnostics, state schedules, and the rows a query answered. Result outcomes are mapped to Cameo annotations with passed,
 failed, and error severities; annotations from the prior application are removed before new ones
 are added.
 
@@ -96,7 +159,8 @@ are added.
 MDK's DocGen loads «JavaExtension» queries from `plugins/org.openmbee.mdk/extensions/`, so the
 distribution drops `magic-mdk-bridge-<n>.jar` there and nothing extra needs installing. The
 bridge defines one `Query` per operation, in package `org.openmbee.mdk.magic.docgen`:
-`Instantiate`, `ExecuteAction`, `ExecuteState`, `Verify`, `EvaluateCalc` and `RunAnalysis`.
+`Instantiate`, `ExecuteAction`, `ExecuteState`, `Verify`, `EvaluateCalc`, `RunAnalysis` and
+`RunQuery`.
 
 To use one in a document:
 
@@ -104,15 +168,19 @@ To use one in a document:
    and choose *OpenSysML ▸ Add MDK DocGen extension stereotypes*. This creates, once, a profile
    `Magic MDK DocGen` applied to the model, holding a stereotype per operation; each
    specialises MDK's «JavaExtension» and is named after the class MDK must load
-   (e.g. `org.openmbee.mdk.magic.docgen.Verify`). `EvaluateCalc` carries an `arguments` tag,
-   a comma-separated argument list.
+   (e.g. `org.openmbee.mdk.magic.docgen.Verify`). `EvaluateCalc` and `RunQuery` carry an
+   `arguments` tag: a comma-separated argument list for the calc, the query's parameter
+   bindings as `name = value; …` for the query.
 2. In a viewpoint method, apply the stereotype to an activity (or to a call behavior action
    whose behavior carries it) and feed it the elements to run on, exactly as for any other DocGen
    query. Targets may be UML elements (the SysML v1 path) or SysML v2 elements (the textual
    path), as for the context-menu operations.
 
 For every target the generated section gets a one-line summary (operation, element, status,
-elapsed time, final time), a table of outcomes with their status, a table of diagnostics with
+elapsed time, final time), a table of outcomes with their status, for `RunQuery` one table per
+query answered (its columns the properties projected, one row per element selected, shown even
+when empty) and, for a query that reported a path or model error, the same failure text the
+results window shows as rows of the outcome table, a table of diagnostics with
 their source locations, and the state schedule when the operation produced one. A target that
 fails to run yields an error paragraph in its place; the rest of the document is unaffected.
 

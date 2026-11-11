@@ -461,8 +461,8 @@ public sealed class ModelAnalysisTests
         Assert.Throws<ArgumentNullException>(() => new EngineInfo("e", "observed", [], [], "", "", true, "", "built-in", "-", "", "", null!, true));
         Assert.Throws<ArgumentNullException>(() => new ToolDryRunFile("f", null!, ""));
         Assert.Throws<ArgumentNullException>(() => new AnalysisException("m", Model.RunAnalysisMethod, FailureReason.Evaluation, null!));
-        Assert.Throws<ArgumentException>(() => new Exploration([], true, 0, [null!], 0, 0, false, 0, [], Standing.None));
-        Assert.Throws<ArgumentNullException>(() => new Exploration([], true, 0, [], 0, 0, false, 0, [], null!));
+        Assert.Throws<ArgumentException>(() => new Exploration([], true, 0, [null!], 0, 0, false, 0, [], null, Standing.None));
+        Assert.Throws<ArgumentNullException>(() => new Exploration([], true, 0, [], 0, 0, false, 0, [], null, null!));
     }
 
     private static FakeServiceHandler Serving(ClientWire wire) => new(wire) { Capabilities = FakeModels.ModelCapabilities };

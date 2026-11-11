@@ -103,6 +103,19 @@ commands:
                   git tag --force "$tag" HEAD
                   echo "REHEARSAL: tagged $(git rev-parse --short HEAD) as ${tag} locally"
 
+  # Ends the job green when verify-tree proved CIRCLE_SHA1 already passed the full suite
+  # (verified-tree.txt, attached from the workspace); otherwise the job runs as it always has.
+  halt-if-verified:
+    steps:
+      - run:
+          name: Skip when the tree is already verified
+          command: |
+            if [ -r verified-tree.txt ] && head -n 1 verified-tree.txt | grep -q '^verified: '; then
+              echo "Skipping: $(head -n 1 verified-tree.txt)"
+              circleci-agent step halt
+            fi
+            echo "Not verified elsewhere ($(head -n 1 verified-tree.txt 2>/dev/null || echo 'no verified-tree.txt')): running."
+
   # Names the irreversible step a rehearsal leaves out.
   rehearsal-skip:
     parameters:
@@ -126,11 +139,11 @@ commands:
     parameters:
       version:
         type: string
-        default: "1.27.3"
+        default: "1.27.4"
       sha256:
         type: string
         description: SHA-256 of go<version>.linux-amd64.tar.gz, from https://go.dev/dl/?mode=json&include=all
-        default: "65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40"
+        default: "7226736c2339719cda28fbf3a54d71aa63bcefe376e98cef00034268dab24840"
     steps:
       # The cache is restored as the container's user, so the directory is
       # theirs before it is restored into.
@@ -471,14 +484,90 @@ jobs:
             print(f"{cancelled} superseded pipeline(s) cancelled on {branch}; {examined} pipeline(s) from the last 24 hours examined.")
             PY
 
+  # Asks GitHub (and, for a tag, CircleCI) whether this commit already passed the full suite and
+  # persists the verdict; scripts/ci-verified-tree.py reports any API failure as unverified.
+  verify-tree:
+    docker:
+      - image: cimg/base:current
+    resource_class: small
+    steps:
+      - checkout
+      - run:
+          name: Look for a green full-tier run of this tree
+          environment:
+            RELEASE_REHEARSAL: << pipeline.parameters.release_rehearsal >>
+          command: |
+            set -- --sha "$CIRCLE_SHA1"
+            if [ -n "${CIRCLE_TAG:-}" ]; then set -- "$@" --tag "$CIRCLE_TAG"; fi
+            if [ "$RELEASE_REHEARSAL" = "true" ]; then set -- "$@" --rehearsal; fi
+            if ! python3 scripts/ci-verified-tree.py "$@" > verified-tree.txt; then
+              echo "unverified: scripts/ci-verified-tree.py failed; running the suite" > verified-tree.txt
+            fi
+            cat verified-tree.txt
+      - persist_to_workspace:
+          root: .
+          paths:
+            - verified-tree.txt
+
   go-static:
     executor: go-executor
     steps:
       - checkout
       - rehearsal-checkout-tag
+      - attach_workspace:
+          at: .
       - go/load-cache
       - go/mod-download
       - go/save-cache
+
+      # The third-party notices link the licence text this bundle copies into
+      # docs/assets/landing, which is generated rather than tracked.
+      - run:
+          name: Build the landing-page diagram
+          command: make docs-landing-assets
+
+      # python-test runs the same link check under coverage (make scripts-coverage)
+      # on an executor without Node, so it reads the bundle built here instead.
+      - persist_to_workspace:
+          root: .
+          paths:
+            - docs/assets/landing
+
+      # The compliance map is combined from docs/project/spec-compliance/ when the site is
+      # built; a release tag (or its rehearsal) must carry the combined page, current.
+      - run:
+          name: Check the compliance-map sources and the combined page
+          command: |
+            python3 scripts/spec_compliance-test.py
+            if [ -n "${CIRCLE_TAG:-}" ]; then
+              python3 scripts/spec_compliance.py check --require-page
+            else
+              python3 scripts/spec_compliance.py check
+            fi
+
+      # Baseline is an ancestor of HEAD, never a live branch tip (a merge landing meanwhile would
+      # read as deletions): the first parent on main or develop, the previous release on a `v*` tag.
+      - run:
+          name: Check the protobuf schema for breaking changes
+          command: |
+            if [ -n "${CIRCLE_TAG:-}" ]; then
+              git fetch --tags --quiet origin
+              if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
+                git fetch --unshallow --quiet origin
+              fi
+              baseline=$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude "$CIRCLE_TAG" HEAD)
+              echo "release tag ${CIRCLE_TAG}: comparing against the previous release, ${baseline}"
+            else
+              git rev-parse --verify --quiet HEAD^1 > /dev/null \
+                || git fetch --quiet --depth=2 origin "$CIRCLE_SHA1"
+              baseline=HEAD^1
+              echo "branch build: comparing against the first parent, $(git rev-parse --short HEAD^1)"
+            fi
+            make proto-breaking BUF_BREAKING_REF="$baseline"
+
+      # Everything below re-checks what the full tier already proved on a verified tree; the two
+      # checks above stay ahead of the halt because a tag has verdicts no branch run reaches.
+      - halt-if-verified
 
       - run:
           name: Check Go formatting
@@ -496,22 +585,9 @@ jobs:
             go vet ./...
             go vet -C tools ./...
 
-      # The third-party notices link the licence text this bundle copies into
-      # docs/assets/landing, which is generated rather than tracked.
-      - run:
-          name: Build the landing-page diagram
-          command: make docs-landing-assets
-
       - run:
           name: Check documentation links
           command: python3 scripts/check-doc-links.py
-
-      # python-test runs the same link check under coverage (make scripts-coverage)
-      # on an executor without Node, so it reads the bundle built here instead.
-      - persist_to_workspace:
-          root: .
-          paths:
-            - docs/assets/landing
 
       # The shipped pages are generated from each command's description, so a
       # flag added without regenerating them would ship a page for a command
@@ -553,18 +629,6 @@ jobs:
       - run:
           name: Check changelog fragments
           command: python3 scripts/changelog-test.py && python3 scripts/changelog.py check
-
-      # The compliance map is combined from docs/project/spec-compliance/ when the site is
-      # built; a release tag (or its rehearsal) must carry the combined page, current.
-      - run:
-          name: Check the compliance-map sources and the combined page
-          command: |
-            python3 scripts/spec_compliance-test.py
-            if [ -n "${CIRCLE_TAG:-}" ]; then
-              python3 scripts/spec_compliance.py check --require-page
-            else
-              python3 scripts/spec_compliance.py check
-            fi
 
       - run:
           name: Check the release provenance writer
@@ -609,26 +673,6 @@ jobs:
           name: Lint the protobuf schema
           command: make proto-lint
 
-      # Baseline is an ancestor of HEAD, never a live branch tip (a merge landing meanwhile would
-      # read as deletions): the first parent on main or develop, the previous release on a `v*` tag.
-      - run:
-          name: Check the protobuf schema for breaking changes
-          command: |
-            if [ -n "${CIRCLE_TAG:-}" ]; then
-              git fetch --tags --quiet origin
-              if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
-                git fetch --unshallow --quiet origin
-              fi
-              baseline=$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude "$CIRCLE_TAG" HEAD)
-              echo "release tag ${CIRCLE_TAG}: comparing against the previous release, ${baseline}"
-            else
-              git rev-parse --verify --quiet HEAD^1 > /dev/null \
-                || git fetch --quiet --depth=2 origin "$CIRCLE_SHA1"
-              baseline=HEAD^1
-              echo "branch build: comparing against the first parent, $(git rev-parse --short HEAD^1)"
-            fi
-            make proto-breaking BUF_BREAKING_REF="$baseline"
-
       # Committed stubs must be what buf generates, or the checked-in code and
       # the schema can drift apart silently. `git add -N` puts a regenerated
       # file the commit had deleted into the diff.
@@ -647,6 +691,9 @@ jobs:
     steps:
       - checkout
       - rehearsal-checkout-tag
+      - attach_workspace:
+          at: .
+      - halt-if-verified
       - go/load-cache
       - go/mod-download
       - go/save-cache
@@ -655,16 +702,18 @@ jobs:
           name: Check Go dependencies for known vulnerabilities
           command: make vulncheck
 
-  # The race-enabled suite. It is the longest single step in the pipeline, so
-  # it gets the larger class and twelve executors of one or two scripts/race-shard.sh shards,
-  # sized so that no node runs much over 25 minutes (the slowest ran 45 with six).
+  # The race-enabled suite, the pipeline's longest step: the larger class and seventeen executors of one
+  # or two scripts/race-shard.sh shards each, sized so that no node runs much over 25 minutes.
   go-race-test:
     executor: go-executor
     resource_class: large
-    parallelism: 12
+    parallelism: 19
     steps:
       - checkout
       - rehearsal-checkout-tag
+      - attach_workspace:
+          at: .
+      - halt-if-verified
       - go/load-cache
       - go/mod-download
       - go/save-cache
@@ -673,15 +722,15 @@ jobs:
 
       - install-fmpy
 
-      # internal/exec/runtime (31-57 minutes whole, near 8.5 GB under -race) is three shards split by
-      # test name as make test-shard does, the exploration one on the migrate node; tests/export is three too.
+      # internal/exec/runtime (31-57 minutes whole, near 8.5 GB under -race), tests/export and tests/corpus
+      # (about 40 minutes whole) are split by test name as make test-shard does: four and three shards.
       - run:
           name: Run Go race tests
           command: |
             set -o pipefail
             # One entry per node; a quoted entry runs its shards in turn (tests/hygiene keeps
             # the entries the shard list of scripts/race-shard.sh).
-            shards=(runtime runtime-corpus model export export-corpus export-settled graph codegen tools rest "migrate runtime-exploration" cli)
+            shards=(runtime runtime-corpus model smt "corpus codegen" corpus-roundtrip corpus-apijson export export-library export-examples export-corpus export-settled graph translate grpc tools rest "migrate runtime-exploration" cli)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
               echo "error: parallelism is $CIRCLE_NODE_TOTAL, but the shard array has ${#shards[@]} nodes" >&2
               exit 1
@@ -697,27 +746,38 @@ jobs:
             corpus='^Test(ExploreWithIsExploreOverTheConformanceCorpus|CheckAgreesWithExploreOverTheConformanceCorpus|CheckWitnessesReplayOverTheConformanceCorpus|ExecutionConformance|ExecutionConformanceUnderPolicies)$'
             exportcorpus='^TestAPIJSONWritersNeverEmitNameReferences$'
             exportsettled='^TestSettledCollectionsAreWhatReconcilingWouldFind$'
+            exportlibrary='^TestLibraryFilesComeBackFromTheGraphAlone$'
+            exportexamples='^TestExamplesCorpusInvariants$'
+            # The Makefile's RACE_CORPUS_ROUNDTRIP and RACE_CORPUS_APIJSON; tests/hygiene keeps them the same.
+            corpusroundtrip='^TestCorpusRoundTrip$'
+            corpusapijson='^TestCorpusAPIJSONRoundTrip$'
             case "$shard" in
               # Its own shard and process: alone it nears 5 GB, the five suites together 9 GB under -race,
               # over this class's 8 GB. The Makefile's RACE_RUNTIME_EXPLORATION; tests/hygiene keeps the two the same.
               runtime-exploration) go test -json -race -pgo=off -timeout 30m -run "$exploration" $pkgs | stream ;;
               runtime-corpus) go test -json -race -pgo=off -timeout 30m -run "$corpus" -skip "$exploration" $pkgs | stream ;;
               runtime) go test -json -race -pgo=off -timeout 30m -skip "$corpus" $pkgs | stream ;;
-              # The Makefile's RACE_EXPORT_CORPUS and RACE_EXPORT_SETTLED; tests/hygiene keeps them the same. tests/export
-              # whole passed 55 minutes under -race once the element form completed inheritance.
+              # The Makefile's RACE_EXPORT_CORPUS, RACE_EXPORT_SETTLED, RACE_EXPORT_LIBRARY and RACE_EXPORT_EXAMPLES; tests/hygiene
+              # keeps them the same. tests/export whole passed 55 minutes under -race; its remainder ran 37, so five shards.
               export-corpus) go test -json -race -pgo=off -timeout 55m -run "$exportcorpus" $pkgs | stream ;;
               # Four settled models at once peak at 8.2-8.4 GB under -race, this class's 8 GB (killed on
               # develop at #2014); two at once peak at 6.5 GB for a tenth more wall time.
               export-settled) go test -json -race -pgo=off -timeout 55m -parallel 2 -run "$exportsettled" $pkgs | stream ;;
-              export) go test -json -race -pgo=off -timeout 55m -skip "$exportcorpus|$exportsettled" $pkgs | stream ;;
+              export-library) go test -json -race -pgo=off -timeout 55m -run "$exportlibrary" $pkgs | stream ;;
+              export-examples) go test -json -race -pgo=off -timeout 55m -run "$exportexamples" $pkgs | stream ;;
+              export) go test -json -race -pgo=off -timeout 55m -skip "$exportcorpus|$exportsettled|$exportlibrary|$exportexamples" $pkgs | stream ;;
+              # tests/corpus's two round trips over every example ran about 20 minutes each under -race.
+              corpus-roundtrip) go test -json -race -pgo=off -timeout 55m -run "$corpusroundtrip" $pkgs | stream ;;
+              corpus-apijson) go test -json -race -pgo=off -timeout 55m -run "$corpusapijson" $pkgs | stream ;;
+              corpus) go test -json -race -pgo=off -timeout 30m -skip "$corpusroundtrip|$corpusapijson" $pkgs | stream ;;
               tools)
                 go test -json -race -pgo=off -timeout 30m $pkgs | stream
                 go test -C tools -json -race -pgo=off -timeout 30m ./... | stream
                 ;;
               *)
-                # tests/migrate ran 23-32 minutes under -race on this class, tests/model about 30 and
-                # tests/corpus 30 by seconds either way: those shards get the Makefile's timeout (make test-shard).
-                timeout=30m; case "$shard" in migrate|graph|model) timeout=55m ;; esac
+                # tests/migrate ran 23-32 minutes under -race on this class, tests/model about 30, internal/workspace/model
+                # 26 and internal/translate/export 20 while sharing a node: those shards get the Makefile's timeout.
+                timeout=30m; case "$shard" in migrate|graph|model|translate|grpc) timeout=55m ;; esac
                 go test -json -race -pgo=off -timeout "$timeout" $pkgs | stream
                 ;;
             esac
@@ -745,13 +805,24 @@ jobs:
   # A race-free pass for the scan's -coverpkg profile, too slow under -race; serially it
   # overran the 60-minute limit, so it runs sharded and go-coverage-merge joins the shards.
   go-coverage:
+    parameters:
+      skip_when_verified:
+        type: boolean
+        default: false
+        description: Halt on a verified tree; set only where nothing downstream reads this job's output.
     executor: go-executor
     resource_class: large
-    # The race test's shards but runtime-corpus: without -race the runtime runs whole in about 19 minutes.
-    parallelism: 11
+    # The race test's shards but the runtime's corpus ones: without -race the runtime runs whole in about 19 minutes.
+    parallelism: 19
     steps:
       - checkout
       - rehearsal-checkout-tag
+      - attach_workspace:
+          at: .
+      - when:
+          condition: << parameters.skip_when_verified >>
+          steps:
+            - halt-if-verified
       - go/load-cache
       - go/mod-download
       - go/save-cache
@@ -763,9 +834,9 @@ jobs:
       - run:
           name: Write this shard's coverage profile
           command: |
-            # tests/export whole overran 30 minutes, so make coverage-shard splits it by test name.
+            # tests/export and tests/corpus whole overran 30 minutes, so make coverage-shard splits them by test name.
             # cmd/sysml has its own node: its exploration budgets took 23-30 minutes on the rest node.
-            shards=(runtime model export export-corpus export-settled graph codegen tools rest migrate cli)
+            shards=(runtime model smt corpus corpus-roundtrip corpus-apijson export export-library export-examples export-corpus export-settled graph codegen translate grpc tools rest migrate cli)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
               echo "error: parallelism is $CIRCLE_NODE_TOTAL, but the Makefile's COVERAGE_SHARDS has ${#shards[@]} shards" >&2
               exit 1
@@ -804,6 +875,11 @@ jobs:
 
   # Joins the shards' profiles into the one the scan reads.
   go-coverage-merge:
+    parameters:
+      skip_when_verified:
+        type: boolean
+        default: false
+        description: Halt on a verified tree; set only where nothing downstream reads this job's output.
     executor: go-executor
     steps:
       - checkout
@@ -812,6 +888,10 @@ jobs:
 
       - attach_workspace:
           at: .
+      - when:
+          condition: << parameters.skip_when_verified >>
+          steps:
+            - halt-if-verified
 
       - run:
           name: Write the coverage profile the scan reads
@@ -869,6 +949,9 @@ jobs:
     steps:
       - checkout
       - rehearsal-checkout-tag
+      - attach_workspace:
+          at: .
+      - halt-if-verified
       - go/load-cache
       - go/mod-download
       - go/save-cache
@@ -1106,24 +1189,22 @@ jobs:
             done
           no_output_timeout: 30m
 
-      # The WebAssembly gate: both wasm targets compiled and vetted, the commands
-      # linked and then run. Node is on the executor, so the require variable makes
-      # an absent runtime a failure and the check below makes a skip one too.
-      # Compiling both targets takes this executor about ten minutes, so the gate
-      # needs more than go test's default ten-minute budget.
+      # The WebAssembly gate, the same `make wasm-check` the GitHub workflow runs: both
+      # wasm targets compiled and vetted, the commands linked and then run. Node is on
+      # the executor, so the require variable the target sets makes an absent runtime a
+      # failure and the check below makes a skip one too. Compiling both targets takes
+      # this executor about ten minutes, so the target's timeout is past go test's default.
       - run:
           name: Run the WebAssembly gate
           command: |
             set -o pipefail
             node --version
-            go test -count=1 -v -timeout 30m ./tests/wasm | tee wasm-gate.log
+            make wasm-check 2>&1 | tee wasm-gate.log
             if grep -qE '^\s*--- SKIP' wasm-gate.log; then
               echo "error: the WebAssembly gate skipped" >&2
               exit 1
             fi
           no_output_timeout: 30m
-          environment:
-            OPENSYSML_REQUIRE_WASM: "1"
 
       # The conformance suite: the runner builds and starts sysml-grpc itself, so
       # this gate proves the whole path a client takes, not a pre-started service.
@@ -1395,12 +1476,21 @@ jobs:
             echo "docs/project/releasing.md for the one-time maintainer step."
 
   python-test:
+    parameters:
+      skip_when_verified:
+        type: boolean
+        default: false
+        description: Halt on a verified tree; set only where nothing downstream reads this job's output.
     executor: python-executor
     steps:
       - checkout
 
       - attach_workspace:
           at: .
+      - when:
+          condition: << parameters.skip_when_verified >>
+          steps:
+            - halt-if-verified
 
       # make scripts-coverage runs the test-suite figures test, which renders the figures with go run.
       - install-go
@@ -1524,6 +1614,10 @@ jobs:
     executor: rust-executor
     steps:
       - checkout
+
+      - attach_workspace:
+          at: .
+      - halt-if-verified
 
       - run:
           name: Verify Rust 1.83
@@ -1679,6 +1773,10 @@ jobs:
     steps:
       - checkout
 
+      - attach_workspace:
+          at: .
+      - halt-if-verified
+
       # The julia image carries no make, which the build and conformance steps
       # run; it runs as root, so apt needs no sudo.
       - run:
@@ -1719,6 +1817,10 @@ jobs:
     executor: octave-executor
     steps:
       - checkout
+
+      - attach_workspace:
+          at: .
+      - halt-if-verified
 
       - install-go
 
@@ -1765,12 +1867,21 @@ jobs:
   # The Java client: unit tests, the conformance suite over both Connect
   # encodings, and the committed stubs checked against what buf generates.
   java-test:
+    parameters:
+      skip_when_verified:
+        type: boolean
+        default: false
+        description: Halt on a verified tree; set only where nothing downstream reads this job's output.
     executor: java-executor
     steps:
       - checkout
 
       - attach_workspace:
           at: .
+      - when:
+          condition: << parameters.skip_when_verified >>
+          steps:
+            - halt-if-verified
 
       - run:
           name: Make the service binary executable
@@ -1852,12 +1963,21 @@ jobs:
   # this executor has no Go toolchain to build one with, and both the tests and
   # the conformance run start private children from it.
   node-test:
+    parameters:
+      skip_when_verified:
+        type: boolean
+        default: false
+        description: Halt on a verified tree; set only where nothing downstream reads this job's output.
     executor: node-executor
     steps:
       - checkout
 
       - attach_workspace:
           at: .
+      - when:
+          condition: << parameters.skip_when_verified >>
+          steps:
+            - halt-if-verified
 
       # `npm install`, not `npm ci`: a release branch pins platform packages npm 11.6+'s `npm ci`
       # refuses to miss from the lock until the tag publishes them; the lock must not change by it.
@@ -4051,7 +4171,7 @@ jobs:
               --build-arg COMMIT="${CIRCLE_SHA1}" \
               --build-arg BUILD_TIME="${BUILD_TIME}" \
               -t openmbee/opensysml:check .
-            for binary in sysml-grpc sysml sysml-lsp; do
+            for binary in sysml-grpc sysml sysml-lsp sysml-mcp; do
               output=$(docker run --rm --entrypoint "$binary" openmbee/opensysml:check -version)
               reported="${output%%$'\n'*}"
               echo "$reported"
@@ -4099,6 +4219,36 @@ jobs:
               *) fail "GetServerInfo answered '${info}', not version ${CIRCLE_TAG}." ;;
             esac
             docker rm -f opensysml-check >/dev/null
+            # sysml-mcp from the same image: /health open, /ready 200 once it is
+            # serving, and the protocol refused without the token.
+            OPENSYSML_MCP_TOKEN="$token" docker run -d --name opensysml-mcp-check -e OPENSYSML_MCP_TOKEN \
+              --entrypoint sysml-mcp openmbee/opensysml:check -http 0.0.0.0:8765 -root /tmp
+            curl() {
+              docker run --rm --network container:opensysml-mcp-check curlimages/curl:8.11.1 \
+                -sS --retry 10 --retry-connrefused --retry-delay 1 "$@"
+            }
+            fail() {
+              echo "Error: $1"
+              echo "--- opensysml-mcp-check logs:"
+              docker logs opensysml-mcp-check 2>&1 | tail -n 20 || true
+              exit 1
+            }
+            health=$(curl -f http://localhost:8765/health) || fail "sysml-mcp /health did not answer."
+            echo "$health"
+            case "$health" in
+              *'"status":"ok"'*"\"version\":\"${CIRCLE_TAG}\""*|*"\"version\":\"${CIRCLE_TAG}\""*'"status":"ok"'*) ;;
+              *) fail "sysml-mcp /health did not answer ok with version ${CIRCLE_TAG}: '${health}'." ;;
+            esac
+            ready=$(curl -f --retry-all-errors http://localhost:8765/ready) || fail "sysml-mcp /ready did not turn 200."
+            echo "$ready"
+            denied=$(curl -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+              -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"check","version":"0"}}}' \
+              http://localhost:8765/mcp) || fail "sysml-mcp /mcp without a token did not answer."
+            case "$denied" in
+              401) echo "ok: /mcp without a token is refused (401)" ;;
+              *) fail "/mcp without a token answered HTTP ${denied}, not 401." ;;
+            esac
+            docker rm -f opensysml-mcp-check >/dev/null
 
       - unless:
           condition: << pipeline.parameters.release_rehearsal >>
@@ -4494,10 +4644,16 @@ workflows:
               only: [main, develop]
             tags:
               ignore: /.*/
+      # Every job below attaches its verdict; a tree the pull-request workflow (or the merge
+      # queue) proved runs only the coverage shards, the scan and what they consume.
+      - verify-tree:
+          name: Verified tree check
+          filters: *integration-branches
       - go-static:
           name: Go static checks
           requires: &after-cancellation
             - Cancel superseded pipelines
+            - Verified tree check
           filters: *integration-branches
       - go-vulncheck:
           name: Go vulnerability check
@@ -4599,34 +4755,49 @@ workflows:
         - << pipeline.parameters.release_rehearsal >>
         - matches: {pattern: "^v.*", value: << pipeline.git.tag >>}
     jobs:
-      - go-static:
-          name: Go static checks
+      # A tag on a commit main's build-test (or the merge queue) proved skips the suite and client
+      # tests, which nothing here reads; a rehearsal or an unverified commit runs everything.
+      - verify-tree:
+          name: Verified tree check
           filters: &release-tags
             tags:
               only: /^v.*/
+      - go-static:
+          name: Go static checks
+          requires: &after-verification
+            - Verified tree check
+          filters: *release-tags
       - go-vulncheck:
           name: Go vulnerability check
+          requires: *after-verification
           filters: *release-tags
       - go-race-test:
           name: Go race tests
+          requires: *after-verification
           filters: *release-tags
       - go-coverage:
           name: Go coverage shards
+          skip_when_verified: true
+          requires: *after-verification
           filters: *release-tags
       - go-coverage-merge:
           name: Go coverage profile
+          skip_when_verified: true
           requires:
             - Go coverage shards
           filters: *release-tags
       - go-build:
           name: Go binaries
+          requires: *after-verification
           filters: *release-tags
       - go-gates:
           name: Go gates
+          requires: *after-verification
           filters: *release-tags
 
       - python-test:
           name: Python client tests
+          skip_when_verified: true
           requires: &go-suite
             - Go static checks
             - Go vulnerability check
@@ -4638,11 +4809,13 @@ workflows:
 
       - node-test:
           name: Node client tests
+          skip_when_verified: true
           requires: *go-suite
           filters: *release-tags
 
       - java-test:
           name: Java client tests
+          skip_when_verified: true
           requires: *go-suite
           filters: *release-tags
 

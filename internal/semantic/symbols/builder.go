@@ -216,11 +216,9 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 		buildAnonymousNode(scope, d, SymbolSendActionUsage, d.Members, vis, trivia)
 		return true
 	case *ast.SuccessionEdge:
-		// A succession with a body is a SuccessionAsUsage whose body declares its
-		// own features (SysML.xtext ActionTargetSuccession ends in a UsageBody).
-		if len(d.Members) > 0 {
-			buildAnonymousNode(scope, d, SymbolSuccessionUsage, d.Members, vis, trivia)
-		}
+		// A `then x` succession is a SuccessionAsUsage its owner owns, with or without a body
+		// (SysML.xtext ActionTargetSuccession); a body declares the succession's own features.
+		buildAnonymousNode(scope, d, SymbolSuccessionUsage, d.Members, vis, trivia)
 		return true
 	case *ast.StateNode:
 		// Register state node by name (including initial/final pseudostates)
@@ -860,6 +858,11 @@ func classifyUsage(u *ast.Usage) SymbolKind {
 	}
 	if u.IsSuccessionFlow() {
 		return SymbolSuccessionFlowUsage
+	}
+	// An objective's `verify r;` is the RequirementUsage its RequirementVerificationMembership
+	// owns, not a satisfy (SysML 8.3.19), as the RDF writer and the pilot state it.
+	if u.IsVerifiedRequirement() {
+		return SymbolRequirementUsage
 	}
 	// Only classify attribute usages (datatype, attribute, feature keywords)
 	if u.Kind != ast.UsageAttribute {

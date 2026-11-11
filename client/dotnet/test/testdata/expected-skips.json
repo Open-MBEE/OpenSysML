@@ -1,6 +1,8 @@
 {
   "uncovered_rpcs": [],
   "unexpressible": {
+    "document/a_fault_in_a_query_expression_is_positioned_within_it": "the public API has no way to send sysml.RunDocumentQueryRequest.inline_query",
+    "document/a_query_expression_runs_in_place_of_a_name": "the public API has no way to send sysml.RunDocumentQueryRequest.inline_query",
     "evaluate_calc/a_function_argument_naming_no_object_is_refused": "The value at arguments[0] is the function F::Scaler::scale closing over instance(3), which lives only within the response that held it.",
     "evaluate_calc/a_malformed_vector_argument_is_refused": "the public API holds a vector's components as numbers, which arguments[0].vector[1] is not",
     "evaluate_calc/a_measurement_reference_argument_without_its_reduction_is_refused": "the public API holds a measurement reference with its reduction, which arguments[1] has none of",

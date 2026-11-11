@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard/flags"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp"
 )
 
@@ -59,7 +60,7 @@ func TestCommandLine(t *testing.T) {
 		name:   "the help asked for is a result on stdout",
 		args:   []string{"-h"},
 		status: exitServed,
-		stdout: []string{"Usage: sysml-mcp [options]", "-tools", "-root", "-stdio", "-http", "-allow-origin", "-token", "-token-file", "-tls-cert", "-tls-key", "/mcp", "OPENSYSML_MCP_TOKEN"},
+		stdout: []string{"Usage: sysml-mcp [options]", "-tools", "-root", "-stdio", "-http", "-allow-origin", "-token", "-token-file", "-tls-cert", "-tls-key", "-api-keys", "-mint-api-key", "-subject", "-scopes", "-expires", "-revoke-api-key", "/mcp", "OPENSYSML_MCP_TOKEN"},
 	}, {
 		name:   "a flag that is not defined is reported with the usage",
 		args:   []string{"-nosuchflag"},
@@ -219,26 +220,29 @@ func TestReadToken(t *testing.T) {
 		value string
 		err   string
 	}{
-		{name: "none", opts: options{}},
-		{name: "flag", opts: options{token: "s3cret"}, value: "s3cret"},
-		{name: "file", opts: options{tokenFile: write("lf", "s3cret\n")}, value: "s3cret"},
-		{name: "file with CRLF", opts: options{tokenFile: write("crlf", "s3cret\r\n")}, value: "s3cret"},
-		{name: "file with no line break", opts: options{tokenFile: write("bare", "s3cret")}, value: "s3cret"},
-		{name: "empty file", opts: options{tokenFile: write("empty", "\n")}, err: "the token is empty"},
-		{name: "file with two lines", opts: options{tokenFile: write("two", "a\nb\n")}, err: "no spaces or line breaks"},
-		{name: "file with two trailing line breaks", opts: options{tokenFile: write("double", "s3cret\n\n")}, err: "no spaces or line breaks"},
-		{name: "file with a leading line break", opts: options{tokenFile: write("leading", "\ns3cret\n")}, err: "no spaces or line breaks"},
+		{name: "none"},
+		{name: "flag", opts: options{auth: &flags.Options{Token: "s3cret"}}, value: "s3cret"},
+		{name: "file", opts: options{auth: &flags.Options{TokenFile: write("lf", "s3cret\n")}}, value: "s3cret"},
+		{name: "file with CRLF", opts: options{auth: &flags.Options{TokenFile: write("crlf", "s3cret\r\n")}}, value: "s3cret"},
+		{name: "file with no line break", opts: options{auth: &flags.Options{TokenFile: write("bare", "s3cret")}}, value: "s3cret"},
+		{name: "empty file", opts: options{auth: &flags.Options{TokenFile: write("empty", "\n")}}, err: "the token is empty"},
+		{name: "file with two lines", opts: options{auth: &flags.Options{TokenFile: write("two", "a\nb\n")}}, err: "no spaces or line breaks"},
+		{name: "file with two trailing line breaks", opts: options{auth: &flags.Options{TokenFile: write("double", "s3cret\n\n")}}, err: "no spaces or line breaks"},
+		{name: "file with a leading line break", opts: options{auth: &flags.Options{TokenFile: write("leading", "\ns3cret\n")}}, err: "no spaces or line breaks"},
 		{name: "environment", env: ptr("from-env"), value: "from-env"},
 		{name: "empty environment", env: ptr("")},
 		{name: "environment with a space", env: ptr("not a token"), err: mcp.TokenEnv + ": a token is letters"},
-		{name: "flag over environment", opts: options{token: "s3cret"}, env: ptr("from-env"), value: "s3cret"},
-		{name: "file over environment", opts: options{tokenFile: write("over", "s3cret\n")}, env: ptr("from-env"), value: "s3cret"},
+		{name: "flag over environment", opts: options{auth: &flags.Options{Token: "s3cret"}}, env: ptr("from-env"), value: "s3cret"},
+		{name: "file over environment", opts: options{auth: &flags.Options{TokenFile: write("over", "s3cret\n")}}, env: ptr("from-env"), value: "s3cret"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.env != nil {
 				t.Setenv(mcp.TokenEnv, *tc.env)
 			}
-			token, text, err := readToken(&tc.opts)
+			if tc.opts.auth == nil {
+				tc.opts.auth = &flags.Options{}
+			}
+			token, auth, err := readToken(&tc.opts)
 			if tc.err != "" {
 				if err == nil || !strings.Contains(err.Error(), tc.err) {
 					t.Fatalf("readToken: %v, want %q", err, tc.err)
@@ -248,7 +252,7 @@ func TestReadToken(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if text != tc.value || token.Set() != (tc.value != "") {
+			if text := auth.TokenText(); text != tc.value || token.Set() != (tc.value != "") {
 				t.Errorf("readToken = %q (set %v), want %q", text, token.Set(), tc.value)
 			}
 		})

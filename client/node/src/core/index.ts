@@ -114,7 +114,7 @@ export {
 } from "./engines.js";
 export type { EngineBound, EngineInfo, Standing } from "./engines.js";
 export { Exploration, Outcome } from "./exploration.js";
-export type { OutcomeValues } from "./exploration.js";
+export type { Coverage, CoverageEntry, OutcomeValues } from "./exploration.js";
 export {
   AppliedEdit,
   Body,
@@ -232,6 +232,7 @@ export {
   CAPABILITY_SYMBOL_ATTRIBUTES,
   CAPABILITY_SYMBOL_MEMBERS,
   CAPABILITY_ELEMENT_PROPERTIES,
+  CAPABILITY_INLINE_DOCUMENT_QUERY,
   CAPABILITY_INSTANCE_PATHS,
   CAPABILITY_TENSOR_VALUES,
   CAPABILITY_TYPE_FACTS,

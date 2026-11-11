@@ -694,7 +694,7 @@ pub struct Outcome {
 }
 /// ExplorationStatus is how an exploration ended: whether every linearization
 /// within the budget was run, and which budget stopped it when not.
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ExplorationStatus {
     /// True when every linearization the library admits was run, so `outcomes`
     /// is the whole set: no budget was hit and nothing was left unenumerated.
@@ -724,6 +724,33 @@ pub struct ExplorationStatus {
     /// listed, since fewer orders were run than the library admits.
     #[prost(string, repeated, tag="8")]
     pub unenumerated: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Every state entered and transition taken over all the runs, not only the
+    /// witness of each outcome, with how many runs did so.
+    #[prost(message, optional, tag="9")]
+    pub coverage: ::core::option::Option<Coverage>,
+}
+/// Coverage is what every run of an exploration, or every schedule of a check,
+/// entered and took, with how many did so.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Coverage {
+    #[prost(message, repeated, tag="1")]
+    pub states: ::prost::alloc::vec::Vec<CoverageEntry>,
+    #[prost(message, repeated, tag="2")]
+    pub transitions: ::prost::alloc::vec::Vec<CoverageEntry>,
+}
+/// CoverageEntry is one state entered or one transition taken.
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CoverageEntry {
+    /// Qualified by the instance running the machine: `Cov::Sys#1.m.run: viaA`,
+    /// `Cov::Sys#1.m.run: s0 -> viaB`.
+    #[prost(string, tag="1")]
+    pub path: ::prost::alloc::string::String,
+    /// Qualified by the declaration: `Cov::M::run::viaA`, `Cov::M::run::s0 -> viaB`.
+    #[prost(string, tag="2")]
+    pub declaration: ::prost::alloc::string::String,
+    /// How many runs (schedules, under the check engine) entered or took it.
+    #[prost(int32, tag="3")]
+    pub runs: i32,
 }
 /// CheckBehaviorRequest searches every schedule of a behavior, as the `sysml`
 /// command's -check-* flags do about `-action`/`-state`.
@@ -883,6 +910,10 @@ pub struct CheckSearch {
     /// How the search ended, as `sysml` reports it.
     #[prost(string, tag="10")]
     pub status: ::prost::alloc::string::String,
+    /// Every state entered and transition taken over all the searched schedules,
+    /// not only the witness of each final, with how many schedules did so.
+    #[prost(message, optional, tag="11")]
+    pub coverage: ::core::option::Option<Coverage>,
 }
 /// CheckBehaviorResponse is what the search found.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -3260,8 +3291,10 @@ pub struct CompositeConstraint {
 }
 /// QueryResultElement is one matched element. `id` and `type` are always
 /// reported, since an element record is not usable without them; `properties`
-/// carries what `select` asked for, omitting a property the element does not
-/// have.
+/// carries what `select` asked for, omitting a property the element has no
+/// value of. An OSLC query selecting held objects (`rdf:type=elmt:<id>`) answers
+/// one record per object: `id` and `type` name the element the object is an
+/// instance of, and `path` the object itself.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct QueryResultElement {
     /// qualified name, the identity this service reports
@@ -3272,6 +3305,10 @@ pub struct QueryResultElement {
     pub r#type: ::prost::alloc::string::String,
     #[prost(map="string, string", tag="3")]
     pub properties: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    /// The path the session holds an object under (`car.wheels\[2\]`, `#7`); empty
+    /// for a model element.
+    #[prost(string, tag="4")]
+    pub path: ::prost::alloc::string::String,
 }
 /// SweepRange is one parameter's range: the endpoints a swept run advances
 /// between and the step it advances by, typed by the parameter it binds rather
@@ -3737,12 +3774,8 @@ pub struct RunRunsResponse {
     #[prost(uint64, optional, tag="15")]
     pub seed: ::core::option::Option<u64>,
 }
-/// RunDocumentQueryRequest runs a named document query — a calc def
-/// specializing DocumentQueries::Query — against a model the service already
-/// parsed, binding its entry parameters. It answers as %run-query does, but with
-/// typed rows rather than formatted lines. The query runs over the objects
-/// Instantiate created for the model, which a binding may name (DocumentObject)
-/// and `DocumentQueries::Objects` and `Verdicts` reach.
+/// RunDocumentQueryRequest runs a DocumentQueries::Query the model declares (query_id) or one
+/// written in inline_query over a parsed model and its Instantiate objects, binding its parameters.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RunDocumentQueryRequest {
     /// from ParseFile response
@@ -3750,12 +3783,23 @@ pub struct RunDocumentQueryRequest {
     pub model_hash: ::prost::alloc::string::String,
     /// FQN of the document query to run. Fails with NOT_FOUND when the model does
     /// not declare it, and INVALID_ARGUMENT when it declares something else.
+    /// Exactly one of query_id and inline_query is given.
     #[prost(string, tag="2")]
     pub query_id: ::prost::alloc::string::String,
     /// Entry-parameter bindings. Repeating a parameter appends to its binding, so
     /// a nonscalar parameter can be given several values.
     #[prost(message, repeated, tag="3")]
     pub bindings: ::prost::alloc::vec::Vec<DocumentQueryBinding>,
+    /// A query expression to run in place of a named query — the result
+    /// expression of a `calc def` specializing DocumentQueries::Query, such as
+    /// `Project(WhereType(Descendants(Named("Vehicles")), "PartUsage"), ("name",
+    /// "mass"))` — compiled in the model's context with the DocumentQueries
+    /// library in scope and the model's own names reachable. A fault in the
+    /// expression fails with INVALID_ARGUMENT positioned within it (`inline query
+    /// <line>:<column>`); a path or model error carries a QueryOutcome detail as a
+    /// named query's does. Reported as the "inline_document_query" capability.
+    #[prost(string, tag="4")]
+    pub inline_query: ::prost::alloc::string::String,
 }
 /// DocumentQueryBinding binds one entry parameter of a document query.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -4029,6 +4073,14 @@ pub struct QueryOutcome {
     /// a modelError's path failures from the same fan-out
     #[prost(message, repeated, tag="5")]
     pub path_failures: ::prost::alloc::vec::Vec<QueryFailure>,
+    /// The detail is bounded to fit a status trailer: the lists above hold the first
+    /// few of a fan-out, and these count how many there were in all (the CLI's -json record carries every one).
+    #[prost(int32, tag="6")]
+    pub failures_total: i32,
+    #[prost(int32, tag="7")]
+    pub findings_total: i32,
+    #[prost(int32, tag="8")]
+    pub path_failures_total: i32,
 }
 /// QueryFailure is one failure of one step on one element: what the step
 /// expected, and what the model holds where the path stopped resolving.
@@ -4060,6 +4112,14 @@ pub struct QueryFrontier {
     /// the closest spelling, when a name was expected
     #[prost(string, tag="5")]
     pub nearest: ::prost::alloc::string::String,
+    /// Bounded to fit a status trailer: members, features and kinds hold the nearest spellings
+    /// only, and these count how many there were in all (the CLI's -json record carries every one).
+    #[prost(int32, tag="6")]
+    pub members_total: i32,
+    #[prost(int32, tag="7")]
+    pub features_total: i32,
+    #[prost(int32, tag="8")]
+    pub kinds_total: i32,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct QueryFrontierMember {
