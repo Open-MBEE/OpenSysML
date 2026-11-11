@@ -7,12 +7,8 @@
 # output file takes. A file no area claims turns every area on, so a path this
 # script has not been taught about is never silently untested.
 #
-# The first line is the tier, `tier=quick|full`: quick (the Go suite without -race) for a
-# pull-request push, full when the push touches a package where -race has found bugs (the
-# list beside race_pattern) or a path no area claims. CI_TIER=full|quick forces the tier
-# (the workflow forces full for a merge-queue commit and the label ci:full). The quick tier
-# drops the fan-out from a service change to every client, editor and the docs: each of
-# those then runs only when its own paths change. The full tier keeps the fan-out.
+# The first line is the tier, `tier=quick|full`: quick (no -race, no fan-out from a service change
+# to every client) for a pull-request push, full for an unclaimed path; CI_TIER=full|quick forces it.
 set -euo pipefail
 
 base=${1:?usage: ci-changed-areas.sh <base> [head]}
@@ -70,15 +66,11 @@ emit() {
   echo "$area=$enabled"
 }
 
-# Packages -race has caught out (the race fixes in the history: runtime coroutines, SMT solver processes, gRPC
-# model cache, REPL lock, LSP goroutines, workspace index and library parse, export memos, settled symbol index).
-race_pattern='^(internal/exec/runtime/|internal/exec/smt/|internal/frontend/grpc/|internal/frontend/repl/|internal/frontend/lsp/|internal/workspace/|internal/translate/export/|internal/semantic/symbols/|tests/grpc/|cmd/sysml-grpc/)'
-
 tier=${CI_TIER:-}
 case "$tier" in
   full|quick) ;;
   *)
-    if [[ "$everything" = true ]] || matches "$race_pattern"; then tier=full; else tier=quick; fi
+    if [[ "$everything" = true ]]; then tier=full; else tier=quick; fi
     ;;
 esac
 emit tier "$tier"
