@@ -337,9 +337,8 @@ func TestCheckRootsHoldsTheNamedRootsAndTheIndex(t *testing.T) {
 	}
 }
 
-// Rewrite stamps the provenance it is given on fragments it did not re-measure, so a
-// moved input is accepted for a replaced root only; a moved pin, errata digest or other
-// input is refused, for the index alone and for a root, naming the refresh command.
+// A moved input is accepted for a replaced root only; a moved pin, errata digest or
+// other input is refused for the index alone and for a root, naming the refresh command.
 func TestRewriteVouchesOnlyForTheReplacedRoots(t *testing.T) {
 	dir := record(t, fixture())
 	pinned := provenance()
@@ -377,9 +376,8 @@ func TestRewriteVouchesOnlyForTheReplacedRoots(t *testing.T) {
 	}
 }
 
-// Two branches that each added a file of one root merge into an index listing one
-// side's file beside the other side's unlisted fragment, or listing a fragment the merge
-// removed; re-recording that root resolves it, the same disagreement elsewhere is refused.
+// Two branches that each added a file of one root merge into an index that disagrees with
+// the root's directory; re-recording that root resolves it, the same elsewhere is refused.
 func TestRewriteIgnoresIndexDisagreementInsideTheReplacedRoots(t *testing.T) {
 	dir := record(t, fixture())
 	theirs := fragment{Root: "a", File: "w.sysml", Summary: summary{Elements: 4}, Rows: map[string]row{"Dub.name": {1, 0}}}

@@ -280,9 +280,8 @@ func Read[S, R, A any](dir string) (Baseline[S, R, A], error) {
 	return read[S, R, A](dir, nil)
 }
 
-// read is Read less the replaced roots, which are about to be re-recorded whole: their
-// listed fragments are skipped and their directories may hold fragments the index does
-// not list (two branches that each added a file of one root merge that way).
+// read is Read less the replaced roots, re-recorded whole: their listed fragments are
+// skipped and their directories may hold unlisted ones (a merge of two additions does that).
 func read[S, R, A any](dir string, replaced []string) (Baseline[S, R, A], error) {
 	var out Baseline[S, R, A]
 	index, err := readIndex[A](dir)
