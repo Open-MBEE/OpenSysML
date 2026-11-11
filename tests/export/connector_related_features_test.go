@@ -66,6 +66,25 @@ func TestConnectorRelatedFeaturesAreTheEndsReferencedFeatures(t *testing.T) {
 		if got := graph.Objects(subject, rdf.SysML+"targetFeature"); len(got) != 1 || got[0] != referenced[1] {
 			t.Errorf("%s targetFeature = %v, want [%v]", name, got, referenced[1])
 		}
+		// Relationship::relatedElement, source and target are what the three redefine (KerML 8.3.4.5.1),
+		// stated for plain ends; a chained end's chain Feature is reached through relatedFeature alone.
+		if name != "direct" {
+			for _, property := range []string{"relatedElement", "source", "target"} {
+				if got := graph.Objects(subject, rdf.SysML+property); len(got) != 0 {
+					t.Errorf("%s %s = %v, want none for a chained end", name, property, got)
+				}
+			}
+			continue
+		}
+		if got := graph.Objects(subject, rdf.SysML+"relatedElement"); len(got) != 2 || got[0] != referenced[0] || got[1] != referenced[1] {
+			t.Errorf("%s relatedElement = %v, want %v", name, got, referenced)
+		}
+		if got, ok := graph.Object(subject, rdf.SysML+"source"); !ok || got != referenced[0] {
+			t.Errorf("%s source = %v (%t), want %v", name, got, ok, referenced[0])
+		}
+		if got := graph.Objects(subject, rdf.SysML+"target"); len(got) != 1 || got[0] != referenced[1] {
+			t.Errorf("%s target = %v, want [%v]", name, got, referenced[1])
+		}
 	}
 
 	// The API element form states them too, by the ids the chain Features carry.
@@ -126,6 +145,17 @@ func TestConnectorRelatedFeaturesAreTheEndsReferencedFeatures(t *testing.T) {
 		}
 		if got := refs(connector["targetFeature"]); strings.Join(got, ",") != want[1] {
 			t.Errorf("api-json %s targetFeature = %v, want [%s]", name, got, want[1])
+		}
+		if name == "direct" {
+			if got := refs(connector["relatedElement"]); strings.Join(got, ",") != strings.Join(want, ",") {
+				t.Errorf("api-json %s relatedElement = %v, want %v", name, got, want)
+			}
+			if got := refs(connector["source"]); strings.Join(got, ",") != want[0] {
+				t.Errorf("api-json %s source = %v, want [%s]", name, got, want[0])
+			}
+			if got := refs(connector["target"]); strings.Join(got, ",") != want[1] {
+				t.Errorf("api-json %s target = %v, want [%s]", name, got, want[1])
+			}
 		}
 		if name != "direct" {
 			chain := payloads[want[0]]
