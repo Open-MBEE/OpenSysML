@@ -213,6 +213,11 @@ the full CI tier is expensive, so run them locally before the PR, every time the
    into `docs/project/pilot-differential.md` / `api-json-differential.md`, then re-record with
    `-update` and run `make docs-counts`. A library change that adds declarations always moves
    `pilotLibraryElements`; anything else moving is an implementation difference to explain.
+   The api-json record's figures (the scorecard headline, the per-root table and the figure
+   columns of its gap tables) are `<!-- doc-counts:begin apijson-… -->` blocks the site build
+   renders from the baseline (`go run -C tools ./cmd/pilot-apijson-diff -site-blocks`), so the
+   page is edited only for the adjudication; `TestRecordStatesTheBaselinesFigures` refuses a
+   figure typed into one.
 ### 6.2 Changing `internal/translate/export`: the api-json differential
 
 The api-json baseline (`docs/project/api-json-differential-baseline.json`) records the pinned
@@ -224,7 +229,8 @@ workflow's `apijson-differential` job runs `go run -C tools ./cmd/pilot-apijson-
 every change under the writer, the referee, the bridge, the pin or the baseline. Before pushing
 such a commit, run `go run -C tools ./cmd/pilot-apijson-diff` over the real corpus directories
 (`-check` to confirm the baseline reproduces); if a bucket moved, adjudicate it in
-`docs/project/api-json-differential.md`, re-record with `-update` and run `make docs-counts`.
+`docs/project/api-json-differential.md` (prose and the keyed rows of its gap tables; the figures
+render from the baseline when the site builds), re-record with `-update` and run `make docs-counts`.
 Never re-record a baseline whose figures did not move: its provenance lines change only on a pin
 bump, an errata change or an edit to a compared input.
 

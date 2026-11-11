@@ -40,6 +40,7 @@ func Main(args []string, stderr io.Writer) int {
 	updateFlag := flags.Bool("update", false, "re-record "+committedBaseline+" from this run")
 	checkFlag := flags.Bool("check", false, "fail unless this run reproduces "+committedBaseline)
 	lostAgainstFlag := flags.String("lost-against", "", "an earlier run's "+toolName+"-matches.json; list the element matches this run lost and gained against it")
+	siteBlocksFlag := flags.Bool("site-blocks", false, "print the blocks of "+recordPath+" rendered from "+committedBaseline+", as JSON by page and block, and run nothing")
 	if err := flags.Parse(args); err != nil {
 		if err == flag.ErrHelp {
 			return 0
@@ -50,6 +51,9 @@ func Main(args []string, stderr io.Writer) int {
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: %v\n", toolName, err)
 		return 1
+	}
+	if *siteBlocksFlag {
+		return printSiteBlocks(root, os.Stdout, stderr)
 	}
 	opts := options{repo: root, timeout: *timeoutFlag, update: *updateFlag, check: *checkFlag, lostAgainst: repo.Resolve(root, *lostAgainstFlag), log: os.Stdout}
 	opts.launcher = repo.Resolve(root, *launcherFlag)
