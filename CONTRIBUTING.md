@@ -291,7 +291,7 @@ one touching a path no area claims.
 
 **The full tier** runs on the merge queue's commit (below), on any pull request carrying the
 label `ci:full` (adding it re-runs the current head), and on those escalated pushes. It
-gates: gofmt, `go vet`, `make lint`, the race-enabled test suite (nineteen shards,
+gates: gofmt, `go vet`, `make lint`, the race-enabled test suite (twenty shards,
 `make test-shard`), the binaries, the client suites, the conformance suite over each transport,
 the protobuf lint and wire-compatibility checks, the documentation hygiene checks
 (`make docs-check`, `make man-check` and the census check), the site build, and in each
@@ -459,7 +459,13 @@ When a change needs documenting:
   (`scripts/mkdocs_suite_figures.py`, run by `make docs`) splices in the figures from
   `go run -C tools ./cmd/doc-counts -site-blocks`, which counts the tree the way the gates enumerate it.
   `go run -C tools ./cmd/doc-counts -check` refuses a figure typed into one of those blocks, so adding a
-  test or a fixture is the whole change and two branches cannot conflict on a count. `README.md`
+  test or a fixture is the whole change and two branches cannot conflict on a count. The api-json
+  differential record (`docs/project/api-json-differential.md`) carries its scorecard headline,
+  per-root table and the figure columns of its gap tables the same way, as `apijson-…` blocks the
+  hook fills from `go run -C tools ./cmd/pilot-apijson-diff -site-blocks` (the committed baseline);
+  the committed rows hold only the (metaclass, property) key and the adjudication, so re-recording
+  the baseline never rewrites the page, and `TestRecordStatesTheBaselinesFigures` (`tools/referee/apijson`)
+  refuses a figure typed into a block. `README.md`
   names the gates without their counts; the one suite figure still committed there is whether
   every conformance case passes, which moves with `known_failures.txt` alone.
 - **Robustness cases are registered per feature.** A runtime failure-mode subtest goes in

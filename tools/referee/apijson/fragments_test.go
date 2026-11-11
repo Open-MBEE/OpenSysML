@@ -9,22 +9,18 @@ import (
 	"github.com/Open-MBEE/OpenSysML/tools/referee/baseline"
 )
 
-// committedFigures reads the committed directory and sums it the way the
-// monolithic baseline once stated it: totals, roots and one scorecard.
+// committedFigures is the committed directory folded into one report.
 func committedFigures(t *testing.T) *Report {
 	t.Helper()
 	root, err := repo.Choose("")
 	if err != nil {
 		t.Fatal(err)
 	}
-	committed, err := readCommitted(root)
+	report, err := readCommittedReport(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	report := &Report{Provenance: committed.Provenance, Exporter: committed.Summary.Exporter, Normalizations: committed.Summary.Normalizations,
-		PilotNondeterministic: committed.Summary.PilotNondeterministic, Totals: committed.Summary.Totals, Roots: committed.Summary.Roots}
-	report.setScorecard(scorecardOf(committed.Fragments))
-	return report
+	return &report
 }
 
 // The Java-free half of the ratchet: index.json is the fold of the committed
