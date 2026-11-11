@@ -3,20 +3,8 @@ name: PR
 # The only CI a pull request runs. Pushes to main and develop, and tags, are covered
 # by the CircleCI config; this workflow mirrors its build-test workflow, not release.
 #
-# Two tiers, decided by the Changed areas job (scripts/ci-changed-areas.sh): a pull-request push
-# runs the quick tier; merge_group, the label ci:full and an unclaimed path run the full tier.
-#
-# Quick: the binaries, the race-free Go suite in ten groups of the race shards (make test-quick), the
-# download-free static checks, the WebAssembly, Xpect and conformance gates, and changed-path clients/docs.
-#
-# Full: the whole suite, run on the queue's commit (refs/heads/gh-readonly-queue/develop/..., over
-# base_sha..head_sha; Build and test on it lets the entry merge). CircleCI skips what it proved.
-#
-# Full-tier only: the Go race shards (make test-shard); in Go static and integrity checks the Z3 and
-# cvc5 installs, the corpora, make lint, and every corpus, referee and solver gate.
-#
-# Also full-tier only: the PDF toolchain job, and the fan-out from a service change to every
-# client, editor and docs job, which the quick tier runs only when their own paths change.
+# Two tiers (CONTRIBUTING.md, "GitHub Actions"), decided by the Changed areas job: a pull-request
+# push runs the quick tier (no -race, no fan-out); merge_group, the label ci:full and an unclaimed path run full.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
