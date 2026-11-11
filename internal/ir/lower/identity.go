@@ -227,22 +227,24 @@ func (g *StateGraph) statesInOrder() []*ast.StateNode {
 	seen := make(map[*ast.StateNode]bool, len(g.States))
 	out := make([]*ast.StateNode, 0, len(g.States))
 	add := func(state *ast.StateNode) {
-		if state == nil || seen[state] {
-			return
+		if state != nil && !seen[state] {
+			seen[state] = true
+			out = append(out, state)
 		}
-		seen[state] = true
-		out = append(out, state)
 	}
 	for _, state := range g.States {
 		add(state)
 	}
-	for _, state := range g.States {
-		for parent := g.ParentState[state]; parent != nil && !seen[parent]; parent = g.ParentState[parent] {
+	for _, region := range g.TopRegions {
+		add(g.RegionState[region])
+	}
+	for i := 0; i < len(out); i++ {
+		for parent := g.ParentState[out[i]]; parent != nil && !seen[parent]; parent = g.ParentState[parent] {
 			add(parent)
 		}
-	}
-	for _, region := range g.regionsInOrder() {
-		add(g.RegionState[region])
+		for _, region := range g.CompositeStates[out[i]] {
+			add(g.RegionState[region])
+		}
 	}
 	return out
 }
@@ -287,7 +289,7 @@ func (g *StateGraph) regionsInOrder() []*ast.StateRegion {
 		}
 	}
 	add(g.TopRegions)
-	for _, state := range g.States {
+	for _, state := range g.statesInOrder() {
 		add(g.CompositeStates[state])
 	}
 	return out
