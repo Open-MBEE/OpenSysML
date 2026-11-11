@@ -31,8 +31,9 @@ own: it is part of this module, so the core's `v*` tag is what a Go program pins
 
 Between releases, `.github/workflows/nightly.yml` builds the newest green `develop`
 commit every night with `scripts/build-release-artifacts.sh` — the same targets,
-platforms and layout as `build-release` below — together with the Python wheel and the
-fourteen npm packages, and publishes it as the prerelease `nightly-<yyyymmdd>-<commit>`,
+platforms and layout as `build-release` below — together with the Python wheel, the
+fourteen npm packages, the VS Code extension and the Cameo and SysON plugins, and publishes it
+as the prerelease `nightly-<yyyymmdd>-<commit>`,
 kept for 14 days, with the moving alias `nightly` at the newest night; both are never
 marked latest and are signed by the workflow's own GitHub identity rather than the
 CircleCI one the clients pin. The clients go to PyPI and npm as development versions
@@ -245,7 +246,8 @@ branch that moves the integration state onto `main`:
    spelling as package.json. `client/rust/opensysml/Cargo.toml` follows too:
    set `[package] version` to the same spelling and run
    `cargo update -p opensysml` in `client/rust` so the lockfile
-   agrees. The editors carry the same spelling too, though nothing publishes them:
+   agrees. The editors carry the same spelling too (the release publishes the Cameo and SysON
+   plugins, see below; the extensions are side-loaded from the nightly):
    `"version"` in `editors/vscode/package.json`, `editors/jupyterlab/package.json` and
    `editors/syson/frontend/package.json`, each lock regenerated with
    `npm install --package-lock-only` in that directory; `<version>` in
@@ -423,13 +425,24 @@ so that `dist/` holds:
   and `openmbee-opensysml-mcp-<x.y.z>.tgz`, packed by `build-npm-package` from the
   tree stamped with the `sysml-grpc` digests, the same bytes `publish-npm` publishes
   (see [Releasing @openmbee/opensysml to npm](#releasing-openmbeeopensysml-to-npm));
+- the editor plugins, each under one name so the [downloads page](../downloads.md#editor-plugins)
+  links it at `releases/latest/download/`: `Magic_MDK.zip`, the Cameo plugin (`editors/mdk`),
+  packaged by `build-cameo-plugin` around the release's five `sysml-grpc` binaries from the
+  workspace after its suite ran against the Linux one, versioned by the tag (`v0.12.1`,
+  `v0.13.0-rc.1`; the descriptor's internal version orders a release's `alpha.n`, `beta.n` and
+  `rc.n` candidates above its nights and below the release), its `bin/DIGESTS` the manifest's
+  `sysml-grpc` lines, which `build-release` checks before signing; and `syson-mdk-backend.jar`
+  with `syson-mdk-frontend.tgz`, the SysON MDK backend and frontend (`editors/syson`), packaged
+  by `build-syson-plugin` from the backend `install` and the frontend's `npm pack`, named by
+  the tag's version before they are renamed. The plugins have no SBOM: `release-sbom.py`
+  describes Go, Python and npm artifacts;
 - one SPDX 2.3 JSON software bill of materials per archive, wheel, sdist, `sysml-grpc`
   and `sysml-jupyter-kernel` binary, WebAssembly module and npm tarball, named
   `<asset>.spdx.json` after the asset it describes (see
   [The software bills of materials](#the-software-bills-of-materials));
 - `SHA256SUMS.txt` over every archive, every wheel and sdist, every `sysml-grpc` and
-  `sysml-jupyter-kernel` binary, all three WebAssembly assets, the three npm tarballs
-  and every SBOM,
+  `sysml-jupyter-kernel` binary, all three WebAssembly assets, the three npm tarballs,
+  the three editor-plugin assets and every SBOM,
   with its cosign signature `SHA256SUMS.txt.bundle` (see
   [The signed checksum manifest](#the-signed-checksum-manifest));
 - `provenance.intoto.json`, the SLSA provenance statement naming every artifact

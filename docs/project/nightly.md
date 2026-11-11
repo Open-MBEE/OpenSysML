@@ -93,28 +93,27 @@ And one a stable release does not ship:
 The npm packages are not release assets: the fourteen tarballs go to the registry, where npm
 verifies them against the registry's integrity hashes and the provenance the workflow signs.
 
-Two more are workflow artifacts of the night's run rather than release assets, kept for the
-same 14 days, under the run on the
-[Nightly snapshot workflow page](https://github.com/Open-MBEE/OpenSysML/actions/workflows/nightly.yml)
-(or `gh run download <run-id> -n cameo-plugin` / `-n syson-plugin`):
+Two more a stable release ships as well, under the same names, built in the same job around
+the five `sysml-grpc` the night just built and listed in `SHA256SUMS.txt` before it is
+checked and signed (the [downloads page](../downloads.md#editor-plugins) links them):
 
-- `cameo-plugin` — `Magic_MDK_<version>.zip`, the [Cameo plugin](../../editors/mdk/README.md) in
-  its Resource Manager layout, built at the night's commit around the five `sysml-grpc`
-  binaries the night released (verified against `SHA256SUMS.txt`; the zip's `bin/DIGESTS`
-  lists the same digests), after the plugin's own suite ran against the night's service. It is
-  what `mvn -f editors/mdk/pom.xml -Dopensysml.version=<version> package` produces for a
+- `Magic_MDK.zip` — the [Cameo plugin](../../editors/mdk/README.md) in its Resource Manager
+  layout, built after the plugin's own suite ran against the night's service; the zip's
+  `bin/DIGESTS` lists the digests the manifest lists for the five binaries. It is what
+  `mvn -f editors/mdk/pom.xml -Dopensysml.version=<version> package` produces for a
   release, with the night's binaries in place of a release's (`-Dopensysml.binaries=<dir>`),
   versioned as the `.vsix` is — `0.9.3-nightly-<yyyymmdd>-<commit>` — and its descriptor's
-  internal version places it above the previous release and below the one it leads to, nights
-  ordered by the day they were built (two nights of one day, a forced rebuild, rank equal);
-- `syson-plugin` — the SysON MDK backend jar and the `@openmbee/syson-mdk` frontend tarball
-  (`npm pack`), the two pieces a [SysON build consumes](../../editors/syson/README.md), with a
-  `SNAPSHOT` line naming the night and commit. The backend is compiled against the
+  internal version places it above the previous release and below the one it leads to and
+  that release's candidates, nights ordered by the day they were built (two nights of one
+  day, a forced rebuild, rank equal);
+- `syson-mdk-backend.jar` and `syson-mdk-frontend.tgz` — the SysON MDK backend jar and the
+  `@openmbee/syson-mdk` frontend tarball (`npm pack`), the two pieces a
+  [SysON build consumes](../../editors/syson/README.md). The backend is compiled against the
   repository's API stubs, as the PR gate compiles it; the jar and tarball carry the version
   the tree declares, not the snapshot's.
 
-Both are skipped, not failed, on a night whose commit predates the plugin's distribution module
-(for the Cameo plugin, its staging of binaries from a directory).
+Both are left out, not failed, on a night whose commit predates the plugin's packaging (for
+the Cameo plugin, its staging of binaries from a directory).
 
 Not in a snapshot: the Windows installer, the Authenticode-signed Windows binaries, the
 Homebrew formula, and the Maven and crates.io client packages. Those belong to the
@@ -164,6 +163,12 @@ code --install-extension opensysml-sysml.vsix
 VS Code installs a later night over an earlier one as an update, and the release the nights
 lead to over the last of them. To go back to an earlier night, or from a snapshot to the
 stable build of the extension it builds on, whose version is lower, add `--force`.
+
+The Cameo plugin and the SysON pieces download and verify the same way (`Magic_MDK.zip`,
+`syson-mdk-backend.jar`, `syson-mdk-frontend.tgz` in place of the `.vsix`); the
+[downloads page](../downloads.md#editor-plugins) says how each is installed. Cameo's Resource
+Manager, like VS Code, installs a later night over an earlier one and the release over the
+last of them.
 
 ### The client packages
 
@@ -264,14 +269,13 @@ it just built under the night's tag in the wheel's table with
 installed wheel reports the snapshot version, names the night's release as the one it was
 built against and pins all five digests, as the release pipeline checks a release's wheel;
 builds the platform and WASM packages from the same binaries and packs all fourteen npm
-tarballs; signs the manifest, which now lists the wheel, with its own GitHub OIDC
-identity; keeps the tarballs as workflow artifacts; and publishes the per-night release
+tarballs; builds, tests and packages the Cameo plugin around the night's five `sysml-grpc`
+(checking the zip's `DIGESTS` against the manifest) and the SysON backend jar and frontend
+tarball, listing the three in the manifest; signs the manifest, which now lists the wheel and
+the plugins, with its own GitHub OIDC identity; keeps the tarballs as workflow artifacts; and publishes the per-night release
 with the repository's own `GITHUB_TOKEN`. A second job recreates the
 alias at the same commit from the night's own assets, title and notes, then deletes the
-per-night releases published more than 14 days ago. Two jobs after the release build the
-Cameo and SysON plugins at the same commit, each fetching the `sysml-grpc` it needs from the
-night's release and checking it against the manifest, and keep them as the run's
-`cameo-plugin` and `syson-plugin` artifacts. Two further jobs publish the clients. One
+per-night releases published more than 14 days ago. Two further jobs publish the clients. One
 runs [`release-pypi.yml`](../../.github/workflows/release-pypi.yml) on the night's tag and
 waits for it: that workflow takes the wheel, sdist and kernel package from the release,
 checks them against the manifest and publishes them to PyPI as it does a stable release's

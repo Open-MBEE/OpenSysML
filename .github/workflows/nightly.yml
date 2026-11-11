@@ -596,6 +596,140 @@ jobs:
           EOF
           rm client-package.json
 
+      # The editor plugins are built here around the five sysml-grpc built above, so the signed manifest
+      # lists them beside the binaries they stage; a commit that predates a plugin's packaging skips it.
+      - name: Check the commit carries the editor plugins
+        id: layout
+        run: |
+          if [[ -f editors/mdk/dist/pom.xml ]] && grep -q 'opensysml.binaries' editors/mdk/dist/pom.xml; then
+            echo "cameo=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::$(git rev-parse --short HEAD) predates the Cameo distribution's -Dopensysml.binaries; no Cameo plugin tonight."
+            echo "cameo=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [[ -f editors/syson/pom.xml && -f editors/syson/frontend/package-lock.json ]]; then
+            echo "syson=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::$(git rev-parse --short HEAD) predates editors/syson; no SysON plugin tonight."
+            echo "syson=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The plugins' service-backed suites start bin/sysml-grpc: the night's own Linux binary.
+      - name: Put the night's service binary where the plugin suites start it
+        if: steps.layout.outputs.cameo == 'true' || steps.layout.outputs.syson == 'true'
+        run: |
+          install -D -m 0755 dist/grpc/sysml-grpc-linux-amd64 bin/sysml-grpc
+          bin/sysml-grpc -version
+
+      # 17 is the plugin's compile target (the oldest supported Cameo runs on it).
+      - name: Set up Java 17 for the Cameo plugin
+        if: steps.layout.outputs.cameo == 'true'
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Install the Java client the Cameo plugin builds against
+        if: steps.layout.outputs.cameo == 'true'
+        run: mvn -B -q -f client/java/pom.xml -pl :opensysml -am install -DskipTests -Dmaven.javadoc.skip=true
+
+      # The plugin's suite against the night's service, then the zip around the night's binaries, versioned
+      # as the vsix is (snapshot core, night as pre-release) and like it published under one name.
+      - name: Build, test and package the Cameo plugin
+        if: steps.layout.outputs.cameo == 'true'
+        env:
+          CORE: ${{ steps.version.outputs.core }}
+          VERSION: ${{ steps.version.outputs.tag }}
+        run: |
+          mvn -B -f editors/mdk/pom.xml verify \
+            -Dopensysml.requireService=true \
+            -Dopensysml.version="$CORE-$VERSION" \
+            -Dopensysml.binaries="$PWD/dist/grpc"
+          zips=(editors/mdk/dist/target/*_MDK_"$CORE-$VERSION".zip)
+          if [[ "${#zips[@]}" -ne 1 || ! -f "${zips[0]}" ]]; then
+            echo "::error::Expected one plugin zip named for $CORE-$VERSION under editors/mdk/dist/target, found: ${zips[*]}"
+            exit 1
+          fi
+          zip=${zips[0]}
+          unzip -l "$zip"
+          for entry in plugins/org.openmbee.mdk.magic/plugin.xml plugins/org.openmbee.mdk.magic/bin/DIGESTS \
+              plugins/org.openmbee.mdk.magic/bin/sysml-grpc-linux-amd64 plugins/org.openmbee.mdk.magic/bin/sysml-grpc-windows-amd64.exe \
+              plugins/org.openmbee.mdk/extensions/ data/resourcemanager/; do
+            if ! unzip -l "$zip" | grep -q " $entry"; then
+              echo "::error::$zip lacks $entry"
+              exit 1
+            fi
+          done
+          # The zip stages the bytes the manifest lists: its DIGESTS are the manifest's sysml-grpc lines.
+          grep -E ' sysml-grpc-[a-z0-9]+-[a-z0-9]+(\.exe)?$' dist/SHA256SUMS.txt | sort > "$RUNNER_TEMP/built.sums"
+          if [[ "$(wc -l < "$RUNNER_TEMP/built.sums")" -ne 5 ]]; then
+            echo "::error::SHA256SUMS.txt lists $(wc -l < "$RUNNER_TEMP/built.sums") sysml-grpc binaries, not 5."
+            exit 1
+          fi
+          unzip -p "$zip" plugins/org.openmbee.mdk.magic/bin/DIGESTS | sort > "$RUNNER_TEMP/staged.sums"
+          if ! diff "$RUNNER_TEMP/staged.sums" "$RUNNER_TEMP/built.sums"; then
+            echo "::error::The binaries in $zip are not the ones SHA256SUMS.txt lists."
+            exit 1
+          fi
+          mkdir -p dist/cameo
+          cp "$zip" dist/cameo/Magic_MDK.zip
+          (cd dist && sha256sum cameo/Magic_MDK.zip | sed 's|cameo/||' >> SHA256SUMS.txt && tail -n 1 SHA256SUMS.txt)
+
+      # SysON runs on 21; the module compiles at release 17.
+      - name: Set up Java 21 for the SysON plugin
+        if: steps.layout.outputs.syson == 'true'
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Install the Java client the SysON backend builds against
+        if: steps.layout.outputs.syson == 'true'
+        run: mvn -B -q -f client/java/pom.xml install -DskipTests -Dmaven.javadoc.skip=true
+
+      # Compiled against the repository's API stubs, as the PR gate compiles it; syson-artifacts.yml
+      # builds against the real ones.
+      - name: Build and test the SysON backend
+        if: steps.layout.outputs.syson == 'true'
+        run: mvn -B -f editors/syson/pom.xml install -Dopensysml.requireService=true
+
+      - name: Set up Node.js for the SysON frontend
+        if: steps.layout.outputs.syson == 'true'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: editors/syson/frontend/package-lock.json
+
+      - name: Build, test and pack the SysON frontend
+        if: steps.layout.outputs.syson == 'true'
+        working-directory: editors/syson/frontend
+        run: |
+          npm ci --ignore-scripts
+          npm run typecheck
+          npm test
+          npm run build
+          mkdir -p "$GITHUB_WORKSPACE/dist/syson"
+          npm pack --ignore-scripts --pack-destination "$GITHUB_WORKSPACE/dist/syson"
+
+      # The backend jar and frontend tarball a SysON build consumes (editors/syson/README.md), each
+      # under one name like the vsix; both carry the version the tree declares, not the night's.
+      - name: Collect the SysON plugin
+        if: steps.layout.outputs.syson == 'true'
+        run: |
+          jars=(editors/syson/backend/target/syson-mdk-backend-*[0-9].jar)
+          tarballs=(dist/syson/openmbee-syson-mdk-*.tgz)
+          if [[ "${#jars[@]}" -ne 1 || ! -f "${jars[0]}" || "${#tarballs[@]}" -ne 1 || ! -f "${tarballs[0]}" ]]; then
+            echo "::error::Expected one backend jar and one frontend tarball, found: ${jars[*]} ${tarballs[*]}"
+            exit 1
+          fi
+          cp "${jars[0]}" dist/syson/syson-mdk-backend.jar
+          mv "${tarballs[0]}" dist/syson/syson-mdk-frontend.tgz
+          ls -l dist/syson
+          (cd dist && sha256sum syson/syson-mdk-backend.jar syson/syson-mdk-frontend.tgz | sed 's|syson/||' >> SHA256SUMS.txt && tail -n 2 SHA256SUMS.txt)
+
       # The manifest is assembled by appends, so before it is signed every asset must be
       # listed once (the installers compare one digest) and present with that digest.
       - name: Check the checksum manifest
@@ -609,7 +743,7 @@ jobs:
           : > "$RUNNER_TEMP/manifest-check"
           while read -r digest name; do
             found=""
-            for dir in . grpc jupyter wasm; do
+            for dir in . grpc jupyter wasm cameo syson; do
               [[ -f "$dir/$name" ]] && found="$dir/$name" && break
             done
             [[ -n "$found" ]] || { echo "::error::SHA256SUMS.txt lists $name, which is nowhere under dist/"; exit 1; }
@@ -652,6 +786,8 @@ jobs:
           BASE: ${{ steps.version.outputs.base }}
           WORKFLOW_REF: ${{ github.workflow_ref }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          CAMEO: ${{ steps.layout.outputs.cameo }}
+          SYSON: ${{ steps.layout.outputs.syson }}
         run: |
           sha=$(git rev-parse HEAD)
           count=$(git rev-list --count "$BASE..HEAD")
@@ -687,6 +823,18 @@ jobs:
             printf '%s' "\`opensysml-sysml.vsix\` is the VS Code extension built from the same commit:"
             printf '%s' " \`code --install-extension opensysml-sysml.vsix\`, with a snapshot's \`sysml-lsp\`"
             printf '%s\n' " on your \`PATH\` or named by \`opensysml.server.path\`."
+            if [[ "$CAMEO" == true ]]; then
+              echo
+              printf '%s' "\`Magic_MDK.zip\` is the Cameo Systems Modeler plugin built from the same commit around this"
+              printf '%s' " snapshot's \`sysml-grpc\` binaries, versioned as the extension is; import it with Cameo's"
+              printf '%s\n' " Resource/Plugin Manager ([editors/mdk/README.md](https://github.com/$GH_REPO/blob/$sha/editors/mdk/README.md))."
+            fi
+            if [[ "$SYSON" == true ]]; then
+              echo
+              printf '%s' "\`syson-mdk-backend.jar\` and \`syson-mdk-frontend.tgz\` are the SysON MDK backend and frontend a"
+              printf '%s' " SysON build consumes ([editors/syson/README.md](https://github.com/$GH_REPO/blob/$sha/editors/syson/README.md));"
+              printf '%s\n' " they carry the version the tree declares."
+            fi
             echo
             echo "Verify a download against the signed manifest:"
             echo
@@ -732,6 +880,8 @@ jobs:
           GH_REPO: ${{ github.repository }}
           VERSION: ${{ steps.version.outputs.tag }}
           DATE: ${{ steps.version.outputs.date }}
+          CAMEO: ${{ steps.layout.outputs.cameo }}
+          SYSON: ${{ steps.layout.outputs.syson }}
         run: |
           sha=$(git rev-parse HEAD)
           assets=(
@@ -753,6 +903,12 @@ jobs:
               dist/wasm/sysml-prod.wasm.gz.sha256
               dist/wasm/wasm_exec.js.sha256
             )
+          fi
+          if [[ "$CAMEO" == true ]]; then
+            assets+=(dist/cameo/Magic_MDK.zip)
+          fi
+          if [[ "$SYSON" == true ]]; then
+            assets+=(dist/syson/syson-mdk-backend.jar dist/syson/syson-mdk-frontend.tgz)
           fi
           for asset in "${assets[@]}"; do
             if [[ ! -f "$asset" ]]; then
@@ -850,220 +1006,6 @@ jobs:
             echo "delete $tag ($published)"
             gh release delete "$tag" --cleanup-tag --yes
           done
-
-  # The editor plugins are workflow artifacts of the run, not release assets: built at the selected
-  # commit around the sysml-grpc the publish job released, kept as long as the per-night release.
-  cameo-plugin:
-    name: Package the Cameo plugin
-    needs: [select, publish]
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    permissions:
-      contents: read
-    steps:
-      - name: Check out the selected commit
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          ref: ${{ needs.select.outputs.sha }}
-
-      # The distribution module, and its staging of binaries from a directory (an older module
-      # only downloads a release's by tag, which a night does not have).
-      - name: Check the commit carries the distribution module
-        id: layout
-        run: |
-          if [[ -f editors/mdk/dist/pom.xml ]] && grep -q 'opensysml.binaries' editors/mdk/dist/pom.xml; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::notice::$(git rev-parse --short HEAD) predates the Cameo distribution's -Dopensysml.binaries; no Cameo plugin tonight."
-            echo "present=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      # 17 is the plugin's compile target (the oldest supported Cameo runs on it).
-      - name: Set up Java
-        if: steps.layout.outputs.present == 'true'
-        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
-        with:
-          distribution: temurin
-          java-version: '17'
-          cache: maven
-
-      # The five binaries the night released, checked against its manifest; Linux backs the tests.
-      - name: Fetch the night's service binaries
-        if: steps.layout.outputs.present == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          VERSION: ${{ needs.publish.outputs.tag }}
-        run: |
-          gh release download "$VERSION" --dir binaries --pattern 'sysml-grpc-*' --pattern SHA256SUMS.txt
-          cd binaries
-          grep -E ' sysml-grpc-[a-z0-9]+-[a-z0-9]+(\.exe)?$' SHA256SUMS.txt > sysml-grpc.sums
-          if [[ "$(wc -l < sysml-grpc.sums)" -ne 5 ]]; then
-            echo "::error::$VERSION lists $(wc -l < sysml-grpc.sums) sysml-grpc binaries in SHA256SUMS.txt, not 5."
-            exit 1
-          fi
-          sha256sum --check --strict sysml-grpc.sums
-          mkdir -p ../bin
-          cp sysml-grpc-linux-amd64 ../bin/sysml-grpc
-          chmod +x ../bin/sysml-grpc
-
-      - name: Install the Java client the plugin builds against
-        if: steps.layout.outputs.present == 'true'
-        run: mvn -B -q -f client/java/pom.xml -pl :opensysml -am install -DskipTests -Dmaven.javadoc.skip=true
-
-      # The plugin's suite against the night's service, then the zip around the night's binaries,
-      # versioned as the vsix is: the snapshot core with the night as the pre-release part.
-      - name: Build, test and package the plugin
-        if: steps.layout.outputs.present == 'true'
-        env:
-          CORE: ${{ needs.publish.outputs.core }}
-          VERSION: ${{ needs.publish.outputs.tag }}
-        run: |
-          mvn -B -f editors/mdk/pom.xml verify \
-            -Dopensysml.requireService=true \
-            -Dopensysml.version="$CORE-$VERSION" \
-            -Dopensysml.binaries="$PWD/binaries"
-          mkdir -p dist/cameo
-          cp editors/mdk/dist/target/*_MDK_"$CORE-$VERSION".zip dist/cameo/
-          cd dist/cameo
-          zips=(./*.zip)
-          if [[ "${#zips[@]}" -ne 1 ]]; then
-            echo "::error::Expected one plugin zip, found ${#zips[@]}."
-            exit 1
-          fi
-          zip=${zips[0]}
-          unzip -l "$zip"
-          for entry in plugins/org.openmbee.mdk.magic/plugin.xml plugins/org.openmbee.mdk.magic/bin/DIGESTS \
-              plugins/org.openmbee.mdk.magic/bin/sysml-grpc-linux-amd64 plugins/org.openmbee.mdk.magic/bin/sysml-grpc-windows-amd64.exe \
-              plugins/org.openmbee.mdk/extensions/ data/resourcemanager/; do
-            if ! unzip -l "$zip" | grep -q " $entry"; then
-              echo "::error::$zip lacks $entry"
-              exit 1
-            fi
-          done
-          unzip -p "$zip" plugins/org.openmbee.mdk.magic/bin/DIGESTS | sort > staged.sums
-          sort ../../binaries/sysml-grpc.sums > released.sums
-          if ! diff staged.sums released.sums; then
-            echo "::error::The binaries in $zip are not the ones $VERSION released."
-            exit 1
-          fi
-          rm staged.sums released.sums
-          sha256sum ./*.zip | sed 's|\./||' > SHA256SUMS.txt
-          cat SHA256SUMS.txt
-
-      - name: Keep the Cameo plugin as the night's artifact
-        if: steps.layout.outputs.present == 'true'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: cameo-plugin
-          path: dist/cameo/
-          if-no-files-found: error
-          overwrite: true
-          retention-days: ${{ env.RETENTION_DAYS }}
-
-  # The backend jar and frontend tarball a SysON build consumes (editors/syson/README.md), compiled
-  # against the repository's API stubs as the PR gate does; syson-artifacts.yml builds against the real ones.
-  syson-plugin:
-    name: Package the SysON plugin
-    needs: [select, publish]
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    permissions:
-      contents: read
-    steps:
-      - name: Check out the selected commit
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          ref: ${{ needs.select.outputs.sha }}
-
-      - name: Check the commit carries the plugin
-        id: layout
-        run: |
-          if [[ -f editors/syson/pom.xml && -f editors/syson/frontend/package-lock.json ]]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::notice::$(git rev-parse --short HEAD) predates editors/syson; no SysON plugin tonight."
-            echo "present=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Fetch the night's service binary
-        if: steps.layout.outputs.present == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          VERSION: ${{ needs.publish.outputs.tag }}
-        run: |
-          gh release download "$VERSION" --dir binaries --pattern sysml-grpc-linux-amd64 --pattern SHA256SUMS.txt
-          cd binaries
-          grep ' sysml-grpc-linux-amd64$' SHA256SUMS.txt | sha256sum --check --strict
-          mkdir -p ../bin
-          cp sysml-grpc-linux-amd64 ../bin/sysml-grpc
-          chmod +x ../bin/sysml-grpc
-
-      # SysON runs on 21; the module compiles at release 17.
-      - name: Set up Java
-        if: steps.layout.outputs.present == 'true'
-        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
-        with:
-          distribution: temurin
-          java-version: '21'
-          cache: maven
-
-      - name: Install the Java client the backend builds against
-        if: steps.layout.outputs.present == 'true'
-        run: mvn -B -q -f client/java/pom.xml install -DskipTests -Dmaven.javadoc.skip=true
-
-      - name: Build and test the backend
-        if: steps.layout.outputs.present == 'true'
-        run: mvn -B -f editors/syson/pom.xml install -Dopensysml.requireService=true
-
-      - name: Set up Node.js
-        if: steps.layout.outputs.present == 'true'
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: '24'
-          cache: npm
-          cache-dependency-path: editors/syson/frontend/package-lock.json
-
-      - name: Build, test and pack the frontend
-        if: steps.layout.outputs.present == 'true'
-        working-directory: editors/syson/frontend
-        run: |
-          npm ci --ignore-scripts
-          npm run typecheck
-          npm test
-          npm run build
-          mkdir -p "$GITHUB_WORKSPACE/dist/syson"
-          npm pack --ignore-scripts --pack-destination "$GITHUB_WORKSPACE/dist/syson"
-
-      - name: Collect the plugin
-        if: steps.layout.outputs.present == 'true'
-        env:
-          VERSION: ${{ needs.publish.outputs.tag }}
-        run: |
-          cp editors/syson/backend/target/*-backend-*.jar dist/syson/
-          cd dist/syson
-          rm -f ./*-sources.jar ./*-javadoc.jar ./*-tests.jar
-          ls -l
-          jars=(./*.jar)
-          tarballs=(./*.tgz)
-          if [[ "${#jars[@]}" -ne 1 || "${#tarballs[@]}" -ne 1 ]]; then
-            echo "::error::Expected one backend jar and one frontend tarball, found ${#jars[@]} and ${#tarballs[@]}."
-            exit 1
-          fi
-          printf 'Built from %s at %s\n' "$VERSION" "$(git rev-parse HEAD)" > SNAPSHOT
-          sha256sum ./*.jar ./*.tgz | sed 's|\./||' > SHA256SUMS.txt
-          cat SNAPSHOT SHA256SUMS.txt
-
-      - name: Keep the SysON plugin as the night's artifact
-        if: steps.layout.outputs.present == 'true'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: syson-plugin
-          path: dist/syson/
-          if-no-files-found: error
-          overwrite: true
-          retention-days: ${{ env.RETENTION_DAYS }}
 
   # The wheel, sdist and kernel package reach PyPI through the release's own workflow, run
   # on the night's tag and watched to its end, so a snapshot names the publisher a release does.
