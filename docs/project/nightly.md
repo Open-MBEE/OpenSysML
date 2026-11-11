@@ -26,7 +26,8 @@ the [install guide](../guide/01-install.md)) carries it.
 - **Built from the newest green `develop` commit.** The workflow walks `develop`'s own
   commits (its first-parent history, one per merged pull request) from the head and takes the
   first whose CircleCI `build-test` workflow — the Go suite, the
-  corpus gates and the client tests — passed. A red head is skipped, so a snapshot can be a
+  corpus gates and the client tests, or the coverage and scan jobs alone on a commit
+  the merge queue already proved (`verify-tree`) — passed. A red head is skipped, so a snapshot can be a
   few commits behind `develop`; the release notes name the commit and link the
   compare against the last stable tag. The walk ends at the commit the current snapshot was
   built from, so the snapshot never moves backwards, and a green commit that predates

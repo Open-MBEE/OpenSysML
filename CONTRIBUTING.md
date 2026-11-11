@@ -277,9 +277,21 @@ decision is recorded through the Release Checklist item above.
 `Build and test` job aggregates whichever tier ran, so that is the one check branch protection
 needs to require.
 
-**The full tier** is the default: it runs on every push to a pull request that is ready for
-review, when a draft is marked ready, and on any pull request carrying the label `ci:full`. It
-gates: gofmt, `go vet`, `make lint`, the race-enabled test suite (nine shards,
+**The quick tier** is what every push to a pull request gets, draft or ready, in about half the
+runner time of the full tier and a third of its wall time: the binaries, the same Go suite without
+`-race` in nine groups of the race shards (`make test-quick`), the download-free static checks
+(gofmt, vet, the production build, grpc imports, proto lint and breaking), the WebAssembly, Xpect
+and conformance gates, and only the clients, editors and docs whose own paths changed. The lint,
+the corpus and solver gates, the PDF toolchain and the fan-out from a service change to every
+client wait for the full tier. A push whose diff touches a package where `-race` has found bugs
+(`internal/exec/runtime`, `internal/exec/smt`, the gRPC server and its suites, the REPL, the LSP,
+`internal/workspace`, the export writer, the symbol index — the list is `race_pattern` in
+`scripts/ci-changed-areas.sh`, and its test pins it) escalates itself to the full tier, as does
+one touching a path no area claims.
+
+**The full tier** runs on the merge queue's commit (below), on any pull request carrying the
+label `ci:full` (adding it re-runs the current head), and on those escalated pushes. It
+gates: gofmt, `go vet`, `make lint`, the race-enabled test suite (eighteen shards,
 `make test-shard`), the binaries, the client suites, the conformance suite over each transport,
 the protobuf lint and wire-compatibility checks, the documentation hygiene checks
 (`make docs-check`, `make man-check` and the census check), the site build, and in each
@@ -287,15 +299,10 @@ client's job the release-digest copy it ships and the stubs it commits (regenera
 pinned buf and diffed). It downloads the OMG corpora before the suite and runs each corpus gate as its own
 step, so those gates are required rather than skipped.
 
-**The quick tier** is what a draft pull request gets — an opt-in for work the author does not
-yet want reviewed — on every push to it, within about a third of the runner time: the binaries,
-the same Go suite without `-race` in three shards (`make test-quick`), the download-free static
-checks (gofmt, vet, the production build, grpc imports, proto lint and breaking), the WebAssembly, Xpect and conformance gates, and only the clients and docs whose
-own paths changed. The lint, the corpus and solver gates, the PDF toolchain and the fan-out
-from a service change to every client wait for the full tier. Open a pull
-request ready for review rather than as a draft: marking a draft ready starts a second full run
-on a head the quick tier already ran, and a draft is not considered until it is marked ready.
-The full tier is what a pull request has to pass to merge.
+Open a pull request ready for review rather than as a draft: both run the same tier, and a draft
+is not considered until it is marked ready. The full tier is what a pull request has to pass to
+merge: the merge queue runs it, and `ci:full` runs it early when a change warrants it (a new
+goroutine, a shared cache, anything the race detector should see before the queue does).
 
 **The merge queue**, when the `develop` ruleset has one, runs the full tier once more on the
 commit it builds for each queued pull request (`refs/heads/gh-readonly-queue/develop/...`,
