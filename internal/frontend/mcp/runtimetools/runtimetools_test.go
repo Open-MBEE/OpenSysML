@@ -693,6 +693,12 @@ func TestQueriesAndRenderings(t *testing.T) {
 		!strings.Contains(view.GetText(), `fillcolor="#`) || len(view.GetNodes()) == 0 || !strings.Contains(out, strings.TrimRight(view.GetText(), "\n")) {
 		t.Errorf("dot form: text %q\n%s", view.GetText(), out)
 	}
+	every := len(view.GetNodes())
+	var shallow pb.RenderViewResponse
+	h.ok("render_model_view", map[string]any{"modelHash": hash, "view": "#tree:Demo", "form": "dot", "depth": 1}, &shallow)
+	if len(shallow.GetNodes()) == 0 || len(shallow.GetNodes()) >= every || strings.Count(shallow.GetText(), "\n") >= strings.Count(view.GetText(), "\n") {
+		t.Errorf("depth 1: %d nodes of %d, text:\n%s", len(shallow.GetNodes()), every, shallow.GetText())
+	}
 	for form, args := range map[string]map[string]any{
 		"png": {"modelHash": hash, "view": "#tree:Demo", "form": "png"},
 		"svg": {"modelHash": hash, "view": "#tree:Demo", "form": "svg"},
