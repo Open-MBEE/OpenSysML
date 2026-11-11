@@ -27,6 +27,7 @@ env:
     docs/project/api-json-differential
     docs/project/library-and-prefix-sweep-outcomes.txt
     internal/semantic/metamodel/derived_census_baseline.json
+    internal/semantic/metamodel/derived_census_records.tsv
     internal/translate/export/testdata/structure_differential_expected.txt
     tests/corpus/testdata/pilot_corpora_expected.txt
     tests/corpus/testdata/spec_examples_expected.txt
