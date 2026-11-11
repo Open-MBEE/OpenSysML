@@ -393,6 +393,90 @@ public sealed class ModelQueryDocsTests
 
     [Theory]
     [MemberData(nameof(Wires))]
+    public async Task RunInlineDocumentQuerySendsTheExpressionInPlaceOfANameAndReadsRowsAsANamedQuerysAre(ClientWire wire)
+    {
+        using var handler = Serving(wire).On("RunDocumentQuery", Wire.RunDocumentQueryRequest.Parser, _ => CompleteQueryDocsWire.DocumentQuery);
+        await using var connection = await FakeConnection.OpenAsync(handler);
+        var model = connection.ModelByHash(Hash);
+        var token = TestContext.Current.CancellationToken;
+        const string Expression = "Project(WhereType(Descendants(root), \"PartUsage\"), (\"name\", \"mass\"))";
+
+        var result = await model.RunInlineDocumentQueryAsync(Expression, [new DocumentBinding("root", DocumentValue.ElementRef("Garage::car"))], token);
+        await model.RunInlineDocumentQueryAsync("Named(\"Garage\")", cancellationToken: token);
+
+        Assert.Equal(
+            [
+                new Wire.RunDocumentQueryRequest
+                {
+                    ModelHash = Hash,
+                    InlineQuery = Expression,
+                    Bindings = { Binding("root", new Wire.DocumentValue { ElementId = "Garage::car" }) },
+                },
+                new Wire.RunDocumentQueryRequest { ModelHash = Hash, InlineQuery = "Named(\"Garage\")" },
+            ],
+            handler.RequestsFor("RunDocumentQuery").Select(sent => sent.Message(Wire.RunDocumentQueryRequest.Parser)));
+        Assert.Equal(await model.RunDocumentQueryAsync("Garage::Checks", cancellationToken: token), result);
+    }
+
+    [Theory]
+    [MemberData(nameof(Wires))]
+    public async Task InlineDocumentQueryGatesAreCheckedInTheServicesOrderAndANamedQueryNeedsNoneOfItsOwn(ClientWire wire)
+    {
+        var token = TestContext.Current.CancellationToken;
+        var big = new DocumentValue.NumberValue(new Value.BigIntegerValue(BigInteger.Pow(2, 70)));
+        var third = new DocumentValue.NumberValue(new Value.RationalValue(new Rational(1, 3)));
+        Task Run(Model model, params DocumentValue[] values) => model.RunInlineDocumentQueryAsync("Named(\"Q\")", [new DocumentBinding("p", values)], token);
+
+        Assert.Equal(Capabilities.DocumentQuery, await RefusedAsync(wire, [Capabilities.DocumentQuery, Capabilities.InlineDocumentQuery], model => Run(model)));
+        Assert.Equal(Capabilities.InlineDocumentQuery, await RefusedAsync(wire, [Capabilities.InlineDocumentQuery, Capabilities.BigIntValues], model => Run(model, big)));
+        Assert.Equal(Capabilities.RationalValues, await RefusedAsync(wire, [Capabilities.RationalValues], model => Run(model, third)));
+
+        using var handler = new FakeServiceHandler(wire) { Capabilities = [.. FakeModels.ModelCapabilities.Except([Capabilities.InlineDocumentQuery])] }
+            .On("RunDocumentQuery", Wire.RunDocumentQueryRequest.Parser, _ => new Wire.RunDocumentQueryResponse());
+        await using var connection = await FakeConnection.OpenAsync(handler);
+        var model = connection.ModelByHash(Hash);
+
+        await model.RunDocumentQueryAsync("Q", cancellationToken: token);
+        var refused = await Assert.ThrowsAsync<CapabilityException>(() => model.RunInlineDocumentQueryAsync("Named(\"Q\")", cancellationToken: token));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => model.RunInlineDocumentQueryAsync(null!, cancellationToken: token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RunInlineDocumentQueryAsync(string.Empty, cancellationToken: token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RunInlineDocumentQueryAsync("Named(\"Q\")", [null!], token));
+
+        Assert.Equal(Capabilities.InlineDocumentQuery, refused.Capability);
+        Assert.Equal(new Wire.RunDocumentQueryRequest { ModelHash = Hash, QueryId = "Q" }, Assert.Single(handler.RequestsFor("RunDocumentQuery")).Message(Wire.RunDocumentQueryRequest.Parser));
+    }
+
+    [Theory]
+    [MemberData(nameof(Wires))]
+    public async Task AFaultInTheExpressionAMissingModelAndAFailedRunAreToldApart(ClientWire wire)
+    {
+        using var handler = Serving(wire);
+        handler.Respond = (sent, _) => Task.FromResult(sent.Message(Wire.RunDocumentQueryRequest.Parser).InlineQuery switch
+        {
+            "evicted" => handler.Refuse(StatusCode.NotFound, "model not found: h"),
+            "nowhere" => handler.Refuse(StatusCode.FailedPrecondition, "no state named orbit"),
+            "older" => handler.Refuse(StatusCode.Unimplemented, "capability \"inline_document_query\" is unavailable"),
+            _ => handler.Refuse(StatusCode.InvalidArgument, "inline query 1:30: expected ')'"),
+        });
+        await using var connection = await FakeConnection.OpenAsync(handler);
+        var model = connection.ModelByHash(Hash);
+        var token = TestContext.Current.CancellationToken;
+
+        var malformed = await Assert.ThrowsAsync<ServiceException>(() => model.RunInlineDocumentQueryAsync("Project(Named(\"Q\") (\"name\"))", cancellationToken: token));
+        var evicted = await Assert.ThrowsAsync<ModelNotFoundException>(() => model.RunInlineDocumentQueryAsync("evicted", cancellationToken: token));
+        var failed = await Assert.ThrowsAsync<QueryException>(() => model.RunInlineDocumentQueryAsync("nowhere", cancellationToken: token));
+        var older = await Assert.ThrowsAsync<CapabilityException>(() => model.RunInlineDocumentQueryAsync("older", cancellationToken: token));
+
+        Assert.Equal(
+            (typeof(ServiceException), StatusCode.InvalidArgument, "inline query 1:30: expected ')'", Model.RunDocumentQueryMethod),
+            (malformed.GetType(), malformed.StatusCode, malformed.ServiceMessage, malformed.Method));
+        Assert.Equal((Model.RunDocumentQueryMethod, "model not found: h"), (evicted.Method, evicted.ServiceMessage));
+        Assert.Equal((StatusCode.FailedPrecondition, "no state named orbit", Model.RunDocumentQueryMethod), (failed.StatusCode, failed.ServiceMessage, failed.Method));
+        Assert.Equal(Capabilities.InlineDocumentQuery, older.Capability);
+    }
+
+    [Theory]
+    [MemberData(nameof(Wires))]
     public async Task AMissingModelAMissingDeclarationAndAFaultInTheModelsDeclarationsAreToldApart(ClientWire wire)
     {
         using var handler = Serving(wire);

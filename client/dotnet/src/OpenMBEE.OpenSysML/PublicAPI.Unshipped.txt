@@ -276,6 +276,7 @@
 [OSML0001]const OpenMBEE.OpenSysML.Capabilities.ImportAuthoring = "import_authoring" -> string!
 [OSML0001]const OpenMBEE.OpenSysML.Capabilities.ImportData = "import_data" -> string!
 [OSML0001]const OpenMBEE.OpenSysML.Capabilities.InfinityValue = "infinity_value" -> string!
+[OSML0001]const OpenMBEE.OpenSysML.Capabilities.InlineDocumentQuery = "inline_document_query" -> string!
 [OSML0001]const OpenMBEE.OpenSysML.Capabilities.InlineLanguage = "inline_language" -> string!
 [OSML0001]const OpenMBEE.OpenSysML.Capabilities.MeasurementRefs = "measurement_refs" -> string!
 [OSML0001]const OpenMBEE.OpenSysML.Capabilities.MemberModifiers = "member_modifiers" -> string!
@@ -2279,6 +2280,7 @@
 [OSML0001]OpenMBEE.OpenSysML.Model.RenderDocumentAsync(string! documentId, OpenMBEE.OpenSysML.DocumentForm form = OpenMBEE.OpenSysML.DocumentForm.Markdown, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<OpenMBEE.OpenSysML.RenderedDocument!>!
 [OSML0001]OpenMBEE.OpenSysML.Model.RenderViewAsync(string! view, OpenMBEE.OpenSysML.RenderViewOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<OpenMBEE.OpenSysML.RenderedView!>!
 [OSML0001]OpenMBEE.OpenSysML.Model.RunDocumentQueryAsync(string! queryId, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.DocumentBinding!>? bindings = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<OpenMBEE.OpenSysML.DocumentQueryResult!>!
+[OSML0001]OpenMBEE.OpenSysML.Model.RunInlineDocumentQueryAsync(string! expression, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.DocumentBinding!>? bindings = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<OpenMBEE.OpenSysML.DocumentQueryResult!>!
 [OSML0001]OpenMBEE.OpenSysML.ModelException.ModelException(string! message, string! method, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Diagnostic!>! diagnostics, System.Exception? innerException) -> void
 [OSML0001]OpenMBEE.OpenSysML.Query
 [OSML0001]OpenMBEE.OpenSysML.Query.<Clone>$() -> OpenMBEE.OpenSysML.Query!

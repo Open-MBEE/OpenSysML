@@ -41,6 +41,7 @@ internal static class FakeModels
         Capabilities.Migrate,
         Capabilities.OslcQuery,
         Capabilities.DocumentQuery,
+        Capabilities.InlineDocumentQuery,
         Capabilities.RenderDocument,
         Capabilities.RenderDocumentHtml,
         Capabilities.RenderDocumentAsciidoc,

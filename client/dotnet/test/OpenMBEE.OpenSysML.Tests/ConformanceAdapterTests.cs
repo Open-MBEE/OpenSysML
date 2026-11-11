@@ -75,7 +75,9 @@ public sealed class ConformanceAdapterTests
         { "Query", """{"model_hash": "h", "query": {"where": {"primitive": {"property": "name", "operator": "PRIMITIVE_OPERATOR_INSTANCE_OF", "value": ["Usage"]}}}}""", "the public API cannot hold query.where.primitive as spelled: An InstanceOf comparison compares @type, the element's metaclass, not \"name\"." },
         { "Query", """{"model_hash": "h", "query": {"where": {"composite": {"operator": "COMPOSITE_OPERATOR_AND", "constraint": [{"primitive": {"property": "multiplicityLower", "operator": "PRIMITIVE_OPERATOR_GREATER", "value": ["1", "2"]}}]}}}}""", "the public API cannot hold query.where.composite.constraint[0].primitive as spelled: A Greater comparison compares against exactly one value, not 2." },
         { "Query", """{"model_hash": "h", "query": {"where": {"primitive": {"operator": "PRIMITIVE_OPERATOR_EQUAL", "value": ["a"]}}}}""", "the public API cannot hold query.where.primitive as spelled: The value cannot be an empty string." },
-        { "RunDocumentQuery", """{"model_hash": "h"}""", "the public API names a document query by a qualified name that is not empty" },
+        { "RunDocumentQuery", """{"model_hash": "h"}""", "the public API names a document query by a qualified name, or writes one, that is not empty" },
+        { "RunDocumentQuery", """{"model_hash": "h", "query_id": "Q", "inline_query": "Named(\"Q\")"}""", "the public API names a document query or writes one in place, in two calls, so it cannot send both" },
+        { "RunDocumentQuery", """{"model_hash": "h", "inline_query": "Named(\"Q\")", "bindings": [{"values": [{"string_value": "x"}]}]}""", "the public API cannot hold bindings[0] as spelled: The value cannot be an empty string." },
         { "RunDocumentQuery", """{"model_hash": "h", "query_id": "Q", "bindings": [{"values": [{"string_value": "x"}]}]}""", "the public API cannot hold bindings[0] as spelled: The value cannot be an empty string." },
         { "RunDocumentQuery", """{"model_hash": "h", "query_id": "Q", "bindings": [{"parameter": "p", "values": [{"infinity": true}]}]}""", "the public API cannot hold bindings[0] as spelled: The value p[0] is infinity, which queries answer and are never bound to." },
         { "RunDocumentQuery", """{"model_hash": "h", "query_id": "Q", "bindings": [{"parameter": "p", "values": [{"element_type": "PartUsage"}]}]}""", "the public API cannot hold bindings[0] as spelled: The value p[0] is an element named by no qualified name, which a query cannot be bound to." },
@@ -493,6 +495,14 @@ public sealed class ConformanceAdapterTests
                     new Wire.DocumentQueryBinding { Parameter = "root", Values = { new Wire.DocumentValue { ElementId = "Garage::bike" } } },
                     new Wire.DocumentQueryBinding { Parameter = "none" },
                 },
+            },
+            CompleteQueryDocsWire.DocumentQuery),
+        ["RunDocumentQuery written in place"] = (
+            new Wire.RunDocumentQueryRequest
+            {
+                ModelHash = Hash,
+                InlineQuery = "in root : KerML::Root::Element; Project(WhereType(Descendants(root), \"PartUsage\"), (\"name\", \"mass\"))",
+                Bindings = { new Wire.DocumentQueryBinding { Parameter = "root", Values = { new Wire.DocumentValue { ElementId = "Garage::car" } } } },
             },
             CompleteQueryDocsWire.DocumentQuery),
         ["RenderDocument"] = (new Wire.RenderDocumentRequest { ModelHash = Hash, DocumentId = "Observatory::MassReport" }, CompleteQueryDocsWire.Markdown),
