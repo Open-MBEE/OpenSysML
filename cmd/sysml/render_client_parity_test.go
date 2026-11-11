@@ -1,3 +1,6 @@
+// The in-process client embeds the service, which a build without v1 does not carry.
+//go:build !sysml_re && !sysml_nov1
+
 package main
 
 import (
