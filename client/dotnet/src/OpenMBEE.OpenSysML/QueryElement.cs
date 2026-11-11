@@ -12,7 +12,7 @@ public sealed record QueryElement
     /// <param name="properties">The selected properties the element has, by name; copied.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentException">A name repeats, or a name or a value is null.</exception>
-    public QueryElement(string id, string type, IEnumerable<KeyValuePair<string, string>> properties)
+    internal QueryElement(string id, string type, IEnumerable<KeyValuePair<string, string>> properties)
     {
         ArgumentNullException.ThrowIfNull(id);
         ArgumentNullException.ThrowIfNull(type);

@@ -9,7 +9,7 @@ public sealed record RunCountedValue
     /// <param name="value">The distinct value, as the service spells it: an object by the usage it occurs as and its id.</param>
     /// <param name="count">The completed runs that produced it.</param>
     /// <exception cref="ArgumentNullException"><paramref name="value"/> is null.</exception>
-    public RunCountedValue(Value value, long count)
+    internal RunCountedValue(Value value, long count)
     {
         ArgumentNullException.ThrowIfNull(value);
         Value = value;

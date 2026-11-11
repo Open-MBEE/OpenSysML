@@ -12,10 +12,17 @@ The client is consumed from a checkout by `ProjectReference`, never from NuGet:
 <ProjectReference Include="path/to/OpenSysML/client/dotnet/src/OpenMBEE.OpenSysML/OpenMBEE.OpenSysML.csproj" />
 ```
 
+It is experimental until declared stable, and a release may change any of what this page lists:
+the assembly is marked `[Experimental("OSML0001")]`, which a consuming project suppresses
+(`<NoWarn>$(NoWarn);OSML0001</NoWarn>`) to use it; see [Experimental](../clients/dotnet.md#experimental).
+
 It targets **`net10.0`** alone, built with the SDK the repository-root `global.json` pins. Every
 call is asynchronous, returns a `Task` and takes an optional `CancellationToken`; a cancelled call
 throws `OperationCanceledException` carrying the caller's token. Results are immutable and safe
-to share between threads. The assembly makes no `IsAotCompatible` or `IsTrimmable` claim.
+to share between threads, and have no public constructors: only the service answers with them, so a
+release can add to them. What a call takes is built by the caller: options, edits, values, document
+bindings, query constraints, and the instances the typed classes read. The assembly makes no
+`IsAotCompatible` or `IsTrimmable` claim.
 
 ## Connection
 
@@ -47,7 +54,7 @@ service; it is idempotent and never throws.
 | `MaxRequestSize`, `MaxResponseSize` | 512 MiB each by default, a response measured after decompression |
 | `Logger` | An `ILogger`, `NullLogger` by default |
 | `HttpMessageHandler` | A handler to borrow, never disposed by the connection |
-| `Version`, `RequireCapabilities` | An exact service version (`StaleServiceException`) and required capabilities (`CapabilityException`) |
+| `Version`, `RequireCapabilities` | An exact service version, else the release `OPENSYSML_GRPC_VERSION` names (`StaleServiceException`), and required capabilities (`CapabilityException`) |
 | `AutoStart` | Whether a connection naming no service starts a private one; true by default |
 | `BinaryPath`, `ExpectedBinarySha256` | The private service's binary, and the digest it must have |
 | `IsolatedService` | A private service of this connection's own rather than a shared one |
@@ -55,7 +62,7 @@ service; it is idempotent and never throws.
 | `DownloadVersion`, `GithubRepo` | The release to download, a tag or `latest`, and its repository |
 
 The private-service options are refused alongside `Address` or with `AutoStart` false. Every
-option is checked before anything is sent; an invalid one is an `InvalidRequestException`.
+option is checked before anything is sent; an invalid one is an `ArgumentException`.
 `ConnectionOptions` also names the environment variables as constants: `ServiceVariable`,
 `BinaryVariable`, `VersionVariable`, `GithubRepoVariable`, `AllowUnpinnedDownloadVariable` and
 `TokenVariable`. A private service is started without `OPENSYSML_GRPC_TOKEN`, and requires no
@@ -80,7 +87,7 @@ returned model owns and closes when it is disposed.
 
 A `Model` is the service's parse of its sources, named by `Hash`: its `Roots`, `Documents`,
 `ParseDiagnostics` and their `Errors`. `HasErrors` says whether it has errors, and
-`RequireNoErrors` raises `ModelErrorsException` when it does. A model loaded through a connection
+`RequireNoErrors` raises a `ModelException` carrying them when it does. A model loaded through a connection
 borrows it. Each method below is one RPC:
 
 | Area | Methods | Result |
@@ -244,6 +251,8 @@ at run time, needs no service, and is consumed by its own `ProjectReference`:
 <ProjectReference Include="path/to/OpenSysML/client/dotnet/src/OpenMBEE.OpenSysML.Metamodel/OpenMBEE.OpenSysML.Metamodel.csproj" />
 ```
 
+It is experimental too, under the same OSML0001.
+
 `tools/gen/csmetamodel` generates its types from the repository's metamodel table (`make
 dotnet-metamodel`; `make dotnet-metamodel-check` fails when they are stale):
 
@@ -315,29 +324,30 @@ elements it does not include. The compact form is not read.
 
 ## Exceptions
 
-Every failure derives from `OpenSysMLException`, except cancellation and use after disposal:
+Every failure derives from `OpenSysMLException`, except cancellation, use after disposal, and an argument or option
+the client refuses before anything is sent, which is an `ArgumentException` (`ArgumentNullException` for a null):
 
 ```text
 OpenSysMLException
-├── InvalidRequestException        refused before anything was sent
-├── CapabilityException            the service lacks a capability; Capability, Remedy
+├── CapabilityException            the service lacks a capability, or refused a call for one; Capability, Remedy
 ├── ServiceStartException          no service could be started or reached
 │   ├── BinaryNotFoundException       SearchedLocations
 │   ├── ChecksumMismatchException     BinaryPath, ExpectedSha256, ActualSha256
-│   ├── UnpinnedReleaseException      Repository, Version, Asset
+│   │   └── UnpinnedReleaseException     Repository, Version, Asset; no digests
 │   ├── UnsupportedPlatformException  Platform
 │   └── StaleServiceException
 ├── ServiceStopException           Failures
-├── ServiceException               a status the service sent; StatusCode, ServiceMessage, Method
-│   ├── AuthenticationException       Unauthenticated: no token, or a refused one; CredentialsSent, Remedy
-│   ├── ModelNotFoundException
-│   └── ModelFileNotFoundException
+├── CallException                  a call failed with a status rather than an answer; StatusCode, Method
+│   ├── ServiceException              a status the service sent; ServiceMessage
+│   │   ├── AuthenticationException      Unauthenticated: no token, or a refused one; CredentialsSent, Remedy
+│   │   ├── ModelNotFoundException
+│   │   └── ModelFileNotFoundException
+│   └── TransportException            no well-formed answer was read
 ├── ModelException                 the service answered a failure about the model; Diagnostics
-│   ├── ModelErrorsException, SymbolNotFoundException, ExecutionException, CheckException
+│   ├── SymbolNotFoundException, ExecutionException, CheckException
 │   ├── QueryException, ConversionException, MigrationException, EditException
 │   └── VerificationException
 │       └── AnalysisException, RunsException, RecordException, CompareException
-├── TransportException             no well-formed answer was read; StatusCode, Method
 ├── UnsupportedValueException      a value of a kind this client does not know
 ├── UnwritableException            a destination that cannot be written safely
 ├── FeatureValueException          a typed property's feature failed or was never materialized; FeatureName, Reason
@@ -359,7 +369,9 @@ MetamodelException
 
 A `ServiceException` is only ever a status the service itself sent. A status the transport made
 up, a malformed answer, an over-limit response and a passed deadline are `TransportException`s;
-so is a proxy's HTTP 401 page, which is not an `AuthenticationException`.
+so is a proxy's HTTP 401 page, which is not an `AuthenticationException`. Both are
+`CallException`s, so one `catch` reads any failed call's `StatusCode` and `Method`; a
+`QueryException` keeps the status the service sent too, as the model fault it is.
 A failure that kept a partial result carries it: a check's or an analysis's `Partial`, a run's
 `Trace`, a refused edit's `Referrers`.
 
@@ -368,7 +380,9 @@ A failure that kept a partial result carries it: a check's or an analysis's `Par
 `Capabilities` holds a constant for each capability name the service can advertise. Decide on
 those names, never on the version. Before sending, every typed call checks the capabilities its
 arguments need, in the order the service checks them, and raises `CapabilityException` naming the
-first one missing, so a gated option is never sent to a service that would ignore it. Response
+first one missing, so a gated option is never sent to a service that would ignore it. A call the
+service refuses with `Unimplemented` for a capability it does not have raises `CapabilityException`
+too, carrying the `ServiceException` it was read as in `InnerException`. Response
 fields a service fills only under a capability read as empty or null, never invented, from a
 service without it. `CallAsync` is the escape hatch below this and checks nothing.
 

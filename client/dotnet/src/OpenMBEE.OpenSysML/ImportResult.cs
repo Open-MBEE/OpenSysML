@@ -22,7 +22,7 @@ public sealed record ImportResult
     /// <param name="diagnostics">What the service reported.</param>
     /// <exception cref="ArgumentNullException">A collection is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null, or <paramref name="content"/> is empty.</exception>
-    public ImportResult(IEnumerable<ImportedFile> files, string? content, IEnumerable<EditedDocument> documents, Model? model, IEnumerable<Diagnostic> diagnostics)
+    internal ImportResult(IEnumerable<ImportedFile> files, string? content, IEnumerable<EditedDocument> documents, Model? model, IEnumerable<Diagnostic> diagnostics)
     {
         if (content is { Length: 0 })
         {

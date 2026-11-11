@@ -11,7 +11,7 @@ import and result comparison.
 The client is built from a checkout of this repository and consumed by `ProjectReference`; it is
 not published to NuGet. It targets `net10.0` only, built with the .NET SDK the repository-root
 `global.json` pins or a later patch in the same feature band. Run `dotnet` from the repository root
-so that pin applies, and check it with `make dotnet-preflight`.
+so that pin applies; `dotnet` refuses an SDK of another feature band there.
 
 ```xml
 <ItemGroup>
@@ -21,6 +21,19 @@ so that pin applies, and check it with `make dotnet-preflight`.
 
 Its version is the core version of the checkout, and the release of a version is the checkout of
 the core `v<version>` tag.
+
+### Experimental
+
+The client is experimental until it is declared stable: a release may change or remove any of its
+API. `OpenMBEE.OpenSysML` and the standalone `OpenMBEE.OpenSysML.Metamodel` are marked
+`[Experimental("OSML0001")]`, so every use of either is error OSML0001 until the project that
+uses it opts in:
+
+```xml
+<PropertyGroup>
+  <NoWarn>$(NoWarn);OSML0001</NoWarn>
+</PropertyGroup>
+```
 
 ## First model
 
@@ -79,21 +92,20 @@ OPENSYSML_GRPC_BINARY="$PWD/bin/sysml-grpc" dotnet run --project client/dotnet/s
 ```
 
 Keep the binary setting when running the sample: with neither `OPENSYSML_SERVICE` nor
-`OPENSYSML_GRPC_BINARY` set, it prints only the assembly identity and exits without running the
-walkthrough.
+`OPENSYSML_GRPC_BINARY` set, the client looks for a `sysml-grpc` in the shared cache and on `PATH`,
+as [Connections and protocols](#connections-and-protocols) describes, and a checkout may have none.
 
 ```text
-OpenMBEE.OpenSysML <version> (.NETCoreApp,Version=v10.0)
 sysml-grpc <version>, <count> capabilities
 Demo::sedan (partUsage): mass = 1800.0
 ```
 
-The first line is the referenced assembly's version, the checkout's, and its target framework; the
-second is the version and capability count the service reports. With nothing named,
+The first line is the version and capability count the service reports. With nothing named,
 `Connection.OpenAsync` starts a private `sysml-grpc` as a child of the program and stops it when
 the connection is disposed. A source with errors still parses into a `Model`, whose `Errors`
 say what is wrong; `RequireNoErrors` turns them into an exception instead. Every failure the
-client reports derives from `OpenSysMLException`, while a false verdict is an answer, not an
+client reports derives from `OpenSysMLException`, except an argument or option it refuses before
+sending anything, which is an `ArgumentException`; a false verdict is an answer, not an
 exception.
 
 ## Connections and protocols
@@ -167,7 +179,8 @@ Commit the file and gate it with `--check`, which exits 1 when the model has cha
 ## Reading exported JSON
 
 The checkout's `OpenMBEE.OpenSysML.Metamodel` project holds the SysML metamodel as C# types, one
-interface per metaclass, and reads an exported model into them without a service. Reference it alone:
+interface per metaclass, and reads an exported model into them without a service. Reference it alone,
+with the same [OSML0001 opt-in](#experimental):
 
 ```xml
 <ProjectReference Include="path/to/OpenSysML/client/dotnet/src/OpenMBEE.OpenSysML.Metamodel/OpenMBEE.OpenSysML.Metamodel.csproj" />

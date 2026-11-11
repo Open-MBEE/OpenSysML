@@ -17,7 +17,7 @@ public sealed record Verification
     /// <param name="diagnostics">What the service reported.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null.</exception>
-    public Verification(Verdict verdict, IEnumerable<VerificationVerdict> verifications, IEnumerable<Instance> instances, IEnumerable<Diagnostic> diagnostics)
+    internal Verification(Verdict verdict, IEnumerable<VerificationVerdict> verifications, IEnumerable<Instance> instances, IEnumerable<Diagnostic> diagnostics)
     {
         ArgumentNullException.ThrowIfNull(verdict);
         Verdict = verdict;

@@ -12,9 +12,13 @@ NuGet. Reference: `docs/clients/dotnet.md`, `docs/reference/dotnet-api.md` and
 
 ## Install and get the service binary
 
-Reference the project from a checkout of OpenSysML, built with the SDK its `global.json` pins:
+Reference the project from a checkout of OpenSysML, built with the SDK its `global.json` pins, and
+opt into its experimental API; without the `NoWarn`, every use of the client is error OSML0001:
 
 ```xml
+<PropertyGroup>
+  <NoWarn>$(NoWarn);OSML0001</NoWarn>
+</PropertyGroup>
 <ItemGroup>
   <ProjectReference Include="path/to/OpenSysML/client/dotnet/src/OpenMBEE.OpenSysML/OpenMBEE.OpenSysML.csproj" />
 </ItemGroup>
@@ -38,7 +42,7 @@ foreach (var d in model.Errors)                               // Diagnostic: Sev
 {
     Console.Error.WriteLine($"{d.Code}: {d.Message}");
 }
-model.RequireNoErrors();                                      // ModelErrorsException carrying them
+model.RequireNoErrors();                                      // ModelException carrying them
 ```
 
 A model with syntax errors still parses; branch on `d.Code` (`"syntax"`, `"unresolved"`, ...),
@@ -116,19 +120,22 @@ element carries.
 
 ## Errors
 
-Everything derives from `OpenSysMLException`, except `OperationCanceledException` and
-`ObjectDisposedException`:
+Everything derives from `OpenSysMLException`, except `OperationCanceledException`,
+`ObjectDisposedException`, and the `ArgumentException` an argument or option refused before sending is:
 
 - `ServiceException` — the service refused the call with a status (`StatusCode`, `ServiceMessage`);
   `ModelFileNotFoundException` for an unreadable file, `ModelNotFoundException` for a model it no
-  longer holds.
-- `ModelException` — the call was answered and reports a model failure, with `Diagnostics`:
-  `ModelErrorsException` (`RequireNoErrors`), `SymbolNotFoundException` (`Name`, `Suggestions`),
-  `ExecutionException`, `VerificationException` (`Reason`), `AnalysisException` (`Partial`),
-  `EditException`, `ConversionException`, `QueryException`.
-- `CapabilityException` (service too old, raised before sending), `InvalidRequestException`,
-  `ServiceStartException` and its `BinaryNotFoundException`, `ChecksumMismatchException`,
-  `UnpinnedReleaseException`, `TransportException`, `UnsupportedValueException`.
+  longer holds. It and `TransportException` (no well-formed answer: unreachable, malformed, past its
+  deadline) are both `CallException`s, so `catch (CallException e)` reads `e.StatusCode` of any
+  failed call.
+- `ModelException` — the call was answered and reports a model failure, with `Diagnostics`; also
+  what `RequireNoErrors` throws for a parse's errors. Its kinds: `SymbolNotFoundException` (`Name`,
+  `Suggestions`), `ExecutionException`, `VerificationException` (`Reason`), `AnalysisException`
+  (`Partial`), `EditException`, `ConversionException`, `QueryException`.
+- `CapabilityException` (service too old: raised before sending, or for a call the service refuses
+  for a capability it does not have), `ArgumentException` (an option refused before sending),
+  `ServiceStartException` and its `BinaryNotFoundException`, `ChecksumMismatchException` (and
+  `UnpinnedReleaseException`, one of them), `TransportException`, `UnsupportedValueException`.
 
 ## Pitfalls
 

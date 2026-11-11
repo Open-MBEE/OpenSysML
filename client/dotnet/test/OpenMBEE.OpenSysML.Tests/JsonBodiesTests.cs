@@ -3,7 +3,7 @@ using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 using Google.Protobuf;
-using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Transport;
 using Xunit;
 
 namespace OpenMBEE.OpenSysML.Tests;

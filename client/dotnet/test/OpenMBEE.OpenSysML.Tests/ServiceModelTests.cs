@@ -60,7 +60,7 @@ public sealed class ServiceModelTests(ServiceFixture services) : IClassFixture<S
         Assert.NotEmpty(broken.Hash);
         Assert.True(broken.HasErrors);
         Assert.Equal(DiagnosticSeverity.Error, broken.Errors[0].Severity);
-        Assert.Equal(broken.Errors, Assert.Throws<ModelErrorsException>(() => broken.RequireNoErrors()).Diagnostics);
+        Assert.Equal(broken.Errors, Assert.Throws<ModelException>(() => broken.RequireNoErrors()).Diagnostics);
         Assert.Equal(StatusCode.NotFound, file.StatusCode);
         Assert.Contains("/nonexistent/path/to/file.sysml", file.ServiceMessage, StringComparison.Ordinal);
         Assert.Equal(Connection.ParseSourcesMethod, document.Method);

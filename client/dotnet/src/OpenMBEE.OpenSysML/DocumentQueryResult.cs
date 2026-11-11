@@ -15,7 +15,7 @@ public sealed record DocumentQueryResult
     /// <param name="rows">The rows, in the engine's order; copied.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentException">A column or a row is null.</exception>
-    public DocumentQueryResult(IEnumerable<string> columns, IEnumerable<DocumentRow> rows)
+    internal DocumentQueryResult(IEnumerable<string> columns, IEnumerable<DocumentRow> rows)
     {
         Columns = new ValueList<string>(columns);
         Rows = new ValueList<DocumentRow>(rows);

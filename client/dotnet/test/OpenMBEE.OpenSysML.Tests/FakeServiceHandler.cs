@@ -14,7 +14,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Google.Protobuf;
-using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Transport;
 
 namespace OpenMBEE.OpenSysML.Tests;
 
@@ -320,9 +320,9 @@ internal static class FakeConnection
             RequireCapabilities = requireCapabilities ?? [],
         };
 
-    /// <summary>Opens a connection over the fake.</summary>
+    /// <summary>Opens a connection over the fake, reading no environment variable, so the developer's environment cannot change it.</summary>
     internal static Task<Connection> OpenAsync(FakeServiceHandler handler, ConnectionOptions? options = null) =>
-        Connection.OpenAsync(options ?? Options(handler), Xunit.TestContext.Current.CancellationToken);
+        Connection.OpenAsync(options ?? Options(handler), _ => null, Xunit.TestContext.Current.CancellationToken);
 
     /// <summary>A raw GetSymbol call, the method the tests make when the method does not matter.</summary>
     internal static Task<Wire.SymbolResponse> CallGetSymbolAsync(this Connection connection, CancellationToken cancellationToken) =>

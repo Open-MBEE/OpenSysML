@@ -1,12 +1,12 @@
 # Developing the OpenSysML .NET client
 
 How the client in this directory is built, tested and versioned; [README.md](README.md) covers
-using it.
+using it, and [the design note](../../docs/internals/design/dotnet-client.md) why it is built so.
 
 ## Building and testing
 
 ```bash
-make dotnet-test       # preflight, locked restore, build, format check, tests under coverlet, samples
+make dotnet-test       # locked restore, build, format check, tests under coverlet, samples
 make conformance-dotnet conformance-dotnet-check   # the conformance suite; see Conformance
 ```
 
@@ -24,7 +24,7 @@ dotnet test --solution client/dotnet/OpenSysML.slnx -c Release --no-build
 form `dotnet test <solution>` is not supported. Every test declares a `Category` trait,
 `Unit`, `Integration` or `Interop`, and a test enforces that, so a filter never silently
 drops one. `Unit` tests need only the checkout and the runtime; `Integration` tests need the
-service binary; `Interop` tests need the other clients' toolchains.
+service binary; `Interop` tests need Python, which runs a holder of the other clients' lock.
 
 Integration tests run against the binary `OPENSYSML_GRPC_BINARY` names, which they start
 themselves on ports the kernel chooses and reach by address: once serving its default
@@ -53,7 +53,8 @@ client's multi-file model and [`test/testdata/generate/cases`](test/testdata/gen
 [`goldens.json`](test/testdata/generate/goldens.json) records, are compiled by
 [`test/OpenMBEE.OpenSysML.Generate.Consumer`](test/OpenMBEE.OpenSysML.Generate.Consumer/), which
 references the library alone under its build policy and reads live instances through them. `make
-dotnet-generate-goldens` regenerates them and `make dotnet-generate-check` checks them.
+dotnet-generate-goldens` regenerates them and `make dotnet-generate-check` checks them; CI checks them
+through `GoldenTests`, which regenerates each golden over every wire as part of the suite.
 
 The metamodel's tests, in [`test/OpenMBEE.OpenSysML.Metamodel.Tests`](test/OpenMBEE.OpenSysML.Metamodel.Tests/),
 reference the metamodel project alone. They hold every interface's ancestry against the committed
@@ -114,16 +115,17 @@ cross-client lock alone with its own system calls, as another client would, so t
 to how the client locks cannot also change what checks it. It also loads two copies of the
 client into collectible load contexts, which must shut each other out and be collected, and
 runs a cache transaction that stops at a chosen step to be killed, after which the lock must
-be free and nothing torn trusted. Interop tests run holders that take the lock with the
-Python, Java and Rust clients' exact calls, in [`test/interop`](test/interop/): each client
-must shut the other out both ways, wait for and see the other's release, and take the lock of
-a killed holder of the other, and the Python client must read and write the cache's record
-byte for byte as this one does. A failed holder acquisition stops and awaits its process
-before reporting the failure, including when it times out or receives unexpected output.
-They need Python, a JDK (`JAVA_HOME` or `PATH`, with
-`javac`) and Cargo, which builds the Rust holder from its locked manifest into
-`bin/dotnet/interop`; each test whose toolchain is missing skips naming it, and with
-`OPENSYSML_REQUIRE_INTEROP=1`, as CI sets, fails instead:
+be free and nothing torn trusted. Interop tests run a holder that takes the lock with the
+Python client's exact calls, [`test/interop/lock_holder.py`](test/interop/lock_holder.py): the
+two clients must shut each other out both ways, wait for and see each other's release, and take
+the lock of a killed holder of the other, and the Python client must read and write the cache's
+record byte for byte as this one does. The Java and Rust clients take the same lock, an `fcntl`
+lock over the whole file on POSIX and a byte-range lock from its start on Windows, so the
+holder stands for them too, as the Python client's calls do in the Rust client's own test of
+its lock. A failed holder acquisition stops and awaits its process before reporting the
+failure, including when it times out or receives unexpected output. They need Python, which
+`PYTHON` names or else `python3` or `python` on `PATH`; each skips naming what is missing, and
+with `OPENSYSML_REQUIRE_INTEROP=1`, as CI sets, fails instead:
 
 ```bash
 OPENSYSML_REQUIRE_INTEROP=1 OPENSYSML_GRPC_BINARY="$PWD/bin/sysml-grpc" OPENSYSML_REQUIRE_SERVICE=1 make dotnet-test
@@ -144,9 +146,9 @@ The release fixture uses dedicated workers. Timing-sensitive header tests run th
 CI runs the whole suite on Linux under coverlet against the service its build job makes, then
 the conformance comparison with the reference runner, and, in the full tier, natively on macOS
 and Windows against a
-`sysml-grpc` built on that runner, with the same minimum test count. Every one of those jobs
-installs the Python, Java and Rust toolchains and requires the interop tests.
-The Python gates use ASCII success markers so preflight, sample and coverage reports
+`sysml-grpc` built on that runner, with the same minimum test count. Every one of those jobs,
+and CircleCI's, has Python and requires the interop tests.
+The Python gates use ASCII success markers so sample and coverage reports
 also work with legacy Windows console encodings.
 
 ## Protocol code
@@ -282,10 +284,11 @@ for an element GetElementProperties does not know, which the API raises as a
 document query or document the model declares wrongly, which the API raises as a
 `QueryException`; a
 capability the client refuses for before sending is `UNIMPLEMENTED`, which the service would
-answer; a transport failure is its status. Nothing is sent raw: a test reads the runner's IL
-and fails on any call to `Connection.CallAsync` or the generated stub. A request setting a field
+answer; a transport failure is its status. Nothing is sent raw: the runner's
+[`BannedSymbols.txt`](src/OpenMBEE.OpenSysML.Conformance/BannedSymbols.txt) makes any use of
+`Connection.CallAsync` or the generated stub a build error (RS0030). A request setting a field
 the adapter cannot send, or one the API has no way to express, is skipped for a stated reason;
-so is one the API itself refuses with `InvalidRequestException`, for that exception's message.
+so is one the API itself refuses with `ArgumentException`, for that exception's message.
 
 Skips are accounted exactly. `expected-skips.json` lists the RPCs no adapter covers, today none,
 and the scenarios whose request the API cannot express, each with the reason its adapter gives.
@@ -338,7 +341,9 @@ nullable reference types, deterministic builds, warnings as errors, the recommen
 analyzers, and generated XML documentation, with a public member that has no XML comment
 failing the build. The library and the metamodel each track their handwritten public API in
 `PublicAPI.Shipped.txt` and `PublicAPI.Unshipped.txt`; a public symbol missing from them fails the
-build.
+build. Both are marked `[Experimental("OSML0001")]` in their project files, so each entry carries
+an `[OSML0001]` prefix, and every project here suppresses OSML0001 in `Directory.Build.props`, as a
+consumer's project must.
 
 Package versions are pinned once, in [`Directory.Packages.props`](Directory.Packages.props),
 and each project's `packages.lock.json` records the resolved graph: a locked restore
@@ -357,6 +362,8 @@ Nothing publishes the client: its release is the checkout of the core `v<version
 release branch, `python3 client/dotnet/scripts/dotnet-gates.py promote-api` moves every entry of
 `PublicAPI.Unshipped.txt` into `PublicAPI.Shipped.txt`, and the release workflow refuses a tag
 whose public API is still unshipped (`promote-api --check`) or whose `Version` is not the tag's.
+While the two assemblies are experimental, a promotion records what a release had without
+promising it to the next.
 [Releasing OpenSysML](../../docs/project/releasing.md#releasing-the-net-client-as-the-tags-checkout)
 describes the procedure.
 

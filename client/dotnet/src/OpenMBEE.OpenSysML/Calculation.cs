@@ -16,7 +16,7 @@ public sealed record Calculation
     /// <param name="standing">The engine that computed the answer, the strength of its evidence and its bounds.</param>
     /// <exception cref="ArgumentNullException">A collection or <paramref name="standing"/> is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null.</exception>
-    public Calculation(Value? result, IEnumerable<CalcOutput> outputs, IEnumerable<Diagnostic> diagnostics, Standing standing)
+    internal Calculation(Value? result, IEnumerable<CalcOutput> outputs, IEnumerable<Diagnostic> diagnostics, Standing standing)
     {
         ArgumentNullException.ThrowIfNull(standing);
         Result = result;

@@ -26,7 +26,7 @@ public sealed record Migration
     /// <param name="sourcePath">The full path of the v1 file migrated, in this process's file system, when the source was a file; null for inline content.</param>
     /// <exception cref="ArgumentNullException">A string, <paramref name="report"/> or <paramref name="files"/> is null.</exception>
     /// <exception cref="ArgumentException">A file is null.</exception>
-    public Migration(
+    internal Migration(
         string content,
         string fromFormat,
         string toFormat,

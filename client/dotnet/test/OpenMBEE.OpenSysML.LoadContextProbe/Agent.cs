@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Linq;
 using System.Runtime.Loader;
 using System.Threading.Tasks;
-using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Lifecycle;
 
 namespace OpenMBEE.OpenSysML.LoadContextProbe;
 

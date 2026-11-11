@@ -308,8 +308,9 @@ public sealed class ModelQueryDocsTests
         var first = result.Rows[0];
         Assert.Equal(new DocumentValue.ElementValue("Garage::car", "PartUsage"), first.Element);
         Assert.Equal([new DocumentValue.TextValue("car")], first.Cells[0]);
+        // DocumentValueTests holds each arm's reading to what the service sent; this holds a query's cells to that reading.
         Assert.Equal(
-            CompleteExecutionWire.DocumentValues.Select((value, i) => Internal.DocumentWire.Value(value, Model.RunDocumentQueryMethod, $"v{i}")),
+            CompleteExecutionWire.DocumentValues.Select((value, i) => Internal.Mapping.DocumentWire.Value(value, Model.RunDocumentQueryMethod, $"v{i}")),
             first.Cells[1]);
         Assert.Equal(new DocumentObject(2, "Garage::car", new DocumentValue.ElementValue("Garage::car", "PartUsage")), Assert.IsType<DocumentValue.ObjectValue>(result.Rows[1].Element).Value);
         Assert.Equal(2, result.Rows[1].Cells.Count);
@@ -380,7 +381,7 @@ public sealed class ModelQueryDocsTests
         var unreduced = new DocumentValue.QuantityValue(new Quantity(new Value.IntegerValue(2), "kg", null));
 
         await Run(connection.ModelByHash(Hash), quarter, quarterMass);
-        await Assert.ThrowsAsync<InvalidRequestException>(() => Run(connection.ModelByHash(Hash), unreduced));
+        await Assert.ThrowsAsync<ArgumentException>(() => Run(connection.ModelByHash(Hash), unreduced));
         await Assert.ThrowsAsync<ArgumentException>(() => connection.ModelByHash(Hash).RunDocumentQueryAsync(string.Empty, cancellationToken: token));
         await Assert.ThrowsAsync<ArgumentException>(() => connection.ModelByHash(Hash).RunDocumentQueryAsync("Q", [null!], token));
 
@@ -505,7 +506,7 @@ public sealed class ModelQueryDocsTests
         var unnamed = await model.RenderDocumentAsync("unnamed", DocumentForm.Markdown, token);
         var both = await Assert.ThrowsAsync<TransportException>(() => model.RenderDocumentAsync("both", DocumentForm.Html, token));
         var also = await Assert.ThrowsAsync<TransportException>(() => model.RenderDocumentAsync("also", DocumentForm.AsciiDoc, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.RenderDocumentAsync("Observatory::MassReport", (DocumentForm)3, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RenderDocumentAsync("Observatory::MassReport", (DocumentForm)3, token));
         await Assert.ThrowsAsync<ArgumentException>(() => model.RenderDocumentAsync(string.Empty, cancellationToken: token));
 
         Assert.Equal(
@@ -569,12 +570,12 @@ public sealed class ModelQueryDocsTests
         Assert.Null(view.Node("n9"));
         Assert.Equal(("n1", "part def", "Plant::Loop", false, "already shown", string.Empty), (loop.Id, loop.Kind, loop.Name, loop.NameSynthesized, loop.Detail, loop.Parent));
         Assert.Equal(new SourceSpan("views.sysml", 10, 3, 11, 9), loop.Origin);
-        Assert.Equal(new ViewGeometry(300, 40, 120, 60.5, HasSize: true, Collapsed: true, Unplaced: false), loop.Geometry);
+        Assert.Equal(new ViewGeometry(300, 40, 120, 60.5, hasSize: true, collapsed: true, unplaced: false), loop.Geometry);
         Assert.Equal(new ViewStyle("#FFE8BD", "#333333", "#000000", "Arial", 11, bold: true, italic: true), loop.Style);
         Assert.Equal((true, "Pump", "pump : Pump", true, "n1"), (pump.NameSynthesized, pump.Type, pump.Text, pump.StandIn, pump.Parent));
         Assert.Equal([new ViewPort("n2.0", "outlet", "FluidPort", "out", inherited: false), new ViewPort("n2.1", "vent", string.Empty, string.Empty, inherited: true)], pump.Ports);
         Assert.Equal(new SourceSpan("lib.sysml", 0, 0, 0, 0), pump.Origin);
-        Assert.Equal(new ViewGeometry(0, 0, 0, 0, HasSize: false, Collapsed: true, Unplaced: true), pump.Geometry);
+        Assert.Equal(new ViewGeometry(0, 0, 0, 0, hasSize: false, collapsed: true, unplaced: true), pump.Geometry);
         Assert.Null(pump.Style);
         Assert.Equal((null, null, null), (tank.Origin, tank.Geometry, tank.Style));
         var supply = view.Edges[0];
@@ -640,10 +641,10 @@ public sealed class ModelQueryDocsTests
         var model = connection.ModelByHash(Hash);
         var token = TestContext.Current.CancellationToken;
 
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.RenderViewAsync("V", new RenderViewOptions { Depth = 0 }, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.RenderViewAsync("V", new RenderViewOptions { Depth = -1 }, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.RenderViewAsync("V", new RenderViewOptions { Ports = (RenderViewPorts)2 }, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.RenderViewAsync("V", new RenderViewOptions { Compartments = (RenderViewCompartments)3 }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RenderViewAsync("V", new RenderViewOptions { Depth = 0 }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RenderViewAsync("V", new RenderViewOptions { Depth = -1 }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RenderViewAsync("V", new RenderViewOptions { Ports = (RenderViewPorts)2 }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RenderViewAsync("V", new RenderViewOptions { Compartments = (RenderViewCompartments)3 }, token));
         await Assert.ThrowsAsync<ArgumentException>(() => model.RenderViewAsync(string.Empty, cancellationToken: token));
         Assert.Throws<ArgumentException>(() => new RenderViewOptions { Show = [null!] });
         Assert.Throws<ArgumentNullException>(() => new ViewFrame(null!, string.Empty, [], [], []));

@@ -12,7 +12,7 @@ public sealed record CaseStatistics
     /// <param name="notes">What was not compared, and why.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null.</exception>
-    public CaseStatistics(string analysis, IEnumerable<CaseStatistic> rows, IEnumerable<string> notes)
+    internal CaseStatistics(string analysis, IEnumerable<CaseStatistic> rows, IEnumerable<string> notes)
     {
         ArgumentNullException.ThrowIfNull(analysis);
         Analysis = analysis;

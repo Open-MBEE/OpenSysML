@@ -94,7 +94,7 @@ follow SysML.xtext:878, 887, 1607 ActionBodyParameter, 1442 AcceptNode, 1499 Sen
 So a client cannot treat "the call succeeded" as "the field was computed", and cannot treat
 "no refusal" as "the capability is there". Every client this repository ships checks the list
 before making a capability-gated call, and maps the service's refusal onto the same error it
-raises itself: `MissingCapabilityError` in Python, `CapabilityException` in Java,
+raises itself: `MissingCapabilityError` in Python, `CapabilityException` in Java and .NET,
 `CodeUnimplemented` in Go. The conformance suite runs against the default service and against
 a test-only configuration with capabilities withheld, so both columns of that table are
 exercised, not just described.

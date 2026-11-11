@@ -12,7 +12,7 @@ public sealed record InstancePathStep
     /// <param name="index">The position among the values of a multi-valued feature, counted from 1 as an object path indexes them; 0 for a single-valued one.</param>
     /// <param name="instanceId">The id of the object the step reaches.</param>
     /// <exception cref="ArgumentNullException">A string is null.</exception>
-    public InstancePathStep(string featureName, string featureSymbolId, int index, long instanceId)
+    internal InstancePathStep(string featureName, string featureSymbolId, int index, long instanceId)
     {
         ArgumentNullException.ThrowIfNull(featureName);
         ArgumentNullException.ThrowIfNull(featureSymbolId);

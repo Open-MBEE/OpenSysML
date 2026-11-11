@@ -25,7 +25,7 @@ public sealed record ObservableComparison
     /// <param name="notes">What the comparison remarks on.</param>
     /// <exception cref="ArgumentNullException">A string or <paramref name="notes"/> is null.</exception>
     /// <exception cref="ArgumentException">A note is null.</exception>
-    public ObservableComparison(
+    internal ObservableComparison(
         string stored,
         string feature,
         string unit,

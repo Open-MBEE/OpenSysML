@@ -15,7 +15,7 @@ public sealed record DocumentRow
     /// <param name="cells">The row's values for each column, in column order; copied.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentException">A cell, or a value in one, is null.</exception>
-    public DocumentRow(DocumentValue element, IEnumerable<IEnumerable<DocumentValue>> cells)
+    internal DocumentRow(DocumentValue element, IEnumerable<IEnumerable<DocumentValue>> cells)
     {
         ArgumentNullException.ThrowIfNull(element);
         ArgumentNullException.ThrowIfNull(cells);

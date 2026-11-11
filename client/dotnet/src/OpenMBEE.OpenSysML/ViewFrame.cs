@@ -17,7 +17,7 @@ public sealed record ViewFrame
     /// <param name="annotations">The bodies of the comments and documentation annotating the view, drawn bottom right.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentException">A list holds a null.</exception>
-    public ViewFrame(string name, string type, IEnumerable<string> exposes, IEnumerable<string> filters, IEnumerable<string> annotations)
+    internal ViewFrame(string name, string type, IEnumerable<string> exposes, IEnumerable<string> filters, IEnumerable<string> annotations)
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(type);

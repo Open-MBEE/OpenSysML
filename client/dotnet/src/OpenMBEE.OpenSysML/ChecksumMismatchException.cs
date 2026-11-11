@@ -4,7 +4,8 @@ namespace OpenMBEE.OpenSysML;
 
 /// <summary>
 /// A <c>sysml-grpc</c> binary does not have the SHA-256 digest required of it, so it was not
-/// started. Nothing else is tried in its place.
+/// started. Nothing else is tried in its place. An <see cref="UnpinnedReleaseException"/> is one too: a release
+/// nothing this client trusts vouches for, which has no digest to compare.
 /// </summary>
 public class ChecksumMismatchException : ServiceStartException
 {
@@ -22,13 +23,24 @@ public class ChecksumMismatchException : ServiceStartException
         ActualSha256 = actualSha256;
     }
 
-    /// <summary>The binary that was hashed.</summary>
+    /// <summary>Creates the exception for a release that has no digest to compare, which hashed nothing.</summary>
+    /// <param name="message">Why the release was refused and what to do about it.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="message"/> is null.</exception>
+    protected ChecksumMismatchException(string message)
+        : base(message ?? throw new ArgumentNullException(nameof(message)))
+    {
+        BinaryPath = string.Empty;
+        ExpectedSha256 = string.Empty;
+        ActualSha256 = string.Empty;
+    }
+
+    /// <summary>The binary that was hashed; empty when nothing was.</summary>
     public string BinaryPath { get; }
 
-    /// <summary>The digest required, in lower-case hexadecimal.</summary>
+    /// <summary>The digest required, in lower-case hexadecimal; empty when nothing was hashed.</summary>
     public string ExpectedSha256 { get; }
 
-    /// <summary>The digest it has, in lower-case hexadecimal.</summary>
+    /// <summary>The digest it has, in lower-case hexadecimal; empty when nothing was hashed.</summary>
     public string ActualSha256 { get; }
 
     private static string Describe(string binaryPath, string expectedSha256, string actualSha256, string remedy)

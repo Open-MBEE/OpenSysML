@@ -26,7 +26,7 @@ public sealed record TypeFacts
     /// <param name="types">The feature's derived types, most specific first; null or empty when it has none.</param>
     /// <exception cref="ArgumentNullException">A string is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="types"/> holds a null.</exception>
-    public TypeFacts(string declared, string resolvedId, string resolvedKind, string primitive, string primitiveSource, bool isQuantity, string unit, IEnumerable<TypeRef>? types = null)
+    internal TypeFacts(string declared, string resolvedId, string resolvedKind, string primitive, string primitiveSource, bool isQuantity, string unit, IEnumerable<TypeRef>? types = null)
     {
         ArgumentNullException.ThrowIfNull(declared);
         ArgumentNullException.ThrowIfNull(resolvedId);

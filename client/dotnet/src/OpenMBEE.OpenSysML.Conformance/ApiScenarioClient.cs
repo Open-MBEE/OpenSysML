@@ -99,10 +99,15 @@ internal sealed class ApiScenarioClient : IScenarioClient
         {
             return new ScenarioAnswer.Unexpressible(unexpressible.Message);
         }
-        catch (InvalidRequestException refused)
+        catch (ArgumentException refused) when (refused is not ArgumentNullException)
         {
             // The API refuses to send it, so it is a request the API cannot express.
             return new ScenarioAnswer.Unexpressible(refused.Message);
+        }
+        catch (CapabilityException refused) when (refused.InnerException is ServiceException sent)
+        {
+            // The service refused it for a capability it does not have.
+            return new ScenarioAnswer.Refused(sent.StatusCode, sent.ServiceMessage);
         }
         catch (CapabilityException refused)
         {

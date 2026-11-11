@@ -1,7 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Mapping;
 
 namespace OpenMBEE.OpenSysML;
 
@@ -19,10 +19,10 @@ public sealed partial class Model
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>Every field the view renderer produced.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="view"/> is null.</exception>
-    /// <exception cref="ArgumentException"><paramref name="view"/> is empty.</exception>
-    /// <exception cref="InvalidRequestException">
-    /// <see cref="RenderViewOptions.Ports"/> is not a <see cref="RenderViewPorts"/>, <see cref="RenderViewOptions.Compartments"/>
-    /// is not a <see cref="RenderViewCompartments"/>, or <see cref="RenderViewOptions.Depth"/> is not positive; nothing was sent.
+    /// <exception cref="ArgumentException">
+    /// <paramref name="view"/> is empty, <see cref="RenderViewOptions.Ports"/> is not a <see cref="RenderViewPorts"/>,
+    /// <see cref="RenderViewOptions.Compartments"/> is not a <see cref="RenderViewCompartments"/>, or
+    /// <see cref="RenderViewOptions.Depth"/> is not positive; nothing was sent.
     /// </exception>
     /// <exception cref="CapabilityException">The service lacks <see cref="Capabilities.RenderView"/>; nothing was sent.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
@@ -38,17 +38,17 @@ public sealed partial class Model
         options ??= RenderViewOptions.Default;
         if (!Enum.IsDefined(options.Ports))
         {
-            throw new InvalidRequestException($"RenderViewOptions.Ports is {options.Ports}, which is not a RenderViewPorts.");
+            throw new ArgumentException($"RenderViewOptions.Ports is {options.Ports}, which is not a RenderViewPorts.");
         }
 
         if (!Enum.IsDefined(options.Compartments))
         {
-            throw new InvalidRequestException($"RenderViewOptions.Compartments is {options.Compartments}, which is not a RenderViewCompartments.");
+            throw new ArgumentException($"RenderViewOptions.Compartments is {options.Compartments}, which is not a RenderViewCompartments.");
         }
 
         if (options.Depth is <= 0 and var depth)
         {
-            throw new InvalidRequestException($"RenderViewOptions.Depth is {depth}, which draws no level; leave it null for the view's own depth.");
+            throw new ArgumentException($"RenderViewOptions.Depth is {depth}, which draws no level; leave it null for the view's own depth.");
         }
 
         Connection.Capabilities.Require(Capabilities.RenderView);

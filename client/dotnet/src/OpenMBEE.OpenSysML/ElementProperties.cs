@@ -16,7 +16,7 @@ public sealed record ElementProperties
     /// <param name="properties">One entry per property, answered or not.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="properties"/> holds a null.</exception>
-    public ElementProperties(ElementRef element, IEnumerable<ElementProperty> properties)
+    internal ElementProperties(ElementRef element, IEnumerable<ElementProperty> properties)
     {
         ArgumentNullException.ThrowIfNull(element);
         Element = element;

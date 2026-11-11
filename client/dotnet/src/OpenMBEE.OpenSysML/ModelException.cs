@@ -5,7 +5,8 @@ namespace OpenMBEE.OpenSysML;
 
 /// <summary>
 /// A failure the service reported inside an answer it did give: an expression that would not
-/// evaluate, a symbol that is not there, an object that could not be built. The call itself
+/// evaluate, a symbol that is not there, an object that could not be built, or, from
+/// <see cref="Model.RequireNoErrors"/>, the errors a parse reported. The call itself
 /// succeeded, so this is never a <see cref="ServiceException"/>: a refused call is a service
 /// problem, a rejected model the caller's. The one refusal that is the model's is a
 /// <see cref="QueryException"/>: a document query or document the model declares wrongly.

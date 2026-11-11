@@ -3,7 +3,7 @@
     <AssemblyName>OpenMBEE.OpenSysML</AssemblyName>
     <RootNamespace>OpenMBEE.OpenSysML</RootNamespace>
     <Description>C# client for the OpenSysML sysml-grpc service.</Description>
-    <!-- LibraryImport: the shared cache's lock and links call libc and kernel32 (Internal/CacheNative.cs). -->
+    <!-- LibraryImport: the shared cache's lock and links call libc and kernel32 (Internal/Provisioning/CacheNative.cs). -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
@@ -21,12 +21,22 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Experimental until the client is declared stable: a release may change its API, and a project opts in by suppressing OSML0001. -->
+    <AssemblyAttribute Include="System.Diagnostics.CodeAnalysis.ExperimentalAttribute">
+      <_Parameter1>OSML0001</_Parameter1>
+      <UrlFormat>https://runtime.opensysml.org/clients/dotnet/#experimental</UrlFormat>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Synced from client/release-digests.json by scripts/sync-release-digests.py; never edit it here. -->
     <EmbeddedResource Include="release-digests.json" LogicalName="OpenMBEE.OpenSysML.release-digests.json" />
   </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="OpenMBEE.OpenSysML.Tests" />
+    <!-- The generator's tests build the symbols its planner reads, which only the service answers with. -->
+    <InternalsVisibleTo Include="OpenMBEE.OpenSysML.Generate.Tests" />
     <!-- The lifecycle probes read the registry's process ids, and the orphan probe's leak control the child's input. -->
     <InternalsVisibleTo Include="OpenMBEE.OpenSysML.OrphanProbe" />
     <InternalsVisibleTo Include="OpenMBEE.OpenSysML.LoadContextProbe" />

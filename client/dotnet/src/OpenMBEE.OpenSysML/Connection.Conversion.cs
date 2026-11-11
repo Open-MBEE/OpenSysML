@@ -2,7 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Google.Protobuf;
-using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Mapping;
 
 namespace OpenMBEE.OpenSysML;
 
@@ -24,7 +24,7 @@ public sealed partial class Connection
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The converted model, its formats, its diagnostics, the library elements it refers to, and whether the mapping it went through is experimental.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="source"/> or <paramref name="toFormat"/> is null.</exception>
-    /// <exception cref="InvalidRequestException"><see cref="ConvertOptions.FromFormat"/> is empty, or <see cref="ConvertOptions.IdForm"/> is not an <see cref="IdForm"/>; nothing was sent.</exception>
+    /// <exception cref="ArgumentException"><see cref="ConvertOptions.FromFormat"/> is empty, or <see cref="ConvertOptions.IdForm"/> is not an <see cref="IdForm"/>; nothing was sent.</exception>
     /// <exception cref="CapabilityException">
     /// The service lacks <see cref="Capabilities.Convert"/>, or <see cref="Capabilities.ConvertDocuments"/>,
     /// <see cref="Capabilities.ConvertLibraryStubs"/>, <see cref="Capabilities.ConvertCompact"/> or
@@ -43,12 +43,12 @@ public sealed partial class Connection
         options ??= ConvertOptions.Default;
         if (options.FromFormat is { Length: 0 })
         {
-            throw new InvalidRequestException("ConvertOptions.FromFormat is empty; leave it null to infer the source's format.");
+            throw new ArgumentException("ConvertOptions.FromFormat is empty; leave it null to infer the source's format.");
         }
 
         if (options.IdForm is { } form && !Enum.IsDefined(form))
         {
-            throw new InvalidRequestException($"ConvertOptions.IdForm is {form}, which is not an IdForm.");
+            throw new ArgumentException($"ConvertOptions.IdForm is {form}, which is not an IdForm.");
         }
 
         // The order the service checks them in, so the first refusal is the one it would make.
@@ -126,7 +126,7 @@ public sealed partial class Connection
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The migrated model, its report, and the results and files asked for.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="source"/> or <paramref name="toFormat"/> is null.</exception>
-    /// <exception cref="InvalidRequestException">An option names an empty string, or both a layout path and layout content; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">An option names an empty string, or both a layout path and layout content; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The service lacks <see cref="Capabilities.Migrate"/>; nothing was sent.</exception>
     /// <exception cref="MigrationException">The v1 model could not be migrated at all.</exception>
     /// <exception cref="ModelFileNotFoundException">The service could not read the file or the layout.</exception>
@@ -140,13 +140,13 @@ public sealed partial class Connection
         options ??= MigrateOptions.Default;
         if (options.FromFormat is { Length: 0 } || options.LayoutPath is { Length: 0 } || options.LayoutContent is { Length: 0 } || options.ImageBaseUrl is { Length: 0 })
         {
-            throw new InvalidRequestException(
+            throw new ArgumentException(
                 "MigrateOptions names an empty form, layout or image base URL; leave FromFormat, LayoutPath, LayoutContent or ImageBaseUrl null for none.");
         }
 
         if (options.LayoutPath is not null && options.LayoutContent is not null)
         {
-            throw new InvalidRequestException("MigrateOptions names both a LayoutPath and LayoutContent; a migration is laid out by one MTIP export.");
+            throw new ArgumentException("MigrateOptions names both a LayoutPath and LayoutContent; a migration is laid out by one MTIP export.");
         }
 
         Capabilities.Require(OpenSysML.Capabilities.Migrate);

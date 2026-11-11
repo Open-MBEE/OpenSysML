@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Mapping;
 
 namespace OpenMBEE.OpenSysML;
 
@@ -23,8 +24,7 @@ public sealed partial class Model
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The value an invocation returned, or the output features a calc usage computed.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="symbolId"/> is null.</exception>
-    /// <exception cref="ArgumentException">An argument is null.</exception>
-    /// <exception cref="InvalidRequestException">The engine is an empty string, or an argument is a value no service reads as one; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">An argument is null. The engine is an empty string, or an argument is a value no service reads as one; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The service lacks <see cref="Capabilities.Verification"/>, <see cref="Capabilities.Engines"/> for an engine, <see cref="Capabilities.ScheduleExplore"/> for the explore engine, or a capability an argument needs; nothing was sent.</exception>
     /// <exception cref="VerificationException">The calculation could not be evaluated: the symbol does not resolve or names no calc (<see cref="FailureReason.WrongKind"/>), an argument does not read, the evaluation failed.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
@@ -54,7 +54,7 @@ public sealed partial class Model
 
         if (response.Result is null && response.Outputs.Count == 0)
         {
-            throw new TransportException(StatusCode.Internal, $"{EvaluateCalcMethod} answered neither a value nor a failure for {symbolId}.", EvaluateCalcMethod);
+            throw TransportException.Malformed(EvaluateCalcMethod, $"neither a value nor a failure for {symbolId}");
         }
 
         return new Calculation(
@@ -73,7 +73,7 @@ public sealed partial class Model
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>What the run computed and decided; a verdict of false is a verdict, not an exception.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="symbolId"/> is null.</exception>
-    /// <exception cref="InvalidRequestException">An option names an empty string, the schedule or the engine explores, which <see cref="ExploreAnalysisAsync"/> answers, or an argument is a value no service reads as one; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">An option names an empty string, the schedule or the engine explores, which <see cref="ExploreAnalysisAsync"/> answers, or an argument is a value no service reads as one; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The service lacks <see cref="Capabilities.Schedule"/> for a schedule, <see cref="Capabilities.Verification"/>, <see cref="Capabilities.Engines"/> for an engine, or a capability an argument needs; nothing was sent.</exception>
     /// <exception cref="AnalysisException">The case could not be run to its end; <see cref="AnalysisException.Partial"/> keeps what it computed first.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
@@ -99,7 +99,7 @@ public sealed partial class Model
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>Every distinct outcome reached, how the exploration ended, and the standing of the engine that answered.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="symbolId"/> is null.</exception>
-    /// <exception cref="InvalidRequestException">An option names an empty string, the schedule runs once, which <see cref="RunAnalysisAsync"/> answers, a tool dry run is asked for, or an argument is a value no service reads as one; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">An option names an empty string, the schedule runs once, which <see cref="RunAnalysisAsync"/> answers, a tool dry run is asked for, or an argument is a value no service reads as one; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The service lacks <see cref="Capabilities.Schedule"/> or <see cref="Capabilities.ScheduleExplore"/> for the schedule, <see cref="Capabilities.Verification"/>, <see cref="Capabilities.Engines"/> for an engine, or a capability an argument needs; nothing was sent.</exception>
     /// <exception cref="AnalysisException">The case could not be explored at all.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
@@ -127,8 +127,7 @@ public sealed partial class Model
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The table, one row per run, in the order the runs were made.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="symbolId"/> or <paramref name="ranges"/> is null.</exception>
-    /// <exception cref="ArgumentException">A range or an argument is null.</exception>
-    /// <exception cref="InvalidRequestException">An option names an empty string, or a value is one no service reads as an argument; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">A range or an argument is null. An option names an empty string, or a value is one no service reads as an argument; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The service lacks <see cref="Capabilities.Verification"/>, <see cref="Capabilities.Engines"/> for an engine, <see cref="Capabilities.ScheduleExplore"/> for the explore engine, or a capability a value needs; nothing was sent.</exception>
     /// <exception cref="VerificationException">No run was made: the symbol does not resolve or is neither a case nor a calc (<see cref="FailureReason.WrongKind"/>), a range names no parameter of the target or no values follow from it, the samples are refused.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
@@ -143,7 +142,7 @@ public sealed partial class Model
         options ??= SweepOptions.Default;
         if (options.SubjectSymbolId is { Length: 0 } || options.Engine is { Length: 0 })
         {
-            throw new InvalidRequestException("SweepOptions names an empty subject or engine; leave SubjectSymbolId or Engine null to name none.");
+            throw new ArgumentException("SweepOptions names an empty subject or engine; leave SubjectSymbolId or Engine null to name none.");
         }
 
         var positional = ValueWire.ToWire(new ValueList<Value>(options.Arguments), "arguments");
@@ -221,7 +220,7 @@ public sealed partial class Model
         options ??= AnalysisOptions.Default;
         if (options.SubjectSymbolId is { Length: 0 } || options.Schedule is { Length: 0 } || options.Engine is { Length: 0 })
         {
-            throw new InvalidRequestException("AnalysisOptions names an empty subject, schedule or engine; leave SubjectSymbolId, Schedule or Engine null to name none.");
+            throw new ArgumentException("AnalysisOptions names an empty subject, schedule or engine; leave SubjectSymbolId, Schedule or Engine null to name none.");
         }
 
         var schedule = AnalysisSchedule(options, explore);
@@ -282,19 +281,19 @@ public sealed partial class Model
         var exploring = options.Schedule is { } named && RunOptions.IsExploring(named);
         if (!explore && (exploring || options.EngineExplores))
         {
-            throw new InvalidRequestException(
+            throw new ArgumentException(
                 $"AnalysisOptions explores every order (schedule {options.Schedule ?? "unset"}, engine {options.Engine ?? "unset"}), which {nameof(ExploreAnalysisAsync)} answers; a run takes one order.");
         }
 
         if (explore && options.Schedule is { } once && !exploring)
         {
-            throw new InvalidRequestException(
+            throw new ArgumentException(
                 $"The schedule {once} runs once, which {nameof(RunAnalysisAsync)} answers; an exploration takes {RunOptions.Explore} or {RunOptions.Explore}:runs=<n>,depth=<d>.");
         }
 
         if (explore && options.ToolDryRun)
         {
-            throw new InvalidRequestException("AnalysisOptions.ToolDryRun previews one run of the case, which an exploration makes none of; leave it false.");
+            throw new ArgumentException("AnalysisOptions.ToolDryRun previews one run of the case, which an exploration makes none of; leave it false.");
         }
 
         return explore && options.Schedule is null && !options.EngineExplores ? RunOptions.Explore : options.Schedule;

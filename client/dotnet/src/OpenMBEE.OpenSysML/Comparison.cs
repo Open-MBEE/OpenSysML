@@ -17,7 +17,7 @@ public sealed record Comparison
     /// <param name="standing">The engine that ran the runs, the strength of its evidence and its bounds.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null.</exception>
-    public Comparison(string source, IEnumerable<ConfigurationComparison> configurations, IEnumerable<Diagnostic> diagnostics, Standing standing)
+    internal Comparison(string source, IEnumerable<ConfigurationComparison> configurations, IEnumerable<Diagnostic> diagnostics, Standing standing)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(standing);

@@ -14,7 +14,7 @@ public sealed record ElementRef
     /// <param name="qualifiedName">The qualified name; empty for an unnamed element, and the library path (<c>owner/Metaclass[i]</c>) of an unnamed standard-library member.</param>
     /// <param name="metaclass">The metaclass (<c>PartDefinition</c>, <c>ConnectionUsage</c>, …); empty when the id is known to nothing.</param>
     /// <exception cref="ArgumentNullException">A string is null.</exception>
-    public ElementRef(string id, string qualifiedName, string metaclass)
+    internal ElementRef(string id, string qualifiedName, string metaclass)
     {
         ArgumentNullException.ThrowIfNull(id);
         ArgumentNullException.ThrowIfNull(qualifiedName);

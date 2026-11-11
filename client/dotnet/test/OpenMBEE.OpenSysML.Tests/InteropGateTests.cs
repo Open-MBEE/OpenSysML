@@ -7,7 +7,7 @@ using Xunit;
 
 namespace OpenMBEE.OpenSysML.Tests;
 
-/// <summary>Where the foreign lock holders' toolchains are looked for, and whether their absence skips or fails.</summary>
+/// <summary>Where Python, which the foreign lock holder runs on, is looked for, and whether its absence skips or fails.</summary>
 [Trait(Category.Name, Category.Unit)]
 public sealed class InteropGateTests : IDisposable
 {
@@ -23,21 +23,20 @@ public sealed class InteropGateTests : IDisposable
     [InlineData("0", false)]
     [InlineData("FALSE", false)]
     [InlineData("no", false)]
-    public void OnlyAPromiseOfTheToolchainsRequiresThem(string? value, bool required)
+    public void OnlyAPromiseOfPythonRequiresIt(string? value, bool required)
     {
         Assert.Equal(required, Gate((InteropGate.RequireVariable, value)).Required);
     }
 
-    [Theory]
-    [MemberData(nameof(InteropGate.All), MemberType = typeof(InteropGate))]
-    public void AMissingToolchainSkipsUnlessItWasPromisedAndThenFails(ForeignClient client)
+    [Fact]
+    public void AMissingPythonSkipsUnlessItWasPromisedAndThenFails()
     {
-        var skipped = Gate(("PATH", directory)).Decide(client);
-        var failed = Gate(("PATH", directory), (InteropGate.RequireVariable, "1")).Decide(client);
+        var skipped = Gate(("PATH", directory)).Decide();
+        var failed = Gate(("PATH", directory), (InteropGate.RequireVariable, "1")).Decide();
 
         Assert.Equal((null, false), (skipped.Tool, skipped.Fails));
         Assert.Equal((null, true), (failed.Tool, failed.Fails));
-        Assert.Contains($"${InteropGate.RequireVariable} is set, so this test must run against the {client} client's lock, but there is {skipped.Reason}.", failed.Reason, StringComparison.Ordinal);
+        Assert.Contains($"${InteropGate.RequireVariable} is set, so this test must run against the Python client's lock, but there is {skipped.Reason}.", failed.Reason, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -46,81 +45,49 @@ public sealed class InteropGateTests : IDisposable
         var onPath = Tool("path", OperatingSystem.IsWindows() ? "python" : "python3");
         var named = Tool("named", "my-python");
 
-        Assert.Equal(onPath, Gate(("PATH", Path.GetDirectoryName(onPath))).Decide(ForeignClient.Python).Tool);
-        Assert.Equal(named, Gate(("PATH", Path.GetDirectoryName(onPath)), ("PYTHON", named)).Decide(ForeignClient.Python).Tool);
-        Assert.Equal(onPath, Gate(("PATH", Path.GetDirectoryName(onPath)), ("PYTHON", "missing-python")).Decide(ForeignClient.Python).Tool);
+        Assert.Equal(onPath, Gate(("PATH", Path.GetDirectoryName(onPath))).Decide().Tool);
+        Assert.Equal(named, Gate(("PATH", Path.GetDirectoryName(onPath)), ("PYTHON", named)).Decide().Tool);
+        Assert.Equal(onPath, Gate(("PATH", Path.GetDirectoryName(onPath)), ("PYTHON", "missing-python")).Decide().Tool);
     }
 
     [Fact]
-    public void JavaIsAJdkFromJavaHomeElseFromPathAndAJreAloneIsNone()
+    public void APythonThatDoesNotRunIsNoneAndSaysWhy()
     {
-        var home = Path.Combine(directory, "jdk");
-        var java = Tool(Path.Combine("jdk", "bin"), "java");
-        var jre = Tool("jre", "java");
+        var python = Tool("path", OperatingSystem.IsWindows() ? "python" : "python3");
+        var values = new Dictionary<string, string?> { ["PATH"] = Path.GetDirectoryName(python) };
+        static string? Broken(string tool) => "exits with code 9009 when asked its version: Python was not found";
 
-        Assert.Null(Gate(("JAVA_HOME", home)).Decide(ForeignClient.Java).Tool);
-        Assert.Null(Gate(("PATH", Path.GetDirectoryName(jre))).Decide(ForeignClient.Java).Tool);
-        Tool(Path.Combine("jdk", "bin"), "javac");
-        Assert.Equal(java, Gate(("JAVA_HOME", home), ("PATH", Path.GetDirectoryName(jre))).Decide(ForeignClient.Java).Tool);
-        Assert.Equal(java, Gate(("PATH", Path.GetDirectoryName(java))).Decide(ForeignClient.Java).Tool);
-    }
-
-    [Fact]
-    public void CargoIsTheFirstOnPathElseTheOneRustupInstalls()
-    {
-        var home = Path.Combine(directory, "home");
-        var installed = Tool(Path.Combine("home", ".cargo", "bin"), "cargo");
-        var onPath = Tool("path", "cargo");
-        var homeVariable = OperatingSystem.IsWindows() ? "USERPROFILE" : "HOME";
-
-        Assert.Equal(onPath, Gate(("PATH", Path.GetDirectoryName(onPath)), (homeVariable, home)).Decide(ForeignClient.Rust).Tool);
-        Assert.Equal(installed, Gate((homeVariable, home)).Decide(ForeignClient.Rust).Tool);
-    }
-
-    [Theory]
-    [MemberData(nameof(InteropGate.All), MemberType = typeof(InteropGate))]
-    public void AToolThatDoesNotRunIsNoneAndSaysWhy(ForeignClient client)
-    {
-        Tool("path", OperatingSystem.IsWindows() ? "python" : "python3");
-        Tool("path", "java");
-        Tool("path", "javac");
-        var cargo = Tool("path", "cargo");
-        var values = new Dictionary<string, string?> { ["PATH"] = Path.GetDirectoryName(cargo) };
-        string? Broken(ForeignClient _, string tool) => "exits with code 1 when asked its version: Unable to locate a Java Runtime.";
-
-        var skipped = new InteropGate(values.GetValueOrDefault, Broken).Decide(client);
+        var skipped = new InteropGate(values.GetValueOrDefault, Broken).Decide();
         values[InteropGate.RequireVariable] = "1";
-        var failed = new InteropGate(values.GetValueOrDefault, Broken).Decide(client);
+        var failed = new InteropGate(values.GetValueOrDefault, Broken).Decide();
 
         Assert.Equal((null, false), (skipped.Tool, skipped.Fails));
-        Assert.Matches($"^no working {client} toolchain: .+ exits with code 1 when asked its version: Unable to locate a Java Runtime\\.$", skipped.Reason);
+        Assert.Equal($"no working Python: {python} exits with code 9009 when asked its version: Python was not found", skipped.Reason);
         Assert.Equal((null, true), (failed.Tool, failed.Fails));
         Assert.Contains(skipped.Reason!, failed.Reason, StringComparison.Ordinal);
     }
 
     [Fact]
     [UnsupportedOSPlatform("windows")]
-    public void APlaceholderThatCannotRunIsTakenForNoJdkAndAWorkingOneIsUsed()
+    public void APlaceholderThatCannotRunIsTakenForNoPythonAndAWorkingOneIsUsed()
     {
         Assert.SkipWhen(OperatingSystem.IsWindows(), "The stand-ins are shell scripts.");
-        var placeholder = Script("placeholder", "java", "echo 'The operation could not be completed. Unable to locate a Java Runtime.' >&2; exit 1");
-        Script("placeholder", "javac", "exit 1");
-        var working = Script("working", "java", "[ \"$1\" = -version ] || exit 2; echo 'openjdk version \"21\"' >&2");
-        Script("working", "javac", "exit 0");
+        var placeholder = Script("placeholder", "python3", "echo 'python3: no Python is installed here' >&2; exit 1");
+        var working = Script("working", "python3", "[ \"$1\" = --version ] || exit 2; echo 'Python 3.12.3'");
 
-        var none = new InteropGate(name => name == "PATH" ? Path.GetDirectoryName(placeholder) : null).Decide(ForeignClient.Java);
-        var found = new InteropGate(name => name == "PATH" ? Path.GetDirectoryName(working) : null).Decide(ForeignClient.Java);
+        var none = new InteropGate(name => name == "PATH" ? Path.GetDirectoryName(placeholder) : null).Decide();
+        var found = new InteropGate(name => name == "PATH" ? Path.GetDirectoryName(working) : null).Decide();
 
         Assert.Null(none.Tool);
-        Assert.Equal($"no working Java toolchain: {placeholder} exits with code 1 when asked its version: The operation could not be completed. Unable to locate a Java Runtime.", none.Reason);
+        Assert.Equal($"no working Python: {placeholder} exits with code 1 when asked its version: python3: no Python is installed here", none.Reason);
         Assert.Equal(working, found.Tool);
     }
 
-    // Every tool found runs, unless a test says otherwise.
+    // Every Python found runs, unless a test says otherwise.
     private static InteropGate Gate(params (string Name, string? Value)[] variables)
     {
         var values = variables.ToDictionary(variable => variable.Name, variable => variable.Value);
-        return new InteropGate(name => values.GetValueOrDefault(name), (_, _) => null);
+        return new InteropGate(name => values.GetValueOrDefault(name), _ => null);
     }
 
     [UnsupportedOSPlatform("windows")]

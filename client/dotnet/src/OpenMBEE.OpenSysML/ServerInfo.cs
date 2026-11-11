@@ -9,7 +9,7 @@ public sealed class ServerInfo : IEquatable<ServerInfo>
     /// <param name="version">The build version it reported; empty when it did not answer.</param>
     /// <param name="capabilities">The capabilities it advertised.</param>
     /// <param name="answered">Whether it answered GetServerInfo.</param>
-    public ServerInfo(string version, Capabilities capabilities, bool answered)
+    internal ServerInfo(string version, Capabilities capabilities, bool answered)
     {
         ArgumentNullException.ThrowIfNull(version);
         ArgumentNullException.ThrowIfNull(capabilities);

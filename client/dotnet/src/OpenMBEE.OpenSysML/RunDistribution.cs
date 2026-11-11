@@ -23,7 +23,7 @@ public sealed record RunDistribution
     /// <param name="values">How many runs produced each distinct value, where the values are not numbers.</param>
     /// <exception cref="ArgumentNullException"><paramref name="name"/>, <paramref name="unit"/> or a collection is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null.</exception>
-    public RunDistribution(
+    internal RunDistribution(
         string name,
         string unit,
         long count,

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Mapping;
 
 namespace OpenMBEE.OpenSysML;
 
@@ -31,8 +31,7 @@ public sealed partial class Model
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The edited notation, the documents the edits rewrote, and what each edit changed.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="edits"/> is null.</exception>
-    /// <exception cref="ArgumentException">An edit is null.</exception>
-    /// <exception cref="InvalidRequestException">An edit sets an optional part to empty text, or <see cref="EditOptions.InDocument"/> is empty; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">An edit is null. An edit sets an optional part to empty text, or <see cref="EditOptions.InDocument"/> is empty; nothing was sent.</exception>
     /// <exception cref="CapabilityException">
     /// The service lacks <see cref="Capabilities.ApplyEdits"/>; or a capability an edit needs, checked over the whole
     /// batch in the service's order: <see cref="Capabilities.Authoring"/> for any edit but a value or a rename, then
@@ -58,7 +57,7 @@ public sealed partial class Model
         options ??= EditOptions.Default;
         if (options.InDocument is { Length: 0 })
         {
-            throw new InvalidRequestException("EditOptions.InDocument is empty; leave it null to edit the model's first document.");
+            throw new ArgumentException("EditOptions.InDocument is empty; leave it null to edit the model's first document.");
         }
 
         EditWire.Validate(batch);

@@ -19,7 +19,7 @@ public sealed record ViewEdge
     /// <param name="style">How a style draws it; null when no style colours it.</param>
     /// <exception cref="ArgumentNullException">An argument other than the origin or style is null.</exception>
     /// <exception cref="ArgumentException">A waypoint is null.</exception>
-    public ViewEdge(
+    internal ViewEdge(
         string from,
         string to,
         string fromPort,

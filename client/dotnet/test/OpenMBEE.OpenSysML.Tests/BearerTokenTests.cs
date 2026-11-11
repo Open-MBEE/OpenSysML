@@ -4,7 +4,8 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Lifecycle;
+using OpenMBEE.OpenSysML.Internal.Transport;
 using Xunit;
 
 namespace OpenMBEE.OpenSysML.Tests;
@@ -39,7 +40,7 @@ public sealed class BearerTokenTests
     [InlineData("   ")]
     public void ABlankTokenIsRefused(string token)
     {
-        var error = Assert.Throws<InvalidRequestException>(() => new ConnectionOptions { Token = token }.Validate());
+        var error = Assert.Throws<ArgumentException>(() => new ConnectionOptions { Token = token }.Validate());
 
         Assert.Equal($"ConnectionOptions.Token is blank; give the service's bearer token, or leave it null for the one ${ConnectionOptions.TokenVariable} names.", error.Message);
     }
@@ -56,7 +57,7 @@ public sealed class BearerTokenTests
     [InlineData(" padded ")]
     public void ATokenTheServiceCouldNeverAcceptIsRefusedWithoutBeingQuoted(string token)
     {
-        var error = Assert.Throws<InvalidRequestException>(() => new ConnectionOptions { Token = token }.Validate());
+        var error = Assert.Throws<ArgumentException>(() => new ConnectionOptions { Token = token }.Validate());
 
         Assert.Equal($"ConnectionOptions.Token is not a bearer token: {BearerToken.Rule}.", error.Message);
     }
@@ -69,7 +70,7 @@ public sealed class BearerTokenTests
     {
         var options = new ConnectionOptions { Token = Secret, Headers = new Dictionary<string, string> { [name] = "Basic abc" } };
 
-        var error = Assert.Throws<InvalidRequestException>(options.Validate);
+        var error = Assert.Throws<ArgumentException>(options.Validate);
 
         Assert.Contains("set one or the other", error.Message, StringComparison.Ordinal);
         Assert.DoesNotContain(Secret, error.Message, StringComparison.Ordinal);
@@ -122,7 +123,7 @@ public sealed class BearerTokenTests
     [InlineData("caf\u00e9")]
     public void AVariableThatIsNoTokenIsRefusedWithoutBeingQuoted(string value)
     {
-        var error = Assert.Throws<InvalidRequestException>(() => CallHeaders.Resolve(new ConnectionOptions(), Variable(value)));
+        var error = Assert.Throws<ArgumentException>(() => CallHeaders.Resolve(new ConnectionOptions(), Variable(value)));
 
         Assert.Equal($"${ConnectionOptions.TokenVariable} does not name a bearer token: {BearerToken.Rule}. Correct it, or unset it if no service needs one.", error.Message);
     }

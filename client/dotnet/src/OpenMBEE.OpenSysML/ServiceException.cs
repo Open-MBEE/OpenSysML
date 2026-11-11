@@ -7,7 +7,7 @@ namespace OpenMBEE.OpenSysML;
 /// refusal it sent, distinct from a <see cref="TransportException"/>, where no such answer was read.
 /// A deadline the service reports exceeded is a <see cref="TransportException"/>, as a local one is.
 /// </summary>
-public class ServiceException : OpenSysMLException
+public class ServiceException : CallException
 {
     /// <summary>Creates the exception for a status the service sent.</summary>
     /// <param name="statusCode">The status; never <see cref="StatusCode.Ok"/>.</param>
@@ -16,21 +16,13 @@ public class ServiceException : OpenSysMLException
     /// <param name="innerException">The protocol library's report of the status, if any.</param>
     /// <exception cref="ArgumentException"><paramref name="statusCode"/> is <see cref="StatusCode.Ok"/>.</exception>
     public ServiceException(StatusCode statusCode, string serviceMessage, string method, Exception? innerException = null)
-        : base(Describe(statusCode, serviceMessage, method), innerException)
+        : base(statusCode, Describe(statusCode, serviceMessage, method), method, innerException)
     {
-        StatusCode = statusCode;
         ServiceMessage = serviceMessage;
-        Method = method;
     }
-
-    /// <summary>The status the service sent.</summary>
-    public StatusCode StatusCode { get; }
 
     /// <summary>What the service said, without the method and status the message prefixes it with.</summary>
     public string ServiceMessage { get; }
-
-    /// <summary>The method called, as <c>sysml.SysMLService/ParseFile</c>.</summary>
-    public string Method { get; }
 
     private static string Describe(StatusCode statusCode, string serviceMessage, string method)
     {

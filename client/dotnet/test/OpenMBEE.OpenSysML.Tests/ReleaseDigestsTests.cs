@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Text;
 using System.Text.Json;
-using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Provisioning;
 using Xunit;
 
 namespace OpenMBEE.OpenSysML.Tests;

@@ -26,7 +26,7 @@ public sealed record Runs
     /// <param name="standing">The engine that made the runs, the strength of its evidence and its bounds.</param>
     /// <exception cref="ArgumentNullException">A collection, <paramref name="unconcluded"/> or <paramref name="standing"/> is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null.</exception>
-    public Runs(
+    internal Runs(
         IEnumerable<SweepRow> rows,
         IEnumerable<string> observables,
         IEnumerable<RunDistribution> distributions,

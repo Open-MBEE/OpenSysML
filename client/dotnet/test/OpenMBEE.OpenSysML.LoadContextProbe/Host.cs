@@ -3,27 +3,28 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.Loader;
 using System.Text.Json;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace OpenMBEE.OpenSysML.LoadContextProbe;
 
 /// <summary>
 /// The probe in the default load context. It reaches each copy of the client only through
-/// <see cref="Copy"/>, by reflection, and keeps no reference to a copy once it is unloaded, so that
+/// <see cref="ClientCopy"/>, by reflection, and keeps no reference to a copy once it is unloaded, so that
 /// whatever keeps a copy alive afterwards is the client's own doing.
 /// </summary>
 internal static class Host
 {
     private const int CopyCount = 3;
     private const string LibraryName = "OpenMBEE.OpenSysML";
+
+    // By name: naming the type would make the default context load what its fields refer to.
+    private const string AgentType = "OpenMBEE.OpenSysML.LoadContextProbe.Agent";
     private static readonly TimeSpan ExitWait = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan CollectWait = TimeSpan.FromSeconds(30);
-    private static readonly Copy?[] Copies = new Copy?[CopyCount];
+    private static readonly ClientCopy?[] Copies = new ClientCopy?[CopyCount];
 
     internal static int Run(string[] args)
     {
@@ -110,7 +111,7 @@ internal static class Host
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static int Open(int index, string wire, string binary)
     {
-        Copies[index] = Copy.Load(index);
+        Copies[index] = ClientCopy.Load($"copy-{index}", typeof(Host).Assembly, AgentType);
         var answer = Call(index, "OpenAsync", binary, wire);
         Emit(index, "opened", answer);
         using var document = JsonDocument.Parse("{" + answer + "}");
@@ -120,7 +121,7 @@ internal static class Host
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static int StartOpening(int index, string wire, string binary, string pidFile)
     {
-        Copies[index] = Copy.Load(index);
+        Copies[index] = ClientCopy.Load($"copy-{index}", typeof(Host).Assembly, AgentType);
         Call(index, "StartOpeningAsync", binary, wire);
         var service = ReadProcessId(pidFile);
         Emit(index, "starting", string.Create(CultureInfo.InvariantCulture, $"\"service\":{service}"));
@@ -133,28 +134,19 @@ internal static class Host
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static WeakReference Unload(int index)
     {
-        var context = Copies[index]!.Context;
+        var copy = Copies[index]!;
         Copies[index] = null;
-        context.Unload();
-        return new WeakReference(context);
+        return copy.Unload();
     }
 
     private static void Collect(WeakReference[] copies)
     {
-        var watch = Stopwatch.StartNew();
-        while (copies.Any(copy => copy.IsAlive) && watch.Elapsed < CollectWait)
-        {
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-            Thread.Sleep(50);
-        }
-
+        var elapsed = ClientCopy.AwaitCollected(copies, CollectWait);
         var collected = string.Join(',', copies.Select(copy => Json(!copy.IsAlive)));
         var inDefault = AssemblyLoadContext.Default.Assemblies.Any(assembly => assembly.GetName().Name == LibraryName);
         Console.Out.WriteLine(string.Create(
             CultureInfo.InvariantCulture,
-            $"{{\"event\":\"collected\",\"copies\":[{collected}],\"libraryInDefault\":{Json(inDefault)},\"seconds\":{watch.Elapsed.TotalSeconds:F1}}}"));
+            $"{{\"event\":\"collected\",\"copies\":[{collected}],\"libraryInDefault\":{Json(inDefault)},\"seconds\":{elapsed.TotalSeconds:F1}}}"));
         Console.Out.Flush();
     }
 
@@ -163,7 +155,7 @@ internal static class Host
         var watch = Stopwatch.StartNew();
         while (watch.Elapsed < ExitWait)
         {
-            if (File.Exists(file) && File.ReadAllText(file) is { Length: > 0 } text)
+            if (Published(file) is { Length: > 0 } text)
             {
                 return int.Parse(text, CultureInfo.InvariantCulture);
             }
@@ -172,6 +164,20 @@ internal static class Host
         }
 
         throw new TimeoutException($"{file} was not written within {ExitWait}.");
+    }
+
+    // The service renames the file into place whole, but Windows can refuse a read just after, while something else,
+    // a scanner, has the new file open; that read is retried as if the file were not there yet.
+    private static string Published(string file)
+    {
+        try
+        {
+            return File.Exists(file) ? File.ReadAllText(file) : string.Empty;
+        }
+        catch (IOException)
+        {
+            return string.Empty;
+        }
     }
 
     private static bool AwaitExit(int processId)
@@ -216,27 +222,4 @@ internal static class Host
     }
 
     private static string Json(bool value) => value ? "true" : "false";
-
-    /// <summary>One loaded copy: its context, and its <see cref="Agent"/> type reached by name.</summary>
-    private sealed class Copy(CopyContext context, Type agent)
-    {
-        // By name: naming the type would make the default context load what its fields refer to.
-        private const string AgentType = "OpenMBEE.OpenSysML.LoadContextProbe.Agent";
-
-        internal CopyContext Context => context;
-
-        internal static Copy Load(int index)
-        {
-            var main = typeof(Host).Assembly.Location;
-            var context = new CopyContext($"copy-{index}", main);
-            return new Copy(context, context.LoadFromAssemblyPath(main).GetType(AgentType, throwOnError: true)!);
-        }
-
-        internal string Call(string method, string[] arguments)
-        {
-            var target = agent.GetMethod(method, BindingFlags.NonPublic | BindingFlags.Static)
-                ?? throw new MissingMethodException(AgentType, method);
-            return ((Task<string>)target.Invoke(null, arguments)!).GetAwaiter().GetResult();
-        }
-    }
 }

@@ -12,6 +12,20 @@ public sealed class RaceTests
 {
     private static readonly TimeSpan Deadline = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan TestLimit = TimeSpan.FromSeconds(10);
+
+    // The test's own limit, which must not pass for the TimeoutException a race's deadline raises: a round that has
+    // not returned within it fails as that, naming the limit, rather than as a race that timed out.
+    private static async Task<T> Watched<T>(Task<T> round)
+    {
+        try
+        {
+            return await round.WaitAsync(TestLimit, Token);
+        }
+        catch (TimeoutException) when (!round.IsCompleted)
+        {
+            throw new InvalidOperationException($"The race did not return within the test's {TestLimit}, though its deadline is {Deadline}.");
+        }
+    }
     private static CancellationToken Token => TestContext.Current.CancellationToken;
 
     [Fact]
@@ -48,7 +62,7 @@ public sealed class RaceTests
     public async Task ADeadlineCancelsACooperativePartyAndReportsATimeout()
     {
         var finished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var failure = await Assert.ThrowsAsync<TimeoutException>(() => Race.RunAsync(
+        var failure = await Assert.ThrowsAsync<TimeoutException>(() => Watched(Race.RunAsync(
             [async token =>
             {
                 try
@@ -61,7 +75,7 @@ public sealed class RaceTests
                 }
             }],
             Token,
-            Deadline).WaitAsync(TestLimit, Token));
+            Deadline)));
 
         Assert.Contains("lifecycle race", failure.Message, StringComparison.Ordinal);
         await finished.Task.WaitAsync(TestLimit, Token);
@@ -74,7 +88,7 @@ public sealed class RaceTests
         try
         {
             var failure = await Assert.ThrowsAsync<TimeoutException>(() =>
-                Race.RunAsync([_ => release.Task], Token, Deadline).WaitAsync(TestLimit, Token));
+                Watched(Race.RunAsync([_ => release.Task], Token, Deadline)));
 
             Assert.Contains("unfinished parties: [0]", failure.Message, StringComparison.Ordinal);
             Assert.False(release.Task.IsCompleted);

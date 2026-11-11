@@ -10,7 +10,7 @@ public sealed record Bound
     /// <param name="limit">The value the run was held to: a count, or milliseconds for a time.</param>
     /// <param name="reached">Whether the run stopped at the limit rather than finishing within it.</param>
     /// <exception cref="ArgumentNullException"><paramref name="name"/> is null.</exception>
-    public Bound(string name, long limit, bool reached)
+    internal Bound(string name, long limit, bool reached)
     {
         ArgumentNullException.ThrowIfNull(name);
         Name = name;

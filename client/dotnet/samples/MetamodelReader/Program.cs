@@ -1,7 +1,5 @@
 using System;
 using System.Linq;
-using System.Reflection;
-using System.Runtime.Versioning;
 using OpenMBEE.OpenSysML.Metamodel;
 
 if (args.Length != 1)
@@ -9,11 +7,6 @@ if (args.Length != 1)
     Console.Error.WriteLine("usage: MetamodelReader <export.json>");
     return 2;
 }
-
-var metamodel = typeof(MetamodelGraph).Assembly;
-var version = metamodel.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-var framework = metamodel.GetCustomAttribute<TargetFrameworkAttribute>()?.FrameworkName;
-Console.WriteLine($"{metamodel.GetName().Name} {version} ({framework})");
 
 // A path, never JSON text; a Stream, a JsonDocument or JsonElements read as well.
 var graph = MetamodelGraph.ReadJson(args[0]);

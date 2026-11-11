@@ -15,7 +15,7 @@ public sealed record StatisticDifference
     /// <param name="p90">The difference of the 90th percentile.</param>
     /// <param name="max">The difference of the maximum.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    public StatisticDifference(string min, string mean, string p50, string p90, string max)
+    internal StatisticDifference(string min, string mean, string p50, string p90, string max)
     {
         ArgumentNullException.ThrowIfNull(min);
         ArgumentNullException.ThrowIfNull(mean);

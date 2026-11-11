@@ -134,7 +134,7 @@ internal static class ExecutionArea
             Depth = request.CheckDepth,
             States = request.CheckStates,
             Unroll = request.CheckUnroll,
-            Timeout = request.CheckTimeout,
+            Timeout = CheckTimeout(request.CheckTimeout),
             Engine = request.Engine.Length > 0 ? request.Engine : null,
             PerformerSymbolId = request.PerformerSymbolId.Length > 0 ? request.PerformerSymbolId : null,
         };
@@ -167,4 +167,17 @@ internal static class ExecutionArea
             ClockStep = clockStep,
             Events = events.Count > 0 ? [.. events] : null,
         };
+
+    // A TimeSpan counts whole ticks of 100 ns, so a timeout between two of them, or beyond its range, cannot be sent.
+    private static System.TimeSpan CheckTimeout(double seconds)
+    {
+        if (double.IsFinite(seconds) && System.Math.Abs(seconds) < System.TimeSpan.MaxValue.TotalSeconds
+            && System.TimeSpan.FromSeconds(seconds) is var timeout && timeout.TotalSeconds == seconds)
+        {
+            return timeout;
+        }
+
+        throw new UnexpressibleRequestException(
+            $"the public API holds a check timeout as a TimeSpan, which has none of {seconds.ToString("R", System.Globalization.CultureInfo.InvariantCulture)} s");
+    }
 }

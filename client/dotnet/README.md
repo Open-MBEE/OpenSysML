@@ -41,10 +41,10 @@ For a task-oriented walkthrough, see the [.NET client guide](../../docs/clients/
 
 - The .NET SDK that the repository-root [`global.json`](../../global.json) pins (10.0.402) or a
   later patch in its 10.0.4xx feature band, with its .NET 10 runtime. Run every `dotnet` command
-  from the repository root so that file selects the SDK; `make dotnet-preflight` checks both, and
-  refuses another feature band, whose compiler and analyzers may differ. CI builds with the pinned
-  SDK exactly.
-- Python 3, for the preflight and coverage checks the Make targets run.
+  from the repository root so that file selects the SDK: its `latestPatch` roll-forward refuses
+  another feature band, whose compiler and analyzers may differ. CI builds with the pinned SDK
+  exactly.
+- Python 3, for the coverage and sample checks the Make targets run.
 - For the integration tests, a `sysml-grpc` binary: `make build-grpc` writes `bin/sysml-grpc`.
 
 The library, tests and sample target `net10.0` only. Native AOT and trimming are not
@@ -52,26 +52,37 @@ supported: the assembly makes no `IsAotCompatible` or `IsTrimmable` claim.
 
 ## Using it from a checkout
 
-Reference the project from your own:
+Reference the project from your own, and opt into its experimental API:
 
 ```xml
+<PropertyGroup>
+  <NoWarn>$(NoWarn);OSML0001</NoWarn>
+</PropertyGroup>
 <ItemGroup>
   <ProjectReference Include="path/to/OpenSysML/client/dotnet/src/OpenMBEE.OpenSysML/OpenMBEE.OpenSysML.csproj" />
 </ItemGroup>
 ```
 
+The client is experimental until it is declared stable: a release may change or remove any of its
+API. Both assemblies, this one and the [metamodel](#metamodel-types), are marked
+`[Experimental("OSML0001")]`, so without the `NoWarn` every use of them is error OSML0001.
+Every project in this directory opts in through [`Directory.Build.props`](Directory.Build.props).
+
+What the service answers with, a `Symbol`, a `Verdict` or a `RenderedView`, has no public
+constructor, so a release can add to it without breaking a caller. What a caller passes has public
+ones: options, `Edit`s, `Value`s, `DocumentBinding`s, query constraints, and the `Instance`s the
+[typed classes](#typed-model-classes) read, which a test of code over them builds without a service.
+
 [`samples/Vehicle`](samples/Vehicle/) is such a consumer, and the program the
 [.NET client guide](../../docs/clients/dotnet.md) walks through: a test holds the guide's code to
 the sample's walkthrough region and requires its complete run command, including the service-binary
-assignment. It prints the referenced assembly's version and target framework
-and, when `OPENSYSML_SERVICE` names a running service or `OPENSYSML_GRPC_BINARY` names a binary
-to start privately, what that service reports, then parses a vehicle model, checks its
-diagnostics, looks the sedan up and evaluates its redefined mass:
+assignment. It connects to the service `OPENSYSML_SERVICE` names, or starts the binary
+`OPENSYSML_GRPC_BINARY` names as a private service, prints what that service reports, then parses
+a vehicle model, checks its diagnostics, looks the sedan up and evaluates its redefined mass:
 
 ```bash
 make build-grpc
 OPENSYSML_GRPC_BINARY="$PWD/bin/sysml-grpc" dotnet run --project client/dotnet/samples/Vehicle -c Release
-# OpenMBEE.OpenSysML <version> (.NETCoreApp,Version=v10.0)
 # sysml-grpc <version>, <count> capabilities
 # Demo::sedan (partUsage): mass = 1800.0
 ```
@@ -101,15 +112,17 @@ Opening asks the service `GetServerInfo` once. `ServerInfo` keeps the answer: th
 version, informational only, and its `Capabilities`, which `Capabilities` has a constant for
 each of. Decide what to do on capability names, never on the version. A service too old to
 have `GetServerInfo` answers it `Unimplemented`; `ServerInfo.Answered` is then false and no
-capability is claimed. `ConnectionOptions.Version` requires an exact version, failing with
-`StaleServiceException`, and `RequireCapabilities` requires capabilities, failing with
+capability is claimed. `ConnectionOptions.Version` requires an exact version, and when it is null
+the release `OPENSYSML_GRPC_VERSION` names is required instead, as in the other clients (`latest`
+is resolved once, and requires nothing when it cannot be); either fails with
+`StaleServiceException`. `RequireCapabilities` requires capabilities, failing with
 `CapabilityException`; both are checked after that one call, and a failed open closes what
 it opened.
 
 `ConnectionOptions` also holds the request timeout (60 seconds by default), headers sent with
 every call, the largest request and response messages (512 MiB each by default), a logger
 (`NullLogger` by default) and an HTTP handler to borrow. Every option is checked when the
-connection opens, which refuses an invalid one with `InvalidRequestException` before it sends
+connection opens, which refuses an invalid one with `ArgumentException` before it sends
 anything. Headers carry authorization and custom metadata only: a header the protocol
 controls (content type and encoding, timeouts, host, any `grpc-` or `connect-` header) is
 refused, and header values are never logged. A handler given as `HttpMessageHandler` is
@@ -122,7 +135,7 @@ A service serving an address other machines reach requires a bearer token on eve
 over each protocol; when it is null, the `OPENSYSML_GRPC_TOKEN` environment variable
 (`ConnectionOptions.TokenVariable`) names it, trimmed, a blank value being none. A token is
 what the service accepts, RFC 6750's `b64token`: letters, digits and `-._~+/` with trailing `=`
-only; anything else, from the option or the variable, is refused with `InvalidRequestException`
+only; anything else, from the option or the variable, is refused with `ArgumentException`
 before anything is sent. An `authorization` entry in `Headers` takes the place of the variable,
 and is refused beside `Token`, since a call carries one set of credentials. A token is never
 logged nor written into a message. Credentials sent over cleartext `http` to a host other than
@@ -303,7 +316,7 @@ the shared cache:
 
 A release is a tag, as `v0.10.1`, or `latest`, which the GitHub releases API resolves once for
 each open. A tag or repository that is not one URL path segment (or `owner/repo` of two) is
-refused, from an option or a variable, with `InvalidRequestException` before anything is
+refused, from an option or a variable, with `ArgumentException` before anything is
 fetched. The whole decision is made with the cache's lock held:
 
 | The cache holds | What happens |
@@ -398,34 +411,35 @@ value's number, and JSON keeps one the service sends as a number; the service se
 with the generated `OpenMBEE.OpenSysML.Wire` messages, under the connection's headers, timeout,
 size limits, error mapping and disposal checks. The method is named bare (`GetSymbol`) or
 qualified (`sysml.SysMLService/GetSymbol`); a name the schema does not have, or messages it
-does not pair with the method, fails with `InvalidRequestException` and sends nothing. It is
+does not pair with the method, fails with `ArgumentException` and sends nothing. It is
 the escape hatch below the typed API: it checks no capability and interprets no result, so
 a failure the service reports inside an answer comes back as an ordinary response.
 
 ### Failures
 
-Everything the client reports derives from `OpenSysMLException`, except cancellation and
-use after disposal, which are the standard exceptions:
+Everything the client reports derives from `OpenSysMLException`, except cancellation, use after
+disposal, and an argument or option refused before anything is sent, which are the standard
+exceptions:
 
 | What happened | Exception |
 | --- | --- |
-| An option, address, header or raw method/message pairing is invalid, or `OPENSYSML_GRPC_VERSION`, `OPENSYSML_GITHUB_REPO` or `OPENSYSML_GRPC_TOKEN` names no release, repository or bearer token | `InvalidRequestException`, before anything is sent |
+| An option, address, header or raw method/message pairing is invalid, or `OPENSYSML_GRPC_VERSION`, `OPENSYSML_GITHUB_REPO` or `OPENSYSML_GRPC_TOKEN` names no release, repository or bearer token | `ArgumentException`, before anything is sent |
 | No service is named and `AutoStart` is false, or the private service did not start | `ServiceStartException` |
 | The shared cache stayed locked by another client or process for two minutes | `ServiceStartException` naming the lock |
 | A release asked for could not be downloaded or installed, or `latest` could not be resolved | `ServiceStartException`, with the cause as `InnerException` |
 | No service is named, no binary was found to start, and the release this client was built with could not be had | `BinaryNotFoundException`, a `ServiceStartException` with `SearchedLocations` and why no release could be had as `InnerException` |
 | The binary does not have `ExpectedBinarySha256`; or a release's served checksum, its bytes or `ExpectedBinarySha256` contradict its pin, or the checksum it serves under same-origin trust | `ChecksumMismatchException`, a `ServiceStartException` with `BinaryPath` (the release's URL for a release not downloaded), `ExpectedSha256` and `ActualSha256` |
-| A release asked for is one this checkout pins no digest for, and same-origin trust was not granted | `UnpinnedReleaseException`, a `ServiceStartException` with `Repository`, `Version` and `Asset` |
+| A release asked for is one this checkout pins no digest for, and same-origin trust was not granted | `UnpinnedReleaseException`, a `ChecksumMismatchException` with `Repository`, `Version` and `Asset`, and no digests |
 | This platform cannot start a process, or no release is published for it and one was asked for | `UnsupportedPlatformException`, a `ServiceStartException` with `Platform` |
 | The private service exited on its own, or was stopped by `StopSharedServicesAsync` | `TransportException` with `Unavailable`, saying which |
 | `StopSharedServicesAsync` could not stop some services cleanly | `ServiceStopException`, with one of `Failures` for each |
-| The service is not the `Version` asked for | `StaleServiceException` |
-| The service lacks a required capability | `CapabilityException`, with `Capability` and `Remedy` |
+| The service is not the `Version` asked for, or, with none asked for, the release `OPENSYSML_GRPC_VERSION` names | `StaleServiceException` |
+| The service lacks a required capability, or refuses a call for one it does not have | `CapabilityException`, with `Capability` and `Remedy`; a refusal carries the `ServiceException` it was read as in `InnerException` |
 | The service answered with a status other than OK, `Unavailable` included | `ServiceException`, with `StatusCode`, `ServiceMessage` and `Method` |
 | The service wants a bearer token the call did not carry, or refused the one it carried | `AuthenticationException`, a `ServiceException` with `Unauthenticated`, `CredentialsSent` and the `Remedy` its message ends with |
 | The service no longer holds the model a call named | `ModelNotFoundException`, a `ServiceException` with `NotFound` |
 | The service could not read a file a parse named | `ModelFileNotFoundException`, a `ServiceException` with `NotFound` |
-| The service answered, reporting a failure about the model: an expression that did not evaluate, a symbol that is not there, an object that could not be built | `ModelException`, with `Method` and the answer's `Diagnostics`; `SymbolNotFoundException`, with `Name` and `Suggestions`, for a symbol; `ModelErrorsException` from `RequireNoErrors` |
+| The service answered, reporting a failure about the model: an expression that did not evaluate, a symbol that is not there, an object that could not be built | `ModelException`, with `Method` and the answer's `Diagnostics`; `SymbolNotFoundException`, with `Name` and `Suggestions`, for a symbol; also from `RequireNoErrors`, with the parse's errors as `Diagnostics` |
 | The service answered that a run failed: no initial node, no such behavior, a performer that could not be made, a run still waiting when its advance ran out | `ExecutionException`, a `ModelException` with the run's `FinalTime` and, for a traced run, its `Trace` up to the failure and `TraceDropped` |
 | The service answered a check it refused before any search: the behavior, a property or the performer does not resolve | `CheckException`, a `ModelException` with the `Partial` result the answer carried, including its verdict when supplied |
 | The service answered that it could not verify, validate, calculate or sweep at all: an unknown symbol, a symbol of another kind, a subject or argument that does not read, a range no values follow from | `VerificationException`, a `ModelException` with the failure's `Reason` (`FailureReason.WrongKind` for a symbol of another kind) and the `Instances`, `Verifications` and engine `Standing` the answer carried |
@@ -437,7 +451,10 @@ use after disposal, which are the standard exceptions:
 | The caller's token was cancelled | `OperationCanceledException` carrying that token |
 | The connection was disposed before or during the call | `ObjectDisposedException` |
 
-A status is the service's only when the service sent it. Over gRPC, that is when the response
+A status is the service's only when the service sent it, and a `ServiceException`; a status this
+client gives a call that read no well-formed answer is a `TransportException`. Both are
+`CallException`s, with the `StatusCode` and `Method`, so one `catch` reads the status of any
+failed call. Over gRPC, a status is the service's when the response
 carried it and the gRPC library raised it unchanged; a status the library made up for a broken
 connection or a malformed answer is a `TransportException`. Over Connect, it is when the body
 of a refusal is a Connect error, `{"code": …, "message": …}` with one of the protocol's codes,
@@ -492,7 +509,7 @@ earlier without sending anything. A model is immutable and safe to share between
 keeps its `Roots`, one per document, the `ParseDiagnostics` and their `Errors`, and the
 `Documents` they name, and nothing a later call changes. A source with errors still parses
 into a model; `HasErrors` says so, and `RequireNoErrors` turns it into a
-`ModelErrorsException`.
+`ModelException` carrying the errors.
 
 | Method | Answers |
 | --- | --- |
@@ -548,7 +565,7 @@ inline notation, `parse_sources`, `parse_sources_affected` for `SourcesOptions.B
 `evaluate_subject` for a subject, `symbol_members` for `SymbolOptions.IncludeLibraryMembers`,
 `element_properties` for `ElementPropertiesAsync` and `instance_paths` for `InstancePathsAsync`
 and `InstancePathsAtAsync`. A file's notation comes from its extension, so loading
-one with `ParseOptions.Language` set is refused with `InvalidRequestException`.
+one with `ParseOptions.Language` set is refused with `ArgumentException`.
 
 A model loaded through a connection borrows it: disposing the model does nothing, and the
 connection's owner closes it. `OpenSysMLClient.LoadAsync` and `LoadContentAsync` open a
@@ -594,7 +611,7 @@ action run posts to its performer in order, as the REPL's `%send` does, and the 
 `Seed`, `Draws` and `ClockStep`. A run and an exploration answer differently, so each call takes
 only its own kind of schedule: an exploring schedule passed to `ExecuteActionAsync`, a single-run
 schedule passed to an explore call, or a trace or events asked of an exploration is an
-`InvalidRequestException` before anything is sent. So are `Events` with no `PerformerSymbolId`
+`ArgumentException` before anything is sent. So are `Events` with no `PerformerSymbolId`
 to post them to, and `Events` given to a state run, which takes its events as an argument. An explore
 call naming no schedule explores under the service's default budget. `CheckOptions` carries
 the `-check-*` flags: the properties held at every stable state, the features allowed to
@@ -677,7 +694,7 @@ the service answers its one value as a one-element `Value.SequenceValue`; declar
 `SweepOptions` the subject, the arguments every row binds, `Samples` and `Seed`. A run and an
 exploration of a case answer differently, so `RunAnalysisAsync` refuses an exploring schedule
 and the `explore` engine, and `ExploreAnalysisAsync` a schedule that runs once and a tool dry
-run, with `InvalidRequestException` before anything is sent; an exploration naming neither
+run, with `ArgumentException` before anything is sent; an exploration naming neither
 explores under the service's default budget. A question, schedule or engine the service does
 not know, and arguments with a solver question, are the service's to refuse, with
 `InvalidArgument`; a negative sample count and a range no values follow from it refuses in its
@@ -1108,7 +1125,7 @@ advertises. Over Connect JSON a value of an unknown kind arrives with no kind at
 the parser drops fields it does not know.
 
 Sending refuses what no service accepts as an argument, before anything is sent, with
-`InvalidRequestException`: `UnsetValue` and `UndeterminedValue`, which are answers only; a
+`ArgumentException`: `UnsetValue` and `UndeterminedValue`, which are answers only; a
 null standing for a value the service could not send; a function closing over an instance,
 which lives only within the response that held it; and a quantity in a named unit without its
 reduction. A kind the service gates needs its capability wherever the service looks for it:
@@ -1260,7 +1277,6 @@ foreach (var definition in graph.All<IPartDefinition>())
 
 ```bash
 dotnet run --project client/dotnet/samples/MetamodelReader -c Release -- client/python/tests/fixtures/metamodel/bigger.full.json
-# OpenMBEE.OpenSysML.Metamodel <version> (.NETCoreApp,Version=v10.0)
 # 87 elements, 1 root namespace(s), metamodel 20250201
 # part def Base owns mass
 # part def Vehicle owns mass2, wheel, p, cargo, a, c, s

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Mapping;
 
 namespace OpenMBEE.OpenSysML;
 
@@ -26,8 +27,7 @@ public sealed partial class Model
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>One row per run, in run order, and each observable's distribution over the completed runs.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="actionSymbolId"/> is null.</exception>
-    /// <exception cref="ArgumentException">An input's name or value is null.</exception>
-    /// <exception cref="InvalidRequestException">An option names an empty string, or an input is a value no service reads as one; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">An input's name or value is null. An option names an empty string, or an input is a value no service reads as one; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The service lacks <see cref="Capabilities.Runs"/>, <see cref="Capabilities.Performer"/> for a performer, a capability an input needs, <see cref="Capabilities.Engines"/> for an engine, or <see cref="Capabilities.ScheduleExplore"/> for the explore engine; nothing was sent.</exception>
     /// <exception cref="RunsException">The runs could not be tabled: the action or the performer does not resolve, an input does not read, or no completed run produced a feature asked to be observed. <see cref="RunsException.Partial"/> keeps the rows made.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
@@ -46,7 +46,7 @@ public sealed partial class Model
         options ??= ActionRunsOptions.Default;
         if (options.PerformerSymbolId is { Length: 0 } || options.Draws is { Length: 0 } || options.Engine is { Length: 0 })
         {
-            throw new InvalidRequestException("ActionRunsOptions names an empty performer, draw policy or engine; leave PerformerSymbolId, Draws or Engine null for the default.");
+            throw new ArgumentException("ActionRunsOptions names an empty performer, draw policy or engine; leave PerformerSymbolId, Draws or Engine null for the default.");
         }
 
         var sent = Inputs(inputs);
@@ -91,7 +91,7 @@ public sealed partial class Model
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>One row per run, in run order, the observable's distribution, and the case's conclusion or why it has none.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="analysisSymbolId"/> is null.</exception>
-    /// <exception cref="InvalidRequestException">An option names an empty string, or an argument is a value no service reads as one; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">An option names an empty string, or an argument is a value no service reads as one; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The service lacks <see cref="Capabilities.Runs"/>, <see cref="Capabilities.Engines"/> for an engine, <see cref="Capabilities.ScheduleExplore"/> for the explore engine, or a capability an argument needs; nothing was sent.</exception>
     /// <exception cref="RunsException">No run was made: the case does not resolve, is not a Monte Carlo case, or its subject or an argument does not read. <see cref="RunsException.Partial"/> keeps the standing of the engine that refused.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
@@ -105,7 +105,7 @@ public sealed partial class Model
         options ??= AnalysisRunsOptions.Default;
         if (options.SubjectSymbolId is { Length: 0 } || options.Draws is { Length: 0 } || options.Engine is { Length: 0 })
         {
-            throw new InvalidRequestException("AnalysisRunsOptions names an empty subject, draw policy or engine; leave SubjectSymbolId, Draws or Engine null for the default.");
+            throw new ArgumentException("AnalysisRunsOptions names an empty subject, draw policy or engine; leave SubjectSymbolId, Draws or Engine null for the default.");
         }
 
         var positional = ValueWire.ToWire(new ValueList<Value>(options.Arguments), "arguments");
@@ -176,7 +176,7 @@ public sealed partial class Model
 
         if (response.Status.Length == 0)
         {
-            throw new TransportException(StatusCode.Internal, $"{SelfCheckMethod} answered neither a status nor a failure.", SelfCheckMethod);
+            throw TransportException.Malformed(SelfCheckMethod, "neither a status nor a failure");
         }
 
         return RunsWire.SelfCheck(response);
@@ -193,7 +193,7 @@ public sealed partial class Model
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The run, sweep or sample made, the records generated, the notation they went into, and the recorded model.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="analysisSymbolId"/> is null.</exception>
-    /// <exception cref="InvalidRequestException">An option names an empty string, or a value is one no service reads as an argument; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">An option names an empty string, or a value is one no service reads as an argument; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The service lacks <see cref="Capabilities.RecordRun"/>, <see cref="Capabilities.Engines"/> for an engine, <see cref="Capabilities.ScheduleExplore"/> for the explore engine, or a capability a value needs; nothing was sent.</exception>
     /// <exception cref="RecordException">Nothing was recorded: the case could not be found or run, no run completed, the package could not take the records, or they would not analyze cleanly.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
@@ -207,7 +207,7 @@ public sealed partial class Model
         options ??= RecordOptions.Default;
         if (options.SubjectSymbolId is { Length: 0 } || options.Engine is { Length: 0 } || options.RecordInto is { Length: 0 })
         {
-            throw new InvalidRequestException("RecordOptions names an empty subject, engine or package; leave SubjectSymbolId, Engine or RecordInto null for the default.");
+            throw new ArgumentException("RecordOptions names an empty subject, engine or package; leave SubjectSymbolId, Engine or RecordInto null for the default.");
         }
 
         var positional = ValueWire.ToWire(new ValueList<Value>(options.Arguments), "arguments");
@@ -255,7 +255,7 @@ public sealed partial class Model
             Unanswered(RecordRunMethod, ("content", response.Content.Length > 0), ("documents", response.Documents.Count > 0), ("model_hash", response.ModelHash.Length > 0));
             if (ranError.Length > 0 && (ranError != response.Error || ranReason != response.FailureReason))
             {
-                throw new TransportException(StatusCode.Internal, $"{RecordRunMethod} answered a failure of its runs that is not the failure it reported.", RecordRunMethod);
+                throw TransportException.Malformed(RecordRunMethod, "a failure of its runs that is not the failure it reported");
             }
 
             throw new RecordException(
@@ -277,12 +277,12 @@ public sealed partial class Model
 
         if (ranError.Length > 0)
         {
-            throw new TransportException(StatusCode.Internal, $"{RecordRunMethod} answered a recording beside a failure of the runs it recorded.", RecordRunMethod);
+            throw TransportException.Malformed(RecordRunMethod, "a recording beside a failure of the runs it recorded");
         }
 
         if (response.ModelHash.Length == 0 || (run is null && sweep is null && sample is null))
         {
-            throw new TransportException(StatusCode.Internal, $"{RecordRunMethod} answered neither a recorded model with the runs it recorded nor a failure.", RecordRunMethod);
+            throw TransportException.Malformed(RecordRunMethod, "neither a recorded model with the runs it recorded nor a failure");
         }
 
         return new Recording(
@@ -313,7 +313,7 @@ public sealed partial class Model
 
         if (read.Rows.IsEmpty)
         {
-            throw new TransportException(StatusCode.Internal, $"{RunRunsMethod} answered neither a run nor a failure.", RunRunsMethod);
+            throw TransportException.Malformed(RunRunsMethod, "neither a run nor a failure");
         }
 
         return read;
@@ -338,7 +338,7 @@ public sealed partial class Model
         {
             if (run.Outcomes.Count > 0 || run.Exploration is not null)
             {
-                throw new TransportException(StatusCode.Internal, $"{RecordRunMethod} answered a recorded run with an exploration's outcomes or status.", RecordRunMethod);
+                throw TransportException.Malformed(RecordRunMethod, "a recorded run with an exploration's outcomes or status");
             }
 
             return (VerificationWire.Analysis(run, RecordRunMethod, "run"), null, null, run.Error, run.FailureReason);

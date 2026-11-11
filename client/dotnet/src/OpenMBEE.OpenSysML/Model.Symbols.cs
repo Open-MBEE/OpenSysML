@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Mapping;
 
 namespace OpenMBEE.OpenSysML;
 
@@ -129,7 +130,7 @@ public sealed partial class Model
 
         return response.Symbol is { } symbol
             ? (ModelWire.Symbol(symbol, GetSymbolMethod, "symbol"), string.Empty)
-            : throw new TransportException(StatusCode.Internal, $"{GetSymbolMethod} answered neither a symbol nor a failure for {symbolId}.", GetSymbolMethod);
+            : throw TransportException.Malformed(GetSymbolMethod, $"neither a symbol nor a failure for {symbolId}");
     }
 
     private static Query Selecting(string select, string? property = null, IEnumerable<string>? values = null) =>
@@ -223,7 +224,7 @@ public sealed partial class Model
             {
                 if (++hops > owner.Count)
                 {
-                    throw new TransportException(StatusCode.Internal, $"{QueryMethod} answered owners that form a cycle through {element.Id}.", QueryMethod);
+                    throw TransportException.Malformed(QueryMethod, $"owners that form a cycle through {element.Id}");
                 }
 
                 id = next;

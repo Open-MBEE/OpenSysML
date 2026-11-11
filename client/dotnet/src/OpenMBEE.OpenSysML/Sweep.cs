@@ -22,7 +22,7 @@ public sealed record Sweep
     /// <param name="standing">The engine that ran the table, the strength of its evidence and its bounds.</param>
     /// <exception cref="ArgumentNullException">A collection or <paramref name="standing"/> is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null.</exception>
-    public Sweep(
+    internal Sweep(
         IEnumerable<SweepRow> rows,
         IEnumerable<string> parameters,
         bool sampled,

@@ -11,7 +11,7 @@ public sealed record RenderedDocument
     /// <param name="fileName">The file a rendered set writes it to; null when the service named none.</param>
     /// <exception cref="ArgumentNullException"><paramref name="content"/> is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="fileName"/> is empty.</exception>
-    public RenderedDocument(DocumentForm form, string content, string? fileName)
+    internal RenderedDocument(DocumentForm form, string content, string? fileName)
     {
         ArgumentNullException.ThrowIfNull(content);
         if (fileName is { Length: 0 })

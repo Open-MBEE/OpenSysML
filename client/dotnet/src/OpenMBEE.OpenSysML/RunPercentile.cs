@@ -9,7 +9,7 @@ public sealed record RunPercentile
     /// <param name="percentile">The percentile, as <c>50</c> for the median.</param>
     /// <param name="value">The observable's value at it.</param>
     /// <exception cref="ArgumentNullException"><paramref name="value"/> is null.</exception>
-    public RunPercentile(double percentile, Value value)
+    internal RunPercentile(double percentile, Value value)
     {
         ArgumentNullException.ThrowIfNull(value);
         Percentile = percentile;

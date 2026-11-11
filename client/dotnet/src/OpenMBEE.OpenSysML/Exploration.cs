@@ -23,7 +23,7 @@ public sealed record Exploration
     /// <param name="standing">The engine that answered, the strength of its evidence and its bounds; <see cref="Standing.None"/> when none was named.</param>
     /// <exception cref="ArgumentNullException">A collection or <paramref name="standing"/> is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null.</exception>
-    public Exploration(
+    internal Exploration(
         IEnumerable<Outcome> outcomes,
         bool complete,
         int runs,

@@ -1,6 +1,6 @@
 # Client feature parity
 
-The seven remote clients wrap every RPC of `sysml-grpc` with a typed API. This page records,
+The eight remote clients wrap every RPC of `sysml-grpc` with a typed API. This page records,
 per client, the request options and cross-cutting features that distinguish a complete
 wrapper from a thin one, and links the test that proves each cell. The Go package
 [`client/opensysml`](api.md) is the reference wrapper. The Jupyter kernel is a consumer of the
@@ -162,8 +162,8 @@ from the clients and a gap is a stated gap rather than a silent one.
 | Feature | Python | Node | Java | Rust | Julia | MATLAB | .NET |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Bearer token (`OPENSYSML_GRPC_TOKEN`, explicit) | typed | typed | typed | typed | typed | typed | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/dotnet/test/OpenMBEE.OpenSysML.Tests/BearerTokenTests.cs) |
-| TLS to a remote service | typed | typed | typed | typed | typed | typed | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/dotnet/test/OpenMBEE.OpenSysML.Tests/NetworkFailureTests.cs) |
-| Transport: Connect protobuf / JSON | typed | typed | typed | typed | typed | typed | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/dotnet/test/OpenMBEE.OpenSysML.Tests/ConnectTransportTests.cs) |
+| TLS to a remote service | — | typed | — | — | typed | typed | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/dotnet/test/OpenMBEE.OpenSysML.Tests/NetworkFailureTests.cs) |
+| Transport: Connect protobuf / JSON | — | typed | typed | typed | typed | typed | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/dotnet/test/OpenMBEE.OpenSysML.Tests/ConnectTransportTests.cs) |
 | In-process WebAssembly engine | — | typed (`connectWasm`) | — | — | — | — | — |
 | Deadlines / timeouts | typed | typed | typed | typed | typed | typed | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/dotnet/test/OpenMBEE.OpenSysML.Tests/NetworkFailureTests.cs) |
 | Typed `UNAUTHENTICATED` error | typed | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/node/test/errors.test.ts) | typed | typed | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/julia/OpenSysML/test/extended_client.jl) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/matlab/tests/test_errors_capabilities.m) | [typed](https://github.com/Open-MBEE/OpenSysML/blob/main/client/dotnet/test/OpenMBEE.OpenSysML.Tests/BearerTokenTests.cs) |
@@ -178,9 +178,10 @@ Error typing: every client distinguishes the statuses the Python client's `error
 distinguishes (`NOT_FOUND` by subject, `INVALID_ARGUMENT`/`FAILED_PRECONDITION`/`OUT_OF_RANGE`,
 `DEADLINE_EXCEEDED`/`CANCELLED`, `UNAVAILABLE`, `UNIMPLEMENTED`, `UNAUTHENTICATED`) and
 carries structured details (diagnostics, symbol suggestions, capability names). The .NET client
-gives `NOT_FOUND` by subject, `UNAUTHENTICATED` and a missing capability exceptions of their own;
+gives `NOT_FOUND` by subject, `UNAUTHENTICATED` and a missing capability, whether the advertised list
+or the service's own `UNIMPLEMENTED` shows it, exceptions of their own;
 any other status is a `ServiceException`, or a `TransportException` for a deadline or a network
-failure, carrying its `StatusCode`, rather than an exception type per status.
+failure, both `CallException`s carrying its `StatusCode`, rather than an exception type per status.
 
 ## Open gaps
 
@@ -188,6 +189,8 @@ failure, carrying its `StatusCode`, rather than an exception type per status.
 | --- | --- | --- |
 | `RunSweep.samples` in the Go package | `client/opensysml` | about one day: the package has no typed `RunSweep` wrapper at all, so the option means a typed sweep request, result rows and their evaluations, and tests |
 | In-process engine without a service | Python, Java, Rust, Julia, MATLAB, .NET | large; Node's `connectWasm` is the only one, and the others would need a wasm host each |
+| TLS to a remote service | Python, Java, Rust | small for Python (`grpc.insecure_channel` becomes a secure channel for an `https` address) and Java (its Connect base URL is always `http://`); Rust refuses every scheme but `http` and needs a TLS backend for its HTTP stack |
+| Connect transport (protobuf / JSON) | Python | large: Python speaks gRPC alone, so Connect is a second transport beside it |
 
 ## Proving tests
 

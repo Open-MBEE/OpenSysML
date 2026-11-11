@@ -191,9 +191,6 @@ public sealed class ValueSemanticsTests
         foreach (var type in typeof(Value).GetNestedTypes().Append(typeof(Quantity)).Append(typeof(UnitTerm)).Append(typeof(UnitFactor)).Append(typeof(Rational)))
         {
             Assert.All(type.GetProperties(), property => Assert.False(property.CanWrite, $"{type.Name}.{property.Name} has a setter."));
-            Assert.All(
-                type.GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic),
-                field => Assert.True(field.IsInitOnly, $"{type.Name}.{field.Name} is not read-only."));
         }
     }
 

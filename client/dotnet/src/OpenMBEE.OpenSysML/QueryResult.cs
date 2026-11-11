@@ -13,7 +13,7 @@ public sealed record QueryResult
     /// <param name="elements">The elements selected, in declaration order; copied.</param>
     /// <exception cref="ArgumentNullException"><paramref name="elements"/> is null.</exception>
     /// <exception cref="ArgumentException">An element is null.</exception>
-    public QueryResult(IEnumerable<QueryElement> elements) => Elements = new ValueList<QueryElement>(elements);
+    internal QueryResult(IEnumerable<QueryElement> elements) => Elements = new ValueList<QueryElement>(elements);
 
     /// <summary>The elements selected, in the order the model declares them.</summary>
     public ValueList<QueryElement> Elements { get; }

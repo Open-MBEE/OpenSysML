@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Mapping;
 
 namespace OpenMBEE.OpenSysML;
 
@@ -19,7 +20,7 @@ public sealed partial class Model
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The verdict and the objects it is about. A condition the model answers false is a decided verdict, and one that could not be evaluated an undecided one; neither is an exception.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="symbolId"/> is null.</exception>
-    /// <exception cref="InvalidRequestException">An option names an empty string, or an argument is a value no service reads as one; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">An option names an empty string, or an argument is a value no service reads as one; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The service lacks <see cref="Capabilities.Verification"/>, <see cref="Capabilities.VerificationQuestions"/> for a solver question, <see cref="Capabilities.Engines"/> for an engine, <see cref="Capabilities.ScheduleExplore"/> for the explore engine, <see cref="Capabilities.VerificationArguments"/> for an argument, or a capability an argument needs; nothing was sent.</exception>
     /// <exception cref="VerificationException">The service could not answer at all: the symbol or the subject does not resolve, an argument does not read.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
@@ -46,7 +47,7 @@ public sealed partial class Model
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The verdict, what the verification cases verifying the requirement answered beside it, and the objects it is about.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="symbolId"/> is null.</exception>
-    /// <exception cref="InvalidRequestException">An option names an empty string, or an argument is a value no service reads as one; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">An option names an empty string, or an argument is a value no service reads as one; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The service lacks <see cref="Capabilities.Verification"/>, <see cref="Capabilities.VerificationQuestions"/> for a solver question, <see cref="Capabilities.Engines"/> for an engine, <see cref="Capabilities.ScheduleExplore"/> for the explore engine, <see cref="Capabilities.VerificationArguments"/> for an argument, or a capability an argument needs; nothing was sent.</exception>
     /// <exception cref="VerificationException">The service could not answer at all: the symbol or the subject does not resolve, an argument does not read.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
@@ -78,7 +79,7 @@ public sealed partial class Model
     /// <param name="options">The question and engine; null for <see cref="VerifyOptions.Default"/>. A satisfaction takes no subject and no arguments.</param>
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>One verdict per assertion, in declaration order; none for a model stating none.</returns>
-    /// <exception cref="InvalidRequestException">The scope or an option names an empty string, or the options name a subject or arguments; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">The scope or an option names an empty string, or the options name a subject or arguments; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The service lacks <see cref="Capabilities.Verification"/>, <see cref="Capabilities.VerificationQuestions"/> for a solver question, <see cref="Capabilities.Engines"/> for an engine, or <see cref="Capabilities.ScheduleExplore"/> for the explore engine; nothing was sent.</exception>
     /// <exception cref="VerificationException">The service could not answer at all: the scope does not resolve, or states no assertion (<see cref="FailureReason.WrongKind"/>).</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
@@ -91,12 +92,12 @@ public sealed partial class Model
         options ??= VerifyOptions.Default;
         if (scopeSymbolId is { Length: 0 })
         {
-            throw new InvalidRequestException("The scope is empty; leave it null to ask about every satisfaction assertion of the model.");
+            throw new ArgumentException("The scope is empty; leave it null to ask about every satisfaction assertion of the model.");
         }
 
         if (options.SubjectSymbolId is not null || options.BindsArguments)
         {
-            throw new InvalidRequestException(
+            throw new ArgumentException(
                 "A satisfaction assertion is asked about an object of its own subject, built for the call, so VerifyOptions.SubjectSymbolId and the arguments must be left unset.");
         }
 
@@ -131,7 +132,7 @@ public sealed partial class Model
     /// <param name="options">The question and engine; null for <see cref="VerifyOptions.Default"/>.</param>
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>Whether every verdict is decided and holds.</returns>
-    /// <exception cref="InvalidRequestException">The scope or an option names an empty string, or the options name a subject or arguments; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">The scope or an option names an empty string, or the options name a subject or arguments; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The service lacks a capability the call needs; nothing was sent.</exception>
     /// <exception cref="VerificationException">The service could not answer at all.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
@@ -150,7 +151,7 @@ public sealed partial class Model
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>One verdict per assertion, the summary, and every object reached.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="symbolId"/> is null.</exception>
-    /// <exception cref="InvalidRequestException">The engine is an empty string; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">The engine is an empty string; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The service lacks <see cref="Capabilities.Verification"/>, <see cref="Capabilities.Engines"/> for an engine, or <see cref="Capabilities.ScheduleExplore"/> for the explore engine; nothing was sent.</exception>
     /// <exception cref="VerificationException">The service could not answer at all: the symbol does not resolve, declares no object (<see cref="FailureReason.WrongKind"/>), or the object could not be validated.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
@@ -179,7 +180,7 @@ public sealed partial class Model
 
         if (response.Summary is null)
         {
-            throw new TransportException(StatusCode.Internal, $"{ValidateInstanceMethod} answered neither a summary nor a failure for {symbolId}.", ValidateInstanceMethod);
+            throw TransportException.Malformed(ValidateInstanceMethod, $"neither a summary nor a failure for {symbolId}");
         }
 
         return new Validation(
@@ -197,7 +198,7 @@ public sealed partial class Model
         Connection.ThrowIfDisposed();
         if (options.Question is { Length: 0 } || options.SubjectSymbolId is { Length: 0 } || options.Engine is { Length: 0 })
         {
-            throw new InvalidRequestException("VerifyOptions names an empty question, subject or engine; leave Question, SubjectSymbolId or Engine null to name none.");
+            throw new ArgumentException("VerifyOptions names an empty question, subject or engine; leave Question, SubjectSymbolId or Engine null to name none.");
         }
 
         var positional = ValueWire.ToWire(new ValueList<Value>(options.Arguments), "arguments");
@@ -240,7 +241,7 @@ public sealed partial class Model
 
         if (verdict is null)
         {
-            throw new TransportException(StatusCode.Internal, $"{method} answered neither a verdict nor a failure.", method);
+            throw TransportException.Malformed(method, "neither a verdict nor a failure");
         }
 
         return new Verification(VerificationWire.Verdict(verdict, method, "verdict"), cases, objects, read);
@@ -250,7 +251,7 @@ public sealed partial class Model
     {
         if (engine is { Length: 0 })
         {
-            throw new InvalidRequestException($"{options} names an empty engine; leave Engine null to let the service choose.");
+            throw new ArgumentException($"{options} names an empty engine; leave Engine null to let the service choose.");
         }
     }
 
@@ -261,7 +262,7 @@ public sealed partial class Model
         {
             if (set)
             {
-                throw new TransportException(StatusCode.Internal, $"{method} answered a failure beside {field}, which only an answer reports.", method);
+                throw TransportException.Malformed(method, $"a failure beside {field}, which only an answer reports");
             }
         }
     }

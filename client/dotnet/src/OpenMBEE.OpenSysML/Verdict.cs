@@ -29,7 +29,7 @@ public sealed record Verdict
     /// <param name="notes">The assumptions and omissions the answer rests on, in report order.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentException">An assignment or a note is null.</exception>
-    public Verdict(
+    internal Verdict(
         string kind,
         string elementId,
         string element,

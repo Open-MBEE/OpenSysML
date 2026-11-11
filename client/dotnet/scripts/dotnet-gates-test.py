@@ -20,15 +20,7 @@ spec = importlib.util.spec_from_file_location("dotnet_gates", os.path.join(HERE,
 gates = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(gates)
 
-RUNTIMES_10 = (
-    "Microsoft.AspNetCore.App 10.0.13 [/x/shared/Microsoft.AspNetCore.App]\n"
-    "Microsoft.NETCore.App 10.0.13 [/x/shared/Microsoft.NETCore.App]\n"
-)
-RUNTIMES_9 = "Microsoft.NETCore.App 9.0.10 [/x/shared/Microsoft.NETCore.App]\n"
-IDENTITY = "OpenMBEE.OpenSysML 0.10.1 (.NETCoreApp,Version=v10.0)"
-METAMODEL_IDENTITY = "OpenMBEE.OpenSysML.Metamodel 0.10.1 (.NETCoreApp,Version=v10.0)"
 METAMODEL_LINES = (
-    METAMODEL_IDENTITY,
     "87 elements, 1 root namespace(s), metamodel 20250201",
     "part def Base owns mass",
     "part def Vehicle owns mass2, wheel, p, cargo, a, c, s",
@@ -67,24 +59,6 @@ class GatesTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.python_hosts = python_hosts(self)
-        self.global_json = os.path.join(self.tmp.name, "global.json")
-        with open(self.global_json, "w", encoding="utf-8") as f:
-            json.dump({"sdk": {"version": "10.0.402"}}, f)
-
-    def host(self, version, runtimes, version_exit=0):
-        """A stand-in dotnet printing a version and a runtime list."""
-        path = os.path.join(self.tmp.name, "dotnet")
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(textwrap.dedent(f"""\
-                #!{sys.executable}
-                import sys
-                if sys.argv[1] == "--version":
-                    print({version!r}); sys.exit({version_exit})
-                sys.stdout.write({runtimes!r})
-                """))
-        os.chmod(path, os.stat(path).st_mode | stat.S_IEXEC)
-        self.python_hosts.add(path)
-        return path
 
     def write(self, name, text):
         path = os.path.join(self.tmp.name, name)
@@ -101,12 +75,6 @@ class GatesTest(unittest.TestCase):
             stdout.flush()
             return result, buffer.getvalue().decode("cp1252")
 
-    def test_main_preflight_can_report_success_on_a_legacy_windows_console(self):
-        with mock.patch.object(gates, "preflight", return_value=("10.0.402", ["10.0.13"])):
-            result, stdout = self.main_on_legacy_console(["preflight"])
-        self.assertEqual(result, 0)
-        self.assertEqual(stdout, "OK .NET SDK 10.0.402, runtime 10.0.13\n")
-
     def test_main_coverage_can_report_success_on_a_legacy_windows_console(self):
         path = self.write("run/coverage.cobertura.1.xml", report(["/_/client/dotnet/src/Lib/A.cs"]))
         result, stdout = self.main_on_legacy_console(["coverage", os.path.dirname(path)])
@@ -116,57 +84,12 @@ class GatesTest(unittest.TestCase):
     def test_main_sample_can_report_success_on_a_legacy_windows_console(self):
         for served in (None, "sysml-grpc v1.0.0, 3 capabilities"):
             with self.subTest(served=served), mock.patch.object(gates, "sample", return_value=served):
-                result, stdout = self.main_on_legacy_console(["sample", "--expect", IDENTITY])
+                result, stdout = self.main_on_legacy_console(["sample"])
                 self.assertEqual(result, 0)
                 expected = f"OK {served}\n" if served else (
-                    "- no sysml-grpc configured ($OPENSYSML_GRPC_BINARY); skipped the service run\n"
+                    "- no sysml-grpc configured ($OPENSYSML_GRPC_BINARY); skipped the sample\n"
                 )
-                self.assertEqual(stdout, f"OK {IDENTITY}\n" + expected)
-
-    def test_preflight_accepts_the_pinned_sdk_with_a_net10_runtime(self):
-        sdk, runtimes = gates.preflight(self.host("10.0.402", RUNTIMES_10), self.global_json)
-        self.assertEqual(sdk, "10.0.402")
-        self.assertEqual(runtimes, ["10.0.13"])
-
-    def test_preflight_accepts_a_later_patch_in_the_pinned_band(self):
-        sdk, _ = gates.preflight(self.host("10.0.403", RUNTIMES_10), self.global_json)
-        self.assertEqual(sdk, "10.0.403")
-
-    def test_preflight_rejects_an_sdk_outside_the_pinned_band_or_below_its_patch(self):
-        for sdk in ("10.0.401", "10.0.300", "10.0.500", "10.1.402", "11.0.402"):
-            with self.subTest(sdk=sdk), self.assertRaisesRegex(
-                gates.GateError,
-                rf"SDK '{sdk}', but global.json pins '10.0.402'; install SDK 10.0.402 or a later 10.0.4xx patch",
-            ):
-                gates.preflight(self.host(sdk, RUNTIMES_10), self.global_json)
-
-    def test_preflight_rejects_a_prerelease_sdk(self):
-        with self.assertRaisesRegex(gates.GateError, "'10.0.403-rc.1' is not a release .NET SDK version"):
-            gates.preflight(self.host("10.0.403-rc.1", RUNTIMES_10), self.global_json)
-
-    def test_preflight_rejects_a_pin_that_is_not_a_release_sdk_version(self):
-        with open(self.global_json, "w", encoding="utf-8") as f:
-            json.dump({"sdk": {"version": "10.0"}}, f)
-        with self.assertRaisesRegex(gates.GateError, "'10.0' is not a release .NET SDK version"):
-            gates.preflight(self.host("10.0.402", RUNTIMES_10), self.global_json)
-
-    def test_preflight_rejects_a_host_that_cannot_select_the_pinned_sdk(self):
-        with self.assertRaisesRegex(gates.GateError, "exited 155"):
-            gates.preflight(self.host("", RUNTIMES_10, version_exit=155), self.global_json)
-
-    def test_preflight_rejects_an_absent_net10_runtime(self):
-        with self.assertRaisesRegex(gates.GateError, "no .NET 10 runtime"):
-            gates.preflight(self.host("10.0.402", RUNTIMES_9), self.global_json)
-
-    def test_preflight_rejects_a_missing_host(self):
-        with self.assertRaisesRegex(gates.GateError, "cannot run"):
-            gates.preflight(os.path.join(self.tmp.name, "absent"), self.global_json)
-
-    def test_preflight_rejects_a_global_json_without_a_version(self):
-        with open(self.global_json, "w", encoding="utf-8") as f:
-            json.dump({"test": {}}, f)
-        with self.assertRaisesRegex(gates.GateError, "pins no sdk.version"):
-            gates.preflight(self.host("10.0.402", RUNTIMES_10), self.global_json)
+                self.assertEqual(stdout, expected)
 
     def test_coverage_accepts_handwritten_library_code(self):
         self.write("run/coverage.cobertura.1.xml", report(["/_/client/dotnet/src/Lib/A.cs"]))
@@ -246,14 +169,13 @@ class GatesTest(unittest.TestCase):
         self.python_hosts.add(path)
         return path
 
-    def sample_host(self, service_line="sysml-grpc v1.0.0, 3 capabilities", identity=IDENTITY, model_line=gates.SAMPLE_MODEL_LINE,
+    def sample_host(self, service_line="sysml-grpc v1.0.0, 3 capabilities", model_line=gates.SAMPLE_MODEL_LINE,
                     private_model_line=gates.SAMPLE_MODEL_LINE):
-        """A stand-in dotnet whose sample prints its identity and, with a service or a binary named, a service line and a model line."""
+        """A stand-in dotnet whose sample prints, with a service or a binary named, a service line and a model line."""
         seen = os.path.join(self.tmp.name, "seen-service")
         started = os.path.join(self.tmp.name, "seen-binary")
         return self.executable("sample-dotnet", f"""\
             import os
-            print({identity!r})
             service = os.environ.get("OPENSYSML_SERVICE")
             binary = os.environ.get("OPENSYSML_GRPC_BINARY")
             if service and binary:
@@ -283,25 +205,21 @@ class GatesTest(unittest.TestCase):
             open({stopped!r}, "w").write(" ".join(sys.argv[1:]))
             """), stopped
 
-    def test_sample_without_a_service_prints_its_identity_alone(self):
+    def test_sample_is_not_run_without_a_binary(self):
         dotnet, seen = self.sample_host()
-        self.assertIsNone(gates.sample(IDENTITY, dotnet, environ={"OPENSYSML_SERVICE": "elsewhere:1"}))
+        self.assertIsNone(gates.sample(dotnet, environ={"OPENSYSML_SERVICE": "elsewhere:1"}))
         self.assertFalse(os.path.exists(seen))
+        self.assertFalse(os.path.exists(os.path.join(self.tmp.name, "seen-binary")))
 
     def test_sample_without_a_binary_fails_when_a_service_is_required(self):
         dotnet, _ = self.sample_host()
         with self.assertRaisesRegex(gates.GateError, "OPENSYSML_REQUIRE_SERVICE is set"):
-            gates.sample(IDENTITY, dotnet, environ={"OPENSYSML_REQUIRE_SERVICE": "1"})
-
-    def test_sample_rejects_another_identity(self):
-        dotnet, _ = self.sample_host(identity="OpenMBEE.OpenSysML 0.0.0 (.NETCoreApp,Version=v8.0)")
-        with self.assertRaisesRegex(gates.GateError, "with no service named"):
-            gates.sample(IDENTITY, dotnet, environ={})
+            gates.sample(dotnet, environ={"OPENSYSML_REQUIRE_SERVICE": "1"})
 
     def test_sample_connects_to_the_service_it_starts_and_stops_it(self):
         dotnet, seen = self.sample_host()
         binary, stopped = self.service_binary()
-        self.assertEqual(gates.sample(IDENTITY, dotnet, binary, environ={}), "sysml-grpc v1.0.0, 3 capabilities")
+        self.assertEqual(gates.sample(dotnet, binary, environ={}), "sysml-grpc v1.0.0, 3 capabilities")
         with open(seen, encoding="utf-8") as f:
             self.assertEqual(f.read(), "127.0.0.1:4321")
         with open(stopped, encoding="utf-8") as f:
@@ -310,12 +228,12 @@ class GatesTest(unittest.TestCase):
     def test_sample_takes_the_binary_from_the_environment(self):
         dotnet, _ = self.sample_host()
         binary, _ = self.service_binary()
-        self.assertIsNotNone(gates.sample(IDENTITY, dotnet, environ={"OPENSYSML_GRPC_BINARY": binary}))
+        self.assertIsNotNone(gates.sample(dotnet, environ={"OPENSYSML_GRPC_BINARY": binary}))
 
     def test_sample_starts_the_binary_privately_with_no_service_named(self):
         dotnet, _ = self.sample_host()
         binary, _ = self.service_binary()
-        gates.sample(IDENTITY, dotnet, binary, environ={"OPENSYSML_SERVICE": "elsewhere:1"})
+        gates.sample(dotnet, binary, environ={"OPENSYSML_SERVICE": "elsewhere:1"})
         with open(os.path.join(self.tmp.name, "seen-binary"), encoding="utf-8") as f:
             self.assertEqual(f.read(), binary)
 
@@ -323,14 +241,14 @@ class GatesTest(unittest.TestCase):
         dotnet, _ = self.sample_host(private_model_line="")
         binary, stopped = self.service_binary()
         with self.assertRaisesRegex(gates.GateError, "starting sysml-grpc v1.0.0 privately, the sample printed"):
-            gates.sample(IDENTITY, dotnet, binary, environ={})
+            gates.sample(dotnet, binary, environ={})
         self.assertTrue(os.path.exists(stopped))
 
     def test_sample_rejects_a_service_line_of_another_version(self):
         dotnet, _ = self.sample_host(service_line="sysml-grpc v2.0.0, 3 capabilities")
         binary, stopped = self.service_binary()
         with self.assertRaisesRegex(gates.GateError, "connected to sysml-grpc v1.0.0"):
-            gates.sample(IDENTITY, dotnet, binary, environ={})
+            gates.sample(dotnet, binary, environ={})
         self.assertTrue(os.path.exists(stopped))
 
     def test_sample_rejects_no_capabilities_or_no_service_line(self):
@@ -338,20 +256,20 @@ class GatesTest(unittest.TestCase):
             dotnet, _ = self.sample_host(service_line=line)
             binary, _ = self.service_binary()
             with self.assertRaisesRegex(gates.GateError, "the sample printed"):
-                gates.sample(IDENTITY, dotnet, binary, environ={})
+                gates.sample(dotnet, binary, environ={})
 
     def test_sample_rejects_another_model_line_or_none(self):
         for line in ("Demo::sedan (partUsage): mass = 1500.0", ""):
             dotnet, _ = self.sample_host(model_line=line)
             binary, _ = self.service_binary()
             with self.assertRaisesRegex(gates.GateError, "Demo::sedan \\(partUsage\\): mass = 1800.0"):
-                gates.sample(IDENTITY, dotnet, binary, environ={})
+                gates.sample(dotnet, binary, environ={})
 
     def test_sample_rejects_a_service_that_reports_no_address(self):
         dotnet, _ = self.sample_host()
         binary, stopped = self.service_binary(address="")
         with self.assertRaisesRegex(gates.GateError, "reported no address"):
-            gates.sample(IDENTITY, dotnet, binary, environ={})
+            gates.sample(dotnet, binary, environ={})
         self.assertTrue(os.path.exists(stopped))
 
     def metamodel_host(self, lines=METAMODEL_LINES, exit_code=0):
@@ -369,7 +287,7 @@ class GatesTest(unittest.TestCase):
     def test_metamodel_sample_reads_the_fixture_with_no_service_named(self):
         dotnet, seen = self.metamodel_host()
         environ = {"OPENSYSML_SERVICE": "elsewhere:1", "OPENSYSML_GRPC_BINARY": "/bin/sysml-grpc"}
-        self.assertEqual(gates.metamodel_sample(METAMODEL_IDENTITY, dotnet, environ=environ), list(METAMODEL_LINES))
+        self.assertEqual(gates.metamodel_sample(dotnet, environ=environ), list(METAMODEL_LINES))
         with open(seen, encoding="utf-8") as f:
             run = json.load(f)
         fixture = os.path.join(gates.REPO_ROOT, gates.METAMODEL_SAMPLE_INPUT)
@@ -378,38 +296,37 @@ class GatesTest(unittest.TestCase):
         self.assertEqual((run["service"], run["binary"]), (None, None))
 
     def test_metamodel_sample_accepts_another_metamodel_release(self):
-        lines = (METAMODEL_LINES[0], "87 elements, 1 root namespace(s), metamodel 20990101", *METAMODEL_LINES[2:])
+        lines = ("87 elements, 1 root namespace(s), metamodel 20990101", *METAMODEL_LINES[1:])
         dotnet, _ = self.metamodel_host(lines)
-        self.assertEqual(gates.metamodel_sample(METAMODEL_IDENTITY, dotnet, environ={}), list(lines))
+        self.assertEqual(gates.metamodel_sample(dotnet, environ={}), list(lines))
 
     def test_metamodel_sample_rejects_other_output(self):
         for lines in (
-            (IDENTITY, *METAMODEL_LINES[1:]),
             METAMODEL_LINES[:-1],
             (*METAMODEL_LINES, "part extra : (none)"),
             (*METAMODEL_LINES[:-1], "part v : (type not exported)"),
-            (METAMODEL_LINES[0], "87 elements, 1 root namespace(s), metamodel 2025", *METAMODEL_LINES[2:]),
+            ("87 elements, 1 root namespace(s), metamodel 2025", *METAMODEL_LINES[1:]),
         ):
             with self.subTest(lines=lines):
                 dotnet, _ = self.metamodel_host(lines)
                 with self.assertRaisesRegex(gates.GateError, "the sample printed"):
-                    gates.metamodel_sample(METAMODEL_IDENTITY, dotnet, environ={})
+                    gates.metamodel_sample(dotnet, environ={})
 
     def test_metamodel_sample_rejects_a_failing_run(self):
         dotnet, _ = self.metamodel_host(exit_code=2)
         with self.assertRaisesRegex(gates.GateError, "exited 2"):
-            gates.metamodel_sample(METAMODEL_IDENTITY, dotnet, environ={})
+            gates.metamodel_sample(dotnet, environ={})
 
     def test_main_metamodel_sample_can_report_success_on_a_legacy_windows_console(self):
         with mock.patch.object(gates, "metamodel_sample", return_value=list(METAMODEL_LINES)):
-            result, stdout = self.main_on_legacy_console(["metamodel-sample", "--expect", METAMODEL_IDENTITY])
+            result, stdout = self.main_on_legacy_console(["metamodel-sample"])
         self.assertEqual(result, 0)
-        self.assertEqual(stdout, f"OK {METAMODEL_IDENTITY}: {METAMODEL_LINES[1]}\n")
+        self.assertEqual(stdout, f"OK {METAMODEL_LINES[0]}\n")
 
     def test_sample_rejects_a_binary_that_is_not_a_file(self):
         dotnet, _ = self.sample_host()
         with self.assertRaisesRegex(gates.GateError, "is not a file"):
-            gates.sample(IDENTITY, dotnet, os.path.join(self.tmp.name, "absent"), environ={})
+            gates.sample(dotnet, os.path.join(self.tmp.name, "absent"), environ={})
 
     def test_main_reports_a_failed_gate(self):
         os.makedirs(os.path.join(self.tmp.name, "run"))

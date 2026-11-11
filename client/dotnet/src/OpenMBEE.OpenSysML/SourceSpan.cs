@@ -13,7 +13,7 @@ public sealed record SourceSpan
     /// <param name="endLine">The last line.</param>
     /// <param name="endColumn">The last column.</param>
     /// <exception cref="ArgumentNullException"><paramref name="file"/> is null.</exception>
-    public SourceSpan(string file, int startLine, int startColumn, int endLine, int endColumn)
+    internal SourceSpan(string file, int startLine, int startColumn, int endLine, int endColumn)
     {
         ArgumentNullException.ThrowIfNull(file);
         File = file;

@@ -79,18 +79,17 @@ public sealed class ModelEvaluateTests
         Assert.Equal(new Evaluation(mass, [new Diagnostic("info", "mass", string.Empty, null, [], false)]), evaluation);
     }
 
-    [Theory]
-    [MemberData(nameof(Wires))]
-    public async Task ASubjectNeedsEvaluateSubjectAndAnEmptySymbolIsRefusedBeforeSending(ClientWire wire)
+    [Fact]
+    public async Task ASubjectNeedsEvaluateSubjectAndAnEmptySymbolIsRefusedBeforeSending()
     {
-        using var handler = new FakeServiceHandler(wire) { Capabilities = [.. FakeModels.ModelCapabilities.Except([Capabilities.EvaluateSubject])] };
+        using var handler = new FakeServiceHandler() { Capabilities = [.. FakeModels.ModelCapabilities.Except([Capabilities.EvaluateSubject])] };
         await using var connection = await FakeConnection.OpenAsync(handler);
         var model = connection.ModelByHash("h");
 
         var gated = await Assert.ThrowsAsync<CapabilityException>(() =>
             model.EvalAsync("mass", new EvalOptions { SubjectSymbolId = "Demo::sedan" }, TestContext.Current.CancellationToken));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.EvalAsync("mass", new EvalOptions { ContextSymbolId = string.Empty }, TestContext.Current.CancellationToken));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.EvalAsync("mass", new EvalOptions { SubjectSymbolId = string.Empty }, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.EvalAsync("mass", new EvalOptions { ContextSymbolId = string.Empty }, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.EvalAsync("mass", new EvalOptions { SubjectSymbolId = string.Empty }, TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<ArgumentNullException>(() => model.EvalAsync(null!, cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Equal(Capabilities.EvaluateSubject, gated.Capability);

@@ -3,14 +3,9 @@ using OpenMBEE.OpenSysML;
 
 // A ProjectReference consumer of the client, and the program docs/clients/dotnet.md walks
 // through: the walkthrough region below is that page's code, and a test holds the two together.
-// When OPENSYSML_SERVICE names a running sysml-grpc or OPENSYSML_GRPC_BINARY names one to start
-// privately, it connects, prints what the service reports, parses a vehicle model, checks its
+// It connects to the sysml-grpc OPENSYSML_SERVICE names, or starts the one OPENSYSML_GRPC_BINARY
+// names privately, prints what the service reports, parses a vehicle model, checks its
 // diagnostics and evaluates the sedan's mass.
-if (SampleGate.Check() is int exit)
-{
-    return exit;
-}
-
 // <walkthrough>
 const string Source = """
     package Demo {

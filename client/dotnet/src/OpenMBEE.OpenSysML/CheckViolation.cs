@@ -14,7 +14,7 @@ public sealed record CheckViolation
     /// <param name="witness">The schedule reaching it; null when the service reported none.</param>
     /// <param name="text">The violation as the command reports it.</param>
     /// <exception cref="ArgumentNullException">A string is null.</exception>
-    public CheckViolation(string kind, string property, string error, int depth, double probability, CheckWitness? witness, string text)
+    internal CheckViolation(string kind, string property, string error, int depth, double probability, CheckWitness? witness, string text)
     {
         ArgumentNullException.ThrowIfNull(kind);
         ArgumentNullException.ThrowIfNull(property);

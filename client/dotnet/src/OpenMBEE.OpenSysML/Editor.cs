@@ -90,7 +90,7 @@ public sealed class Editor
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The edited notation and what each edit changed.</returns>
     /// <exception cref="InvalidOperationException">The editor is being applied, or was applied.</exception>
-    /// <exception cref="InvalidRequestException">An edit or an option is invalid; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">An edit or an option is invalid; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The service lacks a capability the edits or options need; nothing was sent.</exception>
     /// <exception cref="EditException">The service refused the batch; nothing of it was applied.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>

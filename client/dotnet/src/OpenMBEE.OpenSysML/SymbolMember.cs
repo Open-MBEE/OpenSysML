@@ -16,7 +16,7 @@ public sealed record SymbolMember
     /// <param name="inheritedFrom">The qualified name of the type declaring an inherited member; empty for an own member.</param>
     /// <param name="isLibrary">Whether the member is declared in standard-library content.</param>
     /// <exception cref="ArgumentNullException">A string is null.</exception>
-    public SymbolMember(string id, string name, string kind, bool isInherited, string inheritedFrom, bool isLibrary)
+    internal SymbolMember(string id, string name, string kind, bool isInherited, string inheritedFrom, bool isLibrary)
     {
         ArgumentNullException.ThrowIfNull(id);
         ArgumentNullException.ThrowIfNull(name);

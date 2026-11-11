@@ -5,7 +5,7 @@ using System.Runtime.Versioning;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
-using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Provisioning;
 using Xunit;
 
 namespace OpenMBEE.OpenSysML.Tests;

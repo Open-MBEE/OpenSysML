@@ -19,7 +19,7 @@ public sealed record VerdictNote
     /// <param name="subject">The feature the note is about, as the report names it.</param>
     /// <param name="text">The note as a sentence.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    public VerdictNote(string kind, string subject, string text)
+    internal VerdictNote(string kind, string subject, string text)
     {
         ArgumentNullException.ThrowIfNull(kind);
         ArgumentNullException.ThrowIfNull(subject);

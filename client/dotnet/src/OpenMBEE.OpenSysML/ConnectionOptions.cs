@@ -5,14 +5,15 @@ using System.Linq;
 using System.Net.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Provisioning;
+using OpenMBEE.OpenSysML.Internal.Transport;
 
 namespace OpenMBEE.OpenSysML;
 
 /// <summary>
 /// How a <see cref="Connection"/> reaches a service and calls it. Collections are copied when they
 /// are set, so changing the collection afterwards changes nothing here. Values are checked when a
-/// connection opens, which refuses an invalid one with <see cref="InvalidRequestException"/>
+/// connection opens, which refuses an invalid one with <see cref="ArgumentException"/>
 /// before it does any work.
 /// </summary>
 public sealed class ConnectionOptions
@@ -27,8 +28,11 @@ public sealed class ConnectionOptions
     public const string BinaryVariable = "OPENSYSML_GRPC_BINARY";
 
     /// <summary>
-    /// The environment variable naming the release to download for a private service when
-    /// <see cref="DownloadVersion"/> does not: a tag, as <c>v0.10.1</c>, or <c>latest</c>.
+    /// The environment variable naming a release of <c>sysml-grpc</c>: a tag, as <c>v0.10.1</c>, or <c>latest</c>.
+    /// It is the release downloaded for a private service when <see cref="DownloadVersion"/> names none, and, as in
+    /// the other clients, the version any service must report when <see cref="Version"/> is null: a service that
+    /// reports another, or does not answer, fails the open with <see cref="StaleServiceException"/>. <c>latest</c>
+    /// is resolved once per open, and requires nothing when the releases API cannot resolve it.
     /// </summary>
     public const string VersionVariable = "OPENSYSML_GRPC_VERSION";
 
@@ -235,8 +239,9 @@ public sealed class ConnectionOptions
     }
 
     /// <summary>
-    /// The exact build version the service must report, or null to accept any. A service that
-    /// reports another, or does not answer, fails the open with <see cref="StaleServiceException"/>.
+    /// The exact build version the service must report, or null for the release <see cref="VersionVariable"/>
+    /// names, if any. A service that reports another, or does not answer, fails the open with
+    /// <see cref="StaleServiceException"/>.
     /// </summary>
     public string? Version { get; init; }
 
@@ -267,61 +272,61 @@ public sealed class ConnectionOptions
     public int MaxResponseSize { get; init; } = DefaultMaxMessageSize;
 
     /// <summary>Refuses options no connection can use.</summary>
-    /// <exception cref="InvalidRequestException">An option is invalid.</exception>
+    /// <exception cref="ArgumentException">An option is invalid.</exception>
     internal void Validate()
     {
         if (!Enum.IsDefined(Protocol))
         {
-            throw new InvalidRequestException($"ConnectionOptions.Protocol is {(int)Protocol}, which is no protocol of this client.");
+            throw new ArgumentException($"ConnectionOptions.Protocol is {(int)Protocol}, which is no protocol of this client.");
         }
 
         if (!Enum.IsDefined(Encoding))
         {
-            throw new InvalidRequestException($"ConnectionOptions.Encoding is {(int)Encoding}, which is no encoding of this client.");
+            throw new ArgumentException($"ConnectionOptions.Encoding is {(int)Encoding}, which is no encoding of this client.");
         }
 
         if (Protocol == Protocol.Grpc && Encoding != MessageEncoding.Protobuf)
         {
-            throw new InvalidRequestException(
+            throw new ArgumentException(
                 $"ConnectionOptions.Encoding is {Encoding}, which gRPC does not carry: use Protocol.Connect for {Encoding}, or MessageEncoding.Protobuf over gRPC.");
         }
 
         if (RequestTimeout <= TimeSpan.Zero || RequestTimeout > MaxRequestTimeout)
         {
-            throw new InvalidRequestException(
+            throw new ArgumentException(
                 $"ConnectionOptions.RequestTimeout is {RequestTimeout}; it must be positive and at most {MaxRequestTimeout}.");
         }
 
         if (StartupTimeout <= TimeSpan.Zero || StartupTimeout > MaxRequestTimeout)
         {
-            throw new InvalidRequestException(
+            throw new ArgumentException(
                 $"ConnectionOptions.StartupTimeout is {StartupTimeout}; it must be positive and at most {MaxRequestTimeout}.");
         }
 
         if (ShutdownTimeout <= TimeSpan.Zero || ShutdownTimeout > MaxRequestTimeout)
         {
-            throw new InvalidRequestException(
+            throw new ArgumentException(
                 $"ConnectionOptions.ShutdownTimeout is {ShutdownTimeout}; it must be positive and at most {MaxRequestTimeout}.");
         }
 
         if (MaxRequestSize <= 0)
         {
-            throw new InvalidRequestException($"ConnectionOptions.MaxRequestSize is {MaxRequestSize}; it must be positive.");
+            throw new ArgumentException($"ConnectionOptions.MaxRequestSize is {MaxRequestSize}; it must be positive.");
         }
 
         if (MaxResponseSize <= 0)
         {
-            throw new InvalidRequestException($"ConnectionOptions.MaxResponseSize is {MaxResponseSize}; it must be positive.");
+            throw new ArgumentException($"ConnectionOptions.MaxResponseSize is {MaxResponseSize}; it must be positive.");
         }
 
         if (Version is not null && string.IsNullOrWhiteSpace(Version))
         {
-            throw new InvalidRequestException("ConnectionOptions.Version is blank; name a version, or leave it null to accept any.");
+            throw new ArgumentException("ConnectionOptions.Version is blank; name a version, or leave it null to accept any.");
         }
 
         if (RequireCapabilities.FirstOrDefault(string.IsNullOrWhiteSpace) is not null)
         {
-            throw new InvalidRequestException("ConnectionOptions.RequireCapabilities holds a blank capability name.");
+            throw new ArgumentException("ConnectionOptions.RequireCapabilities holds a blank capability name.");
         }
 
         RequestHeaders.Validate(Headers);
@@ -338,18 +343,18 @@ public sealed class ConnectionOptions
 
         if (string.IsNullOrWhiteSpace(Token))
         {
-            throw new InvalidRequestException(
+            throw new ArgumentException(
                 $"ConnectionOptions.Token is blank; give the service's bearer token, or leave it null for the one ${TokenVariable} names.");
         }
 
         if (!BearerToken.IsValid(Token))
         {
-            throw new InvalidRequestException($"ConnectionOptions.Token is not a bearer token: {BearerToken.Rule}.");
+            throw new ArgumentException($"ConnectionOptions.Token is not a bearer token: {BearerToken.Rule}.");
         }
 
         if (Headers.Keys.Any(name => string.Equals(name, BearerToken.Header, StringComparison.OrdinalIgnoreCase)))
         {
-            throw new InvalidRequestException(
+            throw new ArgumentException(
                 "ConnectionOptions.Token and the authorization header in ConnectionOptions.Headers both give the calls' credentials; set one or the other.");
         }
     }
@@ -358,32 +363,32 @@ public sealed class ConnectionOptions
     {
         if (BinaryPath is not null && string.IsNullOrWhiteSpace(BinaryPath))
         {
-            throw new InvalidRequestException("ConnectionOptions.BinaryPath is blank; name a sysml-grpc binary, or leave it null to look for one.");
+            throw new ArgumentException("ConnectionOptions.BinaryPath is blank; name a sysml-grpc binary, or leave it null to look for one.");
         }
 
         if (ExpectedBinarySha256 is not null && !IsSha256(ExpectedBinarySha256))
         {
-            throw new InvalidRequestException(
+            throw new ArgumentException(
                 "ConnectionOptions.ExpectedBinarySha256 is not a SHA-256 digest: it must be 64 hexadecimal digits.");
         }
 
         if (DownloadVersion is not null && !ReleaseRequest.IsVersion(DownloadVersion))
         {
-            throw new InvalidRequestException(
+            throw new ArgumentException(
                 $"ConnectionOptions.DownloadVersion is \"{DownloadVersion}\", which is neither \"{ReleaseRequest.Latest}\" nor a release tag "
                 + "of letters, digits, '.', '-', '_' and '+'; leave it null for the release this client was built with.");
         }
 
         if (GithubRepo is not null && !ReleaseRequest.IsRepo(GithubRepo))
         {
-            throw new InvalidRequestException(
+            throw new ArgumentException(
                 $"ConnectionOptions.GithubRepo is \"{GithubRepo}\", which is not an owner/repo of letters, digits, '.', '-' and '_'; leave it null for {DefaultGithubRepo}.");
         }
 
         var download = DownloadVersion is not null ? nameof(DownloadVersion) : GithubRepo is not null ? nameof(GithubRepo) : null;
         if (download is not null && BinaryPath is not null)
         {
-            throw new InvalidRequestException(
+            throw new ArgumentException(
                 $"ConnectionOptions.{download} describes a release to download, but ConnectionOptions.BinaryPath names the binary to start, which is never downloaded; set one or the other.");
         }
 
@@ -398,13 +403,13 @@ public sealed class ConnectionOptions
 
         if (Address is not null)
         {
-            throw new InvalidRequestException(
+            throw new ArgumentException(
                 $"ConnectionOptions.{named} describes a private service, but ConnectionOptions.Address names a running one; set one or the other.");
         }
 
         if (!AutoStart)
         {
-            throw new InvalidRequestException(
+            throw new ArgumentException(
                 $"ConnectionOptions.{named} describes a private service, but ConnectionOptions.AutoStart is false, so none is started.");
         }
     }

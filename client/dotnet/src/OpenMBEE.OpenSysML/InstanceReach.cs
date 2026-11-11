@@ -19,7 +19,7 @@ public sealed record InstanceReach
     /// <param name="index">The position among the values of a multi-valued feature, counted from 1 as an object path indexes them (<c>wheels[2]</c>); 0 for a single-valued feature.</param>
     /// <param name="path">The path from the root: the feature names, indexed within a multi-valued feature, joined by dots (<c>powertrain.engine.fuelIn</c>, <c>wheels[2].hub</c>).</param>
     /// <exception cref="ArgumentNullException">A string is null.</exception>
-    public InstanceReach(long instanceId, string featureName, string featureSymbolId, int index, string path)
+    internal InstanceReach(long instanceId, string featureName, string featureSymbolId, int index, string path)
     {
         ArgumentNullException.ThrowIfNull(featureName);
         ArgumentNullException.ThrowIfNull(featureSymbolId);

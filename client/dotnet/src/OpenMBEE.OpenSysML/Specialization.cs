@@ -14,7 +14,7 @@ public sealed record Specialization
     /// <param name="targetId">The qualified name of the resolved target; empty when the name does not resolve.</param>
     /// <param name="targetKind">The symbol kind of the resolved target (<c>partDef</c>, …); empty when unresolved.</param>
     /// <exception cref="ArgumentNullException">A string is null.</exception>
-    public Specialization(string kind, string declared, string targetId, string targetKind)
+    internal Specialization(string kind, string declared, string targetId, string targetKind)
     {
         ArgumentNullException.ThrowIfNull(kind);
         ArgumentNullException.ThrowIfNull(declared);

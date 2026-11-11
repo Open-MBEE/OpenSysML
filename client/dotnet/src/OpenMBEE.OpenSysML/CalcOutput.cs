@@ -9,7 +9,7 @@ public sealed record CalcOutput
     /// <param name="name">The output feature or parameter's name; <c>result</c> for a value returned into an unnamed result.</param>
     /// <param name="value">Its value.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    public CalcOutput(string name, Value value)
+    internal CalcOutput(string name, Value value)
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(value);

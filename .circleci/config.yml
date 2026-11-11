@@ -1,8 +1,5 @@
 version: 2.1
 
-orbs:
-  go: circleci/go@1.10.0
-
 parameters:
   release_rehearsal:
     type: boolean
@@ -1596,7 +1593,7 @@ jobs:
           destination: conformance-report-rust.json
 
   # The .NET client: locked restore, format, build and tests against a service
-  # built here (the orb installs Go, as for the Rust job), then coverage.
+  # built here (install-go adds Go, as for the Rust job), then coverage.
   dotnet-test:
     executor: dotnet-executor
     environment:
@@ -1604,7 +1601,8 @@ jobs:
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
     steps:
       # The SDK image runs as root and carries neither make nor an SSH client for checkout,
-      # nor the solver the verdict-notes test asks the service a question with.
+      # nor the solver the verdict-notes test asks the service a question with, nor the
+      # Python the gates and the cache lock interop tests run.
       - run:
           name: Install build prerequisites
           command: |
@@ -1635,25 +1633,24 @@ jobs:
             git diff --exit-code client/dotnet/src/OpenMBEE.OpenSysML/Wire
 
       - run:
-          name: Check the SDK and runtime
+          name: Show the SDK and runtime
           command: |
             dotnet --version
             dotnet --list-runtimes
-            make dotnet-preflight
 
-      - go/install:
-          version: "1.25.0"
+      - install-go
 
       - run:
           name: Build sysml-grpc
           command: make build-grpc
 
-      # A test that needs the service or a solver fails rather than skips without one.
+      # A test that needs the service, a solver or Python fails rather than skips without it.
       - run:
           name: Run .NET client tests
           command: |
             OPENSYSML_GRPC_BINARY="$PWD/bin/sysml-grpc" \
             OPENSYSML_REQUIRE_SERVICE=1 \
+            OPENSYSML_REQUIRE_INTEROP=1 \
             OPENSYSML_REQUIRE_SMT=1 \
               make dotnet-test
 

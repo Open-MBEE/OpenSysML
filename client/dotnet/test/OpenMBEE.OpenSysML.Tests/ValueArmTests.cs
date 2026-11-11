@@ -1,6 +1,6 @@
 using System.Numerics;
 using Google.Protobuf;
-using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Mapping;
 using Xunit;
 
 namespace OpenMBEE.OpenSysML.Tests;
@@ -336,7 +336,7 @@ public sealed class ValueArmTests
     private static void ResponseOnly(Value value, Value twin, Value other, Wire.Value wire, string text)
     {
         Common(value, twin, other, wire, text);
-        var refused = Assert.Throws<InvalidRequestException>(() => ValueWire.ToWire(value, "arguments[0]"));
+        var refused = Assert.Throws<System.ArgumentException>(() => ValueWire.ToWire(value, "arguments[0]"));
         Assert.StartsWith("The value at arguments[0] ", refused.Message, System.StringComparison.Ordinal);
     }
 

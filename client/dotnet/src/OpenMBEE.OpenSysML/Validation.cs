@@ -19,7 +19,7 @@ public sealed record Validation
     /// <param name="bounded">Whether nesting deeper than the validation descends was left unvalidated.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null.</exception>
-    public Validation(
+    internal Validation(
         Verdict summary,
         IEnumerable<Verdict> verdicts,
         IEnumerable<VerificationVerdict> verifications,

@@ -18,7 +18,7 @@ public sealed record VerificationVerdict
     /// <param name="instanceId">The object the case ran on as its owner; 0 when it ran on none.</param>
     /// <param name="instanceTypeId">The qualified name of that object's type; empty when none.</param>
     /// <exception cref="ArgumentNullException">A string is null.</exception>
-    public VerificationVerdict(string caseId, string kind, string detail, bool subcase, string requirementId, long instanceId, string instanceTypeId)
+    internal VerificationVerdict(string caseId, string kind, string detail, bool subcase, string requirementId, long instanceId, string instanceTypeId)
     {
         ArgumentNullException.ThrowIfNull(caseId);
         ArgumentNullException.ThrowIfNull(kind);

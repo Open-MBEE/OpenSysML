@@ -4,7 +4,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Google.Protobuf;
-using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Mapping;
+using OpenMBEE.OpenSysML.Internal.Transport;
 
 namespace OpenMBEE.OpenSysML;
 
@@ -24,8 +25,7 @@ public sealed partial class Connection
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The model, borrowing this connection. A source with errors is still a model: see <see cref="Model.Errors"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="path"/> is null.</exception>
-    /// <exception cref="ArgumentException"><paramref name="path"/> is empty.</exception>
-    /// <exception cref="InvalidRequestException">The options name a language, or one that is not a <see cref="SourceLanguage"/>; nothing was sent.</exception>
+    /// <exception cref="ArgumentException"><paramref name="path"/> is empty. The options name a language, or one that is not a <see cref="SourceLanguage"/>; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The options need a capability the service lacks; nothing was sent.</exception>
     /// <exception cref="ModelFileNotFoundException">The service could not read the file.</exception>
     /// <exception cref="ModelException">The service reported that the source could not be parsed at all.</exception>
@@ -38,7 +38,7 @@ public sealed partial class Connection
         options ??= ParseOptions.Default;
         if (options.Language is not null)
         {
-            throw new InvalidRequestException(
+            throw new ArgumentException(
                 $"ParseOptions.Language names {options.Language}, but {path} is a file, whose notation its extension says; leave Language null to load it.");
         }
 
@@ -51,7 +51,7 @@ public sealed partial class Connection
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The model, borrowing this connection. A source with errors is still a model: see <see cref="Model.Errors"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="content"/> is null.</exception>
-    /// <exception cref="InvalidRequestException">The options name a language that is not a <see cref="SourceLanguage"/>; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">The options name a language that is not a <see cref="SourceLanguage"/>; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The options need a capability the service lacks; nothing was sent.</exception>
     /// <exception cref="ModelException">The service reported that the source could not be parsed at all.</exception>
     /// <exception cref="ServiceException">The service refused the call.</exception>
@@ -63,7 +63,7 @@ public sealed partial class Connection
         options ??= ParseOptions.Default;
         if (options.Language is { } language && !Enum.IsDefined(language))
         {
-            throw new InvalidRequestException($"ParseOptions.Language is {language}, which is not a SourceLanguage.");
+            throw new ArgumentException($"ParseOptions.Language is {language}, which is not a SourceLanguage.");
         }
 
         var request = new Wire.ParseFileRequest { Content = content };
@@ -85,8 +85,7 @@ public sealed partial class Connection
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The model, borrowing this connection.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="documents"/> is null.</exception>
-    /// <exception cref="ArgumentException">A document is null.</exception>
-    /// <exception cref="InvalidRequestException"><see cref="SourcesOptions.BaseModelHash"/> is empty; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">A document is null. <see cref="SourcesOptions.BaseModelHash"/> is empty; nothing was sent.</exception>
     /// <exception cref="CapabilityException">
     /// The service lacks <see cref="Capabilities.ParseSources"/>, or one the options or a document's
     /// language need; nothing was sent.
@@ -108,7 +107,7 @@ public sealed partial class Connection
         options ??= SourcesOptions.Default;
         if (options.BaseModelHash is { Length: 0 })
         {
-            throw new InvalidRequestException("SourcesOptions.BaseModelHash is empty; leave it null to relate the answer to no model.");
+            throw new ArgumentException("SourcesOptions.BaseModelHash is empty; leave it null to relate the answer to no model.");
         }
 
         // The order the service checks them in, so the first refusal is the one it would make.
@@ -227,7 +226,7 @@ public sealed partial class Connection
 
         if (modelHash.Length == 0)
         {
-            throw new TransportException(StatusCode.Internal, $"{method} answered neither a model hash nor a failure.", method);
+            throw TransportException.Malformed(method, "neither a model hash nor a failure");
         }
     }
 

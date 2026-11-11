@@ -17,7 +17,7 @@ public sealed partial class Model
     /// <param name="cancellationToken">Cancels the call.</param>
     /// <returns>The converted model.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="toFormat"/> is null.</exception>
-    /// <exception cref="InvalidRequestException">An option is invalid; nothing was sent.</exception>
+    /// <exception cref="ArgumentException">An option is invalid; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The service lacks a capability the conversion needs; nothing was sent.</exception>
     /// <exception cref="ConversionException">The model could not be written in that format.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
@@ -65,8 +65,7 @@ public sealed partial class Model
     /// <param name="cancellationToken">Cancels the conversion or the write, which then leaves nothing behind.</param>
     /// <returns>What was written.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="path"/> is null.</exception>
-    /// <exception cref="ArgumentException"><paramref name="path"/> is empty.</exception>
-    /// <exception cref="InvalidRequestException"><paramref name="toFormat"/> is null and the path's extension names no format, or an option is invalid; nothing was sent.</exception>
+    /// <exception cref="ArgumentException"><paramref name="path"/> is empty. <paramref name="toFormat"/> is null and the path's extension names no format, or an option is invalid; nothing was sent.</exception>
     /// <exception cref="CapabilityException">The service lacks a capability the conversion needs; nothing was sent.</exception>
     /// <exception cref="ConversionException">The model could not be written in that format; nothing was written.</exception>
     /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
@@ -84,7 +83,7 @@ public sealed partial class Model
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
         var format = toFormat ?? ConversionFormat.OfPath(path)
-            ?? throw new InvalidRequestException($"{path} has no extension that names a format to write (.sysml, .kerml, .ttl, .turtle or .json); name the format.");
+            ?? throw new ArgumentException($"{path} has no extension that names a format to write (.sysml, .kerml, .ttl, .turtle or .json); name the format.");
         var conversion = await ConvertAsync(format, options, cancellationToken).ConfigureAwait(false);
         await conversion.SaveAsync(path, saveOptions, cancellationToken).ConfigureAwait(false);
         return conversion;

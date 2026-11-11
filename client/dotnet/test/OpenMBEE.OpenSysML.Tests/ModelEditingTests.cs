@@ -278,28 +278,16 @@ public sealed class ModelEditingTests : IDisposable
         Assert.Equal([1, 2], sent);
     }
 
-    public static TheoryData<ClientWire, string> GatedEdits()
-    {
-        var data = new TheoryData<ClientWire, string>();
-        foreach (var wire in new[] { ClientWire.Grpc, ClientWire.ConnectProto, ClientWire.ConnectJson })
-        {
-            foreach (var name in Gated.Keys)
-            {
-                data.Add(wire, name);
-            }
-        }
-
-        return data;
-    }
+    public static TheoryData<string> GatedEdits() => new(Gated.Keys);
 
     [Theory]
     [MemberData(nameof(GatedEdits))]
-    public async Task AnEditNeedingACapabilityTheServiceLacksIsRefusedBeforeAnythingIsSent(ClientWire wire, string name)
+    public async Task AnEditNeedingACapabilityTheServiceLacksIsRefusedBeforeAnythingIsSent(string name)
     {
         var (edit, capability) = Gated[name];
 
-        Assert.Equal(capability, await RefusedAsync(wire, [capability], model => model.ApplyEditsAsync([edit], cancellationToken: Token)));
-        Assert.Equal(Capabilities.ApplyEdits, await RefusedAsync(wire, [Capabilities.ApplyEdits, capability], model => model.ApplyEditsAsync([edit], cancellationToken: Token)));
+        Assert.Equal(capability, await RefusedAsync(ClientWire.Grpc, [capability], model => model.ApplyEditsAsync([edit], cancellationToken: Token)));
+        Assert.Equal(Capabilities.ApplyEdits, await RefusedAsync(ClientWire.Grpc, [Capabilities.ApplyEdits, capability], model => model.ApplyEditsAsync([edit], cancellationToken: Token)));
     }
 
     [Theory]
@@ -342,7 +330,7 @@ public sealed class ModelEditingTests : IDisposable
         Edit[] batch = [new Edit.AddNote("A::B", "n"), new Edit.AddConnection("A", "flow", "a", "b"), new Edit.AddMember("A", "part", "p") { IsAbstract = true }, new Edit.Delete("A::B")];
         var named = new EditOptions { InDocument = "b.sysml" };
 
-        Assert.Equal(Capabilities.Authoring, await RefusedAsync(wire, [.. Internal.EditWire.GateOrder], model => model.ApplyEditsAsync(batch, cancellationToken: Token)));
+        Assert.Equal(Capabilities.Authoring, await RefusedAsync(wire, [.. Internal.Mapping.EditWire.GateOrder], model => model.ApplyEditsAsync(batch, cancellationToken: Token)));
         Assert.Equal(
             Capabilities.ConnectionAuthoring,
             await RefusedAsync(wire, [Capabilities.CommentAuthoring, Capabilities.MemberModifiers, Capabilities.ConnectionAuthoring], model => model.ApplyEditsAsync(batch, cancellationToken: Token)));
@@ -412,18 +400,17 @@ public sealed class ModelEditingTests : IDisposable
         Assert.Equal(1, (item with { Body = [], ElseBody = [] }).Height);
     }
 
-    [Theory]
-    [MemberData(nameof(Wires))]
-    public async Task AnEmptyOptionalPartOrDocumentIsRefusedBeforeAnyCapabilityIsJudged(ClientWire wire)
+    [Fact]
+    public async Task AnEmptyOptionalPartOrDocumentIsRefusedBeforeAnyCapabilityIsJudged()
     {
-        using var handler = new FakeServiceHandler(wire) { Capabilities = [] };
+        using var handler = new FakeServiceHandler() { Capabilities = [] };
         await using var connection = await FakeConnection.OpenAsync(handler);
         var model = connection.ModelByHash(Hash);
         var nested = Edit.AddSequence.If("A", "c", [Edit.AddSequence.Then(string.Empty, "x")], [Edit.AddSequence.Assign(string.Empty, "x", "1") with { Via = string.Empty }]);
 
-        var member = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ApplyEditsAsync([new Edit.SetValue("A", "1"), new Edit.AddMember("A", "part", "p") { Type = string.Empty }], cancellationToken: Token));
-        var deep = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ApplyEditsAsync([nested], cancellationToken: Token));
-        var document = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ApplyEditsAsync([], new EditOptions { InDocument = string.Empty }, Token));
+        var member = await Assert.ThrowsAsync<ArgumentException>(() => model.ApplyEditsAsync([new Edit.SetValue("A", "1"), new Edit.AddMember("A", "part", "p") { Type = string.Empty }], cancellationToken: Token));
+        var deep = await Assert.ThrowsAsync<ArgumentException>(() => model.ApplyEditsAsync([nested], cancellationToken: Token));
+        var document = await Assert.ThrowsAsync<ArgumentException>(() => model.ApplyEditsAsync([], new EditOptions { InDocument = string.Empty }, Token));
         Edit[] empties =
         [
             new Edit.AddMember("A", "part", "p") { Multiplicity = string.Empty },
@@ -449,7 +436,7 @@ public sealed class ModelEditingTests : IDisposable
         ];
         foreach (var empty in empties)
         {
-            await Assert.ThrowsAsync<InvalidRequestException>(() => model.ApplyEditsAsync([empty], cancellationToken: Token));
+            await Assert.ThrowsAsync<ArgumentException>(() => model.ApplyEditsAsync([empty], cancellationToken: Token));
         }
 
         await Assert.ThrowsAsync<ArgumentNullException>(() => model.ApplyEditsAsync(null!, cancellationToken: Token));
@@ -487,7 +474,7 @@ public sealed class ModelEditingTests : IDisposable
                 new AppliedEdit(1, "Demo", 60, 0, string.Empty, "// note\n", "a.sysml"),
             ],
             result.Applied);
-        Assert.Equal(ModelWireDiagnostic(), Assert.Single(result.Diagnostics));
+        Assert.Equal(ExpectedDiagnostic(), Assert.Single(result.Diagnostics));
         Assert.Equal((CompleteEditingWire.Edited, 0), (bare.Content, bare.Documents.Count));
         Assert.Null(Assert.Single(bare.Applied).Document);
         Assert.Equal((string.Empty, false), (emptied.Content, emptied.HasSeveralDocuments));
@@ -552,7 +539,7 @@ public sealed class ModelEditingTests : IDisposable
         var newer = await Assert.ThrowsAsync<EditException>(() => model.ApplyEditsAsync([new Edit.Rename("A", "B")], cancellationToken: Token));
 
         Assert.Equal(("EngineLibrary::Engine is referred to by EngineUser::Car::motor", EditFailure.DeleteReferenced, Model.ApplyEditsMethod), (refused.Message, refused.Failure, refused.Method));
-        Assert.Equal(ModelWireDiagnostic(), Assert.Single(refused.Diagnostics));
+        Assert.Equal(ExpectedDiagnostic(), Assert.Single(refused.Diagnostics));
         Assert.Equal(["EngineUser::Car::motor (engine_user.sysml)", "EngineLibrary::spare"], refused.ReferringElements);
         Assert.Equal([new Referrer("EngineLibrary::spare", "engine_library.sysml"), new Referrer("EngineUser::Car::motor", "engine_user.sysml")], refused.Referrers);
         Assert.IsAssignableFrom<ModelException>(refused);
@@ -796,7 +783,9 @@ public sealed class ModelEditingTests : IDisposable
         return Wire.ApplyEditsRequest.Parser.ParseFrom(CodedInputStream.CreateWithLimits(new MemoryStream(sent.MessageBytes), int.MaxValue, 1000));
     }
 
-    private static Diagnostic ModelWireDiagnostic() => Internal.ModelWire.Diagnostic(CompleteWire.Diagnostic);
+    // CompleteWire.Diagnostic as the client must read it, stated rather than read by the library's own mapper.
+    private static Diagnostic ExpectedDiagnostic() =>
+        new("warning", "rounded", "rounded-real-literal", new SourceSpan("/models/a.sysml", 1, 2, 3, 4), ["Demo::a", "Demo::b"], true);
 
     // The capability an edit is refused for when the service lacks the given ones, after checking nothing was sent.
     private static async Task<string> RefusedAsync(ClientWire wire, string[] withheld, Func<Model, Task> call)

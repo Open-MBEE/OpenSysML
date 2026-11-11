@@ -14,7 +14,7 @@ public sealed class MigrationFile : IEquatable<MigrationFile>
     /// <param name="path">Its path relative to the migrated model, <c>/</c>-separated.</param>
     /// <param name="content">Its bytes.</param>
     /// <exception cref="ArgumentNullException"><paramref name="path"/> is null.</exception>
-    public MigrationFile(string path, ReadOnlySpan<byte> content)
+    internal MigrationFile(string path, ReadOnlySpan<byte> content)
     {
         ArgumentNullException.ThrowIfNull(path);
         Path = path;

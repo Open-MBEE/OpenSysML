@@ -30,7 +30,7 @@ public sealed record Symbol
     /// <param name="withheldLibraryMembers">How many members inherited from standard-library content <paramref name="members"/> leaves out.</param>
     /// <exception cref="ArgumentNullException">A string or collection is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null, or a metadata name repeats.</exception>
-    public Symbol(
+    internal Symbol(
         string id,
         string name,
         string kind,

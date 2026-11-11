@@ -9,7 +9,7 @@ public sealed record Referrer
     /// <param name="name">The declaration as the notation names it: the qualified name of a named one, or the heading of an anonymous one within its namespace.</param>
     /// <param name="document">The document declaring it, named as the parse named it.</param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    public Referrer(string name, string document)
+    internal Referrer(string name, string document)
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(document);

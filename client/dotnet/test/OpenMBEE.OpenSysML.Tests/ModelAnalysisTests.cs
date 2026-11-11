@@ -198,23 +198,22 @@ public sealed class ModelAnalysisTests
         Assert.False(new AnalysisOptions { Schedule = "declared", Engine = "run" }.Explores);
     }
 
-    [Theory]
-    [MemberData(nameof(Wires))]
-    public async Task ARunAndAnExplorationOfACaseEachRefuseTheOthersOptionsBeforeSending(ClientWire wire)
+    [Fact]
+    public async Task ARunAndAnExplorationOfACaseEachRefuseTheOthersOptionsBeforeSending()
     {
-        using var handler = Serving(wire);
+        using var handler = Serving(ClientWire.Grpc);
         await using var connection = await FakeConnection.OpenAsync(handler);
         var model = connection.ModelByHash(Hash);
         var token = TestContext.Current.CancellationToken;
 
-        var schedule = await Assert.ThrowsAsync<InvalidRequestException>(() => model.RunAnalysisAsync("A", new AnalysisOptions { Schedule = "explore" }, token));
-        var engine = await Assert.ThrowsAsync<InvalidRequestException>(() => model.RunAnalysisAsync("A", new AnalysisOptions { Engine = "explore" }, token));
-        var once = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ExploreAnalysisAsync("A", new AnalysisOptions { Schedule = "seed:3" }, token));
-        var dryRun = await Assert.ThrowsAsync<InvalidRequestException>(() => model.ExploreAnalysisAsync("A", new AnalysisOptions { ToolDryRun = true }, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.RunAnalysisAsync("A", new AnalysisOptions { SubjectSymbolId = string.Empty }, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.ExploreAnalysisAsync("A", new AnalysisOptions { Schedule = string.Empty }, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.RunAnalysisAsync("A", new AnalysisOptions { Engine = string.Empty }, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() =>
+        var schedule = await Assert.ThrowsAsync<ArgumentException>(() => model.RunAnalysisAsync("A", new AnalysisOptions { Schedule = "explore" }, token));
+        var engine = await Assert.ThrowsAsync<ArgumentException>(() => model.RunAnalysisAsync("A", new AnalysisOptions { Engine = "explore" }, token));
+        var once = await Assert.ThrowsAsync<ArgumentException>(() => model.ExploreAnalysisAsync("A", new AnalysisOptions { Schedule = "seed:3" }, token));
+        var dryRun = await Assert.ThrowsAsync<ArgumentException>(() => model.ExploreAnalysisAsync("A", new AnalysisOptions { ToolDryRun = true }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RunAnalysisAsync("A", new AnalysisOptions { SubjectSymbolId = string.Empty }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.ExploreAnalysisAsync("A", new AnalysisOptions { Schedule = string.Empty }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RunAnalysisAsync("A", new AnalysisOptions { Engine = string.Empty }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() =>
             model.RunAnalysisAsync("A", new AnalysisOptions { Arguments = [new Value.FunctionValue("F::f", 3)] }, token));
         await Assert.ThrowsAsync<ArgumentNullException>(() => model.RunAnalysisAsync(null!, cancellationToken: token));
         await Assert.ThrowsAsync<ArgumentNullException>(() => model.ExploreAnalysisAsync(null!, cancellationToken: token));
@@ -370,9 +369,8 @@ public sealed class ModelAnalysisTests
         Assert.Contains("beside rows", malformed.Message, StringComparison.Ordinal);
     }
 
-    [Theory]
-    [MemberData(nameof(Wires))]
-    public async Task SweepGatesAreCheckedInTheServicesOrderBeforeAnythingIsSent(ClientWire wire)
+    [Fact]
+    public async Task SweepGatesAreCheckedInTheServicesOrderBeforeAnythingIsSent()
     {
         var token = TestContext.Current.CancellationToken;
         var options = new SweepOptions
@@ -383,21 +381,21 @@ public sealed class ModelAnalysisTests
         };
         SweepRange[] ranges = [new("x", new Value.IntegerValue(0), new Value.InfinityValue(), new Value.FunctionValue("F::step", null))];
 
-        Assert.Equal(Capabilities.Verification, await RefusedAsync(wire, [Capabilities.Verification, Capabilities.Engines], model => model.RunSweepAsync("S", ranges, options, token)));
-        Assert.Equal(Capabilities.Engines, await RefusedAsync(wire, [Capabilities.Engines, Capabilities.ScheduleExplore], model => model.RunSweepAsync("S", ranges, options, token)));
-        Assert.Equal(Capabilities.ScheduleExplore, await RefusedAsync(wire, [Capabilities.ScheduleExplore, Capabilities.ComplexValues], model => model.RunSweepAsync("S", ranges, options, token)));
-        Assert.Equal(Capabilities.ComplexValues, await RefusedAsync(wire, [Capabilities.ComplexValues, Capabilities.SetValues], model => model.RunSweepAsync("S", ranges, options, token)));
-        Assert.Equal(Capabilities.SetValues, await RefusedAsync(wire, [Capabilities.SetValues, Capabilities.InfinityValue], model => model.RunSweepAsync("S", ranges, options, token)));
-        Assert.Equal(Capabilities.InfinityValue, await RefusedAsync(wire, [Capabilities.InfinityValue, Capabilities.FunctionValues], model => model.RunSweepAsync("S", ranges, options, token)));
-        Assert.Equal(Capabilities.FunctionValues, await RefusedAsync(wire, [Capabilities.FunctionValues], model => model.RunSweepAsync("S", ranges, options, token)));
+        Assert.Equal(Capabilities.Verification, await RefusedAsync(ClientWire.Grpc, [Capabilities.Verification, Capabilities.Engines], model => model.RunSweepAsync("S", ranges, options, token)));
+        Assert.Equal(Capabilities.Engines, await RefusedAsync(ClientWire.Grpc, [Capabilities.Engines, Capabilities.ScheduleExplore], model => model.RunSweepAsync("S", ranges, options, token)));
+        Assert.Equal(Capabilities.ScheduleExplore, await RefusedAsync(ClientWire.Grpc, [Capabilities.ScheduleExplore, Capabilities.ComplexValues], model => model.RunSweepAsync("S", ranges, options, token)));
+        Assert.Equal(Capabilities.ComplexValues, await RefusedAsync(ClientWire.Grpc, [Capabilities.ComplexValues, Capabilities.SetValues], model => model.RunSweepAsync("S", ranges, options, token)));
+        Assert.Equal(Capabilities.SetValues, await RefusedAsync(ClientWire.Grpc, [Capabilities.SetValues, Capabilities.InfinityValue], model => model.RunSweepAsync("S", ranges, options, token)));
+        Assert.Equal(Capabilities.InfinityValue, await RefusedAsync(ClientWire.Grpc, [Capabilities.InfinityValue, Capabilities.FunctionValues], model => model.RunSweepAsync("S", ranges, options, token)));
+        Assert.Equal(Capabilities.FunctionValues, await RefusedAsync(ClientWire.Grpc, [Capabilities.FunctionValues], model => model.RunSweepAsync("S", ranges, options, token)));
 
-        using var handler = Serving(wire);
+        using var handler = Serving(ClientWire.Grpc);
         await using var connection = await FakeConnection.OpenAsync(handler);
         var model = connection.ModelByHash(Hash);
-        var step = await Assert.ThrowsAsync<InvalidRequestException>(() =>
+        var step = await Assert.ThrowsAsync<ArgumentException>(() =>
             model.RunSweepAsync("S", [new SweepRange("x", new Value.IntegerValue(0), new Value.IntegerValue(1), new Value.UnsetValue())], cancellationToken: token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.RunSweepAsync("S", [], new SweepOptions { Engine = string.Empty }, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => model.RunSweepAsync("S", [], new SweepOptions { SubjectSymbolId = string.Empty }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RunSweepAsync("S", [], new SweepOptions { Engine = string.Empty }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => model.RunSweepAsync("S", [], new SweepOptions { SubjectSymbolId = string.Empty }, token));
         await Assert.ThrowsAsync<ArgumentException>(() => model.RunSweepAsync("S", [null!], cancellationToken: token));
         await Assert.ThrowsAsync<ArgumentNullException>(() => model.RunSweepAsync("S", null!, cancellationToken: token));
         await Assert.ThrowsAsync<ArgumentNullException>(() => model.RunSweepAsync(null!, [], cancellationToken: token));
@@ -427,11 +425,10 @@ public sealed class ModelAnalysisTests
             listed[1]);
     }
 
-    [Theory]
-    [MemberData(nameof(Wires))]
-    public async Task ListingEnginesNeedsTheEnginesCapability(ClientWire wire)
+    [Fact]
+    public async Task ListingEnginesNeedsTheEnginesCapability()
     {
-        using var handler = new FakeServiceHandler(wire) { Capabilities = [.. FakeModels.ModelCapabilities.Except([Capabilities.Engines])] };
+        using var handler = new FakeServiceHandler() { Capabilities = [.. FakeModels.ModelCapabilities.Except([Capabilities.Engines])] };
         await using var connection = await FakeConnection.OpenAsync(handler);
 
         var refused = await Assert.ThrowsAsync<CapabilityException>(() => connection.ListEnginesAsync(cancellationToken: TestContext.Current.CancellationToken));

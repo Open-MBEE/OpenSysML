@@ -116,7 +116,7 @@ public sealed partial class Model : IAsyncDisposable
 
     /// <summary>Requires a parse without errors, for chaining onto a load.</summary>
     /// <returns>This model.</returns>
-    /// <exception cref="ModelErrorsException">The parse reported errors, which the exception carries.</exception>
+    /// <exception cref="ModelException">The parse reported errors, which its <see cref="ModelException.Diagnostics"/> holds in report order.</exception>
     public Model RequireNoErrors()
     {
         if (Errors.IsEmpty)
@@ -131,7 +131,7 @@ public sealed partial class Model : IAsyncDisposable
             summary += $"; ... and {Errors.Count - 3} more";
         }
 
-        throw new ModelErrorsException($"{where} has {Errors.Count} error(s): {summary}", parseMethod, Errors);
+        throw new ModelException($"{where} has {Errors.Count} error(s): {summary}", parseMethod, Errors);
     }
 
     /// <summary>

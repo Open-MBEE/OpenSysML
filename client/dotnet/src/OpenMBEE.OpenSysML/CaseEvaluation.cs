@@ -18,7 +18,7 @@ public sealed record CaseEvaluation
     /// <param name="tied">Whether it computed what the selected one did without being selected.</param>
     /// <exception cref="ArgumentNullException"><paramref name="functionId"/>, <paramref name="arguments"/> or <paramref name="error"/> is null.</exception>
     /// <exception cref="ArgumentException">An argument is null.</exception>
-    public CaseEvaluation(string functionId, IEnumerable<Value> arguments, Value? result, string error, bool selected, bool tied)
+    internal CaseEvaluation(string functionId, IEnumerable<Value> arguments, Value? result, string error, bool selected, bool tied)
     {
         ArgumentNullException.ThrowIfNull(functionId);
         ArgumentNullException.ThrowIfNull(error);

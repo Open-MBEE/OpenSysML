@@ -18,7 +18,7 @@ public sealed record CheckWitness
     /// <param name="fileContent">The witness file's content; empty when none was asked for.</param>
     /// <exception cref="ArgumentNullException">A string or a list is null.</exception>
     /// <exception cref="ArgumentException">A list holds a null.</exception>
-    public CheckWitness(
+    internal CheckWitness(
         string schedule,
         IEnumerable<string> draws,
         IEnumerable<string> choices,

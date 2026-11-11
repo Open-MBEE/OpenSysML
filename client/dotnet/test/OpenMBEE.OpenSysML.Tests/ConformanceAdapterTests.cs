@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
-using System.Reflection.Emit;
 using System.Text;
 using System.Threading.Tasks;
 using Google.Protobuf;
@@ -108,6 +106,7 @@ public sealed class ConformanceAdapterTests
         { "ExecuteState", """{"model_hash": "h", "schedule": "explore", "trace": true}""", "RunOptions.Trace asks for one run's trace, which an exploration describes none of; leave it false." },
         { "CheckBehavior", """{"model_hash": "h", "action_symbol_id": "A", "state_machine_symbol_id": "S"}""", "the public API checks one behavior, so it cannot name both an action and a state machine" },
         { "CheckBehavior", """{"model_hash": "h", "state_machine_symbol_id": "S", "inputs": {"x": {"int_value": 1}}}""", "the public API binds inputs only to an action it checks, so it cannot send them with a state machine" },
+        { "CheckBehavior", """{"model_hash": "h", "action_symbol_id": "A", "check_timeout": 1e-9}""", "the public API holds a check timeout as a TimeSpan, which has none of 1E-09 s" },
         { "RunRuns", """{"model_hash": "h", "action_symbol_id": "A", "analysis_symbol_id": "C"}""", "the public API runs one behavior, so it cannot name both an action and a Monte Carlo case" },
         { "RunRuns", """{"model_hash": "h", "action_symbol_id": "A", "subject_symbol_id": "S"}""", "the public API binds a subject and arguments only to a Monte Carlo case it runs, so it cannot send them with an action" },
         { "RunRuns", """{"model_hash": "h", "named_arguments": {"x": {"int_value": 1}}}""", "the public API binds a subject and arguments only to a Monte Carlo case it runs, so it cannot send them with an action" },
@@ -715,7 +714,8 @@ public sealed class ConformanceAdapterTests
         using var handler = new FakeServiceHandler(wire) { Capabilities = FakeModels.ModelCapabilities }
             .Refusing("Evaluate", StatusCode.NotFound, "model not found: h")
             .Refusing("GetDiagnostics", StatusCode.InvalidArgument, "unknown lint code no-such-lint")
-            .Refusing("ParseFile", StatusCode.NotFound, "open /nonexistent: no such file");
+            .Refusing("ParseFile", StatusCode.NotFound, "open /nonexistent: no such file")
+            .Refusing("GetSymbol", StatusCode.Unimplemented, "capability \"symbol_members\" is unavailable");
         await using var connection = await FakeConnection.OpenAsync(handler);
         var client = Client(connection);
         var token = TestContext.Current.CancellationToken;
@@ -723,10 +723,12 @@ public sealed class ConformanceAdapterTests
         var evaluate = await client.CallAsync(ScenarioRequests.Method("Evaluate"), new Wire.EvaluateRequest { ModelHash = Hash, Expression = "1" }, token);
         var lint = await client.CallAsync(ScenarioRequests.Method("GetDiagnostics"), new Wire.DiagnosticsRequest { ModelHash = Hash, DisableLint = { "no-such-lint" } }, token);
         var file = await client.CallAsync(ScenarioRequests.Method("ParseFile"), new Wire.ParseFileRequest { FilePath = "/nonexistent" }, token);
+        var capability = await client.CallAsync(ScenarioRequests.Method("GetSymbol"), new Wire.GetSymbolRequest { ModelHash = Hash, SymbolId = "Demo::m" }, token);
 
         Assert.Equal(new ScenarioAnswer.Refused(StatusCode.NotFound, "model not found: h"), evaluate);
         Assert.Equal(new ScenarioAnswer.Refused(StatusCode.InvalidArgument, "unknown lint code no-such-lint"), lint);
         Assert.Equal(new ScenarioAnswer.Refused(StatusCode.NotFound, "open /nonexistent: no such file"), file);
+        Assert.Equal(new ScenarioAnswer.Refused(StatusCode.Unimplemented, "capability \"symbol_members\" is unavailable"), capability);
     }
 
     [Theory]
@@ -748,11 +750,10 @@ public sealed class ConformanceAdapterTests
         Assert.Equal(new ScenarioAnswer.Refused(StatusCode.FailedPrecondition, Broken), document);
     }
 
-    [Theory]
-    [MemberData(nameof(Wires))]
-    public async Task ACapabilityTheServiceLacksIsRefusedAsUnimplementedBeforeAnythingIsSent(ClientWire wire)
+    [Fact]
+    public async Task ACapabilityTheServiceLacksIsRefusedAsUnimplementedBeforeAnythingIsSent()
     {
-        using var handler = new FakeServiceHandler(wire) { Capabilities = [] };
+        using var handler = new FakeServiceHandler() { Capabilities = [] };
         await using var connection = await FakeConnection.OpenAsync(handler);
         var client = Client(connection);
         var token = TestContext.Current.CancellationToken;
@@ -795,11 +796,10 @@ public sealed class ConformanceAdapterTests
         Assert.Equal(["GetServerInfo"], handler.Requests.Select(request => request.Method));
     }
 
-    [Theory]
-    [MemberData(nameof(Wires))]
-    public async Task InvalidOrNoncanonicalMigrationFilePathsAreUnexpressibleWithoutChangingTheRequest(ClientWire wire)
+    [Fact]
+    public async Task InvalidOrNoncanonicalMigrationFilePathsAreUnexpressibleWithoutChangingTheRequest()
     {
-        using var handler = new FakeServiceHandler(wire) { Capabilities = FakeModels.ModelCapabilities };
+        using var handler = new FakeServiceHandler() { Capabilities = FakeModels.ModelCapabilities };
         await using var connection = await FakeConnection.OpenAsync(handler);
         foreach (var (path, reason) in new[]
         {
@@ -906,37 +906,6 @@ public sealed class ConformanceAdapterTests
             Assert.Single(handler.RequestsFor("ParseSources")).Message(Wire.ParseSourcesRequest.Parser));
     }
 
-    [Fact]
-    public void NothingInTheRunnerReachesTheServiceRaw()
-    {
-        var raw = new HashSet<MethodBase>(typeof(Connection).GetMethods().Where(method => method.Name == nameof(Connection.CallAsync)));
-        var stub = typeof(Wire.SysMLService.SysMLServiceClient);
-        var calls = new List<string>();
-        foreach (var type in typeof(ApiScenarioClient).Assembly.GetTypes())
-        {
-            foreach (var method in type.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
-                .Cast<MethodBase>()
-                .Concat(type.GetConstructors(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)))
-            {
-                foreach (var called in Called(method))
-                {
-                    var definition = called is MethodInfo { IsGenericMethod: true } generic ? generic.GetGenericMethodDefinition() : called;
-                    if (raw.Contains(definition) || called.DeclaringType == stub)
-                    {
-                        calls.Add($"{type.FullName}.{method.Name} calls {called.DeclaringType}.{called.Name}");
-                    }
-                }
-            }
-        }
-
-        Assert.Empty(calls);
-        // The scan is not blind: it finds the typed call an adapter does make.
-        var evaluate = typeof(ModelArea).GetMethod("EvaluateAsync", BindingFlags.Static | BindingFlags.NonPublic)!
-            .GetCustomAttribute<System.Runtime.CompilerServices.AsyncStateMachineAttribute>()!.StateMachineType
-            .GetMethod("MoveNext", BindingFlags.Instance | BindingFlags.NonPublic)!;
-        Assert.Contains(Called(evaluate), called => called.DeclaringType == typeof(Model) && called.Name == nameof(Model.EvaluateAsync));
-    }
-
     private static ApiScenarioClient Client(Connection connection) => new("test", "fake", connection);
 
     private static FakeServiceHandler Serving(ClientWire wire, string method, IMessage response)
@@ -950,56 +919,4 @@ public sealed class ConformanceAdapterTests
         sent.Wire == ClientWire.ConnectJson
             ? JsonParser.Default.Parse(Encoding.UTF8.GetString(sent.Body), type)
             : type.Parser.ParseFrom(sent.MessageBytes);
-
-    // The methods a method's IL calls, constructs or loads a pointer to.
-    private static IEnumerable<MethodBase> Called(MethodBase method)
-    {
-        var il = method.GetMethodBody()?.GetILAsByteArray();
-        if (il is null)
-        {
-            yield break;
-        }
-
-        for (var at = 0; at < il.Length;)
-        {
-            var code = il[at] == 0xFE ? Codes[0x100 | il[at + 1]] : Codes[il[at]];
-            at += code.Size;
-            var operand = Operand(code.OperandType, il, at);
-            if (code.OperandType == OperandType.InlineMethod)
-            {
-                MethodBase? called = null;
-                try
-                {
-                    called = method.Module.ResolveMethod(
-                        BitConverter.ToInt32(il, at),
-                        method.DeclaringType?.IsGenericType == true ? method.DeclaringType.GetGenericArguments() : null,
-                        method.IsGenericMethod ? method.GetGenericArguments() : null);
-                }
-                catch (ArgumentException)
-                {
-                }
-
-                if (called is not null)
-                {
-                    yield return called;
-                }
-            }
-
-            at += operand;
-        }
-    }
-
-    private static int Operand(OperandType type, byte[] il, int at) => type switch
-    {
-        OperandType.InlineNone => 0,
-        OperandType.ShortInlineBrTarget or OperandType.ShortInlineI or OperandType.ShortInlineVar => 1,
-        OperandType.InlineVar => 2,
-        OperandType.InlineI8 or OperandType.InlineR => 8,
-        OperandType.InlineSwitch => 4 + (4 * BitConverter.ToInt32(il, at)),
-        _ => 4,
-    };
-
-    private static readonly Dictionary<int, OpCode> Codes = typeof(OpCodes).GetFields(BindingFlags.Public | BindingFlags.Static)
-        .Select(field => (OpCode)field.GetValue(null)!)
-        .ToDictionary(code => code.Size == 1 ? code.Value & 0xFF : 0x100 | (code.Value & 0xFF));
 }

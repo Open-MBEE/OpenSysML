@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Mapping;
 using Xunit;
 
 namespace OpenMBEE.OpenSysML.Tests;
@@ -73,9 +73,9 @@ public sealed class ModelParseTests
         using var handler = new FakeServiceHandler { Capabilities = FakeModels.ModelCapabilities };
         await using var connection = await FakeConnection.OpenAsync(handler);
 
-        var file = await Assert.ThrowsAsync<InvalidRequestException>(() =>
+        var file = await Assert.ThrowsAsync<ArgumentException>(() =>
             connection.LoadAsync("a.kerml", new ParseOptions { Language = SourceLanguage.KerML }, TestContext.Current.CancellationToken));
-        await Assert.ThrowsAsync<InvalidRequestException>(() =>
+        await Assert.ThrowsAsync<ArgumentException>(() =>
             connection.LoadContentAsync("x", new ParseOptions { Language = (SourceLanguage)7 }, TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<ArgumentException>(() => connection.LoadAsync(string.Empty, cancellationToken: TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<ArgumentNullException>(() => connection.LoadContentAsync(null!, cancellationToken: TestContext.Current.CancellationToken));
@@ -177,7 +177,7 @@ public sealed class ModelParseTests
             .Refusing("ParseSources", StatusCode.InvalidArgument, "documents must name at least one document");
         await using var connection = await FakeConnection.OpenAsync(handler);
 
-        await Assert.ThrowsAsync<InvalidRequestException>(() =>
+        await Assert.ThrowsAsync<ArgumentException>(() =>
             connection.ParseSourcesAsync([SourceDocument.Inline("x")], new SourcesOptions { BaseModelHash = string.Empty }, TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<ArgumentException>(() => connection.ParseSourcesAsync([null!], cancellationToken: TestContext.Current.CancellationToken));
         Assert.Throws<ArgumentException>(() => SourceDocument.Inline("x", string.Empty));
@@ -245,8 +245,8 @@ public sealed class ModelParseTests
         var loaded = await connection.LoadAsync("m.sysml", cancellationToken: TestContext.Current.CancellationToken);
         var inline = await connection.LoadAsync();
 
-        var file = Assert.Throws<ModelErrorsException>(() => loaded.RequireNoErrors());
-        var content = Assert.Throws<ModelErrorsException>(() => inline.RequireNoErrors());
+        var file = Assert.Throws<ModelException>(() => loaded.RequireNoErrors());
+        var content = Assert.Throws<ModelException>(() => inline.RequireNoErrors());
 
         Assert.Equal("m.sysml has 5 error(s): e1; e2; e3; ... and 2 more", file.Message);
         Assert.Equal(["e1", "e2", "e3", "e4", "e5"], file.Diagnostics.Select(diagnostic => diagnostic.Message));

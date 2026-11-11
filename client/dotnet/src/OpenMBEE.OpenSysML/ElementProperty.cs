@@ -16,7 +16,7 @@ public sealed record ElementProperty
     /// <param name="unsupported">Why there are no values when the property cannot be answered; empty for a property that is answered.</param>
     /// <exception cref="ArgumentNullException">A string or <paramref name="values"/> is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="values"/> holds a null.</exception>
-    public ElementProperty(string name, string definingClass, bool isMany, bool isDerived, IEnumerable<ElementPropertyValue> values, string unsupported)
+    internal ElementProperty(string name, string definingClass, bool isMany, bool isDerived, IEnumerable<ElementPropertyValue> values, string unsupported)
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(definingClass);

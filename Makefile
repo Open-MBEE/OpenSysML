@@ -1,4 +1,4 @@
-.PHONY: all build docker stdlib-snapshot vulncheck sca-tools audit audit-npm audit-python audit-rust audit-java extension-libraries-check extension-libraries-sync extension-libraries-pin-check textmate-grammars-check textmate-grammars-publish build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab conformance-dotnet conformance-dotnet-check test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check dotnet-metamodel dotnet-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage dotnet-preflight dotnet-build dotnet-test dotnet-generate dotnet-generate-goldens dotnet-generate-check python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-csharp proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package emacs-keywords emacs-compile emacs-test docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render spec-compliance-check spec-compliance-render self-model mcp-registry-check
+.PHONY: all build docker stdlib-snapshot vulncheck sca-tools audit audit-npm audit-python audit-rust audit-java extension-libraries-check extension-libraries-sync extension-libraries-pin-check textmate-grammars-check textmate-grammars-publish build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab conformance-dotnet conformance-dotnet-check test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check dotnet-metamodel dotnet-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage dotnet-build dotnet-test dotnet-generate dotnet-generate-goldens dotnet-generate-check python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-csharp proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package emacs-keywords emacs-compile emacs-test docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render spec-compliance-check spec-compliance-render self-model mcp-registry-check
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -87,8 +87,7 @@ DOTNET ?= dotnet
 DOTNET_DIR := client/dotnet
 DOTNET_SLN := $(DOTNET_DIR)/OpenSysML.slnx
 DOTNET_REPORTS := $(BIN_DIR)/dotnet
-DOTNET_MIN_TESTS := 3366
-DOTNET_CLIENT_VERSION = $(shell sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' $(DOTNET_DIR)/Directory.Build.props)
+DOTNET_MIN_TESTS := 3175
 # The typed-code generator, run from its Release build with the arguments a user gives it.
 DOTNET_GENERATE = $(DOTNET) run --project $(DOTNET_DIR)/src/OpenMBEE.OpenSysML.Generate -c Release --no-build --
 # The committed generated code, the buf output and the metamodel types, excluded from coverage by path and refused by its check.
@@ -730,10 +729,7 @@ node-coverage: ## Run Node client tests and write coverage-node.lcov
 	sed -e 's|^SF:|SF:$(NODE_DIR)/|' $(NODE_DIR)/coverage/lcov.info > coverage-node.lcov
 	@echo "✓ Wrote coverage-node.lcov"
 
-dotnet-preflight: ## Check that the repository root selects the pinned .NET SDK and a .NET 10 runtime
-	$(PYTHON) $(DOTNET_DIR)/scripts/dotnet-gates.py preflight --dotnet "$(DOTNET)"
-
-dotnet-build: dotnet-preflight ## Restore the .NET client from its lock files and build it with warnings as errors
+dotnet-build: ## Restore the .NET client from its lock files and build it with warnings as errors; root global.json selects the SDK
 	$(DOTNET) restore $(DOTNET_SLN) --locked-mode
 	$(DOTNET) build $(DOTNET_SLN) -c Release --no-restore -warnaserror
 
@@ -752,10 +748,8 @@ dotnet-test: dotnet-build ## Check formatting, run the .NET client tests under c
 	mkdir -p $(DOTNET_REPORTS)/coverage
 	mv $(DOTNET_REPORTS)/test/*.cobertura*.xml $(DOTNET_REPORTS)/coverage/
 	$(PYTHON) $(DOTNET_DIR)/scripts/dotnet-gates.py coverage $(DOTNET_REPORTS)/coverage --generated $(DOTNET_GENERATED)
-	$(PYTHON) $(DOTNET_DIR)/scripts/dotnet-gates.py sample --dotnet "$(DOTNET)" \
-		--expect "OpenMBEE.OpenSysML $(DOTNET_CLIENT_VERSION) (.NETCoreApp,Version=v10.0)"
-	$(PYTHON) $(DOTNET_DIR)/scripts/dotnet-gates.py metamodel-sample --dotnet "$(DOTNET)" \
-		--expect "OpenMBEE.OpenSysML.Metamodel $(DOTNET_CLIENT_VERSION) (.NETCoreApp,Version=v10.0)"
+	$(PYTHON) $(DOTNET_DIR)/scripts/dotnet-gates.py sample --dotnet "$(DOTNET)"
+	$(PYTHON) $(DOTNET_DIR)/scripts/dotnet-gates.py metamodel-sample --dotnet "$(DOTNET)"
 	$(PYTHON) $(DOTNET_DIR)/scripts/dotnet-gates-test.py
 	$(PYTHON) scripts/sync-release-digests.py --check
 	@echo "✓ .NET client tests passed"

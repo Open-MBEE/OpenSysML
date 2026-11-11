@@ -21,7 +21,7 @@ public sealed record ViewNote
     /// <param name="hasSize">Whether the note states its box's size.</param>
     /// <param name="origin">Where the note is stated; null when the service located it nowhere.</param>
     /// <exception cref="ArgumentNullException">A text argument is null.</exception>
-    public ViewNote(string text, string anchor, string edgeFrom, string edgeTo, double x, double y, double width, double height, bool hasSize, SourceSpan? origin)
+    internal ViewNote(string text, string anchor, string edgeFrom, string edgeTo, double x, double y, double width, double height, bool hasSize, SourceSpan? origin)
     {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(anchor);

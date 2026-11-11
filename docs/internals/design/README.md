@@ -88,6 +88,10 @@ maintainers; the behavior a user sees is [the guide](../../guide/).
   KerML library and what the runtime does, with a verdict per row, a count of where a port could
   change behavior, the PSSM test suite assessed as a referee, options and a recommendation
 - **[Python gRPC bindings](python-grpc-bindings.md)** — the service and client design
+- **[The .NET client](dotnet-client.md)** — how `OpenMBEE.OpenSysML` is built: a typed method per
+  RPC over gRPC or a hand-written Connect transport, private services shared by identity, the
+  cross-client cache lock, trust by pinned digest rather than Sigstore, what publishing to NuGet
+  would take, and the questions left for the maintainers
 - **[Exact Rational values beside a binary64 Real](exact-rational-literals.md)** — a proposal:
   what a `big.Rat` value kind for literals and `Rational`-typed features would cost while
   `Real` stays binary64, measured against the tree, the pilot and sysml-toolkit as the two

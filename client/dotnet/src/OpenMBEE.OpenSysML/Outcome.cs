@@ -22,7 +22,7 @@ public sealed record Outcome
     /// <param name="probabilityRange">The probability bounds over schedulers; null when the exploration made no weighted choice.</param>
     /// <exception cref="ArgumentNullException">A string or a collection is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null or repeats a name.</exception>
-    public Outcome(
+    internal Outcome(
         IEnumerable<KeyValuePair<string, Value>> outputs,
         string finalState,
         IEnumerable<string> statesVisited,

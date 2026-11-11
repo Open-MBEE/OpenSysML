@@ -5,7 +5,8 @@ using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Lifecycle;
+using OpenMBEE.OpenSysML.Internal.Provisioning;
 using Xunit;
 
 namespace OpenMBEE.OpenSysML.Tests;

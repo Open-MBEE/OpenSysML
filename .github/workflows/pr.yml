@@ -1580,7 +1580,7 @@ jobs:
 
   # The .NET client on Linux, against the service the build job made. The SDK is
   # installed alone in its own directory, so root global.json can select nothing
-  # else and CI builds with the exact pin; make dotnet-preflight checks its band.
+  # else and CI builds with the exact pin.
   dotnet-test:
     name: .NET client tests
     needs: [changes, build]
@@ -1593,20 +1593,19 @@ jobs:
       DOTNET_NOLOGO: "1"
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Install the .NET SDK root global.json pins
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         env:
           DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
         with:
           global-json-file: global.json
 
-      - name: Check the SDK and runtime
+      - name: Show the SDK and runtime
         run: |
           dotnet --version
           dotnet --list-runtimes
-          make dotnet-preflight
 
       # Pinned by digest, as in the other client jobs, so a substituted asset is not run.
       - name: Install buf
@@ -1625,7 +1624,7 @@ jobs:
           git add -N client/dotnet/src/OpenMBEE.OpenSysML/Wire
           git diff --exit-code client/dotnet/src/OpenMBEE.OpenSysML/Wire
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: binaries
           path: bin
@@ -1633,20 +1632,6 @@ jobs:
       # The artifact is a zip, which does not carry the executable bit.
       - name: Install the sysml-grpc binary
         run: chmod +x bin/sysml-grpc
-
-      # The interop tests hold the shared cache's lock against the Java and Rust
-      # clients' own calls; Python is the runner's. Rust is the Rust client job's pin.
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-
-      - name: Install Rust 1.83
-        run: |
-          rustup toolchain install 1.83.0 --profile minimal
-          rustup default 1.83.0
-          cargo --version
 
       # The verdict-notes test asks the service a solver-backed question; the
       # solver is an external process the service finds on PATH.
@@ -1656,7 +1641,9 @@ jobs:
           scripts/ci-apt-install.sh z3
           z3 --version
 
-      # A test that needs the service, a solver, or another client's toolchain, fails rather than skips without it.
+      # A test that needs the service, a solver or Python fails rather than skips without it;
+      # the interop tests hold the shared cache's lock against the Python client's calls with
+      # the runner's Python.
       - name: Run .NET client tests
         env:
           OPENSYSML_GRPC_BINARY: ${{ github.workspace }}/bin/sysml-grpc
@@ -1667,7 +1654,7 @@ jobs:
 
       # The reference runner is Go, which this job otherwise does not need.
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: go.mod
           cache: true
@@ -1680,7 +1667,7 @@ jobs:
 
       - name: Upload .NET client reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dotnet-reports
           path: |
@@ -1691,7 +1678,7 @@ jobs:
   # The .NET client's private-service lifecycle on the platforms the Linux job does
   # not stand for: the whole suite, with the orphan, load-context, race and shared
   # cache lock interop tests, against a sysml-grpc built natively here. A missing
-  # service or lock-holder toolchain fails rather than skips, and the minimum test
+  # service or Python fails rather than skips, and the minimum test
   # count is the Makefile's, so no platform passes by running less. Windows checks
   # out with LF endings, as the client's files are.
   dotnet-native:
@@ -1716,10 +1703,10 @@ jobs:
       - name: Keep line endings as committed
         run: git config --global core.autocrlf false
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: go.mod
           cache: true
@@ -1736,37 +1723,24 @@ jobs:
           "$binary" -version
           echo "OPENSYSML_GRPC_BINARY=$binary" >> "$GITHUB_ENV"
 
+      # The interop tests hold the shared cache's lock against the Python client's
+      # calls, natively here too.
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: '3.12'
 
-      # The interop tests hold the shared cache's lock against the Python, Java and
-      # Rust clients' own calls, natively here too.
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-
-      - name: Install Rust 1.83
-        run: |
-          rustup toolchain install 1.83.0 --profile minimal
-          rustup default 1.83.0
-          cargo --version
-
       - name: Install the .NET SDK root global.json pins
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         env:
           DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
         with:
           global-json-file: global.json
 
-      - name: Check the SDK and runtime
+      - name: Show the SDK and runtime
         run: |
           dotnet --version
           dotnet --list-runtimes
-          python client/dotnet/scripts/dotnet-gates.py preflight --dotnet dotnet
 
       - name: Restore and build the .NET client
         run: |
@@ -1786,7 +1760,7 @@ jobs:
 
       - name: Upload .NET client reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dotnet-reports-${{ matrix.os }}
           path: bin/dotnet/

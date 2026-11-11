@@ -14,7 +14,7 @@ public sealed record Graphs
     /// <param name="version">The version of the form, the <c>version</c> field of the JSON.</param>
     /// <param name="subject">The subject's qualified name as the service resolved it.</param>
     /// <exception cref="ArgumentNullException">A string is null.</exception>
-    public Graphs(string content, int version, string subject)
+    internal Graphs(string content, int version, string subject)
     {
         ArgumentNullException.ThrowIfNull(content);
         ArgumentNullException.ThrowIfNull(subject);

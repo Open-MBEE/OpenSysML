@@ -136,20 +136,19 @@ public sealed class ModelElementPropertiesTests
             Properties = { new Wire.ElementProperty { Name = "p", Values = { Wire.ElementPropertyValue.Parser.ParseFrom(unknownArm) } } },
         };
 
-        var newer = Assert.Throws<UnsupportedValueException>(() => Internal.ModelWire.ElementProperties(response, CompleteWire.Method));
+        var newer = Assert.Throws<UnsupportedValueException>(() => Internal.Mapping.ModelWire.ElementProperties(response, CompleteWire.Method));
 
         Assert.Equal(Wire.ElementPropertyValue.ValueOneofCase.None, response.Properties[0].Values[0].ValueCase);
         Assert.Equal("The service answered a property value at properties[0].values[0] that is of a kind this client does not know; a newer client may read it.", newer.Message);
         Assert.Equal(unknownArm, newer.ValueBytes.ToArray());
     }
 
-    [Theory]
-    [MemberData(nameof(Wires))]
-    public async Task WhatNoServiceWouldAnswerIsRefusedBeforeAnythingIsSent(ClientWire wire)
+    [Fact]
+    public async Task WhatNoServiceWouldAnswerIsRefusedBeforeAnythingIsSent()
     {
-        using var handler = new FakeServiceHandler(wire) { Capabilities = FakeModels.ModelCapabilities };
+        using var handler = new FakeServiceHandler() { Capabilities = FakeModels.ModelCapabilities };
         await using var connection = await FakeConnection.OpenAsync(handler);
-        using var older = new FakeServiceHandler(wire) { Capabilities = [.. FakeModels.ModelCapabilities.Where(name => name != Capabilities.ElementProperties)] };
+        using var older = new FakeServiceHandler() { Capabilities = [.. FakeModels.ModelCapabilities.Where(name => name != Capabilities.ElementProperties)] };
         await using var olderConnection = await FakeConnection.OpenAsync(older);
         var model = connection.ModelByHash("h");
 

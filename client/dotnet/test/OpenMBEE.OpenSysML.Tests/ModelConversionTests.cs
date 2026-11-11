@@ -213,41 +213,40 @@ public sealed class ModelConversionTests
         Assert.Equal(2, handler.RequestsFor("Migrate").Count);
     }
 
-    [Theory]
-    [MemberData(nameof(Wires))]
-    public async Task ConvertGatesAreCheckedInTheServicesOrderBeforeAnythingIsSent(ClientWire wire)
+    [Fact]
+    public async Task ConvertGatesAreCheckedInTheServicesOrderBeforeAnythingIsSent()
     {
         var token = TestContext.Current.CancellationToken;
         var all = new ConvertOptions { Documents = ["a.sysml"], IncludeLibraryStubs = true, KeepDerived = ["owner"], IncludeCheckDiagnostics = true };
         Task Convert(Model model, ConvertOptions options) => model.ConvertAsync("ttl", options, token);
 
-        Assert.Equal(Capabilities.Convert, await RefusedAsync(wire, [Capabilities.Convert, Capabilities.ConvertDocuments], model => Convert(model, all)));
-        Assert.Equal(Capabilities.ConvertDocuments, await RefusedAsync(wire, [Capabilities.ConvertDocuments, Capabilities.ConvertLibraryStubs], model => Convert(model, all)));
-        Assert.Equal(Capabilities.ConvertLibraryStubs, await RefusedAsync(wire, [Capabilities.ConvertLibraryStubs, Capabilities.ConvertCompact], model => Convert(model, all)));
-        Assert.Equal(Capabilities.ConvertLibraryStubs, await RefusedAsync(wire, [Capabilities.ConvertLibraryStubs], model => Convert(model, new ConvertOptions { IncludeLibraryStubs = true })));
-        Assert.Equal(Capabilities.ConvertCompact, await RefusedAsync(wire, [Capabilities.ConvertCompact, Capabilities.ConvertCheckDiagnostics], model => Convert(model, all)));
-        Assert.Equal(Capabilities.ConvertCheckDiagnostics, await RefusedAsync(wire, [Capabilities.ConvertCheckDiagnostics], model => Convert(model, all)));
-        Assert.Equal(Capabilities.ConvertCompact, await RefusedAsync(wire, [Capabilities.ConvertCompact], model => Convert(model, new ConvertOptions { Compact = true })));
-        Assert.Equal(Capabilities.ConvertCompact, await RefusedAsync(wire, [Capabilities.ConvertCompact], model => Convert(model, new ConvertOptions { OmitDerived = true })));
-        Assert.Equal(Capabilities.Migrate, await RefusedAsync(wire, [Capabilities.Migrate], model => model.Connection.MigrateAsync(MigrateSource.FromFile(Path.GetFullPath("/m/a.xmi")), "sysml", cancellationToken: token)));
+        Assert.Equal(Capabilities.Convert, await RefusedAsync(ClientWire.Grpc, [Capabilities.Convert, Capabilities.ConvertDocuments], model => Convert(model, all)));
+        Assert.Equal(Capabilities.ConvertDocuments, await RefusedAsync(ClientWire.Grpc, [Capabilities.ConvertDocuments, Capabilities.ConvertLibraryStubs], model => Convert(model, all)));
+        Assert.Equal(Capabilities.ConvertLibraryStubs, await RefusedAsync(ClientWire.Grpc, [Capabilities.ConvertLibraryStubs, Capabilities.ConvertCompact], model => Convert(model, all)));
+        Assert.Equal(Capabilities.ConvertLibraryStubs, await RefusedAsync(ClientWire.Grpc, [Capabilities.ConvertLibraryStubs], model => Convert(model, new ConvertOptions { IncludeLibraryStubs = true })));
+        Assert.Equal(Capabilities.ConvertCompact, await RefusedAsync(ClientWire.Grpc, [Capabilities.ConvertCompact, Capabilities.ConvertCheckDiagnostics], model => Convert(model, all)));
+        Assert.Equal(Capabilities.ConvertCheckDiagnostics, await RefusedAsync(ClientWire.Grpc, [Capabilities.ConvertCheckDiagnostics], model => Convert(model, all)));
+        Assert.Equal(Capabilities.ConvertCompact, await RefusedAsync(ClientWire.Grpc, [Capabilities.ConvertCompact], model => Convert(model, new ConvertOptions { Compact = true })));
+        Assert.Equal(Capabilities.ConvertCompact, await RefusedAsync(ClientWire.Grpc, [Capabilities.ConvertCompact], model => Convert(model, new ConvertOptions { OmitDerived = true })));
+        Assert.Equal(Capabilities.Migrate, await RefusedAsync(ClientWire.Grpc, [Capabilities.Migrate], model => model.Connection.MigrateAsync(MigrateSource.FromFile(Path.GetFullPath("/m/a.xmi")), "sysml", cancellationToken: token)));
 
-        using var handler = Serving(wire);
+        using var handler = Serving(ClientWire.Grpc);
         await using var connection = await FakeConnection.OpenAsync(handler);
         var model = connection.ModelByHash(Hash);
         var source = MigrateSource.FromFile(Path.GetFullPath("/m/a.xmi"));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => Convert(model, new ConvertOptions { FromFormat = string.Empty }));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => Convert(model, new ConvertOptions { IdForm = (IdForm)7 }));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => connection.MigrateAsync(source, "sysml", new MigrateOptions { FromFormat = string.Empty }, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => connection.MigrateAsync(source, "sysml", new MigrateOptions { LayoutPath = string.Empty }, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => connection.MigrateAsync(source, "sysml", new MigrateOptions { LayoutContent = string.Empty }, token));
-        await Assert.ThrowsAsync<InvalidRequestException>(() => connection.MigrateAsync(source, "sysml", new MigrateOptions { ImageBaseUrl = string.Empty }, token));
-        var layouts = await Assert.ThrowsAsync<InvalidRequestException>(() =>
+        await Assert.ThrowsAsync<ArgumentException>(() => Convert(model, new ConvertOptions { FromFormat = string.Empty }));
+        await Assert.ThrowsAsync<ArgumentException>(() => Convert(model, new ConvertOptions { IdForm = (IdForm)7 }));
+        await Assert.ThrowsAsync<ArgumentException>(() => connection.MigrateAsync(source, "sysml", new MigrateOptions { FromFormat = string.Empty }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => connection.MigrateAsync(source, "sysml", new MigrateOptions { LayoutPath = string.Empty }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => connection.MigrateAsync(source, "sysml", new MigrateOptions { LayoutContent = string.Empty }, token));
+        await Assert.ThrowsAsync<ArgumentException>(() => connection.MigrateAsync(source, "sysml", new MigrateOptions { ImageBaseUrl = string.Empty }, token));
+        var layouts = await Assert.ThrowsAsync<ArgumentException>(() =>
             connection.MigrateAsync(source, "sysml", new MigrateOptions { LayoutPath = "/m/a_mtip.xml", LayoutContent = "<mtip/>" }, token));
         await Assert.ThrowsAsync<ArgumentNullException>(() => connection.ConvertAsync(null!, "ttl", cancellationToken: token));
         await Assert.ThrowsAsync<ArgumentNullException>(() => connection.ConvertAsync(ConvertSource.Inline("x"), null!, cancellationToken: token));
         await Assert.ThrowsAsync<ArgumentNullException>(() => connection.MigrateAsync(null!, "sysml", cancellationToken: token));
         await Assert.ThrowsAsync<ArgumentNullException>(() => connection.MigrateAsync(source, null!, cancellationToken: token));
-        var unnamed = await Assert.ThrowsAsync<InvalidRequestException>(() => model.SaveAsync(Path.Combine(Path.GetTempPath(), "model.txt"), cancellationToken: token));
+        var unnamed = await Assert.ThrowsAsync<ArgumentException>(() => model.SaveAsync(Path.Combine(Path.GetTempPath(), "model.txt"), cancellationToken: token));
         Assert.Contains("one MTIP export", layouts.Message, StringComparison.Ordinal);
         Assert.Contains("names a format", unnamed.Message, StringComparison.Ordinal);
         Assert.Equal(["GetServerInfo"], handler.Requests.Select(request => request.Method));

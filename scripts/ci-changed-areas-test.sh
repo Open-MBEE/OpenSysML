@@ -73,7 +73,7 @@ case_ rust-only rust client/rust/opensysml/src/connection.rs
 case_ rust-manifest python,rust client/rust/opensysml/Cargo.toml
 case_ rust-lock python,rust client/rust/Cargo.lock
 case_ julia-only julia client/julia/OpenSysML/src/connection.jl
-case_ dotnet-only dotnet client/dotnet/src/OpenMBEE.OpenSysML/Internal/ReleaseDigests.cs
+case_ dotnet-only dotnet client/dotnet/src/OpenMBEE.OpenSysML/Internal/Provisioning/ReleaseDigests.cs
 case_ dotnet-lock dotnet client/dotnet/src/OpenMBEE.OpenSysML/packages.lock.json
 case_ dotnet-props dotnet,python client/dotnet/Directory.Build.props
 case_ dotnet-sdk-pin dotnet global.json
@@ -158,7 +158,7 @@ quick_case_ node-only node client/node/src/node/binary.ts
 quick_case_ dotnet-props dotnet,python client/dotnet/Directory.Build.props
 # A draft touching only the .NET client, its gates or its SDK pin still runs the .NET
 # client job; a schema or scenario change waits for the full tier.
-quick_case_ dotnet-only dotnet client/dotnet/src/OpenMBEE.OpenSysML/Internal/PrivateService.cs
+quick_case_ dotnet-only dotnet client/dotnet/src/OpenMBEE.OpenSysML/Internal/Lifecycle/PrivateService.cs
 quick_case_ dotnet-gates dotnet client/dotnet/scripts/dotnet-gates.py
 quick_case_ dotnet-sdk-pin dotnet global.json
 quick_case_ signed-release-fixture python client/python/tests/fixtures/signed_release/SHA256SUMS.txt.bundle

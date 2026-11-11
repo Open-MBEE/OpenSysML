@@ -5,7 +5,7 @@ using System.Reflection;
 using System.Threading.Tasks;
 using Google.Protobuf;
 using Grpc.Core;
-using OpenMBEE.OpenSysML.Internal;
+using OpenMBEE.OpenSysML.Internal.Transport;
 using Xunit;
 
 namespace OpenMBEE.OpenSysML.Tests;

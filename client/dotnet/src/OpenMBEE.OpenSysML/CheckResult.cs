@@ -27,7 +27,7 @@ public sealed record CheckResult
     /// <param name="reason">Why nothing could be decided, when the verdict is undecided.</param>
     /// <exception cref="ArgumentNullException">An argument other than an optional one is null.</exception>
     /// <exception cref="ArgumentException">A collection holds a null.</exception>
-    public CheckResult(
+    internal CheckResult(
         string verdict,
         IEnumerable<string> lines,
         CheckSearch? search,
