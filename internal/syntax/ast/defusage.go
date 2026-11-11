@@ -267,7 +267,6 @@ func (k UsageKind) HasActionBodyItems() bool {
 	return false
 }
 
-
 // IsAction reports whether a usage of the kind is an action usage: an action, or a
 // use case, which is a case, a calculation and so an action usage (SysML v2 §7.17,
 // §7.19) whose body is an action body. An analysis or verification case is run as
