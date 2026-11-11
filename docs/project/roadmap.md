@@ -573,11 +573,15 @@ constraints and requirements, documents, actions, state machines, embedding. Pha
    are refused by the compiler by the same rule until they have a native layout. Quantities with
    units and structured parameters follow from the record type. This is what stands between "a
    calc compiles" and "an analysis case compiles" (A1).
-2. **The step budget.** The interpreter stops a runaway loop at `OPENSYSML_MAX_STEPS`; compiled
-   code counts elements (the element budget landed with #828) but not steps, so a `while` that
-   never terminates runs forever. Decide whether a compiled program carries an optional iteration
-   counter or whether "a compiled program is a program" is the documented contract; N2.4 and M1
-   both wait on the answer.
+2. **The step budget (landed).** A compiled program carries the interpreter's counter: the typed
+   IR's `Steps` node spends, on each compiled node, the steps the interpreter spends on its source
+   node, at the point the interpreter spends them relative to anything that can fail; the C and Go
+   preludes read `OPENSYSML_MAX_STEPS` at start-up (`runtime.DefaultMaxSteps` otherwise), check
+   each charge against the steps left, saturate one past the limit and fail with the interpreter's
+   message and status at the same count. The element budget (#828) counts beside it. The contract
+   is recorded in [native-compilation.md](native-compilation.md#step-budget); N2.4 and M1 no
+   longer wait on it, and the embedded profile has no counterpart to it by design — a tick's work
+   is bounded by construction ([embedded-target.md](../internals/design/embedded-target.md#the-freestanding-c-profile)).
 3. **The rest of the library.** What L4 registers in the interpreter needs C and Go equivalents
    with the interpreter's exact results and failure behaviour (domain errors, Integer range) as
    each package is reached; the interpreted/compiled differential is the gate.
@@ -585,7 +589,7 @@ constraints and requirements, documents, actions, state machines, embedding. Pha
    typed failure out, no allocation the caller does not control — would let the REPL and
    `sysml-grpc` call a compiled calc in place of interpreting it, is what I4 (the C client) links
    against, and is what M4 (the embedded host interface) is a restriction of. Design it once for
-   all three; not before N2.2 is decided, since a linked-in calc must honour the host's budget.
+   all three; a linked-in calc honours the host's budget through the counter N2.2 landed.
 5. **Packaging.** The C backend needs GNU C (`__int128`, `__builtin_*_overflow`,
    `setjmp`/`longjmp`); document the toolchain requirement in the install guide, and decide whether
    the release bundles should carry a prebuilt runtime shim.
@@ -3686,9 +3690,9 @@ surfaces (I6–I8) were added and closed beside it — and its step 3 lost D13's
    track's action and state phases start from the same IR rather than a second one; M2's
    three-legged differential cannot be stated before M1L's checker exists. M3 and M5 prove it;
    M6 last.
-6. **The shared C ABI** — N2.4 / I4 / M4 designed once, after N2.2 (the budget) is decided and
-   after M1 fixes what an embedded entry point looks like, so a stable native/embedded calling
-   contract exists to design against rather than three.
+6. **The shared C ABI** — N2.4 / I4 / M4 designed once, after M1 fixes what an embedded entry
+   point looks like (N2.2, the budget, has landed and no longer gates it), so a stable
+   native/embedded calling contract exists to design against rather than three.
 
 Beside the order, whenever a session has room: Track V's 49 *unknown* rows, Q5's two open pull
 requests, the large-model design's fourth step, behavioral editing's in-place rewriting, and the
@@ -3707,8 +3711,9 @@ fixed, none removed); which segment it bumps is the release checklist's decision
 - **Track L.** L3–L8 landed and #1244 gates them. Nothing remains in the track; its census moves
   with the runtime, adjudicated per change.
 - **Track N.** N2.1 (records and enums) first, since compiling an analysis case and the
-  differential's record and constructor coverage both need it; decide N2.2 (the budget) before
-  N2.4; N2.3 tracks L4 package by package; N2.6's actions and states are Track M's M1/M2.
+  differential's record and constructor coverage both need it; N2.2 (the budget) landed, so N2.4
+  waits only on M1; N2.3 tracks L4 package by package; N2.6's actions and states are Track M's
+  M1/M2.
 - **Track D.** Both ratchets read 830 of 876 stable with 7 whitespace-only, 1 unwritable and 38
   refused at the parser, every refusal a specification example, no graph-diff case. **D1**,
   **D2**, **D7**, **D9.1**, **D9.2**, **D11** and **D12** are done, **D3** is measured and
