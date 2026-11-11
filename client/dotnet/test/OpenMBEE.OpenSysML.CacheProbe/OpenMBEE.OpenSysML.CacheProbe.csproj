@@ -20,7 +20,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- The same collectible context the load-context probe loads its copies into. -->
+    <!-- The same collectible context the load-context probe loads its copies into, and the way it loads them. -->
     <Compile Include="../OpenMBEE.OpenSysML.LoadContextProbe/CopyContext.cs" Link="CopyContext.cs" />
+    <Compile Include="../OpenMBEE.OpenSysML.LoadContextProbe/ClientCopy.cs" Link="ClientCopy.cs" />
   </ItemGroup>
 </Project>

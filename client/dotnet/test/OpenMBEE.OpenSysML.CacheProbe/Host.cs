@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.Loader;
 using System.Security.Cryptography;
@@ -21,6 +20,7 @@ namespace OpenMBEE.OpenSysML.CacheProbe;
 internal static class Host
 {
     private const string LibraryName = "OpenMBEE.OpenSysML";
+    private const string AgentType = "OpenMBEE.OpenSysML.CacheProbe.Agent";
     private static readonly TimeSpan CollectWait = TimeSpan.FromSeconds(30);
 
     internal static async Task<int> RunAsync(string[] args)
@@ -92,15 +92,7 @@ internal static class Host
     {
         var copies = new WeakReference[2];
         Contend(directory, copies);
-        var watch = Stopwatch.StartNew();
-        while (copies.Any(copy => copy.IsAlive) && watch.Elapsed < CollectWait)
-        {
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            GC.Collect();
-            Thread.Sleep(50);
-        }
-
+        ClientCopy.AwaitCollected(copies, CollectWait);
         Emit(
             "collected",
             ("copies", copies.Select(copy => !copy.IsAlive).ToArray()),
@@ -111,8 +103,8 @@ internal static class Host
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void Contend(string directory, WeakReference[] unloaded)
     {
-        var first = Copy.Load(0);
-        var second = Copy.Load(1);
+        var first = ClientCopy.Load("cache-copy-0", typeof(Host).Assembly, AgentType);
+        var second = ClientCopy.Load("cache-copy-1", typeof(Host).Assembly, AgentType);
         first.Call("AcquireAsync", directory);
         Emit("held", ("copy", 0), ("context", first.Call("ContextAsync")));
         Console.In.ReadLine();
@@ -126,32 +118,6 @@ internal static class Host
         Emit("released", ("copy", 1));
         unloaded[0] = first.Unload();
         unloaded[1] = second.Unload();
-    }
-
-    /// <summary>One loaded copy: its context, and its <see cref="Agent"/> type reached by name.</summary>
-    private sealed class Copy(CopyContext context, Type agent)
-    {
-        private const string AgentType = "OpenMBEE.OpenSysML.CacheProbe.Agent";
-
-        internal static Copy Load(int index)
-        {
-            var main = typeof(Host).Assembly.Location;
-            var context = new CopyContext($"cache-copy-{index}", main);
-            return new Copy(context, context.LoadFromAssemblyPath(main).GetType(AgentType, throwOnError: true)!);
-        }
-
-        internal string Call(string method, params string[] arguments)
-        {
-            var target = agent.GetMethod(method, BindingFlags.NonPublic | BindingFlags.Static)
-                ?? throw new MissingMethodException(AgentType, method);
-            return ((Task<string>)target.Invoke(null, arguments)!).GetAwaiter().GetResult();
-        }
-
-        internal WeakReference Unload()
-        {
-            context.Unload();
-            return new WeakReference(context);
-        }
     }
 
     /// <summary>The modes that use the client in the default context, kept apart from <see cref="Copies"/>.</summary>
