@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Prints the root-module package paths assigned to one race-test shard.
-# Usage: scripts/race-shard.sh runtime|runtime-corpus|runtime-exploration|model|export|export-corpus|export-settled|graph|codegen|tools|rest|migrate|cli
-# runtime, runtime-corpus and runtime-exploration, and export, export-corpus and export-settled, are one package each, split by test name in make test-shard.
+# Usage: scripts/race-shard.sh runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli
+# A hyphenated shard is a by-test-name part of its package (runtime, corpus and export are each split
+# that way in make test-shard); the other shards are whole packages, rest everything not named here.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-shards='runtime|runtime-corpus|runtime-exploration|model|export|export-corpus|export-settled|graph|codegen|tools|rest|migrate|cli'
+shards='runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli'
 
 if [[ $# -ne 1 ]]; then
   echo "usage: scripts/race-shard.sh $shards" >&2
@@ -16,6 +17,8 @@ fi
 shard=$1
 module=github.com/Open-MBEE/OpenSysML
 runtime="$module/internal/exec/runtime"
+# internal/workspace/model (~26 min), tests/corpus (~39 min: its two round trips ~20 each) and
+# internal/exec/smt (~17 min) shared one node that ran 41 minutes under -race, so each is its own.
 workspace_model="$module/internal/workspace/model"
 corpus="$module/tests/corpus"
 smt="$module/internal/exec/smt"
@@ -23,10 +26,14 @@ smt="$module/internal/exec/smt"
 # node and shared one until that node ran 35 minutes, so each is a shard of its own.
 export="$module/tests/export"
 model="$module/tests/model"
-# internal/check/passes (~15 min under -race) rides with cmd/sysml.
+# internal/translate/export (~20 min under -race) and tests/grpc with internal/frontend/grpc
+# (~18 and ~13 min) held the rest node at 40-57 minutes, so they are shards of their own.
+translate="$module/internal/translate/export"
+grpc_tests="$module/tests/grpc"
+grpc_frontend="$module/internal/frontend/grpc"
+# internal/check/passes (~8 min under -race) rides with cmd/sysml.
 passes="$module/internal/check/passes"
-# tests/migrate runs the SysML v1 migrator over whole models and is the next-longest
-# package under -race after the runtime, so it is a shard of its own.
+# tests/migrate runs the SysML v1 migrator over whole models (~13 min under -race).
 migrate="$module/tests/migrate"
 # tests/codegen's compiled-step budget alone runs 9-15 minutes under -race and held
 # the rest node at 30, so it is a shard of its own.
@@ -37,10 +44,10 @@ wasm="$module/tests/wasm"
 # cmd/sysml's exploration budgets take 23-30 of the coverage job's 30 minutes under
 # -coverpkg=./... while sharing a node, so the command is a shard of its own.
 cli="$module/cmd/sysml"
-named_packages=("$runtime" "$workspace_model" "$corpus" "$smt" "$export" "$model" "$passes" "$migrate" "$codegen" "$wasm" "$cli")
+named_packages=("$runtime" "$workspace_model" "$corpus" "$smt" "$export" "$model" "$translate" "$grpc_tests" "$grpc_frontend" "$passes" "$migrate" "$codegen" "$wasm" "$cli")
 
 case "$shard" in
-  runtime|runtime-corpus|runtime-exploration|model|export|export-corpus|export-settled|graph|codegen|tools|rest|migrate|cli) ;;
+  runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli) ;;
   *)
     echo "usage: scripts/race-shard.sh $shards" >&2
     exit 2
@@ -60,7 +67,13 @@ case "$shard" in
     printf '%s\n' "$runtime"
     ;;
   model)
-    printf '%s\n' "$workspace_model" "$corpus" "$smt"
+    printf '%s\n' "$workspace_model"
+    ;;
+  smt)
+    printf '%s\n' "$smt"
+    ;;
+  corpus|corpus-roundtrip|corpus-apijson)
+    printf '%s\n' "$corpus"
     ;;
   export|export-corpus|export-settled)
     printf '%s\n' "$export"
@@ -70,6 +83,12 @@ case "$shard" in
     ;;
   codegen)
     printf '%s\n' "$codegen"
+    ;;
+  translate)
+    printf '%s\n' "$translate"
+    ;;
+  grpc)
+    printf '%s\n' "$grpc_tests" "$grpc_frontend"
     ;;
   tools)
     printf '%s\n' "$wasm"

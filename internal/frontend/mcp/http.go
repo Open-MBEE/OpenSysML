@@ -29,8 +29,8 @@ type HTTPConfig struct {
 	Listener net.Listener
 	// Origins decides which Origin headers are admitted.
 	Origins OriginPolicy
-	// Token is the bearer token every request must carry; the zero value
-	// requires none, which only a loopback listener may serve.
+	// Token is whose bearer credentials a request must carry, a token's or an authenticator's;
+	// the zero value requires none, which only a loopback listener may serve.
 	Token BearerToken
 	// CertFile and KeyFile, both set, serve TLS; neither serves cleartext.
 	CertFile, KeyFile string
@@ -174,7 +174,7 @@ func IsLoopbackAddr(addr net.Addr) bool { return guard.IsLoopbackAddr(addr) }
 func (s *Server) protocolHandler(over HTTPConfig) http.Handler {
 	streamable := sdk.NewStreamableHTTPHandler(func(*http.Request) *sdk.Server { return s.sdk },
 		&sdk.StreamableHTTPOptions{Logger: s.logger, MaxRequestBodyBytes: over.MaxBodyBytes})
-	return over.Token.Handler(streamable)
+	return over.Token.Handler(stampRemoteAddr(streamable))
 }
 
 // ErrNoToken is why a listener other machines reach is refused with no token.

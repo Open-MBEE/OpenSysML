@@ -85,6 +85,7 @@ type Config struct {
 type Server struct {
 	sdk      *sdk.Server
 	logger   *slog.Logger
+	served   map[string]catalog.Entry
 	lsp      *lsptools.Host
 	runtime  *sysmlgrpc.Service
 	sessions *sessiontools.Manager
@@ -118,6 +119,11 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		Version:    cfg.Version,
 		WebsiteURL: "https://github.com/Open-MBEE/OpenSysML",
 	}, &sdk.ServerOptions{Logger: cfg.Logger, Instructions: cfg.Instructions}), logger: cfg.Logger, prewarmed: nothingToWait}
+	s.served = map[string]catalog.Entry{}
+	for _, e := range catalog.Entries(groups...) {
+		s.served[e.Name] = e
+	}
+	s.sdk.AddReceivingMiddleware(s.authorize)
 
 	for _, g := range groups {
 		switch g {

@@ -24,6 +24,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/buildinfo"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard/flags"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp"
 	_ "github.com/Open-MBEE/OpenSysML/internal/frontend/repl/replext/all" // registers every REPL extension
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
@@ -143,6 +144,24 @@ func run(args []string, stdout, stderr io.Writer) int {
 		opts.printConfig.host, positional = positional[0], nil
 	}
 	positional = append(positional, fs.Args()...)
+	keys, err := readKeyCommand(opts)
+	if err != nil {
+		fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)
+		printUsage(stderr, fs)
+		return exitUnservable
+	}
+	if keys != nil {
+		if len(positional) > 0 {
+			fmt.Fprintf(stderr, "%sunexpected argument %q after a key command\n", commandPrefix, positional[0])
+			printUsage(stderr, fs)
+			return exitUnservable
+		}
+		if err := keys.run(stdout, stderr); err != nil {
+			fmt.Fprintf(stderr, "%s%v\n", commandPrefix, err)
+			return exitUnservable
+		}
+		return exitServed
+	}
 	if opts.printConfig.set {
 		return printConfig(opts, fs, positional, stdout, stderr)
 	}
@@ -179,6 +198,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 		printUsage(stderr, fs)
 		return exitUnservable
 	}
+	logger := slog.New(slog.NewTextHandler(stderr, &slog.HandlerOptions{Level: level}))
+	slog.SetDefault(logger)
+	opts.auth.Logger = logger
 	httpOpts, err := readHTTPOptions(opts)
 	if err == nil {
 		err = httpOpts.loadTLS()
@@ -189,8 +211,6 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return exitUnservable
 	}
 
-	logger := slog.New(slog.NewTextHandler(stderr, &slog.HandlerOptions{Level: level}))
-	slog.SetDefault(logger)
 	cache, err := libs.OpenRecordCache(opts.noRecordCache)
 	if err != nil {
 		fmt.Fprintf(stderr, "%srecord cache unavailable, holding every document loaded: %v\n", commandPrefix, err)
@@ -232,9 +252,8 @@ func printOutput(opts *options, fs *flag.FlagSet, stdout io.Writer) (int, bool) 
 	return exitServed, true
 }
 
-// serve speaks the protocol over stdin/stdout until the client ends it or the
-// process is told to stop, or with http over that address until the process is
-// told to stop, and reports how the session ended.
+// serve speaks the protocol over stdin/stdout until the client ends it or the process is told
+// to stop, or with http over that address (where SIGHUP reloads the credentials), and reports how it ended.
 func serve(stderr io.Writer, cfg mcp.Config, over *httpOptions) int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -251,6 +270,7 @@ func serve(stderr io.Writer, cfg mcp.Config, over *httpOptions) int {
 			fmt.Fprintf(stderr, "%s-http %s binds an address other machines reach: %v\n", commandPrefix, over.addr, mcp.ErrNoToken)
 			return exitUnservable
 		}
+		go reloadOnHangup(ctx, over.auth, cfg.Logger)
 	}
 	if lis != nil {
 		err := mcp.ServeHTTP(ctx, cfg, mcp.HTTPConfig{Listener: lis, Origins: over.origins, Token: over.token, CertFile: over.certFile, KeyFile: over.keyFile,
@@ -274,6 +294,29 @@ func serve(stderr io.Writer, cfg mcp.Config, over *httpOptions) int {
 		return exitProtocol
 	}
 	return exitServed
+}
+
+// reloadOnHangup has the credentials re-read on each SIGHUP until ctx ends, so
+// a key file edited by hand takes effect at once; a file that fails keeps what it held.
+func reloadOnHangup(ctx context.Context, auth flags.Authenticators, logger *slog.Logger) {
+	if len(hangup) == 0 {
+		return
+	}
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, hangup...)
+	defer signal.Stop(signals)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-signals:
+			if err := auth.Reload(); err != nil {
+				logger.Error("credentials not reloaded on SIGHUP, keeping those held", "err", err)
+				continue
+			}
+			logger.Info("credentials reloaded on SIGHUP", "auth", auth.String())
+		}
+	}
 }
 
 // endedWithTheStream reports whether err is only the client's end of the stream:

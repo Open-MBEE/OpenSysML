@@ -29,9 +29,18 @@ access to the HTTP transport (the CORS headers and preflight answer a browser
 needs); loopback origins and requests with no Origin header are admitted
 without a grant, any other origin is refused
 .TP
+.BI \-api\-keys " string"
+File of API keys accepted besides the bearer token, one JSON record per line
+holding the SHA\-256 of a key with its subject, scopes, expiry and whether it
+is disabled; re\-read when it changes
+.TP
 .BI \-cache\-size " int"
 Maximum number of parsed models the runtime tools hold; at least 1. The
 default is 100.
+.TP
+.BI \-expires " duration"
+Lifetime of the key minted with \-mint\-api\-key, as 720h or 90m; none by
+default, a key that does not expire
 .TP
 .B \-h
 Show this help (shorthand)
@@ -43,8 +52,9 @@ Show this help and exit
 Serve over Streamable HTTP at the path /mcp of this address instead of
 stdin/stdout, as host:port or a port alone, which binds loopback; every client
 shares the one workspace, runtime cache and set of REPL sessions. An address
-other machines reach is served only with a bearer token (\-token\-file,
-\-token or OPENSYSML_MCP_TOKEN)
+other machines reach is served only with a credential: a bearer token
+(\-token\-file, \-token or OPENSYSML_MCP_TOKEN), API keys (\-api\-keys) or
+both
 .TP
 .BI \-log\-level " string"
 Lowest level logged to stderr: debug, info, warn or error. The default is
@@ -56,6 +66,11 @@ Write this command's manual page, in roff, to stdout and exit
 .BI \-max\-body\-bytes " int"
 Largest request body, in bytes, the HTTP transport reads at /mcp; a larger one
 is refused with 413. Default 4194304 (4 MiB). The default is 4194304.
+.TP
+.B \-mint\-api\-key
+Mint an API key osk_<id>.<secret> for \-subject with \-scopes, print it once
+to stdout, append its record to the \-api\-keys file (created when absent) and
+exit
 .TP
 .B \-no\-record\-cache
 Parse every document and hold it loaded, reading no interface record from the
@@ -81,10 +96,17 @@ or rewrites the path, as https://models.example.org/mcp (a plain path, no
 query); named as the protected resource and in the bearer challenge, and by
 the \-print\-config block; default each request's own scheme and Host
 .TP
+.BI \-revoke\-api\-key " string"
+Mark the key of this id disabled in the \-api\-keys file and exit
+.TP
 .BI \-root " string"
 Workspace folder whose model documents the server indexes and edits; default
 the current directory, which an agent host sets to the project. The default is
 \&..
+.TP
+.BI \-scopes " string"
+Scopes the key minted with \-mint\-api\-key grants, comma\-separated (RFC 6749
+scope tokens)
 .TP
 .BI \-shutdown\-timeout " duration"
 How long a stopping HTTP server waits for its connections to drain after
@@ -97,6 +119,10 @@ it; not with \-http)
 .B \-strict
 Serve strict conformance from the start: notation no pinned SysML v2
 production admits is an error
+.TP
+.BI \-subject " string"
+Who the key minted with \-mint\-api\-key speaks for: a user name, an e\-mail
+address, a CI job
 .TP
 .BI \-tls\-cert " string"
 TLS certificate file for the HTTP transport; with \-tls\-key, the transport
@@ -111,9 +137,9 @@ The bearer token itself, for a shell whose command line is private;
 read when neither flag names one
 .TP
 .BI \-token\-file " string"
-File holding the bearer token every HTTP request must carry as Authorization:
-Bearer TOKEN (a trailing line break is not part of it); required for an
-address other machines reach, enforced on loopback too when given
+File holding the bearer token every call must carry as Authorization: Bearer
+TOKEN (one trailing line break is dropped); with it the token stays out of the
+process list
 .TP
 .BI \-tools " string"
 Tool groups to serve, comma\-separated: lsp (diagnostics, navigation, editing,
@@ -148,9 +174,10 @@ With \-http the server is started once and serves every client that connects
 to its address over the Streamable HTTP transport, at the path /mcp, until it
 is told to stop with SIGINT or SIGTERM; stopping closes the sessions and waits
 up to \-shutdown\-timeout (30 seconds) for the connections to drain. The
-clients share one workspace, one runtime cache and one set of REPL sessions,
-so a session_* name opened by one is the session every other sees under that
-name.
+clients share one workspace and one runtime cache; REPL sessions belong to the
+principal that opened them (see Scopes), so a session_* name opened by one
+client is the session every other client of the same principal sees under that
+name, and no other principal does.
 .PP
 .RS 2
 .nf
@@ -190,6 +217,37 @@ origin listed in \-allow\-origin exactly; any other origin is refused with
 name rebound to this machine. The wildcard origin is not accepted. A request
 whose MCP\-Protocol\-Version header names a version the server does not speak
 is refused with 400.
+.SH SCOPES
+Every tool requires one scope (RFC 6749 \(sc 3.3), named in the Tools section
+and by tool_catalog, and a tools/call by a principal whose credential lacks it
+is refused with an error naming the scope; tools/list is not narrowed;
+repl_command is admitted with sysml:read and then requires, for the % command
+given, the scope of the typed tool doing the same. Over stdin and stdout, and
+over \-http without a token, the one local caller holds every scope. The
+bearer token named by \-token\-file, \-token or OPENSYSML_MCP_TOKEN holds
+every scope. Each call is recorded on the log (\-log\-level info) with the
+principal, its source, the remote address, the tool, its scope, the outcome
+and the duration, and never the credential or the arguments.
+.TP
+.B sysml:read
+Ask about the workspace and the model: queries, diagnostics, hover,
+conversions and edits answered as text, nothing another caller sees changed.
+.TP
+.B sysml:write
+Write the workspace: files replaced with apply, documents held open or
+released, prompt commands that may save.
+.TP
+.B sysml:execute
+Execute the model: actions, state machines, analyses, solving, debugging and
+REPL evaluation in a session.
+.TP
+.B sysml:session
+Open, load, list, clear and close the caller's own REPL sessions; session
+names are private to the principal.
+.TP
+.B sysml:admin
+See and close every principal's sessions through session_list and
+session_close; no tool requires it.
 .SH RUNNING AS A SERVICE
 With \-http the server also answers two open endpoints on the same address,
 outside the origin check and the token, for the probes a deployment makes: GET
@@ -259,344 +317,358 @@ sysml\-mcp \-print\-config cursor \-http models.example.org:8443 \e
 .fi
 .RE
 .SH TOOLS
-The tools, by the group that serves them (\-tools), each with the sysml\-grpc
-RPC or sysml flag it stands for. The tool_catalog tool answers this list to
-the client, narrowed to the groups served.
+The tools, by the group that serves them (\-tools), each with the scope a
+caller needs (see Scopes) and the sysml\-grpc RPC or sysml flag it stands for.
+The tool_catalog tool answers this list to the client, narrowed to the groups
+served.
 .TP
 .B tool_catalog
-every group: List the tools this server serves, each with the RPC or sysml
-flag it stands for.
+every group, sysml:read: List the tools this server serves, each with the RPC
+or sysml flag it stands for.
 .TP
 .B apply_model_edit
-lsp: Edit a model by operations on its elements (setValue, rename, addMember,
-delete, move, ...) and answer the text edits; write them with apply.
+lsp, sysml:write: Edit a model by operations on its elements (setValue,
+rename, addMember, delete, move, ...) and answer the text edits; write them
+with apply.
 .TP
 .B close_document
-lsp: Release a document held open by open_document; the server reads the file
-on disk again.
+lsp, sysml:write: Release a document held open by open_document; the server
+reads the file on disk again.
 .TP
 .B code_actions
-lsp: List the quick fixes and refactorings available for a range of a
-document, each with its edits.
+lsp, sysml:read: List the quick fixes and refactorings available for a range
+of a document, each with its edits.
 .TP
 .B completion
-lsp: Propose completions at a position: keywords, names in scope and members
-of the accessed type.
+lsp, sysml:read: Propose completions at a position: keywords, names in scope
+and members of the accessed type.
 .TP
 .B definition
-lsp: Find where the name at a position is declared.
+lsp, sysml:read: Find where the name at a position is declared.
 .TP
 .B document_symbols
-lsp: Outline a document: the elements it declares, nested as they are owned.
+lsp, sysml:read: Outline a document: the elements it declares, nested as they
+are owned.
 .TP
 .B documents
-lsp: List the document definitions declared across the workspace.
+lsp, sysml:read: List the document definitions declared across the workspace.
 .TP
 .B format
-lsp: Format a document, or a range of it, in the canonical style; write the
-file with apply.
+lsp, sysml:write: Format a document, or a range of it, in the canonical style;
+write the file with apply.
 .TP
 .B hover
-lsp: Explain the element at a position: kind, qualified name, type, value and
-documentation.
+lsp, sysml:read: Explain the element at a position: kind, qualified name,
+type, value and documentation.
 .TP
 .B import_diagram
-lsp: Import a draw.io file render_view wrote with form drawio and a user
-edited: moves, routes, styles, the page, note text and picture sources as
-DiagramLayout annotations in the view's body, a retyped name as a rename; the
-rest is reported; a dry run until apply (sysml \-import\-diagram, sysml
+lsp, sysml:write: Import a draw.io file render_view wrote with form drawio and
+a user edited: moves, routes, styles, the page, note text and picture sources
+as DiagramLayout annotations in the view's body, a retyped name as a rename;
+the rest is reported; a dry run until apply (sysml \-import\-diagram, sysml
 \-view, sysml \-dry\-run).
 .TP
 .B inlay_hints
-lsp: List the inferred types and values an editor would show inline for a
-document or range.
+lsp, sysml:read: List the inferred types and values an editor would show
+inline for a document or range.
 .TP
 .B open_document
-lsp: Hold a document open with the given text, analyzed instead of the file on
-disk.
+lsp, sysml:write: Hold a document open with the given text, analyzed instead
+of the file on disk.
 .TP
 .B references
-lsp: Find every place in the workspace that refers to the element at a
-position.
+lsp, sysml:read: Find every place in the workspace that refers to the element
+at a position.
 .TP
 .B rename
-lsp: Rename the element at a position everywhere in the workspace; write the
-files with apply.
+lsp, sysml:write: Rename the element at a position everywhere in the
+workspace; write the files with apply.
 .TP
 .B render_document
-lsp: Render a document definition of the workspace to Markdown, its queries
-evaluated and its diagrams embedded.
+lsp, sysml:read: Render a document definition of the workspace to Markdown,
+its queries evaluated and its diagrams embedded.
 .TP
 .B render_view
-lsp: Render a declared view or pseudo\-view of a workspace document as
-Mermaid, dot, PlantUML, D2, draw.io, text or a table.
+lsp, sysml:read: Render a declared view or pseudo\-view of a workspace
+document as Mermaid, dot, PlantUML, D2, draw.io, text or a table.
 .TP
 .B signature_help
-lsp: Describe the invocation enclosing a position: its parameters and the
-active one.
+lsp, sysml:read: Describe the invocation enclosing a position: its parameters
+and the active one.
 .TP
 .B update_document
-lsp: Replace the text of a document held open by open_document and answer the
-diagnostics of the new text.
+lsp, sysml:write: Replace the text of a document held open by open_document
+and answer the diagnostics of the new text.
 .TP
 .B views
-lsp: List the views a document declares and the pseudo\-views render_view can
-draw of it.
+lsp, sysml:read: List the views a document declares and the pseudo\-views
+render_view can draw of it.
 .TP
 .B workspace_diagnostics
-lsp: List the errors, warnings and hints of one workspace document or of the
-whole workspace.
+lsp, sysml:read: List the errors, warnings and hints of one workspace document
+or of the whole workspace.
 .TP
 .B workspace_info
-lsp: Describe the workspace root and the documents it holds, with their
-diagnostic counts.
+lsp, sysml:read: Describe the workspace root and the documents it holds, with
+their diagnostic counts.
 .TP
 .B workspace_symbols
-lsp: Search the workspace's declared elements by name substring.
+lsp, sysml:read: Search the workspace's declared elements by name substring.
 .TP
 .B apply_edits
-runtime: Apply workspace edits to a parsed model and answer the edited
-documents (rpc ApplyEdits).
+runtime, sysml:read: Apply workspace edits to a parsed model and answer the
+edited documents (rpc ApplyEdits).
 .TP
 .B compare_results
-runtime: Run the configurations a SysML v1 tool's results index and table the
-tool's distributions beside the runs' (rpc CompareResults, sysml
+runtime, sysml:execute: Run the configurations a SysML v1 tool's results index
+and table the tool's distributions beside the runs' (rpc CompareResults, sysml
 \-compare\-results).
 .TP
 .B convert
-runtime: Convert a model between the textual notation, JSON, RDF and XMI (rpc
-Convert, sysml \-convert, sysml \-from, sysml \-id, sysml
+runtime, sysml:read: Convert a model between the textual notation, JSON, RDF
+and XMI (rpc Convert, sysml \-convert, sysml \-from, sysml \-id, sysml
 \-include\-library\-stubs).
 .TP
 .B diagnostics
-runtime: Report every diagnostic of a parsed model, as sysml \-validate does
-(rpc GetDiagnostics, sysml \-validate, sysml \-disable\-lint, sysml
-\-enable\-lint).
+runtime, sysml:read: Report every diagnostic of a parsed model, as sysml
+\-validate does (rpc GetDiagnostics, sysml \-validate, sysml \-disable\-lint,
+sysml \-enable\-lint).
 .TP
 .B explain_diagnostic
-runtime: Explain a diagnostic code, or list every code with its summary (sysml
-\-explain).
+runtime, sysml:read: Explain a diagnostic code, or list every code with its
+summary (sysml \-explain).
 .TP
 .B evaluate
-runtime: Evaluate an expression against a parsed model (rpc Evaluate, sysml
-\-eval).
+runtime, sysml:read: Evaluate an expression against a parsed model (rpc
+Evaluate, sysml \-eval).
 .TP
 .B evaluate_calc
-runtime: Evaluate a calculation definition or usage (rpc EvaluateCalc, sysml
-\-calc).
+runtime, sysml:read: Evaluate a calculation definition or usage (rpc
+EvaluateCalc, sysml \-calc).
 .TP
 .B execute_action
-runtime: Execute an action with bound inputs and report its outputs (rpc
-ExecuteAction, sysml \-action, sysml \-schedule, sysml \-advance, sysml
-\-seed, sysml \-draws, sysml \-clock\-step).
+runtime, sysml:execute: Execute an action with bound inputs and report its
+outputs (rpc ExecuteAction, sysml \-action, sysml \-schedule, sysml \-advance,
+sysml \-seed, sysml \-draws, sysml \-clock\-step).
 .TP
 .B execute_state
-runtime: Run a state machine over a sequence of events and report the trace
-(rpc ExecuteState, sysml \-state).
+runtime, sysml:execute: Run a state machine over a sequence of events and
+report the trace (rpc ExecuteState, sysml \-state).
 .TP
 .B export_graphs
-runtime: Export the lowered action and state graphs of a model (rpc
-ExportGraphs, sysml \-graphs).
+runtime, sysml:read: Export the lowered action and state graphs of a model
+(rpc ExportGraphs, sysml \-graphs).
 .TP
 .B import_data
-runtime: Set the feature values a CSV, TSV, JSON or JSON Lines file assigns,
-one row per element (rpc ImportData, sysml \-import, sysml \-import\-as, sysml
-\-import\-map, sysml \-import\-format, sysml \-import\-dry\-run).
+runtime, sysml:read: Set the feature values a CSV, TSV, JSON or JSON Lines
+file assigns, one row per element (rpc ImportData, sysml \-import, sysml
+\-import\-as, sysml \-import\-map, sysml \-import\-format, sysml
+\-import\-dry\-run).
 .TP
 .B instantiate
-runtime: Instantiate a definition or usage and report the object's feature
-values (rpc Instantiate, sysml \-instantiate).
+runtime, sysml:execute: Instantiate a definition or usage and report the
+object's feature values (rpc Instantiate, sysml \-instantiate).
 .TP
 .B instance_paths
-runtime: List every root\-relative usage path that reaches an instantiated
-object (rpc InstancePaths).
+runtime, sysml:execute: List every root\-relative usage path that reaches an
+instantiated object (rpc InstancePaths).
 .TP
 .B list_engines
-runtime: List the analysis engines and whether each is ready (rpc ListEngines,
-sysml \-engines, sysml \-probe).
+runtime, sysml:read: List the analysis engines and whether each is ready (rpc
+ListEngines, sysml \-engines, sysml \-probe).
 .TP
 .B migrate
-runtime: Migrate a SysML v1 model to SysML v2 and report what moved (rpc
-Migrate, sysml \-migrate, sysml \-migration\-report, sysml
+runtime, sysml:read: Migrate a SysML v1 model to SysML v2 and report what
+moved (rpc Migrate, sysml \-migrate, sysml \-migration\-report, sysml
 \-migration\-results, sysml \-layout, sysml \-image\-base\-url).
 .TP
 .B parse
-runtime: Parse files or inline sources and answer the roots, diagnostics and a
-model hash (rpc ParseFile, rpc ParseSources, sysml \-strict).
+runtime, sysml:read: Parse files or inline sources and answer the roots,
+diagnostics and a model hash (rpc ParseFile, rpc ParseSources, sysml
+\-strict).
 .TP
 .B query
-runtime: Run an OSLC query against a parsed model (rpc Query, sysml \-query).
+runtime, sysml:read: Run an OSLC query against a parsed model (rpc Query,
+sysml \-query).
 .TP
 .B render_model_document
-runtime: Render a document definition as Markdown or HTML (rpc RenderDocument,
-sysml \-render\-document, sysml \-doc\-form).
+runtime, sysml:read: Render a document definition as Markdown or HTML (rpc
+RenderDocument, sysml \-render\-document, sysml \-doc\-form).
 .TP
 .B record_run
-runtime: Run an analysis case and record the runs into the model as
-AnalysisRecords declarations (rpc RecordRun, sysml \-record\-run, sysml
-\-record\-into).
+runtime, sysml:execute: Run an analysis case and record the runs into the
+model as AnalysisRecords declarations (rpc RecordRun, sysml \-record\-run,
+sysml \-record\-into).
 .TP
 .B render_model_view
-runtime: Render a view as its nodes, edges and compartments (rpc RenderView,
-sysml \-render, sysml \-render\-ports, sysml \-render\-show, sysml
+runtime, sysml:read: Render a view as its nodes, edges and compartments (rpc
+RenderView, sysml \-render, sysml \-render\-ports, sysml \-render\-show, sysml
 \-render\-depth, sysml \-render\-compartments).
 .TP
 .B check_behavior
-runtime: Search every schedule of an action or state machine for violated
-properties, deadlocks, failures and divergent values (rpc CheckBehavior, sysml
-\-check\-property, sysml \-check\-diverge, sysml \-check\-input, sysml
-\-check\-assume, sysml \-check\-witness, sysml \-check\-depth, sysml
-\-check\-states, sysml \-check\-unroll, sysml \-check\-timeout).
+runtime, sysml:execute: Search every schedule of an action or state machine
+for violated properties, deadlocks, failures and divergent values (rpc
+CheckBehavior, sysml \-check\-property, sysml \-check\-diverge, sysml
+\-check\-input, sysml \-check\-assume, sysml \-check\-witness, sysml
+\-check\-depth, sysml \-check\-states, sysml \-check\-unroll, sysml
+\-check\-timeout).
 .TP
 .B run_analysis
-runtime: Run an analysis case and report its result (rpc RunAnalysis, sysml
-\-analysis, sysml \-engine, sysml \-tool\-dry\-run).
+runtime, sysml:execute: Run an analysis case and report its result (rpc
+RunAnalysis, sysml \-analysis, sysml \-engine, sysml \-tool\-dry\-run).
 .TP
 .B run_document_query
-runtime: Run a document query definition, or a query expression written in
-place, and report its rows (rpc RunDocumentQuery, sysml \-run\-query, sysml
-\-run\-inline\-query).
+runtime, sysml:read: Run a document query definition, or a query expression
+written in place, and report its rows (rpc RunDocumentQuery, sysml
+\-run\-query, sysml \-run\-inline\-query).
 .TP
 .B run_runs
-runtime: Run an action or a Monte Carlo case repeatedly and table what the
-runs observed (rpc RunRuns, sysml \-runs, sysml \-observe).
+runtime, sysml:execute: Run an action or a Monte Carlo case repeatedly and
+table what the runs observed (rpc RunRuns, sysml \-runs, sysml \-observe).
 .TP
 .B run_sweep
-runtime: Run an analysis case over ranges of its parameters (rpc RunSweep,
-sysml \-sweep, sysml \-samples).
+runtime, sysml:execute: Run an analysis case over ranges of its parameters
+(rpc RunSweep, sysml \-sweep, sysml \-samples).
 .TP
 .B self_check
-runtime: Apply the reflective SysMLValidation constraints to every element of
-a model (rpc SelfCheck, sysml \-self\-check, sysml \-self\-check\-package).
+runtime, sysml:read: Apply the reflective SysMLValidation constraints to every
+element of a model (rpc SelfCheck, sysml \-self\-check, sysml
+\-self\-check\-package).
 .TP
 .B server_info
-runtime: Report the service version and the capabilities it serves (rpc
-GetServerInfo).
+runtime, sysml:read: Report the service version and the capabilities it serves
+(rpc GetServerInfo).
 .TP
 .B symbol
-runtime: Describe one element of a parsed model (rpc GetSymbol).
+runtime, sysml:read: Describe one element of a parsed model (rpc GetSymbol).
 .TP
 .B element_properties
-runtime: Read the metamodel properties of one element by their specification
-names (rpc GetElementProperties).
+runtime, sysml:read: Read the metamodel properties of one element by their
+specification names (rpc GetElementProperties).
 .TP
 .B validate_instance
-runtime: Validate an instantiated object against its definition, as sysml
-\-validate=<object> does (rpc ValidateInstance).
+runtime, sysml:execute: Validate an instantiated object against its
+definition, as sysml \-validate=<object> does (rpc ValidateInstance).
 .TP
 .B verify_constraint
-runtime: Verify a constraint and answer the verdict (rpc VerifyConstraint,
-sysml \-constraint).
+runtime, sysml:read: Verify a constraint and answer the verdict (rpc
+VerifyConstraint, sysml \-constraint).
 .TP
 .B verify_requirement
-runtime: Verify a requirement and answer the verdict (rpc VerifyRequirement,
-sysml \-requirement).
+runtime, sysml:read: Verify a requirement and answer the verdict (rpc
+VerifyRequirement, sysml \-requirement).
 .TP
 .B verify_satisfaction
-runtime: Verify a satisfy relationship and answer the verdict (rpc
+runtime, sysml:read: Verify a satisfy relationship and answer the verdict (rpc
 VerifySatisfaction, sysml \-satisfy).
 .TP
 .B advance
-session: Advance the debugged state machine's clock by a duration, firing the
-timed transitions due.
+session, sysml:execute: Advance the debugged state machine's clock by a
+duration, firing the timed transitions due.
 .TP
 .B check
-session: Check with the SMT solver whether an element's constraints are
-satisfiable.
+session, sysml:execute: Check with the SMT solver whether an element's
+constraints are satisfiable.
 .TP
 .B configure
-session: Choose variant selections for a variation model, or enumerate every
-valid configuration.
+session, sysml:execute: Choose variant selections for a variation model, or
+enumerate every valid configuration.
 .TP
 .B debug_breakpoints
-session: List, set or clear the breakpoints of the debugged action.
+session, sysml:execute: List, set or clear the breakpoints of the debugged
+action.
 .TP
 .B debug_continue
-session: Run the debugged action or state machine on to its next breakpoint or
-its end.
+session, sysml:execute: Run the debugged action or state machine on to its
+next breakpoint or its end.
 .TP
 .B debug_current
-session: Report the debugger's state: the action's tokens and breakpoints, or
-the machine's state, clock and event queue.
+session, sysml:read: Report the debugger's state: the action's tokens and
+breakpoints, or the machine's state, clock and event queue.
 .TP
 .B debug_start
-session: Start debugging an action or a state machine by qualified name.
+session, sysml:execute: Start debugging an action or a state machine by
+qualified name.
 .TP
 .B debug_step
-session: Step the debugged action or state machine once.
+session, sysml:execute: Step the debugged action or state machine once.
 .TP
 .B debug_stop
-session: Stop debugging and discard the debugged executors.
+session, sysml:execute: Stop debugging and discard the debugged executors.
 .TP
 .B explain
-session: Explain why an element's constraints are unsatisfiable, naming the
-conflicting ones.
+session, sysml:execute: Explain why an element's constraints are
+unsatisfiable, naming the conflicting ones.
 .TP
 .B features
-session: List a runtime instance's feature values, with its object graph.
+session, sysml:read: List a runtime instance's feature values, with its object
+graph.
 .TP
 .B instances
-session: List the runtime instances the session holds.
+session, sysml:read: List the runtime instances the session holds.
 .TP
 .B optimize
-session: Optimize an analysis case's objective with the solver and answer the
-optimum.
+session, sysml:execute: Optimize an analysis case's objective with the solver
+and answer the optimum.
 .TP
 .B render_run
-session: Render a run's trace as a timeline or a sequence diagram.
+session, sysml:read: Render a run's trace as a timeline or a sequence diagram.
 .TP
 .B repl_command
-session: Run one % meta command of the REPL and answer its output lines.
+session, sysml:read: Run one % meta command of the REPL and answer its output
+lines; the command takes the scope of the typed tool doing the same.
 .TP
 .B runs
-session: Run an action repeatedly, or a Monte Carlo case, and table the
-outcomes.
+session, sysml:execute: Run an action repeatedly, or a Monte Carlo case, and
+table the outcomes.
 .TP
 .B send
-session: Send a signal to the debugged state machine.
+session, sysml:execute: Send a signal to the debugged state machine.
 .TP
 .B session_clear
-session: Clear a session's declarations, instances and debuggers.
+session, sysml:session: Clear a session's declarations, instances and
+debuggers.
 .TP
 .B session_close
-session: Close an open REPL session.
+session, sysml:session: Close an open REPL session.
 .TP
 .B session_eval
-session: Evaluate an expression in a session and answer its value.
+session, sysml:execute: Evaluate an expression in a session and answer its
+value.
 .TP
 .B session_list
-session: List the open REPL sessions.
+session, sysml:session: List the open REPL sessions.
 .TP
 .B session_load
-session: Load model files under the workspace root into a session and answer
-the diagnostics.
+session, sysml:session: Load model files under the workspace root into a
+session and answer the diagnostics.
 .TP
 .B session_open
-session: Open a REPL session, optionally over a root directory whose files
-load on demand, and answer its id.
+session, sysml:session: Open a REPL session, optionally over a root directory
+whose files load on demand, and answer its id.
 .TP
 .B session_print
-session: Print a session's declarations back as SysML notation.
+session, sysml:read: Print a session's declarations back as SysML notation.
 .TP
 .B session_run
-session: Run an action, state machine, calculation or analysis case in a
-session and answer the verdict.
+session, sysml:execute: Run an action, state machine, calculation or analysis
+case in a session and answer the verdict.
 .TP
 .B session_save
-session: Preview a session's model as a file under the workspace root, or
-write it with apply.
+session, sysml:write: Preview a session's model as a file under the workspace
+root, or write it with apply.
 .TP
 .B session_submit
-session: Submit declarations to a session and answer what was declared and the
-diagnostics.
+session, sysml:session: Submit declarations to a session and answer what was
+declared and the diagnostics.
 .TP
 .B solve
-session: Synthesize feature values satisfying an element's constraints with
-the solver.
+session, sysml:execute: Synthesize feature values satisfying an element's
+constraints with the solver.
 .TP
 .B sweep
-session: Sweep a calculation over a range or sampled values and table the
-results.
+session, sysml:execute: Sweep a calculation over a range or sampled values and
+table the results.
 .SH EXIT STATUS
 The status reports how the session ended:
 .TP
