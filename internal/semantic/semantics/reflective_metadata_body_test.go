@@ -27,7 +27,7 @@ func TestMetadataBodyFeatureRedefinesByNameWithoutDeclaringOne(t *testing.T) {
 		var body []*symbols.Symbol
 		for _, member := range model.Members(nestedSym(t, fixture.root, "P")) {
 			if member.Symbol.Kind == symbols.SymbolMetadataUsage {
-				body = model.membersIncludingAnonymous(member.Symbol)
+				body = ownedBodyMembers(model, member.Symbol)
 			}
 		}
 		if len(body) != 2 {
@@ -81,7 +81,7 @@ func TestMetadataBodyRestatementByShortNameIsNamedByItsTarget(t *testing.T) {
 		var body []*symbols.Symbol
 		for _, member := range model.Members(nestedSym(t, fixture.root, "P")) {
 			if member.Symbol.Kind == symbols.SymbolMetadataUsage {
-				body = model.membersIncludingAnonymous(member.Symbol)
+				body = ownedBodyMembers(model, member.Symbol)
 			}
 		}
 		if len(body) != 1 {
@@ -105,4 +105,16 @@ func TestRestatesMetadataBodyFeatureOfNoSymbolIsFalse(t *testing.T) {
 	if fixture.model.RestatesMetadataBodyFeature(nil) {
 		t.Fatal("nil symbol restates a metadata body feature")
 	}
+}
+
+// ownedBodyMembers is the metadata usage's own members, the features its body declares:
+// typed by its metadata definition, it inherits that definition's features too.
+func ownedBodyMembers(model *Model, usage *symbols.Symbol) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	for _, member := range model.Members(usage) {
+		if !member.Inherited {
+			out = append(out, member.Symbol)
+		}
+	}
+	return out
 }
