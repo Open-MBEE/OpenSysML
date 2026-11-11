@@ -281,6 +281,9 @@ func (r *Renderer) successionText(sym *symbols.Symbol) string {
 		// A `then b` edge reads as written: its source only where the author named one; a
 		// member-attached `then action b` names the member it sequences to.
 		then := endName(decl.Target)
+		if _, final := decl.TargetMember.(*ast.FinalNode); then == "" && final {
+			then = "done"
+		}
 		if then == "" && decl.TargetMember != nil && sym.OwnerScope != nil {
 			if member := sym.OwnerScope.MemberDeclaring(decl.TargetMember); member != nil {
 				then = localName(member)

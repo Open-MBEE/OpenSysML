@@ -1002,3 +1002,27 @@ func TestSetRouteAtOfEntryTransitionIsRefused(t *testing.T) {
 		t.Fatalf("inline route of an entry transition: got %v", err)
 	}
 }
+
+// A member-attached `then action b;` or `then done;` is an edge whose notation is the `then` alone; a body
+// opened on it would land on another member, so a Route about it is refused as the entry transition's is.
+func TestSetRouteAtOfAttachedThenIsRefused(t *testing.T) {
+	const model = `package P {
+    action observe {
+        first start;
+        then action acquire;
+        then done;
+    }
+}
+`
+	decl := declaredAt(t, model, "then action acquire;")
+	route := &semantics.Route{Points: []semantics.Waypoint{{X: 1, Y: 2}}}
+	_, err := Apply(loadContent(t, "plant.sysml", model), []Operation{SetRouteAt(decl, "", route)})
+	if e := editError(t, err); e.Failure != FailureNotNamed || !strings.Contains(e.Message, "no body is written") {
+		t.Fatalf("inline route of an attached then: got %v", err)
+	}
+	decl = declaredAt(t, model, "then done;")
+	_, err = Apply(loadContent(t, "plant.sysml", model), []Operation{SetRouteAt(decl, "", route)})
+	if e := editError(t, err); e.Failure != FailureNotNamed || !strings.Contains(e.Message, "no body is written") {
+		t.Fatalf("inline route of then done: got %v", err)
+	}
+}

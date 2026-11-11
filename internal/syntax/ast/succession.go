@@ -18,10 +18,13 @@ func IsSuccessionSource(member Node) bool {
 	return true
 }
 
-// SuccessionAdmitsBody reports whether the `then` edge among owner's members may end in a
-// UsageBody: an ActionTargetSuccession does (SysML.xtext:1698); a DefinitionBodyItem's and an
-// EntryTransitionMember's (:1796-1801) end in ';'. The parser and the annotation writers share it.
+// SuccessionAdmitsBody reports whether the `then` edge among owner's members may end in a UsageBody: a target-naming
+// ActionTargetSuccession does (SysML.xtext:1698), a member-attached `then action b` or an EntryTransitionMember's (:1796) not.
 func SuccessionAdmitsBody(owner, edge Node) bool {
+	// A member-attached `then` (`then action b;`, `then done;`) is the keyword alone; its target is the member after it.
+	if e, ok := edge.(*SuccessionEdge); ok && (e.TargetImplied || e.TargetMember != nil) {
+		return false
+	}
 	switch d := owner.(type) {
 	case *SuccessionEdge:
 		return true
