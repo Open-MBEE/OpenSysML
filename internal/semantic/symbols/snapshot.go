@@ -447,6 +447,7 @@ func (e *snapshotEncoder) writeTables(idx *Index, docs []string) {
 			for _, imp := range imports {
 				e.w.String(imp.Target)
 				e.w.Bool(imp.Private)
+				e.w.Bool(imp.All)
 				e.filter(imp.Filter)
 			}
 		}
@@ -963,6 +964,7 @@ func (d *sectionReader) readTables() *Index {
 			for j := range imports {
 				imports[j].Target = d.r.String()
 				imports[j].Private = d.r.Bool()
+				imports[j].All = d.r.Bool()
 				imports[j].Filter = d.filter()
 			}
 			byDoc[doc] = imports

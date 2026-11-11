@@ -404,33 +404,28 @@ func (r *Resolver) enumerateImported(scope *symbols.Scope, imp *ast.Import, incl
 // appendNamespaceMembers adds the members of target a namespace import surfaces.
 func (r *Resolver) appendNamespaceMembers(out *elementList, scope *symbols.Scope, target *symbols.Symbol, imp *ast.Import, admit func(*symbols.Symbol) bool, includeUnnamed bool) {
 	for _, sym := range r.namespaceChildren(scope, target, imp, includeUnnamed) {
-		if visibleThroughImport(imp, sym) && admit(sym) {
+		if admit(sym) {
 			out.add(sym)
 		}
 	}
 }
 
-// namespaceChildren lists the members of target an import reaches, the declared
+// namespaceChildren lists the memberships of target imp takes, the declared
 // ones first and then the ones only the index holds — wildcard imports and
-// restored libraries populate the index rather than a scope. Reachability under
-// the name is decided here; visibility and element filters are not.
+// restored libraries populate the index rather than a scope. Reachability and
+// visibility (KerML 8.3.2.4.5) are decided here; element filters are not.
 func (r *Resolver) namespaceChildren(scope *symbols.Scope, target *symbols.Symbol, imp *ast.Import, includeUnnamed bool) []*symbols.Symbol {
 	children := newElementList()
 	// Only an imported membership can be hidden (KerML 7.2.5.4): a namespace
 	// whose reachable members are all its own has no collisions to compute.
-	imported := r.declaredChildren(scope, target, includeUnnamed, children)
+	imported := r.declaredChildren(scope, target, imp, includeUnnamed, children)
 	if r.idx == nil {
 		return r.withoutHiddenMembers(target.Scope, children.elems, imported)
 	}
 	prefix := r.indexedNameOf(target)
-	var indexed []*symbols.Symbol
-	if importAllowsPrivate(imp) {
-		indexed = r.idx.LookupDirectChildren(prefix)
-	} else {
-		indexed = r.idx.LookupDirectChildrenFrom(prefix, r.ReferringNamespaceFQN(scope))
-	}
-	for _, sym := range indexed {
-		if !r.admitsUnderName("", r.ReferringNamespaceFQN(scope), prefix+"::"+localNameOf(sym), sym) {
+	from := r.importOrigin(imp, scope, prefix)
+	for _, sym := range r.idx.LookupDirectChildrenFrom(prefix, from) {
+		if !r.admitsUnderName("", from, prefix+"::"+localNameOf(sym), sym) || !r.importSurfaces(imp, prefix, sym) {
 			continue
 		}
 		// An entry re-exported under target through a namespace that hides it is
@@ -446,25 +441,28 @@ func (r *Resolver) namespaceChildren(scope *symbols.Scope, target *symbols.Symbo
 	return r.withoutHiddenMembers(target.Scope, children.elems, imported)
 }
 
-// declaredChildren adds target's own members and what its imports visible from
-// scope bring in, reporting whether any import brought a member.
-func (r *Resolver) declaredChildren(scope *symbols.Scope, target *symbols.Symbol, includeUnnamed bool, children *elementList) bool {
+// declaredChildren adds the members target declares that imp takes and what its imports bring in —
+// each by its own `all`, private ones only under imp's (KerML 8.3.2.4.5) — reporting whether any did.
+func (r *Resolver) declaredChildren(scope *symbols.Scope, target *symbols.Symbol, imp *ast.Import, includeUnnamed bool, children *elementList) bool {
 	if target.Scope == nil {
 		return false
 	}
-	if includeUnnamed {
-		target.Scope.ForEachMember(func(sym *symbols.Symbol) bool {
+	owned := func(sym *symbols.Symbol) bool {
+		if visibleThroughImport(imp, sym) {
 			children.add(sym)
-			return true
-		})
+		}
+		return true
+	}
+	if includeUnnamed {
+		target.Scope.ForEachMember(owned)
 	} else {
 		for _, sym := range target.Scope.Members() {
-			children.add(sym)
+			owned(sym)
 		}
 	}
 	imported := false
 	for _, childImp := range r.scopeImports(target.Scope) {
-		if !r.importVisibleFrom(target, scope, childImp) {
+		if !importAllowsPrivate(imp) && !r.importVisibleFrom(target, scope, childImp) {
 			continue
 		}
 		if r.importStack[childImp] {
@@ -551,16 +549,24 @@ func (r *Resolver) appendSubtree(out *elementList, scope *symbols.Scope, target 
 	seen[key] = true
 	children := r.namespaceChildren(scope, target, imp, includeUnnamed)
 	for _, sym := range children {
-		if visibleThroughImport(imp, sym) && admit(sym) {
+		if admit(sym) {
 			out.add(sym)
 		}
 	}
 	for _, sym := range children {
-		if !visibleThroughImport(imp, sym) {
-			continue
+		if r.ownsMember(target, sym) {
+			r.appendSubtree(out, scope, sym, imp, admit, seen, includeUnnamed)
 		}
-		r.appendSubtree(out, scope, sym, imp, admit, seen, includeUnnamed)
 	}
+}
+
+// ownsMember reports whether target declares sym: a recursive import descends
+// its target's owned namespaces, not the ones imported there (KerML 8.3.2.4.5).
+func (r *Resolver) ownsMember(target, sym *symbols.Symbol) bool {
+	if target.Scope != nil && sym.OwnerScope == target.Scope {
+		return true
+	}
+	return r.idx != nil && r.idx.DeclaredIn(r.indexedNameOf(target), sym)
 }
 
 // ViewExposureConditions returns the view's own and inherited filters and the

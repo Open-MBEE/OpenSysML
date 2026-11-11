@@ -1,8 +1,6 @@
 package resolve
 
 import (
-	"strings"
-
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -41,6 +39,27 @@ func (r *Resolver) namedThroughNamespaces(cands []*symbols.Symbol) []*symbols.Sy
 		}
 	}
 	return kept
+}
+
+// namedUnder keeps the index entries under fqn a qualified name may name: one an
+// import brought there was admitted by its route, one declared there by its own visibility.
+func (r *Resolver) namedUnder(fqn string, cands []*symbols.Symbol) []*symbols.Symbol {
+	kept := make([]*symbols.Symbol, 0, len(cands))
+	for _, sym := range cands {
+		if !r.idx.DeclaredIn(fqn, sym) || r.namedThroughNamespace(sym) {
+			kept = append(kept, sym)
+		}
+	}
+	return kept
+}
+
+// memberLookupOrigin is the namespace cur's index entries are read from: an
+// `import all` reads every membership, as cur itself does (KerML 8.3.2.4.5).
+func (r *Resolver) memberLookupOrigin(cur *symbols.Symbol, from string) string {
+	if r.allVisible > 0 {
+		return r.registeredFQN(cur)
+	}
+	return from
 }
 
 // visibleAsInheritedMember reports whether found, reached as a member of owner,
@@ -205,26 +224,20 @@ func (r *Resolver) resolveImportName(scope *symbols.Scope, qn *ast.QualifiedName
 	return sym, ok
 }
 
-// importSurfaces reports whether imp takes sym from the namespace named
-// targetFQN: its visible memberships, plus, under `import all`, the ones it
-// declares privately — but not a hidden one it merely imported itself.
+// importOrigin is the namespace imp reads targetFQN's index entries from: its
+// own, or under `import all` the target, which sees its every membership.
+func (r *Resolver) importOrigin(imp *ast.Import, scope *symbols.Scope, targetFQN string) string {
+	if importAllowsPrivate(imp) {
+		return targetFQN
+	}
+	return r.ReferringNamespaceFQN(scope)
+}
+
+// importSurfaces reports whether imp takes sym, an index entry under targetFQN its route admits:
+// an imported one has its import's visibility (KerML 8.3.2.4.5 visibilityOf), a declared one its own.
 func (r *Resolver) importSurfaces(imp *ast.Import, targetFQN string, sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
 	}
-	if symbols.VisibleOutside(sym.Visibility) {
-		return true
-	}
-	return importAllowsPrivate(imp) && r.declaresMember(targetFQN, sym)
-}
-
-// declaresMember reports whether the namespace named fqn is where sym is
-// declared, as opposed to a namespace an import surfaced it in.
-func (r *Resolver) declaresMember(fqn string, sym *symbols.Symbol) bool {
-	if r.idx == nil || fqn == "" {
-		return false
-	}
-	declared := r.idx.GetFQN(sym)
-	i := strings.LastIndex(declared, "::")
-	return i > 0 && declared[:i] == fqn
+	return !r.idx.DeclaredIn(targetFQN, sym) || visibleThroughImport(imp, sym)
 }

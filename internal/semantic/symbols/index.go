@@ -193,10 +193,11 @@ type directChildrenKey struct {
 // WildcardImport is one `import X::*` declaration: the target's raw qualified
 // name text, whether the import was declared private, and the filter condition
 // restricting what it brings in (`import X::*[@Safety]`), which is zero for an
-// unfiltered import.
+// unfiltered import. All is its `import all`.
 type WildcardImport struct {
 	Target  string
 	Private bool
+	All     bool
 	Filter  ElementFilter
 }
 
@@ -572,11 +573,12 @@ func (idx *Index) importersToRefresh(changed map[string]nsChange, deriveOnly boo
 }
 
 // statedImport is one wildcard import as declared: the document stating it, its
-// unresolved target text, and its declared visibility.
+// unresolved target text, its declared visibility, and whether it is `import all`.
 type statedImport struct {
 	doc     string
 	target  string
 	private bool
+	all     bool
 	filter  ElementFilter
 }
 
@@ -586,6 +588,7 @@ type resolvedImport struct {
 	doc     string
 	fqn     string
 	private bool
+	all     bool
 }
 
 // imports returns every wildcard import stated through pkgFQN, over the
@@ -601,7 +604,7 @@ func (idx *Index) imports(pkgFQN string) []statedImport {
 	var out []statedImport
 	for _, doc := range docs {
 		for _, imp := range byDoc[doc] {
-			out = append(out, statedImport{doc: doc, target: imp.Target, private: imp.Private, filter: imp.Filter})
+			out = append(out, statedImport{doc: doc, target: imp.Target, private: imp.Private, all: imp.All, filter: imp.Filter})
 		}
 	}
 	return out
@@ -617,6 +620,7 @@ func (idx *Index) resolveImports(pkgFQN string) []resolvedImport {
 			doc:     imp.doc,
 			fqn:     idx.resolveWildcardTarget(pkgFQN, imp.target),
 			private: imp.private,
+			all:     imp.all,
 		}
 	}
 	return out
@@ -648,8 +652,8 @@ func sameImports(a, b []resolvedImport) bool {
 	return true
 }
 
-// expandImporter re-exports the visible members of every namespace pkgFQN's
-// imports name, attributing each to the document whose import surfaced it.
+// expandImporter re-exports the memberships each of pkgFQN's imports takes from the namespace
+// it names (see importedChildren), attributing each to the document whose import surfaced it.
 //
 // Each target is resolved as its import is reached, not up front: an import can
 // name what an earlier one in the same namespace brought in, as P's
@@ -667,16 +671,16 @@ func (idx *Index) expandImporter(pkgFQN string) {
 		// only the semantic model can answer.
 		gate := nonZeroFilters(append([]ElementFilter{imp.filter}, idx.namespaceFiltersGating(pkgFQN, imp.doc)...))
 		direct := [][]ElementFilter{gate}
-		for _, child := range idx.exportedChildren(targetFQN) {
+		for _, child := range idx.importedChildren(targetFQN, imp.all) {
 			// Extract child's primary name
 			childName := LastSegment(child.Name)
 			idx.reexportGated(joinFQN(pkgFQN, childName), child, imp.doc, imp.private,
-				idx.routesOnward(imp.doc, targetFQN, childName, child, direct))
+				idx.routesOnward(imp.doc, targetFQN, childName, child, direct, imp.all))
 
 			// Also re-export under short name if different from primary name
 			if child.ShortName != "" && child.ShortName != childName {
 				idx.reexportGated(joinFQN(pkgFQN, child.ShortName), child, imp.doc, imp.private,
-					idx.routesOnward(imp.doc, targetFQN, child.ShortName, child, direct))
+					idx.routesOnward(imp.doc, targetFQN, child.ShortName, child, direct, imp.all))
 			}
 		}
 	}
@@ -1153,13 +1157,17 @@ func (idx *Index) reexportedAt(fqn string) []*Symbol {
 // when a further namespace imports the filtering one onward, and the target's
 // several routes each stay a route of their own. direct holds this import's
 // gate alone, the routes of a name nothing gated on the way in.
-func (idx *Index) routesOnward(doc, sourceFQN, name string, sym *Symbol, direct [][]ElementFilter) [][]ElementFilter {
+func (idx *Index) routesOnward(doc, sourceFQN, name string, sym *Symbol, direct [][]ElementFilter, all bool) [][]ElementFilter {
 	if idx.declaredExactly(sym, sourceFQN, name) {
 		return direct // declared there, never borrowed into it
 	}
 	// The importing namespace is outside the one it imports from, so only that
-	// one's public routes reach it.
-	inherited := idx.ReexportGates(doc, joinFQN(sourceFQN, name), sym, "")
+	// one's public routes reach it, unless it is an `import all`.
+	from := ""
+	if all {
+		from = sourceFQN
+	}
+	inherited := idx.ReexportGates(doc, joinFQN(sourceFQN, name), sym, from)
 	if len(inherited) == 0 {
 		return direct
 	}
@@ -1605,6 +1613,7 @@ func wildcardImportsIn(scope *Scope) []WildcardImport {
 		wi := WildcardImport{
 			Target:  imp.Imported.Text(),
 			Private: imp.Visibility == ast.VisibilityPrivate,
+			All:     imp.IsAll,
 		}
 		if imp.FilterExpr != nil {
 			wi.Filter = ElementFilter{Expr: imp.FilterExpr, Scope: scope, Span: imp.FilterExpr.Span()}
@@ -1890,11 +1899,31 @@ func (idx *Index) WildcardImportsOf(fqn string) []WildcardImport {
 	return out
 }
 
-// exportedChildren returns the direct children of prefix that a wildcard import
-// of prefix surfaces: everything but what prefix's own private imports brought
-// in, which stays visible only inside prefix (KerML 8.2.3.3).
-func (idx *Index) exportedChildren(prefix string) []*Symbol {
-	return idx.LookupDirectChildrenFrom(prefix, "")
+// importedChildren returns the memberships of prefix a wildcard import of it takes (KerML 8.3.2.4.5
+// visibleMemberships): all under `import all`, else its public ones and those its public imports brought.
+func (idx *Index) importedChildren(prefix string, all bool) []*Symbol {
+	if all {
+		return idx.LookupDirectChildren(prefix)
+	}
+	children := idx.LookupDirectChildrenFrom(prefix, "")
+	out := make([]*Symbol, 0, len(children))
+	for _, child := range children {
+		if VisibleOutside(child.Visibility) || !idx.DeclaredIn(prefix, child) {
+			out = append(out, child)
+		}
+	}
+	return out
+}
+
+// DeclaredIn reports whether the namespace registered under prefix declares
+// sym, as opposed to holding it as a membership an import brought in.
+func (idx *Index) DeclaredIn(prefix string, sym *Symbol) bool {
+	declared, ok := idx.declaredAt.get(sym)
+	if !ok {
+		return false
+	}
+	parent, _ := splitFQN(declared)
+	return parent == prefix
 }
 
 // childKeys returns the keys registered directly under prefix, in name order.
