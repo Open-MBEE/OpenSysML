@@ -12,11 +12,11 @@
     },
     "properties": {
       "presentEqual": 1408,
-      "presentDifferent": 234,
+      "presentDifferent": 233,
       "oursMissing": 197,
       "pilotMissing": 59,
       "absentBoth": 1829,
-      "indeterminate": 21,
+      "indeterminate": 22,
       "pilotNondeterministic": 0
     },
     "unkeyedReferences": 143,
@@ -30,7 +30,7 @@
       "pilot": 0
     },
     "unkeyableElements": {
-      "ours": 132,
+      "ours": 136,
       "pilot": 49
     }
   },
@@ -1486,7 +1486,7 @@
     "StateDefinition.ownedCalculation": [0,0,0,0,1,0,0],
     "StateDefinition.ownedCase": [0,0,0,0,1,0,0],
     "StateDefinition.ownedConcern": [0,0,0,0,1,0,0],
-    "StateDefinition.ownedConnection": [0,1,0,0,0,0,0],
+    "StateDefinition.ownedConnection": [0,0,0,0,0,1,0],
     "StateDefinition.ownedConstraint": [0,0,0,0,1,0,0],
     "StateDefinition.ownedDifferencing": [0,0,0,0,1,0,0],
     "StateDefinition.ownedDisjoining": [0,0,0,0,1,0,0],

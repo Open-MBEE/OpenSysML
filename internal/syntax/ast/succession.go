@@ -18,11 +18,10 @@ func IsSuccessionSource(member Node) bool {
 	return true
 }
 
-// SuccessionAdmitsBody reports whether the `then` edge among owner's members may end in a UsageBody: a target-naming
-// ActionTargetSuccession does (SysML.xtext:1698), a member-attached `then action b` or an EntryTransitionMember's (:1796) not.
+// SuccessionAdmitsBody reports whether the `then` edge among owner's members may end in a UsageBody: an ActionTargetSuccession
+// (SysML.xtext:1698, `then done` included) or a state body's TargetTransitionUsage (:1764) does; a member-attached or entry `then` not.
 func SuccessionAdmitsBody(owner, edge Node) bool {
-	// A member-attached `then` (`then action b;`, `then done;`) is the keyword alone; its target is the member after it.
-	if e, ok := edge.(*SuccessionEdge); ok && (e.TargetImplied || e.TargetMember != nil) {
+	if e, ok := edge.(*SuccessionEdge); ok && (e.TargetImplied || e.TargetMember != nil) && !targetsDone(e) {
 		return false
 	}
 	switch d := owner.(type) {
@@ -33,15 +32,38 @@ func SuccessionAdmitsBody(owner, edge Node) bool {
 		case DefAction, DefBehavior:
 			return true
 		case DefState:
-			return thenBodyAllowedAt(d.Members, edge)
+			return IsStateTargetTransition(owner, edge)
 		}
 	case *Usage:
 		switch d.Kind {
 		case UsageAction, UsageTransition, UsageStep, UsageBehavior:
 			return true
 		case UsageState:
-			return thenBodyAllowedAt(d.Members, edge)
+			return IsStateTargetTransition(owner, edge)
 		}
+	}
+	return false
+}
+
+// targetsDone reports whether a `then done` edge reaches the action's `done` node, a TargetSuccession
+// whose target is the library's end node rather than a member the keyword introduces.
+func targetsDone(e *SuccessionEdge) bool {
+	_, ok := e.TargetMember.(*FinalNode)
+	return ok
+}
+
+// IsStateTargetTransition reports whether edge, a `then x;` among the members of the state owner, is a TargetTransitionUsage
+// (SysML.xtext:1764, :1866): written after a state, not after `entry`/`do`/`exit` (:1796) nor member-attached (:1046).
+func IsStateTargetTransition(owner, edge Node) bool {
+	e, ok := edge.(*SuccessionEdge)
+	if !ok || e.TargetImplied || e.TargetMember != nil {
+		return false
+	}
+	switch d := owner.(type) {
+	case *Definition:
+		return d.Kind == DefState && thenBodyAllowedAt(d.Members, edge)
+	case *Usage:
+		return d.Kind == UsageState && thenBodyAllowedAt(d.Members, edge)
 	}
 	return false
 }

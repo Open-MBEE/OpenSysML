@@ -549,6 +549,13 @@ func (d *structureDifferential) expressionGraphID(sym *symbols.Symbol) (string, 
 			}
 			return base + rdf.EncodeElementID(fmt.Sprintf("::@%d", sym.Expr.Index)), true
 		}
+	case symbols.ExpressionTransitionSuccession:
+		// A transition's succession is minted off the transition (transitionSuccession).
+		base, ok := d.graphID(owner)
+		if !ok {
+			return "", false
+		}
+		return base + transitionSuccessionSuffix, true
 	case symbols.ExpressionValue:
 		// The value of a send's argument parameter is the parameter's `value` part.
 		if owner.Expr != nil && owner.Expr.Role == symbols.ExpressionPayload && owner.Expr.Owner != nil &&
