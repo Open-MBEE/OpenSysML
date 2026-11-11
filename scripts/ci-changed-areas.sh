@@ -70,11 +70,8 @@ emit() {
   echo "$area=$enabled"
 }
 
-# Paths whose packages -race has caught out, from the race fixes in the history: the runtime's
-# work queue and body coroutines; the SMT referee's solver processes; the gRPC server's model
-# cache and its two suites; the REPL session lock; the LSP server's goroutines; the workspace's
-# locked symbol index and concurrent library parse; the export writer's shared memos; the settled
-# symbol index the batch workers read. A push touching one of these runs the race shards.
+# Packages -race has caught out (the race fixes in the history: runtime coroutines, SMT solver processes, gRPC
+# model cache, REPL lock, LSP goroutines, workspace index and library parse, export memos, settled symbol index).
 race_pattern='^(internal/exec/runtime/|internal/exec/smt/|internal/frontend/grpc/|internal/frontend/repl/|internal/frontend/lsp/|internal/workspace/|internal/translate/export/|internal/semantic/symbols/|tests/grpc/|cmd/sysml-grpc/)'
 
 tier=${CI_TIER:-}

@@ -95,10 +95,8 @@ jobs:
       - name: Test the area filter
         run: scripts/ci-changed-areas-test.sh
 
-      # A pull request is diffed against the branch it merges into; a merge-group
-      # commit against the queue entry it builds on (the merge group's base_sha).
-      # The script decides the tier too (its first line): forced to full for a merge-group
-      # commit and the label ci:full, otherwise quick unless the diff touches a race-prone package.
+      # A pull request is diffed against the branch it merges into, a merge-group commit against its base_sha. The script
+      # decides the tier too: forced to full for a merge-group commit and the label ci:full, else by the paths (race_pattern).
       - name: Decide which areas to run
         id: areas
         env:
@@ -130,11 +128,8 @@ jobs:
     name: Go ${{ needs.changes.outputs.tier == 'full' && 'race ' || '' }}tests (${{ matrix.shard }})
     needs: changes
     if: needs.changes.outputs.go == 'true'
-    # The shards split the suite's slowest packages across runners so each gets its own job cap (see scripts/race-shard.sh);
-    # internal/exec/runtime, tests/export and tests/corpus are three shards each, split by test name (see make test-shard), and
-    # the other packages over ~10 minutes under -race (internal/workspace/model, internal/exec/smt, tests/model, tests/codegen,
-    # internal/translate/export, the gRPC suites, tests/migrate, cmd/sysml) are one of their own each; the tools shard
-    # (tests/wasm) is CircleCI's, the WebAssembly gate's here. The quick tier runs the same shards without -race, grouped nine ways.
+    # The shards (scripts/race-shard.sh) give the suite's slowest packages their own job cap: runtime, tests/export and tests/corpus
+    # are three each, split by test name (make test-shard); the tools shard (tests/wasm) is CircleCI's, the WebAssembly gate's here.
     strategy:
       fail-fast: false
       matrix:

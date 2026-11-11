@@ -380,9 +380,8 @@ TEST_SHARD_RACE ?= -race
 
 test-shard: stdlib-snapshot ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli)
 	@echo "Running Go $(if $(TEST_SHARD_RACE),race ,)tests, shard $(SHARD)..."
-	@# 55m per package; its job's ceiling is 60. Whole, internal/exec/runtime took 31-57 minutes
-	@# under -race on the CI runners, so it runs as three shards; so do tests/export (whole past
-	@# 55 minutes) and tests/corpus (whole about 40 minutes), split by test name above.
+	@# 55m per package; its job's ceiling is 60. internal/exec/runtime (31-57 minutes whole under -race), tests/export
+	@# (past 55) and tests/corpus (about 40) run as three shards each, split by test name above.
 	pkgs=$$(scripts/race-shard.sh $(SHARD)) && go test $(SHARD_SELECT) -v $(TEST_SHARD_RACE) -pgo=off -timeout 55m $$pkgs
 	@# The tools module runs with tools (tests/wasm) on CircleCI and, as the PR workflow has no
 	@# tools shard (tests/wasm is its WebAssembly gate job there), with rest on GitHub Actions.
