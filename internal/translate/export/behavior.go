@@ -289,6 +289,9 @@ func (e *encoder) encodeInitialNode(n *ast.InitialNode, head func(rdf.Term), sub
 		}
 		if qualifiedText(n.Successor) != "" {
 			e.graph.Add(subject, e.sysml(pSourceFeature), start)
+			if start.IsIRI() {
+				e.graph.Add(subject, e.sysml(pSource), start)
+			}
 		} else {
 			e.graph.Add(subject, e.sysml(pMemberElement), start)
 			if ns, ok := e.graph.Object(subject, rdf.SysML+pMembershipOwningNamespace); ok && start.IsIRI() {
@@ -300,7 +303,12 @@ func (e *encoder) encodeInitialNode(n *ast.InitialNode, head func(rdf.Term), sub
 		return err
 	}
 	if qualifiedText(n.Successor) != "" {
-		e.graph.Add(subject, e.sysml(pTargetFeature), e.edgeReference(n.Successor))
+		target := e.edgeReference(n.Successor)
+		e.graph.Add(subject, e.sysml(pTargetFeature), target)
+		// Relationship::source and target, which the two redefine (KerML 8.3.4.5.1), for a plain-named end.
+		if target.IsIRI() && !qualifiedNameHasChain(n.Successor) {
+			e.graph.Add(subject, e.sysml(pTarget), target)
+		}
 		// `first a then b;` owns its two ends, each a ConnectorEnd referencing
 		// the feature it names (SysML-textual-bnf SuccessionAsUsage,
 		// ConnectorEndMember), beside the sourceFeature and targetFeature the

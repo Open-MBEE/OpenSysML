@@ -8,13 +8,6 @@
 # is a per-file ratchet, not a claim that any verdict is right; see
 # docs/project/rdf-corpus-roundtrip.md. Regenerate with:
 #   go test ./tests/corpus -run TestCorpusRoundTrip -update-corpus-roundtrip
-# files: committed 56
-# files: sysml-v2-training 100
-# files: pilot-corpora/kerml-examples 58
-# files: pilot-corpora/sysml-examples 99
-# files: pilot-corpora/sysml-validation 56
-# files: spec-examples/kerml 170
-# files: spec-examples/sysml 341
 stable	action-executor-demo.sysml
 stable	analysis-demo/lander.sysml
 stable	analysis-results-demo/lander-results.sysml
