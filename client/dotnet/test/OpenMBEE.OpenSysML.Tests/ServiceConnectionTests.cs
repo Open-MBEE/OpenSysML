@@ -81,7 +81,7 @@ public sealed class ServiceConnectionTests(ServiceFixture services) : IClassFixt
 
     [Theory]
     [MemberData(nameof(Configurations))]
-    public async Task ConcurrentCallsShareOneConnection(string transport, ClientWire wire)
+    public async Task ConcurrentCallsOnOneConnectionEachGetTheServicesAnswer(string transport, ClientWire wire)
     {
         var service = await services.ServiceAsync(transport);
         await using var connection = await Connection.OpenAsync(wire.To(service.Address), TestContext.Current.CancellationToken);

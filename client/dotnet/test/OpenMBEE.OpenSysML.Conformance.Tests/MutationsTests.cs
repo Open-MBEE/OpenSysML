@@ -40,9 +40,14 @@ public sealed class MutationsTests
 
         var mutated = (Wire.InstantiateResponse)Mutations.Apply(original, Mutation.PerturbReals);
 
+        // A check of the original real holds for the original answer and fails for the mutated one, which is the point.
+        var mass = Trees.Expect("""{"response": {"instance": {"feature_values": {"mass": {"value": {"real_value": 1500}}}}}}""");
+        Assert.Empty(Checks.Check(mass, new Normalizer(string.Empty).Normalize(original)));
+        Assert.NotEmpty(Checks.Check(mass, new Normalizer(string.Empty).Normalize(mutated)));
         var feature = mutated.Instance.FeatureValues["mass"];
-        Assert.Equal(1500 * 1.000001 + 1e-9, feature.Value.RealValue);
-        Assert.Equal(1 * 1.000001 + 1e-9, feature.Values[0].RealValue);
+        Assert.All(
+            new[] { (Was: 1500.0, Now: feature.Value.RealValue), (Was: 1.0, Now: feature.Values[0].RealValue) },
+            real => Assert.True(Math.Abs(real.Now - real.Was) > Checks.Tolerance * Math.Max(Math.Abs(real.Was), Math.Abs(real.Now)), $"{real.Was} moved only to {real.Now}"));
         Assert.Equal(Wire.Value.KindOneofCase.StringValue, feature.Values[1].KindCase);
         Assert.Equal("a", feature.Values[1].StringValue);
         Assert.Equal(Answer(), original);

@@ -142,6 +142,8 @@ public sealed class ServiceQueryDocsTests(ServiceFixture services) : IClassFixtu
             selected += (await model.QueryAsync(new Query { Select = ["name"] }, Token)).Elements.Count;
         }
 
+        // The client refuses an answered element with no id or no type as malformed (QueryWire.Result), so querying every
+        // element of every fixture is the check; the counts only show the walk was not empty.
         Assert.True(fixtures.Count > 30, $"only {fixtures.Count} fixtures were found");
         Assert.True(selected > 400, $"only {selected} elements were selected");
     }

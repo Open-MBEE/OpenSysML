@@ -308,6 +308,7 @@ public sealed class ModelQueryDocsTests
         var first = result.Rows[0];
         Assert.Equal(new DocumentValue.ElementValue("Garage::car", "PartUsage"), first.Element);
         Assert.Equal([new DocumentValue.TextValue("car")], first.Cells[0]);
+        // DocumentValueTests holds each arm's reading to what the service sent; this holds a query's cells to that reading.
         Assert.Equal(
             CompleteExecutionWire.DocumentValues.Select((value, i) => Internal.Mapping.DocumentWire.Value(value, Model.RunDocumentQueryMethod, $"v{i}")),
             first.Cells[1]);

@@ -474,7 +474,7 @@ public sealed class ModelEditingTests : IDisposable
                 new AppliedEdit(1, "Demo", 60, 0, string.Empty, "// note\n", "a.sysml"),
             ],
             result.Applied);
-        Assert.Equal(ModelWireDiagnostic(), Assert.Single(result.Diagnostics));
+        Assert.Equal(ExpectedDiagnostic(), Assert.Single(result.Diagnostics));
         Assert.Equal((CompleteEditingWire.Edited, 0), (bare.Content, bare.Documents.Count));
         Assert.Null(Assert.Single(bare.Applied).Document);
         Assert.Equal((string.Empty, false), (emptied.Content, emptied.HasSeveralDocuments));
@@ -539,7 +539,7 @@ public sealed class ModelEditingTests : IDisposable
         var newer = await Assert.ThrowsAsync<EditException>(() => model.ApplyEditsAsync([new Edit.Rename("A", "B")], cancellationToken: Token));
 
         Assert.Equal(("EngineLibrary::Engine is referred to by EngineUser::Car::motor", EditFailure.DeleteReferenced, Model.ApplyEditsMethod), (refused.Message, refused.Failure, refused.Method));
-        Assert.Equal(ModelWireDiagnostic(), Assert.Single(refused.Diagnostics));
+        Assert.Equal(ExpectedDiagnostic(), Assert.Single(refused.Diagnostics));
         Assert.Equal(["EngineUser::Car::motor (engine_user.sysml)", "EngineLibrary::spare"], refused.ReferringElements);
         Assert.Equal([new Referrer("EngineLibrary::spare", "engine_library.sysml"), new Referrer("EngineUser::Car::motor", "engine_user.sysml")], refused.Referrers);
         Assert.IsAssignableFrom<ModelException>(refused);
@@ -783,7 +783,9 @@ public sealed class ModelEditingTests : IDisposable
         return Wire.ApplyEditsRequest.Parser.ParseFrom(CodedInputStream.CreateWithLimits(new MemoryStream(sent.MessageBytes), int.MaxValue, 1000));
     }
 
-    private static Diagnostic ModelWireDiagnostic() => Internal.Mapping.ModelWire.Diagnostic(CompleteWire.Diagnostic);
+    // CompleteWire.Diagnostic as the client must read it, stated rather than read by the library's own mapper.
+    private static Diagnostic ExpectedDiagnostic() =>
+        new("warning", "rounded", "rounded-real-literal", new SourceSpan("/models/a.sysml", 1, 2, 3, 4), ["Demo::a", "Demo::b"], true);
 
     // The capability an edit is refused for when the service lacks the given ones, after checking nothing was sent.
     private static async Task<string> RefusedAsync(ClientWire wire, string[] withheld, Func<Model, Task> call)
