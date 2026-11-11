@@ -18,26 +18,34 @@ const (
 	refersToWord            = "refers to "
 )
 
-var occurrenceNames = sync.OnceValue(func() map[string]bool {
+var occurrenceNameCache sync.Map
+
+func occurrenceNames() map[string]bool {
 	idx := libs.SharedBase()
-	names, seen := map[string]bool{}, map[string]bool{}
-	queue := []string{"Occurrences::Occurrence"}
-	for len(queue) > 0 {
-		t := queue[0]
-		queue = queue[1:]
-		if seen[t] {
-			continue
-		}
-		seen[t] = true
-		for _, member := range idx.LookupDirectChildrenFrom(t, "") {
-			if member.Name != "" {
-				names[member.Name] = true
+	cached, ok := occurrenceNameCache.Load(idx)
+	if !ok {
+		cached, _ = occurrenceNameCache.LoadOrStore(idx, sync.OnceValue(func() map[string]bool {
+			names, seen := map[string]bool{}, map[string]bool{}
+			queue := []string{"Occurrences::Occurrence"}
+			for len(queue) > 0 {
+				t := queue[0]
+				queue = queue[1:]
+				if seen[t] {
+					continue
+				}
+				seen[t] = true
+				for _, member := range idx.LookupDirectChildrenFrom(t, "") {
+					if member.Name != "" {
+						names[member.Name] = true
+					}
+				}
+				queue = append(queue, librarySupers(idx, t)...)
 			}
-		}
-		queue = append(queue, librarySupers(idx, t)...)
+			return names
+		}))
 	}
-	return names
-})
+	return cached.(func() map[string]bool)()
+}
 
 // inheritedOccurrenceNames returns a mutable copy of the cached inherited occurrence names.
 func inheritedOccurrenceNames() map[string]bool {
