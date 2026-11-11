@@ -102,7 +102,7 @@ borrows it. Each method below is one RPC:
 | Calculation and analysis | `CalcAsync`, `RunAnalysisAsync`, `ExploreAnalysisAsync`, `RunSweepAsync` | `Calculation`, `Analysis`, `Exploration`, `Sweep` |
 | Repeated runs | `RunActionRunsAsync`, `RunAnalysisRunsAsync`, `SelfCheckAsync`, `RecordRunAsync` | `Runs`, `SelfCheck`, `Recording` |
 | Conversion | `ConvertAsync`, `ToNotationAsync`, `ToTurtleAsync`, `ToApiJsonAsync`, `SaveAsync` | `Conversion` |
-| Queries and documents | `QueryAsync`, `QueryOslcAsync`, `RunDocumentQueryAsync`, `RenderDocumentAsync`, `RenderViewAsync` | `QueryResult`, `DocumentQueryResult`, `RenderedDocument`, `RenderedView` |
+| Queries and documents | `QueryAsync`, `QueryOslcAsync`, `RunDocumentQueryAsync`, `RunInlineDocumentQueryAsync`, `RenderDocumentAsync`, `RenderViewAsync` | `QueryResult`, `DocumentQueryResult`, `RenderedDocument`, `RenderedView` |
 | Editing | `Edit()`, `ApplyEditsAsync` | an `Editor`; `EditResult` |
 | Graphs and data | `ExportGraphsAsync`, `ImportDataAsync`, `CompareResultsAsync` | `Graphs`, `ImportResult`, `Comparison` |
 

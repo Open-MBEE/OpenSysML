@@ -18,7 +18,7 @@ internal static class QueryDocsArea
     internal static IEnumerable<RpcAdapter> Adapters { get; } =
     [
         RpcAdapter.Of<Wire.QueryRequest>("Query", ["model_hash", "query", "oslc_query"], QueryAsync),
-        RpcAdapter.Of<Wire.RunDocumentQueryRequest>("RunDocumentQuery", ["model_hash", "query_id", "bindings"], RunDocumentQueryAsync),
+        RpcAdapter.Of<Wire.RunDocumentQueryRequest>("RunDocumentQuery", ["model_hash", "query_id", "inline_query", "bindings"], RunDocumentQueryAsync),
         RpcAdapter.Of<Wire.RenderDocumentRequest>("RenderDocument", ["model_hash", "document_id", "form"], RenderDocumentAsync),
         RpcAdapter.Of<Wire.RenderViewRequest>("RenderView", ["model_hash", "view", "ports", "show", "depth", "compartments"], RenderViewAsync),
     ];
@@ -39,15 +39,23 @@ internal static class QueryDocsArea
     private static async Task<ScenarioAnswer> RunDocumentQueryAsync(Connection connection, Wire.RunDocumentQueryRequest request, CancellationToken cancellationToken)
     {
         var model = ApiAdapters.ModelOf(connection, request.ModelHash);
-        if (request.QueryId.Length == 0)
+        if (request.QueryId.Length > 0 && request.InlineQuery.Length > 0)
         {
-            throw new UnexpressibleRequestException("the public API names a document query by a qualified name that is not empty");
+            throw new UnexpressibleRequestException("the public API names a document query or writes one in place, in two calls, so it cannot send both");
+        }
+
+        if (request.QueryId.Length == 0 && request.InlineQuery.Length == 0)
+        {
+            throw new UnexpressibleRequestException("the public API names a document query by a qualified name, or writes one, that is not empty");
         }
 
         var bindings = request.Bindings.Select((binding, i) => Binding(binding, $"bindings[{i}]")).ToList();
         try
         {
-            return new ScenarioAnswer.Answered(Rendering.DocumentQueryResult(await model.RunDocumentQueryAsync(request.QueryId, bindings, cancellationToken).ConfigureAwait(false)));
+            var result = request.InlineQuery.Length > 0
+                ? await model.RunInlineDocumentQueryAsync(request.InlineQuery, bindings, cancellationToken).ConfigureAwait(false)
+                : await model.RunDocumentQueryAsync(request.QueryId, bindings, cancellationToken).ConfigureAwait(false);
+            return new ScenarioAnswer.Answered(Rendering.DocumentQueryResult(result));
         }
         catch (QueryException failure)
         {

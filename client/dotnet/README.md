@@ -839,6 +839,8 @@ var same = await model.QueryOslcAsync("oslc.where=rdf:type=\"PartUsage\"&oslc.se
 var observatory = (await connection.LoadAsync("document.sysml")).RequireNoErrors();
 var table = await observatory.RunDocumentQueryAsync("Observatory::SubsystemTable",
     [new DocumentBinding("root", DocumentValue.ElementRef("Observatory::telescope"))]);
+var written = await observatory.RunInlineDocumentQueryAsync(
+    "Project(WhereType(Descendants(Observatory::telescope), \"PartUsage\"), (\"name\", \"mass\"))");
 var report = await observatory.RenderDocumentAsync("Observatory::MassReport", DocumentForm.Html);
 var asciidoc = await observatory.RenderDocumentAsync("Observatory::MassReport", DocumentForm.AsciiDoc);
 
@@ -853,6 +855,7 @@ var tree = await plant.RenderViewAsync("#tree:Plant::Loop", new RenderViewOption
 | `QueryAsync` | A `QueryResult` of a SysML v2 API & Services `Query`: the `Elements` in its `Scope` (the whole model when empty, nested elements included) that its `Where` constraint matches, in the order its `OrderBy` sorts them or else in declaration order, each a `QueryElement` with its `Id`, its metamodel `Type` and the `Properties` its `Select` asked for, a property the element does not have absent; an OSLC query selecting held objects (`rdf:type=elmt:<id>`) answers one per object, with the `Path` the session holds it under |
 | `QueryOslcAsync` | The same for OSLC Query 3.0 parameter text |
 | `RunDocumentQueryAsync` | A `DocumentQueryResult` of a document query the model declares, with its entry parameters bound: the projected `Columns` and the `Rows`, each a `DocumentRow` with the `Element` it selects and a cell of `DocumentValue`s per column |
+| `RunInlineDocumentQueryAsync` | The same for a query expression written in place of a name, the result expression such a query holds, compiled in the model's context with the `DocumentQueries` library in scope; it may declare entry parameters (`in root : KerML::Root::Element; …`) the bindings bind |
 | `RenderDocumentAsync` | A `RenderedDocument` the model declares, byte-for-byte what `sysml -render-document` writes, in Markdown, `DocumentForm.Html` or `DocumentForm.AsciiDoc`, with the `FileName` a rendered set writes it to, null from a service that names none |
 | `RenderViewAsync` | A `RenderedView` of a declared view or a `#<kind>:<qualified name>` pseudo-view: every field the view renderer produced |
 
@@ -882,6 +885,14 @@ a query answered can be bound again as it was answered. Infinity and the rows of
 `ArgumentException`, as it does an element with no name and an object with neither a path nor
 an id. The objects are those the service holds for the model, which `InstantiateAsync`
 creates. A row's element and cells read every arm, the verdict, state and event rows included.
+
+`RunInlineDocumentQueryAsync` needs the `inline_document_query` capability beside
+`document_query`, and is refused with `CapabilityException` before anything is sent without
+either; a named query needs only `document_query`. Text that does not parse or plan is the
+caller's argument, a `ServiceException` with `InvalidArgument` whose message positions the
+fault within the expression (`inline query 1:30: expected ')'`) and never a diagnostic of the
+model, and so is a binding of a parameter the expression does not declare. A planned query that
+cannot run, a path naming nothing, is a `QueryException`, as a named query's is.
 
 A `RenderedView` keeps its `Nodes` flattened, parents before children, each naming its
 `Parent`; `Roots`, `ChildrenOf` and `Node` walk them. A node has its `Ports`, an edge its end

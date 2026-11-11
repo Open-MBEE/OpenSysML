@@ -43,9 +43,56 @@ public sealed partial class Model
         ArgumentException.ThrowIfNullOrEmpty(queryId);
         var held = bindings is null ? default : new ValueList<DocumentBinding>(bindings);
         Connection.ThrowIfDisposed();
-        var request = new Wire.RunDocumentQueryRequest { ModelHash = Hash, QueryId = queryId, Bindings = { DocumentWire.ToWire(held) } };
+        return await RunDocumentQueryAsync(new Wire.RunDocumentQueryRequest { ModelHash = Hash, QueryId = queryId }, held, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Runs a query expression written in place of a named document query, the result expression a calc def
+    /// specializing <c>DocumentQueries::Query</c> would hold, such as
+    /// <c>Project(WhereType(Descendants(Named("Vehicles")), "PartUsage"), ("name", "mass"))</c>. The service compiles it
+    /// in the model's context, with the <c>DocumentQueries</c> library in scope and the model's own names reachable, and
+    /// runs it as <see cref="RunDocumentQueryAsync(string, IEnumerable{DocumentBinding}?, CancellationToken)"/> runs a
+    /// named one, over the objects it holds for the model.
+    /// </summary>
+    /// <param name="expression">The query expression.</param>
+    /// <param name="bindings">The entry parameters' values, in order; a parameter bound more than once takes every value. Null binds none.</param>
+    /// <param name="cancellationToken">Cancels the call.</param>
+    /// <returns>The projected columns and the rows, in the engine's order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="expression"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="expression"/> is empty, or a binding is null. A bound quantity cannot be sent; nothing was sent.</exception>
+    /// <exception cref="CapabilityException">
+    /// The service lacks <see cref="Capabilities.DocumentQuery"/> or <see cref="Capabilities.InlineDocumentQuery"/>, or
+    /// <see cref="Capabilities.BigIntValues"/> or <see cref="Capabilities.RationalValues"/> for a bound Integer beyond
+    /// <see cref="long"/> or exact Rational, checked in that order; nothing was sent.
+    /// </exception>
+    /// <exception cref="QueryException">The expression planned but could not be run over the model.</exception>
+    /// <exception cref="ModelNotFoundException">The service no longer holds the model.</exception>
+    /// <exception cref="ServiceException">
+    /// The service refused the call: <see cref="StatusCode.InvalidArgument"/> for an expression that does not parse or
+    /// plan, the message positioned within it (<c>inline query 1:30: expected ')'</c>), or a binding it does not take,
+    /// <see cref="StatusCode.NotFound"/> for an object the model does not hold, <see cref="StatusCode.ResourceExhausted"/>
+    /// for a run past the engine's budget.
+    /// </exception>
+    /// <exception cref="TransportException">The call failed in transport, or the answer was malformed.</exception>
+    public async Task<DocumentQueryResult> RunInlineDocumentQueryAsync(string expression, IEnumerable<DocumentBinding>? bindings = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(expression);
+        var held = bindings is null ? default : new ValueList<DocumentBinding>(bindings);
+        Connection.ThrowIfDisposed();
+        return await RunDocumentQueryAsync(new Wire.RunDocumentQueryRequest { ModelHash = Hash, InlineQuery = expression }, held, cancellationToken).ConfigureAwait(false);
+    }
+
+    // Sends a request naming the query or writing it in place, gated in the order the service checks.
+    private async Task<DocumentQueryResult> RunDocumentQueryAsync(Wire.RunDocumentQueryRequest request, ValueList<DocumentBinding> bindings, CancellationToken cancellationToken)
+    {
+        request.Bindings.Add(DocumentWire.ToWire(bindings));
         var capabilities = Connection.Capabilities;
         capabilities.Require(Capabilities.DocumentQuery);
+        if (request.InlineQuery.Length > 0)
+        {
+            capabilities.Require(Capabilities.InlineDocumentQuery);
+        }
+
         DocumentWire.Fit(request.Bindings, capabilities);
         var response = await DeclarationCallAsync<Wire.RunDocumentQueryRequest, Wire.RunDocumentQueryResponse>(RunDocumentQueryMethod, request, modelFaults: true, cancellationToken)
             .ConfigureAwait(false);

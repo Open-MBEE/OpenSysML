@@ -12,7 +12,8 @@ namespace OpenMBEE.OpenSysML.Tests;
 /// <summary>
 /// Querying, running document queries, rendering documents and rendering views against a real sysml-grpc over every
 /// client wire: structured and OSLC queries with every constraint form; element, object and scalar bindings answering
-/// element, object, verdict, state and event rows; Markdown and HTML documents; views with ports, notation, depth,
+/// element, object, verdict, state and event rows; a query expression run in place of a name, a fault in it positioned
+/// within it; Markdown and HTML documents; views with ports, notation, depth,
 /// layout, styles, notes and tables, nothing the view omits filled in; the refusals of a missing model, a missing
 /// declaration and a fault in the model's declarations told apart; the answers of every conformance fixture read
 /// without a malformed-answer refusal; and, against a service withholding these capabilities, refusals made before
@@ -235,6 +236,69 @@ public sealed class ServiceQueryDocsTests(ServiceFixture services) : IClassFixtu
 
     [Theory]
     [MemberData(nameof(Wires))]
+    public async Task AQueryExpressionRunsInPlaceOfANameOverTheModelsNamesAndTheObjectsItHolds(ClientWire wire)
+    {
+        await using var connection = await OpenAsync(wire);
+        var observatory = (await connection.LoadAsync(Fixture("document.sysml"), cancellationToken: Token)).RequireNoErrors();
+        // A model of this test's and wire's own, so no other instantiation's objects are held for it.
+        var garage = (await connection.LoadContentAsync(
+            $"// inline document query over {wire}\npackage Garage {{ part def Wheel {{ attribute pressure : ScalarValues::Integer default 30; }} part def Car {{ part wheels : Wheel[2]; }} part car : Car; }}",
+            cancellationToken: Token)).RequireNoErrors();
+        var telescope = new DocumentBinding("root", DocumentValue.ElementRef("Observatory::telescope"));
+        const string Wheels = "Project(Objects(type = \"Wheel\"), (\"pressure\"))";
+
+        var named = await observatory.RunDocumentQueryAsync("Observatory::SubsystemTable", [telescope], Token);
+        var spelled = await observatory.RunInlineDocumentQueryAsync(
+            "in root : KerML::Root::Element; Project(source = OrderBy(source = Observatory::Subsystems(root = root), property = \"name\", "
+                + "direction = \"ascending\", missing = \"last\", multiple = \"error\"), properties = (\"name\", \"mass\"))",
+            [telescope],
+            Token);
+        var unbound = await observatory.RunInlineDocumentQueryAsync("Project(WhereType(Descendants(Observatory::telescope), \"PartUsage\"), (\"name\", \"mass\"))", cancellationToken: Token);
+        var before = await garage.RunInlineDocumentQueryAsync(Wheels, cancellationToken: Token);
+        await garage.InstantiateAsync("Garage::car", Token);
+        var after = await garage.RunInlineDocumentQueryAsync(Wheels, cancellationToken: Token);
+
+        Assert.Equal(named, spelled);
+        Assert.Equal(["name", "mass"], unbound.Columns);
+        Assert.Equal(
+            ["Observatory::telescope::baffle|shroud *tricky*", "Observatory::telescope::mount", "Observatory::telescope::optics", "Observatory::telescope::segmentControl"],
+            unbound.Rows.Select(row => Assert.IsType<DocumentValue.ElementValue>(row.Element).Id).Order(StringComparer.Ordinal));
+        Assert.Empty(before.Rows);
+        Assert.Equal(
+            ["Garage::car.wheels[1]", "Garage::car.wheels[2]"],
+            after.Rows.Select(row => Assert.IsType<DocumentValue.ObjectValue>(row.Element).Value.Path));
+        Assert.All(after.Rows, row => Assert.Equal(new DocumentValue.NumberValue(new Value.IntegerValue(30)), Assert.Single(row.Cells[0])));
+    }
+
+    [Theory]
+    [MemberData(nameof(Wires))]
+    public async Task AFaultInAQueryExpressionIsPositionedWithinItAndToldApartFromAFailedRun(ClientWire wire)
+    {
+        await using var connection = await OpenAsync(wire);
+        var observatory = (await connection.LoadAsync(Fixture("document.sysml"), cancellationToken: Token)).RequireNoErrors();
+        var telescope = new DocumentBinding("root", DocumentValue.ElementRef("Observatory::telescope"));
+        Task<DocumentQueryResult> Run(string expression, params DocumentBinding[] bindings) => observatory.RunInlineDocumentQueryAsync(expression, bindings, Token);
+
+        var parse = await Assert.ThrowsAsync<ServiceException>(() => Run("Project(Named(\"Observatory\") (\"name\"))"));
+        var plan = await Assert.ThrowsAsync<ServiceException>(() => Run("Union(Named(\"Observatory\"), Frobnicate(Named(\"Observatory\")))"));
+        var blank = await Assert.ThrowsAsync<ServiceException>(() => Run("  "));
+        var more = await Assert.ThrowsAsync<ServiceException>(() => Run("Named(\"Observatory\") } package Evil {"));
+        var undeclared = await Assert.ThrowsAsync<ServiceException>(() => Run("Named(\"Observatory\")", telescope));
+        var path = await Assert.ThrowsAsync<QueryException>(() => Run("Named(qualifiedName = \"Observatory::telescop\")"));
+        var gone = await Assert.ThrowsAsync<ModelNotFoundException>(() => connection.ModelByHash("0000").RunInlineDocumentQueryAsync("Named(\"Q\")", cancellationToken: Token));
+
+        Assert.All([parse, plan, blank, more, undeclared], error => Assert.Equal((typeof(ServiceException), StatusCode.InvalidArgument), (error.GetType(), error.StatusCode)));
+        Assert.All([parse, plan, blank, more], error => Assert.Matches(@"^inline query 1:\d+: ", error.ServiceMessage));
+        Assert.All([parse, plan, blank, more], error => Assert.DoesNotContain("declared in", error.ServiceMessage, StringComparison.Ordinal));
+        Assert.StartsWith("inline query 1:29: query <inline query> invokes unknown operation Frobnicate", plan.ServiceMessage, StringComparison.Ordinal);
+        Assert.Contains("unknown binding root", undeclared.ServiceMessage, StringComparison.Ordinal);
+        Assert.Equal(StatusCode.FailedPrecondition, path.StatusCode);
+        Assert.StartsWith("inline query 1:1: ", path.ServiceMessage, StringComparison.Ordinal);
+        Assert.StartsWith("model not found: 0000", gone.ServiceMessage, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [MemberData(nameof(Wires))]
     public async Task ADocumentRendersToMarkdownHtmlAndAsciiDocNamingTheFileARenderedSetWrites(ClientWire wire)
     {
         await using var connection = await OpenAsync(wire);
@@ -407,21 +471,22 @@ public sealed class ServiceQueryDocsTests(ServiceFixture services) : IClassFixtu
             await Assert.ThrowsAsync<CapabilityException>(() => model.QueryAsync(Query.All, Token)),
             await Assert.ThrowsAsync<CapabilityException>(() => model.QueryOslcAsync("oslc.where=rdf:type=\"PartUsage\"", Token)),
             await Assert.ThrowsAsync<CapabilityException>(() => model.RunDocumentQueryAsync("Q", [root], Token)),
+            await Assert.ThrowsAsync<CapabilityException>(() => model.RunInlineDocumentQueryAsync("Named(\"A\")", [root], Token)),
             await Assert.ThrowsAsync<CapabilityException>(() => model.RenderDocumentAsync("D", DocumentForm.Html, Token)),
             await Assert.ThrowsAsync<CapabilityException>(() => model.RenderViewAsync("V", cancellationToken: Token)),
         };
 
         Assert.Equal(
-            [Capabilities.Query, Capabilities.Query, Capabilities.DocumentQuery, Capabilities.RenderDocumentHtml, Capabilities.RenderView],
+            [Capabilities.Query, Capabilities.Query, Capabilities.DocumentQuery, Capabilities.DocumentQuery, Capabilities.RenderDocumentHtml, Capabilities.RenderView],
             refused.Select(error => error.Capability));
         Assert.Equal(["GetServerInfo"], counting.Methods);
     }
 
     [Theory]
     [MemberData(nameof(Wires))]
-    public async Task AWithheldOrderingOrAsciiDocIsRefusedBeforeAnythingIsSentWhileTheRestIsServed(ClientWire wire)
+    public async Task AWithheldOrderingAsciiDocOrInlineQueryIsRefusedBeforeAnythingIsSentWhileTheRestIsServed(ClientWire wire)
     {
-        var withheld = await services.ServiceAsync("connect", "query_order_by,render_document_asciidoc");
+        var withheld = await services.ServiceAsync("connect", "query_order_by,render_document_asciidoc,inline_document_query");
         using var counting = new CountingHandler();
         await using var connection = await Connection.OpenAsync(
             new ConnectionOptions { Address = withheld.Address, Protocol = wire.Protocol(), Encoding = wire.Encoding(), HttpMessageHandler = counting },
@@ -430,11 +495,15 @@ public sealed class ServiceQueryDocsTests(ServiceFixture services) : IClassFixtu
 
         var ordering = await Assert.ThrowsAsync<CapabilityException>(() => model.QueryAsync(new Query { OrderBy = ["name"] }, Token));
         var asciidoc = await Assert.ThrowsAsync<CapabilityException>(() => model.RenderDocumentAsync("Observatory::MassReport", DocumentForm.AsciiDoc, Token));
+        var inline = await Assert.ThrowsAsync<CapabilityException>(() => model.RunInlineDocumentQueryAsync("Named(\"Observatory\")", cancellationToken: Token));
         await model.QueryAsync(Query.All, Token);
         await model.RenderDocumentAsync("Observatory::MassReport", DocumentForm.Html, Token);
+        await model.RunDocumentQueryAsync("Observatory::SubsystemTable", [new DocumentBinding("root", DocumentValue.ElementRef("Observatory::telescope"))], Token);
 
-        Assert.Equal([Capabilities.QueryOrderBy, Capabilities.RenderDocumentAsciidoc], new[] { ordering.Capability, asciidoc.Capability });
-        Assert.Equal(["GetServerInfo", "ParseFile", "Query", "RenderDocument"], counting.Methods);
+        Assert.Equal(
+            [Capabilities.QueryOrderBy, Capabilities.RenderDocumentAsciidoc, Capabilities.InlineDocumentQuery],
+            new[] { ordering.Capability, asciidoc.Capability, inline.Capability });
+        Assert.Equal(["GetServerInfo", "ParseFile", "Query", "RenderDocument", "RunDocumentQuery"], counting.Methods);
     }
 
     private static string Fixture(string name) => Repository.PathOf("conformance", "fixtures", name);

@@ -301,8 +301,8 @@ skip, the run says so. Per protocol, of 208 scenarios:
 
 | Configuration | ran | passed | skipped as uncovered | skipped as unexpressible |
 | --- | --: | --: | --: | --: |
-| default | 199 | 199 | 0 | 9 |
-| `strict_conformance` and `oslc_query` withheld | 198 | 198 | 0 | 9 |
+| default | 201 | 201 | 0 | 7 |
+| `strict_conformance` and `oslc_query` withheld | 200 | 200 | 0 | 7 |
 
 The unexpressible requests send what the public types refuse to hold or send:
 `parse/naming_no_source_is_invalid` names no source, which the API always does, and
@@ -311,9 +311,7 @@ positive id or a path as a document binding does; three
 EvaluateCalc scenarios send a measurement reference without its reduction, a vector with a
 string component, and a function closing over an object of another call; and two Query
 scenarios send a comparison with no operator, and a structured query together with OSLC text,
-which `QueryConstraint` and the two query calls cannot express; and two RunDocumentQuery
-scenarios send a query expression in `inline_query`, which `RunDocumentQueryAsync`, naming a
-declared query only, has no way to send. Withheld, the fallbacks of
+which `QueryConstraint` and the two query calls cannot express. Withheld, the fallbacks of
 `strict_conformance` and `oslc_query` run and are refused before sending.
 
 `-mutate` shows the comparison catches what each corruption breaks, on every protocol, and a
@@ -322,8 +320,8 @@ test asserts it fails the run:
 | `-mutate` | What it does to every answer | Scenarios that fail, per protocol |
 | --- | --- | --: |
 | `perturb-reals` | Moves each real by a millionth | 28 |
-| `truncate-lists` | Drops the last entry of each list | 87 |
-| `rewrite-strings` | Replaces each non-empty string but no map key | 113 |
+| `truncate-lists` | Drops the last entry of each list | 88 |
+| `rewrite-strings` | Replaces each non-empty string but no map key | 114 |
 
 `make conformance-dotnet-check` also runs the reference runner against the same binary, both
 with `-v`, and `dotnet-gates.py conformance-check` holds the two runs together: both reports

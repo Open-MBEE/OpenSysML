@@ -196,6 +196,12 @@ public sealed class Capabilities : IEquatable<Capabilities>
     /// </summary>
     public const string InfinityValue = "infinity_value";
 
+    /// <summary>
+    /// Names the capability of RunDocumentQueryRequest.inline_query, a query expression run in place of a named
+    /// document query and planned by the same compiler. Named queries need only <see cref="DocumentQuery"/>.
+    /// </summary>
+    public const string InlineDocumentQuery = "inline_document_query";
+
     /// <summary>Names explicit language selection for inline content.</summary>
     public const string InlineLanguage = "inline_language";
 
