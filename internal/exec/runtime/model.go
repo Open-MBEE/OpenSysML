@@ -130,10 +130,9 @@ type Model struct {
 	// scope it is evaluated in; the model does not change under one Model.
 	invocationTargets map[invocationKey]*invocationTarget
 
-	// integerLiterals and realLiterals memoize the value each numeric literal
-	// node spells, so a literal in a recursion is parsed once per model.
-	integerLiterals map[*ast.LiteralInteger]semantics.Value
-	realLiterals    map[*ast.LiteralReal]semantics.Value
+	// lowered holds the expressions evaluated from their tree, each lowered once
+	// per scope it is evaluated in.
+	lowered map[loweredKey]*lower.ExprEntry
 
 	// census memoizes the object usages the model's namespaces declare; see modelUsages.
 	census *usageCensus
@@ -273,8 +272,7 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		verificationCases:   make(map[*symbols.Scope][]*symbols.Symbol),
 		libraryPerformances: make(map[*symbols.Symbol]*libraryPerformance),
 		invocationTargets:   make(map[invocationKey]*invocationTarget),
-		integerLiterals:     make(map[*ast.LiteralInteger]semantics.Value),
-		realLiterals:        make(map[*ast.LiteralReal]semantics.Value),
+		lowered:             make(map[loweredKey]*lower.ExprEntry),
 		behaving:            make(map[*symbols.Symbol]bool),
 		behavingFeatures:    make(map[*symbols.Symbol][]int),
 		redefGroups:         make(map[*symbols.Symbol][][]string),
@@ -404,6 +402,29 @@ func (m *Model) resolvedName(scope *symbols.Scope, name string, excluding ast.No
 	}
 	m.names[key] = nameHit{sym: sym, ok: ok}
 	return sym, ok
+}
+
+// loweredKey names an expression as one evaluation reads it: its names resolve
+// in the scope it is evaluated in, and one expression may be evaluated in several.
+type loweredKey struct {
+	scope *symbols.Scope
+	expr  ast.Node
+}
+
+// loweredExpr is node lowered for evaluation in scope, lowering it on first use.
+func (m *Model) loweredExpr(scope *symbols.Scope, node ast.Node) lowered {
+	key := loweredKey{scope: scope, expr: node}
+	entry, ok := m.lowered[key]
+	if !ok {
+		table, id := lower.LowerExpr(node, scope, m.resolver)
+		entry = table.Entry(id)
+		if m.resolver.Journaling() {
+			// A request's expression is forgotten with what the resolver memoized of its nodes.
+			m.resolver.Journal(node, func() { delete(m.lowered, key) })
+		}
+		m.lowered[key] = entry
+	}
+	return lowered{entry: entry}
 }
 
 type footprintKey struct {

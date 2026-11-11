@@ -273,7 +273,7 @@ func (ec *EvalContext) evalArgument(params []declaredParam, i int, arg ast.Node,
 	if _, body := arg.(*ast.BodyExpr); !body && i < len(params) && params[i].deferred {
 		return newExprValue(arg, ec.closure()), nil
 	}
-	return ec.evaluate(arg, keep)
+	return ec.evaluate(ec.lowered(arg), keep)
 }
 
 // builtinParameterList renders the declared parameter names for an error.

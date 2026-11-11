@@ -46,8 +46,10 @@ func (ctx *Context) composedQuantity(num semantics.Value, product semantics.Unit
 // `seq#(i)` shares the node but not the meaning; the bracket the notation was
 // written with is what tells the two apart, and the index is evaluated as the
 // sequence operation it is (collections.go).
-func (ec *EvalContext) evalIndexExpr(n *ast.IndexExpr) (Value, error) {
-	if !n.Bracket {
+func (ec *EvalContext) evalIndexExpr(x lowered) (Value, error) {
+	// The unit a bracket names is read off its tree: the semantic layer's question.
+	n, _ := x.tree().(*ast.IndexExpr)
+	if !x.expr().Bracket {
 		return ec.evalSequenceIndex(n)
 	}
 	// A frame or scale in unit position is the VectorCalculations::'[' case.
@@ -61,7 +63,7 @@ func (ec *EvalContext) evalIndexExpr(n *ast.IndexExpr) (Value, error) {
 		return Value{}, ec.notAQuantityError(n, err)
 	}
 
-	magnitude, err := ec.valueOperand(n.Operand)
+	magnitude, err := ec.valueOperandExpr(x.arg(0))
 	if err != nil {
 		return Value{}, err
 	}
