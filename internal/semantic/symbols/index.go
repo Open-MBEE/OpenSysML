@@ -193,11 +193,11 @@ type directChildrenKey struct {
 // WildcardImport is one `import X::*` declaration: the target's raw qualified
 // name text, whether the import was declared private, and the filter condition
 // restricting what it brings in (`import X::*[@Safety]`), which is zero for an
-// unfiltered import. All is its `import all`.
+// unfiltered import.
 type WildcardImport struct {
 	Target  string
 	Private bool
-	All     bool
+	All     bool // `import all`: the target's private memberships too
 	Filter  ElementFilter
 }
 
@@ -652,8 +652,8 @@ func sameImports(a, b []resolvedImport) bool {
 	return true
 }
 
-// expandImporter re-exports the memberships each of pkgFQN's imports takes from the namespace
-// it names (see importedChildren), attributing each to the document whose import surfaced it.
+// expandImporter re-exports the visible members of every namespace pkgFQN's
+// imports name, attributing each to the document whose import surfaced it.
 //
 // Each target is resolved as its import is reached, not up front: an import can
 // name what an earlier one in the same namespace brought in, as P's

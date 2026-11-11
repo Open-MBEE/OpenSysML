@@ -410,10 +410,8 @@ func (r *Resolver) appendNamespaceMembers(out *elementList, scope *symbols.Scope
 	}
 }
 
-// namespaceChildren lists the memberships of target imp takes, the declared
-// ones first and then the ones only the index holds — wildcard imports and
-// restored libraries populate the index rather than a scope. Reachability and
-// visibility (KerML 8.3.2.4.5) are decided here; element filters are not.
+// namespaceChildren lists the memberships of target imp takes (KerML 8.3.2.4.5): the declared ones,
+// then the ones only the index holds for a wildcard import or a restored library. Filters are not applied.
 func (r *Resolver) namespaceChildren(scope *symbols.Scope, target *symbols.Symbol, imp *ast.Import, includeUnnamed bool) []*symbols.Symbol {
 	children := newElementList()
 	// Only an imported membership can be hidden (KerML 7.2.5.4): a namespace
