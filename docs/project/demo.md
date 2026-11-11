@@ -26,7 +26,7 @@ $ sysml --version
 sysml <commit>
   Commit:     <commit>
   Build time: <build time>
-  Go version: go1.27.3
+  Go version: go1.27.4
 ```
 
 All demo models live in one scratch directory:
