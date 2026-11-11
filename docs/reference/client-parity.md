@@ -69,7 +69,7 @@ from the clients and a gap is a stated gap rather than a silent one.
 | `inline_language` | bound | bound | bound | bound | bound | bound | bound | bound |
 | `strict_conformance` | bound | bound | bound | bound | bound | bound | bound | bound |
 | `document_query` | bound | bound | bound | bound | bound | bound | bound | bound |
-| `inline_document_query` | bound | bound | bound | bound | bound | bound | bound | not bound |
+| `inline_document_query` | bound | bound | bound | bound | bound | bound | bound | bound |
 | `render_document` | bound | bound | bound | bound | bound | bound | bound | bound |
 | `parse_sources` | bound | bound | bound | bound | bound | bound | bound | bound |
 | `complex_values` | bound | bound | bound | bound | bound | bound | bound | bound |
@@ -189,7 +189,6 @@ failure, both `CallException`s carrying its `StatusCode`, rather than an excepti
 | Gap | Where | Estimate |
 | --- | --- | --- |
 | `RunSweep.samples` in the Go package | `client/opensysml` | about one day: the package has no typed `RunSweep` wrapper at all, so the option means a typed sweep request, result rows and their evaluations, and tests |
-| `inline_document_query` (a query expression in place of a named query) | .NET | small: `RunDocumentQueryAsync` names a declared query only, so an inline query needs a typed call gated on the capability, the conformance runner's `inline_query` field, and tests |
 | In-process engine without a service | Python, Java, Rust, Julia, MATLAB, .NET | large; Node's `connectWasm` is the only one, and the others would need a wasm host each |
 | TLS to a remote service | Python, Java, Rust | small for Python (`grpc.insecure_channel` becomes a secure channel for an `https` address) and Java (its Connect base URL is always `http://`); Rust refuses every scheme but `http` and needs a TLS backend for its HTTP stack |
 | Connect transport (protobuf / JSON) | Python | large: Python speaks gRPC alone, so Connect is a second transport beside it |
