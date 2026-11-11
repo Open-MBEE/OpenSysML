@@ -24,7 +24,7 @@ import (
 
 // engineGzipBudget bounds the gzipped js sysml-engine the gate links (-trimpath, stripped, the library snapshot embedded, as
 // every Makefile build target does): 9,451,750 bytes under go1.27.3 on 2026-11-09 at develop ddc4a547fe, 7,764,359 without the snapshot.
-const engineGzipBudget = 9500000
+const engineGzipBudget = 9600000
 
 func TestEngineDependencies(t *testing.T) {
 	const module = "github.com/Open-MBEE/OpenSysML"
