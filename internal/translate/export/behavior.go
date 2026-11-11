@@ -624,6 +624,11 @@ func (d *decoder) targetTransitionText(el *element, triggerWords []string, guard
 	if len(triggerWords) > 0 {
 		return "", "", refuse("it states a trigger, which a decision's branch has no notation for")
 	}
+	if multiplicity, err := d.transitionTargetMultiplicity(el); err != nil {
+		return "", "", err
+	} else if multiplicity != "" {
+		target = multiplicity + " " + target
+	}
 	// Every source the graph states, in either spelling, must be the member
 	// before it: a second one has nowhere to go in the branch's notation.
 	before := d.precedingSource(el)
