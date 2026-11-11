@@ -279,7 +279,7 @@ needs to require.
 
 **The quick tier** is what every push to a pull request gets, draft or ready, in about half the
 runner time of the full tier and a third of its wall time: the binaries, the same Go suite without
-`-race` in nine groups of the race shards (`make test-quick`), the download-free static checks
+`-race` in ten groups of the race shards (`make test-quick`), the download-free static checks
 (gofmt, vet, the production build, grpc imports, proto lint and breaking), the WebAssembly, Xpect
 and conformance gates, and only the clients, editors and docs whose own paths changed. The lint,
 the corpus and solver gates, the PDF toolchain and the fan-out from a service change to every
@@ -291,7 +291,7 @@ one touching a path no area claims.
 
 **The full tier** runs on the merge queue's commit (below), on any pull request carrying the
 label `ci:full` (adding it re-runs the current head), and on those escalated pushes. It
-gates: gofmt, `go vet`, `make lint`, the race-enabled test suite (eighteen shards,
+gates: gofmt, `go vet`, `make lint`, the race-enabled test suite (nineteen shards,
 `make test-shard`), the binaries, the client suites, the conformance suite over each transport,
 the protobuf lint and wire-compatibility checks, the documentation hygiene checks
 (`make docs-check`, `make man-check` and the census check), the site build, and in each
@@ -479,6 +479,20 @@ When a change needs documenting:
   `go test -C tools ./referee/diff`. `make docs-counts` still restates the externally refereed oracle
   numbers from the baseline JSONs (and the README's conformance-passing sentence); run it only
   when a baseline or `known_failures.txt` moved.
+- **A baseline conflict with `develop` is re-recorded by a label, not by hand.** When a
+  branch and `develop` both re-recorded a generated baseline (the api-json differential, the
+  derived census, the structure differential, the library/prefix sweep, the corpus and round-trip
+  expectations, the conversion and parser goldens, the proto stubs), apply the `ci:rebaseline`
+  label to the pull request. [.github/workflows/rebaseline.yml](.github/workflows/rebaseline.yml)
+  merges `origin/develop` into the branch taking `develop`'s side of the conflicts confined to the
+  generated paths it lists (a conflict anywhere else fails the run), re-runs every recorder on the
+  merged tree, refuses a movement the merge does not explain
+  (`scripts/rebaseline-movement.py`: a verdict that moved for a record neither side moved), commits
+  the result with the movement in its message, pushes to the branch, removes the label and
+  comments the movement for adjudication. It never touches
+  `tests/corpus/testdata/training_examples_expected.txt`, which is asserted clean rather than
+  ratcheted, and it needs the label applied to the branch's current head (a push after the label
+  stops it). Only a branch of this repository can be re-recorded, not a fork's.
 - **Changelog entries are fragments, not edits to `CHANGELOG.md`.** A change that a user
   should read about adds one file, `changes/unreleased/<slug>.<section>.md`, holding the list
   item(s) for that section (`added`, `changed`, `fixed`, …); see the README there. Two branches
