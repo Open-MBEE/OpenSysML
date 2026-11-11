@@ -29,7 +29,7 @@ make build            # build bin/sysml and bin/sysml-lsp (with version ldflags)
 make build-sysml      # REPL binary only
 make build-lsp        # LSP binary only
 make test             # full suite: go test -race -coverprofile ... ./...
-make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli)
+make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-fixtures|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli)
 make test-quick SHARDS="rest grpc"  # the same shards without -race, in turn: what a pull-request push runs
 make test-short       # faster, no race detector
 make clean            # remove build artifacts

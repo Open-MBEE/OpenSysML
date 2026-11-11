@@ -31,6 +31,8 @@ var (
 	circleExport       = regexp.MustCompile(`(?m)^\s*exportcorpus='([^']+)'$`)
 	makefileSettled    = regexp.MustCompile(`(?m)^RACE_EXPORT_SETTLED := (.+)$`)
 	circleSettled      = regexp.MustCompile(`(?m)^\s*exportsettled='([^']+)'$`)
+	makefileFixtures   = regexp.MustCompile(`(?m)^RACE_EXPORT_FIXTURES := (.+)$`)
+	circleFixtures     = regexp.MustCompile(`(?m)^\s*exportfixtures='([^']+)'$`)
 	makefileRoundTrip  = regexp.MustCompile(`(?m)^RACE_CORPUS_ROUNDTRIP := (.+)$`)
 	circleRoundTrip    = regexp.MustCompile(`(?m)^\s*corpusroundtrip='([^']+)'$`)
 	makefileAPIJSON    = regexp.MustCompile(`(?m)^RACE_CORPUS_APIJSON := (.+)$`)
@@ -201,15 +203,19 @@ func TestRuntimeCorpusPatternPartitionsTheRuntimeTests(t *testing.T) {
 	}
 }
 
-// TestExportCorpusPatternsPartitionTheExportTests: the export, export-corpus and
-// export-settled shards are tests/export split the same way by RACE_EXPORT_CORPUS and
+// TestExportCorpusPatternsPartitionTheExportTests: the export, export-fixtures, export-corpus and
+// export-settled shards are tests/export split the same way by RACE_EXPORT_FIXTURES, RACE_EXPORT_CORPUS and
 // RACE_EXPORT_SETTLED, which no test may match both of.
 func TestExportCorpusPatternsPartitionTheExportTests(t *testing.T) {
 	corpus, tests := corpusPatternPartitions(t, "RACE_EXPORT_CORPUS", makefileExport, circleExport, "exportcorpus=", raceExportDir, 50)
 	settled, _ := corpusPatternPartitions(t, "RACE_EXPORT_SETTLED", makefileSettled, circleSettled, "exportsettled=", raceExportDir, 50)
+	fixtures, _ := corpusPatternPartitions(t, "RACE_EXPORT_FIXTURES", makefileFixtures, circleFixtures, "exportfixtures=", raceExportDir, 50)
 	for _, name := range tests {
 		if corpus.MatchString(name) && settled.MatchString(name) {
 			t.Errorf("%s falls to both export-corpus and export-settled", name)
+		}
+		if fixtures.MatchString(name) && (corpus.MatchString(name) || settled.MatchString(name)) {
+			t.Errorf("%s falls to export-fixtures and another export shard", name)
 		}
 	}
 }

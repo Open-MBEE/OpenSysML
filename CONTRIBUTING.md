@@ -279,7 +279,7 @@ needs to require.
 
 **The quick tier** is what every push to a pull request gets, draft or ready, in about half the
 runner time of the full tier and a third of its wall time: the binaries, the same Go suite without
-`-race` in nine groups of the race shards (`make test-quick`), the download-free static checks
+`-race` in ten groups of the race shards (`make test-quick`), the download-free static checks
 (gofmt, vet, the production build, grpc imports, proto lint and breaking), the WebAssembly, Xpect
 and conformance gates, and only the clients, editors and docs whose own paths changed. The lint,
 the corpus and solver gates, the PDF toolchain and the fan-out from a service change to every
@@ -291,7 +291,7 @@ one touching a path no area claims.
 
 **The full tier** runs on the merge queue's commit (below), on any pull request carrying the
 label `ci:full` (adding it re-runs the current head), and on those escalated pushes. It
-gates: gofmt, `go vet`, `make lint`, the race-enabled test suite (eighteen shards,
+gates: gofmt, `go vet`, `make lint`, the race-enabled test suite (nineteen shards,
 `make test-shard`), the binaries, the client suites, the conformance suite over each transport,
 the protobuf lint and wire-compatibility checks, the documentation hygiene checks
 (`make docs-check`, `make man-check` and the census check), the site build, and in each
