@@ -104,6 +104,7 @@ not_in_nav: |
   project/constraint-body-steps.md
   project/exception-handlers.md
   project/pilot-differential.md
+  project/api-json-differential.md
   project/spec-pilot-gap-register.md
   project/library-and-prefix-sweep.md
   project/roadmap.md
@@ -188,7 +189,6 @@ exclude_docs: |
   project/pilot-xpect.md
   project/pilot-rejection.md
   project/pilot-execution-referee.md
-  project/api-json-differential.md
   project/derived-property-census.md
   project/pssm-referee.md
   project/llm-benchmark.md
