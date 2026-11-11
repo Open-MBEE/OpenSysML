@@ -11,6 +11,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/lexer"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -349,6 +350,11 @@ func (m Model) layoutTargets(i int, op Operation, sem *semantics.Model) (layoutT
 				Message: fmt.Sprintf("%s is a member %s inherits, declared elsewhere; state the %s about it in the body of a view",
 					op.Target, notationName(target.owner), layoutTypeName(op.Annotation))}
 		}
+		if !inlineAnnotationAdmitted(target.sym) {
+			return layoutTarget{}, &Error{Failure: FailureNotNamed, OperationIndex: i,
+				Message: fmt.Sprintf("%s ends in ';' where no body is written and has no qualified name; no %s can be stated about it",
+					m.label(op), layoutTypeName(op.Annotation))}
+		}
 		return target, nil
 	}
 	target.view, err = m.viewNamed(i, op.View, "",
@@ -357,6 +363,16 @@ func (m Model) layoutTargets(i int, op Operation, sem *semantics.Model) (layoutT
 		return layoutTarget{}, err
 	}
 	return target, nil
+}
+
+// inlineAnnotationAdmitted reports whether sym's declaration may open a body for an inline
+// annotation: every declaration but a `then` edge whose production ends in ';'.
+func inlineAnnotationAdmitted(sym *symbols.Symbol) bool {
+	edge, isEdge := sym.Decl.(*ast.SuccessionEdge)
+	if !isEdge || sym.OwnerScope == nil || sym.OwnerScope.Node() == nil {
+		return true
+	}
+	return parser.SuccessionAdmitsBody(sym.OwnerScope.Node(), edge)
 }
 
 // annotationDeclared reports whether the operation reaches a Note or Picture

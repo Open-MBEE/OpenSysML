@@ -2596,6 +2596,29 @@ func successionBodyAllowed(member ast.Node, allowed bool) bool {
 	return true
 }
 
+// SuccessionAdmitsBody reports whether the `then` edge among owner's members may end in a
+// UsageBody: an ActionTargetSuccession does (SysML.xtext:1698), a DefinitionBodyItem's or an
+// EntryTransitionMember's (:1796-1801) ends in ';'. An annotation inline needs that body.
+func SuccessionAdmitsBody(owner, edge ast.Node) bool {
+	switch owner.(type) {
+	case *ast.SuccessionEdge:
+		return true
+	}
+	switch declarationBodyContext(owner) {
+	case bodyAction:
+		return true
+	case bodyState:
+		allowed := true
+		for _, member := range ast.DeclMembers(owner) {
+			if member == edge {
+				return allowed
+			}
+			allowed = successionBodyAllowed(member, allowed)
+		}
+	}
+	return false
+}
+
 // parseStateMember parses one state member: entry/do/exit/state/transition, or general body member.
 // allowBody admits a body on a `then`, which only a TargetTransitionUsage takes.
 func (p *Parser) parseStateMember(allowBody bool) ast.Node {
