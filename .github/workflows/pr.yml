@@ -113,9 +113,9 @@ jobs:
           TIER: ${{ steps.areas.outputs.tier }}
         run: |
           if [ "$TIER" = full ]; then
-            echo 'go_shards=["runtime","runtime-corpus","runtime-exploration","model","smt","corpus","corpus-roundtrip","corpus-apijson","export","export-fixtures","export-corpus","export-settled","graph","codegen","translate","grpc","rest","migrate","cli"]'
+            echo 'go_shards=["runtime","runtime-corpus","runtime-exploration","model","smt","corpus","corpus-roundtrip","corpus-apijson","export","export-library","export-examples","export-corpus","export-settled","graph","codegen","translate","grpc","rest","migrate","cli"]'
           else
-            echo 'go_shards=["runtime runtime-corpus runtime-exploration model","codegen migrate","cli translate","graph","smt","corpus corpus-roundtrip corpus-apijson","export","export-fixtures export-settled","export-corpus","rest grpc"]'
+            echo 'go_shards=["runtime runtime-corpus runtime-exploration model","codegen migrate","cli translate","graph","smt","corpus corpus-roundtrip corpus-apijson","export export-examples","export-library export-settled","export-corpus","rest grpc"]'
           fi | tee -a "$GITHUB_OUTPUT"
 
       # The vendored copy is checked in this job, not static-and-integrity: the

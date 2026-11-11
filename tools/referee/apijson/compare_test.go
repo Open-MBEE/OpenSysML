@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Open-MBEE/OpenSysML/tools/oracle/repo"
 	"github.com/Open-MBEE/OpenSysML/tools/referee/diff"
 )
 
@@ -39,8 +38,8 @@ func pilotElements(t *testing.T, document pilotDocument) []*element {
 	t.Helper()
 	result := &pilotExport{Unkeyed: make(map[string]int)}
 	elements, _, ambiguous, _ := dropAmbiguous(keyPilot(document, result))
-	if ambiguous != 0 {
-		t.Fatalf("pilot probe: %d ambiguous elements", ambiguous)
+	if len(ambiguous) != 0 {
+		t.Fatalf("pilot probe: ambiguous elements %v", ambiguous)
 	}
 	return elements
 }
@@ -226,8 +225,8 @@ func TestKeyOursAddressesUnnamedElementsStructurally(t *testing.T) {
 		{"@id": "P_x", "@type": "LiteralInteger", "owner": map[string]any{"@id": "P"}, "value": 1.0},
 	}
 	elements, unkeyable := keyOurs(raw, "probe.sysml", map[string]int{}, nil)
-	if unkeyable != 0 {
-		t.Fatalf("%d unkeyable elements", unkeyable)
+	if len(unkeyable) != 0 {
+		t.Fatalf("unkeyable elements %v", unkeyable)
 	}
 	got := make(map[string]string, len(elements))
 	for _, e := range elements {
@@ -254,6 +253,44 @@ func TestKeyOursAddressesUnnamedElementsStructurally(t *testing.T) {
 		}
 	}
 	t.Error("the root namespace's membership is not keyed under the namespace")
+}
+
+// An ownerless tree that states no document (a sysx:Note, an unowned expression)
+// is filed with the element outside it that refers into it, never with its own members.
+func TestKeyOursFilesOwnerlessTreesWithTheirReferrer(t *testing.T) {
+	raw := []map[string]any{
+		{"@id": "P", "@type": "Package", "qualifiedName": "P", "sysx:sourceDocument": "a/p.sysml", "ownedRelationship": []any{map[string]any{"@id": "P_om"}}, "sysx:note": map[string]any{"@id": "P_note"}},
+		{"@id": "P_om", "@type": "OwningMembership", "owner": map[string]any{"@id": "P"}, "owningRelatedElement": map[string]any{"@id": "P"}, "ownedRelatedElement": []any{map[string]any{"@id": "P_x"}}},
+		{"@id": "P_x", "@type": "AttributeUsage", "qualifiedName": "P::x", "owner": map[string]any{"@id": "P"}, "value": map[string]any{"@id": "E"}},
+		{"@id": "P_note", "@type": "sysx:Note", "sysx:noteText": "// a comment"},
+		{"@id": "E", "@type": "IndexExpression", "ownedRelationship": []any{map[string]any{"@id": "E_pm"}}, "argument": []any{map[string]any{"@id": "E_f"}}},
+		{"@id": "E_pm", "@type": "ParameterMembership", "owner": map[string]any{"@id": "E"}, "owningRelatedElement": map[string]any{"@id": "E"}, "ownedRelatedElement": []any{map[string]any{"@id": "E_f"}}},
+		{"@id": "E_f", "@type": "Feature", "owner": map[string]any{"@id": "E"}, "owningNamespace": map[string]any{"@id": "E"}},
+		{"@id": "Q", "@type": "Package", "qualifiedName": "Q", "sysx:sourceDocument": "b/q.sysml"},
+		{"@id": "Lost", "@type": "LiteralInteger", "value": 1.0},
+	}
+	elements, _ := keyOurs(raw, "", map[string]int{}, nil)
+	files := make(map[string]string, len(elements))
+	for _, e := range elements {
+		files[e.Key] = e.File
+	}
+	for key, want := range map[string]string{
+		"P":                            "a/p.sysml",
+		"P::x":                         "a/p.sysml",
+		"/a/p.sysml/sysx:Note#0":       "a/p.sysml",
+		"/a/p.sysml/IndexExpression#0": "a/p.sysml",
+		"/a/p.sysml/IndexExpression#0/Feature[0]":             "a/p.sysml",
+		"/a/p.sysml/IndexExpression#0/ParameterMembership[0]": "a/p.sysml",
+		"Q":                  "b/q.sysml",
+		"//LiteralInteger#0": "",
+	} {
+		if got, ok := files[key]; !ok || got != want {
+			t.Errorf("%s filed %q (keyed %v), want %q", key, got, ok, want)
+		}
+	}
+	if len(files) != len(raw) {
+		t.Errorf("%d elements keyed of %d: %v", len(files), len(raw), files)
+	}
 }
 
 func TestRootsAreTheDifferentialsPlusTheManualExamples(t *testing.T) {
@@ -362,18 +399,7 @@ func TestDeclaredNondeterminismScoresTheWholeRow(t *testing.T) {
 }
 
 func TestDeclaredNondeterminismIsEvidencedAndRecorded(t *testing.T) {
-	root, err := repo.Choose("")
-	if err != nil {
-		t.Fatal(err)
-	}
-	content, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(committedBaseline)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var recorded Report
-	if err := json.Unmarshal(content, &recorded); err != nil {
-		t.Fatal(err)
-	}
+	recorded := committedFigures(t)
 	if !reflect.DeepEqual(recorded.PilotNondeterministic, pilotNondeterminism) {
 		t.Errorf("the baseline declares %+v, the comparison %+v; re-record the baseline", recorded.PilotNondeterministic, pilotNondeterminism)
 	}
