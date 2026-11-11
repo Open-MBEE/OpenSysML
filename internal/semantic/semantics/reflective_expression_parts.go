@@ -43,7 +43,7 @@ func isExpressionSymbol(sym *symbols.Symbol) bool {
 	}
 	switch sym.Expr.Role {
 	case symbols.ExpressionValue, symbols.ExpressionArgument, symbols.ExpressionChangeWrapper, symbols.ExpressionChangeCondition,
-		symbols.ExpressionBody, symbols.ExpressionBodyResult, symbols.ExpressionGuard:
+		symbols.ExpressionBody, symbols.ExpressionBodyResult, symbols.ExpressionGuard, symbols.ExpressionFilterCondition:
 		return true
 	}
 	return false

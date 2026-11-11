@@ -8,11 +8,11 @@
       "oursOnly": 12,
       "pilotOnly": 10,
       "pilotOnlyImplied": 0,
-      "typeMismatch": 4
+      "typeMismatch": 1
     },
     "properties": {
-      "presentEqual": 1588,
-      "presentDifferent": 122,
+      "presentEqual": 1591,
+      "presentDifferent": 119,
       "oursMissing": 232,
       "pilotMissing": 64,
       "absentBoth": 1866,
@@ -1472,7 +1472,7 @@
     "Usage.input": [0,0,0,0,3,0,0],
     "Usage.intersectingType": [0,0,0,0,3,0,0],
     "Usage.isAbstract": [3,0,0,0,0,0,0],
-    "Usage.isComposite": [0,3,0,0,0,0,0],
+    "Usage.isComposite": [3,0,0,0,0,0,0],
     "Usage.isConjugated": [3,0,0,0,0,0,0],
     "Usage.isConstant": [3,0,0,0,0,0,0],
     "Usage.isDerived": [3,0,0,0,0,0,0],

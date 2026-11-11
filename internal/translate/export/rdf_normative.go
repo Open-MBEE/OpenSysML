@@ -50,6 +50,7 @@ const (
 	mRequirementVerificationMembership = "RequirementVerificationMembership"
 	mConstraintUsage                   = "ConstraintUsage"
 	mReferenceUsage                    = "ReferenceUsage"
+	mUsage                             = "Usage"
 	pMultiplicity                      = "multiplicity"
 	pCondition                         = "condition"
 	pConjugatedPortDefinition          = "conjugatedPortDefinition"

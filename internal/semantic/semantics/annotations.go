@@ -1017,6 +1017,10 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 	if sym.Implicit != nil {
 		return m.implicitRelationshipMetaclass(sym)
 	}
+	// A `flow`'s ends are FlowEnds (KerML 8.3.4.8.4) in either language.
+	if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionFlowEnd {
+		return m.kermlMetaclass("FlowEnd")
+	}
 	// A relationship written keyword-first is classified by its own kind in
 	// either language, since no symbol kind distinguishes its forms.
 	if rel, ok := sym.RelationshipDecl(); ok {
@@ -1043,6 +1047,10 @@ func (m *Model) metaclassOf(sym *symbols.Symbol) *symbols.Symbol {
 	}
 	// Annotating elements and dependencies are KerML elements in either language.
 	switch sym.Kind {
+	case symbols.SymbolPackage:
+		if symbols.IsLibraryPackage(sym) {
+			return m.kermlMetaclass("LibraryPackage")
+		}
 	case symbols.SymbolComment:
 		return m.kermlMetaclass("Comment")
 	case symbols.SymbolDocumentation:
@@ -1107,14 +1115,47 @@ func usageAsserts(usage *ast.Usage) bool {
 	return usage.Keyword == "assert" || usage.PrefixKeyword == "assert"
 }
 
+// UsageFormMetaclassName is the metaclass a usage's written form selects whatever
+// its kind keyword (`event`, `exhibit`, `include`, prefix metadata alone), else "".
+func UsageFormMetaclassName(sym *symbols.Symbol) string {
+	if sym.Recorded() {
+		switch mods := sym.Facts.Modifiers; {
+		case mods.Has(symbols.ModEvent):
+			return "EventOccurrenceUsage"
+		case mods.Has(symbols.ModExhibitedState):
+			return "ExhibitStateUsage"
+		case mods.Has(symbols.ModIncludedUseCase):
+			return "IncludeUseCaseUsage"
+		case mods.Has(symbols.ModExtendedUsage):
+			return "Usage"
+		}
+		return ""
+	}
+	decl, ok := sym.Decl.(*ast.Usage)
+	if !ok {
+		return ""
+	}
+	switch {
+	case decl.IsEvent:
+		return "EventOccurrenceUsage"
+	case decl.IsExhibitedState():
+		return "ExhibitStateUsage"
+	case decl.IsIncludedUseCase():
+		return "IncludeUseCaseUsage"
+	case decl.IsExtendedUsage():
+		return "Usage"
+	}
+	return ""
+}
+
 // sysmlMetaclassName is the SysML metaclass of sym's declaration: by its symbol
 // kind, or by the declaration where the kind spans several (SysML.xtext).
 func sysmlMetaclassName(sym *symbols.Symbol) string {
 	if isVariantReferenceSymbol(sym) {
 		return "ReferenceUsage"
 	}
-	if sym.Recorded() && sym.Facts.Modifiers.Has(symbols.ModEvent) {
-		return "EventOccurrenceUsage"
+	if name := UsageFormMetaclassName(sym); name != "" && sym.Recorded() {
+		return name
 	}
 	if isAssertedConstraint(sym) {
 		return "AssertConstraintUsage"
@@ -1128,7 +1169,7 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 		}
 		return expressionElementMetaclassName(sym)
 	}
-	switch decl := sym.Decl.(type) {
+	switch sym.Decl.(type) {
 	case *ast.ForkNode:
 		return "ForkNode"
 	case *ast.JoinNode:
@@ -1138,8 +1179,8 @@ func sysmlMetaclassName(sym *symbols.Symbol) string {
 	case *ast.DecisionNode:
 		return "DecisionNode"
 	case *ast.Usage:
-		if decl.IsEvent {
-			return "EventOccurrenceUsage"
+		if name := UsageFormMetaclassName(sym); name != "" {
+			return name
 		}
 	}
 	switch sym.Kind {
@@ -1366,6 +1407,9 @@ func kermlMetaclassName(sym *symbols.Symbol, isKerML bool) string {
 	if !isKerML {
 		return ""
 	}
+	if sym.Kind == symbols.SymbolSuccessionFlowUsage {
+		return "SuccessionFlow"
+	}
 	if sym.Recorded() {
 		switch sym.Facts.Node {
 		case symbols.NodeDefinition, symbols.NodeUsage:
@@ -1577,6 +1621,13 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 				ends = append(ends, end)
 			}
 		}
+		if feature == "ownedEndFeature" {
+			for _, member := range m.synthesizedMembersOf(sym) {
+				if isFlowEndSymbol(member) {
+					ends = append(ends, member)
+				}
+			}
+		}
 		return ends, true
 	case "ownedFeatureChaining":
 		if (sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChainFeature) || sym.Chain != nil {
@@ -1698,7 +1749,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return nil, true
 	case "ownedMember":
-		return m.withDefaultMultiplicityMember(sym, append(m.nodeParameters(sym), m.withTransitionParts(sym, ownedMembersOf(sym))...)), true
+		return m.withDefaultMultiplicityMember(sym, append(m.nodeParameters(sym), m.withSynthesizedMembers(sym, m.withTransitionParts(sym, ownedMembersOf(sym)))...)), true
 	case "multiplicity":
 		if !m.reflectiveMetaclassConforms(sym, "Type") {
 			return nil, false
@@ -1707,11 +1758,11 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "ownedElement":
 		return m.ownedElementsOf(sym), true
 	case "member":
-		return m.withDefaultMultiplicityMember(sym, append(m.nodeParameters(sym), m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))...)), true
+		return m.withDefaultMultiplicityMember(sym, append(m.nodeParameters(sym), m.withSynthesizedMembers(sym, m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)))...)), true
 	case "feature":
 		features := m.nodeParameters(sym)
-		for _, member := range m.withTransitionParts(sym, m.membersIncludingAnonymous(sym)) {
-			if member.IsFeature() || isExpressionSymbol(member) {
+		for _, member := range m.withSynthesizedMembers(sym, m.withTransitionParts(sym, m.membersIncludingAnonymous(sym))) {
+			if member.IsFeature() || isExpressionSymbol(member) || isFlowEndSymbol(member) {
 				features = append(features, member)
 			}
 		}
@@ -1779,8 +1830,8 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	case "ownedFeature":
 		features := append([]*symbols.Symbol(nil), m.expressionOwnedParts(sym)...)
 		features = append(features, m.sendParameters(sym)...)
-		for _, member := range m.withTransitionParts(sym, ownedMembersOf(sym)) {
-			if member.IsFeature() || isExpressionSymbol(member) {
+		for _, member := range m.withSynthesizedMembers(sym, m.withTransitionParts(sym, ownedMembersOf(sym))) {
+			if member.IsFeature() || isExpressionSymbol(member) || isFlowEndSymbol(member) {
 				features = append(features, member)
 			}
 		}
@@ -2007,7 +2058,7 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	members = append(members, m.expressionOwnedElements(sym)...)
 	members = append(members, m.nodeParameters(sym)...)
-	members = append(members, m.withTransitionParts(sym, ownedMembersOf(sym))...)
+	members = append(members, m.withSynthesizedMembers(sym, m.withTransitionParts(sym, ownedMembersOf(sym)))...)
 	seen := make(map[*symbols.Symbol]bool, len(members))
 	for _, member := range members {
 		seen[member] = true
@@ -2682,6 +2733,7 @@ func (m *Model) reflectiveFeatureFlags(sym *symbols.Symbol) (reflectiveFeatureFl
 		case *ast.ConnectorEnd:
 			flags.isEnd = true
 		default:
+			flags.isEnd = isFlowEndSymbol(sym)
 			if isUsage {
 				flags.isComposite = defaultUsageComposite(sym.Kind)
 			}

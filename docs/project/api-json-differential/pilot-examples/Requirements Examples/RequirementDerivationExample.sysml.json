@@ -8,14 +8,14 @@
       "oursOnly": 0,
       "pilotOnly": 0,
       "pilotOnlyImplied": 0,
-      "typeMismatch": 3
+      "typeMismatch": 0
     },
     "properties": {
       "presentEqual": 1992,
       "presentDifferent": 149,
       "oursMissing": 185,
-      "pilotMissing": 80,
-      "absentBoth": 2458,
+      "pilotMissing": 79,
+      "absentBoth": 2459,
       "indeterminate": 54,
       "pilotNondeterministic": 0
     },
@@ -92,7 +92,7 @@
     "ConnectionDefinition.ownedOccurrence": [0,0,0,1,0,0,0],
     "ConnectionDefinition.ownedPart": [0,0,0,0,1,0,0],
     "ConnectionDefinition.ownedPort": [0,0,0,0,1,0,0],
-    "ConnectionDefinition.ownedReference": [0,0,0,1,0,0,0],
+    "ConnectionDefinition.ownedReference": [0,0,0,0,1,0,0],
     "ConnectionDefinition.ownedRelatedElement": [0,0,0,0,1,0,0],
     "ConnectionDefinition.ownedRelationship": [1,0,0,0,0,0,0],
     "ConnectionDefinition.ownedRendering": [0,0,0,0,1,0,0],

@@ -234,7 +234,7 @@ elmt:EndPrefixMetadata__Derivation___405_om
     json:relatedElement "[{\"@id\":\"EndPrefixMetadata__Derivation\"},{\"@id\":\"EndPrefixMetadata__Derivation___405\"}]" .
 
 elmt:EndPrefixMetadata__Derivation__r1
-    a sysml:ReferenceUsage ;
+    a sysml:Usage ;
     sysml:qualifiedName "EndPrefixMetadata::Derivation::r1" ;
     sysx:sourceLine "7"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -341,7 +341,7 @@ expr:EndPrefixMetadata__Derivation__r1_pmultiplicity_om
     json:relatedElement "[{\"@id\":\"EndPrefixMetadata__Derivation__r1\"},{\"@id\":\"EndPrefixMetadata__Derivation__r1_pmultiplicity\"}]" .
 
 elmt:EndPrefixMetadata__Derivation__r1_5f1
-    a sysml:ReferenceUsage ;
+    a sysml:Usage ;
     sysml:qualifiedName "EndPrefixMetadata::Derivation::r1_1" ;
     sysx:sourceLine "8"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;
@@ -448,7 +448,7 @@ expr:EndPrefixMetadata__Derivation__r1_5f1_pmultiplicity_om
     json:relatedElement "[{\"@id\":\"EndPrefixMetadata__Derivation__r1_5f1\"},{\"@id\":\"EndPrefixMetadata__Derivation__r1_5f1_pmultiplicity\"}]" .
 
 elmt:EndPrefixMetadata__Derivation__r1_5f2
-    a sysml:ReferenceUsage ;
+    a sysml:Usage ;
     sysml:qualifiedName "EndPrefixMetadata::Derivation::r1_2" ;
     sysx:sourceLine "9"^^xsd:integer ;
     sysx:sourceColumn "9"^^xsd:integer ;

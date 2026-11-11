@@ -2,6 +2,7 @@ package semantics
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"slices"
 	"sort"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -20,6 +21,9 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		return nil
 	}
 	if sym.Expr != nil {
+		if sym.Expr.Role == symbols.ExpressionFlowEnd {
+			return nil
+		}
 		return m.expressionMemberships(sym)
 	}
 	defer m.own(sym).LeaveDoc()
@@ -27,7 +31,8 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		return cached
 	}
 	value := m.ValueExpression(sym)
-	if sym.Scope == nil && value == nil {
+	synthesized := m.synthesizedMembersOf(sym)
+	if sym.Scope == nil && value == nil && len(synthesized) == 0 {
 		return nil
 	}
 	journal(m, m.memberships, sym, sym.Decl)
@@ -64,7 +69,8 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		ordinal++
 	}
 	if sym.Scope == nil {
-		out = m.withDefaultMultiplicity(sym, out, ordinal)
+		out = withSynthesizedMemberships(sym, out, synthesized)
+		out = m.withDefaultMultiplicity(sym, out, len(out))
 		m.memberships[sym] = out
 		return out
 	}
@@ -107,8 +113,115 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 	if parts := m.transitionMembers(sym); len(parts) > 0 {
 		out = m.withTransitionMemberships(sym, out, parts)
 	}
+	out = withSynthesizedMemberships(sym, out, synthesized)
 	out = m.withDefaultMultiplicity(sym, out, len(out))
 	m.memberships[sym] = out
+	return out
+}
+
+// flowEndSlots are the slots the conversion mints a `flow from a to b`'s ends at.
+var flowEndSlots = [2]string{"end0", "end1"}
+
+// synthesizedMembersOf is the members sym owns without a symbol of their own, in
+// source order: its flow's FlowEnds, its `filter` conditions, its body's result.
+func (m *Model) synthesizedMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
+	if sym == nil || sym.Recorded() || sym.Expr != nil || sym.Implicit != nil {
+		return nil
+	}
+	defer m.own(sym).LeaveDoc()
+	if cached, ok := m.synthesized[sym]; ok {
+		return cached
+	}
+	journal(m, m.synthesized, sym, sym.Decl)
+	var out []*symbols.Symbol
+	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.FlowEnds != nil {
+		for i, end := range [2]ast.Node{usage.FlowEnds.From, usage.FlowEnds.To} {
+			if end != nil {
+				out = append(out, synthesizedMember(sym, end, &symbols.ExpressionElement{
+					Owner: sym, Role: symbols.ExpressionFlowEnd, Index: i, Slot: flowEndSlots[i],
+				}))
+			}
+		}
+	}
+	for _, filter := range symbols.NamespaceFiltersIn(sym.Scope) {
+		if filter.Expr != nil {
+			out = append(out, synthesizedMember(sym, filter.Expr, &symbols.ExpressionElement{
+				Owner: sym, Role: symbols.ExpressionFilterCondition,
+			}))
+		}
+	}
+	for _, result := range OwnedResultExpressions(sym) {
+		out = append(out, synthesizedMember(sym, result.Node, &symbols.ExpressionElement{
+			Owner: sym, Role: symbols.ExpressionBodyResult,
+		}))
+	}
+	m.synthesized[sym] = out
+	return out
+}
+
+func isFlowEndSymbol(sym *symbols.Symbol) bool {
+	return sym != nil && sym.Expr != nil && sym.Expr.Role == symbols.ExpressionFlowEnd
+}
+
+// withSynthesizedMembers places the members sym owns without a symbol of their
+// own among the members it declares, each at its clause.
+func (m *Model) withSynthesizedMembers(sym *symbols.Symbol, members []*symbols.Symbol) []*symbols.Symbol {
+	for _, member := range m.synthesizedMembersOf(sym) {
+		members = slices.Insert(members, ownedClausePosition(sym, members, member.DeclSpan.Offset), member)
+	}
+	return members
+}
+
+// ownedClausePosition is where a clause of sym at offset sits among items: before
+// the first member sym declares after it, else after the last member sym declares.
+func ownedClausePosition(sym *symbols.Symbol, items []*symbols.Symbol, offset int) int {
+	at := 0
+	for i, item := range items {
+		if ownerSymbol(item) != sym {
+			continue
+		}
+		if item.DeclSpan.Len > 0 && item.DeclSpan.Offset > offset {
+			return i
+		}
+		at = i + 1
+	}
+	return at
+}
+
+func synthesizedMember(owner *symbols.Symbol, node ast.Node, elem *symbols.ExpressionElement) *symbols.Symbol {
+	return &symbols.Symbol{
+		Kind:       symbols.SymbolExpression,
+		DocName:    owner.DocName,
+		DeclSpan:   node.Span(),
+		Decl:       node,
+		Visibility: owner.Visibility,
+		Expr:       elem,
+	}
+}
+
+// withSynthesizedMemberships owns each synthesized member through a membership
+// at its clause among the written members, then renumbers the ordinals.
+func withSynthesizedMemberships(owner *symbols.Symbol, out, members []*symbols.Symbol) []*symbols.Symbol {
+	if len(members) == 0 {
+		return out
+	}
+	for _, member := range members {
+		membership := &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    owner.DocName,
+			DeclSpan:   member.DeclSpan,
+			Visibility: owner.Visibility,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: owner, Form: symbols.ImplicitMembership, Member: member,
+			},
+		}
+		out = slices.Insert(out, clausePosition(out, member.DeclSpan.Offset), membership)
+	}
+	for i, membership := range out {
+		if membership.Implicit != nil {
+			membership.Implicit.Ordinal = i
+		}
+	}
 	return out
 }
 
@@ -384,6 +497,10 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 			return "FeatureMembership"
 		case symbols.ExpressionBodyResult:
 			return "ResultExpressionMembership"
+		case symbols.ExpressionFilterCondition:
+			return "ElementFilterMembership"
+		case symbols.ExpressionFlowEnd:
+			return "EndFeatureMembership"
 		case symbols.ExpressionChainFeature:
 			return "OwningMembership"
 		case symbols.ExpressionGuard, symbols.ExpressionTriggerAction:

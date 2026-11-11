@@ -8,14 +8,14 @@
       "oursOnly": 28,
       "pilotOnly": 345,
       "pilotOnlyImplied": 0,
-      "typeMismatch": 12
+      "typeMismatch": 1
     },
     "properties": {
-      "presentEqual": 6094,
-      "presentDifferent": 504,
+      "presentEqual": 6106,
+      "presentDifferent": 492,
       "oursMissing": 747,
-      "pilotMissing": 276,
-      "absentBoth": 7620,
+      "pilotMissing": 274,
+      "absentBoth": 7622,
       "indeterminate": 158,
       "pilotNondeterministic": 1
     },
@@ -2229,7 +2229,7 @@
     "Usage.input": [0,0,0,0,11,0,0],
     "Usage.intersectingType": [0,0,0,0,11,0,0],
     "Usage.isAbstract": [11,0,0,0,0,0,0],
-    "Usage.isComposite": [1,10,0,0,0,0,0],
+    "Usage.isComposite": [11,0,0,0,0,0,0],
     "Usage.isConjugated": [11,0,0,0,0,0,0],
     "Usage.isConstant": [11,0,0,0,0,0,0],
     "Usage.isDerived": [11,0,0,0,0,0,0],
@@ -2264,7 +2264,7 @@
     "Usage.nestedOccurrence": [0,4,0,7,0,0,0],
     "Usage.nestedPart": [0,0,0,0,10,1,0],
     "Usage.nestedPort": [0,0,0,0,11,0,0],
-    "Usage.nestedReference": [0,2,0,2,7,0,0],
+    "Usage.nestedReference": [2,0,0,0,9,0,0],
     "Usage.nestedRendering": [0,0,0,0,11,0,0],
     "Usage.nestedRequirement": [0,0,0,0,11,0,0],
     "Usage.nestedState": [3,0,0,0,8,0,0],

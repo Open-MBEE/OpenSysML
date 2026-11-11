@@ -489,6 +489,15 @@ const (
 	// ModPrefixMetadata marks the metadata usage a `#M` prefix declares on the
 	// element owning it (see Symbol.IsPrefixMetadata).
 	ModPrefixMetadata
+	// ModExhibitedState marks an `exhibit state` or `exhibit s;` (SysML v2
+	// ExhibitStateUsage, see ast.Usage.IsExhibitedState).
+	ModExhibitedState
+	// ModIncludedUseCase marks an `include use case` or `include u;` (SysML v2
+	// IncludeUseCaseUsage, see ast.Usage.IsIncludedUseCase).
+	ModIncludedUseCase
+	// ModExtendedUsage marks a usage declared by prefix metadata in place of a kind
+	// keyword (`#M x;`, SysML.xtext ExtendedUsage): a plain Usage, not a ReferenceUsage.
+	ModExtendedUsage
 )
 
 // Has reports whether every modifier of mask is set.

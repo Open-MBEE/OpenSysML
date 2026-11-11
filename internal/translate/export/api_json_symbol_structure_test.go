@@ -437,6 +437,9 @@ func (d *structureDifferential) computeGraphID(sym *symbols.Symbol) (string, boo
 	}
 	// A chained end's target is the chain Feature its ReferenceSubsetting owns, minted
 	// off the end (chainFeature), which the chain's own node is not written as.
+	if sym.Chain != nil && sym.Chain.Relationship != nil && isFlowEnd(sym.Chain.Relationship.Implicit.Owner) {
+		return d.expressionPartID(sym.Chain.Relationship.Implicit.Owner, "chain")
+	}
 	if sym.Kind == symbols.SymbolReferenceUsage && sym.OwnerScope != nil {
 		if end, ok := sym.OwnerScope.Node().(*ast.ConnectorEnd); ok && end.AttachedTarget() == sym.Decl {
 			element, _, ok := d.ids.OfExpressionPart(d.doc, end, "chain")
@@ -476,6 +479,10 @@ func (d *structureDifferential) implicitGraphID(rel *symbols.ImplicitRelationshi
 		if rel.Node == nil {
 			return "", false
 		}
+		// A flow end's ReferenceSubsetting is minted off the end (referenceSubsetting).
+		if isFlowEnd(rel.Owner) {
+			return d.expressionPartID(rel.Owner, "rs")
+		}
 		if rel.Node.Span().Len == 0 && rel.Node.Target != nil {
 			return d.ids.RelationshipOf(d.doc, rel.Node.Target)
 		}
@@ -513,6 +520,10 @@ func (d *structureDifferential) implicitGraphID(rel *symbols.ImplicitRelationshi
 	return "", false
 }
 
+func isFlowEnd(sym *symbols.Symbol) bool {
+	return sym != nil && sym.Expr != nil && sym.Expr.Role == symbols.ExpressionFlowEnd
+}
+
 // expressionGraphID mirrors the conversion's expression ids: a node of the
 // notation by its node, a part it mints (parameters, results) by its slot.
 func (d *structureDifferential) expressionGraphID(sym *symbols.Symbol) (string, bool) {
@@ -532,6 +543,8 @@ func (d *structureDifferential) expressionGraphID(sym *symbols.Symbol) (string, 
 		return d.expressionPartID(owner, "body")
 	case symbols.ExpressionBodyResult:
 		return d.expressionPartID(owner, "result")
+	case symbols.ExpressionFlowEnd:
+		return d.expressionPartID(owner, sym.Expr.Slot)
 	case symbols.ExpressionChangeWrapper:
 		if owner.Expr == nil || owner.Expr.Owner == nil {
 			return "", false

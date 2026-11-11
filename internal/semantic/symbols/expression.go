@@ -42,6 +42,12 @@ const (
 	// ExpressionPayload is a parameter of that accept: its payload, valued by a time or change
 	// event's TriggerInvocationExpression, or its `via` receiver; Owner is the accept.
 	ExpressionPayload
+	// ExpressionFilterCondition is the condition a namespace's `filter` states,
+	// owned through an ElementFilterMembership (KerML 8.2.4); Owner is the namespace.
+	ExpressionFilterCondition
+	// ExpressionFlowEnd is one end of a `flow`, a FlowEnd through an EndFeatureMembership
+	// (KerML 8.3.4.8.4); Owner is the flow, Index its position, Slot its minted id.
+	ExpressionFlowEnd
 )
 
 // ExpressionElement is the side record of a symbol the reflective layer
