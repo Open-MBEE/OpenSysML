@@ -99,6 +99,17 @@ class SpliceTest(unittest.TestCase):
         self.assertRegex(out, r"\n\| 1 \| `[A-Za-z]+` \| `[A-Za-z]+` \| [0-9]+ \| [0-9]+ \| ")
         self.assertNotIn("doc-counts:begin apijson-", out)
 
+    def test_a_failing_generator_loses_only_its_own_blocks(self):
+        commands = figures.COMMANDS
+        figures.COMMANDS = (commands[0], ("no-such-go-toolchain",))
+        try:
+            with self.assertLogs("mkdocs.hooks.suite_figures", level="WARNING"):
+                figures.on_pre_build()
+            self.assertEqual(list(figures._rendered), ["docs/project/spec-compliance.md"])
+        finally:
+            figures.COMMANDS = commands
+            figures._rendered = None
+
     def test_hooks_leave_other_pages_alone(self):
         class File:
             src_uri = "guide/index.md"

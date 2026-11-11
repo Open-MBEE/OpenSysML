@@ -33,11 +33,17 @@ def render_site_blocks(commands=COMMANDS, root=ROOT) -> dict[str, dict[str, str]
     """Run every generator and return the rendered blocks by repository-relative page, then name."""
     rendered: dict[str, dict[str, str]] = {}
     for command in commands:
-        for page, blocks in render_command(command, root).items():
-            for name in blocks:
-                if name in rendered.get(page, {}):
-                    raise ValueError(f"{' '.join(command)}: {page}: block {name!r} rendered twice")
-            rendered.setdefault(page, {}).update(blocks)
+        rendered = merge_rendered(rendered, render_command(command, root), command)
+    return rendered
+
+
+def merge_rendered(rendered, more, command) -> dict[str, dict[str, str]]:
+    """Add one generator's blocks to rendered; a block rendered twice is an error."""
+    for page, blocks in more.items():
+        for name in blocks:
+            if name in rendered.get(page, {}):
+                raise ValueError(f"{' '.join(command)}: {page}: block {name!r} rendered twice")
+        rendered.setdefault(page, {}).update(blocks)
     return rendered
 
 
@@ -79,12 +85,15 @@ def splice(markdown: str, page: str, blocks: dict[str, str]) -> str:
 
 
 def on_pre_build(**_kwargs) -> None:
+    """Render every generator that succeeds; a failing one loses only its own blocks."""
     global _rendered
-    try:
-        _rendered = render_site_blocks()
-    except ValueError as e:
-        log.warning("%s", e)
-        _rendered = None
+    rendered: dict[str, dict[str, str]] = {}
+    for command in COMMANDS:
+        try:
+            rendered = merge_rendered(rendered, render_command(command, ROOT), command)
+        except ValueError as e:
+            log.warning("%s", e)
+    _rendered = rendered or None
 
 
 def on_page_markdown(markdown: str, page, **_kwargs) -> str:
