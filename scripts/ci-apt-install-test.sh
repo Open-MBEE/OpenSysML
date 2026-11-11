@@ -107,6 +107,7 @@ run_case() {
     [[ $arg == -- ]] && break
     vars+=("$arg")
   done
+  [[ ${arg-} == -- ]] || { echo "run_case $name: no -- before the script arguments" >&2; exit 2; }
   mkdir -p "$dir/cache"
   : >"$dir/apt.log"
   : >"$dir/dpkg.status"
