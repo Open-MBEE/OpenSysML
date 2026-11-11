@@ -2968,6 +2968,8 @@ jobs:
             (cd wasm && for f in sysml-wasm.wasm sysml-prod.wasm.gz wasm_exec.js; do sha256sum "$f" > "$f.sha256"; done)
             # The npm tarballs, so publish-npm publishes bytes the signed manifest lists.
             (cd npm && sha256sum ./*.tgz | sed 's|\./||' >> ../SHA256SUMS.txt)
+            # The VS Code extension build-vscode-extension packed at the tag's version.
+            (cd vscode && sha256sum opensysml.vsix >> ../SHA256SUMS.txt)
             # The editor plugins build-cameo-plugin and build-syson-plugin packaged around these binaries.
             (cd cameo && sha256sum Magic_MDK.zip >> ../SHA256SUMS.txt)
             (cd syson && sha256sum syson-mdk-backend.jar syson-mdk-frontend.tgz >> ../SHA256SUMS.txt)
@@ -3342,6 +3344,55 @@ jobs:
           root: .
           paths:
             - dist/npm
+
+  # Packages the VS Code extension (editors/vscode), side-loaded rather than published, so the
+  # release carries opensysml.vsix in the signed manifest as the nightly does, at the tag's version.
+  build-vscode-extension:
+    executor: node-executor
+    steps:
+      - checkout
+      - rehearsal-tag
+
+      # The extension's landing bundle and tests import the browser client from client/node's
+      # source. `npm install`, not `npm ci` (npm/cli#9846), with the lock-diff as the locked install.
+      - run:
+          name: Install the browser client's dependencies
+          command: |
+            cd client/node
+            npm install --ignore-scripts --no-audit --no-fund
+            git diff --exit-code package-lock.json
+
+      # check_version.py --editors held the manifest to the tag; the packed vsix must say so too.
+      - run:
+          name: Package the extension and check it carries the tag's version
+          command: |
+            if [ -z "${CIRCLE_TAG}" ]; then
+              echo "Error: CIRCLE_TAG is empty; this job only runs on a tag"
+              exit 1
+            fi
+            expected="${CIRCLE_TAG#v}"
+            cd editors/vscode
+            npm ci --ignore-scripts
+            npm run package
+            unzip -q -o opensysml.vsix extension/package.json -d /tmp/vsix
+            stamped=$(node -p "require('/tmp/vsix/extension/package.json').version")
+            if [ "$stamped" != "$expected" ]; then
+              echo "Error: opensysml.vsix carries version '$stamped', not the '$expected' the tag ${CIRCLE_TAG} names. Nothing was packed."
+              exit 1
+            fi
+            echo "ok: opensysml.vsix carries $stamped"
+            mkdir -p ../../dist/vscode
+            cp opensysml.vsix ../../dist/vscode/
+            ls -l ../../dist/vscode
+
+      - store_artifacts:
+          path: dist/vscode
+          destination: vscode-extension
+
+      - persist_to_workspace:
+          root: .
+          paths:
+            - dist/vscode
 
   # Packages the Cameo plugin (editors/mdk) around the workspace's sysml-grpc before build-release
   # writes the manifest, so the signed SHA256SUMS.txt lists the zip; its suite runs against the Linux one.
@@ -4453,7 +4504,8 @@ jobs:
                   mv dist/wasm/* dist/release/
                   # The npm tarballs publish-npm publishes, listed in the manifest.
                   mv dist/npm/*.tgz dist/release/
-                  # The editor plugins, under the names docs/downloads.md links.
+                  # The VS Code extension and the editor plugins, under the names docs/downloads.md links.
+                  mv dist/vscode/* dist/release/
                   mv dist/cameo/* dist/release/
                   mv dist/syson/* dist/release/
                   mv dist/sbom/* dist/release/
@@ -4509,8 +4561,8 @@ jobs:
                     exit 1
                   fi
                   ls dist/grpc/sysml-grpc-* dist/jupyter/sysml-jupyter-kernel-* > /dev/null
-                  ls dist/cameo/Magic_MDK.zip dist/syson/syson-mdk-backend.jar dist/syson/syson-mdk-frontend.tgz > /dev/null
-                  ls -la dist dist/grpc dist/jupyter dist/cameo dist/syson
+                  ls dist/vscode/opensysml.vsix dist/cameo/Magic_MDK.zip dist/syson/syson-mdk-backend.jar dist/syson/syson-mdk-frontend.tgz > /dev/null
+                  ls -la dist dist/grpc dist/jupyter dist/vscode dist/cameo dist/syson
                   TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-${CIRCLE_TOKEN}}}"
                   if [ -z "$TOKEN" ]; then
                     echo "Error: No GitHub token found. Tried GITHUB_TOKEN, GH_TOKEN, CIRCLE_TOKEN"
@@ -4940,8 +4992,13 @@ workflows:
             - Build release binaries
           filters: *release-tags
 
-      # And the editor plugins, packaged around the same binaries, so the
-      # manifest lists them and the downloads page can link them.
+      # And the VS Code extension and the editor plugins, so the manifest
+      # lists them and the downloads page can link them.
+      - build-vscode-extension:
+          name: Build VS Code extension
+          requires: *go-suite
+          filters: *release-tags
+
       - build-cameo-plugin:
           name: Build Cameo plugin
           requires:
@@ -4962,6 +5019,7 @@ workflows:
             - Build Python distribution
             - Build Jupyter kernel distribution
             - Build npm packages
+            - Build VS Code extension
             - Build Cameo plugin
             - Build SysON plugin
           filters: *release-tags

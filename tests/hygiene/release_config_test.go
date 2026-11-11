@@ -1031,15 +1031,29 @@ func TestReleaseSBOMsAreSignedWithTheManifest(t *testing.T) {
 	}
 }
 
-// TestEditorPluginsAreReleasedFromTheReleasesOwnBinaries holds the release to publishing the plugins as it
-// does the npm tarballs: packaged from the workspace's dist/grpc, listed in the signed manifest, uploaded.
+// TestEditorPluginsAreReleasedFromTheReleasesOwnBinaries holds the release to publishing the extension and the
+// plugins as it does the npm tarballs: packaged (the plugins from dist/grpc), listed in the signed manifest, uploaded.
 func TestEditorPluginsAreReleasedFromTheReleasesOwnBinaries(t *testing.T) {
 	config := loadCircleConfig(t)
 	release := config.workflow(t, "release")
-	requireAll(t, "Build release artifacts", requiresOf(t, release, "Build release artifacts"), "Build Cameo plugin", "Build SysON plugin")
+	requireAll(t, "Build release artifacts", requiresOf(t, release, "Build release artifacts"), "Build VS Code extension", "Build Cameo plugin", "Build SysON plugin")
 	for _, name := range []string{"Build Cameo plugin", "Build SysON plugin"} {
 		requireAll(t, name, requiresOf(t, release, name), "Build release binaries")
 	}
+
+	vscode, ok := config.Jobs["build-vscode-extension"]
+	if !ok {
+		t.Fatal("no build-vscode-extension job")
+	}
+	if !stepHasBareStep(vscode.Steps, "rehearsal-tag") {
+		t.Error("build-vscode-extension does not stand in for the tag")
+	}
+	vscodeSteps := runSteps(t, vscode.Steps)
+	packed := stepIndex(vscodeSteps, `expected="${CIRCLE_TAG#v}"`, "npm run package", "unzip -q -o opensysml.vsix extension/package.json", `"$stamped" != "$expected"`, "dist/vscode")
+	if packed < 0 {
+		t.Error("build-vscode-extension does not pack opensysml.vsix and check the packed manifest carries the tag's version before copying it to dist/vscode")
+	}
+	requireAll(t, "build-vscode-extension persists", persistedPaths(t, vscode.Steps), "dist/vscode")
 
 	cameo, ok := config.Jobs["build-cameo-plugin"]
 	if !ok {
@@ -1101,14 +1115,15 @@ func TestEditorPluginsAreReleasedFromTheReleasesOwnBinaries(t *testing.T) {
 		t.Fatal("build-release does not write and sign SHA256SUMS.txt")
 	}
 	command := buildSteps[manifest].Command
+	vsix := strings.Index(command, "cd vscode && sha256sum opensysml.vsix >> ../SHA256SUMS.txt")
 	zip := strings.Index(command, "cd cameo && sha256sum Magic_MDK.zip >> ../SHA256SUMS.txt")
 	pieces := strings.Index(command, "cd syson && sha256sum syson-mdk-backend.jar syson-mdk-frontend.tgz >> ../SHA256SUMS.txt")
 	sboms := strings.Index(command, "cd sbom && sha256sum ./*.spdx.json")
 	switch {
-	case zip < 0 || pieces < 0:
-		t.Error("the manifest step does not list Magic_MDK.zip, syson-mdk-backend.jar and syson-mdk-frontend.tgz in SHA256SUMS.txt")
-	case sboms >= 0 && (zip > sboms || pieces > sboms):
-		t.Error("the plugin assets are listed after the SBOMs; the manifest lists assets before their SBOMs")
+	case vsix < 0 || zip < 0 || pieces < 0:
+		t.Error("the manifest step does not list opensysml.vsix, Magic_MDK.zip, syson-mdk-backend.jar and syson-mdk-frontend.tgz in SHA256SUMS.txt")
+	case sboms >= 0 && (vsix > sboms || zip > sboms || pieces > sboms):
+		t.Error("the extension and plugin assets are listed after the SBOMs; the manifest lists assets before their SBOMs")
 	}
 	staged := stepIndex(buildSteps, "dist/cameo/Magic_MDK.zip", "bin/DIGESTS", "dist/SHA256SUMS.txt", "nothing was signed")
 	switch {
@@ -1123,13 +1138,13 @@ func TestEditorPluginsAreReleasedFromTheReleasesOwnBinaries(t *testing.T) {
 		t.Fatal("no publish-github-release job")
 	}
 	githubSteps := runSteps(t, github.Steps)
-	move := stepIndex(githubSteps, "mv dist/cameo/* dist/release/", "mv dist/syson/* dist/release/")
+	move := stepIndex(githubSteps, "mv dist/vscode/* dist/release/", "mv dist/cameo/* dist/release/", "mv dist/syson/* dist/release/")
 	upload := stepIndex(githubSteps, "ghr ")
 	if move < 0 || upload < 0 || move > upload {
-		t.Error("publish-github-release does not move the plugin assets into dist/release before ghr uploads it")
+		t.Error("publish-github-release does not move the extension and plugin assets into dist/release before ghr uploads it")
 	}
-	if stepIndex(githubSteps, "the release assets are present", "dist/cameo/Magic_MDK.zip", "dist/syson/syson-mdk-backend.jar", "dist/syson/syson-mdk-frontend.tgz") < 0 {
-		t.Error("the rehearsal does not check the three plugin assets are among the release assets")
+	if stepIndex(githubSteps, "the release assets are present", "dist/vscode/opensysml.vsix", "dist/cameo/Magic_MDK.zip", "dist/syson/syson-mdk-backend.jar", "dist/syson/syson-mdk-frontend.tgz") < 0 {
+		t.Error("the rehearsal does not check the extension and the three plugin assets are among the release assets")
 	}
 }
 

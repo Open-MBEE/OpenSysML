@@ -79,11 +79,11 @@ The assets are the ones a stable release ships, laid out the same way (see
 The nightly checksum manifest is cosign-signed; nightly assets do not have SLSA
 provenance, just like the other assets in the snapshot.
 
-And one a stable release does not ship:
+And the VS Code extension, which a stable release ships under the same name:
 
-- `opensysml-sysml.vsix` — the [VS Code extension](../guide/08-editors.md#vs-code) packaged
+- `opensysml.vsix` — the [VS Code extension](../guide/08-editors.md#vs-code) packaged
   from the same commit (as `make vscode-package` does). The extension is side-loaded rather than
-  published to a marketplace, so the snapshot is where a build of it is picked up. Its
+  published to a marketplace, so a release's asset or a snapshot's is where a build of it is picked up. Its
   version is the clients' development version with the snapshot version appended as the
   pre-release part — `0.9.3-nightly-<yyyymmdd>-<commit>` — so VS Code tells one night's build
   from the next, installs a later night over an earlier one without `--force`, ranks every
@@ -155,9 +155,9 @@ or at the path `opensysml.server.path` names (a checkout's `bin/sysml-lsp` is fo
 own, see [the editors guide](../guide/08-editors.md#vs-code)):
 
 ```bash
-curl -fsSLO https://github.com/Open-MBEE/OpenSysML/releases/download/nightly/opensysml-sysml.vsix
+curl -fsSLO https://github.com/Open-MBEE/OpenSysML/releases/download/nightly/opensysml.vsix
 sha256sum -c --ignore-missing SHA256SUMS.txt
-code --install-extension opensysml-sysml.vsix
+code --install-extension opensysml.vsix
 ```
 
 VS Code installs a later night over an earlier one as an update, and the release the nights

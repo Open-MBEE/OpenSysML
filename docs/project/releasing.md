@@ -246,8 +246,8 @@ branch that moves the integration state onto `main`:
    spelling as package.json. `client/rust/opensysml/Cargo.toml` follows too:
    set `[package] version` to the same spelling and run
    `cargo update -p opensysml` in `client/rust` so the lockfile
-   agrees. The editors carry the same spelling too (the release publishes the Cameo and SysON
-   plugins, see below; the extensions are side-loaded from the nightly):
+   agrees. The editors carry the same spelling too (the release publishes the VS Code
+   extension and the Cameo and SysON plugins, see below):
    `"version"` in `editors/vscode/package.json`, `editors/jupyterlab/package.json` and
    `editors/syson/frontend/package.json`, each lock regenerated with
    `npm install --package-lock-only` in that directory; `<version>` in
@@ -425,6 +425,10 @@ so that `dist/` holds:
   and `openmbee-opensysml-mcp-<x.y.z>.tgz`, packed by `build-npm-package` from the
   tree stamped with the `sysml-grpc` digests, the same bytes `publish-npm` publishes
   (see [Releasing @openmbee/opensysml to npm](#releasing-openmbeeopensysml-to-npm));
+- `opensysml.vsix`, the VS Code extension (`editors/vscode`), packed by `build-vscode-extension`
+  with the extension's own `npm run package` and checked to carry the tag's version, as the
+  nightly checks its snapshot version; it is side-loaded, so the release asset is its
+  distribution;
 - the editor plugins, each under one name so the [downloads page](../downloads.md#editor-plugins)
   links it at `releases/latest/download/`: `Magic_MDK.zip`, the Cameo plugin (`editors/mdk`),
   packaged by `build-cameo-plugin` around the release's five `sysml-grpc` binaries from the
@@ -434,15 +438,15 @@ so that `dist/` holds:
   `sysml-grpc` lines, which `build-release` checks before signing; and `syson-mdk-backend.jar`
   with `syson-mdk-frontend.tgz`, the SysON MDK backend and frontend (`editors/syson`), packaged
   by `build-syson-plugin` from the backend `install` and the frontend's `npm pack`, named by
-  the tag's version before they are renamed. The plugins have no SBOM: `release-sbom.py`
-  describes Go, Python and npm artifacts;
+  the tag's version before they are renamed. The extension and the plugins have no SBOM:
+  `release-sbom.py` describes Go, Python and npm artifacts;
 - one SPDX 2.3 JSON software bill of materials per archive, wheel, sdist, `sysml-grpc`
   and `sysml-jupyter-kernel` binary, WebAssembly module and npm tarball, named
   `<asset>.spdx.json` after the asset it describes (see
   [The software bills of materials](#the-software-bills-of-materials));
 - `SHA256SUMS.txt` over every archive, every wheel and sdist, every `sysml-grpc` and
   `sysml-jupyter-kernel` binary, all three WebAssembly assets, the three npm tarballs,
-  the three editor-plugin assets and every SBOM,
+  the VS Code extension, the three editor-plugin assets and every SBOM,
   with its cosign signature `SHA256SUMS.txt.bundle` (see
   [The signed checksum manifest](#the-signed-checksum-manifest));
 - `provenance.intoto.json`, the SLSA provenance statement naming every artifact

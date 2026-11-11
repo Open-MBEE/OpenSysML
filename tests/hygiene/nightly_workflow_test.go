@@ -508,7 +508,7 @@ func TestNightlyManifestListsEachAssetOnce(t *testing.T) {
 		"sysml-mcp-linux-amd64.tar.gz", "sysml-mcp-windows-amd64.zip",
 		"sysml-grpc-linux-amd64", "sysml-grpc-windows-amd64.exe",
 		"sysml-jupyter-kernel-linux-amd64", "sysml-jupyter-kernel-windows-amd64.exe",
-		"sysml-wasm.wasm", "sysml-prod.wasm.gz", "wasm_exec.js", "opensysml-sysml.vsix",
+		"sysml-wasm.wasm", "sysml-prod.wasm.gz", "wasm_exec.js", "opensysml.vsix",
 		"Magic_MDK.zip", "syson-mdk-backend.jar", "syson-mdk-frontend.tgz",
 	}
 	appends := 0

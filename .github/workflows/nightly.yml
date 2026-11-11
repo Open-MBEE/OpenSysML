@@ -287,15 +287,15 @@ jobs:
         run: |
           expected="${CORE}-${VERSION}"
           (cd editors/vscode && npm ci --ignore-scripts && npm run package -- "$expected" --no-update-package-json)
-          unzip -q -o editors/vscode/opensysml-sysml.vsix extension/package.json -d /tmp/vsix
+          unzip -q -o editors/vscode/opensysml.vsix extension/package.json -d /tmp/vsix
           stamped=$(node -p "require('/tmp/vsix/extension/package.json').version")
           if [ "$stamped" != "$expected" ]; then
-            echo "::error::opensysml-sysml.vsix carries version '$stamped', not the '$expected' it is being published as."
+            echo "::error::opensysml.vsix carries version '$stamped', not the '$expected' it is being published as."
             exit 1
           fi
-          echo "ok: opensysml-sysml.vsix carries $stamped"
-          cp editors/vscode/opensysml-sysml.vsix dist/
-          (cd dist && sha256sum opensysml-sysml.vsix >> SHA256SUMS.txt && cat SHA256SUMS.txt)
+          echo "ok: opensysml.vsix carries $stamped"
+          cp editors/vscode/opensysml.vsix dist/
+          (cd dist && sha256sum opensysml.vsix >> SHA256SUMS.txt && cat SHA256SUMS.txt)
 
       # The wheel installs this night's `sysml-grpc` on its own only through the digests
       # it ships, so the binaries just built are pinned under the per-night tag in the
@@ -820,8 +820,8 @@ jobs:
             printf '%s' " The Jupyter kernel built from it is \`pip install jupyter-opensysml-kernel==$PYPI_VERSION\`,"
             printf '%s\n' " whose platform wheels bundle this snapshot's \`sysml-jupyter-kernel\` and whose sdist downloads it by the same pinned digests."
             echo
-            printf '%s' "\`opensysml-sysml.vsix\` is the VS Code extension built from the same commit:"
-            printf '%s' " \`code --install-extension opensysml-sysml.vsix\`, with a snapshot's \`sysml-lsp\`"
+            printf '%s' "\`opensysml.vsix\` is the VS Code extension built from the same commit:"
+            printf '%s' " \`code --install-extension opensysml.vsix\`, with a snapshot's \`sysml-lsp\`"
             printf '%s\n' " on your \`PATH\` or named by \`opensysml.server.path\`."
             if [[ "$CAMEO" == true ]]; then
               echo
@@ -888,7 +888,7 @@ jobs:
             dist/*.tar.gz
             dist/*.zip
             dist/*.whl
-            dist/opensysml-sysml.vsix
+            dist/opensysml.vsix
             dist/SHA256SUMS.txt
             dist/SHA256SUMS.txt.bundle
             dist/grpc/sysml-grpc-*
