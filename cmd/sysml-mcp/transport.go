@@ -4,23 +4,28 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"os"
+	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard/flags"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/catalog"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
 )
 
-// httpOptions is what -http and its qualifiers (-allow-origin, -token,
-// -token-file, -api-keys, -public-url, -tls-cert, -tls-key) resolve to; nil without -http.
+// httpOptions is what -http and its qualifiers (-allow-origin, the token flags, -api-keys,
+// -public-url, the TLS pair, -shutdown-timeout, -max-body-bytes) resolve to; nil without -http.
 type httpOptions struct {
 	addr    string
 	origins mcp.OriginPolicy
 	token   mcp.BearerToken
 	// auth is the chain the token verifies through, for a SIGHUP to reload.
-	auth     flags.Authenticators
-	certFile string
-	keyFile  string
+	auth            flags.Authenticators
+	certFile        string
+	keyFile         string
+	shutdownTimeout time.Duration
+	maxBodyBytes    int64
 }
 
 // readHTTPOptions validates the transport flags together (qualifiers without
@@ -34,7 +39,18 @@ func readHTTPOptions(o *options) (*httpOptions, error) {
 				return nil, fmt.Errorf("%s applies to the HTTP transport; name its address with -http", f.name)
 			}
 		}
+		for _, name := range []string{"shutdown-timeout", "max-body-bytes"} {
+			if o.given[name] {
+				return nil, fmt.Errorf("-%s applies to the HTTP transport; name its address with -http", name)
+			}
+		}
 		return nil, nil
+	}
+	if o.shutdownTimeout <= 0 {
+		return nil, fmt.Errorf("-shutdown-timeout %s: a stopping server needs a positive time to drain in", o.shutdownTimeout)
+	}
+	if o.maxBodyBytes < 1 {
+		return nil, fmt.Errorf("-max-body-bytes %d: a request needs room for at least one byte", o.maxBodyBytes)
 	}
 	if o.stdio {
 		return nil, errors.New("-stdio and -http name different transports; give one")
@@ -57,14 +73,20 @@ func readHTTPOptions(o *options) (*httpOptions, error) {
 	if (o.tlsCert == "") != (o.tlsKey == "") {
 		return nil, errors.New("-tls-cert and -tls-key must be supplied together")
 	}
-	return &httpOptions{addr: addr, origins: origins, token: token, auth: auth, certFile: o.tlsCert, keyFile: o.tlsKey}, nil
+	return &httpOptions{addr: addr, origins: origins, token: token, auth: auth, certFile: o.tlsCert, keyFile: o.tlsKey,
+		shutdownTimeout: o.shutdownTimeout, maxBodyBytes: o.maxBodyBytes}, nil
 }
 
 // tokenValue is the token a -print-config block carries; empty without one.
 func (h *httpOptions) tokenValue() string { return h.auth.TokenText() }
 
-// readToken resolves the credentials: the API keys of -api-keys, the provider of
-// -oidc-issuer (audience the -public-url endpoint unless -oidc-audience), then the token.
+// tokenFileEnv names the token file when neither token flag is given, as
+// mcp.TokenEnv names the token itself; the file wins, as -token-file does.
+var tokenFileEnv = usage.EnvName(envPrefix, "token-file")
+
+// readToken resolves the credentials: the API keys of -api-keys, the provider of -oidc-issuer
+// (audience the -public-url endpoint unless -oidc-audience), then the token of -token-file,
+// -token or the environment (the file first), a principal of every scope.
 func readToken(o *options) (mcp.BearerToken, flags.Authenticators, error) {
 	if o.auth.OIDCIssuer != "" && o.auth.OIDCAudience == "" && o.publicURL == "" {
 		return mcp.BearerToken{}, flags.Authenticators{}, errors.New("-oidc-issuer needs the audience a token is issued for: name the endpoint with -public-url, or give -oidc-audience")
@@ -73,8 +95,15 @@ func readToken(o *options) (mcp.BearerToken, flags.Authenticators, error) {
 	if public, err := (mcp.BearerToken{}).At(o.publicURL); err == nil {
 		o.auth.Resource = public.PublicURL()
 	}
-	resolved, err := o.auth.Resolve(mcp.TokenEnv, catalog.ScopeNames()...)
+	selected, fromEnv := *o.auth, false
+	if selected.TokenFile == "" && selected.Token == "" {
+		selected.TokenFile, fromEnv = os.Getenv(tokenFileEnv), true
+	}
+	resolved, err := selected.Resolve(mcp.TokenEnv, catalog.ScopeNames()...)
 	if err != nil {
+		if fromEnv && selected.TokenFile != "" {
+			err = fmt.Errorf("%s: %w", tokenFileEnv, err)
+		}
 		return mcp.BearerToken{}, flags.Authenticators{}, err
 	}
 	return mcp.BearerToken{Authenticator: resolved.Chain()}, resolved, nil

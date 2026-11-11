@@ -861,6 +861,11 @@ func classifyUsage(u *ast.Usage) SymbolKind {
 	if u.IsSuccessionFlow() {
 		return SymbolSuccessionFlowUsage
 	}
+	// An objective's `verify r;` is the RequirementUsage its RequirementVerificationMembership
+	// owns, not a satisfy (SysML 8.3.19), as the RDF writer and the pilot state it.
+	if u.IsVerifiedRequirement() {
+		return SymbolRequirementUsage
+	}
 	// Only classify attribute usages (datatype, attribute, feature keywords)
 	if u.Kind != ast.UsageAttribute {
 		return UsageSymbolKind(u.Kind)

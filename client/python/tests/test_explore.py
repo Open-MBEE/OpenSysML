@@ -459,3 +459,26 @@ def test_exploration_with_a_construct_left_unenumerated_is_incomplete():
     )
     assert whole.unenumerated == []
     assert whole.status == "complete (2 runs)"
+
+
+def test_exploration_carries_the_coverage_of_every_run():
+    from opensysml import Coverage, CoverageEntry
+    from opensysml.proto import sysml_pb2
+
+    status = sysml_pb2.ExplorationStatus(complete=True, runs=2, coverage=sysml_pb2.Coverage(
+        states=[sysml_pb2.CoverageEntry(path="Cov::sys#1.m.run: viaA", declaration="Cov::M::run::viaA", runs=1),
+                sysml_pb2.CoverageEntry(path="Cov::sys#1.m.run: viaB", declaration="Cov::M::run::viaB", runs=1)],
+        transitions=[sysml_pb2.CoverageEntry(path="Cov::sys#1.m.run: s0 -> viaB",
+                                             declaration="Cov::M::run::s0 -> viaB", runs=1)]))
+    coverage = Coverage.of(status.coverage)
+    assert coverage.states == (
+        CoverageEntry("Cov::sys#1.m.run: viaA", "Cov::M::run::viaA", 1),
+        CoverageEntry("Cov::sys#1.m.run: viaB", "Cov::M::run::viaB", 1),
+    )
+    assert coverage.transitions == (CoverageEntry("Cov::sys#1.m.run: s0 -> viaB", "Cov::M::run::s0 -> viaB", 1),)
+    whole = Exploration([], complete=True, runs=2, budgets_hit=[], runs_budget=1024, depth_budget=64,
+                        coverage=coverage)
+    assert whole.coverage is coverage
+    bare = Exploration([], complete=True, runs=1, budgets_hit=[], runs_budget=1024, depth_budget=64)
+    assert bare.coverage == Coverage()
+    assert Coverage.of(sysml_pb2.Coverage()) == Coverage()

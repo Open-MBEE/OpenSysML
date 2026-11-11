@@ -60,6 +60,7 @@ type OpenSysMLRunResult {
   outputs: [OpenSysMLNamedValue!]!
   trace: [String!]!
   outcomes: [OpenSysMLRunOutcome!]!
+  coverage: OpenSysMLCoverage
   resultText: String
   diagnostics: [OpenSysMLDiagnostic!]!
   verdicts: [OpenSysMLVerdict!]!
@@ -75,6 +76,17 @@ type OpenSysMLRunOutcome {
   error: String
   linearizations: Int!
   witness: [String!]!
+}
+
+type OpenSysMLCoverage {
+  states: [OpenSysMLCoverageEntry!]!
+  transitions: [OpenSysMLCoverageEntry!]!
+}
+
+type OpenSysMLCoverageEntry {
+  path: String!
+  declaration: String!
+  runs: Int!
 }
 
 type OpenSysMLNamedValue {

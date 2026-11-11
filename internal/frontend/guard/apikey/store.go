@@ -15,12 +15,11 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
 )
 
-// RefreshInterval bounds how often a request has the store look at the file's
-// modification time.
+// RefreshInterval bounds how often a request has the store look at the file.
 const RefreshInterval = time.Second
 
 // Store is the keys of one file, as a guard.Authenticator; it re-reads the
-// file when its modification time moves and on Reload, so a revocation needs no restart.
+// file when its content changes and on Reload, so a revocation needs no restart.
 type Store struct {
 	path   string
 	logger *slog.Logger
@@ -28,9 +27,8 @@ type Store struct {
 
 	mu      sync.Mutex
 	entries map[string]entry
-	// modTime and size are the file's as last read, failed or not.
-	modTime time.Time
-	size    int64
+	// digest is the SHA-256 of the content last read, parsed or not.
+	digest [sha256.Size]byte
 	// checked is when the file was last looked at.
 	checked time.Time
 	// failure is the last reload error logged, so the same one is not logged again.
@@ -50,11 +48,11 @@ func Open(path string, logger *slog.Logger) (*Store, error) {
 		logger = slog.Default()
 	}
 	s := &Store{path: path, logger: logger, now: time.Now}
-	info, err := os.Stat(path)
+	data, err := os.ReadFile(path) // #nosec G304 -- the operator names the file with -api-keys
 	if err != nil {
 		return nil, err
 	}
-	if err := s.load(info); err != nil {
+	if err := s.load(data); err != nil {
 		return nil, err
 	}
 	return s, nil
@@ -75,18 +73,18 @@ func (s *Store) Len() int {
 func (s *Store) Reload() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	info, err := os.Stat(s.path)
+	data, err := os.ReadFile(s.path) // #nosec G304 -- the operator names the file with -api-keys
 	if err != nil {
 		return err
 	}
-	return s.load(info)
+	return s.load(data)
 }
 
-// load reads the file described by info under the lock and remembers its
-// modification time and size, so the same content is not read twice.
-func (s *Store) load(info os.FileInfo) error {
-	s.modTime, s.size, s.checked = info.ModTime(), info.Size(), s.now()
-	records, err := ReadFile(s.path)
+// load parses data, the file's content, under the lock and remembers its
+// digest, so the same content is not parsed twice.
+func (s *Store) load(data []byte) error {
+	s.digest, s.checked = sha256.Sum256(data), s.now()
+	records, err := parse(s.path, data)
 	if err != nil {
 		return err
 	}
@@ -101,23 +99,23 @@ func (s *Store) load(info os.FileInfo) error {
 	return nil
 }
 
-// refresh re-reads the file when, at most once per RefreshInterval, its
-// modification time or size is found moved; a failed read keeps the keys held and logs once.
+// refresh re-parses the file when, at most once per RefreshInterval, its
+// content is found changed; a failed read keeps the keys held and logs once.
 func (s *Store) refresh() {
 	now := s.now()
 	if now.Sub(s.checked) < RefreshInterval {
 		return
 	}
 	s.checked = now
-	info, err := os.Stat(s.path)
+	data, err := os.ReadFile(s.path) // #nosec G304 -- the operator names the file with -api-keys
 	if err != nil {
 		s.logFailure(err)
 		return
 	}
-	if info.ModTime().Equal(s.modTime) && info.Size() == s.size {
+	if sha256.Sum256(data) == s.digest {
 		return
 	}
-	if err := s.load(info); err != nil {
+	if err := s.load(data); err != nil {
 		s.logFailure(err)
 		return
 	}

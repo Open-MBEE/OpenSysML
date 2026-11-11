@@ -840,8 +840,8 @@ sees the same relationships SysML.xtext produces.
 | `specializes Base`, `:>> Base` on a definition | a `sysml:Subclassification` (`<S>_sc<i>`) |
 | `part p : ~P;` | a `sysml:ConjugatedPortDefinition` (`<S>_conjugated`) typed by `P`, and a `sysml:PortConjugation` (`<S>_pc`) joining it to `P`; a named `P` gives its conjugate `declaredName "~P"` (never `declaredShortName`), while an unnamed `P` is addressed positionally as `<owner>::@conjugated`, so `port p`'s `FeatureTyping` reads `type: ~P` |
 | `subject v : Vehicle;` in a requirement | a `sysml:SubjectMembership` owning `v`, with `sysml:subjectParameter` on the membership's owner |
-| `require constraint { v.mass < 1500 [kg] }` | a `sysml:RequirementConstraintMembership` owning the `sysml:ConstraintUsage`, with `sysml:kind "requirement"`/`"assumption"` by keyword |
-| `objective { verify r; }` | a `sysml:RequirementVerificationMembership` owning a `sysml:RequirementUsage` that references `r` (its `sysml:ReferenceSubsetting`), with `sysml:kind "requirement"` |
+| `require constraint { v.mass < 1500 [kg] }` | a `sysml:RequirementConstraintMembership` owning the `sysml:ConstraintUsage`, with `sysml:kind "requirement"`/`"assumption"` by keyword; the constraint carries `sysml:isVariable`/`sysml:mayTimeVary` as the model derives them (a feature of an Occurrence varies) |
+| `objective { verify r; }` | the objective is a composite, undirected `sysml:RequirementUsage` its `sysml:ObjectiveMembership` (a FeatureMembership: `sysml:ownedObjectiveRequirement`, no parameter end) owns; the `verify` a `sysml:RequirementVerificationMembership` owning a `sysml:RequirementUsage` that references `r` (its `sysml:ReferenceSubsetting`), with `sysml:kind "requirement"` |
 | `{ in y : Real; y + x }` | a `sysml:ResultExpressionMembership` owning the result expression |
 | `filter <expr>;`, `import P::*[@T]` | a `sysml:ElementFilterMembership` carrying `sysml:condition` |
 | an expression's `referent`/`targetFeature` link | the `sysml:Membership` the expression owns to the feature it names (`<S>_referent`, `_preferent`, `_targetFeature`), listed under `sysml:ownedRelationship` and `sysml:ownedMembership` where the notation places it: before the result parameter of a `FeatureReferenceExpression` (KerML 1.1 § 8.2.5.8.3 `FeatureReferenceMember`), between the operand and the result of a `FeatureChainExpression` (`FeatureChainMember`); `referent` and `targetFeature` are derived from it (§ 8.3.4.8.5, § 8.3.4.8.4). A body expression the reference owns (`cars->select { in c : V; c == c }`) is its member through the `FeatureMembership` that owns it, as in the pilot's XMI, so no second membership is minted for it |
@@ -929,10 +929,12 @@ rebuilt from the graph — the note that was written above it put back from its
 `sysx:Note` node, see [Notes](#notes) — and every other line is kept, the blank
 line after it included, since that belongs to `Vehicle`. Rebuilt lines end the way most of the elements' text does, CRLF or
 LF; an expression's text lies inside its element's and is not counted again.
-The notes are compared by their text: a `sysx:Note` whose text the element's
-text holds in order agrees with it, whatever its `sysx:noteToken` or
-`sysx:noteOwnLine` say, so a position edited alone takes effect once the element
-is rebuilt for another reason or its text is set aside.
+The notes are compared in every field: the notes the element's text states are
+derived from it exactly as they were minted, and a `sysx:Note` that differs
+from the one so derived in its `sysx:noteText`, its `sysx:noteToken` or
+`sysx:noteTrailing`, its `sysx:noteOwnLine` or its `sysx:noteTail` demotes the
+text as an edited flag does, so a position edited alone is written back at once
+with the element rebuilt around it.
 Text that no longer parses, or whose disagreement cannot be placed on one
 element, demotes every element to canonical notation rather than writing an
 invalid or contradictory file; one that lands on notation already rebuilt is
@@ -1009,10 +1011,16 @@ carried, as in a graph another tool wrote — each note is put back after the
 token it followed, on its own line or inline as it was written; one past the
 tokens the canonical head has (a synonym spelled out, a clause the canonical
 form drops) follows the last of them, and none is dropped. The graph is
-authoritative here too: a note edited or added in the graph demotes the text
-that does not state it, and the element is rebuilt with the graph's notes; a
-comment the graph does not state is left to the text, since it may be a body or
-another subject's note written inside this text (a filter's, a `then`'s). The `Comment` elements the grammar does admit — a bare `/* */` before a
+authoritative here too: a note edited in the graph — in its text or in its
+position, the token it follows, its line, head or tail — or added there demotes
+the text that does not state it, and the element is rebuilt with the graph's
+notes and no other — the text of an expression of its that holds a note the
+graph does not state as written is rebuilt too, or the note would stay as that
+text had it beside the graph's. While the text stands, a comment the graph does
+not state is left to it, since it may be a body or another subject's note
+written inside this text (a filter's, a `then`'s). Two notes at one token are
+told apart by their order alone, so their texts swapped in the graph are an edit.
+The `Comment` elements the grammar does admit — a bare `/* */` before a
 member, at the close of a body, at either end of a file — are elements, not notes.
 
 ### Ownership

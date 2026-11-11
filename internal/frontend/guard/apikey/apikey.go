@@ -4,6 +4,7 @@ package apikey
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -165,13 +166,13 @@ func random(n int) string {
 }
 
 // appendRecord writes one record as one line at the end of the file, which is
-// made the owner's alone to read if it was not.
+// made the owner's alone to read if it was not; a last line left unended is ended first.
 func appendRecord(path string, record Record) error {
 	line, err := json.Marshal(record)
 	if err != nil {
 		return err
 	}
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o600) // #nosec G304 -- the operator names the file with -api-keys
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0o600) // #nosec G304 -- the operator names the file with -api-keys
 	if err != nil {
 		return err
 	}
@@ -179,11 +180,31 @@ func appendRecord(path string, record Record) error {
 		_ = f.Close()
 		return err
 	}
+	if unended, err := lacksLineBreak(f); err != nil {
+		_ = f.Close()
+		return err
+	} else if unended {
+		line = append([]byte{'\n'}, line...)
+	}
 	if _, err = f.Write(append(line, '\n')); err != nil {
 		_ = f.Close()
 		return err
 	}
 	return f.Close()
+}
+
+// lacksLineBreak reports whether f holds content whose last byte is not a line
+// break, as a file edited by hand may.
+func lacksLineBreak(f *os.File) (bool, error) {
+	info, err := f.Stat()
+	if err != nil || info.Size() == 0 {
+		return false, err
+	}
+	last := make([]byte, 1)
+	if _, err := f.ReadAt(last, info.Size()-1); err != nil {
+		return false, err
+	}
+	return last[0] != '\n', nil
 }
 
 // Revoke marks the record of id disabled in the file at path, which is
@@ -249,14 +270,19 @@ func writeFile(path string, records []Record) error {
 // ReadFile reads the records of the file at path, one JSON object per line with blank lines
 // allowed; a line that is not a valid record, or an id held twice, fails the file with its line number.
 func ReadFile(path string) ([]Record, error) {
-	f, err := os.Open(path) // #nosec G304 -- the operator names the file with -api-keys
+	data, err := os.ReadFile(path) // #nosec G304 -- the operator names the file with -api-keys
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	return parse(path, data)
+}
+
+// parse reads the records of data, the content of the file at path, which
+// names the file in each error.
+func parse(path string, data []byte) ([]Record, error) {
 	var records []Record
 	ids := map[string]int{}
-	scanner := bufio.NewScanner(f)
+	scanner := bufio.NewScanner(bytes.NewReader(data))
 	scanner.Buffer(nil, 1<<20)
 	for n := 1; scanner.Scan(); n++ {
 		line := strings.TrimSpace(scanner.Text())

@@ -10,4 +10,4 @@ MatrixModel::vehicle::sourcePort                                                
 MatrixModel::VehicleVerification  verify
 
 not represented:
-  - 1 exposed element states no satisfy, verify, allocate, connect, derive, refine, dependency relationship and is left out of the matrix: DerivationConnections::derivations
+  - 7 exposed elements state no satisfy, verify, allocate, connect, derive, refine, dependency relationship and are left out of the matrix: MatrixModel::r1, MatrixModel::r2, DerivationConnections::derivations, DerivationConnections::derivedRequirements, DerivationConnections::originalRequirements, DerivationConnections::Derivation::originalRequirement, DerivationConnections::Derivation::derivedRequirements
