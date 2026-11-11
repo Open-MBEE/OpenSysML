@@ -571,6 +571,8 @@ func (m *migration) v2Spelled(text string, refs []reference, scope *sysmlv1.Elem
 	visible, _ := m.visibleFrom(scope)
 	text = m.renamedRoots(text, refs, visible, nil)
 	refs, _ = exprRefs(text)
+	text = m.renamedSequenceMembers(text, refs, scope)
+	refs, _ = exprRefs(text)
 	return m.qualifySelf(text, refs, scope)
 }
 

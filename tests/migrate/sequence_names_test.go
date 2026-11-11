@@ -68,3 +68,64 @@ func TestSequenceInheritedNameLayout(t *testing.T) {
 		})
 	}
 }
+
+func TestSequenceRenamedMemberExpressions(t *testing.T) {
+	for _, lang := range []string{"", "OCL"} {
+		t.Run(lang, func(t *testing.T) {
+			r := migrateDocument(t, `
+<packagedElement xmi:type="uml:Class" xmi:id="_block" name="Block">
+  <ownedAttribute xmi:type="uml:Property" xmi:id="_amount" name="amount">
+    <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+  </ownedAttribute>
+  <ownedBehavior xmi:type="uml:Interaction" xmi:id="_seq" name="Sequence">
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="_copy" name="copy">
+      <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_copyDefault"><language>`+lang+`</language><body>portionOfLife + 1</body></defaultValue>
+    </ownedParameter>
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="_portion" name="portionOfLife">
+      <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      <defaultValue xmi:type="uml:LiteralReal" xmi:id="_portionDefault" value="2.0"/>
+    </ownedParameter>
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="_amountCopy" name="amountCopy">
+      <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_amountDefault"><body>'self'.amount</body></defaultValue>
+    </ownedParameter>
+    <ownedParameter xmi:type="uml:Parameter" xmi:id="_qualified" name="qualified">
+      <type xmi:type="uml:PrimitiveType" href="http://www.omg.org/spec/UML/20131001/PrimitiveTypes.xmi#Real"/>
+      <defaultValue xmi:type="uml:OpaqueExpression" xmi:id="_qualifiedDefault"><body>Sequence::portionOfLife</body></defaultValue>
+    </ownedParameter>
+    <ownedAttribute xmi:type="uml:Property" xmi:id="_self" name="self" type="_block"/>
+    <lifeline xmi:type="uml:Lifeline" xmi:id="_line" represents="_self"/>
+  </ownedBehavior>
+</packagedElement>`, `<sysml:Block xmi:id="_st" base_Class="_block"/>`)
+			wantLine(t, r.Notation, "attribute copy : ScalarValues::Real default = portionOfLife2 + 1;")
+			wantLine(t, r.Notation, "attribute portionOfLife2 : ScalarValues::Real default = 2.0;")
+			wantLine(t, r.Notation, "attribute amountCopy : ScalarValues::Real default = self2.amount;")
+			wantLine(t, r.Notation, "attribute qualified : ScalarValues::Real default = Sequence::portionOfLife2;")
+			if strings.Contains(string(r.Notation), "default value not migrated") {
+				t.Errorf("a reachable default was lost:\n%s", r.Notation)
+			}
+			for _, d := range errors(t, "renamed-sequence.sysml", r.Notation) {
+				t.Errorf("%v", d)
+			}
+		})
+	}
+}
+
+func TestSequenceRenamedParameterMessageArgument(t *testing.T) {
+	data, err := os.ReadFile("testdata/xmi/interaction_use.xmi")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data = bytes.Replace(data, []byte(`xmi:id="_suRpm" name="rpm"`), []byte(`xmi:id="_suRpm" name="portionOfLife"`), 1)
+	data = bytes.Replace(data, []byte(`<body>rpm</body>`), []byte(`<body>portionOfLife</body>`), 1)
+	r, err := migrate.Migrate("interaction_use.xmi", data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantLine(t, r.Notation, "perform action spinCall ::> Motor::spin { in rpm[1] = portionOfLife2; }")
+	wantLine(t, r.Notation, "occurrence warm : 'Spin Up' { attribute :>> portionOfLife2 = 30.0; }")
+	for _, d := range errors(t, "renamed-argument.sysml", r.Notation) {
+		t.Errorf("%v", d)
+	}
+}

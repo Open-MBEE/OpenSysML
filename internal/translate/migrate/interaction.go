@@ -351,6 +351,7 @@ func (s *scenario) use(f *sysmlv1.Element, body *[]*scenarioStep) (*scenarioStep
 		base = n
 	}
 	step.base = freshIn(s.used, base)
+	s.m.names[f] = step.base
 	step.name = writeName(step.base)
 	s.returnValue(step)
 	s.uses[f] = step
@@ -575,6 +576,10 @@ func (s *scenario) lifeline(line *sysmlv1.Element) (*lifelineRef, string) {
 		return nil, standsFor + describe(rep) + ", a " + rep.Type + " rather than a part or parameter"
 	}
 	ref.name = freshIn(s.used, name)
+	s.m.names[line] = ref.name
+	if rep.Parent == s.e {
+		s.m.names[rep] = ref.name
+	}
 	ref.from = writeName(ref.name)
 	s.lines[line] = ref
 	return ref, ""
@@ -1023,6 +1028,17 @@ func (s *scenario) inaccessible(expr string, line *lifelineRef) string {
 			e, _ = s.m.memberNamed(e, r.steps[n].name, chainKind(false))
 			n++
 		}
+		if e != nil && e.Parent == s.e {
+			if _, ok := s.m.sequenceParams[e]; ok {
+				continue
+			}
+			for _, ref := range s.lines {
+				if ref.rep == e {
+					e = nil
+					break
+				}
+			}
+		}
 		if e != nil && isFeature(e) {
 			return r.text(n)
 		}
@@ -1050,6 +1066,22 @@ func (s *scenario) parameterNamed(name string) bool {
 	return false
 }
 
+// sequenceFeature reports whether an interaction feature has a scenario declaration.
+func (m *migration) sequenceFeature(e *sysmlv1.Element) bool {
+	if e.Parent == nil || e.Parent.Type != "Interaction" {
+		return false
+	}
+	if _, ok := m.sequenceParams[e]; ok {
+		return true
+	}
+	for _, line := range e.Parent.Owned("lifeline") {
+		if _, named := m.names[line]; named && m.model.Ref(line, "represents") == e {
+			return true
+		}
+	}
+	return false
+}
+
 // lifelineNamed finds the lifeline usage of the given name.
 func (s *scenario) lifelineNamed(name string) *lifelineRef {
 	for _, ref := range s.lines {
@@ -1067,6 +1099,7 @@ func (s *scenario) stepName(msg *sysmlv1.Element, fallback string) (base, writte
 		name = lowerFirst(fallback)
 	}
 	base = freshIn(s.used, name)
+	s.m.names[msg] = base
 	return base, writeName(base)
 }
 
@@ -1576,9 +1609,10 @@ func sequenceParameters(e *sysmlv1.Element) []*sysmlv1.Element {
 	return in
 }
 
-// declareParameters names the attributes the interaction's in parameters are written
-// as, before the lifelines take their names; a parameter a lifeline stands for is that usage.
+// declareParameters allocates all input names before writing defaults that may read later parameters.
+// A parameter represented by a lifeline is declared by that usage instead.
 func (s *scenario) declareParameters() {
+	var parameters []*sysmlv1.Element
 	for _, p := range sequenceParameters(s.e) {
 		represented := false
 		for _, ref := range s.lines {
@@ -1596,6 +1630,11 @@ func (s *scenario) declareParameters() {
 		}
 		name := freshIn(s.used, s.m.nameOf(p))
 		s.m.sequenceParams[p] = name
+		s.m.names[p] = name
+		parameters = append(parameters, p)
+	}
+	for _, p := range parameters {
+		name := s.m.sequenceParams[p]
 		line := "attribute " + writeName(name)
 		if mult, _ := s.m.multiplicity(p); mult != "" {
 			line += mult
