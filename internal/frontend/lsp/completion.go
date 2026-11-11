@@ -162,18 +162,14 @@ func (c *completionItems) list() *protocol.CompletionList {
 	return &protocol.CompletionList{IsIncomplete: false, Items: c.items}
 }
 
-// symbolDocumentation returns a loaded declaration's owned `doc` bodies, then the
-// notes above it, as prose for a Markdown client; nil when there is nothing to show.
+// symbolDocumentation returns a declaration's owned `doc` bodies, then the notes
+// above it, as prose for a Markdown client; nil when there is nothing to show.
 func (s *Server) symbolDocumentation(sym *symbols.Symbol) *protocol.MarkupContent {
 	if sym.DocName == "" {
 		return nil
 	}
-	doc := s.ws.Document(sym.DocName)
-	if doc == nil {
-		return nil
-	}
 	docs := s.ws.DocumentationOf(sym)
-	notes := leadingNotes(doc.Content, sym.LeadingTrivia)
+	notes := s.symbolNotes(sym)
 	if s.wantsMarkdownCompletion() {
 		prose := documentationProse(docs, notes)
 		if prose == "" {

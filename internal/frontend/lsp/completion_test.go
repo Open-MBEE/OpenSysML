@@ -592,3 +592,21 @@ func TestCompletionOnDotOmitsRedefinedRoleNames(t *testing.T) {
 		t.Error("completion after 'u.' offered 'subj', which the subject 's' redefines")
 	}
 }
+
+// A standard-library candidate carries its own doc, read from the bundled
+// library text, as hover shows it.
+func TestCompletionDocumentsAStandardLibraryCandidate(t *testing.T) {
+	src := "package Q {\n\tattribute a : Base::Anyth;\n}\n"
+	items := completionAtFor(t, src, "Base::Anyth", true)
+	item, ok := items["Anything"]
+	if !ok {
+		t.Fatalf("Anything not offered among %d items", len(items))
+	}
+	doc, ok := item.Documentation.(*protocol.MarkupContent)
+	if !ok || doc == nil {
+		t.Fatalf("Anything documentation = %#v, want Markdown", item.Documentation)
+	}
+	if !strings.Contains(doc.Value, "Anything is the top level generalized type in the language.") || strings.Contains(doc.Value, "Base package") {
+		t.Errorf("Anything documentation = %q, want its own doc only", doc.Value)
+	}
+}
