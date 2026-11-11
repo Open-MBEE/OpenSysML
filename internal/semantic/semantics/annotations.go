@@ -1726,7 +1726,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			return nil, false
 		}
 		return m.connectorRelatedFeatures(sym, feature), true
-	case "source", "target", "relatedElement":
+	case "relatedElement", "source", "target":
 		return m.declaredRelationshipEnds(sym, feature)
 	case "ownedRelatedElement", "owningRelatedElement":
 		// A declared connector or association relates features and types it does not own;
@@ -2039,6 +2039,9 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	return m.withDefaultMultiplicityMember(sym, members)
 }
+
+// connectorEndRedefinition names the Connector property that redefines each Relationship end property.
+var connectorEndRedefinition = map[string]string{"relatedElement": "relatedFeature", "source": "sourceFeature", "target": "targetFeature"}
 
 // connectorRelatedFeatures derives Connector::relatedFeature per KerML 8.3.4.5.3: each
 // end's ownedReferenceSubsetting.subsettedFeature (the chain Feature for a chained end).

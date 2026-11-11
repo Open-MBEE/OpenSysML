@@ -555,12 +555,6 @@ func (m *Model) relationshipMemberElements(sym *symbols.Symbol, rel symbols.Rela
 	return nil, false
 }
 
-// connectorEndFeatures are the Connector features redefining Relationship's
-// source, target and relatedElement (KerML 8.3.4.5.3).
-var connectorEndFeatures = map[string]string{
-	"source": "sourceFeature", "target": "targetFeature", "relatedElement": "relatedFeature",
-}
-
 // declaredRelationshipEnds reads Relationship::source, target and relatedElement of a declared
 // connector or dependency, whose own ends redefine them (KerML 8.3.4.5.3, 8.3.2.2.2).
 func (m *Model) declaredRelationshipEnds(sym *symbols.Symbol, feature string) ([]*symbols.Symbol, bool) {
@@ -578,7 +572,7 @@ func (m *Model) declaredRelationshipEnds(sym *symbols.Symbol, feature string) ([
 		if slices.Contains(m.ConnectorRelatedFeaturesByEnd(sym), nil) {
 			return nil, false
 		}
-		return m.ReflectiveElements(sym, connectorEndFeatures[feature])
+		return m.ReflectiveElements(sym, connectorEndRedefinition[feature])
 	}
 	return nil, false
 }
