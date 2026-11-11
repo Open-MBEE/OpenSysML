@@ -280,7 +280,7 @@ baseline's list is the comparison's, every declared row has evidence and sits wh
 column, and no undeclared row is in it). An entry is removed when a pin stops reproducing the
 disagreement, which `-check` then shows as that row moving out of the column.
 
-## Results (pilot `2026-09`, 935 files)
+## Results (pilot `2026-09`, 946 files)
 
 **Scorecard:** 946 files; 106047 elements matched (18100 ours-only, 26907 pilot-only, 0 of them implied); properties: 2057554 present-equal, 144588 present-different, 310010 ours-missing, 82100 pilot-missing, 2258536 absent-both, 35913 indeterminate, 535 pilot-nondeterministic.
 
