@@ -165,3 +165,35 @@ func TestConnectorRelatedFeaturesAreTheEndsReferencedFeatures(t *testing.T) {
 		}
 	}
 }
+
+// A `first a then b;` succession states Relationship::source and target beside the sourceFeature and
+// targetFeature that redefine them (KerML 8.3.4.5.1), as a connector written with plain ends does.
+func TestInitialSuccessionStatesItsRelationshipEnds(t *testing.T) {
+	const model = `package Seq { action act { action a; action b; first a then b; } }`
+	turtle, err := convert.Convert("s.sysml", []byte(model), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph, err := rdf.ParseTurtle(turtle)
+	if err != nil {
+		t.Fatalf("parse turtle: %v", err)
+	}
+	var subject rdf.Term
+	for _, triple := range graph.Triples() {
+		if triple.Predicate.Value == rdf.SysML+"sourceFeature" && graph.HasProperty(triple.Subject, rdf.SysML+"targetFeature") {
+			subject = triple.Subject
+		}
+	}
+	if subject.Value == "" {
+		t.Fatal("no succession with both ends in the graph")
+	}
+	for _, pair := range [][2]string{{"sourceFeature", "source"}, {"targetFeature", "target"}} {
+		stated, ok := graph.Object(subject, rdf.SysML+pair[0])
+		if !ok {
+			t.Fatalf("%s absent", pair[0])
+		}
+		if got, ok := graph.Object(subject, rdf.SysML+pair[1]); !ok || got != stated {
+			t.Errorf("%s = %v (%t), want %v", pair[1], got, ok, stated)
+		}
+	}
+}
