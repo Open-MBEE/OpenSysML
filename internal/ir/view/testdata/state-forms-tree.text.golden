@@ -2,6 +2,7 @@ FurnaceViews::burnerTree - tree rendering (view def GeneralView)
 
 state def Burner
   attribute flame
+  action usage
   succession usage
   state off
   state running
