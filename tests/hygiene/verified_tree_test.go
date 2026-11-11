@@ -75,6 +75,7 @@ type haltPlan struct {
 	AttachedBeforeHalt  bool
 	PersistedAfterHalt  []string
 	PersistedBeforeHalt []string
+	TagStepsAfterHalt   []string
 }
 
 func planHalt(t *testing.T, steps []yaml.Node, skipWhenVerified bool) haltPlan {
@@ -98,6 +99,16 @@ func planHalt(t *testing.T, steps []yaml.Node, skipWhenVerified bool) haltPlan {
 			switch key {
 			case "attach_workspace":
 				attached = true
+			case "run":
+				var run runStep
+				if value.Kind == yaml.ScalarNode {
+					run.Command = value.Value
+				} else if err := value.Decode(&run); err != nil {
+					t.Fatalf("decode run step: %v", err)
+				}
+				if plan.Halts && strings.Contains(run.Command, "CIRCLE_TAG") {
+					plan.TagStepsAfterHalt = append(plan.TagStepsAfterHalt, run.Name)
+				}
 			case "persist_to_workspace":
 				var persist struct {
 					Paths []string `yaml:"paths"`
@@ -140,7 +151,7 @@ func TestVerifiedTreeSkipsOnlyWhatNothingDownstreamReads(t *testing.T) {
 	if stepIndex(verifySteps, "python3 scripts/ci-verified-tree.py") < 0 {
 		t.Error("verify-tree does not run scripts/ci-verified-tree.py")
 	}
-	if stepIndex(verifySteps, "--rehearsal") < 0 || !strings.Contains(string(readRepoFile(t, ".circleci/config.yml")), "RELEASE_REHEARSAL: << pipeline.parameters.release_rehearsal >>") {
+	if stepIndex(verifySteps, "--rehearsal") < 0 || !strings.Contains(readRepoFile(t, ".circleci/config.yml"), "RELEASE_REHEARSAL: << pipeline.parameters.release_rehearsal >>") {
 		t.Error("verify-tree does not pass --rehearsal from the release_rehearsal parameter, so a rehearsal could skip the suite it exists to run")
 	}
 	requireAll(t, "verify-tree persists", persistedPaths(t, verify.Steps), "verified-tree.txt")
@@ -180,6 +191,10 @@ func TestVerifiedTreeSkipsOnlyWhatNothingDownstreamReads(t *testing.T) {
 			}
 			if !upstream(t, entries, entryName)["Verified tree check"] {
 				t.Errorf("%s: %s halts on the verdict but does not run after 'Verified tree check'", name, entryName)
+			}
+			// A branch run never had CIRCLE_TAG, so a step reading it is a verdict only the tag reaches.
+			if len(plan.TagStepsAfterHalt) > 0 {
+				t.Errorf("%s: %s halts on the verdict before %q, which reads CIRCLE_TAG and so was never checked by the run that verified the tree", name, entryName, plan.TagStepsAfterHalt)
 			}
 		}
 

@@ -497,7 +497,9 @@ jobs:
             set -- --sha "$CIRCLE_SHA1"
             if [ -n "${CIRCLE_TAG:-}" ]; then set -- "$@" --tag "$CIRCLE_TAG"; fi
             if [ "$RELEASE_REHEARSAL" = "true" ]; then set -- "$@" --rehearsal; fi
-            python3 scripts/ci-verified-tree.py "$@" > verified-tree.txt
+            if ! python3 scripts/ci-verified-tree.py "$@" > verified-tree.txt; then
+              echo "unverified: scripts/ci-verified-tree.py failed; running the suite" > verified-tree.txt
+            fi
             cat verified-tree.txt
       - persist_to_workspace:
           root: .
@@ -528,7 +530,40 @@ jobs:
           paths:
             - docs/assets/landing
 
-      # Everything below re-checks what the full tier already proved on a verified tree.
+      # The compliance map is combined from docs/project/spec-compliance/ when the site is
+      # built; a release tag (or its rehearsal) must carry the combined page, current.
+      - run:
+          name: Check the compliance-map sources and the combined page
+          command: |
+            python3 scripts/spec_compliance-test.py
+            if [ -n "${CIRCLE_TAG:-}" ]; then
+              python3 scripts/spec_compliance.py check --require-page
+            else
+              python3 scripts/spec_compliance.py check
+            fi
+
+      # Baseline is an ancestor of HEAD, never a live branch tip (a merge landing meanwhile would
+      # read as deletions): the first parent on main or develop, the previous release on a `v*` tag.
+      - run:
+          name: Check the protobuf schema for breaking changes
+          command: |
+            if [ -n "${CIRCLE_TAG:-}" ]; then
+              git fetch --tags --quiet origin
+              if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
+                git fetch --unshallow --quiet origin
+              fi
+              baseline=$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude "$CIRCLE_TAG" HEAD)
+              echo "release tag ${CIRCLE_TAG}: comparing against the previous release, ${baseline}"
+            else
+              git rev-parse --verify --quiet HEAD^1 > /dev/null \
+                || git fetch --quiet --depth=2 origin "$CIRCLE_SHA1"
+              baseline=HEAD^1
+              echo "branch build: comparing against the first parent, $(git rev-parse --short HEAD^1)"
+            fi
+            make proto-breaking BUF_BREAKING_REF="$baseline"
+
+      # Everything below re-checks what the full tier already proved on a verified tree; the two
+      # checks above stay ahead of the halt because a tag has verdicts no branch run reaches.
       - halt-if-verified
 
       - run:
@@ -592,18 +627,6 @@ jobs:
           name: Check changelog fragments
           command: python3 scripts/changelog-test.py && python3 scripts/changelog.py check
 
-      # The compliance map is combined from docs/project/spec-compliance/ when the site is
-      # built; a release tag (or its rehearsal) must carry the combined page, current.
-      - run:
-          name: Check the compliance-map sources and the combined page
-          command: |
-            python3 scripts/spec_compliance-test.py
-            if [ -n "${CIRCLE_TAG:-}" ]; then
-              python3 scripts/spec_compliance.py check --require-page
-            else
-              python3 scripts/spec_compliance.py check
-            fi
-
       - run:
           name: Check the release provenance writer
           command: python3 scripts/release-provenance-test.py
@@ -646,26 +669,6 @@ jobs:
       - run:
           name: Lint the protobuf schema
           command: make proto-lint
-
-      # Baseline is an ancestor of HEAD, never a live branch tip (a merge landing meanwhile would
-      # read as deletions): the first parent on main or develop, the previous release on a `v*` tag.
-      - run:
-          name: Check the protobuf schema for breaking changes
-          command: |
-            if [ -n "${CIRCLE_TAG:-}" ]; then
-              git fetch --tags --quiet origin
-              if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
-                git fetch --unshallow --quiet origin
-              fi
-              baseline=$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude "$CIRCLE_TAG" HEAD)
-              echo "release tag ${CIRCLE_TAG}: comparing against the previous release, ${baseline}"
-            else
-              git rev-parse --verify --quiet HEAD^1 > /dev/null \
-                || git fetch --quiet --depth=2 origin "$CIRCLE_SHA1"
-              baseline=HEAD^1
-              echo "branch build: comparing against the first parent, $(git rev-parse --short HEAD^1)"
-            fi
-            make proto-breaking BUF_BREAKING_REF="$baseline"
 
       # Committed stubs must be what buf generates, or the checked-in code and
       # the schema can drift apart silently. `git add -N` puts a regenerated

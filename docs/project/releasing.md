@@ -267,8 +267,9 @@ branch that moves the integration state onto `main`:
    (`scripts/ci-verified-tree.py`), asks GitHub whether that exact commit already
    has a green full-tier `Build and test` check — the merge queue's commit does, a
    plain merge commit does not — and when it has, the suite jobs (`go-static` past
-   its landing bundle, `go-vulncheck`, `go-race-test`, `go-gates`, the Rust, Julia
-   and MATLAB clients) halt green with the evidence as their one line of output;
+   its landing bundle and the two checks whose verdict depends on `CIRCLE_TAG`,
+   `go-vulncheck`, `go-race-test`, `go-gates`, the Rust, Julia and MATLAB clients)
+   halt green with the evidence as their one line of output;
    the coverage shards, the clients whose reports the scan reads, and the scan
    itself still run. An unverified commit, or any failure to read the evidence,
    runs everything.
@@ -368,7 +369,9 @@ queue leaves on `main`'s head) or a green `build-test` CircleCI workflow of a
 `main` pipeline on the same commit (read with `CIRCLECI_API_TOKEN`, the project
 variable `cancel-superseded` uses; without it only the GitHub evidence counts).
 On a verified tag the suite jobs, the coverage jobs and the client tests halt
-green with the evidence as their one line of output, and `build-release-binaries`
+green with the evidence as their one line of output — after `go-static` has run
+the checks only a tag decides, the combined compliance page and the protobuf
+schema against the previous release — and `build-release-binaries`
 starts as soon as the binaries are built; nothing it or the publish jobs read
 comes from the halted jobs. A tag on an unverified commit — one pushed to `main`
 directly, or whose `build-test` is still running or red — and any error reading
