@@ -693,12 +693,6 @@ func TestQueriesAndRenderings(t *testing.T) {
 		!strings.Contains(view.GetText(), `fillcolor="#`) || len(view.GetNodes()) == 0 || !strings.Contains(out, strings.TrimRight(view.GetText(), "\n")) {
 		t.Errorf("dot form: text %q\n%s", view.GetText(), out)
 	}
-	every := len(view.GetNodes())
-	var shallow pb.RenderViewResponse
-	h.ok("render_model_view", map[string]any{"modelHash": hash, "view": "#tree:Demo", "form": "dot", "depth": 1}, &shallow)
-	if len(shallow.GetNodes()) == 0 || len(shallow.GetNodes()) >= every || strings.Count(shallow.GetText(), "\n") >= strings.Count(view.GetText(), "\n") {
-		t.Errorf("depth 1: %d nodes of %d, text:\n%s", len(shallow.GetNodes()), every, shallow.GetText())
-	}
 	for form, args := range map[string]map[string]any{
 		"png": {"modelHash": hash, "view": "#tree:Demo", "form": "png"},
 		"svg": {"modelHash": hash, "view": "#tree:Demo", "form": "svg"},
@@ -719,6 +713,27 @@ func TestQueriesAndRenderings(t *testing.T) {
 	}
 	if err := json.Unmarshal([]byte(graphs.GetContent()), &exported); err != nil || len(exported.States) != 1 {
 		t.Errorf("exported content: %v, %d states", err, len(exported.States))
+	}
+}
+
+func TestRenderModelViewDrawsNoDeeperThanTheDepthAsked(t *testing.T) {
+	h := attach(t, newService(t))
+	hash := h.parse()
+	for _, form := range []string{"", "dot"} {
+		args := map[string]any{"modelHash": hash, "view": "#tree:Demo"}
+		if form != "" {
+			args["form"] = form
+		}
+		var every, shallow pb.RenderViewResponse
+		h.ok("render_model_view", args, &every)
+		args["depth"] = 1
+		h.ok("render_model_view", args, &shallow)
+		if len(shallow.GetNodes()) == 0 || len(shallow.GetNodes()) >= len(every.GetNodes()) {
+			t.Errorf("form %q at depth 1: %d nodes of %d", form, len(shallow.GetNodes()), len(every.GetNodes()))
+		}
+		if form != "" && strings.Count(shallow.GetText(), "\n") >= strings.Count(every.GetText(), "\n") {
+			t.Errorf("form %q at depth 1 is written no shorter:\n%s", form, shallow.GetText())
+		}
 	}
 }
 

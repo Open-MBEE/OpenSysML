@@ -167,9 +167,21 @@ func TestRenderDocumentAnswersTheFormAsked(t *testing.T) {
 	}
 	_, err := client.RenderDocument(ctx, model, "Observatory::MassReport", opensysml.WithDocumentForm("pdf"))
 	var status *opensysml.StatusError
-	if !errors.As(err, &status) || status.Code != opensysml.CodeInvalidArgument ||
-		!strings.Contains(status.Message, "is not one RenderDocument renders") {
-		t.Errorf("RenderDocument as pdf: err = %v, want the client's CodeInvalidArgument", err)
+	if !errors.As(err, &status) || status.Code != opensysml.CodeInvalidArgument {
+		t.Errorf("RenderDocument as pdf: err = %v, want CodeInvalidArgument", err)
+	}
+}
+
+func TestRenderDocumentRefusesAnUnknownFormBeforeTheCall(t *testing.T) {
+	client := newClient(t)
+	model := parse(t, client, documentSource)
+	for _, form := range []string{"pdf", "HTML", "md"} {
+		rendered, err := client.RenderDocument(context.Background(), model, "Observatory::MassReport", opensysml.WithDocumentForm(form))
+		var status *opensysml.StatusError
+		if !errors.As(err, &status) || status.Code != opensysml.CodeInvalidArgument ||
+			!strings.Contains(status.Message, "is not one RenderDocument renders") || rendered != "" {
+			t.Errorf("RenderDocument as %s = %q, %v, want the client's CodeInvalidArgument", form, rendered, err)
+		}
 	}
 }
 
