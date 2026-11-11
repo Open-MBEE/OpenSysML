@@ -2799,19 +2799,46 @@ is *bounded and reproducible* execution; hard real-time guarantees (WCET) are pr
 target, the compiler and the RTOS configuration, and the documentation must say so rather than
 imply them. The design record for the track at the highest software class —
 [docs/internals/design/embedded-target.md](../internals/design/embedded-target.md) — fixes the
-freestanding C profile M2 emits, makes the IR's written semantics rather than the interpreter the
-requirement basis, turns every admissible scheduling choice into a static refusal, lists the
-artifacts under configuration control and restates M1–M6 as stages with exit criteria.
+freestanding C profile M2 emits, makes a Lean model of the IR's semantics (M1L, in a new
+Open-MBEE repository, proposed name `behavior-ir.lean`) rather than the interpreter the
+requirement basis, with the written semantics derived from it, turns every admissible scheduling
+choice into a static refusal, lists the artifacts under configuration control and restates
+M1–M6 as stages with exit criteria. The compiled slice of a model is validated against that
+formalization: the differential that proves M2 has three legs — the interpreter's trace, the
+compiled C's trace and the Lean replay of the IR — and the IR's canonical form and the trace
+record are documented schemas with the Lean decoder as their first consumer outside Go.
 
 ## M1 — a closed behavior IR
 
 The lowered graphs, made self-contained: nodes, successions, guards, triggers, effects, states,
 transitions, regions, pins and connections with every reference resolved to an index and every
 expression carried as N2's typed IR, with no pointer into the AST or the symbol tables — so it can
-be serialized, diffed, and handed to a backend. Lowering to it must be lossless over the existing
-conformance corpus (the interpreter can run *from* it, which is the proof), and it is the meeting
-point with N2.6: the native track's action and state phases start here rather than duplicating it.
-This item gates everything else in the track.
+be serialized, diffed, and handed to a backend or a checker in another process. Lowering to it must
+be lossless over the existing conformance corpus (the interpreter can run *from* it, which is the
+proof), and it is the meeting point with N2.6: the native track's action and state phases start
+here rather than duplicating it. Its canonical serialization (`<model>.ir.json`) and the trace
+record format (the interpreter's golden trace and the binary trace the compiled C emits) are
+documented schemas (`behavior-ir-schema.md`, proposed, beside the design record) consumed outside
+Go — the Lean decoder of M1L is the first such consumer — so byte-stability alone is not the exit
+criterion: every fixture's IR and trace validate against the schema. This item gates everything
+else in the track.
+
+## M1L — a Lean model of the IR, and the replay checker
+
+In a new Open-MBEE repository to be created (generic-named, proposed `behavior-ir.lean`; not inside
+this repository, not OpenSysML-branded, not inside `mars.lean` or the F´ example): the closed IR's
+semantics as an executable Lean model under the `declared` policy — the master definition, from
+which `behavior-ir-semantics.md` is derived, its rule → case trace table pointing at the Lean
+definitions — a decoder of M1's schema, a trace emitter in the schema's record format, the
+theorems the gate requires (a deterministic step function, a sound replay, bounded queues that
+never overwrite; no `sorry`, the standard axiom profile) and `behavior-ir-check`, which decodes an
+IR, replays it and compares against a trace. In this repository: the pin and download script in
+the pattern of the pilot's (`scripts/behavior-ir-lean-pin.sh`, `scripts/download-behavior-ir-lean.sh`),
+and a CI job that replays every conformance case's IR against the interpreter's golden trace. It
+is a semantics of the IR, not of SysML v2 text — resolution, typing and lowering stay outside it,
+covered by the conformance corpus — and it is not a proof about arbitrary models: one slice, one
+policy, M2's refusal list unchanged, the prelude outside it. Depends on M1's schema; M2's
+differential depends on it.
 
 ## M2 — a state and action C backend over static tables
 
@@ -2819,8 +2846,12 @@ From M1: state and transition tables, a static succession scheduler for the acti
 (a token count per node, no dynamic node creation), fixed-size event queues sized from the model,
 static port/connection routing, expression evaluation through N2's C emitter, and no `malloc`
 after initialization. A model that cannot be bounded — unbounded multiplicity, recursion the
-compiler cannot bound, `all T`, dynamic `new` — is refused by name. Differential against the
-interpreter over the state and action conformance corpus, exactly as N1 is refereed.
+compiler cannot bound, `all T`, dynamic `new` — is refused by name. The differential over the
+state and action conformance corpus has three legs: for every case the interpreter's trace, the
+compiled C's trace and M1L's Lean replay of the IR agree record for record. A disagreement is a
+defect in the generator, the interpreter or the formalization, adjudicated by the formalization's
+soundness theorems — never settled by moving a golden — and the Lean replay runs in CI as a gate
+on the same corpus, with the formalization pinned by tag and commit as the pilot is.
 
 ## M3 — a resource report, and refusal of the unbounded
 
@@ -3645,9 +3676,11 @@ surfaces (I6–I8) were added and closed beside it — and its step 3 lost D13's
    1–3; B1 needs its design record before code. **B3** follows the transport decision, **I5**
    goes with step 1 since it is built from the same scenarios, and **B4**/**B5** come whenever a
    model needs them.
-5. **M1, then M2 (with N2.6)** — the closed behavior IR, then the state and action C backend over
-   static tables. Embedded behavior compilation depends on the closed IR; the native track's
-   action and state phases start from the same IR rather than a second one. M3 and M5 prove it;
+5. **M1, then M1L, then M2 (with N2.6)** — the closed behavior IR and its schemas, then the Lean
+   model of the IR and its replay checker in the new repository, then the state and action C
+   backend over static tables. Embedded behavior compilation depends on the closed IR; the native
+   track's action and state phases start from the same IR rather than a second one; M2's
+   three-legged differential cannot be stated before M1L's checker exists. M3 and M5 prove it;
    M6 last.
 6. **The shared C ABI** — N2.4 / I4 / M4 designed once, after N2.2 (the budget) is decided and
    after M1 fixes what an embedded entry point looks like, so a stable native/embedded calling
@@ -3693,4 +3726,5 @@ fixed, none removed); which segment it bumps is the release checklist's decision
 - **Track T.** Nothing open; each record is regenerated by its tool when its subject moves.
 - **Track P.** P7's implementation, last, when the graph the layering test guards is otherwise
   clean; its design record is #451.
-- **Track M.** Entirely given by the cross-cutting order above.
+- **Track M.** Entirely given by the cross-cutting order above; M1L is the one item whose
+  deliverable is mostly in another repository, and it gates M2's differential.
