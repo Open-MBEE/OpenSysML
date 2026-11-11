@@ -44,8 +44,22 @@ internal sealed class FakeChild : IDisposable
     internal async Task<int> ProcessIdAsync()
     {
         string text = string.Empty;
-        await ServiceRegistryTests.WaitUntilAsync(() => File.Exists(ProcessIdFile) && (text = File.ReadAllText(ProcessIdFile)).Length > 0);
+        await ServiceRegistryTests.WaitUntilAsync(() => (text = Published(ProcessIdFile)).Length > 0);
         return int.Parse(text, System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    // The stand-in renames the file into place whole, but Windows can refuse a read just after, while something else,
+    // a scanner, has the new file open; that read is retried as if the file were not there yet.
+    private static string Published(string path)
+    {
+        try
+        {
+            return File.Exists(path) ? File.ReadAllText(path) : string.Empty;
+        }
+        catch (IOException)
+        {
+            return string.Empty;
+        }
     }
 
     /// <summary>The stand-in's build output, which every copy is made from.</summary>

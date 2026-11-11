@@ -116,7 +116,7 @@ public sealed partial class PrivateServiceTests
         using var child = FakeChild.Create(_ => new FakeScript { StderrBytesBeforeReport = 4 * 1024 * 1024, Report = "127.0.0.1:50051", FloodAfterReport = true });
 
         var service = (PrivateService)await StartAsync(child, startup: TimeSpan.FromSeconds(20));
-        await Task.Delay(300, Token);
+        await ServiceRegistryTests.WaitUntilAsync(() => service.Tail.Count == PrivateService.TailLines);
 
         Assert.Equal(PrivateService.TailLines, service.Tail.Count);
         Assert.All(service.Tail, line => Assert.True(line.Length <= PrivateService.MaxLineLength + "(stdout) ".Length, $"a kept line of {line.Length} characters"));

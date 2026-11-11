@@ -155,7 +155,7 @@ internal static class Host
         var watch = Stopwatch.StartNew();
         while (watch.Elapsed < ExitWait)
         {
-            if (File.Exists(file) && File.ReadAllText(file) is { Length: > 0 } text)
+            if (Published(file) is { Length: > 0 } text)
             {
                 return int.Parse(text, CultureInfo.InvariantCulture);
             }
@@ -164,6 +164,20 @@ internal static class Host
         }
 
         throw new TimeoutException($"{file} was not written within {ExitWait}.");
+    }
+
+    // The service renames the file into place whole, but Windows can refuse a read just after, while something else,
+    // a scanner, has the new file open; that read is retried as if the file were not there yet.
+    private static string Published(string file)
+    {
+        try
+        {
+            return File.Exists(file) ? File.ReadAllText(file) : string.Empty;
+        }
+        catch (IOException)
+        {
+            return string.Empty;
+        }
     }
 
     private static bool AwaitExit(int processId)
