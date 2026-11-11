@@ -88,9 +88,8 @@ func TestAnnotationBodyIsNotTheNextDeclarationsTrivia(t *testing.T) {
 	}
 }
 
-// A bare comment before a declaration is a Comment member of the enclosing
-// namespace and is still handed on as trivia; a second comment after a `doc`
-// body is one too, and only the body leaves the trivia.
+// A bare comment stays trivia (it is a Comment of the enclosing namespace), even
+// one written right after a `doc` body: only the consumed body leaves the trivia.
 func TestOnlyTheConsumedBodyLeavesThePendingTrivia(t *testing.T) {
 	src := "package P {\n    doc /* d */ /* c */\n    part def Wheel;\n    /* above */\n    part def Axle;\n}\n"
 	got := leadingTriviaByName(t, src)

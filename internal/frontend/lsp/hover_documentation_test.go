@@ -133,9 +133,8 @@ func TestHoverPlainTextShowsOwnedDocumentationThenNotes(t *testing.T) {
 	}
 }
 
-// A standard-library element's hover shows its own doc, in its bundled document
-// and from a reference: `Anything` is documented as the top-level type, not as
-// the Base package is.
+// A standard-library element's hover, in its bundled document and from a reference,
+// shows its own doc: `Anything` is the top-level type, not what Base's doc says.
 func TestHoverShowsAStandardLibraryElementsOwnDocumentation(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
