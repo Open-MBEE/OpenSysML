@@ -31,8 +31,10 @@ var (
 	circleExport       = regexp.MustCompile(`(?m)^\s*exportcorpus='([^']+)'$`)
 	makefileSettled    = regexp.MustCompile(`(?m)^RACE_EXPORT_SETTLED := (.+)$`)
 	circleSettled      = regexp.MustCompile(`(?m)^\s*exportsettled='([^']+)'$`)
-	makefileFixtures   = regexp.MustCompile(`(?m)^RACE_EXPORT_FIXTURES := (.+)$`)
-	circleFixtures     = regexp.MustCompile(`(?m)^\s*exportfixtures='([^']+)'$`)
+	makefileLibrary    = regexp.MustCompile(`(?m)^RACE_EXPORT_LIBRARY := (.+)$`)
+	circleLibrary      = regexp.MustCompile(`(?m)^\s*exportlibrary='([^']+)'$`)
+	makefileExamples   = regexp.MustCompile(`(?m)^RACE_EXPORT_EXAMPLES := (.+)$`)
+	circleExamples     = regexp.MustCompile(`(?m)^\s*exportexamples='([^']+)'$`)
 	makefileRoundTrip  = regexp.MustCompile(`(?m)^RACE_CORPUS_ROUNDTRIP := (.+)$`)
 	circleRoundTrip    = regexp.MustCompile(`(?m)^\s*corpusroundtrip='([^']+)'$`)
 	makefileAPIJSON    = regexp.MustCompile(`(?m)^RACE_CORPUS_APIJSON := (.+)$`)
@@ -203,19 +205,22 @@ func TestRuntimeCorpusPatternPartitionsTheRuntimeTests(t *testing.T) {
 	}
 }
 
-// TestExportCorpusPatternsPartitionTheExportTests: the export, export-fixtures, export-corpus and
-// export-settled shards are tests/export split the same way by RACE_EXPORT_FIXTURES, RACE_EXPORT_CORPUS and
-// RACE_EXPORT_SETTLED, which no test may match both of.
+// TestExportCorpusPatternsPartitionTheExportTests: the five export shards are tests/export split the
+// same way by the four RACE_EXPORT_* patterns, of which no test may match more than one.
 func TestExportCorpusPatternsPartitionTheExportTests(t *testing.T) {
 	corpus, tests := corpusPatternPartitions(t, "RACE_EXPORT_CORPUS", makefileExport, circleExport, "exportcorpus=", raceExportDir, 50)
 	settled, _ := corpusPatternPartitions(t, "RACE_EXPORT_SETTLED", makefileSettled, circleSettled, "exportsettled=", raceExportDir, 50)
-	fixtures, _ := corpusPatternPartitions(t, "RACE_EXPORT_FIXTURES", makefileFixtures, circleFixtures, "exportfixtures=", raceExportDir, 50)
+	library, _ := corpusPatternPartitions(t, "RACE_EXPORT_LIBRARY", makefileLibrary, circleLibrary, "exportlibrary=", raceExportDir, 50)
+	examples, _ := corpusPatternPartitions(t, "RACE_EXPORT_EXAMPLES", makefileExamples, circleExamples, "exportexamples=", raceExportDir, 50)
 	for _, name := range tests {
-		if corpus.MatchString(name) && settled.MatchString(name) {
-			t.Errorf("%s falls to both export-corpus and export-settled", name)
+		matches := 0
+		for _, pattern := range []*regexp.Regexp{corpus, settled, library, examples} {
+			if pattern.MatchString(name) {
+				matches++
+			}
 		}
-		if fixtures.MatchString(name) && (corpus.MatchString(name) || settled.MatchString(name)) {
-			t.Errorf("%s falls to export-fixtures and another export shard", name)
+		if matches > 1 {
+			t.Errorf("%s falls to %d by-name export shards", name, matches)
 		}
 	}
 }
