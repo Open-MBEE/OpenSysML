@@ -42,7 +42,7 @@ foreach (var d in model.Errors)                               // Diagnostic: Sev
 {
     Console.Error.WriteLine($"{d.Code}: {d.Message}");
 }
-model.RequireNoErrors();                                      // ModelErrorsException carrying them
+model.RequireNoErrors();                                      // ModelException carrying them
 ```
 
 A model with syntax errors still parses; branch on `d.Code` (`"syntax"`, `"unresolved"`, ...),
@@ -128,10 +128,10 @@ Everything derives from `OpenSysMLException`, except `OperationCanceledException
   longer holds. It and `TransportException` (no well-formed answer: unreachable, malformed, past its
   deadline) are both `CallException`s, so `catch (CallException e)` reads `e.StatusCode` of any
   failed call.
-- `ModelException` — the call was answered and reports a model failure, with `Diagnostics`:
-  `ModelErrorsException` (`RequireNoErrors`), `SymbolNotFoundException` (`Name`, `Suggestions`),
-  `ExecutionException`, `VerificationException` (`Reason`), `AnalysisException` (`Partial`),
-  `EditException`, `ConversionException`, `QueryException`.
+- `ModelException` — the call was answered and reports a model failure, with `Diagnostics`; also
+  what `RequireNoErrors` throws for a parse's errors. Its kinds: `SymbolNotFoundException` (`Name`,
+  `Suggestions`), `ExecutionException`, `VerificationException` (`Reason`), `AnalysisException`
+  (`Partial`), `EditException`, `ConversionException`, `QueryException`.
 - `CapabilityException` (service too old: raised before sending, or for a call the service refuses
   for a capability it does not have), `ArgumentException` (an option refused before sending),
   `ServiceStartException` and its `BinaryNotFoundException`, `ChecksumMismatchException` (and

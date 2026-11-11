@@ -245,8 +245,8 @@ public sealed class ModelParseTests
         var loaded = await connection.LoadAsync("m.sysml", cancellationToken: TestContext.Current.CancellationToken);
         var inline = await connection.LoadAsync();
 
-        var file = Assert.Throws<ModelErrorsException>(() => loaded.RequireNoErrors());
-        var content = Assert.Throws<ModelErrorsException>(() => inline.RequireNoErrors());
+        var file = Assert.Throws<ModelException>(() => loaded.RequireNoErrors());
+        var content = Assert.Throws<ModelException>(() => inline.RequireNoErrors());
 
         Assert.Equal("m.sysml has 5 error(s): e1; e2; e3; ... and 2 more", file.Message);
         Assert.Equal(["e1", "e2", "e3", "e4", "e5"], file.Diagnostics.Select(diagnostic => diagnostic.Message));

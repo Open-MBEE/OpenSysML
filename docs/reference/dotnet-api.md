@@ -87,7 +87,7 @@ returned model owns and closes when it is disposed.
 
 A `Model` is the service's parse of its sources, named by `Hash`: its `Roots`, `Documents`,
 `ParseDiagnostics` and their `Errors`. `HasErrors` says whether it has errors, and
-`RequireNoErrors` raises `ModelErrorsException` when it does. A model loaded through a connection
+`RequireNoErrors` raises a `ModelException` carrying them when it does. A model loaded through a connection
 borrows it. Each method below is one RPC:
 
 | Area | Methods | Result |
@@ -344,7 +344,7 @@ OpenSysMLException
 │   │   └── ModelFileNotFoundException
 │   └── TransportException            no well-formed answer was read
 ├── ModelException                 the service answered a failure about the model; Diagnostics
-│   ├── ModelErrorsException, SymbolNotFoundException, ExecutionException, CheckException
+│   ├── SymbolNotFoundException, ExecutionException, CheckException
 │   ├── QueryException, ConversionException, MigrationException, EditException
 │   └── VerificationException
 │       └── AnalysisException, RunsException, RecordException, CompareException

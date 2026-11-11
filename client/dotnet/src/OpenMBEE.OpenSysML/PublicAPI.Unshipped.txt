@@ -506,8 +506,6 @@
 [OSML0001]OpenMBEE.OpenSysML.Model.RequireNoErrors() -> OpenMBEE.OpenSysML.Model!
 [OSML0001]OpenMBEE.OpenSysML.Model.Root.get -> OpenMBEE.OpenSysML.Symbol?
 [OSML0001]OpenMBEE.OpenSysML.Model.Roots.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.Symbol!>
-[OSML0001]OpenMBEE.OpenSysML.ModelErrorsException
-[OSML0001]OpenMBEE.OpenSysML.ModelErrorsException.ModelErrorsException(string! message, string! method, System.Collections.Generic.IEnumerable<OpenMBEE.OpenSysML.Diagnostic!>! errors) -> void
 [OSML0001]OpenMBEE.OpenSysML.ModelException
 [OSML0001]OpenMBEE.OpenSysML.ModelException.Diagnostics.get -> OpenMBEE.OpenSysML.ValueList<OpenMBEE.OpenSysML.Diagnostic!>
 [OSML0001]OpenMBEE.OpenSysML.ModelException.Method.get -> string!

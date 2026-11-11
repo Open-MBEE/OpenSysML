@@ -441,7 +441,7 @@ exceptions:
 | The service wants a bearer token the call did not carry, or refused the one it carried | `AuthenticationException`, a `ServiceException` with `Unauthenticated`, `CredentialsSent` and the `Remedy` its message ends with |
 | The service no longer holds the model a call named | `ModelNotFoundException`, a `ServiceException` with `NotFound` |
 | The service could not read a file a parse named | `ModelFileNotFoundException`, a `ServiceException` with `NotFound` |
-| The service answered, reporting a failure about the model: an expression that did not evaluate, a symbol that is not there, an object that could not be built | `ModelException`, with `Method` and the answer's `Diagnostics`; `SymbolNotFoundException`, with `Name` and `Suggestions`, for a symbol; `ModelErrorsException` from `RequireNoErrors` |
+| The service answered, reporting a failure about the model: an expression that did not evaluate, a symbol that is not there, an object that could not be built | `ModelException`, with `Method` and the answer's `Diagnostics`; `SymbolNotFoundException`, with `Name` and `Suggestions`, for a symbol; also from `RequireNoErrors`, with the parse's errors as `Diagnostics` |
 | The service answered that a run failed: no initial node, no such behavior, a performer that could not be made, a run still waiting when its advance ran out | `ExecutionException`, a `ModelException` with the run's `FinalTime` and, for a traced run, its `Trace` up to the failure and `TraceDropped` |
 | The service answered a check it refused before any search: the behavior, a property or the performer does not resolve | `CheckException`, a `ModelException` with the `Partial` result the answer carried, including its verdict when supplied |
 | The service answered that it could not verify, validate, calculate or sweep at all: an unknown symbol, a symbol of another kind, a subject or argument that does not read, a range no values follow from | `VerificationException`, a `ModelException` with the failure's `Reason` (`FailureReason.WrongKind` for a symbol of another kind) and the `Instances`, `Verifications` and engine `Standing` the answer carried |
@@ -511,7 +511,7 @@ earlier without sending anything. A model is immutable and safe to share between
 keeps its `Roots`, one per document, the `ParseDiagnostics` and their `Errors`, and the
 `Documents` they name, and nothing a later call changes. A source with errors still parses
 into a model; `HasErrors` says so, and `RequireNoErrors` turns it into a
-`ModelErrorsException`.
+`ModelException` carrying the errors.
 
 | Method | Answers |
 | --- | --- |
