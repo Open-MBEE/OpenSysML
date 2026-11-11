@@ -473,6 +473,19 @@ Linux reference deployment first and on a maintainer's board second, because F´
 JPL flight project is likeliest to host this in. The first is the CI gate; the second is the
 demonstration.
 
+**The board.** The maintainer-run hardware target of stage 5 is an ARM Cortex-M Arduino-compatible
+board, the same architecture family as the QEMU proof and an upstream Zephyr board, so the Zephyr
+application built for `qemu_cortex_m3` is rebuilt for the board and nothing else changes: the
+**Arduino Uno R4 Minima** (Renesas RA4M1, Cortex-M4; Zephyr's `arduino_uno_r4@minima`) is the
+named board, and the **Arduino Nano 33 BLE** (nRF52840, Cortex-M4F; Zephyr's
+`arduino_nano_33_ble`) where stage 6's `Real` path wants a hardware FPU — a single-precision one
+on that core, which stage 6's FPU declaration has to say before `Real` compiles for it. The 8-bit
+AVR boards — Uno R3, Nano classic, Mega — are out of scope for the track as written: a 64-bit
+`Integer` in software on an 8-bit core is not what the profile's bit-for-bit agreement with the
+interpreter was written for, and they become a possible stage 6 stretch only under a narrowed
+`Integer` policy, which is [open question 2](#open-questions-for-the-assurance-plan) and is not
+decided here.
+
 ## Stages
 
 Each stage is a pull request or a small series against `develop`, with its own tests and its
@@ -487,7 +500,7 @@ external costs are named at the end.
 | **2 — the prelude and the embedded emitter** | `sysml_embedded.{c,h}`; the emitter over static tables in the profile above; the refusals; the three-legged differential on the host and the `gcov` and analyzer gates | the differential's three traces agree over every admitted case on the host; every refusal has a fixture; the C compiles clean under the profile's flags | 3 |
 | **3 — resources and budget** | the resource report, the budget file, the trace map, reproducibility gate | the same-host and cross-host compilations diff empty; a fixture over budget fails the build; the trace map covers every generated line | 1 |
 | **4 — the host interface** | the header above, designed with the C ABI item; `M_write`, `M_outgoing`, `M_trace` | the differential drives fixtures through the header alone | 1 |
-| **5 — the proofs** | the Zephyr application and CI job under QEMU; the F´ component and its Linux run | the QEMU trace equals the golden for both fixtures in CI; the F´ deployment runs the same fixtures on Linux | 2 |
+| **5 — the proofs** | the Zephyr application and CI job under QEMU; the F´ component and its Linux run; the same Zephyr application built for the Uno R4 Minima (the maintainer's board, above) | the QEMU trace equals the golden for both fixtures in CI; the F´ deployment runs the same fixtures on Linux; the board run is recorded, not gated | 2 |
 | **6 — the embedded library** | `EmbeddedTarget` metadata (MCU, step, queue depths, FPU, budget reference) and a library package of fixed-width numeric types and bounded collections the compiler recognizes | the passes validate the metadata; `Real` compiles only under a declared FPU; a narrower declared type is emitted as such | 1 |
 
 Stages 1 and 2 carry the risk and should not be split further than their exit criteria allow; a

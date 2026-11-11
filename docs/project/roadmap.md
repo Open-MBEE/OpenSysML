@@ -2871,7 +2871,11 @@ into the host except the ones the model declares. Designed with N2.4 and I4, imp
 One state machine and one action from the conformance corpus, compiled by M2, linked into a Zephyr
 application, run under QEMU (`qemu_cortex_m3`) with the trace read back over the serial console and
 compared with the interpreter's trace golden. CI runs it in a container with the Zephyr SDK; a
-maintainer runs it on hardware. The claim "runs under an RTOS" is made only once this passes.
+maintainer runs it on hardware — an ARM Cortex-M Arduino-compatible board that is an upstream Zephyr
+board and the QEMU proof's architecture family: the Uno R4 Minima is the named board, the Nano 33
+BLE where M6's `Real` path wants an FPU; the 8-bit AVR boards (Uno R3, Nano classic, Mega) are out
+of scope for the track as written and a possible M6 stretch only under a narrowed-`Integer` policy,
+the design record's open question 2. The claim "runs under an RTOS" is made only once this passes.
 
 ## M6 — embedded metadata and library definitions
 
