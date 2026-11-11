@@ -413,6 +413,12 @@ func (s *Symbol) Keyword() string {
 		return d.Keyword
 	case *ast.Usage:
 		return d.Keyword
+	case *ast.EntryMember:
+		return "entry"
+	case *ast.DoMember:
+		return "do"
+	case *ast.ExitMember:
+		return "exit"
 	}
 	return ""
 }

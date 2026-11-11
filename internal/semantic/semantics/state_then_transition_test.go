@@ -23,11 +23,11 @@ func TestStateBodyThenAfterStateIsATransitionUsage(t *testing.T) {
 		model := fixture.model
 		mach := nestedSym(t, fixture.root, "P::Mach")
 		got := ownedMemberKinds(model, mach)
-		want := "FeatureMembership:SuccessionAsUsage FeatureMembership:StateUsage FeatureMembership:TransitionUsage FeatureMembership:StateUsage FeatureMembership:SuccessionAsUsage FeatureMembership:StateUsage"
+		want := "StateSubactionMembership:ActionUsage FeatureMembership:SuccessionAsUsage FeatureMembership:StateUsage FeatureMembership:TransitionUsage FeatureMembership:StateUsage FeatureMembership:SuccessionAsUsage FeatureMembership:StateUsage"
 		if got != want {
 			t.Fatalf("Mach ownedRelationship = %s\nwant %s", got, want)
 		}
-		transition := ownedMembers(model, mach)[2]
+		transition := ownedMembers(model, mach)[3]
 		if transition.Recorded() {
 			// A record carries the metaclass but no declaration to read the transition's parts from,
 			// as for a transition's trigger and guard.
@@ -43,14 +43,14 @@ func TestStateBodyThenAfterStateIsATransitionUsage(t *testing.T) {
 		if owned, _ := model.ReflectiveElements(transition, "succession"); len(owned) != 1 || owned[0] != succession {
 			t.Errorf("transition.succession = %v, want the owned succession", owned)
 		}
-		if got, want := ownedMemberKinds(model, ownedMembers(model, mach)[0]), ""; got != want {
+		if got, want := ownedMemberKinds(model, ownedMembers(model, mach)[1]), ""; got != want {
 			t.Errorf("the entry transition's succession owns %s, want nothing", got)
 		}
-		running := ownedMembers(model, mach)[3]
-		if got, want := ownedMemberKinds(model, running), "FeatureMembership:SuccessionAsUsage FeatureMembership:StateUsage FeatureMembership:TransitionUsage FeatureMembership:StateUsage"; got != want {
+		running := ownedMembers(model, mach)[4]
+		if got, want := ownedMemberKinds(model, running), "StateSubactionMembership:ActionUsage FeatureMembership:SuccessionAsUsage FeatureMembership:StateUsage FeatureMembership:TransitionUsage FeatureMembership:StateUsage"; got != want {
 			t.Errorf("running ownedRelationship = %s\nwant %s", got, want)
 		}
-		inner := ownedMembers(model, running)[2]
+		inner := ownedMembers(model, running)[3]
 		if got, ok := relatedNames(model, ownedMembers(model, inner)[0]); !ok || got != "inner fin" {
 			t.Errorf("inner's transition succession relatedFeature = %q, %v; want \"inner fin\", true", got, ok)
 		}
