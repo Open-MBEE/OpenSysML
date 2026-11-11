@@ -10,8 +10,8 @@ name: PR
 # the clients, editors and docs whose own paths changed. The full tier is the whole suite. It runs
 # for a merge-queue commit (merge_group, refs/heads/gh-readonly-queue/develop/...; it runs over
 # base_sha..head_sha, and Build and test on it lets the entry merge), for the label ci:full, and
-# for a push that touches a package where -race has found bugs (the list in the script) or a path
-# no area claims. CircleCI runs the whole suite again on every develop push and tag.
+# for a push that touches a path no area claims. CircleCI runs the whole suite again on a develop
+# push or tag the queue has not already verified.
 # Tiered off a pull-request push, so run by the full tier only: the Go race shards (the same
 # tests under -race, make test-shard); in Go static and integrity checks the Z3 and cvc5 installs,
 # the corpora, make lint (staticcheck + gosec), the training-corpus, pilot-corpora, spec-examples,
@@ -96,7 +96,7 @@ jobs:
         run: scripts/ci-changed-areas-test.sh
 
       # A pull request is diffed against the branch it merges into, a merge-group commit against its base_sha. The script
-      # decides the tier too: forced to full for a merge-group commit and the label ci:full, else by the paths (race_pattern).
+      # decides the tier too: forced to full for a merge-group commit and the label ci:full, else quick unless a path is unclaimed.
       - name: Decide which areas to run
         id: areas
         env:
