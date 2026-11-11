@@ -3353,11 +3353,12 @@ jobs:
       - attach_workspace:
           at: .
 
+      # The suite starts bin/sysml-grpc: the release's own Linux binary, the one the zip ships.
       - run:
-          name: Make the service binary executable
+          name: Put the release's service binary where the plugin suite starts it
           command: |
-            chmod +x bin/sysml-grpc
-            ls -l dist/grpc/sysml-grpc-*
+            install -D -m 0755 dist/grpc/sysml-grpc-linux-amd64 bin/sysml-grpc
+            bin/sysml-grpc -version
 
       - restore_cache:
           keys:
@@ -3436,8 +3437,10 @@ jobs:
           at: .
 
       - run:
-          name: Make the service binary executable
-          command: chmod +x bin/sysml-grpc
+          name: Put the release's service binary where the backend suite starts it
+          command: |
+            install -D -m 0755 dist/grpc/sysml-grpc-linux-amd64 bin/sysml-grpc
+            bin/sysml-grpc -version
 
       - restore_cache:
           keys:

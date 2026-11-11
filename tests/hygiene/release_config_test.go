@@ -1046,9 +1046,12 @@ func TestEditorPluginsAreReleasedFromTheReleasesOwnBinaries(t *testing.T) {
 		t.Fatal("no build-cameo-plugin job")
 	}
 	if !stepHasBareStep(cameo.Steps, "rehearsal-tag") || !stepHasBareStep(cameo.Steps, "attach_workspace") {
-		t.Error("build-cameo-plugin does not stand in for the tag and attach the workspace that carries dist/grpc and bin/sysml-grpc")
+		t.Error("build-cameo-plugin does not stand in for the tag and attach the workspace that carries dist/grpc")
 	}
 	cameoSteps := runSteps(t, cameo.Steps)
+	if stepIndex(cameoSteps, "install -D -m 0755 dist/grpc/sysml-grpc-linux-amd64 bin/sysml-grpc") < 0 {
+		t.Error("build-cameo-plugin does not start the plugin suite from the release's own Linux binary; the workspace layer of Build release binaries carries only dist")
+	}
 	packaged := stepIndex(cameoSteps, `-Dopensysml.binaries="$PWD/dist/grpc"`, "-Dopensysml.requireService=true", `-Dopensysml.version="${CIRCLE_TAG}"`)
 	if packaged < 0 {
 		t.Fatal("build-cameo-plugin does not package the plugin around dist/grpc, versioned by the tag, with its service-backed tests required")
@@ -1066,9 +1069,12 @@ func TestEditorPluginsAreReleasedFromTheReleasesOwnBinaries(t *testing.T) {
 		t.Error("build-syson-plugin does not run on cimg/openjdk:21.0-node, the JVM SysON runs on with the Node the frontend builds with")
 	}
 	if !stepHasBareStep(syson.Steps, "rehearsal-tag") || !stepHasBareStep(syson.Steps, "attach_workspace") {
-		t.Error("build-syson-plugin does not stand in for the tag and attach the workspace that carries bin/sysml-grpc")
+		t.Error("build-syson-plugin does not stand in for the tag and attach the workspace that carries dist/grpc")
 	}
 	sysonSteps := runSteps(t, syson.Steps)
+	if stepIndex(sysonSteps, "install -D -m 0755 dist/grpc/sysml-grpc-linux-amd64 bin/sysml-grpc") < 0 {
+		t.Error("build-syson-plugin does not start the backend suite from the release's own Linux binary")
+	}
 	backend := stepIndex(sysonSteps, "mvn -B -f editors/syson/pom.xml install -Dopensysml.requireService=true")
 	frontend := stepIndex(sysonSteps, "npm test", "npm run build", "npm pack", "dist/syson")
 	collected := stepIndex(sysonSteps, `syson-mdk-backend-${version}.jar`, `openmbee-syson-mdk-${version}.tgz`, "dist/syson/syson-mdk-backend.jar", "dist/syson/syson-mdk-frontend.tgz")
