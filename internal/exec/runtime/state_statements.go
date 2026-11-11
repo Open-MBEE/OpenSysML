@@ -389,8 +389,8 @@ func (h *stateStmtHost) rootFrame(attrs []frame) *actionFrame {
 		connections:    h.exec.graph.Connections,
 		data:           make(map[string]Value),
 		features:       make(map[string]ast.FeatureDirection),
-		subactions:     make(map[ast.Node]*actionFrame),
-		nodes:          h.behavior.Nodes,
+		subactions:     make(map[NodeRef]*actionFrame),
+		nodes:          blockNodeRefs(h.behavior.Body),
 		multiplicities: h.behavior.Multiplicities,
 		label:          h.describe(),
 		outer:          []frame{h.dataFrame()},
@@ -663,7 +663,7 @@ func (h *stateStmtHost) returnAround(name string, value Value) (bool, error) {
 }
 
 // pauseAt sets no breakpoint: a state behavior's nodes are not stepped.
-func (h *stateStmtHost) pauseAt([]ast.Node, ast.Node) error {
+func (h *stateStmtHost) pauseAt([]NodeRef, NodeRef) error {
 	return nil
 }
 

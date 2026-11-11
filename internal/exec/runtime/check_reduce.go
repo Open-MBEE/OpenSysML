@@ -44,7 +44,7 @@ func standing(exec *ActionExecutor, t Token) lower.Footprint {
 	if exec.dynamics != nil {
 		return dynamicsFootprint()
 	}
-	return tokenGraphOf(exec, t).Footprints()[t.Location]
+	return tokenGraphOf(exec, t).Footprints()[t.Node()]
 }
 
 // machineStanding is what the machine's next unit may touch: a dispatch out of

@@ -581,25 +581,25 @@ func (s *stateSpeller) frame(perf *actionFrame) string {
 		fmt.Fprintf(&b, " local{%s}", s.bodyValues(local, cells))
 	}
 	s.deliveries(&b, perf)
-	for _, node := range sortedNodes(perf.subactions) {
-		fmt.Fprintf(&b, " latest{%s = %s}", s.node(perf.graph, node), s.frameLabel(perf.subactions[node]))
+	for _, node := range sortedRefs(perf.subactions) {
+		fmt.Fprintf(&b, " latest{%s = %s}", s.node(perf.graph, node.Node()), s.frameLabel(perf.subactions[node]))
 	}
 	s.repeats(&b, perf)
 	streamed := slices.Sorted(maps.Keys(perf.streamed))
 	if len(streamed) > 0 {
 		fmt.Fprintf(&b, " streamed{%s}", strings.Join(streamed, ","))
 	}
-	for _, node := range sortedNodes(perf.staged) {
+	for _, node := range sortedRefs(perf.staged) {
 		pins := perf.staged[node]
 		for _, pin := range slices.Sorted(maps.Keys(pins)) {
 			for _, staged := range pins[pin] {
-				fmt.Fprintf(&b, " staged{%s.%s[%d] by %s}", s.node(perf.graph, node), pin, staged.at, s.frameLabel(staged.source))
+				fmt.Fprintf(&b, " staged{%s.%s[%d] by %s}", s.node(perf.graph, node.Node()), pin, staged.at, s.frameLabel(staged.source))
 			}
 		}
 	}
-	for _, node := range sortedNodes(perf.unreceived) {
+	for _, node := range sortedRefs(perf.unreceived) {
 		for _, stream := range perf.unreceived[node] {
-			fmt.Fprintf(&b, " unreceived{%s.%s[%d] from %s.%s}", s.node(perf.graph, node), stream.pin, stream.at,
+			fmt.Fprintf(&b, " unreceived{%s.%s[%d] from %s.%s}", s.node(perf.graph, node.Node()), stream.pin, stream.at,
 				nodeKey(stream.source), orAnyPin(stream.flow.SourcePin))
 		}
 	}
@@ -609,24 +609,24 @@ func (s *stateSpeller) frame(perf *actionFrame) string {
 // deliveries spells the values pending on a frame's pins and those delivered
 // to the pins of its nested nodes.
 func (s *stateSpeller) deliveries(b *strings.Builder, perf *actionFrame) {
-	for _, node := range sortedNodes(perf.pending) {
+	for _, node := range sortedRefs(perf.pending) {
 		pins := perf.pending[node]
 		for _, pin := range slices.Sorted(maps.Keys(pins)) {
-			fmt.Fprintf(b, " pending{%s.%s = (%s)}", s.node(perf.graph, node), pin, s.elements(pins[pin]))
+			fmt.Fprintf(b, " pending{%s.%s = (%s)}", s.node(perf.graph, node.Node()), pin, s.elements(pins[pin]))
 		}
 	}
-	for _, node := range sortedNodes(perf.held) {
+	for _, node := range sortedRefs(perf.held) {
 		pins := perf.held[node]
 		for _, pin := range slices.Sorted(maps.Keys(pins)) {
 			for _, h := range pins[pin] {
-				fmt.Fprintf(b, " held{%s.%s = %s by %s}", s.node(perf.graph, node), pin, s.value(h.value), nodeKey(h.flow))
+				fmt.Fprintf(b, " held{%s.%s = %s by %s}", s.node(perf.graph, node.Node()), pin, s.value(h.value), nodeKey(h.flow))
 			}
 		}
 	}
-	for _, node := range sortedNodes(perf.nested) {
+	for _, node := range sortedRefs(perf.nested) {
 		for _, delivery := range perf.nested[node] {
 			path := make([]string, 0, len(delivery.path)+1)
-			path = append(path, s.node(perf.graph, node))
+			path = append(path, s.node(perf.graph, node.Node()))
 			for _, step := range delivery.path {
 				path = append(path, nodeIdentifier(step))
 			}
@@ -648,16 +648,6 @@ func (s *stateSpeller) repeats(b *strings.Builder, perf *actionFrame) {
 		sort.Strings(live)
 		fmt.Fprintf(b, " repeat{%s remaining=%d live=%s}", s.groups[id], state.remaining, strings.Join(live, ","))
 	}
-}
-
-// sortedNodes orders a map's node keys by identity, so the form is independent of map order.
-func sortedNodes[V any](m map[ast.Node]V) []ast.Node {
-	nodes := make([]ast.Node, 0, len(m))
-	for node := range m {
-		nodes = append(nodes, node)
-	}
-	sort.Slice(nodes, func(i, j int) bool { return nodeKey(nodes[i]) < nodeKey(nodes[j]) })
-	return nodes
 }
 
 // nodeKey identifies a node by its name and where it was written.
@@ -693,7 +683,7 @@ func (s *stateSpeller) tokenCore(t Token) string {
 		graph = t.frame.graph
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "token %s in %s", s.node(graph, t.Location), s.frameLabel(t.frame))
+	fmt.Fprintf(&b, "token %s in %s", s.node(graph, t.Node()), s.frameLabel(t.frame))
 	if t.repetition > 0 {
 		fmt.Fprintf(&b, " repetition=%d", t.repetition)
 	}

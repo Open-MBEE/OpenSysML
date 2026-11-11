@@ -138,7 +138,7 @@ func (e *ActionExecutor) enabledMoves() []enabledMove {
 		moves = append(moves, enabledMove{
 			Owner: e,
 			Token: id,
-			Node:  t.Location,
+			Node:  t.Node(),
 			Label: tokens.label(id),
 			Kind:  e.moveKindOf(t),
 			Fails: fails,
@@ -156,7 +156,7 @@ func (e *ActionExecutor) moveKindOf(t Token) moveKind {
 	if t.body != nil {
 		return moveResume
 	}
-	switch node := t.Location.(type) {
+	switch node := t.Node().(type) {
 	case *ast.JoinNode:
 		return moveJoin
 	case *ast.DecisionNode:

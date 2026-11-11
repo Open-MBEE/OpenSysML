@@ -68,8 +68,8 @@ func (h *calcStmtHost) attachPerformances(engine *stmtEngine) {
 		scope:      h.shape.bodyScope(),
 		data:       make(map[string]Value),
 		features:   make(map[string]ast.FeatureDirection),
-		subactions: make(map[ast.Node]*actionFrame),
-		nodes:      h.shape.Nodes,
+		subactions: make(map[NodeRef]*actionFrame),
+		nodes:      blockNodeRefs(h.shape.Steps),
 		label:      h.shape.Label,
 		outer:      append(append(append([]frame{}, engine.env.enclosing...), engine.env.data), engine.env.localFrame()),
 		run:        h.ctx.newRun(),
@@ -417,7 +417,7 @@ func (h *calcStmtHost) returnAround(name string, value Value) (bool, error) {
 }
 
 // pauseAt sets no breakpoint: a case's steps are not stepped interactively.
-func (h *calcStmtHost) pauseAt([]ast.Node, ast.Node) error {
+func (h *calcStmtHost) pauseAt([]NodeRef, NodeRef) error {
 	return nil
 }
 

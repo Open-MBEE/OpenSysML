@@ -3167,7 +3167,7 @@ func (s *Session) doTokens() ([]string, bool, error) {
 
 	out := []string{fmt.Sprintf("Active tokens (%d):", len(tokens))}
 	for _, tok := range tokens {
-		line := fmt.Sprintf("  Token %d @ %s", tok.ID, nodeLabel(tok.Location))
+		line := fmt.Sprintf("  Token %d @ %s", tok.ID, nodeLabel(tok.Node()))
 		if awaiting := exec.Awaiting(tok); len(awaiting) > 0 {
 			line += fmt.Sprintf(" (arrived from %s; awaiting %s)", nodeLabel(tok.Via.Source), sourceLabels(awaiting))
 		}

@@ -65,7 +65,7 @@ func TestActionExecutorDebugAccessors(t *testing.T) {
 	if len(tokens) != 1 {
 		t.Fatalf("Tokens() = %d tokens, want 1", len(tokens))
 	}
-	if name := ActionNodeName(tokens[0].Location); name != "start" {
+	if name := ActionNodeName(tokens[0].Node()); name != "start" {
 		t.Errorf("token sits at %q, want start", name)
 	}
 
@@ -109,7 +109,7 @@ func TestSetBreakpointStopsRun(t *testing.T) {
 		t.Errorf("State() = %v, want %v", got, StateSuspended)
 	}
 	tokens := exec.Tokens()
-	if len(tokens) != 1 || ActionNodeName(tokens[0].Location) != "accumulate" {
+	if len(tokens) != 1 || ActionNodeName(tokens[0].Node()) != "accumulate" {
 		t.Fatalf("expected one token at accumulate, got %v", tokens)
 	}
 
@@ -252,13 +252,13 @@ func TestStepToBreakpointPausesWhereARunWould(t *testing.T) {
 	if got := exec.PausedAt(); got != "start" {
 		t.Errorf("PausedAt() = %q, want start", got)
 	}
-	if tokens := exec.Tokens(); len(tokens) != 1 || ActionNodeName(tokens[0].Location) != "start" {
+	if tokens := exec.Tokens(); len(tokens) != 1 || ActionNodeName(tokens[0].Node()) != "start" {
 		t.Errorf("tokens = %v, want the one still at start", tokens)
 	}
 	if err := exec.StepToBreakpoint(); err != nil {
 		t.Fatalf("resuming from start: %v", err)
 	}
-	if tokens := exec.Tokens(); len(tokens) != 1 || ActionNodeName(tokens[0].Location) != "accumulate" {
+	if tokens := exec.Tokens(); len(tokens) != 1 || ActionNodeName(tokens[0].Node()) != "accumulate" {
 		t.Errorf("tokens = %v, want the one moved on to accumulate", tokens)
 	}
 }
@@ -279,7 +279,7 @@ func actionNodeNamed(t *testing.T, exec *ActionExecutor, name string) ast.Node {
 // so the next step resumes past it; one removed stops the run again once re-set.
 func TestReplaceBreakpointsAtKeepsAStopAlreadyMade(t *testing.T) {
 	exec := debugActionExecutor(t)
-	at := []NodeBreakpoint{{Node: actionNodeNamed(t, exec, "accumulate")}}
+	at := []NodeBreakpoint{breakpointAt(t, exec, nil, actionNodeNamed(t, exec, "accumulate"))}
 	exec.ReplaceBreakpointsAt(at)
 	if err := exec.StepToBreakpoint(); err != nil {
 		t.Fatalf("StepToBreakpoint: %v", err)
@@ -300,7 +300,7 @@ func TestReplaceBreakpointsAtKeepsAStopAlreadyMade(t *testing.T) {
 	}
 
 	exec = debugActionExecutor(t)
-	at = []NodeBreakpoint{{Node: actionNodeNamed(t, exec, "accumulate")}}
+	at = []NodeBreakpoint{breakpointAt(t, exec, nil, actionNodeNamed(t, exec, "accumulate"))}
 	exec.ReplaceBreakpointsAt(at)
 	if err := exec.StepToBreakpoint(); err != nil {
 		t.Fatalf("StepToBreakpoint: %v", err)
@@ -334,7 +334,7 @@ func TestReplaceBreakpointsAtResetsABodyStopRemoved(t *testing.T) {
 		if q == nil {
 			t.Fatalf("choose's blocks declare no q: %v", exec.Graph().BlockNodes[choose])
 		}
-		at := []NodeBreakpoint{{Within: []ast.Node{choose}, Node: q}}
+		at := []NodeBreakpoint{breakpointAt(t, exec, []ast.Node{choose}, q)}
 		exec.ReplaceBreakpointsAt(at)
 		if err := exec.RunToCompletion(); err != nil {
 			t.Fatalf("RunToCompletion: %v", err)
@@ -398,7 +398,7 @@ func TestResumeReturnsAPausedRunToTheClock(t *testing.T) {
 	if exec.Resume() {
 		t.Error("Resume() = true for a run no breakpoint suspended")
 	}
-	exec.ReplaceBreakpointsAt([]NodeBreakpoint{{Node: actionNodeNamed(t, exec, "accumulate")}})
+	exec.ReplaceBreakpointsAt([]NodeBreakpoint{breakpointAt(t, exec, nil, actionNodeNamed(t, exec, "accumulate"))})
 	if err := exec.StepToBreakpoint(); err != nil {
 		t.Fatalf("StepToBreakpoint: %v", err)
 	}
@@ -463,7 +463,7 @@ func TestBreakpointsAtDistinguishReusedNestedFlows(t *testing.T) {
 		t.Fatalf("look is not one node both flows run: %v", look)
 	}
 
-	exec.ReplaceBreakpointsAt([]NodeBreakpoint{{Within: []ast.Node{b}, Node: look}})
+	exec.ReplaceBreakpointsAt([]NodeBreakpoint{breakpointAt(t, exec, []ast.Node{b}, look)})
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("RunToCompletion: %v", err)
 	}
@@ -471,7 +471,7 @@ func TestBreakpointsAtDistinguishReusedNestedFlows(t *testing.T) {
 		t.Fatalf("PausedAt() = %q, want look", got)
 	}
 	tokens := exec.Tokens()
-	if len(tokens) != 1 || tokens[0].Location != look || !slices.Equal(tokens[0].Within(), []ast.Node{b}) {
+	if len(tokens) != 1 || tokens[0].Node() != look || !slices.Equal(NodesOf(tokens[0].Within()), []ast.Node{b}) {
 		t.Fatalf("tokens = %v, want the one at look within b", tokens)
 	}
 	if err := exec.RunToCompletion(); err != nil {
@@ -539,7 +539,7 @@ func TestBreakpointPausesBeforeABranchNode(t *testing.T) {
 	if got := exec.State(); got != StateSuspended {
 		t.Errorf("State() = %v, want %v", got, StateSuspended)
 	}
-	if tokens := exec.Tokens(); len(tokens) != 1 || ActionNodeName(tokens[0].Location) != "choose" {
+	if tokens := exec.Tokens(); len(tokens) != 1 || ActionNodeName(tokens[0].Node()) != "choose" {
 		t.Fatalf("expected one token at choose, got %v", tokens)
 	}
 	results := exec.Results()
@@ -578,7 +578,7 @@ func TestPausedBreakpointIdentifiesABranchNodeInItsFlow(t *testing.T) {
 	if q == nil {
 		t.Fatalf("choose's blocks declare no q: %v", exec.Graph().BlockNodes[choose])
 	}
-	exec.ReplaceBreakpointsAt([]NodeBreakpoint{{Within: []ast.Node{choose}, Node: q}})
+	exec.ReplaceBreakpointsAt([]NodeBreakpoint{breakpointAt(t, exec, []ast.Node{choose}, q)})
 
 	if err := exec.RunToCompletion(); err != nil {
 		t.Fatalf("RunToCompletion: %v", err)
@@ -587,15 +587,15 @@ func TestPausedBreakpointIdentifiesABranchNodeInItsFlow(t *testing.T) {
 		t.Fatalf("PausedAt() = %q, want q", got)
 	}
 	bp, ok := exec.PausedBreakpoint()
-	if !ok || bp.Node != q || !slices.Equal(bp.Within, []ast.Node{choose}) {
+	if !ok || bp.Node.Node() != q || !slices.Equal(NodesOf(bp.Within), []ast.Node{choose}) {
 		t.Errorf("PausedBreakpoint() = %+v, %v, want q within choose", bp, ok)
 	}
-	if tokens := exec.Tokens(); len(tokens) != 1 || tokens[0].Location != choose {
+	if tokens := exec.Tokens(); len(tokens) != 1 || tokens[0].Node() != choose {
 		t.Errorf("tokens = %v, want the one still on choose", tokens)
 	}
 	// The path reported is the caller's own: writing to it leaves the stop where it was.
-	bp.Within[0] = q
-	if again, ok := exec.PausedBreakpoint(); !ok || !slices.Equal(again.Within, []ast.Node{choose}) {
+	bp.Within[0] = bp.Node
+	if again, ok := exec.PausedBreakpoint(); !ok || !slices.Equal(NodesOf(again.Within), []ast.Node{choose}) {
 		t.Errorf("PausedBreakpoint() = %+v, %v after writing to the path reported, want q still within choose", again, ok)
 	}
 
@@ -712,7 +712,7 @@ func TestBreakpointPausesInsideABlockNodesOwnFlow(t *testing.T) {
 	}
 	var at []string
 	for _, token := range exec.Tokens() {
-		at = append(at, ActionNodeName(token.Location))
+		at = append(at, ActionNodeName(token.Node()))
 	}
 	if got := strings.Join(at, ","); got != "choose,gather" {
 		t.Errorf("tokens at %s, want choose,gather", got)
@@ -894,8 +894,8 @@ func TestBreakpointPausesOncePerSynchronizedPerformance(t *testing.T) {
 				t.Fatalf("%d tokens while paused, want the 2 arrivals at %s", got, tc.node)
 			}
 			for _, tok := range exec.Tokens() {
-				if ActionNodeName(tok.Location) != tc.node {
-					t.Errorf("token %d @ %s while paused, want %s", tok.ID, ActionNodeName(tok.Location), tc.node)
+				if ActionNodeName(tok.Node()) != tc.node {
+					t.Errorf("token %d @ %s while paused, want %s", tok.ID, ActionNodeName(tok.Node()), tc.node)
 				}
 				if awaiting := exec.Awaiting(tok); len(awaiting) > 0 {
 					t.Errorf("paused at %s while token %d still awaits %d successions", tc.node, tok.ID, len(awaiting))
@@ -966,7 +966,7 @@ func TestBreakpointOnANestedFirstNodePausesWhileOthersSynchronize(t *testing.T) 
 	}
 	var atInner int
 	for _, tok := range exec.Tokens() {
-		if ActionNodeName(tok.Location) == "inner" {
+		if ActionNodeName(tok.Node()) == "inner" {
 			atInner++
 		}
 	}
@@ -1912,7 +1912,7 @@ func traversalNames(exec *ActionExecutor) []string {
 	for _, tr := range exec.Traversals() {
 		prefix := ""
 		for _, owner := range tr.Within {
-			prefix += ActionNodeName(owner) + "/"
+			prefix += ActionNodeName(owner.Node()) + "/"
 		}
 		out = append(out, prefix+ActionNodeName(tr.Edge.Source)+"->"+ActionNodeName(tr.Edge.Target))
 	}
@@ -1979,8 +1979,8 @@ func TestTraversalsLogEachSuccessionInOrder(t *testing.T) {
 	if nested < 0 {
 		t.Fatal("no traversal ran in a nested flow")
 	}
-	exec.Traversals()[nested].Within[0] = nil
-	exec.TraversalsSince(0)[nested].Within[0] = nil
+	exec.Traversals()[nested].Within[0] = NodeRef{}
+	exec.TraversalsSince(0)[nested].Within[0] = NodeRef{}
 	if got := traversalNames(exec); !slices.Equal(got[mark:], want) {
 		t.Errorf("after writing into copies, traversals = %v, want %v unchanged", got[mark:], want)
 	}

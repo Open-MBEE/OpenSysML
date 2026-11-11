@@ -745,22 +745,22 @@ func cloneStepRepetitions(repeats map[repetitionGroupID]*stepRepetition) map[rep
 	return cloned
 }
 
-func cloneRepeatedPerfs(repeated map[ast.Node][]*actionFrame) map[ast.Node][]*actionFrame {
+func cloneRepeatedPerfs(repeated map[NodeRef][]*actionFrame) map[NodeRef][]*actionFrame {
 	if repeated == nil {
 		return nil
 	}
-	cloned := make(map[ast.Node][]*actionFrame, len(repeated))
+	cloned := make(map[NodeRef][]*actionFrame, len(repeated))
 	for node, perfs := range repeated {
 		cloned[node] = slices.Clone(perfs)
 	}
 	return cloned
 }
 
-func clonePending(pending map[ast.Node]map[string][]Value) map[ast.Node]map[string][]Value {
+func clonePending(pending map[NodeRef]map[string][]Value) map[NodeRef]map[string][]Value {
 	if pending == nil {
 		return nil
 	}
-	cloned := make(map[ast.Node]map[string][]Value, len(pending))
+	cloned := make(map[NodeRef]map[string][]Value, len(pending))
 	for node, pins := range pending {
 		clonedPins := make(map[string][]Value, len(pins))
 		for pin, values := range pins {
@@ -771,11 +771,11 @@ func clonePending(pending map[ast.Node]map[string][]Value) map[ast.Node]map[stri
 	return cloned
 }
 
-func cloneHeld(held map[ast.Node]map[string][]nodeObject) map[ast.Node]map[string][]nodeObject {
+func cloneHeld(held map[NodeRef]map[string][]nodeObject) map[NodeRef]map[string][]nodeObject {
 	if held == nil {
 		return nil
 	}
-	cloned := make(map[ast.Node]map[string][]nodeObject, len(held))
+	cloned := make(map[NodeRef]map[string][]nodeObject, len(held))
 	for node, pins := range held {
 		clonedPins := make(map[string][]nodeObject, len(pins))
 		for pin, objects := range pins {
@@ -786,11 +786,11 @@ func cloneHeld(held map[ast.Node]map[string][]nodeObject) map[ast.Node]map[strin
 	return cloned
 }
 
-func cloneStaged(staged map[ast.Node]map[string][]stagedStream) map[ast.Node]map[string][]stagedStream {
+func cloneStaged(staged map[NodeRef]map[string][]stagedStream) map[NodeRef]map[string][]stagedStream {
 	if staged == nil {
 		return nil
 	}
-	cloned := make(map[ast.Node]map[string][]stagedStream, len(staged))
+	cloned := make(map[NodeRef]map[string][]stagedStream, len(staged))
 	for node, pins := range staged {
 		clonedPins := make(map[string][]stagedStream, len(pins))
 		for pin, entries := range pins {
@@ -801,11 +801,11 @@ func cloneStaged(staged map[ast.Node]map[string][]stagedStream) map[ast.Node]map
 	return cloned
 }
 
-func cloneNested(nested map[ast.Node][]nestedDelivery) map[ast.Node][]nestedDelivery {
+func cloneNested(nested map[NodeRef][]nestedDelivery) map[NodeRef][]nestedDelivery {
 	if nested == nil {
 		return nil
 	}
-	cloned := make(map[ast.Node][]nestedDelivery, len(nested))
+	cloned := make(map[NodeRef][]nestedDelivery, len(nested))
 	for node, deliveries := range nested {
 		cloned[node] = slices.Clone(deliveries)
 	}

@@ -321,7 +321,7 @@ func (tr *TraceRecorder) recordActionStep(step int, tokens []Token) {
 	// Format: step N: token T1@node1, token T2@node2
 	var parts []string
 	for _, t := range sorted {
-		nodeName := nodeIdentifier(t.Location)
+		nodeName := nodeIdentifier(t.Node())
 		parts = append(parts, fmt.Sprintf("token %d@%s", t.ID, nodeName))
 	}
 
@@ -488,7 +488,7 @@ func (tr *TraceRecorder) recordActionTerminate(perf string, dropped []Token) {
 	}
 	parts := make([]string, 0, len(dropped))
 	for _, t := range dropped {
-		parts = append(parts, fmt.Sprintf("token %d@%s", t.ID, nodeIdentifier(t.Location)))
+		parts = append(parts, fmt.Sprintf("token %d@%s", t.ID, nodeIdentifier(t.Node())))
 	}
 	tr.line(fmt.Sprintf("terminate %s: dropped %s", perf, strings.Join(parts, ", ")))
 }
