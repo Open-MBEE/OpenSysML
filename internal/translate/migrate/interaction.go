@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/xmi/sysmlv1"
+	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
 const (
@@ -14,6 +15,27 @@ const (
 	stateInvariantCondition = "the state invariant's condition ["
 	refersToWord            = "refers to "
 )
+
+func inheritedOccurrenceNames() map[string]bool {
+	idx := libs.SharedBase()
+	names, seen := map[string]bool{}, map[string]bool{}
+	queue := []string{"Occurrences::Occurrence"}
+	for len(queue) > 0 {
+		t := queue[0]
+		queue = queue[1:]
+		if seen[t] {
+			continue
+		}
+		seen[t] = true
+		for _, member := range idx.LookupDirectChildrenFrom(t, "") {
+			if member.Name != "" {
+				names[member.Name] = true
+			}
+		}
+		queue = append(queue, librarySupers(idx, t)...)
+	}
+	return names
+}
 
 // scenario is an interaction resolved to the steps its v2 form performs in
 // occurrence order: signal sends, operation calls, replies and combined fragments.
@@ -171,7 +193,7 @@ func (m *migration) scenario(e *sysmlv1.Element, self string) (*scenario, string
 		m: m, e: e, context: context, self: self,
 		order:      map[*sysmlv1.Element]int{},
 		lines:      map[*sysmlv1.Element]*lifelineRef{},
-		used:       map[string]bool{},
+		used:       inheritedOccurrenceNames(),
 		placed:     map[*sysmlv1.Element]bool{},
 		unwritten:  map[*sysmlv1.Element]string{},
 		uses:       map[*sysmlv1.Element]*scenarioStep{},
@@ -1278,6 +1300,9 @@ func (s *scenario) writeSequence() {
 		ref := s.lines[line]
 		s.writeLifeline(ref)
 		s.m.names[line] = ref.name
+		if ref.rep.Parent == s.e {
+			s.m.names[ref.rep] = ref.name
+		}
 		note := "written as the " + strings.TrimSpace(ref.prefix+ref.kw) + " usage " + ref.name + " holding its " + plural(len(ref.events), "event occurrence")
 		switch {
 		case ref.bound != "":
