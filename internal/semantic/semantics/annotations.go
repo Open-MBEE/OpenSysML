@@ -1726,6 +1726,8 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			return nil, false
 		}
 		return m.connectorRelatedFeatures(sym, feature), true
+	case "source", "target", "relatedElement":
+		return m.declaredRelationshipEnds(sym, feature)
 	case "ownedRelatedElement", "owningRelatedElement":
 		// A declared connector or association relates features and types it does not own;
 		// its own owner is a membership's.

@@ -386,11 +386,13 @@ func (m *Model) relationshipMemberEnds(sym *symbols.Symbol) (src, tgt *symbols.S
 	if scope == nil {
 		scope = sym.Scope
 	}
-	if resolved, ok := m.resolver.ResolveTarget(scope, member.Source); ok {
-		src = resolved
-	}
-	// A chain target names an implicit chaining feature the model has no
+	// A chain end names an implicit chaining feature the model has no
 	// element for, so the end stays unresolved and its features stay underived.
+	if !ast.IsFeatureChain(member.Source) {
+		if resolved, ok := m.resolver.ResolveTarget(scope, member.Source); ok {
+			src = resolved
+		}
+	}
 	if !ast.IsFeatureChain(member.Target) {
 		if resolved, ok := m.resolver.ResolveTarget(scope, member.Target); ok {
 			tgt = resolved
@@ -499,7 +501,7 @@ func (m *Model) implicitRelationshipElements(sym *symbols.Symbol, feature string
 // derivations to answer instead.
 func (m *Model) relationshipMemberElements(sym *symbols.Symbol, rel symbols.RelationshipDecl, feature string) (elems []*symbols.Symbol, derived bool) {
 	meta := relationshipMetaclassName(rel)
-	if !specializationMetaclassNames[meta] && meta != "Conjugation" {
+	if meta == "" {
 		return nil, false
 	}
 	src, tgt := m.relationshipMemberEnds(sym)
@@ -528,7 +530,7 @@ func (m *Model) relationshipMemberElements(sym *symbols.Symbol, rel symbols.Rela
 		}
 		return append(append([]*symbols.Symbol{}, source...), target...), true
 	case "owningRelatedElement", "ownedRelatedElement",
-		"owningType", "owningClassifier", "owningFeature":
+		"owningType", "owningClassifier", "owningFeature", "owningFeatureOfType":
 		return []*symbols.Symbol{}, true
 	}
 	srcEnd, tgtEnd := relationshipEndFeature(meta, feature)
@@ -548,6 +550,30 @@ func (m *Model) relationshipMemberElements(sym *symbols.Symbol, rel symbols.Rela
 			return nil, false
 		}
 		return source, true
+	}
+	return nil, false
+}
+
+// connectorEndFeatures are the Connector features redefining Relationship's
+// source, target and relatedElement (KerML 8.3.4.5.3).
+var connectorEndFeatures = map[string]string{
+	"source": "sourceFeature", "target": "targetFeature", "relatedElement": "relatedFeature",
+}
+
+// declaredRelationshipEnds reads Relationship::source, target and relatedElement of a declared
+// connector or dependency, whose own ends redefine them (KerML 8.3.4.5.3, 8.3.2.2.2).
+func (m *Model) declaredRelationshipEnds(sym *symbols.Symbol, feature string) ([]*symbols.Symbol, bool) {
+	if dep, ok := sym.Decl.(*ast.Dependency); ok {
+		switch feature {
+		case "source":
+			return m.dependencyEnds(sym, dep.Clients), true
+		case "target":
+			return m.dependencyEnds(sym, dep.Suppliers), true
+		}
+		return append(m.dependencyEnds(sym, dep.Clients), m.dependencyEnds(sym, dep.Suppliers)...), true
+	}
+	if m.reflectiveMetaclassConforms(sym, "Connector") {
+		return m.ReflectiveElements(sym, connectorEndFeatures[feature])
 	}
 	return nil, false
 }
