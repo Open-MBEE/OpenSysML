@@ -241,7 +241,7 @@ internal static class EditWire
         {
             if (response.Content.Length > 0 || response.Documents.Count > 0 || response.Applied.Count > 0)
             {
-                throw Malformed(method, "a refusal beside edited notation, which a refusal never carries");
+                throw TransportException.Malformed(method, "a refusal beside edited notation, which a refusal never carries");
             }
 
             throw new EditException(
@@ -255,12 +255,12 @@ internal static class EditWire
 
         if (response.Failure != Wire.EditFailure.Unspecified)
         {
-            throw Malformed(method, $"the refusal kind {response.Failure} without the refusal it names");
+            throw TransportException.Malformed(method, $"the refusal kind {response.Failure} without the refusal it names");
         }
 
         if (response.ReferringElements.Count > 0 || response.Referrers.Count > 0)
         {
-            throw Malformed(method, "the declarations referring to a refused edit's target, though it refused nothing");
+            throw TransportException.Malformed(method, "the declarations referring to a refused edit's target, though it refused nothing");
         }
 
         var names = DocumentNames(response.Documents, method);
@@ -268,12 +268,12 @@ internal static class EditWire
         var single = documentCount is { } count ? count == 1 : !editsDocuments || response.Content.Length > 0;
         if (!single && response.Content.Length > 0)
         {
-            throw Malformed(method, "notation in content for a model of several documents, whose notation is in documents alone");
+            throw TransportException.Malformed(method, "notation in content for a model of several documents, whose notation is in documents alone");
         }
 
         if (single && response.Documents.Count > 0 && (response.Documents.Count > 1 || response.Documents[0].Content != response.Content))
         {
-            throw Malformed(method, "documents other than the one document of a single-document model, whose notation content repeats");
+            throw TransportException.Malformed(method, "documents other than the one document of a single-document model, whose notation content repeats");
         }
 
         return new EditResult(
@@ -293,12 +293,12 @@ internal static class EditWire
             var name = documents[i].Name;
             if (name.Length == 0)
             {
-                throw Malformed(method, $"documents[{i}] without its name, which every edited document is given");
+                throw TransportException.Malformed(method, $"documents[{i}] without its name, which every edited document is given");
             }
 
             if (!names.Add(name))
             {
-                throw Malformed(method, $"documents[{i}] repeating the document \"{name}\"");
+                throw TransportException.Malformed(method, $"documents[{i}] repeating the document \"{name}\"");
             }
         }
 
@@ -309,17 +309,17 @@ internal static class EditWire
     {
         if (edit.OperationIndex < 0 || edit.OperationIndex >= operations)
         {
-            throw Malformed(method, $"applied[{i}] for edit {edit.OperationIndex}, which a batch of {operations} has none of");
+            throw TransportException.Malformed(method, $"applied[{i}] for edit {edit.OperationIndex}, which a batch of {operations} has none of");
         }
 
         if (edit.Offset < 0 || edit.Length < 0)
         {
-            throw Malformed(method, $"applied[{i}] at offset {edit.Offset} for {edit.Length} bytes, which no document has");
+            throw TransportException.Malformed(method, $"applied[{i}] at offset {edit.Offset} for {edit.Length} bytes, which no document has");
         }
 
         if (edit.Document.Length > 0 && documents.Count > 0 && !documents.Contains(edit.Document))
         {
-            throw Malformed(method, $"applied[{i}] in the document \"{edit.Document}\", which documents does not list");
+            throw TransportException.Malformed(method, $"applied[{i}] in the document \"{edit.Document}\", which documents does not list");
         }
 
         return new AppliedEdit(edit.OperationIndex, edit.Target, edit.Offset, edit.Length, edit.OldText, edit.NewText, edit.Document.Length > 0 ? edit.Document : null);
@@ -410,7 +410,4 @@ internal static class EditWire
                 $"The {edit.GetType().Name} at {at} sets {property} to empty text, which the service reads as none; leave it null to write none.");
         }
     }
-
-    private static TransportException Malformed(string method, string what) =>
-        new(StatusCode.Internal, $"{method} answered {what}.", method);
 }

@@ -18,7 +18,7 @@ internal static class QueryWire
     /// <exception cref="TransportException">An element names no id or no type.</exception>
     internal static QueryResult Result(Wire.QueryResponse response, string method) =>
         new(response.Elements.Select((element, i) => element.Id.Length == 0 || element.Type.Length == 0
-            ? throw new TransportException(StatusCode.Internal, $"{method} answered elements[{i}] with no {(element.Id.Length == 0 ? "id" : "type")}, which every selected element reports.", method)
+            ? throw TransportException.Malformed(method, $"elements[{i}] with no {(element.Id.Length == 0 ? "id" : "type")}, which every selected element reports")
             : new QueryElement(element.Id, element.Type, element.Properties)));
 
     private static Wire.Constraint ToWire(QueryConstraint constraint) => constraint switch

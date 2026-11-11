@@ -53,7 +53,7 @@ public sealed partial class Model
 
         if (response.Result is null && response.Outputs.Count == 0)
         {
-            throw new TransportException(StatusCode.Internal, $"{EvaluateCalcMethod} answered neither a value nor a failure for {symbolId}.", EvaluateCalcMethod);
+            throw TransportException.Malformed(EvaluateCalcMethod, $"neither a value nor a failure for {symbolId}");
         }
 
         return new Calculation(

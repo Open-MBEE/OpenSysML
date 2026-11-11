@@ -108,7 +108,7 @@ public sealed partial class Model
         (DocumentForm Form, string Content)[] answered = [(DocumentForm.Markdown, response.Markdown), (DocumentForm.Html, response.Html), (DocumentForm.AsciiDoc, response.Asciidoc)];
         if (answered.Any(each => each.Form != form && each.Content.Length > 0))
         {
-            throw new TransportException(StatusCode.Internal, $"{RenderDocumentMethod} answered the document in a form other than {form}, which was asked for.", RenderDocumentMethod);
+            throw TransportException.Malformed(RenderDocumentMethod, $"the document in a form other than {form}, which was asked for");
         }
 
         return new RenderedDocument(form, answered.Single(each => each.Form == form).Content, response.FileName.Length > 0 ? response.FileName : null);

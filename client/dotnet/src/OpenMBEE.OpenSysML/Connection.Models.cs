@@ -225,7 +225,7 @@ public sealed partial class Connection
 
         if (modelHash.Length == 0)
         {
-            throw new TransportException(StatusCode.Internal, $"{method} answered neither a model hash nor a failure.", method);
+            throw TransportException.Malformed(method, "neither a model hash nor a failure");
         }
     }
 

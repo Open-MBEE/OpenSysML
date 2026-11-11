@@ -78,7 +78,7 @@ internal static class ModelWire
     {
         if (response.Element is not { } element)
         {
-            throw new TransportException(StatusCode.Internal, $"{method} answered neither an element nor a failure.", method);
+            throw TransportException.Malformed(method, "neither an element nor a failure");
         }
 
         return new ElementProperties(
@@ -104,7 +104,7 @@ internal static class ModelWire
                     root.SymbolId,
                     path.Path,
                     path.Steps.Select(step => new InstancePathStep(step.FeatureName, step.FeatureSymbolId, step.Index, step.InstanceId)))
-                : throw new TransportException(StatusCode.Internal, $"{method} answered a path at paths[{i}] that names no root.", method)),
+                : throw TransportException.Malformed(method, $"a path at paths[{i}] that names no root")),
             response.Truncated);
 
     private static ElementRef ElementRef(Wire.ElementRef element) => new(element.Id, element.QualifiedName, element.Metaclass);

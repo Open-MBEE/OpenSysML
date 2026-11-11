@@ -550,7 +550,7 @@ internal static class ValueWire
         new() { Numerator = Digits(rational.Numerator), Denominator = Digits(rational.Denominator) };
 
     private static TransportException Malformed(string method, string path, string reason, Exception? cause = null) =>
-        new(StatusCode.Internal, $"The service answered a malformed value at {path}: {reason}.", method, cause);
+        TransportException.Malformed(method, $"a malformed value at {path}: {reason}", cause);
 
     private static UnsupportedValueException Unsupported(Wire.Value value, string method, string path)
     {

@@ -179,7 +179,7 @@ public sealed partial class Model
 
         if (response.Summary is null)
         {
-            throw new TransportException(StatusCode.Internal, $"{ValidateInstanceMethod} answered neither a summary nor a failure for {symbolId}.", ValidateInstanceMethod);
+            throw TransportException.Malformed(ValidateInstanceMethod, $"neither a summary nor a failure for {symbolId}");
         }
 
         return new Validation(
@@ -240,7 +240,7 @@ public sealed partial class Model
 
         if (verdict is null)
         {
-            throw new TransportException(StatusCode.Internal, $"{method} answered neither a verdict nor a failure.", method);
+            throw TransportException.Malformed(method, "neither a verdict nor a failure");
         }
 
         return new Verification(VerificationWire.Verdict(verdict, method, "verdict"), cases, objects, read);
@@ -261,7 +261,7 @@ public sealed partial class Model
         {
             if (set)
             {
-                throw new TransportException(StatusCode.Internal, $"{method} answered a failure beside {field}, which only an answer reports.", method);
+                throw TransportException.Malformed(method, $"a failure beside {field}, which only an answer reports");
             }
         }
     }

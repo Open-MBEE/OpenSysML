@@ -113,7 +113,7 @@ public sealed class ValueReadTests
 
         Assert.Equal(StatusCode.Internal, failure.StatusCode);
         Assert.Equal("sysml.SysMLService/EvaluateCalc", failure.Method);
-        Assert.Equal("The service answered a malformed value at result.sequence[1].set[0]: the infinity arm states no value unless it is true.", failure.Message);
+        Assert.Equal("sysml.SysMLService/EvaluateCalc answered a malformed value at result.sequence[1].set[0]: the infinity arm states no value unless it is true.", failure.Message);
     }
 
     [Fact]
@@ -128,7 +128,7 @@ public sealed class ValueReadTests
         Malformed(new Wire.Value { TensorQuantity = new Wire.TensorQuantity { Dimensions = { 0 } } }, "result");
         Malformed(new Wire.Value { VectorQuantity = new Wire.VectorQuantity() }, "result");
 
-        Assert.Equal("The service answered a malformed value at result: An array of dimensions [2, 2] holds 3 elements, not 4.", Malformed(new Wire.Value { Array = new Wire.Array { Dimensions = { 2, 2 }, Elements = { Ints(3) } } }, "result").Message);
+        Assert.Equal($"{Method} answered a malformed value at result: An array of dimensions [2, 2] holds 3 elements, not 4.", Malformed(new Wire.Value { Array = new Wire.Array { Dimensions = { 2, 2 }, Elements = { Ints(3) } } }, "result").Message);
         Assert.Equal(new Value.ArrayValue([], [new Value.IntegerValue(0)]), Read(new Wire.Value { Array = new Wire.Array { Elements = { Ints(1) } } }));
     }
 
@@ -247,7 +247,7 @@ public sealed class ValueReadTests
         Assert.Equal(["a", "b"], ValueWire.FromWire(map, Method, "outputs").Keys);
         repeated.Add(new Wire.Value { Unset = false });
         map["c"] = new Wire.Value();
-        Assert.Equal("The service answered a malformed value at arguments[2]: the unset arm states no value unless it is true.", Assert.Throws<TransportException>(() => ValueWire.FromWire(repeated, Method, "arguments")).Message);
+        Assert.Equal($"{Method} answered a malformed value at arguments[2]: the unset arm states no value unless it is true.", Assert.Throws<TransportException>(() => ValueWire.FromWire(repeated, Method, "arguments")).Message);
         Assert.Equal("outputs[\"c\"]", Assert.Throws<UnsupportedValueException>(() => ValueWire.FromWire(map, Method, "outputs")).Path);
     }
 
@@ -270,7 +270,7 @@ public sealed class ValueReadTests
     {
         var failure = Assert.Throws<TransportException>(() => Read(value));
         Assert.Equal(StatusCode.Internal, failure.StatusCode);
-        Assert.StartsWith($"The service answered a malformed value at {path}: ", failure.Message, StringComparison.Ordinal);
+        Assert.StartsWith($"{Method} answered a malformed value at {path}: ", failure.Message, StringComparison.Ordinal);
         return failure;
     }
 

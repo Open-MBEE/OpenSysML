@@ -69,7 +69,7 @@ internal static class GraphDataWire
     {
         if (response.Content.Length == 0 || response.Version <= 0 || response.Subject.Length == 0)
         {
-            throw Malformed(method, $"a graph form of version {response.Version} for the subject \"{response.Subject}\" in {response.Content.Length} characters, though every export is a form of a positive version naming its subject");
+            throw TransportException.Malformed(method, $"a graph form of version {response.Version} for the subject \"{response.Subject}\" in {response.Content.Length} characters, though every export is a form of a positive version naming its subject");
         }
 
         return new Graphs(response.Content, response.Version, response.Subject);
@@ -104,7 +104,7 @@ internal static class GraphDataWire
         {
             if (response.Files.Count > 0 || response.Documents.Count > 0 || response.Content.Length > 0 || response.ModelHash.Length > 0)
             {
-                throw Malformed(method, "a refused import beside what it set or the model it made, which a refusal never carries: the model is as it was");
+                throw TransportException.Malformed(method, "a refused import beside what it set or the model it made, which a refusal never carries: the model is as it was");
             }
 
             throw new ModelException(response.Error, method, diagnostics);
@@ -112,7 +112,7 @@ internal static class GraphDataWire
 
         if (response.Files.Count != imports.Count)
         {
-            throw Malformed(method, $"{response.Files.Count} data file(s) for an import of {imports.Count}, which is answered one per file in import order");
+            throw TransportException.Malformed(method, $"{response.Files.Count} data file(s) for an import of {imports.Count}, which is answered one per file in import order");
         }
 
         var files = response.Files.Select((file, i) => File(file, i, imports[i], method)).ToList();
@@ -120,7 +120,7 @@ internal static class GraphDataWire
         {
             if (response.ModelHash.Length > 0 || response.Content.Length > 0 || response.Documents.Count > 0)
             {
-                throw Malformed(method, "a model, notation or documents for a dry run, which changes nothing");
+                throw TransportException.Malformed(method, "a model, notation or documents for a dry run, which changes nothing");
             }
 
             return new ImportResult(files, null, [], null, diagnostics);
@@ -128,30 +128,30 @@ internal static class GraphDataWire
 
         if (response.ModelHash.Length == 0)
         {
-            throw Malformed(method, "neither the imported model's hash nor a refusal");
+            throw TransportException.Malformed(method, "neither the imported model's hash nor a refusal");
         }
 
         EditWire.DocumentNames(response.Documents, method);
         if (response.ModelHash == modelHash && (response.Content.Length > 0 || response.Documents.Count > 0))
         {
-            throw Malformed(method, "edited notation for the model imported into, under its own hash, which an import that changed nothing answers");
+            throw TransportException.Malformed(method, "edited notation for the model imported into, under its own hash, which an import that changed nothing answers");
         }
 
         if (response.Content.Length > 0)
         {
             if (documentCount is > 1)
             {
-                throw Malformed(method, "notation in content for a model of several documents, whose notation is in documents alone");
+                throw TransportException.Malformed(method, "notation in content for a model of several documents, whose notation is in documents alone");
             }
 
             if (response.Documents.Count > 1 || (response.Documents.Count == 1 && response.Documents[0].Content != response.Content))
             {
-                throw Malformed(method, "documents other than the one document of a single-document model, whose notation content repeats");
+                throw TransportException.Malformed(method, "documents other than the one document of a single-document model, whose notation content repeats");
             }
         }
         else if (documentCount == 1 && response.Documents.Count > 0)
         {
-            throw Malformed(method, "the edited document of a single-document model without its notation in content");
+            throw TransportException.Malformed(method, "the edited document of a single-document model without its notation in content");
         }
 
         return new ImportResult(
@@ -180,7 +180,7 @@ internal static class GraphDataWire
 
         if (response.FailureReason != Wire.FailureReason.Unspecified)
         {
-            throw Malformed(method, $"the failure kind {response.FailureReason} without the failure it names");
+            throw TransportException.Malformed(method, $"the failure kind {response.FailureReason} without the failure it names");
         }
 
         return read;
@@ -190,12 +190,12 @@ internal static class GraphDataWire
     {
         if (file.Name != sent.Name)
         {
-            throw Malformed(method, $"files[{i}] for \"{file.Name}\", though the data file imports[{i}] sent is \"{sent.Name}\"");
+            throw TransportException.Malformed(method, $"files[{i}] for \"{file.Name}\", though the data file imports[{i}] sent is \"{sent.Name}\"");
         }
 
         if (file.Values < 0 || file.Elements < 0)
         {
-            throw Malformed(method, $"files[{i}] setting {file.Values} value(s) on {file.Elements} element(s), which no import counts");
+            throw TransportException.Malformed(method, $"files[{i}] setting {file.Values} value(s) on {file.Elements} element(s), which no import counts");
         }
 
         return new ImportedFile(
@@ -254,7 +254,4 @@ internal static class GraphDataWire
         distribution is null
             ? null
             : new(distribution.Count, distribution.Min, distribution.Mean, distribution.P50, distribution.P90, distribution.Max, distribution.Deviation);
-
-    private static TransportException Malformed(string method, string what) =>
-        new(StatusCode.Internal, $"{method} answered {what}.", method);
 }

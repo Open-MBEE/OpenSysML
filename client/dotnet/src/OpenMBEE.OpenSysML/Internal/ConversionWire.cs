@@ -26,7 +26,7 @@ internal static class ConversionWire
 
         if (response.FromFormat.Length == 0 || response.ToFormat.Length == 0)
         {
-            throw new TransportException(StatusCode.Internal, $"{method} answered neither the formats of a conversion nor a failure.", method);
+            throw TransportException.Malformed(method, "neither the formats of a conversion nor a failure");
         }
 
         return new Conversion(
@@ -61,7 +61,7 @@ internal static class ConversionWire
 
         if (response.Report is not { } report || response.FromFormat.Length == 0 || response.ToFormat.Length == 0)
         {
-            throw new TransportException(StatusCode.Internal, $"{method} answered neither a migration with its formats and report nor a failure.", method);
+            throw TransportException.Malformed(method, "neither a migration with its formats and report nor a failure");
         }
 
         return new Migration(
@@ -98,7 +98,7 @@ internal static class ConversionWire
     {
         if (!experimental && notice.Length > 0)
         {
-            throw new TransportException(StatusCode.Internal, $"{method} answered an experimental notice for a result it did not mark experimental.", method);
+            throw TransportException.Malformed(method, "an experimental notice for a result it did not mark experimental");
         }
     }
 
@@ -109,7 +109,7 @@ internal static class ConversionWire
         {
             if (set)
             {
-                throw new TransportException(StatusCode.Internal, $"{method} answered a failure beside {field}, which only an answer reports.", method);
+                throw TransportException.Malformed(method, $"a failure beside {field}, which only an answer reports");
             }
         }
     }

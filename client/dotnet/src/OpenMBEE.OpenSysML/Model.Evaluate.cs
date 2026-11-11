@@ -95,7 +95,7 @@ public sealed partial class Model
 
         if (response.Result is null)
         {
-            throw new TransportException(StatusCode.Internal, $"{EvaluateMethod} answered neither a value nor a failure for {expression}.", EvaluateMethod);
+            throw TransportException.Malformed(EvaluateMethod, $"neither a value nor a failure for {expression}");
         }
 
         return new Evaluation(ValueWire.FromWire(response.Result, EvaluateMethod, "result"), diagnostics);
@@ -125,7 +125,7 @@ public sealed partial class Model
 
         if (response.Instance is null)
         {
-            throw new TransportException(StatusCode.Internal, $"{InstantiateMethod} answered neither an instance nor a failure for {symbolId}.", InstantiateMethod);
+            throw TransportException.Malformed(InstantiateMethod, $"neither an instance nor a failure for {symbolId}");
         }
 
         var root = ModelWire.Instance(response.Instance, InstantiateMethod, "instance");

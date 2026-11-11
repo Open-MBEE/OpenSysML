@@ -95,5 +95,5 @@ internal static class ViewWire
         style is null ? null : new ViewStyle(style.Fill, style.Line, style.Text, style.Font, style.FontSize, style.Bold, style.Italic);
 
     private static TransportException Malformed(string method, string reason) =>
-        new(StatusCode.Internal, $"{method} answered a malformed rendering: {reason}.", method);
+        TransportException.Malformed(method, $"a malformed rendering: {reason}");
 }

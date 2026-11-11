@@ -175,7 +175,7 @@ public sealed partial class Model
 
         if (response.Status.Length == 0)
         {
-            throw new TransportException(StatusCode.Internal, $"{SelfCheckMethod} answered neither a status nor a failure.", SelfCheckMethod);
+            throw TransportException.Malformed(SelfCheckMethod, "neither a status nor a failure");
         }
 
         return RunsWire.SelfCheck(response);
@@ -254,7 +254,7 @@ public sealed partial class Model
             Unanswered(RecordRunMethod, ("content", response.Content.Length > 0), ("documents", response.Documents.Count > 0), ("model_hash", response.ModelHash.Length > 0));
             if (ranError.Length > 0 && (ranError != response.Error || ranReason != response.FailureReason))
             {
-                throw new TransportException(StatusCode.Internal, $"{RecordRunMethod} answered a failure of its runs that is not the failure it reported.", RecordRunMethod);
+                throw TransportException.Malformed(RecordRunMethod, "a failure of its runs that is not the failure it reported");
             }
 
             throw new RecordException(
@@ -276,12 +276,12 @@ public sealed partial class Model
 
         if (ranError.Length > 0)
         {
-            throw new TransportException(StatusCode.Internal, $"{RecordRunMethod} answered a recording beside a failure of the runs it recorded.", RecordRunMethod);
+            throw TransportException.Malformed(RecordRunMethod, "a recording beside a failure of the runs it recorded");
         }
 
         if (response.ModelHash.Length == 0 || (run is null && sweep is null && sample is null))
         {
-            throw new TransportException(StatusCode.Internal, $"{RecordRunMethod} answered neither a recorded model with the runs it recorded nor a failure.", RecordRunMethod);
+            throw TransportException.Malformed(RecordRunMethod, "neither a recorded model with the runs it recorded nor a failure");
         }
 
         return new Recording(
@@ -312,7 +312,7 @@ public sealed partial class Model
 
         if (read.Rows.IsEmpty)
         {
-            throw new TransportException(StatusCode.Internal, $"{RunRunsMethod} answered neither a run nor a failure.", RunRunsMethod);
+            throw TransportException.Malformed(RunRunsMethod, "neither a run nor a failure");
         }
 
         return read;
@@ -337,7 +337,7 @@ public sealed partial class Model
         {
             if (run.Outcomes.Count > 0 || run.Exploration is not null)
             {
-                throw new TransportException(StatusCode.Internal, $"{RecordRunMethod} answered a recorded run with an exploration's outcomes or status.", RecordRunMethod);
+                throw TransportException.Malformed(RecordRunMethod, "a recorded run with an exploration's outcomes or status");
             }
 
             return (VerificationWire.Analysis(run, RecordRunMethod, "run"), null, null, run.Error, run.FailureReason);

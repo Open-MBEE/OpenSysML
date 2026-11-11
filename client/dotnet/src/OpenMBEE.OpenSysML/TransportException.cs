@@ -23,4 +23,8 @@ public class TransportException : CallException
         : base(statusCode, message, method, innerException)
     {
     }
+
+    // An answer that does not read as its schema says, which the service would not send: "{method} answered {what}."
+    internal static TransportException Malformed(string method, string what, Exception? cause = null) =>
+        new(StatusCode.Internal, $"{method} answered {what}.", method, cause);
 }

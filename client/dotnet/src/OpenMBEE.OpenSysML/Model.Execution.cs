@@ -365,7 +365,7 @@ public sealed partial class Model
 
         if (response.Verdict.Length == 0)
         {
-            throw new TransportException(StatusCode.Internal, $"{CheckBehaviorMethod} answered neither a verdict nor a failure.", CheckBehaviorMethod);
+            throw TransportException.Malformed(CheckBehaviorMethod, "neither a verdict nor a failure");
         }
 
         return result;
@@ -444,20 +444,20 @@ public sealed partial class Model
         {
             if (exploration is null)
             {
-                throw new TransportException(StatusCode.Internal, $"{method} answered an exploring schedule with no exploration status.", method);
+                throw TransportException.Malformed(method, "an exploring schedule with no exploration status");
             }
 
             foreach (var (field, set) in run)
             {
                 if (set)
                 {
-                    throw new TransportException(StatusCode.Internal, $"{method} answered an exploring schedule with {field}, which only one run reports.", method);
+                    throw TransportException.Malformed(method, $"an exploring schedule with {field}, which only one run reports");
                 }
             }
         }
         else if (exploration is not null || outcomes > 0)
         {
-            throw new TransportException(StatusCode.Internal, $"{method} answered one run with an exploration's outcomes or status.", method);
+            throw TransportException.Malformed(method, "one run with an exploration's outcomes or status");
         }
     }
 }
