@@ -149,7 +149,8 @@ internal sealed class GrpcTransport : ITransport
 
         var requestFailure = Causes.Find<HttpRequestException>(cause);
         var protocolFailure = Causes.Find<HttpProtocolException>(cause);
-        var negotiationFailed = requestFailure?.HttpRequestError == HttpRequestError.VersionNegotiationError;
+        var requestError = Causes.RequestError(cause);
+        var negotiationFailed = requestError == HttpRequestError.VersionNegotiationError;
 
         // Malformed responses and failed HTTP/2 negotiation are INTERNAL, regardless of the library's status.
         if (Causes.Find<InvalidProtocolBufferException>(cause) is not null || negotiationFailed)
@@ -158,11 +159,7 @@ internal sealed class GrpcTransport : ITransport
         }
 
         // gRPC makes a connection that could not be established UNAVAILABLE; the library says Internal for some, as a failed TLS handshake.
-        if (requestFailure is
-            {
-                HttpRequestError: HttpRequestError.NameResolutionError or HttpRequestError.ConnectionError
-                    or HttpRequestError.SecureConnectionError or HttpRequestError.ProxyTunnelError,
-            })
+        if (Causes.Unreachable(requestError))
         {
             status = StatusCode.Unavailable;
         }

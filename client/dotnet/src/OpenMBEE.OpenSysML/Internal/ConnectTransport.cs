@@ -201,22 +201,6 @@ internal sealed class ConnectTransport : ITransport
     private static bool IsUndecodable(Exception error) =>
         error is InvalidProtocolBufferException or InvalidJsonException or InvalidDataException or DecoderFallbackException;
 
-    private static HttpRequestError? RequestError(Exception error)
-    {
-        for (Exception? cause = error; cause is not null; cause = cause.InnerException)
-        {
-            switch (cause)
-            {
-                case HttpRequestException request:
-                    return request.HttpRequestError;
-                case HttpIOException io:
-                    return io.HttpRequestError;
-            }
-        }
-
-        return null;
-    }
-
     private static SocketsHttpHandler CreateHandler() => new()
     {
         PooledConnectionLifetime = TimeSpan.FromMinutes(5),
@@ -313,11 +297,14 @@ internal sealed class ConnectTransport : ITransport
         }
 
         var unknown = $"{Causes.Innermost(error).Message} Whether the service received the call is unknown.";
-        switch (RequestError(error))
+        var requestError = Causes.RequestError(error);
+        if (Causes.Unreachable(requestError))
         {
-            case HttpRequestError.NameResolutionError or HttpRequestError.ConnectionError
-                or HttpRequestError.SecureConnectionError or HttpRequestError.ProxyTunnelError:
-                return (StatusCode.Unavailable, $"{Address} could not be reached: {unknown}");
+            return (StatusCode.Unavailable, $"{Address} could not be reached: {unknown}");
+        }
+
+        switch (requestError)
+        {
             case HttpRequestError.InvalidResponse or HttpRequestError.HttpProtocolError
                 or HttpRequestError.VersionNegotiationError or HttpRequestError.ConfigurationLimitExceeded:
                 return (StatusCode.Internal, $"{Address} did not answer as an HTTP/1.1 endpoint: {unknown}");
