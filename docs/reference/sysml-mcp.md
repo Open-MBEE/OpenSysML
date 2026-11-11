@@ -438,6 +438,7 @@ interleave rather than collide; agents that want sessions of their own give them
 sysml-mcp -http 8765                                              # http://localhost:8765/mcp, this machine only
 sysml-mcp -http 0.0.0.0:8765 -token-file mcp.token -tls-cert server.crt -tls-key server.key
 sysml-mcp -http 0.0.0.0:8765 -token-file mcp.token -allow-origin https://agents.example.org
+sysml-mcp -http 0.0.0.0:8765 -api-keys keys.jsonl -tls-cert server.crt -tls-key server.key  # a key per caller
 ```
 
 The stance is the one [`sysml-grpc`](service-transports.md) takes for TLS and origins, with the
@@ -456,6 +457,8 @@ authentication the Model Context Protocol asks of a server on a network:
   flag is given. Starting on an address other machines reach (`0.0.0.0:8765`, a host name) with no
   token is refused with exit status 2 and a message naming the flags — not served with a warning.
   A token given for a loopback address is enforced the same way, for a machine shared with others.
+  A file of [API keys](#api-keys) (`-api-keys FILE`) is a credential as well, alone or beside the
+  token: a key is tried first, by its `osk_` prefix, and any other bearer token against the token.
 - **Every request carries the token** as `Authorization: Bearer TOKEN` (RFC 6750 § 2.1, the only
   form the protocol allows; a token in the query string is never read). The comparison is
   constant-time. A request without it is refused with `401 Unauthorized` and a
@@ -472,7 +475,7 @@ authentication the Model Context Protocol asks of a server on a network:
   client reached it and `bearer_methods_supported: ["header"]`, with no `authorization_servers`
   to list — so a client following the challenge learns that the token is preconfigured rather
   than obtained by a flow. An authorization server that issues tokens by OAuth 2.1 (user consent,
-  scopes, expiry) is a proxy's job in front of the server, as it is for `sysml-grpc`. Behind a
+  scopes, expiry) is named with `-oidc-issuer`, under [Single sign-on](#single-sign-on). Behind a
   proxy that terminates TLS or rewrites the path, a request no longer shows the URL the client
   used, so `-public-url https://models.example.org/mcp` names it: the challenge, the metadata
   and the `-print-config` block then carry that URL rather than the request's own scheme and
@@ -515,6 +518,119 @@ server already running rather than starting one, and with the server's token (`-
 in a file the host reads privately — a user-level configuration, or a project file kept out of
 version control — or is edited to the host's own reference to a secret where it has one.
 
+## API keys
+
+A service with several callers — people, CI jobs, other agents — needs a credential per caller that
+can be revoked alone, which one shared token is not. `sysml-mcp` mints and revokes **API keys** in a
+file; the file is the server's key store.
+
+```bash
+sysml-mcp -mint-api-key -api-keys keys.jsonl -subject alice@example.org -scopes sysml:read,sysml:write -expires 720h
+sysml-mcp -revoke-api-key Jf3kQ9pLmN2x -api-keys keys.jsonl
+```
+
+- **The key** is `osk_<id>.<secret>`: the `osk_` prefix tells it from any other bearer token, the id
+  (12 characters) names its record, and the secret is 32 random bytes in base64url. It is printed
+  **once**, to stdout alone, when minted; store it where a token belongs (a secret store, a CI
+  variable, a file only its user reads). The file never holds it, so a copy of the file does not
+  give a key away, and a key that is lost is minted again rather than recovered.
+- **The file** is one JSON object per line (JSON Lines), `{"id", "sha256", "subject", "scopes",
+  "expires", "disabled"}`: the SHA-256 of the secret in hex, the subject the key speaks for, the
+  scopes it grants, its expiry (RFC 3339, whole seconds, absent for a key that does not expire)
+  and whether it is disabled. Minting appends a line; the file is created with mode `0600` and
+  kept so. A line that is not a record, a scope that is not an RFC 6749 scope token, or an id
+  held twice fails the file at that line, and the file is not edited.
+- **Rotation and revocation.** `-revoke-api-key ID` marks the record disabled — the line stays,
+  so the subject and the history are kept — and a server reading the file refuses the key from
+  its next look at the file. To rotate, mint the subject a new key, move the caller to it, then
+  revoke the old id. A key past its `expires` is refused as expired without being revoked. Two
+  edits at once wait for each other through a `keys.jsonl.lock` beside the file; one left by a
+  process that died is named for removal.
+- **Scopes** are the RFC 6749 § 3.3 scope tokens the key grants (printable ASCII without spaces,
+  quotes or backslashes), comma-separated at `-scopes`; a key has at least one. What each scope
+  admits is the server's to say when it reads the file.
+
+A server given such a file (`internal/frontend/guard/apikey`) accepts a key as `Authorization:
+Bearer osk_…` with the record's subject, scopes and expiry as the request's principal, looking the
+record up by id and comparing the secret's hash in constant time, and refuses a disabled, expired or
+unknown key with the RFC 6750 § 3.1 answer; a bearer token that is not a key is left to the server's
+other authenticators (its static token last). The file is read again when its content has changed
+(looked at, at most once a second, on a request) and on `SIGHUP`; a file that no longer reads
+keeps the keys already held and logs the failure once. `sysml-mcp -http ADDR -api-keys FILE` serves
+the file this way, alone or beside `-token-file`/`-token`, and satisfies the rule that an address
+other machines reach needs a credential; `kill -HUP` the server after editing the file by hand to
+have it read at once rather than at the next request.
+
+## Single sign-on
+
+With `-oidc-issuer URL`, the server accepts the access tokens an OpenID provider issues, next to
+(or instead of) the preconfigured token. The host runs Authorization Code + PKCE against the
+provider; the server verifies what comes back and never sees a password.
+
+- **Discovery.** The provider's `/.well-known/openid-configuration` is read at startup (the issuer
+  must be `https`, or `http` on a loopback host for a provider run beside the server); its signing
+  keys are fetched on first use and again when a token names a key the server has not seen.
+- **What a token must hold** (RFC 9068): a signature under one of the provider's keys (RS, ES, PS or
+  EdDSA), `iss` equal to the issuer, `aud` holding this server's resource URL, `exp` in the future
+  and `nbf` in the past (30 seconds of clock skew allowed either way), and a `sub`. `-oidc-audience
+  AUD` names the audience when it is not the resource URL named by `-public-url` (RFC 8707).
+- **Who the caller is.** The principal's subject is `sub`, its name `preferred_username`, else
+  `email`, else `name`; its scopes come from the `scope` claim (space separated) or `scp` (array),
+  or from the claim `-oidc-scope-claim NAME` names.
+- **Refusals** follow RFC 6750: an expired token is `401` with `error="invalid_token"` and
+  `error_description="the bearer token has expired"`; one for another audience or issuer, or with a
+  bad signature, is `invalid_token` too; and a token the provider cannot be reached to verify is
+  `503 Service Unavailable`, so the host retries rather than re-authenticating.
+- **Resource metadata.** The RFC 9728 document at `/.well-known/oauth-protected-resource/mcp`
+  names the issuer in `authorization_servers` and the server's scopes in `scopes_supported`, which
+  is how an MCP host (Claude Code, VS Code, Cursor, the MCP Inspector) finds the provider from the
+  `401` challenge's `resource_metadata` and starts the flow.
+- **Opaque tokens.** A provider that issues tokens that are not JWTs is asked about them through
+  RFC 7662 introspection: `-oidc-introspect URL` with `-oidc-client-file FILE`, a JSON file holding
+  the `client_id` and `client_secret` of a confidential client the provider lets introspect. An
+  active answer is kept until the token's `exp`. Without these flags, a bearer token that is not a
+  JWT goes to the next authenticator (the preconfigured token).
+
+### Keycloak walkthrough
+
+A development Keycloak with a realm the repository ships (`deploy/keycloak/opensysml-realm.json`:
+realm `opensysml`, scopes `sysml:read` and `sysml:write`, a public client `mcp-inspector` with
+PKCE, an audience mapper adding `http://localhost:8765/mcp`, and a user `alice`/`alice`):
+
+```bash
+docker run --rm -p 8080:8080 \
+  -e KC_BOOTSTRAP_ADMIN_USERNAME=admin -e KC_BOOTSTRAP_ADMIN_PASSWORD=admin \
+  -v "$PWD/deploy/keycloak:/opt/keycloak/data/import:ro" \
+  quay.io/keycloak/keycloak:26.4 start-dev --import-realm
+
+sysml-mcp -root . -http 127.0.0.1:8765 -public-url http://localhost:8765/mcp \
+  -oidc-issuer http://localhost:8080/realms/opensysml
+
+npx @modelcontextprotocol/inspector
+```
+
+In the Inspector choose *Streamable HTTP*, URL `http://localhost:8765/mcp`, and connect: the
+`401` leads it to the metadata, the metadata to Keycloak, and Keycloak's login page (alice /
+alice) back to the Inspector with a token the server accepts. For your own realm, the client
+needs the Inspector's redirect URIs (`http://localhost:6274/oauth/callback` and
+`.../callback/debug`), an *Audience* mapper putting the server's `-public-url` into the access
+token, and client scopes named after the server's scopes with *Include in token scope* on.
+
+### Other providers
+
+- **Microsoft Entra ID.** Register the server as an application exposing an API; its
+  *Application ID URI* (`api://<client-id>`) is what Entra puts in `aud`, so pass it as
+  `-oidc-audience`. Scopes are in the `scp` claim (space separated), which the server reads by
+  default; app roles arrive in `roles`. Tokens for the Microsoft Graph audience cannot be verified
+  by anyone else, so the host must request the API's scopes, not Graph's.
+- **Okta.** Use a custom authorization server (the org server's tokens are not verifiable by third
+  parties); its *Audience* setting is the `aud` value, set it to the server's resource URL. Scopes
+  come in `scp` as an array, read by default; the issuer is
+  `https://<org>.okta.com/oauth2/<server-id>`.
+- **Ping (PingFederate / PingOne).** Add the resource URL to the access token's audience through the
+  access token manager (PingFederate) or the resource's audience (PingOne); scopes are in `scope`,
+  space separated. If a deployment maps them into another claim, name it with `-oidc-scope-claim`.
+
 ## Command line
 
 | Flag | Default | Meaning |
@@ -526,7 +642,7 @@ version control — or is edited to the host's own reference to a secret where i
 | `-cache-size N` | `100` | Parsed models the runtime tools hold, at least 1 |
 | `-log-level LEVEL` | `warn` | Lowest level logged to stderr: `debug`, `info`, `warn` or `error` |
 | `-stdio` | — | Serve over stdin/stdout; the default transport, accepted for hosts that name it; not with `-http` |
-| `-http ADDR` | — | Serve over Streamable HTTP at `/mcp` of `host:port`, or of loopback for a port alone; every client shares the workspace and runtime cache, and the REPL sessions of its principal |
+| `-http ADDR` | — | Serve over Streamable HTTP at `/mcp` of `host:port`, or of loopback for a port alone; every client shares the workspace and runtime cache, and the REPL sessions of its principal; an address other machines reach needs `-token-file`, `-token` or `-api-keys` |
 | `-allow-origin ORIGINS` | — | Origins (`scheme://host[:port]`, comma-separated) granted cross-origin access; loopback origins and requests with no `Origin` are admitted without a grant, others are refused |
 | `-token-file FILE` | — | File holding the bearer token every request must carry as `Authorization: Bearer TOKEN`; required for an address other machines reach, enforced on loopback too when given |
 | `-token TOKEN` | — | The token itself; `OPENSYSML_MCP_TOKEN` is read when neither flag names one |
@@ -534,6 +650,13 @@ version control — or is edited to the host's own reference to a secret where i
 | `-tls-cert FILE`, `-tls-key FILE` | — | Serve `https`; both or neither |
 | `-shutdown-timeout DURATION` | `30s` | How long a stopping HTTP server waits for its connections to drain after closing the sessions |
 | `-max-body-bytes N` | `4194304` | Largest request body the HTTP transport reads at `/mcp`; a larger one is refused with 413 |
+| `-api-keys FILE` | — | File of API keys, one JSON record per line holding the SHA-256 of a key with its subject, scopes, expiry and whether it is disabled; read by `-http` as a credential ahead of the token, re-read when it changes and on `SIGHUP`; appended to by `-mint-api-key`, edited by `-revoke-api-key` |
+| `-mint-api-key` | — | Mint a key `osk_<id>.<secret>` for `-subject NAME` with `-scopes a,b`, expiring after `-expires DUR` when given; print it once to stdout, append its record to the `-api-keys` file and exit |
+| `-revoke-api-key ID` | — | Mark the key of this id disabled in the `-api-keys` file and exit |
+| `-oidc-issuer URL` | — | Accept the access tokens of this OpenID provider (its issuer URL; `https`, or `http` on loopback): discovery and signing keys are read from it, tokens verified against it, and it is advertised as the authorization server |
+| `-oidc-audience AUD` | the `-public-url` endpoint | The `aud` a token must name; one of the two flags must name it |
+| `-oidc-scope-claim NAME` | `scope`, then `scp` | The claim a token's scopes are read from |
+| `-oidc-introspect URL`, `-oidc-client-file FILE` | — | Ask this RFC 7662 endpoint, as the client whose `client_id` and `client_secret` the JSON file holds, about bearer tokens that are not JWTs; both or neither |
 | `-print-config [HOST]` | — | Write a host's configuration block to stdout and exit; alone, list the hosts |
 | `-print-config-command CMD` | the binary's path | The command the block names; with `-http ADDR` (and `-tls-cert` for `https`) the block names the server's URL instead, with the `Authorization` header when a token is given |
 | `-version`, `-help`, `-man` | — | The build, this table, the manual page |

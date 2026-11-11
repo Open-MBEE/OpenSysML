@@ -29,9 +29,18 @@ access to the HTTP transport (the CORS headers and preflight answer a browser
 needs); loopback origins and requests with no Origin header are admitted
 without a grant, any other origin is refused
 .TP
+.BI \-api\-keys " string"
+File of API keys accepted besides the bearer token, one JSON record per line
+holding the SHA\-256 of a key with its subject, scopes, expiry and whether it
+is disabled; re\-read when it changes
+.TP
 .BI \-cache\-size " int"
 Maximum number of parsed models the runtime tools hold; at least 1. The
 default is 100.
+.TP
+.BI \-expires " duration"
+Lifetime of the key minted with \-mint\-api\-key, as 720h or 90m; none by
+default, a key that does not expire
 .TP
 .B \-h
 Show this help (shorthand)
@@ -43,8 +52,9 @@ Show this help and exit
 Serve over Streamable HTTP at the path /mcp of this address instead of
 stdin/stdout, as host:port or a port alone, which binds loopback; every client
 shares the one workspace, runtime cache and set of REPL sessions. An address
-other machines reach is served only with a bearer token (\-token\-file,
-\-token or OPENSYSML_MCP_TOKEN)
+other machines reach is served only with a credential: a bearer token
+(\-token\-file, \-token or OPENSYSML_MCP_TOKEN), API keys (\-api\-keys) or
+both
 .TP
 .BI \-log\-level " string"
 Lowest level logged to stderr: debug, info, warn or error. The default is
@@ -57,9 +67,38 @@ Write this command's manual page, in roff, to stdout and exit
 Largest request body, in bytes, the HTTP transport reads at /mcp; a larger one
 is refused with 413. Default 4194304 (4 MiB). The default is 4194304.
 .TP
+.B \-mint\-api\-key
+Mint an API key osk_<id>.<secret> for \-subject with \-scopes, print it once
+to stdout, append its record to the \-api\-keys file (created when absent) and
+exit
+.TP
 .B \-no\-record\-cache
 Parse every document and hold it loaded, reading no interface record from the
 record cache and writing none; default off, or OPENSYSML_RECORD_CACHE=0
+.TP
+.BI \-oidc\-audience " string"
+Audience (aud) a token must name to be accepted; default the URL the service
+is reached at
+.TP
+.BI \-oidc\-client\-file " string"
+JSON file holding the client_id and client_secret of the provider's client the
+introspection requests are made as
+.TP
+.BI \-oidc\-introspect " string"
+Introspection endpoint (RFC 7662) asked about a bearer token that is not a
+JWT, with \-oidc\-client\-file; an active answer is kept until the token
+expires
+.TP
+.BI \-oidc\-issuer " string"
+Accept the access tokens of this OpenID provider, given as its issuer URL
+(https, or http on loopback): its discovery document and signing keys are
+read, a token's signature, iss, aud, exp and nbf verified, and the issuer
+advertised in the resource metadata so a host runs Authorization Code with
+PKCE against it
+.TP
+.BI \-oidc\-scope\-claim " string"
+Claim a token's scopes are read from, a space\-separated string or an array;
+default scope, then scp
 .TP
 .B \-print\-config
 Write the configuration block declaring this server to an agent host \(em
@@ -81,10 +120,17 @@ or rewrites the path, as https://models.example.org/mcp (a plain path, no
 query); named as the protected resource and in the bearer challenge, and by
 the \-print\-config block; default each request's own scheme and Host
 .TP
+.BI \-revoke\-api\-key " string"
+Mark the key of this id disabled in the \-api\-keys file and exit
+.TP
 .BI \-root " string"
 Workspace folder whose model documents the server indexes and edits; default
 the current directory, which an agent host sets to the project. The default is
 \&..
+.TP
+.BI \-scopes " string"
+Scopes the key minted with \-mint\-api\-key grants, comma\-separated (RFC 6749
+scope tokens)
 .TP
 .BI \-shutdown\-timeout " duration"
 How long a stopping HTTP server waits for its connections to drain after
@@ -97,6 +143,10 @@ it; not with \-http)
 .B \-strict
 Serve strict conformance from the start: notation no pinned SysML v2
 production admits is an error
+.TP
+.BI \-subject " string"
+Who the key minted with \-mint\-api\-key speaks for: a user name, an e\-mail
+address, a CI job
 .TP
 .BI \-tls\-cert " string"
 TLS certificate file for the HTTP transport; with \-tls\-key, the transport
@@ -165,6 +215,11 @@ sysml\-mcp \-http 0.0.0.0:8765 \-token\-file mcp.token \-allow\-origin \e
 # Serve loopback behind a proxy that terminates TLS at that URL
 sysml\-mcp \-http 8765 \-token\-file mcp.token \-public\-url \e
     https://models.example.org/mcp
+# Serve clients that sign on at that provider
+sysml\-mcp \-http 0.0.0.0:8765 \-public\-url \e
+    https://models.example.org/mcp \-oidc\-issuer \e
+    https://sso.example.org/realms/models \-tls\-cert server.crt \e
+    \-tls\-key server.key
 .fi
 .RE
 .PP
@@ -191,6 +246,24 @@ origin listed in \-allow\-origin exactly; any other origin is refused with
 name rebound to this machine. The wildcard origin is not accepted. A request
 whose MCP\-Protocol\-Version header names a version the server does not speak
 is refused with 400.
+.PP
+\-oidc\-issuer URL has the server accept the access tokens an OpenID provider
+issues, beside the token above or in its place: the provider's discovery
+document is read when the first token arrives, its signing keys when a token
+needs them, and a token is accepted when its signature verifies and its iss is
+the issuer, its aud names this endpoint (\-public\-url, or \-oidc\-audience
+when the provider puts another value there), and its exp and nbf admit the
+moment, 30 seconds of clock skew allowed. The caller is the token's sub, named
+by preferred_username, email or name, with the scopes of its scope or scp
+claim, or of the claim \-oidc\-scope\-claim names. An expired token is refused
+with 401 and error="invalid_token", a token the provider cannot be reached to
+verify with 503, and the resource metadata names the issuer under
+authorization_servers and the tools' scopes under scopes_supported, which is
+how a host finds the provider from the challenge and asks it for a token. A
+provider whose tokens are not JWTs is asked about them at \-oidc\-introspect
+URL (RFC 7662) as the client \-oidc\-client\-file holds, a JSON file with
+client_id and client_secret; without it, a bearer token that is not a JWT is
+checked against the token above.
 .SH SCOPES
 Every tool requires one scope (RFC 6749 \(sc 3.3), named in the Tools section
 and by tool_catalog, and a tools/call by a principal whose credential lacks it

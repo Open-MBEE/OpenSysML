@@ -51,6 +51,29 @@ quick_case_() {
   CI_TIER=quick case_ "$@"
 }
 
+# tier_case_ <name> <expected tier> <files...>: the tier the script decides with CI_TIER unset.
+tier_case_() {
+  local name=$1 expected=$2
+  shift 2
+  git -C "$work" -c advice.detachedHead=false checkout -q "$base"
+  git -C "$work" checkout -q -B "tier-$name"
+  for file in "$@"; do
+    mkdir -p "$work/$(dirname "$file")"
+    echo change >>"$work/$file"
+    git -C "$work" add "$file"
+  done
+  git -C "$work" -c commit.gpgsign=false commit -qm "$name"
+
+  local actual
+  actual=$(cd "$work" && env -u CI_TIER bash scripts/ci-changed-areas.sh "$base" HEAD 2>/dev/null | sed -n 's/^tier=//p')
+  if [[ "$actual" != "$expected" ]]; then
+    echo "FAIL tier $name: expected $expected, got $actual" >&2
+    failures=$((failures + 1))
+  else
+    echo "ok   tier $name: $actual"
+  fi
+}
+
 case_ docs-only docs docs/guide/index.md
 case_ overrides-only docs overrides/home.html
 case_ changelog-only docs CHANGELOG.md
@@ -101,9 +124,11 @@ case_ go-source docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,
 # the bridge, the pin, the baseline itself) and on unclaimed paths, like every area; not on a parser change.
 case_ apijson-writer apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/translate/export/api_json_absence.go
 case_ apijson-referee apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode tools/referee/apijson/provenance.go
+case_ apijson-store apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode tools/referee/baseline/store.go
 case_ apijson-bridge apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode scripts/pilot-json-exporter/ExportJSON.java
 case_ apijson-pin apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode scripts/pilot-pin.sh
-case_ apijson-baseline apijson,docs,go docs/project/api-json-differential-baseline.json
+case_ apijson-baseline apijson,docs,go docs/project/api-json-differential/index.json
+case_ apijson-fragment apijson,docs,go docs/project/api-json-differential/probes/probe.sysml.json
 case_ go-client docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode client/opensysml/client.go
 case_ release-digests docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode client/release-digests.json
 case_ go-tools docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode tools/gen/snapshot/main.go
@@ -144,6 +169,43 @@ quick_case_ project-baseline docs,go docs/project/pilot-differential-baseline.js
 quick_case_ java-manifest java,mdk,python,syson client/java/pom.xml
 quick_case_ node-only node client/node/src/node/binary.ts
 quick_case_ vscode-grammar go,vscode editors/vscode/tools/gengrammar/grammar.go
+
+
+# The tier: quick for a pull-request push, full once it touches a package -race has caught out
+# (scripts/ci-changed-areas.sh race_pattern) or a path no area claims; CI_TIER forces it.
+tier_case_ docs-only quick docs/guide/index.md
+tier_case_ parser quick internal/syntax/parser/parser.go
+tier_case_ node-only quick client/node/src/node/binary.ts
+tier_case_ workflow quick .github/workflows/pr.yml
+tier_case_ race-shards quick scripts/race-shard.sh Makefile
+tier_case_ runtime full internal/exec/runtime/executor.go
+tier_case_ runtime-test full internal/exec/runtime/robustness_test.go
+tier_case_ smt full internal/exec/smt/referee.go
+tier_case_ grpc-frontend full internal/frontend/grpc/cache.go
+tier_case_ grpc-tests full tests/grpc/conformance_test.go
+tier_case_ grpc-command full cmd/sysml-grpc/main.go
+tier_case_ repl full internal/frontend/repl/session.go
+tier_case_ lsp full internal/frontend/lsp/server.go
+tier_case_ workspace full internal/workspace/model/index.go
+tier_case_ libs full internal/workspace/libs/bundle.go
+tier_case_ export-writer full internal/translate/export/writer.go
+tier_case_ symbols full internal/semantic/symbols/index.go
+tier_case_ unclaimed full some-new-top-level/thing.txt
+tier_case_ parser-and-runtime full internal/syntax/parser/parser.go internal/exec/runtime/executor.go
+forced_case_() {
+  local expected=$1
+  shift
+  local actual
+  actual=$(cd "$work" && CI_TIER="$expected" bash scripts/ci-changed-areas.sh "$base" HEAD 2>/dev/null | sed -n 's/^tier=//p')
+  if [[ "$actual" != "$expected" ]]; then
+    echo "FAIL forced tier $expected: got $actual" >&2
+    failures=$((failures + 1))
+  else
+    echo "ok   forced tier $expected (on the last case's head)"
+  fi
+}
+forced_case_ full
+forced_case_ quick
 
 if [[ "$failures" -ne 0 ]]; then
   echo "$failures case(s) failed" >&2

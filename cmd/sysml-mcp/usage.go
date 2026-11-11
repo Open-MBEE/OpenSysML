@@ -33,6 +33,11 @@ type options struct {
 	// its requests.
 	shutdownTimeout time.Duration
 	maxBodyBytes    int64
+	mintAPIKey      bool
+	subject         string
+	scopes          string
+	expires         time.Duration
+	revokeAPIKey    string
 	showVersion     bool
 	showHelp        bool
 	showMan         bool
@@ -68,7 +73,7 @@ func registerFlags(fs *flag.FlagSet) *options {
 	fs.BoolVar(&o.stdio, "stdio", false, "Serve over stdin/stdout (the default transport; accepted for hosts that name it; not with -http)")
 	fs.StringVar(&o.http, "http", "",
 		"Serve over Streamable HTTP at the path /mcp of this address instead of stdin/stdout, as host:port or a port alone, which binds loopback; "+
-			"every client shares the one workspace, runtime cache and set of REPL sessions. An address other machines reach is served only with a bearer token (-token-file, -token or "+mcp.TokenEnv+")")
+			"every client shares the one workspace, runtime cache and set of REPL sessions. An address other machines reach is served only with a credential: a bearer token (-token-file, -token or "+mcp.TokenEnv+"), API keys (-api-keys) or both")
 	fs.StringVar(&o.allowOrigin, "allow-origin", "",
 		"Origins, comma-separated as scheme://host[:port], granted cross-origin access to the HTTP transport (the CORS headers and preflight answer a browser needs); "+
 			"loopback origins and requests with no Origin header are admitted without a grant, any other origin is refused")
@@ -82,6 +87,12 @@ func registerFlags(fs *flag.FlagSet) *options {
 		"How long a stopping HTTP server waits for its connections to drain after closing the sessions, as a Go duration; default 30s")
 	fs.Int64Var(&o.maxBodyBytes, "max-body-bytes", mcp.DefaultMaxBodyBytes,
 		"Largest request body, in bytes, the HTTP transport reads at /mcp; a larger one is refused with 413. Default 4194304 (4 MiB)")
+	fs.BoolVar(&o.mintAPIKey, "mint-api-key", false,
+		"Mint an API key osk_<id>.<secret> for -subject with -scopes, print it once to stdout, append its record to the -api-keys file (created when absent) and exit")
+	fs.StringVar(&o.subject, "subject", "", "Who the key minted with -mint-api-key speaks for: a user name, an e-mail address, a CI job")
+	fs.StringVar(&o.scopes, "scopes", "", "Scopes the key minted with -mint-api-key grants, comma-separated (RFC 6749 scope tokens)")
+	fs.DurationVar(&o.expires, "expires", 0, "Lifetime of the key minted with -mint-api-key, as 720h or 90m; none by default, a key that does not expire")
+	fs.StringVar(&o.revokeAPIKey, "revoke-api-key", "", "Mark the key of this id disabled in the -api-keys file and exit")
 	fs.Var(&o.printConfig, "print-config",
 		"Write the configuration block declaring this server to an agent host — "+strings.Join(hostNames(), ", ")+" — to stdout and exit; alone, list the hosts")
 	fs.StringVar(&o.configCommand, "print-config-command", "",
@@ -169,6 +180,7 @@ func doc() usage.Doc {
 				usage.Ex("sysml-mcp -http 0.0.0.0:8765 -token-file mcp.token -tls-cert server.crt -tls-key server.key", "Serve every interface over https to clients that hold the token"),
 				usage.Ex("sysml-mcp -http 0.0.0.0:8765 -token-file mcp.token -allow-origin https://agents.example.org", "Answer one browser origin besides loopback"),
 				usage.Ex("sysml-mcp -http 8765 -token-file mcp.token -public-url https://models.example.org/mcp", "Serve loopback behind a proxy that terminates TLS at that URL"),
+				usage.Ex("sysml-mcp -http 0.0.0.0:8765 -public-url https://models.example.org/mcp -oidc-issuer https://sso.example.org/realms/models -tls-cert server.crt -tls-key server.key", "Serve clients that sign on at that provider"),
 			},
 			Paragraphs: []string{
 				"An address with no host, or a port alone, binds loopback, which only " +
@@ -196,6 +208,25 @@ func doc() usage.Doc {
 					"machine. The wildcard origin is not accepted. A request whose " +
 					"MCP-Protocol-Version header names a version the server does not " +
 					"speak is refused with 400.",
+				"-oidc-issuer URL has the server accept the access tokens an OpenID " +
+					"provider issues, beside the token above or in its place: the " +
+					"provider's discovery document is read when the first token arrives, " +
+					"its signing keys when a token needs them, and a token is accepted " +
+					"when its signature verifies and its iss is the issuer, its aud names " +
+					"this endpoint (-public-url, or -oidc-audience when the provider puts " +
+					"another value there), and its exp and nbf admit the moment, 30 " +
+					"seconds of clock skew allowed. The caller is the token's sub, named " +
+					"by preferred_username, email or name, with the scopes of its scope " +
+					"or scp claim, or of the claim -oidc-scope-claim names. An expired " +
+					"token is refused with 401 and error=\"invalid_token\", a token the " +
+					"provider cannot be reached to verify with 503, and the resource " +
+					"metadata names the issuer under authorization_servers and the " +
+					"tools' scopes under scopes_supported, which is how a host finds the " +
+					"provider from the challenge and asks it for a token. A provider " +
+					"whose tokens are not JWTs is asked about them at -oidc-introspect " +
+					"URL (RFC 7662) as the client -oidc-client-file holds, a JSON file " +
+					"with client_id and client_secret; without it, a bearer token that " +
+					"is not a JWT is checked against the token above.",
 			},
 		}, scopesSection(), {
 			Title: "Running as a service",

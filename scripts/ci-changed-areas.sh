@@ -7,9 +7,12 @@
 # output file takes. A file no area claims turns every area on, so a path this
 # script has not been taught about is never silently untested.
 #
-# CI_TIER=quick (draft pull requests) drops the fan-out from a service change to
-# every client, editor and the docs: each of those runs only when its own paths
-# change. The full tier, which every non-draft push runs, keeps the fan-out.
+# The first line is the tier, `tier=quick|full`: quick (the Go suite without -race) for a
+# pull-request push, full when the push touches a package where -race has found bugs (the
+# list beside race_pattern) or a path no area claims. CI_TIER=full|quick forces the tier
+# (the workflow forces full for a merge-queue commit and the label ci:full). The quick tier
+# drops the fan-out from a service change to every client, editor and the docs: each of
+# those then runs only when its own paths change. The full tier keeps the fan-out.
 set -euo pipefail
 
 base=${1:?usage: ci-changed-areas.sh <base> [head]}
@@ -43,7 +46,7 @@ hygiene_pattern='(^|/)testdata/|\.golden\.|_test\.go$'
 project_inputs_pattern='^docs/project/.*\.(json|md)$'
 # The derived-property differential needs Java and the pinned pilot jar, so it runs only on what can
 # move its baseline (which records no writer digest): writer, referee, bridge, pin, baseline, this job.
-apijson_pattern='^(internal/translate/export/|tools/referee/apijson/|tools/referee/diff/|tools/oracle/baseline/|scripts/pilot-json-exporter/|scripts/pilot-pin\.sh$|scripts/download-pilot-validator\.sh$|scripts/download-pilot-json-exporter\.sh$|docs/project/api-json-differential-baseline\.json$|\.github/workflows/pr\.yml$|\.github/actions/corpora/)'
+apijson_pattern='^(internal/translate/export/|tools/referee/apijson/|tools/referee/baseline/|tools/referee/diff/|tools/oracle/baseline/|scripts/pilot-json-exporter/|scripts/pilot-pin\.sh$|scripts/download-pilot-validator\.sh$|scripts/download-pilot-json-exporter\.sh$|docs/project/api-json-differential/|\.github/workflows/pr\.yml$|\.github/actions/corpora/)'
 
 known_pattern="$service_pattern|$docs_pattern|$node_pattern|$python_pattern|$java_pattern|$rust_pattern|$julia_pattern|$matlab_pattern|$vscode_pattern|$jupyterlab_pattern|$emacs_pattern|$mdk_pattern|$syson_pattern|^\.agents/|^\.gitignore$|^\.gitattributes$|^LICENSE|^packaging/"
 
@@ -67,8 +70,21 @@ emit() {
   echo "$area=$enabled"
 }
 
+# Packages -race has caught out (the race fixes in the history: runtime coroutines, SMT solver processes, gRPC
+# model cache, REPL lock, LSP goroutines, workspace index and library parse, export memos, settled symbol index).
+race_pattern='^(internal/exec/runtime/|internal/exec/smt/|internal/frontend/grpc/|internal/frontend/repl/|internal/frontend/lsp/|internal/workspace/|internal/translate/export/|internal/semantic/symbols/|tests/grpc/|cmd/sysml-grpc/)'
+
+tier=${CI_TIER:-}
+case "$tier" in
+  full|quick) ;;
+  *)
+    if [[ "$everything" = true ]] || matches "$race_pattern"; then tier=full; else tier=quick; fi
+    ;;
+esac
+emit tier "$tier"
+
 fanout=$service
-[[ "${CI_TIER:-full}" = quick ]] && fanout=false
+[[ "$tier" = quick ]] && fanout=false
 
 emit go "$( { [[ "$service" = true ]] || matches "$hygiene_pattern" || matches "$project_inputs_pattern"; } && echo true || echo false)"
 emit apijson "$( { [[ "$everything" = true && "$fanout" = true ]] || matches "$apijson_pattern"; } && echo true || echo false)"

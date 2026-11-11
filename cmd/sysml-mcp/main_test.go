@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"os"
 	"path/filepath"
 	"strings"
@@ -60,7 +61,7 @@ func TestCommandLine(t *testing.T) {
 		name:   "the help asked for is a result on stdout",
 		args:   []string{"-h"},
 		status: exitServed,
-		stdout: []string{"Usage: sysml-mcp [options]", "-tools", "-root", "-stdio", "-http", "-allow-origin", "-token", "-token-file", "-tls-cert", "-tls-key", "/mcp", "OPENSYSML_MCP_TOKEN"},
+		stdout: []string{"Usage: sysml-mcp [options]", "-tools", "-root", "-stdio", "-http", "-allow-origin", "-token", "-token-file", "-tls-cert", "-tls-key", "-api-keys", "-mint-api-key", "-subject", "-scopes", "-expires", "-revoke-api-key", "/mcp", "OPENSYSML_MCP_TOKEN"},
 	}, {
 		name:   "a flag that is not defined is reported with the usage",
 		args:   []string{"-nosuchflag"},
@@ -126,6 +127,36 @@ func TestCommandLine(t *testing.T) {
 		args:   []string{"-allow-origin", "https://agents.example.org"},
 		status: exitUnservable,
 		stderr: []string{"sysml-mcp: -allow-origin applies to the HTTP transport; name its address with -http", "Usage: sysml-mcp [options]"},
+	}, {
+		name:   "-oidc-issuer without -http is reported with the usage",
+		args:   []string{"-oidc-issuer", "https://sso.example.org/realms/models"},
+		status: exitUnservable,
+		stderr: []string{"sysml-mcp: -oidc-issuer applies to the HTTP transport; name its address with -http", "Usage: sysml-mcp [options]"},
+	}, {
+		name:   "an -oidc qualifier without -oidc-issuer is reported with the usage",
+		args:   []string{"-http", "8765", "-oidc-audience", "https://models.example.org/mcp"},
+		status: exitUnservable,
+		stderr: []string{"sysml-mcp: -oidc-audience applies to single sign-on; name the provider with -oidc-issuer", "Usage: sysml-mcp [options]"},
+	}, {
+		name:   "-oidc-issuer without an audience is reported with the usage",
+		args:   []string{"-http", "8765", "-oidc-issuer", "https://sso.example.org/realms/models"},
+		status: exitUnservable,
+		stderr: []string{"sysml-mcp: -oidc-issuer needs the audience a token is issued for: name the endpoint with -public-url, or give -oidc-audience", "Usage: sysml-mcp [options]"},
+	}, {
+		name:   "a cleartext issuer off loopback is reported with the usage",
+		args:   []string{"-http", "8765", "-public-url", "https://models.example.org/mcp", "-oidc-issuer", "http://sso.example.org/realms/models"},
+		status: exitUnservable,
+		stderr: []string{`sysml-mcp: -oidc-issuer: the issuer "http://sso.example.org/realms/models" must be https (or http at a loopback host)`, "Usage: sysml-mcp [options]"},
+	}, {
+		name:   "-oidc-introspect without its client file is reported with the usage",
+		args:   []string{"-http", "8765", "-public-url", "https://models.example.org/mcp", "-oidc-issuer", "https://sso.example.org/realms/models", "-oidc-introspect", "https://sso.example.org/realms/models/introspect"},
+		status: exitUnservable,
+		stderr: []string{"sysml-mcp: -oidc-introspect and -oidc-client-file must be supplied together", "Usage: sysml-mcp [options]"},
+	}, {
+		name:   "an unreadable -oidc-client-file is reported with the usage",
+		args:   []string{"-http", "8765", "-public-url", "https://models.example.org/mcp", "-oidc-issuer", "https://sso.example.org/realms/models", "-oidc-introspect", "https://sso.example.org/realms/models/introspect", "-oidc-client-file", "nosuch.json"},
+		status: exitUnservable,
+		stderr: []string{"sysml-mcp: -oidc-client-file: open nosuch.json: ", "Usage: sysml-mcp [options]"},
 	}, {
 		name:   "-token without -http is reported with the usage",
 		args:   []string{"-token", "s3cret"},
@@ -242,7 +273,7 @@ func TestReadToken(t *testing.T) {
 			if tc.opts.auth == nil {
 				tc.opts.auth = &flags.Options{}
 			}
-			token, text, err := readToken(&tc.opts)
+			token, auth, err := readToken(&tc.opts)
 			if tc.err != "" {
 				if err == nil || !strings.Contains(err.Error(), tc.err) {
 					t.Fatalf("readToken: %v, want %q", err, tc.err)
@@ -252,7 +283,7 @@ func TestReadToken(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if text != tc.value || token.Set() != (tc.value != "") {
+			if text := auth.TokenText(); text != tc.value || token.Set() != (tc.value != "") {
 				t.Errorf("readToken = %q (set %v), want %q", text, token.Set(), tc.value)
 			}
 		})
@@ -260,3 +291,24 @@ func TestReadToken(t *testing.T) {
 }
 
 func ptr(s string) *string { return &s }
+
+// -public-url as an origin alone names the /mcp endpoint, and that is the audience a
+// provider's token must carry, as the metadata advertises the resource.
+func TestOIDCAudienceIsTheAdvertisedResource(t *testing.T) {
+	for _, tc := range []struct{ public, want string }{
+		{"https://models.example.org", "https://models.example.org/mcp"},
+		{"https://models.example.org/agents/mcp", "https://models.example.org/agents/mcp"},
+	} {
+		fs := flag.NewFlagSet(mcpCommand, flag.ContinueOnError)
+		o := registerFlags(fs)
+		if err := fs.Parse([]string{"-http", "8765", "-public-url", tc.public, "-oidc-issuer", "https://sso.example.org/realms/models"}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := readHTTPOptions(o); err != nil {
+			t.Fatalf("%s: %v", tc.public, err)
+		}
+		if o.auth.Resource != tc.want {
+			t.Errorf("%s: audience = %q, want %q", tc.public, o.auth.Resource, tc.want)
+		}
+	}
+}

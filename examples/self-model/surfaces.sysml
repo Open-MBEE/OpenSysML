@@ -865,7 +865,7 @@ package OpenSysMLSurfaces {
     #Oracle part def ApiJsonDifferential :> ConformanceOracle {
         attribute :>> goPackage = "tools/referee/apijson";
         attribute :>> reference = "pilot JSON exporter";
-        attribute :>> baseline = "docs/project/api-json-differential-baseline.json";
+        attribute :>> baseline = "docs/project/api-json-differential";
         attribute report : String = "docs/project/api-json-differential.md";
     }
     // What the RDF export survives when loaded into a Flexo MMS stack; opt-in

@@ -8,19 +8,20 @@ import (
 	"time"
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard/flags"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/catalog"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
 )
 
-// httpOptions is what -http and its qualifiers (-allow-origin, the token flags,
+// httpOptions is what -http and its qualifiers (-allow-origin, the token flags, -api-keys,
 // -public-url, the TLS pair, -shutdown-timeout, -max-body-bytes) resolve to; nil without -http.
 type httpOptions struct {
 	addr    string
 	origins mcp.OriginPolicy
 	token   mcp.BearerToken
-	// tokenText is the token as given, for the -print-config block alone.
-	tokenText       string
+	// auth is the chain the token verifies through, for a SIGHUP to reload.
+	auth            flags.Authenticators
 	certFile        string
 	keyFile         string
 	shutdownTimeout time.Duration
@@ -62,7 +63,7 @@ func readHTTPOptions(o *options) (*httpOptions, error) {
 	if err != nil {
 		return nil, fmt.Errorf("-allow-origin: %w", err)
 	}
-	token, text, err := readToken(o)
+	token, auth, err := readToken(o)
 	if err != nil {
 		return nil, err
 	}
@@ -72,20 +73,27 @@ func readHTTPOptions(o *options) (*httpOptions, error) {
 	if (o.tlsCert == "") != (o.tlsKey == "") {
 		return nil, errors.New("-tls-cert and -tls-key must be supplied together")
 	}
-	return &httpOptions{addr: addr, origins: origins, token: token, tokenText: text, certFile: o.tlsCert, keyFile: o.tlsKey,
+	return &httpOptions{addr: addr, origins: origins, token: token, auth: auth, certFile: o.tlsCert, keyFile: o.tlsKey,
 		shutdownTimeout: o.shutdownTimeout, maxBodyBytes: o.maxBodyBytes}, nil
 }
 
 // tokenValue is the token a -print-config block carries; empty without one.
-func (h *httpOptions) tokenValue() string { return h.tokenText }
+func (h *httpOptions) tokenValue() string { return h.auth.TokenText() }
 
 // tokenFileEnv names the token file when neither token flag is given, as
 // mcp.TokenEnv names the token itself; the file wins, as -token-file does.
 var tokenFileEnv = usage.EnvName(envPrefix, "token-file")
 
-// readToken reads the token from -token-file (one trailing line break dropped),
-// -token or the environment, in that order, as a principal of every scope; both flags are refused.
-func readToken(o *options) (mcp.BearerToken, string, error) {
+// readToken resolves the credentials: -api-keys, then -oidc-issuer (audience the -public-url
+// endpoint unless -oidc-audience), then the token of -token-file, -token or the environment.
+func readToken(o *options) (mcp.BearerToken, flags.Authenticators, error) {
+	if o.auth.OIDCIssuer != "" && o.auth.OIDCAudience == "" && o.publicURL == "" {
+		return mcp.BearerToken{}, flags.Authenticators{}, errors.New("-oidc-issuer needs the audience a token is issued for: name the endpoint with -public-url, or give -oidc-audience")
+	}
+	// The audience is the endpoint as At names it: an origin alone means its /mcp.
+	if public, err := (mcp.BearerToken{}).At(o.publicURL); err == nil {
+		o.auth.Resource = public.PublicURL()
+	}
 	selected, fromEnv := *o.auth, false
 	if selected.TokenFile == "" && selected.Token == "" {
 		selected.TokenFile, fromEnv = os.Getenv(tokenFileEnv), true
@@ -95,9 +103,9 @@ func readToken(o *options) (mcp.BearerToken, string, error) {
 		if fromEnv && selected.TokenFile != "" {
 			err = fmt.Errorf("%s: %w", tokenFileEnv, err)
 		}
-		return mcp.BearerToken{}, "", err
+		return mcp.BearerToken{}, flags.Authenticators{}, err
 	}
-	return mcp.BearerToken{Authenticator: resolved.Chain()}, resolved.TokenText(), nil
+	return mcp.BearerToken{Authenticator: resolved.Chain()}, resolved, nil
 }
 
 // loadTLS proves the TLS pair loads before anything is served; nothing to

@@ -1,0 +1,279 @@
+name: Rebaseline
+
+# Re-records a pull request's generated baselines after merging develop, on the
+# ci:rebaseline label; CONTRIBUTING.md § conventions describes the cycle it replaces.
+on:
+  # pull_request_target: a pull request in conflict with develop gets no pull_request run.
+  pull_request_target:
+    types: [labeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rebaseline-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+env:
+  OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
+  OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
+  OPENSYSML_REQUIRE_SPEC_EXAMPLES: "1"
+  OPENSYSML_REQUIRE_PSSM_SUITE: "1"
+  REBASELINE_LABEL: ci:rebaseline
+  # The paths the merge may take develop's side of and the recorders rewrite; under
+  # the golden directories only the goldens and digests, never a source fixture.
+  GENERATED_PATHS: |
+    docs/project/api-json-differential-baseline.json
+    docs/project/api-json-differential
+    docs/project/library-and-prefix-sweep-outcomes.txt
+    internal/semantic/metamodel/derived_census_baseline.json
+    internal/semantic/metamodel/derived_census_records.tsv
+    internal/translate/export/testdata/structure_differential_expected.txt
+    tests/corpus/testdata/pilot_corpora_expected.txt
+    tests/corpus/testdata/spec_examples_expected.txt
+    tests/corpus/testdata/pssm_migration_expected.txt
+    tests/corpus/testdata/corpus_roundtrip_expected.txt
+    tests/corpus/testdata/api_json_roundtrip_expected.txt
+    tests/export/testdata/convert
+    tests/parser/testdata/parse
+    api/proto/sysml.pb.go
+    api/proto/sysml_grpc.pb.go
+    api/proto/protoconnect/sysml.connect.go
+    client/python/opensysml/proto/sysml_pb2.py
+    client/python/opensysml/proto/sysml_pb2.pyi
+    client/python/opensysml/proto/sysml_pb2_grpc.py
+    client/node/src/generated/sysml_pb.ts
+    client/rust/opensysml/src/proto/sysml/sysml.rs
+    client/rust/conformance/sysml.descriptor.binpb
+  # Hand-written pages carrying a generated block `make docs-counts` rewrites.
+  DOC_COUNT_PATHS: |
+    README.md
+    docs/internals/architecture.md
+    docs/project/validation-constraints.md
+    docs/project/spec-compliance
+
+jobs:
+  rebaseline:
+    name: Merge develop and re-record the baselines
+    # The label alone, on a branch of this repository alone (a fork's cannot be pushed to).
+    if: >-
+      github.event.label.name == 'ci:rebaseline' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    timeout-minutes: 180
+    steps:
+      - name: Check out the pull request branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          token: ${{ secrets.REBASELINE_TOKEN || github.token }}
+
+      - name: Merge origin/develop, taking develop's side of the generated paths only
+        id: merge
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ "$(git rev-parse HEAD)" != "$HEAD_SHA" ]; then
+            echo "the branch moved since the label was applied ($HEAD_SHA); apply the label again" >&2
+            exit 1
+          fi
+          git fetch -q origin develop
+          base=$(git merge-base HEAD origin/develop)
+          theirs=$(git rev-parse origin/develop)
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+          echo "ours=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+          echo "theirs=$theirs" >> "$GITHUB_OUTPUT"
+          if [ "$base" = "$theirs" ]; then
+            echo "develop is already merged; re-recording on the current head"
+          elif ! git merge --no-ff --no-commit origin/develop; then
+            conflicts=$(git diff --name-only --diff-filter=U)
+            generated=$(printf '%s\n' "$GENERATED_PATHS" | sed '/^$/d')
+            other=""
+            while IFS= read -r file; do
+              ok=0
+              while IFS= read -r path; do
+                case "$file" in "$path"|"$path"/*) ok=1 ;; esac
+              done <<< "$generated"
+              case "$file" in */testdata/*.golden|*/testdata/*.golden.*|*/testdata/*.sha256) ;; */testdata/*.sysml|*/testdata/*.kerml|*/testdata/*.ttl) ok=0 ;; esac
+              [ "$ok" = 1 ] || other="$other$file"$'\n'
+            done <<< "$conflicts"
+            if [ -n "$other" ]; then
+              printf 'conflicts outside the generated paths; resolve them by hand:\n%s' "$other" >&2
+              exit 1
+            fi
+            while IFS= read -r file; do
+              if git cat-file -e "origin/develop:$file" 2>/dev/null; then
+                git checkout --theirs -- "$file" && git add -- "$file"
+              else
+                git rm -q -- "$file"
+              fi
+            done <<< "$conflicts"
+            git commit -q -m "Merge origin/develop into $BRANCH" \
+              -m "Generated paths in conflict took develop's side; re-recorded by the ci:rebaseline workflow."
+          else
+            git commit -q -m "Merge origin/develop into $BRANCH"
+          fi
+          echo "merged=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # The pilot JSON exporter the differential and the census run is Java, built against the pin.
+      - name: Set up Java
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+
+      # Pinned by digest, so a substituted asset is not run.
+      - name: Install buf
+        run: |
+          curl -fsSL --proto '=https' --proto-redir '=https' -o /tmp/buf \
+            https://github.com/bufbuild/buf/releases/download/v1.57.2/buf-Linux-x86_64
+          echo "644e6fa4a62afc2b0d425d3ac9538d2f512947c0f2e82fc95c41a5eab6729414  /tmp/buf" | sha256sum --check --strict
+          sudo install -m 0755 /tmp/buf /usr/local/bin/buf
+          buf --version
+
+      # Pinned to the version recorded in the committed stubs (GRPC_GENERATED_VERSION).
+      - name: Install the pinned grpcio-tools
+        run: 'pip install --only-binary :all: grpcio-tools==1.83.0'
+
+      - name: Cache the pinned pilot implementation
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: build/pilot-validator
+          key: pilot-validator-${{ hashFiles('scripts/download-pilot-validator.sh', 'scripts/pilot-pin.sh') }}
+
+      - name: Download the pinned pilot JSON exporter
+        run: ./scripts/download-pilot-json-exporter.sh
+
+      - name: Provision the pinned corpora
+        uses: ./.github/actions/corpora
+
+      - name: Download the OMG PSSM test suite
+        run: ./scripts/download-pssm-suite.sh
+
+      # Dependency order: the snapshot and stubs first, the figure blocks last.
+      - name: Regenerate the library snapshot and the protobuf stubs
+        run: |
+          make stdlib-snapshot
+          make proto-buf proto-ts proto-rust python-proto BUF=buf
+
+      - name: Re-record the derived-property differential and the derived census
+        run: |
+          go run -C tools ./cmd/pilot-apijson-diff -update
+          go run -C tools ./cmd/derived-census -update
+
+      - name: Re-record the per-file ratchets
+        run: |
+          go test -count=1 ./tests/corpus -run 'TestPilotCorporaDiagnostics|TestSpecExamplesDiagnostics|TestPSSMSuiteMigration|TestCorpusRoundTrip|TestCorpusAPIJSONRoundTrip' \
+            -update-pilot-corpora -update-spec-examples -update-pssm-migration -update-corpus-roundtrip -update-api-json-roundtrip
+          go test -count=1 ./internal/translate/export -run TestSymbolStructureMatchesGraphStructure -update-structure-differential
+          go test -count=1 ./internal/exec/runtime -run TestLibraryAndPrefixSweep -update-library-prefix-sweep
+          go test -count=1 ./tests/export -update
+          go test -count=1 ./tests/parser -run TestGolden -update
+
+      - name: Restate the generated documentation blocks
+        run: make docs-counts
+
+      # Only the generated paths and the pages carrying a generated block may change;
+      # the training expectation is asserted, never re-recorded.
+      - name: Only generated paths changed
+        run: |
+          set -euo pipefail
+          git add -N .
+          changed=$(git diff --name-only)
+          allowed=$(printf '%s\n%s\n' "$GENERATED_PATHS" "$DOC_COUNT_PATHS" | sed '/^$/d')
+          other=""
+          while IFS= read -r file; do
+            [ -n "$file" ] || continue
+            if [ "$file" = tests/corpus/testdata/training_examples_expected.txt ]; then
+              echo "the recorders changed $file, which is never re-recorded" >&2
+              exit 1
+            fi
+            ok=0
+            while IFS= read -r path; do
+              case "$file" in "$path"|"$path"/*) ok=1 ;; esac
+            done <<< "$allowed"
+            case "$file" in */testdata/*.golden|*/testdata/*.golden.*|*/testdata/*.sha256) ;; */testdata/*.sysml|*/testdata/*.kerml|*/testdata/*.ttl) ok=0 ;; esac
+            [ "$ok" = 1 ] || other="$other$file"$'\n'
+          done <<< "$changed"
+          if [ -n "$other" ]; then
+            printf 'the recorders changed files outside the generated paths:\n%s' "$other" >&2
+            exit 1
+          fi
+
+      # A record neither side moved that the fresh run moves is not the merge's doing.
+      - name: Every movement is explained by the merge
+        id: movement
+        run: |
+          set -o pipefail
+          printf '%s\n' "$GENERATED_PATHS" | sed '/^$/d' | xargs python3 scripts/rebaseline-movement.py \
+            --base "${{ steps.merge.outputs.base }}" --ours "${{ steps.merge.outputs.ours }}" \
+            --theirs "${{ steps.merge.outputs.theirs }}" --merged "${{ steps.merge.outputs.merged }}" \
+            --summary build/rebaseline-summary.md
+
+      - name: Commit and push the re-recorded baselines
+        id: push
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          git add -A
+          if git diff --cached --quiet; then
+            echo "nothing re-recorded; pushing the merge alone"
+          else
+            git commit -q -F - <<EOF
+          chore(baselines): re-record after merging develop
+
+          $(cat build/rebaseline-summary.md)
+          EOF
+          fi
+          git push origin "HEAD:$BRANCH"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Remove the label
+        if: ${{ always() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr edit "${{ github.event.pull_request.number }}" --repo "$GITHUB_REPOSITORY" --remove-label "$REBASELINE_LABEL"
+
+      - name: Comment the movement for adjudication
+        if: ${{ always() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ job.status }}
+          PUSHED: ${{ steps.push.outputs.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          {
+            if [ -n "$PUSHED" ]; then
+              echo "**ci:rebaseline** merged \`origin/develop\` and re-recorded the baselines as $PUSHED ([run]($RUN_URL)). Movement to adjudicate:"
+            else
+              echo "**ci:rebaseline** stopped without pushing ([run]($RUN_URL), $OUTCOME). Movement seen so far:"
+            fi
+            echo
+            cat build/rebaseline-summary.md 2>/dev/null || echo "_(no movement summary was produced; see the run log)_"
+          } > /tmp/comment.md
+          gh pr comment "${{ github.event.pull_request.number }}" --repo "$GITHUB_REPOSITORY" --body-file /tmp/comment.md

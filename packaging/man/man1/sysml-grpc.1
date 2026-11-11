@@ -28,6 +28,11 @@ can open the port may parse, run and edit models here, and the log shows peers
 but never who they are. Only for a trusted network behind a proxy that
 authenticates for this service; never implied
 .TP
+.BI \-api\-keys " string"
+File of API keys accepted besides the bearer token, one JSON record per line
+holding the SHA\-256 of a key with its subject, scopes, expiry and whether it
+is disabled; re\-read when it changes
+.TP
 .BI \-cache\-size " int"
 Maximum number of cached parsed files. The default is 100.
 .TP
@@ -52,6 +57,30 @@ Log level (debug, info, warn, error). The default is info.
 .TP
 .B \-man
 Write this command's manual page, in roff, to stdout and exit
+.TP
+.BI \-oidc\-audience " string"
+Audience (aud) a token must name to be accepted; default the URL the service
+is reached at
+.TP
+.BI \-oidc\-client\-file " string"
+JSON file holding the client_id and client_secret of the provider's client the
+introspection requests are made as
+.TP
+.BI \-oidc\-introspect " string"
+Introspection endpoint (RFC 7662) asked about a bearer token that is not a
+JWT, with \-oidc\-client\-file; an active answer is kept until the token
+expires
+.TP
+.BI \-oidc\-issuer " string"
+Accept the access tokens of this OpenID provider, given as its issuer URL
+(https, or http on loopback): its discovery document and signing keys are
+read, a token's signature, iss, aud, exp and nbf verified, and the issuer
+advertised in the resource metadata so a host runs Authorization Code with
+PKCE against it
+.TP
+.BI \-oidc\-scope\-claim " string"
+Claim a token's scopes are read from, a space\-separated string or an array;
+default scope, then scp
 .TP
 .BI \-port " int"
 gRPC server port. The default is 50051.
