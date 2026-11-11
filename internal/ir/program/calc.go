@@ -6,18 +6,15 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
-// Calc is a calculation's lowered invocation interface: the input parameters it
-// binds, in positional order, the output features it computes and the result it
-// binds. Each is resolved across the specialization chain, so a usage typed by a
-// calc definition inherits that definition's parameters, outputs and result.
+// Calc is a calculation's lowered invocation interface: its positional inputs, its outputs
+// and its result, each resolved across the specialization chain the usage inherits from.
 type Calc struct {
 	Sym *symbols.Symbol
 	// Origin names the calc the way a message does: Path and Name are its
 	// qualified name, Kind the word diagnostics name the behavior by.
 	Origin Origin
-	// Name is the qualified name, for diagnostics and traces; Kind is the notation
-	// keyword of the behavior (`calc`, `analysis`, `verification`, or a predicate's
-	// kind), and Label is Kind followed by Name, as diagnostics name the behavior.
+	// Name is the qualified name; Kind the behavior's keyword (`calc`, `analysis`,
+	// `verification`, a predicate's kind); Label is Kind then Name, as diagnostics say it.
 	Name  string
 	Kind  string
 	Label string
@@ -36,9 +33,8 @@ type Calc struct {
 	// BodyOwner is the calc whose body the invocation runs: the invoked calc's own
 	// when it states one, else the closest inherited body.
 	BodyOwner *symbols.Symbol
-	// BodyOutputs are the output features some statement of the body assigns,
-	// whatever path the execution takes. A calc that binds its outputs this way
-	// computes them though it returns nothing, so it states a computation.
+	// BodyOutputs are the output features some statement of the body assigns on any
+	// path: a calc binding its outputs this way states a computation without returning.
 	BodyOutputs map[string]bool
 	// Result is the expression a binding connector binds to `result`, 0 when none.
 	Result ExprID
@@ -69,9 +65,8 @@ type CalcParam struct {
 	IsCalc bool
 }
 
-// CalcOutput is one output feature of a calc: an `out` parameter, or the result
-// parameter a `return` declares. Its value is a feature of the calc, read by
-// name, rather than a statement of the calc's body.
+// CalcOutput is one output feature of a calc — an `out` parameter, or the result
+// parameter a `return` declares — read by name rather than run as a statement.
 type CalcOutput struct {
 	Name string // feature name the output answers to, empty for an anonymous result parameter
 	// Value is the value-binding expression, 0 when the calc gives the output no value.
@@ -174,9 +169,8 @@ func (c *Calc) SubjectParameter() (*CalcParam, bool) {
 	return nil, false
 }
 
-// PositionalIndexes are the indexes in Params of the parameters a positional
-// argument can bind, in declaration order: every parameter but the actors,
-// which bind by name only.
+// PositionalIndexes are the indexes in Params a positional argument can bind, in
+// declaration order: every parameter but the actors, which bind by name only.
 func (c *Calc) PositionalIndexes() []int {
 	indexes := make([]int, 0, len(c.Params))
 	for i := range c.Params {

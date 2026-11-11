@@ -13,9 +13,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// TestChainedAssignmentBindsNoCalcOutput locks that a chained target writing a
-// feature of another object does not count as the calc computing its own output
-// of that name.
+// TestChainedAssignmentBindsNoCalcOutput locks that a chained target writing another
+// object's feature does not count as the calc computing its own output of that name.
 func TestChainedAssignmentBindsNoCalcOutput(t *testing.T) {
 	outputs := []program.CalcOutput{{Name: "x"}}
 	chained := []Statement{Assign{Target: "x", Chain: &AssignTarget{Text: "foo.x"}}}

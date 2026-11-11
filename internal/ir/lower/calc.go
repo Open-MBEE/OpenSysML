@@ -36,13 +36,11 @@ func (env CalcEnv) qualifiedName(sym *symbols.Symbol) string {
 	return sym.Name
 }
 
-// CalcTrees is what a lowered calc still keeps as syntax trees beside its
-// program.Calc: the body's statements, the bindings and the expression table
-// the record's ExprIDs index, until expressions are lowered themselves.
+// CalcTrees is what a lowered calc still keeps as syntax trees beside its program.Calc,
+// until expressions are lowered: the body, the bindings and the table its ExprIDs index.
 type CalcTrees struct {
-	// Body is the computation the calc states, lowered in the scope of the calc
-	// that declares it: local declarations, assignments, conditionals, loops and
-	// returns, in declaration order; BodyOrder is its calculation-statement order.
+	// Body is the computation the calc states, lowered in the scope of the calc that
+	// declares it, in declaration order; BodyOrder is its calculation-statement order.
 	Body      []Statement
 	BodyOrder *StatementOrder
 	// Steps is Body without the bindings of its `out` features, which are
@@ -75,8 +73,7 @@ func (t *CalcTrees) intern(node ast.Node) program.ExprID {
 }
 
 // IsCalcDecl reports whether a declaration is a calc definition or usage, or an
-// analysis or verification case, each a calculation (SysML v2 §7.22, §7.23):
-// each is invoked the same way.
+// analysis or verification case, each a calculation (SysML v2 §7.22, §7.23).
 func IsCalcDecl(decl ast.Node) bool {
 	switch d := decl.(type) {
 	case *ast.Definition:
@@ -241,9 +238,8 @@ func SubjectDeclaration(member ast.Node) (SubjectDecl, bool) {
 	return SubjectDecl{}, false
 }
 
-// CalcChain returns the calcs sym takes members from (its supertypes and the calc
-// it references), most general first, then sym. Non-calc links and the library's
-// frame contribute nothing; a domain library's calc contributes as a model's does.
+// CalcChain returns the calcs sym takes members from, most general first, then sym;
+// non-calc links and the library's frame contribute nothing, a domain library's calc does.
 func CalcChain(sym *symbols.Symbol, env CalcEnv) []*symbols.Symbol {
 	return memberChain(sym, env, IsCalcDecl)
 }
@@ -274,10 +270,8 @@ func calcOrigin(sym *symbols.Symbol, name, kind string) program.Origin {
 	}
 }
 
-// ToCalc lowers the invocation interface of the calc sym: its positional input
-// parameters (own and inherited, with defaults), its outputs, its body and its
-// result, each resolved across the chain. The runtime judges whether the calc
-// computes anything from the record; sym is a calc declaration or a feature typed by one.
+// ToCalc lowers the invocation interface of the calc sym — parameters, outputs, body and
+// result, each resolved across the chain; the runtime judges from it whether the calc computes.
 func ToCalc(sym *symbols.Symbol, env CalcEnv) (*program.Calc, *CalcTrees) {
 	name := env.qualifiedName(sym)
 	kind := CalcKind(sym)
@@ -330,11 +324,8 @@ func ToPredicate(sym *symbols.Symbol, env CalcEnv) (*program.Calc, *CalcTrees) {
 	return calc, trees
 }
 
-// ToCalcSignature lowers the effective inputs of a model calc whose call applies
-// an inherited library function: each input as a call binds it — named as written,
-// declared and defaulted by the nearest of its redefinitions the model states —
-// with, per parameter, the position of the library input among libInputs it
-// redefines, -1 for none. The record is bodiless.
+// ToCalcSignature lowers the bodiless effective inputs of a model calc applying an inherited
+// library function, with, per parameter, the index in libInputs of the input it redefines (-1: none).
 func ToCalcSignature(sym *symbols.Symbol, libInputs []*symbols.Symbol, env CalcEnv) (*program.Calc, *CalcTrees, []int) {
 	name := env.qualifiedName(sym)
 	kind := CalcKind(sym)
@@ -411,9 +402,8 @@ func DefaultValueOf(featureSym *symbols.Symbol) ast.Node {
 	return nil
 }
 
-// IsCalcUsageSymbol reports whether sym declares a calc usage or a case usage —
-// analysis or verification — the forms that carry an evaluation whose outputs are
-// features. A definition is a type: it is invoked, not read.
+// IsCalcUsageSymbol reports whether sym declares a calc or case usage, the forms whose
+// outputs are features; a definition is a type, invoked rather than read.
 func IsCalcUsageSymbol(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
@@ -496,9 +486,8 @@ func declarationsOf(redeclared []program.CalcMember, link, sym *symbols.Symbol, 
 	return append(out, program.CalcMember{Feature: sym, Owner: link, Name: name})
 }
 
-// redeclaredIndex finds the flattened member the member sym, named name,
-// redeclares: the one of its own name, one it redefines (`in y :>> x`), else
-// the one its role redefines by position (an actor over the general's actor).
+// redeclaredIndex finds the flattened member sym (named name) redeclares: by its own
+// name, by a redefinition (`in y :>> x`), else by its role's position (actor over actor).
 func redeclaredIndex(index map[string]int, sym *symbols.Symbol, name string, env CalcEnv) (int, bool) {
 	if at, seen := index[name]; seen {
 		return at, true
@@ -656,9 +645,8 @@ func assignedOutputs(stmts []Statement, outputs []program.CalcOutput, aliases ma
 	return assigned
 }
 
-// collectAssignedOutputs walks the statements, and the blocks they carry, for
-// assignments to a declared output, by any name declared maps to it. A chained
-// target writes a feature of another object, so it binds no output of the calc.
+// collectAssignedOutputs walks the statements and their blocks for assignments to a
+// declared output by any of its names; a chained target writes another object's feature.
 func collectAssignedOutputs(stmts []Statement, declared map[string]string, assigned map[string]bool) {
 	for _, stmt := range stmts {
 		switch s := stmt.(type) {
@@ -679,9 +667,8 @@ func collectAssignedOutputs(stmts []Statement, declared map[string]string, assig
 	}
 }
 
-// calcBodyWithOrder returns the computation the invoked calc runs — its own body
-// if that states one, otherwise the closest inherited one — with its statement
-// order and the calc that declares it, whose scope the body's statements are written in.
+// calcBodyWithOrder returns the body the invoked calc runs — its own, else the closest
+// inherited one — with its statement order and the calc whose scope it is written in.
 func calcBodyWithOrder(chain []*symbols.Symbol, resolver *resolve.Resolver) ([]Statement, *StatementOrder, *symbols.Symbol) {
 	var stated []Statement
 	var statedOrder *StatementOrder
