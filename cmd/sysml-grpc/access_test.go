@@ -334,6 +334,7 @@ func TestGRPCRobustnessAuthStartup(t *testing.T) {
 	}{
 		{"a token and the opt-out contradict", []string{"-token", testToken, "-allow-unauthenticated"}, "contradict each other"},
 		{"both token flags", []string{"-token", testToken, "-token-file", "x"}, "give one"},
+		{"the key file is refused", []string{"-api-keys", "x"}, "-api-keys is not for sysml-grpc, which gates no call by scope yet"},
 		{"a malformed token", []string{"-token", "two words"}, "RFC 6750"},
 		{"stdio refuses -host", []string{"-transport", "stdio", "-host", "0.0.0.0"}, "-host is not for -transport stdio"},
 		{"stdio refuses -token", []string{"-transport", "stdio", "-token", testToken}, "-token is not for -transport stdio"},

@@ -68,6 +68,10 @@ func main() {
 		os.Exit(2)
 	}
 
+	if opts.auth.APIKeys != "" {
+		fmt.Fprintln(os.Stderr, "sysml-grpc: -api-keys is not for sysml-grpc, which gates no call by scope yet; the key file is sysml-mcp's")
+		os.Exit(2)
+	}
 	auth, err := opts.auth.Resolve(tokenEnv)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "sysml-grpc: %v\n", err)

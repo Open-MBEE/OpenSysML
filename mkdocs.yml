@@ -167,6 +167,7 @@ exclude_docs: |
   internals/design/**
   internals/notes/**
   project/*.json
+  project/api-json-differential/**
   project/omg-issues.md
   project/performance-release-0.10.1-vs-0.10.0.md
   project/performance-release-0.11.0-vs-0.10.1.md

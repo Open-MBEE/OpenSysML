@@ -25,12 +25,62 @@ const (
 	GroupSession Group = "session"
 )
 
+// Scope is the OAuth 2.0 scope token (RFC 6749 § 3.3) a principal needs to
+// call a tool; the server refuses a tools/call whose scope the caller lacks.
+type Scope string
+
+// The scopes, from the least to the most privileged.
+const (
+	// ScopeRead asks about the workspace and the model (queries, diagnostics,
+	// hover, conversions, edits answered as text); nothing another caller sees changes.
+	ScopeRead Scope = "sysml:read"
+	// ScopeWrite writes the workspace: a file replaced with apply, a document
+	// held open or released, a prompt command that may save.
+	ScopeWrite Scope = "sysml:write"
+	// ScopeExecute executes the model: actions, state machines, analyses,
+	// solving, debugging and REPL evaluation.
+	ScopeExecute Scope = "sysml:execute"
+	// ScopeSession opens, loads, lists, clears and closes the caller's own
+	// REPL sessions.
+	ScopeSession Scope = "sysml:session"
+	// ScopeAdmin reaches across principals: session_list and session_close
+	// see and close every caller's sessions. No tool requires it.
+	ScopeAdmin Scope = "sysml:admin"
+)
+
+// Scopes lists the vocabulary, least privileged first.
+func Scopes() []Scope {
+	return []Scope{ScopeRead, ScopeWrite, ScopeExecute, ScopeSession, ScopeAdmin}
+}
+
+// Known reports whether s is one of Scopes.
+func (s Scope) Known() bool {
+	for _, known := range Scopes() {
+		if s == known {
+			return true
+		}
+	}
+	return false
+}
+
+// ScopeNames is Scopes as strings, for an authenticator's scope list or the
+// protected resource metadata.
+func ScopeNames() []string {
+	names := make([]string, 0, len(Scopes()))
+	for _, s := range Scopes() {
+		names = append(names, string(s))
+	}
+	return names
+}
+
 // Entry is one tool of the catalog.
 type Entry struct {
 	// Name is the MCP tool name.
 	Name string
 	// Group is the group that serves the tool.
 	Group Group
+	// Scope is the scope a caller needs to call the tool.
+	Scope Scope
 	// RPCs are the sysml-grpc service methods the tool stands for; empty for
 	// a tool with no service counterpart (the session and lsp groups, and
 	// tool_catalog itself).
@@ -62,130 +112,130 @@ func (e Entry) Operation() string {
 
 // Tools is the catalog, grouped and then alphabetical by name.
 var Tools = []Entry{
-	{Name: "tool_catalog", Summary: "List the tools this server serves, each with the RPC or sysml flag it stands for."},
+	{Name: "tool_catalog", Scope: ScopeRead, Summary: "List the tools this server serves, each with the RPC or sysml flag it stands for."},
 
-	{Name: "apply_model_edit", Group: GroupLSP, Summary: "Edit a model by operations on its elements (setValue, rename, addMember, delete, move, ...) and answer the text edits; write them with apply."},
-	{Name: "close_document", Group: GroupLSP, Summary: "Release a document held open by open_document; the server reads the file on disk again."},
-	{Name: "code_actions", Group: GroupLSP, Summary: "List the quick fixes and refactorings available for a range of a document, each with its edits."},
-	{Name: "completion", Group: GroupLSP, Summary: "Propose completions at a position: keywords, names in scope and members of the accessed type."},
-	{Name: "definition", Group: GroupLSP, Summary: "Find where the name at a position is declared."},
-	{Name: "document_symbols", Group: GroupLSP, Summary: "Outline a document: the elements it declares, nested as they are owned."},
-	{Name: "documents", Group: GroupLSP, Summary: "List the document definitions declared across the workspace."},
-	{Name: "format", Group: GroupLSP, Summary: "Format a document, or a range of it, in the canonical style; write the file with apply."},
-	{Name: "hover", Group: GroupLSP, Summary: "Explain the element at a position: kind, qualified name, type, value and documentation."},
-	{Name: "import_diagram", Group: GroupLSP, Flags: []string{"import-diagram", "view", "dry-run"}, Summary: "Import a draw.io file render_view wrote with form drawio and a user edited: moves, routes, styles, the page, note text and picture sources as DiagramLayout annotations in the view's body, a retyped name as a rename; the rest is reported; a dry run until apply."},
-	{Name: "inlay_hints", Group: GroupLSP, Summary: "List the inferred types and values an editor would show inline for a document or range."},
-	{Name: "open_document", Group: GroupLSP, Summary: "Hold a document open with the given text, analyzed instead of the file on disk."},
-	{Name: "references", Group: GroupLSP, Summary: "Find every place in the workspace that refers to the element at a position."},
-	{Name: "rename", Group: GroupLSP, Summary: "Rename the element at a position everywhere in the workspace; write the files with apply."},
-	{Name: "render_document", Group: GroupLSP, Summary: "Render a document definition of the workspace to Markdown, its queries evaluated and its diagrams embedded."},
-	{Name: "render_view", Group: GroupLSP, Summary: "Render a declared view or pseudo-view of a workspace document as Mermaid, dot, PlantUML, D2, draw.io, text or a table."},
-	{Name: "signature_help", Group: GroupLSP, Summary: "Describe the invocation enclosing a position: its parameters and the active one."},
-	{Name: "update_document", Group: GroupLSP, Summary: "Replace the text of a document held open by open_document and answer the diagnostics of the new text."},
-	{Name: "views", Group: GroupLSP, Summary: "List the views a document declares and the pseudo-views render_view can draw of it."},
-	{Name: "workspace_diagnostics", Group: GroupLSP, Summary: "List the errors, warnings and hints of one workspace document or of the whole workspace."},
-	{Name: "workspace_info", Group: GroupLSP, Summary: "Describe the workspace root and the documents it holds, with their diagnostic counts."},
-	{Name: "workspace_symbols", Group: GroupLSP, Summary: "Search the workspace's declared elements by name substring."},
+	{Name: "apply_model_edit", Group: GroupLSP, Scope: ScopeWrite, Summary: "Edit a model by operations on its elements (setValue, rename, addMember, delete, move, ...) and answer the text edits; write them with apply."},
+	{Name: "close_document", Group: GroupLSP, Scope: ScopeWrite, Summary: "Release a document held open by open_document; the server reads the file on disk again."},
+	{Name: "code_actions", Group: GroupLSP, Scope: ScopeRead, Summary: "List the quick fixes and refactorings available for a range of a document, each with its edits."},
+	{Name: "completion", Group: GroupLSP, Scope: ScopeRead, Summary: "Propose completions at a position: keywords, names in scope and members of the accessed type."},
+	{Name: "definition", Group: GroupLSP, Scope: ScopeRead, Summary: "Find where the name at a position is declared."},
+	{Name: "document_symbols", Group: GroupLSP, Scope: ScopeRead, Summary: "Outline a document: the elements it declares, nested as they are owned."},
+	{Name: "documents", Group: GroupLSP, Scope: ScopeRead, Summary: "List the document definitions declared across the workspace."},
+	{Name: "format", Group: GroupLSP, Scope: ScopeWrite, Summary: "Format a document, or a range of it, in the canonical style; write the file with apply."},
+	{Name: "hover", Group: GroupLSP, Scope: ScopeRead, Summary: "Explain the element at a position: kind, qualified name, type, value and documentation."},
+	{Name: "import_diagram", Group: GroupLSP, Scope: ScopeWrite, Flags: []string{"import-diagram", "view", "dry-run"}, Summary: "Import a draw.io file render_view wrote with form drawio and a user edited: moves, routes, styles, the page, note text and picture sources as DiagramLayout annotations in the view's body, a retyped name as a rename; the rest is reported; a dry run until apply."},
+	{Name: "inlay_hints", Group: GroupLSP, Scope: ScopeRead, Summary: "List the inferred types and values an editor would show inline for a document or range."},
+	{Name: "open_document", Group: GroupLSP, Scope: ScopeWrite, Summary: "Hold a document open with the given text, analyzed instead of the file on disk."},
+	{Name: "references", Group: GroupLSP, Scope: ScopeRead, Summary: "Find every place in the workspace that refers to the element at a position."},
+	{Name: "rename", Group: GroupLSP, Scope: ScopeWrite, Summary: "Rename the element at a position everywhere in the workspace; write the files with apply."},
+	{Name: "render_document", Group: GroupLSP, Scope: ScopeRead, Summary: "Render a document definition of the workspace to Markdown, its queries evaluated and its diagrams embedded."},
+	{Name: "render_view", Group: GroupLSP, Scope: ScopeRead, Summary: "Render a declared view or pseudo-view of a workspace document as Mermaid, dot, PlantUML, D2, draw.io, text or a table."},
+	{Name: "signature_help", Group: GroupLSP, Scope: ScopeRead, Summary: "Describe the invocation enclosing a position: its parameters and the active one."},
+	{Name: "update_document", Group: GroupLSP, Scope: ScopeWrite, Summary: "Replace the text of a document held open by open_document and answer the diagnostics of the new text."},
+	{Name: "views", Group: GroupLSP, Scope: ScopeRead, Summary: "List the views a document declares and the pseudo-views render_view can draw of it."},
+	{Name: "workspace_diagnostics", Group: GroupLSP, Scope: ScopeRead, Summary: "List the errors, warnings and hints of one workspace document or of the whole workspace."},
+	{Name: "workspace_info", Group: GroupLSP, Scope: ScopeRead, Summary: "Describe the workspace root and the documents it holds, with their diagnostic counts."},
+	{Name: "workspace_symbols", Group: GroupLSP, Scope: ScopeRead, Summary: "Search the workspace's declared elements by name substring."},
 
-	{Name: "apply_edits", Group: GroupRuntime, RPCs: []string{"ApplyEdits"},
+	{Name: "apply_edits", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"ApplyEdits"},
 		Summary: "Apply workspace edits to a parsed model and answer the edited documents."},
-	{Name: "compare_results", Group: GroupRuntime, RPCs: []string{"CompareResults"}, Flags: []string{"compare-results"},
+	{Name: "compare_results", Group: GroupRuntime, Scope: ScopeExecute, RPCs: []string{"CompareResults"}, Flags: []string{"compare-results"},
 		Summary: "Run the configurations a SysML v1 tool's results index and table the tool's distributions beside the runs'."},
-	{Name: "convert", Group: GroupRuntime, RPCs: []string{"Convert"}, Flags: []string{"convert", "from", "id", "include-library-stubs"},
+	{Name: "convert", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"Convert"}, Flags: []string{"convert", "from", "id", "include-library-stubs"},
 		Summary: "Convert a model between the textual notation, JSON, RDF and XMI."},
-	{Name: "diagnostics", Group: GroupRuntime, RPCs: []string{"GetDiagnostics"}, Flags: []string{"validate", "disable-lint", "enable-lint"},
+	{Name: "diagnostics", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"GetDiagnostics"}, Flags: []string{"validate", "disable-lint", "enable-lint"},
 		Summary: "Report every diagnostic of a parsed model, as sysml -validate does."},
-	{Name: "explain_diagnostic", Group: GroupRuntime, Flags: []string{"explain"},
+	{Name: "explain_diagnostic", Group: GroupRuntime, Scope: ScopeRead, Flags: []string{"explain"},
 		Summary: "Explain a diagnostic code, or list every code with its summary."},
-	{Name: "evaluate", Group: GroupRuntime, RPCs: []string{"Evaluate"}, Flags: []string{"eval"},
+	{Name: "evaluate", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"Evaluate"}, Flags: []string{"eval"},
 		Summary: "Evaluate an expression against a parsed model."},
-	{Name: "evaluate_calc", Group: GroupRuntime, RPCs: []string{"EvaluateCalc"}, Flags: []string{"calc"},
+	{Name: "evaluate_calc", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"EvaluateCalc"}, Flags: []string{"calc"},
 		Summary: "Evaluate a calculation definition or usage."},
-	{Name: "execute_action", Group: GroupRuntime, RPCs: []string{"ExecuteAction"},
+	{Name: "execute_action", Group: GroupRuntime, Scope: ScopeExecute, RPCs: []string{"ExecuteAction"},
 		Flags:   []string{"action", "schedule", "advance", "seed", "draws", "clock-step"},
 		Summary: "Execute an action with bound inputs and report its outputs."},
-	{Name: "execute_state", Group: GroupRuntime, RPCs: []string{"ExecuteState"}, Flags: []string{"state"},
+	{Name: "execute_state", Group: GroupRuntime, Scope: ScopeExecute, RPCs: []string{"ExecuteState"}, Flags: []string{"state"},
 		Summary: "Run a state machine over a sequence of events and report the trace."},
-	{Name: "export_graphs", Group: GroupRuntime, RPCs: []string{"ExportGraphs"}, Flags: []string{"graphs"},
+	{Name: "export_graphs", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"ExportGraphs"}, Flags: []string{"graphs"},
 		Summary: "Export the lowered action and state graphs of a model."},
-	{Name: "import_data", Group: GroupRuntime, RPCs: []string{"ImportData"},
+	{Name: "import_data", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"ImportData"},
 		Flags:   []string{"import", "import-as", "import-map", "import-format", "import-dry-run"},
 		Summary: "Set the feature values a CSV, TSV, JSON or JSON Lines file assigns, one row per element."},
-	{Name: "instantiate", Group: GroupRuntime, RPCs: []string{"Instantiate"}, Flags: []string{"instantiate"},
+	{Name: "instantiate", Group: GroupRuntime, Scope: ScopeExecute, RPCs: []string{"Instantiate"}, Flags: []string{"instantiate"},
 		Summary: "Instantiate a definition or usage and report the object's feature values."},
-	{Name: "instance_paths", Group: GroupRuntime, RPCs: []string{"InstancePaths"},
+	{Name: "instance_paths", Group: GroupRuntime, Scope: ScopeExecute, RPCs: []string{"InstancePaths"},
 		Summary: "List every root-relative usage path that reaches an instantiated object."},
-	{Name: "list_engines", Group: GroupRuntime, RPCs: []string{"ListEngines"}, Flags: []string{"engines", "probe"},
+	{Name: "list_engines", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"ListEngines"}, Flags: []string{"engines", "probe"},
 		Summary: "List the analysis engines and whether each is ready."},
-	{Name: "migrate", Group: GroupRuntime, RPCs: []string{"Migrate"},
+	{Name: "migrate", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"Migrate"},
 		Flags:   []string{"migrate", "migration-report", "migration-results", "layout", "image-base-url"},
 		Summary: "Migrate a SysML v1 model to SysML v2 and report what moved."},
-	{Name: "parse", Group: GroupRuntime, RPCs: []string{"ParseFile", "ParseSources"}, Flags: []string{"strict"},
+	{Name: "parse", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"ParseFile", "ParseSources"}, Flags: []string{"strict"},
 		Summary: "Parse files or inline sources and answer the roots, diagnostics and a model hash."},
-	{Name: "query", Group: GroupRuntime, RPCs: []string{"Query"}, Flags: []string{"query", "as-view"},
+	{Name: "query", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"Query"}, Flags: []string{"query", "as-view"},
 		Summary: "Run an OSLC query against a parsed model."},
-	{Name: "render_model_document", Group: GroupRuntime, RPCs: []string{"RenderDocument"}, Flags: []string{"render-document", "doc-form"},
+	{Name: "render_model_document", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"RenderDocument"}, Flags: []string{"render-document", "doc-form"},
 		Summary: "Render a document definition as Markdown or HTML."},
-	{Name: "record_run", Group: GroupRuntime, RPCs: []string{"RecordRun"}, Flags: []string{"record-run", "record-into"},
+	{Name: "record_run", Group: GroupRuntime, Scope: ScopeExecute, RPCs: []string{"RecordRun"}, Flags: []string{"record-run", "record-into"},
 		Summary: "Run an analysis case and record the runs into the model as AnalysisRecords declarations."},
-	{Name: "render_model_view", Group: GroupRuntime, RPCs: []string{"RenderView"}, Flags: []string{"render", "render-ports", "render-show", "render-depth", "render-compartments"},
+	{Name: "render_model_view", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"RenderView"}, Flags: []string{"render", "render-ports", "render-show", "render-depth", "render-compartments"},
 		Summary: "Render a view as its nodes, edges and compartments."},
-	{Name: "check_behavior", Group: GroupRuntime, RPCs: []string{"CheckBehavior"}, Flags: []string{"check-property", "check-diverge", "check-input", "check-assume", "check-witness", "check-depth", "check-states", "check-unroll", "check-timeout"},
+	{Name: "check_behavior", Group: GroupRuntime, Scope: ScopeExecute, RPCs: []string{"CheckBehavior"}, Flags: []string{"check-property", "check-diverge", "check-input", "check-assume", "check-witness", "check-depth", "check-states", "check-unroll", "check-timeout"},
 		Summary: "Search every schedule of an action or state machine for violated properties, deadlocks, failures and divergent values."},
-	{Name: "run_analysis", Group: GroupRuntime, RPCs: []string{"RunAnalysis"}, Flags: []string{"analysis", "engine", "tool-dry-run"},
+	{Name: "run_analysis", Group: GroupRuntime, Scope: ScopeExecute, RPCs: []string{"RunAnalysis"}, Flags: []string{"analysis", "engine", "tool-dry-run"},
 		Summary: "Run an analysis case and report its result."},
-	{Name: "run_document_query", Group: GroupRuntime, RPCs: []string{"RunDocumentQuery"}, Flags: []string{"run-query", "run-inline-query"},
+	{Name: "run_document_query", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"RunDocumentQuery"}, Flags: []string{"run-query", "run-inline-query"},
 		Summary: "Run a document query definition, or a query expression written in place, and report its rows."},
-	{Name: "run_runs", Group: GroupRuntime, RPCs: []string{"RunRuns"}, Flags: []string{"runs", "observe"},
+	{Name: "run_runs", Group: GroupRuntime, Scope: ScopeExecute, RPCs: []string{"RunRuns"}, Flags: []string{"runs", "observe"},
 		Summary: "Run an action or a Monte Carlo case repeatedly and table what the runs observed."},
-	{Name: "run_sweep", Group: GroupRuntime, RPCs: []string{"RunSweep"}, Flags: []string{"sweep", "samples"},
+	{Name: "run_sweep", Group: GroupRuntime, Scope: ScopeExecute, RPCs: []string{"RunSweep"}, Flags: []string{"sweep", "samples"},
 		Summary: "Run an analysis case over ranges of its parameters."},
-	{Name: "self_check", Group: GroupRuntime, RPCs: []string{"SelfCheck"}, Flags: []string{"self-check", "self-check-package"},
+	{Name: "self_check", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"SelfCheck"}, Flags: []string{"self-check", "self-check-package"},
 		Summary: "Apply the reflective SysMLValidation constraints to every element of a model."},
-	{Name: "server_info", Group: GroupRuntime, RPCs: []string{"GetServerInfo"},
+	{Name: "server_info", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"GetServerInfo"},
 		Summary: "Report the service version and the capabilities it serves."},
-	{Name: "symbol", Group: GroupRuntime, RPCs: []string{"GetSymbol"},
+	{Name: "symbol", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"GetSymbol"},
 		Summary: "Describe one element of a parsed model."},
-	{Name: "element_properties", Group: GroupRuntime, RPCs: []string{"GetElementProperties"},
+	{Name: "element_properties", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"GetElementProperties"},
 		Summary: "Read the metamodel properties of one element by their specification names."},
-	{Name: "validate_instance", Group: GroupRuntime, RPCs: []string{"ValidateInstance"},
+	{Name: "validate_instance", Group: GroupRuntime, Scope: ScopeExecute, RPCs: []string{"ValidateInstance"},
 		Summary: "Validate an instantiated object against its definition, as sysml -validate=<object> does."},
-	{Name: "verify_constraint", Group: GroupRuntime, RPCs: []string{"VerifyConstraint"}, Flags: []string{"constraint"},
+	{Name: "verify_constraint", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"VerifyConstraint"}, Flags: []string{"constraint"},
 		Summary: "Verify a constraint and answer the verdict."},
-	{Name: "verify_requirement", Group: GroupRuntime, RPCs: []string{"VerifyRequirement"}, Flags: []string{"requirement"},
+	{Name: "verify_requirement", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"VerifyRequirement"}, Flags: []string{"requirement"},
 		Summary: "Verify a requirement and answer the verdict."},
-	{Name: "verify_satisfaction", Group: GroupRuntime, RPCs: []string{"VerifySatisfaction"}, Flags: []string{"satisfy"},
+	{Name: "verify_satisfaction", Group: GroupRuntime, Scope: ScopeRead, RPCs: []string{"VerifySatisfaction"}, Flags: []string{"satisfy"},
 		Summary: "Verify a satisfy relationship and answer the verdict."},
 
-	{Name: "advance", Group: GroupSession, Summary: "Advance the debugged state machine's clock by a duration, firing the timed transitions due."},
-	{Name: "check", Group: GroupSession, Summary: "Check with the SMT solver whether an element's constraints are satisfiable."},
-	{Name: "configure", Group: GroupSession, Summary: "Choose variant selections for a variation model, or enumerate every valid configuration."},
-	{Name: "debug_breakpoints", Group: GroupSession, Summary: "List, set or clear the breakpoints of the debugged action."},
-	{Name: "debug_continue", Group: GroupSession, Summary: "Run the debugged action or state machine on to its next breakpoint or its end."},
-	{Name: "debug_current", Group: GroupSession, Summary: "Report the debugger's state: the action's tokens and breakpoints, or the machine's state, clock and event queue."},
-	{Name: "debug_start", Group: GroupSession, Summary: "Start debugging an action or a state machine by qualified name."},
-	{Name: "debug_step", Group: GroupSession, Summary: "Step the debugged action or state machine once."},
-	{Name: "debug_stop", Group: GroupSession, Summary: "Stop debugging and discard the debugged executors."},
-	{Name: "explain", Group: GroupSession, Summary: "Explain why an element's constraints are unsatisfiable, naming the conflicting ones."},
-	{Name: "features", Group: GroupSession, Summary: "List a runtime instance's feature values, with its object graph."},
-	{Name: "instances", Group: GroupSession, Summary: "List the runtime instances the session holds."},
-	{Name: "optimize", Group: GroupSession, Summary: "Optimize an analysis case's objective with the solver and answer the optimum."},
-	{Name: "render_run", Group: GroupSession, Summary: "Render a run's trace as a timeline or a sequence diagram."},
-	{Name: "repl_command", Group: GroupSession, Summary: "Run one % meta command of the REPL and answer its output lines."},
-	{Name: "runs", Group: GroupSession, Summary: "Run an action repeatedly, or a Monte Carlo case, and table the outcomes."},
-	{Name: "send", Group: GroupSession, Summary: "Send a signal to the debugged state machine."},
-	{Name: "session_clear", Group: GroupSession, Summary: "Clear a session's declarations, instances and debuggers."},
-	{Name: "session_close", Group: GroupSession, Summary: "Close an open REPL session."},
-	{Name: "session_eval", Group: GroupSession, Summary: "Evaluate an expression in a session and answer its value."},
-	{Name: "session_list", Group: GroupSession, Summary: "List the open REPL sessions."},
-	{Name: "session_load", Group: GroupSession, Summary: "Load model files under the workspace root into a session and answer the diagnostics."},
-	{Name: "session_open", Group: GroupSession, Summary: "Open a REPL session, optionally over a root directory whose files load on demand, and answer its id."},
-	{Name: "session_print", Group: GroupSession, Summary: "Print a session's declarations back as SysML notation."},
-	{Name: "session_run", Group: GroupSession, Summary: "Run an action, state machine, calculation or analysis case in a session and answer the verdict."},
-	{Name: "session_save", Group: GroupSession, Summary: "Preview a session's model as a file under the workspace root, or write it with apply."},
-	{Name: "session_submit", Group: GroupSession, Summary: "Submit declarations to a session and answer what was declared and the diagnostics."},
-	{Name: "solve", Group: GroupSession, Summary: "Synthesize feature values satisfying an element's constraints with the solver."},
-	{Name: "sweep", Group: GroupSession, Summary: "Sweep a calculation over a range or sampled values and table the results."},
+	{Name: "advance", Group: GroupSession, Scope: ScopeExecute, Summary: "Advance the debugged state machine's clock by a duration, firing the timed transitions due."},
+	{Name: "check", Group: GroupSession, Scope: ScopeExecute, Summary: "Check with the SMT solver whether an element's constraints are satisfiable."},
+	{Name: "configure", Group: GroupSession, Scope: ScopeExecute, Summary: "Choose variant selections for a variation model, or enumerate every valid configuration."},
+	{Name: "debug_breakpoints", Group: GroupSession, Scope: ScopeExecute, Summary: "List, set or clear the breakpoints of the debugged action."},
+	{Name: "debug_continue", Group: GroupSession, Scope: ScopeExecute, Summary: "Run the debugged action or state machine on to its next breakpoint or its end."},
+	{Name: "debug_current", Group: GroupSession, Scope: ScopeRead, Summary: "Report the debugger's state: the action's tokens and breakpoints, or the machine's state, clock and event queue."},
+	{Name: "debug_start", Group: GroupSession, Scope: ScopeExecute, Summary: "Start debugging an action or a state machine by qualified name."},
+	{Name: "debug_step", Group: GroupSession, Scope: ScopeExecute, Summary: "Step the debugged action or state machine once."},
+	{Name: "debug_stop", Group: GroupSession, Scope: ScopeExecute, Summary: "Stop debugging and discard the debugged executors."},
+	{Name: "explain", Group: GroupSession, Scope: ScopeExecute, Summary: "Explain why an element's constraints are unsatisfiable, naming the conflicting ones."},
+	{Name: "features", Group: GroupSession, Scope: ScopeRead, Summary: "List a runtime instance's feature values, with its object graph."},
+	{Name: "instances", Group: GroupSession, Scope: ScopeRead, Summary: "List the runtime instances the session holds."},
+	{Name: "optimize", Group: GroupSession, Scope: ScopeExecute, Summary: "Optimize an analysis case's objective with the solver and answer the optimum."},
+	{Name: "render_run", Group: GroupSession, Scope: ScopeRead, Summary: "Render a run's trace as a timeline or a sequence diagram."},
+	{Name: "repl_command", Group: GroupSession, Scope: ScopeRead, Summary: "Run one % meta command of the REPL and answer its output lines; the command takes the scope of the typed tool doing the same."},
+	{Name: "runs", Group: GroupSession, Scope: ScopeExecute, Summary: "Run an action repeatedly, or a Monte Carlo case, and table the outcomes."},
+	{Name: "send", Group: GroupSession, Scope: ScopeExecute, Summary: "Send a signal to the debugged state machine."},
+	{Name: "session_clear", Group: GroupSession, Scope: ScopeSession, Summary: "Clear a session's declarations, instances and debuggers."},
+	{Name: "session_close", Group: GroupSession, Scope: ScopeSession, Summary: "Close an open REPL session."},
+	{Name: "session_eval", Group: GroupSession, Scope: ScopeExecute, Summary: "Evaluate an expression in a session and answer its value."},
+	{Name: "session_list", Group: GroupSession, Scope: ScopeSession, Summary: "List the open REPL sessions."},
+	{Name: "session_load", Group: GroupSession, Scope: ScopeSession, Summary: "Load model files under the workspace root into a session and answer the diagnostics."},
+	{Name: "session_open", Group: GroupSession, Scope: ScopeSession, Summary: "Open a REPL session, optionally over a root directory whose files load on demand, and answer its id."},
+	{Name: "session_print", Group: GroupSession, Scope: ScopeRead, Summary: "Print a session's declarations back as SysML notation."},
+	{Name: "session_run", Group: GroupSession, Scope: ScopeExecute, Summary: "Run an action, state machine, calculation or analysis case in a session and answer the verdict."},
+	{Name: "session_save", Group: GroupSession, Scope: ScopeWrite, Summary: "Preview a session's model as a file under the workspace root, or write it with apply."},
+	{Name: "session_submit", Group: GroupSession, Scope: ScopeSession, Summary: "Submit declarations to a session and answer what was declared and the diagnostics."},
+	{Name: "solve", Group: GroupSession, Scope: ScopeExecute, Summary: "Synthesize feature values satisfying an element's constraints with the solver."},
+	{Name: "sweep", Group: GroupSession, Scope: ScopeExecute, Summary: "Sweep a calculation over a range or sampled values and table the results."},
 }
 
 // RPCsWithoutTools names the service methods that must not be tools, each
@@ -305,6 +355,16 @@ func Names(groups ...Group) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// Tool answers the entry of the tool called name.
+func Tool(name string) (Entry, bool) {
+	for _, e := range Tools {
+		if e.Name == name {
+			return e, true
+		}
+	}
+	return Entry{}, false
 }
 
 // ToolFor answers the tool that serves an RPC of the service.

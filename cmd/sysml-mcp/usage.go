@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard/flags"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/mcp/catalog"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/usage"
@@ -23,8 +24,7 @@ type options struct {
 	logLevel      string
 	http          string
 	allowOrigin   string
-	token         string
-	tokenFile     string
+	auth          *flags.Options
 	publicURL     string
 	stdio         bool
 	tlsCert       string
@@ -33,6 +33,11 @@ type options struct {
 	// its requests.
 	shutdownTimeout time.Duration
 	maxBodyBytes    int64
+	mintAPIKey      bool
+	subject         string
+	scopes          string
+	expires         time.Duration
+	revokeAPIKey    string
 	showVersion     bool
 	showHelp        bool
 	showMan         bool
@@ -68,15 +73,11 @@ func registerFlags(fs *flag.FlagSet) *options {
 	fs.BoolVar(&o.stdio, "stdio", false, "Serve over stdin/stdout (the default transport; accepted for hosts that name it; not with -http)")
 	fs.StringVar(&o.http, "http", "",
 		"Serve over Streamable HTTP at the path /mcp of this address instead of stdin/stdout, as host:port or a port alone, which binds loopback; "+
-			"every client shares the one workspace, runtime cache and set of REPL sessions. An address other machines reach is served only with a bearer token (-token-file, -token or "+mcp.TokenEnv+")")
+			"every client shares the one workspace, runtime cache and set of REPL sessions. An address other machines reach is served only with a credential: a bearer token (-token-file, -token or "+mcp.TokenEnv+"), API keys (-api-keys) or both")
 	fs.StringVar(&o.allowOrigin, "allow-origin", "",
 		"Origins, comma-separated as scheme://host[:port], granted cross-origin access to the HTTP transport (the CORS headers and preflight answer a browser needs); "+
 			"loopback origins and requests with no Origin header are admitted without a grant, any other origin is refused")
-	fs.StringVar(&o.tokenFile, "token-file", "",
-		"File holding the bearer token every HTTP request must carry as Authorization: Bearer TOKEN (a trailing line break is not part of it); "+
-			"required for an address other machines reach, enforced on loopback too when given")
-	fs.StringVar(&o.token, "token", "",
-		"The bearer token itself, for a shell whose command line is private; -token-file keeps it out of the process list, and "+mcp.TokenEnv+" is read when neither flag names one")
+	o.auth = flags.Register(fs, mcp.TokenEnv)
 	fs.StringVar(&o.publicURL, "public-url", "",
 		"URL clients reach the HTTP transport at when a proxy in front terminates TLS or rewrites the path, as https://models.example.org/mcp (a plain path, no query); "+
 			"named as the protected resource and in the bearer challenge, and by the -print-config block; default each request's own scheme and Host")
@@ -86,6 +87,12 @@ func registerFlags(fs *flag.FlagSet) *options {
 		"How long a stopping HTTP server waits for its connections to drain after closing the sessions, as a Go duration; default 30s")
 	fs.Int64Var(&o.maxBodyBytes, "max-body-bytes", mcp.DefaultMaxBodyBytes,
 		"Largest request body, in bytes, the HTTP transport reads at /mcp; a larger one is refused with 413. Default 4194304 (4 MiB)")
+	fs.BoolVar(&o.mintAPIKey, "mint-api-key", false,
+		"Mint an API key osk_<id>.<secret> for -subject with -scopes, print it once to stdout, append its record to the -api-keys file (created when absent) and exit")
+	fs.StringVar(&o.subject, "subject", "", "Who the key minted with -mint-api-key speaks for: a user name, an e-mail address, a CI job")
+	fs.StringVar(&o.scopes, "scopes", "", "Scopes the key minted with -mint-api-key grants, comma-separated (RFC 6749 scope tokens)")
+	fs.DurationVar(&o.expires, "expires", 0, "Lifetime of the key minted with -mint-api-key, as 720h or 90m; none by default, a key that does not expire")
+	fs.StringVar(&o.revokeAPIKey, "revoke-api-key", "", "Mark the key of this id disabled in the -api-keys file and exit")
 	fs.Var(&o.printConfig, "print-config",
 		"Write the configuration block declaring this server to an agent host — "+strings.Join(hostNames(), ", ")+" — to stdout and exit; alone, list the hosts")
 	fs.StringVar(&o.configCommand, "print-config-command", "",
@@ -162,10 +169,11 @@ func doc() usage.Doc {
 					"Streamable HTTP transport, at the path /mcp, until it is told to " +
 					"stop with SIGINT or SIGTERM; stopping closes the sessions and " +
 					"waits up to -shutdown-timeout (30 seconds) for the connections to " +
-					"drain. The clients " +
-					"share one workspace, one runtime cache and one set of REPL " +
-					"sessions, so a session_* name opened by one is the session every " +
-					"other sees under that name.",
+					"drain. The clients share one workspace and one runtime cache; " +
+					"REPL sessions belong to the principal that opened them (see " +
+					"Scopes), so a session_* name opened by one client is the session " +
+					"every other client of the same principal sees under that name, " +
+					"and no other principal does.",
 			},
 			Examples: []usage.Example{
 				usage.Ex("sysml-mcp -http 8765", "Serve http://localhost:8765/mcp to this machine"),
@@ -200,7 +208,7 @@ func doc() usage.Doc {
 					"MCP-Protocol-Version header names a version the server does not " +
 					"speak is refused with 400.",
 			},
-		}, {
+		}, scopesSection(), {
 			Title: "Running as a service",
 			Lead: []string{
 				"With -http the server also answers two open endpoints on the same " +
@@ -285,6 +293,41 @@ func doc() usage.Doc {
 	}
 }
 
+// scopesSection names the scopes a caller needs, from the catalog that also
+// assigns them to the tools, so the manual page cannot drift from the server.
+func scopesSection() usage.Section {
+	sec := usage.Section{
+		Title: "Scopes",
+		Lead: []string{
+			"Every tool requires one scope (RFC 6749 § 3.3), named in the Tools " +
+				"section and by tool_catalog, and a tools/call by a principal whose " +
+				"credential lacks it is refused with an error naming the scope; " +
+				"tools/list is not narrowed; repl_command is admitted with sysml:read " +
+				"and then requires, for the % command given, the scope of the typed " +
+				"tool doing the same. Over stdin and stdout, and over -http " +
+				"without a token, the one local caller holds every scope. The bearer " +
+				"token named by -token-file, -token or " + mcp.TokenEnv + " holds " +
+				"every scope. Each call is recorded on the log (-log-level info) with " +
+				"the principal, its source, the remote address, the tool, its scope, " +
+				"the outcome and the duration, and never the credential or the " +
+				"arguments.",
+		},
+	}
+	for _, s := range catalog.Scopes() {
+		sec.Items = append(sec.Items, usage.Entry(string(s), scopeMeaning[s]))
+	}
+	return sec
+}
+
+// scopeMeaning is what the manual page says each scope grants.
+var scopeMeaning = map[catalog.Scope]string{
+	catalog.ScopeRead:    "Ask about the workspace and the model: queries, diagnostics, hover, conversions and edits answered as text, nothing another caller sees changed.",
+	catalog.ScopeWrite:   "Write the workspace: files replaced with apply, documents held open or released, prompt commands that may save.",
+	catalog.ScopeExecute: "Execute the model: actions, state machines, analyses, solving, debugging and REPL evaluation in a session.",
+	catalog.ScopeSession: "Open, load, list, clear and close the caller's own REPL sessions; session names are private to the principal.",
+	catalog.ScopeAdmin:   "See and close every principal's sessions through session_list and session_close; no tool requires it.",
+}
+
 // toolsSection lists every tool the server can serve, from the catalog that
 // also drives registration and the tool_catalog tool, so the manual page
 // cannot drift from the tools (`make man` regenerates it, `make man-check`
@@ -294,8 +337,9 @@ func toolsSection() usage.Section {
 		Title: "Tools",
 		Lead: []string{
 			"The tools, by the group that serves them (-tools), each with the " +
-				"sysml-grpc RPC or sysml flag it stands for. The tool_catalog tool " +
-				"answers this list to the client, narrowed to the groups served.",
+				"scope a caller needs (see Scopes) and the sysml-grpc RPC or sysml " +
+				"flag it stands for. The tool_catalog tool answers this list to the " +
+				"client, narrowed to the groups served.",
 		},
 	}
 	for _, e := range catalog.Entries(catalog.Groups()...) {
@@ -303,9 +347,9 @@ func toolsSection() usage.Section {
 		if group == "" {
 			group = "every group"
 		}
-		text := fmt.Sprintf("%s: %s", group, e.Summary)
+		text := fmt.Sprintf("%s, %s: %s", group, e.Scope, e.Summary)
 		if op := e.Operation(); op != "none" {
-			text = fmt.Sprintf("%s: %s (%s).", group, strings.TrimSuffix(e.Summary, "."), op)
+			text = fmt.Sprintf("%s, %s: %s (%s).", group, e.Scope, strings.TrimSuffix(e.Summary, "."), op)
 		}
 		sec.Items = append(sec.Items, usage.Entry(e.Name, text))
 	}

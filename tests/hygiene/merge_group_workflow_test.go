@@ -95,24 +95,28 @@ func TestPRWorkflowConcurrencyGroupSeparatesMergeGroups(t *testing.T) {
 	}
 }
 
-// Changed areas decides the tier from the draft flag and the diff from the
-// base branch; a merge-group commit has neither a draft flag nor a base_ref,
-// so both need a merge_group branch, and the diff is the merge group's own.
+// Changed areas decides the tier and the areas from the diff against the base
+// branch; a merge-group commit has no base_ref, so the diff is the merge group's
+// own, and it must force the full tier, as the label ci:full does, since the
+// changed paths alone would run the quick tier on a queue commit.
 func TestPRWorkflowChangedAreasHandlesMergeGroups(t *testing.T) {
 	workflow, _ := loadPRWorkflow(t)
 
-	tier := prWorkflowStep(t, workflow, "changes", "Decide the tier")
-	for _, name := range []string{"DRAFT", "CI_FULL_LABEL"} {
-		value, ok := tier.Env[name]
-		if !ok {
-			t.Fatalf("pr.yml Decide the tier has no %s env", name)
-		}
-		if !strings.Contains(value, "github.event_name != 'merge_group'") {
-			t.Errorf("pr.yml Decide the tier %s = %q does not turn off for merge_group, so a queue commit could run the quick tier", name, value)
+	areas := prWorkflowStep(t, workflow, "changes", "Decide which areas to run")
+	forced, ok := areas.Env["CI_TIER"]
+	if !ok {
+		t.Fatalf("pr.yml Decide which areas to run has no CI_TIER env")
+	}
+	for _, want := range []string{"github.event_name == 'merge_group'", "'ci:full'", "&& 'full'"} {
+		if !strings.Contains(forced, want) {
+			t.Errorf("pr.yml Decide which areas to run CI_TIER = %q does not force the full tier on %s", forced, want)
 		}
 	}
+	shards := prWorkflowStep(t, workflow, "changes", "Pick the Go shards")
+	if !strings.Contains(shards.Env["TIER"], "steps.areas.outputs.tier") {
+		t.Errorf("pr.yml Pick the Go shards TIER = %q does not read the tier the script decided", shards.Env["TIER"])
+	}
 
-	areas := prWorkflowStep(t, workflow, "changes", "Decide which areas to run")
 	for env, sha := range map[string]string{"DIFF_BASE": "base_sha", "DIFF_HEAD": "head_sha"} {
 		value, ok := areas.Env[env]
 		if !ok {

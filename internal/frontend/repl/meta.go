@@ -153,14 +153,35 @@ const (
 	groupState      = "State machine debugging:"
 )
 
+// Effect is what a meta command does beyond printing, so that a host serving
+// the prompt to callers of different rights knows which to let a caller run.
+type Effect int
+
+// The effects, from the least to the most consequential; the zero value is
+// no classification, which the table test refuses.
+const (
+	// Reads prints or inspects: the session, the model, the library, a run's
+	// state, what a command would do. Nothing changes.
+	Reads Effect = iota + 1
+	// Shapes changes the session itself: its model, its settings, the
+	// repository it addresses. Nothing outside the session changes.
+	Shapes
+	// Writes writes beyond the session: a file, the repository.
+	Writes
+	// Executes runs the model: instantiation, evaluation, invocation,
+	// behaviors, analyses, solving, debugging.
+	Executes
+)
+
 // metaCommand is one prompt command. The table below is what the help text,
 // tab completion and the unknown-command suggestion all read.
 type metaCommand struct {
-	name  string
-	args  string // the arguments help shows after the name
-	desc  string
-	group string // help heading this command is listed under
-	alias bool   // an alternative spelling, dispatched but not listed
+	name   string
+	effect Effect
+	args   string // the arguments help shows after the name
+	desc   string
+	group  string // help heading this command is listed under
+	alias  bool   // an alternative spelling, dispatched but not listed
 	// linked reports whether the build links the feature serving the command;
 	// nil for one the core serves.
 	linked func() bool
@@ -186,95 +207,95 @@ func positionalLinked() bool { return replext.Positional() != nil }
 func graphLinked() bool      { return replext.Graph() != nil }
 
 var metaCommandTable = []metaCommand{
-	{name: "%help", group: groupSession, desc: "show this help"},
-	{name: "%list", group: groupSession, desc: "list current session declarations"},
-	{name: "%documents", group: groupSession, desc: "list the model's documents by the names %render-document reads"},
-	{name: "%views", group: groupSession, args: "[diagrams] [<kind>...]", desc: "list the model's views and their kinds by the names %render reads; diagrams keeps the graph-shaped ones"},
-	{name: "%clear", group: groupSession, desc: "reset the session"},
-	{name: "%workspace", group: groupSession, desc: "show the directory a root namespace a submission leaves unresolved is looked for under: the model file there declaring it loads as %load would"},
-	{name: "%load", group: groupSession, args: "[--cells <sel>] <path>... | [--id=<project id>] [--name=<name>] [--branch=<branch>] [<name>]", desc: "submit the contents of files, directories or globs (a .ipynb notebook's code cells declare, --cells 1,3-5 or tag:<tag> picking cells), or load a repository project's model: named, by --id or by --name, at a branch or its default; a name that is a path on disk loads the files",
+	{name: "%help", effect: Reads, group: groupSession, desc: "show this help"},
+	{name: "%list", effect: Reads, group: groupSession, desc: "list current session declarations"},
+	{name: "%documents", effect: Reads, group: groupSession, desc: "list the model's documents by the names %render-document reads"},
+	{name: "%views", effect: Reads, group: groupSession, args: "[diagrams] [<kind>...]", desc: "list the model's views and their kinds by the names %render reads; diagrams keeps the graph-shaped ones"},
+	{name: "%clear", effect: Shapes, group: groupSession, desc: "reset the session"},
+	{name: "%workspace", effect: Reads, group: groupSession, desc: "show the directory a root namespace a submission leaves unresolved is looked for under: the model file there declaring it loads as %load would"},
+	{name: "%load", effect: Shapes, group: groupSession, args: "[--cells <sel>] <path>... | [--id=<project id>] [--name=<name>] [--branch=<branch>] [<name>]", desc: "submit the contents of files, directories or globs (a .ipynb notebook's code cells declare, --cells 1,3-5 or tag:<tag> picking cells), or load a repository project's model: named, by --id or by --name, at a branch or its default; a name that is a path on disk loads the files",
 		part: repositoryLinked, partArgs: "[--cells <sel>] <path>...", partDesc: "submit the contents of files, directories or globs; a .ipynb notebook's code cells declare, its % commands and expressions skipped, --cells 1,3-5 or tag:<tag> picking cells"},
-	{name: "%print", group: groupSession, args: "[name]", desc: "print the session model as SysML notation, or just the named element", linked: notationLinked},
-	{name: "%save", group: groupSession, args: "<file>", desc: "write the session model to a file (.sysml notation, or .ttl/.json RDF — experimental)", linked: notationLinked},
-	{name: cmdQuery, group: groupSession, args: "<oslc-query>", desc: "identify model elements using OSLC Query text", linked: positionalLinked},
-	{name: "%quit", group: groupSession, desc: "exit the REPL (also %exit)"},
-	{name: "%exit", group: groupSession, desc: "exit the REPL", alias: true},
+	{name: "%print", effect: Reads, group: groupSession, args: "[name]", desc: "print the session model as SysML notation, or just the named element", linked: notationLinked},
+	{name: "%save", effect: Writes, group: groupSession, args: "<file>", desc: "write the session model to a file (.sysml notation, or .ttl/.json RDF — experimental)", linked: notationLinked},
+	{name: cmdQuery, effect: Reads, group: groupSession, args: "<oslc-query>", desc: "identify model elements using OSLC Query text", linked: positionalLinked},
+	{name: "%quit", effect: Reads, group: groupSession, desc: "exit the REPL (also %exit)"},
+	{name: "%exit", effect: Reads, group: groupSession, desc: "exit the REPL", alias: true},
 
-	{name: "%repo", group: groupRepository, args: "[<base path>]", desc: "show or set the base URL of the SysML v2 API server the repository commands address, seeded from FLEXO_SYSMLV2_URL; a bearer token, when the server wants one, is read from FLEXO_INTEROP_TOKEN", linked: repositoryLinked},
-	{name: "%projects", group: groupRepository, desc: "list the repository's projects, name and id", linked: repositoryLinked},
-	{name: "%publish", group: groupRepository, args: "[-d] [--project=<project name>] [--branch=<branch name>] <name>", desc: "publish the elements rooted in <name> to the repository: a new project named after it (or --project) when none is, else a new commit on the branch holding what changed; -d includes the derived properties", linked: repositoryLinked},
+	{name: "%repo", effect: Shapes, group: groupRepository, args: "[<base path>]", desc: "show or set the base URL of the SysML v2 API server the repository commands address, seeded from FLEXO_SYSMLV2_URL; a bearer token, when the server wants one, is read from FLEXO_INTEROP_TOKEN", linked: repositoryLinked},
+	{name: "%projects", effect: Reads, group: groupRepository, desc: "list the repository's projects, name and id", linked: repositoryLinked},
+	{name: "%publish", effect: Writes, group: groupRepository, args: "[-d] [--project=<project name>] [--branch=<branch name>] <name>", desc: "publish the elements rooted in <name> to the repository: a new project named after it (or --project) when none is, else a new commit on the branch holding what changed; -d includes the derived properties", linked: repositoryLinked},
 
-	{name: "%verbosity", group: groupSettings, args: "[level]", desc: "show or set output level: quiet, normal or debug"},
-	{name: "%trace", group: groupSettings, args: "[on|off]", desc: "show or set execution tracing (evaluation, calc, action and state steps)"},
-	{name: "%strict", group: groupSettings, args: "[on|off]", desc: "show or set strict conformance: report notation no SysML v2 production admits as an error"},
-	{name: "%explain-code", group: groupSettings, args: "[<code>...]", desc: "explain a diagnostic code — what it means, how to resolve it and the clause or constraint behind it — or, bare, list every code with a one-line summary"},
-	{name: "%lint", group: groupSettings, args: "[<code> on|off]", desc: "list the lints — warnings about models the specification accepts — each on or off, or switch one by its code: undeclared-signal, deferred-keeper-unmarked, rounded-real-literal (opt-in, off by default)"},
-	{name: "%schedule", group: groupSettings, args: "[<policy>]", desc: "show or set the scheduling policy runs started from here on resolve choice points under: declared, reverse or seed:<n>"},
-	{name: "%seed", group: groupSettings, args: "[<n>|off]", desc: "show or set the seed runs started from here on draw their modeled randomness from — Probability-weighted decisions, RandomFunctions — whatever the schedule; off leaves it to the schedule's seed:<n>"},
-	{name: "%draws", group: groupSettings, args: "[<policy>]", desc: "show or set how runs started from here on resolve RandomFunctions draws: random (from the seed), min, max or average of each call's distribution; min, max and average need no seed"},
-	{name: "%clock-step", group: groupSettings, args: "[<seconds>]", desc: "show or set the step the clock of runs started from here on ticks by: a wait comes due at the first multiple of it not before the wait ends; 0 (the default) is a continuous clock"},
-	{name: "%budget", group: groupSettings, desc: "show the bounds one run may spend, and the variable raising each"},
-	{name: "%jobs", group: groupSettings, args: "[<n>]", desc: "show or set how many runs of one check go concurrently: an exploration's linearizations, the engines all consults"},
+	{name: "%verbosity", effect: Shapes, group: groupSettings, args: "[level]", desc: "show or set output level: quiet, normal or debug"},
+	{name: "%trace", effect: Shapes, group: groupSettings, args: "[on|off]", desc: "show or set execution tracing (evaluation, calc, action and state steps)"},
+	{name: "%strict", effect: Shapes, group: groupSettings, args: "[on|off]", desc: "show or set strict conformance: report notation no SysML v2 production admits as an error"},
+	{name: "%explain-code", effect: Reads, group: groupSettings, args: "[<code>...]", desc: "explain a diagnostic code — what it means, how to resolve it and the clause or constraint behind it — or, bare, list every code with a one-line summary"},
+	{name: "%lint", effect: Shapes, group: groupSettings, args: "[<code> on|off]", desc: "list the lints — warnings about models the specification accepts — each on or off, or switch one by its code: undeclared-signal, deferred-keeper-unmarked, rounded-real-literal (opt-in, off by default)"},
+	{name: "%schedule", effect: Shapes, group: groupSettings, args: "[<policy>]", desc: "show or set the scheduling policy runs started from here on resolve choice points under: declared, reverse or seed:<n>"},
+	{name: "%seed", effect: Shapes, group: groupSettings, args: "[<n>|off]", desc: "show or set the seed runs started from here on draw their modeled randomness from — Probability-weighted decisions, RandomFunctions — whatever the schedule; off leaves it to the schedule's seed:<n>"},
+	{name: "%draws", effect: Shapes, group: groupSettings, args: "[<policy>]", desc: "show or set how runs started from here on resolve RandomFunctions draws: random (from the seed), min, max or average of each call's distribution; min, max and average need no seed"},
+	{name: "%clock-step", effect: Shapes, group: groupSettings, args: "[<seconds>]", desc: "show or set the step the clock of runs started from here on ticks by: a wait comes due at the first multiple of it not before the wait ends; 0 (the default) is a continuous clock"},
+	{name: "%budget", effect: Reads, group: groupSettings, desc: "show the bounds one run may spend, and the variable raising each"},
+	{name: "%jobs", effect: Shapes, group: groupSettings, args: "[<n>]", desc: "show or set how many runs of one check go concurrently: an exploration's linearizations, the engines all consults"},
 
-	{name: "%engines", group: groupEngines, args: "[probe]", desc: "list the analysis engines, with the kind, protocol and authority of each, the questions it answers and whether it can run; probe also starts each external engine once and checks it against its manifest"},
-	{name: "%engine", group: groupEngines, args: "[<name>|auto|all]", desc: "show or set the engine questions asked from here on are put to: one by name, auto for the strongest covering one, or all for every covering one"},
-	{name: "%tool", group: groupEngines, args: "<case|action>[(<args>)] [<object>]", desc: "show what the external tool a case's or action's ToolExecution names would be given — manifest, executable, argv, environment, cwd, standard input, input file and reply mapping — with the model's current values, without starting the process; what the preview performed is discarded"},
+	{name: "%engines", effect: Reads, group: groupEngines, args: "[probe]", desc: "list the analysis engines, with the kind, protocol and authority of each, the questions it answers and whether it can run; probe also starts each external engine once and checks it against its manifest"},
+	{name: "%engine", effect: Shapes, group: groupEngines, args: "[<name>|auto|all]", desc: "show or set the engine questions asked from here on are put to: one by name, auto for the strongest covering one, or all for every covering one"},
+	{name: "%tool", effect: Reads, group: groupEngines, args: "<case|action>[(<args>)] [<object>]", desc: "show what the external tool a case's or action's ToolExecution names would be given — manifest, executable, argv, environment, cwd, standard input, input file and reply mapping — with the model's current values, without starting the process; what the preview performed is discarded"},
 
-	{name: "%check-diverge", group: groupChecks, args: "[<feature>...|off]", desc: "show or set the features the check engine compares final values of across schedules; off compares every attribute of the action and of its performing object, or of the action alone when it has none"},
-	{name: "%check-property", group: groupChecks, args: "[<name>...|off]", desc: "show or set the constraints and requirements the check engine evaluates at every stable state of an action"},
-	{name: "%check-input", group: groupChecks, args: "[<feature>...|off]", desc: "show or set the features the smt engine leaves free in their declared domains although the model binds them; off frees only the inputs the model leaves unbound"},
-	{name: "%check-assume", group: groupChecks, args: "[<name>...|off]", desc: "show or set the constraints and requirements the smt engine assumes over the initial state of an action"},
-	{name: "%check-witness", group: groupChecks, args: "[<dir>|off]", desc: "show or set the directory the check and smt engines write a witness to for each violation and divergent value"},
-	{name: "%check-bounds", group: groupChecks, args: "[depth=<n>] [states=<n>] [unroll=<n>] [timeout=<duration>] | off", desc: "show or set the bounds the check and smt engines search within: the moves of one schedule, the distinct states, the iterations of a loop the smt engine unrolls, and the clock; off restores their defaults"},
-	{name: "%replay", group: groupChecks, args: "<witness>", desc: "install the schedule a witness file fixes, so the next %action or %state steps the run it records"},
+	{name: "%check-diverge", effect: Shapes, group: groupChecks, args: "[<feature>...|off]", desc: "show or set the features the check engine compares final values of across schedules; off compares every attribute of the action and of its performing object, or of the action alone when it has none"},
+	{name: "%check-property", effect: Shapes, group: groupChecks, args: "[<name>...|off]", desc: "show or set the constraints and requirements the check engine evaluates at every stable state of an action"},
+	{name: "%check-input", effect: Shapes, group: groupChecks, args: "[<feature>...|off]", desc: "show or set the features the smt engine leaves free in their declared domains although the model binds them; off frees only the inputs the model leaves unbound"},
+	{name: "%check-assume", effect: Shapes, group: groupChecks, args: "[<name>...|off]", desc: "show or set the constraints and requirements the smt engine assumes over the initial state of an action"},
+	{name: "%check-witness", effect: Writes, group: groupChecks, args: "[<dir>|off]", desc: "show or set the directory the check and smt engines write a witness to for each violation and divergent value"},
+	{name: "%check-bounds", effect: Shapes, group: groupChecks, args: "[depth=<n>] [states=<n>] [unroll=<n>] [timeout=<duration>] | off", desc: "show or set the bounds the check and smt engines search within: the moves of one schedule, the distinct states, the iterations of a loop the smt engine unrolls, and the clock; off restores their defaults"},
+	{name: "%replay", effect: Shapes, group: groupChecks, args: "<witness>", desc: "install the schedule a witness file fixes, so the next %action or %state steps the run it records"},
 
-	{name: "%search", group: groupLibrary, args: "<substring>", desc: "list the declared and library symbols whose qualified name contains <substring>"},
-	{name: "%builtins", group: groupLibrary, desc: "list the library functions this build implements directly"},
-	{name: "%view", group: groupLibrary, args: argName, desc: "show what a view exposes, and the views nested in it"},
-	{name: "%graphs", group: groupLibrary, args: argName, desc: "export the lowered graph of an action or state machine, and of every behavior it performs, as the canonical graphs:1 JSON an external engine is sent"},
-	{name: "%render", group: groupLibrary, args: "<name> [form [palette] [style] [ports] [lines] [verdicts] [compartments=<folding>] [show=<elements>] [depth=<levels>] [link=<template>]]", desc: "render a view as the rendering it states — as text, as a Mermaid diagram, a Markdown table or relationship matrix, or as Graphviz DOT, PlantUML or D2, filled from a named palette, drawn in a style (pilot or cameo) with its lines routed as splines, ortho or polyline, overlaid with verdicts, a tree's owned members folded into compartment rows as compartments= says (positioned, most or ports), limited to the elements show= names and the depth= levels, and optionally linking elements to their source with a link template"},
-	{name: "%viz", group: groupLibrary, args: "[--view=<VIEW>] [--style=<STYLE>...] [form] <name> [<name>...]", desc: "draw the named elements on demand, with no view declared, as the pilot kernel's %viz does: VIEW is DEFAULT, TREE, INTERCONNECTION, STATE, ACTION, SEQUENCE, MIXED or CASE in any letter case, DEFAULT (the view when none is named) choosing the kind from what the names resolve to; each --style is a direction (TB, LR, RL, BT), a drawing style (pilot or cameo), a palette, a port display, or a pilot style that is accepted and noted as not drawn; the form is any %render form, text when none is named"},
+	{name: "%search", effect: Reads, group: groupLibrary, args: "<substring>", desc: "list the declared and library symbols whose qualified name contains <substring>"},
+	{name: "%builtins", effect: Reads, group: groupLibrary, desc: "list the library functions this build implements directly"},
+	{name: "%view", effect: Reads, group: groupLibrary, args: argName, desc: "show what a view exposes, and the views nested in it"},
+	{name: "%graphs", effect: Reads, group: groupLibrary, args: argName, desc: "export the lowered graph of an action or state machine, and of every behavior it performs, as the canonical graphs:1 JSON an external engine is sent"},
+	{name: "%render", effect: Reads, group: groupLibrary, args: "<name> [form [palette] [style] [ports] [lines] [verdicts] [compartments=<folding>] [show=<elements>] [depth=<levels>] [link=<template>]]", desc: "render a view as the rendering it states — as text, as a Mermaid diagram, a Markdown table or relationship matrix, or as Graphviz DOT, PlantUML or D2, filled from a named palette, drawn in a style (pilot or cameo) with its lines routed as splines, ortho or polyline, overlaid with verdicts, a tree's owned members folded into compartment rows as compartments= says (positioned, most or ports), limited to the elements show= names and the depth= levels, and optionally linking elements to their source with a link template"},
+	{name: "%viz", effect: Reads, group: groupLibrary, args: "[--view=<VIEW>] [--style=<STYLE>...] [form] <name> [<name>...]", desc: "draw the named elements on demand, with no view declared, as the pilot kernel's %viz does: VIEW is DEFAULT, TREE, INTERCONNECTION, STATE, ACTION, SEQUENCE, MIXED or CASE in any letter case, DEFAULT (the view when none is named) choosing the kind from what the names resolve to; each --style is a direction (TB, LR, RL, BT), a drawing style (pilot or cameo), a palette, a port display, or a pilot style that is accepted and noted as not drawn; the form is any %render form, text when none is named"},
 
-	{name: "%instantiate", group: groupRuntime, args: argName, desc: "create an instance of a part def"},
-	{name: "%eval", group: groupRuntime, args: "[in <name>|<path>|#<id> :] <expr>", desc: "evaluate an expression, in the named element or object when one is named"},
-	{name: "%features", group: groupRuntime, args: "<object> [all|depth <n>] [json]", desc: "show an object's feature values and what its behaviors are doing, bounded unless all or a depth is asked for; json writes the object graph as the API does; an object is named, #<id>, or a path such as car.fl or #1.wheels[2]",
+	{name: "%instantiate", effect: Executes, group: groupRuntime, args: argName, desc: "create an instance of a part def"},
+	{name: "%eval", effect: Executes, group: groupRuntime, args: "[in <name>|<path>|#<id> :] <expr>", desc: "evaluate an expression, in the named element or object when one is named"},
+	{name: "%features", effect: Reads, group: groupRuntime, args: "<object> [all|depth <n>] [json]", desc: "show an object's feature values and what its behaviors are doing, bounded unless all or a depth is asked for; json writes the object graph as the API does; an object is named, #<id>, or a path such as car.fl or #1.wheels[2]",
 		part: graphLinked, partArgs: "<object> [all|depth <n>]", partDesc: "show an object's feature values and what its behaviors are doing, bounded unless all or a depth is asked for; an object is named, #<id>, or a path such as car.fl or #1.wheels[2]"},
-	{name: "%instances", group: groupRuntime, desc: "list all instantiated objects"},
-	{name: cmdInvoke, group: groupRuntime, args: "<object> <op> [<expr>... | <p>=<expr>...]", desc: "invoke an operation of an object's type, performed by that object, with arguments by position or by name; an object is named, #<id>, or a path such as car.fl"},
+	{name: "%instances", effect: Reads, group: groupRuntime, desc: "list all instantiated objects"},
+	{name: cmdInvoke, effect: Executes, group: groupRuntime, args: "<object> <op> [<expr>... | <p>=<expr>...]", desc: "invoke an operation of an object's type, performed by that object, with arguments by position or by name; an object is named, #<id>, or a path such as car.fl"},
 
-	{name: "%calc", group: groupBehavioral, args: "<name> <args>", desc: "invoke a calculation with arguments"},
-	{name: cmdAnalysis, group: groupBehavioral, args: argInvocation, desc: "run an analysis case and report its outputs and the verdict of its objective; arguments bind its inputs and an object is its subject"},
-	{name: cmdRecord, group: groupBehavioral, args: "<name>[(<args>)] [<object>] [into <package>]", desc: "run an analysis case as %analysis does and record the run into the model as AnalysisRecords elements, into the package named or a Records package beside the case's"},
-	{name: cmdImport, group: groupBehavioral, args: "<file> [map <file>] [format csv|tsv|json|jsonl] [dry-run]", desc: "set feature values from a CSV, TSV, JSON or JSON Lines file, one row per element: an element column names it and each other column a feature, `mass [kg]` with its unit; a feature the element inherits is redefined in its body, and a value the model refuses imports nothing"},
-	{name: cmdSweep, group: groupBehavioral, args: "<name>[(<args>)] [<object>] <p>=<from>..<to>[:<step>]...", desc: "run an analysis case or calc once per value of each range, one run per row of the cartesian product, and print the table"},
-	{name: cmdSamples, group: groupBehavioral, args: "<n> <seed> <name>[(<args>)] [<object>] <p>=<from>..<to>...", desc: "run an analysis case or calc over <n> values drawn uniformly from each range with the given seed, and print the table"},
-	{name: cmdRuns, group: groupBehavioral, args: "<n> [<seed>] <action> [<observable>...]", desc: "run an action <n> times, each run's modeled randomness seeded from the given seed — left out under %draws min, max or average — and print the table of the observables with each one's distribution"},
-	{name: cmdRunQuery, group: groupBehavioral, args: "<name> [<p>=<expr>...] | inline <expr>", desc: "execute a document query and print its rows, with each binding written as <parameter>=<expression>; inline runs a query expression written in place of a name (a query named inline is run by its qualified name, or with its bindings)"},
-	{name: "%render-run", group: groupBehavioral, args: "<timeline|sequence> [form] [link=<template>]", desc: "render the recorded run as a state timeline or message sequence, optionally linking declarations to their source"},
-	{name: cmdRenderDocument, group: groupBehavioral, args: "<name> [mermaid|dot|plantuml|d2 [pilot|cameo]]", desc: "compile a document definition, run its queries and print the rendered Markdown, its graph-shaped diagrams as Mermaid, Graphviz DOT, PlantUML or D2"},
-	{name: constraintCommand, group: groupBehavioral, args: argInvocation, desc: "evaluate a constraint definition, with arguments for its parameters and an object as its subject"},
-	{name: requirementCommand, group: groupBehavioral, args: argInvocation, desc: "evaluate a requirement definition, with arguments for its parameters and an object as its subject"},
-	{name: "%satisfy", group: groupBehavioral, args: "[name]", desc: "evaluate the satisfaction assertions of the model, or of one element"},
-	{name: "%validate", group: groupBehavioral, args: "<object>", desc: "check every assertion about an object and the objects it holds: the asserted constraints of their types, the requirements they carry and the satisfactions they are subject of; an object is named, #<id>, or a path such as car.engine"},
-	{name: "%check", group: groupBehavioral, args: argName, desc: "ask an SMT solver whether a constraint, requirement or satisfaction can be satisfied (experimental)"},
-	{name: "%explain", group: groupBehavioral, args: argName, desc: "ask an SMT solver which conditions of an unsatisfiable element conflict (experimental)"},
-	{name: "%solve", group: groupBehavioral, args: argName, desc: "ask an SMT solver for values satisfying an element, keeping what is already fixed (experimental)"},
-	{name: "%configure", group: groupBehavioral, args: "<name> [<variation>=<variant>...] [all [<count>]]", desc: "ask an SMT solver which variants an element's conditions permit (experimental)"},
-	{name: "%optimize", group: groupBehavioral, args: argName, desc: "ask an SMT solver for the best values an analysis case's objectives admit (experimental)"},
+	{name: "%calc", effect: Executes, group: groupBehavioral, args: "<name> <args>", desc: "invoke a calculation with arguments"},
+	{name: cmdAnalysis, effect: Executes, group: groupBehavioral, args: argInvocation, desc: "run an analysis case and report its outputs and the verdict of its objective; arguments bind its inputs and an object is its subject"},
+	{name: cmdRecord, effect: Executes, group: groupBehavioral, args: "<name>[(<args>)] [<object>] [into <package>]", desc: "run an analysis case as %analysis does and record the run into the model as AnalysisRecords elements, into the package named or a Records package beside the case's"},
+	{name: cmdImport, effect: Shapes, group: groupBehavioral, args: "<file> [map <file>] [format csv|tsv|json|jsonl] [dry-run]", desc: "set feature values from a CSV, TSV, JSON or JSON Lines file, one row per element: an element column names it and each other column a feature, `mass [kg]` with its unit; a feature the element inherits is redefined in its body, and a value the model refuses imports nothing"},
+	{name: cmdSweep, effect: Executes, group: groupBehavioral, args: "<name>[(<args>)] [<object>] <p>=<from>..<to>[:<step>]...", desc: "run an analysis case or calc once per value of each range, one run per row of the cartesian product, and print the table"},
+	{name: cmdSamples, effect: Executes, group: groupBehavioral, args: "<n> <seed> <name>[(<args>)] [<object>] <p>=<from>..<to>...", desc: "run an analysis case or calc over <n> values drawn uniformly from each range with the given seed, and print the table"},
+	{name: cmdRuns, effect: Executes, group: groupBehavioral, args: "<n> [<seed>] <action> [<observable>...]", desc: "run an action <n> times, each run's modeled randomness seeded from the given seed — left out under %draws min, max or average — and print the table of the observables with each one's distribution"},
+	{name: cmdRunQuery, effect: Reads, group: groupBehavioral, args: "<name> [<p>=<expr>...] | inline <expr>", desc: "execute a document query and print its rows, with each binding written as <parameter>=<expression>; inline runs a query expression written in place of a name (a query named inline is run by its qualified name, or with its bindings)"},
+	{name: "%render-run", effect: Reads, group: groupBehavioral, args: "<timeline|sequence> [form] [link=<template>]", desc: "render the recorded run as a state timeline or message sequence, optionally linking declarations to their source"},
+	{name: cmdRenderDocument, effect: Reads, group: groupBehavioral, args: "<name> [mermaid|dot|plantuml|d2 [pilot|cameo]]", desc: "compile a document definition, run its queries and print the rendered Markdown, its graph-shaped diagrams as Mermaid, Graphviz DOT, PlantUML or D2"},
+	{name: constraintCommand, effect: Executes, group: groupBehavioral, args: argInvocation, desc: "evaluate a constraint definition, with arguments for its parameters and an object as its subject"},
+	{name: requirementCommand, effect: Executes, group: groupBehavioral, args: argInvocation, desc: "evaluate a requirement definition, with arguments for its parameters and an object as its subject"},
+	{name: "%satisfy", effect: Executes, group: groupBehavioral, args: "[name]", desc: "evaluate the satisfaction assertions of the model, or of one element"},
+	{name: "%validate", effect: Executes, group: groupBehavioral, args: "<object>", desc: "check every assertion about an object and the objects it holds: the asserted constraints of their types, the requirements they carry and the satisfactions they are subject of; an object is named, #<id>, or a path such as car.engine"},
+	{name: "%check", effect: Executes, group: groupBehavioral, args: argName, desc: "ask an SMT solver whether a constraint, requirement or satisfaction can be satisfied (experimental)"},
+	{name: "%explain", effect: Executes, group: groupBehavioral, args: argName, desc: "ask an SMT solver which conditions of an unsatisfiable element conflict (experimental)"},
+	{name: "%solve", effect: Executes, group: groupBehavioral, args: argName, desc: "ask an SMT solver for values satisfying an element, keeping what is already fixed (experimental)"},
+	{name: "%configure", effect: Executes, group: groupBehavioral, args: "<name> [<variation>=<variant>...] [all [<count>]]", desc: "ask an SMT solver which variants an element's conditions permit (experimental)"},
+	{name: "%optimize", effect: Executes, group: groupBehavioral, args: argName, desc: "ask an SMT solver for the best values an analysis case's objectives admit (experimental)"},
 
-	{name: "%action", group: groupAction, args: "<name> [<object>]", desc: "start action executor debugging session, performed by an object"},
-	{name: "%step", group: groupAction, desc: "advance one token step, or one step of the state machine being debugged"},
-	{name: "%continue", group: groupAction, desc: "run action to completion"},
-	{name: "%tokens", group: groupAction, desc: "show active tokens"},
-	{name: "%break", group: groupAction, args: "<node>", desc: "set breakpoint at node"},
-	{name: "%stop", group: groupAction, desc: "stop current debugging session"},
+	{name: "%action", effect: Executes, group: groupAction, args: "<name> [<object>]", desc: "start action executor debugging session, performed by an object"},
+	{name: "%step", effect: Executes, group: groupAction, desc: "advance one token step, or one step of the state machine being debugged"},
+	{name: "%continue", effect: Executes, group: groupAction, desc: "run action to completion"},
+	{name: "%tokens", effect: Reads, group: groupAction, desc: "show active tokens"},
+	{name: "%break", effect: Executes, group: groupAction, args: "<node>", desc: "set breakpoint at node"},
+	{name: "%stop", effect: Executes, group: groupAction, desc: "stop current debugging session"},
 
-	{name: "%occurrence", group: groupBehavioral, args: argName, desc: "perform an occurrence def as the interaction its body states: each message transferred between its lifelines in the order their events admit"},
-	{name: "%state", group: groupState, args: "<name> [<object>]", desc: "debug the machine an object exhibits (naming that machine alone attaches to the one object exhibiting it; with none or several, name the object), or a state machine performed by an object; an object is named, #<id>, or a path such as car.fl"},
-	{name: "%send", group: groupState, args: "<signal>[(<p>=<expr>, ...)] [to <object>]", desc: "send a signal to an object's machine, by default the one being debugged; an object is named, #<id>, or a path such as car.fl"},
-	{name: "%events", group: groupState, desc: "show event queue and signals in flight"},
-	{name: "%current", group: groupState, desc: "show current state and configuration"},
-	{name: "%advance", group: groupState, args: "<time>", desc: "advance simulation time by <time> units, processing every event due"},
+	{name: "%occurrence", effect: Executes, group: groupBehavioral, args: argName, desc: "perform an occurrence def as the interaction its body states: each message transferred between its lifelines in the order their events admit"},
+	{name: "%state", effect: Executes, group: groupState, args: "<name> [<object>]", desc: "debug the machine an object exhibits (naming that machine alone attaches to the one object exhibiting it; with none or several, name the object), or a state machine performed by an object; an object is named, #<id>, or a path such as car.fl"},
+	{name: "%send", effect: Executes, group: groupState, args: "<signal>[(<p>=<expr>, ...)] [to <object>]", desc: "send a signal to an object's machine, by default the one being debugged; an object is named, #<id>, or a path such as car.fl"},
+	{name: "%events", effect: Reads, group: groupState, desc: "show event queue and signals in flight"},
+	{name: "%current", effect: Reads, group: groupState, desc: "show current state and configuration"},
+	{name: "%advance", effect: Executes, group: groupState, args: "<time>", desc: "advance simulation time by <time> units, processing every event due"},
 }
 
 // helpText renders the command table, one line per command under its heading.
@@ -323,6 +344,16 @@ func helpEntry(c metaCommand) []string {
 		out = append(out, margin+line)
 	}
 	return out
+}
+
+// CommandEffect answers what the meta command called name does; false for a
+// name this build does not serve. The name is the command's, with its %.
+func CommandEffect(name string) (Effect, bool) {
+	i := slices.IndexFunc(metaCommandTable, func(c metaCommand) bool { return c.name == name })
+	if i < 0 || !metaCommandTable[i].served() {
+		return 0, false
+	}
+	return metaCommandTable[i].effect, true
 }
 
 // metaCommands returns every command name the prompt dispatches, aliases

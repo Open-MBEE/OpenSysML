@@ -153,7 +153,8 @@ func (r *PropertyReader) nameValues(sym *symbols.Symbol, property string) ([]str
 		}
 		return presentValues(sym.Name)
 	case PropertyDeclaredName:
-		if sym.EffectiveName() {
+		// A metadata body's `mission = …` declares no name: the Redefinition it implies names it.
+		if sym.EffectiveName() || (r.semantics != nil && r.semantics.RestatesMetadataBodyFeature(sym)) {
 			return nil, false
 		}
 		return presentValues(sym.Name)
