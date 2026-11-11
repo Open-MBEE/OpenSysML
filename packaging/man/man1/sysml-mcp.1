@@ -29,9 +29,18 @@ access to the HTTP transport (the CORS headers and preflight answer a browser
 needs); loopback origins and requests with no Origin header are admitted
 without a grant, any other origin is refused
 .TP
+.BI \-api\-keys " string"
+File of API keys accepted besides the bearer token, one JSON record per line
+holding the SHA\-256 of a key with its subject, scopes, expiry and whether it
+is disabled; re\-read when it changes
+.TP
 .BI \-cache\-size " int"
 Maximum number of parsed models the runtime tools hold; at least 1. The
 default is 100.
+.TP
+.BI \-expires " duration"
+Lifetime of the key minted with \-mint\-api\-key, as 720h or 90m; none by
+default, a key that does not expire
 .TP
 .B \-h
 Show this help (shorthand)
@@ -43,8 +52,9 @@ Show this help and exit
 Serve over Streamable HTTP at the path /mcp of this address instead of
 stdin/stdout, as host:port or a port alone, which binds loopback; every client
 shares the one workspace, runtime cache and set of REPL sessions. An address
-other machines reach is served only with a bearer token (\-token\-file,
-\-token or OPENSYSML_MCP_TOKEN)
+other machines reach is served only with a credential: a bearer token
+(\-token\-file, \-token or OPENSYSML_MCP_TOKEN), API keys (\-api\-keys) or
+both
 .TP
 .BI \-log\-level " string"
 Lowest level logged to stderr: debug, info, warn or error. The default is
@@ -56,6 +66,11 @@ Write this command's manual page, in roff, to stdout and exit
 .BI \-max\-body\-bytes " int"
 Largest request body, in bytes, the HTTP transport reads at /mcp; a larger one
 is refused with 413. Default 4194304 (4 MiB). The default is 4194304.
+.TP
+.B \-mint\-api\-key
+Mint an API key osk_<id>.<secret> for \-subject with \-scopes, print it once
+to stdout, append its record to the \-api\-keys file (created when absent) and
+exit
 .TP
 .B \-no\-record\-cache
 Parse every document and hold it loaded, reading no interface record from the
@@ -81,10 +96,17 @@ or rewrites the path, as https://models.example.org/mcp (a plain path, no
 query); named as the protected resource and in the bearer challenge, and by
 the \-print\-config block; default each request's own scheme and Host
 .TP
+.BI \-revoke\-api\-key " string"
+Mark the key of this id disabled in the \-api\-keys file and exit
+.TP
 .BI \-root " string"
 Workspace folder whose model documents the server indexes and edits; default
 the current directory, which an agent host sets to the project. The default is
 \&..
+.TP
+.BI \-scopes " string"
+Scopes the key minted with \-mint\-api\-key grants, comma\-separated (RFC 6749
+scope tokens)
 .TP
 .BI \-shutdown\-timeout " duration"
 How long a stopping HTTP server waits for its connections to drain after
@@ -97,6 +119,10 @@ it; not with \-http)
 .B \-strict
 Serve strict conformance from the start: notation no pinned SysML v2
 production admits is an error
+.TP
+.BI \-subject " string"
+Who the key minted with \-mint\-api\-key speaks for: a user name, an e\-mail
+address, a CI job
 .TP
 .BI \-tls\-cert " string"
 TLS certificate file for the HTTP transport; with \-tls\-key, the transport
