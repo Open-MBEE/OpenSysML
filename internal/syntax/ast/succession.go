@@ -17,3 +17,55 @@ func IsSuccessionSource(member Node) bool {
 	}
 	return true
 }
+
+// SuccessionAdmitsBody reports whether the `then` edge among owner's members may end in a UsageBody: a target-naming
+// ActionTargetSuccession does (SysML.xtext:1698), a member-attached `then action b` or an EntryTransitionMember's (:1796) not.
+func SuccessionAdmitsBody(owner, edge Node) bool {
+	// A member-attached `then` (`then action b;`, `then done;`) is the keyword alone; its target is the member after it.
+	if e, ok := edge.(*SuccessionEdge); ok && (e.TargetImplied || e.TargetMember != nil) {
+		return false
+	}
+	switch d := owner.(type) {
+	case *SuccessionEdge:
+		return true
+	case *Definition:
+		switch d.Kind {
+		case DefAction, DefBehavior:
+			return true
+		case DefState:
+			return thenBodyAllowedAt(d.Members, edge)
+		}
+	case *Usage:
+		switch d.Kind {
+		case UsageAction, UsageTransition, UsageStep, UsageBehavior:
+			return true
+		case UsageState:
+			return thenBodyAllowedAt(d.Members, edge)
+		}
+	}
+	return false
+}
+
+// thenBodyAllowedAt walks a state body's members to edge, as the parser did reading them.
+func thenBodyAllowedAt(members []Node, edge Node) bool {
+	allowed := true
+	for _, member := range members {
+		if member == edge {
+			return allowed
+		}
+		allowed = ThenBodyAllowedAfter(member, allowed)
+	}
+	return false
+}
+
+// ThenBodyAllowedAfter reports whether a `then` after member in a state body may carry a body:
+// only a TargetTransitionUsage does (SysML.xtext:1764), not an EntryTransitionMember (:1796-1801).
+func ThenBodyAllowedAfter(member Node, allowed bool) bool {
+	switch member.(type) {
+	case *EntryMember, *DoMember, *ExitMember:
+		return false
+	case *SuccessionEdge, *ControlFlowEdge:
+		return allowed
+	}
+	return true
+}

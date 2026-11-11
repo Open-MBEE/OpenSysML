@@ -982,3 +982,47 @@ package PlantViews {
 	}
 	t.Fatalf("no Plant::Tank among %d roots", len(rendering.Roots))
 }
+
+// A `then idle;` after a state's entry action ends in ';' by its production (SysML.xtext
+// EntryTransitionMember) and has no name: a Route about it has nowhere to be written.
+func TestSetRouteAtOfEntryTransitionIsRefused(t *testing.T) {
+	const model = `package Machines {
+    state def Boiler {
+        entry; then idle;
+        state idle;
+        state heating;
+        transition first idle then heating;
+    }
+}
+`
+	decl := declaredAt(t, model, "then idle;")
+	route := &semantics.Route{Points: []semantics.Waypoint{{X: 1, Y: 2}}}
+	_, err := Apply(loadContent(t, "plant.sysml", model), []Operation{SetRouteAt(decl, "", route)})
+	if e := editError(t, err); e.Failure != FailureNotNamed || !strings.Contains(e.Message, "no body is written") {
+		t.Fatalf("inline route of an entry transition: got %v", err)
+	}
+}
+
+// A member-attached `then action b;` or `then done;` is an edge whose notation is the `then` alone; a body
+// opened on it would land on another member, so a Route about it is refused as the entry transition's is.
+func TestSetRouteAtOfAttachedThenIsRefused(t *testing.T) {
+	const model = `package P {
+    action observe {
+        first start;
+        then action acquire;
+        then done;
+    }
+}
+`
+	decl := declaredAt(t, model, "then action acquire;")
+	route := &semantics.Route{Points: []semantics.Waypoint{{X: 1, Y: 2}}}
+	_, err := Apply(loadContent(t, "plant.sysml", model), []Operation{SetRouteAt(decl, "", route)})
+	if e := editError(t, err); e.Failure != FailureNotNamed || !strings.Contains(e.Message, "no body is written") {
+		t.Fatalf("inline route of an attached then: got %v", err)
+	}
+	decl = declaredAt(t, model, "then done;")
+	_, err = Apply(loadContent(t, "plant.sysml", model), []Operation{SetRouteAt(decl, "", route)})
+	if e := editError(t, err); e.Failure != FailureNotNamed || !strings.Contains(e.Message, "no body is written") {
+		t.Fatalf("inline route of then done: got %v", err)
+	}
+}
