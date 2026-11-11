@@ -146,8 +146,8 @@ The release fixture uses dedicated workers. Timing-sensitive header tests run th
 CI runs the whole suite on Linux under coverlet against the service its build job makes, then
 the conformance comparison with the reference runner, and, in the full tier, natively on macOS
 and Windows against a
-`sysml-grpc` built on that runner, with the same minimum test count. Every one of those jobs
-installs the Python, Java and Rust toolchains and requires the interop tests.
+`sysml-grpc` built on that runner, with the same minimum test count. Every one of those jobs,
+and CircleCI's, has Python and requires the interop tests.
 The Python gates use ASCII success markers so sample and coverage reports
 also work with legacy Windows console encodings.
 

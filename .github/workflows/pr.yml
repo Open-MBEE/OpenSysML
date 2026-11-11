@@ -1633,20 +1633,6 @@ jobs:
       - name: Install the sysml-grpc binary
         run: chmod +x bin/sysml-grpc
 
-      # The interop tests hold the shared cache's lock against the Java and Rust
-      # clients' own calls; Python is the runner's. Rust is the Rust client job's pin.
-      - name: Set up Java
-        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
-        with:
-          distribution: temurin
-          java-version: '21'
-
-      - name: Install Rust 1.83
-        run: |
-          rustup toolchain install 1.83.0 --profile minimal
-          rustup default 1.83.0
-          cargo --version
-
       # The verdict-notes test asks the service a solver-backed question; the
       # solver is an external process the service finds on PATH.
       - name: Install Z3
@@ -1655,7 +1641,9 @@ jobs:
           scripts/ci-apt-install.sh z3
           z3 --version
 
-      # A test that needs the service, a solver, or another client's toolchain, fails rather than skips without it.
+      # A test that needs the service, a solver or Python fails rather than skips without it;
+      # the interop tests hold the shared cache's lock against the Python client's calls with
+      # the runner's Python.
       - name: Run .NET client tests
         env:
           OPENSYSML_GRPC_BINARY: ${{ github.workspace }}/bin/sysml-grpc
@@ -1690,7 +1678,7 @@ jobs:
   # The .NET client's private-service lifecycle on the platforms the Linux job does
   # not stand for: the whole suite, with the orphan, load-context, race and shared
   # cache lock interop tests, against a sysml-grpc built natively here. A missing
-  # service or lock-holder toolchain fails rather than skips, and the minimum test
+  # service or Python fails rather than skips, and the minimum test
   # count is the Makefile's, so no platform passes by running less. Windows checks
   # out with LF endings, as the client's files are.
   dotnet-native:
@@ -1735,24 +1723,12 @@ jobs:
           "$binary" -version
           echo "OPENSYSML_GRPC_BINARY=$binary" >> "$GITHUB_ENV"
 
+      # The interop tests hold the shared cache's lock against the Python client's
+      # calls, natively here too.
       - name: Set up Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: '3.12'
-
-      # The interop tests hold the shared cache's lock against the Python, Java and
-      # Rust clients' own calls, natively here too.
-      - name: Set up Java
-        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
-        with:
-          distribution: temurin
-          java-version: '21'
-
-      - name: Install Rust 1.83
-        run: |
-          rustup toolchain install 1.83.0 --profile minimal
-          rustup default 1.83.0
-          cargo --version
 
       - name: Install the .NET SDK root global.json pins
         uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
