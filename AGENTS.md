@@ -231,6 +231,14 @@ such a commit, run `go run -C tools ./cmd/pilot-apijson-diff` over the real corp
 Never re-record a baseline whose figures did not move: its provenance lines change only on a pin
 bump, an errata change or an edit to a compared input.
 
+When `develop` re-recorded a generated baseline your branch also re-recorded, do not resolve the
+conflict and re-run the recorders by hand: apply the `ci:rebaseline` label to the pull request.
+`.github/workflows/rebaseline.yml` merges `origin/develop` taking `develop`'s side of the
+conflicts confined to its listed generated paths (any other conflict fails the run), re-runs every
+recorder, refuses a movement the merge does not explain (`scripts/rebaseline-movement.py`),
+commits with the movement in the message, pushes, removes the label and comments the movement
+to adjudicate. It never touches `tests/corpus/testdata/training_examples_expected.txt`.
+
 ### 6.3 Keeping the agent skills current
 
 The skills that teach a coding agent to *use* OpenSysML live in their own repository,
