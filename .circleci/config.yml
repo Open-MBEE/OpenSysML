@@ -136,11 +136,11 @@ commands:
     parameters:
       version:
         type: string
-        default: "1.27.3"
+        default: "1.27.4"
       sha256:
         type: string
         description: SHA-256 of go<version>.linux-amd64.tar.gz, from https://go.dev/dl/?mode=json&include=all
-        default: "65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40"
+        default: "7226736c2339719cda28fbf3a54d71aa63bcefe376e98cef00034268dab24840"
     steps:
       # The cache is restored as the container's user, so the directory is
       # theirs before it is restored into.
