@@ -29,7 +29,8 @@ make build            # build bin/sysml and bin/sysml-lsp (with version ldflags)
 make build-sysml      # REPL binary only
 make build-lsp        # LSP binary only
 make test             # full suite: go test -race -coverprofile ... ./...
-make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|runtime-corpus|runtime-exploration|model|export-corpus|export-settled|graph|codegen|tools|rest|migrate|cli)
+make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-fixtures|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli)
+make test-quick SHARDS="rest grpc"  # the same shards without -race, in turn: what a pull-request push runs
 make test-short       # faster, no race detector
 make clean            # remove build artifacts
 ```
@@ -187,10 +188,12 @@ Then update the compliance map: edit the area's source under `docs/project/spec-
    Then review the head yourself with `.agents/skills/reviewing-pull-requests/SKILL.md` against
    `REVIEW.md` and fix what it finds before pushing (§10).
 8. **Commit** using Conventional Commits (see §7). Keep PRs focused (one feature/fix each).
-9. **Open the PR ready for review** against `develop`. The full CI tier runs on every push and must be
-   green. Address review findings as they arrive rather than waiting for CI. Merging is a maintainer's
-   decision. A draft is only for work you do not yet want reviewed — it runs the cheaper quick tier —
-   and it has to be marked ready before it can be considered.
+9. **Open the PR ready for review** against `develop`. Every push runs the quick CI tier (the Go suite
+   without `-race`, the cheap gates, the clients whose paths changed) and must be green; the full tier
+   (`-race`, every corpus and solver gate, every client) runs in the merge queue, on the label `ci:full`,
+   and on its own when the diff touches a race-prone package (`scripts/ci-changed-areas.sh`). Address
+   review findings as they arrive rather than waiting for CI. Merging is a maintainer's decision. A draft
+   is only for work you do not yet want reviewed and has to be marked ready before it can be considered.
 
 ---
 
@@ -227,6 +230,14 @@ such a commit, run `go run -C tools ./cmd/pilot-apijson-diff` over the real corp
 `docs/project/api-json-differential.md`, re-record with `-update` and run `make docs-counts`.
 Never re-record a baseline whose figures did not move: its provenance lines change only on a pin
 bump, an errata change or an edit to a compared input.
+
+When `develop` re-recorded a generated baseline your branch also re-recorded, do not resolve the
+conflict and re-run the recorders by hand: apply the `ci:rebaseline` label to the pull request.
+`.github/workflows/rebaseline.yml` merges `origin/develop` taking `develop`'s side of the
+conflicts confined to its listed generated paths (any other conflict fails the run), re-runs every
+recorder, refuses a movement the merge does not explain (`scripts/rebaseline-movement.py`),
+commits with the movement in the message, pushes, removes the label and comments the movement
+to adjudicate. It never touches `tests/corpus/testdata/training_examples_expected.txt`.
 
 ### 6.3 Keeping the agent skills current
 
