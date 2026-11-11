@@ -171,18 +171,25 @@ quick_case_ node-only node client/node/src/node/binary.ts
 quick_case_ vscode-grammar go,vscode editors/vscode/tools/gengrammar/grammar.go
 
 
-# The tier: quick for a pull-request push, whatever it touches (the merge queue runs the -race suite
-# on every landing); full only for a path no area claims; CI_TIER forces it.
+# The tier: quick for a pull-request push whatever it touches (the merge queue runs the -race
+# suite on every landing), full only for a path no area claims; CI_TIER forces it.
 tier_case_ docs-only quick docs/guide/index.md
 tier_case_ parser quick internal/syntax/parser/parser.go
 tier_case_ node-only quick client/node/src/node/binary.ts
 tier_case_ workflow quick .github/workflows/pr.yml
 tier_case_ race-shards quick scripts/race-shard.sh Makefile
 tier_case_ runtime quick internal/exec/runtime/executor.go
+tier_case_ runtime-test quick internal/exec/runtime/robustness_test.go
 tier_case_ smt quick internal/exec/smt/referee.go
 tier_case_ grpc-frontend quick internal/frontend/grpc/cache.go
 tier_case_ grpc-tests quick tests/grpc/conformance_test.go
+tier_case_ grpc-command quick cmd/sysml-grpc/main.go
+tier_case_ repl quick internal/frontend/repl/session.go
+tier_case_ lsp quick internal/frontend/lsp/server.go
+tier_case_ workspace quick internal/workspace/model/index.go
+tier_case_ libs quick internal/workspace/libs/bundle.go
 tier_case_ export-writer quick internal/translate/export/writer.go
+tier_case_ symbols quick internal/semantic/symbols/index.go
 tier_case_ unclaimed full some-new-top-level/thing.txt
 tier_case_ parser-and-runtime quick internal/syntax/parser/parser.go internal/exec/runtime/executor.go
 forced_case_() {

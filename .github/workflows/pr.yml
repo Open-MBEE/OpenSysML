@@ -3,23 +3,20 @@ name: PR
 # The only CI a pull request runs. Pushes to main and develop, and tags, are covered
 # by the CircleCI config; this workflow mirrors its build-test workflow, not release.
 #
-# Two tiers, decided by the Changed areas job (scripts/ci-changed-areas.sh). A push to a pull
-# request, draft or ready, runs the quick tier: the binaries, the race-free Go suite in ten
-# groups of the race shards (make test-quick), the download-free static checks, the WebAssembly,
-# Xpect and conformance gates, the derived-property differential when its paths change, and only
-# the clients, editors and docs whose own paths changed. The full tier is the whole suite. It runs
-# for a merge-queue commit (merge_group, refs/heads/gh-readonly-queue/develop/...; it runs over
-# base_sha..head_sha, and Build and test on it lets the entry merge), for the label ci:full, and
-# for a push that touches a path no area claims. CircleCI runs the whole suite again on a develop
-# push or tag the queue has not already verified.
-# Tiered off a pull-request push, so run by the full tier only: the Go race shards (the same
-# tests under -race, make test-shard); in Go static and integrity checks the Z3 and cvc5 installs,
-# the corpora, make lint (staticcheck + gosec), the training-corpus, pilot-corpora, spec-examples,
-# pilot-library-identity, PSSM (suite, referee, census, migration), fUML (suite, referee), RDF and
-# api-json corpus round-trip, graphical-notation census and solver (Z3, differential, portability,
-# cvc5, absent) gates; the PDF toolchain job; and the fan-out from a service change to the client,
-# editor and docs jobs (Node, Python, Java, Rust, Julia, MATLAB, VS Code, JupyterLab, Emacs, MDK,
-# SysON, Documentation site), which the quick tier runs only when their own paths change.
+# Two tiers, decided by the Changed areas job (scripts/ci-changed-areas.sh): a pull-request push
+# runs the quick tier; merge_group, the label ci:full and an unclaimed path run the full tier.
+#
+# Quick: the binaries, the race-free Go suite in ten groups of the race shards (make test-quick), the
+# download-free static checks, the WebAssembly, Xpect and conformance gates, and changed-path clients/docs.
+#
+# Full: the whole suite, run on the queue's commit (refs/heads/gh-readonly-queue/develop/..., over
+# base_sha..head_sha; Build and test on it lets the entry merge). CircleCI skips what it proved.
+#
+# Full-tier only: the Go race shards (make test-shard); in Go static and integrity checks the Z3 and
+# cvc5 installs, the corpora, make lint, and every corpus, referee and solver gate.
+#
+# Also full-tier only: the PDF toolchain job, and the fan-out from a service change to every
+# client, editor and docs job, which the quick tier runs only when their own paths change.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
@@ -95,8 +92,8 @@ jobs:
       - name: Test the area filter
         run: scripts/ci-changed-areas-test.sh
 
-      # A pull request is diffed against the branch it merges into, a merge-group commit against its base_sha. The script
-      # decides the tier too: forced to full for a merge-group commit and the label ci:full, else quick unless a path is unclaimed.
+      # A pull request is diffed against the branch it merges into, a merge-group commit against its base_sha;
+      # the tier is forced to full for a merge-group commit and the label ci:full, else the script decides.
       - name: Decide which areas to run
         id: areas
         env:

@@ -7,12 +7,8 @@
 # output file takes. A file no area claims turns every area on, so a path this
 # script has not been taught about is never silently untested.
 #
-# The first line is the tier, `tier=quick|full`: quick (the Go suite without -race) for a
-# pull-request push, full only for a path no area claims. CI_TIER=full|quick forces the tier
-# (the workflow forces full for a merge-queue commit and the label ci:full; the merge queue is
-# where every landing gets the -race suite, once, on the tree it lands). The quick tier
-# drops the fan-out from a service change to every client, editor and the docs: each of
-# those then runs only when its own paths change. The full tier keeps the fan-out.
+# The first line is the tier, `tier=quick|full`: quick (no -race, no fan-out from a service change
+# to every client) for a pull-request push, full for an unclaimed path; CI_TIER=full|quick forces it.
 set -euo pipefail
 
 base=${1:?usage: ci-changed-areas.sh <base> [head]}
