@@ -52,7 +52,10 @@ func TestSequenceExpressionTypedLocalMember(t *testing.T) {
 	for _, root := range []string{"Model", "Occurrences"} {
 		for _, local := range []string{"x", "'self'"} {
 			t.Run(root+"/"+local, func(t *testing.T) {
-				typ := root + "::Block::Sequence"
+				typ := "Sequence"
+				if root == "Occurrences" {
+					typ = root + "::Block::Sequence"
+				}
 				body := typ + "-&gt;ControlFunctions::collect {in " + local + " : " + typ + "; " + local + ".'self'.amount}"
 				data := sequenceExpressionDocument(body)
 				data = bytes.Replace(data, []byte(`name="Model"`), []byte(`name="`+root+`"`), 1)
