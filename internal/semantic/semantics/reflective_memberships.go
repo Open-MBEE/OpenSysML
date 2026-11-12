@@ -63,6 +63,19 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		})
 		ordinal++
 	}
+	for _, end := range m.SuccessionEndMembers(sym) {
+		// A `then` succession owns its two ends ahead of its body (SysML.xtext TargetSuccession).
+		out = append(out, &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    sym.DocName,
+			DeclSpan:   end.DeclSpan,
+			Visibility: sym.Visibility,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: end,
+			},
+		})
+		ordinal++
+	}
 	if sym.Scope == nil {
 		out = m.withDefaultMultiplicity(sym, out, ordinal)
 		m.memberships[sym] = out

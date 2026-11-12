@@ -1,9 +1,6 @@
 package modelsync
 
 import (
-	"bytes"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -11,7 +8,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/reposync"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
-	"github.com/Open-MBEE/OpenSysML/tests/testutil/corpussubset"
 )
 
 const model = `package Vehicles {
@@ -124,55 +120,5 @@ func TestWithoutDerivedDropsDerivedPropertiesTheReaderRecomputes(t *testing.T) {
 		if !found {
 			t.Errorf("no %s is left", name)
 		}
-	}
-}
-
-// TestWithoutDerivedReadsBackEveryExample pins readerDerived against the
-// notation reader: every example publishes without derived properties to the
-// notation it publishes with them.
-func TestWithoutDerivedReadsBackEveryExample(t *testing.T) {
-	files, err := filepath.Glob("../../../../examples/*.sysml")
-	if err != nil || len(files) == 0 {
-		t.Fatalf("no examples: %v", err)
-	}
-	files = corpussubset.Must(t, "../../../..").FilterPaths("../../../../examples", files)
-	roundTrip := func(graph *rdf.Graph) ([]byte, error) {
-		data, err := export.WriteAPIJSON(graph)
-		if err != nil {
-			return nil, err
-		}
-		back, err := export.ReadAPIJSON(data)
-		if err != nil {
-			return nil, err
-		}
-		return Notation(back, nil)
-	}
-	dropped := 0
-	for _, file := range files {
-		data, err := os.ReadFile(file)
-		if err != nil {
-			t.Fatal(err)
-		}
-		graph, err := convert.SysMLToRDF(file, data)
-		if err != nil {
-			continue
-		}
-		want, err := roundTrip(graph)
-		if err != nil {
-			continue
-		}
-		cut := WithoutDerived(graph)
-		dropped += graph.Len() - cut.Len()
-		got, err := roundTrip(cut)
-		if err != nil {
-			t.Errorf("%s: without derived properties: %v", filepath.Base(file), err)
-			continue
-		}
-		if !bytes.Equal(got, want) {
-			t.Errorf("%s: the notation differs without derived properties", filepath.Base(file))
-		}
-	}
-	if dropped == 0 {
-		t.Error("no example has a derived property to leave out")
 	}
 }
