@@ -8,9 +8,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 )
 
-// Usage::isReference is a required Boolean derived as not isComposite (SysML
-// v2.1 §8.3.6.4 deriveUsageIsReference): every usage states it, a composite
-// one as false, and it negates the isComposite the same element states.
+// Every usage states Usage::isReference, a composite one as false, as the negation of the
+// isComposite the same element states (SysML v2.1 §8.3.6.4 deriveUsageIsReference).
 func TestAPIJSONStatesIsReferenceOnEveryUsage(t *testing.T) {
 	for _, test := range []struct {
 		name, model string
