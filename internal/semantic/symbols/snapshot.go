@@ -663,7 +663,7 @@ func (d *sectionReader) decl() ast.Node {
 	if form == 0 {
 		return n
 	}
-	if form < 0 || form-1 > int64(ImpliedMultiplicityRange) {
+	if form < 0 || form-1 > int64(ImpliedSuccessionTargetEnd) {
 		d.r.Fail("implied form")
 		return n
 	}
