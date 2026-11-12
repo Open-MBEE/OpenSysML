@@ -2540,7 +2540,7 @@ any graph this mapping holds:
   derivation stays a declared `@ElementId` annotation.
 
 The per-file ratchet over `examples/` runs for this form too:
-`TestCorpusAPIJSONRoundTrip` in `tests/corpus/roundtrip_test.go` converts each
+`TestExamplesSweep` in `tests/corpus` (verdicts in `roundtrip_test.go`) converts each
 model notation → `api-json` → notation → `api-json` and pins the verdict in
 `testdata/api_json_roundtrip_expected.txt`
 ([rdf-corpus-roundtrip.md](../project/rdf-corpus-roundtrip.md)). Its verdicts

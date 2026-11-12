@@ -20,11 +20,12 @@ pin in `scripts/pilot-pin.sh`, and the textual examples of the two specification
 | `spec-examples/sysml` | 341 |
 | **total** | **876** |
 
-**Gate:** `TestCorpusRoundTrip` in `tests/corpus/roundtrip_test.go` converts each file
+**Gate:** `TestExamplesSweep` in `tests/corpus/examples_sweep_test.go` loads each file once (the
+verdicts and expectation files are `tests/corpus/roundtrip_test.go`'s) and converts it
 notation → Turtle (hop 1) → notation → Turtle (hop 2) and records one verdict per file in
 `tests/corpus/testdata/corpus_roundtrip_expected.txt`, so a file whose verdict moves in
 either direction, or that appears or disappears, fails the test
-**Regenerate:** `go test ./tests/corpus -run TestCorpusRoundTrip -update-corpus-roundtrip`
+**Regenerate:** `go test ./tests/corpus -run TestExamplesSweep -update-corpus-roundtrip`
 **Required in CI:** `OPENSYSML_REQUIRE_TRAINING_CORPUS=1`, `OPENSYSML_REQUIRE_PILOT_CORPORA=1` and
 `OPENSYSML_REQUIRE_SPEC_EXAMPLES=1` in both `.circleci/config.yml` and `.github/workflows/pr.yml`, under which an absent or empty
 downloaded root fails instead of skipping. Both configurations also run the gate on its own so
@@ -159,15 +160,15 @@ adjudicated:
 
 ## The API element form
 
-The same file walk, verdicts and policy run a second time over the API's JSON element form
+The same verdicts and policy run over the API's JSON element form on the same load of each file
 (`api-json`, [rdf-mapping.md § The API element form](../reference/rdf-mapping.md#the-api-element-form)):
-`TestCorpusAPIJSONRoundTrip` converts each file notation → `api-json` (hop 1) → notation →
+`TestExamplesSweep` converts each file notation → `api-json` (hop 1) → notation →
 `api-json` (hop 2) and pins the verdict in `tests/corpus/testdata/api_json_roundtrip_expected.txt`.
 `whitespace-only` compares the two JSON documents as the graphs `export.ReadAPIJSON` reads them
 to, under the same `sysx:sourceText` normalisation.
 
-**Regenerate:** `go test ./tests/corpus -run TestCorpusAPIJSONRoundTrip -update-api-json-roundtrip`
-**Required in CI:** the same two variables, run as its own step beside the Turtle gate.
+**Regenerate:** `go test ./tests/corpus -run TestExamplesSweep -update-api-json-roundtrip`
+**Required in CI:** the same two variables, in the same step as the Turtle gate.
 
 | Verdict | Files |
 |---|---|

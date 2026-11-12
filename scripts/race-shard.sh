@@ -1,23 +1,46 @@
 #!/usr/bin/env bash
-# Prints the root-module package paths assigned to one race-test shard.
-# Usage: scripts/race-shard.sh runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-library|export-examples|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli
+
+# Prints the root-module package paths assigned to one race-test shard, or with --sweeps the
+# shards whose tests walk a downloaded corpus under examples/. Usage: scripts/race-shard.sh <shard>|--sweeps
+
 # A hyphenated shard is a by-test-name part of its package (runtime, corpus and export are each split
 # that way in make test-shard); the other shards are whole packages, rest everything not named here.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-shards='runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-library|export-examples|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli'
+shards='runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|codegen|translate|grpc|tools|rest|migrate|cli'
+
+# The sweep shards (sysml-v2-training, pilot-corpora or spec-examples walked), sorted, each with
+# the test that walks a corpus; --sweeps prints them so no workflow or Makefile names them itself.
+sweeps=(
+  corpus          # tests/corpus's per-root diagnostic gates (TestSpecExamplesDiagnostics, ...)
+  corpus-sweep    # TestExamplesSweep: every model under examples/ loaded once, every property checked
+  export-corpus   # TestAPIJSONWritersNeverEmitNameReferences over every example
+  export-examples # TestExamplesCorpusInvariants over every example
+  graph           # TestIncrementalEqualsFreshCorpora (tests/model)
+  grpc            # TestElementPropertiesServeEveryRuleAndExplainEveryOmission (tests/grpc)
+  model           # TestParallelBatchValidationMatchesSerial, TestFindDoneStartErrors (internal/workspace/model)
+  rest            # TestCommandLineLoadMatchesWorkspace (repl), the pilot-corpora census (exec/solve)
+  runtime         # TestCompileDifferential* over examples/ (internal/exec/runtime)
+  tools           # the tools module's errata tests over the pilot corpora
+  translate       # TestSymbolStructureMatchesGraphStructure (internal/translate/export)
+)
+
+if [[ $# -eq 1 && $1 == --sweeps ]]; then
+  printf '%s\n' "${sweeps[@]}"
+  exit 0
+fi
 
 if [[ $# -ne 1 ]]; then
-  echo "usage: scripts/race-shard.sh $shards" >&2
+  echo "usage: scripts/race-shard.sh $shards | --sweeps" >&2
   exit 2
 fi
 
 shard=$1
 module=github.com/Open-MBEE/OpenSysML
 runtime="$module/internal/exec/runtime"
-# internal/workspace/model (~26 min), tests/corpus (~39 min: its two round trips ~20 each) and
+# internal/workspace/model (~26 min), tests/corpus (~39 min, its examples sweep apart) and
 # internal/exec/smt (~17 min) shared one node that ran 41 minutes under -race, so each is its own.
 workspace_model="$module/internal/workspace/model"
 corpus="$module/tests/corpus"
@@ -47,9 +70,9 @@ cli="$module/cmd/sysml"
 named_packages=("$runtime" "$workspace_model" "$corpus" "$smt" "$export" "$model" "$translate" "$grpc_tests" "$grpc_frontend" "$passes" "$migrate" "$codegen" "$wasm" "$cli")
 
 case "$shard" in
-  runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-library|export-examples|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli) ;;
+  runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|codegen|translate|grpc|tools|rest|migrate|cli) ;;
   *)
-    echo "usage: scripts/race-shard.sh $shards" >&2
+    echo "usage: scripts/race-shard.sh $shards | --sweeps" >&2
     exit 2
     ;;
 esac
@@ -72,10 +95,10 @@ case "$shard" in
   smt)
     printf '%s\n' "$smt"
     ;;
-  corpus|corpus-roundtrip|corpus-apijson)
+  corpus|corpus-sweep)
     printf '%s\n' "$corpus"
     ;;
-  export|export-library|export-examples|export-corpus|export-settled)
+  export|export-library|export-examples|export-corpus)
     printf '%s\n' "$export"
     ;;
   graph)

@@ -29,7 +29,7 @@ make build            # build bin/sysml and bin/sysml-lsp (with version ldflags)
 make build-sysml      # REPL binary only
 make build-lsp        # LSP binary only
 make test             # full suite: go test -race -coverprofile ... ./...
-make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-library|export-examples|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli)
+make test-shard SHARD=runtime   # one CI shard of the race suite (runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|codegen|translate|grpc|tools|rest|migrate|cli)
 make test-quick SHARDS="rest grpc"  # the same shards without -race, in turn: what a pull-request push runs
 make test-short       # faster, no race detector
 make clean            # remove build artifacts
@@ -101,10 +101,10 @@ answers under `internal/ir/docplan/markup/testdata/`, and the `Installed` test t
 against the pinned converter — re-record them (`asciidoctor-json.js < x.adoc > x.json`) when either moves.
 
 The RDF mapping has a per-file ratchet of its own over every model under `examples/`, the
-downloaded corpora included: `TestCorpusRoundTrip` in `tests/corpus` converts each file
-notation → Turtle → notation → Turtle and pins the verdict. Run it with both require variables
-set after any change to `internal/translate/export`, adjudicate every movement, then regenerate with
-`-update-corpus-roundtrip`. See `docs/project/rdf-corpus-roundtrip.md`.
+downloaded corpora included: `TestExamplesSweep` in `tests/corpus` loads each file once, converts it
+notation → Turtle → notation → Turtle (and the same through `api-json`) and pins the verdicts. Run it with
+the require variables set after any change to `internal/translate/export`, adjudicate every movement,
+then regenerate with `-update-corpus-roundtrip` (`-update-api-json-roundtrip`). See `docs/project/rdf-corpus-roundtrip.md`.
 
 ---
 
