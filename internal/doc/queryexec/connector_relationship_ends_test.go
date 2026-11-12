@@ -79,3 +79,30 @@ calc def Q :> Query {
 		t.Fatalf("d.source cells = %q, want sys::a", got)
 	}
 }
+
+// An allocation definition inherits the library's valueless `source` and `target` ends as a connector does;
+// past them it answers Relationship::source and target as the types of its own ends.
+func TestAssociationSourceAndTargetAnswerPastInheritedEnds(t *testing.T) {
+	fixture := loadExecutionFixture(t, `package P {
+	part def A;
+	part def B;
+	allocation def F2P { end f : A; end p : B; }
+}
+calc def Q :> Query {
+	in root : Element;
+	Project(source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "AllocationDefinition"), properties = ("relatedElement", "source", "target"))
+}`)
+	result, err := fixture.execute(t, "Q", Bindings{"root": {ElementValue(fixture.symbol(t, "P"))}}, Options{})
+	if err != nil {
+		t.Fatalf("execute Q: %v", err)
+	}
+	for property, want := range map[string][]string{
+		"relatedElement": {"Observatory::P::A", "Observatory::P::B"},
+		"source":         {"Observatory::P::A"},
+		"target":         {"Observatory::P::B"},
+	} {
+		if got := cellElementNames(t, result, property); len(got) != 1 || !slices.Equal(got[0], want) {
+			t.Errorf("%s cells = %q, want %q", property, got, want)
+		}
+	}
+}
