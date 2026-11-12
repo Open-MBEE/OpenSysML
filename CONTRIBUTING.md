@@ -283,14 +283,11 @@ runner time of the full tier and a third of its wall time: the binaries, the sam
 (gofmt, vet, the production build, grpc imports, proto lint and breaking), the WebAssembly, Xpect
 and conformance gates, and only the clients, editors and docs whose own paths changed. The lint,
 the corpus and solver gates, the PDF toolchain and the fan-out from a service change to every
-client wait for the full tier. A push whose diff touches a package where `-race` has found bugs
-(`internal/exec/runtime`, `internal/exec/smt`, the gRPC server and its suites, the REPL, the LSP,
-`internal/workspace`, the export writer, the symbol index — the list is `race_pattern` in
-`scripts/ci-changed-areas.sh`, and its test pins it) escalates itself to the full tier, as does
-one touching a path no area claims.
+client wait for the full tier. Only a push touching a path no area claims escalates itself to
+the full tier (`scripts/ci-changed-areas.sh`, and its test pins it).
 
 **The full tier** runs on the merge queue's commit (below), on any pull request carrying the
-label `ci:full` (adding it re-runs the current head), and on those escalated pushes. It
+label `ci:full` (adding it re-runs the current head), and on those unclaimed-path pushes. It
 gates: gofmt, `go vet`, `make lint`, the race-enabled test suite (twenty shards,
 `make test-shard`), the binaries, the client suites, the conformance suite over each transport,
 the protobuf lint and wire-compatibility checks, the documentation hygiene checks
