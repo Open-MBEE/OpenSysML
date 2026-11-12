@@ -75,12 +75,15 @@ func TestAssociationRelationshipEndsAreItsEndTypes(t *testing.T) {
 		action def Observe;
 		allocation def F2P { end function : Observe; end part : A; }
 		connection def C { end a : A; end b : B; end c : B; }
+		allocation def Multi { end x : A, B; end y : Observe; }
 	}`
 	for _, fixture := range reflectiveFixtures(t, "association-ends.sysml", source.KindSysML, src) {
 		model := fixture.model
 		for owner, want := range map[string]struct{ related, source, target string }{
 			"P::F2P": {"Observe A", "Observe", "A"},
 			"P::C":   {"A B B", "A", "B B"},
+			// An end typed twice contributes both types in order: the first is the source, the second a target.
+			"P::Multi": {"A B Observe", "A", "B Observe"},
 		} {
 			sym := nestedSym(t, fixture.root, owner)
 			for property, w := range map[string]string{"relatedElement": want.related, "source": want.source, "target": want.target} {
@@ -91,6 +94,41 @@ func TestAssociationRelationshipEndsAreItsEndTypes(t *testing.T) {
 				}
 				if !ok || strings.Join(got, " ") != w {
 					t.Errorf("%s %s = %q, %v; want %q", owner, property, got, ok, w)
+				}
+			}
+		}
+	}
+}
+
+// An n-ary connector relates its ends' features in order: the first is the source, every other a target
+// (KerML 8.3.4.5.1), typed by a three-ended definition or not, as the pilot exports them.
+func TestNaryConnectorRelationshipEnds(t *testing.T) {
+	const src = `package P {
+		part def A;
+		part def B;
+		part def C;
+		part a : A;
+		part b : B;
+		part c : C;
+		connection def Tri { end e1 : A; end e2 : B; end e3 : C; }
+		connection t : Tri connect (a, b, c);
+		connection u connect (a, b, c);
+	}`
+	for _, fixture := range reflectiveFixtures(t, "nary-connector.sysml", source.KindSysML, src) {
+		model := fixture.model
+		for _, owner := range []string{"P::t", "P::u"} {
+			sym := nestedSym(t, fixture.root, owner)
+			for property, want := range map[string]string{
+				"relatedElement": "a b c", "source": "a", "target": "b c",
+				"relatedFeature": "a b c", "sourceFeature": "a", "targetFeature": "b c",
+			} {
+				elements, ok := model.ReflectiveElements(sym, property)
+				var got []string
+				for _, e := range elements {
+					got = append(got, e.Name)
+				}
+				if !ok || strings.Join(got, " ") != want {
+					t.Errorf("%s %s = %q, %v; want %q", owner, property, got, ok, want)
 				}
 			}
 		}
