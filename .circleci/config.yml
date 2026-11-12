@@ -1,5 +1,8 @@
 version: 2.1
 
+orbs:
+  go: circleci/go@1.10.0
+
 parameters:
   release_rehearsal:
     type: boolean
