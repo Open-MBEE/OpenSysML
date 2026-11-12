@@ -115,3 +115,41 @@ func TestBreakpointAtUnfoldsADeferredFlow(t *testing.T) {
 		t.Errorf("after resuming: PausedAt() = %q, state %v; want the run ended, the breakpoint firing once", got, exec.State())
 	}
 }
+
+// A breakpoint on the name of a state-space action stops its run at the action itself,
+// which is no node of a flow; resumed, the run steps the dynamics to completion.
+func TestBreakpointOnStateSpaceActionStopsTheRun(t *testing.T) {
+	src := stateSpaceSource("ContinuousStateSpaceDynamics, FixedStepDynamics", `
+		:>> stateSpace = VectorOf((1.0));
+		:>> timeStep = 0.1 [s];
+		:>> stopTime = 1 [s];
+	`+decayCalcs)
+	idx, _, ctx := buildRuntimeWithLibraries(t, "<test>", parseAndBuild(t, src))
+	sym := findSymbolByName(idx.DocumentRoot("<test>"), "dyn", ast.DefAction)
+	if sym == nil {
+		t.Fatal("action dyn not found")
+	}
+	exec, err := ctx.CreateActionExecutor(sym)
+	if err != nil {
+		t.Fatalf("CreateActionExecutor: %v", err)
+	}
+	exec.SetBreakpoint("dyn")
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("RunToCompletion: %v", err)
+	}
+	if got := exec.PausedAt(); got != "dyn" {
+		t.Fatalf("PausedAt() = %q, want dyn", got)
+	}
+	if got := exec.State(); got != StateSuspended {
+		t.Fatalf("State() = %v, want %v", got, StateSuspended)
+	}
+	if !exec.Resume() {
+		t.Fatal("Resume() = false")
+	}
+	if err := exec.RunToCompletion(); err != nil {
+		t.Fatalf("RunToCompletion after Resume: %v", err)
+	}
+	if got := exec.State(); got != StateCompleted {
+		t.Errorf("State() = %v, want %v", got, StateCompleted)
+	}
+}
