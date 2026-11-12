@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -112,17 +113,25 @@ func TestConnectorRelationshipEnds(t *testing.T) {
 	})
 }
 
-// A connector with an end that references nothing answers no source, target or relatedElement:
-// the resolved end is not read as the source.
+// A connector whose first end references nothing answers no source, target or relatedElement:
+// the resolved end is not read as the source. One whose later end references nothing keeps its source.
 func TestConnectorRelationshipEndsUnresolved(t *testing.T) {
 	m, root := buildModelWithStdlibNamedKind(t, "connector-unresolved.kerml", source.KindKerML, `package K {
 	feature g;
 	connector cn from Missing to g;
+	connector later from g to Missing;
 }`)
 	cn := nestedSym(t, root, "K::cn")
 	for _, feature := range []string{"source", "target", "relatedElement"} {
 		if got, ok := m.ReflectiveElements(cn, feature); ok {
 			t.Errorf("K::cn.%s = %v, want underived", feature, fqns(got))
+		}
+	}
+	later := nestedSym(t, root, "K::later")
+	for feature, want := range map[string][]string{"source": {"K::g"}, "target": nil, "relatedElement": {"K::g"}} {
+		got, ok := m.ReflectiveElements(later, feature)
+		if !ok || !slices.Equal(fqns(got), want) {
+			t.Errorf("K::later.%s = %v (derived %t), want %v", feature, fqns(got), ok, want)
 		}
 	}
 }
