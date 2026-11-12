@@ -11,9 +11,9 @@
       "typeMismatch": 69
     },
     "properties": {
-      "presentEqual": 8712,
+      "presentEqual": 8714,
       "presentDifferent": 1002,
-      "oursMissing": 1612,
+      "oursMissing": 1610,
       "pilotMissing": 590,
       "absentBoth": 8968,
       "indeterminate": 0,
@@ -204,7 +204,7 @@
     "Connector.owningRelationship": [2,0,0,0,0,0,0],
     "Connector.owningType": [2,0,0,0,0,0,0],
     "Connector.qualifiedName": [2,0,0,0,0,0,0],
-    "Connector.relatedElement": [0,0,2,0,0,0,0],
+    "Connector.relatedElement": [2,0,0,0,0,0,0],
     "Connector.relatedFeature": [2,0,0,0,0,0,0],
     "Connector.source": [0,0,2,0,0,0,0],
     "Connector.sourceFeature": [0,0,2,0,0,0,0],

@@ -91,6 +91,7 @@ func TestRebaselineConflictAllowlistIsGeneratedPathsOnly(t *testing.T) {
 	for _, want := range []string{
 		"docs/project/api-json-differential-baseline.json",
 		"internal/semantic/metamodel/derived_census_baseline.json",
+		"internal/semantic/metamodel/derived_census_records.tsv",
 		"internal/translate/export/testdata/structure_differential_expected.txt",
 		"docs/project/library-and-prefix-sweep-outcomes.txt",
 		"tests/corpus/testdata/corpus_roundtrip_expected.txt",
