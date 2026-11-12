@@ -6,7 +6,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 )
 
-// The symbol structure states the effective Feature::isComposite, not the declaration's flag, and
+// The symbol structure states the Feature::isComposite the semantic model derives, and
 // Usage::isReference negates it (SysML v2.1 §8.3.6.4 deriveUsageIsReference).
 func TestSymbolStructureStatesEffectiveIsComposite(t *testing.T) {
 	evaluator, _ := newTestEvaluatorWithIndex(t, libs.NewModelIndex(), "composite.sysml", `package P {

@@ -34,7 +34,7 @@ root examples: models 56, skipped 0, matched 30308, unmatched 17220
   Feature::endOwningType: equal 11828, different 2, symbol-missing 0, symbol-extra 0
   Feature::featureTarget: equal 11827, different 3, symbol-missing 0, symbol-extra 0
   Feature::featuringType: equal 11776, different 54, symbol-missing 0, symbol-extra 0
-  Feature::isComposite: equal 11803, different 26, symbol-missing 1, symbol-extra 0
+  Feature::isComposite: equal 11804, different 26, symbol-missing 0, symbol-extra 0
   Feature::isConstant: equal 332, different 0, symbol-missing 0, symbol-extra 11498
   Feature::isEnd: equal 11828, different 2, symbol-missing 0, symbol-extra 0
   Feature::isVariable: equal 11641, different 0, symbol-missing 0, symbol-extra 189
@@ -111,7 +111,7 @@ root examples: models 56, skipped 0, matched 30308, unmatched 17220
   Type::unioningType: equal 12520, different 1, symbol-missing 0, symbol-extra 0
   Usage::definition: equal 5306, different 208, symbol-missing 0, symbol-extra 46
   Usage::directedUsage: equal 3120, different 141, symbol-missing 73, symbol-extra 2226
-  Usage::isReference: equal 5533, different 26, symbol-missing 1, symbol-extra 0
+  Usage::isReference: equal 5534, different 26, symbol-missing 0, symbol-extra 0
   Usage::mayTimeVary: equal 5557, different 0, symbol-missing 3, symbol-extra 0
   Usage::nestedAction: equal 5457, different 103, symbol-missing 0, symbol-extra 0
   Usage::nestedAttribute: equal 5531, different 29, symbol-missing 0, symbol-extra 0
@@ -144,7 +144,6 @@ root tests/testdata: models 40, skipped 0, matched 1488, unmatched 583
   Element::shortName: equal 1486, different 0, symbol-missing 0, symbol-extra 2
   Feature::direction: equal 458, different 3, symbol-missing 0, symbol-extra 0
   Feature::featuringType: equal 456, different 5, symbol-missing 0, symbol-extra 0
-  Feature::isComposite: equal 460, different 1, symbol-missing 0, symbol-extra 0
   Feature::isConstant: equal 11, different 0, symbol-missing 0, symbol-extra 450
   Feature::isVariable: equal 439, different 0, symbol-missing 0, symbol-extra 22
   Feature::ownedRedefinition: equal 458, different 3, symbol-missing 0, symbol-extra 0
@@ -242,7 +241,7 @@ root examples/sysml-v2-training: models 100, skipped 0, matched 7424, unmatched 
   Feature::direction: equal 2601, different 23, symbol-missing 0, symbol-extra 0
   Feature::endOwningType: equal 2618, different 6, symbol-missing 0, symbol-extra 0
   Feature::featuringType: equal 2593, different 31, symbol-missing 0, symbol-extra 0
-  Feature::isComposite: equal 2619, different 5, symbol-missing 0, symbol-extra 0
+  Feature::isComposite: equal 2617, different 7, symbol-missing 0, symbol-extra 0
   Feature::isConstant: equal 40, different 0, symbol-missing 0, symbol-extra 2584
   Feature::isEnd: equal 2618, different 6, symbol-missing 0, symbol-extra 0
   Feature::ownedRedefinition: equal 2608, different 16, symbol-missing 0, symbol-extra 0
@@ -313,7 +312,7 @@ root examples/sysml-v2-training: models 100, skipped 0, matched 7424, unmatched 
   Type::ownedSpecialization: equal 2918, different 52, symbol-missing 0, symbol-extra 0
   Usage::definition: equal 1340, different 16, symbol-missing 0, symbol-extra 10
   Usage::directedUsage: equal 1050, different 61, symbol-missing 8, symbol-extra 247
-  Usage::isReference: equal 1361, different 5, symbol-missing 0, symbol-extra 0
+  Usage::isReference: equal 1359, different 7, symbol-missing 0, symbol-extra 0
   Usage::mayTimeVary: equal 1360, different 0, symbol-missing 6, symbol-extra 0
   Usage::nestedAction: equal 1333, different 33, symbol-missing 0, symbol-extra 0
   Usage::nestedConnection: equal 1337, different 29, symbol-missing 0, symbol-extra 0
@@ -373,7 +372,7 @@ root examples/pilot-corpora: models 213, skipped 0, matched 45316, unmatched 157
   Feature::endOwningType: equal 16279, different 50, symbol-missing 0, symbol-extra 0
   Feature::featureTarget: equal 16317, different 3, symbol-missing 0, symbol-extra 9
   Feature::featuringType: equal 16080, different 240, symbol-missing 0, symbol-extra 9
-  Feature::isComposite: equal 16236, different 93, symbol-missing 0, symbol-extra 0
+  Feature::isComposite: equal 16310, different 19, symbol-missing 0, symbol-extra 0
   Feature::isConstant: equal 374, different 0, symbol-missing 0, symbol-extra 15955
   Feature::isEnd: equal 16279, different 50, symbol-missing 0, symbol-extra 0
   Feature::isVariable: equal 15303, different 0, symbol-missing 0, symbol-extra 1026
@@ -463,7 +462,7 @@ root examples/pilot-corpora: models 213, skipped 0, matched 45316, unmatched 157
   Type::unioningType: equal 17745, different 19, symbol-missing 2, symbol-extra 0
   Usage::definition: equal 6744, different 151, symbol-missing 1, symbol-extra 121
   Usage::directedUsage: equal 4972, different 183, symbol-missing 54, symbol-extra 1808
-  Usage::isReference: equal 6928, different 89, symbol-missing 0, symbol-extra 0
+  Usage::isReference: equal 6998, different 19, symbol-missing 0, symbol-extra 0
   Usage::mayTimeVary: equal 6912, different 0, symbol-missing 101, symbol-extra 4
   Usage::nestedAction: equal 6946, different 71, symbol-missing 0, symbol-extra 0
   Usage::nestedAttribute: equal 6910, different 107, symbol-missing 0, symbol-extra 0
@@ -527,7 +526,7 @@ root examples/spec-examples: models 473, skipped 38, matched 7705, unmatched 383
   Feature::direction: equal 2383, different 7, symbol-missing 0, symbol-extra 0
   Feature::endOwningType: equal 2363, different 27, symbol-missing 0, symbol-extra 0
   Feature::featuringType: equal 2329, different 59, symbol-missing 2, symbol-extra 0
-  Feature::isComposite: equal 2340, different 50, symbol-missing 0, symbol-extra 0
+  Feature::isComposite: equal 2382, different 8, symbol-missing 0, symbol-extra 0
   Feature::isConstant: equal 92, different 0, symbol-missing 0, symbol-extra 2298
   Feature::isEnd: equal 2363, different 27, symbol-missing 0, symbol-extra 0
   Feature::isVariable: equal 2033, different 0, symbol-missing 0, symbol-extra 357
@@ -620,7 +619,7 @@ root examples/spec-examples: models 473, skipped 38, matched 7705, unmatched 383
   Type::unioningType: equal 2765, different 0, symbol-missing 3, symbol-extra 0
   Usage::definition: equal 1454, different 2, symbol-missing 0, symbol-extra 21
   Usage::directedUsage: equal 1102, different 52, symbol-missing 23, symbol-extra 300
-  Usage::isReference: equal 1425, different 50, symbol-missing 2, symbol-extra 0
+  Usage::isReference: equal 1469, different 8, symbol-missing 0, symbol-extra 0
   Usage::mayTimeVary: equal 1447, different 0, symbol-missing 25, symbol-extra 5
   Usage::nestedAction: equal 1458, different 19, symbol-missing 0, symbol-extra 0
   Usage::nestedAttribute: equal 1461, different 16, symbol-missing 0, symbol-extra 0
