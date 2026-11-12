@@ -148,3 +148,29 @@ func TestThenSuccessionOwnsItsEnds(t *testing.T) {
 		}
 	}
 }
+
+// TestThenSuccessionEndTakesItsWrittenRange: `then [0..1] action c;` writes the range on the source end the
+// succession owns, as the conversion and the pilot state it; that end implies no [1..1], the target end does.
+func TestThenSuccessionEndTakesItsWrittenRange(t *testing.T) {
+	const src = `package P { action observe { action a; then [0..1] action c; } }`
+	fixture := reflectiveFixtures(t, "then-end-range.sysml", source.KindSysML, src)[0]
+	model := fixture.model
+	var ends []*symbols.Symbol
+	for _, rel := range model.OwnedRelationships(nestedSym(t, fixture.root, "P::observe")) {
+		if member := rel.Implicit.Member; member != nil {
+			ends = append(ends, model.SuccessionEndMembers(member)...)
+		}
+	}
+	if len(ends) != 2 {
+		t.Fatalf("%d succession ends, want 2", len(ends))
+	}
+	if r, ok := model.MultiplicityOf(ends[0]); !ok || r.Lower.Value != 0 || r.Upper.Value != 1 {
+		t.Errorf("source end multiplicity = %+v, %v; want [0..1]", r, ok)
+	}
+	if model.ImpliesDefaultMultiplicity(ends[0]) {
+		t.Error("source end with a written range implies the default [1..1]")
+	}
+	if _, ok := model.MultiplicityOf(ends[1]); ok || !model.ImpliesDefaultMultiplicity(ends[1]) {
+		t.Errorf("target end states a range (%v) or no default [1..1]", ok)
+	}
+}

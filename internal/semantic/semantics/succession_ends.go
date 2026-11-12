@@ -69,3 +69,21 @@ func (m *Model) successionEndReference(end *symbols.Symbol) (target *symbols.Sym
 	}
 	return target, true
 }
+
+// successionEndMultiplicity is the range a `then` succession writes for the generated end sym, as the
+// conversion gives it: the source multiplicity to the source end, the crossing one to the target end.
+func successionEndMultiplicity(sym *symbols.Symbol) *ast.Multiplicity {
+	i, ok := symbols.ImpliedSuccessionEndIndex(sym)
+	if !ok {
+		return nil
+	}
+	decl, _ := symbols.ImpliedDeclOf(sym)
+	edge, ok := decl.Of.(*ast.SuccessionEdge)
+	if !ok {
+		return nil
+	}
+	if i == 0 {
+		return edge.SourceMultiplicity
+	}
+	return edge.TargetMultiplicity
+}
