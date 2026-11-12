@@ -244,7 +244,7 @@ func (r *Resolver) AdmittedChildrenOf(scope *symbols.Scope, fqn string, children
 	kept := make([]*symbols.Symbol, 0, len(children))
 	for _, sym := range children {
 		// A qualified name reaches only the namespace's visible memberships.
-		if !r.namedThroughNamespace(sym) {
+		if !r.namedAsMemberOf(fqn, sym) {
 			continue
 		}
 		if !r.admitsUnderName(doc, from, fqn+"::"+localNameOf(sym), sym) {

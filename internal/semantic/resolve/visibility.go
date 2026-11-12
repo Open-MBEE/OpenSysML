@@ -46,11 +46,15 @@ func (r *Resolver) namedThroughNamespaces(cands []*symbols.Symbol) []*symbols.Sy
 func (r *Resolver) namedUnder(fqn string, cands []*symbols.Symbol) []*symbols.Symbol {
 	kept := make([]*symbols.Symbol, 0, len(cands))
 	for _, sym := range cands {
-		if !r.idx.DeclaredIn(fqn, sym) || r.namedThroughNamespace(sym) {
+		if r.namedAsMemberOf(fqn, sym) {
 			kept = append(kept, sym)
 		}
 	}
 	return kept
+}
+
+func (r *Resolver) namedAsMemberOf(fqn string, sym *symbols.Symbol) bool {
+	return (r.idx != nil && !r.idx.DeclaredIn(fqn, sym)) || r.namedThroughNamespace(sym)
 }
 
 // memberLookupOrigin is the namespace cur's index entries are read from: an

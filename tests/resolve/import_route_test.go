@@ -4,6 +4,13 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // unresolvedIn is the names src leaves unresolved, sorted.
@@ -141,4 +148,40 @@ func TestImportAllCycleTerminates(t *testing.T) {
 		package Use { private import C1::*; part x : InC2; }
 		package Use2 { private import C2::*; part y : InC1; part z : C2::InC1; }
 	`)
+}
+
+// What a public `import all` took is a public membership of its namespace, so an
+// enumeration offers it as a qualified name reaches it; a private own member is neither.
+func TestEnumerationOffersWhatAnImportAllTook(t *testing.T) {
+	const name = "app.sysml"
+	p := parser.New(source.New(name, []byte(`
+		package S { private part def H; part def V; }
+		package PubAll { public import all S::*; private part def Own; }
+		package Use { part a : PubAll::H; }
+	`)))
+	root := p.ParseFile()
+	if len(p.Diagnostics) != 0 {
+		t.Fatalf("parse diagnostics: %v", p.Diagnostics)
+	}
+	idx := symbols.NewIndexFromDoc(name, root)
+	idx.ExpandWildcardImports()
+	r := resolve.New(idx)
+	r.SetModel(semantics.NewModel(r))
+	use := idx.LookupQualified("Use")
+	if len(use) != 1 || use[0].Scope == nil {
+		t.Fatalf("Use names %d symbols with a scope", len(use))
+	}
+	scope := use[0].Scope
+	children := idx.LookupDirectChildrenFrom("PubAll", r.ReferringNamespaceFQN(scope))
+	offered := namesOf(r.AdmittedChildrenOf(scope, "PubAll", children))
+	slices.Sort(offered)
+	if want := []string{"H", "V"}; !slices.Equal(offered, want) {
+		t.Errorf("PubAll offers %v, want %v", offered, want)
+	}
+	for _, member := range []string{"H", "V", "Own"} {
+		_, reachable := r.ResolveQualified(scope, ast.QualifiedNameOf("PubAll", member))
+		if isOffered := slices.Contains(offered, member); reachable != isOffered {
+			t.Errorf("PubAll::%s resolves = %v, offered = %v", member, reachable, isOffered)
+		}
+	}
 }
