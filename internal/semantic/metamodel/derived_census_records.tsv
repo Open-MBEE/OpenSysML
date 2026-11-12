@@ -754,7 +754,7 @@ Feature::featureTarget	examples	12738	12738	0	0	21004	21004	0	0
 Feature::featureTarget	probes	8	8	0	0	8	8	0	0
 Feature::featureTarget	manual-examples	1339	1339	0	0	3546	3546	0	0
 Feature::featuringType	training	2869	2295	574	0	4506	4171	335	0
-Feature::featuringType	pilot-examples	11808	8899	2906	3	15863	14551	1312	0
+Feature::featuringType	pilot-examples	11808	8899	2906	3	15863	14548	1315	0
 Feature::featuringType	pilot-validation	3733	2809	924	0	5259	4790	469	0
 Feature::featuringType	kerml-examples	2109	1642	467	0	2884	2643	241	0
 Feature::featuringType	spec-examples	2695	2107	584	4	3953	2918	1035	0
@@ -1397,7 +1397,7 @@ Relationship::relatedElement	manual-examples	2430	2398	0	32	5620	5620	0	0
 Relationship::source	training	4820	4686	39	95	6990	6974	16	0
 Relationship::source	pilot-examples	18813	18399	206	208	24046	24025	21	0
 Relationship::source	pilot-validation	6409	6313	48	48	8355	8349	6	0
-Relationship::source	kerml-examples	4440	4295	141	4	5465	5463	2	0
+Relationship::source	kerml-examples	4440	4294	142	4	5465	5463	2	0
 Relationship::source	spec-examples	4985	4784	102	99	6607	6585	22	0
 Relationship::source	testdata	872	857	5	10	1283	1283	0	0
 Relationship::source	examples	19573	19073	349	151	30383	30365	18	0
@@ -1406,10 +1406,10 @@ Relationship::source	manual-examples	2430	2405	22	3	5620	5620	0	0
 Relationship::target	training	4820	4718	7	95	6990	6974	16	0
 Relationship::target	pilot-examples	18813	18550	35	228	24046	24025	21	0
 Relationship::target	pilot-validation	6409	6347	14	48	8355	8349	6	0
-Relationship::target	kerml-examples	4440	4375	58	7	5465	5463	2	0
+Relationship::target	kerml-examples	4440	4378	55	7	5465	5463	2	0
 Relationship::target	spec-examples	4985	4164	104	717	6607	6555	52	0
 Relationship::target	testdata	872	840	12	20	1283	1283	0	0
-Relationship::target	examples	19573	19401	21	151	30383	30365	18	0
+Relationship::target	examples	19573	19402	20	151	30383	30365	18	0
 Relationship::target	probes	26	26	0	0	30	30	0	0
 Relationship::target	manual-examples	2430	2398	0	32	5620	5620	0	0
 RenderingUsage::renderingDefinition	training	5	0	0	5	5	5	0	0
