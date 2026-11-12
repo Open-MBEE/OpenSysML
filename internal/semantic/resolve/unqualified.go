@@ -719,7 +719,7 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 			}
 		}
 		if imp.IsRecursive {
-			r.eachSubtreeMatch(scope, target, name, imp, admit, yield)
+			r.eachSubtreeMatch(target, name, imp, admit, yield)
 		}
 		return
 	}
@@ -736,7 +736,7 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 				return
 			}
 		}
-		if sym, ok := r.lookupImportedMember(target, target.Scope, scope, name, importAllowsPrivate(imp)); ok && admit(sym) {
+		if sym, ok := r.lookupImportedMember(target, target.Scope, importReader(imp, scope), name, importAllowsPrivate(imp)); ok && admit(sym) {
 			if !yield(sym) {
 				return
 			}
@@ -749,7 +749,7 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 		// (KerML 8.2.3.3) — unless this is an `import all`, which takes the
 		// target's private memberships too.
 		targetFQN := r.registeredFQN(target)
-		from := r.importOrigin(imp, scope, targetFQN)
+		from := importOrigin(imp, targetFQN)
 		children := r.idx.LookupDirectChildrenNamedFrom(targetFQN, from, name)
 		// The import names one namespace, so a same-named other namespace's
 		// members registered under the same path are not what it surfaces.
@@ -772,7 +772,7 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 		}
 	}
 	if imp.IsRecursive {
-		r.eachSubtreeMatch(scope, target, name, imp, admit, yield)
+		r.eachSubtreeMatch(target, name, imp, admit, yield)
 	}
 }
 
@@ -833,9 +833,9 @@ func (r *Resolver) importPrefixAvailable(scope *symbols.Scope, imp *ast.Import, 
 
 // eachSubtreeMatch yields each element named name in the target namespace and its visible
 // descendants, nested re-exports included, until yield returns false.
-func (r *Resolver) eachSubtreeMatch(scope *symbols.Scope, target *symbols.Symbol, name string, imp *ast.Import, admit func(*symbols.Symbol) bool, yield func(*symbols.Symbol) bool) {
+func (r *Resolver) eachSubtreeMatch(target *symbols.Symbol, name string, imp *ast.Import, admit func(*symbols.Symbol) bool, yield func(*symbols.Symbol) bool) {
 	out := newElementList()
-	r.appendSubtree(out, scope, target, imp, admit, map[symbols.ElementKey]bool{}, false)
+	r.appendSubtree(out, target, imp, admit, map[symbols.ElementKey]bool{}, false)
 	for _, sym := range out.elems {
 		if (localNameOf(sym) == name || r.shortNameOf(sym) == name) && !yield(sym) {
 			return

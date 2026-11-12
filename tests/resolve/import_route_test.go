@@ -185,3 +185,27 @@ func TestEnumerationOffersWhatAnImportAllTook(t *testing.T) {
 		}
 	}
 }
+
+// An ordinary import takes its target's public memberships wherever it stands: one
+// nested in the target does not carry the target's private memberships outward.
+func TestNestedOrdinaryImportTakesPublicMembershipsOnly(t *testing.T) {
+	wantUnresolved(t, `
+		package Lib { part def X; private part def P; }
+		package Outer {
+			private import Lib::*;
+			private part def OwnPriv;
+			part def OwnPub;
+			package Inner { public import Outer::*; part own : X; }
+			package InnerAll { public import all Outer::*; }
+		}
+		package Use {
+			part a : Outer::Inner::X;
+			part b : Outer::Inner::OwnPriv;
+			part c : Outer::Inner::OwnPub;
+			part d : Outer::InnerAll::X;
+			part e : Outer::InnerAll::OwnPriv;
+			part f : Outer::InnerAll::P;
+		}
+		package Onward { private import Outer::Inner::*; part g : X; part h : OwnPub; }
+	`, "Outer::Inner::OwnPriv", "Outer::Inner::X", "Outer::InnerAll::P", "X")
+}

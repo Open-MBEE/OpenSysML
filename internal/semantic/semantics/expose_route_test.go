@@ -284,3 +284,30 @@ func TestExposedElementsOfAViewsExposedMemberships(t *testing.T) {
 	`)
 	wantNames(t, "exposed set of outer", exposedNames(t, m, sym(t, root, "outer")), []string{"A"})
 }
+
+// An ordinary import nested in its target took the target's public memberships
+// only, so an Expose of the nested namespace finds no private one there.
+func TestExposedElementsOfAnImportNestedInItsTarget(t *testing.T) {
+	const src = `
+		package Lib { part def X; private part def P; }
+		package Outer {
+			private import Lib::*;
+			private part def OwnPriv;
+			part def OwnPub;
+			package Inner { public import Outer::*; }
+			package InnerAll { public import all Outer::*; }
+		}
+		view plain { expose Outer::Inner::*; }
+		view all { expose Outer::InnerAll::*; }
+	`
+	eachIndexRoute(t, func(t *testing.T, expand bool) {
+		m, root, r, doc := buildUnresolvedModel(t, "t.sysml", source.KindOf("t.sysml"), src)
+		if expand {
+			r.Index().ExpandWildcardImports()
+		}
+		r.ResolveDocument("t.sysml", doc)
+		wantNames(t, "exposed set of plain", exposedNames(t, m, sym(t, root, "plain")), []string{"Inner", "InnerAll", "OwnPub"})
+		wantNames(t, "exposed set of all", exposedNames(t, m, sym(t, root, "all")),
+			[]string{"Inner", "InnerAll", "OwnPriv", "OwnPub", "X"})
+	})
+}

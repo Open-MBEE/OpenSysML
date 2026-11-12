@@ -228,13 +228,22 @@ func (r *Resolver) resolveImportName(scope *symbols.Scope, qn *ast.QualifiedName
 	return sym, ok
 }
 
-// importOrigin is the namespace imp reads targetFQN's index entries from: its
-// own, or under `import all` the target, which sees its every membership.
-func (r *Resolver) importOrigin(imp *ast.Import, scope *symbols.Scope, targetFQN string) string {
+// importOrigin is the namespace imp reads targetFQN's index entries from: outside it,
+// wherever imp stands, or under `import all` the target, which sees its every membership.
+func importOrigin(imp *ast.Import, targetFQN string) string {
 	if importAllowsPrivate(imp) {
 		return targetFQN
 	}
-	return r.ReferringNamespaceFQN(scope)
+	return ""
+}
+
+// importReader is the scope imp reads its target's imports from: none for an ordinary
+// import, which takes the public ones wherever it stands (KerML 8.3.2.4.5 visibleMemberships).
+func importReader(imp *ast.Import, scope *symbols.Scope) *symbols.Scope {
+	if importAllowsPrivate(imp) {
+		return scope
+	}
+	return nil
 }
 
 // importSurfaces reports whether imp takes sym, an index entry under targetFQN its route admits:
