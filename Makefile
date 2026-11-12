@@ -1,4 +1,4 @@
-.PHONY: all build docker stdlib-snapshot vulncheck sca-tools audit audit-npm audit-python audit-rust audit-java extension-libraries-check extension-libraries-sync extension-libraries-pin-check textmate-grammars-check textmate-grammars-publish build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package emacs-keywords emacs-compile emacs-test docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render spec-compliance-check spec-compliance-render self-model mcp-registry-check
+.PHONY: all build docker stdlib-snapshot vulncheck sca-tools audit audit-npm audit-python audit-rust audit-java extension-libraries-check extension-libraries-sync extension-libraries-pin-check textmate-grammars-check textmate-grammars-publish build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab test test-shard test-quick test-queue coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package emacs-keywords emacs-compile emacs-test docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render spec-compliance-check spec-compliance-render self-model mcp-registry-check
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -380,7 +380,7 @@ SHARD_SELECT = $(or $(SHARD_SELECT_$(SHARD)),-skip '$(RACE_SHARD_SKIP)')
 TEST_SHARD_RACE ?= -race
 
 test-shard: stdlib-snapshot ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|codegen|translate|grpc|tools|rest|migrate|cli)
-	@echo "Running Go $(if $(TEST_SHARD_RACE),race ,)tests, shard $(SHARD)..."
+	@echo "Running Go $(if $(TEST_SHARD_RACE),race ,)tests, shard $(SHARD)$(if $(OPENSYSML_CORPUS_SUBSET), over the $(OPENSYSML_CORPUS_SUBSET) corpus subset,)..."
 	@# 55m per package; its job's ceiling is 60. internal/exec/runtime (31-57 minutes whole under -race), tests/export
 	@# (past 55; four shards) and tests/corpus (about 40; two) run split by test name above.
 	pkgs=$$(scripts/race-shard.sh $(SHARD)) && go test $(SHARD_SELECT) -v $(TEST_SHARD_RACE) -pgo=off -timeout 55m $$pkgs
@@ -393,6 +393,18 @@ test-quick: stdlib-snapshot ## Run the race-free quick tier over one or more rac
 	@# Every pull-request push runs this instead of test-shard: the same shards, selections and skips, no -race.
 	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime runtime-corpus runtime-exploration model smt corpus corpus-sweep export export-library export-examples export-corpus graph codegen translate grpc tools rest migrate cli"; exit 1; }
 	for shard in $(SHARDS); do $(MAKE) --no-print-directory test-shard SHARD=$$shard TEST_SHARD_RACE= || exit 1; done
+
+test-queue: stdlib-snapshot ## Run the merge queue's tier over one or more race shards, in turn (SHARDS="export-corpus" | "rest grpc" | ...)
+	@echo "Running the queue tier, shards $(SHARDS)..."
+	@# The merge queue runs this: test-shard with -race on every shard but the examples/ sweeps
+	@# (scripts/race-shard.sh --sweeps), which run without -race over the construct-cover subset.
+	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime runtime-corpus runtime-exploration model smt corpus corpus-sweep export export-library export-examples export-corpus graph codegen translate grpc tools rest migrate cli"; exit 1; }
+	sweeps=" $$(scripts/race-shard.sh --sweeps | tr '\n' ' ')" && for shard in $(SHARDS); do \
+		case "$$sweeps" in \
+			*" $$shard "*) OPENSYSML_CORPUS_SUBSET=construct-cover $(MAKE) --no-print-directory test-shard SHARD=$$shard TEST_SHARD_RACE= ;; \
+			*) $(MAKE) --no-print-directory test-shard SHARD=$$shard ;; \
+		esac || exit 1; \
+	done
 
 coverage: stdlib-snapshot ## Write the coverage profile the SonarCloud scan reads
 	@echo "Writing coverage.txt..."

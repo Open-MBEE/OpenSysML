@@ -145,7 +145,7 @@ func (d *Drawn) noteMember(owner, member *symbols.Symbol) {
 // not render is the error Render gives.
 func (r *Renderer) DrawnIn(view *symbols.Symbol) (*Drawn, error) {
 	drawn := newDrawn()
-	if _, err := r.render(view, drawn); err != nil {
+	if _, err := r.render(view, drawn, true); err != nil {
 		return nil, err
 	}
 	return drawn, nil

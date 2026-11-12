@@ -1201,7 +1201,7 @@ Namespace::member	training	3324	2787	461	76	5053	5053	0	0
 Namespace::member	pilot-examples	12805	9922	2653	230	16916	16890	26	0
 Namespace::member	pilot-validation	4272	3426	729	117	5832	5829	3	0
 Namespace::member	kerml-examples	2527	1620	731	176	3357	3352	5	0
-Namespace::member	spec-examples	3566	2405	450	711	5766	4894	872	0
+Namespace::member	spec-examples	3566	2403	452	711	5766	4894	872	0
 Namespace::member	testdata	692	504	142	46	1020	1011	9	0
 Namespace::member	examples	13529	10293	3024	212	21862	21861	1	0
 Namespace::member	probes	19	15	3	1	23	23	0	0
@@ -1210,7 +1210,7 @@ Namespace::membership	training	3324	2787	461	76	5053	5053	0	0
 Namespace::membership	pilot-examples	12805	9922	2653	230	16916	16890	26	0
 Namespace::membership	pilot-validation	4272	3426	729	117	5832	5829	3	0
 Namespace::membership	kerml-examples	2527	1620	731	176	3357	3352	5	0
-Namespace::membership	spec-examples	3566	2405	450	711	5766	4895	871	0
+Namespace::membership	spec-examples	3566	2403	452	711	5766	4895	871	0
 Namespace::membership	testdata	692	505	141	46	1020	1011	9	0
 Namespace::membership	examples	13529	10293	3024	212	21862	21861	1	0
 Namespace::membership	probes	19	15	3	1	23	23	0	0
@@ -1747,7 +1747,7 @@ Type::endFeature	training	3215	0	1020	2195	4842	229	4613	0
 Type::endFeature	pilot-examples	12536	0	5871	6665	16557	655	15902	0
 Type::endFeature	pilot-validation	4119	0	1603	2516	5619	192	5427	0
 Type::endFeature	kerml-examples	2432	124	1562	746	3204	158	3046	0
-Type::endFeature	spec-examples	3073	27	973	2073	4821	217	4604	0
+Type::endFeature	spec-examples	3073	27	976	2070	4821	217	4604	0
 Type::endFeature	testdata	601	2	262	337	893	26	867	0
 Type::endFeature	examples	13429	17	4992	8420	21695	932	20763	0
 Type::endFeature	probes	15	0	7	8	15	0	15	0
@@ -1756,7 +1756,7 @@ Type::feature	training	3215	2541	670	4	4842	4834	8	0
 Type::feature	pilot-examples	12536	8346	4081	109	16557	16493	64	0
 Type::feature	pilot-validation	4119	3011	1080	28	5619	5593	26	0
 Type::feature	kerml-examples	2432	1285	1031	116	3204	3197	7	0
-Type::feature	spec-examples	3073	1837	605	631	4821	3958	863	0
+Type::feature	spec-examples	3073	1835	607	631	4821	3958	863	0
 Type::feature	testdata	601	382	209	10	893	876	17	0
 Type::feature	examples	13429	9507	3869	53	21695	21675	20	0
 Type::feature	probes	15	10	5	0	15	15	0	0
@@ -1765,7 +1765,7 @@ Type::featureMembership	training	3215	2541	670	4	4842	4834	8	0
 Type::featureMembership	pilot-examples	12536	8346	4081	109	16557	16493	64	0
 Type::featureMembership	pilot-validation	4119	3011	1080	28	5619	5593	26	0
 Type::featureMembership	kerml-examples	2432	1285	1031	116	3204	3197	7	0
-Type::featureMembership	spec-examples	3073	1837	605	631	4821	3958	863	0
+Type::featureMembership	spec-examples	3073	1835	607	631	4821	3958	863	0
 Type::featureMembership	testdata	601	382	209	10	893	876	17	0
 Type::featureMembership	examples	13429	9507	3869	53	21695	21675	20	0
 Type::featureMembership	probes	15	10	5	0	15	15	0	0
@@ -1774,7 +1774,7 @@ Type::inheritedFeature	training	3215	2191	1020	4	4842	4842	0	0
 Type::inheritedFeature	pilot-examples	12536	6556	5871	109	16557	16557	0	0
 Type::inheritedFeature	pilot-validation	4119	2488	1603	28	5619	5618	1	0
 Type::inheritedFeature	kerml-examples	2432	836	1480	116	3204	3203	1	0
-Type::inheritedFeature	spec-examples	3073	1468	974	631	4821	3964	857	0
+Type::inheritedFeature	spec-examples	3073	1465	977	631	4821	3964	857	0
 Type::inheritedFeature	testdata	601	334	257	10	893	885	8	0
 Type::inheritedFeature	examples	13429	8373	5003	53	21695	21694	1	0
 Type::inheritedFeature	probes	15	8	7	0	15	15	0	0
@@ -1783,7 +1783,7 @@ Type::inheritedMembership	training	3215	2191	1020	4	4842	4842	0	0
 Type::inheritedMembership	pilot-examples	12536	6556	5871	109	16557	16557	0	0
 Type::inheritedMembership	pilot-validation	4119	2489	1602	28	5619	5619	0	0
 Type::inheritedMembership	kerml-examples	2432	888	1428	116	3204	3203	1	0
-Type::inheritedMembership	spec-examples	3073	1468	974	631	4821	3964	857	0
+Type::inheritedMembership	spec-examples	3073	1465	977	631	4821	3964	857	0
 Type::inheritedMembership	testdata	601	334	257	10	893	885	8	0
 Type::inheritedMembership	examples	13429	8389	4987	53	21695	21695	0	0
 Type::inheritedMembership	probes	15	8	7	0	15	15	0	0
@@ -2192,7 +2192,7 @@ Usage::owningUsage	manual-examples	755	474	281	0	789	503	0	286
 Usage::usage	training	1403	1058	341	4	1821	1549	272	0
 Usage::usage	pilot-examples	4446	3193	1149	104	5239	4350	889	0
 Usage::usage	pilot-validation	1629	1231	376	22	2012	1684	328	0
-Usage::usage	spec-examples	1140	443	312	385	1419	815	604	0
+Usage::usage	spec-examples	1140	441	314	385	1419	815	604	0
 Usage::usage	testdata	180	107	64	9	263	190	73	0
 Usage::usage	examples	5443	3016	2391	36	7404	5037	2367	0
 Usage::usage	probes	1	1	0	0	1	1	0	0

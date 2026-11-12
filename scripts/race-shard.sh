@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-
-# Prints the root-module package paths assigned to one race-test shard, or with --sweeps the
-# shards whose tests walk a downloaded corpus under examples/. Usage: scripts/race-shard.sh <shard>|--sweeps
+# Prints the root-module package paths assigned to one race-test shard.
+# Usage: scripts/race-shard.sh runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|codegen|translate|grpc|tools|rest|migrate|cli | --sweeps
 
 # A hyphenated shard is a by-test-name part of its package (runtime, corpus and export are each split
 # that way in make test-shard); the other shards are whole packages, rest everything not named here.
@@ -10,25 +9,12 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 shards='runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|codegen|translate|grpc|tools|rest|migrate|cli'
-
-# The sweep shards (sysml-v2-training, pilot-corpora or spec-examples walked), sorted, each with
-# the test that walks a corpus; --sweeps prints them so no workflow or Makefile names them itself.
-sweeps=(
-  corpus          # tests/corpus's per-root diagnostic gates (TestSpecExamplesDiagnostics, ...)
-  corpus-sweep    # TestExamplesSweep: every model under examples/ loaded once, every property checked
-  export-corpus   # TestAPIJSONWritersNeverEmitNameReferences over every example
-  export-examples # TestExamplesCorpusInvariants over every example
-  graph           # TestIncrementalEqualsFreshCorpora (tests/model)
-  grpc            # TestElementPropertiesServeEveryRuleAndExplainEveryOmission (tests/grpc)
-  model           # TestParallelBatchValidationMatchesSerial, TestFindDoneStartErrors (internal/workspace/model)
-  rest            # TestCommandLineLoadMatchesWorkspace (repl), the pilot-corpora census (exec/solve)
-  runtime         # TestCompileDifferential* over examples/ (internal/exec/runtime)
-  tools           # the tools module's errata tests over the pilot corpora
-  translate       # TestSymbolStructureMatchesGraphStructure (internal/translate/export)
-)
+# The shards whose one test walks every example model, which the queue tier (make test-queue) runs race-free over the subset;
+# export-library walks the bundled libraries, and grpc's and translate's sweeps share a shard with race-prone tests: all keep -race.
+sweeps='corpus-sweep export-corpus export-examples'
 
 if [[ $# -eq 1 && $1 == --sweeps ]]; then
-  printf '%s\n' "${sweeps[@]}"
+  printf '%s\n' $sweeps
   exit 0
 fi
 
