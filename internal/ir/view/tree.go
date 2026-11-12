@@ -277,6 +277,12 @@ func (r *Renderer) successionText(sym *symbols.Symbol) string {
 			return ""
 		}
 		return "first " + first + " then " + then
+	case *ast.EntryMember:
+		return "entry"
+	case *ast.DoMember:
+		return "do"
+	case *ast.ExitMember:
+		return "exit"
 	case *ast.SuccessionEdge:
 		// A `then b` edge reads as written: its source only where the author named one; a
 		// member-attached `then action b` names the member it sequences to.
