@@ -42,7 +42,7 @@ env:
 jobs:
   fetch:
     name: Fetch and verify the release's distributions
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 200
     outputs:
       tag: ${{ steps.version.outputs.tag }}
@@ -266,7 +266,7 @@ jobs:
   pypi:
     name: Publish opensysml to PyPI
     needs: fetch
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment: pypi
     permissions:
@@ -328,7 +328,7 @@ jobs:
   jupyter-kernel:
     name: Publish jupyter-opensysml-kernel to PyPI
     needs: fetch
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment: pypi
     permissions:

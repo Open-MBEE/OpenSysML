@@ -57,7 +57,7 @@ jobs:
   # on, so a new directory is over-tested rather than untested.
   changes:
     name: Changed areas
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     timeout-minutes: 5
@@ -130,7 +130,7 @@ jobs:
       fail-fast: false
       matrix:
         shard: ${{ fromJSON(needs.changes.outputs.go_shards) }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     timeout-minutes: 60
@@ -229,7 +229,7 @@ jobs:
     if: needs.changes.outputs.go == 'true'
     # The quick tier runs the download-free checks (gofmt, vet, the prod build, the library snapshot, grpc
     # imports, proto lint and breaking); the lint and every corpus and solver gate run under queue and full.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     # The job takes 28 minutes on a hosted runner; a slow one must not cancel it.
@@ -576,7 +576,7 @@ jobs:
     name: WebAssembly gate
     needs: changes
     if: needs.changes.outputs.go == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     timeout-minutes: 30
@@ -630,7 +630,7 @@ jobs:
     name: Xpect oracle reproduces its baseline
     needs: changes
     if: needs.changes.outputs.go == 'true' || needs.changes.outputs.docs == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     timeout-minutes: 10
@@ -662,7 +662,7 @@ jobs:
     name: Derived-property differential reproduces its baseline
     needs: changes
     if: needs.changes.outputs.apijson == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     timeout-minutes: 45
@@ -724,7 +724,7 @@ jobs:
       needs.changes.outputs.matlab == 'true' ||
       needs.changes.outputs.mdk == 'true' ||
       needs.changes.outputs.syson == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     timeout-minutes: 15
@@ -806,7 +806,7 @@ jobs:
       - wasm-gate
       - xpect-oracle
       - apijson-differential
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     timeout-minutes: 5
@@ -889,7 +889,7 @@ jobs:
     name: PDF toolchain tests
     needs: changes
     if: needs.changes.outputs.go == 'true' && needs.changes.outputs.tier != 'quick'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     timeout-minutes: 20
@@ -963,7 +963,7 @@ jobs:
     name: VS Code extension
     needs: changes
     if: needs.changes.outputs.vscode == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     timeout-minutes: 10
@@ -1011,7 +1011,7 @@ jobs:
     name: JupyterLab extension
     needs: changes
     if: needs.changes.outputs.jupyterlab == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     timeout-minutes: 10
@@ -1057,7 +1057,7 @@ jobs:
     name: Magic MDK plugin
     needs: [changes, build]
     if: needs.changes.outputs.mdk == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     timeout-minutes: 15
@@ -1096,7 +1096,7 @@ jobs:
     name: Emacs package
     needs: changes
     if: needs.changes.outputs.emacs == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     timeout-minutes: 15
@@ -1140,7 +1140,7 @@ jobs:
     name: Documentation site
     needs: changes
     if: needs.changes.outputs.docs == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     timeout-minutes: 15
@@ -1274,7 +1274,7 @@ jobs:
     name: Node client tests
     needs: [changes, build]
     if: needs.changes.outputs.node == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
@@ -1385,7 +1385,7 @@ jobs:
     name: Python client tests
     needs: [changes, build]
     if: needs.changes.outputs.python == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     timeout-minutes: 10
@@ -1510,7 +1510,7 @@ jobs:
     name: Rust client tests
     needs: [changes, build]
     if: needs.changes.outputs.rust == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
@@ -1603,7 +1603,7 @@ jobs:
     name: Julia client tests
     needs: [changes, build]
     if: needs.changes.outputs.julia == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     strategy:
@@ -1654,7 +1654,7 @@ jobs:
     name: MATLAB/Octave client tests
     needs: [changes, build]
     if: needs.changes.outputs.matlab == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
@@ -1713,7 +1713,7 @@ jobs:
     name: Java client tests
     needs: [changes, build]
     if: needs.changes.outputs.java == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     timeout-minutes: 15
@@ -1769,7 +1769,7 @@ jobs:
     name: SysON plugin
     needs: [changes, build]
     if: needs.changes.outputs.syson == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     timeout-minutes: 20
@@ -1828,7 +1828,7 @@ jobs:
     name: Conformance suite
     needs: changes
     if: needs.changes.outputs.go == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:

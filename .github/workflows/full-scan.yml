@@ -29,7 +29,7 @@ env:
 jobs:
   dispatch:
     name: Dispatch the full tier on develop's head
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: Check out develop

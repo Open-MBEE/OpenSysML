@@ -20,7 +20,7 @@ permissions:
 jobs:
   drift:
     name: Pilot and specification movement against the pin
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Check out repository
