@@ -3978,7 +3978,9 @@ func TestLoopConditionsLinkTheLoopBodysActions(t *testing.T) {
 func TestMachineEndpointsLinkAcrossRegionsAndNesting(t *testing.T) {
 	turtle := toTurtle(t, filepath.Join("testdata", "convert", "endpoint_scopes.sysml"))
 	for _, want := range []string{
-		"sysml:targetFeature elmt:Machines__Lamp__on__heat__warm .",
+		"sysml:targetFeature elmt:Machines__Lamp__on__heat__warm",
+		// The `then warm` succession's Relationship::target, which its targetFeature redefines.
+		"sysml:target elmt:Machines__Lamp__on__heat__warm",
 		// A transition's own target, ahead of the order annotations its
 		// several owned relationships carry.
 		"sysml:target elmt:Machines__Lamp__on__light__bright ;\n    json:ownedRelationship",

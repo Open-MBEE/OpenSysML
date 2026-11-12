@@ -30,7 +30,7 @@ permissions:
 jobs:
   reproduce:
     name: Reproduce the committed oracle baselines
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
       - name: Check out repository
@@ -60,6 +60,11 @@ jobs:
           ./scripts/download-pilot-kerml-validator.sh
           ./scripts/download-pilot-json-exporter.sh
 
+      - name: Install poppler-utils
+        uses: ./.github/actions/apt-install
+        with:
+          packages: --no-install-recommends poppler-utils
+
       - name: Download the OMG corpora the oracles compare
         run: |
           ./scripts/download-training-examples.sh
@@ -67,7 +72,6 @@ jobs:
           ./scripts/download-pilot-xpect.sh
           ./scripts/download-pssm-suite.sh
           ./scripts/download-sysml-v1tov2.sh
-          ./scripts/ci-apt-install.sh --no-install-recommends poppler-utils
           ./scripts/download-spec-examples.sh
 
       # Each oracle's -check re-runs the comparison and diffs the fresh report

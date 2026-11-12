@@ -1726,6 +1726,12 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			return nil, false
 		}
 		return m.connectorRelatedFeatures(sym, feature), true
+	case "relatedElement", "source", "target":
+		// A connector's relatedFeature, sourceFeature and targetFeature redefine these (KerML 8.3.4.5.1).
+		if !m.reflectiveMetaclassConforms(sym, "Connector") || m.successionEndUnrepresented(sym) {
+			return nil, false
+		}
+		return m.connectorRelatedFeatures(sym, connectorEndRedefinition[feature]), true
 	case "ownedRelatedElement", "owningRelatedElement":
 		// A declared connector or association relates features and types it does not own;
 		// its own owner is a membership's.
@@ -2037,6 +2043,9 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	return m.withDefaultMultiplicityMember(sym, members)
 }
+
+// connectorEndRedefinition names the Connector property that redefines each Relationship end property.
+var connectorEndRedefinition = map[string]string{"relatedElement": "relatedFeature", "source": "sourceFeature", "target": "targetFeature"}
 
 // connectorRelatedFeatures derives Connector::relatedFeature per KerML 8.3.4.5.3: each
 // end's ownedReferenceSubsetting.subsettedFeature (the chain Feature for a chained end).
@@ -2706,6 +2715,11 @@ func (m *Model) reflectiveFeatureFlags(sym *symbols.Symbol) (reflectiveFeatureFl
 		(owner == nil ||
 			(!m.reflectiveMetaclassConforms(owner, "PortDefinition") &&
 				!m.reflectiveMetaclassConforms(owner, "PortUsage"))) {
+		flags.isComposite = false
+	}
+	// A succession, binding, perform, exhibit, include or event usage is a reference however it is
+	// written (SysML § 7.6.3), as UsageIsComposite answers and the RDF writer states it.
+	if isUsage && m.usageIsAlwaysReferential(sym) {
 		flags.isComposite = false
 	}
 	if m.metaclassConforms(sym, sysmlMetaclassPrefix+"ControlNode") {

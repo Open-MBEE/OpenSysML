@@ -72,7 +72,12 @@ func (d *decoder) verbatim(el *element) (string, bool) {
 	if d.demoted[el] {
 		return "", false
 	}
-	return d.graph.Lexical(rdf.IRI(el.iri), rdf.OpenSysML+xSourceText)
+	text, ok := d.graph.Lexical(rdf.IRI(el.iri), rdf.OpenSysML+xSourceText)
+	if !ok && el.metaclass == mSubaction && !el.positional && len(el.children) == 1 {
+		// A bare `entry;` is recorded on the action written at its position.
+		return d.verbatim(el.children[0])
+	}
+	return text, ok
 }
 
 // expressionText returns the source text an expression node is written as, if
