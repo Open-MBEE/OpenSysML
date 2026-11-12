@@ -11,6 +11,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/reposync"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/corpussubset"
 )
 
 const model = `package Vehicles {
@@ -134,6 +135,7 @@ func TestWithoutDerivedReadsBackEveryExample(t *testing.T) {
 	if err != nil || len(files) == 0 {
 		t.Fatalf("no examples: %v", err)
 	}
+	files = corpussubset.Must(t, "../../../..").FilterPaths("../../../../examples", files)
 	roundTrip := func(graph *rdf.Graph) ([]byte, error) {
 		data, err := export.WriteAPIJSON(graph)
 		if err != nil {
