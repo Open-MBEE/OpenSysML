@@ -61,6 +61,16 @@ internal static class ServiceAddress
         return new Uri(uri.GetLeftPart(UriPartial.Authority) + "/", UriKind.Absolute);
     }
 
+    /// <summary>
+    /// Whether a connection's own handler sends calls to a service through the default proxy, which
+    /// <c>HTTP_PROXY</c> and <c>NO_PROXY</c> or the system's settings make: never for a loopback
+    /// address, where every private service listens. A proxy would read those calls in cleartext, or
+    /// fail them, since it cannot reach this machine's loopback interface or carry cleartext HTTP/2.
+    /// </summary>
+    /// <param name="address">The service's base URL.</param>
+    /// <returns>False for a loopback address; true for any other.</returns>
+    internal static bool ThroughProxy(Uri address) => !address.IsLoopback;
+
     // Uri has already checked that a port is digits in range, but it defaults one that is absent or empty.
     private static bool HasPort(string address)
     {

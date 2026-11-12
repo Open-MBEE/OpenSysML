@@ -72,7 +72,7 @@ internal sealed class ConnectTransport : ITransport
     /// <param name="options">The connection's options, already validated.</param>
     /// <param name="headers">The headers every call carries.</param>
     internal ConnectTransport(Uri address, ConnectionOptions options, CallHeaders headers)
-        : this(address, options.HttpMessageHandler ?? CreateHandler(), ownsHandler: options.HttpMessageHandler is null, options, headers)
+        : this(address, options.HttpMessageHandler ?? CreateHandler(address), ownsHandler: options.HttpMessageHandler is null, options, headers)
     {
     }
 
@@ -201,12 +201,13 @@ internal sealed class ConnectTransport : ITransport
     private static bool IsUndecodable(Exception error) =>
         error is InvalidProtocolBufferException or InvalidJsonException or InvalidDataException or DecoderFallbackException;
 
-    private static SocketsHttpHandler CreateHandler() => new()
+    private static SocketsHttpHandler CreateHandler(Uri address) => new()
     {
         PooledConnectionLifetime = TimeSpan.FromMinutes(5),
         AutomaticDecompression = DecompressionMethods.None,
         AllowAutoRedirect = false,
         UseCookies = false,
+        UseProxy = ServiceAddress.ThroughProxy(address),
     };
 
     private static bool? IsGzip(ICollection<string> codings) => codings.Count switch

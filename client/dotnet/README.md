@@ -398,7 +398,10 @@ member, as HTTP servers write one, and its CRC-32 and length are checked: the .N
 alone returns a body cut short as if it were whole. A Connect call sends its deadline as
 `Connect-Timeout-Ms` and also enforces it itself, because the service does not cut a call
 that is already running short. The connection's own HTTP handler follows no redirect and keeps
-no cookies; a borrowed `HttpMessageHandler` is used as it is configured.
+no cookies. It reaches a loopback address, where every private service listens, directly: the
+default proxy, from `HTTP_PROXY` and `NO_PROXY` or the system's settings, would read those calls
+in cleartext or fail them, so only other addresses go through it. A borrowed `HttpMessageHandler`
+is used as it is configured.
 
 With `Json`, the size limits measure the JSON text. A response field this client does not
 know is ignored, so that a newer service can still be read, and so is an enum value given by
