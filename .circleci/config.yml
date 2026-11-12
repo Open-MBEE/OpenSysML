@@ -490,11 +490,12 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Look for a green full-tier run of this tree
+          name: Look for a green run of this tree (queue or full tier on a branch, full tier on a tag)
           environment:
             RELEASE_REHEARSAL: << pipeline.parameters.release_rehearsal >>
           command: |
             set -- --sha "$CIRCLE_SHA1"
+            if [ -n "${CIRCLE_BRANCH:-}" ]; then set -- "$@" --branch "$CIRCLE_BRANCH"; fi
             if [ -n "${CIRCLE_TAG:-}" ]; then set -- "$@" --tag "$CIRCLE_TAG"; fi
             if [ "$RELEASE_REHEARSAL" = "true" ]; then set -- "$@" --rehearsal; fi
             if ! python3 scripts/ci-verified-tree.py "$@" > verified-tree.txt; then
@@ -562,7 +563,7 @@ jobs:
             fi
             make proto-breaking BUF_BREAKING_REF="$baseline"
 
-      # Everything below re-checks what the full tier already proved on a verified tree; the two
+      # Everything below re-checks what the queue or full tier already proved on a verified tree; the two
       # checks above stay ahead of the halt because a tag has verdicts no branch run reaches.
       - halt-if-verified
 
@@ -704,7 +705,7 @@ jobs:
   go-race-test:
     executor: go-executor
     resource_class: large
-    parallelism: 19
+    parallelism: 17
     steps:
       - checkout
       - rehearsal-checkout-tag
@@ -720,14 +721,14 @@ jobs:
       - install-fmpy
 
       # internal/exec/runtime (31-57 minutes whole, near 8.5 GB under -race), tests/export and tests/corpus
-      # (about 40 minutes whole) are split by test name as make test-shard does: four and three shards.
+      # (about 40 minutes whole) are split by test name as make test-shard does: four and two shards.
       - run:
           name: Run Go race tests
           command: |
             set -o pipefail
             # One entry per node; a quoted entry runs its shards in turn (tests/hygiene keeps
             # the entries the shard list of scripts/race-shard.sh).
-            shards=(runtime runtime-corpus model smt "corpus codegen" corpus-roundtrip corpus-apijson export export-library export-examples export-corpus export-settled graph translate grpc tools rest "migrate runtime-exploration" cli)
+            shards=(runtime runtime-corpus model smt "corpus codegen" corpus-sweep export export-library export-examples export-corpus graph translate grpc tools rest "migrate runtime-exploration" cli)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
               echo "error: parallelism is $CIRCLE_NODE_TOTAL, but the shard array has ${#shards[@]} nodes" >&2
               exit 1
@@ -742,31 +743,26 @@ jobs:
             exploration='^TestExploreWithIsExploreOverTheConformanceCorpus$'
             corpus='^Test(ExploreWithIsExploreOverTheConformanceCorpus|CheckAgreesWithExploreOverTheConformanceCorpus|CheckWitnessesReplayOverTheConformanceCorpus|ExecutionConformance|ExecutionConformanceUnderPolicies)$'
             exportcorpus='^TestAPIJSONWritersNeverEmitNameReferences$'
-            exportsettled='^TestSettledCollectionsAreWhatReconcilingWouldFind$'
             exportlibrary='^TestLibraryFilesComeBackFromTheGraphAlone$'
             exportexamples='^TestExamplesCorpusInvariants$'
-            # The Makefile's RACE_CORPUS_ROUNDTRIP and RACE_CORPUS_APIJSON; tests/hygiene keeps them the same.
-            corpusroundtrip='^TestCorpusRoundTrip$'
-            corpusapijson='^TestCorpusAPIJSONRoundTrip$'
+            # The Makefile's RACE_CORPUS_SWEEP; tests/hygiene keeps the two the same.
+            corpussweep='^TestExamplesSweep$'
             case "$shard" in
               # Its own shard and process: alone it nears 5 GB, the five suites together 9 GB under -race,
               # over this class's 8 GB. The Makefile's RACE_RUNTIME_EXPLORATION; tests/hygiene keeps the two the same.
               runtime-exploration) go test -json -race -pgo=off -timeout 30m -run "$exploration" $pkgs | stream ;;
               runtime-corpus) go test -json -race -pgo=off -timeout 30m -run "$corpus" -skip "$exploration" $pkgs | stream ;;
               runtime) go test -json -race -pgo=off -timeout 30m -skip "$corpus" $pkgs | stream ;;
-              # The Makefile's RACE_EXPORT_CORPUS, RACE_EXPORT_SETTLED, RACE_EXPORT_LIBRARY and RACE_EXPORT_EXAMPLES; tests/hygiene
-              # keeps them the same. tests/export whole passed 55 minutes under -race; its remainder ran 37, so five shards.
+              # The Makefile's RACE_EXPORT_CORPUS, RACE_EXPORT_LIBRARY and RACE_EXPORT_EXAMPLES; tests/hygiene
+              # keeps them the same. tests/export whole passed 55 minutes under -race; its remainder ran 37, so four shards.
               export-corpus) go test -json -race -pgo=off -timeout 55m -run "$exportcorpus" $pkgs | stream ;;
-              # Four settled models at once peak at 8.2-8.4 GB under -race, this class's 8 GB (killed on
-              # develop at #2014); two at once peak at 6.5 GB for a tenth more wall time.
-              export-settled) go test -json -race -pgo=off -timeout 55m -parallel 2 -run "$exportsettled" $pkgs | stream ;;
               export-library) go test -json -race -pgo=off -timeout 55m -run "$exportlibrary" $pkgs | stream ;;
               export-examples) go test -json -race -pgo=off -timeout 55m -run "$exportexamples" $pkgs | stream ;;
-              export) go test -json -race -pgo=off -timeout 55m -skip "$exportcorpus|$exportsettled|$exportlibrary|$exportexamples" $pkgs | stream ;;
-              # tests/corpus's two round trips over every example ran about 20 minutes each under -race.
-              corpus-roundtrip) go test -json -race -pgo=off -timeout 55m -run "$corpusroundtrip" $pkgs | stream ;;
-              corpus-apijson) go test -json -race -pgo=off -timeout 55m -run "$corpusapijson" $pkgs | stream ;;
-              corpus) go test -json -race -pgo=off -timeout 30m -skip "$corpusroundtrip|$corpusapijson" $pkgs | stream ;;
+              export) go test -json -race -pgo=off -timeout 55m -skip "$exportcorpus|$exportlibrary|$exportexamples" $pkgs | stream ;;
+              # tests/corpus's sweep has -parallel models in hand at once, a whole corpus directory as one model
+              # among them: four peaked at 10.4 GB and three at 10.0 GB under -race on a four-vCPU box (this class ran ~0.8x of that).
+              corpus-sweep) go test -json -race -pgo=off -timeout 55m -parallel 3 -run "$corpussweep" $pkgs | stream ;;
+              corpus) go test -json -race -pgo=off -timeout 30m -skip "$corpussweep" $pkgs | stream ;;
               tools)
                 go test -json -race -pgo=off -timeout 30m $pkgs | stream
                 go test -C tools -json -race -pgo=off -timeout 30m ./... | stream
@@ -810,7 +806,7 @@ jobs:
     executor: go-executor
     resource_class: large
     # The race test's shards but the runtime's corpus ones: without -race the runtime runs whole in about 19 minutes.
-    parallelism: 19
+    parallelism: 17
     steps:
       - checkout
       - rehearsal-checkout-tag
@@ -833,7 +829,7 @@ jobs:
           command: |
             # tests/export and tests/corpus whole overran 30 minutes, so make coverage-shard splits them by test name.
             # cmd/sysml has its own node: its exploration budgets took 23-30 minutes on the rest node.
-            shards=(runtime model smt corpus corpus-roundtrip corpus-apijson export export-library export-examples export-corpus export-settled graph codegen translate grpc tools rest migrate cli)
+            shards=(runtime model smt corpus corpus-sweep export export-library export-examples export-corpus graph codegen translate grpc tools rest migrate cli)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
               echo "error: parallelism is $CIRCLE_NODE_TOTAL, but the Makefile's COVERAGE_SHARDS has ${#shards[@]} shards" >&2
               exit 1
@@ -1021,32 +1017,17 @@ jobs:
           environment:
             OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI: "1"
 
-      # The RDF round-trip ratchet over every example alone, so its per-verdict
-      # counts are legible in the log and a skip cannot hide behind a green suite.
+      # The RDF and api-json round-trip ratchets over every example alone, so their
+      # per-verdict counts are legible in the log and a skip cannot hide behind a green suite.
       - run:
-          name: Run RDF corpus round-trip gate
+          name: Run corpus round-trip gates
           command: |
             set -o pipefail
-            go test -count=1 -v ./tests/corpus -run 'TestCorpusRoundTrip' | tee corpus-roundtrip-gate.log
-            grep -E 'corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
+            go test -count=1 -v ./tests/corpus -run 'TestExamplesSweep' | tee corpus-roundtrip-gate.log
+            grep -E ': corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
+            grep -E 'api-json corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
             if grep -qE '^\s*--- SKIP' corpus-roundtrip-gate.log; then
-              echo "error: the RDF corpus round-trip gate skipped" >&2
-              exit 1
-            fi
-          environment:
-            OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
-            OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
-            OPENSYSML_REQUIRE_SPEC_EXAMPLES: "1"
-
-      # The same ratchet over the API's JSON element form, beside the RDF one.
-      - run:
-          name: Run api-json corpus round-trip gate
-          command: |
-            set -o pipefail
-            go test -count=1 -v ./tests/corpus -run 'TestCorpusAPIJSONRoundTrip' | tee api-json-roundtrip-gate.log
-            grep -E 'api-json corpus round trip: [0-9]+ files:' api-json-roundtrip-gate.log
-            if grep -qE '^\s*--- SKIP' api-json-roundtrip-gate.log; then
-              echo "error: the api-json corpus round-trip gate skipped" >&2
+              echo "error: the corpus round-trip gates skipped" >&2
               exit 1
             fi
           environment:
@@ -2968,6 +2949,11 @@ jobs:
             (cd wasm && for f in sysml-wasm.wasm sysml-prod.wasm.gz wasm_exec.js; do sha256sum "$f" > "$f.sha256"; done)
             # The npm tarballs, so publish-npm publishes bytes the signed manifest lists.
             (cd npm && sha256sum ./*.tgz | sed 's|\./||' >> ../SHA256SUMS.txt)
+            # The VS Code extension build-vscode-extension packed at the tag's version.
+            (cd vscode && sha256sum opensysml.vsix >> ../SHA256SUMS.txt)
+            # The editor plugins build-cameo-plugin and build-syson-plugin packaged around these binaries.
+            (cd cameo && sha256sum Magic_MDK.zip >> ../SHA256SUMS.txt)
+            (cd syson && sha256sum syson-mdk-backend.jar syson-mdk-frontend.tgz >> ../SHA256SUMS.txt)
             # And the SBOMs, so each is signed with the manifest and is a provenance subject.
             (cd sbom && sha256sum ./*.spdx.json | sed 's|\./||' >> ../SHA256SUMS.txt)
             cat SHA256SUMS.txt
@@ -3003,6 +2989,22 @@ jobs:
                 )
             print(f"Verified the wheel pins the five service digests the manifest lists for {tag}.")
             EOF
+
+      # The zip ships the five binaries: its DIGESTS must be the manifest's sysml-grpc lines.
+      - run:
+          name: Verify the Cameo plugin stages the service binaries the manifest lists
+          command: |
+            grep -E ' sysml-grpc-[a-z0-9]+-[a-z0-9]+(\.exe)?$' dist/SHA256SUMS.txt | sort > /tmp/listed.sums
+            if [ "$(wc -l < /tmp/listed.sums)" -ne 5 ]; then
+              echo "Error: SHA256SUMS.txt lists $(wc -l < /tmp/listed.sums) sysml-grpc binaries, not 5; nothing was signed."
+              exit 1
+            fi
+            unzip -p dist/cameo/Magic_MDK.zip plugins/org.openmbee.mdk.magic/bin/DIGESTS | sort > /tmp/staged.sums
+            if ! diff /tmp/staged.sums /tmp/listed.sums; then
+              echo "Error: Magic_MDK.zip stages binaries the manifest does not list; nothing was signed."
+              exit 1
+            fi
+            echo "Verified Magic_MDK.zip stages the five service binaries the manifest lists."
 
       # The same proof for every kernel wheel over the kernel binaries.
       - run:
@@ -3323,6 +3325,218 @@ jobs:
           root: .
           paths:
             - dist/npm
+
+  # Packages the VS Code extension (editors/vscode), side-loaded rather than published, so the
+  # release carries opensysml.vsix in the signed manifest as the nightly does, at the tag's version.
+  build-vscode-extension:
+    executor: node-executor
+    steps:
+      - checkout
+      - rehearsal-tag
+
+      # The extension's landing bundle and tests import the browser client from client/node's
+      # source. `npm install`, not `npm ci` (npm/cli#9846), with the lock-diff as the locked install.
+      - run:
+          name: Install the browser client's dependencies
+          command: |
+            cd client/node
+            npm install --ignore-scripts --no-audit --no-fund
+            git diff --exit-code package-lock.json
+
+      # check_version.py --editors held the manifest to the tag; the packed vsix must say so too.
+      - run:
+          name: Package the extension and check it carries the tag's version
+          command: |
+            if [ -z "${CIRCLE_TAG}" ]; then
+              echo "Error: CIRCLE_TAG is empty; this job only runs on a tag"
+              exit 1
+            fi
+            expected="${CIRCLE_TAG#v}"
+            cd editors/vscode
+            npm ci --ignore-scripts
+            npm run package
+            unzip -q -o opensysml.vsix extension/package.json -d /tmp/vsix
+            stamped=$(node -p "require('/tmp/vsix/extension/package.json').version")
+            if [ "$stamped" != "$expected" ]; then
+              echo "Error: opensysml.vsix carries version '$stamped', not the '$expected' the tag ${CIRCLE_TAG} names. Nothing was packed."
+              exit 1
+            fi
+            echo "ok: opensysml.vsix carries $stamped"
+            mkdir -p ../../dist/vscode
+            cp opensysml.vsix ../../dist/vscode/
+            ls -l ../../dist/vscode
+
+      - store_artifacts:
+          path: dist/vscode
+          destination: vscode-extension
+
+      - persist_to_workspace:
+          root: .
+          paths:
+            - dist/vscode
+
+  # Packages the Cameo plugin (editors/mdk) around the workspace's sysml-grpc before build-release
+  # writes the manifest, so the signed SHA256SUMS.txt lists the zip; its suite runs against the Linux one.
+  build-cameo-plugin:
+    executor: java-executor
+    steps:
+      - checkout
+      - rehearsal-tag
+      - attach_workspace:
+          at: .
+
+      # The suite starts bin/sysml-grpc: the release's own Linux binary, the one the zip ships.
+      - run:
+          name: Put the release's service binary where the plugin suite starts it
+          command: |
+            install -D -m 0755 dist/grpc/sysml-grpc-linux-amd64 bin/sysml-grpc
+            bin/sysml-grpc -version
+
+      - restore_cache:
+          keys:
+            - maven-mdk-v1-{{ checksum "client/java/pom.xml" }}-{{ checksum "client/java/opensysml-client/pom.xml" }}-{{ checksum "editors/mdk/pom.xml" }}-{{ checksum "editors/mdk/plugin/pom.xml" }}
+            - maven-mdk-v1-
+
+      - run:
+          name: Install the Java client the plugin builds against
+          command: mvn -B -q -f client/java/pom.xml -pl :opensysml -am install -DskipTests -Dmaven.javadoc.skip=true
+
+      # Versioned by the tag; published under one name, Magic_MDK.zip, its descriptors carrying the version.
+      - run:
+          name: Build, test and package the plugin around the release's binaries
+          command: |
+            if [ -z "${CIRCLE_TAG}" ]; then
+              echo "Error: CIRCLE_TAG is empty; this job only runs on a tag"
+              exit 1
+            fi
+            mvn -B -f editors/mdk/pom.xml verify \
+              -Dopensysml.requireService=true \
+              -Dopensysml.version="${CIRCLE_TAG}" \
+              -Dopensysml.binaries="$PWD/dist/grpc"
+            set -- editors/mdk/dist/target/*_MDK_"${CIRCLE_TAG}".zip
+            if [ $# -ne 1 ] || [ ! -f "$1" ]; then
+              echo "Error: expected one plugin zip named for ${CIRCLE_TAG} under editors/mdk/dist/target, found: $*"
+              exit 1
+            fi
+            zip=$1
+            unzip -l "$zip"
+            for entry in plugins/org.openmbee.mdk.magic/plugin.xml plugins/org.openmbee.mdk.magic/bin/DIGESTS \
+                plugins/org.openmbee.mdk.magic/bin/sysml-grpc-linux-amd64 plugins/org.openmbee.mdk.magic/bin/sysml-grpc-windows-amd64.exe \
+                plugins/org.openmbee.mdk/extensions/ data/resourcemanager/; do
+              if ! unzip -l "$zip" | grep -q " $entry"; then
+                echo "Error: $zip lacks $entry"
+                exit 1
+              fi
+            done
+            # The zip staged the bytes the sidecars name, which build-release lists in the manifest.
+            (cd dist/grpc && sha256sum --check --strict sysml-grpc-*.sha256 && cat sysml-grpc-*.sha256 | sort > /tmp/built.sums)
+            unzip -p "$zip" plugins/org.openmbee.mdk.magic/bin/DIGESTS | sort > /tmp/staged.sums
+            if ! diff /tmp/staged.sums /tmp/built.sums; then
+              echo "Error: the binaries in $zip are not the release's"
+              exit 1
+            fi
+            mkdir -p dist/cameo
+            cp "$zip" dist/cameo/Magic_MDK.zip
+            ls -l dist/cameo
+
+      - save_cache:
+          key: maven-mdk-v1-{{ checksum "client/java/pom.xml" }}-{{ checksum "client/java/opensysml-client/pom.xml" }}-{{ checksum "editors/mdk/pom.xml" }}-{{ checksum "editors/mdk/plugin/pom.xml" }}
+          paths:
+            - ~/.m2/repository
+
+      - store_test_results:
+          path: editors/mdk/plugin/target/surefire-reports
+
+      - store_artifacts:
+          path: dist/cameo
+          destination: cameo-plugin
+
+      - persist_to_workspace:
+          root: .
+          paths:
+            - dist/cameo
+
+  # Packages the SysON plugin (editors/syson) likewise: the backend jar, tested against the release's
+  # service, and the frontend tarball. SysON runs on 21; the -node image carries the frontend's Node.
+  build-syson-plugin:
+    docker:
+      - image: cimg/openjdk:21.0-node
+    resource_class: medium
+    steps:
+      - checkout
+      - rehearsal-tag
+      - attach_workspace:
+          at: .
+
+      - run:
+          name: Put the release's service binary where the backend suite starts it
+          command: |
+            install -D -m 0755 dist/grpc/sysml-grpc-linux-amd64 bin/sysml-grpc
+            bin/sysml-grpc -version
+
+      - restore_cache:
+          keys:
+            - maven-syson-v1-{{ checksum "client/java/pom.xml" }}-{{ checksum "client/java/opensysml-client/pom.xml" }}-{{ checksum "editors/syson/pom.xml" }}-{{ checksum "editors/syson/backend/pom.xml" }}
+            - maven-syson-v1-
+
+      - run:
+          name: Install the client dependency
+          command: mvn -B -q -f client/java/pom.xml install -DskipTests -Dmaven.javadoc.skip=true
+
+      - run:
+          name: Test and install the SysON backend
+          command: mvn -B -f editors/syson/pom.xml install -Dopensysml.requireService=true
+
+      - save_cache:
+          key: maven-syson-v1-{{ checksum "client/java/pom.xml" }}-{{ checksum "client/java/opensysml-client/pom.xml" }}-{{ checksum "editors/syson/pom.xml" }}-{{ checksum "editors/syson/backend/pom.xml" }}
+          paths:
+            - ~/.m2/repository
+
+      - run:
+          name: Build, test and pack the frontend
+          command: |
+            cd editors/syson/frontend
+            npm ci --ignore-scripts
+            npm run typecheck
+            npm test
+            npm run build
+            mkdir -p ../../../dist/syson
+            npm pack --ignore-scripts --pack-destination ../../../dist/syson
+
+      # The tag names the version the editors declare (check_version.py --editors
+      # held them to it), so the files Maven and npm named by it are the ones due.
+      - run:
+          name: Collect the plugin under the names the release publishes
+          command: |
+            if [ -z "${CIRCLE_TAG}" ]; then
+              echo "Error: CIRCLE_TAG is empty; this job only runs on a tag"
+              exit 1
+            fi
+            version="${CIRCLE_TAG#v}"
+            jar="editors/syson/backend/target/syson-mdk-backend-${version}.jar"
+            tarball="dist/syson/openmbee-syson-mdk-${version}.tgz"
+            for file in "$jar" "$tarball"; do
+              if [ ! -f "$file" ]; then
+                echo "Error: $file was not built; ${CIRCLE_TAG} does not name the version editors/syson declares"
+                ls -l editors/syson/backend/target dist/syson
+                exit 1
+              fi
+            done
+            cp "$jar" dist/syson/syson-mdk-backend.jar
+            mv "$tarball" dist/syson/syson-mdk-frontend.tgz
+            ls -l dist/syson
+
+      - store_test_results:
+          path: editors/syson/backend/target/surefire-reports
+
+      - store_artifacts:
+          path: dist/syson
+          destination: syson-plugin
+
+      - persist_to_workspace:
+          root: .
+          paths:
+            - dist/syson
 
   # Publishes @openmbee/opensysml and its five per-platform packages from the
   # core `v<version>` tag, carrying the sysml-grpc binaries build-release
@@ -4271,6 +4485,10 @@ jobs:
                   mv dist/wasm/* dist/release/
                   # The npm tarballs publish-npm publishes, listed in the manifest.
                   mv dist/npm/*.tgz dist/release/
+                  # The VS Code extension and the editor plugins, under the names docs/downloads.md links.
+                  mv dist/vscode/* dist/release/
+                  mv dist/cameo/* dist/release/
+                  mv dist/syson/* dist/release/
                   mv dist/sbom/* dist/release/
                   mv dist/SHA256SUMS.txt dist/release/
                   # The signature over that manifest, which the Python client verifies
@@ -4324,7 +4542,8 @@ jobs:
                     exit 1
                   fi
                   ls dist/grpc/sysml-grpc-* dist/jupyter/sysml-jupyter-kernel-* > /dev/null
-                  ls -la dist dist/grpc dist/jupyter
+                  ls dist/vscode/opensysml.vsix dist/cameo/Magic_MDK.zip dist/syson/syson-mdk-backend.jar dist/syson/syson-mdk-frontend.tgz > /dev/null
+                  ls -la dist dist/grpc dist/jupyter dist/vscode dist/cameo dist/syson
                   TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-${CIRCLE_TOKEN}}}"
                   if [ -z "$TOKEN" ]; then
                     echo "Error: No GitHub token found. Tried GITHUB_TOKEN, GH_TOKEN, CIRCLE_TOKEN"
@@ -4549,8 +4768,8 @@ workflows:
               only: [main, develop]
             tags:
               ignore: /.*/
-      # Every job below attaches its verdict; a tree the pull-request workflow (or the merge
-      # queue) proved runs only the coverage shards, the scan and what they consume.
+      # Every job below attaches its verdict; a tree the merge queue (queue tier) or the full tier
+      # proved runs only the coverage shards, the scan and what they consume.
       - verify-tree:
           name: Verified tree check
           filters: *integration-branches
@@ -4656,7 +4875,7 @@ workflows:
         - << pipeline.parameters.release_rehearsal >>
         - matches: {pattern: "^v.*", value: << pipeline.git.tag >>}
     jobs:
-      # A tag on a commit main's build-test (or the merge queue) proved skips the suite and client
+      # A tag on a commit main's build-test (or a full-tier GitHub run) proved skips the suite and client
       # tests, which nothing here reads; a rehearsal or an unverified commit runs everything.
       - verify-tree:
           name: Verified tree check
@@ -4754,6 +4973,25 @@ workflows:
             - Build release binaries
           filters: *release-tags
 
+      # And the VS Code extension and the editor plugins, so the manifest
+      # lists them and the downloads page can link them.
+      - build-vscode-extension:
+          name: Build VS Code extension
+          requires: *go-suite
+          filters: *release-tags
+
+      - build-cameo-plugin:
+          name: Build Cameo plugin
+          requires:
+            - Build release binaries
+          filters: *release-tags
+
+      - build-syson-plugin:
+          name: Build SysON plugin
+          requires:
+            - Build release binaries
+          filters: *release-tags
+
       # Writes and signs the one manifest over the binaries and the distributions.
       - build-release:
           name: Build release artifacts
@@ -4762,6 +5000,9 @@ workflows:
             - Build Python distribution
             - Build Jupyter kernel distribution
             - Build npm packages
+            - Build VS Code extension
+            - Build Cameo plugin
+            - Build SysON plugin
           filters: *release-tags
 
       - publish-github-release:

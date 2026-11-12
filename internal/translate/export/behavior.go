@@ -941,11 +941,12 @@ func (e *encoder) edgeEnds(subject rdf.Term, node ast.Node, owner string, src, t
 	ends := []struct {
 		end      edgeEnd
 		feature  string
+		related  string
 		member   string
 		sequence string
 	}{
-		{src, pSourceFeature, xSourceMember, "sequences from"},
-		{tgt, pTargetFeature, xTargetMember, "sequences to"},
+		{src, pSourceFeature, pSource, xSourceMember, "sequences from"},
+		{tgt, pTargetFeature, pTarget, xTargetMember, "sequences to"},
 	}
 	for _, end := range ends {
 		if qualifiedText(end.end.name) == "" {
@@ -953,6 +954,7 @@ func (e *encoder) edgeEnds(subject rdf.Term, node ast.Node, owner string, src, t
 				// `then done;` reaches the library's Actions::Action::done
 				// feature, which an explicit succession end names outright.
 				e.graph.Add(subject, e.sysml(end.feature), e.libraryReference(libraryDone))
+				e.graph.Add(subject, e.sysml(end.related), e.libraryReference(libraryDone))
 				continue
 			}
 			fqn, ok := e.names.FQN[end.end.member]
@@ -975,6 +977,10 @@ func (e *encoder) edgeEnds(subject rdf.Term, node ast.Node, owner string, src, t
 		}
 		term := e.edgeReference(end.end.name)
 		e.graph.Add(subject, e.sysml(end.feature), term)
+		// Relationship::source and target, which the two redefine (KerML 8.3.4.5.1), for a plain-named end.
+		if term.IsIRI() && !qualifiedNameHasChain(end.end.name) {
+			e.graph.Add(subject, e.sysml(end.related), term)
+		}
 		// A name the parser took from the member before that links no element
 		// still binds that member: the graph states it by position as well.
 		if before, ok := e.preceding[node]; ok && end.end.implied && term.IsLiteral() {
@@ -1181,30 +1187,8 @@ func (d *decoder) behaviorHead(el *element) (string, bool, error) {
 		return strings.Join(words, " "), true, nil
 
 	case mSend:
-		var texts [3]string
-		for i, property := range sendArgumentLinks {
-			text, err := d.sendArgument(el, property, i)
-			if err != nil {
-				return "", true, err
-			}
-			texts[i] = text
-		}
-		// A head whose parameters all stand empty is a bare `send`: its body
-		// declares the parameters (`action snd send { in :>> payload = s; }`).
-		if texts == [3]string{} && len(d.sendArgumentParams(el)) == 0 {
-			return "", true, d.missing(el, "sysml:"+pPayloadArgument+", sysml:"+pSenderArgument+" or sysml:"+pReceiverArgument, "a send states what it sends or where")
-		}
-		words := append(nodeDeclaration(d, el), "send")
-		if texts[0] != "" {
-			words = append(words, texts[0])
-		}
-		if texts[1] != "" {
-			words = append(words, "via", texts[1])
-		}
-		if texts[2] != "" {
-			words = append(words, "to", texts[2])
-		}
-		return strings.Join(words, " "), true, nil
+		head, err := d.sendHead(el)
+		return head, true, err
 
 	case mTerminate:
 		// A declared `action a terminate;` is a usage head, not a statement; it keeps its
@@ -1233,6 +1217,35 @@ func (d *decoder) behaviorHead(el *element) (string, bool, error) {
 		return strings.Join(append(words, d.identWords(el)...), " "), true, nil
 	}
 	return "", false, nil
+}
+
+// sendHead builds the head of a send node: its declaration, `send`, then the
+// payload, `via` sender and `to` receiver arguments the graph states.
+func (d *decoder) sendHead(el *element) (string, error) {
+	var texts [3]string
+	for i, property := range sendArgumentLinks {
+		text, err := d.sendArgument(el, property, i)
+		if err != nil {
+			return "", err
+		}
+		texts[i] = text
+	}
+	// A head whose parameters all stand empty is a bare `send`: its body
+	// declares the parameters (`action snd send { in :>> payload = s; }`).
+	if texts == [3]string{} && len(d.sendArgumentParams(el)) == 0 {
+		return "", d.missing(el, "sysml:"+pPayloadArgument+", sysml:"+pSenderArgument+" or sysml:"+pReceiverArgument, "a send states what it sends or where")
+	}
+	words := append(nodeDeclaration(d, el), "send")
+	if texts[0] != "" {
+		words = append(words, texts[0])
+	}
+	if texts[1] != "" {
+		words = append(words, "via", texts[1])
+	}
+	if texts[2] != "" {
+		words = append(words, "to", texts[2])
+	}
+	return strings.Join(words, " "), nil
 }
 
 // pseudostateKinds are the sysx:pseudostateKind values the encoder writes.

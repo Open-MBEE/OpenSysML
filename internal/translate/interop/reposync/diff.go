@@ -381,21 +381,7 @@ func viewOf(g *rdf.Graph, rep Carrier) (map[string]*subjectView, []UncarriedProp
 	}
 	views := map[string]*subjectView{}
 	uncarried := map[string]int{}
-	// A library element the graph names (isLibraryElement) is a reference into
-	// the standard library, not an element of the model: it is never created,
-	// changed or deleted in a repository.
-	library := map[string]bool{}
-	// A subject of a class the repository has no metaclass for (a note, a sysx:
-	// behavioral node) is left out as layout properties are, tallied under its class.
-	unheld := map[string]string{}
-	for _, subject := range g.Subjects() {
-		if export.LibraryReference(g, subject) {
-			library[subject.Value] = true
-		}
-		if class, ok := unheldClass(g, subject, rep); ok {
-			unheld[subject.Value] = class
-		}
-	}
+	library, unheld := subjectRoles(g, rep)
 	for _, triple := range g.Triples() {
 		if !triple.Subject.IsIRI() || library[triple.Subject.Value] {
 			continue
@@ -430,35 +416,22 @@ func viewOf(g *rdf.Graph, rep Carrier) (map[string]*subjectView, []UncarriedProp
 		if identityPredicate(triple.Predicate.Value) || rdf.IsAnnotationJSON(triple.Predicate.Value) {
 			continue
 		}
-		if rep != nil {
-			carried, ok, err := rep.Carry(triple)
-			if err != nil {
-				return nil, nil, fmt.Errorf("%s %s: %w", view.name(), propertyLabel(triple.Predicate.Value), err)
-			}
-			if !ok {
-				uncarried[triple.Predicate.Value]++
-				continue
-			}
-			triple = carried
+		carried, ok, err := carriedContent(rep, view, triple)
+		if err != nil {
+			return nil, nil, err
 		}
+		if !ok {
+			uncarried[triple.Predicate.Value]++
+			continue
+		}
+		triple = carried
 		view.content = append(view.content, triple)
 		// Keyed by full predicate IRI so same-named properties from
 		// different namespaces never conflate.
 		view.props[triple.Predicate.Value] = append(view.props[triple.Predicate.Value], objectValue(triple.Object))
 	}
-	for _, view := range views {
-		for _, values := range view.props {
-			sort.Strings(values)
-		}
-		if names := view.props[rdf.SysML+"qualifiedName"]; len(names) > 0 {
-			view.qualifiedName = strings.Trim(names[0], `"`)
-		}
-		if rep != nil && len(view.classes) > 1 {
-			return nil, nil, &AmbiguousMetaclassError{Subject: view.name(), Classes: view.classes}
-		}
-		view.normative = export.NormativeSubject(view.id, view.qualifiedName)
-		view.declared = declaredID(g, view)
-		view.mintable = mintable(view)
+	if err := settleViews(g, views, rep); err != nil {
+		return nil, nil, err
 	}
 	if err := unheldReference(g, views, unheld); err != nil {
 		return nil, nil, err
@@ -468,6 +441,59 @@ func viewOf(g *rdf.Graph, rep Carrier) (map[string]*subjectView, []UncarriedProp
 		left = append(left, UncarriedProperty{Property: propertyLabel(iri), Triples: uncarried[iri]})
 	}
 	return views, left, nil
+}
+
+// subjectRoles marks the subjects the comparison leaves out: references into the
+// standard library, and subjects of a class the representation holds none of.
+func subjectRoles(g *rdf.Graph, rep Carrier) (library map[string]bool, unheld map[string]string) {
+	// A library element the graph names (isLibraryElement) is a reference into the
+	// standard library, not an element of the model: a repository never creates, changes or deletes it.
+	library = map[string]bool{}
+	// A subject of a class the repository has no metaclass for (a note, a sysx:
+	// behavioral node) is left out as layout properties are, tallied under its class.
+	unheld = map[string]string{}
+	for _, subject := range g.Subjects() {
+		if export.LibraryReference(g, subject) {
+			library[subject.Value] = true
+		}
+		if class, ok := unheldClass(g, subject, rep); ok {
+			unheld[subject.Value] = class
+		}
+	}
+	return library, unheld
+}
+
+// carriedContent maps a content triple onto the form the representation stores;
+// ok is false when it has no place for the predicate. A nil representation carries all.
+func carriedContent(rep Carrier, view *subjectView, triple rdf.Triple) (carried rdf.Triple, ok bool, err error) {
+	if rep == nil {
+		return triple, true, nil
+	}
+	carried, ok, err = rep.Carry(triple)
+	if err != nil {
+		return triple, false, fmt.Errorf("%s %s: %w", view.name(), propertyLabel(triple.Predicate.Value), err)
+	}
+	return carried, ok, nil
+}
+
+// settleViews orders each view's property values and derives its name, identity
+// and mintability once every triple is indexed; two classes under a representation is an error.
+func settleViews(g *rdf.Graph, views map[string]*subjectView, rep Carrier) error {
+	for _, view := range views {
+		for _, values := range view.props {
+			sort.Strings(values)
+		}
+		if names := view.props[rdf.SysML+"qualifiedName"]; len(names) > 0 {
+			view.qualifiedName = strings.Trim(names[0], `"`)
+		}
+		if rep != nil && len(view.classes) > 1 {
+			return &AmbiguousMetaclassError{Subject: view.name(), Classes: view.classes}
+		}
+		view.normative = export.NormativeSubject(view.id, view.qualifiedName)
+		view.declared = declaredID(g, view)
+		view.mintable = mintable(view)
+	}
+	return nil
 }
 
 // unheldClass reports the class a subject is tallied under when the

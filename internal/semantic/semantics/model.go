@@ -63,6 +63,8 @@ type Model struct {
 	// defaultMultiplicities memoizes the Multiplicity stating each usage's
 	// implicit [1..1] (DefaultMultiplicityMember).
 	defaultMultiplicities map[*symbols.Symbol]*symbols.Symbol
+	// successionEnds memoizes the end features each `then` succession implies (SuccessionEndMembers).
+	successionEnds map[*symbols.Symbol][]*symbols.Symbol
 	// declaredMultiplicities caches, per usage, the MultiplicityRange its written range
 	// declares (DeclaredMultiplicityMember).
 	declaredMultiplicities map[*symbols.Symbol]*symbols.Symbol
@@ -217,6 +219,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		ends:                   make(map[*symbols.Symbol][]connectorEnd),
 		chainTargets:           make(map[*symbols.Symbol]*symbols.Symbol),
 		defaultMultiplicities:  make(map[*symbols.Symbol]*symbols.Symbol),
+		successionEnds:         make(map[*symbols.Symbol][]*symbols.Symbol),
 		declaredMultiplicities: make(map[*symbols.Symbol]*symbols.Symbol),
 		multiplicityBase:       make(map[*symbols.Symbol]*symbols.Symbol),
 		subtracting:            make(map[*symbols.Symbol]bool),

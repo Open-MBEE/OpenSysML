@@ -317,34 +317,48 @@ func (r *reachability) enterable(cur *Instance, onPath map[int64]bool, typesOnPa
 			continue
 		}
 		tried[want.Type] = true
-		parent := map[int64]*Instance{cur.ID: nil}
-		stack := []*Instance{cur}
-		for len(stack) > 0 {
-			next := stack[len(stack)-1]
-			stack = stack[:len(stack)-1]
-			for _, obj := range r.held[next.ID] {
-				if _, seen := parent[obj.ID]; seen || onPath[obj.ID] || typesOnPath[obj.Type] || obj.Type == cur.Type {
-					continue
-				}
-				if r.unexplored[obj.ID] {
-					if obj.Type != want.Type {
-						continue
-					}
-					route := make(map[*symbols.Symbol]bool)
-					for x := next; x != cur; x = parent[x.ID] {
-						route[x.Type] = true
-					}
-					return obj, route
-				}
-				if obj.Type == want.Type {
-					continue
-				}
-				parent[obj.ID] = next
-				stack = append(stack, obj)
-			}
+		if obj, route := r.routeTo(cur, want.Type, onPath, typesOnPath); obj != nil {
+			return obj, route
 		}
 	}
 	return nil, nil
+}
+
+// routeTo is the first unexplored object of type want reached below cur by objects
+// enterable allows and not of that type, and the types of the objects stepped through.
+func (r *reachability) routeTo(cur *Instance, want *symbols.Symbol, onPath map[int64]bool, typesOnPath map[*symbols.Symbol]bool) (*Instance, map[*symbols.Symbol]bool) {
+	parent := map[int64]*Instance{cur.ID: nil}
+	stack := []*Instance{cur}
+	for len(stack) > 0 {
+		next := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		for _, obj := range r.held[next.ID] {
+			if _, seen := parent[obj.ID]; seen || onPath[obj.ID] || typesOnPath[obj.Type] || obj.Type == cur.Type {
+				continue
+			}
+			if r.unexplored[obj.ID] {
+				if obj.Type != want {
+					continue
+				}
+				return obj, routeTypes(next, cur, parent)
+			}
+			if obj.Type == want {
+				continue
+			}
+			parent[obj.ID] = next
+			stack = append(stack, obj)
+		}
+	}
+	return nil, nil
+}
+
+// routeTypes are the types of the objects from last back to, and excluding, cur.
+func routeTypes(last, cur *Instance, parent map[int64]*Instance) map[*symbols.Symbol]bool {
+	route := make(map[*symbols.Symbol]bool)
+	for x := last; x != cur; x = parent[x.ID] {
+		route[x.Type] = true
+	}
+	return route
 }
 
 // unexploredBelow lists the unexplored objects held somewhere below cur.
