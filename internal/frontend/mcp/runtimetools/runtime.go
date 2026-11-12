@@ -143,24 +143,7 @@ func (g *group) registerRuntime(s *mcp.Server) {
 		if err != nil {
 			return nil, nil, toolError(err)
 		}
-		var b strings.Builder
-		b.WriteString(errorText(resp.GetError()))
-		for _, path := range resp.GetPaths() {
-			root := path.GetRoot().GetSymbolId()
-			if root == "" {
-				root = fmt.Sprintf("#%d", path.GetRoot().GetInstanceId())
-			}
-			if path.GetPath() == "" {
-				fmt.Fprintf(&b, "%s\n", root)
-			} else {
-				fmt.Fprintf(&b, "%s.%s\n", root, path.GetPath())
-			}
-		}
-		if resp.GetTruncated() {
-			b.WriteString("(truncated)\n")
-		}
-		b.WriteString(diagnosticsText(resp.GetDiagnostics()))
-		return answer(resp, m, b.String())
+		return answer(resp, m, instancePathsText(resp))
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
@@ -191,23 +174,7 @@ func (g *group) registerRuntime(s *mcp.Server) {
 		if err != nil {
 			return nil, nil, toolError(err)
 		}
-		var b strings.Builder
-		b.WriteString(errorText(resp.GetError()))
-		if len(resp.GetOutputs()) > 0 {
-			b.WriteString(markedValuesText(resp.GetOutputs(), resp.GetOrderDependent()))
-		} else if resp.GetError() == "" && resp.GetExploration() == nil {
-			b.WriteString("completed with no outputs\n")
-		}
-		if len(resp.GetPerformerAttributes()) > 0 {
-			b.WriteString("performer:\n" + namedValuesText(resp.GetPerformerAttributes()))
-		}
-		if resp.GetFinalTime() != 0 {
-			fmt.Fprintf(&b, "final time %g s\n", resp.GetFinalTime())
-		}
-		b.WriteString(explorationText(resp.GetOutcomes(), resp.GetExploration()))
-		b.WriteString(traceText(resp.GetTrace(), resp.GetTraceDropped()))
-		b.WriteString(diagnosticsText(resp.GetDiagnostics()))
-		return answer(resp, m, b.String())
+		return answer(resp, m, actionRunText(resp))
 	})
 
 	mcp.AddTool(s, &mcp.Tool{
@@ -236,22 +203,70 @@ func (g *group) registerRuntime(s *mcp.Server) {
 		if err != nil {
 			return nil, nil, toolError(err)
 		}
-		var b strings.Builder
-		b.WriteString(errorText(resp.GetError()))
-		if len(resp.GetStatesVisited()) > 0 {
-			fmt.Fprintf(&b, "states: %s\n", strings.Join(resp.GetStatesVisited(), " -> "))
-		}
-		if len(resp.GetFinalContext()) > 0 {
-			b.WriteString("final context:\n" + markedValuesText(resp.GetFinalContext(), resp.GetOrderDependent()))
-		}
-		if resp.GetFinalTime() != 0 {
-			fmt.Fprintf(&b, "final time %g s\n", resp.GetFinalTime())
-		}
-		b.WriteString(traceText(resp.GetTrace(), resp.GetTraceDropped()))
-		b.WriteString(explorationText(resp.GetOutcomes(), resp.GetExploration()))
-		b.WriteString(diagnosticsText(resp.GetDiagnostics()))
-		return answer(resp, m, b.String())
+		return answer(resp, m, stateRunText(resp))
 	})
+}
+
+// instancePathsText lists each path from its root, one per line, then whether the list was cut.
+func instancePathsText(resp *pb.InstancePathsResponse) string {
+	var b strings.Builder
+	b.WriteString(errorText(resp.GetError()))
+	for _, path := range resp.GetPaths() {
+		root := path.GetRoot().GetSymbolId()
+		if root == "" {
+			root = fmt.Sprintf("#%d", path.GetRoot().GetInstanceId())
+		}
+		if path.GetPath() == "" {
+			fmt.Fprintf(&b, "%s\n", root)
+		} else {
+			fmt.Fprintf(&b, "%s.%s\n", root, path.GetPath())
+		}
+	}
+	if resp.GetTruncated() {
+		b.WriteString("(truncated)\n")
+	}
+	b.WriteString(diagnosticsText(resp.GetDiagnostics()))
+	return b.String()
+}
+
+// actionRunText spells an action run: its outputs, performer, clock, exploration and trace.
+func actionRunText(resp *pb.ExecuteActionResponse) string {
+	var b strings.Builder
+	b.WriteString(errorText(resp.GetError()))
+	if len(resp.GetOutputs()) > 0 {
+		b.WriteString(markedValuesText(resp.GetOutputs(), resp.GetOrderDependent()))
+	} else if resp.GetError() == "" && resp.GetExploration() == nil {
+		b.WriteString("completed with no outputs\n")
+	}
+	if len(resp.GetPerformerAttributes()) > 0 {
+		b.WriteString("performer:\n" + namedValuesText(resp.GetPerformerAttributes()))
+	}
+	if resp.GetFinalTime() != 0 {
+		fmt.Fprintf(&b, "final time %g s\n", resp.GetFinalTime())
+	}
+	b.WriteString(explorationText(resp.GetOutcomes(), resp.GetExploration()))
+	b.WriteString(traceText(resp.GetTrace(), resp.GetTraceDropped()))
+	b.WriteString(diagnosticsText(resp.GetDiagnostics()))
+	return b.String()
+}
+
+// stateRunText spells a state machine run: its states, final context, clock, trace and exploration.
+func stateRunText(resp *pb.ExecuteStateResponse) string {
+	var b strings.Builder
+	b.WriteString(errorText(resp.GetError()))
+	if len(resp.GetStatesVisited()) > 0 {
+		fmt.Fprintf(&b, "states: %s\n", strings.Join(resp.GetStatesVisited(), " -> "))
+	}
+	if len(resp.GetFinalContext()) > 0 {
+		b.WriteString("final context:\n" + markedValuesText(resp.GetFinalContext(), resp.GetOrderDependent()))
+	}
+	if resp.GetFinalTime() != 0 {
+		fmt.Fprintf(&b, "final time %g s\n", resp.GetFinalTime())
+	}
+	b.WriteString(traceText(resp.GetTrace(), resp.GetTraceDropped()))
+	b.WriteString(explorationText(resp.GetOutcomes(), resp.GetExploration()))
+	b.WriteString(diagnosticsText(resp.GetDiagnostics()))
+	return b.String()
 }
 
 // instanceText spells an object as the REPL shows one: its id and type, then
