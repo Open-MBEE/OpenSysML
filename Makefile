@@ -745,7 +745,7 @@ vscode-package: ## Package the VS Code extension as a .vsix for side-loading (VS
 	@echo "Packaging the VS Code extension..."
 	@# `npm run package -- <args>` appends the arguments to the script's last command, `vsce package`.
 	cd $(VSCODE_DIR) && npm ci && npm run package $(if $(VSIX_VERSION),-- $(VSIX_VERSION) --no-update-package-json)
-	@echo "✓ Packaged $(VSCODE_DIR)/opensysml-sysml.vsix"
+	@echo "✓ Packaged $(VSCODE_DIR)/opensysml.vsix"
 
 emacs-keywords: ## Regenerate the Emacs mode's keyword lists from the lexer keywords
 	@echo "Generating Emacs keyword lists..."

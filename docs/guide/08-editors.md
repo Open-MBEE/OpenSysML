@@ -13,13 +13,16 @@ highlighting, generated from the same keyword lists; editors built on Tree-sitte
 The VS Code extension in [editors/vscode](../../editors/vscode) provides
 syntax highlighting for `.sysml` and `.kerml` and an LSP client that launches
 `sysml-lsp`. It is not published to any marketplace, so you side-load it: either
-the `opensysml-sysml.vsix` the [nightly snapshot](../project/nightly.md) attaches,
-packaged from `develop` every night,
+the `opensysml.vsix` of the [latest release](../downloads.md#editor-plugins) (or the one the
+[nightly snapshot](../project/nightly.md) attaches, packaged from `develop` every night),
 
 ```bash
-curl -fsSLO https://github.com/Open-MBEE/OpenSysML/releases/download/nightly/opensysml-sysml.vsix
-code --install-extension opensysml-sysml.vsix
+curl -fsSLO https://github.com/Open-MBEE/OpenSysML/releases/latest/download/opensysml.vsix   # or releases/download/nightly/opensysml.vsix
+code --install-extension opensysml.vsix
 ```
+
+An install of the extension's former id, `open-mbee.opensysml-sysml`, is a different extension
+to VS Code: uninstall it first (`code --uninstall-extension open-mbee.opensysml-sysml`).
 
 or one you build yourself from a checkout:
 
@@ -27,8 +30,8 @@ or one you build yourself from a checkout:
 make build                                    # builds bin/sysml-lsp
 cd editors/vscode
 npm install
-npm run package                               # -> opensysml-sysml.vsix
-code --install-extension opensysml-sysml.vsix
+npm run package                               # -> opensysml.vsix
+code --install-extension opensysml.vsix
 ```
 
 Opening any `.sysml` file highlights it immediately, and the extension starts the first server it

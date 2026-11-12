@@ -9,17 +9,22 @@ of native document definitions.
 This extension is side-loaded. It is deliberately **not published** to the Visual
 Studio Marketplace or Open VSX.
 
-## Install from the nightly snapshot
+## Install from a release or the nightly snapshot
 
-Every night the newest green `develop` commit is packaged as `opensysml-sysml.vsix`
-and attached to the [`nightly`](https://github.com/Open-MBEE/OpenSysML/releases/tag/nightly)
-prerelease, beside the `sysml-lsp` it was built with (see
-[docs/project/nightly.md](../../docs/project/nightly.md)):
+Every release carries the extension as `opensysml.vsix`, listed in its signed `SHA256SUMS.txt`
+([downloads](../../docs/downloads.md#editor-plugins)), and every night the newest green
+`develop` commit is packaged the same way and attached to the
+[`nightly`](https://github.com/Open-MBEE/OpenSysML/releases/tag/nightly) prerelease, beside the `sysml-lsp` it was built with
+(see [docs/project/nightly.md](../../docs/project/nightly.md)):
 
 ```bash
-curl -fsSLO https://github.com/Open-MBEE/OpenSysML/releases/download/nightly/opensysml-sysml.vsix
-code --install-extension opensysml-sysml.vsix
+curl -fsSLO https://github.com/Open-MBEE/OpenSysML/releases/latest/download/opensysml.vsix   # or releases/download/nightly/opensysml.vsix
+code --install-extension opensysml.vsix
 ```
+
+The extension's id is `open-mbee.opensysml`. An install of its former id,
+`open-mbee.opensysml-sysml`, is a different extension to VS Code and keeps running beside the
+new one: uninstall it first (`code --uninstall-extension open-mbee.opensysml-sysml`).
 
 Its version is `<next release>-nightly-<yyyymmdd>-<commit>` — the development version of
 the release the night leads to — so a later night installs over an earlier one as an update,
@@ -32,8 +37,8 @@ extension reached and, when it is not the build the extension was packaged with,
 make build          # from the repo root: builds bin/sysml-lsp
 cd editors/vscode
 npm install
-npm run package     # typecheck + bundle + opensysml-sysml.vsix
-code --install-extension opensysml-sysml.vsix
+npm run package     # typecheck + bundle + opensysml.vsix
+code --install-extension opensysml.vsix
 ```
 
 Then open any `.sysml` file. The extension finds the server in this order:
