@@ -2717,6 +2717,11 @@ func (m *Model) reflectiveFeatureFlags(sym *symbols.Symbol) (reflectiveFeatureFl
 				!m.reflectiveMetaclassConforms(owner, "PortUsage"))) {
 		flags.isComposite = false
 	}
+	// A succession, binding, perform, exhibit, include or event usage is a reference however it is
+	// written (SysML § 7.6.3), as UsageIsComposite answers and the RDF writer states it.
+	if isUsage && m.usageIsAlwaysReferential(sym) {
+		flags.isComposite = false
+	}
 	if m.metaclassConforms(sym, sysmlMetaclassPrefix+"ControlNode") {
 		flags.isComposite = true
 	}

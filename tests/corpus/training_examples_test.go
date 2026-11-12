@@ -28,6 +28,8 @@ const trainingExpectedHeader = "# Files in the pinned OMG training corpus that s
 // not vendored, so this skips when it is absent unless
 // OPENSYSML_REQUIRE_TRAINING_CORPUS is set, as CI does.
 func TestTrainingExamplesSemanticErrors(t *testing.T) {
+	// An assertion over part of a corpus asserts nothing, so OPENSYSML_CORPUS_SUBSET
+	// is ignored: the whole corpus is one batch load, cheap beside the sweeps.
 	files := trainingGate.files(t)
 	root := trainingGate.roots[0].name
 
@@ -38,7 +40,7 @@ func TestTrainingExamplesSemanticErrors(t *testing.T) {
 	// agrees with it.
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 
-	got := trainingGate.counts(t, files)
+	got := trainingGate.counts(t, files, nil)
 
 	if *updateTraining {
 		writeTrainingExpected(t, files, got)
