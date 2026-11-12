@@ -23,7 +23,7 @@
         "digest": "sha256:2ab96c36445009f83900a27716327e68876de7165a45ace4e8440ca07abac0de"
       }
     ],
-    "recorded": "2026-10-26"
+    "recorded": "2026-11-12"
   },
   "totals": {
     "files": 432,
@@ -3979,7 +3979,7 @@
               "verdict": "wording-only",
               "rule": "unresolved-reference",
               "declared": "error: \"Couldn't resolve reference to Type 'c_Public::c_private'.\"",
-              "ours": "line 24 offset 713: unresolved reference: c_Public::c_private (no namespace \"c_Public\" is loaded; \"c_private\" is declared as Classes::c_private, VisibilityPackage::c_Private::c_private, VisibilityPackage::c_Public::c_private)"
+              "ours": "line 24 offset 713: unresolved reference: c_Public::c_private (no namespace \"c_Public\" is loaded; \"c_private\" is declared as VisibilityPackage::c_Private::c_private, VisibilityPackage::c_Public::c_private)"
             },
             {
               "kind": "errors",
@@ -3988,7 +3988,7 @@
               "verdict": "wording-only",
               "rule": "unresolved-reference",
               "declared": "error: \"Couldn't resolve reference to Type 'c_Public::c_protected'.\"",
-              "ours": "line 26 offset 856: unresolved reference: c_Public::c_protected (no namespace \"c_Public\" is loaded; \"c_protected\" is declared as Classes::c_protected, VisibilityPackage::c_Public::c_protected, VisibilityPackage::c_Public_alias::c_protected)"
+              "ours": "line 26 offset 856: unresolved reference: c_Public::c_protected (no namespace \"c_Public\" is loaded; \"c_protected\" is declared as VisibilityPackage::c_Public::c_protected, VisibilityPackage::c_Public_alias::c_protected)"
             },
             {
               "kind": "errors",

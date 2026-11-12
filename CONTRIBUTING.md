@@ -331,6 +331,18 @@ rather than skipped. CircleCI's `go-race-test`, `go-coverage` and the release wo
 full scan too: a push to `main`, and a `v*` tag whose commit has no full-tier run, run
 everything there, over the whole corpus, with `-race`.
 
+**The corpus subset.** The tests that sweep every model under `examples/` (the committed models
+and the downloaded OMG corpora) honour `OPENSYSML_CORPUS_SUBSET`: unset, they iterate the whole
+corpus; `OPENSYSML_CORPUS_SUBSET=construct-cover` makes each iterate only the files of
+`tests/corpus/testdata/construct_cover.txt`, which between them exhibit every syntactic feature
+the whole corpus exhibits, and any other value fails the sweep. `TestConstructCover`
+(`tests/corpus`) re-derives the features over the whole corpus on every run and fails, naming
+them, when the committed list no longer covers it; re-record with
+`go test ./tests/corpus -run TestConstructCover -update-construct-cover`. No recorder flag runs
+while the variable is set, so an expectation file is never recorded from a partial sweep.
+[docs/project/construct-cover-subset.md](docs/project/construct-cover-subset.md) records the
+measured subset size and feature count and says what the switch does to each sweep.
+
 Open a pull request ready for review rather than as a draft: both run the same tier, and a draft
 is not considered until it is marked ready. The queue tier is what a pull request has to pass to
 merge, and `ci:full` runs the full tier early when a change warrants it (a new goroutine, a

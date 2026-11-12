@@ -14,6 +14,7 @@ import (
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/corpussubset"
 )
 
 // agreementExamples are the committed single-document models under examples/;
@@ -21,6 +22,7 @@ import (
 func agreementExamples(t *testing.T) []string {
 	t.Helper()
 	root := filepath.Join("..", "..", "examples")
+	subset := corpussubset.Must(t, "../..")
 	var paths []string
 	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
@@ -29,7 +31,7 @@ func agreementExamples(t *testing.T) []string {
 		if entry.IsDir() && entry.Name() == "pilot-corpora" {
 			return filepath.SkipDir
 		}
-		if ext := filepath.Ext(path); !entry.IsDir() && (ext == ".sysml" || ext == ".kerml") {
+		if ext := filepath.Ext(path); !entry.IsDir() && (ext == ".sysml" || ext == ".kerml") && subset.WantsPath(root, path) {
 			paths = append(paths, path)
 		}
 		return nil

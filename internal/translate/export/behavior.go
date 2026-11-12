@@ -1241,30 +1241,8 @@ func (d *decoder) behaviorHead(el *element) (string, bool, error) {
 		return strings.Join(words, " "), true, nil
 
 	case mSend:
-		var texts [3]string
-		for i, property := range sendArgumentLinks {
-			text, err := d.sendArgument(el, property, i)
-			if err != nil {
-				return "", true, err
-			}
-			texts[i] = text
-		}
-		// A head whose parameters all stand empty is a bare `send`: its body
-		// declares the parameters (`action snd send { in :>> payload = s; }`).
-		if texts == [3]string{} && len(d.sendArgumentParams(el)) == 0 {
-			return "", true, d.missing(el, "sysml:"+pPayloadArgument+", sysml:"+pSenderArgument+" or sysml:"+pReceiverArgument, "a send states what it sends or where")
-		}
-		words := append(nodeDeclaration(d, el), "send")
-		if texts[0] != "" {
-			words = append(words, texts[0])
-		}
-		if texts[1] != "" {
-			words = append(words, "via", texts[1])
-		}
-		if texts[2] != "" {
-			words = append(words, "to", texts[2])
-		}
-		return strings.Join(words, " "), true, nil
+		head, err := d.sendHead(el)
+		return head, true, err
 
 	case mTerminate:
 		// A declared `action a terminate;` is a usage head, not a statement; it keeps its
@@ -1293,6 +1271,35 @@ func (d *decoder) behaviorHead(el *element) (string, bool, error) {
 		return strings.Join(append(words, d.identWords(el)...), " "), true, nil
 	}
 	return "", false, nil
+}
+
+// sendHead builds the head of a send node: its declaration, `send`, then the
+// payload, `via` sender and `to` receiver arguments the graph states.
+func (d *decoder) sendHead(el *element) (string, error) {
+	var texts [3]string
+	for i, property := range sendArgumentLinks {
+		text, err := d.sendArgument(el, property, i)
+		if err != nil {
+			return "", err
+		}
+		texts[i] = text
+	}
+	// A head whose parameters all stand empty is a bare `send`: its body
+	// declares the parameters (`action snd send { in :>> payload = s; }`).
+	if texts == [3]string{} && len(d.sendArgumentParams(el)) == 0 {
+		return "", d.missing(el, "sysml:"+pPayloadArgument+", sysml:"+pSenderArgument+" or sysml:"+pReceiverArgument, "a send states what it sends or where")
+	}
+	words := append(nodeDeclaration(d, el), "send")
+	if texts[0] != "" {
+		words = append(words, texts[0])
+	}
+	if texts[1] != "" {
+		words = append(words, "via", texts[1])
+	}
+	if texts[2] != "" {
+		words = append(words, "to", texts[2])
+	}
+	return strings.Join(words, " "), nil
 }
 
 // pseudostateKinds are the sysx:pseudostateKind values the encoder writes.

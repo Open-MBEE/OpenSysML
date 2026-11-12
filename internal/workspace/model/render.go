@@ -443,7 +443,7 @@ func declaredIn(idx *symbols.Index, doc, fqn string) *symbols.Symbol {
 		}
 	}
 	var found *symbols.Symbol
-	walkScope(idx.DocumentRoot(doc), func(sym *symbols.Symbol) {
+	idx.DocumentRoot(doc).WalkDeclarations(func(sym *symbols.Symbol) {
 		if found != nil {
 			return
 		}

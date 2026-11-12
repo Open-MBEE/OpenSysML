@@ -13,6 +13,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/corpussubset"
 )
 
 func TestAPIJSONMappingNamesPreserveUnresolvedTargetSegments(t *testing.T) {
@@ -182,11 +183,12 @@ func apiJSONQualifiedNamePaths(t *testing.T) ([]string, string) {
 	t.Helper()
 	paths := modelFiles(t)
 	exampleRoot := filepath.Join("..", "..", "examples")
+	subset := corpussubset.Must(t, "../..")
 	if err := filepath.WalkDir(exampleRoot, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if !entry.IsDir() && filepath.Ext(path) == ".sysml" {
+		if !entry.IsDir() && filepath.Ext(path) == ".sysml" && subset.WantsPath(exampleRoot, path) {
 			paths = append(paths, path)
 		}
 		return nil

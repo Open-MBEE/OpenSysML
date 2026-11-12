@@ -120,6 +120,7 @@ var packageLayer = map[string]string{
 	"internal/doc/querytranslate":       "doc",
 	"internal/doc/docir":                "doc",
 	"internal/doc/docrender":            "doc",
+	"internal/doc/docset":               "doc",
 	"internal/doc/docpdf":               "doc",
 
 	"internal/workspace/model":       "workspace",
