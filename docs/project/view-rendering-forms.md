@@ -1775,7 +1775,7 @@ of every document they change and writes nothing.
 
 A tree or interconnection rendering draws the contents of every element the view exposes, as the
 Pilot visualizer does; the specification leaves what a rendering draws to the tool (SysML v2
-§10.2). Three mechanisms bound it, all applied by the one containment walk (`Renderer.walkMembers`,
+§10.2). Four mechanisms bound it, all applied by the containment walks (`Renderer.walkMembers`,
 `Renderer.walkBound`), so the DOT, Mermaid, PlantUML, D2 and text forms and `Rendering.Data` agree:
 
 - **`expose` and `filter`** (SysML v2 §7.24, normative). What a view exposes are its roots; its
@@ -1835,6 +1835,30 @@ Pilot visualizer does; the specification leaves what a rendering draws to the to
   view wiring { expose vehicle; render asInterconnectionDiagram;
       metadata Layout about vehicle::engine { collapsed = true; } }
   ```
+
+- **Repeated definition expansions** (a rendering convention). Before emitting a tree or
+  interconnection view, memoized subtree sizes count its unfolded expansion-walk occurrences,
+  saturating at 10,001. Only views exceeding 10,000 occurrences fold; smaller views keep their
+  previous output. The count precedes diagram-specific conversion into association lines,
+  connection dots and flow item boxes.
+
+  Equivalent expansions have the same symbol, owner, qualification and active recursion barriers.
+  An occurrence can fold only when an earlier equivalent occurrence was emitted in full with
+  at least as much remaining depth. The representative with the most remaining depth wins;
+  ties retain the earlier occurrence. A folded occurrence and anything inside its subtree cannot
+  become a representative. Later occurrences keep their own box, own and redefined features,
+  and paths to Layout-positioned elements and drawn edge endpoints. The node's existing detail
+  mechanism carries `features of {definition} shown at {occurrence}; repeated expansion folded`,
+  naming the representative by qualified occurrence path.
+
+  A separate fold summary accompanies the existing source notices: `Repeated definition expansions folded: {N} later occurrences
+  of {M} definitions. Each definition's features are shown at an earlier occurrence expanded at
+  least as deeply; later occurrences retain their own and redefined features.` DOT, Mermaid,
+  PlantUML and D2 retain that source comment. The DOT view-frame header and HTML diagram-notice
+  paragraph also display the fold summary, including in Graphviz SVG and inline-SVG HTML.
+  Folding changes depiction only: layout validation continues to use the complete `DrawnIn`
+  query, and a folded rendering has the same semantic `Drawn()` set. No diagnostic or command-line
+  threshold is introduced.
 
 A whitelist is the filter's other direction: `expose rover::**[@Shown]` selects the marked
 elements and draws each as a root, the condition pruning their unmarked contents as any filter

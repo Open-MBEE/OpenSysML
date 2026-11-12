@@ -165,8 +165,9 @@ type Renderer struct {
 	// filters caches each view's filter conditions for its walks.
 	filters map[*symbols.Symbol][]symbols.ElementFilter
 	// queryMembers reuses effective members across drawn-set queries of one model.
-	queryMembers map[*symbols.Symbol][]*symbols.Symbol
-	queryGraph   *treeQueryGraph
+	queryMembers           map[*symbols.Symbol][]*symbols.Symbol
+	queryGraph             *treeQueryGraph
+	expansionFoldThreshold int
 	// verdicts overlays verification verdicts on a requirement rendering; nil
 	// draws it structurally.
 	verdicts Verdicts
@@ -598,6 +599,8 @@ type Rendering struct {
 	// connection to something the view does not expose, a behavior that does not
 	// lower.
 	Notices []string
+	// ExpansionFoldNotice summarizes repeated definition expansions omitted from this depiction.
+	ExpansionFoldNotice string
 	// Included is where each element drawn by SetIncluded rather than by the
 	// view was declared, in the order the renderer was given them.
 	Included []Origin
@@ -612,7 +615,11 @@ type Rendering struct {
 	// folds are the behaviour roots whose collapsed nodes foldCollapsed folds once every edge is drawn.
 	folds []*Node
 	// narrowed marks a rendering showing() already narrowed to its Shown.
-	narrowed bool
+	narrowed          bool
+	expansionPlans    map[*symbols.Symbol]*expansionFold
+	expansionFolding  bool
+	foldedOccurrences int
+	foldedDefinitions map[*symbols.Symbol]bool
 	// sites records, while a tree renders, what each of its nodes draws; nil
 	// once its edges are drawn and for every other kind.
 	sites map[*Node]treeSite
@@ -720,6 +727,7 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn, query bool) (*Rend
 		return nil, &UnsupportedKindError{Kind: kind, View: r.notationName(view), Stated: stated}
 	}
 	foldCollapsed(out)
+	out.noteRepeatedExpansions()
 	r.noteDepthCuts(view, out)
 	if out.Empty() && out.emptyReason == "" {
 		out.emptyReason = r.exposureReason(view, exposed, out)
@@ -770,6 +778,7 @@ func (r *Renderer) RenderExposed(exposed []*symbols.Symbol, kind Kind, stated st
 		return nil, &UnsupportedKindError{Kind: kind, Stated: stated, Remedy: remedyFor(kind)}
 	}
 	foldCollapsed(out)
+	out.noteRepeatedExpansions()
 	r.noteDepthCuts(nil, out)
 	if out.Empty() && out.emptyReason == "" {
 		out.emptyReason = exposedReason(exposed, out)

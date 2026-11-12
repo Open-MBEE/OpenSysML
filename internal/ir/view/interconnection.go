@@ -33,7 +33,16 @@ func (r *Renderer) renderInterconnectionWithIDs(view *symbols.Symbol, exposed []
 			roots = append(roots, elem)
 		}
 	}
-	descendants := r.exposedDescendants(view, roots, w.nestedFeatures)
+	if !mixed && out.Kind == KindInterconnection {
+		w.fold = r.prepareExpansionFold(view, exposed, out, KindInterconnection)
+	}
+	var descendants map[symbols.ElementKey]bool
+	if w.fold != nil {
+		descendants = w.fold.descendants
+		w.pruned = w.fold.pruned
+	} else {
+		descendants = r.exposedDescendants(view, roots, w.nestedFeatures)
+	}
 	var ports []*symbols.Symbol
 	for _, elem := range exposed {
 		switch {
@@ -128,7 +137,10 @@ type featureWalk struct {
 	out   *Rendering
 	mixed bool
 	// pruned is each member the view's filter conditions kept the walk from drawing.
-	pruned map[*symbols.Symbol]bool
+	pruned     map[*symbols.Symbol]bool
+	fold       *expansionFold
+	occurrence string
+	insideFold bool
 }
 
 // drawnSite is one drawing of a feature: as a node, or as a pin of one.
@@ -208,6 +220,19 @@ func (w *featureWalk) drawsFeature(sym *symbols.Symbol) bool {
 // renders. A member it has from its type and pins is not drawn nested as well.
 func (w *featureWalk) featureNode(sym, owner *symbols.Symbol, path expansion, depth int, qualified bool) *Node {
 	r := w.r
+	previousName, previousInside := w.occurrence, w.insideFold
+	defer func() { w.occurrence, w.insideFold = previousName, previousInside }()
+	if w.occurrence == "" {
+		w.occurrence = r.notationName(sym)
+	} else {
+		w.occurrence += "::" + localName(sym)
+	}
+	var foldKey treeQueryKey
+	var representative expansionRepresentative
+	canFold := false
+	if w.fold != nil {
+		foldKey, representative, canFold = w.fold.representative(sym, owner, path, depth, qualified)
+	}
 	name := r.notationName(sym)
 	if !qualified {
 		name = localName(sym)
@@ -233,6 +258,8 @@ func (w *featureWalk) featureNode(sym, owner *symbols.Symbol, path expansion, de
 	// count at their owner's depth — and nothing nested is drawn.
 	bound, cut := r.walkBound(w.view), 0
 	folded := depth >= bound || collapsed(node)
+	skipped := false
+	foldsBefore := w.out.foldedOccurrences
 	for _, member := range w.walkMembers(sym) {
 		if _, pinned := w.pins[node][member]; pinned || recursive != nil && member.Owner() != sym {
 			continue
@@ -243,6 +270,11 @@ func (w *featureWalk) featureNode(sym, owner *symbols.Symbol, path expansion, de
 			}
 			continue
 		}
+		if canFold && !pinnedAt(sym, member) && w.fold.omits(sym, member) {
+			skipped = true
+			continue
+		}
+		w.insideFold = previousInside || canFold
 		switch {
 		case r.drawsConnector(member):
 			w.connectors = append(w.connectors, connectorSite{sym: member, within: node})
@@ -262,6 +294,13 @@ func (w *featureWalk) featureNode(sym, owner *symbols.Symbol, path expansion, de
 	if cut > 0 {
 		node.Detail = detailWith(node.Detail, cutNote(bound))
 		w.out.depthCut += cut
+	}
+	if w.fold != nil {
+		if skipped {
+			w.fold.note(w.out, sym, node, representative)
+		} else if !previousInside && w.out.foldedOccurrences == foldsBefore {
+			w.fold.remember(foldKey, depth, w.occurrence)
+		}
 	}
 	return node
 }
