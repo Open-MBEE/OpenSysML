@@ -866,6 +866,12 @@ func (d *decoder) build() ([]*element, error) {
 	if err := d.checkReferences(); err != nil {
 		return nil, err
 	}
+	for _, el := range order {
+		// A minted subaction membership takes the position of the one action it owns.
+		if el.metaclass == mSubaction && !el.indexStated && !el.positional && len(el.children) == 1 {
+			el.memberIndex, el.indexStated, el.positional = el.children[0].memberIndex, el.children[0].indexStated, el.children[0].positional
+		}
+	}
 	sortByIndex(roots)
 	for _, el := range order {
 		sortByIndex(el.children)
@@ -964,7 +970,8 @@ func (d *decoder) transparentRoot(el *element) bool {
 // a name, such as a state's entry membership, is written as the member it is.
 func (d *decoder) isMembership(subject rdf.Term) bool {
 	metaclass := d.metaclass(subject)
-	return metaclass != "" && (metaclass == mFeatureValue || metaclass == mParameterMembership ||
+	// A state's subaction membership is written as its keyword, so it is an element of the tree.
+	return metaclass != "" && metaclass != mSubaction && (metaclass == mFeatureValue || metaclass == mParameterMembership ||
 		ontology.IsAncestorOrSelf(metaclass, mOwningMembership) || d.prefixAnnotation(subject)) &&
 		!hasAddress(d.graph, subject)
 }
@@ -1289,6 +1296,9 @@ func (d *decoder) ownerOf(el *element) (*element, error) {
 		}
 		if owned {
 			ownerIRI = m.owner
+		} else if _, element := d.byIRI[relationship.Value]; element {
+			// A subaction membership is an element of the tree; the action it owns is written under it.
+			ownerIRI = relationship.Value
 		} else if m, known := d.memberships[relationship.Value]; known {
 			ownerIRI = m.owner
 		} else {
@@ -2095,7 +2105,8 @@ func (d *decoder) identityOf(el *element) []identityAnnotation {
 		}
 		out = append(out, identityAnnotation{"IdentityMetadata::ProjectRef", strings.Join(fields, " ")})
 	}
-	if el.declaredID || (!el.local && el.elementID != "" && el.elementID != rdf.EncodeElementID(el.qname) && !d.modeDerivedUUID(el.elementID, el.qname, d.rootQNameOf(el))) {
+	if el.declaredID || (!el.local && el.elementID != "" && el.elementID != rdf.EncodeElementID(el.qname) &&
+		!d.modeDerivedUUID(el.elementID, el.qname, d.rootQNameOf(el)) && !d.subactionMembershipID(el)) {
 		if !d.explicit && NormativeSubject(el.elementID, el.qname) {
 			d.implied++
 			return out
@@ -2119,6 +2130,13 @@ func (d *decoder) modeDerivedUUID(id, qname, root string) bool {
 		expected = identity.DerivedID(pkg, rdf.EncodeElementID(qname))
 	}
 	return id == expected
+}
+
+// subactionMembershipID reports a StateSubactionMembership whose id derives from the one action it owns —
+// the writer's shape for a bare `entry;` — so its position implies it and no annotation states it.
+func (d *decoder) subactionMembershipID(el *element) bool {
+	return el.metaclass == mSubaction && len(el.children) == 1 &&
+		el.elementID == el.children[0].elementID+rdf.OwningMembershipSuffix
 }
 
 // rootQNameOf is the qualified name of the document root el sits under — the

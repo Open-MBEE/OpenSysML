@@ -460,6 +460,10 @@ func (m *Model) sysmlMembershipMetaclassName(owner, member *symbols.Symbol) stri
 		// through an OwningMembership (SysML.xtext AnnotatingMember).
 		return "OwningMembership"
 	}
+	if _, bare := member.Decl.(*ast.Usage); !bare && stateSubactionKind(member) != "" {
+		// A bare `entry;` performs an anonymous empty action (SysML.xtext EmptyActionUsage).
+		return "StateSubactionMembership"
+	}
 	if _, ok := requirementConstraintKind(member); ok {
 		if kind, _ := member.UsageKind(); kind == ast.UsageFramedConcern {
 			return "FramedConcernMembership"
@@ -750,6 +754,10 @@ func (m *Model) membershipValue(sym *symbols.Symbol, feature string) (symbols.Fi
 
 // stateSubactionKind is the `entry`, `do` or `exit` a state subaction is written with.
 func stateSubactionKind(member *symbols.Symbol) string {
+	switch member.Keyword() {
+	case "entry", "do", "exit":
+		return member.Keyword()
+	}
 	u, ok := member.Decl.(*ast.Usage)
 	if !ok {
 		return ""
