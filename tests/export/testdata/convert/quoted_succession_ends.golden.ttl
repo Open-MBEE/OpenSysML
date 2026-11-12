@@ -921,7 +921,9 @@ elmt:QuotedSuccessionEnds__drive___401
     sysml:ownedFeature expr:QuotedSuccessionEnds__drive___401_pend0, expr:QuotedSuccessionEnds__drive___401_pend1 ;
     sysml:ownedEndFeature expr:QuotedSuccessionEnds__drive___401_pend0, expr:QuotedSuccessionEnds__drive___401_pend1 ;
     sysml:sourceFeature elmt:QuotedSuccessionEnds__drive__enter_20vehicle ;
+    sysml:source elmt:QuotedSuccessionEnds__drive__enter_20vehicle ;
     sysml:targetFeature elmt:QuotedSuccessionEnds__drive__start_20engine ;
+    sysml:target elmt:QuotedSuccessionEnds__drive__start_20engine ;
     sysx:sourceText "        then 'start engine';\n" ;
     json:connectorEnd "[{\"@id\":\"QuotedSuccessionEnds__drive___401_pend0\"},{\"@id\":\"QuotedSuccessionEnds__drive___401_pend1\"}]" ;
     json:ownedRelationship "[{\"@id\":\"QuotedSuccessionEnds__drive___401_pend0_om\"},{\"@id\":\"QuotedSuccessionEnds__drive___401_pend1_om\"}]" ;

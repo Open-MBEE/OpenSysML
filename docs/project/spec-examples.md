@@ -19,6 +19,11 @@ diagnostic of ours). Run `go test -count=1 ./tests/corpus -run TestSpecExamples`
 adjudicating every moved line here.
 **Required in CI:** `OPENSYSML_REQUIRE_SPEC_EXAMPLES=1` in both `.circleci/config.yml` and
 `.github/workflows/pr.yml`; the gate skips when the corpus is absent and the variable unset.
+**Subset:** under `OPENSYSML_CORPUS_SUBSET=construct-cover` the gate still opens each root whole but
+diagnoses only the files listed in `tests/corpus/testdata/construct_cover.txt` and checks their counts
+against the expectation,
+leaving the other recorded lines unchecked; the recorder refuses to run under it. See
+[construct-cover-subset.md](construct-cover-subset.md).
 **Referee:** the root `spec-examples` of `tools/referee/diff` (`go run -C tools ./cmd/pilot-diff`),
 recorded in `docs/project/pilot-differential-baseline.json` and summarised in
 [pilot-differential.md](pilot-differential.md); the grammar-coverage census also searches the root.
