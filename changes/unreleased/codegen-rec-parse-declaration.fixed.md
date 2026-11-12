@@ -1,0 +1,1 @@
+- The generated C of a function whose program holds records declares `sysml_parse_rec`, so the collection runtime it instantiates over records compiles under a C compiler that rejects implicit declarations (gcc 14 and later); the compiler is now asked to reject them everywhere (`-Werror=implicit-function-declaration`).

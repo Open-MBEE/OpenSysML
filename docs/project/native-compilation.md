@@ -407,7 +407,7 @@ lower.CalcBody (statements) ──┘
   checked-arithmetic prelude, the calcs as functions, a `sysml_run` entry that turns an error into
   a status, and a `main`.
 - `build.go` — `Source`, `Build`, `Targets`; C is compiled with
-  `-O3 -flto -std=gnu11 -Wall -Wextra`, Go in a throwaway module.
+  `-O3 -flto -std=gnu11 -Werror=implicit-function-declaration -Wall -Wextra`, Go in a throwaway module.
 
 ### Function values
 

@@ -1,0 +1,1 @@
+- A sensitivity the SMT engine witnesses spells the output's two values in the check engine's order (`x ends as 1 or 2`), with witness A the run that ends with the first, whichever copy the solver's model put first.
