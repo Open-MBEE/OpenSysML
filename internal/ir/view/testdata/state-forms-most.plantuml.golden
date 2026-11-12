@@ -1,6 +1,6 @@
 @startuml
 ' FurnaceViews::burnerTree — tree rendering (view def GeneralView)
-' not represented: 6 member(s) drawn as compartment rows of their owner, and 5 node(s) under them left undrawn
+' not represented: 7 member(s) drawn as compartment rows of their owner, and 5 node(s) under them left undrawn
 mainframe <size:10>//«view»//</size> **FurnaceViews::burnerTree** : GeneralView\n<size:10>expose Furnace::Burner</size>
 <style>
 root {
@@ -44,5 +44,5 @@ skinparam wrapWidth 300
 hide stereotype
 hide circle
 hide empty members
-class "<size:10>//«state def»//</size>\n**Burner**\nattributes\nflame : Boolean\nstates\noff\nrunning\nsuccession usages\nthen off\ntransitions\ntransition\nsuccessions\nfirst running then off" as n0 <<state def>>
+class "<size:10>//«state def»//</size>\n**Burner**\nattributes\nflame : Boolean\nstates\noff\nrunning\naction usages\nentry\nsuccession usages\nthen off\ntransitions\ntransition\nsuccessions\nfirst running then off" as n0 <<state def>>
 @enduml

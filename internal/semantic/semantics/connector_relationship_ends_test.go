@@ -9,7 +9,7 @@ import (
 )
 
 // A connector's relatedElement, source and target are the features its relatedFeature, sourceFeature and
-// targetFeature redefine them as (KerML 8.3.4.5.1); unanswered where an end names a member no element stands for.
+// targetFeature redefine them as (KerML 8.3.4.5.1); a `then idle;` after `entry;` sources from the entry's action.
 func TestConnectorRelationshipEndsAreItsRelatedFeatures(t *testing.T) {
 	const src = `package P {
 		action observe {
@@ -58,9 +58,9 @@ func TestConnectorRelationshipEndsAreItsRelatedFeatures(t *testing.T) {
 		if len(entry) != 1 {
 			t.Fatalf("ts owns %d connectors, want the entry succession", len(entry))
 		}
-		for _, property := range []string{"relatedElement", "source", "target"} {
-			if got, ok := names(entry[0], property); ok {
-				t.Errorf("entry succession %s = %q answered; want unanswered, its entry end has no element", property, got)
+		for property, want := range map[string]string{"relatedElement": " idle", "source": "", "target": "idle"} {
+			if got, ok := names(entry[0], property); !ok || got != want {
+				t.Errorf("entry succession %s = %q (%v), want %q: the anonymous entry action and idle", property, got, ok, want)
 			}
 		}
 	}

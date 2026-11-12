@@ -1220,7 +1220,11 @@ func (e *encoder) writtenOwningMembership(node, parent ast.Node, fqn string) (rd
 		return rdf.Term{}, false
 	}
 	switch n := node.(type) {
-	case *ast.Import, *ast.EntryMember, *ast.ExitMember, *ast.DoMember, *ast.FilterMember:
+	case *ast.EntryMember, *ast.ExitMember, *ast.DoMember:
+		if bareSubactionKind(n) == "" {
+			return rdf.Term{}, false
+		}
+	case *ast.Import, *ast.FilterMember:
 		return rdf.Term{}, false
 	case *ast.PrefixMetadata:
 		if _, dependency := parent.(*ast.Dependency); dependency {
@@ -1392,6 +1396,13 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			return err
 		}
 		e.derivedName(subject, node)
+	}
+	if kind := bareSubactionKind(node); kind != "" {
+		h.membershipClass = mSubaction
+		h.membershipExtra = func(membership rdf.Term) {
+			e.graph.Add(membership, e.sysml(pKind), rdf.String(kind))
+			e.graph.Add(membership, e.sysx(xSubactionKind), rdf.String(kind))
+		}
 	}
 	if e.effects[node] {
 		h.membershipClass = mTransitionFeatureMembership
