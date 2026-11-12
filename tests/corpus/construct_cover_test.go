@@ -22,8 +22,11 @@ const constructCoverList = "testdata/construct_cover.txt"
 // syntactic feature any model under examples/ exhibits.
 func TestConstructCover(t *testing.T) {
 	// Parsing only, it sweeps the whole corpus whatever OPENSYSML_CORPUS_SUBSET
-	// says; the roots skip or are required as in the other corpus gates.
-	files, _ := corpusRoundTripFiles(t)
+	// says; an absent root skips it, or fails it where the root is required.
+	files, _, whole := corpusRoundTripFiles(t)
+	if !whole {
+		t.Skip("a downloaded corpus is absent, so the subset cannot be checked against the whole")
+	}
 	features := make(map[string][]string, len(files))
 	for _, rel := range files {
 		data, err := os.ReadFile(filepath.Join(corpusRoundTripExamples, filepath.FromSlash(rel)))

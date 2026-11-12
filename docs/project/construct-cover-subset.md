@@ -61,7 +61,7 @@ and `FilterPaths` answer "iterate this file?". A file outside `examples/` — th
   loaded as a batch against loaded serially, or by the CLI against the workspace) iterates a
   directory when any of its files is listed, and loads the whole directory: a partial directory
   would change what the test measures.
-- The per-file ratchets — `TestCorpusRoundTrip`, `TestCorpusAPIJSONRoundTrip`, the pilot and
+- The per-file ratchets — both round trips of `TestExamplesSweep`, the pilot and
   specification-example gates — compare the visited files' verdicts against the expectation file
   and leave the unvisited files' recorded lines unchecked; the recorded root sizes are still
   checked against the whole corpus, so a partial download fails as before. The pilot and

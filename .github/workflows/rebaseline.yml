@@ -187,7 +187,7 @@ jobs:
 
       - name: Re-record the per-file ratchets
         run: |
-          go test -count=1 ./tests/corpus -run 'TestPilotCorporaDiagnostics|TestSpecExamplesDiagnostics|TestPSSMSuiteMigration|TestCorpusRoundTrip|TestCorpusAPIJSONRoundTrip' \
+          go test -count=1 ./tests/corpus -run 'TestPilotCorporaDiagnostics|TestSpecExamplesDiagnostics|TestPSSMSuiteMigration|TestExamplesSweep' \
             -update-pilot-corpora -update-spec-examples -update-pssm-migration -update-corpus-roundtrip -update-api-json-roundtrip
           go test -count=1 ./internal/translate/export -run TestSymbolStructureMatchesGraphStructure -update-structure-differential
           go test -count=1 ./internal/exec/runtime -run TestLibraryAndPrefixSweep -update-library-prefix-sweep
