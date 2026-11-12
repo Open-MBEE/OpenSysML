@@ -238,9 +238,9 @@ tier_case_ parser-and-runtime quick internal/syntax/parser/parser.go internal/ex
 queue_case_() {
   CI_TIER=queue case_ "$@"
 }
-queue_case_ apijson-writer docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/translate/export/api_json_absence.go
+queue_case_ apijson-writer docs,dotnet,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/translate/export/api_json_absence.go
 queue_case_ apijson-baseline docs,go docs/project/api-json-differential/index.json
-queue_case_ unclaimed docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode some-new-top-level/thing.txt
+queue_case_ unclaimed docs,dotnet,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode some-new-top-level/thing.txt
 area_for_event_() {
   local event=$1 label=$2 area=$3 expected=$4
   local actual
