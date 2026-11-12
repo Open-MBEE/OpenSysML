@@ -55,6 +55,27 @@ it otherwise (see the
 The combined WebAssembly module, `sysml-wasm.wasm` with its `wasm_exec.js`, is published the
 same way; [WebAssembly builds](reference/wasm.md) says how to run it.
 
+## Editor plugins
+
+The VS Code extension, the Cameo Systems Modeler plugin and the Eclipse SysON integration are
+release assets built from the same commit as the binaries above (the Cameo plugin around the
+release's own `sysml-grpc`), and each is a line of `SHA256SUMS.txt`, so the manifest's
+signature vouches for it.
+
+| Plugin | Asset | Install |
+|---|---|---|
+| VS Code · [OpenSysML extension](../editors/vscode/README.md) | [opensysml.vsix](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/opensysml.vsix) | `code --install-extension opensysml.vsix`, with the release's `sysml-lsp` on your `PATH` or named by `opensysml.server.path` ([editors guide](guide/08-editors.md#vs-code)). Not on a marketplace; side-loaded. |
+| Cameo Systems Modeler · [Magic MDK](../editors/mdk/README.md) | [Magic_MDK.zip](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/Magic_MDK.zip) | Import the zip with Cameo's Resource/Plugin Manager. It carries the five `sysml-grpc` binaries (its `bin/DIGESTS` lists the digests the manifest lists), so nothing else is installed; one jar runs on the 2024x and 2026x lines. |
+| Eclipse SysON · [SysON MDK](../editors/syson/README.md) | [syson-mdk-backend.jar](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/syson-mdk-backend.jar) · [syson-mdk-frontend.tgz](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/syson-mdk-frontend.tgz) | Put the jar on the SysON application's classpath, add the tarball to the SysON frontend's build (`npm install ./syson-mdk-frontend.tgz`) and register its contributions, as the README says; the backend starts a `sysml-grpc` it downloads by pinned digest or is pointed at. |
+
+The asset names do not change between releases, so these links follow the latest release; the
+version is in the extension's manifest, the zip's descriptors and the jar's and tarball's own
+manifests. These assets have no SBOM of their own. Verify a download like any other asset:
+
+```bash
+sha256sum -c --ignore-missing SHA256SUMS.txt
+```
+
 ## Verify
 
 | File | Purpose |
@@ -106,9 +127,10 @@ For signature verification with cosign, see the [install guide](guide/01-install
 - **MATLAB:** source files; add `client/matlab` to the MATLAB path
   ([MATLAB client](reference/matlab-api.md)).
 - **VS Code:** the extension is not on a marketplace. Download the
-  [nightly VSIX](https://github.com/Open-MBEE/OpenSysML/releases/download/nightly/opensysml-sysml.vsix)
-  and run `code --install-extension opensysml-sysml.vsix`, or build and side-load it per the
-  [editors guide](guide/08-editors.md).
+  [release VSIX](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/opensysml.vsix) (or the
+  [nightly VSIX](https://github.com/Open-MBEE/OpenSysML/releases/download/nightly/opensysml.vsix), see
+  [Editor plugins](#editor-plugins)) and run `code --install-extension opensysml.vsix`, or build
+  and side-load it per the [editors guide](guide/08-editors.md).
 
 See [all releases](https://github.com/Open-MBEE/OpenSysML/releases).
 
@@ -127,5 +149,13 @@ nightly also publishes the individual tools above at the same path, `sysml-mcp` 
 | macOS Apple Silicon | [opensysml-darwin-arm64.tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/download/nightly/opensysml-darwin-arm64.tar.gz) |
 | macOS Intel | [opensysml-darwin-amd64.tar.gz](https://github.com/Open-MBEE/OpenSysML/releases/download/nightly/opensysml-darwin-amd64.tar.gz) |
 | Windows x64 | [opensysml-windows-amd64.zip](https://github.com/Open-MBEE/OpenSysML/releases/download/nightly/opensysml-windows-amd64.zip) |
+
+The [editor plugins](#editor-plugins) are published the same way, built around the night's
+binaries: [Magic_MDK.zip](https://github.com/Open-MBEE/OpenSysML/releases/download/nightly/Magic_MDK.zip),
+[syson-mdk-backend.jar](https://github.com/Open-MBEE/OpenSysML/releases/download/nightly/syson-mdk-backend.jar) and
+[syson-mdk-frontend.tgz](https://github.com/Open-MBEE/OpenSysML/releases/download/nightly/syson-mdk-frontend.tgz), beside the
+[VS Code extension](https://github.com/Open-MBEE/OpenSysML/releases/download/nightly/opensysml.vsix). The nightly
+manifest is signed by the workflow's GitHub identity, not the CircleCI one a release is signed
+with ([verifying a snapshot](project/nightly.md#verifying-one)).
 
 See the [nightly snapshot guide](project/nightly.md) and [all releases](https://github.com/Open-MBEE/OpenSysML/releases).

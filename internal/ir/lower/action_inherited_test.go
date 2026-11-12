@@ -267,8 +267,12 @@ func TestToActionGraphInheritedActionNodeCycleTerminates(t *testing.T) {
 		action def Derived :> A { first start then missing; }
 	`
 	derived, scope, _ := inheritedActionDecl(t, src, "Derived")
-	if _, err := ToActionGraph(derived, scope); !errors.Is(err, ErrCyclicSpecialization) {
+	graph, err := ToActionGraph(derived, scope)
+	if !errors.Is(err, ErrCyclicSpecialization) {
 		t.Fatalf("ToActionGraph error = %v, want ErrCyclicSpecialization", err)
+	}
+	if graph != nil && (graph.ID == nil || len(graph.Origins) != len(graph.Nodes)+1) {
+		t.Errorf("graph returned with the error has no ids: ID %v, %d origins for %d nodes", graph.ID, len(graph.Origins), len(graph.Nodes))
 	}
 }
 

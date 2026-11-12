@@ -94,7 +94,9 @@ func (e *encoder) noteNodes(subject rdf.Term, r region, tail bool, n int) int {
 // tokensIn returns the range of the tokens lying within a region of the text.
 func (s *authoredSource) tokensIn(r region) (first, end int) {
 	first = sort.Search(len(s.spans), func(k int) bool { return s.spans[k].Offset >= r.start })
-	for end = first; end < len(s.spans) && s.spans[end].End() <= r.end; end++ {
+	end = first
+	for end < len(s.spans) && s.spans[end].End() <= r.end {
+		end++
 	}
 	return first, end
 }

@@ -31,10 +31,17 @@ func (r *Renderer) treeDepth() int {
 // typing — are drawn as edges once every node is (treeEdges).
 func (r *Renderer) renderTree(view *symbols.Symbol, exposed []*symbols.Symbol, out *Rendering) {
 	ids := &nodeIDs{}
+	query := r.treeQuery(view, out, exposed)
 	out.sites = map[*Node]treeSite{}
-	descendants := r.exposedDescendants(view, exposed, func(sym *symbols.Symbol) []*symbols.Symbol {
+	members := func(sym *symbols.Symbol) []*symbols.Symbol {
 		return append(r.walkMembers(view, sym), r.annotatingMembers(sym)...)
-	})
+	}
+	var descendants map[symbols.ElementKey]bool
+	if query != nil {
+		descendants = query.exposedDescendants(exposed, true)
+	} else {
+		descendants = r.exposedDescendants(view, exposed, members)
+	}
 	for _, elem := range exposed {
 		if descendants[symbols.KeyOf(elem)] {
 			continue
@@ -47,7 +54,7 @@ func (r *Renderer) renderTree(view *symbols.Symbol, exposed []*symbols.Symbol, o
 			}
 			continue
 		}
-		walk := treeWalk{view: view, ids: ids, path: expansion{}, out: out}
+		walk := treeWalk{view: view, ids: ids, path: expansion{}, out: out, query: query}
 		out.Roots = append(out.Roots, r.treeNode(walk, elem, nil, 0, true))
 	}
 	out.Roots = append(out.Roots, r.nestedViewNodes(view, ids, map[*symbols.Symbol]bool{view: true}, out)...)
@@ -151,12 +158,18 @@ func (r *Renderer) nestedViewNodes(view *symbols.Symbol, ids *nodeIDs, rendered 
 		r.dress(view, sub, node, out)
 		exposed, err := r.model.ExposedElements(sub)
 		if err == nil {
-			descendants := r.exposedDescendants(sub, exposed, func(sym *symbols.Symbol) []*symbols.Symbol { return r.walkMembers(sub, sym) })
+			query := r.treeQuery(sub, out, exposed)
+			var descendants map[symbols.ElementKey]bool
+			if query != nil {
+				descendants = query.exposedDescendants(exposed, false)
+			} else {
+				descendants = r.exposedDescendants(sub, exposed, func(sym *symbols.Symbol) []*symbols.Symbol { return r.walkMembers(sub, sym) })
+			}
 			for _, elem := range exposed {
 				if descendants[symbols.KeyOf(elem)] {
 					continue
 				}
-				walk := treeWalk{view: sub, ids: ids, path: expansion{}, out: out}
+				walk := treeWalk{view: sub, ids: ids, path: expansion{}, out: out, query: query}
 				node.Children = append(node.Children, r.treeNode(walk, elem, nil, 0, true))
 			}
 		}
@@ -172,18 +185,29 @@ func (r *Renderer) nestedViewNodes(view *symbols.Symbol, ids *nodeIDs, rendered 
 // treeWalk is what one walk down a tree shares between its nodes: the view
 // (nil outside any view), the node ids, the expansion path and the rendering.
 type treeWalk struct {
-	view *symbols.Symbol
-	ids  *nodeIDs
-	path expansion
-	out  *Rendering
+	view  *symbols.Symbol
+	ids   *nodeIDs
+	path  expansion
+	out   *Rendering
+	query *treeQuery
 }
 
 // treeNode renders one element and what it declares. qualified names the node by
 // qualified name, which is what an exposed element is reported by; a member
 // nested in it is named as it was declared.
 func (r *Renderer) treeNode(walk treeWalk, sym, owner *symbols.Symbol, depth int, qualified bool) *Node {
+	var key treeQueryKey
+	if walk.query != nil {
+		key = walk.query.key(sym, owner, walk.path, qualified)
+		if previous := walk.query.node(key, depth); previous != nil {
+			return previous
+		}
+	}
 	view, out := walk.view, walk.out
 	node := r.treeNodeShallow(walk, sym, owner, qualified)
+	if walk.query != nil {
+		defer walk.query.remember(key, depth, node)
+	}
 	if walk.path[sym] {
 		return node
 	}
@@ -195,9 +219,20 @@ func (r *Renderer) treeNode(walk treeWalk, sym, owner *symbols.Symbol, depth int
 	// A parameter is a pin of its owner's node, drawn at every depth. At the depth
 	// bound, or collapsed, an element keeps its ports and pins — they count at
 	// their owner's depth — and nothing else nested is drawn.
-	bound, cut := r.walkBound(view), 0
+	bound, cut := 0, 0
+	if walk.query != nil {
+		bound = walk.query.bound
+	} else {
+		bound = r.walkBound(view)
+	}
 	folded := depth >= bound || collapsed(node)
-	for _, member := range r.walkMembers(view, sym) {
+	var members []*symbols.Symbol
+	if walk.query != nil {
+		members = walk.query.members(sym)
+	} else {
+		members = r.walkMembers(view, sym)
+	}
+	for _, member := range members {
 		if recursive != nil && member.Owner() != sym {
 			continue
 		}
@@ -246,6 +281,11 @@ func (r *Renderer) annotationChildren(ids *nodeIDs, view, sym *symbols.Symbol, o
 // the path being expanded above it is noted as already shown.
 func (r *Renderer) treeNodeShallow(walk treeWalk, sym, owner *symbols.Symbol, qualified bool) *Node {
 	view, out := walk.view, walk.out
+	if walk.query != nil {
+		node := &Node{ID: walk.ids.take(), Origin: symbolOrigin(sym), Geometry: walk.query.geometryOf(sym, owner, out)}
+		out.noteTreeSite(node, view, sym)
+		return node
+	}
 	name := r.notationName(sym)
 	if !qualified {
 		name = localName(sym)
@@ -277,6 +317,12 @@ func (r *Renderer) successionText(sym *symbols.Symbol) string {
 			return ""
 		}
 		return "first " + first + " then " + then
+	case *ast.EntryMember:
+		return "entry"
+	case *ast.DoMember:
+		return "do"
+	case *ast.ExitMember:
+		return "exit"
 	case *ast.SuccessionEdge:
 		// A `then b` edge reads as written: its source only where the author named one; a
 		// member-attached `then action b` names the member it sequences to.

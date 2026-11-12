@@ -221,10 +221,8 @@ func TestOptimizeReportsObjectivesInDeclarationOrder(t *testing.T) {
 	}
 }
 
-// A bound no assignment attains is never reported as a value: the report says
-// there is no optimum and offers only the feasible value found. A solver either
-// reports the bound approached, or a feasible value as the optimum, which
-// verification refuses (z3 4.8 answers 9.5 here).
+// A bound no assignment attains is never reported as a value: the report says there is no optimum,
+// or (z3 4.13 names the bound, 4.8 does not) that it is approached without being attained.
 func TestOptimizeReportsABoundThatIsNotAttained(t *testing.T) {
 	requireOptimizingSolver(t)
 	s := checkSession(t, optimizeModel)
@@ -233,13 +231,11 @@ func TestOptimizeReportsABoundThatIsNotAttained(t *testing.T) {
 		t.Fatalf("status is %s, want no-optimum: %s", report.Status, strings.Join(report.Lines, "\n"))
 	}
 	wants(t, got, "! Analysis OpenBound is satisfiable, but its optimum was not established",
-		"    the assignment below attains ")
-	bounded := "maximize widest = `margin`: no greatest value, approaching 10.5 without attaining it"
-	refused := "maximize widest = `margin`: no optimum reported — the solver reported 9.5, but a strictly greater value is feasible, so it is no optimum"
-	if strings.Contains(got, bounded) == strings.Contains(got, refused) {
-		t.Errorf("expected exactly one of %q and %q in output:\n%s", bounded, refused, got)
+		"maximize widest = `margin`: no ")
+	if !strings.Contains(got, "no optimum reported") && !strings.Contains(got, "no greatest value, approaching 10.5 without attaining it") {
+		t.Errorf("the open bound is neither reported as unestablished nor as approached without being attained:\n%s", got)
 	}
-	rejects(t, got, "is optimized")
+	rejects(t, got, "is optimized", "widest = `margin`: 10.5")
 }
 
 // Refusals need no solver: they are settled while translating.

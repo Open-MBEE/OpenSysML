@@ -1,4 +1,4 @@
-.PHONY: all build docker stdlib-snapshot vulncheck sca-tools audit audit-npm audit-python audit-rust audit-java extension-libraries-check extension-libraries-sync extension-libraries-pin-check textmate-grammars-check textmate-grammars-publish build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab conformance-dotnet conformance-dotnet-check test test-shard coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check dotnet-metamodel dotnet-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage dotnet-build dotnet-test dotnet-generate dotnet-generate-goldens dotnet-generate-check python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-csharp proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package emacs-keywords emacs-compile emacs-test docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render spec-compliance-check spec-compliance-render self-model mcp-registry-check
+.PHONY: all build docker stdlib-snapshot vulncheck sca-tools audit audit-npm audit-python audit-rust audit-java extension-libraries-check extension-libraries-sync extension-libraries-pin-check textmate-grammars-check textmate-grammars-publish build-sysml build-re build-wasm-re build-lsp build-grpc build-mcp build-engine build-core build-syntax build-sysml-wasm build-release-wasm build-wasm build-wasm-wasip1 build-wasm-js wasm-check static-check windows-versioninfo-check man man-check install-tree pgo-profile conformance conformance-pkg conformance-mcp conformance-rust conformance-julia conformance-matlab conformance-dotnet conformance-dotnet-check test test-shard test-quick test-queue coverage coverage-shard coverage-merge lint clean install help ontology-table ontology-table-check metaclass-graph metaclass-graph-check python-metamodel python-metamodel-check dotnet-metamodel dotnet-metamodel-check fuml-expected python-test python-coverage scripts-coverage node-coverage vscode-coverage jupyterlab-coverage mcp-npm-coverage dotnet-build dotnet-test dotnet-generate dotnet-generate-goldens dotnet-generate-check python-install jupyter-kernel-install jupyter-kernel-test proto proto-buf python-proto proto-ts proto-rust proto-csharp proto-lint proto-breaking jupyterlab-build jupyterlab-test jupyterlab-install vscode-grammar vscode-build vscode-package emacs-keywords emacs-compile emacs-test docs docs-install docs-serve docs-engine-assets docs-landing-assets docs-counts diagnostics-catalogue diagnostics-check docs-check changelog-check changelog-render spec-compliance-check spec-compliance-render self-model mcp-registry-check
 
 # Version information
 # Only release tags describe a build; the moving `nightly` tag is not a version.
@@ -117,16 +117,14 @@ COVERAGE_PROFILE ?= coverage.txt
 COVERAGE_SHARD ?=
 # The coverage job's nodes: the race shards but the runtime's corpus ones, since without -race internal/exec/runtime
 # runs whole in about 19 minutes under -coverpkg; tests/export and tests/corpus whole overran 30 (see .circleci/config.yml).
-COVERAGE_SHARDS := runtime model smt corpus corpus-roundtrip corpus-apijson export export-library export-examples export-corpus export-settled graph codegen translate grpc tools rest migrate cli
+COVERAGE_SHARDS := runtime model smt corpus corpus-sweep export export-library export-examples export-corpus graph codegen translate grpc tools rest migrate cli
 # coverage-shard's splits of tests/corpus and tests/export by test name, test-shard's; empty for every other shard.
-COVERAGE_SELECT_corpus = -skip '$(RACE_CORPUS_ROUNDTRIP)|$(RACE_CORPUS_APIJSON)'
-COVERAGE_SELECT_corpus-roundtrip = -run '$(RACE_CORPUS_ROUNDTRIP)'
-COVERAGE_SELECT_corpus-apijson = -run '$(RACE_CORPUS_APIJSON)'
-COVERAGE_SELECT_export = -skip '$(RACE_EXPORT_CORPUS)|$(RACE_EXPORT_SETTLED)|$(RACE_EXPORT_LIBRARY)|$(RACE_EXPORT_EXAMPLES)'
+COVERAGE_SELECT_corpus = -skip '$(RACE_CORPUS_SWEEP)'
+COVERAGE_SELECT_corpus-sweep = -run '$(RACE_CORPUS_SWEEP)'
+COVERAGE_SELECT_export = -skip '$(RACE_EXPORT_CORPUS)|$(RACE_EXPORT_LIBRARY)|$(RACE_EXPORT_EXAMPLES)'
 COVERAGE_SELECT_export-library = -run '$(RACE_EXPORT_LIBRARY)'
 COVERAGE_SELECT_export-examples = -run '$(RACE_EXPORT_EXAMPLES)'
 COVERAGE_SELECT_export-corpus = -run '$(RACE_EXPORT_CORPUS)'
-COVERAGE_SELECT_export-settled = -run '$(RACE_EXPORT_SETTLED)'
 
 # The commands whose manual pages are generated and shipped, in section 1.
 COMMANDS := sysml sysml-lsp sysml-grpc sysml-jupyter-kernel sysml-mcp
@@ -401,17 +399,15 @@ RACE_SHARD_SKIP := ^(TestTrainingExamplesSemanticErrors|TestCorpusGatesCacheStat
 # suite is as long as those four together, so runtime-exploration runs it as a shard of its own.
 RACE_RUNTIME_EXPLORATION := ^TestExploreWithIsExploreOverTheConformanceCorpus$$
 RACE_RUNTIME_CORPUS := ^Test(ExploreWithIsExploreOverTheConformanceCorpus|CheckAgreesWithExploreOverTheConformanceCorpus|CheckWitnessesReplayOverTheConformanceCorpus|ExecutionConformance|ExecutionConformanceUnderPolicies)$$
-# The export-corpus and export-settled shards: the two tests/export suites that convert every example
-# model, each about as long as the rest of the package under -race (the element form completes the family).
+# The export-corpus shard: the tests/export suite that converts every example model, about as
+# long as the rest of the package under -race.
 RACE_EXPORT_CORPUS := ^TestAPIJSONWritersNeverEmitNameReferences$$
-RACE_EXPORT_SETTLED := ^TestSettledCollectionsAreWhatReconcilingWouldFind$$
 # tests/export's two parallel per-file sweeps: 60 and 27 of the remainder's 103 CPU-minutes under -race (37 minutes wall), so a shard each.
 RACE_EXPORT_LIBRARY := ^TestLibraryFilesComeBackFromTheGraphAlone$$
 RACE_EXPORT_EXAMPLES := ^TestExamplesCorpusInvariants$$
-# The corpus-roundtrip and corpus-apijson shards: tests/corpus's two round trips over every example
-# model, about 20 minutes each under -race, one after the other; corpus is the rest of the package.
-RACE_CORPUS_ROUNDTRIP := ^TestCorpusRoundTrip$$
-RACE_CORPUS_APIJSON := ^TestCorpusAPIJSONRoundTrip$$
+# The corpus-sweep shard: tests/corpus's one load of every example model, on which it checks the
+# two round trips, settled collections and the gRPC agreement; corpus is the rest of the package.
+RACE_CORPUS_SWEEP := ^TestExamplesSweep$$
 RACE_SHARD_TOOLS_SKIP := ^(TestSuiteRead|TestSuiteClassification|TestEmitSuite|TestSuiteClassificationReasons|TestSuiteLibraryCallsAreClassified|TestSuiteReadsControlAndObjectFlow|TestSuiteReadsClassifiers|TestSuiteReadsExceptionHandlers)$$
 
 # test-shard's -run/-skip per shard: the by-test-name shards and the package shards they are cut
@@ -419,32 +415,42 @@ RACE_SHARD_TOOLS_SKIP := ^(TestSuiteRead|TestSuiteClassification|TestEmitSuite|T
 SHARD_SELECT_runtime-exploration = -run '$(RACE_RUNTIME_EXPLORATION)' -skip '$(RACE_SHARD_SKIP)'
 SHARD_SELECT_runtime-corpus = -run '$(RACE_RUNTIME_CORPUS)' -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_EXPLORATION)'
 SHARD_SELECT_runtime = -skip '$(RACE_SHARD_SKIP)|$(RACE_RUNTIME_CORPUS)'
-SHARD_SELECT_corpus-roundtrip = -run '$(RACE_CORPUS_ROUNDTRIP)' -skip '$(RACE_SHARD_SKIP)'
-SHARD_SELECT_corpus-apijson = -run '$(RACE_CORPUS_APIJSON)' -skip '$(RACE_SHARD_SKIP)'
-SHARD_SELECT_corpus = -skip '$(RACE_SHARD_SKIP)|$(RACE_CORPUS_ROUNDTRIP)|$(RACE_CORPUS_APIJSON)'
+SHARD_SELECT_corpus-sweep = -run '$(RACE_CORPUS_SWEEP)' -skip '$(RACE_SHARD_SKIP)'
+SHARD_SELECT_corpus = -skip '$(RACE_SHARD_SKIP)|$(RACE_CORPUS_SWEEP)'
 SHARD_SELECT_export-corpus = -run '$(RACE_EXPORT_CORPUS)' -skip '$(RACE_SHARD_SKIP)'
-SHARD_SELECT_export-settled = -run '$(RACE_EXPORT_SETTLED)' -skip '$(RACE_SHARD_SKIP)'
 SHARD_SELECT_export-library = -run '$(RACE_EXPORT_LIBRARY)' -skip '$(RACE_SHARD_SKIP)'
 SHARD_SELECT_export-examples = -run '$(RACE_EXPORT_EXAMPLES)' -skip '$(RACE_SHARD_SKIP)'
-SHARD_SELECT_export = -skip '$(RACE_SHARD_SKIP)|$(RACE_EXPORT_CORPUS)|$(RACE_EXPORT_SETTLED)|$(RACE_EXPORT_LIBRARY)|$(RACE_EXPORT_EXAMPLES)'
+SHARD_SELECT_export = -skip '$(RACE_SHARD_SKIP)|$(RACE_EXPORT_CORPUS)|$(RACE_EXPORT_LIBRARY)|$(RACE_EXPORT_EXAMPLES)'
 SHARD_SELECT = $(or $(SHARD_SELECT_$(SHARD)),-skip '$(RACE_SHARD_SKIP)')
 # -race for the race suite (test-shard); test-quick runs the same shards with it empty.
 TEST_SHARD_RACE ?= -race
 
-test-shard: stdlib-snapshot ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-library|export-examples|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli)
-	@echo "Running Go $(if $(TEST_SHARD_RACE),race ,)tests, shard $(SHARD)..."
+test-shard: stdlib-snapshot ## Run one CI shard of the race suite (SHARD=runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-sweep|export|export-library|export-examples|export-corpus|graph|codegen|translate|grpc|tools|rest|migrate|cli)
+	@echo "Running Go $(if $(TEST_SHARD_RACE),race ,)tests, shard $(SHARD)$(if $(OPENSYSML_CORPUS_SUBSET), over the $(OPENSYSML_CORPUS_SUBSET) corpus subset,)..."
 	@# 55m per package; its job's ceiling is 60. internal/exec/runtime (31-57 minutes whole under -race), tests/export
-	@# (past 55; five shards) and tests/corpus (about 40; three) run split by test name above.
+	@# (past 55; four shards) and tests/corpus (about 40; two) run split by test name above.
 	pkgs=$$(scripts/race-shard.sh $(SHARD)) && go test $(SHARD_SELECT) -v $(TEST_SHARD_RACE) -pgo=off -timeout 55m $$pkgs
 	@# The tools module runs with tools (tests/wasm) on CircleCI and, as the PR workflow has no
 	@# tools shard (tests/wasm is its WebAssembly gate job there), with rest on GitHub Actions.
 	case "$(SHARD)" in rest|tools) go test -C $(TOOLS_DIR) -skip '$(RACE_SHARD_TOOLS_SKIP)' -v $(TEST_SHARD_RACE) -pgo=off -timeout 55m ./... ;; esac
 
-test-quick: stdlib-snapshot ## Run the race-free quick tier over one or more race shards, in turn (SHARDS="graph" | "export-corpus export-settled" | "rest grpc" | ...)
+test-quick: stdlib-snapshot ## Run the race-free quick tier over one or more race shards, in turn (SHARDS="graph" | "export-corpus export-library" | "rest grpc" | ...)
 	@echo "Running Go tests without race detection, shards $(SHARDS)..."
 	@# Every pull-request push runs this instead of test-shard: the same shards, selections and skips, no -race.
-	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime runtime-corpus runtime-exploration model smt corpus corpus-roundtrip corpus-apijson export export-library export-examples export-corpus export-settled graph codegen translate grpc tools rest migrate cli"; exit 1; }
+	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime runtime-corpus runtime-exploration model smt corpus corpus-sweep export export-library export-examples export-corpus graph codegen translate grpc tools rest migrate cli"; exit 1; }
 	for shard in $(SHARDS); do $(MAKE) --no-print-directory test-shard SHARD=$$shard TEST_SHARD_RACE= || exit 1; done
+
+test-queue: stdlib-snapshot ## Run the merge queue's tier over one or more race shards, in turn (SHARDS="export-corpus" | "rest grpc" | ...)
+	@echo "Running the queue tier, shards $(SHARDS)..."
+	@# The merge queue runs this: test-shard with -race on every shard but the examples/ sweeps
+	@# (scripts/race-shard.sh --sweeps), which run without -race over the construct-cover subset.
+	@test -n "$(SHARDS)" || { echo "Error: set SHARDS to one or more of runtime runtime-corpus runtime-exploration model smt corpus corpus-sweep export export-library export-examples export-corpus graph codegen translate grpc tools rest migrate cli"; exit 1; }
+	sweeps=" $$(scripts/race-shard.sh --sweeps | tr '\n' ' ')" && for shard in $(SHARDS); do \
+		case "$$sweeps" in \
+			*" $$shard "*) OPENSYSML_CORPUS_SUBSET=construct-cover $(MAKE) --no-print-directory test-shard SHARD=$$shard TEST_SHARD_RACE= ;; \
+			*) $(MAKE) --no-print-directory test-shard SHARD=$$shard ;; \
+		esac || exit 1; \
+	done
 
 coverage: stdlib-snapshot ## Write the coverage profile the SonarCloud scan reads
 	@echo "Writing coverage.txt..."
@@ -836,7 +842,7 @@ vscode-package: ## Package the VS Code extension as a .vsix for side-loading (VS
 	@echo "Packaging the VS Code extension..."
 	@# `npm run package -- <args>` appends the arguments to the script's last command, `vsce package`.
 	cd $(VSCODE_DIR) && npm ci && npm run package $(if $(VSIX_VERSION),-- $(VSIX_VERSION) --no-update-package-json)
-	@echo "✓ Packaged $(VSCODE_DIR)/opensysml-sysml.vsix"
+	@echo "✓ Packaged $(VSCODE_DIR)/opensysml.vsix"
 
 emacs-keywords: ## Regenerate the Emacs mode's keyword lists from the lexer keywords
 	@echo "Generating Emacs keyword lists..."

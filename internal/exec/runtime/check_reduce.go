@@ -150,6 +150,21 @@ func unionFootprints(f, g lower.Footprint) lower.Footprint {
 	}
 }
 
+// addFootprint adds g to into, which the caller alone holds: a footprint built
+// up from empty, so the union of many is copied once and not once for each.
+func addFootprint(into *lower.Footprint, g lower.Footprint) {
+	into.Reads = append(into.Reads, g.Reads...)
+	into.Writes = append(into.Writes, g.Writes...)
+	into.Sends = append(into.Sends, g.Sends...)
+	into.Accepts = append(into.Accepts, g.Accepts...)
+	into.Control = append(into.Control, g.Control...)
+	into.Completion = into.Completion || g.Completion
+	into.Dynamic = into.Dynamic || g.Dynamic
+	into.Creates = into.Creates || g.Creates
+	into.Routes = into.Routes || g.Routes
+	into.Flows = append(into.Flows, g.Flows...)
+}
+
 // dependent reports whether the two moves may not commute: the moves of one
 // unit never do, and otherwise their footprints decide.
 func (c *checker) dependent(a, b searchMove) bool {

@@ -573,7 +573,22 @@ func (p *Parser) takePendingComment() (source.Span, bool) {
 	p.hasPendingComment = false
 	p.commentBodies = append(p.commentBodies, sp.Offset)
 	p.bodyEnd = sp.End()
+	p.dropPendingTrivia(sp)
 	return sp, true
+}
+
+// dropPendingTrivia takes the comment consumed as an annotation body out of the
+// pending trivia, so the declaration parsed next is not handed it as its own.
+func (p *Parser) dropPendingTrivia(sp source.Span) {
+	for i := len(p.triv) - 1; i >= 0; i-- {
+		if p.triv[i].Span == sp {
+			p.triv = slices.Delete(p.triv, i, i+1)
+			if len(p.triv) == 0 {
+				p.triv = nil
+			}
+			return
+		}
+	}
 }
 
 // spanFrom builds a span from a start offset to the end of the last consumed

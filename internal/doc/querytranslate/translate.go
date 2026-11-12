@@ -288,6 +288,9 @@ func (t *translator) validate(c Constraint, prefix string) error {
 	}
 }
 
+// msgNoComparisonValue refuses a comparison without values; it takes the property.
+const msgNoComparisonValue = "constraint on %q has no value to compare against"
+
 func (t *translator) validateComparison(c Comparison, prefix string) error {
 	property := prefix + c.Property
 	if c.Property == query.PropertyType && prefix == "" {
@@ -296,7 +299,7 @@ func (t *translator) validateComparison(c Comparison, prefix string) error {
 			return errorf(ErrUnorderedProperty, "query property %q is not ordered, so %s cannot compare it", c.Property, c.Operator)
 		}
 		if len(c.Values) == 0 {
-			return errorf(ErrMalformed, "constraint on %q has no value to compare against", c.Property)
+			return errorf(ErrMalformed, msgNoComparisonValue, c.Property)
 		}
 		return t.validateTypes(c.Values, exact)
 	}
@@ -310,7 +313,7 @@ func (t *translator) validateComparison(c Comparison, prefix string) error {
 			if c.Operator == In {
 				return errorf(ErrMalformed, "in on %q needs a list of values to compare against", property)
 			}
-			return errorf(ErrMalformed, "constraint on %q has no value to compare against", property)
+			return errorf(ErrMalformed, msgNoComparisonValue, property)
 		}
 		if kind == kindBoolean {
 			for _, value := range c.Values {
@@ -345,7 +348,7 @@ func (t *translator) validateTypes(names []string, exact bool) error {
 		operator = "="
 	}
 	if len(names) == 0 {
-		return errorf(ErrMalformed, "constraint on %q has no value to compare against", query.PropertyType)
+		return errorf(ErrMalformed, msgNoComparisonValue, query.PropertyType)
 	}
 	for _, name := range names {
 		if name == "" {
