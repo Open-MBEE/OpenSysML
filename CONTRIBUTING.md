@@ -297,16 +297,16 @@ pinned buf and diffed). It downloads the OMG corpora before the suite and runs e
 step, so those gates are required rather than skipped.
 
 **The corpus subset.** The tests that sweep every model under `examples/` (the committed models
-and the downloaded OMG corpora, 880 files) honour `OPENSYSML_CORPUS_SUBSET`: unset, they iterate
-the whole corpus; `OPENSYSML_CORPUS_SUBSET=construct-cover` makes each iterate only the 95 files of
-`tests/corpus/testdata/construct_cover.txt`, which between them exhibit all 814 syntactic features
+and the downloaded OMG corpora) honour `OPENSYSML_CORPUS_SUBSET`: unset, they iterate the whole
+corpus; `OPENSYSML_CORPUS_SUBSET=construct-cover` makes each iterate only the files of
+`tests/corpus/testdata/construct_cover.txt`, which between them exhibit every syntactic feature
 the whole corpus exhibits, and any other value fails the sweep. `TestConstructCover`
 (`tests/corpus`) re-derives the features over the whole corpus on every run and fails, naming
 them, when the committed list no longer covers it; re-record with
 `go test ./tests/corpus -run TestConstructCover -update-construct-cover`. No recorder flag runs
-while the variable is set, so an expectation file is never recorded from a partial sweep. See
-[docs/project/construct-cover-subset.md](docs/project/construct-cover-subset.md) for what the
-switch does to each sweep.
+while the variable is set, so an expectation file is never recorded from a partial sweep.
+[docs/project/construct-cover-subset.md](docs/project/construct-cover-subset.md) records the
+measured subset size and feature count and says what the switch does to each sweep.
 
 Open a pull request ready for review rather than as a draft: both run the same tier, and a draft
 is not considered until it is marked ready. The full tier is what a pull request has to pass to
