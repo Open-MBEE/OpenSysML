@@ -65,12 +65,25 @@ tier_case_() {
   git -C "$work" -c commit.gpgsign=false commit -qm "$name"
 
   local actual
-  actual=$(cd "$work" && env -u CI_TIER bash scripts/ci-changed-areas.sh "$base" HEAD 2>/dev/null | sed -n 's/^tier=//p')
+  actual=$(cd "$work" && env -u CI_TIER -u CI_EVENT -u CI_FULL_LABEL bash scripts/ci-changed-areas.sh "$base" HEAD 2>/dev/null | sed -n 's/^tier=//p')
   if [[ "$actual" != "$expected" ]]; then
     echo "FAIL tier $name: expected $expected, got $actual" >&2
     failures=$((failures + 1))
   else
     echo "ok   tier $name: $actual"
+  fi
+}
+
+# event_case_ <event> <label:true|false> <expected tier>: the tier for that event on the last case's head.
+event_case_() {
+  local event=$1 label=$2 expected=$3
+  local actual
+  actual=$(cd "$work" && env -u CI_TIER CI_EVENT="$event" CI_FULL_LABEL="$label" bash scripts/ci-changed-areas.sh "$base" HEAD 2>/dev/null | sed -n 's/^tier=//p')
+  if [[ "$actual" != "$expected" ]]; then
+    echo "FAIL tier for $event (ci:full=$label): expected $expected, got $actual" >&2
+    failures=$((failures + 1))
+  else
+    echo "ok   tier for $event (ci:full=$label): $actual (on the last case's head)"
   fi
 }
 
@@ -192,6 +205,19 @@ tier_case_ export-writer quick internal/translate/export/writer.go
 tier_case_ symbols quick internal/semantic/symbols/index.go
 tier_case_ unclaimed full some-new-top-level/thing.txt
 tier_case_ parser-and-runtime quick internal/syntax/parser/parser.go internal/exec/runtime/executor.go
+
+# The event decides above the paths: a merge-group commit runs the queue tier, a schedule or a
+# dispatch the full tier, a pull request labelled ci:full the full tier, whatever they touch.
+event_case_ pull_request false quick
+event_case_ pull_request true full
+event_case_ merge_group false queue
+event_case_ schedule false full
+event_case_ workflow_dispatch false full
+# An unclaimed path is full on a pull request, but the queue stays the queue tier.
+tier_case_ unclaimed-again full some-new-top-level/other.txt
+event_case_ merge_group false queue
+event_case_ pull_request false full
+
 forced_case_() {
   local expected=$1
   shift
@@ -205,6 +231,7 @@ forced_case_() {
   fi
 }
 forced_case_ full
+forced_case_ queue
 forced_case_ quick
 
 if [[ "$failures" -ne 0 ]]; then

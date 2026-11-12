@@ -490,7 +490,7 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Look for a green full-tier run of this tree
+          name: Look for a green run of this tree (queue or full tier on a branch, full tier on a tag)
           environment:
             RELEASE_REHEARSAL: << pipeline.parameters.release_rehearsal >>
           command: |
@@ -562,7 +562,7 @@ jobs:
             fi
             make proto-breaking BUF_BREAKING_REF="$baseline"
 
-      # Everything below re-checks what the full tier already proved on a verified tree; the two
+      # Everything below re-checks what the queue or full tier already proved on a verified tree; the two
       # checks above stay ahead of the halt because a tag has verdicts no branch run reaches.
       - halt-if-verified
 
@@ -4549,8 +4549,8 @@ workflows:
               only: [main, develop]
             tags:
               ignore: /.*/
-      # Every job below attaches its verdict; a tree the pull-request workflow (or the merge
-      # queue) proved runs only the coverage shards, the scan and what they consume.
+      # Every job below attaches its verdict; a tree the merge queue (queue tier) or the full tier
+      # proved runs only the coverage shards, the scan and what they consume.
       - verify-tree:
           name: Verified tree check
           filters: *integration-branches
@@ -4656,7 +4656,7 @@ workflows:
         - << pipeline.parameters.release_rehearsal >>
         - matches: {pattern: "^v.*", value: << pipeline.git.tag >>}
     jobs:
-      # A tag on a commit main's build-test (or the merge queue) proved skips the suite and client
+      # A tag on a commit main's build-test (or a full-tier GitHub run) proved skips the suite and client
       # tests, which nothing here reads; a rehearsal or an unverified commit runs everything.
       - verify-tree:
           name: Verified tree check

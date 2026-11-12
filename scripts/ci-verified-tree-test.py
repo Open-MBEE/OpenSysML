@@ -39,6 +39,12 @@ def full_tier(suite):
     ]
 
 
+def queue_tier(suite):
+    return [check_run("Build and test", suite), check_run("Changed areas", suite)] + [
+        check_run(f"Go queue tests ({shard})", suite) for shard in ("runtime", "model", "export-corpus")
+    ]
+
+
 def quick_tier(suite):
     return [check_run("Build and test", suite), check_run("Changed areas", suite)] + [
         check_run(f"Go tests ({shard})", suite) for shard in ("runtime", "model export graph")
@@ -79,11 +85,29 @@ class GitHubEvidence(unittest.TestCase):
         self.assertTrue(out.startswith("verified: GitHub Actions check suite 7 passed 'Build and test'"), out)
         self.assertIn("3 'Go race tests (…)' shards", out)
 
+    def test_queue_tier_pass_verifies_a_develop_push(self):
+        code, out, _ = run(["--sha", SHA], github(queue_tier(7)))
+        self.assertEqual(code, 0)
+        self.assertTrue(out.startswith("verified: GitHub Actions check suite 7 passed 'Build and test'"), out)
+        self.assertIn("3 'Go queue tests (…)' shards (queue tier)", out)
+
+    def test_queue_tier_pass_does_not_verify_a_tag(self):
+        _, out, err = run(["--sha", SHA, "--tag", "v1.0.0"], github(queue_tier(7)))
+        self.assertTrue(out.startswith("unverified: no green full-tier run"), out)
+        self.assertIn("accepted tier (full)", err)
+
+    def test_queue_tier_pass_does_not_satisfy_the_full_scan(self):
+        _, out, _ = run(["--sha", SHA, "--full-tier"], github(queue_tier(7)))
+        self.assertTrue(out.startswith("unverified: no green full-tier run"), out)
+        _, out, _ = run(["--sha", SHA, "--full-tier"], github(queue_tier(7) + full_tier(8)))
+        self.assertTrue(out.startswith("verified: GitHub Actions check suite 8 "), out)
+        self.assertIn("(full tier)", out)
+
     def test_quick_tier_pass_alone_is_unverified(self):
         code, out, err = run(["--sha", SHA], github(quick_tier(7)))
         self.assertEqual(code, 0)
-        self.assertTrue(out.startswith("unverified: no green full-tier run"), out)
-        self.assertIn("quick-tier run", err)
+        self.assertTrue(out.startswith("unverified: no green full-tier or queue-tier run"), out)
+        self.assertIn("accepted tier (full, queue)", err)
 
     def test_quick_tier_pass_does_not_borrow_another_suites_shards(self):
         # The quick suite passed; the full one on the same commit ran its shards but failed.
@@ -111,7 +135,7 @@ class GitHubEvidence(unittest.TestCase):
 
     def test_no_check_runs_is_unverified(self):
         _, out, _ = run(["--sha", SHA], github([]))
-        self.assertTrue(out.startswith("unverified: no green full-tier run"), out)
+        self.assertTrue(out.startswith("unverified: no green full-tier or queue-tier run"), out)
 
     def test_an_api_error_is_unverified(self):
         def failing(url, headers):

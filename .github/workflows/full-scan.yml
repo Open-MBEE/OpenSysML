@@ -1,0 +1,61 @@
+name: Full scan
+
+# The nightly full scan of develop. The merge queue runs the queue tier (CONTRIBUTING.md, "GitHub
+# Actions": -race everywhere but the examples/ sweeps, which run race-free over the construct-cover
+# subset), so this gives develop's head its -race, whole-corpus run once a night, unless it already
+# has one (a ci:full run, an earlier dispatch). It dispatches pr.yml rather than calling it as a
+# reusable workflow: a called workflow's check runs take the caller's job name, and
+# scripts/ci-verified-tree.py (CircleCI's verify-tree job) looks for `Build and test` and the
+# `Go race tests (…)` jobs on the commit. A dispatch runs pr.yml on develop's head itself, so the
+# check runs land on that commit.
+on:
+  schedule:
+    # 12:07 UTC: the hour with the fewest PR workflow runs in a week, so the 20-slot pool is idle.
+    - cron: '7 12 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Dispatch the full tier even when develop's head already has a full-tier run
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  # To dispatch pr.yml.
+  actions: write
+
+concurrency:
+  group: full-scan
+  cancel-in-progress: false
+
+env:
+  BRANCH: develop
+  WORKFLOW: pr.yml
+
+jobs:
+  dispatch:
+    name: Dispatch the full tier on develop's head
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out develop
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ env.BRANCH }}
+
+      # --full-tier: only a full-tier GitHub run counts; a queue-tier run is what the scan completes.
+      - name: Dispatch unless the head already has a full-tier run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          sha=$(git rev-parse HEAD)
+          verdict=$(python3 scripts/ci-verified-tree.py --sha "$sha" --full-tier)
+          echo "$verdict"
+          if [ "$FORCE" != true ] && [ "${verdict%%:*}" = verified ]; then
+            echo "develop's head $sha already has a full-tier run; nothing to dispatch"
+            exit 0
+          fi
+          gh workflow run "$WORKFLOW" --ref "$BRANCH" -f tier=full
+          echo "dispatched the full tier of $WORKFLOW on $BRANCH ($sha)"

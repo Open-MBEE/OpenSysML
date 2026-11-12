@@ -7,8 +7,10 @@
 # output file takes. A file no area claims turns every area on, so a path this
 # script has not been taught about is never silently untested.
 #
-# The first line is the tier, `tier=quick|full`: quick (no -race, no fan-out from a service change
-# to every client) for a pull-request push, full for an unclaimed path; CI_TIER=full|quick forces it.
+# The first line is the tier, `tier=quick|queue|full` (CONTRIBUTING.md, "GitHub Actions"), from the
+# event in CI_EVENT: queue for merge_group, full for schedule and workflow_dispatch, for a pull request
+# labelled ci:full (CI_FULL_LABEL=true) and for an unclaimed path, else quick (no -race, no fan-out
+# from a service change to every client). CI_TIER=full|queue|quick forces it.
 set -euo pipefail
 
 base=${1:?usage: ci-changed-areas.sh <base> [head]}
@@ -68,9 +70,15 @@ emit() {
 
 tier=${CI_TIER:-}
 case "$tier" in
-  full|quick) ;;
+  full|queue|quick) ;;
   *)
-    if [[ "$everything" = true ]]; then tier=full; else tier=quick; fi
+    case "${CI_EVENT:-pull_request}" in
+      merge_group) tier=queue ;;
+      schedule|workflow_dispatch) tier=full ;;
+      *)
+        if [[ "${CI_FULL_LABEL:-false}" = true || "$everything" = true ]]; then tier=full; else tier=quick; fi
+        ;;
+    esac
     ;;
 esac
 emit tier "$tier"
