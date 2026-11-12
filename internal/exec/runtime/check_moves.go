@@ -216,7 +216,8 @@ func (e *StateExecutor) enabledMoves() []enabledMove {
 				}
 				picks = []int{pick}
 			}
-			moves = append(moves, enabledMove{Owner: e, Node: item.owner, Label: e.entryLabel(item.owner), Kind: moveEntry, Picks: picks})
+			owner := e.stateDecl(item.owner)
+			moves = append(moves, enabledMove{Owner: e, Node: owner, Label: e.entryLabel(owner), Kind: moveEntry, Picks: picks})
 		}
 		return moves
 	}
@@ -243,9 +244,9 @@ func (e *StateExecutor) enabledMoves() []enabledMove {
 // where the unit draws an order among them.
 func (e *StateExecutor) doMoves(due []*doAction, picked bool) []enabledMove {
 	moves := make([]enabledMove, 0, len(due))
-	names := e.stateNames(statesOf(due))
+	names := e.stateNames(e.statesOf(due))
 	for i, act := range due {
-		m := enabledMove{Owner: e, Node: act.state, Kind: moveDoStep, Label: "do " + names[i]}
+		m := enabledMove{Owner: e, Node: e.stateDecl(act.state), Kind: moveDoStep, Label: "do " + names[i]}
 		if picked {
 			m.Picks = []int{i}
 		}
@@ -254,10 +255,10 @@ func (e *StateExecutor) doMoves(due []*doAction, picked bool) []enabledMove {
 	return moves
 }
 
-func statesOf(acts []*doAction) []*ast.StateNode {
+func (e *StateExecutor) statesOf(acts []*doAction) []*ast.StateNode {
 	states := make([]*ast.StateNode, len(acts))
 	for i, act := range acts {
-		states[i] = act.state
+		states[i] = e.stateDecl(act.state)
 	}
 	return states
 }

@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -123,38 +124,38 @@ type imagedState struct {
 	events             []Event
 	stateData          map[string]Value
 	stateCells         []imagedBodyCell
-	stateAttrs         map[*ast.StateNode]map[string]Value
-	stateAttrCells     map[*ast.StateNode][]imagedBodyCell
+	stateAttrs         map[program.StateID]map[string]Value
+	stateAttrCells     map[program.StateID][]imagedBodyCell
 	stateVisits        []string
-	stateStack         []*ast.StateNode
+	stateStack         []program.StateID
 	fired              []FiredTransition
 	firedBase          int
 	keepFired          bool
-	breakpointNodes    map[ast.Node]bool
-	breakpointHit      *ast.StateNode
-	pausedAt           ast.Node
+	breakpointNodes    map[program.VertexRef]bool
+	breakpointHit      program.StateID
+	pausedAt           program.VertexRef
 	completionDue      bool
-	history            map[*ast.StateNode]historyRecord
-	joinArrived        map[*ast.PseudostateNode][]*lower.Transition
+	history            map[program.StateID]historyRecord
+	joinArrived        map[program.PseudoID][]program.TransID
 	lastDispatch       *Dispatch
 	lastEventAt        float64
 	doActions          []doActionCapture
 	machineExited      bool
 	run, under         int
 	inRun, moved       bool
-	timerScheduled     map[*lower.Transition]bool
-	timeTriggerVerdict map[*lower.Transition]error
-	changeFired        map[*lower.Transition]bool
-	changeObserved     map[*lower.Transition]bool
-	changePending      map[*lower.Transition]bool
-	firingChange       *lower.Transition
+	timerScheduled     map[program.TransID]bool
+	timeTriggerVerdict map[program.TransID]error
+	changeFired        map[program.TransID]bool
+	changeObserved     map[program.TransID]bool
+	changePending      map[program.TransID]bool
+	firingChange       program.TransID
 	firingNotes        []RunNote
-	changeRearmed      map[*lower.Transition]bool
+	changeRearmed      map[program.TransID]bool
 	changeWaits        []changeWait
 	held               []heldEntry
-	entering           map[*ast.StateNode]bool
+	entering           map[program.StateID]bool
 	enteringMachine    bool
-	activeAtEntry      map[*ast.StateNode]bool
+	activeAtEntry      map[program.StateID]bool
 	pendingCall        *pendingCall
 }
 
@@ -426,8 +427,8 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 		graph: e.graph, state: e.state, activeConfig: cloneConfiguration(e.activeConfig),
 		nextEventID:        e.nextEventID,
 		stateData:          maps.Clone(e.stateData),
-		stateAttrCells:     make(map[*ast.StateNode][]imagedBodyCell, len(e.stateAttrCells)),
-		stateAttrs:         make(map[*ast.StateNode]map[string]Value, len(e.stateAttrs)),
+		stateAttrCells:     make(map[program.StateID][]imagedBodyCell, len(e.stateAttrCells)),
+		stateAttrs:         make(map[program.StateID]map[string]Value, len(e.stateAttrs)),
 		stateVisits:        slices.Clone(e.stateVisits),
 		stateStack:         slices.Clone(e.stateStack),
 		fired:              slices.Clone(e.fired),
@@ -437,7 +438,7 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 		breakpointHit:      e.breakpointHit,
 		pausedAt:           e.pausedAt,
 		completionDue:      e.completionDue,
-		history:            make(map[*ast.StateNode]historyRecord, len(e.history)),
+		history:            make(map[program.StateID]historyRecord, len(e.history)),
 		joinArrived:        cloneJoinArrivals(e.joinArrived),
 		lastDispatch:       cloneDispatch(e.lastDispatch),
 		lastEventAt:        e.lastEventAt,
@@ -482,7 +483,7 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 		cloned := maps.Clone(attrs)
 		img.stateAttrCells[node] = imageBodyCells(e.stateAttrCells[node], cloned)
 		if err := t.values(cloned); err != nil {
-			return nil, fmt.Errorf("state %s: %w", StateVertexName(node), err)
+			return nil, fmt.Errorf("state %s: %w", StateVertexName(e.stateDecl(node)), err)
 		}
 		img.stateAttrs[node] = cloned
 	}
@@ -505,16 +506,16 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 	for _, act := range e.doActions {
 		if act.run != nil {
 			return nil, fmt.Errorf("%w: do behavior of state %s of %s", ErrSnapshotPausedBody,
-				StateVertexName(act.state), SymbolText(e.stateMachine))
+				StateVertexName(e.stateDecl(act.state)), SymbolText(e.stateMachine))
 		}
 		if err := t.firing(act.firing); err != nil {
-			return nil, fmt.Errorf("do behavior of state %s: %w", StateVertexName(act.state), err)
+			return nil, fmt.Errorf("do behavior of state %s: %w", StateVertexName(e.stateDecl(act.state)), err)
 		}
 		img.doActions = append(img.doActions, doActionCapture{act: &doAction{state: act.state}, pending: slices.Clone(act.pending), firing: act.firing.snapshot()})
 	}
 	for _, item := range img.held {
 		if err := t.firing(item.firing); err != nil {
-			return nil, fmt.Errorf("held entry of %s: %w", StateVertexName(item.owner), err)
+			return nil, fmt.Errorf("held entry of %s: %w", StateVertexName(e.stateDecl(item.owner)), err)
 		}
 	}
 	return img, nil
@@ -1020,24 +1021,25 @@ func (m *materializing) stateExecutor(e *StateExecutor, img *imagedState) error 
 		restoreStateBodyCells(m.dst, e.stateCells, e.graph.Attributes, img.stateCells,
 			"state machine "+SymbolText(e.stateMachine), e.graph.Scope)
 	}
-	for node, attrs := range img.stateAttrs {
-		if e.stateAttrs[node], err = m.values(attrs); err != nil {
+	for id, attrs := range img.stateAttrs {
+		node := e.stateDecl(id)
+		if e.stateAttrs[id], err = m.values(attrs); err != nil {
 			return fmt.Errorf("state %s: %w", StateVertexName(node), err)
 		}
-		if image := img.stateAttrCells[node]; len(image) != 0 {
-			cells := newBodyCells(e.stateAttrs[node], func(scope *symbols.Scope) *EvalContext {
+		if image := img.stateAttrCells[id]; len(image) != 0 {
+			cells := newBodyCells(e.stateAttrs[id], func(scope *symbols.Scope) *EvalContext {
 				return e.stateAttributeContext(node, scope)
 			})
 			restoreStateBodyCells(m.dst, cells, e.graph.StateAttributes[node], image,
 				"state "+node.Name, e.graph.Scope)
-			e.stateAttrCells[node] = cells
+			e.stateAttrCells[id] = cells
 		}
 	}
 	e.stateVisits, e.stateStack = slices.Clone(img.stateVisits), slices.Clone(img.stateStack)
 	e.fired, e.firedBase, e.keepFired = slices.Clone(img.fired), img.firedBase, img.keepFired
 	e.breakpointNodes = maps.Clone(img.breakpointNodes)
 	if e.breakpointNodes == nil {
-		e.breakpointNodes = make(map[ast.Node]bool)
+		e.breakpointNodes = make(map[program.VertexRef]bool)
 	}
 	e.breakpointHit, e.pausedAt, e.completionDue = img.breakpointHit, img.pausedAt, img.completionDue
 	e.joinArrived = cloneJoinArrivals(img.joinArrived)
@@ -1063,7 +1065,7 @@ func (m *materializing) stateExecutor(e *StateExecutor, img *imagedState) error 
 	for _, act := range img.doActions {
 		carried, err := m.firing(act.firing)
 		if err != nil {
-			return fmt.Errorf("do behavior of state %s: %w", StateVertexName(act.act.state), err)
+			return fmt.Errorf("do behavior of state %s: %w", StateVertexName(e.stateDecl(act.act.state)), err)
 		}
 		e.doActions = append(e.doActions, &doAction{state: act.act.state, pending: slices.Clone(act.pending), firing: carried})
 	}
@@ -1074,14 +1076,14 @@ func (m *materializing) stateExecutor(e *StateExecutor, img *imagedState) error 
 	e.changeFired = maps.Clone(img.changeFired)
 	e.changeObserved = maps.Clone(img.changeObserved)
 	e.changePending = maps.Clone(img.changePending)
-	e.changeReads = make(map[*lower.Transition][]*FeatureValue)
+	e.changeReads = make(map[program.TransID][]*FeatureValue)
 	e.firingChange, e.firingNotes = img.firingChange, slices.Clone(img.firingNotes)
 	e.changeRearmed = maps.Clone(img.changeRearmed)
 	e.changeWaits = slices.Clone(img.changeWaits)
 	e.held = cloneHeldEntries(img.held)
 	for i := range e.held {
 		if e.held[i].firing, err = m.firing(img.held[i].firing); err != nil {
-			return fmt.Errorf("held entry of %s: %w", StateVertexName(e.held[i].owner), err)
+			return fmt.Errorf("held entry of %s: %w", StateVertexName(e.stateDecl(e.held[i].owner)), err)
 		}
 	}
 	clear(e.entering)

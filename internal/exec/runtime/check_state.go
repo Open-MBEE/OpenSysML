@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -268,16 +269,16 @@ func (s *stateSpeller) machine(e *StateExecutor) {
 		s.out.WriteString(" exited")
 	}
 	if e.activeConfig != nil {
-		if e.activeConfig.simpleState != nil {
-			fmt.Fprintf(&s.out, " active{%s}", e.statePath(e.activeConfig.simpleState))
+		if e.activeConfig.simpleState != 0 {
+			fmt.Fprintf(&s.out, " active{%s}", e.statePath(e.simpleState()))
 		}
 		for _, region := range e.orderedActiveRegions() {
-			fmt.Fprintf(&s.out, " active{%s = %s}", regionKey(region), e.statePath(e.activeConfig.regionStates[region]))
+			fmt.Fprintf(&s.out, " active{%s = %s}", regionKey(region), e.statePath(e.regionActiveState(region)))
 		}
 		complete := make([]*ast.StateRegion, 0, len(e.activeConfig.defaultComplete))
 		for region, isComplete := range e.activeConfig.defaultComplete {
 			if isComplete {
-				complete = append(complete, region)
+				complete = append(complete, e.regionDecl(region))
 			}
 		}
 		sort.Slice(complete, func(i, j int) bool { return regionKey(complete[i]) < regionKey(complete[j]) })
@@ -286,13 +287,13 @@ func (s *stateSpeller) machine(e *StateExecutor) {
 		}
 	}
 	for _, state := range e.stateStack {
-		fmt.Fprintf(&s.out, " stack{%s}", e.statePath(state))
+		fmt.Fprintf(&s.out, " stack{%s}", e.statePath(e.stateDecl(state)))
 	}
 	s.history(e)
 	s.joinsArrived(e)
 	fmt.Fprintf(&s.out, " data{%s}", s.values(e.stateData))
-	for _, state := range sortedStates(e.stateAttrs) {
-		fmt.Fprintf(&s.out, " attrs{%s: %s}", e.statePath(state), s.values(e.stateAttrs[state]))
+	for _, state := range sortedStates(e, e.stateAttrs) {
+		fmt.Fprintf(&s.out, " attrs{%s: %s}", e.statePath(state), s.values(e.stateAttrs[e.stateID(state)]))
 	}
 	fmt.Fprintf(&s.out, " visits{%s}", strings.Join(e.stateVisits, ", "))
 	if e.eventQueue != nil {
@@ -302,20 +303,20 @@ func (s *stateSpeller) machine(e *StateExecutor) {
 			fmt.Fprintf(&s.out, " event{%s}", s.event(e, event))
 		}
 	}
-	for _, trans := range sortedTransitions(e.timerScheduled) {
+	for _, trans := range sortedTransitions(e, e.timerScheduled) {
 		fmt.Fprintf(&s.out, " timer{%s}", s.transition(e, trans))
 	}
-	for _, trans := range sortedTransitions(e.changeFired) {
+	for _, trans := range sortedTransitions(e, e.changeFired) {
 		fmt.Fprintf(&s.out, " latched{%s}", s.transition(e, trans))
 	}
-	for _, trans := range sortedTransitions(e.changePending) {
+	for _, trans := range sortedTransitions(e, e.changePending) {
 		fmt.Fprintf(&s.out, " pending{%s}", s.transition(e, trans))
 	}
-	for _, trans := range sortedTransitionKeys(e.changeObserved) {
-		fmt.Fprintf(&s.out, " observed{%s=%t}", s.transition(e, trans), e.changeObserved[trans])
+	for _, trans := range sortedTransitionKeys(e, e.changeObserved) {
+		fmt.Fprintf(&s.out, " observed{%s=%t}", s.transition(e, trans), e.changeObserved[e.transID(trans)])
 	}
 	for _, act := range e.doActions {
-		fmt.Fprintf(&s.out, " do{%s: %d pending", e.statePath(act.state), len(act.pending))
+		fmt.Fprintf(&s.out, " do{%s: %d pending", e.statePath(e.stateDecl(act.state)), len(act.pending))
 		if act.run != nil {
 			fmt.Fprintf(&s.out, ", paused{%s}", s.body(act.run.body))
 		}
@@ -327,11 +328,11 @@ func (s *stateSpeller) machine(e *StateExecutor) {
 // history spells the last active child, and region children, of each state
 // the machine remembers.
 func (s *stateSpeller) history(e *StateExecutor) {
-	for _, state := range sortedStates(e.history) {
-		record := e.history[state]
-		fmt.Fprintf(&s.out, " history{%s = %s", e.statePath(state), s.stateName(e, record.child))
-		for _, region := range sortedRegions(record.regions) {
-			fmt.Fprintf(&s.out, ", %s = %s", regionKey(region), s.stateName(e, record.regions[region]))
+	for _, state := range sortedStates(e, e.history) {
+		record := e.history[e.stateID(state)]
+		fmt.Fprintf(&s.out, " history{%s = %s", e.statePath(state), s.stateName(e, e.stateDecl(record.child)))
+		for _, region := range sortedRegions(e, record.regions) {
+			fmt.Fprintf(&s.out, ", %s = %s", regionKey(region), s.stateName(e, e.stateDecl(record.regions[e.regionID(region)])))
 		}
 		s.out.WriteString("}")
 	}
@@ -340,14 +341,14 @@ func (s *stateSpeller) history(e *StateExecutor) {
 // joinsArrived spells the incoming segments that have arrived at each join.
 func (s *stateSpeller) joinsArrived(e *StateExecutor) {
 	for _, join := range e.graph.Pseudostates {
-		arrived := e.joinArrived[join]
+		arrived := e.joinArrived[e.pseudoID(join)]
 		if len(arrived) == 0 {
 			continue
 		}
 		fmt.Fprintf(&s.out, " arrived{%s: ", join.Name)
 		first := true
 		for _, segment := range e.joinIncoming(join) {
-			if !slices.Contains(arrived, segment) {
+			if !slices.Contains(arrived, e.transID(segment)) {
 				continue
 			}
 			if !first {
@@ -363,8 +364,8 @@ func (s *stateSpeller) joinsArrived(e *StateExecutor) {
 		s.out.WriteString("}")
 	}
 	fmt.Fprintf(&s.out, " data{%s}", s.bodyValues(e.stateData, e.stateCells))
-	for _, state := range sortedStates(e.stateAttrs) {
-		fmt.Fprintf(&s.out, " attrs{%s: %s}", e.statePath(state), s.bodyValues(e.stateAttrs[state], e.stateAttrCells[state]))
+	for _, state := range sortedStates(e, e.stateAttrs) {
+		fmt.Fprintf(&s.out, " attrs{%s: %s}", e.statePath(state), s.bodyValues(e.stateAttrs[e.stateID(state)], e.stateAttrCells[e.stateID(state)]))
 	}
 	fmt.Fprintf(&s.out, " visits{%s}", strings.Join(e.stateVisits, ", "))
 	if e.eventQueue != nil {
@@ -374,14 +375,14 @@ func (s *stateSpeller) joinsArrived(e *StateExecutor) {
 			fmt.Fprintf(&s.out, " event{%s}", s.event(e, event))
 		}
 	}
-	for _, trans := range sortedTransitions(e.timerScheduled) {
+	for _, trans := range sortedTransitions(e, e.timerScheduled) {
 		fmt.Fprintf(&s.out, " timer{%s}", s.transition(e, trans))
 	}
-	for _, trans := range sortedTransitions(e.changeFired) {
+	for _, trans := range sortedTransitions(e, e.changeFired) {
 		fmt.Fprintf(&s.out, " latched{%s}", s.transition(e, trans))
 	}
 	for _, act := range e.doActions {
-		fmt.Fprintf(&s.out, " do{%s: %d pending", e.statePath(act.state), len(act.pending))
+		fmt.Fprintf(&s.out, " do{%s: %d pending", e.statePath(e.stateDecl(act.state)), len(act.pending))
 		if act.run != nil {
 			fmt.Fprintf(&s.out, ", paused{%s}", s.body(act.run.body))
 		}
@@ -405,41 +406,41 @@ func regionKey(region *ast.StateRegion) string {
 }
 
 // sortedStates orders a map's state keys by identity, so the form is independent of map order.
-func sortedStates[V any](m map[*ast.StateNode]V) []*ast.StateNode {
+func sortedStates[V any](e *StateExecutor, m map[program.StateID]V) []*ast.StateNode {
 	states := make([]*ast.StateNode, 0, len(m))
 	for state := range m {
-		states = append(states, state)
+		states = append(states, e.stateDecl(state))
 	}
 	sort.Slice(states, func(i, j int) bool { return nodeKey(states[i]) < nodeKey(states[j]) })
 	return states
 }
 
 // sortedRegions orders a map's region keys by identity.
-func sortedRegions[V any](m map[*ast.StateRegion]V) []*ast.StateRegion {
+func sortedRegions[V any](e *StateExecutor, m map[program.RegionID]V) []*ast.StateRegion {
 	regions := make([]*ast.StateRegion, 0, len(m))
 	for region := range m {
-		regions = append(regions, region)
+		regions = append(regions, e.regionDecl(region))
 	}
 	sort.Slice(regions, func(i, j int) bool { return regionKey(regions[i]) < regionKey(regions[j]) })
 	return regions
 }
 
 // sortedTransitions orders a set's transitions by source and position.
-func sortedTransitions(m map[*lower.Transition]bool) []*lower.Transition {
+func sortedTransitions(e *StateExecutor, m map[program.TransID]bool) []*lower.Transition {
 	transitions := make([]*lower.Transition, 0, len(m))
 	for trans, set := range m {
 		if set {
-			transitions = append(transitions, trans)
+			transitions = append(transitions, e.transDecl(trans))
 		}
 	}
 	sort.Slice(transitions, func(i, j int) bool { return transitionKey(transitions[i]) < transitionKey(transitions[j]) })
 	return transitions
 }
 
-func sortedTransitionKeys(m map[*lower.Transition]bool) []*lower.Transition {
+func sortedTransitionKeys(e *StateExecutor, m map[program.TransID]bool) []*lower.Transition {
 	transitions := make([]*lower.Transition, 0, len(m))
 	for trans := range m {
-		transitions = append(transitions, trans)
+		transitions = append(transitions, e.transDecl(trans))
 	}
 	sort.Slice(transitions, func(i, j int) bool { return transitionKey(transitions[i]) < transitionKey(transitions[j]) })
 	return transitions
