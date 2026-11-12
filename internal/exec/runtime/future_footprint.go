@@ -13,13 +13,8 @@ type futureKey struct {
 	node  ast.Node
 }
 
-// futureFootprints memoizes what executors may still touch at the clock's instant:
-// a token's by its node in its flow, a delay by whether it ends the instant; both
-// are dropped once the clock moves. A machine's whole graph is kept by graph.
-// Once gated, senders are the sends any executor may make at this instant, and
-// anySender marks an executor that may send anything; executors keeps each
-// executor's future from the gate until the footprints are next asked for, the
-// span in which no executor moves and one contention query reads each many times.
+// futureFootprints memoizes until the clock moves what executors may still touch at this instant:
+// tokens by node, delays by ending it, machines by graph and, once gated, the sends and executors' futures.
 type futureFootprints struct {
 	ctx       *Context
 	now       float64
@@ -131,9 +126,8 @@ func (f *futureFootprints) cannotFire(e *StateExecutor, trans *lower.Transition)
 	return true
 }
 
-// executorFuture is what the executor may still touch at this instant: every
-// token's future for an action, the machine's for a state machine, everything
-// for any other. The footprint is shared with later reads and is not to be written.
+// executorFuture is what the executor may still touch at this instant: its tokens' futures for an
+// action, its machine's for a state machine, everything otherwise; the shared footprint is read-only.
 func (f *futureFootprints) executorFuture(w clockWaiter) lower.Footprint {
 	f.at()
 	if fp, ok := f.executors[w]; ok {
