@@ -47,3 +47,20 @@ func TestSequenceExpressionThroughRenamedRoot(t *testing.T) {
 		})
 	}
 }
+
+func TestSequenceExpressionTypedLocalMember(t *testing.T) {
+	for _, root := range []string{"Model", "Occurrences"} {
+		for _, local := range []string{"x", "'self'"} {
+			t.Run(root+"/"+local, func(t *testing.T) {
+				typ := root + "::Block::Sequence"
+				body := typ + "-&gt;ControlFunctions::collect {in " + local + " : " + typ + "; " + local + ".'self'.amount}"
+				data := sequenceExpressionDocument(body)
+				data = bytes.Replace(data, []byte(`name="Model"`), []byte(`name="`+root+`"`), 1)
+				if root == "Occurrences" {
+					typ = "OccurrencesModel::Block::Sequence"
+				}
+				checkSequenceExpression(t, data, typ+"->ControlFunctions::collect {in "+local+" : "+typ+"; "+local+".self2.amount}")
+			})
+		}
+	}
+}

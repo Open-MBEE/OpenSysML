@@ -843,7 +843,7 @@ func (m *migration) invisible(refs []reference, scope *sysmlv1.Element) string {
 // fails when a source child of the failing element claims the name but is
 // itself unwritten — the path is then the user's, not the library's.
 func (m *migration) viaRenamedRoot(r reference, visible, hidden map[string]*sysmlv1.Element) (root *sysmlv1.Element, missing string) {
-	if r.local != "" || len(r.steps) == 0 || r.steps[0].chain {
+	if len(r.steps) == 0 || r.steps[0].chain {
 		return nil, ""
 	}
 	name := r.steps[0].name
@@ -859,7 +859,11 @@ func (m *migration) viaRenamedRoot(r reference, visible, hidden map[string]*sysm
 	}
 	e := ce
 	for i, s := range r.steps[1:] {
-		next, private := m.memberNamed(e, s.name, chainKind(s.chain))
+		kind := chainKind(s.chain)
+		if r.local != "" && i+1 == r.typed {
+			kind = memberFeature
+		}
+		next, private := m.memberNamed(e, s.name, kind)
 		if next == nil && private != nil && hidden != nil {
 			next = private
 		}
@@ -885,7 +889,7 @@ func (m *migration) renamedReferences(text string, refs []reference, scope *sysm
 	}
 	byStart := map[int]replacement{}
 	for _, r := range refs {
-		if r.local != "" {
+		if r.local != "" && r.typed == 0 {
 			continue
 		}
 		if root, _ := m.viaRenamedRoot(r, visible, nil); root != nil && r.firstLen != 0 {
