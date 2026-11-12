@@ -12,6 +12,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/corpussubset"
 )
 
 // A file loaded from the command line is a document of its own: a root-level
@@ -216,6 +217,7 @@ func TestCommandLineLoadMatchesWorkspace(t *testing.T) {
 // under a root that contains them included.
 func modelDirectories(t *testing.T, root string) [][]string {
 	t.Helper()
+	subset := corpussubset.Must(t, "../../..")
 	byDir := map[string][]string{}
 	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
@@ -232,7 +234,7 @@ func modelDirectories(t *testing.T, root string) [][]string {
 	}
 	dirs := make([]string, 0, len(byDir))
 	for dir, files := range byDir {
-		if len(files) > 1 {
+		if len(files) > 1 && subset.WantsAny("../../../examples", files) {
 			dirs = append(dirs, dir)
 		}
 	}
