@@ -38,8 +38,8 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PAGE = ROOT / "docs" / "project" / "spec-compliance.md"
 SOURCES = ROOT / "docs" / "project" / "spec-compliance"
-SOURCE_NAME = re.compile(r"^[0-9]{2}-[a-z0-9][a-z0-9-]*\.md$")
-SECTION_NAME = re.compile(r"^[0-9]{2}-[a-z0-9][a-z0-9-]*$")
+SOURCE_NAME = re.compile(r"^\d{2}-[a-z0-9][a-z0-9-]*\.md$", re.ASCII)
+SECTION_NAME = re.compile(r"^\d{2}-[a-z0-9][a-z0-9-]*$", re.ASCII)
 HEADING = re.compile(r"^#{1,6} \S")
 
 
