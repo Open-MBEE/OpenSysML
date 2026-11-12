@@ -273,9 +273,31 @@ decision is recorded through the Release Checklist item above.
 
 ### GitHub Actions
 
-`.github/workflows/pr.yml` is the only CI a pull request runs, in one of two tiers. Its
+`.github/workflows/pr.yml` is the only CI a pull request runs, in one of three tiers. Its
 `Build and test` job aggregates whichever tier ran, so that is the one check branch protection
 needs to require.
+
+| Event | Tier | Race detector | Corpus the `examples/` sweeps walk | Derived-property differential |
+|---|---|---|---|---|
+| A push to a pull request | quick | none | whole | on what can move its baseline |
+| The merge queue's commit (`merge_group`) | queue | every shard but the sweeps | the committed construct-cover subset | no |
+| The label `ci:full`, an unclaimed path, the nightly full scan, `workflow_dispatch` | full | every shard | whole | on what can move its baseline (everything on an unclaimed path) |
+
+The derived-property differential (`Derived-property differential reproduces its baseline`,
+`go run -C tools ./cmd/pilot-apijson-diff -check`: Java, the pinned pilot jar, 18–25 minutes)
+runs on a pull-request push whose diff can move the api-json baseline — the writer, the
+referees, the pilot bridge and pin, the baseline, the corpora action, not the workflow file —
+and under the full tier, so the baseline is also reproduced every night over `develop`. The
+queue tier skips it: the merge group's diff is the one the pull request's push already ran it
+over, and the nightly catches a baseline that `develop` moved under it, which is then
+re-recorded through the `ci:rebaseline` workflow (`.github/workflows/rebaseline.yml`).
+
+The `examples/` sweeps are the tests that parse and export every model under `examples/` (the
+committed models, the OMG training and pilot corpora and the specification examples, some 920
+files); `scripts/race-shard.sh --sweeps` prints the shards that hold them, and the queue tier
+reads that list rather than naming it. Under `OPENSYSML_CORPUS_SUBSET=construct-cover` they walk
+`tests/corpus/testdata/construct_cover.txt`, the regenerable subset of models that exhibits every
+syntactic construct the whole corpus does; unset, they walk the whole corpus.
 
 **The quick tier** is what every push to a pull request gets, draft or ready, in about half the
 runner time of the full tier and a third of its wall time: the binaries, the same Go suite without
@@ -283,40 +305,69 @@ runner time of the full tier and a third of its wall time: the binaries, the sam
 (gofmt, vet, the production build, grpc imports, proto lint and breaking), the WebAssembly, Xpect
 and conformance gates, and only the clients, editors and docs whose own paths changed. The lint,
 the corpus and solver gates, the PDF toolchain and the fan-out from a service change to every
-client wait for the full tier. A push whose diff touches a package where `-race` has found bugs
-(`internal/exec/runtime`, `internal/exec/smt`, the gRPC server and its suites, the REPL, the LSP,
-`internal/workspace`, the export writer, the symbol index — the list is `race_pattern` in
-`scripts/ci-changed-areas.sh`, and its test pins it) escalates itself to the full tier, as does
-one touching a path no area claims.
+client wait for the full tier. Only a push touching a path no area claims escalates itself to
+the full tier (`scripts/ci-changed-areas.sh`, and its test pins it).
 
-**The full tier** runs on the merge queue's commit (below), on any pull request carrying the
-label `ci:full` (adding it re-runs the current head), and on those escalated pushes. It
-gates: gofmt, `go vet`, `make lint`, the race-enabled test suite (nineteen shards,
-`make test-shard`), the binaries, the client suites, the conformance suite over each transport,
-the protobuf lint and wire-compatibility checks, the documentation hygiene checks
-(`make docs-check`, `make man-check` and the census check), the site build, and in each
-client's job the release-digest copy it ships and the stubs it commits (regenerated with the
-pinned buf and diffed). It downloads the OMG corpora before the suite and runs each corpus gate as its own
-step, so those gates are required rather than skipped.
+**The queue tier** runs on the merge queue's commit (below). It runs every job and gate of the
+full tier — gofmt, `go vet`, `make lint`, every shard of the test suite (twenty, `make
+test-queue`), the binaries, the client suites, the conformance suite over each transport, the
+protobuf lint and wire-compatibility checks, the documentation hygiene checks (`make docs-check`,
+`make man-check` and the census check), the site build, the PDF toolchain, and in each client's
+job the release-digest copy it ships and the stubs it commits — with two economies, both on the
+`examples/` sweeps alone: those shards run without the race detector, and over the
+construct-cover subset rather than the whole corpus (in the shards and in the static job's two
+round-trip gate steps). Every other shard runs under `-race`, over everything, so what the queue
+tier does not do is run the race detector over the sweeps, and walk the whole corpus. The
+nightly full scan does both on develop's head.
+
+**The full tier** runs on any pull request carrying the label `ci:full` (adding it re-runs the
+current head), on an unclaimed-path push, on develop's head every night
+(`.github/workflows/full-scan.yml`, 12:07 UTC, the hour the runner pool is idlest; it skips a
+head that already has a full-tier run) and on demand (`workflow_dispatch` of `pr.yml` on any
+ref, with a `tier` input that defaults to full). It is the queue tier without the economies:
+the race-enabled suite over the whole corpus (`make test-shard`), and it downloads the OMG
+corpora before the suite and runs each corpus gate as its own step, so those gates are required
+rather than skipped. CircleCI's `go-race-test`, `go-coverage` and the release workflow are the
+full scan too: a push to `main`, and a `v*` tag whose commit has no full-tier run, run
+everything there, over the whole corpus, with `-race`.
+
+**The corpus subset.** The tests that sweep every model under `examples/` (the committed models
+and the downloaded OMG corpora) honour `OPENSYSML_CORPUS_SUBSET`: unset, they iterate the whole
+corpus; `OPENSYSML_CORPUS_SUBSET=construct-cover` makes each iterate only the files of
+`tests/corpus/testdata/construct_cover.txt`, which between them exhibit every syntactic feature
+the whole corpus exhibits, and any other value fails the sweep. `TestConstructCover`
+(`tests/corpus`) re-derives the features over the whole corpus on every run and fails, naming
+them, when the committed list no longer covers it; re-record with
+`go test ./tests/corpus -run TestConstructCover -update-construct-cover`. No recorder flag runs
+while the variable is set, so an expectation file is never recorded from a partial sweep.
+[docs/project/construct-cover-subset.md](docs/project/construct-cover-subset.md) records the
+measured subset size and feature count and says what the switch does to each sweep.
 
 Open a pull request ready for review rather than as a draft: both run the same tier, and a draft
-is not considered until it is marked ready. The full tier is what a pull request has to pass to
-merge: the merge queue runs it, and `ci:full` runs it early when a change warrants it (a new
-goroutine, a shared cache, anything the race detector should see before the queue does).
+is not considered until it is marked ready. The queue tier is what a pull request has to pass to
+merge, and `ci:full` runs the full tier early when a change warrants it (a new goroutine, a
+shared cache, anything the race detector should see over the whole corpus before the nightly
+does).
 
-**The merge queue**, when the `develop` ruleset has one, runs the full tier once more on the
-commit it builds for each queued pull request (`refs/heads/gh-readonly-queue/develop/...`,
-the `merge_group` event): the diff is the merge group's own, `base_sha..head_sha`, the run is
-never a draft, and `Build and test` reporting on that commit is what lets the entry merge. A
-queue commit therefore gets at least the checks a ready pull request with the same diff gets.
+**The merge queue**, when the `develop` ruleset has one, runs the queue tier on the commit it
+builds for each queued pull request (`refs/heads/gh-readonly-queue/develop/...`, the
+`merge_group` event): the diff is the merge group's own, `base_sha..head_sha`, the run is never
+a draft, and `Build and test` reporting on that commit is what lets the entry merge. A queue
+commit therefore gets at least the checks a ready pull request with the same diff gets. The Go
+test jobs are named by tier — `Go tests (…)`, `Go queue tests (…)`, `Go race tests (…)` — and
+`scripts/ci-verified-tree.py` reads the names back: CircleCI's `build-test` on `develop` skips
+the suite over a commit with a queue-tier or full-tier run, while `build-test` on `main` and a
+tag's `release` workflow accept only a full-tier run (a tag also a green `build-test` of `main`
+on the same commit); see [releasing](docs/project/releasing.md).
 
-The first job, `Changed areas`, decides the tier from the pull request's draft flag and labels,
-then runs `scripts/ci-changed-areas.sh` over its files and the rest of the jobs are gated on
-what it reports: a change confined to one client runs that client's job alone, while a change
-to the Go sources, the proto, `conformance/` or the workflows runs everything (under the full
-tier; `CI_TIER=quick` keeps the clients and docs to their own paths). A path no area claims
-turns every area on, so a new directory is over-tested rather than untested — teach the script
-about it, and add a case to `scripts/ci-changed-areas-test.sh`, which the same job runs.
+The first job, `Changed areas`, runs `scripts/ci-changed-areas.sh`, which decides the tier from
+the event, the label `ci:full` and the paths (`CI_TIER=quick|queue|full` forces it), and the
+areas from the pull request's files; the rest of the jobs are gated on what it reports: a
+change confined to one client runs that client's job alone, while a change to the Go sources,
+the proto, `conformance/` or the workflows runs everything (under the queue and full tiers;
+`CI_TIER=quick` keeps the clients and docs to their own paths). A path no area claims turns
+every area on, so a new directory is over-tested rather than untested — teach the script about
+it, and add a case to `scripts/ci-changed-areas-test.sh`, which the same job runs.
 
 Every third-party action a workflow or composite action `uses:` is pinned to a full commit SHA
 with the release that commit is as a trailing comment (`actions/checkout@<sha> # v4.4.0`); a new
@@ -388,8 +439,9 @@ rather than only in the log. The README badge tracks this workflow.
 
 ### Required Checks
 
-PRs must pass the GitHub Actions `Build and test` check under the full tier (every push to a
-pull request that is ready for review), which requires:
+PRs must pass the GitHub Actions `Build and test` check under the queue tier (the merge queue's
+run; the full tier adds the race detector over the `examples/` sweeps and the whole corpus),
+which requires:
 - [ ] Build succeeds
 - [ ] All tests pass
 - [ ] No race conditions
@@ -459,7 +511,13 @@ When a change needs documenting:
   (`scripts/mkdocs_suite_figures.py`, run by `make docs`) splices in the figures from
   `go run -C tools ./cmd/doc-counts -site-blocks`, which counts the tree the way the gates enumerate it.
   `go run -C tools ./cmd/doc-counts -check` refuses a figure typed into one of those blocks, so adding a
-  test or a fixture is the whole change and two branches cannot conflict on a count. `README.md`
+  test or a fixture is the whole change and two branches cannot conflict on a count. The api-json
+  differential record (`docs/project/api-json-differential.md`) carries its scorecard headline,
+  per-root table and the figure columns of its gap tables the same way, as `apijson-…` blocks the
+  hook fills from `go run -C tools ./cmd/pilot-apijson-diff -site-blocks` (the committed baseline);
+  the committed rows hold only the (metaclass, property) key and the adjudication, so re-recording
+  the baseline never rewrites the page, and `TestRecordStatesTheBaselinesFigures` (`tools/referee/apijson`)
+  refuses a figure typed into a block. `README.md`
   names the gates without their counts; the one suite figure still committed there is whether
   every conformance case passes, which moves with `known_failures.txt` alone.
 - **Robustness cases are registered per feature.** A runtime failure-mode subtest goes in

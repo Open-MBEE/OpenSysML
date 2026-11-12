@@ -490,11 +490,12 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Look for a green full-tier run of this tree
+          name: Look for a green run of this tree (queue or full tier on a branch, full tier on a tag)
           environment:
             RELEASE_REHEARSAL: << pipeline.parameters.release_rehearsal >>
           command: |
             set -- --sha "$CIRCLE_SHA1"
+            if [ -n "${CIRCLE_BRANCH:-}" ]; then set -- "$@" --branch "$CIRCLE_BRANCH"; fi
             if [ -n "${CIRCLE_TAG:-}" ]; then set -- "$@" --tag "$CIRCLE_TAG"; fi
             if [ "$RELEASE_REHEARSAL" = "true" ]; then set -- "$@" --rehearsal; fi
             if ! python3 scripts/ci-verified-tree.py "$@" > verified-tree.txt; then
@@ -562,7 +563,7 @@ jobs:
             fi
             make proto-breaking BUF_BREAKING_REF="$baseline"
 
-      # Everything below re-checks what the full tier already proved on a verified tree; the two
+      # Everything below re-checks what the queue or full tier already proved on a verified tree; the two
       # checks above stay ahead of the halt because a tag has verdicts no branch run reaches.
       - halt-if-verified
 
@@ -704,7 +705,7 @@ jobs:
   go-race-test:
     executor: go-executor
     resource_class: large
-    parallelism: 18
+    parallelism: 19
     steps:
       - checkout
       - rehearsal-checkout-tag
@@ -727,7 +728,7 @@ jobs:
             set -o pipefail
             # One entry per node; a quoted entry runs its shards in turn (tests/hygiene keeps
             # the entries the shard list of scripts/race-shard.sh).
-            shards=(runtime runtime-corpus model smt "corpus codegen" corpus-roundtrip corpus-apijson export export-fixtures export-corpus export-settled graph translate grpc tools rest "migrate runtime-exploration" cli)
+            shards=(runtime runtime-corpus model smt "corpus codegen" corpus-roundtrip corpus-apijson export export-library export-examples export-corpus export-settled graph translate grpc tools rest "migrate runtime-exploration" cli)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
               echo "error: parallelism is $CIRCLE_NODE_TOTAL, but the shard array has ${#shards[@]} nodes" >&2
               exit 1
@@ -743,7 +744,8 @@ jobs:
             corpus='^Test(ExploreWithIsExploreOverTheConformanceCorpus|CheckAgreesWithExploreOverTheConformanceCorpus|CheckWitnessesReplayOverTheConformanceCorpus|ExecutionConformance|ExecutionConformanceUnderPolicies)$'
             exportcorpus='^TestAPIJSONWritersNeverEmitNameReferences$'
             exportsettled='^TestSettledCollectionsAreWhatReconcilingWouldFind$'
-            exportfixtures='^Test(RoundTripIsLossless|APIJSONWriteReadWriteIsByteIdenticalForConvertFixtures|ModelWritesOnlyItsUnreferencedDocuments|APIJSONInverseOverAllFixtures|GoldenConversions)$'
+            exportlibrary='^TestLibraryFilesComeBackFromTheGraphAlone$'
+            exportexamples='^TestExamplesCorpusInvariants$'
             # The Makefile's RACE_CORPUS_ROUNDTRIP and RACE_CORPUS_APIJSON; tests/hygiene keeps them the same.
             corpusroundtrip='^TestCorpusRoundTrip$'
             corpusapijson='^TestCorpusAPIJSONRoundTrip$'
@@ -753,14 +755,15 @@ jobs:
               runtime-exploration) go test -json -race -pgo=off -timeout 30m -run "$exploration" $pkgs | stream ;;
               runtime-corpus) go test -json -race -pgo=off -timeout 30m -run "$corpus" -skip "$exploration" $pkgs | stream ;;
               runtime) go test -json -race -pgo=off -timeout 30m -skip "$corpus" $pkgs | stream ;;
-              # The Makefile's RACE_EXPORT_CORPUS, RACE_EXPORT_SETTLED and RACE_EXPORT_FIXTURES; tests/hygiene keeps them
-              # the same. tests/export whole passed 55 minutes under -race; its remainder alone ran 37, so the fourth split.
+              # The Makefile's RACE_EXPORT_CORPUS, RACE_EXPORT_SETTLED, RACE_EXPORT_LIBRARY and RACE_EXPORT_EXAMPLES; tests/hygiene
+              # keeps them the same. tests/export whole passed 55 minutes under -race; its remainder ran 37, so five shards.
               export-corpus) go test -json -race -pgo=off -timeout 55m -run "$exportcorpus" $pkgs | stream ;;
               # Four settled models at once peak at 8.2-8.4 GB under -race, this class's 8 GB (killed on
               # develop at #2014); two at once peak at 6.5 GB for a tenth more wall time.
               export-settled) go test -json -race -pgo=off -timeout 55m -parallel 2 -run "$exportsettled" $pkgs | stream ;;
-              export-fixtures) go test -json -race -pgo=off -timeout 55m -run "$exportfixtures" $pkgs | stream ;;
-              export) go test -json -race -pgo=off -timeout 55m -skip "$exportcorpus|$exportsettled|$exportfixtures" $pkgs | stream ;;
+              export-library) go test -json -race -pgo=off -timeout 55m -run "$exportlibrary" $pkgs | stream ;;
+              export-examples) go test -json -race -pgo=off -timeout 55m -run "$exportexamples" $pkgs | stream ;;
+              export) go test -json -race -pgo=off -timeout 55m -skip "$exportcorpus|$exportsettled|$exportlibrary|$exportexamples" $pkgs | stream ;;
               # tests/corpus's two round trips over every example ran about 20 minutes each under -race.
               corpus-roundtrip) go test -json -race -pgo=off -timeout 55m -run "$corpusroundtrip" $pkgs | stream ;;
               corpus-apijson) go test -json -race -pgo=off -timeout 55m -run "$corpusapijson" $pkgs | stream ;;
@@ -808,7 +811,7 @@ jobs:
     executor: go-executor
     resource_class: large
     # The race test's shards but the runtime's corpus ones: without -race the runtime runs whole in about 19 minutes.
-    parallelism: 18
+    parallelism: 19
     steps:
       - checkout
       - rehearsal-checkout-tag
@@ -831,7 +834,7 @@ jobs:
           command: |
             # tests/export and tests/corpus whole overran 30 minutes, so make coverage-shard splits them by test name.
             # cmd/sysml has its own node: its exploration budgets took 23-30 minutes on the rest node.
-            shards=(runtime model smt corpus corpus-roundtrip corpus-apijson export export-fixtures export-corpus export-settled graph codegen translate grpc tools rest migrate cli)
+            shards=(runtime model smt corpus corpus-roundtrip corpus-apijson export export-library export-examples export-corpus export-settled graph codegen translate grpc tools rest migrate cli)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
               echo "error: parallelism is $CIRCLE_NODE_TOTAL, but the Makefile's COVERAGE_SHARDS has ${#shards[@]} shards" >&2
               exit 1
@@ -4547,8 +4550,8 @@ workflows:
               only: [main, develop]
             tags:
               ignore: /.*/
-      # Every job below attaches its verdict; a tree the pull-request workflow (or the merge
-      # queue) proved runs only the coverage shards, the scan and what they consume.
+      # Every job below attaches its verdict; a tree the merge queue (queue tier) or the full tier
+      # proved runs only the coverage shards, the scan and what they consume.
       - verify-tree:
           name: Verified tree check
           filters: *integration-branches
@@ -4654,7 +4657,7 @@ workflows:
         - << pipeline.parameters.release_rehearsal >>
         - matches: {pattern: "^v.*", value: << pipeline.git.tag >>}
     jobs:
-      # A tag on a commit main's build-test (or the merge queue) proved skips the suite and client
+      # A tag on a commit main's build-test (or a full-tier GitHub run) proved skips the suite and client
       # tests, which nothing here reads; a rehearsal or an unverified commit runs everything.
       - verify-tree:
           name: Verified tree check

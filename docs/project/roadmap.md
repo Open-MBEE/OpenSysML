@@ -220,9 +220,9 @@ A tag cannot be cut over a corpus regression. Pull requests run one CI, the GitH
 workflow `.github/workflows/pr.yml`. Its `changes` job decides the tier — *quick* for a push to a pull
 request, draft or ready; *full* for a merge-queue commit, a pull request labelled `ci:full`, or a push
 touching a package where `-race` has found bugs (`scripts/ci-changed-areas.sh`) — and which of the
-client, editor and documentation jobs the diff touches; the Go suite runs sharded (nineteen race
+client, editor and documentation jobs the diff touches; the Go suite runs sharded (twenty race
 shards in the full tier — `runtime`, `runtime-corpus`, `runtime-exploration`, `model`, `smt`, `corpus`,
-`corpus-roundtrip`, `corpus-apijson`, `export`, `export-fixtures`, `export-corpus`, `export-settled`, `graph`, `codegen`,
+`corpus-roundtrip`, `corpus-apijson`, `export`, `export-library`, `export-examples`, `export-corpus`, `export-settled`, `graph`, `codegen`,
 `translate`, `grpc`, `rest`, `migrate` and `cli`, #1440 — and ten race-free groups of them in the quick tier) with every corpus
 required — `OPENSYSML_REQUIRE_TRAINING_CORPUS`, `_PILOT_CORPORA`, `_SPEC_EXAMPLES`, `_PSSM_SUITE`,
 `_SYSML_V1TOV2`, `_FUML_SUITE`, `_PILOT_LIBRARY_XMI`, `_SMT`, `_WASM` and `_REFERENCE_FMUS` set to

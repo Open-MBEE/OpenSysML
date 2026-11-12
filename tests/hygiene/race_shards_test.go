@@ -26,13 +26,16 @@ const (
 
 var (
 	shardScriptList    = regexp.MustCompile(`(?m)^shards='([^']+)'$`)
+	sweepScriptList    = regexp.MustCompile(`(?m)^sweeps='([^']+)'$`)
 	makefileCorpus     = regexp.MustCompile(`(?m)^RACE_RUNTIME_CORPUS := (.+)$`)
 	makefileExport     = regexp.MustCompile(`(?m)^RACE_EXPORT_CORPUS := (.+)$`)
 	circleExport       = regexp.MustCompile(`(?m)^\s*exportcorpus='([^']+)'$`)
 	makefileSettled    = regexp.MustCompile(`(?m)^RACE_EXPORT_SETTLED := (.+)$`)
 	circleSettled      = regexp.MustCompile(`(?m)^\s*exportsettled='([^']+)'$`)
-	makefileFixtures   = regexp.MustCompile(`(?m)^RACE_EXPORT_FIXTURES := (.+)$`)
-	circleFixtures     = regexp.MustCompile(`(?m)^\s*exportfixtures='([^']+)'$`)
+	makefileLibrary    = regexp.MustCompile(`(?m)^RACE_EXPORT_LIBRARY := (.+)$`)
+	circleLibrary      = regexp.MustCompile(`(?m)^\s*exportlibrary='([^']+)'$`)
+	makefileExamples   = regexp.MustCompile(`(?m)^RACE_EXPORT_EXAMPLES := (.+)$`)
+	circleExamples     = regexp.MustCompile(`(?m)^\s*exportexamples='([^']+)'$`)
 	makefileRoundTrip  = regexp.MustCompile(`(?m)^RACE_CORPUS_ROUNDTRIP := (.+)$`)
 	circleRoundTrip    = regexp.MustCompile(`(?m)^\s*corpusroundtrip='([^']+)'$`)
 	makefileAPIJSON    = regexp.MustCompile(`(?m)^RACE_CORPUS_APIJSON := (.+)$`)
@@ -203,19 +206,22 @@ func TestRuntimeCorpusPatternPartitionsTheRuntimeTests(t *testing.T) {
 	}
 }
 
-// TestExportCorpusPatternsPartitionTheExportTests: the export, export-fixtures, export-corpus and
-// export-settled shards are tests/export split the same way by RACE_EXPORT_FIXTURES, RACE_EXPORT_CORPUS and
-// RACE_EXPORT_SETTLED, which no test may match both of.
+// TestExportCorpusPatternsPartitionTheExportTests: the five export shards are tests/export split the
+// same way by the four RACE_EXPORT_* patterns, of which no test may match more than one.
 func TestExportCorpusPatternsPartitionTheExportTests(t *testing.T) {
 	corpus, tests := corpusPatternPartitions(t, "RACE_EXPORT_CORPUS", makefileExport, circleExport, "exportcorpus=", raceExportDir, 50)
 	settled, _ := corpusPatternPartitions(t, "RACE_EXPORT_SETTLED", makefileSettled, circleSettled, "exportsettled=", raceExportDir, 50)
-	fixtures, _ := corpusPatternPartitions(t, "RACE_EXPORT_FIXTURES", makefileFixtures, circleFixtures, "exportfixtures=", raceExportDir, 50)
+	library, _ := corpusPatternPartitions(t, "RACE_EXPORT_LIBRARY", makefileLibrary, circleLibrary, "exportlibrary=", raceExportDir, 50)
+	examples, _ := corpusPatternPartitions(t, "RACE_EXPORT_EXAMPLES", makefileExamples, circleExamples, "exportexamples=", raceExportDir, 50)
 	for _, name := range tests {
-		if corpus.MatchString(name) && settled.MatchString(name) {
-			t.Errorf("%s falls to both export-corpus and export-settled", name)
+		matches := 0
+		for _, pattern := range []*regexp.Regexp{corpus, settled, library, examples} {
+			if pattern.MatchString(name) {
+				matches++
+			}
 		}
-		if fixtures.MatchString(name) && (corpus.MatchString(name) || settled.MatchString(name)) {
-			t.Errorf("%s falls to export-fixtures and another export shard", name)
+		if matches > 1 {
+			t.Errorf("%s falls to %d by-name export shards", name, matches)
 		}
 	}
 }
@@ -311,3 +317,28 @@ func topLevelTests(t *testing.T, dir string) []string {
 }
 
 func itoa(n int) string { return strconv.Itoa(n) }
+
+// TestSweepShardsAreByNameRaceShards: the examples/ sweeps `scripts/race-shard.sh --sweeps` names
+// are by-test-name race shards (the queue tier runs them race-free), and make test-queue reads that list.
+func TestSweepShardsAreByNameRaceShards(t *testing.T) {
+	shards := raceShards(t)
+	sweeps := strings.Fields(firstSubmatch(t, sweepScriptList, readRepoFile(t, "scripts/race-shard.sh"), "scripts/race-shard.sh sweeps="))
+	if len(sweeps) == 0 {
+		t.Fatal("scripts/race-shard.sh names no sweep shards")
+	}
+	for _, sweep := range sweeps {
+		if !slices.Contains(shards, sweep) {
+			t.Errorf("sweep shard %s is not a race shard %v", sweep, shards)
+		}
+		if !isCorpusShard(sweep) {
+			t.Errorf("sweep shard %s is a whole package, so the queue tier would run its race-prone tests without -race", sweep)
+		}
+	}
+	makefile := readRepoFile(t, "Makefile")
+	if !strings.Contains(makefile, "scripts/race-shard.sh --sweeps") {
+		t.Error("Makefile test-queue does not read the sweep shards from scripts/race-shard.sh --sweeps")
+	}
+	if !strings.Contains(makefile, "OPENSYSML_CORPUS_SUBSET=construct-cover $(MAKE) --no-print-directory test-shard SHARD=$$shard TEST_SHARD_RACE=") {
+		t.Error("Makefile test-queue does not run a sweep shard race-free over the construct-cover subset")
+	}
+}

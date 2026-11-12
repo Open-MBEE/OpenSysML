@@ -12,6 +12,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/corpussubset"
 )
 
 // sharedLibraryBase loads the bundled library into one index and freezes it, so
@@ -56,7 +57,7 @@ func sharedIndexCorpus(t *testing.T) []string {
 	if len(out) == 0 {
 		t.Fatal("no corpus files to resolve against the library")
 	}
-	return out
+	return corpussubset.Must(t, "../../..").FilterPaths("../../../examples", out)
 }
 
 // analyse adds path to idx as a model's document and returns the diagnostics the

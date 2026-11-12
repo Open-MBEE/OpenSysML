@@ -6,13 +6,9 @@
 # Prints one `area=true|false` line per area, in the shape a GitHub Actions job
 # output file takes. A file no area claims turns every area on, so a path this
 # script has not been taught about is never silently untested.
-#
-# The first line is the tier, `tier=quick|full`: quick (the Go suite without -race) for a
-# pull-request push, full when the push touches a package where -race has found bugs (the
-# list beside race_pattern) or a path no area claims. CI_TIER=full|quick forces the tier
-# (the workflow forces full for a merge-queue commit and the label ci:full). The quick tier
-# drops the fan-out from a service change to every client, editor and the docs: each of
-# those then runs only when its own paths change. The full tier keeps the fan-out.
+
+# The first line is the tier, `tier=quick|queue|full` (CONTRIBUTING.md, "GitHub Actions"): queue for CI_EVENT
+# merge_group, full for schedule, workflow_dispatch, CI_FULL_LABEL=true or an unclaimed path, else quick; CI_TIER forces it.
 set -euo pipefail
 
 base=${1:?usage: ci-changed-areas.sh <base> [head]}
@@ -44,9 +40,9 @@ hygiene_pattern='(^|/)testdata/|\.golden\.|_test\.go$'
 # Go tests (the referees' provenance and figure checks, doc-counts) read the committed
 # baselines and figure pages under docs/project, so a change there runs Go as well as docs.
 project_inputs_pattern='^docs/project/.*\.(json|md)$'
-# The derived-property differential needs Java and the pinned pilot jar, so it runs only on what can
-# move its baseline (which records no writer digest): writer, referee, bridge, pin, baseline, this job.
-apijson_pattern='^(internal/translate/export/|tools/referee/apijson/|tools/referee/diff/|tools/oracle/baseline/|scripts/pilot-json-exporter/|scripts/pilot-pin\.sh$|scripts/download-pilot-validator\.sh$|scripts/download-pilot-json-exporter\.sh$|docs/project/api-json-differential-baseline\.json$|\.github/workflows/pr\.yml$|\.github/actions/corpora/)'
+# The derived-property differential (Java, the pinned pilot jar, 18-25 minutes) runs on what can move its baseline
+# (writer, referee, bridge, pin, baseline, corpora), not on the workflow; the queue tier skips it (the push ran it).
+apijson_pattern='^(internal/translate/export/|tools/referee/apijson/|tools/referee/baseline/|tools/referee/diff/|tools/oracle/baseline/|scripts/pilot-json-exporter/|scripts/pilot-pin\.sh$|scripts/download-pilot-validator\.sh$|scripts/download-pilot-json-exporter\.sh$|docs/project/api-json-differential/|\.github/actions/corpora/)'
 
 known_pattern="$service_pattern|$docs_pattern|$node_pattern|$python_pattern|$java_pattern|$rust_pattern|$julia_pattern|$matlab_pattern|$vscode_pattern|$jupyterlab_pattern|$emacs_pattern|$mdk_pattern|$syson_pattern|^\.agents/|^\.gitignore$|^\.gitattributes$|^LICENSE|^packaging/"
 
@@ -70,15 +66,17 @@ emit() {
   echo "$area=$enabled"
 }
 
-# Packages -race has caught out (the race fixes in the history: runtime coroutines, SMT solver processes, gRPC
-# model cache, REPL lock, LSP goroutines, workspace index and library parse, export memos, settled symbol index).
-race_pattern='^(internal/exec/runtime/|internal/exec/smt/|internal/frontend/grpc/|internal/frontend/repl/|internal/frontend/lsp/|internal/workspace/|internal/translate/export/|internal/semantic/symbols/|tests/grpc/|cmd/sysml-grpc/)'
-
 tier=${CI_TIER:-}
 case "$tier" in
-  full|quick) ;;
+  full|queue|quick) ;;
   *)
-    if [[ "$everything" = true ]] || matches "$race_pattern"; then tier=full; else tier=quick; fi
+    case "${CI_EVENT:-pull_request}" in
+      merge_group) tier=queue ;;
+      schedule|workflow_dispatch) tier=full ;;
+      *)
+        if [[ "${CI_FULL_LABEL:-false}" = true || "$everything" = true ]]; then tier=full; else tier=quick; fi
+        ;;
+    esac
     ;;
 esac
 emit tier "$tier"
@@ -87,7 +85,7 @@ fanout=$service
 [[ "$tier" = quick ]] && fanout=false
 
 emit go "$( { [[ "$service" = true ]] || matches "$hygiene_pattern" || matches "$project_inputs_pattern"; } && echo true || echo false)"
-emit apijson "$( { [[ "$everything" = true && "$fanout" = true ]] || matches "$apijson_pattern"; } && echo true || echo false)"
+emit apijson "$( [[ "$tier" != queue ]] && { [[ "$everything" = true && "$fanout" = true ]] || matches "$apijson_pattern"; } && echo true || echo false)"
 emit docs "$( { [[ "$fanout" = true ]] || matches "$docs_pattern"; } && echo true || echo false)"
 emit node "$( { [[ "$fanout" = true ]] || matches "$node_pattern"; } && echo true || echo false)"
 # The client-manifest/Python version lockstep tests live in the Python suite,

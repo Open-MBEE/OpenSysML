@@ -326,7 +326,39 @@ func (r *Renderer) declaredRouteOf(view, elem *symbols.Symbol, decl ast.Node, ou
 	if !ok {
 		return nil
 	}
+	if !annotatable(edge) {
+		return r.unsteeredRoute(view, edge, out)
+	}
 	return r.routeOf(view, edge, out)
+}
+
+// annotatable reports whether an annotation can be stated about sym at all: in a view's
+// body by its qualified name, or in its own body where its production admits one.
+func annotatable(sym *symbols.Symbol) bool {
+	if sym == nil || sym.Decl == nil {
+		return false
+	}
+	if qualifiedName(sym) {
+		return true
+	}
+	edge, isEdge := sym.Decl.(*ast.SuccessionEdge)
+	if !isEdge || sym.OwnerScope == nil || sym.OwnerScope.Node() == nil {
+		return true
+	}
+	return ast.SuccessionAdmitsBody(sym.OwnerScope.Node(), edge)
+}
+
+// qualifiedName reports whether sym and every owner up to its document declare a name.
+func qualifiedName(sym *symbols.Symbol) bool {
+	if sym.Name == "" {
+		return false
+	}
+	for scope := sym.OwnerScope; scope != nil && scope.Owner() != nil; scope = scope.Owner().OwnerScope {
+		if scope.Owner().Name == "" {
+			return false
+		}
+	}
+	return true
 }
 
 // declaredNameSynthesized reports whether a migration made up the name of the
