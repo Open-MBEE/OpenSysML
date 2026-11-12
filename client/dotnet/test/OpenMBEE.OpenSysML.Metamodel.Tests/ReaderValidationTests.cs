@@ -191,6 +191,43 @@ public sealed class ReaderValidationTests : IDisposable
         Assert.Throws<ObjectDisposedException>(() => MetamodelGraph.ReadJson([element]));
     }
 
+    [Fact]
+    public void NestingAsDeepAsJsonDocumentParsesByDefaultReadsFromEverySource()
+    {
+        var json = Encoding.UTF8.GetBytes(Nested(64));
+        foreach (var options in Options())
+        {
+            CheckSources(json, options, read => Assert.Equal("e", read()["e"].Id));
+        }
+    }
+
+    [Fact]
+    public void DeeperNestingIsAMalformedDocumentRatherThanTheEndOfTheStack()
+    {
+        // A caller's own document can be parsed to any depth; following 20,000 levels recursively ended the process.
+        using var justDeeper = ParseDeep(Nested(65));
+        using var deep = ParseDeep(Nested(20_000));
+        foreach (var options in Options())
+        {
+            foreach (var document in new[] { justDeeper, deep })
+            {
+                var failure = Assert.Throws<MalformedDocumentException>(() => MetamodelGraph.ReadJson(document, options));
+                Assert.Contains("more than 64 deep", failure.Message, StringComparison.Ordinal);
+            }
+
+            Assert.Throws<MalformedDocumentException>(() => MetamodelGraph.ReadJson(deep.RootElement.EnumerateArray(), options));
+        }
+    }
+
+    /// <summary>One element in an array, nesting objects and arrays this deep through an owned value and an extension.</summary>
+    private static string Nested(int depth)
+    {
+        var arrays = new string('[', depth - 2) + new string(']', depth - 2);
+        return """[{"@id":"e","@type":"Element","ownedRelationship":""" + arrays + ""","vendor:data":""" + arrays + "}]";
+    }
+
+    private static JsonDocument ParseDeep(string json) => JsonDocument.Parse(json, new JsonDocumentOptions { MaxDepth = 20_000 });
+
     private static ReadOptions[] Options() =>
     [
         new(),

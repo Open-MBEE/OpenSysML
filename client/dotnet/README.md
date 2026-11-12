@@ -1323,7 +1323,8 @@ dotnet run --project client/dotnet/samples/MetamodelReader -c Release -- client/
   `MalformedDocumentException`: not JSON, an item that is no object, an element without a string `@id`
   or `@type`, two elements with one `@id`, invalid UTF-8, an undecodable Unicode property name,
   `@id` or `@type`, a key twice in any object (including ignored extensions and envelope metadata),
-  or supertypes that form a cycle. These checks apply to every source overload.
+  objects and arrays nested more than 64 deep (the most `JsonDocument` parses by default), or
+  supertypes that form a cycle. These checks apply to every source overload.
   A value that does not fit its property, of the wrong JSON kind, a literal its enumeration lacks, an
   integer beyond 32 bits, a real that is not finite, an undecodable Unicode string (including a
   reference target) or a null in an array, fails only reads of that
