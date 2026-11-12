@@ -193,10 +193,7 @@ func (m *migration) opaqueValue(v, scope *sysmlv1.Element, want wanted) (expr st
 	if problem := m.invisible(refs, scope); problem != "" {
 		return "", false, "opaque expression " + problem + langNote(lang)
 	}
-	visible, _ := m.visibleFrom(scope)
-	body = m.renamedRoots(body, refs, visible, nil)
-	refs, _ = exprRefs(body)
-	body = m.renamedSequenceMembers(body, refs, scope)
+	body = m.renamedReferences(body, refs, scope)
 	if m.selfContext(scope) != nil {
 		// Inside a def the classifier's features read through its context parameter.
 		refs, _ = exprRefs(body)
@@ -879,8 +876,8 @@ func (m *migration) viaRenamedRoot(r reference, visible, hidden map[string]*sysm
 	return ce, ""
 }
 
-// renamedSequenceMembers spells each resolved interaction member by its allocated scenario name.
-func (m *migration) renamedSequenceMembers(text string, refs []reference, scope *sysmlv1.Element) string {
+// renamedReferences spells renamed roots and interaction members from their source references.
+func (m *migration) renamedReferences(text string, refs []reference, scope *sysmlv1.Element) string {
 	visible, _ := m.visibleFrom(scope)
 	type replacement struct {
 		start, end int
@@ -890,6 +887,9 @@ func (m *migration) renamedSequenceMembers(text string, refs []reference, scope 
 	for _, r := range refs {
 		if r.local != "" {
 			continue
+		}
+		if root, _ := m.viaRenamedRoot(r, visible, nil); root != nil && r.firstLen != 0 {
+			byStart[r.start] = replacement{r.start, r.start + r.firstLen, writeName(m.nameOf(root))}
 		}
 		for i, part := range r.steps {
 			prefix := r
@@ -909,31 +909,6 @@ func (m *migration) renamedSequenceMembers(text string, refs []reference, scope 
 	}
 	sort.Slice(replacements, func(i, j int) bool { return replacements[i].start > replacements[j].start })
 	for _, rp := range replacements {
-		text = text[:rp.start] + rp.name + text[rp.end:]
-	}
-	return text
-}
-
-// renamedRoots rewrites, in text, each reference whose first step spells the
-// source name of a root avoidLibraryRoots renamed, to the name it is written
-// as. A nearer element answering to the name keeps the spelling, and so does
-// a reference that resolves only through the library package the root hides.
-func (m *migration) renamedRoots(text string, refs []reference, visible, hidden map[string]*sysmlv1.Element) string {
-	type replacement struct {
-		start, end int
-		name       string
-	}
-	var reps []replacement
-	for _, r := range refs {
-		if r.local != "" || len(r.steps) == 0 || r.steps[0].chain || r.firstLen == 0 {
-			continue
-		}
-		if ce, _ := m.viaRenamedRoot(r, visible, hidden); ce != nil {
-			reps = append(reps, replacement{r.start, r.start + r.firstLen, writeName(m.names[ce])})
-		}
-	}
-	sort.Slice(reps, func(i, j int) bool { return reps[i].start > reps[j].start })
-	for _, rp := range reps {
 		text = text[:rp.start] + rp.name + text[rp.end:]
 	}
 	return text
