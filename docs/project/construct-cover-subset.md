@@ -77,7 +77,9 @@ and `FilterPaths` answer "iterate this file?". A file outside `examples/` — th
   recorded from a partial sweep.
 - `TestTrainingExamplesSemanticErrors` ignores the variable: it asserts the whole training
   corpus clean in one batch load, which is cheap, and an assertion over part of a corpus asserts
-  nothing.
+  nothing. So does `TestDifferentialTrainingCorpus` (`internal/exec/solve`): its input is the
+  training models that declare conditions, a semantic selection the syntactic cover does not
+  preserve, and the whole run takes seconds.
 - `TestConstructCover` ignores the variable too, since it exists to check the list against the
   whole corpus.
 

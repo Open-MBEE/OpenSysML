@@ -20,7 +20,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
-	"github.com/Open-MBEE/OpenSysML/tests/testutil/corpussubset"
 )
 
 const (
@@ -381,8 +380,9 @@ func libraryDocuments(idx *symbols.Index) []string {
 // which is not vendored: it skips while the corpus is absent unless CI declares
 // it mandatory.
 func TestDifferentialTrainingCorpus(t *testing.T) {
-	subset := corpussubset.Must(t, "../../..")
-	files := subset.FilterPaths("../../../examples", trainingModels(t))
+	// The gate's input is the training models that declare conditions, a selection the
+	// syntactic construct cover does not preserve, so OPENSYSML_CORPUS_SUBSET is ignored.
+	files := trainingModels(t)
 	gate := newGate(t, "OMG training corpus")
 
 	for _, path := range files {
@@ -401,7 +401,7 @@ func TestDifferentialTrainingCorpus(t *testing.T) {
 			}
 		})
 	}
-	if gate.summary.files == 0 && subset.Whole() {
+	if gate.summary.files == 0 {
 		t.Fatalf("no training model declares conditions: %s", trainingDir)
 	}
 	gate.summary.report(t)
