@@ -656,8 +656,8 @@ jobs:
       - name: Xpect oracle reproduces its baseline
         run: go run -C tools ./cmd/pilot-xpect -check
 
-  # The api-json baseline records no writer digest, so re-running the differential (Java, pilot jar, corpora; 18-25 min) proves
-  # it current: full tier only (nightly, ci:full), on what can move it; a stale baseline is re-recorded via ci:rebaseline.
+  # The api-json baseline records no writer digest, so re-running the differential (Java, pilot jar, corpora; 18-25 min) on
+  # what can move it proves it current; the queue tier skips it (the push proved the diff) and the nightly reproduces it.
   apijson-differential:
     name: Derived-property differential reproduces its baseline
     needs: changes

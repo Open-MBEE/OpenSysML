@@ -279,17 +279,18 @@ needs to require.
 
 | Event | Tier | Race detector | Corpus the `examples/` sweeps walk | Derived-property differential |
 |---|---|---|---|---|
-| A push to a pull request | quick | none | whole | no |
+| A push to a pull request | quick | none | whole | on what can move its baseline |
 | The merge queue's commit (`merge_group`) | queue | every shard but the sweeps | the committed construct-cover subset | no |
-| The label `ci:full`, an unclaimed path, the nightly full scan, `workflow_dispatch` | full | every shard | whole | yes, on what can move its baseline |
+| The label `ci:full`, an unclaimed path, the nightly full scan, `workflow_dispatch` | full | every shard | whole | on what can move its baseline (everything on an unclaimed path) |
 
 The derived-property differential (`Derived-property differential reproduces its baseline`,
 `go run -C tools ./cmd/pilot-apijson-diff -check`: Java, the pinned pilot jar, 18–25 minutes)
-is a full-tier job alone, so the api-json baseline is reproduced every night over `develop`
-and on `ci:full`, never on a pull-request push or in the merge queue. A baseline the nightly
-finds stale is re-recorded through the `ci:rebaseline` workflow
-(`.github/workflows/rebaseline.yml`), and a change to the writer or the referees that should
-be checked before it lands carries `ci:full`.
+runs on a pull-request push whose diff can move the api-json baseline — the writer, the
+referees, the pilot bridge and pin, the baseline, the corpora action, not the workflow file —
+and under the full tier, so the baseline is also reproduced every night over `develop`. The
+queue tier skips it: the merge group's diff is the one the pull request's push already ran it
+over, and the nightly catches a baseline that `develop` moved under it, which is then
+re-recorded through the `ci:rebaseline` workflow (`.github/workflows/rebaseline.yml`).
 
 The `examples/` sweeps are the tests that parse and export every model under `examples/` (the
 committed models, the OMG training and pilot corpora and the specification examples, some 920

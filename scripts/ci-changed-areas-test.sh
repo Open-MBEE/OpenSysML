@@ -150,7 +150,8 @@ case_ install-script docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,
 case_ install-script-windows docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode install.ps1
 case_ action docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode action.yml
 case_ conformance docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode conformance/scenarios/01-server-info.json
-case_ workflow apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/workflows/pr.yml
+# A workflow-only change ran the twenty-minute differential for nothing, so pr.yml is not among its paths.
+case_ workflow docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/workflows/pr.yml
 case_ other-workflow docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/workflows/oracle-reproduction.yml
 case_ dependabot docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/dependabot.yml
 # The npm runner is tested and its lockfile audited in the Go static job, so its package is a service path.
@@ -171,7 +172,7 @@ case_ unclaimed apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,pyth
 # The quick tier runs the Go suite for a service change but not every client; a
 # client's or the docs' own paths still run it, and an unclaimed path is only Go.
 quick_case_ go-source go internal/syntax/parser/parser.go
-quick_case_ apijson-writer go internal/translate/export/api_json_absence.go
+quick_case_ apijson-writer apijson,go internal/translate/export/api_json_absence.go
 quick_case_ proto go api/proto/sysml.proto
 quick_case_ workflow go .github/workflows/pr.yml
 quick_case_ unclaimed go some-new-top-level/thing.txt
@@ -206,8 +207,8 @@ tier_case_ symbols quick internal/semantic/symbols/index.go
 tier_case_ unclaimed full some-new-top-level/thing.txt
 tier_case_ parser-and-runtime quick internal/syntax/parser/parser.go internal/exec/runtime/executor.go
 
-# The derived-property differential runs under the full tier alone: a writer change on a pull-request push
-# (quick) or in the merge queue (queue) does not run it; the label ci:full, the nightly and a dispatch do.
+# The derived-property differential runs on a pull-request push (quick, on its paths) and under the full tier,
+# never in the merge queue: the push already proved the same diff, and the nightly reproduces the baseline.
 queue_case_() {
   CI_TIER=queue case_ "$@"
 }
@@ -226,11 +227,14 @@ area_for_event_() {
   fi
 }
 tier_case_ apijson-writer quick internal/translate/export/api_json_absence.go
-area_for_event_ pull_request false apijson false
+area_for_event_ pull_request false apijson true
 area_for_event_ merge_group false apijson false
 area_for_event_ pull_request true apijson true
 area_for_event_ schedule false apijson true
 area_for_event_ workflow_dispatch false apijson true
+tier_case_ workflow-only quick .github/workflows/pr.yml
+area_for_event_ pull_request false apijson false
+area_for_event_ merge_group false apijson false
 
 # The event decides above the paths: a merge-group commit runs the queue tier, a schedule or a
 # dispatch the full tier, a pull request labelled ci:full the full tier, whatever they touch.
