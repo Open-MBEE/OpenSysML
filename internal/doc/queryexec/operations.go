@@ -1168,12 +1168,7 @@ func (e *executor) inheritedMemberShadowsMetaclassProperty(sym *symbols.Symbol, 
 	if _, ok := e.metaclassPropertyOf(sym, property); !ok {
 		return false
 	}
-	member, ok := e.context.Model.LookupMember(sym, property)
-	if !ok {
-		return false
-	}
-	contributed, ok := e.context.Model.LookupContributedMember(sym, property)
-	return ok && contributed == member
+	return e.context.Model.InheritsValuelessMember(sym, property)
 }
 
 // isAnnotationProperty reports a property of the annotating metaclasses alone
