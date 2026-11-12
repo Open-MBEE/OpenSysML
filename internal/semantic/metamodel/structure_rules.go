@@ -7127,7 +7127,18 @@ func (e *Evaluator) structureConnectorEndpoint(element Element, endpoint string)
 	if len(features.Values) < 2 {
 		return sequence(), true, true
 	}
-	return sequence(features.Values[1:]...), true, true
+	// A connector's target is a unique list where relatedFeature keeps repeats (KerML 8.3.2.1):
+	// `connect (a, b, b)` targets b once, as the semantic model and the pilot answer.
+	seen := make(map[Element]bool, len(features.Values)-1)
+	targets := make([]Value, 0, len(features.Values)-1)
+	for _, value := range features.Values[1:] {
+		if seen[value.Element] {
+			continue
+		}
+		seen[value.Element] = true
+		targets = append(targets, value)
+	}
+	return sequence(targets...), true, true
 }
 
 func relationshipEndpointRange(class, property string) string {

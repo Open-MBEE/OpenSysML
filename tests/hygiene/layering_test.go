@@ -62,6 +62,7 @@ var packageLayer = map[string]string{
 	"internal/semantic/metamodel": "semantic",
 
 	"internal/ir/lower":                     "ir",
+	"internal/ir/program":                   "ir",
 	"internal/ir/queryplan":                 "ir",
 	"internal/ir/docplan":                   "ir",
 	"internal/ir/docplan/markup":            "ir",
@@ -212,6 +213,7 @@ var removed = map[string][]string{
 	"internal/exec/runtime":             {"internal/syntax/parser", "internal/check/passes"},
 	"internal/semantic/query":           {"internal/translate/rdf"},
 	"internal/frontend/repl":            {"internal/frontend/grpc"},
+	"internal/ir/program":               {"internal/syntax/ast"},
 }
 
 // TestPackageLayering checks the import graph against the layer tables: every

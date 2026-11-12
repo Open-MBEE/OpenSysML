@@ -1707,6 +1707,9 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		}
 		return m.connectorRelatedFeatures(sym, feature), true
 	case "relatedElement", "source", "target":
+		if m.reflectiveMetaclassConforms(sym, "Association") {
+			return m.associationRelatedTypes(sym, feature), true
+		}
 		// A connector's relatedFeature, sourceFeature and targetFeature redefine these (KerML 8.3.4.5.1).
 		if !m.reflectiveMetaclassConforms(sym, "Connector") || m.successionEndUnrepresented(sym) {
 			return nil, false
@@ -2116,6 +2119,40 @@ func (m *Model) ownedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 	return m.withDefaultMultiplicityMember(sym, members)
 }
 
+// associationRelatedTypes derives the Association::relatedType, sourceType and targetType that redefine
+// relatedElement, source and target (KerML 8.3.4.4.2): its ends' types in order, the first the source.
+func (m *Model) associationRelatedTypes(sym *symbols.Symbol, feature string) []*symbols.Symbol {
+	related := []*symbols.Symbol{}
+	for _, end := range m.EndFeatures(sym) {
+		related = append(related, m.reflectiveFeatureTypes(end)...)
+	}
+	switch feature {
+	case "source":
+		return related[:min(len(related), 1)]
+	case "target":
+		if len(related) < 2 {
+			return []*symbols.Symbol{}
+		}
+		return distinctSymbols(related[1:])
+	}
+	return related
+}
+
+// distinctSymbols keeps the first occurrence of each symbol in order: a relationship's target,
+// unlike its relatedElement, is a unique list (KerML 8.3.2.1), as the pilot derives it.
+func distinctSymbols(syms []*symbols.Symbol) []*symbols.Symbol {
+	seen := make(map[*symbols.Symbol]bool, len(syms))
+	out := make([]*symbols.Symbol, 0, len(syms))
+	for _, sym := range syms {
+		if seen[sym] {
+			continue
+		}
+		seen[sym] = true
+		out = append(out, sym)
+	}
+	return out
+}
+
 // connectorEndRedefinition names the Connector property that redefines each Relationship end property.
 var connectorEndRedefinition = map[string]string{"relatedElement": "relatedFeature", "source": "sourceFeature", "target": "targetFeature"}
 
@@ -2135,7 +2172,7 @@ func (m *Model) connectorRelatedFeatures(sym *symbols.Symbol, feature string) []
 		}
 	case "targetFeature":
 		if len(related) > 1 {
-			return related[1:]
+			return distinctSymbols(related[1:])
 		}
 		return nil
 	}
