@@ -181,8 +181,9 @@ func (m *Model) effectiveEnds(sym *symbols.Symbol) []connectorEnd {
 }
 
 // unmaskedEnds drops ends already listed, ends another listed end redefines, and
-// ends redefining an end one listed before them redefines: two generals that
-// each redefine an ancestor's end by position hand down one end, not two.
+// ends redefining an end one listed before them redefines from another general: two
+// generals that each redefine an ancestor's end by position hand down one end, not two,
+// while one general's own ends all pass down however their redefinitions overlap.
 func (m *Model) unmaskedEnds(ends []connectorEnd) []connectorEnd {
 	masked := make(map[*symbols.Symbol]bool)
 	for _, end := range ends {
@@ -191,17 +192,23 @@ func (m *Model) unmaskedEnds(ends []connectorEnd) []connectorEnd {
 		}
 	}
 	seen := make(map[connectorEnd]bool)
-	covered := make(map[*symbols.Symbol]bool)
+	covered := make(map[*symbols.Symbol]*symbols.Symbol)
 	out := make([]connectorEnd, 0, len(ends))
 	for _, end := range ends {
 		id := end.identity()
 		redefined := m.AllRedefinedFeatures(end.feature)
-		if masked[end.feature] || seen[id] || slices.ContainsFunc(redefined, func(s *symbols.Symbol) bool { return covered[s] }) {
+		coveredElsewhere := func(s *symbols.Symbol) bool {
+			owner, ok := covered[s]
+			return ok && owner != end.owner
+		}
+		if masked[end.feature] || seen[id] || slices.ContainsFunc(redefined, coveredElsewhere) {
 			continue
 		}
 		seen[id] = true
 		for _, s := range redefined {
-			covered[s] = true
+			if _, ok := covered[s]; !ok {
+				covered[s] = end.owner
+			}
 		}
 		out = append(out, end)
 	}

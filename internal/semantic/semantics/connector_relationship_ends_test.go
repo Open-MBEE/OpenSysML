@@ -147,6 +147,7 @@ func TestSpecializedAssociationRelationshipEndsFollowItsEndOrder(t *testing.T) {
 		connection def Tri { end e1 : A; end e2 : B; end e3 : C; }
 		connection def Rev :> Tri { end r3 : C2 redefines e3; end r1 : A redefines e1; }
 		connection def Sub2 :> Rev { end s2 : B redefines e2; }
+		connection def Sub :> Rev;
 	}`
 	for f, fixture := range reflectiveFixtures(t, "association-end-order.sysml", source.KindSysML, src) {
 		model := fixture.model
@@ -154,6 +155,8 @@ func TestSpecializedAssociationRelationshipEndsFollowItsEndOrder(t *testing.T) {
 			"P::Tri":  {"A B C", "A", "B C"},
 			"P::Rev":  {"C2 A A B", "C2", "A B"},
 			"P::Sub2": {"B C2 A A B", "B", "C2 A B"},
+			// With no ends of its own, Sub inherits both of Rev's, though r3 and r1 each redefine e1.
+			"P::Sub": {"C2 A A B", "C2", "A B"},
 		} {
 			if f == 1 && owner != "P::Tri" {
 				// A record keeps the type an end's redefined general declares (C beside C2) where the
