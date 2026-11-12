@@ -221,8 +221,9 @@ func TestOptimizeReportsObjectivesInDeclarationOrder(t *testing.T) {
 	}
 }
 
-// A bound no assignment attains is never reported as a value: the report says
-// there is no optimum and offers only the feasible value found.
+// A bound no assignment attains is never reported as a value: the report says there is no
+// optimum and, when the solver names the bound (z3 4.13 does, 4.8 does not), that it is approached
+// without being attained; either way only the feasible value found is offered.
 func TestOptimizeReportsABoundThatIsNotAttained(t *testing.T) {
 	requireOptimizingSolver(t)
 	s := checkSession(t, optimizeModel)
@@ -231,8 +232,11 @@ func TestOptimizeReportsABoundThatIsNotAttained(t *testing.T) {
 		t.Fatalf("status is %s, want no-optimum: %s", report.Status, strings.Join(report.Lines, "\n"))
 	}
 	wants(t, got, "! Analysis OpenBound is satisfiable, but its optimum was not established",
-		"maximize widest = `margin`: no optimum reported")
-	rejects(t, got, "is optimized")
+		"maximize widest = `margin`: no ")
+	if !strings.Contains(got, "no optimum reported") && !strings.Contains(got, "no greatest value, approaching 10.5 without attaining it") {
+		t.Errorf("the open bound is neither reported as unestablished nor as approached without being attained:\n%s", got)
+	}
+	rejects(t, got, "is optimized", "widest = `margin`: 10.5")
 }
 
 // Refusals need no solver: they are settled while translating.
