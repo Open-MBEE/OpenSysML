@@ -74,4 +74,7 @@ func TestSnapshotKeepsImportAll(t *testing.T) {
 		t.Fatalf("restored WildcardImportsOf(App) = %+v, want one `import all`", got)
 	}
 	wantNamed(t, restored, "App::P", 1)
+	if purge, derive := restored.importersToRefresh(nil, false); len(purge) != 0 || len(derive) != 0 {
+		t.Errorf("restored index re-derives %v and purges %v, want its settled re-exports kept", derive, purge)
+	}
 }
