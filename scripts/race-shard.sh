@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Prints the root-module package paths assigned to one race-test shard.
-# Usage: scripts/race-shard.sh runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-library|export-examples|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli
+# Usage: scripts/race-shard.sh runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-library|export-examples|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli | --sweeps
 # A hyphenated shard is a by-test-name part of its package (runtime, corpus and export are each split
 # that way in make test-shard); the other shards are whole packages, rest everything not named here.
 set -euo pipefail
@@ -8,9 +8,17 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 shards='runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-library|export-examples|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli'
+# The shards whose one test walks every example model, which the queue tier (make test-queue) runs race-free over the subset;
+# export-library walks the bundled libraries, and grpc's and translate's sweeps share a shard with race-prone tests: all keep -race.
+sweeps='export-corpus export-settled export-examples corpus-roundtrip corpus-apijson'
+
+if [[ $# -eq 1 && $1 == --sweeps ]]; then
+  printf '%s\n' $sweeps
+  exit 0
+fi
 
 if [[ $# -ne 1 ]]; then
-  echo "usage: scripts/race-shard.sh $shards" >&2
+  echo "usage: scripts/race-shard.sh $shards | --sweeps" >&2
   exit 2
 fi
 

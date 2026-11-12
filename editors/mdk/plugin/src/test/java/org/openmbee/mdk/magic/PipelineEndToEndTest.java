@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -131,11 +132,14 @@ class PipelineEndToEndTest {
     assertEquals(Status.ERROR, missing.status(), missing.toString());
   }
 
-  /** Run query on the v2 path: the queries of the fixture, their parameters, bindings, and the mapping of rows back. */
+  private static V2TextualSource demo() throws IOException {
+    return new V2TextualSource(Files.readString(Path.of("src/test/resources/fixtures/demo.sysml")));
+  }
+
+  /** Run query on the v2 path: the rows a query answers, mapped back to the elements they stand for. */
   @Test
-  void v2TextualRunQuery() throws Exception {
-    String text = Files.readString(Path.of("src/test/resources/fixtures/demo.sysml"));
-    V2TextualSource source = new V2TextualSource(text);
+  void v2TextualRunQueryMapsRowsBackToElements() throws Exception {
+    V2TextualSource source = demo();
     var index = IdentityIndex.of(List.of(
         new SimpleElement("v", "Demo::Vehicle", "Vehicle", "vehicle"),
         new SimpleElement("w", "Demo::Wheel", "Wheel", "wheel"),
@@ -153,7 +157,12 @@ class PipelineEndToEndTest {
         parts.outcomes());
     List<AnnotationPlan> plans = AnnotationPlanner.plan(parts, index);
     assertEquals(List.of("query", "vehicle", "wheel"), plans.stream().map(plan -> plan.target().handle()).toList());
+  }
 
+  /** Run query on the v2 path: the parameters a plan reports, inherited and redefined ones included. */
+  @Test
+  void v2TextualRunQueryPlansParameters() throws Exception {
+    V2TextualSource source = demo();
     QueryPlan plan = engine.plan(new RunRequest(Operation.RUN_QUERY, source, "Demo::NoPorts", List.of()), () -> false).orElseThrow();
     assertEquals(List.of("Demo::NoPorts"), plan.queries());
     assertEquals(List.of(
@@ -164,6 +173,12 @@ class PipelineEndToEndTest {
     QueryPlan typed = engine.plan(new RunRequest(Operation.RUN_QUERY, source, "Demo::UnderPackages", List.of()), () -> false).orElseThrow();
     assertEquals(List.of(new QueryParameter("Demo::UnderPackages", "roots", "KerML::Root::Element", QueryParameter.Kind.ELEMENT, true, false)),
         typed.parameters(), "a redefinition that types the parameter anew keeps the multiplicity it inherits");
+  }
+
+  /** Run query on the v2 path: bindings of many, none and one, and a parameter left unbound. */
+  @Test
+  void v2TextualRunQueryBindsParameters() throws Exception {
+    V2TextualSource source = demo();
     RunResult many = engine.run(new RunRequest(Operation.RUN_QUERY, source, "Demo::UnderPackages", List.of(), Map.of(
         "roots", List.of(new DocumentValue.ElementRef("Demo::Vehicle", ""), new DocumentValue.ElementRef("Demo::Lifecycle", "")))), () -> false);
     assertEquals(Status.PASSED, many.status(), many.toString());
@@ -185,7 +200,12 @@ class PipelineEndToEndTest {
     RunResult unbound = run(Operation.RUN_QUERY, source, "Demo::PartsUnder");
     assertEquals(Status.ERROR, unbound.status(), unbound.toString());
     assertTrue(unbound.outcomes().get(0).detail().contains("requires binding root"), unbound.toString());
+  }
 
+  /** Run query on the v2 path: a name the model lacks, a subject that is no query, and a binding no parameter takes. */
+  @Test
+  void v2TextualRunQueryReportsWhatItCannotRun() throws Exception {
+    V2TextualSource source = demo();
     RunResult unresolved = run(Operation.RUN_QUERY, source, "Demo::Unresolved");
     assertEquals(Status.FAILED, unresolved.status(), "a name the model lacks is reported, not refused: " + unresolved);
     assertTrue(unresolved.outcomes().get(0).detail().contains("Demo::Nope"), unresolved.toString());

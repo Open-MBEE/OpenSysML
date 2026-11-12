@@ -330,8 +330,9 @@ class TestInstanceReach:
 
     def test_paths_needs_the_connection(self):
         vehicle, graph = reached_graph()
+        root = Instance(vehicle, graph)
         with pytest.raises(RuntimeError, match="connection"):
-            Instance(vehicle, graph).paths()
+            root.paths()
 
     def test_paths_asks_the_connection_for_every_path_to_the_object(self):
         from opensysml.instance import InstancePath, InstancePaths

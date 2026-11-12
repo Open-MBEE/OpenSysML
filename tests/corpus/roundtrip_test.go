@@ -11,7 +11,6 @@ import (
 	"runtime"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -432,21 +431,12 @@ func (g roundTripGate) readExpected(t *testing.T) (map[string]int, map[string]st
 		t.Fatalf("read %s: %v", g.expected, err)
 	}
 
+	// A root's size is the number of records under it: every file has a record,
+	// so no header line restates a count two branches adding files would both move.
 	totals := make(map[string]int)
 	want := make(map[string]string)
 	for i, line := range strings.Split(string(content), "\n") {
 		line = strings.TrimRight(line, "\r")
-		if rest, ok := strings.CutPrefix(line, "# files: "); ok {
-			root, count, found := strings.Cut(rest, " ")
-			if !found {
-				t.Fatalf("%s:%d: want \"# files: <root> <n>\", got %q", g.expected, i+1, line)
-			}
-			totals[root], err = strconv.Atoi(count)
-			if err != nil {
-				t.Fatalf("%s:%d: bad file count: %v", g.expected, i+1, err)
-			}
-			continue
-		}
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
@@ -458,19 +448,16 @@ func (g roundTripGate) readExpected(t *testing.T) (map[string]int, map[string]st
 			t.Fatalf("%s:%d: %s is recorded twice", g.expected, i+1, path)
 		}
 		want[path] = verdict
+		totals[corpusRoundTripRootOf(path)]++
 	}
 	return totals, want
 }
 
-func (g roundTripGate) writeExpected(t *testing.T, files []string, totals map[string]int, got map[string]string) {
+func (g roundTripGate) writeExpected(t *testing.T, files []string, got map[string]string) {
 	t.Helper()
 
 	var b strings.Builder
 	b.WriteString(g.header)
-	fmt.Fprintf(&b, "# files: %s %d\n", corpusRoundTripCommitted, totals[corpusRoundTripCommitted])
-	for _, root := range corpusRoundTripRoots {
-		fmt.Fprintf(&b, "# files: %s %d\n", root.name, totals[root.name])
-	}
 	for _, rel := range files {
 		fmt.Fprintf(&b, "%s\t%s\n", got[rel], rel)
 	}
@@ -491,7 +478,7 @@ func (g roundTripGate) run(t *testing.T) {
 	t.Log(g.summary(files, got))
 
 	if *g.update {
-		g.writeExpected(t, files, totals, got)
+		g.writeExpected(t, files, got)
 		t.Logf("wrote %s: %d file(s)", g.expected, len(files))
 		return
 	}
