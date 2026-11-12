@@ -75,11 +75,13 @@ public record BridgeResult(
     tables = List.copyOf(tables);
   }
 
+  private static final String ELEMENT_ID = "elementId";
+
   public static BridgeResult from(Map<String, Object> flat) {
     List<Outcome> outcomes = rows(flat, "outcomes").stream()
         .map(row -> new Outcome(
             required(row, "label"), required(row, "detail"), required(row, "status"),
-            Optional.ofNullable(row.get("elementId"))))
+            Optional.ofNullable(row.get(ELEMENT_ID))))
         .toList();
     List<Diagnostic> diagnostics = rows(flat, "diagnostics").stream()
         .map(row -> new Diagnostic(
@@ -112,11 +114,11 @@ public record BridgeResult(
           if (row.get("cells") instanceof List<?> flatCells) {
             for (Object flatCell : flatCells) {
               if (flatCell instanceof Map<?, ?> cell) {
-                cells.add(new Cell(String.valueOf(cell.get("text")), optionalText(cell.get("elementId"))));
+                cells.add(new Cell(String.valueOf(cell.get("text")), optionalText(cell.get(ELEMENT_ID))));
               }
             }
           }
-          rows.add(new Row(optionalText(row.get("elementId")), cells));
+          rows.add(new Row(optionalText(row.get(ELEMENT_ID)), cells));
         }
       }
       Object query = table.get("query");
