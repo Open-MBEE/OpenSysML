@@ -65,3 +65,34 @@ func TestConnectorRelationshipEndsAreItsRelatedFeatures(t *testing.T) {
 		}
 	}
 }
+
+// An association's relatedElement, source and target are the relatedType, sourceType and targetType that
+// redefine them (KerML 8.3.4.4.2): its ends' types in order, the first the source, as the pilot derives them.
+func TestAssociationRelationshipEndsAreItsEndTypes(t *testing.T) {
+	const src = `package P {
+		part def A;
+		part def B;
+		action def Observe;
+		allocation def F2P { end function : Observe; end part : A; }
+		connection def C { end a : A; end b : B; end c : B; }
+	}`
+	for _, fixture := range reflectiveFixtures(t, "association-ends.sysml", source.KindSysML, src) {
+		model := fixture.model
+		for owner, want := range map[string]struct{ related, source, target string }{
+			"P::F2P": {"Observe A", "Observe", "A"},
+			"P::C":   {"A B B", "A", "B B"},
+		} {
+			sym := nestedSym(t, fixture.root, owner)
+			for property, w := range map[string]string{"relatedElement": want.related, "source": want.source, "target": want.target} {
+				elements, ok := model.ReflectiveElements(sym, property)
+				var got []string
+				for _, e := range elements {
+					got = append(got, e.Name)
+				}
+				if !ok || strings.Join(got, " ") != w {
+					t.Errorf("%s %s = %q, %v; want %q", owner, property, got, ok, w)
+				}
+			}
+		}
+	}
+}
