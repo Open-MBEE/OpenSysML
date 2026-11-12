@@ -8,9 +8,9 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 shards='runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-library|export-examples|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli'
-# The shards whose one test walks every example model, which the queue tier (make test-queue) runs race-free over the
-# construct-cover subset; tests/grpc's and internal/translate/export's sweeps share a shard with race-prone tests, so stay under -race.
-sweeps='export-corpus export-settled export-library export-examples corpus-roundtrip corpus-apijson'
+# The shards whose one test walks every example model, which the queue tier (make test-queue) runs race-free over the subset;
+# export-library walks the bundled libraries, and grpc's and translate's sweeps share a shard with race-prone tests: all keep -race.
+sweeps='export-corpus export-settled export-examples corpus-roundtrip corpus-apijson'
 
 if [[ $# -eq 1 && $1 == --sweeps ]]; then
   printf '%s\n' $sweeps
