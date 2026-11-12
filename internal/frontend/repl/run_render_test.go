@@ -178,3 +178,13 @@ func TestTraceRecordKeepsTheRunWithoutPrintingIt(t *testing.T) {
 	wants(t, run(t, s, "%trace off"), "trace: off")
 	wants(t, run(t, s, "%trace maybe"), `unknown trace setting "maybe" (want on, off or record)`)
 }
+
+func TestTraceRecordKeepsBatchRunsSilent(t *testing.T) {
+	s := runsSession(t)
+	run(t, s, "%trace on")
+	wants(t, run(t, s, "%runs 1 7 MC::acquire clock"), "[trace]", "runs MC::acquire")
+	wants(t, run(t, s, "%trace record"), "trace: record")
+	silent := run(t, s, "%runs 1 7 MC::acquire clock")
+	rejects(t, silent, "[trace]")
+	wants(t, silent, "runs MC::acquire")
+}
