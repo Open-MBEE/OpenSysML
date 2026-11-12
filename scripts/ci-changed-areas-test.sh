@@ -171,9 +171,9 @@ case_ unclaimed apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,pyth
 # The quick tier runs the Go suite for a service change but not every client; a
 # client's or the docs' own paths still run it, and an unclaimed path is only Go.
 quick_case_ go-source go internal/syntax/parser/parser.go
-quick_case_ apijson-writer apijson,go internal/translate/export/api_json_absence.go
+quick_case_ apijson-writer go internal/translate/export/api_json_absence.go
 quick_case_ proto go api/proto/sysml.proto
-quick_case_ workflow apijson,go .github/workflows/pr.yml
+quick_case_ workflow go .github/workflows/pr.yml
 quick_case_ unclaimed go some-new-top-level/thing.txt
 quick_case_ go-and-node go,node internal/syntax/parser/parser.go client/node/src/node/binary.ts
 quick_case_ go-and-docs docs,go internal/syntax/parser/parser.go docs/guide/index.md
@@ -205,6 +205,32 @@ tier_case_ export-writer quick internal/translate/export/writer.go
 tier_case_ symbols quick internal/semantic/symbols/index.go
 tier_case_ unclaimed full some-new-top-level/thing.txt
 tier_case_ parser-and-runtime quick internal/syntax/parser/parser.go internal/exec/runtime/executor.go
+
+# The derived-property differential runs under the full tier alone: a writer change on a pull-request push
+# (quick) or in the merge queue (queue) does not run it; the label ci:full, the nightly and a dispatch do.
+queue_case_() {
+  CI_TIER=queue case_ "$@"
+}
+queue_case_ apijson-writer docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/translate/export/api_json_absence.go
+queue_case_ apijson-baseline docs,go docs/project/api-json-differential/index.json
+queue_case_ unclaimed docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode some-new-top-level/thing.txt
+area_for_event_() {
+  local event=$1 label=$2 area=$3 expected=$4
+  local actual
+  actual=$(cd "$work" && env -u CI_TIER CI_EVENT="$event" CI_FULL_LABEL="$label" bash scripts/ci-changed-areas.sh "$base" HEAD 2>/dev/null | sed -n "s/^$area=//p")
+  if [[ "$actual" != "$expected" ]]; then
+    echo "FAIL $area for $event (ci:full=$label): expected $expected, got $actual" >&2
+    failures=$((failures + 1))
+  else
+    echo "ok   $area for $event (ci:full=$label): $actual (on the last case's head)"
+  fi
+}
+tier_case_ apijson-writer quick internal/translate/export/api_json_absence.go
+area_for_event_ pull_request false apijson false
+area_for_event_ merge_group false apijson false
+area_for_event_ pull_request true apijson true
+area_for_event_ schedule false apijson true
+area_for_event_ workflow_dispatch false apijson true
 
 # The event decides above the paths: a merge-group commit runs the queue tier, a schedule or a
 # dispatch the full tier, a pull request labelled ci:full the full tier, whatever they touch.

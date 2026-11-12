@@ -277,11 +277,19 @@ decision is recorded through the Release Checklist item above.
 `Build and test` job aggregates whichever tier ran, so that is the one check branch protection
 needs to require.
 
-| Event | Tier | Race detector | Corpus the `examples/` sweeps walk |
-|---|---|---|---|
-| A push to a pull request | quick | none | whole |
-| The merge queue's commit (`merge_group`) | queue | every shard but the sweeps | the committed construct-cover subset |
-| The label `ci:full`, an unclaimed path, the nightly full scan, `workflow_dispatch` | full | every shard | whole |
+| Event | Tier | Race detector | Corpus the `examples/` sweeps walk | Derived-property differential |
+|---|---|---|---|---|
+| A push to a pull request | quick | none | whole | no |
+| The merge queue's commit (`merge_group`) | queue | every shard but the sweeps | the committed construct-cover subset | no |
+| The label `ci:full`, an unclaimed path, the nightly full scan, `workflow_dispatch` | full | every shard | whole | yes, on what can move its baseline |
+
+The derived-property differential (`Derived-property differential reproduces its baseline`,
+`go run -C tools ./cmd/pilot-apijson-diff -check`: Java, the pinned pilot jar, 18–25 minutes)
+is a full-tier job alone, so the api-json baseline is reproduced every night over `develop`
+and on `ci:full`, never on a pull-request push or in the merge queue. A baseline the nightly
+finds stale is re-recorded through the `ci:rebaseline` workflow
+(`.github/workflows/rebaseline.yml`), and a change to the writer or the referees that should
+be checked before it lands carries `ci:full`.
 
 The `examples/` sweeps are the tests that parse and export every model under `examples/` (the
 committed models, the OMG training and pilot corpora and the specification examples, some 920

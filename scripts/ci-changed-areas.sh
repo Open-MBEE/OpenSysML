@@ -40,8 +40,8 @@ hygiene_pattern='(^|/)testdata/|\.golden\.|_test\.go$'
 # Go tests (the referees' provenance and figure checks, doc-counts) read the committed
 # baselines and figure pages under docs/project, so a change there runs Go as well as docs.
 project_inputs_pattern='^docs/project/.*\.(json|md)$'
-# The derived-property differential needs Java and the pinned pilot jar, so it runs only on what can
-# move its baseline (which records no writer digest): writer, referee, bridge, pin, baseline, this job.
+# The derived-property differential (Java, the pinned pilot jar, 18-25 minutes) runs under the full tier only
+# (nightly, ci:full), and there on what can move its baseline: writer, referee, bridge, pin, baseline, this job.
 apijson_pattern='^(internal/translate/export/|tools/referee/apijson/|tools/referee/baseline/|tools/referee/diff/|tools/oracle/baseline/|scripts/pilot-json-exporter/|scripts/pilot-pin\.sh$|scripts/download-pilot-validator\.sh$|scripts/download-pilot-json-exporter\.sh$|docs/project/api-json-differential/|\.github/workflows/pr\.yml$|\.github/actions/corpora/)'
 
 known_pattern="$service_pattern|$docs_pattern|$node_pattern|$python_pattern|$java_pattern|$rust_pattern|$julia_pattern|$matlab_pattern|$vscode_pattern|$jupyterlab_pattern|$emacs_pattern|$mdk_pattern|$syson_pattern|^\.agents/|^\.gitignore$|^\.gitattributes$|^LICENSE|^packaging/"
@@ -85,7 +85,7 @@ fanout=$service
 [[ "$tier" = quick ]] && fanout=false
 
 emit go "$( { [[ "$service" = true ]] || matches "$hygiene_pattern" || matches "$project_inputs_pattern"; } && echo true || echo false)"
-emit apijson "$( { [[ "$everything" = true && "$fanout" = true ]] || matches "$apijson_pattern"; } && echo true || echo false)"
+emit apijson "$( [[ "$tier" = full ]] && { [[ "$everything" = true ]] || matches "$apijson_pattern"; } && echo true || echo false)"
 emit docs "$( { [[ "$fanout" = true ]] || matches "$docs_pattern"; } && echo true || echo false)"
 emit node "$( { [[ "$fanout" = true ]] || matches "$node_pattern"; } && echo true || echo false)"
 # The client-manifest/Python version lockstep tests live in the Python suite,
