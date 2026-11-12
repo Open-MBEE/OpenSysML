@@ -1,30 +1,53 @@
 #!/usr/bin/env python3
-"""Report whether a commit already passed the full test suite elsewhere.
+"""Report whether a commit already passed the test suite elsewhere.
 
 CircleCI's build-test workflow runs on every push to develop and main, and the
 release workflow on every v* tag, over trees the pull-request workflow (or the
 merge queue) has usually just tested. The verify-tree job runs this script first
 and persists its verdict as verified-tree.txt; the suite jobs read the marker
 and, when the first line is `verified: ...`, halt before doing their work again.
+The nightly full scan (.github/workflows/full-scan.yml) asks it too, before
+dispatching the full tier on develop's head.
 
 The verdict is one line on stdout, `verified: <evidence>` or `unverified:
 <reason>`; the evidence considered goes to stderr. Two sources count:
 
   - GitHub Actions: a completed, successful check run named `Build and test`
     from the github-actions app on the commit, whose check suite also holds at
-    least one successful `Go race tests (…)` job. Only the full tier runs the
-    race shards (the quick tier of a draft pull request runs `Go tests (…)`),
-    so the second condition is what keeps a draft-tier run from counting.
+    least one successful Go test job of an accepted tier. The job's name carries
+    the tier (.github/workflows/pr.yml): `Go race tests (…)` is the full tier
+    (-race over the whole corpus), `Go queue tests (…)` the merge queue's
+    (-race everywhere but the examples/ sweeps, which run race-free over the
+    construct-cover subset), and `Go tests (…)` the quick tier of a
+    pull-request push, which never counts.
   - CircleCI, for a tag only: a successful `build-test` workflow of a pipeline
     on the branch (main) whose commit is the tag's. Reading workflows needs
     CIRCLECI_API_TOKEN; without it this source reports unverified.
+
+Which tiers each caller accepts, and why:
+
+  - A push to develop (--branch develop) accepts the queue tier as well as the
+    full one: every develop commit arrives through the merge queue, and the
+    nightly full scan gives develop its -race, whole-corpus run once a night, so
+    build-test need not repeat the suite on every landing.
+  - A push to main (--branch main, or no --branch) accepts only the full tier:
+    a tag may rely on main's green build-test (below), so that build-test must
+    itself be the full scan or have skipped on one.
+  - A tag (--tag) accepts only the full tier, or a green CircleCI build-test of
+    main on the same commit: a release ships nothing the race detector has not
+    seen over the whole corpus, and main's own build-test is that run.
+  - The nightly full scan (--full-tier) accepts only the full tier, from GitHub
+    alone: it exists to give develop's head that run, and skips when the head
+    already has one (a ci:full run, an earlier dispatch).
 
 Any failure to read the evidence — a rate limit, a network error, a malformed
 answer — is reported as unverified, so an error always runs the suite. The
 exit status is 0 for either verdict and 2 for a usage error.
 
-    python3 scripts/ci-verified-tree.py --sha <commit>
+    python3 scripts/ci-verified-tree.py --sha <commit> --branch develop
+    python3 scripts/ci-verified-tree.py --sha <commit> --branch main
     python3 scripts/ci-verified-tree.py --sha <commit> --tag v1.2.3
+    python3 scripts/ci-verified-tree.py --sha <commit> --full-tier
     python3 scripts/ci-verified-tree.py --sha <commit> --rehearsal   # always unverified
 
 Environment:
@@ -46,8 +69,11 @@ import urllib.request
 GITHUB_API = "https://api.github.com"
 CIRCLECI_API = "https://circleci.com/api/v2"
 AGGREGATE_CHECK = "Build and test"
-FULL_TIER_PREFIX = "Go race tests ("
+# The Go test job's name prefix per tier (.github/workflows/pr.yml, go-tests).
+TIER_PREFIXES = {"full": "Go race tests (", "queue": "Go queue tests ("}
 CIRCLECI_WORKFLOW = "build-test"
+# The one branch whose build-test may skip on a queue-tier run: the nightly full scan covers it.
+QUEUE_TIER_BRANCH = "develop"
 PIPELINE_PAGES = 10
 
 
@@ -93,25 +119,29 @@ def green(run: dict, sha: str) -> bool:
     )
 
 
-def github_verdict(repo: str, sha: str) -> str | None:
-    """The GitHub evidence for a full-tier pass of the commit, or None."""
+def github_verdict(repo: str, sha: str, tiers: tuple[str, ...]) -> str | None:
+    """The GitHub evidence for a pass of the commit at one of the tiers, or None."""
     aggregates = [run for run in github_check_runs(repo, sha, AGGREGATE_CHECK) if run.get("name") == AGGREGATE_CHECK]
     passing = [run for run in aggregates if green(run, sha)]
     log(f"GitHub: {len(aggregates)} '{AGGREGATE_CHECK}' check run(s) on {sha}, {len(passing)} completed successfully")
     if not passing:
         return None
     suites = {run["check_suite"]["id"] for run in passing}
-    shards_by_suite: dict[int, int] = {}
+    shards_by_suite: dict[tuple[int, str], int] = {}
     for run in github_check_runs(repo, sha, None):
         suite = (run.get("check_suite") or {}).get("id")
-        if suite in suites and str(run.get("name", "")).startswith(FULL_TIER_PREFIX) and green(run, sha):
-            shards_by_suite[suite] = shards_by_suite.get(suite, 0) + 1
+        if suite not in suites or not green(run, sha):
+            continue
+        for tier, prefix in TIER_PREFIXES.items():
+            if str(run.get("name", "")).startswith(prefix):
+                shards_by_suite[(suite, tier)] = shards_by_suite.get((suite, tier), 0) + 1
     for suite in sorted(suites):
-        shards = shards_by_suite.get(suite, 0)
-        log(f"GitHub: check suite {suite} holds {shards} successful '{FULL_TIER_PREFIX}…)' job(s)")
-        if shards > 0:
-            return f"GitHub Actions check suite {suite} passed '{AGGREGATE_CHECK}' on {sha} with {shards} '{FULL_TIER_PREFIX}…)' shards (full tier)"
-    log("GitHub: no passing suite ran the race shards, so every pass was a quick-tier run")
+        for tier, prefix in TIER_PREFIXES.items():
+            shards = shards_by_suite.get((suite, tier), 0)
+            log(f"GitHub: check suite {suite} holds {shards} successful '{prefix}…)' job(s)")
+            if shards > 0 and tier in tiers:
+                return f"GitHub Actions check suite {suite} passed '{AGGREGATE_CHECK}' on {sha} with {shards} '{prefix}…)' shards ({tier} tier)"
+    log(f"GitHub: no passing suite ran the Go shards of an accepted tier ({', '.join(tiers)})")
     return None
 
 
@@ -152,21 +182,24 @@ def verdict(args: argparse.Namespace) -> str:
     """The one-line verdict on the commit: `verified: <evidence>` or `unverified: <reason>`."""
     if args.rehearsal:
         return f"unverified: release rehearsal of {args.sha}; the rehearsal exists to run the suite under the tag"
+    tiers = ("full", "queue") if args.branch == QUEUE_TIER_BRANCH and not (args.tag or args.full_tier) else ("full",)
     try:
-        evidence = github_verdict(args.repo, args.sha)
+        evidence = github_verdict(args.repo, args.sha, tiers)
         if evidence is None and args.tag:
             evidence = circleci_verdict(args.circleci_project, args.circleci_branch, args.sha)
     except Exception as error:  # noqa: BLE001 - any failure to read the evidence runs the suite
         return f"unverified: could not read the evidence for {args.sha} ({type(error).__name__}: {error}); running the suite"
     if evidence:
         return f"verified: {evidence}"
-    return f"unverified: no green full-tier run of {args.sha} was found; running the suite"
+    return f"unverified: no green {' or '.join(f'{tier}-tier' for tier in tiers)} run of {args.sha} was found; running the suite"
 
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--sha", required=True, help="the commit CircleCI is building (CIRCLE_SHA1)")
-    parser.add_argument("--tag", help="the tag being released; also accepts a green CircleCI build-test on the commit")
+    parser.add_argument("--branch", help="the branch CircleCI is building (CIRCLE_BRANCH); only develop accepts a queue-tier run")
+    parser.add_argument("--tag", help="the tag being released; accepts only the full tier, or a green CircleCI build-test on the commit")
+    parser.add_argument("--full-tier", action="store_true", help="accept only a full-tier GitHub run (the nightly full scan's question)")
     parser.add_argument("--rehearsal", action="store_true", help="a release rehearsal, which always runs the suite")
     parser.add_argument("--repo", default="Open-MBEE/OpenSysML", help="GitHub repository (owner/name)")
     parser.add_argument("--circleci-project", default="gh/Open-MBEE/OpenSysML", help="CircleCI project slug")

@@ -54,6 +54,7 @@ import org.openmbee.mdk.magic.ui.ResultsWindow;
 public final class OperationActions implements BrowserContextAMConfigurator, DiagramContextAMConfigurator {
   private static final String CATEGORY_ID = "org.openmbee.opensysml";
   private static final String SYSML_EXTENSION = ".sysml";
+  private static final String TITLE_PREFIX = "Magic MDK: ";
 
   private final Supplier<Engine> engine;
   private final SelectionResolver resolver;
@@ -331,11 +332,11 @@ public final class OperationActions implements BrowserContextAMConfigurator, Dia
       RunRequest request = new RunRequest(operation, source, selection.subject().qualifiedName(), args);
       if (operation == Operation.RUN_QUERY) {
         ProgressStatusRunner.runWithProgressStatus(
-            status -> planQuery(request, index, status), "Magic MDK: " + operation.label(), true, 0);
+            status -> planQuery(request, index, status), TITLE_PREFIX + operation.label(), true, 0);
         return;
       }
       ProgressStatusRunner.runWithProgressStatus(
-          status -> run(request, index, status), "Magic MDK: " + operation.label(), true, 0);
+          status -> run(request, index, status), TITLE_PREFIX + operation.label(), true, 0);
     }
 
     /** Runs off the EDT: resolves the queries, runs at once when nothing needs binding, else asks on the EDT and runs again. */
@@ -369,7 +370,7 @@ public final class OperationActions implements BrowserContextAMConfigurator, Dia
         }
         RunRequest bound = request.withQueryBindings(bindings.get());
         ProgressStatusRunner.runWithProgressStatus(
-            progress -> run(bound, index, progress), "Magic MDK: " + operation.label(), true, 0);
+            progress -> run(bound, index, progress), TITLE_PREFIX + operation.label(), true, 0);
       });
     }
 
