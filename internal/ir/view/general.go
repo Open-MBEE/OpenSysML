@@ -1060,7 +1060,7 @@ func (g *generalGraph) dependencyEdges(sym *symbols.Symbol, kind EdgeKind, name 
 	if !ok {
 		return nil
 	}
-	if len(dep.Clients) > 1 || len(dep.Suppliers) > 1 {
+	if dependencyDot(dep) {
 		return g.naryDependency(sym, kind, name, dep)
 	}
 	var out []Edge
