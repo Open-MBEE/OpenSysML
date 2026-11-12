@@ -152,7 +152,7 @@ func TestHoverRendersMarkdownWhenClientSupportsIt(t *testing.T) {
 	s := NewServer(ws)
 	initMarkdownHover(t, s)
 	name := uri.File("/tmp/hm.sysml").FsPath()
-	src := "package P {\n    doc /*\n     * A wheel.\n     */\n    part def Wheel;\n}\n"
+	src := "package P {\n    part def Wheel {\n        doc /*\n         * A wheel.\n         */\n    }\n}\n"
 	ws.Open(name, []byte(src), 1)
 
 	res := hoverInSrc(t, s, name, src, strings.Index(src, "Wheel"))
@@ -197,15 +197,17 @@ func TestHoverSignatureUsesNotationKeywords(t *testing.T) {
 	}
 }
 
-func TestHoverStripsDelimitersOfEveryLeadingComment(t *testing.T) {
+// Every `doc` an element owns is shown, in declaration order, each stripped of
+// its delimiters and standing as a paragraph of its own.
+func TestHoverShowsEveryOwnedDocInOrder(t *testing.T) {
 	ws := model.NewWorkspace()
 	s := NewServer(ws)
 	initMarkdownHover(t, s)
 	name := uri.File("/tmp/hc.sysml").FsPath()
-	src := "package P {\n    /* first */\n    /* second */\n    part def Wheel;\n}\n"
+	src := "package P {\n    part def Wheel {\n        doc /* first */\n        doc second /* second */\n    }\n}\n"
 	ws.Open(name, []byte(src), 1)
 
-	res := hoverInSrc(t, s, name, src, strings.Index(src, "Wheel;"))
+	res := hoverInSrc(t, s, name, src, strings.Index(src, "Wheel {"))
 	want := "```sysml\npart def Wheel\n```\n\nfirst\n\nsecond"
 	if hoverMarkup(t, res).Value != want {
 		t.Errorf("hover value = %q, want %q", hoverMarkup(t, res).Value, want)
@@ -247,10 +249,10 @@ func TestHoverKeepsDocCommentLineBreaks(t *testing.T) {
 	s := NewServer(ws)
 	initMarkdownHover(t, s)
 	name := uri.File("/tmp/hl.sysml").FsPath()
-	src := "package P {\n    doc /*\n     * First line.\n     * Second line.\n     */\n    part def Wheel;\n}\n"
+	src := "package P {\n    part def Wheel {\n        doc /*\n         * First line.\n         * Second line.\n         */\n    }\n}\n"
 	ws.Open(name, []byte(src), 1)
 
-	res := hoverInSrc(t, s, name, src, strings.Index(src, "Wheel;"))
+	res := hoverInSrc(t, s, name, src, strings.Index(src, "Wheel {"))
 	want := "```sysml\npart def Wheel\n```\n\nFirst line.  \nSecond line."
 	if hoverMarkup(t, res).Value != want {
 		t.Errorf("hover value = %q, want %q", hoverMarkup(t, res).Value, want)
@@ -264,10 +266,10 @@ func TestHoverKeepsAuthoredMarkdownEmphasis(t *testing.T) {
 	s := NewServer(ws)
 	initMarkdownHover(t, s)
 	name := uri.File("/tmp/hm.sysml").FsPath()
-	src := "package P {\n    /*\n     * **Warning** load-bearing.\n     */\n    part def Wheel;\n}\n"
+	src := "package P {\n    part def Wheel {\n        doc /*\n         * **Warning** load-bearing.\n         */\n    }\n}\n"
 	ws.Open(name, []byte(src), 1)
 
-	res := hoverInSrc(t, s, name, src, strings.Index(src, "Wheel;"))
+	res := hoverInSrc(t, s, name, src, strings.Index(src, "Wheel {"))
 	want := "```sysml\npart def Wheel\n```\n\n**Warning** load-bearing."
 	if hoverMarkup(t, res).Value != want {
 		t.Errorf("hover value = %q, want %q", hoverMarkup(t, res).Value, want)
