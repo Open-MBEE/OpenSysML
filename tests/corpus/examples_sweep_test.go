@@ -118,7 +118,10 @@ type sweepDirectory struct {
 // TestExamplesSweep loads every model under examples/ once and checks every per-model property
 // on that load: both round-trip ratchets, settled collections, the gRPC agreement, modelsync's read-back.
 func TestExamplesSweep(t *testing.T) {
-	files, totals := corpusRoundTripFiles(t)
+	files, totals, ratchet := corpusRoundTripFiles(t)
+	if !ratchet && (*updateCorpusRoundTrip || *updateAPIJSONRoundTrip) {
+		t.Fatal("re-recording the round-trip expectations needs every corpus downloaded")
+	}
 	models := make([]*sweepModel, 0, len(files))
 	for _, rel := range files {
 		models = append(models, &sweepModel{rel: rel, path: filepath.Join(corpusRoundTripExamples, filepath.FromSlash(rel))})
@@ -175,7 +178,7 @@ func TestExamplesSweep(t *testing.T) {
 				if err := m.load(); err != nil {
 					failures[i] = err
 				} else {
-					if !m.fixture {
+					if ratchet && !m.fixture {
 						turtle[i], failures[i] = corpusRoundTripVerdict(m.rel, m.turtle, m.graphErr)
 						if failures[i] == nil {
 							apiJSON[i], failures[i] = apiJSONRoundTripVerdict(m.rel, m.apiJSON, m.apiJSONHop1Err())
@@ -232,6 +235,10 @@ func TestExamplesSweep(t *testing.T) {
 		t.Error("no example has a derived property to leave out")
 	}
 
+	if !ratchet {
+		t.Log("round-trip ratchets not checked: a corpus is absent")
+		return
+	}
 	corpusRoundTripGate.check(t, files, totals, gotTurtle)
 	apiJSONRoundTripGate.check(t, files, totals, gotAPIJSON)
 }

@@ -196,6 +196,7 @@ verdict is worse than its Turtle verdict is a defect in `export/api_json_out.go`
   `stable` verdict here does not prove the graph could be written back without the text. That is what the
   `sysx:sourceText`-stripping tests in `export_test.go` are for; see
   `.agents/skills/testing-rdf-roundtrip/SKILL.md`.
-- **It does not run when the downloaded corpora are absent**, except in CI, where the require
-  variables make absence a failure. Locally the skip is announced with a `GATE NOT RUN` banner on
-  stderr and the fetch command to run.
+- **The ratchets are not checked when a downloaded corpus is absent**, except in CI, where the
+  require variables make absence a failure. Locally the absence is announced with a `GATE NOT RUN`
+  banner on stderr and the fetch command to run; the sweep's other properties still run over the
+  models present.

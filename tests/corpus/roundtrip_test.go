@@ -125,21 +125,20 @@ var corpusRoundTripRoots = []corpusRoundTripRoot{
 	},
 }
 
-// skip mirrors corpusGate.skip: skip locally, fail when the require-env is
-// set, and announce it on stderr either way.
-func (r corpusRoundTripRoot) skip(t *testing.T, reason string) {
+// absent mirrors corpusGate.skip for one ratchet root: fail when the require-env is set,
+// announce on stderr otherwise. The sweep's other properties still run over what is present.
+func (r corpusRoundTripRoot) absent(t *testing.T, reason string) {
 	t.Helper()
 	hint := fmt.Sprintf("examples/%s not downloaded (run %s)", r.name, r.fetch)
 	if os.Getenv(r.requireEnv) != "" {
 		t.Fatalf("%s=%s but %s: %s", r.requireEnv, os.Getenv(r.requireEnv), reason, hint)
 	}
-	fmt.Fprintf(os.Stderr, "\n!!! GATE NOT RUN: %s SKIPPED - %s.\n"+
-		"!!! The corpus is absent, so this run proves nothing about it.\n"+
+	fmt.Fprintf(os.Stderr, "\n!!! GATE NOT RUN: the round-trip ratchets of %s SKIPPED - %s.\n"+
+		"!!! The corpus is absent, so this run proves nothing about it; %s\n"+
 		"!!! Fetch it with %s and re-run\n"+
 		"!!!   go test -count=1 ./tests/corpus -run TestExamplesSweep\n"+
 		"!!! CI sets %s=1, where an absent corpus fails instead of skipping.\n\n",
-		t.Name(), reason, r.fetch, r.requireEnv)
-	t.Skip(hint)
+		t.Name(), reason, hint, r.fetch, r.requireEnv)
 }
 
 // corpusRoundTripRootOf names the root a path relative to examples/ belongs to.
@@ -152,19 +151,20 @@ func corpusRoundTripRootOf(rel string) string {
 	return corpusRoundTripCommitted
 }
 
-// corpusRoundTripFiles returns every model under examples/ as sorted
-// slash-separated relative paths, plus the file count per root.
-func corpusRoundTripFiles(t *testing.T) ([]string, map[string]int) {
+// corpusRoundTripFiles returns every model under examples/ as sorted slash-separated relative
+// paths, the file count per root, and whether every root is present so the ratchets can be checked.
+func corpusRoundTripFiles(t *testing.T) (files []string, totals map[string]int, ratchet bool) {
 	t.Helper()
 
+	missing := map[string]bool{}
 	for _, root := range corpusRoundTripRoots {
 		dir := filepath.Join(corpusRoundTripExamples, filepath.FromSlash(root.name))
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
-			root.skip(t, dir+" is missing")
+			root.absent(t, dir+" is missing")
+			missing[root.name] = true
 		}
 	}
 
-	var files []string
 	err := filepath.WalkDir(corpusRoundTripExamples, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -189,7 +189,7 @@ func corpusRoundTripFiles(t *testing.T) ([]string, map[string]int) {
 	}
 	sort.Strings(files)
 
-	totals := make(map[string]int, len(corpusRoundTripRoots)+1)
+	totals = make(map[string]int, len(corpusRoundTripRoots)+1)
 	for _, rel := range files {
 		totals[corpusRoundTripRootOf(rel)]++
 	}
@@ -198,11 +198,12 @@ func corpusRoundTripFiles(t *testing.T) ([]string, map[string]int) {
 	}
 	// An empty directory is a broken download or a bad cache restore, not a corpus.
 	for _, root := range corpusRoundTripRoots {
-		if totals[root.name] == 0 {
-			root.skip(t, "examples/"+root.name+" holds no model files")
+		if !missing[root.name] && totals[root.name] == 0 {
+			root.absent(t, "examples/"+root.name+" holds no model files")
+			missing[root.name] = true
 		}
 	}
-	return files, totals
+	return files, totals, len(missing) == 0
 }
 
 // corpusRoundTripVerdict classifies one model's notation -> Turtle -> notation -> Turtle trip from
