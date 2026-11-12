@@ -2,7 +2,6 @@ package lsp
 
 import (
 	"context"
-	"strings"
 
 	"go.lsp.dev/protocol"
 
@@ -163,29 +162,22 @@ func (c *completionItems) list() *protocol.CompletionList {
 	return &protocol.CompletionList{IsIncomplete: false, Items: c.items}
 }
 
-// symbolDocumentation returns the comment trivia preceding a symbol's
-// declaration, when the document declaring it is loaded; a declaration held as
-// its record is listed without, since completing must not parse every closed
-// file a candidate comes from. A client that renders
-// Markdown is sent the comments as prose, as hover does, rather than the source
-// with its delimiters. Nil when there is nothing to show.
+// symbolDocumentation returns a declaration's owned `doc` bodies, then the notes
+// above it, as prose for a Markdown client; nil when there is nothing to show.
 func (s *Server) symbolDocumentation(sym *symbols.Symbol) *protocol.MarkupContent {
-	if len(sym.LeadingTrivia) == 0 || sym.DocName == "" {
+	if sym.DocName == "" {
 		return nil
 	}
-	doc := s.ws.Document(sym.DocName)
-	if doc == nil {
-		return nil
-	}
-	comments := leadingDocComments(doc.Content, sym.LeadingTrivia)
+	docs := s.ws.DocumentationOf(sym)
+	notes := s.symbolNotes(sym)
 	if s.wantsMarkdownCompletion() {
-		prose := docCommentProse(comments)
+		prose := documentationProse(docs, notes)
 		if prose == "" {
 			return nil
 		}
 		return &protocol.MarkupContent{Kind: protocol.MarkupKindMarkdown, Value: prose}
 	}
-	text := strings.Join(comments, "\n")
+	text := documentationText(docs, notes)
 	if text == "" {
 		return nil
 	}
