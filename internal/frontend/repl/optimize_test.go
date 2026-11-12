@@ -221,9 +221,8 @@ func TestOptimizeReportsObjectivesInDeclarationOrder(t *testing.T) {
 	}
 }
 
-// A bound no assignment attains is never reported as a value: the report says there is no
-// optimum and, when the solver names the bound (z3 4.13 does, 4.8 does not), that it is approached
-// without being attained; either way only the feasible value found is offered.
+// A bound no assignment attains is never reported as a value: the report says there is no optimum,
+// or (z3 4.13 names the bound, 4.8 does not) that it is approached without being attained.
 func TestOptimizeReportsABoundThatIsNotAttained(t *testing.T) {
 	requireOptimizingSolver(t)
 	s := checkSession(t, optimizeModel)
