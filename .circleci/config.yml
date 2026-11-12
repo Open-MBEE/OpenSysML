@@ -1709,6 +1709,10 @@ jobs:
 
       - checkout
 
+      - attach_workspace:
+          at: .
+      - halt-if-verified
+
       # This image has no Go toolchain yet, so buf comes from the official release
       # rather than `go run`, pinned by digest so a substituted asset is not run.
       - run:
