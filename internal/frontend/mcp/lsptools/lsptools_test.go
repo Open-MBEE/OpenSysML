@@ -957,3 +957,20 @@ func TestADanglingLinkIsJudgedByWhereItPoints(t *testing.T) {
 		t.Errorf("a dangling link staying inside the root = %+v, %v; want it accepted as a file not yet written", ref, err)
 	}
 }
+
+// The hover tool explains an element with the documentation it owns, not with
+// the body of the `doc` written before it in another element.
+func TestHoverShowsTheElementsOwnedDocumentation(t *testing.T) {
+	f := newFixture(t)
+	f.ok("open_document", map[string]any{"path": "doc.sysml", "text": "package P {\n    part def Car {\n        doc /* A car. */\n    }\n    part def Bus;\n}\n"}, nil)
+
+	var hover HoverResult
+	f.ok("hover", map[string]any{"path": "doc.sysml", "position": pos(2, 14)}, &hover)
+	if !strings.Contains(hover.Markdown, "part def Car") || !strings.Contains(hover.Markdown, "A car.") {
+		t.Errorf("hover on Car = %q, want its signature and its doc", hover.Markdown)
+	}
+	f.ok("hover", map[string]any{"path": "doc.sysml", "position": pos(5, 14)}, &hover)
+	if !strings.Contains(hover.Markdown, "part def Bus") || strings.Contains(hover.Markdown, "A car.") {
+		t.Errorf("hover on Bus = %q, want its signature without Car's doc", hover.Markdown)
+	}
+}
