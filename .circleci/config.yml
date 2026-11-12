@@ -495,6 +495,7 @@ jobs:
             RELEASE_REHEARSAL: << pipeline.parameters.release_rehearsal >>
           command: |
             set -- --sha "$CIRCLE_SHA1"
+            if [ -n "${CIRCLE_BRANCH:-}" ]; then set -- "$@" --branch "$CIRCLE_BRANCH"; fi
             if [ -n "${CIRCLE_TAG:-}" ]; then set -- "$@" --tag "$CIRCLE_TAG"; fi
             if [ "$RELEASE_REHEARSAL" = "true" ]; then set -- "$@" --rehearsal; fi
             if ! python3 scripts/ci-verified-tree.py "$@" > verified-tree.txt; then

@@ -26,10 +26,13 @@ The verdict is one line on stdout, `verified: <evidence>` or `unverified:
 
 Which tiers each caller accepts, and why:
 
-  - A push to develop (no flag) accepts the queue tier as well as the full one:
-    every develop commit arrives through the merge queue, and the nightly full
-    scan gives develop its -race, whole-corpus run once a night, so build-test
-    need not repeat the suite on every landing.
+  - A push to develop (--branch develop) accepts the queue tier as well as the
+    full one: every develop commit arrives through the merge queue, and the
+    nightly full scan gives develop its -race, whole-corpus run once a night, so
+    build-test need not repeat the suite on every landing.
+  - A push to main (--branch main, or no --branch) accepts only the full tier:
+    a tag may rely on main's green build-test (below), so that build-test must
+    itself be the full scan or have skipped on one.
   - A tag (--tag) accepts only the full tier, or a green CircleCI build-test of
     main on the same commit: a release ships nothing the race detector has not
     seen over the whole corpus, and main's own build-test is that run.
@@ -41,7 +44,8 @@ Any failure to read the evidence — a rate limit, a network error, a malformed
 answer — is reported as unverified, so an error always runs the suite. The
 exit status is 0 for either verdict and 2 for a usage error.
 
-    python3 scripts/ci-verified-tree.py --sha <commit>
+    python3 scripts/ci-verified-tree.py --sha <commit> --branch develop
+    python3 scripts/ci-verified-tree.py --sha <commit> --branch main
     python3 scripts/ci-verified-tree.py --sha <commit> --tag v1.2.3
     python3 scripts/ci-verified-tree.py --sha <commit> --full-tier
     python3 scripts/ci-verified-tree.py --sha <commit> --rehearsal   # always unverified
@@ -68,6 +72,8 @@ AGGREGATE_CHECK = "Build and test"
 # The Go test job's name prefix per tier (.github/workflows/pr.yml, go-tests).
 TIER_PREFIXES = {"full": "Go race tests (", "queue": "Go queue tests ("}
 CIRCLECI_WORKFLOW = "build-test"
+# The one branch whose build-test may skip on a queue-tier run: the nightly full scan covers it.
+QUEUE_TIER_BRANCH = "develop"
 PIPELINE_PAGES = 10
 
 
@@ -175,6 +181,7 @@ def circleci_verdict(project: str, branch: str, sha: str) -> str | None:
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--sha", required=True, help="the commit CircleCI is building (CIRCLE_SHA1)")
+    parser.add_argument("--branch", help="the branch CircleCI is building (CIRCLE_BRANCH); only develop accepts a queue-tier run")
     parser.add_argument("--tag", help="the tag being released; accepts only the full tier, or a green CircleCI build-test on the commit")
     parser.add_argument("--full-tier", action="store_true", help="accept only a full-tier GitHub run (the nightly full scan's question)")
     parser.add_argument("--rehearsal", action="store_true", help="a release rehearsal, which always runs the suite")
@@ -189,7 +196,7 @@ def main(argv: list[str]) -> int:
     if args.rehearsal:
         print(f"unverified: release rehearsal of {args.sha}; the rehearsal exists to run the suite under the tag")
         return 0
-    tiers = ("full",) if args.tag or args.full_tier else ("full", "queue")
+    tiers = ("full", "queue") if args.branch == QUEUE_TIER_BRANCH and not (args.tag or args.full_tier) else ("full",)
     try:
         evidence = github_verdict(args.repo, args.sha, tiers)
         if evidence is None and args.tag:

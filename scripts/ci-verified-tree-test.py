@@ -80,16 +80,24 @@ def run(argv, get_json=None, env=None):
 
 class GitHubEvidence(unittest.TestCase):
     def test_full_tier_pass_is_verified(self):
-        code, out, _ = run(["--sha", SHA], github(full_tier(7)))
+        code, out, _ = run(["--sha", SHA, "--branch", "develop"], github(full_tier(7)))
         self.assertEqual(code, 0)
         self.assertTrue(out.startswith("verified: GitHub Actions check suite 7 passed 'Build and test'"), out)
         self.assertIn("3 'Go race tests (…)' shards", out)
 
     def test_queue_tier_pass_verifies_a_develop_push(self):
-        code, out, _ = run(["--sha", SHA], github(queue_tier(7)))
+        code, out, _ = run(["--sha", SHA, "--branch", "develop"], github(queue_tier(7)))
         self.assertEqual(code, 0)
         self.assertTrue(out.startswith("verified: GitHub Actions check suite 7 passed 'Build and test'"), out)
         self.assertIn("3 'Go queue tests (…)' shards (queue tier)", out)
+
+    def test_queue_tier_pass_does_not_verify_a_main_push(self):
+        # A tag may rely on main's build-test, so main's own skip needs the full tier.
+        for argv in (["--sha", SHA, "--branch", "main"], ["--sha", SHA]):
+            _, out, _ = run(argv, github(queue_tier(7)))
+            self.assertTrue(out.startswith("unverified: no green full-tier run"), (argv, out))
+            _, out, _ = run(argv, github(queue_tier(7) + full_tier(8)))
+            self.assertTrue(out.startswith("verified: GitHub Actions check suite 8 "), (argv, out))
 
     def test_queue_tier_pass_does_not_verify_a_tag(self):
         _, out, err = run(["--sha", SHA, "--tag", "v1.0.0"], github(queue_tier(7)))
@@ -104,7 +112,7 @@ class GitHubEvidence(unittest.TestCase):
         self.assertIn("(full tier)", out)
 
     def test_quick_tier_pass_alone_is_unverified(self):
-        code, out, err = run(["--sha", SHA], github(quick_tier(7)))
+        code, out, err = run(["--sha", SHA, "--branch", "develop"], github(quick_tier(7)))
         self.assertEqual(code, 0)
         self.assertTrue(out.startswith("unverified: no green full-tier or queue-tier run"), out)
         self.assertIn("accepted tier (full, queue)", err)
@@ -134,7 +142,7 @@ class GitHubEvidence(unittest.TestCase):
             self.assertTrue(out.startswith("unverified:"), (broken, out))
 
     def test_no_check_runs_is_unverified(self):
-        _, out, _ = run(["--sha", SHA], github([]))
+        _, out, _ = run(["--sha", SHA, "--branch", "develop"], github([]))
         self.assertTrue(out.startswith("unverified: no green full-tier or queue-tier run"), out)
 
     def test_an_api_error_is_unverified(self):

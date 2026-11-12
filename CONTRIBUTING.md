@@ -335,9 +335,9 @@ a draft, and `Build and test` reporting on that commit is what lets the entry me
 commit therefore gets at least the checks a ready pull request with the same diff gets. The Go
 test jobs are named by tier — `Go tests (…)`, `Go queue tests (…)`, `Go race tests (…)` — and
 `scripts/ci-verified-tree.py` reads the names back: CircleCI's `build-test` on `develop` skips
-the suite over a commit with a queue-tier or full-tier run, while a tag's `release` workflow
-accepts only a full-tier run (or a green `build-test` of `main` on the same commit); see
-[releasing](docs/project/releasing.md).
+the suite over a commit with a queue-tier or full-tier run, while `build-test` on `main` and a
+tag's `release` workflow accept only a full-tier run (a tag also a green `build-test` of `main`
+on the same commit); see [releasing](docs/project/releasing.md).
 
 The first job, `Changed areas`, runs `scripts/ci-changed-areas.sh`, which decides the tier from
 the event, the label `ci:full` and the paths (`CI_TIER=quick|queue|full` forces it), and the

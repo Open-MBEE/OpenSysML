@@ -265,8 +265,9 @@ branch that moves the integration state onto `main`:
    pull-request workflow is green. Merging into `main` runs CircleCI's
    `build-test` workflow over the merged tree. Its first job, `verify-tree`
    (`scripts/ci-verified-tree.py`), asks GitHub whether that exact commit already
-   has a green queue-tier or full-tier `Build and test` check — the merge queue's
-   commit does, a plain merge commit does not — and when it has, the suite jobs (`go-static` past
+   has a green full-tier `Build and test` check (a `ci:full` run; on `main` the merge
+   queue's queue-tier run does not count, since a tag may rely on this build-test —
+   only `develop`'s build-test accepts one) and when it has, the suite jobs (`go-static` past
    its landing bundle and the two checks whose verdict depends on `CIRCLE_TAG`,
    `go-vulncheck`, `go-race-test`, `go-gates`, the Rust, Julia and MATLAB clients)
    halt green with the evidence as their one line of output;
