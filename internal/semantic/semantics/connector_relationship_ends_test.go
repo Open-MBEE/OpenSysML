@@ -81,7 +81,8 @@ func TestAssociationRelationshipEndsAreItsEndTypes(t *testing.T) {
 		model := fixture.model
 		for owner, want := range map[string]struct{ related, source, target string }{
 			"P::F2P": {"Observe A", "Observe", "A"},
-			"P::C":   {"A B B", "A", "B B"},
+			// relatedElement keeps repeats, target is unique (KerML 8.3.2.1), as the pilot derives both.
+			"P::C": {"A B B", "A", "B"},
 			// An end typed twice contributes both types in order: the first is the source, the second a target.
 			"P::Multi": {"A B Observe", "A", "B Observe"},
 		} {
@@ -130,6 +131,74 @@ func TestNaryConnectorRelationshipEnds(t *testing.T) {
 				if !ok || strings.Join(got, " ") != want {
 					t.Errorf("%s %s = %q, %v; want %q", owner, property, got, ok, want)
 				}
+			}
+		}
+	}
+}
+
+// Specializing an association reorders its ends — its own first, in declaration order, then the inherited
+// ends it does not redefine — and so its source; target stays unique. `Sub2 :> Rev` puts its `s2` first.
+func TestSpecializedAssociationRelationshipEndsFollowItsEndOrder(t *testing.T) {
+	const src = `package P {
+		part def A;
+		part def B;
+		part def C;
+		part def C2 :> C;
+		connection def Tri { end e1 : A; end e2 : B; end e3 : C; }
+		connection def Rev :> Tri { end r3 : C2 redefines e3; end r1 : A redefines e1; }
+		connection def Sub2 :> Rev { end s2 : B redefines e2; }
+	}`
+	for f, fixture := range reflectiveFixtures(t, "association-end-order.sysml", source.KindSysML, src) {
+		model := fixture.model
+		for owner, want := range map[string]struct{ related, source, target string }{
+			"P::Tri":  {"A B C", "A", "B C"},
+			"P::Rev":  {"C2 A A B", "C2", "A B"},
+			"P::Sub2": {"B C2 A A B", "B", "C2 A B"},
+		} {
+			if f == 1 && owner != "P::Tri" {
+				// A record keeps the type an end's redefined general declares (C beside C2) where the
+				// source and the pilot keep the most specific: the recorded Feature::type is its own gap.
+				continue
+			}
+			sym := nestedSym(t, fixture.root, owner)
+			for property, w := range map[string]string{"relatedElement": want.related, "source": want.source, "target": want.target} {
+				elements, ok := model.ReflectiveElements(sym, property)
+				var got []string
+				for _, e := range elements {
+					got = append(got, e.Name)
+				}
+				if !ok || strings.Join(got, " ") != w {
+					t.Errorf("fixture %d %s %s = %q, %v; want %q", f, owner, property, got, ok, w)
+				}
+			}
+		}
+	}
+}
+
+// A connector relating the same feature twice lists it twice as relatedElement and once as target,
+// as the pilot exports `connect (a, b, b)`.
+func TestConnectorTargetIsUnique(t *testing.T) {
+	const src = `package P {
+		part def A;
+		part def B;
+		part a : A;
+		part b : B;
+		connection d connect (a, b, b);
+	}`
+	for _, fixture := range reflectiveFixtures(t, "connector-target-unique.sysml", source.KindSysML, src) {
+		model := fixture.model
+		sym := nestedSym(t, fixture.root, "P::d")
+		for property, want := range map[string]string{
+			"relatedElement": "a b b", "source": "a", "target": "b",
+			"relatedFeature": "a b b", "sourceFeature": "a", "targetFeature": "b",
+		} {
+			elements, ok := model.ReflectiveElements(sym, property)
+			var got []string
+			for _, e := range elements {
+				got = append(got, e.Name)
+			}
+			if !ok || strings.Join(got, " ") != want {
+				t.Errorf("d %s = %q, %v; want %q", property, got, ok, want)
 			}
 		}
 	}

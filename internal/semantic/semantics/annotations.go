@@ -2101,9 +2101,24 @@ func (m *Model) associationRelatedTypes(sym *symbols.Symbol, feature string) []*
 		if len(related) < 2 {
 			return []*symbols.Symbol{}
 		}
-		return related[1:]
+		return distinctSymbols(related[1:])
 	}
 	return related
+}
+
+// distinctSymbols keeps the first occurrence of each symbol in order: a relationship's target,
+// unlike its relatedElement, is a unique list (KerML 8.3.2.1), as the pilot derives it.
+func distinctSymbols(syms []*symbols.Symbol) []*symbols.Symbol {
+	seen := make(map[*symbols.Symbol]bool, len(syms))
+	out := make([]*symbols.Symbol, 0, len(syms))
+	for _, sym := range syms {
+		if seen[sym] {
+			continue
+		}
+		seen[sym] = true
+		out = append(out, sym)
+	}
+	return out
 }
 
 // connectorEndRedefinition names the Connector property that redefines each Relationship end property.
@@ -2125,7 +2140,7 @@ func (m *Model) connectorRelatedFeatures(sym *symbols.Symbol, feature string) []
 		}
 	case "targetFeature":
 		if len(related) > 1 {
-			return related[1:]
+			return distinctSymbols(related[1:])
 		}
 		return nil
 	}
