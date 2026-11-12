@@ -475,7 +475,7 @@ jobs:
         run: |
           set -o pipefail
           go test -count=1 -v ./tests/corpus -run 'TestExamplesSweep' | tee corpus-roundtrip-gate.log
-          grep -E '[^-]corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
+          grep -E ': corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
           grep -E 'api-json corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
           if grep -qE '^\s*--- SKIP' corpus-roundtrip-gate.log; then
             echo "error: the corpus round-trip gates skipped" >&2
