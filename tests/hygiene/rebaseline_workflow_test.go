@@ -126,7 +126,7 @@ func TestRebaselineRunsEveryRecorderThenChecksTheMovement(t *testing.T) {
 	runs := rebaselineRuns(job)
 	for _, recorder := range []string{
 		"make stdlib-snapshot",
-		"make proto-buf proto-ts proto-rust python-proto",
+		"make proto-buf proto-ts proto-rust python-proto proto-csharp",
 		"grpcio-tools==",
 		"go run -C tools ./cmd/pilot-apijson-diff -update",
 		"go run -C tools ./cmd/derived-census -update",
