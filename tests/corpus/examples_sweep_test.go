@@ -25,6 +25,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/interop/modelsync"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/corpussubset"
 )
 
 // sweepFixtures holds the export fixtures the settled-collections property
@@ -37,6 +38,7 @@ type sweepModel struct {
 	rel     string // slash path relative to examples/, or the fixture's path
 	path    string
 	fixture bool // an export fixture: settled collections only
+	wanted  bool // iterated by the subset; otherwise only parsed, for its directory's model
 
 	doc        export.ModelDocument
 	parsed     bool // no parser diagnostic at all
@@ -58,6 +60,9 @@ func (m *sweepModel) load() error {
 	root := p.ParseFile()
 	m.doc = export.ModelDocument{File: file, Root: root}
 	m.parsed = len(p.Diagnostics) == 0
+	if !m.wanted {
+		return nil
+	}
 	if syntax := convert.SyntaxErrorOf(m.rel, file, p.Diagnostics); syntax != nil {
 		m.graphErr = syntax
 		return nil
@@ -118,16 +123,22 @@ type sweepDirectory struct {
 // TestExamplesSweep loads every model under examples/ once and checks every per-model property
 // on that load: both round-trip ratchets, settled collections, the gRPC agreement, modelsync's read-back.
 func TestExamplesSweep(t *testing.T) {
-	files, totals, ratchet := corpusRoundTripFiles(t)
+	subset := corpussubset.Must(t, "../..")
+	corpus, totals, ratchet := corpusRoundTripFiles(t)
 	if !ratchet && (*updateCorpusRoundTrip || *updateAPIJSONRoundTrip) {
 		t.Fatal("re-recording the round-trip expectations needs every corpus downloaded")
 	}
-	models := make([]*sweepModel, 0, len(files))
-	for _, rel := range files {
-		models = append(models, &sweepModel{rel: rel, path: filepath.Join(corpusRoundTripExamples, filepath.FromSlash(rel))})
+	files := subset.Filter(corpus)
+	models := make([]*sweepModel, 0, len(corpus))
+	for _, rel := range corpus {
+		models = append(models, &sweepModel{rel: rel, path: filepath.Join(corpusRoundTripExamples, filepath.FromSlash(rel)), wanted: subset.Wants(rel)})
 	}
 	models = append(models, sweepFixtureModels(t)...)
+	models = sweepSubsetModels(models)
 	directories := sweepDirectoriesOf(models)
+	if !subset.Whole() {
+		t.Logf("%s=%s: %d of %d examples, %d models", corpussubset.EnvVar, subset.Name(), len(files), len(corpus), len(models))
+	}
 
 	// An empty semantic cache, as on a fresh checkout and in CI.
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
@@ -177,7 +188,7 @@ func TestExamplesSweep(t *testing.T) {
 				<-slots
 				if err := m.load(); err != nil {
 					failures[i] = err
-				} else {
+				} else if m.wanted {
 					if ratchet && !m.fixture {
 						turtle[i], failures[i] = corpusRoundTripVerdict(m.rel, m.turtle, m.graphErr)
 						if failures[i] == nil {
@@ -215,7 +226,7 @@ func TestExamplesSweep(t *testing.T) {
 		switch {
 		case failures[i] != nil:
 			t.Errorf("%s: %v", m.rel, failures[i])
-		case !m.fixture:
+		case m.wanted && !m.fixture:
 			gotTurtle[m.rel] = turtle[i]
 			gotAPIJSON[m.rel] = apiJSON[i]
 		}
@@ -239,8 +250,26 @@ func TestExamplesSweep(t *testing.T) {
 		t.Log("round-trip ratchets not checked: a corpus is absent")
 		return
 	}
-	corpusRoundTripGate.check(t, files, totals, gotTurtle)
-	apiJSONRoundTripGate.check(t, files, totals, gotAPIJSON)
+	corpusRoundTripGate.check(t, subset, corpus, files, totals, gotTurtle)
+	apiJSONRoundTripGate.check(t, subset, corpus, files, totals, gotAPIJSON)
+}
+
+// sweepSubsetModels keeps the models the subset iterates and, as tests/export's sweep did, every
+// SysML document of a directory one of them is in, so the directory is still checked whole.
+func sweepSubsetModels(models []*sweepModel) []*sweepModel {
+	directories := map[string]bool{}
+	for _, m := range models {
+		if m.wanted && strings.HasSuffix(m.path, ".sysml") {
+			directories[filepath.Dir(m.path)] = true
+		}
+	}
+	kept := models[:0]
+	for _, m := range models {
+		if m.wanted || (strings.HasSuffix(m.path, ".sysml") && directories[filepath.Dir(m.path)]) {
+			kept = append(kept, m)
+		}
+	}
+	return kept
 }
 
 // sweepProperties runs the per-model properties on one loaded model (failures go to t, safe from a
@@ -286,7 +315,7 @@ func sweepFixtureModels(t *testing.T) []*sweepModel {
 			return err
 		}
 		if !entry.IsDir() && strings.HasSuffix(path, ".sysml") {
-			models = append(models, &sweepModel{rel: filepath.ToSlash(path), path: path, fixture: true})
+			models = append(models, &sweepModel{rel: filepath.ToSlash(path), path: path, fixture: true, wanted: true})
 		}
 		return nil
 	})

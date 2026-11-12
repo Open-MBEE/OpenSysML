@@ -17,6 +17,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/corpussubset"
 )
 
 var updateCorpusRoundTrip = flag.Bool("update-corpus-roundtrip", false,
@@ -417,13 +418,16 @@ func (g roundTripGate) writeExpected(t *testing.T, files []string, got map[strin
 	}
 }
 
-// check takes the sweep's verdict of every file and either regenerates the
-// gate's expectation or fails on any movement from it.
-func (g roundTripGate) check(t *testing.T, files []string, totals map[string]int, got map[string]string) {
+// check takes the sweep's verdict of every visited file (files, the subset of corpus) and either
+// regenerates the gate's expectation or fails on any movement from it.
+func (g roundTripGate) check(t *testing.T, subset corpussubset.Subset, corpus, files []string, totals map[string]int, got map[string]string) {
 	t.Helper()
 	t.Log(g.summary(files, got))
 
 	if *g.update {
+		if err := subset.Recording(g.updateFlag); err != nil {
+			t.Fatal(err)
+		}
 		g.writeExpected(t, files, got)
 		t.Logf("wrote %s: %d file(s)", g.expected, len(files))
 		return
@@ -438,11 +442,17 @@ func (g roundTripGate) check(t *testing.T, files []string, totals map[string]int
 		}
 	}
 
+	// Under a subset the unvisited files keep their recorded verdicts unchecked.
+	exists := make(map[string]bool, len(corpus))
+	for _, path := range corpus {
+		exists[path] = true
+	}
 	for _, path := range sortedStringKeys(want) {
 		switch verdict, ok := got[path]; {
-		case !ok:
+		case !exists[path]:
 			t.Errorf("%s: recorded %s but the file is gone; regenerate with %s",
 				path, want[path], g.updateFlag)
+		case !ok:
 		case verdict != want[path]:
 			t.Errorf("%s: %s, expected %s; adjudicate the change, then regenerate with %s",
 				path, verdict, want[path], g.updateFlag)

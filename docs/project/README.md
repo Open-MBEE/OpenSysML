@@ -17,6 +17,9 @@ within these records and means nothing outside this repository.
   corpora, ratcheted in CI
 - **[RDF corpus round-trip gate](rdf-corpus-roundtrip.md)** — the notation → Turtle → notation →
   Turtle verdict of every model under `examples/`, ratcheted per file in CI
+- **[Construct-cover corpus subset](construct-cover-subset.md)** — the 95 models under
+  `examples/` that exhibit every syntactic construct the 880 do, and the
+  `OPENSYSML_CORPUS_SUBSET` switch that makes the sweeps iterate them alone
 - **[PSSM migration gate](pssm-migration.md)** — the SysML v1 migrator over the OMG PSSM test
   suite: the notation asserted to parse, the report's verdict totals ratcheted in CI
 - **[Pilot differential](pilot-differential.md)** — OpenSysML diagnostics compared against the OMG

@@ -30,6 +30,10 @@ either direction, or that appears or disappears, fails the test
 `OPENSYSML_REQUIRE_SPEC_EXAMPLES=1` in both `.circleci/config.yml` and `.github/workflows/pr.yml`, under which an absent or empty
 downloaded root fails instead of skipping. Both configurations also run the gate on its own so
 its summary line is legible in the log and a skip cannot pass.
+**Subset:** under `OPENSYSML_CORPUS_SUBSET=construct-cover` both gates visit only the files of
+`tests/corpus/testdata/construct_cover.txt` and check their verdicts against the expectation,
+leaving the unvisited lines unchecked; the recorders refuse to run under it. See
+[construct-cover-subset.md](construct-cover-subset.md).
 
 ## Why
 

@@ -197,3 +197,45 @@ func TestInitialSuccessionStatesItsRelationshipEnds(t *testing.T) {
 		}
 	}
 }
+
+// A `then x;` succession states Relationship::source and target beside the sourceFeature and targetFeature
+// it names — the `first start` source, the named member before it, a plain-named target, the library's `done`.
+func TestThenSuccessionStatesItsRelationshipEnds(t *testing.T) {
+	const model = `package Seq { action act { first start; then action a; then action b; then done; } }`
+	turtle, err := convert.Convert("s.sysml", []byte(model), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph, err := rdf.ParseTurtle(turtle)
+	if err != nil {
+		t.Fatalf("parse turtle: %v", err)
+	}
+	var successions []rdf.Term
+	for _, triple := range graph.Triples() {
+		if triple.Predicate.Value == rdf.SysML+"targetFeature" && graph.HasProperty(triple.Subject, rdf.OpenSysML+"endForm") {
+			successions = append(successions, triple.Subject)
+		}
+	}
+	if len(successions) != 3 {
+		t.Fatalf("%d `then` successions with a targetFeature, want 3", len(successions))
+	}
+	stated := 0
+	for _, subject := range successions {
+		for _, pair := range [][2]string{{"sourceFeature", "source"}, {"targetFeature", "target"}} {
+			feature, named := graph.Object(subject, rdf.SysML+pair[0])
+			got, ok := graph.Object(subject, rdf.SysML+pair[1])
+			switch {
+			case named && feature.IsIRI():
+				if !ok || got != feature {
+					t.Errorf("%s %s = %v (%t), want %v", subject.Value, pair[1], got, ok, feature)
+				}
+				stated++
+			case ok:
+				t.Errorf("%s %s = %v stated without a %s", subject.Value, pair[1], got, pair[0])
+			}
+		}
+	}
+	if stated != 6 {
+		t.Errorf("%d Relationship ends stated, want 6 (start→a, a→b, b→done)", stated)
+	}
+}
