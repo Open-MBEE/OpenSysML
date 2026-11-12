@@ -25,6 +25,13 @@ internal static class GraphReader
     private const string VersionedNamespace = "https://www.omg.org/spec/SysML/";
     private const int VersionDigits = 8;
     private const int DescribedLength = 64;
+
+    /// <summary>
+    /// How deep objects and arrays may nest: the most <see cref="JsonDocument"/> parses by default, so the
+    /// path and stream overloads never meet a deeper document, and the reader's recursive steps stay far
+    /// from the end of the stack whatever depth a caller's own document allowed.
+    /// </summary>
+    private const int MaxDepth = 64;
     private static readonly string[] OwnerKeys = ["owningRelationship", "owner", "owningNamespace"];
     private static readonly string[] OwnedKeys = ["ownedRelationship", "ownedRelatedElement"];
 
@@ -278,7 +285,7 @@ internal static class GraphReader
         }
     }
 
-    /// <summary>Validates every object's keys before conversion can skip a value or an envelope's metadata.</summary>
+    /// <summary>Validates every object's keys, and how deep they nest, before conversion can skip a value or an envelope's metadata.</summary>
     private static void Validate(JsonElement root)
     {
         if (root.ValueKind != JsonValueKind.Undefined && !Utf8.IsValid(JsonMarshal.GetRawUtf8Value(root)))
@@ -286,10 +293,11 @@ internal static class GraphReader
             throw new MalformedDocumentException("the document is not valid UTF-8");
         }
 
-        var pending = new Stack<JsonElement>();
-        pending.Push(root);
-        while (pending.TryPop(out var value))
+        var pending = new Stack<(JsonElement Value, int Depth)>();
+        pending.Push((root, 1));
+        while (pending.TryPop(out var entry))
         {
+            var (value, depth) = entry;
             if (value.ValueKind == JsonValueKind.Object)
             {
                 var names = new HashSet<string>(StringComparer.Ordinal);
@@ -312,7 +320,7 @@ internal static class GraphReader
 
                     if (member.Value.ValueKind is JsonValueKind.Object or JsonValueKind.Array)
                     {
-                        pending.Push(member.Value);
+                        pending.Push((member.Value, Deeper(depth)));
                     }
                 }
             }
@@ -322,12 +330,17 @@ internal static class GraphReader
                 {
                     if (item.ValueKind is JsonValueKind.Object or JsonValueKind.Array)
                     {
-                        pending.Push(item);
+                        pending.Push((item, Deeper(depth)));
                     }
                 }
             }
         }
     }
+
+    /// <summary>The depth of an object or array nested in one at this depth; past <see cref="MaxDepth"/>, a malformed document.</summary>
+    private static int Deeper(int depth) => depth < MaxDepth
+        ? depth + 1
+        : throw new MalformedDocumentException($"the document nests objects and arrays more than {MaxDepth} deep");
 
     private static string IdentityString(JsonElement value, string where) =>
         TryDecodeString(value, out var text, out var failure)

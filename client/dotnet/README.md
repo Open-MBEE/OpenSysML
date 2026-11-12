@@ -398,7 +398,10 @@ member, as HTTP servers write one, and its CRC-32 and length are checked: the .N
 alone returns a body cut short as if it were whole. A Connect call sends its deadline as
 `Connect-Timeout-Ms` and also enforces it itself, because the service does not cut a call
 that is already running short. The connection's own HTTP handler follows no redirect and keeps
-no cookies; a borrowed `HttpMessageHandler` is used as it is configured.
+no cookies. It reaches a loopback address, where every private service listens, directly: the
+default proxy, from `HTTP_PROXY` and `NO_PROXY` or the system's settings, would read those calls
+in cleartext or fail them, so only other addresses go through it. A borrowed `HttpMessageHandler`
+is used as it is configured.
 
 With `Json`, the size limits measure the JSON text. A response field this client does not
 know is ignored, so that a newer service can still be read, and so is an enum value given by
@@ -1320,7 +1323,8 @@ dotnet run --project client/dotnet/samples/MetamodelReader -c Release -- client/
   `MalformedDocumentException`: not JSON, an item that is no object, an element without a string `@id`
   or `@type`, two elements with one `@id`, invalid UTF-8, an undecodable Unicode property name,
   `@id` or `@type`, a key twice in any object (including ignored extensions and envelope metadata),
-  or supertypes that form a cycle. These checks apply to every source overload.
+  objects and arrays nested more than 64 deep (the most `JsonDocument` parses by default), or
+  supertypes that form a cycle. These checks apply to every source overload.
   A value that does not fit its property, of the wrong JSON kind, a literal its enumeration lacks, an
   integer beyond 32 bits, a real that is not finite, an undecodable Unicode string (including a
   reference target) or a null in an array, fails only reads of that

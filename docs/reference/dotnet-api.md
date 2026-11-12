@@ -312,7 +312,8 @@ reading `Extensions` throws `InvalidOperationException`.
 
 A document that is not an element graph fails the read with `MalformedDocumentException`. Every
 source overload rejects invalid UTF-8, undecodable Unicode property names or element identities,
-and duplicate keys anywhere, including ignored extensions and envelope metadata. A value
+duplicate keys anywhere, including ignored extensions and envelope metadata, and objects and
+arrays nested more than 64 deep, the most `JsonDocument` parses by default. A value
 that does not fit its property, a reference outside its metaclass or an undecodable Unicode string
 among them, fails only reads of that
 property, every time, with `MalformedValueException`, and a reference to an `@id` the document does

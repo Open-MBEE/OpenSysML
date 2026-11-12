@@ -253,9 +253,10 @@ public sealed class ConnectionOptions
     }
 
     /// <summary>
-    /// The HTTP handler to send through, or null for one the connection creates and disposes. A
-    /// handler given here is borrowed: the connection never disposes it, so one handler can serve
-    /// several connections and outlive them.
+    /// The HTTP handler to send through, or null for one the connection creates and disposes, which
+    /// reaches a loopback address directly and any other through the default proxy. A handler given
+    /// here is borrowed: the connection never disposes it, so one handler can serve several
+    /// connections and outlive them.
     /// </summary>
     public HttpMessageHandler? HttpMessageHandler { get; init; }
 

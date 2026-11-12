@@ -30,7 +30,7 @@ internal sealed class GrpcTransport : ITransport
     /// <param name="options">The connection's options, already validated.</param>
     /// <param name="headers">The headers every call carries.</param>
     internal GrpcTransport(Uri address, ConnectionOptions options, CallHeaders headers)
-        : this(address, options.HttpMessageHandler ?? CreateHandler(), ownsHandler: options.HttpMessageHandler is null, options, headers)
+        : this(address, options.HttpMessageHandler ?? CreateHandler(address), ownsHandler: options.HttpMessageHandler is null, options, headers)
     {
     }
 
@@ -197,10 +197,11 @@ internal sealed class GrpcTransport : ITransport
         return new TransportException(status, message, method, cause ?? error);
     }
 
-    private static SocketsHttpHandler CreateHandler() => new()
+    private static SocketsHttpHandler CreateHandler(Uri address) => new()
     {
         PooledConnectionLifetime = TimeSpan.FromMinutes(5),
         EnableMultipleHttp2Connections = true,
+        UseProxy = ServiceAddress.ThroughProxy(address),
     };
 
     /// <summary>What the response to one call carried, as the handler saw it.</summary>

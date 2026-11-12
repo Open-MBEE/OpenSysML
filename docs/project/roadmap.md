@@ -2524,8 +2524,9 @@ large models* under *Proposed*: the module's size against a browser's patience.
 
 `client/dotnet` is an asynchronous C# client for .NET 10, `OpenMBEE.OpenSysML`, consumed by
 `ProjectReference` from a checkout and released as the checkout of the core `v*` tag; nothing is
-published to NuGet. Every RPC of the schema is called by a typed public method, which a parity
-inventory its tests hold to the schema records RPC by RPC and field by field. It speaks gRPC by
+published to NuGet. Every RPC of the schema is called by a typed public method, and the conformance
+run, which drives the client through that API, fails on a scenario it skips unless
+`client/dotnet/test/testdata/expected-skips.json` lists it. It speaks gRPC by
 default and Connect with protobuf or JSON bodies on request, starts private services that end with
 their process under the shared cache's cross-client lock, downloads releases its checkout pins
 (without verifying the manifest's Sigstore signature, so an unpinned release is refused), and runs

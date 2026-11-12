@@ -45,6 +45,8 @@ env:
     client/node/src/generated/sysml_pb.ts
     client/rust/opensysml/src/proto/sysml/sysml.rs
     client/rust/conformance/sysml.descriptor.binpb
+    client/dotnet/src/OpenMBEE.OpenSysML/Wire/Sysml.cs
+    client/dotnet/src/OpenMBEE.OpenSysML/Wire/SysmlGrpc.cs
   # Hand-written pages carrying a generated block `make docs-counts` rewrites.
   DOC_COUNT_PATHS: |
     README.md
@@ -178,7 +180,7 @@ jobs:
       - name: Regenerate the library snapshot and the protobuf stubs
         run: |
           make stdlib-snapshot
-          make proto-buf proto-ts proto-rust python-proto BUF=buf
+          make proto-buf proto-ts proto-rust python-proto proto-csharp BUF=buf
 
       - name: Re-record the derived-property differential and the derived census
         run: |
