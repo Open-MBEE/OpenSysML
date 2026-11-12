@@ -868,6 +868,46 @@ func (m *Model) ConstantFeatureValues(sym *symbols.Symbol, feature string) ([]sy
 	return m.constantFeatureValues(member, make(map[*symbols.Symbol]bool))
 }
 
+// InheritsValuelessMember reports whether feature names a member sym inherits without declaring
+// or redefining it, which states no value anywhere along its redefinitions (a library's connector end).
+func (m *Model) InheritsValuelessMember(sym *symbols.Symbol, feature string) bool {
+	if m == nil || sym == nil || feature == "" {
+		return false
+	}
+	member, ok := m.LookupMember(sym, feature)
+	if !ok || member == nil {
+		return false
+	}
+	contributed, ok := m.LookupContributedMember(sym, feature)
+	return ok && contributed == member && m.statesNoValue(member, make(map[*symbols.Symbol]bool))
+}
+
+// statesNoValue mirrors constantFeatureValues' valueless path: member writes no value, and
+// neither does any feature it redefines.
+func (m *Model) statesNoValue(member *symbols.Symbol, seen map[*symbols.Symbol]bool) bool {
+	if member == nil || seen[member] || !member.DeclaresUsage() {
+		return false
+	}
+	seen[member] = true
+	defer delete(seen, member)
+	if member.Recorded() && member.Facts.Modifiers.Has(symbols.ModValued) {
+		return false
+	}
+	if usage, _ := member.Decl.(*ast.Usage); usage != nil && usage.Value != nil {
+		return false
+	}
+	redefined := m.RedefinedFeatures(member)
+	if len(redefined) == 0 {
+		redefined = m.ImplicitParameterRedefinitions(member)
+	}
+	for _, general := range redefined {
+		if !m.statesNoValue(general, seen) {
+			return false
+		}
+	}
+	return true
+}
+
 // DeclaredFeatureValues returns a declared member feature's ordered constant
 // values, never answering reflective metaclass features of the same name. The
 // error is a symbols.NeedsHydration when the value is written in a recorded document.
