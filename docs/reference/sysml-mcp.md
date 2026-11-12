@@ -328,7 +328,7 @@ agent can discover the surface without this page.
 | `features` | Show an object's feature values and what its behaviors are doing (%features): the values its attributes hold, the objects its parts and ports hold, its connectors, and the state of each machine it exhibits and action it performs. | no |
 | `instances` | List the objects a session holds (%instances): each with its id, type and lifetime, the ones a later instantiation displaced included. | no |
 | `optimize` | Ask an SMT solver for the best values an analysis case's objectives admit (%optimize, experimental), each objective improved as its trade-study definition says, within the case's conditions. | no |
-| `render_run` | Render the run a session recorded as a state timeline or a message sequence (%render-run), in a text or diagram form. | no |
+| `render_run` | Render the run a session recorded as a state timeline or a message sequence (%render-run), in a text or diagram form, drawing at most `limit` spans or messages (200 by default). Record the run first with repl_command `%trace record`, which keeps the trace without echoing it into later results. | no |
 | `repl_command` | Run one sysml prompt command (a % line) in a session and return what it printed. | yes |
 | `runs` | Run an action count times, each run's modeled randomness seeded on its own, and return the table of the observables with each one's distribution (%runs); or run a Simulation::MonteCarlo analysis case count times on fresh subjects and conclude it. | yes |
 | `send` | Send a signal to an object through the runtime's message bus (%send), for the state machine it exhibits or the action parked at a matching accept to take; by default to the object whose behavior is being debugged. | yes |
