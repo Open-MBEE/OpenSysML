@@ -1071,23 +1071,23 @@
       "pilotLibraryElements": 40244,
       "elements": {
         "matched": 105427,
-        "oursOnly": 18097,
+        "oursOnly": 18143,
         "pilotOnly": 26894,
         "pilotOnlyImplied": 0,
         "typeMismatch": 1815
       },
       "properties": {
-        "presentEqual": 2045864,
-        "presentDifferent": 143898,
-        "oursMissing": 308343,
-        "pilotMissing": 81606,
-        "absentBoth": 2244653,
+        "presentEqual": 2046189,
+        "presentDifferent": 144281,
+        "oursMissing": 307635,
+        "pilotMissing": 81562,
+        "absentBoth": 2244651,
         "indeterminate": 35440,
         "pilotNondeterministic": 534
       },
       "rows": 11770,
       "unkeyedReferences": 160644,
-      "extensionProperties": 275215,
+      "extensionProperties": 274935,
       "duplicateElements": {
         "ours": 553,
         "pilot": 89469
@@ -1112,16 +1112,16 @@
         "pilotLibraryElements": 781,
         "elements": {
           "matched": 8322,
-          "oursOnly": 934,
+          "oursOnly": 935,
           "pilotOnly": 1844,
           "pilotOnlyImplied": 0,
           "typeMismatch": 6
         },
         "properties": {
-          "presentEqual": 164466,
-          "presentDifferent": 12726,
-          "oursMissing": 20441,
-          "pilotMissing": 5839,
+          "presentEqual": 164471,
+          "presentDifferent": 12734,
+          "oursMissing": 20428,
+          "pilotMissing": 5838,
           "absentBoth": 184381,
           "indeterminate": 2894,
           "pilotNondeterministic": 64
@@ -1148,17 +1148,17 @@
         "pilotLibraryElements": 2421,
         "elements": {
           "matched": 29194,
-          "oursOnly": 5814,
+          "oursOnly": 5818,
           "pilotOnly": 6922,
           "pilotOnlyImplied": 0,
           "typeMismatch": 27
         },
         "properties": {
-          "presentEqual": 576602,
-          "presentDifferent": 43688,
-          "oursMissing": 82622,
-          "pilotMissing": 21631,
-          "absentBoth": 633525,
+          "presentEqual": 576643,
+          "presentDifferent": 43721,
+          "oursMissing": 82548,
+          "pilotMissing": 21629,
+          "absentBoth": 633523,
           "indeterminate": 8162,
           "pilotNondeterministic": 176
         },
@@ -1184,16 +1184,16 @@
         "pilotLibraryElements": 751,
         "elements": {
           "matched": 10413,
-          "oursOnly": 1791,
+          "oursOnly": 1796,
           "pilotOnly": 2186,
           "pilotOnlyImplied": 0,
           "typeMismatch": 0
         },
         "properties": {
-          "presentEqual": 203755,
-          "presentDifferent": 15120,
-          "oursMissing": 26252,
-          "pilotMissing": 7714,
+          "presentEqual": 203767,
+          "presentDifferent": 15161,
+          "oursMissing": 26199,
+          "pilotMissing": 7709,
           "absentBoth": 225775,
           "indeterminate": 2991,
           "pilotNondeterministic": 66
@@ -1227,9 +1227,9 @@
           "typeMismatch": 1136
         },
         "properties": {
-          "presentEqual": 122139,
-          "presentDifferent": 8930,
-          "oursMissing": 18771,
+          "presentEqual": 122262,
+          "presentDifferent": 8934,
+          "oursMissing": 18644,
           "pilotMissing": 8269,
           "absentBoth": 112366,
           "indeterminate": 568,
@@ -1257,16 +1257,16 @@
         "pilotLibraryElements": 432,
         "elements": {
           "matched": 7630,
-          "oursOnly": 2004,
+          "oursOnly": 2006,
           "pilotOnly": 2100,
           "pilotOnlyImplied": 0,
           "typeMismatch": 419
         },
         "properties": {
-          "presentEqual": 134234,
-          "presentDifferent": 7268,
-          "oursMissing": 22163,
-          "pilotMissing": 6437,
+          "presentEqual": 134262,
+          "presentDifferent": 7287,
+          "oursMissing": 22116,
+          "pilotMissing": 6435,
           "absentBoth": 146407,
           "indeterminate": 2479,
           "pilotNondeterministic": 7
@@ -1294,16 +1294,16 @@
         "pilotLibraryElements": 83,
         "elements": {
           "matched": 1537,
-          "oursOnly": 249,
+          "oursOnly": 252,
           "pilotOnly": 434,
           "pilotOnlyImplied": 0,
           "typeMismatch": 28
         },
         "properties": {
-          "presentEqual": 28211,
-          "presentDifferent": 1950,
-          "oursMissing": 4199,
-          "pilotMissing": 1201,
+          "presentEqual": 28217,
+          "presentDifferent": 1974,
+          "oursMissing": 4169,
+          "pilotMissing": 1198,
           "absentBoth": 32951,
           "indeterminate": 439,
           "pilotNondeterministic": 0
@@ -1331,16 +1331,16 @@
         "pilotLibraryElements": 17663,
         "elements": {
           "matched": 33557,
-          "oursOnly": 5556,
+          "oursOnly": 5584,
           "pilotOnly": 10579,
           "pilotOnlyImplied": 0,
           "typeMismatch": 199
         },
         "properties": {
-          "presentEqual": 659978,
-          "presentDifferent": 44955,
-          "oursMissing": 103537,
-          "pilotMissing": 25139,
+          "presentEqual": 660072,
+          "presentDifferent": 45184,
+          "oursMissing": 103214,
+          "pilotMissing": 25111,
           "absentBoth": 741760,
           "indeterminate": 14428,
           "pilotNondeterministic": 176
@@ -1403,16 +1403,16 @@
         "pilotLibraryElements": 17825,
         "elements": {
           "matched": 7919,
-          "oursOnly": 673,
+          "oursOnly": 676,
           "pilotOnly": 1390,
           "pilotOnlyImplied": 0,
           "typeMismatch": 0
         },
         "properties": {
-          "presentEqual": 155580,
-          "presentDifferent": 9248,
-          "oursMissing": 30268,
-          "pilotMissing": 5335,
+          "presentEqual": 155596,
+          "presentDifferent": 9273,
+          "oursMissing": 30227,
+          "pilotMissing": 5332,
           "absentBoth": 166495,
           "indeterminate": 3458,
           "pilotNondeterministic": 36

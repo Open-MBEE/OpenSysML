@@ -90,6 +90,14 @@ class AttributionTest(unittest.TestCase):
         self.assertEqual(movement.structure_figures(structure), {"examples models": 2, "examples skipped": 0, "examples matched": 10, "examples unmatched": 1, "tests/testdata models": 1, "tests/testdata skipped": 0, "tests/testdata matched": 3, "tests/testdata unmatched": 0})
         self.assertEqual(movement.parse_sweep("# h\nread\tProbe::p1.a\tmodel\tP1::a\tconstant 2.5\n"), {"read\tProbe::p1.a\tmodel\tP1::a": "constant 2.5"})
         self.assertEqual(sorted(movement.parse_census(census(**{"A::b": {"ours": 1}}))), ["root\ttraining", "training\tA::b"])
+        header = json.dumps({"roots": [{"name": "training", "files": 2}]})
+        self.assertEqual(movement.parse_census(header), {"root\ttraining": json.dumps({"files": 2})})
+        self.assertEqual(movement.census_figures(header), {})
+        records = "# re-record\n# rule\troot\tours.carriers\tours.value\tpilot.carriers\tpilot.value\nA::b\ttraining\t3\t1\t3\t2\nA::b\tpilot\t1\t0\t1\t1\n\nbroken\n"
+        self.assertEqual(movement.parse_census_records(records), {"training\tA::b": "3\t1\t3\t2", "pilot\tA::b": "1\t0\t1\t1"})
+        self.assertEqual(movement.census_records_figures(records), {"ours.carriers": 4, "ours.value": 1, "pilot.carriers": 4, "pilot.value": 3})
+        self.assertIs(movement.parser_for("internal/semantic/metamodel/derived_census_records.tsv"), movement.parse_census_records)
+        self.assertIs(movement.figures_for("internal/semantic/metamodel/derived_census_records.tsv"), movement.census_records_figures)
         apijson = json.dumps({"totals": {"files": 3, "elements": {"matched": 5}, "properties": {"oursMissing": 7, "presentDifferent": 2}},
                               "roots": [{"name": "training", "dir": "x", "files": 3, "elements": {}, "properties": {}}],
                               "scorecard": {"Feature.type": [1, 2, 3, 4, 5, 6, 7]}})

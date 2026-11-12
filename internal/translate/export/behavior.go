@@ -286,6 +286,9 @@ func (e *encoder) encodeInitialNode(n *ast.InitialNode, head func(rdf.Term), sub
 		}
 		if qualifiedText(n.Successor) != "" {
 			e.graph.Add(subject, e.sysml(pSourceFeature), start)
+			if start.IsIRI() {
+				e.graph.Add(subject, e.sysml(pSource), start)
+			}
 		} else {
 			e.graph.Add(subject, e.sysml(pMemberElement), start)
 			if ns, ok := e.graph.Object(subject, rdf.SysML+pMembershipOwningNamespace); ok && start.IsIRI() {
@@ -297,7 +300,12 @@ func (e *encoder) encodeInitialNode(n *ast.InitialNode, head func(rdf.Term), sub
 		return err
 	}
 	if qualifiedText(n.Successor) != "" {
-		e.graph.Add(subject, e.sysml(pTargetFeature), e.edgeReference(n.Successor))
+		target := e.edgeReference(n.Successor)
+		e.graph.Add(subject, e.sysml(pTargetFeature), target)
+		// Relationship::source and target, which the two redefine (KerML 8.3.4.5.1), for a plain-named end.
+		if target.IsIRI() && !qualifiedNameHasChain(n.Successor) {
+			e.graph.Add(subject, e.sysml(pTarget), target)
+		}
 		// `first a then b;` owns its two ends, each a ConnectorEnd referencing
 		// the feature it names (SysML-textual-bnf SuccessionAsUsage,
 		// ConnectorEndMember), beside the sourceFeature and targetFeature the
@@ -427,6 +435,13 @@ func (e *encoder) encodeLoop(n *ast.WhileLoopActionNode, head func(rdf.Term), su
 // the membership's; the action it performs, if any, is its one member, a braced
 // block being an anonymous action whose own body holds the statements.
 func (e *encoder) encodeSubaction(n ast.Node, actions []ast.Node, kind string, head func(rdf.Term), subject rdf.Term, fqn string) error {
+	if len(actions) == 0 {
+		// A bare `entry;` performs an anonymous empty action (SysML.xtext EmptyActionUsage): the member is
+		// that ActionUsage, owned through the StateSubactionMembership encodeMember states for it.
+		head(rdf.SysMLTerm(usageMetaclass[ast.UsageAction]))
+		e.graph.Add(subject, e.sysml("isComposite"), rdf.Bool(true))
+		return nil
+	}
 	head(rdf.SysMLTerm(mSubaction))
 	e.graph.Add(subject, e.sysml(pKind), rdf.String(kind))
 	e.graph.Add(subject, e.sysx(xSubactionKind), rdf.String(kind))
@@ -437,6 +452,25 @@ func (e *encoder) encodeSubaction(n ast.Node, actions []ast.Node, kind string, h
 		e.graph.Add(subject, e.sysx(xDeclaredKeyword), rdf.String(kind+" do"))
 	}
 	return e.encode(actions, fqn, subject)
+}
+
+// bareSubactionKind is the `entry`, `do` or `exit` of a state subaction written without an action, "" otherwise.
+func bareSubactionKind(node ast.Node) string {
+	switch n := node.(type) {
+	case *ast.EntryMember:
+		if len(n.Actions) == 0 {
+			return "entry"
+		}
+	case *ast.DoMember:
+		if len(n.Actions) == 0 {
+			return "do"
+		}
+	case *ast.ExitMember:
+		if len(n.Actions) == 0 {
+			return "exit"
+		}
+	}
+	return ""
 }
 
 // markPerformed records the action usages among members as performed actions.
@@ -1722,6 +1756,10 @@ func (d *decoder) sourceEnd(el *element) (rdf.Term, bool) {
 func (d *decoder) sequencesFrom(el, from *element) bool {
 	if from == nil {
 		return false
+	}
+	// A subaction is written at its membership's position; `then` sequences from the action it performs.
+	if from.metaclass == mSubaction && len(from.children) == 1 && d.sequencesFrom(el, from.children[0]) {
+		return true
 	}
 	if term, positional := d.graph.Object(rdf.IRI(el.iri), rdf.OpenSysML+xSourceMember); positional {
 		if term.Value == from.iri {

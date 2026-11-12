@@ -436,7 +436,9 @@ same way, so its imports of sibling files resolve rather than being reported unr
 
 - ✅ Document synchronization, incremental (`textDocumentSync.change: 2`)
 - ✅ Diagnostics (syntax + semantic errors, published on open and on change)
-- ✅ Hover (symbol info, type, multiplicity)
+- ✅ Hover (symbol info, type, multiplicity, and the element's documentation: the bodies of the
+  `doc` members it owns, in declaration order, then any `//` or `//* ... */` notes written directly
+  above its declaration; a bare `/* ... */` there is a comment of the enclosing namespace, not shown)
 - ✅ Go-to-definition (cross-document navigation, into the bundled standard library as
   `sysml-stdlib:` documents)
 - ✅ Find references (workspace-wide search)

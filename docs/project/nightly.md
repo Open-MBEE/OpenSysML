@@ -27,7 +27,13 @@ the [install guide](../guide/01-install.md)) carries it.
   commits (its first-parent history, one per merged pull request) from the head and takes the
   first whose CircleCI `build-test` workflow — the Go suite, the
   corpus gates and the client tests, or the coverage and scan jobs alone on a commit
-  the merge queue already proved (`verify-tree`) — passed. A red head is skipped, so a snapshot can be a
+  the merge queue already proved (`verify-tree`) — passed. The merge queue runs the queue tier
+  (no race detector over the `examples/` sweeps, which walk the construct-cover subset); the
+  full tier runs over develop's head every night at 12:07 UTC
+  ([`.github/workflows/full-scan.yml`](../../.github/workflows/full-scan.yml), which dispatches
+  `pr.yml` with `tier=full` unless the head already has a full-tier run), and its `Build and
+  test` check lands on that commit — see
+  [CONTRIBUTING.md § GitHub Actions](../../CONTRIBUTING.md#github-actions). A red head is skipped, so a snapshot can be a
   few commits behind `develop`; the release notes name the commit and link the
   compare against the last stable tag. The walk ends at the commit the current snapshot was
   built from, so the snapshot never moves backwards, and a green commit that predates

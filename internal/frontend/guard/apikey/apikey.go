@@ -123,6 +123,10 @@ func Hash(secret string) string {
 // Mint issues a key for subject with scopes, expiring at expires (zero for never), and appends
 // its record to the file at path, created if absent; the key is returned once, the file never holds it.
 func Mint(path, subject string, scopes []string, expires time.Time) (string, Record, error) {
+	path, err := target(path)
+	if err != nil {
+		return "", Record{}, err
+	}
 	unlock, err := lock(path)
 	if err != nil {
 		return "", Record{}, err
@@ -156,6 +160,16 @@ func Mint(path, subject string, scopes []string, expires time.Time) (string, Rec
 		return "", Record{}, err
 	}
 	return Prefix + id + "." + secret, record, nil
+}
+
+// target is the file path names once symlinks are followed, so an edit lands in
+// the file a server reads rather than replacing a link; a file not there yet is its own target.
+func target(path string) (string, error) {
+	resolved, err := filepath.EvalSymlinks(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return path, nil
+	}
+	return resolved, err
 }
 
 // random is n random bytes in base64url without padding (RFC 4648 § 5).
@@ -210,6 +224,10 @@ func lacksLineBreak(f *os.File) (bool, error) {
 // Revoke marks the record of id disabled in the file at path, which is
 // rewritten whole; a key that is not there, or is disabled already, is an error.
 func Revoke(path, id string) error {
+	path, err := target(path)
+	if err != nil {
+		return err
+	}
 	unlock, err := lock(path)
 	if err != nil {
 		return err

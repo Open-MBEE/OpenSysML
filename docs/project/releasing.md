@@ -267,8 +267,9 @@ branch that moves the integration state onto `main`:
    pull-request workflow is green. Merging into `main` runs CircleCI's
    `build-test` workflow over the merged tree. Its first job, `verify-tree`
    (`scripts/ci-verified-tree.py`), asks GitHub whether that exact commit already
-   has a green full-tier `Build and test` check — the merge queue's commit does, a
-   plain merge commit does not — and when it has, the suite jobs (`go-static` past
+   has a green full-tier `Build and test` check (a `ci:full` run; on `main` the merge
+   queue's queue-tier run does not count, since a tag may rely on this build-test —
+   only `develop`'s build-test accepts one) and when it has, the suite jobs (`go-static` past
    its landing bundle and the two checks whose verdict depends on `CIRCLE_TAG`,
    `go-vulncheck`, `go-race-test`, `go-gates`, the Rust, Julia and MATLAB clients)
    halt green with the evidence as their one line of output;
@@ -366,10 +367,17 @@ does a tag whose version `client/python/opensysml/_version.py`,
 
 The suite does not run twice over a tree it has already passed. The `release`
 workflow starts with `verify-tree`, which accepts either a green full-tier
-`Build and test` check run on the tagged commit (GitHub Actions, as the merge
-queue leaves on `main`'s head) or a green `build-test` CircleCI workflow of a
-`main` pipeline on the same commit (read with `CIRCLECI_API_TOKEN`, the project
-variable `cancel-superseded` uses; without it only the GitHub evidence counts).
+`Build and test` check run on the tagged commit (GitHub Actions: a `ci:full` run,
+a `workflow_dispatch` of `pr.yml`, or the nightly full scan; the merge queue's
+queue-tier run does not count for a tag, since it runs the `examples/` sweeps
+without the race detector and over the construct-cover subset — see
+[CONTRIBUTING.md § GitHub Actions](../../CONTRIBUTING.md#github-actions)) or a
+green `build-test` CircleCI workflow of a `main` pipeline on the same commit
+(read with `CIRCLECI_API_TOKEN`, the project variable `cancel-superseded` uses;
+without it only the GitHub evidence counts). A release therefore ships nothing the
+race detector has not seen over the whole corpus: `main`'s own `build-test` is that
+run when nothing else was, and CircleCI's `go-race-test` and `go-coverage` never take
+the subset.
 On a verified tag the suite jobs, the coverage jobs and the client tests halt
 green with the evidence as their one line of output — after `go-static` has run
 the checks only a tag decides, the combined compliance page and the protobuf
