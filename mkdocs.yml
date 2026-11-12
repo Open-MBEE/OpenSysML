@@ -186,6 +186,7 @@ exclude_docs: |
   project/pilot-corpora.md
   project/spec-examples.md
   project/rdf-corpus-roundtrip.md
+  project/construct-cover-subset.md
   project/pssm-migration.md
   project/pilot-xpect.md
   project/pilot-rejection.md

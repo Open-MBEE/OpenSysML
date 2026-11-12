@@ -11,7 +11,6 @@ import (
 	"runtime"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -20,6 +19,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/corpussubset"
 )
 
 var updateCorpusRoundTrip = flag.Bool("update-corpus-roundtrip", false,
@@ -432,21 +432,12 @@ func (g roundTripGate) readExpected(t *testing.T) (map[string]int, map[string]st
 		t.Fatalf("read %s: %v", g.expected, err)
 	}
 
+	// A root's size is the number of records under it: every file has a record,
+	// so no header line restates a count two branches adding files would both move.
 	totals := make(map[string]int)
 	want := make(map[string]string)
 	for i, line := range strings.Split(string(content), "\n") {
 		line = strings.TrimRight(line, "\r")
-		if rest, ok := strings.CutPrefix(line, "# files: "); ok {
-			root, count, found := strings.Cut(rest, " ")
-			if !found {
-				t.Fatalf("%s:%d: want \"# files: <root> <n>\", got %q", g.expected, i+1, line)
-			}
-			totals[root], err = strconv.Atoi(count)
-			if err != nil {
-				t.Fatalf("%s:%d: bad file count: %v", g.expected, i+1, err)
-			}
-			continue
-		}
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
@@ -458,19 +449,16 @@ func (g roundTripGate) readExpected(t *testing.T) (map[string]int, map[string]st
 			t.Fatalf("%s:%d: %s is recorded twice", g.expected, i+1, path)
 		}
 		want[path] = verdict
+		totals[corpusRoundTripRootOf(path)]++
 	}
 	return totals, want
 }
 
-func (g roundTripGate) writeExpected(t *testing.T, files []string, totals map[string]int, got map[string]string) {
+func (g roundTripGate) writeExpected(t *testing.T, files []string, got map[string]string) {
 	t.Helper()
 
 	var b strings.Builder
 	b.WriteString(g.header)
-	fmt.Fprintf(&b, "# files: %s %d\n", corpusRoundTripCommitted, totals[corpusRoundTripCommitted])
-	for _, root := range corpusRoundTripRoots {
-		fmt.Fprintf(&b, "# files: %s %d\n", root.name, totals[root.name])
-	}
 	for _, rel := range files {
 		fmt.Fprintf(&b, "%s\t%s\n", got[rel], rel)
 	}
@@ -482,7 +470,9 @@ func (g roundTripGate) writeExpected(t *testing.T, files []string, totals map[st
 // run measures every file and either regenerates the gate's expectation or
 // fails on any movement from it.
 func (g roundTripGate) run(t *testing.T) {
-	files, totals := corpusRoundTripFiles(t)
+	subset := corpussubset.Must(t, "../..")
+	corpus, totals := corpusRoundTripFiles(t)
+	files := subset.Filter(corpus)
 
 	// An empty semantic cache, as on a fresh checkout and in CI.
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
@@ -491,7 +481,10 @@ func (g roundTripGate) run(t *testing.T) {
 	t.Log(g.summary(files, got))
 
 	if *g.update {
-		g.writeExpected(t, files, totals, got)
+		if err := subset.Recording(g.updateFlag); err != nil {
+			t.Fatal(err)
+		}
+		g.writeExpected(t, files, got)
 		t.Logf("wrote %s: %d file(s)", g.expected, len(files))
 		return
 	}
@@ -505,11 +498,17 @@ func (g roundTripGate) run(t *testing.T) {
 		}
 	}
 
+	// Under a subset the unvisited files keep their recorded verdicts unchecked.
+	exists := make(map[string]bool, len(corpus))
+	for _, path := range corpus {
+		exists[path] = true
+	}
 	for _, path := range sortedStringKeys(want) {
 		switch verdict, ok := got[path]; {
-		case !ok:
+		case !exists[path]:
 			t.Errorf("%s: recorded %s but the file is gone; regenerate with %s",
 				path, want[path], g.updateFlag)
+		case !ok:
 		case verdict != want[path]:
 			t.Errorf("%s: %s, expected %s; adjudicate the change, then regenerate with %s",
 				path, verdict, want[path], g.updateFlag)
