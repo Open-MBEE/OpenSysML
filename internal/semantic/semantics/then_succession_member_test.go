@@ -82,3 +82,69 @@ func TestThenSuccessionRelatedFeatures(t *testing.T) {
 		}
 	}
 }
+
+// A `then x;` whose source is the member before it owns its two ends through an EndFeatureMembership
+// each, as the RDF writer mints them; `then idle;` after a bare `entry;` reaches its source by position and owns none.
+func TestThenSuccessionOwnsItsEnds(t *testing.T) {
+	const src = `package P {
+		action observe { first start; then action acquire; then done; }
+		state def S { entry; then idle; state idle; }
+	}`
+	for f, fixture := range reflectiveFixtures(t, "then-ends.sysml", source.KindSysML, src) {
+		model := fixture.model
+		ends := []string{"EndFeatureMembership:ReferenceUsage", "EndFeatureMembership:ReferenceUsage"}
+		if f == 1 {
+			// A record keeps a connector's ends by position (recordedPositions), as for `connect a to b`.
+			ends = nil
+		}
+		var successions []*symbols.Symbol
+		for _, owner := range []string{"P::observe", "P::S"} {
+			for _, rel := range model.OwnedRelationships(nestedSym(t, fixture.root, owner)) {
+				if member := rel.Implicit.Member; member != nil && model.MetaclassOf(member) != nil && model.MetaclassOf(member).Name == "SuccessionAsUsage" {
+					successions = append(successions, member)
+				}
+			}
+		}
+		if len(successions) != 3 {
+			t.Fatalf("%d successions, want 3", len(successions))
+		}
+		for i, want := range [][]string{ends, ends, nil} {
+			var kinds []string
+			for _, rel := range model.OwnedRelationships(successions[i]) {
+				name := relMetaName(model, rel)
+				if name != "EndFeatureMembership" {
+					continue
+				}
+				end := rel.Implicit.Member
+				kinds = append(kinds, name+":"+model.MetaclassOf(end).Name)
+				if isEnd, ok := model.ReflectiveFeatureValue(end, "isEnd"); !ok || !isEnd.Bool {
+					t.Errorf("succession %d end %d isEnd = %v, %v; want true", i, len(kinds)-1, isEnd, ok)
+				}
+				// Nameless, each end is named by the happensBeforeLinks end it redefines (KerML 8.3.3.3).
+				if name, wantName := model.EffectiveNameOf(end), []string{"earlierOccurrence", "laterOccurrence"}[len(kinds)-1]; name != wantName {
+					t.Errorf("succession %d end %d name = %q, want %q", i, len(kinds)-1, name, wantName)
+				}
+				// The target end reference-subsets the member the succession reaches (acquire, the library's
+				// done); the source end is minted empty, as the conversion writes it.
+				var referenced []string
+				subsettings, _ := model.ReflectiveElements(end, "ownedReferenceSubsetting")
+				for _, subsetting := range subsettings {
+					targets, _ := model.ReflectiveElements(subsetting, "referencedFeature")
+					for _, target := range targets {
+						referenced = append(referenced, target.Name)
+					}
+				}
+				want := [][]string{{"acquire"}, {"done"}}[i]
+				if len(kinds) == 1 {
+					want = nil
+				}
+				if strings.Join(referenced, ",") != strings.Join(want, ",") {
+					t.Errorf("succession %d end %d references %v, want %v", i, len(kinds)-1, referenced, want)
+				}
+			}
+			if strings.Join(kinds, " ") != strings.Join(want, " ") {
+				t.Errorf("succession %d end memberships = %v, want %v", i, kinds, want)
+			}
+		}
+	}
+}

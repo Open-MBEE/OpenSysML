@@ -52,6 +52,17 @@ func defaultMultiplicityOwner(sym *symbols.Symbol) (ast.Node, bool) {
 	return spanNode{sym.DeclSpan}, true
 }
 
+// successionEndSlot is the `then` succession edge and the slot (end0, end1) the conversion mints
+// the end feature sym under (encodeSuccessionEdge).
+func successionEndSlot(sym *symbols.Symbol) (ast.Node, string, bool) {
+	i, ok := symbols.ImpliedSuccessionEndIndex(sym)
+	if !ok {
+		return nil, "", false
+	}
+	decl, _ := symbols.ImpliedDeclOf(sym)
+	return decl.Of, fmt.Sprintf("end%d", i), true
+}
+
 // expressionPartSlot is the slot the conversion names a synthesized
 // expression parameter by: `in%d` for an operand's or type argument's
 // parameter, `out` for the result.
@@ -121,6 +132,11 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 		element, _, err := read.ReadExpressionPart(sym.DocName, owner, defaultMultiplicitySlot)
 		return element, err
 	}
+	if edge, slot, ok := successionEndSlot(sym); ok {
+		// A `then` succession's end is minted under the edge at end0/end1 (encodeSuccessionEdge).
+		element, _, err := read.ReadExpressionPart(sym.DocName, edge, slot)
+		return element, err
+	}
 	if end, ok := connectorEndChain(sym); ok {
 		// The chain Feature a connector end's ReferenceSubsetting owns is minted under the end.
 		element, _, err := read.ReadExpressionPart(sym.DocName, end, "chain")
@@ -153,6 +169,10 @@ func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbo
 		}
 		if owner, ok := defaultMultiplicityOwner(rel.Member); ok {
 			_, membership, err := read.ReadExpressionPart(rel.Member.DocName, owner, defaultMultiplicitySlot)
+			return membership, true, err
+		}
+		if edge, slot, ok := successionEndSlot(rel.Member); ok {
+			_, membership, err := read.ReadExpressionPart(rel.Member.DocName, edge, slot)
 			return membership, true, err
 		}
 		if rel.Member != nil {
@@ -205,6 +225,13 @@ func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbo
 		if node := aboutClauseNode(rel.Owner, rel.Ordinal); node != nil {
 			id, err = read.ReadRelationship(rel.Owner.DocName, node)
 			return id, true, err
+		}
+		return "", true, nil
+	case symbols.ImplicitSuccessionEndReference:
+		// The target end's ReferenceSubsetting is minted under the end as its `rs` (referenceSubsetting).
+		if edge, slot, ok := successionEndSlot(rel.Owner); ok {
+			element, _, err := read.ReadExpressionPart(rel.Owner.DocName, edge, slot+".rs")
+			return element, true, err
 		}
 		return "", true, nil
 	case symbols.ImplicitPortConjugation, symbols.ImplicitMetadataBodyRedefinition:

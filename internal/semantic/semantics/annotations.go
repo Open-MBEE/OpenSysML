@@ -2618,7 +2618,8 @@ func (m *Model) reflectiveFeatureBoolean(sym *symbols.Symbol, feature string) (s
 	flags, isUsage := m.reflectiveFeatureFlags(sym)
 	switch feature {
 	case "isEnd":
-		return boolValue(flags.isEnd), true
+		_, impliedEnd := symbols.ImpliedSuccessionEndIndex(sym)
+		return boolValue(flags.isEnd || impliedEnd), true
 	case "isPortion":
 		return boolValue(flags.isPortion), true
 	case "isConstant":
