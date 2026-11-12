@@ -1747,8 +1747,8 @@ func TestReplayRefusedDecisionTakesNoBranch(t *testing.T) {
 	if len(tokens) != 1 {
 		t.Fatalf("%d tokens after the refusal, want the one at the decision", len(tokens))
 	}
-	if decision, ok := tokens[0].Location.(*ast.DecisionNode); !ok || decision.Name != "select" {
-		t.Errorf("token at %T, want decision select", tokens[0].Location)
+	if decision, ok := tokens[0].Node().(*ast.DecisionNode); !ok || decision.Name != "select" {
+		t.Errorf("token at %T, want decision select", tokens[0].Node())
 	}
 	if got := FormatTraceValue(exec.Data()["handler"]); got != "0" {
 		t.Errorf("handler = %s, want 0: no branch ran", got)
