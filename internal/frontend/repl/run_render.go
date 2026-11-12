@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtrace"
@@ -22,7 +23,7 @@ func runViewKind(kind runtrace.Kind) view.Kind {
 }
 
 func (s *Session) metaRenderRun(args []string) ([]string, bool, error) {
-	if len(args) < 1 || len(args) > 3 {
+	if len(args) < 1 || len(args) > 4 {
 		return []string{renderRunUsage}, false, nil
 	}
 	kind, ok := runtrace.ParseKind(args[0])
@@ -33,7 +34,19 @@ func (s *Session) metaRenderRun(args []string) ([]string, bool, error) {
 	formSet := false
 	linkSet := false
 	links := view.Links{}
+	limit := 0
 	for _, arg := range args[1:] {
+		if value, ok := strings.CutPrefix(arg, "limit="); ok {
+			if limit != 0 {
+				return []string{renderRunUsage}, false, nil
+			}
+			n, err := strconv.Atoi(value)
+			if err != nil || n < 1 {
+				return []string{fmt.Sprintf("limit must be a positive count, not %q; %s", value, renderRunUsage)}, false, nil
+			}
+			limit = n
+			continue
+		}
 		if strings.HasPrefix(arg, "link=") {
 			if linkSet {
 				return []string{renderRunUsage}, false, nil
@@ -57,9 +70,9 @@ func (s *Session) metaRenderRun(args []string) ([]string, bool, error) {
 	if _, err := (&view.Rendering{Kind: runViewKind(kind), Run: true}).WriteWith(form, view.Options{Links: links}); err != nil {
 		return []string{errorPrefix + err.Error()}, false, nil
 	}
-	rendering, err := s.runTraceRendering(kind)
+	rendering, err := s.runTraceRendering(kind, limit)
 	if errors.Is(err, runtrace.ErrNoTrace) {
-		return []string{"error: the session records no trace; %trace on before the run"}, false, nil
+		return []string{"error: the session records no trace; %trace on or %trace record before the run"}, false, nil
 	}
 	if err != nil {
 		return []string{errorPrefix + err.Error()}, false, nil
@@ -79,13 +92,14 @@ func (s *Session) metaRenderRun(args []string) ([]string, bool, error) {
 	return lines, false, nil
 }
 
-// RunTraceRendering renders the trace the session recorded so far.
-func (s *Session) RunTraceRendering(kind runtrace.Kind) (*view.Rendering, error) {
+// RunTraceRendering renders the trace the session recorded so far, drawing at
+// most limit spans or messages; 0 draws runtrace.DefaultLimit.
+func (s *Session) RunTraceRendering(kind runtrace.Kind, limit int) (*view.Rendering, error) {
 	defer s.enter()()
-	return s.runTraceRendering(kind)
+	return s.runTraceRendering(kind, limit)
 }
 
-func (s *Session) runTraceRendering(kind runtrace.Kind) (*view.Rendering, error) {
+func (s *Session) runTraceRendering(kind runtrace.Kind, limit int) (*view.Rendering, error) {
 	trace := s.trace
 	var until float64
 	if s.rtCtx != nil {
@@ -94,5 +108,5 @@ func (s *Session) runTraceRendering(kind runtrace.Kind) (*view.Rendering, error)
 		}
 		until = s.rtCtx.Clock().Now()
 	}
-	return runtrace.Render(kind, trace, runtrace.Options{Label: s.runTraceLabel, Until: until})
+	return runtrace.Render(kind, trace, runtrace.Options{Label: s.runTraceLabel, Until: until, Limit: limit})
 }

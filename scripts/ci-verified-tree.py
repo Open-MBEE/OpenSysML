@@ -178,6 +178,22 @@ def circleci_verdict(project: str, branch: str, sha: str) -> str | None:
     return None
 
 
+def verdict(args: argparse.Namespace) -> str:
+    """The one-line verdict on the commit: `verified: <evidence>` or `unverified: <reason>`."""
+    if args.rehearsal:
+        return f"unverified: release rehearsal of {args.sha}; the rehearsal exists to run the suite under the tag"
+    tiers = ("full", "queue") if args.branch == QUEUE_TIER_BRANCH and not (args.tag or args.full_tier) else ("full",)
+    try:
+        evidence = github_verdict(args.repo, args.sha, tiers)
+        if evidence is None and args.tag:
+            evidence = circleci_verdict(args.circleci_project, args.circleci_branch, args.sha)
+    except Exception as error:  # noqa: BLE001 - any failure to read the evidence runs the suite
+        return f"unverified: could not read the evidence for {args.sha} ({type(error).__name__}: {error}); running the suite"
+    if evidence:
+        return f"verified: {evidence}"
+    return f"unverified: no green {' or '.join(f'{tier}-tier' for tier in tiers)} run of {args.sha} was found; running the suite"
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--sha", required=True, help="the commit CircleCI is building (CIRCLE_SHA1)")
@@ -193,21 +209,7 @@ def main(argv: list[str]) -> int:
     if len(args.sha) != 40 or any(c not in "0123456789abcdef" for c in args.sha):
         parser.error("--sha must be a full 40-hexdigit commit id")
 
-    if args.rehearsal:
-        print(f"unverified: release rehearsal of {args.sha}; the rehearsal exists to run the suite under the tag")
-        return 0
-    tiers = ("full", "queue") if args.branch == QUEUE_TIER_BRANCH and not (args.tag or args.full_tier) else ("full",)
-    try:
-        evidence = github_verdict(args.repo, args.sha, tiers)
-        if evidence is None and args.tag:
-            evidence = circleci_verdict(args.circleci_project, args.circleci_branch, args.sha)
-    except Exception as error:  # noqa: BLE001 - any failure to read the evidence runs the suite
-        print(f"unverified: could not read the evidence for {args.sha} ({type(error).__name__}: {error}); running the suite")
-        return 0
-    if evidence:
-        print(f"verified: {evidence}")
-    else:
-        print(f"unverified: no green {' or '.join(f'{tier}-tier' for tier in tiers)} run of {args.sha} was found; running the suite")
+    print(verdict(args))
     return 0
 
 

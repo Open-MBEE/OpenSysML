@@ -454,7 +454,8 @@ error naming the construct and its body line, as for Markdown: a document
 header (`= Title`), listing,
 literal, example, sidebar, quote, verse, open and passthrough blocks,
 description and callout lists, nested lists and blocks attached to a list
-item, ordered lists not starting at 1 (`[start=3]`), a delimited admonition
+item, ordered lists not starting at 1 (`[start=3]`, and a `start` that is not a number, which
+Asciidoctor reads as 0), a delimited admonition
 holding anything but one paragraph, thematic and page breaks, tables without a header row or with a footer,
 AsciiMath, inline images, footnotes, keyboard, button and menu macros, index
 terms, superscript, subscript and highlighted text, nested quoted text,

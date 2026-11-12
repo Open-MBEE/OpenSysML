@@ -11,9 +11,9 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 289,
+      "presentEqual": 291,
       "presentDifferent": 0,
-      "oursMissing": 63,
+      "oursMissing": 61,
       "pilotMissing": 15,
       "absentBoth": 334,
       "indeterminate": 2,
@@ -152,7 +152,7 @@
     "ConstraintUsage.isModelLevelEvaluable": [0,0,2,0,0,0,0],
     "ConstraintUsage.isOrdered": [2,0,0,0,0,0,0],
     "ConstraintUsage.isPortion": [2,0,0,0,0,0,0],
-    "ConstraintUsage.isReference": [0,0,2,0,0,0,0],
+    "ConstraintUsage.isReference": [2,0,0,0,0,0,0],
     "ConstraintUsage.isSufficient": [2,0,0,0,0,0,0],
     "ConstraintUsage.isUnique": [2,0,0,0,0,0,0],
     "ConstraintUsage.isVariable": [2,0,0,0,0,0,0],

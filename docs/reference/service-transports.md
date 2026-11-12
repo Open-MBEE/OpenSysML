@@ -275,7 +275,9 @@ with a bearer token (`-token-file`, `-token`, `OPENSYSML_MCP_TOKEN` there) or a 
 (`-api-keys`; this service declares the flag with the shared ones but refuses it, gating no call
 by scope yet), TLS from a
 certificate and key pair, an origin allow-list that is not authentication; the two commands
-share one implementation of the token and of the loopback rule.
+share one implementation of the token and of the loopback rule, and `sysml-mcp` adds API keys and
+OpenID tokens on the same chain; [Running sysml-mcp as a service](../guide/sysml-mcp-service.md)
+is the operator's page for it.
 
 ## Every protocol is tested, not merely served
 

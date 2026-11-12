@@ -81,6 +81,18 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 			out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelReferences, false, connectorEndAttachment(target)))
 		}
 	}
+	if target, stated := m.successionEndReference(owner); stated {
+		out = append(out, &symbols.Symbol{
+			Kind:     symbols.SymbolRelationship,
+			DocName:  owner.DocName,
+			DeclSpan: owner.DeclSpan,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: owner, Ordinal: ordinal, Kind: ast.RelReferences,
+				Form: symbols.ImplicitSuccessionEndReference, Member: target,
+			},
+		})
+		ordinal++
+	}
 	// A multiplicity member's `subsets` is its one written relationship, held on
 	// the declaration rather than in a Relationships list.
 	if decl, ok := owner.Decl.(*ast.MultiplicityDecl); ok && decl.Subsets != nil {
@@ -185,6 +197,8 @@ func (m *Model) implicitMetaclassName(sym *symbols.Symbol) string {
 		return "PortConjugation"
 	case symbols.ImplicitMetadataBodyRedefinition:
 		return "Redefinition"
+	case symbols.ImplicitSuccessionEndReference:
+		return "ReferenceSubsetting"
 	case symbols.ImplicitReferenceMembership:
 		return "Membership"
 	case symbols.ImplicitFeatureChaining:
@@ -331,7 +345,7 @@ func relationshipEndFeature(meta, feature string) (sourceSide, targetSide bool) 
 func (m *Model) implicitRelationshipEnds(sym *symbols.Symbol) (src, tgt *symbols.Symbol, tgtOK bool) {
 	rel := sym.Implicit
 	src = rel.Owner
-	if rel.Form == symbols.ImplicitMetadataBodyRedefinition {
+	if rel.Form == symbols.ImplicitMetadataBodyRedefinition || rel.Form == symbols.ImplicitSuccessionEndReference {
 		return src, rel.Member, rel.Member != nil
 	}
 	if rel.Node != nil {
@@ -461,8 +475,14 @@ func (m *Model) implicitRelationshipElements(sym *symbols.Symbol, feature string
 			return nil, false
 		}
 	}
-	// Per-metaclass ends: the source end answers the owning element, the
-	// target end what the edge resolves to.
+	return m.implicitRelationshipEndElements(meta, feature, src, tgt, tgtOK)
+}
+
+// implicitRelationshipEndElements answers the ends a reflected relationship's metaclass
+// declares: the source end is the owning element, the target end what the edge resolves to.
+func (m *Model) implicitRelationshipEndElements(meta, feature string, src, tgt *symbols.Symbol, tgtOK bool) ([]*symbols.Symbol, bool) {
+	source := []*symbols.Symbol{src}
+	empty := []*symbols.Symbol{}
 	srcEnd, tgtEnd := relationshipEndFeature(meta, feature)
 	switch {
 	case feature == "specific" && specializationMetaclassNames[meta]:
