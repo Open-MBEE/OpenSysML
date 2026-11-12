@@ -26,6 +26,7 @@ const (
 
 var (
 	shardScriptList    = regexp.MustCompile(`(?m)^shards='([^']+)'$`)
+	sweepScriptList    = regexp.MustCompile(`(?m)^sweeps='([^']+)'$`)
 	makefileCorpus     = regexp.MustCompile(`(?m)^RACE_RUNTIME_CORPUS := (.+)$`)
 	makefileExport     = regexp.MustCompile(`(?m)^RACE_EXPORT_CORPUS := (.+)$`)
 	circleExport       = regexp.MustCompile(`(?m)^\s*exportcorpus='([^']+)'$`)
@@ -316,3 +317,28 @@ func topLevelTests(t *testing.T, dir string) []string {
 }
 
 func itoa(n int) string { return strconv.Itoa(n) }
+
+// TestSweepShardsAreByNameRaceShards: the examples/ sweeps `scripts/race-shard.sh --sweeps` names
+// are by-test-name race shards (the queue tier runs them race-free), and make test-queue reads that list.
+func TestSweepShardsAreByNameRaceShards(t *testing.T) {
+	shards := raceShards(t)
+	sweeps := strings.Fields(firstSubmatch(t, sweepScriptList, readRepoFile(t, "scripts/race-shard.sh"), "scripts/race-shard.sh sweeps="))
+	if len(sweeps) == 0 {
+		t.Fatal("scripts/race-shard.sh names no sweep shards")
+	}
+	for _, sweep := range sweeps {
+		if !slices.Contains(shards, sweep) {
+			t.Errorf("sweep shard %s is not a race shard %v", sweep, shards)
+		}
+		if !isCorpusShard(sweep) {
+			t.Errorf("sweep shard %s is a whole package, so the queue tier would run its race-prone tests without -race", sweep)
+		}
+	}
+	makefile := readRepoFile(t, "Makefile")
+	if !strings.Contains(makefile, "scripts/race-shard.sh --sweeps") {
+		t.Error("Makefile test-queue does not read the sweep shards from scripts/race-shard.sh --sweeps")
+	}
+	if !strings.Contains(makefile, "OPENSYSML_CORPUS_SUBSET=construct-cover $(MAKE) --no-print-directory test-shard SHARD=$$shard TEST_SHARD_RACE=") {
+		t.Error("Makefile test-queue does not run a sweep shard race-free over the construct-cover subset")
+	}
+}

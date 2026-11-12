@@ -65,12 +65,25 @@ tier_case_() {
   git -C "$work" -c commit.gpgsign=false commit -qm "$name"
 
   local actual
-  actual=$(cd "$work" && env -u CI_TIER bash scripts/ci-changed-areas.sh "$base" HEAD 2>/dev/null | sed -n 's/^tier=//p')
+  actual=$(cd "$work" && env -u CI_TIER -u CI_EVENT -u CI_FULL_LABEL bash scripts/ci-changed-areas.sh "$base" HEAD 2>/dev/null | sed -n 's/^tier=//p')
   if [[ "$actual" != "$expected" ]]; then
     echo "FAIL tier $name: expected $expected, got $actual" >&2
     failures=$((failures + 1))
   else
     echo "ok   tier $name: $actual"
+  fi
+}
+
+# event_case_ <event> <label:true|false> <expected tier>: the tier for that event on the last case's head.
+event_case_() {
+  local event=$1 label=$2 expected=$3
+  local actual
+  actual=$(cd "$work" && env -u CI_TIER CI_EVENT="$event" CI_FULL_LABEL="$label" bash scripts/ci-changed-areas.sh "$base" HEAD 2>/dev/null | sed -n 's/^tier=//p')
+  if [[ "$actual" != "$expected" ]]; then
+    echo "FAIL tier for $event (ci:full=$label): expected $expected, got $actual" >&2
+    failures=$((failures + 1))
+  else
+    echo "ok   tier for $event (ci:full=$label): $actual (on the last case's head)"
   fi
 }
 
@@ -137,7 +150,8 @@ case_ install-script docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,
 case_ install-script-windows docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode install.ps1
 case_ action docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode action.yml
 case_ conformance docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode conformance/scenarios/01-server-info.json
-case_ workflow apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/workflows/pr.yml
+# A workflow-only change ran the twenty-minute differential for nothing, so pr.yml is not among its paths.
+case_ workflow docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/workflows/pr.yml
 case_ other-workflow docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/workflows/oracle-reproduction.yml
 case_ dependabot docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/dependabot.yml
 # The npm runner is tested and its lockfile audited in the Go static job, so its package is a service path.
@@ -160,7 +174,7 @@ case_ unclaimed apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,pyth
 quick_case_ go-source go internal/syntax/parser/parser.go
 quick_case_ apijson-writer apijson,go internal/translate/export/api_json_absence.go
 quick_case_ proto go api/proto/sysml.proto
-quick_case_ workflow apijson,go .github/workflows/pr.yml
+quick_case_ workflow go .github/workflows/pr.yml
 quick_case_ unclaimed go some-new-top-level/thing.txt
 quick_case_ go-and-node go,node internal/syntax/parser/parser.go client/node/src/node/binary.ts
 quick_case_ go-and-docs docs,go internal/syntax/parser/parser.go docs/guide/index.md
@@ -192,6 +206,48 @@ tier_case_ export-writer quick internal/translate/export/writer.go
 tier_case_ symbols quick internal/semantic/symbols/index.go
 tier_case_ unclaimed full some-new-top-level/thing.txt
 tier_case_ parser-and-runtime quick internal/syntax/parser/parser.go internal/exec/runtime/executor.go
+
+# The derived-property differential runs on a pull-request push (quick, on its paths) and under the full tier,
+# never in the merge queue: the push already proved the same diff, and the nightly reproduces the baseline.
+queue_case_() {
+  CI_TIER=queue case_ "$@"
+}
+queue_case_ apijson-writer docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/translate/export/api_json_absence.go
+queue_case_ apijson-baseline docs,go docs/project/api-json-differential/index.json
+queue_case_ unclaimed docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode some-new-top-level/thing.txt
+area_for_event_() {
+  local event=$1 label=$2 area=$3 expected=$4
+  local actual
+  actual=$(cd "$work" && env -u CI_TIER CI_EVENT="$event" CI_FULL_LABEL="$label" bash scripts/ci-changed-areas.sh "$base" HEAD 2>/dev/null | sed -n "s/^$area=//p")
+  if [[ "$actual" != "$expected" ]]; then
+    echo "FAIL $area for $event (ci:full=$label): expected $expected, got $actual" >&2
+    failures=$((failures + 1))
+  else
+    echo "ok   $area for $event (ci:full=$label): $actual (on the last case's head)"
+  fi
+}
+tier_case_ apijson-writer quick internal/translate/export/api_json_absence.go
+area_for_event_ pull_request false apijson true
+area_for_event_ merge_group false apijson false
+area_for_event_ pull_request true apijson true
+area_for_event_ schedule false apijson true
+area_for_event_ workflow_dispatch false apijson true
+tier_case_ workflow-only quick .github/workflows/pr.yml
+area_for_event_ pull_request false apijson false
+area_for_event_ merge_group false apijson false
+
+# The event decides above the paths: a merge-group commit runs the queue tier, a schedule or a
+# dispatch the full tier, a pull request labelled ci:full the full tier, whatever they touch.
+event_case_ pull_request false quick
+event_case_ pull_request true full
+event_case_ merge_group false queue
+event_case_ schedule false full
+event_case_ workflow_dispatch false full
+# An unclaimed path is full on a pull request, but the queue stays the queue tier.
+tier_case_ unclaimed-again full some-new-top-level/other.txt
+event_case_ merge_group false queue
+event_case_ pull_request false full
+
 forced_case_() {
   local expected=$1
   shift
@@ -205,6 +261,7 @@ forced_case_() {
   fi
 }
 forced_case_ full
+forced_case_ queue
 forced_case_ quick
 
 if [[ "$failures" -ne 0 ]]; then

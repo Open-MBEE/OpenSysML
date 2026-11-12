@@ -995,11 +995,12 @@ func (e *encoder) edgeEnds(subject rdf.Term, node ast.Node, owner string, src, t
 	ends := []struct {
 		end      edgeEnd
 		feature  string
+		related  string
 		member   string
 		sequence string
 	}{
-		{src, pSourceFeature, xSourceMember, "sequences from"},
-		{tgt, pTargetFeature, xTargetMember, "sequences to"},
+		{src, pSourceFeature, pSource, xSourceMember, "sequences from"},
+		{tgt, pTargetFeature, pTarget, xTargetMember, "sequences to"},
 	}
 	for _, end := range ends {
 		if qualifiedText(end.end.name) == "" {
@@ -1007,6 +1008,7 @@ func (e *encoder) edgeEnds(subject rdf.Term, node ast.Node, owner string, src, t
 				// `then done;` reaches the library's Actions::Action::done
 				// feature, which an explicit succession end names outright.
 				e.graph.Add(subject, e.sysml(end.feature), e.libraryReference(libraryDone))
+				e.graph.Add(subject, e.sysml(end.related), e.libraryReference(libraryDone))
 				continue
 			}
 			fqn, ok := e.names.FQN[end.end.member]
@@ -1029,6 +1031,10 @@ func (e *encoder) edgeEnds(subject rdf.Term, node ast.Node, owner string, src, t
 		}
 		term := e.edgeReference(end.end.name)
 		e.graph.Add(subject, e.sysml(end.feature), term)
+		// Relationship::source and target, which the two redefine (KerML 8.3.4.5.1), for a plain-named end.
+		if term.IsIRI() && !qualifiedNameHasChain(end.end.name) {
+			e.graph.Add(subject, e.sysml(end.related), term)
+		}
 		// A name the parser took from the member before that links no element
 		// still binds that member: the graph states it by position as well.
 		if before, ok := e.preceding[node]; ok && end.end.implied && term.IsLiteral() {
