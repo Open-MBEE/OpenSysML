@@ -180,10 +180,8 @@ func (m *Model) effectiveEnds(sym *symbols.Symbol) []connectorEnd {
 	return out
 }
 
-// unmaskedEnds drops ends already listed, ends another listed end redefines, and
-// ends redefining an end one listed before them redefines from another general: two
-// generals that each redefine an ancestor's end by position hand down one end, not two,
-// while one general's own ends all pass down however their redefinitions overlap.
+// unmaskedEnds drops ends already listed, ends another listed end redefines, and ends redefining an end one
+// of another general listed before them redefines; one general's own ends all pass down (KerML 8.3.4.1.1).
 func (m *Model) unmaskedEnds(ends []connectorEnd) []connectorEnd {
 	masked := make(map[*symbols.Symbol]bool)
 	for _, end := range ends {
