@@ -548,6 +548,10 @@ for (const thread of ["worker", "inline"] as const) {
       "state_trace",
       "action_trace",
       "symbol_members",
+      "render_document",
+      "render_document_html",
+      "render_document_asciidoc",
+      "render_document_file_name",
     ]);
 
     const wasmModel = await wasm.loads(SAMPLE);

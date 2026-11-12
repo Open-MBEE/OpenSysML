@@ -66,6 +66,9 @@ func (m *Model) ownedEnds(sym *symbols.Symbol) []*symbols.Symbol {
 		}
 		return out
 	}
+	if ends := m.SuccessionEndMembers(sym); ends != nil {
+		return ends
+	}
 	var out []*symbols.Symbol
 	if u, ok := sym.Decl.(*ast.Usage); ok {
 		for _, end := range u.ConnectorEnds {
@@ -317,6 +320,12 @@ func (m *Model) implicitEndRedefinitions(sym *symbols.Symbol) []*symbols.Symbol 
 			out = append(out, target)
 		}
 	}
+	if i, ok := symbols.ImpliedSuccessionEndIndex(sym); ok && len(out) == 0 {
+		// A `then` succession's minted end redefines the happensBeforeLinks end at its position.
+		if end := m.impliedEnd(ast.UsageSuccession, i); end != nil {
+			out = append(out, end)
+		}
+	}
 	return out
 }
 
@@ -375,6 +384,9 @@ func declaresEnd(sym *symbols.Symbol) bool {
 		return true
 	case *ast.Usage:
 		return d.IsEnd
+	case *symbols.ImpliedDecl:
+		_, ok := symbols.ImpliedSuccessionEndIndex(sym)
+		return ok
 	}
 	return false
 }
@@ -904,17 +916,25 @@ func (m *Model) DeclaredSuccessionEndName(sym *symbols.Symbol, i int) string {
 // ImpliedEndName names the end at i of a connector the notation mints with no
 // declaration of its own: the end its kind's base declares there, else the binary name.
 func (m *Model) ImpliedEndName(kind ast.UsageKind, i int) string {
-	if fqn, ok := implicitUsageBases[kind]; ok && m.resolver != nil && m.resolver.Index() != nil {
-		for _, base := range m.resolver.Index().LookupQualified(fqn) {
-			if ends := m.endsOf(base); i < len(ends) && ends[i] != nil {
-				return symbols.LastSegment(ends[i].Name)
-			}
-		}
+	if end := m.impliedEnd(kind, i); end != nil {
+		return symbols.LastSegment(end.Name)
 	}
 	if i >= 0 && i < len(binaryConnectorEndNames) {
 		return binaryConnectorEndNames[i]
 	}
 	return ""
+}
+
+// impliedEnd is the end at i of the base a connector of kind implicitly specializes, nil when it has none.
+func (m *Model) impliedEnd(kind ast.UsageKind, i int) *symbols.Symbol {
+	if fqn, ok := implicitUsageBases[kind]; ok && m.resolver != nil && m.resolver.Index() != nil {
+		for _, base := range m.resolver.Index().LookupQualified(fqn) {
+			if ends := m.endsOf(base); i < len(ends) && ends[i] != nil && ends[i].Name != "" {
+				return ends[i]
+			}
+		}
+	}
+	return nil
 }
 
 // generalEndAt returns the end at position i of the first general sym specializes that has one

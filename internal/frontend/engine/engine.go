@@ -328,6 +328,13 @@ func (e *Engine) Call(ctx context.Context, method string, params []byte) (result
 			return nil, err
 		}
 		return e.renderView(&req)
+	case "RenderDocument":
+		// RenderDocument is served by both sysml-engine and sysml-grpc.
+		var req JRenderDocumentRequest
+		if err := decode(params, &req); err != nil {
+			return nil, err
+		}
+		return e.renderDocument(ctx, &req)
 	}
 	return nil, statusErrorf(codeUnimplemented, "%s is not served by sysml-engine", method)
 }

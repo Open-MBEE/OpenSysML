@@ -11,6 +11,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard/apikey"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard/oidc"
 )
 
 // Options is what the authenticator flags resolve to; the zero value configures
@@ -24,6 +25,19 @@ type Options struct {
 	APIKeys string
 	// Logger hears the API key store's reloads; nil is the default logger.
 	Logger *slog.Logger
+	// OIDCIssuer is -oidc-issuer, the OpenID provider whose access tokens are accepted.
+	OIDCIssuer string
+	// OIDCAudience is -oidc-audience, what a token's aud must name; "" is Resource.
+	OIDCAudience string
+	// OIDCScopeClaim is -oidc-scope-claim, the claim scopes are read from.
+	OIDCScopeClaim string
+	// OIDCIntrospect is -oidc-introspect, the RFC 7662 endpoint for opaque tokens.
+	OIDCIntrospect string
+	// OIDCClientFile is -oidc-client-file, the introspection client's credential.
+	OIDCClientFile string
+	// Resource is the URL the command serves its protected resource at (RFC
+	// 8707), the audience when -oidc-audience is not given; the command sets it.
+	Resource string
 }
 
 // Register declares the authenticator flags on fs; env is the variable the
@@ -39,13 +53,26 @@ func Register(fs *flag.FlagSet, env string) *Options {
 	fs.StringVar(&o.APIKeys, "api-keys", "",
 		"File of API keys accepted besides the bearer token, one JSON record per line holding the SHA-256 of a key "+
 			"with its subject, scopes, expiry and whether it is disabled; re-read when it changes")
+	fs.StringVar(&o.OIDCIssuer, "oidc-issuer", "",
+		"Accept the access tokens of this OpenID provider, given as its issuer URL (https, or http on loopback): its discovery "+
+			"document and signing keys are read, a token's signature, iss, aud, exp and nbf verified, and the issuer advertised "+
+			"in the resource metadata so a host runs Authorization Code with PKCE against it")
+	fs.StringVar(&o.OIDCAudience, "oidc-audience", "",
+		"Audience (aud) a token must name to be accepted; default the URL the service is reached at")
+	fs.StringVar(&o.OIDCScopeClaim, "oidc-scope-claim", "",
+		"Claim a token's scopes are read from, a space-separated string or an array; default scope, then scp")
+	fs.StringVar(&o.OIDCIntrospect, "oidc-introspect", "",
+		"Introspection endpoint (RFC 7662) asked about a bearer token that is not a JWT, with -oidc-client-file; "+
+			"an active answer is kept until the token expires")
+	fs.StringVar(&o.OIDCClientFile, "oidc-client-file", "",
+		"JSON file holding the client_id and client_secret of the provider's client the introspection requests are made as")
 	return &o
 }
 
 // Given names the first authenticator flag given, so a transport they are not
 // for can refuse it by name; empty when none is.
 func (o *Options) Given() string {
-	for _, f := range []struct{ name, value string }{{"-token", o.Token}, {"-token-file", o.TokenFile}, {"-api-keys", o.APIKeys}} {
+	for _, f := range []struct{ name, value string }{{"-token", o.Token}, {"-token-file", o.TokenFile}, {"-api-keys", o.APIKeys}, {"-oidc-issuer", o.OIDCIssuer}, {"-oidc-audience", o.OIDCAudience}, {"-oidc-scope-claim", o.OIDCScopeClaim}, {"-oidc-introspect", o.OIDCIntrospect}, {"-oidc-client-file", o.OIDCClientFile}} {
 		if f.value != "" {
 			return f.name
 		}
@@ -65,6 +92,13 @@ func (o *Options) Resolve(env string, scopes ...string) (Authenticators, error) 
 		a.add(store, "api keys")
 		a.reloaders = append(a.reloaders, store)
 	}
+	provider, err := o.provider(scopes)
+	if err != nil {
+		return Authenticators{}, err
+	}
+	if provider != nil {
+		a.add(provider, "openid provider "+o.OIDCIssuer)
+	}
 	token, text, err := guard.Read(o.TokenFile, o.Token, env)
 	if err != nil {
 		return Authenticators{}, err
@@ -74,6 +108,40 @@ func (o *Options) Resolve(env string, scopes ...string) (Authenticators, error) 
 		a.tokenText = text
 	}
 	return a, nil
+}
+
+// provider is the authenticator of -oidc-issuer, advertising scopes; nil without
+// the flag, whose qualifiers alone, half an introspection pair or no audience is refused.
+func (o *Options) provider(scopes []string) (*oidc.Authenticator, error) {
+	if o.OIDCIssuer == "" {
+		for _, f := range []struct{ name, value string }{{"-oidc-audience", o.OIDCAudience}, {"-oidc-scope-claim", o.OIDCScopeClaim}, {"-oidc-introspect", o.OIDCIntrospect}, {"-oidc-client-file", o.OIDCClientFile}} {
+			if f.value != "" {
+				return nil, fmt.Errorf("%s applies to single sign-on; name the provider with -oidc-issuer", f.name)
+			}
+		}
+		return nil, nil
+	}
+	cfg := oidc.Config{Issuer: o.OIDCIssuer, Audience: o.OIDCAudience, ScopeClaim: o.OIDCScopeClaim, Introspect: o.OIDCIntrospect, Scopes: scopes}
+	if cfg.Audience == "" {
+		if o.Resource == "" {
+			return nil, errors.New("-oidc-issuer needs the audience a token is issued for: the URL the service is reached at, or -oidc-audience")
+		}
+		cfg.Audience = o.Resource
+	}
+	if (o.OIDCIntrospect == "") != (o.OIDCClientFile == "") {
+		return nil, errors.New("-oidc-introspect and -oidc-client-file must be supplied together")
+	}
+	if o.OIDCClientFile != "" {
+		client, err := oidc.ReadClientFile(o.OIDCClientFile)
+		if err != nil {
+			return nil, fmt.Errorf("-oidc-client-file: %w", err)
+		}
+		cfg.Client = client
+	}
+	if err := cfg.Check(); err != nil {
+		return nil, fmt.Errorf("-oidc-issuer: %w", err)
+	}
+	return oidc.New(cfg)
 }
 
 // Authenticators is the chain the flags resolve to and what a command says

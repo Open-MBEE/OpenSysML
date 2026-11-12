@@ -79,7 +79,9 @@ def test_children_list_every_member_the_query_reports(tmp_path):
         assert len(controller.parts()) == 3
         assert len(set(controller._pb.child_ids)) == len(controller._pb.child_ids)
         anonymous = model.get(f"{owner}::@7")
-        assert anonymous is not None and anonymous.kind == "partUsage" and anonymous.name == ""
+        assert anonymous is not None
+        assert anonymous.kind == "partUsage"
+        assert anonymous.name == ""
         assert conn.get_symbol(model.hash, f"{owner}::") is None
 
 

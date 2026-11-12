@@ -247,7 +247,6 @@ func isOwnerPredicate(predicate string) bool {
 // graph rather than recomputing — a collection's order among them — so a
 // publish without derived properties keeps them: a project written without
 // them could not be loaded back as notation.
-// TestWithoutDerivedReadsBackEveryExample pins the list against the reader.
 var readerDerived = map[string]bool{}
 
 func init() {

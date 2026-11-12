@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-// A bare `/* … */` above a declaration is a Comment element of its own, and it
-// still reaches the declaration's symbol as leading trivia for hover and completion.
+// A bare `/* … */` above a declaration is a Comment element of its own; it still
+// reaches the declaration's symbol as leading trivia, which `%print` writes out.
 func TestBareCommentsAboveADeclarationAreItsLeadingTrivia(t *testing.T) {
 	src := "package P {\n    /* above */\n    part x;\n    /* one */\n    /* two */\n    // note\n    part y;\n}\n"
 	pkg, ok := buildScope(t, src).LookupLocal("P")

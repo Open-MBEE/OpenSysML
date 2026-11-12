@@ -490,11 +490,12 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Look for a green full-tier run of this tree
+          name: Look for a green run of this tree (queue or full tier on a branch, full tier on a tag)
           environment:
             RELEASE_REHEARSAL: << pipeline.parameters.release_rehearsal >>
           command: |
             set -- --sha "$CIRCLE_SHA1"
+            if [ -n "${CIRCLE_BRANCH:-}" ]; then set -- "$@" --branch "$CIRCLE_BRANCH"; fi
             if [ -n "${CIRCLE_TAG:-}" ]; then set -- "$@" --tag "$CIRCLE_TAG"; fi
             if [ "$RELEASE_REHEARSAL" = "true" ]; then set -- "$@" --rehearsal; fi
             if ! python3 scripts/ci-verified-tree.py "$@" > verified-tree.txt; then
@@ -562,7 +563,7 @@ jobs:
             fi
             make proto-breaking BUF_BREAKING_REF="$baseline"
 
-      # Everything below re-checks what the full tier already proved on a verified tree; the two
+      # Everything below re-checks what the queue or full tier already proved on a verified tree; the two
       # checks above stay ahead of the halt because a tag has verdicts no branch run reaches.
       - halt-if-verified
 
@@ -704,7 +705,7 @@ jobs:
   go-race-test:
     executor: go-executor
     resource_class: large
-    parallelism: 19
+    parallelism: 17
     steps:
       - checkout
       - rehearsal-checkout-tag
@@ -720,14 +721,14 @@ jobs:
       - install-fmpy
 
       # internal/exec/runtime (31-57 minutes whole, near 8.5 GB under -race), tests/export and tests/corpus
-      # (about 40 minutes whole) are split by test name as make test-shard does: four and three shards.
+      # (about 40 minutes whole) are split by test name as make test-shard does: four and two shards.
       - run:
           name: Run Go race tests
           command: |
             set -o pipefail
             # One entry per node; a quoted entry runs its shards in turn (tests/hygiene keeps
             # the entries the shard list of scripts/race-shard.sh).
-            shards=(runtime runtime-corpus model smt "corpus codegen" corpus-roundtrip corpus-apijson export export-library export-examples export-corpus export-settled graph translate grpc tools rest "migrate runtime-exploration" cli)
+            shards=(runtime runtime-corpus model smt "corpus codegen" corpus-sweep export export-library export-examples export-corpus graph translate grpc tools rest "migrate runtime-exploration" cli)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
               echo "error: parallelism is $CIRCLE_NODE_TOTAL, but the shard array has ${#shards[@]} nodes" >&2
               exit 1
@@ -742,31 +743,26 @@ jobs:
             exploration='^TestExploreWithIsExploreOverTheConformanceCorpus$'
             corpus='^Test(ExploreWithIsExploreOverTheConformanceCorpus|CheckAgreesWithExploreOverTheConformanceCorpus|CheckWitnessesReplayOverTheConformanceCorpus|ExecutionConformance|ExecutionConformanceUnderPolicies)$'
             exportcorpus='^TestAPIJSONWritersNeverEmitNameReferences$'
-            exportsettled='^TestSettledCollectionsAreWhatReconcilingWouldFind$'
             exportlibrary='^TestLibraryFilesComeBackFromTheGraphAlone$'
             exportexamples='^TestExamplesCorpusInvariants$'
-            # The Makefile's RACE_CORPUS_ROUNDTRIP and RACE_CORPUS_APIJSON; tests/hygiene keeps them the same.
-            corpusroundtrip='^TestCorpusRoundTrip$'
-            corpusapijson='^TestCorpusAPIJSONRoundTrip$'
+            # The Makefile's RACE_CORPUS_SWEEP; tests/hygiene keeps the two the same.
+            corpussweep='^TestExamplesSweep$'
             case "$shard" in
               # Its own shard and process: alone it nears 5 GB, the five suites together 9 GB under -race,
               # over this class's 8 GB. The Makefile's RACE_RUNTIME_EXPLORATION; tests/hygiene keeps the two the same.
               runtime-exploration) go test -json -race -pgo=off -timeout 30m -run "$exploration" $pkgs | stream ;;
               runtime-corpus) go test -json -race -pgo=off -timeout 30m -run "$corpus" -skip "$exploration" $pkgs | stream ;;
               runtime) go test -json -race -pgo=off -timeout 30m -skip "$corpus" $pkgs | stream ;;
-              # The Makefile's RACE_EXPORT_CORPUS, RACE_EXPORT_SETTLED, RACE_EXPORT_LIBRARY and RACE_EXPORT_EXAMPLES; tests/hygiene
-              # keeps them the same. tests/export whole passed 55 minutes under -race; its remainder ran 37, so five shards.
+              # The Makefile's RACE_EXPORT_CORPUS, RACE_EXPORT_LIBRARY and RACE_EXPORT_EXAMPLES; tests/hygiene
+              # keeps them the same. tests/export whole passed 55 minutes under -race; its remainder ran 37, so four shards.
               export-corpus) go test -json -race -pgo=off -timeout 55m -run "$exportcorpus" $pkgs | stream ;;
-              # Four settled models at once peak at 8.2-8.4 GB under -race, this class's 8 GB (killed on
-              # develop at #2014); two at once peak at 6.5 GB for a tenth more wall time.
-              export-settled) go test -json -race -pgo=off -timeout 55m -parallel 2 -run "$exportsettled" $pkgs | stream ;;
               export-library) go test -json -race -pgo=off -timeout 55m -run "$exportlibrary" $pkgs | stream ;;
               export-examples) go test -json -race -pgo=off -timeout 55m -run "$exportexamples" $pkgs | stream ;;
-              export) go test -json -race -pgo=off -timeout 55m -skip "$exportcorpus|$exportsettled|$exportlibrary|$exportexamples" $pkgs | stream ;;
-              # tests/corpus's two round trips over every example ran about 20 minutes each under -race.
-              corpus-roundtrip) go test -json -race -pgo=off -timeout 55m -run "$corpusroundtrip" $pkgs | stream ;;
-              corpus-apijson) go test -json -race -pgo=off -timeout 55m -run "$corpusapijson" $pkgs | stream ;;
-              corpus) go test -json -race -pgo=off -timeout 30m -skip "$corpusroundtrip|$corpusapijson" $pkgs | stream ;;
+              export) go test -json -race -pgo=off -timeout 55m -skip "$exportcorpus|$exportlibrary|$exportexamples" $pkgs | stream ;;
+              # tests/corpus's sweep has -parallel models in hand at once, a whole corpus directory as one model
+              # among them: four peaked at 10.4 GB and three at 10.0 GB under -race on a four-vCPU box (this class ran ~0.8x of that).
+              corpus-sweep) go test -json -race -pgo=off -timeout 55m -parallel 3 -run "$corpussweep" $pkgs | stream ;;
+              corpus) go test -json -race -pgo=off -timeout 30m -skip "$corpussweep" $pkgs | stream ;;
               tools)
                 go test -json -race -pgo=off -timeout 30m $pkgs | stream
                 go test -C tools -json -race -pgo=off -timeout 30m ./... | stream
@@ -810,7 +806,7 @@ jobs:
     executor: go-executor
     resource_class: large
     # The race test's shards but the runtime's corpus ones: without -race the runtime runs whole in about 19 minutes.
-    parallelism: 19
+    parallelism: 17
     steps:
       - checkout
       - rehearsal-checkout-tag
@@ -833,7 +829,7 @@ jobs:
           command: |
             # tests/export and tests/corpus whole overran 30 minutes, so make coverage-shard splits them by test name.
             # cmd/sysml has its own node: its exploration budgets took 23-30 minutes on the rest node.
-            shards=(runtime model smt corpus corpus-roundtrip corpus-apijson export export-library export-examples export-corpus export-settled graph codegen translate grpc tools rest migrate cli)
+            shards=(runtime model smt corpus corpus-sweep export export-library export-examples export-corpus graph codegen translate grpc tools rest migrate cli)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
               echo "error: parallelism is $CIRCLE_NODE_TOTAL, but the Makefile's COVERAGE_SHARDS has ${#shards[@]} shards" >&2
               exit 1
@@ -1021,32 +1017,17 @@ jobs:
           environment:
             OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI: "1"
 
-      # The RDF round-trip ratchet over every example alone, so its per-verdict
-      # counts are legible in the log and a skip cannot hide behind a green suite.
+      # The RDF and api-json round-trip ratchets over every example alone, so their
+      # per-verdict counts are legible in the log and a skip cannot hide behind a green suite.
       - run:
-          name: Run RDF corpus round-trip gate
+          name: Run corpus round-trip gates
           command: |
             set -o pipefail
-            go test -count=1 -v ./tests/corpus -run 'TestCorpusRoundTrip' | tee corpus-roundtrip-gate.log
-            grep -E 'corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
+            go test -count=1 -v ./tests/corpus -run 'TestExamplesSweep' | tee corpus-roundtrip-gate.log
+            grep -E ': corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
+            grep -E 'api-json corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
             if grep -qE '^\s*--- SKIP' corpus-roundtrip-gate.log; then
-              echo "error: the RDF corpus round-trip gate skipped" >&2
-              exit 1
-            fi
-          environment:
-            OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
-            OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
-            OPENSYSML_REQUIRE_SPEC_EXAMPLES: "1"
-
-      # The same ratchet over the API's JSON element form, beside the RDF one.
-      - run:
-          name: Run api-json corpus round-trip gate
-          command: |
-            set -o pipefail
-            go test -count=1 -v ./tests/corpus -run 'TestCorpusAPIJSONRoundTrip' | tee api-json-roundtrip-gate.log
-            grep -E 'api-json corpus round trip: [0-9]+ files:' api-json-roundtrip-gate.log
-            if grep -qE '^\s*--- SKIP' api-json-roundtrip-gate.log; then
-              echo "error: the api-json corpus round-trip gate skipped" >&2
+              echo "error: the corpus round-trip gates skipped" >&2
               exit 1
             fi
           environment:
@@ -4549,8 +4530,8 @@ workflows:
               only: [main, develop]
             tags:
               ignore: /.*/
-      # Every job below attaches its verdict; a tree the pull-request workflow (or the merge
-      # queue) proved runs only the coverage shards, the scan and what they consume.
+      # Every job below attaches its verdict; a tree the merge queue (queue tier) or the full tier
+      # proved runs only the coverage shards, the scan and what they consume.
       - verify-tree:
           name: Verified tree check
           filters: *integration-branches
@@ -4656,7 +4637,7 @@ workflows:
         - << pipeline.parameters.release_rehearsal >>
         - matches: {pattern: "^v.*", value: << pipeline.git.tag >>}
     jobs:
-      # A tag on a commit main's build-test (or the merge queue) proved skips the suite and client
+      # A tag on a commit main's build-test (or a full-tier GitHub run) proved skips the suite and client
       # tests, which nothing here reads; a rehearsal or an unverified commit runs everything.
       - verify-tree:
           name: Verified tree check
