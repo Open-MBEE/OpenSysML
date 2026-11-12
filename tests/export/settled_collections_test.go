@@ -13,6 +13,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/corpussubset"
 )
 
 // The encoder's graph says its collections are settled, so writing api-json
@@ -77,6 +78,7 @@ func TestSettledCollectionsAreWhatReconcilingWouldFind(t *testing.T) {
 // fixtures: each file alone, and each directory's files together.
 func settledModels(t *testing.T) [][]string {
 	t.Helper()
+	subset := corpussubset.Must(t, "../..")
 	byDir := map[string][]string{}
 	for _, root := range []string{"../../examples", "testdata"} {
 		_ = filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
@@ -96,9 +98,11 @@ func settledModels(t *testing.T) [][]string {
 		files := byDir[dir]
 		sort.Strings(files)
 		for _, file := range files {
-			models = append(models, []string{file})
+			if subset.WantsPath("../../examples", file) {
+				models = append(models, []string{file})
+			}
 		}
-		if len(files) > 1 {
+		if len(files) > 1 && subset.WantsAny("../../examples", files) {
 			models = append(models, files)
 		}
 	}
