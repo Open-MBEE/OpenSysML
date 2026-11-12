@@ -4650,14 +4650,7 @@ func (d *decoder) aboutList(el *element) ([]string, error) {
 // reservedNames holds, for each annotated element with one written name to its own, that
 // name — so an element with a choice of names does not take the only one another has.
 func (d *decoder) reservedNames(el *element) map[string]string {
-	written, byIRI := map[string]bool{}, map[string]bool{}
-	for _, object := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pAnnotatedElement) {
-		if object.IsIRI() {
-			byIRI[object.Value] = true
-		} else {
-			written[object.Value] = true
-		}
-	}
+	written, byIRI := d.annotatedForms(el)
 	reserved := map[string]string{}
 	for _, child := range el.children {
 		if !child.implied || child.metaclass != mAnnotation {
@@ -4668,11 +4661,9 @@ func (d *decoder) reservedNames(el *element) map[string]string {
 				continue
 			}
 			var candidates []string
-			for _, property := range []string{pDeclaredName, pDeclaredShortName} {
-				for _, name := range d.graph.Objects(rdf.IRI(target.Value), rdf.SysML+property) {
-					if written[name.Value] {
-						candidates = append(candidates, name.Value)
-					}
+			for _, name := range d.declaredNamesOf(target.Value) {
+				if written[name] {
+					candidates = append(candidates, name)
 				}
 			}
 			if len(candidates) == 1 {
@@ -4683,6 +4674,31 @@ func (d *decoder) reservedNames(el *element) map[string]string {
 		}
 	}
 	return reserved
+}
+
+// annotatedForms splits the annotatedElement objects an owner states into the
+// names it wrote and the elements it names by IRI.
+func (d *decoder) annotatedForms(el *element) (written, byIRI map[string]bool) {
+	written, byIRI = map[string]bool{}, map[string]bool{}
+	for _, object := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+pAnnotatedElement) {
+		if object.IsIRI() {
+			byIRI[object.Value] = true
+		} else {
+			written[object.Value] = true
+		}
+	}
+	return written, byIRI
+}
+
+// declaredNamesOf lists the declared name, then the declared short name, of the element at iri.
+func (d *decoder) declaredNamesOf(iri string) []string {
+	var names []string
+	for _, property := range []string{pDeclaredName, pDeclaredShortName} {
+		for _, name := range d.graph.Objects(rdf.IRI(iri), rdf.SysML+property) {
+			names = append(names, name.Value)
+		}
+	}
+	return names
 }
 
 // statedForm is the owner's own statement of an Annotation's target: the IRI when the owner
@@ -4697,12 +4713,7 @@ func (d *decoder) statedForm(el *element, target rdf.Term, consumed map[string]s
 			return target
 		}
 	}
-	var names []string
-	for _, property := range []string{pDeclaredName, pDeclaredShortName} {
-		for _, name := range d.graph.Objects(rdf.IRI(target.Value), rdf.SysML+property) {
-			names = append(names, name.Value)
-		}
-	}
+	names := d.declaredNamesOf(target.Value)
 	// A name not yet written for any element first; then one this element already holds.
 	for pass := 0; pass < 2; pass++ {
 		for _, name := range names {

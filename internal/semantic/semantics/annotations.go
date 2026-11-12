@@ -868,6 +868,46 @@ func (m *Model) ConstantFeatureValues(sym *symbols.Symbol, feature string) ([]sy
 	return m.constantFeatureValues(member, make(map[*symbols.Symbol]bool))
 }
 
+// InheritsValuelessMember reports whether feature names a member sym inherits without declaring
+// or redefining it, which states no value anywhere along its redefinitions (a library's connector end).
+func (m *Model) InheritsValuelessMember(sym *symbols.Symbol, feature string) bool {
+	if m == nil || sym == nil || feature == "" {
+		return false
+	}
+	member, ok := m.LookupMember(sym, feature)
+	if !ok || member == nil {
+		return false
+	}
+	contributed, ok := m.LookupContributedMember(sym, feature)
+	return ok && contributed == member && m.statesNoValue(member, make(map[*symbols.Symbol]bool))
+}
+
+// statesNoValue mirrors constantFeatureValues' valueless path: member writes no value, and
+// neither does any feature it redefines.
+func (m *Model) statesNoValue(member *symbols.Symbol, seen map[*symbols.Symbol]bool) bool {
+	if member == nil || seen[member] || !member.DeclaresUsage() {
+		return false
+	}
+	seen[member] = true
+	defer delete(seen, member)
+	if member.Recorded() && member.Facts.Modifiers.Has(symbols.ModValued) {
+		return false
+	}
+	if usage, _ := member.Decl.(*ast.Usage); usage != nil && usage.Value != nil {
+		return false
+	}
+	redefined := m.RedefinedFeatures(member)
+	if len(redefined) == 0 {
+		redefined = m.ImplicitParameterRedefinitions(member)
+	}
+	for _, general := range redefined {
+		if !m.statesNoValue(general, seen) {
+			return false
+		}
+	}
+	return true
+}
+
 // DeclaredFeatureValues returns a declared member feature's ordered constant
 // values, never answering reflective metaclass features of the same name. The
 // error is a symbols.NeedsHydration when the value is written in a recorded document.
@@ -1467,6 +1507,15 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 	if elems, ok := m.sendElements(sym, feature); ok {
 		return elems, true
 	}
+	if elems, ok, handled := m.featureChainElements(sym, feature); handled {
+		return elems, ok
+	}
+	if elems, ok, handled := m.typeOperandElements(sym, feature); handled {
+		return elems, ok
+	}
+	if elems, ok, handled := m.expressionElements(sym, feature); handled {
+		return elems, ok
+	}
 	switch feature {
 	case "owningNamespace":
 		if !m.reflectiveMetaclassConforms(sym, "Element") {
@@ -1578,52 +1627,6 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			}
 		}
 		return ends, true
-	case "ownedFeatureChaining":
-		if (sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChainFeature) || sym.Chain != nil {
-			return m.OwnedRelationships(sym), true
-		}
-		if m.reflectiveMetaclassConforms(sym, "Feature") {
-			return []*symbols.Symbol{}, true
-		}
-	case "featureTarget":
-		// The last chaining feature of a chain, else the feature itself (KerML 1.1 §8.3.3.3.4).
-		if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChainFeature {
-			if chain := m.ChainingFeatures(sym); len(chain) > 0 {
-				return []*symbols.Symbol{chain[len(chain)-1]}, true
-			}
-		}
-		if !m.reflectiveMetaclassConforms(sym, "Feature") {
-			return nil, false
-		}
-		if chain := m.chainingFeaturesOf(sym); len(chain) > 0 {
-			return []*symbols.Symbol{chain[len(chain)-1]}, true
-		}
-		return []*symbols.Symbol{sym}, true
-	case "crossFeature":
-		if !m.reflectiveMetaclassConforms(sym, "Feature") {
-			return nil, false
-		}
-		// The second chaining feature of the crossed feature chain (`g crosses f.sub` → sub), else
-		// the end's owned cross feature (KerML 1.1 §8.3.3.3.4 deriveFeatureCrossFeature).
-		crossed := []*symbols.Symbol{}
-		relationships := m.ownedImplicitRelationships(sym, crossSubsetting)
-		for _, rel := range relationships {
-			targets, ok := m.ReflectiveElements(rel, "crossedFeature")
-			if !ok {
-				return nil, false
-			}
-			for _, target := range targets {
-				if chain, ok := m.ReflectiveElements(target, "chainingFeature"); ok && len(chain) >= 2 {
-					crossed = append(crossed, chain[1])
-				}
-			}
-		}
-		if len(relationships) == 0 {
-			if owned := m.OwnedCrossFeature(sym); owned != nil {
-				crossed = append(crossed, owned)
-			}
-		}
-		return crossed, true
 	case "ownedTypeFeaturing", "ownedFeatureInverting":
 		if !m.reflectiveMetaclassConforms(sym, "Feature") {
 			return nil, false
@@ -1669,29 +1672,6 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			}
 		}
 		return out, true
-	case "chainingFeature":
-		if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChainFeature {
-			return m.ChainingFeatures(sym), true
-		}
-		if !m.reflectiveMetaclassConforms(sym, "Feature") {
-			return nil, false
-		}
-		return m.chainingFeaturesOf(sym), true
-	case "unioningType":
-		if !m.reflectiveMetaclassConforms(sym, "Type") {
-			return nil, false
-		}
-		return m.UnioningTypes(sym), true
-	case "intersectingType":
-		if !m.reflectiveMetaclassConforms(sym, "Type") {
-			return nil, false
-		}
-		return m.IntersectingTypes(sym), true
-	case "differencingType":
-		if !m.reflectiveMetaclassConforms(sym, "Type") {
-			return nil, false
-		}
-		return m.DifferencingTypes(sym), true
 	case "owner":
 		if owner := ownerSymbol(sym); owner != nil {
 			return []*symbols.Symbol{owner}, true
@@ -1739,33 +1719,6 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 			return nil, false
 		}
 		return []*symbols.Symbol{}, true
-	case "argument":
-		if !isExpressionSymbol(sym) {
-			return nil, false
-		}
-		return m.ExpressionArguments(sym), true
-	case "referent", "function":
-		if !isExpressionSymbol(sym) {
-			return nil, false
-		}
-		if feature == "function" {
-			// Only an instantiation expression has a function; a metadata
-			// access files its referenced element at the same slot.
-			switch sym.Decl.(type) {
-			case *ast.InvocationExpr, *ast.ConstructorExpr:
-			default:
-				return nil, false
-			}
-		}
-		return m.expressionReferencedElements(sym, feature), true
-	case "referencedElement":
-		if !isExpressionSymbol(sym) {
-			return nil, false
-		}
-		if _, ok := sym.Decl.(*ast.MetadataAccessExpr); !ok {
-			return nil, false
-		}
-		return m.expressionReferencedElements(sym, "function"), true
 	case "valuation":
 		// KerML 8.3.3.3.5 Feature::valuation: the FeatureValue among the
 		// feature's owned memberships, if its declaration has a value part.
@@ -1823,6 +1776,125 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		return m.definitionTypedFeatures(sym, feature), true
 	}
 	return nil, false
+}
+
+// featureChainElements reads a Feature's ownedFeatureChaining, featureTarget, crossFeature and
+// chainingFeature; handled is false for other features and for a non-Feature's ownedFeatureChaining.
+func (m *Model) featureChainElements(sym *symbols.Symbol, feature string) (elems []*symbols.Symbol, ok, handled bool) {
+	switch feature {
+	case "ownedFeatureChaining":
+		if (sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChainFeature) || sym.Chain != nil {
+			return m.OwnedRelationships(sym), true, true
+		}
+		if m.reflectiveMetaclassConforms(sym, "Feature") {
+			return []*symbols.Symbol{}, true, true
+		}
+		return nil, false, false
+	case "featureTarget":
+		// The last chaining feature of a chain, else the feature itself (KerML 1.1 §8.3.3.3.4).
+		if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChainFeature {
+			if chain := m.ChainingFeatures(sym); len(chain) > 0 {
+				return []*symbols.Symbol{chain[len(chain)-1]}, true, true
+			}
+		}
+		if !m.reflectiveMetaclassConforms(sym, "Feature") {
+			return nil, false, true
+		}
+		if chain := m.chainingFeaturesOf(sym); len(chain) > 0 {
+			return []*symbols.Symbol{chain[len(chain)-1]}, true, true
+		}
+		return []*symbols.Symbol{sym}, true, true
+	case "crossFeature":
+		if !m.reflectiveMetaclassConforms(sym, "Feature") {
+			return nil, false, true
+		}
+		elems, ok = m.crossFeatureElements(sym)
+		return elems, ok, true
+	case "chainingFeature":
+		if sym.Expr != nil && sym.Expr.Role == symbols.ExpressionChainFeature {
+			return m.ChainingFeatures(sym), true, true
+		}
+		if !m.reflectiveMetaclassConforms(sym, "Feature") {
+			return nil, false, true
+		}
+		return m.chainingFeaturesOf(sym), true, true
+	}
+	return nil, false, false
+}
+
+// crossFeatureElements is the second chaining feature of the crossed feature chain
+// (`g crosses f.sub` → sub), else the end's owned cross feature (KerML 1.1 §8.3.3.3.4).
+func (m *Model) crossFeatureElements(sym *symbols.Symbol) ([]*symbols.Symbol, bool) {
+	crossed := []*symbols.Symbol{}
+	relationships := m.ownedImplicitRelationships(sym, crossSubsetting)
+	for _, rel := range relationships {
+		targets, ok := m.ReflectiveElements(rel, "crossedFeature")
+		if !ok {
+			return nil, false
+		}
+		for _, target := range targets {
+			if chain, ok := m.ReflectiveElements(target, "chainingFeature"); ok && len(chain) >= 2 {
+				crossed = append(crossed, chain[1])
+			}
+		}
+	}
+	if len(relationships) == 0 {
+		if owned := m.OwnedCrossFeature(sym); owned != nil {
+			crossed = append(crossed, owned)
+		}
+	}
+	return crossed, true
+}
+
+// typeOperandElements reads a Type's unioningType, intersectingType and differencingType;
+// handled is false for any other feature.
+func (m *Model) typeOperandElements(sym *symbols.Symbol, feature string) (elems []*symbols.Symbol, ok, handled bool) {
+	var operands func(*symbols.Symbol) []*symbols.Symbol
+	switch feature {
+	case "unioningType":
+		operands = m.UnioningTypes
+	case "intersectingType":
+		operands = m.IntersectingTypes
+	case "differencingType":
+		operands = m.DifferencingTypes
+	default:
+		return nil, false, false
+	}
+	if !m.reflectiveMetaclassConforms(sym, "Type") {
+		return nil, false, true
+	}
+	return operands(sym), true, true
+}
+
+// expressionElements reads an Expression's argument, referent, function and
+// referencedElement; handled is false for any other feature.
+func (m *Model) expressionElements(sym *symbols.Symbol, feature string) (elems []*symbols.Symbol, ok, handled bool) {
+	switch feature {
+	case "argument", "referent", "function", "referencedElement":
+	default:
+		return nil, false, false
+	}
+	if !isExpressionSymbol(sym) {
+		return nil, false, true
+	}
+	switch feature {
+	case "argument":
+		return m.ExpressionArguments(sym), true, true
+	case "function":
+		// Only an instantiation expression has a function; a metadata
+		// access files its referenced element at the same slot.
+		switch sym.Decl.(type) {
+		case *ast.InvocationExpr, *ast.ConstructorExpr:
+		default:
+			return nil, false, true
+		}
+	case "referencedElement":
+		if _, isAccess := sym.Decl.(*ast.MetadataAccessExpr); !isAccess {
+			return nil, false, true
+		}
+		feature = "function"
+	}
+	return m.expressionReferencedElements(sym, feature), true, true
 }
 
 type reflectiveDefinitionFeature struct {
@@ -2618,7 +2690,8 @@ func (m *Model) reflectiveFeatureBoolean(sym *symbols.Symbol, feature string) (s
 	flags, isUsage := m.reflectiveFeatureFlags(sym)
 	switch feature {
 	case "isEnd":
-		return boolValue(flags.isEnd), true
+		_, impliedEnd := symbols.ImpliedSuccessionEndIndex(sym)
+		return boolValue(flags.isEnd || impliedEnd), true
 	case "isPortion":
 		return boolValue(flags.isPortion), true
 	case "isConstant":

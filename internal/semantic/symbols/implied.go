@@ -18,6 +18,10 @@ const (
 	// ImpliedMultiplicityRange is the MultiplicityRange a usage's written range (`[2]`)
 	// declares, owned through an OwningMembership at the clause; it declares no name.
 	ImpliedMultiplicityRange
+	// ImpliedSuccessionSourceEnd and ImpliedSuccessionTargetEnd are the nameless end features a `then x;`
+	// succession owns for its source and target (SysML.xtext TargetSuccession), named by the end they redefine.
+	ImpliedSuccessionSourceEnd
+	ImpliedSuccessionTargetEnd
 )
 
 // ImpliedDecl declares an element the abstract syntax implies for a written
@@ -52,6 +56,21 @@ func ImpliedDeclOf(sym *Symbol) (*ImpliedDecl, bool) {
 	}
 	d, ok := sym.Decl.(*ImpliedDecl)
 	return d, ok
+}
+
+// ImpliedSuccessionEndIndex is the position, 0 or 1, of the `then` succession end sym implies.
+func ImpliedSuccessionEndIndex(sym *Symbol) (int, bool) {
+	d, ok := ImpliedDeclOf(sym)
+	if !ok {
+		return 0, false
+	}
+	switch d.Form {
+	case ImpliedSuccessionSourceEnd:
+		return 0, true
+	case ImpliedSuccessionTargetEnd:
+		return 1, true
+	}
+	return 0, false
 }
 
 // Implied reports whether sym declares an element the abstract syntax implies

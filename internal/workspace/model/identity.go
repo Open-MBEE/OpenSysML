@@ -30,7 +30,7 @@ func (w *Workspace) IdentityOf(name string, sym *symbols.Symbol) (*identity.Info
 		}
 	}
 	var indexed *symbols.Symbol
-	walkScope(idx.DocumentRoot(name), func(candidate *symbols.Symbol) {
+	idx.DocumentRoot(name).WalkDeclarations(func(candidate *symbols.Symbol) {
 		if indexed == nil && candidate.Name == sym.Name && same(candidate) {
 			indexed = candidate
 		}

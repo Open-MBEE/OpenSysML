@@ -1,6 +1,6 @@
 @startuml
 ' GeneralViews::requirementView — requirement rendering (view def GeneralView, filter @RequirementDefinition or @RequirementUsage)
-' not represented: 4 exposed standard library element(s) not drawn; a requirement rendering draws the model's own elements
+' not represented: 2 exposed standard library element(s) not drawn; a requirement rendering draws the model's own elements
 mainframe <size:10>//«view»//</size> **GeneralViews::requirementView** : GeneralView\n<size:10>expose VehicleRequirements<U+002A><U+002A></size>\n<size:10>filter @SysML::RequirementDefinition or @SysML::RequirementUsage</size>
 <style>
 root {

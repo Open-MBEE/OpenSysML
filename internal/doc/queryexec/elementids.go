@@ -52,6 +52,17 @@ func defaultMultiplicityOwner(sym *symbols.Symbol) (ast.Node, bool) {
 	return spanNode{sym.DeclSpan}, true
 }
 
+// successionEndSlot is the `then` succession edge and the slot (end0, end1) the conversion mints
+// the end feature sym under (encodeSuccessionEdge).
+func successionEndSlot(sym *symbols.Symbol) (ast.Node, string, bool) {
+	i, ok := symbols.ImpliedSuccessionEndIndex(sym)
+	if !ok {
+		return nil, "", false
+	}
+	decl, _ := symbols.ImpliedDeclOf(sym)
+	return decl.Of, fmt.Sprintf("end%d", i), true
+}
+
 // expressionPartSlot is the slot the conversion names a synthesized
 // expression parameter by: `in%d` for an operand's or type argument's
 // parameter, `out` for the result.
@@ -121,6 +132,11 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 		element, _, err := read.ReadExpressionPart(sym.DocName, owner, defaultMultiplicitySlot)
 		return element, err
 	}
+	if edge, slot, ok := successionEndSlot(sym); ok {
+		// A `then` succession's end is minted under the edge at end0/end1 (encodeSuccessionEdge).
+		element, _, err := read.ReadExpressionPart(sym.DocName, edge, slot)
+		return element, err
+	}
 	if end, ok := connectorEndChain(sym); ok {
 		// The chain Feature a connector end's ReferenceSubsetting owns is minted under the end.
 		element, _, err := read.ReadExpressionPart(sym.DocName, end, "chain")
@@ -143,41 +159,15 @@ func ElementIDOf(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol) 
 func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbols.Symbol, rel *symbols.ImplicitRelationship) (id string, ok bool, err error) {
 	switch rel.Form {
 	case symbols.ImplicitMembership:
-		if slot, ok := expressionPartSlot(rel.Member); ok {
-			_, membership, err := read.ReadExpressionPart(rel.Member.DocName, rel.Member.Expr.Owner.Decl, slot)
-			return membership, true, err
-		}
-		if span, slot, ok := bodyParameterSlot(rel.Member); ok {
-			_, membership, err := read.ReadExpressionPart(rel.Member.DocName, spanNode{span}, slot)
-			return membership, true, err
-		}
-		if owner, ok := defaultMultiplicityOwner(rel.Member); ok {
-			_, membership, err := read.ReadExpressionPart(rel.Member.DocName, owner, defaultMultiplicitySlot)
-			return membership, true, err
-		}
-		if rel.Member != nil {
-			id, err = read.ReadOwningMembership(rel.Member.DocName, rel.Member.Decl, query.QualifiedIdentity(idx, rel.Member))
-			return id, true, err
-		}
+		return implicitMembershipID(read, idx, rel.Member)
 	case symbols.ImplicitImport:
 		if rel.Decl != nil {
 			id, err = read.Read(sym.DocName, rel.Decl, "")
 			return id, true, err
 		}
 	case symbols.ImplicitFeatureChaining:
-		if chain := rel.Owner; chain != nil && chain.Expr != nil && chain.Expr.Owner != nil {
-			element, _, err := read.ReadExpressionPart(chain.DocName, chain.Expr.Owner.Decl, chain.Expr.Slot+"."+rel.Slot)
-			return element, true, err
-		}
-		if end, ok := connectorEndChain(rel.Owner); ok {
-			element, _, err := read.ReadExpressionPart(rel.Owner.DocName, end, "chain."+rel.Slot)
-			return element, true, err
-		}
-		if target, ok := headClauseChain(rel.Owner); ok {
-			element, _, err := read.ReadExpressionPart(rel.Owner.DocName, target, "chain."+rel.Slot)
-			return element, true, err
-		}
-		return "", true, nil
+		id, err = featureChainingID(read, rel)
+		return id, true, err
 	case symbols.ImplicitReferenceMembership:
 		if rel.Decl != nil {
 			// A `first x;` marker is the Membership itself, identified as the conversion mints it.
@@ -207,6 +197,13 @@ func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbo
 			return id, true, err
 		}
 		return "", true, nil
+	case symbols.ImplicitSuccessionEndReference:
+		// The target end's ReferenceSubsetting is minted under the end as its `rs` (referenceSubsetting).
+		if edge, slot, ok := successionEndSlot(rel.Owner); ok {
+			element, _, err := read.ReadExpressionPart(rel.Owner.DocName, edge, slot+".rs")
+			return element, true, err
+		}
+		return "", true, nil
 	case symbols.ImplicitPortConjugation, symbols.ImplicitMetadataBodyRedefinition:
 		// The conversion keys a relationship the declaration states without a clause by the declaration.
 		if rel.Owner != nil && rel.Owner.Decl != nil {
@@ -216,6 +213,50 @@ func implicitRelationshipID(read ElementIDReader, idx *symbols.Index, sym *symbo
 		return "", true, nil
 	}
 	return "", false, nil
+}
+
+// implicitMembershipID reads the elementId of the OwningMembership implied for member,
+// as the conversion mints it; ok is false for no member.
+func implicitMembershipID(read ElementIDReader, idx *symbols.Index, member *symbols.Symbol) (id string, ok bool, err error) {
+	if slot, ok := expressionPartSlot(member); ok {
+		_, membership, err := read.ReadExpressionPart(member.DocName, member.Expr.Owner.Decl, slot)
+		return membership, true, err
+	}
+	if span, slot, ok := bodyParameterSlot(member); ok {
+		_, membership, err := read.ReadExpressionPart(member.DocName, spanNode{span}, slot)
+		return membership, true, err
+	}
+	if owner, ok := defaultMultiplicityOwner(member); ok {
+		_, membership, err := read.ReadExpressionPart(member.DocName, owner, defaultMultiplicitySlot)
+		return membership, true, err
+	}
+	if edge, slot, ok := successionEndSlot(member); ok {
+		_, membership, err := read.ReadExpressionPart(member.DocName, edge, slot)
+		return membership, true, err
+	}
+	if member != nil {
+		id, err = read.ReadOwningMembership(member.DocName, member.Decl, query.QualifiedIdentity(idx, member))
+		return id, true, err
+	}
+	return "", false, nil
+}
+
+// featureChainingID reads the elementId of the FeatureChaining rel records under the chain
+// Feature that owns it; empty for a chain the conversion never writes.
+func featureChainingID(read ElementIDReader, rel *symbols.ImplicitRelationship) (string, error) {
+	if chain := rel.Owner; chain != nil && chain.Expr != nil && chain.Expr.Owner != nil {
+		element, _, err := read.ReadExpressionPart(chain.DocName, chain.Expr.Owner.Decl, chain.Expr.Slot+"."+rel.Slot)
+		return element, err
+	}
+	if end, ok := connectorEndChain(rel.Owner); ok {
+		element, _, err := read.ReadExpressionPart(rel.Owner.DocName, end, "chain."+rel.Slot)
+		return element, err
+	}
+	if target, ok := headClauseChain(rel.Owner); ok {
+		element, _, err := read.ReadExpressionPart(rel.Owner.DocName, target, "chain."+rel.Slot)
+		return element, err
+	}
+	return "", nil
 }
 
 // connectorEndChain is the connector end whose attachment chain sym denotes (`connect a.b to c`):

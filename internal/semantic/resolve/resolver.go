@@ -103,6 +103,7 @@ type modeMemoKey struct {
 type importVisit struct {
 	target, from *symbols.Scope
 	name         string
+	all          bool
 }
 
 type filteredMemoKey struct {

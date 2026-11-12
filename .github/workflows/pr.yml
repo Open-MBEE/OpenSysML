@@ -107,9 +107,9 @@ jobs:
           TIER: ${{ steps.areas.outputs.tier }}
         run: |
           if [ "$TIER" != quick ]; then
-            echo 'go_shards=["runtime","runtime-corpus","runtime-exploration","model","smt","corpus","corpus-roundtrip","corpus-apijson","export","export-library","export-examples","export-corpus","export-settled","graph","codegen","translate","grpc","rest","migrate","cli"]'
+            echo 'go_shards=["runtime","runtime-corpus","runtime-exploration","model","smt","corpus","corpus-sweep","export","export-library","export-examples","export-corpus","graph","codegen","translate","grpc","rest","migrate","cli"]'
           else
-            echo 'go_shards=["runtime runtime-corpus runtime-exploration model","codegen migrate","cli translate","graph","smt","corpus corpus-roundtrip corpus-apijson","export export-examples","export-library export-settled","export-corpus","rest grpc"]'
+            echo 'go_shards=["runtime runtime-corpus runtime-exploration model","codegen migrate","cli translate","graph","smt","corpus corpus-sweep","export export-examples","export-library export-corpus","rest grpc"]'
           fi | tee -a "$GITHUB_OUTPUT"
 
       # The vendored copy is checked in this job, not static-and-integrity: the
@@ -466,31 +466,19 @@ jobs:
         if: needs.changes.outputs.tier != 'quick'
         run: go run -C tools ./cmd/fuml-referee -check
 
-      # The RDF round-trip ratchet over every example on its own, so its per-verdict counts are legible and a
-      # skip must not pass; it is an examples/ sweep, so the queue tier takes the construct-cover subset here too.
-      - name: Run RDF corpus round-trip gate
+      # The RDF and api-json round-trip ratchets over every example on their own, so their per-verdict counts are
+      # legible and a skip must not pass; they are an examples/ sweep, so the queue tier takes the construct-cover subset here too.
+      - name: Run corpus round-trip gates
         if: needs.changes.outputs.tier != 'quick'
         env:
           OPENSYSML_CORPUS_SUBSET: ${{ needs.changes.outputs.tier == 'queue' && 'construct-cover' || '' }}
         run: |
           set -o pipefail
-          go test -count=1 -v ./tests/corpus -run 'TestCorpusRoundTrip' | tee corpus-roundtrip-gate.log
-          grep -E 'corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
+          go test -count=1 -v ./tests/corpus -run 'TestExamplesSweep' | tee corpus-roundtrip-gate.log
+          grep -E ': corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
+          grep -E 'api-json corpus round trip: [0-9]+ files:' corpus-roundtrip-gate.log
           if grep -qE '^\s*--- SKIP' corpus-roundtrip-gate.log; then
-            echo "error: the RDF corpus round-trip gate skipped" >&2
-            exit 1
-          fi
-
-      - name: Run api-json corpus round-trip gate
-        if: needs.changes.outputs.tier != 'quick'
-        env:
-          OPENSYSML_CORPUS_SUBSET: ${{ needs.changes.outputs.tier == 'queue' && 'construct-cover' || '' }}
-        run: |
-          set -o pipefail
-          go test -count=1 -v ./tests/corpus -run 'TestCorpusAPIJSONRoundTrip' | tee api-json-roundtrip-gate.log
-          grep -E 'api-json corpus round trip: [0-9]+ files:' api-json-roundtrip-gate.log
-          if grep -qE '^\s*--- SKIP' api-json-roundtrip-gate.log; then
-            echo "error: the api-json corpus round-trip gate skipped" >&2
+            echo "error: the corpus round-trip gates skipped" >&2
             exit 1
           fi
 
