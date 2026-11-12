@@ -144,27 +144,7 @@ func censusRoot(dir string, files []string) (*RootCensus, error) {
 		if sym.Implicit != nil {
 			out.Implied++
 		}
-		element := a.structure.ElementFor(sym)
-		class, known := a.structure.Metaclass(element)
-		if known {
-			for _, rule := range rules {
-				if !a.structure.Specializes(class, rule.DefiningClass) {
-					continue
-				}
-				counts := out.Rules[ruleName(rule)]
-				counts.Carriers++
-				value, ok := a.evaluator.PropertyReadOnlyUncached(element, rule.DefiningClass, rule.Property)
-				switch {
-				case !ok:
-					counts.NotDerived++
-				case isEmpty(value):
-					counts.Empty++
-				default:
-					counts.Value++
-				}
-				out.Rules[ruleName(rule)] = counts
-			}
-		}
+		a.countRules(out, rules, sym)
 		for _, rel := range a.model.OwnedRelationships(sym) {
 			visit(rel)
 			if related, ok := a.model.ReflectiveElements(rel, "ownedRelatedElement"); ok {
@@ -184,6 +164,32 @@ func censusRoot(dir string, files []string) (*RootCensus, error) {
 		}
 	}
 	return out, nil
+}
+
+// countRules adds sym's element to the counts of every rule its metaclass carries.
+func (a *analysis) countRules(out *RootCensus, rules []metamodel.Rule, sym *symbols.Symbol) {
+	element := a.structure.ElementFor(sym)
+	class, known := a.structure.Metaclass(element)
+	if !known {
+		return
+	}
+	for _, rule := range rules {
+		if !a.structure.Specializes(class, rule.DefiningClass) {
+			continue
+		}
+		counts := out.Rules[ruleName(rule)]
+		counts.Carriers++
+		value, ok := a.evaluator.PropertyReadOnlyUncached(element, rule.DefiningClass, rule.Property)
+		switch {
+		case !ok:
+			counts.NotDerived++
+		case isEmpty(value):
+			counts.Empty++
+		default:
+			counts.Value++
+		}
+		out.Rules[ruleName(rule)] = counts
+	}
 }
 
 // isEmpty is an answer with nothing in it: null, or a collection of no values.

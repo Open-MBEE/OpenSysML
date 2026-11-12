@@ -301,7 +301,7 @@ syntactic construct the whole corpus does; unset, they walk the whole corpus.
 
 **The quick tier** is what every push to a pull request gets, draft or ready, in about half the
 runner time of the full tier and a third of its wall time: the binaries, the same Go suite without
-`-race` in ten groups of the race shards (`make test-quick`), the download-free static checks
+`-race` in nine groups of the race shards (`make test-quick`), the download-free static checks
 (gofmt, vet, the production build, grpc imports, proto lint and breaking), the WebAssembly, Xpect
 and conformance gates, and only the clients, editors and docs whose own paths changed. The lint,
 the corpus and solver gates, the PDF toolchain and the fan-out from a service change to every
@@ -309,7 +309,7 @@ client wait for the full tier. Only a push touching a path no area claims escala
 the full tier (`scripts/ci-changed-areas.sh`, and its test pins it).
 
 **The queue tier** runs on the merge queue's commit (below). It runs every job and gate of the
-full tier — gofmt, `go vet`, `make lint`, every shard of the test suite (twenty, `make
+full tier — gofmt, `go vet`, `make lint`, every shard of the test suite (eighteen, `make
 test-queue`), the binaries, the client suites, the conformance suite over each transport, the
 protobuf lint and wire-compatibility checks, the documentation hygiene checks (`make docs-check`,
 `make man-check` and the census check), the site build, the PDF toolchain, and in each client's

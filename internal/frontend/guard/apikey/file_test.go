@@ -92,25 +92,25 @@ func TestConcurrentMints(t *testing.T) {
 // file the link names, which a server reads, and leaves the link a link.
 func TestEditsThroughASymlink(t *testing.T) {
 	dir := t.TempDir()
-	real := filepath.Join(dir, "real.jsonl")
+	target := filepath.Join(dir, "real.jsonl")
 	link := filepath.Join(dir, "keys.jsonl")
-	if _, _, err := apikey.Mint(real, "alice", []string{"sysml:read"}, time.Time{}); err != nil {
+	if _, _, err := apikey.Mint(target, "alice", []string{"sysml:read"}, time.Time{}); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Symlink(real, link); err != nil {
+	if err := os.Symlink(target, link); err != nil {
 		t.Skipf("no symlinks here: %v", err)
 	}
 	if _, _, err := apikey.Mint(link, "bob", []string{"sysml:read"}, time.Time{}); err != nil {
 		t.Fatal(err)
 	}
-	records, err := apikey.ReadFile(real)
+	records, err := apikey.ReadFile(target)
 	if err != nil || len(records) != 2 {
 		t.Fatalf("the file the link names holds %+v, %v; want alice and bob", records, err)
 	}
 	if err := apikey.Revoke(link, records[0].ID); err != nil {
 		t.Fatal(err)
 	}
-	if records, err = apikey.ReadFile(real); err != nil || !records[0].Disabled || records[1].Disabled {
+	if records, err = apikey.ReadFile(target); err != nil || !records[0].Disabled || records[1].Disabled {
 		t.Errorf("after the revoke the file the link names holds %+v, %v; want alice disabled alone", records, err)
 	}
 	if info, err := os.Lstat(link); err != nil || info.Mode()&os.ModeSymlink == 0 {

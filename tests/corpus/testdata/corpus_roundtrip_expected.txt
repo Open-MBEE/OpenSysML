@@ -7,7 +7,7 @@
 # no longer converts) and refused:<class> (notation -> Turtle refused). This
 # is a per-file ratchet, not a claim that any verdict is right; see
 # docs/project/rdf-corpus-roundtrip.md. Regenerate with:
-#   go test ./tests/corpus -run TestCorpusRoundTrip -update-corpus-roundtrip
+#   go test ./tests/corpus -run TestExamplesSweep -update-corpus-roundtrip
 stable	action-executor-demo.sysml
 stable	analysis-demo/lander.sysml
 stable	analysis-results-demo/lander-results.sysml

@@ -12,8 +12,8 @@ import (
 
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/docset"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
-	"github.com/Open-MBEE/OpenSysML/internal/workspace/modeldoc"
 )
 
 // telescopeFixture is the document pipeline's own telescope-domain fixture, so
@@ -690,7 +690,7 @@ func TestRenderDocumentLinksSiblingsByPlannedFiles(t *testing.T) {
 		{"markdown", ".md", "](%s)", func(r *pb.RenderDocumentResponse) string { return r.Markdown }},
 		{"html", ".html", `href="%s"`, func(r *pb.RenderDocumentResponse) string { return r.Html }},
 	} {
-		files, err := modeldoc.DocumentFiles(names, form.extension)
+		files, err := docset.Files(names, form.extension)
 		if err != nil {
 			t.Fatalf("DocumentFiles: %v", err)
 		}

@@ -237,37 +237,9 @@ func (w *apiJSONElementWriter) completeDerived(subject rdf.Term, metaclass strin
 		}
 		spelled := property.defaultValue
 		if spelled == nil {
-			value, supported := w.evaluation.evaluator.PropertyReadOnlyUncached(semanticElement, property.class, property.name)
-			if !supported {
-				reason, explained := w.evaluation.evaluator.Explain(semanticElement, property.class, property.name)
-				if !explained {
-					reason = metamodel.Reason{Category: metamodel.ReasonNoRule, Detail: property.class + "::" + property.name}
-				}
-				w.completionOmitted(subject, metaclass, property.name, reason)
-				continue
-			}
 			var ok bool
-			if spelled, ok = w.derivedJSONValue(value); !ok {
-				if !derivedValueEmpty(value) {
-					w.completionOmitted(subject, metaclass, property.name, metamodel.Reason{
-						Category: metamodel.ReasonUnrepresentedElement, Detail: property.class + "::" + property.name,
-					})
-				}
+			if spelled, ok = w.completedValue(subject, metaclass, semanticElement, property); !ok {
 				continue
-			}
-			// A single-valued property is spelled as its one value, as the graph's would be.
-			if definition, known := ontology.PropertyOf(metaclass, property.name); known && !definition.Many {
-				values, sequence := spelled.([]any)
-				if sequence && len(values) != 1 {
-					w.completionOmitted(subject, metaclass, property.name, metamodel.Reason{
-						Category: metamodel.ReasonIncompleteStructure,
-						Detail:   fmt.Sprintf("%d values for the single-valued %s::%s", len(values), property.class, property.name),
-					})
-					continue
-				}
-				if sequence {
-					spelled = values[0]
-				}
 			}
 		}
 		element = append(element, apiJSONMember{key: property.name, value: spelled})
@@ -277,6 +249,46 @@ func (w *apiJSONElementWriter) completeDerived(subject rdf.Term, metaclass strin
 		element = append(element, apiJSONMember{key: apiJSONCompletedPropertiesKey, value: completed})
 	}
 	return element
+}
+
+// completedValue evaluates one completed property of subject and spells it in
+// the element form; a value the form does not spell is reported as omitted.
+func (w *apiJSONElementWriter) completedValue(subject rdf.Term, metaclass string, semanticElement metamodel.Element, property apiJSONMetaclassCompletion) (any, bool) {
+	value, supported := w.evaluation.evaluator.PropertyReadOnlyUncached(semanticElement, property.class, property.name)
+	if !supported {
+		reason, explained := w.evaluation.evaluator.Explain(semanticElement, property.class, property.name)
+		if !explained {
+			reason = metamodel.Reason{Category: metamodel.ReasonNoRule, Detail: property.class + "::" + property.name}
+		}
+		w.completionOmitted(subject, metaclass, property.name, reason)
+		return nil, false
+	}
+	spelled, ok := w.derivedJSONValue(value)
+	if !ok {
+		if !derivedValueEmpty(value) {
+			w.completionOmitted(subject, metaclass, property.name, metamodel.Reason{
+				Category: metamodel.ReasonUnrepresentedElement, Detail: property.class + "::" + property.name,
+			})
+		}
+		return nil, false
+	}
+	// A single-valued property is spelled as its one value, as the graph's would be.
+	definition, known := ontology.PropertyOf(metaclass, property.name)
+	if !known || definition.Many {
+		return spelled, true
+	}
+	values, sequence := spelled.([]any)
+	if !sequence {
+		return spelled, true
+	}
+	if len(values) != 1 {
+		w.completionOmitted(subject, metaclass, property.name, metamodel.Reason{
+			Category: metamodel.ReasonIncompleteStructure,
+			Detail:   fmt.Sprintf("%d values for the single-valued %s::%s", len(values), property.class, property.name),
+		})
+		return nil, false
+	}
+	return values[0], true
 }
 
 // completionOmitted reports a completed property the subject's element object

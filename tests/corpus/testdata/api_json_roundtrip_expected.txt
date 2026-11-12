@@ -8,7 +8,7 @@
 # converts) and refused:<class> (notation -> the JSON form refused).
 # This is a per-file ratchet, not a claim that any verdict is right;
 # see docs/project/rdf-corpus-roundtrip.md. Regenerate with:
-#   go test ./tests/corpus -run TestCorpusAPIJSONRoundTrip -update-api-json-roundtrip
+#   go test ./tests/corpus -run TestExamplesSweep -update-api-json-roundtrip
 stable	action-executor-demo.sysml
 stable	analysis-demo/lander.sysml
 stable	analysis-results-demo/lander-results.sysml
