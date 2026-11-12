@@ -1935,7 +1935,8 @@ pictures; a linked rendering carries external `href`s and so is refused by that 
 linked picture would be.
 
 Each rendering is capped at 200 spans or messages for readability and to keep renderer input
-within practical text-size limits. Timelines select spans in stable time order, with lane order
+within practical text-size limits; `%render-run limit=<count>`, the MCP tool's `limit` and the
+command line's `-render-limit` move the cap. Timelines select spans in stable time order, with lane order
 breaking ties, and retain only a prefix of each lane; a lane's last retained span ends no later than
 its first dropped span's start, preserving any earlier end across an inactive gap. Later state
 changes and messages are reported in a `not represented:` notice.
