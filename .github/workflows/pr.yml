@@ -2,12 +2,9 @@ name: PR
 
 # The only CI a pull request runs. Pushes to main and develop, and tags, are covered
 # by the CircleCI config; this workflow mirrors its build-test workflow, not release.
-#
-# Three tiers (CONTRIBUTING.md, "GitHub Actions"), decided by the Changed areas job: a pull-request
-# push runs the quick tier (no -race, no fan-out); merge_group runs queue (-race everywhere but the
-# examples/ sweeps, which run race-free over the construct-cover subset); the label ci:full, an
-# unclaimed path and a dispatch run full (-race over the whole corpus). The nightly full scan of
-# develop is full-scan.yml dispatching this workflow, so its check runs land on develop's head.
+
+# Three tiers (CONTRIBUTING.md, "GitHub Actions"), decided by the Changed areas job: quick on a pull-request
+# push, queue on merge_group, full on the label ci:full, an unclaimed path and a dispatch (full-scan.yml, nightly).
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, labeled]

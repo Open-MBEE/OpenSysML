@@ -6,11 +6,9 @@
 # Prints one `area=true|false` line per area, in the shape a GitHub Actions job
 # output file takes. A file no area claims turns every area on, so a path this
 # script has not been taught about is never silently untested.
-#
-# The first line is the tier, `tier=quick|queue|full` (CONTRIBUTING.md, "GitHub Actions"), from the
-# event in CI_EVENT: queue for merge_group, full for schedule and workflow_dispatch, for a pull request
-# labelled ci:full (CI_FULL_LABEL=true) and for an unclaimed path, else quick (no -race, no fan-out
-# from a service change to every client). CI_TIER=full|queue|quick forces it.
+
+# The first line is the tier, `tier=quick|queue|full` (CONTRIBUTING.md, "GitHub Actions"): queue for CI_EVENT
+# merge_group, full for schedule, workflow_dispatch, CI_FULL_LABEL=true or an unclaimed path, else quick; CI_TIER forces it.
 set -euo pipefail
 
 base=${1:?usage: ci-changed-areas.sh <base> [head]}

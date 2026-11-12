@@ -1,13 +1,7 @@
 name: Full scan
 
-# The nightly full scan of develop. The merge queue runs the queue tier (CONTRIBUTING.md, "GitHub
-# Actions": -race everywhere but the examples/ sweeps, which run race-free over the construct-cover
-# subset), so this gives develop's head its -race, whole-corpus run once a night, unless it already
-# has one (a ci:full run, an earlier dispatch). It dispatches pr.yml rather than calling it as a
-# reusable workflow: a called workflow's check runs take the caller's job name, and
-# scripts/ci-verified-tree.py (CircleCI's verify-tree job) looks for `Build and test` and the
-# `Go race tests (…)` jobs on the commit. A dispatch runs pr.yml on develop's head itself, so the
-# check runs land on that commit.
+# The nightly full scan of develop (CONTRIBUTING.md, "GitHub Actions"): the -race, whole-corpus run the
+# merge queue's queue tier does not give develop's head, dispatched on pr.yml unless the head already has one.
 on:
   schedule:
     # 12:07 UTC: the hour with the fewest PR workflow runs in a week, so the 20-slot pool is idle.
@@ -43,7 +37,8 @@ jobs:
         with:
           ref: ${{ env.BRANCH }}
 
-      # --full-tier: only a full-tier GitHub run counts; a queue-tier run is what the scan completes.
+      # A dispatch, not a workflow_call: a called workflow's check runs take the caller's job name, and
+      # scripts/ci-verified-tree.py looks for `Build and test` and `Go race tests (…)` on the commit itself.
       - name: Dispatch unless the head already has a full-tier run
         env:
           GH_TOKEN: ${{ github.token }}

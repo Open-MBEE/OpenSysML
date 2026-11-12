@@ -1,19 +1,15 @@
 #!/usr/bin/env bash
 # Prints the root-module package paths assigned to one race-test shard.
-# Usage: scripts/race-shard.sh runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-library|export-examples|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli
-#        scripts/race-shard.sh --sweeps
+# Usage: scripts/race-shard.sh runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-library|export-examples|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli | --sweeps
 # A hyphenated shard is a by-test-name part of its package (runtime, corpus and export are each split
 # that way in make test-shard); the other shards are whole packages, rest everything not named here.
-# --sweeps prints, one per line, the shards whose tests walk every model under examples/: the queue
-# tier (make test-queue, CONTRIBUTING.md "GitHub Actions") runs those without -race and over the
-# construct-cover subset (OPENSYSML_CORPUS_SUBSET), and reads the list here rather than naming it.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
 shards='runtime|runtime-corpus|runtime-exploration|model|smt|corpus|corpus-roundtrip|corpus-apijson|export|export-library|export-examples|export-corpus|export-settled|graph|codegen|translate|grpc|tools|rest|migrate|cli'
-# Each is one test (the Makefile's RACE_EXPORT_* and RACE_CORPUS_* patterns) over every example model;
-# tests/grpc's and internal/translate/export's sweeps share a shard with race-prone tests, so stay under -race.
+# The shards whose one test walks every example model, which the queue tier (make test-queue) runs race-free over the
+# construct-cover subset; tests/grpc's and internal/translate/export's sweeps share a shard with race-prone tests, so stay under -race.
 sweeps='export-corpus export-settled export-library export-examples corpus-roundtrip corpus-apijson'
 
 if [[ $# -eq 1 && $1 == --sweeps ]]; then
