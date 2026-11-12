@@ -415,6 +415,9 @@ requirement is rewritten only when the new version falls outside it: the exact p
 every update, while `editors/jupyterlab`'s `^4.0.0` ranges on `@jupyterlab/application` and
 `@jupyterlab/codemirror` — the JupyterLab 4 hosts the extension supports, not what it is built
 against; the lockfile and the `jupyterlab==` pins of the workflows decide that — stay as written.
+`jupyterlab.sharedPackages` in that `package.json` repeats each runtime range as the version the
+built bundle asks its host for, which the builder would otherwise take from the lockfile's
+`@jupyterlab/core-meta`; the extension's `manifest.test.ts` fails when the two disagree.
 Dependabot alerts and security updates are repository settings a maintainer switches on; the
 configuration file only schedules version updates.
 
