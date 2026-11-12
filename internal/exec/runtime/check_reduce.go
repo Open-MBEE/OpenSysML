@@ -52,7 +52,7 @@ func standing(exec *ActionExecutor, t Token) lower.Footprint {
 func machineStanding(e *StateExecutor) lower.Footprint {
 	fp := dispatchFootprint(e)
 	for _, act := range e.doActions {
-		fp = unionFootprints(fp, doStepFootprint(e, act.state))
+		fp = unionFootprints(fp, doStepFootprint(e, e.stateDecl(act.state)))
 	}
 	return fp
 }
@@ -114,7 +114,7 @@ func triggerChannel(trans *lower.Transition) (lower.Channel, bool) {
 // by that behavior's, or the next one pending.
 func doStepFootprint(e *StateExecutor, state ast.Node) lower.Footprint {
 	for _, act := range e.doActions {
-		if act.state != state {
+		if e.stateDecl(act.state) != state {
 			continue
 		}
 		if run := act.run; run != nil {
