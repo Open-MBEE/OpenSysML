@@ -605,7 +605,9 @@ func (sess *debugSession) applyBreakpoints() {
 	if sess.action != nil {
 		bps := make([]runtime.NodeBreakpoint, 0, len(sess.breakpoints))
 		for _, bp := range sess.breakpoints {
-			bps = append(bps, runtime.NodeBreakpoint{Within: bp.within, Node: bp.node})
+			if at, ok := sess.action.BreakpointAt(bp.within, bp.node); ok {
+				bps = append(bps, at)
+			}
 		}
 		sess.action.ReplaceBreakpointsAt(bps)
 		return
@@ -707,7 +709,7 @@ func (sess *debugSession) pause() {
 		return
 	}
 	if bp, ok := sess.action.PausedBreakpoint(); ok {
-		sess.paused, _ = sess.actions.Node(bp.Within, bp.Node)
+		sess.paused, _ = sess.actions.Node(runtime.NodesOf(bp.Within), bp.Node.Node())
 		sess.pausedName = sess.action.PausedAt()
 	}
 }
@@ -1241,14 +1243,14 @@ func (sess *debugSession) breakpointIDs() []string {
 func (sess *debugSession) actionSnapshot(snap *debugSnapshot) {
 	exec := sess.action
 	for _, tr := range exec.TraversalsSince(sess.fired) {
-		if edge, ok := sess.actionEdge(tr.Within, tr.Edge); ok {
+		if edge, ok := sess.actionEdge(runtime.NodesOf(tr.Within), tr.Edge); ok {
 			snap.Taken = append(snap.Taken, edge)
 		}
 	}
 	sess.fired = exec.TraversalCount()
 	for _, tok := range exec.Tokens() {
-		within := tok.Within()
-		id, drawn := sess.actions.Node(within, tok.Location)
+		within := runtime.NodesOf(tok.Within())
+		id, drawn := sess.actions.Node(within, tok.Node())
 		t := debugToken{ID: tok.ID, Node: id, Placed: drawn, Waiting: debugWait(tok)}
 		if tok.Wait != nil && tok.Wait.Timed {
 			due := tok.Wait.Due

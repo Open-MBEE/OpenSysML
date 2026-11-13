@@ -31,7 +31,7 @@ type ActionExecutor struct {
 	// performedAt is the node of another action's graph whose performance this
 	// executor runs, nil for an action run on its own: the body's own places are
 	// that performance's, as its pins are.
-	performedAt ast.Node
+	performedAt NodeRef
 	// action states the body performed; performed is the action as named, a usage
 	// stating no body of its own or the action itself, whose metadata binds the performance.
 	action, performed *symbols.Symbol
@@ -132,18 +132,18 @@ func (e *ActionExecutor) beginSweep() func() {
 // breakpointVisit identifies one token's stay at one node.
 type breakpointVisit struct {
 	token int64
-	node  ast.Node
+	node  NodeRef
 }
 
 // NodeBreakpoint is a breakpoint set by identity: on Node, in the flow of the nested
 // action nodes Within (outermost first, as Token.Within lists them; none for the action's own).
 type NodeBreakpoint struct {
-	Within []ast.Node
-	Node   ast.Node
+	Within []NodeRef
+	Node   NodeRef
 }
 
 // at reports whether the breakpoint is set on node in the flow of within.
-func (bp NodeBreakpoint) at(within []ast.Node, node ast.Node) bool {
+func (bp NodeBreakpoint) at(within []NodeRef, node NodeRef) bool {
 	return bp.Node == node && slices.Equal(bp.Within, within)
 }
 
@@ -168,7 +168,7 @@ type breakpointStop struct {
 
 // stopAt is the stop at a breakpoint set on node in the flow of within, if one is;
 // false otherwise.
-func (e *ActionExecutor) stopAt(within []ast.Node, node ast.Node) (breakpointStop, bool) {
+func (e *ActionExecutor) stopAt(within []NodeRef, node NodeRef) (breakpointStop, bool) {
 	name := e.breakpointNameOf(within, node)
 	if name == "" {
 		return breakpointStop{}, false
@@ -483,7 +483,7 @@ func (e *ActionExecutor) holdVisible(held map[*symbols.Symbol]bool, attr lower.A
 // made and nothing is waiting for a message).
 func (e *ActionExecutor) Step() error {
 	defer e.ctx.beginExecutorRun(&e.driven)()
-	defer e.ctx.performingNode(e.performedAt, e.performedParams())()
+	defer e.ctx.performingNode(e.performedAt.Node(), e.performedParams())()
 
 	if e.released {
 		return fmt.Errorf("%w: its run ended when it was let go of", ErrExecutorReleased)
@@ -517,7 +517,7 @@ func (e *ActionExecutor) Step() error {
 	tokenCountBefore := len(e.tokens)
 	tokenLocationsBefore := make([]ast.Node, len(e.tokens))
 	for i, t := range e.tokens {
-		tokenLocationsBefore[i] = t.Location
+		tokenLocationsBefore[i] = t.Node()
 	}
 
 	// Under a sweep the tokens whose work paused resume last, the longest paused
@@ -610,7 +610,7 @@ func (e *ActionExecutor) tokensProgressed(countBefore int, locationsBefore []ast
 		return true
 	}
 	for i := 0; i < len(e.tokens) && i < len(locationsBefore); i++ {
-		if e.tokens[i].Location != locationsBefore[i] || e.moving(e.tokens[i]) {
+		if e.tokens[i].Node() != locationsBefore[i] || e.moving(e.tokens[i]) {
 			return true
 		}
 	}
@@ -774,7 +774,7 @@ func (e *ActionExecutor) describePausedWait(token Token, seen map[waitToken]bool
 	if len(descriptions) == 0 {
 		return nil, blocked
 	}
-	caller := ActionNodeName(token.Location)
+	caller := ActionNodeName(token.Node())
 	for i := range descriptions {
 		context := make([]string, 0, 2)
 		if performance != "" {
@@ -836,7 +836,7 @@ func (e *ActionExecutor) run(atCurrentTime bool) error {
 // runSteps is run, stopping after one step where single is set.
 func (e *ActionExecutor) runSteps(atCurrentTime, single bool) error {
 	defer e.ctx.beginExecutorRun(&e.driven)()
-	defer e.ctx.performingNode(e.performedAt, e.performedParams())()
+	defer e.ctx.performingNode(e.performedAt.Node(), e.performedParams())()
 
 	if e.released {
 		return fmt.Errorf("%w: its run ended when it was let go of", ErrExecutorReleased)
@@ -1049,7 +1049,7 @@ func (e *ActionExecutor) changeWaitHoldsIn(perf *actionFrame, seen map[waitTarge
 			continue
 		}
 		if token.Wait != nil && !token.Wait.Timed && token.Wait.Trigger != "" {
-			usage, ok := token.Location.(*ast.Usage)
+			usage, ok := token.Node().(*ast.Usage)
 			if ok {
 				accept, ok := e.graphOf(token.frame).Accepts[usage]
 				if _, isChange := accept.Trigger.(*ast.ChangeEvent); ok && isChange {
@@ -1195,7 +1195,7 @@ func (e *ActionExecutor) acceptTaking(m Message) ([]TakingAccept, error) {
 		if matches(m) {
 			taking = append(taking, TakingAccept{
 				Param:  token.Wait.ParamName,
-				Node:   ActionNodeName(token.Location),
+				Node:   ActionNodeName(token.Node()),
 				Within: token.frame.path(),
 			})
 		}
@@ -1234,7 +1234,7 @@ func (e *ActionExecutor) parkedAcceptTakes(perf *actionFrame, takes func(token T
 		if token.Wait == nil || token.Wait.Timed || !token.inFlowOf(perf) {
 			continue
 		}
-		usage, ok := token.Location.(*ast.Usage)
+		usage, ok := token.Node().(*ast.Usage)
 		if !ok {
 			continue
 		}
@@ -1335,22 +1335,35 @@ func (e *ActionExecutor) tokenByID(id int64) (Token, bool) {
 // breakpointNameOf returns the name a breakpoint is set on for node in the flow of
 // within, or "" when none is. A node answers to its short name as well as its name;
 // one a breakpoint is set on by identity answers to its description.
-func (e *ActionExecutor) breakpointNameOf(within []ast.Node, node ast.Node) string {
+func (e *ActionExecutor) breakpointNameOf(within []NodeRef, node NodeRef) string {
+	decl := e.declarationAt(node)
 	for _, bp := range e.breakpointNodes {
 		if !bp.at(within, node) {
 			continue
 		}
-		if name := ActionNodeName(node); name != "" {
+		if name := ActionNodeName(decl); name != "" {
 			return name
 		}
-		return nodeDescription(node)
+		return nodeDescription(decl)
 	}
-	for _, name := range actionNodeNames(node) {
+	for _, name := range actionNodeNames(decl) {
 		if e.breakpoints[name] {
 			return name
 		}
 	}
 	return ""
+}
+
+// declarationAt is the declaration a token at ref stands at: the graph's node, or the
+// action itself for a state-space run, whose token stands at no node of the flow.
+func (e *ActionExecutor) declarationAt(ref NodeRef) ast.Node {
+	if node := ref.Node(); node != nil {
+		return node
+	}
+	if ref.Graph == e.graph && e.dynamics != nil {
+		return e.dynamicsNode()
+	}
+	return nil
 }
 
 // PausedAt returns the breakpoint node the last run stopped at, or "" when the
@@ -1996,7 +2009,7 @@ func (e *ActionExecutor) checkInputNames() error {
 // initialize spawns initial token at InitialNode.
 func (e *ActionExecutor) initialize() error {
 	defer e.ctx.beginExecutorRun(&e.driven)()
-	defer e.ctx.performingNode(e.performedAt, e.performedParams())()
+	defer e.ctx.performingNode(e.performedAt.Node(), e.performedParams())()
 
 	if e.dynamicsKind != lower.NotStateSpace {
 		return e.initializeDynamics()
@@ -2065,7 +2078,7 @@ func (e *ActionExecutor) stepTokenAt(tokenIdx int) error {
 	}
 	token := &e.tokens[tokenIdx]
 
-	switch node := token.Location.(type) {
+	switch node := token.Node().(type) {
 	case *ast.InitialNode:
 		return e.stepInitialNode(tokenIdx)
 	case *ast.FinalNode:
@@ -2140,20 +2153,20 @@ func (e *ActionExecutor) synchronize(tokenIdx int) (int, bool) {
 // the earliest per awaited succession, or nil while one has yet to deliver; held is false
 // for a token no synchronization holds.
 func (e *ActionExecutor) arrivals(token Token) (consumed []int, held bool) {
-	if token.Via == (lower.ActionEdge{}) || token.body != nil || !synchronizes(token.Location) {
+	if token.Via == (lower.ActionEdge{}) || token.body != nil || !synchronizes(token.Node()) {
 		return nil, false
 	}
-	if e.starvedPin(token.frame, token.Location) {
+	if e.starvedPin(token.frame, token.Node()) {
 		return nil, true
 	}
-	_, join := token.Location.(*ast.JoinNode)
-	incoming := e.awaitedSuccessions(token.frame, token.Location)
+	_, join := token.Node().(*ast.JoinNode)
+	incoming := e.awaitedSuccessions(token.frame, token.Node())
 	if len(incoming) < 2 && !join {
 		return nil, false
 	}
 	consumed = make([]int, 0, len(incoming))
 	for _, edge := range incoming {
-		idx, ok := e.arrival(token.frame, token.Location, edge, true)
+		idx, ok := e.arrival(token.frame, token.Node(), edge, true)
 		if !ok {
 			return nil, true
 		}
@@ -2190,7 +2203,7 @@ func (e *ActionExecutor) starvedPin(frame *actionFrame, node ast.Node) bool {
 	var live map[ast.Node]bool
 	for _, feature := range graph.Features[node] {
 		edges := feeds[feature.Name]
-		if feature.Direction != ast.DirIn || len(edges) == 0 || len(frame.pending[node][feature.Name]) > 0 {
+		if feature.Direction != ast.DirIn || len(edges) == 0 || len(frame.pending[refOf(graph, node)][feature.Name]) > 0 {
 			continue
 		}
 		if sym := memberSymbol(feature.Scope, feature.Node); sym != nil && e.ctx.admitsNoValue(sym) {
@@ -2220,7 +2233,7 @@ func synchronizes(node ast.Node) bool {
 // passes over those the sweep in progress moved there, which arrive once it ends.
 func (e *ActionExecutor) arrival(frame *actionFrame, node ast.Node, edge lower.ActionEdge, settled bool) (int, bool) {
 	for i, t := range e.tokens {
-		if t.Location == node && t.frame == frame && t.body == nil && t.Via == edge &&
+		if t.Node() == node && t.frame == frame && t.body == nil && t.Via == edge &&
 			(!settled || !e.moving(t)) {
 			return i, true
 		}
@@ -2295,12 +2308,12 @@ func (e *ActionExecutor) leaves(frame *actionFrame, node ast.Node, reached map[a
 // Awaiting returns the successions into the node token is held at that no token has
 // arrived over yet, nil for a token not held there.
 func (e *ActionExecutor) Awaiting(token Token) []lower.ActionEdge {
-	if token.Via == (lower.ActionEdge{}) || token.body != nil || !synchronizes(token.Location) {
+	if token.Via == (lower.ActionEdge{}) || token.body != nil || !synchronizes(token.Node()) {
 		return nil
 	}
 	var awaited []lower.ActionEdge
-	for _, edge := range e.awaitedSuccessions(token.frame, token.Location) {
-		if _, delivered := e.arrival(token.frame, token.Location, edge, false); !delivered {
+	for _, edge := range e.awaitedSuccessions(token.frame, token.Node()) {
+		if _, delivered := e.arrival(token.frame, token.Node(), edge, false); !delivered {
 			awaited = append(awaited, edge)
 		}
 	}
@@ -2485,7 +2498,7 @@ func (e *ActionExecutor) readiness(id int64, eligible func(Token) bool) (ready b
 	if e.dynamics != nil {
 		return e.dynamicsDue(t), nil
 	}
-	usage, ok := t.Location.(*ast.Usage)
+	usage, ok := t.Node().(*ast.Usage)
 	if !ok || t.body != nil {
 		return true, nil
 	}
@@ -2510,7 +2523,7 @@ func (e *ActionExecutor) readiness(id int64, eligible func(Token) bool) (ready b
 // tokenLabel names a token as the trace does, by ID and node.
 func (e *ActionExecutor) tokenLabel(id int64) string {
 	if tok, ok := e.tokenByID(id); ok {
-		return fmt.Sprintf("%d@%s", id, nodeIdentifier(tok.Location))
+		return fmt.Sprintf("%d@%s", id, nodeIdentifier(tok.Node()))
 	}
 	return fmt.Sprintf("%d", id)
 }
@@ -2565,14 +2578,14 @@ func (e *ActionExecutor) stepTokens(schedule *tokenSchedule, paused []int64, ord
 func (e *ActionExecutor) stepInitialNode(tokenIdx int) error {
 	token := &e.tokens[tokenIdx]
 	graph := e.tokenGraph(tokenIdx)
-	if len(graph.Edges[token.Location]) == 0 {
+	if len(graph.Edges[token.Node()]) == 0 {
 		return fmt.Errorf("%w: initial node has no successors", errInvalidActionFlow)
 	}
-	if err := e.runNodeBody(token.frame, token.Location); err != nil {
+	if err := e.runNodeBody(token.frame, token.Node()); err != nil {
 		return err
 	}
 
-	successors, err := e.enabledSuccessions(token.frame, token.Location)
+	successors, err := e.enabledSuccessions(token.frame, token.Node())
 	if err != nil {
 		return err
 	}
@@ -2621,7 +2634,7 @@ func (e *ActionExecutor) retireToken(tokenIdx int) error {
 // only: its branches go on reading and writing the action's own features.
 func (e *ActionExecutor) stepForkNode(tokenIdx int) error {
 	token := &e.tokens[tokenIdx]
-	node := token.Location.(*ast.ForkNode)
+	node := token.Node().(*ast.ForkNode)
 	frame := token.frame
 	graph := e.graphOf(frame)
 
@@ -2671,7 +2684,7 @@ func (e *ActionExecutor) split(tokenIdx int, successors []lower.ActionEdge) {
 	for _, edge := range successors {
 		newToken := Token{
 			ID:       e.nextTokenID,
-			Location: edge.Target,
+			Location: refOf(e.graphOf(frame), edge.Target),
 			Via:      edge,
 			moved:    e.sweep,
 			frame:    frame,
@@ -2691,7 +2704,7 @@ func (e *ActionExecutor) split(tokenIdx int, successors []lower.ActionEdge) {
 // already waited for its incoming successions — on to its successor.
 func (e *ActionExecutor) stepJoinNode(tokenIdx int) error {
 	token := &e.tokens[tokenIdx]
-	node := token.Location.(*ast.JoinNode)
+	node := token.Node().(*ast.JoinNode)
 	frame := token.frame
 	graph := e.graphOf(frame)
 
@@ -2729,9 +2742,9 @@ func (e *ActionExecutor) stepJoinNode(tokenIdx int) error {
 // arrival (Actions::MergeAction), so a loop re-enters it and a fork's branches each traverse it.
 func (e *ActionExecutor) stepMergeNode(tokenIdx int) error {
 	token := &e.tokens[tokenIdx]
-	mergeNode, ok := token.Location.(*ast.MergeNode)
+	mergeNode, ok := token.Node().(*ast.MergeNode)
 	if !ok {
-		return fmt.Errorf("expected MergeNode, got %T", token.Location)
+		return fmt.Errorf("expected MergeNode, got %T", token.Node())
 	}
 
 	graph := e.graphOf(token.frame)
@@ -2767,9 +2780,9 @@ func (e *ActionExecutor) stepMergeNode(tokenIdx int) error {
 // stepDecisionNode evaluates guards and routes token to matching branch.
 func (e *ActionExecutor) stepDecisionNode(tokenIdx int) error {
 	token := &e.tokens[tokenIdx]
-	decisionNode, ok := token.Location.(*ast.DecisionNode)
+	decisionNode, ok := token.Node().(*ast.DecisionNode)
 	if !ok {
-		return fmt.Errorf("expected DecisionNode, got %T", token.Location)
+		return fmt.Errorf("expected DecisionNode, got %T", token.Node())
 	}
 
 	// Get successors (outgoing edges from decision)
@@ -2895,7 +2908,7 @@ func (e *ActionExecutor) guardsStanding(graph *lower.ActionGraph, successors []l
 // performedParams is the action's own parameters where another action's node
 // performs it, nil where it runs on its own: the places the node's pins are.
 func (e *ActionExecutor) performedParams() map[*symbols.Symbol]bool {
-	if e.performedAt == nil || e.graph == nil {
+	if e.performedAt == (NodeRef{}) || e.graph == nil {
 		return nil
 	}
 	params := make(map[*symbols.Symbol]bool, len(e.graph.Parameters))
@@ -2910,9 +2923,9 @@ func (e *ActionExecutor) performedParams() map[*symbols.Symbol]bool {
 // stepActionExecutionNode evaluates inline expression or invokes nested action.
 func (e *ActionExecutor) stepActionExecutionNode(tokenIdx int) error {
 	token := &e.tokens[tokenIdx]
-	node, ok := token.Location.(*ast.ActionExecutionNode)
+	node, ok := token.Node().(*ast.ActionExecutionNode)
 	if !ok {
-		return fmt.Errorf("expected ActionExecutionNode, got %T", token.Location)
+		return fmt.Errorf("expected ActionExecutionNode, got %T", token.Node())
 	}
 
 	frame := token.frame
@@ -2963,9 +2976,9 @@ func (e *ActionExecutor) leaveExecutionNode(tokenIdx int, frame *actionFrame, no
 // stepNestedAction performs a nested action usage in a frame of its own.
 func (e *ActionExecutor) stepNestedAction(tokenIdx int) error {
 	token := &e.tokens[tokenIdx]
-	usage, ok := token.Location.(*ast.Usage)
+	usage, ok := token.Node().(*ast.Usage)
 	if !ok {
-		return fmt.Errorf("expected Usage, got %T", token.Location)
+		return fmt.Errorf("expected Usage, got %T", token.Node())
 	}
 
 	// An accept node waits for a message of its parameter's type. Until one
@@ -3076,7 +3089,7 @@ func (e *ActionExecutor) awaitSignal(token *Token, accept lower.Accept, usage *a
 	}
 	token.Wait = nil
 	if tr := e.trace(); tr != nil {
-		tr.recordActionAccept(e.traceOrigin(), token.ID, e.stepCount+1, nodeIdentifier(token.Location),
+		tr.recordActionAccept(e.traceOrigin(), token.ID, e.stepCount+1, nodeIdentifier(token.Node()),
 			msg.Serial, acceptedEventName(msg), msg.Payload)
 	}
 	if accepting, err := e.materializeOccurrence(); err != nil {
@@ -3425,7 +3438,7 @@ func (e *ActionExecutor) runDueSteps(progress *dueProgress, single bool) (bool, 
 func (e *ActionExecutor) tokenPositions() map[int64]ast.Node {
 	positions := make(map[int64]ast.Node, len(e.tokens))
 	for _, token := range e.tokens {
-		positions[token.ID] = token.Location
+		positions[token.ID] = token.Node()
 	}
 	return positions
 }
@@ -3446,8 +3459,8 @@ func performerSuffix(self *Instance) string {
 // runs the statements lowering recorded for it, then leaves for its successor.
 func (e *ActionExecutor) stepStatementNode(tokenIdx int) error {
 	token := e.tokens[tokenIdx]
-	step := e.beginStatementStep(token.frame, token.Location)
-	return e.runBody(tokenIdx, &statementWork{exec: e, token: token.ID, frame: token.frame, node: token.Location, step: step})
+	step := e.beginStatementStep(token.frame, token.Node())
+	return e.runBody(tokenIdx, &statementWork{exec: e, token: token.ID, frame: token.frame, node: token.Node(), step: step})
 }
 
 // beginStatementStep is a token's step of a statement node in frame: a transparent performance
@@ -3465,7 +3478,7 @@ func (e *ActionExecutor) beginStatementStep(frame *actionFrame, node ast.Node) *
 		connections: frame.connections,
 		data:        make(map[string]Value),
 		features:    make(map[string]ast.FeatureDirection),
-		subactions:  make(map[ast.Node]*actionFrame),
+		subactions:  make(map[NodeRef]*actionFrame),
 		perfs:       &e.performances,
 		run:         frame.run,
 		began:       e.ctx.newActivation(),
@@ -3595,7 +3608,7 @@ func (e *ActionExecutor) Tokens() []Token {
 type Traversal struct {
 	Token  int64
 	Edge   lower.ActionEdge
-	Within []ast.Node
+	Within []NodeRef
 }
 
 // cloneTraversals copies ts, each path with it, so neither copy can alias the other.
@@ -3801,7 +3814,7 @@ func (e *ActionExecutor) Breakpoints() []string {
 func (e *ActionExecutor) ReplaceBreakpointsAt(bps []NodeBreakpoint) {
 	e.breakpointNodes = e.breakpointNodes[:0]
 	for _, bp := range bps {
-		if bp.Node != nil {
+		if bp.Node != (NodeRef{}) {
 			e.breakpointNodes = append(e.breakpointNodes, NodeBreakpoint{Within: slices.Clone(bp.Within), Node: bp.Node})
 		}
 	}
@@ -3861,13 +3874,13 @@ func (e *ActionExecutor) recordTokenAt(token *Token, edge *lower.ActionEdge) {
 	if edge != nil {
 		from = nodeIdentifier(edge.Source)
 	}
-	tr.recordTokenStep(e.traceOrigin(), token.ID, e.stepCount+1, from, nodeIdentifier(token.Location))
+	tr.recordTokenStep(e.traceOrigin(), token.ID, e.stepCount+1, from, nodeIdentifier(token.Node()))
 }
 
 // recordTokenWait records token parking where it is for awaited.
 func (e *ActionExecutor) recordTokenWait(token *Token, awaited string) {
 	if tr := e.trace(); tr != nil {
-		tr.recordTokenWait(e.traceOrigin(), token.ID, e.stepCount+1, nodeIdentifier(token.Location), awaited)
+		tr.recordTokenWait(e.traceOrigin(), token.ID, e.stepCount+1, nodeIdentifier(token.Node()), awaited)
 	}
 }
 
@@ -3881,7 +3894,7 @@ func (e *ActionExecutor) recordDecide(token *Token, successors []lower.ActionEdg
 	for i := range successors {
 		alternatives[i] = branchName(successors, i)
 	}
-	tr.recordDecide(e.traceOrigin(), token.ID, e.stepCount+1, nodeIdentifier(token.Location), alternatives, branchName(successors, pick))
+	tr.recordDecide(e.traceOrigin(), token.ID, e.stepCount+1, nodeIdentifier(token.Node()), alternatives, branchName(successors, pick))
 }
 
 // SetTrace sets the trace recorder for this executor and the context it
