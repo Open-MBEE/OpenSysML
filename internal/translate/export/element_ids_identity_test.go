@@ -111,6 +111,14 @@ func compareWrittenRelationships(t *testing.T, name string, graph *rdf.Graph, en
 						subjects = append(subjects, rdf.ExpressionIRI(subject, fmt.Sprintf("end%d", i)))
 					}
 				}
+				// A `flow`'s FlowEnds are written at end0/end1 too; a `message` owns none.
+				if usage.FlowEnds != nil && usage.Keyword != "message" {
+					for i, target := range []ast.Node{usage.FlowEnds.From, usage.FlowEnds.To} {
+						if target != nil {
+							subjects = append(subjects, rdf.ExpressionIRI(subject, fmt.Sprintf("end%d", i)))
+						}
+					}
+				}
 			}
 		}
 		for _, subject := range subjects {

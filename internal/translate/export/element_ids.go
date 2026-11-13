@@ -126,6 +126,7 @@ func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[
 		ids.conjugateBySpan[spanKey{e.file.Name(), node.Span()}] = conjugate
 	}
 	ids.recordValuePart(e, node, subject)
+	ids.recordFilterCondition(e, node, subject)
 	ids.recordDefaultMultiplicity(e, node, subject)
 	ids.recordConnectorEnds(e, node, subject)
 	ids.recordSuccessionEnds(e, node, subject)
@@ -151,6 +152,21 @@ func (ids *ElementIDs) recordValuePart(e *encoder, node ast.Node, subject rdf.Te
 	ids.membershipByNode[valued] = membership
 	ids.membershipBySpan[spanKey{e.file.Name(), valued.Span()}] = membership
 	e.registerExpressionIDs(ids, value, valued)
+}
+
+// recordFilterCondition records the condition a `filter` member writes at `filter` under
+// itself, the ElementFilterMembership that owns it (encode, *ast.FilterMember), for the id reader.
+func (ids *ElementIDs) recordFilterCondition(e *encoder, node ast.Node, subject rdf.Term) {
+	filter, ok := node.(*ast.FilterMember)
+	if !ok || filter.Condition == nil {
+		return
+	}
+	condition := e.ids.mintedNode(rdf.ExpressionIRI(subject, xFilter), subject, xFilter)
+	ids.byNode[filter.Condition] = rdf.LocalName(condition.Value)
+	ids.bySpan[spanKey{e.file.Name(), filter.Condition.Span()}] = ids.byNode[filter.Condition]
+	ids.membershipByNode[filter.Condition] = rdf.LocalName(subject.Value)
+	ids.membershipBySpan[spanKey{e.file.Name(), filter.Condition.Span()}] = ids.membershipByNode[filter.Condition]
+	e.registerExpressionIDs(ids, condition, filter.Condition)
 }
 
 // recordDefaultMultiplicity records the Multiplicity a usage's implicit [1..1] or an
@@ -328,7 +344,28 @@ func (e *encoder) writtenRelationships(node, parent ast.Node, subject rdf.Term, 
 	e.writtenDependencyAnnotation(node, parent, subject, out)
 	e.writtenClauseRelationships(node, parent, subject, parents, out)
 	e.writtenBoundEndReferences(node, subject, out)
+	e.writtenFlowEndReferences(node, subject, out)
 	return out
+}
+
+// writtenFlowEndReferences records, by the feature a `flow`'s from/to clause selects, the
+// ReferenceSubsetting its FlowEnd owns when the clause names a feature of a feature (flowEndReferences).
+func (e *encoder) writtenFlowEndReferences(node ast.Node, subject rdf.Term, out map[ast.Node]string) {
+	usage, ok := node.(*ast.Usage)
+	if !ok || usage.FlowEnds == nil || usage.Keyword == "message" || !verbatimUsage(usage) {
+		return
+	}
+	for i, target := range []ast.Node{usage.FlowEnds.From, usage.FlowEnds.To} {
+		if target == nil {
+			continue
+		}
+		feature := ast.EndTarget(target)
+		if _, chained := feature.(*ast.FeatureChainExpr); !chained && !qualifiedNameChained(feature) {
+			continue
+		}
+		end := e.ids.mintedNode(rdf.ExpressionIRI(subject, fmt.Sprintf("end%d", i)), subject, fmt.Sprintf("end%d", i))
+		out[feature] = e.referenceSubsettingID(end)
+	}
 }
 
 // referenceSubsettingID is the id of the ReferenceSubsetting written under feature (referenceSubsetting).

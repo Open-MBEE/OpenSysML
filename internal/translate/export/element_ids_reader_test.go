@@ -5,6 +5,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
@@ -72,5 +73,41 @@ func TestElementIDReaderParsesADocumentHeldWithoutItsTree(t *testing.T) {
 	broken := NewElementIDReader([]ElementIDDocument{{File: source.New("broken.sysml", []byte("package {"))}, live})
 	if _, err := broken.Read("", nil, "Live::car"); err == nil {
 		t.Fatalf("a document the parser cannot read whole does not refuse the model")
+	}
+}
+
+// TestElementIDReaderReadsAFilterCondition: a `filter` member's condition is written at
+// `filter` under the member, which owns it as an ElementFilterMembership; both read back by node.
+func TestElementIDReaderReadsAFilterCondition(t *testing.T) {
+	_, _, doc := readerIndex(t, "filter.sysml", "package P {\n\tmetadata def M;\n\tfilter @M;\n}\n")
+	var filter *ast.FilterMember
+	for _, member := range doc.Root.Members {
+		pkg, ok := member.(*ast.Membership)
+		if !ok {
+			continue
+		}
+		for _, inner := range pkg.Member.(*ast.Package).Members {
+			if m, ok := inner.(*ast.Membership); ok {
+				inner = m.Member
+			}
+			if f, ok := inner.(*ast.FilterMember); ok {
+				filter = f
+			}
+		}
+	}
+	if filter == nil {
+		t.Fatal("the fixture declares no filter member")
+	}
+	reader := NewElementIDReader([]ElementIDDocument{doc})
+	id, err := reader.Read("filter.sysml", filter.Condition, "")
+	if err != nil || id != "P___401_pfilter" {
+		t.Fatalf("Read(condition) = %q, %v; want P___401_pfilter", id, err)
+	}
+	membership, err := reader.ReadOwningMembership("filter.sysml", filter.Condition, "")
+	if err != nil || membership != "P___401" {
+		t.Fatalf("ReadOwningMembership(condition) = %q, %v; want P___401", membership, err)
+	}
+	if part, _, err := reader.ReadExpressionPart("filter.sysml", filter.Condition, "out"); err != nil || part != "P___401_pfilter_pout" {
+		t.Fatalf("ReadExpressionPart(condition, out) = %q, %v; want P___401_pfilter_pout", part, err)
 	}
 }

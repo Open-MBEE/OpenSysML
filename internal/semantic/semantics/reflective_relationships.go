@@ -81,8 +81,8 @@ func (m *Model) implicitRelationshipsOf(owner *symbols.Symbol) []*symbols.Symbol
 			out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelReferences, false, connectorEndAttachment(target)))
 		}
 	}
-	// So does a flow's end (SysML.xtext FlowEnd: `OwnedReferenceSubsetting`).
-	if isFlowEndSymbol(owner) {
+	// So does a flow's end that names a feature of a feature (SysML.xtext FlowEndSubsetting).
+	if isFlowEndSymbol(owner) && flowEndStatesSubsetting(owner.Decl) {
 		out = append(out, implicitRelationshipSymbol(owner, ordinal, ast.RelReferences, false, connectorEndAttachment(ast.EndTarget(owner.Decl))))
 	}
 	if target, stated := m.successionEndReference(owner); stated {

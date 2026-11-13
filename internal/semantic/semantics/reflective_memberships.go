@@ -147,7 +147,8 @@ func (m *Model) synthesizedMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	journal(m, m.synthesized, sym, sym.Decl)
 	var out []*symbols.Symbol
-	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.FlowEnds != nil {
+	// A `message`'s ends are the events it relates, not FlowEnds (SysML.xtext MessageEventMember).
+	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.FlowEnds != nil && usage.Keyword != "message" {
 		for i, end := range [2]ast.Node{usage.FlowEnds.From, usage.FlowEnds.To} {
 			if end != nil {
 				out = append(out, synthesizedMember(sym, end, &symbols.ExpressionElement{
@@ -174,6 +175,16 @@ func (m *Model) synthesizedMembersOf(sym *symbols.Symbol) []*symbols.Symbol {
 
 func isFlowEndSymbol(sym *symbols.Symbol) bool {
 	return sym != nil && sym.Expr != nil && sym.Expr.Role == symbols.ExpressionFlowEnd
+}
+
+// flowEndStatesSubsetting reports whether a flow end names a feature of a feature
+// (`a.b`); only then does the FlowEnd own a ReferenceSubsetting (SysML.xtext FlowEndSubsetting).
+func flowEndStatesSubsetting(end ast.Node) bool {
+	target := ast.EndTarget(end)
+	if name, ok := target.(*ast.QualifiedName); ok {
+		return ast.QualifiedNameHasChain(name)
+	}
+	return chainNode(target) != nil
 }
 
 // withSynthesizedMembers places the members sym owns without a symbol of their

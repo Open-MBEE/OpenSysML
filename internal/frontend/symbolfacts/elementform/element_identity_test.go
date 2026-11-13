@@ -27,6 +27,11 @@ package D {
   }
   connection def C;
   part holder { part a { part b; } part c; connection : C connect a.b to c; }
+  part def W { attribute a; }
+  part w1 : W;
+  part w2 : W;
+  flow fl from w1.a to w2.a;
+  package F { metadata def K; filter @K; }
 }
 package D__outer___400 { part spelledLikeAFormID; }
 `
@@ -95,6 +100,9 @@ func TestElementIdentityIsTheTreesIDAndRoundTrips(t *testing.T) {
 		{"D::M::z", []string{"valuation", "value", "result"}, "D__M__z_pvalue_pout"},
 		{"D::holder::@2", []string{"connectorEnd"}, "D__holder___402_pend0"},
 		{"D::holder::@2", []string{"connectorEnd", "ownedElement"}, "D__holder___402_pend0_pchain"},
+		{"D::fl", []string{"ownedEndFeature"}, "D__fl_pend0"},
+		{"D::holder::@2", []string{"connectorEnd", "ownedReferenceSubsetting"}, "D__holder___402_pend0_prs"},
+		{"D::fl", []string{"ownedEndFeature", "ownedReferenceSubsetting"}, "D__fl_pend0_prs"},
 	}
 	for _, tc := range cases {
 		sym := reflect(t, sc, tc.name, tc.path...)
@@ -107,6 +115,29 @@ func TestElementIdentityIsTheTreesIDAndRoundTrips(t *testing.T) {
 		if len(back) != 1 || back[0] != sym {
 			t.Errorf("ResolveElement(%s) = %v, want the one symbol it was read from", got, back)
 		}
+	}
+}
+
+// A `filter` condition is minted under its ElementFilterMembership, which no symbol
+// stands for: its id is read from the conversion by node and still resolves back.
+func TestElementIdentityReadsAFilterConditionByNode(t *testing.T) {
+	sc := identityContext(t)
+	members, _ := sc.Semantics.ReflectiveElements(reflect(t, sc, "D::F"), "ownedMember")
+	var condition *symbols.Symbol
+	for _, member := range members {
+		if member.Expr != nil && member.Expr.Role == symbols.ExpressionFilterCondition {
+			condition = member
+		}
+	}
+	if condition == nil {
+		t.Fatalf("D::F owns no filter condition among %d members", len(members))
+	}
+	got := sc.ElementIdentity(condition)
+	if got != "D__F___401_pfilter" {
+		t.Fatalf("ElementIdentity(filter condition) = %q, want D__F___401_pfilter", got)
+	}
+	if back := sc.ResolveElement(got, sc.Semantics); len(back) != 1 || back[0] != condition {
+		t.Errorf("ResolveElement(%s) = %v, want the condition", got, back)
 	}
 }
 

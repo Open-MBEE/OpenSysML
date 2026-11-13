@@ -25,7 +25,11 @@ func (f elementForm) ID(sc *symbolfacts.Context, sym *symbols.Symbol) string {
 	}
 	switch {
 	case sym.Expr != nil:
-		id, _ := export.SynthesizedElementID(sym, sc.FormID)
+		if id, ok := export.SynthesizedElementID(sym, sc.FormID); ok {
+			return id
+		}
+		// A `filter` condition is minted under its membership, which has no symbol: read it by node.
+		id, _ := f.reader.Read(sym.DocName, sym.Decl, "")
 		return id
 	case sym.Chain != nil:
 		id, _, _ := f.reader.ReadExpressionPart(sym.DocName, sym.Decl, "chain")
