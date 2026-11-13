@@ -2380,7 +2380,8 @@ honest as they stand and become faithful one at a time as their wording is align
 `sysml-grpc` speaks gRPC, Connect and Connect-JSON over one port, with optional TLS, exact-origin
 CORS, a health port and stdio; there are clients in Go (the public API), Python (`opensysml` on
 PyPI), Node (`@openmbee/opensysml` on npm), Java (`org.openmbee:opensysml`), Rust (`opensysml` on
-crates.io), Julia and MATLAB/Octave, each with a worked tour. Plain HTTP/1.1 + JSON reaches every
+crates.io), .NET (`OpenMBEE.OpenSysML`, from a checkout), Julia and MATLAB/Octave, each with a worked
+tour. Plain HTTP/1.1 + JSON reaches every
 method (`ParseSources` takes `documents`, not `sources`; `Evaluate` on `2 * 1500` answers
 `{"result":{"realValue":3000}}`), which is how the Julia and MATLAB packages integrate with no
 generated code, and how R and C can. What is missing is the R package and the C client, and a
@@ -2522,6 +2523,26 @@ production module (`CHANGELOG.md` **0.10.0**), and the gate's own timeout fits a
 large models* under *Proposed*: the module's size against a browser's patience.
 
 ---
+
+## I9 — a .NET client (implemented; checkout distribution)
+
+`client/dotnet` is an asynchronous C# client for .NET 10, `OpenMBEE.OpenSysML`, consumed by
+`ProjectReference` from a checkout and released as the checkout of the core `v*` tag; nothing is
+published to NuGet. Every RPC of the schema is called by a typed public method, and the conformance
+run, which drives the client through that API, fails on a scenario it skips unless
+`client/dotnet/test/testdata/expected-skips.json` lists it. It speaks gRPC by
+default and Connect with protobuf or JSON bodies on request, starts private services that end with
+their process under the shared cache's cross-client lock, downloads releases its checkout pins
+(without verifying the manifest's Sigstore signature, so an unpinned release is refused), and runs
+the conformance suite through its public API on all three protocols and with capabilities withheld,
+compared scenario by scenario with the reference runner (`make conformance-dotnet`,
+`make conformance-dotnet-check`). The [.NET client guide](../clients/dotnet.md) is the runnable
+sample the client's tests execute. Its checkout's generator (`OpenMBEE.OpenSysML.Generate`, `make
+dotnet-generate`) writes typed C# interfaces and classes over a model's definitions, refusing what
+it cannot type soundly. The standalone `OpenMBEE.OpenSysML.Metamodel` assembly holds the metamodel
+as C# types generated from the metamodel table (`make dotnet-metamodel`), and reads exported JSON
+into them without a service, as the Python client's reader does (`MetamodelGraph.ReadJson`). Out of scope, and
+stated as such: NuGet publication, Native AOT and trimming, browser hosts and synchronous mirrors.
 
 # Track B — bindings from modeled elements to external data and services
 

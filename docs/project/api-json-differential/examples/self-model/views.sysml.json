@@ -15,15 +15,15 @@
       "presentDifferent": 475,
       "oursMissing": 975,
       "pilotMissing": 274,
-      "absentBoth": 6671,
+      "absentBoth": 6664,
       "indeterminate": 33,
-      "pilotNondeterministic": 0
+      "pilotNondeterministic": 7
     },
     "unkeyedReferences": 397,
     "extensionProperties": 1189,
     "duplicateElements": {
       "ours": 0,
-      "pilot": 17284
+      "pilot": 17337
     },
     "ambiguousKeys": {
       "ours": 0,
@@ -31,7 +31,7 @@
     },
     "unkeyableElements": {
       "ours": 0,
-      "pilot": 4229
+      "pilot": 4246
     }
   },
   "rows": {
@@ -541,7 +541,7 @@
     "OperatorExpression.feature": [0,7,0,0,0,0,0],
     "OperatorExpression.featureMembership": [0,7,0,0,0,0,0],
     "OperatorExpression.featureTarget": [7,0,0,0,0,0,0],
-    "OperatorExpression.featuringType": [0,0,0,0,7,0,0],
+    "OperatorExpression.featuringType": [0,0,0,0,0,0,7],
     "OperatorExpression.function": [0,0,7,0,0,0,0],
     "OperatorExpression.importedMembership": [0,0,0,0,7,0,0],
     "OperatorExpression.inheritedFeature": [0,0,7,0,0,0,0],

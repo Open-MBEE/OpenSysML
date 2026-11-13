@@ -10,7 +10,7 @@ Read the chapters in order the first time through; each one builds on the ones b
 6. [Behavior: actions and state machines](06-behavior.md) — running and debugging behavior
 7. [Saving, and converting to RDF](07-saving-and-rdf.md) — `%save`, `-convert`, round trips
 8. [Editors](08-editors.md) — `sysml-lsp` and the VS Code extension
-9. [From your own program](09-clients.md) — the Go, Python, Node, Java, Rust, Julia and MATLAB clients
+9. [From your own program](09-clients.md) — the Go, Python, Node, Java, Rust, .NET, Julia and MATLAB clients
 10. [Troubleshooting](10-troubleshooting.md) — diagnosing a run that stops early
 11. [Migrating a SysML v1 model](11-migrating-from-sysml-v1.md) — `-migrate`, reading the report, finishing by hand
 12. [Jupyter notebooks](12-jupyter.md) — `pip install jupyter-opensysml-kernel`, SysML cells, rich output, interrupting
@@ -28,8 +28,8 @@ verify a downloaded release and how to harden a served instance — and
 [Running sysml-mcp as a service](sysml-mcp-service.md) — the MCP server behind TLS with
 single sign-on, API keys or a token in front, its probes, and its container and systemd forms.
 
-Chapter 9 does one task in all seven clients side by side — Go, Python, Node/TypeScript, Java,
-Rust, Julia and MATLAB, in tabs — and then has a section per client for what only that one has.
+Chapter 9 does one task in all eight clients side by side — Go, Python, Node/TypeScript, Java,
+Rust, .NET, Julia and MATLAB, in tabs — and then has a section per client for what only that one has.
 [Client libraries](../reference/clients.md) explains which to choose and what each covers.
 
 If you want to look up a specific detail rather than read through, the [reference](../reference/)

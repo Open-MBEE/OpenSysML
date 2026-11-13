@@ -35,6 +35,12 @@ executors:
       - image: cimg/rust:1.83
     resource_class: medium
 
+  # The .NET SDK root global.json pins, by digest: mcr.microsoft.com/dotnet/sdk:10.0.402-noble.
+  dotnet-executor:
+    docker:
+      - image: mcr.microsoft.com/dotnet/sdk@sha256:0d99ebf1ccad15037b5c98c9fe8979d6b8dbac23812feae2277a0b277b5c5ffa
+    resource_class: medium
+
   # JDK 17, the client's compile target, with Maven 3.9 preinstalled. Testing on
   # the baseline is the point: a 21-only construct must fail here.
   java-executor:
@@ -1005,6 +1011,10 @@ jobs:
           name: Check generated Python metaclasses are current
           command: make python-metamodel-check
 
+      - run:
+          name: Check generated .NET metamodel types are current
+          command: make dotnet-metamodel-check
+
       # The corpora gate alone, so its per-root verdict lines are legible in the
       # log and a skip cannot hide behind a green suite.
       - run:
@@ -1691,6 +1701,89 @@ jobs:
           path: bin/conformance-report-rust.json
           destination: conformance-report-rust.json
 
+  # The .NET client: locked restore, format, build and tests against a service
+  # built here (install-go adds Go, as for the Rust job), then coverage.
+  dotnet-test:
+    executor: dotnet-executor
+    environment:
+      DOTNET_NOLOGO: "1"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+    steps:
+      # The SDK image runs as root and carries neither make nor an SSH client for checkout,
+      # nor the solver the verdict-notes test asks the service a question with, nor the
+      # Python the gates and the cache lock interop tests run.
+      - run:
+          name: Install build prerequisites
+          command: |
+            apt-get update
+            apt-get install -y --no-install-recommends ca-certificates curl git make openssh-client python3 z3
+            z3 --version
+
+      - checkout
+
+      - attach_workspace:
+          at: .
+      - halt-if-verified
+
+      # This image has no Go toolchain yet, so buf comes from the official release
+      # rather than `go run`, pinned by digest so a substituted asset is not run.
+      - run:
+          name: Install buf
+          command: |
+            curl -fsSL -o /tmp/buf \
+              https://github.com/bufbuild/buf/releases/download/v1.57.2/buf-Linux-x86_64
+            echo "644e6fa4a62afc2b0d425d3ac9538d2f512947c0f2e82fc95c41a5eab6729414  /tmp/buf" | sha256sum --check --strict
+            install -m 0755 /tmp/buf /usr/local/bin/buf
+            buf --version
+
+      # Committed stubs must be what buf generates, or the checked-in client and
+      # the schema can drift apart silently.
+      - run:
+          name: Verify the committed C# stubs are current
+          command: |
+            make proto-csharp BUF=buf
+            git add -N client/dotnet/src/OpenMBEE.OpenSysML/Wire
+            git diff --exit-code client/dotnet/src/OpenMBEE.OpenSysML/Wire
+
+      - run:
+          name: Show the SDK and runtime
+          command: |
+            dotnet --version
+            dotnet --list-runtimes
+
+      - install-go
+
+      - run:
+          name: Build sysml-grpc
+          command: make build-grpc
+
+      # A test that needs the service, a solver or Python fails rather than skips without it.
+      - run:
+          name: Run .NET client tests
+          command: |
+            OPENSYSML_GRPC_BINARY="$PWD/bin/sysml-grpc" \
+            OPENSYSML_REQUIRE_SERVICE=1 \
+            OPENSYSML_REQUIRE_INTEROP=1 \
+            OPENSYSML_REQUIRE_SMT=1 \
+              make dotnet-test
+
+      - run:
+          name: Compare the .NET conformance run with the reference runner
+          command: make conformance-dotnet-check
+
+      - store_test_results:
+          path: bin/dotnet/test
+
+      - store_artifacts:
+          path: bin/dotnet
+          destination: dotnet-reports
+
+      # The reports matter most when the gate failed and halted the job.
+      - store_artifacts:
+          path: bin/conformance-dotnet-check
+          destination: conformance-dotnet-check
+          when: always
+
   # The Julia client: Pkg.test plus the conformance suite, against a service
   # binary built here (this executor has no Go toolchain, so the orb installs
   # it like the Rust job does).
@@ -2181,6 +2274,9 @@ jobs:
             NPM_VERSION="$(python client/python/scripts/check_version.py --node)"
             JAVA_VERSION="$(python client/python/scripts/check_version.py --java)"
             RUST_VERSION="$(python client/python/scripts/check_version.py --rust)"
+            # Nothing publishes the .NET client either: it is released as the
+            # checkout of this tag, which must declare the tag's version.
+            DOTNET_VERSION="$(python client/python/scripts/check_version.py --dotnet)"
             # Nothing publishes the editors, but their manifests carry the same
             # version, so a tag fails here when one disagrees; no export needed.
             python client/python/scripts/check_version.py --editors > /dev/null
@@ -2191,7 +2287,13 @@ jobs:
             echo "export NPM_VERSION=${NPM_VERSION}" >> "$BASH_ENV"
             echo "export JAVA_VERSION=${JAVA_VERSION}" >> "$BASH_ENV"
             echo "export RUST_VERSION=${RUST_VERSION}" >> "$BASH_ENV"
-            echo "Building opensysml ${VERSION} (pre-release: ${PRE_RELEASE}, npm ${NPM_VERSION}, maven ${JAVA_VERSION}, crates ${RUST_VERSION})"
+            echo "Building opensysml ${VERSION} (pre-release: ${PRE_RELEASE}, npm ${NPM_VERSION}, maven ${JAVA_VERSION}, crates ${RUST_VERSION}, .NET checkout ${DOTNET_VERSION})"
+
+      # The checkout of the tag is the .NET client's release, so the public API it
+      # ships must be the shipped baseline, promoted on the release branch.
+      - run:
+          name: Check the .NET client's public API is promoted to shipped
+          command: python client/dotnet/scripts/dotnet-gates.py promote-api --check
 
       # The committed table pins the releases that existed when it was last
       # back-filled, never the one being cut, so the wheel would otherwise rely
@@ -4850,6 +4952,10 @@ workflows:
           name: Rust client tests
           requires: &client-inputs
             - Go binaries
+          filters: *integration-branches
+      - dotnet-test:
+          name: .NET client tests
+          requires: *client-inputs
           filters: *integration-branches
       - julia-client:
           name: Julia client tests

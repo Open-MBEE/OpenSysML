@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- xUnit v3 test projects are executables hosted by Microsoft.Testing.Platform. -->
+    <OutputType>Exe</OutputType>
+    <IsTestProject>true</IsTestProject>
+    <AssemblyName>OpenMBEE.OpenSysML.Conformance.Tests</AssemblyName>
+    <RootNamespace>OpenMBEE.OpenSysML.Conformance.Tests</RootNamespace>
+    <!-- Test classes are public for xUnit, not API: no XML documentation is required of them. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="coverlet.MTP" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OpenMBEE.OpenSysML.Conformance/OpenMBEE.OpenSysML.Conformance.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The one way the tests find the checkout they were built from. -->
+    <Compile Include="../OpenMBEE.OpenSysML.Tests/Repository.cs" Link="Repository.cs" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    An application the load-context tests run to completion: it loads three copies of the client into
+    collectible assembly load contexts, opens a private sysml-grpc in each, closes or unloads them,
+    and reports what each started, what stopped, and whether every copy was collected. Its own code
+    never touches a client type outside those contexts. See Program.cs for its modes.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>OpenMBEE.OpenSysML.LoadContextProbe</AssemblyName>
+    <RootNamespace>OpenMBEE.OpenSysML.LoadContextProbe</RootNamespace>
+    <UseAppHost>true</UseAppHost>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/OpenMBEE.OpenSysML/OpenMBEE.OpenSysML.csproj" />
+  </ItemGroup>
+</Project>

@@ -16,9 +16,9 @@
       "presentDifferent": 987,
       "oursMissing": 2836,
       "pilotMissing": 993,
-      "absentBoth": 27208,
+      "absentBoth": 27206,
       "indeterminate": 1460,
-      "pilotNondeterministic": 0
+      "pilotNondeterministic": 2
     },
     "unkeyedReferences": 2831,
     "extensionProperties": 3680,
@@ -1434,7 +1434,7 @@
     "OperatorExpression.feature": [0,2,0,0,0,0,0],
     "OperatorExpression.featureMembership": [0,2,0,0,0,0,0],
     "OperatorExpression.featureTarget": [2,0,0,0,0,0,0],
-    "OperatorExpression.featuringType": [0,0,0,0,2,0,0],
+    "OperatorExpression.featuringType": [0,0,0,0,0,0,2],
     "OperatorExpression.function": [0,0,2,0,0,0,0],
     "OperatorExpression.importedMembership": [0,0,0,0,2,0,0],
     "OperatorExpression.inheritedFeature": [0,0,2,0,0,0,0],

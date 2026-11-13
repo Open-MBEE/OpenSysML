@@ -1,6 +1,7 @@
 package symbolfacts
 
 import (
+	"slices"
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
@@ -160,7 +161,7 @@ func OfWith(sym *symbols.Symbol, sc *Context, opts Options) *Info {
 	// Add visibility to metadata
 	info.Metadata["visibility"] = visibilityToString(sym.Visibility)
 	if sym.Scope != nil {
-		info.ChildIds = sc.collectChildIDs(sym.Scope)
+		info.ChildIds = sc.symbolChildIDs(sym)
 	}
 	// Static type facts: the resolved type, the declared multiplicity and every
 	// generalization edge. These are what a client needs to reconstruct the
@@ -215,6 +216,36 @@ func (sc *Context) collectChildIDs(scope *symbols.Scope) []string {
 			ids = append(ids, id)
 		}
 	}
+	return ids
+}
+
+// symbolChildIDs is collectChildIDs over every document fragment of a named
+// namespace; a document root and any other symbol remain local.
+func (sc *Context) symbolChildIDs(sym *symbols.Symbol) []string {
+	idx := sc.Index
+	if sym.Name == "" || sym.Kind != symbols.SymbolPackage && sym.Kind != symbols.SymbolNamespace {
+		return sc.collectChildIDs(sym.Scope)
+	}
+	var fragments []*symbols.Symbol
+	for _, other := range idx.LookupQualified(idx.GetFQN(sym)) {
+		if other.Kind == sym.Kind && other.Scope != nil && idx.Library(other) == idx.Library(sym) {
+			fragments = append(fragments, other)
+		}
+	}
+	if len(fragments) <= 1 {
+		return sc.collectChildIDs(sym.Scope)
+	}
+	seen := make(map[string]bool)
+	var ids []string
+	for _, fragment := range fragments {
+		for _, id := range sc.collectChildIDs(fragment.Scope) {
+			if !seen[id] {
+				seen[id] = true
+				ids = append(ids, id)
+			}
+		}
+	}
+	slices.Sort(ids)
 	return ids
 }
 

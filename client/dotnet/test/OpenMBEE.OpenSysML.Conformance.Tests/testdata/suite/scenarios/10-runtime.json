@@ -1,0 +1,52 @@
+{
+  "scenarios": [
+    {
+      "id": "evaluate/a_real_agrees_within_tolerance",
+      "description": "A Real a summation order away from the expected one still agrees.",
+      "rpc": "Evaluate",
+      "model": { "fixture": "vehicle.sysml" },
+      "request": { "model_hash": "${model_hash}", "expression": "mass" },
+      "expect": { "response": { "result": { "real_value": 1500.0 } } }
+    },
+    {
+      "id": "evaluate/a_different_real_disagrees",
+      "description": "A Real that differs by more than the tolerance is a mismatch, reported by its path.",
+      "rpc": "Evaluate",
+      "model": { "fixture": "vehicle.sysml" },
+      "request": { "model_hash": "${model_hash}", "expression": "mass" },
+      "expect": { "response": { "result": { "real_value": 1200.0 } }, "absent": ["error"] }
+    },
+    {
+      "id": "instantiate/instances_are_labelled_by_first_appearance",
+      "description": "Runtime ids become labels in order of first appearance, so two references to one object share one.",
+      "rpc": "sysml.SysMLService/Instantiate",
+      "model": { "fixture": "vehicle.sysml" },
+      "request": { "model_hash": "${model_hash}", "symbol_id": "Demo::car" },
+      "expect": {
+        "response": {
+          "instance": { "id": "@1", "feature_values": { "engine": { "value": { "instance_id": "@2" } } } },
+          "instances": [{ "id": "@1" }, { "id": "@2" }]
+        },
+        "counts": { "instance.feature_values": 1 }
+      }
+    },
+    {
+      "id": "parse/strict_conformance_is_refused_without_the_capability",
+      "description": "A service without strict_conformance refuses a strict parse rather than ignoring the flag.",
+      "rpc": "ParseFile",
+      "requires_capabilities": ["strict_conformance"],
+      "request": { "content": "${fixture:vehicle.sysml}", "strict_conformance": true },
+      "expect": { "non_empty": ["model_hash"], "absent": ["error"] },
+      "expect_without_capability": { "status": "UNIMPLEMENTED", "status_message_contains": "strict_conformance" }
+    },
+    {
+      "id": "query/oslc_needs_its_capability",
+      "description": "With no without-capability expectation, a service lacking the capability skips the scenario.",
+      "rpc": "Query",
+      "requires_capabilities": ["oslc_query"],
+      "request": { "model_hash": "${model_hash}" },
+      "model": { "fixture": "vehicle.sysml" },
+      "expect": { "counts": { "elements": 0 } }
+    }
+  ]
+}

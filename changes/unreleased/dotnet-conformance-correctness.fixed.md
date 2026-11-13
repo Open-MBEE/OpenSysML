@@ -1,0 +1,3 @@
+- Preserve exact decimal and exponent spellings of 64-bit integers in .NET conformance requests and comparisons, reject numeric overflow/underflow and non-finite tolerance matches, and retain explicit special-Real comparisons.
+- Enforce conformance parse/call deadlines independently of adapter cancellation, preserve caller cancellation, and observe late failures without caching late parse hashes.
+- Report invalid fixture paths as scenario errors without aborting the suite, and replace XML-invalid characters in JUnit text and attributes while preserving the original JSON report.

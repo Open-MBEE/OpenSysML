@@ -1336,9 +1336,10 @@ query's does, with the same `QueryOutcome` detail, so a path or model fault is
 never an empty table. The clients spell it `Client.RunInlineDocumentQuery` (Go),
 `Model.run_document_query(inline_query=…)` (Python),
 `Model.runInlineDocumentQuery` (Node, Java), `Model::run_inline_document_query`
-(Rust), `run_document_query(model; inline_query=…)` (Julia) and
-`runDocumentQuery(model, '', 'inlineQuery', …)` (MATLAB), each checking the
-capability before sending.
+(Rust), `run_document_query(model; inline_query=…)` (Julia),
+`runDocumentQuery(model, '', 'inlineQuery', …)` (MATLAB) and
+`Model.RunInlineDocumentQueryAsync` (.NET), each checking the capability before
+sending.
 `RenderDocument` takes no bindings, because a document binds its queries'
 parameters in the model; it answers the rendered CommonMark Markdown,
 byte-identical to `-render-document` on the same model. Its `form` field

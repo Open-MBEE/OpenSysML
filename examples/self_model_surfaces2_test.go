@@ -318,8 +318,8 @@ func TestSelfModelClientsCarryTheServiceToken(t *testing.T) {
 			t.Errorf("surfaces.sysml says %s takes the token as %q, which %s does not define", name, option, code)
 		}
 	}
-	if clients != 7 {
-		t.Errorf("the toolchain models %d clients with connection code, not the seven", clients)
+	if clients != 8 {
+		t.Errorf("the toolchain models %d clients with connection code, not the eight", clients)
 	}
 }
 

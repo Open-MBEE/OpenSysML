@@ -245,9 +245,9 @@ The pinned pilot's verdict on the probe (`validate-sysml-batch`): clean.
 
 ## Declared pilot nondeterminism
 
-The oracle is one process per root over sorted files, and two runs of it on one machine write the
-same elements and values. Across JVMs they do not, for one property: `FeatureChainExpression.featuringType`.
-At pin `2026-08` (`0.62.0`) the export under OpenJDK 21 (the workflow's `setup-java`) and under
+The oracle is one process per root over sorted files, but the pinned pilot's derived featuring
+types can still vary between processes or JVMs. `FeatureChainExpression.featuringType` first
+exposed this instability: at pin `2026-08` (`0.62.0`) the export under OpenJDK 21 (the workflow's `setup-java`) and under
 OpenJDK 25 of the same checkout differ on exactly nine values, the three `FeatureChainExpression`s
 valuing the event occurrences of `ServerSequenceModelOutside::PubSubSequenceOutside` in
 `examples/pilot-corpora/sysml-examples/Interaction Sequencing Examples/ServerSequenceModelOutside.sysml`
@@ -266,6 +266,21 @@ same corpus moved three comparisons of this row between ours-missing and absent-
 Type [0..*] {ordered}`, `deriveFeatureFeaturingType`) derives it from the `typeFeaturing`s and the
 first chaining feature, which this expression has neither of, so the stable answer — none — is the one
 this repository's writer states; the other is not a different fact but a different run.
+
+At pin `2026-09` (`0.63.0`), `InvocationExpression.featuringType` also moves between runs of the
+same checkout under OpenJDK 27. Two full exports differ only in this row: one comparison in
+`examples/pilot-corpora/sysml-validation` moves between ours-missing and absent-both, with one
+unkeyed reference appearing or disappearing. The whole row holds 480 comparisons: 408
+ours-missing and 72 absent-both in one run, 407 and 73 in the other. A third export of that root
+reproduces the first counts. No input, element match or other property changes. This row is
+declared pilot-nondeterministic too, so the unstable reference does not make the baseline depend
+on which run recorded it.
+
+The same pin and JVM also move four `OperatorExpression.featuringType` comparisons between
+ours-missing and absent-both: 875 and 458 in one full export, 871 and 462 in another, over 1333
+comparisons. Apart from the separately declared invocation-expression row, every other property
+row and every element match is unchanged. This third featuring-type row is therefore declared
+pilot-nondeterministic as well.
 
 A single comparison cannot tell the two answers apart (each is a legitimate shape), so the referee
 carries a **declared list** (`pilotNondeterminism` in `tools/referee/apijson/nondeterminism.go`, written
@@ -327,6 +342,15 @@ The pilot's export failed on 59 files (`pilotFailed`: its own export throws on a
 <!-- doc-counts:begin apijson-roots -->
 The per-root table, rendered from the baseline when the site builds.
 <!-- doc-counts:end apijson-roots -->
+
+The .NET client self-model additions keep the corpus at 935 files and add 53 matched elements in the
+`examples` root: the new client definition with its connection code and token option, instance,
+service connection and allocation, not a change to either exporter's treatment of the existing
+model. They add 2 ours-only elements there, the `sysx:Note` entries of the two `//` notes the
+client's definition carries, which the pilot has no counterpart for; no other root's elements move.
+The separately evidenced featuring-type instabilities above move 1965 comparisons into the
+pilot-nondeterministic column (534 → 2499): all 549 of `InvocationExpression.featuringType` and all
+1416 of `OperatorExpression.featuringType`, rather than presenting them as a change in conformance.
 
 **An `about` clause's Annotation** (re-recorded when the writer began stating one `Annotation`
 element per element an annotating element's `about` names — `@M about x, y;`, `metadata m : M

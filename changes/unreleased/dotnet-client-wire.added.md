@@ -1,0 +1,1 @@
+- The .NET client's protocol layer: C# message classes and a gRPC client stub generated from `api/proto/sysml.proto` into `OpenMBEE.OpenSysML.Wire` by `make proto-csharp` and committed, and an internal method registry read from the schema's descriptor. The committed code is held to the schema: CI regenerates it with the pinned buf and fails on any difference.

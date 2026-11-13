@@ -85,6 +85,11 @@ func spawned(t *testing.T, record string) []string {
 func TestEnginesSpawnsNothingAndProbeSpawnsEachEntryOnce(t *testing.T) {
 	binary := buildCLI(t)
 	dir, record := recordingManifest(t)
+	// The command is run as resolved through every link, the entry named as its directory is given.
+	resolved, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	out := run(t, binary, "-engines")
 	if got := spawned(t, record); len(got) != 0 {
@@ -92,8 +97,8 @@ func TestEnginesSpawnsNothingAndProbeSpawnsEachEntryOnce(t *testing.T) {
 	}
 	for _, want := range []string{
 		"alpha     engine    stdio/1   bounded    holds", "beta      engine    stdio/1   bounded    holds",
-		"ready (alpha 1.0.0 at " + filepath.Join(dir, "alpha.sh") + ")",
-		"alpha 1.0.0: engine from " + filepath.Join(dir, "alpha.json") + ", runs " + filepath.Join(dir, "alpha.sh") + ", not admitted",
+		"ready (alpha 1.0.0 at " + filepath.Join(resolved, "alpha.sh") + ")",
+		"alpha 1.0.0: engine from " + filepath.Join(dir, "alpha.json") + ", runs " + filepath.Join(resolved, "alpha.sh") + ", not admitted",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("-engines is missing %q:\n%s", want, out)
@@ -108,7 +113,7 @@ func TestEnginesSpawnsNothingAndProbeSpawnsEachEntryOnce(t *testing.T) {
 	if len(got) != 2 || got[0] != "alpha" || got[1] != "beta" {
 		t.Fatalf("-engines -probe spawned %v, want each entry once", got)
 	}
-	for _, want := range []string{"ready (alpha 1.0.0 at " + filepath.Join(dir, "alpha.sh") + "; describe agrees)", "ready (beta 1.0.0 at"} {
+	for _, want := range []string{"ready (alpha 1.0.0 at " + filepath.Join(resolved, "alpha.sh") + "; describe agrees)", "ready (beta 1.0.0 at"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("-engines -probe is missing %q:\n%s", want, out)
 		}

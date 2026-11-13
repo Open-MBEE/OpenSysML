@@ -1,0 +1,2 @@
+- Refresh the diagnostic and API JSON differential baselines for the .NET client self-model additions and update the API JSON documentation figures.
+- Record evidenced pilot nondeterminism in invocation and operator expression featuring types in the referee's dedicated bucket so repeated exports reproduce the baseline without hiding the instability.

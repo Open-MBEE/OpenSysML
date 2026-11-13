@@ -41,6 +41,12 @@ func reExportedConstant(source, _, ident string) bool {
 	return regexp.MustCompile(`=\s*sysmlgrpc\.Capability` + ident + `\b`).MatchString(source)
 }
 
+// stringConstant matches a `const string X = "name";` declaration, so a name the
+// module's documentation quotes is not taken for a declaration.
+func stringConstant(source, name, _ string) bool {
+	return regexp.MustCompile(`\bconst\s+string\s+\w+\s*=\s*"` + regexp.QuoteMeta(name) + `"\s*;`).MatchString(source)
+}
+
 var capabilityClients = []capabilityClient{
 	{"Python", "client/python/opensysml/capabilities.py", quotedLiteral},
 	{"Go", "client/opensysml/types.go", reExportedConstant},
@@ -49,6 +55,7 @@ var capabilityClients = []capabilityClient{
 	{"Rust", "client/rust/opensysml/src/capabilities.rs", quotedLiteral},
 	{"Julia", "client/julia/OpenSysML/src/capabilities.jl", quotedLiteral},
 	{"MATLAB", "client/matlab/+opensysml/capabilities.m", singleQuotedLiteral},
+	{".NET", "client/dotnet/src/OpenMBEE.OpenSysML/Capabilities.cs", stringConstant},
 }
 
 // capabilityConstPattern reads a service capability declaration,

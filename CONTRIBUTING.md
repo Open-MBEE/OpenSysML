@@ -67,7 +67,7 @@ make build-wasm
 make install
 
 # Protobuf schema (api/proto/sysml.proto), all codegen driven by buf
-make proto           # regenerate the Go, Python, TypeScript and Rust stubs
+make proto           # regenerate the Go, Python, TypeScript, Rust and C# stubs
 make proto-buf       # Go stubs only (the Java client generates its classes at Maven build time)
 make python-proto    # Python stubs only (needs grpcio-tools; PYTHON=... picks the interpreter)
 make proto-lint      # lint the schema, as CI does
@@ -472,6 +472,7 @@ github.com/Open-MBEE/OpenSysML
 │   └── frontend/          # protoconv, grpc, lsp, repl, stdiorpc, usage
 ├── client/python/         # Python client bindings (opensysml)
 ├── client/rust/           # Rust client (opensysml) and its conformance runner
+├── client/dotnet/         # .NET client (OpenMBEE.OpenSysML) and its conformance runner
 ├── docs/                  # Documentation
 │   ├── guide/             # The handbook, in reading order
 │   ├── reference/         # CLI, REPL, environment, APIs, RDF mapping

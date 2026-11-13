@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The metamodel's tests, and its standalone consumer: they reference the metamodel project alone,
+    under the client's build policy, and prove the client library never enters its dependency graph.
+  -->
+  <PropertyGroup>
+    <!-- xUnit v3 test projects are executables hosted by Microsoft.Testing.Platform. -->
+    <OutputType>Exe</OutputType>
+    <IsTestProject>true</IsTestProject>
+    <AssemblyName>OpenMBEE.OpenSysML.Metamodel.Tests</AssemblyName>
+    <RootNamespace>OpenMBEE.OpenSysML.Metamodel.Tests</RootNamespace>
+    <!-- Test classes are public for xUnit, not API: no XML documentation is required of them. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="coverlet.MTP" />
+    <!-- Compiles the runtime with generated output the metamodel itself does not produce. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The metamodel alone: no client library, protobuf, gRPC or logging package. -->
+    <ProjectReference Include="../../src/OpenMBEE.OpenSysML.Metamodel/OpenMBEE.OpenSysML.Metamodel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../OpenMBEE.OpenSysML.Tests/Repository.cs" Link="Shared/Repository.cs" />
+  </ItemGroup>
+</Project>
