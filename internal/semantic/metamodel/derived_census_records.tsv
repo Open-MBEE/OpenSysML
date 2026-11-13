@@ -113,7 +113,7 @@ AttributeUsage::attributeDefinition	pilot-examples	660	256	99	305	650	650	0	0
 AttributeUsage::attributeDefinition	pilot-validation	222	158	26	38	212	212	0	0
 AttributeUsage::attributeDefinition	spec-examples	63	42	8	13	52	51	1	0
 AttributeUsage::attributeDefinition	testdata	50	44	5	1	50	50	0	0
-AttributeUsage::attributeDefinition	examples	1649	1348	82	219	1649	1649	0	0
+AttributeUsage::attributeDefinition	examples	1652	1351	82	219	1652	1652	0	0
 AttributeUsage::attributeDefinition	manual-examples	143	71	2	70	143	143	0	0
 Behavior::parameter	training	85	0	0	85	85	65	20	0
 Behavior::parameter	pilot-examples	142	0	0	142	140	118	22	0
@@ -556,7 +556,7 @@ Element::documentation	pilot-validation	10912	52	10860	0	14222	59	14163	0
 Element::documentation	kerml-examples	6906	39	6867	0	8762	39	8723	0
 Element::documentation	spec-examples	8619	18	8601	0	12233	30	12203	0
 Element::documentation	testdata	1578	1	1577	0	2284	0	2284	0
-Element::documentation	examples	33982	134	33848	0	52520	134	52386	0
+Element::documentation	examples	34006	134	33872	0	52544	134	52410	0
 Element::documentation	probes	45	0	45	0	53	0	53	0
 Element::documentation	manual-examples	3983	45	3938	0	9379	45	9334	0
 Element::isImpliedIncluded	training	8324	8324	0	0	11906	11906	0	0
@@ -565,7 +565,7 @@ Element::isImpliedIncluded	pilot-validation	10912	10912	0	0	14222	14222	0	0
 Element::isImpliedIncluded	kerml-examples	6906	6906	0	0	8762	8762	0	0
 Element::isImpliedIncluded	spec-examples	8619	8619	0	0	12233	12233	0	0
 Element::isImpliedIncluded	testdata	1578	1578	0	0	2284	2284	0	0
-Element::isImpliedIncluded	examples	33982	33982	0	0	52520	52520	0	0
+Element::isImpliedIncluded	examples	34006	34006	0	0	52544	52544	0	0
 Element::isImpliedIncluded	probes	45	45	0	0	53	53	0	0
 Element::isImpliedIncluded	manual-examples	3983	3983	0	0	9379	9379	0	0
 Element::isLibraryElement	training	8324	8324	0	0	11906	11906	0	0
@@ -574,7 +574,7 @@ Element::isLibraryElement	pilot-validation	10912	10912	0	0	14222	14222	0	0
 Element::isLibraryElement	kerml-examples	6906	6906	0	0	8762	8762	0	0
 Element::isLibraryElement	spec-examples	8619	8619	0	0	12233	12233	0	0
 Element::isLibraryElement	testdata	1578	1578	0	0	2284	2284	0	0
-Element::isLibraryElement	examples	33982	33982	0	0	52520	52520	0	0
+Element::isLibraryElement	examples	34006	34006	0	0	52544	52544	0	0
 Element::isLibraryElement	probes	45	45	0	0	53	53	0	0
 Element::isLibraryElement	manual-examples	3983	3983	0	0	9379	9379	0	0
 Element::name	training	8324	1676	6648	0	11906	3211	0	8695
@@ -583,7 +583,7 @@ Element::name	pilot-validation	10912	1956	8956	0	14222	3735	0	10487
 Element::name	kerml-examples	6906	1440	5466	0	8762	1901	0	6861
 Element::name	spec-examples	8619	2254	6365	0	12233	2831	0	9402
 Element::name	testdata	1578	387	1191	0	2284	657	0	1627
-Element::name	examples	33982	5656	28326	0	52520	12547	0	39973
+Element::name	examples	34006	5660	28346	0	52544	12551	0	39993
 Element::name	probes	45	12	33	0	53	16	0	37
 Element::name	manual-examples	3983	872	3111	0	9379	2288	0	7091
 Element::ownedAnnotation	training	8324	9	8315	0	11906	2	11904	0
@@ -592,7 +592,7 @@ Element::ownedAnnotation	pilot-validation	10912	15	10897	0	14222	6	14216	0
 Element::ownedAnnotation	kerml-examples	6906	67	6839	0	8762	0	8762	0
 Element::ownedAnnotation	spec-examples	8619	30	8589	0	12233	16	12217	0
 Element::ownedAnnotation	testdata	1578	7	1571	0	2284	0	2284	0
-Element::ownedAnnotation	examples	33982	216	33766	0	52520	2	52518	0
+Element::ownedAnnotation	examples	34006	216	33790	0	52544	2	52542	0
 Element::ownedAnnotation	probes	45	0	45	0	53	0	53	0
 Element::ownedAnnotation	manual-examples	3983	20	3963	0	9379	6	9373	0
 Element::ownedElement	training	8324	1832	6492	0	11906	2863	9043	0
@@ -601,7 +601,7 @@ Element::ownedElement	pilot-validation	10912	2409	8503	0	14222	3324	10898	0
 Element::ownedElement	kerml-examples	6906	1251	5655	0	8762	1891	6871	0
 Element::ownedElement	spec-examples	8619	2063	6556	0	12233	3002	9231	0
 Element::ownedElement	testdata	1578	360	1218	0	2284	574	1710	0
-Element::ownedElement	examples	33982	7037	26945	0	52520	12034	40486	0
+Element::ownedElement	examples	34006	7041	26965	0	52544	12038	40506	0
 Element::ownedElement	probes	45	10	35	0	53	14	39	0
 Element::ownedElement	manual-examples	3983	844	3139	0	9379	2143	7236	0
 Element::ownedRelationship	training	8324	2188	6136	0	11906	3274	8632	0
@@ -610,7 +610,7 @@ Element::ownedRelationship	pilot-validation	10912	2830	8082	0	14222	3833	10389	0
 Element::ownedRelationship	kerml-examples	6906	1788	5118	0	8762	2474	6288	0
 Element::ownedRelationship	spec-examples	8619	2601	6018	0	12233	3593	8640	0
 Element::ownedRelationship	testdata	1578	436	1142	0	2284	659	1625	0
-Element::ownedRelationship	examples	33982	7855	26127	0	52520	13209	39311	0
+Element::ownedRelationship	examples	34006	7859	26147	0	52544	13213	39331	0
 Element::ownedRelationship	probes	45	16	29	0	53	20	33	0
 Element::ownedRelationship	manual-examples	3983	1022	2961	0	9379	2349	7030	0
 Element::owner	training	8324	8224	100	0	11906	4988	0	6918
@@ -619,7 +619,7 @@ Element::owner	pilot-validation	10912	10856	56	0	14222	5962	0	8260
 Element::owner	kerml-examples	6906	6836	70	0	8762	3394	0	5368
 Element::owner	spec-examples	8619	8142	477	0	12233	4543	0	7690
 Element::owner	testdata	1578	1501	77	0	2284	981	0	1303
-Element::owner	examples	33982	33887	95	0	52520	22334	0	30186
+Element::owner	examples	34006	33911	95	0	52544	22344	0	30200
 Element::owner	probes	45	41	4	0	53	19	0	34
 Element::owner	manual-examples	3983	3967	16	0	9379	3783	0	5596
 Element::owningMembership	training	8324	3321	5003	0	11906	4909	0	6997
@@ -628,7 +628,7 @@ Element::owningMembership	pilot-validation	10912	4378	6534	0	14222	5872	0	8350
 Element::owningMembership	kerml-examples	6906	2421	4485	0	8762	3318	0	5444
 Element::owningMembership	spec-examples	8619	3200	5419	0	12233	4458	0	7775
 Element::owningMembership	testdata	1578	622	956	0	2284	968	0	1316
-Element::owningMembership	examples	33982	13643	20339	0	52520	22008	0	30512
+Element::owningMembership	examples	34006	13653	20353	0	52544	22018	0	30526
 Element::owningMembership	probes	45	15	30	0	53	19	0	34
 Element::owningMembership	manual-examples	3983	1507	2476	0	9379	3711	0	5668
 Element::owningNamespace	training	8324	3321	5003	0	11906	4909	0	6997
@@ -637,7 +637,7 @@ Element::owningNamespace	pilot-validation	10912	4378	6534	0	14222	5872	0	8350
 Element::owningNamespace	kerml-examples	6906	2420	4486	0	8762	3318	0	5444
 Element::owningNamespace	spec-examples	8619	3200	5419	0	12233	4458	0	7775
 Element::owningNamespace	testdata	1578	622	956	0	2284	968	0	1316
-Element::owningNamespace	examples	33982	13643	20339	0	52520	22008	0	30512
+Element::owningNamespace	examples	34006	13653	20353	0	52544	22018	0	30526
 Element::owningNamespace	probes	45	15	30	0	53	19	0	34
 Element::owningNamespace	manual-examples	3983	1507	2476	0	9379	3711	0	5668
 Element::owningRelationship	training	8324	3374	4950	0	11906	4988	0	6918
@@ -646,7 +646,7 @@ Element::owningRelationship	pilot-validation	10912	4461	6451	0	14222	5962	0	8260
 Element::owningRelationship	kerml-examples	6906	2562	4344	0	8762	3404	0	5358
 Element::owningRelationship	spec-examples	8619	3247	5372	0	12233	4543	0	7690
 Element::owningRelationship	testdata	1578	634	944	0	2284	981	0	1303
-Element::owningRelationship	examples	33982	14133	19849	0	52520	22336	0	30184
+Element::owningRelationship	examples	34006	14143	19863	0	52544	22346	0	30198
 Element::owningRelationship	probes	45	15	30	0	53	19	0	34
 Element::owningRelationship	manual-examples	3983	1564	2419	0	9379	3783	0	5596
 Element::qualifiedName	training	8324	1393	6931	0	11906	1543	0	10363
@@ -655,7 +655,7 @@ Element::qualifiedName	pilot-validation	10912	1768	9144	0	14222	1879	0	12343
 Element::qualifiedName	kerml-examples	6906	1272	5634	0	8762	1339	0	7423
 Element::qualifiedName	spec-examples	8619	1607	7012	0	12233	2140	0	10093
 Element::qualifiedName	testdata	1578	296	1282	0	2284	362	0	1922
-Element::qualifiedName	examples	33982	4795	29187	0	52520	5083	0	47437
+Element::qualifiedName	examples	34006	4799	29207	0	52544	5087	0	47457
 Element::qualifiedName	probes	45	8	37	0	53	12	0	41
 Element::qualifiedName	manual-examples	3983	833	3150	0	9379	876	0	8503
 Element::shortName	training	8324	5	8319	0	11906	7	0	11899
@@ -664,7 +664,7 @@ Element::shortName	pilot-validation	10912	21	10891	0	14222	16	0	14206
 Element::shortName	kerml-examples	6906	4	6902	0	8762	4	0	8758
 Element::shortName	spec-examples	8619	9	8610	0	12233	9	0	12224
 Element::shortName	testdata	1578	2	1576	0	2284	2	0	2282
-Element::shortName	examples	33982	6	33976	0	52520	8	0	52512
+Element::shortName	examples	34006	6	34000	0	52544	8	0	52536
 Element::shortName	probes	45	0	45	0	53	0	0	53
 Element::shortName	manual-examples	3983	47	3936	0	9379	63	0	9316
 Element::textualRepresentation	training	8324	1	8323	0	11906	1	11905	0
@@ -673,7 +673,7 @@ Element::textualRepresentation	pilot-validation	10912	0	10912	0	14222	0	14222	0
 Element::textualRepresentation	kerml-examples	6906	2	6904	0	8762	2	8760	0
 Element::textualRepresentation	spec-examples	8619	0	8619	0	12233	4	12229	0
 Element::textualRepresentation	testdata	1578	0	1578	0	2284	0	2284	0
-Element::textualRepresentation	examples	33982	11	33971	0	52520	11	52509	0
+Element::textualRepresentation	examples	34006	11	33995	0	52544	11	52533	0
 Element::textualRepresentation	probes	45	0	45	0	53	0	53	0
 Element::textualRepresentation	manual-examples	3983	5	3978	0	9379	5	9374	0
 ElementFilterMembership::condition	training	0	0	0	0	7	7	0	0
@@ -696,7 +696,7 @@ Expression::function	pilot-validation	742	43	681	18	1124	1124	0	0
 Expression::function	kerml-examples	299	12	285	2	796	796	0	0
 Expression::function	spec-examples	428	19	316	93	712	712	0	0
 Expression::function	testdata	121	7	114	0	198	198	0	0
-Expression::function	examples	3092	245	2831	16	5304	5304	0	0
+Expression::function	examples	3095	245	2834	16	5307	5307	0	0
 Expression::function	probes	3	0	3	0	3	3	0	0
 Expression::function	manual-examples	411	78	294	39	1280	1280	0	0
 Expression::result	training	470	359	0	111	838	838	0	0
@@ -705,7 +705,7 @@ Expression::result	pilot-validation	742	530	0	212	1124	1124	0	0
 Expression::result	kerml-examples	299	198	0	101	796	796	0	0
 Expression::result	spec-examples	428	277	0	151	712	712	0	0
 Expression::result	testdata	121	41	0	80	198	198	0	0
-Expression::result	examples	3092	1089	0	2003	5304	5304	0	0
+Expression::result	examples	3095	1089	0	2006	5307	5307	0	0
 Expression::result	probes	3	2	0	1	3	3	0	0
 Expression::result	manual-examples	411	92	0	319	1280	1280	0	0
 Feature::chainingFeature	training	2989	48	2941	0	4506	81	4425	0
@@ -714,7 +714,7 @@ Feature::chainingFeature	pilot-validation	3802	69	3733	0	5259	95	5164	0
 Feature::chainingFeature	kerml-examples	2109	76	2033	0	2884	105	2779	0
 Feature::chainingFeature	spec-examples	2776	26	2750	0	3953	72	3881	0
 Feature::chainingFeature	testdata	495	6	489	0	777	6	771	0
-Feature::chainingFeature	examples	13255	282	12973	0	21339	410	20929	0
+Feature::chainingFeature	examples	13265	282	12983	0	21349	410	20939	0
 Feature::chainingFeature	probes	8	0	8	0	8	0	8	0
 Feature::chainingFeature	manual-examples	1343	37	1306	0	3546	72	3474	0
 Feature::crossFeature	training	2989	0	2989	0	4506	8	0	4498
@@ -723,7 +723,7 @@ Feature::crossFeature	pilot-validation	3802	0	3802	0	5259	2	0	5257
 Feature::crossFeature	kerml-examples	2109	13	2096	0	2884	117	0	2767
 Feature::crossFeature	spec-examples	2776	9	2765	2	3953	72	0	3881
 Feature::crossFeature	testdata	495	0	495	0	777	0	0	777
-Feature::crossFeature	examples	13255	0	13255	0	21339	35	0	21304
+Feature::crossFeature	examples	13265	0	13265	0	21349	35	0	21314
 Feature::crossFeature	probes	8	0	8	0	8	0	0	8
 Feature::crossFeature	manual-examples	1343	0	1343	0	3546	0	0	3546
 Feature::direction	training	2989	972	2017	0	4506	1592	0	2914
@@ -732,7 +732,7 @@ Feature::direction	pilot-validation	3802	1137	2665	0	5259	1702	0	3557
 Feature::direction	kerml-examples	2109	406	1703	0	2884	509	0	2375
 Feature::direction	spec-examples	2776	753	2023	0	3953	652	0	3301
 Feature::direction	testdata	495	124	371	0	777	245	0	532
-Feature::direction	examples	13255	2495	10760	0	21339	6006	0	15333
+Feature::direction	examples	13265	2495	10770	0	21349	6006	0	15343
 Feature::direction	probes	8	4	4	0	8	4	0	4
 Feature::direction	manual-examples	1343	251	1092	0	3546	1502	0	2044
 Feature::endOwningType	training	2989	176	2813	0	4506	308	0	4198
@@ -741,7 +741,7 @@ Feature::endOwningType	pilot-validation	3802	130	3672	0	5259	284	0	4975
 Feature::endOwningType	kerml-examples	2109	308	1801	0	2884	284	0	2600
 Feature::endOwningType	spec-examples	2776	290	2486	0	3953	371	0	3582
 Feature::endOwningType	testdata	495	19	476	0	777	41	0	736
-Feature::endOwningType	examples	13255	843	12412	0	21339	1395	0	19944
+Feature::endOwningType	examples	13265	843	12422	0	21349	1395	0	19954
 Feature::endOwningType	probes	8	0	8	0	8	0	0	8
 Feature::endOwningType	manual-examples	1343	44	1299	0	3546	58	0	3488
 Feature::featureTarget	training	2989	2989	0	0	4506	4506	0	0
@@ -750,7 +750,7 @@ Feature::featureTarget	pilot-validation	3802	3802	0	0	5259	5259	0	0
 Feature::featureTarget	kerml-examples	2109	2109	0	0	2884	2884	0	0
 Feature::featureTarget	spec-examples	2776	2776	0	0	3953	3953	0	0
 Feature::featureTarget	testdata	495	495	0	0	777	777	0	0
-Feature::featureTarget	examples	13255	13255	0	0	21339	21339	0	0
+Feature::featureTarget	examples	13265	13265	0	0	21349	21349	0	0
 Feature::featureTarget	probes	8	8	0	0	8	8	0	0
 Feature::featureTarget	manual-examples	1343	1343	0	0	3546	3546	0	0
 Feature::featuringType	training	2989	2387	602	0	4506	4171	335	0
@@ -759,7 +759,7 @@ Feature::featuringType	pilot-validation	3802	2841	961	0	5259	4790	469	0
 Feature::featuringType	kerml-examples	2109	1642	467	0	2884	2643	241	0
 Feature::featuringType	spec-examples	2776	2171	601	4	3953	2918	1035	0
 Feature::featuringType	testdata	495	275	220	0	777	602	175	0
-Feature::featuringType	examples	13255	9591	3664	0	21339	18605	2734	0
+Feature::featuringType	examples	13265	9598	3667	0	21349	18612	2737	0
 Feature::featuringType	probes	8	5	3	0	8	7	1	0
 Feature::featuringType	manual-examples	1343	972	371	0	3546	3177	369	0
 Feature::isComposite	training	2989	2989	0	0	4506	4506	0	0
@@ -768,7 +768,7 @@ Feature::isComposite	pilot-validation	3802	3802	0	0	5259	5259	0	0
 Feature::isComposite	kerml-examples	2109	2109	0	0	2884	2884	0	0
 Feature::isComposite	spec-examples	2776	2776	0	0	3953	3953	0	0
 Feature::isComposite	testdata	495	495	0	0	777	777	0	0
-Feature::isComposite	examples	13255	13255	0	0	21339	21339	0	0
+Feature::isComposite	examples	13265	13265	0	0	21349	21349	0	0
 Feature::isComposite	probes	8	8	0	0	8	8	0	0
 Feature::isComposite	manual-examples	1343	1343	0	0	3546	3546	0	0
 Feature::isConstant	training	2989	2989	0	0	4506	4506	0	0
@@ -777,7 +777,7 @@ Feature::isConstant	pilot-validation	3802	3802	0	0	5259	5259	0	0
 Feature::isConstant	kerml-examples	2109	2109	0	0	2884	2884	0	0
 Feature::isConstant	spec-examples	2776	2776	0	0	3953	3953	0	0
 Feature::isConstant	testdata	495	495	0	0	777	777	0	0
-Feature::isConstant	examples	13255	13255	0	0	21339	21339	0	0
+Feature::isConstant	examples	13265	13265	0	0	21349	21349	0	0
 Feature::isConstant	probes	8	8	0	0	8	8	0	0
 Feature::isConstant	manual-examples	1343	1343	0	0	3546	3546	0	0
 Feature::isEnd	training	2989	2989	0	0	4506	4506	0	0
@@ -786,7 +786,7 @@ Feature::isEnd	pilot-validation	3802	3802	0	0	5259	5259	0	0
 Feature::isEnd	kerml-examples	2109	2109	0	0	2884	2884	0	0
 Feature::isEnd	spec-examples	2776	2776	0	0	3953	3953	0	0
 Feature::isEnd	testdata	495	495	0	0	777	777	0	0
-Feature::isEnd	examples	13255	13255	0	0	21339	21339	0	0
+Feature::isEnd	examples	13265	13265	0	0	21349	21349	0	0
 Feature::isEnd	probes	8	8	0	0	8	8	0	0
 Feature::isEnd	manual-examples	1343	1343	0	0	3546	3546	0	0
 Feature::isVariable	training	2989	1466	0	1523	4506	4506	0	0
@@ -795,7 +795,7 @@ Feature::isVariable	pilot-validation	3802	2104	0	1698	5259	5259	0	0
 Feature::isVariable	kerml-examples	2109	2109	0	0	2884	2884	0	0
 Feature::isVariable	spec-examples	2776	1555	0	1221	3953	3953	0	0
 Feature::isVariable	testdata	495	304	0	191	777	777	0	0
-Feature::isVariable	examples	13255	7459	0	5796	21339	21339	0	0
+Feature::isVariable	examples	13265	7465	0	5800	21349	21349	0	0
 Feature::isVariable	probes	8	7	0	1	8	8	0	0
 Feature::isVariable	manual-examples	1343	584	0	759	3546	3546	0	0
 Feature::ownedCrossSubsetting	training	2989	0	2989	0	4506	0	0	4506
@@ -804,7 +804,7 @@ Feature::ownedCrossSubsetting	pilot-validation	3802	0	3802	0	5259	0	0	5259
 Feature::ownedCrossSubsetting	kerml-examples	2109	13	2096	0	2884	13	0	2871
 Feature::ownedCrossSubsetting	spec-examples	2776	11	2765	0	3953	11	0	3942
 Feature::ownedCrossSubsetting	testdata	495	0	495	0	777	0	0	777
-Feature::ownedCrossSubsetting	examples	13255	0	13255	0	21339	0	0	21339
+Feature::ownedCrossSubsetting	examples	13265	0	13265	0	21349	0	0	21349
 Feature::ownedCrossSubsetting	probes	8	0	8	0	8	0	0	8
 Feature::ownedCrossSubsetting	manual-examples	1343	0	1343	0	3546	0	0	3546
 Feature::ownedFeatureChaining	training	2989	48	2941	0	4506	81	4425	0
@@ -813,7 +813,7 @@ Feature::ownedFeatureChaining	pilot-validation	3802	69	3733	0	5259	95	5164	0
 Feature::ownedFeatureChaining	kerml-examples	2109	76	2033	0	2884	105	2779	0
 Feature::ownedFeatureChaining	spec-examples	2776	26	2750	0	3953	72	3881	0
 Feature::ownedFeatureChaining	testdata	495	6	489	0	777	6	771	0
-Feature::ownedFeatureChaining	examples	13255	282	12973	0	21339	410	20929	0
+Feature::ownedFeatureChaining	examples	13265	282	12983	0	21349	410	20939	0
 Feature::ownedFeatureChaining	probes	8	0	8	0	8	0	8	0
 Feature::ownedFeatureChaining	manual-examples	1343	37	1306	0	3546	72	3474	0
 Feature::ownedFeatureInverting	training	2989	0	2989	0	4506	0	4506	0
@@ -822,7 +822,7 @@ Feature::ownedFeatureInverting	pilot-validation	3802	0	3802	0	5259	0	5259	0
 Feature::ownedFeatureInverting	kerml-examples	2109	2	2107	0	2884	2	2882	0
 Feature::ownedFeatureInverting	spec-examples	2776	3	2773	0	3953	3	3950	0
 Feature::ownedFeatureInverting	testdata	495	0	495	0	777	0	777	0
-Feature::ownedFeatureInverting	examples	13255	2	13253	0	21339	2	21337	0
+Feature::ownedFeatureInverting	examples	13265	2	13263	0	21349	2	21347	0
 Feature::ownedFeatureInverting	probes	8	0	8	0	8	0	8	0
 Feature::ownedFeatureInverting	manual-examples	1343	0	1343	0	3546	0	3546	0
 Feature::ownedRedefinition	training	2989	147	2842	0	4506	187	4319	0
@@ -831,7 +831,7 @@ Feature::ownedRedefinition	pilot-validation	3802	272	3530	0	5259	283	4976	0
 Feature::ownedRedefinition	kerml-examples	2109	294	1815	0	2884	297	2587	0
 Feature::ownedRedefinition	spec-examples	2776	201	2575	0	3953	198	3755	0
 Feature::ownedRedefinition	testdata	495	12	483	0	777	14	763	0
-Feature::ownedRedefinition	examples	13255	953	12302	0	21339	1319	20020	0
+Feature::ownedRedefinition	examples	13265	954	12311	0	21349	1320	20029	0
 Feature::ownedRedefinition	probes	8	1	7	0	8	1	7	0
 Feature::ownedRedefinition	manual-examples	1343	139	1204	0	3546	662	2884	0
 Feature::ownedReferenceSubsetting	training	2989	156	2833	0	4506	229	0	4277
@@ -840,7 +840,7 @@ Feature::ownedReferenceSubsetting	pilot-validation	3802	150	3652	0	5259	263	0	49
 Feature::ownedReferenceSubsetting	kerml-examples	2109	175	1934	0	2884	179	0	2705
 Feature::ownedReferenceSubsetting	spec-examples	2776	206	2570	0	3953	261	0	3692
 Feature::ownedReferenceSubsetting	testdata	495	6	489	0	777	16	0	761
-Feature::ownedReferenceSubsetting	examples	13255	804	12451	0	21339	1091	0	20248
+Feature::ownedReferenceSubsetting	examples	13265	804	12461	0	21349	1091	0	20258
 Feature::ownedReferenceSubsetting	probes	8	0	8	0	8	0	0	8
 Feature::ownedReferenceSubsetting	manual-examples	1343	86	1257	0	3546	93	0	3453
 Feature::ownedSubsetting	training	2989	340	2649	0	4506	451	4055	0
@@ -849,7 +849,7 @@ Feature::ownedSubsetting	pilot-validation	3802	469	3333	0	5259	591	4668	0
 Feature::ownedSubsetting	kerml-examples	2109	550	1559	0	2884	557	2327	0
 Feature::ownedSubsetting	spec-examples	2776	565	2211	0	3953	641	3312	0
 Feature::ownedSubsetting	testdata	495	32	463	0	777	44	733	0
-Feature::ownedSubsetting	examples	13255	1814	11441	0	21339	2467	18872	0
+Feature::ownedSubsetting	examples	13265	1815	11450	0	21349	2468	18881	0
 Feature::ownedSubsetting	probes	8	1	7	0	8	1	7	0
 Feature::ownedSubsetting	manual-examples	1343	226	1117	0	3546	756	2790	0
 Feature::ownedTypeFeaturing	training	2989	0	2989	0	4506	0	4506	0
@@ -858,7 +858,7 @@ Feature::ownedTypeFeaturing	pilot-validation	3802	0	3802	0	5259	0	5259	0
 Feature::ownedTypeFeaturing	kerml-examples	2109	72	2037	0	2884	72	2812	0
 Feature::ownedTypeFeaturing	spec-examples	2776	8	2768	0	3953	6	3947	0
 Feature::ownedTypeFeaturing	testdata	495	0	495	0	777	0	777	0
-Feature::ownedTypeFeaturing	examples	13255	0	13255	0	21339	0	21339	0
+Feature::ownedTypeFeaturing	examples	13265	0	13265	0	21349	0	21349	0
 Feature::ownedTypeFeaturing	probes	8	0	8	0	8	0	8	0
 Feature::ownedTypeFeaturing	manual-examples	1343	0	1343	0	3546	0	3546	0
 Feature::ownedTyping	training	2989	596	2393	0	4506	612	3894	0
@@ -867,7 +867,7 @@ Feature::ownedTyping	pilot-validation	3802	677	3125	0	5259	712	4547	0
 Feature::ownedTyping	kerml-examples	2109	465	1644	0	2884	548	2336	0
 Feature::ownedTyping	spec-examples	2776	563	2213	0	3953	575	3378	0
 Feature::ownedTyping	testdata	495	99	396	0	777	114	663	0
-Feature::ownedTyping	examples	13255	2160	11095	0	21339	2480	18859	0
+Feature::ownedTyping	examples	13265	2163	11102	0	21349	2483	18866	0
 Feature::ownedTyping	probes	8	0	8	0	8	0	8	0
 Feature::ownedTyping	manual-examples	1343	312	1031	0	3546	330	3216	0
 Feature::owningFeatureMembership	training	2989	1913	1076	0	4506	2862	0	1644
@@ -876,7 +876,7 @@ Feature::owningFeatureMembership	pilot-validation	3802	2294	1508	0	5259	3226	0	2
 Feature::owningFeatureMembership	kerml-examples	2109	1342	767	0	2884	1369	0	1515
 Feature::owningFeatureMembership	spec-examples	2776	1775	1001	0	3953	1772	0	2181
 Feature::owningFeatureMembership	testdata	495	231	264	0	777	402	0	375
-Feature::owningFeatureMembership	examples	13255	7125	6130	0	21339	12414	0	8925
+Feature::owningFeatureMembership	examples	13265	7129	6136	0	21349	12418	0	8931
 Feature::owningFeatureMembership	probes	8	5	3	0	8	5	0	3
 Feature::owningFeatureMembership	manual-examples	1343	775	568	0	3546	2166	0	1380
 Feature::owningType	training	2989	1913	1076	0	4506	2862	0	1644
@@ -885,7 +885,7 @@ Feature::owningType	pilot-validation	3802	2294	1508	0	5259	3226	0	2033
 Feature::owningType	kerml-examples	2109	1342	767	0	2884	1369	0	1515
 Feature::owningType	spec-examples	2776	1775	1001	0	3953	1772	0	2181
 Feature::owningType	testdata	495	231	264	0	777	402	0	375
-Feature::owningType	examples	13255	7125	6130	0	21339	12414	0	8925
+Feature::owningType	examples	13265	7129	6136	0	21349	12418	0	8931
 Feature::owningType	probes	8	5	3	0	8	5	0	3
 Feature::owningType	manual-examples	1343	775	568	0	3546	2166	0	1380
 Feature::type	training	2989	736	2030	223	4506	4506	0	0
@@ -894,7 +894,7 @@ Feature::type	pilot-validation	3802	930	2630	242	5259	5259	0	0
 Feature::type	kerml-examples	2109	539	1188	382	2884	2883	1	0
 Feature::type	spec-examples	2776	195	1727	854	3953	3576	377	0
 Feature::type	testdata	495	107	360	28	777	769	8	0
-Feature::type	examples	13255	3308	9028	919	21339	21339	0	0
+Feature::type	examples	13265	3312	9034	919	21349	21349	0	0
 Feature::type	probes	8	0	7	1	8	8	0	0
 Feature::type	manual-examples	1343	411	768	164	3546	3546	0	0
 FeatureChainExpression::operator	training	67	67	0	0	94	94	0	0
@@ -930,7 +930,7 @@ FeatureMembership::ownedMemberFeature	pilot-validation	2294	2294	0	0	3226	3226	0
 FeatureMembership::ownedMemberFeature	kerml-examples	1342	1342	0	0	1369	1369	0	0
 FeatureMembership::ownedMemberFeature	spec-examples	1779	1779	0	0	1774	1772	0	2
 FeatureMembership::ownedMemberFeature	testdata	231	231	0	0	402	402	0	0
-FeatureMembership::ownedMemberFeature	examples	7125	7125	0	0	12414	12414	0	0
+FeatureMembership::ownedMemberFeature	examples	7129	7129	0	0	12418	12418	0	0
 FeatureMembership::ownedMemberFeature	probes	5	5	0	0	5	5	0	0
 FeatureMembership::ownedMemberFeature	manual-examples	775	775	0	0	2166	2166	0	0
 FeatureMembership::owningType	training	1913	1913	0	0	2862	2862	0	0
@@ -939,7 +939,7 @@ FeatureMembership::owningType	pilot-validation	2294	2294	0	0	3226	3226	0	0
 FeatureMembership::owningType	kerml-examples	1342	1342	0	0	1369	1369	0	0
 FeatureMembership::owningType	spec-examples	1779	1779	0	0	1774	1774	0	0
 FeatureMembership::owningType	testdata	231	231	0	0	402	402	0	0
-FeatureMembership::owningType	examples	7125	7125	0	0	12414	12414	0	0
+FeatureMembership::owningType	examples	7129	7129	0	0	12418	12418	0	0
 FeatureMembership::owningType	probes	5	5	0	0	5	5	0	0
 FeatureMembership::owningType	manual-examples	775	775	0	0	2166	2166	0	0
 FeatureReferenceExpression::referent	training	203	203	0	0	329	329	0	0
@@ -957,7 +957,7 @@ FeatureTyping::owningFeature	pilot-validation	677	677	0	0	712	712	0	0
 FeatureTyping::owningFeature	kerml-examples	470	468	2	0	553	551	0	2
 FeatureTyping::owningFeature	spec-examples	572	568	4	0	588	584	0	4
 FeatureTyping::owningFeature	testdata	99	99	0	0	114	114	0	0
-FeatureTyping::owningFeature	examples	2163	2163	0	0	2483	2483	0	0
+FeatureTyping::owningFeature	examples	2166	2166	0	0	2486	2486	0	0
 FeatureTyping::owningFeature	manual-examples	312	312	0	0	330	330	0	0
 FeatureValue::featureWithValue	training	401	401	0	0	628	628	0	0
 FeatureValue::featureWithValue	pilot-examples	2215	2215	0	0	2744	2744	0	0
@@ -965,7 +965,7 @@ FeatureValue::featureWithValue	pilot-validation	634	634	0	0	826	826	0	0
 FeatureValue::featureWithValue	kerml-examples	280	280	0	0	314	314	0	0
 FeatureValue::featureWithValue	spec-examples	291	291	0	0	229	229	0	0
 FeatureValue::featureWithValue	testdata	121	121	0	0	164	164	0	0
-FeatureValue::featureWithValue	examples	2666	2666	0	0	4226	4226	0	0
+FeatureValue::featureWithValue	examples	2669	2669	0	0	4229	4229	0	0
 FeatureValue::featureWithValue	probes	3	3	0	0	3	3	0	0
 FeatureValue::featureWithValue	manual-examples	237	237	0	0	994	994	0	0
 FeatureValue::value	training	401	401	0	0	628	628	0	0
@@ -974,7 +974,7 @@ FeatureValue::value	pilot-validation	634	634	0	0	826	826	0	0
 FeatureValue::value	kerml-examples	280	280	0	0	314	314	0	0
 FeatureValue::value	spec-examples	291	291	0	0	229	229	0	0
 FeatureValue::value	testdata	121	121	0	0	164	164	0	0
-FeatureValue::value	examples	2666	2666	0	0	4226	4226	0	0
+FeatureValue::value	examples	2669	2669	0	0	4229	4229	0	0
 FeatureValue::value	probes	3	3	0	0	3	3	0	0
 FeatureValue::value	manual-examples	237	237	0	0	994	994	0	0
 Flow::flowEnd	training	39	0	39	0	39	23	16	0
@@ -1106,7 +1106,7 @@ ItemUsage::itemDefinition	pilot-examples	963	504	345	114	914	914	0	0
 ItemUsage::itemDefinition	pilot-validation	427	221	164	42	422	422	0	0
 ItemUsage::itemDefinition	spec-examples	207	24	60	123	197	197	0	0
 ItemUsage::itemDefinition	testdata	58	16	27	15	58	57	1	0
-ItemUsage::itemDefinition	examples	1200	767	390	43	1197	1197	0	0
+ItemUsage::itemDefinition	examples	1201	768	390	43	1198	1198	0	0
 ItemUsage::itemDefinition	manual-examples	186	111	74	1	185	185	0	0
 Membership::memberElement	training	3617	3617	0	0	5387	5387	0	0
 Membership::memberElement	pilot-examples	13926	13926	0	0	18124	18124	0	0
@@ -1114,7 +1114,7 @@ Membership::memberElement	pilot-validation	4775	4774	1	0	6394	6394	0	0
 Membership::memberElement	kerml-examples	2549	2549	0	0	3463	3462	0	1
 Membership::memberElement	spec-examples	3336	3334	2	0	4643	4627	0	16
 Membership::memberElement	testdata	643	640	3	0	1014	1014	0	0
-Membership::memberElement	examples	14413	14413	0	0	23755	23755	0	0
+Membership::memberElement	examples	14423	14423	0	0	23765	23765	0	0
 Membership::memberElement	probes	16	16	0	0	20	20	0	0
 Membership::memberElement	manual-examples	1595	1595	0	0	4155	4155	0	0
 Membership::memberElementId	training	3617	1703	0	1914	5387	5387	0	0
@@ -1123,7 +1123,7 @@ Membership::memberElementId	pilot-validation	4775	2178	0	2597	6394	6394	0	0
 Membership::memberElementId	kerml-examples	2549	1325	0	1224	3463	3462	0	1
 Membership::memberElementId	spec-examples	3336	1738	0	1598	4643	4627	0	16
 Membership::memberElementId	testdata	643	317	0	326	1014	1014	0	0
-Membership::memberElementId	examples	14413	5466	0	8947	23755	23755	0	0
+Membership::memberElementId	examples	14423	5470	0	8953	23765	23765	0	0
 Membership::memberElementId	probes	16	9	0	7	20	20	0	0
 Membership::memberElementId	manual-examples	1595	860	0	735	4155	4155	0	0
 Membership::memberName	training	3617	1582	2035	0	5387	3219	0	2168
@@ -1132,7 +1132,7 @@ Membership::memberName	pilot-validation	4775	1904	2871	0	6394	3741	0	2653
 Membership::memberName	kerml-examples	2549	1375	1174	0	3463	1906	0	1557
 Membership::memberName	spec-examples	3336	1785	1551	0	4643	2834	0	1809
 Membership::memberName	testdata	643	318	325	0	1014	664	0	350
-Membership::memberName	examples	14413	5562	8851	0	23755	12548	0	11207
+Membership::memberName	examples	14423	5566	8857	0	23765	12552	0	11213
 Membership::memberName	probes	16	8	8	0	20	16	0	4
 Membership::memberName	manual-examples	1595	856	739	0	4155	2288	0	1867
 Membership::memberShortName	training	3617	5	3612	0	5387	7	0	5380
@@ -1141,7 +1141,7 @@ Membership::memberShortName	pilot-validation	4775	21	4754	0	6394	16	0	6378
 Membership::memberShortName	kerml-examples	2549	4	2545	0	3463	4	0	3459
 Membership::memberShortName	spec-examples	3336	11	3325	0	4643	11	0	4632
 Membership::memberShortName	testdata	643	2	641	0	1014	2	0	1012
-Membership::memberShortName	examples	14413	6	14407	0	23755	8	0	23747
+Membership::memberShortName	examples	14423	6	14417	0	23765	8	0	23757
 Membership::memberShortName	probes	16	0	16	0	20	0	0	20
 Membership::memberShortName	manual-examples	1595	47	1548	0	4155	63	0	4092
 Membership::membershipOwningNamespace	training	3617	3617	0	0	5387	5387	0	0
@@ -1150,7 +1150,7 @@ Membership::membershipOwningNamespace	pilot-validation	4775	4775	0	0	6394	6394	0
 Membership::membershipOwningNamespace	kerml-examples	2549	2548	1	0	3463	3462	0	1
 Membership::membershipOwningNamespace	spec-examples	3336	3336	0	0	4643	4635	0	8
 Membership::membershipOwningNamespace	testdata	643	643	0	0	1014	1014	0	0
-Membership::membershipOwningNamespace	examples	14413	14413	0	0	23755	23755	0	0
+Membership::membershipOwningNamespace	examples	14423	14423	0	0	23765	23765	0	0
 Membership::membershipOwningNamespace	probes	16	16	0	0	20	20	0	0
 Membership::membershipOwningNamespace	manual-examples	1595	1595	0	0	4155	4155	0	0
 MetadataAccessExpression::referencedElement	pilot-examples	0	0	0	0	3	3	0	0
@@ -1194,7 +1194,7 @@ Namespace::importedMembership	pilot-validation	4341	0	4252	89	5832	95	5737	0
 Namespace::importedMembership	kerml-examples	2527	0	2467	60	3357	65	3292	0
 Namespace::importedMembership	spec-examples	3647	0	3565	82	5766	58	5708	0
 Namespace::importedMembership	testdata	703	0	667	36	1020	37	983	0
-Namespace::importedMembership	examples	14053	0	13894	159	22204	171	22033	0
+Namespace::importedMembership	examples	14063	0	13904	159	22214	171	22043	0
 Namespace::importedMembership	probes	19	0	18	1	23	1	22	0
 Namespace::importedMembership	manual-examples	1524	0	1507	17	3738	17	3721	0
 Namespace::member	training	3444	2903	461	80	5053	5053	0	0
@@ -1203,7 +1203,7 @@ Namespace::member	pilot-validation	4341	3494	729	118	5832	5829	3	0
 Namespace::member	kerml-examples	2527	1620	731	176	3357	3352	5	0
 Namespace::member	spec-examples	3647	2470	452	725	5766	4894	872	0
 Namespace::member	testdata	703	515	142	46	1020	1011	9	0
-Namespace::member	examples	14053	10737	3101	215	22204	22203	1	0
+Namespace::member	examples	14063	10744	3104	215	22214	22213	1	0
 Namespace::member	probes	19	15	3	1	23	23	0	0
 Namespace::member	manual-examples	1524	1113	274	137	3738	3738	0	0
 Namespace::membership	training	3444	2903	461	80	5053	5053	0	0
@@ -1212,7 +1212,7 @@ Namespace::membership	pilot-validation	4341	3494	729	118	5832	5829	3	0
 Namespace::membership	kerml-examples	2527	1620	731	176	3357	3352	5	0
 Namespace::membership	spec-examples	3647	2470	452	725	5766	4895	871	0
 Namespace::membership	testdata	703	516	141	46	1020	1011	9	0
-Namespace::membership	examples	14053	10737	3101	215	22204	22203	1	0
+Namespace::membership	examples	14063	10744	3104	215	22214	22213	1	0
 Namespace::membership	probes	19	15	3	1	23	23	0	0
 Namespace::membership	manual-examples	1524	1113	274	137	3738	3738	0	0
 Namespace::ownedImport	training	3444	72	3372	0	5053	74	4979	0
@@ -1221,7 +1221,7 @@ Namespace::ownedImport	pilot-validation	4341	89	4252	0	5832	95	5737	0
 Namespace::ownedImport	kerml-examples	2527	60	2467	0	3357	65	3292	0
 Namespace::ownedImport	spec-examples	3647	82	3565	0	5766	65	5701	0
 Namespace::ownedImport	testdata	703	36	667	0	1020	38	982	0
-Namespace::ownedImport	examples	14053	159	13894	0	22204	171	22033	0
+Namespace::ownedImport	examples	14063	159	13904	0	22214	171	22043	0
 Namespace::ownedImport	probes	19	1	18	0	23	1	22	0
 Namespace::ownedImport	manual-examples	1524	17	1507	0	3738	17	3721	0
 Namespace::ownedMember	training	3444	1817	1627	0	5053	2834	2219	0
@@ -1230,7 +1230,7 @@ Namespace::ownedMember	pilot-validation	4341	2393	1948	0	5832	3299	2533	0
 Namespace::ownedMember	kerml-examples	2527	1174	1353	0	3357	1851	1506	0
 Namespace::ownedMember	spec-examples	3647	2034	1613	0	5766	2949	2817	0
 Namespace::ownedMember	testdata	703	351	352	0	1020	570	450	0
-Namespace::ownedMember	examples	14053	6990	7063	0	22204	11986	10218	0
+Namespace::ownedMember	examples	14063	6994	7069	0	22214	11990	10224	0
 Namespace::ownedMember	probes	19	10	9	0	23	14	9	0
 Namespace::ownedMember	manual-examples	1524	838	686	0	3738	2125	1613	0
 Namespace::ownedMembership	training	3444	1817	1627	0	5053	2834	2219	0
@@ -1239,7 +1239,7 @@ Namespace::ownedMembership	pilot-validation	4341	2394	1947	0	5832	3300	2532	0
 Namespace::ownedMembership	kerml-examples	2527	1174	1353	0	3357	1855	1502	0
 Namespace::ownedMembership	spec-examples	3647	2034	1613	0	5766	2954	2812	0
 Namespace::ownedMembership	testdata	703	355	348	0	1020	571	449	0
-Namespace::ownedMembership	examples	14053	6995	7058	0	22204	11991	10213	0
+Namespace::ownedMembership	examples	14063	6999	7064	0	22214	11995	10219	0
 Namespace::ownedMembership	probes	19	10	9	0	23	14	9	0
 Namespace::ownedMembership	manual-examples	1524	838	686	0	3738	2125	1613	0
 ObjectiveMembership::ownedObjectiveRequirement	training	4	4	0	0	4	4	0	0
@@ -1253,14 +1253,14 @@ OccurrenceUsage::individualDefinition	pilot-examples	2314	42	1959	313	2333	55	0	
 OccurrenceUsage::individualDefinition	pilot-validation	912	10	825	77	923	13	0	910
 OccurrenceUsage::individualDefinition	spec-examples	642	0	314	328	663	0	0	663
 OccurrenceUsage::individualDefinition	testdata	99	0	83	16	109	0	0	109
-OccurrenceUsage::individualDefinition	examples	2416	2	2360	54	2637	2	0	2635
+OccurrenceUsage::individualDefinition	examples	2417	2	2361	54	2638	2	0	2636
 OccurrenceUsage::individualDefinition	manual-examples	387	0	347	40	386	0	0	386
 OccurrenceUsage::occurrenceDefinition	training	775	336	354	85	803	803	0	0
 OccurrenceUsage::occurrenceDefinition	pilot-examples	2314	1039	962	313	2333	2333	0	0
 OccurrenceUsage::occurrenceDefinition	pilot-validation	912	409	426	77	923	923	0	0
 OccurrenceUsage::occurrenceDefinition	spec-examples	642	34	280	328	663	597	66	0
 OccurrenceUsage::occurrenceDefinition	testdata	99	24	59	16	109	108	1	0
-OccurrenceUsage::occurrenceDefinition	examples	2416	1082	1280	54	2637	2637	0	0
+OccurrenceUsage::occurrenceDefinition	examples	2417	1083	1280	54	2638	2638	0	0
 OccurrenceUsage::occurrenceDefinition	manual-examples	387	195	152	40	386	386	0	0
 OwningMembership::ownedMemberElement	training	3321	3321	0	0	4911	4911	0	0
 OwningMembership::ownedMemberElement	pilot-examples	12655	12655	0	0	16535	16535	0	0
@@ -1268,7 +1268,7 @@ OwningMembership::ownedMemberElement	pilot-validation	4378	4378	0	0	5874	5874	0	
 OwningMembership::ownedMemberElement	kerml-examples	2421	2421	0	0	3319	3319	0	0
 OwningMembership::ownedMemberElement	spec-examples	3204	3204	0	0	4465	4457	0	8
 OwningMembership::ownedMemberElement	testdata	622	622	0	0	970	970	0	0
-OwningMembership::ownedMemberElement	examples	13643	13643	0	0	22008	22008	0	0
+OwningMembership::ownedMemberElement	examples	13653	13653	0	0	22018	22018	0	0
 OwningMembership::ownedMemberElement	probes	15	15	0	0	19	19	0	0
 OwningMembership::ownedMemberElement	manual-examples	1507	1507	0	0	3711	3711	0	0
 OwningMembership::ownedMemberElementId	training	3321	1407	0	1914	4911	4911	0	0
@@ -1277,7 +1277,7 @@ OwningMembership::ownedMemberElementId	pilot-validation	4378	1782	0	2596	5874	58
 OwningMembership::ownedMemberElementId	kerml-examples	2421	1197	0	1224	3319	3319	0	0
 OwningMembership::ownedMemberElementId	spec-examples	3204	1608	0	1596	4465	4457	0	8
 OwningMembership::ownedMemberElementId	testdata	622	299	0	323	970	970	0	0
-OwningMembership::ownedMemberElementId	examples	13643	4699	0	8944	22008	22008	0	0
+OwningMembership::ownedMemberElementId	examples	13653	4703	0	8950	22018	22018	0	0
 OwningMembership::ownedMemberElementId	probes	15	8	0	7	19	19	0	0
 OwningMembership::ownedMemberElementId	manual-examples	1507	772	0	735	3711	3711	0	0
 OwningMembership::ownedMemberName	training	3321	1576	1745	0	4911	3213	0	1698
@@ -1286,7 +1286,7 @@ OwningMembership::ownedMemberName	pilot-validation	4378	1900	2478	0	5874	3737	0	
 OwningMembership::ownedMemberName	kerml-examples	2421	1370	1051	0	3319	1901	0	1418
 OwningMembership::ownedMemberName	spec-examples	3204	1780	1424	0	4465	2829	0	1636
 OwningMembership::ownedMemberName	testdata	622	310	312	0	970	659	0	311
-OwningMembership::ownedMemberName	examples	13643	5561	8082	0	22008	12547	0	9461
+OwningMembership::ownedMemberName	examples	13653	5565	8088	0	22018	12551	0	9467
 OwningMembership::ownedMemberName	probes	15	8	7	0	19	16	0	3
 OwningMembership::ownedMemberName	manual-examples	1507	856	651	0	3711	2288	0	1423
 OwningMembership::ownedMemberShortName	training	3321	7	3314	0	4911	7	0	4904
@@ -1295,7 +1295,7 @@ OwningMembership::ownedMemberShortName	pilot-validation	4378	26	4352	0	5874	16	0
 OwningMembership::ownedMemberShortName	kerml-examples	2421	4	2417	0	3319	4	0	3315
 OwningMembership::ownedMemberShortName	spec-examples	3204	9	3195	0	4465	9	0	4456
 OwningMembership::ownedMemberShortName	testdata	622	2	620	0	970	2	0	968
-OwningMembership::ownedMemberShortName	examples	13643	8	13635	0	22008	8	0	22000
+OwningMembership::ownedMemberShortName	examples	13653	8	13645	0	22018	8	0	22010
 OwningMembership::ownedMemberShortName	probes	15	0	15	0	19	0	0	19
 OwningMembership::ownedMemberShortName	manual-examples	1507	63	1444	0	3711	63	0	3648
 ParameterMembership::ownedMemberParameter	training	689	689	0	0	1250	1250	0	0
@@ -1312,7 +1312,7 @@ PartUsage::partDefinition	pilot-examples	711	424	208	79	703	703	0	0
 PartUsage::partDefinition	pilot-validation	381	210	129	42	377	377	0	0
 PartUsage::partDefinition	spec-examples	155	11	44	100	143	143	0	0
 PartUsage::partDefinition	testdata	41	11	15	15	41	40	1	0
-PartUsage::partDefinition	examples	810	633	134	43	810	810	0	0
+PartUsage::partDefinition	examples	811	634	134	43	811	811	0	0
 PartUsage::partDefinition	manual-examples	164	111	52	1	164	164	0	0
 PortConjugation::conjugatedPortDefinition	training	8	8	0	0	8	8	0	0
 PortConjugation::conjugatedPortDefinition	pilot-examples	71	71	0	0	64	64	0	0
@@ -1348,7 +1348,7 @@ Redefinition::owningFeature	pilot-validation	272	272	0	0	283	283	0	0
 Redefinition::owningFeature	kerml-examples	303	299	4	0	306	302	0	4
 Redefinition::owningFeature	spec-examples	222	218	4	0	218	214	0	4
 Redefinition::owningFeature	testdata	12	12	0	0	14	14	0	0
-Redefinition::owningFeature	examples	953	953	0	0	1319	1319	0	0
+Redefinition::owningFeature	examples	954	954	0	0	1320	1320	0	0
 Redefinition::owningFeature	probes	1	1	0	0	1	1	0	0
 Redefinition::owningFeature	manual-examples	139	139	0	0	662	662	0	0
 ReferenceSubsetting::owningFeature	training	156	156	0	0	229	229	0	0
@@ -1373,7 +1373,7 @@ Relationship::ownedRelatedElement	pilot-validation	6527	4461	2066	0	8355	5964	23
 Relationship::ownedRelatedElement	kerml-examples	4440	2562	1878	0	5465	3401	2064	0
 Relationship::ownedRelatedElement	spec-examples	5115	3251	1864	0	6607	4542	2065	0
 Relationship::ownedRelatedElement	testdata	890	634	256	0	1283	983	300	0
-Relationship::ownedRelatedElement	examples	20380	14133	6247	0	30849	22335	8514	0
+Relationship::ownedRelatedElement	examples	20394	14143	6251	0	30863	22345	8518	0
 Relationship::ownedRelatedElement	probes	26	15	11	0	30	19	11	0
 Relationship::ownedRelatedElement	manual-examples	2438	1564	874	0	5620	3783	1837	0
 Relationship::owningRelatedElement	training	5014	4850	164	0	6990	6818	0	172
@@ -1382,7 +1382,7 @@ Relationship::owningRelatedElement	pilot-validation	6527	6395	132	0	8355	8204	0	
 Relationship::owningRelatedElement	kerml-examples	4440	4274	166	0	5465	5298	0	167
 Relationship::owningRelatedElement	spec-examples	5115	4895	220	0	6607	6363	0	244
 Relationship::owningRelatedElement	testdata	890	867	23	0	1283	1259	0	24
-Relationship::owningRelatedElement	examples	20380	19754	626	0	30849	30128	0	721
+Relationship::owningRelatedElement	examples	20394	19768	626	0	30863	30142	0	721
 Relationship::owningRelatedElement	probes	26	26	0	0	30	30	0	0
 Relationship::owningRelatedElement	manual-examples	2438	2403	35	0	5620	5585	0	35
 Relationship::relatedElement	training	5014	4929	0	85	6990	6974	16	0
@@ -1391,7 +1391,7 @@ Relationship::relatedElement	pilot-validation	6527	6462	0	65	8355	8349	6	0
 Relationship::relatedElement	kerml-examples	4440	4429	4	7	5465	5463	2	0
 Relationship::relatedElement	spec-examples	5115	4348	37	730	6607	6585	22	0
 Relationship::relatedElement	testdata	890	871	0	19	1283	1283	0	0
-Relationship::relatedElement	examples	20380	20171	2	207	30849	30829	20	0
+Relationship::relatedElement	examples	20394	20185	2	207	30863	30843	20	0
 Relationship::relatedElement	probes	26	26	0	0	30	30	0	0
 Relationship::relatedElement	manual-examples	2438	2402	0	36	5620	5620	0	0
 Relationship::source	training	5014	4859	74	81	6990	6974	16	0
@@ -1400,7 +1400,7 @@ Relationship::source	pilot-validation	6527	6409	53	65	8355	8349	6	0
 Relationship::source	kerml-examples	4440	4345	91	4	5465	5463	2	0
 Relationship::source	spec-examples	5115	4929	88	98	6607	6585	22	0
 Relationship::source	testdata	890	876	5	9	1283	1283	0	0
-Relationship::source	examples	20380	19777	399	204	30849	30829	20	0
+Relationship::source	examples	20394	19791	399	204	30863	30843	20	0
 Relationship::source	probes	26	26	0	0	30	30	0	0
 Relationship::source	manual-examples	2438	2409	22	7	5620	5620	0	0
 Relationship::target	training	5014	4887	42	85	6990	6974	16	0
@@ -1409,7 +1409,7 @@ Relationship::target	pilot-validation	6527	6443	19	65	8355	8349	6	0
 Relationship::target	kerml-examples	4440	4429	4	7	5465	5463	2	0
 Relationship::target	spec-examples	5115	4294	91	730	6607	6555	52	0
 Relationship::target	testdata	890	859	12	19	1283	1283	0	0
-Relationship::target	examples	20380	20104	69	207	30849	30829	20	0
+Relationship::target	examples	20394	20118	69	207	30863	30843	20	0
 Relationship::target	probes	26	26	0	0	30	30	0	0
 Relationship::target	manual-examples	2438	2402	0	36	5620	5620	0	0
 RenderingUsage::renderingDefinition	training	5	0	0	5	5	5	0	0
@@ -1563,7 +1563,7 @@ Specialization::owningType	pilot-validation	1248	1248	0	0	1386	1386	0	0
 Specialization::owningType	kerml-examples	1222	1206	16	0	1311	1295	0	16
 Specialization::owningType	spec-examples	1341	1321	20	0	1448	1428	0	20
 Specialization::owningType	testdata	148	148	0	0	175	175	0	0
-Specialization::owningType	examples	4206	4204	2	0	5179	5177	0	2
+Specialization::owningType	examples	4210	4208	2	0	5183	5181	0	2
 Specialization::owningType	probes	8	8	0	0	8	8	0	0
 Specialization::owningType	manual-examples	634	634	0	0	1182	1182	0	0
 StakeholderMembership::ownedStakeholderParameter	training	3	3	0	0	3	3	0	0
@@ -1640,7 +1640,7 @@ Step::behavior	pilot-validation	994	102	872	20	1394	1394	0	0
 Step::behavior	kerml-examples	348	28	305	15	845	845	0	0
 Step::behavior	spec-examples	707	8	509	190	1034	968	66	0
 Step::behavior	testdata	157	0	156	1	244	244	0	0
-Step::behavior	examples	3802	189	3601	12	6204	6204	0	0
+Step::behavior	examples	3805	189	3604	12	6207	6207	0	0
 Step::behavior	probes	3	0	3	0	3	3	0	0
 Step::behavior	manual-examples	432	78	315	39	1301	1301	0	0
 Step::parameter	training	707	478	229	0	1098	1020	78	0
@@ -1649,7 +1649,7 @@ Step::parameter	pilot-validation	994	624	370	0	1394	1275	119	0
 Step::parameter	kerml-examples	348	211	137	0	845	812	33	0
 Step::parameter	spec-examples	707	378	329	0	1034	786	248	0
 Step::parameter	testdata	157	47	110	0	244	216	28	0
-Step::parameter	examples	3802	1280	2522	0	6204	5752	452	0
+Step::parameter	examples	3805	1280	2525	0	6207	5755	452	0
 Step::parameter	probes	3	2	1	0	3	3	0	0
 Step::parameter	manual-examples	432	159	273	0	1301	1289	12	0
 Subclassification::owningClassifier	training	37	37	0	0	31	31	0	0
@@ -1673,7 +1673,7 @@ Subsetting::owningFeature	pilot-validation	483	483	0	0	605	605	0	0
 Subsetting::owningFeature	kerml-examples	583	576	7	0	590	583	0	7
 Subsetting::owningFeature	spec-examples	637	629	8	0	721	713	0	8
 Subsetting::owningFeature	testdata	32	32	0	0	44	44	0	0
-Subsetting::owningFeature	examples	1819	1818	1	0	2472	2471	0	1
+Subsetting::owningFeature	examples	1820	1819	1	0	2473	2472	0	1
 Subsetting::owningFeature	probes	1	1	0	0	1	1	0	0
 Subsetting::owningFeature	manual-examples	226	226	0	0	756	756	0	0
 TransitionFeatureMembership::transitionFeature	training	31	31	0	0	35	35	0	0
@@ -1731,7 +1731,7 @@ Type::differencingType	pilot-validation	4188	0	4188	0	5619	0	5619	0
 Type::differencingType	kerml-examples	2432	5	2427	0	3204	5	3199	0
 Type::differencingType	spec-examples	3154	1	3153	0	4821	1	4820	0
 Type::differencingType	testdata	612	0	612	0	893	0	893	0
-Type::differencingType	examples	13953	0	13953	0	22037	0	22037	0
+Type::differencingType	examples	13963	0	13963	0	22047	0	22047	0
 Type::differencingType	probes	15	0	15	0	15	0	15	0
 Type::differencingType	manual-examples	1507	0	1507	0	3710	0	3710	0
 Type::directedFeature	training	3335	697	2630	8	4842	1354	3488	0
@@ -1740,7 +1740,7 @@ Type::directedFeature	pilot-validation	4188	822	3337	29	5619	1523	4096	0
 Type::directedFeature	kerml-examples	2432	264	2052	116	3204	959	2245	0
 Type::directedFeature	spec-examples	3154	502	2007	645	4821	946	3875	0
 Type::directedFeature	testdata	612	71	531	10	893	242	651	0
-Type::directedFeature	examples	13953	2108	11789	56	22037	6852	15185	0
+Type::directedFeature	examples	13963	2108	11799	56	22047	6855	15192	0
 Type::directedFeature	probes	15	2	13	0	15	3	12	0
 Type::directedFeature	manual-examples	1507	272	1115	120	3710	1511	2199	0
 Type::endFeature	training	3335	0	1020	2315	4842	229	4613	0
@@ -1749,7 +1749,7 @@ Type::endFeature	pilot-validation	4188	0	1603	2585	5619	192	5427	0
 Type::endFeature	kerml-examples	2432	124	1562	746	3204	158	3046	0
 Type::endFeature	spec-examples	3154	27	976	2151	4821	217	4604	0
 Type::endFeature	testdata	612	2	262	348	893	26	867	0
-Type::endFeature	examples	13953	17	5094	8842	22037	948	21089	0
+Type::endFeature	examples	13963	17	5097	8849	22047	948	21099	0
 Type::endFeature	probes	15	0	7	8	15	0	15	0
 Type::endFeature	manual-examples	1507	0	393	1114	3710	33	3677	0
 Type::feature	training	3335	2657	670	8	4842	4834	8	0
@@ -1758,7 +1758,7 @@ Type::feature	pilot-validation	4188	3079	1080	29	5619	5593	26	0
 Type::feature	kerml-examples	2432	1285	1031	116	3204	3197	7	0
 Type::feature	spec-examples	3154	1902	607	645	4821	3958	863	0
 Type::feature	testdata	612	393	209	10	893	876	17	0
-Type::feature	examples	13953	9940	3957	56	22037	22017	20	0
+Type::feature	examples	13963	9947	3960	56	22047	22027	20	0
 Type::feature	probes	15	10	5	0	15	15	0	0
 Type::feature	manual-examples	1507	1086	301	120	3710	3707	3	0
 Type::featureMembership	training	3335	2657	670	8	4842	4834	8	0
@@ -1767,7 +1767,7 @@ Type::featureMembership	pilot-validation	4188	3079	1080	29	5619	5593	26	0
 Type::featureMembership	kerml-examples	2432	1285	1031	116	3204	3197	7	0
 Type::featureMembership	spec-examples	3154	1902	607	645	4821	3958	863	0
 Type::featureMembership	testdata	612	393	209	10	893	876	17	0
-Type::featureMembership	examples	13953	9940	3957	56	22037	22017	20	0
+Type::featureMembership	examples	13963	9947	3960	56	22047	22027	20	0
 Type::featureMembership	probes	15	10	5	0	15	15	0	0
 Type::featureMembership	manual-examples	1507	1086	301	120	3710	3707	3	0
 Type::inheritedFeature	training	3335	2307	1020	8	4842	4842	0	0
@@ -1776,7 +1776,7 @@ Type::inheritedFeature	pilot-validation	4188	2556	1603	29	5619	5618	1	0
 Type::inheritedFeature	kerml-examples	2432	836	1480	116	3204	3203	1	0
 Type::inheritedFeature	spec-examples	3154	1532	977	645	4821	3964	857	0
 Type::inheritedFeature	testdata	612	345	257	10	893	885	8	0
-Type::inheritedFeature	examples	13953	8792	5105	56	22037	22036	1	0
+Type::inheritedFeature	examples	13963	8799	5108	56	22047	22046	1	0
 Type::inheritedFeature	probes	15	8	7	0	15	15	0	0
 Type::inheritedFeature	manual-examples	1507	994	393	120	3710	3710	0	0
 Type::inheritedMembership	training	3335	2307	1020	8	4842	4842	0	0
@@ -1785,7 +1785,7 @@ Type::inheritedMembership	pilot-validation	4188	2557	1602	29	5619	5619	0	0
 Type::inheritedMembership	kerml-examples	2432	888	1428	116	3204	3203	1	0
 Type::inheritedMembership	spec-examples	3154	1532	977	645	4821	3964	857	0
 Type::inheritedMembership	testdata	612	345	257	10	893	885	8	0
-Type::inheritedMembership	examples	13953	8808	5089	56	22037	22037	0	0
+Type::inheritedMembership	examples	13963	8815	5092	56	22047	22047	0	0
 Type::inheritedMembership	probes	15	8	7	0	15	15	0	0
 Type::inheritedMembership	manual-examples	1507	994	393	120	3710	3710	0	0
 Type::input	training	3335	439	2888	8	4842	759	4083	0
@@ -1794,7 +1794,7 @@ Type::input	pilot-validation	4188	430	3729	29	5619	738	4881	0
 Type::input	kerml-examples	2432	138	2178	116	3204	224	2980	0
 Type::input	spec-examples	3154	251	2258	645	4821	349	4472	0
 Type::input	testdata	612	63	539	10	893	98	795	0
-Type::input	examples	13953	1186	12711	56	22037	2686	19351	0
+Type::input	examples	13963	1186	12721	56	22047	2686	19361	0
 Type::input	probes	15	1	14	0	15	1	14	0
 Type::input	manual-examples	1507	82	1305	120	3710	731	2979	0
 Type::intersectingType	training	3335	0	3335	0	4842	0	4842	0
@@ -1803,7 +1803,7 @@ Type::intersectingType	pilot-validation	4188	0	4188	0	5619	0	5619	0
 Type::intersectingType	kerml-examples	2432	4	2428	0	3204	4	3200	0
 Type::intersectingType	spec-examples	3154	1	3153	0	4821	1	4820	0
 Type::intersectingType	testdata	612	0	612	0	893	0	893	0
-Type::intersectingType	examples	13953	0	13953	0	22037	0	22037	0
+Type::intersectingType	examples	13963	0	13963	0	22047	0	22047	0
 Type::intersectingType	probes	15	0	15	0	15	0	15	0
 Type::intersectingType	manual-examples	1507	0	1507	0	3710	0	3710	0
 Type::isConjugated	training	3335	3335	0	0	4842	4842	0	0
@@ -1812,7 +1812,7 @@ Type::isConjugated	pilot-validation	4188	4188	0	0	5619	5619	0	0
 Type::isConjugated	kerml-examples	2432	2432	0	0	3204	3204	0	0
 Type::isConjugated	spec-examples	3154	3154	0	0	4821	4821	0	0
 Type::isConjugated	testdata	612	612	0	0	893	893	0	0
-Type::isConjugated	examples	13953	13953	0	0	22037	22037	0	0
+Type::isConjugated	examples	13963	13963	0	0	22047	22047	0	0
 Type::isConjugated	probes	15	15	0	0	15	15	0	0
 Type::isConjugated	manual-examples	1507	1507	0	0	3710	3710	0	0
 Type::multiplicity	training	3335	447	2888	0	4842	643	0	4199
@@ -1821,7 +1821,7 @@ Type::multiplicity	pilot-validation	4188	510	3678	0	5619	686	0	4933
 Type::multiplicity	kerml-examples	2432	242	2190	0	3204	335	0	2869
 Type::multiplicity	spec-examples	3154	401	2753	0	4821	635	0	4186
 Type::multiplicity	testdata	612	45	567	0	893	73	0	820
-Type::multiplicity	examples	13953	2337	11616	0	22037	3014	0	19023
+Type::multiplicity	examples	13963	2340	11623	0	22047	3017	0	19030
 Type::multiplicity	probes	15	0	15	0	15	0	0	15
 Type::multiplicity	manual-examples	1507	191	1316	0	3710	205	0	3505
 Type::output	training	3335	586	2741	8	4842	1123	3719	0
@@ -1830,7 +1830,7 @@ Type::output	pilot-validation	4188	760	3399	29	5619	1367	4252	0
 Type::output	kerml-examples	2432	229	2087	116	3204	905	2299	0
 Type::output	spec-examples	3154	425	2084	645	4821	843	3978	0
 Type::output	testdata	612	59	543	10	893	210	683	0
-Type::output	examples	13953	1943	11954	56	22037	6346	15691	0
+Type::output	examples	13963	1943	11964	56	22047	6349	15698	0
 Type::output	probes	15	2	13	0	15	3	12	0
 Type::output	manual-examples	1507	268	1119	120	3710	1502	2208	0
 Type::ownedConjugator	training	3335	8	3327	0	4842	8	0	4834
@@ -1839,7 +1839,7 @@ Type::ownedConjugator	pilot-validation	4188	26	4162	0	5619	26	0	5593
 Type::ownedConjugator	kerml-examples	2432	6	2426	0	3204	6	0	3198
 Type::ownedConjugator	spec-examples	3154	8	3146	0	4821	8	0	4813
 Type::ownedConjugator	testdata	612	9	603	0	893	9	0	884
-Type::ownedConjugator	examples	13953	20	13933	0	22037	20	0	22017
+Type::ownedConjugator	examples	13963	20	13943	0	22047	20	0	22027
 Type::ownedConjugator	probes	15	0	15	0	15	0	0	15
 Type::ownedConjugator	manual-examples	1507	3	1504	0	3710	3	0	3707
 Type::ownedDifferencing	training	3335	0	3335	0	4842	0	4842	0
@@ -1848,7 +1848,7 @@ Type::ownedDifferencing	pilot-validation	4188	0	4188	0	5619	0	5619	0
 Type::ownedDifferencing	kerml-examples	2432	5	2427	0	3204	5	3199	0
 Type::ownedDifferencing	spec-examples	3154	1	3153	0	4821	1	4820	0
 Type::ownedDifferencing	testdata	612	0	612	0	893	0	893	0
-Type::ownedDifferencing	examples	13953	0	13953	0	22037	0	22037	0
+Type::ownedDifferencing	examples	13963	0	13963	0	22047	0	22047	0
 Type::ownedDifferencing	probes	15	0	15	0	15	0	15	0
 Type::ownedDifferencing	manual-examples	1507	0	1507	0	3710	0	3710	0
 Type::ownedDisjoining	training	3335	0	3335	0	4842	0	4842	0
@@ -1857,7 +1857,7 @@ Type::ownedDisjoining	pilot-validation	4188	0	4188	0	5619	0	5619	0
 Type::ownedDisjoining	kerml-examples	2432	6	2426	0	3204	6	3198	0
 Type::ownedDisjoining	spec-examples	3154	3	3151	0	4821	3	4818	0
 Type::ownedDisjoining	testdata	612	0	612	0	893	0	893	0
-Type::ownedDisjoining	examples	13953	0	13953	0	22037	0	22037	0
+Type::ownedDisjoining	examples	13963	0	13963	0	22047	0	22047	0
 Type::ownedDisjoining	probes	15	0	15	0	15	0	15	0
 Type::ownedDisjoining	manual-examples	1507	0	1507	0	3710	0	3710	0
 Type::ownedEndFeature	training	3335	91	3244	0	4842	154	4688	0
@@ -1866,7 +1866,7 @@ Type::ownedEndFeature	pilot-validation	4188	68	4120	0	5619	142	5477	0
 Type::ownedEndFeature	kerml-examples	2432	163	2269	0	3204	137	3067	0
 Type::ownedEndFeature	spec-examples	3154	155	2999	0	4821	182	4639	0
 Type::ownedEndFeature	testdata	612	10	602	0	893	21	872	0
-Type::ownedEndFeature	examples	13953	421	13532	0	22037	696	21341	0
+Type::ownedEndFeature	examples	13963	421	13542	0	22047	696	21351	0
 Type::ownedEndFeature	probes	15	0	15	0	15	0	15	0
 Type::ownedEndFeature	manual-examples	1507	22	1485	0	3710	29	3681	0
 Type::ownedFeature	training	3335	949	2386	0	4842	1453	3389	0
@@ -1875,7 +1875,7 @@ Type::ownedFeature	pilot-validation	4188	1172	3016	0	5619	1655	3964	0
 Type::ownedFeature	kerml-examples	2432	676	1756	0	3204	667	2537	0
 Type::ownedFeature	spec-examples	3154	924	2230	0	4821	904	3917	0
 Type::ownedFeature	testdata	612	105	507	0	893	194	699	0
-Type::ownedFeature	examples	13953	2752	11201	0	22037	5451	16586	0
+Type::ownedFeature	examples	13963	2753	11210	0	22047	5452	16595	0
 Type::ownedFeature	probes	15	3	12	0	15	3	12	0
 Type::ownedFeature	manual-examples	1507	466	1041	0	3710	1005	2705	0
 Type::ownedFeatureMembership	training	3335	949	2386	0	4842	1453	3389	0
@@ -1884,7 +1884,7 @@ Type::ownedFeatureMembership	pilot-validation	4188	1172	3016	0	5619	1655	3964	0
 Type::ownedFeatureMembership	kerml-examples	2432	676	1756	0	3204	667	2537	0
 Type::ownedFeatureMembership	spec-examples	3154	924	2230	0	4821	905	3916	0
 Type::ownedFeatureMembership	testdata	612	105	507	0	893	194	699	0
-Type::ownedFeatureMembership	examples	13953	2752	11201	0	22037	5451	16586	0
+Type::ownedFeatureMembership	examples	13963	2753	11210	0	22047	5452	16595	0
 Type::ownedFeatureMembership	probes	15	3	12	0	15	3	12	0
 Type::ownedFeatureMembership	manual-examples	1507	466	1041	0	3710	1005	2705	0
 Type::ownedIntersecting	training	3335	0	3335	0	4842	0	4842	0
@@ -1893,7 +1893,7 @@ Type::ownedIntersecting	pilot-validation	4188	0	4188	0	5619	0	5619	0
 Type::ownedIntersecting	kerml-examples	2432	4	2428	0	3204	4	3200	0
 Type::ownedIntersecting	spec-examples	3154	1	3153	0	4821	1	4820	0
 Type::ownedIntersecting	testdata	612	0	612	0	893	0	893	0
-Type::ownedIntersecting	examples	13953	0	13953	0	22037	0	22037	0
+Type::ownedIntersecting	examples	13963	0	13963	0	22047	0	22047	0
 Type::ownedIntersecting	probes	15	0	15	0	15	0	15	0
 Type::ownedIntersecting	manual-examples	1507	0	1507	0	3710	0	3710	0
 Type::ownedSpecialization	training	3335	947	2388	0	4842	1070	3772	0
@@ -1902,7 +1902,7 @@ Type::ownedSpecialization	pilot-validation	4188	1191	2997	0	5619	1335	4284	0
 Type::ownedSpecialization	kerml-examples	2432	997	1435	0	3204	1087	2117	0
 Type::ownedSpecialization	spec-examples	3154	1141	2013	0	4821	1239	3582	0
 Type::ownedSpecialization	testdata	612	144	468	0	893	171	722	0
-Type::ownedSpecialization	examples	13953	4168	9785	0	22037	5141	16896	0
+Type::ownedSpecialization	examples	13963	4172	9791	0	22047	5145	16902	0
 Type::ownedSpecialization	probes	15	8	7	0	15	8	7	0
 Type::ownedSpecialization	manual-examples	1507	634	873	0	3710	1182	2528	0
 Type::ownedUnioning	training	3335	0	3335	0	4842	0	4842	0
@@ -1911,7 +1911,7 @@ Type::ownedUnioning	pilot-validation	4188	0	4188	0	5619	0	5619	0
 Type::ownedUnioning	kerml-examples	2432	21	2411	0	3204	21	3183	0
 Type::ownedUnioning	spec-examples	3154	3	3151	0	4821	3	4818	0
 Type::ownedUnioning	testdata	612	0	612	0	893	0	893	0
-Type::ownedUnioning	examples	13953	1	13952	0	22037	1	22036	0
+Type::ownedUnioning	examples	13963	1	13962	0	22047	1	22046	0
 Type::ownedUnioning	probes	15	0	15	0	15	0	15	0
 Type::ownedUnioning	manual-examples	1507	0	1507	0	3710	0	3710	0
 Type::unioningType	training	3335	0	3335	0	4842	0	4842	0
@@ -1920,7 +1920,7 @@ Type::unioningType	pilot-validation	4188	0	4188	0	5619	0	5619	0
 Type::unioningType	kerml-examples	2432	21	2411	0	3204	21	3183	0
 Type::unioningType	spec-examples	3154	0	3151	3	4821	3	4818	0
 Type::unioningType	testdata	612	0	612	0	893	0	893	0
-Type::unioningType	examples	13953	1	13952	0	22037	1	22036	0
+Type::unioningType	examples	13963	1	13962	0	22047	1	22046	0
 Type::unioningType	probes	15	0	15	0	15	0	15	0
 Type::unioningType	manual-examples	1507	0	1507	0	3710	0	3710	0
 TypeFeaturing::owningFeatureOfType	kerml-examples	73	72	1	0	73	72	0	1
@@ -1930,7 +1930,7 @@ Usage::definition	pilot-examples	4662	1893	1622	1147	5239	5239	0	0
 Usage::definition	pilot-validation	1698	882	597	219	2012	2012	0	0
 Usage::definition	spec-examples	1221	109	515	597	1419	1351	68	0
 Usage::definition	testdata	191	83	81	27	263	261	2	0
-Usage::definition	examples	5796	2954	1977	865	7545	7545	0	0
+Usage::definition	examples	5800	2958	1977	865	7549	7549	0	0
 Usage::definition	probes	1	0	0	1	1	1	0	0
 Usage::definition	manual-examples	759	386	221	152	789	789	0	0
 Usage::directedUsage	training	1523	262	1253	8	1821	346	1475	0
@@ -1938,7 +1938,7 @@ Usage::directedUsage	pilot-examples	4662	618	3937	107	5239	891	4348	0
 Usage::directedUsage	pilot-validation	1698	234	1441	23	2012	315	1697	0
 Usage::directedUsage	spec-examples	1221	132	690	399	1419	153	1266	0
 Usage::directedUsage	testdata	191	18	164	9	263	28	235	0
-Usage::directedUsage	examples	5796	659	5098	39	7545	981	6564	0
+Usage::directedUsage	examples	5800	659	5102	39	7549	981	6568	0
 Usage::directedUsage	probes	1	0	1	0	1	0	1	0
 Usage::directedUsage	manual-examples	759	119	584	56	789	206	583	0
 Usage::isReference	training	1523	1523	0	0	1821	1821	0	0
@@ -1946,7 +1946,7 @@ Usage::isReference	pilot-examples	4662	4662	0	0	5239	5239	0	0
 Usage::isReference	pilot-validation	1698	1698	0	0	2012	2012	0	0
 Usage::isReference	spec-examples	1221	1221	0	0	1419	1419	0	0
 Usage::isReference	testdata	191	191	0	0	263	263	0	0
-Usage::isReference	examples	5796	5796	0	0	7545	7545	0	0
+Usage::isReference	examples	5800	5800	0	0	7549	7549	0	0
 Usage::isReference	probes	1	1	0	0	1	1	0	0
 Usage::isReference	manual-examples	759	759	0	0	789	789	0	0
 Usage::mayTimeVary	training	1523	180	0	1343	1821	1821	0	0
@@ -1954,7 +1954,7 @@ Usage::mayTimeVary	pilot-examples	4662	596	0	4066	5239	5239	0	0
 Usage::mayTimeVary	pilot-validation	1698	295	0	1403	2012	2012	0	0
 Usage::mayTimeVary	spec-examples	1221	216	0	1005	1419	1419	0	0
 Usage::mayTimeVary	testdata	191	82	0	109	263	263	0	0
-Usage::mayTimeVary	examples	5796	812	0	4984	7545	7545	0	0
+Usage::mayTimeVary	examples	5800	812	0	4988	7549	7549	0	0
 Usage::mayTimeVary	probes	1	0	0	1	1	1	0	0
 Usage::mayTimeVary	manual-examples	759	103	0	656	789	789	0	0
 Usage::nestedAction	training	1523	84	1439	0	1821	93	1728	0
@@ -1962,7 +1962,7 @@ Usage::nestedAction	pilot-examples	4662	201	4461	0	5239	218	5021	0
 Usage::nestedAction	pilot-validation	1698	99	1599	0	2012	104	1908	0
 Usage::nestedAction	spec-examples	1221	55	1166	0	1419	38	1381	0
 Usage::nestedAction	testdata	191	13	178	0	263	21	242	0
-Usage::nestedAction	examples	5796	154	5642	0	7545	218	7327	0
+Usage::nestedAction	examples	5800	154	5646	0	7549	218	7331	0
 Usage::nestedAction	probes	1	0	1	0	1	0	1	0
 Usage::nestedAction	manual-examples	759	41	718	0	789	41	748	0
 Usage::nestedAllocation	training	1523	1	1522	0	1821	1	1820	0
@@ -1970,7 +1970,7 @@ Usage::nestedAllocation	pilot-examples	4662	6	4656	0	5239	6	5233	0
 Usage::nestedAllocation	pilot-validation	1698	2	1696	0	2012	2	2010	0
 Usage::nestedAllocation	spec-examples	1221	1	1220	0	1419	1	1418	0
 Usage::nestedAllocation	testdata	191	0	191	0	263	0	263	0
-Usage::nestedAllocation	examples	5796	0	5796	0	7545	0	7545	0
+Usage::nestedAllocation	examples	5800	0	5800	0	7549	0	7549	0
 Usage::nestedAllocation	probes	1	0	1	0	1	0	1	0
 Usage::nestedAllocation	manual-examples	759	0	759	0	789	0	789	0
 Usage::nestedAnalysisCase	training	1523	1	1522	0	1821	1	1820	0
@@ -1978,7 +1978,7 @@ Usage::nestedAnalysisCase	pilot-examples	4662	6	4656	0	5239	6	5233	0
 Usage::nestedAnalysisCase	pilot-validation	1698	2	1696	0	2012	2	2010	0
 Usage::nestedAnalysisCase	spec-examples	1221	0	1221	0	1419	0	1419	0
 Usage::nestedAnalysisCase	testdata	191	0	191	0	263	0	263	0
-Usage::nestedAnalysisCase	examples	5796	0	5796	0	7545	0	7545	0
+Usage::nestedAnalysisCase	examples	5800	0	5800	0	7549	0	7549	0
 Usage::nestedAnalysisCase	probes	1	0	1	0	1	0	1	0
 Usage::nestedAnalysisCase	manual-examples	759	0	759	0	789	0	789	0
 Usage::nestedAttribute	training	1523	29	1494	0	1821	29	1792	0
@@ -1986,7 +1986,7 @@ Usage::nestedAttribute	pilot-examples	4662	193	4469	0	5239	190	5049	0
 Usage::nestedAttribute	pilot-validation	1698	29	1669	0	2012	29	1983	0
 Usage::nestedAttribute	spec-examples	1221	13	1208	0	1419	11	1408	0
 Usage::nestedAttribute	testdata	191	1	190	0	263	1	262	0
-Usage::nestedAttribute	examples	5796	260	5536	0	7545	255	7290	0
+Usage::nestedAttribute	examples	5800	261	5539	0	7549	256	7293	0
 Usage::nestedAttribute	probes	1	0	1	0	1	0	1	0
 Usage::nestedAttribute	manual-examples	759	84	675	0	789	84	705	0
 Usage::nestedCalculation	training	1523	6	1517	0	1821	6	1815	0
@@ -1994,7 +1994,7 @@ Usage::nestedCalculation	pilot-examples	4662	17	4645	0	5239	16	5223	0
 Usage::nestedCalculation	pilot-validation	1698	8	1690	0	2012	8	2004	0
 Usage::nestedCalculation	spec-examples	1221	9	1212	0	1419	5	1414	0
 Usage::nestedCalculation	testdata	191	0	191	0	263	0	263	0
-Usage::nestedCalculation	examples	5796	35	5761	0	7545	35	7510	0
+Usage::nestedCalculation	examples	5800	35	5765	0	7549	35	7514	0
 Usage::nestedCalculation	probes	1	0	1	0	1	0	1	0
 Usage::nestedCalculation	manual-examples	759	34	725	0	789	34	755	0
 Usage::nestedCase	training	1523	3	1520	0	1821	3	1818	0
@@ -2002,7 +2002,7 @@ Usage::nestedCase	pilot-examples	4662	11	4651	0	5239	10	5229	0
 Usage::nestedCase	pilot-validation	1698	4	1694	0	2012	4	2008	0
 Usage::nestedCase	spec-examples	1221	6	1215	0	1419	3	1416	0
 Usage::nestedCase	testdata	191	0	191	0	263	0	263	0
-Usage::nestedCase	examples	5796	1	5795	0	7545	1	7544	0
+Usage::nestedCase	examples	5800	1	5799	0	7549	1	7548	0
 Usage::nestedCase	probes	1	0	1	0	1	0	1	0
 Usage::nestedCase	manual-examples	759	0	759	0	789	0	789	0
 Usage::nestedConcern	training	1523	1	1522	0	1821	1	1820	0
@@ -2010,7 +2010,7 @@ Usage::nestedConcern	pilot-examples	4662	1	4661	0	5239	1	5238	0
 Usage::nestedConcern	pilot-validation	1698	1	1697	0	2012	1	2011	0
 Usage::nestedConcern	spec-examples	1221	0	1221	0	1419	1	1418	0
 Usage::nestedConcern	testdata	191	0	191	0	263	0	263	0
-Usage::nestedConcern	examples	5796	0	5796	0	7545	0	7545	0
+Usage::nestedConcern	examples	5800	0	5800	0	7549	0	7549	0
 Usage::nestedConcern	probes	1	0	1	0	1	0	1	0
 Usage::nestedConcern	manual-examples	759	0	759	0	789	0	789	0
 Usage::nestedConnection	training	1523	63	1460	0	1821	37	1784	0
@@ -2018,7 +2018,7 @@ Usage::nestedConnection	pilot-examples	4662	148	4514	0	5239	104	5135	0
 Usage::nestedConnection	pilot-validation	1698	71	1627	0	2012	37	1975	0
 Usage::nestedConnection	spec-examples	1221	30	1191	0	1419	10	1409	0
 Usage::nestedConnection	testdata	191	7	184	0	263	4	259	0
-Usage::nestedConnection	examples	5796	161	5635	0	7545	48	7497	0
+Usage::nestedConnection	examples	5800	161	5639	0	7549	48	7501	0
 Usage::nestedConnection	probes	1	0	1	0	1	0	1	0
 Usage::nestedConnection	manual-examples	759	8	751	0	789	4	785	0
 Usage::nestedConstraint	training	1523	17	1506	0	1821	17	1804	0
@@ -2026,7 +2026,7 @@ Usage::nestedConstraint	pilot-examples	4662	93	4569	0	5239	90	5149	0
 Usage::nestedConstraint	pilot-validation	1698	31	1667	0	2012	31	1981	0
 Usage::nestedConstraint	spec-examples	1221	18	1203	0	1419	11	1408	0
 Usage::nestedConstraint	testdata	191	0	191	0	263	0	263	0
-Usage::nestedConstraint	examples	5796	45	5751	0	7545	45	7500	0
+Usage::nestedConstraint	examples	5800	45	5755	0	7549	45	7504	0
 Usage::nestedConstraint	probes	1	0	1	0	1	0	1	0
 Usage::nestedConstraint	manual-examples	759	61	698	0	789	61	728	0
 Usage::nestedEnumeration	training	1523	0	1523	0	1821	0	1821	0
@@ -2034,7 +2034,7 @@ Usage::nestedEnumeration	pilot-examples	4662	0	4662	0	5239	0	5239	0
 Usage::nestedEnumeration	pilot-validation	1698	0	1698	0	2012	0	2012	0
 Usage::nestedEnumeration	spec-examples	1221	0	1221	0	1419	0	1419	0
 Usage::nestedEnumeration	testdata	191	0	191	0	263	0	263	0
-Usage::nestedEnumeration	examples	5796	0	5796	0	7545	0	7545	0
+Usage::nestedEnumeration	examples	5800	0	5800	0	7549	0	7549	0
 Usage::nestedEnumeration	probes	1	0	1	0	1	0	1	0
 Usage::nestedEnumeration	manual-examples	759	0	759	0	789	0	789	0
 Usage::nestedFlow	training	1523	13	1510	0	1821	13	1808	0
@@ -2042,7 +2042,7 @@ Usage::nestedFlow	pilot-examples	4662	32	4630	0	5239	32	5207	0
 Usage::nestedFlow	pilot-validation	1698	5	1693	0	2012	6	2006	0
 Usage::nestedFlow	spec-examples	1221	1	1220	0	1419	0	1419	0
 Usage::nestedFlow	testdata	191	0	191	0	263	0	263	0
-Usage::nestedFlow	examples	5796	0	5796	0	7545	0	7545	0
+Usage::nestedFlow	examples	5800	0	5800	0	7549	0	7549	0
 Usage::nestedFlow	probes	1	0	1	0	1	0	1	0
 Usage::nestedFlow	manual-examples	759	0	759	0	789	0	789	0
 Usage::nestedInterface	training	1523	2	1521	0	1821	2	1819	0
@@ -2050,7 +2050,7 @@ Usage::nestedInterface	pilot-examples	4662	14	4648	0	5239	14	5225	0
 Usage::nestedInterface	pilot-validation	1698	3	1695	0	2012	3	2009	0
 Usage::nestedInterface	spec-examples	1221	0	1221	0	1419	0	1419	0
 Usage::nestedInterface	testdata	191	0	191	0	263	0	263	0
-Usage::nestedInterface	examples	5796	1	5795	0	7545	1	7544	0
+Usage::nestedInterface	examples	5800	1	5799	0	7549	1	7548	0
 Usage::nestedInterface	probes	1	0	1	0	1	0	1	0
 Usage::nestedInterface	manual-examples	759	0	759	0	789	0	789	0
 Usage::nestedItem	training	1523	130	1393	0	1821	114	1707	0
@@ -2058,7 +2058,7 @@ Usage::nestedItem	pilot-examples	4662	246	4416	0	5239	198	5041	0
 Usage::nestedItem	pilot-validation	1698	160	1538	0	2012	130	1882	0
 Usage::nestedItem	spec-examples	1221	26	1195	0	1419	13	1406	0
 Usage::nestedItem	testdata	191	4	187	0	263	4	259	0
-Usage::nestedItem	examples	5796	92	5704	0	7545	73	7472	0
+Usage::nestedItem	examples	5800	92	5708	0	7549	73	7476	0
 Usage::nestedItem	probes	1	0	1	0	1	0	1	0
 Usage::nestedItem	manual-examples	759	38	721	0	789	36	753	0
 Usage::nestedMetadata	training	1523	15	1508	0	1821	27	1794	0
@@ -2066,7 +2066,7 @@ Usage::nestedMetadata	pilot-examples	4662	34	4628	0	5239	135	5104	0
 Usage::nestedMetadata	pilot-validation	1698	21	1677	0	2012	52	1960	0
 Usage::nestedMetadata	spec-examples	1221	1	1220	0	1419	4	1415	0
 Usage::nestedMetadata	testdata	191	2	189	0	263	22	241	0
-Usage::nestedMetadata	examples	5796	24	5772	0	7545	346	7199	0
+Usage::nestedMetadata	examples	5800	24	5776	0	7549	346	7203	0
 Usage::nestedMetadata	probes	1	0	1	0	1	0	1	0
 Usage::nestedMetadata	manual-examples	759	1	758	0	789	15	774	0
 Usage::nestedOccurrence	training	1523	245	1278	0	1821	245	1576	0
@@ -2074,7 +2074,7 @@ Usage::nestedOccurrence	pilot-examples	4662	624	4038	0	5239	624	4615	0
 Usage::nestedOccurrence	pilot-validation	1698	301	1397	0	2012	279	1733	0
 Usage::nestedOccurrence	spec-examples	1221	104	1117	0	1419	87	1332	0
 Usage::nestedOccurrence	testdata	191	15	176	0	263	23	240	0
-Usage::nestedOccurrence	examples	5796	282	5514	0	7545	351	7194	0
+Usage::nestedOccurrence	examples	5800	282	5518	0	7549	351	7198	0
 Usage::nestedOccurrence	probes	1	0	1	0	1	0	1	0
 Usage::nestedOccurrence	manual-examples	759	133	626	0	789	133	656	0
 Usage::nestedPart	training	1523	82	1441	0	1821	82	1739	0
@@ -2082,7 +2082,7 @@ Usage::nestedPart	pilot-examples	4662	165	4497	0	5239	162	5077	0
 Usage::nestedPart	pilot-validation	1698	136	1562	0	2012	127	1885	0
 Usage::nestedPart	spec-examples	1221	25	1196	0	1419	13	1406	0
 Usage::nestedPart	testdata	191	1	190	0	263	1	262	0
-Usage::nestedPart	examples	5796	70	5726	0	7545	70	7475	0
+Usage::nestedPart	examples	5800	70	5730	0	7549	70	7479	0
 Usage::nestedPart	probes	1	0	1	0	1	0	1	0
 Usage::nestedPart	manual-examples	759	36	723	0	789	36	753	0
 Usage::nestedPort	training	1523	19	1504	0	1821	19	1802	0
@@ -2090,7 +2090,7 @@ Usage::nestedPort	pilot-examples	4662	121	4541	0	5239	120	5119	0
 Usage::nestedPort	pilot-validation	1698	39	1659	0	2012	39	1973	0
 Usage::nestedPort	spec-examples	1221	10	1211	0	1419	10	1409	0
 Usage::nestedPort	testdata	191	0	191	0	263	0	263	0
-Usage::nestedPort	examples	5796	8	5788	0	7545	8	7537	0
+Usage::nestedPort	examples	5800	8	5792	0	7549	8	7541	0
 Usage::nestedPort	probes	1	0	1	0	1	0	1	0
 Usage::nestedPort	manual-examples	759	3	756	0	789	3	786	0
 Usage::nestedReference	training	1523	227	1296	0	1821	321	1500	0
@@ -2098,7 +2098,7 @@ Usage::nestedReference	pilot-examples	4662	630	4032	0	5239	803	4436	0
 Usage::nestedReference	pilot-validation	1698	246	1452	0	2012	376	1636	0
 Usage::nestedReference	spec-examples	1221	205	1016	0	1419	196	1223	0
 Usage::nestedReference	testdata	191	18	173	0	263	47	216	0
-Usage::nestedReference	examples	5796	662	5134	0	7545	1415	6130	0
+Usage::nestedReference	examples	5800	662	5138	0	7549	1415	6134	0
 Usage::nestedReference	probes	1	0	1	0	1	0	1	0
 Usage::nestedReference	manual-examples	759	109	650	0	789	123	666	0
 Usage::nestedRendering	training	1523	4	1519	0	1821	4	1817	0
@@ -2106,7 +2106,7 @@ Usage::nestedRendering	pilot-examples	4662	2	4660	0	5239	2	5237	0
 Usage::nestedRendering	pilot-validation	1698	3	1695	0	2012	3	2009	0
 Usage::nestedRendering	spec-examples	1221	2	1219	0	1419	2	1417	0
 Usage::nestedRendering	testdata	191	0	191	0	263	0	263	0
-Usage::nestedRendering	examples	5796	19	5777	0	7545	19	7526	0
+Usage::nestedRendering	examples	5800	19	5781	0	7549	19	7530	0
 Usage::nestedRendering	probes	1	0	1	0	1	0	1	0
 Usage::nestedRendering	manual-examples	759	1	758	0	789	1	788	0
 Usage::nestedRequirement	training	1523	6	1517	0	1821	6	1815	0
@@ -2114,7 +2114,7 @@ Usage::nestedRequirement	pilot-examples	4662	54	4608	0	5239	52	5187	0
 Usage::nestedRequirement	pilot-validation	1698	15	1683	0	2012	15	1997	0
 Usage::nestedRequirement	spec-examples	1221	14	1207	0	1419	7	1412	0
 Usage::nestedRequirement	testdata	191	0	191	0	263	0	263	0
-Usage::nestedRequirement	examples	5796	31	5765	0	7545	31	7514	0
+Usage::nestedRequirement	examples	5800	31	5769	0	7549	31	7518	0
 Usage::nestedRequirement	probes	1	0	1	0	1	0	1	0
 Usage::nestedRequirement	manual-examples	759	61	698	0	789	61	728	0
 Usage::nestedState	training	1523	9	1514	0	1821	9	1812	0
@@ -2122,7 +2122,7 @@ Usage::nestedState	pilot-examples	4662	32	4630	0	5239	32	5207	0
 Usage::nestedState	pilot-validation	1698	27	1671	0	2012	27	1985	0
 Usage::nestedState	spec-examples	1221	3	1218	0	1419	4	1415	0
 Usage::nestedState	testdata	191	2	189	0	263	2	261	0
-Usage::nestedState	examples	5796	24	5772	0	7545	24	7521	0
+Usage::nestedState	examples	5800	24	5776	0	7549	24	7525	0
 Usage::nestedState	probes	1	0	1	0	1	0	1	0
 Usage::nestedState	manual-examples	759	3	756	0	789	3	786	0
 Usage::nestedTransition	training	1523	8	1515	0	1821	9	1812	0
@@ -2130,7 +2130,7 @@ Usage::nestedTransition	pilot-examples	4662	13	4649	0	5239	16	5223	0
 Usage::nestedTransition	pilot-validation	1698	11	1687	0	2012	11	2001	0
 Usage::nestedTransition	spec-examples	1221	0	1221	0	1419	0	1419	0
 Usage::nestedTransition	testdata	191	0	191	0	263	0	263	0
-Usage::nestedTransition	examples	5796	17	5779	0	7545	21	7524	0
+Usage::nestedTransition	examples	5800	17	5783	0	7549	21	7528	0
 Usage::nestedTransition	probes	1	0	1	0	1	0	1	0
 Usage::nestedTransition	manual-examples	759	2	757	0	789	2	787	0
 Usage::nestedUsage	training	1523	462	1061	0	1821	528	1293	0
@@ -2138,7 +2138,7 @@ Usage::nestedUsage	pilot-examples	4662	1290	3372	0	5239	1425	3814	0
 Usage::nestedUsage	pilot-validation	1698	526	1172	0	2012	595	1417	0
 Usage::nestedUsage	spec-examples	1221	312	909	0	1419	285	1134	0
 Usage::nestedUsage	testdata	191	33	158	0	263	65	198	0
-Usage::nestedUsage	examples	5796	1148	4648	0	7545	1854	5691	0
+Usage::nestedUsage	examples	5800	1149	4651	0	7549	1855	5694	0
 Usage::nestedUsage	probes	1	0	1	0	1	0	1	0
 Usage::nestedUsage	manual-examples	759	254	505	0	789	264	525	0
 Usage::nestedUseCase	training	1523	2	1521	0	1821	2	1819	0
@@ -2146,7 +2146,7 @@ Usage::nestedUseCase	pilot-examples	4662	4	4658	0	5239	3	5236	0
 Usage::nestedUseCase	pilot-validation	1698	2	1696	0	2012	2	2010	0
 Usage::nestedUseCase	spec-examples	1221	4	1217	0	1419	2	1417	0
 Usage::nestedUseCase	testdata	191	0	191	0	263	0	263	0
-Usage::nestedUseCase	examples	5796	1	5795	0	7545	1	7544	0
+Usage::nestedUseCase	examples	5800	1	5799	0	7549	1	7548	0
 Usage::nestedUseCase	probes	1	0	1	0	1	0	1	0
 Usage::nestedUseCase	manual-examples	759	0	759	0	789	0	789	0
 Usage::nestedVerificationCase	training	1523	0	1523	0	1821	0	1821	0
@@ -2154,7 +2154,7 @@ Usage::nestedVerificationCase	pilot-examples	4662	1	4661	0	5239	1	5238	0
 Usage::nestedVerificationCase	pilot-validation	1698	0	1698	0	2012	0	2012	0
 Usage::nestedVerificationCase	spec-examples	1221	1	1220	0	1419	0	1419	0
 Usage::nestedVerificationCase	testdata	191	0	191	0	263	0	263	0
-Usage::nestedVerificationCase	examples	5796	0	5796	0	7545	0	7545	0
+Usage::nestedVerificationCase	examples	5800	0	5800	0	7549	0	7549	0
 Usage::nestedVerificationCase	probes	1	0	1	0	1	0	1	0
 Usage::nestedVerificationCase	manual-examples	759	0	759	0	789	0	789	0
 Usage::nestedView	training	1523	2	1521	0	1821	2	1819	0
@@ -2162,7 +2162,7 @@ Usage::nestedView	pilot-examples	4662	0	4662	0	5239	0	5239	0
 Usage::nestedView	pilot-validation	1698	1	1697	0	2012	1	2011	0
 Usage::nestedView	spec-examples	1221	0	1221	0	1419	0	1419	0
 Usage::nestedView	testdata	191	0	191	0	263	0	263	0
-Usage::nestedView	examples	5796	3	5793	0	7545	3	7542	0
+Usage::nestedView	examples	5800	3	5797	0	7549	3	7546	0
 Usage::nestedView	probes	1	0	1	0	1	0	1	0
 Usage::nestedView	manual-examples	759	0	759	0	789	0	789	0
 Usage::nestedViewpoint	training	1523	0	1523	0	1821	0	1821	0
@@ -2170,7 +2170,7 @@ Usage::nestedViewpoint	pilot-examples	4662	0	4662	0	5239	0	5239	0
 Usage::nestedViewpoint	pilot-validation	1698	0	1698	0	2012	0	2012	0
 Usage::nestedViewpoint	spec-examples	1221	0	1221	0	1419	1	1418	0
 Usage::nestedViewpoint	testdata	191	0	191	0	263	0	263	0
-Usage::nestedViewpoint	examples	5796	0	5796	0	7545	0	7545	0
+Usage::nestedViewpoint	examples	5800	0	5800	0	7549	0	7549	0
 Usage::nestedViewpoint	probes	1	0	1	0	1	0	1	0
 Usage::nestedViewpoint	manual-examples	759	0	759	0	789	0	789	0
 Usage::owningDefinition	training	1523	427	1096	0	1821	424	0	1397
@@ -2178,7 +2178,7 @@ Usage::owningDefinition	pilot-examples	4662	1097	3565	0	5239	1079	0	4160
 Usage::owningDefinition	pilot-validation	1698	344	1354	0	2012	314	0	1698
 Usage::owningDefinition	spec-examples	1221	460	761	0	1419	454	0	965
 Usage::owningDefinition	testdata	191	56	135	0	263	56	0	207
-Usage::owningDefinition	examples	5796	2699	3097	0	7545	2784	0	4761
+Usage::owningDefinition	examples	5800	2702	3098	0	7549	2787	0	4762
 Usage::owningDefinition	probes	1	1	0	0	1	1	0	0
 Usage::owningDefinition	manual-examples	759	182	577	0	789	182	0	607
 Usage::owningUsage	training	1523	915	608	0	1821	1166	0	655
@@ -2186,7 +2186,7 @@ Usage::owningUsage	pilot-examples	4662	2968	1694	0	5239	3434	0	1805
 Usage::owningUsage	pilot-validation	1698	1059	639	0	2012	1389	0	623
 Usage::owningUsage	spec-examples	1221	545	676	0	1419	504	0	915
 Usage::owningUsage	testdata	191	53	138	0	263	120	0	143
-Usage::owningUsage	examples	5796	2274	3522	0	7545	3768	0	3777
+Usage::owningUsage	examples	5800	2275	3525	0	7549	3769	0	3780
 Usage::owningUsage	probes	1	0	1	0	1	0	0	1
 Usage::owningUsage	manual-examples	759	474	285	0	789	503	0	286
 Usage::usage	training	1523	1136	379	8	1821	1549	272	0
@@ -2194,7 +2194,7 @@ Usage::usage	pilot-examples	4662	3335	1220	107	5239	4350	889	0
 Usage::usage	pilot-validation	1698	1261	414	23	2012	1684	328	0
 Usage::usage	spec-examples	1221	480	342	399	1419	815	604	0
 Usage::usage	testdata	191	115	67	9	263	190	73	0
-Usage::usage	examples	5796	3145	2612	39	7545	5092	2453	0
+Usage::usage	examples	5800	3146	2615	39	7549	5093	2456	0
 Usage::usage	probes	1	1	0	0	1	1	0	0
 Usage::usage	manual-examples	759	361	342	56	789	505	284	0
 Usage::variant	training	1523	1	1522	0	1821	1	1820	0
@@ -2202,7 +2202,7 @@ Usage::variant	pilot-examples	4662	12	4650	0	5239	12	5227	0
 Usage::variant	pilot-validation	1698	11	1687	0	2012	11	2001	0
 Usage::variant	spec-examples	1221	1	1220	0	1419	1	1418	0
 Usage::variant	testdata	191	0	191	0	263	0	263	0
-Usage::variant	examples	5796	5	5791	0	7545	5	7540	0
+Usage::variant	examples	5800	5	5795	0	7549	5	7544	0
 Usage::variant	probes	1	0	1	0	1	0	1	0
 Usage::variant	manual-examples	759	0	759	0	789	0	789	0
 Usage::variantMembership	training	1523	1	1522	0	1821	1	1820	0
@@ -2210,7 +2210,7 @@ Usage::variantMembership	pilot-examples	4662	12	4650	0	5239	12	5227	0
 Usage::variantMembership	pilot-validation	1698	11	1687	0	2012	11	2001	0
 Usage::variantMembership	spec-examples	1221	1	1220	0	1419	1	1418	0
 Usage::variantMembership	testdata	191	0	191	0	263	0	263	0
-Usage::variantMembership	examples	5796	5	5791	0	7545	5	7540	0
+Usage::variantMembership	examples	5800	5	5795	0	7549	5	7544	0
 Usage::variantMembership	probes	1	0	1	0	1	0	1	0
 Usage::variantMembership	manual-examples	759	0	759	0	789	0	789	0
 UseCaseDefinition::includedUseCase	training	3	0	0	3	3	0	3	0
