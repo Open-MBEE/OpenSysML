@@ -139,6 +139,10 @@ func record(out io.Writer, committed, doc string, pin hideo.Pin, fresh hideo.Run
 	if was, err := hideo.ReadBaseline(committed); err == nil && was.Pin == pin {
 		movement := hideo.Compare(was, fresh)
 		fmt.Fprint(out, movement.Describe())
+		// At one pin the cases are the suite's own, so a run that holds other cases did not run whole.
+		if len(movement.Provisioning) > 0 {
+			return fmt.Errorf("this run cannot be recorded: %d reader(s) did not record the baseline's cases at the same pin", len(movement.Provisioning))
+		}
 		if len(movement.Worse) > 0 && !acceptRegressions {
 			return fmt.Errorf("%d case(s) got worse; fix them, or adjudicate each and pass -accept-regressions", len(movement.Worse))
 		}

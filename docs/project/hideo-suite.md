@@ -61,6 +61,8 @@ It needs Go, Python 3.12 and [uv](https://docs.astral.sh/uv/) on `PATH`. Each ru
 a run takes about a minute and a half. The results are left in
 `build/hideo-suite/test-suite/results/`: one CSV per reader (`suite,matrix,id,outcome,detail`)
 and its log under `logs/`. `-no-run` compares the results already there instead of running.
+The readers are given this checkout's `bin/sysml-grpc` as `OPENSYSML_BINARY` and no
+`OPENSYSML_SERVICE`, whatever the caller's environment names, so the outcomes are this tree's.
 
 The checkout holds the suite's own Go sources, one of which is not `gofmt`-formatted, so
 `gofmt -l .` names it while the checkout is under `build/`. Set `HIDEO_SUITE_ROOT` to a
@@ -85,7 +87,7 @@ ranks: `pass`, then `unsupported` and `skip`, then `fail` and `error`.
 
 A provisioning failure is reported once per reader and its cases are not compared, so a service
 that did not start is never read as hundreds of regressions; `-update` refuses to record such a
-run. The outcomes are deterministic: two runs of the same tree give the same outcome for every
+run, including one in which every reader lost the same cases while the pin did not move. The outcomes are deterministic: two runs of the same tree give the same outcome for every
 case.
 
 ## Adjudicating a movement

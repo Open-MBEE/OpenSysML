@@ -89,3 +89,26 @@ func TestLocate(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+// The readers measure this checkout's build whatever service the caller's environment names.
+func TestSuiteEnvPinsTheServiceToThisCheckout(t *testing.T) {
+	repo := t.TempDir()
+	env := suiteEnv([]string{
+		"PATH=/usr/bin",
+		"OPENSYSML_SERVICE=localhost:50051",
+		"OPENSYSML_BINARY=/opt/other/sysml-grpc",
+		"GOFLAGS=-mod=mod",
+	}, repo)
+	got := strings.Join(env, "\n")
+	want := strings.Join([]string{
+		"PATH=/usr/bin",
+		"OPENSYSML_BINARY=" + filepath.Join(repo, "bin", "sysml-grpc"),
+		"GOFLAGS=-mod=mod -count=1",
+	}, "\n")
+	if got != want {
+		t.Errorf("environment:\n%s\nwant:\n%s", got, want)
+	}
+	if bare := suiteEnv(nil, repo); bare[len(bare)-1] != "GOFLAGS=-count=1" {
+		t.Errorf("without a GOFLAGS of the caller: %v", bare)
+	}
+}

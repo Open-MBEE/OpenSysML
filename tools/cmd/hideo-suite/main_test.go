@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"flag"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -52,5 +54,51 @@ func TestRefusedOptions(t *testing.T) {
 	}
 	if err := run(context.Background(), &out, &log, options{check: true, acceptRegressions: true}); err == nil {
 		t.Error("-accept-regressions without -update accepted")
+	}
+}
+
+// Every reader running the same cases, none got worse.
+func runOf(ids ...string) hideo.Run {
+	run := hideo.Run{}
+	for _, suite := range hideo.Suites {
+		run[suite] = map[string]hideo.Result{}
+		for _, id := range ids {
+			run[suite][id] = hideo.Result{Outcome: hideo.Pass}
+		}
+	}
+	return run
+}
+
+// At one pin, a run in which every reader lost the same cases is refused, and nothing is rewritten.
+func TestUpdateRefusesARunThatLostCasesAtTheSamePin(t *testing.T) {
+	dir := t.TempDir()
+	committed, doc := filepath.Join(dir, "baseline.tsv"), filepath.Join(dir, "page.md")
+	page := "<!-- hideo-suite:begin counts -->\n<!-- hideo-suite:end counts -->\n"
+	if err := os.WriteFile(doc, []byte(page), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	pin := hideo.Pin{Repository: "https://example.org/suite.git", Commit: strings.Repeat("a", 40)}
+	var out bytes.Buffer
+	if err := record(&out, committed, doc, pin, runOf("A01-001", "A01-002"), false); err != nil {
+		t.Fatalf("first record: %v", err)
+	}
+	before, err := os.ReadFile(committed)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	out.Reset()
+	err = record(&out, committed, doc, pin, runOf("A01-001"), true)
+	if err == nil || !strings.Contains(out.String(), "A01-002") {
+		t.Fatalf("a run short of A01-002: err = %v, output:\n%s", err, out.String())
+	}
+	if after, _ := os.ReadFile(committed); !bytes.Equal(before, after) {
+		t.Errorf("the refused run rewrote the baseline:\n%s", after)
+	}
+
+	moved := pin
+	moved.Commit = strings.Repeat("b", 40)
+	if err := record(&out, committed, doc, moved, runOf("A01-001"), false); err != nil {
+		t.Errorf("another pin brings its own cases: %v", err)
 	}
 }

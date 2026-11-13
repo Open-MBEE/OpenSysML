@@ -24,6 +24,14 @@ const (
 	mdkLink    = "OpenSysML"
 )
 
+// The service the Python readers drive: the build of this repository, and the two
+// variables of the client that would have them drive another one.
+const (
+	serviceBinary = "bin/sysml-grpc"
+	binaryEnv     = "OPENSYSML_BINARY"
+	serviceEnv    = "OPENSYSML_SERVICE"
+)
+
 // Locate checks that dir holds the suite and that its OpenSysML sibling is the
 // repository at repo, so the suite builds and reads the tree being measured.
 func Locate(dir, repo string) error {
@@ -68,8 +76,7 @@ func Execute(ctx context.Context, dir, repo string, log io.Writer) error {
 		}
 	}
 	run := command(ctx, filepath.Join(dir, suiteDir), log, append([]string{"./run-all.sh"}, Suites...)...)
-	// A cached go test would write no results; the suite's Go readers must run every time.
-	run.Env = append(os.Environ(), "GOFLAGS="+strings.TrimSpace(os.Getenv("GOFLAGS")+" -count=1"))
+	run.Env = suiteEnv(os.Environ(), repo)
 	// Its status reports failing cases and its own cross-MDK report, neither of which
 	// is this ratchet's verdict: only a runner that could not start is an error.
 	var exit *exec.ExitError
@@ -77,6 +84,24 @@ func Execute(ctx context.Context, dir, repo string, log io.Writer) error {
 		return fmt.Errorf("run-all.sh: %w", err)
 	}
 	return nil
+}
+
+// suiteEnv is the readers' environment: the service is this checkout's build, never one the
+// caller's environment names, and go test is uncached, since a cached run writes no results.
+func suiteEnv(environ []string, repo string) []string {
+	goflags := "-count=1"
+	env := make([]string, 0, len(environ)+2)
+	for _, entry := range environ {
+		name, value, _ := strings.Cut(entry, "=")
+		switch name {
+		case serviceEnv, binaryEnv:
+		case "GOFLAGS":
+			goflags = strings.TrimSpace(value + " " + goflags)
+		default:
+			env = append(env, entry)
+		}
+	}
+	return append(env, binaryEnv+"="+filepath.Join(repo, filepath.FromSlash(serviceBinary)), "GOFLAGS="+goflags)
 }
 
 func command(ctx context.Context, dir string, log io.Writer, args ...string) *exec.Cmd {
