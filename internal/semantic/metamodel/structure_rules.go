@@ -1898,6 +1898,13 @@ func (e *Evaluator) semanticBooleanAttribute(element Element, property string) (
 }
 
 func (e *Evaluator) structureUsageComposite(element Element) (bool, bool, bool) {
+	// Feature::isComposite is authored: a graph that states it answers it; a
+	// declared symbol's is the semantic model's below.
+	if stated, supported := e.options.Structure.(StatedAttributeStructure); supported && element.Symbol == nil {
+		if composite, ok := stated.StatedAttribute(element, "isComposite"); ok && composite.Kind == BooleanValue {
+			return composite.Boolean, true, true
+		}
+	}
 	controlNode, known := e.isMetaclass(element, "ControlNode")
 	if !known {
 		return false, true, false

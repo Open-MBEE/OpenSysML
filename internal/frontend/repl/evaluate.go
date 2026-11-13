@@ -19,7 +19,11 @@ type evaluated struct {
 }
 
 // answered is the evaluation of label to val, spelled text, as %eval reports it.
+// An undetermined result is spelled with why the model leaves it open.
 func answered(label string, ctx *runtime.Context, val runtime.Value, text string) evaluated {
+	if reason := val.Undetermined().Reason(); text == runtime.UndeterminedText && reason != "" {
+		text += ": " + reason
+	}
 	return evaluated{
 		ctx:   ctx,
 		val:   val,

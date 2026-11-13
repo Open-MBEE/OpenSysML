@@ -253,7 +253,7 @@ func (e *ActionExecutor) keeps(t Token) bool {
 // this step, so the keeping accept does not yield to it.
 func (e *ActionExecutor) yieldsKeeping(k Token, pending []Message, unready map[int64]bool) bool {
 	accept, _ := e.messageAccept(k)
-	keeps, _ := e.acceptMatch(k.frame, accept, k.Location.(*ast.Usage))
+	keeps, _ := e.acceptMatch(k.frame, accept, k.Node().(*ast.Usage))
 	for _, m := range pending {
 		if !keeps(m) {
 			continue
@@ -263,7 +263,7 @@ func (e *ActionExecutor) yieldsKeeping(k Token, pending []Message, unready map[i
 				continue
 			}
 			if other, ok := e.messageAccept(t); ok {
-				matches, _ := e.acceptMatch(t.frame, other, t.Location.(*ast.Usage))
+				matches, _ := e.acceptMatch(t.frame, other, t.Node().(*ast.Usage))
 				if matches(m) {
 					return true
 				}
@@ -286,14 +286,14 @@ func (e *ActionExecutor) offeredMessage(t Token, pending []Message) bool {
 	if !ok {
 		return false
 	}
-	matches, _ := e.acceptMatch(t.frame, accept, t.Location.(*ast.Usage))
+	matches, _ := e.acceptMatch(t.frame, accept, t.Node().(*ast.Usage))
 	return slices.ContainsFunc(pending, matches)
 }
 
 // messageAccept returns the accept the token sits at when it is one a message,
 // not a trigger, answers.
 func (e *ActionExecutor) messageAccept(t Token) (lower.Accept, bool) {
-	usage, ok := t.Location.(*ast.Usage)
+	usage, ok := t.Node().(*ast.Usage)
 	if !ok || t.body != nil {
 		return lower.Accept{}, false
 	}
@@ -367,7 +367,7 @@ func (e *ActionExecutor) noteTokenOrder(step int, order stepOrder, schedule *tok
 		alts = make([]string, len(tokens))
 		fps = make([]lower.Footprint, len(tokens))
 		for i, t := range tokens {
-			alts[i] = TokenLabel(t.ID, t.Location)
+			alts[i] = TokenLabel(t.ID, t.Node())
 			fps[i] = standing(e, t)
 			if t.ID == first {
 				taken = i
@@ -395,7 +395,7 @@ func (e *ActionExecutor) labeledFootprints(labels []string, able []Token) []lowe
 	for i, label := range labels {
 		fps[i] = unknownFootprint()
 		for _, t := range able {
-			if TokenLabel(t.ID, t.Location) == label {
+			if TokenLabel(t.ID, t.Node()) == label {
 				fps[i] = standing(e, t)
 				break
 			}

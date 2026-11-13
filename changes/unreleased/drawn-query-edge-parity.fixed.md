@@ -1,0 +1,1 @@
+- Layout queries no longer count annotation links from occurrences removed when connection boxes become lines or relationship dots. Query reuse preserves those containment contexts, keeping drawn-edge and route verdicts consistent with the rendered view.
