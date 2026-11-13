@@ -129,6 +129,7 @@ func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[
 	ids.recordDefaultMultiplicity(e, node, subject)
 	ids.recordConnectorEnds(e, node, subject)
 	ids.recordSuccessionEnds(e, node, subject)
+	ids.recordTransitionSuccession(e, node, subject)
 	ids.recordSatisfySubjects(e, node, subject)
 	ids.registerHeadChains(e, subject, chainTargets(e.writtenHeadClauses(node, parents[node], parents)))
 	for key, id := range e.writtenRelationships(node, parents[node], subject, parents) {
@@ -201,6 +202,29 @@ func (ids *ElementIDs) recordConnectorEnds(e *encoder, node ast.Node, subject rd
 
 // recordSuccessionEnds records the two ends a `then` succession's conversion mints at end0/end1
 // under the edge (encodeSuccessionEdge), each with the EndFeatureMembership minted beside it.
+// recordTransitionSuccession files the succession a transition owns (transitionSuccession) under the
+// transition's node at the slot "succession", so the query leg reads the ids the conversion writes.
+func (ids *ElementIDs) recordTransitionSuccession(e *encoder, node ast.Node, subject rdf.Term) {
+	switch n := node.(type) {
+	case *ast.TransitionMember:
+		if n.IsSuccession || n.Target == nil {
+			return
+		}
+	case *ast.ControlFlowEdge:
+	case *ast.SuccessionEdge:
+		if !e.names.TargetTransitions[n] {
+			return
+		}
+	default:
+		return
+	}
+	succession := e.ids.minted(rdf.IRI(subject.Value+transitionSuccessionSuffix), subject, transitionSuccessionSuffix)
+	membership := e.ids.minted(rdf.OwningMembershipIRIOf(succession), succession, rdf.OwningMembershipSuffix)
+	recorded := partIDs{element: rdf.LocalName(succession.Value), membership: rdf.LocalName(membership.Value)}
+	ids.partByNode[partKey{node, "succession"}] = recorded
+	ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, "succession"}] = recorded
+}
+
 func (ids *ElementIDs) recordSuccessionEnds(e *encoder, node ast.Node, subject rdf.Term) {
 	edge, ok := node.(*ast.SuccessionEdge)
 	// A state body's `then x;` after a state is written as a TransitionUsage (encodeTargetTransition): no ends.

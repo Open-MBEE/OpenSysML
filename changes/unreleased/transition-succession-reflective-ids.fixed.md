@@ -1,0 +1,1 @@
+- The succession a transition owns for its `then` clause now reads the `elementId` the conversion writes for it on the query leg — `<transition id>_succession`, its owning membership `<transition id>_succession_om` — where it read the transition's own id, two elements under one identity; the state-body `then x;` written as a transition and a guarded target follow the same rule.
