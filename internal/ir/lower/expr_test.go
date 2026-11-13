@@ -30,6 +30,7 @@ const exprSrc = `
 			attribute received = seq->size();
 			attribute applied = v.m(x, 2);
 			attribute labelled = f(a = x, b = 2);
+			attribute nested = v.m().m().m.m().m().m().m().m().m().m().m().m();
 			attribute made = new V(m = x);
 			attribute each = seq.{in e; e};
 			attribute some = seq.?{in e; true};
@@ -186,6 +187,30 @@ func TestLowerExprRecordsCallsAndBodies(t *testing.T) {
 	}
 	if _, meta := lowerOf("meta", program.ExprMetadata, 0); meta.Ref.Name != "x" {
 		t.Fatalf("x.metadata = %+v", meta)
+	}
+}
+
+// TestLowerExprSharesAnAppliedChainsOperand pins that a call applied to a chain lowers what
+// the chain starts from once, so calls nested through their receivers stay linear in records.
+func TestLowerExprSharesAnAppliedChainsOperand(t *testing.T) {
+	values, scope, resolver := exprFixture(t)
+	table, id := LowerExpr(values["nested"], scope, resolver)
+	// Eleven calls each record themselves and their chain, the fourth a chain of two members more, over v.
+	if got := len(table.entries) - 1; got != 24 {
+		t.Fatalf("%d records for eleven nested calls, want 24", got)
+	}
+	for call := table.Entry(id); call.Kind == program.ExprInvoke; {
+		chain, holder := call.Operands[0], call.Operands[1]
+		if !call.Applied || chain.Kind != program.ExprChain {
+			t.Fatalf("call %+v over %+v", call.Expr, chain.Expr)
+		}
+		if holder.Kind == program.ExprChain {
+			holder = holder.Operands[0]
+		}
+		if chain.Operands[0] != holder {
+			t.Fatalf("chain of %v starts from a record other than the one it is read from", call.Origin.Span)
+		}
+		call = holder
 	}
 }
 

@@ -423,7 +423,7 @@ func (m *Model) loweredExpr(scope *symbols.Scope, node ast.Node) lowered {
 			// A request's expression is forgotten with what the resolver memoized of its nodes.
 			m.resolver.Journal(node, func() {
 				delete(m.lowered, key)
-				m.forgetInvocations(entry)
+				m.forgetInvocations(table)
 			})
 		}
 		m.lowered[key] = entry
@@ -431,13 +431,17 @@ func (m *Model) loweredExpr(scope *symbols.Scope, node ast.Node) lowered {
 	return lowered{entry: entry}
 }
 
-// forgetInvocations drops what was memoized of the invocations under entry.
-func (m *Model) forgetInvocations(entry *lower.ExprEntry) {
-	if entry.Kind == program.ExprInvoke {
-		delete(m.invocationTargets, entry)
-	}
-	for _, operand := range entry.Operands {
-		m.forgetInvocations(operand)
+// forgetInvocations drops what was memoized of the invocations in table, each
+// record once: an operand two records share is not reached once per reader.
+func (m *Model) forgetInvocations(table *lower.ExprTable) {
+	for id := program.ExprID(1); ; id++ {
+		entry := table.Entry(id)
+		if entry == nil {
+			return
+		}
+		if entry.Kind == program.ExprInvoke {
+			delete(m.invocationTargets, entry)
+		}
 	}
 }
 

@@ -69,17 +69,26 @@ type exprLowering struct {
 	scope    *symbols.Scope
 	resolver *resolve.Resolver
 	doc      string
+	// shared are the operands two records read, by node: the id of each once lowered, none before.
+	shared map[ast.Node]program.ExprID
 }
 
-// lower appends the record of node, then those of its operands.
+// lower appends the record of node, then those of its operands; a shared operand has one record.
 func (l *exprLowering) lower(node ast.Node) program.ExprID {
 	t := l.table
+	pending, isShared := l.shared[node]
+	if pending != 0 {
+		return pending
+	}
 	if len(t.entries) == 0 {
 		t.entries = make([]*ExprEntry, 1, 4)
 	}
 	entry := &ExprEntry{Tree: node, Scope: l.scope}
 	id := program.ExprID(tableIndex(len(t.entries)))
 	t.entries = append(t.entries, entry)
+	if isShared {
+		l.shared[node] = id
+	}
 	expr := &entry.Expr
 	expr.Origin.Doc = l.doc
 	var operands []ast.Node
@@ -163,11 +172,28 @@ func (l *exprLowering) invocation(expr *program.Expr, n *ast.InvocationExpr) []a
 	if chain := semantics.ChainCallee(n); chain != nil {
 		expr.Applied = true
 		operands = []ast.Node{chain, chain.Operand}
+		// Both read the chain's first operand, which is lowered once however deep the calls nest.
+		if chain.Member != nil && len(chain.Member.Parts) > 0 {
+			l.share(ast.FeatureChainBase(chain))
+		}
 	} else if n.Operand != nil {
 		expr.Receiver = true
 		operands = []ast.Node{n.Operand}
 	}
 	return append(operands, l.arguments(expr, n.Args, n.NamedArgs)...)
+}
+
+// share marks node as an operand two records read. The segments are FeatureChainBase's, unused.
+func (l *exprLowering) share(node ast.Node, _ []ast.NameSegment) {
+	if node == nil {
+		return
+	}
+	if l.shared == nil {
+		l.shared = map[ast.Node]program.ExprID{}
+	}
+	if _, ok := l.shared[node]; !ok {
+		l.shared[node] = 0
+	}
 }
 
 // arguments records the labels of an argument list and returns the arguments as
