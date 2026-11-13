@@ -96,6 +96,83 @@
       }
     },
     {
+      "id": "symbol/an_about_metadata_usage_is_named_by_what_it_annotates",
+      "description": "An element names the metadata usage annotating it from elsewhere with `about`; the usage stays a member of the namespace it is written in, so child_ids leaves it out.",
+      "rpc": "GetSymbol",
+      "requires_capabilities": [
+        "symbol_annotating_metadata"
+      ],
+      "model": {
+        "fixture": "annotations.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Demo::Pump"
+      },
+      "expect": {
+        "response": {
+          "symbol": {
+            "id": "Demo::Pump",
+            "annotating_metadata_ids": [
+              "Demo::pump_fm"
+            ]
+          }
+        },
+        "absent": [
+          "symbol.child_ids"
+        ]
+      },
+      "expect_without_capability": {
+        "response": {
+          "symbol": {
+            "id": "Demo::Pump"
+          }
+        },
+        "absent": [
+          "symbol.annotating_metadata_ids"
+        ]
+      }
+    },
+    {
+      "id": "symbol/an_annotating_metadata_usage_reads_its_type_and_value",
+      "description": "The usage an element names as annotating it is an ordinary symbol: its type resolves to the metadata definition and its attribute carries the value written.",
+      "rpc": "GetSymbol",
+      "requires_capabilities": [
+        "symbol_annotating_metadata",
+        "type_facts",
+        "symbol_attributes"
+      ],
+      "model": {
+        "fixture": "annotations.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Demo::pump_fm"
+      },
+      "expect": {
+        "response": {
+          "symbol": {
+            "id": "Demo::pump_fm",
+            "kind": "metadataUsage",
+            "type_info": {
+              "resolved_id": "Demo::FailureMode"
+            },
+            "attributes": [
+              {
+                "name": "severity",
+                "value": {
+                  "int_value": 2
+                }
+              }
+            ]
+          }
+        },
+        "absent": [
+          "symbol.annotating_metadata_ids"
+        ]
+      }
+    },
+    {
       "id": "symbol/an_attribute_reports_the_kind_that_filters_it",
       "description": "Attribute and part usages are told apart by kind, which is how a client offers attributes() and parts().",
       "rpc": "GetSymbol",

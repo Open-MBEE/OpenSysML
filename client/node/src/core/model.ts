@@ -5,6 +5,7 @@ import {
   CAPABILITY_EVALUATE_SUBJECT,
   CAPABILITY_INLINE_LANGUAGE,
   CAPABILITY_STRICT_CONFORMANCE,
+  CAPABILITY_SYMBOL_ANNOTATING_METADATA,
   CAPABILITY_SYMBOL_MEMBERS,
   requireCapability,
   upgradeRemedy,
@@ -885,6 +886,14 @@ export class ModelSymbol {
   readonly members: readonly MemberFacts[];
   /** Members inherited from standard-library content the service did not send. */
   readonly withheldLibraryMembers: number;
+  /**
+   * The metadata usages annotating this symbol, the inverse of KerML
+   * `AnnotatingElement::annotatedElement`: its own `#M` prefixes and body
+   * `@M` usages, then the ones naming it in an `about` clause elsewhere, which
+   * `childIds` and `members` leave out. Empty from a service without
+   * `symbol_annotating_metadata`.
+   */
+  readonly annotatingMetadataIds: readonly string[];
   readonly attributes: readonly AttributeFacts[];
   /** Written typing (`declared`) and derived `Feature::type` (`types`). */
   readonly type: TypeFacts | undefined;
@@ -914,6 +923,7 @@ export class ModelSymbol {
       library: member.library,
     }));
     this.withheldLibraryMembers = info.withheldLibraryMembers;
+    this.annotatingMetadataIds = [...info.annotatingMetadataIds];
     this.attributes = info.attributes.map((attribute) => ({
       name: attribute.name,
       type: attribute.type,
@@ -948,8 +958,27 @@ export class ModelSymbol {
 
   /** The symbols this one owns, fetched one call each. */
   async children(): Promise<ModelSymbol[]> {
+    return this.fetchSymbols(this.childIds);
+  }
+
+  /**
+   * The metadata usages annotating this symbol (`annotatingMetadataIds`), fetched
+   * one call each: `type` names the metadata definition and `attributes` reads the
+   * values the annotation binds. Refused by a service without
+   * `symbol_annotating_metadata`, which reports none.
+   */
+  async annotatingMetadata(): Promise<ModelSymbol[]> {
+    requireCapability(
+      this.connection.info,
+      CAPABILITY_SYMBOL_ANNOTATING_METADATA,
+      upgradeRemedy(CAPABILITY_SYMBOL_ANNOTATING_METADATA),
+    );
+    return this.fetchSymbols(this.annotatingMetadataIds);
+  }
+
+  private async fetchSymbols(ids: readonly string[]): Promise<ModelSymbol[]> {
     const responses = await Promise.all(
-      this.childIds.map((id) =>
+      ids.map((id) =>
         callRpc(
           this.connection.rpc.getSymbol(
             { modelHash: this.modelHash, symbolId: id },
@@ -958,13 +987,13 @@ export class ModelSymbol {
         ),
       ),
     );
-    const children: ModelSymbol[] = [];
+    const symbols: ModelSymbol[] = [];
     for (const response of responses) {
       if (response.symbol !== undefined) {
-        children.push(new ModelSymbol(this.connection, this.modelHash, response.symbol));
+        symbols.push(new ModelSymbol(this.connection, this.modelHash, response.symbol));
       }
     }
-    return children;
+    return symbols;
   }
 
   /** The value of one attribute, or undefined when the symbol declares no such attribute. */

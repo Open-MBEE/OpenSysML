@@ -3,6 +3,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use crate::capabilities::{upgrade_remedy, CAPABILITY_SYMBOL_ANNOTATING_METADATA};
 use crate::rational::Rational;
 use crate::{error::Error, wire, Connection};
 
@@ -1276,8 +1277,25 @@ impl Symbol {
     }
     /// Child symbols, fetched lazily from the service; one it cannot resolve is left out.
     pub fn children(&self) -> Result<Vec<Symbol>, Error> {
-        let mut children = Vec::with_capacity(self.wire.child_ids.len());
-        for id in &self.wire.child_ids {
+        self.fetch_symbols(&self.wire.child_ids)
+    }
+    /// Ids of the metadata usages annotating the symbol: its own prefix and body ones, then
+    /// the `about` ones written elsewhere, which [`Self::children`] leaves out.
+    pub fn annotating_metadata_ids(&self) -> &[String] {
+        &self.wire.annotating_metadata_ids
+    }
+    /// The metadata usages annotating the symbol, fetched lazily; one it cannot resolve is
+    /// left out. Needs the `symbol_annotating_metadata` capability.
+    pub fn annotating_metadata(&self) -> Result<Vec<Symbol>, Error> {
+        self.connection().capabilities().require(
+            CAPABILITY_SYMBOL_ANNOTATING_METADATA,
+            upgrade_remedy(CAPABILITY_SYMBOL_ANNOTATING_METADATA),
+        )?;
+        self.fetch_symbols(&self.wire.annotating_metadata_ids)
+    }
+    fn fetch_symbols(&self, ids: &[String]) -> Result<Vec<Symbol>, Error> {
+        let mut children = Vec::with_capacity(ids.len());
+        for id in ids {
             match self
                 .connection()
                 .get_symbol(&self.model_hash, id, &SymbolOptions::default())

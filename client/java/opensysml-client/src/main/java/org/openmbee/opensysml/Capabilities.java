@@ -126,6 +126,9 @@ public final class Capabilities {
   /** {@code SymbolInfo} carries every member of a symbol, own and inherited, with its provenance. */
   public static final String SYMBOL_MEMBERS = "symbol_members";
 
+  /** {@code SymbolInfo} names the metadata usages annotating a symbol, {@code about} ones included. */
+  public static final String SYMBOL_ANNOTATING_METADATA = "symbol_annotating_metadata";
+
   /** The {@code GetElementProperties} RPC: an element's metamodel properties by their specification names. */
   public static final String ELEMENT_PROPERTIES = "element_properties";
 

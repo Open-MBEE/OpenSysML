@@ -1741,7 +1741,7 @@ class AppliedEdit(_message.Message):
     def __init__(self, operation_index: _Optional[int] = ..., target: _Optional[str] = ..., offset: _Optional[int] = ..., length: _Optional[int] = ..., old_text: _Optional[str] = ..., new_text: _Optional[str] = ..., document: _Optional[str] = ...) -> None: ...
 
 class SymbolInfo(_message.Message):
-    __slots__ = ("id", "name", "kind", "metadata", "child_ids", "attributes", "type_info", "multiplicity", "specializations", "withheld_library_attributes", "members", "withheld_library_members")
+    __slots__ = ("id", "name", "kind", "metadata", "child_ids", "attributes", "type_info", "multiplicity", "specializations", "withheld_library_attributes", "members", "withheld_library_members", "annotating_metadata_ids")
     class MetadataEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -1761,6 +1761,7 @@ class SymbolInfo(_message.Message):
     WITHHELD_LIBRARY_ATTRIBUTES_FIELD_NUMBER: _ClassVar[int]
     MEMBERS_FIELD_NUMBER: _ClassVar[int]
     WITHHELD_LIBRARY_MEMBERS_FIELD_NUMBER: _ClassVar[int]
+    ANNOTATING_METADATA_IDS_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     kind: str
@@ -1773,7 +1774,8 @@ class SymbolInfo(_message.Message):
     withheld_library_attributes: int
     members: _containers.RepeatedCompositeFieldContainer[MemberInfo]
     withheld_library_members: int
-    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., kind: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., child_ids: _Optional[_Iterable[str]] = ..., attributes: _Optional[_Iterable[_Union[AttributeInfo, _Mapping]]] = ..., type_info: _Optional[_Union[TypeInfo, _Mapping]] = ..., multiplicity: _Optional[_Union[MultiplicityInfo, _Mapping]] = ..., specializations: _Optional[_Iterable[_Union[Specialization, _Mapping]]] = ..., withheld_library_attributes: _Optional[int] = ..., members: _Optional[_Iterable[_Union[MemberInfo, _Mapping]]] = ..., withheld_library_members: _Optional[int] = ...) -> None: ...
+    annotating_metadata_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, id: _Optional[str] = ..., name: _Optional[str] = ..., kind: _Optional[str] = ..., metadata: _Optional[_Mapping[str, str]] = ..., child_ids: _Optional[_Iterable[str]] = ..., attributes: _Optional[_Iterable[_Union[AttributeInfo, _Mapping]]] = ..., type_info: _Optional[_Union[TypeInfo, _Mapping]] = ..., multiplicity: _Optional[_Union[MultiplicityInfo, _Mapping]] = ..., specializations: _Optional[_Iterable[_Union[Specialization, _Mapping]]] = ..., withheld_library_attributes: _Optional[int] = ..., members: _Optional[_Iterable[_Union[MemberInfo, _Mapping]]] = ..., withheld_library_members: _Optional[int] = ..., annotating_metadata_ids: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class MemberInfo(_message.Message):
     __slots__ = ("id", "name", "kind", "inherited", "inherited_from", "library")

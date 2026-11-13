@@ -170,6 +170,16 @@ redefinition masking what it redefines and a private member of a supertype left 
 inherited from standard-library content are withheld and counted in `withheldLibraryMembers`
 unless the request sets `includeLibraryMembers`, which lists them marked `library`. The
 `symbol_members` capability advertises the field; a service without it answers no `members`.
+`annotatingMetadataIds` names the metadata usages annotating the element, the inverse of KerML
+`AnnotatingElement::annotatedElement`: the ones it owns, written as a `#M` prefix or as `@M` /
+`metadata m : M` in its body, then the ones naming it in an `about` clause anywhere in the
+workspace (`metadata m : M about Pump;`), each group in declaration order. Each id answers
+`GetSymbol` with a `metadataUsage` whose `typeInfo` names the metadata definition and whose
+`attributes` carry the values the annotation binds. An `about` usage is an owned member of the
+namespace it is written in and owns its Annotation (KerML 8.3.2.3), so it is neither a child nor a
+member of what it annotates: `childIds` and `members` leave it out, and this field is where it is
+found. The `symbol_annotating_metadata` capability advertises the field; a service without it
+answers none.
 Beside the other typed fields (`typeInfo`, `multiplicity`, `specializations`, `attributes`),
 `metadata` is a string map of facts about the declaration, each present only when it holds:
 

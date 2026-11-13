@@ -315,3 +315,61 @@ fn library_members_are_listed_on_request() {
         .count();
     assert_eq!(library as i32, withheld.withheld_library_members());
 }
+
+const ANNOTATED: &str = r#"
+package D10 {
+    metadata def FailureMode { attribute severity : ScalarValues::Integer; }
+    #FailureMode part def PumpP;
+    part def PumpB { @FailureMode { severity = 3; } }
+    part def PumpA;
+    metadata pumpA_fm : FailureMode about PumpA { severity = 2; }
+}
+"#;
+
+#[test]
+fn a_symbol_names_the_metadata_usages_annotating_it() {
+    let Some(vehicles) = model_or_skip() else {
+        return;
+    };
+    let model = vehicles
+        .connection()
+        .parse_content(ANNOTATED, &Default::default())
+        .unwrap_or_else(|error| panic!("parse failed: {error}"));
+    let symbol = |id: &str| {
+        model
+            .symbol(id)
+            .unwrap_or_else(|error| panic!("symbol lookup failed: {error}"))
+    };
+    assert_eq!(
+        symbol("D10::PumpP").annotating_metadata_ids(),
+        ["D10::PumpP::@0"]
+    );
+    assert_eq!(
+        symbol("D10::PumpB").annotating_metadata_ids(),
+        ["D10::PumpB::@0"]
+    );
+    assert!(symbol("D10::pumpA_fm").annotating_metadata_ids().is_empty());
+
+    let pump = symbol("D10::PumpA");
+    assert!(pump.children().expect("children").is_empty());
+    let usages = pump.annotating_metadata().expect("annotating metadata");
+    assert_eq!(
+        usages.iter().map(|usage| usage.id()).collect::<Vec<_>>(),
+        ["D10::pumpA_fm"]
+    );
+    let usage = usages[0].wire();
+    assert_eq!(usage.kind, "metadataUsage");
+    assert_eq!(
+        usage
+            .type_info
+            .as_ref()
+            .map(|info| info.resolved_id.as_str()),
+        Some("D10::FailureMode")
+    );
+    let severity = &usage.attributes[0];
+    assert_eq!(severity.name, "severity");
+    assert_eq!(
+        severity.value.as_ref().and_then(|value| value.kind.clone()),
+        Some(opensysml::wire::value::Kind::IntValue(2))
+    );
+}

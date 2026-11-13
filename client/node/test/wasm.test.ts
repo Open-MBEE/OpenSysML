@@ -552,6 +552,7 @@ for (const thread of ["worker", "inline"] as const) {
       "render_document_html",
       "render_document_asciidoc",
       "render_document_file_name",
+      "symbol_annotating_metadata",
     ]);
 
     const wasmModel = await wasm.loads(SAMPLE);

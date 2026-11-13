@@ -1,0 +1,5 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "AboutMetadata",
+	"expected_annotating_metadata_ids": []
+}

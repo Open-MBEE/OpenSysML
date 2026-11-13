@@ -1,0 +1,23 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "AboutMetadata::pumpA_fm",
+	"expected_kind": "metadataUsage",
+	"expected_annotating_metadata_ids": [],
+	"expected_metadata": {
+		"type": "FailureMode"
+	},
+	"expected_attributes": {
+		"severity": {
+			"type": "Integer",
+			"value_kind": "int_value",
+			"value": 2
+		}
+	},
+	"expected_type_info": {
+		"declared": "FailureMode",
+		"resolved_id": "AboutMetadata::FailureMode",
+		"types": [
+			"AboutMetadata::FailureMode"
+		]
+	}
+}

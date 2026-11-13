@@ -2106,6 +2106,9 @@ message SymbolInfo {
   repeated MemberInfo members = 11;
   // Members inherited from standard-library content that `members` leaves out.
   int32 withheld_library_members = 12;
+  // Ids of the metadata usages annotating the element: its own prefix and body
+  // ones, then the `about` ones written elsewhere, which child_ids leaves out.
+  repeated string annotating_metadata_ids = 13;
 }
 
 // MemberInfo is one member of an element, own or inherited.

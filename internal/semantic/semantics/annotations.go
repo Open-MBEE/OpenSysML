@@ -37,6 +37,9 @@ type annotation struct {
 	defaults map[string][]symbols.FilterValue
 	// node states the annotation: the prefix-metadata node or metadata usage.
 	node ast.Node
+	// usage is the metadata usage node declares; nil where a record keeps a
+	// prefix annotation as a fact, with no symbol.
+	usage *symbols.Symbol
 	// span locates node, or the node a recorded annotation was written from.
 	span source.Span
 	// scope is where the annotating node is declared.
@@ -88,10 +91,37 @@ func (m *Model) annotationsOf(sym *symbols.Symbol) []annotation {
 // declaration stated, from the facts its record carries.
 func (m *Model) recordedAnnotations(sym *symbols.Symbol) []annotation {
 	var out []annotation
+	body := recordedBodyMetadata(sym)
 	for _, facts := range sym.Facts.Annotations {
 		a, ok := m.annotationFromFacts(facts, sym.OwnerScope)
 		if ok {
+			a.usage = body[facts.Span]
 			out = append(out, a)
+		}
+	}
+	return out
+}
+
+// recordedBodyMetadata locates the metadata usages in a recorded symbol's body
+// by span, the span its record states their annotation with.
+func recordedBodyMetadata(sym *symbols.Symbol) map[source.Span]*symbols.Symbol {
+	body := make(map[source.Span]*symbols.Symbol)
+	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
+		if member != nil && member.Kind == symbols.SymbolMetadataUsage {
+			body[member.DeclSpan] = member
+		}
+		return true
+	})
+	return body
+}
+
+// AnnotatingMetadataOf returns the metadata usages annotating sym (the inverse of
+// KerML 8.3.2.3.2 AnnotatingElement::annotatedElement), `about`-form ones last.
+func (m *Model) AnnotatingMetadataOf(sym *symbols.Symbol) []*symbols.Symbol {
+	var out []*symbols.Symbol
+	for _, a := range m.annotationsOf(sym) {
+		if a.usage != nil && !slices.Contains(out, a.usage) {
+			out = append(out, a.usage)
 		}
 	}
 	return out
@@ -402,6 +432,7 @@ func (m *Model) declaredAnnotations(sym *symbols.Symbol) []annotation {
 	var out []annotation
 	for _, p := range prefixes {
 		if a, ok := m.prefixAnnotation(scope, p); ok {
+			a.usage = sym.Scope.MemberDeclaring(p)
 			out = append(out, a)
 		}
 	}
@@ -416,6 +447,7 @@ func (m *Model) declaredAnnotations(sym *symbols.Symbol) []annotation {
 			continue
 		}
 		if a, ok := m.metadataAnnotation(memberScope(sym, scope), member); ok {
+			a.usage = sym.Scope.MemberDeclaring(member)
 			out = append(out, a)
 		}
 	}
@@ -695,7 +727,7 @@ func (m *Model) indexAboutUsage(sym *symbols.Symbol) {
 	if !ok {
 		return
 	}
-	a.about = true
+	a.about, a.usage = true, sym
 	m.indexAbout(a, m.annotatedElements(sym.OwnerScope, sym.Decl))
 }
 
@@ -709,7 +741,7 @@ func (m *Model) indexRecordedAboutUsage(sym *symbols.Symbol) {
 	if !ok {
 		return
 	}
-	a.about = true
+	a.about, a.usage = true, sym
 	var targets []aboutTarget
 	for _, target := range m.recordedElements(nil, sym.Facts.About) {
 		targets = append(targets, aboutTarget{sym: target})

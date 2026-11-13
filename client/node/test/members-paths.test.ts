@@ -141,6 +141,7 @@ test("a symbol from a service without symbol_members enumerates no members", asy
         withheldLibraryAttributes: 0,
         members: [],
         withheldLibraryMembers: 0,
+        annotatingMetadataIds: [],
       },
     };
   });

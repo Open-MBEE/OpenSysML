@@ -1,0 +1,10 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "AboutMetadata::PumpA",
+	"expected_kind": "partDef",
+	"expected_child_ids": [],
+	"expected_annotating_metadata_ids": [
+		"AboutMetadata::pumpA_fm",
+		"AboutMetadata::shared_fm"
+	]
+}

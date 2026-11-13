@@ -408,6 +408,7 @@ func symbolInfo(info *symbolfacts.Info) *JSymbolInfo {
 		ChildIds:                  info.ChildIds,
 		WithheldLibraryAttributes: info.WithheldLibraryAttributes,
 		WithheldLibraryMembers:    info.WithheldLibraryMembers,
+		AnnotatingMetadataIds:     info.AnnotatingMetadataIds,
 	}
 	for _, member := range info.Members {
 		out.Members = append(out.Members, &JMemberInfo{
