@@ -63,8 +63,7 @@ type Expr struct {
 	// Args are the operands of an operator, the elements of a sequence, an index's
 	// operand then index, and a chain's first operand.
 	Args []ExprID
-	// Ref is what an ExprRef names, the feature an ExprChain starts at when its
-	// operand is a name, and the type an ExprOp classifies or casts by.
+	// Ref is what an ExprRef names, and the type an ExprOp classifies or casts by.
 	Ref SymbolRef
 	// Path is the segments of an ExprRef written as a qualified name, each with
 	// the element the name reaches there; nil for a simple name.
