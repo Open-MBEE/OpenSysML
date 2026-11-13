@@ -262,6 +262,15 @@ so an action whose body is a single statement or a bound value carries no `actio
 compartment and no nested cluster. The node is the nested flow's frame: its own pins are the ones
 the flow's bindings attach to, and the flow's nodes take the IDs after it.
 
+A calculation drawn by an action rendering carries a `result` compartment (§8.2.3.19
+`result-compartment`) holding the result expression its own body states, as written (`x + y`;
+`behavior_forms.go` `resultCompartments`, `semantics.OwnedResultExpressions`), in every form: a
+row under the heading in the text form and in the node's label elsewhere. A calculation whose
+result is a bound return parameter (`return r = x + y;`), or its type's, states no result
+expression and has no such compartment. An action that declares no nodes is noted `declares no
+nodes`; a calculation is not, since it yields a result rather than a flow. The tree rendering
+lists a calculation's members and parameter pins and draws no `result` compartment.
+
 ### Action and state node forms
 
 The action nodes of §8.2.3.17 and the state nodes of §8.2.3.18 are drawn as their figures give
@@ -647,9 +656,10 @@ digraph "VehicleViews::vehicleView" {
   strip gives it. A flow at a pin is written between the pin nodes, `"n1.0" -> "n5.0"`, and
   carries no `out to in` text — the pins name what flows — but does carry the flow's own name
   when it has one that no migration made up (`Edge.Name`), at either end or both. An unplaced
-  plain node draws its pins as cells of an HTML-like table label instead, a
-  row of squares above the head for the inputs and below it for the outputs, and a flow ends at
-  the cell (`"n5":"n5.0"`). A pin is drawn with the square an interconnection's `port` usage is drawn
+  plain node draws its pins on its border too (`dotPinnedAttributes`, described under
+  *Interconnection ports*): a row of squares touching the box's top edge for the inputs and its
+  bottom edge for the outputs (§8.2.3.17 and §8.2.3.19 `param-t`, `param-b`), never cells within
+  the box, and a flow ends at the square (`"n5":"n5.0"`). A pin is drawn with the square an interconnection's `port` usage is drawn
   as (`isPortKind`, `dotSymbolAttributes`); it differs in being a `Port` of its node, not a node
   of the rendering, so a pin is never a detached `note` and never a node a flow ends beside. The
   frame's pins are set on the cluster's border as a positioned node's are (`writePins` on the
@@ -677,16 +687,19 @@ digraph "VehicleViews::vehicleView" {
   `PortsFull`, `portView`), the interconnection and mixed renderings (`Kind.SupportsPorts`); the node keeps
   every port, the form filtering what it draws. Under `minimal`, the default, a part draws the
   pins an edge of the rendering ends at (`Edge.FromPort`/`Edge.ToPort`) and no other, each named
-  alone: in DOT a plain node becomes a `shape=plain` HTML table whose body cell is the part's
-  box — a bordered inner table, rounded as the skin rounds, filled and penned in the node's own
-  colours, which an HTML table takes from its node — and whose row above or below it holds a
+  alone: in DOT a plain node becomes a `shape=plain, style=solid` HTML table whose body cell is
+  the part's box — a bordered inner table, rounded as the skin rounds, penned in the node's own
+  colour, which an HTML table takes from its node, and filled by its own `bgcolor` (`boxFill`:
+  the palette's, a `Style`'s or the skin's fill), so the fill stops at the box and does not
+  spread under the pins — and whose row above or below it holds a
   10 pt square cell per pin (`<td port="n1.0" border="1" fixedsize="true" width="10"
   height="10">`) on the box's outer edge with the name in 8 pt beside it (`dotPinnedAttributes`),
   a pin above when a connector reaches it and below when one leaves it; a positioned part keeps
   its separate pin squares, `xlabel`led by name alone. Graphviz draws a node as one shape, so
   the square touches the border rather than straddling it. A part none of whose ports is
   connected draws as a part without ports. Under `full` every port is drawn labelled
-  `name : Type`, as an action's pins always are: record cells or pinned squares in DOT — a port
+  `name : Type`, as an action's pins always are: the same squares on the box's edge, or pinned
+  squares on a positioned part, in DOT — a port
   no route meets sitting below its part when a connector leaves it and above when one reaches it
   (`portSide`), the way DOT ranks the edge's ends, where a pin's direction places it — `port
   "name : Type"` elements of the part's `rectangle` in PlantUML with the connector between them
