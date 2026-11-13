@@ -1,0 +1,1 @@
+- The WebAssembly gate's gzipped size budget for the browser REPL build of `sysml` (`-tags sysml_re`, the `sysml-prod.wasm.gz` a release ships) moves from 16,200,000 to 16,250,000 bytes: `develop` measures 16,196,566 under go1.27.4, and the semantics landing behind it reach 16,234,773. The raise lands no new code; the budgets of the other four WebAssembly profiles do not change.
