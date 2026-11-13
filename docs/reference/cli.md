@@ -930,7 +930,11 @@ visualizer, after Hisashi Miyashita's `sysmlbw` PlantUML skin: Helvetica text, w
 line, unfilled black-bordered clusters, and unnamed initial and final pseudo-states as the filled
 UML dot ([the translation](../project/view-rendering-forms.md#style)). Producing DOT needs no
 Graphviz installation; laying it out does, with the engine the `// layout:` header names
-(`dot -Tsvg view.dot`, or `neato -Tsvg view.dot` when the view states positions — below). A
+(`dot -Tsvg view.dot`, or `neato -Tsvg view.dot` when the view states positions — below). A typing
+edge is written `arrowhead=empty, class=definition`: Graphviz has no arrowhead for the two dots the
+notation sets beside the triangle's base, so `dot` alone draws the hollow triangle, and the drawings
+OpenSysML has Graphviz make — a rendered document, the language server's and the Jupyter kernel's —
+add the dots. A
 `sequence` view has no DOT counterpart and, like a `table`, is refused with status 2 when `dot`
 is forced.
 

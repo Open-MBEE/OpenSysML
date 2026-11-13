@@ -58,7 +58,7 @@ digraph "NotationGlyphs::Diagrams::mixedGlyphs" {
     }
     { rank=min; "frame_tr" [shape=none, margin=0, label=<<font point-size="10">expose LevelReq<br/>expose levelReq<br/>expose capacity<br/>expose bounded<br/>expose tight<br/>expose tankView<br/>expose Tank</font>>]; }
   }
-  "n2" -> "n0" [arrowhead=onormaldotdot, lhead="cluster_n0"];
+  "n2" -> "n0" [arrowhead=empty, class=definition, lhead="cluster_n0"];
   "n4" -> "n17" [label="«expose»", arrowhead=vee, style=dashed, lhead="cluster_n17"];
   "n0" -> "n15" [label="«require»", arrowhead=vee, ltail="cluster_n0"];
   "n0" -> "n16" [label="«assume»", arrowhead=vee, ltail="cluster_n0"];

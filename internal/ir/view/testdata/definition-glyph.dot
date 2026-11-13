@@ -1,0 +1,10 @@
+digraph {
+  node [shape=box];
+  edge [color="#181818"];
+  usage -> definition [arrowhead=empty, class=definition];
+  left -> definition [label="k", URL="#typing", tooltip="typing", arrowhead=empty, class=definition];
+  right -> definition [arrowhead=empty, class=definition, style=dashed, color="#ff000080", penwidth=3, arrowsize=2];
+  special -> definition [arrowhead=empty];
+  owner -> usage [dir=back, arrowtail=odiamond];
+  both -> definition [dir=both, arrowtail=odiamond, arrowhead=empty, class=definition];
+}

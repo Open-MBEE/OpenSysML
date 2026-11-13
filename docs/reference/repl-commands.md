@@ -579,7 +579,7 @@ digraph "Demo::summary" {
   "n4" -> "n5" [arrowhead=none];
   "n0" -> "n1" [dir=back, arrowtail=odiamond];
   "n0" -> "n2" [dir=back, arrowtail=diamond];
-  "n2" -> "n5" [arrowhead=onormaldotdot];
+  "n2" -> "n5" [arrowhead=empty, class=definition];
   "n2" -> "n3" [dir=back, arrowtail=odiamond];
   "n5" -> "n6" [dir=back, arrowtail=odiamond];
 }
