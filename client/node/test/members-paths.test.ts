@@ -58,7 +58,8 @@ test("a usage lists the members it inherits through its type", async () => {
 
   const full = await m.withLibraryMembers();
   assert.equal(full.withheldLibraryMembers, 0);
-  assert.deepEqual(full.members.slice(0, m.members.length), m.members);
+  // Inheritance order interleaves the library's members with the model's.
+  assert.deepEqual(full.members.filter((member) => !member.library), m.members);
   const library = full.members.filter((member) => member.library);
   assert.equal(library.length, m.withheldLibraryMembers);
   assert.ok(library.every((member) => member.inherited && member.inheritedFrom !== ""));
