@@ -120,9 +120,8 @@ func TestGRPCUnnamedMembersAreInheritedThroughTyping(t *testing.T) {
 	}
 }
 
-// The unnamed features a part definition inherits from the library are members
-// under unique positional ids of the declaring library type, resolvable by
-// GetSymbol, and counted as withheld when library members are not asked for.
+// Unnamed inherited library features are members under unique positional ids of the declaring
+// library type that GetSymbol resolves, and are counted as withheld when not asked for.
 func TestGRPCUnnamedLibraryMembersAreInheritedWithPositionalIDs(t *testing.T) {
 	srv, hash := parseUnnamedMembers(t)
 	base := unnamedMembersSymbol(t, srv, hash, "U::Base", true)
