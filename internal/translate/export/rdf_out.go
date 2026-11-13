@@ -2547,9 +2547,8 @@ func (e *encoder) typeTerm(typ *symbols.Symbol) rdf.Term {
 	return term
 }
 
-// connectorRelatedFeature states Connector::relatedFeature as the feature the end's ReferenceSubsetting references
-// (KerML 8.3.4.5.3; a chained end's chain Feature) and, unless the end is a flow's, the Relationship::relatedElement,
-// source and target the three redefine, as the pilot exports them.
+// connectorRelatedFeature states Connector::relatedFeature as the feature the end's ReferenceSubsetting references (KerML
+// 8.3.4.5.3; a chained end's chain Feature) and, unless the end is a flow's, the relatedElement, source and target it redefines.
 func (e *encoder) connectorRelatedFeature(subject, reference rdf.Term, index, ends int, related bool) {
 	if reference.Value == "" || !reference.IsIRI() {
 		return
