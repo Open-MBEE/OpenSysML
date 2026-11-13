@@ -495,7 +495,7 @@ func (m *Model) declaredTypes(sym *symbols.Symbol, seen map[*symbols.Symbol]bool
 	seen[sym] = true
 	var defs, features []*symbols.Symbol
 	bases := m.ImplicitGenerals(sym)
-	baseParam := m.implicitBaseParameter(sym)
+	baseParam := m.ImplicitBaseParameter(sym)
 	for _, super := range m.DirectSupertypes(sym) {
 		if alias, ok := m.resolver.ResolveAliasTarget(super); ok {
 			super = alias
@@ -517,26 +517,48 @@ func (m *Model) declaredTypes(sym *symbols.Symbol, seen map[*symbols.Symbol]bool
 	return defs
 }
 
-// implicitBaseParameter returns the parameter sym implicitly redefines in the
-// kind base of its owning behavior or step, or nil when there is none.
-func (m *Model) implicitBaseParameter(sym *symbols.Symbol) *symbols.Symbol {
+// ImplicitBaseParameter returns the parameter sym implicitly redefines in the
+// kind base of its owning behavior or step (`Evaluation::result` for a calc def's
+// return), or nil when there is none; its typing says nothing about sym's.
+func (m *Model) ImplicitBaseParameter(sym *symbols.Symbol) *symbols.Symbol {
 	if sym.OwnerScope == nil || sym.OwnerScope.Owner() == nil {
 		return nil
 	}
-	for _, base := range m.implicitBases(sym.OwnerScope.Owner()) {
-		params := m.parametersOf(base)
-		for _, redefined := range m.ImplicitParameterRedefinitions(sym) {
-			if redefined == params.result.sym {
-				return redefined
+	for _, redefined := range m.ImplicitParameterRedefinitions(sym) {
+		if m.kindBaseParameterOf(sym, redefined) {
+			return redefined
+		}
+	}
+	return nil
+}
+
+// kindBaseParameterOf reports whether param is a kind base's parameter (see
+// IsKindBaseParameter) of the behavior or step owning sym.
+func (m *Model) kindBaseParameterOf(sym, param *symbols.Symbol) bool {
+	return sym.OwnerScope != nil && m.IsKindBaseParameter(sym.OwnerScope.Owner(), param)
+}
+
+// IsKindBaseParameter reports whether param is a parameter of a behavior or step
+// owner, or a type it specializes, has as its kind's base (`Evaluation::result` for
+// a calc): what every behavior of the kind has, so it says nothing about owner's own.
+func (m *Model) IsKindBaseParameter(owner, param *symbols.Symbol) bool {
+	if owner == nil || param == nil {
+		return false
+	}
+	for _, typ := range append([]*symbols.Symbol{owner}, m.AllDeclaredSupertypes(owner)...) {
+		for _, base := range m.implicitBases(typ) {
+			params := m.parametersOf(base)
+			if param == params.result.sym {
+				return true
 			}
 			for _, p := range params.positional {
-				if redefined == p.sym {
-					return redefined
+				if param == p.sym {
+					return true
 				}
 			}
 		}
 	}
-	return nil
+	return false
 }
 
 // quantityConformance judges a magnitude paired with a measurement reference

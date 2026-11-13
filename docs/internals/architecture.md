@@ -78,8 +78,9 @@ github.com/Open-MBEE/OpenSysML
 │   │   ├── suggest/        # Name suggestions for unresolved references
 │   │   ├── semantics/      # Type system, conformance, multiplicity, invocation selection
 │   │   ├── identity/       # Element identities and the normative ids
+│   │   ├── naming/         # Qualified and positional (`Owner::@N`) names of declarations, shared by the export and the symbol facts
 │   │   ├── highlight/      # Semantic token classification
-│   │   └── query/          # The API element-query model and its OSLC prefix map
+│   │   └── query/          # Metamodel property names and the reflective PropertyReader the query surfaces share
 │   ├── ir/
 │   │   ├── lower/          # AST → execution IR (ActionGraph/StateGraph)
 │   │   ├── queryplan/      # Document-query definitions → immutable query plans
@@ -105,8 +106,10 @@ github.com/Open-MBEE/OpenSysML
 │   │   └── interop/        # Flexo MMS (interop/flexo) and repository sync (interop/reposync)
 │   ├── doc/
 │   │   ├── queryexec/      # Query plan execution → typed, ordered row sets
+│   │   ├── querytranslate/ # OSLC Query text and the API Query → query plans (the shared translator core)
 │   │   ├── docir/          # Document plan evaluation → backend-agnostic document tree
-│   │   ├── docrender/      # Markdown and HTML document backends
+│   │   ├── docrender/      # Markdown, HTML and AsciiDoc document backends
+│   │   ├── docset/         # One document of a model's set, end to end: plan, siblings, files, a backend's text (service, engine and workspace share it)
 │   │   └── docpdf/         # PDF document backend
 │   ├── workspace/
 │   │   ├── model/          # Workspace, document management
@@ -429,6 +432,7 @@ Parse + model all behavioral bodies with unified fallback grammar:
 - `trace.go` (154 lines) — Deterministic execution trace recorder
 - `eval.go` — Expression evaluation (binary/unary operators, literals, feature references, qualified names, type coercion)
 - Lowering to execution IR lives in `internal/ir/lower/` (`ToActionGraph`, `ToStateGraph`)
+- Graph-local record identity (`NodeID`, `StateID`, …, `Origin`, `GraphID`) is declared in `internal/ir/program/`, which reads no syntax; `lower` assigns it
 
 **Testing:**
 - **Golden ASTs**: `tests/parser/testdata/parse/` — count in [the measured counts](../project/spec-compliance.md)

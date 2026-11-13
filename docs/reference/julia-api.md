@@ -162,7 +162,11 @@ explore_state(model, "Demo::machine"; events=String[], engine=nothing)
 ```
 
 Engine, question, and schedule options are checked against their respective
-service capabilities before the RPC. A `Verdict` lists in `notes` what a solver's
+service capabilities before the RPC. An `Exploration` carries in `coverage` the
+`Coverage` of every run, not only each outcome's witness: the states entered and
+transitions taken as `CoverageEntry`s (`path` under the running instance,
+`declaration` under the machine, `runs` that did); `CheckSearch.coverage` carries
+the same over every schedule of a check. A `Verdict` lists in `notes` what a solver's
 answer rests on, each a `VerdictNote` (`kind` `"assumed_one"` or `"uncovered"`,
 `subject`, `text`), empty from a service without `verdict_notes`. `execute_action` and `execute_state` take
 the run options of the `sysml` command: `advance` (simulated seconds to run
@@ -181,6 +185,21 @@ what the parse answered. Sweep ranges may be one `Pair`, an
 ordered `AbstractVector` of pairs, or an `AbstractDict` with no more than one
 entry. Multi-entry dictionaries are rejected because iteration order is not a
 stable parameter order.
+
+## Element properties by specification name
+
+`element_properties(model, element, names...)` reads an element's metamodel properties
+by their KerML/SysML specification names (`inheritedFeature`, `connectorEnd`,
+`isComposite`, …), as the model's api-json export spells them; with no names it reads
+every property the element form carries. The element is a qualified name, the positional
+id of an unnamed member (`Owner::@2`) or the id an earlier answer carried. The answer is an
+`ElementProperties` — its `element` (an `ElementIdentity`: `id`, `qualified_name`,
+`metaclass`) and its `ElementProperty` records by name (`read["inheritedFeature"]`), each
+with `defining_class`, `many`, `derived`, `values` (an `ElementIdentity`, a `String`, a
+`Bool`, an `Int64`, a `Float64` or the decimal text of a wider number) and `unsupported`,
+the reason when the property has no answer. `property_elements`, `property_value` and
+`is_answered` read one record. Requires the `element_properties` capability
+(`CAPABILITY_ELEMENT_PROPERTIES`); a service without it is refused before the call.
 
 ## Queries, documents, and conversion
 

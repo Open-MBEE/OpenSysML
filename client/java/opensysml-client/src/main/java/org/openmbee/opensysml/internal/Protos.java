@@ -15,16 +15,21 @@ import org.openmbee.opensysml.DocumentQueryResult;
 import org.openmbee.opensysml.DocumentRow;
 import org.openmbee.opensysml.DocumentValue;
 import org.openmbee.opensysml.Edit;
+import org.openmbee.opensysml.ElementProperties;
+import org.openmbee.opensysml.ElementRef;
 import org.openmbee.opensysml.EditFailure;
 import org.openmbee.opensysml.EditResult;
 import org.openmbee.opensysml.EditedDocument;
 import org.openmbee.opensysml.EngineInfo;
 import org.openmbee.opensysml.EnumLiteral;
+import org.openmbee.opensysml.Coverage;
 import org.openmbee.opensysml.Exploration;
 import org.openmbee.opensysml.FailureReason;
 import org.openmbee.opensysml.Instance;
+import org.openmbee.opensysml.InstancePaths;
 import org.openmbee.opensysml.Instantiation;
 import org.openmbee.opensysml.Migration;
+import org.openmbee.opensysml.QueryOutcome;
 import org.openmbee.opensysml.MigrationEntry;
 import org.openmbee.opensysml.MigrationReport;
 import org.openmbee.opensysml.Outcome;
@@ -87,7 +92,15 @@ import org.openmbee.opensysml.ImportedValue;
 import org.openmbee.opensysml.ObservableComparison;
 import org.openmbee.opensysml.StatisticDifference;
 import org.openmbee.opensysml.proto.CompareResultsResponse;
+import org.openmbee.opensysml.proto.ElementProperty;
+import org.openmbee.opensysml.proto.ElementPropertyValue;
+import org.openmbee.opensysml.proto.GetElementPropertiesResponse;
 import org.openmbee.opensysml.proto.ImportDataResponse;
+import org.openmbee.opensysml.proto.InstancePath;
+import org.openmbee.opensysml.proto.InstancePathStep;
+import org.openmbee.opensysml.proto.InstancePathsResponse;
+import org.openmbee.opensysml.proto.InstanceReach;
+import org.openmbee.opensysml.proto.MemberInfo;
 import java.util.OptionalLong;
 import org.openmbee.opensysml.proto.RunSweepResponse;
 import org.openmbee.opensysml.proto.SelfCheckResponse;
@@ -478,6 +491,17 @@ public final class Protos {
               present(specialization.getTargetId()),
               present(specialization.getTargetKind())));
     }
+    List<Symbol.Member> members = new ArrayList<>(symbol.getMembersCount());
+    for (MemberInfo member : symbol.getMembersList()) {
+      members.add(
+          new Symbol.Member(
+              member.getId(),
+              member.getName(),
+              member.getKind(),
+              member.getInherited(),
+              present(member.getInheritedFrom()),
+              member.getLibrary()));
+    }
     return new Symbol(
         symbol.getId(),
         symbol.getName(),
@@ -490,7 +514,79 @@ public final class Protos {
             ? Optional.of(multiplicity(symbol.getMultiplicity()))
             : Optional.empty(),
         specializations,
-        symbol.getWithheldLibraryAttributes());
+        symbol.getWithheldLibraryAttributes(),
+        members,
+        symbol.getWithheldLibraryMembers());
+  }
+
+  /**
+   * An element's metamodel properties.
+   *
+   * @param response the generated answer
+   * @return the immutable read
+   */
+  public static ElementProperties elementProperties(GetElementPropertiesResponse response) {
+    List<ElementProperties.Property> properties = new ArrayList<>(response.getPropertiesCount());
+    for (ElementProperty property : response.getPropertiesList()) {
+      List<ElementProperties.PropertyValue> values = new ArrayList<>(property.getValuesCount());
+      for (ElementPropertyValue value : property.getValuesList()) {
+        values.add(propertyValue(value));
+      }
+      properties.add(
+          new ElementProperties.Property(
+              property.getName(),
+              property.getDefiningClass(),
+              property.getMany(),
+              property.getDerived(),
+              values,
+              present(property.getUnsupported())));
+    }
+    return new ElementProperties(elementRef(response.getElement()), properties);
+  }
+
+  private static ElementRef elementRef(org.openmbee.opensysml.proto.ElementRef reference) {
+    return new ElementRef(reference.getId(), reference.getQualifiedName(), reference.getMetaclass());
+  }
+
+  private static ElementProperties.PropertyValue propertyValue(ElementPropertyValue value) {
+    return switch (value.getValueCase()) {
+      case ELEMENT -> new ElementProperties.PropertyValue.Element(elementRef(value.getElement()));
+      case STRING_VALUE -> new ElementProperties.PropertyValue.Text(value.getStringValue());
+      case BOOL_VALUE -> new ElementProperties.PropertyValue.Bool(value.getBoolValue());
+      case INT_VALUE -> new ElementProperties.PropertyValue.Integer(value.getIntValue());
+      case REAL_VALUE -> new ElementProperties.PropertyValue.Real(value.getRealValue());
+      case NUMBER -> new ElementProperties.PropertyValue.Number(value.getNumber());
+      case VALUE_NOT_SET ->
+          throw new IllegalArgumentException("an ElementPropertyValue with no value");
+    };
+  }
+
+  /**
+   * Every path to one object.
+   *
+   * @param response the generated answer
+   * @return the immutable paths
+   */
+  public static InstancePaths instancePaths(InstancePathsResponse response) {
+    List<InstancePaths.Path> paths = new ArrayList<>(response.getPathsCount());
+    for (InstancePath path : response.getPathsList()) {
+      List<InstancePaths.Step> steps = new ArrayList<>(path.getStepsCount());
+      for (InstancePathStep step : path.getStepsList()) {
+        steps.add(
+            new InstancePaths.Step(
+                step.getFeatureName(),
+                step.getFeatureSymbolId(),
+                step.getIndex(),
+                step.getInstanceId()));
+      }
+      paths.add(
+          new InstancePaths.Path(
+              path.getRoot().getInstanceId(),
+              present(path.getRoot().getSymbolId()),
+              path.getPath(),
+              steps));
+    }
+    return new InstancePaths(paths, response.getTruncated());
   }
 
   private static Symbol.TypeFacts typeFacts(TypeInfo typeInfo) {
@@ -501,7 +597,10 @@ public final class Protos {
         present(typeInfo.getPrimitive()),
         present(typeInfo.getPrimitiveSource()),
         typeInfo.getQuantity(),
-        present(typeInfo.getUnit()));
+        present(typeInfo.getUnit()),
+        typeInfo.getTypesList().stream()
+            .map(ref -> new Symbol.TypeRef(ref.getId(), present(ref.getKind())))
+            .toList());
   }
 
   private static Symbol.Multiplicity multiplicity(MultiplicityInfo multiplicity) {
@@ -534,7 +633,19 @@ public final class Protos {
               featureValue.getMaterialized(),
               present(featureValue.getError())));
     }
-    return new Instance(instance.getId(), instance.getTypeSymbolId(), featureValues);
+    Optional<Instance.Reach> reachedBy = Optional.empty();
+    if (instance.hasReachedBy()) {
+      InstanceReach reach = instance.getReachedBy();
+      reachedBy =
+          Optional.of(
+              new Instance.Reach(
+                  reach.getInstanceId(),
+                  reach.getFeatureName(),
+                  reach.getFeatureSymbolId(),
+                  reach.getIndex(),
+                  reach.getPath()));
+    }
+    return new Instance(instance.getId(), instance.getTypeSymbolId(), featureValues, reachedBy);
   }
 
   /**
@@ -985,7 +1096,27 @@ public final class Protos {
         s.getMassBounded(),
         s.getNotesList(),
         s.getScopeList(),
-        s.getStatus());
+        s.getStatus(),
+        s.hasCoverage() ? coverage(s.getCoverage()) : Coverage.NONE);
+  }
+
+  /**
+   * The states entered and transitions taken across every run or schedule.
+   *
+   * @param c the generated coverage
+   * @return the immutable coverage
+   */
+  public static Coverage coverage(org.openmbee.opensysml.proto.Coverage c) {
+    return new Coverage(coverageEntries(c.getStatesList()), coverageEntries(c.getTransitionsList()));
+  }
+
+  private static List<Coverage.Entry> coverageEntries(
+      List<org.openmbee.opensysml.proto.CoverageEntry> entries) {
+    List<Coverage.Entry> out = new ArrayList<>(entries.size());
+    for (org.openmbee.opensysml.proto.CoverageEntry e : entries) {
+      out.add(new Coverage.Entry(e.getPath(), e.getDeclaration(), e.getRuns()));
+    }
+    return out;
   }
 
   private static CheckResult.Witness checkWitness(org.openmbee.opensysml.proto.CheckWitness w) {
@@ -1393,7 +1524,8 @@ public final class Protos {
         status.getRunsBudget(),
         status.getDepthBudget(),
         status.getFailedLinearizations(),
-        status.getProbabilitiesLowerBound());
+        status.getProbabilitiesLowerBound(),
+        status.hasCoverage() ? coverage(status.getCoverage()) : Coverage.NONE);
   }
 
   /**
@@ -2324,6 +2456,63 @@ public final class Protos {
    * @param response the generated answer
    * @return the immutable result
    */
+  /**
+   * The public form of a failed query's outcome.
+   *
+   * @param outcome the wire message
+   * @return the outcome
+   */
+  public static QueryOutcome queryOutcome(org.openmbee.opensysml.proto.QueryOutcome outcome) {
+    List<QueryOutcome.Finding> findings = new ArrayList<>(outcome.getFindingsCount());
+    for (org.openmbee.opensysml.proto.QueryFinding finding : outcome.getFindingsList()) {
+      findings.add(
+          new QueryOutcome.Finding(
+              finding.getStep(),
+              finding.getElement(),
+              finding.getConstraint(),
+              finding.getObserved()));
+    }
+    return new QueryOutcome(
+        outcome.getKind(),
+        outcome.getStep(),
+        queryFailures(outcome.getFailuresList()),
+        findings,
+        queryFailures(outcome.getPathFailuresList()),
+        outcome.getFailuresTotal(),
+        outcome.getFindingsTotal(),
+        outcome.getPathFailuresTotal());
+  }
+
+  private static List<QueryOutcome.Failure> queryFailures(
+      List<org.openmbee.opensysml.proto.QueryFailure> failures) {
+    List<QueryOutcome.Failure> out = new ArrayList<>(failures.size());
+    for (org.openmbee.opensysml.proto.QueryFailure failure : failures) {
+      org.openmbee.opensysml.proto.QueryFrontier frontier = failure.getFrontier();
+      List<QueryOutcome.Frontier.Member> members = new ArrayList<>(frontier.getMembersCount());
+      for (org.openmbee.opensysml.proto.QueryFrontierMember member : frontier.getMembersList()) {
+        members.add(new QueryOutcome.Frontier.Member(member.getName(), member.getMetaclass()));
+      }
+      List<QueryOutcome.Frontier.Feature> features = new ArrayList<>(frontier.getFeaturesCount());
+      for (org.openmbee.opensysml.proto.QueryFrontierFeature feature : frontier.getFeaturesList()) {
+        features.add(new QueryOutcome.Frontier.Feature(feature.getName(), feature.getType()));
+      }
+      out.add(
+          new QueryOutcome.Failure(
+              failure.getStep(),
+              failure.getExpected(),
+              new QueryOutcome.Frontier(
+                  frontier.getAt(),
+                  members,
+                  features,
+                  frontier.getKindsList(),
+                  frontier.getNearest(),
+                  frontier.getMembersTotal(),
+                  frontier.getFeaturesTotal(),
+                  frontier.getKindsTotal())));
+    }
+    return out;
+  }
+
   public static DocumentQueryResult documentQueryResult(RunDocumentQueryResponse response) {
     List<String> columns = new ArrayList<>(response.getColumnsCount());
     for (org.openmbee.opensysml.proto.DocumentQueryColumn column : response.getColumnsList()) {

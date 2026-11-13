@@ -989,4 +989,6 @@ editor: send `initialize`, then `textDocument/didOpen`, then:
 ```
 
 The VS Code extension's diagram panel is the reference client; see
-[the editors guide](../guide/08-editors.md#the-diagram-panel).
+[the editors guide](../guide/08-editors.md#the-diagram-panel). The Emacs package's
+view buffer is a second one, drawing the `nodes`, `edges` and `rows` as text rather
+than the artifact — see [the editors guide](../guide/08-editors.md#emacs).

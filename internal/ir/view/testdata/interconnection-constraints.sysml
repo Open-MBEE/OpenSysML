@@ -16,7 +16,8 @@ package Parametrics {
 	}
 
 	// Two constraint usages bound to the owner's attributes and to each other;
-	// mix declares a parameter of its own beside those of its def.
+	// mix declares a parameter of its own beside those of its def, which it restates
+	// by clause first: an own parameter redefines the def's at its position (KerML 8.4.4.6).
 	part def Amplifier {
 		attribute signal : Real;
 		attribute gain : Real;
@@ -25,6 +26,9 @@ package Parametrics {
 
 		constraint amplify : Amplify;
 		constraint mix : Mix {
+			in :>> a;
+			in :>> b;
+			out :>> total;
 			in attribute weight : Real;
 		}
 

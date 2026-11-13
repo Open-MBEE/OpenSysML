@@ -24,8 +24,8 @@ n5: "«calc»\nsum" {
 }
 n6: "«calc»\nscaled" {
   class: usage
-  "n6.0": "in factor" { class: pin }
-  "n6.1": "in ^x" { class: pin }
+  "n6.0": "in ^x" { class: pin }
+  "n6.1": "in factor" { class: pin }
   "n6.2": "inout ^count" { class: pin }
   "n6.3": "out ^doubled" { class: pin }
   "n6.4": "out ^r" { class: pin }

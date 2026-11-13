@@ -296,7 +296,25 @@ the identity pass at must be the tier `identity.MetadataPass` declares. So is th
 document path: the converters it lists are compared against `docpdf.Engines()` and the
 library it names must exist, and the architecture document must render with its tables
 filled — a query that stops binding, or an embedded view that is renamed, fails the test
-rather than silently dropping a section.
+rather than silently dropping a section. The surfaces the toolchain gained are read back in
+[`../self_model_surfaces2_test.go`](../self_model_surfaces2_test.go): the service's `-host`,
+token and `-allow-*` flags against `cmd/sysml-grpc`'s flag table, its token variable against
+the constant the command reads and its call logging against the access interceptor; the
+language server's notebook synchronization against its `initialize` result, its cell
+languages and settings keys against the constants the server declares, and its
+`-keep-line-breaks` and `-strict` flags against `cmd/sysml-lsp`; the rendering forms against
+`view.Forms()`, `view.DiagramForms()` and `view.ViewForms()`, with the draw.io form the one
+the CLI verb, the LSP request and the MCP tool read back; every CLI verb against a flag
+`cmd/sysml` defines and an invocation its usage shows; project discovery against
+`project.ProjectFile`, `project.LibraryRootsEnvVar` and the well-known library directories
+`project.IsLibraryDir` accepts; each client's token option and variable against its
+connection code; the Emacs package's files, modes, lsp-mode client and Make targets, the
+Tree-sitter editors against the guide's section, and the two MDK plugins against their
+`pom.xml`; the MCP npm package against its `package.json` and README; and the oracles the
+model gained — the API-JSON and structure differentials, the Flexo gate, the four censuses
+and the specification-examples gate — against the baseline paths, gate variables and test
+names their tools declare, with the compliance map's combined page checked to be gitignored
+rather than tracked.
 
 What that cannot do is re-verify behaviour: the invariants are conditions over the model's
 own attributes, so they catch a claim edited out of agreement with itself or with the

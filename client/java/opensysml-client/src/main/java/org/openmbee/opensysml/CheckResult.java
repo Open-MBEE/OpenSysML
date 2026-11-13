@@ -183,6 +183,7 @@ public record CheckResult(
    * @param notes what the search notes about its scope
    * @param scope the scope the search ran over
    * @param status the search's status as the report prints it
+   * @param coverage the states entered and transitions taken across every schedule
    */
   public record Search(
       int states,
@@ -194,13 +195,15 @@ public record CheckResult(
       boolean massBounded,
       List<String> notes,
       List<String> scope,
-      String status) {
+      String status,
+      Coverage coverage) {
     /** Creates search statistics; every list is copied. */
     public Search {
       boundsHit = List.copyOf(boundsHit);
       notes = List.copyOf(notes);
       scope = List.copyOf(scope);
       Objects.requireNonNull(status, "status");
+      Objects.requireNonNull(coverage, "coverage");
     }
   }
 }

@@ -7,7 +7,7 @@
     "actors": {"type": "Sequence", "elements": []},
     "stakeholders": {"type": "Sequence", "elements": []},
     "assumptions": {"type": "Sequence", "elements": []},
-    "constraints": {"type": "Sequence", "elements": []},
+    "constraints": {"type": "Sequence", "elements": [{"type": "Instance"}]},
     "subj": {"error": "uninitialized feature value: subj"},
     "result": {"type": "Undetermined", "value": "[1]"},
     "requirement": {"error": "MassLimit has no member requirement"},

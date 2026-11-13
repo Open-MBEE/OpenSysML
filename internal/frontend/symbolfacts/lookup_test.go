@@ -41,7 +41,7 @@ func modelWithLibrary(t *testing.T, text string) (*symbols.Index, *Context) {
 	idx.ExpandWildcardImports()
 	sc := NewContext(idx)
 	sc.Positional = NewPositional(idx, func() []PositionalDocument {
-		return []PositionalDocument{{File: file, Root: idx.DocumentRoot("model.sysml")}}
+		return []PositionalDocument{{File: file, Root: root, Scope: idx.DocumentRoot("model.sysml")}}
 	})
 	return idx, sc
 }
@@ -106,5 +106,19 @@ package Demo {
 	// either Part for it.
 	if sym, fqn := MemberChain(idx, sc.Semantics, "Demo::Part::run"); sym != nil {
 		t.Errorf("MemberChain resolved Demo::Part::run through the package to %q", fqn)
+	}
+}
+
+// A return named by the parameter its position redefines is looked up under its
+// qualified name in either spelling: the unquoted one Identity answers or the quoted one.
+func TestLookupFindsAPositionallyNamedReturnInEitherSpelling(t *testing.T) {
+	_, sc := modelWithLibrary(t, "package M;")
+	plain := sc.Lookup("BaseFunctions::@::result")
+	if len(plain) != 1 || sc.Identity(plain[0]) != "BaseFunctions::@::result" {
+		t.Fatalf("Lookup(BaseFunctions::@::result) = %v, want the return of @", plain)
+	}
+	quoted := sc.Lookup("BaseFunctions::'@'::result")
+	if len(quoted) != 1 || quoted[0] != plain[0] {
+		t.Fatalf("Lookup(BaseFunctions::'@'::result) = %v, want the same return", quoted)
 	}
 }

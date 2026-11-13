@@ -134,8 +134,9 @@ python -m pypi_attestations verify pypi --repository https://github.com/Open-MBE
   pypi:opensysml-<x.y.z>-py3-none-any.whl
 ```
 
-The `nightly` snapshots on PyPI (`<next>.dev<yyyymmdd>` versions) have carried the same
-attestation, from the nightly workflow, since the first one. **v0.10.0, v0.10.1 and v0.11.0
+The `nightly` snapshots on PyPI (`<next>.dev<yyyymmdd>` versions) have carried an
+attestation since the first one — from the nightly workflow at first, and since it hands
+its distributions to `release-pypi.yml`, the same one a release carries. **v0.10.0, v0.10.1 and v0.11.0
 of both packages do not**: they were uploaded by a CircleCI job with an API token, which PyPI
 cannot attest, and PyPI marks each of them *Loss of provenance* against the attested
 snapshot before it. That was the publishing path of the time, not a compromise; the files
@@ -222,8 +223,9 @@ address other machines can reach:
   one port, TLS 1.2 or later; it encrypts the connection and proves the server, not the client.
   [Service transports](../reference/service-transports.md) is the reference, including the
   browser-origin allow-list, which is not authentication either.
-- **`sysml-mcp` requires a bearer token** on a non-loopback address — `-token-file`, `-token`
-  or `OPENSYSML_MCP_TOKEN` — and refuses to start without one; every request must carry it.
+- **`sysml-mcp` requires a credential** on a non-loopback address — a bearer token (`-token-file`,
+  `-token` or `OPENSYSML_MCP_TOKEN`), a file of API keys (`-api-keys`) or both — and refuses to
+  start without one; every request must carry a token or a key.
   See [`sysml-mcp` § Transports](../reference/sysml-mcp.md#transports).
 - A crafted model, project file, import or query must never execute or disclose anything on
   the host; a case where one does is in scope above, and a denial of service against a served

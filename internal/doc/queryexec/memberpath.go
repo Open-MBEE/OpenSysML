@@ -57,7 +57,7 @@ func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]V
 				member = m
 			}
 		} else {
-			found, ok, err = e.reflectiveValues(queryplan.Expression{}, current, last)
+			found, ok, err = e.metaclassSegmentValues(current, last)
 			if err != nil {
 				return nil, false, nil, err
 			}
@@ -71,6 +71,18 @@ func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]V
 		return nil, false, nil, nil
 	}
 	return values, true, member, nil
+}
+
+// metaclassSegmentValues reads a last segment with no declared value: the metaclass property a
+// valueless member yields to, else, where no member bears the name, the metaclass feature itself.
+func (e *executor) metaclassSegmentValues(current *symbols.Symbol, last string) ([]Value, bool, error) {
+	if e.valuelessMemberYieldsMetaclassProperty(current, last) {
+		return e.metaclassPropertyValues(current, last)
+	}
+	if member, ok := e.context.Model.LookupMember(current, last); ok && member != nil {
+		return nil, false, nil
+	}
+	return e.reflectiveValues(queryplan.Expression{}, current, last)
 }
 
 // memberPathStop walks a member path as memberPathValues does and reports where

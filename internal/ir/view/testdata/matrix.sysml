@@ -61,6 +61,7 @@ package MatrixViews {
 
 	view def AllRelations :> GridView {
 		filter @SysML::SatisfyRequirementUsage or
+			@SysML::RequirementUsage or
 			@SysML::VerificationCaseUsage or
 			@SysML::AllocationUsage or
 			@SysML::ConnectionUsage or

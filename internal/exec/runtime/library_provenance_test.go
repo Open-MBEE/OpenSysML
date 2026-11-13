@@ -3,6 +3,7 @@ package runtime
 import (
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -94,7 +95,7 @@ func TestCalcChainLeavesOutLibraryDeclaredLinks(t *testing.T) {
 	}
 }`)
 
-	chain := ctx.calcChain(lookupOne(t, idx, "M::Double"))
+	chain := lower.CalcChain(lookupOne(t, idx, "M::Double"), ctx.calcEnv())
 	if len(chain) != 1 || symbols.FQNOf(chain[0]) != "M::Double" {
 		t.Fatalf("calcChain(M::Double) = %v, want the model's calc alone", chain)
 	}

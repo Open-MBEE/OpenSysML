@@ -3,17 +3,21 @@ package export
 import (
 	"flag"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/metamodel"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/corpussubset"
 )
 
 // structureDifferential compares, for one model, every served property of every
@@ -175,10 +179,14 @@ func TestSymbolStructureMatchesGraphStructure(t *testing.T) {
 		}
 		defer dump.Close()
 	}
+	subset := corpussubset.Must(t, "../../..")
 	totals := map[string]*structureDifferentialTotals{}
 	samples := map[string][]string{}
 	for _, path := range corpusModelPaths(t) {
 		if filter != "" && !strings.Contains(filepath.ToSlash(path), filter) {
+			continue
+		}
+		if !subset.WantsPath("examples", path) {
 			continue
 		}
 		root := structureDifferentialRoot(path)
@@ -232,6 +240,9 @@ func TestSymbolStructureMatchesGraphStructure(t *testing.T) {
 		return
 	}
 	if *updateStructureDifferential {
+		if err := subset.Recording("-update-structure-differential"); err != nil {
+			t.Fatal(err)
+		}
 		recordStructureDifferential(t, totals)
 		return
 	}
@@ -247,12 +258,61 @@ func TestSymbolStructureMatchesGraphStructure(t *testing.T) {
 			t.Errorf("%s has no recorded expectation; run with -update-structure-differential and review:\n%s", root.name, got)
 			continue
 		}
+		if !subset.Whole() {
+			// A subset's disagreements are a part of the whole corpus's: each count
+			// is bounded by the recorded one, and a new property must not disagree.
+			if exceeded := structureDifferentialExceeds(t, total, want); len(exceeded) > 0 {
+				t.Errorf("%s disagrees more under %s=%s than %s records for the whole corpus (review, then re-record without the variable):\n%s",
+					root.name, corpussubset.EnvVar, subset.Name(), structureDifferentialExpectation, strings.Join(exceeded, "\n"))
+			}
+			continue
+		}
 		if got == want {
 			continue
 		}
 		t.Errorf("%s moved against %s (review, then re-record with -update-structure-differential):\n%s",
 			root.name, structureDifferentialExpectation, structureDifferentialDelta(want, got, samples))
 	}
+}
+
+// structureDifferentialExceeds lists the counts of a partial sweep that exceed the
+// root's recorded block; a property the block omits is recorded as all equal.
+func structureDifferentialExceeds(t *testing.T, total *structureDifferentialTotals, block string) []string {
+	t.Helper()
+	recorded := map[string]differentialCounts{}
+	var unmatched int
+	for _, line := range strings.Split(block, "\n") {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		if strings.HasPrefix(line, "root ") {
+			var models, skipped, matched int
+			if _, err := fmt.Sscanf(line[strings.LastIndex(line, ":")+1:], " models %d, skipped %d, matched %d, unmatched %d",
+				&models, &skipped, &matched, &unmatched); err != nil {
+				t.Fatalf("%s: unreadable root line %q: %v", structureDifferentialExpectation, line, err)
+			}
+			continue
+		}
+		property, rest, _ := strings.Cut(strings.TrimSpace(line), ": ")
+		var counts differentialCounts
+		if _, err := fmt.Sscanf(rest, "equal %d, different %d, symbol-missing %d, symbol-extra %d",
+			&counts.equal, &counts.different, &counts.missing, &counts.extra); err != nil {
+			t.Fatalf("%s: unreadable property line %q: %v", structureDifferentialExpectation, line, err)
+		}
+		recorded[property] = counts
+	}
+	var exceeded []string
+	if total.unmatched > unmatched {
+		exceeded = append(exceeded, fmt.Sprintf("  unmatched %d, recorded %d", total.unmatched, unmatched))
+	}
+	for _, property := range slices.Sorted(maps.Keys(total.properties)) {
+		got, want := total.properties[property], recorded[property]
+		if got.different > want.different || got.missing > want.missing || got.extra > want.extra {
+			exceeded = append(exceeded, fmt.Sprintf("  %s: different %d, symbol-missing %d, symbol-extra %d; recorded %d, %d, %d",
+				property, got.different, got.missing, got.extra, want.different, want.missing, want.extra))
+		}
+	}
+	return exceeded
 }
 
 // recordStructureDifferential rewrites the expectation, keeping the blocks of
@@ -428,6 +488,26 @@ func (d *structureDifferential) computeGraphID(sym *symbols.Symbol) (string, boo
 	case sym.Expr != nil:
 		return d.expressionGraphID(sym)
 	}
+	// A body's parameter declares no node of its own: its symbol is keyed by the
+	// body, which the conversion writes as the reference the parameter is in<i> of.
+	if body, ok := sym.Decl.(*ast.BodyExpr); ok && sym.Name != "" {
+		element, _, ok := d.ids.OfBodyParameter(d.doc, body, sym.Name)
+		return element, ok
+	}
+	// A chained end's target is the chain Feature its ReferenceSubsetting owns, minted
+	// off the end (chainFeature), which the chain's own node is not written as.
+	if sym.Kind == symbols.SymbolReferenceUsage && sym.OwnerScope != nil {
+		if end, ok := sym.OwnerScope.Node().(*ast.ConnectorEnd); ok && end.AttachedTarget() == sym.Decl {
+			element, _, ok := d.ids.OfExpressionPart(d.doc, end, "chain")
+			return element, ok
+		}
+	}
+	if i, ok := symbols.ImpliedSuccessionEndIndex(sym); ok {
+		// A `then` succession's end is minted under the edge at end0/end1 (encodeSuccessionEdge).
+		implied, _ := symbols.ImpliedDeclOf(sym)
+		element, _, ok := d.ids.OfExpressionPart(d.doc, implied.Of, fmt.Sprintf("end%d", i))
+		return element, ok
+	}
 	if implied, ok := symbols.ImpliedDeclOf(sym); ok && implied.Form == symbols.ImpliedDefaultMultiplicity {
 		if element, _, ok := d.ids.OfExpressionPart(d.doc, implied.Of, "multiplicity"); ok {
 			return element, true
@@ -467,7 +547,20 @@ func (d *structureDifferential) implicitGraphID(rel *symbols.ImplicitRelationshi
 		return d.ids.RelationshipOf(d.doc, rel.Node)
 	case symbols.ImplicitImport:
 		return d.ids.OfDeclaration(d.doc, rel.Decl, "")
+	case symbols.ImplicitAnnotatingRelationship:
+		if rel.Owner == nil {
+			return "", false
+		}
+		node := ast.AboutClauseNode(rel.Owner.Decl, rel.Ordinal)
+		if node == nil {
+			return "", false
+		}
+		return d.ids.RelationshipOf(d.doc, node)
 	case symbols.ImplicitReferenceMembership:
+		if rel.Decl != nil {
+			// A `first x;` marker's Membership is minted from the marker itself.
+			return d.ids.OfDeclaration(d.doc, rel.Decl, "")
+		}
 		if rel.Owner == nil || rel.Slot == "" {
 			return "", false
 		}
@@ -481,6 +574,11 @@ func (d *structureDifferential) implicitGraphID(rel *symbols.ImplicitRelationshi
 			return "", false
 		}
 		return d.expressionPartID(rel.Owner, rel.Slot)
+	case symbols.ImplicitSuccessionEndReference:
+		if rel.Owner == nil {
+			return "", false
+		}
+		return d.expressionPartID(rel.Owner, "rs")
 	}
 	return "", false
 }
@@ -511,6 +609,29 @@ func (d *structureDifferential) expressionGraphID(sym *symbols.Symbol) (string, 
 		return d.expressionPartID(owner.Expr.Owner, "a0")
 	case symbols.ExpressionChainFeature:
 		return d.expressionPartID(owner, sym.Expr.Slot)
+	case symbols.ExpressionPayload:
+		// A send's argument parameter is written as the send's unnamed member at
+		// its argument position (encodeSendArguments: qualify(fqn, "", i)).
+		if owner.Kind == symbols.SymbolSendActionUsage {
+			base, ok := d.graphID(owner)
+			if !ok {
+				return "", false
+			}
+			return base + rdf.EncodeElementID(fmt.Sprintf("::@%d", sym.Expr.Index)), true
+		}
+	case symbols.ExpressionTransitionSuccession:
+		// A transition's succession is minted off the transition (transitionSuccession).
+		base, ok := d.graphID(owner)
+		if !ok {
+			return "", false
+		}
+		return base + transitionSuccessionSuffix, true
+	case symbols.ExpressionValue:
+		// The value of a send's argument parameter is the parameter's `value` part.
+		if owner.Expr != nil && owner.Expr.Role == symbols.ExpressionPayload && owner.Expr.Owner != nil &&
+			owner.Expr.Owner.Kind == symbols.SymbolSendActionUsage {
+			return d.expressionPartID(owner, pValue)
+		}
 	}
 	if sym.Decl != nil && sym.Decl != owner.Decl {
 		if id, ok := d.ids.OfDeclaration(d.doc, sym.Decl, ""); ok {

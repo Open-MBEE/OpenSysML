@@ -66,9 +66,18 @@ The real-artifact backend tests use a `src/test/real-java` fake element because 
 
 ## Add the integration to SysON
 
+The two pieces are release assets, listed in the release's signed `SHA256SUMS.txt`:
+[`syson-mdk-backend.jar`](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/syson-mdk-backend.jar) and
+[`syson-mdk-frontend.tgz`](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/syson-mdk-frontend.tgz) on the latest
+release, and the same two on the [nightly snapshot](https://github.com/Open-MBEE/OpenSysML/releases/tag/nightly), built from
+`develop` (the [downloads page](../../docs/downloads.md#editor-plugins) has both sets of links).
+They are what the build above produces — `backend/target/syson-mdk-backend-<version>.jar` and
+`npm pack` of `frontend/` — so a checkout yields the same two.
+
 Put the backend jar on the SysON application classpath. Its
 `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` entry
-activates `OpenSysMLAutoConfiguration`; no package-scan change is needed. In the SysON frontend
+activates `OpenSysMLAutoConfiguration`; no package-scan change is needed. Add the frontend
+package to the SysON frontend's build (`npm install ./syson-mdk-frontend.tgz`) and, in its
 `index.tsx`, add `addOpenSysMLContributions(sysonExtensionRegistry)` after the existing SysON
 contributions. It appends the "Run with OpenSysML…" tool to both explorer extension points: the
 `treeItemContextMenuEntryOverrideExtensionPoint` of `@eclipse-sirius/sirius-components-trees`

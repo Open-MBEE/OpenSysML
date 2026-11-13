@@ -63,9 +63,9 @@ func TestTreeTextListsParameterPins(t *testing.T) {
 	}
 }
 
-// A calc usage typed by a calc def shows each parameter once: the one it
-// redefines as its own, the def's others inherited, the def's anonymous result
-// among them; and a calc nested in a part keeps its place under the part.
+// A calc usage typed by a calc def shows each parameter once, in the def's order:
+// the one it redefines as its own in that one's place, the def's others inherited,
+// the def's anonymous result among them; a calc nested in a part keeps its place under the part.
 func TestTreePinsTypedCalcParametersOnce(t *testing.T) {
 	rendering := renderTreeOf(t, "ParameterCalcs::Sensor")
 	part := rendering.Roots[0]
@@ -82,7 +82,7 @@ func TestTreePinsTypedCalcParametersOnce(t *testing.T) {
 		t.Fatalf("children of Sensor = %v, want sum and scaled among them", nodeNames(part.Children))
 	}
 	wantEqual(t, "sum pins", pinTexts(sum), []string{"in x", "in y", "out result"})
-	wantEqual(t, "scaled pins", pinTexts(scaled), []string{"in factor", "in x", "inout count", "out doubled", "out r"})
+	wantEqual(t, "scaled pins", pinTexts(scaled), []string{"in x", "in factor", "inout count", "out doubled", "out r"})
 	for i, port := range sum.Ports {
 		if inherited := i > 0; port.Inherited != inherited {
 			t.Errorf("sum pin %s inherited = %t, want %t", port.Name, port.Inherited, inherited)

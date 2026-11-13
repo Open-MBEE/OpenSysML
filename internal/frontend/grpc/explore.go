@@ -77,7 +77,7 @@ func (s *Service) exploreWith(ctx context.Context, subject string, policy runtim
 			if o.Outcome.Err == nil && len(o.Outcome.Outputs) > 0 {
 				out.Outputs = make(map[string]*pb.Value, len(o.Outcome.Outputs))
 				for name, val := range o.Outcome.Outputs {
-					out.Outputs[name] = s.valueToProto(rt, val, cached.Index)
+					out.Outputs[name] = s.valueToProto(rt, val, cached)
 				}
 			}
 		}
@@ -98,6 +98,7 @@ func (s *Service) exploreWith(ctx context.Context, subject string, policy runtim
 		DepthBudget:             int32Clamp(x.Budget.Depth),
 		ProbabilitiesLowerBound: x.ProbabilitiesBounded(),
 		FailedLinearizations:    int32Clamp(x.FailedLinearizations()),
+		Coverage:                coverageProto(x.Coverage),
 	}
 	return explored{outcomes: outcomes, status: status, plan: plan}, nil
 }

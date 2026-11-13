@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
@@ -490,7 +491,7 @@ func TestSharedDefaultRecordsUndoneWithFailedImage(t *testing.T) {
 	}
 	sound := img.messages
 	inBody := Value{Kind: ValFunction, ref: &functionValue{
-		shape:     &calcShape{Sym: &symbols.Symbol{Name: "inBody"}, Name: "inBody"},
+		shape:     &loadedCalc{Calc: &program.Calc{Sym: &symbols.Symbol{Name: "inBody"}, Name: "inBody"}},
 		enclosing: []frame{{vars: map[string]Value{"k": integerValue(1)}, run: 1}},
 	}}
 	img.messages = append(slices.Clone(sound), Message{Object: fleet.ID, SignalType: "go", Payload: map[string]Value{"k": inBody}})

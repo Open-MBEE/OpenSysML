@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -25,191 +26,54 @@ import (
 // the same lowered statement engine an invocation uses, and its outputs are
 // evaluated on demand against the environment that computation left behind.
 
-// calcOutput is one output feature of a calc: an `out` parameter, or the result
-// parameter a `return` declares. Its value is a feature of the calc, read by
-// name, rather than a statement of the calc's body.
-type calcOutput struct {
-	Name     string          // feature name the output answers to, empty for an anonymous result parameter
-	Value    ast.Node        // value-binding expression, nil when the calc gives the output no value
-	Owner    *symbols.Symbol // the calc declaring the binding, whose scope it is written in
-	IsResult bool            // declared with `return`: the result an invocation of the calc yields
-	// IsInOut marks an `inout` parameter: an output feature (KerML 7.4.9) bound by
-	// the invocation rather than by a declaration or an assignment.
-	IsInOut bool
-	// IsInitial marks a value declared with `:=`: what the output holds when the
-	// body starts, which the body's assignments may then replace.
-	IsInitial bool
-	Decl      calcMemberDecl // the declaration, closest to the invoked calc, the output's value answers to
+// declaredOutput is an output of a loaded calc with the declaration, closest to
+// the invoked calc, its value answers to.
+type declaredOutput struct {
+	program.CalcOutput
+	Decl calcMemberDecl
 }
 
-// calcOutputs flattens the output features declared along chain (most general
-// first), as calcParameters does the inputs, recording renamed ones in aliases.
-func (ctx *Context) calcOutputs(chain []*symbols.Symbol, aliases *map[string]string) []calcOutput {
-	var outs []calcOutput
-	index := make(map[string]int)
-
-	for _, link := range chain {
-		for _, member := range unwrappedDeclMembers(link.Decl) {
-			usage, ok := member.(*ast.Usage)
-			if !ok {
-				continue
-			}
-			if usage.Direction != ast.DirOut && usage.Direction != ast.DirInOut && !usage.IsResult {
-				continue
-			}
-			// An output written as a redefinition names the one it overrides.
-			name, _ := ast.EffectiveName(usage)
-			sym := memberSymbol(DeclScope(link), usage)
-			out := calcOutput{Name: name, Value: usage.Value, Owner: link, IsResult: usage.IsResult,
-				IsInitial: usage.Value != nil && usage.ValueIsInitial, Decl: ctx.calcMemberDeclOf(link, sym, name)}
-			if usage.Direction == ast.DirInOut {
-				// The value an `inout` declares is the default of the parameter, not a
-				// binding of the output: the invocation binds it either way.
-				out.IsInOut, out.Value = true, nil
-			}
-
-			var at int
-			var seen bool
-			if name != "" {
-				at, seen = ctx.redeclaredIndex(index, sym, name)
-			} else {
-				// An anonymous result parameter has no name to redeclare by, so
-				// it refines the anonymous result it inherits.
-				at, seen = indexOfAnonymousResult(outs)
-			}
-			if seen {
-				if out.Value == nil {
-					out.Value = outs[at].Value
-					out.Owner = outs[at].Owner
-					out.IsInitial = outs[at].IsInitial
-				}
-				out.Decl = out.Decl.redeclaring(outs[at].Decl)
-				if name != "" {
-					*aliases = aliasRedefined(*aliases, outs[at].Name, name)
-					index[name] = at
-				}
-				outs[at] = out
-				continue
-			}
-			if name != "" {
-				index[name] = len(outs)
-			}
-			outs = append(outs, out)
-		}
-	}
-	return outs
-}
-
-// resultOutput returns the result parameter a `return` declares, if the calc has one.
-func (shape *calcShape) resultOutput() *calcOutput {
-	for i := range shape.Outputs {
-		if shape.Outputs[i].IsResult {
-			return &shape.Outputs[i]
-		}
-	}
-	return nil
-}
-
-// hasInitialOutput reports whether some output starts the body holding a value
-// (`:=`), which the calc yields when the body leaves it as it is.
-func (shape *calcShape) hasInitialOutput() bool {
-	for _, out := range shape.Outputs {
-		if out.IsInitial {
-			return true
-		}
-	}
-	return false
-}
-
-// indexOfAnonymousResult finds the unnamed result parameter among outs, which is
-// the one an unnamed redeclaration refines.
-func indexOfAnonymousResult(outs []calcOutput) (int, bool) {
-	for i, out := range outs {
-		if out.Name == "" {
-			return i, true
-		}
-	}
-	return 0, false
-}
-
-// assignedOutputs are the outputs the body's statements assign, on any path
-// through it: what the calc computes, whichever way an execution branches.
-func assignedOutputs(stmts []lower.Statement, outputs []calcOutput, aliases map[string]string) map[string]bool {
-	declared := make(map[string]string, len(outputs)+len(aliases))
-	for _, out := range outputs {
-		if out.Name != "" && !out.IsInOut {
-			declared[out.Name] = out.Name
-		}
-	}
-	for alias, name := range aliases {
-		if _, ok := declared[name]; ok {
-			declared[alias] = name
-		}
-	}
-	assigned := make(map[string]bool)
-	collectAssignedOutputs(stmts, declared, assigned)
-	return assigned
-}
-
-// collectAssignedOutputs walks the statements, and the blocks they carry, for
-// assignments to a declared output, by any name declared maps to it. A chained
-// target writes a feature of another object, so it binds no output of the calc.
-func collectAssignedOutputs(stmts []lower.Statement, declared map[string]string, assigned map[string]bool) {
-	for _, stmt := range stmts {
-		switch s := stmt.(type) {
-		case lower.Assign:
-			if name, ok := declared[s.Target]; ok && s.Chain == nil {
-				assigned[name] = true
-			}
-		case lower.Block:
-			collectAssignedOutputs(s.Steps(), declared, assigned)
-		case lower.Loop:
-			collectAssignedOutputs(s.Body.Steps(), declared, assigned)
-		case lower.If:
-			collectAssignedOutputs(s.Then.Steps(), declared, assigned)
-			if s.Else != nil {
-				collectAssignedOutputs(s.Else.Steps(), declared, assigned)
-			}
-		}
-	}
+// declaredOutput is the output at position i of Outputs with its declaration.
+func (shape *loadedCalc) declaredOutput(i int) declaredOutput {
+	return declaredOutput{CalcOutput: shape.Outputs[i], Decl: shape.outputDecls[i]}
 }
 
 // output finds the output feature of that name.
-func (shape *calcShape) output(name string) (calcOutput, bool) {
+func (shape *loadedCalc) output(name string) (declaredOutput, bool) {
 	if name == "" {
-		return calcOutput{}, false
+		return declaredOutput{}, false
 	}
-	name = canonical(shape.Aliases, name)
-	for _, out := range shape.Outputs {
-		if out.Name == name {
-			return out, true
+	name = program.Canonical(shape.Aliases, name)
+	for i := range shape.Outputs {
+		if shape.Outputs[i].Name == name {
+			return shape.declaredOutput(i), true
 		}
 	}
-	if name == resultOutputName {
+	if name == program.ResultOutputName {
 		return shape.anonymousResult()
 	}
-	return calcOutput{}, false
+	return declaredOutput{}, false
 }
-
-// resultOutputName is the name an unnamed result parameter answers to.
-const resultOutputName = "result"
 
 // anonymousResult is the unnamed result a `return`, a trailing result expression
 // or a body returning a value produces, which reads under the name `result`.
-func (shape *calcShape) anonymousResult() (calcOutput, bool) {
-	for _, out := range shape.Outputs {
-		if out.IsResult && out.Name == "" {
-			return calcOutput{Name: resultOutputName, Value: out.Value, Owner: out.Owner, Decl: out.Decl, IsResult: true}, true
+func (shape *loadedCalc) anonymousResult() (declaredOutput, bool) {
+	for i := range shape.Outputs {
+		if out := &shape.Outputs[i]; out.IsResult && out.Name == "" {
+			return declaredOutput{
+				CalcOutput: program.CalcOutput{Name: program.ResultOutputName, Value: out.Value, Owner: out.Owner, IsResult: true},
+				Decl:       shape.outputDecls[i],
+			}, true
 		}
 	}
-	if shape.ResultExpr != nil {
-		return calcOutput{Name: resultOutputName, Value: shape.ResultExpr, Owner: shape.Sym, IsResult: true}, true
+	if shape.Result != 0 {
+		return declaredOutput{CalcOutput: program.CalcOutput{Name: program.ResultOutputName, Value: shape.Result, Owner: shape.Sym, IsResult: true}}, true
 	}
-	if shape.resultOutput() == nil && lower.Returns(shape.Steps) {
+	if shape.ResultOutput() == nil && shape.StepsReturn {
 		// The body's `return` binds the result, so the run holds it and nothing evaluates it.
-		return calcOutput{Name: resultOutputName, Owner: shape.BodyOwner, IsResult: true}, true
+		return declaredOutput{CalcOutput: program.CalcOutput{Name: program.ResultOutputName, Owner: shape.BodyOwner, IsResult: true}}, true
 	}
-	return calcOutput{}, false
+	return declaredOutput{}, false
 }
 
 // returnsResult reports a calc usage whose value is the unnamed result it
@@ -220,7 +84,7 @@ func (ctx *Context) returnsResult(sym *symbols.Symbol) bool {
 		return false
 	}
 	for _, out := range shape.Outputs {
-		if out.Name == resultOutputName {
+		if out.Name == program.ResultOutputName {
 			return false
 		}
 	}
@@ -232,7 +96,7 @@ func (ctx *Context) returnsResult(sym *symbols.Symbol) bool {
 // parameter, output or local its chain declares, a feature one of those redefines
 // (`VerificationCase::subj` as the case's subject), or an inherited result parameter
 // (`Case::result`) as the result the calc designates.
-func (shape *calcShape) memberName(ctx *Context, sym *symbols.Symbol) (string, bool) {
+func (shape *loadedCalc) memberName(ctx *Context, sym *symbols.Symbol) (string, bool) {
 	if shape.members == nil {
 		shape.members = ctx.calcMemberNames(shape)
 	}
@@ -240,11 +104,11 @@ func (shape *calcShape) memberName(ctx *Context, sym *symbols.Symbol) (string, b
 		return name, true
 	}
 	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.IsResult && ctx.libraryDeclared(sym) {
-		if out := shape.resultOutput(); out != nil && out.Name != "" {
+		if out := shape.ResultOutput(); out != nil && out.Name != "" {
 			return out.Name, true
 		}
 		if _, ok := shape.anonymousResult(); ok {
-			return resultOutputName, true
+			return program.ResultOutputName, true
 		}
 	}
 	return "", false
@@ -252,7 +116,7 @@ func (shape *calcShape) memberName(ctx *Context, sym *symbols.Symbol) (string, b
 
 // qualifiedBy reports whether a name qualified by qualifier (`MassCase::result`,
 // `Cases::Case::result`) denotes this calc's run: the calc itself or one it specializes.
-func (shape *calcShape) qualifiedBy(ctx *Context, qualifier *symbols.Symbol) bool {
+func (shape *loadedCalc) qualifiedBy(ctx *Context, qualifier *symbols.Symbol) bool {
 	return ctx.isOrSpecializes(shape.Sym, qualifier)
 }
 
@@ -274,13 +138,13 @@ func (ctx *Context) isOrSpecializes(sym, general *symbols.Symbol) bool {
 
 // calcMemberNames indexes the named members declared along shape's chain, and the features
 // they redefine (KerML §7.3.4.5, one feature), by the name the run binds each under.
-func (ctx *Context) calcMemberNames(shape *calcShape) map[*symbols.Symbol]string {
+func (ctx *Context) calcMemberNames(shape *loadedCalc) map[*symbols.Symbol]string {
 	members := make(map[*symbols.Symbol]string)
 	redefined := make(map[*symbols.Symbol]string)
-	for _, link := range ctx.calcChain(shape.Sym) {
-		for _, member := range unwrappedDeclMembers(link.Decl) {
+	for _, link := range shape.Chain {
+		for _, member := range lower.UnwrappedDeclMembers(link.Decl) {
 			var name string
-			if subject, ok := subjectDeclaration(member); ok {
+			if subject, ok := lower.SubjectDeclaration(member); ok {
 				name = subject.Name
 			} else if usage, ok := member.(*ast.Usage); ok {
 				name, _ = ast.EffectiveName(usage)
@@ -289,7 +153,7 @@ func (ctx *Context) calcMemberNames(shape *calcShape) map[*symbols.Symbol]string
 			if name == "" || sym == nil {
 				continue
 			}
-			name = canonical(shape.Aliases, name)
+			name = program.Canonical(shape.Aliases, name)
 			members[sym] = name
 			for _, feature := range ctx.redefinedFeatures(sym, shape.Sym) {
 				redefined[feature] = name
@@ -305,26 +169,11 @@ func (ctx *Context) calcMemberNames(shape *calcShape) map[*symbols.Symbol]string
 }
 
 // resultSegments is the member path reading the unnamed result of a usage.
-var resultSegments = []ast.NameSegment{{Text: resultOutputName}}
-
-// outputNames renders the output features the calc declares, for a diagnostic
-// about one it does not.
-func (shape *calcShape) outputNames() string {
-	names := make([]string, 0, len(shape.Outputs))
-	for _, out := range shape.Outputs {
-		if out.Name != "" {
-			names = append(names, out.Name)
-		}
-	}
-	if len(names) == 0 {
-		return "none"
-	}
-	return strings.Join(names, ", ")
-}
+var resultSegments = []ast.NameSegment{{Text: program.ResultOutputName}}
 
 // declaresUsage reports whether the calc's body declares a calc or analysis
 // usage named name among its own members, which a read from outside may name.
-func (shape *calcShape) declaresUsage(name string) bool {
+func (shape *loadedCalc) declaresUsage(name string) bool {
 	for _, stmt := range shape.Body {
 		if decl, ok := stmt.(lower.DeclareUsage); ok && decl.Name == name {
 			return true
@@ -334,7 +183,7 @@ func (shape *calcShape) declaresUsage(name string) bool {
 }
 
 // declaresLocal reports whether the calc's body declares a feature of that name.
-func (shape *calcShape) declaresLocal(name string) bool {
+func (shape *loadedCalc) declaresLocal(name string) bool {
 	for _, stmt := range shape.Body {
 		if decl, ok := stmt.(lower.Declare); ok && decl.Name == name {
 			return true
@@ -345,7 +194,7 @@ func (shape *calcShape) declaresLocal(name string) bool {
 
 // memberNames lists the features a usage of the calc has: its parameters, the
 // features its body declares and its outputs, in that order.
-func (shape *calcShape) memberNames() string {
+func (shape *loadedCalc) memberNames() string {
 	var names []string
 	for _, param := range shape.Params {
 		names = append(names, param.Name)
@@ -374,27 +223,28 @@ func (shape *calcShape) memberNames() string {
 // output the calc binds a value to. A calc binding several of them designates
 // none, so its values are read from a calc usage's output features instead of
 // being narrowed to whichever output comes first.
-func (shape *calcShape) designatedOutput() (calcOutput, error) {
-	if shape.ResultExpr != nil {
+func (shape *loadedCalc) designatedOutput() (declaredOutput, error) {
+	if shape.Result != 0 {
 		// The bound value is the declared result's, so it answers to that declaration.
-		out := calcOutput{Name: "result", Value: shape.ResultExpr, Owner: shape.Sym, IsResult: true}
-		if declared := shape.resultOutput(); declared != nil {
-			out.Decl = declared.Decl
+		out := declaredOutput{CalcOutput: program.CalcOutput{Name: program.ResultOutputName, Value: shape.Result, Owner: shape.Sym, IsResult: true}}
+		if at := shape.ResultOutputIndex(); at >= 0 {
+			out.Decl = shape.outputDecls[at]
 		}
 		return out, nil
 	}
-	var valued []calcOutput
-	for _, out := range shape.Outputs {
+	var valued []declaredOutput
+	for i := range shape.Outputs {
+		out := &shape.Outputs[i]
 		if out.IsResult {
-			if out.Value == nil {
+			if out.Value == 0 {
 				break
 			}
-			return out, nil
+			return shape.declaredOutput(i), nil
 		}
 		// An output the body assigns is computed as much as one a declaration binds,
 		// so it is a candidate result of an invocation just the same.
-		if out.Value != nil || shape.BodyOutputs[out.Name] {
-			valued = append(valued, out)
+		if out.Value != 0 || shape.BodyOutputs[out.Name] {
+			valued = append(valued, shape.declaredOutput(i))
 		}
 	}
 
@@ -402,7 +252,7 @@ func (shape *calcShape) designatedOutput() (calcOutput, error) {
 	case 0:
 		// The calc computed nothing to hand back: a body that fell off its end,
 		// or outputs none of which states a value, so the result has no value.
-		return calcOutput{}, fmt.Errorf("%w: %s ended without a return", ErrNoValue, shape.Label)
+		return declaredOutput{}, fmt.Errorf("%w: %s ended without a return", ErrNoValue, shape.Label)
 	case 1:
 		return valued[0], nil
 	default:
@@ -410,26 +260,11 @@ func (shape *calcShape) designatedOutput() (calcOutput, error) {
 		for _, out := range valued {
 			names = append(names, out.Name)
 		}
-		return calcOutput{}, fmt.Errorf(
+		return declaredOutput{}, fmt.Errorf(
 			"%w: %s computes %d output features (%s) and designates no result; read them from a usage instead: %s",
-			errAmbiguousResult, shape.Label, len(valued), strings.Join(names, ", "), shape.usageSpelling(valued[0].Name),
+			errAmbiguousResult, shape.Label, len(valued), strings.Join(names, ", "), shape.UsageSpelling(valued[0].Name),
 		)
 	}
-}
-
-// usageSpelling writes the calc usage a modeler declares to read the outputs of
-// a calc that designates no result, with the inputs it has to bind.
-func (shape *calcShape) usageSpelling(output string) string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "%s c : %s {", shape.Kind, shape.Name)
-	for _, param := range shape.Params {
-		if param.IsActor {
-			continue
-		}
-		fmt.Fprintf(&b, " in %s = ...;", param.Name)
-	}
-	fmt.Fprintf(&b, " } then read c.%s", output)
-	return b.String()
 }
 
 // calcUsageKey identifies one evaluation of one calc usage within an activation:
@@ -446,7 +281,7 @@ type calcUsageKey struct {
 // the run is created, so reading several outputs of a calc usage does not run
 // its body again.
 type calcRun struct {
-	shape *calcShape
+	shape *loadedCalc
 	scope *symbols.Scope // scope of whoever reads the usage, for a calc that owns none
 	self  *Instance      // object the usage is a feature of, nil when unbound
 	env   frame
@@ -500,7 +335,7 @@ func (run *calcRun) lookup(name string) (Value, bool) {
 
 // boundInputs are the values each non-subject input parameter of shape was
 // bound to in env, in declaration order.
-func boundInputs(shape *calcShape, env frame) []InputBinding {
+func boundInputs(shape *loadedCalc, env frame) []InputBinding {
 	var inputs []InputBinding
 	for i := range shape.Params {
 		param := &shape.Params[i]
@@ -520,7 +355,7 @@ func (run *calcRun) inputs() []InputBinding {
 }
 
 // newCalcRun holds the environment one evaluation of a calc computed.
-func newCalcRun(shape *calcShape, scope *symbols.Scope, self *Instance, env frame) *calcRun {
+func newCalcRun(shape *loadedCalc, scope *symbols.Scope, self *Instance, env frame) *calcRun {
 	return &calcRun{
 		shape:     shape,
 		scope:     scope,
@@ -636,7 +471,7 @@ func (ctx *Context) caseReadWaits(start *calcUsageStart) error {
 // calcUsageStart is an evaluation of a calc usage under way: its inputs bound and
 // its body about to run, or paused part-way for a wait, as a case's steps may.
 type calcUsageStart struct {
-	shape              *calcShape
+	shape              *loadedCalc
 	key                calcUsageKey
 	ec, nested, reader *EvalContext
 	env                frame
@@ -659,7 +494,7 @@ type calcUsageStart struct {
 // run is answered instead, with no start, where this activation evaluated the
 // usage already.
 func (ctx *Context) beginCalcUsage(reader *EvalContext, sym *symbols.Symbol) (*calcUsageStart, *calcRun, error) {
-	if !isCalcUsageSymbol(sym) {
+	if !lower.IsCalcUsageSymbol(sym) {
 		return nil, nil, fmt.Errorf(
 			"%w: %s does not evaluate output features", errNotACalcUsage, ctx.QualifiedName(sym),
 		)
@@ -698,7 +533,7 @@ func (ctx *Context) beginCalcUsage(reader *EvalContext, sym *symbols.Symbol) (*c
 }
 
 // startCalcUsage binds the usage's inputs from args and makes its body ready to run.
-func (ctx *Context) startCalcUsage(shape *calcShape, key calcUsageKey, reader *EvalContext, args calcArgs) (*calcUsageStart, error) {
+func (ctx *Context) startCalcUsage(shape *loadedCalc, key calcUsageKey, reader *EvalContext, args calcArgs) (*calcUsageStart, error) {
 	leave, err := ctx.enterCalcUsageRun(shape, key)
 	if err != nil {
 		return nil, err
@@ -781,7 +616,7 @@ func (ctx *Context) startCalcUsage(shape *calcShape, key calcUsageKey, reader *E
 
 // enterCalcUsageRun spends the calc depth on the usage and marks it running for the
 // call under way (binding its inputs, or running its body until it ends or pauses).
-func (ctx *Context) enterCalcUsageRun(shape *calcShape, key calcUsageKey) (leave func(), err error) {
+func (ctx *Context) enterCalcUsageRun(shape *loadedCalc, key calcUsageKey) (leave func(), err error) {
 	if err := ctx.enterCalc(shape.Name); err != nil {
 		return nil, err
 	}
@@ -815,7 +650,7 @@ func (ctx *Context) finishCalcUsage(start *calcUsageStart) (*calcRun, error) {
 
 // enterCalcUsage marks the usage's body as running until leave is called; a usage
 // read while its own body runs would run itself without end, so that is an error.
-func (ctx *Context) enterCalcUsage(shape *calcShape, key calcUsageKey) (leave func(), err error) {
+func (ctx *Context) enterCalcUsage(shape *loadedCalc, key calcUsageKey) (leave func(), err error) {
 	if running := ctx.calcUsageRunning[key]; running != nil && running.reads(shape.Sym) {
 		return nil, fmt.Errorf("%w: %s reads itself while its body runs", errCalcUsageRecursion, shape.Label)
 	}
@@ -826,8 +661,8 @@ func (ctx *Context) enterCalcUsage(shape *calcShape, key calcUsageKey) (leave fu
 // reads reports whether sym, read from within the body of the usage this is the
 // shape of, is that usage itself rather than a same-named usage its body declares
 // (a `calc next : Down` inside Down, read while a `next` runs, is the next level down).
-func (shape *calcShape) reads(sym *symbols.Symbol) bool {
-	return shape.Sym == sym && sym.OwnerScope != shape.bodyScope()
+func (shape *loadedCalc) reads(sym *symbols.Symbol) bool {
+	return shape.Sym == sym && sym.OwnerScope != shape.BodyScope()
 }
 
 // bodyUsageSymbol resolves the usage a body-local declaration declares, in the
@@ -837,7 +672,7 @@ func (ctx *Context) bodyUsageSymbol(stmt lower.DeclareUsage) (*symbols.Symbol, e
 		return nil, fmt.Errorf("%w: calc usage %s needs a resolved model", errNotACalcUsage, stmt.Name)
 	}
 	sym, ok := ctx.lookupName(stmt.Scope, stmt.Name)
-	if !ok || !isCalcUsageSymbol(sym) {
+	if !ok || !lower.IsCalcUsageSymbol(sym) {
 		return nil, fmt.Errorf(
 			"%w: calc usage %s is declared in this body but is not resolved to one",
 			errNotACalcUsage, stmt.Name,
@@ -867,7 +702,7 @@ func (ctx *Context) forgetCalcUsage(activation int64, sym *symbols.Symbol) {
 // bindCalcUsage binds a calc usage's inputs from args and its own declarations,
 // answering with the environment the usage's body runs in, the environment
 // reading it (null unless it is nested in a calc), and the bindings themselves.
-func (ctx *Context) bindCalcUsage(shape *calcShape, reader *EvalContext, args calcArgs, occurrence *calcOccurrence) (*EvalContext, *EvalContext, frame, map[string]bool, error) {
+func (ctx *Context) bindCalcUsage(shape *loadedCalc, reader *EvalContext, args calcArgs, occurrence *calcOccurrence) (*EvalContext, *EvalContext, frame, map[string]bool, error) {
 	ec := NewEvalContextIn(ctx, ctx.calcScope(shape.BodyOwner, shape.Sym, reader.scope), reader.self)
 	if ec.trace != nil {
 		ec.trace.recordCalculationEnter(shape.Kind, shape.Name)
@@ -930,7 +765,7 @@ func holdsRunningValues(sym *symbols.Symbol) bool {
 // bodyEnclosing is the part of enclosing, the bindings of the behavior body the
 // calc is declared in, its body reads: all of it for a body written inside that
 // behavior, none for a body inherited from a calc declared elsewhere.
-func (shape *calcShape) bodyEnclosing(enclosing []frame) []frame {
+func (shape *loadedCalc) bodyEnclosing(enclosing []frame) []frame {
 	if len(enclosing) == 0 || !declaredWithin(shape.BodyOwner, enclosingBehavior(shape.Sym)) {
 		return nil
 	}
@@ -953,7 +788,7 @@ func runOf(ctx *Context, frames []frame, behavior *symbols.Symbol) []frame {
 
 // closesOverBody reports the calc reading the bindings of the behavior body it is
 // declared in: through a body written there, or a default it declares there.
-func (shape *calcShape) closesOverBody() bool {
+func (shape *loadedCalc) closesOverBody() bool {
 	if !enclosedByBehaviorBody(shape.Sym) {
 		return false
 	}
@@ -962,7 +797,7 @@ func (shape *calcShape) closesOverBody() bool {
 		return true
 	}
 	for i := range shape.Params {
-		if param := &shape.Params[i]; param.Default != nil && declaredWithin(param.Owner, behavior) {
+		if param := &shape.Params[i]; param.Default != 0 && declaredWithin(param.Owner, behavior) {
 			return true
 		}
 	}
@@ -1090,10 +925,10 @@ func (ctx *Context) runCalcUsage(start *calcUsageStart) (*calcRun, error) {
 	// The returned value is the result parameter's, read under its name or as
 	// `result`; every other output states its own value, never the returned one.
 	if returned {
-		if out := shape.resultOutput(); out != nil && out.Name != "" {
+		if out := shape.ResultOutput(); out != nil && out.Name != "" {
 			run.outputs[out.Name] = result
 		} else if _, anonymous := shape.anonymousResult(); anonymous {
-			run.outputs[resultOutputName] = result
+			run.outputs[program.ResultOutputName] = result
 		}
 	}
 	kept = true
@@ -1117,7 +952,7 @@ func (run *calcRun) endOccurrence(ctx *Context) {
 // its binding the first time it is read.
 func (run *calcRun) output(ctx *Context, name string) (Value, error) {
 	if value, ok := run.outputs[name]; ok {
-		if out, found := run.shape.output(name); found && (out.Value == nil || out.IsInitial) {
+		if out, found := run.shape.output(name); found && (out.Value == 0 || out.IsInitial) {
 			if _, held := run.env.lookup(out.Name); held {
 				return run.readBodyOutput(ctx, out.Name)
 			}
@@ -1160,7 +995,7 @@ func (run *calcRun) inheritedResult(ctx *Context, name string) (Value, bool, err
 	if !found || !resultParameter(sym) {
 		return Value{}, false, nil
 	}
-	if out := run.shape.resultOutput(); out != nil && out.Name != "" && out.Name != name {
+	if out := run.shape.ResultOutput(); out != nil && out.Name != "" && out.Name != name {
 		value, err := run.output(ctx, out.Name)
 		return value, true, err
 	}
@@ -1187,7 +1022,7 @@ func (run *calcRun) readBodyOutput(ctx *Context, name string) (Value, error) {
 // declares it, with the calc's parameters and locals in scope, and memoizes it
 // for this evaluation. An output that names another output has it evaluated on
 // demand; one that names itself, directly or through others, is a cycle.
-func (run *calcRun) value(ctx *Context, out calcOutput) (Value, error) {
+func (run *calcRun) value(ctx *Context, out declaredOutput) (Value, error) {
 	if value, ok := run.outputs[out.Name]; ok && out.Name != "" {
 		return value, nil
 	}
@@ -1197,7 +1032,7 @@ func (run *calcRun) value(ctx *Context, out calcOutput) (Value, error) {
 		return Value{}, &ToolError{Tool: run.shape.Tool.tool, Kind: ToolMissingOutput,
 			Detail: fmt.Sprintf("%s (%s of %s) was not answered", out.Name, run.outputDescription(out), run.shape.Label)}
 	}
-	if out.Value == nil || out.IsInitial {
+	if out.Value == 0 || out.IsInitial {
 		// An output the body assigned, and an `inout` the invocation bound, are values
 		// the activation left behind rather than bindings to evaluate.
 		if _, ok := run.env.lookup(out.Name); ok && out.Name != "" {
@@ -1209,7 +1044,7 @@ func (run *calcRun) value(ctx *Context, out calcOutput) (Value, error) {
 			return value, nil
 		}
 	}
-	if out.Value == nil {
+	if out.Value == 0 {
 		return Value{}, &unassignedOutputError{Output: run.outputDescription(out), Calc: run.shape.Label}
 	}
 	if run.computing[out.Name] {
@@ -1229,7 +1064,7 @@ func (run *calcRun) value(ctx *Context, out calcOutput) (Value, error) {
 	}
 	defer leave()
 
-	value, err := run.bindingEnv(ctx, out.Owner).Eval(out.Value)
+	value, err := run.bindingEnv(ctx, out.Owner).Eval(run.shape.Expr(out.Value))
 	if err != nil {
 		return Value{}, calcFrame(run.shape.Kind, run.shape.Name, fmt.Errorf("output %s: %w", run.outputDescription(out), err))
 	}
@@ -1288,7 +1123,7 @@ func (run *calcRun) bindingEnv(ctx *Context, owner *symbols.Symbol) *EvalContext
 
 // outputDescription names an output for a diagnostic, saying what an anonymous
 // result parameter is rather than naming it with an empty string.
-func (run *calcRun) outputDescription(out calcOutput) string {
+func (run *calcRun) outputDescription(out declaredOutput) string {
 	if out.Name != "" {
 		return out.Name
 	}
@@ -1308,22 +1143,6 @@ func (run *calcRun) lookupOutput(ctx *Context, name string) (Value, bool, error)
 	}
 	value, err := run.value(ctx, out)
 	return value, true, err
-}
-
-// isCalcUsageSymbol reports whether sym declares a calc usage or a case usage —
-// analysis or verification — the forms that carry an evaluation whose outputs are
-// features. A definition is a type: it is invoked, not read.
-func isCalcUsageSymbol(sym *symbols.Symbol) bool {
-	if sym == nil {
-		return false
-	}
-	if sym.Decl != nil {
-		usage, ok := sym.Decl.(*ast.Usage)
-		return ok && (usage.Kind == ast.UsageCalc || usage.Kind == ast.UsageAnalysisCase ||
-			usage.Kind == ast.UsageVerificationCase)
-	}
-	return sym.Kind == symbols.SymbolCalcUsage || sym.Kind == symbols.SymbolAnalysisCaseUsage ||
-		sym.Kind == symbols.SymbolVerificationCaseUsage
 }
 
 // evalCalcUsageMembers reads a name written after a calc usage: its first part
@@ -1359,7 +1178,7 @@ func (ec *EvalContext) evalCalcUsageMembers(sym *symbols.Symbol, parts []ast.Nam
 		if len(parts) == 0 {
 			return Value{}, fmt.Errorf(
 				"%w: %s computes output features (%s); read one of them",
-				ErrNoValue, run.shape.Label, run.shape.outputNames(),
+				ErrNoValue, run.shape.Label, run.shape.OutputNames(),
 			)
 		}
 	}
@@ -1388,7 +1207,7 @@ func (run *calcRun) memberValue(ctx *Context, name string) (Value, bool, error) 
 	if _, isOutput := run.shape.output(name); isOutput {
 		return Value{}, false, nil
 	}
-	param := run.shape.parameter(name)
+	param := run.shape.Parameter(name)
 	if param == nil && !run.shape.declaresUsage(name) {
 		if value, ok := run.lookupBody(name); ok {
 			return value, true, nil
@@ -1426,7 +1245,7 @@ func (start *calcUsageStart) openInput() string {
 	}
 	for i := range shape.Params {
 		param := &shape.Params[i]
-		if start.unsupplied[param.Name] && shape.opensRun(param, start.ec.ctx.model.semantics) {
+		if start.unsupplied[param.Name] && shape.opensRun(i, start.ec.ctx.model.semantics) {
 			return param.Name
 		}
 	}
@@ -1435,24 +1254,24 @@ func (start *calcUsageStart) openInput() string {
 
 // opensRun reports whether leaving this parameter unsupplied stops the usage computing: a
 // case still runs without a subject, an actor or an input whose range admits none.
-func (shape *calcShape) opensRun(param *calcParameter, m *semantics.Model) bool {
-	if shape.isCase() && (param.IsSubject || param.IsActor || param.optional(m)) {
+func (shape *loadedCalc) opensRun(i int, m *semantics.Model) bool {
+	if param := &shape.Params[i]; shape.IsCase() && (param.IsSubject || param.IsActor || optionalParameter(param, m)) {
 		return false
 	}
-	return !param.declaredOptional()
+	return !shape.declaredOptional(i)
 }
 
 // readsOpen reports a calc or case usage read as a feature, whose unsupplied inputs
 // are left open: one passed no arguments (an invocation binds its parameters, KerML
 // §7.4.9.4) and not written in a behavior body (nested reads it), which binds its
 // inputs from that body's evaluation.
-func (shape *calcShape) readsOpen(nested *EvalContext, args calcArgs) bool {
+func (shape *loadedCalc) readsOpen(nested *EvalContext, args calcArgs) bool {
 	sym := shape.Sym
-	if !isCalcUsageSymbol(sym) || nested != nil || len(args.positional) > 0 || len(args.named) > 0 {
+	if !lower.IsCalcUsageSymbol(sym) || nested != nil || len(args.positional) > 0 || len(args.named) > 0 {
 		return false
 	}
 	owner := sym.Owner()
-	return owner == nil || !(isBehaviorDefKind(owner.Kind) || isCalcUsageSymbol(owner))
+	return owner == nil || !(isBehaviorDefKind(owner.Kind) || lower.IsCalcUsageSymbol(owner))
 }
 
 // openValue is the undetermined value an output or body local of an open run reads:
@@ -1464,7 +1283,7 @@ func (run *calcRun) openValue(name string, count semantics.Range, feature *symbo
 
 // unsuppliedParameters names the parameters args and the declared defaults leave
 // unbound; the subject binds through its own rule and is never among them.
-func (shape *calcShape) unsuppliedParameters(args calcArgs) map[string]bool {
+func (shape *loadedCalc) unsuppliedParameters(args calcArgs) map[string]bool {
 	var out map[string]bool
 	positional := 0
 	for i := range shape.Params {
@@ -1475,7 +1294,7 @@ func (shape *calcShape) unsuppliedParameters(args calcArgs) map[string]bool {
 			supplied = positional < len(args.positional)
 			positional++
 		}
-		if param.Default != nil || param.IsSubject || supplied {
+		if param.Default != 0 || param.IsSubject || supplied {
 			continue
 		}
 		if _, named := args.named[param.Name]; named {
@@ -1510,7 +1329,7 @@ func (ctx *Context) unboundSubjectRead(sym *symbols.Symbol, name string, err err
 	if shapeErr != nil || unbound.Element != shape.Name {
 		return Value{}, false
 	}
-	param, ok := shape.subjectParameter()
+	param, ok := shape.SubjectParameter()
 	if !ok || param.Name != name {
 		return Value{}, false
 	}
@@ -1571,7 +1390,7 @@ func (run *calcRun) nestedUsage(ctx *Context, name string) (*calcRun, bool, erro
 	}
 	scope := ctx.calcScope(run.shape.BodyOwner, run.shape.Sym, run.scope)
 	sym, ok := ctx.lookupName(scope, name)
-	if !ok || !isCalcUsageSymbol(sym) {
+	if !ok || !lower.IsCalcUsageSymbol(sym) {
 		return nil, false, nil
 	}
 	nested, err := ctx.calcUsageRun(run.bindingEnv(ctx, run.shape.BodyOwner), sym)
@@ -1600,7 +1419,7 @@ func (ec *EvalContext) calcUsageOperand(operand ast.Node) (*symbols.Symbol, bool
 		}
 	}
 	sym, ok := ec.ctx.resolveQualified(ec.scope, ref.Name)
-	if !ok || !isCalcUsageSymbol(sym) {
+	if !ok || !lower.IsCalcUsageSymbol(sym) {
 		return nil, false, nil
 	}
 	return sym, true, nil
@@ -1684,8 +1503,8 @@ func (ec *EvalContext) calcUsageMemberValue(sym *symbols.Symbol, self *Instance,
 // about reading the usage itself rather than one of its outputs.
 func (ctx *Context) calcUsageOutputSummary(sym *symbols.Symbol) string {
 	names := make([]string, 0)
-	var aliases map[string]string
-	for _, out := range ctx.calcOutputs(ctx.calcChain(sym), &aliases) {
+	calc, _ := lower.ToCalc(sym, ctx.calcEnv())
+	for _, out := range calc.Outputs {
 		if out.Name != "" {
 			names = append(names, out.Name)
 		}

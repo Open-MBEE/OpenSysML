@@ -134,7 +134,7 @@ func (s *Service) runAction(ctx context.Context, v *verifyContext, req *pb.RunRu
 	readInputs := func(rt *runtime.Context) (map[string]runtime.Value, error) {
 		inputs := make(map[string]runtime.Value, len(req.Inputs))
 		for name, pv := range req.Inputs {
-			val, err := protoconv.ProtoToRuntimeValue(rt, pv, v.cached.Index, rt.Semantics())
+			val, err := protoconv.ProtoToRuntimeValueWith(rt, pv, v.cached.Index, rt.Semantics(), v.cached.SymbolContext())
 			if err != nil {
 				return nil, fmt.Errorf("input %q could not be read: %w", name, err)
 			}
@@ -303,7 +303,7 @@ func (s *Service) monteCarloRuns(ctx context.Context, v *verifyContext, req *pb.
 	// last row's: renumber it as that row was, and add only the objects it adds.
 	tail := &pb.SweepRow{}
 	for _, out := range concluded.Outputs {
-		tail.Outputs = append(tail.Outputs, &pb.CalcOutput{Name: out.Name, Value: s.valueToProto(in.runtime, out.Value, v.cached.Index)})
+		tail.Outputs = append(tail.Outputs, &pb.CalcOutput{Name: out.Name, Value: s.valueToProto(in.runtime, out.Value, v.cached)})
 	}
 	mark := "✓"
 	for j := range concluded.Verdicts {
@@ -413,7 +413,7 @@ func objectText(ctx *runtime.Context, val runtime.Value) string {
 func (v *verifyContext) distribution(summary analysis.ObservableSummary) *pb.RunDistribution {
 	out := &pb.RunDistribution{Name: summary.Name, Unit: summary.Unit}
 	number := func(x semantics.Value) *pb.Value {
-		return v.service.valueToProto(v.runtime, runtime.ConstValue(x), v.cached.Index)
+		return v.service.valueToProto(v.runtime, runtime.ConstValue(x), v.cached)
 	}
 	if d := summary.Distribution; d != nil {
 		out.Numeric = true

@@ -91,7 +91,7 @@ func (m *Model) recordedPrefixAnnotationSpans(sym *symbols.Symbol) []source.Span
 // AnnotatingRelationships returns the Annotations the annotating element sym
 // owns for the elements its `about` clause names, in clause order (KerML
 // 8.3.2.3.2 AnnotatingElement::ownedAnnotatingRelationship); a name resolving
-// to nothing is a resolver diagnostic, not an annotation.
+// to nothing still states its Annotation, whose annotated element is unresolved.
 func (m *Model) AnnotatingRelationships(sym *symbols.Symbol) []*symbols.Symbol {
 	if m == nil || sym == nil || sym.Implicit != nil || !isAnnotatingSymbol(sym) {
 		return nil
@@ -128,8 +128,8 @@ func (m *Model) aboutTargets(sym *symbols.Symbol) []*symbols.Symbol {
 	default:
 		refs = symbols.MetadataAboutRefs(sym.Decl)
 	}
-	var out []*symbols.Symbol
-	for _, qn := range refs {
+	out := make([]*symbols.Symbol, len(refs))
+	for i, qn := range refs {
 		target, ok := m.resolver.ResolveQualified(sym.OwnerScope, qn)
 		if !ok || target == nil {
 			continue
@@ -137,7 +137,7 @@ func (m *Model) aboutTargets(sym *symbols.Symbol) []*symbols.Symbol {
 		if resolved, ok := m.resolver.ResolveAliasTarget(target); ok && resolved != nil {
 			target = resolved
 		}
-		out = append(out, target)
+		out[i] = target
 	}
 	return out
 }
@@ -187,7 +187,9 @@ func (m *Model) annotatedElementsOf(sym *symbols.Symbol) []*symbols.Symbol {
 	}
 	out := make([]*symbols.Symbol, 0, len(annotations))
 	for _, ann := range annotations {
-		out = append(out, m.annotationAnnotatedElement(ann))
+		if annotated := m.annotationAnnotatedElement(ann); annotated != nil {
+			out = append(out, annotated)
+		}
 	}
 	return out
 }
@@ -247,9 +249,17 @@ func (m *Model) annotatingElementElements(sym *symbols.Symbol, feature string) (
 
 // annotationElements is ReflectiveElements for a reflected Annotation object.
 func (m *Model) annotationElements(sym *symbols.Symbol, feature string) ([]*symbols.Symbol, bool) {
-	annotated := []*symbols.Symbol{m.annotationAnnotatedElement(sym)}
 	owned := sym.Implicit.Form == symbols.ImplicitOwnedAnnotation
 	empty := []*symbols.Symbol{}
+	el := m.annotationAnnotatedElement(sym)
+	annotated := []*symbols.Symbol{el}
+	switch feature {
+	case "annotatedElement", "target", "owningAnnotatedElement", "relatedElement":
+		if el == nil {
+			// An `about` name resolving to nothing leaves the annotated side underived.
+			return nil, false
+		}
+	}
 	switch feature {
 	case "annotatedElement", "target":
 		return annotated, true

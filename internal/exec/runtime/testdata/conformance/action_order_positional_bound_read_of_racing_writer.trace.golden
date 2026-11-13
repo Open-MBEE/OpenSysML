@@ -14,7 +14,4 @@ stmt assign z
     eval operator + -> 2
   eval feature yRace -> 2
 step 5: token 4@done
-  eval feature x -> 1
-  eval literal 1 -> 1
-eval operator + -> 2
 step 6: no active tokens

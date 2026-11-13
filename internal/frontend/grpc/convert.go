@@ -61,6 +61,9 @@ func infoToProto(info *symbolfacts.Info, idx *symbols.Index) *pb.SymbolInfo {
 			Quantity:        t.Quantity,
 			Unit:            t.Unit,
 		}
+		for _, ref := range t.Types {
+			out.TypeInfo.Types = append(out.TypeInfo.Types, &pb.TypeRef{Id: ref.Id, Kind: ref.Kind})
+		}
 	}
 	if m := info.Multiplicity; m != nil {
 		out.Multiplicity = &pb.MultiplicityInfo{Lower: m.Lower, Upper: m.Upper}

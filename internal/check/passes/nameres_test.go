@@ -253,16 +253,17 @@ func TestImplicitlyRedefiningParameterIsWhatTheNameBinds(t *testing.T) {
 	}
 }
 
-// Two implicit redefinitions need not agree on a name, so neither names the
-// parameter and the inherited feature keeps the name (KerML 7.3.4.5).
+// A parameter at a position two generals fill redefines both (KerML 8.4.4.6): neither
+// redefined parameter is inherited, and the unnamed one answers to the first's name only,
+// as the pilot resolves it (p1 resolves, p2 does not).
 func TestParameterRedefiningTwoInheritedOnesStaysAnonymous(t *testing.T) {
-	sym, scope := resolvedInBody(t, `package P {
+	got := nameresDiags(t, `package P {
 		action def B1 { in p1; }
 		action def B2 { in p2; }
-		action a : B1, B2 { in item; }
-	}`, "P::a", "p1")
-	if sym.OwnerScope == scope {
-		t.Fatalf("p1 resolved to the anonymous parameter of a, want B1::p1")
+		action a : B1, B2 { in item; attribute x = p1; attribute y = p2; }
+	}`)
+	if len(got) != 1 || got[0].Code != "unresolved" || !strings.Contains(got[0].Message, "p2") {
+		t.Fatalf("got %+v, want p2 unresolved only: the parameter redefines p1 and p2 and answers to p1", got)
 	}
 }
 

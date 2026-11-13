@@ -9,7 +9,7 @@ classes: {
 n0: "«action def»\nMonitor\nparameters\nin sensor\nout alarm" {
   class: definition
   n1: "" { class: initial }
-  n2: "«accept action»\nacceptReading\nreading : Reading\nparameters\nout reading\ninout ^payload\nin ^receiver" { class: usage }
+  n2: "«accept action»\nacceptReading\nreading : Reading\nparameters\nout reading\nin ^receiver" { class: usage }
   n3: "«send action»\nsendAlarm\nAlarm to sensor\nparameters\nin ^payload\nin ^sender\nin ^receiver" { class: usage }
   n4: "«assign»\ntally\ncount := count + 1" { class: usage }
   n5: "«loop»\nwait\nwhile condition\ncount < 10" {

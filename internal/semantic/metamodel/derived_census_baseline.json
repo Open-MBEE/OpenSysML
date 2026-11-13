@@ -1,0 +1,206 @@
+{
+  "provenance": {
+    "pilotTag": "2026-09",
+    "pilotCommit": "38665073bbf02849bd309b106eba79cbb3a1ee1d",
+    "pilotArtifact": "0.63.0",
+    "errataRegistry": "sha256:d5782936c5c92f29f24a077477b148fc5d178f83f174b143d1bb95c3693ab1b9",
+    "tools": [
+      {
+        "name": "pilot-json-exporter",
+        "source": "scripts/pilot-json-exporter/ExportJSON.java",
+        "sourceDigest": "sha256:366acec8fd58c0df0f6d61cc123b31ef5477dce327e32f1144b52eea199b6178",
+        "release": "2026-09 (jupyter-sysml-kernel 0.63.0)"
+      }
+    ],
+    "inputs": [
+      {
+        "name": "training",
+        "dir": "examples/sysml-v2-training",
+        "origin": "pinned",
+        "files": 100,
+        "digest": "sha256:07e537e50ff0802af87d53d91aa6bf8e849d5e8661514ba4a63127eb719cf5e7"
+      },
+      {
+        "name": "pilot-examples",
+        "dir": "examples/pilot-corpora/sysml-examples",
+        "origin": "pinned",
+        "files": 99,
+        "digest": "sha256:3179b1c370d45f1ecf75f2c98f23e79c69ca2d12b6b303e0579277cd89d14427"
+      },
+      {
+        "name": "pilot-validation",
+        "dir": "examples/pilot-corpora/sysml-validation",
+        "origin": "pinned",
+        "files": 56,
+        "digest": "sha256:eecda5e89c573bd9bd88103160dd0eb6f019de997cfb561fa144c630b2c07b88"
+      },
+      {
+        "name": "kerml-examples",
+        "dir": "examples/pilot-corpora/kerml-examples",
+        "origin": "pinned",
+        "files": 58,
+        "digest": "sha256:de7a64927d3b221dd7c4c246770338192b10f8876c5905569927ef534a196977"
+      },
+      {
+        "name": "spec-examples",
+        "dir": "examples/spec-examples",
+        "origin": "pinned",
+        "files": 511,
+        "digest": "sha256:bd8b7c802c1aac350f7973e054a72b605915182eb014f008a1044cef294d1010"
+      },
+      {
+        "name": "testdata",
+        "dir": "tests/testdata",
+        "origin": "ours",
+        "files": 40,
+        "digest": "sha256:951761d51e902bbcb3392d4a77da58c7f580c61b2fb97ac6c4ad705e08e0c446"
+      },
+      {
+        "name": "examples",
+        "dir": "examples",
+        "origin": "ours",
+        "files": 56,
+        "digest": "sha256:cf60c702750d56f2651c4627a002167eb4ed353ba56df16f13b34e42be717555"
+      },
+      {
+        "name": "probes",
+        "dir": "tools/referee/diff/testdata",
+        "origin": "ours",
+        "files": 4,
+        "digest": "sha256:b0153c55bbfcdacabab911725dc44e0e7f4d3a501a281b1f3f2a13cda19737c6"
+      },
+      {
+        "name": "manual-examples",
+        "dir": "docs/manual/examples",
+        "origin": "ours",
+        "files": 11,
+        "digest": "sha256:46abb05dbfef90d395cbccb7f1c278f95a4495d0e16770ec5e20df001bd9be7d"
+      },
+      {
+        "name": "opensysml-libraries",
+        "dir": "internal/workspace/libs/stdlib/OpenSysML Libraries",
+        "origin": "ours",
+        "files": 16,
+        "digest": "sha256:f39db343dafb9c99359f5a92e56dcdd5c52992dc50e50b9268d349aa9cdfdf26"
+      }
+    ],
+    "recorded": "2026-11-13"
+  },
+  "structure": "metamodel.SymbolStructure (symbol-backed; metamodel.New over metamodel.NewSymbolStructure)",
+  "policy": [
+    "Implied relationships are a deliberate difference: the bridge exports without materializing the relationships the pilot implies (isImplied is false on every element it writes), while the semantic model synthesizes the ones it implies and the walk counts them as carriers; each root's implied count records how many, and no detector compares the two populations.",
+    "Library elements the pilot writes beside a file's own are not counted; our walk starts at each document root and never reaches them.",
+    "The pilot writes an element in every file whose traversal reaches it; a root's elements are counted once by id.",
+    "A property the pilot's payload leaves out is counted as not derived on its side; one it writes null or empty is counted as empty."
+  ],
+  "roots": [
+    {
+      "name": "training",
+      "dir": "examples/sysml-v2-training",
+      "files": 100,
+      "rejected": 0,
+      "elements": 8324,
+      "implied": 4844,
+      "pilotElements": 11906,
+      "pilotImplied": 0,
+      "pilotDuplicates": 5797,
+      "pilotFailed": 0
+    },
+    {
+      "name": "pilot-examples",
+      "dir": "examples/pilot-corpora/sysml-examples",
+      "files": 99,
+      "rejected": 0,
+      "elements": 31900,
+      "implied": 18686,
+      "pilotElements": 40642,
+      "pilotImplied": 0,
+      "pilotDuplicates": 10940,
+      "pilotFailed": 3
+    },
+    {
+      "name": "pilot-validation",
+      "dir": "examples/pilot-corpora/sysml-validation",
+      "files": 56,
+      "rejected": 0,
+      "elements": 10912,
+      "implied": 6391,
+      "pilotElements": 14222,
+      "pilotImplied": 0,
+      "pilotDuplicates": 3066,
+      "pilotFailed": 0
+    },
+    {
+      "name": "kerml-examples",
+      "dir": "examples/pilot-corpora/kerml-examples",
+      "files": 58,
+      "rejected": 0,
+      "elements": 6906,
+      "implied": 4269,
+      "pilotElements": 8762,
+      "pilotImplied": 0,
+      "pilotDuplicates": 1105,
+      "pilotFailed": 0
+    },
+    {
+      "name": "spec-examples",
+      "dir": "examples/spec-examples",
+      "files": 511,
+      "rejected": 38,
+      "elements": 8619,
+      "implied": 4890,
+      "pilotElements": 12233,
+      "pilotImplied": 0,
+      "pilotDuplicates": 37,
+      "pilotFailed": 52
+    },
+    {
+      "name": "testdata",
+      "dir": "tests/testdata",
+      "files": 40,
+      "rejected": 0,
+      "elements": 1578,
+      "implied": 859,
+      "pilotElements": 2284,
+      "pilotImplied": 0,
+      "pilotDuplicates": 52,
+      "pilotFailed": 4
+    },
+    {
+      "name": "examples",
+      "dir": "examples",
+      "files": 56,
+      "rejected": 0,
+      "elements": 33330,
+      "implied": 19380,
+      "pilotElements": 51722,
+      "pilotImplied": 0,
+      "pilotDuplicates": 82277,
+      "pilotFailed": 0
+    },
+    {
+      "name": "probes",
+      "dir": "tools/referee/diff/testdata",
+      "files": 4,
+      "rejected": 0,
+      "elements": 45,
+      "implied": 26,
+      "pilotElements": 53,
+      "pilotImplied": 0,
+      "pilotDuplicates": 0,
+      "pilotFailed": 0
+    },
+    {
+      "name": "manual-examples",
+      "dir": "docs/manual/examples",
+      "files": 11,
+      "rejected": 0,
+      "elements": 3983,
+      "implied": 2403,
+      "pilotElements": 9379,
+      "pilotImplied": 0,
+      "pilotDuplicates": 0,
+      "pilotFailed": 0
+    }
+  ]
+}

@@ -60,7 +60,7 @@ env:
 jobs:
   build:
     name: Build Windows binaries
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -279,7 +279,7 @@ jobs:
     name: Publish the unsigned MSI
     needs: [build, msi]
     if: (github.ref_type == 'tag' || inputs.tag != '') && needs.build.outputs.sign != 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
       contents: write
@@ -317,7 +317,7 @@ jobs:
     name: Sign the binaries with SignPath
     needs: build
     if: needs.build.outputs.sign == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 330
     outputs:
       artifact-id: ${{ steps.upload.outputs.artifact-id }}
@@ -503,7 +503,7 @@ jobs:
   publish-signed:
     name: Publish the signed assets
     needs: [build, sign, msi-signed]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: write

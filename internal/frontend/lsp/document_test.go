@@ -30,8 +30,8 @@ const documentModel = `package Observatory {
 		}
 	}
 
-	/* Subsystems finds every part usage below the root. */
 	calc def Subsystems :> Query {
+		doc /* Subsystems finds every part usage below the root. */
 		in root : Element;
 		WhereType(
 			source = Descendants(source = root, maxDepth = 3),

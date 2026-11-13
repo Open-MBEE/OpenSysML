@@ -18,11 +18,12 @@ type QueryInput struct {
 	OSLCQuery string         `json:"oslcQuery,omitempty" jsonschema:"OSLC Query 3.0 parameter text, instead of query"`
 }
 
-// RunDocumentQueryInput runs a named document query.
+// RunDocumentQueryInput runs a named document query, or a query expression.
 type RunDocumentQueryInput struct {
 	ModelInput
-	QueryID  string           `json:"queryId" jsonschema:"qualified name of the document query, a calc def specializing DocumentQueries::Query"`
-	Bindings []map[string]any `json:"bindings,omitempty" jsonschema:"entry-parameter bindings, each a protojson DocumentQueryBinding {\"parameter\":name,\"values\":[DocumentValue]} where a DocumentValue is {\"elementId\":qualified name}, {\"stringValue\":..}, {\"intValue\":\"..\"}, {\"realValue\":..}, {\"boolValue\":..} or {\"object\":{\"path\":\"Garage::car\"}}"`
+	QueryID     string           `json:"queryId,omitempty" jsonschema:"qualified name of the document query, a calc def specializing DocumentQueries::Query; one of queryId and inlineQuery"`
+	InlineQuery string           `json:"inlineQuery,omitempty" jsonschema:"a query expression run in place of a named query — the body of such a calc def, e.g. Project(WhereType(Descendants(Named(\"Vehicles\")), \"PartUsage\"), (\"name\", \"mass\")) — with the DocumentQueries library in scope and the model's names reachable; a fault in it is reported at its line and column; needs the inline_document_query capability"`
+	Bindings    []map[string]any `json:"bindings,omitempty" jsonschema:"entry-parameter bindings, each a protojson DocumentQueryBinding {\"parameter\":name,\"values\":[DocumentValue]} where a DocumentValue is {\"elementId\":qualified name}, {\"stringValue\":..}, {\"intValue\":\"..\"}, {\"realValue\":..}, {\"boolValue\":..} or {\"object\":{\"path\":\"Garage::car\"}}"`
 }
 
 // RenderDocumentInput renders a named document.
@@ -52,9 +53,10 @@ func (g *group) registerQueries(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "query",
 		Description: "Select elements of a parsed model with a SysML v2 API & Services Query — scope, select, where, orderBy — or OSLC query " +
-			"text (the Query RPC). Each matched element answers its qualified name, metamodel type and the properties select asked " +
-			"for. A query the service cannot evaluate fails with INVALID_ARGUMENT rather than answering empty. The result is the " +
-			"QueryResponse as protojson writes it.",
+			"text (the Query RPC), run as a document-query plan over the model's elements, or over the objects instantiate created " +
+			"when @type names an element (rdf:type=elmt:<id>). Each matched element answers its qualified name, metamodel type and " +
+			"the properties select asked for; an object answers its path too. A query the service cannot evaluate fails with " +
+			"INVALID_ARGUMENT and a QueryOutcome detail rather than answering empty. The result is the QueryResponse as protojson writes it.",
 		Annotations: toolkit.ReadOnly("Query model"),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in QueryInput) (*mcp.CallToolResult, Result, error) {
 		m, err := g.resolve(ctx, in.ModelInput)
@@ -77,9 +79,10 @@ func (g *group) registerQueries(s *mcp.Server) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "run_document_query",
-		Description: "Run a named document query with parameter bindings and answer its typed rows (the RunDocumentQuery RPC, the " +
-			"REPL's %run-query). The query runs over the model and over the objects instantiate created for the same modelHash, which " +
-			"a binding may name. The result is the RunDocumentQueryResponse as protojson writes it; the text is the table.",
+		Description: "Run a named document query, or a query expression written in inlineQuery in place of a name, with parameter " +
+			"bindings and answer its typed rows (the RunDocumentQuery RPC, the REPL's %run-query). The query runs over the model and " +
+			"over the objects instantiate created for the same modelHash, which a binding may name. The result is the " +
+			"RunDocumentQueryResponse as protojson writes it; the text is the table.",
 		Annotations: toolkit.ReadOnly("Run document query"),
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, in RunDocumentQueryInput) (*mcp.CallToolResult, Result, error) {
 		m, err := g.resolve(ctx, in.ModelInput)
@@ -165,6 +168,9 @@ func queryText(resp *pb.QueryResponse) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%d elements\n", len(resp.GetElements()))
 	for _, e := range resp.GetElements() {
+		if e.GetPath() != "" {
+			fmt.Fprintf(&b, "%s ", e.GetPath())
+		}
 		fmt.Fprintf(&b, "%s (%s)", e.GetId(), e.GetType())
 		names := make([]string, 0, len(e.GetProperties()))
 		for name := range e.GetProperties() {

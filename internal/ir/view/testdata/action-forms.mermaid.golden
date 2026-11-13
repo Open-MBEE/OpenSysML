@@ -38,7 +38,6 @@ out alarm`"]
 reading : Reading
 parameters
 out reading
-inout ^payload
 in ^receiver`")
     n3("`⭓ *«send action»*
 **sendAlarm**

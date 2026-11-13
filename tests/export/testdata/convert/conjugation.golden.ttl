@@ -300,7 +300,7 @@ elmt:Conjugation__Ground__spacePort
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:conjugatedTyping "true"^^xsd:boolean ;
-    sysml:type elmt:Conjugation__CommunicationPort ;
+    sysml:type elmt:Conjugation__CommunicationPort_conjugated ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:multiplicity expr:Conjugation__Ground__spacePort_pmultiplicity ;
     sysml:ownedRelationship elmt:Conjugation__Ground__spacePort_ft0, expr:Conjugation__Ground__spacePort_pmultiplicity_om ;
@@ -364,6 +364,9 @@ elmt:Conjugation__Link
     sysml:owningRelationship elmt:Conjugation__Link_om ;
     sysml:owningMembership elmt:Conjugation__Link_om ;
     sysml:declaredName "Link" ;
+    sysml:relatedElement elmt:Conjugation__CommunicationPort, elmt:Conjugation__CommunicationPort_conjugated ;
+    sysml:source elmt:Conjugation__CommunicationPort ;
+    sysml:target elmt:Conjugation__CommunicationPort_conjugated ;
     sysx:hasBody "true"^^xsd:boolean ;
     sysml:ownedMember elmt:Conjugation__Link__a, elmt:Conjugation__Link__b ;
     sysml:ownedMembership elmt:Conjugation__Link__a_om, elmt:Conjugation__Link__b_om ;
@@ -372,6 +375,7 @@ elmt:Conjugation__Link
     sysml:ownedFeatureMembership elmt:Conjugation__Link__a_om, elmt:Conjugation__Link__b_om ;
     sysx:sourceText "    interface def Link {\n" ;
     sysx:sourceTail "    }\n" ;
+    json:relatedElement "[{\"@id\":\"Conjugation__CommunicationPort\"},{\"@id\":\"Conjugation__CommunicationPort_conjugated\"}]" ;
     json:ownedMember "[{\"@id\":\"Conjugation__Link__a\"},{\"@id\":\"Conjugation__Link__b\"}]" ;
     json:ownedMembership "[{\"@id\":\"Conjugation__Link__a_om\"},{\"@id\":\"Conjugation__Link__b_om\"}]" ;
     json:ownedRelationship "[{\"@id\":\"Conjugation__Link__a_om\"},{\"@id\":\"Conjugation__Link__b_om\"}]" ;
@@ -482,7 +486,7 @@ elmt:Conjugation__Link__b
     sysml:isVariable "true"^^xsd:boolean ;
     sysml:mayTimeVary "true"^^xsd:boolean ;
     sysx:conjugatedTyping "true"^^xsd:boolean ;
-    sysml:type elmt:Conjugation__CommunicationPort ;
+    sysml:type elmt:Conjugation__CommunicationPort_conjugated ;
     sysx:hasBody "false"^^xsd:boolean ;
     sysml:multiplicity expr:Conjugation__Link__b_pmultiplicity ;
     sysml:ownedRelationship elmt:Conjugation__Link__b_ft0, expr:Conjugation__Link__b_pmultiplicity_om ;
@@ -2025,6 +2029,18 @@ elmt:c997ad00-60d6-590a-a92c-650dd6f917a1
     a sysml:OwningMembership ;
     sysml:elementId "c997ad00-60d6-590a-a92c-650dd6f917a1" ;
     sysml:memberElement <urn:sysmlv2:element:24f984dc-78af-5ede-bc7a-4a641dccff28> ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:db0b2590-1035-512c-b067-686a67c7d430
+    a sysml:Comment ;
+    sysml:elementId "db0b2590-1035-512c-b067-686a67c7d430" ;
+    sysx:libraryPath "Occurrences::Occurrence/Comment[0]" ;
+    sysml:isLibraryElement "true"^^xsd:boolean .
+
+elmt:cd6c9495-be14-578e-9065-28c9dbe6b52c
+    a sysml:OwningMembership ;
+    sysml:elementId "cd6c9495-be14-578e-9065-28c9dbe6b52c" ;
+    sysml:memberElement elmt:db0b2590-1035-512c-b067-686a67c7d430 ;
     sysml:isLibraryElement "true"^^xsd:boolean .
 
 elmt:d0cefcb9-9a11-5ac1-a47b-3f70c117bd08

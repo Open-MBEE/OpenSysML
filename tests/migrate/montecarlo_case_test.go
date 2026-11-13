@@ -36,25 +36,25 @@ func TestMonteCarloAnalysisIsAnAnalysisCase(t *testing.T) {
 	wantLine(t, r.Notation, "perform action run ::> analysed.settle;")
 	wantLine(t, r.Notation, "attribute :>> observed : ScalarValues::Real = analysed.settleTime;")
 	wantLine(t, r.Notation, "return Mean : ScalarValues::Real[1] = mean;")
-	wantLine(t, r.Notation, "out Deviation : ScalarValues::Real[0..1] = deviation;")
-	wantLine(t, r.Notation, "out OutOfSpec : ScalarValues::Integer[1] = outOfSpec;")
+	wantLine(t, r.Notation, "out Deviation : ScalarValues::Real[0..1] :>> deviation;")
+	wantLine(t, r.Notation, "out OutOfSpec : ScalarValues::Integer[1] :>> outOfSpec;")
 	wantBlock(t, r.Notation, "return Mean : ScalarValues::Real[1] = mean;",
-		"out Deviation : ScalarValues::Real[0..1] = deviation;",
-		"out OutOfSpec : ScalarValues::Integer[1] = outOfSpec;",
+		"out Deviation : ScalarValues::Real[0..1] :>> deviation;",
+		"out OutOfSpec : ScalarValues::Integer[1] :>> outOfSpec;",
 		"}")
 	wantNoLine(t, r.Notation, "Median :")
 	wantNoLine(t, r.Notation, "= median")
 	wantLine(t, r.Notation, "analysis 'Monte Carlo' : 'Settling Analysis Monte Carlo' {")
 	wantLine(t, r.Notation, "subject :>> analysed = 'settling of 5 runs';")
-	wantLine(t, r.Notation, "out :>> deviation = 0.6;")
+	wantLine(t, r.Notation, "out :>> Deviation = 0.6;")
 	wantBlock(t, r.Notation, "analysis def 'Retried Settling Monte Carlo' :> Simulation::MonteCarlo {",
 		"subject analysed : 'Retried Settling';",
 		"perform action run ::> analysed.settle;",
 		"attribute :>> observed : ScalarValues::Real = analysed.settleTime;",
 		"return Mean : ScalarValues::Real[1] = mean;",
-		"out N : ScalarValues::Integer[1] = runs;",
-		"out OutOfSpec : ScalarValues::Integer[1] = outOfSpec;",
-		"out Deviation : ScalarValues::Real[0..1] = deviation;",
+		"out N : ScalarValues::Integer[1] :>> runs;",
+		"out OutOfSpec : ScalarValues::Integer[1] :>> outOfSpec;",
+		"out Deviation : ScalarValues::Real[0..1] :>> deviation;",
 		"}")
 
 	wantNote(t, r, "_analysis", migrate.Approximated, "generalization of the simulation tool's MonteCarloAnalysis is written as the analysis def 'Settling Analysis Monte Carlo' :> Simulation::MonteCarlo beside the part def, which is its subject")
@@ -301,8 +301,8 @@ func TestMonteCarloParametricViewExposesTheAnalysis(t *testing.T) {
 		"perform action run ::> analysed.settle;",
 		"attribute :>> observed : ScalarValues::Real = analysed.settleTime;",
 		"return Mean : ScalarValues::Real[1] = mean;",
-		"out Deviation : ScalarValues::Real[0..1] = deviation;",
-		"out OutOfSpec : ScalarValues::Integer[1] = outOfSpec;",
+		"out Deviation : ScalarValues::Real[0..1] :>> deviation;",
+		"out OutOfSpec : ScalarValues::Integer[1] :>> outOfSpec;",
 		"}")
 
 	wantNote(t, r, "_bindMean", migrate.Approximated, "the binding to the simulation tool's MonteCarloAnalysis::Mean is written in the analysis def 'Settling Analysis Monte Carlo' as the observed value, of which Mean is returned")

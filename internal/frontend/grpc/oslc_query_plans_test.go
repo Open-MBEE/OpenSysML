@@ -1,0 +1,289 @@
+package grpc
+
+import (
+	"context"
+	"errors"
+	"strings"
+	"testing"
+
+	"connectrpc.com/connect"
+	pb "github.com/Open-MBEE/OpenSysML/api/proto"
+	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
+)
+
+func oslcQuery(t *testing.T, srv *Service, hash, text string) *pb.QueryResponse {
+	t.Helper()
+	resp, err := srv.Query(context.Background(), &pb.QueryRequest{ModelHash: hash, OslcQuery: text})
+	if err != nil {
+		t.Fatalf("Query %q: %v", text, err)
+	}
+	return resp
+}
+
+// TestOSLCQuerySelectsHeldObjects: rdf:type=elmt:<id> answers the objects the
+// model's session holds of that element, each under its path, reading their
+// features as object rows do.
+func TestOSLCQuerySelectsHeldObjects(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := parseFixture(t, srv, objectFixture)
+	wheel := "rdf:type=elmt:" + rdf.EncodeElementID("Garage::Wheel")
+	if resp := oslcQuery(t, srv, hash, wheel); len(resp.Elements) != 0 {
+		t.Fatalf("objects before Instantiate = %v, want none", resp.Elements)
+	}
+	holdObject(t, srv, hash, "Garage::car")
+	holdObject(t, srv, hash, "Garage::spare")
+	resp := oslcQuery(t, srv, hash, "oslc.where="+wheel+"&oslc.select=sysml:name,sysx:pressure&oslc.orderBy=-sysx:pressure")
+	var got []string
+	for _, element := range resp.Elements {
+		got = append(got, element.Path+" "+element.Id+" "+element.Type+" "+element.Properties["pressure"])
+	}
+	// An object answers under its path; id and type are the usage it is an instance of.
+	want := []string{
+		"Garage::car.wheels[1] Garage::Car::wheels PartUsage 30",
+		"Garage::car.wheels[2] Garage::Car::wheels PartUsage 30",
+		"Garage::spare Garage::spare PartUsage 20",
+	}
+	if strings.Join(got, ";") != strings.Join(want, ";") {
+		t.Fatalf("objects = %v, want %v", got, want)
+	}
+	resp = oslcQuery(t, srv, hash, "oslc.where="+wheel+` and sysx:pressure<25`)
+	if len(resp.Elements) != 1 || resp.Elements[0].Path != "Garage::spare" {
+		t.Fatalf("pressure<25 = %v, want the spare", resp.Elements)
+	}
+	// An object's wildcard is the features its model declares, not those its
+	// types inherit from the library; a member path reads into the objects a
+	// feature holds, on select, where and orderBy alike.
+	car := "rdf:type=elmt:" + rdf.EncodeElementID("Garage::Car")
+	resp = oslcQuery(t, srv, hash, "oslc.where="+wheel+"&oslc.select=*")
+	if props := resp.Elements[0].Properties; len(props) != 1 || props["pressure"] == "" {
+		t.Fatalf("a wheel's wildcard = %v, want pressure alone", props)
+	}
+	resp = oslcQuery(t, srv, hash, "oslc.where="+car+` and sysx:engine{sysx:power>50}&oslc.select=*,sysx:wheels{*},sysx:engine{sysx:power}&oslc.orderBy=-sysx:engine{sysx:power}`)
+	if len(resp.Elements) != 1 {
+		t.Fatalf("cars with a strong engine = %v, want the car", resp.Elements)
+	}
+	if props := resp.Elements[0].Properties; props["engine"] != "Garage::car.engine" || props["wheels.pressure"] != "30" || props["engine.power"] != "100" || len(props) != 4 {
+		t.Fatalf("a car's properties = %v", props)
+	}
+	// An object's owner is the object holding it, so a path through the
+	// owner reads the parent's live values, not its declaration's.
+	resp = oslcQuery(t, srv, hash, "oslc.where="+wheel+` and sysml:owner{sysx:engine{sysx:power>50}}&oslc.select=sysml:owner{sysml:name}`)
+	if len(resp.Elements) != 2 || resp.Elements[0].Properties["owner.name"] != "car" {
+		t.Fatalf("wheels of a car with a strong engine = %v, want the car's two", resp.Elements)
+	}
+	// The owner compares and orders by the path it is held under; an object
+	// without one (the spare) orders last descending, as a missing key does.
+	resp = oslcQuery(t, srv, hash, "oslc.where="+wheel+`&oslc.select=sysml:owner&oslc.orderBy=-sysml:owner`)
+	if len(resp.Elements) != 3 || resp.Elements[2].Path != "Garage::spare" || resp.Elements[0].Properties["owner"] != "Garage::car" || resp.Elements[1].Properties["owner"] != "Garage::car" {
+		t.Fatalf("wheels by owner = %v, want the car's then the unowned spare", resp.Elements)
+	}
+	resp = oslcQuery(t, srv, hash, "oslc.where="+wheel+`&oslc.select=sysml:owner&oslc.orderBy=%2Bsysml:owner`)
+	if len(resp.Elements) != 3 || resp.Elements[0].Path != "Garage::spare" {
+		t.Fatalf("wheels by owner ascending = %v, want the unowned spare first", resp.Elements)
+	}
+	resp = oslcQuery(t, srv, hash, "oslc.where="+wheel+` and sysml:owner="Garage::car"`)
+	if len(resp.Elements) != 2 {
+		t.Fatalf("wheels owned by the car = %v, want two", resp.Elements)
+	}
+	// Conjoined instance terms keep the objects every term selects.
+	spare := "rdf:type=elmt:" + rdf.EncodeElementID("Garage::spare")
+	if resp := oslcQuery(t, srv, hash, wheel+" and "+spare); len(resp.Elements) != 1 || resp.Elements[0].Path != "Garage::spare" {
+		t.Fatalf("Wheel and spare = %v, want the spare", resp.Elements)
+	}
+	engine := "rdf:type=elmt:" + rdf.EncodeElementID("Garage::Engine")
+	if resp := oslcQuery(t, srv, hash, wheel+" and "+engine); len(resp.Elements) != 0 {
+		t.Fatalf("Wheel and Engine = %v, want none", resp.Elements)
+	}
+	if resp := oslcQuery(t, srv, hash, `rdf:type=sysml:PartUsage`); resp.Elements[0].Path != "" {
+		t.Fatalf("a metaclass query answers elements, got path %q", resp.Elements[0].Path)
+	}
+	_, err := srv.Query(context.Background(), &pb.QueryRequest{ModelHash: hash, OslcQuery: "rdf:type=elmt:" + rdf.EncodeElementID("Garage::Nothing")})
+	if connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Fatalf("objects of an unknown element: %v, want INVALID_ARGUMENT", err)
+	}
+}
+
+// TestOSLCQueryScopedTermsNestedSelectionAndSearch: the constructs the text
+// refused before are translated — a scoped term and a nested selection as a
+// property path, the wildcard as every property, searchTerms as a text match.
+func TestOSLCQueryScopedTermsNestedSelectionAndSearch(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := parseFixture(t, srv, objectFixture)
+	resp := oslcQuery(t, srv, hash, `oslc.where=rdf:type=sysml:PartUsage and sysml:owner{sysml:name="Car"}&oslc.select=sysml:name,sysml:owner{sysml:qualifiedName}`)
+	var got []string
+	for _, element := range resp.Elements {
+		got = append(got, element.Id+" "+element.Properties["owner.qualifiedName"])
+	}
+	if want := "Garage::Car::engine Garage::Car;Garage::Car::wheels Garage::Car"; strings.Join(got, ";") != want {
+		t.Fatalf("scoped = %v, want %s", got, want)
+	}
+	// The wildcard is every property the rows' metaclass has that the
+	// evaluator serves — isComposite of a PartUsage among them — and the
+	// evaluator's own; a feature inherited from the library (dispatchScope)
+	// is none, and a nested wildcard reads the related element's.
+	resp = oslcQuery(t, srv, hash, `oslc.where=rdf:type=sysml:PartUsage&oslc.select=*,sysml:owner{*}`)
+	props := resp.Elements[0].Properties
+	if props["qualifiedName"] == "" || props["@type"] != "PartUsage" || props["isComposite"] != "true" || props["owner.@type"] != "PartDefinition" {
+		t.Fatalf("wildcard properties = %v", props)
+	}
+	for _, unwanted := range []string{"*", "dispatchScope", "owner.*"} {
+		if _, ok := props[unwanted]; ok {
+			t.Fatalf("wildcard properties carry %q: %v", unwanted, props)
+		}
+	}
+	resp = oslcQuery(t, srv, hash, `oslc.where=rdf:type=sysml:PartUsage&oslc.searchTerms="WHEEL"`)
+	got = got[:0]
+	for _, element := range resp.Elements {
+		got = append(got, element.Id)
+	}
+	if want := "Garage::Car::wheels;Garage::CarReport::wheels"; strings.Join(got, ";") != want {
+		t.Fatalf("search = %v, want %s", got, want)
+	}
+	_, err := srv.Query(context.Background(), &pb.QueryRequest{ModelHash: hash, OslcQuery: `sysml:name="a" or sysml:name="b"`})
+	assertQueryError(t, err, QueryErrUnsupported)
+}
+
+// TestQueryFailureCarriesTheQueryOutcome: a plan the evaluator refuses while
+// reading the model attaches the QVTS record as a QueryOutcome detail.
+func TestQueryFailureCarriesTheQueryOutcome(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := parseFixture(t, srv, objectFixture)
+	holdObject(t, srv, hash, "Garage::spare")
+	// The evaluator's refusal: a feature no object row carries. (A metamodel
+	// property no element row carries is absent, not refused.)
+	_, err := srv.Query(context.Background(), &pb.QueryRequest{ModelHash: hash, OslcQuery: "oslc.where=rdf:type=elmt:" + rdf.EncodeElementID("Garage::Wheel") + "&oslc.select=sysx:tread"})
+	assertQueryError(t, err, QueryErrUnknownProperty)
+	if outcome := queryOutcomeOf(t, err); outcome.Kind != "pathError" {
+		t.Fatalf("outcome = %v, want a path error", outcome)
+	}
+	// A metamodel property's name is no feature of an object: unknown there too.
+	_, err = srv.Query(context.Background(), &pb.QueryRequest{ModelHash: hash, OslcQuery: "oslc.where=rdf:type=elmt:" + rdf.EncodeElementID("Garage::Wheel") + "&oslc.select=sysx:body"})
+	assertQueryError(t, err, QueryErrUnknownProperty)
+	resp := oslcQuery(t, srv, hash, `oslc.where=rdf:type=sysml:Package&oslc.select=sysml:isComposite`)
+	if len(resp.Elements) == 0 || len(resp.Elements[0].Properties) != 0 {
+		t.Fatalf("isComposite of packages = %v, want the packages with the property absent", resp.Elements)
+	}
+	// The translator's: a property the metamodel does not define, with the
+	// nearest spelling on the frontier — in OSLC text and the structured form.
+	_, err = srv.Query(context.Background(), &pb.QueryRequest{ModelHash: hash, OslcQuery: `sysml:nmae="car"`})
+	assertQueryError(t, err, QueryErrUnknownProperty)
+	if outcome := queryOutcomeOf(t, err); len(outcome.Failures) != 1 || outcome.Failures[0].GetFrontier().GetNearest() != "sysml:name" {
+		t.Fatalf("outcome = %v, want sysml:name nearest", outcome)
+	}
+	_, err = srv.Query(context.Background(), &pb.QueryRequest{ModelHash: hash, Query: &pb.Query{Select: []string{"nmae"}}})
+	assertQueryError(t, err, QueryErrUnknownProperty)
+	if outcome := queryOutcomeOf(t, err); len(outcome.Failures) != 1 || outcome.Failures[0].GetFrontier().GetNearest() != "name" {
+		t.Fatalf("outcome = %v, want name nearest", outcome)
+	}
+}
+
+// queryOutcomeOf is the QueryOutcome detail a failed Query carries.
+func queryOutcomeOf(t *testing.T, err error) *pb.QueryOutcome {
+	t.Helper()
+	var connErr *connect.Error
+	if !errors.As(err, &connErr) {
+		t.Fatalf("error %v is not a connect error", err)
+	}
+	for _, detail := range connErr.Details() {
+		if msg, err := detail.Value(); err == nil {
+			if outcome, ok := msg.(*pb.QueryOutcome); ok {
+				return outcome
+			}
+		}
+	}
+	t.Fatalf("no QueryOutcome detail on %v", err)
+	return nil
+}
+
+// TestAPIQuerySelectsHeldObjects: the structured Query reaches the objects
+// through the same translation, `@type in [<urn:sysmlv2:element:id>]`.
+func TestAPIQuerySelectsHeldObjects(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := parseFixture(t, srv, objectFixture)
+	holdObject(t, srv, hash, "Garage::car")
+	iri := "<" + rdf.Element + rdf.EncodeElementID("Garage::Wheel") + ">"
+	resp, err := srv.Query(context.Background(), &pb.QueryRequest{ModelHash: hash, Query: &pb.Query{
+		Where:  primitive(QueryPropType, opIn, false, iri),
+		Select: []string{"pressure"},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Elements) != 2 || resp.Elements[1].Path != "Garage::car.wheels[2]" || resp.Elements[1].Properties["pressure"] != "30" {
+		t.Fatalf("objects = %v", resp.Elements)
+	}
+	_, err = srv.Query(context.Background(), &pb.QueryRequest{ModelHash: hash, Query: &pb.Query{
+		Where: primitive(QueryPropType, opEqual, true, iri),
+	}})
+	assertQueryError(t, err, QueryErrUnsupported)
+	_, err = srv.Query(context.Background(), &pb.QueryRequest{ModelHash: hash, Query: &pb.Query{
+		Where: primitive(QueryPropType, opIn, false, iri, "PartUsage"),
+	}})
+	assertQueryError(t, err, QueryErrUnsupported)
+}
+
+// TestQueryReportsAnEmptyValueAsPresent: a property whose value is the empty
+// string is reported as "", which a client tells from an absent property.
+func TestQueryReportsAnEmptyValueAsPresent(t *testing.T) {
+	_, _, resp := runQueryOnSource(t, "package Demo { comment C /**/ part p; }", &pb.Query{
+		Where:  primitive(QueryPropType, opEqual, false, "Comment"),
+		Select: []string{QueryPropBody, QueryPropDocumentation},
+	})
+	if len(resp.Elements) != 1 {
+		t.Fatalf("comments = %v, want one", resp.Elements)
+	}
+	props := resp.Elements[0].Properties
+	body, present := props[QueryPropBody]
+	if !present || body != "" {
+		t.Fatalf("body = %q (present %v), want the empty string present", body, present)
+	}
+	if _, present := props[QueryPropDocumentation]; present {
+		t.Fatalf("documentation of a comment is present: %v", props)
+	}
+}
+
+// TestQueryWalksASendActionsArguments: a send's payloadArgument, senderArgument
+// and receiverArgument are the expression elements the metamodel derives, so a
+// path continues through them — to their metaclass, or the feature a reference
+// names — while the argument itself, having no identity, reads as written, and
+// a term on it compares the same.
+func TestQueryWalksASendActionsArguments(t *testing.T) {
+	srv := mustNewService(t, 10)
+	hash := mustParse(t, srv, `package Demo {
+		item def Alarm;
+		part def Monitor {
+			port alarmPort;
+			part display;
+			action supervise {
+				action notifyVia send new Alarm(3) via alarmPort;
+				action notifyTo send new Demo::Alarm(5) to display;
+			}
+		}
+	}`)
+	resp := oslcQuery(t, srv, hash, `oslc.where=rdf:type=sysml:SendActionUsage and sysml:senderArgument{sysml:referent{sysml:name="alarmPort"}}`+
+		`&oslc.select=sysml:payloadArgument{rdf:type},sysml:senderArgument{rdf:type,sysml:referent{sysml:name}}`)
+	if len(resp.Elements) != 1 || resp.Elements[0].Id != "Demo::Monitor::supervise::notifyVia" {
+		t.Fatalf("scoped on the sender = %v", resp.Elements)
+	}
+	want := map[string]string{
+		"payloadArgument.@type":        "ConstructorExpression",
+		"senderArgument.@type":         "FeatureReferenceExpression",
+		"senderArgument.referent.name": "alarmPort",
+	}
+	for property, value := range want {
+		if got := resp.Elements[0].Properties[property]; got != value {
+			t.Errorf("%s = %q, want %q (%v)", property, got, value, resp.Elements[0].Properties)
+		}
+	}
+	// A qualified name inside the written text is still text, not an
+	// element's qualified name to match.
+	resp = oslcQuery(t, srv, hash, `oslc.where=rdf:type=sysml:SendActionUsage and sysml:payloadArgument="new Demo::Alarm(5)"&oslc.select=sysml:payloadArgument,sysml:receiverArgument{sysml:referent{sysml:qualifiedName}}`)
+	if len(resp.Elements) != 1 || resp.Elements[0].Properties["payloadArgument"] != "new Demo::Alarm(5)" ||
+		resp.Elements[0].Properties["receiverArgument.referent.qualifiedName"] != "Demo::Monitor::display" {
+		t.Fatalf("payload as written = %v", resp.Elements)
+	}
+	resp = oslcQuery(t, srv, hash, `oslc.where=rdf:type=sysml:SendActionUsage&oslc.select=sysml:payloadArgument&oslc.orderBy=-sysml:payloadArgument`)
+	if len(resp.Elements) != 2 || resp.Elements[0].Properties["payloadArgument"] != "new Demo::Alarm(5)" {
+		t.Fatalf("ordered by the payload as written = %v", resp.Elements)
+	}
+}

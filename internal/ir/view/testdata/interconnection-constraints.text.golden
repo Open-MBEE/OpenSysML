@@ -10,9 +10,9 @@ part def Amplifier
     port ^gain
     port ^output
   constraint mix
-    port ^a
-    port ^b
-    port ^total
+    port a
+    port b
+    port total
 
 connections:
   signal == amplify.input: =

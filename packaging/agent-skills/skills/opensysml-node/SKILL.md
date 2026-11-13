@@ -64,6 +64,30 @@ are `bigint`. Three "no value" kinds are not errors and must not be coerced to 0
 `"undetermined"` (the model leaves it open), `"unset"` (an object holds nothing for the feature)
 and `"null"`; `"absent"` means the answer carried no field at all.
 
+## Members, element properties and object paths
+
+```ts
+const m = await model.symbol("Demo::m");
+m.members;                        // every member, own then inherited: { id, name, kind, inherited, inheritedFrom, library }
+m.inheritedMembers();             // the inherited ones; inheritedFrom names the declaring type
+m.withheldLibraryMembers;         // standard-library members counted, not listed, until:
+await m.withLibraryMembers();     // ... fetched again with them (or symbolById(id, { includeLibraryMembers: true }))
+
+const read = await model.elementProperties("Demo::Pair", "inheritedFeature", "isAbstract");
+read.get("inheritedFeature")?.elements;                      // ElementIdentity[]; their id is accepted back
+read.get("connectorEnd")?.unsupported;                       // why a property has no values
+
+const engine = tree.byId(2n)!;
+engine.reachedBy;                 // { instanceId, featureName, featureSymbolId, index, path }; undefined for the root
+engine.path; tree.owner(engine);  // "engine", the holding object
+await model.instancePaths(engine); // InstancePaths: every root-relative path, aliases included
+```
+
+`members` is empty from a service without `symbol_members` (`childIds` still names the owned
+ones); `includeLibraryMembers`, `elementProperties` and `instancePaths` throw
+`MissingCapabilityError` before asking when the service lacks `symbol_members`,
+`element_properties` or `instance_paths`.
+
 ## Verify
 
 ```ts

@@ -93,18 +93,19 @@ func (c *ChoicePoint) touchMeeting(f, g *lower.Standing, rel lower.Relation) {
 // of g standing on a read of g that a write of f meets; it reports whether any did.
 func (c *ChoicePoint) touchWritesMet(f, g *lower.Standing, rel lower.Relation) bool {
 	met := false
+	meet := func(p, q lower.Place) bool { return c.meet(rel, p, q) }
 	for _, p := range f.Writes {
-		if c.meets(rel, p, g.Writes) {
+		if g.MeetsWrite(p, meet) {
 			c.touch(p)
 			met = true
 		}
 		// A pin is each performance's own, delivered to, not raced for: a read of
 		// one sees what arrived, whichever order the moves ran.
 		if !shared(p) {
-			met = c.meets(rel, p, g.Reads) || met
+			met = g.MeetsRead(p, meet) || met
 			continue
 		}
-		if writes, ok := g.WritesReading(func(r lower.Place) bool { return c.meet(rel, p, r) }); ok {
+		if writes, ok := g.WritesReading(p, meet); ok {
 			for _, q := range writes {
 				c.touch(q)
 			}
@@ -112,16 +113,6 @@ func (c *ChoicePoint) touchWritesMet(f, g *lower.Standing, rel lower.Relation) b
 		}
 	}
 	return met
-}
-
-// meets reports whether p may name the value of a place among qs.
-func (c *ChoicePoint) meets(rel lower.Relation, p lower.Place, qs []lower.Place) bool {
-	for _, q := range qs {
-		if c.meet(rel, p, q) {
-			return true
-		}
-	}
-	return false
 }
 
 // meet reports whether p may name the value of q: the declarations' answer,
@@ -171,11 +162,13 @@ func (c *ChoicePoint) touch(p lower.Place) {
 	c.Touches = slices.Insert(c.Touches, i, name)
 }
 
-// futureFootprints is what the run's executors may still touch, made on first use.
+// futureFootprints is what the run's executors may still touch, made on first
+// use; asking for it lets go of the futures the last gate kept.
 func (ctx *Context) futureFootprints() *futureFootprints {
 	if ctx.futures == nil {
 		ctx.futures = newFutureFootprints(ctx)
 	}
+	ctx.futures.forget()
 	return ctx.futures
 }
 

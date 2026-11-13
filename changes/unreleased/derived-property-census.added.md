@@ -1,0 +1,2 @@
+
+- `go run -C tools ./cmd/derived-census` measures, over the example models and the downloaded corpora, how often every served metamodel rule answers a value, answers nothing or is not derived through the symbol-backed Structure `GetElementProperties` reads, against the pinned pilot's export; the baseline beside `rules.go` lists the rules silent where the pilot answers and `-check` fails when one joins it (`docs/project/derived-property-census.md`).

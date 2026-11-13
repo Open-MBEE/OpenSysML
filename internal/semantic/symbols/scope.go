@@ -206,6 +206,19 @@ func (s *Scope) ForEachAnonymousMember(yield func(*Symbol) bool) {
 	}
 }
 
+// ForEachNamedMember visits each named registration with the key it was defined under,
+// in declaration order, without copying them.
+func (s *Scope) ForEachNamedMember(yield func(name string, sym *Symbol) bool) {
+	if s == nil || yield == nil {
+		return
+	}
+	for i, name := range s.names {
+		if !yield(name, s.syms[i]) {
+			return
+		}
+	}
+}
+
 // LookupLocal returns the first symbol defined under name in this scope only.
 // A declared name wins over an effective one taken from a referenced feature.
 func (s *Scope) LookupLocal(name string) (*Symbol, bool) {

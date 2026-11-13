@@ -82,7 +82,7 @@ func TestMembershipEndsReadAsTheConversionWritesThem(t *testing.T) {
 		}
 	}
 	shoot, _ := pkg.Scope.LookupLocal("shoot")
-	// An unnamed parameter is named by the one it redefines (KerML 8.2.4): memberName "image" on both ledgers.
+	// An unnamed parameter is named by the one it redefines (KerML 8.3.3.3.4): memberName "image" on both ledgers.
 	unnamed := shoot.Scope.AllMembers()[0]
 	cases = append(cases, member{model.OwningMembership(unnamed), unnamed, "P::shoot", "", "ownedMember"})
 	if values, _ := model.ReflectiveFeatureValues(cases[len(cases)-1].om, "memberName"); len(values) != 1 || values[0].Str != "image" {

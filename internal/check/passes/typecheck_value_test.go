@@ -369,11 +369,12 @@ func collectionValueDiags(t *testing.T, members string) []string {
 		part two : Vehicle[2..*];
 		part none : Vehicle[0];
 		part boat : Boat;
-		function Boats { in v : Vehicle; return r : Boat; }
+		function Boats { in v : Vehicle; return r : Boat[1]; }
+		function BoatsMany { in v : Vehicle; return r : Boat; }
 		function Sail { in b : Boat; return r : Boat; }
 		function Drive { in v : Vehicle; return r : Vehicle; }
 		function Half { in v : Vehicle; return r : Real; }
-		function Name { in v : Vehicle; return r : String; }
+		function Name { in v : Vehicle; return r : String[1]; }
 		function Nobody { in v : Vehicle; return r : Vehicle[0]; }
 		function Nobody2 :> Nobody { in v : Vehicle; return r :>> r; }
 		function Nobody3 :> Nobody { in v : Vehicle; return r : Vehicle; }
@@ -615,6 +616,8 @@ func TestValueCollectionCountIsJudged(t *testing.T) {
 		"2 value(s) bound to a feature with multiplicity lower bound 3")
 	wantCollectionValueDiags(t, `part b : Boat[3] = pair.items->collect Boats;`,
 		"2 value(s) bound to a feature with multiplicity lower bound 3")
+	// A result declaring no multiplicity inherits Evaluation::result's [0..*] (KerML 8.3.3.1).
+	wantCollectionValueDiags(t, `part b : Boat[3] = pair.items->collect BoatsMany;`)
 	wantCollectionValueDiags(t, `
 		part huge : Vehicle[9223372036854775807];
 		attribute s : String[9223372036854775807] = (huge.{ in v : Vehicle; "a" }, "b");`,

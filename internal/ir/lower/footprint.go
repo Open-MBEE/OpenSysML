@@ -121,20 +121,22 @@ type Flow struct {
 	Writes []Place
 }
 
-// Standing is a footprint indexed for the many questions classifying a choice
-// asks of one move: whether a place meets a read of it, and what it writes
-// standing on the reads met, each distinct place its statements read decided once.
+// Standing is a footprint indexed by declaration, name and state so that a place
+// is decided only against the places of the move it may conflict with, each once.
 type Standing struct {
 	Reads  []Place
 	Writes []Place
-	// reads are the distinct places the flows read, inReads whether each is among
-	// Reads; others the places among Reads no flow reads (a guard's); written the
-	// distinct places the flows write, as the move holds them; flows index both.
-	reads   []Place
-	inReads []bool
-	others  []Place
-	written []Place
-	flows   []flowIndex
+	// reads are the distinct places read: those a flow reads first (flowReads of
+	// them), then the rest of Reads (a guard's); inReads whether each is among Reads.
+	reads     []Place
+	flowReads int
+	inReads   []bool
+	// written are the distinct places the flows write, as the move holds them;
+	// flows index both; readIndex and writeIndex find the places one may conflict with.
+	written    []Place
+	flows      []flowIndex
+	readIndex  placeIndex
+	writeIndex placeIndex
 	// met, out and writes are scratch for WritesReading.
 	met    []bool
 	out    []bool
@@ -147,20 +149,86 @@ type flowIndex struct {
 	writes []int
 }
 
+// placeIndex finds, among a slice of places, the ones a place may conflict with:
+// the three ways Conflicts matches, by declaration, by name and by state, which it still decides.
+type placeIndex struct {
+	bySym   map[*symbols.Symbol][]int
+	byName  map[string][]int
+	byState map[*ast.StateNode][]int
+}
+
+func indexPlaces(places []Place) placeIndex {
+	x := placeIndex{bySym: make(map[*symbols.Symbol][]int), byName: make(map[string][]int)}
+	for i, p := range places {
+		x.add(p, i)
+	}
+	return x
+}
+
+func (x *placeIndex) add(p Place, i int) {
+	if p.State != nil {
+		if x.byState == nil {
+			x.byState = make(map[*ast.StateNode][]int)
+		}
+		x.byState[p.State] = append(x.byState[p.State], i)
+		return
+	}
+	if p.Sym != nil {
+		x.bySym[p.Sym] = append(x.bySym[p.Sym], i)
+	}
+	x.byName[p.Name] = append(x.byName[p.Name], i)
+}
+
+// candidates calls visit with the index of each place p may conflict with, each
+// once, until visit returns false; it reports whether every candidate was visited.
+func (x *placeIndex) candidates(places []Place, p Place, visit func(int) bool) bool {
+	if p.State != nil {
+		for _, i := range x.byState[p.State] {
+			if !visit(i) {
+				return false
+			}
+		}
+		return true
+	}
+	if p.Sym != nil {
+		for _, i := range x.bySym[p.Sym] {
+			if !visit(i) {
+				return false
+			}
+		}
+	}
+	for _, i := range x.byName[p.Name] {
+		if p.Sym != nil && places[i].Sym == p.Sym {
+			continue
+		}
+		if !visit(i) {
+			return false
+		}
+	}
+	return true
+}
+
+// find is the index of p among places, by the index, or -1.
+func (x *placeIndex) find(places []Place, p Place) int {
+	at := -1
+	x.candidates(places, p, func(i int) bool {
+		if places[i] == p {
+			at = i
+		}
+		return at < 0
+	})
+	return at
+}
+
 // Standing indexes the footprint's flows by what they read and write.
 func (f Footprint) Standing() *Standing {
 	s := &Standing{Reads: f.Reads, Writes: f.Writes, flows: make([]flowIndex, 0, len(f.Flows))}
-	readAt, writtenAt := make(map[Place]int), make(map[Place]int)
+	s.readIndex, s.writeIndex = indexPlaces(nil), indexPlaces(f.Writes)
+	writtenAt := make(map[Place]int)
 	for _, flow := range f.Flows {
 		var index flowIndex
 		for _, p := range flow.Reads {
-			i, ok := readAt[p]
-			if !ok {
-				i = len(s.reads)
-				readAt[p] = i
-				s.reads = append(s.reads, p)
-			}
-			index.reads = append(index.reads, i)
+			index.reads = append(index.reads, s.addRead(p))
 		}
 		for _, p := range flow.Writes {
 			if p.Name == "" {
@@ -177,16 +245,27 @@ func (f Footprint) Standing() *Standing {
 		}
 		s.flows = append(s.flows, index)
 	}
-	s.inReads = make([]bool, len(s.reads))
+	s.flowReads = len(s.reads)
+	s.inReads = make([]bool, s.flowReads)
 	for _, p := range f.Reads {
-		if i, ok := readAt[p]; ok {
+		if i := s.readIndex.find(s.reads, p); i >= 0 && i < s.flowReads {
 			s.inReads[i] = true
-		} else {
-			s.others = append(s.others, p)
+		} else if i < 0 {
+			s.addRead(p)
 		}
 	}
-	s.met, s.out = make([]bool, len(s.reads)), make([]bool, len(s.written))
+	s.met, s.out = make([]bool, s.flowReads), make([]bool, len(s.written))
 	return s
+}
+
+// addRead is the index of p among the distinct reads, added when new.
+func (s *Standing) addRead(p Place) int {
+	if i := s.readIndex.find(s.reads, p); i >= 0 {
+		return i
+	}
+	s.readIndex.add(p, len(s.reads))
+	s.reads = append(s.reads, p)
+	return len(s.reads) - 1
 }
 
 // PlacesEqual reports whether the two footprints read and write the same places
@@ -203,20 +282,38 @@ func (f Footprint) PlacesEqual(g Footprint) bool {
 	return true
 }
 
-// WritesReading reports whether a place among Reads is met, and if so the places
+// MeetsRead reports whether p meets a place among Reads, by meet, which may hold
+// only of places p Conflicts with (a Relation's PlaceMeet does); so may MeetsWrite and WritesReading.
+func (s *Standing) MeetsRead(p Place, meet func(p, q Place) bool) bool {
+	return !s.readIndex.candidates(s.reads, p, func(i int) bool {
+		return !(i >= s.flowReads || s.inReads[i]) || !meet(p, s.reads[i])
+	})
+}
+
+// MeetsWrite reports whether p meets a place among Writes.
+func (s *Standing) MeetsWrite(p Place, meet func(p, q Place) bool) bool {
+	return !s.writeIndex.candidates(s.Writes, p, func(i int) bool { return !meet(p, s.Writes[i]) })
+}
+
+// WritesReading reports whether p meets a place among Reads, and if so the places
 // the move writes standing on a read of a place met: the writes of the statements
 // reading one, or every write of the move when a read outside its statements (a
 // guard's) or a move described whole does. The places are valid until the next call.
-func (s *Standing) WritesReading(meets func(Place) bool) ([]Place, bool) {
+func (s *Standing) WritesReading(p Place, meet func(p, q Place) bool) ([]Place, bool) {
 	inFlow, met := false, false
-	for i, p := range s.reads {
-		s.met[i] = meets(p)
-		inFlow = inFlow || s.met[i]
-		met = met || s.met[i] && s.inReads[i]
-	}
-	if !met {
-		met = slices.ContainsFunc(s.others, meets)
-	}
+	clear(s.met)
+	s.readIndex.candidates(s.reads, p, func(i int) bool {
+		if !meet(p, s.reads[i]) {
+			return true
+		}
+		if i >= s.flowReads {
+			met = true
+			return true
+		}
+		s.met[i], inFlow = true, true
+		met = met || s.inReads[i]
+		return true
+	})
 	if !met {
 		return nil, false
 	}

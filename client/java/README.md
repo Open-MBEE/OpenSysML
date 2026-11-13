@@ -31,7 +31,14 @@ try (Connection connection = Connection.open()) {      // starts a private sysml
   Value mass = model.evalWithSubject("mass", "Demo::sedan");
 
   Symbol vehicle = model.symbol("Demo::Vehicle");      // findSymbol returns Optional
+  vehicle.members();                                   // every member, own and inherited, with its provenance
+  model.symbol("Demo::Vehicle", SymbolOptions.defaults().withLibraryMembers(true));
+  ElementProperties read = model.elementProperties("Demo::Vehicle", "inheritedFeature");
   Instantiation built = model.instantiate("Demo::Vehicle");
+  Instance engine = built.reachable().get(1);
+  engine.reachedBy();                                  // owner, feature, index and path from the root
+  built.owner(engine);                                 // the holding object
+  InstancePaths paths = model.instancePaths(engine);   // every root-relative path to it
 
   ActionRun run = model.executeAction("Test::addFive");           // outputs, final time, diagnostics, performer
   Verification v = model.verifyConstraint("Demo::Vehicle::massLight");
@@ -401,12 +408,12 @@ unnoticed.
 
 Or as a test, which is what CI runs: `mvn -f client/java/pom.xml test`.
 
-Per protocol, of 166 scenarios:
+Per protocol, of 206 scenarios:
 
 | protocol       | ran | passed | failed | skipped |
 | -------------- | --: | -----: | -----: | ------: |
-| `connect`      | 161 |    161 |      0 |       5 |
-| `connect-json` | 161 |    161 |      0 |       5 |
+| `connect`      | 201 |    201 |      0 |       5 |
+| `connect-json` | 201 |    201 |      0 |       5 |
 
 **5 skipped**: only the requests the public API cannot express —
 `parse/naming_no_source_is_invalid` (the API always names a

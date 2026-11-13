@@ -13,31 +13,36 @@ import (
 	"testing"
 )
 
-// The race shards are named in five places that must agree: scripts/race-shard.sh,
-// the Makefile (test-shard, RACE_RUNTIME_CORPUS, RACE_EXPORT_CORPUS, RACE_EXPORT_SETTLED, COVERAGE_SHARDS),
-// the two CircleCI jobs' shard arrays and parallelism, and the PR workflow's matrices.
+// The race shards are named in five places that must agree: scripts/race-shard.sh, the Makefile
+// (test-shard, RACE_*, COVERAGE_SHARDS), the CircleCI shard arrays and the PR workflow's matrices.
 
 const (
 	raceRuntimeDir = "../../internal/exec/runtime"
 	raceExportDir  = "../../tests/export"
+	raceCorpusDir  = "../../tests/corpus"
 )
 
 var (
 	shardScriptList    = regexp.MustCompile(`(?m)^shards='([^']+)'$`)
+	sweepScriptList    = regexp.MustCompile(`(?m)^sweeps='([^']+)'$`)
 	makefileCorpus     = regexp.MustCompile(`(?m)^RACE_RUNTIME_CORPUS := (.+)$`)
 	makefileExport     = regexp.MustCompile(`(?m)^RACE_EXPORT_CORPUS := (.+)$`)
 	circleExport       = regexp.MustCompile(`(?m)^\s*exportcorpus='([^']+)'$`)
-	makefileSettled    = regexp.MustCompile(`(?m)^RACE_EXPORT_SETTLED := (.+)$`)
-	circleSettled      = regexp.MustCompile(`(?m)^\s*exportsettled='([^']+)'$`)
+	makefileLibrary    = regexp.MustCompile(`(?m)^RACE_EXPORT_LIBRARY := (.+)$`)
+	circleLibrary      = regexp.MustCompile(`(?m)^\s*exportlibrary='([^']+)'$`)
+	makefileExamples   = regexp.MustCompile(`(?m)^RACE_EXPORT_EXAMPLES := (.+)$`)
+	circleExamples     = regexp.MustCompile(`(?m)^\s*exportexamples='([^']+)'$`)
+	makefileSweep      = regexp.MustCompile(`(?m)^RACE_CORPUS_SWEEP := (.+)$`)
+	circleSweep        = regexp.MustCompile(`(?m)^\s*corpussweep='([^']+)'$`)
 	makefileCoverage   = regexp.MustCompile(`(?m)^COVERAGE_SHARDS := (.+)$`)
 	circleShardArrays  = regexp.MustCompile(`(?m)^\s*shards=\(([^)]+)\)$`)
+	circleSweepJob     = regexp.MustCompile(`(?m)^\s*sweep_shard=(\S+)$`)
 	shardArrayEntry    = regexp.MustCompile(`"([^"]*)"|(\S+)`)
 	circleParallelism  = regexp.MustCompile(`(?m)^  (go-race-test|go-coverage):\n(?:    .*\n)*?    parallelism: (\d+)$`)
 	circleCorpus       = regexp.MustCompile(`(?m)^\s*corpus='([^']+)'$`)
 	makefileExplore    = regexp.MustCompile(`(?m)^RACE_RUNTIME_EXPLORATION := (.+)$`)
 	circleExplore      = regexp.MustCompile(`(?m)^\s*exploration='([^']+)'$`)
 	workflowShards     = regexp.MustCompile(`go_shards=\[([^\]]+)\]`)
-	workflowProfiles   = regexp.MustCompile(`-ne (\d+) \]; then echo "error: expected (\d+) shard profiles`)
 	workflowQuoted     = regexp.MustCompile(`"([^"]+)"`)
 	workflowQuickGroup = regexp.MustCompile(`\s+`)
 )
@@ -72,15 +77,15 @@ func TestCircleCIShardArraysMatchTheRaceShards(t *testing.T) {
 	raceNodes := shardArrayEntries(arrays[0][1])
 	coverage := strings.Fields(arrays[1][1])
 
-	// A race node runs one shard, or the shards of one quoted entry in turn; together the
-	// nodes run every shard once, in whatever order.
-	var race []string
+	// A race node runs one shard, or the shards of one quoted entry in turn; with the sweep
+	// job's shard they run every shard once, in whatever order.
+	race := []string{firstSubmatch(t, circleSweepJob, config, ".circleci/config.yml go-race-sweep")}
 	for _, node := range raceNodes {
 		race = append(race, strings.Fields(node)...)
 	}
 	slices.Sort(race)
 	if !slices.Equal(race, slices.Sorted(slices.Values(shards))) {
-		t.Errorf("race job nodes %q run shards %v, scripts/race-shard.sh %v", raceNodes, race, shards)
+		t.Errorf("race job nodes %q and the sweep job run shards %v, scripts/race-shard.sh %v", raceNodes, race, shards)
 	}
 	// The coverage job has no corpus shards of the runtime: without -race the package runs
 	// whole in its runtime shard.
@@ -135,11 +140,11 @@ func shardArrayEntries(body string) []string {
 
 // TestPRWorkflowMatricesCoverTheRaceShards: the full tier runs every race shard but
 // tools (tests/wasm is the WebAssembly gate job there, the tools module rides with
-// rest), expects one coverage profile per shard, and the quick tier's groups together
-// name every package shard once (runtime and export cover their -corpus shards' package).
+// rest), and the quick tier's groups together name each of those shards once (make
+// test-quick runs a group's shards in turn, with their selections, without -race).
 
 // isCorpusShard says whether a shard is a by-test-name part of another shard's package
-// (runtime-corpus, export-corpus, export-settled): the hyphenated names.
+// (runtime-corpus, export-corpus, corpus-sweep, ...): the hyphenated names.
 func isCorpusShard(shard string) bool { return strings.Contains(shard, "-") }
 func TestPRWorkflowMatricesCoverTheRaceShards(t *testing.T) {
 	shards := raceShards(t)
@@ -160,20 +165,15 @@ func TestPRWorkflowMatricesCoverTheRaceShards(t *testing.T) {
 	if !slices.Equal(full, wantFull) {
 		t.Errorf("full tier go_shards %v, want the race shards but tools %v", full, wantFull)
 	}
-	m := workflowProfiles.FindStringSubmatch(workflow)
-	if m == nil || m[1] != itoa(len(full)) || m[2] != itoa(len(full)) {
-		t.Errorf("race-coverage expects %v shard profiles, the full tier has %d shards", m, len(full))
-	}
 
 	var quick []string
 	for _, group := range quoted(matrices[1][1]) {
 		quick = append(quick, workflowQuickGroup.Split(strings.TrimSpace(group), -1)...)
 	}
 	slices.Sort(quick)
-	wantQuick := slices.DeleteFunc(slices.Clone(wantFull), isCorpusShard)
-	slices.Sort(wantQuick)
+	wantQuick := slices.Sorted(slices.Values(wantFull))
 	if !slices.Equal(quick, wantQuick) {
-		t.Errorf("quick tier groups name %v, want each package shard once %v", quick, wantQuick)
+		t.Errorf("quick tier groups name %v, want each full-tier shard once %v", quick, wantQuick)
 	}
 }
 
@@ -201,17 +201,29 @@ func TestRuntimeCorpusPatternPartitionsTheRuntimeTests(t *testing.T) {
 	}
 }
 
-// TestExportCorpusPatternsPartitionTheExportTests: the export, export-corpus and
-// export-settled shards are tests/export split the same way by RACE_EXPORT_CORPUS and
-// RACE_EXPORT_SETTLED, which no test may match both of.
+// TestExportCorpusPatternsPartitionTheExportTests: the four export shards are tests/export split the
+// same way by the three RACE_EXPORT_* patterns, of which no test may match more than one.
 func TestExportCorpusPatternsPartitionTheExportTests(t *testing.T) {
 	corpus, tests := corpusPatternPartitions(t, "RACE_EXPORT_CORPUS", makefileExport, circleExport, "exportcorpus=", raceExportDir, 50)
-	settled, _ := corpusPatternPartitions(t, "RACE_EXPORT_SETTLED", makefileSettled, circleSettled, "exportsettled=", raceExportDir, 50)
+	library, _ := corpusPatternPartitions(t, "RACE_EXPORT_LIBRARY", makefileLibrary, circleLibrary, "exportlibrary=", raceExportDir, 50)
+	examples, _ := corpusPatternPartitions(t, "RACE_EXPORT_EXAMPLES", makefileExamples, circleExamples, "exportexamples=", raceExportDir, 50)
 	for _, name := range tests {
-		if corpus.MatchString(name) && settled.MatchString(name) {
-			t.Errorf("%s falls to both export-corpus and export-settled", name)
+		matches := 0
+		for _, pattern := range []*regexp.Regexp{corpus, library, examples} {
+			if pattern.MatchString(name) {
+				matches++
+			}
+		}
+		if matches > 1 {
+			t.Errorf("%s falls to %d by-name export shards", name, matches)
 		}
 	}
+}
+
+// TestCorpusPatternsPartitionTheCorpusTests: the corpus and corpus-sweep shards are
+// tests/corpus split the same way by RACE_CORPUS_SWEEP.
+func TestCorpusPatternsPartitionTheCorpusTests(t *testing.T) {
+	corpusPatternPartitions(t, "RACE_CORPUS_SWEEP", makefileSweep, circleSweep, "corpussweep=", raceCorpusDir, 10)
 }
 
 // corpusPatternPartitions checks one by-test-name split: the Makefile variable and the
@@ -220,8 +232,14 @@ func TestExportCorpusPatternsPartitionTheExportTests(t *testing.T) {
 func corpusPatternPartitions(t *testing.T, variable string, makefileRe, circleRe *regexp.Regexp, circleWhat, dir string, minTests int) (*regexp.Regexp, []string) {
 	t.Helper()
 	pattern := strings.ReplaceAll(firstSubmatch(t, makefileRe, readRepoFile(t, "Makefile"), "Makefile "+variable), "$$", "$")
-	if circle := firstSubmatch(t, circleRe, readRepoFile(t, ".circleci/config.yml"), ".circleci/config.yml "+circleWhat); circle != pattern {
-		t.Errorf(".circleci/config.yml %s pattern %q, Makefile %s %q", circleWhat, circle, variable, pattern)
+	circles := circleRe.FindAllStringSubmatch(readRepoFile(t, ".circleci/config.yml"), -1)
+	if len(circles) == 0 {
+		t.Fatalf(".circleci/config.yml: no %s", circleWhat)
+	}
+	for _, m := range circles {
+		if m[1] != pattern {
+			t.Errorf(".circleci/config.yml %s pattern %q, Makefile %s %q", circleWhat, m[1], variable, pattern)
+		}
 	}
 	if !strings.HasPrefix(pattern, "^") || !strings.HasSuffix(pattern, "$") {
 		t.Fatalf("%s %q is not anchored, so it could match more tests than it names", variable, pattern)
@@ -292,3 +310,28 @@ func topLevelTests(t *testing.T, dir string) []string {
 }
 
 func itoa(n int) string { return strconv.Itoa(n) }
+
+// TestSweepShardsAreByNameRaceShards: the examples/ sweeps `scripts/race-shard.sh --sweeps` names
+// are by-test-name race shards (the queue tier runs them race-free), and make test-queue reads that list.
+func TestSweepShardsAreByNameRaceShards(t *testing.T) {
+	shards := raceShards(t)
+	sweeps := strings.Fields(firstSubmatch(t, sweepScriptList, readRepoFile(t, "scripts/race-shard.sh"), "scripts/race-shard.sh sweeps="))
+	if len(sweeps) == 0 {
+		t.Fatal("scripts/race-shard.sh names no sweep shards")
+	}
+	for _, sweep := range sweeps {
+		if !slices.Contains(shards, sweep) {
+			t.Errorf("sweep shard %s is not a race shard %v", sweep, shards)
+		}
+		if !isCorpusShard(sweep) {
+			t.Errorf("sweep shard %s is a whole package, so the queue tier would run its race-prone tests without -race", sweep)
+		}
+	}
+	makefile := readRepoFile(t, "Makefile")
+	if !strings.Contains(makefile, "scripts/race-shard.sh --sweeps") {
+		t.Error("Makefile test-queue does not read the sweep shards from scripts/race-shard.sh --sweeps")
+	}
+	if !strings.Contains(makefile, "OPENSYSML_CORPUS_SUBSET=construct-cover $(MAKE) --no-print-directory test-shard SHARD=$$shard TEST_SHARD_RACE=") {
+		t.Error("Makefile test-queue does not run a sweep shard race-free over the construct-cover subset")
+	}
+}

@@ -102,12 +102,6 @@
           },
           {
             "id": "n5.1",
-            "name": "payload",
-            "direction": "inout",
-            "inherited": true
-          },
-          {
-            "id": "n5.2",
             "name": "receiver",
             "direction": "in",
             "inherited": true
@@ -457,12 +451,17 @@
       "featureValues": {
         "acceptSubactions": {
           "featureName": "acceptSubactions",
+          "values": [
+            {
+              "instanceId": "3"
+            }
+          ],
           "materialized": true
         },
         "ascent": {
           "featureName": "ascent",
           "value": {
-            "instanceId": "3"
+            "instanceId": "4"
           },
           "materialized": true
         },
@@ -473,7 +472,7 @@
         "awaitGo": {
           "featureName": "awaitGo",
           "value": {
-            "instanceId": "4"
+            "instanceId": "3"
           },
           "materialized": true
         },
@@ -626,22 +625,22 @@
               "instanceId": "6"
             },
             {
-              "instanceId": "4"
-            },
-            {
               "instanceId": "5"
             },
             {
               "instanceId": "10"
             },
             {
-              "instanceId": "3"
+              "instanceId": "4"
             },
             {
               "instanceId": "11"
             },
             {
               "instanceId": "7"
+            },
+            {
+              "instanceId": "3"
             }
           ],
           "materialized": true
@@ -688,7 +687,7 @@
       }
     },
     {
-      "id": "3",
+      "id": "4",
       "typeSymbolId": "MissionSequence::LunarMission::ascent",
       "featureValues": {
         "acceptSubactions": {
@@ -764,7 +763,7 @@
       }
     },
     {
-      "id": "4",
+      "id": "3",
       "typeSymbolId": "MissionSequence::LunarMission::awaitGo",
       "featureValues": {
         "aState": {
@@ -972,7 +971,7 @@
         }
       },
       "reachedBy": {
-        "instanceId": "4",
+        "instanceId": "3",
         "featureName": "aState",
         "featureSymbolId": "Actions::AcceptAction::aState",
         "path": "mission.awaitGo.aState"

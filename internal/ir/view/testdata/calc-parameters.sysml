@@ -44,7 +44,7 @@ package ParameterCalcs {
 		attribute b : Integer;
 		attribute gain : Real;
 		calc sum : Add { in x = a; }
-		calc scaled : Scale { in factor = gain; }
+		calc scaled : Scale { in :>> factor = gain; }
 	}
 }
 

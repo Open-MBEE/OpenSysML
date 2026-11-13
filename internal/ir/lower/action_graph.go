@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -35,6 +36,18 @@ type ActionGraph struct {
 
 	// Nodes in the graph (InitialNode, FinalNode, ExecutionNode, etc.)
 	Nodes []ast.Node
+
+	// ID is each node's graph-local id, dense from 1 in the order of Nodes.
+	ID map[ast.Node]program.NodeID
+
+	// Origins is each node's origin by id; Origins[0] is unused.
+	Origins []program.Origin
+
+	// Kinds is each node's kind by id; Kinds[0] is unused.
+	Kinds []program.NodeKind
+
+	// Provenance maps the ids back to the declarations they were lowered from.
+	Provenance Provenance
 
 	// Edges: source node → successions in declaration order.
 	Edges map[ast.Node][]ActionEdge
@@ -946,15 +959,20 @@ func lowerActionFlowWithTyping(members []ast.Node, scope *symbols.Scope, resolve
 
 func lowerActionFlowWithTypingAndAncestors(
 	members []ast.Node, scope *symbols.Scope, resolver *resolve.Resolver, typing bool, ancestors []ast.Node,
-) (*ActionGraph, error) {
+) (graph *ActionGraph, err error) {
+	defer func() {
+		if graph != nil {
+			graph.assignIDs()
+		}
+	}()
 	generals, cyclic := resolve.ActionGeneralization(scope, typing)
 	if cyclic {
-		graph := newActionGraph(scope)
+		graph = newActionGraph(scope)
 		graph.resolver = resolver
 		graph.lowering = actionLoweringAncestors(scope, ancestors)
 		return graph, fmt.Errorf("%w: %s", ErrCyclicSpecialization, actionDescription(scope))
 	}
-	graph, err := collectActionNodesWithAncestors(members, scope, resolver, ancestors)
+	graph, err = collectActionNodesWithAncestors(members, scope, resolver, ancestors)
 	if err != nil {
 		return graph, err
 	}

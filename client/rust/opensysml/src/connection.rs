@@ -10,10 +10,12 @@ use std::time::{Duration, Instant};
 use prost::Message;
 
 use crate::binary;
-use crate::capabilities::{upgrade_remedy, CAPABILITY_EDIT_DOCUMENTS, CAPABILITY_FEATURE_VALUES};
+use crate::capabilities::{
+    upgrade_remedy, CAPABILITY_EDIT_DOCUMENTS, CAPABILITY_FEATURE_VALUES, CAPABILITY_SYMBOL_MEMBERS,
+};
 use crate::domain::{
     Capabilities, EvalOptions, Evaluation, Instantiation, Language, Model, ParseOptions,
-    ServerInfo, Symbol,
+    ServerInfo, Symbol, SymbolOptions,
 };
 use crate::edit::{edit_result_of, EditCapabilities, EditResult};
 use crate::error::{Error, Status};
@@ -282,13 +284,24 @@ impl Connection {
         self.rpc(method, request)
     }
 
-    pub(crate) fn get_symbol(&self, model_hash: &str, symbol_id: &str) -> Result<Symbol, Error> {
+    pub(crate) fn get_symbol(
+        &self,
+        model_hash: &str,
+        symbol_id: &str,
+        options: &SymbolOptions,
+    ) -> Result<Symbol, Error> {
+        if options.include_library_members {
+            self.capabilities().require(
+                CAPABILITY_SYMBOL_MEMBERS,
+                upgrade_remedy(CAPABILITY_SYMBOL_MEMBERS),
+            )?;
+        }
         let response: wire::SymbolResponse = self.rpc(
             "GetSymbol",
             wire::GetSymbolRequest {
                 model_hash: model_hash.to_owned(),
                 symbol_id: symbol_id.to_owned(),
-                include_library_members: false,
+                include_library_members: options.include_library_members,
             },
         )?;
         if !response.error.is_empty() {

@@ -31,13 +31,16 @@ own: it is part of this module, so the core's `v*` tag is what a Go program pins
 
 Between releases, `.github/workflows/nightly.yml` builds the newest green `develop`
 commit every night with `scripts/build-release-artifacts.sh` — the same targets,
-platforms and layout as `build-release` below — together with the Python wheel and the
-fourteen npm packages, and publishes it as the prerelease `nightly-<yyyymmdd>-<commit>`,
+platforms and layout as `build-release` below — together with the Python wheel, the
+fourteen npm packages, the VS Code extension and the Cameo and SysON plugins, and publishes it
+as the prerelease `nightly-<yyyymmdd>-<commit>`,
 kept for 14 days, with the moving alias `nightly` at the newest night; both are never
 marked latest and are signed by the workflow's own GitHub identity rather than the
 CircleCI one the clients pin. The clients go to PyPI and npm as development versions
 (`<next>.dev<yyyymmdd>`; `<next>-nightly.<yyyymmdd>.g<commit>` under the `nightly`
-dist-tag) through trusted publishing, so no default install and no `latest` moves. It
+dist-tag) through trusted publishing — the Node client from the nightly workflow, the
+Python client and Jupyter kernel through `release-pypi.yml`, which the nightly dispatches
+with its tag — so no default install and no `latest` moves. It
 touches nothing described on this page: the `nightly*` tags match neither the `v*` filter
 of the `release` workflow nor the Windows signing workflow, `releases/latest` keeps
 resolving to the stable line, and the stable npm, Maven Central, crates.io and Docker
@@ -131,7 +134,7 @@ a dry run of its own (see [Dry run on TestPyPI](#dry-run-on-testpypi)). A
 rehearsal exports a stand-in `CIRCLE_TAG`
 from `_version.py` (`scripts/rehearsal-version.sh`) before any step reads it,
 so the version bumps must already be on the branch, and the Go suite's jobs
-(`go-static`, `go-vulncheck`, `go-race-test`, `go-coverage`, `go-gates`) export it too and tag
+(`go-static`, `go-vulncheck`, `go-race-test`, `go-race-sweep`, `go-coverage`, `go-gates`) export it too and tag
 their checkout locally as that release first: a tag build reports the tag as
 the module version in every binary the toolchain builds, a branch build reports
 `(devel)`, and the suite must pass under the former. With both in place the
@@ -140,7 +143,10 @@ previous release rather than the branch's first parent, the binaries are built
 with the tag as their version, and the hygiene test that requires every
 released version to have its digests pinned exempts the release being built
 (a local tag with no `CIRCLE_TAG` on a commit past the tagged one reads as a
-release that is already out).
+release that is already out). A rehearsal never skips the suite: `verify-tree`
+records the commit as unverified whenever `release_rehearsal` is set, however
+green the branch head already is, because proving the suite passes under the
+tag is what the rehearsal is for (see [Tagging](#tagging) for what a real tag skips).
 
 Trigger it from the CircleCI UI with *Trigger pipeline*: choose the release
 branch for both the config and the checkout source, then add the boolean
@@ -240,7 +246,8 @@ branch that moves the integration state onto `main`:
    spelling as package.json. `client/rust/opensysml/Cargo.toml` follows too:
    set `[package] version` to the same spelling and run
    `cargo update -p opensysml` in `client/rust` so the lockfile
-   agrees. The editors carry the same spelling too, though nothing publishes them:
+   agrees. The editors carry the same spelling too (the release publishes the VS Code
+   extension and the Cameo and SysON plugins, see below):
    `"version"` in `editors/vscode/package.json`, `editors/jupyterlab/package.json` and
    `editors/syson/frontend/package.json`, each lock regenerated with
    `npm install --package-lock-only` in that directory; `<version>` in
@@ -258,7 +265,17 @@ branch that moves the integration state onto `main`:
 
 3. Open a pull request from `release/x.y.z` to `main` and merge it once the
    pull-request workflow is green. Merging into `main` runs CircleCI's
-   `build-test` workflow over the merged tree.
+   `build-test` workflow over the merged tree. Its first job, `verify-tree`
+   (`scripts/ci-verified-tree.py`), asks GitHub whether that exact commit already
+   has a green full-tier `Build and test` check (a `ci:full` run; on `main` the merge
+   queue's queue-tier run does not count, since a tag may rely on this build-test —
+   only `develop`'s build-test accepts one) and when it has, the suite jobs (`go-static` past
+   its landing bundle and the two checks whose verdict depends on `CIRCLE_TAG`,
+   `go-vulncheck`, `go-race-test`, `go-gates`, the Rust, Julia and MATLAB clients)
+   halt green with the evidence as their one line of output;
+   the coverage shards, the clients whose reports the scan reads, and the scan
+   itself still run. An unverified commit, or any failure to read the evidence,
+   runs everything.
 
 4. Tag `main` as [Tagging](#tagging) describes.
 
@@ -348,6 +365,29 @@ does a tag whose version `client/python/opensysml/_version.py`,
 `client/node/package.json`, `client/java/pom.xml` or
 `client/rust/opensysml/Cargo.toml` or an editor manifest does not declare.
 
+The suite does not run twice over a tree it has already passed. The `release`
+workflow starts with `verify-tree`, which accepts either a green full-tier
+`Build and test` check run on the tagged commit (GitHub Actions: a `ci:full` run,
+a `workflow_dispatch` of `pr.yml`, or the nightly full scan; the merge queue's
+queue-tier run does not count for a tag, since it runs the `examples/` sweeps
+without the race detector and over the construct-cover subset — see
+[CONTRIBUTING.md § GitHub Actions](../../CONTRIBUTING.md#github-actions)) or a
+green `build-test` CircleCI workflow of a `main` pipeline on the same commit
+(read with `CIRCLECI_API_TOKEN`, the project variable `cancel-superseded` uses;
+without it only the GitHub evidence counts). A release therefore ships nothing the
+race detector has not seen over the whole corpus: `main`'s own `build-test` is that
+run when nothing else was, and CircleCI's `go-race-test` and `go-coverage` never take
+the subset.
+On a verified tag the suite jobs, the coverage jobs and the client tests halt
+green with the evidence as their one line of output — after `go-static` has run
+the checks only a tag decides, the combined compliance page and the protobuf
+schema against the previous release — and `build-release-binaries`
+starts as soon as the binaries are built; nothing it or the publish jobs read
+comes from the halted jobs. A tag on an unverified commit — one pushed to `main`
+directly, or whose `build-test` is still running or red — and any error reading
+the evidence run the whole suite, exactly as before. Check what it decided in the
+*Verified tree check* job of the tag's pipeline.
+
 ## What CircleCI publishes
 
 `build-release-binaries` builds the Go binaries for every platform into `dist/`,
@@ -393,13 +433,28 @@ so that `dist/` holds:
   and `openmbee-opensysml-mcp-<x.y.z>.tgz`, packed by `build-npm-package` from the
   tree stamped with the `sysml-grpc` digests, the same bytes `publish-npm` publishes
   (see [Releasing @openmbee/opensysml to npm](#releasing-openmbeeopensysml-to-npm));
+- `opensysml.vsix`, the VS Code extension (`editors/vscode`), packed by `build-vscode-extension`
+  with the extension's own `npm run package` and checked to carry the tag's version, as the
+  nightly checks its snapshot version; it is side-loaded, so the release asset is its
+  distribution;
+- the editor plugins, each under one name so the [downloads page](../downloads.md#editor-plugins)
+  links it at `releases/latest/download/`: `Magic_MDK.zip`, the Cameo plugin (`editors/mdk`),
+  packaged by `build-cameo-plugin` around the release's five `sysml-grpc` binaries from the
+  workspace after its suite ran against the Linux one, versioned by the tag (`v0.12.1`,
+  `v0.13.0-rc.1`; the descriptor's internal version orders a release's `alpha.n`, `beta.n` and
+  `rc.n` candidates above its nights and below the release), its `bin/DIGESTS` the manifest's
+  `sysml-grpc` lines, which `build-release` checks before signing; and `syson-mdk-backend.jar`
+  with `syson-mdk-frontend.tgz`, the SysON MDK backend and frontend (`editors/syson`), packaged
+  by `build-syson-plugin` from the backend `install` and the frontend's `npm pack`, named by
+  the tag's version before they are renamed. The extension and the plugins have no SBOM:
+  `release-sbom.py` describes Go, Python and npm artifacts;
 - one SPDX 2.3 JSON software bill of materials per archive, wheel, sdist, `sysml-grpc`
   and `sysml-jupyter-kernel` binary, WebAssembly module and npm tarball, named
   `<asset>.spdx.json` after the asset it describes (see
   [The software bills of materials](#the-software-bills-of-materials));
 - `SHA256SUMS.txt` over every archive, every wheel and sdist, every `sysml-grpc` and
-  `sysml-jupyter-kernel` binary, all three WebAssembly assets, the three npm tarballs
-  and every SBOM,
+  `sysml-jupyter-kernel` binary, all three WebAssembly assets, the three npm tarballs,
+  the VS Code extension, the three editor-plugin assets and every SBOM,
   with its cosign signature `SHA256SUMS.txt.bundle` (see
   [The signed checksum manifest](#the-signed-checksum-manifest));
 - `provenance.intoto.json`, the SLSA provenance statement naming every artifact
@@ -1446,8 +1501,10 @@ index:
   [`opensysml`](https://pypi.org/manage/project/opensysml/settings/publishing/) and of
   [`jupyter-opensysml-kernel`](https://pypi.org/manage/project/jupyter-opensysml-kernel/settings/publishing/),
   add a GitHub Actions publisher with owner `Open-MBEE`, repository `OpenSysML`,
-  workflow `release-pypi.yml` and environment `pypi` — beside the nightly's entry
-  (`nightly.yml`, environment `nightly`), which stays.
+  workflow `release-pypi.yml` and environment `pypi` — the one entry: the [nightly
+  snapshots](nightly.md) publish through this workflow too, dispatched with the night's
+  tag, so the index knows one publisher and marks no *Change of provenance* between a
+  snapshot and a release.
 - **TestPyPI** — the same two entries on [test.pypi.org](https://test.pypi.org/manage/projects/),
   which is where a pre-release tag publishes (see [Dry run on
   TestPyPI](#dry-run-on-testpypi)); without them a pre-release tag's upload fails with the
@@ -1511,16 +1568,23 @@ it attaches) and gates `build-release`:
    pins are the manifest's `sysml-grpc-*` lines, signs the manifest, and checks
    the distribution's names carry the tag's version.
 
-`release-pypi.yml`, which the same tag runs on GitHub Actions, in three jobs:
+`release-pypi.yml`, which the same tag runs on GitHub Actions — and which the
+[nightly](nightly.md) dispatches with its `nightly-<yyyymmdd>-<commit>` tag once its
+release is published, so a snapshot takes the same path and names the same publisher —
+in three jobs:
 
-1. `fetch` resolves the version from the tag again, with `check_version.py` for both
-   packages, and routes a pre-release to TestPyPI. It then waits, with
-   `scripts/wait-for-release-gate.sh`, until CircleCI has published the release —
-   `SHA256SUMS.txt.bundle` is uploaded only after the Go suite, every client's tests
-   and `build-release` passed on the tag — and checks the tag still names the commit
-   it checked out. It downloads the wheel, the sdist, the kernel's sdist and five
-   wheels, the manifest and its signature from the release; verifies the signature
-   under the pipeline's identity (the issuer and project the Python client pins);
+1. `fetch` resolves the version from the tag again: with `check_version.py` for both
+   packages, routing a pre-release to TestPyPI, for a `v*` tag; from the wheel the
+   night's release carries for a night's (the version its build derived, where a
+   re-derivation would move once a release tag lands). It
+   then waits, with `scripts/wait-for-release-gate.sh`, until the release is published
+   — CircleCI uploads `SHA256SUMS.txt.bundle` only after the Go suite, every client's
+   tests and `build-release` passed on the tag; a night's release is created with it —
+   and checks the tag still names the commit it checked out. It downloads the wheel, the
+   sdist, the kernel's sdist and five wheels, the manifest and its signature from the
+   release; verifies the signature under the identity that built it (CircleCI's, the
+   issuer and project the Python client pins, for a release; the nightly workflow's own
+   for a snapshot);
    checks each file is a line of the manifest and matches it; runs `twine check
    --strict`; installs the wheel into a clean virtualenv and, with no binary
    configured, loads and evaluates a model against the release the tag names (the
@@ -1529,14 +1593,16 @@ it attaches) and gates `build-release`:
 2. `pypi` (the client) and `jupyter-kernel` (the kernel package), each in the `pypi`
    environment with `id-token: write`, refuse to continue if the index already has the
    version (a re-run for a published release fails here, deliberately: a version cannot
-   be replaced, and `--skip-existing` would let a half-intended re-run look successful)
-   and publish with [`pypa/gh-action-pypi-publish`](https://github.com/pypa/gh-action-pypi-publish),
+   be replaced, and `--skip-existing` would let a half-intended re-run look successful;
+   a day's second snapshot, whose version is the first's, stands down with a notice
+   instead) and publish with [`pypa/gh-action-pypi-publish`](https://github.com/pypa/gh-action-pypi-publish),
    which attests each file. The two jobs are independent, so one project refusing a
    re-run does not block the other.
 
 A publication a transient failure interrupted — Sigstore or the index answering 5xx —
-is retried with `gh workflow run release-pypi.yml -f tag=vX.Y.Z`: the index check makes
-the retry a deliberate failure for a project already published, and the other publishes.
+is retried with `gh workflow run release-pypi.yml -f tag=vX.Y.Z` (or the night's tag):
+the index check makes the retry a deliberate failure for a project already published,
+and the other publishes.
 
 ### Dry run on TestPyPI
 

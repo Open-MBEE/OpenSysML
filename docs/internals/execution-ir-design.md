@@ -504,7 +504,7 @@ full suite with `OPENSYSML_REQUIRE_TRAINING_CORPUS=1 OPENSYSML_REQUIRE_PILOT_COR
 OPENSYSML_REQUIRE_PILOT_LIBRARY_XMI=1`, the `tools` module, `make docs-counts`, and
 `TestPackageLayering`. The baselines that must not move at **any** step: the pilot Xpect,
 differential and rejection ratchets (`tests/corpus`, `TestPilotCorpora`), the RDF round trip
-(`TestCorpusRoundTrip`), the fUML and PSSM referee records under `tools/referee`, the execution
+(`TestExamplesSweep`), the fUML and PSSM referee records under `tools/referee`, the execution
 conformance suite (194 fixture files under `internal/exec/runtime/testdata/conformance`,
 `TestExecutionConformance` and `…UnderPolicies`), the golden traces (`TestExecutionTrace`,
 which print names, not pointers, and so are the right pin for an identity change), every

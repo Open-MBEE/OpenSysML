@@ -26,7 +26,14 @@ the [install guide](../guide/01-install.md)) carries it.
 - **Built from the newest green `develop` commit.** The workflow walks `develop`'s own
   commits (its first-parent history, one per merged pull request) from the head and takes the
   first whose CircleCI `build-test` workflow — the Go suite, the
-  corpus gates and the client tests — passed. A red head is skipped, so a snapshot can be a
+  corpus gates and the client tests, or the coverage and scan jobs alone on a commit
+  the merge queue already proved (`verify-tree`) — passed. The merge queue runs the queue tier
+  (no race detector over the `examples/` sweeps, which walk the construct-cover subset); the
+  full tier runs over develop's head every night at 12:07 UTC
+  ([`.github/workflows/full-scan.yml`](../../.github/workflows/full-scan.yml), which dispatches
+  `pr.yml` with `tier=full` unless the head already has a full-tier run), and its `Build and
+  test` check lands on that commit — see
+  [CONTRIBUTING.md § GitHub Actions](../../CONTRIBUTING.md#github-actions). A red head is skipped, so a snapshot can be a
   few commits behind `develop`; the release notes name the commit and link the
   compare against the last stable tag. The walk ends at the commit the current snapshot was
   built from, so the snapshot never moves backwards, and a green commit that predates
@@ -78,42 +85,41 @@ The assets are the ones a stable release ships, laid out the same way (see
 The nightly checksum manifest is cosign-signed; nightly assets do not have SLSA
 provenance, just like the other assets in the snapshot.
 
-And one a stable release does not ship:
+And the VS Code extension, which a stable release ships under the same name:
 
-- `opensysml-sysml.vsix` — the [VS Code extension](../guide/08-editors.md#vs-code) packaged
+- `opensysml.vsix` — the [VS Code extension](../guide/08-editors.md#vs-code) packaged
   from the same commit (as `make vscode-package` does). The extension is side-loaded rather than
-  published to a marketplace, so the snapshot is where a build of it is picked up. Its
+  published to a marketplace, so a release's asset or a snapshot's is where a build of it is picked up. Its
   version is the clients' development version with the snapshot version appended as the
   pre-release part — `0.9.3-nightly-<yyyymmdd>-<commit>` — so VS Code tells one night's build
   from the next, installs a later night over an earlier one without `--force`, ranks every
   night above the `0.9.2` it builds on, and ranks the stable `0.9.3` above them all when it
   ships. It is in `SHA256SUMS.txt` with the rest.
 
-The npm packages are not release assets: the seven tarballs go to the registry, where npm
+The npm packages are not release assets: the fourteen tarballs go to the registry, where npm
 verifies them against the registry's integrity hashes and the provenance the workflow signs.
 
-Two more are workflow artifacts of the night's run rather than release assets, kept for the
-same 14 days, under the run on the
-[Nightly snapshot workflow page](https://github.com/Open-MBEE/OpenSysML/actions/workflows/nightly.yml)
-(or `gh run download <run-id> -n cameo-plugin` / `-n syson-plugin`):
+Two more a stable release ships as well, under the same names, built in the same job around
+the five `sysml-grpc` the night just built and listed in `SHA256SUMS.txt` before it is
+checked and signed (the [downloads page](../downloads.md#editor-plugins) links them):
 
-- `cameo-plugin` — `Magic_MDK_<version>.zip`, the [Cameo plugin](../../editors/mdk/README.md) in
-  its Resource Manager layout, built at the night's commit around the five `sysml-grpc`
-  binaries the night released (verified against `SHA256SUMS.txt`; the zip's `bin/DIGESTS`
-  lists the same digests), after the plugin's own suite ran against the night's service. It is
-  what `mvn -f editors/mdk/pom.xml -Dopensysml.version=<version> package` produces for a
+- `Magic_MDK.zip` — the [Cameo plugin](../../editors/mdk/README.md) in its Resource Manager
+  layout, built after the plugin's own suite ran against the night's service; the zip's
+  `bin/DIGESTS` lists the digests the manifest lists for the five binaries. It is what
+  `mvn -f editors/mdk/pom.xml -Dopensysml.version=<version> package` produces for a
   release, with the night's binaries in place of a release's (`-Dopensysml.binaries=<dir>`),
   versioned as the `.vsix` is — `0.9.3-nightly-<yyyymmdd>-<commit>` — and its descriptor's
-  internal version places it above the previous release and below the one it leads to, nights
-  ordered by the day they were built (two nights of one day, a forced rebuild, rank equal);
-- `syson-plugin` — the SysON MDK backend jar and the `@openmbee/syson-mdk` frontend tarball
-  (`npm pack`), the two pieces a [SysON build consumes](../../editors/syson/README.md), with a
-  `SNAPSHOT` line naming the night and commit. The backend is compiled against the
+  internal version places it above the previous release and below the one it leads to and
+  that release's candidates, nights ordered by the day they were built (two nights of one
+  day, a forced rebuild, rank equal);
+- `syson-mdk-backend.jar` and `syson-mdk-frontend.tgz` — the SysON MDK backend jar and the
+  `@openmbee/syson-mdk` frontend tarball (`npm pack`), the two pieces a
+  [SysON build consumes](../../editors/syson/README.md). The backend is compiled against the
   repository's API stubs, as the PR gate compiles it; the jar and tarball carry the version
   the tree declares, not the snapshot's.
 
-Both are skipped, not failed, on a night whose commit predates the plugin's distribution module
-(for the Cameo plugin, its staging of binaries from a directory).
+Both are left out, not failed, on a night whose commit predates the plugin's packaging (for
+the Cameo plugin, its staging of binaries from a directory).
 
 Not in a snapshot: the Windows installer, the Authenticode-signed Windows binaries, the
 Homebrew formula, and the Maven and crates.io client packages. Those belong to the
@@ -155,14 +161,20 @@ or at the path `opensysml.server.path` names (a checkout's `bin/sysml-lsp` is fo
 own, see [the editors guide](../guide/08-editors.md#vs-code)):
 
 ```bash
-curl -fsSLO https://github.com/Open-MBEE/OpenSysML/releases/download/nightly/opensysml-sysml.vsix
+curl -fsSLO https://github.com/Open-MBEE/OpenSysML/releases/download/nightly/opensysml.vsix
 sha256sum -c --ignore-missing SHA256SUMS.txt
-code --install-extension opensysml-sysml.vsix
+code --install-extension opensysml.vsix
 ```
 
 VS Code installs a later night over an earlier one as an update, and the release the nights
 lead to over the last of them. To go back to an earlier night, or from a snapshot to the
 stable build of the extension it builds on, whose version is lower, add `--force`.
+
+The Cameo plugin and the SysON pieces download and verify the same way (`Magic_MDK.zip`,
+`syson-mdk-backend.jar`, `syson-mdk-frontend.tgz` in place of the `.vsix`); the
+[downloads page](../downloads.md#editor-plugins) says how each is installed. Cameo's Resource
+Manager, like VS Code, installs a later night over an earlier one and the release over the
+last of them.
 
 ### The client packages
 
@@ -248,7 +260,7 @@ itself changed). A night already published, the same commit under the same date,
 rebuilt, forced or not: the packages on PyPI and npm pin the digests of its binaries, which
 a rebuild would not reproduce byte for byte, so the run publishes nothing. To retry a
 night's PyPI or npm publication, re-run the failed jobs of the run that published it; they
-republish the distributions that run kept. The workflow picks the commit as described
+publish from the night's release and the tarballs that run kept. The workflow picks the commit as described
 above and, in one job, derives the versions with the commit's own
 [`client/python/scripts/snapshot_version.py`](../../client/python/scripts/snapshot_version.py)
 and stamps them into the checkout's `_version.py` and `package.json` (nothing is
@@ -262,43 +274,49 @@ it just built under the night's tag in the wheel's table with
 `pin_release_checksums.py --from-binaries`, builds the wheel and sdist, and checks the
 installed wheel reports the snapshot version, names the night's release as the one it was
 built against and pins all five digests, as the release pipeline checks a release's wheel;
-builds the platform and WASM packages from the same binaries and packs all seven npm
-tarballs; signs the manifest, which now lists the wheel, with its own GitHub OIDC
-identity; keeps the wheel, sdist and tarballs as workflow artifacts; and publishes the
-per-night release with the repository's own `GITHUB_TOKEN`. A second job recreates the
+builds the platform and WASM packages from the same binaries and packs all fourteen npm
+tarballs; builds, tests and packages the Cameo plugin around the night's five `sysml-grpc`
+(checking the zip's `DIGESTS` against the manifest) and the SysON backend jar and frontend
+tarball, listing the three in the manifest; signs the manifest, which now lists the wheel and
+the plugins, with its own GitHub OIDC identity; keeps the tarballs as workflow artifacts; and publishes the per-night release
+with the repository's own `GITHUB_TOKEN`. A second job recreates the
 alias at the same commit from the night's own assets, title and notes, then deletes the
-per-night releases published more than 14 days ago. Two jobs after the release build the
-Cameo and SysON plugins at the same commit, each fetching the `sysml-grpc` it needs from the
-night's release and checking it against the manifest, and keep them as the run's
-`cameo-plugin` and `syson-plugin` artifacts. Two further jobs, each in the `nightly` GitHub
-environment, publish the wheel and sdist to PyPI with
-[`pypa/gh-action-pypi-publish`](https://github.com/pypa/gh-action-pypi-publish) and the
-seven tarballs to npm under the `nightly` dist-tag — platform and WASM packages first, the
-client last, as the release does — and check afterwards that `latest` still names the
-stable release. Both skip a version the registry already has rather than fail, since a
-version can never be replaced. The release notes are generated: the commit, the count since
+per-night releases published more than 14 days ago. Two further jobs publish the clients. One
+runs [`release-pypi.yml`](../../.github/workflows/release-pypi.yml) on the night's tag and
+waits for it: that workflow takes the wheel, sdist and kernel package from the release,
+checks them against the manifest and publishes them to PyPI as it does a stable release's
+([Releasing opensysml to PyPI](releasing.md#releasing-opensysml-to-pypi)) — so a snapshot
+and a release name one publisher, PyPI marks no *Change of provenance* between them, and
+an upload that fails fails the night. The other, in the `nightly` GitHub environment,
+publishes the fourteen tarballs to npm under the `nightly` dist-tag — platform and WASM
+packages first, then the client, `@openmbee/sysml-mcp` and its alias, as the release does —
+and checks afterwards that `latest` still names the stable release. It skips a version the
+registry already has rather than fail, since a version can never be replaced; the PyPI
+workflow does the same
+for a day's second snapshot, whose version is the first's. The release notes are generated: the commit, the count since
 the last `v*` tag, the install lines for the packages, the verification commands, and one
 line per unreleased changelog entry (`python3 scripts/changelog.py summary`) — the lead
 sentence of each `changes/unreleased/` fragment as it stands at that commit.
 
 There is no secret to configure. The releases are made with the repository's `GITHUB_TOKEN`,
-and both registries accept the workflow's short-lived OIDC token through trusted publishing,
+and both registries accept a workflow's short-lived OIDC token through trusted publishing,
 registered once by a maintainer:
 
-- **PyPI** — in the [`opensysml` project's publishing
-  settings](https://pypi.org/manage/project/opensysml/settings/publishing/), add a GitHub
-  Actions publisher with owner `Open-MBEE`, repository `OpenSysML`, workflow
-  `nightly.yml` and environment `nightly`, on both `opensysml` and
-  [`jupyter-opensysml-kernel`](https://pypi.org/manage/project/jupyter-opensysml-kernel/settings/publishing/).
-  The stable release publishes through a second entry of the same shape
-  (`release-pypi.yml`, environment `pypi`; see
-  [Releasing](releasing.md#what-the-publication-needs)); the two coexist.
-- **npm** — for each of `@openmbee/opensysml`, the five `@openmbee/opensysml-sysml-grpc-*`
-  packages and `@openmbee/opensysml-wasm`, open the package's settings on npmjs.com,
-  choose GitHub Actions under *Trusted Publisher*, and enter organization `Open-MBEE`,
-  repository `OpenSysML`, workflow filename `nightly.yml` and environment `nightly`. A
-  package configured for trusted publishing still accepts the release's token publish from
-  CircleCI.
+- **PyPI** — nothing of the nightly's own: the Python distributions are published by
+  `release-pypi.yml` in the `pypi` environment, the stable release's trusted publisher
+  (see [Releasing](releasing.md#what-the-publication-needs)). An entry for `nightly.yml`,
+  environment `nightly`, left from when the nightly uploaded them itself, is unused and
+  can be removed.
+- **npm** — for each of the fourteen packages — `@openmbee/opensysml`, the five
+  `@openmbee/opensysml-sysml-grpc-*` packages, `@openmbee/opensysml-wasm`,
+  `@openmbee/sysml-mcp`, the five `@openmbee/sysml-mcp-*` packages and
+  `@openmbee/opensysml-mcp` — open the package's settings on npmjs.com, choose GitHub
+  Actions under *Trusted Publisher*, and enter organization `Open-MBEE`, repository
+  `OpenSysML`, workflow filename `nightly.yml` and environment `nightly`. A package
+  configured for trusted publishing still accepts the release's token publish from
+  CircleCI. A package the job adds later needs the same entry once the release has created
+  it: trusted publishing cannot create a package, and until the entry exists the job stops
+  at that package with `404 Not Found - PUT`, after publishing the ones before it.
 - **GitHub** — the `nightly` environment is created on the workflow's first run; nothing
   need be added to it. Protection rules on it (required reviewers, a wait timer) gate the
   two registry jobs without affecting the GitHub release.

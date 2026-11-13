@@ -1,8 +1,10 @@
 package semantics
 
 import (
-	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"slices"
+
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
 // MembersOf returns the members visible on sym: those declared directly in its
@@ -147,9 +149,33 @@ func (m *Model) eachMember(sym *symbols.Symbol, view memberView, declaring *symb
 				}
 			}
 		}
+		// A parameter named by the one its position redefines is a member under
+		// that name, which no scope binds for it (KerML 8.2.4).
+		var positional []string
+		for _, s := range m.positionallyNamedParameters(scope.Owner()) {
+			name := m.EffectiveNameOf(s)
+			if seenName[name] || seenSym[s] {
+				continue
+			}
+			if !inherited && view == memberViewDeclaring && NotYetMember(s, declaring) {
+				continue
+			}
+			if inherited && m.maskedBy(mask, s) {
+				continue
+			}
+			seenSym[s] = true
+			positional = append(positional, name)
+			if !yield(s) {
+				stopped = true
+				return
+			}
+		}
 		// Mark this scope's names only after processing it, so a short+primary
 		// pair in the same scope does not mask its own second key. A name no
 		// kept member binds masks nothing.
+		for _, name := range positional {
+			seenName[name] = true
+		}
 		for _, key := range scope.MemberNames() {
 			for _, s := range scope.LookupLocalAll(key) {
 				if seenSym[s] {
@@ -252,6 +278,14 @@ func (m *Model) eachContributedMember(sym *symbols.Symbol, name string, yield fu
 					return
 				}
 			}
+			stop := false
+			m.eachPositionallyNamedMember(sup, name, func(s *symbols.Symbol) bool {
+				stop = m.inheritedAlong(s, src.via) && !yield(s)
+				return !stop
+			})
+			if stop {
+				return
+			}
 			continue
 		}
 		// A cached source with no scope is read from the index.
@@ -261,4 +295,91 @@ func (m *Model) eachContributedMember(sym *symbols.Symbol, name string, yield fu
 			}
 		}
 	}
+}
+
+// eachPositionallyNamedMember yields the parameters sup declares without a name of
+// their own that answer to name through the parameter their position redefines.
+func (m *Model) eachPositionallyNamedMember(sup *symbols.Symbol, name string, yield func(*symbols.Symbol) bool) {
+	for _, member := range m.positionallyNamedParameters(sup) {
+		if m.EffectiveNameOf(member) == name && !yield(member) {
+			return
+		}
+	}
+}
+
+// positionallyNamedParameters returns the parameters owner declares without a name
+// of their own that take one from the parameter their position redefines (KerML
+// 8.2.4): a scope binds no name for them, yet they are members under it.
+func (m *Model) positionallyNamedParameters(owner *symbols.Symbol) []*symbols.Symbol {
+	if owner == nil {
+		return nil
+	}
+	var out []*symbols.Symbol
+	for _, param := range ownedParameters(owner) {
+		if m.positionallyNamed(param.sym) {
+			out = append(out, param.sym)
+		}
+	}
+	return out
+}
+
+// PositionallyNamed reports whether sym is a parameter declared without a name of
+// its own that answers to the name of the parameter its position redefines.
+func (m *Model) PositionallyNamed(sym *symbols.Symbol) bool {
+	if m == nil || sym == nil || !m.positionallyNamed(sym) {
+		return false
+	}
+	for _, param := range ownedParameters(sym.Owner()) {
+		if param.sym == sym {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *Model) positionallyNamed(sym *symbols.Symbol) bool {
+	return sym.Naming == symbols.NamedByDeclaration && !declaresIdentifier(sym) && m.EffectiveNameOf(sym) != ""
+}
+
+// roleNamed reports a usage declared without a name that takes one from the feature its role
+// redefines — an objective's `obj`, a subject's `subject`; a parameter is PositionallyNamed instead.
+func (m *Model) roleNamed(sym *symbols.Symbol) bool {
+	if !m.positionallyNamed(sym) || !sym.IsFeature() {
+		return false
+	}
+	switch sym.Decl.(type) {
+	case *ast.Usage, *ast.SubjectMember:
+		return true
+	}
+	return false
+}
+
+// QualifiedNameOf is Element::qualifiedName (KerML 8.2.4): the owner's qualified
+// name and sym's effective name, so a parameter named by the one its position
+// redefines, or an objective by the `obj` its role redefines, is qualified as a
+// declared name is, and so is a member under either (`T::obj::massRequirement`);
+// "" where sym has no name, an owner naming nothing is skipped as FQNOf skips it.
+func (m *Model) QualifiedNameOf(sym *symbols.Symbol) string {
+	if m == nil || sym == nil {
+		return ""
+	}
+	name := sym.Name
+	if name == "" {
+		if !m.PositionallyNamed(sym) && !m.roleNamed(sym) {
+			return ""
+		}
+		name = m.EffectiveNameOf(sym)
+	}
+	owner := sym.Owner()
+	if owner == nil {
+		return name
+	}
+	ownerName := m.QualifiedNameOf(owner)
+	if ownerName == "" {
+		if sym.Name == "" {
+			return ""
+		}
+		return symbols.FQNOf(sym)
+	}
+	return ownerName + "::" + name
 }

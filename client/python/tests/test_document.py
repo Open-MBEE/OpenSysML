@@ -16,6 +16,7 @@ import grpc
 import pytest
 
 from opensysml.capabilities import (
+    CAPABILITY_INLINE_DOCUMENT_QUERY,
     CAPABILITY_DOCUMENT_QUERY,
     CAPABILITY_RENDER_DOCUMENT,
     CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
@@ -87,7 +88,7 @@ STATE_FIXTURE = os.path.join(
 VIEW_FIXTURE = os.path.join(REPO_ROOT, "conformance", "fixtures", "views.sysml")
 
 CAPABILITIES = (
-    CAPABILITY_DOCUMENT_QUERY, CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_HTML,
+    CAPABILITY_DOCUMENT_QUERY, CAPABILITY_INLINE_DOCUMENT_QUERY, CAPABILITY_RENDER_DOCUMENT, CAPABILITY_RENDER_DOCUMENT_HTML,
     CAPABILITY_RENDER_DOCUMENT_ASCIIDOC,
     CAPABILITY_RENDER_VIEW,
 )
@@ -275,6 +276,28 @@ def test_document_query_requires_the_capability(fake_service):
             model.run_document_query("Demo::Q")
     assert excinfo.value.capability == CAPABILITY_DOCUMENT_QUERY
     assert service.requests == []
+
+
+def test_inline_document_query_requires_its_own_capability(fake_service):
+    """A service that runs named queries only is not asked for an expression."""
+    port, service = fake_service(capabilities=(CAPABILITY_DOCUMENT_QUERY,))
+    with Connection(port=port, auto_start=False) as conn:
+        model = conn.load_from_content("package Demo;")
+        with pytest.raises(MissingCapabilityError) as excinfo:
+            model.run_document_query(inline_query='Named("Demo")')
+        assert excinfo.value.capability == CAPABILITY_INLINE_DOCUMENT_QUERY
+        with pytest.raises(ValueError, match="not both"):
+            model.run_document_query("Demo::Q", inline_query='Named("Demo")')
+        with pytest.raises(ValueError, match="not neither"):
+            model.run_document_query()
+    assert service.requests == []
+
+
+def test_inline_document_query_is_sent_in_inline_query(fake_service):
+    port, service = fake_service()
+    with Connection(port=port, auto_start=False) as conn:
+        conn.load_from_content("package Demo;").run_document_query(inline_query='Named("Demo")')
+    assert [(r.query_id, r.inline_query) for r in service.requests] == [("", 'Named("Demo")')]
 
 
 def test_render_document_requires_the_capability(fake_service):
@@ -1054,6 +1077,17 @@ class TestDocumentsAgainstRealService:
         ]
         assert [row[1] for row in result] == [(1.5,), (15.0,), (8.5,), (20.0,)]
         assert {row.element.type for row in result} == {"PartUsage"}
+
+    def test_a_query_expression_runs_in_place_of_a_name(self, real_service, telescope):
+        with Connection(port=real_service, auto_start=False) as conn:
+            model = conn.load_from_content(telescope)
+            result = model.run_document_query(
+                inline_query='Project(WhereType(Descendants(Observatory::telescope), "PartUsage"), ("name", "mass"))'
+            )
+            assert result.columns == ("name", "mass")
+            assert len(result) == 4
+            with pytest.raises(InvalidRequestError, match=r"inline query 1:\d+"):
+                model.run_document_query(inline_query='Project(Named("Observatory") ("name"))')
 
     def test_a_query_matching_nothing_answers_columns_and_no_rows(
         self, real_service, telescope

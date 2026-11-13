@@ -71,6 +71,9 @@ type VerdictExploration struct {
 	// Unenumerated names the constructs whose unordered alternatives the runs took
 	// in one order without a choice point; none when complete.
 	Unenumerated []string
+	// Coverage is every state entered and transition taken over all the runs,
+	// with how many runs did so.
+	Coverage runtime.Coverage
 	// ProbabilitiesBounded reports the outcomes' probabilities are lower bounds.
 	ProbabilitiesBounded bool
 }
@@ -142,7 +145,7 @@ func (s *Session) freshModel() *analysis.Model {
 			if err != nil {
 				return nil, fmt.Errorf("%w: %w", errRuntimeInit, err)
 			}
-			if s.trace != nil {
+			if s.trace != nil && !s.traceSilent {
 				ctx.SetTrace(runtime.NewTraceRecorder())
 			}
 			return ctx, nil
@@ -236,6 +239,7 @@ func explorationVerdict(subject string, x *runtime.Exploration) Verdict {
 	lines := []string{header}
 	lines = append(lines, tableLines(cells)...)
 	lines = append(lines, x.Status())
+	lines = append(lines, x.Coverage.Lines("run")...)
 	for i, o := range x.Outcomes {
 		trace := witnessTrace(o)
 		if len(trace) == 0 {
@@ -257,6 +261,7 @@ func explorationVerdict(subject string, x *runtime.Exploration) Verdict {
 			FailedLinearizations: failedLinearizations,
 			BudgetsHit:           x.BudgetsHit,
 			Unenumerated:         runtime.GapNames(x.Unenumerated),
+			Coverage:             x.Coverage,
 			ProbabilitiesBounded: x.ProbabilitiesBounded(),
 		},
 	}

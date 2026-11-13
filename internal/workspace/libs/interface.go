@@ -169,8 +169,8 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 		Redefines:      w.refs(sym, m.RedefinedFeatures(sym), "redefined feature"),
 		About:          w.refs(sym, m.AnnotatedElementsOf(sym), "annotated element"),
 	}
-	if related, ok := m.ReflectiveElements(sym, "relatedFeature"); ok {
-		facts.RelatedFeatures = w.refs(sym, related, "related feature")
+	if related := m.ConnectorRelatedFeaturesByEnd(sym); len(related) > 0 {
+		facts.RelatedFeatures = w.relatedFeatureRefs(sym, related)
 	}
 	if paths := m.ConnectorEndFeaturePaths(sym); len(paths) > 0 {
 		facts.EndPaths = make([][]symbols.ElementRef, len(paths))
@@ -240,7 +240,7 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	if sym.IsPrefixMetadata() {
 		facts.Modifiers |= symbols.ModPrefixMetadata
 	}
-	facts.Node = symbols.NodeKindOf(sym.Decl)
+	facts.Node = sym.NodeKind()
 	facts.Keyword = sym.Keyword()
 	facts.Notation = sym.Notation()
 	facts.UsageKind, _ = sym.UsageKind()
@@ -251,9 +251,11 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 			if scope == nil {
 				scope = sym.Scope
 			}
-			// A chain target names no element a record can restore: leave it zero.
-			if src, resolved := w.r.ResolveTarget(scope, member.Source); resolved && src != nil {
-				rel.Source = w.ref(sym, src, "relationship source")
+			// A chain end names no element a record can restore: leave it zero.
+			if !ast.IsFeatureChain(member.Source) {
+				if src, resolved := w.r.ResolveTarget(scope, member.Source); resolved && src != nil {
+					rel.Source = w.ref(sym, src, "relationship source")
+				}
 			}
 			if !ast.IsFeatureChain(member.Target) {
 				if tgt, resolved := w.r.ResolveTarget(scope, member.Target); resolved && tgt != nil {
@@ -301,6 +303,9 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	}
 	if semantics.AcceptPayload(sym) {
 		facts.Modifiers |= symbols.ModAcceptPayload
+	}
+	if symbols.IsFirstMarker(sym) {
+		facts.Modifiers |= symbols.ModFirstMarker
 	}
 	if base, bound, unconditional := m.BaseTypeFacts(sym); bound {
 		if !unconditional {
@@ -380,4 +385,24 @@ func declaredTraits(decl ast.Node) (ast.FeatureDirection, symbols.Modifiers) {
 		set(oc.ValueIsDefault, symbols.ModDefault)
 	}
 	return ast.DirNone, mods
+}
+
+// relatedFeatureRefs names a connector's related features by end position, zero
+// for an end referencing none. A record carries no chain Feature, so a chained end
+// names the feature its chain reaches; a recorded end with a symbol of its own
+// derives the chain Feature from its recorded reference subsetting instead.
+func (w *interfaceWriter) relatedFeatureRefs(of *symbols.Symbol, related []*symbols.Symbol) []symbols.ElementRef {
+	out := make([]symbols.ElementRef, len(related))
+	for i, feature := range related {
+		if feature == nil {
+			continue
+		}
+		if feature.Chain != nil {
+			if chain, ok := w.model.ReflectiveElements(feature, "chainingFeature"); ok && len(chain) > 0 {
+				feature = chain[len(chain)-1]
+			}
+		}
+		out[i] = w.ref(of, feature, "related feature")
+	}
+	return out
 }

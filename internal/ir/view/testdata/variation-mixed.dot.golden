@@ -38,5 +38,5 @@ digraph "VariationViews::familyMixed" {
     { rank=min; "frame_tr" [shape=none, margin=0, label=<<font point-size="10">expose vehicleFamily**<br/>expose EngineChoices**</font>>]; }
   }
   "n1" -> "n2" [arrowhead=none, penwidth=3, lhead="cluster_n2"];
-  "n1" -> "n5" [arrowhead=onormaldotdot, lhead="cluster_n5"];
+  "n1" -> "n5" [arrowhead=empty, class=definition, lhead="cluster_n5"];
 }

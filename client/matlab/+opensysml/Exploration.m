@@ -9,11 +9,15 @@ classdef Exploration
         runsBudget = int64(0)
         depthBudget = int64(0)
         probabilitiesLowerBound = false
+        % The states entered and transitions taken across every run, not only each
+        % outcome's witness: a struct with cell arrays `states` and `transitions` of
+        % structs `path`, `declaration`, `runs`.
+        coverage = struct('states', {{}}, 'transitions', {{}})
     end
 
     methods
         function obj = Exploration(outcomes, complete, runs, budgetsHit, ...
-                runsBudget, depthBudget, probabilitiesLowerBound)
+                runsBudget, depthBudget, probabilitiesLowerBound, coverage)
             if nargin >= 1, obj.outcomes = toCells(outcomes); end
             if nargin >= 2, obj.complete = logical(complete); end
             if nargin >= 3, obj.runs = int64(runs); end
@@ -21,6 +25,7 @@ classdef Exploration
             if nargin >= 5, obj.runsBudget = int64(runsBudget); end
             if nargin >= 6, obj.depthBudget = int64(depthBudget); end
             if nargin >= 7, obj.probabilitiesLowerBound = logical(probabilitiesLowerBound); end
+            if nargin >= 8, obj.coverage = opensysml.internal.decodeCoverage(coverage); end
         end
 
         function text = status(obj)

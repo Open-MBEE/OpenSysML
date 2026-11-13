@@ -1,10 +1,12 @@
 // A result parameter an object inherits from the library behavior it enacts
 // answers the object's own evaluation: RequirementCheck::result is the
 // requirement's required conditions conjoined (Requirements.sysml), Case::result
-// the case's own return parameter, which redefines it (Cases.sysml), and
-// VerificationCase::verdict the verdict the case's body produced
-// (VerificationCases.sysml). An evaluation reading an unbound input — a subject
-// nothing supplies — is undetermined, never a made-up value.
+// the case's own return parameter (Cases.sysml), and VerificationCase::verdict the
+// verdict the case's body produced (VerificationCases.sysml). A return parameter
+// a case declares, or inherits as `verdict`, redefines Case::result, which the
+// case then has no member named `result` for (KerML 8.3.3.1): the value reads
+// under the redefiner's name alone. An evaluation reading an unbound input — a
+// subject nothing supplies — is undetermined, never a made-up value.
 package test {
 	private import ScalarValues::*;
 	private import VerificationCases::*;
@@ -95,6 +97,8 @@ package test {
 	attribute con1Usage : Boolean = con1.result;
 	attribute ca1New = new Ca1().result;
 	attribute ca1Usage = ca1.result;
+	attribute ca1NewR = new Ca1().r;
+	attribute ca1UsageR = ca1.r;
 	attribute ca2New = new Ca2().result;
 	attribute ca2Usage = ca2.result;
 	attribute v1New = new V1().verdict;

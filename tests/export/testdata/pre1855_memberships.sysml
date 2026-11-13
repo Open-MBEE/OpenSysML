@@ -4,7 +4,7 @@ package Vehicle {
     // Imports come first.
     private import ScalarValues::*;
 
-    /* The chassis carries everything else. */
+    // The chassis carries everything else.
     part def Chassis {
         attribute mass : Real;
 

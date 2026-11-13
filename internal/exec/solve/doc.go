@@ -194,7 +194,8 @@
 // element (`attribute volume : VolumeValue = height * width * length;`): it is
 // asserted as the defining equation of its variable, since the model states not
 // a value but how the value follows from the others (see "Derived declared
-// values" under Value synthesis). A literal default stays unasserted.
+// values" under Value synthesis). A value bound with `=` is fixed as declared
+// (Pin.Bound); a `default` or `:=` value stays unasserted.
 //
 // # Reads the evaluator never reaches
 //
@@ -306,7 +307,7 @@
 // The variable stays in Free(): the solver still chooses its value, by the
 // equation, and a witness reports it alongside the operands it follows from.
 //
-// The rule is scoped so that %check's answers over literal defaults do not
+// The rule is scoped so that %check's answers over literal values do not
 // move: an expression over no feature of the element (`1.0 + 2.0`) is a value
 // as before, pinned where it evaluates; so is one reading anything but the
 // element's own features and literals — a chain (`inner.x + 1.0`), a qualified

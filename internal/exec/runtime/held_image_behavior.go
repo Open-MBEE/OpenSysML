@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -68,13 +69,13 @@ type imagedFrame struct {
 	data          map[string]Value
 	cells         []imagedBodyCell
 	outer         []imagedOuter
-	subactions    map[ast.Node]int
+	subactions    map[NodeRef]int
 	repeats       map[repetitionGroupID]imagedRepetition
-	repeatedPerfs map[ast.Node][]int
-	pending       map[ast.Node]map[string][]Value
-	held          map[ast.Node]map[string][]nodeObject
-	staged        map[ast.Node]map[string][]imagedStaged
-	nested        map[ast.Node][]nestedDelivery
+	repeatedPerfs map[NodeRef][]int
+	pending       map[NodeRef]map[string][]Value
+	held          map[NodeRef]map[string][]nodeObject
+	staged        map[NodeRef]map[string][]imagedStaged
+	nested        map[NodeRef][]nestedDelivery
 }
 
 // imagedBodyCell stores a body binding's value and tracking state for an image.
@@ -123,38 +124,38 @@ type imagedState struct {
 	events             []Event
 	stateData          map[string]Value
 	stateCells         []imagedBodyCell
-	stateAttrs         map[*ast.StateNode]map[string]Value
-	stateAttrCells     map[*ast.StateNode][]imagedBodyCell
+	stateAttrs         map[program.StateID]map[string]Value
+	stateAttrCells     map[program.StateID][]imagedBodyCell
 	stateVisits        []string
-	stateStack         []*ast.StateNode
+	stateStack         []program.StateID
 	fired              []FiredTransition
 	firedBase          int
 	keepFired          bool
-	breakpointNodes    map[ast.Node]bool
-	breakpointHit      *ast.StateNode
-	pausedAt           ast.Node
+	breakpointNodes    map[program.VertexRef]bool
+	breakpointHit      program.StateID
+	pausedAt           program.VertexRef
 	completionDue      bool
-	history            map[*ast.StateNode]historyRecord
-	joinArrived        map[*ast.PseudostateNode][]*lower.Transition
+	history            map[program.StateID]historyRecord
+	joinArrived        map[program.PseudoID][]program.TransID
 	lastDispatch       *Dispatch
 	lastEventAt        float64
 	doActions          []doActionCapture
 	machineExited      bool
 	run, under         int
 	inRun, moved       bool
-	timerScheduled     map[*lower.Transition]bool
-	timeTriggerVerdict map[*lower.Transition]error
-	changeFired        map[*lower.Transition]bool
-	changeObserved     map[*lower.Transition]bool
-	changePending      map[*lower.Transition]bool
-	firingChange       *lower.Transition
+	timerScheduled     map[program.TransID]bool
+	timeTriggerVerdict map[program.TransID]error
+	changeFired        map[program.TransID]bool
+	changeObserved     map[program.TransID]bool
+	changePending      map[program.TransID]bool
+	firingChange       program.TransID
 	firingNotes        []RunNote
-	changeRearmed      map[*lower.Transition]bool
+	changeRearmed      map[program.TransID]bool
 	changeWaits        []changeWait
 	held               []heldEntry
-	entering           map[*ast.StateNode]bool
+	entering           map[program.StateID]bool
 	enteringMachine    bool
-	activeAtEntry      map[*ast.StateNode]bool
+	activeAtEntry      map[program.StateID]bool
 	pendingCall        *pendingCall
 }
 
@@ -237,7 +238,7 @@ func (t *imaging) actionExecutor(e *ActionExecutor) (*imagedAction, error) {
 	for _, token := range e.tokens {
 		if token.body != nil {
 			return nil, fmt.Errorf("%w: token %d of %s at %s", ErrSnapshotPausedBody,
-				token.ID, SymbolText(e.action), ActionNodeName(token.Location))
+				token.ID, SymbolText(e.action), ActionNodeName(token.Node()))
 		}
 		copied := token
 		if token.Wait != nil {
@@ -298,7 +299,7 @@ func (t *imaging) frame(perf *actionFrame, at func(*actionFrame) int) (imagedFra
 	}
 	f.outer = outer
 	if perf.subactions != nil {
-		f.subactions = make(map[ast.Node]int, len(perf.subactions))
+		f.subactions = make(map[NodeRef]int, len(perf.subactions))
 		for node, sub := range perf.subactions {
 			f.subactions[node] = at(sub)
 		}
@@ -314,7 +315,7 @@ func (t *imaging) frame(perf *actionFrame, at func(*actionFrame) int) (imagedFra
 		}
 	}
 	if perf.repeatedPerfs != nil {
-		f.repeatedPerfs = make(map[ast.Node][]int, len(perf.repeatedPerfs))
+		f.repeatedPerfs = make(map[NodeRef][]int, len(perf.repeatedPerfs))
 		for node, perfs := range perf.repeatedPerfs {
 			indexed := make([]int, len(perfs))
 			for i, repeated := range perfs {
@@ -361,7 +362,7 @@ func (t *imaging) outerFrames(perf *actionFrame, at func(*actionFrame) int) ([]i
 }
 
 // nestedValues checks every value a pending table holds.
-func (t *imaging) nestedValues(pending map[ast.Node]map[string][]Value) error {
+func (t *imaging) nestedValues(pending map[NodeRef]map[string][]Value) error {
 	for _, pins := range pending {
 		for _, values := range pins {
 			for _, v := range values {
@@ -375,7 +376,7 @@ func (t *imaging) nestedValues(pending map[ast.Node]map[string][]Value) error {
 }
 
 // deliveredValues checks every value a nested-delivery table holds.
-func (t *imaging) deliveredValues(nested map[ast.Node][]nestedDelivery) error {
+func (t *imaging) deliveredValues(nested map[NodeRef][]nestedDelivery) error {
 	for _, deliveries := range nested {
 		for _, d := range deliveries {
 			if err := t.value(d.value); err != nil {
@@ -387,7 +388,7 @@ func (t *imaging) deliveredValues(nested map[ast.Node][]nestedDelivery) error {
 }
 
 // heldValues checks every value a control node holds.
-func (t *imaging) heldValues(held map[ast.Node]map[string][]nodeObject) error {
+func (t *imaging) heldValues(held map[NodeRef]map[string][]nodeObject) error {
 	for _, pins := range held {
 		for _, objects := range pins {
 			for _, h := range objects {
@@ -401,11 +402,11 @@ func (t *imaging) heldValues(held map[ast.Node]map[string][]nodeObject) error {
 }
 
 // stagedImaged images staged's sources by position.
-func stagedImaged(staged map[ast.Node]map[string][]stagedStream, at func(*actionFrame) int) map[ast.Node]map[string][]imagedStaged {
+func stagedImaged(staged map[NodeRef]map[string][]stagedStream, at func(*actionFrame) int) map[NodeRef]map[string][]imagedStaged {
 	if staged == nil {
 		return nil
 	}
-	imaged := make(map[ast.Node]map[string][]imagedStaged, len(staged))
+	imaged := make(map[NodeRef]map[string][]imagedStaged, len(staged))
 	for node, pins := range staged {
 		imaged[node] = make(map[string][]imagedStaged, len(pins))
 		for pin, entries := range pins {
@@ -426,8 +427,8 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 		graph: e.graph, state: e.state, activeConfig: cloneConfiguration(e.activeConfig),
 		nextEventID:        e.nextEventID,
 		stateData:          maps.Clone(e.stateData),
-		stateAttrCells:     make(map[*ast.StateNode][]imagedBodyCell, len(e.stateAttrCells)),
-		stateAttrs:         make(map[*ast.StateNode]map[string]Value, len(e.stateAttrs)),
+		stateAttrCells:     make(map[program.StateID][]imagedBodyCell, len(e.stateAttrCells)),
+		stateAttrs:         make(map[program.StateID]map[string]Value, len(e.stateAttrs)),
 		stateVisits:        slices.Clone(e.stateVisits),
 		stateStack:         slices.Clone(e.stateStack),
 		fired:              slices.Clone(e.fired),
@@ -437,7 +438,7 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 		breakpointHit:      e.breakpointHit,
 		pausedAt:           e.pausedAt,
 		completionDue:      e.completionDue,
-		history:            make(map[*ast.StateNode]historyRecord, len(e.history)),
+		history:            make(map[program.StateID]historyRecord, len(e.history)),
 		joinArrived:        cloneJoinArrivals(e.joinArrived),
 		lastDispatch:       cloneDispatch(e.lastDispatch),
 		lastEventAt:        e.lastEventAt,
@@ -482,7 +483,7 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 		cloned := maps.Clone(attrs)
 		img.stateAttrCells[node] = imageBodyCells(e.stateAttrCells[node], cloned)
 		if err := t.values(cloned); err != nil {
-			return nil, fmt.Errorf("state %s: %w", StateVertexName(node), err)
+			return nil, fmt.Errorf("state %s: %w", StateVertexName(e.stateDecl(node)), err)
 		}
 		img.stateAttrs[node] = cloned
 	}
@@ -505,16 +506,16 @@ func (t *imaging) stateExecutor(e *StateExecutor) (*imagedState, error) {
 	for _, act := range e.doActions {
 		if act.run != nil {
 			return nil, fmt.Errorf("%w: do behavior of state %s of %s", ErrSnapshotPausedBody,
-				StateVertexName(act.state), SymbolText(e.stateMachine))
+				StateVertexName(e.stateDecl(act.state)), SymbolText(e.stateMachine))
 		}
 		if err := t.firing(act.firing); err != nil {
-			return nil, fmt.Errorf("do behavior of state %s: %w", StateVertexName(act.state), err)
+			return nil, fmt.Errorf("do behavior of state %s: %w", StateVertexName(e.stateDecl(act.state)), err)
 		}
 		img.doActions = append(img.doActions, doActionCapture{act: &doAction{state: act.state}, pending: slices.Clone(act.pending), firing: act.firing.snapshot()})
 	}
 	for _, item := range img.held {
 		if err := t.firing(item.firing); err != nil {
-			return nil, fmt.Errorf("held entry of %s: %w", StateVertexName(item.owner), err)
+			return nil, fmt.Errorf("held entry of %s: %w", StateVertexName(e.stateDecl(item.owner)), err)
 		}
 	}
 	return img, nil
@@ -739,7 +740,7 @@ func (m *materializing) frame(perf *actionFrame, img imagedFrame, frameAt func(i
 		})
 	}
 	if img.subactions != nil {
-		perf.subactions = make(map[ast.Node]*actionFrame, len(img.subactions))
+		perf.subactions = make(map[NodeRef]*actionFrame, len(img.subactions))
 		for node, at := range img.subactions {
 			perf.subactions[node] = frameAt(at)
 		}
@@ -755,7 +756,7 @@ func (m *materializing) frame(perf *actionFrame, img imagedFrame, frameAt func(i
 		}
 	}
 	if img.repeatedPerfs != nil {
-		perf.repeatedPerfs = make(map[ast.Node][]*actionFrame, len(img.repeatedPerfs))
+		perf.repeatedPerfs = make(map[NodeRef][]*actionFrame, len(img.repeatedPerfs))
 		for node, indexed := range img.repeatedPerfs {
 			perfs := make([]*actionFrame, len(indexed))
 			for i, at := range indexed {
@@ -926,11 +927,11 @@ func (m *materializing) frameCells(
 }
 
 // pending fills perf's pending table from img's.
-func (m *materializing) pending(perf *actionFrame, pending map[ast.Node]map[string][]Value) error {
+func (m *materializing) pending(perf *actionFrame, pending map[NodeRef]map[string][]Value) error {
 	if pending == nil {
 		return nil
 	}
-	perf.pending = make(map[ast.Node]map[string][]Value, len(pending))
+	perf.pending = make(map[NodeRef]map[string][]Value, len(pending))
 	for node, pins := range pending {
 		carriedPins := make(map[string][]Value, len(pins))
 		for pin, values := range pins {
@@ -948,11 +949,11 @@ func (m *materializing) pending(perf *actionFrame, pending map[ast.Node]map[stri
 }
 
 // held fills what perf's control nodes hold from img's.
-func (m *materializing) held(perf *actionFrame, held map[ast.Node]map[string][]nodeObject) error {
+func (m *materializing) held(perf *actionFrame, held map[NodeRef]map[string][]nodeObject) error {
 	if held == nil {
 		return nil
 	}
-	perf.held = make(map[ast.Node]map[string][]nodeObject, len(held))
+	perf.held = make(map[NodeRef]map[string][]nodeObject, len(held))
 	for node, pins := range held {
 		carriedPins := make(map[string][]nodeObject, len(pins))
 		for pin, objects := range pins {
@@ -971,11 +972,11 @@ func (m *materializing) held(perf *actionFrame, held map[ast.Node]map[string][]n
 }
 
 // nested fills perf's nested-delivery table from img's.
-func (m *materializing) nested(perf *actionFrame, nested map[ast.Node][]nestedDelivery) error {
+func (m *materializing) nested(perf *actionFrame, nested map[NodeRef][]nestedDelivery) error {
 	if nested == nil {
 		return nil
 	}
-	perf.nested = make(map[ast.Node][]nestedDelivery, len(nested))
+	perf.nested = make(map[NodeRef][]nestedDelivery, len(nested))
 	for node, deliveries := range nested {
 		for _, d := range deliveries {
 			carried, err := m.value(d.value)
@@ -989,11 +990,11 @@ func (m *materializing) nested(perf *actionFrame, nested map[ast.Node][]nestedDe
 }
 
 // stagedMaterialized materializes img's staged writes, their sources by position.
-func stagedMaterialized(staged map[ast.Node]map[string][]imagedStaged, frameAt func(int) *actionFrame) map[ast.Node]map[string][]stagedStream {
+func stagedMaterialized(staged map[NodeRef]map[string][]imagedStaged, frameAt func(int) *actionFrame) map[NodeRef]map[string][]stagedStream {
 	if staged == nil {
 		return nil
 	}
-	materialized := make(map[ast.Node]map[string][]stagedStream, len(staged))
+	materialized := make(map[NodeRef]map[string][]stagedStream, len(staged))
 	for node, pins := range staged {
 		materialized[node] = make(map[string][]stagedStream, len(pins))
 		for pin, entries := range pins {
@@ -1020,24 +1021,25 @@ func (m *materializing) stateExecutor(e *StateExecutor, img *imagedState) error 
 		restoreStateBodyCells(m.dst, e.stateCells, e.graph.Attributes, img.stateCells,
 			"state machine "+SymbolText(e.stateMachine), e.graph.Scope)
 	}
-	for node, attrs := range img.stateAttrs {
-		if e.stateAttrs[node], err = m.values(attrs); err != nil {
+	for id, attrs := range img.stateAttrs {
+		node := e.stateDecl(id)
+		if e.stateAttrs[id], err = m.values(attrs); err != nil {
 			return fmt.Errorf("state %s: %w", StateVertexName(node), err)
 		}
-		if image := img.stateAttrCells[node]; len(image) != 0 {
-			cells := newBodyCells(e.stateAttrs[node], func(scope *symbols.Scope) *EvalContext {
+		if image := img.stateAttrCells[id]; len(image) != 0 {
+			cells := newBodyCells(e.stateAttrs[id], func(scope *symbols.Scope) *EvalContext {
 				return e.stateAttributeContext(node, scope)
 			})
 			restoreStateBodyCells(m.dst, cells, e.graph.StateAttributes[node], image,
 				"state "+node.Name, e.graph.Scope)
-			e.stateAttrCells[node] = cells
+			e.stateAttrCells[id] = cells
 		}
 	}
 	e.stateVisits, e.stateStack = slices.Clone(img.stateVisits), slices.Clone(img.stateStack)
 	e.fired, e.firedBase, e.keepFired = slices.Clone(img.fired), img.firedBase, img.keepFired
 	e.breakpointNodes = maps.Clone(img.breakpointNodes)
 	if e.breakpointNodes == nil {
-		e.breakpointNodes = make(map[ast.Node]bool)
+		e.breakpointNodes = make(map[program.VertexRef]bool)
 	}
 	e.breakpointHit, e.pausedAt, e.completionDue = img.breakpointHit, img.pausedAt, img.completionDue
 	e.joinArrived = cloneJoinArrivals(img.joinArrived)
@@ -1063,7 +1065,7 @@ func (m *materializing) stateExecutor(e *StateExecutor, img *imagedState) error 
 	for _, act := range img.doActions {
 		carried, err := m.firing(act.firing)
 		if err != nil {
-			return fmt.Errorf("do behavior of state %s: %w", StateVertexName(act.act.state), err)
+			return fmt.Errorf("do behavior of state %s: %w", StateVertexName(e.stateDecl(act.act.state)), err)
 		}
 		e.doActions = append(e.doActions, &doAction{state: act.act.state, pending: slices.Clone(act.pending), firing: carried})
 	}
@@ -1074,14 +1076,14 @@ func (m *materializing) stateExecutor(e *StateExecutor, img *imagedState) error 
 	e.changeFired = maps.Clone(img.changeFired)
 	e.changeObserved = maps.Clone(img.changeObserved)
 	e.changePending = maps.Clone(img.changePending)
-	e.changeReads = make(map[*lower.Transition][]*FeatureValue)
+	e.changeReads = make(map[program.TransID][]*FeatureValue)
 	e.firingChange, e.firingNotes = img.firingChange, slices.Clone(img.firingNotes)
 	e.changeRearmed = maps.Clone(img.changeRearmed)
 	e.changeWaits = slices.Clone(img.changeWaits)
 	e.held = cloneHeldEntries(img.held)
 	for i := range e.held {
 		if e.held[i].firing, err = m.firing(img.held[i].firing); err != nil {
-			return fmt.Errorf("held entry of %s: %w", StateVertexName(e.held[i].owner), err)
+			return fmt.Errorf("held entry of %s: %w", StateVertexName(e.stateDecl(e.held[i].owner)), err)
 		}
 	}
 	clear(e.entering)

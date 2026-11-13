@@ -289,9 +289,19 @@ func TestF61KeywordlessMembers(t *testing.T) {
 	t.Run("enum_value_trivia_stays_with_the_next_member", func(t *testing.T) {
 		pkg := parsePkg(t, "package B { enum def S { a; /* c */ b; /* d */ doc /* e */ } }")
 		def := pkg.Members[0].(*ast.Membership).Member.(*ast.Definition)
-		for i, want := range []int{0, 1, 1} {
+		// Each regular comment is a Comment member of its own, and stays trivia
+		// of the member after it as well.
+		if len(def.Members) != 5 {
+			t.Fatalf("members = %d, want 5", len(def.Members))
+		}
+		for i, want := range []int{0, 0, 1, 0, 1} {
 			if got := len(def.Members[i].(*ast.Membership).LeadingTrivia()); got != want {
 				t.Errorf("member %d has %d leading trivia, want %d", i, got, want)
+			}
+		}
+		for _, i := range []int{1, 3} {
+			if _, ok := def.Members[i].(*ast.Membership).Member.(*ast.Comment); !ok {
+				t.Errorf("member %d = %T, want *ast.Comment", i, def.Members[i].(*ast.Membership).Member)
 			}
 		}
 	})

@@ -44,6 +44,10 @@ func TestExampleRecordings(t *testing.T) {
 		}
 		return args
 	}
+	const (
+		inlineMass  = `Project(WhereType(Descendants(Named("Lander::lander")), "PartUsage", true), ("qualifiedName", "mass"))`
+		inlineFault = `Project(Named("Lander") ("qualifiedName"))`
+	)
 	runs := []recording{
 		{name: "cabin-mass", args: query("CabinMass", false), status: 0},
 		{
@@ -51,6 +55,25 @@ func TestExampleRecordings(t *testing.T) {
 			args:    append([]string(nil), models...),
 			command: "printf '%s\\n' '%run-query QVTSDemo::CabinMass' | bin/sysml examples/qvts/lander.sysml examples/qvts/queries.sysml",
 			stdin:   "%run-query QVTSDemo::CabinMass\n",
+			status:  0,
+		},
+		{
+			name:    "inline-mass",
+			args:    []string{"examples/qvts/lander.sysml", "-run-inline-query", inlineMass},
+			command: "bin/sysml examples/qvts/lander.sysml -run-inline-query '" + inlineMass + "'",
+			status:  0,
+		},
+		{
+			name:    "inline-fault",
+			args:    []string{"examples/qvts/lander.sysml", "-run-inline-query", inlineFault},
+			command: "bin/sysml examples/qvts/lander.sysml -run-inline-query '" + inlineFault + "'",
+			status:  2,
+		},
+		{
+			name:    "repl-inline-mass",
+			args:    []string{"examples/qvts/lander.sysml"},
+			command: "printf '%s\\n' '%run-query inline " + inlineMass + "' | bin/sysml examples/qvts/lander.sysml",
+			stdin:   "%run-query inline " + inlineMass + "\n",
 			status:  0,
 		},
 		{name: "empty-selection", args: query("EmptySelection", false), status: 0},

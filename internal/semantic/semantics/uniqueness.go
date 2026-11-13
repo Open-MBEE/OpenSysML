@@ -44,7 +44,7 @@ func (m *Model) isUnique(sym *symbols.Symbol, path map[*symbols.Symbol]bool) boo
 		return true
 	}
 	for _, general := range m.directRedefinedFeatures(sym) {
-		if general == nil || path[general] {
+		if general == nil || path[general] || m.kindBaseParameterOf(sym, general) {
 			continue
 		}
 		path[general] = true

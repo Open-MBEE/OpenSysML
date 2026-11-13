@@ -1,11 +1,14 @@
 // Package wasm holds the gate over the WebAssembly builds: that every package of this
 // module compiles and vets for both Go wasm targets, that each command links carrying
 // the version stamps a release build passes, and — where Node runs them — that the
-// binaries do real work rather than only link.
+// binaries do real work rather than only link. Every build embeds the library snapshot
+// the gate generates for its run (see snapshotOverlay), so the artifacts it measures and
+// runs are the ones the Makefile builds, whatever the tree holds.
 package wasm
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -44,19 +47,85 @@ const ldflags = "-s -w -X main.Version=" + versionStamp +
 	" -X main.Commit=wasm-gate -X main.BuildTime=2026-01-01_00:00:00" +
 	" -X main.GoVersion=go-wasm-gate"
 
-// goFor runs a go command for the target. Later environment entries win, so GOOS and
-// GOARCH override whatever the test process carries. It runs at the repository root:
-// ./... there is the whole module, where from this package's directory it would be
-// only this subtree.
-func goFor(target wasmTarget, args ...string) ([]byte, error) {
+// repoRoot is the repository root, two levels above this package: ./... there is the
+// whole module, where from this package's directory it would be only this subtree.
+func repoRoot() (string, error) {
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
-		return nil, fmt.Errorf("resolving the repository root: %w", err)
+		return "", fmt.Errorf("resolving the repository root: %w", err)
 	}
-	cmd := exec.Command("go", args...)
+	return root, nil
+}
+
+// goFor runs a go subcommand for the target at the repository root, over the snapshot overlay; later
+// environment entries win, so GOOS and GOARCH override whatever the test process carries.
+func goFor(target wasmTarget, subcommand string, args ...string) ([]byte, error) {
+	root, err := repoRoot()
+	if err != nil {
+		return nil, err
+	}
+	cmd := exec.Command("go", append([]string{subcommand, "-overlay=" + snapshotOverlay}, args...)...)
 	cmd.Dir = root
 	cmd.Env = append(os.Environ(), "GOOS="+target.goos, "GOARCH=wasm")
 	return cmd.CombinedOutput()
+}
+
+// libsDir is package libs, relative to the repository root: where `make stdlib-snapshot` writes the
+// library snapshot and the Go file embedding it, and where snapshotOverlay supplies them whether or not it ran.
+const libsDir = "internal/workspace/libs"
+
+// snapshotOverlay is the go build -overlay every go command of the gate runs with: the library snapshot generated for
+// this run and the Go file embedding it over package libs, so the gate measures what the Makefile builds, not what the tree holds.
+var snapshotOverlay string
+
+// generateSnapshot runs the generator behind `make stdlib-snapshot` into dir and returns the overlay file naming
+// its output. It runs over an overlay deleting snapshot_embedded.go, which a tree holding it without stdlib.snapshot cannot compile.
+func generateSnapshot(dir string) (string, error) {
+	root, err := repoRoot()
+	if err != nil {
+		return "", err
+	}
+	libs := filepath.Join(root, filepath.FromSlash(libsDir))
+	out := filepath.Join(dir, "libs")
+	if err := os.MkdirAll(out, 0o755); err != nil {
+		return "", err
+	}
+	without, err := writeOverlay(filepath.Join(dir, "generate-overlay.json"), map[string]string{
+		filepath.Join(libs, "snapshot_embedded.go"): "",
+	})
+	if err != nil {
+		return "", err
+	}
+	cmd := exec.Command("go", "run", "-C", filepath.Join(root, "tools"), "-overlay="+without, "./gen/snapshot", "-dir", out)
+	cmd.Dir = root
+	cmd.Env = append(os.Environ(), "GOOS=", "GOARCH=")
+	started := time.Now()
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return "", fmt.Errorf("go run -C tools ./gen/snapshot -dir %s: %w\n%s", out, err, output)
+	}
+	info, err := os.Stat(filepath.Join(out, "stdlib.snapshot"))
+	if err != nil {
+		return "", err
+	}
+	fmt.Fprintf(os.Stderr, "wasm gate: every build embeds the library snapshot generated for this run (%d bytes, %s)\n",
+		info.Size(), time.Since(started).Round(time.Millisecond))
+	return writeOverlay(filepath.Join(dir, "overlay.json"), map[string]string{
+		filepath.Join(libs, "stdlib.snapshot"):      filepath.Join(out, "stdlib.snapshot"),
+		filepath.Join(libs, "snapshot_embedded.go"): filepath.Join(out, "snapshot_embedded.go"),
+	})
+}
+
+// writeOverlay writes a go build -overlay file replacing each key with its value; an
+// empty value deletes the file from the build.
+func writeOverlay(path string, replace map[string]string) (string, error) {
+	data, err := json.Marshal(struct{ Replace map[string]string }{replace})
+	if err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		return "", err
+	}
+	return path, nil
 }
 
 // artifactKey names one linked command: a target, a command and its build tags.
@@ -80,7 +149,8 @@ var artifacts = struct {
 	done map[artifactKey]*artifact
 }{done: map[artifactKey]*artifact{}}
 
-// TestMain holds the shared binaries for the run and removes them after it.
+// TestMain generates the library snapshot every build of the run embeds, holds the
+// shared binaries for the run and removes them all after it.
 func TestMain(m *testing.M) {
 	dir, err := os.MkdirTemp("", "wasm-gate-")
 	if err != nil {
@@ -88,6 +158,11 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 	artifacts.dir = dir
+	if snapshotOverlay, err = generateSnapshot(dir); err != nil {
+		fmt.Fprintf(os.Stderr, "generating the library snapshot the gate embeds: %v\n", err)
+		_ = os.RemoveAll(dir)
+		os.Exit(1)
+	}
 	code := m.Run()
 	_ = os.RemoveAll(dir)
 	os.Exit(code)
@@ -123,13 +198,13 @@ func link(t *testing.T, target wasmTarget, name, tags string) string {
 		if a.err = os.MkdirAll(filepath.Dir(a.path), 0o755); a.err != nil {
 			return
 		}
-		args := []string{"build", "-trimpath"}
+		args := []string{"-trimpath"}
 		if tags != "" {
 			args = append(args, "-tags", tags)
 		}
 		args = append(args, "-ldflags", ldflags, "-o", a.path, "./cmd/"+name)
 		started := time.Now()
-		a.output, a.err = goFor(target, args...)
+		a.output, a.err = goFor(target, "build", args...)
 		if a.err == nil {
 			a.err = wasmModule(a.path)
 		}

@@ -52,9 +52,9 @@ flowchart LR
   end
   subgraph n5 ["`*«constraint»* **mix**`"]
     direction LR
-    n5.0["^a"]
-    n5.1["^b"]
-    n5.2["^total"]
+    n5.0["a"]
+    n5.1["b"]
+    n5.2["total"]
   end
   n0 ===|"="| n4.0
   n1 ===|"="| n4.1

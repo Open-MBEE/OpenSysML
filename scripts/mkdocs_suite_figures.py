@@ -1,12 +1,15 @@
-"""Render the test-suite figures when the site is built, not in git.
+"""Render the generated figures when the site is built, not in git.
 
 The test inventory of the spec-compliance map (docs/project/spec-compliance/) carries inline
 `<!-- doc-counts:begin <name> -->` … `<!-- doc-counts:end <name> -->` blocks that
 name what is counted and state no figure, so a pull request adding a test or a
-fixture never rewrites a shared line. This hook runs `go run -C tools ./cmd/doc-counts
--site-blocks`, which counts the tree the way the gates enumerate it, and splices
-the rendered sentences into the blocks; `go run -C tools ./cmd/doc-counts -check` refuses a
-figure typed into one.
+fixture never rewrites a shared line; the api-json differential record carries the
+same blocks for the figures its baseline states, so a re-recording never rewrites
+the page. This hook runs each generator in COMMANDS (`go run -C tools ./cmd/doc-counts
+-site-blocks`, which counts the tree the way the gates enumerate it, and
+`go run -C tools ./cmd/pilot-apijson-diff -site-blocks`, which reads the committed
+baseline) and splices the rendered text into the blocks; `go run -C tools ./cmd/doc-counts
+-check` and the referee's tests refuse a figure typed into one.
 """
 
 import json
@@ -17,14 +20,35 @@ import subprocess
 log = logging.getLogger("mkdocs.hooks.suite_figures")
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-COMMAND = ("go", "run", "-C", "tools", "./cmd/doc-counts", "-site-blocks")
+COMMANDS = (
+    ("go", "run", "-C", "tools", "./cmd/doc-counts", "-site-blocks"),
+    ("go", "run", "-C", "tools", "./cmd/pilot-apijson-diff", "-site-blocks"),
+)
 DOCS_DIR = "docs/"
 
 _rendered: dict[str, dict[str, str]] | None = None
 
 
-def render_site_blocks(command=COMMAND, root=ROOT) -> dict[str, dict[str, str]]:
-    """Run doc-counts and return the rendered blocks by repository-relative page, then name."""
+def render_site_blocks(commands=COMMANDS, root=ROOT) -> dict[str, dict[str, str]]:
+    """Run every generator and return the rendered blocks by repository-relative page, then name."""
+    rendered: dict[str, dict[str, str]] = {}
+    for command in commands:
+        rendered = merge_rendered(rendered, render_command(command, root), command)
+    return rendered
+
+
+def merge_rendered(rendered, more, command) -> dict[str, dict[str, str]]:
+    """Add one generator's blocks to rendered; a block rendered twice is an error."""
+    for page, blocks in more.items():
+        for name in blocks:
+            if name in rendered.get(page, {}):
+                raise ValueError(f"{' '.join(command)}: {page}: block {name!r} rendered twice")
+        rendered.setdefault(page, {}).update(blocks)
+    return rendered
+
+
+def render_command(command, root) -> dict[str, dict[str, str]]:
+    """Run one generator and return the rendered blocks by repository-relative page, then name."""
     try:
         completed = subprocess.run(command, cwd=root, capture_output=True, text=True, check=True)
     except FileNotFoundError as e:
@@ -61,12 +85,15 @@ def splice(markdown: str, page: str, blocks: dict[str, str]) -> str:
 
 
 def on_pre_build(**_kwargs) -> None:
+    """Render every generator that succeeds; a failing one loses only its own blocks."""
     global _rendered
-    try:
-        _rendered = render_site_blocks()
-    except ValueError as e:
-        log.warning("%s", e)
-        _rendered = None
+    rendered: dict[str, dict[str, str]] = {}
+    for command in COMMANDS:
+        try:
+            rendered = merge_rendered(rendered, render_command(command, ROOT), command)
+        except ValueError as e:
+            log.warning("%s", e)
+    _rendered = rendered or None
 
 
 def on_page_markdown(markdown: str, page, **_kwargs) -> str:

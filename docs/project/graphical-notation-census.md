@@ -91,7 +91,7 @@ fails instead of skipping, so the CI job that provisions the text cannot pass wi
 ## Totals
 
 <!-- census:begin summary -->
-620 production statements (97 of them partial `=|` statements) name 523 distinct productions: **292 drawn**, **34 approximate**, **25 undrawn**, 172 not applicable.
+620 production statements (97 of them partial `=|` statements) name 523 distinct productions: **293 drawn**, **34 approximate**, **24 undrawn**, 172 not applicable.
 
 | Category | Productions |
 | --- | --- |
@@ -126,7 +126,7 @@ fails instead of skipping, so the CI job that provisions the text cannot pass wi
 | §8.2.3.16 Flows Graphical Notation | 30 | 22 | 16 | 2 | 0 | 4 |
 | §8.2.3.17 Actions Graphical Notation | 72 | 68 | 44 | 3 | 3 | 18 |
 | §8.2.3.18 States Graphical Notation | 45 | 41 | 25 | 2 | 0 | 14 |
-| §8.2.3.19 Calculations Graphical Notation | 14 | 9 | 5 | 0 | 1 | 3 |
+| §8.2.3.19 Calculations Graphical Notation | 14 | 9 | 6 | 0 | 0 | 3 |
 | §8.2.3.20 Constraints Graphical Notation | 24 | 19 | 13 | 0 | 0 | 6 |
 | §8.2.3.21 Requirements Graphical Notation | 63 | 57 | 34 | 2 | 1 | 20 |
 | §8.2.3.22 Cases Graphical Notation | 4 | 3 | 0 | 1 | 0 | 2 |
@@ -135,7 +135,7 @@ fails instead of skipping, so the CI job that provisions the text cannot pass wi
 | §8.2.3.25 Use Cases Graphical Notation | 22 | 16 | 9 | 1 | 0 | 6 |
 | §8.2.3.26 Views and Viewpoints Graphical Notation | 38 | 34 | 19 | 1 | 2 | 12 |
 | §8.2.3.27 Metadata Graphical Notation | 8 | 7 | 2 | 0 | 1 | 4 |
-| **Total** | 620 | 523 | 292 | 34 | 25 | 172 |
+| **Total** | 620 | 523 | 293 | 34 | 24 | 172 |
 <!-- census:end clauses -->
 
 ## Gaps
@@ -170,7 +170,7 @@ package a follow-up can take one at a time (see below).
 | Production | Category | Verdict | Package | Reason |
 | --- | --- | --- | --- | --- |
 | `composite-feature-membership` | edge | approximate | F | view-rendering-forms.md § Notation table: Filled diamond at the owner; Mermaid has no diamond and leads the edge text with `◆`. A case or mixed diagram writes the DOT attributes as `arrowtail=diamond, dir=back`. A mixed rendering draws it from an owner to every composite usage nested in its node — a part, action or state usage, a view usage — where PlantUML and the text form show it and DOT and Mermaid leave it to the nesting ([case and mixed diagrams](view-rendering-forms.md#case-and-mixed-diagrams)). |
-| `definition` | edge | approximate | F | view-rendering-forms.md § Notation table: Solid hollow triangle at the definition with two dots stacked beside its base, as PlantUML's `--:\|>` sets them: Graphviz sets the dots in line behind the triangle, D2 and draw.io have no dots and draw the plain triangle, Mermaid writes `typing` as the edge text. |
+| `definition` | edge | approximate | F | view-rendering-forms.md § Notation table: Solid hollow triangle at the definition with two dots beside its base, one each side of the line, as PlantUML's `--:\|>` sets them: no Graphviz arrowhead sets a dot beside the line, so the DOT edge is the triangle under a class and the dots are drawn into the SVG of every drawing this project has Graphviz make ([the definition glyph](view-rendering-forms.md#the-definition-glyph)), D2 and draw.io have no dots and draw the plain triangle, Mermaid writes `typing` as the edge text. |
 | `features-compartment` | compartment | undrawn | F | no renderer writes this compartment; the members are drawn as nodes or edges, or not at all (a KerML `feature` member never folds into a SysML node's compartments) |
 | `noncomposite-feature-membership` | edge | approximate | F | view-rendering-forms.md § Notation table: Hollow diamond at the owner; Mermaid leads the edge text with `◇`. A mixed rendering draws it to every referential usage nested in its owner's node — a `ref` part, an attribute, a port — as above. |
 | `redefinition` | edge | approximate | F | view-rendering-forms.md § Notation table: Hollow triangle with a bar across the line at its base, as Graphviz's `onormaltee` sets it; PlantUML sets the bar a little behind the triangle, D2 and draw.io have no bar and draw the plain triangle, Mermaid writes `redefinition` as the edge text. |
@@ -244,12 +244,6 @@ package a follow-up can take one at a time (see below).
 | `st-succession` | edge | approximate | B | view-rendering-forms.md § Notation table: Solid with an open head and the transition label (figures of §8.2.3.18), as DOT, PlantUML, draw.io and the canvas draw it; Mermaid and D2 have only a filled head. |
 | `transition` | edge | approximate | B | view-rendering-forms.md § Notation table: Solid with an open head and the transition label (figures of §8.2.3.18), as DOT, PlantUML, draw.io and the canvas draw it; Mermaid and D2 have only a filled head. |
 
-#### §8.2.3.19 Calculations Graphical Notation
-
-| Production | Category | Verdict | Package | Reason |
-| --- | --- | --- | --- | --- |
-| `result-compartment` | compartment | undrawn | F | no renderer writes this compartment; the members are drawn as nodes or edges, or not at all |
-
 #### §8.2.3.21 Requirements Graphical Notation
 
 | Production | Category | Verdict | Package | Reason |
@@ -304,7 +298,7 @@ package a follow-up can take one at a time (see below).
 | C | §8.2.3.3/.13 n-ary dots and §8.2.3.16 flow-on-connection | 0 | 0 |  |
 | D | §8.2.3.9 sequence glyphs | 1 | 3 | `portion-relationship`, `sequence-compartment`, `sq-succession`, `message` |
 | E | §8.2.3.2 textual-compartment greying | 0 | 1 | `element-inside-textual-compartment` |
-| F | everything else | 21 | 25 | `general-compartment`, `imported-package-with-name-in-tab`, `imported-package-with-name-inside`, `members-compartment`, `owned-membership`, `package-node`, `package-with-name-in-tab`, `package-with-name-inside`, `packages-compartment`, `relationships-compartment`, `composite-feature-membership`, `definition`, `features-compartment`, `noncomposite-feature-membership`, `redefinition`, `reference-subsetting`, `subclassification`, `subsetting`, `directed-features-compartment`, `interconnection-compartment`, `pdh`, `pdv`, `port-b`, `port-l`, `port-r`, `port-t`, `proxy-h`, `proxy-v`, `connection-definition-elaboration`, `connection-usage-elaboration`, `interface-connection`, `flow`, `result-compartment`, `actor`, `concern-stakeholder-link`, `satisfy-requirements-compartment`, `objective-compartment`, `verification-methods-compartment`, `verifies-compartment`, `verify-requirement-name-compartment`, `verify-requirement-node`, `includes-compartment`, `exposes-compartment`, `filters-compartment`, `rendering-compartment`, `metadata-feature-annotation-node` |
+| F | everything else | 20 | 25 | `general-compartment`, `imported-package-with-name-in-tab`, `imported-package-with-name-inside`, `members-compartment`, `owned-membership`, `package-node`, `package-with-name-in-tab`, `package-with-name-inside`, `packages-compartment`, `relationships-compartment`, `composite-feature-membership`, `definition`, `features-compartment`, `noncomposite-feature-membership`, `redefinition`, `reference-subsetting`, `subclassification`, `subsetting`, `directed-features-compartment`, `interconnection-compartment`, `pdh`, `pdv`, `port-b`, `port-l`, `port-r`, `port-t`, `proxy-h`, `proxy-v`, `connection-definition-elaboration`, `connection-usage-elaboration`, `interface-connection`, `flow`, `actor`, `concern-stakeholder-link`, `satisfy-requirements-compartment`, `objective-compartment`, `verification-methods-compartment`, `verifies-compartment`, `verify-requirement-name-compartment`, `verify-requirement-node`, `includes-compartment`, `exposes-compartment`, `filters-compartment`, `rendering-compartment`, `metadata-feature-annotation-node` |
 <!-- census:end packages -->
 
 ## Decisions

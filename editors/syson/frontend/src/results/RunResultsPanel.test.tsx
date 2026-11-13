@@ -14,6 +14,7 @@ const baseResult = (overrides: Partial<GQLOpenSysMLRunResult> = {}): GQLOpenSysM
   outputs: [],
   trace: [],
   outcomes: [],
+  coverage: null,
   resultText: null,
   diagnostics: [],
   verdicts: [],
@@ -163,6 +164,47 @@ describe('RunResultsPanel', () => {
     expect(screen.getByText('outputs: value = 2')).toBeInTheDocument();
     expect(screen.getByText('error: failed')).toBeInTheDocument();
     expect(screen.getAllByText(/linearizations:/)).toHaveLength(2);
+  });
+
+  it('renders the coverage of every explored run', () => {
+    render(
+      <RunResultsPanel
+        result={baseResult({
+          operation: 'EXPLORE_STATE',
+          outcomes: [
+            {
+              outputs: [],
+              finalState: 'fin',
+              trace: ['s0', 'viaA', 'fin'],
+              error: null,
+              linearizations: 2,
+              witness: [],
+            },
+          ],
+          coverage: {
+            states: [
+              { path: 'test::M#1.Run: fin', declaration: 'test::Run::fin', runs: 2 },
+              { path: 'test::M#1.Run: viaB', declaration: 'test::Run::viaB', runs: 1 },
+            ],
+            transitions: [{ path: 'test::M#1.Run: s0 -> viaB', declaration: 'test::Run::s0 -> viaB', runs: 1 }],
+          },
+        })}
+      />
+    );
+    expect(screen.getByText('Coverage')).toBeInTheDocument();
+    expect(screen.getByText('coverage over all runs: 2 states entered, 1 transition taken')).toBeInTheDocument();
+    expect(screen.getByText('state test::M#1.Run: fin (test::Run::fin): 2 runs')).toBeInTheDocument();
+    expect(screen.getByText('state test::M#1.Run: viaB (test::Run::viaB): 1 run')).toBeInTheDocument();
+    expect(screen.getByText('transition test::M#1.Run: s0 -> viaB (test::Run::s0 -> viaB): 1 run')).toBeInTheDocument();
+  });
+
+  it('hides the coverage of an exploration that entered no state', () => {
+    render(
+      <RunResultsPanel
+        result={baseResult({ operation: 'EXPLORE_ACTION', coverage: { states: [], transitions: [] } })}
+      />
+    );
+    expect(screen.queryByText('Coverage')).not.toBeInTheDocument();
   });
 
   it('renders one exploration outcome and its witness', () => {

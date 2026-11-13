@@ -121,9 +121,8 @@ service SysMLService {
   // whole model. Reported as the "element_properties" capability.
   rpc GetElementProperties(GetElementPropertiesRequest) returns (GetElementPropertiesResponse);
 
-  // Run a named document query with parameter bindings, the answer the REPL's
-  // %run-query gives, as typed rows rather than formatted lines. Reported as
-  // the "document_query" capability.
+  // Run a document query named by query_id or written in inline_query as typed rows, the answer
+  // the REPL's %run-query gives; capabilities "document_query" and "inline_document_query".
   rpc RunDocumentQuery(RunDocumentQueryRequest) returns (RunDocumentQueryResponse);
 
   // Render a named document to Markdown, as the CLI's -render-document does.
@@ -719,6 +718,27 @@ message ExplorationStatus {
   // without a choice point, by identifier; `complete` is false while any is
   // listed, since fewer orders were run than the library admits.
   repeated string unenumerated = 8;
+  // Every state entered and transition taken over all the runs, not only the
+  // witness of each outcome, with how many runs did so.
+  Coverage coverage = 9;
+}
+
+// Coverage is what every run of an exploration, or every schedule of a check,
+// entered and took, with how many did so.
+message Coverage {
+  repeated CoverageEntry states = 1;
+  repeated CoverageEntry transitions = 2;
+}
+
+// CoverageEntry is one state entered or one transition taken.
+message CoverageEntry {
+  // Qualified by the instance running the machine: `Cov::Sys#1.m.run: viaA`,
+  // `Cov::Sys#1.m.run: s0 -> viaB`.
+  string path = 1;
+  // Qualified by the declaration: `Cov::M::run::viaA`, `Cov::M::run::s0 -> viaB`.
+  string declaration = 2;
+  // How many runs (schedules, under the check engine) entered or took it.
+  int32 runs = 3;
 }
 
 // CheckBehaviorRequest searches every schedule of a behavior, as the `sysml`
@@ -833,6 +853,9 @@ message CheckSearch {
   repeated string scope = 9;
   // How the search ended, as `sysml` reports it.
   string status = 10;
+  // Every state entered and transition taken over all the searched schedules,
+  // not only the witness of each final, with how many schedules did so.
+  Coverage coverage = 11;
 }
 
 // CheckBehaviorResponse is what the search found.
@@ -2039,19 +2062,36 @@ enum EditFailure {
 }
 
 // SymbolInfo represents any SysML element
+// SymbolInfo is the symbol table's summary of an element. Several fields
+// restate metamodel properties that GetElementProperties derives in full; each
+// such field names the property it summarises, and element_properties is the
+// surface whose answer the specification defines.
 message SymbolInfo {
   string id = 1;             // Unique identifier (fully qualified name)
   string name = 2;
-  string kind = 3;           // "PartDefinition", "AttributeUsage", etc
-  map<string, string> metadata = 4;  // multiplicity, type, etc
+  // Declaration keyword kind ("partDef", "attributeUsage", "actionUsage", ...):
+  // the written syntax, not the element's metaclass. GetElementProperties
+  // reports the metaclass and every property that classifies the element.
+  string kind = 3;
+  // Summary entries: "type" and "specializes" (the first written edge of each,
+  // kept for compatibility; `specializations` has them all), "multiplicity",
+  // "direction" (the direction written on the feature; the derived
+  // Feature::direction is GetElementProperties' `direction`), "abstract",
+  // "variation", "variant" and the like.
+  map<string, string> metadata = 4;
   repeated string child_ids = 5;     // References to children
   repeated AttributeInfo attributes = 6;
-  // Static type facts; unset when the element is not a def/usage.
+  // Static type facts; unset when the element is not a def/usage. `declared`
+  // is the written typing and `types` the derived Feature::type, the `type`
+  // property of GetElementProperties.
   TypeInfo type_info = 7;
   // Declared multiplicity; unset when none is declared.
   MultiplicityInfo multiplicity = 8;
-  // Every generalization edge declared, in declaration order. metadata["type"]
-  // and metadata["specializes"] report only the first, kept for compatibility.
+  // Every generalization edge declared, in declaration order: the written
+  // relationships Type::ownedSpecialization of GetElementProperties reflects
+  // (typing, subsetting, reference subsetting, redefinition, specialization),
+  // but not the implied ones the metamodel adds. metadata["type"] and
+  // metadata["specializes"] report only the first, kept for compatibility.
   repeated Specialization specializations = 9;
   // Attributes inherited from standard-library content, which `attributes`
   // leaves out. Their absence is stated here rather than silent.
@@ -2087,7 +2127,8 @@ message MemberInfo {
 
 // Specialization is one generalization edge an element declares.
 message Specialization {
-  // Relationship kind: "specializes", "subsets", "redefines" or "typing".
+  // Relationship kind: "specializes", "subsets", "redefines", "typing" or
+  // "references" (reference subsetting, `::>` and `include`).
   string kind = 1;
   // The target as written in the source ("Engine", "Demo::Engine").
   string declared = 2;
@@ -2099,12 +2140,17 @@ message Specialization {
 
 // TypeInfo is the static type of a usage, or the classification of a
 // definition, as far as the service derives it without running the model.
+// TypeInfo summarises an element's typing. `declared`, `resolved_id` and
+// `resolved_kind` are the typing the declaration writes (`: T`); `types` is
+// the feature's semantic type as the metamodel derives it, the `type` property
+// of GetElementProperties (KerML Feature::type), which the typing of every
+// feature it subsets, references or redefines contributes to.
 message TypeInfo {
   // Type name as written; empty when none is declared.
   string declared = 1;
-  // FQN of the resolved type; empty when unresolved or undeclared.
+  // FQN of the resolved written type; empty when unresolved or undeclared.
   string resolved_id = 2;
-  // Symbol kind of the resolved type ("partDef", "attributeDef", ...).
+  // Symbol kind of the resolved written type ("partDef", "attributeDef", ...).
   string resolved_kind = 3;
   // Library scalar the type reduces to ("Boolean", "Integer", "Real", ...);
   // empty when it is not a scalar value type.
@@ -2116,6 +2162,18 @@ message TypeInfo {
   bool quantity = 6;
   // Unit as written when the default value names one ("m/s"), else empty.
   string unit = 7;
+  // The feature's derived types (Feature::type), most specific first, with the
+  // redundant supertypes removed: `part pBoth : V :> q` with `q : T` reports V
+  // and T. Empty when the element is not a feature or none derives.
+  repeated TypeRef types = 8;
+}
+
+// TypeRef names one derived type of a feature.
+message TypeRef {
+  // FQN of the type.
+  string id = 1;
+  // Symbol kind of the type ("partDef", "attributeDef", ...).
+  string kind = 2;
 }
 
 // MultiplicityInfo is a declared multiplicity range. A bound the service cannot
@@ -2189,7 +2247,8 @@ message Rational {
 // exactly when element_id is, whatever type each was cast to. Its features
 // (`declaredName`, `ownedFeature`, ...) are read in the model, not carried.
 message Metaobject {
-  // FQN of the element reflected on ("Vehicle::seatBelt"). Its identity.
+  // The id a client keeps for the element: its FQN ("Vehicle::seatBelt"), an unnamed member's
+  // positional id ("Vehicle::@2") or a synthesized element's form @id ("Vehicle__send___400_pvalue").
   string element_id = 1;
   // FQN of the element's own reflective metaclass ("SysML::Systems::PartUsage"),
   // the most specific metaclass of the KerML or SysML library classifying it;
@@ -2624,12 +2683,17 @@ enum CompositeOperator {
 
 // QueryResultElement is one matched element. `id` and `type` are always
 // reported, since an element record is not usable without them; `properties`
-// carries what `select` asked for, omitting a property the element does not
-// have.
+// carries what `select` asked for, omitting a property the element has no
+// value of. An OSLC query selecting held objects (`rdf:type=elmt:<id>`) answers
+// one record per object: `id` and `type` name the element the object is an
+// instance of, and `path` the object itself.
 message QueryResultElement {
   string id = 1;    // qualified name, the identity this service reports
   string type = 2;  // metamodel type name ("PartUsage", "PartDefinition", ...)
   map<string, string> properties = 3;
+  // The path the session holds an object under (`car.wheels[2]`, `#7`); empty
+  // for a model element.
+  string path = 4;
 }
 
 // SweepRange is one parameter's range: the endpoints a swept run advances
@@ -2947,20 +3011,26 @@ message RunRunsResponse {
 }
 
 
-// RunDocumentQueryRequest runs a named document query — a calc def
-// specializing DocumentQueries::Query — against a model the service already
-// parsed, binding its entry parameters. It answers as %run-query does, but with
-// typed rows rather than formatted lines. The query runs over the objects
-// Instantiate created for the model, which a binding may name (DocumentObject)
-// and `DocumentQueries::Objects` and `Verdicts` reach.
+// RunDocumentQueryRequest runs a DocumentQueries::Query the model declares (query_id) or one
+// written in inline_query over a parsed model and its Instantiate objects, binding its parameters.
 message RunDocumentQueryRequest {
   string model_hash = 1;  // from ParseFile response
   // FQN of the document query to run. Fails with NOT_FOUND when the model does
   // not declare it, and INVALID_ARGUMENT when it declares something else.
+  // Exactly one of query_id and inline_query is given.
   string query_id = 2;
   // Entry-parameter bindings. Repeating a parameter appends to its binding, so
   // a nonscalar parameter can be given several values.
   repeated DocumentQueryBinding bindings = 3;
+  // A query expression to run in place of a named query — the result
+  // expression of a `calc def` specializing DocumentQueries::Query, such as
+  // `Project(WhereType(Descendants(Named("Vehicles")), "PartUsage"), ("name",
+  // "mass"))` — compiled in the model's context with the DocumentQueries
+  // library in scope and the model's own names reachable. A fault in the
+  // expression fails with INVALID_ARGUMENT positioned within it (`inline query
+  // <line>:<column>`); a path or model error carries a QueryOutcome detail as a
+  // named query's does. Reported as the "inline_document_query" capability.
+  string inline_query = 4;
 }
 
 // DocumentQueryBinding binds one entry parameter of a document query.
@@ -3155,6 +3225,11 @@ message QueryOutcome {
   repeated QueryFailure failures = 3;        // a pathError's failures, one per failing element
   repeated QueryFinding findings = 4;        // a modelError's findings
   repeated QueryFailure path_failures = 5;   // a modelError's path failures from the same fan-out
+  // The detail is bounded to fit a status trailer: the lists above hold the first
+  // few of a fan-out, and these count how many there were in all (the CLI's -json record carries every one).
+  int32 failures_total = 6;
+  int32 findings_total = 7;
+  int32 path_failures_total = 8;
 }
 
 // QueryFailure is one failure of one step on one element: what the step
@@ -3173,6 +3248,11 @@ message QueryFrontier {
   repeated QueryFrontierFeature features = 3;  // its features, when a feature was expected
   repeated string kinds = 4;                   // the relationship kinds there are, when a kind was expected
   string nearest = 5;                          // the closest spelling, when a name was expected
+  // Bounded to fit a status trailer: members, features and kinds hold the nearest spellings
+  // only, and these count how many there were in all (the CLI's -json record carries every one).
+  int32 members_total = 6;
+  int32 features_total = 7;
+  int32 kinds_total = 8;
 }
 
 message QueryFrontierMember {

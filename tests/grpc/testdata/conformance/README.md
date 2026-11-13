@@ -63,6 +63,9 @@ empty else blocks are not authorable.
 | `question` | VerifyConstraint | `evaluate`, `holds` or `satisfiable`; a solver question skips when no SMT solver is installed unless `OPENSYSML_REQUIRE_SMT` is set |
 | `expected_status`, `expected_notes` | VerifyConstraint | the verdict's `status`, and the notes its answer rests on, in order: `kind` (`assumed_one` or `uncovered`), `subject`, `text` |
 | `query` | Query | the standard's `Query` as protojson writes it (`scope`, `select`, `where`, `orderBy`) |
+| `model` | all | the fixture parsed instead of `<name>.sysml`, so cases reading different elements of one model share it |
+| `element_id`, `properties` | GetElementProperties | the element read — a qualified name, a positional id (`Owner::@2`) or an id an earlier answer carried — and the specification names of the properties asked for, in order; empty reads every property the element form carries |
+| `expected_properties` | GetElementProperties | per property asked for, in order: `name`, `defining_class`, `many`, `derived`, the `values` as text — an element by its qualified name (its id when it has none), a literal as its text — and `unsupported_contains`, the text the reason must contain when the property has no answer; `expected_error` the in-band error instead |
 | `expected_element_ids`, `expected_query_error` | Query | the ids the answer reports, in order; or text the refusal's status message must contain |
 | `expected_reach_paths` | Instantiate | the path each instance of the graph says the traversal reached it by (`reached_by.path`), in graph order, the root's being empty; each holder must hold the instance under the feature and index the path ends with |
 | `object_path` | InstancePaths | the object whose paths to list, as `DocumentObject.path`: the name a root was instantiated as, or a path through feature values from it (`Fuel::vehicle.wheels[2]`) |
@@ -74,7 +77,7 @@ empty else blocks are not authorable.
 | `bindings` | RunDocumentQuery | list of `{parameter, values}`, each value a document value bound to the parameter |
 | `expected_columns` | RunDocumentQuery | full ordered projected-column name list |
 | `expected_rows` | RunDocumentQuery | full ordered row list, each `{element, cells}` — the row's own document value and one list of document values per column |
-| `expected_result` | Evaluate, EvaluateCalc | expected `Value` |
+| `expected_result` | Evaluate, EvaluateCalc | expected `Value`; a `metaobject` is `"<elementId> : <metaclassId>"`, the element by the id a client keeps for it (qualified name, positional id or the element form's `@id`) |
 | `expected_attribute_names` | GetSymbol | full ordered attribute name list, own then inherited |
 | `expected_kind`, `expected_child_ids` | GetSymbol | the symbol's kind, and the full ordered list of its members' ids: a named member's qualified name, an unnamed one's positional identity (`Owner::@3`), which `symbol_id` may name too |
 | `expected_attributes` | GetSymbol | attribute name → `{type, value_kind, value, unit}`; no `value_kind` requires no value |
@@ -82,6 +85,8 @@ empty else blocks are not authorable.
 | `min_withheld_library_members` | GetSymbol | the response must count at least this many library-inherited members withheld from `members` |
 | `expected_metadata` | GetSymbol | metadata key → value the symbol must carry (`variation`, `variant`, `abstract`, `type`, …) |
 | `absent_metadata` | GetSymbol | metadata keys the symbol must not carry |
+| `expected_type_info` | GetSymbol | `{declared, resolved_id, types}`: the typing as written (empty when none is) and the derived `Feature::type` ids, most specific first |
+| `expected_specializations` | GetSymbol | full ordered list of generalization edges, each `{kind, declared, target_id}`; `kind` is `typing`, `specializes`, `subsets`, `redefines` or `references` |
 | `expected_feature_values` | Instantiate | feature name → `{materialized, value_kind, value, error}` |
 | `expected_instance_count` | Instantiate | number of reachable instances in the response graph |
 | `expected_outputs` | ExecuteAction, EvaluateCalc | output name → expected `Value`; for EvaluateCalc it is the outputs a calc usage computes when invoked without arguments |

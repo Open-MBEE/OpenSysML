@@ -652,7 +652,7 @@ func TestSharedMessageAcceptIsAChoice(t *testing.T) {
 	}
 	at := func(node string) (Token, bool) {
 		for _, tok := range exec.Tokens() {
-			if nodeIdentifier(tok.Location) == node {
+			if nodeIdentifier(tok.Node()) == node {
 				return tok, true
 			}
 		}

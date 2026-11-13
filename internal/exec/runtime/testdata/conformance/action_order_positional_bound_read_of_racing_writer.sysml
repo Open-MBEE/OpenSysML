@@ -1,10 +1,11 @@
 package test {
 	private import ScalarValues::*;
 
-	// `Base` values its output `y` by an expression over `x`; `Race` declares an
-	// output at the same position with no value and no `:>>`, so it redefines `y`
-	// by position (KerML 1.1 §7.4.2, parameters redefine positionally) and is
-	// bound as `Base::y` is. Two branches between one fork and one join each
+	// `Base` values its output `yBase` by an expression over `x`; `Race` declares
+	// an output at the same position with no value and no `:>>`, so it redefines
+	// `yBase` by position (KerML 8.4.4.6), is bound as `Base::yBase` is, and is
+	// the only output there (the redefined one is not inherited). Two branches
+	// between one fork and one join each
 	// write `x` once: the output, read after the join, and `z`, written from it,
 	// stand on the choice points `x` does.
 	action def Base {

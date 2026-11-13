@@ -138,6 +138,10 @@ classdef Model < handle
             end
         end
 
+        function answer = elementProperties(m, element, varargin)
+            answer = opensysml.elementProperties(m, element, varargin{:});
+        end
+
         function result = runDocumentQuery(m, queryId, varargin)
             result = opensysml.runDocumentQuery(m, queryId, varargin{:});
         end

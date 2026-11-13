@@ -25,6 +25,8 @@ pub const CAPABILITY_QUERY_ORDER_BY: &str = "query_order_by";
 pub const CAPABILITY_OSLC_QUERY: &str = "oslc_query";
 /// The `RunDocumentQuery` RPC.
 pub const CAPABILITY_DOCUMENT_QUERY: &str = "document_query";
+/// `RunDocumentQueryRequest.inline_query`: a query expression run in place of a named query.
+pub const CAPABILITY_INLINE_DOCUMENT_QUERY: &str = "inline_document_query";
 /// The `RenderDocument` RPC, rendering Markdown.
 pub const CAPABILITY_RENDER_DOCUMENT: &str = "render_document";
 /// `RenderDocumentRequest.form`, asking for the HTML page instead of Markdown.

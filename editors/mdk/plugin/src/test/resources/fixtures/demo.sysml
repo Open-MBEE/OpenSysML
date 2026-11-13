@@ -18,6 +18,39 @@ package Demo {
 
   calc def twice { in x : ScalarValues::Integer; return : ScalarValues::Integer[1] = x * 2; }
 
+  calc def Parts :> DocumentQueries::Query {
+    DocumentQueries::Project(
+      source = DocumentQueries::WhereType(
+        source = DocumentQueries::Descendants(source = DocumentQueries::Named(qualifiedName = "Demo")),
+        type = "PartDefinition"),
+      properties = ("qualifiedName", "name"))
+  }
+
+  calc def PartsUnder :> DocumentQueries::Query {
+    in root : KerML::Root::Element;
+    in kind : ScalarValues::String = "PartDefinition";
+    DocumentQueries::Project(
+      source = DocumentQueries::WhereType(source = DocumentQueries::Descendants(source = root), type = kind),
+      properties = ("qualifiedName", "name"))
+  }
+
+  calc def NoPorts :> PartsUnder {
+    in redefines kind = "PortDefinition";
+  }
+
+  calc def Under :> DocumentQueries::Query {
+    in roots : KerML::Root::Element[0..*];
+    DocumentQueries::Project(source = DocumentQueries::Descendants(source = roots), properties = ("qualifiedName"))
+  }
+
+  calc def UnderPackages :> Under {
+    in redefines roots : KerML::Root::Element;
+  }
+
+  calc def Unresolved :> DocumentQueries::Query {
+    DocumentQueries::Project(source = DocumentQueries::Named(qualifiedName = "Demo::Nope"), properties = ("name"))
+  }
+
   state def Lifecycle {
     entry; then off;
     state off;

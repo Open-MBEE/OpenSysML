@@ -4,8 +4,6 @@ import (
 	"errors"
 	"strings"
 	"testing"
-
-	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 )
 
 // A chained target whose last segment names no feature of the object the chain
@@ -156,19 +154,4 @@ func runChainWrite(t *testing.T, body string) error {
 		t.Fatal("run to completion succeeded; want the chained write to be reported")
 	}
 	return err
-}
-
-// TestChainedAssignmentBindsNoCalcOutput locks that a chained target writing a
-// feature of another object does not count as the calc computing its own output
-// of that name.
-func TestChainedAssignmentBindsNoCalcOutput(t *testing.T) {
-	outputs := []calcOutput{{Name: "x"}}
-	chained := []lower.Statement{lower.Assign{Target: "x", Chain: &lower.AssignTarget{Text: "foo.x"}}}
-	if assigned := assignedOutputs(chained, outputs, nil); len(assigned) != 0 {
-		t.Errorf("assignedOutputs(chained) = %v; want none, since foo.x is another object's feature", assigned)
-	}
-	plain := []lower.Statement{lower.Assign{Target: "x"}}
-	if assigned := assignedOutputs(plain, outputs, nil); !assigned["x"] {
-		t.Errorf("assignedOutputs(plain) = %v; want x, which the body does bind", assigned)
-	}
 }

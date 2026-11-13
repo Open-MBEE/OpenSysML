@@ -5,7 +5,6 @@
 package baseline
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -48,8 +47,8 @@ type Record struct {
 	Errata string  `json:"errataRegistry"`
 	Tools  []Tool  `json:"tools,omitempty"`
 	Inputs []Input `json:"inputs"`
-	// Recorded is the date the baseline was committed, stamped by the -update
-	// flag. A plain run leaves it empty so two runs stay byte-identical.
+	// Recorded is the date an -update stamped, if it stamps one: a plain run leaves it empty so
+	// two runs stay byte-identical, and the api-json baseline omits it so branches never conflict on it.
 	Recorded string `json:"recorded,omitempty"`
 }
 
@@ -143,38 +142,6 @@ func digestFiles(dir string, rel []string, digestFile func(string) (string, erro
 		fmt.Fprintf(sum, "%s\x00%s\n", name, digest)
 	}
 	return digestPrefix + hex.EncodeToString(sum.Sum(nil)), nil
-}
-
-// DigestPackage digests a Go package's non-test .go files, named relative to
-// dir and read with CRLF folded to LF, so the result is checkout-independent.
-func DigestPackage(dir string) (string, error) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return "", err
-	}
-	var sources []string
-	for _, entry := range entries {
-		name := entry.Name()
-		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
-			continue
-		}
-		sources = append(sources, name)
-	}
-	if len(sources) == 0 {
-		return "", fmt.Errorf("%s holds no Go sources", dir)
-	}
-	return digestFiles(dir, sources, digestSourceFile)
-}
-
-// digestSourceFile digests a text source as git stores it (LF), whatever the
-// checkout's autocrlf setting rewrote it to.
-func digestSourceFile(path string) (string, error) {
-	content, err := os.ReadFile(path) // #nosec G304 -- callers name repository sources
-	if err != nil {
-		return "", err
-	}
-	sum := sha256.Sum256(bytes.ReplaceAll(content, []byte("\r\n"), []byte("\n")))
-	return digestPrefix + hex.EncodeToString(sum[:]), nil
 }
 
 // DigestStrings is the digest of a list of already-canonical strings, used for
@@ -324,8 +291,8 @@ func Validate(recorded Record) error {
 		return fmt.Errorf("states no errata registry digest")
 	case len(recorded.Inputs) == 0:
 		return fmt.Errorf("states no compared inputs")
-	case !datePattern.MatchString(recorded.Recorded):
-		return fmt.Errorf("states no ISO recording date (%q)", recorded.Recorded)
+	case recorded.Recorded != "" && !datePattern.MatchString(recorded.Recorded):
+		return fmt.Errorf("states a non-ISO recording date (%q)", recorded.Recorded)
 	}
 	return nil
 }

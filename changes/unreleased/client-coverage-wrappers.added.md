@@ -1,0 +1,1 @@
+- The Rust, Java, Julia and MATLAB clients read the coverage of every explored run: `Exploration.coverage` (`Coverage` of `CoverageEntry`s — `path`, `declaration`, `runs`) and the check search's `coverage` carry the states entered and transitions taken across every run or schedule, as the Go, Python and Node clients already do.

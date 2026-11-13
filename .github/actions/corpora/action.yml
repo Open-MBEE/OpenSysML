@@ -69,11 +69,14 @@ runs:
         path: build/spec-docs/pdf
         key: spec-docs-${{ hashFiles('scripts/download-spec-examples.sh', 'scripts/pilot-pin.sh') }}
 
+    - name: Install poppler-utils
+      uses: ./.github/actions/apt-install
+      with:
+        packages: --no-install-recommends poppler-utils
+
     - name: Extract the OMG specification examples
       shell: bash
-      run: |
-        ./scripts/ci-apt-install.sh --no-install-recommends poppler-utils
-        ./scripts/download-spec-examples.sh
+      run: ./scripts/download-spec-examples.sh
 
     - name: Verify the OMG specification examples
       shell: bash

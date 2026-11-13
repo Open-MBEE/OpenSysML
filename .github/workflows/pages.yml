@@ -21,7 +21,7 @@ jobs:
     # The site is published from Open-MBEE/OpenSysML; a fork would deploy the same
     # pages under its own domain.
     if: github.repository == 'Open-MBEE/OpenSysML'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
@@ -80,7 +80,7 @@ jobs:
   deploy:
     name: Deploy to Pages
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Deploying is the only step that writes; the build job only reads the tree.
     permissions:
       pages: write

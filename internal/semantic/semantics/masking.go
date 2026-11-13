@@ -124,18 +124,24 @@ func (m *Model) directRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	return append(out, m.implicitMetadataBodyRedefinitions(sym)...)
 }
 
+// RestatesMetadataBodyFeature reports whether sym is a metadata body's `mission = …`:
+// a feature declaring no name of its own, named by the definition's feature it redefines.
+func (m *Model) RestatesMetadataBodyFeature(sym *symbols.Symbol) bool {
+	return m != nil && sym != nil && len(m.implicitMetadataBodyRedefinitions(sym)) > 0
+}
+
 // implicitMetadataBodyRedefinitions is the metadata type's feature a body
 // declaration without a `:>>` clause redefines by its name (KerML 7.4.7).
 func (m *Model) implicitMetadataBodyRedefinitions(sym *symbols.Symbol) []*symbols.Symbol {
-	usage, ok := sym.Decl.(*ast.Usage)
-	if !ok || m.resolver == nil || declaresRedefinitionAST(usage) {
+	if _, ok := sym.UsageKind(); !ok || m.resolver == nil || DeclaresRedefinition(sym) ||
+		sym.Naming != symbols.NamedByDeclaration {
 		return nil
 	}
 	owner := m.resolver.MetadataBodyOwner(sym.OwnerScope)
 	if owner == nil {
 		return nil
 	}
-	target := symbols.MetadataBodyTarget(m, owner, usage.Ident)
+	target := symbols.MetadataBodyTarget(m, owner, ast.Identification{Name: sym.Name, ShortName: sym.ShortName})
 	if target == nil || target == sym {
 		return nil
 	}
@@ -151,30 +157,37 @@ func (m *Model) MaskingRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol 
 	return m.maskingRedefinedFeatures(sym)
 }
 
-// maskingRedefinedFeatures returns the features sym redefines by clause or by
-// case role, which its owner does not inherit. A library role (a view's `render`,
+// maskingRedefinedFeatures returns the features sym redefines by clause, by parameter
+// position (KerML 8.4.4.6) or by case role, which its owner does not inherit. A library role (a view's `render`,
 // a state's `entry` action) leaves the library name reachable, as in the pilot.
 func (m *Model) maskingRedefinedFeatures(sym *symbols.Symbol) []*symbols.Symbol {
 	explicit := m.RedefinedFeatures(sym)
+	parameters := m.MaskedParameterRedefinitions(sym)
 	roles := m.caseRoleRedefinitions(sym)
-	if len(roles) == 0 {
+	if len(parameters) == 0 && len(roles) == 0 {
 		return explicit
 	}
-	out := make([]*symbols.Symbol, 0, len(explicit)+len(roles))
-	return append(append(out, explicit...), roles...)
+	out := make([]*symbols.Symbol, 0, len(explicit)+len(parameters)+len(roles))
+	return append(append(append(out, explicit...), parameters...), roles...)
 }
 
 // EffectiveNameOf is Element::effectiveName: the declared name, or the one of
 // the feature an unnamed feature takes its identifiers from (KerML 1.1 §8.2.4).
 func (m *Model) EffectiveNameOf(sym *symbols.Symbol) string {
-	return inheritedIdentifier(sym, declaresIdentifier, declaredName, m.namingFeature)
+	return inheritedIdentifier(sym, m.declaresOwnIdentifier, declaredName, m.namingFeature)
 }
 
 // EffectiveShortNameOf is Element::shortName: the declared short name, or, for
 // a feature declaring neither identifier, that of the feature it takes its
 // identifiers from (KerML 1.1 §8.2.4, §8.3.3.3).
 func (m *Model) EffectiveShortNameOf(sym *symbols.Symbol) string {
-	return inheritedIdentifier(sym, declaresIdentifier, declaredShortName, m.namingFeature)
+	return inheritedIdentifier(sym, m.declaresOwnIdentifier, declaredShortName, m.namingFeature)
+}
+
+// declaresOwnIdentifier is declaresIdentifier for a symbol that is not a metadata
+// body restatement: `m = …` writes the redefined feature's name, not one of its own.
+func (m *Model) declaresOwnIdentifier(sym *symbols.Symbol) bool {
+	return declaresIdentifier(sym) && !m.RestatesMetadataBodyFeature(sym)
 }
 
 func declaredName(sym *symbols.Symbol) string      { return sym.Name }
