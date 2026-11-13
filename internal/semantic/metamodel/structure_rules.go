@@ -5888,15 +5888,51 @@ func (e *Evaluator) mostSpecificFeatureTypes(values []Value) (Value, bool, bool)
 	return sequence(types...), true, true
 }
 
+// featureTypeConforms reports whether specific is general or specializes it, by the
+// semantic model where both are symbols and by the Structure's specializations otherwise.
 func (e *Evaluator) featureTypeConforms(specific, general Element) (bool, bool) {
-	if sameStructureElement(specific, general, e.options.Structure) {
-		return true, true
+	generalSymbol := e.structureElementSymbol(general)
+	visited := make(map[ElementKey]bool)
+	queue := []Element{specific}
+	for len(queue) > 0 {
+		candidate := queue[0]
+		queue = queue[1:]
+		if sameStructureElement(candidate, general, e.options.Structure) {
+			return true, true
+		}
+		key := structureElementKey(candidate, e.options.Structure)
+		if visited[key] {
+			continue
+		}
+		visited[key] = true
+		if symbol := e.structureElementSymbol(candidate); symbol != nil {
+			if e.model == nil || !e.completeSupertypes(symbol) {
+				return false, false
+			}
+			if generalSymbol == nil {
+				for _, super := range e.model.DirectSupertypes(symbol) {
+					queue = append(queue, ElementOf(super))
+				}
+				continue
+			}
+			if !e.completeSupertypes(generalSymbol) {
+				return false, false
+			}
+			if e.model.Conforms(symbol, generalSymbol) {
+				return true, true
+			}
+			continue
+		}
+		if e.options.Structure == nil {
+			return false, false
+		}
+		supertypes, ok := e.structureOwnedSupertypes(candidate)
+		if !ok {
+			return false, false
+		}
+		queue = append(queue, supertypes...)
 	}
-	if specific.Symbol == nil || general.Symbol == nil || e.model == nil ||
-		!e.completeSupertypes(specific.Symbol) || !e.completeSupertypes(general.Symbol) {
-		return false, false
-	}
-	return e.model.Conforms(specific.Symbol, general.Symbol), true
+	return false, true
 }
 
 func (e *Evaluator) structureTypedDefinition(

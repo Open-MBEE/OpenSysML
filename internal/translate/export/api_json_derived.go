@@ -24,6 +24,9 @@ type apiJSONCompletedProperty struct {
 	clause string
 	// defaultValue completes a non-derived attribute at its metamodel default when set.
 	defaultValue any
+	// overStated marks a property the graph states with the mapping's own, narrower
+	// meaning: the element form writes the derived value and keeps the stated one as a mapping value.
+	overStated bool
 }
 
 // apiJSONCompletedProperties lists the completed properties in the order the
@@ -78,7 +81,8 @@ var apiJSONCompletedProperties = []apiJSONCompletedProperty{
 	{class: "Feature", name: "endOwningType", clause: "8.3.3.3.4 deriveFeatureEndOwningType"},
 	{class: "Feature", name: "featureTarget", clause: "8.3.3.3.4 deriveFeatureFeatureTarget"},
 	{class: "Feature", name: "featuringType", clause: "8.3.3.3.4 deriveFeatureFeaturingType"},
-	{class: "Feature", name: "type", clause: "8.3.3.3.4 deriveFeatureType"},
+	// The graph's sysml:type of a feature is its written typings alone.
+	{class: "Feature", name: "type", clause: "8.3.3.3.4 deriveFeatureType", overStated: true},
 	{class: "Feature", name: "ownedTyping", clause: "8.3.3.3.4 deriveFeatureOwnedTyping"},
 	{class: "Feature", name: "ownedSubsetting", clause: "8.3.3.3.4 deriveFeatureOwnedSubsetting"},
 	{class: "Feature", name: "ownedRedefinition", clause: "8.3.3.3.4 deriveFeatureOwnedRedefinition"},
@@ -219,14 +223,36 @@ func apiJSONCompletedPropertiesOf(metaclass string) []apiJSONMetaclassCompletion
 	return cached.([]apiJSONMetaclassCompletion)
 }
 
+// completionElement is the semantic element the writer completes subject's derived
+// properties from; a library reference and an external-form graph are not completed.
+func (w *apiJSONElementWriter) completionElement(subject rdf.Term, metaclass string) (metamodel.Element, bool) {
+	if metaclass == "" || w.evaluation == nil || w.evaluation.evaluator == nil || w.evaluation.structure == nil ||
+		LibraryReference(w.graph, subject) || apiJSONExternalForm(w.graph, w.scratch) {
+		return metamodel.Element{}, false
+	}
+	return w.evaluation.structure.element(subject)
+}
+
+// derivedOverStated evaluates the overStated property key of subject, which the
+// element form writes in place of the graph's statement.
+func (w *apiJSONElementWriter) derivedOverStated(subject rdf.Term, metaclass, key string) (any, bool) {
+	for _, property := range apiJSONCompletedPropertiesOf(metaclass) {
+		if !property.overStated || property.name != key {
+			continue
+		}
+		semanticElement, ok := w.completionElement(subject, metaclass)
+		if !ok {
+			return nil, false
+		}
+		return w.completedValue(subject, metaclass, semanticElement, property)
+	}
+	return nil, false
+}
+
 // completeDerived appends the completed derived properties of subject the graph
 // does not state, and the marker naming them.
 func (w *apiJSONElementWriter) completeDerived(subject rdf.Term, metaclass string, element apiJSONObject) apiJSONObject {
-	if metaclass == "" || w.evaluation == nil || w.evaluation.evaluator == nil || w.evaluation.structure == nil ||
-		LibraryReference(w.graph, subject) || apiJSONExternalForm(w.graph, w.scratch) {
-		return element
-	}
-	semanticElement, ok := w.evaluation.structure.element(subject)
+	semanticElement, ok := w.completionElement(subject, metaclass)
 	if !ok {
 		return element
 	}

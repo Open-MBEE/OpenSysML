@@ -4,6 +4,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
+	"slices"
 	"testing"
 )
 
@@ -497,10 +498,68 @@ func TestStructureFeatureTypeIsUnsupportedWhenTypeRedundancyIsUnknown(t *testing
 	structure.ownedRelationships[feature.Key()] = []Element{firstTyping, secondTyping}
 	structure.relatedElements[testRelatedKey{element: firstTyping.Key(), property: "type"}] = []Element{firstType}
 	structure.relatedElements[testRelatedKey{element: secondTyping.Key(), property: "type"}] = []Element{secondType}
+	structure.unknownOwnedRelations = map[ElementKey]bool{firstType.Key(): true}
 	evaluator.options.Structure = structure
 
 	if _, ok := evaluator.Property(feature, "Feature", "type"); ok {
 		t.Fatal("Feature::type is supported despite unknown type redundancy")
+	}
+}
+
+// A feature typed by itself and through the feature it subsets has both types, less
+// the one the Structure's specializations make redundant (KerML 1.1 §8.3.3.3.4).
+func TestStructureFeatureTypesJoinOwnedAndSubsettedTypings(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		specializes bool
+		subsetting  string
+		target      string
+	}{
+		{name: "subsetting of unrelated types", subsetting: "Subsetting", target: "subsettedFeature"},
+		{name: "redefinition of unrelated types", subsetting: "Redefinition", target: "redefinedFeature"},
+		{name: "subsetting of a more general type", specializes: true, subsetting: "Subsetting", target: "subsettedFeature"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			evaluator, _ := newTestEvaluator(t, "feature-type-join.sysml", "package P {}")
+			feature := Element{Aspect: "join-feature"}
+			general := Element{Aspect: "join-general-feature"}
+			ownType := Element{Aspect: "join-own-type"}
+			generalType := Element{Aspect: "join-general-type"}
+			ownTyping := Element{Aspect: "join-own-typing"}
+			generalTyping := Element{Aspect: "join-general-typing"}
+			subsetting := Element{Aspect: "join-subsetting"}
+			subclassification := Element{Aspect: "join-subclassification"}
+			structure := evaluator.options.Structure.(testStructure)
+			structure.metaclasses[feature.Key()] = "PartUsage"
+			structure.metaclasses[general.Key()] = "PartUsage"
+			structure.metaclasses[ownType.Key()] = "PartDefinition"
+			structure.metaclasses[generalType.Key()] = "PartDefinition"
+			structure.metaclasses[ownTyping.Key()] = "FeatureTyping"
+			structure.metaclasses[generalTyping.Key()] = "FeatureTyping"
+			structure.metaclasses[subsetting.Key()] = tc.subsetting
+			structure.metaclasses[subclassification.Key()] = "Subclassification"
+			structure.ownedRelationships[feature.Key()] = []Element{ownTyping, subsetting}
+			structure.ownedRelationships[general.Key()] = []Element{generalTyping}
+			structure.relatedElements[testRelatedKey{element: ownTyping.Key(), property: "type"}] = []Element{ownType}
+			structure.relatedElements[testRelatedKey{element: generalTyping.Key(), property: "type"}] = []Element{generalType}
+			structure.relatedElements[testRelatedKey{element: subsetting.Key(), property: tc.target}] = []Element{general}
+			want := []ElementKey{ownType.Key(), generalType.Key()}
+			if tc.specializes {
+				structure.ownedRelationships[ownType.Key()] = []Element{subclassification}
+				structure.relatedElements[testRelatedKey{element: subclassification.Key(), property: "general"}] = []Element{generalType}
+				want = want[:1]
+			}
+			evaluator.options.Structure = structure
+
+			types := valueElements(t, testProperty(t, evaluator, feature, "Feature", "type"))
+			got := make([]ElementKey, 0, len(types))
+			for _, typ := range types {
+				got = append(got, typ.Key())
+			}
+			if !slices.Equal(got, want) {
+				t.Fatalf("Feature::type = %v; want %v", got, want)
+			}
+		})
 	}
 }
 

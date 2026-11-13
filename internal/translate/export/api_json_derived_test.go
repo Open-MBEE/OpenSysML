@@ -2,9 +2,12 @@ package export
 
 import (
 	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
 )
 
@@ -162,5 +165,74 @@ func TestAPIJSONOwnedMemberNameIsTheMemberName(t *testing.T) {
 	}
 	if named == 0 {
 		t.Fatal("the model mints no connector end membership")
+	}
+}
+
+// A feature's type in the element form is the derived Feature::type — its own
+// typings and those of the features it subsets or redefines — while the written
+// typings it replaces stay a mapping value, so the graph survives the round trip.
+func TestAPIJSONFeatureTypeJoinsOwnedAndInheritedTypings(t *testing.T) {
+	file := source.New("t.sysml", []byte(`package P {
+	part def T;
+	part def V;
+	part def W :> T;
+	part def Owner {
+		part q : T;
+		part pBoth : V :> q;
+		part pSub :> q;
+		part pSpecific : W :> q;
+	}
+	part def SubOwner :> Owner {
+		part pRedefining : V :>> q;
+	}
+}`))
+	graph, err := ToRDF(file, parser.New(file).ParseFile())
+	if err != nil {
+		t.Fatal(err)
+	}
+	document, err := WriteAPIJSON(graph)
+	if err != nil {
+		t.Fatal(err)
+	}
+	elements := booleansElements(t, document)
+	ids := func(value any) []string {
+		var out []string
+		references, _ := value.([]any)
+		for _, reference := range references {
+			object, _ := reference.(map[string]any)
+			id, _ := object["@id"].(string)
+			out = append(out, id)
+		}
+		return out
+	}
+	for _, tc := range []struct {
+		id      string
+		want    []string
+		written []string
+	}{
+		{id: "P__Owner__q", want: []string{"P__T"}},
+		{id: "P__Owner__pBoth", want: []string{"P__V", "P__T"}, written: []string{"P__V"}},
+		{id: "P__Owner__pSub", want: []string{"P__T"}},
+		{id: "P__Owner__pSpecific", want: []string{"P__W"}},
+		{id: "P__SubOwner__pRedefining", want: []string{"P__V", "P__T"}, written: []string{"P__V"}},
+	} {
+		element := elements[tc.id]
+		for _, property := range []string{"type", "definition", "partDefinition"} {
+			if got := ids(element[property]); !slices.Equal(got, tc.want) {
+				t.Errorf("%s: %s = %v, want %v (KerML 8.3.3.3.4 deriveFeatureType)", tc.id, property, got, tc.want)
+			}
+		}
+		mapping, _ := element[apiJSONMappingValuesKey].(map[string]any)
+		if got := ids(mapping["type"]); !slices.Equal(got, tc.written) {
+			t.Errorf("%s: the mapping value of type is %v, want the written typings %v", tc.id, got, tc.written)
+		}
+	}
+	back, err := ReadAPIJSON(document)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if missing, added := tripleDiff(graph, back); len(missing)+len(added) > 0 {
+		t.Errorf("the graph changed through the element form:\nmissing:\n%s\nadded:\n%s",
+			strings.Join(missing, "\n"), strings.Join(added, "\n"))
 	}
 }

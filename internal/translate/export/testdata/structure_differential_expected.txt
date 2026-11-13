@@ -339,7 +339,7 @@ root examples/pilot-corpora: models 213, skipped 0, matched 45988, unmatched 150
   Connector::relatedFeature: equal 440, different 8, symbol-missing 181, symbol-extra 0
   Connector::sourceFeature: equal 440, different 8, symbol-missing 181, symbol-extra 0
   Connector::targetFeature: equal 443, different 5, symbol-missing 181, symbol-extra 0
-  ConstraintUsage::constraintDefinition: equal 281, different 8, symbol-missing 1, symbol-extra 13
+  ConstraintUsage::constraintDefinition: equal 281, different 14, symbol-missing 1, symbol-extra 7
   Definition::directedUsage: equal 1017, different 0, symbol-missing 0, symbol-extra 96
   Definition::ownedAction: equal 1109, different 4, symbol-missing 0, symbol-extra 0
   Definition::ownedAttribute: equal 1112, different 1, symbol-missing 0, symbol-extra 0
@@ -362,7 +362,7 @@ root examples/pilot-corpora: models 213, skipped 0, matched 45988, unmatched 150
   Element::owningRelationship: equal 45775, different 213, symbol-missing 0, symbol-extra 0
   Element::qualifiedName: equal 45974, different 14, symbol-missing 0, symbol-extra 0
   Element::shortName: equal 45782, different 10, symbol-missing 0, symbol-extra 196
-  Expression::function: equal 3403, different 8, symbol-missing 1, symbol-extra 13
+  Expression::function: equal 3403, different 14, symbol-missing 1, symbol-extra 7
   Expression::result: equal 3417, different 1, symbol-missing 7, symbol-extra 0
   Feature::chainingFeature: equal 16605, different 0, symbol-missing 0, symbol-extra 9
   Feature::crossFeature: equal 16599, different 15, symbol-missing 0, symbol-extra 0
@@ -384,7 +384,7 @@ root examples/pilot-corpora: models 213, skipped 0, matched 45988, unmatched 150
   Feature::ownedTyping: equal 16351, different 263, symbol-missing 0, symbol-extra 0
   Feature::owningFeatureMembership: equal 16453, different 161, symbol-missing 0, symbol-extra 0
   Feature::owningType: equal 16387, different 227, symbol-missing 0, symbol-extra 0
-  Feature::type: equal 16299, different 184, symbol-missing 1, symbol-extra 130
+  Feature::type: equal 16299, different 190, symbol-missing 1, symbol-extra 124
   FeatureChainExpression::targetFeature: equal 293, different 0, symbol-missing 0, symbol-extra 51
   FeatureMembership::owningType: equal 10466, different 70, symbol-missing 0, symbol-extra 0
   FeatureReferenceExpression::referent: equal 1139, different 14, symbol-missing 0, symbol-extra 76
@@ -408,8 +408,8 @@ root examples/pilot-corpora: models 213, skipped 0, matched 45988, unmatched 150
   Namespace::membership: equal 14606, different 1909, symbol-missing 57, symbol-extra 1996
   Namespace::ownedMember: equal 17006, different 1562, symbol-missing 0, symbol-extra 0
   Namespace::ownedMembership: equal 16875, different 1693, symbol-missing 0, symbol-extra 0
-  OccurrenceUsage::individualDefinition: equal 3112, different 0, symbol-missing 1, symbol-extra 119
-  OccurrenceUsage::occurrenceDefinition: equal 2973, different 139, symbol-missing 1, symbol-extra 119
+  OccurrenceUsage::individualDefinition: equal 3118, different 0, symbol-missing 1, symbol-extra 113
+  OccurrenceUsage::occurrenceDefinition: equal 2973, different 145, symbol-missing 1, symbol-extra 113
   OwningMembership::ownedMemberElement: equal 18327, different 10, symbol-missing 0, symbol-extra 0
   OwningMembership::ownedMemberElementId: equal 7241, different 25, symbol-missing 11071, symbol-extra 0
   OwningMembership::ownedMemberName: equal 18311, different 26, symbol-missing 0, symbol-extra 0
@@ -431,7 +431,7 @@ root examples/pilot-corpora: models 213, skipped 0, matched 45988, unmatched 150
   StateDefinition::entryAction: equal 10, different 1, symbol-missing 0, symbol-extra 0
   StateUsage::doAction: equal 132, different 3, symbol-missing 0, symbol-extra 0
   StateUsage::entryAction: equal 132, different 3, symbol-missing 0, symbol-extra 0
-  Step::behavior: equal 4242, different 8, symbol-missing 1, symbol-extra 13
+  Step::behavior: equal 4242, different 14, symbol-missing 1, symbol-extra 7
   Step::parameter: equal 4150, different 114, symbol-missing 0, symbol-extra 0
   TransitionUsage::guardExpression: equal 73, different 9, symbol-missing 0, symbol-extra 0
   TransitionUsage::succession: equal 81, different 1, symbol-missing 0, symbol-extra 0
@@ -458,7 +458,7 @@ root examples/pilot-corpora: models 213, skipped 0, matched 45988, unmatched 150
   Type::ownedSpecialization: equal 17555, different 496, symbol-missing 0, symbol-extra 0
   Type::ownedUnioning: equal 18030, different 21, symbol-missing 0, symbol-extra 0
   Type::unioningType: equal 18030, different 19, symbol-missing 2, symbol-extra 0
-  Usage::definition: equal 7029, different 151, symbol-missing 1, symbol-extra 121
+  Usage::definition: equal 7029, different 157, symbol-missing 1, symbol-extra 115
   Usage::directedUsage: equal 5247, different 186, symbol-missing 57, symbol-extra 1812
   Usage::isReference: equal 7283, different 19, symbol-missing 0, symbol-extra 0
   Usage::mayTimeVary: equal 7197, different 0, symbol-missing 101, symbol-extra 4

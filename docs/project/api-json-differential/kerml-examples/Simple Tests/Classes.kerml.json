@@ -14,7 +14,7 @@
       "presentEqual": 1134,
       "presentDifferent": 95,
       "oursMissing": 67,
-      "pilotMissing": 131,
+      "pilotMissing": 132,
       "absentBoth": 929,
       "indeterminate": 0,
       "pilotNondeterministic": 0
@@ -85,7 +85,7 @@
     "Feature.chainingFeature": [0,0,0,0,14,0,0],
     "Feature.declaredName": [14,0,0,0,0,0,0],
     "Feature.declaredShortName": [0,0,0,0,14,0,0],
-    "Feature.definition": [0,0,0,12,0,0,0],
+    "Feature.definition": [0,0,0,13,0,0,0],
     "Feature.differencingType": [0,0,0,0,14,0,0],
     "Feature.directedFeature": [9,0,0,0,5,0,0],
     "Feature.directedUsage": [0,0,0,9,0,0,0],

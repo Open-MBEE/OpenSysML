@@ -398,6 +398,9 @@ func (w *apiJSONElementWriter) element(subject rdf.Term) (apiJSONObject, error) 
 			value, keep := apiJSONResolveUnresolvedProperty(
 				w.graph, w.nameIndex, subject, metaclass, key, value, w.options,
 			)
+			if derived, ok := w.derivedOverStated(subject, metaclass, key); ok {
+				value, keep = derived, true
+			}
 			comparison, err := apiJSONPropertyValuesEqual(
 				w.graph, w.nameIndex, subject, predicate, key, metaclass, value, keep, w.comparisonCache,
 			)
