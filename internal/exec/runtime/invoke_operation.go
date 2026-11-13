@@ -125,7 +125,7 @@ func (ctx *Context) InvokeOperationWith(inst *Instance, name string, args Operat
 
 // resultName is the name an invocation returns the calc's result under: its
 // named result parameter, else `result`.
-func (shape *calcShape) resultName() string {
+func (shape *loadedCalc) resultName() string {
 	for _, output := range shape.Outputs {
 		if output.IsResult && output.Name != "" {
 			return output.Name

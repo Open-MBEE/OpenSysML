@@ -55,20 +55,20 @@ func (ctx *Context) analyzeBodyOrderNode(sym *symbols.Symbol) *bodyOrderAnalysis
 				return true
 			})
 			ctx.analyzeOrderStatements(shape.Steps, analysis)
-			if shape.performs() {
+			if shape.Performs() {
 				analysis.effects = true
 			}
 			for _, param := range shape.Params {
-				ctx.analyzeOrderExpression(param.Default, ctx.calcScope(param.Owner, shape.Sym, nil), analysis)
+				ctx.analyzeOrderExpression(shape.Expr(param.Default), ctx.calcScope(param.Owner, shape.Sym, nil), analysis)
 			}
 			for _, binding := range shape.Bindings {
 				for _, end := range binding.Ends {
 					ctx.analyzeOrderExpression(end.Expr, binding.Scope, analysis)
 				}
 			}
-			ctx.analyzeOrderExpression(shape.ResultExpr, shape.bodyScope(), analysis)
+			ctx.analyzeOrderExpression(shape.resultExpr(), shape.BodyScope(), analysis)
 		}
-	case isPredicateDecl(sym.Decl):
+	case lower.IsPredicateDecl(sym.Decl):
 		conditions := ctx.ConditionsOf(sym, sym.Scope)
 		ctx.analyzeOrderConditions(conditions, analysis)
 		for _, feature := range ctx.conditionFeatures(sym) {
