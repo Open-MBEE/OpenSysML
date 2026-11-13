@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -89,4 +90,48 @@ func relatedNames(model *Model, sym *symbols.Symbol) (string, bool) {
 		out = append(out, r.Name)
 	}
 	return strings.Join(out, " "), ok
+}
+
+// The ends a `then x;` mints (SuccessionEndMembers) belong to a SuccessionAsUsage: an action body's `then y;` owns
+// two, while a state body's `then x;` after a state is a TransitionUsage owning only its succession, which owns none.
+func TestStateBodyTransitionMintsNoSuccessionEnds(t *testing.T) {
+	const src = `package P {
+		action def A { action x; then action y; }
+		state def S { state idle; then running; state running; }
+	}`
+	for _, fixture := range reflectiveFixtures(t, "then-ends-boundary.sysml", source.KindSysML, src) {
+		model := fixture.model
+		members := ownedMembers(model, nestedSym(t, fixture.root, "P::A"))
+		i := slices.IndexFunc(members, func(sym *symbols.Symbol) bool {
+			meta := model.MetaclassOf(sym)
+			return meta != nil && meta.Name == "SuccessionAsUsage"
+		})
+		if i < 0 {
+			t.Fatalf("A owns no SuccessionAsUsage: %s", ownedMemberKinds(model, nestedSym(t, fixture.root, "P::A")))
+		}
+		wantEnds := "EndFeatureMembership:ReferenceUsage EndFeatureMembership:ReferenceUsage"
+		if members[i].Recorded() {
+			// A record keeps a connector's ends by position and owns none (TestThenSuccessionOwnsItsEnds).
+			wantEnds = ""
+		}
+		if got := ownedMemberKinds(model, members[i]); got != wantEnds {
+			t.Errorf("the action succession's ownedRelationship = %q, want %q", got, wantEnds)
+		}
+		transition := ownedMembers(model, nestedSym(t, fixture.root, "P::S"))[1]
+		if meta := model.MetaclassOf(transition); meta == nil || meta.Name != "TransitionUsage" {
+			t.Fatalf("S's second member is %v, want a TransitionUsage", meta)
+		}
+		if ends := model.SuccessionEndMembers(transition); ends != nil {
+			t.Errorf("the transition mints %d ends, want none", len(ends))
+		}
+		if transition.Recorded() {
+			continue
+		}
+		if got, want := ownedMemberKinds(model, transition), "OwningMembership:SuccessionAsUsage"; got != want {
+			t.Errorf("the transition's ownedRelationship = %q, want %q", got, want)
+		}
+		if got := ownedMemberKinds(model, ownedMembers(model, transition)[0]); got != "" {
+			t.Errorf("the transition's succession owns %q, want nothing", got)
+		}
+	}
 }

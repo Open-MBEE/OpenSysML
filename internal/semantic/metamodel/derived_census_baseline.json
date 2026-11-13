@@ -84,7 +84,7 @@
         "digest": "sha256:f39db343dafb9c99359f5a92e56dcdd5c52992dc50e50b9268d349aa9cdfdf26"
       }
     ],
-    "recorded": "2026-11-12"
+    "recorded": "2026-11-13"
   },
   "structure": "metamodel.SymbolStructure (symbol-backed; metamodel.New over metamodel.NewSymbolStructure)",
   "policy": [
@@ -111,8 +111,8 @@
       "dir": "examples/pilot-corpora/sysml-examples",
       "files": 99,
       "rejected": 0,
-      "elements": 31910,
-      "implied": 18692,
+      "elements": 31900,
+      "implied": 18686,
       "pilotElements": 40642,
       "pilotImplied": 0,
       "pilotDuplicates": 10940,
@@ -123,8 +123,8 @@
       "dir": "examples/pilot-corpora/sysml-validation",
       "files": 56,
       "rejected": 0,
-      "elements": 10932,
-      "implied": 6403,
+      "elements": 10912,
+      "implied": 6391,
       "pilotElements": 14222,
       "pilotImplied": 0,
       "pilotDuplicates": 3066,
