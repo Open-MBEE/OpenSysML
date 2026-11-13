@@ -301,7 +301,7 @@ syntactic construct the whole corpus does; unset, they walk the whole corpus.
 
 **The quick tier** is what every push to a pull request gets, draft or ready, in about half the
 runner time of the full tier and a third of its wall time: the binaries, the same Go suite without
-`-race` in ten groups of the race shards (`make test-quick`), the download-free static checks
+`-race` in nine groups of the race shards (`make test-quick`), the download-free static checks
 (gofmt, vet, the production build, grpc imports, proto lint and breaking), the WebAssembly, Xpect
 and conformance gates, and only the clients, editors and docs whose own paths changed. The lint,
 the corpus and solver gates, the PDF toolchain and the fan-out from a service change to every
@@ -309,7 +309,7 @@ client wait for the full tier. Only a push touching a path no area claims escala
 the full tier (`scripts/ci-changed-areas.sh`, and its test pins it).
 
 **The queue tier** runs on the merge queue's commit (below). It runs every job and gate of the
-full tier — gofmt, `go vet`, `make lint`, every shard of the test suite (twenty, `make
+full tier — gofmt, `go vet`, `make lint`, every shard of the test suite (eighteen, `make
 test-queue`), the binaries, the client suites, the conformance suite over each transport, the
 protobuf lint and wire-compatibility checks, the documentation hygiene checks (`make docs-check`,
 `make man-check` and the census check), the site build, the PDF toolchain, and in each client's
@@ -330,6 +330,18 @@ corpora before the suite and runs each corpus gate as its own step, so those gat
 rather than skipped. CircleCI's `go-race-test`, `go-coverage` and the release workflow are the
 full scan too: a push to `main`, and a `v*` tag whose commit has no full-tier run, run
 everything there, over the whole corpus, with `-race`.
+
+**The corpus subset.** The tests that sweep every model under `examples/` (the committed models
+and the downloaded OMG corpora) honour `OPENSYSML_CORPUS_SUBSET`: unset, they iterate the whole
+corpus; `OPENSYSML_CORPUS_SUBSET=construct-cover` makes each iterate only the files of
+`tests/corpus/testdata/construct_cover.txt`, which between them exhibit every syntactic feature
+the whole corpus exhibits, and any other value fails the sweep. `TestConstructCover`
+(`tests/corpus`) re-derives the features over the whole corpus on every run and fails, naming
+them, when the committed list no longer covers it; re-record with
+`go test ./tests/corpus -run TestConstructCover -update-construct-cover`. No recorder flag runs
+while the variable is set, so an expectation file is never recorded from a partial sweep.
+[docs/project/construct-cover-subset.md](docs/project/construct-cover-subset.md) records the
+measured subset size and feature count and says what the switch does to each sweep.
 
 Open a pull request ready for review rather than as a draft: both run the same tier, and a draft
 is not considered until it is marked ready. The queue tier is what a pull request has to pass to
@@ -403,6 +415,9 @@ requirement is rewritten only when the new version falls outside it: the exact p
 every update, while `editors/jupyterlab`'s `^4.0.0` ranges on `@jupyterlab/application` and
 `@jupyterlab/codemirror` — the JupyterLab 4 hosts the extension supports, not what it is built
 against; the lockfile and the `jupyterlab==` pins of the workflows decide that — stay as written.
+`jupyterlab.sharedPackages` in that `package.json` repeats each runtime range as the version the
+built bundle asks its host for, which the builder would otherwise take from the lockfile's
+`@jupyterlab/core-meta`; the extension's `manifest.test.ts` fails when the two disagree.
 Dependabot alerts and security updates are repository settings a maintainer switches on; the
 configuration file only schedules version updates.
 

@@ -13,10 +13,8 @@ import (
 	"testing"
 )
 
-// The race shards are named in five places that must agree: scripts/race-shard.sh,
-// the Makefile (test-shard, RACE_RUNTIME_CORPUS, RACE_EXPORT_CORPUS, RACE_EXPORT_SETTLED,
-// RACE_CORPUS_ROUNDTRIP, RACE_CORPUS_APIJSON, COVERAGE_SHARDS),
-// the two CircleCI jobs' shard arrays and parallelism, and the PR workflow's matrices.
+// The race shards are named in five places that must agree: scripts/race-shard.sh, the Makefile
+// (test-shard, RACE_*, COVERAGE_SHARDS), the CircleCI shard arrays and the PR workflow's matrices.
 
 const (
 	raceRuntimeDir = "../../internal/exec/runtime"
@@ -30,16 +28,12 @@ var (
 	makefileCorpus     = regexp.MustCompile(`(?m)^RACE_RUNTIME_CORPUS := (.+)$`)
 	makefileExport     = regexp.MustCompile(`(?m)^RACE_EXPORT_CORPUS := (.+)$`)
 	circleExport       = regexp.MustCompile(`(?m)^\s*exportcorpus='([^']+)'$`)
-	makefileSettled    = regexp.MustCompile(`(?m)^RACE_EXPORT_SETTLED := (.+)$`)
-	circleSettled      = regexp.MustCompile(`(?m)^\s*exportsettled='([^']+)'$`)
 	makefileLibrary    = regexp.MustCompile(`(?m)^RACE_EXPORT_LIBRARY := (.+)$`)
 	circleLibrary      = regexp.MustCompile(`(?m)^\s*exportlibrary='([^']+)'$`)
 	makefileExamples   = regexp.MustCompile(`(?m)^RACE_EXPORT_EXAMPLES := (.+)$`)
 	circleExamples     = regexp.MustCompile(`(?m)^\s*exportexamples='([^']+)'$`)
-	makefileRoundTrip  = regexp.MustCompile(`(?m)^RACE_CORPUS_ROUNDTRIP := (.+)$`)
-	circleRoundTrip    = regexp.MustCompile(`(?m)^\s*corpusroundtrip='([^']+)'$`)
-	makefileAPIJSON    = regexp.MustCompile(`(?m)^RACE_CORPUS_APIJSON := (.+)$`)
-	circleAPIJSON      = regexp.MustCompile(`(?m)^\s*corpusapijson='([^']+)'$`)
+	makefileSweep      = regexp.MustCompile(`(?m)^RACE_CORPUS_SWEEP := (.+)$`)
+	circleSweep        = regexp.MustCompile(`(?m)^\s*corpussweep='([^']+)'$`)
 	makefileCoverage   = regexp.MustCompile(`(?m)^COVERAGE_SHARDS := (.+)$`)
 	circleShardArrays  = regexp.MustCompile(`(?m)^\s*shards=\(([^)]+)\)$`)
 	shardArrayEntry    = regexp.MustCompile(`"([^"]*)"|(\S+)`)
@@ -149,7 +143,7 @@ func shardArrayEntries(body string) []string {
 // test-quick runs a group's shards in turn, with their selections, without -race).
 
 // isCorpusShard says whether a shard is a by-test-name part of another shard's package
-// (runtime-corpus, export-corpus, export-settled, corpus-roundtrip, ...): the hyphenated names.
+// (runtime-corpus, export-corpus, corpus-sweep, ...): the hyphenated names.
 func isCorpusShard(shard string) bool { return strings.Contains(shard, "-") }
 func TestPRWorkflowMatricesCoverTheRaceShards(t *testing.T) {
 	shards := raceShards(t)
@@ -206,16 +200,15 @@ func TestRuntimeCorpusPatternPartitionsTheRuntimeTests(t *testing.T) {
 	}
 }
 
-// TestExportCorpusPatternsPartitionTheExportTests: the five export shards are tests/export split the
-// same way by the four RACE_EXPORT_* patterns, of which no test may match more than one.
+// TestExportCorpusPatternsPartitionTheExportTests: the four export shards are tests/export split the
+// same way by the three RACE_EXPORT_* patterns, of which no test may match more than one.
 func TestExportCorpusPatternsPartitionTheExportTests(t *testing.T) {
 	corpus, tests := corpusPatternPartitions(t, "RACE_EXPORT_CORPUS", makefileExport, circleExport, "exportcorpus=", raceExportDir, 50)
-	settled, _ := corpusPatternPartitions(t, "RACE_EXPORT_SETTLED", makefileSettled, circleSettled, "exportsettled=", raceExportDir, 50)
 	library, _ := corpusPatternPartitions(t, "RACE_EXPORT_LIBRARY", makefileLibrary, circleLibrary, "exportlibrary=", raceExportDir, 50)
 	examples, _ := corpusPatternPartitions(t, "RACE_EXPORT_EXAMPLES", makefileExamples, circleExamples, "exportexamples=", raceExportDir, 50)
 	for _, name := range tests {
 		matches := 0
-		for _, pattern := range []*regexp.Regexp{corpus, settled, library, examples} {
+		for _, pattern := range []*regexp.Regexp{corpus, library, examples} {
 			if pattern.MatchString(name) {
 				matches++
 			}
@@ -226,17 +219,10 @@ func TestExportCorpusPatternsPartitionTheExportTests(t *testing.T) {
 	}
 }
 
-// TestCorpusPatternsPartitionTheCorpusTests: the corpus, corpus-roundtrip and corpus-apijson
-// shards are tests/corpus split the same way by RACE_CORPUS_ROUNDTRIP and RACE_CORPUS_APIJSON,
-// which no test may match both of.
+// TestCorpusPatternsPartitionTheCorpusTests: the corpus and corpus-sweep shards are
+// tests/corpus split the same way by RACE_CORPUS_SWEEP.
 func TestCorpusPatternsPartitionTheCorpusTests(t *testing.T) {
-	roundTrip, tests := corpusPatternPartitions(t, "RACE_CORPUS_ROUNDTRIP", makefileRoundTrip, circleRoundTrip, "corpusroundtrip=", raceCorpusDir, 10)
-	apiJSON, _ := corpusPatternPartitions(t, "RACE_CORPUS_APIJSON", makefileAPIJSON, circleAPIJSON, "corpusapijson=", raceCorpusDir, 10)
-	for _, name := range tests {
-		if roundTrip.MatchString(name) && apiJSON.MatchString(name) {
-			t.Errorf("%s falls to both corpus-roundtrip and corpus-apijson", name)
-		}
-	}
+	corpusPatternPartitions(t, "RACE_CORPUS_SWEEP", makefileSweep, circleSweep, "corpussweep=", raceCorpusDir, 10)
 }
 
 // corpusPatternPartitions checks one by-test-name split: the Makefile variable and the

@@ -14,17 +14,15 @@ type futureKey struct {
 	node  program.NodeID
 }
 
-// futureFootprints memoizes what executors may still touch at the clock's instant:
-// a token's by its node in its flow, a delay by whether it ends the instant; both
-// are dropped once the clock moves. A machine's whole graph is kept by graph.
-// Once gated, senders are the sends any executor may make at this instant, and
-// anySender marks an executor that may send anything.
+// futureFootprints memoizes until the clock moves what executors may still touch at this instant:
+// tokens by node, delays by ending it, machines by graph and, once gated, the sends and executors' futures.
 type futureFootprints struct {
 	ctx       *Context
 	now       float64
 	nodes     map[futureKey]lower.Footprint
 	ends      map[*ast.TimeEvent]bool
 	machines  map[*lower.StateGraph]lower.Footprint
+	executors map[clockWaiter]lower.Footprint
 	gated     bool
 	senders   []futureSend
 	anySender bool
@@ -43,7 +41,13 @@ func newFutureFootprints(ctx *Context) *futureFootprints {
 
 // bind reads the clock of ctx from now on.
 func (f *futureFootprints) bind(ctx *Context) {
-	f.ctx, f.nodes = ctx, nil
+	f.ctx, f.nodes, f.executors = ctx, nil, nil
+}
+
+// forget drops the executors' futures a gate kept: an executor may have moved
+// or a message come or gone since they were read.
+func (f *futureFootprints) forget() {
+	f.executors = nil
 }
 
 // at drops what was memoized for an instant the clock has left.
@@ -80,6 +84,7 @@ func (f *futureFootprints) endsInstant(trigger ast.Node, scope *symbols.Scope) b
 // a transition no message queued or sendable at this instant can fire.
 func (f *futureFootprints) gate() {
 	f.at()
+	f.forget()
 	f.gated, f.senders, f.anySender = false, f.senders[:0], len(f.ctx.pendingBehaviors) > 0
 	for _, w := range f.ctx.clock.waiters {
 		if f.anySender {
@@ -94,7 +99,7 @@ func (f *futureFootprints) gate() {
 			f.senders = append(f.senders, futureSend{channel: c, from: executorSelf(w)})
 		}
 	}
-	f.gated = true
+	f.gated, f.executors = true, make(map[clockWaiter]lower.Footprint)
 }
 
 // cannotFire reports whether no message the transition's accept takes is queued
@@ -122,24 +127,32 @@ func (f *futureFootprints) cannotFire(e *StateExecutor, trans *lower.Transition)
 	return true
 }
 
-// executorFuture is what the executor may still touch at this instant: every
-// token's future for an action, the machine's for a state machine, everything
-// for any other.
+// executorFuture is what the executor may still touch at this instant: its tokens' futures for an
+// action, its machine's for a state machine, everything otherwise; the shared footprint is read-only.
 func (f *futureFootprints) executorFuture(w clockWaiter) lower.Footprint {
 	f.at()
+	if fp, ok := f.executors[w]; ok {
+		return fp
+	}
+	var future lower.Footprint
 	switch exec := w.(type) {
 	case *ActionExecutor:
-		return f.actionFuture(exec)
+		future = f.actionFuture(exec)
 	case *StateExecutor:
-		return f.machineFuture(exec)
+		future = f.machineFuture(exec)
+	default:
+		future = lower.Footprint{Dynamic: true}
 	}
-	return lower.Footprint{Dynamic: true}
+	if f.executors != nil {
+		f.executors[w] = future
+	}
+	return future
 }
 
 func (f *futureFootprints) actionFuture(exec *ActionExecutor) lower.Footprint {
 	var future lower.Footprint
 	for _, t := range exec.tokens {
-		future = unionFootprints(future, f.tokenFuture(exec, t))
+		addFootprint(&future, f.tokenFuture(exec, t))
 	}
 	return future
 }
@@ -203,13 +216,13 @@ func (f *futureFootprints) reach(graph *lower.ActionGraph, node ast.Node) lower.
 			continue
 		}
 		seen[n] = true
-		future = unionFootprints(future, graph.Footprints()[n])
+		addFootprint(&future, graph.Footprints()[n])
 		if sub, owns := graph.Subflows[n]; owns {
 			if sub == nil || sub.Graph == nil {
 				future.Dynamic = true
 			} else {
 				for _, start := range sub.Graph.Starts() {
-					future = unionFootprints(future, f.reach(sub.Graph, start))
+					addFootprint(&future, f.reach(sub.Graph, start))
 				}
 			}
 		}
@@ -264,7 +277,7 @@ func (f *futureFootprints) machineFuture(e *StateExecutor) lower.Footprint {
 		}
 	}
 	for _, act := range e.doActions {
-		future = unionFootprints(future, f.doFuture(e, act))
+		addFootprint(&future, f.doFuture(e, act))
 	}
 	steps := e.graph.TransitionSteps()
 	seen := make(map[*ast.StateNode]bool)
@@ -283,12 +296,12 @@ func (f *futureFootprints) machineFuture(e *StateExecutor) lower.Footprint {
 			if !ok {
 				return withDrop(e, f.wholeMachine(e))
 			}
-			future = unionFootprints(future, step.Footprint)
+			addFootprint(&future, step.Footprint)
 			if channel, takes := triggerChannel(trans); takes {
 				future.Accepts = append(future.Accepts, channel)
 			}
 			for _, entered := range step.Enters {
-				future = unionFootprints(future, f.startedDo(e, entered))
+				addFootprint(&future, f.startedDo(e, entered))
 				work = append(work, entered)
 			}
 		}
@@ -319,7 +332,7 @@ func (f *futureFootprints) startedDo(e *StateExecutor, state *ast.StateNode) low
 	var future lower.Footprint
 	if behaviors := e.graph.Behaviors[state]; behaviors != nil {
 		for _, behavior := range behaviors.Do {
-			future = unionFootprints(future, f.behaviorFuture(e, behavior))
+			addFootprint(&future, f.behaviorFuture(e, behavior))
 		}
 	}
 	return future
@@ -337,7 +350,7 @@ func (f *futureFootprints) behaviorFuture(e *StateExecutor, behavior lower.State
 		future.Reads = []lower.Place{{Name: behavior.Owner.Name, State: behavior.Owner}}
 	}
 	for _, start := range graph.Starts() {
-		future = unionFootprints(future, f.reach(graph, start))
+		addFootprint(&future, f.reach(graph, start))
 	}
 	return future
 }
@@ -362,13 +375,13 @@ func (f *futureFootprints) wholeMachine(e *StateExecutor) lower.Footprint {
 	}
 	var future lower.Footprint
 	for trans, fp := range e.graph.TransitionFootprints() {
-		future = unionFootprints(future, fp)
+		addFootprint(&future, fp)
 		if channel, takes := triggerChannel(trans); takes {
 			future.Accepts = append(future.Accepts, channel)
 		}
 	}
 	for _, fp := range e.graph.BehaviorFootprints() {
-		future = unionFootprints(future, fp)
+		addFootprint(&future, fp)
 	}
 	f.machines[e.graph] = future
 	return future

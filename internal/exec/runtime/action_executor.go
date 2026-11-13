@@ -1337,21 +1337,34 @@ func (e *ActionExecutor) tokenByID(id int64) (Token, bool) {
 // within, or "" when none is. A node answers to its short name as well as its name;
 // one a breakpoint is set on by identity answers to its description.
 func (e *ActionExecutor) breakpointNameOf(within []NodeRef, node NodeRef) string {
+	decl := e.declarationAt(node)
 	for _, bp := range e.breakpointNodes {
 		if !bp.at(within, node) {
 			continue
 		}
-		if name := ActionNodeName(node.Node()); name != "" {
+		if name := ActionNodeName(decl); name != "" {
 			return name
 		}
-		return node.Origin().String()
+		return describeNode(node.Graph, decl)
 	}
-	for _, name := range actionNodeNames(node.Node()) {
+	for _, name := range actionNodeNames(decl) {
 		if e.breakpoints[name] {
 			return name
 		}
 	}
 	return ""
+}
+
+// declarationAt is the declaration a token at ref stands at: the graph's node, or the
+// action itself for a state-space run, whose token stands at no node of the flow.
+func (e *ActionExecutor) declarationAt(ref NodeRef) ast.Node {
+	if node := ref.Node(); node != nil {
+		return node
+	}
+	if ref.Graph == e.graph && e.dynamics != nil {
+		return e.dynamicsNode()
+	}
+	return nil
 }
 
 // PausedAt returns the breakpoint node the last run stopped at, or "" when the

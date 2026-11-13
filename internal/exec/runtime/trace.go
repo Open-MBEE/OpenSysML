@@ -263,6 +263,12 @@ func NewEventRecorder(limit int) *TraceRecorder {
 	}
 }
 
+// SetQueryOnly stops the recorder keeping the lines a trace prints, or has it
+// keep them again; the records it holds stay either way.
+func (tr *TraceRecorder) SetQueryOnly(queryOnly bool) {
+	tr.queryOnly = queryOnly
+}
+
 // disable disables trace recording.
 func (tr *TraceRecorder) disable() {
 	tr.enabled = false

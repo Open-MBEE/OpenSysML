@@ -39,7 +39,7 @@ const (
 // when none is named, then a palette, style and port display the form draws.
 const (
 	renderUsage    = "usage: %render <name> [text|mermaid|markdown|dot|plantuml|d2|drawio|csv|tsv] [palette] [pilot|cameo] [minimal|full] [splines|ortho|polyline] [verdicts] [compartments=<folding>] [show=<elements>] [depth=<levels>] [link=<template>]"
-	renderRunUsage = "usage: %render-run <timeline|sequence> [text|mermaid|plantuml|svg|svg-animated|dot] [link=<template>]"
+	renderRunUsage = "usage: %render-run <timeline|sequence> [text|mermaid|plantuml|svg|svg-animated|dot] [link=<template>] [limit=<count>]"
 )
 
 // parseArgs splits a command line into arguments, handling quoted strings.
@@ -226,7 +226,7 @@ var metaCommandTable = []metaCommand{
 	{name: "%publish", effect: Writes, group: groupRepository, args: "[-d] [--project=<project name>] [--branch=<branch name>] <name>", desc: "publish the elements rooted in <name> to the repository: a new project named after it (or --project) when none is, else a new commit on the branch holding what changed; -d includes the derived properties", linked: repositoryLinked},
 
 	{name: "%verbosity", effect: Shapes, group: groupSettings, args: "[level]", desc: "show or set output level: quiet, normal or debug"},
-	{name: "%trace", effect: Shapes, group: groupSettings, args: "[on|off]", desc: "show or set execution tracing (evaluation, calc, action and state steps)"},
+	{name: "%trace", effect: Shapes, group: groupSettings, args: "[on|off|record]", desc: "show or set execution tracing (evaluation, calc, action and state steps); record keeps the trace for %render-run without printing it"},
 	{name: "%strict", effect: Shapes, group: groupSettings, args: "[on|off]", desc: "show or set strict conformance: report notation no SysML v2 production admits as an error"},
 	{name: "%explain-code", effect: Reads, group: groupSettings, args: "[<code>...]", desc: "explain a diagnostic code — what it means, how to resolve it and the clause or constraint behind it — or, bare, list every code with a one-line summary"},
 	{name: "%lint", effect: Shapes, group: groupSettings, args: "[<code> on|off]", desc: "list the lints — warnings about models the specification accepts — each on or off, or switch one by its code: undeclared-signal, deferred-keeper-unmarked, rounded-real-literal (opt-in, off by default)"},
@@ -271,7 +271,7 @@ var metaCommandTable = []metaCommand{
 	{name: cmdSamples, effect: Executes, group: groupBehavioral, args: "<n> <seed> <name>[(<args>)] [<object>] <p>=<from>..<to>...", desc: "run an analysis case or calc over <n> values drawn uniformly from each range with the given seed, and print the table"},
 	{name: cmdRuns, effect: Executes, group: groupBehavioral, args: "<n> [<seed>] <action> [<observable>...]", desc: "run an action <n> times, each run's modeled randomness seeded from the given seed — left out under %draws min, max or average — and print the table of the observables with each one's distribution"},
 	{name: cmdRunQuery, effect: Reads, group: groupBehavioral, args: "<name> [<p>=<expr>...] | inline <expr>", desc: "execute a document query and print its rows, with each binding written as <parameter>=<expression>; inline runs a query expression written in place of a name (a query named inline is run by its qualified name, or with its bindings)"},
-	{name: "%render-run", effect: Reads, group: groupBehavioral, args: "<timeline|sequence> [form] [link=<template>]", desc: "render the recorded run as a state timeline or message sequence, optionally linking declarations to their source"},
+	{name: "%render-run", effect: Reads, group: groupBehavioral, args: "<timeline|sequence> [form] [link=<template>] [limit=<count>]", desc: "render the recorded run as a state timeline or message sequence, optionally linking declarations to their source and bounding how many spans or messages are drawn (200 by default)"},
 	{name: cmdRenderDocument, effect: Reads, group: groupBehavioral, args: "<name> [mermaid|dot|plantuml|d2 [pilot|cameo]]", desc: "compile a document definition, run its queries and print the rendered Markdown, its graph-shaped diagrams as Mermaid, Graphviz DOT, PlantUML or D2"},
 	{name: constraintCommand, effect: Executes, group: groupBehavioral, args: argInvocation, desc: "evaluate a constraint definition, with arguments for its parameters and an object as its subject"},
 	{name: requirementCommand, effect: Executes, group: groupBehavioral, args: argInvocation, desc: "evaluate a requirement definition, with arguments for its parameters and an object as its subject"},
@@ -555,20 +555,17 @@ func (s *Session) metaCheckCommand(fields []string) (metaResult, bool) {
 	return metaOut(check(fields[1:]), false, nil), true
 }
 
-// doTrace answers %trace: an argument switches tracing on or off, and the
-// reply states the setting in force.
+// doTrace answers %trace: an argument switches tracing on, off or to record
+// (recording without printing), and the reply states the setting in force.
 func (s *Session) doTrace(args []string) []string {
 	if len(args) >= 1 {
-		switch args[0] {
-		case "on":
-			s.setTracing(true)
-		case "off":
-			s.setTracing(false)
-		default:
-			return []string{fmt.Sprintf("error: unknown trace setting %q (want on or off)", args[0])}
+		mode, ok := parseTraceMode(args[0])
+		if !ok {
+			return []string{fmt.Sprintf("error: unknown trace setting %q (want on, off or record)", args[0])}
 		}
+		s.setTraceMode(mode)
 	}
-	return []string{fmt.Sprintf("trace: %s", onOff(s.trace != nil))}
+	return []string{fmt.Sprintf("trace: %s", s.tracingMode())}
 }
 
 // metaRender reads the %render name, form and optional rendering settings,
