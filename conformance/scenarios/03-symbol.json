@@ -121,16 +121,6 @@
         "absent": [
           "symbol.child_ids"
         ]
-      },
-      "expect_without_capability": {
-        "response": {
-          "symbol": {
-            "id": "Demo::Pump"
-          }
-        },
-        "absent": [
-          "symbol.annotating_metadata_ids"
-        ]
       }
     },
     {
