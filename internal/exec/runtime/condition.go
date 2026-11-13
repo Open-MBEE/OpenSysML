@@ -781,7 +781,7 @@ func (c conditionCheck) vacuous(why string) (conditionVerdict, error) {
 // noResultValue is the error for a constraint whose result nothing binds (KerML 1.1
 // §7.4.8.2): no value, not a verdict, with the unbound-return hint or else cause.
 func (check conditionCheck) noResultValue(cause string) error {
-	if hint := unboundResultHint([]*symbols.Symbol{check.sym}); hint != "" {
+	if hint := lower.UnboundResultHint([]*symbols.Symbol{check.sym}); hint != "" {
 		return fmt.Errorf("%s %s: %w%s", check.kind, check.name(), ErrNoValue, hint)
 	}
 	return fmt.Errorf("%s %s: %w: %s", check.kind, check.name(), ErrNoValue, cause)
