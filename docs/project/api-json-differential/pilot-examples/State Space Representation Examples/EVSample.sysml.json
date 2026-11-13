@@ -11,15 +11,15 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 24197,
+      "presentEqual": 24193,
       "presentDifferent": 1462,
-      "oursMissing": 3675,
+      "oursMissing": 3668,
       "pilotMissing": 885,
-      "absentBoth": 25311,
+      "absentBoth": 25294,
       "indeterminate": 188,
-      "pilotNondeterministic": 10
+      "pilotNondeterministic": 38
     },
-    "unkeyedReferences": 1256,
+    "unkeyedReferences": 1253,
     "extensionProperties": 2714,
     "duplicateElements": {
       "ours": 0,
@@ -1276,7 +1276,7 @@
     "OperatorExpression.feature": [0,28,0,0,0,0,0],
     "OperatorExpression.featureMembership": [0,28,0,0,0,0,0],
     "OperatorExpression.featureTarget": [28,0,0,0,0,0,0],
-    "OperatorExpression.featuringType": [4,0,7,0,17,0,0],
+    "OperatorExpression.featuringType": [0,0,0,0,0,0,28],
     "OperatorExpression.function": [0,0,28,0,0,0,0],
     "OperatorExpression.importedMembership": [0,0,0,0,28,0,0],
     "OperatorExpression.inheritedFeature": [0,0,28,0,0,0,0],

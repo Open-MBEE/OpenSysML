@@ -11,13 +11,13 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 5061,
+      "presentEqual": 5058,
       "presentDifferent": 343,
-      "oursMissing": 848,
+      "oursMissing": 846,
       "pilotMissing": 165,
-      "absentBoth": 5126,
+      "absentBoth": 5123,
       "indeterminate": 41,
-      "pilotNondeterministic": 4
+      "pilotNondeterministic": 12
     },
     "unkeyedReferences": 314,
     "extensionProperties": 519,
@@ -831,7 +831,7 @@
     "InvocationExpression.feature": [0,1,0,0,0,0,0],
     "InvocationExpression.featureMembership": [0,1,0,0,0,0,0],
     "InvocationExpression.featureTarget": [1,0,0,0,0,0,0],
-    "InvocationExpression.featuringType": [1,0,0,0,0,0,0],
+    "InvocationExpression.featuringType": [0,0,0,0,0,0,1],
     "InvocationExpression.function": [1,0,0,0,0,0,0],
     "InvocationExpression.importedMembership": [0,0,0,0,1,0,0],
     "InvocationExpression.inheritedFeature": [0,0,1,0,0,0,0],
@@ -1190,7 +1190,7 @@
     "OperatorExpression.feature": [0,7,0,0,0,0,0],
     "OperatorExpression.featureMembership": [0,7,0,0,0,0,0],
     "OperatorExpression.featureTarget": [7,0,0,0,0,0,0],
-    "OperatorExpression.featuringType": [2,0,2,0,3,0,0],
+    "OperatorExpression.featuringType": [0,0,0,0,0,0,7],
     "OperatorExpression.function": [0,0,7,0,0,0,0],
     "OperatorExpression.importedMembership": [0,0,0,0,7,0,0],
     "OperatorExpression.inheritedFeature": [0,0,7,0,0,0,0],
