@@ -383,6 +383,9 @@ func TestElementPropertiesFeatureTypeJoinsOwnedAndInheritedTypings(t *testing.T)
 		part pBoth : V :> q;
 		part pSub :> q;
 		part pSpecific : W :> q;
+		part inner { part leaf : W; }
+		ref part pRef : V ::> q;
+		part pChain : V :> inner.leaf;
 	}
 	part def SubOwner :> Owner {
 		part pRedefining : V :>> q;
@@ -397,6 +400,8 @@ func TestElementPropertiesFeatureTypeJoinsOwnedAndInheritedTypings(t *testing.T)
 		{"P::Owner::pBoth", []string{"P::V", "P::T"}},
 		{"P::Owner::pSub", []string{"P::T"}},
 		{"P::Owner::pSpecific", []string{"P::W"}},
+		{"P::Owner::pRef", []string{"P::V", "P::T"}},
+		{"P::Owner::pChain", []string{"P::V", "P::W"}},
 		{"P::SubOwner::pRedefining", []string{"P::V", "P::T"}},
 	} {
 		if got := elementNames(r.property(tc.element, "type").Values); !slices.Equal(got, tc.want) {

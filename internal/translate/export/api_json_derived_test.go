@@ -168,9 +168,8 @@ func TestAPIJSONOwnedMemberNameIsTheMemberName(t *testing.T) {
 	}
 }
 
-// A feature's type in the element form is the derived Feature::type — its own
-// typings and those of the features it subsets or redefines — while the written
-// typings it replaces stay a mapping value, so the graph survives the round trip.
+// The element form writes the derived Feature::type (own and inherited typings) and
+// keeps the written typings as a mapping value, so the graph survives the round trip.
 func TestAPIJSONFeatureTypeJoinsOwnedAndInheritedTypings(t *testing.T) {
 	file := source.New("t.sysml", []byte(`package P {
 	part def T;
