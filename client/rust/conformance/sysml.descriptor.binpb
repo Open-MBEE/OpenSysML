@@ -1,5 +1,5 @@
 
-«ã
+Ùã
 sysml.protosysml"à
 Verdict
 kind (	Rkind
@@ -1679,7 +1679,7 @@ RenderView.sysml.RenderViewRequest.sysml.RenderViewResponseG
 ExportGraphs.sysml.ExportGraphsRequest.sysml.ExportGraphsResponseA
 
 ImportData.sysml.ImportDataRequest.sysml.ImportDataResponseM
-CompareResults.sysml.CompareResultsRequest.sysml.CompareResultsResponseB*Z(github.com/Open-MBEE/OpenSysML/api/protoJ…ô
+CompareResults.sysml.CompareResultsRequest.sysml.CompareResultsResponseB*Z(github.com/Open-MBEE/OpenSysML/api/protoJ³ô
   ˆ
 
   
@@ -8991,9 +8991,9 @@ A
 e 
 
 e !"
-Æ
-e£ · The owned members' ids, each one GetSymbol takes: a qualified name, a positional id (`Owner::@3`),
- or an unnamed connector end's (`connect a to b`) GetElementProperties element id.
+ô
+e£ å The owned members' ids, each one GetSymbol takes: a qualified name, a positional id (`Owner::@3`), or an unnamed
+ connector end's GetElementProperties element id (`Owner__c_pend0`), which a declaration so named answers instead.
 
 
 e£

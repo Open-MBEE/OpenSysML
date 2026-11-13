@@ -2079,8 +2079,8 @@ message SymbolInfo {
   // Feature::direction is GetElementProperties' `direction`), "abstract",
   // "variation", "variant" and the like.
   map<string, string> metadata = 4;
-  // The owned members' ids, each one GetSymbol takes: a qualified name, a positional id (`Owner::@3`),
-  // or an unnamed connector end's (`connect a to b`) GetElementProperties element id.
+  // The owned members' ids, each one GetSymbol takes: a qualified name, a positional id (`Owner::@3`), or an unnamed
+  // connector end's GetElementProperties element id (`Owner__c_pend0`), which a declaration so named answers instead.
   repeated string child_ids = 5;
   repeated AttributeInfo attributes = 6;
   // Static type facts; unset when the element is not a def/usage. `declared`

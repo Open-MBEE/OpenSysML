@@ -2553,8 +2553,8 @@ pub struct SymbolInfo {
     /// "variation", "variant" and the like.
     #[prost(map="string, string", tag="4")]
     pub metadata: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
-    /// The owned members' ids, each one GetSymbol takes: a qualified name, a positional id (`Owner::@3`),
-    /// or an unnamed connector end's (`connect a to b`) GetElementProperties element id.
+    /// The owned members' ids, each one GetSymbol takes: a qualified name, a positional id (`Owner::@3`), or an unnamed
+    /// connector end's GetElementProperties element id (`Owner__c_pend0`), which a declaration so named answers instead.
     #[prost(string, repeated, tag="5")]
     pub child_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(message, repeated, tag="6")]

@@ -9929,8 +9929,8 @@ type SymbolInfo struct {
 	// Feature::direction is GetElementProperties' `direction`), "abstract",
 	// "variation", "variant" and the like.
 	Metadata map[string]string `protobuf:"bytes,4,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// The owned members' ids, each one GetSymbol takes: a qualified name, a positional id (`Owner::@3`),
-	// or an unnamed connector end's (`connect a to b`) GetElementProperties element id.
+	// The owned members' ids, each one GetSymbol takes: a qualified name, a positional id (`Owner::@3`), or an unnamed
+	// connector end's GetElementProperties element id (`Owner__c_pend0`), which a declaration so named answers instead.
 	ChildIds   []string         `protobuf:"bytes,5,rep,name=child_ids,json=childIds,proto3" json:"child_ids,omitempty"`
 	Attributes []*AttributeInfo `protobuf:"bytes,6,rep,name=attributes,proto3" json:"attributes,omitempty"`
 	// Static type facts; unset when the element is not a def/usage. `declared`
