@@ -670,7 +670,7 @@ func TestTreeMembershipEndsAtTheUsageDrawnAndAtTheDefinitionListed(t *testing.T)
 	if err != nil {
 		t.Fatalf("DOT: %v", err)
 	}
-	for _, want := range []string{`"n0" -> "n1" [dir=back, arrowtail=odiamond];`, `"n1" -> "n2" [arrowhead=onormaldotdot];`} {
+	for _, want := range []string{`"n0" -> "n1" [dir=back, arrowtail=odiamond];`, `"n1" -> "n2" [arrowhead=empty, class=definition];`} {
 		if !strings.Contains(dot, want) {
 			t.Errorf("DOT lacks %q:\n%s", want, dot)
 		}

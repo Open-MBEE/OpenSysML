@@ -2305,8 +2305,8 @@ func (w *dotWriter) dotEdgeAttributes(edge Edge) []string {
 		// The figure's bar crosses the line at the triangle's base, where onormaltee sets its tee.
 		attrs = append(attrs, "arrowhead=onormaltee")
 	case EdgeTyping:
-		// Graphviz sets the two dots in line behind the triangle; the figure stacks them beside its base.
-		attrs = append(attrs, "arrowhead=onormaldotdot")
+		// No arrowhead sets a dot beside the line, so the class marks the edge for DrawDOTGlyphs to dot.
+		attrs = append(attrs, "arrowhead=empty", "class="+dotDefinitionClass)
 	case EdgeComposition:
 		if caseNotation(w.kind) {
 			attrs = append(attrs, arrowTailDiamond, dotDirBack)

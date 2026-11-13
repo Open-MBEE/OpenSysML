@@ -119,16 +119,16 @@ digraph "MixedExamples::mixedDiagram" {
   "n9" -> "n12" [dir=none, style=dashed];
   "n16" -> "n15" [arrowhead=vee];
   "n26":"n26.0" -> "n27":"n27.0" [arrowhead=none];
-  "n3" -> "n1" [arrowhead=onormaldotdot];
-  "n10" -> "n25" [arrowhead=onormaldotdot, lhead="cluster_n25"];
-  "n11" -> "n31" [arrowhead=onormaldotdot];
+  "n3" -> "n1" [arrowhead=empty, class=definition];
+  "n10" -> "n25" [arrowhead=empty, class=definition, lhead="cluster_n25"];
+  "n11" -> "n31" [arrowhead=empty, class=definition];
   "n13" -> "n5" [label="«perform»", arrowhead=vee, lhead="cluster_n5"];
   "n14" -> "n2" [label="«exhibit»", arrowhead=vee, ltail="cluster_n14", lhead="cluster_n2"];
   "n21" -> "n20" [arrowhead=empty, ltail="cluster_n21"];
-  "n22" -> "n19" [arrowhead=onormaldotdot];
+  "n22" -> "n19" [arrowhead=empty, class=definition];
   "n23" -> "n20" [arrowhead=empty, ltail="cluster_n23"];
-  "n24" -> "n19" [arrowhead=onormaldotdot];
+  "n24" -> "n19" [arrowhead=empty, class=definition];
   "n25" -> "n20" [arrowhead=empty, ltail="cluster_n25"];
-  "n26" -> "n21" [arrowhead=onormaldotdot, lhead="cluster_n21"];
-  "n27" -> "n23" [arrowhead=onormaldotdot, lhead="cluster_n23"];
+  "n26" -> "n21" [arrowhead=empty, class=definition, lhead="cluster_n21"];
+  "n27" -> "n23" [arrowhead=empty, class=definition, lhead="cluster_n23"];
 }

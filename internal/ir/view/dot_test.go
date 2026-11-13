@@ -373,7 +373,8 @@ func TestDOTDirections(t *testing.T) {
 	}
 }
 
-// Every edge kind is drawn in the style parallel to its Mermaid arrow.
+// Every edge kind is drawn in the style parallel to its Mermaid arrow; a typing is the triangle under a
+// class, its two dots drawn into the SVG beside the line (DrawDOTGlyphs), where no arrowhead sets one.
 func TestDOTEdgeKinds(t *testing.T) {
 	styles := map[EdgeKind]string{
 		EdgeConnection:          `"a" -> "b" [label="k", arrowhead=none, penwidth=3];`,
@@ -382,7 +383,7 @@ func TestDOTEdgeKinds(t *testing.T) {
 		EdgeFlow:                `"a" -> "b" [label="k"];`,
 		EdgeBinding:             `"a" -> "b" [label="k", arrowhead=none];`,
 		EdgeSpecialization:      `"a" -> "b" [label="k", arrowhead=empty];`,
-		EdgeTyping:              `"a" -> "b" [label="k", arrowhead=onormaldotdot];`,
+		EdgeTyping:              `"a" -> "b" [label="k", arrowhead=empty, class=definition];`,
 		EdgeComposition:         `"a" -> "b" [label="k", dir=back, arrowtail=diamond];`,
 		EdgeReference:           `"a" -> "b" [label="k", dir=back, arrowtail=odiamond];`,
 		EdgeContainment:         `"a" -> "b" [label="k", dir=back, arrowtail=odot, taillabel="+", labeldistance=0.4, labelangle=0];`,
