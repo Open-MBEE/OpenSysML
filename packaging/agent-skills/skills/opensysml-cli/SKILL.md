@@ -105,6 +105,12 @@ sysml model.sysml -render MyModel::structureView -render-form mermaid
 sysml -query 'oslc.where=sysml:name="wheel"' model.sysml
 ```
 
+Tree and interconnection diagrams with more than 10,000 expanded occurrences fold repeated
+inherited features into a note naming an earlier full expansion. Own and redefined features,
+positioned elements and edge endpoints remain drawn. The view reports the fold, and HTML
+documents show that notice above both diagram SVGs and diagram source. Smaller views keep their
+output; the threshold is internal to the renderer.
+
 ## Pitfalls
 
 - Each file imports what it uses: a `private import ScalarValues::*;` in one file does not serve another.
