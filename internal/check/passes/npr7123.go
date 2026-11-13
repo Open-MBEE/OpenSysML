@@ -12,9 +12,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
 )
 
-// NPR7123Pass audits the elements a model classifies with the NPR7123 library
-// against what NPR 7123.1D states of them; each rule fires only on an element
-// of the kind the NPR speaks about, and a model that never touches the library gets no finding.
+// NPR7123Pass audits the elements a model classifies with the NPR7123 library against what
+// NPR 7123.1D states of them; a model that never touches the library gets no finding.
 type NPR7123Pass struct{}
 
 // Diagnostic codes of the NPR 7123.1D rules.
@@ -280,9 +279,8 @@ func (a *npr7123Audit) check(root *symbols.Scope) {
 	})
 }
 
-// checkReview expects a life-cycle review to state entrance and success
-// criteria (section 5.2.2.1, SE-34) and the minimum products of section
-// 5.2.2.2 for its kind at the maturity the section asks for.
+// checkReview expects a life-cycle review to state entrance and success criteria (section
+// 5.2.2.1, SE-34) and the section 5.2.2.2 minimum products of its kind at the maturity asked for.
 func (a *npr7123Audit) checkReview(review *symbols.Symbol) {
 	nested := a.nestedFeatures(review)
 	entrance, success := false, false
@@ -336,9 +334,8 @@ func (a *npr7123Audit) isAProduct(f, product *symbols.Symbol) bool {
 	return false
 }
 
-// npr7123MaturityRank orders the Appendix F vocabulary: a preliminary or
-// initial product precedes a baselined or approved one, which precedes its
-// final form or an update of it; "approach" states no product yet.
+// npr7123MaturityRank orders the Appendix F vocabulary: preliminary or initial, then baselined
+// or approved, then final or an update of it; "approach" states no product yet.
 func npr7123MaturityRank(maturity string) int {
 	switch maturity {
 	case "initial", "preliminary":

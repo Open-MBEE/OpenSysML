@@ -33,9 +33,8 @@ func TestNPR7123ReviewMissingCriteria(t *testing.T) {
 	w8dWantLines(t, src, CodeNPR7123ReviewMissingCriteria, 4, 5)
 }
 
-// A review of a kind with section 5.2.2.2 minimum products is reported for
-// each product it does not state, and for one stated below the required
-// maturity; a kind without minimum products, or a product at or above it, is not.
+// A review of a kind with section 5.2.2.2 minimum products is reported for each product it does
+// not state or states below the required maturity; a kind without minimum products is not.
 func TestNPR7123ReviewMissingMinimumProduct(t *testing.T) {
 	src := npr7123Model(`
 		#lifeCycleReview action cdr {

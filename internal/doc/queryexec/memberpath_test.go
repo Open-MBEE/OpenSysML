@@ -618,9 +618,8 @@ calc def Plenty :> Query {
 	}
 }
 
-// A segment naming no member of the element reached reads the element-valued
-// metaclass feature of that name, so `type.documentation` on a usage reads the
-// documentation of its definition; a row whose type has none is an empty cell.
+// A segment naming no member reads the metaclass feature of that name, so `type.documentation`
+// on a usage reads its definition's documentation; a row whose type has none is an empty cell.
 func TestExecuteMemberPathReadsMetaclassFeatureSegment(t *testing.T) {
 	fixture := loadExecutionFixture(t, `
 package Reqs {

@@ -13,9 +13,8 @@ func parseMemberPath(property string) ([]string, bool) {
 	return segments, ok && len(segments) >= 2
 }
 
-// memberPathStep resolves one inner segment on an element: the member it
-// names, own members first, else the elements of the metaclass feature it
-// names (`type`, `owner`, …), so `type.documentation` reads a definition.
+// memberPathStep resolves one inner segment on an element: the member it names, own members
+// first, else the elements of the metaclass feature it names (`type`, `owner`, …).
 func (e *executor) memberPathStep(current *symbols.Symbol, segment string) []*symbols.Symbol {
 	if member, ok := e.context.Model.LookupMember(current, segment); ok && member != nil {
 		return []*symbols.Symbol{member}
@@ -26,11 +25,8 @@ func (e *executor) memberPathStep(current *symbols.Symbol, segment string) []*sy
 	return nil
 }
 
-// memberPathValues walks a member path from the row element; a segment naming
-// neither a member nor a metaclass feature makes the path absent on this row.
-// The last segment reads a declared feature, else a metaclass feature such as
-// documentation. The member the last segment names is returned with the
-// values (nil when absent or when it is not a declared member).
+// memberPathValues walks a member path from the row element; a segment naming neither a member
+// nor a metaclass feature makes the path absent. The declared member the last segment names is returned.
 func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]Value, bool, *symbols.Symbol, error) {
 	reached := []*symbols.Symbol{sym}
 	for _, segment := range segments[:len(segments)-1] {
