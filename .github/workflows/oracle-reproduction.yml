@@ -130,3 +130,53 @@ jobs:
             build/pilot-reject/
             build/pilot-apijson-diff/
           if-no-files-found: warn
+
+  # The cross-MDK suite needs neither Java nor the pilot, so it runs beside the
+  # job above rather than after it; see docs/project/hideo-suite.md.
+  hideo-suite:
+    name: Reproduce the cross-MDK conformance suite baseline
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # make build-grpc stamps the binary with `git describe`.
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
+      # The suite's Python readers resolve their environment with uv.
+      - name: Install uv
+        run: python -m pip install uv==0.13.8
+
+      - name: Report the pin and the toolchain
+        run: |
+          cat scripts/hideo-suite-pin.sh
+          go version
+          python --version
+          uv --version
+
+      - name: Download the pinned suite
+        run: ./scripts/download-hideo-suite.sh
+
+      # Per-case outcomes: a pass is agreement with the pilot on one read,
+      # never evidence of SysML v2 conformance. Builds bin/sysml-grpc first.
+      - name: Cross-MDK conformance suite reproduces its baseline
+        env:
+          OPENSYSML_REQUIRE_HIDEO_SUITE: "1"
+        run: go run -C tools ./cmd/hideo-suite -check
+
+      - name: Upload the suite's results and logs
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: hideo-suite-results
+          path: build/hideo-suite/test-suite/results/
+          if-no-files-found: warn
