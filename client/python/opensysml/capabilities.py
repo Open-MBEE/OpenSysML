@@ -115,9 +115,8 @@ CAPABILITY_SYMBOL_ATTRIBUTES = "symbol_attributes"
 #: Without it only ``child_ids``, the owned members, is reported.
 CAPABILITY_SYMBOL_MEMBERS = "symbol_members"
 
-#: Populated ``SymbolInfo.annotating_metadata_ids``: the metadata usages
-#: annotating a symbol, the ``about`` ones written elsewhere included. Without
-#: it none is reported, which is indistinguishable from an unannotated element.
+#: Populated ``SymbolInfo.annotating_metadata_ids``, the metadata usages
+#: annotating a symbol; without it an annotated element reports none.
 CAPABILITY_SYMBOL_ANNOTATING_METADATA = "symbol_annotating_metadata"
 
 #: The ``GetElementProperties`` RPC: the metamodel properties of one element by
