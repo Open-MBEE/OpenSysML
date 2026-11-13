@@ -83,3 +83,36 @@ func TestResolveKeepsPositionalIDs(t *testing.T) {
 		}
 	}
 }
+
+// A filtered import re-exports only the members its filter keeps (KerML 8.2.3.5), and the
+// declared name of a public member of a private namespace still denotes that member.
+func TestResolveHonoursImportFiltersAndDeclaredNames(t *testing.T) {
+	idx, sc := modelWithLibrary(t, `
+package F {
+	metadata def Safety;
+	package Lib {
+		part def Safe { @Safety; }
+		part def Plain;
+		private part def Secret { part inner; alias innerAlias for inner; }
+	}
+	package Only { public import Lib::*[@Safety]; }
+	package Deep { public import Lib::**[@Safety]; }
+}
+`)
+	cases := []struct{ id, resolve, member string }{
+		{"F::Only::Safe", "F::Lib::Safe;", "F::Lib::Safe;"},
+		{"F::Only::Plain", "", ""},
+		{"F::Deep::Safe", "F::Lib::Safe;", "F::Lib::Safe;"},
+		{"F::Deep::Plain", "", ""},
+		{"F::Lib::Secret::inner", "F::Lib::Secret::inner;", "F::Lib::Secret::inner;"},
+		{"F::Lib::Secret::innerAlias", "F::Lib::Secret::inner;", "F::Lib::Secret::innerAlias;"},
+	}
+	for _, tc := range cases {
+		if got := fqns(idx, sc.Resolve(tc.id)); got != tc.resolve {
+			t.Errorf("Resolve(%s) = %q, want %q", tc.id, got, tc.resolve)
+		}
+		if got := fqns(idx, sc.ResolveMember(tc.id)); got != tc.member {
+			t.Errorf("ResolveMember(%s) = %q, want %q", tc.id, got, tc.member)
+		}
+	}
+}

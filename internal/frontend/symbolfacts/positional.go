@@ -1,6 +1,7 @@
 package symbolfacts
 
 import (
+	"slices"
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
@@ -104,38 +105,51 @@ func (sc *Context) LookupMember(id string) []*symbols.Symbol {
 	return sc.Resolver.ResolveGlobal(nameSegments(id))
 }
 
-// Resolve resolves id as a qualified name from the root (resolve.Resolver.ResolveGlobal);
-// a positional id, or a public member under a non-visible namespace, still denotes its element.
+// Resolve resolves id as a qualified name from the root (resolve.Resolver.ResolveGlobal); a
+// positional id, or the declared name of a public member of a non-visible namespace, still denotes its element.
 func (sc *Context) Resolve(id string) []*symbols.Symbol {
-	return sc.resolved(id, sc.Resolver.ResolveGlobal)
+	if syms := sc.Resolver.ResolveGlobal(nameSegments(id)); len(syms) > 0 {
+		return syms
+	}
+	var elements []*symbols.Symbol
+	for _, sym := range sc.declaredPublic(id) {
+		if element := sc.Resolver.AliasedElement(sym); !sc.Resolver.AliasNamesNothing(element) &&
+			!slices.Contains(elements, element) {
+			elements = append(elements, element)
+		}
+	}
+	if len(elements) > 0 {
+		return elements
+	}
+	return sc.unnamed(id)
 }
 
 // ResolveMember is Resolve with an alias answered as the alias membership its
 // namespace holds rather than as the element it names.
 func (sc *Context) ResolveMember(id string) []*symbols.Symbol {
-	return sc.resolved(id, sc.Resolver.ResolveGlobalMembers)
-}
-
-func (sc *Context) resolved(id string, resolve func([]string) []*symbols.Symbol) []*symbols.Symbol {
-	if syms := resolve(nameSegments(id)); len(syms) > 0 {
+	if syms := sc.Resolver.ResolveGlobalMembers(nameSegments(id)); len(syms) > 0 {
 		return syms
 	}
-	if named := LookupNamed(sc.Index, id); len(named) > 0 {
-		return ownPublic(named)
+	if declared := sc.declaredPublic(id); len(declared) > 0 {
+		return declared
 	}
 	return sc.unnamed(id)
 }
 
-// ownPublic keeps the elements whose own membership is public: an id the
-// service reports stays fetchable where only a namespace on the way is not.
-func ownPublic(syms []*symbols.Symbol) []*symbols.Symbol {
-	var public []*symbols.Symbol
-	for _, sym := range syms {
-		if symbols.VisibleOutside(sym.Visibility) {
-			public = append(public, sym)
+// declaredPublic finds the members id is the declared qualified name of whose own membership is
+// public: an id the service reports, never a name an import (filtered or not) only re-exports.
+func (sc *Context) declaredPublic(id string) []*symbols.Symbol {
+	name := id
+	if plain, ok := UnquotedName(id); ok {
+		name = plain
+	}
+	var declared []*symbols.Symbol
+	for _, sym := range LookupNamed(sc.Index, id) {
+		if symbols.HasFQN(sym, name) && symbols.VisibleOutside(sym.Visibility) {
+			declared = append(declared, sym)
 		}
 	}
-	return public
+	return declared
 }
 
 // unnamed finds the element a positional id denotes.
