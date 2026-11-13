@@ -223,9 +223,8 @@ type SysMLServiceClient interface {
 	// element form (Convert to api-json) spells them, without converting the
 	// whole model. Reported as the "element_properties" capability.
 	GetElementProperties(context.Context, *connect.Request[proto.GetElementPropertiesRequest]) (*connect.Response[proto.GetElementPropertiesResponse], error)
-	// Run a named document query with parameter bindings, the answer the REPL's
-	// %run-query gives, as typed rows rather than formatted lines. Reported as
-	// the "document_query" capability.
+	// Run a document query named by query_id or written in inline_query as typed rows, the answer
+	// the REPL's %run-query gives; capabilities "document_query" and "inline_document_query".
 	RunDocumentQuery(context.Context, *connect.Request[proto.RunDocumentQueryRequest]) (*connect.Response[proto.RunDocumentQueryResponse], error)
 	// Render a named document to Markdown, as the CLI's -render-document does.
 	// Reported as the "render_document" capability.
@@ -765,9 +764,8 @@ type SysMLServiceHandler interface {
 	// element form (Convert to api-json) spells them, without converting the
 	// whole model. Reported as the "element_properties" capability.
 	GetElementProperties(context.Context, *connect.Request[proto.GetElementPropertiesRequest]) (*connect.Response[proto.GetElementPropertiesResponse], error)
-	// Run a named document query with parameter bindings, the answer the REPL's
-	// %run-query gives, as typed rows rather than formatted lines. Reported as
-	// the "document_query" capability.
+	// Run a document query named by query_id or written in inline_query as typed rows, the answer
+	// the REPL's %run-query gives; capabilities "document_query" and "inline_document_query".
 	RunDocumentQuery(context.Context, *connect.Request[proto.RunDocumentQueryRequest]) (*connect.Response[proto.RunDocumentQueryResponse], error)
 	// Render a named document to Markdown, as the CLI's -render-document does.
 	// Reported as the "render_document" capability.

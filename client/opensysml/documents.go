@@ -269,11 +269,28 @@ func (c *client) RunDocumentQuery(
 	queryID string,
 	bindings ...Binding,
 ) (*Rows, error) {
+	return c.runDocumentQuery(ctx, model, &pb.RunDocumentQueryRequest{QueryId: queryID}, bindings)
+}
+
+func (c *client) RunInlineDocumentQuery(
+	ctx context.Context,
+	model *Model,
+	expression string,
+	bindings ...Binding,
+) (*Rows, error) {
+	if err := c.requireCapabilities(ctx, CapabilityInlineDocumentQuery); err != nil {
+		return nil, err
+	}
+	return c.runDocumentQuery(ctx, model, &pb.RunDocumentQueryRequest{InlineQuery: expression}, bindings)
+}
+
+// runDocumentQuery sends req, naming or spelling the query, with bindings bound.
+func (c *client) runDocumentQuery(ctx context.Context, model *Model, req *pb.RunDocumentQueryRequest, bindings []Binding) (*Rows, error) {
 	hash, err := c.call(model)
 	if err != nil {
 		return nil, err
 	}
-	req := &pb.RunDocumentQueryRequest{ModelHash: hash, QueryId: queryID}
+	req.ModelHash = hash
 	for _, binding := range bindings {
 		bound := &pb.DocumentQueryBinding{Parameter: binding.Parameter}
 		for _, value := range binding.Values {

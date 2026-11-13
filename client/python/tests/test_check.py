@@ -121,3 +121,13 @@ def test_a_performer_needs_the_performer_capability():
     with pytest.raises(MissingCapabilityError, match="performer"):
         conn.check_action("Plant::Tank::fill", "hash", performer="Plant::tank")
     stub.CheckBehavior.assert_not_called()
+
+
+def test_check_search_carries_the_coverage_of_every_schedule():
+    from opensysml import Coverage, CoverageEntry
+    from opensysml.check import CheckSearch
+
+    search = CheckSearch.of(sysml_pb2.CheckSearch(states=3, moves=2, coverage=sysml_pb2.Coverage(
+        states=[sysml_pb2.CoverageEntry(path="Cov::sys#1.m.run: viaB", declaration="Cov::M::run::viaB", runs=1)])))
+    assert search.coverage == Coverage(states=(CoverageEntry("Cov::sys#1.m.run: viaB", "Cov::M::run::viaB", 1),))
+    assert CheckSearch.of(sysml_pb2.CheckSearch()).coverage == Coverage()

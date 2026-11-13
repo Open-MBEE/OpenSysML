@@ -74,8 +74,9 @@ commands, carried out here rather than sent back to the server:
 - **N references** lists the references through xref (`consult-xref` if you use
   it).
 - **Run X** / **Evaluate X** saves the model buffers and runs the matching
-  `sysml -action`/`-state`/`-calc`/`-constraint`/`-requirement` check over the
-  project, in a compilation buffer. `sysml` is looked for beside the server, then
+  `sysml -action`/`-state`/`-calc`/`-constraint`/`-requirement` check over every
+  workspace folder of the session (the file alone when none holds it), in a
+  compilation buffer. Nothing runs while a model buffer is left unsaved. `sysml` is looked for beside the server, then
   in the project's `bin/`, then on `exec-path`.
 
 ## Highlighting
@@ -125,18 +126,19 @@ renderings the REPL's `%view` prints and the VS Code diagram panel shows:
 - **What it shows.** The one view the document declares, or the document itself
   as a model tree. `C-u M-x sysml-diagram-show`, or `v` in the view buffer, picks
   another: a declared view, or the document as a tree, interconnection diagram,
-  state machine, action flow or table. A view whose rendering is not supported
+  state machine, action flow, table or matrix. A view whose rendering is not supported
   (`sequence`, `geometry`, `textual`) is listed with the reason and refused.
 - **Navigation.** `RET` or a click on an element visits its declaration, with its
   name selected. Moving point in the model highlights the innermost element
-  declared around it. An element with no locatable declaration, such as a
-  standard library symbol, is not a link.
+  declared around it. A standard library declaration opens read-only, its text
+  fetched from the server (`opensysml/stdlibContent`). An element with no
+  locatable declaration is not a link.
 - **While typing.** The buffer redraws when the server reports the document
   changed, and only while it is visible. A rendering that fails keeps the last
   good one on screen, dimmed, with the error in the header line.
 - **Pictures.** `i` draws the view with the Mermaid CLI (`mmdc`, installed with
   `npm install -g @mermaid-js/mermaid-cli`) and shows the SVG, in a graphical
-  frame. A table is not drawn: it is already shown as one.
+  frame. A table or matrix is not drawn: it is already shown as one.
 
 | Key | Command |
 | --- | --- |

@@ -1,9 +1,11 @@
 package runtime
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -1302,10 +1304,55 @@ func (inst *Instance) materializeIntrinsic(ctx *Context, fv *FeatureValue, name 
 	}
 
 	// A feature holding values rather than objects holds values of what it subsets, as an object feature does.
-	if _, err := inst.materializeFromSubsetted(ctx, fv, name, nil); err != nil {
+	if held, err := inst.materializeFromSubsetted(ctx, fv, name, nil); err != nil || held {
+		return fv, err
+	}
+	return inst.materializeReferentialCollection(ctx, fv, name, open)
+}
+
+func hasNonEndSubsetter(subsetters []EffectiveFeature) bool {
+	for _, feat := range subsetters {
+		if feat.Symbol == nil {
+			return true
+		}
+		if usage, ok := feat.Symbol.Decl.(*ast.Usage); !ok || !usage.IsEnd {
+			return true
+		}
+	}
+	return false
+}
+
+// materializeReferentialCollection holds, in a referential collection, what the features
+// subsetting it hold (KerML 1.1 §7.3.4.5): a requirement's `actors` is its actor parameters.
+func (inst *Instance) materializeReferentialCollection(ctx *Context, fv *FeatureValue, name string, open *openPopulation) (*FeatureValue, error) {
+	// A collection only connector ends subset (`participant`) is answered by the ends, not gathered here.
+	if fv.Feature.Scalar() || !hasNonEndSubsetter(ctx.subsettingFeaturesOf(inst, name)) {
+		return fv, nil
+	}
+	// A subsetter without a value yet (`otherParticipants` of a port no interface connects)
+	// leaves the collection unread rather than failing it.
+	if open == nil {
+		held, err := inst.holdContributions(ctx, fv, name)
+		if errors.Is(err, ErrNoValue) {
+			return fv, nil
+		}
+		return held, err
+	}
+	// A model-level read holds what the subsetters certainly hold and stops where one is open.
+	release := ctx.elementScope()
+	contributed, atLeast, err := ctx.openSubsettingContributions(inst, name)
+	release()
+	if errors.Is(err, ErrNoValue) {
+		return fv, nil
+	}
+	if err != nil {
 		return nil, err
 	}
-	return fv, nil
+	if max(atLeast, fewestOf(fv.Feature.Multiplicity)) > int64(len(contributed)) {
+		open.Stopped, open.Contributed, open.AtLeast = true, contributed, atLeast
+		return fv, nil
+	}
+	return inst.holdContributed(ctx, fv, name, contributed)
 }
 
 // materializeVariation binds a variation to the variant its default selects.
@@ -1689,7 +1736,7 @@ func isReferenceUsage(sym *symbols.Symbol) bool {
 // declaresFeatures reports whether a usage's own body restates or adds features,
 // which the object it materializes has to carry.
 func declaresFeatures(sym *symbols.Symbol) bool {
-	for member := range eachUnwrappedDeclMember(sym.Decl) {
+	for member := range lower.EachUnwrappedDeclMember(sym.Decl) {
 		if memberDeclaresFeature(member) {
 			return true
 		}
@@ -1804,7 +1851,7 @@ func (ctx *Context) restatedValueInBody(sym, typ *symbols.Symbol) string {
 	for _, f := range ctx.FeaturesOf(typ) {
 		inherited[f.Name] = true
 	}
-	for _, member := range unwrappedDeclMembers(sym.Decl) {
+	for _, member := range lower.UnwrappedDeclMembers(sym.Decl) {
 		usage, ok := member.(*ast.Usage)
 		if !ok || !valuesAFeature(usage) {
 			continue
@@ -1862,8 +1909,10 @@ func (ctx *Context) bindsAFeature(sym *symbols.Symbol) bool {
 // feature, not a behavior, a constraint or a parameter, whose values bind no field.
 func holdsRecordField(sym *symbols.Symbol) bool {
 	switch sym.Kind {
-	case symbols.SymbolActionUsage, symbols.SymbolStateUsage,
-		symbols.SymbolConstraintUsage, symbols.SymbolRequirementUsage:
+	case symbols.SymbolStateUsage, symbols.SymbolConstraintUsage, symbols.SymbolRequirementUsage:
+		return false
+	}
+	if sym.Kind.IsActionUsage() {
 		return false
 	}
 	return semantics.IsShapeFeature(sym) && !semantics.IsParameter(sym)
@@ -1875,7 +1924,7 @@ func valuesAFeature(usage *ast.Usage) bool {
 	if usage.Value != nil {
 		return true
 	}
-	for _, member := range unwrappedDeclMembers(usage) {
+	for _, member := range lower.UnwrappedDeclMembers(usage) {
 		if nested, ok := member.(*ast.Usage); ok && valuesAFeature(nested) {
 			return true
 		}
@@ -1975,7 +2024,12 @@ func (ctx *Context) qualifiedMemberOf(self *Instance, scope *symbols.Scope, expr
 	if !ok || feature == nil || !ctx.model.semantics.Conforms(self.Type, ctx.findOwnerType(feature)) {
 		return Value{}, false, nil
 	}
-	fv, err := self.MemberValue(ctx, feature.Name)
+	// The object holds the feature under its redefiner's name where one redefines it.
+	name := feature.Name
+	if denoted, ok := ctx.denotedFeature(self.Type, feature); ok {
+		name = denoted
+	}
+	fv, err := self.MemberValue(ctx, name)
 	if err != nil {
 		return Value{}, true, err
 	}

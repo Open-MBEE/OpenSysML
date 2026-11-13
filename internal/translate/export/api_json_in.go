@@ -1033,6 +1033,10 @@ func (index *apiJSONIndex) classifyExpressions(
 // expression reports whether the object is classified an expression node by
 // what is classified so far.
 func (index *apiJSONIndex) expression(object *apiJSONElementData) bool {
+	if object.typ == "sysx:"+mNote {
+		// A note is a node of the element whose lines hold it, never an element.
+		return true
+	}
 	ids, types, expressionIDs := index.ids, index.types, index.expressionIDs
 	if base, isMembership := strings.CutSuffix(object.id, rdf.OwningMembershipSuffix); isMembership {
 		return ids[base] && expressionIDs[base]
@@ -1064,7 +1068,7 @@ func (index *apiJSONIndex) expression(object *apiJSONElementData) bool {
 // `event occurrence` usage is never a node — its owner is a namespace, not a
 // FlowUsage, so the metaclass alone decides nothing here.
 func messageParameterEnd(ownerType, membershipType, memberType string) bool {
-	return ownerType == "FlowUsage" && membershipType == mParameterMembership && memberType == mEventOccurrenceUsage
+	return flowMetaclasses[ownerType] && membershipType == mParameterMembership && memberType == mEventOccurrenceUsage
 }
 
 // nodeMembershipMetaclass reports whether an element of this metaclass can

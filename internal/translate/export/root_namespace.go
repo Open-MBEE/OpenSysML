@@ -174,6 +174,9 @@ func rootWrappers(graph *rdf.Graph, roots []rdf.Term) []rootWrapper {
 func withoutRootNamespace(graph *rdf.Graph) *rdf.Graph {
 	dropped := map[string]bool{}
 	droppedMemberIndexes := map[string]bool{}
+	// memberOf is the member each dropped membership owns: its own back-links go,
+	// a reference another element states (an import's target) stays, as Turtle keeps it.
+	memberOf := map[string]string{}
 	var indexes []rootIndex
 	subjects := graph.Subjects()
 	for _, subject := range subjects {
@@ -191,6 +194,9 @@ func withoutRootNamespace(graph *rdf.Graph) *rdf.Graph {
 		for _, membership := range graph.Objects(subject, rdf.SysML+pOwnedRelationship) {
 			if graph.Type(membership) == rdf.SysML+mOwningMembership {
 				dropped[membership.Value] = true
+				if member, ok := graph.Object(membership, rdf.SysML+pMemberElement); ok {
+					memberOf[membership.Value] = member.Value
+				}
 			}
 		}
 	}
@@ -198,9 +204,14 @@ func withoutRootNamespace(graph *rdf.Graph) *rdf.Graph {
 		return graph
 	}
 	graph.RewriteTriples(func(triple *rdf.Triple) bool {
-		return !dropped[triple.Subject.Value] &&
-			!(dropped[triple.Object.Value] && triple.Object.IsIRI()) &&
-			!(droppedMemberIndexes[triple.Subject.Value] && triple.Predicate.Value == rdf.OpenSysML+xMemberIndex)
+		if dropped[triple.Subject.Value] {
+			return false
+		}
+		if dropped[triple.Object.Value] && triple.Object.IsIRI() {
+			member, owned := memberOf[triple.Object.Value]
+			return owned && member != triple.Subject.Value
+		}
+		return !(droppedMemberIndexes[triple.Subject.Value] && triple.Predicate.Value == rdf.OpenSysML+xMemberIndex)
 	})
 	for _, index := range indexes {
 		graph.Add(index.member, rdf.OpenSysMLTerm(xMemberIndex), rdf.Int(index.index))

@@ -11,7 +11,48 @@ an error outcome. Hitting a budget makes the :class:`Exploration` incomplete,
 naming the budget; it is never an error.
 """
 
+from dataclasses import dataclass, field
+
 from opensysml.errors import ExecutionError
+
+
+@dataclass(frozen=True)
+class CoverageEntry:
+    """One state entered or one transition taken.
+
+    Attributes:
+        path (str): Qualified by the instance running the machine, such as
+            ``Cov::Sys#1.m.run: viaA`` or ``Cov::Sys#1.m.run: s0 -> viaB``
+        declaration (str): Qualified by the declaration, such as
+            ``Cov::M::run::viaA`` or ``Cov::M::run::s0 -> viaB``
+        runs (int): How many runs (schedules, under the check engine) did so
+    """
+
+    path: str
+    declaration: str
+    runs: int
+
+    @classmethod
+    def of(cls, pb):
+        return cls(pb.path, pb.declaration, int(pb.runs))
+
+
+@dataclass(frozen=True)
+class Coverage:
+    """What every run of an exploration, or every schedule of a check, entered and took.
+
+    Attributes:
+        states (tuple[CoverageEntry]): The states entered, by instance path
+        transitions (tuple[CoverageEntry]): The transitions taken, by instance path
+    """
+
+    states: tuple = field(default_factory=tuple)
+    transitions: tuple = field(default_factory=tuple)
+
+    @classmethod
+    def of(cls, pb):
+        return cls(tuple(CoverageEntry.of(e) for e in pb.states),
+                   tuple(CoverageEntry.of(e) for e in pb.transitions))
 
 
 class Outcome:
@@ -103,11 +144,14 @@ class Exploration:
         unenumerated (list[str]): The constructs whose unordered alternatives
             the runs took in one order without a choice point, by identifier —
             empty when the exploration is complete
+        coverage (Coverage): Every state entered and transition taken over all
+            the runs, not only the witness of each outcome, with how many runs
+            did so
     """
 
     def __init__(self, outcomes, complete, runs, budgets_hit, runs_budget,
                  depth_budget, probabilities_lower_bound=False,
-                 failed_linearizations=0, unenumerated=None):
+                 failed_linearizations=0, unenumerated=None, coverage=None):
         self.outcomes = list(outcomes or [])
         self.complete = complete
         self.runs = runs
@@ -117,6 +161,7 @@ class Exploration:
         self.probabilities_lower_bound = probabilities_lower_bound
         self.failed_linearizations = failed_linearizations
         self.unenumerated = list(unenumerated or [])
+        self.coverage = coverage if coverage is not None else Coverage()
 
     def __iter__(self):
         return iter(self.outcomes)

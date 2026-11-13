@@ -1,0 +1,39 @@
+{
+  "rpc": "GetElementProperties",
+  "model": "element_properties_send_action.sysml",
+  "element_id": "SendFamily::Control::ping",
+  "properties": [
+    "payloadArgument",
+    "receiverArgument",
+    "parameter"
+  ],
+  "expected_properties": [
+    {
+      "name": "payloadArgument",
+      "defining_class": "SendActionUsage",
+      "derived": true,
+      "values": [
+        "SendFamily__Control__ping___400_pvalue"
+      ]
+    },
+    {
+      "name": "receiverArgument",
+      "defining_class": "SendActionUsage",
+      "derived": true,
+      "values": [
+        "SendFamily__Control__ping___402_pvalue"
+      ]
+    },
+    {
+      "name": "parameter",
+      "defining_class": "Step",
+      "many": true,
+      "derived": true,
+      "values": [
+        "SendFamily__Control__ping___400",
+        "SendFamily__Control__ping___401",
+        "SendFamily__Control__ping___402"
+      ]
+    }
+  ]
+}

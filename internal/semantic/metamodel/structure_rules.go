@@ -1,6 +1,7 @@
 package metamodel
 
 import (
+	"slices"
 	"strings"
 	"sync"
 
@@ -391,6 +392,10 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 				return e.structureOwnedFilter(element, rangeClass, false)
 			}
 		}
+	case "Documentation":
+		if name == "documentedElement" {
+			return e.structureDocumentedElement(element)
+		}
 	case "AnnotatingElement":
 		switch name {
 		case "annotation":
@@ -517,6 +522,10 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 	case "FeatureReferenceExpression":
 		if name == "referent" {
 			return e.structureFeatureReferenceReferent(element)
+		}
+	case "MetadataAccessExpression":
+		if name == "referencedElement" {
+			return e.structureMetadataAccessReferencedElement(element)
 		}
 	case "FeatureChainExpression":
 		switch name {
@@ -777,16 +786,11 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 			return structurePropertyCardinality(filtered, true)
 		}
 	case "ConjugatedPortTyping":
-		if name == "portDefinition" {
-			targets, ok := e.relationshipEndpoints(element, "conjugatedPortDefinition")
-			if !ok {
-				return Value{}, true, false
-			}
-			filtered, ok := e.structureFilterValues(targets, "ConjugatedPortDefinition")
-			if !ok {
-				return Value{}, true, false
-			}
-			conjugated, handled, ok := structurePropertyCardinality(filtered, true)
+		switch name {
+		case "conjugatedPortDefinition":
+			return e.structureConjugatedPortTypingTarget(element)
+		case "portDefinition":
+			conjugated, handled, ok := e.structureConjugatedPortTypingTarget(element)
 			if !handled || !ok || conjugated.Kind == NullValue {
 				return conjugated, true, ok
 			}
@@ -795,6 +799,10 @@ func (e *Evaluator) structureProperty(element Element, class, name string) (Valu
 			}
 			value, ok := e.Property(conjugated.Element, "ConjugatedPortDefinition", "originalPortDefinition")
 			return value, true, ok
+		}
+	case "PortConjugation":
+		if name == "conjugatedPortDefinition" {
+			return e.structureRelationshipOwner(element, "ConjugatedPortDefinition")
 		}
 	case "MultiplicityRange":
 		switch name {
@@ -1890,6 +1898,13 @@ func (e *Evaluator) semanticBooleanAttribute(element Element, property string) (
 }
 
 func (e *Evaluator) structureUsageComposite(element Element) (bool, bool, bool) {
+	// Feature::isComposite is authored: a graph that states it answers it; a
+	// declared symbol's is the semantic model's below.
+	if stated, supported := e.options.Structure.(StatedAttributeStructure); supported && element.Symbol == nil {
+		if composite, ok := stated.StatedAttribute(element, "isComposite"); ok && composite.Kind == BooleanValue {
+			return composite.Boolean, true, true
+		}
+	}
 	controlNode, known := e.isMetaclass(element, "ControlNode")
 	if !known {
 		return false, true, false
@@ -3798,14 +3813,15 @@ func (e *Evaluator) structureOwnedFilter(element Element, expected string, membe
 	cached, known := e.structureOwnedFilters[key]
 	e.mu.Unlock()
 	if known {
-		return cloneValue(cached.value), cached.handled, cached.ok
+		return cached.value, cached.handled, cached.ok
 	}
 	value, handled, ok := e.computeStructureOwnedFilter(element, expected, memberships)
+	value.Values = sharedValueList(value.Values)
 	e.mu.Lock()
 	if e.structureOwnedFilters == nil {
 		e.structureOwnedFilters = make(map[structureOwnedFilterKey]structureMemoEntry)
 	}
-	e.structureOwnedFilters[key] = structureMemoEntry{value: cloneValue(value), handled: handled, ok: ok}
+	e.structureOwnedFilters[key] = structureMemoEntry{value: value, handled: handled, ok: ok}
 	e.mu.Unlock()
 	return value, handled, ok
 }
@@ -3876,14 +3892,15 @@ func (e *Evaluator) structureOwnedMembers(element Element) (Value, bool, bool) {
 	cached, known := e.structureOwnedMemberLists[key]
 	e.mu.Unlock()
 	if known {
-		return cloneValue(cached.value), cached.handled, cached.ok
+		return cached.value, cached.handled, cached.ok
 	}
 	value, handled, ok := e.computeStructureOwnedMembers(element)
+	value.Values = sharedValueList(value.Values)
 	e.mu.Lock()
 	if e.structureOwnedMemberLists == nil {
 		e.structureOwnedMemberLists = make(map[ElementKey]structureMemoEntry)
 	}
-	e.structureOwnedMemberLists[key] = structureMemoEntry{value: cloneValue(value), handled: handled, ok: ok}
+	e.structureOwnedMemberLists[key] = structureMemoEntry{value: value, handled: handled, ok: ok}
 	e.mu.Unlock()
 	return value, handled, ok
 }
@@ -3943,7 +3960,7 @@ func (e *Evaluator) computeStructureEffectiveFeatures(element Element) (Value, b
 			return Value{}, true, false
 		}
 		values := append(slicesClone(owned.Values), inherited.Values...)
-		return uniqueStructureValueSequence(values, e.options.Structure), true, true
+		return sequence(uniqueOwnedStructureValues(values, e.options.Structure)...), true, true
 	}
 	if !e.completeMembers(element.Symbol) {
 		e.recordMemberCompletenessFailure(element, "Type", "feature", element.Symbol)
@@ -4435,7 +4452,7 @@ func (e *Evaluator) structureEffectiveFeatureMemberships(element Element) (Value
 			return Value{}, true, false
 		}
 		values := append(slicesClone(owned.Values), inherited...)
-		return uniqueStructureValueSequence(values, e.options.Structure), true, true
+		return sequence(uniqueOwnedStructureValues(values, e.options.Structure)...), true, true
 	}
 	if !e.completeMembers(element.Symbol) {
 		e.recordMemberCompletenessFailure(element, "Type", "featureMembership", element.Symbol)
@@ -4603,7 +4620,7 @@ func (e *Evaluator) structureInheritedValues(element Element, property string) (
 	if e.options.Structure == nil || e.model == nil {
 		return nil, false
 	}
-	return e.memoizedValueList(structureValueListKey{element.Key(), "inherited:" + property, false}, func() ([]Value, bool) {
+	return e.memoizedValueList(structureValueListKey{element.Key(), "inherited:" + property}, func() ([]Value, bool) {
 		inherited, ok := e.structureInheritedMembershipList(element)
 		if !ok {
 			return nil, false
@@ -4617,12 +4634,10 @@ func (e *Evaluator) structureInheritedValues(element Element, property string) (
 type structureValueListKey struct {
 	element  ElementKey
 	property string
-	// shared lists are served without a copy: their readers only append them to lists of their own.
-	shared bool
 }
 
-// memoizedValueList reads cache under the evaluator mutex and computes outside it;
-// it stores and serves clones, so an edited result never reaches another reader.
+// memoizedValueList reads cache under the evaluator mutex and computes outside it. The list
+// is served as stored and clipped: its readers only read it or append it to lists of their own.
 func (e *Evaluator) memoizedValueList(key structureValueListKey, compute func() ([]Value, bool)) ([]Value, bool) {
 	return e.memoizedValueListIf(key, func() ([]Value, bool, bool) {
 		values, ok := compute()
@@ -4637,18 +4652,25 @@ func (e *Evaluator) memoizedValueListIf(key structureValueListKey, compute func(
 	entry, done := e.structureValueLists[key]
 	e.mu.Unlock()
 	if done {
-		if key.shared {
-			return entry.values, entry.ok
-		}
-		return slicesClone(entry.values), entry.ok
+		return entry.values, entry.ok
 	}
 	values, ok, store := compute()
+	values = sharedValueList(values)
 	if store {
 		e.mu.Lock()
-		e.structureValueLists[key] = structureInheritedCacheEntry{values: slicesClone(values), ok: ok}
+		e.structureValueLists[key] = structureInheritedCacheEntry{values: values, ok: ok}
 		e.mu.Unlock()
 	}
 	return values, ok
+}
+
+// sharedValueList readies a list for a memo its readers share: an append to it copies
+// it, and a list holding a quarter more room than values is stored at its own size.
+func sharedValueList(values []Value) []Value {
+	if cap(values)-len(values) > len(values)/4 {
+		values = slicesClone(values)
+	}
+	return slices.Clip(values)
 }
 
 // structureVisitCut marks a visited set whose walk skipped a type already on it: a
@@ -4681,8 +4703,8 @@ type structureValueCacheEntry struct {
 	handled, ok bool
 }
 
-// memoizedStructureValue reads cache under the evaluator mutex and computes outside it;
-// it stores and serves clones, so an edited result never reaches another property.
+// memoizedStructureValue reads cache under the evaluator mutex and computes outside it. The
+// value is served as stored, its list clipped: the properties projecting from it only read it.
 func (e *Evaluator) memoizedStructureValue(
 	cache map[ElementKey]structureValueCacheEntry, element Element, compute func(Element) (Value, bool, bool),
 ) (Value, bool, bool) {
@@ -4691,17 +4713,18 @@ func (e *Evaluator) memoizedStructureValue(
 	entry, done := cache[key]
 	e.mu.Unlock()
 	if done {
-		return cloneValue(entry.value), entry.handled, entry.ok
+		return entry.value, entry.handled, entry.ok
 	}
 	value, handled, ok := compute(element)
+	value.Values = sharedValueList(value.Values)
 	e.mu.Lock()
-	cache[key] = structureValueCacheEntry{value: cloneValue(value), handled: handled, ok: ok}
+	cache[key] = structureValueCacheEntry{value: value, handled: handled, ok: ok}
 	e.mu.Unlock()
 	return value, handled, ok
 }
 
 // structureInheritedCacheEntry memoizes a type's inherited memberships, which
-// every property of the family projects from.
+// every property of the family projects from without editing them.
 type structureInheritedCacheEntry struct {
 	values []Value
 	ok     bool
@@ -4715,11 +4738,12 @@ func (e *Evaluator) structureInheritedMembershipList(element Element) ([]Value, 
 	entry, done := e.structureInherited[key]
 	e.mu.Unlock()
 	if done {
-		return slicesClone(entry.values), entry.ok
+		return entry.values, entry.ok
 	}
 	values, ok := e.computeStructureInheritedMemberships(element)
+	values = sharedValueList(values)
 	e.mu.Lock()
-	e.structureInherited[key] = structureInheritedCacheEntry{values: slicesClone(values), ok: ok}
+	e.structureInherited[key] = structureInheritedCacheEntry{values: values, ok: ok}
 	e.mu.Unlock()
 	return values, ok
 }
@@ -4738,7 +4762,7 @@ func (e *Evaluator) computeStructureInheritedMemberships(element Element) ([]Val
 		}
 		inherited = append(inherited, memberships...)
 	}
-	inherited = uniqueStructureValueSequence(inherited, e.options.Structure).Values
+	inherited = uniqueOwnedStructureValues(inherited, e.options.Structure)
 	return e.structureRemoveRedefinedMemberships(element, inherited)
 }
 
@@ -4877,7 +4901,19 @@ func (e *Evaluator) structureNestedSubsettingFQN(element Element) (string, bool)
 			portion = ast.PortionTimeslice
 		}
 	}
-	return e.model.ImpliedSubsettingFQNForMetaclass(metaclass, ownerMetaclass, membershipMetaclass, membershipKind, composite.Boolean, portion, owningType.Element.Symbol), true
+	nested := semantics.NestedMetaclasses{
+		Metaclass: metaclass, OwnerMetaclass: ownerMetaclass,
+		MembershipMetaclass: membershipMetaclass, MembershipKind: membershipKind,
+		Composite: composite.Boolean, Portion: portion,
+	}
+	if value, known := e.options.Structure.Attribute(owningType.Element, "isParallel"); known && value.Kind == BooleanValue {
+		nested.OwnerParallel = value.Boolean
+	}
+	if ownerMembership, _, ok := e.structureOwningFeatureMembership(owningType.Element); ok && ownerMembership.Kind != NullValue {
+		handle := Element{Membership: ownerMembership.Membership, IsMembership: true}
+		nested.OwnerMembershipMetaclass, _ = e.options.Structure.Metaclass(handle)
+	}
+	return e.model.ImpliedSubsettingFQNForMetaclass(nested, owningType.Element.Symbol), true
 }
 
 func (e *Evaluator) elementDocumentKind(element Element) (source.Kind, bool) {
@@ -4896,14 +4932,14 @@ func (e *Evaluator) elementDocumentKind(element Element) (source.Kind, bool) {
 }
 
 func (e *Evaluator) structureTypeMembers(element Element, property string, visited map[ElementKey]bool) ([]Value, bool) {
-	return e.walkMemoized(structureValueListKey{element.Key(), "type:" + property, true}, visited, func() ([]Value, bool) {
+	return e.walkMemoized(structureValueListKey{element.Key(), "type:" + property}, visited, func() ([]Value, bool) {
 		return e.computeStructureTypeMembers(element, property, visited)
 	})
 }
 
 func (e *Evaluator) computeStructureTypeMembers(element Element, property string, visited map[ElementKey]bool) ([]Value, bool) {
-	if element.Symbol != nil && !e.structureKnows(element) {
-		return e.structureLibraryTypeMembers(element, property)
+	if base, ok := e.structureLibraryBase(element); ok {
+		return e.structureLibraryTypeMembers(base, property)
 	}
 	owned, handled, ok := e.structureOwnedFilter(element, "Membership", true)
 	if !handled || !ok {
@@ -4944,16 +4980,35 @@ func (e *Evaluator) computeStructureTypeMembers(element Element, property string
 	if !ok {
 		return nil, false
 	}
-	memberships := uniqueStructureValueSequence(
+	memberships := uniqueOwnedStructureValues(
 		append(append(public, protected...), inherited...), e.options.Structure,
-	).Values
+	)
 	return e.structureMembershipsProperty(memberships, property)
+}
+
+// structureLibraryBase is the one decision both member walks make: a library type the structure only
+// references — implied, or stated as `: Boolean` — has no rows there, so its members are read by this symbol.
+func (e *Evaluator) structureLibraryBase(element Element) (Element, bool) {
+	if element.Symbol != nil {
+		return element, !e.structureKnows(element)
+	}
+	if element.Node != nil || element.IsMembership {
+		return Element{}, false
+	}
+	// Only the symbol structure refers to a library type by a row of its own; a graph
+	// structure states its library bases as symbols already.
+	if structure, ok := e.options.Structure.(*SymbolStructure); ok {
+		if symbol, found := structure.LibrarySymbol(element); found && symbol != nil {
+			return ElementOf(symbol), true
+		}
+	}
+	return Element{}, false
 }
 
 // structureLibraryTypeMembers reads a library base's non-private memberships, anonymous ones
 // included, from the semantic inheritance table (KerML 8.3.3.1.10 nonPrivateMemberships).
 func (e *Evaluator) structureLibraryTypeMembers(base Element, property string) ([]Value, bool) {
-	return e.memoizedValueList(structureValueListKey{base.Key(), "library:" + property, true}, func() ([]Value, bool) {
+	return e.memoizedValueList(structureValueListKey{base.Key(), "library:" + property}, func() ([]Value, bool) {
 		return e.computeStructureLibraryTypeMembers(base, property)
 	})
 }
@@ -5037,7 +5092,7 @@ func (e *Evaluator) structureMembershipsProperty(memberships []Value, property s
 	if property == "membership" {
 		return memberships, true
 	}
-	var values []Value
+	values := make([]Value, 0, len(memberships))
 	for _, membershipValue := range memberships {
 		if membershipValue.Kind != MembershipValue {
 			return nil, false
@@ -5074,14 +5129,14 @@ func (e *Evaluator) structureMembershipsProperty(memberships []Value, property s
 			values = append(values, elementValue(member))
 		}
 	}
-	return uniqueStructureValueSequence(values, e.options.Structure).Values, true
+	return uniqueOwnedStructureValues(values, e.options.Structure), true
 }
 
 func (e *Evaluator) structureNonPrivateMemberships(
 	element Element,
 	visited map[ElementKey]bool,
 ) ([]Value, bool) {
-	return e.walkMemoized(structureValueListKey{element.Key(), "nonPrivate", true}, visited, func() ([]Value, bool) {
+	return e.walkMemoized(structureValueListKey{element.Key(), "nonPrivate"}, visited, func() ([]Value, bool) {
 		return e.computeStructureNonPrivateMemberships(element, visited)
 	})
 }
@@ -5090,8 +5145,8 @@ func (e *Evaluator) computeStructureNonPrivateMemberships(
 	element Element,
 	visited map[ElementKey]bool,
 ) ([]Value, bool) {
-	if element.Symbol != nil && !e.structureKnows(element) {
-		return e.structureLibraryTypeMembers(element, "membership")
+	if base, ok := e.structureLibraryBase(element); ok {
+		return e.structureLibraryTypeMembers(base, "membership")
 	}
 	owned, handled, ok := e.structureOwnedFilter(element, "Membership", true)
 	if !handled || !ok {
@@ -5171,7 +5226,6 @@ func (e *Evaluator) structureRemoveRedefinedMemberships(
 	memberships []Value,
 ) ([]Value, bool) {
 	type candidate struct {
-		value     Value
 		own       ElementKey
 		isFeature bool
 		redefined []ElementKey
@@ -5187,7 +5241,7 @@ func (e *Evaluator) structureRemoveRedefinedMemberships(
 		if !ok {
 			return nil, false
 		}
-		entry := candidate{value: membershipValue}
+		var entry candidate
 		for _, member := range members {
 			isFeature, known := e.isMetaclass(member, "Feature")
 			if !known {
@@ -5254,8 +5308,8 @@ func (e *Evaluator) structureRemoveRedefinedMemberships(
 			}
 		}
 	}
-	var result []Value
-	for _, entry := range candidates {
+	result := make([]Value, 0, len(memberships))
+	for index, entry := range candidates {
 		if entry.isFeature {
 			removed := redefinedByOthers[entry.own] || ownedRedefined[entry.own]
 			for i := 0; !removed && i < len(entry.redefined); i++ {
@@ -5265,7 +5319,7 @@ func (e *Evaluator) structureRemoveRedefinedMemberships(
 				continue
 			}
 		}
-		result = append(result, entry.value)
+		result = append(result, memberships[index])
 	}
 	return result, true
 }
@@ -6522,7 +6576,7 @@ func (e *Evaluator) structureGraphNamespaceMemberships(element Element, owned Va
 		return Value{}, true, false
 	}
 	values = append(values, imported.Values...)
-	return uniqueStructureValueSequence(values, e.options.Structure), true, true
+	return sequence(uniqueOwnedStructureValues(values, e.options.Structure)...), true, true
 }
 
 func (e *Evaluator) structureNamespaceMembers(element Element) (Value, bool, bool) {
@@ -6549,7 +6603,7 @@ func (e *Evaluator) structureNamespaceMembers(element Element) (Value, bool, boo
 			values = append(values, elementValue(member))
 		}
 	}
-	return uniqueStructureValueSequence(values, e.options.Structure), true, true
+	return sequence(uniqueOwnedStructureValues(values, e.options.Structure)...), true, true
 }
 
 func (e *Evaluator) structureFilteredOwnedFeatures(element Element, property, _ string) (Value, bool, bool) {
@@ -6721,71 +6775,66 @@ func (e *Evaluator) structureActionArgument(element Element, property string, on
 }
 
 func (e *Evaluator) structureBehaviorParameters(element Element) (Value, bool, bool) {
-	memberships, handled, ok := e.structureEffectiveFeatureMemberships(element)
-	if !handled || !ok {
-		e.recordUnsupportedReason(
-			element, "Behavior", "parameter",
-			Reason{Category: ReasonUnrepresentedEndpoint, Detail: "Behavior::parameter effective FeatureMembership endpoints are unavailable"},
-		)
-		return Value{}, true, false
-	}
-	var parameters []Value
-	for _, value := range memberships.Values {
-		membership := Element{Membership: value.Membership, IsMembership: true}
-		isParameter, known := e.isMetaclass(membership, "ParameterMembership")
-		if !known {
-			e.recordUnsupportedReason(
-				element, "Behavior", "parameter",
-				Reason{Category: ReasonUnrepresentedElement, Detail: "Behavior::parameter effective membership has no represented metaclass"},
-			)
-			return Value{}, true, false
-		}
-		if !isParameter {
-			continue
-		}
-		members, ok := e.structureMembershipMembers(membership)
-		if !ok {
-			e.recordUnsupportedReason(
-				element, "Behavior", "parameter",
-				Reason{Category: ReasonUnrepresentedEndpoint, Detail: "Behavior::parameter ParameterMembership memberElement is unavailable"},
-			)
-			return Value{}, true, false
-		}
-		filtered, handled, ok := e.structureFilterRelated(members, "Feature", false)
-		if !handled || !ok {
-			e.recordUnsupportedReason(
-				element, "Behavior", "parameter",
-				Reason{Category: ReasonUnrepresentedEndpoint, Detail: "Behavior::parameter ParameterMembership member is not a represented Feature"},
-			)
-			return Value{}, true, false
-		}
-		parameters = append(parameters, filtered.Values...)
-	}
-	return sequence(parameters...), true, true
+	return e.structureParametersAsDirectedFeatures(element, "Behavior")
 }
 
 func (e *Evaluator) structureStepParameters(element Element) (Value, bool, bool) {
-	memberships, handled, ok := e.structureOwnedFilter(element, "ParameterMembership", true)
-	if !handled || !ok {
+	return e.structureParametersAsDirectedFeatures(element, "Step")
+}
+
+// structureParametersAsDirectedFeatures derives Behavior::parameter and Step::parameter, which
+// redefine Type::directedFeature (KerML 8.3.5.1.2, 8.3.5.1.4): a parameter member or a directed feature.
+func (e *Evaluator) structureParametersAsDirectedFeatures(element Element, definingClass string) (Value, bool, bool) {
+	unsupported := func(detail string) (Value, bool, bool) {
+		e.recordUnsupportedReason(element, definingClass, "parameter",
+			Reason{Category: ReasonUnrepresentedEndpoint, Detail: definingClass + "::parameter " + detail})
 		return Value{}, true, false
+	}
+	// A step's parameters are its owned ones; a behavior's include the inherited.
+	var memberships Value
+	var handled, ok bool
+	if definingClass == "Step" {
+		memberships, handled, ok = e.structureOwnedFilter(element, "FeatureMembership", true)
+	} else {
+		memberships, handled, ok = e.structureEffectiveFeatureMemberships(element)
+	}
+	if !handled || !ok {
+		return unsupported("FeatureMembership endpoints are unavailable")
 	}
 	var parameters []Value
 	for _, value := range memberships.Values {
 		if value.Kind != MembershipValue {
-			return Value{}, true, false
+			return unsupported("membership is not a Membership")
 		}
-		members, ok := e.structureMembershipMembers(Element{
-			Membership:   value.Membership,
-			IsMembership: true,
-		})
+		membership := Element{Membership: value.Membership, IsMembership: true}
+		isParameter, known := e.isMetaclass(membership, "ParameterMembership")
+		if !known {
+			return unsupported("effective membership has no represented metaclass")
+		}
+		members, ok := e.structureMembershipMembers(membership)
 		if !ok {
-			return Value{}, true, false
+			return unsupported("effective membership memberElement is unavailable")
 		}
 		filtered, handled, ok := e.structureFilterRelated(members, "Feature", false)
 		if !handled || !ok {
-			return Value{}, true, false
+			return unsupported("effective membership member is not a represented Feature")
 		}
-		parameters = append(parameters, filtered.Values...)
+		for _, feature := range filtered.Values {
+			if !isParameter && feature.Kind == ElementValue {
+				direction, known := e.structureEffectiveDirection(element, feature.Element)
+				if !known {
+					e.recordUnsupportedReason(element, definingClass, "parameter", Reason{
+						Category: ReasonIncompleteStructure,
+						Detail:   definingClass + "::parameter effective direction is unavailable",
+					})
+					return Value{}, true, false
+				}
+				if direction == ast.DirNone {
+					continue
+				}
+			}
+			parameters = append(parameters, feature)
+		}
 	}
 	return sequence(parameters...), true, true
 }
@@ -6835,8 +6884,6 @@ func (e *Evaluator) structureRelationshipProperty(element Element, class, name s
 		return sequence(endpoints...), true, true
 	case "owningType":
 		return e.structureRelationshipOwner(element, "Type")
-	case "conjugatedPortDefinition":
-		return e.structureRelationshipOwner(element, "ConjugatedPortDefinition")
 	case "owningFeature":
 		return e.structureRelationshipOwner(element, "Feature")
 	case "importOwningNamespace":
@@ -6848,14 +6895,7 @@ func (e *Evaluator) structureRelationshipProperty(element Element, class, name s
 		}
 		return structureRelationshipValues(endpoints, class, name), true, true
 	case "documentedElement":
-		value, handled, ok := e.structureRelationshipOwner(element, "")
-		if !handled || !ok {
-			e.recordUnsupportedReason(
-				element, class, name,
-				Reason{Category: ReasonUnrepresentedEndpoint, Detail: "Documentation::documentedElement has no represented owning related element"},
-			)
-		}
-		return value, handled, ok
+		return e.structureDocumentedElement(element)
 	case "owningClassifier":
 		return e.structureRelationshipOwner(element, "Classifier")
 	case "owningFeatureOfType":
@@ -6961,6 +7001,53 @@ func (e *Evaluator) structureFeatureReferenceReferent(element Element) (Value, b
 	return nullValue(), true, true
 }
 
+// structureDocumentedElement derives Documentation::documentedElement, which subsets
+// owner (KerML 1.1 §8.3.2.3.5): always the element owning the documentation (§7.2.4.2).
+func (e *Evaluator) structureDocumentedElement(element Element) (Value, bool, bool) {
+	owner, handled, ok := e.structureOwner(element)
+	if !handled || !ok {
+		e.recordUnsupportedReason(element, "Documentation", "documentedElement",
+			Reason{Category: ReasonUnrepresentedEndpoint, Detail: "Documentation::documentedElement has no represented owner"})
+		return Value{}, true, false
+	}
+	return owner, true, true
+}
+
+// structureMetadataAccessReferencedElement derives MetadataAccessExpression::referencedElement
+// (KerML 1.1 §8.3.4.8.15): the first non-FeatureMembership owned membership's memberElement.
+func (e *Evaluator) structureMetadataAccessReferencedElement(element Element) (Value, bool, bool) {
+	unsupported := func(reason Reason) (Value, bool, bool) {
+		e.recordUnsupportedReason(element, "MetadataAccessExpression", "referencedElement", reason)
+		return Value{}, true, false
+	}
+	memberships, handled, ok := e.structureOwnedFilter(element, "Membership", true)
+	if !handled || !ok {
+		return unsupported(Reason{Category: ReasonUnrepresentedEndpoint, Detail: "owned membership elements are unavailable"})
+	}
+	for _, value := range memberships.Values {
+		if value.Kind != MembershipValue {
+			return unsupported(Reason{Category: ReasonUnrepresentedElement, Detail: "owned membership is not a Membership"})
+		}
+		membership := MembershipElement(value.Membership)
+		isFeatureMembership, known := e.isMetaclass(membership, "FeatureMembership")
+		if !known {
+			return unsupported(Reason{Category: ReasonUnrepresentedElement, Detail: "owned membership metaclass is unavailable"})
+		}
+		if isFeatureMembership {
+			continue
+		}
+		members, ok := e.structureMembershipMembers(membership)
+		if !ok {
+			return unsupported(Reason{Category: ReasonUnresolvedReference, Detail: "owned membership member is unresolved"})
+		}
+		if len(members) == 0 {
+			return unsupported(Reason{Category: ReasonUnrepresentedEndpoint, Detail: "owned membership has no member"})
+		}
+		return elementValue(members[0]), true, true
+	}
+	return nullValue(), true, true
+}
+
 func (e *Evaluator) structureConnectorRelatedFeatures(element Element) (Value, bool, bool) {
 	unsupported := func(reason Reason) (Value, bool, bool) {
 		e.recordUnsupportedReason(element, "Connector", "relatedFeature", reason)
@@ -7049,7 +7136,18 @@ func (e *Evaluator) structureConnectorEndpoint(element Element, endpoint string)
 	if len(features.Values) < 2 {
 		return sequence(), true, true
 	}
-	return sequence(features.Values[1:]...), true, true
+	// A connector's target is a unique list where relatedFeature keeps repeats (KerML 8.3.2.1):
+	// `connect (a, b, b)` targets b once, as the semantic model and the pilot answer.
+	seen := make(map[Element]bool, len(features.Values)-1)
+	targets := make([]Value, 0, len(features.Values)-1)
+	for _, value := range features.Values[1:] {
+		if seen[value.Element] {
+			continue
+		}
+		seen[value.Element] = true
+		targets = append(targets, value)
+	}
+	return sequence(targets...), true, true
 }
 
 func relationshipEndpointRange(class, property string) string {
@@ -7155,6 +7253,20 @@ func (e *Evaluator) structureRelationshipOwner(element Element, expected string)
 		}
 	}
 	return elementValue(owner), true, true
+}
+
+// structureConjugatedPortTypingTarget is the ConjugatedPortDefinition a ConjugatedPortTyping
+// types its feature by: its target (SysML v2 8.3.12.3, conjugatedPortDefinition redefines type).
+func (e *Evaluator) structureConjugatedPortTypingTarget(element Element) (Value, bool, bool) {
+	targets, ok := e.relationshipEndpoints(element, "conjugatedPortDefinition")
+	if !ok {
+		return Value{}, true, false
+	}
+	filtered, ok := e.structureFilterValues(targets, "ConjugatedPortDefinition")
+	if !ok {
+		return Value{}, true, false
+	}
+	return structurePropertyCardinality(filtered, true)
 }
 
 func (e *Evaluator) relationshipEndpoints(element Element, property string) ([]Value, bool) {
@@ -8004,7 +8116,7 @@ func structureRelationshipValues(elements []Value, class, property string) Value
 }
 
 // seenValues tracks the elements and memberships a sequence already holds, by their
-// own keys and by their symbols; the maps are allocated for capacity on first use.
+// own keys and by their symbols; each map is allocated for capacity on its first entry.
 type seenValues struct {
 	capacity          int
 	elements          map[ElementKey]bool
@@ -8027,10 +8139,6 @@ func (seen *seenValues) repeats(value Value) bool {
 }
 
 func (seen *seenValues) repeatsElement(element Element) bool {
-	if seen.elements == nil {
-		seen.elements = make(map[ElementKey]bool, seen.capacity)
-		seen.symbols = make(map[symbols.ElementKey]bool, seen.capacity)
-	}
 	key := element.Key()
 	symbolKey := symbols.KeyOf(element.Symbol)
 	if key != (ElementKey{}) && seen.elements[key] ||
@@ -8038,19 +8146,21 @@ func (seen *seenValues) repeatsElement(element Element) bool {
 		return true
 	}
 	if key != (ElementKey{}) {
+		if seen.elements == nil {
+			seen.elements = make(map[ElementKey]bool, seen.capacity)
+		}
 		seen.elements[key] = true
 	}
 	if symbolKey != (symbols.ElementKey{}) {
+		if seen.symbols == nil {
+			seen.symbols = make(map[symbols.ElementKey]bool, seen.capacity)
+		}
 		seen.symbols[symbolKey] = true
 	}
 	return false
 }
 
 func (seen *seenValues) repeatsMembership(membership Membership) bool {
-	if seen.memberships == nil {
-		seen.memberships = make(map[MembershipKey]bool, seen.capacity)
-		seen.membershipSymbols = make(map[symbols.ElementKey]bool, seen.capacity)
-	}
 	key := membership.Key()
 	symbol := membership.Symbol
 	if membership.Symbol == nil {
@@ -8062,9 +8172,15 @@ func (seen *seenValues) repeatsMembership(membership Membership) bool {
 		return true
 	}
 	if key != (MembershipKey{}) {
+		if seen.memberships == nil {
+			seen.memberships = make(map[MembershipKey]bool, seen.capacity)
+		}
 		seen.memberships[key] = true
 	}
 	if symbolKey != (symbols.ElementKey{}) {
+		if seen.membershipSymbols == nil {
+			seen.membershipSymbols = make(map[symbols.ElementKey]bool, seen.capacity)
+		}
 		seen.membershipSymbols[symbolKey] = true
 	}
 	return false
@@ -8085,35 +8201,55 @@ func uniqueValueSequence(values []Value) Value {
 	return sequence(unique...)
 }
 
+// uniqueStructureValueSequence drops the values repeating an earlier one by key, by
+// symbol or by the structure's element identity, into a list of its own.
 func uniqueStructureValueSequence(values []Value, structure Structure) Value {
-	values = uniqueValueSequence(values).Values
-	identity, ok := structure.(ElementIdentityStructure)
-	if !ok {
-		return sequence(values...)
+	if len(values) <= 1 {
+		return sequence(slicesClone(values)...)
 	}
-	seen := make(map[string]bool, len(values))
-	unique := make([]Value, 0, len(values))
+	return sequence(appendUniqueStructureValues(make([]Value, 0, len(values)), values, structure)...)
+}
+
+// uniqueOwnedStructureValues is uniqueStructureValueSequence over a list its caller
+// built and holds alone: the list is filtered in place.
+func uniqueOwnedStructureValues(values []Value, structure Structure) []Value {
+	if len(values) == 0 {
+		return nil
+	}
+	if len(values) == 1 {
+		return values
+	}
+	return appendUniqueStructureValues(values[:0], values, structure)
+}
+
+// appendUniqueStructureValues appends the first occurrence of each value to unique,
+// which may be values' own storage: a value is written no later than it is read.
+func appendUniqueStructureValues(unique, values []Value, structure Structure) []Value {
+	identity, _ := structure.(ElementIdentityStructure)
+	seen := seenValues{capacity: len(values)}
+	var identities map[string]bool
 	for _, value := range values {
-		var element Element
-		switch value.Kind {
-		case ElementValue:
-			element = value.Element
-		case MembershipValue:
-			element = MembershipElement(value.Membership)
-		default:
-			unique = append(unique, value)
+		if seen.repeats(value) {
 			continue
 		}
-		key, known := identity.ElementIdentity(element)
-		if known && key != "" {
-			if seen[key] {
-				continue
+		if identity != nil && (value.Kind == ElementValue || value.Kind == MembershipValue) {
+			element := value.Element
+			if value.Kind == MembershipValue {
+				element = MembershipElement(value.Membership)
 			}
-			seen[key] = true
+			if key, known := identity.ElementIdentity(element); known && key != "" {
+				if identities[key] {
+					continue
+				}
+				if identities == nil {
+					identities = make(map[string]bool, len(values))
+				}
+				identities[key] = true
+			}
 		}
 		unique = append(unique, value)
 	}
-	return sequence(unique...)
+	return unique
 }
 
 func structureElementKey(element Element, structure Structure) ElementKey {

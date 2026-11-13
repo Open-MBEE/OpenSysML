@@ -284,7 +284,11 @@ func (c *pkgClient) getSymbol(ctx context.Context, request protoreflect.Message)
 	if err := retype(request, req); err != nil {
 		return nil, err
 	}
-	symbol, err := c.api.LookupSymbol(ctx, c.model(req.ModelHash), req.SymbolId)
+	var opts []opensysml.SymbolOption
+	if req.IncludeLibraryMembers {
+		opts = append(opts, opensysml.WithLibraryMembers())
+	}
+	symbol, err := c.api.LookupSymbol(ctx, c.model(req.ModelHash), req.SymbolId, opts...)
 	var failure *opensysml.FailureError
 	if errors.As(err, &failure) {
 		return &pb.SymbolResponse{Error: failure.Message}, nil
@@ -1058,7 +1062,15 @@ func (c *pkgClient) runDocumentQuery(ctx context.Context, request protoreflect.M
 		}
 		bindings = append(bindings, converted)
 	}
-	rows, err := c.api.RunDocumentQuery(ctx, c.model(req.ModelHash), req.QueryId, bindings...)
+	var (
+		rows *opensysml.Rows
+		err  error
+	)
+	if req.InlineQuery != "" {
+		rows, err = c.api.RunInlineDocumentQuery(ctx, c.model(req.ModelHash), req.InlineQuery, bindings...)
+	} else {
+		rows, err = c.api.RunDocumentQuery(ctx, c.model(req.ModelHash), req.QueryId, bindings...)
+	}
 	if err != nil {
 		return nil, apiError(err)
 	}

@@ -8,6 +8,7 @@ package export
 
 import (
 	"fmt"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
 	"slices"
 	"sort"
 	"strings"
@@ -17,24 +18,33 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf/ontology"
 )
 
-// collapsedTargets are the target ends of a relationship element as the
-// owner's collapsed property states them: a ConjugatedPortTyping types by the
-// conjugate `~P`, which the head writes as P.
+// collapsedTargets are the target ends of a relationship element as the owner's
+// collapsed property states them: a ConjugatedPortTyping's conjugate, or P in an older graph.
 func (d *decoder) collapsedTargets(el *element) []rdf.Term {
 	var targets []rdf.Term
 	for _, property := range relationshipTargetEnds {
 		for _, object := range d.graph.Objects(rdf.IRI(el.iri), rdf.SysML+property) {
 			if el.metaclass == mConjugatedPortTyping {
-				if object.IsIRI() {
-					object = d.portDefinitions.original(d.graph, d.metaclass, rdf.IRI(el.iri), object)
-				} else {
+				if !object.IsIRI() {
 					object = rdf.String(strings.TrimPrefix(object.Value, "~"))
+				} else if !d.ownerStatesType(el, object) {
+					object = d.portDefinitions.original(d.graph, d.metaclass, rdf.IRI(el.iri), object)
 				}
 			}
 			targets = append(targets, object)
 		}
 	}
 	return targets
+}
+
+// ownerStatesType reports whether the owner of the typing el states object
+// as its collapsed type.
+func (d *decoder) ownerStatesType(el *element, object rdf.Term) bool {
+	owner := firstIRI(d.graph, rdf.IRI(el.iri), pOwningRelatedElement, pOwner)
+	if owner.Value == "" {
+		return false
+	}
+	return slices.Contains(d.graph.Objects(owner, rdf.SysML+relationshipProperty[ast.RelTyping]), object)
 }
 
 // impliedRelationshipMetaclasses are the relationship elements materialized
@@ -498,13 +508,11 @@ func (d *decoder) coverTargets(child *element, stated map[ast.RelationshipKind]m
 	}
 }
 
-// parameterMember reports whether el is owned through a kind-carrying
-// ParameterMembership: its `in` direction is the default a member never
-// spells out. A bare ParameterMembership declares no parameter kind, so a
-// member's direction is written explicitly.
+// parameterMember: el is owned through a subject, actor or stakeholder membership, whose `in` is the default never
+// spelled out; a bare ParameterMembership or an ObjectiveMembership (a FeatureMembership) states a direction explicitly.
 func (d *decoder) parameterMember(el *element) bool {
-	_, kind := d.parameterMembershipKind(el)
-	return kind
+	kind, ok := d.parameterMembershipKind(el)
+	return ok && kind != ast.UsageObjective
 }
 
 // verifyConjugated checks the conjugate's declared names against its original.
@@ -513,9 +521,9 @@ func (d *decoder) verifyConjugated(el, parent *element) error {
 	if original, ok := d.stringOf(parent, rdf.SysML+pDeclaredName); ok {
 		expectedName = "~" + original
 	} else if parent.qname != "" {
-		segments := identitySegments(parent.qname)
+		segments := naming.Segments(parent.qname)
 		last := segments[len(segments)-1]
-		if !positionalSegment(last) {
+		if !naming.PositionalSegment(last) {
 			expectedName = "~" + identityName(last)
 		}
 	}

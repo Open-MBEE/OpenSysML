@@ -252,6 +252,7 @@ the same member-path parser as `Project` and `OrderBy`.
 | `-no-record-cache` | | Parse every file loaded and hold it loaded, reading no interface record from the record cache and writing none: what a run does where `OPENSYSML_RECORD_CACHE=0`. By default a file whose bytes, library, conformance mode and record format match a record in the cache is held as that record — its scopes and symbols without its tree, and the diagnostics its analysis found — and a file analyzed by `-validate`, `-satisfy` or another load writes its record for the next run; see [Interface records](../internals/interface-records.md) |
 | `-trace` | | Report each execution step: expression evaluation, calc invocation, action tokens, state transitions, each `choice` the executor made among alternatives the library leaves unordered, naming the alternatives and the one taken, and each `unevaluable guard` it read only to report one and could not evaluate ([Choice points](../guide/06-behavior.md)). Under `-schedule explore` the table is printed first, then the trace of one witness run per distinct outcome, each under a `trace of outcome <n>'s witness (run <r>):` heading ([Exploring every linearization](#exploring-every-linearization)) |
 | `-render-run <kind>=<path>` | | Repeatable; write a recorded run's `timeline` or `sequence` as text, Mermaid or PlantUML. The extension `.txt`, `.mmd`/`.mermaid` or `.puml`/`.plantuml` selects a form; use `-render-form` for another extension. `-render-link` links PlantUML timeline lanes and single-state spans and sequence object participants; Mermaid gantt and messages remain unlinked. DOT is refused. Requires `-state`, `-action` or `-advance` and cannot be combined with model/document rendering or schedule exploration |
+| `-render-limit <count>` | | The most spans or messages a `-render-run` rendering draws, 200 by default; a rendering cut short says so in a note on stderr naming the instants not drawn. Refused without `-render-run` |
 | `-convert <format>` | | Convert the model instead of running it: `sysml`, `kerml`, `ttl`, `turtle`, `rdf`, `api-json` or `json`. Converting notation to notation reformats it: one statement per line, `}` on its own line, nesting indented, every lexeme and every line break the author wrote kept (see [Saving and RDF](../guide/07-saving-and-rdf.md#converting-from-the-command-line)). `ttl` writes the RDF graph in Turtle, `api-json` the same graph as the API's JSON element objects; both are [experimental](rdf-mapping.md#status-experimental) and every run that converts either says so on stderr (see [the RDF mapping](rdf-mapping.md)). The model argument may be a Flexo MMS project branch URL — `http(s)://host[:port][/base]/projects/{project}/branches/{branch}` or `flexo://{project}/{branch}` — both naming the endpoint `FLEXO_SYSMLV2_URL` configures — which is read as its head commit's RDF graph; see [Reading and pushing a repository branch](#reading-and-pushing-a-repository-branch) |
 | `-library-references <file>` | | With `-convert api-json`: write the referenced standard-library name table to this JSON side file; the element array stays unchanged ([Normative library identity](rdf-mapping.md#normative-library-identity)) |
 | `-include-library-stubs` | | With `-convert api-json`: restore the pre-0.11.0 ownerless library stubs for legacy readers (default off) |
@@ -330,7 +331,8 @@ written in, so the verdicts are about that object:
 | `-import-map <file>` | A JSON mapping file naming the column or JSON Pointer path each element and feature comes from, with units and value types; it applies to the `-import` before it |
 | `-import-format <format>` | Reads the `-import` before it as `csv`, `tsv`, `json` or `jsonl` rather than as its extension says |
 | `-import-dry-run` | Reports the values `-import` would set and changes and writes nothing |
-| `-run-query "<name> [<p>=<expr>...]"` | Executes a document query and reports its rows, as `%run-query` does — including any computed `Column` using `expression`, `cell`, or `path` and relationship-derived `RelatedColumn(...)` projections evaluated per row — a `Column` expression may be a feature chain (`stat.runs`, `'Monte Carlo'.runs`) reading a feature of a member nested in the row element, as may a `properties`/`property` string. Each binding is written as `<parameter>=<expression>`; a name binds the object `-instantiate` created under it while the run holds one (`#2` and `car.wheels[2]` bind an object by id and by path), and the element otherwise. A query over `Verdicts` reports each row as `<assertion> on <path>: <verdict>` ([Which constraints and requirements hold](../manual/query-cookbook.md#which-constraints-and-requirements-hold)). The queries run after `-state`, `-action` and `-advance` have run, so `States`, `InState` and `Events` read where the run left the objects and, with `-trace`, what it recorded — a state row as `<object>.<machine> in <statePath>`, an event row as `t=<instant> <object>.<machine>: <text>` ([Where the objects stand and what they did](../manual/query-cookbook.md#where-the-objects-stand-and-what-they-did)). With `-json` the check's `values` carry the row and column counts and its `table` the rows as data: `columns` in order, and per row its `element` and `cells` — per column, the values the cell holds as the prompt spells them (none for an empty cell, several for a collection; an element without a name is spelled by its `elementId`) |
+| `-run-query "<name> [<p>=<expr>...]"` | Executes a document query and reports its rows, as `%run-query` does — including any computed `Column` using `expression`, `cell`, or `path` and relationship-derived `RelatedColumn(...)` projections evaluated per row — a `Column` expression may be a feature chain (`stat.runs`, `'Monte Carlo'.runs`) reading a feature of a member nested in the row element, as may a `properties`/`property` string. Each binding is written as `<parameter>=<expression>`; a name binds the object `-instantiate` created under it while the run holds one (`#2` and `car.wheels[2]` bind an object by id and by path), and the element otherwise. A query over `Verdicts` reports each row as `<assertion> on <path>: <verdict>` ([Which constraints and requirements hold](../manual/query-cookbook.md#which-constraints-and-requirements-hold)). The queries run after `-state`, `-action` and `-advance` have run, so `States`, `InState` and `Events` read where the run left the objects and, with `-trace`, what it recorded — a state row as `<object>.<machine> in <statePath>`, an event row as `t=<instant> <object>.<machine>: <text>` ([Where the objects stand and what they did](../manual/query-cookbook.md#where-the-objects-stand-and-what-they-did)). With `-json` the check's `values` carry the row and column counts and its `table` the rows as data: `columns` in order, and per row its `element` and `cells` — per column, the values the cell holds as the prompt spells them (none for an empty cell, several for a collection; an element the conversion wrote is spelled by the address the conversion stated for it, as stated (a reserved-word name bare, `…::function`, not the notation's `'function'`): its qualified name, through an effective name too — a `return` parameter's `result`, a requirement under a nameless objective's `obj` — or, where the conversion addresses it by position, such as a metadata body's restated feature under its anonymous usage or a part under an unnamed part, its `elementId`) |
+| `-run-inline-query '<expression>'` | Executes a query expression written in place of a named query — the result expression of a `calc def` specializing `DocumentQueries::Query`, `Project(WhereType(Descendants(Named("Vehicles")), "PartUsage"), ("name", "mass"))` — and reports its rows exactly as `-run-query` does, through the same compiler and executor, in the loaded model's context: the `DocumentQueries` library imported, the model's own names reachable (`Descendants(Vehicles::car)` as well as `Named("Vehicles::car")`), and the objects `-instantiate` created behind `Objects`, `Verdicts`, `States` and `Events`. The two flags interleave in the order written and may repeat. The check is reported as `Inline query`, and with `-json` its `subject` is the expression. Text that does not parse or plan is reported at its line and column in the expression (`inline query 1:30: expected ')'`, with the expression and a caret under the position), apart from the model's diagnostics; a path or model fault keeps its QVTS outcome record, as a named query's does ([QVTS guide](../guide/qvts.md#write-the-query-inline)) |
 | `-action "<name> [object]"` | Runs an action to completion and reports its outputs, on the object named as `-state` names its performer when one is; under `-schedule explore` each run performs it on an object of its own ([Objects an exploration runs on](#objects-an-exploration-runs-on)) |
 | `-state "<name> [object]"` | Runs a state machine and reports where it settled. The object is one `-instantiate` created, named as `%state` names it: a usage's name, a feature path to a part it holds (`Fleet::driver.r`), or the id the report prints (`#2`). Naming the machine the object exhibits attaches to its running machine rather than performing it again (a definition exhibited as several usages is refused with the usages to name instead); naming a usage whose definition alone was instantiated says which usage to `-instantiate`. Under `-schedule explore` the object is one each run creates of its own: a definition or usage to instantiate, a path from one into a part it holds (`Mission::mission.vehicle`, `Fleet::fleet.rovers[2]`) or, named alone, the run's one `-instantiate` object exhibiting the machine ([Objects an exploration runs on](#objects-an-exploration-runs-on)) |
 | `-advance <time>` | Simulated time (seconds, `SI::s`) the invocation's `-action` and `-state` behaviors run for, on the one clock they share: every state event, action `accept after`/`accept at` and do behavior due within it runs, in due order — a state's do behavior parked at an `accept after` of its own action body among them — and two behaviors due at the same instant run in the order `-schedule` picks (the one started last first by default), reported as a choice point. A state machine takes only its initial transition without it, under every `-schedule` and `-engine` — `explore` and `-engine check` search that point, and their standing says `after the initial transition only` when a do behavior, an event, a timer or a change condition is left pending; an action runs to completion on its own without it and, with it, only as far as that much time takes it, so one still waiting on the clock is reported as undecided with the instant it waits for. Refused without an `-action` or `-state` to run |
@@ -369,7 +371,7 @@ Other modes, each described in full by `sysml -help` and the manual page:
 |------|------|
 | `-query <oslc-query>` | Evaluates [OSLC Query text](oslc-query.md) against the model instead of running the REPL |
 | `-compile <name>` | Compiles the named `calc def` to a native executable named by `-o`; `-target c` (default) or `go` picks the backend, and `-source` writes the generated source to `-o` instead of building it. What else compiles is in [Native compilation](../project/native-compilation.md) |
-| `-sync-diff <repo>` | Shows the change set between the model and a repository — a graph file (`.ttl`) or a SysML v2 API endpoint URL — keyed by effective element id, and never writes. `-sync-base <file>` names the repository graph at the last-seen commit so repository changes since then surface as conflicts; `-sync-confirm-deletes` confirms repository-side deletes, which the diff otherwise reports but refuses to apply; `-sync-mint-ids` mints a UUID for each unannotated element being created, and `-sync-annotate <file>` writes the model with each minted id declared as an `@ElementId` annotation |
+| `-sync-diff <repo>` | Shows the change set between the model and a repository — a graph file (`.ttl`) or a SysML v2 API endpoint URL — keyed by effective element id, and never writes. `-sync-base <file>` names the repository graph at the last-seen commit so repository changes since then surface as conflicts; `-sync-confirm-deletes` confirms repository-side deletes, which the diff otherwise reports but refuses to apply; `-sync-mint-ids` mints a UUID for each unannotated element being created, and `-sync-annotate <file>` writes the model with each minted id declared as an `@ElementId` annotation. Against an API endpoint both sides are compared under what the repository stores — `sysml:` properties of elements with a `sysml:` metaclass — so every `sysx:` property, and every node of a `sysx:` class nothing kept references (a `sysx:Note`), is reported as not carried rather than diffed; an element of a `sysx:` class a kept `sysml:` property references (a `choice` or `junction` pseudostate, `sysx:Pseudostate`; an `action a { … }` node, `sysx:ActionExecutionNode`) is refused with the element, its class and the property, since the repository could hold neither it nor a reference to it |
 | `-sync-apply <url>` | Applies the change set to the model's project branch at the SysML v2 API endpoint, refusing one the dry run would have flagged, then records the commit in the sync state (`-sync-state <file>`, default `<model>.sync.json` beside the model). The token comes from `FLEXO_INTEROP_TOKEN` |
 | `-sync-state <file>` | The sync state file a live sync or a `-convert` over a branch URL reads and records the last-seen commit in; the defaults are `<model>.sync.json` on `-sync-apply` and a push, and `<output>.sync.json` on a branch read written to `-o`. A stdout branch read records nothing unless `-sync-state` names a file |
 | `-memstats`, `-cpuprofile <file>`, `-memprofile <file>` | Report on stderr what the run cost — wall time, memory allocated, memory taken from the OS — or write a CPU or heap profile for `go tool pprof` |
@@ -430,7 +432,7 @@ may read the relationship-valued ones: `ownedRelationship`, `ownedAnnotation`, `
 and the requirement properties derived through memberships — `text`, `requiredConstraint`,
 `assumedConstraint`, `framedConcern`, `actorParameter`, `stakeholderParameter` on a requirement,
 `verifiedRequirement` on a verification case (not on a requirement: the metamodel declares no
-inverse), `satisfiedRequirement` and `satisfyingFeature` on a `satisfy`. Each Membership,
+inverse), `satisfiedRequirement` and `satisfyingFeature` on a `satisfy`, `payloadArgument`, `senderArgument` and `receiverArgument` on a send action. Each Membership,
 Annotation or Import read this way is a metaobject answering the ends and attributes its
 metaclass declares (`memberElement`, `memberName`, `visibility`, `kind`, `annotatedElement`,
 `importedNamespace`, …). A feature the metaclass declares but the model cannot derive
@@ -571,7 +573,8 @@ sysml -e "result" file1.sysml file2.sysml
 
 `-render-run <kind>=<path>` writes the trace of a behavior run as a timeline or message sequence.
 Run it with `-state`, `-action` or `-advance`; the trace is recorded silently unless `-trace`
-also asks to print it. Repeat the flag for both renderings:
+also asks to print it. Repeat the flag for both renderings, and bound how much each draws with
+`-render-limit <count>` (200 spans or messages by default):
 
 ```bash
 sysml examples/run-timeline/run-timeline.sysml \
@@ -876,6 +879,10 @@ state grammar has no pin, so it names the edge's pins in the edge's label (`n0 -
 and lists every pin in its node's `parameters` compartment; `d2` draws the pins an edge ends at as
 nodes nested in their owner, and lists the rest in the `parameters` compartment.
 
+A calculation whose body states a result expression (`calc add { in x; in y; return : Integer;
+x + y }`) shows it in a `result` compartment of its node, in every form; an action that declares no
+nodes is noted `declares no nodes`, and a calculation never is.
+
 A tree rendering draws the directed parameters of a calculation, action or constraint definition or
 usage — `in`, `out`, `inout` and `return` — as parameter pins of their owner's node rather than as
 nested members, a `return` declaring no name as the `result` output: `text` lists them under the
@@ -918,16 +925,22 @@ written as entities; edge labels, identifiers and geometry stay double-quoted st
 Containment becomes a `subgraph "cluster_…"`, the flow direction becomes `rankdir`, and edges keep
 Mermaid's semantics: a connection is undirected (`arrowhead=none`), a flow is dashed, a transition
 or succession is a solid arrow drawn at the Pilot visualizer's thickness (`penwidth=3` for a
-connection). A part's ports are drawn on it as small squares labelled `name : Type`, cells of an
-HTML-like record label in a laid-out diagram (`"n2":"n2.0" -> "n1":"n1.0"`) or pinned nodes on the
-part's border when the view positions it, and a connector at a port is drawn to the square. The
+connection). A part's ports are drawn on it as small squares labelled `name : Type`, on the edge of
+the part's box in a laid-out diagram (`"n2":"n2.0" -> "n1":"n1.0"`) or pinned nodes on the
+part's border when the view positions it, and a connector at a port is drawn to the square. An
+action's or calculation's parameter pins are drawn the same way, inputs on the top edge and outputs
+on the bottom. The
 drawing is in the Standard B&W style of the OMG SysML v2 Pilot Implementation's
 visualizer, after Hisashi Miyashita's `sysmlbw` PlantUML skin: Helvetica text, white fills, thin
 `#181818` lines, square definitions and rounded usages, a bold name over an italic `«keyword»`
 line, unfilled black-bordered clusters, and unnamed initial and final pseudo-states as the filled
 UML dot ([the translation](../project/view-rendering-forms.md#style)). Producing DOT needs no
 Graphviz installation; laying it out does, with the engine the `// layout:` header names
-(`dot -Tsvg view.dot`, or `neato -Tsvg view.dot` when the view states positions — below). A
+(`dot -Tsvg view.dot`, or `neato -Tsvg view.dot` when the view states positions — below). A typing
+edge is written `arrowhead=empty, class=definition`: Graphviz has no arrowhead for the two dots the
+notation sets beside the triangle's base, so `dot` alone draws the hollow triangle, and the drawings
+OpenSysML has Graphviz make — a rendered document, the language server's and the Jupyter kernel's —
+add the dots. A
 `sequence` view has no DOT counterpart and, like a `table`, is refused with status 2 when `dot`
 is forced.
 
@@ -1922,7 +1935,15 @@ With `-json` the check carries the rows as `outcomes` — each with its `values`
 optional exact `probability`, optional `probabilityRange` (`min`, `max`), `witness` (one choice
 per entry, in run order) and, for a failed run, its `error` — and how the exploration ended as
 `exploration` (`complete`, `runs`, `budgetsHit`, optional `failedLinearizations`,
-`probabilitiesLowerBound`):
+`probabilitiesLowerBound`, `coverage`). `coverage` is what every run entered and took, not only
+the witness of each outcome: `states[]` and `transitions[]`, each entry's `path` qualified by the
+instance that ran the machine (`Cov::sys#1.m.run: s0 -> viaB`, so one definition instantiated
+many times is told apart), its `declaration` (`Cov::M::run::s0 -> viaB`) and the number of
+`runs` that did so. A transition's entry carries its own name and its trigger when it has them
+(`idle -> busy (wake, event: accept Go)`), so two transitions between the same two states stay
+apart. The text verdict prints the same after the table, as
+`coverage over all runs: 5 states entered, 4 transitions taken` followed by one `state …` or
+`transition …` line each:
 
 ```json
 {
@@ -1951,7 +1972,8 @@ per entry, in run order) and, for a failed run, its `error` — and how the expl
         "complete": false,
         "runs": 1,
         "budgetsHit": ["runs"],
-        "probabilitiesLowerBound": false
+        "probabilitiesLowerBound": false,
+        "coverage": { "states": [], "transitions": [] }
       }
     }
   ]
@@ -2350,7 +2372,11 @@ with its `values[]`, each with `value`, `witness`, `draws` and `path`) and `outc
 violation also carries `mass`: the sum of the path probabilities of the search paths reaching it —
 a weighted pick its stated share, an unweighted choice the uniform `1/n` a `seed:<n>` takes each
 alternative with — and the check object carries `massLowerBound`, true when a bound was hit, a state was reached again or the persistent-set reduction left a move
-out, since the masses then bound the true figure from below.
+out, since the masses then bound the true figure from below. The check object also carries
+`coverage`: every state entered and transition taken over all the searched schedules, in the
+form the `explore` report uses (`states[]`, `transitions[]`, each `path`, `declaration` and the
+number of schedules, as `runs`, that did so); the text verdict lists the same under
+`coverage over all schedules: …`.
 
 ### Deciding a property over the inputs
 

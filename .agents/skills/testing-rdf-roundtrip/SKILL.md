@@ -287,7 +287,7 @@ directory alone matches nothing and `sysml` then complains about a missing exten
 
 ## The corpus round-trip ratchet (run it before and after any writer/encoder change)
 
-`TestCorpusRoundTrip` (`tests/corpus/roundtrip_test.go`) runs the three-hop trip
+`TestExamplesSweep` (`tests/corpus/examples_sweep_test.go`, verdicts in `roundtrip_test.go`) runs the three-hop trip
 over **every** `.sysml`/`.kerml` under `examples/` — the 32 committed models, the 100-file
 training corpus and the three pilot corpora (213 files) — and pins one verdict per file in
 `tests/corpus/testdata/corpus_roundtrip_expected.txt`. It runs in about two seconds.
@@ -296,7 +296,7 @@ Record: `docs/project/rdf-corpus-roundtrip.md`.
 ```bash
 ./scripts/download-training-examples.sh && ./scripts/download-pilot-corpora.sh   # once
 OPENSYSML_REQUIRE_TRAINING_CORPUS=1 OPENSYSML_REQUIRE_PILOT_CORPORA=1 \
-  go test -count=1 -v ./tests/corpus -run TestCorpusRoundTrip
+  go test -count=1 -v ./tests/corpus -run TestExamplesSweep
 ```
 
 Without the require variables an absent corpus **skips** the gate with a `GATE NOT RUN` banner on
@@ -321,7 +321,7 @@ regression does, so every movement is adjudicated. When your change moves files:
    record.
 3. Regenerate and commit the expectation file in the same PR:
    ```bash
-   go test ./tests/corpus -run TestCorpusRoundTrip -update-corpus-roundtrip
+   go test ./tests/corpus -run TestExamplesSweep -update-corpus-roundtrip
    git diff --stat tests/corpus/testdata/corpus_roundtrip_expected.txt
    ```
    Run the update twice and confirm the second run leaves the file unchanged; the run is

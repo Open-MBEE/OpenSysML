@@ -108,7 +108,7 @@ func TestAPIJSONStatesEveryNonDerivedBoolean(t *testing.T) {
 		}
 	}
 	for id, want := range map[string]map[string]any{
-		"P__D__a":           {"isComposite": true, "isUnique": true, "isVariable": true, "mayTimeVary": true, "isAbstract": false, "isReference": nil},
+		"P__D__a":           {"isComposite": true, "isUnique": true, "isVariable": true, "mayTimeVary": true, "isAbstract": false, "isReference": false},
 		"P__D__b":           {"isComposite": false, "isReference": true, "isVariable": true, "mayTimeVary": true},
 		"P__D__v":           {"isVariable": true, "mayTimeVary": true},
 		"P__D__n":           {"isUnique": false},

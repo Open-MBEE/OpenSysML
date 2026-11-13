@@ -93,6 +93,7 @@ function recordingParseSources(): {
           childIds: [],
           attributes: [],
           specializations: [],
+          members: [],
         })),
         diagnostics: [],
         error: "",

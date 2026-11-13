@@ -7,14 +7,17 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { before, test } from "node:test";
 import {
+  CAPABILITY_INLINE_DOCUMENT_QUERY,
   DocumentEvent,
   DocumentState,
   DocumentVerdict,
   ElementRef,
+  MissingCapabilityError,
   ObjectRef,
   SymbolNotFoundError,
   connect,
 } from "../src/node/index.js";
+import { fakeConnection } from "./support/fake.js";
 import { repoRoot, useServiceBinary } from "./support/service.js";
 import { RenderViewResponseSchema } from "../src/generated/sysml_pb.js";
 import { renderedViewOf } from "../src/core/render-view.js";
@@ -125,6 +128,31 @@ test("rendered view decoder preserves wire fields and message presence", () => {
   assert.equal(sparse.edges[0]?.style, undefined);
   assert.equal(sparse.rows[0]?.origin, undefined);
   assert.equal(sparse.notes[0]?.origin, undefined);
+});
+
+test("a query expression runs in place of a named query", async () => {
+  await using connection = await connect();
+  const model = await connection.loads(readFileSync(REPORT_FIXTURE, "utf8"));
+  const rows = await model.runInlineDocumentQuery(
+    'Project(WhereType(Descendants(Observatory::telescope), "PartUsage"), ("name", "mass"))',
+  );
+  assert.deepEqual(rows.columns, ["name", "mass"]);
+  assert.equal(rows.length, 4);
+  await assert.rejects(
+    model.runInlineDocumentQuery('Project(Named("Observatory") ("name"))'),
+    (error: Error) => error.message.includes("inline query 1:"),
+  );
+});
+
+test("a query expression a service cannot run is refused by rejection, not by a throw", async () => {
+  await using connection = await fakeConnection(["document_query"]);
+  const pending = connection.model("hash").runInlineDocumentQuery('Project(Named("Observatory") ("name"))');
+  assert.ok(pending instanceof Promise);
+  await assert.rejects(pending, (error: unknown) => {
+    assert.ok(error instanceof MissingCapabilityError);
+    assert.equal(error.capability, CAPABILITY_INLINE_DOCUMENT_QUERY);
+    return true;
+  });
 });
 
 test("states and events over the object instantiate built", async () => {

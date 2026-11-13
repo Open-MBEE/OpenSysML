@@ -16,6 +16,11 @@ func TestNegative(t *testing.T) {
 		input string
 	}{
 		{"unclosed_brace", "part {"},
+		// A state's entry/do/exit accept takes an ActionBody (`;` or a block), so `then`
+		// cannot follow it directly, and it needs a payload (SysML.xtext StateAcceptActionUsage).
+		{"state_entry_accept_then", "package P { attribute def Sig; state def S { state s { entry accept a : Sig then s; } } }"},
+		{"state_do_accept_without_payload", "package P { state def S { state s { do accept; } } }"},
+		{"state_exit_accept_unclosed_body", "package P { attribute def Sig; state def S { state s { exit accept Sig { } } }"},
 		// One `;` after a condition is its terminator; a second ends nothing, and
 		// `case` after `analysis case` is no name.
 		{"doubled_condition_terminator", "constraint def K { in x : ScalarValues::Real; x > 0.0;; }"},

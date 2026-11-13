@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -65,6 +66,69 @@ func (e *StateExecutor) executeBehavior(behavior lower.StateBehavior) (bool, err
 		return false, err
 	}
 	return host.terminated, nil
+}
+
+// executeEntryBehaviors runs a state's entry behaviors at the instant of entry until one
+// waits for a message: that run, paused, and the behaviors after it are the entry's remainder.
+func (e *StateExecutor) executeEntryBehaviors(state *ast.StateNode, behaviors []lower.StateBehavior) (*doRun, []lower.StateBehavior, error) {
+	if len(behaviors) == 0 {
+		return nil, nil, nil
+	}
+	if e.performing == nil {
+		e.performing = make(map[program.StateID]int)
+	}
+	e.performing[e.stateID(state)]++
+	defer func() {
+		if e.performing[e.stateID(state)]--; e.performing[e.stateID(state)] == 0 {
+			delete(e.performing, e.stateID(state))
+		}
+	}()
+	var ended []ast.Node
+	for i, behavior := range behaviors {
+		if e.endedBefore(ended, behavior) {
+			continue
+		}
+		run, terminated, err := e.executeEntryBehavior(behavior)
+		if err != nil {
+			return nil, nil, err
+		}
+		if run != nil {
+			return run, behaviors[i+1:], nil
+		}
+		if terminated {
+			ended = append(ended, behavior.Block)
+		}
+	}
+	return nil, nil, nil
+}
+
+// executeEntryBehavior runs one entry behavior at the instant to its end (reporting a run
+// its own `terminate` ended) or to where its flow waits for a message, returning the paused run.
+func (e *StateExecutor) executeEntryBehavior(behavior lower.StateBehavior) (*doRun, bool, error) {
+	if err := e.validateBehaviorMultiplicity(behavior); err != nil {
+		return nil, false, err
+	}
+	if len(behavior.Body) == 0 {
+		return nil, false, nil
+	}
+	host := e.behaviorHost(behavior, e.currentFiring())
+	defer e.ctx.holdClock(host.describe())()
+	oneMove := e.ctx.scheduling().oneMove()
+	run := &bodyRun{work: host, awaitsMessages: true, steps: oneMove, holdsClock: true}
+	for {
+		pause, paused := run.resume(e.ctx)
+		if !paused {
+			return nil, host.terminated, run.err
+		}
+		if pause.onWait && pause.wait.onMessage {
+			// From here on the remainder runs in the do rounds, as a do behavior does.
+			run.yields, run.nodesYield, run.guards, run.holdsClock = true, true, oneMove, false
+			return &doRun{host: host, body: run}, false, nil
+		}
+		if !pause.tokenStep {
+			return nil, false, errPaused
+		}
+	}
 }
 
 func (h *stateStmtHost) runBehavior() error {
@@ -326,8 +390,8 @@ func (h *stateStmtHost) rootFrame(attrs []frame) *actionFrame {
 		connections:    h.exec.graph.Connections,
 		data:           make(map[string]Value),
 		features:       make(map[string]ast.FeatureDirection),
-		subactions:     make(map[ast.Node]*actionFrame),
-		nodes:          h.behavior.Nodes,
+		subactions:     make(map[NodeRef]*actionFrame),
+		nodes:          blockNodeRefs(h.behavior.Body),
 		multiplicities: h.behavior.Multiplicities,
 		label:          h.describe(),
 		outer:          []frame{h.dataFrame()},
@@ -420,8 +484,8 @@ func (h *stateStmtHost) assignStateAttribute(name string, value Value) (bool, er
 	declared := name
 	if h.exec.holdsShadowed() {
 		for _, ancestor := range h.exec.getParentChain(h.behavior.Owner) {
-			if _, held := h.exec.stateAttrs[ancestor]; held {
-				_, declared = declarationHeldUnder(h.exec.stateAttrIndex[ancestor], scope, name)
+			if _, held := h.exec.stateAttrs[h.exec.stateID(ancestor)]; held {
+				_, declared = declarationHeldUnder(h.exec.stateAttrIndex[h.exec.stateID(ancestor)], scope, name)
 				if declared != name {
 					break
 				}
@@ -600,7 +664,7 @@ func (h *stateStmtHost) returnAround(name string, value Value) (bool, error) {
 }
 
 // pauseAt sets no breakpoint: a state behavior's nodes are not stepped.
-func (h *stateStmtHost) pauseAt([]ast.Node, ast.Node) error {
+func (h *stateStmtHost) pauseAt([]NodeRef, NodeRef) error {
 	return nil
 }
 

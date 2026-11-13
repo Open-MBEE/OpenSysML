@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/docset"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/modeldoc"
 )
 
@@ -38,7 +39,7 @@ func TestRenderDocumentMarkdownLinksSiblingsByPlannedFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RenderDocumentMarkdown: %v", err)
 	}
-	files, err := modeldoc.DocumentFiles([]string{"Reports::Weekly", "Reports::WEEKLY"}, ".md")
+	files, err := docset.Files([]string{"Reports::Weekly", "Reports::WEEKLY"}, ".md")
 	if err != nil {
 		t.Fatalf("DocumentFiles: %v", err)
 	}

@@ -6,7 +6,7 @@ const FEATURE_KINDS = Set((
     "attributeusage", "referenceusage", "partusage", "itemusage",
     "occurrenceusage", "individualusage", "portusage", "enumusage",
 ))
-const GENERALIZATION_KINDS = Set(("specializes", "subsets", "redefines"))
+const GENERALIZATION_KINDS = Set(("specializes", "subsets", "redefines", "references"))
 const PRIMITIVE_GENERATION_TYPES = Dict(
     "Boolean" => ("Bool", "OpenSysML.as_bool"),
     "String" => ("String", "OpenSysML.as_str"),
@@ -69,9 +69,18 @@ function _inherited_fact(facts::SymbolFacts, facts_by_id, choose; depth=0)
     nothing
 end
 
+# A feature typed only through subsetting, reference subsetting or redefinition takes the
+# service's derived `types` (its most specific first); the walk over what it generalizes is
+# the fallback for a service that predates `types`.
 function _resolved_feature_facts(facts::SymbolFacts, facts_by_id)
     type_facts = facts.type
-    if !_names_type(type_facts)
+    if !_names_type(type_facts) && type_facts !== nothing && !isempty(type_facts.types)
+        derived = type_facts.types[1]
+        type_facts = TypeFacts(
+            type_facts.declared, derived.id, derived.kind, type_facts.primitive,
+            type_facts.primitive_source, type_facts.quantity, type_facts.unit, type_facts.types,
+        )
+    elseif !_names_type(type_facts)
         inherited = _inherited_fact(facts, facts_by_id,
             parent -> _names_type(parent.type) ? parent.type : nothing)
         if inherited !== nothing
@@ -83,6 +92,7 @@ function _resolved_feature_facts(facts::SymbolFacts, facts_by_id)
                     inherited.primitive_source : own.primitive_source,
                 (own !== nothing && own.quantity) || inherited.quantity,
                 own === nothing || isempty(own.unit) ? inherited.unit : own.unit,
+                own === nothing ? inherited.types : own.types,
             )
         end
     end

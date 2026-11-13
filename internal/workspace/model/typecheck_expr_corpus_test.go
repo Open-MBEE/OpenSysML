@@ -11,6 +11,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs/errata"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/corpussubset"
 )
 
 // exprTypeCodes are the codes of the expression type checker's findings, which
@@ -259,6 +260,7 @@ func TestExprTypeCheckNoExampleFalsePositives(t *testing.T) {
 		filepath.Join("..", "..", "..", "examples"),
 		filepath.Join("..", "..", "exec", "runtime", "testdata"),
 	}
+	subset := corpussubset.Must(t, "../../..")
 	ws := NewWorkspace()
 	var found []string
 	for _, root := range roots {
@@ -275,7 +277,7 @@ func TestExprTypeCheckNoExampleFalsePositives(t *testing.T) {
 				}
 				return nil
 			}
-			if !strings.HasSuffix(path, ".sysml") && !strings.HasSuffix(path, ".kerml") {
+			if (!strings.HasSuffix(path, ".sysml") && !strings.HasSuffix(path, ".kerml")) || !subset.WantsPath(roots[0], path) {
 				return nil
 			}
 			data, readErr := os.ReadFile(path)

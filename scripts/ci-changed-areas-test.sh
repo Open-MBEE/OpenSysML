@@ -51,13 +51,50 @@ quick_case_() {
   CI_TIER=quick case_ "$@"
 }
 
+# tier_case_ <name> <expected tier> <files...>: the tier the script decides with CI_TIER unset.
+tier_case_() {
+  local name=$1 expected=$2
+  shift 2
+  git -C "$work" -c advice.detachedHead=false checkout -q "$base"
+  git -C "$work" checkout -q -B "tier-$name"
+  for file in "$@"; do
+    mkdir -p "$work/$(dirname "$file")"
+    echo change >>"$work/$file"
+    git -C "$work" add "$file"
+  done
+  git -C "$work" -c commit.gpgsign=false commit -qm "$name"
+
+  local actual
+  actual=$(cd "$work" && env -u CI_TIER -u CI_EVENT -u CI_FULL_LABEL bash scripts/ci-changed-areas.sh "$base" HEAD 2>/dev/null | sed -n 's/^tier=//p')
+  if [[ "$actual" != "$expected" ]]; then
+    echo "FAIL tier $name: expected $expected, got $actual" >&2
+    failures=$((failures + 1))
+  else
+    echo "ok   tier $name: $actual"
+  fi
+}
+
+# event_case_ <event> <label:true|false> <expected tier>: the tier for that event on the last case's head.
+event_case_() {
+  local event=$1 label=$2 expected=$3
+  local actual
+  actual=$(cd "$work" && env -u CI_TIER CI_EVENT="$event" CI_FULL_LABEL="$label" bash scripts/ci-changed-areas.sh "$base" HEAD 2>/dev/null | sed -n 's/^tier=//p')
+  if [[ "$actual" != "$expected" ]]; then
+    echo "FAIL tier for $event (ci:full=$label): expected $expected, got $actual" >&2
+    failures=$((failures + 1))
+  else
+    echo "ok   tier for $event (ci:full=$label): $actual (on the last case's head)"
+  fi
+}
+
 case_ docs-only docs docs/guide/index.md
 case_ overrides-only docs overrides/home.html
 case_ changelog-only docs CHANGELOG.md
 case_ changelog-fragment docs changes/unreleased/repl-thing.added.md
-case_ java-module java,mdk client/java/opensysml-client/pom.xml
-case_ java-manifest java,mdk,python client/java/pom.xml
-case_ java-readme docs,java,mdk,python client/java/README.md
+case_ java-module java,mdk,syson client/java/opensysml-client/pom.xml
+case_ java-source java,mdk,syson client/java/opensysml-client/src/main/java/org/openmbee/opensysml/Exploration.java
+case_ java-manifest java,mdk,python,syson client/java/pom.xml
+case_ java-readme docs,java,mdk,python,syson client/java/README.md
 case_ java-reference docs,python docs/reference/java-api.md
 case_ java-skill docs,python packaging/agent-skills/skills/opensysml-java/SKILL.md
 case_ node-only node client/node/src/node/binary.ts
@@ -93,9 +130,18 @@ case_ vscode-syntaxes docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python
 case_ jupyterlab-syntax docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode editors/jupyterlab/src/syntax.json
 # Any markdown counts as documentation: the site links out to repository files.
 case_ man-page docs packaging/man/man1/sysml.1
-case_ two-client-readmes docs,java,mdk,node,python client/java/README.md client/node/README.md
-case_ two-clients java,mdk,node,python client/java/pom.xml client/node/tsconfig.json
+case_ two-client-readmes docs,java,mdk,node,python,syson client/java/README.md client/node/README.md
+case_ two-clients java,mdk,node,python,syson client/java/pom.xml client/node/tsconfig.json
 case_ go-source docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/syntax/parser/parser.go
+# The derived-property differential runs on what can move its baseline (the writer, the referee,
+# the bridge, the pin, the baseline itself) and on unclaimed paths, like every area; not on a parser change.
+case_ apijson-writer apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/translate/export/api_json_absence.go
+case_ apijson-referee apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode tools/referee/apijson/provenance.go
+case_ apijson-store apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode tools/referee/baseline/store.go
+case_ apijson-bridge apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode scripts/pilot-json-exporter/ExportJSON.java
+case_ apijson-pin apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode scripts/pilot-pin.sh
+case_ apijson-baseline apijson,docs,go docs/project/api-json-differential/index.json
+case_ apijson-fragment apijson,docs,go docs/project/api-json-differential/probes/probe.sysml.json
 case_ go-client docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode client/opensysml/client.go
 case_ release-digests docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode client/release-digests.json
 case_ go-tools docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode tools/gen/snapshot/main.go
@@ -104,7 +150,9 @@ case_ install-script docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,
 case_ install-script-windows docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode install.ps1
 case_ action docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode action.yml
 case_ conformance docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode conformance/scenarios/01-server-info.json
+# A workflow-only change ran the twenty-minute differential for nothing, so pr.yml is not among its paths.
 case_ workflow docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/workflows/pr.yml
+case_ other-workflow docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/workflows/oracle-reproduction.yml
 case_ dependabot docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode .github/dependabot.yml
 # The npm runner is tested and its lockfile audited in the Go static job, so its package is a service path.
 case_ mcp-lockfile docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode packaging/npm/sysml-mcp/package-lock.json
@@ -119,11 +167,12 @@ case_ project-baseline docs,go docs/project/pilot-differential-baseline.json
 case_ project-figures docs,go docs/project/api-json-differential.md
 case_ project-archive docs,go docs/project/archive/CHANGELOG-0.0-0.8.md
 case_ project-compliance-source docs,go docs/project/spec-compliance/02-detailed-semantic-compliance-map/13-action.md
-case_ unclaimed docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode some-new-top-level/thing.txt
+case_ unclaimed apijson,docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode some-new-top-level/thing.txt
 
 # The quick tier runs the Go suite for a service change but not every client; a
 # client's or the docs' own paths still run it, and an unclaimed path is only Go.
 quick_case_ go-source go internal/syntax/parser/parser.go
+quick_case_ apijson-writer apijson,go internal/translate/export/api_json_absence.go
 quick_case_ proto go api/proto/sysml.proto
 quick_case_ workflow go .github/workflows/pr.yml
 quick_case_ unclaimed go some-new-top-level/thing.txt
@@ -131,9 +180,89 @@ quick_case_ go-and-node go,node internal/syntax/parser/parser.go client/node/src
 quick_case_ go-and-docs docs,go internal/syntax/parser/parser.go docs/guide/index.md
 quick_case_ docs-only docs docs/guide/index.md
 quick_case_ project-baseline docs,go docs/project/pilot-differential-baseline.json
-quick_case_ java-manifest java,mdk,python client/java/pom.xml
+quick_case_ java-manifest java,mdk,python,syson client/java/pom.xml
 quick_case_ node-only node client/node/src/node/binary.ts
 quick_case_ vscode-grammar go,vscode editors/vscode/tools/gengrammar/grammar.go
+
+
+# The tier: quick for a pull-request push whatever it touches (the merge queue runs the -race
+# suite on every landing), full only for a path no area claims; CI_TIER forces it.
+tier_case_ docs-only quick docs/guide/index.md
+tier_case_ parser quick internal/syntax/parser/parser.go
+tier_case_ node-only quick client/node/src/node/binary.ts
+tier_case_ workflow quick .github/workflows/pr.yml
+tier_case_ race-shards quick scripts/race-shard.sh Makefile
+tier_case_ runtime quick internal/exec/runtime/executor.go
+tier_case_ runtime-test quick internal/exec/runtime/robustness_test.go
+tier_case_ smt quick internal/exec/smt/referee.go
+tier_case_ grpc-frontend quick internal/frontend/grpc/cache.go
+tier_case_ grpc-tests quick tests/grpc/conformance_test.go
+tier_case_ grpc-command quick cmd/sysml-grpc/main.go
+tier_case_ repl quick internal/frontend/repl/session.go
+tier_case_ lsp quick internal/frontend/lsp/server.go
+tier_case_ workspace quick internal/workspace/model/index.go
+tier_case_ libs quick internal/workspace/libs/bundle.go
+tier_case_ export-writer quick internal/translate/export/writer.go
+tier_case_ symbols quick internal/semantic/symbols/index.go
+tier_case_ unclaimed full some-new-top-level/thing.txt
+tier_case_ parser-and-runtime quick internal/syntax/parser/parser.go internal/exec/runtime/executor.go
+
+# The derived-property differential runs on a pull-request push (quick, on its paths) and under the full tier,
+# never in the merge queue: the push already proved the same diff, and the nightly reproduces the baseline.
+queue_case_() {
+  CI_TIER=queue case_ "$@"
+}
+queue_case_ apijson-writer docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode internal/translate/export/api_json_absence.go
+queue_case_ apijson-baseline docs,go docs/project/api-json-differential/index.json
+queue_case_ unclaimed docs,emacs,go,java,julia,jupyterlab,matlab,mdk,node,python,rust,syson,vscode some-new-top-level/thing.txt
+area_for_event_() {
+  local event=$1 label=$2 area=$3 expected=$4
+  local actual
+  actual=$(cd "$work" && env -u CI_TIER CI_EVENT="$event" CI_FULL_LABEL="$label" bash scripts/ci-changed-areas.sh "$base" HEAD 2>/dev/null | sed -n "s/^$area=//p")
+  if [[ "$actual" != "$expected" ]]; then
+    echo "FAIL $area for $event (ci:full=$label): expected $expected, got $actual" >&2
+    failures=$((failures + 1))
+  else
+    echo "ok   $area for $event (ci:full=$label): $actual (on the last case's head)"
+  fi
+}
+tier_case_ apijson-writer quick internal/translate/export/api_json_absence.go
+area_for_event_ pull_request false apijson true
+area_for_event_ merge_group false apijson false
+area_for_event_ pull_request true apijson true
+area_for_event_ schedule false apijson true
+area_for_event_ workflow_dispatch false apijson true
+tier_case_ workflow-only quick .github/workflows/pr.yml
+area_for_event_ pull_request false apijson false
+area_for_event_ merge_group false apijson false
+
+# The event decides above the paths: a merge-group commit runs the queue tier, a schedule or a
+# dispatch the full tier, a pull request labelled ci:full the full tier, whatever they touch.
+event_case_ pull_request false quick
+event_case_ pull_request true full
+event_case_ merge_group false queue
+event_case_ schedule false full
+event_case_ workflow_dispatch false full
+# An unclaimed path is full on a pull request, but the queue stays the queue tier.
+tier_case_ unclaimed-again full some-new-top-level/other.txt
+event_case_ merge_group false queue
+event_case_ pull_request false full
+
+forced_case_() {
+  local expected=$1
+  shift
+  local actual
+  actual=$(cd "$work" && CI_TIER="$expected" bash scripts/ci-changed-areas.sh "$base" HEAD 2>/dev/null | sed -n 's/^tier=//p')
+  if [[ "$actual" != "$expected" ]]; then
+    echo "FAIL forced tier $expected: got $actual" >&2
+    failures=$((failures + 1))
+  else
+    echo "ok   forced tier $expected (on the last case's head)"
+  fi
+}
+forced_case_ full
+forced_case_ queue
+forced_case_ quick
 
 if [[ "$failures" -ne 0 ]]; then
   echo "$failures case(s) failed" >&2

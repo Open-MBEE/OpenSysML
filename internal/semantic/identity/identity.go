@@ -13,6 +13,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
+	"strconv"
 )
 
 // FQNs of the identity metadata definitions in the bundled library.
@@ -126,6 +127,9 @@ type Info struct {
 	Source Source
 	// Language is the library a fixed id is minted under; zero otherwise.
 	Language Language
+	// MembershipID is the id this implementation mints for the owning membership
+	// of an unnamed library member; "" where the membership id follows the name.
+	MembershipID string
 	// Annotated reports an ElementId annotation on the element.
 	Annotated bool
 	// Declared reports that the annotation's id evaluated to a constant
@@ -154,6 +158,9 @@ func (i *Info) Fixed() bool { return i.Source.Fixed() }
 func (i *Info) OwningMembershipID() string {
 	if !i.Fixed() {
 		return ""
+	}
+	if i.MembershipID != "" {
+		return i.MembershipID
 	}
 	return OwningMembershipID(i.Language, i.FQN)
 }
@@ -224,23 +231,29 @@ func Root(sym *symbols.Symbol) *symbols.Symbol {
 }
 
 type builder struct {
-	model  *semantics.Model
-	res    *resolve.Resolver
-	idx    *symbols.Index
-	scopes map[*symbols.Symbol]*Scope
-	known  map[*symbols.Symbol]bool // scope memo: sym has an entry in scopes
+	model         *semantics.Model
+	res           *resolve.Resolver
+	idx           *symbols.Index
+	scopes        map[*symbols.Symbol]*Scope
+	known         map[*symbols.Symbol]bool // scope memo: sym has an entry in scopes
+	positions     map[*symbols.Scope]*memberPositions
+	identitySites map[*symbols.Symbol]map[ast.Node]bool
 	// norm decides which library symbols the norm fixes an id for.
 	norm *qualifier
+	// catalog places an unnamed library member under its catalogued owner; built on first need.
+	catalog *Catalog
 }
 
 func newBuilder(model *semantics.Model, res *resolve.Resolver) *builder {
 	return &builder{
-		model:  model,
-		res:    res,
-		idx:    res.Index(),
-		scopes: make(map[*symbols.Symbol]*Scope),
-		known:  make(map[*symbols.Symbol]bool),
-		norm:   newQualifier(res.Index()),
+		model:         model,
+		res:           res,
+		idx:           res.Index(),
+		scopes:        make(map[*symbols.Symbol]*Scope),
+		known:         make(map[*symbols.Symbol]bool),
+		positions:     make(map[*symbols.Scope]*memberPositions),
+		identitySites: make(map[*symbols.Symbol]map[ast.Node]bool),
+		norm:          newQualifier(res.Index(), model),
 	}
 }
 
@@ -250,17 +263,17 @@ func (b *builder) infoOf(sym *symbols.Symbol) *Info {
 	if sym == nil || (sym.Decl == nil && !sym.Recorded()) || sym.Kind == symbols.SymbolAlias {
 		return nil
 	}
-	fqn := b.idx.GetFQN(sym)
+	fqn := b.qualifiedName(sym)
 	if fqn == "" {
 		return nil
 	}
 	info := &Info{Symbol: sym, FQN: fqn, EffectiveID: rdf.EncodeElementID(fqn)}
 	if lang, ok := b.norm.language(sym); ok {
-		info.Source, info.Language = SourceNormative, lang
-		if lang == OpenSysML {
-			info.Source = SourceExtension
-		}
+		info.Source, info.Language = fixedSource(lang), lang
 		info.EffectiveID = ElementID(lang, fqn)
+	} else if member, lang, ok := b.anonymousMember(sym); ok {
+		info.Source, info.Language = fixedSource(lang), lang
+		info.EffectiveID, info.MembershipID = member.ID, member.OwningMembershipID
 	}
 	for _, site := range b.model.AnnotationSitesOf(sym) {
 		if site.TypeFQN != ElementIdFQN {
@@ -293,6 +306,31 @@ func (b *builder) infoOf(sym *symbols.Symbol) *Info {
 	}
 	info.Scope = b.scopeOf(sym)
 	return info
+}
+
+// fixedSource is the source of an id a bundled library of language lang fixes.
+func fixedSource(lang Language) Source {
+	if lang == OpenSysML {
+		return SourceExtension
+	}
+	return SourceNormative
+}
+
+// anonymousMember is the id this implementation mints for sym, an unnamed member
+// of a catalogued library element (AnonymousMemberOf); ok is false for any other symbol.
+func (b *builder) anonymousMember(sym *symbols.Symbol) (AnonymousMember, Language, bool) {
+	if b.model.QualifiedNameOf(sym) != "" {
+		return AnonymousMember{}, 0, false
+	}
+	lang, ok := LibraryLanguage(b.idx.LibraryTier(sym))
+	if !ok {
+		return AnonymousMember{}, 0, false
+	}
+	if b.catalog == nil {
+		b.catalog = LibraryCatalogWithOpenSysML(b.idx)
+	}
+	member, ok := AnonymousMemberOf(b.model, b.catalog, sym)
+	return member, lang, ok
 }
 
 // scopeOf resolves the nearest enclosing ProjectRef binding of sym, the
@@ -392,4 +430,149 @@ func collectSymbols(roots []*symbols.Scope) []*symbols.Symbol {
 		walk(root)
 	}
 	return out
+}
+
+// qualifiedName is the symbol's qualified name as the model derives it, through an effective name too
+// (`T::obj::massRequirement`); a metadata body feature's (`mission = …`) is under the usage owning it.
+func (b *builder) qualifiedName(sym *symbols.Symbol) string {
+	if b.model.RestatesMetadataBodyFeature(sym) {
+		if fqn := b.metadataBodyFQN(sym); fqn != "" {
+			return fqn
+		}
+	}
+	if fqn := b.model.QualifiedNameOf(sym); fqn != "" {
+		return fqn
+	}
+	return b.idx.GetFQN(sym)
+}
+
+// metadataBodyFQN qualifies a metadata body feature under the usage owning it — an unnamed usage
+// by its position among its owner's members, as the conversion names it — or under its body feature.
+func (b *builder) metadataBodyFQN(sym *symbols.Symbol) string {
+	scope := sym.OwnerScope
+	if scope == nil || scope.Parent() == nil {
+		return ""
+	}
+	usage := scope.Parent().MemberDeclaring(scope.Node())
+	if usage == nil {
+		return ""
+	}
+	usageFQN := b.qualifiedName(usage)
+	if usage.Name == "" {
+		index, ok := b.memberIndex(usage)
+		if !ok {
+			return ""
+		}
+		usageFQN = "@" + strconv.Itoa(index)
+		if owner := usage.OwnerScope.Owner(); owner != nil {
+			usageFQN = b.qualifiedName(owner) + "::" + usageFQN
+		}
+	}
+	return usageFQN + "::" + sym.Name
+}
+
+// memberIndex is the position of the metadata usage among the members its owner declares,
+// identity annotations left out as the conversion leaves them; a `#M` prefix follows the body.
+func (b *builder) memberIndex(usage *symbols.Symbol) (int, bool) {
+	if usage.Decl == nil || usage.OwnerScope == nil {
+		return 0, false
+	}
+	positions, ok := b.positions[usage.OwnerScope]
+	if !ok {
+		positions = newMemberPositions(usage.OwnerScope)
+		b.positions[usage.OwnerScope] = positions
+	}
+	if index, ok := positions.indices[usage.Decl]; ok {
+		return index, true
+	}
+	for positions.cursor < len(positions.members)+len(positions.prefixes) {
+		var node ast.Node
+		if positions.cursor < len(positions.members) {
+			node = positions.members[positions.cursor]
+			if m, ok := node.(*ast.Membership); ok {
+				node = m.Member
+			}
+			positions.cursor++
+			if node == nil || b.identityAnnotation(usage.OwnerScope, node) {
+				continue
+			}
+		} else {
+			p := positions.prefixes[positions.cursor-len(positions.members)]
+			positions.cursor++
+			if p != nil {
+				node = p
+			}
+		}
+		index := positions.index
+		positions.index++
+		if node == nil {
+			continue
+		}
+		if _, exists := positions.indices[node]; !exists {
+			positions.indices[node] = index
+		}
+		if node == usage.Decl {
+			return positions.indices[node], true
+		}
+	}
+	return 0, false
+}
+
+type memberPositions struct {
+	members       []ast.Node
+	prefixes      []*ast.PrefixMetadata
+	indices       map[ast.Node]int
+	cursor, index int
+}
+
+func newMemberPositions(scope *symbols.Scope) *memberPositions {
+	positions := &memberPositions{indices: map[ast.Node]int{}}
+	switch n := scope.Node().(type) {
+	case *ast.RootNamespace:
+		positions.members = n.Members
+	case *ast.Package:
+		positions.members, positions.prefixes = n.Members, n.Prefixes
+	case *ast.Namespace:
+		positions.members, positions.prefixes = n.Members, n.Prefixes
+	case *ast.Definition:
+		positions.members, positions.prefixes = n.Members, n.Prefixes
+	case *ast.Usage:
+		positions.members, positions.prefixes = n.Members, n.Prefixes
+	}
+	return positions
+}
+
+// identityAnnotation reports a member the conversion leaves out of its positions: an ElementId or
+// ProjectRef annotation, by the type it resolves to, of the element it is about or the owner it is in.
+func (b *builder) identityAnnotation(scope *symbols.Scope, node ast.Node) bool {
+	sym := scope.MemberDeclaring(node)
+	if sym == nil {
+		return false
+	}
+	targets := b.model.AnnotatedElementsOf(sym)
+	if len(targets) == 0 {
+		owner := scope.Owner()
+		if owner == nil {
+			return false
+		}
+		targets = []*symbols.Symbol{owner}
+	}
+	for _, target := range targets {
+		nodes, ok := b.identitySites[target]
+		if !ok {
+			for _, site := range b.model.AnnotationSitesOf(target) {
+				if site.TypeFQN == ElementIdFQN || site.TypeFQN == ProjectRefFQN {
+					if nodes == nil {
+						nodes = map[ast.Node]bool{}
+					}
+					nodes[site.Node] = true
+				}
+			}
+			b.identitySites[target] = nodes
+		}
+		if nodes[node] {
+			return true
+		}
+	}
+	return false
 }

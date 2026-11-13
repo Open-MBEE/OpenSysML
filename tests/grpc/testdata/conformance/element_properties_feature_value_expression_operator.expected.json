@@ -1,0 +1,37 @@
+{
+  "rpc": "GetElementProperties",
+  "model": "element_properties_feature_value_expression.sysml",
+  "element_id": "ValueFamily__Tank__reserve_pvalue",
+  "properties": [
+    "operator",
+    "argument",
+    "result"
+  ],
+  "expected_properties": [
+    {
+      "name": "operator",
+      "defining_class": "OperatorExpression",
+      "values": [
+        "*"
+      ]
+    },
+    {
+      "name": "argument",
+      "defining_class": "InstantiationExpression",
+      "many": true,
+      "derived": true,
+      "values": [
+        "ValueFamily__Tank__reserve_pvalue_pa0",
+        "ValueFamily__Tank__reserve_pvalue_pa1"
+      ]
+    },
+    {
+      "name": "result",
+      "defining_class": "Expression",
+      "derived": true,
+      "values": [
+        "ValueFamily__Tank__reserve_pvalue_pout"
+      ]
+    }
+  ]
+}

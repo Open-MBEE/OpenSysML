@@ -1,0 +1,1 @@
+- Reading Turtle back, an `about` clause the owner states partly by IRI and partly by name keeps each written name for the element the owner wrote it for: a target the owner states by IRI reserves no written name, so `about R::A, A` over the namesakes `R::A` and `Q::A` no longer reads back as `about R::A, Q::A`.

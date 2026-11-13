@@ -73,15 +73,31 @@ await model.refreshDiagnostics({ enableLint: ["rounded-real-literal"] }); // und
 model.hasErrors;                             // any error-severity diagnostic
 
 const car = await model.symbol("Demo::Car"); // short name, FQN or id
-await car.children();                        // its members, one call each
+await car.children();                        // its owned members, one call each
+car.members;                                 // every member, own and inherited (MemberFacts)
+car.inheritedMembers();                      // inheritedFrom names the declaring type
+car.withheldLibraryMembers;                  // standard-library members counted, not listed, until
+await car.withLibraryMembers();              // ... the symbol is fetched again with them
+await model.symbolById("Demo::Car", { includeLibraryMembers: true });
+await model.elementProperties("Demo::Car", "inheritedFeature"); // metamodel properties by spec name
 for await (const symbol of model.walk()) {}  // breadth-first from the root
 
 const value = await model.eval("2 + 2");                       // SysMLValue
 const mass = await model.eval("mass", { subject: "Demo::sedan" });
 const tree = await model.instantiate("Demo::Car");
 tree.get("wheels");                          // a FeatureValue of the root object
-tree.byId(id);                               // any object the instantiation produced
+const wheel = tree.byId(id);                 // any object the instantiation produced
+wheel.reachedBy;                             // InstanceReach: owner id, feature, index, path; undefined for the root
+wheel.ownerId; wheel.path;                   // 1n, "wheels[2]"
+tree.owner(wheel);                           // the holding object
+await model.instancePaths(wheel);            // InstancePaths: every root-relative path, aliases included
+await model.instancePaths("Demo::Car.wheels[2]"); // by path, or by id
 ```
+
+Members need the `symbol_members` capability (a symbol from an older service enumerates none,
+and `includeLibraryMembers` is refused before asking), `elementProperties` needs
+`element_properties` and `instancePaths` needs `instance_paths`; each refusal is a
+`MissingCapabilityError` naming the capability.
 
 `connection.model(hash)` adopts a model the service already holds, which lets a
 hash pass between processes; an adopted model has no root symbol, so symbols are

@@ -39,8 +39,9 @@ func (e *Evaluator) structureRedefinitionTargets(feature Element) ([]Element, bo
 	return out, true
 }
 
-// structureBehaviorGenerals returns the behaviors and steps owner specializes by its
-// stated generalizations; the kind's implied base owns no parameters and is left out.
+// structureBehaviorGenerals returns the behaviors and steps owner specializes, its
+// kind's implied base definition included; the base feature a kind implies owns no
+// parameters (those of its type are reached through the base definition) and is left out.
 func (e *Evaluator) structureBehaviorGenerals(owner Element) ([]Element, bool) {
 	supertypes, ok := e.structureOwnedSupertypes(owner)
 	if !ok {
@@ -53,12 +54,15 @@ func (e *Evaluator) structureBehaviorGenerals(owner Element) ([]Element, bool) {
 	implied := make(map[ElementKey]bool)
 	for _, fqn := range impliedBases {
 		for _, symbol := range e.resolver.Index().LookupQualified(fqn) {
-			implied[ElementOf(symbol).Key()] = true
+			if symbol.IsFeature() {
+				implied[ElementOf(symbol).Key()] = true
+			}
 		}
 	}
-	var generals []Element
+	var generals, impliedFeatures []Element
 	for _, general := range supertypes {
 		if implied[general.Key()] {
+			impliedFeatures = append(impliedFeatures, general)
 			continue
 		}
 		isBehavior, known := e.isMetaclass(general, "Behavior")
@@ -73,25 +77,50 @@ func (e *Evaluator) structureBehaviorGenerals(owner Element) ([]Element, bool) {
 			generals = append(generals, general)
 		}
 	}
+	if len(generals) > 0 {
+		return generals, true
+	}
+	// A direct implied base feature's behavior types stand in for it, as the semantic
+	// model's implied generals name them (forBehaviorGenerals); a nested subsetting's do not.
+	nested, ok := e.structureNestedSubsettingFQN(owner)
+	if !ok {
+		return nil, false
+	}
+	generals, ok = e.structureImpliedBaseBehaviors(impliedFeatures, nested)
+	if !ok {
+		return nil, false
+	}
+	return uniqueStructureElements(generals, e.options.Structure), true
+}
+
+// structureImpliedBaseBehaviors is the behaviors typing the implied base features, the one
+// named by the nested subsetting FQN excepted.
+func (e *Evaluator) structureImpliedBaseBehaviors(bases []Element, nested string) ([]Element, bool) {
+	var generals []Element
+	for _, base := range bases {
+		symbol := e.structureElementSymbol(base)
+		if symbol == nil || (nested != "" && e.model.QualifiedNameOf(symbol) == nested) {
+			continue
+		}
+		for _, typ := range e.model.FeatureTypes(symbol) {
+			element := ElementOf(typ)
+			isBehavior, known := e.isMetaclass(element, "Behavior")
+			if !known {
+				return nil, false
+			}
+			if isBehavior {
+				generals = append(generals, element)
+			}
+		}
+	}
 	return generals, true
 }
 
 // structureParameterTable mirrors the semantic parameter table: owner's own positional
-// parameters, then what a lone general leaves unclaimed by clause or position, and the result.
+// parameters, then what each general leaves unclaimed by clause or position, and the result.
 func (e *Evaluator) structureParameterTable(owner Element, visiting map[ElementKey]bool) ([]structureParameter, *structureParameter, bool) {
 	if symbol := e.structureElementSymbol(owner); symbol != nil && !e.structureKnows(owner) {
-		var positional []structureParameter
-		for i := 0; ; i++ {
-			sym, direction := e.model.PositionalParameter(symbol, i, false)
-			if sym == nil {
-				break
-			}
-			positional = append(positional, structureParameter{ElementOf(sym), direction})
-		}
-		var result *structureParameter
-		if sym, direction := e.model.PositionalParameter(symbol, 0, true); sym != nil {
-			result = &structureParameter{ElementOf(sym), direction}
-		}
+		positional, result := e.structureSymbolParameters(symbol)
 		return positional, result, true
 	}
 	if visiting[owner.Key()] {
@@ -104,9 +133,67 @@ func (e *Evaluator) structureParameterTable(owner Element, visiting map[ElementK
 	if !handled || !ok {
 		return nil, nil, false
 	}
+	positional, result, ok := e.structureOwnedParameters(owner, owned.Values)
+	if !ok {
+		return nil, nil, false
+	}
+	generals, ok := e.structureBehaviorGenerals(owner)
+	if !ok {
+		return nil, nil, false
+	}
+	declared := positional
+	for _, general := range generals {
+		inherited, inheritedResult, ok := e.structureParameterTable(general, visiting)
+		if !ok {
+			return nil, nil, false
+		}
+		claimed, ok := e.structureClaimedParameters(declared, result, inherited, inheritedResult)
+		if !ok {
+			return nil, nil, false
+		}
+		for _, p := range inherited {
+			if claimed[p.element.Key()] {
+				continue
+			}
+			listed, ok := e.structureListsParameter(positional[len(declared):], p.element)
+			if !ok {
+				return nil, nil, false
+			}
+			if !listed {
+				positional = append(positional, p)
+			}
+		}
+		if result == nil && inheritedResult != nil && !claimed[inheritedResult.element.Key()] {
+			result = inheritedResult
+		}
+	}
+	return positional, result, true
+}
+
+// structureSymbolParameters is the semantic model's parameter table of a symbol-backed owner:
+// its positional parameters in order, and its result parameter.
+func (e *Evaluator) structureSymbolParameters(symbol *symbols.Symbol) ([]structureParameter, *structureParameter) {
+	var positional []structureParameter
+	for i := 0; ; i++ {
+		sym, direction := e.model.PositionalParameter(symbol, i, false)
+		if sym == nil {
+			break
+		}
+		positional = append(positional, structureParameter{ElementOf(sym), direction})
+	}
+	var result *structureParameter
+	if sym, direction := e.model.PositionalParameter(symbol, 0, true); sym != nil {
+		result = &structureParameter{ElementOf(sym), direction}
+	}
+	return positional, result
+}
+
+// structureOwnedParameters is the directed features among owner's owned features: the
+// positional ones in order, and the first result parameter.
+func (e *Evaluator) structureOwnedParameters(owner Element, owned []Value) ([]structureParameter, *structureParameter, bool) {
 	var positional []structureParameter
 	var result *structureParameter
-	for _, value := range owned.Values {
+	for _, value := range owned {
 		if value.Kind != ElementValue {
 			return nil, nil, false
 		}
@@ -130,22 +217,17 @@ func (e *Evaluator) structureParameterTable(owner Element, visiting map[ElementK
 		}
 		positional = append(positional, p)
 	}
-	generals, ok := e.structureBehaviorGenerals(owner)
-	if !ok {
-		return nil, nil, false
-	}
-	if len(generals) != 1 {
-		return positional, result, true
-	}
-	inherited, inheritedResult, ok := e.structureParameterTable(generals[0], visiting)
-	if !ok {
-		return nil, nil, false
-	}
+	return positional, result, true
+}
+
+// structureClaimedParameters is the set of a general's parameters the declared ones claim:
+// by redefinition clause, else by position with an agreeing direction; the result by its role.
+func (e *Evaluator) structureClaimedParameters(declared []structureParameter, result *structureParameter, inherited []structureParameter, inheritedResult *structureParameter) (map[ElementKey]bool, bool) {
 	claimed := make(map[ElementKey]bool)
-	for i, p := range positional {
+	for i, p := range declared {
 		explicit, ok := e.structureRedefinitionTargets(p.element)
 		if !ok {
-			return nil, nil, false
+			return nil, false
 		}
 		if len(explicit) > 0 {
 			for _, target := range explicit {
@@ -160,7 +242,7 @@ func (e *Evaluator) structureParameterTable(owner Element, visiting map[ElementK
 	if result != nil {
 		explicit, ok := e.structureRedefinitionTargets(result.element)
 		if !ok {
-			return nil, nil, false
+			return nil, false
 		}
 		for _, target := range explicit {
 			claimed[target.Key()] = true
@@ -169,15 +251,43 @@ func (e *Evaluator) structureParameterTable(owner Element, visiting map[ElementK
 			claimed[inheritedResult.element.Key()] = true
 		}
 	}
+	return claimed, true
+}
+
+// structureListsParameter reports whether the parameters inherited so far carry feature, as
+// itself or as one redefining it, directly or transitively; the owned ones claim by position.
+func (e *Evaluator) structureListsParameter(inherited []structureParameter, feature Element) (bool, bool) {
+	visited := make(map[ElementKey]bool)
+	var redefines func(Element) (bool, bool)
+	redefines = func(p Element) (bool, bool) {
+		if p.Key() == feature.Key() {
+			return true, true
+		}
+		if visited[p.Key()] {
+			return false, true
+		}
+		visited[p.Key()] = true
+		targets, ok := e.structureRedefinitionTargets(p)
+		if !ok {
+			return false, false
+		}
+		implicit, ok := e.structureImplicitParameterRedefinitions(p, false)
+		if !ok {
+			return false, false
+		}
+		for _, target := range append(targets, implicit...) {
+			if found, ok := redefines(target); !ok || found {
+				return found, ok
+			}
+		}
+		return false, true
+	}
 	for _, p := range inherited {
-		if !claimed[p.element.Key()] {
-			positional = append(positional, p)
+		if found, ok := redefines(p.element); !ok || found {
+			return found, ok
 		}
 	}
-	if result == nil && inheritedResult != nil && !claimed[inheritedResult.element.Key()] {
-		result = inheritedResult
-	}
-	return positional, result, true
+	return false, true
 }
 
 // structureImplicitParameterRedefinitions is the parameter at feature's position (or the result)
@@ -186,25 +296,20 @@ func (e *Evaluator) structureImplicitParameterRedefinitions(feature Element, mat
 	if e.model == nil {
 		return nil, true
 	}
-	owner, handled, ok := e.structureOwningType(feature)
-	if !handled || !ok {
+	if symbol := e.structureElementSymbol(feature); symbol != nil && !e.structureKnows(feature) {
+		if matchDirection {
+			return elementsOf(e.model.ImplicitParameterRedefinitions(symbol)), true
+		}
+		return elementsOf(e.model.MaskedParameterRedefinitions(symbol)), true
+	}
+	owner, behaviorLike, ok := e.structureBehaviorOwner(feature)
+	if !ok {
 		return nil, false
 	}
-	if owner.Kind != ElementValue {
+	if !behaviorLike {
 		return nil, true
 	}
-	isBehavior, known := e.isMetaclass(owner.Element, "Behavior")
-	if !known {
-		return nil, false
-	}
-	isStep, known := e.isMetaclass(owner.Element, "Step")
-	if !known {
-		return nil, false
-	}
-	if !isBehavior && !isStep {
-		return nil, true
-	}
-	direction, ok := e.structureEffectiveDirection(owner.Element, feature)
+	direction, ok := e.structureEffectiveDirection(owner, feature)
 	if !ok {
 		return nil, false
 	}
@@ -217,7 +322,7 @@ func (e *Evaluator) structureImplicitParameterRedefinitions(feature Element, mat
 	}
 	position := -1
 	if !isResult {
-		position, ok = e.structureParameterPosition(owner.Element, feature)
+		position, ok = e.structureParameterPosition(owner, feature)
 		if !ok {
 			return nil, false
 		}
@@ -225,22 +330,15 @@ func (e *Evaluator) structureImplicitParameterRedefinitions(feature Element, mat
 			return nil, true
 		}
 	}
-	generals, ok := e.structureBehaviorGenerals(owner.Element)
+	generals, ok := e.structureBehaviorGenerals(owner)
 	if !ok {
 		return nil, false
 	}
 	var out []Element
 	for _, general := range generals {
-		positional, result, ok := e.structureParameterTable(general, make(map[ElementKey]bool))
+		target, ok := e.structureParameterAt(general, position, isResult)
 		if !ok {
 			return nil, false
-		}
-		target := result
-		if !isResult {
-			target = nil
-			if position < len(positional) {
-				target = &positional[position]
-			}
 		}
 		if target == nil || target.element.Key() == feature.Key() {
 			continue
@@ -251,6 +349,43 @@ func (e *Evaluator) structureImplicitParameterRedefinitions(feature Element, mat
 		out = append(out, target.element)
 	}
 	return out, true
+}
+
+// structureBehaviorOwner is the type owning feature; behaviorLike reports whether it is a
+// Behavior or a Step, false too when feature has no owning type element.
+func (e *Evaluator) structureBehaviorOwner(feature Element) (owner Element, behaviorLike, ok bool) {
+	owning, handled, ok := e.structureOwningType(feature)
+	if !handled || !ok {
+		return Element{}, false, false
+	}
+	if owning.Kind != ElementValue {
+		return Element{}, false, true
+	}
+	isBehavior, known := e.isMetaclass(owning.Element, "Behavior")
+	if !known {
+		return Element{}, false, false
+	}
+	isStep, known := e.isMetaclass(owning.Element, "Step")
+	if !known {
+		return Element{}, false, false
+	}
+	return owning.Element, isBehavior || isStep, true
+}
+
+// structureParameterAt is general's result parameter, or the one at position, nil when it
+// has none there.
+func (e *Evaluator) structureParameterAt(general Element, position int, isResult bool) (*structureParameter, bool) {
+	positional, result, ok := e.structureParameterTable(general, make(map[ElementKey]bool))
+	if !ok {
+		return nil, false
+	}
+	if isResult {
+		return result, true
+	}
+	if position < len(positional) {
+		return &positional[position], true
+	}
+	return nil, true
 }
 
 // structureMaskedParameterRedefinitions is what a parameter without a clause masks for its

@@ -49,18 +49,18 @@ func (r *Rendering) textWith(options Options) string {
 	if r.Run && r.Kind == KindTimeline {
 		b.WriteString("\n")
 		writeRunTimelineText(&b, r)
-		writeNotices(&b, r.Notices)
+		writeNotices(&b, r.notices())
 		return b.String()
 	}
 	if r.Empty() {
 		b.WriteString("\n" + r.EmptyReason() + "\n")
-		writeNotices(&b, slices.Concat(r.Notices, pictureNotices))
+		writeNotices(&b, slices.Concat(r.notices(), pictureNotices))
 		return b.String()
 	}
 	b.WriteString("\n")
 	if r.Kind.Tabular() {
 		writeTableText(&b, r.Columns, r.Rows, width)
-		writeNotices(&b, slices.Concat(r.Notices, pictureNotices))
+		writeNotices(&b, slices.Concat(r.notices(), pictureNotices))
 		return b.String()
 	}
 	if c := r.Canvas; c != nil {
@@ -94,7 +94,7 @@ func (r *Rendering) textWith(options Options) string {
 			b.WriteString(pictureText(picture) + "\n")
 		}
 	}
-	writeNotices(&b, slices.Concat(r.Notices, pictureNotices, r.visualNotices(noStyleInText, false)))
+	writeNotices(&b, slices.Concat(r.notices(), pictureNotices, r.visualNotices(noStyleInText, false)))
 	return b.String()
 }
 

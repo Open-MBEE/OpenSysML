@@ -253,7 +253,8 @@ func (s *apiJSONGraphStructure) typeMetaclass(typ string) (string, bool) {
 	if class := apiJSONOwnedAbsenceMetaclassInGraph(s.graph, typ); class != "" {
 		return class, true
 	}
-	if strings.HasPrefix(typ, rdf.OpenSysML) {
+	if strings.HasPrefix(typ, rdf.OpenSysML) && rdf.LocalName(typ) != mNote {
+		// A note is a node of the element whose lines hold it, not an element.
 		return metamodel.ExtensionMetaclassPrefix + strings.TrimPrefix(typ, rdf.OpenSysML), true
 	}
 	return "", false

@@ -282,6 +282,38 @@ type checkSearch struct {
 	Outcomes []string `json:"outcomes"`
 	// MassLowerBound reports the violations' masses are lower bounds.
 	MassLowerBound bool `json:"massLowerBound"`
+	// Coverage is every state entered and transition taken over all the
+	// searched schedules, not only the witnesses, counted per schedule.
+	Coverage checkCoverage `json:"coverage"`
+}
+
+// checkCoverage is what every run or schedule entered and took, not only the
+// witness of each outcome.
+type checkCoverage struct {
+	States      []checkCoverageEntry `json:"states"`
+	Transitions []checkCoverageEntry `json:"transitions"`
+}
+
+// checkCoverageEntry is one state entered or transition taken: Path qualifies
+// it by the instance running the machine (`Cov::Sys#1.m.run: s0 -> viaB`),
+// Declaration by its declaration (`Cov::M::run::s0 -> viaB`), and Runs counts
+// the runs (schedules, under the check engine) that did so.
+type checkCoverageEntry struct {
+	Path        string `json:"path"`
+	Declaration string `json:"declaration"`
+	Runs        int    `json:"runs"`
+}
+
+func checkCoverageOf(c runtime.Coverage) checkCoverage {
+	return checkCoverage{States: checkCoverageEntries(c.States), Transitions: checkCoverageEntries(c.Transitions)}
+}
+
+func checkCoverageEntries(entries []runtime.CoverageEntry) []checkCoverageEntry {
+	out := make([]checkCoverageEntry, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, checkCoverageEntry{Path: e.Path, Declaration: e.Declaration, Runs: e.Runs})
+	}
+	return out
 }
 
 // checkViolation is one violation the search found, with the schedule reaching it.
@@ -447,6 +479,7 @@ func checkSearchOf(checked *analysis.Checked) *checkSearch {
 		Depth:          report.MaxDepth,
 		BoundsHit:      append([]string{}, report.BoundsHit...),
 		MassLowerBound: report.MassBounded,
+		Coverage:       checkCoverageOf(report.Coverage),
 		Violations:     make([]checkViolation, 0, len(report.Violations)),
 		Divergent:      make([]checkDivergent, 0, len(report.Divergent)),
 		Outcomes:       make([]string, 0, len(report.Finals)),
@@ -530,6 +563,9 @@ type checkExploration struct {
 	FailedLinearizations int      `json:"failedLinearizations,omitempty"`
 	// ProbabilitiesLowerBound reports the outcomes' probabilities are lower bounds.
 	ProbabilitiesLowerBound bool `json:"probabilitiesLowerBound"`
+	// Coverage is every state entered and transition taken over all the runs,
+	// not only the witnesses, counted per run.
+	Coverage checkCoverage `json:"coverage"`
 }
 
 // checkOutcomes converts the outcomes of an exploration into the reported form.
@@ -568,6 +604,7 @@ func checkExplorationOf(x *repl.VerdictExploration) *checkExploration {
 		BudgetsHit:              append([]string{}, x.BudgetsHit...),
 		FailedLinearizations:    x.FailedLinearizations,
 		ProbabilitiesLowerBound: x.ProbabilitiesBounded,
+		Coverage:                checkCoverageOf(x.Coverage),
 	}
 }
 

@@ -21,14 +21,12 @@ func (idx *Index) NamespaceAnswerers(prefix string) []string {
 	return sortedDocs(docs)
 }
 
-// SegmentAnswerers names the documents whose declarations decide
-// ShortNamed(name): those declaring a symbol registered under name that is
-// not its own last segment, sorted.
+// SegmentAnswerers names sorted documents declaring possible ShortNamed(name) matches.
 func (idx *Index) SegmentAnswerers(name string) []string {
 	docs := map[string]bool{}
 	short := func(fqn string) {
 		for _, sym := range idx.fqn.at(fqn) {
-			if LastSegment(sym.Name) != name {
+			if shortNameCandidate(sym, name) {
 				docs[sym.DocName] = true
 			}
 		}

@@ -1,0 +1,22 @@
+{
+  "type": "instance",
+  "libraries": true,
+  "instantiate": "StateEntryAcceptGuardReadsEntry::Rig",
+  "materialization": {},
+  "objects": [
+    {
+      "path": "sender",
+      "finalState": "sent",
+      "events": [{"signal": "Start"}],
+      "stateVisits": ["idle", "begin", "follow", "sent"]
+    },
+    {
+      "path": "target",
+      "finalState": "big",
+      "stateVisits": ["idle", "sizing", "big"],
+      "slots": {
+        "n": {"type": "Integer", "value": 7}
+      }
+    }
+  ]
+}

@@ -68,6 +68,7 @@ const (
 	pPayloadParameter                  = "payloadParameter"
 	pPayloadArgument                   = "payloadArgument"
 	pReceiverArgument                  = "receiverArgument"
+	pSenderArgument                    = "senderArgument"
 	pConjugatedType                    = "conjugatedType"
 	pOriginalType                      = "originalType"
 	pOriginalPortDefinition            = "originalPortDefinition"
@@ -148,32 +149,7 @@ func (e *encoder) materializeRelationships(subject rdf.Term) {
 	if ontology.IsAncestorOrSelf(e.metaclassOf(subject), "Membership") {
 		return
 	}
-	type pending struct {
-		kind   ast.RelationshipKind
-		target rdf.Term
-		count  int
-		index  int
-	}
-	var targets []pending
-	position := map[headItem]int{}
-	aboutPosition := map[headItem]int{}
-	for _, kind := range materializedKinds {
-		if kind == ast.RelAnnotates {
-			// Each `about` entry is its own Annotation, a repeated name included (KerML
-			// 8.3.2.3.2); the collapsed annotatedElement states each target once.
-			items := e.aboutItems(subject)
-			for i, item := range items {
-				aboutPosition[item] = len(targets)
-				targets = append(targets, pending{kind, item.element, len(items), i})
-			}
-			continue
-		}
-		objects := e.graph.Objects(subject, rdf.SysML+relationshipProperty[kind])
-		for i, target := range objects {
-			position[headItem{kind: kind, element: target}] = len(targets)
-			targets = append(targets, pending{kind, target, len(objects), i})
-		}
-	}
+	targets, position, aboutPosition := e.pendingRelationships(subject)
 	emitted := make([]bool, len(targets))
 	var block []rdf.Term
 	emit := func(at int) {
@@ -203,13 +179,7 @@ func (e *encoder) materializeRelationships(subject rdf.Term) {
 				block = append(block, item.element)
 				continue
 			}
-			if item.kind == ast.RelAnnotates {
-				if at, ok := aboutPosition[item]; ok {
-					emit(at)
-				}
-				continue
-			}
-			if at, ok := position[headItem{kind: item.kind, element: item.element}]; ok {
+			if at, ok := pendingAt(item, position, aboutPosition); ok {
 				emit(at)
 			}
 		}
@@ -220,6 +190,51 @@ func (e *encoder) materializeRelationships(subject rdf.Term) {
 	if head != nil {
 		e.seatHead(subject, head.anchor, block)
 	}
+}
+
+// pendingRelationship is one target of a collapsed head property awaiting its
+// relationship element: the clause kind and the target's place among that kind's.
+type pendingRelationship struct {
+	kind   ast.RelationshipKind
+	target rdf.Term
+	count  int
+	index  int
+}
+
+// pendingRelationships lists the targets of every collapsed head property
+// subject states, kind by kind, with the position of each head item among them.
+func (e *encoder) pendingRelationships(subject rdf.Term) (targets []pendingRelationship, position, aboutPosition map[headItem]int) {
+	position = map[headItem]int{}
+	aboutPosition = map[headItem]int{}
+	for _, kind := range materializedKinds {
+		if kind == ast.RelAnnotates {
+			// Each `about` entry is its own Annotation, a repeated name included (KerML
+			// 8.3.2.3.2); the collapsed annotatedElement states each target once.
+			items := e.aboutItems(subject)
+			for i, item := range items {
+				aboutPosition[item] = len(targets)
+				targets = append(targets, pendingRelationship{kind, item.element, len(items), i})
+			}
+			continue
+		}
+		objects := e.graph.Objects(subject, rdf.SysML+relationshipProperty[kind])
+		for i, target := range objects {
+			position[headItem{kind: kind, element: target}] = len(targets)
+			targets = append(targets, pendingRelationship{kind, target, len(objects), i})
+		}
+	}
+	return targets, position, aboutPosition
+}
+
+// pendingAt finds the pending target a spelled head item names: an `about`
+// entry by the item itself, a specialization clause by its kind and object.
+func pendingAt(item headItem, position, aboutPosition map[headItem]int) (int, bool) {
+	if item.kind == ast.RelAnnotates {
+		at, ok := aboutPosition[item]
+		return at, ok
+	}
+	at, ok := position[headItem{kind: item.kind, element: item.element}]
+	return at, ok
 }
 
 // aboutItems are the `about` entries an annotating element's head spelled, in
@@ -425,18 +440,22 @@ func referenceSubsettingSpec(suffix string) normativeRelationship {
 		[]string{pOwnedReferenceSubsetting, pOwnedSubsetting, pOwnedSpecialization, pOwnedRelationship}}
 }
 
-// emitConjugatedPortTyping materializes `: ~P` as a ConjugatedPortTyping whose
-// type is P's ConjugatedPortDefinition and whose portDefinition is P itself
-// (SysML v2 1.0 § 8.3.12 Ports); an external P is named `~P` by the literal.
+// emitConjugatedPortTyping materializes `: ~P` as a ConjugatedPortTyping typing by P's
+// ConjugatedPortDefinition with portDefinition P (SysML v2 § 8.3.12); an external P is named `~P`.
 func (e *encoder) emitConjugatedPortTyping(subject, target rdf.Term, spec normativeRelationship) rdf.Term {
 	spec.metaclass = mConjugatedPortTyping
 	spec.targetEnds = append([]string{pConjugatedPortDefinition}, spec.targetEnds...)
-	conjugated := rdf.String("~" + target.Value)
+	conjugated, original := rdf.String("~"+target.Value), target
 	if target.IsIRI() {
-		conjugated = e.ids.minted(rdf.RelationshipIRI(target, "_conjugated"), target, "_conjugated")
+		conjugated = target
+		if stated, ok := e.conjugateOriginals[target.Value]; ok {
+			original = stated
+		} else {
+			conjugated = e.ids.minted(rdf.RelationshipIRI(target, "_conjugated"), target, "_conjugated")
+		}
 	}
 	relation := e.emitRelationship(subject, conjugated, spec)
-	e.graph.Add(relation, e.sysml(pPortDefinition), target)
+	e.graph.Add(relation, e.sysml(pPortDefinition), original)
 	return relation
 }
 

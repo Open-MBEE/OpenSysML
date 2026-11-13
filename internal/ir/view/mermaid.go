@@ -66,7 +66,7 @@ func (r *Rendering) MermaidWith(options Options) string {
 	if options.Style == StyleCameo {
 		b.WriteString("%% style cameo\n")
 	}
-	for _, notice := range r.Notices {
+	for _, notice := range r.notices() {
 		fmt.Fprintf(&b, "%%%% not represented: %s\n", notice)
 	}
 	var fills familyFills

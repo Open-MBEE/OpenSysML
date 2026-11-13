@@ -18,6 +18,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/api/proto/protoconnect"
 	sysmlgrpc "github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard"
+	"github.com/Open-MBEE/OpenSysML/internal/frontend/guard/flags"
 )
 
 // Transports this binary can serve.
@@ -31,8 +32,8 @@ const (
 // SysMLService under /sysml.SysMLService/, gRPC server reflection, and the
 // health endpoint that otherwise needs a port of its own. Every RPC passes the
 // access policy; health alone is open to probes.
-func connectHandler(svc *sysmlgrpc.Service, ver string, origins map[string]struct{}, token guard.Token) http.Handler {
-	door := connect.WithInterceptors(connectAccess{access{token: token}})
+func connectHandler(svc *sysmlgrpc.Service, ver string, origins map[string]struct{}, chain guard.Chain) http.Handler {
+	door := connect.WithInterceptors(connectAccess{access{chain: chain}})
 	mux := http.NewServeMux()
 	mux.Handle(protoconnect.NewSysMLServiceHandler(sysmlgrpc.NewConnectAdapter(svc), door))
 
@@ -59,8 +60,8 @@ func (c certificateFiles) set() bool { return c.cert != "" }
 // serveConnect serves gRPC, gRPC-Web and the Connect protocol on one port until
 // the context is cancelled. h2c carries HTTP/2 in cleartext, which is how an
 // existing gRPC client reaches an address that offers no TLS.
-func serveConnect(ctx context.Context, lis net.Listener, svc *sysmlgrpc.Service, ver string, origins map[string]struct{}, token guard.Token, certs certificateFiles) error {
-	handler := connectHandler(svc, ver, origins, token)
+func serveConnect(ctx context.Context, lis net.Listener, svc *sysmlgrpc.Service, ver string, origins map[string]struct{}, auth flags.Authenticators, certs certificateFiles) error {
+	handler := connectHandler(svc, ver, origins, auth.Chain())
 	srv := &http.Server{
 		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
@@ -80,12 +81,12 @@ func serveConnect(ctx context.Context, lis net.Listener, svc *sysmlgrpc.Service,
 	go func() {
 		if certs.set() {
 			slog.Info("Connect server listening",
-				"addr", lis.Addr(), "protocols", "grpc, grpc-web, connect", "security", "TLS", "auth", authDescription(token))
+				"addr", lis.Addr(), "protocols", "grpc, grpc-web, connect", "security", "TLS", "auth", auth.String())
 			errs <- srv.ServeTLS(lis, certs.cert, certs.key)
 			return
 		}
 		slog.Info("Connect server listening",
-			"addr", lis.Addr(), "protocols", "grpc, grpc-web, connect", "security", "cleartext/h2c", "auth", authDescription(token))
+			"addr", lis.Addr(), "protocols", "grpc, grpc-web, connect", "security", "cleartext/h2c", "auth", auth.String())
 		errs <- srv.Serve(lis)
 	}()
 

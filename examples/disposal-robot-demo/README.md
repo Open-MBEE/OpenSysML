@@ -173,18 +173,20 @@ wrote rendered/RobotViews.overview.interfaceSubview.mmd (mermaid, 2864 bytes)
 
 **Identify elements with an OSLC query.** `-query` takes
 [OSLC Query text](../../docs/reference/oslc-query.md), either as a bare
-where-clause or as a URL-encoded parameter string, and reports one element per
-line as qualified name, metamodel type, and the properties `oslc.select` names.
+where-clause or as a URL-encoded parameter string, runs it as a document-query
+plan and reports one element per line as qualified name, metamodel type, and the
+properties `oslc.select` names. A metamodel property is `sysml:`; one OpenSysML
+derives beyond the metamodel, such as a multiplicity bound, is `sysx:`.
 
 ```bash
 ./bin/sysml examples/disposal-robot-demo/robot.sysml \
-  -query 'oslc.where=rdf:type%3Dsysml:PartUsage+and+sysml:multiplicityUpper%3E1&oslc.select=sysml:type,sysml:multiplicityUpper'
+  -query 'oslc.where=rdf:type%3Dsysml:PartUsage+and+sysx:multiplicityUpper%3E1&oslc.select=sysml:type,sysx:multiplicityUpper'
 ./bin/sysml examples/disposal-robot-demo/robot.sysml \
   -query 'oslc.where=sysml:owner%3D%22Robot::Platform%22&oslc.orderBy=-sysml:name&oslc.select=sysml:name'
 ```
 
 ```
-Robot::Mobility::wheels  PartUsage  sysml:type=Robot::Wheel  sysml:multiplicityUpper=4
+Robot::Mobility::wheels  PartUsage  sysml:type=Robot::Wheel  sysx:multiplicityUpper=4
 ```
 
 ```

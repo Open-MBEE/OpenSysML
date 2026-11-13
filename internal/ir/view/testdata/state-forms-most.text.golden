@@ -6,10 +6,14 @@ state def Burner
   states
     state off
     state running
+  action usages
+    action usage entry
+  succession usages
+    succession usage then off
   transitions
     transition
   successions
     succession first running then off
 
 not represented:
-  - 5 member(s) drawn as compartment rows of their owner, and 5 node(s) under them left undrawn
+  - 7 member(s) drawn as compartment rows of their owner, and 5 node(s) under them left undrawn

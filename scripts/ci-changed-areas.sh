@@ -6,10 +6,9 @@
 # Prints one `area=true|false` line per area, in the shape a GitHub Actions job
 # output file takes. A file no area claims turns every area on, so a path this
 # script has not been taught about is never silently untested.
-#
-# CI_TIER=quick (draft pull requests) drops the fan-out from a service change to
-# every client, editor and the docs: each of those runs only when its own paths
-# change. The full tier, which every non-draft push runs, keeps the fan-out.
+
+# The first line is the tier, `tier=quick|queue|full` (CONTRIBUTING.md, "GitHub Actions"): queue for CI_EVENT
+# merge_group, full for schedule, workflow_dispatch, CI_FULL_LABEL=true or an unclaimed path, else quick; CI_TIER forces it.
 set -euo pipefail
 
 base=${1:?usage: ci-changed-areas.sh <base> [head]}
@@ -41,6 +40,9 @@ hygiene_pattern='(^|/)testdata/|\.golden\.|_test\.go$'
 # Go tests (the referees' provenance and figure checks, doc-counts) read the committed
 # baselines and figure pages under docs/project, so a change there runs Go as well as docs.
 project_inputs_pattern='^docs/project/.*\.(json|md)$'
+# The derived-property differential (Java, the pinned pilot jar, 18-25 minutes) runs on what can move its baseline
+# (writer, referee, bridge, pin, baseline, corpora), not on the workflow; the queue tier skips it (the push ran it).
+apijson_pattern='^(internal/translate/export/|tools/referee/apijson/|tools/referee/baseline/|tools/referee/diff/|tools/oracle/baseline/|scripts/pilot-json-exporter/|scripts/pilot-pin\.sh$|scripts/download-pilot-validator\.sh$|scripts/download-pilot-json-exporter\.sh$|docs/project/api-json-differential/|\.github/actions/corpora/)'
 
 known_pattern="$service_pattern|$docs_pattern|$node_pattern|$python_pattern|$java_pattern|$rust_pattern|$julia_pattern|$matlab_pattern|$vscode_pattern|$jupyterlab_pattern|$emacs_pattern|$mdk_pattern|$syson_pattern|^\.agents/|^\.gitignore$|^\.gitattributes$|^LICENSE|^packaging/"
 
@@ -53,7 +55,9 @@ if [[ -z "$changed" ]] || grep -Ev "$known_pattern" <<<"$changed" | grep -q .; t
   unclaimed=$(grep -Ev "$known_pattern" <<<"$changed" || true)
   [[ -n "$unclaimed" ]] && echo "unclaimed paths, so every area runs:" >&2 && echo "$unclaimed" >&2
   service=true
+  everything=true
 else
+  everything=false
   matches "$service_pattern" && service=true || service=false
 fi
 
@@ -62,10 +66,26 @@ emit() {
   echo "$area=$enabled"
 }
 
+tier=${CI_TIER:-}
+case "$tier" in
+  full|queue|quick) ;;
+  *)
+    case "${CI_EVENT:-pull_request}" in
+      merge_group) tier=queue ;;
+      schedule|workflow_dispatch) tier=full ;;
+      *)
+        if [[ "${CI_FULL_LABEL:-false}" = true || "$everything" = true ]]; then tier=full; else tier=quick; fi
+        ;;
+    esac
+    ;;
+esac
+emit tier "$tier"
+
 fanout=$service
-[[ "${CI_TIER:-full}" = quick ]] && fanout=false
+[[ "$tier" = quick ]] && fanout=false
 
 emit go "$( { [[ "$service" = true ]] || matches "$hygiene_pattern" || matches "$project_inputs_pattern"; } && echo true || echo false)"
+emit apijson "$( [[ "$tier" != queue ]] && { [[ "$everything" = true && "$fanout" = true ]] || matches "$apijson_pattern"; } && echo true || echo false)"
 emit docs "$( { [[ "$fanout" = true ]] || matches "$docs_pattern"; } && echo true || echo false)"
 emit node "$( { [[ "$fanout" = true ]] || matches "$node_pattern"; } && echo true || echo false)"
 # The client-manifest/Python version lockstep tests live in the Python suite,
@@ -83,4 +103,5 @@ emit jupyterlab "$( { [[ "$fanout" = true ]] || matches "$jupyterlab_pattern"; }
 emit emacs "$( { [[ "$fanout" = true ]] || matches "$emacs_pattern"; } && echo true || echo false)"
 # The MDK plugin builds on the Java client, so a client change re-runs it too.
 emit mdk "$( { [[ "$fanout" = true ]] || matches "$mdk_pattern" || matches "$java_pattern"; } && echo true || echo false)"
-emit syson "$( { [[ "$fanout" = true ]] || matches "$syson_pattern"; } && echo true || echo false)"
+# The SysON backend builds on the Java client too, so a client change re-runs it.
+emit syson "$( { [[ "$fanout" = true ]] || matches "$syson_pattern" || matches "$java_pattern"; } && echo true || echo false)"

@@ -4,6 +4,8 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
@@ -31,6 +33,9 @@ const (
 	actionFlowCompartment      = "action flow"
 	stateTransitionCompartment = "state transition"
 )
+
+// resultCompartment names the compartment holding a calculation's result expression.
+const resultCompartment = "result"
 
 // statementRowKind is the kind of a compartment row that is a statement written
 // out, which heads no row of its own.
@@ -224,6 +229,21 @@ func numberRows(ids *nodeIDs, compartments []Compartment) {
 			}
 		}
 	}
+}
+
+// resultCompartments is a calculation's `result` compartment (SysML v2 §8.2.3.19
+// result-compartment): the result expression its own body states, as written.
+func (r *Renderer) resultCompartments(calc *symbols.Symbol, ids *nodeIDs) []Compartment {
+	var rows []*Node
+	for _, expr := range semantics.OwnedResultExpressions(calc) {
+		rows = append(rows, statementRows(r.nodeText(calc.DocName, expr.Node))...)
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+	compartments := []Compartment{{Name: resultCompartment, Rows: rows}}
+	numberRows(ids, compartments)
+	return compartments
 }
 
 // statementRows is the one row of a compartment holding an expression.

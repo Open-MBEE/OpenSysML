@@ -166,6 +166,21 @@ func (r *Resolver) ownedNames(scope *symbols.Scope) []string {
 	return names
 }
 
+// ownsName reports whether ownedNames(scope) holds name, without listing them.
+func (r *Resolver) ownsName(scope *symbols.Scope, name string) bool {
+	owns := false
+	scope.ForEachNamedMember(func(key string, sym *symbols.Symbol) bool {
+		// As DistinguishableMembers: a member under two keys is compared under its own name.
+		if sym.Name != key || !contributesName(sym) || !r.BindsName(sym) {
+			return true
+		}
+		names := r.memberNames(sym)
+		owns = name != "" && (names[0] == name || names[1] == name)
+		return !owns
+	})
+	return owns
+}
+
 // collectImported gathers what imports bring into scope and decides the
 // collisions among them; complete is false when an import's target could not
 // be settled yet.
@@ -244,7 +259,7 @@ func (r *Resolver) hideImportCollisions(c *importCollisions) {
 		}
 		var kept []importedMember
 		for i, member := range members {
-			if len(r.duplicatesOf(member.sym, importedSymbolsExcept(members, i))) > 0 {
+			if r.hasImportedDuplicate(members, i) {
 				kept = append(kept, member)
 			}
 		}
@@ -570,15 +585,15 @@ func (r *Resolver) memberNames(sym *symbols.Symbol) [2]string {
 	return names
 }
 
-// importedSymbolsExcept is the symbols of members other than the i-th.
-func importedSymbolsExcept(members []importedMember, i int) []*symbols.Symbol {
-	out := make([]*symbols.Symbol, 0, len(members)-1)
+// hasImportedDuplicate stops once another membership makes this one ambiguous.
+func (r *Resolver) hasImportedDuplicate(members []importedMember, i int) bool {
+	sym := members[i].sym
 	for j, member := range members {
-		if j != i {
-			out = append(out, member.sym)
+		if j != i && !r.sameElement(sym, member.sym) && !r.DistinguishableByMetaclass(sym, member.sym) {
+			return true
 		}
 	}
-	return out
+	return false
 }
 
 // importText spells an import as its declaration does, visibility aside:
@@ -884,10 +899,8 @@ func (r *Resolver) HidesImportedName(scope *symbols.Scope, name string) bool {
 	if len(r.scopeImports(scope)) == 0 {
 		return false
 	}
-	for _, owned := range r.ownedNames(scope) {
-		if owned == name {
-			return true
-		}
+	if r.ownsName(scope, name) {
+		return true
 	}
 	for _, syms := range r.inheritedNamesHiding(scope) {
 		for _, sym := range syms {

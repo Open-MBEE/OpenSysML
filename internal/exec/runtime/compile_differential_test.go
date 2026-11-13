@@ -9,12 +9,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/corpussubset"
 )
 
 // differentialRoots are the model trees whose calcs the differential test
@@ -53,6 +55,7 @@ func TestCompiledCalcDifferential(t *testing.T) {
 	if len(files) == 0 {
 		t.Fatal("no .sysml files under the differential roots")
 	}
+	files = corpussubset.Must(t, "../../..").FilterPaths(differentialRoots[0], files)
 
 	var eligible, ineligible, invocations int
 	reasons := map[string]int{}
@@ -184,7 +187,7 @@ func calcSymbolsUnder(scope *symbols.Scope) []*symbols.Symbol {
 	var walk func(*symbols.Scope)
 	walk = func(s *symbols.Scope) {
 		for _, name := range s.MemberNames() {
-			if sym, ok := s.LookupLocal(name); ok && sym != nil && isCalcDecl(sym.Decl) {
+			if sym, ok := s.LookupLocal(name); ok && sym != nil && lower.IsCalcDecl(sym.Decl) {
 				calcs = append(calcs, sym)
 			}
 		}

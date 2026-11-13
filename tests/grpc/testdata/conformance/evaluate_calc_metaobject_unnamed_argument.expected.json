@@ -1,0 +1,11 @@
+{
+  "rpc": "EvaluateCalc",
+  "symbol_id": "Anonymous::isTheAnonymousPart",
+  "arguments": [
+    {"kind": "metaobject", "value": "Anonymous::outer::@0 : "}
+  ],
+  "expected_result": {
+    "kind": "bool_value",
+    "value": true
+  }
+}

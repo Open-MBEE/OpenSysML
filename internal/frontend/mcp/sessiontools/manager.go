@@ -21,14 +21,19 @@ type Factory func() (*repl.Session, error)
 // DefaultSession is the session a tool uses when the call names none.
 const DefaultSession = "default"
 
-// Manager holds the sessions by name; the default one is made on first use.
-// Each session answers one call at a time: a second call on it waits for the
-// first, and a call whose context ends interrupts the command it is running.
+// Manager holds the sessions by owner and name, an owner's default made on first
+// use; a session answers one call at a time, and a call whose context ends interrupts it.
 type Manager struct {
 	root     toolkit.Root
 	factory  Factory
 	mu       sync.Mutex
-	sessions map[string]*held
+	sessions map[Key]*held
+}
+
+// Key names a session: the principal that owns it (guard.Principal.ID) and
+// the name it gave, so two principals' sessions of one name never meet.
+type Key struct {
+	Owner, Name string
 }
 
 // held is one open session and the lock serializing the calls made on it.
@@ -36,7 +41,7 @@ type Manager struct {
 // was waiting for the lock finds the session gone rather than cleared; it is
 // atomic so a lookup can read it without the lock, from inside a call too.
 type held struct {
-	name   string
+	key    Key
 	mu     sync.Mutex
 	sess   *repl.Session
 	closed atomic.Bool
@@ -49,22 +54,22 @@ func NewManager(root string, factory Factory) (*Manager, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Manager{root: r, factory: factory, sessions: map[string]*held{}}, nil
+	return &Manager{root: r, factory: factory, sessions: map[Key]*held{}}, nil
 }
 
-// ErrNoSession reports a name no open session has.
+// ErrNoSession reports a name no open session of the owner has.
 var ErrNoSession = errors.New("no such session")
 
-// Open makes a session under name; an empty name is the default session. It
-// fails if the name is taken.
-func (m *Manager) Open(name string) (string, error) {
-	return m.OpenIn(name, "")
+// Open makes owner's session under name; an empty name is the default
+// session. It fails if owner has that name open.
+func (m *Manager) Open(owner, name string) (string, error) {
+	return m.OpenIn(owner, name, "")
 }
 
 // OpenIn is Open with the directory the session looks its unresolved root
 // namespaces for under: a directory under the workspace root, which the
 // session loads files from on demand; empty looks nowhere.
-func (m *Manager) OpenIn(name, root string) (string, error) {
+func (m *Manager) OpenIn(owner, name, root string) (string, error) {
 	if name == "" {
 		name = DefaultSession
 	}
@@ -75,9 +80,10 @@ func (m *Manager) OpenIn(name, root string) (string, error) {
 		}
 		root = resolved
 	}
+	key := Key{Owner: owner, Name: name}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if _, taken := m.sessions[name]; taken {
+	if _, taken := m.sessions[key]; taken {
 		return name, fmt.Errorf("session %q is already open", name)
 	}
 	sess, err := m.factory()
@@ -88,16 +94,14 @@ func (m *Manager) OpenIn(name, root string) (string, error) {
 	if err := sess.SetWorkspaceRoot(root); err != nil {
 		return name, err
 	}
-	m.sessions[name] = &held{name: name, sess: sess}
+	m.sessions[key] = &held{key: key, sess: sess}
 	return name, nil
 }
 
-// Get returns the session called name, opening the default session on first
-// use; any other name must have been opened and not closed since. It does not
-// wait for the calls on the session, so it can be made from inside one; Use is
-// how a caller has the session to itself.
-func (m *Manager) Get(name string) (*repl.Session, error) {
-	h, err := m.get(name)
+// Get returns owner's session called name, the default opened on first use, any
+// other opened and not closed since; it does not wait for the session's calls, as Use does.
+func (m *Manager) Get(owner, name string) (*repl.Session, error) {
+	h, err := m.get(owner, name)
 	if err != nil {
 		return nil, err
 	}
@@ -109,16 +113,17 @@ func (m *Manager) Get(name string) (*repl.Session, error) {
 
 // closedErr reports a session closed while a call waited for it.
 func (h *held) closedErr() error {
-	return fmt.Errorf("%w: %q was closed while the call waited for it", ErrNoSession, h.name)
+	return fmt.Errorf("%w: %q was closed while the call waited for it", ErrNoSession, h.key.Name)
 }
 
-func (m *Manager) get(name string) (*held, error) {
+func (m *Manager) get(owner, name string) (*held, error) {
 	if name == "" {
 		name = DefaultSession
 	}
+	key := Key{Owner: owner, Name: name}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if h, ok := m.sessions[name]; ok {
+	if h, ok := m.sessions[key]; ok {
 		return h, nil
 	}
 	if name != DefaultSession {
@@ -129,17 +134,15 @@ func (m *Manager) get(name string) (*held, error) {
 		return nil, err
 	}
 	m.confine(sess)
-	h := &held{name: name, sess: sess}
-	m.sessions[name] = h
+	h := &held{key: key, sess: sess}
+	m.sessions[key] = h
 	return h, nil
 }
 
-// Use runs fn on the session called name, after any call already running on
-// it has finished; a session closed meanwhile is ErrNoSession. A ctx that ends
-// while fn runs interrupts the session's command under way, so a run abandoned
-// by the client stops at its next step.
-func (m *Manager) Use(ctx context.Context, name string, fn func(*repl.Session) error) error {
-	h, err := m.get(name)
+// Use runs fn on owner's session called name after any call running on it, a
+// session closed meanwhile being ErrNoSession; a ctx that ends interrupts the command under way.
+func (m *Manager) Use(ctx context.Context, owner, name string, fn func(*repl.Session) error) error {
+	h, err := m.get(owner, name)
 	if err != nil {
 		return err
 	}
@@ -168,17 +171,17 @@ func (m *Manager) Use(ctx context.Context, name string, fn func(*repl.Session) e
 	return err
 }
 
-// Close ends the session called name, releasing what it holds; a command it is
-// running is interrupted first, and a call still waiting for the session fails
-// rather than running on the cleared one.
-func (m *Manager) Close(name string) error {
+// Close ends owner's session called name, interrupting its command first; a
+// call still waiting for the session fails rather than running on the cleared one.
+func (m *Manager) Close(owner, name string) error {
 	if name == "" {
 		name = DefaultSession
 	}
+	key := Key{Owner: owner, Name: name}
 	m.mu.Lock()
-	h, ok := m.sessions[name]
+	h, ok := m.sessions[key]
 	if ok {
-		delete(m.sessions, name)
+		delete(m.sessions, key)
 	}
 	m.mu.Unlock()
 	if !ok {
@@ -192,22 +195,42 @@ func (m *Manager) Close(name string) error {
 	return nil
 }
 
-// Names lists the open sessions, sorted.
-func (m *Manager) Names() []string {
+// Names lists owner's open sessions, sorted.
+func (m *Manager) Names(owner string) []string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	names := make([]string, 0, len(m.sessions))
-	for name := range m.sessions {
-		names = append(names, name)
+	for key := range m.sessions {
+		if key.Owner == owner {
+			names = append(names, key.Name)
+		}
 	}
 	sort.Strings(names)
 	return names
 }
 
-// CloseAll ends every session, as the server does on exit.
+// Keys lists every open session of every owner, sorted by owner then name;
+// what sysml:admin sees.
+func (m *Manager) Keys() []Key {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	keys := make([]Key, 0, len(m.sessions))
+	for key := range m.sessions {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i].Owner != keys[j].Owner {
+			return keys[i].Owner < keys[j].Owner
+		}
+		return keys[i].Name < keys[j].Name
+	})
+	return keys
+}
+
+// CloseAll ends every session of every owner, as the server does on exit.
 func (m *Manager) CloseAll() {
-	for _, name := range m.Names() {
-		_ = m.Close(name)
+	for _, key := range m.Keys() {
+		_ = m.Close(key.Owner, key.Name)
 	}
 }
 

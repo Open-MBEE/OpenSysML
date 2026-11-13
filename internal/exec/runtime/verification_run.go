@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -235,7 +236,7 @@ func (ctx *Context) subcaseVerdicts(run *calcRun) []VerificationVerdict {
 	}
 	var out []VerificationVerdict
 	for _, node := range run.shape.Nodes {
-		sym := memberSymbol(run.shape.bodyScope(), node)
+		sym := memberSymbol(run.shape.BodyScope(), node)
 		if !IsVerificationCaseSymbol(sym) {
 			continue
 		}
@@ -276,5 +277,5 @@ func verdictOutputNames(result string) []string {
 	if result != "" {
 		names = append(names, result)
 	}
-	return append(names, verdictOutputName, resultOutputName)
+	return append(names, verdictOutputName, program.ResultOutputName)
 }

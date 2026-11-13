@@ -232,7 +232,7 @@ func (v *verifyContext) sweepValue(val *pb.Value, what string) (runtime.Value, *
 	if err := v.service.requireValueCapabilities(val); err != nil {
 		return runtime.Value{}, nil, err
 	}
-	out, err := protoconv.ProtoToRuntimeValue(v.runtime, val, v.cached.Index, v.sem())
+	out, err := protoconv.ProtoToRuntimeValueWith(v.runtime, val, v.cached.Index, v.sem(), v.cached.SymbolContext())
 	if err != nil {
 		return runtime.Value{}, &pb.RunSweepResponse{
 			Error:         fmt.Sprintf("sweep %s could not be read: %v", what, err),
@@ -277,7 +277,7 @@ func (v *verifyContext) sweepResponseIDs(table sweep.SweepTable, st standing) (*
 		for _, binding := range row.Bindings {
 			out.Inputs = append(out.Inputs, &pb.CalcOutput{
 				Name:  binding.Param,
-				Value: in.service.valueToProto(in.runtime, binding.Value, in.cached.Index),
+				Value: in.service.valueToProto(in.runtime, binding.Value, in.cached),
 			})
 		}
 		if row.Err != nil {
@@ -292,7 +292,7 @@ func (v *verifyContext) sweepResponseIDs(table sweep.SweepTable, st standing) (*
 		for _, output := range row.Outputs {
 			out.Outputs = append(out.Outputs, &pb.CalcOutput{
 				Name:  output.Name,
-				Value: in.service.valueToProto(in.runtime, output.Value, in.cached.Index),
+				Value: in.service.valueToProto(in.runtime, output.Value, in.cached),
 			})
 		}
 		for j := range row.Verdicts {

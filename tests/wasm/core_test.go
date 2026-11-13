@@ -8,8 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -23,9 +21,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// coreGzipBudget bounds the gzipped js build of sysml-core: raised to 6,800,000 on 2026-10-24 when Markdown
-// bodies brought in goldmark (6,302,493 -> 6,601,115 bytes), to 7,300,000 on 2026-10-27 when go1.27.3 linked it at 7,069,278.
-const coreGzipBudget = 7300000
+// coreGzipBudget bounds the gzipped js sysml-core the gate links (-trimpath, stripped, the library snapshot embedded, as
+// every Makefile build target does): 7,408,199 bytes under go1.27.4 on 2026-11-13 with repeated view expansions folded, 5,740,899 without the snapshot.
+const coreGzipBudget = 7450000
 
 const cleanCoreModel = `
 package Demo {
@@ -153,7 +151,7 @@ func coreSubtests(t *testing.T, target wasmTarget, r runner, bins map[string]str
 		if answers["version"] != versionStamp {
 			t.Errorf("sysmlCore.version = %q, want %q", answers["version"], versionStamp)
 		}
-		for _, method := range []string{"ParseSources", "ParseFile", "GetDiagnostics", "GetSymbol"} {
+		for _, method := range []string{"ParseSources", "ParseFile", "GetDiagnostics", "GetSymbol", "GetSymbolPositional"} {
 			var answer struct {
 				Result json.RawMessage `json:"result"`
 				Error  json.RawMessage `json:"error"`
@@ -163,6 +161,9 @@ func coreSubtests(t *testing.T, target wasmTarget, r runner, bins map[string]str
 			} else if len(answer.Error) != 0 {
 				t.Errorf("%s returned an error: %s", method, answer.Error)
 			}
+		}
+		if !strings.Contains(answers["GetSymbolPositional"], `"Demo::@1"`) {
+			t.Errorf("GetSymbol answered %s, want the unnamed member's positional id Demo::@1 among childIds", answers["GetSymbolPositional"])
 		}
 		if !strings.Contains(answers["malformed"], `"code":3`) {
 			t.Errorf("malformed params answered %s, want InvalidArgument (3)", answers["malformed"])
@@ -459,6 +460,8 @@ func TestCoreDependencies(t *testing.T) {
 		module + "/internal/workspace/libs",
 		module + "/internal/frontend/jsonrpc",
 		module + "/internal/frontend/syntax",
+		module + "/internal/frontend/symbolfacts",
+		module + "/internal/semantic/naming",
 	}
 	checkWasmDependencies(t, "./cmd/sysml-core", required, func(dependency string) bool {
 		return forbiddenCoreDependency(module, dependency)
@@ -467,16 +470,9 @@ func TestCoreDependencies(t *testing.T) {
 
 func checkWasmDependencies(t *testing.T, command string, required []string, forbidden func(dependency string) bool) {
 	t.Helper()
-	root, err := filepath.Abs(filepath.Join("..", ".."))
-	if err != nil {
-		t.Fatalf("resolving repository root: %v", err)
-	}
-	for _, target := range []wasmTarget{{name: "js", goos: "js"}, {name: "wasip1", goos: "wasip1"}} {
+	for _, target := range wasmTargets {
 		t.Run(target.name, func(t *testing.T) {
-			cmd := exec.Command("go", "list", "-deps", command)
-			cmd.Dir = root
-			cmd.Env = append(os.Environ(), "GOOS="+target.goos, "GOARCH=wasm")
-			output, err := cmd.CombinedOutput()
+			output, err := goFor(target, "list", "-deps", command)
 			if err != nil {
 				t.Fatalf("go list -deps for %s: %v\n%s", command, err, output)
 			}

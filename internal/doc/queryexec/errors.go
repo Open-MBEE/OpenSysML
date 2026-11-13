@@ -110,7 +110,8 @@ type Error struct {
 	// Outcome is the QVTS record behind a path or model error (outcome.go); nil for
 	// the failures that are neither, the flat fields above being its rendering.
 	Outcome *Outcome
-	// Also names the other elements the same fan-out failed on (missing-feature).
+	// Also names the other elements the same fan-out failed on (missing-feature);
+	// the message spells the first alsoLimit and counts the rest.
 	Also []string
 	// Cause is the evaluator's reason an unevaluable feature could not be read.
 	Cause error
@@ -180,7 +181,9 @@ func (e *Error) missingFeatureMessage() string {
 			msg = suggest.With(msg, segment, suggest.Nearest(segment, e.Candidates))
 		}
 	}
-	if len(e.Also) > 0 {
+	if len(e.Also) > alsoLimit {
+		msg += fmt.Sprintf(" (also absent on %s, and %d others)", strings.Join(e.Also[:alsoLimit], ", "), len(e.Also)-alsoLimit)
+	} else if len(e.Also) > 0 {
 		msg += fmt.Sprintf(" (also absent on %s)", strings.Join(e.Also, ", "))
 	}
 	return msg
@@ -202,6 +205,10 @@ func (e *Error) column() string {
 	}
 	return " column " + e.Property
 }
+
+// alsoLimit is how many fan-out elements the message names before counting
+// the rest, so the message stays a status trailer whatever the model's size.
+const alsoLimit = 8
 
 func (e *Error) Error() string {
 	if message, ok := e.columnMessage(); ok {

@@ -22,7 +22,7 @@ package P {
 	part def Car {
 		@IdentityMetadata::ElementId { id = "8f3a41d0"; }
 	}
-	part def Wheel; /* rolls */
+	part def Wheel; // rolls
 }
 `
 
@@ -177,7 +177,7 @@ func TestSyncAnnotateWritesMintedIDs(t *testing.T) {
 		t.Errorf("the annotated notation does not declare the minted id:\n%s", data)
 	}
 	if !strings.HasPrefix(string(data), "// The fleet's model.") ||
-		!strings.Contains(string(data), "/* rolls */") {
+		!strings.Contains(string(data), "// rolls") {
 		t.Errorf("the annotated notation lost the model's lexical comments:\n%s", data)
 	}
 }

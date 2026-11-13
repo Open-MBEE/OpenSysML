@@ -1,0 +1,6 @@
+{
+  "rpc": "VerifyConstraint",
+  "symbol_id": "CheckDerived::k",
+  "question": "satisfiable",
+  "expected_status": "unsatisfiable"
+}

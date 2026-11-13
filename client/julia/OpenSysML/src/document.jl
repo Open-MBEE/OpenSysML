@@ -303,18 +303,34 @@ _binding_holds_big_int(binding) = any(binding["values"]) do value
         (haskey(value, "quantity") && haskey(value["quantity"], "bigIntMagnitude"))
 end
 
-"""Run a document query with optional parameter bindings."""
+"""
+    run_document_query(model, query_id; bindings=Dict())
+    run_document_query(model; inline_query, bindings=Dict())
+
+Run a document query the model declares by name, or a query expression written
+in place of a name (`inline_query`, the result expression of a `calc def`
+specializing `DocumentQueries::Query`; needs the `inline_document_query`
+capability), with optional parameter bindings.
+"""
 function run_document_query(model::Model, query_id::AbstractString; bindings=Dict())
+    _run_document_query(model, Dict{String,Any}("queryId" => String(query_id)), bindings)
+end
+
+function run_document_query(model::Model; inline_query::AbstractString, bindings=Dict())
+    require_capability(model.connection, CAPABILITY_INLINE_DOCUMENT_QUERY)
+    _run_document_query(model, Dict{String,Any}("inlineQuery" => String(inline_query)), bindings)
+end
+
+function _run_document_query(model::Model, query::Dict{String,Any}, bindings)
     conn = model.connection
     require_capability(conn, CAPABILITY_DOCUMENT_QUERY)
     wire = build_document_bindings(bindings)
     any(_binding_holds_big_int, wire) && require_capability(conn, CAPABILITY_BIG_INT_VALUES)
     has_capability(conn, CAPABILITY_RATIONAL_VALUES) || rationals_as_reals!(wire)
     any(_binding_holds_rational, wire) && require_capability(conn, CAPABILITY_RATIONAL_VALUES)
-    request = Dict{String,Any}("modelHash" => model.hash, "queryId" => String(query_id),
-        "bindings" => wire)
+    request = merge(Dict{String,Any}("modelHash" => model.hash, "bindings" => wire), query)
     answer = _translate(; not_found=SymbolNotFoundError,
-        capabilities=(CAPABILITY_DOCUMENT_QUERY,), connection=conn) do
+        capabilities=(CAPABILITY_DOCUMENT_QUERY, CAPABILITY_INLINE_DOCUMENT_QUERY), connection=conn) do
         call(conn, "RunDocumentQuery", request)
     end
     DocumentQueryResult(String[String(get(c, "name", "")) for c in get(answer, "columns", Any[])],

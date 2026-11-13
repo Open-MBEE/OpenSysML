@@ -129,6 +129,9 @@ public final class Capabilities {
   /** The {@code GetElementProperties} RPC: an element's metamodel properties by their specification names. */
   public static final String ELEMENT_PROPERTIES = "element_properties";
 
+  /** The {@code InstancePaths} RPC, and {@code Instance.reached_by} on every instantiated object. */
+  public static final String INSTANCE_PATHS = "instance_paths";
+
   /** {@code ApplyEdits} can add members and delete declarations. */
   public static final String AUTHORING = "authoring";
 
@@ -192,6 +195,9 @@ public final class Capabilities {
 
   /** The {@code RunDocumentQuery} RPC runs a named document query. */
   public static final String DOCUMENT_QUERY = "document_query";
+
+  /** {@code RunDocumentQueryRequest.inline_query}: a query expression run in place of a name. */
+  public static final String INLINE_DOCUMENT_QUERY = "inline_document_query";
 
   /** The {@code RenderDocument} RPC renders a named document to Markdown. */
   public static final String RENDER_DOCUMENT = "render_document";

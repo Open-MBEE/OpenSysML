@@ -100,10 +100,13 @@ func IsReferenceUsage(sym *symbols.Symbol) bool {
 	return false
 }
 
-// IsSubjectUsage reports whether sym is the subject parameter of a case.
+// IsSubjectUsage reports whether sym is the subject parameter of a case, declared or recorded.
 func IsSubjectUsage(sym *symbols.Symbol) bool {
 	if sym == nil {
 		return false
+	}
+	if sym.Recorded() {
+		return sym.Facts.Node == symbols.NodeSubject || sym.Facts.UsageKind == ast.UsageSubject
 	}
 	switch decl := sym.Decl.(type) {
 	case *ast.SubjectMember:

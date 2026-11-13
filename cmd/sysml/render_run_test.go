@@ -105,6 +105,39 @@ func TestRenderRunWritesEachFormAfterTheVerdict(t *testing.T) {
 	}
 }
 
+func TestRenderRunLimitBoundsTheDrawing(t *testing.T) {
+	binary := buildCLI(t)
+	dir := t.TempDir()
+	timelinePath := filepath.Join(dir, "timeline.txt")
+	got := check(t, binary, behaviorModel,
+		"-state", "Mission::Cycle", "-advance", "15",
+		"-render-limit", "1",
+		"-render-run", "timeline="+timelinePath,
+	)
+	if got.status != 0 {
+		t.Fatalf("exit status = %d\n%s", got.status, got.output())
+	}
+	if !strings.Contains(got.stderr, "run timeline: note:") || !strings.Contains(got.stderr, "not drawn (at most 1 spans are)") {
+		t.Errorf("stderr does not note the spans cut off:\n%s", got.stderr)
+	}
+	timeline, err := os.ReadFile(timelinePath) // #nosec G304 -- this path is created by the test.
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(timeline), "0 .. 10  waiting") || strings.Contains(string(timeline), "10 .. 15  working") ||
+		!strings.Contains(string(timeline), "2 later state changes from t = 10 are not drawn (at most 1 spans are)") {
+		t.Errorf("a limit of 1 drew more than the first span:\n%s", timeline)
+	}
+	traced := check(t, binary, behaviorModel, "-state", "Mission::Cycle", "-advance", "15", "-trace", "-render-limit", "1", "-render-run", "timeline="+timelinePath)
+	if traced.status != 0 || !strings.Contains(traced.stdout, "transition") || !strings.Contains(traced.stderr, "not drawn (at most 1 spans are)") {
+		t.Errorf("-trace beside -render-run printed no trace or drew unbounded:\n%s", traced.output())
+	}
+	wantReport(t, check(t, binary, behaviorModel, "-state", "Mission::Cycle", "-advance", "15", "-render-limit", "1"),
+		2, "-render-limit bounds how many spans or messages a run rendering draws; name the rendering with -render-run")
+	wantReport(t, check(t, binary, behaviorModel, "-state", "Mission::Cycle", "-advance", "15", "-render-limit", "-1", "-render-run", "timeline="+timelinePath),
+		2, "-render-limit must be a positive count, not -1")
+}
+
 func TestRenderRunLinksTimelineAndSequence(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("..", "..", "examples", "run-timeline", "run-timeline.sysml"))
 	if err != nil {

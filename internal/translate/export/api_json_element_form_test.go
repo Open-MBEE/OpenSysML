@@ -2,6 +2,7 @@ package export
 
 import (
 	"encoding/json"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/identity"
 	"strings"
 	"testing"
 
@@ -293,5 +294,98 @@ func TestLibraryElementFormReadsTheIndexedLibrarysText(t *testing.T) {
 	}
 	if _, ok := sharedForm.ByQualifiedName("Parts::Part::probeFromTheConfiguredLibrary"); ok {
 		t.Error("an index's forms are cached on another index")
+	}
+}
+
+// libraryMembersModel is the model whose `P::a` inherits, through Parts::Part,
+// unnamed library members: documentation, invariants, connectors, a declared range.
+const libraryMembersModel = `
+package P {
+    private import ScalarValues::*;
+    part def Unit;
+    part def V { part x : Unit; }
+    part a : V;
+}
+`
+
+// Every id an answer carries reads back: the owning membership of an unnamed
+// library member and the member itself are written by the member's own library
+// document under the ids the model's form referenced them by.
+func TestLibraryElementFormReadsEveryIdAnInheritedMembershipCarries(t *testing.T) {
+	form := parseElementForm(t, libraryMembersModel)
+	a, ok := form.ByQualifiedName("P::a")
+	if !ok {
+		t.Fatal("no P::a")
+	}
+	readBack := func(id string) (APIJSONElement, bool) {
+		if element, found := form.ByID(id); found {
+			return element, true
+		}
+		element, _, known, err := LibraryElementForm(id)
+		if err != nil || !known {
+			t.Errorf("%s reads back as %v, %v", id, known, err)
+			return APIJSONElement{}, false
+		}
+		return element, true
+	}
+	unnamed := map[string]int{}
+	for _, property := range []string{"inheritedMembership", "inheritedFeature"} {
+		ids := formReferenceIDs(t, formPropertyOf(t, a, property))
+		if len(ids) == 0 {
+			t.Fatalf("P::a.%s is empty", property)
+		}
+		for _, id := range ids {
+			element, ok := readBack(id)
+			if !ok {
+				continue
+			}
+			if element.ID != id {
+				t.Errorf("%s reads back as %s", id, element.ID)
+			}
+			if property != "inheritedMembership" {
+				continue
+			}
+			for _, memberID := range formReferenceIDs(t, formPropertyOf(t, element, "memberElement")) {
+				if member, ok := readBack(memberID); ok && member.QualifiedName == "" {
+					unnamed[member.Metaclass]++
+				}
+			}
+		}
+	}
+	for _, metaclass := range []string{"Documentation", "MultiplicityRange", "Connector", "BindingConnectorAsUsage"} {
+		if unnamed[metaclass] == 0 {
+			t.Errorf("P::a inherits no unnamed %s to read back; unnamed members by metaclass: %v", metaclass, unnamed)
+		}
+	}
+}
+
+// A library document's form writes its unnamed members under the ids this
+// implementation mints for them (identity.AnonymousMemberOf), so the id a model's
+// answer references them by is the one the form knows.
+func TestLibraryElementFormWritesAnonymousMembersUnderTheirMintedIDs(t *testing.T) {
+	index := sharedLibraryIndex()
+	part, ok := index.catalog.ElementNamed("Parts::Part")
+	if !ok {
+		t.Fatal("Parts::Part is not catalogued")
+	}
+	parts, ok := index.catalog.ElementNamed("Parts::parts")
+	if !ok {
+		t.Fatal("Parts::parts is not catalogued")
+	}
+	cases := []struct{ id, metaclass, path string }{
+		{identity.AnonymousMemberID(part.ID, "Documentation", 0), "Documentation", "Parts::Part/Documentation[0]"},
+		{identity.AnonymousMemberOwningMembershipID(part.ID, "Documentation", 0), "OwningMembership", "Parts::Part/OwningMembership[0]"},
+		{identity.AnonymousMemberID(parts.ID, "MultiplicityRange", 0), "MultiplicityRange", "Parts::parts/MultiplicityRange[0]"},
+		{identity.AnonymousMemberOwningMembershipID(parts.ID, "MultiplicityRange", 0), "OwningMembership", "Parts::parts/OwningMembership[0]"},
+	}
+	for _, c := range cases {
+		element, _, known, err := LibraryElementForm(c.id)
+		if err != nil || !known {
+			t.Errorf("LibraryElementForm(%s) for %s = %v, %v", c.id, c.path, known, err)
+			continue
+		}
+		if element.ID != c.id || element.Metaclass != c.metaclass || element.QualifiedName != "" {
+			t.Errorf("%s reads back as %+v", c.path, element)
+		}
 	}
 }

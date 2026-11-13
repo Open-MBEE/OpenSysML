@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
@@ -157,7 +158,7 @@ type unitHead struct {
 	label   string
 	at      ast.Node
 	site    string
-	shared  *ast.StateNode
+	shared  program.StateID
 	dropped func() bool
 	until   func() bool
 	void    func() bool
@@ -179,11 +180,11 @@ type pathDraw struct {
 type firingScope struct {
 	event        *Event
 	taken        *lower.Transition
-	change       *lower.Transition
+	change       program.TransID
 	notes        []RunNote
-	leftAhead    map[*ast.StateNode]bool
+	leftAhead    map[program.StateID]bool
 	exitingAhead bool
-	enteredAhead map[*ast.StateNode]bool
+	enteredAhead map[program.StateID]bool
 	moving       *moveMark
 	// bound are the machine's data the firing bound, installed while its units
 	// run; shadowed what the data held under each while installed.
@@ -392,13 +393,13 @@ func (f *unitFront) offer(act *doAction) {
 		return
 	}
 	var q *unitQueue
-	q = f.spawnAt(f.doStepHead(act), unit{run: func() error { return f.offerDoSteps(q, act) }, footprint: doStepFootprint(f.exec, act.state)})
+	q = f.spawnAt(f.doStepHead(act), unit{run: func() error { return f.offerDoSteps(q, act) }, footprint: doStepFootprint(f.exec, f.exec.stateDecl(act.state))})
 	q.head.void = func() bool { return !f.offering(q, act) }
 }
 
 // doStepHead is the unit moving one token of the do behavior.
 func (f *unitFront) doStepHead(act *doAction) unitHead {
-	return unitHead{label: doStepLabel([]string{f.exec.stateName(act.state)}), at: act.state, doStep: true}
+	return unitHead{label: doStepLabel([]string{f.exec.stateName(f.exec.stateDecl(act.state))}), at: f.exec.stateDecl(act.state), doStep: true}
 }
 
 // add places a queue for body in the front, before the running queue.
@@ -516,8 +517,8 @@ func (e *StateExecutor) drawOnPath(head unitHead) error {
 		alternatives := make([]string, 0, len(due)+1)
 		fps := make([]lower.Footprint, 0, len(due)+1)
 		for _, act := range due {
-			alternatives = append(alternatives, doStepLabel([]string{e.stateName(act.state)}))
-			fps = append(fps, doStepFootprint(e, act.state))
+			alternatives = append(alternatives, doStepLabel([]string{e.stateName(e.stateDecl(act.state))}))
+			fps = append(fps, doStepFootprint(e, e.stateDecl(act.state)))
 		}
 		alternatives = append(alternatives, head.label)
 		fps = append(fps, e.headFootprint(head))
@@ -531,7 +532,7 @@ func (e *StateExecutor) drawOnPath(head unitHead) error {
 		choice.Taken = pick
 		at := head.at
 		if pick < len(due) {
-			at = due[pick].state
+			at = e.stateDecl(due[pick].state)
 		}
 		if at != nil {
 			choice.Span = at.Span()
@@ -714,7 +715,7 @@ func (f *unitFront) ready() []*unitQueue {
 		if q.done || q.head.until != nil || (q.head.void != nil && q.head.void()) {
 			continue
 		}
-		if q.head.shared != nil && slices.ContainsFunc(ready, func(r *unitQueue) bool { return r.head.shared == q.head.shared }) {
+		if q.head.shared != 0 && slices.ContainsFunc(ready, func(r *unitQueue) bool { return r.head.shared == q.head.shared }) {
 			continue
 		}
 		ready = append(ready, q)

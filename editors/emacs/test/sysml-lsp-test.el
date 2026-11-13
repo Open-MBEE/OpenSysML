@@ -168,10 +168,14 @@ serves no `workspace/executeCommand'."
     (should-not (sysml-lsp--run-arguments
                  (lsp--read-json "{\"uri\":\"file:///ws/m.sysml\",\"element\":\"Demo::X\",\"kind\":\"part\"}")))))
 
-(ert-deftest sysml-lsp-run-paths-are-the-folders-holding-the-file ()
-  (cl-letf (((symbol-function 'lsp-session) (lambda () (make-lsp-session :folders '("/ws/" "/other/")))))
-    (should (equal (sysml-lsp--run-paths "/ws/sub/m.sysml") '("/ws/")))
-    (should (equal (sysml-lsp--run-paths "/elsewhere/m.sysml") '("/elsewhere/m.sysml")))))
+(ert-deftest sysml-lsp-run-paths-are-every-folder-when-one-holds-the-file ()
+  (cl-letf (((symbol-function 'lsp-session) (lambda () (make-lsp-session :folders '("/ws/" "/other")))))
+    ;; The server indexes every root together, so a run loads them all.
+    (should (equal (sysml-lsp--run-paths "/ws/sub/m.sysml") '("/ws/" "/other")))
+    (should (equal (sysml-lsp--run-paths "/other/m.sysml") '("/ws/" "/other")))
+    (should (equal (sysml-lsp--run-paths "/elsewhere/m.sysml") '("/elsewhere/m.sysml")))
+    ;; A folder holds what lies under it, not a sibling sharing its prefix.
+    (should (equal (sysml-lsp--run-paths "/otherwise/m.sysml") '("/otherwise/m.sysml")))))
 
 (ert-deftest sysml-lsp-finds-the-tool-beside-the-server ()
   (let* ((dir (file-name-as-directory (make-temp-file "bin" t)))
@@ -199,6 +203,49 @@ serves no `workspace/executeCommand'."
                    (mapconcat #'shell-quote-argument
                               (list "/bin/sysml" "-action" "Demo::Fly" temporary-file-directory) " ")))
     (should (equal (cadr started) (file-name-as-directory temporary-file-directory)))))
+
+(defmacro sysml-lsp-test--with-modified-model (&rest body)
+  "Run BODY with `buffer' visiting a model file whose change is not saved."
+  (declare (indent 0))
+  `(let* ((dir (make-temp-file "sysml-run" t))
+          (buffer (find-file-noselect (expand-file-name "m.sysml" dir))))
+     (unwind-protect
+         (progn
+           (with-current-buffer buffer
+             (insert "action def Fly;\n"))
+           ,@body)
+       (with-current-buffer buffer
+         (set-buffer-modified-p nil))
+       (kill-buffer buffer)
+       (delete-directory dir t))))
+
+(defconst sysml-lsp-test--run-lens
+  "{\"command\":\"opensysml.runElement\",\"arguments\":[{\"uri\":\"file:///ws/m.sysml\",\"element\":\"Demo::Fly\",\"kind\":\"action\"}]}"
+  "A Run lens command naming an action.")
+
+(ert-deftest sysml-lsp-does-not-run-a-model-left-unsaved ()
+  (sysml-lsp-test--with-modified-model
+    (let (started)
+      (cl-letf (((symbol-function 'sysml-lsp--find-tool) (lambda () "/bin/sysml"))
+                ((symbol-function 'sysml-lsp--run-paths) (lambda (_) (list temporary-file-directory)))
+                ;; The save is declined.
+                ((symbol-function 'save-some-buffers) #'ignore)
+                ((symbol-function 'compilation-start) (lambda (&rest _) (setq started t))))
+        (let ((err (should-error (sysml-lsp--run-element (lsp--read-json sysml-lsp-test--run-lens))
+                                 :type 'user-error)))
+          (should (string-match-p "m.sysml not saved" (cadr err)))))
+      (should-not started))))
+
+(ert-deftest sysml-lsp-runs-a-model-once-saved ()
+  (sysml-lsp-test--with-modified-model
+    (let (started)
+      (cl-letf (((symbol-function 'sysml-lsp--find-tool) (lambda () "/bin/sysml"))
+                ((symbol-function 'sysml-lsp--run-paths) (lambda (_) (list temporary-file-directory)))
+                ((symbol-function 'save-some-buffers)
+                 (lambda (&rest _) (with-current-buffer buffer (save-buffer))))
+                ((symbol-function 'compilation-start) (lambda (&rest _) (setq started t))))
+        (sysml-lsp--run-element (lsp--read-json sysml-lsp-test--run-lens)))
+      (should started))))
 
 (ert-deftest sysml-lsp-refuses-a-run-without-the-tool ()
   (cl-letf (((symbol-function 'sysml-lsp--find-tool) #'ignore)
@@ -284,6 +331,27 @@ Each test gets its own directory, so its own workspace."
     (let* ((locs (lsp-request "textDocument/definition" (lsp--text-document-position-params)))
            (loc (if (vectorp locs) (aref locs 0) (if (listp locs) (car locs) locs))))
       (should (= (lsp:position-line (lsp:range-start (lsp:location-range loc))) 1)))))
+
+(ert-deftest sysml-lsp-live-shows-a-library-declaration ()
+  (sysml-lsp-test--with-session
+      (sysml-lsp-test--fixture "package P {\n    private import ScalarValues::*;\n    attribute x : Integer;\n}\n")
+    (goto-char (point-min))
+    (search-forward ": Integer")
+    (backward-char 2)
+    (let* ((locs (lsp-request "textDocument/definition" (lsp--text-document-position-params)))
+           (loc (if (vectorp locs) (aref locs 0) (if (listp locs) (car locs) locs)))
+           (uri (lsp:location-uri loc))
+           (buffer (progn
+                     (should (sysml-lsp-stdlib-uri-p uri))
+                     (sysml-lsp-stdlib-buffer uri))))
+      (unwind-protect
+          (with-current-buffer buffer
+            (should buffer-read-only)
+            (should (derived-mode-p 'kerml-mode))
+            (goto-char (lsp--position-to-point (lsp:range-start (lsp:location-range loc))))
+            (should (string-match-p "datatype Integer"
+                                    (buffer-substring (line-beginning-position) (line-end-position)))))
+        (kill-buffer buffer)))))
 
 (ert-deftest sysml-lsp-live-change-notification-is-handled ()
   "Editing with no view open must not warn about an unknown notification."

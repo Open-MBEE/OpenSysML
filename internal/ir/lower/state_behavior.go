@@ -76,6 +76,16 @@ func lowerStateBehavior(action ast.Node, block ast.Node, scope *symbols.Scope, r
 	case *ast.Usage:
 		behavior.Name, _ = ast.EffectiveName(node)
 		switch {
+		case node.Kind == ast.UsageAction && acceptsMessage(node):
+			// `entry accept a : Sig via p;` parks until the occurrence arrives, as the
+			// accept node of an action body does (SysML.xtext StateAcceptActionUsage).
+			behavior.Body = []Statement{Block{
+				Node:   node,
+				Scope:  childScope(scope, node),
+				Graph:  ToActionNodeFlow(node, scope, resolver),
+				Own:    true,
+				Stated: true,
+			}}
 		case node.Kind == ast.UsageAction && node.HasBody && performsAction(node) && declaresOnlyFeatures(node.Members):
 			// The body binds the pins of the action performed: the usage is the one
 			// node of the behavior's flow, performed as a node of an action body is.

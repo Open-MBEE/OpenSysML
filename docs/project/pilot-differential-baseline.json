@@ -69,7 +69,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 57,
-        "digest": "sha256:ef7bbee71fed92313600692d2db6b88b6a7cc94320180a35e44698f4102e1cd6"
+        "digest": "sha256:1163a3ade43d67c38b9a090a9698613e071c87805e7cc8b7fe780bd5a9233599"
       },
       {
         "name": "probes",
@@ -86,7 +86,7 @@
         "digest": "sha256:f39db343dafb9c99359f5a92e56dcdd5c52992dc50e50b9268d349aa9cdfdf26"
       }
     ],
-    "recorded": "2026-11-07"
+    "recorded": "2026-11-13"
   },
   "totals": {
     "files": 925,
@@ -18070,121 +18070,121 @@
               "count": 1
             },
             {
-              "line": 503,
+              "line": 513,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 509,
+              "line": 519,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 534,
+              "line": 544,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 556,
+              "line": 566,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 562,
+              "line": 572,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 568,
+              "line": 578,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 575,
+              "line": 585,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 617,
+              "line": 627,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 623,
+              "line": 633,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 637,
+              "line": 647,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 651,
+              "line": 661,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 651,
+              "line": 661,
               "severity": "warning",
               "category": "unmapped",
               "count": 18
             },
             {
-              "line": 657,
+              "line": 667,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 691,
+              "line": 701,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 696,
+              "line": 706,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 702,
+              "line": 712,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 714,
+              "line": 724,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 726,
+              "line": 736,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 733,
+              "line": 743,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1
             },
             {
-              "line": 734,
+              "line": 744,
               "severity": "warning",
               "category": "kind-mismatch",
               "count": 1

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -33,7 +34,7 @@ func stepSymbol(flow *lower.ActionGraph, node ast.Node) (*symbols.Symbol, *symbo
 // caseStepSymbol resolves the case a nested usage node declares, in the body that declares it.
 func caseStepSymbol(flow *lower.ActionGraph, node ast.Node) (*symbols.Symbol, *symbols.Scope, error) {
 	sym, declaring := stepSymbol(flow, node)
-	if sym == nil || !isCalcUsageSymbol(sym) {
+	if sym == nil || !lower.IsCalcUsageSymbol(sym) {
 		return nil, nil, fmt.Errorf("%w: %s is not resolved to a case", errNotACalcUsage, nodeDescription(node))
 	}
 	return sym, declaring, nil
@@ -101,10 +102,10 @@ func (e *performances) performCase(perf *actionFrame) error {
 		perf.features[out.Name] = ast.DirOut
 		e.ctx.writeBodyValue(perf.cells, perf.data, perf.key(out.Name), out.Value)
 	}
-	if out := run.shape.resultOutput(); out != nil {
+	if out := run.shape.ResultOutput(); out != nil {
 		perf.result = out.Name
 		if perf.result == "" {
-			perf.result = resultOutputName
+			perf.result = program.ResultOutputName
 		}
 	}
 	return nil
