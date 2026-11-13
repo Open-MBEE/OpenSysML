@@ -300,10 +300,12 @@ function raise_for_errors(model::Model)
     throw(ModelError("$(location) has $(length(es)) error(s): $(join(summaries, "; "))", es; model=model))
 end
 
-"""Return the raw symbol dictionary for a qualified identifier."""
+"""Return the raw symbol dictionary a qualified name resolves to (see `get_symbol`)."""
 function symbol(model::Model, id::AbstractString)
     answer = call(model.connection, "GetSymbol",
-                  Dict{String,Any}("modelHash" => model.hash, "symbolId" => String(id)))
+                  Dict{String,Any}("modelHash" => model.hash, "symbolId" => String(id),
+                                   "resolveName" => has_capability(model.connection,
+                                       CAPABILITY_SYMBOL_NAME_RESOLUTION)))
     if !isempty(String(get(answer, "error", "")))
         return nothing
     end

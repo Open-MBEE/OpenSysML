@@ -50,7 +50,9 @@ class Members(List["Symbol"]):
 class SymbolSource(Protocol):
     """What a symbol needs of the connection it navigates through."""
 
-    def get_symbol(self, model_hash: str, symbol_id: str, include_library_members: bool = False) -> Any:
+    def get_symbol(
+        self, model_hash: str, symbol_id: str, include_library_members: bool = False, resolve_name: bool = False,
+    ) -> Any:
         """The ``SymbolInfo`` for an id, or None when the model has no such symbol."""
 
     def server_info(self) -> Any:

@@ -304,6 +304,7 @@ fn library_members_are_listed_on_request() {
             "Vehicles::Car",
             &SymbolOptions {
                 include_library_members: true,
+                ..SymbolOptions::default()
             },
         )
         .unwrap_or_else(|error| panic!("symbol lookup failed: {error}"));

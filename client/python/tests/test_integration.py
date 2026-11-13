@@ -11,6 +11,8 @@ with $OPENSYSML_REQUIRE_SERVICE set, as CI sets it, an absent service fails
 instead, since a skip that never runs exercises nothing.
 """
 
+from pathlib import Path
+
 import pytest
 import grpc
 from opensysml import Connection
@@ -169,3 +171,19 @@ class TestIntegrationRealServer:
                     assert hasattr(symbol_info, 'name')
                     assert hasattr(symbol_info, 'kind')
                 # Else: child_ids might be empty for this simple model, test passes
+
+    def test_get_resolves_a_qualified_name_from_the_root(self):
+        """get follows public imports and aliases and stops at a private member;
+        the id of a private member its owner reports still fetches it."""
+        fixture = Path(__file__).parents[3] / "conformance" / "fixtures" / "visibility.sysml"
+
+        with Connection(auto_start=False) as conn:
+            model = conn.load(str(fixture))
+
+            assert model.get("Vis::Facade::Pump").id == "Vis::Lib::Pump"
+            assert model.get("Vis::FacadeDeep::Valve").id == "Vis::Lib::Sub::Valve"
+            assert model.get("Vis::Lib::PumpAlias").id == "Vis::Lib::Pump"
+            assert model.get("Vis::Hidden::Pump") is None
+            assert model.get("Vis::Lib::Secret") is None
+            children = [child.id for child in model.get("Vis::Lib").children()]
+            assert "Vis::Lib::Secret" in children
