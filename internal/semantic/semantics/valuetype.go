@@ -251,7 +251,7 @@ func (m *Model) ExprResultType(scope *symbols.Scope, node ast.Node) *symbols.Sym
 		if types := m.collectionResultTypes(scope, n, called); len(types) > 0 {
 			return types[0]
 		}
-		if result := m.ResultParameterOf(called); result != nil {
+		if result := m.ResultParameterOf(called); result != nil && !m.IsKindBaseParameter(called, result) {
 			return m.featureResultType(result)
 		}
 	}
@@ -1026,7 +1026,7 @@ func (m *Model) invocationConformance(scope *symbols.Scope, e *ast.InvocationExp
 		return c
 	}
 	result := m.ResultParameterOf(called)
-	if result == nil {
+	if result == nil || m.IsKindBaseParameter(called, result) {
 		return conformanceUnknown()
 	}
 	return m.featureConformance(result, want)
