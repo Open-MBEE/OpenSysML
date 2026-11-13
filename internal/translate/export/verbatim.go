@@ -128,13 +128,13 @@ func (d *decoder) demoteStale(notation string, roots []*element) {
 		d.demoteAll()
 		return
 	}
-	check, err := d.rebuildCandidate(file, root, roots)
+	check, disagreeing, err := d.rebuildCandidate(file, root, roots)
 	if err != nil {
 		d.demoteAll()
 		return
 	}
 	d.holders = holderIndex{}
-	for _, t := range disagreeingTriples(d.graph, check.graph) {
+	for _, t := range disagreeing {
 		if d.restatesAnotherDisagreement(t, check) {
 			continue
 		}
@@ -205,9 +205,9 @@ func holdsAny(comments []string, notes []note) bool {
 	return false
 }
 
-// rebuildCandidate encodes the candidate in the id form the document follows, so both
-// sides of the compare share identities; a uuid root tries both forms and keeps the closer.
-func (d *decoder) rebuildCandidate(file *source.SourceFile, root *ast.RootNamespace, roots []*element) (*encoder, error) {
+// rebuildCandidate encodes the candidate in the id form the document follows and lists where it
+// disagrees with the graph; a disagreement that counts tries the other form and keeps the closer.
+func (d *decoder) rebuildCandidate(file *source.SourceFile, root *ast.RootNamespace, roots []*element) (*encoder, []rdf.Triple, error) {
 	first, second := IDQualifiedName, IDUUID
 	for _, root := range roots {
 		if uuidElementID.MatchString(root.elementID) {
@@ -217,15 +217,20 @@ func (d *decoder) rebuildCandidate(file *source.SourceFile, root *ast.RootNamesp
 	}
 	check, err := encodeDocument(file, root, d.library, first)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	if len(disagreeingTriples(d.graph, check.graph)) > 0 {
-		if other, oerr := encodeDocument(file, root, d.library, second); oerr == nil &&
-			len(disagreeingTriples(d.graph, other.graph)) < len(disagreeingTriples(d.graph, check.graph)) {
-			check = other
+	disagreeing := disagreeingTriples(d.graph, check.graph)
+	// A restated disagreement is no sign of the wrong form: every graph naming a library member has them.
+	counts := func(t rdf.Triple) bool { return !d.restatesAnotherDisagreement(t, check) }
+	if !slices.ContainsFunc(disagreeing, counts) {
+		return check, disagreeing, nil
+	}
+	if other, oerr := encodeDocument(file, root, d.library, second); oerr == nil {
+		if fewer := disagreeingTriples(d.graph, other.graph); len(fewer) < len(disagreeing) {
+			return other, fewer, nil
 		}
 	}
-	return check, nil
+	return check, disagreeing, nil
 }
 
 // restatesAnotherDisagreement reports whether a disagreeing triple only restates
@@ -384,8 +389,8 @@ func derivedConnectorFeatureOmitted(graph, check *rdf.Graph, t rdf.Triple) bool 
 		!graph.HasProperty(t.Subject, t.Predicate.Value)
 }
 
-// derivedMembershipOmitted reports a Membership end or name, or an Import's end (sysml: statement or
-// its collection annotation), the candidate derives (KerML 8.3.2.4.3, 8.3.2.4.2) and the graph omits.
+// derivedMembershipOmitted reports a Membership end or name, or an Import's, Connector's or Association's end (sysml:
+// statement or its collection annotation), the candidate derives (KerML 8.3.2.4, 8.3.4.5.1, 8.3.4.4.2) and the graph omits.
 func derivedMembershipOmitted(graph, check *rdf.Graph, t rdf.Triple) bool {
 	var key string
 	switch {
@@ -403,7 +408,9 @@ func derivedMembershipOmitted(graph, check *rdf.Graph, t rdf.Triple) bool {
 	}
 	metaclass := rdf.LocalName(check.Type(t.Subject))
 	derives := ontology.IsAncestorOrSelf(metaclass, mMembership) ||
-		(ontology.IsAncestorOrSelf(metaclass, mImport) && (key == pSource || key == pTarget))
+		(ontology.IsAncestorOrSelf(metaclass, mImport) && (key == pSource || key == pTarget)) ||
+		((ontology.IsAncestorOrSelf(metaclass, "Connector") || ontology.IsAncestorOrSelf(metaclass, "Association")) &&
+			(key == pSource || key == pTarget || key == pRelatedElement))
 	return derives &&
 		!graph.HasProperty(t.Subject, rdf.SysML+key) && !graph.HasProperty(t.Subject, rdf.AnnotationJSON+key)
 }

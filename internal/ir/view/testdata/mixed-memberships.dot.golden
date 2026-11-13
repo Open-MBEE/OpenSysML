@@ -55,9 +55,9 @@ digraph "MixedMemberships::memberships" {
     }
     { rank=min; "frame_tr" [shape=none, margin=0, label=<<font point-size="10">expose MixedMemberships</font>>]; }
   }
-  "n5" -> "n3" [arrowhead=onormaldotdot];
-  "n11" -> "n8" [arrowhead=onormaldotdot];
-  "n12" -> "n9" [arrowhead=onormaldotdot];
-  "n13" -> "n9" [arrowhead=onormaldotdot];
-  "n18" -> "n2" [arrowhead=onormaldotdot];
+  "n5" -> "n3" [arrowhead=empty, class=definition];
+  "n11" -> "n8" [arrowhead=empty, class=definition];
+  "n12" -> "n9" [arrowhead=empty, class=definition];
+  "n13" -> "n9" [arrowhead=empty, class=definition];
+  "n18" -> "n2" [arrowhead=empty, class=definition];
 }

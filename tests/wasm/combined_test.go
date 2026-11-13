@@ -20,8 +20,8 @@ import (
 )
 
 // combinedGzipBudget bounds the gzipped js sysml-wasm the gate links and `make build-release-wasm` ships (-trimpath, stripped,
-// the library snapshot embedded): 11,396,106 bytes under go1.27.4 on 2026-11-11 with RenderDocument served, 9,639,079 without the snapshot.
-const combinedGzipBudget = 11500000
+// the library snapshot embedded): 11,505,952 bytes under go1.27.4 on 2026-11-13 with repeated view expansions folded, up from 11,480,824 on develop bc95b41c47.
+const combinedGzipBudget = 12000000
 
 const combinedModel = `package Demo { part def Item; }`
 

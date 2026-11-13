@@ -525,9 +525,8 @@ func TestUnnamedElementKeepsAnnotatedID(t *testing.T) {
 	}
 }
 
-// TestAnnotatedUnnamedSuccessionEndRoundTrips checks a positional succession
-// end bound to an unnamed annotated member points at the member's declared
-// identity, so the link does not dangle when the graph is read back.
+// TestAnnotatedUnnamedSuccessionEndRoundTrips checks the positional source of a state body's `then` (a TransitionUsage)
+// bound to an unnamed annotated member points at the member's declared identity, so the link does not dangle when read back.
 func TestAnnotatedUnnamedSuccessionEndRoundTrips(t *testing.T) {
 	turtle := idTurtle(t, `package P {
 	@IdentityMetadata::ProjectRef { projectId = "proj-1"; }
@@ -541,8 +540,8 @@ func TestAnnotatedUnnamedSuccessionEndRoundTrips(t *testing.T) {
 	}
 }
 `)
-	if !strings.Contains(string(turtle), "sysx:sourceMember elmt:entry-id") {
-		t.Errorf("the positional end does not point at the declared id:\n%s", turtle)
+	if !strings.Contains(string(turtle), "sysml:source elmt:entry-id") {
+		t.Errorf("the transition's positional source does not point at the declared id:\n%s", turtle)
 	}
 	back := toNotation(t, turtle)
 	if !strings.Contains(back, "then s1;") {

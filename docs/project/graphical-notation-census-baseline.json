@@ -9,9 +9,9 @@
     "statements": 620,
     "partialStatements": 97,
     "productions": 523,
-    "drawn": 292,
+    "drawn": 293,
     "approximate": 34,
-    "undrawn": 25,
+    "undrawn": 24,
     "notApplicable": 172
   },
   "categories": {
@@ -208,9 +208,9 @@
       "title": "Calculations Graphical Notation",
       "statements": 14,
       "productions": 9,
-      "drawn": 5,
+      "drawn": 6,
       "approximate": 0,
-      "undrawn": 1,
+      "undrawn": 0,
       "notApplicable": 3
     },
     {
@@ -536,7 +536,7 @@
       "category": "edge",
       "verdict": "approximate",
       "package": "F",
-      "reason": "view-rendering-forms.md § Notation table: Solid hollow triangle at the definition with two dots stacked beside its base, as PlantUML's `--:|>` sets them: Graphviz sets the dots in line behind the triangle, D2 and draw.io have no dots and draw the plain triangle, Mermaid writes `typing` as the edge text."
+      "reason": "view-rendering-forms.md § Notation table: Solid hollow triangle at the definition with two dots beside its base, one each side of the line, as PlantUML's `--:|>` sets them: no Graphviz arrowhead sets a dot beside the line, so the DOT edge is the triangle under a class and the dots are drawn into the SVG of every drawing this project has Graphviz make ([the definition glyph](view-rendering-forms.md#the-definition-glyph)), D2 and draw.io have no dots and draw the plain triangle, Mermaid writes `typing` as the edge text."
     },
     {
       "clause": "8.2.3.6",
@@ -1453,14 +1453,6 @@
       "category": "textual",
       "verdict": "not-applicable",
       "reason": "textual notation of §8.2.2 reused as the text of a drawn element"
-    },
-    {
-      "clause": "8.2.3.19",
-      "name": "result-compartment",
-      "category": "compartment",
-      "verdict": "undrawn",
-      "package": "F",
-      "reason": "no renderer writes this compartment; the members are drawn as nodes or edges, or not at all"
     },
     {
       "clause": "8.2.3.19",

@@ -700,12 +700,12 @@ jobs:
           name: Check Go dependencies for known vulnerabilities
           command: make vulncheck
 
-  # The race-enabled suite, the pipeline's longest step: the larger class and seventeen executors of one
+  # The race-enabled suite, the pipeline's longest step: the larger class and sixteen executors of one
   # or two scripts/race-shard.sh shards each, sized so that no node runs much over 25 minutes.
   go-race-test:
     executor: go-executor
     resource_class: large
-    parallelism: 17
+    parallelism: 16
     steps:
       - checkout
       - rehearsal-checkout-tag
@@ -728,7 +728,7 @@ jobs:
             set -o pipefail
             # One entry per node; a quoted entry runs its shards in turn (tests/hygiene keeps
             # the entries the shard list of scripts/race-shard.sh).
-            shards=(runtime runtime-corpus model smt "corpus codegen" corpus-sweep export export-library export-examples export-corpus graph translate grpc tools rest "migrate runtime-exploration" cli)
+            shards=(runtime runtime-corpus model smt "corpus codegen" export export-library export-examples export-corpus graph translate grpc tools rest "migrate runtime-exploration" cli)
             if [ "$CIRCLE_NODE_TOTAL" != "${#shards[@]}" ]; then
               echo "error: parallelism is $CIRCLE_NODE_TOTAL, but the shard array has ${#shards[@]} nodes" >&2
               exit 1
@@ -759,9 +759,6 @@ jobs:
               export-library) go test -json -race -pgo=off -timeout 55m -run "$exportlibrary" $pkgs | stream ;;
               export-examples) go test -json -race -pgo=off -timeout 55m -run "$exportexamples" $pkgs | stream ;;
               export) go test -json -race -pgo=off -timeout 55m -skip "$exportcorpus|$exportlibrary|$exportexamples" $pkgs | stream ;;
-              # tests/corpus's sweep has -parallel models in hand at once, a whole corpus directory as one model
-              # among them: four peaked at 10.4 GB and three at 10.0 GB under -race on a four-vCPU box (this class ran ~0.8x of that).
-              corpus-sweep) go test -json -race -pgo=off -timeout 55m -parallel 3 -run "$corpussweep" $pkgs | stream ;;
               corpus) go test -json -race -pgo=off -timeout 30m -skip "$corpussweep" $pkgs | stream ;;
               tools)
                 go test -json -race -pgo=off -timeout 30m $pkgs | stream
@@ -794,6 +791,40 @@ jobs:
             # Same for the Reference-FMUs and fmpy, fetched and installed above:
             # the FMI gate runs rather than skips (tests/fmi).
             OPENSYSML_REQUIRE_REFERENCE_FMUS: "1"
+
+  # tests/corpus's sweep alone: -parallel models in hand at once, a whole corpus directory as one model among
+  # them, peaked at 11.1 GB under -race with eight on an 8-vCPU box, so it gets the 16 GB class rather than a large node.
+  go-race-sweep:
+    executor: go-executor
+    resource_class: xlarge
+    steps:
+      - checkout
+      - rehearsal-checkout-tag
+      - attach_workspace:
+          at: .
+      - halt-if-verified
+      - go/load-cache
+      - go/mod-download
+      - go/save-cache
+      - download-corpora
+      - run:
+          name: Run the Go race sweep
+          command: |
+            set -o pipefail
+            # The shard scripts/race-shard.sh --sweeps names first; tests/hygiene keeps it out of the array above.
+            sweep_shard=corpus-sweep
+            pkgs=$(scripts/race-shard.sh "$sweep_shard")
+            echo "shard $sweep_shard:"; echo "$pkgs"
+            stream() { python3 scripts/go-test-stream.py; }
+            # The Makefile's RACE_CORPUS_SWEEP; tests/hygiene keeps the two the same.
+            corpussweep='^TestExamplesSweep$'
+            go test -json -race -pgo=off -timeout 55m -parallel 8 -run "$corpussweep" $pkgs | stream
+          no_output_timeout: 30m
+          environment:
+            # An absent corpus fails rather than skips, as in go-race-test.
+            OPENSYSML_REQUIRE_TRAINING_CORPUS: "1"
+            OPENSYSML_REQUIRE_PILOT_CORPORA: "1"
+            OPENSYSML_REQUIRE_SPEC_EXAMPLES: "1"
 
   # A race-free pass for the scan's -coverpkg profile, too slow under -race; serially it
   # overran the 60-minute limit, so it runs sharded and go-coverage-merge joins the shards.
@@ -4787,6 +4818,10 @@ workflows:
           name: Go race tests
           requires: *after-cancellation
           filters: *integration-branches
+      - go-race-sweep:
+          name: Go race sweep
+          requires: *after-cancellation
+          filters: *integration-branches
       - go-coverage:
           name: Go coverage shards
           requires: *after-cancellation
@@ -4895,6 +4930,10 @@ workflows:
           name: Go race tests
           requires: *after-verification
           filters: *release-tags
+      - go-race-sweep:
+          name: Go race sweep
+          requires: *after-verification
+          filters: *release-tags
       - go-coverage:
           name: Go coverage shards
           skip_when_verified: true
@@ -4922,6 +4961,7 @@ workflows:
             - Go static checks
             - Go vulnerability check
             - Go race tests
+            - Go race sweep
             - Go coverage profile
             - Go binaries
             - Go gates
@@ -5128,6 +5168,9 @@ workflows:
           filters: *pysysml-tags
       - go-race-test:
           name: Go race tests
+          filters: *pysysml-tags
+      - go-race-sweep:
+          name: Go race sweep
           filters: *pysysml-tags
       - go-coverage:
           name: Go coverage shards

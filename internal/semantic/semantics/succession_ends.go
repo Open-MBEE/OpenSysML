@@ -24,7 +24,8 @@ func (m *Model) SuccessionEndMembers(sym *symbols.Symbol) []*symbols.Symbol {
 		return nil
 	}
 	edge, ok := sym.Decl.(*ast.SuccessionEdge)
-	if !ok || !SuccessionMintsEnds(edge) {
+	// A state body's `then x;` after a state declares a TransitionUsage, no connector: it owns no ends.
+	if !ok || !SuccessionMintsEnds(edge) || sym.DeclaresTransition() {
 		return nil
 	}
 	defer m.own(sym).LeaveDoc()

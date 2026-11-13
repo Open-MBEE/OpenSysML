@@ -203,7 +203,8 @@ func (ids *ElementIDs) recordConnectorEnds(e *encoder, node ast.Node, subject rd
 // under the edge (encodeSuccessionEdge), each with the EndFeatureMembership minted beside it.
 func (ids *ElementIDs) recordSuccessionEnds(e *encoder, node ast.Node, subject rdf.Term) {
 	edge, ok := node.(*ast.SuccessionEdge)
-	if !ok || !semantics.SuccessionMintsEnds(edge) {
+	// A state body's `then x;` after a state is written as a TransitionUsage (encodeTargetTransition): no ends.
+	if !ok || e.names.TargetTransitions[edge] || !semantics.SuccessionMintsEnds(edge) {
 		return
 	}
 	for i := 0; i < 2; i++ {

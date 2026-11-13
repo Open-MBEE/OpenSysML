@@ -377,7 +377,7 @@ func TestMixedInheritedRoleOccurrencesKeepTypingEdges(t *testing.T) {
 		found := false
 		for _, line := range strings.Split(dot, "\n") {
 			if strings.HasPrefix(strings.TrimSpace(line), dotQuote(edge.From)+" -> "+dotQuote(edge.To)+" [") &&
-				strings.Contains(line, "arrowhead=onormaldotdot") && !strings.Contains(line, "style=dashed") {
+				strings.Contains(line, "arrowhead=empty, class=definition") && !strings.Contains(line, "style=dashed") {
 				found = true
 				break
 			}

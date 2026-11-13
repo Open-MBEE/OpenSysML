@@ -906,8 +906,8 @@ digraph "Observatory::interconnectView" {
   subgraph "cluster_n0" {
     label=<<font point-size="10">«part»</font><br/><b>imagingChain</b>>;
     "n0" [shape=point, style=invis, width=0, height=0, label=""];
-    "n1" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td colspan="2"><font point-size="10">«part»</font><br/><b>camera : Camera</b></td></tr><tr><td port="n1.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">output : DataPort</font></td></tr></table>>];
-    "n2" [label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td port="n2.0" border="1" fixedsize="true" width="10" height="10"></td><td align="left"><font point-size="8">input : DataPort</font></td></tr><tr><td colspan="2"><font point-size="10">«part»</font><br/><b>recorder : Recorder</b></td></tr></table>>];
+    "n1" [shape=plain, style=solid, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6" bgcolor="white" style="rounded"><tr><td><font point-size="10"><i>«part»</i></font><br/><b>camera : Camera</b></td></tr></table></td></tr><tr><td width="6"></td><td port="n1.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">output : DataPort</font></td><td width="6"></td></tr></table>>];
+    "n2" [shape=plain, style=solid, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td width="6"></td><td port="n2.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">input : DataPort</font></td><td width="6"></td></tr><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6" bgcolor="white" style="rounded"><tr><td><font point-size="10"><i>«part»</i></font><br/><b>recorder : Recorder</b></td></tr></table></td></tr></table>>];
   }
   "n1":"n1.0" -> "n2":"n2.0" [label="link", arrowhead=none, penwidth=3];
 }

@@ -66,16 +66,8 @@ func TestConnectorRelatedFeaturesAreTheEndsReferencedFeatures(t *testing.T) {
 		if got := graph.Objects(subject, rdf.SysML+"targetFeature"); len(got) != 1 || got[0] != referenced[1] {
 			t.Errorf("%s targetFeature = %v, want [%v]", name, got, referenced[1])
 		}
-		// Relationship::relatedElement, source and target are what the three redefine (KerML 8.3.4.5.1),
-		// stated for plain ends; a chained end's chain Feature is reached through relatedFeature alone.
-		if name != "direct" {
-			for _, property := range []string{"relatedElement", "source", "target"} {
-				if got := graph.Objects(subject, rdf.SysML+property); len(got) != 0 {
-					t.Errorf("%s %s = %v, want none for a chained end", name, property, got)
-				}
-			}
-			continue
-		}
+		// Relationship::relatedElement, source and target are what the three redefine (KerML 8.3.4.5.1):
+		// the chain Feature for a chained end, as the pilot exports it.
 		if got := graph.Objects(subject, rdf.SysML+"relatedElement"); len(got) != 2 || got[0] != referenced[0] || got[1] != referenced[1] {
 			t.Errorf("%s relatedElement = %v, want %v", name, got, referenced)
 		}
@@ -238,4 +230,73 @@ func TestThenSuccessionStatesItsRelationshipEnds(t *testing.T) {
 	if stated != 6 {
 		t.Errorf("%d Relationship ends stated, want 6 (start→a, a→b, b→done)", stated)
 	}
+}
+
+// An association's relatedElement, source and target are its ends' types in order, the first the
+// source, the targets unique (KerML 8.3.4.4.2), for an allocation, connection or interface definition.
+func TestAssociationStatesItsRelationshipEnds(t *testing.T) {
+	const model = `package Assoc {
+    part def Observe;
+    part def Subsystem;
+    part def Extra;
+    allocation def FunctionToPart {
+        end function : Observe;
+        end part : Subsystem;
+    }
+    connection def Tri {
+        end e1 : Observe;
+        end e2 : Subsystem;
+        end e3 : Subsystem, Extra;
+    }
+    interface def Plain;
+}
+`
+	turtle, err := convert.Convert("a.sysml", []byte(model), convert.FormatSysML, convert.FormatTurtle)
+	if err != nil {
+		t.Fatalf("to turtle: %v", err)
+	}
+	graph, err := rdf.ParseTurtle(turtle)
+	if err != nil {
+		t.Fatalf("parse turtle: %v", err)
+	}
+	element := func(name string) rdf.Term { return rdf.IRI(rdf.Element + "Assoc__" + name) }
+	observe, subsystem, extra := element("Observe"), element("Subsystem"), element("Extra")
+	cases := []struct {
+		name            string
+		related, target []rdf.Term
+	}{
+		{"FunctionToPart", []rdf.Term{observe, subsystem}, []rdf.Term{subsystem}},
+		// A graph is a set of triples, so a type two ends share is stated once where the pilot repeats it.
+		{"Tri", []rdf.Term{observe, subsystem, extra}, []rdf.Term{subsystem, extra}},
+		{"Plain", nil, nil},
+	}
+	for _, tc := range cases {
+		subject := element(tc.name)
+		if got := graph.Objects(subject, rdf.SysML+"relatedElement"); !sameTerms(got, tc.related) {
+			t.Errorf("%s relatedElement = %v, want %v", tc.name, got, tc.related)
+		}
+		source := graph.Objects(subject, rdf.SysML+"source")
+		if len(tc.related) == 0 {
+			if len(source) != 0 {
+				t.Errorf("%s source = %v, want none for an association without ends", tc.name, source)
+			}
+		} else if len(source) != 1 || source[0] != tc.related[0] {
+			t.Errorf("%s source = %v, want [%v]", tc.name, source, tc.related[0])
+		}
+		if got := graph.Objects(subject, rdf.SysML+"target"); !sameTerms(got, tc.target) {
+			t.Errorf("%s target = %v, want %v", tc.name, got, tc.target)
+		}
+	}
+}
+
+func sameTerms(got, want []rdf.Term) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			return false
+		}
+	}
+	return true
 }
