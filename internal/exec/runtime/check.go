@@ -1339,7 +1339,7 @@ func (c *checker) resolveActionDiverge(exec *ActionExecutor, name, rest string) 
 	if !nested || len(named) == 0 {
 		return &unknownCheckFeatureError{Name: name, Reason: "the action holds no such feature and performs no such node"}
 	}
-	held, told := c.pathUnder(exec, exec.graph, named, path)
+	held, told := c.pathUnder(exec, exec.graph, NodesOf(named), path)
 	if !held {
 		return &unknownCheckFeatureError{Name: name, Reason: "action node " + node + " holds no feature " + path}
 	}
@@ -1376,7 +1376,7 @@ func (c *checker) pathUnder(exec *ActionExecutor, graph *lower.ActionGraph, node
 			}
 		}
 		if sub, owns := exec.subflowOf(graph, node); owns && sub.Graph != nil {
-			if h, t := c.pathUnder(exec, sub.Graph, flowNodesNamed(sub.Graph, name), rest); h {
+			if h, t := c.pathUnder(exec, sub.Graph, NodesOf(flowNodesNamed(sub.Graph, name)), rest); h {
 				return true, t
 			}
 		}
@@ -1385,7 +1385,7 @@ func (c *checker) pathUnder(exec *ActionExecutor, graph *lower.ActionGraph, node
 			if err != nil {
 				return true, false
 			}
-			if h, t := c.pathUnder(exec, flow, flowNodesNamed(flow, name), rest); h {
+			if h, t := c.pathUnder(exec, flow, NodesOf(flowNodesNamed(flow, name)), rest); h {
 				return true, t && callee == settled
 			}
 		}

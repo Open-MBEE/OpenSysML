@@ -768,7 +768,7 @@ Feature::isComposite	pilot-validation	3773	3773	0	0	5259	5259	0	0
 Feature::isComposite	kerml-examples	2109	2109	0	0	2884	2884	0	0
 Feature::isComposite	spec-examples	2759	2759	0	0	3953	3953	0	0
 Feature::isComposite	testdata	492	492	0	0	777	777	0	0
-Feature::isComposite	examples	12872	12857	0	15	21004	21004	0	0
+Feature::isComposite	examples	12872	12872	0	0	21004	21004	0	0
 Feature::isComposite	probes	8	8	0	0	8	8	0	0
 Feature::isComposite	manual-examples	1339	1339	0	0	3546	3546	0	0
 Feature::isConstant	training	2961	2961	0	0	4506	4506	0	0
@@ -1946,7 +1946,7 @@ Usage::isReference	pilot-examples	4622	4622	0	0	5239	5239	0	0
 Usage::isReference	pilot-validation	1669	1669	0	0	2012	2012	0	0
 Usage::isReference	spec-examples	1204	1204	0	0	1419	1419	0	0
 Usage::isReference	testdata	188	188	0	0	263	263	0	0
-Usage::isReference	examples	5577	5562	0	15	7404	7404	0	0
+Usage::isReference	examples	5577	5577	0	0	7404	7404	0	0
 Usage::isReference	probes	1	1	0	0	1	1	0	0
 Usage::isReference	manual-examples	755	755	0	0	789	789	0	0
 Usage::mayTimeVary	training	1495	152	0	1343	1821	1821	0	0
