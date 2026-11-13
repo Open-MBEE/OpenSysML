@@ -1755,8 +1755,8 @@ func (idx *Index) RegisteredUnder(fqn string) []*Symbol {
 	return idx.fqn.at(fqn)
 }
 
-// ShortNamed reports whether some registered symbol carries name as its short
-// name: it is registered under a path ending in name that is not its own.
+// ShortNamed reports whether a registered membership can carry name as a short name.
+// A short name identical to the long name or standing alone counts too.
 func (idx *Index) ShortNamed(name string) bool {
 	if name == "" {
 		return false
@@ -1781,7 +1781,7 @@ func (idx *Index) ShortNamed(name string) bool {
 func (idx *Index) shortNamedScan(name string) bool {
 	shortRegistered := func(fqn string) bool {
 		for _, sym := range idx.fqn.at(fqn) {
-			if LastSegment(sym.Name) != name {
+			if shortNameCandidate(sym, name) {
 				return true
 			}
 		}
@@ -1795,6 +1795,11 @@ func (idx *Index) shortNamedScan(name string) bool {
 	// bySegment omits root-level names, so a short name at the root is found
 	// under the fqn equal to name itself.
 	return shortRegistered(name)
+}
+
+// shortNameCandidate includes alternate registrations and explicit short names.
+func shortNameCandidate(sym *Symbol, name string) bool {
+	return sym != nil && name != "" && (LastSegment(sym.Name) != name || shortNameOf(sym) == name)
 }
 
 // LookupUniqueCandidates returns the distinct elements LookupUnique chooses among —
