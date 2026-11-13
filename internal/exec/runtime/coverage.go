@@ -115,9 +115,15 @@ func transitionLabel(trans *lower.Transition) string {
 	return " (" + strings.Join(parts, ", ") + ")"
 }
 
+// keepCoverage has the context note what its runs enter and take from here on. A check and
+// an exploration ask it of each context they run; no other context has its coverage read.
+func (ctx *Context) keepCoverage() {
+	ctx.covering = true
+}
+
 func (ctx *Context) noteCoverage(object *Instance, machine *symbols.Symbol, state, to []string, trans *lower.Transition) {
 	// A probe's work is rolled back: what it entered, the run never did.
-	if ctx.probes > 0 {
+	if !ctx.covering || ctx.probes > 0 {
 		return
 	}
 	key := coverageKey{behavior: machine, state: source.QualifiedNameOf(state), to: source.QualifiedNameOf(to)}

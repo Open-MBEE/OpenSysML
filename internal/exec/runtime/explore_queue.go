@@ -138,6 +138,7 @@ func (q *exploreQueue) work(stop context.Context, job int, fresh func(int) (*Con
 		}
 		replay := &exploreRun{prefix: p.plan(), depth: q.budget.Depth}
 		p.record = nil
+		ctx.keepCoverage()
 		ctx.beginExploration(q.policy, replay)
 		outcome, runErr := run(ctx)
 		if runErr != nil {

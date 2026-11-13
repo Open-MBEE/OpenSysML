@@ -288,6 +288,7 @@ func (c *checker) searchFrom(stop context.Context, fresh func() (*Context, error
 	if err != nil {
 		return nil, err
 	}
+	ctx.keepCoverage()
 	if err := ctx.SetSchedule(checkPolicy(&checkScript{due: -1, picks: picks})); err != nil {
 		return nil, err
 	}

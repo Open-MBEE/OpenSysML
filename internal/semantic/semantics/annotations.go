@@ -1720,11 +1720,7 @@ func (m *Model) ReflectiveElements(sym *symbols.Symbol, feature string) ([]*symb
 		if m.reflectiveMetaclassConforms(sym, "Association") {
 			return m.AssociationRelatedTypes(sym, feature), true
 		}
-		// A connector's relatedFeature, sourceFeature and targetFeature redefine these (KerML 8.3.4.5.1).
-		if !m.reflectiveMetaclassConforms(sym, "Connector") || m.successionEndUnrepresented(sym) {
-			return nil, false
-		}
-		return m.connectorRelatedFeatures(sym, connectorEndRedefinition[feature]), true
+		return m.declaredRelationshipEnds(sym, feature)
 	case "ownedRelatedElement", "owningRelatedElement":
 		// A declared connector or association relates features and types it does not own;
 		// its own owner is a membership's.
