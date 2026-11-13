@@ -60,7 +60,7 @@
         "dir": "examples",
         "origin": "ours",
         "files": 56,
-        "digest": "sha256:cf60c702750d56f2651c4627a002167eb4ed353ba56df16f13b34e42be717555"
+        "digest": "sha256:c6cd9cc6661b95dc44fad608afc6b42be57ca4985998f933bd673d409ee8266d"
       },
       {
         "name": "probes",
@@ -171,11 +171,11 @@
       "dir": "examples",
       "files": 56,
       "rejected": 0,
-      "elements": 33330,
-      "implied": 19380,
-      "pilotElements": 51722,
+      "elements": 33982,
+      "implied": 19753,
+      "pilotElements": 52520,
       "pilotImplied": 0,
-      "pilotDuplicates": 82277,
+      "pilotDuplicates": 85245,
       "pilotFailed": 0
     },
     {
