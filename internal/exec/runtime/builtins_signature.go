@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 )
 
 // builtinFunc is the implementation of a built-in: a function over runtime
@@ -108,13 +108,10 @@ var readsSizeOrPosition = map[string]bool{
 
 // invokeBuiltin binds the arguments of a call to the built-in name to its
 // declared parameters and applies fn to them.
-func (ec *EvalContext) invokeBuiltin(name string, fn builtinFunc, exprs []ast.Node, named []ast.NamedArg, names []string, unbound []error) (Value, error) {
-	return ec.invokeBuiltinWith(name, fn, exprs, named, names, unbound, func(params []declaredParam, param, at int) (Value, error) {
+func (ec *EvalContext) invokeBuiltin(name string, fn builtinFunc, args operands, names []string, unbound []error) (Value, error) {
+	return ec.invokeBuiltinWith(name, fn, args, names, unbound, func(params []declaredParam, param, at int) (Value, error) {
 		keep := param == 0 && readsSizeOrPosition[name]
-		if at < len(exprs) {
-			return ec.evalArgument(params, param, exprs[at], keep)
-		}
-		return ec.evalArgument(params, param, named[at-len(exprs)].Value, keep)
+		return ec.evalArgument(params, param, args.at(at), keep)
 	})
 }
 
@@ -123,12 +120,14 @@ func (ec *EvalContext) invokeBuiltin(name string, fn builtinFunc, exprs []ast.No
 type argumentMaterializer func(params []declaredParam, param, at int) (Value, error)
 
 // invokeBuiltinWith is invokeBuiltin with each argument materialized by materialize.
-func (ec *EvalContext) invokeBuiltinWith(name string, fn builtinFunc, exprs []ast.Node, named []ast.NamedArg, names []string, unbound []error, materialize argumentMaterializer) (Value, error) {
+func (ec *EvalContext) invokeBuiltinWith(name string, fn builtinFunc, args operands, names []string, unbound []error, materialize argumentMaterializer) (Value, error) {
 	outer := ec.entered
 	ec.entered = ec.ctx.activations
 	defer func() { ec.entered = outer }()
 	return tracedBuiltin(ec.trace, name,
-		func() ([]Value, error) { return bindBuiltinArgs(name, len(exprs), names, unbound, materialize) },
+		func() ([]Value, error) {
+			return bindBuiltinArgs(name, len(args.positional), names, unbound, materialize)
+		},
 		func(args []Value) (Value, error) { return applyBuiltinArgs(ec, name, fn, args) },
 	)
 }
@@ -269,11 +268,11 @@ func fillUnbound(written string, params []declaredParam, args []Value, bound []b
 // evalArgument evaluates the argument bound to parameter i, or keeps it as
 // written for an `expr` parameter. A body literal is a function already, so it
 // is evaluated (to itself) like any other argument, which the trace records.
-func (ec *EvalContext) evalArgument(params []declaredParam, i int, arg ast.Node, keep bool) (Value, error) {
-	if _, body := arg.(*ast.BodyExpr); !body && i < len(params) && params[i].deferred {
-		return newExprValue(arg, ec.closure()), nil
+func (ec *EvalContext) evalArgument(params []declaredParam, i int, arg lowered, keep bool) (Value, error) {
+	if arg.expr().Kind != program.ExprBody && i < len(params) && params[i].deferred {
+		return newExprValue(arg.tree(), ec.closure()), nil
 	}
-	return ec.evaluate(ec.lowered(arg), keep)
+	return ec.evaluate(arg, keep)
 }
 
 // builtinParameterList renders the declared parameter names for an error.

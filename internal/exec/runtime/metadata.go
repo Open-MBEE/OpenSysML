@@ -12,7 +12,8 @@ import (
 // the metadata annotating the element ref names, as a sequence of objects of the
 // annotating metadata types, in the order the annotations are stated. An element
 // no metadata annotates reads as the empty sequence.
-func (ec *EvalContext) evalMetadataAccess(n *ast.MetadataAccessExpr) (Value, error) {
+func (ec *EvalContext) evalMetadataAccess(x lowered) (Value, error) {
+	n, _ := x.tree().(*ast.MetadataAccessExpr)
 	sym, err := ec.metadataSubject(n)
 	if err != nil {
 		return Value{}, err

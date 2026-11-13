@@ -38,7 +38,7 @@ const (
 	ExprCollect
 	// ExprSelect is `seq.?{body}`.
 	ExprSelect
-	// ExprInvoke is `F(args)` or `operand->F(args)`.
+	// ExprInvoke is `F(args)`, `operand->F(args)` or `operand.f(args)`.
 	ExprInvoke
 	// ExprConstruct is `new T(args)`.
 	ExprConstruct
@@ -58,12 +58,21 @@ type Expr struct {
 	Bracket bool
 	// Global marks an ExprRef whose name began with `$::`.
 	Global bool
+	// Receiver marks an ExprInvoke written `operand->F(args)`: its first argument is the operand.
+	Receiver bool
+	// Applied marks an ExprInvoke written `operand.f(args)`: Args begin with the
+	// chain applied and then the operand its last member is read from.
+	Applied bool
 	// Origin is where the expression was written.
 	Origin Origin
-	// Args are the operands of an operator, the elements of a sequence, an index's
-	// operand then index, and a chain's first operand.
+	// Args are an operator's operands, a sequence's elements, an index's operand then index, a chain's
+	// first operand, a collect's or select's operand then body, a call's or construction's arguments.
 	Args []ExprID
-	// Ref is what an ExprRef names, and the type an ExprOp classifies or casts by.
+	// Named are the labels of the arguments written `name = value`, which are the
+	// last len(Named) of Args.
+	Named []SymbolRef
+	// Ref is what an ExprRef names, the type an ExprOp classifies or casts by, and
+	// the name an ExprInvoke, ExprConstruct or ExprMetadata is written with.
 	Ref SymbolRef
 	// Path is the segments of an ExprRef written as a qualified name, each with
 	// the element the name reaches there; nil for a simple name.
