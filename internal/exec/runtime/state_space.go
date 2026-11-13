@@ -131,7 +131,7 @@ func (e *ActionExecutor) initializeDynamics() error {
 		return err
 	}
 	run.start = e.ctx.clock.now
-	e.tokens = append(e.tokens, Token{ID: e.nextTokenID, Location: e.dynamicsNode(), frame: e.root})
+	e.tokens = append(e.tokens, Token{ID: e.nextTokenID, Location: NodeRef{Graph: e.graph}, frame: e.root})
 	e.nextTokenID++
 	e.state = StateRunning
 	return nil

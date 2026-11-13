@@ -20,8 +20,8 @@ import (
 )
 
 // combinedGzipBudget bounds the gzipped js sysml-wasm the gate links and `make build-release-wasm` ships (-trimpath, stripped,
-// the library snapshot embedded): 10,413,317 bytes under go1.27.3 on 2026-11-09 at develop ddc4a547fe, 8,726,216 without the snapshot.
-const combinedGzipBudget = 10500000
+// the library snapshot embedded): 11,396,106 bytes under go1.27.4 on 2026-11-11 with RenderDocument served, 9,639,079 without the snapshot.
+const combinedGzipBudget = 11500000
 
 const combinedModel = `package Demo { part def Item; }`
 
@@ -340,6 +340,23 @@ func TestCombinedWireParity(t *testing.T) {
 		}
 	}
 
+	// A document renders to the same text on either transport, in every form.
+	documentParams := fmt.Sprintf(`{"content":%s}`, mustJSON(t, readFixture(t, telescopeFixture)))
+	grpcDocumentFile, err := svc.ParseFile(ctx, mustUnmarshal[pb.ParseFileRequest](t, documentParams))
+	if err != nil {
+		t.Fatalf("grpc ParseFile telescope: %v", err)
+	}
+	documentBody := call("ParseFile", documentParams)
+	equal("ParseFile telescope", documentParams, mustMarshal(t, grpcDocumentFile), documentBody)
+	for _, form := range []string{"", "markdown", "html", "asciidoc"} {
+		params := fmt.Sprintf(`{"modelHash":%q,"documentId":"Observatory::MassReport","form":%q}`, grpcDocumentFile.ModelHash, form)
+		response, err := svc.RenderDocument(ctx, mustUnmarshal[pb.RenderDocumentRequest](t, params))
+		if err != nil {
+			t.Fatalf("grpc RenderDocument(%q): %v", form, err)
+		}
+		equal("RenderDocument", params, mustMarshal(t, response), call("RenderDocument", params))
+	}
+
 	path, err := filepath.Abs(filepath.Join("testdata", "engine.sysml"))
 	if err != nil {
 		t.Fatalf("resolving engine fixture: %v", err)
@@ -368,6 +385,7 @@ func TestCombinedWireParity(t *testing.T) {
 		"undetermined_value", "performer", "big_int_values", "render_view", "state_trace",
 		"action_trace",
 		"symbol_members",
+		"render_document", "render_document_html", "render_document_asciidoc", "render_document_file_name",
 	}
 	if info.Version != "combined-wire-test" {
 		t.Errorf("GetServerInfo version = %q", info.Version)
@@ -396,6 +414,8 @@ func TestCombinedDependencies(t *testing.T) {
 		module + "/internal/frontend/engine",
 		module + "/internal/frontend/core",
 		module + "/internal/doc/queryexec",
+		module + "/internal/doc/docrender",
+		module + "/internal/doc/docset",
 		module + "/internal/frontend/symbolfacts",
 		module + "/internal/semantic/naming",
 	}
@@ -427,9 +447,6 @@ func TestCombinedDependencies(t *testing.T) {
 }
 
 func forbiddenCombinedDependency(module, dependency string) bool {
-	if dependency == module+"/internal/doc/queryexec" {
-		return false
-	}
 	for _, prefix := range []string{
 		module + "/api/",
 		"google.golang.org/protobuf",
@@ -438,7 +455,7 @@ func forbiddenCombinedDependency(module, dependency string) bool {
 		module + "/internal/frontend/grpc",
 		module + "/internal/frontend/protoconv",
 		module + "/internal/frontend/stdiorpc",
-		module + "/internal/doc/",
+		module + "/internal/doc/docpdf",
 	} {
 		if strings.HasPrefix(dependency, prefix) {
 			return true

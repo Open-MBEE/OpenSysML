@@ -489,8 +489,8 @@ func TestExpandWildcardImportsForgetsARemovedMember(t *testing.T) {
 	if got := len(idx.LookupQualified("App::New")); got != 1 {
 		t.Errorf("App::New = %d symbols after re-add, want 1", got)
 	}
-	if got := idx.exportedChildren("Lib"); len(got) != 1 || got[0].Name != "New" {
-		t.Errorf("exportedChildren(Lib) = %v, want just New", got)
+	if got := idx.importedChildren("Lib", false); len(got) != 1 || got[0].Name != "New" {
+		t.Errorf("importedChildren(Lib) = %v, want just New", got)
 	}
 }
 

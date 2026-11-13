@@ -881,8 +881,8 @@ func TestStateExecutor_StateStackTracking(t *testing.T) {
 	}
 
 	for i, expected := range expectedStack {
-		if exec.stateStack[i] != expected {
-			t.Errorf("stateStack[%d]: expected %s, got %s", i, expected.Name, exec.stateStack[i].Name)
+		if got := exec.stateDecl(exec.stateStack[i]); got != expected {
+			t.Errorf("stateStack[%d]: expected %s, got %s", i, expected.Name, got.Name)
 		}
 	}
 
@@ -897,8 +897,8 @@ func TestStateExecutor_StateStackTracking(t *testing.T) {
 		t.Errorf("expected stateStack length 1, got %d", len(exec.stateStack))
 	}
 
-	if len(exec.stateStack) > 0 && exec.stateStack[0] != standalone {
-		t.Errorf("expected stateStack[0] = standalone, got %s", exec.stateStack[0].Name)
+	if len(exec.stateStack) > 0 && exec.stateDecl(exec.stateStack[0]) != standalone {
+		t.Errorf("expected stateStack[0] = standalone, got %s", exec.stateDecl(exec.stateStack[0]).Name)
 	}
 
 	if exec.getCurrentState() != standalone {

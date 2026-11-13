@@ -9,6 +9,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/diag"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/corpussubset"
 )
 
 const examplesDir = "../../../examples"
@@ -23,7 +24,7 @@ const (
 // Every example the repository ships must analyse cleanly, so the CLI's
 // -validate exit status stays meaningful for the files the docs point at.
 func TestExamplesAnalyseCleanly(t *testing.T) {
-	files := exampleFiles(t)
+	files := sweptExamples(t)
 	if len(files) == 0 {
 		t.Fatalf("no examples found under %s", examplesDir)
 	}
@@ -147,4 +148,11 @@ func exampleFiles(t *testing.T) []string {
 	}
 	sort.Strings(files)
 	return files
+}
+
+// sweptExamples are the example models this run iterates: every one, or under
+// OPENSYSML_CORPUS_SUBSET the listed ones, each still opened with its siblings.
+func sweptExamples(t *testing.T) []string {
+	t.Helper()
+	return corpussubset.Must(t, "../../..").Filter(exampleFiles(t))
 }

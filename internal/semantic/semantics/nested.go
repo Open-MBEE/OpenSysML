@@ -244,6 +244,18 @@ func nestedRuleFQN(u NestedUsage, owner NestedOwner) (fqn string, step bool) {
 // familyNestedFQN is the feature a usage of one kind nested in an owner of its
 // own family subsets ahead of the general rule chains, "" when none applies.
 func familyNestedFQN(u NestedUsage, owner NestedOwner) string {
+	if fqn := familyRoleNestedFQN(u, owner); fqn != "" {
+		return fqn
+	}
+	if !u.Composite {
+		return ""
+	}
+	return familyCompositeNestedFQN(u, owner)
+}
+
+// familyRoleNestedFQN is the family feature a usage subsets by the role its
+// keyword or prefix states (performed, exhibited, event, actor, ...), composite or not.
+func familyRoleNestedFQN(u NestedUsage, owner NestedOwner) string {
 	switch u.Kind {
 	case ast.UsageAction:
 		if u.Performed && ownerInPartFamily(owner) {
@@ -281,9 +293,12 @@ func familyNestedFQN(u NestedUsage, owner NestedOwner) string {
 			return "VerificationCases::VerificationCase::obj::requirementVerifications"
 		}
 	}
-	if !u.Composite {
-		return ""
-	}
+	return ""
+}
+
+// familyCompositeNestedFQN is the family feature a composite usage subsets by
+// its kind alone (subitems, subports, subviews, ...).
+func familyCompositeNestedFQN(u NestedUsage, owner NestedOwner) string {
 	switch u.Kind {
 	case ast.UsageViewpoint:
 		if ownerInViewFamily(owner) {

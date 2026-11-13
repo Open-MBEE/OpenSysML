@@ -36,7 +36,7 @@ func (s *stateSpeller) pause(p bodyPause) string {
 		return "paused between two moves of its flow"
 	}
 	if !p.onWait {
-		return fmt.Sprintf("at breakpoint %q", p.breakpoint)
+		return fmt.Sprintf("at breakpoint %q", p.breakpoint.name)
 	}
 	if p.wait.held != nil {
 		return "holds " + s.nested(p.wait.held)

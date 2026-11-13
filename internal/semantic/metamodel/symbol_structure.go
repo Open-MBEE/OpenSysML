@@ -424,7 +424,12 @@ func (s *SymbolStructure) hasStatedRelatedElementLocked(element Element, propert
 // notation names but the model does not resolve.
 func (s *SymbolStructure) hasUnresolvedRelatedElementLocked(element Element, property string) bool {
 	row, ok := s.row(element)
-	if !ok || row.sym.Implicit == nil || row.sym.Implicit.Form != symbols.ImplicitWritten {
+	if !ok || row.sym.Implicit == nil {
+		return false
+	}
+	// A `then` end's reference to a member no element stands for (a statement) is unresolved too.
+	if rel := row.sym.Implicit; rel.Form != symbols.ImplicitWritten &&
+		!(rel.Form == symbols.ImplicitSuccessionEndReference && rel.Member == nil) {
 		return false
 	}
 	feature := s.feature(row.class, property)
