@@ -271,6 +271,7 @@ stable	self-model/execution.sysml
 stable	self-model/identity.sysml
 stable	self-model/pipeline.sysml
 stable	self-model/quality.sysml
+stable	self-model/queries.sysml
 stable	self-model/surfaces.sysml
 stable	self-model/views.sysml
 stable	semantic-layer/demo.sysml
