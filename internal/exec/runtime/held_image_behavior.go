@@ -69,13 +69,13 @@ type imagedFrame struct {
 	data          map[string]Value
 	cells         []imagedBodyCell
 	outer         []imagedOuter
-	subactions    map[ast.Node]int
+	subactions    map[NodeRef]int
 	repeats       map[repetitionGroupID]imagedRepetition
-	repeatedPerfs map[ast.Node][]int
-	pending       map[ast.Node]map[string][]Value
-	held          map[ast.Node]map[string][]nodeObject
-	staged        map[ast.Node]map[string][]imagedStaged
-	nested        map[ast.Node][]nestedDelivery
+	repeatedPerfs map[NodeRef][]int
+	pending       map[NodeRef]map[string][]Value
+	held          map[NodeRef]map[string][]nodeObject
+	staged        map[NodeRef]map[string][]imagedStaged
+	nested        map[NodeRef][]nestedDelivery
 }
 
 // imagedBodyCell stores a body binding's value and tracking state for an image.
@@ -238,7 +238,7 @@ func (t *imaging) actionExecutor(e *ActionExecutor) (*imagedAction, error) {
 	for _, token := range e.tokens {
 		if token.body != nil {
 			return nil, fmt.Errorf("%w: token %d of %s at %s", ErrSnapshotPausedBody,
-				token.ID, SymbolText(e.action), ActionNodeName(token.Location))
+				token.ID, SymbolText(e.action), ActionNodeName(token.Node()))
 		}
 		copied := token
 		if token.Wait != nil {
@@ -299,7 +299,7 @@ func (t *imaging) frame(perf *actionFrame, at func(*actionFrame) int) (imagedFra
 	}
 	f.outer = outer
 	if perf.subactions != nil {
-		f.subactions = make(map[ast.Node]int, len(perf.subactions))
+		f.subactions = make(map[NodeRef]int, len(perf.subactions))
 		for node, sub := range perf.subactions {
 			f.subactions[node] = at(sub)
 		}
@@ -315,7 +315,7 @@ func (t *imaging) frame(perf *actionFrame, at func(*actionFrame) int) (imagedFra
 		}
 	}
 	if perf.repeatedPerfs != nil {
-		f.repeatedPerfs = make(map[ast.Node][]int, len(perf.repeatedPerfs))
+		f.repeatedPerfs = make(map[NodeRef][]int, len(perf.repeatedPerfs))
 		for node, perfs := range perf.repeatedPerfs {
 			indexed := make([]int, len(perfs))
 			for i, repeated := range perfs {
@@ -362,7 +362,7 @@ func (t *imaging) outerFrames(perf *actionFrame, at func(*actionFrame) int) ([]i
 }
 
 // nestedValues checks every value a pending table holds.
-func (t *imaging) nestedValues(pending map[ast.Node]map[string][]Value) error {
+func (t *imaging) nestedValues(pending map[NodeRef]map[string][]Value) error {
 	for _, pins := range pending {
 		for _, values := range pins {
 			for _, v := range values {
@@ -376,7 +376,7 @@ func (t *imaging) nestedValues(pending map[ast.Node]map[string][]Value) error {
 }
 
 // deliveredValues checks every value a nested-delivery table holds.
-func (t *imaging) deliveredValues(nested map[ast.Node][]nestedDelivery) error {
+func (t *imaging) deliveredValues(nested map[NodeRef][]nestedDelivery) error {
 	for _, deliveries := range nested {
 		for _, d := range deliveries {
 			if err := t.value(d.value); err != nil {
@@ -388,7 +388,7 @@ func (t *imaging) deliveredValues(nested map[ast.Node][]nestedDelivery) error {
 }
 
 // heldValues checks every value a control node holds.
-func (t *imaging) heldValues(held map[ast.Node]map[string][]nodeObject) error {
+func (t *imaging) heldValues(held map[NodeRef]map[string][]nodeObject) error {
 	for _, pins := range held {
 		for _, objects := range pins {
 			for _, h := range objects {
@@ -402,11 +402,11 @@ func (t *imaging) heldValues(held map[ast.Node]map[string][]nodeObject) error {
 }
 
 // stagedImaged images staged's sources by position.
-func stagedImaged(staged map[ast.Node]map[string][]stagedStream, at func(*actionFrame) int) map[ast.Node]map[string][]imagedStaged {
+func stagedImaged(staged map[NodeRef]map[string][]stagedStream, at func(*actionFrame) int) map[NodeRef]map[string][]imagedStaged {
 	if staged == nil {
 		return nil
 	}
-	imaged := make(map[ast.Node]map[string][]imagedStaged, len(staged))
+	imaged := make(map[NodeRef]map[string][]imagedStaged, len(staged))
 	for node, pins := range staged {
 		imaged[node] = make(map[string][]imagedStaged, len(pins))
 		for pin, entries := range pins {
@@ -740,7 +740,7 @@ func (m *materializing) frame(perf *actionFrame, img imagedFrame, frameAt func(i
 		})
 	}
 	if img.subactions != nil {
-		perf.subactions = make(map[ast.Node]*actionFrame, len(img.subactions))
+		perf.subactions = make(map[NodeRef]*actionFrame, len(img.subactions))
 		for node, at := range img.subactions {
 			perf.subactions[node] = frameAt(at)
 		}
@@ -756,7 +756,7 @@ func (m *materializing) frame(perf *actionFrame, img imagedFrame, frameAt func(i
 		}
 	}
 	if img.repeatedPerfs != nil {
-		perf.repeatedPerfs = make(map[ast.Node][]*actionFrame, len(img.repeatedPerfs))
+		perf.repeatedPerfs = make(map[NodeRef][]*actionFrame, len(img.repeatedPerfs))
 		for node, indexed := range img.repeatedPerfs {
 			perfs := make([]*actionFrame, len(indexed))
 			for i, at := range indexed {
@@ -927,11 +927,11 @@ func (m *materializing) frameCells(
 }
 
 // pending fills perf's pending table from img's.
-func (m *materializing) pending(perf *actionFrame, pending map[ast.Node]map[string][]Value) error {
+func (m *materializing) pending(perf *actionFrame, pending map[NodeRef]map[string][]Value) error {
 	if pending == nil {
 		return nil
 	}
-	perf.pending = make(map[ast.Node]map[string][]Value, len(pending))
+	perf.pending = make(map[NodeRef]map[string][]Value, len(pending))
 	for node, pins := range pending {
 		carriedPins := make(map[string][]Value, len(pins))
 		for pin, values := range pins {
@@ -949,11 +949,11 @@ func (m *materializing) pending(perf *actionFrame, pending map[ast.Node]map[stri
 }
 
 // held fills what perf's control nodes hold from img's.
-func (m *materializing) held(perf *actionFrame, held map[ast.Node]map[string][]nodeObject) error {
+func (m *materializing) held(perf *actionFrame, held map[NodeRef]map[string][]nodeObject) error {
 	if held == nil {
 		return nil
 	}
-	perf.held = make(map[ast.Node]map[string][]nodeObject, len(held))
+	perf.held = make(map[NodeRef]map[string][]nodeObject, len(held))
 	for node, pins := range held {
 		carriedPins := make(map[string][]nodeObject, len(pins))
 		for pin, objects := range pins {
@@ -972,11 +972,11 @@ func (m *materializing) held(perf *actionFrame, held map[ast.Node]map[string][]n
 }
 
 // nested fills perf's nested-delivery table from img's.
-func (m *materializing) nested(perf *actionFrame, nested map[ast.Node][]nestedDelivery) error {
+func (m *materializing) nested(perf *actionFrame, nested map[NodeRef][]nestedDelivery) error {
 	if nested == nil {
 		return nil
 	}
-	perf.nested = make(map[ast.Node][]nestedDelivery, len(nested))
+	perf.nested = make(map[NodeRef][]nestedDelivery, len(nested))
 	for node, deliveries := range nested {
 		for _, d := range deliveries {
 			carried, err := m.value(d.value)
@@ -990,11 +990,11 @@ func (m *materializing) nested(perf *actionFrame, nested map[ast.Node][]nestedDe
 }
 
 // stagedMaterialized materializes img's staged writes, their sources by position.
-func stagedMaterialized(staged map[ast.Node]map[string][]imagedStaged, frameAt func(int) *actionFrame) map[ast.Node]map[string][]stagedStream {
+func stagedMaterialized(staged map[NodeRef]map[string][]imagedStaged, frameAt func(int) *actionFrame) map[NodeRef]map[string][]stagedStream {
 	if staged == nil {
 		return nil
 	}
-	materialized := make(map[ast.Node]map[string][]stagedStream, len(staged))
+	materialized := make(map[NodeRef]map[string][]stagedStream, len(staged))
 	for node, pins := range staged {
 		materialized[node] = make(map[string][]stagedStream, len(pins))
 		for pin, entries := range pins {

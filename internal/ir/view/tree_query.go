@@ -17,6 +17,9 @@ type treeQuery struct {
 	nodes       map[treeQueryKey]treeQueryNode
 	memberCache map[*symbols.Symbol][]*symbols.Symbol
 	geometry    map[treeGeometryKey]*Geometry
+	// ancestors excludes the type tokens used only as recursion barriers.
+	ancestors expansion
+	rewritten map[*symbols.Symbol]bool
 }
 
 type treeQueryGraph struct {
@@ -74,6 +77,7 @@ type treeQueryKey struct {
 	sym, owner *symbols.Symbol
 	qualified  bool
 	path       string
+	rewrites   string
 }
 
 type treeQueryNode struct {
@@ -97,7 +101,11 @@ func (r *Renderer) treeQuery(view *symbols.Symbol, out *Rendering, roots []*symb
 	if !out.query {
 		return nil
 	}
-	q := &treeQuery{r: r, view: view, bound: r.walkBound(view), nodes: map[treeQueryKey]treeQueryNode{}, memberCache: map[*symbols.Symbol][]*symbols.Symbol{}, geometry: map[treeGeometryKey]*Geometry{}}
+	q := &treeQuery{
+		r: r, view: view, bound: r.walkBound(view), nodes: map[treeQueryKey]treeQueryNode{},
+		memberCache: map[*symbols.Symbol][]*symbols.Symbol{}, geometry: map[treeGeometryKey]*Geometry{},
+		ancestors: expansion{}, rewritten: map[*symbols.Symbol]bool{},
+	}
 	unfiltered := len(r.walkFilters(view)) == 0
 	if unfiltered && r.queryGraph.covers(roots) {
 		q.treeQueryGraph = r.queryGraph
@@ -298,7 +306,8 @@ func (q *treeQuery) exposedDescendants(exposed []*symbols.Symbol, annotations bo
 	return suppressed
 }
 
-// key retains exactly the ancestors reachable below sym; unrelated siblings cannot affect its walk.
+// key keeps reachable recursion barriers and actual ancestors eligible for box-to-line/dot lowering.
+// An empty key disables reuse when a rewrite ancestor has no indexed token.
 func (q *treeQuery) key(sym, owner *symbols.Symbol, path expansion, qualified bool) treeQueryKey {
 	var active []int
 	for ancestor := range path {
@@ -308,18 +317,40 @@ func (q *treeQuery) key(sym, owner *symbols.Symbol, path expansion, qualified bo
 		}
 		active = append(active, id)
 	}
+	var rewrites []int
+	for ancestor := range q.ancestors {
+		rewritten, known := q.rewritten[ancestor]
+		if !known {
+			rewritten = q.r.rewritesTreeBox(ancestor)
+			q.rewritten[ancestor] = rewritten
+		}
+		if rewritten {
+			id, ok := q.ids[ancestor]
+			if !ok {
+				return treeQueryKey{}
+			}
+			rewrites = append(rewrites, id)
+		}
+	}
+	return treeQueryKey{sym: sym, owner: owner, qualified: qualified, path: treeQuerySignature(active), rewrites: treeQuerySignature(rewrites)}
+}
+
+func treeQuerySignature(active []int) string {
 	slices.Sort(active)
 	var signature strings.Builder
 	for _, id := range active {
 		signature.WriteString(strconv.Itoa(id))
 		signature.WriteByte(',')
 	}
-	return treeQueryKey{sym: sym, owner: owner, qualified: qualified, path: signature.String()}
+	return signature.String()
 }
 
 // node reuses a completed walk with the same cycle barriers and more depth:
 // it has already recorded everything this occurrence can draw.
 func (q *treeQuery) node(key treeQueryKey, depth int) *Node {
+	if key.sym == nil {
+		return nil
+	}
 	if previous, ok := q.nodes[key]; ok && previous.depth <= depth {
 		return previous.node
 	}
@@ -327,6 +358,9 @@ func (q *treeQuery) node(key treeQueryKey, depth int) *Node {
 }
 
 func (q *treeQuery) remember(key treeQueryKey, depth int, node *Node) {
+	if key.sym == nil {
+		return
+	}
 	if previous, ok := q.nodes[key]; !ok || depth < previous.depth {
 		q.nodes[key] = treeQueryNode{node: node, depth: depth}
 	}

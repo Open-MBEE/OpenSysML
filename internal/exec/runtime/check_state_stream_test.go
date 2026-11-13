@@ -5,18 +5,23 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
 // TestCanonicalStateTellsUnreceivedStreamsApart: two performances whose late streamed
 // values differ only in pin, queue position, source or count spell differently.
 func TestCanonicalStateTellsUnreceivedStreamsApart(t *testing.T) {
-	node := func(offset int) ast.Node {
-		return &ast.Usage{NodeBase: ast.NodeBase{NodeSpan: source.Span{Offset: offset, Len: 1}}, Kind: ast.UsageAction}
+	ctx, sym := loadAction(t, `package test {
+	action def A {
+		action target { in v : Integer; in w : Integer; }
+		action srcA { out v : Integer; out w : Integer; }
+		action srcB { out v : Integer; }
 	}
-	target, srcA, srcB := node(10), node(20), node(30)
+}`, "A")
+	exec := mustActionExecutor(t, ctx, sym)
+	graph := exec.Graph()
+	target, srcA, srcB := actionNodeNamed(t, exec, "target"), actionNodeNamed(t, exec, "srcA"), actionNodeNamed(t, exec, "srcB")
 	frameWith := func(streams ...unreceivedStream) *actionFrame {
-		return &actionFrame{unreceived: map[ast.Node][]unreceivedStream{target: streams}}
+		return &actionFrame{graph: graph, unreceived: map[NodeRef][]unreceivedStream{refOf(graph, target): streams}}
 	}
 	mark := func(source ast.Node, pin string, at int) unreceivedStream {
 		return unreceivedStream{flow: lower.ObjectFlow{SourcePin: pin, Target: target, TargetPin: pin}, source: source, pin: pin, at: at}
