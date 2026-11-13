@@ -244,7 +244,7 @@ func (r *Resolver) hideImportCollisions(c *importCollisions) {
 		}
 		var kept []importedMember
 		for i, member := range members {
-			if len(r.duplicatesOf(member.sym, importedSymbolsExcept(members, i))) > 0 {
+			if r.hasImportedDuplicate(members, i) {
 				kept = append(kept, member)
 			}
 		}
@@ -570,15 +570,15 @@ func (r *Resolver) memberNames(sym *symbols.Symbol) [2]string {
 	return names
 }
 
-// importedSymbolsExcept is the symbols of members other than the i-th.
-func importedSymbolsExcept(members []importedMember, i int) []*symbols.Symbol {
-	out := make([]*symbols.Symbol, 0, len(members)-1)
+// hasImportedDuplicate stops once another membership makes this one ambiguous.
+func (r *Resolver) hasImportedDuplicate(members []importedMember, i int) bool {
+	sym := members[i].sym
 	for j, member := range members {
-		if j != i {
-			out = append(out, member.sym)
+		if j != i && !r.sameElement(sym, member.sym) && !r.DistinguishableByMetaclass(sym, member.sym) {
+			return true
 		}
 	}
-	return out
+	return false
 }
 
 // importText spells an import as its declaration does, visibility aside:

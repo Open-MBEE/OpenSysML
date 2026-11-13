@@ -348,6 +348,10 @@ func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Re
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	return encodeModelDocuments(documents, res, encoders)
+}
+
+func encodeModelDocuments(documents []ModelDocument, res *resolve.Resolver, encoders []*encoder) (*rdf.Graph, *resolve.Resolver, []*encoder, error) {
 	// declaredIn is the document and declaration each subject was minted for:
 	// two documents declaring one subject would merge two elements into one.
 	declaredIn := map[string]mintedSubject{}
@@ -377,6 +381,10 @@ func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Re
 // its identity tables settled: what every id is minted from, before any writing.
 func modelEncodersOf(documents []ModelDocument, form IDForm) (*resolve.Resolver, []*encoder, error) {
 	res, model := analyzeModel(documents)
+	return modelEncodersOver(documents, form, res, model)
+}
+
+func modelEncodersOver(documents []ModelDocument, form IDForm, res *resolve.Resolver, model *semantics.Model) (*resolve.Resolver, []*encoder, error) {
 	shared := &modelEncoders{declaring: map[ast.Node]*encoder{}}
 	encoders := make([]*encoder, len(documents))
 	scopes := map[string]bool{}
