@@ -145,3 +145,28 @@ calc def R :> Query {
 		t.Errorf("isComposite cells = %q, want the own valueless attribute, not the metaclass flag", got)
 	}
 }
+
+// An own end that redefines a valueless feature explicitly still redefines the end at its position
+// (KerML 8.3.3.3.4); a stated empty value there keeps shadowing the metaclass property.
+func TestOwnEndKeepsShadowingPastStatedEmptyPositionalGeneral(t *testing.T) {
+	fixture := loadExecutionFixture(t, `package P {
+	part def A;
+	part def B;
+	connection def G { end a : A = null; end b : B; }
+	connection def G2 { end q : A; end r : B; }
+	connection def S :> G, G2 { end source : A redefines q; end target : B; }
+	connection def T :> G2 { end source : A redefines q; end target : B; }
+}
+calc def Q :> Query {
+	in root : Element;
+	Project(source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "KerML::Kernel::Association"), properties = ("source"))
+}`)
+	result, err := fixture.execute(t, "Q", Bindings{"root": {ElementValue(fixture.symbol(t, "P"))}}, Options{})
+	if err != nil {
+		t.Fatalf("execute Q: %v", err)
+	}
+	want := [][]string{{"Observatory::P::A"}, {"Observatory::P::A"}, nil, {"Observatory::P::A"}}
+	if got := cellElementNames(t, result, "source"); !slices.EqualFunc(got, want, slices.Equal) {
+		t.Fatalf("source cells = %q, want %q: S keeps G::a's stated empty value, the others yield to the end's type", got, want)
+	}
+}

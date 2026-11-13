@@ -900,8 +900,10 @@ func (m *Model) statesNoValue(member *symbols.Symbol, seen map[*symbols.Symbol]b
 	}
 	redefined := m.RedefinedFeatures(member)
 	if len(redefined) == 0 {
-		redefined = append(m.ImplicitParameterRedefinitions(member), m.implicitEndRedefinitions(member)...)
+		redefined = m.ImplicitParameterRedefinitions(member)
 	}
+	// An end's positional redefinitions hold beside an explicit `:>>` (KerML 8.3.3.3.4).
+	redefined = append(append([]*symbols.Symbol(nil), redefined...), m.implicitEndRedefinitions(member)...)
 	for _, general := range redefined {
 		if !m.statesNoValue(general, seen) {
 			return false
