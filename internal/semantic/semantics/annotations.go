@@ -37,9 +37,6 @@ type annotation struct {
 	defaults map[string][]symbols.FilterValue
 	// node states the annotation: the prefix-metadata node or metadata usage.
 	node ast.Node
-	// usage is the metadata usage node declares; nil where a record keeps a
-	// prefix annotation as a fact, with no symbol.
-	usage *symbols.Symbol
 	// span locates node, or the node a recorded annotation was written from.
 	span source.Span
 	// scope is where the annotating node is declared.
@@ -91,37 +88,10 @@ func (m *Model) annotationsOf(sym *symbols.Symbol) []annotation {
 // declaration stated, from the facts its record carries.
 func (m *Model) recordedAnnotations(sym *symbols.Symbol) []annotation {
 	var out []annotation
-	body := recordedBodyMetadata(sym)
 	for _, facts := range sym.Facts.Annotations {
 		a, ok := m.annotationFromFacts(facts, sym.OwnerScope)
 		if ok {
-			a.usage = body[facts.Span]
 			out = append(out, a)
-		}
-	}
-	return out
-}
-
-// recordedBodyMetadata locates the metadata usages in a recorded symbol's body
-// by span, the span its record states their annotation with.
-func recordedBodyMetadata(sym *symbols.Symbol) map[source.Span]*symbols.Symbol {
-	body := make(map[source.Span]*symbols.Symbol)
-	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
-		if member != nil && member.Kind == symbols.SymbolMetadataUsage {
-			body[member.DeclSpan] = member
-		}
-		return true
-	})
-	return body
-}
-
-// AnnotatingMetadataOf returns the metadata usages annotating sym (the inverse of
-// KerML 8.3.2.3.2 AnnotatingElement::annotatedElement), `about`-form ones last.
-func (m *Model) AnnotatingMetadataOf(sym *symbols.Symbol) []*symbols.Symbol {
-	var out []*symbols.Symbol
-	for _, a := range m.annotationsOf(sym) {
-		if a.usage != nil && !slices.Contains(out, a.usage) {
-			out = append(out, a.usage)
 		}
 	}
 	return out
@@ -432,7 +402,6 @@ func (m *Model) declaredAnnotations(sym *symbols.Symbol) []annotation {
 	var out []annotation
 	for _, p := range prefixes {
 		if a, ok := m.prefixAnnotation(scope, p); ok {
-			a.usage = sym.Scope.MemberDeclaring(p)
 			out = append(out, a)
 		}
 	}
@@ -447,7 +416,6 @@ func (m *Model) declaredAnnotations(sym *symbols.Symbol) []annotation {
 			continue
 		}
 		if a, ok := m.metadataAnnotation(memberScope(sym, scope), member); ok {
-			a.usage = sym.Scope.MemberDeclaring(member)
 			out = append(out, a)
 		}
 	}
@@ -665,9 +633,14 @@ func (m *Model) annotationsAbout() map[*symbols.Symbol][]annotation {
 		m.aboutShared.once.Do(func() {
 			m.buildAbout()
 			m.aboutShared.annots, m.aboutShared.byDecl, m.aboutShared.order = m.aboutAnnots, m.aboutByDecl, m.aboutOrder
+			m.aboutShared.usages = m.aboutUsages
 		})
 		m.aboutAnnots, m.aboutByDecl, m.aboutOrder = m.aboutShared.annots, m.aboutShared.byDecl, m.aboutShared.order
-	}, func() { m.aboutAnnots, m.aboutByDecl, m.aboutOrder, m.aboutShared = nil, nil, nil, nil })
+		m.aboutUsages = m.aboutShared.usages
+	}, func() {
+		m.aboutAnnots, m.aboutByDecl, m.aboutOrder, m.aboutShared = nil, nil, nil, nil
+		m.aboutUsages = aboutUsages{}
+	})
 	return m.aboutAnnots
 }
 
@@ -681,6 +654,7 @@ func (m *Model) buildAbout() {
 	defer func() { m.aboutBuilding = false }()
 	m.aboutAnnots = make(map[*symbols.Symbol][]annotation)
 	m.aboutByDecl = make(map[ast.Node][]annotation)
+	m.aboutUsages = aboutUsages{bySym: make(map[*symbols.Symbol][]*symbols.Symbol), byDecl: make(map[ast.Node][]*symbols.Symbol)}
 	gathers := m.gathers()
 	for _, doc := range m.gatheredDocs() {
 		for _, sym := range gathers[doc].about {
@@ -696,6 +670,7 @@ type AboutIndex struct {
 	annots map[*symbols.Symbol][]annotation
 	byDecl map[ast.Node][]annotation
 	order  []*symbols.Symbol
+	usages aboutUsages
 }
 
 // NewAboutIndex is an about index no model has built yet.
@@ -711,11 +686,15 @@ func (m *Model) ShareAbout(shared *AboutIndex) {
 	}
 	m.aboutShared = shared
 	m.aboutAnnots, m.aboutByDecl, m.aboutOrder = nil, nil, nil
+	m.aboutUsages = aboutUsages{}
 }
 
 // indexAboutUsage records one `about` metadata usage against every element it
 // annotates.
 func (m *Model) indexAboutUsage(sym *symbols.Symbol) {
+	for _, target := range m.aboutTargets(sym) {
+		m.aboutUsages.add(target, sym)
+	}
 	if sym.Recorded() {
 		m.indexRecordedAboutUsage(sym)
 		return
@@ -727,7 +706,7 @@ func (m *Model) indexAboutUsage(sym *symbols.Symbol) {
 	if !ok {
 		return
 	}
-	a.about, a.usage = true, sym
+	a.about = true
 	m.indexAbout(a, m.annotatedElements(sym.OwnerScope, sym.Decl))
 }
 
@@ -741,7 +720,7 @@ func (m *Model) indexRecordedAboutUsage(sym *symbols.Symbol) {
 	if !ok {
 		return
 	}
-	a.about, a.usage = true, sym
+	a.about = true
 	var targets []aboutTarget
 	for _, target := range m.recordedElements(nil, sym.Facts.About) {
 		targets = append(targets, aboutTarget{sym: target})
@@ -762,6 +741,32 @@ func (m *Model) indexAbout(a annotation, targets []aboutTarget) {
 			m.aboutByDecl[target.sym.Decl] = append(m.aboutByDecl[target.sym.Decl], a)
 		}
 	}
+}
+
+// aboutUsages keys the `about` metadata usages by the element each annotates
+// and by its declaration, whether or not the usage's type resolves.
+type aboutUsages struct {
+	bySym  map[*symbols.Symbol][]*symbols.Symbol
+	byDecl map[ast.Node][]*symbols.Symbol
+}
+
+// add files usage as annotating target, once; an unresolved target is nil.
+func (u aboutUsages) add(target, usage *symbols.Symbol) {
+	if target == nil || slices.Contains(u.bySym[target], usage) {
+		return
+	}
+	u.bySym[target] = append(u.bySym[target], usage)
+	if target.Decl != nil && !slices.Contains(u.byDecl[target.Decl], usage) {
+		u.byDecl[target.Decl] = append(u.byDecl[target.Decl], usage)
+	}
+}
+
+// of is the usages annotating sym, gathered per declaration as aboutAnnotations is.
+func (u aboutUsages) of(sym *symbols.Symbol) []*symbols.Symbol {
+	if sym.Decl != nil {
+		return u.byDecl[sym.Decl]
+	}
+	return u.bySym[sym]
 }
 
 // aboutTarget is one element an `about` clause names, with the namespace the

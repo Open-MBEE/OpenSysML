@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 )
 
@@ -91,5 +92,33 @@ func TestAnnotatingMetadataIsDeduplicatedAndFollowsOwnedTargets(t *testing.T) {
 	holder := sym(t, user, "holder")
 	if got := annotatingNames(m, sym(t, holder.Scope, "inner")); !slices.Equal(got, []string{"holder"}) {
 		t.Errorf("annotating metadata of holder::inner = %v, want [holder]", got)
+	}
+}
+
+// A usage whose metadata type resolves to nothing still annotates: the
+// listing reads the annotation, not the type it is typed by.
+func TestAnnotatingMetadataKeepsUsagesOfAnUnresolvedType(t *testing.T) {
+	m, _, user := buildOverlayModel(t, "metadata def Safety;", `
+		#Missing part pump { @Missing; }
+		metadata untyped : Missing about pump;
+	`)
+	if got, want := annotatingNames(m, sym(t, user, "pump")), []string{"@", "@", "untyped"}; !slices.Equal(got, want) {
+		t.Errorf("annotating metadata of pump = %v, want %v", got, want)
+	}
+}
+
+// A keyword-first relationship owns the metadata in its body through an
+// Annotation (KerML 8.2.3.3.1), so it is annotated by it.
+func TestAnnotatingMetadataOfAKeywordFirstRelationship(t *testing.T) {
+	idx := symbols.NewIndex()
+	addTestDoc(t, idx, "user.kerml", `
+		metaclass Safety;
+		classifier A; classifier B;
+		specialization link subclassifier A specializes B { @Safety; }
+	`)
+	m := NewModel(resolve.New(idx))
+	link := sym(t, idx.DocumentRoot("user.kerml"), "link")
+	if got := annotatingNames(m, link); !slices.Equal(got, []string{"@"}) {
+		t.Errorf("annotating metadata of the specialization = %v, want [@]", got)
 	}
 }

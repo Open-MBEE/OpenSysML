@@ -4,6 +4,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+	"slices"
 )
 
 // OwnedAnnotations returns the Annotations sym owns as their annotated element
@@ -72,10 +73,16 @@ func (m *Model) recordedPrefixAnnotationSpans(sym *symbols.Symbol) []source.Span
 	if !sym.Recorded() {
 		return nil
 	}
-	body := recordedBodyMetadata(sym)
+	body := make(map[source.Span]bool)
+	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
+		if member != nil && member.Kind == symbols.SymbolMetadataUsage {
+			body[member.DeclSpan] = true
+		}
+		return true
+	})
 	var out []source.Span
 	for _, fact := range sym.Facts.Annotations {
-		if body[fact.Span] == nil {
+		if !body[fact.Span] {
 			out = append(out, fact.Span)
 		}
 	}
@@ -134,6 +141,43 @@ func (m *Model) aboutTargets(sym *symbols.Symbol) []*symbols.Symbol {
 		out[i] = target
 	}
 	return out
+}
+
+// AnnotatingMetadataOf returns the metadata usages annotating sym (the inverse of
+// KerML 8.3.2.3.2 AnnotatingElement::annotatedElement), `about`-form ones last.
+func (m *Model) AnnotatingMetadataOf(sym *symbols.Symbol) []*symbols.Symbol {
+	if m == nil || sym == nil || sym.Implicit != nil {
+		return nil
+	}
+	var out []*symbols.Symbol
+	add := func(usage *symbols.Symbol) {
+		if !slices.Contains(out, usage) {
+			out = append(out, usage)
+		}
+	}
+	for _, prefix := range m.prefixMetadataSymbols(sym) {
+		add(prefix)
+	}
+	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
+		if member != nil && member.Kind == symbols.SymbolMetadataUsage && !annotatesOthers(member) {
+			add(member)
+		}
+		return true
+	})
+	m.annotationsAbout()
+	for _, usage := range m.aboutUsages.of(sym) {
+		add(usage)
+	}
+	return out
+}
+
+// annotatesOthers reports whether the metadata usage sym has an `about` clause,
+// read from its record when it has no declaration.
+func annotatesOthers(sym *symbols.Symbol) bool {
+	if sym.Recorded() {
+		return sym.Facts.Modifiers.Has(symbols.ModAnnotatesOthers)
+	}
+	return symbols.AnnotatesOthers(sym.Decl)
 }
 
 // owningAnnotatingRelationship is the Annotation that owns the annotating
