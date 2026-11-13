@@ -22,9 +22,9 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// engineGzipBudget bounds the gzipped js sysml-engine the gate links (-trimpath, stripped, the library snapshot embedded, as
-// every Makefile build target does): 10,816,237 bytes under go1.27.4 on 2026-11-11 with RenderDocument served, 9,061,783 without the snapshot.
-const engineGzipBudget = 11000000
+// engineGzipBudget bounds the gzipped js sysml-engine the gate links (-trimpath, stripped, the library snapshot embedded, as every Makefile build target does):
+// 11,031,341 bytes under go1.27.4 on 2026-11-13 with RenderView's written forms served, up from 10,936,997 on develop 0757270e94 by the draw.io, text and table writers.
+const engineGzipBudget = 11100000
 
 func TestEngineDependencies(t *testing.T) {
 	const module = "github.com/Open-MBEE/OpenSysML"
