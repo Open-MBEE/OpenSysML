@@ -1499,6 +1499,9 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			return err
 		}
 		e.relationships(subject, owner, n.Relationships)
+		if ontology.IsAncestorOrSelf(metaclass, "Association") {
+			e.associationRelatedTypes(subject, n)
+		}
 		if n.Kind == ast.DefPort {
 			// Every port definition owns its conjugate (SysML.xtext
 			// ConjugatedPortDefinitionMember), which the `~P` typing of a
@@ -2509,6 +2512,39 @@ func (e *encoder) messageEnd(subject rdf.Term, index int, target ast.Node) error
 		e.connectorRelatedFeature(subject, reference, index, 2, true)
 	}
 	return nil
+}
+
+// associationRelatedTypes states an Association's Relationship::relatedElement, source and target as the
+// relatedType, sourceType and targetType that redefine them (KerML 8.3.4.4.2), as the semantic model derives them.
+func (e *encoder) associationRelatedTypes(subject rdf.Term, n *ast.Definition) {
+	sym := e.ids.declSym[n]
+	if sym == nil {
+		return
+	}
+	for _, property := range []string{pRelatedElement, pSource, pTarget} {
+		for _, typ := range e.ids.model.AssociationRelatedTypes(sym, property) {
+			if term := e.typeTerm(typ); term.Value != "" {
+				e.graph.Add(subject, e.sysml(property), term)
+			}
+		}
+	}
+}
+
+// typeTerm is the term of a type a feature is typed by: the ConjugatedPortDefinition minted beside
+// P for a `~P` typing (SysML v2 8.3.12.3), which declares nothing of its own, else the element's.
+func (e *encoder) typeTerm(typ *symbols.Symbol) rdf.Term {
+	if typ != nil && typ.IsConjugatedPortDefinition() {
+		original := e.symbolTerm(semantics.OriginalPortDefinitionOf(typ))
+		if !original.IsIRI() || original.Value == "" {
+			return rdf.Term{}
+		}
+		return e.conjugateReference(original)
+	}
+	term := e.symbolTerm(typ)
+	if !term.IsIRI() {
+		return rdf.Term{}
+	}
+	return term
 }
 
 // connectorRelatedFeature states Connector::relatedFeature as the feature the end's ReferenceSubsetting references
