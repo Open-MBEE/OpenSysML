@@ -4578,8 +4578,12 @@ type GetSymbolRequest struct {
 	// SymbolInfo.members, each marked library, instead of counting them in
 	// withheld_library_members.
 	IncludeLibraryMembers bool `protobuf:"varint,3,opt,name=include_library_members,json=includeLibraryMembers,proto3" json:"include_library_members,omitempty"`
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	// Resolve symbol_id as a qualified name from the root namespace (KerML 8.2.3.5), through visible
+	// memberships and to an alias's element; unset, or without the
+	// symbol_name_resolution capability, it is an id the service reported, whatever its visibility.
+	ResolveName   bool `protobuf:"varint,4,opt,name=resolve_name,json=resolveName,proto3" json:"resolve_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetSymbolRequest) Reset() {
@@ -4629,6 +4633,13 @@ func (x *GetSymbolRequest) GetSymbolId() string {
 func (x *GetSymbolRequest) GetIncludeLibraryMembers() bool {
 	if x != nil {
 		return x.IncludeLibraryMembers
+	}
+	return false
+}
+
+func (x *GetSymbolRequest) GetResolveName() bool {
+	if x != nil {
+		return x.ResolveName
 	}
 	return false
 }
@@ -19314,12 +19325,13 @@ const file_sysml_proto_rawDesc = "" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x12%\n" +
 	"\x04root\x18\x02 \x01(\v2\x11.sysml.SymbolInfoR\x04root\x123\n" +
 	"\vdiagnostics\x18\x03 \x03(\v2\x11.sysml.DiagnosticR\vdiagnostics\x12\x14\n" +
-	"\x05error\x18\x04 \x01(\tR\x05error\"\x86\x01\n" +
+	"\x05error\x18\x04 \x01(\tR\x05error\"\xa9\x01\n" +
 	"\x10GetSymbolRequest\x12\x1d\n" +
 	"\n" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x12\x1b\n" +
 	"\tsymbol_id\x18\x02 \x01(\tR\bsymbolId\x126\n" +
-	"\x17include_library_members\x18\x03 \x01(\bR\x15includeLibraryMembers\"Q\n" +
+	"\x17include_library_members\x18\x03 \x01(\bR\x15includeLibraryMembers\x12!\n" +
+	"\fresolve_name\x18\x04 \x01(\bR\vresolveName\"Q\n" +
 	"\x0eSymbolResponse\x12)\n" +
 	"\x06symbol\x18\x01 \x01(\v2\x11.sysml.SymbolInfoR\x06symbol\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\"{\n" +

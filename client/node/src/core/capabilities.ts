@@ -11,6 +11,8 @@ export const CAPABILITY_TYPE_FACTS = "type_facts";
 export const CAPABILITY_SYMBOL_ATTRIBUTES = "symbol_attributes";
 /** Populated `SymbolInfo.members`: every member, own and inherited, with its provenance. */
 export const CAPABILITY_SYMBOL_MEMBERS = "symbol_members";
+/** `GetSymbolRequest.resolveName` honoured; without it every id is read as one the service reported. */
+export const CAPABILITY_SYMBOL_NAME_RESOLUTION = "symbol_name_resolution";
 /** The `GetElementProperties` RPC: an element's metamodel properties by their specification names. */
 export const CAPABILITY_ELEMENT_PROPERTIES = "element_properties";
 /** `RunDocumentQueryRequest.inline_query`: a query expression run in place of a named query. */

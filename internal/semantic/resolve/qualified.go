@@ -169,7 +169,11 @@ func (r *Resolver) membersNamed(scope *symbols.Scope, cur *symbols.Symbol, name 
 	// declares: `engine::'4cylEngine'` reaches the variants of the type
 	// `engine` is typed by.
 	if len(all) == 0 {
-		if sym, ok := r.lookupMember(cur, name, hide); ok && r.namedThroughNamespace(sym) && !hide.hides(sym) {
+		// An import of cur surfaces the name only to a reference it is visible to.
+		visible := func(imp *ast.Import) bool {
+			return r.allVisible > 0 || r.importVisibleFrom(cur, scope, imp)
+		}
+		if sym, ok := r.lookupMemberThrough(cur, name, hide, visible); ok && r.namedThroughNamespace(sym) && !hide.hides(sym) {
 			if sym, ok = r.inheritedAsFrom(cur, sym, hide); ok {
 				all = []*symbols.Symbol{sym}
 			}
