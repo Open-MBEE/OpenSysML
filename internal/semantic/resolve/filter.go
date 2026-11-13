@@ -721,7 +721,7 @@ func (r *Resolver) ImportedBeside(scope *symbols.Scope, name string, sym *symbol
 		if !brought {
 			continue
 		}
-		if slices.Contains(r.ownedNames(s), name) {
+		if r.ownsName(s, name) {
 			return nil, false
 		}
 		if dup := r.duplicatesOf(sym, others); len(dup) > 0 {
