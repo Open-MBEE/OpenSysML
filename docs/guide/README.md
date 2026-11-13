@@ -24,7 +24,9 @@ multiplicity, variants with occurrence counts, per-occurrence values, and what a
 variants, an assertion tying the choices together, a configuration that picks one variant
 per choice, and `%configure` solving the family for every consistent selection — and
 [Security](security.md) — how to report a vulnerability, which versions get fixes, how to
-verify a downloaded release and how to harden a served instance.
+verify a downloaded release and how to harden a served instance — and
+[Running sysml-mcp as a service](sysml-mcp-service.md) — the MCP server behind TLS with
+single sign-on, API keys or a token in front, its probes, and its container and systemd forms.
 
 Chapter 9 does one task in all eight clients side by side — Go, Python, Node/TypeScript, Java,
 Rust, .NET, Julia and MATLAB, in tabs — and then has a section per client for what only that one has.

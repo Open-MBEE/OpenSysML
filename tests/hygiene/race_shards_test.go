@@ -36,6 +36,7 @@ var (
 	circleSweep        = regexp.MustCompile(`(?m)^\s*corpussweep='([^']+)'$`)
 	makefileCoverage   = regexp.MustCompile(`(?m)^COVERAGE_SHARDS := (.+)$`)
 	circleShardArrays  = regexp.MustCompile(`(?m)^\s*shards=\(([^)]+)\)$`)
+	circleSweepJob     = regexp.MustCompile(`(?m)^\s*sweep_shard=(\S+)$`)
 	shardArrayEntry    = regexp.MustCompile(`"([^"]*)"|(\S+)`)
 	circleParallelism  = regexp.MustCompile(`(?m)^  (go-race-test|go-coverage):\n(?:    .*\n)*?    parallelism: (\d+)$`)
 	circleCorpus       = regexp.MustCompile(`(?m)^\s*corpus='([^']+)'$`)
@@ -76,15 +77,15 @@ func TestCircleCIShardArraysMatchTheRaceShards(t *testing.T) {
 	raceNodes := shardArrayEntries(arrays[0][1])
 	coverage := strings.Fields(arrays[1][1])
 
-	// A race node runs one shard, or the shards of one quoted entry in turn; together the
-	// nodes run every shard once, in whatever order.
-	var race []string
+	// A race node runs one shard, or the shards of one quoted entry in turn; with the sweep
+	// job's shard they run every shard once, in whatever order.
+	race := []string{firstSubmatch(t, circleSweepJob, config, ".circleci/config.yml go-race-sweep")}
 	for _, node := range raceNodes {
 		race = append(race, strings.Fields(node)...)
 	}
 	slices.Sort(race)
 	if !slices.Equal(race, slices.Sorted(slices.Values(shards))) {
-		t.Errorf("race job nodes %q run shards %v, scripts/race-shard.sh %v", raceNodes, race, shards)
+		t.Errorf("race job nodes %q and the sweep job run shards %v, scripts/race-shard.sh %v", raceNodes, race, shards)
 	}
 	// The coverage job has no corpus shards of the runtime: without -race the package runs
 	// whole in its runtime shard.
@@ -231,8 +232,14 @@ func TestCorpusPatternsPartitionTheCorpusTests(t *testing.T) {
 func corpusPatternPartitions(t *testing.T, variable string, makefileRe, circleRe *regexp.Regexp, circleWhat, dir string, minTests int) (*regexp.Regexp, []string) {
 	t.Helper()
 	pattern := strings.ReplaceAll(firstSubmatch(t, makefileRe, readRepoFile(t, "Makefile"), "Makefile "+variable), "$$", "$")
-	if circle := firstSubmatch(t, circleRe, readRepoFile(t, ".circleci/config.yml"), ".circleci/config.yml "+circleWhat); circle != pattern {
-		t.Errorf(".circleci/config.yml %s pattern %q, Makefile %s %q", circleWhat, circle, variable, pattern)
+	circles := circleRe.FindAllStringSubmatch(readRepoFile(t, ".circleci/config.yml"), -1)
+	if len(circles) == 0 {
+		t.Fatalf(".circleci/config.yml: no %s", circleWhat)
+	}
+	for _, m := range circles {
+		if m[1] != pattern {
+			t.Errorf(".circleci/config.yml %s pattern %q, Makefile %s %q", circleWhat, m[1], variable, pattern)
+		}
 	}
 	if !strings.HasPrefix(pattern, "^") || !strings.HasSuffix(pattern, "$") {
 		t.Fatalf("%s %q is not anchored, so it could match more tests than it names", variable, pattern)

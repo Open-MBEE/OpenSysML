@@ -78,7 +78,7 @@ type Context struct {
 
 	// calcUsageRunning holds the calc usages whose bodies are running, so a body
 	// reading its own usage is a recursion rather than a nested evaluation.
-	calcUsageRunning map[calcUsageKey]*calcShape
+	calcUsageRunning map[calcUsageKey]*loadedCalc
 
 	// activations numbers the body activations begun in this context: a calc
 	// invocation, a block entry, a loop iteration, a body application.
@@ -185,6 +185,8 @@ type Context struct {
 	// coverage holds the states this run entered and the transitions it took,
 	// qualified by the object running the machine, whether or not it is traced.
 	coverage map[coverageKey]CoverageEntry
+	// covering is whether a check or an exploration runs this context and reads its coverage.
+	covering bool
 
 	// heldBehaviors are the behaviors already holding work when the outermost
 	// start under way began: a driver put it in flight, and dispatches it.
@@ -442,7 +444,7 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		run: &runState{
 			calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun),
 		},
-		calcUsageRunning: make(map[calcUsageKey]*calcShape),
+		calcUsageRunning: make(map[calcUsageKey]*loadedCalc),
 
 		maxActionSteps: DefaultMaxActionSteps,
 		maxStateEvents: DefaultMaxStateEvents,
@@ -1647,11 +1649,11 @@ func (ctx *Context) chainMembers(sym *symbols.Symbol, scope *symbols.Scope) []sc
 		if link == nil || ctx.frameDeclared(link) {
 			continue
 		}
-		for _, node := range unwrappedDeclMembers(link.Decl) {
+		for _, node := range lower.UnwrappedDeclMembers(link.Decl) {
 			out = append(out, scopedMember{node: node, scope: bodyScope(link, link.OwnerScope)})
 		}
 	}
-	for _, node := range unwrappedDeclMembers(sym.Decl) {
+	for _, node := range lower.UnwrappedDeclMembers(sym.Decl) {
 		out = append(out, scopedMember{node: node, scope: bodyScope(sym, scope)})
 	}
 	return out

@@ -11,13 +11,13 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 3032,
+      "presentEqual": 3061,
       "presentDifferent": 236,
-      "oursMissing": 404,
+      "oursMissing": 378,
       "pilotMissing": 113,
       "absentBoth": 3459,
       "indeterminate": 20,
-      "pilotNondeterministic": 3
+      "pilotNondeterministic": 0
     },
     "unkeyedReferences": 261,
     "extensionProperties": 415,
@@ -72,7 +72,7 @@
     "AssertConstraintUsage.isNegated": [1,0,0,0,0,0,0],
     "AssertConstraintUsage.isOrdered": [1,0,0,0,0,0,0],
     "AssertConstraintUsage.isPortion": [1,0,0,0,0,0,0],
-    "AssertConstraintUsage.isReference": [0,0,1,0,0,0,0],
+    "AssertConstraintUsage.isReference": [1,0,0,0,0,0,0],
     "AssertConstraintUsage.isSufficient": [1,0,0,0,0,0,0],
     "AssertConstraintUsage.isUnique": [1,0,0,0,0,0,0],
     "AssertConstraintUsage.isVariable": [1,0,0,0,0,0,0],
@@ -473,7 +473,7 @@
     "OperatorExpression.feature": [0,3,0,0,0,0,0],
     "OperatorExpression.featureMembership": [0,3,0,0,0,0,0],
     "OperatorExpression.featureTarget": [3,0,0,0,0,0,0],
-    "OperatorExpression.featuringType": [0,0,0,0,0,0,3],
+    "OperatorExpression.featuringType": [1,0,2,0,0,0,0],
     "OperatorExpression.function": [0,0,3,0,0,0,0],
     "OperatorExpression.importedMembership": [0,0,0,0,3,0,0],
     "OperatorExpression.inheritedFeature": [0,0,3,0,0,0,0],
@@ -717,7 +717,7 @@
     "PartUsage.isLibraryElement": [27,0,0,0,0,0,0],
     "PartUsage.isOrdered": [27,0,0,0,0,0,0],
     "PartUsage.isPortion": [27,0,0,0,0,0,0],
-    "PartUsage.isReference": [0,0,27,0,0,0,0],
+    "PartUsage.isReference": [27,0,0,0,0,0,0],
     "PartUsage.isSufficient": [27,0,0,0,0,0,0],
     "PartUsage.isUnique": [27,0,0,0,0,0,0],
     "PartUsage.isVariable": [27,0,0,0,0,0,0],

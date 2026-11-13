@@ -221,12 +221,41 @@ func (g *StateGraph) assignIDs() {
 	g.assignTransIDs(paths)
 }
 
+// statesInOrder lists the graph's states once each: States in order, then the
+// graph-only states of a parallel body's usages, which parent chains and region tables reach.
+func (g *StateGraph) statesInOrder() []*ast.StateNode {
+	seen := make(map[*ast.StateNode]bool, len(g.States))
+	out := make([]*ast.StateNode, 0, len(g.States))
+	add := func(state *ast.StateNode) {
+		if state != nil && !seen[state] {
+			seen[state] = true
+			out = append(out, state)
+		}
+	}
+	for _, state := range g.States {
+		add(state)
+	}
+	for _, region := range g.TopRegions {
+		add(g.RegionState[region])
+	}
+	for i := 0; i < len(out); i++ {
+		for parent := g.ParentState[out[i]]; parent != nil && !seen[parent]; parent = g.ParentState[parent] {
+			add(parent)
+		}
+		for _, region := range g.CompositeStates[out[i]] {
+			add(g.RegionState[region])
+		}
+	}
+	return out
+}
+
 func (g *StateGraph) assignStateIDs(paths originPaths) {
-	n := len(g.States) + 1
-	g.ID = make(map[*ast.StateNode]program.StateID, len(g.States))
+	states := g.statesInOrder()
+	n := len(states) + 1
+	g.ID = make(map[*ast.StateNode]program.StateID, len(states))
 	g.Origins = make([]program.Origin, 1, n)
 	g.Provenance.states = make([]*ast.StateNode, 1, n)
-	for _, state := range g.States {
+	for _, state := range states {
 		if _, seen := g.ID[state]; seen {
 			continue
 		}
@@ -260,7 +289,7 @@ func (g *StateGraph) regionsInOrder() []*ast.StateRegion {
 		}
 	}
 	add(g.TopRegions)
-	for _, state := range g.States {
+	for _, state := range g.statesInOrder() {
 		add(g.CompositeStates[state])
 	}
 	return out

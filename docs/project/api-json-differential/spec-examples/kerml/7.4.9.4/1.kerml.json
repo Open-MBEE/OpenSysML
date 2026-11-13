@@ -13,11 +13,11 @@
     "properties": {
       "presentEqual": 665,
       "presentDifferent": 27,
-      "oursMissing": 89,
-      "pilotMissing": 37,
+      "oursMissing": 90,
+      "pilotMissing": 41,
       "absentBoth": 550,
       "indeterminate": 0,
-      "pilotNondeterministic": 1
+      "pilotNondeterministic": 0
     },
     "unkeyedReferences": 18,
     "extensionProperties": 120,
@@ -134,6 +134,7 @@
     "Feature.isLibraryElement": [7,0,0,0,0,0,0],
     "Feature.isOrdered": [7,0,0,0,0,0,0],
     "Feature.isPortion": [7,0,0,0,0,0,0],
+    "Feature.isReference": [0,0,0,4,0,0,0],
     "Feature.isResult": [0,0,0,2,0,0,0],
     "Feature.isSufficient": [7,0,0,0,0,0,0],
     "Feature.isUnique": [7,0,0,0,0,0,0],
@@ -386,7 +387,7 @@
     "InvocationExpression.feature": [0,1,0,0,0,0,0],
     "InvocationExpression.featureMembership": [0,1,0,0,0,0,0],
     "InvocationExpression.featureTarget": [1,0,0,0,0,0,0],
-    "InvocationExpression.featuringType": [0,0,0,0,0,0,1],
+    "InvocationExpression.featuringType": [0,0,1,0,0,0,0],
     "InvocationExpression.function": [0,1,0,0,0,0,0],
     "InvocationExpression.importedMembership": [0,0,0,0,1,0,0],
     "InvocationExpression.inheritedFeature": [0,0,1,0,0,0,0],

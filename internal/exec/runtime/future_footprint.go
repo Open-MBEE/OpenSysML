@@ -2,24 +2,20 @@ package runtime
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
-// futureKey identifies what a token may still do at this instant: its node in its flow.
+// futureKey identifies what a token may still do at this instant: its node, by id, in its flow.
 type futureKey struct {
 	graph *lower.ActionGraph
-	node  ast.Node
+	node  program.NodeID
 }
 
-// futureFootprints memoizes what executors may still touch at the clock's instant:
-// a token's by its node in its flow, a delay by whether it ends the instant; both
-// are dropped once the clock moves. A machine's whole graph is kept by graph.
-// Once gated, senders are the sends any executor may make at this instant, and
-// anySender marks an executor that may send anything; executors keeps each
-// executor's future from the gate until the footprints are next asked for, the
-// span in which no executor moves and one contention query reads each many times.
+// futureFootprints memoizes until the clock moves what executors may still touch at this instant:
+// tokens by node, delays by ending it, machines by graph and, once gated, the sends and executors' futures.
 type futureFootprints struct {
 	ctx       *Context
 	now       float64
@@ -131,9 +127,8 @@ func (f *futureFootprints) cannotFire(e *StateExecutor, trans *lower.Transition)
 	return true
 }
 
-// executorFuture is what the executor may still touch at this instant: every
-// token's future for an action, the machine's for a state machine, everything
-// for any other. The footprint is shared with later reads and is not to be written.
+// executorFuture is what the executor may still touch at this instant: its tokens' futures for an
+// action, its machine's for a state machine, everything otherwise; the shared footprint is read-only.
 func (f *futureFootprints) executorFuture(w clockWaiter) lower.Footprint {
 	f.at()
 	if fp, ok := f.executors[w]; ok {
@@ -176,12 +171,12 @@ func (f *futureFootprints) tokenFuture(exec *ActionExecutor, t Token) lower.Foot
 		if t.Wait.Due > f.ctx.clock.now {
 			return standing(exec, t)
 		}
-		future = graph.Footprints()[t.Location]
-		for _, edge := range graph.Edges[t.Location] {
+		future = graph.Footprints()[t.Node()]
+		for _, edge := range graph.Edges[t.Node()] {
 			future = unionFootprints(future, f.reach(graph, edge.Target))
 		}
 	} else {
-		future = f.reach(graph, t.Location)
+		future = f.reach(graph, t.Node())
 	}
 	for frame := t.frame; frame != nil && frame.node != nil; frame = frame.parent {
 		flow := frame.flow
@@ -207,7 +202,7 @@ func tokenGraphOf(exec *ActionExecutor, t Token) *lower.ActionGraph {
 // graph over its successions, the flows those nodes own included, going on past
 // no accept whose delay ends the instant; memoized for the instant.
 func (f *futureFootprints) reach(graph *lower.ActionGraph, node ast.Node) lower.Footprint {
-	key := futureKey{graph: graph, node: node}
+	key := futureKey{graph: graph, node: graph.ID[node]}
 	if fp, ok := f.nodes[key]; ok {
 		return fp
 	}

@@ -20,6 +20,6 @@ digraph "NotationGlyphs::Diagrams::requirementGlyphs" {
     { rank=max; "frame_bl" [shape=none, margin=0, label=<<font point-size="10">filter @SysML::RequirementDefinition or @SysML::RequirementUsage</font>>]; }
   }
   "n0" -> "n3" [label="frame", arrowhead=vee];
-  "n1" -> "n0" [arrowhead=onormaldotdot];
+  "n1" -> "n0" [arrowhead=empty, class=definition];
   "n2" -> "n1" [label="require", arrowhead=vee];
 }

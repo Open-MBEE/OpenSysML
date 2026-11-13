@@ -519,8 +519,8 @@ func TestGoldenDOTPalettes(t *testing.T) {
 	}
 }
 
-// sameButFill reports whether a palette line is the black-and-white line with a
-// fill, border colour and penwidth 1 added, or the same line.
+// sameButFill reports whether a palette line is the black-and-white line with a fill, border colour and
+// penwidth 1 added, or the same line. A pinned node's box repeats the fill where the other's is white.
 func sameButFill(palette, bw string) bool {
 	if palette == bw {
 		return true
@@ -530,5 +530,7 @@ func sameButFill(palette, bw string) bool {
 	if start < 0 || end < start {
 		return false
 	}
-	return palette[:start]+palette[end+len("penwidth=1, "):] == bw
+	fill, _, _ := strings.Cut(palette[start+len("fillcolor="):], ",")
+	rest := strings.Replace(palette[end+len("penwidth=1, "):], `cellpadding="6" bgcolor=`+fill, `cellpadding="6" bgcolor="white"`, 1)
+	return palette[:start]+rest == bw
 }

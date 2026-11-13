@@ -6,8 +6,8 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // ErrSnapshotMidRun reports a snapshot asked for from inside a step: a snapshot is
@@ -745,22 +745,22 @@ func cloneStepRepetitions(repeats map[repetitionGroupID]*stepRepetition) map[rep
 	return cloned
 }
 
-func cloneRepeatedPerfs(repeated map[ast.Node][]*actionFrame) map[ast.Node][]*actionFrame {
+func cloneRepeatedPerfs(repeated map[NodeRef][]*actionFrame) map[NodeRef][]*actionFrame {
 	if repeated == nil {
 		return nil
 	}
-	cloned := make(map[ast.Node][]*actionFrame, len(repeated))
+	cloned := make(map[NodeRef][]*actionFrame, len(repeated))
 	for node, perfs := range repeated {
 		cloned[node] = slices.Clone(perfs)
 	}
 	return cloned
 }
 
-func clonePending(pending map[ast.Node]map[string][]Value) map[ast.Node]map[string][]Value {
+func clonePending(pending map[NodeRef]map[string][]Value) map[NodeRef]map[string][]Value {
 	if pending == nil {
 		return nil
 	}
-	cloned := make(map[ast.Node]map[string][]Value, len(pending))
+	cloned := make(map[NodeRef]map[string][]Value, len(pending))
 	for node, pins := range pending {
 		clonedPins := make(map[string][]Value, len(pins))
 		for pin, values := range pins {
@@ -771,11 +771,11 @@ func clonePending(pending map[ast.Node]map[string][]Value) map[ast.Node]map[stri
 	return cloned
 }
 
-func cloneHeld(held map[ast.Node]map[string][]nodeObject) map[ast.Node]map[string][]nodeObject {
+func cloneHeld(held map[NodeRef]map[string][]nodeObject) map[NodeRef]map[string][]nodeObject {
 	if held == nil {
 		return nil
 	}
-	cloned := make(map[ast.Node]map[string][]nodeObject, len(held))
+	cloned := make(map[NodeRef]map[string][]nodeObject, len(held))
 	for node, pins := range held {
 		clonedPins := make(map[string][]nodeObject, len(pins))
 		for pin, objects := range pins {
@@ -786,11 +786,11 @@ func cloneHeld(held map[ast.Node]map[string][]nodeObject) map[ast.Node]map[strin
 	return cloned
 }
 
-func cloneStaged(staged map[ast.Node]map[string][]stagedStream) map[ast.Node]map[string][]stagedStream {
+func cloneStaged(staged map[NodeRef]map[string][]stagedStream) map[NodeRef]map[string][]stagedStream {
 	if staged == nil {
 		return nil
 	}
-	cloned := make(map[ast.Node]map[string][]stagedStream, len(staged))
+	cloned := make(map[NodeRef]map[string][]stagedStream, len(staged))
 	for node, pins := range staged {
 		clonedPins := make(map[string][]stagedStream, len(pins))
 		for pin, entries := range pins {
@@ -801,11 +801,11 @@ func cloneStaged(staged map[ast.Node]map[string][]stagedStream) map[ast.Node]map
 	return cloned
 }
 
-func cloneNested(nested map[ast.Node][]nestedDelivery) map[ast.Node][]nestedDelivery {
+func cloneNested(nested map[NodeRef][]nestedDelivery) map[NodeRef][]nestedDelivery {
 	if nested == nil {
 		return nil
 	}
-	cloned := make(map[ast.Node][]nestedDelivery, len(nested))
+	cloned := make(map[NodeRef][]nestedDelivery, len(nested))
 	for node, deliveries := range nested {
 		cloned[node] = slices.Clone(deliveries)
 	}
@@ -822,47 +822,47 @@ type stateCapture struct {
 	nextEventID        int64
 	events             eventHeap
 	stateData          mapState[string, Value]
-	stateAttrs         map[*ast.StateNode]mapState[string, Value]
+	stateAttrs         map[program.StateID]mapState[string, Value]
 	stateCells         bodyCellsCapture
-	stateAttrCells     map[*ast.StateNode]bodyCellsCapture
+	stateAttrCells     map[program.StateID]bodyCellsCapture
 	stateVisits        []string
-	stateStack         []*ast.StateNode
+	stateStack         []program.StateID
 	fired              []FiredTransition
 	firedBase          int
-	breakpointHit      *ast.StateNode
-	pausedAt           ast.Node
+	breakpointHit      program.StateID
+	pausedAt           program.VertexRef
 	completionDue      bool
-	history            map[*ast.StateNode]historyRecord
-	joinArrived        map[*ast.PseudostateNode][]*lower.Transition
+	history            map[program.StateID]historyRecord
+	joinArrived        map[program.PseudoID][]program.TransID
 	lastDispatch       *Dispatch
 	lastEventAt        float64
 	doActions          []doActionCapture
 	machineExited      bool
 	driven, under      *runState
 	inRun, moved       bool
-	timerScheduled     mapState[*lower.Transition, bool]
-	timeTriggerVerdict mapState[*lower.Transition, error]
-	changeFired        mapState[*lower.Transition, bool]
-	changeObserved     mapState[*lower.Transition, bool]
-	changePending      mapState[*lower.Transition, bool]
-	changeReads        map[*lower.Transition][]*FeatureValue
-	firingChange       *lower.Transition
+	timerScheduled     mapState[program.TransID, bool]
+	timeTriggerVerdict mapState[program.TransID, error]
+	changeFired        mapState[program.TransID, bool]
+	changeObserved     mapState[program.TransID, bool]
+	changePending      mapState[program.TransID, bool]
+	changeReads        map[program.TransID][]*FeatureValue
+	firingChange       program.TransID
 	firingNotes        []RunNote
-	changeRearmed      mapState[*lower.Transition, bool]
+	changeRearmed      mapState[program.TransID, bool]
 	changeWaits        []changeWait
 	// held contains entry cascades paused at RTC boundaries.
 	held []heldEntry
 	// entering marks states entered during the captured entry unit.
-	entering map[*ast.StateNode]bool
+	entering map[program.StateID]bool
 	// enteringMachine reports whether the captured entry unit includes the machine.
 	enteringMachine bool
 	// activeAtEntry records states active before the captured entry unit.
-	activeAtEntry map[*ast.StateNode]bool
+	activeAtEntry map[program.StateID]bool
 	pendingCall   *pendingCall
 }
 
 // captureJoinArrivals copies each join's ordered arrivals for a snapshot.
-func captureJoinArrivals(arrived map[*ast.PseudostateNode][]*lower.Transition) map[*ast.PseudostateNode][]*lower.Transition {
+func captureJoinArrivals(arrived map[program.PseudoID][]program.TransID) map[program.PseudoID][]program.TransID {
 	return cloneJoinArrivals(arrived)
 }
 
@@ -887,9 +887,9 @@ func (e *StateExecutor) capture() stateCapture {
 		exec: e, occurrence: e.occurrence, state: e.state, activeConfig: cloneConfiguration(e.activeConfig),
 		nextEventID:        e.nextEventID,
 		stateData:          captureMap(e.stateData),
-		stateAttrs:         make(map[*ast.StateNode]mapState[string, Value], len(e.stateAttrs)),
+		stateAttrs:         make(map[program.StateID]mapState[string, Value], len(e.stateAttrs)),
 		stateCells:         captureBodyCells(e.stateCells),
-		stateAttrCells:     make(map[*ast.StateNode]bodyCellsCapture, len(e.stateAttrCells)),
+		stateAttrCells:     make(map[program.StateID]bodyCellsCapture, len(e.stateAttrCells)),
 		stateVisits:        slices.Clone(e.stateVisits),
 		stateStack:         slices.Clone(e.stateStack),
 		fired:              slices.Clone(e.fired),
@@ -897,7 +897,7 @@ func (e *StateExecutor) capture() stateCapture {
 		breakpointHit:      e.breakpointHit,
 		pausedAt:           e.pausedAt,
 		completionDue:      e.completionDue,
-		history:            make(map[*ast.StateNode]historyRecord, len(e.history)),
+		history:            make(map[program.StateID]historyRecord, len(e.history)),
 		joinArrived:        captureJoinArrivals(e.joinArrived),
 		lastDispatch:       cloneDispatch(e.lastDispatch),
 		lastEventAt:        e.lastEventAt,
@@ -956,7 +956,7 @@ func (c stateCapture) restore() {
 			e.stateAttrs[node] = attrs.restore()
 		}
 	}
-	e.stateAttrCells = make(map[*ast.StateNode]*bodyCells, len(c.stateAttrCells))
+	e.stateAttrCells = make(map[program.StateID]*bodyCells, len(c.stateAttrCells))
 	for node, cells := range c.stateAttrCells {
 		cells.restore()
 		e.stateAttrCells[node] = cells.cells

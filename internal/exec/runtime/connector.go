@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -727,7 +728,7 @@ func (ctx *Context) anonymousConnectors(typeSym *symbols.Symbol) []*symbols.Symb
 		if decl != typeSym && ctx.libraryDeclared(decl) {
 			continue
 		}
-		for _, member := range unwrappedDeclMembers(decl.Decl) {
+		for _, member := range lower.UnwrappedDeclMembers(decl.Decl) {
 			usage, ok := member.(*ast.Usage)
 			if !ok || usage.Ident.Name != "" || usage.Ident.ShortName != "" {
 				continue

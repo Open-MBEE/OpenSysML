@@ -11,13 +11,13 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 28090,
+      "presentEqual": 28229,
       "presentDifferent": 1140,
-      "oursMissing": 5588,
+      "oursMissing": 5496,
       "pilotMissing": 1071,
       "absentBoth": 30381,
       "indeterminate": 1175,
-      "pilotNondeterministic": 47
+      "pilotNondeterministic": 0
     },
     "unkeyedReferences": 2759,
     "extensionProperties": 3214,
@@ -31,7 +31,7 @@
     },
     "unkeyableElements": {
       "ours": 0,
-      "pilot": 4246
+      "pilot": 4229
     }
   },
   "rows": {
@@ -66,7 +66,7 @@
     "AttributeUsage.isLibraryElement": [60,0,0,0,0,0,0],
     "AttributeUsage.isOrdered": [60,0,0,0,0,0,0],
     "AttributeUsage.isPortion": [60,0,0,0,0,0,0],
-    "AttributeUsage.isReference": [0,0,60,0,0,0,0],
+    "AttributeUsage.isReference": [60,0,0,0,0,0,0],
     "AttributeUsage.isSufficient": [60,0,0,0,0,0,0],
     "AttributeUsage.isUnique": [60,0,0,0,0,0,0],
     "AttributeUsage.isVariable": [60,0,0,0,0,0,0],
@@ -262,7 +262,7 @@
     "CalculationUsage.isModelLevelEvaluable": [0,0,8,0,0,0,0],
     "CalculationUsage.isOrdered": [8,0,0,0,0,0,0],
     "CalculationUsage.isPortion": [8,0,0,0,0,0,0],
-    "CalculationUsage.isReference": [0,0,8,0,0,0,0],
+    "CalculationUsage.isReference": [8,0,0,0,0,0,0],
     "CalculationUsage.isSufficient": [8,0,0,0,0,0,0],
     "CalculationUsage.isUnique": [8,0,0,0,0,0,0],
     "CalculationUsage.isVariable": [8,0,0,0,0,0,0],
@@ -562,7 +562,7 @@
     "InvocationExpression.feature": [0,39,0,0,0,0,0],
     "InvocationExpression.featureMembership": [0,39,0,0,0,0,0],
     "InvocationExpression.featureTarget": [39,0,0,0,0,0,0],
-    "InvocationExpression.featuringType": [0,0,0,0,0,0,39],
+    "InvocationExpression.featuringType": [9,0,30,0,0,0,0],
     "InvocationExpression.function": [8,0,0,0,0,31,0],
     "InvocationExpression.importedMembership": [0,0,0,0,39,0,0],
     "InvocationExpression.inheritedFeature": [0,0,39,0,0,0,0],
@@ -986,7 +986,7 @@
     "OperatorExpression.feature": [0,8,0,0,0,0,0],
     "OperatorExpression.featureMembership": [0,8,0,0,0,0,0],
     "OperatorExpression.featureTarget": [8,0,0,0,0,0,0],
-    "OperatorExpression.featuringType": [0,0,0,0,0,0,8],
+    "OperatorExpression.featuringType": [0,0,8,0,0,0,0],
     "OperatorExpression.function": [0,0,8,0,0,0,0],
     "OperatorExpression.importedMembership": [0,0,0,0,8,0,0],
     "OperatorExpression.inheritedFeature": [0,0,8,0,0,0,0],
@@ -1229,7 +1229,7 @@
     "PartUsage.isLibraryElement": [45,0,0,0,0,0,0],
     "PartUsage.isOrdered": [45,0,0,0,0,0,0],
     "PartUsage.isPortion": [45,0,0,0,0,0,0],
-    "PartUsage.isReference": [0,0,45,0,0,0,0],
+    "PartUsage.isReference": [45,0,0,0,0,0,0],
     "PartUsage.isSufficient": [45,0,0,0,0,0,0],
     "PartUsage.isUnique": [45,0,0,0,0,0,0],
     "PartUsage.isVariable": [45,0,0,0,0,0,0],
@@ -1362,7 +1362,7 @@
     "ReferenceUsage.isLibraryElement": [40,0,0,0,0,0,0],
     "ReferenceUsage.isOrdered": [40,0,0,0,0,0,0],
     "ReferenceUsage.isPortion": [40,0,0,0,0,0,0],
-    "ReferenceUsage.isReference": [23,0,17,0,0,0,0],
+    "ReferenceUsage.isReference": [40,0,0,0,0,0,0],
     "ReferenceUsage.isSufficient": [40,0,0,0,0,0,0],
     "ReferenceUsage.isUnique": [40,0,0,0,0,0,0],
     "ReferenceUsage.isVariable": [40,0,0,0,0,0,0],
