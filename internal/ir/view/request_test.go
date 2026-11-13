@@ -100,6 +100,34 @@ func TestParseViewFormTakesTheModelViewFormsOnly(t *testing.T) {
 	}
 }
 
+func TestWriteViewWithWritesTheModelViewFormsOnly(t *testing.T) {
+	table := &Rendering{Kind: KindTable, Columns: []string{"name"}, Rows: [][]string{{"wheel"}}}
+	for _, form := range table.Kind.SupportedForms() {
+		want, wantErr := table.WriteWith(form, Options{})
+		if got, err := table.WriteViewWith(form, Options{}); got != want || err != nil || wantErr != nil {
+			t.Errorf("WriteViewWith(%q) = %q, %v; WriteWith = %q, %v", form, got, err, want, wantErr)
+		}
+	}
+	var wrong *WrongFormError
+	if _, err := table.WriteViewWith(FormDot, Options{}); !errors.As(err, &wrong) {
+		t.Errorf("WriteViewWith(dot) of a table: %v, want a wrong-form error", err)
+	}
+	run := &Rendering{Kind: KindTimeline, Run: true}
+	for _, form := range []Form{FormSVG, FormSVGAnimated, "no-such-form"} {
+		var unknown *UnknownFormError
+		if _, err := run.WriteViewWith(form, Options{}); !errors.As(err, &unknown) || !slices.Equal(unknown.Forms, ViewForms()) {
+			t.Errorf("WriteViewWith(%q) error = %v, want the model-view forms named", form, err)
+		}
+	}
+	if _, err := run.WriteWith(FormSVG, Options{}); err != nil {
+		t.Errorf("WriteWith(svg) of a run: %v", err)
+	}
+	var unknown *UnknownFormError
+	if _, err := run.WriteWith("no-such-form", Options{}); !errors.As(err, &unknown) || !slices.Equal(unknown.Forms, Forms()) {
+		t.Errorf("WriteWith of an unknown form: %v, want every form named", err)
+	}
+}
+
 func TestOptionsNeedSitesForLinksAndDrawio(t *testing.T) {
 	linked := Options{Links: Links{Template: "{file}"}}
 	if !linked.NeedsSites(FormDot) || !(Options{}).NeedsSites(FormDrawio) || (Options{}).NeedsSites(FormDot) {

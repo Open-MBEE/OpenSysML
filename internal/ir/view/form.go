@@ -247,30 +247,51 @@ func (r *Rendering) Write(form Form) (string, error) {
 // on every form that fills nodes, and a port display outside it an
 // *UnknownPortsError on every form.
 func (r *Rendering) WriteWith(form Form, options Options) (string, error) {
-	if options.Links.Template != "" {
-		if err := ParseLinkTemplate(options.Links.Template); err != nil {
-			return "", err
+	if form != FormSVG && form != FormSVGAnimated {
+		return r.writeView(form, options, Forms())
+	}
+	if err := options.check(); err != nil {
+		return "", err
+	}
+	if !r.supportsForm(form) {
+		return "", r.wrongFormError(form)
+	}
+	return r.SVGWith(options, form == FormSVGAnimated), nil
+}
+
+// WriteViewWith is WriteWith over ViewForms alone: a run-only SVG form is an
+// *UnknownFormError, so a caller that draws no run links no SVG writer.
+func (r *Rendering) WriteViewWith(form Form, options Options) (string, error) {
+	return r.writeView(form, options, ViewForms())
+}
+
+func (o Options) check() error {
+	if o.Links.Template != "" {
+		if err := ParseLinkTemplate(o.Links.Template); err != nil {
+			return err
 		}
 	}
-	if err := options.Ports.check(); err != nil {
-		return "", err
+	if err := o.Ports.check(); err != nil {
+		return err
 	}
-	if err := options.Lines.check(); err != nil {
-		return "", err
+	if err := o.Lines.check(); err != nil {
+		return err
 	}
-	if err := options.Compartments.check(); err != nil {
+	return o.Compartments.check()
+}
+
+func (r *Rendering) writeView(form Form, options Options, known []Form) (string, error) {
+	if err := options.check(); err != nil {
 		return "", err
 	}
 	switch form {
 	case FormText:
 		return r.textWith(options), nil
-	case FormMermaid, FormMarkdown, FormDot, FormPlantUML, FormD2, FormDrawio, FormCSV, FormTSV, FormSVG, FormSVGAnimated:
+	case FormMermaid, FormMarkdown, FormDot, FormPlantUML, FormD2, FormDrawio, FormCSV, FormTSV:
 		if !r.supportsForm(form) {
 			return "", r.wrongFormError(form)
 		}
 		switch form {
-		case FormSVG, FormSVGAnimated:
-			return r.SVGWith(options, form == FormSVGAnimated), nil
 		case FormMarkdown:
 			return r.Markdown(), nil
 		case FormCSV:
@@ -302,7 +323,7 @@ func (r *Rendering) WriteWith(form Form, options Options) (string, error) {
 		}
 		return r.MermaidWith(options), nil
 	}
-	return "", &UnknownFormError{Name: string(form), Forms: Forms()}
+	return "", &UnknownFormError{Name: string(form), Forms: known}
 }
 
 // Artifact is a written form as a file or a stream holds it: ending in one newline.

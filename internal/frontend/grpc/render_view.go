@@ -65,7 +65,7 @@ func (s *Service) RenderView(ctx context.Context, req *pb.RenderViewRequest) (*p
 			return nil
 		}))
 	}
-	written, err := rendering.WriteWith(form, options)
+	written, err := rendering.WriteViewWith(form, options)
 	if err != nil {
 		return nil, statusError(connect.CodeInvalidArgument, err.Error())
 	}

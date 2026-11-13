@@ -140,6 +140,17 @@ func engineSubtests(t *testing.T, target wasmTarget, r runner, bins map[string]s
 		}
 	})
 
+	// The engine draws no recorded run, so the run-only SVG writers stay out of it.
+	t.Run("links no run-only SVG writer", func(t *testing.T) {
+		data, err := os.ReadFile(bins["sysml-engine"])
+		if err != nil {
+			t.Fatalf("reading %s: %v", bins["sysml-engine"], err)
+		}
+		if bytes.Contains(data, []byte("<svg xmlns=")) {
+			t.Error("sysml-engine.wasm links the run-only SVG writers: write a model view with WriteViewWith")
+		}
+	})
+
 	t.Run("fits the engine size budget", func(t *testing.T) {
 		data, err := os.ReadFile(bins["sysml-engine"])
 		if err != nil {

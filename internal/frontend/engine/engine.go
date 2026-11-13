@@ -377,7 +377,7 @@ func (e *Engine) renderView(req *JRenderViewRequest) ([]byte, error) {
 				return nil
 			}))
 		}
-		written, err := rendering.WriteWith(form, options)
+		written, err := rendering.WriteViewWith(form, options)
 		if err != nil {
 			return nil, statusError(codeInvalidArgument, err.Error())
 		}
