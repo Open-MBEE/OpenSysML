@@ -11,9 +11,9 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 19820,
+      "presentEqual": 19823,
       "presentDifferent": 1339,
-      "oursMissing": 2966,
+      "oursMissing": 2963,
       "pilotMissing": 649,
       "absentBoth": 20917,
       "indeterminate": 210,
