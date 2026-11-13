@@ -750,7 +750,7 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Sym
 						delete(ec.resolving, name)
 						return val, err
 					}
-					return Value{}, &NoValueError{Feature: name, Ref: qn}
+					return Value{}, &NoValueError{Feature: name}
 				}
 			}
 		}
@@ -908,7 +908,7 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Sym
 		// A feature the element declares but nothing gives a value to is
 		// uninitialized rather than unresolved.
 		if _, declared := ec.features[name]; declared {
-			return Value{}, &NoValueError{Feature: name, Ref: qn}
+			return Value{}, &NoValueError{Feature: name}
 		}
 		if ec.ctx.model.resolver != nil && ec.scope != nil {
 			return Value{}, fmt.Errorf("%w: %s", ErrUnresolvedReference, ec.ctx.model.resolver.UnresolvedName(ec.scope, name, qn))
@@ -1152,7 +1152,7 @@ func (ec *EvalContext) withoutValue(sym *symbols.Symbol, spelled string, qn *ast
 		if ec.modelLevel() {
 			return ec.undeterminedFeature(sym, spelled), nil
 		}
-		return Value{}, &NoValueError{Feature: spelled, Ref: qn}
+		return Value{}, &NoValueError{Feature: spelled}
 	}
 	return Value{}, fmt.Errorf("cannot evaluate %s %s", sym.Kind, spelled)
 }

@@ -3,6 +3,7 @@ package lower
 import (
 	"fmt"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -20,6 +21,10 @@ type EntryTransition struct {
 	Effect []StateBehavior
 	// Scope is the scope Guard resolves in.
 	Scope *symbols.Scope
+	// Origin is where the member was written, Kind "entry transition"; it has no Path.
+	Origin program.Origin
+	// SourceText is the source a TransitionMember names as written (`boot`), "" for the other forms.
+	SourceText string
 }
 
 const (

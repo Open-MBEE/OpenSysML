@@ -42,10 +42,8 @@ func (e *StateExecutor) effectLabel(trans *lower.Transition) string {
 
 func (e *StateExecutor) entryTransitionEffectHead(owner ast.Node, entry *lower.EntryTransition) unitHead {
 	label := e.describeBody(owner) + effectTag
-	if transition, ok := entry.Decl.(*ast.TransitionMember); ok {
-		if source := lower.EndpointText(transition.Source); source != "" {
-			label = source + "->" + StateVertexName(entryTarget(entry)) + effectTag
-		}
+	if entry.SourceText != "" {
+		label = entry.SourceText + "->" + StateVertexName(entryTarget(entry)) + effectTag
 	}
 	return unitHead{label: label, at: entry.Decl, site: e.bodySite(owner)}
 }

@@ -1353,7 +1353,7 @@ func (e *StateExecutor) firedTransition(trans *lower.Transition) FiredTransition
 }
 
 // firedEntry is the entry transition at position index of owner's body as the firing
-// log records it; lowering gives it no id or origin yet, so the origin is the declaration's span.
+// log records it; lowering gives it no id yet, so the record carries its origin alone.
 func (e *StateExecutor) firedEntry(owner ast.Node, index int, entry *lower.EntryTransition) FiredTransition {
 	ref := EntryRef{Index: index}
 	switch owner := e.graph.EntryOwner(owner).(type) {
@@ -1365,7 +1365,7 @@ func (e *StateExecutor) firedEntry(owner ast.Node, index int, entry *lower.Entry
 	return FiredTransition{
 		Target: e.vertexRef(entryTarget(entry)),
 		Entry:  ref,
-		Origin: program.Origin{Doc: e.graph.DocOf(entry.Decl), Span: entry.Decl.Span(), Kind: "entry transition"},
+		Origin: entry.Origin,
 	}
 }
 
@@ -5764,10 +5764,8 @@ func (e *StateExecutor) startIn(owner ast.Node) (*ast.StateNode, error) {
 }
 
 func entryFromName(owner ast.Node, entry *lower.EntryTransition) string {
-	if transition, ok := entry.Decl.(*ast.TransitionMember); ok {
-		if source := lower.EndpointText(transition.Source); source != "" {
-			return source
-		}
+	if entry.SourceText != "" {
+		return entry.SourceText
 	}
 	switch body := owner.(type) {
 	case *ast.StateNode:
@@ -6567,7 +6565,7 @@ func (e *StateExecutor) sourcePathNames(trans *lower.Transition, fromName string
 }
 
 func (e *StateExecutor) stateSourceOrigin(state *ast.StateNode) symbols.Origin {
-	doc := e.graph.DocOf(state)
+	doc := e.stateOrigin(state).Doc
 	if doc == "" && e.stateMachine != nil {
 		doc = e.stateMachine.DocName
 	}

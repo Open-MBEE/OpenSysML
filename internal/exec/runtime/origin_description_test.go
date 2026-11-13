@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -16,9 +17,9 @@ import (
 	"github.com/Open-MBEE/OpenSysML/tests/fixtures"
 )
 
-// TestOriginStringMatchesNodeDescription pins program.Origin.String() to what
-// nodeDescription says of the same node, over every action the conformance fixtures lower.
-func TestOriginStringMatchesNodeDescription(t *testing.T) {
+// TestOriginDescriptions pins what a message calls an action node over every action the
+// conformance fixtures lower: `node <name>` when named, else `the <NodeKind.Word>`.
+func TestOriginDescriptions(t *testing.T) {
 	conformanceDir := filepath.Join("testdata", "conformance")
 	entries, err := os.ReadDir(conformanceDir)
 	if err != nil {
@@ -97,11 +98,31 @@ func checkOriginDescriptions(t *testing.T, caseName string, graph *lower.ActionG
 	for _, node := range graph.Nodes {
 		id, ok := graph.ID[node]
 		if !ok {
-			t.Errorf("%s: %s has no id", caseName, nodeDescription(node))
+			t.Errorf("%s: %T %s has no id", caseName, node, ActionNodeName(node))
 			continue
 		}
-		if got, want := graph.Origins[id].String(), nodeDescription(node); got != want {
-			t.Errorf("%s: Origin.String() = %q, nodeDescription = %q", caseName, got, want)
+		origin, kind := graph.Origins[id], graph.Kinds[id]
+		if origin.Kind != kind.Word() {
+			t.Errorf("%s: Origin.Kind = %q, want %q", caseName, origin.Kind, kind.Word())
+		}
+		if origin.Span != node.Span() {
+			t.Errorf("%s: Origin.Span = %v, want %v", caseName, origin.Span, node.Span())
+		}
+		if origin.Doc == "" {
+			t.Errorf("%s: %s has no document", caseName, origin)
+		}
+		want := "the " + kind.Word()
+		if name := ActionNodeName(node); name != "" {
+			want = "node " + name
+		}
+		if got := origin.String(); got != want {
+			t.Errorf("%s: Origin.String() = %q, want %q", caseName, got, want)
+		}
+		if got := describeNode(graph, node); got != want {
+			t.Errorf("%s: describeNode = %q, want %q", caseName, got, want)
+		}
+		if got := refOf(graph, node).Origin(); got != origin {
+			t.Errorf("%s: NodeRef.Origin() = %v, want %v", caseName, got, origin)
 		}
 		checked++
 	}
@@ -113,4 +134,14 @@ func checkOriginDescriptions(t *testing.T, caseName string, graph *lower.ActionG
 		}
 	}
 	return checked
+}
+
+// TestDescribeNodeOutsideGraph pins what a message calls a node no graph indexes.
+func TestDescribeNodeOutsideGraph(t *testing.T) {
+	if got, want := describeNode(nil, nil), (program.Origin{}).String(); got != want {
+		t.Errorf("describeNode(nil, nil) = %q, want %q", got, want)
+	}
+	if got, want := (NodeRef{}).Origin(), (program.Origin{}); got != want {
+		t.Errorf("zero NodeRef.Origin() = %v, want the zero Origin", got)
+	}
 }

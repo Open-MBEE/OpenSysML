@@ -55,7 +55,7 @@ func (e *performances) carryObjects(frame *actionFrame, node ast.Node, via lower
 		ec.pushFrame(mapFrame(inputs))
 		value, err := ec.Eval(f.Value)
 		if err != nil {
-			return fmt.Errorf("%s: %s: %w", nodeDescription(node), f.Name, err)
+			return fmt.Errorf("%s: %s: %w", describeNode(graph, node), f.Name, err)
 		}
 		if len(elementsOf(value)) > 0 {
 			produced[f.Name] = soleElement(value)
@@ -111,7 +111,7 @@ func arrivingObject(frame *actionFrame, graph *lower.ActionGraph, node ast.Node,
 	case len(held) == 1:
 		return held[0], first[held[0]], nil
 	case len(held) > 1:
-		return "", -1, fmt.Errorf("%w: %s holds values at %s", errAmbiguousMergeInput, nodeDescription(node), strings.Join(held, ", "))
+		return "", -1, fmt.Errorf("%w: %s holds values at %s", errAmbiguousMergeInput, describeNode(graph, node), strings.Join(held, ", "))
 	case len(from) > 0 || via.Carries:
 		return "", -1, nil
 	}
@@ -126,7 +126,7 @@ func arrivingObject(frame *actionFrame, graph *lower.ActionGraph, node ast.Node,
 	case 1:
 		return held[0], slices.IndexFunc(frame.held[refOf(graph, node)][held[0]], func(h nodeObject) bool { return !h.carried }), nil
 	}
-	return "", -1, fmt.Errorf("%w: %s holds values at %s", errAmbiguousMergeInput, nodeDescription(node), strings.Join(held, ", "))
+	return "", -1, fmt.Errorf("%w: %s holds values at %s", errAmbiguousMergeInput, describeNode(graph, node), strings.Join(held, ", "))
 }
 
 // queueControlObject holds a value an object flow delivers at an input of a fork, join
@@ -134,14 +134,14 @@ func arrivingObject(frame *actionFrame, graph *lower.ActionGraph, node ast.Node,
 func (e *performances) queueControlObject(frame *actionFrame, graph *lower.ActionGraph, flow lower.ObjectFlow, value Value) error {
 	for _, f := range graph.Features[flow.Target] {
 		if f.Name == flow.TargetPin && f.Direction == ast.DirIn {
-			if err := e.ctx.checkNamedWriteAs(graph.Scopes[flow.Target], func() string { return nodeDescription(flow.Target) }, f.Name, &value); err != nil {
+			if err := e.ctx.checkNamedWriteAs(graph.Scopes[flow.Target], func() string { return describeNode(graph, flow.Target) }, f.Name, &value); err != nil {
 				return fmt.Errorf("%s: %w", flowDescription(flow), err)
 			}
 			frame.hold(refOf(graph, flow.Target), f.Name, nodeObject{value: value, flow: flow.Decl, carried: flow.Kind == lower.FlowSuccession})
 			return nil
 		}
 	}
-	return fmt.Errorf("%s: %w: %s declares no input %s", flowDescription(flow), errNodePin, nodeDescription(flow.Target), flow.TargetPin)
+	return fmt.Errorf("%s: %w: %s declares no input %s", flowDescription(flow), errNodePin, describeNode(graph, flow.Target), flow.TargetPin)
 }
 
 // hold appends a value to those node holds at pin.
