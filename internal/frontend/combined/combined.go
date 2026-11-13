@@ -50,6 +50,7 @@ var capabilities = []string{
 	"render_document_html",
 	"render_document_asciidoc",
 	"render_document_file_name",
+	"symbol_annotating_metadata",
 }
 
 // Server combines the parsing/validation and execution JSON surfaces.

@@ -5,6 +5,7 @@ from typing import Any, Dict, FrozenSet, Iterable, List, Optional, Protocol, Tup
 from opensysml.errors import UnresolvedChildError
 from opensysml.capabilities import (
     CAPABILITY_SYMBOL_ATTRIBUTES,
+    CAPABILITY_SYMBOL_ANNOTATING_METADATA,
     CAPABILITY_SYMBOL_MEMBERS,
     require,
     upgrade_remedy,
@@ -108,6 +109,7 @@ class Symbol:
         self._members_cache: Dict[bool, Members] = {}
         self._own_cache: Optional[Members] = None
         self._walked_cache: Optional[Members] = None
+        self._annotating_cache: Optional[List["Symbol"]] = None
 
     @property
     def inherited(self) -> bool:
@@ -408,6 +410,44 @@ class Symbol:
                 resolve, so the members cannot be read completely
         """
         return self.members(None, inherited, library)
+
+    def annotating_metadata(self) -> List["Symbol"]:
+        """Return the metadata usages annotating this symbol.
+
+        The inverse of KerML ``AnnotatingElement::annotatedElement``: the usages
+        this symbol owns, written as a ``#M`` prefix or as ``@M`` /
+        ``metadata m : M`` in its body, then the ones naming it in an ``about``
+        clause anywhere in the workspace (``metadata m : M about Pump;``), each
+        in declaration order. An ``about`` usage is a member of the namespace it
+        is written in, not of what it annotates, so :meth:`children` and
+        :meth:`members` do not list it; this does.
+
+        Each result is an ordinary :class:`Symbol`: its :attr:`type_facts` name
+        the metadata definition and its :meth:`attribute_facts` read the values
+        the annotation binds.
+
+        Returns:
+            list of Symbol objects of kind ``metadataUsage``; empty if no client
+            is set
+
+        Raises:
+            MissingCapabilityError: the service lacks
+                ``symbol_annotating_metadata`` and reports no annotating metadata
+            UnresolvedChildError: the service listed a usage it then could not
+                resolve
+        """
+        if self._client is None:
+            return []
+        require(
+            self._client.server_info(),
+            CAPABILITY_SYMBOL_ANNOTATING_METADATA,
+            upgrade_remedy(CAPABILITY_SYMBOL_ANNOTATING_METADATA),
+        )
+        if self._annotating_cache is None:
+            self._annotating_cache = self._fetch_all(
+                (usage_id, None) for usage_id in self._pb.annotating_metadata_ids
+            )
+        return list(self._annotating_cache)
 
     def attributes(self, inherited: bool = True, library: bool = False) -> Members:
         """Return attribute members: ``attributeDef``, ``attributeUsage`` and

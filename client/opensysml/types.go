@@ -26,6 +26,7 @@ const (
 	CapabilityExportGraphs                   = sysmlgrpc.CapabilityExportGraphs
 	CapabilityInstancePaths                  = sysmlgrpc.CapabilityInstancePaths
 	CapabilitySymbolMembers                  = sysmlgrpc.CapabilitySymbolMembers
+	CapabilitySymbolAnnotatingMetadata       = sysmlgrpc.CapabilitySymbolAnnotatingMetadata
 	CapabilityImportData                     = sysmlgrpc.CapabilityImportData
 	CapabilityCompareResults                 = sysmlgrpc.CapabilityCompareResults
 	CapabilityCheck                          = sysmlgrpc.CapabilityCheck
@@ -181,6 +182,9 @@ type Symbol struct {
 	// WithheldLibraryMembers counts members inherited from standard-library
 	// content, which Members leaves out.
 	WithheldLibraryMembers int
+	// AnnotatingMetadataIDs name the metadata usages annotating the element: its
+	// own prefix and body ones, then those naming it with `about` elsewhere.
+	AnnotatingMetadataIDs []string
 }
 
 // SymbolMember is one member of a symbol, own or inherited.

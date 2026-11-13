@@ -285,6 +285,15 @@ did before the service enumerated members. A member the service declares without
 name (`bind a = b;`) is listed but has no id a lookup resolves, so it is left out of
 the result until unnamed members get positional ids.
 
+`annotating_metadata()` lists the metadata usages annotating the symbol (the inverse of
+KerML `AnnotatingElement::annotatedElement`): the ones it owns, written as a `#M` prefix
+or as `@M` / `metadata m : M` in its body, then the ones naming it in an `about` clause
+elsewhere (`metadata m : M about Pump;`). An `about` usage is a member of the namespace
+it is written in, not of what it annotates, so `children()` and `members()` do not list
+it. Each result is a `Symbol` of kind `metadataUsage`: `type_facts` names the metadata
+definition and `attribute_facts()` reads the values the annotation binds. It needs the
+service's `symbol_annotating_metadata` capability.
+
 ::: opensysml.Symbol
     options:
       heading_level: 3

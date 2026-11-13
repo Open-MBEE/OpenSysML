@@ -2589,6 +2589,10 @@ pub struct SymbolInfo {
     /// Members inherited from standard-library content that `members` leaves out.
     #[prost(int32, tag="12")]
     pub withheld_library_members: i32,
+    /// Ids of the metadata usages annotating the element: its own prefix and body
+    /// ones, then the `about` ones written elsewhere, which child_ids leaves out.
+    #[prost(string, repeated, tag="13")]
+    pub annotating_metadata_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// MemberInfo is one member of an element, own or inherited.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

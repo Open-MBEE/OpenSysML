@@ -516,7 +516,8 @@ public final class Protos {
         specializations,
         symbol.getWithheldLibraryAttributes(),
         members,
-        symbol.getWithheldLibraryMembers());
+        symbol.getWithheldLibraryMembers(),
+        symbol.getAnnotatingMetadataIdsList());
   }
 
   /**

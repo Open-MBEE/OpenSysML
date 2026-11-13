@@ -50,6 +50,9 @@ reads one document, so imports across files do not resolve.
 inherited, each with `Inherited`, `InheritedFrom` and `Library`); standard-library members are only
 counted in `WithheldLibraryMembers` unless you pass `opensysml.WithLibraryMembers()`, which needs the
 `symbol_members` capability and is refused with `CodeUnimplemented` on a service without it.
+`Symbol.AnnotatingMetadataIDs` names the metadata usages annotating the element (`#M`, `@M` in its
+body, and `metadata m : M about X;` written elsewhere, which `ChildIDs` leaves out); look each up
+for its type and `Attributes`. It is empty without the `symbol_annotating_metadata` capability.
 
 ## Evaluate, instantiate, run
 

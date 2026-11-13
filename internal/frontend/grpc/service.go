@@ -150,6 +150,10 @@ const CapabilitySymbolAttributes = "symbol_attributes"
 // provenance, and of honouring GetSymbolRequest.include_library_members.
 const CapabilitySymbolMembers = "symbol_members"
 
+// CapabilitySymbolAnnotatingMetadata names the capability of populating
+// SymbolInfo.annotating_metadata_ids, the metadata usages annotating the element.
+const CapabilitySymbolAnnotatingMetadata = "symbol_annotating_metadata"
+
 // CapabilityUnsetValue names the capability of reporting a valueless feature of
 // a value type as Value.unset, rather than as the empty object it materializes.
 const CapabilityUnsetValue = "unset_value"
@@ -432,6 +436,7 @@ var capabilities = []string{
 	CapabilityVerdictNotes,
 	CapabilityElementProperties,
 	CapabilityInlineDocumentQuery,
+	CapabilitySymbolAnnotatingMetadata,
 }
 
 type capabilityAvailability struct {

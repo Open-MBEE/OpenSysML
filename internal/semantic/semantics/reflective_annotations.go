@@ -72,16 +72,10 @@ func (m *Model) recordedPrefixAnnotationSpans(sym *symbols.Symbol) []source.Span
 	if !sym.Recorded() {
 		return nil
 	}
-	body := make(map[source.Span]bool)
-	sym.Scope.ForEachMember(func(member *symbols.Symbol) bool {
-		if member != nil && member.Kind == symbols.SymbolMetadataUsage {
-			body[member.DeclSpan] = true
-		}
-		return true
-	})
+	body := recordedBodyMetadata(sym)
 	var out []source.Span
 	for _, fact := range sym.Facts.Annotations {
-		if !body[fact.Span] {
+		if body[fact.Span] == nil {
 			out = append(out, fact.Span)
 		}
 	}

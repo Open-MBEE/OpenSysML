@@ -3,6 +3,7 @@ package opensysml_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/client/opensysml"
@@ -269,5 +270,52 @@ func TestLookupSymbolListsLibraryMembersOnRequest(t *testing.T) {
 	}
 	if library != withheld.WithheldLibraryMembers {
 		t.Errorf("listed %d library members, want the %d withheld before", library, withheld.WithheldLibraryMembers)
+	}
+}
+
+const annotatedSource = `package D10 {
+    metadata def FailureMode { attribute severity : ScalarValues::Integer; }
+    #FailureMode part def PumpP;
+    part def PumpB { @FailureMode { severity = 3; } }
+    part def PumpA;
+    metadata pumpA_fm : FailureMode about PumpA { severity = 2; }
+}
+`
+
+func TestLookupSymbolNamesItsAnnotatingMetadata(t *testing.T) {
+	client := newClient(t)
+	model, err := client.ParseSource(context.Background(), annotatedSource)
+	if err != nil {
+		t.Fatalf("ParseSource: %v", err)
+	}
+	lookup := func(id string) *opensysml.Symbol {
+		t.Helper()
+		sym, err := client.LookupSymbol(context.Background(), model, id)
+		if err != nil {
+			t.Fatalf("LookupSymbol(%s): %v", id, err)
+		}
+		return sym
+	}
+	for id, want := range map[string][]string{
+		"D10::PumpP":    {"D10::PumpP::@0"},
+		"D10::PumpB":    {"D10::PumpB::@0"},
+		"D10::PumpA":    {"D10::pumpA_fm"},
+		"D10::pumpA_fm": nil,
+	} {
+		if got := lookup(id).AnnotatingMetadataIDs; !slices.Equal(got, want) {
+			t.Errorf("%s: AnnotatingMetadataIDs = %v, want %v", id, got, want)
+		}
+	}
+	// An `about` usage is a member of the namespace it is written in.
+	pump := lookup("D10::PumpA")
+	if len(pump.ChildIDs) != 0 {
+		t.Errorf("D10::PumpA: ChildIDs = %v, want none", pump.ChildIDs)
+	}
+	usage := lookup(pump.AnnotatingMetadataIDs[0])
+	if usage.Kind != "metadataUsage" || usage.Type == nil || usage.Type.ResolvedID != "D10::FailureMode" {
+		t.Errorf("usage = %s typed %+v, want a metadataUsage typed D10::FailureMode", usage.Kind, usage.Type)
+	}
+	if len(usage.Attributes) != 1 || usage.Attributes[0].Name != "severity" || usage.Attributes[0].Value != opensysml.Int(2) {
+		t.Errorf("usage attributes = %+v, want severity = 2", usage.Attributes)
 	}
 }

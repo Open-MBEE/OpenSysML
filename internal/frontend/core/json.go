@@ -146,6 +146,7 @@ type JSymbolInfo struct {
 	WithheldLibraryAttributes int32              `json:"withheldLibraryAttributes,omitempty"`
 	Members                   []*JMemberInfo     `json:"members,omitempty"`
 	WithheldLibraryMembers    int32              `json:"withheldLibraryMembers,omitempty"`
+	AnnotatingMetadataIds     []string           `json:"annotatingMetadataIds,omitempty"`
 }
 
 // JMemberInfo is the protojson-shaped member message.

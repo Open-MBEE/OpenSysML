@@ -1,0 +1,7 @@
+{
+	"rpc": "GetSymbol",
+	"symbol_id": "AboutMetadata::Pump::pumpFluid::pressureA",
+	"expected_annotating_metadata_ids": [
+		"AboutMetadata::shared_fm"
+	]
+}

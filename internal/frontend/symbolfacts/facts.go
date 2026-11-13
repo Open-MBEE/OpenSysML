@@ -75,6 +75,9 @@ type Info struct {
 	// library-inherited ones withheld and counted unless asked for.
 	Members                []*Member
 	WithheldLibraryMembers int32
+	// AnnotatingMetadataIds are the metadata usages annotating the element,
+	// its own prefix and body ones and those naming it with `about` elsewhere.
+	AnnotatingMetadataIds []string
 }
 
 // Options select what Of reports beyond the facts every caller gets.
@@ -174,6 +177,7 @@ func OfWith(sym *symbols.Symbol, sc *Context, opts Options) *Info {
 	// Every member, own and inherited, with its provenance; child_ids above
 	// stays the owned members only.
 	info.Members, info.WithheldLibraryMembers = sc.membersOf(sym, opts.IncludeLibraryMembers)
+	info.AnnotatingMetadataIds = sc.annotatingMetadataIDs(sym)
 	return info
 }
 
@@ -204,6 +208,18 @@ func (sc *Context) identityOrFQN(sym *symbols.Symbol) string {
 		return id
 	}
 	return sc.Index.GetFQN(sym)
+}
+
+// annotatingMetadataIDs lists the ids of the metadata usages annotating sym,
+// as the semantic model orders them; a usage no id reaches is left out.
+func (sc *Context) annotatingMetadataIDs(sym *symbols.Symbol) []string {
+	var ids []string
+	for _, usage := range sc.Semantics.AnnotatingMetadataOf(sym) {
+		if id := sc.Identity(usage); id != "" {
+			ids = append(ids, id)
+		}
+	}
+	return ids
 }
 
 // collectChildIDs lists the members' ids in declaration order, each one Lookup

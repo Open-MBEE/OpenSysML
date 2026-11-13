@@ -174,6 +174,7 @@ What a request asks for is fixed per capability:
 | `type_facts` | Response-population capability: omit type facts; no request asks for them. |
 | `symbol_attributes` | Response-population capability: omit symbol attributes; no request asks for them. |
 | `symbol_members` | Response-population capability: omit `SymbolInfo.members`, the members own and inherited with their provenance, and the `withheld_library_members` count; `GetSymbolRequest.include_library_members` is ignored without it. |
+| `symbol_annotating_metadata` | Response-population capability: omit `SymbolInfo.annotating_metadata_ids`, the metadata usages annotating the element; no request asks for them. |
 | `feature_values` | Response-population capability: omit instance feature values; no request asks for them. |
 | `enum_values` | Response-population capability: encode enum values as unsupported nulls; no request asks for them. |
 | `unset_value` | Response-population capability: encode unset values as unsupported nulls; no request asks for them. |

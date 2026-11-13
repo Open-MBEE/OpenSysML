@@ -198,6 +198,9 @@ type conformanceCase struct {
 	ExpectedKind       string                       `json:"expected_kind,omitempty"`
 	ExpectedChildIDs   []string                     `json:"expected_child_ids,omitempty"`
 	ExpectedAttributes map[string]expectedAttribute `json:"expected_attributes,omitempty"`
+	// ExpectedAnnotatingMetadataIDs is the full ordered list of the metadata
+	// usages annotating the symbol; an empty list requires none.
+	ExpectedAnnotatingMetadataIDs []string `json:"expected_annotating_metadata_ids,omitempty"`
 	// MinWithheldLibraryAttributes requires the response to state at least this
 	// many library-inherited attributes withheld from the list.
 	MinWithheldLibraryAttributes int32 `json:"min_withheld_library_attributes,omitempty"`
@@ -916,6 +919,9 @@ func runGetSymbolCase(t *testing.T, srv *grpc.Service, ctx context.Context, mode
 	}
 	if tc.ExpectedChildIDs != nil && !slices.Equal(resp.Symbol.GetChildIds(), tc.ExpectedChildIDs) {
 		t.Errorf("child_ids = %v, want %v", resp.Symbol.GetChildIds(), tc.ExpectedChildIDs)
+	}
+	if want := tc.ExpectedAnnotatingMetadataIDs; want != nil && !slices.Equal(resp.Symbol.GetAnnotatingMetadataIds(), want) {
+		t.Errorf("annotating_metadata_ids = %v, want %v", resp.Symbol.GetAnnotatingMetadataIds(), want)
 	}
 	attrs := resp.Symbol.GetAttributes()
 	if tc.ExpectedAttributeNames != nil {

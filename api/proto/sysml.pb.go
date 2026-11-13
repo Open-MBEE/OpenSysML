@@ -9956,8 +9956,11 @@ type SymbolInfo struct {
 	Members []*MemberInfo `protobuf:"bytes,11,rep,name=members,proto3" json:"members,omitempty"`
 	// Members inherited from standard-library content that `members` leaves out.
 	WithheldLibraryMembers int32 `protobuf:"varint,12,opt,name=withheld_library_members,json=withheldLibraryMembers,proto3" json:"withheld_library_members,omitempty"`
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	// Ids of the metadata usages annotating the element: its own prefix and body
+	// ones, then the `about` ones written elsewhere, which child_ids leaves out.
+	AnnotatingMetadataIds []string `protobuf:"bytes,13,rep,name=annotating_metadata_ids,json=annotatingMetadataIds,proto3" json:"annotating_metadata_ids,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *SymbolInfo) Reset() {
@@ -10072,6 +10075,13 @@ func (x *SymbolInfo) GetWithheldLibraryMembers() int32 {
 		return x.WithheldLibraryMembers
 	}
 	return 0
+}
+
+func (x *SymbolInfo) GetAnnotatingMetadataIds() []string {
+	if x != nil {
+		return x.AnnotatingMetadataIds
+	}
+	return nil
 }
 
 // MemberInfo is one member of an element, own or inherited.
@@ -19772,7 +19782,7 @@ const file_sysml_proto_rawDesc = "" +
 	"\x06length\x18\x04 \x01(\x05R\x06length\x12\x19\n" +
 	"\bold_text\x18\x05 \x01(\tR\aoldText\x12\x19\n" +
 	"\bnew_text\x18\x06 \x01(\tR\anewText\x12\x1a\n" +
-	"\bdocument\x18\a \x01(\tR\bdocument\"\xe4\x04\n" +
+	"\bdocument\x18\a \x01(\tR\bdocument\"\x9c\x05\n" +
 	"\n" +
 	"SymbolInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
@@ -19789,7 +19799,8 @@ const file_sysml_proto_rawDesc = "" +
 	"\x1bwithheld_library_attributes\x18\n" +
 	" \x01(\x05R\x19withheldLibraryAttributes\x12+\n" +
 	"\amembers\x18\v \x03(\v2\x11.sysml.MemberInfoR\amembers\x128\n" +
-	"\x18withheld_library_members\x18\f \x01(\x05R\x16withheldLibraryMembers\x1a;\n" +
+	"\x18withheld_library_members\x18\f \x01(\x05R\x16withheldLibraryMembers\x126\n" +
+	"\x17annotating_metadata_ids\x18\r \x03(\tR\x15annotatingMetadataIds\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xa3\x01\n" +

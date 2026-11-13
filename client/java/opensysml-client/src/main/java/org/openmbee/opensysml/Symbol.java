@@ -32,6 +32,11 @@ import java.util.Optional;
  *     enumerates them; empty from one that does not
  * @param withheldLibraryMembers how many members inherited from standard-library content are left
  *     out, until asked for with {@link SymbolOptions#withLibraryMembers}
+ * @param annotatingMetadataIds FQNs of the metadata usages annotating the element (the inverse of
+ *     KerML {@code AnnotatingElement::annotatedElement}): its own {@code #M} prefixes and body
+ *     {@code @M} usages, then the ones naming it in an {@code about} clause elsewhere, which
+ *     {@code childIds} and {@code members} leave out; empty from a service that does not advertise
+ *     {@code symbol_annotating_metadata}
  */
 public record Symbol(
     String id,
@@ -45,7 +50,8 @@ public record Symbol(
     List<Symbol.Specialization> specializations,
     int withheldLibraryAttributes,
     List<Symbol.Member> members,
-    int withheldLibraryMembers) {
+    int withheldLibraryMembers,
+    List<String> annotatingMetadataIds) {
 
   /**
    * Creates a symbol, copying every collection.
@@ -62,6 +68,7 @@ public record Symbol(
    * @param withheldLibraryAttributes count of omitted library attributes
    * @param members every member enumerated, own then inherited
    * @param withheldLibraryMembers count of omitted library members
+   * @param annotatingMetadataIds FQNs of the metadata usages annotating the element
    */
   public Symbol {
     Objects.requireNonNull(id, "id");
@@ -74,6 +81,52 @@ public record Symbol(
     Objects.requireNonNull(typeFacts, "typeFacts");
     Objects.requireNonNull(multiplicity, "multiplicity");
     members = List.copyOf(members);
+    annotatingMetadataIds = List.copyOf(annotatingMetadataIds);
+  }
+
+  /**
+   * Creates a symbol of a service that names no annotating metadata.
+   *
+   * @param id fully qualified name
+   * @param name declared name
+   * @param kind element kind
+   * @param metadata further facts by name
+   * @param childIds FQNs of the children
+   * @param attributes own attributes
+   * @param typeFacts static type facts, when reported
+   * @param multiplicity declared multiplicity, when declared
+   * @param specializations generalization edges
+   * @param withheldLibraryAttributes count of omitted library attributes
+   * @param members every member enumerated, own then inherited
+   * @param withheldLibraryMembers count of omitted library members
+   */
+  public Symbol(
+      String id,
+      String name,
+      String kind,
+      Map<String, String> metadata,
+      List<String> childIds,
+      List<Symbol.Attribute> attributes,
+      Optional<Symbol.TypeFacts> typeFacts,
+      Optional<Symbol.Multiplicity> multiplicity,
+      List<Symbol.Specialization> specializations,
+      int withheldLibraryAttributes,
+      List<Symbol.Member> members,
+      int withheldLibraryMembers) {
+    this(
+        id,
+        name,
+        kind,
+        metadata,
+        childIds,
+        attributes,
+        typeFacts,
+        multiplicity,
+        specializations,
+        withheldLibraryAttributes,
+        members,
+        withheldLibraryMembers,
+        List.of());
   }
 
   /**

@@ -37,6 +37,7 @@ func infoToProto(info *symbolfacts.Info, idx *symbols.Index) *pb.SymbolInfo {
 		ChildIds:                  info.ChildIds,
 		WithheldLibraryAttributes: info.WithheldLibraryAttributes,
 		WithheldLibraryMembers:    info.WithheldLibraryMembers,
+		AnnotatingMetadataIds:     info.AnnotatingMetadataIds,
 	}
 	for _, member := range info.Members {
 		out.Members = append(out.Members, &pb.MemberInfo{
