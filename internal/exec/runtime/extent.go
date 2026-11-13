@@ -13,7 +13,8 @@ import (
 
 // evalExtent evaluates `all T` (KerML 1.0 §7.4.9.2, BaseFunctions::'all'): the instances of T
 // this run enumerates, in declaration order; objects materialize lazily, so the extent is the run's.
-func (ec *EvalContext) evalExtent(n *ast.OperatorExpr) (Value, error) {
+func (ec *EvalContext) evalExtent(x lowered) (Value, error) {
+	n := x.operator()
 	qn := semantics.ExtentTypeName(n)
 	if qn == nil {
 		return Value{}, fmt.Errorf("%w: 'all' requires the name of a type", ErrTypeMismatch)
