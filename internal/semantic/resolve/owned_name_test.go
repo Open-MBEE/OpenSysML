@@ -18,8 +18,7 @@ func eachScope(scope *symbols.Scope, visit func(*symbols.Scope)) {
 }
 
 // ownsName answers what membership in ownedNames does, for every scope and every key a
-// member is registered under: declared and derived short names, aliases, duplicates,
-// borrowed names and members that bind none.
+// member is registered under: short names, aliases, duplicates and members that bind none.
 func TestOwnsNameAgreesWithOwnedNames(t *testing.T) {
 	idx := indexOf(t, map[string]string{
 		"lib.sysml": `package Lib { part def Engine; part def <W> Wheel; }`,
