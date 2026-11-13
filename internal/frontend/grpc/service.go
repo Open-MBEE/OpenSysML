@@ -151,8 +151,7 @@ const CapabilitySymbolAttributes = "symbol_attributes"
 const CapabilitySymbolMembers = "symbol_members"
 
 // CapabilitySymbolMemberDirection names the capability of honouring
-// GetSymbolRequest.member_of: the direction reported is the one the feature
-// has relative to that type.
+// GetSymbolRequest.member_of, reporting a feature's direction relative to that type.
 const CapabilitySymbolMemberDirection = "symbol_member_direction"
 
 // CapabilityUnsetValue names the capability of reporting a valueless feature of

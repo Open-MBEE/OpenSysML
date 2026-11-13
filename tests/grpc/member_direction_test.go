@@ -9,9 +9,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/grpc"
 )
 
-// memberDirectionModel reaches the features of a port definition through
-// ordinary and conjugated typings, a specializing definition, a redefining and
-// a subsetting port, and a port nested in a conjugated one.
+// memberDirectionModel reaches a port definition's features through ordinary and conjugated
+// typings, a specializing definition, redefining and subsetting ports, and a nested port.
 const memberDirectionModel = `package D {
 	private import ScalarValues::*;
 	port def CmdPort {
@@ -58,10 +57,8 @@ func memberIDs(t *testing.T, srv *grpc.Service, modelHash, id string) []string {
 	return ids
 }
 
-// A feature read as a member of a type has the direction Type::directionOf
-// gives relative to that type (KerML 8.3.3.1.10): a conjugated port typing
-// reverses in and out (SysML v2 7.13.3), and the Symbol API states the answer
-// Type::input and Type::output are computed from.
+// A member's Symbol direction is Type::directionOf relative to the type it is read through
+// (KerML 8.3.3.1.10, SysML v2 7.13.3), the answer Type::input and Type::output give.
 func TestGRPCMemberDirectionFollowsConjugation(t *testing.T) {
 	srv, err := grpc.NewService(4, "test")
 	if err != nil {

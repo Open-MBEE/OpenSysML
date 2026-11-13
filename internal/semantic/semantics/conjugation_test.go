@@ -252,9 +252,8 @@ func TestConjugationOnRedefiningPort(t *testing.T) {
 	}
 }
 
-// TestEffectiveDirectionIsRelativeToTheType covers Type::directionOf (KerML
-// 8.3.3.1.10): a feature's direction relative to a type that reaches it through
-// a conjugation is reversed, whatever specializations lie on the way.
+// TestEffectiveDirectionIsRelativeToTheType covers Type::directionOf (KerML 8.3.3.1.10):
+// a type reaching a feature through a conjugation sees its direction reversed.
 func TestEffectiveDirectionIsRelativeToTheType(t *testing.T) {
 	m, root := buildModel(t, `package P {
 		port def CmdPort {

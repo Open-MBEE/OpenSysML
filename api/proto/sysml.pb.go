@@ -4578,12 +4578,8 @@ type GetSymbolRequest struct {
 	// SymbolInfo.members, each marked library, instead of counting them in
 	// withheld_library_members.
 	IncludeLibraryMembers bool `protobuf:"varint,3,opt,name=include_library_members,json=includeLibraryMembers,proto3" json:"include_library_members,omitempty"`
-	// The type the symbol is read as a feature of, by the id GetSymbol answers:
-	// SymbolInfo.metadata["direction"] is then the feature's direction relative
-	// to that type (KerML Type::directionOf), which a conjugation on the way to
-	// the feature reverses, so `out` reads `in` through a port typed `~P`. Empty
-	// reports the feature's own direction. Honoured with the
-	// "symbol_member_direction" capability.
+	// Id of the type the symbol is read as a feature of: metadata["direction"] is then relative to
+	// it (KerML Type::directionOf), reversed by a conjugation; capability "symbol_member_direction".
 	MemberOf      string `protobuf:"bytes,4,opt,name=member_of,json=memberOf,proto3" json:"member_of,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
