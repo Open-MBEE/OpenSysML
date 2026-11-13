@@ -1032,7 +1032,7 @@ message GetSymbolRequest {
   bool include_library_members = 3;
   // Id of the type the symbol is read as a feature of: metadata["direction"] is then relative to
   // it (KerML Type::directionOf), reversed by a conjugation; capability "symbol_member_direction".
-  string member_of = 4;
+  string member_of = 5;
 }
 
 // SymbolResponse contains symbol information

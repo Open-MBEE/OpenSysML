@@ -1163,7 +1163,7 @@ pub struct GetSymbolRequest {
     pub include_library_members: bool,
     /// Id of the type the symbol is read as a feature of: metadata\["direction"\] is then relative to
     /// it (KerML Type::directionOf), reversed by a conjugation; capability "symbol_member_direction".
-    #[prost(string, tag="4")]
+    #[prost(string, tag="5")]
     pub member_of: ::prost::alloc::string::String,
 }
 /// SymbolResponse contains symbol information

@@ -382,7 +382,7 @@ model_hash (	R	modelHash%
 model_hash (	R	modelHash
 	symbol_id (	RsymbolId6
 include_library_members (RincludeLibraryMembers
-	member_of (	RmemberOf"Q
+	member_of (	RmemberOf"Q
 SymbolResponse)
 symbol (2.sysml.SymbolInfoRsymbol
 error (	Rerror"{

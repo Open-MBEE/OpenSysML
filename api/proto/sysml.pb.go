@@ -4580,7 +4580,7 @@ type GetSymbolRequest struct {
 	IncludeLibraryMembers bool `protobuf:"varint,3,opt,name=include_library_members,json=includeLibraryMembers,proto3" json:"include_library_members,omitempty"`
 	// Id of the type the symbol is read as a feature of: metadata["direction"] is then relative to
 	// it (KerML Type::directionOf), reversed by a conjugation; capability "symbol_member_direction".
-	MemberOf      string `protobuf:"bytes,4,opt,name=member_of,json=memberOf,proto3" json:"member_of,omitempty"`
+	MemberOf      string `protobuf:"bytes,5,opt,name=member_of,json=memberOf,proto3" json:"member_of,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -19330,7 +19330,7 @@ const file_sysml_proto_rawDesc = "" +
 	"model_hash\x18\x01 \x01(\tR\tmodelHash\x12\x1b\n" +
 	"\tsymbol_id\x18\x02 \x01(\tR\bsymbolId\x126\n" +
 	"\x17include_library_members\x18\x03 \x01(\bR\x15includeLibraryMembers\x12\x1b\n" +
-	"\tmember_of\x18\x04 \x01(\tR\bmemberOf\"Q\n" +
+	"\tmember_of\x18\x05 \x01(\tR\bmemberOf\"Q\n" +
 	"\x0eSymbolResponse\x12)\n" +
 	"\x06symbol\x18\x01 \x01(\v2\x11.sysml.SymbolInfoR\x06symbol\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\"{\n" +
