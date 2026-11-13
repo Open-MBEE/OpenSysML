@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"strings"
 	"testing"
 )
@@ -44,7 +45,7 @@ func TestRuntimeRobustnessToolCalc(t *testing.T) {
 		if _, err := ctx.CalcUsageOutputs(sym, scope, nil); err != nil {
 			t.Fatalf("CalcUsageOutputs = %v, want no error for an input nothing supplies", err)
 		}
-		result, err := ctx.calcUsageOutput(sym, resultOutputName, scope, nil)
+		result, err := ctx.calcUsageOutput(sym, program.ResultOutputName, scope, nil)
 		if err != nil || result.Kind != ValUndetermined || !strings.Contains(result.Undetermined().reason, `parameter "m"`) {
 			t.Fatalf("result of tbare = %s, %v; want undetermined naming the input nothing supplies", FormatValue(result), err)
 		}

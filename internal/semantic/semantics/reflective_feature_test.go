@@ -979,7 +979,7 @@ func reflectiveFixtures(t *testing.T, name string, kind source.Kind, src string)
 
 func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symbol) symbols.LibraryFacts {
 	facts := symbols.LibraryFacts{
-		Node:     symbols.NodeKindOf(sym.Decl),
+		Node:     sym.NodeKind(),
 		Keyword:  sym.Keyword(),
 		Notation: sym.Notation(),
 		Abstract: symbols.IsAbstract(sym),

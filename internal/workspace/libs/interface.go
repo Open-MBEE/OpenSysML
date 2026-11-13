@@ -240,7 +240,7 @@ func (w *interfaceWriter) facts(sym *symbols.Symbol) symbols.LibraryFacts {
 	if sym.IsPrefixMetadata() {
 		facts.Modifiers |= symbols.ModPrefixMetadata
 	}
-	facts.Node = symbols.NodeKindOf(sym.Decl)
+	facts.Node = sym.NodeKind()
 	facts.Keyword = sym.Keyword()
 	facts.Notation = sym.Notation()
 	facts.UsageKind, _ = sym.UsageKind()

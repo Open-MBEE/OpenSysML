@@ -12,11 +12,11 @@
     },
     "properties": {
       "presentEqual": 10279,
-      "presentDifferent": 633,
+      "presentDifferent": 632,
       "oursMissing": 1562,
       "pilotMissing": 330,
       "absentBoth": 10650,
-      "indeterminate": 69,
+      "indeterminate": 70,
       "pilotNondeterministic": 6
     },
     "unkeyedReferences": 559,
@@ -30,7 +30,7 @@
       "pilot": 0
     },
     "unkeyableElements": {
-      "ours": 19,
+      "ours": 25,
       "pilot": 40
     }
   },
@@ -932,7 +932,7 @@
     "ExhibitStateUsage.nestedCalculation": [0,0,0,0,1,0,0],
     "ExhibitStateUsage.nestedCase": [0,0,0,0,1,0,0],
     "ExhibitStateUsage.nestedConcern": [0,0,0,0,1,0,0],
-    "ExhibitStateUsage.nestedConnection": [0,1,0,0,0,0,0],
+    "ExhibitStateUsage.nestedConnection": [0,0,0,0,0,1,0],
     "ExhibitStateUsage.nestedConstraint": [0,0,0,0,1,0,0],
     "ExhibitStateUsage.nestedEnumeration": [0,0,0,0,1,0,0],
     "ExhibitStateUsage.nestedFlow": [0,0,0,0,1,0,0],

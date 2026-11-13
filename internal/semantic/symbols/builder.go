@@ -216,9 +216,13 @@ func buildBehaviorDecl(scope *Scope, decl ast.Node, vis ast.Visibility, trivia [
 		buildAnonymousNode(scope, d, SymbolSendActionUsage, d.Members, vis, trivia)
 		return true
 	case *ast.SuccessionEdge:
-		// A `then x` succession is a SuccessionAsUsage its owner owns, with or without a body
-		// (SysML.xtext ActionTargetSuccession); a body declares the succession's own features.
-		buildAnonymousNode(scope, d, SymbolSuccessionUsage, d.Members, vis, trivia)
+		// A `then x` after a state in a state body is a TargetTransitionUsage (SysML.xtext:1866) whose body is
+		// its ActionBody; any other is a SuccessionAsUsage its owner owns, with or without a body (:1698).
+		kind := SymbolSuccessionUsage
+		if ast.IsStateTargetTransition(scope.Node(), d) {
+			kind = SymbolActionUsage
+		}
+		buildAnonymousNode(scope, d, kind, d.Members, vis, trivia)
 		return true
 	case *ast.StateNode:
 		// Register state node by name (including initial/final pseudostates)

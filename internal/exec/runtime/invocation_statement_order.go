@@ -11,7 +11,7 @@ import (
 )
 
 type invocationOrderKey struct {
-	shape     *calcShape
+	shape     *loadedCalc
 	self      int64
 	arguments string
 }
@@ -33,7 +33,7 @@ type invocationOrderMemo struct {
 const resultOrderWherePrefix = "result of "
 
 func (ctx *Context) invokeWithStatementOrderResults(
-	shape *calcShape,
+	shape *loadedCalc,
 	args calcArgs,
 	self *Instance,
 	memoize bool,
@@ -157,7 +157,7 @@ func (ctx *Context) invokeWithStatementOrderResults(
 	return value, err
 }
 
-func canonicalInvocationArguments(shape *calcShape, args calcArgs) string {
+func canonicalInvocationArguments(shape *loadedCalc, args calcArgs) string {
 	var b strings.Builder
 	// Positional arguments fall on the non-actor parameters in declaration order,
 	// as bindCalcParameters binds them.
@@ -185,7 +185,7 @@ func canonicalInvocationArguments(shape *calcShape, args calcArgs) string {
 		}
 		b.WriteByte(';')
 	}
-	if arity := shape.positionalArity(); len(args.positional) > arity {
+	if arity := shape.PositionalArity(); len(args.positional) > arity {
 		b.WriteString("extra-pos:")
 		for _, value := range args.positional[arity:] {
 			fmt.Fprintf(&b, "%d:%s;", value.Kind, strconv.Quote(FormatValue(value)))
@@ -197,7 +197,7 @@ func canonicalInvocationArguments(shape *calcShape, args calcArgs) string {
 	}
 	sort.Strings(names)
 	for _, name := range names {
-		if !shape.hasParameter(name) {
+		if !shape.HasParameter(name) {
 			value := args.named[name]
 			fmt.Fprintf(&b, "unknown:%s=%d:%s;", strconv.Quote(name), value.Kind, strconv.Quote(FormatValue(value)))
 			continue
@@ -245,7 +245,7 @@ func orderedInvocationResults(results []invocationOrderResult) []invocationOrder
 }
 
 func (ctx *Context) invokeOrderedPredicate(
-	shape *calcShape,
+	shape *loadedCalc,
 	args calcArgs,
 	self *Instance,
 	invoke func() (Value, error),
