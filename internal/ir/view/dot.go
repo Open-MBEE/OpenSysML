@@ -121,7 +121,7 @@ func (r *Rendering) DOTWith(options Options) (string, error) {
 		return b.String(), nil
 	}
 	depth := 1
-	framed := w.skin.cameo || r.Frame != nil
+	framed := w.skin.cameo || r.Frame != nil || r.ExpansionFoldNotice != ""
 	if framed {
 		w.openFrame(r, edges)
 		depth = 2
@@ -209,7 +209,7 @@ func (w *dotWriter) writeHeader(r *Rendering) {
 	if r.Stated != "" {
 		fmt.Fprintf(b, "// stated: %s\n", r.Stated)
 	}
-	for _, notice := range slices.Concat(r.Notices, w.notices) {
+	for _, notice := range slices.Concat(r.notices(), w.notices) {
 		fmt.Fprintf(b, "// not represented: %s\n", notice)
 	}
 	if c := r.Canvas; c != nil {
@@ -231,13 +231,20 @@ func (w *dotWriter) writeHeader(r *Rendering) {
 func (w *dotWriter) openFrame(r *Rendering, edges []Edge) {
 	fmt.Fprintf(&w.b, "  subgraph %s {\n", dotQuote(dotFrameCluster))
 	attrs := []string{"labeljust=l", dotLabelTop}
+	header := w.viewFrameName(r.Frame)
 	if w.skin.cameo {
-		fmt.Fprintf(&w.b, "    label=<%s>;\n", w.frameHeader(r))
+		header = w.frameHeader(r)
 		attrs = append(attrs, dotFontSizeAttr(cameoFontSize), dotColorAttr(cameoFrameColor), dotPenWidthOne)
 	} else {
-		fmt.Fprintf(&w.b, "    label=<%s>;\n", w.viewFrameName(r.Frame))
 		attrs = append(attrs, "penwidth=0.5")
 	}
+	if r.ExpansionFoldNotice != "" {
+		if header != "" {
+			header += "<br align=\"left\"/>"
+		}
+		header += dotEscape(r.ExpansionFoldNotice)
+	}
+	fmt.Fprintf(&w.b, "    label=<%s>;\n", header)
 	for _, attr := range append(attrs, "margin="+formatCoord(dotFrameMargin)) {
 		fmt.Fprintf(&w.b, "    %s;\n", attr)
 	}

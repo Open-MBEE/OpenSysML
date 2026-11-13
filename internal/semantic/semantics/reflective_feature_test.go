@@ -1118,8 +1118,10 @@ func reflectiveRecordedFacts(model *Model, idx *symbols.Index, sym *symbols.Symb
 			if scope == nil {
 				scope = sym.Scope
 			}
-			if src, resolved := model.resolver.ResolveTarget(scope, member.Source); resolved && src != nil {
-				rel.Source = refOf(src)
+			if !ast.IsFeatureChain(member.Source) {
+				if src, resolved := model.resolver.ResolveTarget(scope, member.Source); resolved && src != nil {
+					rel.Source = refOf(src)
+				}
 			}
 			if !ast.IsFeatureChain(member.Target) {
 				if tgt, resolved := model.resolver.ResolveTarget(scope, member.Target); resolved && tgt != nil {
