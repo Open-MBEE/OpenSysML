@@ -22,6 +22,7 @@ type expansionRepresentative struct {
 
 type expansionFold struct {
 	q               *treeQuery
+	walk            *featureWalk
 	kind            Kind
 	limit           int
 	sizes           map[expansionSizeKey]int
@@ -62,9 +63,10 @@ func (r *Renderer) prepareExpansionFold(view *symbols.Symbol, exposed []*symbols
 			descendants = q.exposedDescendants(roots, top)
 		} else {
 			w := &featureWalk{r: r, view: view, pruned: map[*symbols.Symbol]bool{}}
+			f.walk = w
 			var features []*symbols.Symbol
 			for _, sym := range roots {
-				if featureLike(sym) && !r.drawsConnector(sym) {
+				if w.drawsFeature(sym) && !r.drawsConnector(sym) {
 					features = append(features, sym)
 				}
 			}
@@ -75,7 +77,7 @@ func (r *Renderer) prepareExpansionFold(view *symbols.Symbol, exposed []*symbols
 		size := 0
 		var ports []*symbols.Symbol
 		for _, sym := range roots {
-			if descendants[symbols.KeyOf(sym)] || kind == KindInterconnection && (!featureLike(sym) || r.drawsConnector(sym)) {
+			if descendants[symbols.KeyOf(sym)] || kind == KindInterconnection && (!f.walk.drawsFeature(sym) || r.drawsConnector(sym)) {
 				continue
 			}
 			if kind == KindInterconnection && sym.Kind == symbols.SymbolPortUsage {
@@ -156,12 +158,11 @@ func (f *expansionFold) size(sym, owner *symbols.Symbol, path expansion, depth i
 		if recursive != nil && member.Owner() != sym {
 			continue
 		}
-		if f.kind == KindTree {
-			if treeParameter(sym, member) {
-				continue
-			}
-		} else if !featureLike(member) || r.drawsConnector(member) || isReferencedIncludedCase(member) ||
-			casePin(sym, member) || constraintParameter(sym, member) || member.Kind == symbols.SymbolPortUsage && member.Owner() != sym {
+		if !f.drawsMember(sym, member) {
+			continue
+		}
+		if f.kind == KindInterconnection && (r.drawsConnector(member) ||
+			casePin(sym, member) || constraintParameter(sym, member) || member.Kind == symbols.SymbolPortUsage && member.Owner() != sym) {
 			continue
 		}
 		if cut && !pinnedAt(sym, member) {
@@ -267,6 +268,13 @@ func (f *expansionFold) omits(owner, member *symbols.Symbol) bool {
 	return member.Owner() != owner && len(f.q.r.model.MaskingRedefinedFeatures(member)) == 0 && !f.keeps(member)
 }
 
+func (f *expansionFold) drawsMember(owner, member *symbols.Symbol) bool {
+	if f.walk != nil {
+		return f.walk.drawsMember(owner, member)
+	}
+	return !treeParameter(owner, member)
+}
+
 func (f *expansionFold) representative(sym, owner *symbols.Symbol, path expansion, depth int, qualified bool) (treeQueryKey, expansionRepresentative, bool) {
 	key := f.q.key(sym, owner, path, qualified)
 	// Neither a rewritten box nor its descendants can stand for features drawn elsewhere.
@@ -298,7 +306,7 @@ func (f *expansionFold) note(out *Rendering, sym *symbols.Symbol, node *Node, re
 	if len(definitions) == 0 {
 		seen := map[*symbols.Symbol]bool{}
 		for _, member := range f.q.members(sym) {
-			if owner := member.Owner(); owner != nil && f.omits(sym, member) && !seen[owner] {
+			if owner := member.Owner(); owner != nil && f.drawsMember(sym, member) && f.omits(sym, member) && !seen[owner] {
 				seen[owner], out.foldedDefinitions[owner] = true, true
 				definitions = append(definitions, f.q.r.notationName(owner))
 			}

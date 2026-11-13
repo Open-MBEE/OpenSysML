@@ -215,6 +215,12 @@ func (w *featureWalk) drawsFeature(sym *symbols.Symbol) bool {
 	return mixedStructural(sym)
 }
 
+// drawsMember reports whether the member switch emits a node, pin, or connection for member.
+func (w *featureWalk) drawsMember(owner, member *symbols.Symbol) bool {
+	return w.r.drawsConnector(member) || casePin(owner, member) || constraintParameter(owner, member) ||
+		!isReferencedIncludedCase(member) && w.drawsFeature(member)
+}
+
 // featureNode renders one exposed feature and the features nested in it,
 // collecting the connectors declared along the way, which join the nodes it
 // renders. A member it has from its type and pins is not drawn nested as well.
@@ -274,7 +280,7 @@ func (w *featureWalk) featureNode(sym, owner *symbols.Symbol, path expansion, de
 			}
 			continue
 		}
-		if canFold && !pinnedAt(sym, member) && w.fold.omits(sym, member) {
+		if canFold && w.drawsMember(sym, member) && !pinnedAt(sym, member) && w.fold.omits(sym, member) {
 			skipped = true
 			continue
 		}
