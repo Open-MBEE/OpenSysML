@@ -692,8 +692,10 @@ func (m *Model) ShareAbout(shared *AboutIndex) {
 // indexAboutUsage records one `about` metadata usage against every element it
 // annotates.
 func (m *Model) indexAboutUsage(sym *symbols.Symbol) {
-	for _, target := range m.aboutTargets(sym) {
-		m.aboutUsages.add(target, sym)
+	if sym.Kind == symbols.SymbolMetadataUsage {
+		for _, target := range m.aboutTargets(sym) {
+			m.aboutUsages.add(target, sym)
+		}
 	}
 	if sym.Recorded() {
 		m.indexRecordedAboutUsage(sym)
