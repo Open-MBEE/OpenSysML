@@ -11,9 +11,9 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 88,
+      "presentEqual": 89,
       "presentDifferent": 7,
-      "oursMissing": 20,
+      "oursMissing": 19,
       "pilotMissing": 11,
       "absentBoth": 99,
       "indeterminate": 0,
@@ -71,7 +71,7 @@
     "CalculationUsage.isModelLevelEvaluable": [0,0,1,0,0,0,0],
     "CalculationUsage.isOrdered": [1,0,0,0,0,0,0],
     "CalculationUsage.isPortion": [1,0,0,0,0,0,0],
-    "CalculationUsage.isReference": [0,0,1,0,0,0,0],
+    "CalculationUsage.isReference": [1,0,0,0,0,0,0],
     "CalculationUsage.isSufficient": [1,0,0,0,0,0,0],
     "CalculationUsage.isUnique": [1,0,0,0,0,0,0],
     "CalculationUsage.isVariable": [1,0,0,0,0,0,0],
