@@ -185,6 +185,8 @@ type Context struct {
 	// coverage holds the states this run entered and the transitions it took,
 	// qualified by the object running the machine, whether or not it is traced.
 	coverage map[coverageKey]CoverageEntry
+	// covering is whether a check or an exploration runs this context and reads its coverage.
+	covering bool
 
 	// heldBehaviors are the behaviors already holding work when the outermost
 	// start under way began: a driver put it in flight, and dispatches it.
