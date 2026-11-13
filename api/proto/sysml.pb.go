@@ -10077,12 +10077,12 @@ func (x *SymbolInfo) GetWithheldLibraryMembers() int32 {
 // MemberInfo is one member of an element, own or inherited.
 type MemberInfo struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// FQN of the member, the id GetSymbol takes; a member declared without a
-	// name has none that resolves.
+	// The id GetSymbol takes: the member's FQN, or the positional id
+	// (`Owner::@3`) of one declared without a name, library members included.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// Declared name; empty for an unnamed member such as `bind a = b;`.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// Symbol kind of the member ("partUsage", "bindingUsage", ...).
+	// Symbol kind of the member ("partUsage", "bindingConnectorAsUsage", ...).
 	Kind string `protobuf:"bytes,3,opt,name=kind,proto3" json:"kind,omitempty"`
 	// True when the member is inherited rather than declared by the element.
 	Inherited bool `protobuf:"varint,4,opt,name=inherited,proto3" json:"inherited,omitempty"`

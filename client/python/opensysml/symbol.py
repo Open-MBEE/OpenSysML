@@ -25,9 +25,10 @@ if TYPE_CHECKING:
 ATTRIBUTE_KINDS = frozenset({"attributedef", "attributeusage", "referenceusage"})
 PART_KINDS = frozenset({"partdef", "partusage"})
 PORT_KINDS = frozenset({"portdef", "portusage"})
-BINDING_KINDS = frozenset({"bindingusage"})
+# "bindingusage" is what a service before the kind was renamed reports.
+BINDING_KINDS = frozenset({"bindingconnectorasusage", "bindingusage"})
 CONNECTION_KINDS = frozenset({
-    "connectiondef", "connectionusage", "bindingusage", "interfacedef",
+    "connectiondef", "connectionusage", *BINDING_KINDS, "interfacedef",
     "interfaceusage", "flowusage", "allocationdef", "allocationusage",
 })
 
@@ -494,7 +495,7 @@ class Symbol:
         return self.members(PORT_KINDS, inherited, library)
 
     def bindings(self, inherited: bool = False, library: bool = False) -> Members:
-        """Return binding members (``bindingUsage``), own by default and the
+        """Return binding members (``bindingConnectorAsUsage``), own by default and the
         inherited ones with ``inherited=True``. See :meth:`members`."""
         return self.members(BINDING_KINDS, inherited, library)
 

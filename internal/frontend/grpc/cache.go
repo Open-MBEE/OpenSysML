@@ -234,6 +234,9 @@ func (m *CachedModel) SymbolContext() *symbolfacts.Context {
 		m.symCtx = NewSymbolContext(m.Index)
 		m.symCtx.Semantics.SetSourceText(cachedSourceText(m))
 		m.symCtx.Positional = symbolfacts.NewPositional(m.Index, m.positionalDocuments)
+		if m.Library != nil {
+			m.symCtx.Positional.WithLibrary(m.Library.Read)
+		}
 		m.symCtx.ElementForm = func() symbolfacts.ElementForm { return elementform.New(m.elementIDReader()) }
 	})
 	return m.symCtx

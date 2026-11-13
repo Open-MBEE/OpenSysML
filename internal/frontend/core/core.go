@@ -366,6 +366,9 @@ func (m *cachedModel) symbolContext() *symbolfacts.Context {
 	}
 	m.symbols.Semantics.SetSourceText(source.TextOf(sources, libs.Text(m.library)))
 	m.symbols.Positional = symbolfacts.NewPositional(m.index, m.positionalDocuments)
+	if m.library != nil {
+		m.symbols.Positional.WithLibrary(m.library.Read)
+	}
 	return m.symbols
 }
 

@@ -66,6 +66,41 @@ test("a usage lists the members it inherits through its type", async () => {
   assert.deepEqual(again.members, full.members);
 });
 
+const UNNAMED = `package U {
+    part def Unit { out item o; in item i; }
+    part def Holder {
+        part x : Unit;
+        part y : Unit;
+        part : Unit;
+        bind x.o = y.o;
+        connect x to y;
+    }
+    part holder : Holder;
+}
+`;
+
+test("unnamed members are listed by positional id, own, inherited and from the library", async () => {
+  await using connection = await connect();
+  const model = await connection.loads(UNNAMED);
+  const def = await model.symbolById("U::Holder");
+  const owned = def.childIds.filter((id) => id.includes("::@"));
+  assert.deepEqual(owned, ["U::Holder::@2", "U::Holder::@3", "U::Holder::@4"]);
+  const kinds = [];
+  for (const id of owned) kinds.push((await model.symbolById(id)).kind);
+  assert.deepEqual(kinds, ["partUsage", "bindingConnectorAsUsage", "connectionUsage"]);
+
+  const usage = await model.symbolById("U::holder", { includeLibraryMembers: true });
+  assert.deepEqual(usage.childIds, []);
+  const unnamed = usage.inheritedMembers().filter((member) => member.name === "");
+  assert.deepEqual(unnamed.filter((member) => !member.library).map((member) => member.id), owned);
+  const library = unnamed.filter((member) => member.library);
+  assert.ok(library.length > 0);
+  for (const member of library) {
+    assert.ok(member.id.startsWith(`${member.inheritedFrom}::@`), member.id);
+    assert.equal((await model.symbolById(member.id)).kind, member.kind);
+  }
+});
+
 test("an object says how it was reached, and every path to it is listed", async () => {
   await using connection = await connect();
   assert.ok(connection.info.has(CAPABILITY_INSTANCE_PATHS));
