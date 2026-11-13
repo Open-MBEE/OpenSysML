@@ -150,6 +150,10 @@ const CapabilitySymbolAttributes = "symbol_attributes"
 // provenance, and of honouring GetSymbolRequest.include_library_members.
 const CapabilitySymbolMembers = "symbol_members"
 
+// CapabilitySymbolNameResolution names the capability of honouring GetSymbolRequest.resolve_name;
+// without it symbol_id is read as an id the service reported, as a service predating the field reads it.
+const CapabilitySymbolNameResolution = "symbol_name_resolution"
+
 // CapabilityUnsetValue names the capability of reporting a valueless feature of
 // a value type as Value.unset, rather than as the empty object it materializes.
 const CapabilityUnsetValue = "unset_value"
@@ -432,6 +436,7 @@ var capabilities = []string{
 	CapabilityVerdictNotes,
 	CapabilityElementProperties,
 	CapabilityInlineDocumentQuery,
+	CapabilitySymbolNameResolution,
 }
 
 type capabilityAvailability struct {
@@ -1062,7 +1067,7 @@ func (s *Service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.
 
 	// An id the service reported denotes that element; a name is resolved.
 	var syms []*symbols.Symbol
-	if req.ResolveName {
+	if req.ResolveName && s.capabilities.has(CapabilitySymbolNameResolution) {
 		syms = cached.ResolveName(req.SymbolId)
 	} else {
 		syms = cached.LookupSymbol(req.SymbolId)

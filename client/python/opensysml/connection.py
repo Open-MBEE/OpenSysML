@@ -26,6 +26,7 @@ from opensysml.capabilities import (
     CAPABILITY_AUTHORING,
     CAPABILITY_CONNECTION_AUTHORING,
     CAPABILITY_MEMBER_MODIFIERS,
+    CAPABILITY_SYMBOL_NAME_RESOLUTION,
     CAPABILITY_CONSTRAINT_BODY_AUTHORING,
     CAPABILITY_STATE_ACTION_AUTHORING,
     CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING,
@@ -2390,7 +2391,8 @@ class Connection:
                 imports, an alias answered by the element it names, and no
                 symbol where a member on the way is not visible from outside
                 its namespace. Otherwise ``symbol_id`` is an id the service
-                reported and names that symbol whatever its visibility
+                reported and names that symbol whatever its visibility, which
+                is also how a service without ``symbol_name_resolution`` reads it
         
         Returns:
             sysml_pb2.SymbolInfo or None: Symbol protobuf, or None if not found
@@ -2399,7 +2401,8 @@ class Connection:
             model_hash=model_hash,
             symbol_id=symbol_id,
             include_library_members=include_library_members,
-            resolve_name=resolve_name,
+            resolve_name=resolve_name
+            and self.server_info().has(CAPABILITY_SYMBOL_NAME_RESOLUTION),
         )
         with translate_rpc_errors():
             response = self._stub.GetSymbol(request)

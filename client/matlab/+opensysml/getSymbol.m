@@ -5,7 +5,8 @@ function sym = getSymbol(model, id)
 %   member not visible from outside its namespace (private, protected) not found.
 
     answer = opensysml.internal.checkError(opensysml.call(model.connection, 'GetSymbol', ...
-        struct('modelHash', model.hash, 'symbolId', char(id), 'resolveName', true)), 'GetSymbol');
+        struct('modelHash', model.hash, 'symbolId', char(id), 'resolveName', ...
+        model.connection.hasCapability('symbol_name_resolution'))), 'GetSymbol');
     if isfield(answer, 'symbol')
         sym = answer.symbol;
     else

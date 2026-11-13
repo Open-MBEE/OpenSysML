@@ -615,6 +615,14 @@ func (c *client) LookupSymbol(ctx context.Context, model *Model, symbolID string
 			return nil, err
 		}
 	}
+	if req.ResolveName {
+		// A service without the capability reads every id as one it reported.
+		info, err := c.serverInfo(ctx)
+		if err != nil {
+			return nil, err
+		}
+		req.ResolveName = info.Has(CapabilitySymbolNameResolution)
+	}
 	resp, err := c.caller.getSymbol(ctx, req)
 	if err != nil {
 		return nil, err

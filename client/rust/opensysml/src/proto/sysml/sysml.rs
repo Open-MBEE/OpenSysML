@@ -1162,7 +1162,8 @@ pub struct GetSymbolRequest {
     #[prost(bool, tag="3")]
     pub include_library_members: bool,
     /// Resolve symbol_id as a qualified name from the root namespace (KerML 8.2.3.5), through visible
-    /// memberships and to an alias's element; unset, it is an id the service reported, whatever its visibility.
+    /// memberships and to an alias's element; unset, or without the
+    /// symbol_name_resolution capability, it is an id the service reported, whatever its visibility.
     #[prost(bool, tag="4")]
     pub resolve_name: bool,
 }

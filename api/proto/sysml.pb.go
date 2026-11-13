@@ -4579,7 +4579,8 @@ type GetSymbolRequest struct {
 	// withheld_library_members.
 	IncludeLibraryMembers bool `protobuf:"varint,3,opt,name=include_library_members,json=includeLibraryMembers,proto3" json:"include_library_members,omitempty"`
 	// Resolve symbol_id as a qualified name from the root namespace (KerML 8.2.3.5), through visible
-	// memberships and to an alias's element; unset, it is an id the service reported, whatever its visibility.
+	// memberships and to an alias's element; unset, or without the
+	// symbol_name_resolution capability, it is an id the service reported, whatever its visibility.
 	ResolveName   bool `protobuf:"varint,4,opt,name=resolve_name,json=resolveName,proto3" json:"resolve_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

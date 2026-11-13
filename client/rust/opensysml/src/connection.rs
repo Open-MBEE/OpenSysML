@@ -302,7 +302,10 @@ impl Connection {
                 model_hash: model_hash.to_owned(),
                 symbol_id: symbol_id.to_owned(),
                 include_library_members: options.include_library_members,
-                resolve_name: !options.by_reported_id,
+                resolve_name: !options.by_reported_id
+                    && self
+                        .capabilities()
+                        .has(crate::capabilities::CAPABILITY_SYMBOL_NAME_RESOLUTION),
             },
         )?;
         if !response.error.is_empty() {

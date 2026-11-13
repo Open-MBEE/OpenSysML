@@ -2347,7 +2347,9 @@ public final class Model {
             .setModelHash(hash)
             .setSymbolId(symbolId)
             .setIncludeLibraryMembers(options.includeLibraryMembers())
-            .setResolveName(!options.byReportedId())
+            .setResolveName(
+                !options.byReportedId()
+                    && connection.capabilities().has(Capabilities.SYMBOL_NAME_RESOLUTION))
             .build(),
         SymbolResponse.getDefaultInstance());
   }

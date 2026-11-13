@@ -36,12 +36,14 @@ through imports, an alias answered by the element it names, and a member not
 visible from outside its namespace (`private`, `protected`) not found.
 `by_reported_id` takes `id` as one the service reported instead (a symbol's id, a
 child's, a specialization target's), which names that element whatever its
-visibility.
+visibility, and is how a service without `symbol_name_resolution` reads every id.
 """
 function get_symbol(model::Model, id::AbstractString; by_reported_id::Bool=false)
     answer = call(model.connection, "GetSymbol",
                   Dict{String,Any}("modelHash" => model.hash, "symbolId" => String(id),
-                                   "resolveName" => !by_reported_id))
+                                   "resolveName" => !by_reported_id &&
+                                       has_capability(model.connection,
+                                                      CAPABILITY_SYMBOL_NAME_RESOLUTION)))
     haskey(answer, "error") && !isempty(answer["error"]) && return nothing
     raw = get(answer, "symbol", nothing)
     raw isa AbstractDict || return nothing

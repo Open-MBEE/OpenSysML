@@ -6,6 +6,7 @@ import {
   CAPABILITY_INLINE_LANGUAGE,
   CAPABILITY_STRICT_CONFORMANCE,
   CAPABILITY_SYMBOL_MEMBERS,
+  CAPABILITY_SYMBOL_NAME_RESOLUTION,
   requireCapability,
   upgradeRemedy,
 } from "./capabilities.js";
@@ -716,7 +717,8 @@ export class Model {
 
   /**
    * Looks a symbol up by its qualified name, resolved from the root namespace as the notation
-   * resolves one (imports, aliases, visibility); `byReportedId` takes a reported id instead.
+   * resolves one (imports, aliases, visibility); `byReportedId` takes a reported id instead,
+   * which is how a service without `symbol_name_resolution` reads every id.
    */
   async symbolById(id: string, options: SymbolOptions = {}): Promise<ModelSymbol> {
     requireString("id", id);
@@ -729,7 +731,9 @@ export class Model {
           modelHash: this.hash,
           symbolId: id,
           includeLibraryMembers: options.includeLibraryMembers === true,
-          resolveName: options.byReportedId !== true,
+          resolveName:
+            options.byReportedId !== true &&
+            this.connection.info.has(CAPABILITY_SYMBOL_NAME_RESOLUTION),
         },
         this.connection.callOptions(),
       ),

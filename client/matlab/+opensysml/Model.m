@@ -415,7 +415,8 @@ function result = resolveName(model, name)
     result = [];
     try
         raw = opensysml.call(model.connection, 'GetSymbol', ...
-            struct('modelHash', model.hash, 'symbolId', name, 'resolveName', true));
+            struct('modelHash', model.hash, 'symbolId', name, 'resolveName', ...
+            model.connection.hasCapability('symbol_name_resolution')));
         if isfield(raw, 'error') && ~isempty(raw.error), return; end
         if isfield(raw, 'symbol'), raw = raw.symbol; end
         result = opensysml.Symbol(raw, model);

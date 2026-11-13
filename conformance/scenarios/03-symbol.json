@@ -123,6 +123,9 @@
       "id": "symbol/a_name_resolves_through_a_public_membership_import",
       "description": "resolve_name resolves the id as a qualified name from the root namespace: a public import re-exports the member under the importing namespace.",
       "rpc": "GetSymbol",
+      "requires_capabilities": [
+        "symbol_name_resolution"
+      ],
       "model": {
         "fixture": "visibility.sysml"
       },
@@ -143,6 +146,9 @@
       "id": "symbol/a_name_resolves_through_a_public_recursive_import",
       "description": "A recursive import brings in the members of the nested namespaces too.",
       "rpc": "GetSymbol",
+      "requires_capabilities": [
+        "symbol_name_resolution"
+      ],
       "model": {
         "fixture": "visibility.sysml"
       },
@@ -163,6 +169,9 @@
       "id": "symbol/a_name_resolves_an_alias_to_its_element",
       "description": "A name that names an alias answers with the element the alias is for.",
       "rpc": "GetSymbol",
+      "requires_capabilities": [
+        "symbol_name_resolution"
+      ],
       "model": {
         "fixture": "visibility.sysml"
       },
@@ -203,6 +212,9 @@
       "id": "symbol/a_name_does_not_cross_a_private_import",
       "description": "A private import is visible inside its namespace only, so the name resolves to nothing from the root.",
       "rpc": "GetSymbol",
+      "requires_capabilities": [
+        "symbol_name_resolution"
+      ],
       "model": {
         "fixture": "visibility.sysml"
       },
@@ -221,6 +233,9 @@
       "id": "symbol/a_name_does_not_reach_a_private_member",
       "description": "A private member is not visible from outside its namespace.",
       "rpc": "GetSymbol",
+      "requires_capabilities": [
+        "symbol_name_resolution"
+      ],
       "model": {
         "fixture": "visibility.sysml"
       },
@@ -258,6 +273,9 @@
       "id": "symbol/a_public_member_of_a_private_namespace_keeps_its_id",
       "description": "No name reaches a member of a private namespace from the root, but the id the service reports for it still fetches it under resolve_name.",
       "rpc": "GetSymbol",
+      "requires_capabilities": [
+        "symbol_name_resolution"
+      ],
       "model": {
         "fixture": "visibility.sysml"
       },

@@ -304,7 +304,8 @@ end
 function symbol(model::Model, id::AbstractString)
     answer = call(model.connection, "GetSymbol",
                   Dict{String,Any}("modelHash" => model.hash, "symbolId" => String(id),
-                                   "resolveName" => true))
+                                   "resolveName" => has_capability(model.connection,
+                                       CAPABILITY_SYMBOL_NAME_RESOLUTION)))
     if !isempty(String(get(answer, "error", "")))
         return nothing
     end
