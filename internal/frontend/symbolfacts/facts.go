@@ -294,7 +294,7 @@ func (sc *Context) specializationsOf(sym *symbols.Symbol) []*Specialization {
 		if kind == "" {
 			continue
 		}
-		if rel.Kind == ast.RelReferences {
+		if rel.Kind.ReferenceSubsets() {
 			if !referenced {
 				out = append(out, sc.referenceSpecializations(sym)...)
 				referenced = true
@@ -338,11 +338,20 @@ func (sc *Context) referenceSpecializations(sym *symbols.Symbol) []*Specializati
 		out = append(out, &Specialization{
 			Kind:       "references",
 			Declared:   declared,
-			TargetId:   sc.Index.GetFQN(feature),
+			TargetId:   sc.referenceID(feature),
 			TargetKind: feature.Kind.String(),
 		})
 	}
 	return out
+}
+
+// referenceID is the id GetSymbol takes for a referenced feature: positional where an
+// owner is unnamed, which the qualified name alone would skip.
+func (sc *Context) referenceID(feature *symbols.Symbol) string {
+	if id := sc.Identity(feature); id != "" {
+		return id
+	}
+	return sc.Index.GetFQN(feature)
 }
 
 // declaredText is the relationship's target as written, with the `~` of a

@@ -40,6 +40,11 @@ package Ends {
             part z : Unit;
             connection nested connect q to z.p;
         }
+        part : Unit {
+            port q : P;
+            part z : Unit;
+            connection hosted connect q to z.p;
+        }
     }
     part def Special :> Vehicle {
         connection refined :>> plain;
