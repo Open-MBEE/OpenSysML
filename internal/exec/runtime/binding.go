@@ -168,7 +168,7 @@ func (ctx *Context) connectorOwnedBindings(decl *symbols.Symbol) []lower.Binding
 	ctx.model.hoistingBindings[decl] = true
 	defer delete(ctx.model.hoistingBindings, decl)
 	var out []lower.Binding
-	for _, member := range unwrappedDeclMembers(decl.Decl) {
+	for _, member := range lower.UnwrappedDeclMembers(decl.Decl) {
 		usage, ok := member.(*ast.Usage)
 		if !ok || usage.IsVariant {
 			continue

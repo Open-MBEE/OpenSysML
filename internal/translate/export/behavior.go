@@ -176,6 +176,9 @@ func (e *encoder) encodeBehavior(node ast.Node, head func(rdf.Term), subject rdf
 		return true, e.expression(subject, e.sysx(xExpression), xExpression, owner, n.Target)
 
 	case *ast.SuccessionEdge:
+		if e.names.TargetTransitions[n] {
+			return true, e.encodeTargetTransition(n, head, subject, fqn, owner)
+		}
 		return true, e.encodeSuccessionEdge(n, head, subject, fqn, owner)
 
 	case *ast.ControlFlowEdge:
@@ -612,18 +615,53 @@ func (e *encoder) encodeGuardedTarget(n *ast.ControlFlowEdge, head func(rdf.Term
 	return nil
 }
 
-// targetTransitionText writes a decision's branch, `if g then b;` or `else b;`.
-// That notation states no source, which the branch reads from the member
-// before it, and no trigger, effect or body; a branch the graph gives another
-// source, a trigger, an effect or a body, or neither a guard nor `else`, which
-// would read back as a succession, is refused rather than written as a
-// different branch.
-func (d *decoder) targetTransitionText(el *element, triggerWords []string, guard, target string) (string, string, error) {
+// encodeTargetTransition emits a state body's `then x;` after a state as the TransitionUsage the grammar builds
+// (SysML.xtext TargetTransitionUsage): its owned succession, its ActionBody's members, and the state before it as source.
+func (e *encoder) encodeTargetTransition(n *ast.SuccessionEdge, head func(rdf.Term), subject rdf.Term, fqn, owner string) error {
+	head(rdf.SysMLTerm(mTransition))
+	e.graph.Add(subject, e.sysx(xTransitionSyntax), rdf.String(targetTransitionSyntax))
+	succession, membership, err := e.transitionSuccession(subject, &ast.TransitionMember{Target: n.Target, TargetMultiplicity: n.TargetMultiplicity}, owner)
+	if err != nil {
+		return err
+	}
+	e.graph.Add(subject, e.sysml(pOwnedRelationship), membership)
+	e.graph.Add(subject, e.sysml(pOwnedMembership), membership)
+	e.emitMembershipCore(membership, succession, subject, mOwningMembership, true)
+	if n.HasBody {
+		e.graph.Add(subject, e.sysx(xHasBody), rdf.Bool(true))
+	}
+	if err := e.encode(n.Members, fqn, subject); err != nil {
+		return err
+	}
+	switch stands := e.preceding[n]; {
+	case qualifiedText(n.Source) == "":
+		if fqn, ok := e.names.FQN[n.SourceMember]; ok {
+			e.graph.Add(subject, e.sysml(pSource), e.ids.subjectForNode(n.SourceMember, fqn))
+		}
+	case impliedSource(n, n.Source) && answersToFeature(stands):
+		if fqn, ok := e.names.FQN[stands]; ok {
+			e.graph.Add(subject, e.sysml(pSource), e.ids.subjectForNode(stands, fqn))
+		}
+	default:
+		e.graph.Add(subject, e.sysml(pSource), e.edgeReference(n.Source))
+	}
+	e.graph.Add(subject, e.sysml(pTarget), e.edgeReference(n.Target))
+	return nil
+}
+
+// targetTransitionText writes a decision's branch, `if g then b;` or `else b;`, or a state body's `then b;` with its body.
+// A source other than the member before it, a trigger, an effect, or a body on a branch is refused rather than reshaped.
+func (d *decoder) targetTransitionText(el *element, triggerWords []string, guard, target string, annotations []string, depth int) (string, string, error) {
 	refuse := func(note string) error {
 		return &UnsupportedError{What: fmt.Sprintf("the transition <%s>", el.iri), Note: note}
 	}
 	if len(triggerWords) > 0 {
 		return "", "", refuse("it states a trigger, which a decision's branch has no notation for")
+	}
+	if multiplicity, err := d.transitionTargetMultiplicity(el); err != nil {
+		return "", "", err
+	} else if multiplicity != "" {
+		target = multiplicity + " " + target
 	}
 	// Every source the graph states, in either spelling, must be the member
 	// before it: a second one has nowhere to go in the branch's notation.
@@ -639,17 +677,29 @@ func (d *decoder) targetTransitionText(el *element, triggerWords []string, guard
 	if err != nil {
 		return "", "", err
 	}
-	if hasEffect || hasBody || len(effect) > 0 || len(body) > 0 {
-		return "", "", refuse("it owns an effect or a body, which a decision's branch has no notation for")
+	if hasEffect || len(effect) > 0 {
+		return "", "", refuse("it owns an effect, which a `then` transition has no notation for")
 	}
-	if d.boolOf(el, rdf.OpenSysML+xIsElse) {
+	isElse := d.boolOf(el, rdf.OpenSysML+xIsElse)
+	if guard == "" && !isElse {
+		// A state body's `then b;` after a state (SysML.xtext TargetTransitionUsage), whose body is its ActionBody.
+		if d.inActionBody(el) {
+			return "", "", refuse("it states no guard and is no `else` branch, and `then` alone writes a succession")
+		}
+		bodyText, err := d.transitionBody(body, hasBody, annotations, depth)
+		if err != nil {
+			return "", "", err
+		}
+		return "then " + target, bodyText, nil
+	}
+	if hasBody || len(body) > 0 {
+		return "", "", refuse("it owns a body, which a decision's branch has no notation for")
+	}
+	if isElse {
 		if guard != "" {
 			return "", "", refuse("it is the `else` branch of a decision yet states a guard, and `else` writes none")
 		}
 		return "else " + target, "", nil
-	}
-	if guard == "" {
-		return "", "", refuse("it states no guard and is no `else` branch, and `then` alone writes a succession")
 	}
 	return "if " + guard + thenKeyword + target, "", nil
 }
@@ -673,13 +723,17 @@ func (d *decoder) precedingSource(el *element) *element {
 // which states neither a source nor a trigger: only its guard and target.
 const targetTransitionSyntax = "target"
 
+// transitionSuccessionSuffix names a transition's owned succession off the transition's own id,
+// as SynthesizedElementID spells the element the semantic model synthesizes for it.
+const transitionSuccessionSuffix = "_succession"
+
 // transitionSuccession emits the SuccessionAsUsage a transition owns for its
 // `then` clause (SysML.xtext TransitionSuccessionMember, whose
 // TransitionSuccession holds an empty source end and an end referring to the
 // target): the succession and its two end features; the caller links the
 // OwningMembership into the member order the grammar states.
 func (e *encoder) transitionSuccession(subject rdf.Term, n *ast.TransitionMember, owner string) (rdf.Term, rdf.Term, error) {
-	succession := e.ids.minted(rdf.IRI(subject.Value+"_succession"), subject, "_succession")
+	succession := e.ids.minted(rdf.IRI(subject.Value+transitionSuccessionSuffix), subject, transitionSuccessionSuffix)
 	membership := e.ids.minted(rdf.OwningMembershipIRIOf(succession), succession, rdf.OwningMembershipSuffix)
 	e.typed(succession, mSuccession)
 	e.graph.Add(succession, e.sysml(pElementID), rdf.String(rdf.LocalName(succession.Value)))
@@ -2054,7 +2108,7 @@ func (d *decoder) transitionText(el *element, annotations []string, depth int) (
 		return "", "", err
 	}
 	if syntax == targetTransitionSyntax {
-		return d.targetTransitionText(el, triggerWords, guard, target)
+		return d.targetTransitionText(el, triggerWords, guard, target, annotations, depth)
 	}
 	if guard != "" {
 		words = append(words, "if", guard)
