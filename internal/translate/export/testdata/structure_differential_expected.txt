@@ -79,9 +79,9 @@ root examples: models 56, skipped 0, matched 30867, unmatched 16661
   OwningMembership::ownedMemberShortName: equal 12436, different 0, symbol-missing 0, symbol-extra 96
   Relationship::ownedRelatedElement: equal 18341, different 102, symbol-missing 0, symbol-extra 0
   Relationship::owningRelatedElement: equal 18381, different 62, symbol-missing 0, symbol-extra 0
-  Relationship::relatedElement: equal 18017, different 119, symbol-missing 300, symbol-extra 7
-  Relationship::source: equal 18137, different 82, symbol-missing 224, symbol-extra 0
-  Relationship::target: equal 18067, different 69, symbol-missing 300, symbol-extra 7
+  Relationship::relatedElement: equal 18034, different 102, symbol-missing 300, symbol-extra 7
+  Relationship::source: equal 18154, different 65, symbol-missing 224, symbol-extra 0
+  Relationship::target: equal 18084, different 52, symbol-missing 300, symbol-extra 7
   RequirementDefinition::text: equal 23, different 0, symbol-missing 37, symbol-extra 0
   RequirementUsage::actorParameter: equal 139, different 0, symbol-missing 0, symbol-extra 8
   RequirementUsage::stakeholderParameter: equal 139, different 0, symbol-missing 0, symbol-extra 8
@@ -172,9 +172,9 @@ root tests/testdata: models 40, skipped 0, matched 1514, unmatched 557
   PartUsage::partDefinition: equal 40, different 0, symbol-missing 0, symbol-extra 1
   Relationship::ownedRelatedElement: equal 838, different 11, symbol-missing 0, symbol-extra 0
   Relationship::owningRelatedElement: equal 843, different 6, symbol-missing 0, symbol-extra 0
-  Relationship::relatedElement: equal 821, different 17, symbol-missing 4, symbol-extra 7
-  Relationship::source: equal 835, different 10, symbol-missing 4, symbol-extra 0
-  Relationship::target: equal 827, different 11, symbol-missing 4, symbol-extra 7
+  Relationship::relatedElement: equal 824, different 14, symbol-missing 4, symbol-extra 7
+  Relationship::source: equal 838, different 7, symbol-missing 4, symbol-extra 0
+  Relationship::target: equal 830, different 8, symbol-missing 4, symbol-extra 7
   Specialization::owningType: equal 148, different 3, symbol-missing 0, symbol-extra 0
   Step::behavior: equal 153, different 0, symbol-missing 0, symbol-extra 1
   Step::parameter: equal 151, different 3, symbol-missing 0, symbol-extra 0
@@ -279,9 +279,9 @@ root examples/sysml-v2-training: models 100, skipped 0, matched 7710, unmatched 
   OwningMembership::ownedMemberShortName: equal 3033, different 0, symbol-missing 0, symbol-extra 69
   Relationship::ownedRelatedElement: equal 4612, different 33, symbol-missing 0, symbol-extra 0
   Relationship::owningRelatedElement: equal 4599, different 46, symbol-missing 0, symbol-extra 0
-  Relationship::relatedElement: equal 4496, different 77, symbol-missing 72, symbol-extra 0
-  Relationship::source: equal 4533, different 53, symbol-missing 59, symbol-extra 0
-  Relationship::target: equal 4542, different 31, symbol-missing 72, symbol-extra 0
+  Relationship::relatedElement: equal 4503, different 70, symbol-missing 72, symbol-extra 0
+  Relationship::source: equal 4540, different 46, symbol-missing 59, symbol-extra 0
+  Relationship::target: equal 4549, different 24, symbol-missing 72, symbol-extra 0
   RequirementDefinition::text: equal 0, different 0, symbol-missing 4, symbol-extra 0
   RequirementUsage::actorParameter: equal 21, different 0, symbol-missing 0, symbol-extra 1
   RequirementUsage::stakeholderParameter: equal 21, different 0, symbol-missing 0, symbol-extra 1
@@ -418,9 +418,9 @@ root examples/pilot-corpora: models 213, skipped 0, matched 45988, unmatched 150
   ReferenceSubsetting::referencingFeature: equal 838, different 0, symbol-missing 5, symbol-extra 0
   Relationship::ownedRelatedElement: equal 27498, different 218, symbol-missing 0, symbol-extra 0
   Relationship::owningRelatedElement: equal 27580, different 136, symbol-missing 0, symbol-extra 0
-  Relationship::relatedElement: equal 27060, different 397, symbol-missing 250, symbol-extra 9
-  Relationship::source: equal 27297, different 238, symbol-missing 181, symbol-extra 0
-  Relationship::target: equal 27184, different 273, symbol-missing 250, symbol-extra 9
+  Relationship::relatedElement: equal 27105, different 352, symbol-missing 250, symbol-extra 9
+  Relationship::source: equal 27342, different 193, symbol-missing 181, symbol-extra 0
+  Relationship::target: equal 27229, different 228, symbol-missing 250, symbol-extra 9
   RequirementDefinition::text: equal 20, different 0, symbol-missing 21, symbol-extra 0
   RequirementUsage::actorParameter: equal 176, different 0, symbol-missing 1, symbol-extra 8
   RequirementUsage::requirementDefinition: equal 184, different 0, symbol-missing 1, symbol-extra 0
@@ -573,9 +573,9 @@ root examples/spec-examples: models 473, skipped 38, matched 7899, unmatched 364
   ReferenceSubsetting::referencingFeature: equal 195, different 0, symbol-missing 9, symbol-extra 0
   Relationship::ownedRelatedElement: equal 4654, different 46, symbol-missing 0, symbol-extra 0
   Relationship::owningRelatedElement: equal 4678, different 22, symbol-missing 0, symbol-extra 0
-  Relationship::relatedElement: equal 4549, different 75, symbol-missing 67, symbol-extra 9
-  Relationship::source: equal 4607, different 54, symbol-missing 39, symbol-extra 0
-  Relationship::target: equal 4568, different 56, symbol-missing 67, symbol-extra 9
+  Relationship::relatedElement: equal 4569, different 55, symbol-missing 67, symbol-extra 9
+  Relationship::source: equal 4627, different 34, symbol-missing 39, symbol-extra 0
+  Relationship::target: equal 4588, different 36, symbol-missing 67, symbol-extra 9
   RequirementDefinition::actorParameter: equal 10, different 0, symbol-missing 0, symbol-extra 6
   RequirementDefinition::stakeholderParameter: equal 10, different 0, symbol-missing 0, symbol-extra 6
   RequirementDefinition::subjectParameter: equal 10, different 0, symbol-missing 0, symbol-extra 6
