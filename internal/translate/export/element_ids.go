@@ -202,6 +202,7 @@ func (ids *ElementIDs) recordConnectorEnds(e *encoder, node ast.Node, subject rd
 
 // recordSuccessionEnds records the two ends a `then` succession's conversion mints at end0/end1
 // under the edge (encodeSuccessionEdge), each with the EndFeatureMembership minted beside it.
+
 // recordTransitionSuccession files the succession a transition owns (transitionSuccession) under the
 // transition's node at the slot "succession", so the query leg reads the ids the conversion writes.
 func (ids *ElementIDs) recordTransitionSuccession(e *encoder, node ast.Node, subject rdf.Term) {
