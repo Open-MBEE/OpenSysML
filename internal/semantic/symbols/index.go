@@ -1878,6 +1878,31 @@ func (idx *Index) FQNsEndingIn(name string, limit int) []string {
 	return slices.Clone(out)
 }
 
+// DeclaredFQNsEndingIn is FQNsEndingIn kept to the namespaces that declare the
+// symbol, by its name or short name, leaving out what an import only re-exports.
+func (idx *Index) DeclaredFQNsEndingIn(name string, limit int) []string {
+	idx.readAllNames()
+	if name == "" || limit <= 0 {
+		return nil
+	}
+	var out []string
+	for _, fqn := range idx.segmentNames(name) {
+		prefix, _ := splitFQN(fqn)
+		for _, sym := range idx.fqn.at(fqn) {
+			if declared, ok := idx.declaredAt.get(sym); ok {
+				if owner, _ := splitFQN(declared); owner == prefix {
+					out = append(out, fqn)
+					break
+				}
+			}
+		}
+		if len(out) == limit {
+			break
+		}
+	}
+	return out
+}
+
 // WildcardImportsOf returns the wildcard-import targets recorded for the
 // namespace registered under fqn ("" for a document root), over the documents
 // declaring it in name order.

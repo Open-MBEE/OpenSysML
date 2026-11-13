@@ -330,7 +330,7 @@ func (r *Resolver) unresolvedNamespace(scope *symbols.Scope, qn *ast.QualifiedNa
 	msg := "unresolved reference: " + qnText(qn)
 	if r.idx != nil && len(qn.Parts) > 1 {
 		last := qn.Parts[len(qn.Parts)-1].Text
-		if cands := r.idx.FQNsEndingIn(last, 3); len(cands) > 0 {
+		if cands := r.idx.DeclaredFQNsEndingIn(last, 3); len(cands) > 0 {
 			msg += fmt.Sprintf(" (no namespace %q is loaded; %q is declared as %s)",
 				ns, last, strings.Join(cands, ", "))
 		}
