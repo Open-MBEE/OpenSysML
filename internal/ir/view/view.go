@@ -727,7 +727,7 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn, query bool) (*Rend
 		return nil, &UnsupportedKindError{Kind: kind, View: r.notationName(view), Stated: stated}
 	}
 	foldCollapsed(out)
-	out.noteRepeatedExpansions()
+	out.finishExpansionFold()
 	r.noteDepthCuts(view, out)
 	if out.Empty() && out.emptyReason == "" {
 		out.emptyReason = r.exposureReason(view, exposed, out)
@@ -778,7 +778,7 @@ func (r *Renderer) RenderExposed(exposed []*symbols.Symbol, kind Kind, stated st
 		return nil, &UnsupportedKindError{Kind: kind, Stated: stated, Remedy: remedyFor(kind)}
 	}
 	foldCollapsed(out)
-	out.noteRepeatedExpansions()
+	out.finishExpansionFold()
 	r.noteDepthCuts(nil, out)
 	if out.Empty() && out.emptyReason == "" {
 		out.emptyReason = exposedReason(exposed, out)

@@ -308,10 +308,12 @@ func (f *expansionFold) note(out *Rendering, sym *symbols.Symbol, node *Node, re
 	out.foldedOccurrences++
 }
 
-func (r *Rendering) noteRepeatedExpansions() {
+func (r *Rendering) finishExpansionFold() {
 	if r.foldedOccurrences > 0 {
 		r.ExpansionFoldNotice = fmt.Sprintf("Repeated definition expansions folded: %d later occurrences of %d definitions. Each definition's features are shown at an earlier occurrence expanded at least as deeply; later occurrences retain their own and redefined features.", r.foldedOccurrences, len(r.foldedDefinitions))
 	}
+	r.expansionPlans = nil
+	r.foldedDefinitions = nil
 }
 
 func (r *Rendering) notices() []string {

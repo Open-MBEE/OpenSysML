@@ -42,8 +42,8 @@ func TestRepeatedExpansionFoldKeepsProtectedMembers(t *testing.T) {
 			if !reflect.DeepEqual(got.Drawn(), query) {
 				t.Fatal("fold changed drawn set")
 			}
-			if got.foldedOccurrences != 2 || len(got.foldedDefinitions) != 1 {
-				t.Fatalf("fold count=%d definitions=%d; want 2,1", got.foldedOccurrences, len(got.foldedDefinitions))
+			if got.foldedOccurrences != 2 {
+				t.Fatalf("fold count=%d; want 2", got.foldedOccurrences)
 			}
 			wantNotice := "Repeated definition expansions folded: 2 later occurrences of 1 definitions. Each definition's features are shown at an earlier occurrence expanded at least as deeply; later occurrences retain their own and redefined features."
 			if got.ExpansionFoldNotice != wantNotice {

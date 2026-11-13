@@ -52,7 +52,7 @@ func TestRepeatedExpansionFold(t *testing.T) {
 			t.Fatalf("%s lost the fold notice or occurrence note:\n%s", form, first)
 		}
 	}
-	t.Logf("nodes=%d folds=%d definitions=%d", len(everyNode(got.Roots)), got.foldedOccurrences, len(got.foldedDefinitions))
+	t.Logf("nodes=%d folds=%d", len(everyNode(got.Roots)), got.foldedOccurrences)
 }
 
 func TestRepeatedExpansionFoldFixtureDrawnParity(t *testing.T) {
@@ -98,7 +98,13 @@ func TestRepeatedExpansionFoldBelowThreshold(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if baseline.expansionPlans[v].total != 23 || baseline.expansionFolding {
+		exposed, err := r.model.ExposedElements(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+		measured := &Rendering{}
+		r.prepareExpansionFold(v, exposed, measured, baseline.Kind)
+		if measured.expansionPlans[v].total != 23 || measured.expansionFolding || baseline.expansionFolding {
 			t.Fatal("wrong unfolded count or fold below threshold")
 		}
 		r.expansionFoldThreshold = 23
