@@ -32,9 +32,9 @@ digraph "GeneralViews::requirementView" {
     { rank=max; "frame_bl" [shape=none, margin=0, label=<<font point-size="10">filter @SysML::RequirementDefinition or @SysML::RequirementUsage</font>>]; }
   }
   "n2" -> "n1" [arrowhead=empty, URL="https://example.test/src/general.sysml#L42", tooltip="VehicleRequirements::EmergencyStopRequirement"];
-  "n3" -> "n0" [arrowhead=onormaldotdot, URL="https://example.test/src/general.sysml#L44", tooltip="VehicleRequirements::vehicleMass"];
-  "n4" -> "n0" [arrowhead=onormaldotdot, URL="https://example.test/src/general.sysml#L47", tooltip="VehicleRequirements::chassisMass"];
-  "n5" -> "n2" [arrowhead=onormaldotdot, URL="https://example.test/src/general.sysml#L48", tooltip="VehicleRequirements::emergencyStop"];
+  "n3" -> "n0" [arrowhead=empty, class=definition, URL="https://example.test/src/general.sysml#L44", tooltip="VehicleRequirements::vehicleMass"];
+  "n4" -> "n0" [arrowhead=empty, class=definition, URL="https://example.test/src/general.sysml#L47", tooltip="VehicleRequirements::chassisMass"];
+  "n5" -> "n2" [arrowhead=empty, class=definition, URL="https://example.test/src/general.sysml#L48", tooltip="VehicleRequirements::emergencyStop"];
   "n4" -> "n3" [label="«derive»", arrowhead=vee, style=dashed, URL="https://example.test/src/general.sysml#L50", tooltip="general.sysml:50:2"];
   "n6" -> "n4" [label="«refine»", arrowhead=vee, style=dashed, URL="https://example.test/src/general.sysml#L54", tooltip="general.sysml:54:2"];
   "n7" -> "n3" [label="«satisfy»", arrowhead=vee, URL="https://example.test/src/general.sysml#L56", tooltip="general.sysml:56:2"];
