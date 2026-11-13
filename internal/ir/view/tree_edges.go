@@ -305,7 +305,7 @@ func (g *treeGraph) drawAssociationDot(node *Node, site treeSite, line associati
 // with an end type the tree does not draw stays a box.
 func (g *treeGraph) associationLine(node *Node, site treeSite) (line association, ok bool) {
 	def := site.sym
-	if def == nil || def.Kind != symbols.SymbolConnectionDef || g.nodes[symbols.KeyOf(def)] != node {
+	if !associationDefinition(def) || g.nodes[symbols.KeyOf(def)] != node {
 		return line, false
 	}
 	line.ends = g.r.model.EndFeatures(def)

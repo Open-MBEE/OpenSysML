@@ -52,7 +52,29 @@
   },
   "jupyterlab": {
     "extension": true,
-    "outputDir": "../../client/jupyter-kernel/labextension"
+    "outputDir": "../../client/jupyter-kernel/labextension",
+    "sharedPackages": {
+      "@codemirror/language": {
+        "bundled": false,
+        "singleton": true,
+        "requiredVersion": "^6.0.0"
+      },
+      "@codemirror/state": {
+        "bundled": false,
+        "singleton": true,
+        "requiredVersion": "^6.0.0"
+      },
+      "@jupyterlab/application": {
+        "bundled": false,
+        "singleton": true,
+        "requiredVersion": "^4.0.0"
+      },
+      "@jupyterlab/codemirror": {
+        "bundled": false,
+        "singleton": true,
+        "requiredVersion": "^4.0.0"
+      }
+    }
   },
   "overrides": {
     "sanitize-html": "^2.18.1",

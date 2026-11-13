@@ -11,9 +11,9 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 221,
+      "presentEqual": 222,
       "presentDifferent": 0,
-      "oursMissing": 72,
+      "oursMissing": 71,
       "pilotMissing": 11,
       "absentBoth": 272,
       "indeterminate": 2,
@@ -259,7 +259,7 @@
     "RequirementUsage.isModelLevelEvaluable": [0,0,2,0,0,0,0],
     "RequirementUsage.isOrdered": [2,0,0,0,0,0,0],
     "RequirementUsage.isPortion": [2,0,0,0,0,0,0],
-    "RequirementUsage.isReference": [1,0,1,0,0,0,0],
+    "RequirementUsage.isReference": [2,0,0,0,0,0,0],
     "RequirementUsage.isSufficient": [2,0,0,0,0,0,0],
     "RequirementUsage.isUnique": [2,0,0,0,0,0,0],
     "RequirementUsage.isVariable": [2,0,0,0,0,0,0],

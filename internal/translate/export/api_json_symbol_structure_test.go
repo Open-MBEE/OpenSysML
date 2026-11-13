@@ -502,6 +502,12 @@ func (d *structureDifferential) computeGraphID(sym *symbols.Symbol) (string, boo
 			return element, ok
 		}
 	}
+	if i, ok := symbols.ImpliedSuccessionEndIndex(sym); ok {
+		// A `then` succession's end is minted under the edge at end0/end1 (encodeSuccessionEdge).
+		implied, _ := symbols.ImpliedDeclOf(sym)
+		element, _, ok := d.ids.OfExpressionPart(d.doc, implied.Of, fmt.Sprintf("end%d", i))
+		return element, ok
+	}
 	if implied, ok := symbols.ImpliedDeclOf(sym); ok && implied.Form == symbols.ImpliedDefaultMultiplicity {
 		if element, _, ok := d.ids.OfExpressionPart(d.doc, implied.Of, "multiplicity"); ok {
 			return element, true
@@ -568,6 +574,11 @@ func (d *structureDifferential) implicitGraphID(rel *symbols.ImplicitRelationshi
 			return "", false
 		}
 		return d.expressionPartID(rel.Owner, rel.Slot)
+	case symbols.ImplicitSuccessionEndReference:
+		if rel.Owner == nil {
+			return "", false
+		}
+		return d.expressionPartID(rel.Owner, "rs")
 	}
 	return "", false
 }

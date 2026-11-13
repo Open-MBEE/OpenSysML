@@ -84,17 +84,10 @@ func (s *Session) Complete(line string, pos int) Completion {
 				kinds = append(kinds, string(kind))
 			}
 			return completion(word, matchingPrefix(kinds, word))
-		case 2:
-			return completion(word, matchingPrefix([]string{"text", "mermaid", "plantuml", "svg", "svg-animated", "dot", "link="}, word))
-		case 3:
-			args := typedArgs(head)
-			options := []string{"link="}
-			if len(args) > 2 && strings.HasPrefix(args[2], "link=") {
-				options = []string{"text", "mermaid", "plantuml", "svg", "svg-animated", "dot"}
-			}
-			return completion(word, matchingPrefix(options, word))
+		case 2, 3, 4:
+			return completion(word, matchingPrefix(runRenderOptions(typedArgs(head)[2:index]), word))
 		default:
-			if index > 3 {
+			if index > 4 {
 				return completion(word, nil)
 			}
 		}
@@ -812,4 +805,25 @@ func prefixed(option string, values []string) []string {
 		out[i] = option + value
 	}
 	return out
+}
+
+// runRenderOptions is what %render-run still takes after the arguments given
+// following its kind: a form, link= and limit= each once.
+func runRenderOptions(given []string) []string {
+	options := []string{"link=", "limit="}
+	form := true
+	for _, arg := range given {
+		switch {
+		case strings.HasPrefix(arg, "link="):
+			options = slices.DeleteFunc(options, func(o string) bool { return o == "link=" })
+		case strings.HasPrefix(arg, "limit="):
+			options = slices.DeleteFunc(options, func(o string) bool { return o == "limit=" })
+		default:
+			form = false
+		}
+	}
+	if form {
+		options = append(options, "text", "mermaid", "plantuml", "svg", "svg-animated", "dot")
+	}
+	return options
 }

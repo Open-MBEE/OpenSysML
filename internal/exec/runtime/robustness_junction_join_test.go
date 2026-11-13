@@ -209,7 +209,7 @@ func TestRuntimeRobustnessJunctionJoin(t *testing.T) {
 		if sync == nil {
 			t.Fatal("sync join not found")
 		}
-		if got := len(exec.joinArrived[sync]); got != 1 {
+		if got := len(exec.joinArrived[exec.pseudoID(sync)]); got != 1 {
 			t.Fatalf("sync arrivals after first timer expiry = %d, want 1", got)
 		}
 		activeSources := 0

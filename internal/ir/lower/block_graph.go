@@ -159,6 +159,7 @@ func lowerStatedBlock(owner ast.Node, members []ast.Node, scope *symbols.Scope, 
 	if err != nil {
 		if graph == nil {
 			graph = newActionGraph(scope)
+			graph.assignIDs()
 		}
 		graph.Invalid = err
 		StartFlow(graph)
@@ -228,6 +229,7 @@ func lowerBlockFlowWith(members []ast.Node, scope *symbols.Scope, resolver *reso
 		graph.Edges[graph.Nodes[i]] = []ActionEdge{{Source: graph.Nodes[i], Target: graph.Nodes[i+1], DeclaredOrder: true}}
 	}
 	recordBlockNodes(graph)
+	graph.assignIDs()
 	return graph
 }
 

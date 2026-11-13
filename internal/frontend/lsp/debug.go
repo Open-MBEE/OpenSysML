@@ -1363,10 +1363,11 @@ func (sess *debugSession) machineSnapshot(snap *debugSnapshot) {
 	for _, f := range exec.FiredSince(sess.fired) {
 		var index int
 		var ok bool
-		if f.Source == nil {
-			index, ok = sess.states.EntryTransition(f.Decl, f.Owner, f.Target)
+		decl, source, target, owner := exec.FiredNodes(f)
+		if !f.Entry.IsZero() {
+			index, ok = sess.states.EntryTransition(decl, owner, target)
 		} else {
-			index, ok = sess.states.Transition(f.Decl, f.Source, f.Target)
+			index, ok = sess.states.Transition(decl, source, target)
 		}
 		if ok {
 			snap.Taken = append(snap.Taken, sess.edgeAt(index))
