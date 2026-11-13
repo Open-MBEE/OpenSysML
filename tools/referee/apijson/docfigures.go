@@ -27,8 +27,8 @@ const (
 
 // bucketColumns maps a figure column's heading to its index in a scorecard row.
 var bucketColumns = map[string]int{
-	"present-equal": 0, "present-different": 1, "ours-missing": 2, "pilot-missing": 3,
-	"absent-both": 4, "indeterminate": 5, "pilot-nondeterministic": 6,
+	bucketPresentEqual: 0, bucketPresentDifferent: 1, bucketOursMissing: 2, bucketPilotMissing: 3,
+	bucketAbsentBoth: 4, bucketIndeterminate: 5, bucketPilotNondeterministic: 6,
 }
 
 // tableBlock is a keyed table: committed rows carry the key and the written
@@ -41,9 +41,9 @@ type tableBlock struct {
 }
 
 var tableBlocks = []tableBlock{
-	{name: presentDifferentBlock, written: []string{"metaclass", "property"}, figures: []string{"present-equal", "present-different"}},
-	{name: pilotMissingBlock, written: []string{"metaclass", "property", "clause"}, figures: []string{"pilot-missing"}},
-	{name: launchReadyBlock, written: []string{"metaclass", "property", "in-flight overlap", "derivation clause"}, figures: []string{"ours-missing", "present-different"}, ranked: "ours-missing"},
+	{name: presentDifferentBlock, written: []string{"metaclass", "property"}, figures: []string{bucketPresentEqual, bucketPresentDifferent}},
+	{name: pilotMissingBlock, written: []string{"metaclass", "property", "clause"}, figures: []string{bucketPilotMissing}},
+	{name: launchReadyBlock, written: []string{"metaclass", "property", "in-flight overlap", "derivation clause"}, figures: []string{bucketOursMissing, bucketPresentDifferent}, ranked: bucketOursMissing},
 }
 
 var (

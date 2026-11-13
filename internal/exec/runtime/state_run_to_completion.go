@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -18,21 +19,21 @@ func (e *StateExecutor) HoldsEntry() bool { return len(e.held) > 0 }
 // heldEntry is the unfinished portion of a state entry cascade.
 type heldEntry struct {
 	// owner is the composite body whose entry is paused.
-	owner *ast.StateNode
+	owner program.StateID
 	// regions are orthogonal regions still awaiting entry.
-	regions []*ast.StateRegion
+	regions []program.RegionID
 	// branches maps each held region to its selected branch.
-	branches map[*ast.StateRegion]*ast.StateNode
+	branches map[program.RegionID]program.StateID
 	// chain lists states entered by this cascade, outermost first.
-	chain []*ast.StateNode
+	chain []program.StateID
 	// scopes are the RTC scopes guarding dispatch while this cascade is held.
-	scopes []*ast.StateNode
+	scopes []program.StateID
 	// machine reports that the machine body is part of this cascade.
 	machine bool
 	// firing is the transition whose entry the cascade is, with the payload it
 	// bound; the entries and do behaviors performed on resumption read it.
 	firing       *firing
-	routeEffects map[*ast.StateRegion][]routeEffect
+	routeEffects map[program.RegionID][]routeEffect
 	// awaits is the owner's entry behavior parked for a message, after whose end the
 	// cascade goes on below the owner; nil for one paused at a run-to-completion boundary.
 	awaits *doAction
@@ -59,7 +60,7 @@ func (e *StateExecutor) readyHeld() []heldEntry {
 // for a message, its body yet to be entered.
 func (e *StateExecutor) entryParked(state *ast.StateNode) bool {
 	for _, item := range e.held {
-		if item.awaits != nil && item.owner == state {
+		if item.awaits != nil && item.owner == e.stateID(state) {
 			return true
 		}
 	}
@@ -70,8 +71,8 @@ func (e *StateExecutor) entryParked(state *ast.StateNode) bool {
 // is parked for a message; resumeParkedEntries enters owner's body after its end.
 func (e *StateExecutor) holdParkedEntry(owner *ast.StateNode, act *doAction, regions []*ast.StateRegion, branches map[*ast.StateRegion]*ast.StateNode) {
 	e.held = append(e.held, heldEntry{
-		owner: owner, regions: regions, branches: branches,
-		chain: e.enteringChain(owner), scopes: []*ast.StateNode{owner}, machine: owner == nil && e.enteringMachine,
+		owner: e.stateID(owner), regions: e.regionIDs(regions), branches: e.regionStateIDs(branches),
+		chain: e.stateIDs(e.enteringChain(owner)), scopes: []program.StateID{e.stateID(owner)}, machine: owner == nil && e.enteringMachine,
 		firing: e.currentFiring(), routeEffects: cloneRouteEntryEffects(e.pendingRouteEntryEffects),
 		awaits: act,
 	})
@@ -139,7 +140,7 @@ func (e *StateExecutor) enteringChain(owner *ast.StateNode) []*ast.StateNode {
 	}
 	var chain []*ast.StateNode
 	for _, state := range e.rootToLeaf(owner) {
-		if e.entering[state] {
+		if e.entering[e.stateID(state)] {
 			chain = append(chain, state)
 		}
 	}
@@ -153,7 +154,7 @@ func (e *StateExecutor) holdEntry(owner *ast.StateNode, regions []*ast.StateRegi
 	if !machine && len(chain) == 0 {
 		return false, nil
 	}
-	if owner != nil && e.activeAtEntry[owner] && e.entering[owner] {
+	if owner != nil && e.activeAtEntry[e.stateID(owner)] && e.entering[e.stateID(owner)] {
 		return false, nil
 	}
 	members := slices.Clone(chain)
@@ -177,8 +178,8 @@ func (e *StateExecutor) holdEntry(owner *ast.StateNode, regions []*ast.StateRegi
 		}
 	}
 	e.held = append(e.held, heldEntry{
-		owner: owner, regions: regions, branches: branches,
-		chain: chain, scopes: scopes, machine: machine,
+		owner: e.stateID(owner), regions: e.regionIDs(regions), branches: e.regionStateIDs(branches),
+		chain: e.stateIDs(chain), scopes: e.stateIDs(scopes), machine: machine,
 		firing: e.currentFiring(), routeEffects: cloneRouteEntryEffects(e.pendingRouteEntryEffects),
 	})
 	return true, nil
@@ -186,7 +187,7 @@ func (e *StateExecutor) holdEntry(owner *ast.StateNode, regions []*ast.StateRegi
 
 func (e *StateExecutor) heldOwner(state *ast.StateNode) *heldEntry {
 	for i := range e.held {
-		if e.held[i].owner == state {
+		if e.held[i].owner == e.stateID(state) {
 			return &e.held[i]
 		}
 	}
@@ -204,13 +205,14 @@ func (e *StateExecutor) performHeld(item heldEntry) (err error) {
 		e.entering[state] = true
 	}
 	e.enteringMachine = item.machine
-	begun := append(slices.Clone(item.chain), item.owner)
+	owner := e.stateDecl(item.owner)
+	begun := append(e.stateDecls(item.chain), owner)
 	if item.machine {
 		begun = append(begun, e.graph.Machine)
 	}
 	e.resumeEntering(begun)
 	defer e.unfireOnError(len(e.fired), &err)
-	if item.owner == nil && item.awaits != nil {
+	if owner == nil && item.awaits != nil {
 		// The machine's own entry was parked: its body starts now.
 		if len(e.graph.TopRegions) == 0 {
 			return e.enterMachineStart()
@@ -219,14 +221,14 @@ func (e *StateExecutor) performHeld(item heldEntry) (err error) {
 	}
 	if item.regions != nil {
 		if e.activeConfig.simpleState == item.owner {
-			e.activeConfig.simpleState = nil
+			e.activeConfig.simpleState = 0
 		}
-		if err = e.enterRegionsInto(item.owner, item.regions, item.branches); err == nil {
-			err = e.settleEntered(item.owner)
+		if err = e.enterRegionsInto(owner, e.regionDecls(item.regions), e.regionStateDecls(item.branches)); err == nil {
+			err = e.settleEntered(owner)
 		}
 	} else {
 		var leaf *ast.StateNode
-		leaf, err = e.enterStartOf(item.owner)
+		leaf, err = e.enterStartOf(owner)
 		if err == nil && e.state != StateTerminated {
 			err = e.settleEntered(leaf)
 		}
@@ -263,9 +265,9 @@ func (e *StateExecutor) settleEntered(leaf *ast.StateNode) error {
 		e.setRegionState(region, state)
 	}
 	if len(onPath) == 0 && len(e.activeConfig.regionStates) == 0 {
-		e.activeConfig.simpleState = leaf
+		e.setSimpleState(leaf)
 	}
-	e.stateStack = e.rootToLeaf(leaf)
+	e.stateStack = e.stateIDs(e.rootToLeaf(leaf))
 	if err := e.scheduleTransitionEvents(); err != nil {
 		return fmt.Errorf("schedule events: %w", err)
 	}
@@ -290,7 +292,7 @@ func (e *StateExecutor) entryStep(progress *dueProgress) (bool, error) {
 		fps = append(fps, dispatchFootprint(e))
 	}
 	for _, item := range ready {
-		alternatives = append(alternatives, e.entryLabel(item.owner))
+		alternatives = append(alternatives, e.entryLabel(e.stateDecl(item.owner)))
 		fps = append(fps, e.heldEntryFootprint(item))
 	}
 	if len(alternatives) == 1 {
@@ -342,7 +344,7 @@ func (e *StateExecutor) takeHeld(item heldEntry) heldEntry {
 func (e *StateExecutor) heldScopes() []*ast.StateNode {
 	var scopes []*ast.StateNode
 	for _, item := range e.held {
-		scopes = append(scopes, item.scopes...)
+		scopes = append(scopes, e.stateDecls(item.scopes)...)
 	}
 	return scopes
 }
@@ -434,7 +436,7 @@ func (e *StateExecutor) eventHeld(scopes []*ast.StateNode, event Event) (bool, e
 	}
 	for _, candidate := range candidates {
 		for _, index := range candidate.enabled {
-			if scopeContains(e.graph, scopes, e.graph.Transitions[candidate.source][index].Owner) {
+			if scopeContains(e.graph, scopes, e.graph.Transitions[e.stateDecl(candidate.source)][index].Owner) {
 				return true, nil
 			}
 		}

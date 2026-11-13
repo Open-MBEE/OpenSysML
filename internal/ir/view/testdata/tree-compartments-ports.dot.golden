@@ -25,5 +25,5 @@ digraph "CompartmentDemoViews::hub" {
   "n0" -> "n1" [dir=back, arrowtail=odiamond];
   "n0" -> "n12" [dir=back, arrowtail=diamond];
   "n0" -> "n13" [dir=back, arrowtail=diamond];
-  "n12" -> "n15" [arrowhead=onormaldotdot];
+  "n12" -> "n15" [arrowhead=empty, class=definition];
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
 	"github.com/Open-MBEE/OpenSysML/tests/stressmodel"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/corpussubset"
 )
 
 // A workspace edited incrementally (scripted and seeded random edits, reverts, closes,
@@ -355,16 +356,22 @@ func fixtureSets(t *testing.T) map[string]map[string][]byte {
 	if err != nil {
 		t.Fatal(err)
 	}
+	subset := corpussubset.Must(t, "../..")
 	for _, e := range entries {
 		path := filepath.Join("../../examples", e.Name())
 		switch {
 		case e.Name() == "sysml-v2-training" || e.Name() == "pilot-corpora" || e.Name() == "spec-examples":
 			continue
 		case e.IsDir():
-			for _, f := range modelFiles(t, path) {
+			// A demo directory is one model: it is replayed whole when any file is listed.
+			files := modelFiles(t, path)
+			if !subset.WantsAny("../../examples", joinAll(path, files)) {
+				continue
+			}
+			for _, f := range files {
 				add("examples/"+e.Name(), filepath.ToSlash(f), filepath.Join(path, f))
 			}
-		case model.IsModelSource(e.Name()):
+		case model.IsModelSource(e.Name()) && subset.WantsPath("../../examples", path):
 			add("examples", e.Name(), path)
 		}
 	}
@@ -387,6 +394,15 @@ func fixtureSets(t *testing.T) map[string]map[string][]byte {
 		"ops.sysml":    []byte("package Ops { private import SatelliteNetwork::Constellation::*; part spare : Sat0; }"),
 	}
 	return sets
+}
+
+// joinAll joins dir to each of rel.
+func joinAll(dir string, rel []string) []string {
+	out := make([]string, len(rel))
+	for i, r := range rel {
+		out[i] = filepath.Join(dir, r)
+	}
+	return out
 }
 
 // modelFiles lists the model files under dir, relative to it and sorted.
@@ -465,8 +481,12 @@ func TestIncrementalEqualsFreshCorpora(t *testing.T) {
 				}
 				t.Skipf("%s not downloaded (run %s)", root.dir, root.fetch)
 			}
+			subset := corpussubset.Must(t, "../..")
 			files := map[string][]byte{}
 			for _, f := range modelFiles(t, root.dir) {
+				if !subset.WantsPath("../../examples", filepath.Join(root.dir, f)) {
+					continue
+				}
 				content, err := os.ReadFile(filepath.Join(root.dir, f))
 				if err != nil {
 					t.Fatal(err)

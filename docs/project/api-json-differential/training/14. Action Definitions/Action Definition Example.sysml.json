@@ -12,9 +12,9 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 680,
+      "presentEqual": 684,
       "presentDifferent": 24,
-      "oursMissing": 6,
+      "oursMissing": 2,
       "pilotMissing": 30,
       "absentBoth": 744,
       "indeterminate": 40,
@@ -320,7 +320,7 @@
     "ReferenceUsage.isLibraryElement": [4,0,0,0,0,0,0],
     "ReferenceUsage.isOrdered": [4,0,0,0,0,0,0],
     "ReferenceUsage.isPortion": [4,0,0,0,0,0,0],
-    "ReferenceUsage.isReference": [0,0,4,0,0,0,0],
+    "ReferenceUsage.isReference": [4,0,0,0,0,0,0],
     "ReferenceUsage.isSufficient": [4,0,0,0,0,0,0],
     "ReferenceUsage.isUnique": [4,0,0,0,0,0,0],
     "ReferenceUsage.isVariable": [4,0,0,0,0,0,0],

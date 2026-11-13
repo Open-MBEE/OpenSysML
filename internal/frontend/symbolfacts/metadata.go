@@ -17,30 +17,7 @@ func extractMetadata(sym *symbols.Symbol, meta map[string]string) {
 	}
 	switch decl := sym.Decl.(type) {
 	case *ast.Usage:
-		// Multiplicity
-		if decl.Multiplicity != nil {
-			meta["multiplicity"] = formatMultiplicity(decl.Multiplicity)
-		}
-		// Type (first typing relationship), with the `~` of a conjugated typing
-		for _, rel := range decl.Relationships {
-			if rel.Kind == ast.RelTyping {
-				if qn, ok := rel.Target.(*ast.QualifiedName); ok {
-					meta["type"] = formatQualifiedName(qn)
-					if rel.Conjugated {
-						meta["type"] = "~" + meta["type"]
-					}
-					break
-				}
-			}
-		}
-		// Direction
-		if decl.Direction != ast.DirNone {
-			meta["direction"] = decl.Direction.String()
-		}
-		// Abstract
-		if decl.IsAbstract {
-			meta["abstract"] = "true"
-		}
+		usageMetadata(decl, meta)
 	case *ast.SubjectMember:
 		// A subject written in a requirement body: `subject s : T;`.
 		if decl.Multiplicity != nil {
@@ -55,20 +32,51 @@ func extractMetadata(sym *symbols.Symbol, meta map[string]string) {
 			meta["type"] = formatQualifiedName(decl.Type)
 		}
 	case *ast.Definition:
-		// Abstract
-		if decl.IsAbstract {
-			meta["abstract"] = "true"
-		}
-		// Type (first specializes relationship for definitions)
-		for _, rel := range decl.Relationships {
-			if rel.Kind == ast.RelSpecializes {
-				if qn, ok := rel.Target.(*ast.QualifiedName); ok {
-					meta["specializes"] = formatQualifiedName(qn)
-					break
-				}
-			}
+		definitionMetadata(decl, meta)
+	}
+}
+
+// usageMetadata states a usage's multiplicity, type, direction and abstractness.
+func usageMetadata(decl *ast.Usage, meta map[string]string) {
+	if decl.Multiplicity != nil {
+		meta["multiplicity"] = formatMultiplicity(decl.Multiplicity)
+	}
+	// Type (first typing relationship), with the `~` of a conjugated typing
+	if rel, qn := firstNamedTarget(decl.Relationships, ast.RelTyping); qn != nil {
+		meta["type"] = formatQualifiedName(qn)
+		if rel.Conjugated {
+			meta["type"] = "~" + meta["type"]
 		}
 	}
+	if decl.Direction != ast.DirNone {
+		meta["direction"] = decl.Direction.String()
+	}
+	if decl.IsAbstract {
+		meta["abstract"] = "true"
+	}
+}
+
+// definitionMetadata states a definition's abstractness and its first specialization.
+func definitionMetadata(decl *ast.Definition, meta map[string]string) {
+	if decl.IsAbstract {
+		meta["abstract"] = "true"
+	}
+	if _, qn := firstNamedTarget(decl.Relationships, ast.RelSpecializes); qn != nil {
+		meta["specializes"] = formatQualifiedName(qn)
+	}
+}
+
+// firstNamedTarget is the first relationship of kind whose target is a qualified name.
+func firstNamedTarget(rels []*ast.Relationship, kind ast.RelationshipKind) (*ast.Relationship, *ast.QualifiedName) {
+	for _, rel := range rels {
+		if rel.Kind != kind {
+			continue
+		}
+		if qn, ok := rel.Target.(*ast.QualifiedName); ok {
+			return rel, qn
+		}
+	}
+	return nil, nil
 }
 
 // formatMultiplicity renders Multiplicity as "lower..upper" or "value".

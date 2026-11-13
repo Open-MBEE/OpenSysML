@@ -61,8 +61,9 @@ func (r *Renderer) treeEdges(out *Rendering) map[symbols.ElementKey]*Node {
 	// its owner draws it as inherited: a relationship arrow joins declarations,
 	// not one usage's copy to another's.
 	var index func(node, parent *Node)
+	indexed := map[*Node]bool{}
 	index = func(node, parent *Node) {
-		if parent != nil {
+		if parent != nil && (!out.query || !indexed[node]) {
 			g.parent[node.ID] = parent.ID
 		}
 		parentSite, inElement := out.sites[parent]
@@ -71,6 +72,12 @@ func (r *Renderer) treeEdges(out *Rendering) map[symbols.ElementKey]*Node {
 			if _, drawn := g.nodes[key]; !drawn {
 				g.nodes[key] = node
 			}
+		}
+		if out.query && indexed[node] {
+			return
+		}
+		if out.query {
+			indexed[node] = true
 		}
 		for _, child := range node.Children {
 			index(child, node)
@@ -81,7 +88,14 @@ func (r *Renderer) treeEdges(out *Rendering) map[symbols.ElementKey]*Node {
 	}
 	g.associationLines()
 	var walk func(node *Node)
+	walked := map[*Node]bool{}
 	walk = func(node *Node) {
+		if out.query && walked[node] {
+			return
+		}
+		if out.query {
+			walked[node] = true
+		}
 		if site, ok := out.sites[node]; ok && g.nodes[symbols.KeyOf(site.sym)] == node {
 			g.edgesOf(node, site)
 		}
@@ -155,14 +169,25 @@ func declaredUnder(parent, sym *symbols.Symbol) bool {
 // the name up.
 func (g *treeGraph) associationLines() {
 	var prune func(nodes []*Node) []*Node
+	visited, removed := map[*Node]bool{}, map[*Node]bool{}
 	prune = func(nodes []*Node) []*Node {
 		kept := nodes[:0]
 		for _, node := range nodes {
+			if g.out.query && visited[node] {
+				if !removed[node] {
+					kept = append(kept, node)
+				}
+				continue
+			}
+			if g.out.query {
+				visited[node] = true
+			}
 			site := g.out.sites[node]
 			if line, ok := g.associationLine(node, site); ok && nary(len(line.ends)) {
 				g.drawAssociationDot(node, site, line)
 			} else if ok {
 				g.drawAssociation(node, site, line)
+				removed[node] = true
 				continue
 			}
 			node.Children = prune(node.Children)
@@ -280,7 +305,7 @@ func (g *treeGraph) drawAssociationDot(node *Node, site treeSite, line associati
 // with an end type the tree does not draw stays a box.
 func (g *treeGraph) associationLine(node *Node, site treeSite) (line association, ok bool) {
 	def := site.sym
-	if def == nil || def.Kind != symbols.SymbolConnectionDef || g.nodes[symbols.KeyOf(def)] != node {
+	if !associationDefinition(def) || g.nodes[symbols.KeyOf(def)] != node {
 		return line, false
 	}
 	line.ends = g.r.model.EndFeatures(def)

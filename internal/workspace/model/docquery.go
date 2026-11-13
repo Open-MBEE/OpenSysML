@@ -30,7 +30,7 @@ func (w *Workspace) DocumentDefinitions() []DocumentDefinition {
 	out := []DocumentDefinition{}
 	for name, d := range w.docs {
 		w.queryLocked(name, func(_ *resolve.Resolver, sem *semantics.Model) {
-			walkScope(w.index.DocumentRoot(name), func(sym *symbols.Symbol) {
+			w.index.DocumentRoot(name).WalkDeclarations(func(sym *symbols.Symbol) {
 				if docplan.IsDocumentDefinition(w.index, sem, sym) {
 					out = append(out, DocumentDefinition{
 						FQN:      notationFQN(w.index, sym),

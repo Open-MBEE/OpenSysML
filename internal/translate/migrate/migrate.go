@@ -679,6 +679,8 @@ func (m *migration) add(e *sysmlv1.Element, v Verdict, target, note string) {
 		}
 		if src, clash := m.libraryClash[e]; clash {
 			renamed = writtenAs + n + " since a root package named " + src + " would be hidden by the standard library's " + src
+		} else if e.Parent != nil && e.Parent.Type == "Interaction" && occurrenceNames()[e.Name] {
+			renamed = writtenAs + n + " since an occurrence inherits a member named " + e.Name
 		} else {
 			renamed = writtenAs + n + " since a sibling is also named " + e.Name
 		}

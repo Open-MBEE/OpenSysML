@@ -38,8 +38,8 @@ digraph "MixedExamples::mixedDiagram" {
         color=black;
         penwidth=0.5;
         "n25" [shape=point, style=invis, width=0, height=0, label=""];
-        "n26" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6" style="rounded"><tr><td><font point-size="10"><i>«part»</i></font><br/><b>pump</b></td></tr></table></td></tr><tr><td></td><td port="n26.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">^outlet</font></td><td></td></tr></table>>];
-        "n27" [shape=plain, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td></td><td port="n27.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">^inlet</font></td><td></td></tr><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6" style="rounded"><tr><td><font point-size="10"><i>«part»</i></font><br/><b>tank</b></td></tr></table></td></tr></table>>];
+        "n26" [shape=plain, style=solid, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6" bgcolor="white" style="rounded"><tr><td><font point-size="10"><i>«part»</i></font><br/><b>pump</b></td></tr></table></td></tr><tr><td width="6"></td><td port="n26.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">^outlet</font></td><td width="6"></td></tr></table>>];
+        "n27" [shape=plain, style=solid, label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="0"><tr><td width="6"></td><td port="n27.0" border="1" fixedsize="true" width="10" height="10" bgcolor="white"></td><td align="left"><font point-size="8">^inlet</font></td><td width="6"></td></tr><tr><td colspan="4"><table border="1" cellborder="0" cellspacing="0" cellpadding="6" bgcolor="white" style="rounded"><tr><td><font point-size="10"><i>«part»</i></font><br/><b>tank</b></td></tr></table></td></tr></table>>];
       }
       subgraph "cluster_n28" {
         label=<<font point-size="10"><i>«connection def»</i></font><br/><b>Connection</b>>;
@@ -94,16 +94,16 @@ digraph "MixedExamples::mixedDiagram" {
   "n9" -> "n12" [dir=none, style=dashed];
   "n16" -> "n15" [arrowhead=vee];
   "n26":"n26.0" -> "n27":"n27.0" [arrowhead=none, penwidth=3];
-  "n3" -> "n1" [arrowhead=onormaldotdot];
-  "n10" -> "n25" [arrowhead=onormaldotdot, lhead="cluster_n25"];
-  "n11" -> "n31" [arrowhead=onormaldotdot];
+  "n3" -> "n1" [arrowhead=empty, class=definition];
+  "n10" -> "n25" [arrowhead=empty, class=definition, lhead="cluster_n25"];
+  "n11" -> "n31" [arrowhead=empty, class=definition];
   "n13" -> "n5" [label="«perform»", arrowhead=vee, lhead="cluster_n5"];
   "n14" -> "n2" [label="«exhibit»", arrowhead=vee, ltail="cluster_n14", lhead="cluster_n2"];
   "n21" -> "n20" [arrowhead=empty, ltail="cluster_n21"];
-  "n22" -> "n19" [arrowhead=onormaldotdot];
+  "n22" -> "n19" [arrowhead=empty, class=definition];
   "n23" -> "n20" [arrowhead=empty, ltail="cluster_n23"];
-  "n24" -> "n19" [arrowhead=onormaldotdot];
+  "n24" -> "n19" [arrowhead=empty, class=definition];
   "n25" -> "n20" [arrowhead=empty, ltail="cluster_n25"];
-  "n26" -> "n21" [arrowhead=onormaldotdot, lhead="cluster_n21"];
-  "n27" -> "n23" [arrowhead=onormaldotdot, lhead="cluster_n23"];
+  "n26" -> "n21" [arrowhead=empty, class=definition, lhead="cluster_n21"];
+  "n27" -> "n23" [arrowhead=empty, class=definition, lhead="cluster_n23"];
 }

@@ -1,6 +1,10 @@
 package symbols
 
-import "github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+import (
+	"sort"
+
+	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
+)
 
 // Members returns distinct symbols declared directly in this scope in
 // declaration order, with duplicate keys interleaved as declared.
@@ -16,6 +20,36 @@ func (s *Scope) Members() []*Symbol {
 		out = append(out, sym)
 	}
 	return out
+}
+
+// Declarations returns the symbols this scope itself declares — aliases, and
+// the declarations of other documents it imports, left out — in declaration order.
+func (s *Scope) Declarations() []*Symbol {
+	if s == nil {
+		return nil
+	}
+	members := s.AllMembers()
+	out := make([]*Symbol, 0, len(members))
+	// AllMembers indexes a short-named declaration under both names.
+	seen := make(map[*Symbol]bool, len(members))
+	for _, sym := range members {
+		if sym == nil || seen[sym] || sym.Kind == SymbolAlias || sym.DocName != s.DocName() {
+			continue
+		}
+		seen[sym] = true
+		out = append(out, sym)
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].DeclSpan.Offset < out[j].DeclSpan.Offset })
+	return out
+}
+
+// WalkDeclarations visits every declaration of this scope tree, each before
+// the ones nested in it, in declaration order.
+func (s *Scope) WalkDeclarations(visit func(*Symbol)) {
+	for _, sym := range s.Declarations() {
+		visit(sym)
+		sym.Scope.WalkDeclarations(visit)
+	}
 }
 
 // DeclaredAt returns the symbol whose declaration was parsed from exactly span,

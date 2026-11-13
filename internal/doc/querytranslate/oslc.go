@@ -27,6 +27,12 @@ const (
 	paramPageSize   = "oslc.pageSize"
 )
 
+// Refusals several parameters share; each takes the parameter's name.
+const (
+	msgEmptyTerm     = "%s contains an empty term"
+	msgTermSeparator = "%s terms are separated by ','"
+)
+
 // oslcParameters is the closed set of query parameters this implementation
 // reads. Ignoring any other one would answer a different query than the one
 // asked: a misspelt oslc.where would select the whole model rather than fail.
@@ -246,7 +252,7 @@ func parseSearchTerms(text string) ([]string, error) {
 			return nil, err
 		}
 		if term == "" {
-			return nil, errorf(ErrMalformed, "%s contains an empty term", paramSearch)
+			return nil, errorf(ErrMalformed, msgEmptyTerm, paramSearch)
 		}
 		terms = append(terms, term)
 		p.skipSpace()
@@ -254,7 +260,7 @@ func parseSearchTerms(text string) ([]string, error) {
 			return terms, nil
 		}
 		if !p.consume(',') {
-			return nil, errorf(ErrMalformed, "%s terms are separated by ','", paramSearch)
+			return nil, errorf(ErrMalformed, msgTermSeparator, paramSearch)
 		}
 	}
 }
@@ -302,7 +308,7 @@ func (p *oslcParser) sortTerms(prefix string, outer sortSign) ([]OrderTerm, erro
 	for {
 		p.skipSpace()
 		if p.pos >= len(p.s) || p.peek('}') {
-			return nil, errorf(ErrMalformed, "%s contains an empty term", paramOrderBy)
+			return nil, errorf(ErrMalformed, msgEmptyTerm, paramOrderBy)
 		}
 		sign := p.sortSign()
 		p.skipSpace()
@@ -345,7 +351,7 @@ func (p *oslcParser) sortTerms(prefix string, outer sortSign) ([]OrderTerm, erro
 			return out, nil
 		}
 		if !p.consume(',') {
-			return nil, errorf(ErrMalformed, "%s terms are separated by ','", paramOrderBy)
+			return nil, errorf(ErrMalformed, msgTermSeparator, paramOrderBy)
 		}
 	}
 }
@@ -581,7 +587,7 @@ func (p *oslcParser) selectionList(prefix string, spelling map[string]string, wr
 		p.skipSpace()
 		if p.pos >= len(p.s) || p.peek('}') {
 			if len(out) == 0 {
-				return nil, errorf(ErrMalformed, "%s contains an empty term", paramSelect)
+				return nil, errorf(ErrMalformed, msgEmptyTerm, paramSelect)
 			}
 			return out, nil
 		}
@@ -590,39 +596,20 @@ func (p *oslcParser) selectionList(prefix string, spelling map[string]string, wr
 			return nil, err
 		}
 		spelled := identifier
-		var selection Selection
-		if identifier == SelectAll {
-			selection = Selection{Property: SelectAll}
-		} else {
-			property, err := p.resolveProperty(identifier)
-			if err != nil {
-				return nil, err
-			}
-			selection = Selection{Property: property}
+		selection, err := p.selectedProperty(identifier)
+		if err != nil {
+			return nil, err
 		}
 		p.skipSpace()
 		if p.consume('{') {
-			if selection.Property == SelectAll {
-				return nil, errorf(ErrMalformed, "the %s wildcard '*' cannot be scoped", paramSelect)
-			}
-			nested, err := p.selectionList(prefix+selection.Property+".", spelling, func(spelled string) string {
-				return wrap(identifier + "{" + spelled + "}")
-			})
+			nested, err := p.nestedSelection(identifier, selection.Property, prefix, spelling, wrap)
 			if err != nil {
 				return nil, err
 			}
-			p.skipSpace()
-			if !p.consume('}') {
-				return nil, errorf(ErrMalformed, "%s nested selection for %q is not closed by '}'", paramSelect, identifier)
-			}
 			selection.Nested = nested
 		}
-		if first, repeated := seen[selection.Property]; repeated {
-			if first == identifier {
-				return nil, errorf(ErrMalformed, "%s names %q twice", paramSelect, identifier)
-			}
-			return nil, errorf(ErrMalformed, "%s names one property twice: %q and %q are the same property",
-				paramSelect, first, identifier)
+		if err := repeatedSelection(seen, selection.Property, identifier); err != nil {
+			return nil, err
 		}
 		seen[selection.Property] = identifier
 		if len(selection.Nested) == 0 {
@@ -634,13 +621,59 @@ func (p *oslcParser) selectionList(prefix string, spelling map[string]string, wr
 			return out, nil
 		}
 		if !p.consume(',') {
-			return nil, errorf(ErrMalformed, "%s terms are separated by ','", paramSelect)
+			return nil, errorf(ErrMalformed, msgTermSeparator, paramSelect)
 		}
 		p.skipSpace()
 		if p.pos >= len(p.s) || p.peek('}') {
-			return nil, errorf(ErrMalformed, "%s contains an empty term", paramSelect)
+			return nil, errorf(ErrMalformed, msgEmptyTerm, paramSelect)
 		}
 	}
+}
+
+// selectedProperty is the selection for identifier: the `*` wildcard, or the
+// property it resolves to.
+func (p *oslcParser) selectedProperty(identifier string) (Selection, error) {
+	if identifier == SelectAll {
+		return Selection{Property: SelectAll}, nil
+	}
+	property, err := p.resolveProperty(identifier)
+	if err != nil {
+		return Selection{}, err
+	}
+	return Selection{Property: property}, nil
+}
+
+// nestedSelection reads the `selection}` scoped to property, which identifier
+// names, after its opening brace.
+func (p *oslcParser) nestedSelection(identifier, property, prefix string, spelling map[string]string, wrap func(string) string) ([]Selection, error) {
+	if property == SelectAll {
+		return nil, errorf(ErrMalformed, "the %s wildcard '*' cannot be scoped", paramSelect)
+	}
+	nested, err := p.selectionList(prefix+property+".", spelling, func(spelled string) string {
+		return wrap(identifier + "{" + spelled + "}")
+	})
+	if err != nil {
+		return nil, err
+	}
+	p.skipSpace()
+	if !p.consume('}') {
+		return nil, errorf(ErrMalformed, "%s nested selection for %q is not closed by '}'", paramSelect, identifier)
+	}
+	return nested, nil
+}
+
+// repeatedSelection refuses identifier when seen already holds its property,
+// under the same spelling or another one.
+func repeatedSelection(seen map[string]string, property, identifier string) error {
+	first, repeated := seen[property]
+	if !repeated {
+		return nil
+	}
+	if first == identifier {
+		return errorf(ErrMalformed, "%s names %q twice", paramSelect, identifier)
+	}
+	return errorf(ErrMalformed, "%s names one property twice: %q and %q are the same property",
+		paramSelect, first, identifier)
 }
 
 func (p *oslcParser) identifier() (string, error) {
@@ -695,59 +728,13 @@ func (p *oslcParser) value() (text string, wild bool, err error) {
 	}
 	if p.s[p.pos] == '<' {
 		p.pos++
-		var b strings.Builder
-		for p.pos < len(p.s) {
-			c := p.s[p.pos]
-			p.pos++
-			switch c {
-			case '>':
-				return localValue(b.String()), false, nil
-			case '\\':
-				// uri_ref_esc escapes '>' and '\' alone.
-				if p.pos >= len(p.s) || (p.s[p.pos] != '>' && p.s[p.pos] != '\\') {
-					return "", false, errorf(ErrMalformed, "URI value contains unsupported escape: only '>' and '\\' are escaped")
-				}
-				b.WriteByte(p.s[p.pos])
-				p.pos++
-			default:
-				b.WriteByte(c)
-			}
-		}
-		return "", false, errorf(ErrMalformed, "unterminated URI value")
+		text, err = p.uriValue()
+		return text, false, err
 	}
 	if p.s[p.pos] == '"' {
 		p.pos++
-		var b strings.Builder
-		for p.pos < len(p.s) {
-			c := p.s[p.pos]
-			p.pos++
-			if c == '"' {
-				if p.pos < len(p.s) && p.s[p.pos] == '@' {
-					return "", false, errorf(ErrUnsupportedLiteral, "language-tagged literals are not supported")
-				}
-				if p.pos+1 < len(p.s) && strings.HasPrefix(p.s[p.pos:], "^^") {
-					p.pos += 2
-					dt, err := p.identifier()
-					if err != nil {
-						return "", false, err
-					}
-					if err := p.datatype(dt); err != nil {
-						return "", false, err
-					}
-				}
-				return b.String(), false, nil
-			}
-			if c == '\\' {
-				if p.pos >= len(p.s) || (p.s[p.pos] != '\\' && p.s[p.pos] != '"') {
-					return "", false, errorf(ErrMalformed, "literal contains unsupported escape")
-				}
-				b.WriteByte(p.s[p.pos])
-				p.pos++
-				continue
-			}
-			b.WriteByte(c)
-		}
-		return "", false, errorf(ErrMalformed, "unterminated string literal")
+		text, err = p.quotedValue()
+		return text, false, err
 	}
 	if p.s[p.pos] == '*' {
 		p.pos++
@@ -782,6 +769,72 @@ func (p *oslcParser) value() (text string, wild bool, err error) {
 	// A bare name is the answer's own spelling of a value, so say what quoting it takes.
 	return "", false, errorf(ErrMalformed,
 		"invalid OSLC value %q: write a name as a quoted literal %s", raw, strconv.Quote(raw))
+}
+
+// uriValue reads a `<uri>` value after its opening bracket.
+func (p *oslcParser) uriValue() (string, error) {
+	var b strings.Builder
+	for p.pos < len(p.s) {
+		c := p.s[p.pos]
+		p.pos++
+		switch c {
+		case '>':
+			return localValue(b.String()), nil
+		case '\\':
+			// uri_ref_esc escapes '>' and '\' alone.
+			if p.pos >= len(p.s) || (p.s[p.pos] != '>' && p.s[p.pos] != '\\') {
+				return "", errorf(ErrMalformed, "URI value contains unsupported escape: only '>' and '\\' are escaped")
+			}
+			b.WriteByte(p.s[p.pos])
+			p.pos++
+		default:
+			b.WriteByte(c)
+		}
+	}
+	return "", errorf(ErrMalformed, "unterminated URI value")
+}
+
+// quotedValue reads a string literal after its opening quote, with the
+// datatype it may carry.
+func (p *oslcParser) quotedValue() (string, error) {
+	var b strings.Builder
+	for p.pos < len(p.s) {
+		c := p.s[p.pos]
+		p.pos++
+		if c == '"' {
+			if err := p.literalSuffix(); err != nil {
+				return "", err
+			}
+			return b.String(), nil
+		}
+		if c == '\\' {
+			if p.pos >= len(p.s) || (p.s[p.pos] != '\\' && p.s[p.pos] != '"') {
+				return "", errorf(ErrMalformed, "literal contains unsupported escape")
+			}
+			b.WriteByte(p.s[p.pos])
+			p.pos++
+			continue
+		}
+		b.WriteByte(c)
+	}
+	return "", errorf(ErrMalformed, "unterminated string literal")
+}
+
+// literalSuffix reads what follows a literal's closing quote: a language tag,
+// which is refused, or a `^^datatype`.
+func (p *oslcParser) literalSuffix() error {
+	if p.pos < len(p.s) && p.s[p.pos] == '@' {
+		return errorf(ErrUnsupportedLiteral, "language-tagged literals are not supported")
+	}
+	if p.pos+1 < len(p.s) && strings.HasPrefix(p.s[p.pos:], "^^") {
+		p.pos += 2
+		dt, err := p.identifier()
+		if err != nil {
+			return err
+		}
+		return p.datatype(dt)
+	}
+	return nil
 }
 
 // datatype admits the typed-literal datatypes a comparison reads: the xsd types
@@ -1033,7 +1086,7 @@ func splitCommaStrict(text, parameter string) ([]string, error) {
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
 		if part == "" {
-			return nil, errorf(ErrMalformed, "%s contains an empty term", parameter)
+			return nil, errorf(ErrMalformed, msgEmptyTerm, parameter)
 		}
 		out = append(out, part)
 	}

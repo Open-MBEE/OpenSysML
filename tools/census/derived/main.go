@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strings"
 	"time"
 
@@ -156,15 +157,25 @@ func run(opts options) error {
 		report.Roots = append(report.Roots, entry)
 	}
 	report.finish()
-	fresh, err := writeReports(opts.out, report, opts.log)
-	if err != nil {
+	if _, err := writeReports(opts.out, report, opts.log); err != nil {
 		return err
 	}
 	if opts.update {
 		if len(opts.roots) > 0 {
 			return fmt.Errorf("-update records every root; drop -roots")
 		}
-		return baseline.Write(committed, fresh, opts.log)
+		head, err := committedHeader(report)
+		if err != nil {
+			return err
+		}
+		if err := baseline.Write(committed, head, opts.log); err != nil {
+			return err
+		}
+		if err := os.WriteFile(recordsPath(committed), encodeRecords(report), 0o600); err != nil {
+			return err
+		}
+		fmt.Fprintf(opts.log, "recorded %s\n", recordsPath(committed))
+		return nil
 	}
 	if opts.check {
 		if err := baseline.CheckCommitted(committed, refreshCommand, record); err != nil {
@@ -179,7 +190,14 @@ func run(opts options) error {
 			return fmt.Errorf("served rules answer nothing on every element where the pilot answers, and %s does not record them as silent:\n  %s",
 				CommittedBaseline, strings.Join(newly, "\n  "))
 		}
-		return baseline.Reproduces(committed, fresh)
+		head, err := committedHeader(report)
+		if err != nil {
+			return err
+		}
+		if err := baseline.Reproduces(committed, head); err != nil {
+			return err
+		}
+		return recordsReproduce(recordsPath(committed), encodeRecords(report))
 	}
 	return nil
 }
@@ -212,7 +230,71 @@ func readCommitted(path string) (*Report, error) {
 	if err := json.Unmarshal(content, &report); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
+	records, err := os.ReadFile(recordsPath(path)) // #nosec G304 -- the committed records beside the baseline
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", recordsPath(path), err)
+	}
+	if err := decodeRecords(records, &report); err != nil {
+		return nil, err
+	}
+	report.finish()
 	return &report, nil
+}
+
+// recordsPath names the records file beside a committed baseline header.
+func recordsPath(committed string) string {
+	return filepath.Join(filepath.Dir(committed), filepath.Base(filepath.FromSlash(CommittedRecords)))
+}
+
+// committedHeader encodes the header the committed baseline keeps.
+func committedHeader(report *Report) ([]byte, error) {
+	var buffer bytes.Buffer
+	encoder := json.NewEncoder(&buffer)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(header(report)); err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
+}
+
+// recordsReproduce reports the records that differ between the committed file and a fresh run.
+func recordsReproduce(path string, fresh []byte) error {
+	committed, err := os.ReadFile(path) // #nosec G304 -- the committed records in this repository
+	if err != nil {
+		return fmt.Errorf("read %s: %w", path, err)
+	}
+	if bytes.Equal(committed, fresh) {
+		return nil
+	}
+	was, now := recordLines(committed), recordLines(fresh)
+	var moved []string
+	for key, line := range now {
+		if was[key] != line {
+			moved = append(moved, "  "+line)
+		}
+	}
+	for key, line := range was {
+		if _, ok := now[key]; !ok {
+			moved = append(moved, "  gone: "+line)
+		}
+	}
+	sort.Strings(moved)
+	return fmt.Errorf("%s does not reproduce; records moved:\n%s\nadjudicate the movement, then re-record with %s", path, strings.Join(moved, "\n"), refreshCommand)
+}
+
+func recordLines(data []byte) map[string]string {
+	lines := map[string]string{}
+	for _, line := range strings.Split(string(data), "\n") {
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		fields := strings.SplitN(line, "\t", 3)
+		if len(fields) < 3 {
+			continue
+		}
+		lines[fields[0]+"\t"+fields[1]] = line
+	}
+	return lines
 }
 
 func (r *Report) root(name string) (RootReport, bool) {

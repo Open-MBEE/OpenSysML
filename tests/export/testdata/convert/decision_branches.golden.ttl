@@ -246,6 +246,7 @@ elmt:Branches__Charge___403
     sysml:ownedFeature expr:Branches__Charge___403_pend0, expr:Branches__Charge___403_pend1 ;
     sysml:ownedEndFeature expr:Branches__Charge___403_pend0, expr:Branches__Charge___403_pend1 ;
     sysml:sourceFeature elmt:Branches__Charge__check ;
+    sysml:source elmt:Branches__Charge__check ;
     sysx:targetMember elmt:Branches__Charge___402 ;
     sysx:sourceText "" ;
     json:connectorEnd "[{\"@id\":\"Branches__Charge___403_pend0\"},{\"@id\":\"Branches__Charge___403_pend1\"}]" ;

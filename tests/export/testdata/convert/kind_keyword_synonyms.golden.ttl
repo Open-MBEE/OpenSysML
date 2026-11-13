@@ -291,8 +291,11 @@ elmt:Synonyms___407
     sysml:ownedFeature expr:Synonyms___407_pend0, expr:Synonyms___407_pend1 ;
     sysml:ownedEndFeature expr:Synonyms___407_pend0, expr:Synonyms___407_pend1 ;
     sysml:relatedFeature elmt:Synonyms__reading, elmt:Synonyms__base ;
+    sysml:relatedElement elmt:Synonyms__reading, elmt:Synonyms__base ;
     sysml:sourceFeature elmt:Synonyms__reading ;
+    sysml:source elmt:Synonyms__reading ;
     sysml:targetFeature elmt:Synonyms__base ;
+    sysml:target elmt:Synonyms__base ;
     sysx:endForm "to" ;
     sysx:declaredKeyword "allocate" ;
     sysx:hasBody "false"^^xsd:boolean ;
@@ -304,7 +307,8 @@ elmt:Synonyms___407
     json:ownedFeatureMembership "[{\"@id\":\"Synonyms___407_pend0_om\"},{\"@id\":\"Synonyms___407_pend1_om\"}]" ;
     json:ownedFeature "[{\"@id\":\"Synonyms___407_pend0\"},{\"@id\":\"Synonyms___407_pend1\"}]" ;
     json:ownedEndFeature "[{\"@id\":\"Synonyms___407_pend0\"},{\"@id\":\"Synonyms___407_pend1\"}]" ;
-    json:relatedFeature "[{\"@id\":\"Synonyms__reading\"},{\"@id\":\"Synonyms__base\"}]" .
+    json:relatedFeature "[{\"@id\":\"Synonyms__reading\"},{\"@id\":\"Synonyms__base\"}]" ;
+    json:relatedElement "[{\"@id\":\"Synonyms__reading\"},{\"@id\":\"Synonyms__base\"}]" .
 
 elmt:Synonyms___407_om
     a sysml:OwningMembership ;

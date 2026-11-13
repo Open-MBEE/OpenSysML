@@ -86,7 +86,7 @@ func (e *StateExecutor) enterToward(lca, target *ast.StateNode, branches map[*as
 			return enter, enter, nil
 		}
 		// Entering enter's regions entered target and its start; record the deepest.
-		return enter, e.activeConfig.regionStates[e.enclosingRegion(target)], nil
+		return enter, e.regionActiveState(e.enclosingRegion(target)), nil
 	}
 	deepest, err = e.enterStartOf(target)
 	return deepest, deepest, err
@@ -103,13 +103,13 @@ func (e *StateExecutor) activeLeavesBelow(state *ast.StateNode) []*ast.StateNode
 	leaves := make([]*ast.StateNode, 0, len(regions))
 	waiting := false
 	for _, region := range regions {
-		if _, active := e.activeConfig.regionStates[region]; !active && e.regionWaitingAtJoin(region) {
+		if !e.regionIsActive(region) && e.regionWaitingAtJoin(region) {
 			waiting = true
 			break
 		}
 	}
 	for _, region := range regions {
-		active, ok := e.activeConfig.regionStates[region]
+		active, ok := e.regionActive(region)
 		if !ok {
 			if waiting {
 				continue
@@ -163,7 +163,7 @@ func (e *StateExecutor) fireTransitionInRegion(region *ast.StateRegion, trans *l
 		return false, fmt.Errorf("transition out of region %s has no target state", region.Name)
 	}
 
-	source := e.activeConfig.regionStates[region]
+	source := e.regionActiveState(region)
 	return true, e.travel(trans, source, r,
 		func(target *ast.StateNode) []*ast.StateNode { return e.exitedInRegion(region, trans, target) },
 		func(target *ast.StateNode) []*ast.StateNode { return e.enteredInRegion(region, trans, target) },
@@ -254,7 +254,7 @@ func (e *StateExecutor) siblingRegionContaining(region *ast.StateRegion, state *
 // the path to target, which stay active, and returns the region the move happens in.
 func (e *StateExecutor) innermostActiveRegion(region *ast.StateRegion, target *ast.StateNode) *ast.StateRegion {
 	for {
-		active, ok := e.activeConfig.regionStates[region]
+		active, ok := e.regionActive(region)
 		if !ok || active == target {
 			return region
 		}
@@ -353,7 +353,7 @@ func (e *StateExecutor) moveBetweenRegions(
 // of a source enclosing the target (an external transition even inside a region),
 // or the region's owner when nothing inside it is shared.
 func (e *StateExecutor) regionKeep(targetRegion *ast.StateRegion, trans *lower.Transition, target *ast.StateNode) *ast.StateNode {
-	keep := e.getLCA(e.activeConfig.regionStates[targetRegion], target)
+	keep := e.getLCA(e.regionActiveState(targetRegion), target)
 	if declared, isState := trans.Source.(*ast.StateNode); isState && e.encloses(declared, target) {
 		keep = e.graph.ParentState[declared]
 	}
@@ -375,7 +375,7 @@ func (e *StateExecutor) regionKeeps(region *ast.StateRegion, state *ast.StateNod
 // regionExitPath lists the states exitRegionTo exits, innermost first: region's
 // active state and its ancestors up to stop, within the region.
 func (e *StateExecutor) regionExitPath(region *ast.StateRegion, stop *ast.StateNode) []*ast.StateNode {
-	active, ok := e.activeConfig.regionStates[region]
+	active, ok := e.regionActive(region)
 	if !ok {
 		return nil
 	}
@@ -386,12 +386,11 @@ func (e *StateExecutor) regionExitPath(region *ast.StateRegion, stop *ast.StateN
 // which stays active; a nil stop leaves the region entirely, up to its own
 // boundary. The region is left without an active state.
 func (e *StateExecutor) exitRegionTo(region *ast.StateRegion, stop *ast.StateNode) error {
-	if _, ok := e.activeConfig.regionStates[region]; !ok {
+	if !e.regionIsActive(region) {
 		return nil
 	}
 	path := e.regionExitPath(region, stop)
-	delete(e.activeConfig.regionStates, region)
-	delete(e.activeConfig.defaultComplete, region)
+	e.deactivateRegion(region)
 	if stop == nil {
 		// The region keeps no active state, so it has none to restore either.
 		e.forgetRegionHistory(region)
@@ -409,7 +408,7 @@ func (e *StateExecutor) exitRegionTo(region *ast.StateRegion, stop *ast.StateNod
 // whole set is left: every sibling region is exited, recording its configuration
 // for history, before the target is entered.
 func (e *StateExecutor) leaveRegion(region *ast.StateRegion, trans *lower.Transition, effects []routeEffect, target *ast.StateNode) error {
-	source := e.activeConfig.regionStates[region]
+	source := e.regionActiveState(region)
 	owner := e.graph.RegionOwner[region]
 	if owner == nil {
 		return e.leaveTopRegions(trans, effects, source, target)
@@ -455,10 +454,9 @@ func (e *StateExecutor) exitRegionOwnerTo(owner, lca *ast.StateNode) error {
 		// Clear the region current is active in first — a region's active state may
 		// be nested below current — or an enclosing state exits current again.
 		if declaring := e.enclosingRegion(current); declaring != nil {
-			if active, isActive := e.activeConfig.regionStates[declaring]; isActive && e.isBelowOrEqual(active, current) {
+			if active, isActive := e.regionActive(declaring); isActive && e.isBelowOrEqual(active, current) {
 				e.recordRegionHistory(declaring, active)
-				delete(e.activeConfig.regionStates, declaring)
-				delete(e.activeConfig.defaultComplete, declaring)
+				e.deactivateRegion(declaring)
 			}
 		}
 		if err := e.exitState(current); err != nil {
@@ -474,12 +472,11 @@ func (e *StateExecutor) exitRegionOwnerTo(owner, lca *ast.StateNode) error {
 func (e *StateExecutor) leaveTopRegions(trans *lower.Transition, effects []routeEffect, source, target *ast.StateNode) error {
 	var units []unit
 	for _, region := range e.graph.TopRegions {
-		active, ok := e.activeConfig.regionStates[region]
+		active, ok := e.regionActive(region)
 		if !ok {
 			continue
 		}
-		delete(e.activeConfig.regionStates, region)
-		delete(e.activeConfig.defaultComplete, region)
+		e.deactivateRegion(region)
 		leaving := make([]*ast.StateNode, 0)
 		for current := active; current != nil; current = e.graph.ParentState[current] {
 			leaving = append(leaving, current)
@@ -489,9 +486,7 @@ func (e *StateExecutor) leaveTopRegions(trans *lower.Transition, effects []route
 	if err := e.performUnits(choiceExitOrder, exitingWherePrefix+e.stateMachine.Name, units, true); err != nil {
 		return err
 	}
-	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode)
-	e.activeConfig.defaultComplete = make(map[*ast.StateRegion]bool)
-	e.activeConfig.simpleState = nil
+	e.activeConfig.reset()
 
 	if err := e.runEffects(effects, e.descendantChain(nil, target)); err != nil {
 		return err
@@ -519,10 +514,10 @@ func (e *StateExecutor) enterOutside(trans *lower.Transition, source, lca, targe
 		e.setRegionState(region, leaf)
 	}
 	if len(onPath) == 0 && len(e.activeConfig.regionStates) == 0 {
-		e.activeConfig.simpleState = deepest
+		e.setSimpleState(deepest)
 	}
 
-	e.stateStack = e.rootToLeaf(deepest)
+	e.stateStack = e.stateIDs(e.rootToLeaf(deepest))
 	if err := e.scheduleFromEntered(entered); err != nil {
 		return err
 	}
@@ -564,13 +559,13 @@ func (e *StateExecutor) recordTransitionTrace(trans *lower.Transition, source, t
 func (e *StateExecutor) orderedActiveRegions() []*ast.StateRegion {
 	regions := make([]*ast.StateRegion, 0, len(e.activeConfig.regionStates))
 	for _, region := range e.graph.TopRegions {
-		if _, active := e.activeConfig.regionStates[region]; active {
+		if e.regionIsActive(region) {
 			regions = append(regions, region)
 		}
 	}
 	for _, state := range e.graph.States {
 		for _, region := range e.graph.CompositeStates[state] {
-			if _, active := e.activeConfig.regionStates[region]; active {
+			if e.regionIsActive(region) {
 				regions = append(regions, region)
 			}
 		}

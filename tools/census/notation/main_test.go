@@ -293,7 +293,7 @@ func TestWorkPackagesAreOnlyForGaps(t *testing.T) {
 		{Row{Production{Name: "message", Clause: "8.2.3.16"}, Adjudication{Verdict: VerdictUndrawn}}, "D"},
 		{Row{Production{Name: "sq-port", Clause: "8.2.3.9"}, Adjudication{Verdict: VerdictUndrawn}}, "D"},
 		{Row{Production{Name: "element-inside-textual-compartment", Clause: "8.2.3.2"}, Adjudication{Verdict: VerdictUndrawn}}, "E"},
-		{Row{Production{Name: "result-compartment", Clause: "8.2.3.19"}, Adjudication{Verdict: VerdictUndrawn}}, "F"},
+		{Row{Production{Name: "verification-methods-compartment", Clause: "8.2.3.24"}, Adjudication{Verdict: VerdictUndrawn}}, "F"},
 		{Row{Production{Name: "compartment", Clause: "8.2.3.2"}, Adjudication{Verdict: VerdictNotApplicable}}, ""},
 		{Row{Production{Name: "part", Clause: "8.2.3.11"}, Adjudication{Verdict: VerdictDrawn}}, ""},
 	} {

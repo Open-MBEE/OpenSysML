@@ -23,7 +23,7 @@ config:
 title: "«view» FurnaceViews::burnerTree : GeneralView"
 ---
 %% FurnaceViews::burnerTree — tree rendering (view def GeneralView)
-%% not represented: 6 member(s) drawn as compartment rows of their owner, and 5 node(s) under them left undrawn
+%% not represented: 7 member(s) drawn as compartment rows of their owner, and 5 node(s) under them left undrawn
 flowchart TD
   n0["`*«state def»*
 **Burner**
@@ -32,6 +32,8 @@ flame : Boolean
 states
 off
 running
+action usages
+entry
 succession usages
 then off
 transitions

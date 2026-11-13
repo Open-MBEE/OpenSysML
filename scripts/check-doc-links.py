@@ -108,7 +108,12 @@ def link_failure(md: Path, link: str, root: Path, anchors: dict[Path, set[str]])
     target, _, fragment = link.partition("#")
     source = md.resolve() in SOURCES
     if target:
-        base = root if md.as_posix().startswith(FRAGMENTS) else PAGE.parent if source else md.parent
+        if md.as_posix().startswith(FRAGMENTS):
+            base = root
+        elif source:
+            base = PAGE.parent
+        else:
+            base = md.parent
         dest = (base / target).resolve()
         if not dest.is_relative_to(root):
             return f"{md}: escapes the repository: {link}"

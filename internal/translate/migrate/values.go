@@ -193,8 +193,7 @@ func (m *migration) opaqueValue(v, scope *sysmlv1.Element, want wanted) (expr st
 	if problem := m.invisible(refs, scope); problem != "" {
 		return "", false, "opaque expression " + problem + langNote(lang)
 	}
-	visible, _ := m.visibleFrom(scope)
-	body = m.renamedRoots(body, refs, visible, nil)
+	body = m.renamedReferences(body, refs, scope)
 	if m.selfContext(scope) != nil {
 		// Inside a def the classifier's features read through its context parameter.
 		refs, _ = exprRefs(body)
@@ -406,6 +405,8 @@ type reference struct {
 type step struct {
 	name  string
 	chain bool
+	start int
+	len   int
 }
 
 // text writes the reference's first n steps as the expression spells them.
@@ -453,6 +454,9 @@ func exprRefs(text string) (refs []reference, ok bool) {
 	}
 	for i := range c.refs {
 		c.refs[i].start -= len(exprProbePrefix)
+		for j := range c.refs[i].steps {
+			c.refs[i].steps[j].start -= len(exprProbePrefix)
+		}
 	}
 	return c.refs, true
 }
@@ -775,7 +779,7 @@ func qualifiedRef(q *ast.QualifiedName) (reference, bool) {
 	}
 	r := reference{global: q.Global, start: q.Parts[0].Span.Offset, firstLen: q.Parts[0].Span.Len}
 	for _, p := range q.Parts {
-		r.steps = append(r.steps, step{name: p.Text})
+		r.steps = append(r.steps, step{name: p.Text, start: p.Span.Offset, len: p.Span.Len})
 	}
 	return r, true
 }
@@ -797,7 +801,7 @@ func chainRef(e *ast.FeatureChainExpr) (reference, bool) {
 		return reference{}, false
 	}
 	for i, p := range e.Member.Parts {
-		r.steps = append(r.steps, step{name: p.Text, chain: i == 0})
+		r.steps = append(r.steps, step{name: p.Text, chain: i == 0, start: p.Span.Offset, len: p.Span.Len})
 	}
 	return r, true
 }
@@ -839,7 +843,7 @@ func (m *migration) invisible(refs []reference, scope *sysmlv1.Element) string {
 // fails when a source child of the failing element claims the name but is
 // itself unwritten — the path is then the user's, not the library's.
 func (m *migration) viaRenamedRoot(r reference, visible, hidden map[string]*sysmlv1.Element) (root *sysmlv1.Element, missing string) {
-	if r.local != "" || len(r.steps) == 0 || r.steps[0].chain {
+	if len(r.steps) == 0 || r.steps[0].chain {
 		return nil, ""
 	}
 	name := r.steps[0].name
@@ -855,7 +859,11 @@ func (m *migration) viaRenamedRoot(r reference, visible, hidden map[string]*sysm
 	}
 	e := ce
 	for i, s := range r.steps[1:] {
-		next, private := m.memberNamed(e, s.name, chainKind(s.chain))
+		kind := chainKind(s.chain)
+		if r.local != "" && i+1 == r.typed {
+			kind = memberFeature
+		}
+		next, private := m.memberNamed(e, s.name, kind)
 		if next == nil && private != nil && hidden != nil {
 			next = private
 		}
@@ -872,26 +880,39 @@ func (m *migration) viaRenamedRoot(r reference, visible, hidden map[string]*sysm
 	return ce, ""
 }
 
-// renamedRoots rewrites, in text, each reference whose first step spells the
-// source name of a root avoidLibraryRoots renamed, to the name it is written
-// as. A nearer element answering to the name keeps the spelling, and so does
-// a reference that resolves only through the library package the root hides.
-func (m *migration) renamedRoots(text string, refs []reference, visible, hidden map[string]*sysmlv1.Element) string {
+// renamedReferences spells renamed roots and interaction members from their source references.
+func (m *migration) renamedReferences(text string, refs []reference, scope *sysmlv1.Element) string {
+	visible, _ := m.visibleFrom(scope)
 	type replacement struct {
 		start, end int
 		name       string
 	}
-	var reps []replacement
+	byStart := map[int]replacement{}
 	for _, r := range refs {
-		if r.local != "" || len(r.steps) == 0 || r.steps[0].chain || r.firstLen == 0 {
+		if r.local != "" && r.typed == 0 {
 			continue
 		}
-		if ce, _ := m.viaRenamedRoot(r, visible, hidden); ce != nil {
-			reps = append(reps, replacement{r.start, r.start + r.firstLen, writeName(m.names[ce])})
+		if root, _ := m.viaRenamedRoot(r, visible, nil); root != nil && r.firstLen != 0 {
+			byStart[r.start] = replacement{r.start, r.start + r.firstLen, writeName(m.nameOf(root))}
+		}
+		for i, part := range r.steps {
+			prefix := r
+			prefix.steps = r.steps[:i+1]
+			e, _, missing := m.resolve(prefix, visible, nil)
+			if missing != "" || e == nil || e.Parent == nil || e.Parent.Type != "Interaction" || part.len == 0 {
+				continue
+			}
+			if name := m.nameOf(e); name != part.name {
+				byStart[part.start] = replacement{part.start, part.start + part.len, writeName(name)}
+			}
 		}
 	}
-	sort.Slice(reps, func(i, j int) bool { return reps[i].start > reps[j].start })
-	for _, rp := range reps {
+	var replacements []replacement
+	for _, rp := range byStart {
+		replacements = append(replacements, rp)
+	}
+	sort.Slice(replacements, func(i, j int) bool { return replacements[i].start > replacements[j].start })
+	for _, rp := range replacements {
 		text = text[:rp.start] + rp.name + text[rp.end:]
 	}
 	return text
@@ -1068,7 +1089,7 @@ func (m *migration) membersOf(e *sysmlv1.Element, kind memberKind) (visible, hid
 		seen[t] = true
 		for _, c := range t.Children {
 			n := m.nameOf(c)
-			if n == "" || !m.written(c) || (features && c.Type != "Property" && c.Type != "Port") {
+			if n == "" || (!m.sequenceFeature(c) && !m.written(c)) || (features && c.Type != "Property" && c.Type != "Port") {
 				continue
 			}
 			if m.hiddenFromHeirs(c) {
@@ -1079,6 +1100,15 @@ func (m *migration) membersOf(e *sysmlv1.Element, kind memberKind) (visible, hid
 			}
 			if visible[n] == nil {
 				visible[n] = c
+			}
+		}
+		for _, c := range t.Children {
+			if t.Type == "Interaction" && c.Name != "" && (m.sequenceFeature(c) || m.written(c)) && (!features || c.Type == "Property" || c.Type == "Port") {
+				if m.hiddenFromHeirs(c) {
+					hidden[c.Name] = c
+				} else {
+					visible[c.Name] = c
+				}
 			}
 		}
 		for _, g := range t.Owned("generalization") {
@@ -1151,7 +1181,10 @@ func (v *visibility) members(e *sysmlv1.Element, inherited bool) {
 
 func (v *visibility) member(c *sysmlv1.Element, inherited bool) {
 	n := v.m.nameOf(c)
-	if n == "" || !v.m.written(c) {
+	if c.Parent != nil && c.Parent.Type == "Interaction" && c.Name != "" {
+		n = c.Name
+	}
+	if n == "" || (!v.m.sequenceFeature(c) && !v.m.written(c)) {
 		return
 	}
 	if inherited && v.m.hiddenFromHeirs(c) {

@@ -364,12 +364,17 @@ func (m Model) layoutTargets(i int, op Operation, sem *semantics.Model) (layoutT
 	return target, nil
 }
 
-// inlineAnnotationAdmitted reports whether sym's declaration may open a body for an inline
-// annotation: every declaration but a `then` edge whose production ends in ';'.
+// inlineAnnotationAdmitted reports whether sym's declaration may open a body for an inline annotation: every
+// declaration but a `then` edge whose production ends in ';' or whose target is the member after the keyword.
 func inlineAnnotationAdmitted(sym *symbols.Symbol) bool {
 	edge, isEdge := sym.Decl.(*ast.SuccessionEdge)
 	if !isEdge || sym.OwnerScope == nil || sym.OwnerScope.Node() == nil {
 		return true
+	}
+	// `then done;` admits a body, but the editor has no place to open one: the `done` the keyword introduces
+	// is declared between the keyword and the ';', so the body would land on the member before.
+	if edge.TargetMember != nil {
+		return false
 	}
 	return ast.SuccessionAdmitsBody(sym.OwnerScope.Node(), edge)
 }

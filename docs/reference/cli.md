@@ -252,6 +252,7 @@ the same member-path parser as `Project` and `OrderBy`.
 | `-no-record-cache` | | Parse every file loaded and hold it loaded, reading no interface record from the record cache and writing none: what a run does where `OPENSYSML_RECORD_CACHE=0`. By default a file whose bytes, library, conformance mode and record format match a record in the cache is held as that record — its scopes and symbols without its tree, and the diagnostics its analysis found — and a file analyzed by `-validate`, `-satisfy` or another load writes its record for the next run; see [Interface records](../internals/interface-records.md) |
 | `-trace` | | Report each execution step: expression evaluation, calc invocation, action tokens, state transitions, each `choice` the executor made among alternatives the library leaves unordered, naming the alternatives and the one taken, and each `unevaluable guard` it read only to report one and could not evaluate ([Choice points](../guide/06-behavior.md)). Under `-schedule explore` the table is printed first, then the trace of one witness run per distinct outcome, each under a `trace of outcome <n>'s witness (run <r>):` heading ([Exploring every linearization](#exploring-every-linearization)) |
 | `-render-run <kind>=<path>` | | Repeatable; write a recorded run's `timeline` or `sequence` as text, Mermaid or PlantUML. The extension `.txt`, `.mmd`/`.mermaid` or `.puml`/`.plantuml` selects a form; use `-render-form` for another extension. `-render-link` links PlantUML timeline lanes and single-state spans and sequence object participants; Mermaid gantt and messages remain unlinked. DOT is refused. Requires `-state`, `-action` or `-advance` and cannot be combined with model/document rendering or schedule exploration |
+| `-render-limit <count>` | | The most spans or messages a `-render-run` rendering draws, 200 by default; a rendering cut short says so in a note on stderr naming the instants not drawn. Refused without `-render-run` |
 | `-convert <format>` | | Convert the model instead of running it: `sysml`, `kerml`, `ttl`, `turtle`, `rdf`, `api-json` or `json`. Converting notation to notation reformats it: one statement per line, `}` on its own line, nesting indented, every lexeme and every line break the author wrote kept (see [Saving and RDF](../guide/07-saving-and-rdf.md#converting-from-the-command-line)). `ttl` writes the RDF graph in Turtle, `api-json` the same graph as the API's JSON element objects; both are [experimental](rdf-mapping.md#status-experimental) and every run that converts either says so on stderr (see [the RDF mapping](rdf-mapping.md)). The model argument may be a Flexo MMS project branch URL — `http(s)://host[:port][/base]/projects/{project}/branches/{branch}` or `flexo://{project}/{branch}` — both naming the endpoint `FLEXO_SYSMLV2_URL` configures — which is read as its head commit's RDF graph; see [Reading and pushing a repository branch](#reading-and-pushing-a-repository-branch) |
 | `-library-references <file>` | | With `-convert api-json`: write the referenced standard-library name table to this JSON side file; the element array stays unchanged ([Normative library identity](rdf-mapping.md#normative-library-identity)) |
 | `-include-library-stubs` | | With `-convert api-json`: restore the pre-0.11.0 ownerless library stubs for legacy readers (default off) |
@@ -572,7 +573,8 @@ sysml -e "result" file1.sysml file2.sysml
 
 `-render-run <kind>=<path>` writes the trace of a behavior run as a timeline or message sequence.
 Run it with `-state`, `-action` or `-advance`; the trace is recorded silently unless `-trace`
-also asks to print it. Repeat the flag for both renderings:
+also asks to print it. Repeat the flag for both renderings, and bound how much each draws with
+`-render-limit <count>` (200 spans or messages by default):
 
 ```bash
 sysml examples/run-timeline/run-timeline.sysml \
@@ -877,6 +879,10 @@ state grammar has no pin, so it names the edge's pins in the edge's label (`n0 -
 and lists every pin in its node's `parameters` compartment; `d2` draws the pins an edge ends at as
 nodes nested in their owner, and lists the rest in the `parameters` compartment.
 
+A calculation whose body states a result expression (`calc add { in x; in y; return : Integer;
+x + y }`) shows it in a `result` compartment of its node, in every form; an action that declares no
+nodes is noted `declares no nodes`, and a calculation never is.
+
 A tree rendering draws the directed parameters of a calculation, action or constraint definition or
 usage — `in`, `out`, `inout` and `return` — as parameter pins of their owner's node rather than as
 nested members, a `return` declaring no name as the `result` output: `text` lists them under the
@@ -919,16 +925,22 @@ written as entities; edge labels, identifiers and geometry stay double-quoted st
 Containment becomes a `subgraph "cluster_…"`, the flow direction becomes `rankdir`, and edges keep
 Mermaid's semantics: a connection is undirected (`arrowhead=none`), a flow is dashed, a transition
 or succession is a solid arrow drawn at the Pilot visualizer's thickness (`penwidth=3` for a
-connection). A part's ports are drawn on it as small squares labelled `name : Type`, cells of an
-HTML-like record label in a laid-out diagram (`"n2":"n2.0" -> "n1":"n1.0"`) or pinned nodes on the
-part's border when the view positions it, and a connector at a port is drawn to the square. The
+connection). A part's ports are drawn on it as small squares labelled `name : Type`, on the edge of
+the part's box in a laid-out diagram (`"n2":"n2.0" -> "n1":"n1.0"`) or pinned nodes on the
+part's border when the view positions it, and a connector at a port is drawn to the square. An
+action's or calculation's parameter pins are drawn the same way, inputs on the top edge and outputs
+on the bottom. The
 drawing is in the Standard B&W style of the OMG SysML v2 Pilot Implementation's
 visualizer, after Hisashi Miyashita's `sysmlbw` PlantUML skin: Helvetica text, white fills, thin
 `#181818` lines, square definitions and rounded usages, a bold name over an italic `«keyword»`
 line, unfilled black-bordered clusters, and unnamed initial and final pseudo-states as the filled
 UML dot ([the translation](../project/view-rendering-forms.md#style)). Producing DOT needs no
 Graphviz installation; laying it out does, with the engine the `// layout:` header names
-(`dot -Tsvg view.dot`, or `neato -Tsvg view.dot` when the view states positions — below). A
+(`dot -Tsvg view.dot`, or `neato -Tsvg view.dot` when the view states positions — below). A typing
+edge is written `arrowhead=empty, class=definition`: Graphviz has no arrowhead for the two dots the
+notation sets beside the triangle's base, so `dot` alone draws the hollow triangle, and the drawings
+OpenSysML has Graphviz make — a rendered document, the language server's and the Jupyter kernel's —
+add the dots. A
 `sequence` view has no DOT counterpart and, like a `table`, is refused with status 2 when `dot`
 is forced.
 

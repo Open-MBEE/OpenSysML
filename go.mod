@@ -8,6 +8,7 @@ require (
 	connectrpc.com/connect v1.21.1
 	connectrpc.com/grpcreflect v1.3.1
 	github.com/chzyer/readline v1.5.1
+	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/go-zeromq/zmq4 v0.17.0
 	github.com/google/jsonschema-go v0.4.3
 	github.com/modelcontextprotocol/go-sdk v1.8.0
@@ -25,6 +26,7 @@ require (
 )
 
 require (
+	github.com/go-jose/go-jose/v4 v4.1.6 // indirect
 	github.com/go-json-experiment/json v0.0.0-20260623181947-01eb4420fa68 // indirect
 	github.com/go-zeromq/goczmq/v4 v4.2.2 // indirect
 	github.com/segmentio/asm v1.1.3 // indirect

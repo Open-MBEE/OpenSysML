@@ -1,6 +1,7 @@
 package docpdf
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -42,7 +43,27 @@ func (g *graphvizRasterizer) draw(dir, source, output string) error {
 	if err := runTool(dir, g.dot, args...); err != nil {
 		return err
 	}
+	if err := drawGlyphs(filepath.Join(dir, output)); err != nil {
+		return &Error{Kind: ErrorToolFailed, Tool: g.name(), Detail: err.Error()}
+	}
 	return embedImages(filepath.Join(dir, output), cwd)
+}
+
+// drawGlyphs adds to the SVG Graphviz wrote the glyph parts the DOT form leaves
+// to its drawing; a file that was not written is checkSVG's to report.
+func drawGlyphs(path string) error {
+	svg, err := os.ReadFile(path) // #nosec G304 -- the path is within the render directory
+	if err != nil {
+		return nil
+	}
+	drawn, err := view.DrawDOTGlyphs(svg)
+	if err != nil {
+		return err
+	}
+	if bytes.Equal(drawn, svg) {
+		return nil
+	}
+	return os.WriteFile(path, drawn, 0o600)
 }
 
 // layoutArgs selects the layout engine from the `// layout:` header the DOT

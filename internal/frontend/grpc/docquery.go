@@ -8,12 +8,10 @@ import (
 	"connectrpc.com/connect"
 	pb "github.com/Open-MBEE/OpenSysML/api/proto"
 	"github.com/Open-MBEE/OpenSysML/internal/check/passes"
-	"github.com/Open-MBEE/OpenSysML/internal/doc/docir"
-	"github.com/Open-MBEE/OpenSysML/internal/doc/docrender"
+	"github.com/Open-MBEE/OpenSysML/internal/doc/docset"
 	"github.com/Open-MBEE/OpenSysML/internal/doc/queryexec"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/protoconv"
 	"github.com/Open-MBEE/OpenSysML/internal/frontend/symbolfacts"
-	"github.com/Open-MBEE/OpenSysML/internal/ir/docplan"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/view"
 	corequery "github.com/Open-MBEE/OpenSysML/internal/semantic/query"
@@ -23,8 +21,6 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
-	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
-	"github.com/Open-MBEE/OpenSysML/internal/workspace/modeldoc"
 )
 
 const (
@@ -163,36 +159,28 @@ func rowHoldsBigInt(row *pb.DocumentQueryRow) bool {
 		})
 }
 
-// Forms RenderDocument renders, named as the CLI's -doc-form names them.
-const (
-	renderFormMarkdown = "markdown"
-	renderFormHTML     = "html"
-	renderFormAsciiDoc = "asciidoc"
-)
-
 // RenderDocument renders a named document to Markdown, HTML or AsciiDoc, as
 // -render-document does.
 func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequest) (*pb.RenderDocumentResponse, error) {
 	if err := s.requireCapability(CapabilityRenderDocument); err != nil {
 		return nil, err
 	}
-	form := req.Form
+	form := docset.Form(req.Form)
 	if form == "" {
-		form = renderFormMarkdown
+		form = docset.FormMarkdown
 	}
 	switch form {
-	case renderFormMarkdown:
-	case renderFormHTML:
+	case docset.FormMarkdown:
+	case docset.FormHTML:
 		if err := s.requireCapability(CapabilityRenderDocumentHTML); err != nil {
 			return nil, err
 		}
-	case renderFormAsciiDoc:
+	case docset.FormAsciiDoc:
 		if err := s.requireCapability(CapabilityRenderDocumentAsciiDoc); err != nil {
 			return nil, err
 		}
 	default:
-		return nil, statusErrorf(connect.CodeInvalidArgument,
-			"form %q is not one this service renders: markdown, html or asciidoc", req.Form)
+		return nil, statusError(connect.CodeInvalidArgument, (&docset.UnknownFormError{Form: req.Form}).Error())
 	}
 	cached, ok := s.cache.Get(req.ModelHash)
 	if !ok {
@@ -210,59 +198,25 @@ func (s *Service) RenderDocument(ctx context.Context, req *pb.RenderDocumentRequ
 	if err != nil {
 		return nil, err
 	}
-	if !docplan.IsDocumentDefinition(qctx.Index, qctx.Model, sym) {
-		return nil, statusErrorf(connect.CodeInvalidArgument,
-			"%s is not a document: one is a part def specializing DocumentQueries::Document", req.DocumentId)
-	}
-	plan, err := docplan.Compile(qctx.Index, qctx.Model, qctx.Resolver, sym)
-	if err != nil {
-		return nil, documentStatus(err)
-	}
-	document, err := docir.EvaluateLinked(plan,
-		model.SiblingDocumentPlans(qctx.Index, qctx.Model, qctx.Resolver, sym),
-		qctx, queryexec.Options{}, cachedSourceText(cached))
+	rendered, err := docset.Render(qctx, sym, cachedSourceText(cached), docset.Options{Form: form})
 	if err != nil {
 		return nil, held.documentStatus(err)
 	}
-	extension := ".md"
+	resp := &pb.RenderDocumentResponse{}
+	// The file a rendered set writes the document to is answered under the
+	// render_document_file_name capability.
+	if s.capabilities.has(CapabilityRenderDocumentFileName) {
+		resp.FileName = rendered.FileName
+	}
 	switch form {
-	case renderFormHTML:
-		extension = ".html"
-	case renderFormAsciiDoc:
-		extension = ".adoc"
+	case docset.FormHTML:
+		resp.Html = rendered.Text
+	case docset.FormAsciiDoc:
+		resp.Asciidoc = rendered.Text
+	default:
+		resp.Markdown = rendered.Text
 	}
-	files, err := modeldoc.DocumentFiles(model.DocumentNames(qctx.Index, qctx.Model), extension)
-	if err != nil {
-		return nil, documentStatus(err)
-	}
-	if form == renderFormHTML {
-		page, err := docrender.HTML(document, docrender.HTMLOptions{Files: files})
-		if err != nil {
-			return nil, documentStatus(err)
-		}
-		return &pb.RenderDocumentResponse{Html: page, FileName: s.documentFileName(files, sym)}, nil
-	}
-	if form == renderFormAsciiDoc {
-		adoc, err := docrender.AsciiDoc(document, docrender.AsciiDocOptions{Files: files})
-		if err != nil {
-			return nil, documentStatus(err)
-		}
-		return &pb.RenderDocumentResponse{Asciidoc: adoc, FileName: s.documentFileName(files, sym)}, nil
-	}
-	markdown, err := docrender.Markdown(document, docrender.MarkdownOptions{Files: files})
-	if err != nil {
-		return nil, documentStatus(err)
-	}
-	return &pb.RenderDocumentResponse{Markdown: markdown, FileName: s.documentFileName(files, sym)}, nil
-}
-
-// documentFileName is the file a rendered set writes sym's document to,
-// under the render_document_file_name capability.
-func (s *Service) documentFileName(files map[string]string, sym *symbols.Symbol) string {
-	if !s.capabilities.has(CapabilityRenderDocumentFileName) {
-		return ""
-	}
-	return files[symbols.FQNOf(sym)]
+	return resp, nil
 }
 
 // documentSymbol resolves the query or document a request names, failing with
@@ -546,27 +500,23 @@ func documentStatus(err error) error {
 	if errors.As(err, &inlineErr) {
 		return inlineStatus(inlineErr)
 	}
-	var planErr *queryplan.Error
-	if errors.As(err, &planErr) {
-		return statusWithOrigin(queryPlanCode(planErr.Kind), err, planErr.Origin)
+	status := statusWithOrigin(faultCode(docset.FaultOf(err)), err, docset.OriginOf(err))
+	return withQueryOutcome(status, docset.QueryOutcomeOf(err))
+}
+
+// faultCode is the status a document fault is reported under: the caller's argument, the
+// model's definitions as a failed precondition, a budget as exhausted, the pipeline's own as internal.
+func faultCode(fault docset.Fault) connect.Code {
+	switch fault {
+	case docset.FaultArgument:
+		return connect.CodeInvalidArgument
+	case docset.FaultModel:
+		return connect.CodeFailedPrecondition
+	case docset.FaultBudget:
+		return connect.CodeResourceExhausted
+	default:
+		return connect.CodeInternal
 	}
-	var execErr *queryexec.Error
-	if errors.As(err, &execErr) {
-		return withQueryOutcome(statusWithOrigin(queryExecCode(execErr.Kind), err, execErr.Origin), execErr.Outcome)
-	}
-	var docPlanErr *docplan.Error
-	if errors.As(err, &docPlanErr) {
-		return statusWithOrigin(docPlanCode(docPlanErr.Kind), err, docPlanErr.Origin)
-	}
-	var docIRErr *docir.Error
-	if errors.As(err, &docIRErr) {
-		status := statusWithOrigin(docIRCode(docIRErr), err, docIRErr.Origin)
-		if errors.As(docIRErr.Err, &execErr) {
-			return withQueryOutcome(status, execErr.Outcome)
-		}
-		return status
-	}
-	return connect.NewError(connect.CodeInternal, err)
 }
 
 // inlineStatus is the status a fault in an inline query reports as: text that
@@ -574,7 +524,7 @@ func documentStatus(err error) error {
 func inlineStatus(inlineErr *queryplan.InlineError) error {
 	var execErr *queryexec.Error
 	if errors.As(inlineErr.Err, &execErr) {
-		return withQueryOutcome(connect.NewError(queryExecCode(execErr.Kind), inlineErr), execErr.Outcome)
+		return withQueryOutcome(connect.NewError(faultCode(docset.FaultOf(execErr)), inlineErr), execErr.Outcome)
 	}
 	return connect.NewError(connect.CodeInvalidArgument, inlineErr)
 }
@@ -716,49 +666,6 @@ func statusWithOrigin(code connect.Code, err error, origin symbols.Origin) error
 	return statusErrorf(code, "%s (declared in %s)", err.Error(), origin.Doc)
 }
 
-// queryPlanCode is the status a query-planning failure reports as: a fault in
-// the model's own query definitions is a failed precondition of the call.
-func queryPlanCode(kind queryplan.ErrorKind) connect.Code {
-	switch kind {
-	case queryplan.ErrorNotQueryDefinition:
-		return connect.CodeInvalidArgument
-	case queryplan.ErrorLibraryUnavailable, queryplan.ErrorInvalidContext:
-		return connect.CodeInternal
-	default:
-		return connect.CodeFailedPrecondition
-	}
-}
-
-// queryExecCode is the status an execution failure reports as: a wrong binding
-// is the caller's fault, an exhausted budget is a resource limit, and the rest
-// are faults in the model's queries.
-func queryExecCode(kind queryexec.ErrorKind) connect.Code {
-	switch kind {
-	case queryexec.ErrorUnknownBinding, queryexec.ErrorMissingBinding,
-		queryexec.ErrorBindingType, queryexec.ErrorBindingMultiplicity:
-		return connect.CodeInvalidArgument
-	case queryexec.ErrorVisitBudget, queryexec.ErrorInvocationBudget,
-		queryexec.ErrorInvocationDepth:
-		return connect.CodeResourceExhausted
-	case queryexec.ErrorInvalidContext:
-		return connect.CodeInternal
-	default:
-		return connect.CodeFailedPrecondition
-	}
-}
-
-// docPlanCode is the status a document-planning failure reports as.
-func docPlanCode(kind docplan.ErrorKind) connect.Code {
-	switch kind {
-	case docplan.ErrorNotDocumentDefinition:
-		return connect.CodeInvalidArgument
-	case docplan.ErrorLibraryUnavailable, docplan.ErrorInvalidContext:
-		return connect.CodeInternal
-	default:
-		return connect.CodeFailedPrecondition
-	}
-}
-
 // cachedSourceText reads notation from whichever of the model's documents a span
 // belongs to, and behind them from the library files its index holds, for the
 // labels a diagram rendering takes verbatim.
@@ -773,16 +680,4 @@ func cachedSourceText(model *CachedModel) view.SourceText {
 		return nil
 	}
 	return source.TextOf(sources, libs.Text(model.Library))
-}
-
-// docIRCode is the status a document-evaluation failure reports as: a failed
-// query keeps its execution mapping, and the rest are the evaluator's own.
-func docIRCode(err *docir.Error) connect.Code {
-	if err.Kind == docir.ErrorQueryExecution {
-		var execErr *queryexec.Error
-		if errors.As(err.Err, &execErr) {
-			return queryExecCode(execErr.Kind)
-		}
-	}
-	return connect.CodeInternal
 }

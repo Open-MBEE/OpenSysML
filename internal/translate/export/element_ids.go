@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
+	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/parser"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
@@ -127,6 +128,7 @@ func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[
 	ids.recordValuePart(e, node, subject)
 	ids.recordDefaultMultiplicity(e, node, subject)
 	ids.recordConnectorEnds(e, node, subject)
+	ids.recordSuccessionEnds(e, node, subject)
 	ids.recordSatisfySubjects(e, node, subject)
 	ids.registerHeadChains(e, subject, chainTargets(e.writtenHeadClauses(node, parents[node], parents)))
 	for key, id := range e.writtenRelationships(node, parents[node], subject, parents) {
@@ -195,6 +197,46 @@ func (ids *ElementIDs) recordConnectorEnds(e *encoder, node ast.Node, subject rd
 			}
 		}
 	}
+}
+
+// recordSuccessionEnds records the two ends a `then` succession's conversion mints at end0/end1
+// under the edge (encodeSuccessionEdge), each with the EndFeatureMembership minted beside it.
+func (ids *ElementIDs) recordSuccessionEnds(e *encoder, node ast.Node, subject rdf.Term) {
+	edge, ok := node.(*ast.SuccessionEdge)
+	// A state body's `then x;` after a state is written as a TransitionUsage (encodeTargetTransition): no ends.
+	if !ok || e.names.TargetTransitions[edge] || !semantics.SuccessionMintsEnds(edge) {
+		return
+	}
+	for i := 0; i < 2; i++ {
+		slot := fmt.Sprintf("end%d", i)
+		feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+		membership := e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix)
+		recorded := partIDs{element: rdf.LocalName(feature.Value), membership: rdf.LocalName(membership.Value)}
+		ids.partByNode[partKey{node, slot}] = recorded
+		ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot}] = recorded
+		if i == 1 && e.successionTargetStated(edge) {
+			// The target end's ReferenceSubsetting is minted beside it (referenceSubsetting).
+			reference := partIDs{element: e.referenceSubsettingID(feature)}
+			ids.partByNode[partKey{node, slot + ".rs"}] = reference
+			ids.partBySpan[spanPartKey{spanKey{e.file.Name(), node.Span()}, slot + ".rs"}] = reference
+		}
+	}
+}
+
+// successionTargetStated reports whether the target end of a `then` succession reference-subsets a
+// feature: the target it names, the library's done, or a member after it the conversion addresses.
+func (e *encoder) successionTargetStated(edge *ast.SuccessionEdge) bool {
+	if edge.Target != nil {
+		return true
+	}
+	if _, done := edge.TargetMember.(*ast.FinalNode); done {
+		return true
+	}
+	if edge.TargetMember != nil {
+		_, ok := e.names.FQN[edge.TargetMember]
+		return ok
+	}
+	return false
 }
 
 // endChainLinks counts the features an end's chain target is written as, as the

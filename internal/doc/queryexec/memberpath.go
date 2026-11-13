@@ -24,11 +24,16 @@ func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]V
 		}
 		current = member
 	}
-	values, present, err := e.declaredFeatureValues(current, segments[len(segments)-1])
+	last := segments[len(segments)-1]
+	values, present, err := e.declaredFeatureValues(current, last)
+	if !present && err == nil && e.valuelessMemberYieldsMetaclassProperty(current, last) {
+		values, present, err = e.metaclassPropertyValues(current, last)
+		return values, present, nil, err
+	}
 	if !present || err != nil {
 		return values, present, nil, err
 	}
-	member, _ := e.context.Model.LookupMember(current, segments[len(segments)-1])
+	member, _ := e.context.Model.LookupMember(current, last)
 	return values, true, member, nil
 }
 

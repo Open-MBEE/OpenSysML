@@ -54,6 +54,10 @@ func (m *Model) nestedSubsettingFQN(sym *symbols.Symbol) string {
 	switch owner.Decl.(type) {
 	case *ast.Definition, *ast.Usage, *ast.SubstateMember, *ast.TransitionMember,
 		*ast.SendStatement, *ast.AssumeMember, *ast.RequireMember:
+	case *ast.SuccessionEdge:
+		if !owner.DeclaresTransition() {
+			return ""
+		}
 	default:
 		return ""
 	}
@@ -84,6 +88,11 @@ func (m *Model) nestedSubsettingFQN(sym *symbols.Symbol) string {
 	case *ast.SubstateMember, *ast.TransitionMember:
 		// The `state s;` and `transition …` of a body are composite usages the
 		// parser records as members.
+	case *ast.SuccessionEdge:
+		// So is a state body's `then x;` after a state, a TargetTransitionUsage.
+		if !sym.DeclaresTransition() {
+			return ""
+		}
 	case *ast.SendStatement:
 		u.Send = true
 	case *ast.AssumeMember, *ast.RequireMember:
@@ -244,6 +253,18 @@ func nestedRuleFQN(u NestedUsage, owner NestedOwner) (fqn string, step bool) {
 // familyNestedFQN is the feature a usage of one kind nested in an owner of its
 // own family subsets ahead of the general rule chains, "" when none applies.
 func familyNestedFQN(u NestedUsage, owner NestedOwner) string {
+	if fqn := familyRoleNestedFQN(u, owner); fqn != "" {
+		return fqn
+	}
+	if !u.Composite {
+		return ""
+	}
+	return familyCompositeNestedFQN(u, owner)
+}
+
+// familyRoleNestedFQN is the family feature a usage subsets by the role its
+// keyword or prefix states (performed, exhibited, event, actor, ...), composite or not.
+func familyRoleNestedFQN(u NestedUsage, owner NestedOwner) string {
 	switch u.Kind {
 	case ast.UsageAction:
 		if u.Performed && ownerInPartFamily(owner) {
@@ -281,9 +302,12 @@ func familyNestedFQN(u NestedUsage, owner NestedOwner) string {
 			return "VerificationCases::VerificationCase::obj::requirementVerifications"
 		}
 	}
-	if !u.Composite {
-		return ""
-	}
+	return ""
+}
+
+// familyCompositeNestedFQN is the family feature a composite usage subsets by
+// its kind alone (subitems, subports, subviews, ...).
+func familyCompositeNestedFQN(u NestedUsage, owner NestedOwner) string {
 	switch u.Kind {
 	case ast.UsageViewpoint:
 		if ownerInViewFamily(owner) {
@@ -502,6 +526,10 @@ func ownerUsageKind(owner *symbols.Symbol) (ast.UsageKind, bool) {
 		return ast.UsageState, true
 	case *ast.TransitionMember:
 		return ast.UsageTransition, true
+	case *ast.SuccessionEdge:
+		if owner.DeclaresTransition() {
+			return ast.UsageTransition, true
+		}
 	case *ast.SendStatement:
 		return ast.UsageAction, true
 	case *ast.AssumeMember, *ast.RequireMember:

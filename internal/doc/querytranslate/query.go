@@ -19,7 +19,8 @@ const (
 	InstanceOf   Operator = "instanceOf"
 )
 
-// Constraint is one node of a query's filter.
+// Constraint is one node of a query's filter. Its unexported marker method
+// closes the set to the forms this package declares.
 type Constraint interface {
 	constraint()
 }
@@ -62,12 +63,12 @@ type Disjunction struct {
 	Terms []Constraint
 }
 
-func (Comparison) constraint()  {}
-func (TypeTest) constraint()    {}
-func (Instances) constraint()   {}
-func (Scoped) constraint()      {}
-func (Conjunction) constraint() {}
-func (Disjunction) constraint() {}
+func (Comparison) constraint()  { /* Constraint marker */ }
+func (TypeTest) constraint()    { /* Constraint marker */ }
+func (Instances) constraint()   { /* Constraint marker */ }
+func (Scoped) constraint()      { /* Constraint marker */ }
+func (Conjunction) constraint() { /* Constraint marker */ }
+func (Disjunction) constraint() { /* Constraint marker */ }
 
 // Selection is one property to report, with the properties of the elements it
 // holds when nested.

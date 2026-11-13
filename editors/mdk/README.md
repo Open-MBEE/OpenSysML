@@ -8,6 +8,16 @@ queries (see *MDK DocGen bridge* below). The capability-by-capability comparison
 the order the gaps are being closed in, is
 [`docs/project/mdk-parity.md`](../../docs/project/mdk-parity.md).
 
+## Install
+
+Download `Magic_MDK.zip` from the [latest release](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/Magic_MDK.zip)
+(or the [nightly snapshot](https://github.com/Open-MBEE/OpenSysML/releases/download/nightly/Magic_MDK.zip), built from `develop`)
+and import it with Cameo's Resource/Plugin Manager (*Help ▸ Resource/Plugin Manager ▸ Import*).
+It carries the five `sysml-grpc` binaries, so nothing else is installed. The zip is a line of
+the release's signed `SHA256SUMS.txt`; check it first with
+`sha256sum -c --ignore-missing SHA256SUMS.txt` (the
+[downloads page](../../docs/downloads.md#editor-plugins) has the links).
+
 ## Build
 
 Install the Java client and its dependencies before building the plugin:
@@ -205,9 +215,14 @@ mismatching asset fails the build) and writes `bin/DIGESTS`. `PluginDescriptorWr
 `plugin.xml` with a `<library>` entry for the plugin jar and every runtime jar, so the plugin's
 own classloader (`ownClassloader="true"`, `class-lookup="LocalFirst"`) sees exactly what ships.
 `-Dopensysml.binaries=<dir>` stages the five binaries from a directory instead, for a build the
-caller has already verified — the nightly workflow packages each night's `sysml-grpc` this way,
-under the night's tag, and keeps the zip as the run's `cameo-plugin` artifact (see
-[the snapshot page](../../docs/project/nightly.md#what-it-contains)):
+caller has already verified. Both release pipelines package the plugin this way around the
+binaries they just built and publish the zip as the release asset `Magic_MDK.zip`, listed in the
+signed `SHA256SUMS.txt`: the tagged release (`build-cameo-plugin` in `.circleci/config.yml`,
+versioned by the tag, `v0.12.1` or `v0.13.0-rc.1`) and the nightly snapshot (versioned as the
+`.vsix` is, `<core>-nightly-<yyyymmdd>-<commit>`; see
+[the snapshot page](../../docs/project/nightly.md#what-it-contains)). `ResourceDescriptorWriter`
+packs the version into the integer the Resource Manager orders installs by: a release's nights
+below its `alpha.n`, `beta.n` and `rc.n` candidates, all below the release. The zip's layout:
 
 ```
 plugins/org.openmbee.mdk.magic/plugin.xml

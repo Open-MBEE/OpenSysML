@@ -1,6 +1,7 @@
 package export
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
@@ -222,10 +223,11 @@ func mappingElementSubjectUncached(
 		return false
 	}
 	if context.conforms(graph, subject, "Membership") {
-		return context.conforms(graph, subject, "ElementFilterMembership") ||
+		// A bare `entry;` membership is unaddressed: the action it owns takes its position.
+		return !mappingBareSubaction(graph, subject) && (context.conforms(graph, subject, "ElementFilterMembership") ||
 			context.conforms(graph, subject, "StateSubactionMembership") ||
 			mappingHasIdentity(graph, subject) ||
-			graph.HasProperty(subject, rdf.OpenSysML+"memberIndex")
+			graph.HasProperty(subject, rdf.OpenSysML+"memberIndex"))
 	}
 	if mappingExpressionType(graph, subject) &&
 		!mappingHasIdentity(graph, subject) &&
@@ -415,4 +417,15 @@ func mappingExpressionType(graph *rdf.Graph, subject rdf.Term) bool {
 // edge rather than a relationship emitted as its own element.
 func MappingMembershipEdgeSubject(graph *rdf.Graph, subject rdf.Term) bool {
 	return mappingTypeConforms(graph, subject, "Membership") && !MappingElementSubject(graph, subject)
+}
+
+// mappingBareSubaction reports a subaction membership of the bare `entry;` shape, minted from its action.
+func mappingBareSubaction(graph *rdf.Graph, subject rdf.Term) bool {
+	if !slices.ContainsFunc(graph.ObjectsView(subject, rdf.RDFType), func(t rdf.Term) bool {
+		return ontology.LocalName(t.Value) == mSubaction
+	}) {
+		return false
+	}
+	member := firstIRI(graph, subject, pOwnedMemberElement, pMemberElement)
+	return member.IsIRI() && bareSubactionMembership(graph, subject, member)
 }

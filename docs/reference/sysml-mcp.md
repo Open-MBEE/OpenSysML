@@ -226,6 +226,133 @@ custom*): paste the `mcpServers` block, with the command resolving on the machin
 — a path under the repository checkout after `make build-mcp`, or `sysml-mcp` once the
 environment's setup installs it on `PATH`.
 
+### A served instance over HTTP
+
+A host can also connect to a `sysml-mcp -http` already serving — on this machine, or
+[run as a service](../guide/sysml-mcp-service.md) behind TLS — instead of starting one.
+`-print-config HOST -http ADDR` (with `-public-url` for the URL a proxy presents, `-tls-cert`
+for `https`) writes the host's block in its URL form; a host it does not know takes the same URL
+by hand. How the host authenticates depends on what the server was given:
+
+- **Single sign-on** (`-oidc-issuer`): the block names the URL and nothing else. The host's
+  first request is answered `401` with `resource_metadata`, the metadata names the provider,
+  and the host signs the user in with Authorization Code + PKCE on its own.
+- **An API key** (`-api-keys`): the block carries `Authorization: Bearer osk_…`. Each host has a
+  place for a header, and most a way to keep the key out of the file.
+- **The static token**: as an API key, with the token; `-token-file` on the `-print-config`
+  command line fills the header in.
+
+```bash
+sysml-mcp -print-config claude-code -http 8765 -public-url https://models.example.org/mcp
+sysml-mcp -print-config claude-code -http 8765 -token-file mcp.token -public-url https://models.example.org/mcp
+```
+
+**Claude Code** — `claude mcp add --transport http` takes the URL, and `--header` a fixed
+credential; `--scope user` keeps it out of the project. The same block goes in `.mcp.json` as
+`"type": "http"` with `"url"` (an entry with a `url` and no `type` is a configuration error
+there) and, for a key, `"headers"`:
+
+```bash
+claude mcp add --transport http sysml https://models.example.org/mcp
+claude mcp add --transport http --scope user sysml https://models.example.org/mcp \
+  --header "Authorization: Bearer osk_Z7oataRyhNcR.JZ6jEZ2P9iyCr49nJH75GgVbGOSrEXImZKFRLFbDkGo"
+```
+
+```json
+{
+  "mcpServers": {
+    "sysml": {
+      "type": "http",
+      "url": "https://models.example.org/mcp",
+      "headers": {
+        "Authorization": "Bearer osk_Z7oataRyhNcR.JZ6jEZ2P9iyCr49nJH75GgVbGOSrEXImZKFRLFbDkGo"
+      }
+    }
+  }
+}
+```
+
+With single sign-on, leave `headers` out: `/mcp` in Claude Code shows the server and
+*Authenticate* runs the flow; `"oauth": {"scopes": "sysml:read sysml:write"}` beside the URL
+pins the scopes it requests.
+
+**Claude Desktop** reaches a served instance as a *custom connector*, from Anthropic's servers
+rather than from the desktop (so the URL must be reachable from the internet, over `https`):
+*Customize → Connectors → Add custom connector*, the server URL
+`https://models.example.org/mcp`, then under *Authentication* either *Sign in now* for single
+sign-on (*OAuth client*: *Register automatically*, which the provider must allow, or *Use your
+own OAuth client* with a client registered for Claude's redirect URI) or *No sign-in* with the
+API key added under *Request headers* as `Authorization` = `Bearer osk_…`.
+`claude_desktop_config.json` declares local stdio servers only.
+
+**VS Code** — `.vscode/mcp.json`, `"type": "http"`; an input variable keeps the key out of the
+file and VS Code asks for it once, storing it as a secret:
+
+```json
+{
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "sysml-api-key",
+      "description": "sysml-mcp API key (osk_…)",
+      "password": true
+    }
+  ],
+  "servers": {
+    "sysml": {
+      "type": "http",
+      "url": "https://models.example.org/mcp",
+      "headers": {
+        "Authorization": "Bearer ${input:sysml-api-key}"
+      }
+    }
+  }
+}
+```
+
+With single sign-on the `servers` entry is the URL alone (what `-print-config vscode -http …`
+writes); VS Code follows the `401` to the provider and opens the browser on first use. A
+provider that does not register clients dynamically takes `"oauth": {"clientId": "…"}` in the
+entry.
+
+**Cursor** — `.cursor/mcp.json` (or `~/.cursor/mcp.json` for every project) takes `"url"` with
+no `type`, and `"headers"` may read the key from the environment:
+
+```json
+{
+  "mcpServers": {
+    "sysml": {
+      "url": "https://models.example.org/mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:SYSML_MCP_KEY}"
+      }
+    }
+  }
+}
+```
+
+Without `headers` Cursor reads the RFC 9728 metadata from the `401`, finds the provider and
+signs in with PKCE, registering itself as a public client; a provider without dynamic
+registration takes `"auth": {"CLIENT_ID": "…"}` in the entry.
+
+**MCP Inspector** connects from the command line, in its web form or its scripted `--cli`:
+
+```bash
+npx @modelcontextprotocol/inspector --server-url https://models.example.org/mcp --transport http
+npx @modelcontextprotocol/inspector --cli --transport http --server-url https://models.example.org/mcp \
+  --header "Authorization: Bearer osk_Z7oataRyhNcR.JZ6jEZ2P9iyCr49nJH75GgVbGOSrEXImZKFRLFbDkGo" \
+  --method tools/list
+```
+
+In the web form, connecting to a server with single sign-on runs the OAuth flow in the browser
+(the provider needs the Inspector's redirect URI, `http://localhost:6274/oauth/callback`);
+`--cli` without a header and without a stored token exits 3 (`auth_required`), as a CI job
+should.
+
+The key in these blocks is the one minted for the caller, printed once by `-mint-api-key`; the
+blocks belong in files the host reads privately, not in version control, which is what the
+input variable and the environment reference are for.
+
 ## The tools
 
 The server offers three groups, chosen with `-tools lsp,runtime,session` (every group by
@@ -328,7 +455,7 @@ agent can discover the surface without this page.
 | `features` | Show an object's feature values and what its behaviors are doing (%features): the values its attributes hold, the objects its parts and ports hold, its connectors, and the state of each machine it exhibits and action it performs. | no |
 | `instances` | List the objects a session holds (%instances): each with its id, type and lifetime, the ones a later instantiation displaced included. | no |
 | `optimize` | Ask an SMT solver for the best values an analysis case's objectives admit (%optimize, experimental), each objective improved as its trade-study definition says, within the case's conditions. | no |
-| `render_run` | Render the run a session recorded as a state timeline or a message sequence (%render-run), in a text or diagram form. | no |
+| `render_run` | Render the run a session recorded as a state timeline or a message sequence (%render-run), in a text or diagram form, drawing at most `limit` spans or messages (200 by default). Record the run first with repl_command `%trace record`, which keeps the trace without echoing it into later results. | no |
 | `repl_command` | Run one sysml prompt command (a % line) in a session and return what it printed. | yes |
 | `runs` | Run an action count times, each run's modeled randomness seeded on its own, and return the table of the observables with each one's distribution (%runs); or run a Simulation::MonteCarlo analysis case count times on fresh subjects and conclude it. | yes |
 | `send` | Send a signal to an object through the runtime's message bus (%send), for the state machine it exhibits or the action parked at a matching accept to take; by default to the object whose behavior is being debugged. | yes |
@@ -475,7 +602,7 @@ authentication the Model Context Protocol asks of a server on a network:
   client reached it and `bearer_methods_supported: ["header"]`, with no `authorization_servers`
   to list — so a client following the challenge learns that the token is preconfigured rather
   than obtained by a flow. An authorization server that issues tokens by OAuth 2.1 (user consent,
-  scopes, expiry) is a proxy's job in front of the server, as it is for `sysml-grpc`. Behind a
+  scopes, expiry) is named with `-oidc-issuer`, under [Single sign-on](#single-sign-on). Behind a
   proxy that terminates TLS or rewrites the path, a request no longer shows the URL the client
   used, so `-public-url https://models.example.org/mcp` names it: the challenge, the metadata
   and the `-print-config` block then carry that URL rather than the request's own scheme and
@@ -561,6 +688,76 @@ the file this way, alone or beside `-token-file`/`-token`, and satisfies the rul
 other machines reach needs a credential; `kill -HUP` the server after editing the file by hand to
 have it read at once rather than at the next request.
 
+## Single sign-on
+
+With `-oidc-issuer URL`, the server accepts the access tokens an OpenID provider issues, next to
+(or instead of) the preconfigured token. The host runs Authorization Code + PKCE against the
+provider; the server verifies what comes back and never sees a password.
+
+- **Discovery.** The provider's `/.well-known/openid-configuration` is read at startup (the issuer
+  must be `https`, or `http` on a loopback host for a provider run beside the server); its signing
+  keys are fetched on first use and again when a token names a key the server has not seen.
+- **What a token must hold** (RFC 9068): a signature under one of the provider's keys (RS, ES, PS or
+  EdDSA), `iss` equal to the issuer, `aud` holding this server's resource URL, `exp` in the future
+  and `nbf` in the past (30 seconds of clock skew allowed either way), and a `sub`. `-oidc-audience
+  AUD` names the audience when it is not the resource URL named by `-public-url` (RFC 8707).
+- **Who the caller is.** The principal's subject is `sub`, its name `preferred_username`, else
+  `email`, else `name`; its scopes come from the `scope` claim (space separated) or `scp` (array),
+  or from the claim `-oidc-scope-claim NAME` names.
+- **Refusals** follow RFC 6750: an expired token is `401` with `error="invalid_token"` and
+  `error_description="the bearer token has expired"`; one for another audience or issuer, or with a
+  bad signature, is `invalid_token` too; and a token the provider cannot be reached to verify is
+  `503 Service Unavailable`, so the host retries rather than re-authenticating.
+- **Resource metadata.** The RFC 9728 document at `/.well-known/oauth-protected-resource/mcp`
+  names the issuer in `authorization_servers` and the server's scopes in `scopes_supported`, which
+  is how an MCP host (Claude Code, VS Code, Cursor, the MCP Inspector) finds the provider from the
+  `401` challenge's `resource_metadata` and starts the flow.
+- **Opaque tokens.** A provider that issues tokens that are not JWTs is asked about them through
+  RFC 7662 introspection: `-oidc-introspect URL` with `-oidc-client-file FILE`, a JSON file holding
+  the `client_id` and `client_secret` of a confidential client the provider lets introspect. An
+  active answer is kept until the token's `exp`. Without these flags, a bearer token that is not a
+  JWT goes to the next authenticator (the preconfigured token).
+
+### Keycloak walkthrough
+
+A development Keycloak with a realm the repository ships (`deploy/keycloak/opensysml-realm.json`:
+realm `opensysml`, scopes `sysml:read` and `sysml:write`, a public client `mcp-inspector` with
+PKCE, an audience mapper adding `http://localhost:8765/mcp`, and a user `alice`/`alice`):
+
+```bash
+docker run --rm -p 8080:8080 \
+  -e KC_BOOTSTRAP_ADMIN_USERNAME=admin -e KC_BOOTSTRAP_ADMIN_PASSWORD=admin \
+  -v "$PWD/deploy/keycloak:/opt/keycloak/data/import:ro" \
+  quay.io/keycloak/keycloak:26.4 start-dev --import-realm
+
+sysml-mcp -root . -http 127.0.0.1:8765 -public-url http://localhost:8765/mcp \
+  -oidc-issuer http://localhost:8080/realms/opensysml
+
+npx @modelcontextprotocol/inspector
+```
+
+In the Inspector choose *Streamable HTTP*, URL `http://localhost:8765/mcp`, and connect: the
+`401` leads it to the metadata, the metadata to Keycloak, and Keycloak's login page (alice /
+alice) back to the Inspector with a token the server accepts. For your own realm, the client
+needs the Inspector's redirect URIs (`http://localhost:6274/oauth/callback` and
+`.../callback/debug`), an *Audience* mapper putting the server's `-public-url` into the access
+token, and client scopes named after the server's scopes with *Include in token scope* on.
+
+### Other providers
+
+- **Microsoft Entra ID.** Register the server as an application exposing an API; its
+  *Application ID URI* (`api://<client-id>`) is what Entra puts in `aud`, so pass it as
+  `-oidc-audience`. Scopes are in the `scp` claim (space separated), which the server reads by
+  default; app roles arrive in `roles`. Tokens for the Microsoft Graph audience cannot be verified
+  by anyone else, so the host must request the API's scopes, not Graph's.
+- **Okta.** Use a custom authorization server (the org server's tokens are not verifiable by third
+  parties); its *Audience* setting is the `aud` value, set it to the server's resource URL. Scopes
+  come in `scp` as an array, read by default; the issuer is
+  `https://<org>.okta.com/oauth2/<server-id>`.
+- **Ping (PingFederate / PingOne).** Add the resource URL to the access token's audience through the
+  access token manager (PingFederate) or the resource's audience (PingOne); scopes are in `scope`,
+  space separated. If a deployment maps them into another claim, name it with `-oidc-scope-claim`.
+
 ## Command line
 
 | Flag | Default | Meaning |
@@ -583,6 +780,10 @@ have it read at once rather than at the next request.
 | `-api-keys FILE` | — | File of API keys, one JSON record per line holding the SHA-256 of a key with its subject, scopes, expiry and whether it is disabled; read by `-http` as a credential ahead of the token, re-read when it changes and on `SIGHUP`; appended to by `-mint-api-key`, edited by `-revoke-api-key` |
 | `-mint-api-key` | — | Mint a key `osk_<id>.<secret>` for `-subject NAME` with `-scopes a,b`, expiring after `-expires DUR` when given; print it once to stdout, append its record to the `-api-keys` file and exit |
 | `-revoke-api-key ID` | — | Mark the key of this id disabled in the `-api-keys` file and exit |
+| `-oidc-issuer URL` | — | Accept the access tokens of this OpenID provider (its issuer URL; `https`, or `http` on loopback): discovery and signing keys are read from it, tokens verified against it, and it is advertised as the authorization server |
+| `-oidc-audience AUD` | the `-public-url` endpoint | The `aud` a token must name; one of the two flags must name it |
+| `-oidc-scope-claim NAME` | `scope`, then `scp` | The claim a token's scopes are read from |
+| `-oidc-introspect URL`, `-oidc-client-file FILE` | — | Ask this RFC 7662 endpoint, as the client whose `client_id` and `client_secret` the JSON file holds, about bearer tokens that are not JWTs; both or neither |
 | `-print-config [HOST]` | — | Write a host's configuration block to stdout and exit; alone, list the hosts |
 | `-print-config-command CMD` | the binary's path | The command the block names; with `-http ADDR` (and `-tls-cert` for `https`) the block names the server's URL instead, with the `Authorization` header when a token is given |
 | `-version`, `-help`, `-man` | — | The build, this table, the manual page |
@@ -618,6 +819,9 @@ once the manual page from the archive is installed.
   directory should pass `-root DIR` instead.
 - **A tool is missing.** `-tools` left its group out, or the host caches the catalogue: restart
   the server from the host after changing its arguments.
+- **`401`, `403` or `503` from a served instance.** [Running sysml-mcp as a
+  service](../guide/sysml-mcp-service.md#troubleshooting) reads each challenge: which credential
+  was missing, wrong, expired or out of scope, and what to change.
 - **A tool answered a budget error.** Raise the `OPENSYSML_MAX_*` variable it names in the host's
   environment for the server (the `env` key most hosts accept beside `command`), not in your
   shell.

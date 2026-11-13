@@ -201,7 +201,7 @@ while another origin is not.
 `connectWasm()` uses the same `Connection`, `Model`, values and errors over the
 combined `sysml-wasm` module. It serves `ParseFile`, `ParseSources`,
 `GetDiagnostics`, `GetSymbol`, `Evaluate`, `Instantiate`, `ExecuteAction`,
-`ExecuteState`, `RenderView` and `GetServerInfo`. Those are the module's complete RPC surface;
+`ExecuteState`, `RenderView`, `RenderDocument` and `GetServerInfo`. Those are the module's complete RPC surface;
 other capability-gated operations fail with `MissingCapabilityError`, and a
 direct unsupported RPC fails with `UNIMPLEMENTED`.
 The adapter uses JSON encoding; requesting protobuf encoding is refused.
@@ -212,6 +212,12 @@ compartment rows, each a node whose `compartment` names the compartment of its `
 page paints before its module has loaded). A traced `ExecuteState` answers the service's
 `DocumentEvent` records and the module advertises `state_trace`, so
 `connection.executeState(…, { trace: true })` returns the same typed trace over either.
+`RenderDocument` answers the service's protojson `RenderDocumentResponse` in the forms
+`markdown`, `html` and `asciidoc` and the module advertises `render_document`,
+`render_document_html`, `render_document_asciidoc` and `render_document_file_name`, so
+`model.renderDocument(name, { form })` returns the same text over either; `pdf` is refused
+naming the three forms, and a diagram whose view carries layout positions is written as
+Mermaid with the renderer's Graphviz notice, since no WebAssembly build runs Graphviz.
 
 In Node, install the optional `@openmbee/opensysml-wasm` package at the same
 version as this client. `connectWasm()` resolves its module and matching Go

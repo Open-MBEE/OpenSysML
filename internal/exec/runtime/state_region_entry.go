@@ -5,34 +5,35 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
 // regionEntry is one orthogonal region's share of entering its container.
 type regionEntry struct {
-	region    *ast.StateRegion
-	container *ast.StateNode
-	branches  map[*ast.StateRegion]*ast.StateNode
-	target    *ast.StateNode // where the region starts instead of its own start, if anywhere
+	region    program.RegionID
+	container program.StateID
+	branches  map[program.RegionID]program.StateID
+	target    program.StateID // where the region starts instead of its own start, if anywhere
 	effects   []routeEffect
 }
 
 // lazyEntry is the chain of states a fork's branches still have to enter down to
 // owner, the composite whose regions they enter.
 type lazyEntry struct {
-	chain    []*ast.StateNode
+	chain    []program.StateID
 	next     int
-	owner    *ast.StateNode
-	branches map[*ast.StateRegion]*ast.StateNode // region the chain passes through → the state it passes into
+	owner    program.StateID
+	branches map[program.RegionID]program.StateID // region the chain passes through → the state it passes into
 }
 
 // forkEntry describes the way from boundary, which stays active, down to the
 // composite whose regions a fork's branches enter.
 func (e *StateExecutor) forkEntry(boundary, owner *ast.StateNode) *lazyEntry {
 	return &lazyEntry{
-		chain:    e.descendantChain(boundary, owner),
-		owner:    owner,
-		branches: e.branchesTo(boundary, owner),
+		chain:    e.stateIDs(e.descendantChain(boundary, owner)),
+		owner:    e.stateID(owner),
+		branches: e.regionStateIDs(e.branchesTo(boundary, owner)),
 	}
 }
 
@@ -42,10 +43,10 @@ func (e *StateExecutor) forkEntry(boundary, owner *ast.StateNode) *lazyEntry {
 func (e *StateExecutor) enterRegionsInto(container *ast.StateNode, regions []*ast.StateRegion, branches map[*ast.StateRegion]*ast.StateNode) error {
 	entries := make([]*regionEntry, 0, len(regions))
 	for _, region := range regions {
-		entry := &regionEntry{region: region, container: container, branches: branches, target: branches[region]}
-		if effects := e.pendingRouteEntryEffects[region]; len(effects) > 0 {
+		entry := &regionEntry{region: e.regionID(region), container: e.stateID(container), branches: e.regionStateIDs(branches), target: e.stateID(branches[region])}
+		if effects := e.pendingRouteEntryEffects[e.regionID(region)]; len(effects) > 0 {
 			entry.effects = slices.Clone(effects)
-			delete(e.pendingRouteEntryEffects, region)
+			delete(e.pendingRouteEntryEffects, e.regionID(region))
 		}
 		entries = append(entries, entry)
 	}
@@ -82,14 +83,14 @@ func (e *StateExecutor) enterForkBranches(fork *ast.PseudostateNode, plan *lower
 	units := make([]unit, 0, len(regions))
 	shared := lower.Footprint{}
 	for _, state := range above.chain[above.next:] {
-		shared = unionFootprints(shared, e.enterFootprint(state))
+		shared = unionFootprints(shared, e.enterFootprint(e.stateDecl(state)))
 	}
 	for _, region := range regions {
-		entry := &regionEntry{region: region, container: plan.Owner, branches: targets}
+		entry := &regionEntry{region: e.regionID(region), container: e.stateID(plan.Owner), branches: e.regionStateIDs(targets)}
 		branch := plan.Branches[region]
 		footprint := unionFootprints(shared, e.regionEntryFootprint(entry))
 		if branch != nil {
-			entry.target = branch.Target.(*ast.StateNode)
+			entry.target = e.stateID(branch.Target.(*ast.StateNode))
 			footprint = unionFootprints(footprint, e.behaviorsFootprint(branch.Effect))
 		}
 		units = append(units, unit{
@@ -102,7 +103,7 @@ func (e *StateExecutor) enterForkBranches(fork *ast.PseudostateNode, plan *lower
 					if err := e.runBranchEffect(branch); err != nil {
 						return err
 					}
-					e.ctx.noteTransitionTaken(e.self, e.stateMachine, e.vertexPathNames(fork), e.statePathNames(entry.target), branch)
+					e.ctx.noteTransitionTaken(e.self, e.stateMachine, e.vertexPathNames(fork), e.statePathNames(e.stateDecl(entry.target)), branch)
 				}
 				if err := e.enterShared(above); err != nil {
 					return err
@@ -119,11 +120,11 @@ func (e *StateExecutor) enterForkBranches(fork *ast.PseudostateNode, plan *lower
 // state a unit every branch heads until one of them enters it.
 func (e *StateExecutor) enterShared(l *lazyEntry) error {
 	for i := l.next; i < len(l.chain); i++ {
-		state := l.chain[i]
+		state := e.stateDecl(l.chain[i])
 		perform := true
 		if e.entryIsUnit(state) {
 			head := e.entryHead(state, false)
-			head.shared, head.dropped = state, func() bool { return l.next > i }
+			head.shared, head.dropped = e.stateID(state), func() bool { return l.next > i }
 			var err error
 			if perform, err = e.unit(choiceEntryOrder, head); err != nil {
 				return err
@@ -164,8 +165,8 @@ func (e *StateExecutor) enterRegion(w *regionEntry) error {
 	if e.state == StateTerminated {
 		return nil
 	}
-	if w.target == nil && e.graph.RegionState[w.region] == nil && len(e.graph.StartOf(w.region)) > 0 {
-		if err := e.unitAhead(choiceEntryOrder, e.startHead(w.region, w.container)); err != nil {
+	if w.target == 0 && e.graph.RegionState[e.regionDecl(w.region)] == nil && len(e.graph.StartOf(e.regionDecl(w.region))) > 0 {
+		if err := e.unitAhead(choiceEntryOrder, e.startHead(e.regionDecl(w.region), e.stateDecl(w.container))); err != nil {
 			return err
 		}
 	}
@@ -177,25 +178,25 @@ func (e *StateExecutor) enterRegion(w *regionEntry) error {
 		return nil
 	}
 	if entry == nil {
-		if w.target == nil {
+		if w.target == 0 {
 			e.activeConfig.defaultComplete[w.region] = true
 		}
 		return nil
 	}
-	e.setRegionState(w.region, entry)
-	_, deepest, err := e.enterToward(w.container, entry, w.branches)
+	e.setRegionState(e.regionDecl(w.region), entry)
+	_, deepest, err := e.enterToward(e.stateDecl(w.container), entry, e.regionStateDecls(w.branches))
 	if err != nil {
-		return fmt.Errorf("enter starting state in region %s: %w", w.region.Name, err)
+		return fmt.Errorf("enter starting state in region %s: %w", e.regionDecl(w.region).Name, err)
 	}
 	if e.state == StateTerminated {
 		return nil
 	}
 	// The deepest state the region keeps active is the one on the way down that
 	// its own substates declare.
-	if branch, ok := e.branchesTo(nil, deepest)[w.region]; ok {
-		e.setRegionState(w.region, branch)
+	if branch, ok := e.branchesTo(nil, deepest)[e.regionDecl(w.region)]; ok {
+		e.setRegionState(e.regionDecl(w.region), branch)
 	}
-	if w.target == nil && entry == e.graph.RegionState[w.region] && deepest == entry &&
+	if w.target == 0 && entry == e.graph.RegionState[e.regionDecl(w.region)] && deepest == entry &&
 		len(e.graph.StartOf(entry)) == 0 {
 		e.activeConfig.defaultComplete[w.region] = true
 	}
@@ -226,13 +227,13 @@ func (e *StateExecutor) startHead(body ast.Node, above *ast.StateNode) unitHead 
 // regionStart is the state a region starts in: the target it was given, the
 // substate of a parallel state it stands for, or its own entry transitions' choice.
 func (e *StateExecutor) regionStart(w *regionEntry) (*ast.StateNode, error) {
-	if w.target != nil {
-		return w.target, nil
+	if w.target != 0 {
+		return e.stateDecl(w.target), nil
 	}
-	if owner := e.graph.RegionState[w.region]; owner != nil {
+	if owner := e.graph.RegionState[e.regionDecl(w.region)]; owner != nil {
 		return owner, nil
 	}
-	entry, err := e.startIn(w.region)
+	entry, err := e.startIn(e.regionDecl(w.region))
 	if err != nil {
 		return nil, err
 	}
@@ -246,20 +247,20 @@ func (e *StateExecutor) regionStart(w *regionEntry) (*ast.StateNode, error) {
 // behavior begun at its state's entry; the regions off the chain start as usual, on a front.
 func (e *StateExecutor) enterLazily(l *lazyEntry, upto int) error {
 	for ; l.next < upto; l.next++ {
-		state := l.chain[l.next]
+		state := e.stateDecl(l.chain[l.next])
 		if err := e.activateState(state); err != nil {
 			return fmt.Errorf("enter state %s: %w", state.Name, err)
 		}
 		e.startDoAction(state)
-		if state == l.owner {
+		if state == e.stateDecl(l.owner) {
 			continue
 		}
 		var others []*regionEntry
 		for _, region := range e.graph.CompositeStates[state] {
-			if _, onWay := l.branches[region]; onWay {
+			if _, onWay := l.branches[e.regionID(region)]; onWay {
 				continue
 			}
-			others = append(others, &regionEntry{region: region, container: state, branches: l.branches})
+			others = append(others, &regionEntry{region: e.regionID(region), container: e.stateID(state), branches: l.branches})
 		}
 		if err := e.enterRegions(state, others, false); err != nil {
 			return fmt.Errorf("enter state %s: %w", state.Name, err)

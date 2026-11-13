@@ -14,7 +14,7 @@
       "presentEqual": 96,
       "presentDifferent": 0,
       "oursMissing": 17,
-      "pilotMissing": 6,
+      "pilotMissing": 7,
       "absentBoth": 89,
       "indeterminate": 0,
       "pilotNondeterministic": 0
@@ -111,6 +111,7 @@
     "MetadataFeature.isLibraryElement": [1,0,0,0,0,0,0],
     "MetadataFeature.isOrdered": [1,0,0,0,0,0,0],
     "MetadataFeature.isPortion": [1,0,0,0,0,0,0],
+    "MetadataFeature.isReference": [0,0,0,1,0,0,0],
     "MetadataFeature.isSufficient": [1,0,0,0,0,0,0],
     "MetadataFeature.isUnique": [1,0,0,0,0,0,0],
     "MetadataFeature.isVariable": [1,0,0,0,0,0,0],

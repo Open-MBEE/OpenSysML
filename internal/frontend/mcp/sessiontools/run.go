@@ -59,8 +59,9 @@ type RunsInput struct {
 // RenderRunInput asks for the recorded run drawn.
 type RenderRunInput struct {
 	SessionName
-	Kind string `json:"kind" jsonschema:"timeline (state occupancy per object machine over clock time) or sequence (the messages sent)"`
-	Form string `json:"form,omitempty" jsonschema:"text (default), mermaid, plantuml, svg (a self-contained SVG drawing) or svg-animated (the SVG replaying the run with SMIL)"`
+	Kind  string `json:"kind" jsonschema:"timeline (state occupancy per object machine over clock time) or sequence (the messages sent)"`
+	Form  string `json:"form,omitempty" jsonschema:"text (default), mermaid, plantuml, svg (a self-contained SVG drawing) or svg-animated (the SVG replaying the run with SMIL)"`
+	Limit int    `json:"limit,omitempty" jsonschema:"the most spans or messages drawn, 200 when omitted; a rendering cut short says so in a notice and names the instants not drawn"`
 }
 
 // RenderedRun is a run's trace drawn.
@@ -141,9 +142,12 @@ func renderRun(_ context.Context, sess *repl.Session, in RenderRunInput) (Render
 	if err != nil {
 		return RenderedRun{}, err
 	}
-	rendering, err := sess.RunTraceRendering(kind)
+	if in.Limit < 0 {
+		return RenderedRun{}, fmt.Errorf("limit must be a positive count, not %d", in.Limit)
+	}
+	rendering, err := sess.RunTraceRendering(kind, in.Limit)
 	if errors.Is(err, runtrace.ErrNoTrace) {
-		return RenderedRun{}, errors.New("the session records no trace; run repl_command `%trace on` before the run")
+		return RenderedRun{}, errors.New("the session records no trace; run repl_command `%trace record` before the run")
 	}
 	if err != nil {
 		return RenderedRun{}, err
@@ -242,7 +246,7 @@ func registerRuns(s *mcp.Server, m *Manager) {
 	}))
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "render_run",
-		Description: "Render the run a session recorded as a state timeline or a message sequence (%render-run), in a text, diagram or SVG form. Recording must be on before the run: repl_command `%trace on`.",
+		Description: "Render the run a session recorded as a state timeline or a message sequence (%render-run), in a text, diagram or SVG form. Recording must be on before the run: repl_command `%trace record` keeps the trace for this tool without echoing it into every later result (`%trace on` records and echoes it). At most limit spans or messages are drawn, 200 when omitted.",
 		Annotations: toolkit.ReadOnly("Render run"),
 	}, handler(m, renderRun))
 }

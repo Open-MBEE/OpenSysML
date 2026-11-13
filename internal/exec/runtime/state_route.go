@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
 
@@ -29,20 +30,20 @@ func transientPseudostate(kind ast.PseudostateKind) bool {
 // history restoring.
 type route struct {
 	segments []*lower.Transition
-	target   *ast.StateNode
-	choice   *ast.PseudostateNode
+	target   program.StateID
+	choice   program.PseudoID
 	draw     *junctionDraw
-	arrival  *ast.PseudostateNode
+	arrival  program.PseudoID
 	// crossed are the pseudostates passed, so a path back into one is a cycle.
-	crossed []*ast.PseudostateNode
-	// origin is the state the transition routed left, nil when none (an entry).
-	origin *ast.StateNode
+	crossed []program.PseudoID
+	// origin is the state the transition routed left, 0 when none (an entry).
+	origin program.StateID
 	// notes is what settling the route noted — a branch guard it could not read,
 	// a junction drawn among several enabled — recorded once the transition is taken.
 	notes []RunNote
 	// terminate is the terminate action usage the route ends at, which ends the
 	// machine's performance in place of entering a state (SysML v2 §7.18.3).
-	terminate *ast.Usage
+	terminate program.VertexRef
 	// performs are the behaviors of the terminate action usages naming an
 	// occurrence the route ends at, run after the segments' effects before the
 	// completion vertex target is entered (SysML v2 §8.3.17.16).
@@ -55,10 +56,10 @@ type route struct {
 // committed to fire, so a transition another region's reaction leaves behind
 // draws nothing.
 type junctionDraw struct {
-	at       *ast.PseudostateNode
+	at       program.PseudoID
 	outgoing []*lower.Transition
 	enabled  []int
-	origin   *ast.StateNode
+	origin   program.StateID
 	// beyond is the route on from each enabled branch, in enabled's order.
 	beyond []branchBeyond
 }
@@ -72,22 +73,22 @@ type branchBeyond struct {
 
 // settled reports whether the route has somewhere to move to.
 func (r route) settled() bool {
-	return r.target != nil || r.choice != nil || r.draw != nil || r.arrival != nil || r.terminate != nil
+	return r.target != 0 || r.choice != 0 || r.draw != nil || r.arrival != 0 || !r.terminate.IsZero()
 }
 
 // routeEffect is one effect of a compound transition and the state declaring the
 // pseudostate its segment leaves; nil for a segment out of a state or the machine's body.
 type routeEffect struct {
 	behavior lower.StateBehavior
-	within   *ast.StateNode
+	within   program.StateID
 	segment  *lower.Transition
 }
 
-func cloneRouteEntryEffects(effects map[*ast.StateRegion][]routeEffect) map[*ast.StateRegion][]routeEffect {
+func cloneRouteEntryEffects(effects map[program.RegionID][]routeEffect) map[program.RegionID][]routeEffect {
 	if effects == nil {
 		return nil
 	}
-	cloned := make(map[*ast.StateRegion][]routeEffect, len(effects))
+	cloned := make(map[program.RegionID][]routeEffect, len(effects))
 	for region, routeEffects := range effects {
 		cloned[region] = slices.Clone(routeEffects)
 	}
@@ -96,12 +97,12 @@ func cloneRouteEntryEffects(effects map[*ast.StateRegion][]routeEffect) map[*ast
 
 // effects are the behaviors the route's segments perform, in path order, each
 // with the state enclosing it.
-func (r route) effects(g *lower.StateGraph) []routeEffect {
+func (r route) effects(e *StateExecutor) []routeEffect {
 	var effects []routeEffect
 	for _, seg := range r.segments {
-		var within *ast.StateNode
+		var within program.StateID
 		if ps, isPseudostate := seg.Source.(*ast.PseudostateNode); isPseudostate {
-			within = g.PseudostateOwner[ps]
+			within = e.stateID(e.graph.PseudostateOwner[ps])
 		}
 		for _, behavior := range seg.Effect {
 			effects = append(effects, routeEffect{behavior: behavior, within: within, segment: seg})
@@ -120,10 +121,11 @@ func (r route) effects(g *lower.StateGraph) []routeEffect {
 func (e *StateExecutor) resolveRoute(trans *lower.Transition, event *Event) (route, error) {
 	defer e.taking(trans, e.firingNotes).restore()
 	r := route{segments: []*lower.Transition{trans}}
-	r.origin, _ = trans.Source.(*ast.StateNode)
+	origin, _ := trans.Source.(*ast.StateNode)
+	r.origin = e.stateID(origin)
 	switch target := trans.Target.(type) {
 	case *ast.StateNode:
-		r.target = target
+		r.target = e.stateID(target)
 		return r, nil
 	case *ast.PseudostateNode:
 		switch target.Kind {
@@ -135,7 +137,7 @@ func (e *StateExecutor) resolveRoute(trans *lower.Transition, event *Event) (rou
 				return route{}, err
 			}
 			if !completes {
-				r.arrival = target
+				r.arrival = e.pseudoID(target)
 				return r, nil
 			}
 		}
@@ -159,12 +161,12 @@ func (e *StateExecutor) resolveRoute(trans *lower.Transition, event *Event) (rou
 // as KerML `DecisionPerformance::outgoingHBLink: HappensBefore[1]` requires.
 // A route that cannot be settled is returned as far as it got, with its notes.
 func (e *StateExecutor) followOut(ps *ast.PseudostateNode, r route) (route, error) {
-	if slices.Contains(r.crossed, ps) {
+	if slices.Contains(r.crossed, e.pseudoID(ps)) {
 		return r, fmt.Errorf("%s %s: outgoing transitions form a cycle between pseudostates", ps.Kind, ps.Name)
 	}
-	r.crossed = append(r.crossed, ps)
+	r.crossed = append(r.crossed, e.pseudoID(ps))
 	if ps.Kind == ast.PseudostateChoice {
-		r.choice = ps
+		r.choice = e.pseudoID(ps)
 		return r, nil
 	}
 	outgoing := e.graph.Transitions[ps]
@@ -180,7 +182,7 @@ func (e *StateExecutor) followOut(ps *ast.PseudostateNode, r route) (route, erro
 		return r, fmt.Errorf("%w: %s %s: no guard evaluated to true", errNoWayThrough, ps.Kind, ps.Name)
 	}
 	if len(enabled) > 1 {
-		draw := &junctionDraw{at: ps, outgoing: outgoing, origin: r.origin}
+		draw := &junctionDraw{at: e.pseudoID(ps), outgoing: outgoing, origin: r.origin}
 		for _, pos := range enabled {
 			beyond, err := e.follow(ps, outgoing[pos], route{crossed: slices.Clone(r.crossed), origin: r.origin})
 			if errors.Is(err, errNoWayThrough) {
@@ -256,7 +258,7 @@ func (e *StateExecutor) settleDraws(r route) (route, error) {
 	for r.draw != nil {
 		draw := r.draw
 		r.draw = nil
-		pick, err := e.pickBranch(draw.at, draw.outgoing, draw.enabled, draw.origin, func(n RunNote) { r.notes = append(r.notes, n) })
+		pick, err := e.pickBranch(e.pseudoDecl(draw.at), draw.outgoing, draw.enabled, e.stateDecl(draw.origin), func(n RunNote) { r.notes = append(r.notes, n) })
 		if err != nil {
 			return route{}, err
 		}
@@ -276,10 +278,10 @@ func (e *StateExecutor) settleDraws(r route) (route, error) {
 func (e *StateExecutor) terminateRoute(r route, stop *ast.Usage) route {
 	if behavior, named := e.graph.TerminateBehaviors[stop]; named {
 		r.performs = append(r.performs, behavior)
-		r.target = e.graph.TerminateCompletion[stop]
+		r.target = e.stateID(e.graph.TerminateCompletion[stop])
 		return r
 	}
-	r.terminate = stop
+	r.terminate = e.vertexRef(stop)
 	return r
 }
 
@@ -299,7 +301,7 @@ func (e *StateExecutor) follow(from *ast.PseudostateNode, seg *lower.Transition,
 	r.segments = append(r.segments, seg)
 	switch target := seg.Target.(type) {
 	case *ast.StateNode:
-		r.target = target
+		r.target = e.stateID(target)
 		return r, nil
 	case *ast.PseudostateNode:
 		if !transientPseudostate(target.Kind) {
@@ -318,7 +320,7 @@ func (e *StateExecutor) follow(from *ast.PseudostateNode, seg *lower.Transition,
 // data as it now stands and goes on from the branch taken: the policy draws among
 // several enabled, as a recorded choice point; none enabled is the typed error.
 func (e *StateExecutor) resolveChoice(r route) (route, error) {
-	choice := r.choice
+	choice := e.pseudoDecl(r.choice)
 	outgoing := e.graph.Transitions[choice]
 	enabled, notes, err := e.enabledBranches(choice, outgoing)
 	if err != nil {
@@ -328,7 +330,7 @@ func (e *StateExecutor) resolveChoice(r route) (route, error) {
 	if len(enabled) == 0 {
 		return route{}, fmt.Errorf("%w: choice %s: no guard evaluated to true", errChoiceWithoutBranch, choice.Name)
 	}
-	pick, err := e.pickBranch(choice, outgoing, enabled, r.origin, e.ctx.note)
+	pick, err := e.pickBranch(choice, outgoing, enabled, e.stateDecl(r.origin), e.ctx.note)
 	if err != nil {
 		return route{}, err
 	}
@@ -488,9 +490,9 @@ func pseudostateWhere(ps *ast.PseudostateNode) string {
 // junction enabled (one that could not be settled ends nowhere), or through every
 // branch of the choice and whatever pseudostates lie beyond, each once.
 func (e *StateExecutor) reachable(r route) (states []*ast.StateNode, stops []*ast.Usage, err error) {
-	reach := &reachSet{graph: e.graph, seen: make(map[*ast.PseudostateNode]bool)}
+	reach := &reachSet{exec: e, graph: e.graph, seen: make(map[*ast.PseudostateNode]bool)}
 	for _, ps := range r.crossed {
-		reach.seen[ps] = true
+		reach.seen[e.pseudoDecl(ps)] = true
 	}
 	err = reach.settled(r)
 	return reach.states, reach.stops, err
@@ -499,6 +501,7 @@ func (e *StateExecutor) reachable(r route) (states []*ast.StateNode, stops []*as
 // reachSet gathers the states and terminate actions a route can end at, each
 // once, crossing each transient pseudostate once.
 type reachSet struct {
+	exec   *StateExecutor
 	graph  *lower.StateGraph
 	seen   map[*ast.PseudostateNode]bool
 	states []*ast.StateNode
@@ -549,12 +552,12 @@ func (s *reachSet) visit(ps *ast.PseudostateNode, branches []*lower.Transition) 
 // settled follows the route where it is settled, and every branch of the
 // choice where it is not.
 func (s *reachSet) settled(r route) error {
-	if r.target != nil {
-		s.add(r.target)
+	if r.target != 0 {
+		s.add(s.exec.stateDecl(r.target))
 		return nil
 	}
-	if r.terminate != nil {
-		s.stop(r.terminate)
+	if !r.terminate.IsZero() {
+		s.stop(s.exec.terminateDecl(r.terminate))
 		return nil
 	}
 	if r.draw != nil {
@@ -568,7 +571,8 @@ func (s *reachSet) settled(r route) error {
 		}
 		return nil
 	}
-	return s.visit(r.choice, s.graph.Transitions[r.choice])
+	choice := s.exec.pseudoDecl(r.choice)
+	return s.visit(choice, s.graph.Transitions[choice])
 }
 
 // terminateBoundary is the state a move from `from` into stop's owner stays inside
@@ -665,7 +669,7 @@ func (e *StateExecutor) runEffects(effects []routeEffect, chain []*ast.StateNode
 		if e.endedBefore(ended, effect.behavior) {
 			continue
 		}
-		if upto := e.enclosingIndex(chain, effect.within); upto >= 0 {
+		if upto := e.enclosingIndex(chain, e.stateDecl(effect.within)); upto >= 0 {
 			if err := e.enterAhead(chain[:upto+1]); err != nil {
 				return err
 			}
@@ -718,7 +722,7 @@ func (e *StateExecutor) enterAhead(chain []*ast.StateNode) error {
 	simple := e.activeConfig.simpleState
 	defer func() { e.activeConfig.simpleState = simple }()
 	for _, state := range chain {
-		if _, ahead := e.enteredAhead[state]; ahead {
+		if _, ahead := e.enteredAhead[e.stateID(state)]; ahead {
 			continue
 		}
 		if e.entryIsUnit(state) {
@@ -730,19 +734,19 @@ func (e *StateExecutor) enterAhead(chain []*ast.StateNode) error {
 			return fmt.Errorf("enter state %s: %w", state.Name, err)
 		}
 		if e.enteredAhead == nil {
-			e.enteredAhead = make(map[*ast.StateNode]bool)
+			e.enteredAhead = make(map[program.StateID]bool)
 		}
-		e.enteredAhead[state] = true
+		e.enteredAhead[e.stateID(state)] = true
 	}
 	return nil
 }
 
 // activatedAhead reports, and takes, an activation the move already made ahead.
 func (e *StateExecutor) activatedAhead(state *ast.StateNode) bool {
-	if !e.enteredAhead[state] {
+	if !e.enteredAhead[e.stateID(state)] {
 		return false
 	}
-	e.enteredAhead[state] = false
+	e.enteredAhead[e.stateID(state)] = false
 	return true
 }
 
@@ -750,7 +754,7 @@ func (e *StateExecutor) activatedAhead(state *ast.StateNode) bool {
 func (e *StateExecutor) entriesSettled() error {
 	for state, waiting := range e.enteredAhead {
 		if waiting {
-			return fmt.Errorf("state %s was entered ahead of the transition but the transition does not enter it", state.Name)
+			return fmt.Errorf("state %s was entered ahead of the transition but the transition does not enter it", e.stateDecl(state).Name)
 		}
 	}
 	return nil
@@ -784,13 +788,10 @@ func (e *StateExecutor) exitAhead(states []*ast.StateNode) error {
 		return nil
 	}
 	simple, regions, complete := e.activeConfig.simpleState, e.activeConfig.regionStates, e.activeConfig.defaultComplete
-	e.activeConfig.regionStates = make(map[*ast.StateRegion]*ast.StateNode, len(regions))
+	e.activeConfig.regionStates = maps.Clone(regions)
 	e.activeConfig.defaultComplete = maps.Clone(complete)
-	for region, active := range regions {
-		e.activeConfig.regionStates[region] = active
-	}
 	if e.leftAhead == nil {
-		e.leftAhead = make(map[*ast.StateNode]bool)
+		e.leftAhead = make(map[program.StateID]bool)
 	}
 	e.exitingAhead = true
 	err := e.exitStates(states)
@@ -846,7 +847,7 @@ func (e *StateExecutor) travelResolving(trans *lower.Transition, from *ast.State
 			return err
 		}
 	}
-	for r.choice != nil {
+	for r.choice != 0 {
 		ends, err := e.endsOf(r, trans, from, exits, enters)
 		if err != nil {
 			return err
@@ -858,7 +859,7 @@ func (e *StateExecutor) travelResolving(trans *lower.Transition, from *ast.State
 		if err := e.exitAhead(certainExits); err != nil {
 			return err
 		}
-		if err := e.enterOwnerOf(r.choice, certainEntries); err != nil {
+		if err := e.enterOwnerOf(e.pseudoDecl(r.choice), certainEntries); err != nil {
 			return err
 		}
 		e.noteFired(r.segments...)
@@ -867,27 +868,28 @@ func (e *StateExecutor) travelResolving(trans *lower.Transition, from *ast.State
 		}
 	}
 	var leaving, entering []*ast.StateNode
-	if r.terminate != nil {
-		leaving = e.expandExits(e.terminateExits(from, trans, r.terminate))
-		entering = e.terminateEntries(from, trans, r.terminate)
+	if stop := e.terminateDecl(r.terminate); stop != nil {
+		leaving = e.expandExits(e.terminateExits(from, trans, stop))
+		entering = e.terminateEntries(from, trans, stop)
 	} else {
-		leaving, entering = e.expandExits(exits(r.target)), enters(r.target)
+		target := e.stateDecl(r.target)
+		leaving, entering = e.expandExits(exits(target)), enters(target)
 	}
 	effects, err := e.leaveAlong(r, leaving, entering, r.segments[len(r.segments)-1])
 	if err != nil {
 		return err
 	}
 	e.noteFired(r.segments...)
-	if r.terminate != nil {
+	if !r.terminate.IsZero() {
 		return e.terminateAlong(trans, from, r, effects)
 	}
-	return move(effects, r.target)
+	return move(effects, e.stateDecl(r.target))
 }
 
 // leaveAlong runs the segments before upto, exiting what each has left before its effects
 // (UML 14.2.3.8.4), and returns the effects from upto on, which run after the move's exits.
 func (e *StateExecutor) leaveAlong(r route, leaving, entering []*ast.StateNode, upto *lower.Transition) ([]routeEffect, error) {
-	effects := r.effects(e.graph)
+	effects := r.effects(e)
 	var left []*ast.StateNode
 	for _, seg := range r.segments {
 		if seg == upto {
@@ -964,10 +966,10 @@ func (e *StateExecutor) vertexState(end ast.Node) *ast.StateNode {
 // (SysML v2 §7.18.3): the states the move leaves are exited and the ones down to
 // the action's owner entered, as for a state beside it, then the machine ends.
 func (e *StateExecutor) terminateAlong(trans *lower.Transition, from *ast.StateNode, r route, effects []routeEffect) error {
-	if err := e.exitStates(e.terminateExits(from, trans, r.terminate)); err != nil {
+	if err := e.exitStates(e.terminateExits(from, trans, e.terminateDecl(r.terminate))); err != nil {
 		return err
 	}
-	return e.terminateAt(trans, StateVertexName(from), r, effects, e.terminateEntries(from, trans, r.terminate))
+	return e.terminateAt(trans, StateVertexName(from), r, effects, e.terminateEntries(from, trans, e.terminateDecl(r.terminate)))
 }
 
 // terminateAt ends the machine's performance at the terminate action r reaches,
@@ -983,7 +985,7 @@ func (e *StateExecutor) terminateAt(trans *lower.Transition, fromName string, r 
 	}
 	// The machine ends here: the entries made ahead are the move's own.
 	clear(e.enteredAhead)
-	return e.terminateMachine(fromName, trans, r.terminate)
+	return e.terminateMachine(fromName, trans, e.terminateDecl(r.terminate))
 }
 
 // runBehaviors performs a transition's effects, in order.
@@ -997,11 +999,11 @@ func (e *StateExecutor) runBehaviors(effects []lower.StateBehavior) error {
 // mayExit lists the states a compound transition along r from `from` may leave,
 // whichever end it can reach; false where the route cannot be followed.
 func (e *StateExecutor) mayExit(r route, trans *lower.Transition, from *ast.StateNode, exits exitPlan) ([]*ast.StateNode, bool) {
-	if r.target != nil {
-		return exits(r.target), true
+	if r.target != 0 {
+		return exits(e.stateDecl(r.target)), true
 	}
-	if r.terminate != nil {
-		return e.terminateExits(from, trans, r.terminate), true
+	if stop := e.terminateDecl(r.terminate); stop != nil {
+		return e.terminateExits(from, trans, stop), true
 	}
 	targets, stops, err := e.reachable(r)
 	if err != nil {
