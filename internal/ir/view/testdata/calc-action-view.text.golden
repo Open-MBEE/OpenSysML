@@ -1,14 +1,16 @@
 CalcViews::calcFlows - action rendering (render asInterconnectionDiagram, view def ActionFlowView)
 
-calc add (declares no nodes)
+calc add
+  result
+    x + y
   in x
   in y
   out result
-calc def Add (declares no nodes)
+calc def Add
   in x
   in y
   out r
-calc total (declares no nodes)
+calc total
   in x
   in y
   out ^r
