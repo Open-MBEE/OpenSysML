@@ -135,10 +135,10 @@ func (r *Rendering) data(ports *portView) Data {
 		Notes:    r.Notes,
 		Frame:    r.Frame,
 		Shown:    r.Shown.Names(),
-		Notices:  r.Notices,
+		Notices:  r.notices(),
 	}
 	if refusals := refusedPictureNotices(r.Pictures, r.pictureRefusals()); len(refusals) > 0 {
-		out.Notices = append(append([]string(nil), r.Notices...), refusals...)
+		out.Notices = append(append([]string(nil), out.Notices...), refusals...)
 	}
 	// A consumer given no node, edge, row or lane is told why, rather than left to show nothing.
 	if r.blank() {

@@ -326,7 +326,7 @@ func tokenMayEnd(exec *ActionExecutor, t Token) bool {
 	if t.frame != nil && t.frame != exec.root || standing(exec, t).Dynamic {
 		return true
 	}
-	edges := tokenGraphOf(exec, t).Edges[t.Location]
+	edges := tokenGraphOf(exec, t).Edges[t.Node()]
 	return len(edges) == 0 || slices.ContainsFunc(edges, func(e lower.ActionEdge) bool { return e.Guard != nil })
 }
 

@@ -39,6 +39,7 @@ struct Exploration
     runs_budget::Int
     depth_budget::Int
     probabilities_lower_bound::Bool
+    coverage::Coverage
 end
 function Exploration(answer::AbstractDict)
     status = get(answer, "exploration", Dict{String,Any}())
@@ -46,7 +47,7 @@ function Exploration(answer::AbstractDict)
         Bool(get(status, "complete", false)), Int(get(status, "runs", 0)),
         String[String(v) for v in get(status, "budgetsHit", Any[])],
         Int(get(status, "runsBudget", 0)), Int(get(status, "depthBudget", 0)),
-        Bool(get(status, "probabilitiesLowerBound", false)))
+        Bool(get(status, "probabilitiesLowerBound", false)), _coverage(status))
 end
 Base.iterate(exploration::Exploration, state...) = iterate(exploration.outcomes, state...)
 Base.length(exploration::Exploration) = length(exploration.outcomes)

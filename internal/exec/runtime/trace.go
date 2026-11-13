@@ -204,21 +204,7 @@ func (r TraceRecord) Text() string {
 // Machine names the behavior a record came from as its object exhibits it, or
 // as declared when it is anonymous or the record has no object.
 func (r TraceRecord) Machine() string {
-	behavior := r.Origin.Behavior
-	if behavior == nil {
-		return ""
-	}
-	if r.Origin.Object != nil {
-		for _, b := range r.Origin.Object.Behaviors() {
-			if b.Symbol == behavior || (b.State != nil && b.State.StateMachineSymbol() == behavior) {
-				if b.Name != "" {
-					return b.Name
-				}
-				break
-			}
-		}
-	}
-	return behavior.Name
+	return machineName(r.Origin.Object, r.Origin.Behavior)
 }
 
 // PayloadTexts renders a message payload as `name = value` entries in name order.
@@ -275,6 +261,12 @@ func NewEventRecorder(limit int) *TraceRecorder {
 		queryOnly: true,
 		limit:     max(limit, 0),
 	}
+}
+
+// SetQueryOnly stops the recorder keeping the lines a trace prints, or has it
+// keep them again; the records it holds stay either way.
+func (tr *TraceRecorder) SetQueryOnly(queryOnly bool) {
+	tr.queryOnly = queryOnly
 }
 
 // disable disables trace recording.
@@ -335,7 +327,7 @@ func (tr *TraceRecorder) recordActionStep(step int, tokens []Token) {
 	// Format: step N: token T1@node1, token T2@node2
 	var parts []string
 	for _, t := range sorted {
-		nodeName := nodeIdentifier(t.Location)
+		nodeName := nodeIdentifier(t.Node())
 		parts = append(parts, fmt.Sprintf("token %d@%s", t.ID, nodeName))
 	}
 
@@ -502,7 +494,7 @@ func (tr *TraceRecorder) recordActionTerminate(perf string, dropped []Token) {
 	}
 	parts := make([]string, 0, len(dropped))
 	for _, t := range dropped {
-		parts = append(parts, fmt.Sprintf("token %d@%s", t.ID, nodeIdentifier(t.Location)))
+		parts = append(parts, fmt.Sprintf("token %d@%s", t.ID, nodeIdentifier(t.Node())))
 	}
 	tr.line(fmt.Sprintf("terminate %s: dropped %s", perf, strings.Join(parts, ", ")))
 }

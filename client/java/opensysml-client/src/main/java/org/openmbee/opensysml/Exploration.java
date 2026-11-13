@@ -2,6 +2,7 @@ package org.openmbee.opensysml;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Every distinct outcome a behavior reaches under some order of its choice points, and how the
@@ -17,6 +18,8 @@ import java.util.List;
  * @param failedLinearizations the runs whose outcomes carry runtime errors
  * @param probabilitiesLowerBound whether weighted probabilities are lower bounds: a budget kept
  *     some orders unexplored
+ * @param coverage the states entered and transitions taken across every run, not only each
+ *     outcome's witness
  */
 public record Exploration(
     List<Outcome> outcomes,
@@ -26,7 +29,8 @@ public record Exploration(
     int runsBudget,
     int depthBudget,
     int failedLinearizations,
-    boolean probabilitiesLowerBound) {
+    boolean probabilitiesLowerBound,
+    Coverage coverage) {
 
   /**
    * Creates an exploration, copying its collections.
@@ -39,10 +43,12 @@ public record Exploration(
    * @param depthBudget the depth budget
    * @param failedLinearizations the failed runs
    * @param probabilitiesLowerBound whether the probabilities are lower bounds
+   * @param coverage the coverage of every run
    */
   public Exploration {
     outcomes = List.copyOf(outcomes);
     budgetsHit = List.copyOf(budgetsHit);
+    Objects.requireNonNull(coverage, "coverage");
   }
 
   /**

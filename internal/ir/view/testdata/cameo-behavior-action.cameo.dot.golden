@@ -44,6 +44,7 @@ digraph "NotationViews::acquireView" {
       "n9" [shape=diamond, fillcolor="#E1E1C3:#F7F7EF", color="#424242", label="", pos="250,70!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];
       "n10" [shape=diamond, fillcolor="#E1E1C3:#F7F7EF", color="#424242", label="", pos="250,120!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];
       "n11" [shape=circle, fillcolor=white, label=<<b>✕</b>>, margin=0, pos="250,20!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];
+      "n11.0" [shape=box, style="rounded,filled", label="↓", xlabel="^terminatedOccurrence", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, fillcolor="#FFFFFF", color="#424242", pos="250,36!", pin=true];
       "n12" [shape=circle, fillcolor=black, label="", pos="337.5,522.5!", pin=true, width=0.20833333333333334, height=0.20833333333333334, fixedsize=true];
     }
     "note:0" [shape=note, fillcolor="#FFFFFF", color="#5B5B59", margin=0, label=<<font point-size="9">«comment»</font><br/>Acquire a new star>, pos="550,295!", pin=true, width=1.9444444444444444, height=0.6944444444444444, fixedsize=true];

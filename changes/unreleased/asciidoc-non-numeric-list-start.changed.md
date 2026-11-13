@@ -1,0 +1,1 @@
+- An ordered list in an AsciiDoc body whose `start` is not a number (`[start=abc]`, `[start=]`) is refused as an ordered list starting at 0, where it was accepted and numbered from 1: Asciidoctor.js 4.2.1, which `scripts/download-doc-pdf-toolchain.sh` now installs, reads such a value as 0 and numbers the list from there.

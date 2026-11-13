@@ -1,6 +1,5 @@
-// Package guard is what a service that other machines may reach shares with
-// the others: the one bearer token it accepts (RFC 6750), where a token is
-// read from, and the rule that a listener off loopback is served only with one.
+// Package guard is what the services other machines may reach share: who a bearer
+// credential speaks for (RFC 6750), and that a listener off loopback requires one.
 package guard
 
 import (
@@ -59,9 +58,10 @@ func IsB64Token(s string) bool {
 type Refusal int
 
 const (
-	// Accepted is a header carrying the token.
+	// Accepted is a header carrying a credential the server accepts.
 	Accepted Refusal = iota
-	// NothingPresented is a request with no Authorization header.
+	// NothingPresented is a request with no Authorization header; from one
+	// Authenticator of a Chain, also a credential of a kind it does not read.
 	NothingPresented
 	// NotBearer is an Authorization header of another scheme.
 	NotBearer
@@ -69,41 +69,64 @@ const (
 	Malformed
 	// Mismatch is a well-formed bearer token that is not this server's.
 	Mismatch
+	// Expired is a bearer token of this server's whose lifetime has ended.
+	Expired
+	// InsufficientScope is a valid bearer token without a scope the server requires.
+	InsufficientScope
+	// Unavailable is a bearer token the server cannot verify for now, what issued
+	// it being out of reach; RFC 6750 § 3.1 has no error code for it.
+	Unavailable
 )
 
-// Check classifies the Authorization header of a request (RFC 6750 § 2.1).
-func (t Token) Check(authorization string) Refusal {
+// Bearer reads the bearer token of an Authorization header (RFC 6750 § 2.1):
+// the b64token with Accepted, or why the header carries none.
+func Bearer(authorization string) (string, Refusal) {
 	scheme, credentials, _ := strings.Cut(strings.TrimSpace(authorization), " ")
 	credentials = strings.TrimSpace(credentials)
 	switch {
 	case scheme == "":
-		return NothingPresented
+		return "", NothingPresented
 	case !strings.EqualFold(scheme, "Bearer"):
-		return NotBearer
+		return "", NotBearer
 	case !IsB64Token(credentials):
-		return Malformed
-	case !t.Matches(credentials):
-		return Mismatch
+		return "", Malformed
 	}
-	return Accepted
+	return credentials, Accepted
 }
 
-// HTTPStatus is the status a refusal is answered with: 400 for a header the
-// server cannot read, 401 otherwise (RFC 6750 § 3.1).
+// Check classifies the Authorization header of a request (RFC 6750 § 2.1).
+func (t Token) Check(authorization string) Refusal {
+	credentials, refusal := Bearer(authorization)
+	if refusal == Accepted && !t.Matches(credentials) {
+		return Mismatch
+	}
+	return refusal
+}
+
+// HTTPStatus is the status a refusal is answered with (RFC 6750 § 3.1): 400 for an
+// unreadable header, 403 for a missing scope, 503 for Unavailable, 401 otherwise.
 func (r Refusal) HTTPStatus() int {
-	if r == Malformed {
+	switch r {
+	case Malformed:
 		return http.StatusBadRequest
+	case InsufficientScope:
+		return http.StatusForbidden
+	case Unavailable:
+		return http.StatusServiceUnavailable
 	}
 	return http.StatusUnauthorized
 }
 
-// Code is the RFC 6750 § 3.1 error code, empty when nothing was presented.
+// Code is the RFC 6750 § 3.1 error code, empty when nothing was presented and
+// for Unavailable, which is not the client's error.
 func (r Refusal) Code() string {
 	switch r {
 	case NotBearer, Malformed:
 		return "invalid_request"
-	case Mismatch:
+	case Mismatch, Expired:
 		return "invalid_token"
+	case InsufficientScope:
+		return "insufficient_scope"
 	}
 	return ""
 }
@@ -117,12 +140,18 @@ func (r Refusal) Description() string {
 		return "the bearer token is malformed"
 	case Mismatch:
 		return "the bearer token is not this server's"
+	case Expired:
+		return "the bearer token has expired"
+	case InsufficientScope:
+		return "the bearer token lacks a scope this server requires"
+	case Unavailable:
+		return "the bearer token cannot be verified for now"
 	}
 	return ""
 }
 
 // ChallengeParams are the error parameters of a WWW-Authenticate challenge,
-// none when nothing was presented.
+// none for a refusal with no error code.
 func (r Refusal) ChallengeParams() []string {
 	if r.Code() == "" {
 		return nil
@@ -156,6 +185,12 @@ func (r Refusal) String() string {
 		return "malformed token"
 	case Mismatch:
 		return "wrong token"
+	case Expired:
+		return "expired token"
+	case InsufficientScope:
+		return "insufficient scope"
+	case Unavailable:
+		return "token cannot be verified for now"
 	}
 	return fmt.Sprintf("refusal(%d)", int(r))
 }

@@ -19,17 +19,17 @@ part heavyVehicle
 action brake
 package Powertrain
   part def Engine
+abstract datatype ScalarValue
 datatype Boolean
+datatype String
+abstract datatype NumericalValue
+abstract datatype Number
 datatype Complex
+datatype Real
+datatype Rational
 datatype Integer
 datatype Natural
-abstract datatype Number
-abstract datatype NumericalValue
 datatype Positive
-datatype Rational
-datatype Real
-abstract datatype ScalarValue
-datatype String
 
 relationships:
   Vehicle o-- mass
@@ -51,12 +51,12 @@ relationships:
   mass --||> mass
   brake --:|> Brake
   Boolean --|> ScalarValue
+  String --|> ScalarValue
+  NumericalValue --|> ScalarValue
+  Number --|> NumericalValue
   Complex --|> Number
+  Real --|> Complex
+  Rational --|> Real
   Integer --|> Rational
   Natural --|> Integer
-  Number --|> NumericalValue
-  NumericalValue --|> ScalarValue
   Positive --|> Natural
-  Rational --|> Real
-  Real --|> Complex
-  String --|> ScalarValue

@@ -59,7 +59,7 @@ func (e *StateExecutor) regionEntryFootprint(entry *regionEntry) lower.Footprint
 	}
 	transitions := e.graph.TransitionFootprints()
 	var regions []*ast.StateRegion
-	for regions = append(regions, entry.region); len(regions) > 0; {
+	for regions = append(regions, e.regionDecl(entry.region)); len(regions) > 0; {
 		region := regions[len(regions)-1]
 		regions = regions[:len(regions)-1]
 		if owner := e.graph.RegionState[region]; owner != nil {

@@ -37,8 +37,9 @@ type circleConfig struct {
 		Docker []struct{ Image string } `yaml:"docker"`
 	} `yaml:"executors"`
 	Jobs map[string]struct {
-		Executor string      `yaml:"executor"`
-		Steps    []yaml.Node `yaml:"steps"`
+		Executor string                   `yaml:"executor"`
+		Docker   []struct{ Image string } `yaml:"docker"`
+		Steps    []yaml.Node              `yaml:"steps"`
 	} `yaml:"jobs"`
 	Commands map[string]struct {
 		Steps []yaml.Node `yaml:"steps"`
@@ -68,15 +69,19 @@ type runStep struct {
 	NoOutputTimeout string `yaml:"no_output_timeout"`
 }
 
-// jobRunsOnImage reports whether the named job's executor is backed by the
-// Docker image.
+// jobRunsOnImage reports whether the named job's executor, named or inline,
+// is backed by the Docker image.
 func (c circleConfig) jobRunsOnImage(t *testing.T, job, image string) bool {
 	t.Helper()
-	executor, ok := c.Executors[c.Jobs[job].Executor]
-	if !ok {
-		t.Fatalf("%s names no executor of the config's", job)
+	images := c.Jobs[job].Docker
+	if len(images) == 0 {
+		executor, ok := c.Executors[c.Jobs[job].Executor]
+		if !ok {
+			t.Fatalf("%s names no executor of the config's", job)
+		}
+		images = executor.Docker
 	}
-	for _, docker := range executor.Docker {
+	for _, docker := range images {
 		if docker.Image == image {
 			return true
 		}
@@ -1023,6 +1028,123 @@ func TestReleaseSBOMsAreSignedWithTheManifest(t *testing.T) {
 	}
 	if stepIndex(runSteps(t, static.Steps), "python3 scripts/release-sbom-test.py") < 0 {
 		t.Error("go-static does not run scripts/release-sbom-test.py")
+	}
+}
+
+// TestEditorPluginsAreReleasedFromTheReleasesOwnBinaries holds the release to publishing the extension and the
+// plugins as it does the npm tarballs: packaged (the plugins from dist/grpc), listed in the signed manifest, uploaded.
+func TestEditorPluginsAreReleasedFromTheReleasesOwnBinaries(t *testing.T) {
+	config := loadCircleConfig(t)
+	release := config.workflow(t, "release")
+	requireAll(t, "Build release artifacts", requiresOf(t, release, "Build release artifacts"), "Build VS Code extension", "Build Cameo plugin", "Build SysON plugin")
+	for _, name := range []string{"Build Cameo plugin", "Build SysON plugin"} {
+		requireAll(t, name, requiresOf(t, release, name), "Build release binaries")
+	}
+
+	vscode, ok := config.Jobs["build-vscode-extension"]
+	if !ok {
+		t.Fatal("no build-vscode-extension job")
+	}
+	if !stepHasBareStep(vscode.Steps, "rehearsal-tag") {
+		t.Error("build-vscode-extension does not stand in for the tag")
+	}
+	vscodeSteps := runSteps(t, vscode.Steps)
+	packed := stepIndex(vscodeSteps, `expected="${CIRCLE_TAG#v}"`, "npm run package", "unzip -q -o opensysml.vsix extension/package.json", `"$stamped" != "$expected"`, "dist/vscode")
+	if packed < 0 {
+		t.Error("build-vscode-extension does not pack opensysml.vsix and check the packed manifest carries the tag's version before copying it to dist/vscode")
+	}
+	requireAll(t, "build-vscode-extension persists", persistedPaths(t, vscode.Steps), "dist/vscode")
+
+	cameo, ok := config.Jobs["build-cameo-plugin"]
+	if !ok {
+		t.Fatal("no build-cameo-plugin job")
+	}
+	if !stepHasBareStep(cameo.Steps, "rehearsal-tag") || !stepHasBareStep(cameo.Steps, "attach_workspace") {
+		t.Error("build-cameo-plugin does not stand in for the tag and attach the workspace that carries dist/grpc")
+	}
+	cameoSteps := runSteps(t, cameo.Steps)
+	if stepIndex(cameoSteps, "install -D -m 0755 dist/grpc/sysml-grpc-linux-amd64 bin/sysml-grpc") < 0 {
+		t.Error("build-cameo-plugin does not start the plugin suite from the release's own Linux binary; the workspace layer of Build release binaries carries only dist")
+	}
+	packaged := stepIndex(cameoSteps, `-Dopensysml.binaries="$PWD/dist/grpc"`, "-Dopensysml.requireService=true", `-Dopensysml.version="${CIRCLE_TAG}"`)
+	if packaged < 0 {
+		t.Fatal("build-cameo-plugin does not package the plugin around dist/grpc, versioned by the tag, with its service-backed tests required")
+	}
+	if !containsAll(cameoSteps[packaged].Command, `*_MDK_"${CIRCLE_TAG}".zip`, "bin/DIGESTS", "sysml-grpc-*.sha256", "dist/cameo/Magic_MDK.zip") {
+		t.Error("build-cameo-plugin does not check the zip is named for the tag and staged the binaries the sidecars name before copying it to dist/cameo/Magic_MDK.zip")
+	}
+	requireAll(t, "build-cameo-plugin persists", persistedPaths(t, cameo.Steps), "dist/cameo")
+
+	syson, ok := config.Jobs["build-syson-plugin"]
+	if !ok {
+		t.Fatal("no build-syson-plugin job")
+	}
+	if !config.jobRunsOnImage(t, "build-syson-plugin", "cimg/openjdk:21.0-node") {
+		t.Error("build-syson-plugin does not run on cimg/openjdk:21.0-node, the JVM SysON runs on with the Node the frontend builds with")
+	}
+	if !stepHasBareStep(syson.Steps, "rehearsal-tag") || !stepHasBareStep(syson.Steps, "attach_workspace") {
+		t.Error("build-syson-plugin does not stand in for the tag and attach the workspace that carries dist/grpc")
+	}
+	sysonSteps := runSteps(t, syson.Steps)
+	if stepIndex(sysonSteps, "install -D -m 0755 dist/grpc/sysml-grpc-linux-amd64 bin/sysml-grpc") < 0 {
+		t.Error("build-syson-plugin does not start the backend suite from the release's own Linux binary")
+	}
+	backend := stepIndex(sysonSteps, "mvn -B -f editors/syson/pom.xml install -Dopensysml.requireService=true")
+	frontend := stepIndex(sysonSteps, "npm test", "npm run build", "npm pack", "dist/syson")
+	collected := stepIndex(sysonSteps, `syson-mdk-backend-${version}.jar`, `openmbee-syson-mdk-${version}.tgz`, "dist/syson/syson-mdk-backend.jar", "dist/syson/syson-mdk-frontend.tgz")
+	switch {
+	case backend < 0:
+		t.Error("build-syson-plugin does not test and install the backend against the release's service")
+	case frontend < 0:
+		t.Error("build-syson-plugin does not test, build and pack the frontend into dist/syson")
+	case collected < 0:
+		t.Error("build-syson-plugin does not check the jar and tarball are named for the tag's version before renaming them to the assets the release publishes")
+	case collected < backend || collected < frontend:
+		t.Error("build-syson-plugin collects the plugin before it is built")
+	}
+	requireAll(t, "build-syson-plugin persists", persistedPaths(t, syson.Steps), "dist/syson")
+
+	build, ok := config.Jobs["build-release"]
+	if !ok {
+		t.Fatal("no build-release job")
+	}
+	buildSteps := runSteps(t, build.Steps)
+	manifest := stepIndex(buildSteps, "> SHA256SUMS.txt")
+	sign := stepIndex(buildSteps, "cosign sign-blob SHA256SUMS.txt")
+	if manifest < 0 || sign < 0 {
+		t.Fatal("build-release does not write and sign SHA256SUMS.txt")
+	}
+	command := buildSteps[manifest].Command
+	vsix := strings.Index(command, "cd vscode && sha256sum opensysml.vsix >> ../SHA256SUMS.txt")
+	zip := strings.Index(command, "cd cameo && sha256sum Magic_MDK.zip >> ../SHA256SUMS.txt")
+	pieces := strings.Index(command, "cd syson && sha256sum syson-mdk-backend.jar syson-mdk-frontend.tgz >> ../SHA256SUMS.txt")
+	sboms := strings.Index(command, "cd sbom && sha256sum ./*.spdx.json")
+	switch {
+	case vsix < 0 || zip < 0 || pieces < 0:
+		t.Error("the manifest step does not list opensysml.vsix, Magic_MDK.zip, syson-mdk-backend.jar and syson-mdk-frontend.tgz in SHA256SUMS.txt")
+	case sboms >= 0 && (vsix > sboms || zip > sboms || pieces > sboms):
+		t.Error("the extension and plugin assets are listed after the SBOMs; the manifest lists assets before their SBOMs")
+	}
+	staged := stepIndex(buildSteps, "dist/cameo/Magic_MDK.zip", "bin/DIGESTS", "dist/SHA256SUMS.txt", "nothing was signed")
+	switch {
+	case staged < 0:
+		t.Error("build-release does not check the Cameo zip's DIGESTS are the manifest's sysml-grpc lines")
+	case staged < manifest || staged > sign:
+		t.Error("the Cameo zip's DIGESTS are checked outside the window between writing the manifest and signing it")
+	}
+
+	github, ok := config.Jobs["publish-github-release"]
+	if !ok {
+		t.Fatal("no publish-github-release job")
+	}
+	githubSteps := runSteps(t, github.Steps)
+	move := stepIndex(githubSteps, "mv dist/vscode/* dist/release/", "mv dist/cameo/* dist/release/", "mv dist/syson/* dist/release/")
+	upload := stepIndex(githubSteps, "ghr ")
+	if move < 0 || upload < 0 || move > upload {
+		t.Error("publish-github-release does not move the extension and plugin assets into dist/release before ghr uploads it")
+	}
+	if stepIndex(githubSteps, "the release assets are present", "dist/vscode/opensysml.vsix", "dist/cameo/Magic_MDK.zip", "dist/syson/syson-mdk-backend.jar", "dist/syson/syson-mdk-frontend.tgz") < 0 {
+		t.Error("the rehearsal does not check the extension and the three plugin assets are among the release assets")
 	}
 }
 

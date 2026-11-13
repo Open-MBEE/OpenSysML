@@ -8,6 +8,16 @@ queries (see *MDK DocGen bridge* below). The capability-by-capability comparison
 the order the gaps are being closed in, is
 [`docs/project/mdk-parity.md`](../../docs/project/mdk-parity.md).
 
+## Install
+
+Download `Magic_MDK.zip` from the [latest release](https://github.com/Open-MBEE/OpenSysML/releases/latest/download/Magic_MDK.zip)
+(or the [nightly snapshot](https://github.com/Open-MBEE/OpenSysML/releases/download/nightly/Magic_MDK.zip), built from `develop`)
+and import it with Cameo's Resource/Plugin Manager (*Help ▸ Resource/Plugin Manager ▸ Import*).
+It carries the five `sysml-grpc` binaries, so nothing else is installed. The zip is a line of
+the release's signed `SHA256SUMS.txt`; check it first with
+`sha256sum -c --ignore-missing SHA256SUMS.txt` (the
+[downloads page](../../docs/downloads.md#editor-plugins) has the links).
+
 ## Build
 
 Install the Java client and its dependencies before building the plugin:
@@ -118,11 +128,30 @@ element the query selected. Every row names the element it was computed for, and
 holds one element reference or the `qualifiedName` a column projects names that element, so a
 double-click selects it in the containment tree and each row annotates its element with the
 row's values. No rows is an informational success — in QVTS an empty selection is a value — so
-the run is `INFO`, never a failure. A query the service refuses (a misspelled `Named` source, a
-property no element has, a binding the parameter's type rejects) arrives today as a
-`ServiceException` whose message holds the path or model error; `results/QueryFailure` turns it
-into one `ERROR` outcome carrying the message, and is the one place to change when the Java
-client's typed query outcome (kind, step, frontier elements, findings) lands.
+the run is `INFO`, never a failure.
+
+A query the model has no answer for — a misspelled `Named` source, a feature some selected
+element lacks, a name two elements share — ran and reported, so it is `FAILED`, not `ERROR`. The
+Java client throws a `QueryOutcomeException` carrying the service's structured outcome, and
+`results/QueryFailure` maps it to the query's own outcome (the service's message) followed by
+one outcome per path failure and per model finding, worded as the CLI words them
+([the QVTS guide](../../docs/guide/qvts.md)):
+
+```text
+path error at Named(Lander::lander::cabni): expected exactly one element with that qualified name; at Lander::lander; members: [cabin (PartUsage), cabinEngine (ConnectionUsage), engine (PartUsage), engineBay (ConnectionUsage), scienceBay (PartUsage)]; nearest: cabin
+path error at Feature(mass): expected a feature named mass on the element; at Lander::lander::cabinEngine
+model error at Named(Duplicates::repeated): Duplicates violates ambiguousName: Duplicates::repeated (declared 2 times)
+```
+
+Each of those outcomes names the element the path stopped at (the frontier's `at`) or the
+element the finding is about, so the element is annotated as an error and selected from the
+results window; on the v1 path the name is mapped back to the Cameo element the same way a
+row's is. The service sends at most eight candidates per list and eight failures per step: a
+list that was cut ends `… and N more`, and failures that were left out are counted in a last
+outcome (`… and 3 more path errors at Feature(mass)`). A candidate list with nothing in it is
+left out. The queries beside a failed one still answer and keep their tables. A refusal that
+carries no outcome — a parameter left unbound, say — stays one `ERROR` outcome carrying the
+service's message, and outranks `FAILED` for the run's status.
 
 Not in scope here: rendering a whole `Document` from Cameo (`RenderDocument`), writing an answer
 back as a `QVTS::QueryResult` view, and transformations or proposals, which OpenSysML has no
@@ -160,7 +189,8 @@ To use one in a document:
 For every target the generated section gets a one-line summary (operation, element, status,
 elapsed time, final time), a table of outcomes with their status, for `RunQuery` one table per
 query answered (its columns the properties projected, one row per element selected, shown even
-when empty), a table of diagnostics with
+when empty) and, for a query that reported a path or model error, the same failure text the
+results window shows as rows of the outcome table, a table of diagnostics with
 their source locations, and the state schedule when the operation produced one. A target that
 fails to run yields an error paragraph in its place; the rest of the document is unaffected.
 
@@ -185,9 +215,14 @@ mismatching asset fails the build) and writes `bin/DIGESTS`. `PluginDescriptorWr
 `plugin.xml` with a `<library>` entry for the plugin jar and every runtime jar, so the plugin's
 own classloader (`ownClassloader="true"`, `class-lookup="LocalFirst"`) sees exactly what ships.
 `-Dopensysml.binaries=<dir>` stages the five binaries from a directory instead, for a build the
-caller has already verified — the nightly workflow packages each night's `sysml-grpc` this way,
-under the night's tag, and keeps the zip as the run's `cameo-plugin` artifact (see
-[the snapshot page](../../docs/project/nightly.md#what-it-contains)):
+caller has already verified. Both release pipelines package the plugin this way around the
+binaries they just built and publish the zip as the release asset `Magic_MDK.zip`, listed in the
+signed `SHA256SUMS.txt`: the tagged release (`build-cameo-plugin` in `.circleci/config.yml`,
+versioned by the tag, `v0.12.1` or `v0.13.0-rc.1`) and the nightly snapshot (versioned as the
+`.vsix` is, `<core>-nightly-<yyyymmdd>-<commit>`; see
+[the snapshot page](../../docs/project/nightly.md#what-it-contains)). `ResourceDescriptorWriter`
+packs the version into the integer the Resource Manager orders installs by: a release's nights
+below its `alpha.n`, `beta.n` and `rc.n` candidates, all below the release. The zip's layout:
 
 ```
 plugins/org.openmbee.mdk.magic/plugin.xml

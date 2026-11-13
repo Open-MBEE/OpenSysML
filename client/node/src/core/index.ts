@@ -114,7 +114,7 @@ export {
 } from "./engines.js";
 export type { EngineBound, EngineInfo, Standing } from "./engines.js";
 export { Exploration, Outcome } from "./exploration.js";
-export type { OutcomeValues } from "./exploration.js";
+export type { Coverage, CoverageEntry, OutcomeValues } from "./exploration.js";
 export {
   AppliedEdit,
   Body,

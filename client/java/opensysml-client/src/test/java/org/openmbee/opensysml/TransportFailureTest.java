@@ -143,6 +143,86 @@ class TransportFailureTest {
               List.of(),
               List.of()),
           refused.outcome());
+      QueryOutcome.Frontier frontier = refused.outcome().failures().get(0).frontier();
+      assertEquals(
+          1, refused.outcome().failuresTotal(), "a detail without totals holds whole lists");
+      assertEquals(
+          List.of(0, 1, 1),
+          List.of(frontier.membersTotal(), frontier.featuresTotal(), frontier.kindsTotal()));
+    }
+  }
+
+  @Test
+  void aBoundedOutcomeDetailCarriesTheTotalsBesideItsLists() throws Exception {
+    // The service cuts each list to fit a status trailer and counts what it cut from.
+    org.openmbee.opensysml.proto.QueryOutcome outcome =
+        org.openmbee.opensysml.proto.QueryOutcome.newBuilder()
+            .setKind("modelError")
+            .setStep("Named(Fleet::truck)")
+            .addFindings(
+                org.openmbee.opensysml.proto.QueryFinding.newBuilder()
+                    .setStep("Named(Fleet::truck)")
+                    .setElement("Fleet")
+                    .setConstraint("ambiguousName")
+                    .setObserved("Fleet::truck (declared 12 times)"))
+            .setFindingsTotal(12)
+            .addPathFailures(
+                org.openmbee.opensysml.proto.QueryFailure.newBuilder()
+                    .setStep("Related(haul)")
+                    .setExpected("a relationship kind of the metamodel")
+                    .setFrontier(
+                        org.openmbee.opensysml.proto.QueryFrontier.newBuilder()
+                            .setAt("Fleet::truck")
+                            .addMembers(
+                                org.openmbee.opensysml.proto.QueryFrontierMember.newBuilder()
+                                    .setName("cab")
+                                    .setMetaclass("PartUsage"))
+                            .setMembersTotal(23)
+                            .addFeatures(
+                                org.openmbee.opensysml.proto.QueryFrontierFeature.newBuilder()
+                                    .setName("mass")
+                                    .setType("MassValue"))
+                            .setFeaturesTotal(301)
+                            .addKinds("connect")
+                            .addKinds("satisfy")
+                            .setKindsTotal(9)))
+            .setPathFailuresTotal(40)
+            .build();
+    String value = Base64.getEncoder().withoutPadding().encodeToString(outcome.toByteArray());
+    String body =
+        "{\"code\":\"failed_precondition\",\"message\":\"query names 12 elements\","
+            + "\"details\":[{\"type\":\"sysml.QueryOutcome\",\"value\":\""
+            + value
+            + "\"}]}";
+    try (Stub refusing =
+        Stub.serving(
+            exchange -> {
+              drain(exchange);
+              respond(exchange, 412, "application/json", body);
+            })) {
+      ConnectionOptions options =
+          ConnectionOptions.builder().service("127.0.0.1", refusing.port()).build();
+      QueryOutcome decoded =
+          assertThrows(QueryOutcomeException.class, () -> Connection.open(options)).outcome();
+      assertEquals(0, decoded.failuresTotal());
+      assertEquals(12, decoded.findingsTotal());
+      assertEquals(1, decoded.findings().size());
+      assertEquals(40, decoded.pathFailuresTotal());
+      assertEquals(
+          List.of(
+              new QueryOutcome.Failure(
+                  "Related(haul)",
+                  "a relationship kind of the metamodel",
+                  new QueryOutcome.Frontier(
+                      "Fleet::truck",
+                      List.of(new QueryOutcome.Frontier.Member("cab", "PartUsage")),
+                      List.of(new QueryOutcome.Frontier.Feature("mass", "MassValue")),
+                      List.of("connect", "satisfy"),
+                      "",
+                      23,
+                      301,
+                      9))),
+          decoded.pathFailures());
     }
   }
 

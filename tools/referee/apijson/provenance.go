@@ -10,8 +10,11 @@ import (
 )
 
 const (
-	committedBaseline = "docs/project/api-json-differential-baseline.json"
+	// committedBaseline is the baseline directory: index.json beside one
+	// fragment per compared source file (see tools/referee/baseline).
+	committedBaseline = "docs/project/api-json-differential"
 	refreshCommand    = "go run -C tools ./cmd/pilot-apijson-diff -update"
+	reindexCommand    = "go run -C tools ./cmd/pilot-apijson-diff -reindex"
 	bridgeSource      = "scripts/pilot-json-exporter/ExportJSON.java"
 	bridgeName        = "pilot-json-exporter"
 )

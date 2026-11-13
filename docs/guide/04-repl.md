@@ -475,7 +475,7 @@ represent is reported rather than left out. The same operation outside the promp
 ### Limiting what a view draws
 
 A tree or interconnection rendering draws everything the exposed elements contain, which on a
-model with several levels of decomposition is more than one picture wants. Three mechanisms bound
+model with several levels of decomposition is more than one picture wants. Four mechanisms bound
 it ([the details](../project/view-rendering-forms.md#limiting-what-a-view-draws)):
 
 - The view's `filter` conditions prune the walk as well as choosing the roots:
@@ -492,6 +492,12 @@ it ([the details](../project/view-rendering-forms.md#limiting-what-a-view-draws)
   folds (or only hides compartments with its `show…` switches) needs no `x` and `y`; the form
   still lays the diagram out itself. Give it a position too and the diagram becomes a positioned
   one, in which nodes without a position are left undrawn.
+- Above 10,000 expanded occurrence nodes, repeated definition expansions fold automatically.
+  An earlier equivalent occurrence must have been expanded in full with at least as much depth
+  available. Later occurrences keep their own and redefined features, positioned elements and
+  edge endpoints; a detail note names the earlier occurrence. The view reports how many later
+  occurrences and definitions were folded. Smaller views render unchanged, and layout validation
+  still checks the complete semantic drawn set.
 
 Together they cut a deep decomposition down to one picture. Mark what every picture should
 leave out with a metadata definition of your own, mark what one picture should single out with

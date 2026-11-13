@@ -129,7 +129,11 @@ Every check flag is listed in
 [reference/cli.md § Command Reference](../reference/cli.md#command-reference). You can check
 one constraint or requirement by name, every satisfaction assertion the model
 states, a calculation, an action, or a state machine, and add `-json` for a machine-readable
-report.
+report. An `explore` schedule or `-engine check` verdict follows its outcome table with the
+coverage of every run it made — each state entered and transition taken, qualified by the
+instance that ran the machine and by its declaration, with how many runs did so — so a state
+only a non-witness run entered is still reported; see
+[06 — Behavior](06-behavior.md) and `exploration.coverage` / `check.coverage` in the JSON.
 
 Build steps can gate on the exit status. It follows the same rules for every non-interactive
 run, whether that is a check, an evaluation, a conversion or a plain load: `0` when the requested

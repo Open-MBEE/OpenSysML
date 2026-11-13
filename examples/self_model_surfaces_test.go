@@ -5,9 +5,14 @@ package examples
 
 import (
 	"encoding/json"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"go/types"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -28,14 +33,105 @@ func flagDefinitionPattern(flag string) *regexp.Regexp {
 	return regexp.MustCompile(`\w+\.\w*Var\([^"\n]*, "` + regexp.QuoteMeta(strings.TrimPrefix(flag, "-")) + `"`)
 }
 
-// requireFlag fails unless the command at entrypoint defines the flag the
-// model attributes to it.
+// requireFlag fails unless the command at entrypoint, or a package it hands its
+// FlagSet to, defines the flag the model attributes to it.
 func requireFlag(t *testing.T, part, attribute, flag, entrypoint string) {
 	t.Helper()
-	cmdSource := readGoPackage(t, filepath.Join("..", entrypoint))
+	cmdSource := commandFlagSource(t, entrypoint)
 	if !strings.HasPrefix(flag, "-") || !flagDefinitionPattern(flag).MatchString(cmdSource) {
 		t.Errorf("surfaces.sysml says %s.%s = %q, %s defines no such flag", part, attribute, flag, entrypoint)
 	}
+}
+
+// commandFlagSource returns the source of the command at entrypoint followed by
+// that of every module package whose FlagSet-taking function the command calls.
+func commandFlagSource(t *testing.T, entrypoint string) string {
+	t.Helper()
+	dir := filepath.Join("..", entrypoint)
+	source := readGoPackage(t, dir)
+	module := strings.Fields(readRepoFile(t, "go.mod"))[1] + "/"
+	for _, imported := range goImports(t, dir) {
+		if !strings.HasPrefix(imported.path, module) {
+			continue
+		}
+		pkgDir := filepath.Join("..", strings.TrimPrefix(imported.path, module))
+		for _, fn := range flagSetFunctions(t, pkgDir) {
+			if strings.Contains(source, imported.name+"."+fn+"(") {
+				source += readGoPackage(t, pkgDir)
+				break
+			}
+		}
+	}
+	return source
+}
+
+// goImport is one import of a package: the path and the name it is referred by.
+type goImport struct{ name, path string }
+
+// goImports lists the imports of the non-test files of the package at dir.
+func goImports(t *testing.T, dir string) []goImport {
+	t.Helper()
+	seen := map[string]bool{}
+	var imports []goImport
+	for _, file := range parseGoPackage(t, dir, parser.ImportsOnly) {
+		for _, spec := range file.Imports {
+			path, err := strconv.Unquote(spec.Path.Value)
+			if err != nil || seen[path] {
+				continue
+			}
+			seen[path] = true
+			name := path[strings.LastIndex(path, "/")+1:]
+			if spec.Name != nil {
+				name = spec.Name.Name
+			}
+			imports = append(imports, goImport{name: name, path: path})
+		}
+	}
+	return imports
+}
+
+// flagSetFunctions names the exported functions of the package at dir that
+// take a *flag.FlagSet, through which a command registers flags elsewhere.
+func flagSetFunctions(t *testing.T, dir string) []string {
+	t.Helper()
+	var names []string
+	for _, file := range parseGoPackage(t, dir, parser.SkipObjectResolution) {
+		for _, decl := range file.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Recv != nil || !fn.Name.IsExported() {
+				continue
+			}
+			for _, param := range fn.Type.Params.List {
+				if star, ok := param.Type.(*ast.StarExpr); ok && types.ExprString(star.X) == "flag.FlagSet" {
+					names = append(names, fn.Name.Name)
+					break
+				}
+			}
+		}
+	}
+	return names
+}
+
+// parseGoPackage parses the non-test Go files of the package at dir.
+func parseGoPackage(t *testing.T, dir string, mode parser.Mode) []*ast.File {
+	t.Helper()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("read %s: %v", dir, err)
+	}
+	var files []*ast.File
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join(dir, name), nil, mode)
+		if err != nil {
+			t.Fatalf("parse %s: %v", name, err)
+		}
+		files = append(files, file)
+	}
+	return files
 }
 
 // requireMakeTarget fails unless the Makefile defines the target the model

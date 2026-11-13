@@ -16,6 +16,7 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/format"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/libs"
 	"github.com/Open-MBEE/OpenSysML/internal/workspace/model"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/corpussubset"
 )
 
 var spaces4 = protocol.FormattingOptions{TabSize: 4, InsertSpaces: true}
@@ -447,7 +448,7 @@ func formattingCorpus(t *testing.T) []string {
 		}
 		paths = append(paths, matches...)
 	}
-	return paths
+	return corpussubset.Must(t, "../../..").FilterPaths("../../../examples", paths)
 }
 
 // mangleIndentation shifts every line's indentation and pads a few lines with

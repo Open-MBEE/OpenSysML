@@ -84,6 +84,27 @@ end
     @test AnalysisResult(Dict{String,Any}(), []; tool_dry_run=bare).tool_dry_run === bare
 end
 
+@testset "coverage decoders read every run's states and transitions" begin
+    entry = Dict{String,Any}("path" => "Cov::sys#1.m.run: viaB",
+        "declaration" => "Cov::M::run::viaB", "runs" => 1)
+    edge = Dict{String,Any}("path" => "Cov::sys#1.m.run: s0 -> viaB",
+        "declaration" => "Cov::M::run::s0 -> viaB", "runs" => 1)
+    exploration = Exploration(Dict{String,Any}("outcomes" => Any[],
+        "exploration" => Dict{String,Any}("complete" => true, "runs" => 2,
+            "coverage" => Dict{String,Any}("states" => Any[entry], "transitions" => Any[edge]))))
+    @test exploration.coverage.states == [CoverageEntry("Cov::sys#1.m.run: viaB", "Cov::M::run::viaB", 1)]
+    @test exploration.coverage.transitions ==
+        [CoverageEntry("Cov::sys#1.m.run: s0 -> viaB", "Cov::M::run::s0 -> viaB", 1)]
+    bare = Exploration(Dict{String,Any}("exploration" => Dict{String,Any}("complete" => true)))
+    @test isempty(bare.coverage.states) && isempty(bare.coverage.transitions)
+    search = CheckSearch(Dict{String,Any}("states" => 5,
+        "coverage" => Dict{String,Any}("states" => Any[entry])))
+    @test search.states == 5
+    @test search.coverage.states == [CoverageEntry("Cov::sys#1.m.run: viaB", "Cov::M::run::viaB", 1)]
+    @test isempty(search.coverage.transitions)
+    @test isempty(CheckSearch(Dict{String,Any}("states" => 1)).coverage.states)
+end
+
 @testset "run options are encoded as the service reads them" begin
     request = OpenSysML._run_options!(Dict{String,Any}())
     @test isempty(request)

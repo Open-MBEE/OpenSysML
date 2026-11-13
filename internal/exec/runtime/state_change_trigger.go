@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -45,18 +46,19 @@ type changeMark struct {
 
 func (e *StateExecutor) changeMarkOf(trans *lower.Transition) changeMark {
 	var m changeMark
-	m.pending, m.hadPending = e.changePending[trans]
-	m.observed, m.hadObserved = e.changeObserved[trans]
-	m.fired, m.hadFired = e.changeFired[trans]
+	m.pending, m.hadPending = e.changePending[e.transID(trans)]
+	m.observed, m.hadObserved = e.changeObserved[e.transID(trans)]
+	m.fired, m.hadFired = e.changeFired[e.transID(trans)]
 	return m
 }
 
 func (e *StateExecutor) restoreChangeMark(trans *lower.Transition, m changeMark) {
-	restore := func(values map[*lower.Transition]bool, value, present bool) {
+	id := e.transID(trans)
+	restore := func(values map[program.TransID]bool, value, present bool) {
 		if present {
-			values[trans] = value
+			values[id] = value
 		} else {
-			delete(values, trans)
+			delete(values, id)
 		}
 	}
 	restore(e.changePending, m.pending, m.hadPending)
@@ -74,7 +76,7 @@ func (e *StateExecutor) restoreChangeMark(trans *lower.Transition, m changeMark)
 // same edge again, and only a condition observed false re-arms it.
 func (e *StateExecutor) pollChangeEvents() (bool, error) {
 	poll := newChangePoll()
-	e.changeRearmed = make(map[*lower.Transition]bool)
+	e.changeRearmed = make(map[program.TransID]bool)
 	defer func() { e.changeRearmed = nil }()
 
 	if err := e.observeChangeConditions(poll); err != nil {
@@ -111,21 +113,21 @@ func (e *StateExecutor) pollChangeEvents() (bool, error) {
 		}
 		if !pass {
 			poll.blocked[trans] = true
-			poll.wait(trans, candidate.source.Name, guardWaitReason(unvalued))
+			poll.wait(trans, e.stateDecl(candidate.source).Name, guardWaitReason(unvalued))
 			return false, nil
 		}
 		// The edge is latched before it is taken: an effect that leaves the
 		// condition true must not enable the same edge again, and the exit this
 		// firing causes must not re-arm the edge that caused it. A join an earlier
 		// candidate disarmed fires nothing, which is no move.
-		e.changeFired[trans] = true
-		e.firingChange = trans
+		e.changeFired[e.transID(trans)] = true
+		e.firingChange = e.transID(trans)
 		fired, err := e.firingOn(occurrence, func() (bool, error) {
-			return e.fireFrom(candidate.source, trans, notes, candidate.route)
+			return e.fireFrom(e.stateDecl(candidate.source), trans, notes, candidate.route)
 		})
-		e.firingChange = nil
+		e.firingChange = 0
 		if err != nil {
-			return true, fmt.Errorf("fire transition out of %s: %w", candidate.source.Name, err)
+			return true, fmt.Errorf("fire transition out of %s: %w", e.stateDecl(candidate.source).Name, err)
 		}
 		return fired, nil
 	})
@@ -166,7 +168,7 @@ func (e *StateExecutor) risenChanges() ([]*lower.Transition, bool, error) {
 		e.changeObserved, e.changePending, e.changeReads = observed, pending, reads
 	}()
 	poll := newChangePoll()
-	e.changeRearmed = make(map[*lower.Transition]bool)
+	e.changeRearmed = make(map[program.TransID]bool)
 	defer func() { e.changeRearmed = nil }()
 	if err := e.observeChangeConditions(poll); err != nil {
 		return nil, true, err
@@ -201,7 +203,7 @@ func (e *StateExecutor) risenChange() (*lower.Transition, bool, error) {
 // blocked since, and its watch not re-armed by a state entry during the poll,
 // which belongs to an activation later than the observation.
 func (e *StateExecutor) riseEnables(poll *changePoll, trans *lower.Transition) bool {
-	return poll.condition[trans] && poll.guard[trans] && !poll.blocked[trans] && !e.changeRearmed[trans]
+	return poll.condition[trans] && poll.guard[trans] && !poll.blocked[trans] && !e.changeRearmed[e.transID(trans)]
 }
 
 // consumeRise latches every transition the rise enabled, not only the ones taken,
@@ -212,7 +214,7 @@ func (e *StateExecutor) consumeRise(poll *changePoll) bool {
 	consumed := false
 	for trans := range poll.condition {
 		if e.riseEnables(poll, trans) {
-			e.changeFired[trans] = true
+			e.changeFired[e.transID(trans)] = true
 			consumed = true
 		}
 	}
@@ -239,13 +241,13 @@ func (e *StateExecutor) observeChangeConditions(poll *changePoll) error {
 				if err != nil {
 					return fmt.Errorf("state %s: %w", source.Name, err)
 				}
-				pending := e.changePending[trans]
-				delete(e.changePending, trans)
+				pending := e.changePending[e.transID(trans)]
+				delete(e.changePending, e.transID(trans))
 				poll.condition[trans] = holds || pending
 				poll.observed = append(poll.observed, trans)
-				e.changeObserved[trans] = holds
+				e.changeObserved[e.transID(trans)] = holds
 				if !holds {
-					delete(e.changeFired, trans)
+					delete(e.changeFired, e.transID(trans))
 				}
 				if !poll.condition[trans] {
 					if unvalued != nil {
@@ -255,7 +257,7 @@ func (e *StateExecutor) observeChangeConditions(poll *changePoll) error {
 					}
 					continue
 				}
-				if e.changeFired[trans] {
+				if e.changeFired[e.transID(trans)] {
 					poll.wait(trans, source.Name, "condition has not changed since it fired")
 					continue
 				}
@@ -333,7 +335,7 @@ func (e *StateExecutor) changeConditionHolds(changeEvent *ast.ChangeEvent, trans
 	}
 	// The reads are kept for a condition with no result too: the write that
 	// gives the feature its value is the one that must re-poll it.
-	e.changeReads[trans] = reads
+	e.changeReads[e.transID(trans)] = reads
 	return holds, unvalued, nil
 }
 
@@ -386,11 +388,11 @@ func (e *StateExecutor) observeChangedValue(relevant func([]*FeatureValue) bool)
 			}
 			seen[trans] = true
 			if previouslyWatched {
-				if _, watched := e.changeObserved[trans]; !watched {
+				if _, watched := e.changeObserved[e.transID(trans)]; !watched {
 					continue
 				}
 			}
-			if !relevant(e.changeReads[trans]) {
+			if !relevant(e.changeReads[e.transID(trans)]) {
 				continue
 			}
 			var holds bool
@@ -400,15 +402,15 @@ func (e *StateExecutor) observeChangedValue(relevant func([]*FeatureValue) bool)
 				continue
 			}
 			prior := e.changeMarkOf(trans)
-			observed := e.changeObserved[trans]
+			observed := e.changeObserved[e.transID(trans)]
 			if !holds {
-				e.changeObserved[trans] = false
-				delete(e.changeFired, trans)
+				e.changeObserved[e.transID(trans)] = false
+				delete(e.changeFired, e.transID(trans))
 			} else {
-				if !observed && !e.changeFired[trans] {
-					e.changePending[trans] = true
+				if !observed && !e.changeFired[e.transID(trans)] {
+					e.changePending[e.transID(trans)] = true
 				}
-				e.changeObserved[trans] = true
+				e.changeObserved[e.transID(trans)] = true
 			}
 			if e.changeMarkOf(trans) != prior {
 				e.ctx.noteProbeUndo(func() { e.restoreChangeMark(trans, prior) })
@@ -439,7 +441,7 @@ func (e *StateExecutor) risenChangeTransitions(state *ast.StateNode, poll *chang
 		if _, ok := trans.Trigger.(*ast.ChangeEvent); !ok {
 			continue
 		}
-		if poll.condition[trans] && !e.changeFired[trans] && poll.guard[trans] {
+		if poll.condition[trans] && !e.changeFired[e.transID(trans)] && poll.guard[trans] {
 			available, err := e.routeAvailable(trans, occurrence)
 			if err != nil {
 				return nil, nil, err

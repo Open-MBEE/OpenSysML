@@ -275,7 +275,7 @@ type returnedAnalysis struct {
 // of: those its return expressions pass on, a `for` variable standing for its collection.
 // Memoized per shape; a call within a cycle reads the set as far as it is known, and the
 // cycle's root iterates every shape of it until none grows.
-func (ctx *Context) returnedParameters(shape *calcShape) map[string]bool {
+func (ctx *Context) returnedParameters(shape *loadedCalc) map[string]bool {
 	a, ok := ctx.model.returnedParams[shape]
 	if !ok {
 		a = &returnedAnalysis{passed: make(map[string]bool), active: -1}
@@ -328,7 +328,7 @@ type valueSource struct {
 
 // collectReturnedParameters adds to passed the parameters of shape its returns and result
 // binding pass on, directly or through the locals its body writes them to.
-func (ctx *Context) collectReturnedParameters(shape *calcShape, passed, params map[string]bool) {
+func (ctx *Context) collectReturnedParameters(shape *loadedCalc, passed, params map[string]bool) {
 	var returns []valueSource
 	locals := make(map[*symbols.Symbol][]valueSource)
 	written := func(in *symbols.Scope, name string, source valueSource) {

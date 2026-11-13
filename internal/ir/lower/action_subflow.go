@@ -422,6 +422,7 @@ func lowerTerminateNode(
 		if blockGraph == nil {
 			blockGraph = newActionGraph(scope)
 			blockGraph.resolver = graph.resolver
+			blockGraph.assignIDs()
 		}
 		if err != nil {
 			blockGraph.Invalid = err

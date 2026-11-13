@@ -164,6 +164,10 @@ type Renderer struct {
 	depth int
 	// filters caches each view's filter conditions for its walks.
 	filters map[*symbols.Symbol][]symbols.ElementFilter
+	// queryMembers reuses effective members across drawn-set queries of one model.
+	queryMembers           map[*symbols.Symbol][]*symbols.Symbol
+	queryGraph             *treeQueryGraph
+	expansionFoldThreshold int
 	// verdicts overlays verification verdicts on a requirement rendering; nil
 	// draws it structurally.
 	verdicts Verdicts
@@ -595,6 +599,8 @@ type Rendering struct {
 	// connection to something the view does not expose, a behavior that does not
 	// lower.
 	Notices []string
+	// ExpansionFoldNotice summarizes repeated definition expansions omitted from this depiction.
+	ExpansionFoldNotice string
 	// Included is where each element drawn by SetIncluded rather than by the
 	// view was declared, in the order the renderer was given them.
 	Included []Origin
@@ -604,10 +610,16 @@ type Rendering struct {
 	emptyReason string
 	// drawn collects the elements drawn while rendering, nil when no one asked.
 	drawn *Drawn
+	// query shares equivalent tree expansions when only the drawn set is requested.
+	query bool
 	// folds are the behaviour roots whose collapsed nodes foldCollapsed folds once every edge is drawn.
 	folds []*Node
 	// narrowed marks a rendering showing() already narrowed to its Shown.
-	narrowed bool
+	narrowed          bool
+	expansionPlans    map[*symbols.Symbol]*expansionFold
+	expansionFolding  bool
+	foldedOccurrences int
+	foldedDefinitions map[*symbols.Symbol]bool
 	// sites records, while a tree renders, what each of its nodes draws; nil
 	// once its edges are drawn and for every other kind.
 	sites map[*Node]treeSite
@@ -666,14 +678,14 @@ func (r *Rendering) Positioned() bool {
 // recognized kind this package does not produce is an *UnsupportedKindError —
 // never another kind's rendering.
 func (r *Renderer) Render(view *symbols.Symbol) (*Rendering, error) {
-	return r.render(view, newDrawn())
+	return r.render(view, newDrawn(), false)
 }
 
 // Drawn is what the rendering draws, for the edits that apply to it.
 func (r *Rendering) Drawn() *Drawn { return r.drawn }
 
 // render is Render, collecting what is drawn into drawn when it is not nil.
-func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error) {
+func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn, query bool) (*Rendering, error) {
 	kind, stated, err := r.KindOf(view)
 	if err != nil {
 		return nil, err
@@ -687,7 +699,7 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 	if err != nil {
 		return nil, err
 	}
-	out := &Rendering{View: r.notationName(view), Kind: kind, Stated: stated, Shown: r.shownOf(view), drawn: drawn}
+	out := &Rendering{View: r.notationName(view), Kind: kind, Stated: stated, Shown: r.shownOf(view), drawn: drawn, query: query}
 	exposed = r.withIncluded(exposed, out)
 	switch kind {
 	case KindTree:
@@ -715,6 +727,7 @@ func (r *Renderer) render(view *symbols.Symbol, drawn *Drawn) (*Rendering, error
 		return nil, &UnsupportedKindError{Kind: kind, View: r.notationName(view), Stated: stated}
 	}
 	foldCollapsed(out)
+	out.finishExpansionFold()
 	r.noteDepthCuts(view, out)
 	if out.Empty() && out.emptyReason == "" {
 		out.emptyReason = r.exposureReason(view, exposed, out)
@@ -765,6 +778,7 @@ func (r *Renderer) RenderExposed(exposed []*symbols.Symbol, kind Kind, stated st
 		return nil, &UnsupportedKindError{Kind: kind, Stated: stated, Remedy: remedyFor(kind)}
 	}
 	foldCollapsed(out)
+	out.finishExpansionFold()
 	r.noteDepthCuts(nil, out)
 	if out.Empty() && out.emptyReason == "" {
 		out.emptyReason = exposedReason(exposed, out)

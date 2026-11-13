@@ -96,7 +96,7 @@ func (r *Rendering) PlantUMLWith(options Options) (string, error) {
 		fmt.Fprintf(b, " (%s)", r.Stated)
 	}
 	b.WriteString("\n")
-	for _, notice := range slices.Concat(r.Notices, notices) {
+	for _, notice := range slices.Concat(r.notices(), notices) {
 		fmt.Fprintf(b, "' not represented: %s\n", notice)
 	}
 	w.writeMainframe(r, b)

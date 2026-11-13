@@ -484,7 +484,7 @@ func (ctx *Context) EvalDeclaredValue(sym *symbols.Symbol) (Value, error) {
 			return val, err
 		}
 		// A calc usage returning one unnamed result is read as that result.
-		if isCalcUsageSymbol(sym) && ctx.returnsResult(sym) {
+		if lower.IsCalcUsageSymbol(sym) && ctx.returnsResult(sym) {
 			return newEvalContext(ctx, sym.OwnerScope).evalCalcUsageMembers(sym, resultSegments)
 		}
 		// A namespace-level object usage reads as the objects it denotes for the run.
@@ -875,7 +875,7 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Sym
 					return val, err
 				}
 				// A calc usage returning one unnamed result is read as that result.
-				if isCalcUsageSymbol(sym) && ec.ctx.returnsResult(sym) {
+				if lower.IsCalcUsageSymbol(sym) && ec.ctx.returnsResult(sym) {
 					return ec.evalCalcUsageMembers(sym, resultSegments)
 				}
 				// A feature declared with no value, whose multiplicity admits none,
@@ -938,7 +938,7 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Sym
 		if !resolved {
 			break
 		}
-		if isCalcUsageSymbol(part) {
+		if lower.IsCalcUsageSymbol(part) {
 			return ec.evalCalcUsageMembers(part, qn.Parts[i+1:])
 		}
 	}
@@ -1007,11 +1007,11 @@ func (ec *EvalContext) evalNameGeneral(qn *ast.QualifiedName, unset *symbols.Sym
 			return val, err
 		}
 		// A calc usage returning one unnamed result is read as that result.
-		if isCalcUsageSymbol(currentSym) && ec.ctx.returnsResult(currentSym) {
+		if lower.IsCalcUsageSymbol(currentSym) && ec.ctx.returnsResult(currentSym) {
 			return ec.evalCalcUsageMembers(currentSym, resultSegments)
 		}
 		// A calc usage or a KerML type is never the empty sequence, whatever it admits.
-		if isCalcUsageSymbol(currentSym) || declaresType(currentSym) {
+		if lower.IsCalcUsageSymbol(currentSym) || declaresType(currentSym) {
 			return ec.resolvedWithoutValue(currentSym, qn)
 		}
 		// A valueless feature admitting nothing is the empty sequence, however spelled.
@@ -1141,7 +1141,7 @@ func (ec *EvalContext) withoutValue(sym *symbols.Symbol, spelled string, qn *ast
 	// A calc usage is an evaluation, not a value: it is read through the output
 	// features it computes, since a name it does not designate a result for has
 	// no one value.
-	if isCalcUsageSymbol(sym) {
+	if lower.IsCalcUsageSymbol(sym) {
 		return Value{}, fmt.Errorf(
 			"%w: calc usage %s computes output features (%s); read one of them",
 			ErrNoValue, spelled, ec.ctx.calcUsageOutputSummary(sym),
@@ -1998,7 +1998,7 @@ func (ec *EvalContext) chainThroughStructured(value Value, parts []ast.NameSegme
 func (ec *EvalContext) chainUnheldMember(inst *Instance, name string, rest []ast.NameSegment, from string) (Value, error) {
 	// A calc usage is an evaluation rather than a feature value, so its outputs are
 	// read from a run of it against this object.
-	if sym, found := ec.ctx.model.semantics.LookupMember(inst.Type, name); found && isCalcUsageSymbol(sym) {
+	if sym, found := ec.ctx.model.semantics.LookupMember(inst.Type, name); found && lower.IsCalcUsageSymbol(sym) {
 		return ec.calcUsageMemberValue(sym, inst, rest)
 	}
 	if ec.ctx.derivesKernelCollection(inst, name) {
@@ -3450,7 +3450,7 @@ type invocationTarget struct {
 	builtin      builtinFunc       // the built-in the name denotes: the library declaration calc is
 	builtinName  string            // the built-in's registered name, keying its declared signature
 	library      *libraryFunction  // the library function the name denotes: the library declaration calc is
-	shape        *calcShape        // calc's invocation interface, nil when it has none
+	shape        *loadedCalc       // calc's invocation interface, nil when it has none
 	predicate    bool              // calc is a constraint or requirement, applied as a predicate
 	names        []string          // the parameter each named argument binds, as calc's signature spells it
 	unbound      []error           // per named argument, why calc has no parameter for it; nil when it binds
@@ -3585,7 +3585,7 @@ func (ctx *Context) implementInvocation(target *invocationTarget, sym *symbols.S
 		target.library = fn
 	} else if shape, err := ctx.calcShapeOf(sym); err == nil {
 		target.shape = shape
-	} else if isPredicateDecl(sym.Decl) {
+	} else if lower.IsPredicateDecl(sym.Decl) {
 		target.predicate = true
 	}
 }
@@ -3714,7 +3714,7 @@ func (ec *EvalContext) applyInvocation(target *invocationTarget, callArgs calcAr
 
 // enclosingRun is the environment a nested calc closes over here: the frames through
 // the innermost run of the behavior it is declared in, none when no such run is active.
-func (ec *EvalContext) enclosingRun(shape *calcShape) []frame {
+func (ec *EvalContext) enclosingRun(shape *loadedCalc) []frame {
 	return runOf(ec.ctx, ec.frames, enclosingBehavior(shape.Sym))
 }
 
@@ -3762,7 +3762,7 @@ func (ec *EvalContext) invokeChainOn(n *ast.InvocationExpr, name, callee string,
 	if id, isObject := receiver.Object(); isObject {
 		if inst, ok := ec.ctx.instances[id]; ok {
 			sym, found := ec.ctx.model.semantics.LookupMember(inst.Type, name)
-			if _, held := inst.FeatureValues[name]; !held && found && isCalcUsageSymbol(sym) {
+			if _, held := inst.FeatureValues[name]; !held && found && lower.IsCalcUsageSymbol(sym) {
 				fn, err := NewEvalContextIn(ec.ctx, sym.OwnerScope, inst).functionValueOf(sym)
 				if err != nil {
 					return Value{}, err
@@ -3771,7 +3771,7 @@ func (ec *EvalContext) invokeChainOn(n *ast.InvocationExpr, name, callee string,
 			}
 			// A constraint or requirement member is a predicate about the object, invoked on it
 			// (`req.assumptions()`, `sys.req()`), as its own evaluation invokes the bare name.
-			if found && isPredicateDecl(sym.Decl) {
+			if found && lower.IsPredicateDecl(sym.Decl) {
 				return ec.invokeChainPredicate(n, callee, &chainPredicate{self: inst, sym: sym})
 			}
 		}
@@ -4116,7 +4116,7 @@ func (target *invocationTarget) namedBinding(qualName string, i int, named map[s
 
 // invokeCalcShapeStacked evaluates exprs onto the context's argument stack and
 // invokes shape with them, popping them however the invocation ends.
-func (ec *EvalContext) invokeCalcShapeStacked(shape *calcShape, exprs []ast.Node, enclosing []frame) (Value, error) {
+func (ec *EvalContext) invokeCalcShapeStacked(shape *loadedCalc, exprs []ast.Node, enclosing []frame) (Value, error) {
 	ctx := ec.ctx
 	base := len(ctx.argStack)
 	for _, arg := range exprs {

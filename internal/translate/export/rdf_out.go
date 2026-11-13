@@ -1220,7 +1220,11 @@ func (e *encoder) writtenOwningMembership(node, parent ast.Node, fqn string) (rd
 		return rdf.Term{}, false
 	}
 	switch n := node.(type) {
-	case *ast.Import, *ast.EntryMember, *ast.ExitMember, *ast.DoMember, *ast.FilterMember:
+	case *ast.EntryMember, *ast.ExitMember, *ast.DoMember:
+		if bareSubactionKind(n) == "" {
+			return rdf.Term{}, false
+		}
+	case *ast.Import, *ast.FilterMember:
 		return rdf.Term{}, false
 	case *ast.PrefixMetadata:
 		if _, dependency := parent.(*ast.Dependency); dependency {
@@ -1393,6 +1397,13 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		}
 		e.derivedName(subject, node)
 	}
+	if kind := bareSubactionKind(node); kind != "" {
+		h.membershipClass = mSubaction
+		h.membershipExtra = func(membership rdf.Term) {
+			e.graph.Add(membership, e.sysml(pKind), rdf.String(kind))
+			e.graph.Add(membership, e.sysx(xSubactionKind), rdf.String(kind))
+		}
+	}
 	if e.effects[node] {
 		h.membershipClass = mTransitionFeatureMembership
 		h.membershipExtra = func(membership rdf.Term) {
@@ -1488,6 +1499,9 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			return err
 		}
 		e.relationships(subject, owner, n.Relationships)
+		if ontology.IsAncestorOrSelf(metaclass, "Association") {
+			e.associationRelatedTypes(subject, n)
+		}
 		if n.Kind == ast.DefPort {
 			// Every port definition owns its conjugate (SysML.xtext
 			// ConjugatedPortDefinitionMember), which the `~P` typing of a
@@ -1526,9 +1540,8 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 		if !ok {
 			return &UnsupportedError{What: fmt.Sprintf("usage kind %q at %s", n.Kind, e.where(n))}
 		}
-		// An actor, stakeholder or objective member is a parameter its
-		// membership owns (SysML.xtext ActorMember & co.): the parameter kind
-		// is the membership's metaclass, and the parameter itself is a usage.
+		// An actor or stakeholder member is a parameter its membership owns (SysML.xtext
+		// ActorMember & co.): the membership's metaclass is the parameter kind, the parameter a usage.
 		parameterClass, parameterEnd := parameterMembership(n.Kind)
 		if n.IsResult {
 			// A `return` member is the result parameter its ReturnParameterMembership
@@ -1909,6 +1922,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			e.graph.Add(membership, e.sysml(pOwnedConstraint), subject)
 		}
 		head(rdf.SysMLTerm(mConstraintUsage))
+		e.constraintBodyVariability(subject, n)
 		return e.requirementCondition(subject, fqn, within, requirementConditionDecl{
 			prefixes: n.Prefixes, ident: n.Ident, relationships: n.Relationships, multiplicity: n.Multiplicity,
 			value: n.Value, isDefault: n.ValueIsDefault, isInitial: n.ValueIsInitial,
@@ -1922,6 +1936,7 @@ func (e *encoder) encodeMember(h memberHead, owner string) error {
 			e.graph.Add(membership, e.sysml(pOwnedConstraint), subject)
 		}
 		head(rdf.SysMLTerm(mConstraintUsage))
+		e.constraintBodyVariability(subject, n)
 		return e.requirementCondition(subject, fqn, within, requirementConditionDecl{
 			prefixes: n.Prefixes, ident: n.Ident, relationships: n.Relationships, multiplicity: n.Multiplicity,
 			value: n.Value, isDefault: n.ValueIsDefault, isInitial: n.ValueIsInitial,
@@ -2250,6 +2265,19 @@ func (e *encoder) usageIsVariable(n *ast.Usage) bool {
 	return sym != nil && e.ids.model.FeatureIsVariable(sym)
 }
 
+// constraintBodyVariability writes isVariable and mayTimeVary for a `require`/`assume`
+// body constraint as the model derives them: a feature of an Occurrence varies (deriveUsageMayTimeVary).
+func (e *encoder) constraintBodyVariability(subject rdf.Term, member ast.Node) {
+	sym := e.ids.declSym[member]
+	if sym == nil {
+		return
+	}
+	e.flags(subject, []boolProperty{
+		{"isVariable", e.ids.model.FeatureIsVariable(sym)},
+		{"mayTimeVary", e.ids.model.UsageMayTimeVary(sym)},
+	})
+}
+
 // usageMayTimeVary derives Usage::mayTimeVary (deriveUsageMayTimeVary); a KerML
 // feature has no such property.
 func (e *encoder) usageMayTimeVary(n *ast.Usage) bool {
@@ -2481,22 +2509,64 @@ func (e *encoder) messageEnd(subject rdf.Term, index int, target ast.Node) error
 		return err
 	}
 	if name, ok := target.(*ast.QualifiedName); ok && !qualifiedNameHasChain(name) {
-		e.connectorRelatedFeature(subject, reference, index, 2)
+		e.connectorRelatedFeature(subject, reference, index, 2, true)
 	}
 	return nil
 }
 
-// connectorRelatedFeature states Connector::relatedFeature as the feature the end's
-// ReferenceSubsetting references (KerML 8.3.4.5.3); a binary connector's ends are source and target.
-func (e *encoder) connectorRelatedFeature(subject, reference rdf.Term, index, ends int) {
+// associationRelatedTypes states an Association's Relationship::relatedElement, source and target as the
+// relatedType, sourceType and targetType that redefine them (KerML 8.3.4.4.2), as the semantic model derives them.
+func (e *encoder) associationRelatedTypes(subject rdf.Term, n *ast.Definition) {
+	sym := e.ids.declSym[n]
+	if sym == nil {
+		return
+	}
+	for _, property := range []string{pRelatedElement, pSource, pTarget} {
+		for _, typ := range e.ids.model.AssociationRelatedTypes(sym, property) {
+			if term := e.typeTerm(typ); term.Value != "" {
+				e.graph.Add(subject, e.sysml(property), term)
+			}
+		}
+	}
+}
+
+// typeTerm is the term of a type a feature is typed by: the ConjugatedPortDefinition minted beside
+// P for a `~P` typing (SysML v2 8.3.12.3), which declares nothing of its own, else the element's.
+func (e *encoder) typeTerm(typ *symbols.Symbol) rdf.Term {
+	if typ != nil && typ.IsConjugatedPortDefinition() {
+		original := e.symbolTerm(semantics.OriginalPortDefinitionOf(typ))
+		if !original.IsIRI() || original.Value == "" {
+			return rdf.Term{}
+		}
+		return e.conjugateReference(original)
+	}
+	term := e.symbolTerm(typ)
+	if !term.IsIRI() {
+		return rdf.Term{}
+	}
+	return term
+}
+
+// connectorRelatedFeature states Connector::relatedFeature as the feature the end's ReferenceSubsetting references
+// (KerML 8.3.4.5.3) and, for a plain end, the Relationship::relatedElement, source and target the three redefine.
+func (e *encoder) connectorRelatedFeature(subject, reference rdf.Term, index, ends int, plain bool) {
 	if reference.Value == "" || !reference.IsIRI() {
 		return
 	}
 	e.graph.Add(subject, e.sysml(pRelatedFeature), reference)
+	if plain {
+		e.graph.Add(subject, e.sysml(pRelatedElement), reference)
+	}
 	if ends == 2 && index == 0 {
 		e.graph.Add(subject, e.sysml(pSourceFeature), reference)
+		if plain {
+			e.graph.Add(subject, e.sysml(pSource), reference)
+		}
 	} else if ends == 2 && index == 1 {
 		e.graph.Add(subject, e.sysml(pTargetFeature), reference)
+		if plain {
+			e.graph.Add(subject, e.sysml(pTarget), reference)
+		}
 	}
 }
 
@@ -2624,7 +2694,9 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 			}
 		}
 		if !end.noCollapse {
-			e.connectorRelatedFeature(subject, reference, end.index, end.ends)
+			name, named := end.target.(*ast.QualifiedName)
+			plain := len(flowSegments) == 0 && end.targetTerm.Value == "" && named && !qualifiedNameHasChain(name)
+			e.connectorRelatedFeature(subject, reference, end.index, end.ends, plain)
 		}
 	}
 	if err := e.multiplicity(feature, end.owner, end.mult); err != nil {
@@ -3313,8 +3385,6 @@ func parameterMembership(kind ast.UsageKind) (class, end string) {
 		return mActorMembership, "ownedActorParameter"
 	case ast.UsageStakeholder:
 		return mStakeholderMembership, "ownedStakeholderParameter"
-	case ast.UsageObjective:
-		return mObjectiveMembership, "ownedObjectiveRequirement"
 	}
 	return "", ""
 }
@@ -3328,6 +3398,10 @@ func memberOwnedUsage(kind ast.UsageKind) (class, end, constraintKind string) {
 		return mViewRenderingMembership, pOwnedRendering, ""
 	case ast.UsageFramedConcern:
 		return mFramedConcernMembership, pOwnedConcern, "requirement"
+	case ast.UsageObjective:
+		// An objective is a RequirementUsage its ObjectiveMembership, a FeatureMembership, owns
+		// (SysML 8.3.19): no parameter, so composite and undirected, as the pilot exports it.
+		return mObjectiveMembership, "ownedObjectiveRequirement", ""
 	}
 	return "", "", ""
 }

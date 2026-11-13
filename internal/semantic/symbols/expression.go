@@ -42,6 +42,9 @@ const (
 	// ExpressionPayload is a parameter of that accept: its payload, valued by a time or change
 	// event's TriggerInvocationExpression, or its `via` receiver; Owner is the accept.
 	ExpressionPayload
+	// ExpressionTransitionSuccession is the Succession a transition owns through an OwningMembership,
+	// from its source to its target (SysML.xtext TransitionSuccessionMember); Owner is the transition.
+	ExpressionTransitionSuccession
 )
 
 // ExpressionElement is the side record of a symbol the reflective layer

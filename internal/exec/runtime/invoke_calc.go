@@ -2,34 +2,16 @@ package runtime
 
 import (
 	"fmt"
-	"iter"
-	"slices"
 	"sort"
 	"strings"
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
-
-// calcParameter is one input parameter of a calc, in positional order.
-type calcParameter struct {
-	Name    string          // parameter name arguments bind to
-	Default ast.Node        // value-binding expression used when no argument is passed (nil if none)
-	Owner   *symbols.Symbol // the calc that declares the default (a supertype for an inherited one)
-	Sym     *symbols.Symbol // the parameter's own symbol, which its effective multiplicity is read off
-	Decl    calcMemberDecl  // the declaration, closest to the invoked calc, a bound value answers to
-	// IsSubject marks a case's subject parameter, the object the case is about.
-	IsSubject bool
-	// IsActor marks an actor parameter (SysML v2 §7.19.2, §7.24.2): bound by name
-	// like the subject, never by position, and left unvalued when nothing binds it.
-	IsActor bool
-	// IsCalc marks a calc usage parameter (`in calc f`), which a function value binds.
-	IsCalc bool
-}
 
 // calcMemberDecl is the type and multiplicity a calc's parameter or output
 // declares, and the calc whose declaration states them.
@@ -146,14 +128,6 @@ func (ctx *Context) boundMemberDecl(owner *symbols.Symbol, features []*symbols.S
 	return decl
 }
 
-// calcMemberDeclOf resolves what a member of link declares for a value bound to it.
-func (ctx *Context) calcMemberDeclOf(link *symbols.Symbol, sym *symbols.Symbol, name string) calcMemberDecl {
-	if sym == nil {
-		return calcMemberDecl{}
-	}
-	return ctx.calcMemberDeclFor(link, sym, name)
-}
-
 // calcMemberDeclFor is what the member sym of link declares for a value bound to it.
 func (ctx *Context) calcMemberDeclFor(link, sym *symbols.Symbol, name string) calcMemberDecl {
 	mult, stated := ctx.extractMultiplicity(sym)
@@ -171,46 +145,19 @@ func (ctx *Context) calcMemberDeclFor(link, sym *symbols.Symbol, name string) ca
 	}
 }
 
-// calcShape is a calc's invocation interface: the input parameters it binds, in
-// positional order, the output features it computes, and the expression its body
-// returns. All are resolved across the specialization chain, so a usage typed by
-// a calc definition inherits that definition's parameters, outputs and result.
-type calcShape struct {
-	Sym  *symbols.Symbol
-	Name string // qualified name, for diagnostics and traces
-	// Kind is the notation keyword of the behavior (`calc` or `analysis`), and
-	// Label is Kind followed by Name, as diagnostics name the behavior.
-	Kind   string
-	Label  string
-	Params []calcParameter
-	// ParamNames are the Params' names by position: the slots an invocation binds.
-	ParamNames []string
-	// Aliases map the name of a parameter or output redeclared under a new name
-	// (`in g :>> x`) to that name, which an inherited body reads it by.
-	Aliases map[string]string
-	// Outputs are the calc's output features — its `out` parameters and the
-	// result parameter a `return` declares — in declaration order.
-	Outputs []calcOutput
-	// Body is the computation the calc states, lowered in the scope of the calc
-	// that declares it: local declarations, assignments, conditionals, loops and
-	// returns, in declaration order.
-	Body      []lower.Statement
-	BodyOwner *symbols.Symbol // the calc whose body declares Body
-	// Steps is Body without the bindings of its `out` features, which are
-	// evaluated when those features are read rather than run as statements.
-	Steps           []lower.Statement
-	statementOrders sync.Map
-	// Nodes are the action nodes the body's flow performs as the steps of a case.
-	Nodes []ast.Node
-	// BodyOutputs are the output features some statement of the body assigns,
-	// whatever path the execution takes. A calc that binds its outputs this way
-	// computes them though it returns nothing, so it states a computation.
-	BodyOutputs map[string]bool
-	Bindings    []lower.Binding
-	ResultExpr  ast.Node
+// loadedCalc is the runtime's hold on a lowered calc: its program.Calc, the
+// trees its body and expressions still are, and what the runtime builds per calc.
+type loadedCalc struct {
+	*program.Calc
+	*lower.CalcTrees
+	// paramDecls and outputDecls are what a value bound to each parameter and
+	// output answers to, folded along the declarations the record lists for it.
+	paramDecls  []calcMemberDecl
+	outputDecls []calcMemberDecl
 	// ResultDecl is what the result answers to: its own `return`, else the result
 	// parameter it inherits (SysML v2 §7.19.2), ultimately Evaluation::result [0..*].
-	ResultDecl calcMemberDecl
+	ResultDecl      calcMemberDecl
+	statementOrders sync.Map
 	// Uncomputed says why the calc computes nothing (no body, no bound output);
 	// the calc is still a function value, and invoking it reports this.
 	Uncomputed error
@@ -227,10 +174,20 @@ type calcShape struct {
 	members map[*symbols.Symbol]string
 }
 
+// resultExpr is the expression a binding connector binds to `result`, nil for none.
+func (shape *loadedCalc) resultExpr() ast.Node {
+	return shape.Expr(shape.Result)
+}
+
+// calcEnv is what lowering a calc reads of this context's model.
+func (ctx *Context) calcEnv() lower.CalcEnv {
+	return lower.CalcEnv{Semantics: ctx.model.semantics, Resolver: ctx.model.resolver, Realized: ctx.frameDeclared}
+}
+
 // calcShapeOf resolves the invocation interface of a calc symbol: its
 // positional input parameters (own and inherited, with defaults) and its result
 // expression. A calc computing nothing is an error. The result is memoized per symbol.
-func (ctx *Context) calcShapeOf(sym *symbols.Symbol) (*calcShape, error) {
+func (ctx *Context) calcShapeOf(sym *symbols.Symbol) (*loadedCalc, error) {
 	shape, err := ctx.calcInterfaceOf(sym)
 	if err != nil {
 		return nil, err
@@ -243,7 +200,7 @@ func (ctx *Context) calcShapeOf(sym *symbols.Symbol) (*calcShape, error) {
 
 // calcInterfaceOf is calcShapeOf for a calc that may compute nothing — an
 // abstract calc, or one awaiting a body — whose shape records why in Uncomputed.
-func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
+func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*loadedCalc, error) {
 	if sym == nil || sym.Decl == nil {
 		return nil, fmt.Errorf("%w: invalid symbol", ErrNotACalc)
 	}
@@ -252,14 +209,10 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 	}
 
 	name := ctx.QualifiedName(sym)
-	if !isCalcDecl(sym.Decl) && !ctx.calcTypedFeature(sym) {
+	if !lower.IsCalcDecl(sym.Decl) && !ctx.calcTypedFeature(sym) {
 		return nil, fmt.Errorf("%w: %s is %s, not a calc definition or usage", ErrNotACalc, name, describeDecl(sym.Decl))
 	}
-	kind, label := calcKindLabel(sym, name)
-
-	// Most general first, so an inherited parameter keeps the position it has in
-	// the calc that declares it and a redeclaration refines it in place.
-	chain := ctx.calcChain(sym)
+	label := lower.CalcKind(sym) + " " + name
 	if conflict := ctx.model.semantics.ResultExpressionConflict(sym); conflict != nil {
 		if conflict.Stated > 1 {
 			return nil, fmt.Errorf("%w: %s states %d result expressions",
@@ -272,44 +225,22 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 		return nil, fmt.Errorf("%w: %s states or inherits a result expression from each of %s",
 			errConflictingResultExpressions, label, strings.Join(names, ", "))
 	}
-	body, bodyOrder, bodyOwner := ctx.calcBodyWithOrder(chain)
-	shape := &calcShape{
-		Sym:       sym,
-		Name:      name,
-		Kind:      kind,
-		Label:     label,
-		Body:      body,
-		BodyOwner: bodyOwner,
-		Steps:     lower.CalcSteps(body),
-	}
-	if len(shape.Steps) > 0 && bodyOrder != nil {
-		shape.statementOrders.Store(&shape.Steps[0], bodyOrder)
-	}
-	indexCalcStatementOrders(&shape.statementOrders, shape.Steps)
-	shape.Nodes = lower.BlockNodes(shape.Steps)
-	shape.Params = ctx.calcParameters(chain, &shape.Aliases)
-	shape.Outputs = ctx.calcOutputs(chain, &shape.Aliases)
-	shape.ParamNames = make([]string, len(shape.Params))
-	for i, param := range shape.Params {
-		shape.ParamNames[i] = param.Name
-	}
-	shape.BodyOutputs = assignedOutputs(shape.Steps, shape.Outputs, shape.Aliases)
-	shape.Bindings = calcBindings(chain)
-	shape.ResultExpr = resultBindingExpr(shape.Bindings)
-	if out := shape.resultOutput(); out != nil {
-		shape.ResultDecl = out.Decl
+	calc, trees := lower.ToCalc(sym, ctx.calcEnv())
+	shape := ctx.loadCalc(calc, trees)
+	if at := calc.ResultOutputIndex(); at >= 0 {
+		shape.ResultDecl = shape.outputDecls[at]
 	} else if inherited := ctx.model.semantics.ResultParameterOf(sym); inherited != nil {
-		shape.ResultDecl = ctx.calcMemberDeclFor(sym, inherited, resultOutputName)
+		shape.ResultDecl = ctx.calcMemberDeclFor(sym, inherited, program.ResultOutputName)
 		if ctx.model.semantics.IsKindBaseParameter(sym, inherited) {
 			// The kind base's result (`Evaluation::result : Anything`) types nothing.
 			shape.ResultDecl.Target.typ = nil
 		}
 	} else {
 		// Nothing to inherit (no library): the effective default is `[0..*]`.
-		shape.ResultDecl = calcMemberDecl{Target: &writeTarget{name: resultOutputName, mult: semantics.UnboundedRange()}, Owner: sym, effective: true}
+		shape.ResultDecl = calcMemberDecl{Target: &writeTarget{name: program.ResultOutputName, mult: semantics.UnboundedRange()}, Owner: sym, effective: true}
 	}
 	// Only a calc computes by tool; a case always runs its body.
-	if kind == "calc" {
+	if calc.Kind == "calc" {
 		tool, err := ctx.toolExecutionOf(sym)
 		if err != nil {
 			return nil, err
@@ -320,20 +251,49 @@ func (ctx *Context) calcInterfaceOf(sym *symbols.Symbol) (*calcShape, error) {
 	// computes through its steps, or answers with its verdicts alone, and a
 	// library function the runtime implements natively computes through that.
 	// One that computes nothing leaves its result parameter without a value.
-	performs := shape.isCase() && (len(shape.Nodes) > 0 || ctx.analysisChecks(sym))
+	performs := calc.IsCase() && (calc.StepCount > 0 || ctx.analysisChecks(sym))
 	_, native := ctx.libraryFunctionFor(sym)
-	computes := lower.Returns(shape.Body) || len(shape.BodyOutputs) > 0 || shape.ResultExpr != nil || shape.hasInitialOutput() || performs || native
+	computes := calc.Returns || len(calc.BodyOutputs) > 0 || calc.Result != 0 || calc.HasInitialOutput() || performs || native
 	switch {
 	case computes || shape.Tool != nil:
-	case len(shape.Outputs) > 0 && shape.resultOutput() == nil:
+	case len(calc.Outputs) > 0 && calc.ResultOutput() == nil:
 		shape.Uncomputed = fmt.Errorf("%w: %s binds none of its outputs (%s)",
-			ErrNoValue, label, shape.outputNames())
+			ErrNoValue, label, calc.OutputNames())
 	default:
-		shape.Uncomputed = fmt.Errorf("%w: %s has no return expression%s", ErrNoValue, label, unboundResultHint(chain))
+		shape.Uncomputed = fmt.Errorf("%w: %s has no return expression%s", ErrNoValue, label, lower.UnboundResultHint(calc.Chain))
 	}
 
 	ctx.model.calcShapes[sym] = shape
 	return shape, nil
+}
+
+// loadCalc takes a lowered calc into the runtime: the declarations its members
+// answer to, folded, and the statement orders its body states.
+func (ctx *Context) loadCalc(calc *program.Calc, trees *lower.CalcTrees) *loadedCalc {
+	shape := &loadedCalc{Calc: calc, CalcTrees: trees}
+	shape.paramDecls = make([]calcMemberDecl, len(calc.Params))
+	for i := range calc.Params {
+		shape.paramDecls[i] = ctx.memberDecl(calc.Params[i].Declarations)
+	}
+	shape.outputDecls = make([]calcMemberDecl, len(calc.Outputs))
+	for i := range calc.Outputs {
+		shape.outputDecls[i] = ctx.memberDecl(calc.Outputs[i].Declarations)
+	}
+	if len(shape.Steps) > 0 && trees.BodyOrder != nil {
+		shape.statementOrders.Store(&shape.Steps[0], trees.BodyOrder)
+	}
+	indexCalcStatementOrders(&shape.statementOrders, shape.Steps)
+	return shape
+}
+
+// memberDecl folds what a member declares along its declarations, most general
+// first: a redeclaration stating no type or multiplicity keeps the redeclared feature's.
+func (ctx *Context) memberDecl(members []program.CalcMember) calcMemberDecl {
+	var decl calcMemberDecl
+	for _, m := range members {
+		decl = ctx.calcMemberDeclFor(m.Owner, m.Feature, m.Name).redeclaring(decl)
+	}
+	return decl
 }
 
 func indexCalcStatementOrders(orders *sync.Map, stmts []lower.Statement) {
@@ -382,202 +342,6 @@ func indexCalcGraphOrders(orders *sync.Map, graph *lower.ActionGraph, seen map[*
 			indexCalcGraphOrders(orders, subflow.Graph, seen)
 		}
 	}
-}
-
-func calcBindings(chain []*symbols.Symbol) []lower.Binding {
-	var out []lower.Binding
-	for _, link := range chain {
-		if link != nil {
-			out = append(out, lower.ToBindings(link.Decl, DeclScope(link))...)
-		}
-	}
-	return out
-}
-
-func resultBindingExpr(bindings []lower.Binding) ast.Node {
-	var result ast.Node
-	for _, binding := range bindings {
-		for i := range binding.Ends {
-			if binding.Ends[i].Path != "result" {
-				continue
-			}
-			other := binding.Ends[1-i]
-			if other.Expr != nil {
-				result = other.Expr
-			}
-		}
-	}
-	return result
-}
-
-// calcChain returns the calcs sym takes members from (its supertypes and the calc
-// it references), most general first, then sym. Non-calc links and the library's
-// frame contribute nothing; a domain library's calc contributes as a model's does.
-func (ctx *Context) calcChain(sym *symbols.Symbol) []*symbols.Symbol {
-	supers := ctx.model.semantics.MemberSources(sym)
-	chain := make([]*symbols.Symbol, 0, len(supers)+1)
-	for i := len(supers) - 1; i >= 0; i-- {
-		if supers[i] != nil && isCalcDecl(supers[i].Decl) && !ctx.frameDeclared(supers[i]) {
-			chain = append(chain, supers[i])
-		}
-	}
-	return append(chain, sym)
-}
-
-// calcParameters flattens the input parameters declared along chain (most general
-// first): a redeclaration keeps its position and default, a renamed one is aliased.
-func (ctx *Context) calcParameters(chain []*symbols.Symbol, aliases *map[string]string) []calcParameter {
-	var params []calcParameter
-	index := make(map[string]int)
-
-	for _, link := range chain {
-		for _, member := range unwrappedDeclMembers(link.Decl) {
-			if subject, ok := subjectDeclaration(member); ok {
-				params = ctx.subjectParameter(params, index, aliases, link, member, subject)
-				continue
-			}
-			usage, ok := member.(*ast.Usage)
-			if !ok {
-				continue
-			}
-			name, _ := ast.EffectiveName(usage)
-			if name == "" {
-				continue
-			}
-			actor := usage.Kind == ast.UsageActor
-			if !actor && usage.Direction != ast.DirIn && usage.Direction != ast.DirInOut {
-				continue
-			}
-			sym := memberSymbol(DeclScope(link), usage)
-			param := calcParameter{
-				Name: name, Default: usage.Value, Owner: link,
-				Sym: sym, IsActor: actor,
-				Decl: ctx.calcMemberDeclOf(link, sym, name), IsCalc: isCalcUsageSymbol(sym),
-			}
-			if at, seen := ctx.redeclaredIndex(index, sym, name); seen {
-				// A redeclaration binding no value keeps the inherited default,
-				// which is written in the scope of the calc that stated it.
-				if param.Default == nil {
-					param.Default = params[at].Default
-					param.Owner = params[at].Owner
-				}
-				param.Decl = param.Decl.redeclaring(params[at].Decl)
-				*aliases = aliasRedefined(*aliases, params[at].Name, name)
-				params[at] = param
-				index[name] = at
-				continue
-			}
-			index[param.Name] = len(params)
-			params = append(params, param)
-		}
-	}
-	return params
-}
-
-// redeclaredIndex finds the flattened member the member sym, named name,
-// redeclares: the one of its own name, one it redefines (`in y :>> x`), else
-// the one its role redefines by position (an actor over the general's actor).
-func (ctx *Context) redeclaredIndex(index map[string]int, sym *symbols.Symbol, name string) (int, bool) {
-	if at, seen := index[name]; seen {
-		return at, true
-	}
-	for _, redefined := range ctx.model.semantics.RedefinedFeatures(sym) {
-		if at, seen := index[redefined.Name]; seen {
-			return at, true
-		}
-	}
-	for _, redefined := range ctx.model.semantics.ImplicitRoleRedefinitions(sym) {
-		if at, seen := index[redefined.Name]; seen {
-			return at, true
-		}
-	}
-	return 0, false
-}
-
-// calcBody returns the computation the invoked calc runs — its own body if that
-// states one, otherwise the closest inherited one — with the calc that declares
-// it, whose scope the body's statements are written in.
-func (ctx *Context) calcBody(chain []*symbols.Symbol) ([]lower.Statement, *symbols.Symbol) {
-	body, _, owner := ctx.calcBodyWithOrder(chain)
-	return body, owner
-}
-
-func (ctx *Context) calcBodyWithOrder(chain []*symbols.Symbol) ([]lower.Statement, *lower.StatementOrder, *symbols.Symbol) {
-	var stated []lower.Statement
-	var statedOrder *lower.StatementOrder
-	var owner *symbols.Symbol
-	for i := len(chain) - 1; i >= 0; i-- {
-		link := chain[i]
-		stmts, order := lower.CalcBodyWithOrder(link.Decl, unwrappedDeclMembers(link.Decl), link.Scope, ctx.Resolver())
-		if lower.Returns(stmts) {
-			return stmts, order, link
-		}
-		// A body that computes but returns nothing leaves an inherited result in
-		// force, so keep looking up the chain before settling for it.
-		if stated == nil && len(stmts) > 0 {
-			stated, statedOrder, owner = stmts, order, link
-		}
-	}
-	return stated, statedOrder, owner
-}
-
-// unboundResultHint explains a `return` that declares a result parameter without
-// binding it (`return h;` declares h, it does not return the member h).
-func unboundResultHint(chain []*symbols.Symbol) string {
-	for i := len(chain) - 1; i >= 0; i-- {
-		if chain[i] == nil {
-			continue
-		}
-		members := unwrappedDeclMembers(chain[i].Decl)
-		result := unboundResultParameter(members)
-		if result == nil {
-			continue
-		}
-		name, _ := ast.EffectiveName(result)
-		who, trailing, expr := "the result parameter", "of the body", "<expr>"
-		typ := lower.TypeText(result)
-		if name != "" {
-			spelled := source.NameText(name)
-			who = "result parameter " + spelled
-			if sibling := valuedMemberNamed(members, name, result); sibling != nil {
-				trailing, expr = "`"+spelled+"`", spelled
-				if typ == "" {
-					typ = lower.TypeText(sibling)
-				}
-			}
-		}
-		if typ == "" {
-			typ = "<type>"
-		}
-		return fmt.Sprintf(": %s binds no value; write the result as the trailing expression %s, or bind it with `return : %s = %s;`",
-			who, trailing, typ, expr)
-	}
-	return ""
-}
-
-// unboundResultParameter returns the body's `return` member that binds no value.
-func unboundResultParameter(members []ast.Node) *ast.Usage {
-	for _, member := range members {
-		if u, ok := member.(*ast.Usage); ok && u.IsResult && u.Value == nil {
-			return u
-		}
-	}
-	return nil
-}
-
-// valuedMemberNamed returns the body member called name, other than except,
-// whose declaration binds a value; an unbound one would not compute a result.
-func valuedMemberNamed(members []ast.Node, name string, except *ast.Usage) *ast.Usage {
-	for _, member := range members {
-		u, ok := member.(*ast.Usage)
-		if !ok || u == except || u.Value == nil {
-			continue
-		}
-		if actual, _ := ast.EffectiveName(u); actual == name {
-			return u
-		}
-	}
-	return nil
 }
 
 // calcArgs are the arguments of one calc invocation. The notation keeps the two
@@ -642,7 +406,7 @@ func (ctx *Context) invokeCalcNamed(sym *symbols.Symbol, args map[string]Value, 
 	return ctx.invokeCalc(sym, calcArgs{named: args}, scope)
 }
 
-func (ctx *Context) invokeCalcNamedShapeOn(shape *calcShape, args map[string]Value, scope *symbols.Scope, self *Instance) (Value, error) {
+func (ctx *Context) invokeCalcNamedShapeOn(shape *loadedCalc, args map[string]Value, scope *symbols.Scope, self *Instance) (Value, error) {
 	return ctx.invokeCalcShape(shape, calcArgs{named: args}, scope, self)
 }
 
@@ -699,8 +463,8 @@ type invocationFrame struct {
 	bindings map[string]Value
 	cells    *bodyCells
 	aliases  map[string]string
-	owner    *calcShape // the calc invoked, whose members the locals bind
-	run      int64      // the run this invocation is (Context.newRun)
+	owner    *loadedCalc // the calc invoked, whose members the locals bind
+	run      int64       // the run this invocation is (Context.newRun)
 	host     calcStmtHost
 	env      stmtEnv
 	engine   stmtEngine
@@ -756,13 +520,13 @@ func (ctx *Context) releaseInvocationFrame(frame *invocationFrame) {
 // invokeCalcShape binds arguments and evaluates the calc body. Binding happens
 // in the calc's own environment: defaults and the result expression see the
 // parameters and the calc's lexical scope, never the caller's frames.
-func (ctx *Context) invokeCalcShape(shape *calcShape, args calcArgs, callerScope *symbols.Scope, self *Instance) (Value, error) {
+func (ctx *Context) invokeCalcShape(shape *loadedCalc, args calcArgs, callerScope *symbols.Scope, self *Instance) (Value, error) {
 	return ctx.invokeCalcShapeIn(shape, args, callerScope, self, nil)
 }
 
 // invokeCalcShapeIn is invokeCalcShape for a calc declared in a behavior body:
 // enclosing holds that body's bindings, outermost first, which the calc's own shadow.
-func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerScope *symbols.Scope, self *Instance, enclosing []frame) (Value, error) {
+func (ctx *Context) invokeCalcShapeIn(shape *loadedCalc, args calcArgs, callerScope *symbols.Scope, self *Instance, enclosing []frame) (Value, error) {
 	if shape != nil && ctx.scheduling().ordersStatements() &&
 		ctx.reordersTransitively(shape.Sym) && ctx.pureTransitively(shape.Sym) {
 		return ctx.invokeWithStatementOrderResults(shape, args, self, len(enclosing) == 0, func() (Value, error) {
@@ -772,7 +536,7 @@ func (ctx *Context) invokeCalcShapeIn(shape *calcShape, args calcArgs, callerSco
 	return ctx.invokeCalcShapeDirect(shape, args, callerScope, self, enclosing)
 }
 
-func (ctx *Context) invokeCalcShapeDirect(shape *calcShape, args calcArgs, callerScope *symbols.Scope, self *Instance, enclosing []frame) (Value, error) {
+func (ctx *Context) invokeCalcShapeDirect(shape *loadedCalc, args calcArgs, callerScope *symbols.Scope, self *Instance, enclosing []frame) (Value, error) {
 	if shape.Uncomputed != nil {
 		return Value{}, shape.Uncomputed
 	}
@@ -869,7 +633,7 @@ func (ctx *Context) invokeCalcShapeDirect(shape *calcShape, args calcArgs, calle
 
 // computeCalcResultByTool is the result of a tool-annotated calc: the result
 // parameter's value, else the one its outputs settle.
-func (ctx *Context) computeCalcResultByTool(shape *calcShape, scope *symbols.Scope, held func(string) (Value, bool)) (Value, error) {
+func (ctx *Context) computeCalcResultByTool(shape *loadedCalc, scope *symbols.Scope, held func(string) (Value, bool)) (Value, error) {
 	result, returned, outputs, err := ctx.computeCalcByTool(shape, scope, held)
 	if err != nil || returned {
 		return result, err
@@ -879,7 +643,7 @@ func (ctx *Context) computeCalcResultByTool(shape *calcShape, scope *symbols.Sco
 
 // calcOccurrenceMaterializer materializes the occurrence a definition's `this`
 // denotes once, seeded with the parameters bound so far.
-func (ctx *Context) calcOccurrenceMaterializer(shape *calcShape, locals frame, activation int64, occurrence *calcOccurrence) func() (*Instance, error) {
+func (ctx *Context) calcOccurrenceMaterializer(shape *loadedCalc, locals frame, activation int64, occurrence *calcOccurrence) func() (*Instance, error) {
 	return func() (*Instance, error) {
 		if occurrence.inst != nil {
 			return occurrence.inst, nil
@@ -941,7 +705,7 @@ type calcBindingSite struct {
 // declared closest to the invoked calc, evaluated in the scope of the calc
 // declaring it. ec supplies the environment defaults are evaluated in.
 func (ctx *Context) bindCalcParameters(
-	shape *calcShape,
+	shape *loadedCalc,
 	ec *EvalContext,
 	args calcArgs,
 	callerScope *symbols.Scope,
@@ -959,7 +723,7 @@ func (ctx *Context) bindCalcParameters(
 			position = positional
 			positional++
 		}
-		if param.IsActor && param.Default == nil {
+		if param.IsActor && param.Default == 0 {
 			// An actor nothing binds is a feature without a value, not a missing argument.
 			if _, supplied := args.named[param.Name]; !supplied {
 				continue
@@ -972,7 +736,7 @@ func (ctx *Context) bindCalcParameters(
 		}
 		var value Value
 		var source string
-		if open[param.Name] && shape.opensRun(param, ctx.model.semantics) {
+		if open[param.Name] && shape.opensRun(i, ctx.model.semantics) {
 			// A feature read passes no arguments: an input whose absence stops the run binds
 			// undetermined (a default reading it is open with it); an optional one binds empty.
 			var count semantics.Range
@@ -991,7 +755,7 @@ func (ctx *Context) bindCalcParameters(
 			what := func() string {
 				return fmt.Sprintf("%s: %s for parameter %q", shape.Label, source, param.Name)
 			}
-			decl := param.Decl
+			decl := shape.paramDecls[i]
 			// An actor states no direction, so the parameter chain does not reach what it
 			// redefines; its range is the one the shape folded along the redeclarations.
 			if decl.Target != nil && param.Sym != nil && !param.IsActor {
@@ -1002,7 +766,7 @@ func (ctx *Context) bindCalcParameters(
 			if err := decl.check(ctx, &value, what); err != nil {
 				return err
 			}
-			if err := param.checkFunction(&value, what); err != nil {
+			if err := checkFunction(param, &value, what); err != nil {
 				return err
 			}
 		}
@@ -1027,7 +791,7 @@ func (ctx *Context) bindCalcParameters(
 // the invocation yields: what the body returned, or, for a body that returns
 // nothing, the calc's designated output feature, evaluated in the invocation's
 // activation, which the caller ends after it.
-func (ctx *Context) runCalcBody(shape *calcShape, frame *invocationFrame, callerScope *symbols.Scope, self *Instance, activation int64, enclosing []frame, occurrence *calcOccurrence) (Value, error) {
+func (ctx *Context) runCalcBody(shape *loadedCalc, frame *invocationFrame, callerScope *symbols.Scope, self *Instance, activation int64, enclosing []frame, occurrence *calcOccurrence) (Value, error) {
 	frame.host = calcStmtHost{ctx: ctx, shape: shape, self: self, occ: occurrence}
 	frame.env = stmtEnv{
 		data: frame.locals(), enclosing: shape.bodyEnclosing(enclosing), locals: make(map[string]Value),
@@ -1083,14 +847,14 @@ func (ctx *Context) runCalcBody(shape *calcShape, frame *invocationFrame, caller
 // parameter the tool answered wins outright, the one output the tool bound wins
 // alone, and several or none fail as designatedOutput fails. The tool's answers
 // are the whole computation; no body binding is evaluated.
-func (shape *calcShape) toolCalcResult(outputs map[string]Value) (Value, error) {
+func (shape *loadedCalc) toolCalcResult(outputs map[string]Value) (Value, error) {
 	out, err := shape.designatedToolOutput(outputs)
 	if err != nil {
 		return Value{}, err
 	}
 	key := out.Name
 	if key == "" {
-		key = resultOutputName
+		key = program.ResultOutputName
 	}
 	return outputs[key], nil
 }
@@ -1098,25 +862,26 @@ func (shape *calcShape) toolCalcResult(outputs map[string]Value) (Value, error) 
 // designatedToolOutput returns the output an invocation of a tool-computed calc
 // yields, in the spirit of designatedOutput: the candidates are the outputs the
 // tool answered, a result parameter winning outright over the rest.
-func (shape *calcShape) designatedToolOutput(outputs map[string]Value) (calcOutput, error) {
-	var valued []calcOutput
-	for _, out := range shape.Outputs {
+func (shape *loadedCalc) designatedToolOutput(outputs map[string]Value) (declaredOutput, error) {
+	var valued []declaredOutput
+	for i := range shape.Outputs {
+		out := &shape.Outputs[i]
 		key := out.Name
 		if out.IsResult && key == "" {
-			key = resultOutputName
+			key = program.ResultOutputName
 		}
 		if _, answered := outputs[key]; !answered {
 			continue
 		}
 		if out.IsResult {
-			return out, nil
+			return shape.declaredOutput(i), nil
 		}
-		valued = append(valued, out)
+		valued = append(valued, shape.declaredOutput(i))
 	}
 
 	switch len(valued) {
 	case 0:
-		return calcOutput{}, fmt.Errorf("%w: %s ended without a return", ErrNoValue, shape.Label)
+		return declaredOutput{}, fmt.Errorf("%w: %s ended without a return", ErrNoValue, shape.Label)
 	case 1:
 		return valued[0], nil
 	default:
@@ -1124,9 +889,9 @@ func (shape *calcShape) designatedToolOutput(outputs map[string]Value) (calcOutp
 		for _, out := range valued {
 			names = append(names, out.Name)
 		}
-		return calcOutput{}, fmt.Errorf(
+		return declaredOutput{}, fmt.Errorf(
 			"%w: %s computes %d output features (%s) and designates no result; read them from a usage instead: %s",
-			errAmbiguousResult, shape.Label, len(valued), strings.Join(names, ", "), shape.usageSpelling(valued[0].Name),
+			errAmbiguousResult, shape.Label, len(valued), strings.Join(names, ", "), shape.UsageSpelling(valued[0].Name),
 		)
 	}
 }
@@ -1147,7 +912,7 @@ func runCalcSteps(engine *stmtEngine, host *calcStmtHost, steps []lower.Statemen
 
 // observationSteps splits Steps at the results ending them (lower.IsResult): the
 // steps a run of a Monte Carlo case performs, then the results run over its sample.
-func (shape *calcShape) observationSteps() (steps, results []lower.Statement) {
+func (shape *loadedCalc) observationSteps() (steps, results []lower.Statement) {
 	end := len(shape.Steps)
 	for end > 0 && lower.IsResult(shape.Steps[end-1]) {
 		end--
@@ -1157,8 +922,8 @@ func (shape *calcShape) observationSteps() (steps, results []lower.Statement) {
 
 // checkArgs rejects an argument list that cannot bind to the parameters at all:
 // more positional arguments than parameters, or a name that is not one.
-func (shape *calcShape) checkArgs(args calcArgs) error {
-	if arity := shape.positionalArity(); len(args.positional) > arity {
+func (shape *loadedCalc) checkArgs(args calcArgs) error {
+	if arity := shape.PositionalArity(); len(args.positional) > arity {
 		return fmt.Errorf(
 			"%w: %s takes %d argument(s), got %d",
 			errCalcArity, shape.Label, arity, len(args.positional),
@@ -1173,7 +938,7 @@ func (shape *calcShape) checkArgs(args calcArgs) error {
 	sort.Strings(names)
 
 	for _, name := range names {
-		if !shape.hasParameter(name) {
+		if !shape.HasParameter(name) {
 			return fmt.Errorf(
 				"%w: %s has no input parameter %q",
 				errUnknownParameter, shape.Label, name,
@@ -1183,69 +948,17 @@ func (shape *calcShape) checkArgs(args calcArgs) error {
 	return nil
 }
 
-// positionalIndexes are the indexes in Params of the parameters a positional
-// argument can bind, in declaration order: every parameter but the actors,
-// which bind by name only.
-func (shape *calcShape) positionalIndexes() []int {
-	indexes := make([]int, 0, len(shape.Params))
-	for i := range shape.Params {
-		if !shape.Params[i].IsActor {
-			indexes = append(indexes, i)
-		}
-	}
-	return indexes
-}
-
-// positionalArity counts the parameters a positional argument can bind.
-func (shape *calcShape) positionalArity() int {
-	return len(shape.positionalIndexes())
-}
-
-// optional reports whether the parameter may go without an argument: its
+// optionalParameter reports whether the parameter may go without an argument: its
 // effective multiplicity admits no value, as `[0..1]` does.
-func (param *calcParameter) optional(m *semantics.Model) bool {
+func optionalParameter(param *program.CalcParam, m *semantics.Model) bool {
 	return param.Sym != nil && m.EffectiveParameterRange(param.Sym).AllowsNone()
 }
 
-// declaredOptional answers the read rule — whether the parameter as written
+// declaredOptional answers the read rule — whether parameter i as written
 // admits no value — not invocation, where a bare parameter is optional anyway.
-func (param *calcParameter) declaredOptional() bool {
-	return param.Decl.multStated && param.Decl.Target != nil && param.Decl.Target.mult.AllowsNone()
-}
-
-// hasParameter reports whether the calc declares an input parameter of that name.
-func (shape *calcShape) hasParameter(name string) bool {
-	return shape.parameter(name) != nil
-}
-
-// parameter is the calc's parameter of that name, nil when it declares none.
-func (shape *calcShape) parameter(name string) *calcParameter {
-	for i := range shape.Params {
-		if shape.Params[i].Name == name {
-			return &shape.Params[i]
-		}
-	}
-	return nil
-}
-
-// performs reports whether the body's action nodes are performed as steps: a case
-// is an action, so its body is; a calc's body performs nothing.
-func (shape *calcShape) performs() bool {
-	return shape.isCase()
-}
-
-// isCase reports whether the shape is a case — an analysis or a verification —
-// rather than a plain calc.
-func (shape *calcShape) isCase() bool {
-	return shape.Kind == "analysis" || shape.Kind == "verification"
-}
-
-// bodyScope is the namespace the body's names resolve in.
-func (shape *calcShape) bodyScope() *symbols.Scope {
-	if shape.BodyOwner != nil {
-		return shape.BodyOwner.Scope
-	}
-	return shape.Sym.Scope
+func (shape *loadedCalc) declaredOptional(i int) bool {
+	decl := &shape.paramDecls[i]
+	return decl.multStated && decl.Target != nil && decl.Target.mult.AllowsNone()
 }
 
 // bindCalcParameter resolves the value of one parameter: its argument (by
@@ -1255,8 +968,8 @@ func (shape *calcShape) bodyScope() *symbols.Scope {
 // these takes the enclosing case's subject, read from enclosing. A position
 // below zero is a parameter no positional argument binds, as an actor is.
 func (ec *EvalContext) bindCalcParameter(
-	shape *calcShape,
-	param *calcParameter,
+	shape *loadedCalc,
+	param *program.CalcParam,
 	args calcArgs,
 	position int,
 	enclosing *EvalContext,
@@ -1267,7 +980,7 @@ func (ec *EvalContext) bindCalcParameter(
 	if value, ok := args.named[param.Name]; ok {
 		return value, "argument", nil
 	}
-	if param.Default == nil {
+	if param.Default == 0 {
 		if param.IsSubject {
 			value, ok, err := ec.ctx.enclosingSubject(shape, enclosing)
 			if err != nil {
@@ -1278,12 +991,12 @@ func (ec *EvalContext) bindCalcParameter(
 			}
 			return Value{}, "", shape.unboundSubject(param)
 		}
-		if param.optional(ec.ctx.model.semantics) {
+		if optionalParameter(param, ec.ctx.model.semantics) {
 			return nullValue(), "omitted", nil
 		}
 		return Value{}, "", shape.unboundParameter(param.Name)
 	}
-	value, err := ec.Eval(param.Default)
+	value, err := ec.Eval(shape.Expr(param.Default))
 	if err != nil {
 		return Value{}, "", calcDefaultError(shape.Kind, shape.Name, param.Name, err)
 	}
@@ -1292,7 +1005,7 @@ func (ec *EvalContext) bindCalcParameter(
 
 // unboundParameter is the error of a parameter an invocation or a run neither
 // binds nor defaults: the request cannot proceed without it.
-func (shape *calcShape) unboundParameter(name string) error {
+func (shape *loadedCalc) unboundParameter(name string) error {
 	return fmt.Errorf("%w: %s parameter %q has no argument and no default", errUnboundParameter, shape.Label, name)
 }
 
@@ -1308,23 +1021,14 @@ func (ctx *Context) calcScope(declarer, invoked *symbols.Symbol, callerScope *sy
 	return callerScope
 }
 
-// calcTypedFeature reports whether sym is a feature typed by a calc — a step, which an
-// invocation performs as the calc it is typed by.
-func (ctx *Context) calcTypedFeature(sym *symbols.Symbol) bool {
-	if _, ok := sym.Decl.(*ast.Usage); !ok {
-		return false
-	}
-	return len(ctx.calcChain(sym)) > 1
-}
-
 // libraryPerformance is how a call of a model calc applies an inherited library
 // function: the library declaration implementing it and, when the model calcs
 // redeclare inputs, the effective signature the call's arguments bind through.
 type libraryPerformance struct {
 	lib       *symbols.Symbol
-	signature *calcShape // the effective inputs, bodiless; nil when the library's own bind as written
-	positions []int      // per signature parameter, the library input it redefines; -1 for none
-	arity     int        // the library declaration's input parameter count
+	signature *loadedCalc // the effective inputs, bodiless; nil when the library's own bind as written
+	positions []int       // per signature parameter, the library input it redefines; -1 for none
+	arity     int         // the library declaration's input parameter count
 }
 
 // libraryCalcPerformed returns the library function whose implementation a call of
@@ -1342,12 +1046,22 @@ func (ctx *Context) libraryCalcPerformed(sym *symbols.Symbol) *libraryPerformanc
 	return perf
 }
 
+// calcTypedFeature reports whether sym is a feature typed by a calc — a step, which an
+// invocation performs as the calc it is typed by.
+func (ctx *Context) calcTypedFeature(sym *symbols.Symbol) bool {
+	if _, ok := sym.Decl.(*ast.Usage); !ok {
+		return false
+	}
+	return len(lower.CalcChain(sym, ctx.calcEnv())) > 1
+}
+
 func (ctx *Context) resolveLibraryPerformance(sym *symbols.Symbol) *libraryPerformance {
 	if usage, ok := sym.Decl.(*ast.Usage); ok && usage.Value != nil {
 		return nil
 	}
-	chain := ctx.calcChain(sym)
-	if ctx.calcComputes(chain) {
+	env := ctx.calcEnv()
+	chain := lower.CalcChain(sym, env)
+	if lower.CalcStatesComputation(chain, env) {
 		return nil
 	}
 	// A tool-computed calc answers from its tool, not the library's implementation;
@@ -1364,49 +1078,16 @@ func (ctx *Context) resolveLibraryPerformance(sym *symbols.Symbol) *libraryPerfo
 	if !ctx.redeclaresInputs(chain) {
 		return perf
 	}
-	perf.signature = &calcShape{Sym: sym, Name: ctx.QualifiedName(sym)}
-	perf.signature.Kind, perf.signature.Label = calcKindLabel(sym, perf.signature.Name)
-	for _, p := range ctx.model.semantics.BehaviorParametersOf(sym) {
-		if p.IsResult || (p.Direction != ast.DirIn && p.Direction != ast.DirInOut) {
-			continue
-		}
-		param, position := ctx.effectiveParameter(p.Symbol, libInputs)
-		perf.signature.Params = append(perf.signature.Params, param)
-		perf.signature.ParamNames = append(perf.signature.ParamNames, param.Name)
-		perf.positions = append(perf.positions, position)
-	}
+	calc, trees, positions := lower.ToCalcSignature(sym, libInputs, env)
+	perf.signature, perf.positions = ctx.loadCalc(calc, trees), positions
 	return perf
-}
-
-// effectiveParameter is the input parameter sym as a call binds it — named as
-// written, declared and defaulted by the nearest of its redefinitions the model
-// states — with the position of the library input it redefines, -1 for none.
-func (ctx *Context) effectiveParameter(sym *symbols.Symbol, libInputs []*symbols.Symbol) (calcParameter, int) {
-	param := calcParameter{Name: sym.Name, Sym: sym, IsCalc: isCalcUsageSymbol(sym)}
-	if effective, _ := ast.EffectiveName(sym.Decl.(*ast.Usage)); effective != "" {
-		param.Name = effective
-	}
-	for _, link := range ctx.model.semantics.ParameterRedefinitionChain(sym) {
-		owner := link.OwnerScope.Owner()
-		param.Decl = param.Decl.redeclaring(ctx.calcMemberDeclFor(owner, link, param.Name))
-		if at := slices.Index(libInputs, link); at >= 0 {
-			return param, at
-		}
-		if ctx.libraryDeclared(link) {
-			break
-		}
-		if value := ctx.extractDefaultValue(link); param.Default == nil && value != nil {
-			param.Default, param.Owner = value, owner
-		}
-	}
-	return param, -1
 }
 
 // implementedLibraryCalc returns the nearest library calc sym specializes that
 // this runtime implements, or nil when none is.
 func (ctx *Context) implementedLibraryCalc(sym *symbols.Symbol) *symbols.Symbol {
 	for _, super := range ctx.model.semantics.AllSupertypes(sym) {
-		if super == nil || !isCalcDecl(super.Decl) || !ctx.libraryDeclared(super) {
+		if super == nil || !lower.IsCalcDecl(super.Decl) || !ctx.libraryDeclared(super) {
 			continue
 		}
 		if _, ok := ctx.builtinFor(super); ok {
@@ -1434,7 +1115,7 @@ func (ctx *Context) redeclaresInputs(chain []*symbols.Symbol) bool {
 // owns, in declaration order.
 func (ctx *Context) ownedInputSymbols(sym *symbols.Symbol) []*symbols.Symbol {
 	var inputs []*symbols.Symbol
-	for _, member := range unwrappedDeclMembers(sym.Decl) {
+	for _, member := range lower.UnwrappedDeclMembers(sym.Decl) {
 		usage, ok := member.(*ast.Usage)
 		if !ok || (usage.Direction != ast.DirIn && usage.Direction != ast.DirInOut) {
 			continue
@@ -1514,45 +1195,6 @@ func (ctx *Context) applyLibraryPerformance(perf *libraryPerformance, args calcA
 	return fn.invoke(ctx, libArgs)
 }
 
-// calcComputes reports whether a calc chain states a computation: a body that
-// returns or assigns an output, or a binding of the result.
-func (ctx *Context) calcComputes(chain []*symbols.Symbol) bool {
-	body, _ := ctx.calcBody(chain)
-	if lower.Returns(body) || resultBindingExpr(calcBindings(chain)) != nil {
-		return true
-	}
-	var aliases map[string]string
-	return len(assignedOutputs(lower.CalcSteps(body), ctx.calcOutputs(chain, &aliases), aliases)) > 0
-}
-
-// isCalcDecl reports whether a declaration is a calc definition or usage, or an
-// analysis or verification case, each a calculation (SysML v2 §7.22, §7.23):
-// each is invoked the same way.
-func isCalcDecl(decl ast.Node) bool {
-	switch d := decl.(type) {
-	case *ast.Definition:
-		return d.Kind == ast.DefCalc || d.Kind == ast.DefAnalysisCase || d.Kind == ast.DefVerificationCase
-	case *ast.Usage:
-		return d.Kind == ast.UsageCalc || d.Kind == ast.UsageAnalysisCase || d.Kind == ast.UsageVerificationCase
-	default:
-		return false
-	}
-}
-
-// calcKindLabel names what sym declares — a calc, an analysis case or a
-// verification case — and how diagnostics about it refer to it.
-func calcKindLabel(sym *symbols.Symbol, name string) (kind, label string) {
-	switch {
-	case IsVerificationCaseSymbol(sym):
-		kind = "verification"
-	case lower.PerformsSteps(sym.Decl):
-		kind = "analysis"
-	default:
-		kind = "calc"
-	}
-	return kind, kind + " " + name
-}
-
 // isCalcSymbol reports whether sym declares a calc, reading its declaration when
 // it has one and its symbol kind otherwise.
 func isCalcSymbol(sym *symbols.Symbol) bool {
@@ -1560,7 +1202,7 @@ func isCalcSymbol(sym *symbols.Symbol) bool {
 		return false
 	}
 	if sym.Decl != nil {
-		return isCalcDecl(sym.Decl)
+		return lower.IsCalcDecl(sym.Decl)
 	}
 	switch sym.Kind {
 	case symbols.SymbolCalcDef, symbols.SymbolCalcUsage,
@@ -1607,59 +1249,6 @@ func isStateSymbol(sym *symbols.Symbol) bool {
 		return false
 	}
 	return sym.Kind == symbols.SymbolStateDef || sym.Kind == symbols.SymbolStateUsage
-}
-
-// unwrappedDeclMembers is ast.DeclMembers extended to named owned constraints,
-// with the Membership wrappers the parser produces unwrapped.
-func unwrappedDeclMembers(decl ast.Node) []ast.Node {
-	if body, ok := constraintMemberBody(decl); ok {
-		return body
-	}
-	members := ast.DeclMembers(decl)
-	if members == nil {
-		return nil
-	}
-
-	out := make([]ast.Node, 0, len(members))
-	for member := range eachUnwrappedDeclMember(decl) {
-		out = append(out, member)
-	}
-	return out
-}
-
-// constraintMemberBody returns the nested members of an assume or require member
-// in either of its forms, and false for every other declaration.
-func constraintMemberBody(decl ast.Node) ([]ast.Node, bool) {
-	switch m := decl.(type) {
-	case *ast.AssumeMember:
-		return m.Body, true
-	case *ast.RequireMember:
-		return m.Body, true
-	}
-	return nil, false
-}
-
-// eachUnwrappedDeclMember yields what unwrappedDeclMembers lists without building the list,
-// for the readers that stop at the first member of interest.
-func eachUnwrappedDeclMember(decl ast.Node) iter.Seq[ast.Node] {
-	return func(yield func(ast.Node) bool) {
-		if body, ok := constraintMemberBody(decl); ok {
-			for _, member := range body {
-				if !yield(member) {
-					return
-				}
-			}
-			return
-		}
-		for _, member := range ast.DeclMembers(decl) {
-			if membership, ok := member.(*ast.Membership); ok {
-				member = membership.Member
-			}
-			if !yield(member) {
-				return
-			}
-		}
-	}
 }
 
 // QualifiedName renders a symbol's qualified name, falling back to its

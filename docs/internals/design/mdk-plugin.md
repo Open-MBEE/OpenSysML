@@ -837,11 +837,13 @@ user: right-click an element ▸ OpenSysML ▸ Run query
                   still answer
        map:       ResultsMapper → RunResult.tables (one Table per query: columns, rows, each row
                   naming its element, each cell naming the element it holds or the qualifiedName
-                  it projects) and one outcome per query; no rows at all is INFO, any failure
-                  ERROR, else PASSED; a subject that is not the single query gets a leading
-                  outcome of its own
+                  it projects) and one outcome per query; a failed query's outcomes are
+                  QueryFailure's (below); any refusal is ERROR, else any reported path or model
+                  error FAILED, else any row PASSED, else INFO; a subject that is not the single
+                  query gets a leading outcome of its own
   5  results:  the rows table of the results window (double-click on a cell or row selects the
-               element it names), one INFO annotation per row element with the row's values
+               element it names), one INFO annotation per row element with the row's values,
+               one ERROR annotation per element a reported failure is at
 ```
 
 The DocGen bridge runs the same sequence without the dialog: `DocGenBridge.run` plans, reads the
@@ -851,11 +853,32 @@ positional), then runs; `RunResult.tables` crosses the classloader boundary as l
 `DocBookRenderer` lays each out as a `DBTable` headed by the projected properties, shown even
 when empty.
 
-`results/QueryFailure` is the one place a query's failure becomes an outcome. The service answers
-a `ServiceException` whose message holds the path or model error today; the Java client's typed
-query outcome (kind, step, failures with frontier elements, findings), once it lands, is mapped
-there — to a FAILED outcome per finding with its frontier elements as element ids — without
-touching the engine or the window.
+`results/QueryFailure` is the one place a query's failure becomes outcomes. The Java client
+throws a `QueryOutcomeException` — a `ServiceException` whose `outcome()` is the service's
+structured `QueryOutcome` — for a query the model has no answer for, and the engine keeps it as
+that query's `QueryAnswer.failed` like any other refusal. `QueryFailure` reads it:
+
+| Failure | Outcomes | Status | Element id |
+| --- | --- | --- | --- |
+| `QueryOutcomeException`, kind `pathError` or `modelError` | the query's own, with the service's message | FAILED | the query |
+| | one per `Finding`: `model error at <step>: <element> violates <constraint>: <observed>` | FAILED | the finding's element |
+| | one per `Failure` (a path error's failures, a model error's path failures): `path error at <step>: expected <expected>; at <frontier.at>; members: […]; features: […]; kinds: […]; nearest: <nearest>` | FAILED | the frontier's `at`, none when the path resolved nothing |
+| | one per list the service cut short: `… and N more path errors at <step>` | FAILED | none |
+| any other `ServiceException` (and a `QueryOutcomeException` of a kind not known here) | one, with the service's message | ERROR | the query |
+
+The text follows the CLI's (`queryexec.Outcome.Lines`) on one line. A candidate list is written
+only when the frontier has candidates of that sort, and ends `… and N more` when its total
+(`membersTotal`, `featuresTotal`, `kindsTotal`) exceeds what the service sent; the wire form
+does not say which list a step would have filled, so the CLI's empty `features: []` has no
+counterpart. Element ids are the service's qualified names, as every outcome's are:
+`Engine.run` renames them with `ModelSource.elementName` and `AnnotationPlanner` resolves them
+through the identity index, so on the v1 path a frontier element reaches its Cameo element by
+the qualified name the migration kept, the way a row's element does. The `at` and finding
+element written into the text are renamed the same way when the outcome is built; the step
+label, the expectation and the observation are the service's words and stay as sent. Nothing in
+the engine, the window or the bridge distinguishes these outcomes from any other: the results
+window lists them, `DocGenBridge.flatten` carries them, and `DocBookRenderer` writes them as
+rows of the outcome table, so a DocGen document shows the same failure text.
 
 ## 11. Phased plan
 

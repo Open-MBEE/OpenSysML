@@ -773,6 +773,7 @@ func registerFlags(fs *flag.FlagSet) {
 	fs.BoolVar(&debugMode, "debug", false, "Report every diagnostic over the whole session buffer, with the pass that produced it")
 	fs.BoolVar(&quietMode, "quiet", false, "Report errors only, suppressing warnings")
 	fs.BoolVar(&traceMode, "trace", false, "Report each execution step: expression evaluation, calc invocation, action tokens, state transitions")
+	fs.IntVar(&renderLimit, "render-limit", 0, "The most spans or messages a -render-run rendering draws; 200 by default. A rendering cut short says so in a notice")
 	fs.Var(&renderRuns, "render-run", "Render the trace of a run as timeline or sequence into path (`-` is stdout); form comes from -render-form or the path extension")
 	fs.BoolVar(&memStats, "memstats", false, "Report on stderr what the run cost: wall time, memory allocated, memory taken from the OS")
 
@@ -964,6 +965,7 @@ func optionGroups() []usage.OptionGroup {
 			usage.Opt("quiet", ""),
 			usage.Opt("trace", ""),
 			usage.Opt("render-run", "<kind>=<path>"),
+			usage.Opt("render-limit", "<count>"),
 			usage.Opt("cpuprofile", fileArg),
 			usage.Opt("memprofile", fileArg),
 			usage.Opt("memstats", ""),

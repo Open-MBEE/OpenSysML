@@ -106,7 +106,7 @@ func TestHoverIntoARecordedDocumentShowsItsDocumentation(t *testing.T) {
 	dir := t.TempDir()
 	lib := filepath.Join(dir, "lib.sysml")
 	main := filepath.Join(dir, "main.sysml")
-	const libSource = "package Lib {\n\t/* The bus every satellite rides on. */\n\tpart def Bus;\n}\n"
+	const libSource = "package Lib {\n\tpart def Bus {\n\t\tdoc /* The bus every satellite rides on. */\n\t}\n}\n"
 	const mainSource = "package Main { private import Lib::*; part sat : Bus; }\n"
 	for path, text := range map[string]string{lib: libSource, main: mainSource} {
 		if err := os.WriteFile(path, []byte(text), 0o600); err != nil {

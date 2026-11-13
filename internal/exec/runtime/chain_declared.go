@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -82,7 +83,7 @@ func (ec *EvalContext) readsDeclaredMembers(sym *symbols.Symbol) bool {
 	if sym.OwnerScope == nil || !namespaceScope(sym.OwnerScope) {
 		return false
 	}
-	if _, usage := sym.Decl.(*ast.Usage); !usage || declaresType(sym) || isCalcUsageSymbol(sym) {
+	if _, usage := sym.Decl.(*ast.Usage); !usage || declaresType(sym) || lower.IsCalcUsageSymbol(sym) {
 		return false
 	}
 	if ec.ctx.extractDefaultValue(sym) != nil || ec.ctx.model.semantics.IsVariationFeature(sym) {

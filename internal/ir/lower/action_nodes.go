@@ -56,6 +56,7 @@ func ToActionInterface(actionDecl ast.Node, scope *symbols.Scope) (*ActionGraph,
 	graph := newActionGraph(scope)
 	graph.Attributes = lowerAttributes(members, scope)
 	graph.Parameters = lowerParameters(members, scope)
+	graph.assignIDs()
 	return graph, nil
 }
 

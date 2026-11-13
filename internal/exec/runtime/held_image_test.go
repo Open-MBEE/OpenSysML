@@ -9,6 +9,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -687,7 +688,7 @@ func TestHeldImageCarriesAPausedAction(t *testing.T) {
 	nine := Value{Kind: ValConst, Const: semantics.Value{Kind: semantics.ValInt, Int: 9}}
 	action := await(t, waiter)
 	mark := actionNodeNamed(t, action, "mark")
-	action.ReplaceBreakpointsAt([]NodeBreakpoint{{Node: mark}})
+	action.ReplaceBreakpointsAt([]NodeBreakpoint{breakpointAt(t, action, nil, mark)})
 	action.KeepTraversals(true)
 
 	early := imageInto(t, src, waiter)
@@ -696,7 +697,7 @@ func TestHeldImageCarriesAPausedAction(t *testing.T) {
 	if err := await(t, earlyCopy).RunToCompletion(); err != nil {
 		t.Fatalf("RunToCompletion(early copy): %v", err)
 	}
-	if bp, ok := await(t, earlyCopy).PausedBreakpoint(); !ok || bp.Node != mark {
+	if bp, ok := await(t, earlyCopy).PausedBreakpoint(); !ok || bp.Node.Node() != mark {
 		t.Errorf("the copy imaged before the breakpoint paused at %+v, %v; want mark: the breakpoint was not carried", bp, ok)
 	}
 
@@ -704,7 +705,7 @@ func TestHeldImageCarriesAPausedAction(t *testing.T) {
 	if err := action.RunToCompletion(); err != nil {
 		t.Fatalf("RunToCompletion: %v", err)
 	}
-	if bp, ok := action.PausedBreakpoint(); !ok || bp.Node != mark || action.State() != StateSuspended {
+	if bp, ok := action.PausedBreakpoint(); !ok || bp.Node.Node() != mark || action.State() != StateSuspended {
 		t.Fatalf("the source paused at %+v, %v in state %v; want mark, suspended", bp, ok, action.State())
 	}
 	// start then heard was taken before the debugger asked for the record, so only
@@ -720,7 +721,7 @@ func TestHeldImageCarriesAPausedAction(t *testing.T) {
 	if imaged.State() != StateSuspended || imaged.PausedAt() != "mark" {
 		t.Errorf("the copy is %v paused at %q, want suspended at mark as imaged", imaged.State(), imaged.PausedAt())
 	}
-	if bp, ok := imaged.PausedBreakpoint(); !ok || bp.Node != mark || len(bp.Within) != 0 {
+	if bp, ok := imaged.PausedBreakpoint(); !ok || bp.Node.Node() != mark || len(bp.Within) != 0 {
 		t.Errorf("the copy's PausedBreakpoint() = %+v, %v, want mark in the action's own flow", bp, ok)
 	}
 	if got := imaged.Traversals(); imaged.TraversalCount() != taken || !traversalsEqual(got, traversals) {
@@ -1100,7 +1101,7 @@ func TestHeldImageRefusesWhatItCannotCarry(t *testing.T) {
 
 	// A value closed over the run that made it names what no other context holds.
 	inBody := Value{Kind: ValFunction, ref: &functionValue{
-		shape:     &calcShape{Sym: &symbols.Symbol{Name: "inBody"}, Name: "inBody"},
+		shape:     &loadedCalc{Calc: &program.Calc{Sym: &symbols.Symbol{Name: "inBody"}, Name: "inBody"}},
 		enclosing: []frame{{vars: map[string]Value{"k": integerValue(1)}, run: 1}},
 	}}
 	src.instances[bulb.ID].FeatureValues["lamp"].Value = inBody
@@ -1163,7 +1164,7 @@ func TestHeldImageOfABehaviorlessClosureLeavesTheBusBe(t *testing.T) {
 		t.Fatalf("Instantiate(Plain): %v", err)
 	}
 	inBody := Value{Kind: ValFunction, ref: &functionValue{
-		shape:     &calcShape{Sym: &symbols.Symbol{Name: "inBody"}, Name: "inBody"},
+		shape:     &loadedCalc{Calc: &program.Calc{Sym: &symbols.Symbol{Name: "inBody"}, Name: "inBody"}},
 		enclosing: []frame{{vars: map[string]Value{"k": integerValue(1)}, run: 1}},
 	}}
 	src.PostMessage(Message{SignalType: "go", Payload: map[string]Value{"k": inBody}})
@@ -1208,7 +1209,7 @@ func TestHeldImageMaterializeFailsWhole(t *testing.T) {
 	}
 	sound := img.messages
 	inBody := Value{Kind: ValFunction, ref: &functionValue{
-		shape:     &calcShape{Sym: &symbols.Symbol{Name: "inBody"}, Name: "inBody"},
+		shape:     &loadedCalc{Calc: &program.Calc{Sym: &symbols.Symbol{Name: "inBody"}, Name: "inBody"}},
 		enclosing: []frame{{vars: map[string]Value{"k": integerValue(1)}, run: 1}},
 	}}
 	img.messages = append(slices.Clone(sound), Message{Object: bulb.ID, SignalType: "go", Payload: map[string]Value{"k": inBody}})
@@ -1563,7 +1564,7 @@ func heldDigest(ctx *Context, held func(id int64) bool) string {
 			if exec := behavior.Action; exec != nil {
 				fmt.Fprintf(&b, "    action state=%v inputs=%s\n", exec.State(), formatValues(exec.inputs))
 				for _, token := range exec.Tokens() {
-					fmt.Fprintf(&b, "    token %d at %s wait=%+v\n", token.ID, ActionNodeName(token.Location), token.Wait)
+					fmt.Fprintf(&b, "    token %d at %s wait=%+v\n", token.ID, ActionNodeName(token.Node()), token.Wait)
 				}
 			}
 			if exec := behavior.State; exec != nil {

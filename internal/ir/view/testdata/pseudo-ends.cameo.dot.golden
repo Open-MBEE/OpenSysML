@@ -31,6 +31,7 @@ digraph "ImagingViews::acquireFlow" {
       "n2" [style="rounded,filled", fillcolor="#E1E1C3:#F7F7EF", color="#424242", label=<<b>initiate</b>>, margin=0, pos="92,83.5!", pin=true, width=1.9722222222222223, height=0.4583333333333333, fixedsize=true];
       "n3" [shape=diamond, fillcolor="#E1E1C3:#F7F7EF", color="#424242", label="", xlabel="placed", pos="92,140!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];
       "n4" [shape=circle, fillcolor=white, label=<<b>✕</b>>, margin=0, xlabel="final", pos="92,20!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];
+      "n4.0" [shape=box, style="rounded,filled", label="↓", xlabel="^terminatedOccurrence", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, fillcolor="#FFFFFF", color="#424242", pos="92,36!", pin=true];
       subgraph "cluster_n5" {
         label=<<table border="0" cellborder="0" cellspacing="0" cellpadding="2"><tr><td><b>Position Not Correct</b></td></tr><hr/><tr><td><font point-size="9">action flow</font></td></tr></table>>;
         style="rounded,filled";
@@ -41,6 +42,7 @@ digraph "ImagingViews::acquireFlow" {
         bb="312,112,470,240.4";
         "n5" [shape=point, style=invis, width=0, height=0, label="", pos="391,176.2!", pin=true];
         "n6" [shape=circle, fillcolor=white, label=<<b>✕</b>>, margin=0, xlabel="final", pos="391,130!", pin=true, width=0.2777777777777778, height=0.2777777777777778, fixedsize=true];
+        "n6.0" [shape=box, style="rounded,filled", label="↓", xlabel="^terminatedOccurrence", fontsize=8, width=0.16666666666666666, height=0.16666666666666666, fixedsize=true, fillcolor="#FFFFFF", color="#424242", pos="391,146!", pin=true];
         "n7" [style="rounded,filled", fillcolor="#E1E1C3:#F7F7EF", color="#424242", label=<<b>adjust</b>>, margin=0, pos="391,185.5!", pin=true, width=1.9722222222222223, height=0.4583333333333333, fixedsize=true];
         "n8" [shape=circle, fillcolor=black, label="", pos="386,225.2!", pin=true, width=0.2, height=0.2, fixedsize=true];
       }

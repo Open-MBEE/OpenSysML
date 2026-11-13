@@ -37,6 +37,8 @@ type oursExport struct {
 	// Unkeyable counts the elements no key could address, Unkeyed per metaclass.
 	Unkeyable int
 	Unkeyed   map[string]int
+	// Files keeps our side's share of each file's summary: its flags and diagnostics.
+	Files map[string]*FileSummary
 	// libraryKeys keys the library elements the writer refers to by normative id
 	// but never writes, by the keys the pilot gave the same ids.
 	libraryKeys idKeys
@@ -45,7 +47,7 @@ type oursExport struct {
 // exportOurs converts a root's files together, less skip (the pilot's failures) and
 // the documents whose ids collide, which are converted alone; see the project record.
 func exportOurs(dir string, files []string, skip map[string]bool, libraryKeys idKeys) (*oursExport, error) {
-	result := &oursExport{Unkeyed: make(map[string]int), libraryKeys: libraryKeys}
+	result := &oursExport{Unkeyed: make(map[string]int), Files: make(map[string]*FileSummary), libraryKeys: libraryKeys}
 	documents, err := result.parseDocuments(dir, files, skip)
 	if err != nil {
 		return nil, err
@@ -61,6 +63,7 @@ func exportOurs(dir string, files []string, skip map[string]bool, libraryKeys id
 		case alone[i] == nil:
 		case colliding[i]:
 			result.Colliding++
+			result.file(document.File.Name()).OursColliding = true
 			result.key(alone[i], document.File.Name())
 		default:
 			shared = append(shared, document)
@@ -73,13 +76,33 @@ func exportOurs(dir string, files []string, skip map[string]bool, libraryKeys id
 			result.Separate = true
 			for i, document := range documents {
 				if alone[i] != nil && !colliding[i] {
+					result.file(document.File.Name()).OursSeparate = true
 					result.key(alone[i], document.File.Name())
 				}
 			}
 		}
 	}
-	result.Elements, result.Duplicates, result.Ambiguous, result.Shared = dropAmbiguous(result.Elements)
+	var duplicates, ambiguous map[string]int
+	result.Elements, duplicates, ambiguous, result.Shared = dropAmbiguous(result.Elements)
+	for file, count := range duplicates {
+		result.Duplicates += count
+		result.file(file).DuplicateElements.Ours += count
+	}
+	for file, count := range ambiguous {
+		result.Ambiguous += count
+		result.file(file).AmbiguousKeys.Ours += count
+	}
 	return result, nil
+}
+
+// file is our side's share of one source file's summary.
+func (r *oursExport) file(name string) *FileSummary {
+	summary := r.Files[name]
+	if summary == nil {
+		summary = &FileSummary{}
+		r.Files[name] = summary
+	}
+	return summary
 }
 
 // parseDocuments reads and parses the root's files, counting the skipped ones
@@ -101,6 +124,7 @@ func (r *oursExport) parseDocuments(dir string, files []string, skip map[string]
 		root := p.ParseFile()
 		if len(p.Diagnostics) > 0 {
 			r.Refused++
+			r.file(rel).OursRefused = true
 			continue
 		}
 		documents = append(documents, export.ModelDocument{File: file, Root: root})
@@ -116,6 +140,7 @@ func (r *oursExport) convertAlone(documents []export.ModelDocument) [][]map[stri
 		raw, err := convertOurs([]export.ModelDocument{document})
 		if err != nil {
 			r.Unconvertible++
+			r.file(document.File.Name()).OursUnconvertible = true
 			continue
 		}
 		alone[i] = raw
@@ -149,7 +174,10 @@ func collidingIDs(alone [][]map[string]any) []bool {
 func (r *oursExport) key(raw []map[string]any, file string) {
 	elements, unkeyable := keyOurs(raw, file, r.Unkeyed, r.libraryKeys)
 	r.Elements = append(r.Elements, elements...)
-	r.Unkeyable += unkeyable
+	for file, count := range unkeyable {
+		r.Unkeyable += count
+		r.file(file).UnkeyableElements.Ours += count
+	}
 }
 
 // soleFile names a root's one document, whose writer states no sysx:sourceDocument.
@@ -189,12 +217,15 @@ type ourKeyer struct {
 	// rootOrdinal counts the ownerless elements already keyed per (file, type).
 	rootOrdinal map[string]int
 	visiting    map[string]bool
+	// referrers lists, per element, the elements whose properties refer to it, in
+	// document order; an ownerless tree stating no document is filed with one (adoptedFile).
+	referrers map[string][]string
+	filing    map[string]bool
 }
 
-// keyOurs keys the writer's elements the way the pilot bridge keys its own: a
-// named element by its qualified name, an unnamed one from its owner, an
-// ownerless one by its document and metaclass.
-func keyOurs(raw []map[string]any, soleFile string, unkeyed map[string]int, libraryKeys idKeys) ([]*element, int) {
+// keyOurs keys the writer's elements the way the pilot bridge keys its own (a named
+// element by qualified name, an unnamed one from its owner) and counts the unkeyable per file.
+func keyOurs(raw []map[string]any, soleFile string, unkeyed map[string]int, libraryKeys idKeys) ([]*element, map[string]int) {
 	k := &ourKeyer{
 		soleFile:    soleFile,
 		unkeyed:     unkeyed,
@@ -203,10 +234,24 @@ func keyOurs(raw []map[string]any, soleFile string, unkeyed map[string]int, libr
 		files:       make(map[string]string, len(raw)),
 		rootOrdinal: make(map[string]int),
 		visiting:    make(map[string]bool),
+		referrers:   make(map[string][]string),
+		filing:      make(map[string]bool),
 	}
 	for _, object := range raw {
 		if id, _ := object["@id"].(string); id != "" {
 			k.byID[id] = object
+		}
+	}
+	for _, object := range raw {
+		referrer, _ := object["@id"].(string)
+		seen := make(map[string]bool)
+		for _, property := range sortedKeys(object) {
+			for _, referenced := range append(refIDs(object[property]), refID(object[property])) {
+				if referenced != "" && referenced != referrer && !seen[referenced] {
+					seen[referenced] = true
+					k.referrers[referenced] = append(k.referrers[referenced], referrer)
+				}
+			}
 		}
 	}
 	for id, key := range libraryKeys {
@@ -214,11 +259,11 @@ func keyOurs(raw []map[string]any, soleFile string, unkeyed map[string]int, libr
 			k.keys[id] = key
 		}
 	}
-	var unkeyable int
+	unkeyable := make(map[string]int)
 	for _, object := range raw {
 		id, _ := object["@id"].(string)
 		if k.keyOf(id) == "" {
-			unkeyable++
+			unkeyable[k.fileOf(id)]++
 			typ, _ := object["@type"].(string)
 			k.unkeyed[typ]++
 		}
@@ -324,8 +369,8 @@ func (k *ourKeyer) ownedElements(owner map[string]any) []string {
 	return owned
 }
 
-// fileOf is the document stated up an element's owner chain; the writer's root
-// Namespace states none itself, so it takes its members'.
+// fileOf is the document stated up an element's owner chain; an ownerless top that
+// states none takes its members' (the writer's root Namespace) or its referrer's.
 func (k *ourKeyer) fileOf(id string) string {
 	if file, ok := k.files[id]; ok {
 		return file
@@ -348,12 +393,54 @@ func (k *ourKeyer) fileOf(id string) string {
 					break
 				}
 			}
+			if file == "" {
+				file = k.adoptedFile(current)
+			}
 			break
 		}
 		current = owner
 	}
-	k.files[id] = file
+	// A file found while another tree's filing is pending may still be
+	// adopted by it, so only a settled answer is kept.
+	if file != "" || len(k.filing) == 0 {
+		k.files[id] = file
+	}
 	return file
+}
+
+// adoptedFile is the file of the first element outside an ownerless tree that refers
+// to its top; the tree's own members are passed over, as is a tree already being filed.
+func (k *ourKeyer) adoptedFile(top string) string {
+	if k.filing[top] {
+		return ""
+	}
+	k.filing[top] = true
+	defer delete(k.filing, top)
+	for _, referrer := range k.referrers[top] {
+		if k.topOf(referrer) == top {
+			continue
+		}
+		if file := k.fileOf(referrer); file != "" {
+			return file
+		}
+	}
+	return ""
+}
+
+// topOf is the ownerless element an element's owner chain ends at.
+func (k *ourKeyer) topOf(id string) string {
+	for depth := 0; depth < 1<<16; depth++ {
+		object := k.byID[id]
+		if object == nil {
+			return id
+		}
+		owner := refID(object["owner"])
+		if owner == "" {
+			return id
+		}
+		id = owner
+	}
+	return id
 }
 
 // statedDocument is the document an element names (sysx:sourceDocument), if any.

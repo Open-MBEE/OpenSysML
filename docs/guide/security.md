@@ -223,8 +223,9 @@ address other machines can reach:
   one port, TLS 1.2 or later; it encrypts the connection and proves the server, not the client.
   [Service transports](../reference/service-transports.md) is the reference, including the
   browser-origin allow-list, which is not authentication either.
-- **`sysml-mcp` requires a bearer token** on a non-loopback address — `-token-file`, `-token`
-  or `OPENSYSML_MCP_TOKEN` — and refuses to start without one; every request must carry it.
+- **`sysml-mcp` requires a credential** on a non-loopback address — a bearer token (`-token-file`,
+  `-token` or `OPENSYSML_MCP_TOKEN`), a file of API keys (`-api-keys`) or both — and refuses to
+  start without one; every request must carry a token or a key.
   See [`sysml-mcp` § Transports](../reference/sysml-mcp.md#transports).
 - A crafted model, project file, import or query must never execute or disclose anything on
   the host; a case where one does is in scope above, and a denial of service against a served

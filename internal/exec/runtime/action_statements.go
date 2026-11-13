@@ -315,7 +315,7 @@ func (e *performances) performNode(parent *actionFrame, engine *stmtEngine, grap
 	}
 	if !resumed || f.recheck {
 		f.recheck = false
-		if err := e.owner.pauseAt(parent.within(), node); err != nil {
+		if err := e.owner.pauseAt(parent.within(), refOf(graph, node)); err != nil {
 			return flowNext, e.ctx.pausing(f, err)
 		}
 	}
@@ -458,7 +458,7 @@ func (e *performances) performBlockFlow(parent *actionFrame, engine *stmtEngine,
 			connections: joinConnections(parent.connections, block.Graph.Connections),
 			data:        make(map[string]Value),
 			features:    make(map[string]ast.FeatureDirection),
-			subactions:  make(map[ast.Node]*actionFrame),
+			subactions:  make(map[NodeRef]*actionFrame),
 			perfs:       e,
 			run:         e.ctx.newRun(),
 			live:        1,

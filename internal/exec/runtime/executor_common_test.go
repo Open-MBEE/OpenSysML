@@ -5,10 +5,7 @@ import (
 )
 
 func TestToken_Creation(t *testing.T) {
-	token := Token{
-		ID:       1,
-		Location: nil, // Will use actual AST node in real usage
-	}
+	token := Token{ID: 1}
 
 	if token.ID != 1 {
 		t.Errorf("expected ID 1, got %d", token.ID)

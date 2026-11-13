@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -135,7 +136,7 @@ func (ec *EvalContext) lookupNamed(name string, unset *symbols.Symbol) (Value, b
 
 // holdsAnother reports whether f binds name as a feature other than sym.
 func (f *frame) holdsAnother(name string, sym *symbols.Symbol) bool {
-	name = canonical(f.aliases, name)
+	name = program.Canonical(f.aliases, name)
 	for held, bound := range f.held {
 		if bound == name && held != sym {
 			return true
