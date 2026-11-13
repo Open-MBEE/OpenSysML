@@ -1779,7 +1779,10 @@ the feature itself for `t.fuel`, a chain feature for `a.p.fuel`, nothing for a
 lone name — and the end owns, through a `sysml:FeatureMembership`, a
 `sysml:ReferenceUsage` (its FlowFeature) with `sysml:redefines` the last
 segment: `a.p.fuel` subsets the chain `a.p` and redefines `fuel`. Read back,
-the segments and the redefined feature are written as the one chain.
+the segments and the redefined feature are written as the one chain. The flow
+states `relatedFeature`, `sourceFeature` and `targetFeature`, and the
+`relatedElement`, `source` and `target` they redefine, as those referenced
+features (`t`, the chain `a.p`) like any connector; a lone name states none.
 
 A flow's `of` clause is a `sysml:PayloadFeature` the flow owns through a
 `sysml:FeatureMembership` (SysML-textual-bnf FlowPayloadFeatureMember). `of p : T`
