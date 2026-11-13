@@ -1,0 +1,18 @@
+{
+	"rpc": "GetSymbol",
+	"model": "symbol_connector_ends.sysml",
+	"symbol_id": "Ends::Vehicle::namedChain::b",
+	"expected_kind": "connectorEnd",
+	"expected_specializations": [
+		{
+			"kind": "references",
+			"declared": "y.p",
+			"target_id": "Ends::Vehicle::y"
+		},
+		{
+			"kind": "references",
+			"declared": "y.p",
+			"target_id": "Ends::Unit::p"
+		}
+	]
+}

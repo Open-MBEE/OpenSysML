@@ -79,14 +79,14 @@ empty else blocks are not authorable.
 | `expected_rows` | RunDocumentQuery | full ordered row list, each `{element, cells}` — the row's own document value and one list of document values per column |
 | `expected_result` | Evaluate, EvaluateCalc | expected `Value`; a `metaobject` is `"<elementId> : <metaclassId>"`, the element by the id a client keeps for it (qualified name, positional id or the element form's `@id`) |
 | `expected_attribute_names` | GetSymbol | full ordered attribute name list, own then inherited |
-| `expected_kind`, `expected_child_ids` | GetSymbol | the symbol's kind, and the full ordered list of its members' ids: a named member's qualified name, an unnamed one's positional identity (`Owner::@3`), which `symbol_id` may name too |
+| `expected_kind`, `expected_child_ids` | GetSymbol | the symbol's kind, and the full ordered list of its members' ids: a named member's qualified name, an unnamed one's positional identity (`Owner::@3`), an unnamed connector end's element id (`Owner__c_pend0`), each of which `symbol_id` may name too |
 | `expected_attributes` | GetSymbol | attribute name → `{type, value_kind, value, unit}`; no `value_kind` requires no value |
 | `expected_members` | GetSymbol | full ordered member list, own then inherited, each `{id, kind, inherited, inherited_from}`; library-inherited members are withheld from it |
 | `min_withheld_library_members` | GetSymbol | the response must count at least this many library-inherited members withheld from `members` |
 | `expected_metadata` | GetSymbol | metadata key → value the symbol must carry (`variation`, `variant`, `abstract`, `type`, …) |
 | `absent_metadata` | GetSymbol | metadata keys the symbol must not carry |
 | `expected_type_info` | GetSymbol | `{declared, resolved_id, types}`: the typing as written (empty when none is) and the derived `Feature::type` ids, most specific first |
-| `expected_specializations` | GetSymbol | full ordered list of generalization edges, each `{kind, declared, target_id}`; `kind` is `typing`, `specializes`, `subsets`, `redefines` or `references` |
+| `expected_specializations` | GetSymbol | full ordered list of generalization edges, each `{kind, declared, target_id}`; `kind` is `typing`, `specializes`, `subsets`, `redefines` or `references`; a chained `references` target is one entry per chaining feature |
 | `expected_feature_values` | Instantiate | feature name → `{materialized, value_kind, value, error}` |
 | `expected_instance_count` | Instantiate | number of reachable instances in the response graph |
 | `expected_outputs` | ExecuteAction, EvaluateCalc | output name → expected `Value`; for EvaluateCalc it is the outputs a calc usage computes when invoked without arguments |

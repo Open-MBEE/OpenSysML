@@ -5751,7 +5751,8 @@ export type SymbolInfo = Message<"sysml.SymbolInfo"> & {
   metadata: { [key: string]: string };
 
   /**
-   * References to children
+   * The owned members' ids, each one GetSymbol takes: a qualified name, a positional id (`Owner::@3`),
+   * or an unnamed connector end's (`connect a to b`) GetElementProperties element id.
    *
    * @generated from field: repeated string child_ids = 5;
    */
@@ -5904,7 +5905,8 @@ export type Specialization = Message<"sysml.Specialization"> & {
   declared: string;
 
   /**
-   * FQN of the resolved target; empty when the name does not resolve.
+   * FQN of the resolved target; empty when the name does not resolve. A "references" feature chain
+   * (`x.p`) is one entry per chaining feature, in chain order, each with the chain as `declared`.
    *
    * @generated from field: string target_id = 3;
    */

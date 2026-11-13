@@ -261,7 +261,7 @@ func (m *CachedModel) positionalDocuments() []symbolfacts.PositionalDocument {
 func (m *CachedModel) LookupSymbol(id string) []*symbols.Symbol {
 	sc := m.SymbolContext()
 	defer sc.Lock()()
-	return sc.Lookup(id)
+	return sc.LookupElement(id)
 }
 
 // LookupNamedMember resolves a symbol id, a member a subtype inherits included

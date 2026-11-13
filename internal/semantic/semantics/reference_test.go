@@ -1,6 +1,7 @@
 package semantics
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -388,6 +389,47 @@ func TestChainedRequireAndAssumeReferenceTheChainsLastFeature(t *testing.T) {
 		}
 		if got := r.Scope.LookupLocalAll("h"); len(got) != 0 {
 			t.Errorf("%s: the chain's head h is bound as a member: %v", owner, got)
+		}
+	}
+}
+
+// A reference subsetting naming a chain is its chaining features, outermost
+// first (KerML 8.3.3.3.2); a plain one the feature alone; none, nothing.
+func TestReferencedFeatureChain(t *testing.T) {
+	m, root := buildModel(t, `package P {
+		part def Unit { port p; }
+		part def Pair { part u : Unit; }
+		part def Vehicle {
+			part x : Unit;
+			part m : Pair;
+			connection c connect (a ::> x, b ::> m.u.p);
+			ref part held ::> m.u;
+		}
+	}`)
+
+	pkg := sym(t, root, "P")
+	vehicle := sym(t, pkg.Scope, "Vehicle")
+	unit, pair := sym(t, pkg.Scope, "Unit"), sym(t, pkg.Scope, "Pair")
+	x, mm := sym(t, vehicle.Scope, "x"), sym(t, vehicle.Scope, "m")
+	u, p := sym(t, pair.Scope, "u"), sym(t, unit.Scope, "p")
+	c := sym(t, vehicle.Scope, "c")
+
+	cases := []struct {
+		of   *symbols.Symbol
+		want []*symbols.Symbol
+	}{
+		{sym(t, c.Scope, "a"), []*symbols.Symbol{x}},
+		{sym(t, c.Scope, "b"), []*symbols.Symbol{mm, u, p}},
+		{sym(t, vehicle.Scope, "held"), []*symbols.Symbol{mm, u}},
+		{x, nil},
+	}
+	for _, tc := range cases {
+		got, written := m.ReferencedFeatureChain(tc.of)
+		if !slices.Equal(got, tc.want) {
+			t.Errorf("ReferencedFeatureChain(%s) = %v, want %v", tc.of.Name, got, tc.want)
+		}
+		if (written != nil) != (tc.want != nil) {
+			t.Errorf("ReferencedFeatureChain(%s) written = %v", tc.of.Name, written)
 		}
 	}
 }

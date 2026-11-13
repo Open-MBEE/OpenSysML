@@ -2,5 +2,8 @@
 	"rpc": "GetSymbol",
 	"symbol_id": "UnnamedChildren::Controller::@3",
 	"expected_kind": "bindingUsage",
-	"expected_child_ids": []
+	"expected_child_ids": [
+		"UnnamedChildren__Controller___403_pend0",
+		"UnnamedChildren__Controller___403_pend1"
+	]
 }

@@ -157,3 +157,31 @@ func TestElementIdentityNeedsTheFormForSynthesizedElements(t *testing.T) {
 		t.Errorf("positional identity without the form = %q", got)
 	}
 }
+
+// An unnamed connector end resolves under its element id on a host that converts
+// no form too: the id composed there is the one the conversion mints.
+func TestUnnamedConnectorEndIDIsTheSameWithoutTheForm(t *testing.T) {
+	sc := identityContext(t)
+	connector := reflect(t, sc, "D::holder::@2")
+	ends, _ := sc.Semantics.OwnedConnectorEnds(connector)
+	if len(ends) != 2 {
+		t.Fatalf("OwnedConnectorEnds = %v, want two ends", ends)
+	}
+	ids := make([]string, len(ends))
+	for i, end := range ends {
+		ids[i] = sc.ElementIdentity(end)
+	}
+	for _, converts := range []bool{true, false} {
+		if !converts {
+			sc.ElementForm = nil
+		}
+		for i, end := range ends {
+			if got := sc.LookupElement(ids[i]); len(got) != 1 || got[0] != end {
+				t.Errorf("form %v: LookupElement(%s) = %v, want end %d", converts, ids[i], got, i)
+			}
+		}
+		if got := sc.LookupElement("D__holder___402_pend2"); len(got) != 0 {
+			t.Errorf("form %v: LookupElement of a third end = %v, want none", converts, got)
+		}
+	}
+}

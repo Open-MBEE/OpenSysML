@@ -337,7 +337,7 @@ func (c *Core) getSymbol(req *JGetSymbolRequest) ([]byte, error) {
 	if !ok {
 		return nil, jsonrpc.Errorf(jsonrpc.CodeNotFound, msgModelNotFound, req.ModelHash)
 	}
-	matches := model.symbolContext().Lookup(req.SymbolId)
+	matches := model.symbolContext().LookupElement(req.SymbolId)
 	if len(matches) == 0 {
 		return json.Marshal(&JSymbolResponse{Error: fmt.Sprintf("symbol not found: %s", req.SymbolId)})
 	}

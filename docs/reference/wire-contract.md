@@ -163,7 +163,11 @@ positional id an unnamed declaration has in the query API and the export (`Owner
 the fourth member of `Owner`, `Owner::@3::wheel` for a named member of it). `childIds` are the
 members the element itself declares under the same ids, named and unnamed alike (a `bind`, a
 `connect`, a `part : P;`, a `@M { … }` or `#M` annotation), each of which `GetSymbol` resolves;
-a member no id reaches, such as a body-local declaration, is not listed. `members` is every
+a member no id reaches, such as a body-local declaration, is not listed. A connection, interface
+or binding usage lists its two ends, of kind `connectorEnd`: a named end (`connect (a ::> x, b ::> y)`)
+under its qualified name, an unnamed one (`connect x to y`, `bind x = y`) under the element id
+`GetElementProperties` gives it (`Owner__c_pend0`). An end's `specializations` hold the feature it references as a
+`references` entry, a feature chain (`x.p`) as one entry per chaining feature in chain order. `members` is every
 member it has (KerML `Type::member`) — the owned ones first, in declaration order, then the
 inherited ones in inheritance order, each with its `kind`, `inherited` and `inheritedFrom`, a
 redefinition masking what it redefines and a private member of a supertype left out. Members

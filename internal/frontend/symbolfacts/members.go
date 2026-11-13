@@ -35,15 +35,13 @@ func (sc *Context) membersOf(sym *symbols.Symbol, includeLibrary bool) ([]*Membe
 	own := make(map[*symbols.Symbol]bool)
 	// The own members are the scope's, exactly as child_ids lists them: a `#M`
 	// prefix is owned through its Annotation yet navigable like any member.
-	if sym.Scope != nil {
-		for _, member := range sym.Scope.AllMembers() {
-			id := sc.Identity(member)
-			if id == "" {
-				continue
-			}
-			own[member] = true
-			out = append(out, &Member{Id: id, Name: sc.Semantics.EffectiveNameOf(member), Kind: member.Kind.String(), Library: sc.libraryDeclared(sym)})
+	for _, member := range sc.ownedMembers(sym) {
+		id := sc.ownedIdentity(member)
+		if id == "" {
+			continue
 		}
+		own[member] = true
+		out = append(out, &Member{Id: id, Name: sc.Semantics.EffectiveNameOf(member), Kind: member.Kind.String(), Library: sc.libraryDeclared(sym)})
 	}
 	for _, member := range sc.Semantics.Members(sym) {
 		if !member.Inherited || own[member.Symbol] {
