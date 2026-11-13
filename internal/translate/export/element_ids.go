@@ -129,6 +129,7 @@ func (ids *ElementIDs) recordDeclaration(e *encoder, node ast.Node, parents map[
 	ids.recordFilterCondition(e, node, subject)
 	ids.recordDefaultMultiplicity(e, node, subject)
 	ids.recordConnectorEnds(e, node, subject)
+	ids.recordFlowEnds(e, node, subject)
 	ids.recordSuccessionEnds(e, node, subject)
 	ids.recordSatisfySubjects(e, node, subject)
 	ids.registerHeadChains(e, subject, chainTargets(e.writtenHeadClauses(node, parents[node], parents)))
@@ -212,6 +213,28 @@ func (ids *ElementIDs) recordConnectorEnds(e *encoder, node ast.Node, subject rd
 				ids.partBySpan[spanPartKey{spanKey{e.file.Name(), end.Span()}, "chain." + position}] = recorded
 			}
 		}
+	}
+}
+
+// recordFlowEnds records the FlowEnds a `flow`'s conversion mints at end0/end1 (connectorEnd, flow:
+// true), each with its EndFeatureMembership, by the feature its from/to clause selects; a `message` owns none.
+func (ids *ElementIDs) recordFlowEnds(e *encoder, node ast.Node, subject rdf.Term) {
+	usage, ok := node.(*ast.Usage)
+	if !ok || usage.FlowEnds == nil || usage.Keyword == "message" || !verbatimUsage(usage) {
+		return
+	}
+	for i, target := range []ast.Node{usage.FlowEnds.From, usage.FlowEnds.To} {
+		if target == nil {
+			continue
+		}
+		end := ast.EndTarget(target)
+		slot := fmt.Sprintf("end%d", i)
+		feature := e.ids.mintedNode(rdf.ExpressionIRI(subject, slot), subject, slot)
+		ids.byNode[end] = rdf.LocalName(feature.Value)
+		ids.bySpan[spanKey{e.file.Name(), end.Span()}] = ids.byNode[end]
+		membership := rdf.LocalName(e.ids.minted(rdf.OwningMembershipIRIOf(feature), feature, rdf.OwningMembershipSuffix).Value)
+		ids.membershipByNode[end] = membership
+		ids.membershipBySpan[spanKey{e.file.Name(), end.Span()}] = membership
 	}
 }
 
