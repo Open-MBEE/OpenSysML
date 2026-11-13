@@ -41,6 +41,7 @@ func (ctx *Context) relation(a, b clockWaiter) lower.Relation {
 	return ctx.relationBy(a, b, ctx.slotHolder)
 }
 
+// relationBy is relation with the slot holders holder answers.
 func (ctx *Context) relationBy(a, b clockWaiter, holder func(clockWaiter, *symbols.Symbol) any) lower.Relation {
 	sa, sb := executorSelf(a), executorSelf(b)
 	rel := lower.Relation{Channels: ctx.channelsMeet(sa, sb), Apart: a != b}
