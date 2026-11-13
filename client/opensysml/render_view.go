@@ -19,9 +19,8 @@ type renderViewOptions struct {
 	form         string
 }
 
-// WithDocumentForm asks for a QVTS::QueryResult view as a document too, in
-// "markdown", "html" or "asciidoc": RenderedView.Document. Another view, or
-// another form, is refused as an invalid request. Requires query_result_view.
+// WithDocumentForm asks for a QVTS::QueryResult view as a document too (RenderedView.Document), in "markdown",
+// "html" or "asciidoc"; another view or form is refused as an invalid request. Requires query_result_view.
 func WithDocumentForm(form string) RenderViewOption {
 	return func(options *renderViewOptions) { options.form = form }
 }

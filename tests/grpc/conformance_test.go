@@ -237,15 +237,13 @@ type conformanceCase struct {
 	Query              map[string]any `json:"query,omitempty"`
 	ExpectedElementIDs []string       `json:"expected_element_ids,omitempty"`
 	ExpectedQueryError string         `json:"expected_query_error,omitempty"`
-	// OslcQuery is OSLC Query text asked in place of Query. AsView asks the query RPCs for
-	// the answer as a QVTS::QueryResult view too: ExpectedResultView is its text, a failed
-	// query's read off the QueryResultView detail, with the model hash written <model>.
+	// OslcQuery is OSLC Query text asked in place of Query. AsView asks the query RPCs for the answer as a QVTS::QueryResult
+	// view too: ExpectedResultView is its text, a failed query's read off the QueryResultView detail, the model hash written <model>.
 	OslcQuery          string `json:"oslc_query,omitempty"`
 	AsView             bool   `json:"as_view,omitempty"`
 	ExpectedResultView string `json:"expected_result_view,omitempty"`
-	// RenderView: Form is the document form asked for, ExpectedHeader the view's header as
-	// "name: value" lines, ExpectedRows its rows joined by " | ", ExpectedDocument the document.
-	// ExpectedDocumentParts are what an HTML page must contain, in place of the whole page.
+	// RenderView: Form is the document form asked for, ExpectedHeader the view's header as "name: value" lines, ExpectedRows its
+	// rows joined by " | ", ExpectedDocument the document, ExpectedDocumentParts what an HTML page must contain in place of it.
 	Form                  string   `json:"form,omitempty"`
 	ExpectedHeader        []string `json:"expected_header,omitempty"`
 	ExpectedViewRows      []string `json:"expected_view_rows,omitempty"`

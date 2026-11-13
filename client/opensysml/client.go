@@ -173,9 +173,8 @@ type Client interface {
 	// the oslc_query capability.
 	QueryOSLC(ctx context.Context, model *Model, oslc string) ([]QueryElement, error)
 
-	// QueryAsView is Query answering the selection with its QVTS::QueryResult
-	// view; a path error carries its view in the StatusError. Requires
-	// query_result_view.
+	// QueryAsView is Query answering the selection with its QVTS::QueryResult view; a path error
+	// carries its view in the StatusError. Requires query_result_view.
 	QueryAsView(ctx context.Context, model *Model, query Query) (*QueryAnswer, error)
 
 	// QueryOSLCAsView is QueryOSLC answering as QueryAsView does.
@@ -198,9 +197,8 @@ type Client interface {
 	// query, as RunDocumentQuery runs one. Requires inline_document_query.
 	RunInlineDocumentQuery(ctx context.Context, model *Model, expression string, bindings ...Binding) (*Rows, error)
 
-	// RunDocumentQueryAsView is RunDocumentQuery whose Rows also carry the answer
-	// as a QVTS::QueryResult view; a path or model error carries its view in the
-	// StatusError. Requires query_result_view.
+	// RunDocumentQueryAsView is RunDocumentQuery whose Rows also carry the answer as a QVTS::QueryResult
+	// view; a path or model error carries its view in the StatusError. Requires query_result_view.
 	RunDocumentQueryAsView(ctx context.Context, model *Model, queryID string, bindings ...Binding) (*Rows, error)
 
 	// RunInlineDocumentQueryAsView is RunInlineDocumentQuery with the view, as
