@@ -103,6 +103,10 @@ type CachedModel struct {
 	// parsed fresh (lineage.go).
 	analysis *analysisSnapshot
 
+	// Prepared export state belongs to this immutable model, never its lineage.
+	exportOnce  sync.Once
+	exportModel *export.PreparedModel
+
 	symCtxOnce sync.Once
 	symCtx     *symbolfacts.Context
 	// elementIDs reads what a conversion of the model writes as each element's

@@ -11,19 +11,19 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 16990,
+      "presentEqual": 17000,
       "presentDifferent": 1419,
-      "oursMissing": 1906,
+      "oursMissing": 1903,
       "pilotMissing": 614,
       "absentBoth": 19825,
       "indeterminate": 372,
-      "pilotNondeterministic": 13
+      "pilotNondeterministic": 6
     },
     "unkeyedReferences": 1601,
     "extensionProperties": 2162,
     "duplicateElements": {
       "ours": 0,
-      "pilot": 9912
+      "pilot": 9860
     },
     "ambiguousKeys": {
       "ours": 0,
@@ -436,11 +436,11 @@
     "ConnectionUsage.partDefinition": [2,0,0,0,0,0,0],
     "ConnectionUsage.portionKind": [0,0,0,0,2,0,0],
     "ConnectionUsage.qualifiedName": [2,0,0,0,0,0,0],
-    "ConnectionUsage.relatedElement": [0,0,2,0,0,0,0],
+    "ConnectionUsage.relatedElement": [2,0,0,0,0,0,0],
     "ConnectionUsage.relatedFeature": [2,0,0,0,0,0,0],
-    "ConnectionUsage.source": [0,0,2,0,0,0,0],
+    "ConnectionUsage.source": [2,0,0,0,0,0,0],
     "ConnectionUsage.sourceFeature": [2,0,0,0,0,0,0],
-    "ConnectionUsage.target": [0,0,2,0,0,0,0],
+    "ConnectionUsage.target": [2,0,0,0,0,0,0],
     "ConnectionUsage.targetFeature": [2,0,0,0,0,0,0],
     "ConnectionUsage.textualRepresentation": [0,0,0,0,2,0,0],
     "ConnectionUsage.type": [2,0,0,0,0,0,0],
@@ -1754,7 +1754,7 @@
     "OperatorExpression.feature": [0,7,0,0,0,0,0],
     "OperatorExpression.featureMembership": [0,7,0,0,0,0,0],
     "OperatorExpression.featureTarget": [7,0,0,0,0,0,0],
-    "OperatorExpression.featuringType": [0,0,0,0,0,0,7],
+    "OperatorExpression.featuringType": [4,0,3,0,0,0,0],
     "OperatorExpression.function": [0,0,7,0,0,0,0],
     "OperatorExpression.importedMembership": [0,0,0,0,7,0,0],
     "OperatorExpression.inheritedFeature": [0,0,7,0,0,0,0],
