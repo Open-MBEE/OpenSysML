@@ -28,10 +28,20 @@ function Base.show(io::IO, info::SymbolInfo)
     print(io, "$(info.id) ($(info.kind))")
 end
 
-"""Return typed symbol metadata for a qualified identifier, or `nothing`."""
-function get_symbol(model::Model, id::AbstractString)
+"""
+Return typed symbol metadata for a qualified name, or `nothing`.
+
+The name is resolved from the root namespace the way the notation resolves one:
+through imports, an alias answered by the element it names, and a member not
+visible from outside its namespace (`private`, `protected`) not found.
+`by_reported_id` takes `id` as one the service reported instead (a symbol's id, a
+child's, a specialization target's), which names that element whatever its
+visibility.
+"""
+function get_symbol(model::Model, id::AbstractString; by_reported_id::Bool=false)
     answer = call(model.connection, "GetSymbol",
-                  Dict{String,Any}("modelHash" => model.hash, "symbolId" => String(id)))
+                  Dict{String,Any}("modelHash" => model.hash, "symbolId" => String(id),
+                                   "resolveName" => !by_reported_id))
     haskey(answer, "error") && !isempty(answer["error"]) && return nothing
     raw = get(answer, "symbol", nothing)
     raw isa AbstractDict || return nothing
@@ -43,7 +53,7 @@ function children(info::SymbolInfo)
     info.children_cache !== nothing && return info.children_cache
     result = SymbolInfo[]
     for id in get(info.raw, "childIds", Any[])
-        child = get_symbol(info.model, String(id))
+        child = get_symbol(info.model, String(id); by_reported_id=true)
         child === nothing || push!(result, child)
     end
     info.children_cache = result
@@ -76,7 +86,7 @@ function _inherited_attributes(info::SymbolInfo, visited::Set{String})
     for specialization in info.specializations
         target = specialization.target_id
         (isempty(target) || target in visited) && continue
-        supertype = get_symbol(info.model, target)
+        supertype = get_symbol(info.model, target; by_reported_id=true)
         supertype === nothing && continue
         append!(inherited, SymbolInfo[c for c in children(supertype)
                                       if _kind_is(c, ATTRIBUTE_KINDS)])
@@ -117,13 +127,16 @@ function Base.getproperty(model::Model, name::Symbol)
     return getfield(model, name)
 end
 
-"""Return the symbol with qualified identifier `fqn`, or `default`."""
+"""
+Return the symbol the qualified name `fqn` resolves to (see `get_symbol`), which
+may carry another id, or `default`.
+"""
 function Base.get(model::Model, fqn::AbstractString, default=nothing)
     for r in model.roots
         r.id == fqn && return r
     end
     info = get_symbol(model, fqn)
-    (info === nothing || info.id != fqn) ? default : info
+    info === nothing ? default : info
 end
 
 function _walk_symbols(model::Model)

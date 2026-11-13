@@ -190,10 +190,8 @@ type directChildrenKey struct {
 	allowsPrivate bool
 }
 
-// WildcardImport is one `import X::*` declaration: the target's raw qualified
-// name text, whether the import was declared private, and the filter condition
-// restricting what it brings in (`import X::*[@Safety]`), which is zero for an
-// unfiltered import.
+// WildcardImport is one `import X::*` declaration: its target's raw name, whether it is
+// visible only inside (private or protected), and its filter (`[@Safety]`), zero when unfiltered.
 type WildcardImport struct {
 	Target  string
 	Private bool
@@ -1612,7 +1610,7 @@ func wildcardImportsIn(scope *Scope) []WildcardImport {
 		}
 		wi := WildcardImport{
 			Target:  imp.Imported.Text(),
-			Private: imp.Visibility == ast.VisibilityPrivate,
+			Private: !VisibleOutside(imp.Visibility),
 			All:     imp.IsAll,
 		}
 		if imp.FilterExpr != nil {

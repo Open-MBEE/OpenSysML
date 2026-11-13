@@ -388,6 +388,7 @@ export class Runner {
     GetSymbol: (call) =>
       this.model(call).symbolById(String(call.request["symbol_id"]), {
         ...flagOption(call.request, "include_library_members", "includeLibraryMembers"),
+        byReportedId: call.request["resolve_name"] !== true,
       }),
     Evaluate: (call) =>
       this.model(call).eval(String(call.request["expression"]), {

@@ -1051,7 +1051,8 @@ func (s *Service) parseModelKeeping(inputs []sourceInput, mode diag.ConformanceM
 	return modelHash, store(modelHash, model)
 }
 
-// GetSymbol retrieves symbol information by FQN
+// GetSymbol retrieves symbol information by id, or by qualified name resolved
+// from the root namespace when the request asks for that.
 func (s *Service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.SymbolResponse, error) {
 	// Lookup cached model
 	cached, ok := s.cache.Get(req.ModelHash)
@@ -1059,8 +1060,13 @@ func (s *Service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.
 		return nil, statusErrorf(connect.CodeNotFound, msgModelNotFound, req.ModelHash)
 	}
 
-	// Lookup symbol by FQN or positional identity
-	syms := cached.LookupSymbol(req.SymbolId)
+	// An id the service reported denotes that element; a name is resolved.
+	var syms []*symbols.Symbol
+	if req.ResolveName {
+		syms = cached.ResolveName(req.SymbolId)
+	} else {
+		syms = cached.LookupSymbol(req.SymbolId)
+	}
 	if len(syms) == 0 {
 		return &pb.SymbolResponse{
 			Error: fmt.Sprintf("symbol not found: %s", req.SymbolId),

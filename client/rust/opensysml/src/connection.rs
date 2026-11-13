@@ -302,6 +302,7 @@ impl Connection {
                 model_hash: model_hash.to_owned(),
                 symbol_id: symbol_id.to_owned(),
                 include_library_members: options.include_library_members,
+                resolve_name: !options.by_reported_id,
             },
         )?;
         if !response.error.is_empty() {

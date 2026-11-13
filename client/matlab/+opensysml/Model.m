@@ -195,7 +195,9 @@ classdef Model < handle
         end
 
         function result = get(m, fqn)
-            result = findById(m, char(fqn));
+            % The symbol a qualified name resolves to from the root namespace,
+            % which may carry another id (an import, an alias), or [].
+            result = resolveName(m, char(fqn));
         end
 
         function result = find(m, name)
@@ -406,6 +408,19 @@ function result = walkNamed(model, name, depth)
     values = model.walk(depth);
     for i = 1:numel(values)
         if strcmp(values{i}.name, name), result = values{i}; return; end
+    end
+end
+
+function result = resolveName(model, name)
+    result = [];
+    try
+        raw = opensysml.call(model.connection, 'GetSymbol', ...
+            struct('modelHash', model.hash, 'symbolId', name, 'resolveName', true));
+        if isfield(raw, 'error') && ~isempty(raw.error), return; end
+        if isfield(raw, 'symbol'), raw = raw.symbol; end
+        result = opensysml.Symbol(raw, model);
+    catch e
+        if ~strcmp(e.identifier, 'opensysml:connect:symbolNotFound'), rethrow(e); end
     end
 end
 

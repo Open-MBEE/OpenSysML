@@ -120,6 +120,161 @@
       }
     },
     {
+      "id": "symbol/a_name_resolves_through_a_public_membership_import",
+      "description": "resolve_name resolves the id as a qualified name from the root namespace: a public import re-exports the member under the importing namespace.",
+      "rpc": "GetSymbol",
+      "model": {
+        "fixture": "visibility.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Vis::Facade::Pump",
+        "resolve_name": true
+      },
+      "expect": {
+        "response": {
+          "symbol": {
+            "id": "Vis::Lib::Pump"
+          }
+        }
+      }
+    },
+    {
+      "id": "symbol/a_name_resolves_through_a_public_recursive_import",
+      "description": "A recursive import brings in the members of the nested namespaces too.",
+      "rpc": "GetSymbol",
+      "model": {
+        "fixture": "visibility.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Vis::FacadeDeep::Valve",
+        "resolve_name": true
+      },
+      "expect": {
+        "response": {
+          "symbol": {
+            "id": "Vis::Lib::Sub::Valve"
+          }
+        }
+      }
+    },
+    {
+      "id": "symbol/a_name_resolves_an_alias_to_its_element",
+      "description": "A name that names an alias answers with the element the alias is for.",
+      "rpc": "GetSymbol",
+      "model": {
+        "fixture": "visibility.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Vis::Lib::PumpAlias",
+        "resolve_name": true
+      },
+      "expect": {
+        "response": {
+          "symbol": {
+            "id": "Vis::Lib::Pump"
+          }
+        }
+      }
+    },
+    {
+      "id": "symbol/a_reported_id_of_an_alias_is_the_alias",
+      "description": "Without resolve_name the id is one the service reported, and an alias is itself.",
+      "rpc": "GetSymbol",
+      "model": {
+        "fixture": "visibility.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Vis::Lib::PumpAlias"
+      },
+      "expect": {
+        "response": {
+          "symbol": {
+            "id": "Vis::Lib::PumpAlias",
+            "kind": "alias"
+          }
+        }
+      }
+    },
+    {
+      "id": "symbol/a_name_does_not_cross_a_private_import",
+      "description": "A private import is visible inside its namespace only, so the name resolves to nothing from the root.",
+      "rpc": "GetSymbol",
+      "model": {
+        "fixture": "visibility.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Vis::Hidden::Pump",
+        "resolve_name": true
+      },
+      "expect": {
+        "contains": {
+          "error": "symbol not found"
+        }
+      }
+    },
+    {
+      "id": "symbol/a_name_does_not_reach_a_private_member",
+      "description": "A private member is not visible from outside its namespace.",
+      "rpc": "GetSymbol",
+      "model": {
+        "fixture": "visibility.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Vis::Lib::Secret",
+        "resolve_name": true
+      },
+      "expect": {
+        "contains": {
+          "error": "symbol not found"
+        }
+      }
+    },
+    {
+      "id": "symbol/a_reported_id_of_a_private_member_is_fetched",
+      "description": "The id of a private member, which its owner's child_ids report, still denotes it.",
+      "rpc": "GetSymbol",
+      "model": {
+        "fixture": "visibility.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Vis::Lib::Secret"
+      },
+      "expect": {
+        "response": {
+          "symbol": {
+            "id": "Vis::Lib::Secret"
+          }
+        }
+      }
+    },
+    {
+      "id": "symbol/a_public_member_of_a_private_namespace_keeps_its_id",
+      "description": "No name reaches a member of a private namespace from the root, but the id the service reports for it still fetches it under resolve_name.",
+      "rpc": "GetSymbol",
+      "model": {
+        "fixture": "visibility.sysml"
+      },
+      "request": {
+        "model_hash": "${model_hash}",
+        "symbol_id": "Vis::Lib::Secret::inner",
+        "resolve_name": true
+      },
+      "expect": {
+        "response": {
+          "symbol": {
+            "id": "Vis::Lib::Secret::inner"
+          }
+        }
+      }
+    },
+    {
       "id": "symbol/an_unknown_symbol_is_not_found",
       "rpc": "GetSymbol",
       "model": {

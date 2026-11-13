@@ -83,12 +83,63 @@ func (sc *Context) Identity(sym *symbols.Symbol) string {
 	return sc.Positional.Of(sym)
 }
 
-// Lookup resolves an id the way Identity derives it: a qualified identity
-// first, else a positional one.
+// Lookup finds the element an id the service reported denotes, whatever its
+// visibility; an id no element carries is resolved as a qualified name (see Resolve).
 func (sc *Context) Lookup(id string) []*symbols.Symbol {
 	if syms := LookupNamed(sc.Index, id); len(syms) > 0 {
 		return syms
 	}
+	if syms := sc.unnamed(id); len(syms) > 0 {
+		return syms
+	}
+	return sc.Resolver.ResolveGlobal(nameSegments(id))
+}
+
+// LookupMember is Lookup, with a name no declaration answers to walked as a
+// chain of members (see LookupNamedMember).
+func (sc *Context) LookupMember(id string) []*symbols.Symbol {
+	if syms := LookupNamedMember(sc.Index, sc.Semantics, id); len(syms) > 0 {
+		return syms
+	}
+	return sc.Resolver.ResolveGlobal(nameSegments(id))
+}
+
+// Resolve resolves id as a qualified name from the root (resolve.Resolver.ResolveGlobal);
+// a positional id, or a public member under a non-visible namespace, still denotes its element.
+func (sc *Context) Resolve(id string) []*symbols.Symbol {
+	return sc.resolved(id, sc.Resolver.ResolveGlobal)
+}
+
+// ResolveMember is Resolve with an alias answered as the alias membership its
+// namespace holds rather than as the element it names.
+func (sc *Context) ResolveMember(id string) []*symbols.Symbol {
+	return sc.resolved(id, sc.Resolver.ResolveGlobalMembers)
+}
+
+func (sc *Context) resolved(id string, resolve func([]string) []*symbols.Symbol) []*symbols.Symbol {
+	if syms := resolve(nameSegments(id)); len(syms) > 0 {
+		return syms
+	}
+	if named := LookupNamed(sc.Index, id); len(named) > 0 {
+		return ownPublic(named)
+	}
+	return sc.unnamed(id)
+}
+
+// ownPublic keeps the elements whose own membership is public: an id the
+// service reports stays fetchable where only a namespace on the way is not.
+func ownPublic(syms []*symbols.Symbol) []*symbols.Symbol {
+	var public []*symbols.Symbol
+	for _, sym := range syms {
+		if symbols.VisibleOutside(sym.Visibility) {
+			public = append(public, sym)
+		}
+	}
+	return public
+}
+
+// unnamed finds the element a positional id denotes.
+func (sc *Context) unnamed(id string) []*symbols.Symbol {
 	// The chain is walked in the unquoted spelling the index records, which is
 	// also the one QualifiedNameOf answers, whatever spelling the id uses.
 	name := id

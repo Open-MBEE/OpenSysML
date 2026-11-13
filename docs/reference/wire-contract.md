@@ -163,7 +163,15 @@ positional id an unnamed declaration has in the query API and the export (`Owner
 the fourth member of `Owner`, `Owner::@3::wheel` for a named member of it). `childIds` are the
 members the element itself declares under the same ids, named and unnamed alike (a `bind`, a
 `connect`, a `part : P;`, a `@M { … }` or `#M` annotation), each of which `GetSymbol` resolves;
-a member no id reaches, such as a body-local declaration, is not listed. `members` is every
+a member no id reaches, such as a body-local declaration, is not listed. With `resolveName` the
+id is instead resolved as a qualified name from the root namespace, the way the notation resolves
+`A::B` (KerML 8.2.3.5): through the visible memberships of each namespace, so a name a `public
+import` re-exports — a membership import, `P::*`, the recursive `P::**` — answers with the imported
+element under its own id, an alias with the element it is for, and a `private` or `protected` member,
+or one behind a `private import`, is not found. Without it the id is one the service reported and
+denotes that element whatever its visibility, an alias being itself; the clients' lookups by
+qualified name set it, and their navigation over `childIds`, `members` and specialization targets
+does not. `members` is every
 member it has (KerML `Type::member`) — the owned ones first, in declaration order, then the
 inherited ones in inheritance order, each with its `kind`, `inherited` and `inheritedFrom`, a
 redefinition masking what it redefines and a private member of a supertype left out. Members
