@@ -72,7 +72,7 @@ func (m *Model) resultTypes(scope *symbols.Scope, node ast.Node) []*symbols.Symb
 		if types := m.collectionResultTypes(scope, n, called); len(types) > 0 {
 			return types
 		}
-		if result := m.ResultParameterOf(called); result != nil && !m.IsKindBaseParameter(called, result) {
+		if result := m.typedResultOf(called); result != nil {
 			return m.featureResultTypes(result)
 		}
 		return nil

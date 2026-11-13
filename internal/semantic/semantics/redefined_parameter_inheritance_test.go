@@ -213,10 +213,13 @@ func TestInvocationOfACalcWithoutAReturnHasNoResultType(t *testing.T) {
 	m, s := collectionModel(t, `
 		calc def Untyped { in x : Integer; x + 1 }
 		calc def Typed { in x : Integer; return : Integer = x + 1; }
+		constraint def Held { in x : Integer; x >= 1 }
 		attribute untyped = Untyped(1);
-		attribute typed = Typed(1);`)
+		attribute typed = Typed(1);
+		attribute held = Held(1);`)
 	wantValueTypes(t, m, s, "untyped")
 	wantValueTypes(t, m, s, "typed", "Integer")
+	wantValueTypes(t, m, s, "held", "Boolean")
 }
 
 // A general's parameter redefining one an earlier general lent replaces it (KerML
