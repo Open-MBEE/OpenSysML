@@ -27,6 +27,7 @@ type SymbolInput struct {
 	ModelInput
 	SymbolID              string `json:"symbolId" jsonschema:"the element's qualified name, as Demo::Vehicle::mass"`
 	IncludeLibraryMembers bool   `json:"includeLibraryMembers,omitempty" jsonschema:"list the members inherited from standard-library content too, which are otherwise withheld and counted"`
+	MemberOf              string `json:"memberOf,omitempty" jsonschema:"the type the element is read as a feature of, as Demo::Vehicle::fuelPort: the direction reported is then the one relative to that type, which a conjugated port typing reverses"`
 }
 
 // ElementPropertiesInput names an element and the metamodel properties to read.
@@ -86,6 +87,7 @@ func (g *group) registerParse(s *mcp.Server) {
 		}
 		resp, err := g.svc.GetSymbol(ctx, &pb.GetSymbolRequest{
 			ModelHash: m.hash, SymbolId: in.SymbolID, IncludeLibraryMembers: in.IncludeLibraryMembers,
+			MemberOf: in.MemberOf,
 		})
 		if err != nil {
 			return nil, nil, toolError(err)

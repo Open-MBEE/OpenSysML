@@ -26,6 +26,7 @@ const (
 	CapabilityExportGraphs                   = sysmlgrpc.CapabilityExportGraphs
 	CapabilityInstancePaths                  = sysmlgrpc.CapabilityInstancePaths
 	CapabilitySymbolMembers                  = sysmlgrpc.CapabilitySymbolMembers
+	CapabilitySymbolMemberDirection          = sysmlgrpc.CapabilitySymbolMemberDirection
 	CapabilityImportData                     = sysmlgrpc.CapabilityImportData
 	CapabilityCompareResults                 = sysmlgrpc.CapabilityCompareResults
 	CapabilityCheck                          = sysmlgrpc.CapabilityCheck

@@ -150,6 +150,11 @@ const CapabilitySymbolAttributes = "symbol_attributes"
 // provenance, and of honouring GetSymbolRequest.include_library_members.
 const CapabilitySymbolMembers = "symbol_members"
 
+// CapabilitySymbolMemberDirection names the capability of honouring
+// GetSymbolRequest.member_of: the direction reported is the one the feature
+// has relative to that type.
+const CapabilitySymbolMemberDirection = "symbol_member_direction"
+
 // CapabilityUnsetValue names the capability of reporting a valueless feature of
 // a value type as Value.unset, rather than as the empty object it materializes.
 const CapabilityUnsetValue = "unset_value"
@@ -432,6 +437,7 @@ var capabilities = []string{
 	CapabilityVerdictNotes,
 	CapabilityElementProperties,
 	CapabilityInlineDocumentQuery,
+	CapabilitySymbolMemberDirection,
 }
 
 type capabilityAvailability struct {
@@ -1067,10 +1073,20 @@ func (s *Service) GetSymbol(ctx context.Context, req *pb.GetSymbolRequest) (*pb.
 		}, nil
 	}
 
+	opts := symbolfacts.Options{IncludeLibraryMembers: req.IncludeLibraryMembers}
+	if req.MemberOf != "" && s.capabilities.has(CapabilitySymbolMemberDirection) {
+		owners := cached.LookupSymbol(req.MemberOf)
+		if len(owners) == 0 {
+			return &pb.SymbolResponse{
+				Error: fmt.Sprintf("symbol not found: %s", req.MemberOf),
+			}, nil
+		}
+		opts.MemberOf = owners[0]
+	}
+
 	// Convert first match to proto
 	return &pb.SymbolResponse{
-		Symbol: s.symbolToProtoWith(syms[0], cached.SymbolContext(),
-			symbolfacts.Options{IncludeLibraryMembers: req.IncludeLibraryMembers}),
+		Symbol: s.symbolToProtoWith(syms[0], cached.SymbolContext(), opts),
 	}, nil
 }
 

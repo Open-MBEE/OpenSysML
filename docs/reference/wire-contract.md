@@ -170,6 +170,12 @@ redefinition masking what it redefines and a private member of a supertype left 
 inherited from standard-library content are withheld and counted in `withheldLibraryMembers`
 unless the request sets `includeLibraryMembers`, which lists them marked `library`. The
 `symbol_members` capability advertises the field; a service without it answers no `members`.
+`memberOf` names the type the symbol is read as a feature of, by id: `metadata.direction` is then
+the feature's direction relative to that type (KerML 8.3.3.1.10 `Type::directionOf`), which a
+conjugation on the way reverses, so a feature declared `out` reads `in` through a port typed
+`~P` (SysML 8.3.12.3). Without it `direction` is the feature's own. An id that names nothing is
+an error. The `symbol_member_direction` capability advertises the field; a service without it
+ignores it.
 Beside the other typed fields (`typeInfo`, `multiplicity`, `specializations`, `attributes`),
 `metadata` is a string map of facts about the declaration, each present only when it holds:
 

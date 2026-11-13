@@ -169,3 +169,40 @@ class TestIntegrationRealServer:
                     assert hasattr(symbol_info, 'name')
                     assert hasattr(symbol_info, 'kind')
                 # Else: child_ids might be empty for this simple model, test passes
+
+    def test_members_through_a_conjugated_port_carry_the_reversed_direction(self, tmp_path):
+        """A feature listed through `port pIn : ~CmdPort` reads with the direction
+        it has relative to that port, and with its own direction elsewhere."""
+        test_file = tmp_path / "conjugated.sysml"
+        test_file.write_text("""
+            package Demo {
+                port def CmdPort {
+                    out attribute cmd;
+                    in attribute ack;
+                }
+                part def Device {
+                    port pOut : CmdPort;
+                    port pIn : ~CmdPort;
+                }
+                part def Rack { part slot : Device; }
+                part rack : Rack;
+            }
+        """)
+
+        def directions(symbol):
+            return {
+                m.name: m.metadata.get("direction")
+                for m in symbol.children(inherited=True) if m.kind == "attributeUsage"
+            }
+
+        def step(symbol, name):
+            return next(m for m in symbol.children(inherited=True) if m.name == name)
+
+        with Connection(auto_start=False) as conn:
+            model = conn.load(str(test_file))
+            device = model.get("Demo::Device")
+            assert directions(step(device, "pOut")) == {"cmd": "out", "ack": "in"}
+            assert directions(step(device, "pIn")) == {"cmd": "in", "ack": "out"}
+            nested = step(step(step(model.get("Demo::rack"), "slot"), "pIn"), "cmd")
+            assert nested.metadata["direction"] == "in"
+            assert model.get("Demo::CmdPort::cmd").metadata["direction"] == "out"

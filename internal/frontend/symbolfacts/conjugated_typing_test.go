@@ -69,3 +69,32 @@ func TestConjugatedTypingFactsNameTheConjugate(t *testing.T) {
 		t.Errorf("cmdOut metadata type = %q, want CmdPort", meta["type"])
 	}
 }
+
+// A feature read as a member of a type reports its direction relative to that
+// type (KerML 8.3.3.1.10 Type::directionOf), and its own direction otherwise.
+func TestMemberDirectionIsRelativeToTheTypeItIsReadThrough(t *testing.T) {
+	idx, sc := modelWithLibrary(t, conjugatedPortModel)
+	cmd := lookupOne(t, idx, "ConjugatedPorts::CmdPort::cmd")
+	for _, tc := range []struct{ memberOf, want string }{
+		{"", "out"},
+		{"ConjugatedPorts::CmdPort", "out"},
+		{"ConjugatedPorts::Sender::cmdOut", "out"},
+		{"ConjugatedPorts::Receiver::cmdIn", "in"},
+		{"ConjugatedPorts::CmdPort::~CmdPort", "in"},
+		{"ConjugatedPorts::Receiver", "out"},
+	} {
+		opts := Options{}
+		if tc.memberOf != "" {
+			opts.MemberOf = lookupOne(t, idx, tc.memberOf)
+		}
+		if got := OfWith(cmd, sc, opts).Metadata["direction"]; got != tc.want {
+			t.Errorf("cmd as a member of %q: direction = %q, want %q", tc.memberOf, got, tc.want)
+		}
+	}
+	// An undirected feature gains no direction from the type it is read through.
+	cmdIn := lookupOne(t, idx, "ConjugatedPorts::Receiver::cmdIn")
+	info := OfWith(cmdIn, sc, Options{MemberOf: lookupOne(t, idx, "ConjugatedPorts::Receiver")})
+	if got, stated := info.Metadata["direction"]; stated {
+		t.Errorf("cmdIn as a member of Receiver: direction = %q, want none", got)
+	}
+}

@@ -110,6 +110,7 @@ type JGetSymbolRequest struct {
 	ModelHash             string `json:"modelHash,omitempty"`
 	SymbolId              string `json:"symbolId,omitempty"`
 	IncludeLibraryMembers bool   `json:"includeLibraryMembers,omitempty"`
+	MemberOf              string `json:"memberOf,omitempty"`
 }
 
 // JSymbolResponse is the protojson-shaped GetSymbol response.

@@ -115,6 +115,12 @@ CAPABILITY_SYMBOL_ATTRIBUTES = "symbol_attributes"
 #: Without it only ``child_ids``, the owned members, is reported.
 CAPABILITY_SYMBOL_MEMBERS = "symbol_members"
 
+#: ``GetSymbolRequest.member_of`` honoured: a symbol fetched as a member of a
+#: type reports ``metadata["direction"]`` relative to that type, so a feature
+#: listed through a conjugated port reads reversed. Without it the member
+#: carries the direction it is declared with.
+CAPABILITY_SYMBOL_MEMBER_DIRECTION = "symbol_member_direction"
+
 #: The ``GetElementProperties`` RPC: the metamodel properties of one element by
 #: their specification names, as the model's API element form spells them.
 #: Without it the service refuses the call with ``UNIMPLEMENTED``.

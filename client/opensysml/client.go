@@ -592,6 +592,15 @@ func WithLibraryMembers() SymbolOption {
 	return func(req *pb.GetSymbolRequest) { req.IncludeLibraryMembers = true }
 }
 
+// AsMemberOf reads the symbol as a feature of the type with the given id: its
+// direction is then the one relative to that type (KerML Type::directionOf),
+// which a conjugated port typing reverses, so a feature declared `out` reads
+// `in` through a port typed `~P`. It needs the "symbol_member_direction"
+// capability.
+func AsMemberOf(typeID string) SymbolOption {
+	return func(req *pb.GetSymbolRequest) { req.MemberOf = typeID }
+}
+
 func (c *client) LookupSymbol(ctx context.Context, model *Model, symbolID string, opts ...SymbolOption) (*Symbol, error) {
 	if err := c.live(); err != nil {
 		return nil, err
@@ -606,6 +615,11 @@ func (c *client) LookupSymbol(ctx context.Context, model *Model, symbolID string
 	}
 	if req.IncludeLibraryMembers {
 		if err := c.requireCapabilities(ctx, CapabilitySymbolMembers); err != nil {
+			return nil, err
+		}
+	}
+	if req.MemberOf != "" {
+		if err := c.requireCapabilities(ctx, CapabilitySymbolMemberDirection); err != nil {
 			return nil, err
 		}
 	}

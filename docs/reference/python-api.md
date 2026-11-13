@@ -285,6 +285,12 @@ did before the service enumerated members. A member the service declares without
 name (`bind a = b;`) is listed but has no id a lookup resolves, so it is left out of
 the result until unnamed members get positional ids.
 
+A member is fetched as a feature of the symbol that lists it, so its
+`metadata["direction"]` is the direction relative to that symbol: `cmd`, declared `out` in
+`port def CmdPort`, reads `in` among the members of `port pIn : ~CmdPort`, and `out` when
+looked up on its own with `model.symbol("Demo::CmdPort::cmd")`. This needs the service's
+`symbol_member_direction` capability; an older service reports the declared direction.
+
 ::: opensysml.Symbol
     options:
       heading_level: 3

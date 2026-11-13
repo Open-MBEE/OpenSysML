@@ -112,8 +112,12 @@ class TestSymbolChildren:
         
         # Verify RPC calls with model_hash
         assert mock_client.get_symbol.call_count == 2
-        mock_client.get_symbol.assert_any_call("model_abc123", "Vehicles::Vehicle::mass")
-        mock_client.get_symbol.assert_any_call("model_abc123", "Vehicles::Vehicle::speed")
+        mock_client.get_symbol.assert_any_call(
+            "model_abc123", "Vehicles::Vehicle::mass", member_of="Vehicles::Vehicle",
+        )
+        mock_client.get_symbol.assert_any_call(
+            "model_abc123", "Vehicles::Vehicle::speed", member_of="Vehicles::Vehicle",
+        )
     
     def test_symbol_children_caching(self):
         """Test children() caches results and doesn't hit client twice."""
@@ -342,7 +346,7 @@ class TestSymbolAttributeFacts:
                 type_info=sysml_pb2.TypeInfo(resolved_id="ScalarValues::String"),
             ),
         }
-        mock_client.get_symbol.side_effect = lambda _hash, symbol_id: symbols.get(symbol_id)
+        mock_client.get_symbol.side_effect = lambda _hash, symbol_id, member_of="": symbols.get(symbol_id)
 
         car_members = [
             sysml_pb2.MemberInfo(id="Demo::Car::mass", name="mass", kind="attributeUsage"),
@@ -469,7 +473,7 @@ class TestSymbolAttributeFacts:
         )
         symbols = mock_client.get_symbol.side_effect
         mock_client.get_symbol.side_effect = (
-            lambda _hash, symbol_id: car_info if symbol_id == "Demo::Car"
+            lambda _hash, symbol_id, member_of="": car_info if symbol_id == "Demo::Car"
             else symbols(_hash, symbol_id)
         )
 
@@ -505,7 +509,7 @@ class TestSymbolAttributeFacts:
                 id="Demo::Car::mass", name="mass", kind="partUsage"
             ),
         }
-        mock_client.get_symbol.side_effect = lambda _hash, symbol_id: symbols.get(symbol_id)
+        mock_client.get_symbol.side_effect = lambda _hash, symbol_id, member_of="": symbols.get(symbol_id)
         car = Symbol(
             sysml_pb2.SymbolInfo(
                 id="Demo::Car",
@@ -758,7 +762,7 @@ class TestSymbolMembers:
     def test_own_members_fall_back_to_child_ids(self):
         """A symbol an older service reported still lists its owned members."""
         mock_client = Mock()
-        mock_client.get_symbol.side_effect = lambda _hash, symbol_id, include_library_members=False: (
+        mock_client.get_symbol.side_effect = lambda _hash, symbol_id, include_library_members=False, member_of="": (
             sysml_pb2.SymbolInfo(id=symbol_id, name=symbol_id.rsplit("::", 1)[-1], kind="partUsage")
         )
         parent = Symbol(
@@ -839,3 +843,49 @@ class TestSymbolTypeFacts:
             type_info=sysml_pb2.TypeInfo(declared="T", resolved_id="P::T"),
         )
         assert self._symbol(info).type_facts.types == ()
+
+
+class TestMemberDirection:
+    """A member is fetched as a feature of the symbol listing it, so the service
+    states its direction relative to that symbol."""
+
+    def _port(self, capabilities):
+        mock_client = Mock()
+        mock_client.server_info.return_value = ServerInfo(
+            version="v1.0.0", capabilities=frozenset(capabilities), answered=True, origin="sysml-grpc",
+        )
+
+        def get_symbol(_hash, symbol_id, include_library_members=False, member_of=""):
+            # The service reverses the direction through the conjugated port.
+            direction = "in" if member_of == "Demo::Device::pIn" else "out"
+            return sysml_pb2.SymbolInfo(
+                id=symbol_id, name="cmd", kind="attributeUsage", metadata={"direction": direction},
+            )
+
+        mock_client.get_symbol.side_effect = get_symbol
+        port = sysml_pb2.SymbolInfo(
+            id="Demo::Device::pIn", name="pIn", kind="portUsage",
+            members=[sysml_pb2.MemberInfo(
+                id="Demo::CmdPort::cmd", name="cmd", kind="attributeUsage",
+                inherited=True, inherited_from="Demo::CmdPort",
+            )],
+        )
+        return Symbol(port, mock_client, "model_abc123"), mock_client
+
+    def test_a_member_is_fetched_as_a_feature_of_the_symbol_listing_it(self):
+        port, mock_client = self._port({"symbol_members", "symbol_member_direction"})
+
+        (cmd,) = port.children(inherited=True)
+
+        mock_client.get_symbol.assert_called_once_with(
+            "model_abc123", "Demo::CmdPort::cmd", member_of="Demo::Device::pIn",
+        )
+        assert cmd.metadata["direction"] == "in"
+
+    def test_an_older_service_is_not_asked_for_a_relative_direction(self):
+        port, mock_client = self._port({"symbol_members"})
+
+        (cmd,) = port.children(inherited=True)
+
+        mock_client.get_symbol.assert_called_once_with("model_abc123", "Demo::CmdPort::cmd")
+        assert cmd.metadata["direction"] == "out"

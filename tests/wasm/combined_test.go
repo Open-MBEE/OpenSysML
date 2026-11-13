@@ -384,7 +384,7 @@ func TestCombinedWireParity(t *testing.T) {
 		"diagnostic_codes", "schedule", "final_time", "metaobject_values",
 		"undetermined_value", "performer", "big_int_values", "render_view", "state_trace",
 		"action_trace",
-		"symbol_members",
+		"symbol_members", "symbol_member_direction",
 		"render_document", "render_document_html", "render_document_asciidoc", "render_document_file_name",
 	}
 	if info.Version != "combined-wire-test" {

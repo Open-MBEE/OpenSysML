@@ -2376,7 +2376,7 @@ class Connection:
             response, lambda rows, instances: [self._sweep_row(row, instances, diagnostics) for row in rows],
         )
 
-    def get_symbol(self, model_hash, symbol_id, include_library_members=False):
+    def get_symbol(self, model_hash, symbol_id, include_library_members=False, member_of=""):
         """Fetch symbol by ID from cached model.
         
         Args:
@@ -2385,6 +2385,11 @@ class Connection:
             include_library_members (bool): List the members inherited from
                 standard-library content in ``members`` instead of counting
                 them in ``withheld_library_members``
+            member_of (str): Fully-qualified ID of the type the symbol is read
+                as a feature of; ``metadata["direction"]`` is then the direction
+                relative to that type, which a conjugated port typing reverses.
+                Empty reports the feature's own direction. A service without
+                the ``symbol_member_direction`` capability ignores it.
         
         Returns:
             sysml_pb2.SymbolInfo or None: Symbol protobuf, or None if not found
@@ -2393,6 +2398,7 @@ class Connection:
             model_hash=model_hash,
             symbol_id=symbol_id,
             include_library_members=include_library_members,
+            member_of=member_of,
         )
         with translate_rpc_errors():
             response = self._stub.GetSymbol(request)

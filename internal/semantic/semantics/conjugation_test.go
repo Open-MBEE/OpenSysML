@@ -251,3 +251,67 @@ func TestConjugationOnRedefiningPort(t *testing.T) {
 		t.Errorf("Space::link directions = %v, want cmd out / tlm in", got)
 	}
 }
+
+// TestEffectiveDirectionIsRelativeToTheType covers Type::directionOf (KerML
+// 8.3.3.1.10): a feature's direction relative to a type that reaches it through
+// a conjugation is reversed, whatever specializations lie on the way.
+func TestEffectiveDirectionIsRelativeToTheType(t *testing.T) {
+	m, root := buildModel(t, `package P {
+		port def CmdPort {
+			out attribute cmd;
+			in attribute ack;
+			inout attribute sync;
+			attribute note;
+		}
+		port def SubPort :> CmdPort;
+		port def Outer { port inner : CmdPort; }
+		part def Device {
+			port pOut : CmdPort;
+			port pIn : ~CmdPort;
+			port pSub : ~SubPort;
+			port pSubset :> pIn;
+			port pOuter : ~Outer;
+		}
+		part def SubDevice :> Device { port pRedefined :>> pIn; }
+		part device : Device;
+	}`)
+	pkg := sym(t, root, "P")
+	cmdPort := member(t, m, pkg, "CmdPort")
+	device := member(t, m, pkg, "Device")
+	var conjugate *symbols.Symbol
+	for _, candidate := range cmdPort.Scope.AllMembers() {
+		if candidate.IsConjugatedPortDefinition() {
+			conjugate = candidate
+		}
+	}
+	if conjugate == nil {
+		t.Fatal("CmdPort has no implied conjugated port definition")
+	}
+	original := map[string]ast.FeatureDirection{"cmd": ast.DirOut, "ack": ast.DirIn, "sync": ast.DirInOut, "note": ast.DirNone}
+	conjugated := map[string]ast.FeatureDirection{"cmd": ast.DirIn, "ack": ast.DirOut, "sync": ast.DirInOut, "note": ast.DirNone}
+	for _, tc := range []struct {
+		name  string
+		owner *symbols.Symbol
+		want  map[string]ast.FeatureDirection
+	}{
+		{"no owner", nil, original},
+		{"CmdPort", cmdPort, original},
+		{"~CmdPort", conjugate, conjugated},
+		{"SubPort", member(t, m, pkg, "SubPort"), original},
+		{"pOut", member(t, m, device, "pOut"), original},
+		{"pIn", member(t, m, device, "pIn"), conjugated},
+		{"pSub", member(t, m, device, "pSub"), conjugated},
+		{"pSubset", member(t, m, device, "pSubset"), conjugated},
+		{"pRedefined", member(t, m, member(t, m, pkg, "SubDevice"), "pRedefined"), conjugated},
+		// Conjugating the port that owns `inner` leaves inner's own typing alone.
+		{"Outer::inner", member(t, m, member(t, m, pkg, "Outer"), "inner"), original},
+		// A part is not a type the port features are features of.
+		{"device", member(t, m, pkg, "device"), original},
+	} {
+		for name, want := range tc.want {
+			if got := m.EffectiveDirection(tc.owner, member(t, m, cmdPort, name)); got != want {
+				t.Errorf("direction of %s relative to %s = %v, want %v", name, tc.name, got, want)
+			}
+		}
+	}
+}

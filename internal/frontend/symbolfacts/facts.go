@@ -82,6 +82,9 @@ type Options struct {
 	// IncludeLibraryMembers lists the members inherited from standard-library
 	// content in Members, each marked Library, instead of counting them.
 	IncludeLibraryMembers bool
+	// MemberOf is the type the symbol is read as a feature of; the direction
+	// reported is then the one relative to it (Type::directionOf).
+	MemberOf *symbols.Symbol
 }
 
 // TypeInfo describes a symbol's written, derived and primitive type. Declared,
@@ -150,13 +153,7 @@ func OfWith(sym *symbols.Symbol, sc *Context, opts Options) *Info {
 	// Extract metadata from AST node
 	extractMetadata(sym, info.Metadata)
 	sc.sendMetadata(sym, info.Metadata)
-	// A parameter whose direction its membership gives rather than its text,
-	// such as a subject (`in`), reports that direction.
-	if _, written := info.Metadata["direction"]; !written {
-		if dir, ok := semantics.ReflectiveDirection(sym); ok && dir != ast.DirNone {
-			info.Metadata["direction"] = dir.String()
-		}
-	}
+	sc.directionMetadata(sym, opts.MemberOf, info.Metadata)
 	// Add visibility to metadata
 	info.Metadata["visibility"] = visibilityToString(sym.Visibility)
 	if sym.Scope != nil {
@@ -175,6 +172,24 @@ func OfWith(sym *symbols.Symbol, sc *Context, opts Options) *Info {
 	// stays the owned members only.
 	info.Members, info.WithheldLibraryMembers = sc.membersOf(sym, opts.IncludeLibraryMembers)
 	return info
+}
+
+// directionMetadata states sym's direction: relative to memberOf when one is
+// given (Type::directionOf, KerML 8.3.3.1.10), else its own Feature::direction.
+func (sc *Context) directionMetadata(sym, memberOf *symbols.Symbol, meta map[string]string) {
+	if memberOf != nil {
+		if dir := sc.Semantics.EffectiveDirection(memberOf, sym); dir != ast.DirNone {
+			meta["direction"] = dir.String()
+			return
+		}
+	}
+	// A parameter whose direction its membership gives rather than its text,
+	// such as a subject (`in`), reports that direction.
+	if _, written := meta["direction"]; !written {
+		if dir, ok := semantics.ReflectiveDirection(sym); ok && dir != ast.DirNone {
+			meta["direction"] = dir.String()
+		}
+	}
 }
 
 // Root is one document's root namespace: the index's own root symbol for

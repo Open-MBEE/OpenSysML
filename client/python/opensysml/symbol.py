@@ -5,6 +5,7 @@ from typing import Any, Dict, FrozenSet, Iterable, List, Optional, Protocol, Tup
 from opensysml.errors import UnresolvedChildError
 from opensysml.capabilities import (
     CAPABILITY_SYMBOL_ATTRIBUTES,
+    CAPABILITY_SYMBOL_MEMBER_DIRECTION,
     CAPABILITY_SYMBOL_MEMBERS,
     require,
     upgrade_remedy,
@@ -50,7 +51,8 @@ class Members(List["Symbol"]):
 class SymbolSource(Protocol):
     """What a symbol needs of the connection it navigates through."""
 
-    def get_symbol(self, model_hash: str, symbol_id: str, include_library_members: bool = False) -> Any:
+    def get_symbol(self, model_hash: str, symbol_id: str, include_library_members: bool = False,
+                   member_of: str = "") -> Any:
         """The ``SymbolInfo`` for an id, or None when the model has no such symbol."""
 
     def server_info(self) -> Any:
@@ -373,8 +375,13 @@ class Symbol:
         rather than dropping them."""
         symbols: List["Symbol"] = []
         unresolved: List[str] = []
+        # Read as this symbol's member, a feature states its direction relative to
+        # this symbol: reversed where a conjugated port typing lies between.
+        relative = {}
+        if self._client.server_info().has(CAPABILITY_SYMBOL_MEMBER_DIRECTION):
+            relative = {"member_of": self.id}
         for symbol_id, inherited_from in ids:
-            info = self._client.get_symbol(self._model_hash, symbol_id)
+            info = self._client.get_symbol(self._model_hash, symbol_id, **relative)
             if info is None:
                 unresolved.append(symbol_id)
                 continue

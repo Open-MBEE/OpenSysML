@@ -163,6 +163,22 @@ def test_connection_get_symbol():
             assert pb_result.name == "Engine"
 
 
+def test_connection_get_symbol_names_the_type_the_symbol_is_a_member_of():
+    with patch('grpc.insecure_channel'):
+        mock_stub = Mock()
+        mock_stub.GetSymbol.return_value = sysml_pb2.SymbolResponse(
+            symbol=sysml_pb2.SymbolInfo(id="Demo::CmdPort::cmd", name="cmd", kind="attributeUsage"),
+        )
+
+        with patch('opensysml.proto.sysml_pb2_grpc.SysMLServiceStub', return_value=mock_stub):
+            conn = Connection(auto_start=False)
+            conn.get_symbol("model_hash", "Demo::CmdPort::cmd", member_of="Demo::Device::pIn")
+            assert mock_stub.GetSymbol.call_args[0][0].member_of == "Demo::Device::pIn"
+
+            conn.get_symbol("model_hash", "Demo::CmdPort::cmd")
+            assert mock_stub.GetSymbol.call_args[0][0].member_of == ""
+
+
 def test_connection_get_symbol_not_found():
     with patch('grpc.insecure_channel'):
         mock_stub = Mock()

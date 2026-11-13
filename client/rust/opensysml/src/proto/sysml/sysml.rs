@@ -1161,6 +1161,14 @@ pub struct GetSymbolRequest {
     /// withheld_library_members.
     #[prost(bool, tag="3")]
     pub include_library_members: bool,
+    /// The type the symbol is read as a feature of, by the id GetSymbol answers:
+    /// SymbolInfo.metadata\["direction"\] is then the feature's direction relative
+    /// to that type (KerML Type::directionOf), which a conjugation on the way to
+    /// the feature reverses, so `out` reads `in` through a port typed `~P`. Empty
+    /// reports the feature's own direction. Honoured with the
+    /// "symbol_member_direction" capability.
+    #[prost(string, tag="4")]
+    pub member_of: ::prost::alloc::string::String,
 }
 /// SymbolResponse contains symbol information
 #[derive(Clone, PartialEq, ::prost::Message)]
