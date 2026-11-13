@@ -568,8 +568,7 @@ func (m *migration) v2Refs(text, lang string, scope *sysmlv1.Element) (refs []re
 // v2Spelled writes text, whose names are refs, as read inside scope: its
 // library roots renamed and its owner's features qualified.
 func (m *migration) v2Spelled(text string, refs []reference, scope *sysmlv1.Element) string {
-	visible, _ := m.visibleFrom(scope)
-	text = m.renamedRoots(text, refs, visible, nil)
+	text = m.renamedReferences(text, refs, scope)
 	refs, _ = exprRefs(text)
 	return m.qualifySelf(text, refs, scope)
 }

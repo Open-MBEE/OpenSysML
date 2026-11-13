@@ -70,7 +70,7 @@ type performanceOwner interface {
 	// every frame: what is around the root may also keep it for a caller.
 	returnAround(name string, value Value) (bool, error)
 	// pauseAt pauses the run before node, in the flow of within, performs where a breakpoint is set on it.
-	pauseAt(within []ast.Node, node ast.Node) error
+	pauseAt(within []NodeRef, node NodeRef) error
 	// runOwnFlow runs the flow perf's node states of its own to completion.
 	runOwnFlow(perf *actionFrame) error
 	// endsOwn reports whether a terminate may end the root performance: an action's
@@ -162,22 +162,22 @@ type actionFrame struct {
 	outputs []string
 	// subactions holds the latest performance of each node of graph, which is
 	// what a read of the node's pins by name sees.
-	subactions map[ast.Node]*actionFrame
+	subactions map[NodeRef]*actionFrame
 	// repeatedPerfs holds every performance of a repeated node, by repetition
 	// index, so a read of its features from outside sees them all.
-	repeatedPerfs map[ast.Node][]*actionFrame
+	repeatedPerfs map[NodeRef][]*actionFrame
 	// pending queues what flows and bindings delivered to a node's pins ahead of
 	// its performances, each of which takes the oldest delivery at each pin.
-	pending map[ast.Node]map[string][]Value
+	pending map[NodeRef]map[string][]Value
 	// held queues what object flows delivered to the inputs of a fork, join or merge
 	// until a token passes it, each value with the flow that brought it.
-	held map[ast.Node]map[string][]nodeObject
+	held map[NodeRef]map[string][]nodeObject
 	// staged locates, per target node and pin, the queued value each streaming source
 	// performance's latest write left, which the source's next write replaces.
-	staged map[ast.Node]map[string][]stagedStream
+	staged map[NodeRef]map[string][]stagedStream
 	// nested queues deliveries to pins of the nodes under a node (`leg.inner.v`) ahead
 	// of its next performance, which forwards them to its own nodes.
-	nested map[ast.Node][]nestedDelivery
+	nested map[NodeRef][]nestedDelivery
 	// ended marks a performance that has completed, so a delivery to a node under it
 	// waits for the next performance rather than reaching one that is over.
 	ended bool
@@ -186,10 +186,10 @@ type actionFrame struct {
 	streamed map[string]bool
 	// unreceived holds, per target node, the values streaming flows carried after the
 	// node's latest performance ended; a later performance takes each, else it is reported.
-	unreceived map[ast.Node][]unreceivedStream
+	unreceived map[NodeRef][]unreceivedStream
 	// nodes are the action nodes a state behavior's performance runs, which its body's
 	// blocks declare; the frames of a state machine and its states hold none.
-	nodes []ast.Node
+	nodes []NodeRef
 	// label names a performance that is no action node's in a diagnostic: a state
 	// machine's, a state's or a state behavior's (state_statements.go).
 	label string
@@ -197,15 +197,60 @@ type actionFrame struct {
 
 // within lists the nested action nodes whose performances enclose this one, itself
 // included, outermost first; empty for the action's own and for no frame at all.
-func (f *actionFrame) within() []ast.Node {
-	var chain []ast.Node
+func (f *actionFrame) within() []NodeRef {
+	var chain []NodeRef
 	for ; f != nil; f = f.parent {
 		if f.node != nil && !f.body {
-			chain = append(chain, f.node)
+			chain = append(chain, f.ref())
 		}
 	}
 	slices.Reverse(chain)
 	return chain
+}
+
+// flowOf is the flow the performance's node is a node of: its own flow field, else
+// the flow of the performance around it; nil for the action's own.
+func (f *actionFrame) flowOf() *lower.ActionGraph {
+	if f.flow != nil || f.parent == nil {
+		return f.flow
+	}
+	return f.parent.graph
+}
+
+// ref references the performance's node in the flow it is a node of; the zero
+// reference for the action's own.
+func (f *actionFrame) ref() NodeRef {
+	if f.node == nil {
+		return NodeRef{}
+	}
+	return refOf(f.flowOf(), f.node)
+}
+
+// refUnder references node among those a performance of f holds as its own (see
+// nodesNamed); the zero reference for one it does not.
+func (f *actionFrame) refUnder(node ast.Node) NodeRef {
+	switch {
+	case f.graph != nil:
+		if ref, ok := locateNode(f.graph, node); ok {
+			return ref
+		}
+	case f.flow != nil:
+		if flow := lower.NestedFlow(f.flow, f.node, node); flow != nil {
+			return refOf(flow, node)
+		}
+	default:
+		for _, ref := range f.nodes {
+			if ref.Node() == node {
+				return ref
+			}
+		}
+	}
+	if f.performs != nil {
+		if ref, ok := locateNode(f.performs, node); ok {
+			return ref
+		}
+	}
+	return NodeRef{}
 }
 
 // unreceivedStream is a value a streaming flow carried to a target whose performances
@@ -267,7 +312,7 @@ func (e *ActionExecutor) newRootFrame(shape *performanceShape) *actionFrame {
 		unvalued:    shape.unvalued,
 		shadowed:    shape.shadowed,
 		sharedShape: true,
-		subactions:  make(map[ast.Node]*actionFrame),
+		subactions:  make(map[NodeRef]*actionFrame),
 		perfs:       &e.performances,
 		run:         e.ctx.newRun(),
 	}
@@ -512,7 +557,7 @@ func (e *performances) beginPerformance(
 			perf.graph = graph
 			perf.live = 1
 			perf.connections = joinConnections(parent.connections, graph.Connections)
-			perf.subactions = make(map[ast.Node]*actionFrame)
+			perf.subactions = make(map[NodeRef]*actionFrame)
 		}
 	}
 	pins, err := e.nodePins(flow, node)
@@ -538,15 +583,16 @@ func (e *performances) beginPerformance(
 	// The performance is ongoing before anything seeding it streams, so a value carried
 	// back to its node reaches it rather than waiting for a later performance.
 	if parent.subactions == nil {
-		parent.subactions = make(map[ast.Node]*actionFrame)
+		parent.subactions = make(map[NodeRef]*actionFrame)
 	}
-	previous, hadPrevious := parent.subactions[node]
-	parent.subactions[node] = perf
+	at := refOf(flow, node)
+	previous, hadPrevious := parent.subactions[at]
+	parent.subactions[at] = perf
 	if err := e.seedPerformance(parent, flow, node, perf); err != nil {
 		if hadPrevious {
-			parent.subactions[node] = previous
+			parent.subactions[at] = previous
 		} else {
-			delete(parent.subactions, node)
+			delete(parent.subactions, at)
 		}
 		return nil, err
 	}
@@ -586,7 +632,7 @@ func (e *performances) seedPerformance(parent *actionFrame, flow *lower.ActionGr
 		cell.binding.masked = feature.Name
 		cell.binding.place = featurePlace(feature)
 	}
-	if err := e.takeDeliveries(parent, node, perf); err != nil {
+	if err := e.takeDeliveries(parent, refOf(flow, node), perf); err != nil {
 		return err
 	}
 	// The arguments, bindings and defaults are one evaluation: a calc usage two of them
@@ -754,13 +800,13 @@ func (e *performances) endPerformance(perf *actionFrame) error {
 // checkStreamsReceived reports a value a streaming flow of frame's nodes carried after
 // its target's last performance ended, which no later performance of the target took.
 func checkStreamsReceived(frame *actionFrame) error {
-	nodes := sortedNodes(frame.unreceived)
+	nodes := sortedRefs(frame.unreceived)
 	if len(nodes) == 0 {
 		return nil
 	}
 	stream := frame.unreceived[nodes[0]][0]
 	return fmt.Errorf("%w: %s: %s completed before %s wrote %s",
-		errStreamUnreceived, flowDescription(stream.flow), nodeDescription(nodes[0]),
+		errStreamUnreceived, flowDescription(stream.flow), nodeDescription(nodes[0].Node()),
 		nodeDescription(stream.source), orAnyPin(stream.flow.SourcePin))
 }
 
@@ -941,15 +987,15 @@ func (f *actionFrame) lexicalFrames() []frame {
 
 // nodesNamed returns the nodes named name among the performance's subactions: its
 // flow's nodes, those its bodies' blocks declare, and those of the action it performed.
-func (f *actionFrame) nodesNamed(name string) []ast.Node {
-	var named []ast.Node
+func (f *actionFrame) nodesNamed(name string) []NodeRef {
+	var named []NodeRef
 	switch {
 	case f.graph != nil:
 		named = flowNodesNamed(f.graph, name)
 	case f.flow != nil:
-		named = usagesNamed(f.flow.BlockNodes[f.node], name)
+		named = usageRefsNamed(blockNodeRefs(f.flow.Bodies[f.node]), name)
 	default:
-		named = usagesNamed(f.nodes, name)
+		named = usageRefsNamed(f.nodes, name)
 	}
 	if f.performs != nil {
 		named = append(named, flowNodesNamed(f.performs, name)...)
@@ -959,15 +1005,8 @@ func (f *actionFrame) nodesNamed(name string) []ast.Node {
 
 // flowNodesNamed returns the nodes of graph named name: its own, then those the
 // blocks of its statement nodes declare.
-func flowNodesNamed(graph *lower.ActionGraph, name string) []ast.Node {
-	named := usagesNamed(graph.Nodes, name)
-	for _, node := range graph.Nodes {
-		if _, isUsage := node.(*ast.Usage); isUsage {
-			continue
-		}
-		named = append(named, usagesNamed(graph.BlockNodes[node], name)...)
-	}
-	return named
+func flowNodesNamed(graph *lower.ActionGraph, name string) []NodeRef {
+	return usageRefsNamed(flowNodeRefs(graph), name)
 }
 
 // usagesNamed returns the usages among nodes named name.
@@ -991,8 +1030,8 @@ func (f *actionFrame) subaction(name string, decl ast.Node) (perf *actionFrame, 
 		return nil, false, nil
 	}
 	node := named[0]
-	if slices.Contains(named, decl) {
-		node = decl
+	if i := slices.IndexFunc(named, func(ref NodeRef) bool { return ref.Node() == decl }); i >= 0 {
+		node = named[i]
 	} else {
 		for _, candidate := range named {
 			performed, ok := f.subactions[candidate]
@@ -1004,7 +1043,7 @@ func (f *actionFrame) subaction(name string, decl ast.Node) (perf *actionFrame, 
 	perf, performed := f.subactions[node]
 	if !performed {
 		return nil, true, fmt.Errorf("%w: action node %s has not been performed yet",
-			errNodeNotPerformed, ActionNodeName(node))
+			errNodeNotPerformed, ActionNodeName(node.Node()))
 	}
 	return perf, true, nil
 }
@@ -1015,7 +1054,7 @@ func (f *actionFrame) repetitionSiblings() []*actionFrame {
 	if f == nil || f.parent == nil {
 		return nil
 	}
-	return f.parent.repeatedPerfs[f.node]
+	return f.parent.repeatedPerfs[f.ref()]
 }
 
 // repeatedStep reports whether the performance is one of a step declared to run
@@ -1136,13 +1175,14 @@ func (e *performances) deliver(f *actionFrame, flow *lower.ActionGraph, node ast
 		if err := e.checkNestedDelivery(flow, node, path, pin, &value); err != nil {
 			return err
 		}
-		if sub, performed := f.subactions[node]; performed && !sub.ended {
+		at := refOf(flow, node)
+		if sub, performed := f.subactions[at]; performed && !sub.ended {
 			return e.deliver(sub, lower.NestedFlow(flow, node, path[0]), path[0], path[1:], pin, value)
 		}
 		if f.nested == nil {
-			f.nested = make(map[ast.Node][]nestedDelivery)
+			f.nested = make(map[NodeRef][]nestedDelivery)
 		}
-		f.nested[node] = append(f.nested[node], nestedDelivery{path: path, pin: pin, value: value})
+		f.nested[at] = append(f.nested[at], nestedDelivery{path: path, pin: pin, value: value})
 		return nil
 	}
 	pins, err := e.nodePins(flow, node)
@@ -1155,14 +1195,14 @@ func (e *performances) deliver(f *actionFrame, flow *lower.ActionGraph, node ast
 	if err := e.ctx.checkNamedWriteAs(flow.Scopes[node], func() string { return nodeDescription(node) }, pin, &value); err != nil {
 		return err
 	}
-	f.queue(node, program.Canonical(pins.aliases, pin), value)
+	f.queue(refOf(flow, node), program.Canonical(pins.aliases, pin), value)
 	return nil
 }
 
 // queue appends a value to the pending queue of node's pin, returning its position.
-func (f *actionFrame) queue(node ast.Node, pin string, value Value) int {
+func (f *actionFrame) queue(node NodeRef, pin string, value Value) int {
 	if f.pending == nil {
-		f.pending = make(map[ast.Node]map[string][]Value)
+		f.pending = make(map[NodeRef]map[string][]Value)
 	}
 	if f.pending[node] == nil {
 		f.pending[node] = make(map[string][]Value)
@@ -1174,7 +1214,7 @@ func (f *actionFrame) queue(node ast.Node, pin string, value Value) int {
 // stage queues a value flow streamed from source's from pin ahead of node's next
 // performance, or replaces the one an earlier write to from left waiting there through
 // the same flow; two flows out of one pin each keep a place. Reports whether it appended.
-func (f *actionFrame) stage(node ast.Node, pin string, source *actionFrame, from string, flow ast.Node, value Value) bool {
+func (f *actionFrame) stage(node NodeRef, pin string, source *actionFrame, from string, flow ast.Node, value Value) bool {
 	queue := f.pending[node][pin]
 	for _, s := range f.staged[node][pin] {
 		if source != nil && s.source == source && s.pin == from && s.flow == flow && s.at < len(queue) {
@@ -1184,7 +1224,7 @@ func (f *actionFrame) stage(node ast.Node, pin string, source *actionFrame, from
 	}
 	at := f.queue(node, pin, value)
 	if f.staged == nil {
-		f.staged = make(map[ast.Node]map[string][]stagedStream)
+		f.staged = make(map[NodeRef]map[string][]stagedStream)
 	}
 	if f.staged[node] == nil {
 		f.staged[node] = make(map[string][]stagedStream)
@@ -1216,7 +1256,7 @@ func (e *performances) checkNestedDelivery(flow *lower.ActionGraph, node ast.Nod
 // takeDeliveries moves the oldest delivery at each pin of node into perf, so that
 // performances of one node begun in turn each start with their own inputs, streams
 // each on along the pin's flows, and forwards what waits for the nodes under it.
-func (e *performances) takeDeliveries(f *actionFrame, node ast.Node, perf *actionFrame) error {
+func (e *performances) takeDeliveries(f *actionFrame, node NodeRef, perf *actionFrame) error {
 	queues := f.pending[node]
 	taken := make(map[string]Value, len(queues))
 	for pin, values := range queues {
@@ -1241,7 +1281,7 @@ func (e *performances) takeDeliveries(f *actionFrame, node ast.Node, perf *actio
 	nested := f.nested[node]
 	delete(f.nested, node)
 	for _, d := range nested {
-		if err := e.deliver(perf, lower.NestedFlow(perf.flow, node, d.path[0]), d.path[0], d.path[1:], d.pin, d.value); err != nil {
+		if err := e.deliver(perf, lower.NestedFlow(perf.flow, perf.node, d.path[0]), d.path[0], d.path[1:], d.pin, d.value); err != nil {
 			return err
 		}
 	}
@@ -1250,7 +1290,7 @@ func (e *performances) takeDeliveries(f *actionFrame, node ast.Node, perf *actio
 
 // shiftStaged moves what is staged at node's pin one place toward the front of the
 // pin's queue, as a performance takes the oldest delivery, dropping what it took.
-func (f *actionFrame) shiftStaged(node ast.Node, pin string) {
+func (f *actionFrame) shiftStaged(node NodeRef, pin string) {
 	var kept []stagedStream
 	for _, s := range f.staged[node][pin] {
 		if s.at--; s.at >= 0 {
@@ -1266,7 +1306,7 @@ func (f *actionFrame) shiftStaged(node ast.Node, pin string) {
 
 // receiveStream notes that a performance of node took the oldest value at pin: the
 // streamed values behind it move up, and the one taken is received.
-func (f *actionFrame) receiveStream(node ast.Node, pin string) {
+func (f *actionFrame) receiveStream(node NodeRef, pin string) {
 	var kept []unreceivedStream
 	for _, s := range f.unreceived[node] {
 		if s.pin == pin {
@@ -1368,13 +1408,14 @@ func (e *performances) streamFlow(
 		if perf != nil {
 			from = perf.key(from)
 		}
-		appended := frame.stage(flow.Target, pin, perf, from, flow.Decl, value)
-		if latest := frame.subactions[flow.Target]; appended && latest != nil && latest.ended {
+		target := refOf(graph, flow.Target)
+		appended := frame.stage(target, pin, perf, from, flow.Decl, value)
+		if latest := frame.subactions[target]; appended && latest != nil && latest.ended {
 			if frame.unreceived == nil {
-				frame.unreceived = make(map[ast.Node][]unreceivedStream)
+				frame.unreceived = make(map[NodeRef][]unreceivedStream)
 			}
-			frame.unreceived[flow.Target] = append(frame.unreceived[flow.Target], unreceivedStream{
-				flow: flow, source: source, pin: pin, at: len(frame.pending[flow.Target][pin]) - 1,
+			frame.unreceived[target] = append(frame.unreceived[target], unreceivedStream{
+				flow: flow, source: source, pin: pin, at: len(frame.pending[target][pin]) - 1,
 			})
 		}
 		return nil
@@ -1626,7 +1667,7 @@ func (f *actionFrame) collect(prefix string, into map[string]Value) error {
 func (f *actionFrame) latestSubactions() map[string]*actionFrame {
 	latest := make(map[string]*actionFrame)
 	for node, sub := range f.subactions {
-		name := ActionNodeName(node)
+		name := ActionNodeName(node.Node())
 		if name == "" {
 			continue
 		}
@@ -1967,12 +2008,12 @@ func (e *performances) otherPerformance(perf *actionFrame, end boundEnd) (other 
 	if node == nil {
 		return holder, true
 	}
-	other, performed = holder.subactions[node]
+	other, performed = holder.subactions[holder.refUnder(node)]
 	for _, node := range path {
 		if !performed {
 			return nil, false
 		}
-		other, performed = other.subactions[node]
+		other, performed = other.subactions[other.refUnder(node)]
 	}
 	return other, performed
 }
@@ -2198,8 +2239,8 @@ func (e *performances) beginInvocation(perf *actionFrame, inv actionInvocation) 
 		return nil, fmt.Errorf("invoke action %s: %w", inv.name(), err)
 	}
 	callee.name, callee.out, callee.performer = inv.name(), out, perf
-	if callee.exec.performedAt == nil {
-		callee.exec.performedAt = perf.node
+	if callee.exec.performedAt == (NodeRef{}) {
+		callee.exec.performedAt = perf.ref()
 	}
 	return callee, nil
 }
@@ -2268,7 +2309,7 @@ func (f *actionFrame) adopt(callee *ActionExecutor) {
 	}
 	f.performs = callee.graph
 	if len(callee.root.subactions) > 0 && f.subactions == nil {
-		f.subactions = make(map[ast.Node]*actionFrame, len(callee.root.subactions))
+		f.subactions = make(map[NodeRef]*actionFrame, len(callee.root.subactions))
 	}
 	for node, sub := range callee.root.subactions {
 		sub.parent = f
@@ -2318,11 +2359,11 @@ func (e *performances) bodyCells(perf *actionFrame) *bodyCells {
 }
 
 // cloneUnreceived copies the unreceived streams of a frame, queues included.
-func cloneUnreceived(m map[ast.Node][]unreceivedStream) map[ast.Node][]unreceivedStream {
+func cloneUnreceived(m map[NodeRef][]unreceivedStream) map[NodeRef][]unreceivedStream {
 	if m == nil {
 		return nil
 	}
-	out := make(map[ast.Node][]unreceivedStream, len(m))
+	out := make(map[NodeRef][]unreceivedStream, len(m))
 	for node, streams := range m {
 		out[node] = slices.Clone(streams)
 	}

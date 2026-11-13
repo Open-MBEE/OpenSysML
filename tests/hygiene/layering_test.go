@@ -121,6 +121,7 @@ var packageLayer = map[string]string{
 	"internal/doc/querytranslate":       "doc",
 	"internal/doc/docir":                "doc",
 	"internal/doc/docrender":            "doc",
+	"internal/doc/docset":               "doc",
 	"internal/doc/docpdf":               "doc",
 
 	"internal/workspace/model":       "workspace",
@@ -159,6 +160,7 @@ var packageLayer = map[string]string{
 	"internal/frontend/guard":                   "frontend",
 	"internal/frontend/guard/apikey":            "frontend",
 	"internal/frontend/guard/flags":             "frontend",
+	"internal/frontend/guard/oidc":              "frontend",
 	"internal/frontend/mcp":                     "frontend",
 	"internal/frontend/mcp/catalog":             "frontend",
 	"internal/frontend/mcp/toolkit":             "frontend",

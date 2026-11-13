@@ -7,9 +7,10 @@ track](../../project/roadmap.md#track-m--an-embedded-rtos-compatible-target) sta
 closed behavior IR, an ahead-of-time C backend over static tables, and a typed refusal of every
 model the target cannot bound. This note fixes what that route leaves open once the software
 class is Class A: the C profile the backend emits, the semantic basis the generated code is
-verified against, the assurance argument, the artifacts under configuration control, the
-refusals, the host interface and the stages — so the work can be reviewed before code is
-written and each stage judged complete on its own.
+verified against and the Lean formalization that basis is mechanized in, the assurance
+argument, the artifacts under configuration control, the refusals, the host interface and the
+stages — so the work can be reviewed before code is written and each stage judged complete on
+its own.
 
 Nothing in this note is implemented. The [native compilation record](../../project/native-compilation.md)
 describes the calc compiler that exists; this note describes a second backend over the same
@@ -89,20 +90,35 @@ The requirement basis is the specification text, not the interpreter:
    [the behavior semantic oracle](../../project/behavior-semantic-oracle.md) reads them. The
    oracle already separates what the library fixes from what a scheduling policy chose; that
    separation is exactly the line between a requirement and an implementation decision.
-2. **A written semantics for the closed IR**, a new document delivered with the IR
-   (`docs/internals/design/behavior-ir-semantics.md`, proposed): every node kind, edge kind and
-   expression form with its evaluation rule, its error condition and the oracle section it
-   derives from. This is the tool operational requirements document in DO-330 terms and the
-   requirements document the generated C is verified against.
+2. **A Lean model of the closed IR's semantics**, the master definition, kept in a new Open-MBEE
+   repository created for it (proposed name `behavior-ir.lean`; [The Lean
+   formalization](#the-lean-formalization) below says what it holds and why it is its own
+   repository): every node kind, edge kind and expression form of the IR stage 1 delivers, as an
+   executable Lean definition with its evaluation rule, its error condition and the oracle
+   section it derives from, executed under the one scheduling policy the profile fixes
+   (`declared`, [Determinism](#determinism-and-boundedness-are-refusals)). The written semantics,
+   `docs/internals/design/behavior-ir-semantics.md` (proposed, delivered with the IR), is derived
+   from the Lean model — one prose rule per Lean definition, each naming the definition it
+   restates — and its rule → conformance-case trace table points at the Lean definitions. The
+   pair is the tool operational requirements document in DO-330 terms and the requirements
+   document the generated C is verified against. What the Lean side adds to that argument is a
+   mechanized requirement basis in place of a prose one: a rule's meaning is a definition a proof
+   checker elaborates and a theorem can be stated about, not a paragraph two readers may agree
+   on differently, and the derived prose cannot drift from it without the trace table saying so.
+   The Lean side is a semantics of the IR, not of SysML v2 text: name resolution, typing and
+   lowering stay outside the formalization and are covered, as today, by the conformance corpus
+   that runs through them.
 3. **The execution conformance corpus** (`internal/exec/runtime/testdata/conformance/`), each case
-   traced to the oracle section it exercises, as the test cases for both the interpreter and
-   the compiled C. The cases that list several admissible `outcomes` are excluded from the
-   embedded profile by construction (see [Determinism](#determinism-and-boundedness-are-refusals)).
+   traced to the oracle section it exercises, as the test cases for the interpreter, the
+   compiled C and the Lean replay alike. The cases that list several admissible `outcomes` are
+   excluded from the embedded profile by construction (see
+   [Determinism](#determinism-and-boundedness-are-refusals)).
 
-The interpreter's role becomes what it should be: a second implementation of the same written
-semantics, whose agreement with the compiled C on the corpus is evidence for both. The
-spec-compliance map (`docs/project/spec-compliance.md`) gains a "compiled, embedded" status
-column per rule as stages land, in the same four-valued vocabulary it uses today.
+The interpreter's role becomes what it should be: one implementation of a semantics it does not
+define, whose agreement with the compiled C and with the Lean replay on the corpus is evidence
+for all three. The spec-compliance map (`docs/project/spec-compliance.md`) gains a "compiled,
+embedded" status column per rule as stages land, in the same four-valued vocabulary it uses
+today.
 
 ## The closed behavior IR
 
@@ -121,7 +137,18 @@ and the embedded backend applies the one the profile fixes.
 rather than names for references, names kept alongside for the reader — that two runs of the
 compiler over one model produce byte for byte, that a diff of two model versions can be read
 at the IR level, and that can be handed to a backend in another process. The form is versioned;
-a backend refuses a version it does not know.
+a backend refuses a version it does not know. Byte-stability alone is not the claim: the form is
+a **documented schema** with consumers outside Go. `docs/internals/design/behavior-ir-schema.md`
+(proposed, delivered with stage 1) states every table, record, field and index of `<model>.ir.json`
+and the trace record format — the record the interpreter's golden trace carries, in a JSON text
+form, and the fixed-width binary record the generated C emits through `M_trace`, which decodes to
+the same record — together with the trace map `<model>.trace.json` that ties both to IR indices,
+each with a machine-readable schema a test validates every fixture against. The Lean decoder of
+stage 1L is the first consumer that is not this repository's Go, and is what keeps the schema
+honest: a field the document does not state is a field the checker cannot read. The
+[execution-owned IR](../execution-ir-design.md#canonical-form)'s canonical form is the same
+encoding with the scope handles still present; its step 9 encoder and this schema are one
+artifact, not two.
 
 **Lossless** is proved the same way the calc compiler is: the interpreter gains an entry that
 executes *from* the serialized IR rather than from the lowered graphs, and the whole state and
@@ -134,6 +161,82 @@ incomplete, and the exit criterion is that no conformance case hits it.
 **A configuration item.** Once a model is compiled for flight, its IR is the artifact the
 generated C is traced to and the artifact a re-generation is compared against. It is written
 beside the C, and the trace map (below) refers to its indices.
+
+## The Lean formalization
+
+The compiled slice of a model — the closed IR stage 1 writes and the C stage 2 emits from it — is
+validated against a Lean 4 formalization of the IR's semantics, in the pattern Open-MBEE already
+uses rather than one invented here. Three repositories set it:
+
+- **[mars.lean](https://github.com/Open-MBEE/mars.lean)** gives a system (the MARS agent network)
+  an executable Lean semantics — `Agent.tickWith`, `Network.Step` over every tie-break, and
+  `stepSimpy`/`runSimpy`, the executable run in one scheduler's order — proves that the executable
+  run is a run of the relation (`stepSimpy_step`), defines refinement relations between models at
+  two fidelities (trace inclusion and equivalence, simulation, bisimulation) with the theorems
+  ordering them, and states its refinement criteria as decidable checkers over recorded traces
+  (`c1Violations`, `disagreements`, `c1Cross`/`c2Cross`) with soundness theorems
+  (`c1Violations_sound`, `disagreements_sound`), so a verdict on two traces is a theorem's
+  conclusion and not a script's opinion.
+- **[fprime-lean-sysmlv2-example](https://github.com/Open-MBEE/fprime-lean-sysmlv2-example)** runs
+  the same system twice — an F´ deployment built with span tracing and its executable SysML v2
+  twin run by this project's `sysml -trace` — reads both runs into one ordered-forest schema
+  through two abstractions (`α_F`, `α_S`), decides their equivalence (`DEquiv`) with a checker
+  whose soundness is proved in Lean (`common/theory/lean/FprimeLean`), and runs that checker in
+  CI over committed runs, where the mismatched pairings are run too and expected to fail, so
+  the check is shown to be live. Its `α_S` parses the interpreter's `[trace]` text and needs
+  model-specific knowledge (the names of the states that stand for a queue) to do so — which is
+  the reason the trace record here is a schema and not a text to be parsed.
+- **[fcheck](https://github.com/Open-MBEE/fcheck)** translates an F´ application's components into
+  an executable Lean model (`RoverDemoLean/Model.lean`, exact integers, a `#eval` that reproduces
+  the application's demo) and proves properties of it (`tick_no_overshoot` and five more, no
+  `sorry`), then monitors the running deployment's traces with DejaVuMT against a specification
+  whose properties mirror the theorems one for one, and checks mutated traces to show each
+  property is live.
+
+The common shape is an executable model whose runs are proved to be runs of the semantics, a
+decidable check over traces with a soundness theorem, committed traces the check runs over in
+CI, and a negative case that proves the check can fail. Track M takes that shape and puts the
+IR, rather than a hand-written model of one system, on the Lean side.
+
+**The repository.** The formalization lives in a new, generic-named Open-MBEE repository, to be
+created — proposed name `behavior-ir.lean`, after `mars.lean`, `face.lean` and `SBVR.lean`. It
+is not inside this repository, because a Lean toolchain is not something every contributor
+here should need and because the IR's semantics is a semantics of a behavior IR, not of this
+implementation; it is not OpenSysML-branded, because another producer of the same IR is meant
+to be able to validate against it; and it is not inside `mars.lean` or the F´ example, because
+each of those is a model of one system and this is a model of a language of models. It holds:
+
+- the IR's tables as Lean types and a decoder of `behavior-ir-schema.md`'s text form, which
+  refuses an IR version it does not know exactly as a backend does;
+- the semantics as an executable step function under `declared` — the token rule, the guard and
+  decision rules, the transition selection, region order, the fixed-step clock and
+  `accept after`, the bounded queues with their full-queue behavior, and the expression
+  evaluation over `Integer` with the interpreter's overflow and division rules — each definition
+  the master of one numbered rule in `behavior-ir-semantics.md`;
+- the trace it defines, in the schema's record format, so a replay is comparable record for
+  record with the interpreter's golden and the C's binary trace;
+- the theorems the gate requires: the step function is deterministic (one successor state per
+  state and input under `declared`), a replay's trace is the trace the semantics defines
+  (soundness of the checker), a full queue refuses and never overwrites, every rule in the trace
+  table is a definition that elaborates — with no `sorry` and an axiom profile of the standard
+  three, checked in CI as `mars.lean` and the F´ example check theirs;
+- `lake exe behavior-ir-check <model>.ir.json <trace>`, the replay checker: decode, replay,
+  compare, exit non-zero at the first divergent record with both records printed.
+
+This repository holds the pin, the download script, the CI job and the conformance corpus; the
+formalization holds the semantics, the checker and the proofs. The corpus's `.ir.json` files are
+written by stage 1 and are what the checker reads — it never reads a `.sysml` file.
+
+**What the Lean validation is not.** It is not a proof about arbitrary models: it replays the
+slice of one model, and a theorem about the semantics is a theorem about every IR the decoder
+accepts, not about every SysML v2 text. It replays under one scheduling policy, `declared`,
+which is the only policy the profile emits; the choice points the interpreter records under
+other policies are refusals of stage 2 and are not formalized. The refusal list of stage 2 is
+unchanged by it — a construct the profile refuses is absent from the IR the checker sees, and
+the formalization says nothing about it. The prelude, `sysml_embedded.c`, is outside the
+formalization: the checker compares traces, and a defect in the checked arithmetic or the queue
+operations shows up as a divergent record, not as a failed proof about the C; who verifies the
+prelude, and to which standard, is still [open question 4](#open-questions-for-the-assurance-plan).
 
 ## The freestanding C profile
 
@@ -245,7 +348,7 @@ configuration item:
 
 | Artifact | Content |
 |---|---|
-| `<model>.ir.json` | the closed IR, canonical form, with the IR version |
+| `<model>.ir.json` | the closed IR, canonical form, with the IR version, in the schema of `behavior-ir-schema.md` |
 | `<model>.c`, `<model>.h` | the generated translation unit and its host header |
 | `sysml_embedded.c`, `sysml_embedded.h` | the prelude, at its version |
 | `<model>.trace.json` | the trace map: for every generated function and table, the IR index, the model element's qualified name, its identity (the `IdentityMetadata` annotation when the model carries one, see [element identity annotations](../../project/element-identity-annotations.md)), and its source span; and for every C line, the IR node it implements |
@@ -284,18 +387,33 @@ map is a separate file and the comments are in the C.
 What the generator must show, and how each is produced, so that a project can build its tool
 qualification argument from repository artifacts rather than from a description of them.
 
-1. **Tool operational requirements.** The IR semantics document and the C profile above, each
-   rule numbered, each with its refusal or emission behavior.
+1. **Tool operational requirements.** The Lean model of the IR semantics, the written semantics
+   derived from it and the C profile above, each rule numbered, each naming its Lean definition
+   and its refusal or emission behavior.
 2. **Requirements-based tests.** Every rule in the semantics document has at least one
-   conformance case that exercises it, and the trace from rule to case is a table in the
-   document, checked by a test that fails when a rule has no case.
-3. **The differential.** Every state and action conformance case, and every calc case the
-   profile admits, is compiled by the embedded backend, built with the host compiler under the
-   profile's flags, run on the host with the trace read back as records, and compared to the
-   interpreter's golden trace under `declared`; then the same C, unchanged, is built for
-   `qemu_cortex_m3` and run under QEMU with the trace read over the serial console, and compared
-   again. The second run is what makes "runs on the target" a tested claim rather than an
-   inference from the first.
+   conformance case that exercises it, and the trace from Lean definition to rule to case is a
+   table in the document, checked by a test that fails when a rule has no case or no definition.
+3. **The differential, on three legs.** Every state and action conformance case, and every calc
+   case the profile admits, is run three ways and the three traces must agree record for
+   record: the interpreter under `declared`, from the IR entry, writing the golden trace; the
+   compiled C, built with the host compiler under the profile's flags and run on the host with
+   the binary trace read back as records; and the Lean checker of stage 1L, which decodes
+   `<model>.ir.json`, replays it under the formalization's semantics and writes the trace that
+   semantics defines. Then the same C, unchanged, is built for `qemu_cortex_m3` and run under
+   QEMU with the trace read over the serial console, and compared again. The QEMU run is what
+   makes "runs on the target" a tested claim rather than an inference from the host run. A
+   disagreement is a defect in the generator, the interpreter or the formalization, and the
+   formalization's soundness theorems adjudicate which: when the theorem for the rule the traces
+   diverge on holds, the implementation whose trace left the Lean trace is wrong and is fixed in
+   this repository; when the divergence is on a point the theorems do not fix, the Lean model or the
+   derived rule is incomplete and is fixed there first, after which the case is re-run. No
+   disagreement is settled by changing a golden. The Lean replay runs in CI as a gate on the
+   same corpus, with the formalization and its toolchain pinned the way this repository pins the
+   pilot and every other external tool: a `scripts/behavior-ir-lean-pin.sh` naming the
+   formalization repository's tag and commit and the Lean toolchain it declares, sourced by a
+   `scripts/download-behavior-ir-lean.sh` that fetches at that commit, verifies the tag still
+   resolves to it, builds the checker and stamps the destination, so the gate cannot move with
+   the formalization's `develop` and a changed pin is a reviewed change here.
 4. **Refusal tests.** Every refusal rule has a fixture that triggers it and a test that pins the
    message and the element it names. A refusal that stops firing is a regression.
 5. **Structural coverage of the generator.** `internal/translate/codegen`'s tests today run from
@@ -355,6 +473,19 @@ Linux reference deployment first and on a maintainer's board second, because F´
 JPL flight project is likeliest to host this in. The first is the CI gate; the second is the
 demonstration.
 
+**The board.** The maintainer-run hardware target of stage 5 is an ARM Cortex-M Arduino-compatible
+board, the same architecture family as the QEMU proof and an upstream Zephyr board, so the Zephyr
+application built for `qemu_cortex_m3` is rebuilt for the board and nothing else changes: the
+**Arduino Uno R4 Minima** (Renesas RA4M1, Cortex-M4; Zephyr's `arduino_uno_r4@minima`) is the
+named board, and the **Arduino Nano 33 BLE** (nRF52840, Cortex-M4F; Zephyr's
+`arduino_nano_33_ble`) where stage 6's `Real` path wants a hardware FPU — a single-precision one
+on that core, which stage 6's FPU declaration has to say before `Real` compiles for it. The 8-bit
+AVR boards — Uno R3, Nano classic, Mega — are out of scope for the track as written: a 64-bit
+`Integer` in software on an 8-bit core is not what the profile's bit-for-bit agreement with the
+interpreter was written for, and they become a possible stage 6 stretch only under a narrowed
+`Integer` policy, which is [open question 2](#open-questions-for-the-assurance-plan) and is not
+decided here.
+
 ## Stages
 
 Each stage is a pull request or a small series against `develop`, with its own tests and its
@@ -364,19 +495,28 @@ external costs are named at the end.
 | Stage | Delivers | Exit criterion | Size |
 |---|---|---|---|
 | **0 — this record** | the design, reviewed | merged | 1 |
-| **1 — the closed IR** | `internal/exec/bir` (name to be settled): the tables, the canonical serialization, the lowering from `ActionGraph`/`StateGraph`/`CalcBody`, the interpreter entry that runs from it, and `behavior-ir-semantics.md` with the rule → case trace table | every state and action conformance case and golden trace passes through the IR entry; the serialization is byte-stable; the trace table has no rule without a case | 2 |
-| **2 — the prelude and the embedded emitter** | `sysml_embedded.{c,h}`; the emitter over static tables in the profile above; the refusals; the host-side differential and the `gcov` and analyzer gates | the differential passes over every admitted case on the host; every refusal has a fixture; the C compiles clean under the profile's flags | 3 |
+| **1 — the closed IR and its schemas** | `internal/exec/bir` (name to be settled): the tables, the canonical serialization, the lowering from `ActionGraph`/`StateGraph`/`CalcBody`, the interpreter entry that runs from it; `behavior-ir-schema.md` with the machine-readable schemas of `<model>.ir.json`, the trace record (text and binary) and `<model>.trace.json`; `behavior-ir-semantics.md` as the rule list the Lean model of stage 1L will master, with the rule → case trace table | every state and action conformance case and golden trace passes through the IR entry; the serialization is byte-stable and every fixture's `.ir.json` and trace validate against the schema; the trace table has no rule without a case | 2 |
+| **1L — the Lean model and the replay checker** | in the new repository: the decoder of stage 1's schema, the executable semantics under `declared`, the trace emitter, the theorems named in [The Lean formalization](#the-lean-formalization) and `behavior-ir-check`; in this repository: `scripts/behavior-ir-lean-pin.sh`, `scripts/download-behavior-ir-lean.sh`, the CI job that replays every conformance case's `.ir.json` against the interpreter's golden trace, and `behavior-ir-semantics.md` re-derived from the model with each rule naming its definition | every state and action conformance case's IR replays to the interpreter's golden trace; the theorems are proved with no `sorry` and the standard axiom profile; the trace table has no rule without a definition; a committed wrong pairing fails the checker. Depends on stage 1's schema; stage 2's differential depends on it | 2 |
+| **2 — the prelude and the embedded emitter** | `sysml_embedded.{c,h}`; the emitter over static tables in the profile above; the refusals; the three-legged differential on the host and the `gcov` and analyzer gates | the differential's three traces agree over every admitted case on the host; every refusal has a fixture; the C compiles clean under the profile's flags | 3 |
 | **3 — resources and budget** | the resource report, the budget file, the trace map, reproducibility gate | the same-host and cross-host compilations diff empty; a fixture over budget fails the build; the trace map covers every generated line | 1 |
 | **4 — the host interface** | the header above, designed with the C ABI item; `M_write`, `M_outgoing`, `M_trace` | the differential drives fixtures through the header alone | 1 |
-| **5 — the proofs** | the Zephyr application and CI job under QEMU; the F´ component and its Linux run | the QEMU trace equals the golden for both fixtures in CI; the F´ deployment runs the same fixtures on Linux | 2 |
+| **5 — the proofs** | the Zephyr application and CI job under QEMU; the F´ component and its Linux run; the same Zephyr application built for the Uno R4 Minima (the maintainer's board, above) | the QEMU trace equals the golden for both fixtures in CI; the F´ deployment runs the same fixtures on Linux; the board run is recorded, not gated | 2 |
 | **6 — the embedded library** | `EmbeddedTarget` metadata (MCU, step, queue depths, FPU, budget reference) and a library package of fixed-width numeric types and bounded collections the compiler recognizes | the passes validate the metadata; `Real` compiles only under a declared FPU; a narrower declared type is emitted as such | 1 |
 
 Stages 1 and 2 carry the risk and should not be split further than their exit criteria allow; a
-stage whose differential loses a case is redesigned, not merged with a known failure.
+stage whose differential loses a case is redesigned, not merged with a known failure. Stage 1L
+is the only stage whose deliverable is mostly outside this repository; it is listed here because
+stage 2's gate cannot be stated without it, and its size counts the formalization's work as well
+as the pin and the job here. The Lean work enters at stage 1 (the schema), stage 1L and stage
+2's differential, and touches none of the execution-owned IR's steps 1–8
+([execution-ir-design.md](../execution-ir-design.md#migration-as-a-stack-of-pull-requests));
+the schema is that design's step 9 encoder, documented.
 
 **External costs, not in the table:** the project's static analyzer and MC/DC tool on the
 generated C, the verification of the prelude to the project's standard, the IV&V review, and
-the hardware run. The repository produces what each consumes.
+the hardware run. The repository produces what each consumes. The formalization's own review —
+that its definitions read the oracle correctly — is a review of the new repository and is where
+IV&V's reading of the semantics belongs.
 
 ## What this is not
 
@@ -386,6 +526,9 @@ the hardware run. The repository produces what each consumes.
   is computed from the call graph and frame estimates and is an input to the project's own timing
   and stack analysis, not a substitute.
 - **Not a qualification.** See [Assuring the generator](#assuring-the-generator).
+- **Not a verified compiler.** The Lean side validates each compiled slice by replay; it proves
+  nothing about the generator's Go, and what it is not is stated in
+  [The Lean formalization](#the-lean-formalization).
 - **Not a replacement for the host backend.** The calc compiler keeps its GNU-C prelude, its
   arena and its speed; a model that needs `Real` transcendental functions, function values or
   the interpreter's step budget uses it or the interpreter.

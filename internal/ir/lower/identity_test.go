@@ -182,7 +182,7 @@ func TestAssignIDs_StateTablesDenseInDeclarationOrder(t *testing.T) {
 		t.Fatalf("fixture lowers %d states, %d pseudostates, %d regions, %d transitions",
 			len(graph.States), len(graph.Pseudostates), len(graph.RegionID), len(graph.TransID))
 	}
-	if len(graph.Origins) != len(graph.States)+1 || len(graph.PseudoOrigins) != len(graph.Pseudostates)+1 ||
+	if len(graph.Origins) != len(graph.ID)+1 || len(graph.PseudoOrigins) != len(graph.Pseudostates)+1 ||
 		len(graph.RegionOrigins) != len(graph.RegionID)+1 || len(graph.TransOrigins) != len(graph.TransID)+1 {
 		t.Fatal("every origin table is one longer than its records")
 	}
@@ -254,6 +254,54 @@ func TestAssignIDs_StateDeterministicAcrossLowerings(t *testing.T) {
 	} {
 		if !reflect.DeepEqual(pair[0], pair[1]) {
 			t.Errorf("%s differ:\n%+v\n%+v", name, pair[0], pair[1])
+		}
+	}
+}
+
+// The states a parallel body's usages stand for are graph-only (States leaves
+// them out) but head parent chains and region tables, so they are numbered too.
+func TestAssignIDs_StateHiddenRegionOwnersNumbered(t *testing.T) {
+	graph, err := ToStateGraph(stateDefinitionIn(t, `
+		package test {
+			state def Machine {
+				entry; then outer;
+				state outer parallel {
+					state a {
+						entry; then a1;
+						state a1;
+					}
+					state b {
+						entry; then b1;
+						state b1;
+					}
+				}
+			}
+		}
+	`), nil)
+	if err != nil {
+		t.Fatalf("ToStateGraph: %v", err)
+	}
+	if len(graph.Origins) != len(graph.ID)+1 || len(graph.ID) != len(graph.States)+2 {
+		t.Fatalf("%d ids for %d states and two hidden region owners, %d origins", len(graph.ID), len(graph.States), len(graph.Origins))
+	}
+	for i, state := range graph.States {
+		if graph.ID[state] != program.StateID(i+1) {
+			t.Errorf("state %s: id %d at %d; want States numbered first", state.Name, graph.ID[state], i)
+		}
+	}
+	for _, name := range []string{"a1", "b1"} {
+		parent := graph.ParentState[stateNamed(graph, name)]
+		if parent == nil || !graph.HiddenStates[parent] {
+			t.Fatalf("%s parent = %v, want hidden region owner", name, parent)
+		}
+		id := graph.ID[parent]
+		if id == 0 || graph.Provenance.State(id) != parent || graph.Origins[id].Name != parent.Name {
+			t.Errorf("hidden %s: id %d, provenance %v, origin %+v", parent.Name, id, graph.Provenance.State(id), graph.Origins[id])
+		}
+	}
+	for region, owner := range graph.RegionState {
+		if graph.ID[owner] == 0 {
+			t.Errorf("region %s owner %s has no id", region.Name, owner.Name)
 		}
 	}
 }

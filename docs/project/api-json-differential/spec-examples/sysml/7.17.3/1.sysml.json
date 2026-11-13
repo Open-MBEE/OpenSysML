@@ -11,9 +11,9 @@
       "typeMismatch": 0
     },
     "properties": {
-      "presentEqual": 97,
+      "presentEqual": 98,
       "presentDifferent": 0,
-      "oursMissing": 14,
+      "oursMissing": 13,
       "pilotMissing": 2,
       "absentBoth": 143,
       "indeterminate": 3,
@@ -177,7 +177,7 @@
     "ForkNode.isLibraryElement": [1,0,0,0,0,0,0],
     "ForkNode.isOrdered": [1,0,0,0,0,0,0],
     "ForkNode.isPortion": [1,0,0,0,0,0,0],
-    "ForkNode.isReference": [0,0,1,0,0,0,0],
+    "ForkNode.isReference": [1,0,0,0,0,0,0],
     "ForkNode.isSufficient": [1,0,0,0,0,0,0],
     "ForkNode.isUnique": [1,0,0,0,0,0,0],
     "ForkNode.isVariable": [1,0,0,0,0,0,0],

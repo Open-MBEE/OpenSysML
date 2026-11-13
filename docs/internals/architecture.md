@@ -108,7 +108,8 @@ github.com/Open-MBEE/OpenSysML
 │   │   ├── queryexec/      # Query plan execution → typed, ordered row sets
 │   │   ├── querytranslate/ # OSLC Query text and the API Query → query plans (the shared translator core)
 │   │   ├── docir/          # Document plan evaluation → backend-agnostic document tree
-│   │   ├── docrender/      # Markdown and HTML document backends
+│   │   ├── docrender/      # Markdown, HTML and AsciiDoc document backends
+│   │   ├── docset/         # One document of a model's set, end to end: plan, siblings, files, a backend's text (service, engine and workspace share it)
 │   │   └── docpdf/         # PDF document backend
 │   ├── workspace/
 │   │   ├── model/          # Workspace, document management
