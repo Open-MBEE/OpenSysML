@@ -2548,8 +2548,8 @@ func (e *encoder) typeTerm(typ *symbols.Symbol) rdf.Term {
 }
 
 // connectorRelatedFeature states Connector::relatedFeature as the feature the end's ReferenceSubsetting references
-// (KerML 8.3.4.5.3) — the chain Feature for a chained end — and, unless the end is a flow's, the
-// Relationship::relatedElement, source and target the three redefine, as the pilot exports them.
+// (KerML 8.3.4.5.3; a chained end's chain Feature) and, unless the end is a flow's, the Relationship::relatedElement,
+// source and target the three redefine, as the pilot exports them.
 func (e *encoder) connectorRelatedFeature(subject, reference rdf.Term, index, ends int, related bool) {
 	if reference.Value == "" || !reference.IsIRI() {
 		return
