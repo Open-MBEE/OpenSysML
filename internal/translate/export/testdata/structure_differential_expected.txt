@@ -79,9 +79,9 @@ root examples: models 56, skipped 0, matched 30643, unmatched 16885
   OwningMembership::ownedMemberShortName: equal 12324, different 0, symbol-missing 0, symbol-extra 96
   Relationship::ownedRelatedElement: equal 18117, different 102, symbol-missing 0, symbol-extra 0
   Relationship::owningRelatedElement: equal 18157, different 62, symbol-missing 0, symbol-extra 0
-  Relationship::relatedElement: equal 17920, different 102, symbol-missing 190, symbol-extra 7
-  Relationship::source: equal 18040, different 65, symbol-missing 114, symbol-extra 0
-  Relationship::target: equal 17970, different 52, symbol-missing 190, symbol-extra 7
+  Relationship::relatedElement: equal 17922, different 100, symbol-missing 190, symbol-extra 7
+  Relationship::source: equal 18042, different 63, symbol-missing 114, symbol-extra 0
+  Relationship::target: equal 17971, different 51, symbol-missing 190, symbol-extra 7
   RequirementDefinition::text: equal 23, different 0, symbol-missing 37, symbol-extra 0
   RequirementUsage::actorParameter: equal 139, different 0, symbol-missing 0, symbol-extra 8
   RequirementUsage::stakeholderParameter: equal 139, different 0, symbol-missing 0, symbol-extra 8
@@ -420,8 +420,8 @@ root examples/pilot-corpora: models 213, skipped 0, matched 45856, unmatched 151
   ReferenceSubsetting::referencingFeature: equal 844, different 0, symbol-missing 5, symbol-extra 0
   Relationship::ownedRelatedElement: equal 27360, different 218, symbol-missing 0, symbol-extra 0
   Relationship::owningRelatedElement: equal 27442, different 136, symbol-missing 0, symbol-extra 0
-  Relationship::relatedElement: equal 27047, different 352, symbol-missing 170, symbol-extra 9
-  Relationship::source: equal 27284, different 193, symbol-missing 101, symbol-extra 0
+  Relationship::relatedElement: equal 27052, different 347, symbol-missing 170, symbol-extra 9
+  Relationship::source: equal 27288, different 189, symbol-missing 101, symbol-extra 0
   Relationship::target: equal 27171, different 228, symbol-missing 170, symbol-extra 9
   RequirementDefinition::text: equal 20, different 0, symbol-missing 21, symbol-extra 0
   RequirementUsage::actorParameter: equal 176, different 0, symbol-missing 1, symbol-extra 8
