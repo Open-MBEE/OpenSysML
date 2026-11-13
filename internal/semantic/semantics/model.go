@@ -74,6 +74,8 @@ type Model struct {
 	referential map[*symbols.Symbol]bool
 	// implicitBase memoizes each declaration's kind bases once settled (see implicit.go).
 	implicitBase map[*symbols.Symbol][]*symbols.Symbol
+	// featureBaseTypes memoizes baseFeatureTypes: the types a base feature supplies, read for every usage of its kind.
+	featureBaseTypes map[*symbols.Symbol][]*symbols.Symbol
 	// implicitGenerals memoizes ImplicitGenerals: the generals a declaration's kind implies, which every type query of a feature reads.
 	implicitGenerals map[*symbols.Symbol][]*symbols.Symbol
 	// implicitSubsettings memoizes the owner feature each nested usage implicitly
@@ -225,6 +227,7 @@ func NewModel(resolver *resolve.Resolver) *Model {
 		subtracting:            make(map[*symbols.Symbol]bool),
 		referential:            make(map[*symbols.Symbol]bool),
 		implicitBase:           make(map[*symbols.Symbol][]*symbols.Symbol),
+		featureBaseTypes:       make(map[*symbols.Symbol][]*symbols.Symbol),
 		implicitGenerals:       make(map[*symbols.Symbol][]*symbols.Symbol),
 		implicitSubsettings:    make(map[*symbols.Symbol][]*symbols.Symbol),
 		usageBase:              make(map[*symbols.Symbol]*symbols.Symbol),
@@ -1012,7 +1015,7 @@ func (m *Model) FeatureTypeSetWithImplied(sym *symbols.Symbol) []*symbols.Symbol
 			add(general)
 			continue
 		}
-		for _, typ := range m.baseFeatureTypes(general, nil) {
+		for _, typ := range m.baseFeatureTypes(general) {
 			add(typ)
 		}
 	}

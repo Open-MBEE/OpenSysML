@@ -199,7 +199,7 @@ func TestBaseFeatureTypesForUsageBases(t *testing.T) {
 		base := sym(t, pkg.Scope, parts[1])
 		var got []string
 		if base.IsFeature() {
-			for _, typ := range m.baseFeatureTypes(base, nil) {
+			for _, typ := range m.baseFeatureTypes(base) {
 				got = append(got, m.resolver.Index().GetFQN(typ))
 			}
 		} else {
