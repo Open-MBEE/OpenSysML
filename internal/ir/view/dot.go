@@ -1406,19 +1406,16 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 			attrs = append(attrs, `style="rounded,filled"`)
 		}
 		attrs = append(attrs, w.fillAttributes(node)...)
-		switch {
-		case stated:
+		if stated {
 			attrs = append(attrs, w.dotStatedLabel(node)...)
-		case len(w.ports.of(node)) > 0 && !w.pinNode(node):
-			attrs = append(attrs, w.dotPortedLabel(node, w.labels.dotLabel(node)))
-		default:
+		} else {
 			attrs = append(attrs, w.labels.dotLabel(node))
 		}
 	}
 	for i, attr := range attrs {
 		attrs[i] = dotStyledLabel(attr, node.Style)
 	}
-	attrs = dotOverridden(append(attrs, dotStyleAttributes(node.Style, w.fills.filled(node) || w.pinned(node))...))
+	attrs = dotOverridden(append(attrs, dotStyleAttributes(node.Style, w.fills.filled(node))...))
 	if box, ok := w.boxes[node.ID]; ok {
 		width, height := box.size()
 		attrs = append(attrs, w.dotPin(box.centre()))
@@ -1436,12 +1433,11 @@ func (w *dotWriter) dotNodeAttributes(node *Node) []string {
 	return attrs
 }
 
-// pinned reports whether a plain node is drawn as dotPinnedAttributes draws it:
-// an unboxed node of an interconnection under the minimal display with a drawn
-// port, whose squares sit on its box's outer edge rather than in cells of it.
+// pinned reports whether a plain node is drawn as dotPinnedAttributes draws it: an
+// unboxed node with a drawn port or pin, whose squares sit on its box's outer edge.
 func (w *dotWriter) pinned(node *Node) bool {
 	stated := node.Geometry != nil && node.Geometry.HasSize
-	return w.ports.minimal && !stated && !w.pinNode(node) && len(w.ports.of(node)) > 0
+	return !stated && !w.pinNode(node) && len(w.ports.of(node)) > 0
 }
 
 // dotStatedLabel is a stated box's label attributes: the label fitted to the
@@ -1592,6 +1588,21 @@ func (w *dotWriter) dotSymbolAttributes(node *Node) []string {
 // dotTerminateLabel is the X of a terminate node's crossed circle (§8.2.3.17
 // terminate-node), set in the circle in place of a label.
 const dotTerminateLabel = `label=<<b>✕</b>>`
+
+// boxFill is the colour a plain node's box is filled with: the palette's for its
+// family, else its Style's, else the skin's for its kind.
+func (w *dotWriter) boxFill(node *Node) string {
+	switch {
+	case w.fills.filled(node):
+		return w.fills.fill(node)
+	case node.Style != nil && node.Style.Fill != "":
+		return node.Style.Fill
+	case w.skin.cameo:
+		fill, _ := cameoFill(node.Kind)
+		return fill
+	}
+	return "white"
+}
 
 // fillAttributes is a plain node's fill beyond the node defaults: the palette's
 // family colours when one fills it, else the skin's fill for its kind.

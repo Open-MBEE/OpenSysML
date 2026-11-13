@@ -193,6 +193,8 @@ exclude_docs: |
   project/pilot-execution-referee.md
   project/derived-property-census.md
   project/pssm-referee.md
+  project/hideo-suite.md
+  project/hideo-suite-baseline.tsv
   project/llm-benchmark.md
   project/fuml-referee.md
   project/behavior-semantic-oracle.md

@@ -403,6 +403,8 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 			return "TransitionFeatureMembership"
 		case symbols.ExpressionPayload:
 			return "ParameterMembership"
+		case symbols.ExpressionTransitionSuccession:
+			return "OwningMembership"
 		}
 	}
 	if _, ok := m.transitionFeatureKind(owner, member); ok {
