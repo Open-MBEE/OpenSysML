@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 // ErrSuiteAbsent reports that the suite has not been checked out.
@@ -68,7 +69,7 @@ func Execute(ctx context.Context, dir, repo string, log io.Writer) error {
 	}
 	run := command(ctx, filepath.Join(dir, suiteDir), log, append([]string{"./run-all.sh"}, Suites...)...)
 	// A cached go test would write no results; the suite's Go readers must run every time.
-	run.Env = append(os.Environ(), "GOFLAGS=-count=1")
+	run.Env = append(os.Environ(), "GOFLAGS="+strings.TrimSpace(os.Getenv("GOFLAGS")+" -count=1"))
 	// Its status reports failing cases and its own cross-MDK report, neither of which
 	// is this ratchet's verdict: only a runner that could not start is an error.
 	var exit *exec.ExitError
