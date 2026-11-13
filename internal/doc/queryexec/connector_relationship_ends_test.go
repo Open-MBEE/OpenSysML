@@ -1,7 +1,9 @@
 package queryexec
 
 import (
+	"fmt"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -168,5 +170,36 @@ calc def Q :> Query {
 	want := [][]string{{"Observatory::P::A"}, {"Observatory::P::A"}, nil, {"Observatory::P::A"}}
 	if got := cellElementNames(t, result, "source"); !slices.EqualFunc(got, want, slices.Equal) {
 		t.Fatalf("source cells = %q, want %q: S keeps G::a's stated empty value, the others yield to the end's type", got, want)
+	}
+}
+
+// A chain of definitions whose end at each level redefines its positional parent explicitly as well
+// yields at every level; the parent is one general, not two, so the walk stays linear in the chain.
+func TestOwnEndRedefiningItsPositionalParentYieldsAlongAChain(t *testing.T) {
+	var model strings.Builder
+	model.WriteString("package P {\n\tpart def A;\n\tpart def B;\n\tconnection def C0 { end source : A; end target : B; }\n")
+	for i := 1; i <= 16; i++ {
+		fmt.Fprintf(&model, "\tconnection def C%d :> C%d { end source : A redefines C%d::source; end target : B redefines C%d::target; }\n", i, i-1, i-1, i-1)
+	}
+	model.WriteString(`}
+calc def Q :> Query {
+	in root : Element;
+	Project(source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "KerML::Kernel::Association"), properties = ("source", "target"))
+}`)
+	fixture := loadExecutionFixture(t, model.String())
+	result, err := fixture.execute(t, "Q", Bindings{"root": {ElementValue(fixture.symbol(t, "P"))}}, Options{})
+	if err != nil {
+		t.Fatalf("execute Q: %v", err)
+	}
+	for property, want := range map[string]string{"source": "Observatory::P::A", "target": "Observatory::P::B"} {
+		got := cellElementNames(t, result, property)
+		if len(got) != 17 {
+			t.Fatalf("%s cells = %d, want one per definition", property, len(got))
+		}
+		for i, cell := range got {
+			if !slices.Equal(cell, []string{want}) {
+				t.Errorf("C%d %s = %q, want %q", i, property, cell, want)
+			}
+		}
 	}
 }

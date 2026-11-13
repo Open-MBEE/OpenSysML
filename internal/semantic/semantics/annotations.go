@@ -902,8 +902,14 @@ func (m *Model) statesNoValue(member *symbols.Symbol, seen map[*symbols.Symbol]b
 	if len(redefined) == 0 {
 		redefined = m.ImplicitParameterRedefinitions(member)
 	}
-	// An end's positional redefinitions hold beside an explicit `:>>` (KerML 8.3.3.3.4).
-	redefined = append(append([]*symbols.Symbol(nil), redefined...), m.implicitEndRedefinitions(member)...)
+	// An end's positional redefinitions hold beside an explicit `:>>` (KerML 8.3.3.3.4); one visit per general.
+	generals := slices.Clone(redefined)
+	for _, general := range m.implicitEndRedefinitions(member) {
+		if !slices.Contains(generals, general) {
+			generals = append(generals, general)
+		}
+	}
+	redefined = generals
 	for _, general := range redefined {
 		if !m.statesNoValue(general, seen) {
 			return false
