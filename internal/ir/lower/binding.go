@@ -3,6 +3,7 @@ package lower
 import (
 	"strings"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 )
@@ -13,6 +14,8 @@ type Binding struct {
 	Ends  [2]BindingEnd
 	Scope *symbols.Scope
 	Decl  *ast.Usage
+	// Origin is where the connector was written, Kind "binding"; it has no Path.
+	Origin program.Origin
 	// Multiplicity is the connector's own as written (`binding [1] bind …`), nil when none.
 	Multiplicity *ast.Multiplicity
 }
@@ -119,7 +122,12 @@ func lowerBinding(u *ast.Usage, scope *symbols.Scope) (Binding, bool) {
 			ends[i].Expr, ends[i].Index = end.AttachedSelection(), index
 		}
 	}
-	return Binding{Ends: ends, Scope: scope, Decl: u, Multiplicity: u.Multiplicity}, true
+	return Binding{Ends: ends, Scope: scope, Decl: u, Origin: bindingOrigin(u, scope), Multiplicity: u.Multiplicity}, true
+}
+
+func bindingOrigin(u *ast.Usage, scope *symbols.Scope) program.Origin {
+	name, _ := ast.EffectiveName(u)
+	return program.Origin{Doc: symbols.DocNameOf(scope), Span: u.Span(), Kind: "binding", Name: name}
 }
 
 // EndValueBindings lowers each `=` or `default =` in a connector end's body as a binding of the end's
@@ -153,7 +161,7 @@ func EndValueBindings(decl ast.Node, scope *symbols.Scope) []Binding {
 					{Path: endName + "." + name, Expr: u.Value},
 					{Expr: u.Value, Default: u.ValueIsDefault},
 				},
-				Scope: endScope, Decl: u,
+				Scope: endScope, Decl: u, Origin: bindingOrigin(u, endScope),
 			})
 		}
 	}

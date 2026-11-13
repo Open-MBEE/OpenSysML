@@ -786,6 +786,21 @@ end
                 @test isok(sources)
             end
 
+            @testset "find answers an alias, get the element it names" begin
+                aliased = parse_source(conn, """
+                    package Vis {
+                        package Lib {
+                            part def Pump;
+                            alias PumpAlias for Pump;
+                        }
+                    }
+                """)
+                @test get(aliased, "Vis::Lib::PumpAlias").id == "Vis::Lib::Pump"
+                @test find(aliased, "Vis::Lib::PumpAlias").id == "Vis::Lib::PumpAlias"
+                @test find(aliased, "PumpAlias").id == "Vis::Lib::PumpAlias"
+                @test find(aliased, "Pump").id == "Vis::Lib::Pump"
+            end
+
             @testset "verification, calculation, analysis, and sweep" begin
                 verification = parse_file(conn, joinpath(FIXTURES, "verification.sysml"))
                 @test verify_constraint(verification, "Demo::Vehicle::massPositive").holds

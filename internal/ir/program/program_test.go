@@ -13,10 +13,11 @@ func TestOriginString(t *testing.T) {
 		origin Origin
 		want   string
 	}{
-		{"named", Origin{Name: "step", Kind: "*ast.Usage"}, "node step"},
-		{"final", Origin{Name: "done", Kind: "*ast.FinalNode"}, "node done"},
-		{"unnamed", Origin{Kind: "*ast.IfActionNode"}, "the *ast.IfActionNode"},
+		{"named", Origin{Name: "step", Kind: NodeExecution.Word()}, "node step"},
+		{"final", Origin{Name: "done", Kind: NodeFinal.Word()}, "node done"},
+		{"unnamed", Origin{Kind: NodeIf.Word()}, "the if action"},
 		{"vertex", Origin{Kind: "state"}, "the state"},
+		{"zero", Origin{}, "the node"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -28,7 +29,7 @@ func TestOriginString(t *testing.T) {
 }
 
 func TestOriginIsPlainData(t *testing.T) {
-	a := Origin{Doc: "m.sysml", Span: source.Span{Offset: 3, Len: 4}, Path: "A::b", Name: "b", Kind: "*ast.Usage"}
+	a := Origin{Doc: "m.sysml", Span: source.Span{Offset: 3, Len: 4}, Path: "A::b", Name: "b", Kind: NodeExecution.Word()}
 	b := a
 	if a != b {
 		t.Fatal("Origin must be comparable and copy by value")
@@ -46,6 +47,26 @@ func TestNodeKindString(t *testing.T) {
 	}
 	if NodeNone != 0 {
 		t.Error("the zero kind must be none")
+	}
+}
+
+func TestNodeKindWord(t *testing.T) {
+	words := map[string]NodeKind{}
+	for k := NodeNone; k <= NodeStatement; k++ {
+		word := k.Word()
+		if word == "" {
+			t.Errorf("NodeKind %s has no word", k)
+		}
+		if other, dup := words[word]; dup {
+			t.Errorf("NodeKind %s and %s share the word %q", k, other, word)
+		}
+		words[word] = k
+	}
+	if got := NodeKind(200).Word(); got != NodeNone.Word() {
+		t.Errorf("unknown kind's word is %q, want the zero kind's", got)
+	}
+	if got := (Origin{Kind: NodeDecision.Word()}).String(); got != "the decision node" {
+		t.Errorf("unnamed decision renders %q", got)
 	}
 }
 

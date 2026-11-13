@@ -3,6 +3,7 @@ import { before, test } from "node:test";
 import {
   CAPABILITY_INSTANCE_PATHS,
   CAPABILITY_SYMBOL_MEMBERS,
+  CAPABILITY_SYMBOL_NAME_RESOLUTION,
   InstancePaths,
   MissingCapabilityError,
   connect,
@@ -149,4 +150,36 @@ test("a symbol from a service without symbol_members enumerates no members", asy
   assert.deepEqual(base.members, []);
   assert.equal(base.withheldLibraryMembers, 0);
   await assert.rejects(base.withLibraryMembers(), MissingCapabilityError);
+});
+
+test("a name is resolved only by a service that reports symbol_name_resolution", async () => {
+  for (const [capabilities, sent] of [
+    [[CAPABILITY_SYMBOL_NAME_RESOLUTION], true],
+    [[], false],
+  ] as const) {
+    const asked: boolean[] = [];
+    const connection = await fakeConnection(capabilities, (method, input) => {
+      if (method !== "GetSymbol") {
+        throw new Error(`the client asked ${method}`);
+      }
+      asked.push((input as { resolveName: boolean }).resolveName);
+      return {
+        symbol: {
+          id: "Lib::Pump",
+          name: "Pump",
+          kind: "partDef",
+          metadata: {},
+          childIds: [],
+          attributes: [],
+          specializations: [],
+          withheldLibraryAttributes: 0,
+          members: [],
+          withheldLibraryMembers: 0,
+        },
+      };
+    });
+    await connection.model("hash").symbolById("Lib::PumpAlias");
+    await connection.model("hash").symbolById("Lib::PumpAlias", { byReportedId: true });
+    assert.deepEqual(asked, [sent, false]);
+  }
 });

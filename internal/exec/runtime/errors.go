@@ -6,7 +6,6 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
-	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
@@ -586,9 +585,6 @@ func IsUninitializedFeatureValue(err error) bool {
 // naming the feature so a caller can tell which one is uninitialized.
 type NoValueError struct {
 	Feature string
-	// Ref is the written name whose read found no value, so a caller can tell a
-	// read of its own expression from one made while evaluating a default.
-	Ref *ast.QualifiedName
 	// Symbol is the feature declaration the read reached, when it is known.
 	Symbol *symbols.Symbol
 }

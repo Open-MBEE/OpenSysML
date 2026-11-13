@@ -1,6 +1,7 @@
 package symbolfacts
 
 import (
+	"slices"
 	"sync"
 
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/naming"
@@ -83,12 +84,76 @@ func (sc *Context) Identity(sym *symbols.Symbol) string {
 	return sc.Positional.Of(sym)
 }
 
-// Lookup resolves an id the way Identity derives it: a qualified identity
-// first, else a positional one.
+// Lookup finds the element an id the service reported denotes, whatever its
+// visibility; an id no element carries is resolved as a qualified name (see Resolve).
 func (sc *Context) Lookup(id string) []*symbols.Symbol {
 	if syms := LookupNamed(sc.Index, id); len(syms) > 0 {
 		return syms
 	}
+	if syms := sc.unnamed(id); len(syms) > 0 {
+		return syms
+	}
+	return sc.Resolver.ResolveGlobal(nameSegments(id))
+}
+
+// LookupMember is Lookup, with a name no declaration answers to walked as a
+// chain of members (see LookupNamedMember).
+func (sc *Context) LookupMember(id string) []*symbols.Symbol {
+	if syms := LookupNamedMember(sc.Index, sc.Semantics, id); len(syms) > 0 {
+		return syms
+	}
+	return sc.Resolver.ResolveGlobal(nameSegments(id))
+}
+
+// Resolve resolves id as a qualified name from the root (resolve.Resolver.ResolveGlobal); a
+// positional id, or the declared name of a public member of a non-visible namespace, still denotes its element.
+func (sc *Context) Resolve(id string) []*symbols.Symbol {
+	if syms := sc.Resolver.ResolveGlobal(nameSegments(id)); len(syms) > 0 {
+		return syms
+	}
+	var elements []*symbols.Symbol
+	for _, sym := range sc.declaredPublic(id) {
+		if element := sc.Resolver.AliasedElement(sym); !sc.Resolver.AliasNamesNothing(element) &&
+			!slices.Contains(elements, element) {
+			elements = append(elements, element)
+		}
+	}
+	if len(elements) > 0 {
+		return elements
+	}
+	return sc.unnamed(id)
+}
+
+// ResolveMember is Resolve with an alias answered as the alias membership its
+// namespace holds rather than as the element it names.
+func (sc *Context) ResolveMember(id string) []*symbols.Symbol {
+	if syms := sc.Resolver.ResolveGlobalMembers(nameSegments(id)); len(syms) > 0 {
+		return syms
+	}
+	if declared := sc.declaredPublic(id); len(declared) > 0 {
+		return declared
+	}
+	return sc.unnamed(id)
+}
+
+// declaredPublic finds the members id is the declared qualified name of whose own membership is
+// public: an id the service reports, never a name an import (filtered or not) only re-exports.
+func (sc *Context) declaredPublic(id string) []*symbols.Symbol {
+	name := id
+	if plain, ok := UnquotedName(id); ok {
+		name = plain
+	}
+	var declared []*symbols.Symbol
+	for _, sym := range LookupNamed(sc.Index, id) {
+		if symbols.HasFQN(sym, name) && symbols.VisibleOutside(sym.Visibility) {
+			declared = append(declared, sym)
+		}
+	}
+	return declared
+}
+
+// unnamed finds the element a positional id denotes.
+func (sc *Context) unnamed(id string) []*symbols.Symbol {
 	// The chain is walked in the unquoted spelling the index records, which is
 	// also the one QualifiedNameOf answers, whatever spelling the id uses.
 	name := id

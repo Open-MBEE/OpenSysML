@@ -288,6 +288,9 @@ func (c *pkgClient) getSymbol(ctx context.Context, request protoreflect.Message)
 	if req.IncludeLibraryMembers {
 		opts = append(opts, opensysml.WithLibraryMembers())
 	}
+	if !req.ResolveName {
+		opts = append(opts, opensysml.ByReportedID())
+	}
 	symbol, err := c.api.LookupSymbol(ctx, c.model(req.ModelHash), req.SymbolId, opts...)
 	var failure *opensysml.FailureError
 	if errors.As(err, &failure) {

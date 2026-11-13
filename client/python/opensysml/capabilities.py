@@ -115,6 +115,11 @@ CAPABILITY_SYMBOL_ATTRIBUTES = "symbol_attributes"
 #: Without it only ``child_ids``, the owned members, is reported.
 CAPABILITY_SYMBOL_MEMBERS = "symbol_members"
 
+#: ``GetSymbolRequest.resolve_name`` honoured: a qualified name resolved from the
+#: root namespace through imports, aliases and visibility. Without it the service
+#: reads every id as one it reported, so the name of a declaration is all it finds.
+CAPABILITY_SYMBOL_NAME_RESOLUTION = "symbol_name_resolution"
+
 #: ``GetSymbolRequest.member_of`` honoured: a symbol fetched as a member of a
 #: type reports ``metadata["direction"]`` relative to that type, so a feature
 #: listed through a conjugated port reads reversed. Without it the member

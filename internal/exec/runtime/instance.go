@@ -195,9 +195,6 @@ func usageSymbol(sym *symbols.Symbol) bool {
 // the feature that holds it.
 func (ctx *Context) noValueError(val Value, node ast.Node) *NoValueError {
 	err := &NoValueError{Feature: conditionText(node)}
-	if ref, ok := node.(*ast.FeatureReference); ok {
-		err.Ref = ref.Name
-	}
 	if inst, ok := ctx.instances[val.Instance]; ok && inst.owner != nil {
 		if fv, ok := inst.owner.FeatureValues[inst.ownerFeature]; ok && fv.Feature != nil {
 			err.Symbol = fv.Feature.Symbol

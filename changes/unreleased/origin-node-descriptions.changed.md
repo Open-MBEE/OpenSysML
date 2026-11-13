@@ -1,0 +1,1 @@
+- A run's diagnostics name an unnamed action node by its construct — `the if action`, `the decision node`, `the while loop`, `the fork node`, `the statement` — where they printed the syntax tree's type name (`the *ast.IfActionNode`) before.

@@ -110,6 +110,7 @@ type JGetSymbolRequest struct {
 	ModelHash             string `json:"modelHash,omitempty"`
 	SymbolId              string `json:"symbolId,omitempty"`
 	IncludeLibraryMembers bool   `json:"includeLibraryMembers,omitempty"`
+	ResolveName           bool   `json:"resolveName,omitempty"`
 	MemberOf              string `json:"memberOf,omitempty"`
 }
 

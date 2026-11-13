@@ -348,6 +348,10 @@ func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Re
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	return encodeModelDocuments(documents, res, encoders)
+}
+
+func encodeModelDocuments(documents []ModelDocument, res *resolve.Resolver, encoders []*encoder) (*rdf.Graph, *resolve.Resolver, []*encoder, error) {
 	// declaredIn is the document and declaration each subject was minted for:
 	// two documents declaring one subject would merge two elements into one.
 	declaredIn := map[string]mintedSubject{}
@@ -377,6 +381,10 @@ func modelToRDF(documents []ModelDocument, form IDForm) (*rdf.Graph, *resolve.Re
 // its identity tables settled: what every id is minted from, before any writing.
 func modelEncodersOf(documents []ModelDocument, form IDForm) (*resolve.Resolver, []*encoder, error) {
 	res, model := analyzeModel(documents)
+	return modelEncodersOver(documents, form, res, model)
+}
+
+func modelEncodersOver(documents []ModelDocument, form IDForm, res *resolve.Resolver, model *semantics.Model) (*resolve.Resolver, []*encoder, error) {
 	shared := &modelEncoders{declaring: map[ast.Node]*encoder{}}
 	encoders := make([]*encoder, len(documents))
 	scopes := map[string]bool{}
@@ -2547,24 +2555,24 @@ func (e *encoder) typeTerm(typ *symbols.Symbol) rdf.Term {
 	return term
 }
 
-// connectorRelatedFeature states Connector::relatedFeature as the feature the end's ReferenceSubsetting references
-// (KerML 8.3.4.5.3) and, for a plain end, the Relationship::relatedElement, source and target the three redefine.
-func (e *encoder) connectorRelatedFeature(subject, reference rdf.Term, index, ends int, plain bool) {
+// connectorRelatedFeature states Connector::relatedFeature as the feature the end's ReferenceSubsetting references (KerML
+// 8.3.4.5.3; a chained end's chain Feature) and, unless the end is a flow's, the relatedElement, source and target it redefines.
+func (e *encoder) connectorRelatedFeature(subject, reference rdf.Term, index, ends int, related bool) {
 	if reference.Value == "" || !reference.IsIRI() {
 		return
 	}
 	e.graph.Add(subject, e.sysml(pRelatedFeature), reference)
-	if plain {
+	if related {
 		e.graph.Add(subject, e.sysml(pRelatedElement), reference)
 	}
 	if ends == 2 && index == 0 {
 		e.graph.Add(subject, e.sysml(pSourceFeature), reference)
-		if plain {
+		if related {
 			e.graph.Add(subject, e.sysml(pSource), reference)
 		}
 	} else if ends == 2 && index == 1 {
 		e.graph.Add(subject, e.sysml(pTargetFeature), reference)
-		if plain {
+		if related {
 			e.graph.Add(subject, e.sysml(pTarget), reference)
 		}
 	}
@@ -2694,9 +2702,8 @@ func (e *encoder) connectorEnd(subject rdf.Term, end connectorEndSpec) error {
 			}
 		}
 		if !end.noCollapse {
-			name, named := end.target.(*ast.QualifiedName)
-			plain := len(flowSegments) == 0 && end.targetTerm.Value == "" && named && !qualifiedNameHasChain(name)
-			e.connectorRelatedFeature(subject, reference, end.index, end.ends, plain)
+			related := len(flowSegments) == 0 && end.targetTerm.Value == ""
+			e.connectorRelatedFeature(subject, reference, end.index, end.ends, related)
 		}
 	}
 	if err := e.multiplicity(feature, end.owner, end.mult); err != nil {

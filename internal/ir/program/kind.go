@@ -69,3 +69,32 @@ func (k NodeKind) String() string {
 	}
 	return "NodeKind(" + strconv.Itoa(int(k)) + ")"
 }
+
+var nodeKindWords = [...]string{
+	NodeNone:      "node",
+	NodeInitial:   "initial node",
+	NodeFinal:     "final node",
+	NodeFork:      "fork node",
+	NodeJoin:      "join node",
+	NodeMerge:     "merge node",
+	NodeDecision:  "decision node",
+	NodeExecution: "action",
+	NodePerform:   "perform action",
+	NodeAccept:    "accept action",
+	NodeSend:      "send action",
+	NodeAssign:    "assignment action",
+	NodeTerminate: "terminate action",
+	NodeIf:        "if action",
+	NodeLoop:      "while loop",
+	NodeBlock:     "block",
+	NodeStatement: "statement",
+}
+
+// Word is the kind's name as a message says it of an unnamed node (`the if action`):
+// the SysML v2 name of the node's construct, which Origin.Kind carries.
+func (k NodeKind) Word() string {
+	if int(k) < len(nodeKindWords) {
+		return nodeKindWords[k]
+	}
+	return nodeKindWords[NodeNone]
+}

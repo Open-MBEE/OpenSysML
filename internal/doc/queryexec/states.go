@@ -6,6 +6,7 @@ import (
 
 	"github.com/Open-MBEE/OpenSysML/internal/exec/runtime"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/ir/queryplan"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/query"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -206,20 +207,22 @@ func stateMachinesOf(inst *runtime.Instance) []*runtime.ObjectBehavior {
 	return out
 }
 
-// activeState describes one active leaf of a machine as a row.
+// activeState describes one active leaf of a machine as a row, by the origins
+// the graph lowered for the leaf and the states enclosing it.
 func activeState(inst *runtime.Instance, label string, machine *runtime.ObjectBehavior, leaf *ast.StateNode) State {
 	exec := machine.State
+	graph := exec.Graph()
 	enclosing := exec.EnclosingStates(leaf)
 	names := make([]string, 0, len(enclosing))
 	for _, s := range enclosing {
-		names = append(names, s.Name)
+		names = append(names, stateName(graph, s))
 	}
 	return State{
 		object:    inst,
 		label:     label,
 		machine:   machineName(machine),
-		symbol:    stateSymbol(exec.Graph(), leaf),
-		name:      leaf.Name,
+		symbol:    stateSymbol(graph, graph.ID[leaf]),
+		name:      stateName(graph, leaf),
 		path:      exec.StatePath(leaf),
 		region:    regionName(exec, leaf),
 		enclosing: names,
@@ -227,11 +230,17 @@ func activeState(inst *runtime.Instance, label string, machine *runtime.ObjectBe
 	}
 }
 
+// stateName is a state's name as its origin records it.
+func stateName(graph *lower.StateGraph, state *ast.StateNode) string {
+	return graph.Origins[graph.ID[state]].Name
+}
+
 // regionName names the innermost orthogonal region state stands in, its own or an
 // ancestor's, "" for a state outside every region.
 func regionName(exec *runtime.StateExecutor, state *ast.StateNode) string {
 	if region := exec.RegionOf(state); region != nil {
-		return region.Name
+		graph := exec.Graph()
+		return graph.RegionOrigins[graph.RegionID[region]].Name
 	}
 	return ""
 }
@@ -248,9 +257,13 @@ func machineName(machine *runtime.ObjectBehavior) string {
 	return ""
 }
 
-// stateSymbol is the symbol declaring a state of the graph, nil for one
-// lowering synthesized without a declaration.
-func stateSymbol(graph *lower.StateGraph, state *ast.StateNode) *symbols.Symbol {
+// stateSymbol is the symbol declaring the state with id in the graph, found
+// through the graph's provenance; nil for one lowering synthesized without a declaration.
+func stateSymbol(graph *lower.StateGraph, id program.StateID) *symbols.Symbol {
+	state := graph.Provenance.State(id)
+	if state == nil {
+		return nil
+	}
 	decl := graph.DeclOf(state)
 	scope := graph.StateScopes[state]
 	if scope == nil {
@@ -270,11 +283,13 @@ func stateSymbol(graph *lower.StateGraph, state *ast.StateNode) *symbols.Symbol 
 // stateNamed reports whether name denotes leaf or a state enclosing it, by
 // the state's own name or by its path (`on.run`).
 func stateNamed(exec *runtime.StateExecutor, leaf *ast.StateNode, name string) bool {
+	graph := exec.Graph()
 	chain := append(exec.EnclosingStates(leaf), leaf)
 	parts := make([]string, 0, len(chain))
 	for _, state := range chain {
-		parts = append(parts, state.Name)
-		if state.Name == name || strings.Join(parts, ".") == name {
+		own := stateName(graph, state)
+		parts = append(parts, own)
+		if own == name || strings.Join(parts, ".") == name {
 			return true
 		}
 	}
