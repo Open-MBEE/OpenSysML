@@ -104,6 +104,7 @@ not_in_nav: |
   project/constraint-body-steps.md
   project/exception-handlers.md
   project/pilot-differential.md
+  project/api-json-differential.md
   project/spec-pilot-gap-register.md
   project/library-and-prefix-sweep.md
   project/roadmap.md
@@ -167,6 +168,7 @@ exclude_docs: |
   internals/design/**
   internals/notes/**
   project/*.json
+  project/api-json-differential/**
   project/omg-issues.md
   project/performance-release-0.10.1-vs-0.10.0.md
   project/performance-release-0.11.0-vs-0.10.1.md
@@ -184,13 +186,15 @@ exclude_docs: |
   project/pilot-corpora.md
   project/spec-examples.md
   project/rdf-corpus-roundtrip.md
+  project/construct-cover-subset.md
   project/pssm-migration.md
   project/pilot-xpect.md
   project/pilot-rejection.md
   project/pilot-execution-referee.md
-  project/api-json-differential.md
   project/derived-property-census.md
   project/pssm-referee.md
+  project/hideo-suite.md
+  project/hideo-suite-baseline.tsv
   project/llm-benchmark.md
   project/fuml-referee.md
   project/behavior-semantic-oracle.md

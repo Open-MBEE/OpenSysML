@@ -63,6 +63,19 @@ func (m *Model) OwnedMemberships(sym *symbols.Symbol) []*symbols.Symbol {
 		})
 		ordinal++
 	}
+	for _, end := range m.SuccessionEndMembers(sym) {
+		// A `then` succession owns its two ends ahead of its body (SysML.xtext TargetSuccession).
+		out = append(out, &symbols.Symbol{
+			Kind:       symbols.SymbolRelationship,
+			DocName:    sym.DocName,
+			DeclSpan:   end.DeclSpan,
+			Visibility: sym.Visibility,
+			Implicit: &symbols.ImplicitRelationship{
+				Owner: sym, Ordinal: ordinal, Form: symbols.ImplicitMembership, Member: end,
+			},
+		})
+		ordinal++
+	}
 	if sym.Scope == nil {
 		out = m.withDefaultMultiplicity(sym, out, ordinal)
 		m.memberships[sym] = out
@@ -390,6 +403,8 @@ func (m *Model) membershipMetaclassName(owner, member *symbols.Symbol) string {
 			return "TransitionFeatureMembership"
 		case symbols.ExpressionPayload:
 			return "ParameterMembership"
+		case symbols.ExpressionTransitionSuccession:
+			return "OwningMembership"
 		}
 	}
 	if _, ok := m.transitionFeatureKind(owner, member); ok {
@@ -459,6 +474,10 @@ func (m *Model) sysmlMembershipMetaclassName(owner, member *symbols.Symbol) stri
 		// A metadata usage in a body annotates the element owning the body
 		// through an OwningMembership (SysML.xtext AnnotatingMember).
 		return "OwningMembership"
+	}
+	if _, bare := member.Decl.(*ast.Usage); !bare && stateSubactionKind(member) != "" {
+		// A bare `entry;` performs an anonymous empty action (SysML.xtext EmptyActionUsage).
+		return "StateSubactionMembership"
 	}
 	if _, ok := requirementConstraintKind(member); ok {
 		if kind, _ := member.UsageKind(); kind == ast.UsageFramedConcern {
@@ -750,6 +769,10 @@ func (m *Model) membershipValue(sym *symbols.Symbol, feature string) (symbols.Fi
 
 // stateSubactionKind is the `entry`, `do` or `exit` a state subaction is written with.
 func stateSubactionKind(member *symbols.Symbol) string {
+	switch member.Keyword() {
+	case "entry", "do", "exit":
+		return member.Keyword()
+	}
 	u, ok := member.Decl.(*ast.Usage)
 	if !ok {
 		return ""

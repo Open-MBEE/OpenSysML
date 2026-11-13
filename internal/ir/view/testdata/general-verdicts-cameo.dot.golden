@@ -1,7 +1,7 @@
 // view: GeneralViews::requirementView
 // kind: requirement
 // stated: view def GeneralView, filter @RequirementDefinition or @RequirementUsage
-// not represented: 4 exposed standard library element(s) not drawn; a requirement rendering draws the model's own elements
+// not represented: 2 exposed standard library element(s) not drawn; a requirement rendering draws the model's own elements
 // layout: dot
 digraph "GeneralViews::requirementView" {
   graph [fontname="Arial", fontcolor="#424242"];
@@ -32,9 +32,9 @@ digraph "GeneralViews::requirementView" {
     "n14" [label=<<font point-size="9">«verification»</font><br/><b>stopTest</b>>];
   }
   "n2" -> "n1" [arrowhead=empty];
-  "n3" -> "n0" [arrowhead=onormaldotdot];
-  "n4" -> "n0" [arrowhead=onormaldotdot];
-  "n5" -> "n2" [arrowhead=onormaldotdot];
+  "n3" -> "n0" [arrowhead=empty, class=definition];
+  "n4" -> "n0" [arrowhead=empty, class=definition];
+  "n5" -> "n2" [arrowhead=empty, class=definition];
   "n4" -> "n3" [label="«derive»", arrowhead=vee, style=dashed];
   "n6" -> "n4" [label="«refine»", arrowhead=vee, style=dashed];
   "n7" -> "n3" [label="«satisfy»", arrowhead=vee];

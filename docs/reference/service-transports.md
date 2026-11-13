@@ -57,7 +57,7 @@ capability's definition rather than something a client has to guess:
 | The capability describes | A request that needs it | What a client should do |
 |---|---|---|
 | what the service can be *asked*: `strict_conformance`, `inline_language`, `parse_sources`, `evaluate_subject`, `verification`, `convert`, `convert_library_stubs`, `element_properties`, `apply_edits`, `authoring`, `connection_authoring`, `edit_documents`, `query`, `query_order_by`, `runs`, `self_check`, `record_run`, `oslc_query`, `document_query`, `inline_document_query`, `render_document`, `render_document_html`, `render_document_asciidoc`, `render_view`, `render_view_form`, `export_graphs`, `import_data`, `compare_results`, `schedule`, `performer`, `state_trace`, `action_trace`, `satisfy_authoring`, `requirement_constraint_authoring`, `member_modifiers`, `transition_authoring`, `verification_objective_authoring`, `metadata_authoring`, `metadata_prefix_authoring`, `sequence_authoring`, `implicit_parameters`, `action_body_statement_authoring`, `constraint_body_authoring`, `state_action_authoring`, `import_authoring`, `documentation_authoring`, `comment_authoring`, `migrate`, `convert_documents`, `convert_compact`, `convert_check_diagnostics`, `parse_sources_affected`, `schedule_explore`, `verification_questions`, `verification_arguments`, `engines_external`, `check`, `set_values`, `tensor_values` | is **refused** with `UNIMPLEMENTED`, naming the capability | check the advertised list first, and report the missing capability locally rather than spending a round trip |
-| how a response is *populated*: `type_facts`, `convert_library_references`, `symbol_attributes`, `symbol_members`, `feature_values`, `enum_values`, `unset_value`, `undetermined_value`, `complex_values`, `structured_values`, `measurement_refs`, `function_values`, `metaobject_values`, `set_values`, `tensor_values`, `big_int_values`, `rational_values`, `verification_verdicts`, `case_evaluations`, `infinity_value`, `diagnostic_codes`, `final_time`, `order_dependence`, `engines`, `edit_documents`, `render_document_file_name`, `verdict_notes` | is answered with those fields **omitted** | check before reading the fields; an omitted field is not an error |
+| how a response is *populated*: `type_facts`, `convert_library_references`, `symbol_attributes`, `symbol_members`, `symbol_name_resolution`, `feature_values`, `enum_values`, `unset_value`, `undetermined_value`, `complex_values`, `structured_values`, `measurement_refs`, `function_values`, `metaobject_values`, `set_values`, `tensor_values`, `big_int_values`, `rational_values`, `verification_verdicts`, `case_evaluations`, `infinity_value`, `diagnostic_codes`, `final_time`, `order_dependence`, `engines`, `edit_documents`, `render_document_file_name`, `verdict_notes` | is answered with those fields **omitted** | check before reading the fields; an omitted field is not an error |
 
 `edit_documents` sits in both rows: without it `ApplyEdits` still edits a model of one document
 and answers `content`, but omits `documents`, `referrers` and each applied edit's `document`;
@@ -180,9 +180,11 @@ only), `-token <value>`, or `OPENSYSML_GRPC_TOKEN` in the environment — and ev
 protocol must then carry it: `Authorization: Bearer <token>` on Connect, gRPC-Web and
 Connect-HTTP, the `authorization` metadata on grpc-go, compared in constant time. The credential
 is verified by the authenticator chain [`sysml-mcp`](sysml-mcp.md#transports) verifies through,
-shared so the two commands read the same flags and refuse alike; today the chain holds the static
-token alone, and a call it admits is served knowing its principal (the subject and the kind of
-authenticator that accepted it), which the access log names. A call without a credential is
+shared so the two commands read the same flags and refuse alike: the static token, and with
+`-oidc-issuer` the access tokens of an OpenID provider as [`sysml-mcp`](sysml-mcp.md#single-sign-on)
+describes, `-oidc-audience` naming what their `aud` must hold since this service has no resource
+URL of its own. A call the chain admits is served knowing its principal (the subject and the
+kind of authenticator that accepted it), which the access log names. A call without a credential is
 answered `unauthenticated` (HTTP 401 with `WWW-Authenticate: Bearer realm="sysml-grpc"`; the
 grpc-go trailer carries the same), one whose credential lacks a scope the service requires
 `permission_denied` (HTTP 403, `error="insufficient_scope"`), one whose credential cannot be
@@ -273,7 +275,9 @@ with a bearer token (`-token-file`, `-token`, `OPENSYSML_MCP_TOKEN` there) or a 
 (`-api-keys`; this service declares the flag with the shared ones but refuses it, gating no call
 by scope yet), TLS from a
 certificate and key pair, an origin allow-list that is not authentication; the two commands
-share one implementation of the token and of the loopback rule.
+share one implementation of the token and of the loopback rule, and `sysml-mcp` adds API keys and
+OpenID tokens on the same chain; [Running sysml-mcp as a service](../guide/sysml-mcp-service.md)
+is the operator's page for it.
 
 ## Every protocol is tested, not merely served
 

@@ -263,6 +263,146 @@ func TestParseOSLCRefusesParametersItDoesNotRead(t *testing.T) {
 			t.Errorf("%q error = %#v, want ErrMalformed", text, err)
 		}
 	}
+	_, err := ParseOSLC(`oslc.pagin=true&oslc.where=sysml:name%3D%22x%22`, nil)
+	if got := kindOf(t, err, ErrMalformed); !strings.Contains(got.Message, "ignores oslc.pageSize, oslc.paging") {
+		t.Errorf("error message = %q, want the ignored parameters named", got.Message)
+	}
+}
+
+// OSLC Query 3.0 lets a server ignore the paging parameters (QUERY-59, QUERY-62),
+// which a stock client sends by default; refusing them is stricter than the spec.
+func TestParseOSLCIgnoresThePagingParameters(t *testing.T) {
+	for _, text := range []string{
+		`oslc.paging=true&oslc.where=sysml:name%3D%22x%22`,
+		`oslc.pageSize=50&oslc.paging=true&oslc.paging=false&oslc.where=sysml:name%3D%22x%22`,
+		`oslc.paging=&oslc.pageSize=&oslc.where=sysml:name%3D%22x%22`,
+	} {
+		q, err := ParseOSLC(text, nil)
+		if err != nil {
+			t.Fatalf("ParseOSLC(%q): %v", text, err)
+		}
+		if c := q.Where.(Comparison); c.Values[0] != "x" {
+			t.Fatalf("ParseOSLC(%q) where = %#v", text, q.Where)
+		}
+	}
+	if got := strings.Join(IgnoredParameterNames(), " "); got != "oslc.pageSize oslc.paging" {
+		t.Fatalf("IgnoredParameterNames() = %q", got)
+	}
+}
+
+// sort_term ::= scoped_sort_terms | ("+" | "-") identifier and scoped_sort_terms ::=
+// identifier "{" sort_terms "}": signs sit inside the braces, which hold several terms.
+func TestParseOSLCScopedSortTermsAreSignedInside(t *testing.T) {
+	q, err := ParseParameters(`oslc.orderBy=sysml:owner%7B%2Bsysml:name,-sysml:qualifiedName%7D,-sysml:name`, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []OrderTerm{{Property: "owner.name"}, {Property: "owner.qualifiedName", Desc: true}, {Property: "name", Desc: true}}
+	if !slices.Equal(q.OrderBy, want) {
+		t.Fatalf("order = %#v, want %#v", q.OrderBy, want)
+	}
+	// The specification's own example, percent-encoded as it gives it, parses up
+	// to its unbound prefix.
+	_, err = ParseParameters(`oslc.orderBy=dcterms%3Acreator%7B%2Bfoaf%3Aname%7D%2C-dcterms%3Acreated`, nil)
+	if got := kindOf(t, err, ErrMalformed); !strings.Contains(got.Message, `"dcterms" is unbound`) {
+		t.Fatalf("error = %q, want the unbound prefix, not the sign", got.Message)
+	}
+	// Nested scopes carry their signs at the leaf; an outer sign reaches the
+	// unsigned leaves; a sign on both sides is refused.
+	q, err = ParseParameters(`oslc.orderBy=sysml:owner{sysml:owner{-sysml:name}},-sysml:owner{sysml:name,sysml:qualifiedName}`, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want = []OrderTerm{{Property: "owner.owner.name", Desc: true}, {Property: "owner.name", Desc: true}, {Property: "owner.qualifiedName", Desc: true}}
+	if !slices.Equal(q.OrderBy, want) {
+		t.Fatalf("order = %#v, want %#v", q.OrderBy, want)
+	}
+	_, err = ParseParameters(`oslc.orderBy=-sysml:owner{%2Bsysml:name}`, nil)
+	if got := kindOf(t, err, ErrMalformed); !strings.Contains(got.Message, "signed both inside and outside") {
+		t.Fatalf("error = %q", got.Message)
+	}
+	for _, text := range []string{
+		`oslc.orderBy=sysml:owner{}`, `oslc.orderBy=sysml:owner{sysml:name`, `oslc.orderBy=sysml:owner{sysml:name}}`,
+		`oslc.orderBy=sysml:name,`, `oslc.orderBy=,sysml:name`, `oslc.orderBy=sysml:name sysml:body`,
+		`oslc.orderBy=sysml:owner{rdf:type}`, `oslc.orderBy=sysml:owner{*}`,
+	} {
+		if _, err := ParseParameters(text, nil); err == nil {
+			t.Errorf("%q unexpectedly parsed", text)
+		} else {
+			kindOf(t, err, ErrMalformed)
+		}
+	}
+}
+
+// term ::= identifier_wc space in_op space? in_val: the space after "in" is optional.
+func TestParseOSLCInTakesItsListWithoutASpace(t *testing.T) {
+	for _, text := range []string{`sysml:name in["a","b"]`, `sysml:name in ["a","b"]`, `sysml:name in[ "a" , "b" ]`} {
+		if c := mustParse(t, text).Where.(Comparison); c.Operator != In || len(c.Values) != 2 {
+			t.Fatalf("ParseOSLC(%q) = %#v", text, c)
+		}
+	}
+}
+
+// uri_ref_esc escapes '>' and '\' with a backslash.
+func TestParseOSLCDecodesURIEscapes(t *testing.T) {
+	if c := mustParse(t, `sysml:documentation=<http://a/b\>c\\d>`).Where.(Comparison); c.Values[0] != `http://a/b>c\d` {
+		t.Fatalf("value = %q", c.Values[0])
+	}
+	for _, text := range []string{`sysml:documentation=<http://a\x>`, `sysml:documentation=<http://a\>`, `sysml:documentation=<http://a\`} {
+		_, err := ParseOSLC(text, nil)
+		kindOf(t, err, ErrMalformed)
+	}
+}
+
+// An rdf:XMLLiteral MUST be supported, and MAY be read as a plain string (QUERY-38);
+// the datatype is a prefixed name, read under the query's bindings.
+func TestParseOSLCReadsXMLLiteralAsAPlainString(t *testing.T) {
+	for _, text := range []string{`sysml:name="x"^^rdf:XMLLiteral`, `sysml:name="x"^^xsd:string`, `sysml:name="x"`} {
+		if c := mustParse(t, text).Where.(Comparison); c.Values[0] != "x" {
+			t.Fatalf("ParseOSLC(%q) = %#v", text, c)
+		}
+	}
+	q, err := ParseParameters(`oslc.prefix=r%3D%3Chttp://www.w3.org/1999/02/22-rdf-syntax-ns%23%3E,x%3D%3Chttp://www.w3.org/2001/XMLSchema%23%3E&oslc.where=sysml:name%3D%22x%22%5E%5Er:XMLLiteral+and+sysml:body%3D%22y%22%5E%5Ex:string`, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if terms := q.Where.(Conjunction).Terms; terms[0].(Comparison).Values[0] != "x" || terms[1].(Comparison).Values[0] != "y" {
+		t.Fatalf("where = %#v", q.Where)
+	}
+	for _, text := range []string{`sysml:name="x"^^rdf:HTML`, `sysml:name="x"^^xsd:date`} {
+		_, err := ParseOSLC(text, nil)
+		kindOf(t, err, ErrUnsupportedLiteral)
+	}
+	_, err = ParseOSLC(`sysml:name="x"^^ex:thing`, nil)
+	if got := kindOf(t, err, ErrMalformed); !strings.Contains(got.Message, `"ex" is unbound`) {
+		t.Fatalf("error = %q", got.Message)
+	}
+}
+
+// decimal is the lexical form of xsd:decimal; what strconv.ParseFloat admits
+// besides is refused before it reaches the evaluator.
+func TestParseOSLCDecimalsAreXSDDecimals(t *testing.T) {
+	for _, text := range []string{"42", "-3.5", "+2", ".5", "42."} {
+		if c := mustParse(t, `sysx:multiplicityUpper<`+text).Where.(Comparison); c.Values[0] != text {
+			t.Fatalf("value = %#v, want %q", c.Values, text)
+		}
+	}
+	for _, text := range []string{"inf", "Infinity", "NaN", "1e3", "0x1p-2"} {
+		_, err := ParseOSLC(`sysx:multiplicityUpper<`+text, nil)
+		if got := kindOf(t, err, ErrMalformed); !strings.Contains(got.Message, "decimal") {
+			t.Fatalf("ParseOSLC(<%s) error = %q, want the decimal form named", text, got.Message)
+		}
+		_, err = ParseOSLC(`sysml:name=`+text, nil)
+		kindOf(t, err, ErrMalformed)
+	}
+	// The structured query refuses the same operands, and reads a quoted one.
+	for _, text := range []string{"inf", "NaN", "0x1p-2"} {
+		_, err := Translate(Query{Where: Comparison{Property: "multiplicityUpper", Operator: Less, Values: []string{text}}}, Context{}, "Test")
+		kindOf(t, err, ErrUnparsableValue)
+	}
+	if _, err := Translate(Query{Where: Comparison{Property: "multiplicityUpper", Operator: Less, Values: []string{"1e1"}}}, Context{}, "Test"); err != nil {
+		t.Fatalf("1e1: %v", err)
+	}
 }
 
 func TestParseOSLCRefusesUnquotedNames(t *testing.T) {

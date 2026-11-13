@@ -184,11 +184,11 @@ func TestConjugatedTypingHeadStatesTheConjugate(t *testing.T) {
 	}
 	ref := apiJSONRef
 	bounded := byName["M::Q::bounded"]
-	if got := ref(bounded["type"]); got != conjugateID {
+	if ref(bounded["type"]) != conjugateID {
 		t.Errorf("PortUsage.type = %v, want the conjugate %v", bounded["type"], conjugateID)
 	}
 	for _, property := range []string{"portDefinition", "definition"} {
-		if got := ref(bounded[property]); got != conjugateID {
+		if ref(bounded[property]) != conjugateID {
 			t.Errorf("PortUsage.%s = %v, want the conjugate %v", property, bounded[property], conjugateID)
 		}
 	}
@@ -202,11 +202,11 @@ func TestConjugatedTypingHeadStatesTheConjugate(t *testing.T) {
 		t.Fatal("bounded owns no ConjugatedPortTyping in the API JSON")
 	}
 	for _, property := range []string{"type", "conjugatedPortDefinition", "general", "target"} {
-		if got := ref(typing[property]); got != conjugateID {
+		if ref(typing[property]) != conjugateID {
 			t.Errorf("ConjugatedPortTyping.%s = %v, want %v", property, typing[property], conjugateID)
 		}
 	}
-	if got := ref(typing["portDefinition"]); got != byName["M::Pd"]["@id"] {
+	if ref(typing["portDefinition"]) != byName["M::Pd"]["@id"] {
 		t.Errorf("ConjugatedPortTyping.portDefinition = %v, want Pd", typing["portDefinition"])
 	}
 

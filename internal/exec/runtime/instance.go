@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -194,9 +195,6 @@ func usageSymbol(sym *symbols.Symbol) bool {
 // the feature that holds it.
 func (ctx *Context) noValueError(val Value, node ast.Node) *NoValueError {
 	err := &NoValueError{Feature: conditionText(node)}
-	if ref, ok := node.(*ast.FeatureReference); ok {
-		err.Ref = ref.Name
-	}
 	if inst, ok := ctx.instances[val.Instance]; ok && inst.owner != nil {
 		if fv, ok := inst.owner.FeatureValues[inst.ownerFeature]; ok && fv.Feature != nil {
 			err.Symbol = fv.Feature.Symbol
@@ -1735,7 +1733,7 @@ func isReferenceUsage(sym *symbols.Symbol) bool {
 // declaresFeatures reports whether a usage's own body restates or adds features,
 // which the object it materializes has to carry.
 func declaresFeatures(sym *symbols.Symbol) bool {
-	for member := range eachUnwrappedDeclMember(sym.Decl) {
+	for member := range lower.EachUnwrappedDeclMember(sym.Decl) {
 		if memberDeclaresFeature(member) {
 			return true
 		}
@@ -1850,7 +1848,7 @@ func (ctx *Context) restatedValueInBody(sym, typ *symbols.Symbol) string {
 	for _, f := range ctx.FeaturesOf(typ) {
 		inherited[f.Name] = true
 	}
-	for _, member := range unwrappedDeclMembers(sym.Decl) {
+	for _, member := range lower.UnwrappedDeclMembers(sym.Decl) {
 		usage, ok := member.(*ast.Usage)
 		if !ok || !valuesAFeature(usage) {
 			continue
@@ -1923,7 +1921,7 @@ func valuesAFeature(usage *ast.Usage) bool {
 	if usage.Value != nil {
 		return true
 	}
-	for _, member := range unwrappedDeclMembers(usage) {
+	for _, member := range lower.UnwrappedDeclMembers(usage) {
 		if nested, ok := member.(*ast.Usage); ok && valuesAFeature(nested) {
 			return true
 		}

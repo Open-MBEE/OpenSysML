@@ -126,8 +126,7 @@ func (r *Resolver) membersNamed(scope *symbols.Scope, cur *symbols.Symbol, name 
 	}
 
 	if len(all) == 0 && cur.Scope != nil {
-		if sym, ok := r.lookupImportedMember(cur, cur.Scope, scope, name); ok &&
-			r.namedThroughNamespace(sym) && !hide.hides(sym) {
+		if sym, ok := r.lookupImportedMember(cur, cur.Scope, scope, name, r.allVisible > 0); ok && !hide.hides(sym) {
 			all = []*symbols.Symbol{sym}
 		}
 	}
@@ -138,12 +137,13 @@ func (r *Resolver) membersNamed(scope *symbols.Scope, cur *symbols.Symbol, name 
 	// but doesn't have a populated Scope, at any nesting depth.
 	memberFQN := r.registeredFQN(cur) + "::" + name
 	if len(all) == 0 && r.idx != nil {
-		found := r.idx.LookupQualifiedFrom(memberFQN, from)
+		origin := r.memberLookupOrigin(cur, from)
+		found := r.idx.LookupQualifiedFrom(memberFQN, origin)
 		if !global {
 			found = notConflatedWith(cur, found)
 		}
-		candidates := r.withoutHiddenImports(cur.Scope, name, r.namedThroughNamespaces(
-			r.admittedUnder(r.documentOf(scope), from, memberFQN, found)))
+		candidates := r.withoutHiddenImports(cur.Scope, name, r.namedUnder(r.registeredFQN(cur),
+			r.admittedUnder(r.documentOf(scope), origin, memberFQN, found)))
 		switch visible := hide.without(candidates); {
 		case len(visible) > 0:
 			return visible
@@ -161,7 +161,7 @@ func (r *Resolver) membersNamed(scope *symbols.Scope, cur *symbols.Symbol, name 
 	// The name exists under cur but only because a private import surfaced it
 	// there: it is invisible from here (KerML 8.2.3.3), and the member search
 	// below reaches cached symbols by a route that does not know that.
-	if len(all) == 0 && r.idx != nil && r.idx.HiddenFrom(memberFQN, from) {
+	if len(all) == 0 && r.idx != nil && r.idx.HiddenFrom(memberFQN, r.memberLookupOrigin(cur, from)) {
 		return nil
 	}
 
@@ -169,7 +169,11 @@ func (r *Resolver) membersNamed(scope *symbols.Scope, cur *symbols.Symbol, name 
 	// declares: `engine::'4cylEngine'` reaches the variants of the type
 	// `engine` is typed by.
 	if len(all) == 0 {
-		if sym, ok := r.lookupMember(cur, name, hide); ok && r.namedThroughNamespace(sym) && !hide.hides(sym) {
+		// An import of cur surfaces the name only to a reference it is visible to.
+		visible := func(imp *ast.Import) bool {
+			return r.allVisible > 0 || r.importVisibleFrom(cur, scope, imp)
+		}
+		if sym, ok := r.lookupMemberThrough(cur, name, hide, visible); ok && r.namedThroughNamespace(sym) && !hide.hides(sym) {
 			if sym, ok = r.inheritedAsFrom(cur, sym, hide); ok {
 				all = []*symbols.Symbol{sym}
 			}

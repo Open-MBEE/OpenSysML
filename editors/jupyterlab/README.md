@@ -12,6 +12,15 @@ and the sdist as shared data under `share/jupyter/labextensions/jupyterlab-opens
 `pip install jupyter-opensysml-kernel` is the whole install: no Node.js, no
 `jupyter labextension install`.
 
+## Supported hosts
+
+JupyterLab 4, from 4.0.0, and Notebook 7. The extension bundles none of its runtime
+dependencies: it takes `@jupyterlab/codemirror` and `@codemirror/language` from the host, and
+`jupyterlab.sharedPackages` in `package.json` makes the bundle ask for them at the ranges
+`dependencies` declares (`^4.0.0`, `^6.0.0`) rather than at the version of the
+`@jupyterlab/core-meta` it happened to be built with, so a dependency update does not make
+older hosts report an unsatisfied shared module. `test/manifest.test.ts` keeps the two in step.
+
 ## What it highlights
 
 A `StreamLanguage` tokenizer (`src/sysml.ts`) marks reserved keywords, the words that are

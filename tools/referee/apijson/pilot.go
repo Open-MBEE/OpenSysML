@@ -34,8 +34,24 @@ type pilotExport struct {
 	// Unkeyed per metaclass.
 	Unkeyable int
 	Unkeyed   map[string]int
+	// Files keeps the pilot's share of each file's summary: its failure, library
+	// elements and diagnostics.
+	Files map[string]*FileSummary
 	// Log keeps the launcher's diagnostics for the text report.
 	Log string
+}
+
+// file is the pilot's share of one source file's summary.
+func (p *pilotExport) file(name string) *FileSummary {
+	if p.Files == nil {
+		p.Files = make(map[string]*FileSummary)
+	}
+	summary := p.Files[name]
+	if summary == nil {
+		summary = &FileSummary{}
+		p.Files[name] = summary
+	}
+	return summary
 }
 
 // pilotDocument is what the bridge writes per input file.
@@ -105,6 +121,7 @@ func runPilot(launcher, dir string, libraries, files []string, timeout time.Dura
 		if err != nil {
 			if os.IsNotExist(err) {
 				result.Failed = append(result.Failed, rel)
+				result.file(rel).PilotFailed = true
 				continue
 			}
 			return nil, fmt.Errorf("read pilot export %s: %w", rel, err)
@@ -115,7 +132,16 @@ func runPilot(launcher, dir string, libraries, files []string, timeout time.Dura
 		}
 		result.Elements = append(result.Elements, keyPilot(document, result)...)
 	}
-	result.Elements, result.Duplicates, result.Ambiguous, result.Shared = dropAmbiguous(result.Elements)
+	var duplicates, ambiguous map[string]int
+	result.Elements, duplicates, ambiguous, result.Shared = dropAmbiguous(result.Elements)
+	for file, count := range duplicates {
+		result.Duplicates += count
+		result.file(file).DuplicateElements.Pilot += count
+	}
+	for file, count := range ambiguous {
+		result.Ambiguous += count
+		result.file(file).AmbiguousKeys.Pilot += count
+	}
 	return result, nil
 }
 
@@ -158,10 +184,12 @@ func keyPilot(document pilotDocument, result *pilotExport) []*element {
 		typ, _ := payload["@type"].(string)
 		if payload["isLibraryElement"] == true {
 			result.Library++
+			result.file(document.File).PilotLibraryElements++
 			continue
 		}
 		if key == "" {
 			result.Unkeyable++
+			result.file(document.File).UnkeyableElements.Pilot++
 			result.Unkeyed[typ]++
 			continue
 		}
@@ -180,11 +208,10 @@ func keyPilot(document pilotDocument, result *pilotExport) []*element {
 // ambiguousSamples is how many shared keys a side's report names.
 const ambiguousSamples = 8
 
-// dropAmbiguous keeps one of several identical copies of an element (the pilot
-// writes an element in every file whose traversal reaches it) and removes every
-// element whose key another, different element shares, since neither could be
-// matched with confidence; it counts both and names the first shared keys.
-func dropAmbiguous(elements []*element) (kept []*element, duplicates, ambiguous int, shared []string) {
+// dropAmbiguous keeps one of identical copies of an element and removes elements sharing a
+// key with a different one; both are counted in their own files, the first shared keys named.
+func dropAmbiguous(elements []*element) (kept []*element, duplicates, ambiguous map[string]int, shared []string) {
+	duplicates, ambiguous = make(map[string]int), make(map[string]int)
 	byKey := make(map[string][]*element, len(elements))
 	for _, e := range elements {
 		byKey[e.Key] = append(byKey[e.Key], e)
@@ -209,11 +236,15 @@ func dropAmbiguous(elements []*element) (kept []*element, duplicates, ambiguous 
 			}
 		}
 		if identical {
-			duplicates += len(copies) - 1
+			for _, other := range copies[1:] {
+				duplicates[other.File]++
+			}
 			kept = append(kept, e)
 			continue
 		}
-		ambiguous += len(copies)
+		for _, other := range copies {
+			ambiguous[other.File]++
+		}
 		if len(shared) < ambiguousSamples {
 			shared = append(shared, e.Key+" ("+e.File+")")
 		}

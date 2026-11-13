@@ -45,8 +45,8 @@ func (log *evaluationLog) record(ctx *Context, fn *functionValue, args calcArgs,
 	}
 	arguments := fn.shape.argumentsByPosition(args)
 	for i := range arguments {
-		if i < len(fn.shape.Params) && fn.shape.Params[i].Decl.Target != nil {
-			if ctx.holdAsReal(&arguments[i], fn.shape.Params[i].Decl.Target.typ) != nil {
+		if i < len(fn.shape.Params) && fn.shape.paramDecls[i].Target != nil {
+			if ctx.holdAsReal(&arguments[i], fn.shape.paramDecls[i].Target.typ) != nil {
 				arguments[i] = fn.shape.argumentsByPosition(args)[i]
 			}
 		}
@@ -71,9 +71,9 @@ func (log *evaluationLog) pick(element Value) {
 
 // argumentsByPosition lists an application's arguments by parameter position,
 // null where the application binds none before a later one; unknown names follow, sorted.
-func (shape *calcShape) argumentsByPosition(args calcArgs) []Value {
+func (shape *loadedCalc) argumentsByPosition(args calcArgs) []Value {
 	arguments := make([]Value, 0, len(shape.ParamNames))
-	indexes := shape.positionalIndexes()
+	indexes := shape.PositionalIndexes()
 	for k, value := range args.positional {
 		position := len(arguments)
 		if k < len(indexes) {

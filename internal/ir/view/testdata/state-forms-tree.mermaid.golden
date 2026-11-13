@@ -28,27 +28,31 @@ flowchart TD
 **Burner**`"]
     n1("`*«attribute»*
 **flame**`")
-    n2("`*«state»*
-**off**`")
+    n2("`**entry**`")
   n0 --- n2
-    n3("`*«state»*
-**running**`")
-      n4("`*«entry action»*
-**ignite**`")
-  n3 --- n4
-      n5("`**exit action**`")
-  n3 --- n5
-      n6("`**do action**`")
-  n3 --- n6
-      n7("`*«state»*
-**low**`")
-  n3 --- n7
-      n8("`*«state»*
-**high**`")
-  n3 --- n8
+    n3("`**then off**`")
   n0 --- n3
-    n9("`**transition**`")
-  n0 --- n9
-    n10("`**first running then off**`")
-  n0 --- n10
+    n4("`*«state»*
+**off**`")
+  n0 --- n4
+    n5("`*«state»*
+**running**`")
+      n6("`*«entry action»*
+**ignite**`")
+  n5 --- n6
+      n7("`**exit action**`")
+  n5 --- n7
+      n8("`**do action**`")
+  n5 --- n8
+      n9("`*«state»*
+**low**`")
+  n5 --- n9
+      n10("`*«state»*
+**high**`")
+  n5 --- n10
+  n0 --- n5
+    n11("`**transition**`")
+  n0 --- n11
+    n12("`**first running then off**`")
+  n0 --- n12
   n0 ---|"◇"| n1

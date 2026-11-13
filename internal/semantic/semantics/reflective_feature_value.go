@@ -189,6 +189,18 @@ func expressionValue(sym *symbols.Symbol, feature string) (symbols.FilterValue, 
 		if feature == "operator" {
 			return symbols.FilterValue{Kind: symbols.FilterValueString, Str: ","}, true
 		}
+	case *ast.FeatureChainExpr, *ast.CollectExpr, *ast.SelectExpr:
+		if operator, ok := fixedExpressionOperators[expressionElementMetaclassName(sym)]; ok && feature == "operator" {
+			return symbols.FilterValue{Kind: symbols.FilterValueString, Str: operator}, true
+		}
 	}
 	return symbols.FilterValue{}, false
+}
+
+// fixedExpressionOperators are the operators the specification fixes for an OperatorExpression
+// by its metaclass (KerML 8.3.4.8.2 CollectExpression, 8.3.4.8.4 FeatureChainExpression, 8.3.4.8.18 SelectExpression).
+var fixedExpressionOperators = map[string]string{
+	"FeatureChainExpression": ".",
+	"CollectExpression":      "collect",
+	"SelectExpression":       "select",
 }

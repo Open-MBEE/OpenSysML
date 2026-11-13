@@ -17,6 +17,9 @@ within these records and means nothing outside this repository.
   corpora, ratcheted in CI
 - **[RDF corpus round-trip gate](rdf-corpus-roundtrip.md)** — the notation → Turtle → notation →
   Turtle verdict of every model under `examples/`, ratcheted per file in CI
+- **[Construct-cover corpus subset](construct-cover-subset.md)** — the 95 models under
+  `examples/` that exhibit every syntactic construct the 880 do, and the
+  `OPENSYSML_CORPUS_SUBSET` switch that makes the sweeps iterate them alone
 - **[PSSM migration gate](pssm-migration.md)** — the SysML v1 migrator over the OMG PSSM test
   suite: the notation asserted to parse, the report's verdict totals ratcheted in CI
 - **[Pilot differential](pilot-differential.md)** — OpenSysML diagnostics compared against the OMG
@@ -36,6 +39,9 @@ within these records and means nothing outside this repository.
 - **[PSSM referee](pssm-referee.md)** — the OMG PSSM state-machine test suite, translated by rule
   into SysML v2 notation and run against the runtime as an advisory oracle, its bucket counts
   gated in CI; never evidence of SysML v2 conformance
+- **[Cross-MDK conformance suite](hideo-suite.md)** — hideo67/sysmlv2-tests, a common test suite
+  for SysML v2 MDKs whose expectations are the pilot's, run daily against the Python and Go
+  clients as an advisory per-case ratchet; never evidence of SysML v2 conformance
 - **[LLM authoring benchmark](llm-benchmark.md)** — how well language models write SysML v2 with
   `sysml -validate` in the loop, with and without the `sysml-mcp` tools; 50-task corpus, method and per-model results
 - **[fUML referee](fuml-referee.md)** — the fUML reference implementation's activity tests as

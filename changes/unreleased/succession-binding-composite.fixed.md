@@ -1,0 +1,1 @@
+- The query leg answers `isComposite` false and `isReference` true for a succession written `then x;` or `succession s first a then b;` and for a `bind a = b;` — a reference however it is written (SysML § 7.6.3), as the RDF writer states it and the pilot exports it; the reflection had answered the usage default, composite.

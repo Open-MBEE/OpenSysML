@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -78,7 +79,7 @@ type Context struct {
 
 	// calcUsageRunning holds the calc usages whose bodies are running, so a body
 	// reading its own usage is a recursion rather than a nested evaluation.
-	calcUsageRunning map[calcUsageKey]*calcShape
+	calcUsageRunning map[calcUsageKey]*loadedCalc
 
 	// activations numbers the body activations begun in this context: a calc
 	// invocation, a block entry, a loop iteration, a body application.
@@ -137,7 +138,7 @@ type Context struct {
 	// resolvingBindings guards binding endpoint resolution for one instance
 	// feature, so a valueless binding cycle is reported rather than recursed.
 	resolvingBindings map[featureValueRef]bool
-	bindingOwners     map[featureValueRef]*ast.Usage
+	bindingOwners     map[featureValueRef]program.Origin
 
 	// pendingBehaviors are the object behaviors attached but not yet run, drained
 	// by the outermost materialization so a start reached from inside a running
@@ -185,6 +186,8 @@ type Context struct {
 	// coverage holds the states this run entered and the transitions it took,
 	// qualified by the object running the machine, whether or not it is traced.
 	coverage map[coverageKey]CoverageEntry
+	// covering is whether a check or an exploration runs this context and reads its coverage.
+	covering bool
 
 	// heldBehaviors are the behaviors already holding work when the outermost
 	// start under way began: a driver put it in flight, and dispatches it.
@@ -442,7 +445,7 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		run: &runState{
 			calcUsageRuns: make(map[int64]map[calcUsageKey]*calcRun),
 		},
-		calcUsageRunning: make(map[calcUsageKey]*calcShape),
+		calcUsageRunning: make(map[calcUsageKey]*loadedCalc),
 
 		maxActionSteps: DefaultMaxActionSteps,
 		maxStateEvents: DefaultMaxStateEvents,
@@ -464,7 +467,7 @@ func NewContext(model *Model, maxSteps int64) *Context {
 		materializingConnectors: make(map[connectorRef]bool),
 		derivingFeatureValues:   make(map[featureValueRef]bool),
 		resolvingBindings:       make(map[featureValueRef]bool),
-		bindingOwners:           make(map[featureValueRef]*ast.Usage),
+		bindingOwners:           make(map[featureValueRef]program.Origin),
 		collectingSubsets:       make(map[featureValueRef]bool),
 		readingSubsetted:        make(map[featureValueRef]bool),
 		drawingSubsetters:       make(map[featureValueRef]bool),
@@ -494,11 +497,11 @@ func (ctx *Context) declaredSymbol(sym *symbols.Symbol) *symbols.Symbol {
 	return ctx.model.declaredSymbol(sym)
 }
 
-// collectDeclared records the symbol declared by each node under scope.
-func collectDeclared(scope *symbols.Scope, into map[ast.Node]*symbols.Symbol) {
+// collectDeclared records the symbol declaring each element under scope, by the element's key.
+func collectDeclared(scope *symbols.Scope, into map[symbols.ElementKey]*symbols.Symbol) {
 	scope.ForEachMember(func(sym *symbols.Symbol) bool {
 		if sym.Decl != nil {
-			into[sym.Decl] = sym
+			into[symbols.KeyOf(sym)] = sym
 		}
 		return true
 	})
@@ -1647,11 +1650,11 @@ func (ctx *Context) chainMembers(sym *symbols.Symbol, scope *symbols.Scope) []sc
 		if link == nil || ctx.frameDeclared(link) {
 			continue
 		}
-		for _, node := range unwrappedDeclMembers(link.Decl) {
+		for _, node := range lower.UnwrappedDeclMembers(link.Decl) {
 			out = append(out, scopedMember{node: node, scope: bodyScope(link, link.OwnerScope)})
 		}
 	}
-	for _, node := range unwrappedDeclMembers(sym.Decl) {
+	for _, node := range lower.UnwrappedDeclMembers(sym.Decl) {
 		out = append(out, scopedMember{node: node, scope: bodyScope(sym, scope)})
 	}
 	return out

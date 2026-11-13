@@ -315,3 +315,88 @@ func TestRenderViewRoutesThroughEngine(t *testing.T) {
 		t.Fatalf("RenderView of an unknown model error = %v, want NotFound", err)
 	}
 }
+
+func TestRenderDocumentRoutesThroughEngine(t *testing.T) {
+	server, err := New("combined-test")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	model := `package Demo {
+	private import DocumentQueries::*;
+	part def Telescope { part mount; }
+	part telescope : Telescope;
+	part def MassReport :> Document {
+		:>> title = "Telescope Mass Report";
+		rep language "markdown" /* The mount is at [](sysml:telescope.mount). */
+		part breakdown : Section { :>> title = "Subsystem Masses"; }
+	}
+}`
+	parseBody, err := server.Call(context.Background(), "ParseFile", []byte(fmt.Sprintf(`{"content":%q}`, model)))
+	if err != nil {
+		t.Fatalf("ParseFile: %v", err)
+	}
+	var parsed struct {
+		ModelHash string `json:"modelHash"`
+	}
+	if err := json.Unmarshal(parseBody, &parsed); err != nil {
+		t.Fatalf("decoding ParseFile: %v\n%s", err, parseBody)
+	}
+	render := func(form string) map[string]string {
+		t.Helper()
+		params := fmt.Sprintf(`{"modelHash":%q,"documentId":"Demo::MassReport"}`, parsed.ModelHash)
+		if form != "" {
+			params = fmt.Sprintf(`{"modelHash":%q,"documentId":"Demo::MassReport","form":%q}`, parsed.ModelHash, form)
+		}
+		body, err := server.Call(context.Background(), "RenderDocument", []byte(params))
+		if err != nil {
+			t.Fatalf("RenderDocument(%q): %v", form, err)
+		}
+		var rendered map[string]string
+		if err := json.Unmarshal(body, &rendered); err != nil {
+			t.Fatalf("decoding RenderDocument(%q): %v\n%s", form, err, body)
+		}
+		return rendered
+	}
+	// The default form is Markdown, answered in markdown alone with the file a set writes.
+	markdown := render("")
+	if !strings.HasPrefix(markdown["markdown"], "# Telescope Mass Report\n") || !strings.Contains(markdown["markdown"], "## Subsystem Masses") {
+		t.Errorf("markdown = %q, want the titled report", markdown["markdown"])
+	}
+	if markdown["html"] != "" || markdown["asciidoc"] != "" || markdown["fileName"] != "Demo-MassReport.md" {
+		t.Errorf("markdown answer = %v, want markdown and Demo-MassReport.md alone", markdown)
+	}
+	html := render("html")
+	if !strings.HasPrefix(html["html"], "<!DOCTYPE html>") || !strings.Contains(html["html"], "<title>Telescope Mass Report</title>") {
+		t.Errorf("html = %q, want a standalone page", html["html"])
+	}
+	if html["markdown"] != "" || html["fileName"] != "Demo-MassReport.html" {
+		t.Errorf("html answer = %v, want html and Demo-MassReport.html alone", html)
+	}
+	asciidoc := render("asciidoc")
+	if !strings.HasPrefix(asciidoc["asciidoc"], "= Telescope Mass Report\n") || asciidoc["fileName"] != "Demo-MassReport.adoc" {
+		t.Errorf("asciidoc answer = %v, want the AsciiDoc document and Demo-MassReport.adoc", asciidoc)
+	}
+
+	refused := func(name, params string, code uint32, message string) {
+		t.Helper()
+		_, err := server.Call(context.Background(), "RenderDocument", []byte(params))
+		var callErr *jsonrpc.Error
+		if !errors.As(err, &callErr) || callErr.Code != code {
+			t.Fatalf("%s: error = %v, want code %d", name, err, code)
+		}
+		if !strings.Contains(callErr.Message, message) {
+			t.Errorf("%s: message = %q, want it to contain %q", name, callErr.Message, message)
+		}
+	}
+	// PDF needs converters the module cannot run; the refusal names the forms it renders.
+	refused("pdf", fmt.Sprintf(`{"modelHash":%q,"documentId":"Demo::MassReport","form":"pdf"}`, parsed.ModelHash),
+		jsonrpc.CodeInvalidArgument, `form "pdf" is not one a document is rendered in: markdown, html or asciidoc`)
+	refused("an unknown document", fmt.Sprintf(`{"modelHash":%q,"documentId":"Demo::Missing"}`, parsed.ModelHash),
+		jsonrpc.CodeNotFound, "symbol not found: Demo::Missing")
+	refused("a part def that is no document", fmt.Sprintf(`{"modelHash":%q,"documentId":"Demo::Telescope"}`, parsed.ModelHash),
+		jsonrpc.CodeInvalidArgument, "Demo::Telescope is not a document")
+	refused("no document", fmt.Sprintf(`{"modelHash":%q}`, parsed.ModelHash),
+		jsonrpc.CodeInvalidArgument, "a document to render must be named in documentId")
+	refused("a missing model", `{"modelHash":"missing","documentId":"Demo::MassReport"}`,
+		jsonrpc.CodeNotFound, "model not found: missing")
+}

@@ -353,7 +353,9 @@ public final class Model {
   }
 
   /**
-   * A symbol by qualified name.
+   * A symbol by qualified name, resolved from the root namespace the way the notation resolves
+   * one: through imports, an alias answered by the element it names, and a member not visible
+   * from outside its namespace ({@code private}, {@code protected}) not found.
    *
    * @param symbolId a qualified name, such as {@code "Demo::Vehicle"}
    * @return the symbol
@@ -609,7 +611,8 @@ public final class Model {
   }
 
   private Optional<Symbol> symbolWithId(String id) {
-    return findSymbol(id).filter(symbol -> symbol.id().equals(id));
+    return findSymbol(id, SymbolOptions.defaults().byReportedId(true))
+        .filter(symbol -> symbol.id().equals(id));
   }
 
   private Optional<Symbol> symbolNamed(String name) {
@@ -699,7 +702,7 @@ public final class Model {
     while (!queue.isEmpty()) {
       Symbol current = queue.removeFirst();
       for (String childId : current.childIds()) {
-        Optional<Symbol> child = seen.add(childId) ? findSymbol(childId) : Optional.empty();
+        Optional<Symbol> child = seen.add(childId) ? symbolWithId(childId) : Optional.empty();
         if (child.isPresent()) {
           if (stop.test(child.get())) {
             return;
@@ -2334,7 +2337,7 @@ public final class Model {
 
   private SymbolResponse symbolResponse(String symbolId, SymbolOptions options) {
     Objects.requireNonNull(symbolId, NAME_SYMBOL_ID);
-    Objects.requireNonNull(options, "options");
+    Objects.requireNonNull(options, NAME_OPTIONS);
     if (options.includeLibraryMembers()) {
       connection.capabilities().require(Capabilities.SYMBOL_MEMBERS);
     }
@@ -2344,6 +2347,9 @@ public final class Model {
             .setModelHash(hash)
             .setSymbolId(symbolId)
             .setIncludeLibraryMembers(options.includeLibraryMembers())
+            .setResolveName(
+                !options.byReportedId()
+                    && connection.capabilities().has(Capabilities.SYMBOL_NAME_RESOLUTION))
             .build(),
         SymbolResponse.getDefaultInstance());
   }

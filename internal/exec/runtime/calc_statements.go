@@ -14,7 +14,7 @@ import (
 // the case, which flow steps the tokens of; a calc's body performs nothing.
 type calcStmtHost struct {
 	ctx    *Context
-	shape  *calcShape
+	shape  *loadedCalc
 	self   *Instance
 	result Value // the value its `return` yielded
 	flow   *ActionExecutor
@@ -61,15 +61,15 @@ func (o *calcOccurrence) materializeOccurrence() (*Instance, error) {
 // attachPerformances makes the host perform the steps of a case body as
 // subperformances of the case, whose performance is the root the body reads through.
 func (h *calcStmtHost) attachPerformances(engine *stmtEngine) {
-	if !h.shape.performs() {
+	if !h.shape.Performs() {
 		return
 	}
 	root := &actionFrame{
-		scope:      h.shape.bodyScope(),
+		scope:      h.shape.BodyScope(),
 		data:       make(map[string]Value),
 		features:   make(map[string]ast.FeatureDirection),
-		subactions: make(map[ast.Node]*actionFrame),
-		nodes:      h.shape.Nodes,
+		subactions: make(map[NodeRef]*actionFrame),
+		nodes:      blockNodeRefs(h.shape.Steps),
 		label:      h.shape.Label,
 		outer:      append(append(append([]frame{}, engine.env.enclosing...), engine.env.data), engine.env.localFrame()),
 		run:        h.ctx.newRun(),
@@ -141,7 +141,7 @@ func (h *calcStmtHost) assignOuter(env *stmtEnv, name string, value Value, s low
 		return fmt.Errorf("%w: %s is not declared by the calculation", errCalcExternalAssignment, name)
 	}
 	out, _ := h.shape.output(name)
-	if out.Value != nil && !out.IsInitial {
+	if out.Value != 0 && !out.IsInitial {
 		return fmt.Errorf(
 			"%w: output %s of %s is both given a value by its declaration and assigned in its body",
 			errConflictingOutput, name, h.shape.Label,
@@ -169,9 +169,9 @@ func (h *calcStmtHost) assignData(env *stmtEnv, name string, value Value, s lowe
 // hold: a qualified write lands the way the body's own assignments do — checked
 // against the declaration, bound in the frame, and mirrored into the run's
 // occurrence when `this` materialized and holds the feature.
-func calcFeatureWriter(ctx *Context, shape *calcShape, occ *calcOccurrence) func(frame, string, Value) error {
+func calcFeatureWriter(ctx *Context, shape *loadedCalc, occ *calcOccurrence) func(frame, string, Value) error {
 	return func(f frame, name string, value Value) error {
-		if err := ctx.checkNamedWriteComputed(shape.bodyScope(), calcBodyDescription, name, &value); err != nil {
+		if err := ctx.checkNamedWriteComputed(shape.BodyScope(), calcBodyDescription, name, &value); err != nil {
 			return err
 		}
 		f.set(name, value)
@@ -234,7 +234,7 @@ func (h *calcStmtHost) statementFootprint([]lower.Statement, int) lower.Footprin
 }
 
 func (h *calcStmtHost) statementOrder(stmts []lower.Statement) *lower.StatementOrder {
-	if h.shape.performs() || len(stmts) < 2 {
+	if h.shape.Performs() || len(stmts) < 2 {
 		return nil
 	}
 	key := &stmts[0]
@@ -245,7 +245,7 @@ func (h *calcStmtHost) statementOrder(stmts []lower.Statement) *lower.StatementO
 		}
 		return nil
 	}
-	order := lower.CalcBodyStatementOrder(h.shape.bodyScope(), nil, stmts)
+	order := lower.CalcBodyStatementOrder(h.shape.BodyScope(), nil, stmts)
 	actual, _ := h.shape.statementOrders.LoadOrStore(key, order)
 	order = actual.(*lower.StatementOrder)
 	if h.ctx.scheduling().ordersStatements() || order.HasReversePrecedence() || order.HasSkipped() {
@@ -334,7 +334,7 @@ func (h *calcStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGraph,
 	}
 	if connectsPins(graph, node) {
 		return flowNext, fmt.Errorf("%s: a binding or flow at a pin of %s in a body is not executable",
-			h.describe(), nodeDescription(node))
+			h.describe(), describeNode(graph, node))
 	}
 	var nestedSteps []lower.Statement
 	var nestedOrder *lower.StatementOrder
@@ -343,7 +343,7 @@ func (h *calcStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGraph,
 		nestedSteps, simple = sub.Graph.StatementList()
 		if !simple {
 			return flowNext, fmt.Errorf("%s: the flow %s states of its own in a body is not executable",
-				h.describe(), nodeDescription(node))
+				h.describe(), describeNode(graph, node))
 		}
 		nestedOrder = graph.StatementOrders[node]
 	}
@@ -357,7 +357,7 @@ func (h *calcStmtHost) performNode(engine *stmtEngine, graph *lower.ActionGraph,
 		}
 		value, err := engine.evalIn(feature.Scope).Eval(feature.Value)
 		if err != nil {
-			return flowNext, fmt.Errorf("eval %s of %s: %w", feature.Name, nodeDescription(node), err)
+			return flowNext, fmt.Errorf("eval %s of %s: %w", feature.Name, describeNode(graph, node), err)
 		}
 		engine.env.declare(engine.ctx, feature.Name, value)
 	}
@@ -396,7 +396,7 @@ func (h *calcStmtHost) assignAround(name string, value Value) (bool, error) {
 		return true, nil
 	}
 	if h.declaredOutput(name) || h.env.data.has(name) {
-		if err := h.ctx.checkNamedWriteComputed(h.shape.bodyScope(), h.describe(), name, &value); err != nil {
+		if err := h.ctx.checkNamedWriteComputed(h.shape.BodyScope(), h.describe(), name, &value); err != nil {
 			return true, err
 		}
 		h.env.data.setBody(h.ctx, name, value)
@@ -409,7 +409,7 @@ func (h *calcStmtHost) assignAround(name string, value Value) (bool, error) {
 func (h *calcStmtHost) returnAround(name string, value Value) (bool, error) {
 	if h.declaredOutput(name) || h.env.data.has(name) {
 		what := func() string { return fmt.Sprintf("%s: output %s returned", h.describe(), name) }
-		if err := h.ctx.checkMutable(h.shape.bodyScope(), what, name); err != nil {
+		if err := h.ctx.checkMutable(h.shape.BodyScope(), what, name); err != nil {
 			return true, err
 		}
 	}
@@ -417,7 +417,7 @@ func (h *calcStmtHost) returnAround(name string, value Value) (bool, error) {
 }
 
 // pauseAt sets no breakpoint: a case's steps are not stepped interactively.
-func (h *calcStmtHost) pauseAt([]ast.Node, ast.Node) error {
+func (h *calcStmtHost) pauseAt([]NodeRef, NodeRef) error {
 	return nil
 }
 

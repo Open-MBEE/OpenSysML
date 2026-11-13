@@ -8,18 +8,16 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/convert"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/export"
 	"github.com/Open-MBEE/OpenSysML/internal/translate/rdf"
+	"github.com/Open-MBEE/OpenSysML/tests/testutil/corpussubset"
 )
 
 var updateCorpusRoundTrip = flag.Bool("update-corpus-roundtrip", false,
@@ -44,7 +42,7 @@ const (
 		"# no longer converts) and refused:<class> (notation -> Turtle refused). This\n" +
 		"# is a per-file ratchet, not a claim that any verdict is right; see\n" +
 		"# docs/project/rdf-corpus-roundtrip.md. Regenerate with:\n" +
-		"#   go test ./tests/corpus -run TestCorpusRoundTrip -update-corpus-roundtrip\n"
+		"#   go test ./tests/corpus -run TestExamplesSweep -update-corpus-roundtrip\n"
 
 	apiJSONRoundTripHeader = "# Round-trip verdict for every model under examples/, as \"<verdict>\\t<path>\":\n" +
 		"# notation -> the API's JSON element form (hop 1) -> notation -> the JSON\n" +
@@ -56,19 +54,17 @@ const (
 		"# converts) and refused:<class> (notation -> the JSON form refused).\n" +
 		"# This is a per-file ratchet, not a claim that any verdict is right;\n" +
 		"# see docs/project/rdf-corpus-roundtrip.md. Regenerate with:\n" +
-		"#   go test ./tests/corpus -run TestCorpusAPIJSONRoundTrip -update-api-json-roundtrip\n"
+		"#   go test ./tests/corpus -run TestExamplesSweep -update-api-json-roundtrip\n"
 )
 
-// roundTripGate is one per-file ratchet over the corpus: the same walk,
-// worker pool, expectation file and comparison, differing only in the hop
-// format each verdict round-trips through.
+// roundTripGate is one per-file ratchet over the corpus: an expectation file and its comparison,
+// differing only in the hop format; TestExamplesSweep measures both on one load of each model.
 type roundTripGate struct {
 	name       string // the gate's name in the summary line CI greps
 	updateFlag string // the flag regeneration messages name
 	update     *bool
 	expected   string
 	header     string
-	verdict    func(rel string, src []byte) (string, error)
 }
 
 var corpusRoundTripGate = roundTripGate{
@@ -77,7 +73,6 @@ var corpusRoundTripGate = roundTripGate{
 	update:     updateCorpusRoundTrip,
 	expected:   corpusRoundTripExpected,
 	header:     corpusRoundTripHeader,
-	verdict:    corpusRoundTripVerdict,
 }
 
 var apiJSONRoundTripGate = roundTripGate{
@@ -86,7 +81,6 @@ var apiJSONRoundTripGate = roundTripGate{
 	update:     updateAPIJSONRoundTrip,
 	expected:   apiJSONRoundTripExpected,
 	header:     apiJSONRoundTripHeader,
-	verdict:    apiJSONRoundTripVerdict,
 }
 
 // corpusRoundTripRoot is one downloaded corpus under examples/. The committed
@@ -132,21 +126,20 @@ var corpusRoundTripRoots = []corpusRoundTripRoot{
 	},
 }
 
-// skip mirrors corpusGate.skip: skip locally, fail when the require-env is
-// set, and announce it on stderr either way.
-func (r corpusRoundTripRoot) skip(t *testing.T, reason string) {
+// absent mirrors corpusGate.skip for one ratchet root: fail when the require-env is set,
+// announce on stderr otherwise. The sweep's other properties still run over what is present.
+func (r corpusRoundTripRoot) absent(t *testing.T, reason string) {
 	t.Helper()
 	hint := fmt.Sprintf("examples/%s not downloaded (run %s)", r.name, r.fetch)
 	if os.Getenv(r.requireEnv) != "" {
 		t.Fatalf("%s=%s but %s: %s", r.requireEnv, os.Getenv(r.requireEnv), reason, hint)
 	}
-	fmt.Fprintf(os.Stderr, "\n!!! GATE NOT RUN: %s SKIPPED - %s.\n"+
-		"!!! The corpus is absent, so this run proves nothing about it.\n"+
+	fmt.Fprintf(os.Stderr, "\n!!! GATE NOT RUN: the round-trip ratchets of %s SKIPPED - %s.\n"+
+		"!!! The corpus is absent, so this run proves nothing about it; %s\n"+
 		"!!! Fetch it with %s and re-run\n"+
-		"!!!   go test -count=1 ./tests/corpus -run TestCorpusRoundTrip\n"+
+		"!!!   go test -count=1 ./tests/corpus -run TestExamplesSweep\n"+
 		"!!! CI sets %s=1, where an absent corpus fails instead of skipping.\n\n",
-		t.Name(), reason, r.fetch, r.requireEnv)
-	t.Skip(hint)
+		t.Name(), reason, hint, r.fetch, r.requireEnv)
 }
 
 // corpusRoundTripRootOf names the root a path relative to examples/ belongs to.
@@ -159,19 +152,20 @@ func corpusRoundTripRootOf(rel string) string {
 	return corpusRoundTripCommitted
 }
 
-// corpusRoundTripFiles returns every model under examples/ as sorted
-// slash-separated relative paths, plus the file count per root.
-func corpusRoundTripFiles(t *testing.T) ([]string, map[string]int) {
+// corpusRoundTripFiles returns every model under examples/ as sorted slash-separated relative
+// paths, the file count per root, and whether every root is present so the ratchets can be checked.
+func corpusRoundTripFiles(t *testing.T) (files []string, totals map[string]int, ratchet bool) {
 	t.Helper()
 
+	missing := map[string]bool{}
 	for _, root := range corpusRoundTripRoots {
 		dir := filepath.Join(corpusRoundTripExamples, filepath.FromSlash(root.name))
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
-			root.skip(t, dir+" is missing")
+			root.absent(t, dir+" is missing")
+			missing[root.name] = true
 		}
 	}
 
-	var files []string
 	err := filepath.WalkDir(corpusRoundTripExamples, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -196,7 +190,7 @@ func corpusRoundTripFiles(t *testing.T) ([]string, map[string]int) {
 	}
 	sort.Strings(files)
 
-	totals := make(map[string]int, len(corpusRoundTripRoots)+1)
+	totals = make(map[string]int, len(corpusRoundTripRoots)+1)
 	for _, rel := range files {
 		totals[corpusRoundTripRootOf(rel)]++
 	}
@@ -205,19 +199,19 @@ func corpusRoundTripFiles(t *testing.T) ([]string, map[string]int) {
 	}
 	// An empty directory is a broken download or a bad cache restore, not a corpus.
 	for _, root := range corpusRoundTripRoots {
-		if totals[root.name] == 0 {
-			root.skip(t, "examples/"+root.name+" holds no model files")
+		if !missing[root.name] && totals[root.name] == 0 {
+			root.absent(t, "examples/"+root.name+" holds no model files")
+			missing[root.name] = true
 		}
 	}
-	return files, totals
+	return files, totals, len(missing) == 0
 }
 
-// corpusRoundTripVerdict classifies one model's notation -> Turtle -> notation
-// -> Turtle trip. An error means the harness failed, never a verdict.
-func corpusRoundTripVerdict(rel string, src []byte) (string, error) {
-	hop1, err := convert.Convert(rel, src, convert.FormatSysML, convert.FormatTurtle)
-	if err != nil {
-		return "refused:" + refusalClass(rel, err), nil
+// corpusRoundTripVerdict classifies one model's notation -> Turtle -> notation -> Turtle trip from
+// its hop 1 (the Turtle written, or the refusal). An error means the harness failed, never a verdict.
+func corpusRoundTripVerdict(rel string, hop1 []byte, hop1Err error) (string, error) {
+	if hop1Err != nil {
+		return "refused:" + refusalClass(rel, hop1Err), nil
 	}
 	back, err := convert.Convert(rel+".ttl", hop1, convert.FormatTurtle, convert.FormatSysML)
 	if err != nil {
@@ -244,13 +238,11 @@ func corpusRoundTripVerdict(rel string, src []byte) (string, error) {
 	return "graph-diff", nil
 }
 
-// apiJSONRoundTripVerdict classifies one model's notation -> api-json ->
-// notation -> api-json trip. The two hops parse back to graphs so the
-// whitespace-only check compares what the JSON states, not its key order.
-func apiJSONRoundTripVerdict(rel string, src []byte) (string, error) {
-	hop1, err := convert.Convert(rel, src, convert.FormatSysML, convert.FormatAPIJSON)
-	if err != nil {
-		return "refused:" + refusalClass(rel, err), nil
+// apiJSONRoundTripVerdict classifies notation -> api-json -> notation -> api-json from its hop 1;
+// the hops parse back to graphs so whitespace-only compares what the JSON states, not key order.
+func apiJSONRoundTripVerdict(rel string, hop1 []byte, hop1Err error) (string, error) {
+	if hop1Err != nil {
+		return "refused:" + refusalClass(rel, hop1Err), nil
 	}
 	back, err := convert.Convert(rel+".json", hop1, convert.FormatAPIJSON, convert.FormatSysML)
 	if err != nil {
@@ -366,47 +358,6 @@ func refusalClass(name string, err error) string {
 	}
 }
 
-// verdicts measures every file on a worker pool, indexed like files so
-// scheduling never affects the order.
-func (g roundTripGate) verdicts(t *testing.T, files []string) map[string]string {
-	t.Helper()
-
-	verdicts := make([]string, len(files))
-	failures := make([]error, len(files))
-	next := make(chan int)
-	var wg sync.WaitGroup
-	for w := 0; w < runtime.GOMAXPROCS(0); w++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for i := range next {
-				rel := files[i]
-				src, err := os.ReadFile(filepath.Join(corpusRoundTripExamples, filepath.FromSlash(rel)))
-				if err != nil {
-					failures[i] = err
-					continue
-				}
-				verdicts[i], failures[i] = g.verdict(rel, src)
-			}
-		}()
-	}
-	for i := range files {
-		next <- i
-	}
-	close(next)
-	wg.Wait()
-
-	got := make(map[string]string, len(files))
-	for i, rel := range files {
-		if failures[i] != nil {
-			t.Errorf("%s: %v", rel, failures[i])
-			continue
-		}
-		got[rel] = verdicts[i]
-	}
-	return got
-}
-
 // summary is the per-verdict count line CI greps for.
 func (g roundTripGate) summary(files []string, got map[string]string) string {
 	counts := make(map[string]int)
@@ -432,21 +383,12 @@ func (g roundTripGate) readExpected(t *testing.T) (map[string]int, map[string]st
 		t.Fatalf("read %s: %v", g.expected, err)
 	}
 
+	// A root's size is the number of records under it: every file has a record,
+	// so no header line restates a count two branches adding files would both move.
 	totals := make(map[string]int)
 	want := make(map[string]string)
 	for i, line := range strings.Split(string(content), "\n") {
 		line = strings.TrimRight(line, "\r")
-		if rest, ok := strings.CutPrefix(line, "# files: "); ok {
-			root, count, found := strings.Cut(rest, " ")
-			if !found {
-				t.Fatalf("%s:%d: want \"# files: <root> <n>\", got %q", g.expected, i+1, line)
-			}
-			totals[root], err = strconv.Atoi(count)
-			if err != nil {
-				t.Fatalf("%s:%d: bad file count: %v", g.expected, i+1, err)
-			}
-			continue
-		}
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
@@ -458,19 +400,16 @@ func (g roundTripGate) readExpected(t *testing.T) (map[string]int, map[string]st
 			t.Fatalf("%s:%d: %s is recorded twice", g.expected, i+1, path)
 		}
 		want[path] = verdict
+		totals[corpusRoundTripRootOf(path)]++
 	}
 	return totals, want
 }
 
-func (g roundTripGate) writeExpected(t *testing.T, files []string, totals map[string]int, got map[string]string) {
+func (g roundTripGate) writeExpected(t *testing.T, files []string, got map[string]string) {
 	t.Helper()
 
 	var b strings.Builder
 	b.WriteString(g.header)
-	fmt.Fprintf(&b, "# files: %s %d\n", corpusRoundTripCommitted, totals[corpusRoundTripCommitted])
-	for _, root := range corpusRoundTripRoots {
-		fmt.Fprintf(&b, "# files: %s %d\n", root.name, totals[root.name])
-	}
 	for _, rel := range files {
 		fmt.Fprintf(&b, "%s\t%s\n", got[rel], rel)
 	}
@@ -479,19 +418,17 @@ func (g roundTripGate) writeExpected(t *testing.T, files []string, totals map[st
 	}
 }
 
-// run measures every file and either regenerates the gate's expectation or
-// fails on any movement from it.
-func (g roundTripGate) run(t *testing.T) {
-	files, totals := corpusRoundTripFiles(t)
-
-	// An empty semantic cache, as on a fresh checkout and in CI.
-	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-
-	got := g.verdicts(t, files)
+// check takes the sweep's verdict of every visited file (files, the subset of corpus) and either
+// regenerates the gate's expectation or fails on any movement from it.
+func (g roundTripGate) check(t *testing.T, subset corpussubset.Subset, corpus, files []string, totals map[string]int, got map[string]string) {
+	t.Helper()
 	t.Log(g.summary(files, got))
 
 	if *g.update {
-		g.writeExpected(t, files, totals, got)
+		if err := subset.Recording(g.updateFlag); err != nil {
+			t.Fatal(err)
+		}
+		g.writeExpected(t, files, got)
 		t.Logf("wrote %s: %d file(s)", g.expected, len(files))
 		return
 	}
@@ -505,11 +442,17 @@ func (g roundTripGate) run(t *testing.T) {
 		}
 	}
 
+	// Under a subset the unvisited files keep their recorded verdicts unchecked.
+	exists := make(map[string]bool, len(corpus))
+	for _, path := range corpus {
+		exists[path] = true
+	}
 	for _, path := range sortedStringKeys(want) {
 		switch verdict, ok := got[path]; {
-		case !ok:
+		case !exists[path]:
 			t.Errorf("%s: recorded %s but the file is gone; regenerate with %s",
 				path, want[path], g.updateFlag)
+		case !ok:
 		case verdict != want[path]:
 			t.Errorf("%s: %s, expected %s; adjudicate the change, then regenerate with %s",
 				path, verdict, want[path], g.updateFlag)
@@ -521,19 +464,6 @@ func (g roundTripGate) run(t *testing.T) {
 				path, got[path], g.updateFlag)
 		}
 	}
-}
-
-// TestCorpusRoundTrip is a per-file ratchet on the RDF round trip of every
-// model under examples/; any movement fails it. See docs/project/rdf-corpus-roundtrip.md.
-func TestCorpusRoundTrip(t *testing.T) {
-	corpusRoundTripGate.run(t)
-}
-
-// TestCorpusAPIJSONRoundTrip is the same ratchet over the API's JSON element
-// form, whose reader and writer share the RDF graph. See
-// docs/project/rdf-corpus-roundtrip.md.
-func TestCorpusAPIJSONRoundTrip(t *testing.T) {
-	apiJSONRoundTripGate.run(t)
 }
 
 // Refusal classes must carry no location or identifier, however spelt.

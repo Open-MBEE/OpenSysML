@@ -1,5 +1,5 @@
 {
-  "name": "opensysml-sysml",
+  "name": "opensysml",
   "displayName": "SysML v2 (OpenSysML)",
   "description": "SysML v2 and KerML syntax highlighting and language support backed by the OpenSysML language server.",
   "version": "0.12.1",
@@ -382,7 +382,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p src/webview/tsconfig.json && tsc --noEmit -p src/landing/tsconfig.json",
     "test": "node tools/test.mjs",
     "test:coverage": "node tools/test.mjs --coverage",
-    "package": "npm run typecheck && npm test && npm run build -- --production && vsce package --no-dependencies --out opensysml-sysml.vsix"
+    "package": "npm run typecheck && npm test && npm run build -- --production && vsce package --no-dependencies --out opensysml.vsix"
   },
   "dependencies": {
     "elkjs": "0.12.1",

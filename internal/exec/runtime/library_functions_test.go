@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -1317,10 +1318,12 @@ func TestVendoredFunctionsAreAllDispatchable(t *testing.T) {
 func checkLibrarySignature(t *testing.T, ctx *Context, fqn string, sym *symbols.Symbol, fn *libraryFunction) {
 	t.Helper()
 	var declared []declaredParam
-	for _, param := range ctx.calcParameters(ctx.calcChain(sym), new(map[string]string)) {
+	calc, _ := lower.ToCalc(sym, ctx.calcEnv())
+	for i := range calc.Params {
+		param := &calc.Params[i]
 		declared = append(declared, declaredParam{
 			name:     param.Name,
-			optional: param.Default != nil || param.optional(ctx.model.semantics),
+			optional: param.Default != 0 || optionalParameter(param, ctx.model.semantics),
 		})
 	}
 	// An implementation may pin a parameter the declaration leaves optional;
@@ -1350,7 +1353,7 @@ func checkBuiltinSignature(t *testing.T, ctx *Context, fqn string, sym *symbols.
 		return
 	}
 	var declared []declaredParam
-	for _, member := range unwrappedDeclMembers(sym.Decl) {
+	for _, member := range lower.UnwrappedDeclMembers(sym.Decl) {
 		usage, ok := member.(*ast.Usage)
 		if !ok || (usage.Direction != ast.DirIn && usage.Direction != ast.DirInOut) {
 			continue

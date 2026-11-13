@@ -57,7 +57,7 @@ func TestWorkspaceLibraryVersionStandsInForBundledFile(t *testing.T) {
 		t.Error("the displaced bundled file is still a library document")
 	}
 	var bundledReal *symbols.Symbol
-	walkScope(lib.Scope, func(s *symbols.Symbol) {
+	lib.Scope.WalkDeclarations(func(s *symbols.Symbol) {
 		if s.Name == "Real" {
 			bundledReal = s
 		}
@@ -954,7 +954,7 @@ func TestWorkspaceDisplacedIdentityIgnoresRemovedBaseFile(t *testing.T) {
 	ws := NewWorkspaceWithIndex(idx)
 
 	var tank *symbols.Symbol
-	walkScope(base.DocumentRoot(lib), func(s *symbols.Symbol) {
+	base.DocumentRoot(lib).WalkDeclarations(func(s *symbols.Symbol) {
 		if s.Name == "Tank" {
 			tank = s
 		}

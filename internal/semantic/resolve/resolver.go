@@ -103,6 +103,7 @@ type modeMemoKey struct {
 type importVisit struct {
 	target, from *symbols.Scope
 	name         string
+	all          bool
 }
 
 type filteredMemoKey struct {
@@ -525,6 +526,12 @@ func (r *Resolver) Index() *symbols.Index {
 // is attached, else from the relationships sym declares, where a member hide
 // covers does not stop the walk short of what a general offers.
 func (r *Resolver) lookupMember(sym *symbols.Symbol, name string, hide *refFilter) (*symbols.Symbol, bool) {
+	return r.lookupMemberThrough(sym, name, hide, nil)
+}
+
+// lookupMemberThrough is lookupMember reading only the imports of sym that
+// visible admits, every one when it is nil.
+func (r *Resolver) lookupMemberThrough(sym *symbols.Symbol, name string, hide *refFilter, visible func(*ast.Import) bool) (*symbols.Symbol, bool) {
 	if sym == nil {
 		return nil, false
 	}
@@ -538,7 +545,7 @@ func (r *Resolver) lookupMember(sym *symbols.Symbol, name string, hide *refFilte
 		return nil, false
 	}
 	for _, imp := range r.scopeImports(sym.Scope) {
-		if r.resolvingImports[imp] {
+		if r.resolvingImports[imp] || (visible != nil && !visible(imp)) {
 			continue
 		}
 		if !r.importPrefixAvailable(sym.Scope, imp, name) {

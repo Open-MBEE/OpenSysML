@@ -313,14 +313,32 @@ func (s *Symbol) RelationshipDecl() (RelationshipDecl, bool) {
 	return RelationshipDecl{}, false
 }
 
-// DeclaresTransition reports whether the symbol was declared by a transition
-// member (`transition t first a then b;`), from its declaration or its record.
+// NodeKind classifies the symbol's declaring node, as a record keeps it: NodeKindOf its
+// declaration, except that a state body's `then x;` after a state declares a transition.
+func (s *Symbol) NodeKind() NodeKind {
+	if s.Recorded() {
+		return s.Facts.Node
+	}
+	if s.DeclaresTransition() {
+		return NodeTransition
+	}
+	return NodeKindOf(s.Decl)
+}
+
+// DeclaresTransition reports whether the symbol was declared by a transition member (`transition t
+// first a then b;`) or a state body's `then x;` after a state, from its declaration or its record.
 func (s *Symbol) DeclaresTransition() bool {
 	if s.Recorded() {
 		return s.Facts.Node == NodeTransition
 	}
-	_, ok := s.Decl.(*ast.TransitionMember)
-	return ok
+	switch s.Decl.(type) {
+	case *ast.TransitionMember:
+		return true
+	case *ast.SuccessionEdge:
+		// A state body's `then x;` after a state is a TargetTransitionUsage (symbols.buildDecl).
+		return s.Kind == SymbolActionUsage
+	}
+	return false
 }
 
 // SendStatementOf is the send statement decl declares: the statement itself,
@@ -395,6 +413,12 @@ func (s *Symbol) Keyword() string {
 		return d.Keyword
 	case *ast.Usage:
 		return d.Keyword
+	case *ast.EntryMember:
+		return "entry"
+	case *ast.DoMember:
+		return "do"
+	case *ast.ExitMember:
+		return "exit"
 	}
 	return ""
 }

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -167,7 +168,7 @@ func (ctx *Context) connectorOwnedBindings(decl *symbols.Symbol) []lower.Binding
 	ctx.model.hoistingBindings[decl] = true
 	defer delete(ctx.model.hoistingBindings, decl)
 	var out []lower.Binding
-	for _, member := range unwrappedDeclMembers(decl.Decl) {
+	for _, member := range lower.UnwrappedDeclMembers(decl.Decl) {
 		usage, ok := member.(*ast.Usage)
 		if !ok || usage.IsVariant {
 			continue
@@ -438,11 +439,11 @@ func (ctx *Context) unmetBindingCounts(unmet []lower.Binding) error {
 	return nil
 }
 
-// claimBinding marks the binding as the one resolving key, so its own probe of the
-// other end is not mistaken for a genuine cycle; the returned func releases the claim.
-func (ctx *Context) claimBinding(key featureValueRef, decl *ast.Usage) func() {
+// claimBinding marks the binding, by its origin, as the one resolving key, so its own
+// probe of the other end is not mistaken for a genuine cycle; the returned func releases the claim.
+func (ctx *Context) claimBinding(key featureValueRef, binding program.Origin) func() {
 	previousOwner, hadOwner := ctx.bindingOwners[key]
-	ctx.bindingOwners[key] = decl
+	ctx.bindingOwners[key] = binding
 	return func() {
 		if hadOwner {
 			ctx.bindingOwners[key] = previousOwner
@@ -687,7 +688,7 @@ func (ctx *Context) sharedValues(a, b Value) int64 {
 // an end's feature holds, or one reaching the target across a collection.
 func (ctx *Context) partialBinding(owner, targetInst *Instance, target *FeatureValue,
 	binding lower.Binding, key featureValueRef) (partial bool, err error) {
-	defer ctx.claimBinding(key, binding.Decl)()
+	defer ctx.claimBinding(key, binding.Origin)()
 	for end := range binding.Ends {
 		endpoint, err := ctx.resolveBindingEndpoint(owner, binding, end)
 		if err != nil {
@@ -865,7 +866,7 @@ func bindingEndForPath(binding lower.Binding, path string) int {
 
 func (ctx *Context) attemptBinding(owner, targetInst *Instance, target *FeatureValue,
 	binding lower.Binding, key featureValueRef, carryingRead endRead) (attempt bindingAttempt) {
-	defer ctx.claimBinding(key, binding.Decl)()
+	defer ctx.claimBinding(key, binding.Origin)()
 	attempt.defaulted = binding.Ends[0].Default || binding.Ends[1].Default
 
 	left, err := ctx.resolveBindingEndpoint(owner, binding, 0)
@@ -915,7 +916,7 @@ func (ctx *Context) attemptBinding(owner, targetInst *Instance, target *FeatureV
 	}
 	for _, endpoint := range []bindingEndpoint{left, right} {
 		for _, loc := range endpoint.locations {
-			if ctx.genuineBindingCycle(featureValueRef{instance: loc.instance.ID, feature: loc.name}, binding.Decl) {
+			if ctx.genuineBindingCycle(featureValueRef{instance: loc.instance.ID, feature: loc.name}, binding.Origin) {
 				attempt.cycle = true
 			}
 		}
@@ -1070,7 +1071,7 @@ func (ctx *Context) resolvingBindingEnd(endpoint bindingEndpoint, carries bool) 
 	return false
 }
 
-func (ctx *Context) genuineBindingCycle(ref featureValueRef, binding *ast.Usage) bool {
+func (ctx *Context) genuineBindingCycle(ref featureValueRef, binding program.Origin) bool {
 	return ctx.resolvingBindings[ref] && ctx.bindingOwners[ref] != binding
 }
 

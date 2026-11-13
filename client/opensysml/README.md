@@ -30,7 +30,7 @@ inst, err := client.Instantiate(ctx, model, "Demo::Vehicle")
 | --- | --- |
 | Parse one document | `ParseFile`, `ParseSource` |
 | Parse a model of several documents | `ParseFiles`, `ParseDocuments` |
-| Read the model | `LookupSymbol` (`WithLibraryMembers`), `Diagnostics` |
+| Read the model | `LookupSymbol` (`WithLibraryMembers`, `ByReportedID`), `Diagnostics` |
 | Compute with it | `Evaluate`, `Instantiate`, `EvaluateCalc`, `Calculate`, `RunAnalysis` |
 | Run behavior | `ExecuteAction`, `ExecuteState` |
 | Run every linearization of it | `ExploreAction`, `ExploreState`, `ExploreAnalysis` |

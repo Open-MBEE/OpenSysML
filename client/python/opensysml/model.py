@@ -749,7 +749,13 @@ class Model:
         return self._symbol_named(name) or self._symbol_by_id(name)
 
     def get(self, fqn):
-        """Get symbol by fully-qualified name (e.g., "Demo::Vehicle").
+        """Get the symbol a fully-qualified name resolves to (e.g., "Demo::Vehicle").
+
+        The name is resolved from the root namespace the way the notation
+        resolves one: through imports, so a name a package re-exports answers
+        with the symbol it imports, an alias with the symbol it names, and a
+        member that is not visible from outside its namespace (``private``,
+        ``protected``) with None. The symbol returned may so carry another id.
 
         Args:
             fqn (str): Fully-qualified name to look up
@@ -760,14 +766,17 @@ class Model:
         for root in self.roots:
             if root.id == fqn:
                 return root
-        return self._symbol_by_id(fqn)
+        info = self._client.get_symbol(self._hash, fqn, resolve_name=True)
+        if info is None:
+            return None
+        return Symbol(info, self._client, self._hash)
 
     def _symbol_by_id(self, fqn):
         """The symbol whose id is ``fqn``, fetched in one call, or None.
 
-        The service resolves a qualified name the way the notation does, through
-        imports and aliases, so it may answer with a symbol of another id. Only
-        the symbol that carries this id is what an id lookup names.
+        An id no symbol was reported under is resolved by the service as a
+        qualified name, so it may answer with a symbol of another id. Only the
+        symbol that carries this id is what an id lookup names.
         """
         info = self._client.get_symbol(self._hash, fqn)
         if info is None or info.id != fqn:

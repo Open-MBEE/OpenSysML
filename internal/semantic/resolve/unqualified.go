@@ -124,8 +124,16 @@ func (r *Resolver) shortNamedMembers(scope *symbols.Scope, name string, hide *re
 	if scope == nil || name == "" {
 		return nil
 	}
+	members := r.derivedNamedMembers(scope)
+	if len(members) == 0 {
+		return nil
+	}
+	// A derived short name ultimately comes from a declared or recorded short name.
+	if r.idx != nil && !r.idx.ShortNamed(name) {
+		return nil
+	}
 	var out []*symbols.Symbol
-	for _, sym := range r.derivedNamedMembers(scope) {
+	for _, sym := range members {
 		if !hide.hides(sym) && r.derivedShortName(sym) == name {
 			out = append(out, sym)
 		}
@@ -531,8 +539,8 @@ func (r *Resolver) lookupImports(scope *symbols.Scope, name string) (*symbols.Sy
 
 // lookupImportedMember resolves a segment surfaced by the namespace being
 // traversed, including a public membership import.
-func (r *Resolver) lookupImportedMember(target *symbols.Symbol, targetScope, from *symbols.Scope, name string) (*symbols.Symbol, bool) {
-	visit := importVisit{target: targetScope, from: from, name: name}
+func (r *Resolver) lookupImportedMember(target *symbols.Symbol, targetScope, from *symbols.Scope, name string, all bool) (*symbols.Symbol, bool) {
+	visit := importVisit{target: targetScope, from: from, name: name, all: all}
 	if r.importVisits[visit] {
 		return nil, false
 	}
@@ -551,7 +559,7 @@ func (r *Resolver) lookupImportedMember(target *symbols.Symbol, targetScope, fro
 		if !r.importPrefixAvailable(targetScope, imp, name) {
 			continue
 		}
-		if !r.importVisibleFrom(target, from, imp) {
+		if !all && !r.importVisibleFrom(target, from, imp) {
 			continue
 		}
 		// An expose inherited by specialization is judged by the inheriting view too.
@@ -582,7 +590,8 @@ func (r *Resolver) importVisibleFrom(target *symbols.Symbol, from *symbols.Scope
 	}
 	targetFQN := r.registeredFQN(target)
 	fromFQN := r.ReferringNamespaceFQN(from)
-	return targetFQN != "" && (fromFQN == targetFQN || strings.HasPrefix(fromFQN, targetFQN+"::"))
+	return targetFQN != "" && strings.HasPrefix(fromFQN, targetFQN) &&
+		(len(fromFQN) == len(targetFQN) || strings.HasPrefix(fromFQN[len(targetFQN):], "::"))
 }
 
 // scopeImports returns the imports the namespace owning scope declares: a
@@ -719,7 +728,7 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 			}
 		}
 		if imp.IsRecursive {
-			r.eachSubtreeMatch(scope, target, name, imp, admit, yield)
+			r.eachSubtreeMatch(target, name, imp, admit, yield)
 		}
 		return
 	}
@@ -736,7 +745,7 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 				return
 			}
 		}
-		if sym, ok := r.lookupImportedMember(target, target.Scope, scope, name); ok && symbols.VisibleOutside(sym.Visibility) && admit(sym) {
+		if sym, ok := r.lookupImportedMember(target, target.Scope, importReader(imp, scope), name, importAllowsPrivate(imp)); ok && admit(sym) {
 			if !yield(sym) {
 				return
 			}
@@ -749,12 +758,8 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 		// (KerML 8.2.3.3) — unless this is an `import all`, which takes the
 		// target's private memberships too.
 		targetFQN := r.registeredFQN(target)
-		var children []*symbols.Symbol
-		if importAllowsPrivate(imp) {
-			children = r.idx.LookupDirectChildrenNamed(targetFQN, name)
-		} else {
-			children = r.idx.LookupDirectChildrenNamedFrom(targetFQN, r.ReferringNamespaceFQN(scope), name)
-		}
+		from := importOrigin(imp, targetFQN)
+		children := r.idx.LookupDirectChildrenNamedFrom(targetFQN, from, name)
 		// The import names one namespace, so a same-named other namespace's
 		// members registered under the same path are not what it surfaces.
 		children = notConflatedWith(target, children)
@@ -765,7 +770,7 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 			// The target may itself have surfaced the name through an import of
 			// its own, filtered by its `filter` members: what it re-exports
 			// onward is what those select.
-			if !r.admitsUnderName("", r.ReferringNamespaceFQN(scope), targetFQN+"::"+name, sym) {
+			if !r.admitsUnderName("", from, targetFQN+"::"+name, sym) {
 				continue
 			}
 			if r.importSurfaces(imp, targetFQN, sym) && admit(sym) {
@@ -776,7 +781,7 @@ func (r *Resolver) eachImportMatch(into, scope *symbols.Scope, imp *ast.Import, 
 		}
 	}
 	if imp.IsRecursive {
-		r.eachSubtreeMatch(scope, target, name, imp, admit, yield)
+		r.eachSubtreeMatch(target, name, imp, admit, yield)
 	}
 }
 
@@ -837,9 +842,9 @@ func (r *Resolver) importPrefixAvailable(scope *symbols.Scope, imp *ast.Import, 
 
 // eachSubtreeMatch yields each element named name in the target namespace and its visible
 // descendants, nested re-exports included, until yield returns false.
-func (r *Resolver) eachSubtreeMatch(scope *symbols.Scope, target *symbols.Symbol, name string, imp *ast.Import, admit func(*symbols.Symbol) bool, yield func(*symbols.Symbol) bool) {
+func (r *Resolver) eachSubtreeMatch(target *symbols.Symbol, name string, imp *ast.Import, admit func(*symbols.Symbol) bool, yield func(*symbols.Symbol) bool) {
 	out := newElementList()
-	r.appendSubtree(out, scope, target, imp, admit, map[symbols.ElementKey]bool{}, false)
+	r.appendSubtree(out, target, imp, admit, map[symbols.ElementKey]bool{}, false)
 	for _, sym := range out.elems {
 		if (localNameOf(sym) == name || r.shortNameOf(sym) == name) && !yield(sym) {
 			return

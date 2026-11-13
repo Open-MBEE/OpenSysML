@@ -2,6 +2,7 @@ package querytranslate
 
 import (
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -287,6 +288,9 @@ func (t *translator) validate(c Constraint, prefix string) error {
 	}
 }
 
+// msgNoComparisonValue refuses a comparison without values; it takes the property.
+const msgNoComparisonValue = "constraint on %q has no value to compare against"
+
 func (t *translator) validateComparison(c Comparison, prefix string) error {
 	property := prefix + c.Property
 	if c.Property == query.PropertyType && prefix == "" {
@@ -295,7 +299,7 @@ func (t *translator) validateComparison(c Comparison, prefix string) error {
 			return errorf(ErrUnorderedProperty, "query property %q is not ordered, so %s cannot compare it", c.Property, c.Operator)
 		}
 		if len(c.Values) == 0 {
-			return errorf(ErrMalformed, "constraint on %q has no value to compare against", c.Property)
+			return errorf(ErrMalformed, msgNoComparisonValue, c.Property)
 		}
 		return t.validateTypes(c.Values, exact)
 	}
@@ -309,7 +313,7 @@ func (t *translator) validateComparison(c Comparison, prefix string) error {
 			if c.Operator == In {
 				return errorf(ErrMalformed, "in on %q needs a list of values to compare against", property)
 			}
-			return errorf(ErrMalformed, "constraint on %q has no value to compare against", property)
+			return errorf(ErrMalformed, msgNoComparisonValue, property)
 		}
 		if kind == kindBoolean {
 			for _, value := range c.Values {
@@ -344,7 +348,7 @@ func (t *translator) validateTypes(names []string, exact bool) error {
 		operator = "="
 	}
 	if len(names) == 0 {
-		return errorf(ErrMalformed, "constraint on %q has no value to compare against", query.PropertyType)
+		return errorf(ErrMalformed, msgNoComparisonValue, query.PropertyType)
 	}
 	for _, name := range names {
 		if name == "" {
@@ -358,8 +362,8 @@ func (t *translator) validateTypes(names []string, exact bool) error {
 	return nil
 }
 
-// numeric reports whether text is a number a comparison can take: as the
-// evaluator reads one, `*` for the unbounded upper multiplicity included.
+// numeric reports whether text is a number a comparison can take, as the evaluator
+// reads one: `*` for the unbounded upper bound; no infinity, NaN or hexadecimal.
 func numeric(text string) bool {
 	if text == "*" {
 		return true
@@ -371,8 +375,8 @@ func numeric(text string) bool {
 	if _, err := semantics.ParseRational(text, semantics.DefaultMaxIntegerBits); err == nil {
 		return true
 	}
-	_, err := strconv.ParseFloat(text, 64)
-	return err == nil
+	f, err := strconv.ParseFloat(text, 64)
+	return err == nil && !math.IsInf(f, 0) && !math.IsNaN(f) && !strings.Contains(strings.ToLower(text), "0x")
 }
 
 // constraint translates a filter over source into the operations that keep

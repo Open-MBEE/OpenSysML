@@ -145,7 +145,7 @@ func (s *Session) freshModel() *analysis.Model {
 			if err != nil {
 				return nil, fmt.Errorf("%w: %w", errRuntimeInit, err)
 			}
-			if s.trace != nil {
+			if s.trace != nil && !s.traceSilent {
 				ctx.SetTrace(runtime.NewTraceRecorder())
 			}
 			return ctx, nil

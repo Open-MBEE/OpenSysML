@@ -76,6 +76,30 @@ exit
 Parse every document and hold it loaded, reading no interface record from the
 record cache and writing none; default off, or OPENSYSML_RECORD_CACHE=0
 .TP
+.BI \-oidc\-audience " string"
+Audience (aud) a token must name to be accepted; default the URL the service
+is reached at
+.TP
+.BI \-oidc\-client\-file " string"
+JSON file holding the client_id and client_secret of the provider's client the
+introspection requests are made as
+.TP
+.BI \-oidc\-introspect " string"
+Introspection endpoint (RFC 7662) asked about a bearer token that is not a
+JWT, with \-oidc\-client\-file; an active answer is kept until the token
+expires
+.TP
+.BI \-oidc\-issuer " string"
+Accept the access tokens of this OpenID provider, given as its issuer URL
+(https, or http on loopback): its discovery document and signing keys are
+read, a token's signature, iss, aud, exp and nbf verified, and the issuer
+advertised in the resource metadata so a host runs Authorization Code with
+PKCE against it
+.TP
+.BI \-oidc\-scope\-claim " string"
+Claim a token's scopes are read from, a space\-separated string or an array;
+default scope, then scp
+.TP
 .B \-print\-config
 Write the configuration block declaring this server to an agent host \(em
 opencode, claude\-code, cursor, codex, vscode, gemini, devin \(em to stdout
@@ -191,6 +215,11 @@ sysml\-mcp \-http 0.0.0.0:8765 \-token\-file mcp.token \-allow\-origin \e
 # Serve loopback behind a proxy that terminates TLS at that URL
 sysml\-mcp \-http 8765 \-token\-file mcp.token \-public\-url \e
     https://models.example.org/mcp
+# Serve clients that sign on at that provider
+sysml\-mcp \-http 0.0.0.0:8765 \-public\-url \e
+    https://models.example.org/mcp \-oidc\-issuer \e
+    https://sso.example.org/realms/models \-tls\-cert server.crt \e
+    \-tls\-key server.key
 .fi
 .RE
 .PP
@@ -217,6 +246,24 @@ origin listed in \-allow\-origin exactly; any other origin is refused with
 name rebound to this machine. The wildcard origin is not accepted. A request
 whose MCP\-Protocol\-Version header names a version the server does not speak
 is refused with 400.
+.PP
+\-oidc\-issuer URL has the server accept the access tokens an OpenID provider
+issues, beside the token above or in its place: the provider's discovery
+document is read when the first token arrives, its signing keys when a token
+needs them, and a token is accepted when its signature verifies and its iss is
+the issuer, its aud names this endpoint (\-public\-url, or \-oidc\-audience
+when the provider puts another value there), and its exp and nbf admit the
+moment, 30 seconds of clock skew allowed. The caller is the token's sub, named
+by preferred_username, email or name, with the scopes of its scope or scp
+claim, or of the claim \-oidc\-scope\-claim names. An expired token is refused
+with 401 and error="invalid_token", a token the provider cannot be reached to
+verify with 503, and the resource metadata names the issuer under
+authorization_servers and the tools' scopes under scopes_supported, which is
+how a host finds the provider from the challenge and asks it for a token. A
+provider whose tokens are not JWTs is asked about them at \-oidc\-introspect
+URL (RFC 7662) as the client \-oidc\-client\-file holds, a JSON file with
+client_id and client_secret; without it, a bearer token that is not a JWT is
+checked against the token above.
 .SH SCOPES
 Every tool requires one scope (RFC 6749 \(sc 3.3), named in the Tools section
 and by tool_catalog, and a tools/call by a principal whose credential lacks it

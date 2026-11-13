@@ -68,7 +68,7 @@ type Model struct {
 	// returnedParams memoizes, per calc shape, the parameters its result passes on;
 	// returnedStack is the shapes under analysis, returnedProvisional those awaiting
 	// the root of their call cycle.
-	returnedParams      map[*calcShape]*returnedAnalysis
+	returnedParams      map[*loadedCalc]*returnedAnalysis
 	returnedStack       []*returnedAnalysis
 	returnedProvisional []*returnedAnalysis
 
@@ -84,7 +84,7 @@ type Model struct {
 
 	// calcShapes memoizes resolved calc invocation interfaces (parameters,
 	// defaults, result expression) per calc symbol.
-	calcShapes map[*symbols.Symbol]*calcShape
+	calcShapes map[*symbols.Symbol]*loadedCalc
 
 	// constraintSteps memoizes the step each member of a constraint body lowers
 	// to, one lowering per member node however often a check reads the body.
@@ -112,7 +112,7 @@ type Model struct {
 
 	// predicateShapes memoizes the invocation interfaces of constraints and
 	// requirements applied as predicates.
-	predicateShapes map[*symbols.Symbol]*calcShape
+	predicateShapes map[*symbols.Symbol]*loadedCalc
 
 	// librarySymbols memoizes the library declaration each qualified name denotes;
 	// see librarySymbol.
@@ -211,9 +211,9 @@ type Model struct {
 	sources map[string]*source.SourceFile
 
 	// scopes holds the scope trees the caller resolves references in; declared
-	// maps each declaration node to the symbol they declare for it, built on first use.
+	// maps each element's key to the symbol they declare for it, built on first use.
 	scopes   []*symbols.Scope
-	declared map[ast.Node]*symbols.Symbol
+	declared map[symbols.ElementKey]*symbols.Symbol
 
 	// parse reads the notation text a run receives as text: a witness file's input
 	// values and the units a tool answers in; installed by SetExpressionParser.
@@ -260,12 +260,12 @@ func NewModel(sem *semantics.Model, resolver *resolve.Resolver) *Model {
 		chainHosts:          make(map[*symbols.Symbol]bool),
 		denotedFeatures:     make(map[*symbols.Symbol]map[*symbols.Symbol]string),
 		holders:             make(map[*symbols.Symbol]map[string][]string),
-		returnedParams:      make(map[*calcShape]*returnedAnalysis),
+		returnedParams:      make(map[*loadedCalc]*returnedAnalysis),
 		redefined:           make(map[featureOfType][]*symbols.Symbol),
 		chainDeclarations:   make(map[chainDeclarationsKey]*chainDecls),
 		writeTargets:        make(map[writeTargetKey]*writeTarget),
-		calcShapes:          make(map[*symbols.Symbol]*calcShape),
-		predicateShapes:     make(map[*symbols.Symbol]*calcShape),
+		calcShapes:          make(map[*symbols.Symbol]*loadedCalc),
+		predicateShapes:     make(map[*symbols.Symbol]*loadedCalc),
 		constraintSteps:     make(map[ast.Node]lower.Statement),
 		activityOperands:    make(map[*ast.FeatureChainExpr]ast.Node),
 		activitySplits:      make(map[activitySplitKey]activitySplit),
@@ -359,12 +359,12 @@ func (m *Model) declaredSymbol(sym *symbols.Symbol) *symbols.Symbol {
 		return sym
 	}
 	if m.declared == nil {
-		m.declared = make(map[ast.Node]*symbols.Symbol)
+		m.declared = make(map[symbols.ElementKey]*symbols.Symbol)
 		for _, scope := range m.scopes {
 			collectDeclared(scope, m.declared)
 		}
 	}
-	if local, ok := m.declared[sym.Decl]; ok {
+	if local, ok := m.declared[symbols.KeyOf(sym)]; ok {
 		return local
 	}
 	return sym

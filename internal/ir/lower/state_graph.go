@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -101,6 +102,30 @@ type StateGraph struct {
 
 	// States in the machine (flat list, includes nested)
 	States []*ast.StateNode
+
+	// ID is each state's graph-local id, dense from 1 in the order of States.
+	ID map[*ast.StateNode]program.StateID
+
+	// Origins is each state's origin by id; Origins[0] is unused.
+	Origins []program.Origin
+
+	// RegionID is each region's id, the machine's own regions first, then each
+	// state's in state order; RegionOrigins is its origin by id.
+	RegionID      map[*ast.StateRegion]program.RegionID
+	RegionOrigins []program.Origin
+
+	// PseudoID is each pseudostate's id in the order of Pseudostates;
+	// PseudoOrigins is its origin by id.
+	PseudoID      map[*ast.PseudostateNode]program.PseudoID
+	PseudoOrigins []program.Origin
+
+	// TransID is each transition's id, those leaving each state in state order,
+	// then each pseudostate's; TransOrigins is its origin by id.
+	TransID      map[*Transition]program.TransID
+	TransOrigins []program.Origin
+
+	// Provenance maps the ids back to the records they were lowered from.
+	Provenance Provenance
 
 	// Pseudostates of the machine in declaration order. Not keyed by name:
 	// sibling regions may declare same-named pseudostates.
@@ -417,6 +442,7 @@ func ToStateGraphWithEndpoints(stateMachineDecl ast.Node, scope *symbols.Scope, 
 		return nil, err
 	}
 
+	graph.assignIDs()
 	return graph, nil
 }
 

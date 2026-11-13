@@ -50,9 +50,9 @@ func goCommand(name string) (string, error) {
 	return filepath.Abs(resolved)
 }
 
-// CFlags are the C compiler options; the prelude's explicit checks keep -O3 safe,
-// and no contraction keeps every Real operation rounded as the interpreter rounds it.
-var CFlags = []string{"-O3", "-flto", "-ffp-contract=off", "-std=gnu11", "-Wall", "-Wextra", "-Wno-unused-function", "-Wno-unused-parameter"}
+// CFlags are the C compiler options; the prelude's explicit checks keep -O3 safe, and no contraction keeps
+// every Real operation rounded as the interpreter rounds it. The two -Werror are gcc 15's defaults on every gcc.
+var CFlags = []string{"-O3", "-flto", "-ffp-contract=off", "-std=gnu11", "-Wall", "-Wextra", "-Wno-unused-function", "-Wno-unused-parameter", "-Werror=implicit-function-declaration", "-Werror=int-conversion"}
 
 // Source renders program for target, as a complete program with a main.
 func Source(p *Program, target Target) ([]byte, error) {

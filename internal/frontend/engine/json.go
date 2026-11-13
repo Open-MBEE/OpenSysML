@@ -376,6 +376,24 @@ type JRenderViewResponse struct {
 	Text    string         `json:"text,omitempty"`
 }
 
+// The RenderDocument request and reply, shaped as protojson writes the service's
+// RenderDocumentRequest and RenderDocumentResponse so one client talks to either transport.
+
+type JRenderDocumentRequest struct {
+	ModelHash  string `json:"modelHash,omitempty"`
+	DocumentId string `json:"documentId,omitempty"`
+	// Form is the text the document is written as: "markdown" (the default),
+	// "html" or "asciidoc"; the answer carries it in the field of that name.
+	Form string `json:"form,omitempty"`
+}
+
+type JRenderDocumentResponse struct {
+	Markdown string `json:"markdown,omitempty"`
+	Html     string `json:"html,omitempty"`
+	Asciidoc string `json:"asciidoc,omitempty"`
+	FileName string `json:"fileName,omitempty"`
+}
+
 // JRenderFrame is the view frame round a diagram: its name compartment and
 // the info compartments at its corners (exposes, filters, annotations).
 type JRenderFrame struct {
