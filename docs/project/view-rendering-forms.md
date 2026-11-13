@@ -262,6 +262,15 @@ so an action whose body is a single statement or a bound value carries no `actio
 compartment and no nested cluster. The node is the nested flow's frame: its own pins are the ones
 the flow's bindings attach to, and the flow's nodes take the IDs after it.
 
+A calculation drawn by an action rendering carries a `result` compartment (§8.2.3.19
+`result-compartment`) holding the result expression its own body states, as written (`x + y`;
+`behavior_forms.go` `resultCompartments`, `semantics.OwnedResultExpressions`), in every form: a
+row under the heading in the text form and in the node's label elsewhere. A calculation whose
+result is a bound return parameter (`return r = x + y;`), or its type's, states no result
+expression and has no such compartment. An action that declares no nodes is noted `declares no
+nodes`; a calculation is not, since it yields a result rather than a flow. The tree rendering
+lists a calculation's members and parameter pins and draws no `result` compartment.
+
 ### Action and state node forms
 
 The action nodes of §8.2.3.17 and the state nodes of §8.2.3.18 are drawn as their figures give
@@ -647,9 +656,10 @@ digraph "VehicleViews::vehicleView" {
   strip gives it. A flow at a pin is written between the pin nodes, `"n1.0" -> "n5.0"`, and
   carries no `out to in` text — the pins name what flows — but does carry the flow's own name
   when it has one that no migration made up (`Edge.Name`), at either end or both. An unplaced
-  plain node draws its pins as cells of an HTML-like table label instead, a
-  row of squares above the head for the inputs and below it for the outputs, and a flow ends at
-  the cell (`"n5":"n5.0"`). A pin is drawn with the square an interconnection's `port` usage is drawn
+  plain node draws its pins on its border too (`dotPinnedAttributes`, described under
+  *Interconnection ports*): a row of squares touching the box's top edge for the inputs and its
+  bottom edge for the outputs (§8.2.3.17 and §8.2.3.19 `param-t`, `param-b`), never cells within
+  the box, and a flow ends at the square (`"n5":"n5.0"`). A pin is drawn with the square an interconnection's `port` usage is drawn
   as (`isPortKind`, `dotSymbolAttributes`); it differs in being a `Port` of its node, not a node
   of the rendering, so a pin is never a detached `note` and never a node a flow ends beside. The
   frame's pins are set on the cluster's border as a positioned node's are (`writePins` on the
@@ -677,16 +687,19 @@ digraph "VehicleViews::vehicleView" {
   `PortsFull`, `portView`), the interconnection and mixed renderings (`Kind.SupportsPorts`); the node keeps
   every port, the form filtering what it draws. Under `minimal`, the default, a part draws the
   pins an edge of the rendering ends at (`Edge.FromPort`/`Edge.ToPort`) and no other, each named
-  alone: in DOT a plain node becomes a `shape=plain` HTML table whose body cell is the part's
-  box — a bordered inner table, rounded as the skin rounds, filled and penned in the node's own
-  colours, which an HTML table takes from its node — and whose row above or below it holds a
+  alone: in DOT a plain node becomes a `shape=plain, style=solid` HTML table whose body cell is
+  the part's box — a bordered inner table, rounded as the skin rounds, penned in the node's own
+  colour, which an HTML table takes from its node, and filled by its own `bgcolor` (`boxFill`:
+  the palette's, a `Style`'s or the skin's fill), so the fill stops at the box and does not
+  spread under the pins — and whose row above or below it holds a
   10 pt square cell per pin (`<td port="n1.0" border="1" fixedsize="true" width="10"
   height="10">`) on the box's outer edge with the name in 8 pt beside it (`dotPinnedAttributes`),
   a pin above when a connector reaches it and below when one leaves it; a positioned part keeps
   its separate pin squares, `xlabel`led by name alone. Graphviz draws a node as one shape, so
   the square touches the border rather than straddling it. A part none of whose ports is
   connected draws as a part without ports. Under `full` every port is drawn labelled
-  `name : Type`, as an action's pins always are: record cells or pinned squares in DOT — a port
+  `name : Type`, as an action's pins always are: the same squares on the box's edge, or pinned
+  squares on a positioned part, in DOT — a port
   no route meets sitting below its part when a connector leaves it and above when one reaches it
   (`portSide`), the way DOT ranks the edge's ends, where a pin's direction places it — `port
   "name : Type"` elements of the part's `rectangle` in PlantUML with the connector between them
@@ -761,7 +774,7 @@ compartments and labels of the clause still lack.
 | `subclassification`, `specialization` | `specialization` | `arrowhead=empty` | `--\|>` | `-->` | `-> specialization` | `endArrow=block;endFill=0` | `end triangle-hollow` | approximate | Solid hollow triangle; Mermaid has no triangle head and names the kind as the edge text instead. |
 | `subsetting` | `subsetting` | `arrowhead=empty` | `--\|>` | `-->` | `-> specialization` | `endArrow=block;endFill=0` | `end triangle-hollow` | approximate | The same hollow triangle, no text; Mermaid writes `subsetting` as the edge text, having no triangle. |
 | `redefinition` | `redefinition` | `arrowhead=onormaltee` | `--\|\|>` | `-->` | `-> specialization` | `endArrow=block;endFill=0` | `end triangle-bar` | approximate | Hollow triangle with a bar across the line at its base, as Graphviz's `onormaltee` sets it; PlantUML sets the bar a little behind the triangle, D2 and draw.io have no bar and draw the plain triangle, Mermaid writes `redefinition` as the edge text. |
-| `definition` | `typing` | `arrowhead=onormaldotdot` | `--:\|>` | `-->` | `-> specialization` | `endArrow=block;endFill=0` | `end triangle-dots` | approximate | Solid hollow triangle at the definition with two dots stacked beside its base, as PlantUML's `--:\|>` sets them: Graphviz sets the dots in line behind the triangle, D2 and draw.io have no dots and draw the plain triangle, Mermaid writes `typing` as the edge text. |
+| `definition` | `typing` | `arrowhead=empty, class=definition` | `--:\|>` | `-->` | `-> specialization` | `endArrow=block;endFill=0` | `end triangle-dots` | approximate | Solid hollow triangle at the definition with two dots beside its base, one each side of the line, as PlantUML's `--:\|>` sets them: no Graphviz arrowhead sets a dot beside the line, so the DOT edge is the triangle under a class and the dots are drawn into the SVG of every drawing this project has Graphviz make ([the definition glyph](#the-definition-glyph)), D2 and draw.io have no dots and draw the plain triangle, Mermaid writes `typing` as the edge text. |
 | `composite-feature-membership` | `composition` | `dir=back, arrowtail=diamond` | `*--` | `---` | `<- composition` | `startArrow=diamondThin;startFill=1;endArrow=none` | `start diamond-filled` | approximate | Filled diamond at the owner; Mermaid has no diamond and leads the edge text with `◆`. A case or mixed diagram writes the DOT attributes as `arrowtail=diamond, dir=back`. A mixed rendering draws it from an owner to every composite usage nested in its node — a part, action or state usage, a view usage — where PlantUML and the text form show it and DOT and Mermaid leave it to the nesting ([case and mixed diagrams](#case-and-mixed-diagrams)). |
 | `noncomposite-feature-membership` | `reference` | `dir=back, arrowtail=odiamond` | `o--` | `---` | `<- reference` | `startArrow=diamondThin;startFill=0;endArrow=none` | `start diamond-hollow` | approximate | Hollow diamond at the owner; Mermaid leads the edge text with `◇`. A mixed rendering draws it to every referential usage nested in its owner's node — a `ref` part, an attribute, a port — as above. |
 | `owned-membership` | `containment` | `dir=back, arrowtail=odot, taillabel="+", labeldistance=0.4, labelangle=0` | `+--` | `---` | `<- containment` | `startArrow=circlePlus;startFill=0;endArrow=none` | `start circle-plus` | approximate | Circle-plus at the namespace: Graphviz has no such arrow, so a `+` tail label is set on its hollow circle; D2 puts a `+` arrowhead label beside its circle; Mermaid draws a plain line, a tree's nesting showing the ownership. A mixed rendering draws it from an owner to every nested member that is no feature — a nested package or definition — as above. |
@@ -836,6 +849,21 @@ edge labels hidden the box keeps its keyword and arrow. `testdata/nary.sysml` an
 `testdata/interconnection-ports.sysml` exercise it (`TestFlowsOnAConnectionAreItemBoxesOnItsLine`).
 
 A `DiagramLayout::Route` on the connection is the whole line's: it is cut into pieces of equal length, one per segment, and an item box the model does not place stands where it is cut; a lone waypoint, which has no length to cut, stays on the first segment. The line's ends are placed as a routed edge's are, whatever share of the waypoints the cut leaves their segment, and a segment left none runs straight between its boxes rather than being routed around them. A draw.io import reads the line back the same way — the waypoints of every segment cell, in the line's order, are the connection's one `Route`, so bending one segment never drops the bends of another.
+
+### The definition glyph
+
+The `definition` figure sets two small dots beside the line just behind the triangle's base, one
+each side. Graphviz chains the shapes of an `arrowhead` along the edge — `onormaldotdot` is a
+triangle and then two full-size dots in a row behind it — and has no shape that sits beside the
+line, so the DOT form states a typing edge as the plain triangle with `class=definition`, which
+Graphviz copies to the edge's SVG group. `DrawDOTGlyphs` (`internal/ir/view/dot_glyph.go`) then
+adds the dots to each such group, placed from the triangle Graphviz drew and in the figure's
+proportions of its length: centres 0.43 behind the base and 0.36 off the line, radius 0.17, in
+the edge's colour. `internal/doc/docpdf` applies it to every SVG it has Graphviz draw, so a
+document, the LSP's inline drawings and the Jupyter kernel's `image/svg+xml` all carry the dots.
+DOT text drawn by a Graphviz of the reader's own shows the triangle alone, as D2 and draw.io do.
+`TestDrawDOTGlyphsDotsTheDefinitionTriangles` holds the placement over a recorded drawing and
+`TestGraphvizDrawsTheDefinitionGlyph` over what an installed Graphviz draws.
 
 ### Edge routing
 

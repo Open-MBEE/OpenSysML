@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/ast"
@@ -22,7 +23,7 @@ import (
 // unbound non-optional input is errUnboundParameter, a ToolVariable name two parameters
 // carry is a ToolError. The name the result is bound under is returned with the call,
 // empty when the calc declares no result parameter — an out-only calc asks for none.
-func (ctx *Context) calcToolCall(shape *calcShape, scope *symbols.Scope, held func(param string) (Value, bool)) (*ToolCall, string, error) {
+func (ctx *Context) calcToolCall(shape *loadedCalc, scope *symbols.Scope, held func(param string) (Value, bool)) (*ToolCall, string, error) {
 	execution := shape.Tool
 	tool := execution.tool
 	call := &ToolCall{Action: execution.on, ToolName: tool, URI: execution.uri, ctx: ctx, scope: scope}
@@ -48,8 +49,8 @@ func (ctx *Context) calcToolCall(shape *calcShape, scope *symbols.Scope, held fu
 	}
 	var resultKey string
 	if result != nil {
-		resultKey = resultOutputName
-		variable := resultOutputName
+		resultKey = program.ResultOutputName
+		variable := program.ResultOutputName
 		if result.Name != "" {
 			resultKey, variable = result.Name, result.Name
 		}
@@ -71,7 +72,7 @@ func (ctx *Context) calcToolCall(shape *calcShape, scope *symbols.Scope, held fu
 
 // addToolCallParameter adds a ToolVariable-named parameter to the call: an
 // input for the value held, an output for a parameter the tool writes.
-func (ctx *Context) addToolCallParameter(call *ToolCall, shape *calcShape, param semantics.BehaviorParameter, namedBy map[string]string, held func(param string) (Value, bool)) error {
+func (ctx *Context) addToolCallParameter(call *ToolCall, shape *loadedCalc, param semantics.BehaviorParameter, namedBy map[string]string, held func(param string) (Value, bool)) error {
 	tool := call.ToolName
 	variable, named, err := ctx.toolVariableOf(param.Symbol)
 	if err != nil {
@@ -115,7 +116,7 @@ func (ctx *Context) addToolCallParameter(call *ToolCall, shape *calcShape, param
 // declaring no result parameter, as a body that returns nothing reports. The failures
 // of a performance's tool apply unchanged: an annotation naming no tool, or a context
 // with no runner, is not registered and the body never stands in.
-func (ctx *Context) computeCalcByTool(shape *calcShape, scope *symbols.Scope, held func(param string) (Value, bool)) (result Value, returned bool, outputs map[string]Value, err error) {
+func (ctx *Context) computeCalcByTool(shape *loadedCalc, scope *symbols.Scope, held func(param string) (Value, bool)) (result Value, returned bool, outputs map[string]Value, err error) {
 	tool := shape.Tool.tool
 	if tool == "" {
 		return Value{}, false, nil, &ToolNotRegisteredError{Tool: tool}

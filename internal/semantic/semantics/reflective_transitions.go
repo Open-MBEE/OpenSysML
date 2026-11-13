@@ -19,6 +19,9 @@ type transitionParts struct {
 	receiver      *symbols.Symbol
 	receiverValue *symbols.Symbol
 	guard         *symbols.Symbol
+	// succession is the Succession the transition owns through an OwningMembership, from its source
+	// to its target (SysML.xtext TransitionSuccessionMember, TargetTransitionUsage).
+	succession *symbols.Symbol
 }
 
 // acceptParameters are the payload and receiver parameters of the trigger accept sym, in that
@@ -48,8 +51,7 @@ func (p *transitionParts) parameterValue(param *symbols.Symbol) *symbols.Symbol 
 // transitionPartsOf are the parts of the transition sym, synthesized once per model so every
 // read answers the same identities; nil for any other symbol.
 func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
-	trans, ok := transitionDecl(sym)
-	if !ok || m == nil {
+	if m == nil || !declaresTransition(sym) {
 		return nil
 	}
 	defer m.own(sym).LeaveDoc()
@@ -61,6 +63,17 @@ func (m *Model) transitionPartsOf(sym *symbols.Symbol) *transitionParts {
 	}
 	journal(m, m.transitionParts, sym, sym.Decl)
 	parts := &transitionParts{}
+	if target := transitionTarget(sym); target != nil {
+		// The succession is the transition's element, yet its ends name members of the
+		// transition's owner, so it reads them in the scope the transition is declared in.
+		parts.succession = transitionPart(sym, sym.Decl, target.Span(), symbols.SymbolSuccessionUsage, sym, symbols.ExpressionTransitionSuccession)
+		parts.succession.OwnerScope = sym.OwnerScope
+	}
+	trans, ok := transitionDecl(sym)
+	if !ok {
+		m.transitionParts[sym] = parts
+		return parts
+	}
 	if payload, event := triggerPayload(trans); payload != nil || event != nil {
 		if payload != nil && payload.Value != nil {
 			event = payload.Value
@@ -106,11 +119,32 @@ func transitionPart(trans *symbols.Symbol, decl ast.Node, span source.Span, kind
 }
 
 func transitionDecl(sym *symbols.Symbol) (*ast.TransitionMember, bool) {
-	if sym == nil || sym.Implicit != nil || sym.Expr != nil {
+	if !declaresTransition(sym) {
 		return nil, false
 	}
 	trans, ok := sym.Decl.(*ast.TransitionMember)
-	return trans, ok && !trans.IsSuccession
+	return trans, ok
+}
+
+// declaresTransition reports whether sym is a TransitionUsage written as a transition member or as a
+// state body's `then x;` after a state (SysML.xtext TargetTransitionUsage), not a `succession … if g then`.
+func declaresTransition(sym *symbols.Symbol) bool {
+	if sym == nil || sym.Implicit != nil || sym.Expr != nil || !sym.DeclaresTransition() {
+		return false
+	}
+	trans, ok := sym.Decl.(*ast.TransitionMember)
+	return !ok || !trans.IsSuccession
+}
+
+// transitionTarget is the reference a transition's `then` names, nil where it names none.
+func transitionTarget(sym *symbols.Symbol) *ast.QualifiedName {
+	switch d := sym.Decl.(type) {
+	case *ast.TransitionMember:
+		return d.Target
+	case *ast.SuccessionEdge:
+		return d.Target
+	}
+	return nil
 }
 
 // triggerPayload is a trigger's payload parameter, or the event an unnamed payload's value is
@@ -183,7 +217,7 @@ func (m *Model) transitionMembers(sym *symbols.Symbol) []*symbols.Symbol {
 		return nil
 	}
 	var out []*symbols.Symbol
-	for _, part := range []*symbols.Symbol{parts.accepter, parts.guard} {
+	for _, part := range []*symbols.Symbol{parts.accepter, parts.guard, parts.succession} {
 		if part != nil {
 			out = append(out, part)
 		}
@@ -228,6 +262,8 @@ func (m *Model) transitionElements(sym *symbols.Symbol, feature string) ([]*symb
 			return optionalElement(parts.guard), true
 		case "effectAction":
 			return optionalElement(m.transitionEffect(sym)), true
+		case "succession":
+			return optionalElement(parts.succession), true
 		}
 		return nil, false
 	}

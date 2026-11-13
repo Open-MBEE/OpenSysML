@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -186,7 +187,7 @@ func calcSymbolsUnder(scope *symbols.Scope) []*symbols.Symbol {
 	var walk func(*symbols.Scope)
 	walk = func(s *symbols.Scope) {
 		for _, name := range s.MemberNames() {
-			if sym, ok := s.LookupLocal(name); ok && sym != nil && isCalcDecl(sym.Decl) {
+			if sym, ok := s.LookupLocal(name); ok && sym != nil && lower.IsCalcDecl(sym.Decl) {
 				calcs = append(calcs, sym)
 			}
 		}

@@ -120,6 +120,7 @@ var (
 	actionForms  = Evidence{"internal/ir/view/behavior_forms.go:statementNodeKind", goldenForms, actionFormsGolden}
 	compoundBody = Evidence{"internal/ir/view/behavior_forms.go:compoundCompartments", goldenForms, actionFormsGolden}
 	actionFlow   = Evidence{"internal/ir/view/behavior.go:flowNodes", goldenForms, actionGolden}
+	calcResult   = Evidence{"internal/ir/view/behavior_forms.go:resultCompartments", []string{FormDOT, FormPlantUML, FormMermaid, FormD2, FormDrawio, FormText}, "internal/ir/view/calc_pins_test.go:TestCalcShowsItsResultExpressionInEveryForm"}
 	elseBranch   = Evidence{"internal/ir/view/behavior.go:successionLabel", edgeForms, actionFormsGolden}
 	terminateX   = Evidence{"internal/ir/view/dot.go:dotTerminateAttributes", controlForms, "internal/ir/view/dot_fit_test.go:TestDOTSymbolsInStatedBoxes"}
 	pinArrows    = Evidence{"internal/ir/view/ports.go:pinArrow", []string{FormDOT, FormDrawio, FormCanvas}, actionGolden}
@@ -358,7 +359,7 @@ func buildTable() map[string]Adjudication {
 	set(drawn(CategoryCompartment, individuals), "individuals-compartment")
 	set(undrawn(CategoryCompartment, "holds a sequence view; no box form nests a diagram, and the canvas lays a sequence out as a diagram of its own"), "sequence-compartment")
 	set(undrawn(CategoryCompartment, reasonNoCompart), "directed-features-compartment", "interconnection-compartment",
-		"performed-by-compartment", "result-compartment", "verification-methods-compartment", "exposes-compartment", "filters-compartment")
+		"performed-by-compartment", "verification-methods-compartment", "exposes-compartment", "filters-compartment")
 
 	// §8.2.3.9 sequences.
 	set(drawn(CategoryNode, sequence), "sq-head-node", "sq-part", "sq-l-node", "lifeline")
@@ -403,6 +404,7 @@ func buildTable() map[string]Adjudication {
 		"while-loop-action-name-compartment", "for-loop-action-name-compartment", "ifelse-action-name-compartment", "assign-action-name-compartment")
 	set(drawn(CategoryCompartment, compoundBody), "while-condition", "until-condition", "iteration", "loop-body", "if-condition", "then-body", "else-body")
 	set(drawn(CategoryCompartment, actionFlow), "action-flow-compartment")
+	set(drawn(CategoryCompartment, calcResult), "result-compartment")
 	set(undrawn(CategoryCompartment, "swimlanes are not drawn"), "perform-actions-swimlanes", "swimlane")
 	set(drawn(CategoryEdge, elseBranch), "else-branch")
 	set(drawn(CategoryLabel, transition), "guard-expression", "transition-label", "trigger-expression")

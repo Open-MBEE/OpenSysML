@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/Open-MBEE/OpenSysML/internal/ir/lower"
+	"github.com/Open-MBEE/OpenSysML/internal/ir/program"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/resolve"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/semantics"
 	"github.com/Open-MBEE/OpenSysML/internal/semantic/symbols"
@@ -3771,7 +3772,7 @@ func (h Held) Features() []lower.Attribute {
 
 // Value is the value held under name: its redefinition's when name is redefined.
 func (h Held) Value(name string) (Value, bool) {
-	v, ok := h.data[canonical(h.aliases, name)]
+	v, ok := h.data[program.Canonical(h.aliases, name)]
 	return v, ok
 }
 

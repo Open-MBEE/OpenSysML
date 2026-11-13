@@ -879,6 +879,10 @@ state grammar has no pin, so it names the edge's pins in the edge's label (`n0 -
 and lists every pin in its node's `parameters` compartment; `d2` draws the pins an edge ends at as
 nodes nested in their owner, and lists the rest in the `parameters` compartment.
 
+A calculation whose body states a result expression (`calc add { in x; in y; return : Integer;
+x + y }`) shows it in a `result` compartment of its node, in every form; an action that declares no
+nodes is noted `declares no nodes`, and a calculation never is.
+
 A tree rendering draws the directed parameters of a calculation, action or constraint definition or
 usage — `in`, `out`, `inout` and `return` — as parameter pins of their owner's node rather than as
 nested members, a `return` declaring no name as the `result` output: `text` lists them under the
@@ -921,16 +925,22 @@ written as entities; edge labels, identifiers and geometry stay double-quoted st
 Containment becomes a `subgraph "cluster_…"`, the flow direction becomes `rankdir`, and edges keep
 Mermaid's semantics: a connection is undirected (`arrowhead=none`), a flow is dashed, a transition
 or succession is a solid arrow drawn at the Pilot visualizer's thickness (`penwidth=3` for a
-connection). A part's ports are drawn on it as small squares labelled `name : Type`, cells of an
-HTML-like record label in a laid-out diagram (`"n2":"n2.0" -> "n1":"n1.0"`) or pinned nodes on the
-part's border when the view positions it, and a connector at a port is drawn to the square. The
+connection). A part's ports are drawn on it as small squares labelled `name : Type`, on the edge of
+the part's box in a laid-out diagram (`"n2":"n2.0" -> "n1":"n1.0"`) or pinned nodes on the
+part's border when the view positions it, and a connector at a port is drawn to the square. An
+action's or calculation's parameter pins are drawn the same way, inputs on the top edge and outputs
+on the bottom. The
 drawing is in the Standard B&W style of the OMG SysML v2 Pilot Implementation's
 visualizer, after Hisashi Miyashita's `sysmlbw` PlantUML skin: Helvetica text, white fills, thin
 `#181818` lines, square definitions and rounded usages, a bold name over an italic `«keyword»`
 line, unfilled black-bordered clusters, and unnamed initial and final pseudo-states as the filled
 UML dot ([the translation](../project/view-rendering-forms.md#style)). Producing DOT needs no
 Graphviz installation; laying it out does, with the engine the `// layout:` header names
-(`dot -Tsvg view.dot`, or `neato -Tsvg view.dot` when the view states positions — below). A
+(`dot -Tsvg view.dot`, or `neato -Tsvg view.dot` when the view states positions — below). A typing
+edge is written `arrowhead=empty, class=definition`: Graphviz has no arrowhead for the two dots the
+notation sets beside the triangle's base, so `dot` alone draws the hollow triangle, and the drawings
+OpenSysML has Graphviz make — a rendered document, the language server's and the Jupyter kernel's —
+add the dots. A
 `sequence` view has no DOT counterpart and, like a `table`, is refused with status 2 when `dot`
 is forced.
 
