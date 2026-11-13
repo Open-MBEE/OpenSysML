@@ -166,7 +166,8 @@ members the element itself declares under the same ids, named and unnamed alike 
 a member no id reaches, such as a body-local declaration, is not listed. A connection, interface
 or binding usage lists its two ends, of kind `connectorEnd`: a named end (`connect (a ::> x, b ::> y)`)
 under its qualified name, an unnamed one (`connect x to y`, `bind x = y`) under the element id
-`GetElementProperties` gives it (`Owner__c_pend0`). An end's `specializations` hold the feature it references as a
+`GetElementProperties` gives it (`Owner__c_pend0`). `GetSymbol` reads an id as a qualified name first, so a
+declaration named exactly like an unnamed end's element id is what that id answers, not the end. An end's `specializations` hold the feature it references as a
 `references` entry, a feature chain (`x.p`) as one entry per chaining feature in chain order. `members` is every
 member it has (KerML `Type::member`) — the owned ones first, in declaration order, then the
 inherited ones in inheritance order, each with its `kind`, `inherited` and `inheritedFrom`, a

@@ -112,8 +112,8 @@ func (sc *Context) ownedElementNamed(sem *semantics.Model, root *symbols.Symbol,
 	return found
 }
 
-// LookupElement resolves an id a Symbol is reported under: as Lookup reads it,
-// else the element id of an unnamed connector end (ownedIdentity).
+// LookupElement resolves an id a Symbol is reported under: as Lookup reads it, else an unnamed
+// connector end's element id (ownedIdentity). A declaration named like that id is what it answers.
 func (sc *Context) LookupElement(id string) []*symbols.Symbol {
 	if syms := sc.Lookup(id); len(syms) > 0 {
 		return syms

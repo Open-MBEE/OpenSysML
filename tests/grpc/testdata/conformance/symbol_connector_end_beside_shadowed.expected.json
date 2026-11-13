@@ -1,0 +1,13 @@
+{
+	"rpc": "GetSymbol",
+	"model": "symbol_connector_end_shadowed.sysml",
+	"symbol_id": "Shadow__V__c_pend1",
+	"expected_kind": "connectorEnd",
+	"expected_specializations": [
+		{
+			"kind": "references",
+			"declared": "r",
+			"target_id": "Shadow::V::r"
+		}
+	]
+}
