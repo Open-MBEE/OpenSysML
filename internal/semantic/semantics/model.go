@@ -702,12 +702,13 @@ func (m *Model) supersUnstable(sym *symbols.Symbol) bool {
 // reads it: a redefinition or subsetting names what its owner inherits, past
 // the masks the owner's own redefinitions cause and the name sym borrows.
 func (m *Model) generalizationTarget(sym *symbols.Symbol, kind ast.RelationshipKind, qn *ast.QualifiedName) (*symbols.Symbol, bool) {
-	ref := resolve.Reference{Scope: sym.OwnerScope, QN: qn}
+	scope := m.declaringScope(sym)
+	ref := resolve.Reference{Scope: scope, QN: qn}
 	switch {
 	case kind == ast.RelRedefines:
 		ref.Referrer, ref.Redefines = sym.Decl, true
 	case kind == ast.RelSubsets:
-		ref = resolve.Reference{Scope: sym.OwnerScope, Subsetting: sym.Decl}.Spelled(qn)
+		ref = resolve.Reference{Scope: scope, Subsetting: sym.Decl}.Spelled(qn)
 	case kind.ReferenceSubsets():
 		ref.Referrer = sym.Decl
 	}
@@ -751,13 +752,23 @@ func (m *Model) relationshipTarget(sym *symbols.Symbol, rel *ast.Relationship) *
 // chainTarget resolves a chain target (`subsets b.f`) to its final feature, as
 // the document walk reads it for a relationship of kind owned by sym.
 func (m *Model) chainTarget(sym *symbols.Symbol, kind ast.RelationshipKind, fc *ast.FeatureChainExpr) (*symbols.Symbol, bool) {
+	scope := m.declaringScope(sym)
 	switch {
 	case kind == ast.RelRedefines:
-		return m.resolver.ResolveRedefinitionTarget(sym.OwnerScope, sym.Decl, fc)
+		return m.resolver.ResolveRedefinitionTarget(scope, sym.Decl, fc)
 	case kind.ReferenceSubsets():
-		return m.resolver.ResolveReferenceTarget(sym.OwnerScope, sym.Decl, fc)
+		return m.resolver.ResolveReferenceTarget(scope, sym.Decl, fc)
 	}
-	return m.resolver.ResolveTarget(sym.OwnerScope, fc)
+	return m.resolver.ResolveTarget(scope, fc)
+}
+
+// declaringScope is the scope sym's written relationships resolve in: its own, or for a part
+// synthesized off a trigger or an expression, the scope that notation is written in.
+func (m *Model) declaringScope(sym *symbols.Symbol) *symbols.Scope {
+	if sym.OwnerScope == nil && sym.Expr != nil {
+		return m.expressionScopeOf(sym)
+	}
+	return sym.OwnerScope
 }
 
 // subsetsSibling reports whether sym's subsetting resolved to another member of
