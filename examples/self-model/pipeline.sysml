@@ -183,7 +183,7 @@ package OpenSysMLPipeline {
     #SemanticEngine part def PassRegistry :> Stage {
         attribute :>> goPackage = "internal/check/passes";
         attribute tierCount : Integer = 4;
-        attribute passCount : Integer = 65;
+        attribute passCount : Integer = 66;
         attribute sortsByLevel : Boolean = true;
         attribute skipsDocumentScopedAboveFailure : Boolean = true;
 
@@ -311,6 +311,7 @@ package OpenSysMLPipeline {
         part behaviorOrders : ConstraintCheck { attribute :>> goType = "BehaviorOrderPass"; }
         part oosemMethod : ConstraintCheck { attribute :>> goType = "OOSEMMethodPass"; }
         part mosa : ConstraintCheck { attribute :>> goType = "MOSAPass"; }
+        part npr7123 : ConstraintCheck { attribute :>> goType = "NPR7123Pass"; }
         part nestedRedefinitions : ConstraintCheck { attribute :>> goType = "NestedRedefinitionPass"; }
 
         in item typed : TypeTable;
