@@ -26,7 +26,7 @@ func (e *executor) memberPathValues(sym *symbols.Symbol, segments []string) ([]V
 	}
 	last := segments[len(segments)-1]
 	values, present, err := e.declaredFeatureValues(current, last)
-	if !present && err == nil && e.inheritedMemberShadowsMetaclassProperty(current, last) {
+	if !present && err == nil && e.valuelessMemberYieldsMetaclassProperty(current, last) {
 		values, present, err = e.metaclassPropertyValues(current, last)
 		return values, present, nil, err
 	}

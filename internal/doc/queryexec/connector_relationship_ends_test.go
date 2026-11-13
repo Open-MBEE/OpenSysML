@@ -106,3 +106,42 @@ calc def Q :> Query {
 		}
 	}
 }
+
+// A definition's own valueless end named `source` or `target` yields to Relationship::source and target as an
+// inherited one does; an own valueless member that is no end keeps shadowing the metaclass property.
+func TestOwnEndNamedSourceYieldsToRelationshipEnds(t *testing.T) {
+	fixture := loadExecutionFixture(t, `package P {
+	port def OpticalPort;
+	interface def OpticalInterface { end source : OpticalPort; end target : OpticalPort; }
+	part def A { attribute isComposite : Boolean; }
+	part a : A { attribute isComposite : Boolean; }
+}
+calc def Q :> Query {
+	in root : Element;
+	Project(source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "KerML::Kernel::Association"), properties = ("source", "target", "relatedElement"))
+}
+calc def R :> Query {
+	in root : Element;
+	Project(source = WhereType(source = Descendants(source = root, maxDepth = 1), type = "SysML::Systems::PartUsage"), properties = ("isComposite"))
+}`)
+	result, err := fixture.execute(t, "Q", Bindings{"root": {ElementValue(fixture.symbol(t, "P"))}}, Options{})
+	if err != nil {
+		t.Fatalf("execute Q: %v", err)
+	}
+	for property, want := range map[string][]string{
+		"source":         {"Observatory::P::OpticalPort"},
+		"target":         {"Observatory::P::OpticalPort"},
+		"relatedElement": {"Observatory::P::OpticalPort", "Observatory::P::OpticalPort"},
+	} {
+		if got := cellElementNames(t, result, property); !slices.EqualFunc(got, [][]string{want}, slices.Equal) {
+			t.Errorf("%s cells = %q, want %q past the own end of that name", property, got, want)
+		}
+	}
+	result, err = fixture.execute(t, "R", Bindings{"root": {ElementValue(fixture.symbol(t, "P"))}}, Options{})
+	if err != nil {
+		t.Fatalf("execute R: %v", err)
+	}
+	if got := cellElementNames(t, result, "isComposite"); !slices.EqualFunc(got, [][]string{nil}, slices.Equal) {
+		t.Errorf("isComposite cells = %q, want the own valueless attribute, not the metaclass flag", got)
+	}
+}

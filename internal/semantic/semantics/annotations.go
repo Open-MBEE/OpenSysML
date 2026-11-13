@@ -868,9 +868,9 @@ func (m *Model) ConstantFeatureValues(sym *symbols.Symbol, feature string) ([]sy
 	return m.constantFeatureValues(member, make(map[*symbols.Symbol]bool))
 }
 
-// InheritsValuelessMember reports whether feature names a member sym inherits without declaring
-// or redefining it, which states no value anywhere along its redefinitions (a library's connector end).
-func (m *Model) InheritsValuelessMember(sym *symbols.Symbol, feature string) bool {
+// ValuelessMemberYields reports whether feature names a member that states no value anywhere along its
+// redefinitions and that sym only inherits (a library's connector end) or declares as an end (`end source : P;`).
+func (m *Model) ValuelessMemberYields(sym *symbols.Symbol, feature string) bool {
 	if m == nil || sym == nil || feature == "" {
 		return false
 	}
@@ -878,8 +878,10 @@ func (m *Model) InheritsValuelessMember(sym *symbols.Symbol, feature string) boo
 	if !ok || member == nil {
 		return false
 	}
-	contributed, ok := m.LookupContributedMember(sym, feature)
-	return ok && contributed == member && m.statesNoValue(member, make(map[*symbols.Symbol]bool))
+	if contributed, ok := m.LookupContributedMember(sym, feature); !(ok && contributed == member) && !declaresEnd(member) {
+		return false
+	}
+	return m.statesNoValue(member, make(map[*symbols.Symbol]bool))
 }
 
 // statesNoValue mirrors constantFeatureValues' valueless path: member writes no value, and
@@ -898,7 +900,7 @@ func (m *Model) statesNoValue(member *symbols.Symbol, seen map[*symbols.Symbol]b
 	}
 	redefined := m.RedefinedFeatures(member)
 	if len(redefined) == 0 {
-		redefined = m.ImplicitParameterRedefinitions(member)
+		redefined = append(m.ImplicitParameterRedefinitions(member), m.implicitEndRedefinitions(member)...)
 	}
 	for _, general := range redefined {
 		if !m.statesNoValue(general, seen) {
