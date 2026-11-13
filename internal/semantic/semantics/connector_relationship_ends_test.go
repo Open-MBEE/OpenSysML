@@ -8,8 +8,8 @@ import (
 	"github.com/Open-MBEE/OpenSysML/internal/syntax/source"
 )
 
-// A connector's relatedElement, source and target are the features its relatedFeature, sourceFeature and
-// targetFeature redefine them as (KerML 8.3.4.5.1); a `then idle;` after `entry;` sources from the entry's action.
+// A connector's relatedElement, source and target are what its relatedFeature, sourceFeature and targetFeature redefine (KerML
+// 8.3.4.5.1): a flow end's feature before its payload, none for a bare `from a to b`; `then idle;` after `entry;` sources from the entry action.
 func TestConnectorRelationshipEndsAreItsRelatedFeatures(t *testing.T) {
 	const src = `package P {
 		action observe {
@@ -18,6 +18,7 @@ func TestConnectorRelationshipEndsAreItsRelatedFeatures(t *testing.T) {
 			then action readout { in image : Real; }
 			then done;
 			flow acquire.image to readout.image;
+			flow bare from acquire to readout;
 		}
 		state ts { entry; then idle; state idle; }
 	}`
@@ -41,12 +42,12 @@ func TestConnectorRelationshipEndsAreItsRelatedFeatures(t *testing.T) {
 			return strings.Join(out, " "), ok
 		}
 		observe := connectors("P::observe")
-		if len(observe) != 4 {
-			t.Fatalf("observe owns %d connectors, want 3 successions and a flow", len(observe))
+		if len(observe) != 5 {
+			t.Fatalf("observe owns %d connectors, want 3 successions and 2 flows", len(observe))
 		}
 		for i, want := range []struct{ related, source, target string }{
 			{"start acquire", "start", "acquire"}, {"acquire readout", "acquire", "readout"},
-			{"readout done", "readout", "done"}, {"image image", "image", "image"},
+			{"readout done", "readout", "done"}, {"acquire readout", "acquire", "readout"}, {"", "", ""},
 		} {
 			for property, w := range map[string]string{"relatedElement": want.related, "source": want.source, "target": want.target} {
 				if got, ok := names(observe[i], property); !ok || got != w {
@@ -61,6 +62,34 @@ func TestConnectorRelationshipEndsAreItsRelatedFeatures(t *testing.T) {
 		for property, want := range map[string]string{"relatedElement": " idle", "source": "", "target": "idle"} {
 			if got, ok := names(entry[0], property); !ok || got != want {
 				t.Errorf("entry succession %s = %q (%v), want %q: the anonymous entry action and idle", property, got, ok, want)
+			}
+		}
+	}
+}
+
+// A KerML flow's ends reference the features before their payloads too: `flow a.x to b.y` relates a and b.
+func TestKerMLFlowRelationshipEndsAreTheFeaturesBeforeItsPayloads(t *testing.T) {
+	const src = `package P {
+		datatype D;
+		behavior B {
+			step a { out feature x : D; }
+			step b { in feature y : D; }
+			flow f from a.x to b.y;
+			flow bare from a to b;
+		}
+	}`
+	for _, fixture := range reflectiveFixtures(t, "kerml-flow-ends.kerml", source.KindKerML, src) {
+		for name, want := range map[string]string{"f": "a b", "bare": ""} {
+			flow := nestedSym(t, fixture.root, "P::B::"+name)
+			for property, w := range map[string]string{"relatedElement": want, "relatedFeature": want} {
+				elements, ok := fixture.model.ReflectiveElements(flow, property)
+				var names []string
+				for _, e := range elements {
+					names = append(names, e.Name)
+				}
+				if got := strings.Join(names, " "); !ok || got != w {
+					t.Errorf("%s %s = %q (%v), want %q", name, property, got, ok, w)
+				}
 			}
 		}
 	}
