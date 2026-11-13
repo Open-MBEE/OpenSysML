@@ -1842,7 +1842,10 @@ Pilot visualizer does; the specification leaves what a rendering draws to the to
   previous output. The count precedes diagram-specific conversion into association lines,
   connection dots and flow item boxes.
 
-  Equivalent expansions have the same symbol, owner, qualification and active recursion barriers.
+  Equivalent expansions have the same symbol, owner, qualification, active recursion barriers and
+  rewrite context. A box eligible for conversion to an association line or relationship dot, and
+  anything inside it, cannot be a fold representative or fold to an earlier one. An unindexed
+  rewrite context disables folding rather than sharing an incomplete key.
   An occurrence can fold only when an earlier equivalent occurrence was emitted in full with
   at least as much remaining depth. The representative with the most remaining depth wins;
   ties retain the earlier occurrence. A folded occurrence and anything inside its subtree cannot

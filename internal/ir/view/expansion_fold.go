@@ -131,13 +131,15 @@ func (f *expansionFold) add(a, b int) int {
 // size counts occurrence nodes without constructing their tree; depth is part of the memo key.
 func (f *expansionFold) size(sym, owner *symbols.Symbol, path expansion, depth int, qualified bool) int {
 	key := expansionSizeKey{f.q.key(sym, owner, path, qualified), depth}
-	if size, ok := f.sizes[key]; ok {
+	if size, ok := f.sizes[key]; key.sym != nil && ok {
 		return size
 	}
 	size := 1
 	if path[sym] {
 		return size
 	}
+	f.q.ancestors[sym] = true
+	defer delete(f.q.ancestors, sym)
 	r := f.q.r
 	if f.kind == KindInterconnection {
 		for _, port := range r.typedPorts(sym) {
@@ -177,7 +179,9 @@ func (f *expansionFold) size(sym, owner *symbols.Symbol, path expansion, depth i
 			}
 		}
 	}
-	f.sizes[key] = size
+	if key.sym != nil {
+		f.sizes[key] = size
+	}
 	return size
 }
 
@@ -265,11 +269,18 @@ func (f *expansionFold) omits(owner, member *symbols.Symbol) bool {
 
 func (f *expansionFold) representative(sym, owner *symbols.Symbol, path expansion, depth int, qualified bool) (treeQueryKey, expansionRepresentative, bool) {
 	key := f.q.key(sym, owner, path, qualified)
+	// Neither a rewritten box nor its descendants can stand for features drawn elsewhere.
+	if key.sym == nil || key.rewrites != "" || f.q.r.rewritesTreeBox(sym) {
+		return treeQueryKey{}, expansionRepresentative{}, false
+	}
 	representative, ok := f.representatives[key]
 	return key, representative, ok && representative.depth <= depth
 }
 
 func (f *expansionFold) remember(key treeQueryKey, depth int, name string) {
+	if key.sym == nil {
+		return
+	}
 	if previous, ok := f.representatives[key]; !ok || depth < previous.depth {
 		f.representatives[key] = expansionRepresentative{depth: depth, name: name}
 	}

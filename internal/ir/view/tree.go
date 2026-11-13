@@ -235,6 +235,10 @@ func (r *Renderer) treeNode(walk treeWalk, sym, owner *symbols.Symbol, depth int
 		walk.query.ancestors[sym] = true
 		defer delete(walk.query.ancestors, sym)
 	}
+	if walk.fold != nil {
+		walk.fold.q.ancestors[sym] = true
+		defer delete(walk.fold.q.ancestors, sym)
+	}
 	recursive, added := r.enter(walk.path, sym)
 	defer leave(walk.path, added)
 	if recursive != nil {

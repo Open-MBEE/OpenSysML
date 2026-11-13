@@ -68,8 +68,8 @@ func TestRepeatedExpansionFoldFixtureDrawnParity(t *testing.T) {
 			if !semantics.IsView(sym) {
 				return
 			}
-			kind, _, err := r.KindOf(sym)
-			if err != nil || kind != KindTree && kind != KindInterconnection {
+			_, _, err := r.KindOf(sym)
+			if err != nil {
 				return
 			}
 			t.Run(file+"/"+idx.GetFQN(sym), func(t *testing.T) {

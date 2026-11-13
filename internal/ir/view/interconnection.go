@@ -244,6 +244,10 @@ func (w *featureWalk) featureNode(sym, owner *symbols.Symbol, path expansion, de
 		node.Detail = detailWith(node.Detail, "already shown as "+w.node(sym).ID)
 		return node
 	}
+	if w.fold != nil {
+		w.fold.q.ancestors[sym] = true
+		defer delete(w.fold.q.ancestors, sym)
+	}
 	w.nodes[sym] = append(w.nodes[sym], node)
 	w.sites = append(w.sites, drawnSite{sym: sym, at: edgeEnd{node: node}})
 	w.pinPorts(node, sym)
