@@ -101,14 +101,14 @@ func TestAssignIDs_ActionOriginsNameWhatMessagesName(t *testing.T) {
 		byName[graph.Origins[graph.ID[node]].Name] = graph.ID[node]
 	}
 	grind := graph.Origins[byName["grind"]]
-	if grind.String() != "node grind" || grind.Kind != "*ast.Usage" || grind.Path != "brew::grind" || grind.Doc != "test.sysml" {
+	if grind.String() != "node grind" || grind.Kind != program.NodeExecution.Word() || grind.Path != "brew::grind" || grind.Doc != "test.sysml" {
 		t.Errorf("grind origin = %#v", grind)
 	}
 	if graph.Kinds[1] != program.NodeInitial || graph.Kinds[byName["f"]] != program.NodeFork || graph.Kinds[byName["grind"]] != program.NodeExecution {
 		t.Errorf("kinds: initial %v, fork %v, grind %v", graph.Kinds[1], graph.Kinds[byName["f"]], graph.Kinds[byName["grind"]])
 	}
 	done := graph.Origins[byName["done"]]
-	if done.String() != "node done" || done.Kind != "*ast.FinalNode" || graph.Kinds[byName["done"]] != program.NodeFinal {
+	if done.String() != "node done" || done.Kind != program.NodeFinal.Word() || graph.Kinds[byName["done"]] != program.NodeFinal {
 		t.Errorf("done origin = %#v", done)
 	}
 	for id := 1; id < len(graph.Origins); id++ {

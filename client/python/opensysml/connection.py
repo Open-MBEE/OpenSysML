@@ -26,6 +26,7 @@ from opensysml.capabilities import (
     CAPABILITY_AUTHORING,
     CAPABILITY_CONNECTION_AUTHORING,
     CAPABILITY_MEMBER_MODIFIERS,
+    CAPABILITY_SYMBOL_NAME_RESOLUTION,
     CAPABILITY_CONSTRAINT_BODY_AUTHORING,
     CAPABILITY_STATE_ACTION_AUTHORING,
     CAPABILITY_REQUIREMENT_CONSTRAINT_AUTHORING,
@@ -2376,7 +2377,7 @@ class Connection:
             response, lambda rows, instances: [self._sweep_row(row, instances, diagnostics) for row in rows],
         )
 
-    def get_symbol(self, model_hash, symbol_id, include_library_members=False):
+    def get_symbol(self, model_hash, symbol_id, include_library_members=False, resolve_name=False):
         """Fetch symbol by ID from cached model.
         
         Args:
@@ -2385,6 +2386,13 @@ class Connection:
             include_library_members (bool): List the members inherited from
                 standard-library content in ``members`` instead of counting
                 them in ``withheld_library_members``
+            resolve_name (bool): Resolve ``symbol_id`` as a qualified name from
+                the root namespace, the way the notation resolves one: through
+                imports, an alias answered by the element it names, and no
+                symbol where a member on the way is not visible from outside
+                its namespace. Otherwise ``symbol_id`` is an id the service
+                reported and names that symbol whatever its visibility, which
+                is also how a service without ``symbol_name_resolution`` reads it
         
         Returns:
             sysml_pb2.SymbolInfo or None: Symbol protobuf, or None if not found
@@ -2393,6 +2401,8 @@ class Connection:
             model_hash=model_hash,
             symbol_id=symbol_id,
             include_library_members=include_library_members,
+            resolve_name=resolve_name
+            and self.server_info().has(CAPABILITY_SYMBOL_NAME_RESOLUTION),
         )
         with translate_rpc_errors():
             response = self._stub.GetSymbol(request)

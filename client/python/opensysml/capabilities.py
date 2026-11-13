@@ -115,6 +115,11 @@ CAPABILITY_SYMBOL_ATTRIBUTES = "symbol_attributes"
 #: Without it only ``child_ids``, the owned members, is reported.
 CAPABILITY_SYMBOL_MEMBERS = "symbol_members"
 
+#: ``GetSymbolRequest.resolve_name`` honoured: a qualified name resolved from the
+#: root namespace through imports, aliases and visibility. Without it the service
+#: reads every id as one it reported, so the name of a declaration is all it finds.
+CAPABILITY_SYMBOL_NAME_RESOLUTION = "symbol_name_resolution"
+
 #: The ``GetElementProperties`` RPC: the metamodel properties of one element by
 #: their specification names, as the model's API element form spells them.
 #: Without it the service refuses the call with ``UNIMPLEMENTED``.

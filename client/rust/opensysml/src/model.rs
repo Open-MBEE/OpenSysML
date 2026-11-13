@@ -274,7 +274,7 @@ impl Model {
         self.symbol_by_id(name)
     }
 
-    /// The symbol a qualified name names; `None` when the model declares none.
+    /// The symbol carrying this id; `None` when none does. [`Model::symbol`] resolves a name.
     pub fn get(&self, fqn: &str) -> Result<Option<Symbol>, Error> {
         if let Some(root) = self.roots().iter().find(|r| r.id() == fqn) {
             return Ok(Some(root.clone()));
@@ -301,7 +301,7 @@ impl Model {
     fn symbol_by_id(&self, fqn: &str) -> Result<Option<Symbol>, Error> {
         match self
             .connection
-            .get_symbol(self.hash(), fqn, &SymbolOptions::default())
+            .get_symbol(self.hash(), fqn, &SymbolOptions::reported_id())
         {
             Ok(symbol) if symbol.id() == fqn => Ok(Some(symbol)),
             Ok(_) | Err(Error::Model(_)) => Ok(None),

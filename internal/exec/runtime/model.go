@@ -211,9 +211,9 @@ type Model struct {
 	sources map[string]*source.SourceFile
 
 	// scopes holds the scope trees the caller resolves references in; declared
-	// maps each declaration node to the symbol they declare for it, built on first use.
+	// maps each element's key to the symbol they declare for it, built on first use.
 	scopes   []*symbols.Scope
-	declared map[ast.Node]*symbols.Symbol
+	declared map[symbols.ElementKey]*symbols.Symbol
 
 	// parse reads the notation text a run receives as text: a witness file's input
 	// values and the units a tool answers in; installed by SetExpressionParser.
@@ -359,12 +359,12 @@ func (m *Model) declaredSymbol(sym *symbols.Symbol) *symbols.Symbol {
 		return sym
 	}
 	if m.declared == nil {
-		m.declared = make(map[ast.Node]*symbols.Symbol)
+		m.declared = make(map[symbols.ElementKey]*symbols.Symbol)
 		for _, scope := range m.scopes {
 			collectDeclared(scope, m.declared)
 		}
 	}
-	if local, ok := m.declared[sym.Decl]; ok {
+	if local, ok := m.declared[symbols.KeyOf(sym)]; ok {
 		return local
 	}
 	return sym

@@ -280,7 +280,7 @@ impl Symbol {
             let supertype = match self.connection().get_symbol(
                 self.model_hash(),
                 &specialization.target_id,
-                &crate::domain::SymbolOptions::default(),
+                &crate::domain::SymbolOptions::reported_id(),
             ) {
                 Ok(symbol) => symbol,
                 Err(Error::Model(_)) => continue,

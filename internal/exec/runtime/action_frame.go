@@ -759,7 +759,7 @@ func (e *performances) seedDeclaredValues(perf *actionFrame, features []lower.Fe
 			}
 		}
 		if err != nil {
-			return fmt.Errorf("eval %s of %s: %w", feature.Name, nodeDescription(perf.node), err)
+			return fmt.Errorf("eval %s of %s: %w", feature.Name, describeNode(perf.flow, perf.node), err)
 		}
 		if err := e.streamFrom(perf, perf.key(feature.Name), value); err != nil {
 			return err
@@ -806,8 +806,8 @@ func checkStreamsReceived(frame *actionFrame) error {
 	}
 	stream := frame.unreceived[nodes[0]][0]
 	return fmt.Errorf("%w: %s: %s completed before %s wrote %s",
-		errStreamUnreceived, flowDescription(stream.flow), nodeDescription(nodes[0].Node()),
-		nodeDescription(stream.source), orAnyPin(stream.flow.SourcePin))
+		errStreamUnreceived, flowDescription(stream.flow), nodes[0].Origin(),
+		describeNode(nodes[0].Graph, stream.source), orAnyPin(stream.flow.SourcePin))
 }
 
 // nodePins are the pins a performance of node holds (its own and its action's),
@@ -1190,9 +1190,9 @@ func (e *performances) deliver(f *actionFrame, flow *lower.ActionGraph, node ast
 		return err
 	}
 	if !pins.declares(pin) {
-		return fmt.Errorf("%w: %s declares no %s", errNodePin, nodeDescription(node), pin)
+		return fmt.Errorf("%w: %s declares no %s", errNodePin, describeNode(flow, node), pin)
 	}
-	if err := e.ctx.checkNamedWriteAs(flow.Scopes[node], func() string { return nodeDescription(node) }, pin, &value); err != nil {
+	if err := e.ctx.checkNamedWriteAs(flow.Scopes[node], func() string { return describeNode(flow, node) }, pin, &value); err != nil {
 		return err
 	}
 	f.queue(refOf(flow, node), program.Canonical(pins.aliases, pin), value)
@@ -1237,20 +1237,20 @@ func (f *actionFrame) stage(node NodeRef, pin string, source *actionFrame, from 
 // node declaring pin, so a delivery waiting for a performance is known to have somewhere to go.
 func (e *performances) checkNestedDelivery(flow *lower.ActionGraph, node ast.Node, path []ast.Node, pin string, value *Value) error {
 	for _, next := range path {
-		flow = lower.NestedFlow(flow, node, next)
-		if flow == nil {
-			return fmt.Errorf("%w: %s holds no nested action %s", errNodePin, nodeDescription(node), ActionNodeName(next))
+		nested := lower.NestedFlow(flow, node, next)
+		if nested == nil {
+			return fmt.Errorf("%w: %s holds no nested action %s", errNodePin, describeNode(flow, node), ActionNodeName(next))
 		}
-		node = next
+		flow, node = nested, next
 	}
 	pins, err := e.nodePins(flow, node)
 	if err != nil {
 		return err
 	}
 	if !pins.declares(pin) {
-		return fmt.Errorf("%w: %s declares no %s", errNodePin, nodeDescription(node), pin)
+		return fmt.Errorf("%w: %s declares no %s", errNodePin, describeNode(flow, node), pin)
 	}
-	return e.ctx.checkNamedWriteAs(flow.Scopes[node], func() string { return nodeDescription(node) }, pin, value)
+	return e.ctx.checkNamedWriteAs(flow.Scopes[node], func() string { return describeNode(flow, node) }, pin, value)
 }
 
 // takeDeliveries moves the oldest delivery at each pin of node into perf, so that
@@ -1398,9 +1398,9 @@ func (e *performances) streamFlow(
 			return fmt.Errorf("%s: %w", flowDescription(flow), err)
 		}
 		if !pins.declares(flow.TargetPin) {
-			return fmt.Errorf("%s: %w: %s declares no %s", flowDescription(flow), errNodePin, nodeDescription(flow.Target), flow.TargetPin)
+			return fmt.Errorf("%s: %w: %s declares no %s", flowDescription(flow), errNodePin, describeNode(graph, flow.Target), flow.TargetPin)
 		}
-		if err := e.ctx.checkNamedWriteAs(graph.Scopes[flow.Target], func() string { return nodeDescription(flow.Target) }, flow.TargetPin, &value); err != nil {
+		if err := e.ctx.checkNamedWriteAs(graph.Scopes[flow.Target], func() string { return describeNode(graph, flow.Target) }, flow.TargetPin, &value); err != nil {
 			return fmt.Errorf("%s: %w", flowDescription(flow), err)
 		}
 		pin := program.Canonical(pins.aliases, flow.TargetPin)

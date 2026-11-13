@@ -1,0 +1,1 @@
+- Private-import visibility checks compare the namespace boundary without allocating a temporary qualified-name prefix for every candidate.
